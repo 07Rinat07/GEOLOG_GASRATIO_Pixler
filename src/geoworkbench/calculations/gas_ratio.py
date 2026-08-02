@@ -34,7 +34,7 @@ def sum_components(components: dict[str, Array]) -> Array:
 
     LAS NULL values are represented as NaN. ``numpy.nansum`` alone returns ``0``
     when every component is NaN, which falsely looks like a measured zero gas
-    reading.  A row is therefore valid only when at least one component contains
+    reading. A row is therefore valid only when at least one component contains
     a finite measurement.
     """
 
@@ -56,11 +56,54 @@ def relative_component_percent(component: Array, total: Array) -> Array:
     return safe_ratio(component, total) * 100.0
 
 
-def calculate_basic_ratios(curves: dict[str, Array]) -> dict[str, GasRatioResult]:
-    """Calculate deterministic base ratios and GeoData-style relative composition.
+def _family_components(
+    curves: dict[str, Array],
+    first_isomer: str,
+    normal_isomer: str,
+    aggregate: str,
+) -> dict[str, Array]:
+    """Select one non-duplicating representation of a C4 or C5 family.
 
-    Wetness/Balance/Character/Pixler remain profile-driven calculations.  This
-    function contains only unambiguous arithmetic that can be audited directly.
+    Some LAS files contain both an aggregate C4/C5 channel and split iC/nC
+    channels. Summing all of them would count the same gas twice. A complete
+    isomer pair therefore has priority, the aggregate is the fallback, and a
+    lone split channel is used only when no aggregate exists.
+    """
+
+    if first_isomer in curves and normal_isomer in curves:
+        return {
+            first_isomer: curves[first_isomer],
+            normal_isomer: curves[normal_isomer],
+        }
+    if aggregate in curves:
+        return {aggregate: curves[aggregate]}
+    return {
+        name: curves[name]
+        for name in (first_isomer, normal_isomer)
+        if name in curves
+    }
+
+
+def _family_total(
+    selected: dict[str, Array],
+    first_isomer: str,
+    normal_isomer: str,
+    aggregate: str,
+) -> Array | None:
+    family = {
+        name: selected[name]
+        for name in (first_isomer, normal_isomer, aggregate)
+        if name in selected
+    }
+    return sum_components(family) if family else None
+
+
+def calculate_basic_ratios(curves: dict[str, Array]) -> dict[str, GasRatioResult]:
+    """Calculate auditable C1-C5 sums, composition, Haworth and Pixler aliases.
+
+    The function accepts either aggregate C4/C5 curves or split iC4/nC4 and
+    iC5/nC5 curves. When both representations exist, split isomers are preferred
+    so the total and relative composition never double-count hydrocarbons.
     """
 
     normalized = {
@@ -72,8 +115,8 @@ def calculate_basic_ratios(curves: dict[str, Array]) -> dict[str, GasRatioResult
         raise KeyError(f"Отсутствуют обязательные компоненты: {', '.join(missing)}")
 
     c1, c2, c3 = normalized["C1"], normalized["C2"], normalized["C3"]
-    c2_c3 = c2 + c3
-    results = {
+    c2_c3 = sum_components({"C2": c2, "C3": c3})
+    results: dict[str, GasRatioResult] = {
         "C1_C2": GasRatioResult("C1_C2", safe_ratio(c1, c2), "ratio", "Отношение C1/C2"),
         "C1_C3": GasRatioResult("C1_C3", safe_ratio(c1, c3), "ratio", "Отношение C1/C3"),
         "C2_C3": GasRatioResult("C2_C3", safe_ratio(c2, c3), "ratio", "Отношение C2/C3"),
@@ -82,23 +125,23 @@ def calculate_basic_ratios(curves: dict[str, Array]) -> dict[str, GasRatioResult
         ),
     }
 
-    available_components: dict[str, Array] = {
-        name: normalized[name]
-        for name in ("C1", "C2", "C3", "IC4", "NC4", "C4", "IC5", "NC5", "C5")
-        if name in normalized
+    selected_components: dict[str, Array] = {
+        "C1": c1,
+        "C2": c2,
+        "C3": c3,
     }
-    total = sum_components(available_components)
+    selected_components.update(_family_components(normalized, "IC4", "NC4", "C4"))
+    selected_components.update(_family_components(normalized, "IC5", "NC5", "C5"))
+
+    total = sum_components(selected_components)
     results["TG_CALC"] = GasRatioResult(
         "TG_CALC",
         total,
         "%abs",
-        "Расчётная сумма доступных углеводородных компонентов",
+        "Расчётная сумма доступных углеводородных компонентов без двойного учёта C4/C5",
     )
 
-    # GeoData depth screens commonly display a separate relative-composition
-    # column.  These curves are percentages of the same auditable component sum,
-    # not Gas Ratio/Pixler ratios.
-    for mnemonic, values in available_components.items():
+    for mnemonic, values in selected_components.items():
         relative_mnemonic = f"{mnemonic}_REL"
         results[relative_mnemonic] = GasRatioResult(
             relative_mnemonic,
@@ -106,4 +149,74 @@ def calculate_basic_ratios(curves: dict[str, Array]) -> dict[str, GasRatioResult
             "%rel",
             f"Относительное содержание {mnemonic} в сумме углеводородных компонентов",
         )
+
+    c4_total = _family_total(selected_components, "IC4", "NC4", "C4")
+    c5_total = _family_total(selected_components, "IC5", "NC5", "C5")
+
+    # Aggregate relative curves remain available for legacy forms, while the
+    # complete form uses the seven split component curves.
+    if c4_total is not None:
+        results["C4_REL"] = GasRatioResult(
+            "C4_REL",
+            relative_component_percent(c4_total, total),
+            "%rel",
+            "Суммарное относительное содержание iC4+nC4",
+        )
+        c1_c4 = safe_ratio(c1, c4_total)
+        results["C1_C4"] = GasRatioResult("C1_C4", c1_c4, "ratio", "Отношение C1/(iC4+nC4)")
+        results["PIXLER_C1_C4"] = GasRatioResult(
+            "PIXLER_C1_C4", c1_c4, "ratio", "Коэффициент Pixler C1/(iC4+nC4)"
+        )
+    if c5_total is not None:
+        results["C5_REL"] = GasRatioResult(
+            "C5_REL",
+            relative_component_percent(c5_total, total),
+            "%rel",
+            "Суммарное относительное содержание iC5+nC5",
+        )
+        c1_c5 = safe_ratio(c1, c5_total)
+        results["C1_C5"] = GasRatioResult("C1_C5", c1_c5, "ratio", "Отношение C1/(iC5+nC5)")
+        results["PIXLER_C1_C5"] = GasRatioResult(
+            "PIXLER_C1_C5", c1_c5, "ratio", "Коэффициент Pixler C1/(iC5+nC5)"
+        )
+
+    results["PIXLER_C1_C2"] = GasRatioResult(
+        "PIXLER_C1_C2", results["C1_C2"].values, "ratio", "Коэффициент Pixler C1/C2"
+    )
+    results["PIXLER_C1_C3"] = GasRatioResult(
+        "PIXLER_C1_C3", results["C1_C3"].values, "ratio", "Коэффициент Pixler C1/C3"
+    )
+
+    if "IC4" in selected_components and "NC4" in selected_components:
+        results["IC4_NC4"] = GasRatioResult(
+            "IC4_NC4",
+            safe_ratio(selected_components["IC4"], selected_components["NC4"]),
+            "ratio",
+            "Отношение iC4/nC4",
+        )
+    if "IC5" in selected_components and "NC5" in selected_components:
+        results["IC5_NC5"] = GasRatioResult(
+            "IC5_NC5",
+            safe_ratio(selected_components["IC5"], selected_components["NC5"]),
+            "ratio",
+            "Отношение iC5/nC5",
+        )
+
+    if c4_total is not None and c5_total is not None:
+        heavy = sum_components({"C3": c3, "C4": c4_total, "C5": c5_total})
+        wet_numerator = sum_components({"C2": c2, "HEAVY": heavy})
+        haworth_total = sum_components({"C1": c1, "WET": wet_numerator})
+        c4_c5 = sum_components({"C4": c4_total, "C5": c5_total})
+
+        wetness = 100.0 * safe_ratio(wet_numerator, haworth_total)
+        balance = safe_ratio(sum_components({"C1": c1, "C2": c2}), heavy)
+        character = safe_ratio(c4_c5, c3)
+        for canonical, alias, values, unit, description in (
+            ("WH", "WETNESS", wetness, "%", "Haworth Wetness"),
+            ("BH", "BALANCE", balance, "ratio", "Haworth Balance"),
+            ("CH", "CHARACTER", character, "ratio", "Haworth Character"),
+        ):
+            results[canonical] = GasRatioResult(canonical, values, unit, description)
+            results[alias] = GasRatioResult(alias, values, unit, description)
+
     return results
