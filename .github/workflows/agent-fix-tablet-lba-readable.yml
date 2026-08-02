@@ -1,0 +1,90 @@
+name: Fix tablet LBA readable text
+
+on:
+  push:
+    branches:
+      - fix/lba-print-ci-cleanup
+
+permissions:
+  contents: write
+
+jobs:
+  apply-fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Preserve readable LBA values outside compact graphics
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("src/geoworkbench/tablet/tablet_view.py")
+          source = path.read_text(encoding="utf-8")
+
+          source = source.replace(
+              "from geoworkbench.services.lba_standard import lba_color_code\n"
+              "from copy import deepcopy\n",
+              "from copy import deepcopy\n",
+              1,
+          )
+          anchor = "from geoworkbench.services.localization import AppLanguage, Localizer\n"
+          if anchor not in source:
+              raise SystemExit("Localization import anchor not found")
+          source = source.replace(
+              anchor,
+              "from geoworkbench.services.lba_standard import lba_color_code\n" + anchor,
+              1,
+          )
+
+          replacements = {
+              "                lba_color_code(sample.lba_color),\n":
+                  "                sample.lba_color,\n",
+              "                lba_color_code(sample.lba_cut_color),\n":
+                  "                sample.lba_cut_color,\n",
+              "                lba_color_code(sample.lba_residue_color),\n":
+                  "                sample.lba_residue_color,\n",
+              "                    f\"{self._localizer.text('lba_color_code(tablet.lba_color)')}: {lba_color_code(sample.lba_color)}\"\n"
+              "                    if lba_color_code(sample.lba_color)\n":
+                  "                    f\"{self._localizer.text('tablet.lba_color')}: {sample.lba_color}\"\n"
+                  "                    if sample.lba_color\n",
+              "                    f\"{self._localizer.text('lba_color_code(tablet.lba_cut_color)')}: {lba_color_code(sample.lba_cut_color)}\"\n"
+              "                    if lba_color_code(sample.lba_cut_color)\n":
+                  "                    f\"{self._localizer.text('tablet.lba_cut_color')}: {sample.lba_cut_color}\"\n"
+                  "                    if sample.lba_cut_color\n",
+              "                    f\"{self._localizer.text('lba_color_code(tablet.lba_residue_color)')}: {lba_color_code(sample.lba_residue_color)}\"\n"
+              "                    if lba_color_code(sample.lba_residue_color)\n":
+                  "                    f\"{self._localizer.text('tablet.lba_residue_color')}: {sample.lba_residue_color}\"\n"
+                  "                    if sample.lba_residue_color\n",
+          }
+          for old, new in replacements.items():
+              count = source.count(old)
+              if count != 1:
+                  raise SystemExit(f"Expected one source fragment, got {count}: {old!r}")
+              source = source.replace(old, new, 1)
+
+          if source.count("lba_color_code(sample.lba_color)") != 1:
+              raise SystemExit("Compact LBA conversion must remain only in the visual cell")
+          if "lba_color_code(sample.lba_cut_color)" in source:
+              raise SystemExit("Cut colour conversion leaked outside compact graphics")
+          if "lba_color_code(sample.lba_residue_color)" in source:
+              raise SystemExit("Residue colour conversion leaked outside compact graphics")
+          if "lba_color_code(tablet." in source:
+              raise SystemExit("Malformed localization key remains")
+
+          path.write_text(source, encoding="utf-8")
+          Path(".github/workflows/agent-fix-tablet-lba-readable.yml").unlink()
+          PY
+          python -m compileall -q src tests
+          git diff --check
+      - name: Commit focused fix
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: preserve readable LBA text in tablet UI"
+          git push origin HEAD:fix/lba-print-ci-cleanup
