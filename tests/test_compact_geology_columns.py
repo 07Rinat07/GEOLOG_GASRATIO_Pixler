@@ -61,7 +61,7 @@ def test_layout_v17_migration_applies_stable_target_widths() -> None:
     assert restored.track_by_id("lithology").title_orientation == "vertical_bottom_to_top"
     assert restored.track_by_id("curve").width == 300
     assert restored.track_by_id("curve").title_orientation == "horizontal"
-    assert layout_to_dict(restored)["version"] == 21
+    assert layout_to_dict(restored)["version"] == 22
 
 
 def test_form_v7_migration_reduces_user_columns_to_stable_targets_once() -> None:
@@ -268,7 +268,7 @@ def test_v20_layout_migration_restores_lba_horizontal_default() -> None:
 
     assert restored.track_by_id("lba").title_orientation == "horizontal"
     assert restored.track_by_id("cuttings").title_orientation == "vertical_bottom_to_top"
-    assert layout_to_dict(restored)["version"] == 21
+    assert layout_to_dict(restored)["version"] == 22
 
 
 def test_v10_form_migration_restores_lba_horizontal_default() -> None:
