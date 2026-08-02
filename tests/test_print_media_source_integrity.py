@@ -69,7 +69,8 @@ def test_system_print_dialog_receives_full_continuation_range() -> None:
         encoding="utf-8"
     )
 
-    assert "printer.setFromTo(1, plan.page_count)" in jobs
+    assert "printer.setFromTo(1, plan.page_count)" not in jobs
+    assert "default open page range" in jobs
     assert "selected_page_count(" in jobs
     assert "return selected_page_count(plan.page_count, first, last)" in export
 

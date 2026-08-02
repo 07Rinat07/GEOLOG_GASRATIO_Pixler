@@ -151,6 +151,10 @@ jobs:
             --output-dir build/ci-artifacts/windows-acceptance/interpretation-print-variants
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+          .\.venv\Scripts\python.exe tools/capture_a4_masterlog_control.py `
+            build/ci-artifacts/windows-acceptance/a4-masterlog-control
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Upload Windows acceptance artifacts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

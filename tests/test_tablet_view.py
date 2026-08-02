@@ -117,9 +117,12 @@ def test_track_print_mode_hides_header_editor_actions_and_scrollbar(qapp) -> Non
     editor = widget._curve_header_labels["C1"]
     assert isinstance(editor, CurveHeaderEditor)
 
+    screen_height = editor.height()
     widget.set_print_mode(True)
 
     assert editor.action_strip.isHidden()
+    assert editor.height() > screen_height
+    assert editor.ruler.height() == 48
     assert (
         widget.curve_header_scroll.verticalScrollBarPolicy()
         is Qt.ScrollBarPolicy.ScrollBarAlwaysOff
@@ -128,6 +131,8 @@ def test_track_print_mode_hides_header_editor_actions_and_scrollbar(qapp) -> Non
     widget.set_print_mode(False)
 
     assert not editor.action_strip.isHidden()
+    assert editor.height() == screen_height
+    assert editor.ruler.height() == 28
     assert (
         widget.curve_header_scroll.verticalScrollBarPolicy()
         is Qt.ScrollBarPolicy.ScrollBarAsNeeded

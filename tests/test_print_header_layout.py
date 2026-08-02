@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 from PySide6.QtCore import QRectF
 from PySide6.QtGui import QColor, QImage, QPainter, QPixmap
@@ -6,12 +8,19 @@ import geoworkbench.printing.page_renderer as page_renderer
 from geoworkbench.printing.document_renderer import (
     PrintDocumentContext,
     PrintDocumentPage,
+    PrintDocumentPlan,
+    _build_automatic_page_slices,
+    _page_target_content_height,
     _should_paint_column_header_at_bottom,
     _should_paint_column_header_at_top,
     _should_paint_full_header,
 )
 from geoworkbench.printing.form_column_layout import AdaptiveColumnLayout
-from geoworkbench.printing.pagination import PrintPageSlice
+from geoworkbench.printing.pagination import (
+    PrintPageSlice,
+    PrintPaginationSettings,
+    PrintRangeMode,
+)
 from geoworkbench.printing.print_job import (
     PrintHeaderPlacement,
     PrintJobSettings,
@@ -331,3 +340,56 @@ def test_end_header_supplements_instead_of_replacing_the_start_header(
     assert header_rects[1].top() > body_rects[0].bottom()
     assert header_rects[1].bottom() <= 600.0
     assert header_rects[0].height() == header_rects[1].height()
+
+
+def test_auto_pagination_uses_a_smaller_first_page_capacity() -> None:
+    pages = _build_automatic_page_slices(
+        pagination=PrintPaginationSettings(range_mode=PrintRangeMode.FULL),
+        current_range=(0.0, 50.0),
+        full_range=(0.0, 250.0),
+        first_units_per_page=60.0,
+        regular_units_per_page=100.0,
+    )
+
+    assert [(page.start, page.end) for page in pages] == [
+        (0.0, 60.0),
+        (60.0, 160.0),
+        (160.0, 250.0),
+    ]
+    assert [page.index for page in pages] == [1, 2, 3]
+    assert all(page.total == 3 for page in pages)
+
+
+def test_page_target_height_preserves_header_and_scales_only_body() -> None:
+    continuation = PrintContinuationSlice(0.0, 100.0, 1, 1, 1.0)
+    first = PrintDocumentPage(
+        PrintPageSlice(0.0, 60.0, 1, 3),
+        continuation,
+        1,
+        3,
+    )
+    partial = PrintDocumentPage(
+        PrintPageSlice(160.0, 210.0, 3, 3),
+        continuation,
+        3,
+        3,
+    )
+    plan = PrintDocumentPlan(
+        pages=(first, partial),
+        target_content_height_px=1000,
+        resolved_units_per_page=100.0,
+        tablet_header_height_px=200,
+        first_page_target_content_height_px=700,
+        first_page_units_per_page=60.0,
+    )
+
+    assert _page_target_content_height(plan, first) == 700
+    assert _page_target_content_height(plan, partial) == 600
+
+
+def test_adaptive_layout_uses_canonical_graph_body_height() -> None:
+    source = Path(
+        "src/geoworkbench/printing/tablet_print.py"
+    ).read_text(encoding="utf-8")
+
+    assert "canonical_layout_height - measured_header_height" in source

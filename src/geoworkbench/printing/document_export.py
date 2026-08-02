@@ -200,7 +200,7 @@ def export_document_pages(
     destination = Path(target)
     _validate_destination(destination, job.output_format.accepted_suffixes, overwrite)
     _unicode_preflight(widget, context, job)
-    plan = build_document_plan(widget, job)
+    plan = build_document_plan(widget, job, context=context)
     paths = _page_paths(destination, plan.page_count)
     for path in paths:
         if path.exists() and not overwrite:
