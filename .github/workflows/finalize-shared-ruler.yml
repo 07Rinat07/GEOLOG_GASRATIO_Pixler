@@ -1,3 +1,4 @@
+# integration-trigger: 2
 name: Finalize shared ruler
 
 on:
