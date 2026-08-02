@@ -1,10 +1,91 @@
-phase=patch
+phase=ruff
 --- gas-continuity-output.txt ---
-Traceback (most recent call last):
-  File "D:\a\GEOLOG_GASRATIO_Pixler\GEOLOG_GASRATIO_Pixler\tools\_integrate_gas_continuity_policy.py", line 742, in <module>
-    main()
-  File "D:\a\GEOLOG_GASRATIO_Pixler\GEOLOG_GASRATIO_Pixler\tools\_integrate_gas_continuity_policy.py", line 738, in main
-    update_docs()
-  File "D:\a\GEOLOG_GASRATIO_Pixler\GEOLOG_GASRATIO_Pixler\tools\_integrate_gas_continuity_policy.py", line 716, in update_docs
-    raise RuntimeError("TESTING.md final section anchor not found")
-RuntimeError: TESTING.md final section anchor not found
+Using CPython 3.11.9 interpreter at: C:\hostedtoolcache\windows\Python\3.11.9\x64\python3.exe
+Creating virtual environment at: .venv
+Activate with: .venv\Scripts\activate
+Resolved 21 packages in 98ms
+Downloading pillow (6.9MiB)
+Downloading pyqtgraph (1.8MiB)
+Downloading shiboken6 (1.2MiB)
+Downloading pymupdf (18.9MiB)
+Downloading pydantic (2.0MiB)
+Downloading pyside6-essentials (74.0MiB)
+Downloading pyside6-addons (161.0MiB)
+Downloading numpy (12.5MiB)
+ Downloaded shiboken6
+ Downloaded pydantic
+ Downloaded pillow
+ Downloaded pymupdf
+ Downloaded pyqtgraph
+ Downloaded numpy
+ Downloaded pyside6-addons
+ Downloaded pyside6-essentials
+Prepared 21 packages in 3.79s
+Installed 21 packages in 732ms
+ + colorama==0.4.6
+ + defusedxml==0.7.1
+ + et-xmlfile==2.0.0
+ + etpproto==1.0.7
+ + etptypes==1.2.0
+ + fastavro==1.12.2
+ + lasio==0.32
+ + numpy==2.3.4
+ + openpyxl==3.1.5
+ + pillow==12.3.0
+ + pydantic==1.10.26
+ + pymupdf==1.28.0
+ + pyqtgraph==0.14.0
+ + pyside6==6.11.1
+ + pyside6-addons==6.11.1
+ + pyside6-essentials==6.11.1
+ + shiboken6==6.11.1
+ + typing-extensions==4.16.0
+ + typingx==0.6.0
+ + tzdata==2026.3
+ + websockets==16.1.1
+Resolved 13 packages in 209ms
+Downloading pygments (1.2MiB)
+Downloading ruff (11.4MiB)
+Downloading mypy (9.6MiB)
+ Downloaded ruff
+ Downloaded pygments
+ Downloaded mypy
+Prepared 11 packages in 863ms
+Installed 11 packages in 260ms
+ + iniconfig==2.3.0
+ + librt==0.13.0
+ + mypy==1.19.1
+ + mypy-extensions==1.1.0
+ + packaging==26.2
+ + pathspec==1.1.1
+ + pluggy==1.6.0
+ + pygments==2.20.0
+ + pytest==9.1.1
+ + ruff==0.15.22
+ + types-defusedxml==0.7.0.20260504
+Documentation audit passed: 50 localized files per language, 2295 i18n keys.
+F401 [*] `geoworkbench.calculations.curve_continuity.interpolate_bounded_gaps` imported but unused
+  --> src\geoworkbench\calculations\gas_conditioning.py:12:5
+   |
+10 |     CurveContinuityPolicy,
+11 |     estimate_short_gap_limit,
+12 |     interpolate_bounded_gaps,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^
+13 |     interpolate_monotonic_unique,
+14 | )
+   |
+help: Remove unused import: `geoworkbench.calculations.curve_continuity.interpolate_bounded_gaps`
+
+F821 Undefined name `NDArray`
+    --> src\geoworkbench\tablet\tablet_view.py:7943:28
+     |
+7941 |                     values, settings.x_scale, minimum, maximum
+7942 |                 )
+7943 |             connect: str | NDArray[np.bool_] = "finite"
+     |                            ^^^^^^^
+7944 |             if is_gas_curve_id(mnemonic):
+7945 |                 connect = build_segment_connect_mask(visible_depth, normalized)
+     |
+
+Found 2 errors.
+[*] 1 fixable with the `--fix` option.
