@@ -3,7 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any
 
-from geoworkbench.calculations.gas_ratio import calculate_conditioned_ratios
+from geoworkbench.calculations.gas_ratio import (
+    CONDITIONED_GAS_PROVENANCE,
+    calculate_conditioned_ratios,
+)
 from geoworkbench.domain.models import Dataset, Project, Well, new_id
 from geoworkbench.data.lossless_las import LosslessLasDocument
 from geoworkbench.data.las_import_report import LasImportReport
@@ -15,9 +18,6 @@ if TYPE_CHECKING:
     from geoworkbench.printing.image_assets import ImageAsset
 else:
     ImageAsset = Any
-
-
-_CONDITIONED_GAS_PROVENANCE = "calculation:conditioned-gas-ratio:2.0"
 
 
 @dataclass(slots=True)
@@ -43,11 +43,11 @@ class ProjectSession:
     ) -> Well:
         """Attach a dataset to the session and make it current.
 
-        ``create_new_well`` is deliberately explicit.  Geological intervals,
+        ``create_new_well`` is deliberately explicit. Geological intervals,
         cuttings, stratigraphy, interpretations and canvas annotations belong to
-        a :class:`Well`, not to an individual LAS dataset.  Reusing the current
+        a :class:`Well`, not to an individual LAS dataset. Reusing the current
         well while opening an unrelated LAS therefore makes the previous well's
-        manual interpretation appear on the new file.  Normal *Open LAS* uses a
+        manual interpretation appear on the new file. Normal *Open LAS* uses a
         fresh well workspace; specialised merge/insert workflows may continue to
         attach datasets to the current well.
         """
@@ -120,7 +120,7 @@ class ProjectSession:
                 result.values,
                 unit=result.unit,
                 description=result.description,
-                provenance=_CONDITIONED_GAS_PROVENANCE,
+                provenance=CONDITIONED_GAS_PROVENANCE,
             )
             # Dataset.upsert_curve intentionally preserves metadata for generic
             # edits. A versioned recalculation is different: unit, description
@@ -130,7 +130,7 @@ class ProjectSession:
                 curve.metadata,
                 unit=result.unit,
                 description=result.description,
-                provenance=_CONDITIONED_GAS_PROVENANCE,
+                provenance=CONDITIONED_GAS_PROVENANCE,
             )
             created.append(result.mnemonic)
         self.dirty = True
