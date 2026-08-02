@@ -18,7 +18,14 @@ from geoworkbench.printing.print_layout import (
     PrintScaleMode,
 )
 from geoworkbench.tablet.grid_renderer import TabletGridOverlay, TabletGridRenderer
-from geoworkbench.tablet.tablet_view import TabletView
+from geoworkbench.tablet.tablet_view import (
+    TabletVerticalAxisItem,
+    TabletView,
+)
+from geoworkbench.tablet.vertical_ruler import (
+    VerticalRulerLayout,
+    VerticalRulerTick,
+)
 
 
 _HEADER_GAP_FRACTION = 0.006
@@ -47,6 +54,10 @@ class TabletPrintSnapshot:
     content_height: int
     header_height: int
     raster_scale: float = 1.0
+    vertical_ruler_layout: VerticalRulerLayout | None = None
+    vertical_ruler_ticks_by_track: tuple[
+        tuple[str, tuple[VerticalRulerTick, ...]], ...
+    ] = ()
 
     def __post_init__(self) -> None:
         if not self.pixmaps or len(self.pixmaps) != len(self.layout.widths):
@@ -148,6 +159,10 @@ def capture_tablet_print_snapshot(
     content_height = 1
     header_height = 0
     annotation_print_enabled = False
+    print_ruler_layout: VerticalRulerLayout | None = None
+    print_ruler_ticks_by_track: tuple[
+        tuple[str, tuple[VerticalRulerTick, ...]], ...
+    ] = ()
 
     try:
         # Enable paper typography before measuring geometry. The print header
@@ -163,6 +178,7 @@ def capture_tablet_print_snapshot(
         for item in rendered:
             item.widget.set_synchronized_header_height(print_header_band)
         _activate_layout_tree(tablet)
+        tablet.refresh_shared_vertical_rulers()
 
         content_height = max(item.widget.height() for item in rendered)
         if content_height <= 0:
@@ -189,6 +205,7 @@ def capture_tablet_print_snapshot(
                     max(1, tablet.height() + delta),
                 )
                 _activate_layout_tree(tablet)
+                tablet.refresh_shared_vertical_rulers()
             content_height = max(item.widget.height() for item in rendered)
             header_height = max(
                 item.widget.title.height() + item.widget.curve_header_scroll.height()
@@ -237,6 +254,7 @@ def capture_tablet_print_snapshot(
         for _attempt in range(3):
             for item, width in zip(rendered, layout.widths, strict=True):
                 item.widget.set_track_width(width)
+            tablet.refresh_shared_vertical_rulers()
             measured_header_height = max(
                 item.widget.title.height() + item.widget.curve_header_scroll.height()
                 for item in rendered
@@ -246,6 +264,19 @@ def capture_tablet_print_snapshot(
             if next_layout == layout:
                 break
             layout = next_layout
+
+        print_ruler_layout = tablet.refresh_shared_vertical_rulers()
+        print_ruler_ticks_by_track = tuple(
+            (
+                item.definition.track_id,
+                axis.resolved_ticks,
+            )
+            for item in rendered
+            if isinstance(
+                axis := item.widget.plot.getAxis("left"),
+                TabletVerticalAxisItem,
+            )
+        )
 
         for item, logical_width in zip(rendered, layout.widths, strict=True):
             logical_height = max(1, item.widget.height())
@@ -288,6 +319,7 @@ def capture_tablet_print_snapshot(
         if tablet.size() != original_tablet_size:
             tablet.resize(original_tablet_size)
         _activate_layout_tree(tablet)
+        tablet.refresh_shared_vertical_rulers()
 
     if layout is None:
         raise TabletPrintError("Не удалось рассчитать компоновку печатной формы")
@@ -297,6 +329,8 @@ def capture_tablet_print_snapshot(
         content_height,
         header_height,
         float(raster_scale),
+        print_ruler_layout,
+        print_ruler_ticks_by_track,
     )
 
 

@@ -4765,6 +4765,7 @@ class TabletView(QWidget):
         """Hide screen-only annotations while a PDF/print snapshot is captured."""
 
         self._annotation_print_mode = bool(enabled)
+        self.refresh_shared_vertical_rulers()
         for rendered in self._rendered.values():
             for item in (rendered.annotation_items or {}).values():
                 item.set_print_mode(self._annotation_print_mode)
@@ -7446,6 +7447,16 @@ class TabletView(QWidget):
 
     @property
     def shared_vertical_ruler_layout(self) -> VerticalRulerLayout | None:
+        return self._shared_vertical_ruler_layout
+
+    def refresh_shared_vertical_rulers(self) -> VerticalRulerLayout | None:
+        current = self.visible_depth_range
+        if current is None:
+            self._shared_vertical_ruler_layout = None
+            for rendered in self._rendered.values():
+                rendered.widget.set_shared_vertical_ruler_layout(None)
+            return None
+        self._synchronize_vertical_rulers(*current)
         return self._shared_vertical_ruler_layout
 
     def _vertical_ruler_kind(self) -> VerticalRulerKind | None:
