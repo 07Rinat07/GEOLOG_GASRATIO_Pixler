@@ -58,9 +58,11 @@ jobs:
           )
           text = replace_once(
               text,
-              '    "factory-gas-ratio-pixler-depth",\n',
               '    "factory-gas-ratio-pixler-depth",\n'
-              '    "factory-complex-gas-analysis",\n',
+              '    "factory-lithology-cuttings",\n',
+              '    "factory-gas-ratio-pixler-depth",\n'
+              '    "factory-complex-gas-analysis",\n'
+              '    "factory-lithology-cuttings",\n',
               "curated template registration",
           )
           path.write_text(text, encoding="utf-8")
