@@ -24,6 +24,7 @@ jobs:
       - name: Apply focused print patches
         shell: bash
         run: |
+          printf '\n' >> .github/patches/a4-other-files.patch
           git apply --check .github/patches/a4-document-renderer.patch
           git apply .github/patches/a4-document-renderer.patch
           git apply --check .github/patches/a4-other-files.patch
