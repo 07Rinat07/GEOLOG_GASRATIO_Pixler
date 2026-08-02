@@ -5,7 +5,10 @@ from dataclasses import dataclass
 import numpy as np
 from numpy.typing import NDArray
 
-from geoworkbench.tablet.sampling import select_visible_samples
+from geoworkbench.tablet.sampling import (
+    interpolate_short_nan_gaps,
+    select_visible_samples,
+)
 
 
 FloatArray = NDArray[np.float64]
@@ -83,6 +86,14 @@ def build_relative_gas_stack(
             * 100.0
         )
 
+    # Gas channels commonly update less often than the common depth
+    # index. Interpolate only short, bounded holes in each normalized
+    # component. Long acquisition outages remain explicit NaN gaps.
+    for row in range(normalized.shape[0]):
+        normalized[row] = interpolate_short_nan_gaps(
+            unique_axis, normalized[row]
+        )
+    row_valid = np.any(np.isfinite(normalized), axis=0)
     marker = np.where(row_valid, 100.0, np.nan)
     _, selected_depth = select_visible_samples(
         unique_axis,
@@ -90,6 +101,7 @@ def build_relative_gas_stack(
         top,
         bottom,
         max_points=max_points,
+        include_viewport_context=True,
     )
     if selected_depth.size == 0:
         return RelativeGasStack(

@@ -7,6 +7,8 @@ from numpy.typing import NDArray
 MAX_RENDERED_POINTS = 5000
 _AXIS_GAP_FACTOR = 5.0
 _VIEWPORT_CONTEXT_POINTS = 2
+_SHORT_GAP_AXIS_STEP_FACTOR = 4.0
+_SHORT_GAP_FINITE_STEP_FACTOR = 2.5
 
 
 def snap_viewport_to_axis_samples(
@@ -64,6 +66,7 @@ def select_visible_samples(
     positive_values_only: bool = False,
     include_viewport_context: bool = True,
     bridge_sparse_updates: bool = False,
+    bridge_short_gaps: bool = False,
 ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     """Prepare one curve for screen rendering without inventing continuity.
 
@@ -125,6 +128,11 @@ def select_visible_samples(
         ordered_depth = ordered_depth[order]
         ordered_values = ordered_values[order]
 
+    short_gap_limit = (
+        _short_gap_distance_limit(ordered_depth, ordered_values)
+        if bridge_short_gaps
+        else None
+    )
     normal_step = _nominal_axis_step(ordered_depth)
     start = int(np.searchsorted(ordered_depth, visible_top, side="left"))
     stop = int(np.searchsorted(ordered_depth, visible_bottom, side="right"))
@@ -146,6 +154,12 @@ def select_visible_samples(
         return selected_values, selected_depth
 
     selected_values[~np.isfinite(selected_values)] = np.nan
+    if short_gap_limit is not None:
+        selected_values = interpolate_short_nan_gaps(
+            selected_depth,
+            selected_values,
+            max_gap=short_gap_limit,
+        )
     if positive_values_only:
         selected_values[selected_values <= 0.0] = np.nan
 
@@ -158,6 +172,93 @@ def select_visible_samples(
     if selected_depth.size <= max_points:
         return selected_values, selected_depth
     return _downsample_preserving_gaps(selected_depth, selected_values, max_points)
+
+
+
+def _short_gap_distance_limit(
+    axis: NDArray[np.float64], values: NDArray[np.float64]
+) -> float | None:
+    """Return a conservative interpolation distance for sparse channels."""
+
+    finite_positions = np.flatnonzero(np.isfinite(values))
+    if finite_positions.size < 2:
+        return None
+    finite_steps = np.diff(axis[finite_positions])
+    finite_steps = finite_steps[
+        np.isfinite(finite_steps) & (finite_steps > 0.0)
+    ]
+    if finite_steps.size == 0:
+        return None
+
+    # Use the denser half of observed update intervals. Long acquisition
+    # outages must not inflate the normal sparse-channel cadence.
+    ordered_steps = np.sort(finite_steps)
+    dense_half = ordered_steps[: max(1, (ordered_steps.size + 1) // 2)]
+    typical_finite_step = float(np.median(dense_half))
+    nominal_axis_step = _nominal_axis_step(axis)
+    limit = typical_finite_step * _SHORT_GAP_FINITE_STEP_FACTOR
+    if nominal_axis_step is not None:
+        limit = max(limit, nominal_axis_step * _SHORT_GAP_AXIS_STEP_FACTOR)
+    return limit if np.isfinite(limit) and limit > 0.0 else None
+
+
+def interpolate_short_nan_gaps(
+    axis: NDArray[np.float64],
+    values: NDArray[np.float64],
+    *,
+    max_gap: float | None = None,
+) -> NDArray[np.float64]:
+    """Interpolate only short NaN runs bounded by real samples.
+
+    Long acquisition outages remain NaN. Explicit finite zero/negative
+    readings remain hard samples; logarithmic filtering is applied by the
+    caller after interpolation, so such rows still split the rendered line.
+    """
+
+    axis_array = np.asarray(axis, dtype=np.float64)
+    output = np.asarray(values, dtype=np.float64).copy()
+    if axis_array.shape != output.shape:
+        raise ValueError(
+            "Шкала глубины и значения кривой должны иметь одинаковую форму"
+        )
+    if output.size < 3:
+        return output
+    limit = (
+        _short_gap_distance_limit(axis_array, output)
+        if max_gap is None
+        else float(max_gap)
+    )
+    if limit is None or not np.isfinite(limit) or limit <= 0.0:
+        return output
+
+    finite_positions = np.flatnonzero(
+        np.isfinite(axis_array) & np.isfinite(output)
+    )
+    for left, right in zip(
+        finite_positions[:-1], finite_positions[1:], strict=True
+    ):
+        if right - left <= 1:
+            continue
+        distance = float(axis_array[right] - axis_array[left])
+        if not np.isfinite(distance) or distance <= 0.0 or distance > limit:
+            continue
+        interior = slice(int(left) + 1, int(right))
+        interior_axis = axis_array[interior]
+        valid_axis = np.isfinite(interior_axis)
+        if not np.any(valid_axis):
+            continue
+        interpolated = np.interp(
+            interior_axis[valid_axis],
+            (axis_array[left], axis_array[right]),
+            (output[left], output[right]),
+        )
+        interior_values = output[interior]
+        missing = ~np.isfinite(interior_values)
+        interior_values[valid_axis & missing] = interpolated[
+            missing[valid_axis]
+        ]
+        output[interior] = interior_values
+    return output
 
 
 def _collapse_duplicate_axis_samples(

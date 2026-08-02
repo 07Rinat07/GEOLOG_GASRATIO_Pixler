@@ -493,7 +493,7 @@ class CurveHeaderLabel(QLabel):
         self._selected = bool(selected)
         background = "#dbeafe" if selected else "#ffffff"
         border = "#2563eb" if selected else "#e2e8f0"
-        font_size = 16 if self._print_mode else 9
+        font_size = 10 if self._print_mode else 9
         horizontal_padding = 5 if self._print_mode else 3
         vertical_padding = 2 if self._print_mode else 1
         border_width = 6 if self._print_mode else 5

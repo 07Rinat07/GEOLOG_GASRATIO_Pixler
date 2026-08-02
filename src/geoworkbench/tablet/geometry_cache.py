@@ -15,6 +15,42 @@ _PARADOX_SPARSE_TIME_AXIS_SUFFIXES = (
     ":paradox-elapsed",
 )
 
+_GAS_CURVE_EXACT_IDS = frozenset(
+    {
+        "C1",
+        "C2",
+        "C3",
+        "C4",
+        "C5",
+        "IC4",
+        "NC4",
+        "IC5",
+        "NC5",
+        "TOTAL_GAS",
+        "TG_CALC",
+        "TG_NORM",
+        "WETNESS",
+        "BALANCE",
+        "CHARACTER",
+        "IC4_NC4",
+        "IC5_NC5",
+    }
+)
+
+
+def is_gas_curve_id(curve_id: Hashable) -> bool:
+    """Return whether a rendered curve uses the sparse gas policy."""
+
+    token = str(curve_id).strip().upper().replace("-", "_")
+    token = token.rsplit(":", 1)[-1]
+    return (
+        token in _GAS_CURVE_EXACT_IDS
+        or token.startswith("PIXLER_")
+        or token.endswith("_REL")
+        or token.endswith("_NORM")
+        or token.endswith("_NORM_REF")
+    )
+
 
 def _bridges_sparse_time_updates(axis_id: Hashable) -> bool:
     """Return whether a GeoScape/Paradox time axis uses sparse channel updates.
@@ -90,6 +126,7 @@ class CurveGeometryCache:
             return cached
 
         self._misses += 1
+        gas_curve = is_gas_curve_id(key.curve_id)
         sampled_values, sampled_axis = select_visible_samples(
             axis,
             values,
@@ -97,8 +134,9 @@ class CurveGeometryCache:
             key.bottom,
             max_points=key.max_points,
             positive_values_only=key.positive_values_only,
-            include_viewport_context=False,
+            include_viewport_context=gas_curve,
             bridge_sparse_updates=_bridges_sparse_time_updates(key.axis_id),
+            bridge_short_gaps=gas_curve,
         )
         # Prevent accidental mutation of cached geometry by callers.
         sampled_values.setflags(write=False)
