@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any
 
 from geoworkbench.calculations.gas_ratio import calculate_conditioned_ratios
@@ -15,6 +15,9 @@ if TYPE_CHECKING:
     from geoworkbench.printing.image_assets import ImageAsset
 else:
     ImageAsset = Any
+
+
+_CONDITIONED_GAS_PROVENANCE = "calculation:conditioned-gas-ratio:2.0"
 
 
 @dataclass(slots=True)
@@ -112,12 +115,22 @@ class ProjectSession:
         calculation = calculate_conditioned_ratios(dataset.depth, inputs)
         created: list[str] = []
         for result in calculation.curves.values():
-            dataset.upsert_curve(
+            curve = dataset.upsert_curve(
                 result.mnemonic,
                 result.values,
                 unit=result.unit,
                 description=result.description,
-                provenance="calculation:conditioned-gas-ratio:2.0",
+                provenance=_CONDITIONED_GAS_PROVENANCE,
+            )
+            # Dataset.upsert_curve intentionally preserves metadata for generic
+            # edits. A versioned recalculation is different: unit, description
+            # and provenance must follow the active calculation profile even
+            # when the derived curve already existed in an older project.
+            curve.metadata = replace(
+                curve.metadata,
+                unit=result.unit,
+                description=result.description,
+                provenance=_CONDITIONED_GAS_PROVENANCE,
             )
             created.append(result.mnemonic)
         self.dirty = True
