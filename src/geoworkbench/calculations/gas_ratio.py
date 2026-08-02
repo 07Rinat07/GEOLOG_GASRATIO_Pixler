@@ -14,6 +14,10 @@ from geoworkbench.calculations.gas_conditioning import (
 
 
 Array = NDArray[np.float64]
+CONDITIONED_GAS_PROFILE_VERSION = "2.0"
+CONDITIONED_GAS_PROVENANCE = (
+    f"calculation:conditioned-gas-ratio:{CONDITIONED_GAS_PROFILE_VERSION}"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -172,8 +176,6 @@ def calculate_basic_ratios(curves: Mapping[str, Array]) -> dict[str, GasRatioRes
     c4_total = _family_total(selected_components, "IC4", "NC4", "C4")
     c5_total = _family_total(selected_components, "IC5", "NC5", "C5")
 
-    # Aggregate relative curves remain available for legacy forms, while the
-    # complete form uses the seven split component curves.
     if c4_total is not None:
         results["C4_REL"] = GasRatioResult(
             "C4_REL",
