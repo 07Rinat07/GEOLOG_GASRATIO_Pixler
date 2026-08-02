@@ -158,7 +158,7 @@ def build_document_plan(
             selected_definitions = [item.definition for item in printable_tracks]
             auto_source_width = original_column_layout(selected_definitions).total_width
             header_height = max(
-                item.widget.title.height() + item.widget.curve_header_scroll.height()
+                item.widget.title.height() + item.widget.print_curve_header_height
                 for item in printable_tracks
             )
             current_range = widget.visible_depth_range or full_range
