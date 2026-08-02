@@ -360,7 +360,7 @@ def _daily(language: TemplateLanguage, orientation: str) -> FormDocument:
 
 
 def _complex_gas(language: TemplateLanguage, orientation: str) -> FormDocument:
-    """Build the complete seven-component gas form for the selected A4 profile."""
+    """Build a complete seven-graph gas form that fits its named A4 orientation."""
 
     landscape = orientation == "landscape"
     form = complex_gas_form(language)
@@ -369,21 +369,25 @@ def _complex_gas(language: TemplateLanguage, orientation: str) -> FormDocument:
 
     depth_width = 55 if landscape else 48
     graph_widths = (
-        (250, 180, 190, 260, 260, 220, 220)
+        (160, 100, 110, 160, 150, 140, 130)
         if landscape
-        else (180, 135, 145, 190, 190, 170, 170)
+        else (110, 80, 80, 110, 100, 90, 86)
     )
+    depth_index = 0
     graph_index = 0
     for column in form.columns:
         if column.tracks and column.tracks[0].kind is TrackKind.DEPTH:
             column.width = depth_width
+            column.visible = depth_index == 0
+            depth_index += 1
         else:
             column.width = graph_widths[graph_index]
             graph_index += 1
 
-    if graph_index != len(graph_widths):
+    if depth_index != 7 or graph_index != len(graph_widths):
         raise RuntimeError("Unexpected complex-gas column structure")
     return _finalize(form, "gas_interpretation", orientation)
+
 
 def a4_factory_templates(language: str = "ru") -> dict[str, FormDocument]:
     lang = _language(language)
