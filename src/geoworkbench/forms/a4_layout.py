@@ -72,10 +72,10 @@ def fit_form_to_a4(
 ) -> A4FitResult:
     """Fit visible columns into one A4 width while preserving useful minima.
 
-    Compact geology/reference columns may use their 48 px minimum. Curve and
-    text columns keep the larger minimum defined by their track kinds. Remaining
-    width is distributed proportionally to each column's current extra width.
-    Hidden columns are left untouched.
+    Geology/reference columns are compressed to their safe minimum first. The
+    remaining width is distributed among graph and text columns, so depth,
+    stratigraphy, lithology, cuttings, calcimetry and LBA do not consume space
+    required for readable parameter curves. Hidden columns remain unchanged.
     """
 
     target = _orientation(orientation or form.preferred_page_orientation)
@@ -91,10 +91,12 @@ def fit_form_to_a4(
         form.validate()
         return A4FitResult(target, capacity, previous_width, previous_width, 0)
 
-    minima = [
-        minimum_width_for_track_kinds(track.kind for track in column.tracks)
-        for column in visible
+    kinds_by_column = [tuple(track.kind for track in column.tracks) for column in visible]
+    compact = [
+        bool(kinds) and all(kind in COMPACT_TRACK_KINDS for kind in kinds)
+        for kinds in kinds_by_column
     ]
+    minima = [minimum_width_for_track_kinds(kinds) for kinds in kinds_by_column]
     width_budget = capacity - spacing * max(0, len(visible) - 1)
     minimum_total = sum(minima)
     if minimum_total > width_budget:
@@ -107,19 +109,24 @@ def fit_form_to_a4(
         max(0, column.width - minimum)
         for column, minimum in zip(visible, minima, strict=True)
     ]
+    # Compact geology columns stay at minimum whenever at least one ordinary
+    # graph/text column can receive the available width.
+    weights = [0 if is_compact else extra for is_compact, extra in zip(compact, extras, strict=True)]
+    if sum(weights) <= 0:
+        weights = extras
     extra_budget = width_budget - minimum_total
-    extra_total = sum(extras)
-    if extra_total <= 0:
+    weight_total = sum(weights)
+    if weight_total <= 0:
         allocated = minima[:]
     else:
         allocated = [
-            minimum + int(extra_budget * extra / extra_total)
-            for minimum, extra in zip(minima, extras, strict=True)
+            minimum + int(extra_budget * weight / weight_total)
+            for minimum, weight in zip(minima, weights, strict=True)
         ]
         remainder = width_budget - sum(allocated)
         order = sorted(
-            range(len(visible)),
-            key=lambda index: (extras[index], visible[index].width),
+            (index for index, weight in enumerate(weights) if weight > 0),
+            key=lambda index: (weights[index], visible[index].width),
             reverse=True,
         )
         for offset in range(remainder):
