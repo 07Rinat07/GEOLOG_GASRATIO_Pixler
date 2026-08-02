@@ -97,6 +97,37 @@ def test_full_report_header_reduces_first_page_interval_further() -> None:
     assert geometry.units_per_page == pytest.approx(55.0)
 
 
+def test_first_page_preserves_exact_vertical_density_without_minimum_body_clamp() -> None:
+    geometry = automatic_tablet_first_page_geometry(
+        canonical_content_height_px=1000,
+        column_header_height_px=300,
+        regular_units_per_page=200.0,
+        regular_body_height_mm=175.0,
+        first_body_height_mm=87.5,
+    )
+
+    canonical_body_height = 700
+    first_body_height = geometry.target_content_height_px - 300
+    assert geometry.target_content_height_px == 350
+    assert geometry.units_per_page == pytest.approx(
+        200.0 * first_body_height / canonical_body_height
+    )
+    assert first_body_height / geometry.units_per_page == pytest.approx(
+        canonical_body_height / 200.0
+    )
+
+
+def test_first_page_rejects_headers_that_leave_no_graph_body() -> None:
+    with pytest.raises(ValueError, match="не оставляют места"):
+        automatic_tablet_first_page_geometry(
+            canonical_content_height_px=1000,
+            column_header_height_px=400,
+            regular_units_per_page=200.0,
+            regular_body_height_mm=175.0,
+            first_body_height_mm=50.0,
+        )
+
+
 def test_printable_body_height_accounts_for_selected_header_band() -> None:
     assert printable_tablet_body_height_mm(190.0) == pytest.approx(175.0)
     assert printable_tablet_body_height_mm(
