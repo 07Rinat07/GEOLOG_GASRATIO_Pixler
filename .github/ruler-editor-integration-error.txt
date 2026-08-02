@@ -1,1 +1,7 @@
 phase=patch
+--- patch-output.txt ---
+Traceback (most recent call last):
+  File "<stdin>", line 399, in <module>
+  File "C:\hostedtoolcache\windows\Python\3.11.9\x64\Lib\pathlib.py", line 1147, in unlink
+    os.unlink(self)
+FileNotFoundError: [WinError 2] The system cannot find the file specified: '.github\\workflows\\integrate-ruler-editor-controls.yml'

@@ -62,6 +62,10 @@ When enabled, it provides:
 When disabled, structural commands are hidden from the tablet context menu while navigation
 and geological data entry remain available.
 
+## Inner depth ruler in a graph column
+
+The selected graph-column editor includes an **Inner vertical ruler** section. A column can use **Automatic**, **Labels and ticks**, **Ticks only**, or **Off**, with separate frequencies for numeric labels, major ticks, and minor ticks. A column only hides a subset of the shared tick sequence: depth values and their Y coordinates always match the main well-depth ruler.
+
 ## Form library
 
 The library is grouped into four sections:

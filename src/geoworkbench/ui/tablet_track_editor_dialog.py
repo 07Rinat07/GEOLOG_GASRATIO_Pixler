@@ -41,6 +41,10 @@ from geoworkbench.tablet.models import (
     XScale,
     minimum_track_width,
 )
+from geoworkbench.tablet.vertical_ruler import (
+    VerticalRulerMode,
+    VerticalRulerTrackSettings,
+)
 from geoworkbench.ui.adaptive_toolbar import AdaptiveActionToolBar
 from geoworkbench.ui.grid_settings_widget import GridSettingsWidget
 from geoworkbench.ui.tablet_track_preview_widget import TabletTrackPreviewWidget
@@ -170,6 +174,112 @@ class TabletTrackEditorDialog(QDialog):
         )
         form.addRow(self._text("Тип", "Түрі", "Type"), QLabel(self.track.kind.value))
         editor_layout.addWidget(track_group)
+
+        self.vertical_ruler_group = QGroupBox(
+            self._text(
+                "Внутренняя вертикальная шкала",
+                "Ішкі тік шкала",
+                "Inner vertical ruler",
+            )
+        )
+        ruler_form = QFormLayout(self.vertical_ruler_group)
+        ruler_hint = QLabel(
+            self._text(
+                "Колонка использует общие глубины и Y-координаты планшета; здесь можно только изменить видимость и частоту общих отметок.",
+                "Баған планшеттің ортақ тереңдіктері мен Y координаттарын қолданады; мұнда тек ортақ белгілердің көрінуі мен жиілігі өзгереді.",
+                "The column uses the tablet-wide depth values and Y coordinates; only visibility and frequency of shared ticks can be changed here.",
+            )
+        )
+        ruler_hint.setWordWrap(True)
+        ruler_form.addRow(ruler_hint)
+        self.vertical_ruler_mode_input = QComboBox()
+        self.vertical_ruler_mode_input.addItem(
+            self._text("Автоматически", "Автоматты", "Automatic"),
+            VerticalRulerMode.AUTOMATIC,
+        )
+        self.vertical_ruler_mode_input.addItem(
+            self._text(
+                "Цифры и риски",
+                "Сандар мен белгілер",
+                "Labels and ticks",
+            ),
+            VerticalRulerMode.LABELS_AND_TICKS,
+        )
+        self.vertical_ruler_mode_input.addItem(
+            self._text("Только риски", "Тек белгілер", "Ticks only"),
+            VerticalRulerMode.TICKS_ONLY,
+        )
+        self.vertical_ruler_mode_input.addItem(
+            self._text("Выключено", "Өшірулі", "Off"),
+            VerticalRulerMode.OFF,
+        )
+        self.vertical_ruler_mode_input.setCurrentIndex(
+            max(
+                0,
+                self.vertical_ruler_mode_input.findData(
+                    self.track.vertical_ruler.mode
+                ),
+            )
+        )
+        self.vertical_ruler_label_every_input = QSpinBox()
+        self.vertical_ruler_major_tick_every_input = QSpinBox()
+        self.vertical_ruler_minor_tick_every_input = QSpinBox()
+        for control in (
+            self.vertical_ruler_label_every_input,
+            self.vertical_ruler_major_tick_every_input,
+            self.vertical_ruler_minor_tick_every_input,
+        ):
+            control.setRange(1, 20)
+        self.vertical_ruler_label_every_input.setValue(
+            self.track.vertical_ruler.label_every_major
+        )
+        self.vertical_ruler_major_tick_every_input.setValue(
+            self.track.vertical_ruler.major_tick_every
+        )
+        self.vertical_ruler_minor_tick_every_input.setValue(
+            self.track.vertical_ruler.minor_tick_every
+        )
+        ruler_form.addRow(
+            self._text("Режим", "Режим", "Mode"),
+            self.vertical_ruler_mode_input,
+        )
+        ruler_form.addRow(
+            self._text(
+                "Подписывать каждую N-ю крупную отметку",
+                "Әр N-ші ірі белгіні жазу",
+                "Label every Nth major tick",
+            ),
+            self.vertical_ruler_label_every_input,
+        )
+        ruler_form.addRow(
+            self._text(
+                "Показывать каждую N-ю крупную риску",
+                "Әр N-ші ірі сызықты көрсету",
+                "Show every Nth major tick",
+            ),
+            self.vertical_ruler_major_tick_every_input,
+        )
+        ruler_form.addRow(
+            self._text(
+                "Показывать каждую N-ю мелкую риску",
+                "Әр N-ші ұсақ сызықты көрсету",
+                "Show every Nth minor tick",
+            ),
+            self.vertical_ruler_minor_tick_every_input,
+        )
+        self.vertical_ruler_group.setEnabled(
+            self.track.kind
+            in {
+                TrackKind.CURVE,
+                TrackKind.GAS,
+                TrackKind.DEXP,
+                TrackKind.CALCIMETRY,
+            }
+        )
+        self.vertical_ruler_mode_input.currentIndexChanged.connect(
+            self._vertical_ruler_state
+        )
+        editor_layout.addWidget(self.vertical_ruler_group)
 
         grid_group = QGroupBox(self._text("Сетка", "Тор", "Grid"))
         grid_layout = QVBoxLayout(grid_group)
@@ -336,6 +446,7 @@ class TabletTrackEditorDialog(QDialog):
         root.addWidget(buttons)
 
         self._connect_preview_signals()
+        self._vertical_ruler_state()
         self._reload()
         self._refresh_preview()
 
@@ -355,6 +466,20 @@ class TabletTrackEditorDialog(QDialog):
             CurveLineStyle.DOT: self._text("Точечная", "Нүктелі", "Dotted"),
             CurveLineStyle.DASH_DOT: self._text("Штрих-точка", "Үзік-нүкте", "Dash-dot"),
         }[style]
+
+    def _vertical_ruler_state(self, *_args) -> None:
+        mode = self.vertical_ruler_mode_input.currentData()
+        enabled = self.vertical_ruler_group.isEnabled()
+        self.vertical_ruler_label_every_input.setEnabled(
+            enabled
+            and mode
+            not in {VerticalRulerMode.TICKS_ONLY, VerticalRulerMode.OFF}
+        )
+        ticks_enabled = enabled and mode is not VerticalRulerMode.OFF
+        self.vertical_ruler_major_tick_every_input.setEnabled(ticks_enabled)
+        self.vertical_ruler_minor_tick_every_input.setEnabled(ticks_enabled)
+        if hasattr(self, "preview"):
+            self._refresh_preview()
 
     def _color_row(self, target: QLineEdit, fallback: str) -> QHBoxLayout:
         row = QHBoxLayout()
@@ -381,6 +506,7 @@ class TabletTrackEditorDialog(QDialog):
             self.style_input,
             self.scale_input,
             self.auto_range_input,
+            self.vertical_ruler_mode_input,
         ):
             combo_box.currentIndexChanged.connect(self._refresh_preview)
         for spin_box in (
@@ -388,6 +514,9 @@ class TabletTrackEditorDialog(QDialog):
             self.line_width_input,
             self.min_input,
             self.max_input,
+            self.vertical_ruler_label_every_input,
+            self.vertical_ruler_major_tick_every_input,
+            self.vertical_ruler_minor_tick_every_input,
         ):
             spin_box.valueChanged.connect(self._refresh_preview)
         for check_box in (
@@ -531,6 +660,19 @@ class TabletTrackEditorDialog(QDialog):
         candidate.width = self.width_input.value()
         candidate.x_axis_label = self.axis_input.text().strip()
         candidate.show_interval_labels = self.show_interval_labels_input.isChecked()
+        ruler_mode = self.vertical_ruler_mode_input.currentData()
+        if not isinstance(ruler_mode, VerticalRulerMode):
+            ruler_mode = VerticalRulerMode.AUTOMATIC
+        candidate.vertical_ruler = VerticalRulerTrackSettings(
+            mode=ruler_mode,
+            label_every_major=self.vertical_ruler_label_every_input.value(),
+            major_tick_every=(
+                self.vertical_ruler_major_tick_every_input.value()
+            ),
+            minor_tick_every=(
+                self.vertical_ruler_minor_tick_every_input.value()
+            ),
+        )
         candidate.grid_x = self.grid_x_input.isChecked()
         candidate.grid_y = self.grid_y_input.isChecked()
         candidate.grid_major_divisions = self.grid_major_input.value()
