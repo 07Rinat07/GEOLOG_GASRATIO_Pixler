@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
 
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
@@ -68,7 +70,7 @@ def test_project_session_conditions_components_before_deriving_ratios() -> None:
     assert session.dirty
 
 
-def test_project_session_recalculation_updates_existing_derived_curve() -> None:
+def test_project_session_recalculation_updates_curve_and_metadata() -> None:
     depth = np.arange(0.0, 21.0)
     dataset = _gas_dataset(depth)
     session = ProjectSession()
@@ -79,9 +81,18 @@ def test_project_session_recalculation_updates_existing_derived_curve() -> None:
     assert total is not None
     first_curve_id = total.metadata.curve_id
     first_version = total.version
+    total.metadata = replace(
+        total.metadata,
+        unit="legacy-unit",
+        description="Legacy basic ratio",
+        provenance="calculation:basic-gas-ratio:1.0",
+    )
 
     session.calculate_basic_gas_ratios()
     updated = dataset.curve_by_mnemonic("TG_CALC")
     assert updated is not None
     assert updated.metadata.curve_id == first_curve_id
     assert updated.version == first_version + 1
+    assert updated.metadata.unit == "%abs"
+    assert updated.metadata.description != "Legacy basic ratio"
+    assert updated.metadata.provenance == "calculation:conditioned-gas-ratio:2.0"
