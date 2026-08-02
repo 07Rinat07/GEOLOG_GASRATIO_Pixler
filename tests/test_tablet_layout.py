@@ -33,20 +33,16 @@ def make_layout() -> TabletLayout:
 
 def test_layout_updates_track_properties() -> None:
     layout = make_layout()
-
     layout.set_track_width("gas", 420)
     layout.set_track_visible("gas", False)
-
     assert layout.track_by_id("gas").width == 420
     assert [track.track_id for track in layout.visible_tracks()] == ["depth"]
 
 
 def test_layout_rejects_invalid_width_without_mutation() -> None:
     layout = make_layout()
-
     with pytest.raises(ValueError):
         layout.set_track_width("gas", 79)
-
     assert layout.track_by_id("gas").width == 360
 
 
@@ -57,7 +53,9 @@ def test_layout_codec_round_trip_preserves_track_settings() -> None:
     source.set_track_x_scale("gas", XScale.LOGARITHMIC)
     source.set_visible_depth(1200.0, 1300.0)
     source.set_cursor_depth(1250.0)
-    source.track_by_id("gas").set_curve_style("C1", CurveStyle("#ff0000", 2.5, CurveLineStyle.DASH))
+    source.track_by_id("gas").set_curve_style(
+        "C1", CurveStyle("#ff0000", 2.5, CurveLineStyle.DASH)
+    )
     source.track_by_id("gas").set_curve_display(
         "C1",
         CurveDisplaySettings("Метан", XScale.LOGARITHMIC, 0.1, 100.0),
@@ -94,9 +92,7 @@ def test_layout_codec_round_trip_preserves_track_settings() -> None:
 def test_layout_codec_treats_legacy_caption_provenance_as_factory() -> None:
     payload = layout_to_dict(make_layout())
     payload.pop("localize_factory_labels")
-
     restored = layout_from_dict(payload)
-
     assert restored.localize_factory_labels is True
 
 
@@ -133,7 +129,6 @@ def test_layout_codec_migrates_v4_with_default_grid() -> None:
             ],
         }
     )
-
     track = restored.track_by_id("curve")
     assert track.grid_x is True
     assert track.grid_y is True
@@ -150,7 +145,6 @@ def test_layout_codec_migrates_v10_with_default_title_presentation() -> None:
             "tracks": [{"track_id": "curve", "title": "Curve", "kind": "curve"}],
         }
     )
-
     track = restored.track_by_id("curve")
     assert track.title_orientation == "horizontal"
     assert track.title_position == "center"
@@ -163,7 +157,6 @@ def test_layout_codec_migrates_v5_with_empty_axis_label() -> None:
             "tracks": [{"track_id": "curve", "title": "Curve", "kind": "curve"}],
         }
     )
-
     assert restored.track_by_id("curve").x_axis_label == ""
 
 
@@ -214,9 +207,7 @@ def test_layout_codec_migrates_v1_x_settings_to_linear_auto_range() -> None:
             }
         ],
     }
-
     restored = layout_from_dict(payload)
-
     track = restored.track_by_id("curve")
     assert track.x_scale is XScale.LINEAR
     assert track.x_min is None
@@ -225,13 +216,8 @@ def test_layout_codec_migrates_v1_x_settings_to_linear_auto_range() -> None:
 
 
 def test_layout_codec_migrates_v2_to_auto_depth_range() -> None:
-    payload = {
-        "version": 2,
-        "tracks": [],
-    }
-
+    payload = {"version": 2, "tracks": []}
     restored = layout_from_dict(payload)
-
     assert restored.visible_depth_top is None
     assert restored.visible_depth_bottom is None
     assert payload["version"] == 2
@@ -313,7 +299,6 @@ def test_layout_codec_rejects_invalid_payload(payload: object) -> None:
 
 def test_layout_codec_rejects_duplicate_track_ids() -> None:
     track = layout_to_dict(make_layout())["tracks"][0]
-
     with pytest.raises(TabletLayoutFormatError):
         layout_from_dict({"version": 1, "tracks": [track, track]})
 
@@ -321,9 +306,7 @@ def test_layout_codec_rejects_duplicate_track_ids() -> None:
 def test_layout_codec_round_trip_preserves_vertical_index() -> None:
     source = make_layout()
     source.vertical_index_id = "time-index"
-
     restored = layout_from_dict(layout_to_dict(source))
-
     assert restored.vertical_index_id == "time-index"
 
 
@@ -337,7 +320,6 @@ def test_layout_codec_migrates_v7_without_vertical_index() -> None:
             "tracks": [],
         }
     )
-
     assert restored.vertical_index_id is None
 
 
@@ -345,7 +327,6 @@ def test_switching_vertical_index_resets_incompatible_window_and_cursor() -> Non
     layout = make_layout()
     layout.set_visible_depth(1000.0, 1100.0)
     layout.set_cursor_depth(1050.0)
-
     assert layout.set_vertical_index("time-index") is True
     assert layout.visible_depth_top is None
     assert layout.visible_depth_bottom is None
@@ -378,9 +359,7 @@ def test_layout_codec_migrates_v8_with_empty_curve_display() -> None:
 def test_layout_codec_round_trip_preserves_annotation_scope() -> None:
     source = make_layout()
     source.annotation_scope_id = "dataset:one:form:alpha"
-
     restored = layout_from_dict(layout_to_dict(source))
-
     assert restored.annotation_scope_id == "dataset:one:form:alpha"
 
 
@@ -395,7 +374,6 @@ def test_layout_codec_migrates_v12_without_annotation_scope() -> None:
             "tracks": [],
         }
     )
-
     assert restored.annotation_scope_id is None
 
 
@@ -411,9 +389,7 @@ def test_layout_codec_round_trip_preserves_curve_unit_override() -> None:
             unit_override="об.%",
         ),
     )
-
     restored = layout_from_dict(layout_to_dict(source))
-
     assert restored.track_by_id("gas").curve_display_settings("C1").unit_override == "об.%"
 
 
@@ -441,7 +417,6 @@ def test_layout_codec_migrates_v15_curve_unit_to_source_metadata_mode() -> None:
             ],
         }
     )
-
     assert restored.track_by_id("curve").curve_display_settings("GR").unit_override is None
 
 
@@ -475,7 +450,6 @@ def test_layout_v18_migrates_track_and_curve_log_scales_to_linear() -> None:
             ],
         }
     )
-
     track = restored.track_by_id("gas")
     settings = track.curve_display_settings("C2")
     assert track.x_scale is XScale.LINEAR
@@ -484,4 +458,4 @@ def test_layout_v18_migrates_track_and_curve_log_scales_to_linear() -> None:
     assert settings.x_scale is XScale.LINEAR
     assert settings.x_min == 0.0
     assert settings.x_max == 100.0
-    assert layout_to_dict(restored)["version"] == 21
+    assert layout_to_dict(restored)["version"] == 22

@@ -4,9 +4,11 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from math import isfinite
 
+import pyqtgraph as pg
 from PySide6.QtCore import QPoint, QRectF, QSize, Qt
-from PySide6.QtGui import QPainter, QPixmap
+from PySide6.QtGui import QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QWidget
+
 from geoworkbench.printing.form_column_layout import (
     AdaptiveColumnLayout,
     adaptive_column_layout,
@@ -18,7 +20,9 @@ from geoworkbench.printing.print_layout import (
     PrintScaleMode,
 )
 from geoworkbench.tablet.grid_renderer import TabletGridOverlay, TabletGridRenderer
+from geoworkbench.tablet.models import CurveLineStyle
 from geoworkbench.tablet.tablet_view import (
+    RenderedTrack,
     TabletVerticalAxisItem,
     TabletView,
 )
@@ -29,6 +33,59 @@ from geoworkbench.tablet.vertical_ruler import (
 
 
 _HEADER_GAP_FRACTION = 0.006
+_PRINT_CURVE_MIN_WIDTH = 1.55
+_PRINT_CURVE_DENSE_MIN_WIDTH = 1.35
+
+
+@dataclass(slots=True)
+class _CurvePrintState:
+    item: pg.PlotDataItem
+    pen: QPen
+
+
+def _qt_pen_style(style: CurveLineStyle) -> Qt.PenStyle:
+    return {
+        CurveLineStyle.SOLID: Qt.PenStyle.SolidLine,
+        CurveLineStyle.DASH: Qt.PenStyle.DashLine,
+        CurveLineStyle.DOT: Qt.PenStyle.DotLine,
+        CurveLineStyle.DASH_DOT: Qt.PenStyle.DashDotLine,
+    }[style]
+
+
+def _print_curve_width(configured_width: float, curve_count: int) -> float:
+    """Keep engineering curve weight readable after wide-form A4 fitting."""
+
+    minimum = (
+        _PRINT_CURVE_DENSE_MIN_WIDTH
+        if max(1, int(curve_count)) >= 5
+        else _PRINT_CURVE_MIN_WIDTH
+    )
+    return min(5.0, max(minimum, float(configured_width)))
+
+
+def _activate_print_curve_styles(
+    rendered: tuple[RenderedTrack, ...],
+) -> list[_CurvePrintState]:
+    states: list[_CurvePrintState] = []
+    for track in rendered:
+        curve_count = max(1, len(track.definition.curve_mnemonics))
+        for mnemonic, item in (track.curve_items or {}).items():
+            saved_pen = QPen(pg.mkPen(item.opts.get("pen")))
+            states.append(_CurvePrintState(item, saved_pen))
+            style = track.definition.curve_style(mnemonic)
+            item.setPen(
+                pg.mkPen(
+                    style.color,
+                    width=_print_curve_width(style.width, curve_count),
+                    style=_qt_pen_style(style.line_style),
+                )
+            )
+    return states
+
+
+def _restore_print_curve_styles(states: list[_CurvePrintState]) -> None:
+    for state in reversed(states):
+        state.item.setPen(state.pen)
 
 
 def _activate_layout_tree(widget: QWidget) -> None:
@@ -83,13 +140,7 @@ def tablet_print_layout_height(
     show_column_header: bool,
     repeat_column_header_at_bottom: bool,
 ) -> int:
-    """Return source height represented by one complete printed page.
-
-    Adaptive column widths must be derived from the exact source composition
-    painted on the page. Otherwise a body-only continuation is laid out using
-    the hidden header height and later stretched vertically, which distorts
-    depth labels and every glyph in the graph.
-    """
+    """Return source height represented by one complete printed page."""
 
     body_height = max(1, int(content_height) - int(header_height))
     header_count = int(bool(show_column_header)) + int(
@@ -116,12 +167,7 @@ def capture_tablet_print_snapshot(
     target_content_height: int | None = None,
     layout_content_height: int | None = None,
 ) -> TabletPrintSnapshot:
-    """Capture every visible form column, including off-screen columns.
-
-    ``raster_scale`` lets PDF and image exports render the Qt widgets into a
-    larger intermediate surface. This avoids enlarging a low-resolution screen
-    screenshot when the destination is an A4 page at 300 or 600 DPI.
-    """
+    """Capture every visible form column, including off-screen columns."""
 
     if (
         isinstance(raster_scale, bool)
@@ -154,6 +200,7 @@ def capture_tablet_print_snapshot(
     original_widths = [item.widget.width() for item in rendered]
     original_tablet_size = tablet.size()
     pixmaps: list[QPixmap] = []
+    curve_style_states: list[_CurvePrintState] = []
     grid_states: list[tuple[TabletGridOverlay, bool, bool]] = []
     layout: AdaptiveColumnLayout | None = None
     content_height = 1
@@ -165,13 +212,11 @@ def capture_tablet_print_snapshot(
     ] = ()
 
     try:
-        # Enable paper typography before measuring geometry. The print header
-        # uses larger logical fonts and rows so it remains readable after a wide
-        # tablet is uniformly fitted to A4. Every track uses one common band.
         tablet.set_annotation_print_mode(True)
         annotation_print_enabled = True
         for item in rendered:
             item.widget.set_print_mode(True)
+        curve_style_states = _activate_print_curve_styles(rendered)
         print_header_band = max(
             item.widget.natural_curve_header_height for item in rendered
         )
@@ -189,10 +234,6 @@ def capture_tablet_print_snapshot(
         )
 
         if target_content_height is not None:
-            # The planner already resolved an exact hidden viewport that keeps
-            # logical pixels per depth/time unit identical on every page. A
-            # former 240 px minimum enlarged the first page beyond its physical
-            # A4 band and forced QPainter to choose a different vertical scale.
             minimum_height = header_height + 1
             desired_height = max(minimum_height, int(target_content_height))
             for _attempt in range(3):
@@ -217,9 +258,6 @@ def capture_tablet_print_snapshot(
         def build_layout(measured_header_height: int) -> AdaptiveColumnLayout:
             if not fit_columns:
                 return original_column_layout(definitions)
-            # The paper ratio describes the printable graph body, not the body
-            # plus the visible curve header. Including the header makes the
-            # layout too wide and leaves blank bands on continuation pages.
             canonical_body_height = max(
                 1,
                 canonical_layout_height - measured_header_height,
@@ -248,9 +286,6 @@ def capture_tablet_print_snapshot(
                 )
                 overlay.set_print_suppressed(not print_grid)
 
-        # Header widgets can change height after responsive column widths are
-        # applied. Iterate to a stable layout so source and target aspect ratios
-        # remain identical on first, continuation and repeated-header pages.
         for _attempt in range(3):
             for item, width in zip(rendered, layout.widths, strict=True):
                 item.widget.set_track_width(width)
@@ -288,12 +323,11 @@ def capture_tablet_print_snapshot(
             pixmap.fill(Qt.GlobalColor.white)
             painter = QPainter(pixmap)
             try:
+                painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+                painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
+                painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
                 painter.scale(raster_scale, raster_scale)
                 item.widget.render(painter, QPoint())
-                # The professional annotation layer is a tablet-wide overlay,
-                # not a child of an individual PyQtGraph column. Paint the
-                # corresponding clipped portion into every column snapshot so
-                # screen, PDF and physical print keep the same geometry.
                 tablet.paint_annotations_for_track(item.definition.track_id, painter)
             finally:
                 painter.end()
@@ -303,6 +337,7 @@ def capture_tablet_print_snapshot(
                 )
             pixmaps.append(pixmap)
     finally:
+        _restore_print_curve_styles(curve_style_states)
         for overlay, print_mode, print_suppressed in reversed(grid_states):
             overlay.set_print_mode(print_mode)
             overlay.set_print_suppressed(print_suppressed)
@@ -353,11 +388,6 @@ def paint_tablet_snapshot(
     if scale_mode is PrintScaleMode.FIT:
         horizontal_scale = page.width() / snapshot.layout.total_width
         vertical_scale = page.height() / logical_content_height
-        # Width is the canonical scale for the complete document. Real user
-        # forms can nevertheless gain a few logical pixels after Qt resolves
-        # wrapped titles and enlarged print headers. In that case the renderer
-        # must not abort the whole PDF: use a bounded uniform fallback so all
-        # columns remain visible and a valid document is still produced.
         scale = horizontal_scale
         rendered_width = snapshot.layout.total_width * scale
         rendered_height = logical_content_height * scale
@@ -366,14 +396,15 @@ def paint_tablet_snapshot(
             rendered_width = snapshot.layout.total_width * scale
             rendered_height = logical_content_height * scale
         x = page.left() + (page.width() - rendered_width) / 2.0
-        # Top alignment preserves the canonical density whenever the planned
-        # geometry fits and leaves unused space only below a partial last page.
         y = page.top()
         if fill_height and rendered_height < page.height():
             y += (page.height() - rendered_height) / 2.0
 
         painter.save()
         try:
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+            painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
+            painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
             painter.fillRect(page, Qt.GlobalColor.white)
             painter.setClipRect(page)
             for pixmap, logical_width in zip(
@@ -417,6 +448,9 @@ def paint_tablet_snapshot(
 
     painter.save()
     try:
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
         painter.fillRect(page, Qt.GlobalColor.white)
         painter.setClipRect(page)
         source_x = 0.0
@@ -467,6 +501,9 @@ def paint_tablet_header_repeat(
 
     painter.save()
     try:
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
         painter.fillRect(page, Qt.GlobalColor.white)
         painter.setClipRect(page)
         if scale_mode is PrintScaleMode.FIT:
@@ -541,4 +578,3 @@ def paint_tablet_header_repeat(
         )
     finally:
         painter.restore()
-

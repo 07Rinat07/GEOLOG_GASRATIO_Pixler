@@ -37,14 +37,43 @@ _GAS_CURVE_EXACT_IDS = frozenset(
     }
 )
 
+_DERIVED_GAS_CURVE_EXACT_IDS = frozenset(
+    {
+        "C1_C2",
+        "C1_C3",
+        "C2_C3",
+        "C1_C2C3",
+        "C1_C4",
+        "C1_C5",
+        "WH",
+        "BH",
+        "CH",
+        "WETNESS",
+        "BALANCE",
+        "CHARACTER",
+        "IC4_NC4",
+        "IC5_NC5",
+    }
+)
 
-def is_gas_curve_id(curve_id: Hashable) -> bool:
-    """Return whether a rendered curve uses the sparse gas policy."""
 
+def _normalized_curve_token(curve_id: Hashable) -> str:
     token = str(curve_id).strip().upper().replace("-", "_")
-    token = token.rsplit(":", 1)[-1]
+    return token.rsplit(":", 1)[-1]
+
+
+def is_derived_gas_curve_id(curve_id: Hashable) -> bool:
+    """Return whether a curve is calculated from sparse gas updates.
+
+    Ratio, Haworth and Pixler channels are event-like derived series. Their
+    intermediate NULL rows are not acquisition outages and must not fragment a
+    normal finite sequence into isolated points. Real long axis outages remain
+    explicit breaks after sparse-update sampling.
+    """
+
+    token = _normalized_curve_token(curve_id)
     return (
-        token in _GAS_CURVE_EXACT_IDS
+        token in _DERIVED_GAS_CURVE_EXACT_IDS
         or token.startswith("PIXLER_")
         or token.endswith("_REL")
         or token.endswith("_NORM")
@@ -52,12 +81,19 @@ def is_gas_curve_id(curve_id: Hashable) -> bool:
     )
 
 
+def is_gas_curve_id(curve_id: Hashable) -> bool:
+    """Return whether a rendered curve uses a gas continuity policy."""
+
+    token = _normalized_curve_token(curve_id)
+    return token in _GAS_CURVE_EXACT_IDS or is_derived_gas_curve_id(token)
+
+
 def _bridges_sparse_time_updates(axis_id: Hashable) -> bool:
     """Return whether a GeoScape/Paradox time axis uses sparse channel updates.
 
     GeoScape writes a common time row while individual channels can remain NULL
-    until their next update.  Those NULL rows are not an acquisition outage and
-    must not fragment every curve on a time-based form.  The importer owns these
+    until their next update. Those NULL rows are not an acquisition outage and
+    must not fragment every curve on a time-based form. The importer owns these
     stable index-id suffixes, so depth/LAS axes retain the normal NULL-gap policy.
     """
 
@@ -127,6 +163,8 @@ class CurveGeometryCache:
 
         self._misses += 1
         gas_curve = is_gas_curve_id(key.curve_id)
+        derived_gas_curve = is_derived_gas_curve_id(key.curve_id)
+        sparse_time_axis = _bridges_sparse_time_updates(key.axis_id)
         sampled_values, sampled_axis = select_visible_samples(
             axis,
             values,
@@ -135,8 +173,8 @@ class CurveGeometryCache:
             max_points=key.max_points,
             positive_values_only=key.positive_values_only,
             include_viewport_context=gas_curve,
-            bridge_sparse_updates=_bridges_sparse_time_updates(key.axis_id),
-            bridge_short_gaps=gas_curve,
+            bridge_sparse_updates=sparse_time_axis or derived_gas_curve,
+            bridge_short_gaps=gas_curve and not derived_gas_curve,
         )
         # Prevent accidental mutation of cached geometry by callers.
         sampled_values.setflags(write=False)

@@ -25,15 +25,17 @@ class PageRenderError(RuntimeError):
     pass
 
 
-def _print_page_aspect_ratio(painter: QPainter, content_rect: QRectF) -> float:
-    """Return a page-stable aspect ratio for adaptive tablet column widths.
+_MIN_HIGH_QUALITY_RASTER_SCALE = 2.5
 
-    ``content_rect`` is shorter on the first page because the full report header
-    is present there, and taller on continuation pages.  Deriving column widths
-    from that changing rectangle makes every page use a different horizontal
-    scale.  The paint device represents the same physical sheet for all pages,
-    so its aspect ratio is the stable layout contract.
-    """
+
+def _tablet_raster_scale(requested_scale: float, *, high_quality: bool) -> float:
+    if not high_quality:
+        return 1.0
+    return min(4.0, max(_MIN_HIGH_QUALITY_RASTER_SCALE, float(requested_scale)))
+
+
+def _print_page_aspect_ratio(painter: QPainter, content_rect: QRectF) -> float:
+    """Return a page-stable aspect ratio for adaptive tablet column widths."""
 
     device = painter.device()
     if device is not None:
@@ -72,11 +74,18 @@ def paint_widget_page(
 
     painter.save()
     try:
+        if high_quality:
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+            painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
+            painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
         painter.fillRect(content_rect, Qt.GlobalColor.white)
         if isinstance(widget, TabletView) and widget.printable_tracks():
             effective_height = target_content_height or height
             requested_scale = content_rect.height() / max(1, effective_height)
-            raster_scale = min(4.0, max(1.0, requested_scale)) if high_quality else 1.0
+            raster_scale = _tablet_raster_scale(
+                requested_scale,
+                high_quality=high_quality,
+            )
             try:
                 snapshot = capture_tablet_print_snapshot(
                     widget,
@@ -110,9 +119,6 @@ def paint_widget_page(
                         snapshot,
                         scale_mode=scale_mode,
                         continuation=continuation,
-                        # Middle pages must keep the same bounded uniform scale
-                        # as the first and last pages.  Height-only filling clips
-                        # the depth column on wide forms.
                         fill_height=False,
                         show_column_header=show_column_header,
                     )
