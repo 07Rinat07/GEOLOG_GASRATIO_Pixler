@@ -1,0 +1,10 @@
+phase=patch
+--- gas-continuity-output.txt ---
+Traceback (most recent call last):
+  File "D:\a\GEOLOG_GASRATIO_Pixler\GEOLOG_GASRATIO_Pixler\tools\_integrate_gas_continuity_policy.py", line 742, in <module>
+    main()
+  File "D:\a\GEOLOG_GASRATIO_Pixler\GEOLOG_GASRATIO_Pixler\tools\_integrate_gas_continuity_policy.py", line 738, in main
+    update_docs()
+  File "D:\a\GEOLOG_GASRATIO_Pixler\GEOLOG_GASRATIO_Pixler\tools\_integrate_gas_continuity_policy.py", line 716, in update_docs
+    raise RuntimeError("TESTING.md final section anchor not found")
+RuntimeError: TESTING.md final section anchor not found
