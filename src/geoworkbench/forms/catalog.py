@@ -5,7 +5,7 @@ from geoworkbench.forms.a4_factory_templates import (
     A4_FACTORY_TEMPLATE_IDS,
     a4_factory_templates,
 )
-from geoworkbench.forms.models import FormDocument
+from geoworkbench.forms.models import FormDocument, FormPageOrientation
 from geoworkbench.forms.repository import FormRepository
 
 # Legacy factory IDs remain resolvable through ``factory_templates`` for old
@@ -45,6 +45,12 @@ def visible_factory_forms(
 
     del dataset  # Canonical A4 forms are intentionally stable across datasets.
     forms = a4_factory_templates(language)
+    for form_id, form in forms.items():
+        form.preferred_page_orientation = (
+            FormPageOrientation.LANDSCAPE
+            if form_id.endswith("-landscape")
+            else FormPageOrientation.PORTRAIT
+        )
     return tuple(forms[form_id] for form_id in A4_FACTORY_TEMPLATE_IDS)
 
 
