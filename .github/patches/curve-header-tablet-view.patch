@@ -1,0 +1,318 @@
+diff --git a/src/geoworkbench/tablet/tablet_view.py b/src/geoworkbench/tablet/tablet_view.py
+index 3e10743..a4f680b 100644
+--- a/src/geoworkbench/tablet/tablet_view.py
++++ b/src/geoworkbench/tablet/tablet_view.py
+@@ -129,6 +129,7 @@ from geoworkbench.tablet.grid_geometry import (
+ from geoworkbench.tablet.header_geometry import (
+     CURVE_HEADER_BOTTOM_CLEARANCE,
+     CURVE_HEADER_MAX_VISIBLE_ROWS,
++    CURVE_HEADER_PRINT_ROW_HEIGHT,
+     CURVE_HEADER_ROW_HEIGHT,
+     align_curve_header_band_height,
+     curve_header_content_height,
+@@ -474,16 +475,33 @@ class CurveHeaderLabel(QLabel):
+         self._curve_color = curve_color
+         self._text_color = text_color
+         self._line_color = line_color or curve_color
++        self._selected = False
++        self._print_mode = False
+         self.set_selected(False)
+ 
++    def set_print_mode(self, enabled: bool) -> None:
++        self._print_mode = bool(enabled)
++        self.setFixedHeight(
++            CURVE_HEADER_PRINT_ROW_HEIGHT
++            if self._print_mode
++            else CURVE_HEADER_LABEL_HEIGHT
++        )
++        self.set_selected(self._selected)
++
+     def set_selected(self, selected: bool) -> None:
++        self._selected = bool(selected)
+         background = "#dbeafe" if selected else "#ffffff"
+         border = "#2563eb" if selected else "#e2e8f0"
++        font_size = 16 if self._print_mode else 9
++        horizontal_padding = 5 if self._print_mode else 3
++        vertical_padding = 2 if self._print_mode else 1
++        border_width = 6 if self._print_mode else 5
+         self.setStyleSheet(
+             f"QLabel {{ background: {background}; color: {self._text_color}; "
+-            f"border-left: 5px solid {self._curve_color}; "
++            f"border-left: {border_width}px solid {self._curve_color}; "
+             f"border-bottom: 2px solid {self._line_color if not selected else border}; "
+-            "padding: 1px 3px; font-size: 9px; font-weight: 600; } "
++            f"padding: {vertical_padding}px {horizontal_padding}px; "
++            f"font-size: {font_size}px; font-weight: 600; }} "
+             "QLabel:hover { background: #eff6ff; }"
+         )
+ 
+@@ -559,11 +577,17 @@ class CurveScaleRuler(QWidget):
+         self._major_divisions = max(1, int(major_divisions))
+         self._minor_divisions = max(1, int(minor_divisions))
+         self._line_color = line_color
++        self._print_mode = False
+         self.setMinimumWidth(0)
+         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+         self.setFixedHeight(28)
+         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+ 
++    def set_print_mode(self, enabled: bool) -> None:
++        self._print_mode = bool(enabled)
++        self.setFixedHeight(48 if self._print_mode else 28)
++        self.update()
++
+     def set_values(
+         self, minimum: float, maximum: float, scale: XScale, unit: str | None = None
+     ) -> None:
+@@ -597,7 +621,7 @@ class CurveScaleRuler(QWidget):
+         painter.drawRect(rect)
+ 
+         caption_font = painter.font()
+-        caption_font.setPixelSize(8)
++        caption_font.setPixelSize(16 if self._print_mode else 8)
+         caption_font.setBold(True)
+         painter.setFont(caption_font)
+         painter.setPen(QPen(QColor("#0f172a"), 1.0))
+@@ -613,12 +637,12 @@ class CurveScaleRuler(QWidget):
+             rect.left() + 2,
+             rect.top(),
+             max(1, rect.width() - 4),
+-            9,
++            18 if self._print_mode else 9,
+             Qt.AlignmentFlag.AlignCenter,
+             caption,
+         )
+ 
+-        baseline = rect.top() + 9
++        baseline = rect.top() + (18 if self._print_mode else 9)
+         # A dark under-stroke guarantees visibility; the configured curve hue
+         # remains visible as the thinner foreground stroke.
+         painter.setPen(QPen(QColor("#334155"), 3.0))
+@@ -627,7 +651,7 @@ class CurveScaleRuler(QWidget):
+         painter.drawLine(rect.left() + 1, baseline, rect.right() - 1, baseline)
+ 
+         value_font = painter.font()
+-        value_font.setPixelSize(8)
++        value_font.setPixelSize(14 if self._print_mode else 8)
+         value_font.setBold(True)
+         painter.setFont(value_font)
+         metrics = painter.fontMetrics()
+@@ -638,7 +662,9 @@ class CurveScaleRuler(QWidget):
+ 
+         for line in lines:
+             x = rect.left() + round(rect.width() * line.fraction)
+-            tick = 6 if line.major else 3
++            tick = (
++                10 if line.major else 5
++            ) if self._print_mode else (6 if line.major else 3)
+             painter.setPen(tick_pen)
+             painter.drawLine(x, baseline, x, baseline + tick)
+ 
+@@ -680,16 +706,17 @@ class CurveScaleRuler(QWidget):
+                 left = max(rect.left() + 1, min(x - width // 2, rect.right() - width - 1))
+             interval = (left, left + width)
+             if line.fraction not in (0.0, 1.0) and any(
+-                interval[0] <= right + 3 and interval[1] >= left_used - 3
++                interval[0] <= right + (5 if self._print_mode else 3)
++                and interval[1] >= left_used - (5 if self._print_mode else 3)
+                 for left_used, right in occupied
+             ):
+                 continue
+             painter.setPen(text_pen)
+             painter.drawText(
+                 left,
+-                baseline + 7,
++                baseline + (11 if self._print_mode else 7),
+                 width,
+-                max(1, rect.bottom() - baseline - 6),
++                max(1, rect.bottom() - baseline - (10 if self._print_mode else 6)),
+                 Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop,
+                 label,
+             )
+@@ -735,6 +762,7 @@ class CurveHeaderEditor(QFrame):
+         self._scale = spec.scale
+         self._disposed = False
+         self._loading = True
++        self._print_mode = False
+         self.setFixedHeight(CURVE_HEADER_EDITOR_HEIGHT)
+         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+         self.setToolTip(
+@@ -756,13 +784,13 @@ class CurveHeaderEditor(QFrame):
+         self.minimum.setToolTip(spec.apply_range_tooltip)
+         self.maximum.setToolTip(spec.apply_range_tooltip)
+         range_row.addWidget(self.minimum, 1)
+-        separator = QLabel("—")
+-        separator.setAlignment(Qt.AlignmentFlag.AlignCenter)
+-        separator.setFixedWidth(6)
+-        separator.setStyleSheet(
++        self.separator = QLabel("—")
++        self.separator.setAlignment(Qt.AlignmentFlag.AlignCenter)
++        self.separator.setFixedWidth(6)
++        self.separator.setStyleSheet(
+             f"background:transparent; color:{self._line_color}; font-size:8px;"
+         )
+-        range_row.addWidget(separator)
++        range_row.addWidget(self.separator)
+ 
+         self.unit = QLineEdit(spec.unit)
+         self.unit.setMaxLength(40)
+@@ -857,9 +885,50 @@ class CurveHeaderEditor(QFrame):
+         self.set_selected(False)
+ 
+     def set_print_mode(self, enabled: bool) -> None:
+-        """Remove editor-only actions from the paper header."""
++        """Render a physically readable engineering header on paper."""
++
++        self._print_mode = bool(enabled)
++        self.action_strip.setVisible(not self._print_mode)
++        row_height = (
++            CURVE_HEADER_PRINT_ROW_HEIGHT
++            if self._print_mode
++            else CURVE_HEADER_EDITOR_HEIGHT
++        )
++        control_height = 24 if self._print_mode else 14
++        font_size = 14 if self._print_mode else 8
++        self.setFixedHeight(row_height)
++        self.minimum.setFixedHeight(control_height)
++        self.maximum.setFixedHeight(control_height)
++        self.unit.setFixedHeight(control_height)
++        self.separator.setFixedWidth(10 if self._print_mode else 6)
++        self.separator.setStyleSheet(
++            f"background:transparent; color:{self._line_color}; "
++            f"font-size:{font_size}px; font-weight:600;"
++        )
++        self.unit.setStyleSheet(
++            "QLineEdit {background:transparent; color:#334155; border:0; "
++            "border-bottom:1px solid #94a3b8; padding:0 1px; "
++            f"font-size:{font_size}px; font-weight:600;}} "
++            "QLineEdit:focus {background:#ffffff; border:1px solid #2563eb;}"
++        )
++        self._apply_spin_style(
++            self.minimum.value() >= self.maximum.value()
++            or (self._scale is XScale.LOGARITHMIC and self.minimum.value() <= 0)
++        )
++        self.ruler.set_print_mode(self._print_mode)
+ 
+-        self.action_strip.setVisible(not bool(enabled))
++    def _apply_spin_style(self, invalid: bool) -> None:
++        font_size = 14 if self._print_mode else 8
++        if invalid:
++            background, color, border = "#fee2e2", "#991b1b", "#dc2626"
++        else:
++            background, color, border = "#ffffff", "#111827", "#64748b"
++        self.minimum.setStyleSheet(
++            f"QDoubleSpinBox {{background:{background}; color:{color}; "
++            f"border:1px solid {border}; border-radius:1px; "
++            f"font-size:{font_size}px; font-weight:600; padding:0;}}"
++        )
++        self.maximum.setStyleSheet(self.minimum.styleSheet())
+ 
+     def dispose(self) -> None:
+         """Stop deferred editor work before Qt destroys the header widget.
+@@ -1011,19 +1080,9 @@ class CurveHeaderEditor(QFrame):
+         invalid = minimum >= maximum or (scale is XScale.LOGARITHMIC and minimum <= 0)
+         if invalid:
+             self.setToolTip(self._invalid_range_message)
+-            invalid_style = (
+-                "QDoubleSpinBox {background:#fee2e2; color:#991b1b; "
+-                "border:1px solid #dc2626; font-size:9px;}"
+-            )
+-            self.minimum.setStyleSheet(invalid_style)
+-            self.maximum.setStyleSheet(invalid_style)
++            self._apply_spin_style(True)
+             return
+-        normal_style = (
+-            "QDoubleSpinBox {background:#ffffff; color:#111827; border:1px solid #64748b; "
+-            "border-radius:2px; font-size:9px; font-weight:600; padding:0 1px;}"
+-        )
+-        self.minimum.setStyleSheet(normal_style)
+-        self.maximum.setStyleSheet(normal_style)
++        self._apply_spin_style(False)
+         self.ruler.set_values(minimum, maximum, scale, self.unit.text().strip())
+         self.range_changed.emit(self.mnemonic, minimum, maximum)
+ 
+@@ -1102,6 +1161,7 @@ class TabletTrackWidget(QFrame):
+         self._header_dragging = False
+         self._curve_header_labels: dict[str, CurveHeaderLabel | CurveHeaderEditor] = {}
+         self._natural_curve_header_height = 0
++        self._curve_header_row_height = CURVE_HEADER_EDITOR_HEIGHT
+         self.setObjectName(f"track-{definition.track_id}")
+         self.setFrameShape(QFrame.Shape.StyledPanel)
+         self.setStyleSheet(
+@@ -1325,12 +1385,12 @@ class TabletTrackWidget(QFrame):
+         # depth ranges are identical.
+         content_height = curve_header_content_height(
+             len(rows),
+-            row_height=CURVE_HEADER_EDITOR_HEIGHT,
++            row_height=self._curve_header_row_height,
+             bottom_clearance=CURVE_HEADER_BOTTOM_CLEARANCE,
+         )
+         self._natural_curve_header_height = curve_header_viewport_height(
+             len(rows),
+-            row_height=CURVE_HEADER_EDITOR_HEIGHT,
++            row_height=self._curve_header_row_height,
+             max_visible_rows=CURVE_HEADER_MAX_VISIBLE_ROWS,
+         )
+         self.curve_header.setFixedHeight(content_height)
+@@ -1359,6 +1419,14 @@ class TabletTrackWidget(QFrame):
+     def natural_curve_header_height(self) -> int:
+         return self._natural_curve_header_height
+ 
++    @property
++    def print_curve_header_height(self) -> int:
++        return curve_header_viewport_height(
++            len(self._curve_header_labels),
++            row_height=CURVE_HEADER_PRINT_ROW_HEIGHT,
++            max_visible_rows=CURVE_HEADER_MAX_VISIBLE_ROWS,
++        )
++
+     def set_synchronized_header_height(self, height: int) -> None:
+         """Reserve one common band while keeping local parameters top-packed.
+ 
+@@ -1369,7 +1437,7 @@ class TabletTrackWidget(QFrame):
+         """
+ 
+         normalized = align_curve_header_band_height(
+-            height, row_height=CURVE_HEADER_EDITOR_HEIGHT
++            height, row_height=self._curve_header_row_height
+         )
+         self.curve_header_scroll.setVisible(normalized > 0)
+         self.curve_header_scroll.setMinimumHeight(normalized)
+@@ -1377,16 +1445,34 @@ class TabletTrackWidget(QFrame):
+         self.curve_header_scroll.setFixedHeight(normalized)
+ 
+     def set_print_mode(self, enabled: bool) -> None:
+-        """Render a clean curve legend without scrollbars or action buttons."""
++        """Render a clean, enlarged curve legend for paper output."""
+ 
++        enabled = bool(enabled)
++        self._curve_header_row_height = (
++            CURVE_HEADER_PRINT_ROW_HEIGHT
++            if enabled
++            else CURVE_HEADER_EDITOR_HEIGHT
++        )
+         self.curve_header_scroll.setVerticalScrollBarPolicy(
+             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+             if enabled
+             else Qt.ScrollBarPolicy.ScrollBarAsNeeded
+         )
+         for label in self._curve_header_labels.values():
+-            if isinstance(label, CurveHeaderEditor):
+-                label.set_print_mode(enabled)
++            label.set_print_mode(enabled)
++        rows = len(self._curve_header_labels)
++        content_height = curve_header_content_height(
++            rows,
++            row_height=self._curve_header_row_height,
++            bottom_clearance=CURVE_HEADER_BOTTOM_CLEARANCE,
++        )
++        self._natural_curve_header_height = curve_header_viewport_height(
++            rows,
++            row_height=self._curve_header_row_height,
++            max_visible_rows=CURVE_HEADER_MAX_VISIBLE_ROWS,
++        )
++        self.curve_header.setFixedHeight(content_height)
++        self.set_synchronized_header_height(self._natural_curve_header_height)
+ 
+     def update_curve_header_range(
+         self, mnemonic: str, minimum: float, maximum: float, scale: XScale, unit: str
