@@ -1,0 +1,147 @@
+name: Apply complex gas release contract
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - synchronize
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/complex-gas-form
+          fetch-depth: 0
+
+      - name: Update factory catalog contracts
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace_once(path: Path, old: str, new: str, label: str) -> None:
+              text = path.read_text(encoding="utf-8")
+              count = text.count(old)
+              if count != 1:
+                  raise RuntimeError(f"{label}: expected one anchor, found {count}")
+              path.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          replace_once(
+              Path("tests/test_form_catalog_consistency_0766.py"),
+              '    assert len(forms) == 6\n',
+              '    assert len(forms) == 7\n',
+              "visible factory count",
+          )
+          replace_once(
+              Path("tests/test_form_catalog_consistency_0766.py"),
+              '    assert "factory-gas-ratio-pixler-depth" in ids\n',
+              '    assert "factory-gas-ratio-pixler-depth" in ids\n'
+              '    assert "factory-complex-gas-analysis" in ids\n',
+              "visible complex form id",
+          )
+
+          replace_once(
+              Path("tests/test_form_engine_models.py"),
+              '    assert len(templates) == 19\n',
+              '    assert len(templates) == 20\n',
+              "complete factory count",
+          )
+          replace_once(
+              Path("tests/test_form_engine_models.py"),
+              'def test_every_factory_form_binding_is_linear_by_default() -> None:\n'
+              '    for form in factory_templates().values():\n'
+              '        for column in form.columns:\n'
+              '            for track in column.tracks:\n'
+              '                assert all(binding.x_scale.value == "linear" for binding in track.bindings)\n',
+              'def test_factory_form_non_linear_scales_are_limited_to_complex_gas_ratios() -> None:\n'
+              '    non_linear = {\n'
+              '        (form.form_id, binding.canonical_parameter_id)\n'
+              '        for form in factory_templates().values()\n'
+              '        for column in form.columns\n'
+              '        for track in column.tracks\n'
+              '        for binding in track.bindings\n'
+              '        if binding.x_scale.value != "linear"\n'
+              '    }\n'
+              '\n'
+              '    assert non_linear == {\n'
+              '        ("factory-complex-gas-analysis", "BALANCE"),\n'
+              '        ("factory-complex-gas-analysis", "CHARACTER"),\n'
+              '        ("factory-complex-gas-analysis", "IC4_NC4"),\n'
+              '        ("factory-complex-gas-analysis", "IC5_NC5"),\n'
+              '        ("factory-complex-gas-analysis", "PIXLER_C1_C2"),\n'
+              '        ("factory-complex-gas-analysis", "PIXLER_C1_C3"),\n'
+              '        ("factory-complex-gas-analysis", "PIXLER_C1_C4"),\n'
+              '        ("factory-complex-gas-analysis", "PIXLER_C1_C5"),\n'
+              '    }\n',
+              "documented logarithmic scale contract",
+          )
+
+          replace_once(
+              Path("tests/test_form_library_visibility_078.py"),
+              '            "Заводские формы — глубина  (4)",\n',
+              '            "Заводские формы — глубина  (5)",\n',
+              "visible depth form count",
+          )
+          replace_once(
+              Path("tests/test_form_library_visibility_078.py"),
+              '        assert any("Gas Ratio & Pixler" in name for name in factory_names)\n',
+              '        assert any("Gas Ratio & Pixler" in name for name in factory_names)\n'
+              '        assert any("Комплексная газовая форма" in name for name in factory_names)\n',
+              "visible complex form name",
+          )
+
+          replace_once(
+              Path("tests/test_geodata_depth_workspace.py"),
+              '        "factory-gas-ratio-pixler-depth",\n'
+              '        "factory-lithology-cuttings",\n',
+              '        "factory-gas-ratio-pixler-depth",\n'
+              '        "factory-complex-gas-analysis",\n'
+              '        "factory-lithology-cuttings",\n',
+              "curated factory tuple",
+          )
+
+          Path(".github/workflows/apply-complex-gas-release-contract.yml").unlink()
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install package and test tools
+        run: python -m pip install -e ".[dev]"
+
+      - name: Run affected tests
+        run: |
+          python -m ruff check \
+            tests/test_form_catalog_consistency_0766.py \
+            tests/test_form_engine_models.py \
+            tests/test_form_library_visibility_078.py \
+            tests/test_geodata_depth_workspace.py \
+            tests/test_complex_gas_form.py
+          python -m pytest -q \
+            tests/test_form_catalog_consistency_0766.py \
+            tests/test_form_engine_models.py \
+            tests/test_form_library_visibility_078.py \
+            tests/test_geodata_depth_workspace.py \
+            tests/test_complex_gas_form.py
+
+      - name: Commit verified release contract
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            tests/test_form_catalog_consistency_0766.py \
+            tests/test_form_engine_models.py \
+            tests/test_form_library_visibility_078.py \
+            tests/test_geodata_depth_workspace.py \
+            .github/workflows/apply-complex-gas-release-contract.yml
+          git commit -m "test: update complete gas form catalog contract [complex-gas-release]"
+          git push origin HEAD:feature/complex-gas-form
