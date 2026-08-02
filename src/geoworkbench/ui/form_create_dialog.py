@@ -18,7 +18,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from geoworkbench.forms.models import FormAxisKind, FormDocument
+from geoworkbench.forms.models import (
+    FormAxisKind,
+    FormDocument,
+    FormPageOrientation,
+)
 from geoworkbench.forms.naming import clean_form_name, normalized_form_name
 
 
@@ -41,6 +45,8 @@ class FormCreateDialog(QDialog):
         initial_name: str = "",
         initial_axis_kind: FormAxisKind = FormAxisKind.DEPTH,
         axis_editable: bool = True,
+        initial_page_orientation: FormPageOrientation = FormPageOrientation.PORTRAIT,
+        page_orientation_editable: bool = True,
     ) -> None:
         super().__init__(parent)
         if mode not in {"create", "save"}:
@@ -50,6 +56,7 @@ class FormCreateDialog(QDialog):
         self.mode = mode
         self._name = ""
         self._axis_kind = initial_axis_kind
+        self._page_orientation = initial_page_orientation
         self._existing_form: FormDocument | None = None
 
         self.setWindowTitle(
@@ -227,6 +234,34 @@ class FormCreateDialog(QDialog):
             self._text("Вертикальная ось:", "Тік ось:", "Vertical axis:"),
             self.axis_combo,
         )
+
+        self.page_orientation_combo = QComboBox(input_box)
+        self.page_orientation_combo.setObjectName("form-page-orientation")
+        self.page_orientation_combo.addItem(
+            self._text("A4 — книжная", "A4 — кітаптық", "A4 — portrait"),
+            FormPageOrientation.PORTRAIT.value,
+        )
+        self.page_orientation_combo.addItem(
+            self._text("A4 — альбомная", "A4 — альбомдық", "A4 — landscape"),
+            FormPageOrientation.LANDSCAPE.value,
+        )
+        orientation_index = self.page_orientation_combo.findData(
+            initial_page_orientation.value
+        )
+        self.page_orientation_combo.setCurrentIndex(max(0, orientation_index))
+        self.page_orientation_combo.setEnabled(page_orientation_editable)
+        self.page_orientation_combo.currentIndexChanged.connect(self._validate)
+        self.page_orientation_combo.setToolTip(
+            self._text(
+                "Целевая ширина конструктора. Редактор предупредит, если колонки не помещаются, и предложит автоподбор.",
+                "Конструктордың мақсатты ені. Бағандар сыймаса, редактор ескертіп, автотаңдауды ұсынады.",
+                "Target constructor width. The editor warns when columns overflow and offers automatic fitting.",
+            )
+        )
+        input_layout.addRow(
+            self._text("Формат формы:", "Пішін форматы:", "Form format:"),
+            self.page_orientation_combo,
+        )
         root.addWidget(input_box)
 
         self.validation_label = QLabel(self)
@@ -267,6 +302,10 @@ class FormCreateDialog(QDialog):
     @property
     def axis_kind(self) -> FormAxisKind:
         return self._axis_kind
+
+    @property
+    def page_orientation(self) -> FormPageOrientation:
+        return self._page_orientation
 
     @property
     def existing_form(self) -> FormDocument | None:
@@ -499,4 +538,9 @@ class FormCreateDialog(QDialog):
             self._axis_kind = FormAxisKind(str(data))
         except ValueError:
             self._axis_kind = FormAxisKind.DEPTH
+        orientation = self.page_orientation_combo.currentData()
+        try:
+            self._page_orientation = FormPageOrientation(str(orientation))
+        except ValueError:
+            self._page_orientation = FormPageOrientation.PORTRAIT
         self.accept()
