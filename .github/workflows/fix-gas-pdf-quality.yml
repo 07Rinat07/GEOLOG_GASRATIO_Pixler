@@ -1,0 +1,472 @@
+name: Verify gas continuity and PDF quality fix
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/fix-gas-pdf-quality.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fix-gas-pdf-quality-main
+  cancel-in-progress: false
+
+jobs:
+  apply-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PYTHONUTF8: "1"
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Apply guarded product patch
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              target = Path(path)
+              text = target.read_text(encoding="utf-8")
+              count = text.count(old)
+              if count != 1:
+                  raise RuntimeError(f"{path}: expected one match, found {count}")
+              target.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          replace_once(
+              "tests/test_tablet_layout.py",
+              '    assert layout_to_dict(restored)["version"] == 21\n',
+              '    assert layout_to_dict(restored)["version"] == 22\n',
+          )
+
+          replace_once(
+              "src/geoworkbench/tablet/geometry_cache.py",
+              r'''def is_gas_curve_id(curve_id: Hashable) -> bool:
+              """Return whether a rendered curve uses the sparse gas policy."""
+
+              token = str(curve_id).strip().upper().replace("-", "_")
+              token = token.rsplit(":", 1)[-1]
+              return (
+                  token in _GAS_CURVE_EXACT_IDS
+                  or token.startswith("PIXLER_")
+                  or token.endswith("_REL")
+                  or token.endswith("_NORM")
+                  or token.endswith("_NORM_REF")
+              )
+'''.replace("              ", ""),
+              r'''_DERIVED_GAS_CURVE_EXACT_IDS = frozenset(
+                  {
+                      "C1_C2",
+                      "C1_C3",
+                      "C2_C3",
+                      "C1_C2C3",
+                      "C1_C4",
+                      "C1_C5",
+                      "WH",
+                      "BH",
+                      "CH",
+                      "WETNESS",
+                      "BALANCE",
+                      "CHARACTER",
+                      "IC4_NC4",
+                      "IC5_NC5",
+                  }
+              )
+
+
+              def _normalized_curve_token(curve_id: Hashable) -> str:
+                  token = str(curve_id).strip().upper().replace("-", "_")
+                  return token.rsplit(":", 1)[-1]
+
+
+              def is_derived_gas_curve_id(curve_id: Hashable) -> bool:
+                  """Return whether a curve is calculated from gas components.
+
+                  Derived ratios often contain NULL rows between valid updates even
+                  though the shared depth axis is continuous. They therefore use a
+                  finite-update cadence policy rather than the raw-channel NULL policy.
+                  """
+
+                  token = _normalized_curve_token(curve_id)
+                  return (
+                      token in _DERIVED_GAS_CURVE_EXACT_IDS
+                      or token.startswith("PIXLER_")
+                      or token.endswith("_REL")
+                      or token.endswith("_NORM")
+                      or token.endswith("_NORM_REF")
+                  )
+
+
+              def is_gas_curve_id(curve_id: Hashable) -> bool:
+                  """Return whether a rendered curve uses a gas continuity policy."""
+
+                  token = _normalized_curve_token(curve_id)
+                  return token in _GAS_CURVE_EXACT_IDS or is_derived_gas_curve_id(token)
+'''.replace("              ", ""),
+          )
+
+          replace_once(
+              "src/geoworkbench/tablet/geometry_cache.py",
+              r'''        self._misses += 1
+              gas_curve = is_gas_curve_id(key.curve_id)
+              sampled_values, sampled_axis = select_visible_samples(
+                  axis,
+                  values,
+                  key.top,
+                  key.bottom,
+                  max_points=key.max_points,
+                  positive_values_only=key.positive_values_only,
+                  include_viewport_context=gas_curve,
+                  bridge_sparse_updates=_bridges_sparse_time_updates(key.axis_id),
+                  bridge_short_gaps=gas_curve,
+              )
+'''.replace("              ", ""),
+              r'''        self._misses += 1
+              gas_curve = is_gas_curve_id(key.curve_id)
+              derived_gas_curve = is_derived_gas_curve_id(key.curve_id)
+              sparse_time_axis = _bridges_sparse_time_updates(key.axis_id)
+              sampled_values, sampled_axis = select_visible_samples(
+                  axis,
+                  values,
+                  key.top,
+                  key.bottom,
+                  max_points=key.max_points,
+                  positive_values_only=key.positive_values_only,
+                  include_viewport_context=gas_curve,
+                  # Ratios and Pixler/Haworth outputs are event-like channels:
+                  # NULL rows between finite calculations are not separate curve
+                  # segments. Filtering them first lets the normal finite cadence
+                  # define continuity, while the sampler still inserts a hard NaN
+                  # marker across a real long axis outage.
+                  bridge_sparse_updates=sparse_time_axis or derived_gas_curve,
+                  bridge_short_gaps=gas_curve and not derived_gas_curve,
+              )
+'''.replace("              ", ""),
+          )
+
+          replace_once(
+              "src/geoworkbench/printing/tablet_print.py",
+              "from PySide6.QtCore import QPoint, QRectF, QSize, Qt\nfrom PySide6.QtGui import QPainter, QPixmap\n",
+              "from PySide6.QtCore import QPoint, QRectF, QSize, Qt\nfrom PySide6.QtGui import QPainter, QPixmap, QPen\nimport pyqtgraph as pg\n",
+          )
+          replace_once(
+              "src/geoworkbench/printing/tablet_print.py",
+              "from geoworkbench.tablet.tablet_view import (\n    TabletVerticalAxisItem,\n    TabletView,\n)\n",
+              "from geoworkbench.tablet.models import CurveLineStyle\nfrom geoworkbench.tablet.tablet_view import (\n    RenderedTrack,\n    TabletVerticalAxisItem,\n    TabletView,\n)\n",
+          )
+          replace_once(
+              "src/geoworkbench/printing/tablet_print.py",
+              "_HEADER_GAP_FRACTION = 0.006\n",
+              r'''_HEADER_GAP_FRACTION = 0.006
+              _PRINT_CURVE_MIN_WIDTH = 1.55
+              _PRINT_CURVE_DENSE_MIN_WIDTH = 1.35
+
+
+              @dataclass(slots=True)
+              class _CurvePrintState:
+                  item: pg.PlotDataItem
+                  pen: QPen
+
+
+              def _qt_pen_style(style: CurveLineStyle) -> Qt.PenStyle:
+                  return {
+                      CurveLineStyle.SOLID: Qt.PenStyle.SolidLine,
+                      CurveLineStyle.DASH: Qt.PenStyle.DashLine,
+                      CurveLineStyle.DOT: Qt.PenStyle.DotLine,
+                      CurveLineStyle.DASH_DOT: Qt.PenStyle.DashDotLine,
+                  }[style]
+
+
+              def _print_curve_width(configured_width: float, curve_count: int) -> float:
+                  """Keep configured engineering weight readable after A4 fitting."""
+
+                  minimum = (
+                      _PRINT_CURVE_DENSE_MIN_WIDTH
+                      if max(1, int(curve_count)) >= 5
+                      else _PRINT_CURVE_MIN_WIDTH
+                  )
+                  return min(5.0, max(minimum, float(configured_width)))
+
+
+              def _activate_print_curve_styles(
+                  rendered: tuple[RenderedTrack, ...],
+              ) -> list[_CurvePrintState]:
+                  states: list[_CurvePrintState] = []
+                  for track in rendered:
+                      items = track.curve_items or {}
+                      curve_count = max(1, len(track.definition.curve_mnemonics))
+                      for mnemonic, item in items.items():
+                          current_pen = item.opts.get("pen")
+                          saved_pen = (
+                              QPen(current_pen)
+                              if isinstance(current_pen, QPen)
+                              else QPen(pg.mkPen(current_pen))
+                          )
+                          states.append(_CurvePrintState(item, saved_pen))
+                          style = track.definition.curve_style(mnemonic)
+                          item.setPen(
+                              pg.mkPen(
+                                  style.color,
+                                  width=_print_curve_width(style.width, curve_count),
+                                  style=_qt_pen_style(style.line_style),
+                              )
+                          )
+                  return states
+
+
+              def _restore_print_curve_styles(states: list[_CurvePrintState]) -> None:
+                  for state in reversed(states):
+                      state.item.setPen(state.pen)
+'''.replace("              ", ""),
+          )
+          replace_once(
+              "src/geoworkbench/printing/tablet_print.py",
+              "    pixmaps: list[QPixmap] = []\n    grid_states: list[tuple[TabletGridOverlay, bool, bool]] = []\n",
+              "    pixmaps: list[QPixmap] = []\n    curve_style_states: list[_CurvePrintState] = []\n    grid_states: list[tuple[TabletGridOverlay, bool, bool]] = []\n",
+          )
+          replace_once(
+              "src/geoworkbench/printing/tablet_print.py",
+              "        for item in rendered:\n            item.widget.set_print_mode(True)\n        print_header_band = max(\n",
+              "        for item in rendered:\n            item.widget.set_print_mode(True)\n        curve_style_states = _activate_print_curve_styles(rendered)\n        print_header_band = max(\n",
+          )
+          replace_once(
+              "src/geoworkbench/printing/tablet_print.py",
+              "            painter = QPainter(pixmap)\n            try:\n                painter.scale(raster_scale, raster_scale)\n",
+              "            painter = QPainter(pixmap)\n            try:\n                painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)\n                painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)\n                painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)\n                painter.scale(raster_scale, raster_scale)\n",
+          )
+          replace_once(
+              "src/geoworkbench/printing/tablet_print.py",
+              "    finally:\n        for overlay, print_mode, print_suppressed in reversed(grid_states):\n",
+              "    finally:\n        _restore_print_curve_styles(curve_style_states)\n        for overlay, print_mode, print_suppressed in reversed(grid_states):\n",
+          )
+
+          replace_once(
+              "src/geoworkbench/printing/page_renderer.py",
+              "class PageRenderError(RuntimeError):\n    pass\n\n\n",
+              r'''class PageRenderError(RuntimeError):
+                  pass
+
+
+              _MIN_HIGH_QUALITY_RASTER_SCALE = 2.5
+
+
+              def _tablet_raster_scale(requested_scale: float, *, high_quality: bool) -> float:
+                  if not high_quality:
+                      return 1.0
+                  return min(4.0, max(_MIN_HIGH_QUALITY_RASTER_SCALE, float(requested_scale)))
+
+
+'''.replace("              ", ""),
+          )
+          replace_once(
+              "src/geoworkbench/printing/page_renderer.py",
+              "            raster_scale = min(4.0, max(1.0, requested_scale)) if high_quality else 1.0\n",
+              "            raster_scale = _tablet_raster_scale(\n                requested_scale, high_quality=high_quality\n            )\n",
+          )
+          replace_once(
+              "src/geoworkbench/printing/page_renderer.py",
+              "    painter.save()\n    try:\n        painter.fillRect(content_rect, Qt.GlobalColor.white)\n",
+              "    painter.save()\n    try:\n        if high_quality:\n            painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)\n            painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)\n            painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)\n        painter.fillRect(content_rect, Qt.GlobalColor.white)\n",
+          )
+
+          replace_once(
+              "docs/CHANGELOG.md",
+              "## Unreleased\n\n- Объединены calculation и render continuity rules:",
+              "## Unreleased\n\n- Производные Gas Ratio, Haworth и Pixler теперь используют cadence конечных вычислений: промежуточные NULL-строки не дробят нормальный ряд на точки, а длительные остановки остаются явными разрывами.\n- PDF/печать используют исходные цвета и инженерную толщину кривых, минимум 2,5-кратный высококачественный raster snapshot и сглаживание текста, линий и масштабирования.\n- Объединены calculation и render continuity rules:",
+          )
+
+          Path("tests/test_derived_gas_sparse_continuity.py").write_text(
+              r'''from __future__ import annotations
+
+              import numpy as np
+              import pytest
+
+              from geoworkbench.calculations.curve_continuity import (
+                  build_segment_connect_mask,
+              )
+              from geoworkbench.tablet.geometry_cache import (
+                  CurveGeometryCache,
+                  CurveGeometryKey,
+                  is_derived_gas_curve_id,
+              )
+
+
+              @pytest.mark.parametrize(
+                  "mnemonic",
+                  (
+                      "PIXLER_C1_C2",
+                      "C1_C2",
+                      "C1_C4",
+                      "WH",
+                      "WETNESS",
+                      "IC4_NC4",
+                      "C2_REL",
+                      "TG_NORM",
+                  ),
+              )
+              def test_all_derived_gas_aliases_use_sparse_update_continuity(
+                  mnemonic: str,
+              ) -> None:
+                  assert is_derived_gas_curve_id(mnemonic)
+
+
+              def test_raw_component_is_not_misclassified_as_derived() -> None:
+                  assert not is_derived_gas_curve_id("C1")
+
+
+              def test_pixler_sparse_updates_form_lines_but_keep_long_outage() -> None:
+                  depth = np.arange(1703.0, 1753.5, 0.5, dtype=np.float64)
+                  values = np.full(depth.shape, np.nan, dtype=np.float64)
+                  for sample_depth, sample_value in (
+                      (1705.0, 3.0),
+                      (1710.0, 3.5),
+                      (1715.0, 4.0),
+                      (1745.0, 5.0),
+                      (1750.0, 5.5),
+                  ):
+                      values[np.flatnonzero(np.isclose(depth, sample_depth))[0]] = sample_value
+
+                  key = CurveGeometryKey(
+                      curve_id="PIXLER_C1_C2",
+                      axis_id="depth",
+                      values_revision="values-1",
+                      axis_revision="axis-1",
+                      top=1703.28,
+                      bottom=1753.28,
+                      max_points=5000,
+                      positive_values_only=False,
+                  )
+                  sampled_values, sampled_depth = CurveGeometryCache().get_or_build(
+                      key, depth, values
+                  )
+                  connect = build_segment_connect_mask(sampled_depth, sampled_values)
+
+                  finite_depth = sampled_depth[np.isfinite(sampled_values)]
+                  assert np.allclose(
+                      finite_depth,
+                      np.asarray([1705.0, 1710.0, 1715.0, 1745.0, 1750.0]),
+                  )
+                  assert np.count_nonzero(connect) == 3
+                  separator = np.flatnonzero(~np.isfinite(sampled_values))
+                  assert separator.size == 1
+                  assert 1715.0 < sampled_depth[separator[0]] < 1745.0
+              '''.replace("              ", ""),
+              encoding="utf-8",
+          )
+
+          Path("tests/test_tablet_print_quality.py").write_text(
+              r'''from __future__ import annotations
+
+              from types import SimpleNamespace
+
+              import pyqtgraph as pg
+              from PySide6.QtGui import QPen
+              from PySide6.QtWidgets import QApplication
+
+              from geoworkbench.printing.page_renderer import _tablet_raster_scale
+              from geoworkbench.printing.tablet_print import (
+                  _activate_print_curve_styles,
+                  _print_curve_width,
+                  _restore_print_curve_styles,
+              )
+              from geoworkbench.tablet.models import (
+                  CurveLineStyle,
+                  CurveStyle,
+                  TrackDefinition,
+                  TrackKind,
+              )
+
+
+              def test_high_quality_tablet_snapshot_has_real_supersampling_floor() -> None:
+                  assert _tablet_raster_scale(0.4, high_quality=True) == 2.5
+                  assert _tablet_raster_scale(3.2, high_quality=True) == 3.2
+                  assert _tablet_raster_scale(8.0, high_quality=True) == 4.0
+                  assert _tablet_raster_scale(8.0, high_quality=False) == 1.0
+
+
+              def test_print_curve_width_survives_dense_a4_fitting() -> None:
+                  assert _print_curve_width(0.8, 2) == 1.55
+                  assert _print_curve_width(0.8, 7) == 1.35
+                  assert _print_curve_width(2.4, 7) == 2.4
+
+
+              def test_print_snapshot_uses_configured_pen_and_restores_screen_pen() -> None:
+                  _application = QApplication.instance() or QApplication([])
+                  mnemonic = "PIXLER_C1_C2"
+                  definition = TrackDefinition(
+                      "pixler",
+                      "Pixler",
+                      TrackKind.GAS,
+                      curve_mnemonics=[mnemonic],
+                  )
+                  definition.set_curve_style(
+                      mnemonic,
+                      CurveStyle("#ff0000", 1.2, CurveLineStyle.DASH),
+                  )
+                  item = pg.PlotDataItem(
+                      [0.0, 1.0],
+                      [0.0, 1.0],
+                      pen=pg.mkPen("#123456", width=0.9),
+                  )
+                  rendered = SimpleNamespace(
+                      definition=definition,
+                      curve_items={mnemonic: item},
+                  )
+
+                  states = _activate_print_curve_styles((rendered,))  # type: ignore[arg-type]
+                  print_pen = QPen(item.opts["pen"])
+                  assert print_pen.color().name().lower() == "#ff0000"
+                  assert print_pen.widthF() >= 1.55
+                  assert print_pen.style().name == "DashLine"
+
+                  _restore_print_curve_styles(states)
+                  restored_pen = QPen(item.opts["pen"])
+                  assert restored_pen.color().name().lower() == "#123456"
+                  assert restored_pen.widthF() == 0.9
+              '''.replace("              ", ""),
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Install verification environment
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . pytest==9.1.1 pytest-asyncio==1.4.0 ruff==0.15.22 mypy==1.19.1 types-defusedxml==0.7.0.20260504 Pillow==12.3.0
+
+      - name: Run focused quality gate
+        shell: bash
+        run: |
+          python tools/check_documentation.py
+          python -m compileall -q src tests tools scripts
+          python -m ruff check src tests tools scripts
+          python -m mypy src
+          python -m pytest -q -p no:cacheprovider \
+            tests/test_tablet_layout.py \
+            tests/test_compact_geology_columns.py \
+            tests/test_derived_gas_sparse_continuity.py \
+            tests/test_tablet_print_quality.py \
+            tests/test_tablet_gas_segment_mask.py \
+            tests/test_gas_curve_rendering_continuity.py \
+            tests/test_tablet_print_shared_vertical_ruler.py \
+            tests/test_tablet_shared_vertical_ruler.py
+
+      - name: Commit verified fix and remove temporary workflow
+        shell: bash
+        run: |
+          rm .github/workflows/fix-gas-pdf-quality.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: improve gas ratio continuity and PDF fidelity"
+          git push origin HEAD:main
