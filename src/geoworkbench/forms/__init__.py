@@ -11,6 +11,7 @@ from geoworkbench.forms.codec import (
     form_from_dict,
     form_to_dict,
 )
+from geoworkbench.forms.complex_gas import complex_gas_form
 from geoworkbench.forms.models import (
     FormAxisKind,
     FormColumn,
@@ -35,6 +36,7 @@ __all__ = [
     "FormMasterlogBridgeError",
     "FormMasterlogBridgeReport",
     "build_masterlog_from_form",
+    "complex_gas_form",
     "DraftFormController",
     "FormPreviewController",
     "TrackBindingEditor",

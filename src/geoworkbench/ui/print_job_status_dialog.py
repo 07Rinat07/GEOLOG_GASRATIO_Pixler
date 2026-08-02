@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+import os
+import sys
 from pathlib import Path
 from typing import Callable
 
-from PySide6.QtCore import QUrl, Qt
+from PySide6.QtCore import QProcess, QUrl, Qt
 from PySide6.QtGui import QCloseEvent, QDesktopServices
 from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
     QLabel,
+    QMessageBox,
     QProgressBar,
     QPushButton,
     QVBoxLayout,
@@ -19,6 +22,15 @@ from geoworkbench.services.localization import AppLanguage, Localizer
 
 
 OpenPathCallback = Callable[[Path], bool]
+
+
+def _start_detached(program: str, arguments: list[str]) -> bool:
+    """Normalize QProcess.startDetached across supported PySide6 versions."""
+
+    result = QProcess.startDetached(program, arguments)
+    if isinstance(result, tuple):
+        return bool(result[0])
+    return bool(result)
 
 
 class PrintJobStatusDialog(QDialog):
@@ -41,8 +53,8 @@ class PrintJobStatusDialog(QDialog):
         self._working = True
         self._ready = False
         self._primary_path: Path | None = None
-        self._open_path_callback = open_path_callback or self._open_path
-        self._open_folder_callback = open_folder_callback or self._open_path
+        self._open_path_callback = open_path_callback or self._open_document_path
+        self._open_folder_callback = open_folder_callback or self._reveal_path
 
         self.setWindowTitle(self._t("print_center.status_title"))
         self.setWindowModality(Qt.WindowModality.WindowModal)
@@ -117,33 +129,33 @@ class PrintJobStatusDialog(QDialog):
         self.status_label.setStyleSheet(
             "font-size: 14px; font-weight: 700; color: #15803d;"
         )
+        normalized_paths = tuple(Path(path) for path in paths)
+        existing_paths = tuple(path for path in normalized_paths if path.is_file())
+
         if self.output_format is PrintOutputFormat.PRINTER:
             self.status_label.setText(self._t("print_center.status_ready_printer"))
-            self.detail_label.setText(
-                self._t("print_center.status_ready_printer_detail", count=page_count)
-            )
+            detail = self._t("print_center.status_ready_printer_detail", count=page_count)
+            if existing_paths:
+                self._primary_path = existing_paths[0]
+                detail += f"\n\nPDF: {self._primary_path}"
+                self.open_button.setEnabled(True)
+                self.folder_button.setEnabled(True)
+            self.detail_label.setText(detail)
         else:
-            normalized_paths = tuple(Path(path) for path in paths)
-            if not normalized_paths or any(not path.is_file() for path in normalized_paths):
+            if not normalized_paths or len(existing_paths) != len(normalized_paths):
                 self.mark_failed(self._t("print_center.status_missing_output"))
                 return
-            self._primary_path = normalized_paths[0]
-            name = (
-                self._primary_path.name
-                if self._primary_path is not None
-                else (self.target.name if self.target is not None else "")
-            )
+            self._primary_path = existing_paths[0]
             self.status_label.setText(self._t("print_center.status_ready_file"))
             self.detail_label.setText(
                 self._t(
                     "print_center.status_ready_file_detail",
-                    name=name,
+                    name=self._primary_path.name,
                     count=page_count,
                 )
             )
-            can_open = self._primary_path is not None
-            self.open_button.setEnabled(can_open)
-            self.folder_button.setEnabled(can_open)
+            self.open_button.setEnabled(True)
+            self.folder_button.setEnabled(True)
         self.close_button.setEnabled(True)
 
     def mark_failed(self, message: str) -> None:
@@ -159,7 +171,9 @@ class PrintJobStatusDialog(QDialog):
             self._t("print_center.status_failed_detail", error=message)
         )
         self.open_button.setEnabled(False)
-        self.folder_button.setEnabled(False)
+        self.folder_button.setEnabled(
+            self.target is not None and self.target.parent.is_dir()
+        )
         self.close_button.setEnabled(True)
 
     def reject(self) -> None:
@@ -187,15 +201,57 @@ class PrintJobStatusDialog(QDialog):
 
     def _open_result(self) -> None:
         if self._primary_path is not None and self._primary_path.is_file():
-            self._open_path_callback(self._primary_path)
+            self._invoke_open_action(self._open_path_callback, self._primary_path)
 
     def _open_folder(self) -> None:
         if self._primary_path is not None and self._primary_path.is_file():
-            self._open_folder_callback(self._primary_path.parent)
+            self._invoke_open_action(self._open_folder_callback, self._primary_path)
+            return
+        if self.target is not None and self.target.parent.is_dir():
+            self._invoke_open_action(self._open_folder_callback, self.target.parent)
+
+    def _invoke_open_action(self, callback: OpenPathCallback, path: Path) -> None:
+        try:
+            opened = bool(callback(path))
+        except (OSError, RuntimeError, TypeError, ValueError) as exc:
+            self._show_open_failure(path, exc)
+            return
+        if not opened:
+            self._show_open_failure(path)
+
+    def _show_open_failure(self, path: Path, error: Exception | None = None) -> None:
+        message = f"{self.open_button.text()} / {self.folder_button.text()}\n{path}"
+        if error is not None and str(error).strip():
+            message += f"\n\n{error}"
+        QMessageBox.warning(
+            self,
+            self._t("print_center.status_title"),
+            message,
+        )
 
     @staticmethod
-    def _open_path(path: Path) -> bool:
-        return QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
+    def _open_document_path(path: Path) -> bool:
+        resolved = path.resolve()
+        if sys.platform == "win32":
+            startfile = getattr(os, "startfile", None)
+            if callable(startfile):
+                startfile(str(resolved))
+                return True
+        return QDesktopServices.openUrl(QUrl.fromLocalFile(str(resolved)))
+
+    @staticmethod
+    def _reveal_path(path: Path) -> bool:
+        resolved = path.resolve()
+        if sys.platform == "win32":
+            if resolved.is_file():
+                return _start_detached("explorer.exe", ["/select,", str(resolved)])
+            return _start_detached("explorer.exe", [str(resolved)])
+        if sys.platform == "darwin":
+            if resolved.is_file():
+                return _start_detached("open", ["-R", str(resolved)])
+            return _start_detached("open", [str(resolved)])
+        folder = resolved.parent if resolved.is_file() else resolved
+        return QDesktopServices.openUrl(QUrl.fromLocalFile(str(folder)))
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)

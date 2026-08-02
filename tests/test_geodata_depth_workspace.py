@@ -63,6 +63,7 @@ def test_curated_form_manager_library_contains_only_working_reference_forms() ->
         "factory-geodata-depth-workspace",
         "factory-drilling-technology",
         "factory-gas-ratio-pixler-depth",
+        "factory-complex-gas-analysis",
         "factory-lithology-cuttings",
         "factory-gas-ratio-pixler-time",
         "factory-engineering-control-time",
