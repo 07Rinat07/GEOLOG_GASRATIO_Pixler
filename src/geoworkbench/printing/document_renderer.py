@@ -251,6 +251,33 @@ def paint_document_pages(
     return plan
 
 
+def _page_target_content_height(
+    plan: PrintDocumentPlan,
+    page: PrintDocumentPage,
+) -> int | None:
+    """Scale only the off-screen viewport for a partial automatic page.
+
+    Column widths keep the canonical full-page layout. A final short depth
+    interval therefore occupies a proportionally shorter body and leaves room
+    for the repeated form header without shrinking text or the depth scale.
+    """
+
+    target = plan.target_content_height_px
+    units_per_page = plan.resolved_units_per_page
+    if (
+        target is None
+        or units_per_page is None
+        or units_per_page <= 0.0
+        or not page.has_vertical_range
+    ):
+        return target
+    assert page.start is not None and page.end is not None
+    page_span = abs(float(page.end) - float(page.start))
+    if page_span <= 0.0 or page_span >= units_per_page * 0.999:
+        return target
+    return max(1, round(target * page_span / units_per_page))
+
+
 def paint_document_page(
     widget: QWidget,
     painter: QPainter,
@@ -323,7 +350,8 @@ def paint_document_page(
             ),
             included_track_ids=job.included_track_ids,
             grid_print_overrides=job.grid_print_overrides,
-            target_content_height=plan.target_content_height_px,
+            target_content_height=_page_target_content_height(plan, page),
+            layout_content_height=plan.target_content_height_px,
             page_aspect_ratio=plan.tablet_page_aspect_ratio,
         )
         _paint_footer(

@@ -104,6 +104,7 @@ def capture_tablet_print_snapshot(
     show_column_header: bool = True,
     repeat_column_header_at_bottom: bool = False,
     target_content_height: int | None = None,
+    layout_content_height: int | None = None,
 ) -> TabletPrintSnapshot:
     """Capture every visible form column, including off-screen columns.
 
@@ -125,6 +126,12 @@ def capture_tablet_print_snapshot(
         or target_content_height <= 0
     ):
         raise TabletPrintError("Автоматическая высота печатной формы должна быть положительной")
+    if layout_content_height is not None and (
+        isinstance(layout_content_height, bool)
+        or not isinstance(layout_content_height, int)
+        or layout_content_height <= 0
+    ):
+        raise TabletPrintError("Высота эталонной компоновки должна быть положительной")
 
     rendered = tablet.printable_tracks()
     if included_track_ids is not None:
@@ -163,18 +170,20 @@ def capture_tablet_print_snapshot(
             for item in rendered
         )
 
-    def build_layout(measured_header_height: int) -> AdaptiveColumnLayout:
+    canonical_layout_height = max(
+        1, int(layout_content_height or content_height)
+    )
+
+    def build_layout(_measured_header_height: int) -> AdaptiveColumnLayout:
         if not fit_columns:
             return original_column_layout(definitions)
-        layout_height = (
-            max(1, content_height - measured_header_height)
-            if target_content_height is not None
-            else content_height
-        )
+        # Every vertical page uses the same canonical column widths. The final
+        # partial interval may have a shorter viewport, but it must never cause
+        # the graph and depth labels to be re-scaled horizontally.
         return adaptive_column_layout(
             definitions,
             page_aspect_ratio=page_aspect_ratio,
-            content_height=layout_height,
+            content_height=canonical_layout_height,
         )
 
     layout = build_layout(header_height)

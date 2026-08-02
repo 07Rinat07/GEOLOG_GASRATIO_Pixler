@@ -30,6 +30,13 @@ class LbaFluorescenceColor:
         return self.name_ru
 
     def label(self, language: AppLanguage) -> str:
+        """Return the compact code used inside the narrow LBA graph column."""
+
+        return self.code
+
+    def selection_label(self, language: AppLanguage) -> str:
+        """Return the explanatory label used by the sample editor combobox."""
+
         return f"{self.code} — {self.localized_name(language)}"
 
 
@@ -332,8 +339,14 @@ def all_lba_color_labels(language: AppLanguage) -> tuple[str, ...]:
             if item.code in seen:
                 continue
             seen.add(item.code)
-            labels.append(item.label(language))
+            labels.append(item.selection_label(language))
     return tuple(labels)
+
+
+def lba_color_code(value: str | None) -> str:
+    """Return the compact fluorescence code accepted by graph columns and PDF."""
+
+    return _display_color_code(value)
 
 
 def _display_color_code(value: str | None) -> str:

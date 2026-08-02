@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from geoworkbench.services.lba_standard import lba_color_code
 import os
 import tempfile
 from math import isfinite
@@ -1727,7 +1728,7 @@ def _paint_lba_column(
             for value in (
                 sample.lba_type_id,
                 sample.lba_intensity,
-                sample.lba_color,
+                lba_color_code(sample.lba_color),
                 sample.lba_distribution,
                 sample.lba_cut,
                 sample.lba_description,
@@ -1762,8 +1763,8 @@ def _paint_lba_column(
             details = []
             if intensity is not None:
                 details.append(str(intensity))
-            if sample.lba_color:
-                details.append(sample.lba_color)
+            if lba_color_code(sample.lba_color):
+                details.append(lba_color_code(sample.lba_color))
             if sample.lba_description:
                 details.append(sample.lba_description)
             if details:

@@ -79,6 +79,7 @@ from geoworkbench.project.annotation_schema import (
 )
 from geoworkbench.services.curve_editing import DrawPoint, interpolate_drawn_curve
 from geoworkbench.services.application_logging import log_event, log_exception
+from geoworkbench.services.lba_standard import lba_color_code
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.geology_labels import (
     localized_lithotype_name,
@@ -9125,7 +9126,7 @@ class TabletView(QWidget):
                     "ТК": "#991b1b",
                     "Ч": "#111827",
                 }
-                fluorescence_code = (sample.lba_color or "").strip().upper()
+                fluorescence_code = (lba_color_code(sample.lba_color) or "").strip().upper()
                 fluorescence_color = fluorescence_colors.get(fluorescence_code, "#ffffff")
                 color_cell = pg.BarGraphItem(
                     x=[1.5],
