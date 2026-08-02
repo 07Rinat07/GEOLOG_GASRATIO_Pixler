@@ -63,7 +63,7 @@ def _as_1d_float_array(values: Array, *, name: str) -> Array:
     return array
 
 
-def _validate_depth(depth: Array) -> tuple[Array, float]:
+def _validate_depth(depth: Array) -> tuple[Array, float, bool]:
     axis = _as_1d_float_array(depth, name="Глубина")
     if axis.size < 2:
         raise ValueError("Для кондиционирования нужны минимум две отметки глубины")
@@ -71,15 +71,17 @@ def _validate_depth(depth: Array) -> tuple[Array, float]:
         raise ValueError("Шкала глубины не должна содержать NaN или бесконечность")
 
     steps = np.diff(axis)
-    if not np.all(steps > 0.0):
-        raise ValueError("Шкала глубины должна строго возрастать без дубликатов")
+    increasing = bool(np.all(steps > 0.0))
+    decreasing = bool(np.all(steps < 0.0))
+    if not increasing and not decreasing:
+        raise ValueError("Шкала глубины должна быть строго монотонной без дубликатов")
 
-    ordered_steps = np.sort(steps)
-    dense_half = ordered_steps[: max(1, (ordered_steps.size + 1) // 2)]
+    absolute_steps = np.sort(np.abs(steps))
+    dense_half = absolute_steps[: max(1, (absolute_steps.size + 1) // 2)]
     nominal_step = float(np.median(dense_half))
     if not np.isfinite(nominal_step) or nominal_step <= 0.0:
         raise ValueError("Не удалось определить положительный шаг глубины")
-    return axis.copy(), nominal_step
+    return axis.copy(), nominal_step, decreasing
 
 
 def _component_gap_limit(
@@ -112,25 +114,12 @@ def _component_gap_limit(
     return limit if np.isfinite(limit) and limit > 0.0 else None
 
 
-def interpolate_bounded_gaps(
-    depth: Array,
-    values: Array,
+def _interpolate_increasing_axis(
+    axis: Array,
+    source: Array,
     *,
     max_gap: float,
 ) -> tuple[Array, BoolArray]:
-    """Interpolate short bounded ``NaN`` runs and return a provenance mask.
-
-    Only rows between two finite measurements are eligible. Long acquisition
-    outages, leading/trailing holes and explicit finite zero values are kept.
-    """
-
-    axis = _as_1d_float_array(depth, name="Глубина")
-    source = _as_1d_float_array(values, name="Газовый компонент")
-    if axis.shape != source.shape:
-        raise ValueError("Глубина и газовый компонент должны иметь одинаковую длину")
-    if not np.isfinite(max_gap) or max_gap <= 0.0:
-        raise ValueError("max_gap должен быть положительным конечным числом")
-
     output = source.copy()
     output[~np.isfinite(output)] = np.nan
     interpolated = np.zeros(output.shape, dtype=np.bool_)
@@ -165,6 +154,38 @@ def interpolate_bounded_gaps(
     return output, interpolated
 
 
+def interpolate_bounded_gaps(
+    depth: Array,
+    values: Array,
+    *,
+    max_gap: float,
+) -> tuple[Array, BoolArray]:
+    """Interpolate short bounded ``NaN`` runs and return a provenance mask.
+
+    Increasing and decreasing monotonic axes are supported. Only rows between
+    two finite measurements are eligible. Long acquisition outages,
+    leading/trailing holes and explicit finite zero values are kept.
+    """
+
+    axis, _, decreasing = _validate_depth(depth)
+    source = _as_1d_float_array(values, name="Газовый компонент")
+    if axis.shape != source.shape:
+        raise ValueError("Глубина и газовый компонент должны иметь одинаковую длину")
+    if not np.isfinite(max_gap) or max_gap <= 0.0:
+        raise ValueError("max_gap должен быть положительным конечным числом")
+
+    working_axis = axis[::-1] if decreasing else axis
+    working_source = source[::-1] if decreasing else source
+    output, interpolated = _interpolate_increasing_axis(
+        working_axis,
+        working_source,
+        max_gap=max_gap,
+    )
+    if decreasing:
+        return output[::-1].copy(), interpolated[::-1].copy()
+    return output, interpolated
+
+
 def condition_gas_components(
     depth: Array,
     components: Mapping[str, Array],
@@ -180,7 +201,8 @@ def condition_gas_components(
     if not components:
         raise ValueError("Не переданы газовые компоненты")
     resolved_policy = policy or GasConditioningPolicy()
-    axis, nominal_depth_step = _validate_depth(depth)
+    axis, nominal_depth_step, decreasing = _validate_depth(depth)
+    working_axis = axis[::-1] if decreasing else axis
 
     normalized: dict[str, Array] = {}
     for mnemonic, values in components.items():
@@ -202,9 +224,10 @@ def condition_gas_components(
     masks: dict[str, BoolArray] = {}
     limits: dict[str, float | None] = {}
     for mnemonic, values in normalized.items():
+        working_values = values[::-1] if decreasing else values
         limit = _component_gap_limit(
-            axis,
-            values,
+            working_axis,
+            working_values,
             nominal_depth_step=nominal_depth_step,
             policy=resolved_policy,
         )
