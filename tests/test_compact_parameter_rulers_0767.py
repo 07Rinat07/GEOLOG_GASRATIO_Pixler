@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from geoworkbench.tablet.header_geometry import (
+    CURVE_HEADER_PRINT_ROW_HEIGHT,
     CURVE_HEADER_ROW_HEIGHT,
     align_curve_header_band_height,
     curve_header_content_height,
@@ -58,3 +59,35 @@ def test_removed_scale_caption_key_is_absent_from_every_catalog() -> None:
         assert "curve_settings.header_scale_caption" not in payload
         tooltip = payload["curve_settings.header_scale_tooltip"]
         assert tooltip.strip()
+
+
+def test_print_parameter_rows_are_large_enough_for_a4_fit() -> None:
+    assert CURVE_HEADER_PRINT_ROW_HEIGHT >= CURVE_HEADER_ROW_HEIGHT * 1.5
+    assert curve_header_viewport_height(6, row_height=CURVE_HEADER_PRINT_ROW_HEIGHT) == (
+        6 * CURVE_HEADER_PRINT_ROW_HEIGHT
+    )
+
+
+def test_print_ruler_uses_enlarged_typography_without_changing_screen_defaults() -> None:
+    source = TABLET_VIEW.read_text(encoding="utf-8")
+
+    assert "caption_font.setPixelSize(16 if self._print_mode else 8)" in source
+    assert "value_font.setPixelSize(14 if self._print_mode else 8)" in source
+    assert "self.setFixedHeight(48 if self._print_mode else 28)" in source
+    assert "item.widget.print_curve_header_height" in (
+        ROOT / "src/geoworkbench/printing/document_renderer.py"
+    ).read_text(encoding="utf-8")
+
+
+def test_print_typography_is_enabled_before_snapshot_geometry_is_measured() -> None:
+    source = (
+        ROOT / "src/geoworkbench/printing/tablet_print.py"
+    ).read_text(encoding="utf-8")
+
+    enable_position = source.index("item.widget.set_print_mode(True)")
+    measure_position = source.index(
+        "content_height = max(item.widget.height() for item in rendered)",
+        enable_position,
+    )
+    assert enable_position < measure_position
+    assert "item.widget.set_synchronized_header_height(print_header_band)" in source

@@ -9,16 +9,20 @@ from PySide6.QtGui import QPainter
 from PySide6.QtWidgets import QWidget
 
 from geoworkbench.domain.models import MasterlogTemplate
-from geoworkbench.printing.auto_pagination import automatic_tablet_page_geometry
-from geoworkbench.project.session import ProjectSession
+from geoworkbench.printing.auto_pagination import (
+    automatic_tablet_first_page_geometry,
+    automatic_tablet_page_geometry,
+    printable_tablet_body_height_mm,
+)
 from geoworkbench.printing.form_column_layout import original_column_layout
-from geoworkbench.printing.page_renderer import paint_widget_page
 from geoworkbench.printing.masterlog_renderer import (
     masterlog_header_size_mm,
     paint_masterlog_header,
 )
+from geoworkbench.printing.page_renderer import paint_widget_page
 from geoworkbench.printing.pagination import (
     PrintPageSlice,
+    PrintPaginationSettings,
     PrintRangeMode,
     build_page_slices,
 )
@@ -29,6 +33,7 @@ from geoworkbench.printing.print_layout import (
     build_horizontal_continuations,
 )
 from geoworkbench.printing.unicode_support import print_font
+from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.tablet.models import minimum_track_width
 from geoworkbench.tablet.tablet_view import TabletView
@@ -76,6 +81,9 @@ class PrintDocumentPlan:
     target_content_height_px: int | None = None
     tablet_page_aspect_ratio: float | None = None
     resolved_units_per_page: float | None = None
+    tablet_header_height_px: int | None = None
+    first_page_target_content_height_px: int | None = None
+    first_page_units_per_page: float | None = None
 
     @property
     def page_count(self) -> int:
@@ -97,7 +105,10 @@ def printable_content_dimensions(widget: QWidget, job: PrintJobSettings) -> tupl
         else:
             width = max(
                 width,
-                sum(max(minimum_track_width(item.kind), int(item.width)) for item in definitions),
+                sum(
+                    max(minimum_track_width(item.kind), int(item.width))
+                    for item in definitions
+                ),
             )
         height = max(1, max(item.widget.height() for item in printable_tracks))
     return width, height
@@ -120,11 +131,19 @@ def _selected_tablet_tracks(widget: TabletView, job: PrintJobSettings):
     return selected
 
 
-def build_document_plan(widget: QWidget, job: PrintJobSettings) -> PrintDocumentPlan:
+def build_document_plan(
+    widget: QWidget,
+    job: PrintJobSettings,
+    *,
+    context: PrintDocumentContext | None = None,
+) -> PrintDocumentPlan:
     source_width, source_height = printable_content_dimensions(widget, job)
     target_content_height: int | None = None
     tablet_page_aspect_ratio: float | None = None
     resolved_units_per_page: float | None = None
+    tablet_header_height_px: int | None = None
+    first_page_target_content_height_px: int | None = None
+    first_page_units_per_page: float | None = None
     pagination = job.pagination
 
     if isinstance(widget, TabletView):
@@ -139,12 +158,24 @@ def build_document_plan(widget: QWidget, job: PrintJobSettings) -> PrintDocument
             selected_definitions = [item.definition for item in printable_tracks]
             auto_source_width = original_column_layout(selected_definitions).total_width
             header_height = max(
-                item.widget.title.height() + item.widget.curve_header_scroll.height()
+                item.widget.title.height() + item.widget.print_curve_header_height
                 for item in printable_tracks
             )
             current_range = widget.visible_depth_range or full_range
             current_span = abs(float(current_range[1]) - float(current_range[0]))
             media = job.page.media_dimensions(source_width, source_height)
+            full_header_band_mm = _planned_full_header_band_height_mm(
+                context,
+                content_width_mm=media.content_width_mm,
+                content_height_mm=media.content_height_mm,
+            )
+            regular_header_band_mm = (
+                full_header_band_mm
+                if full_header_band_mm is not None
+                and job.header_placement is PrintHeaderPlacement.EVERY_PAGE
+                else 7.0
+            )
+            first_header_band_mm = full_header_band_mm or 7.0
             auto_geometry = automatic_tablet_page_geometry(
                 # Selected columns determine the automatic density. The live
                 # TabletView width can still include columns excluded from this job.
@@ -154,23 +185,54 @@ def build_document_plan(widget: QWidget, job: PrintJobSettings) -> PrintDocument
                 current_span=current_span,
                 content_width_mm=media.content_width_mm,
                 content_height_mm=media.content_height_mm,
+                header_band_mm=regular_header_band_mm,
             )
             domain_span = abs(float(full_range[1]) - float(full_range[0]))
-            resolved_units_per_page = min(auto_geometry.units_per_page, domain_span)
+            resolved_units_per_page = auto_geometry.units_per_page
             target_content_height = auto_geometry.target_content_height_px
             tablet_page_aspect_ratio = auto_geometry.page_aspect_ratio
+            tablet_header_height_px = header_height
+            regular_body_height_mm = printable_tablet_body_height_mm(
+                media.content_height_mm,
+                header_band_mm=regular_header_band_mm,
+            )
+            first_body_height_mm = printable_tablet_body_height_mm(
+                media.content_height_mm,
+                header_band_mm=first_header_band_mm,
+            )
+            first_geometry = automatic_tablet_first_page_geometry(
+                canonical_content_height_px=target_content_height,
+                column_header_height_px=header_height,
+                regular_units_per_page=resolved_units_per_page,
+                regular_body_height_mm=regular_body_height_mm,
+                first_body_height_mm=first_body_height_mm,
+            )
+            first_page_units_per_page = first_geometry.units_per_page
+            first_page_target_content_height_px = first_geometry.target_content_height_px
             pagination = replace(
                 pagination,
-                units_per_page=max(resolved_units_per_page, 1e-9),
+                units_per_page=max(min(resolved_units_per_page, domain_span), 1e-9),
                 auto_units_per_page=False,
                 overlap=0.0,
             )
 
-        vertical_pages = build_page_slices(
-            pagination=pagination,
-            current_range=widget.visible_depth_range,
-            full_range=full_range,
-        )
+        if (
+            first_page_units_per_page is not None
+            and resolved_units_per_page is not None
+        ):
+            vertical_pages = _build_automatic_page_slices(
+                pagination=pagination,
+                current_range=widget.visible_depth_range,
+                full_range=full_range,
+                first_units_per_page=first_page_units_per_page,
+                regular_units_per_page=resolved_units_per_page,
+            )
+        else:
+            vertical_pages = build_page_slices(
+                pagination=pagination,
+                current_range=widget.visible_depth_range,
+                full_range=full_range,
+            )
         axis_label = widget.printable_vertical_label
         axis_unit = widget.printable_vertical_unit
     else:
@@ -200,14 +262,88 @@ def build_document_plan(widget: QWidget, job: PrintJobSettings) -> PrintDocument
             pages.append(PrintDocumentPage(vertical, continuation, index, total))
             index += 1
     return PrintDocumentPlan(
-        tuple(pages),
-        axis_label,
-        axis_unit,
-        source_width,
-        source_height,
-        target_content_height,
-        tablet_page_aspect_ratio,
-        resolved_units_per_page,
+        pages=tuple(pages),
+        axis_label=axis_label,
+        axis_unit=axis_unit,
+        source_width_px=source_width,
+        source_height_px=source_height,
+        target_content_height_px=target_content_height,
+        tablet_page_aspect_ratio=tablet_page_aspect_ratio,
+        resolved_units_per_page=resolved_units_per_page,
+        tablet_header_height_px=tablet_header_height_px,
+        first_page_target_content_height_px=first_page_target_content_height_px,
+        first_page_units_per_page=first_page_units_per_page,
+    )
+
+
+def _planned_full_header_band_height_mm(
+    context: PrintDocumentContext | None,
+    *,
+    content_width_mm: float,
+    content_height_mm: float,
+) -> float | None:
+    if (
+        context is None
+        or context.header_template is None
+        or context.session is None
+    ):
+        return None
+    size = masterlog_header_size_mm(context.header_template)
+    if size.width() <= 0.0 or size.height() <= 0.0:
+        return None
+    proportional = content_width_mm * size.height() / size.width()
+    minimum = min(content_height_mm * 0.08, 15.0)
+    return max(minimum, min(proportional, content_height_mm * 0.46))
+
+
+def _build_automatic_page_slices(
+    *,
+    pagination: PrintPaginationSettings,
+    current_range: tuple[float, float] | None,
+    full_range: tuple[float, float] | None,
+    first_units_per_page: float,
+    regular_units_per_page: float,
+) -> tuple[PrintPageSlice, ...]:
+    if full_range is None:
+        return (PrintPageSlice(None, None, 1, 1),)
+    domain_span = abs(float(full_range[1]) - float(full_range[0]))
+    selector = replace(
+        pagination,
+        units_per_page=max(
+            domain_span,
+            first_units_per_page,
+            regular_units_per_page,
+            1e-9,
+        ),
+        auto_units_per_page=False,
+        overlap=0.0,
+    )
+    selected = build_page_slices(
+        pagination=selector,
+        current_range=current_range,
+        full_range=full_range,
+    )
+    if not selected or not selected[0].has_vertical_range:
+        return selected
+    assert selected[0].start is not None and selected[0].end is not None
+    start = float(selected[0].start)
+    end = float(selected[0].end)
+    if end <= start:
+        return (PrintPageSlice(start, end, 1, 1),)
+
+    raw: list[tuple[float, float]] = []
+    page_start = start
+    while page_start < end - 1e-9:
+        capacity = first_units_per_page if not raw else regular_units_per_page
+        page_end = min(end, page_start + max(capacity, 1e-9))
+        raw.append((page_start, page_end))
+        if page_end >= end - 1e-9:
+            break
+        page_start = page_end
+    total = len(raw)
+    return tuple(
+        PrintPageSlice(page_start, page_end, index + 1, total)
+        for index, (page_start, page_end) in enumerate(raw)
     )
 
 
@@ -223,7 +359,7 @@ def paint_document_pages(
     first_page: int | None = None,
     last_page: int | None = None,
 ) -> PrintDocumentPlan:
-    plan = build_document_plan(widget, job)
+    plan = build_document_plan(widget, job, context=context)
     selected = tuple(
         page
         for page in plan.pages
@@ -255,27 +391,36 @@ def _page_target_content_height(
     plan: PrintDocumentPlan,
     page: PrintDocumentPage,
 ) -> int | None:
-    """Scale only the off-screen viewport for a partial automatic page.
-
-    Column widths keep the canonical full-page layout. A final short depth
-    interval therefore occupies a proportionally shorter body and leaves room
-    for the repeated form header without shrinking text or the depth scale.
-    """
+    """Return a page-specific hidden viewport without changing widths."""
 
     target = plan.target_content_height_px
-    units_per_page = plan.resolved_units_per_page
+    regular_units = plan.resolved_units_per_page
     if (
         target is None
-        or units_per_page is None
-        or units_per_page <= 0.0
+        or regular_units is None
+        or regular_units <= 0.0
         or not page.has_vertical_range
     ):
         return target
+
+    header_height = max(0, int(plan.tablet_header_height_px or 0))
+    capacity = regular_units
+    page_target = target
+    if (
+        page.vertical.index == 1
+        and plan.first_page_target_content_height_px is not None
+        and plan.first_page_units_per_page is not None
+    ):
+        page_target = plan.first_page_target_content_height_px
+        capacity = plan.first_page_units_per_page
+
     assert page.start is not None and page.end is not None
     page_span = abs(float(page.end) - float(page.start))
-    if page_span <= 0.0 or page_span >= units_per_page * 0.999:
-        return target
-    return max(1, round(target * page_span / units_per_page))
+    if page_span <= 0.0 or page_span >= capacity * 0.999:
+        return page_target
+    body_height = max(1, int(page_target) - header_height)
+    partial_body_height = max(1, round(body_height * page_span / capacity))
+    return header_height + partial_body_height
 
 
 def paint_document_page(
@@ -321,7 +466,11 @@ def paint_document_page(
     painter.save()
     try:
         painter.fillRect(page_rect, Qt.GlobalColor.white)
-        if paint_full_header and context.header_template is not None and context.session is not None:
+        if (
+            paint_full_header
+            and context.header_template is not None
+            and context.session is not None
+        ):
             paint_masterlog_header(
                 painter,
                 header,
