@@ -1,20 +1,25 @@
 name: Apply A4 adaptive print fix
 
 on:
-  push:
+  pull_request:
     branches:
-      - fix/a4-header-body-adaptive-fit
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
 
 permissions:
   contents: write
 
 jobs:
   apply-fix:
-    if: github.actor != 'github-actions[bot]'
+    if: github.head_ref == 'fix/a4-header-body-adaptive-fit' && github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: fix/a4-header-body-adaptive-fit
           fetch-depth: 0
       - name: Apply focused print patches
         shell: bash
