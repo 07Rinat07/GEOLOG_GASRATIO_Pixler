@@ -45,6 +45,20 @@ def test_short_bounded_gap_is_interpolated_but_long_outage_remains() -> None:
     assert result.interpolated_count("c1") == 2
 
 
+def test_descending_depth_is_conditioned_without_reordering_output() -> None:
+    depth = np.array([4.0, 3.0, 2.0, 1.0, 0.0])
+    values = np.array([20.0, np.nan, 0.0, np.nan, 10.0])
+
+    result = condition_gas_components(depth, {"C1": values})
+
+    np.testing.assert_array_equal(result.depth, depth)
+    np.testing.assert_allclose(result.components["C1"], [20.0, 10.0, 0.0, 5.0, 10.0])
+    np.testing.assert_array_equal(
+        result.interpolated_masks["C1"],
+        [False, True, False, True, False],
+    )
+
+
 def test_explicit_zero_is_preserved_as_a_measured_boundary() -> None:
     depth = np.arange(0.0, 5.0)
     values = np.array([10.0, np.nan, 0.0, np.nan, 20.0])
@@ -73,7 +87,7 @@ def test_conditioning_does_not_mutate_inputs_and_normalizes_mnemonics() -> None:
 
 
 def test_conditioning_rejects_non_monotonic_depth_and_shape_mismatch() -> None:
-    with pytest.raises(ValueError, match="строго возрастать"):
+    with pytest.raises(ValueError, match="строго монотонной"):
         condition_gas_components(
             np.array([0.0, 2.0, 1.0]),
             {"C1": np.array([1.0, 2.0, 3.0])},
