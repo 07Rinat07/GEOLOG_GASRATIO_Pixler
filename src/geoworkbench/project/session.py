@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from geoworkbench.calculations.gas_ratio import calculate_basic_ratios
+from geoworkbench.calculations.gas_ratio import calculate_conditioned_ratios
 from geoworkbench.domain.models import Dataset, Project, Well, new_id
 from geoworkbench.data.lossless_las import LosslessLasDocument
 from geoworkbench.data.las_import_report import LasImportReport
@@ -109,15 +109,15 @@ class ProjectSession:
         # hard-coded list of exact LAS mnemonics. The resolver uses the Sensors catalog,
         # multilingual descriptions, chemical formulas, units and controlled aliases.
         inputs = resolve_gas_ratio_inputs(dataset)
-        results = calculate_basic_ratios(inputs)
+        calculation = calculate_conditioned_ratios(dataset.depth, inputs)
         created: list[str] = []
-        for result in results.values():
+        for result in calculation.curves.values():
             dataset.upsert_curve(
                 result.mnemonic,
                 result.values,
                 unit=result.unit,
                 description=result.description,
-                provenance="calculation:basic-gas-ratio:1.0",
+                provenance="calculation:conditioned-gas-ratio:2.0",
             )
             created.append(result.mnemonic)
         self.dirty = True
