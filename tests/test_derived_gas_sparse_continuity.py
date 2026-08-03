@@ -47,7 +47,7 @@ def _key(*, positive_values_only: bool = False) -> CurveGeometryKey:
     )
 
 
-def test_derived_null_rows_do_not_fragment_a_continuous_source_axis() -> None:
+def test_derived_null_rows_bridge_nearby_updates_but_break_long_silence() -> None:
     depth = np.arange(0.0, 31.0, dtype=np.float64)
     values = np.full(depth.shape, np.nan, dtype=np.float64)
     values[[0, 3, 30]] = (10.0, 13.0, 20.0)
@@ -57,9 +57,46 @@ def test_derived_null_rows_do_not_fragment_a_continuous_source_axis() -> None:
     )
     connect = build_segment_connect_mask(sampled_depth, sampled_values)
 
-    assert np.allclose(sampled_depth, np.asarray([0.0, 3.0, 30.0]))
-    assert np.allclose(sampled_values, np.asarray([10.0, 13.0, 20.0]))
+    assert np.allclose(
+        sampled_depth,
+        np.asarray([0.0, 3.0, 16.5, 30.0]),
+    )
+    assert np.allclose(
+        sampled_values[[0, 1, 3]],
+        np.asarray([10.0, 13.0, 20.0]),
+    )
+    assert np.isnan(sampled_values[2])
+    assert np.array_equal(connect, np.asarray([True, False, False, False]))
+
+
+def test_regular_sparse_gas_cadence_remains_connected() -> None:
+    depth = np.arange(0.0, 21.0, dtype=np.float64)
+    values = np.full(depth.shape, np.nan, dtype=np.float64)
+    values[[0, 10, 20]] = (10.0, 12.0, 14.0)
+
+    sampled_values, sampled_depth = CurveGeometryCache().get_or_build(
+        _key(), depth, values
+    )
+    connect = build_segment_connect_mask(sampled_depth, sampled_values)
+
+    assert np.allclose(sampled_depth, np.asarray([0.0, 10.0, 20.0]))
+    assert np.allclose(sampled_values, np.asarray([10.0, 12.0, 14.0]))
     assert np.array_equal(connect, np.asarray([True, True, False]))
+
+
+def test_two_isolated_derived_updates_do_not_create_a_long_diagonal() -> None:
+    depth = np.arange(0.0, 31.0, dtype=np.float64)
+    values = np.full(depth.shape, np.nan, dtype=np.float64)
+    values[[0, 30]] = (10.0, 20.0)
+
+    sampled_values, sampled_depth = CurveGeometryCache().get_or_build(
+        _key(), depth, values
+    )
+    connect = build_segment_connect_mask(sampled_depth, sampled_values)
+
+    assert np.isnan(sampled_values[1])
+    assert np.allclose(sampled_depth, np.asarray([0.0, 15.0, 30.0]))
+    assert not np.any(connect)
 
 
 def test_logarithmic_derived_curve_omits_nonpositive_rows_without_point_islands() -> None:
