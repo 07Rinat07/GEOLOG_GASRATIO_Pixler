@@ -425,12 +425,12 @@ def _clamp_range(
     requested: ReportRange,
     full_range: ReportRange,
 ) -> ReportRange:
-    start, end = _normalize_range(index, requested)
+    requested_start, requested_end = _normalize_range(index, requested)
     full_start, full_end = _normalize_range(index, full_range)
-    start_key = max(_boundary_key(index, start), _boundary_key(index, full_start))
-    end_key = min(_boundary_key(index, end), _boundary_key(index, full_end))
+    start_key = max(_boundary_key(index, requested_start), _boundary_key(index, full_start))
+    end_key = min(_boundary_key(index, requested_end), _boundary_key(index, full_end))
     if start_key > end_key:
-        raise ReportDefinitionError("Интервал отчёта находится вне выбранного индекса")
+        raise ReportDefinitionError("Интервал отчёта не пересекается с выбранным индексом")
     return _boundary_from_key(index, start_key), _boundary_from_key(index, end_key)
 
 
@@ -442,27 +442,21 @@ def _interval_indices(
     values = np.asarray(index.values)
     if index.index_type is IndexType.DATETIME:
         normalized = values.astype("datetime64[ns]")
-        start_value = np.datetime64(str(start), "ns")
-        end_value = np.datetime64(str(end), "ns")
+        start_value = _datetime_boundary_value(start)
+        end_value = _datetime_boundary_value(end)
         mask = ~np.isnat(normalized) & (normalized >= start_value) & (normalized <= end_value)
     else:
         numeric = values.astype(np.float64)
         mask = np.isfinite(numeric) & (numeric >= float(start)) & (numeric <= float(end))
     indices = np.flatnonzero(mask).astype(np.int64)
     if indices.size == 0:
-        raise ReportDefinitionError("Разрешённый интервал не содержит отсчётов")
+        raise ReportDefinitionError("В выбранном интервале отсутствуют отсчёты")
     return indices
 
 
 def _coerce_boundary(index: DatasetIndex, value: ReportBoundary) -> ReportBoundary:
     if index.index_type is IndexType.DATETIME:
-        try:
-            normalized = np.datetime64(str(value), "ns")
-        except (TypeError, ValueError) as exc:
-            raise ReportDefinitionError(f"Некорректная datetime-граница: {value}") from exc
-        if np.isnat(normalized):
-            raise ReportDefinitionError("Datetime-граница отчёта не может быть NaT")
-        return _datetime_text(normalized)
+        return _datetime_text(_datetime_boundary_value(value))
     if isinstance(value, bool):
         raise ReportDefinitionError("Числовая граница отчёта не может быть логической")
     try:
@@ -470,13 +464,13 @@ def _coerce_boundary(index: DatasetIndex, value: ReportBoundary) -> ReportBounda
     except (TypeError, ValueError) as exc:
         raise ReportDefinitionError(f"Некорректная числовая граница: {value}") from exc
     if not isfinite(numeric):
-        raise ReportDefinitionError("Граница отчёта должна быть конечным числом")
+        raise ReportDefinitionError("Числовая граница отчёта должна быть конечной")
     return numeric
 
 
 def _boundary_key(index: DatasetIndex, value: ReportBoundary) -> int | float:
     if index.index_type is IndexType.DATETIME:
-        return int(np.datetime64(str(value), "ns").astype(np.int64))
+        return int(_datetime_boundary_value(value).astype(np.int64))
     return float(value)
 
 
@@ -486,36 +480,79 @@ def _boundary_from_key(index: DatasetIndex, value: int | float) -> ReportBoundar
     return float(value)
 
 
+def _datetime_boundary_value(value: ReportBoundary) -> np.datetime64:
+    """Normalize report datetime boundaries from ISO text or Unix seconds.
+
+    Tablet time axes are rendered as floating-point Unix seconds, while imported
+    ``DatasetIndex`` values remain ``datetime64``. Print/export therefore passes
+    numeric viewport bounds such as ``1784592000.24`` into a datetime report.
+    Treating that number as text asks NumPy to parse an impossible year and used
+    to abort every GeoScape/GeoScape II time-based PDF.
+    """
+
+    if isinstance(value, bool):
+        raise ReportDefinitionError("Datetime-граница отчёта не может быть логической")
+
+    numeric: float | None = None
+    if isinstance(value, (int, float, np.integer, np.floating)):
+        numeric = float(value)
+    else:
+        text = str(value).strip()
+        try:
+            numeric = float(text)
+        except (TypeError, ValueError, OverflowError):
+            try:
+                normalized = np.datetime64(text, "ns")
+            except (TypeError, ValueError, OverflowError) as exc:
+                raise ReportDefinitionError(
+                    f"Некорректная datetime-граница: {value}"
+                ) from exc
+            if np.isnat(normalized):
+                raise ReportDefinitionError("Datetime-граница отчёта не может быть NaT")
+            return normalized
+
+    assert numeric is not None
+    if not isfinite(numeric):
+        raise ReportDefinitionError("Datetime-граница отчёта должна быть конечной")
+    try:
+        nanoseconds = round(numeric * 1_000_000_000.0)
+        limits = np.iinfo(np.int64)
+        if nanoseconds < limits.min or nanoseconds > limits.max:
+            raise OverflowError
+        normalized = np.datetime64(int(nanoseconds), "ns")
+    except (OverflowError, TypeError, ValueError) as exc:
+        raise ReportDefinitionError(f"Некорректная datetime-граница: {value}") from exc
+    if np.isnat(normalized):
+        raise ReportDefinitionError("Datetime-граница отчёта не может быть NaT")
+    return normalized
+
+
 def _datetime_text(value: np.datetime64) -> str:
     return str(value.astype("datetime64[ns]"))
 
 
 def _validate_string_tuple(values: tuple[str, ...], label: str) -> None:
-    if not isinstance(values, tuple) or not all(
-        isinstance(value, str) and value.strip() for value in values
+    if not isinstance(values, tuple) or any(
+        not isinstance(value, str) or not value.strip() for value in values
     ):
-        raise ValueError(f"{label} должен быть tuple непустых строк")
-    if len(set(values)) != len(values):
-        raise ValueError(f"{label} не должен содержать дубликаты")
+        raise ValueError(f"{label} должен быть кортежем непустых строк")
 
 
 def _validate_options(values: tuple[tuple[str, str], ...]) -> None:
-    if not isinstance(values, tuple) or not all(
-        isinstance(item, tuple)
-        and len(item) == 2
-        and all(isinstance(value, str) and value.strip() for value in item)
+    if not isinstance(values, tuple) or any(
+        not isinstance(item, tuple)
+        or len(item) != 2
+        or not all(isinstance(value, str) for value in item)
         for item in values
     ):
-        raise ValueError("Параметры ReportDefinition должны быть tuple пар непустых строк")
-    keys = [key for key, _value in values]
-    if len(set(keys)) != len(keys):
-        raise ValueError("Параметры ReportDefinition не должны повторять ключи")
+        raise ValueError("options должны быть кортежем пар строк")
 
 
 def _optional_text(value: Any) -> str | None:
     if value is None:
         return None
-    return str(value)
+    text = str(value).strip()
+    return text or None
 
 
 def _json_ready(value: Any) -> Any:
