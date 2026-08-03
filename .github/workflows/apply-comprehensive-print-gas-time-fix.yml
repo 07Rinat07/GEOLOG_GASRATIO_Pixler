@@ -31,11 +31,32 @@ jobs:
           gzip --decompress --stdout /tmp/comprehensive_fix.patch.gz > /tmp/comprehensive_fix.patch
           echo '88487ed3b96c088db1fd61e1e258b120626e4cfde9f04d48447e0a0a08a52be1  /tmp/comprehensive_fix.patch' | sha256sum --check
 
-      - name: Apply patch
+      - name: Apply patch and resolve known overlaps to reviewed result
         shell: bash
         run: |
           set -euo pipefail
+          set +e
           git apply --3way /tmp/comprehensive_fix.patch
+          apply_status=$?
+          set -e
+
+          mapfile -t conflicts < <(git diff --name-only --diff-filter=U)
+          if (( apply_status != 0 )) && (( ${#conflicts[@]} == 0 )); then
+            echo 'Patch failed without resolvable three-way conflicts.' >&2
+            exit "$apply_status"
+          fi
+
+          for path in "${conflicts[@]}"; do
+            echo "Resolving overlap to reviewed patch result: $path"
+            git checkout --theirs -- "$path"
+            git add "$path"
+          done
+
+          if git ls-files -u | grep -q .; then
+            echo 'Unresolved index entries remain after reviewed conflict resolution.' >&2
+            git status --short
+            exit 1
+          fi
 
       - name: Verify syntax and focused non-GUI contracts
         shell: bash
