@@ -59,7 +59,7 @@ def test_removed_scale_caption_key_is_absent_from_every_catalog() -> None:
 
 
 def test_print_parameter_rows_have_real_internal_and_trailing_space() -> None:
-    assert CURVE_HEADER_ROW_HEIGHT < CURVE_HEADER_PRINT_ROW_HEIGHT == 54
+    assert CURVE_HEADER_ROW_HEIGHT < CURVE_HEADER_PRINT_ROW_HEIGHT == 52
     assert curve_header_viewport_height(
         6,
         row_height=CURVE_HEADER_PRINT_ROW_HEIGHT,
