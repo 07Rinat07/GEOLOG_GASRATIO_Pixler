@@ -462,17 +462,45 @@ def _check_cancelled(callback: Callable[[], bool] | None) -> None:
 
 
 def _automatic_plan(table: ParadoxTable, quality) -> ParadoxImportPlan:
-    depth = quality.depth_candidates[0].field_name if quality.depth_candidates else None
-    time = quality.time_candidates[0].field_name if quality.time_candidates else None
-    classification = quality.classification
-    if classification is DatasetClassification.UNDEFINED:
-        depth = None
-        time = None
+    """Choose index fields from the table classification, not weak candidates.
+
+    Numeric engineering channels can be monotonic for long periods and therefore
+    receive a low-confidence depth-candidate score. A TIME-only GeoScape table
+    must never promote such a channel to the primary depth index merely because
+    the candidate list is non-empty. The classification is the authoritative
+    contract: depth-only tables use depth, time-only tables use time, and mixed
+    tables retain both indexes while selecting the role indicated by the class.
+    """
+
+    classification = DatasetClassification(quality.classification)
+    best_depth = (
+        quality.depth_candidates[0].field_name
+        if quality.depth_candidates
+        else None
+    )
+    best_time = (
+        quality.time_candidates[0].field_name
+        if quality.time_candidates
+        else None
+    )
+
+    if classification is DatasetClassification.DEPTH:
+        depth, time, active_role = best_depth, None, "depth"
+    elif classification is DatasetClassification.TIME:
+        depth, time, active_role = None, best_time, "time"
+    elif classification is DatasetClassification.TIME_WITH_DEPTH:
+        depth, time, active_role = best_depth, best_time, "depth"
+    elif classification is DatasetClassification.MIXED:
+        depth, time = best_depth, best_time
+        active_role = "depth" if depth is not None else "time"
+    else:
+        depth, time, active_role = None, None, "auto"
+
     return ParadoxImportPlan(
         classification=classification,
         depth_field=depth,
         time_field=time,
-        active_role="depth" if depth is not None else "time",
+        active_role=active_role,
         mappings=default_mappings(table),
     )
 

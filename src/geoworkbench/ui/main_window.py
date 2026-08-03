@@ -77,7 +77,7 @@ from geoworkbench.importers.gs2.metadata import (
     metadata_well_headers,
 )
 from geoworkbench.importers.skf_importer import import_skf_file
-from geoworkbench.domain.models import CurveData, Dataset, IndexRole
+from geoworkbench.domain.models import CurveData, Dataset, IndexRole, IndexType
 from geoworkbench.data.las_adapter import LasExportError
 from geoworkbench.data.las_import_policy import LasImportMode
 from geoworkbench.data.las_import_report import LasImportIssue, LasImportReport
@@ -205,6 +205,7 @@ from geoworkbench.services.import_diagnostics import (
 from geoworkbench.services.session_binding import SessionBindingController
 from geoworkbench.services.print_jobs import PrintJobExecutor, report_render_settings
 from geoworkbench.services.workspace_commands import WorkspaceCommandController
+from geoworkbench.services.datetime_boundary import datetime_boundary_unix_seconds
 from geoworkbench.services.report_definition import (
     ReportDefinition,
     ReportDefinitionError,
@@ -4486,12 +4487,21 @@ class MainWindow(QMainWindow):
             form_revision=underlying_form.revision,
         )
         resolved = self.dataset_export_controller.resolve_report(definition, context=report_context)
+        resolved_index = dataset.indexes.get(resolved.interval.index_id)
+        if resolved_index is None:
+            raise ReportDefinitionError(
+                f"Индекс печатного интервала не найден: {resolved.interval.index_id}"
+            )
         try:
-            start = float(resolved.interval.start)
-            end = float(resolved.interval.end)
+            if resolved_index.index_type is IndexType.DATETIME:
+                start = datetime_boundary_unix_seconds(resolved.interval.start)
+                end = datetime_boundary_unix_seconds(resolved.interval.end)
+            else:
+                start = float(resolved.interval.start)
+                end = float(resolved.interval.end)
         except (TypeError, ValueError) as exc:
             raise ReportDefinitionError(
-                "Print Center пока поддерживает числовой вертикальный интервал"
+                "Границы вертикального интервала печати имеют неверный формат"
             ) from exc
         normalized_pagination = replace(
             pagination,

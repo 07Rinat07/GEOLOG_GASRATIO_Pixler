@@ -164,9 +164,9 @@ def _paint_tablet_with_repeated_header(
 ) -> None:
     """Paint the graph at the top and pin the repeated header to the bottom.
 
-    The final interval can be much shorter than a regular automatic page.  Its
-    graph body must keep the canonical column width instead of being vertically
-    centred together with the repeated header as one small floating block.
+    A very short final interval must keep the same paper column widths as prior
+    pages. Only the graph body may be compressed vertically; the semantic header
+    band is copied without graph pixels and never floats in the page centre.
     """
 
     body_height = max(1.0, float(snapshot.content_height - snapshot.header_height))
@@ -245,14 +245,7 @@ def _snapshot_with_compressed_body(
     *,
     target_body_height: float,
 ) -> TabletPrintSnapshot:
-    """Compress only the graph body while preserving canonical column widths.
-
-    The final automatic interval can be too short to fit together with the
-    repeated bottom header.  ``paint_tablet_snapshot`` normally resolves such a
-    collision with a uniform scale, which also narrows every column.  A temporary
-    body-only snapshot keeps the header pixels intact and rescales the graph
-    vertically, so horizontal paper geometry remains identical to prior pages.
-    """
+    """Compress graph pixels vertically while preserving header pixels exactly."""
 
     source_body_height = max(1.0, float(snapshot.content_height - snapshot.header_height))
     resolved_body_height = max(1.0, min(source_body_height, float(target_body_height)))
@@ -272,19 +265,11 @@ def _snapshot_with_compressed_body(
         try:
             target_painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
             target_painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
-            target_painter.setRenderHint(
-                QPainter.RenderHint.SmoothPixmapTransform,
-                True,
-            )
+            target_painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
             target_painter.drawPixmap(
                 QRectF(0.0, 0.0, float(source.width()), float(header_pixels)),
                 source,
-                QRectF(
-                    0.0,
-                    0.0,
-                    float(source.width()),
-                    float(header_source_height),
-                ),
+                QRectF(0.0, 0.0, float(source.width()), float(header_source_height)),
             )
             target_painter.drawPixmap(
                 QRectF(

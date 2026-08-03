@@ -12,6 +12,10 @@ from numpy.typing import NDArray
 
 from geoworkbench.domain.models import Dataset, DatasetIndex, IndexType
 from geoworkbench.services.coverage import ChannelCoverage, analyze_dataset_coverage
+from geoworkbench.services.datetime_boundary import (
+    coerce_datetime_boundary,
+    datetime_boundary_text,
+)
 
 
 REPORT_DEFINITION_SCHEMA_VERSION = 2
@@ -442,8 +446,11 @@ def _interval_indices(
     values = np.asarray(index.values)
     if index.index_type is IndexType.DATETIME:
         normalized = values.astype("datetime64[ns]")
-        start_value = _datetime_boundary_value(start)
-        end_value = _datetime_boundary_value(end)
+        try:
+            start_value = coerce_datetime_boundary(start)
+            end_value = coerce_datetime_boundary(end)
+        except ValueError as exc:
+            raise ReportDefinitionError("Некорректные datetime-границы отчёта") from exc
         mask = ~np.isnat(normalized) & (normalized >= start_value) & (normalized <= end_value)
     else:
         numeric = values.astype(np.float64)
@@ -456,7 +463,10 @@ def _interval_indices(
 
 def _coerce_boundary(index: DatasetIndex, value: ReportBoundary) -> ReportBoundary:
     if index.index_type is IndexType.DATETIME:
-        return _datetime_text(_datetime_boundary_value(value))
+        try:
+            return datetime_boundary_text(value)
+        except ValueError as exc:
+            raise ReportDefinitionError(f"Некорректная datetime-граница: {value}") from exc
     if isinstance(value, bool):
         raise ReportDefinitionError("Числовая граница отчёта не может быть логической")
     try:
@@ -470,7 +480,10 @@ def _coerce_boundary(index: DatasetIndex, value: ReportBoundary) -> ReportBounda
 
 def _boundary_key(index: DatasetIndex, value: ReportBoundary) -> int | float:
     if index.index_type is IndexType.DATETIME:
-        return int(_datetime_boundary_value(value).astype(np.int64))
+        try:
+            return int(coerce_datetime_boundary(value).astype(np.int64))
+        except ValueError as exc:
+            raise ReportDefinitionError(f"Некорректная datetime-граница: {value}") from exc
     return float(value)
 
 
@@ -478,51 +491,6 @@ def _boundary_from_key(index: DatasetIndex, value: int | float) -> ReportBoundar
     if index.index_type is IndexType.DATETIME:
         return _datetime_text(np.datetime64(int(value), "ns"))
     return float(value)
-
-
-def _datetime_boundary_value(value: ReportBoundary) -> np.datetime64:
-    """Normalize report datetime boundaries from ISO text or Unix seconds.
-
-    Tablet time axes use floating-point Unix seconds, whereas imported indexes
-    remain ``datetime64``. Numeric viewport bounds must therefore be converted
-    to nanoseconds instead of being parsed as calendar-year text.
-    """
-
-    if isinstance(value, bool):
-        raise ReportDefinitionError("Datetime-граница отчёта не может быть логической")
-
-    numeric: float | None = None
-    if isinstance(value, (int, float, np.integer, np.floating)):
-        numeric = float(value)
-    else:
-        text = str(value).strip()
-        try:
-            numeric = float(text)
-        except (TypeError, ValueError, OverflowError):
-            try:
-                normalized = np.datetime64(text, "ns")
-            except (TypeError, ValueError, OverflowError) as exc:
-                raise ReportDefinitionError(
-                    f"Некорректная datetime-граница: {value}"
-                ) from exc
-            if np.isnat(normalized):
-                raise ReportDefinitionError("Datetime-граница отчёта не может быть NaT")
-            return normalized
-
-    assert numeric is not None
-    if not isfinite(numeric):
-        raise ReportDefinitionError("Datetime-граница отчёта должна быть конечной")
-    try:
-        nanoseconds = round(numeric * 1_000_000_000.0)
-        limits = np.iinfo(np.int64)
-        if nanoseconds < limits.min or nanoseconds > limits.max:
-            raise OverflowError
-        normalized = np.datetime64(int(nanoseconds), "ns")
-    except (OverflowError, TypeError, ValueError) as exc:
-        raise ReportDefinitionError(f"Некорректная datetime-граница: {value}") from exc
-    if np.isnat(normalized):
-        raise ReportDefinitionError("Datetime-граница отчёта не может быть NaT")
-    return normalized
 
 
 def _datetime_text(value: np.datetime64) -> str:

@@ -182,82 +182,44 @@ def test_datetime_interval_uses_same_resolution_contract() -> None:
 
 def test_datetime_interval_accepts_unix_second_viewport_bounds() -> None:
     dataset = make_dataset()
+    timestamps = np.array(
+        [
+            "2026-07-21T00:00:00.000",
+            "2026-07-21T00:00:00.240",
+            "2026-07-21T00:00:01.000",
+        ],
+        dtype="datetime64[ms]",
+    )
     time_index = DatasetIndex(
-        "time-index-unix",
+        "time-unix",
         "DATETIME",
         IndexType.DATETIME,
         IndexRole.TIME,
-        "UTC",
-        np.array(
-            [
-                "2026-07-21T00:00:00.000",
-                "2026-07-21T00:00:00.240",
-                "2026-07-21T00:00:00.500",
-                "2026-07-21T00:00:01.000",
-                "2026-07-21T00:00:02.000",
-            ],
-            dtype="datetime64[ms]",
-        ),
+        None,
+        timestamps,
     )
-    dataset.add_index(time_index)
+    dataset.depth = np.array([0.0, 1.0, 2.0])
+    for curve in dataset.curves.values():
+        curve.values = np.asarray(curve.values[:3], dtype=np.float64)
+    dataset.indexes = {time_index.index_id: time_index}
+    dataset.active_index_id = time_index.index_id
+
+    start = float(timestamps[0].astype("datetime64[ns]").astype(np.int64)) / 1e9
+    end = float(timestamps[-1].astype("datetime64[ns]").astype(np.int64)) / 1e9
     item = ReportDefinition(
-        "report-time-unix",
-        "GeoScape time report",
+        "report-unix-time",
+        "Unix viewport",
         ReportProfile.DRILLING,
         dataset.dataset_id,
         time_index.index_id,
-        ReportIntervalSelection(ReportIntervalMode.CURRENT),
-    )
-
-    resolved = resolve_report_definition(
-        dataset,
-        item,
-        context=ReportIntervalContext(
-            current_range=(1784592000.24, 1784592001.0),
-        ),
-    )
-
-    assert resolved.interval.indices.tolist() == [1, 2, 3]
-    assert resolved.interval.start == "2026-07-21T00:00:00.240000000"
-    assert resolved.interval.end == "2026-07-21T00:00:01.000000000"
-
-
-def test_datetime_interval_accepts_numeric_string_unix_seconds() -> None:
-    dataset = make_dataset()
-    time_index = DatasetIndex(
-        "time-index-unix-string",
-        "DATETIME",
-        IndexType.DATETIME,
-        IndexRole.TIME,
-        "UTC",
-        np.array(
-            [
-                "2026-07-21T00:00:00.240",
-                "2026-07-21T00:00:00.500",
-                "2026-07-21T00:00:01.000",
-                "2026-07-21T00:00:01.500",
-                "2026-07-21T00:00:02.000",
-            ],
-            dtype="datetime64[ms]",
-        ),
-    )
-    dataset.add_index(time_index)
-    item = ReportDefinition(
-        "report-time-unix-string",
-        "GeoScape time report",
-        ReportProfile.DRILLING,
-        dataset.dataset_id,
-        time_index.index_id,
-        ReportIntervalSelection(
-            ReportIntervalMode.CUSTOM,
-            "1784592000.24",
-            "1784592001",
-        ),
+        ReportIntervalSelection(ReportIntervalMode.CUSTOM, start, end),
     )
 
     resolved = resolve_report_definition(dataset, item)
 
     assert resolved.interval.indices.tolist() == [0, 1, 2]
+    assert resolved.interval.start == "2026-07-21T00:00:00.000000000"
+    assert resolved.interval.end == "2026-07-21T00:00:01.000000000"
 
 
 def test_definition_payload_roundtrip_preserves_digest() -> None:

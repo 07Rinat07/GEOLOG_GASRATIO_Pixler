@@ -16,6 +16,7 @@ from geoworkbench.printing.auto_pagination import (
     PRINT_VERTICAL_GAP_MM,
     automatic_tablet_first_page_geometry,
     automatic_tablet_page_geometry,
+    balanced_automatic_page_ranges,
     printable_tablet_body_height_mm,
 )
 from geoworkbench.printing.form_column_layout import original_column_layout
@@ -338,15 +339,14 @@ def _build_automatic_page_slices(
     if end <= start:
         return (PrintPageSlice(start, end, 1, 1),)
 
-    raw: list[tuple[float, float]] = []
-    page_start = start
-    while page_start < end - 1e-9:
-        capacity = first_units_per_page if not raw else regular_units_per_page
-        page_end = min(end, page_start + max(capacity, 1e-9))
-        raw.append((page_start, page_end))
-        if page_end >= end - 1e-9:
-            break
-        page_start = page_end
+    raw = list(
+        balanced_automatic_page_ranges(
+            start,
+            end,
+            first_units_per_page=max(first_units_per_page, 1e-9),
+            regular_units_per_page=max(regular_units_per_page, 1e-9),
+        )
+    )
     total = len(raw)
     return tuple(
         PrintPageSlice(page_start, page_end, index + 1, total)

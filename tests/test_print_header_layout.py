@@ -387,6 +387,28 @@ def test_page_target_height_preserves_header_and_scales_only_body() -> None:
     assert _page_target_content_height(plan, partial) == 600
 
 
+def test_print_capture_resynchronizes_titles_after_adaptive_widths() -> None:
+    source = Path(
+        "src/geoworkbench/printing/tablet_print.py"
+    ).read_text(encoding="utf-8")
+
+    width_update = source.index("item.widget.set_track_width(width)")
+    title_measure = source.index(
+        "item.widget.natural_title_header_height for item in rendered",
+        width_update,
+    )
+    title_apply = source.index(
+        "item.widget.set_synchronized_title_header_height(print_title_band)",
+        title_measure,
+    )
+    header_measure = source.index(
+        "measured_header_height = print_title_band + print_header_band",
+        title_apply,
+    )
+
+    assert width_update < title_measure < title_apply < header_measure
+
+
 def test_adaptive_layout_uses_canonical_graph_body_height() -> None:
     source = Path(
         "src/geoworkbench/printing/tablet_print.py"
@@ -395,11 +417,8 @@ def test_adaptive_layout_uses_canonical_graph_body_height() -> None:
     assert "canonical_layout_height - measured_header_height" in source
 
 
-
 def test_print_snapshot_header_crop_uses_semantic_header_band() -> None:
-    source = Path(
-        "src/geoworkbench/printing/tablet_print.py"
-    ).read_text(encoding="utf-8")
+    source = Path("src/geoworkbench/printing/tablet_print.py").read_text(encoding="utf-8")
 
     assert "+ print_header_band" in source
     assert "curve_header_scroll.height()" not in source

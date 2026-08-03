@@ -22,6 +22,10 @@ from geoworkbench.services.coverage import (
     analyze_curve_coverage,
     unavailable_channel_coverage,
 )
+from geoworkbench.services.datetime_boundary import (
+    coerce_datetime_boundary,
+    datetime_boundary_text,
+)
 
 if TYPE_CHECKING:
     from geoworkbench.forms.models import FormDocument
@@ -724,8 +728,19 @@ def _interval_snapshot(
         start, end = requested
     if start == end:
         raise ReportPassportError("Интервал Report Passport должен иметь разные границы")
-    normalized_start = _scalar_value(start)
-    normalized_end = _scalar_value(end)
+    normalized_start: float | str
+    normalized_end: float | str
+    if np.issubdtype(np.asarray(index.values).dtype, np.datetime64):
+        try:
+            normalized_start = datetime_boundary_text(start)
+            normalized_end = datetime_boundary_text(end)
+        except ValueError as exc:
+            raise ReportPassportError(
+                "Границы datetime-интервала имеют неверный формат"
+            ) from exc
+    else:
+        normalized_start = _scalar_value(start)
+        normalized_end = _scalar_value(end)
     provisional = ReportIntervalSnapshot(
         index.index_id,
         index.mnemonic,
@@ -1036,8 +1051,8 @@ def _interval_mask(
         raise ReportPassportError("Активный индекс Report Passport должен быть одномерным")
     if np.issubdtype(array.dtype, np.datetime64):
         try:
-            start_datetime = np.datetime64(str(interval.start), "ns")
-            end_datetime = np.datetime64(str(interval.end), "ns")
+            start_datetime = coerce_datetime_boundary(interval.start)
+            end_datetime = coerce_datetime_boundary(interval.end)
         except ValueError as exc:
             raise ReportPassportError("Границы datetime-интервала имеют неверный формат") from exc
         if start_datetime == end_datetime:

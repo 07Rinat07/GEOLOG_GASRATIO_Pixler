@@ -40,3 +40,12 @@ def test_wits0_dialog_open_failure_is_reported_without_crashing_main_window() ->
     assert "except Exception as exc:" in block
     assert 'log_exception("wits0.capture.open_failed", exc)' in block
     assert 'self._t("wits0.open_error", error=str(exc))' in block
+
+
+def test_print_font_never_passes_nonpositive_point_size_to_qt() -> None:
+    source = (
+        Path(__file__).resolve().parents[1]
+        / "src/geoworkbench/printing/unicode_support.py"
+    ).read_text(encoding="utf-8")
+    assert "safe_point_size = max(1.0, float(point_size))" in source
+    assert "base.setPointSizeF(safe_point_size)" in source

@@ -67,3 +67,12 @@ def test_print_center_only_exposes_depth_selection_for_matching_axis() -> None:
     assert "paged_tablet.vertical_index_id" in block
     assert "self.session.current_dataset.active_index_id" in block
     assert "selected_vertical_range=selected_range" in block
+
+
+def test_print_center_converts_datetime_report_bounds_to_plot_seconds() -> None:
+    source = (ROOT / "src/geoworkbench/ui/main_window.py").read_text(encoding="utf-8")
+    resolver = source[source.index("    def _resolve_print_report(") : source.index("    def _print_report_curve_ids(")]
+
+    assert "resolved_index.index_type is IndexType.DATETIME" in resolver
+    assert "datetime_boundary_unix_seconds(resolved.interval.start)" in resolver
+    assert "Print Center пока поддерживает числовой вертикальный интервал" not in resolver

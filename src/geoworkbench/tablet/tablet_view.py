@@ -1227,6 +1227,8 @@ class TabletTrackWidget(QFrame):
         self._natural_curve_header_height = 0
         self._curve_header_row_height = CURVE_HEADER_EDITOR_HEIGHT
         self._shared_vertical_ruler_layout: VerticalRulerLayout | None = None
+        self._print_mode = False
+        self._no_numeric_message: pg.TextItem | None = None
         self.setObjectName(f"track-{definition.track_id}")
         self.setFrameShape(QFrame.Shape.StyledPanel)
         self.setStyleSheet(
@@ -1361,6 +1363,7 @@ class TabletTrackWidget(QFrame):
         """Quiesce deferred callbacks before deleting a rendered track tree."""
 
         self._dispose_curve_header_editors()
+        self.clear_no_numeric_message()
         targets: list[object | None] = [self.title, self.plot]
         if _qt_object_is_alive(self.plot):
             try:
@@ -1475,7 +1478,17 @@ class TabletTrackWidget(QFrame):
 
     @property
     def natural_title_header_height(self) -> int:
-        return 96 if self.definition.title_orientation != "horizontal" else 36
+        if self.definition.title_orientation != "horizontal":
+            return 96
+        # Horizontal titles may wrap after a form is adapted to paper width.
+        # A fixed 36 px band clipped the second line both on the first page and
+        # in the repeated footer header.  Ask QLabel for its word-wrapped height
+        # at the actual track width, then keep the historical one-line minimum.
+        content_width = max(24, self._display_width - 12)
+        wrapped_height = self.title.heightForWidth(content_width)
+        if wrapped_height < 0:
+            wrapped_height = self.title.sizeHint().height()
+        return max(36, int(wrapped_height) + 6)
 
     def set_synchronized_title_header_height(self, height: int) -> None:
         self.title.setFixedHeight(max(36, int(height)))
@@ -1510,9 +1523,20 @@ class TabletTrackWidget(QFrame):
         self.curve_header_scroll.setFixedHeight(normalized)
 
     def set_print_mode(self, enabled: bool) -> None:
-        """Render a clean, enlarged curve legend for paper output."""
+        """Render a clean, enlarged curve legend for paper output.
+
+        The on-screen no-data hint is intentionally omitted from paper output.
+        Its TextItem is positioned in data coordinates; when a continuation page
+        crops the column header, the stale scene position can otherwise appear as
+        a clipped text fragment at the top of the graph body.  The track title
+        already records the no-data state, so suppressing the duplicate hint on
+        paper removes ambiguity without hiding diagnostic information.
+        """
 
         enabled = bool(enabled)
+        self._print_mode = enabled
+        if self._no_numeric_message is not None:
+            self._no_numeric_message.setVisible(not enabled)
         self._curve_header_row_height = (
             CURVE_HEADER_PRINT_ROW_HEIGHT
             if enabled
@@ -1538,6 +1562,35 @@ class TabletTrackWidget(QFrame):
         )
         self.curve_header.setFixedHeight(content_height)
         self.set_synchronized_header_height(self._natural_curve_header_height)
+
+    def set_no_numeric_message(self, text: str, x: float, y: float) -> None:
+        """Show one centered screen-only hint for a track without finite values."""
+
+        self.clear_no_numeric_message()
+        message = pg.TextItem(
+            text,
+            color="#64748b",
+            anchor=(0.5, 0.5),
+        )
+        message.setPos(float(x), float(y))
+        message.setVisible(not self._print_mode)
+        self.plot.addItem(message)
+        self._no_numeric_message = message
+
+    def clear_no_numeric_message(self) -> None:
+        """Remove the optional no-data hint without disturbing curve geometry."""
+
+        message = self._no_numeric_message
+        self._no_numeric_message = None
+        if message is None:
+            return
+        try:
+            self.plot.removeItem(message)
+        except RuntimeError:
+            # The plot may already be in Qt disposal while a dataset/form refresh
+            # clears presentation state.  Dropping the Python reference remains
+            # sufficient and keeps cleanup idempotent.
+            pass
 
     def update_curve_header_range(
         self, mnemonic: str, minimum: float, maximum: float, scale: XScale, unit: str
@@ -8260,15 +8313,13 @@ class TabletView(QWidget):
                     title=self._localized_track_title(definition),
                 )
             )
-            message = pg.TextItem(
-                self._localizer.text("tablet.no_numeric_data_short"),
-                color="#64748b",
-                anchor=(0.5, 0.5),
-            )
             depth_bounds = self._depth_bounds()
             center_depth = sum(depth_bounds) / 2.0 if depth_bounds is not None else 0.0
-            message.setPos(0.5, center_depth)
-            track.plot.addItem(message)
+            track.set_no_numeric_message(
+                self._localizer.text("tablet.no_numeric_data_short"),
+                0.5,
+                center_depth,
+            )
         return tuple(legend_labels), curve_items, {}, None
 
     def _populate_relative_gas_track(
@@ -8335,14 +8386,12 @@ class TabletView(QWidget):
                     title=self._localized_track_title(definition),
                 )
             )
-            message = pg.TextItem(
-                self._localizer.text("tablet.no_numeric_data_short"),
-                color="#64748b",
-                anchor=(0.5, 0.5),
-            )
             bounds = self._depth_bounds()
-            message.setPos(50.0, sum(bounds) / 2.0 if bounds is not None else 0.0)
-            track.plot.addItem(message)
+            track.set_no_numeric_message(
+                self._localizer.text("tablet.no_numeric_data_short"),
+                50.0,
+                sum(bounds) / 2.0 if bounds is not None else 0.0,
+            )
             return (), {}, {}, None
 
         depth = self._axis_values()

@@ -130,7 +130,12 @@ def materialize_form_for_dataset(
 
     catalog = catalog or active_sensor_catalog()
     grouped: dict[str, list[ParameterBinding]] = defaultdict(list)
-    for position, curve in enumerate(dataset.curves.values()):
+    visible_curves = [
+        curve
+        for curve in dataset.curves.values()
+        if not _is_technical_audit_curve(dataset, curve)
+    ]
+    for position, curve in enumerate(visible_curves):
         match = catalog.match(
             curve.metadata.original_mnemonic,
             description=curve.metadata.description or "",
@@ -183,6 +188,15 @@ def materialize_form_for_dataset(
         sum(len(track.bindings) for column in generated_columns for track in column.tracks),
         True,
     )
+
+
+def _is_technical_audit_curve(dataset: Dataset, curve: CurveData) -> bool:
+    """Keep raw source time for audit without plotting a Unix epoch curve."""
+
+    configured = dataset.parameters.get("PARADOX_TIME_RAW_CURVE", "").strip().casefold()
+    mnemonic = curve.metadata.original_mnemonic.strip().casefold()
+    provenance = curve.metadata.provenance.strip().casefold()
+    return bool(configured and mnemonic == configured) or provenance.endswith(":raw-time")
 
 
 def _binding_from_curve(

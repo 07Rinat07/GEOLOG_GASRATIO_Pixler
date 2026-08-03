@@ -143,3 +143,72 @@ def automatic_tablet_first_page_geometry(
         units_per_page=max(1e-9, min(float(regular_units_per_page), first_units)),
         target_content_height_px=column_header_height_px + first_body_height,
     )
+
+
+_MIN_TINY_FINAL_PAGE_FRACTION = 0.12
+_MAX_REBALANCED_PAGE_OVERFLOW_FRACTION = 0.03
+
+
+def balanced_automatic_page_ranges(
+    start: float,
+    end: float,
+    *,
+    first_units_per_page: float,
+    regular_units_per_page: float,
+) -> tuple[tuple[float, float], ...]:
+    """Build automatic page ranges without a nearly empty final sheet.
+
+    A reduced first-page capacity plus fixed continuation capacity can leave a
+    residual interval of less than one metre. When the residual is tiny and two
+    regular pages can absorb it with only a small density change, the remaining
+    interval is distributed evenly. Normal and materially partial final pages
+    keep their original capacity and scale.
+    """
+
+    lower = float(start)
+    upper = float(end)
+    first_capacity = float(first_units_per_page)
+    regular_capacity = float(regular_units_per_page)
+    if not all(value > 0.0 for value in (first_capacity, regular_capacity)):
+        raise ValueError("Автоматические интервалы страниц должны быть положительными")
+    if upper <= lower:
+        return ((lower, upper),)
+
+    ranges: list[tuple[float, float]] = []
+    page_start = lower
+    while page_start < upper - 1e-9:
+        capacity = first_capacity if not ranges else regular_capacity
+        page_end = min(upper, page_start + capacity)
+        ranges.append((page_start, page_end))
+        if page_end >= upper - 1e-9:
+            break
+        page_start = page_end
+
+    if len(ranges) < 3:
+        return tuple(ranges)
+    final_span = ranges[-1][1] - ranges[-1][0]
+    if final_span >= regular_capacity * _MIN_TINY_FINAL_PAGE_FRACTION:
+        return tuple(ranges)
+
+    first_end = ranges[0][1]
+    remaining_span = upper - first_end
+    rebalanced_regular_count = len(ranges) - 2
+    if rebalanced_regular_count < 1:
+        return tuple(ranges)
+    rebalanced_span = remaining_span / rebalanced_regular_count
+    if rebalanced_span > regular_capacity * (
+        1.0 + _MAX_REBALANCED_PAGE_OVERFLOW_FRACTION
+    ):
+        return tuple(ranges)
+
+    balanced: list[tuple[float, float]] = [ranges[0]]
+    page_start = first_end
+    for page_index in range(rebalanced_regular_count):
+        page_end = (
+            upper
+            if page_index == rebalanced_regular_count - 1
+            else first_end + rebalanced_span * (page_index + 1)
+        )
+        balanced.append((page_start, page_end))
+        page_start = page_end
+    return tuple(balanced)

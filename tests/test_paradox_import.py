@@ -695,3 +695,20 @@ def test_import_rejects_unix_timestamp_selected_as_depth(tmp_path: Path) -> None
 
     with pytest.raises(RuntimeError, match="Unix timestamp"):
         import_paradox(table.source, plan, table=table, quality=analyze_table(table))
+
+
+def test_automatic_time_table_import_ignores_weak_depth_candidates(tmp_path: Path) -> None:
+    """A TIME-only table must not promote a monotonic sensor to DEPT."""
+
+    table = _timestamp_table(tmp_path)
+    result = import_paradox(
+        table.source,
+        table=table,
+        quality=analyze_table(table),
+    )
+
+    assert result.dataset.depth_domain.value == "time"
+    assert result.dataset.active_index.index_type is IndexType.DATETIME
+    assert result.dataset.active_index.mnemonic == "DATETIME"
+    assert result.dataset.parameters["PARADOX_DEPTH_FIELD"] == ""
+    assert result.dataset.parameters["PARADOX_TIME_FIELD"] == "TIME"

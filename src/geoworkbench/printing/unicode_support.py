@@ -293,7 +293,11 @@ def print_font(
         base.setFamilies(list(profile.families))
     elif profile.primary_family:
         base.setFamily(profile.primary_family)
-    base.setPointSizeF(point_size)
+    try:
+        safe_point_size = max(1.0, float(point_size))
+    except (TypeError, ValueError):
+        safe_point_size = 8.0
+    base.setPointSizeF(safe_point_size)
     base.setBold(bold)
     base.setStyleStrategy(QFont.StyleStrategy.PreferAntialias)
     return base
