@@ -227,10 +227,14 @@ def capture_tablet_print_snapshot(
         for item in rendered:
             item.widget.set_print_mode(True)
         curve_style_states = _activate_print_curve_styles(rendered)
+        print_title_band = max(
+            item.widget.natural_title_header_height for item in rendered
+        )
         print_header_band = max(
             item.widget.natural_curve_header_height for item in rendered
         )
         for item in rendered:
+            item.widget.set_synchronized_title_header_height(print_title_band)
             item.widget.set_synchronized_header_height(print_header_band)
         _activate_layout_tree(tablet)
         tablet.refresh_shared_vertical_rulers()
@@ -241,10 +245,7 @@ def capture_tablet_print_snapshot(
         # The print header is title + synchronized natural curve-header band.
         # QScrollArea may transiently stretch on a short hidden viewport; its live
         # height can include graph pixels and must not define the repeated header.
-        header_height = (
-            max(item.widget.title.height() for item in rendered)
-            + print_header_band
-        )
+        header_height = print_title_band + print_header_band
 
         if target_content_height is not None:
             minimum_height = header_height + 1
@@ -261,10 +262,7 @@ def capture_tablet_print_snapshot(
                 _activate_layout_tree(tablet)
                 tablet.refresh_shared_vertical_rulers()
             content_height = max(item.widget.height() for item in rendered)
-            header_height = (
-                max(item.widget.title.height() for item in rendered)
-                + print_header_band
-            )
+            header_height = print_title_band + print_header_band
 
         canonical_layout_height = max(1, int(layout_content_height or content_height))
 
@@ -302,11 +300,14 @@ def capture_tablet_print_snapshot(
         for _attempt in range(3):
             for item, width in zip(rendered, layout.widths, strict=True):
                 item.widget.set_track_width(width)
-            tablet.refresh_shared_vertical_rulers()
-            measured_header_height = (
-                max(item.widget.title.height() for item in rendered)
-                + print_header_band
+            print_title_band = max(
+                item.widget.natural_title_header_height for item in rendered
             )
+            for item in rendered:
+                item.widget.set_synchronized_title_header_height(print_title_band)
+            _activate_layout_tree(tablet)
+            tablet.refresh_shared_vertical_rulers()
+            measured_header_height = print_title_band + print_header_band
             next_layout = build_layout(measured_header_height)
             header_height = measured_header_height
             if next_layout == layout:
@@ -359,10 +360,14 @@ def capture_tablet_print_snapshot(
         for item, width in zip(rendered, original_widths, strict=True):
             item.widget.set_print_mode(False)
             item.widget.set_track_width(width)
+        screen_title_band = max(
+            item.widget.natural_title_header_height for item in rendered
+        )
         screen_header_band = max(
             item.widget.natural_curve_header_height for item in rendered
         )
         for item in rendered:
+            item.widget.set_synchronized_title_header_height(screen_title_band)
             item.widget.set_synchronized_header_height(screen_header_band)
         if tablet.size() != original_tablet_size:
             tablet.resize(original_tablet_size)
