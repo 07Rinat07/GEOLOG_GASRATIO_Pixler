@@ -1478,7 +1478,17 @@ class TabletTrackWidget(QFrame):
 
     @property
     def natural_title_header_height(self) -> int:
-        return 96 if self.definition.title_orientation != "horizontal" else 36
+        if self.definition.title_orientation != "horizontal":
+            return 96
+        # Horizontal titles may wrap after a form is adapted to paper width.
+        # A fixed 36 px band clipped the second line both on the first page and
+        # in the repeated footer header.  Ask QLabel for its word-wrapped height
+        # at the actual track width, then keep the historical one-line minimum.
+        content_width = max(24, self._display_width - 12)
+        wrapped_height = self.title.heightForWidth(content_width)
+        if wrapped_height < 0:
+            wrapped_height = self.title.sizeHint().height()
+        return max(36, int(wrapped_height) + 6)
 
     def set_synchronized_title_header_height(self, height: int) -> None:
         self.title.setFixedHeight(max(36, int(height)))

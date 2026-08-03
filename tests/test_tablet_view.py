@@ -143,6 +143,24 @@ def test_track_print_mode_hides_header_editor_actions_and_scrollbar(qapp) -> Non
     )
     view.close()
 
+def test_wrapped_horizontal_track_title_expands_common_header_band(qapp) -> None:
+    widget = TabletTrackWidget(
+        TrackDefinition(
+            "wrapped-title",
+            "Газ ΔC1, µg/L — нет числовых данных",
+            TrackKind.CURVE,
+            width=220,
+        )
+    )
+
+    required_height = widget.natural_title_header_height
+
+    assert required_height > 36
+    widget.set_synchronized_title_header_height(required_height)
+    assert widget.title.height() == required_height
+    widget.close()
+
+
 def test_no_numeric_hint_is_screen_only_and_restored_after_print(qapp) -> None:
     dataset = Dataset(
         "dataset-no-numeric-print",
