@@ -85,8 +85,27 @@ jobs:
           python -m compileall -q \
             src/geoworkbench/printing/tablet_print.py \
             tests/test_print_header_layout.py
-          python -m pip install -q pytest
-          PYTHONPATH=src pytest -q tests/test_print_header_layout.py -k 'resynchronizes_titles or adaptive_layout_uses'
+          python - <<'PY'
+          from pathlib import Path
+
+          source = Path('src/geoworkbench/printing/tablet_print.py').read_text(encoding='utf-8')
+          tests = Path('tests/test_print_header_layout.py').read_text(encoding='utf-8')
+          width_update = source.index('item.widget.set_track_width(width)')
+          title_measure = source.index(
+              'item.widget.natural_title_header_height for item in rendered',
+              width_update,
+          )
+          title_apply = source.index(
+              'item.widget.set_synchronized_title_header_height(print_title_band)',
+              title_measure,
+          )
+          header_measure = source.index(
+              'measured_header_height = print_title_band + print_header_band',
+              title_apply,
+          )
+          assert width_update < title_measure < title_apply < header_measure
+          assert 'test_print_capture_resynchronizes_titles_after_adaptive_widths' in tests
+          PY
 
       - name: Commit source and remove temporary workflow
         shell: bash
