@@ -1,0 +1,61 @@
+name: Apply wrapped print title regression fix
+
+on:
+  push:
+    branches: [fix/comprehensive-print-gas-time-20260804]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/comprehensive-print-gas-time-20260804
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Apply focused title geometry and test changes
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/geoworkbench/tablet/tablet_view.py')
+          text = path.read_text(encoding='utf-8')
+          old = '''    @property\n    def natural_title_header_height(self) -> int:\n        return 96 if self.definition.title_orientation != "horizontal" else 36\n'''
+          new = '''    @property\n    def natural_title_header_height(self) -> int:\n        if self.definition.title_orientation != "horizontal":\n            return 96\n        # Horizontal titles may wrap after a form is adapted to paper width.\n        # A fixed 36 px band clipped the second line both on the first page and\n        # in the repeated footer header.  Ask QLabel for its word-wrapped height\n        # at the actual track width, then keep the historical one-line minimum.\n        content_width = max(24, self._display_width - 12)\n        wrapped_height = self.title.heightForWidth(content_width)\n        if wrapped_height < 0:\n            wrapped_height = self.title.sizeHint().height()\n        return max(36, int(wrapped_height) + 6)\n'''
+          if text.count(old) != 1:
+              raise SystemExit(f'title height source block count: {text.count(old)}')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          path = Path('tests/test_tablet_view.py')
+          text = path.read_text(encoding='utf-8')
+          anchor = 'def test_no_numeric_hint_is_screen_only_and_restored_after_print(qapp) -> None:\n'
+          test = '''def test_wrapped_horizontal_track_title_expands_common_header_band(qapp) -> None:\n    widget = TabletTrackWidget(\n        TrackDefinition(\n            "wrapped-title",\n            "Газ ΔC1, µg/L — нет числовых данных",\n            TrackKind.CURVE,\n            width=220,\n        )\n    )\n\n    required_height = widget.natural_title_header_height\n\n    assert required_height > 36\n    widget.set_synchronized_title_header_height(required_height)\n    assert widget.title.height() == required_height\n    widget.close()\n\n\n'''
+          if text.count(anchor) != 1:
+              raise SystemExit('wrapped-title test insertion anchor not unique')
+          if 'test_wrapped_horizontal_track_title_expands_common_header_band' in text:
+              raise SystemExit('wrapped-title regression test already exists')
+          path.write_text(text.replace(anchor, test + anchor, 1), encoding='utf-8')
+          PY
+
+      - name: Verify syntax
+        shell: bash
+        run: |
+          python -m compileall -q src/geoworkbench/tablet/tablet_view.py tests/test_tablet_view.py
+
+      - name: Commit source and remove temporary workflow
+        shell: bash
+        run: |
+          rm -f .github/workflows/apply-wrapped-title-print-fix.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'fix: size wrapped track titles for print headers'
+          git push origin HEAD:fix/comprehensive-print-gas-time-20260804
