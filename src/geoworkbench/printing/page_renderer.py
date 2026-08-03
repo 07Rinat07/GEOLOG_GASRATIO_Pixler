@@ -16,7 +16,6 @@ from geoworkbench.printing.tablet_print import (
     paint_tablet_header_repeat,
     paint_tablet_snapshot,
     tablet_header_gap_height,
-    tablet_print_layout_height,
 )
 from geoworkbench.tablet.tablet_view import TabletView
 
@@ -163,53 +162,50 @@ def _paint_tablet_with_repeated_header(
     continuation: PrintContinuationSlice | None,
     show_column_header: bool,
 ) -> None:
-    """Paint body and optional header copies with one common geometric scale."""
+    """Paint the graph at the top and pin the repeated header to the bottom.
+
+    The final interval can be much shorter than a regular automatic page.  Its
+    graph body must keep the canonical column width instead of being vertically
+    centred together with the repeated header as one small floating block.
+    """
 
     body_height = max(1.0, float(snapshot.content_height - snapshot.header_height))
     gap_height = float(tablet_header_gap_height(snapshot.content_height))
-    logical_total_height = float(
-        tablet_print_layout_height(
-            snapshot.content_height,
-            snapshot.header_height,
-            show_column_header=show_column_header,
-            repeat_column_header_at_bottom=True,
-        )
-    )
-
     if scale_mode is PrintScaleMode.FIT:
-        scale = min(
-            content_rect.width() / snapshot.layout.total_width,
-            content_rect.height() / logical_total_height,
-        )
+        scale = content_rect.width() / snapshot.layout.total_width
         rendered_width = snapshot.layout.total_width * scale
-        rendered_height = logical_total_height * scale
         x = content_rect.left() + (content_rect.width() - rendered_width) / 2.0
-        y = content_rect.top() + (content_rect.height() - rendered_height) / 2.0
         region_width = rendered_width
     else:
         device = painter.device()
         dpi = max(1, device.logicalDpiX()) if device is not None else REFERENCE_PRINT_DPI
         scale = dpi / REFERENCE_PRINT_DPI
-        rendered_height = logical_total_height * scale
         x = content_rect.left()
-        y = content_rect.top() + max(0.0, (content_rect.height() - rendered_height) / 2.0)
         region_width = content_rect.width()
 
     header_target_height = snapshot.header_height * scale
     body_target_height = body_height * scale
     gap_target_height = gap_height * scale
 
+    y = content_rect.top()
     top_header: QRectF | None = None
     if show_column_header:
         top_header = QRectF(x, y, region_width, header_target_height)
         y = top_header.bottom() + gap_target_height
 
-    body = QRectF(x, y, region_width, body_target_height)
     repeated_header = QRectF(
         x,
-        body.bottom() + gap_target_height,
+        content_rect.bottom() - header_target_height,
         region_width,
         header_target_height,
+    )
+    body_bottom = repeated_header.top() - gap_target_height
+    available_body_height = max(1.0, body_bottom - y)
+    body = QRectF(
+        x,
+        y,
+        region_width,
+        min(body_target_height, available_body_height),
     )
 
     if top_header is not None:
@@ -228,6 +224,7 @@ def _paint_tablet_with_repeated_header(
         continuation=continuation,
         fill_height=False,
         show_column_header=False,
+        preserve_fit_width=True,
     )
     paint_tablet_header_repeat(
         painter,
