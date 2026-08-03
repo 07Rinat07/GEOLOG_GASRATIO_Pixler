@@ -5,12 +5,20 @@ from pathlib import Path
 
 import fitz
 from PySide6.QtCore import QMarginsF, QRectF
-from PySide6.QtGui import QColor, QImage, QPageLayout, QPageSize, QPainter
+from PySide6.QtGui import (
+    QColor,
+    QImage,
+    QPageLayout,
+    QPageSize,
+    QPainter,
+    QPdfWriter,
+)
 from PySide6.QtPrintSupport import QAbstractPrintDialog, QPrinter
 
 
 CancelCheck = Callable[[], bool]
 ProgressCallback = Callable[[int, int, int], None]
+PrintDevice = QPrinter | QPdfWriter
 
 
 def configure_interpretation_printer(
@@ -53,7 +61,7 @@ def selected_report_pages(
 
 def print_pdf_page_selection(
     pdf_path: str | Path,
-    printer: QPrinter,
+    printer: PrintDevice,
     page_numbers: Iterable[int],
     *,
     cancel_requested: CancelCheck | None = None,
@@ -76,7 +84,8 @@ def print_pdf_page_selection(
             total = len(pages)
             for output_index, page_number in enumerate(pages, start=1):
                 if cancel_requested is not None and cancel_requested():
-                    printer.abort()
+                    if isinstance(printer, QPrinter):
+                        printer.abort()
                     return False
                 if output_index > 1 and not printer.newPage():
                     raise RuntimeError("Не удалось создать следующую печатную страницу")

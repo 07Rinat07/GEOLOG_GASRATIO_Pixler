@@ -1,21 +1,28 @@
-from PySide6.QtPrintSupport import QPrinter
+from PySide6.QtGui import QPageLayout, QPageSize, QPdfWriter
 from PySide6.QtWidgets import QLabel
 import pytest
 
 from geoworkbench.printing.widget_print import WidgetPrintError, render_widget_to_printer
 
 
-def test_widget_print_renderer_writes_pdf_printer_output(qapp, tmp_path) -> None:
+def _pdf_writer(path) -> QPdfWriter:
+    writer = QPdfWriter(str(path))
+    writer.setResolution(300)
+    writer.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
+    writer.setPageOrientation(QPageLayout.Orientation.Portrait)
+    return writer
+
+
+def test_widget_print_renderer_writes_pdf_writer_output(qapp, tmp_path) -> None:
     widget = QLabel("Print preview")
     widget.resize(640, 360)
     widget.show()
     qapp.processEvents()
     target = tmp_path / "preview.pdf"
-    printer = QPrinter(QPrinter.PrinterMode.HighResolution)
-    printer.setOutputFormat(QPrinter.OutputFormat.PdfFormat)
-    printer.setOutputFileName(str(target))
+    writer = _pdf_writer(target)
 
-    render_widget_to_printer(widget, printer)
+    render_widget_to_printer(widget, writer)
+    del writer
 
     payload = target.read_bytes()
     assert payload.startswith(b"%PDF-")
@@ -23,13 +30,14 @@ def test_widget_print_renderer_writes_pdf_printer_output(qapp, tmp_path) -> None
     widget.close()
 
 
-def test_widget_print_renderer_rejects_zero_sized_widget(qapp) -> None:
+def test_widget_print_renderer_rejects_zero_sized_widget(qapp, tmp_path) -> None:
     widget = QLabel("Hidden")
     widget.resize(0, 0)
-    printer = QPrinter(QPrinter.PrinterMode.ScreenResolution)
+    writer = _pdf_writer(tmp_path / "zero-sized.pdf")
 
     with pytest.raises(WidgetPrintError, match="размера"):
-        render_widget_to_printer(widget, printer)
+        render_widget_to_printer(widget, writer)
+    del writer
 
 
 def test_tablet_print_renderer_includes_all_tracks_and_restores_screen_widths(
@@ -67,14 +75,13 @@ def test_tablet_print_renderer_includes_all_tracks_and_restores_screen_widths(
     original_widths = tuple(item.widget.width() for item in view.printable_tracks())
 
     target = tmp_path / "tablet-a4.pdf"
-    printer = QPrinter(QPrinter.PrinterMode.HighResolution)
-    printer.setOutputFormat(QPrinter.OutputFormat.PdfFormat)
-    printer.setOutputFileName(str(target))
+    writer = _pdf_writer(target)
     settings = PrintPageSettings(orientation=PrintOrientation.PORTRAIT)
-    printer.setPageSize(settings.qt_page_size)
-    printer.setPageOrientation(settings.qt_orientation)
+    writer.setPageSize(settings.qt_page_size)
+    writer.setPageOrientation(settings.qt_orientation)
 
-    render_widget_to_printer(view, printer, fit_form_columns=True)
+    render_widget_to_printer(view, writer, fit_form_columns=True)
+    del writer
 
     assert target.read_bytes().startswith(b"%PDF-")
     assert len(view.printable_tracks()) == 4

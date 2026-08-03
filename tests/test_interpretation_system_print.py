@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import fitz
-from PySide6.QtGui import QPageLayout
-from PySide6.QtPrintSupport import QAbstractPrintDialog, QPrinter
+from PySide6.QtGui import QPageLayout, QPageSize, QPdfWriter
+from PySide6.QtPrintSupport import QAbstractPrintDialog
 
 from geoworkbench.printing.hydrocarbon_interpretation_system_print import (
-    configure_interpretation_printer,
     print_pdf_page_selection,
     selected_report_pages,
 )
@@ -19,6 +18,14 @@ def _source_pdf(path) -> None:
         page.insert_text((72.0, 72.0), f"SOURCE PAGE {index}", fontsize=18.0)
     document.save(path)
     document.close()
+
+
+def _pdf_writer(path) -> QPdfWriter:
+    writer = QPdfWriter(str(path))
+    writer.setResolution(300)
+    writer.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
+    writer.setPageOrientation(QPageLayout.Orientation.Portrait)
+    return writer
 
 
 def test_selected_report_pages_obeys_page_range() -> None:
@@ -55,26 +62,20 @@ def test_selected_report_pages_clamps_invalid_driver_values() -> None:
     assert pages == (1, 2, 3, 4, 5)
 
 
-def test_pdf_printer_receives_only_requested_pages(qapp, tmp_path) -> None:
+def test_pdf_writer_receives_only_requested_pages(tmp_path) -> None:
     source = tmp_path / "source.pdf"
     target = tmp_path / "selected-pages.pdf"
     _source_pdf(source)
-    printer = QPrinter(QPrinter.PrinterMode.HighResolution)
-    printer.setOutputFormat(QPrinter.OutputFormat.PdfFormat)
-    printer.setOutputFileName(str(target))
-    configure_interpretation_printer(
-        printer,
-        QPageLayout.Orientation.Portrait,
-    )
+    writer = _pdf_writer(target)
     progress: list[int] = []
 
     completed = print_pdf_page_selection(
         source,
-        printer,
+        writer,
         (1, 2),
         progress=lambda _current, _total, page: progress.append(page),
     )
-    del printer
+    del writer
 
     assert completed is True
     assert progress == [1, 2]
@@ -82,17 +83,11 @@ def test_pdf_printer_receives_only_requested_pages(qapp, tmp_path) -> None:
         assert printed.page_count == 2
 
 
-def test_pdf_print_can_stop_before_all_pages_are_spooled(qapp, tmp_path) -> None:
+def test_pdf_writer_can_stop_before_all_pages_are_spooled(tmp_path) -> None:
     source = tmp_path / "source.pdf"
     target = tmp_path / "cancelled.pdf"
     _source_pdf(source)
-    printer = QPrinter(QPrinter.PrinterMode.HighResolution)
-    printer.setOutputFormat(QPrinter.OutputFormat.PdfFormat)
-    printer.setOutputFileName(str(target))
-    configure_interpretation_printer(
-        printer,
-        QPageLayout.Orientation.Portrait,
-    )
+    writer = _pdf_writer(target)
     checks = 0
     progress: list[int] = []
 
@@ -103,12 +98,12 @@ def test_pdf_print_can_stop_before_all_pages_are_spooled(qapp, tmp_path) -> None
 
     completed = print_pdf_page_selection(
         source,
-        printer,
+        writer,
         (1, 2, 3),
         cancel_requested=cancel_requested,
         progress=lambda _current, _total, page: progress.append(page),
     )
-    del printer
+    del writer
 
     assert completed is False
     assert progress == [1]

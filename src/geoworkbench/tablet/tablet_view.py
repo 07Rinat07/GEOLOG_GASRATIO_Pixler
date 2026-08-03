@@ -90,6 +90,7 @@ from geoworkbench.services.parameter_labels import localized_curve_name
 from geoworkbench.services.time_display import (
     elapsed_to_seconds,
     format_datetime_at_row,
+    format_datetime_axis_tick,
     format_duration_compact,
     format_elapsed_time,
     format_time_curve_at_row,
@@ -449,6 +450,22 @@ class TabletVerticalAxisItem(EngineeringGridAxisItem):
     @property
     def resolved_ticks(self) -> tuple[VerticalRulerTick, ...]:
         return self._resolved_ticks
+
+    def tickStrings(self, values, scale, spacing):  # type: ignore[override]
+        if not (self.descriptor.is_datetime or self.descriptor.is_time):
+            return super().tickStrings(values, scale, spacing)
+
+        scaled_spacing = abs(float(spacing) * float(scale))
+        labels: list[str] = []
+        for value in values:
+            numeric = float(value) * float(scale)
+            if not np.isfinite(numeric):
+                labels.append("")
+            elif self.descriptor.is_datetime:
+                labels.append(format_datetime_axis_tick(numeric, scaled_spacing))
+            else:
+                labels.append(format_elapsed_time(numeric, self.descriptor.unit))
+        return labels
 
     def clear_shared_layout(self) -> None:
         self._shared_layout = None

@@ -24,7 +24,10 @@ from geoworkbench.domain.models import (
 )
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.tablet.grid_renderer import GridSettings, TabletGridRenderer
-from geoworkbench.tablet.header_geometry import curve_header_viewport_height
+from geoworkbench.tablet.header_geometry import (
+    CURVE_HEADER_BOTTOM_CLEARANCE,
+    curve_header_viewport_height,
+)
 from geoworkbench.tablet.models import (
     CurveDisplaySettings,
     CurveLineStyle,
@@ -532,11 +535,18 @@ def test_depth_track_keeps_saved_grid_settings(qapp) -> None:
     )
     view.set_dataset(dataset)
 
-    assert view._rendered["depth"].plot.getAxis("bottom").grid is False
-    assert view._rendered["depth"].plot.getAxis("left").grid is False
-    assert view._rendered["depth"].plot.getAxis("left").tickSpacing(
-        47.0, 97.0, 600.0
-    ) == [(5.0, 0.0)]
+    rendered = view._rendered["depth"]
+    assert rendered.plot.getAxis("bottom").grid is False
+    assert rendered.plot.getAxis("left").grid is False
+    overlay = TabletGridRenderer.overlay_for(rendered.plot)
+    assert overlay is not None
+    assert overlay.settings == GridSettings(
+        show_x=False,
+        show_y=False,
+        major_divisions=5,
+        minor_divisions=5,
+        alpha=0.6,
+    )
     view.close()
 
 
@@ -1909,7 +1919,9 @@ def test_masterlog_tracks_reserve_one_header_band_and_align_plot_viewports(qapp)
     view.show()
     qapp.processEvents()
 
-    expected_header_height = 3 * CURVE_HEADER_EDITOR_HEIGHT
+    expected_header_height = (
+        3 * CURVE_HEADER_EDITOR_HEIGHT + CURVE_HEADER_BOTTOM_CLEARANCE
+    )
     assert (
         view._rendered["drilling"].widget.natural_curve_header_height
         == expected_header_height

@@ -118,6 +118,9 @@ class PagedPaintDevice(Protocol):
     def newPage(self) -> bool: ...
 
 
+MasterlogPrintDevice = QPrinter | QPdfWriter
+
+
 def _masterlog_column_heading_height(template: MasterlogTemplate) -> float:
     """Return one heading height shared by pagination and every column group."""
 
@@ -447,7 +450,7 @@ def configure_masterlog_printer(
 
 
 def render_masterlog_to_printer(
-    printer: QPrinter,
+    printer: MasterlogPrintDevice,
     template: MasterlogTemplate,
     session: ProjectSession,
     settings: MasterlogOutputSettings | None = None,

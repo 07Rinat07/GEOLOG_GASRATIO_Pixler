@@ -402,6 +402,8 @@ def paint_tablet_snapshot(
         rendered_width = snapshot.layout.total_width * scale
         rendered_height = logical_content_height * scale
         if rendered_height > page.height() + 2.0:
+            # Runtime layout drift must not abort the whole PDF; keep one bounded
+            # uniform fallback so every column remains visible on the page.
             scale = min(horizontal_scale, vertical_scale)
             rendered_width = snapshot.layout.total_width * scale
             rendered_height = logical_content_height * scale
