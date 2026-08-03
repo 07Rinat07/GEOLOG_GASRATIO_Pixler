@@ -13,10 +13,11 @@ This regression set is based on the operator-supplied LAS, Paradox DB, GeoScape/
 - Calendar and relative-time rulers must reserve enough width for readable labels in the UI and PDF output.
 - Automatic pagination must not produce a nearly empty final page when the remainder can be distributed without a material scale change.
 - A repeated final-page column header must not contain graph pixels, move away from the page bottom, or change the canonical column width.
+- The screen-only “no numeric data” overlay must be hidden during print capture so it cannot be clipped into continuation-page graph bodies; the track title remains the printed diagnostic.
 - Print fonts must never receive a non-positive point size.
 
 ## Automated coverage
 
-The focused tests cover datetime boundary normalization, GeoScape time-only automatic mapping, sparse gas continuity, automatic tail-page balancing, semantic header cropping, print-font clamping, time-ruler geometry, and form materialization.
+The focused tests cover datetime boundary normalization, GeoScape time-only automatic mapping, sparse gas continuity, automatic tail-page balancing, semantic header cropping, screen-only no-data overlays, print-font clamping, time-ruler geometry, and form materialization.
 
 The Windows release gate remains the acceptance authority for Qt rendering, HiDPI behavior, generated PDFs, and screenshot artifacts.
