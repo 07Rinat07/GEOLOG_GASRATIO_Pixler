@@ -1,0 +1,350 @@
+name: Apply last page print layout fix
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Apply deterministic final-page patch
+        shell: bash
+        run: |
+          cat > /tmp/last-page-fix.patch <<'PATCH'
+diff --git a/src/geoworkbench/printing/document_renderer.py b/src/geoworkbench/printing/document_renderer.py
+index cb027b4..30d92d9 100644
+--- a/src/geoworkbench/printing/document_renderer.py
++++ b/src/geoworkbench/printing/document_renderer.py
+@@ -36,6 +36,7 @@ from geoworkbench.printing.print_layout import (
+     PrintScaleMode,
+     build_horizontal_continuations,
+ )
++from geoworkbench.printing.tablet_print import tablet_header_gap_height
+ from geoworkbench.printing.unicode_support import print_font
+ from geoworkbench.project.session import ProjectSession
+ from geoworkbench.services.localization import AppLanguage, Localizer
+@@ -397,8 +398,17 @@ def paint_document_pages(
+ def _page_target_content_height(
+     plan: PrintDocumentPlan,
+     page: PrintDocumentPage,
++    *,
++    repeat_column_header_at_bottom: bool = False,
+ ) -> int | None:
+-    """Return a page-specific hidden viewport without changing widths."""
++    """Return a page-specific hidden viewport without changing column widths.
++
++    A short automatic page keeps the same depth/time density as regular pages by
++    receiving a proportionally shorter hidden body.  When the final column
++    header is repeated at the bottom, reserve its logical height as well; the
++    renderer must never solve that collision by uniformly shrinking the whole
++    form and making the final page narrower than the preceding pages.
++    """
+ 
+     target = plan.target_content_height_px
+     regular_units = plan.resolved_units_per_page
+@@ -422,12 +432,35 @@ def _page_target_content_height(
+         capacity = plan.first_page_units_per_page
+ 
+     assert page.start is not None and page.end is not None
++    body_height = max(1, int(page_target) - header_height)
+     page_span = abs(float(page.end) - float(page.start))
+     if page_span <= 0.0 or page_span >= capacity * 0.999:
+-        return page_target
+-    body_height = max(1, int(page_target) - header_height)
+-    partial_body_height = max(1, round(body_height * page_span / capacity))
+-    return header_height + partial_body_height
++        requested_body_height = body_height
++    else:
++        requested_body_height = max(1, round(body_height * page_span / capacity))
++
++    if repeat_column_header_at_bottom:
++        # The repeated header and its separator gap share the same physical band
++        # that normally contains only the graph body.  Iterate because the gap is
++        # defined as a small fraction of the page-specific snapshot height.
++        gap_count = 1 + int(page.index == 1)
++        available_body_height = body_height
++        for _attempt in range(3):
++            candidate_height = header_height + min(
++                requested_body_height,
++                available_body_height,
++            )
++            gap_height = tablet_header_gap_height(candidate_height)
++            available_body_height = max(
++                1,
++                body_height - header_height - gap_count * gap_height,
++            )
++        requested_body_height = min(
++            requested_body_height,
++            available_body_height,
++        )
++
++    return header_height + requested_body_height
+ 
+ 
+ def paint_document_page(
+@@ -493,6 +526,9 @@ def paint_document_page(
+                 title=context.title,
+                 range_text=right_text,
+             )
++        repeat_column_header_at_bottom = _should_paint_column_header_at_bottom(
++            job, page
++        )
+         paint_widget_page(
+             widget,
+             painter,
+@@ -502,12 +538,14 @@ def paint_document_page(
+             continuation=page.continuation,
+             high_quality=high_quality,
+             show_column_header=_should_paint_column_header_at_top(page),
+-            repeat_column_header_at_bottom=_should_paint_column_header_at_bottom(
+-                job, page
+-            ),
++            repeat_column_header_at_bottom=repeat_column_header_at_bottom,
+             included_track_ids=job.included_track_ids,
+             grid_print_overrides=job.grid_print_overrides,
+-            target_content_height=_page_target_content_height(plan, page),
++            target_content_height=_page_target_content_height(
++                plan,
++                page,
++                repeat_column_header_at_bottom=repeat_column_header_at_bottom,
++            ),
+             layout_content_height=plan.target_content_height_px,
+             page_aspect_ratio=plan.tablet_page_aspect_ratio,
+         )
+diff --git a/src/geoworkbench/printing/page_renderer.py b/src/geoworkbench/printing/page_renderer.py
+index 253229d..29935e6 100644
+--- a/src/geoworkbench/printing/page_renderer.py
++++ b/src/geoworkbench/printing/page_renderer.py
+@@ -16,7 +16,6 @@ from geoworkbench.printing.tablet_print import (
+     paint_tablet_header_repeat,
+     paint_tablet_snapshot,
+     tablet_header_gap_height,
+-    tablet_print_layout_height,
+ )
+ from geoworkbench.tablet.tablet_view import TabletView
+ 
+@@ -163,54 +162,51 @@ def _paint_tablet_with_repeated_header(
+     continuation: PrintContinuationSlice | None,
+     show_column_header: bool,
+ ) -> None:
+-    """Paint body and optional header copies with one common geometric scale."""
++    """Paint the graph at the top and pin the repeated header to the bottom.
++
++    The final interval can be much shorter than a regular automatic page.  Its
++    graph body must keep the canonical column width instead of being vertically
++    centred together with the repeated header as one small floating block.
++    """
+ 
+     body_height = max(1.0, float(snapshot.content_height - snapshot.header_height))
+     gap_height = float(tablet_header_gap_height(snapshot.content_height))
+-    logical_total_height = float(
+-        tablet_print_layout_height(
+-            snapshot.content_height,
+-            snapshot.header_height,
+-            show_column_header=show_column_header,
+-            repeat_column_header_at_bottom=True,
+-        )
+-    )
+-
+     if scale_mode is PrintScaleMode.FIT:
+-        scale = min(
+-            content_rect.width() / snapshot.layout.total_width,
+-            content_rect.height() / logical_total_height,
+-        )
++        scale = content_rect.width() / snapshot.layout.total_width
+         rendered_width = snapshot.layout.total_width * scale
+-        rendered_height = logical_total_height * scale
+         x = content_rect.left() + (content_rect.width() - rendered_width) / 2.0
+-        y = content_rect.top() + (content_rect.height() - rendered_height) / 2.0
+         region_width = rendered_width
+     else:
+         device = painter.device()
+         dpi = max(1, device.logicalDpiX()) if device is not None else REFERENCE_PRINT_DPI
+         scale = dpi / REFERENCE_PRINT_DPI
+-        rendered_height = logical_total_height * scale
+         x = content_rect.left()
+-        y = content_rect.top() + max(0.0, (content_rect.height() - rendered_height) / 2.0)
+         region_width = content_rect.width()
+ 
+     header_target_height = snapshot.header_height * scale
+     body_target_height = body_height * scale
+     gap_target_height = gap_height * scale
+ 
++    y = content_rect.top()
+     top_header: QRectF | None = None
+     if show_column_header:
+         top_header = QRectF(x, y, region_width, header_target_height)
+         y = top_header.bottom() + gap_target_height
+ 
+-    body = QRectF(x, y, region_width, body_target_height)
+     repeated_header = QRectF(
+         x,
+-        body.bottom() + gap_target_height,
++        content_rect.bottom() - header_target_height,
+         region_width,
+         header_target_height,
+     )
++    body_bottom = repeated_header.top() - gap_target_height
++    available_body_height = max(1.0, body_bottom - y)
++    body = QRectF(
++        x,
++        y,
++        region_width,
++        min(body_target_height, available_body_height),
++    )
+ 
+     if top_header is not None:
+         paint_tablet_header_repeat(
+@@ -228,6 +224,7 @@ def _paint_tablet_with_repeated_header(
+         continuation=continuation,
+         fill_height=False,
+         show_column_header=False,
++        preserve_fit_width=True,
+     )
+     paint_tablet_header_repeat(
+         painter,
+diff --git a/src/geoworkbench/printing/tablet_print.py b/src/geoworkbench/printing/tablet_print.py
+index d16e52d..6522ee2 100644
+--- a/src/geoworkbench/printing/tablet_print.py
++++ b/src/geoworkbench/printing/tablet_print.py
+@@ -388,6 +388,7 @@ def paint_tablet_snapshot(
+     continuation: PrintContinuationSlice | None = None,
+     fill_height: bool = False,
+     show_column_header: bool = True,
++    preserve_fit_width: bool = False,
+ ) -> None:
+     if page.width() <= 0 or page.height() <= 0:
+         raise TabletPrintError("Устройство печати не предоставило допустимую область страницы")
+@@ -398,15 +399,25 @@ def paint_tablet_snapshot(
+     if scale_mode is PrintScaleMode.FIT:
+         horizontal_scale = page.width() / snapshot.layout.total_width
+         vertical_scale = page.height() / logical_content_height
+-        scale = horizontal_scale
+-        rendered_width = snapshot.layout.total_width * scale
+-        rendered_height = logical_content_height * scale
+-        if rendered_height > page.height() + 2.0:
++        horizontal_render_scale = horizontal_scale
++        vertical_render_scale = horizontal_scale
++        rendered_width = snapshot.layout.total_width * horizontal_render_scale
++        rendered_height = logical_content_height * vertical_render_scale
++        if preserve_fit_width and rendered_height > page.height():
++            # A repeated final header can consume a few more logical pixels than
++            # the planner predicted after the hidden Qt layout settles. Keep the
++            # canonical paper width and compress only the graph body vertically;
++            # shrinking both axes is what made the last page visibly narrower.
++            vertical_render_scale = vertical_scale
++            rendered_height = page.height()
++        elif rendered_height > page.height() + 2.0:
+             # Runtime layout drift must not abort the whole PDF; keep one bounded
+             # uniform fallback so every column remains visible on the page.
+-            scale = min(horizontal_scale, vertical_scale)
+-            rendered_width = snapshot.layout.total_width * scale
+-            rendered_height = logical_content_height * scale
++            uniform_scale = min(horizontal_scale, vertical_scale)
++            horizontal_render_scale = uniform_scale
++            vertical_render_scale = uniform_scale
++            rendered_width = snapshot.layout.total_width * uniform_scale
++            rendered_height = logical_content_height * uniform_scale
+         x = page.left() + (page.width() - rendered_width) / 2.0
+         y = page.top()
+         if fill_height and rendered_height < page.height():
+@@ -429,8 +440,8 @@ def paint_tablet_snapshot(
+                 target = QRectF(
+                     x,
+                     y,
+-                    logical_width * scale,
+-                    (source_height / snapshot.raster_scale) * scale,
++                    logical_width * horizontal_render_scale,
++                    (source_height / snapshot.raster_scale) * vertical_render_scale,
+                 )
+                 source = QRectF(
+                     0.0,
+@@ -439,7 +450,9 @@ def paint_tablet_snapshot(
+                     source_height,
+                 )
+                 painter.drawPixmap(target, pixmap, source)
+-                x += (logical_width + snapshot.layout.spacing) * scale
++                x += (
++                    logical_width + snapshot.layout.spacing
++                ) * horizontal_render_scale
+         finally:
+             painter.restore()
+         return
+diff --git a/tests/test_partial_print_page_geometry.py b/tests/test_partial_print_page_geometry.py
+index e9206fb..b585a43 100644
+--- a/tests/test_partial_print_page_geometry.py
++++ b/tests/test_partial_print_page_geometry.py
+@@ -37,3 +37,44 @@ def test_partial_last_page_shortens_only_its_viewport() -> None:
+     assert _page_target_content_height(plan, page) == round(
+         6000 * (2016.2 - 1945.9) / 126.593
+     )
++
++
++def test_repeated_bottom_header_reserves_space_without_narrowing_page() -> None:
++    page = _page(1_951.58, 2_016.2)
++    plan = PrintDocumentPlan(
++        (page,),
++        target_content_height_px=6000,
++        resolved_units_per_page=89.444,
++        tablet_header_height_px=1800,
++    )
++
++    target = _page_target_content_height(
++        plan,
++        page,
++        repeat_column_header_at_bottom=True,
++    )
++
++    assert target is not None
++    body = target - 1800
++    canonical_body = 6000 - 1800
++    assert body < round(canonical_body * (2_016.2 - 1_951.58) / 89.444)
++    assert body + 1800 < canonical_body
++
++
++def test_single_page_reserves_both_header_gaps() -> None:
++    page = _page(1_469.38, 1_482.4)
++    plan = PrintDocumentPlan(
++        (page,),
++        target_content_height_px=3000,
++        resolved_units_per_page=89.444,
++        tablet_header_height_px=900,
++    )
++
++    target = _page_target_content_height(
++        plan,
++        page,
++        repeat_column_header_at_bottom=True,
++    )
++
++    assert target is not None
++    assert target < 3000 - 900
+PATCH
+          git apply --check /tmp/last-page-fix.patch
+          git apply /tmp/last-page-fix.patch
+      - name: Install test dependencies
+        run: python -m pip install -e '.[dev]'
+      - name: Verify print geometry
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          python -m compileall -q src tests/test_partial_print_page_geometry.py
+          pytest -q tests/test_partial_print_page_geometry.py tests/test_print_header_layout.py tests/test_print_media_source_integrity.py tests/test_uniform_print_density_source.py
+      - name: Commit verified fix
+        shell: bash
+        run: |
+          rm -f .github/workflows/agent-apply-last-page-layout-fix.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src tests .github/workflows
+          git commit -m 'fix: keep final PDF page at canonical width'
+          git push origin HEAD:main
