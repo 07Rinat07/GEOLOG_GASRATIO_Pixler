@@ -143,6 +143,55 @@ def test_track_print_mode_hides_header_editor_actions_and_scrollbar(qapp) -> Non
     )
     view.close()
 
+def test_no_numeric_hint_is_screen_only_and_restored_after_print(qapp) -> None:
+    dataset = Dataset(
+        "dataset-no-numeric-print",
+        "No numeric print",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 101.0]),
+    )
+    curve = CurveData(
+        CurveMetadata(
+            "curve-empty",
+            "EMPTY",
+            "EMPTY",
+            None,
+            "Empty channel",
+            dataset.dataset_id,
+        ),
+        np.array([np.nan, np.nan]),
+    )
+    dataset.curves[curve.metadata.curve_id] = curve
+    view = TabletView(language=AppLanguage.RU)
+    view.set_layout_model(
+        TabletLayout(
+            [
+                TrackDefinition(
+                    "empty",
+                    "Пустой параметр",
+                    TrackKind.CURVE,
+                    curve_mnemonics=["EMPTY"],
+                )
+            ]
+        )
+    )
+    view.set_dataset(dataset)
+    widget = view._rendered["empty"].widget
+    message = widget._no_numeric_message
+
+    assert message is not None
+    assert message.isVisible()
+    assert "нет числовых данных" in widget.title.text()
+
+    widget.set_print_mode(True)
+    assert not message.isVisible()
+
+    widget.set_print_mode(False)
+    assert message.isVisible()
+    view.close()
+
+
 def test_curve_legend_label_includes_unit_only_when_present() -> None:
     assert curve_legend_label(make_curve("dataset", "C1", "%")) == "C1 [%]"
     assert curve_legend_label(make_curve("dataset", "ROP", None)) == "ROP"

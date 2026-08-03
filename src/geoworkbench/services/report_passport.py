@@ -728,6 +728,8 @@ def _interval_snapshot(
         start, end = requested
     if start == end:
         raise ReportPassportError("Интервал Report Passport должен иметь разные границы")
+    normalized_start: float | str
+    normalized_end: float | str
     if np.issubdtype(np.asarray(index.values).dtype, np.datetime64):
         try:
             normalized_start = datetime_boundary_text(start)
