@@ -8,6 +8,8 @@ from geoworkbench.calculations.curve_continuity import nominal_axis_step
 
 FloatArray = NDArray[np.float64]
 _AXIS_GAP_FACTOR = 5.0
+_SOURCE_UPDATE_BRIDGE_FACTOR = 10.0
+_UPDATE_CADENCE_BRIDGE_FACTOR = 5.0
 _VIEWPORT_CONTEXT_POINTS = 2
 
 
@@ -24,12 +26,13 @@ def select_derived_gas_samples(
 
     Derived gas channels are event-like calculations. Intermediate NULL rows,
     and non-positive values that cannot be represented on a logarithmic scale,
-    are not independent acquisition outages. They are therefore omitted from
-    the display geometry and neighbouring finite calculations remain connected.
+    are omitted from the display geometry. Nearby finite calculations remain
+    connected, but a long silence between valid gas updates is an explicit break
+    rather than a diagonal line invented across tens of metres or seconds.
 
-    A separator is inserted only when the *source vertical axis itself* contains
-    a real acquisition hole. The imported Dataset is never mutated; this is a
-    viewport-only representation policy.
+    Separators are inserted for both real source-axis outages and update gaps
+    that exceed the robust gas-update cadence. The imported Dataset is never
+    mutated; this is a viewport-only representation policy.
     """
 
     source_axis = np.asarray(axis, dtype=np.float64)
@@ -69,6 +72,8 @@ def select_derived_gas_samples(
         update_axis.astype(np.float64, copy=False),
         update_values.astype(np.float64, copy=False),
     )
+    update_outages = _update_axis_outages(ordered_axis, update_axis)
+    outages = _merge_outages(source_outages, update_outages)
 
     visible_top, visible_bottom = sorted((float(top), float(bottom)))
     start = int(np.searchsorted(update_axis, visible_top, side="left"))
@@ -80,10 +85,10 @@ def select_derived_gas_samples(
     if selected_axis.size == 0:
         return selected_values, selected_axis
 
-    selected_axis, selected_values = _insert_source_outage_markers(
+    selected_axis, selected_values = _insert_outage_markers(
         selected_axis,
         selected_values,
-        source_outages,
+        outages,
     )
     if selected_axis.size <= max_points:
         return selected_values, selected_axis
@@ -103,6 +108,53 @@ def _source_axis_outages(axis: FloatArray) -> tuple[tuple[float, float], ...]:
     threshold = float(step) * _AXIS_GAP_FACTOR
     indexes = np.flatnonzero(np.diff(axis) > threshold)
     return tuple((float(axis[index]), float(axis[index + 1])) for index in indexes)
+
+
+def _update_axis_outages(
+    source_axis: FloatArray,
+    update_axis: FloatArray,
+) -> tuple[tuple[float, float], ...]:
+    """Return long holes between otherwise regular finite gas updates."""
+
+    if update_axis.size < 2:
+        return ()
+    thresholds: list[float] = []
+    source_step = nominal_axis_step(source_axis)
+    if source_step is not None and np.isfinite(source_step) and source_step > 0.0:
+        thresholds.append(float(source_step) * _SOURCE_UPDATE_BRIDGE_FACTOR)
+    if update_axis.size >= 3:
+        update_step = nominal_axis_step(update_axis)
+        if update_step is not None and np.isfinite(update_step) and update_step > 0.0:
+            thresholds.append(float(update_step) * _UPDATE_CADENCE_BRIDGE_FACTOR)
+    if not thresholds:
+        return ()
+    threshold = max(thresholds)
+    indexes = np.flatnonzero(np.diff(update_axis) > threshold)
+    return tuple(
+        (float(update_axis[index]), float(update_axis[index + 1]))
+        for index in indexes
+    )
+
+
+def _merge_outages(
+    *groups: tuple[tuple[float, float], ...],
+) -> tuple[tuple[float, float], ...]:
+    intervals = sorted(
+        (float(left), float(right))
+        for group in groups
+        for left, right in group
+        if np.isfinite(left) and np.isfinite(right) and right > left
+    )
+    if not intervals:
+        return ()
+    merged: list[tuple[float, float]] = [intervals[0]]
+    for left, right in intervals[1:]:
+        previous_left, previous_right = merged[-1]
+        if left <= previous_right:
+            merged[-1] = (previous_left, max(previous_right, right))
+        else:
+            merged.append((left, right))
+    return tuple(merged)
 
 
 def _collapse_duplicate_axis_samples(
@@ -125,7 +177,7 @@ def _collapse_duplicate_axis_samples(
     return unique_axis.astype(np.float64, copy=False), averaged
 
 
-def _insert_source_outage_markers(
+def _insert_outage_markers(
     axis: FloatArray,
     values: FloatArray,
     outages: tuple[tuple[float, float], ...],
