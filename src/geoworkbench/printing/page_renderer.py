@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QPoint, QRectF, Qt
-from PySide6.QtGui import QPainter
+from PySide6.QtGui import QPainter, QPixmap
 from PySide6.QtWidgets import QWidget
 
 from geoworkbench.printing.print_layout import (
@@ -216,15 +216,20 @@ def _paint_tablet_with_repeated_header(
             scale_mode=scale_mode,
             continuation=continuation,
         )
+    body_snapshot = snapshot
+    if scale_mode is PrintScaleMode.FIT and scale > 0.0:
+        body_snapshot = _snapshot_with_compressed_body(
+            snapshot,
+            target_body_height=max(1.0, body.height() / scale),
+        )
     paint_tablet_snapshot(
         painter,
         body,
-        snapshot,
+        body_snapshot,
         scale_mode=scale_mode,
         continuation=continuation,
         fill_height=False,
         show_column_header=False,
-        preserve_fit_width=True,
     )
     paint_tablet_header_repeat(
         painter,
@@ -232,4 +237,80 @@ def _paint_tablet_with_repeated_header(
         snapshot,
         scale_mode=scale_mode,
         continuation=continuation,
+    )
+
+
+def _snapshot_with_compressed_body(
+    snapshot: TabletPrintSnapshot,
+    *,
+    target_body_height: float,
+) -> TabletPrintSnapshot:
+    """Compress only the graph body while preserving canonical column widths.
+
+    The final automatic interval can be too short to fit together with the
+    repeated bottom header.  ``paint_tablet_snapshot`` normally resolves such a
+    collision with a uniform scale, which also narrows every column.  A temporary
+    body-only snapshot keeps the header pixels intact and rescales the graph
+    vertically, so horizontal paper geometry remains identical to prior pages.
+    """
+
+    source_body_height = max(1.0, float(snapshot.content_height - snapshot.header_height))
+    resolved_body_height = max(1.0, min(source_body_height, float(target_body_height)))
+    if resolved_body_height >= source_body_height - 0.5:
+        return snapshot
+
+    raster_scale = float(snapshot.raster_scale)
+    header_pixels = max(1, round(snapshot.header_height * raster_scale))
+    body_pixels = max(1, round(resolved_body_height * raster_scale))
+    compressed: list[QPixmap] = []
+    for source in snapshot.pixmaps:
+        header_source_height = min(header_pixels, source.height())
+        body_source_height = max(1, source.height() - header_source_height)
+        target = QPixmap(source.width(), header_pixels + body_pixels)
+        target.fill(Qt.GlobalColor.white)
+        target_painter = QPainter(target)
+        try:
+            target_painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+            target_painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
+            target_painter.setRenderHint(
+                QPainter.RenderHint.SmoothPixmapTransform,
+                True,
+            )
+            target_painter.drawPixmap(
+                QRectF(0.0, 0.0, float(source.width()), float(header_pixels)),
+                source,
+                QRectF(
+                    0.0,
+                    0.0,
+                    float(source.width()),
+                    float(header_source_height),
+                ),
+            )
+            target_painter.drawPixmap(
+                QRectF(
+                    0.0,
+                    float(header_pixels),
+                    float(source.width()),
+                    float(body_pixels),
+                ),
+                source,
+                QRectF(
+                    0.0,
+                    float(header_source_height),
+                    float(source.width()),
+                    float(body_source_height),
+                ),
+            )
+        finally:
+            target_painter.end()
+        compressed.append(target)
+
+    return TabletPrintSnapshot(
+        tuple(compressed),
+        snapshot.layout,
+        snapshot.header_height + max(1, round(resolved_body_height)),
+        snapshot.header_height,
+        snapshot.raster_scale,
+        snapshot.vertical_ruler_layout,
+        snapshot.vertical_ruler_ticks_by_track,
     )
