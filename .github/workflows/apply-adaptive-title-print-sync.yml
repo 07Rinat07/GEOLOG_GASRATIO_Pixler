@@ -3,6 +3,8 @@ name: Apply adaptive print title synchronization
 on:
   push:
     branches: [fix/comprehensive-print-gas-time-20260804]
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: write
