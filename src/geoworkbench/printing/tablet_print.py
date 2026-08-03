@@ -238,9 +238,13 @@ def capture_tablet_print_snapshot(
         content_height = max(item.widget.height() for item in rendered)
         if content_height <= 0:
             raise TabletPrintError("Печатная форма не имеет допустимой высоты")
-        header_height = max(
-            item.widget.title.height() + item.widget.curve_header_scroll.height()
-            for item in rendered
+        # Use the semantic print-header contract rather than the current
+        # QScrollArea geometry. On a short final page Qt can temporarily stretch
+        # the scroll viewport into the graph; copying that live height repeats a
+        # strip of curve pixels below the footer header.
+        header_height = (
+            max(item.widget.title.height() for item in rendered)
+            + print_header_band
         )
 
         if target_content_height is not None:
@@ -258,9 +262,9 @@ def capture_tablet_print_snapshot(
                 _activate_layout_tree(tablet)
                 tablet.refresh_shared_vertical_rulers()
             content_height = max(item.widget.height() for item in rendered)
-            header_height = max(
-                item.widget.title.height() + item.widget.curve_header_scroll.height()
-                for item in rendered
+            header_height = (
+                max(item.widget.title.height() for item in rendered)
+                + print_header_band
             )
 
         canonical_layout_height = max(1, int(layout_content_height or content_height))
@@ -300,9 +304,9 @@ def capture_tablet_print_snapshot(
             for item, width in zip(rendered, layout.widths, strict=True):
                 item.widget.set_track_width(width)
             tablet.refresh_shared_vertical_rulers()
-            measured_header_height = max(
-                item.widget.title.height() + item.widget.curve_header_scroll.height()
-                for item in rendered
+            measured_header_height = (
+                max(item.widget.title.height() for item in rendered)
+                + print_header_band
             )
             next_layout = build_layout(measured_header_height)
             header_height = measured_header_height
