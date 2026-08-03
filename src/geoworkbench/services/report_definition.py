@@ -425,12 +425,12 @@ def _clamp_range(
     requested: ReportRange,
     full_range: ReportRange,
 ) -> ReportRange:
-    requested_start, requested_end = _normalize_range(index, requested)
+    start, end = _normalize_range(index, requested)
     full_start, full_end = _normalize_range(index, full_range)
-    start_key = max(_boundary_key(index, requested_start), _boundary_key(index, full_start))
-    end_key = min(_boundary_key(index, requested_end), _boundary_key(index, full_end))
+    start_key = max(_boundary_key(index, start), _boundary_key(index, full_start))
+    end_key = min(_boundary_key(index, end), _boundary_key(index, full_end))
     if start_key > end_key:
-        raise ReportDefinitionError("Интервал отчёта не пересекается с выбранным индексом")
+        raise ReportDefinitionError("Интервал отчёта находится вне выбранного индекса")
     return _boundary_from_key(index, start_key), _boundary_from_key(index, end_key)
 
 
@@ -450,7 +450,7 @@ def _interval_indices(
         mask = np.isfinite(numeric) & (numeric >= float(start)) & (numeric <= float(end))
     indices = np.flatnonzero(mask).astype(np.int64)
     if indices.size == 0:
-        raise ReportDefinitionError("В выбранном интервале отсутствуют отсчёты")
+        raise ReportDefinitionError("Разрешённый интервал не содержит отсчётов")
     return indices
 
 
@@ -464,7 +464,7 @@ def _coerce_boundary(index: DatasetIndex, value: ReportBoundary) -> ReportBounda
     except (TypeError, ValueError) as exc:
         raise ReportDefinitionError(f"Некорректная числовая граница: {value}") from exc
     if not isfinite(numeric):
-        raise ReportDefinitionError("Числовая граница отчёта должна быть конечной")
+        raise ReportDefinitionError("Граница отчёта должна быть конечным числом")
     return numeric
 
 
@@ -483,11 +483,9 @@ def _boundary_from_key(index: DatasetIndex, value: int | float) -> ReportBoundar
 def _datetime_boundary_value(value: ReportBoundary) -> np.datetime64:
     """Normalize report datetime boundaries from ISO text or Unix seconds.
 
-    Tablet time axes are rendered as floating-point Unix seconds, while imported
-    ``DatasetIndex`` values remain ``datetime64``. Print/export therefore passes
-    numeric viewport bounds such as ``1784592000.24`` into a datetime report.
-    Treating that number as text asks NumPy to parse an impossible year and used
-    to abort every GeoScape/GeoScape II time-based PDF.
+    Tablet time axes use floating-point Unix seconds, whereas imported indexes
+    remain ``datetime64``. Numeric viewport bounds must therefore be converted
+    to nanoseconds instead of being parsed as calendar-year text.
     """
 
     if isinstance(value, bool):
@@ -532,27 +530,31 @@ def _datetime_text(value: np.datetime64) -> str:
 
 
 def _validate_string_tuple(values: tuple[str, ...], label: str) -> None:
-    if not isinstance(values, tuple) or any(
-        not isinstance(value, str) or not value.strip() for value in values
+    if not isinstance(values, tuple) or not all(
+        isinstance(value, str) and value.strip() for value in values
     ):
-        raise ValueError(f"{label} должен быть кортежем непустых строк")
+        raise ValueError(f"{label} должен быть tuple непустых строк")
+    if len(set(values)) != len(values):
+        raise ValueError(f"{label} не должен содержать дубликаты")
 
 
 def _validate_options(values: tuple[tuple[str, str], ...]) -> None:
-    if not isinstance(values, tuple) or any(
-        not isinstance(item, tuple)
-        or len(item) != 2
-        or not all(isinstance(value, str) for value in item)
+    if not isinstance(values, tuple) or not all(
+        isinstance(item, tuple)
+        and len(item) == 2
+        and all(isinstance(value, str) and value.strip() for value in item)
         for item in values
     ):
-        raise ValueError("options должны быть кортежем пар строк")
+        raise ValueError("Параметры ReportDefinition должны быть tuple пар непустых строк")
+    keys = [key for key, _value in values]
+    if len(set(keys)) != len(keys):
+        raise ValueError("Параметры ReportDefinition не должны повторять ключи")
 
 
 def _optional_text(value: Any) -> str | None:
     if value is None:
         return None
-    text = str(value).strip()
-    return text or None
+    return str(value)
 
 
 def _json_ready(value: Any) -> Any:
