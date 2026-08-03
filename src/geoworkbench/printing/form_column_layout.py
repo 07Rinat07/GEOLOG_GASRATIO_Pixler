@@ -106,7 +106,7 @@ def original_column_layout(
 
 def _minimum_width(kind: TrackKind) -> int:
     if kind is TrackKind.DEPTH:
-        return 96
+        return 128
     if kind in {TrackKind.LITHOLOGY, TrackKind.CUTTINGS, TrackKind.CALCIMETRY}:
         return 104
     if kind in {TrackKind.STRATIGRAPHY, TrackKind.INTERPRETATION, TrackKind.TEXT}:
@@ -116,7 +116,7 @@ def _minimum_width(kind: TrackKind) -> int:
 
 def _preferred_cap(kind: TrackKind) -> int:
     if kind is TrackKind.DEPTH:
-        return 140
+        return 168
     if kind in {TrackKind.LITHOLOGY, TrackKind.CUTTINGS, TrackKind.CALCIMETRY}:
         return 220
     if kind in {TrackKind.STRATIGRAPHY, TrackKind.INTERPRETATION, TrackKind.TEXT}:

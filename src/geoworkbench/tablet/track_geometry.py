@@ -6,8 +6,8 @@ from geoworkbench.domain.models import IndexRole, IndexType
 from geoworkbench.tablet.models import TrackDefinition, TrackKind
 
 
-DATETIME_AXIS_MIN_TRACK_WIDTH = 124
-RELATIVE_TIME_AXIS_MIN_TRACK_WIDTH = 104
+DATETIME_AXIS_MIN_TRACK_WIDTH = 156
+RELATIVE_TIME_AXIS_MIN_TRACK_WIDTH = 124
 DEFAULT_TRACK_SPACING = 2
 
 

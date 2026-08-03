@@ -8,8 +8,7 @@ from geoworkbench.calculations.curve_continuity import nominal_axis_step
 
 FloatArray = NDArray[np.float64]
 _AXIS_GAP_FACTOR = 5.0
-_SOURCE_UPDATE_BRIDGE_FACTOR = 10.0
-_UPDATE_CADENCE_BRIDGE_FACTOR = 5.0
+_DERIVED_UPDATE_GAP_FACTOR = 5.0
 _VIEWPORT_CONTEXT_POINTS = 2
 
 
@@ -24,15 +23,12 @@ def select_derived_gas_samples(
 ) -> tuple[FloatArray, FloatArray]:
     """Prepare sparse Gas Ratio/Pixler/Haworth geometry for rendering.
 
-    Derived gas channels are event-like calculations. Intermediate NULL rows,
-    and non-positive values that cannot be represented on a logarithmic scale,
-    are omitted from the display geometry. Nearby finite calculations remain
-    connected, but a long silence between valid gas updates is an explicit break
-    rather than a diagonal line invented across tens of metres or seconds.
+    Derived gas channels are event-like calculations. Intermediate NULL rows
+    and non-positive logarithmic values are omitted, but finite updates are joined
+    only across a short, source-cadence-sized gap. A long silence is represented
+    by an explicit NaN separator instead of an invented diagonal line.
 
-    Separators are inserted for both real source-axis outages and update gaps
-    that exceed the robust gas-update cadence. The imported Dataset is never
-    mutated; this is a viewport-only representation policy.
+    The source Dataset is never mutated; this is a viewport-only geometry policy.
     """
 
     source_axis = np.asarray(axis, dtype=np.float64)
@@ -72,7 +68,7 @@ def select_derived_gas_samples(
         update_axis.astype(np.float64, copy=False),
         update_values.astype(np.float64, copy=False),
     )
-    update_outages = _update_axis_outages(ordered_axis, update_axis)
+    update_outages = _derived_update_outages(ordered_axis, update_axis)
     outages = _merge_outages(source_outages, update_outages)
 
     visible_top, visible_bottom = sorted((float(top), float(bottom)))
@@ -110,25 +106,23 @@ def _source_axis_outages(axis: FloatArray) -> tuple[tuple[float, float], ...]:
     return tuple((float(axis[index]), float(axis[index + 1])) for index in indexes)
 
 
-def _update_axis_outages(
+def _derived_update_outages(
     source_axis: FloatArray,
     update_axis: FloatArray,
 ) -> tuple[tuple[float, float], ...]:
-    """Return long holes between otherwise regular finite gas updates."""
+    """Return gaps too large to be a continuous derived-gas segment.
+
+    The threshold is based on the acquisition axis, not on the sparse update
+    cadence. Using the update median would make five isolated Pixler points look
+    continuous across tens of metres.
+    """
 
     if update_axis.size < 2:
         return ()
-    thresholds: list[float] = []
     source_step = nominal_axis_step(source_axis)
-    if source_step is not None and np.isfinite(source_step) and source_step > 0.0:
-        thresholds.append(float(source_step) * _SOURCE_UPDATE_BRIDGE_FACTOR)
-    if update_axis.size >= 3:
-        update_step = nominal_axis_step(update_axis)
-        if update_step is not None and np.isfinite(update_step) and update_step > 0.0:
-            thresholds.append(float(update_step) * _UPDATE_CADENCE_BRIDGE_FACTOR)
-    if not thresholds:
+    if source_step is None or not np.isfinite(source_step) or source_step <= 0.0:
         return ()
-    threshold = max(thresholds)
+    threshold = float(source_step) * _DERIVED_UPDATE_GAP_FACTOR
     indexes = np.flatnonzero(np.diff(update_axis) > threshold)
     return tuple(
         (float(update_axis[index]), float(update_axis[index + 1]))
@@ -150,7 +144,7 @@ def _merge_outages(
     merged: list[tuple[float, float]] = [intervals[0]]
     for left, right in intervals[1:]:
         previous_left, previous_right = merged[-1]
-        if left <= previous_right:
+        if left < previous_right:
             merged[-1] = (previous_left, max(previous_right, right))
         else:
             merged.append((left, right))

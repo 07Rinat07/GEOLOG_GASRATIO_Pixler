@@ -289,15 +289,21 @@ def vertical_ruler_presentation(
     elif resolved.mode is VerticalRulerMode.TICKS_ONLY:
         show_labels = False
     else:
-        threshold = 120 if layout.kind is VerticalRulerKind.DATETIME else 92
+        threshold = (
+            144
+            if layout.kind is VerticalRulerKind.DATETIME
+            else 112
+            if layout.kind is VerticalRulerKind.RELATIVE_TIME
+            else 92
+        )
         show_labels = width >= threshold
 
     preferred_width = (
-        58
+        86
         if layout.kind is VerticalRulerKind.DATETIME
-        else 48
+        else 66
         if layout.kind is VerticalRulerKind.RELATIVE_TIME
-        else 38
+        else 44
     )
     axis_width = min(max(10, width - 24), preferred_width) if show_labels else 10
     return VerticalRulerPresentation(

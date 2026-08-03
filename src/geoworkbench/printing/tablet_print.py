@@ -238,10 +238,9 @@ def capture_tablet_print_snapshot(
         content_height = max(item.widget.height() for item in rendered)
         if content_height <= 0:
             raise TabletPrintError("Печатная форма не имеет допустимой высоты")
-        # Use the semantic print-header contract rather than the current
-        # QScrollArea geometry. On a short final page Qt can temporarily stretch
-        # the scroll viewport into the graph; copying that live height repeats a
-        # strip of curve pixels below the footer header.
+        # The print header is title + synchronized natural curve-header band.
+        # QScrollArea may transiently stretch on a short hidden viewport; its live
+        # height can include graph pixels and must not define the repeated header.
         header_height = (
             max(item.widget.title.height() for item in rendered)
             + print_header_band

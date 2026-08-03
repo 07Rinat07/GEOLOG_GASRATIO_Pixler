@@ -129,6 +129,39 @@ def test_time_form_requires_time_axis_and_materializes_when_available() -> None:
     assert result.layout.vertical_index_id == "data-time:primary-index"
 
 
+def test_time_form_excludes_raw_unix_timestamp_audit_curve() -> None:
+    dataset = _dataset(time=True)
+    raw = CurveMetadata(
+        curve_id="curve-time-raw",
+        original_mnemonic="S0_RAW",
+        canonical_mnemonic="TIME_RAW",
+        unit="s",
+        description="Original numeric time value",
+        source_dataset_id=dataset.dataset_id,
+        provenance="paradox:S0:NUMBER:raw-time",
+    )
+    dataset.curves[raw.curve_id] = CurveData(
+        raw,
+        np.array([1_784_592_000.0, 1_784_592_001.0, 1_784_592_002.0]),
+    )
+    dataset.parameters["PARADOX_TIME_RAW_CURVE"] = "S0_RAW"
+
+    info = materialize_form_for_dataset(
+        factory_templates("ru")["factory-time-basic"],
+        dataset,
+        "ru",
+    )
+
+    mnemonics = {
+        binding.source_mnemonic
+        for column in info.form.columns
+        for track in column.tracks
+        for binding in track.bindings
+    }
+    assert "S0_RAW" not in mnemonics
+    assert info.generated_binding_count == 7
+
+
 def test_materialization_uses_autoscale_for_equal_legacy_sensor_range() -> None:
     dataset = Dataset(
         "legacy-range",

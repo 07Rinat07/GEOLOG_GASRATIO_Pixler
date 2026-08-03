@@ -395,11 +395,8 @@ def test_adaptive_layout_uses_canonical_graph_body_height() -> None:
     assert "canonical_layout_height - measured_header_height" in source
 
 
-
 def test_print_snapshot_header_crop_uses_semantic_header_band() -> None:
-    source = Path(
-        "src/geoworkbench/printing/tablet_print.py"
-    ).read_text(encoding="utf-8")
+    source = Path("src/geoworkbench/printing/tablet_print.py").read_text(encoding="utf-8")
 
     assert "+ print_header_band" in source
     assert "curve_header_scroll.height()" not in source

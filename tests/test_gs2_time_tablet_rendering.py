@@ -10,6 +10,11 @@ from geoworkbench.tablet.track_geometry import (
     effective_track_width,
     horizontal_track_extent,
 )
+from geoworkbench.tablet.vertical_ruler import (
+    VerticalRulerKind,
+    build_vertical_ruler_layout,
+    vertical_ruler_presentation,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -28,7 +33,7 @@ def test_datetime_axis_expansion_is_part_of_canvas_geometry() -> None:
         depth, axis_role=IndexRole.TIME, axis_type=IndexType.RELATIVE_TIME
     ) == RELATIVE_TIME_AXIS_MIN_TRACK_WIDTH
     assert effective_track_width(curve, axis_role=IndexRole.TIME) == 280
-    assert horizontal_track_extent((time_width, curve.width), spacing=2) == 406
+    assert horizontal_track_extent((time_width, curve.width), spacing=2) == 438
 
 
 def test_gs2_refresh_uses_rendered_widths_for_tracks_and_group_headers() -> None:
@@ -76,3 +81,46 @@ def test_default_tablet_command_uses_transactional_render() -> None:
     assert "set_layout_and_dataset(layout, dataset)" in method
     assert "set_layout_model(layout)" not in method
     assert "set_dataset(dataset)" not in method
+
+
+def test_calendar_time_track_is_wide_enough_for_full_two_line_labels() -> None:
+    assert DATETIME_AXIS_MIN_TRACK_WIDTH >= 156
+    assert RELATIVE_TIME_AXIS_MIN_TRACK_WIDTH >= 124
+
+
+def test_gs2_datetime_ruler_emits_complete_calendar_labels() -> None:
+    layout = build_vertical_ruler_layout(
+        1_784_592_720.0,
+        1_784_594_520.0,
+        pixel_height=640.0,
+        kind=VerticalRulerKind.DATETIME,
+        unit="",
+    )
+    labels = [tick.label for tick in layout.ticks if tick.major and tick.label]
+
+    assert labels
+    assert all("\n" in label for label in labels)
+    assert all(len(label.splitlines()[0]) == 10 for label in labels)
+    presentation = vertical_ruler_presentation(
+        layout,
+        track_kind="depth",
+        track_width=DATETIME_AXIS_MIN_TRACK_WIDTH,
+        force_labels=True,
+    )
+    assert presentation.show_labels
+    assert presentation.axis_width >= 80
+
+
+def test_gs2_relative_time_ruler_emits_clock_labels() -> None:
+    layout = build_vertical_ruler_layout(
+        11_520.0,
+        13_320.0,
+        pixel_height=640.0,
+        kind=VerticalRulerKind.RELATIVE_TIME,
+        unit="s",
+    )
+    labels = [tick.label for tick in layout.ticks if tick.major and tick.label]
+
+    assert labels
+    assert all(label.count(":") == 2 for label in labels)
+    assert any(label.startswith("03:") for label in labels)
