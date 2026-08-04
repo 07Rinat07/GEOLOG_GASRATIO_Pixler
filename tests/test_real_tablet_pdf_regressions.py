@@ -17,6 +17,7 @@ from geoworkbench.printing.page_settings import (
 from geoworkbench.printing.pagination import PrintPaginationSettings, PrintRangeMode
 from geoworkbench.printing.print_job import PrintJobSettings, PrintOutputFormat
 from geoworkbench.printing.print_layout import PrintScaleMode
+from geoworkbench.printing.tablet_print import capture_tablet_print_snapshot
 from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind
 from geoworkbench.tablet.tablet_view import TabletView
 
@@ -200,3 +201,30 @@ def test_complex_tablet_pdf_keeps_material_last_page_and_bottom_legend(
     assert dense_lower_rows >= 5, (
         "the repeated form legend is missing from the lower part of the final page"
     )
+
+
+
+def test_short_partial_snapshot_reflows_header_and_uses_one_canonical_height(
+    qapp,
+) -> None:
+    tablet = _complex_tablet(domain=DepthDomain.MD, start=1174.8, end=1482.4)
+    tablet.show()
+    qapp.processEvents()
+    try:
+        snapshot = capture_tablet_print_snapshot(
+            tablet,
+            page_aspect_ratio=0.65,
+            fit_columns=True,
+            raster_scale=2.5,
+            show_column_header=False,
+            repeat_column_header_at_bottom=True,
+            target_content_height=120,
+            layout_content_height=900,
+        )
+    finally:
+        tablet.close()
+        qapp.processEvents()
+
+    assert 0 < snapshot.header_height < snapshot.content_height
+    expected_pixel_height = round(snapshot.content_height * snapshot.raster_scale)
+    assert all(pixmap.height() == expected_pixel_height for pixmap in snapshot.pixmaps)

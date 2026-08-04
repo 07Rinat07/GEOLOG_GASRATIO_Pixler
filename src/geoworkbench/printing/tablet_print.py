@@ -247,22 +247,15 @@ def capture_tablet_print_snapshot(
         # height can include graph pixels and must not define the repeated header.
         header_height = print_title_band + print_header_band
 
+        requested_body_height: int | None = None
         if target_content_height is not None:
-            minimum_height = header_height + 1
-            desired_height = max(minimum_height, int(target_content_height))
-            for _attempt in range(3):
-                current_height = max(item.widget.height() for item in rendered)
-                delta = desired_height - current_height
-                if abs(delta) <= 1:
-                    break
-                tablet.resize(
-                    max(1, tablet.width()),
-                    max(1, tablet.height() + delta),
-                )
-                _activate_layout_tree(tablet)
-                tablet.refresh_shared_vertical_rulers()
-            content_height = max(item.widget.height() for item in rendered)
-            header_height = print_title_band + print_header_band
+            # Preserve the graph body requested by pagination. Adaptive print
+            # widths can wrap titles and increase the final header after this
+            # initial measurement; settle the viewport as final header + body.
+            requested_body_height = max(
+                1,
+                int(target_content_height) - header_height,
+            )
 
         canonical_layout_height = max(1, int(layout_content_height or content_height))
 
@@ -297,22 +290,74 @@ def capture_tablet_print_snapshot(
                 )
                 overlay.set_print_suppressed(not print_grid)
 
-        for _attempt in range(3):
+        for _attempt in range(6):
             for item, width in zip(rendered, layout.widths, strict=True):
                 item.widget.set_track_width(width)
+            _activate_layout_tree(tablet)
+
+            # Width fitting can change both wrapped track titles and curve
+            # header controls. Remeasure and synchronize both bands before
+            # deciding the hidden viewport height.
             print_title_band = max(
                 item.widget.natural_title_header_height for item in rendered
             )
+            print_header_band = max(
+                item.widget.natural_curve_header_height for item in rendered
+            )
             for item in rendered:
                 item.widget.set_synchronized_title_header_height(print_title_band)
+                item.widget.set_synchronized_header_height(print_header_band)
             _activate_layout_tree(tablet)
             tablet.refresh_shared_vertical_rulers()
+
             measured_header_height = print_title_band + print_header_band
+            current_height = max(item.widget.height() for item in rendered)
+            desired_height = current_height
+            if requested_body_height is not None:
+                desired_height = measured_header_height + requested_body_height
+            elif current_height <= measured_header_height:
+                desired_height = measured_header_height + 1
+
+            delta = desired_height - current_height
+            if abs(delta) > 1:
+                tablet.resize(
+                    max(1, tablet.width()),
+                    max(1, tablet.height() + delta),
+                )
+                _activate_layout_tree(tablet)
+                tablet.refresh_shared_vertical_rulers()
+
+            content_height = max(item.widget.height() for item in rendered)
+            if content_height <= measured_header_height:
+                tablet.resize(
+                    max(1, tablet.width()),
+                    max(
+                        1,
+                        tablet.height()
+                        + measured_header_height
+                        + 1
+                        - content_height,
+                    ),
+                )
+                _activate_layout_tree(tablet)
+                tablet.refresh_shared_vertical_rulers()
+                content_height = max(item.widget.height() for item in rendered)
+
             next_layout = build_layout(measured_header_height)
             header_height = measured_header_height
-            if next_layout == layout:
+            height_is_stable = (
+                requested_body_height is None
+                or abs(content_height - desired_height) <= 1
+            )
+            if next_layout == layout and height_is_stable:
                 break
             layout = next_layout
+
+        content_height = max(item.widget.height() for item in rendered)
+        if not 0 < header_height < content_height:
+            raise TabletPrintError(
+                "После адаптации печатной формы шапка не оставляет места для графика"
+            )
 
         print_ruler_layout = tablet.refresh_shared_vertical_rulers()
         print_ruler_ticks_by_track = tuple(
@@ -328,7 +373,9 @@ def capture_tablet_print_snapshot(
         )
 
         for item, logical_width in zip(rendered, layout.widths, strict=True):
-            logical_height = max(1, item.widget.height())
+            # Every track uses one canonical height, so the repeated-header crop
+            # cannot include graph pixels from a differently sized column.
+            logical_height = content_height
             pixel_size = QSize(
                 max(1, round(logical_width * raster_scale)),
                 max(1, round(logical_height * raster_scale)),
