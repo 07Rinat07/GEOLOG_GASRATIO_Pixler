@@ -1,5 +1,6 @@
 name: Apply application font normalization
 
+# The workflow is intentionally triggered by the follow-up branch push.
 on:
   push:
     branches: [fix/guard-invalid-font-point-size]
