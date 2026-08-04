@@ -9,95 +9,105 @@ permissions:
 
 env:
   PYTHONUTF8: "1"
+  QT_QPA_PLATFORM: "offscreen"
 
 jobs:
   audit:
-    name: Locate invalid font-size paths
+    name: Reproduce pixel-font sentinel warning
     runs-on: windows-latest
+    timeout-minutes: 30
     steps:
       - name: Check out source
         uses: actions/checkout@v6
         with:
           persist-credentials: false
 
-      - name: Report font construction and size call sites
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
+        with:
+          version: "0.11.29"
+          enable-cache: true
+          cache-dependency-glob: requirements/release.lock
+
+      - name: Install runtime environment
+        shell: pwsh
+        run: |
+          uv venv .venv --python 3.11
+          uv pip sync requirements/release.lock --python .venv --require-hashes
+          uv pip install --python .venv setuptools==83.0.0 wheel==0.47.0
+          uv pip install --python .venv --no-deps --no-build-isolation --editable .
+
+      - name: Probe application font and Qt dialogs
         shell: pwsh
         run: |
           @'
           from pathlib import Path
-          import ast
-          import re
           import sys
 
+          from PySide6.QtCore import Qt, qInstallMessageHandler
+          from PySide6.QtGui import QFont
+          from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
+
+          from geoworkbench.printing.unicode_support import configure_application_unicode_fonts
+
           sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
-          roots = [Path("src"), Path("tests"), Path("tools"), Path("scripts")]
-          text_pattern = re.compile(
-              r"QFont\s*\(|setPointSize|pointSize\s*\(|setPixelSize|pixelSize\s*\(|font[_ ]?size|point[_ ]?size",
-              re.IGNORECASE,
-          )
-          sections = []
-          for root in roots:
-              if not root.exists():
-                  continue
-              for path in sorted(root.rglob("*.py")):
-                  text = path.read_text(encoding="utf-8")
-                  lines = text.splitlines()
-                  try:
-                      tree = ast.parse(text, filename=str(path))
-                  except SyntaxError as exc:
-                      sections.append(f"\n=== AST ERROR {path}:{exc.lineno} ===\n{exc}\n")
-                      continue
+          messages: list[str] = []
 
-                  for node in ast.walk(tree):
-                      if not isinstance(node, ast.Call):
-                          continue
-                      name = ""
-                      if isinstance(node.func, ast.Name):
-                          name = node.func.id
-                      elif isinstance(node.func, ast.Attribute):
-                          name = node.func.attr
-                      if name not in {
-                          "QFont",
-                          "setPointSize",
-                          "setPointSizeF",
-                          "setPixelSize",
-                          "setCurrentFont",
-                          "setFont",
-                      }:
-                          continue
-                      start_line = max(1, getattr(node, "lineno", 1) - 3)
-                      end_line = min(len(lines), getattr(node, "end_lineno", node.lineno) + 3)
-                      context = "\n".join(
-                          f"{number:5d}: {lines[number - 1]}"
-                          for number in range(start_line, end_line + 1)
-                      )
-                      try:
-                          call = ast.unparse(node)
-                      except Exception:
-                          call = name
-                      sections.append(
-                          f"\n=== AST {path}:{node.lineno} {name} ===\nCALL: {call}\n{context}\n"
-                      )
+          def handler(_kind, _context, message: str) -> None:
+              messages.append(message)
 
-                  for index, line in enumerate(lines, 1):
-                      if text_pattern.search(line) and "QFont" not in line and "setPointSize" not in line and "setPixelSize" not in line:
-                          start_line = max(1, index - 2)
-                          end_line = min(len(lines), index + 2)
-                          context = "\n".join(
-                              f"{number:5d}: {lines[number - 1]}"
-                              for number in range(start_line, end_line + 1)
-                          )
-                          sections.append(f"\n=== TEXT {path}:{index} ===\n{context}\n")
+          previous = qInstallMessageHandler(handler)
+          app = QApplication.instance() or QApplication(["qfont-probe"])
 
-          report = "".join(sections) or "No font construction or size paths found.\n"
-          Path("qfont-audit.txt").write_text(report, encoding="utf-8")
+          def snapshot(name: str) -> str:
+              font = app.font()
+              return (
+                  f"{name}: family={font.family()!r}; pointSize={font.pointSize()}; "
+                  f"pointSizeF={font.pointSizeF()}; pixelSize={font.pixelSize()}"
+              )
+
+          lines = [snapshot("system")]
+          pixel_font = QFont(app.font())
+          pixel_font.setPixelSize(13)
+          app.setFont(pixel_font)
+          lines.append(snapshot("pixel-sentinel-before-configure"))
+
+          configure_application_unicode_fonts(app)
+          lines.append(snapshot("after-configure"))
+
+          box = QMessageBox(QMessageBox.Icon.Information, "Диагностика", "Архив сохранён")
+          box.setAttribute(Qt.WidgetAttribute.WA_DontShowOnScreen, True)
+          box.show()
+          app.processEvents()
+          box.close()
+
+          dialog = QFileDialog()
+          dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
+          dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
+          dialog.setAttribute(Qt.WidgetAttribute.WA_DontShowOnScreen, True)
+          dialog.show()
+          app.processEvents()
+          dialog.close()
+          app.processEvents()
+
+          qInstallMessageHandler(previous)
+          warning_lines = [message for message in messages if "QFont::setPointSize" in message]
+          lines.append(f"captured_qfont_warnings={len(warning_lines)}")
+          lines.extend(f"warning: {message}" for message in warning_lines)
+          report = "\n".join(lines) + "\n"
+          Path("qfont-runtime-probe.txt").write_text(report, encoding="utf-8")
           print(report)
-          '@ | python -
+          '@ | .\.venv\Scripts\python.exe -
 
-      - name: Upload audit report
+      - name: Upload probe report
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: qfont-audit
-          path: qfont-audit.txt
+          name: qfont-runtime-probe
+          path: qfont-runtime-probe.txt
           if-no-files-found: error
           retention-days: 7
