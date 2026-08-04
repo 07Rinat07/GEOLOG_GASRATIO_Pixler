@@ -4,7 +4,9 @@ from dataclasses import dataclass
 import os
 from pathlib import Path
 import tempfile
+import time
 
+import shiboken6
 from PySide6.QtCore import QBuffer, QByteArray, QIODevice, QRect, QRectF, Qt
 from PySide6.QtGui import QImage, QImageWriter, QPageLayout, QPainter, QPdfWriter
 from PySide6.QtPrintSupport import QPrinter
@@ -42,6 +44,8 @@ class PrintDocumentResult:
 
 
 _MAX_RASTER_PAGE_PIXELS = 80_000_000
+_PDF_REPLACE_RETRY_TIMEOUT_SECONDS = 2.0
+_PDF_REPLACE_RETRY_INTERVAL_SECONDS = 0.05
 
 
 def render_document_to_printer(
@@ -139,13 +143,20 @@ def export_document_pdf(
         )
         if not temporary.exists() or temporary.stat().st_size == 0:
             raise DocumentExportError("Не удалось сформировать PDF")
-        os.replace(temporary, destination)
+        _replace_pdf_file(temporary, destination)
         return PrintDocumentResult((destination,), page_count)
     except Exception as exc:
-        temporary.unlink(missing_ok=True)
+        try:
+            temporary.unlink(missing_ok=True)
+        except OSError:
+            # Preserve the original export failure. A still-open Windows handle
+            # must not replace it with a cleanup exception.
+            pass
         if isinstance(exc, (DocumentExportError, UnicodePrintError, ValueError)):
             raise
-        raise DocumentExportError(f"Не удалось экспортировать PDF: {destination}") from exc
+        raise DocumentExportError(
+            f"Не удалось экспортировать PDF: {destination}: {exc}"
+        ) from exc
 
 
 def _render_document_pdf_file(
@@ -184,10 +195,33 @@ def _render_document_pdf_file(
     finally:
         if painter.isActive():
             painter.end()
-        # QPdfWriter owns the Windows file handle until its wrapper is destroyed.
-        # Release QPainter first, then the writer, before os.replace() runs.
+        # QPdfWriter owns the Windows file handle until its wrapped C++ instance
+        # is destroyed. Dropping only the Python reference is not sufficient on
+        # every PySide/Windows runtime.
         del painter
+        try:
+            if shiboken6.isValid(writer):
+                shiboken6.delete(writer)
+        except (TypeError, RuntimeError):
+            # Test doubles are regular Python objects and are finalized by del.
+            pass
         del writer
+
+
+def _replace_pdf_file(temporary: Path, destination: Path) -> None:
+    """Publish a PDF after a transient Windows sharing lock clears."""
+
+    deadline = time.monotonic() + _PDF_REPLACE_RETRY_TIMEOUT_SECONDS
+    while True:
+        try:
+            os.replace(temporary, destination)
+            return
+        except OSError as exc:
+            if getattr(exc, "winerror", None) not in {5, 32}:
+                raise
+            if time.monotonic() >= deadline:
+                raise
+            time.sleep(_PDF_REPLACE_RETRY_INTERVAL_SECONDS)
 
 
 def export_document_pages(
