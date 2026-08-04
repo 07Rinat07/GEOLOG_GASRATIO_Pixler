@@ -91,6 +91,7 @@ def test_tablet_print_renderer_includes_all_tracks_and_restores_screen_widths(
 
 def test_tablet_snapshot_filters_tracks_and_restores_print_grid_state(qapp, monkeypatch) -> None:
     import numpy as np
+    from PySide6.QtGui import QImage
 
     from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
     from geoworkbench.printing.tablet_print import capture_tablet_print_snapshot
@@ -148,6 +149,7 @@ def test_tablet_snapshot_filters_tracks_and_restores_print_grid_state(qapp, monk
     )
 
     assert len(snapshot.pixmaps) == 1
+    assert isinstance(snapshot.pixmaps[0], QImage)
     assert len(snapshot.layout.widths) == 1
     assert suppression_calls == [(target_overlay, True), (target_overlay, False)]
     assert print_mode_calls == [(target_overlay, True), (target_overlay, False)]

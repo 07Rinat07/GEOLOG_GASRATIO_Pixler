@@ -5,6 +5,26 @@ from enum import StrEnum
 from math import ceil, isfinite
 
 
+MAX_PRINT_PAGE_COUNT = 200
+
+
+def validate_print_page_count(
+    page_count: int,
+    *,
+    maximum: int = MAX_PRINT_PAGE_COUNT,
+) -> None:
+    """Reject impractically large jobs before allocating or painting pages."""
+
+    if page_count <= 0:
+        raise ValueError("Количество страниц должно быть положительным")
+    if page_count > maximum:
+        raise ValueError(
+            f"Диапазон требует {page_count} страниц, что превышает безопасный "
+            f"предел {maximum}. Увеличьте интервал на страницу или выберите "
+            "меньший диапазон."
+        )
+
+
 class PrintRangeMode(StrEnum):
     CURRENT = "current"
     FULL = "full"
@@ -107,6 +127,7 @@ def build_page_slices(
         return (PrintPageSlice(start, end, 1, 1),)
     step = span - float(pagination.overlap)
     total = max(1, int(ceil(max(0.0, end - start - pagination.overlap) / step)))
+    validate_print_page_count(total)
     raw: list[tuple[float, float]] = []
     page_start = start
     for _ in range(total):

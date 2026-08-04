@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from geoworkbench.printing.pagination import (
+    MAX_PRINT_PAGE_COUNT,
     PrintPaginationSettings,
     PrintRangeMode,
     build_page_slices,
@@ -49,3 +50,15 @@ def test_single_sample_custom_range_produces_one_page() -> None:
     )
 
     assert [(page.start, page.end) for page in pages] == [(1002.0, 1002.0)]
+
+
+def test_excessive_page_count_is_rejected_before_rendering() -> None:
+    with pytest.raises(ValueError, match="безопасный предел"):
+        build_page_slices(
+            pagination=PrintPaginationSettings(
+                range_mode=PrintRangeMode.FULL,
+                units_per_page=1.0,
+            ),
+            current_range=(0.0, 1.0),
+            full_range=(0.0, float(MAX_PRINT_PAGE_COUNT + 1)),
+        )

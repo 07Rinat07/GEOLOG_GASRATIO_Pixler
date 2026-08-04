@@ -6,10 +6,13 @@ from PySide6.QtGui import QColor, QImage, QPainter, QPixmap
 import geoworkbench.printing.page_renderer as page_renderer
 from geoworkbench.printing.form_column_layout import AdaptiveColumnLayout
 from geoworkbench.printing.print_layout import PrintScaleMode
-from geoworkbench.printing.tablet_print import TabletPrintSnapshot
+from geoworkbench.printing.tablet_print import (
+    TabletPrintSnapshot,
+    tablet_header_gap_height,
+)
 
 
-def test_short_final_page_anchors_repeated_header_to_bottom(qapp, monkeypatch) -> None:
+def test_short_final_page_keeps_repeated_header_next_to_graph(qapp, monkeypatch) -> None:
     pixmap = QPixmap(200, 300)
     pixmap.fill(QColor("white"))
     snapshot = TabletPrintSnapshot(
@@ -52,6 +55,9 @@ def test_short_final_page_anchors_repeated_header_to_bottom(qapp, monkeypatch) -
     graph_rect = body_rects[0]
     legend_rect = header_rects[0]
     assert graph_rect.top() == page.top()
-    assert legend_rect.bottom() == page.bottom()
-    assert graph_rect.bottom() < legend_rect.top()
+    assert legend_rect.bottom() < page.bottom()
+    horizontal_scale = page.width() / snapshot.layout.total_width
+    assert legend_rect.top() - graph_rect.bottom() == (
+        tablet_header_gap_height(snapshot.content_height) * horizontal_scale
+    )
     assert not graph_rect.intersects(legend_rect)

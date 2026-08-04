@@ -30,6 +30,7 @@ from geoworkbench.printing.pagination import (
     PrintPaginationSettings,
     PrintRangeMode,
     build_page_slices,
+    validate_print_page_count,
 )
 from geoworkbench.printing.print_job import PrintHeaderPlacement, PrintJobSettings
 from geoworkbench.printing.print_layout import (
@@ -263,6 +264,7 @@ def build_document_plan(
         ),
     )
     total = len(vertical_pages) * len(continuations)
+    validate_print_page_count(total)
     pages: list[PrintDocumentPage] = []
     index = 1
     for vertical in vertical_pages:

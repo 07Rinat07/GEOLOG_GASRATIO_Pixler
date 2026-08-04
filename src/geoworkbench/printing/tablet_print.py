@@ -6,7 +6,7 @@ from math import isfinite
 
 import pyqtgraph as pg
 from PySide6.QtCore import QPoint, QRectF, QSize, Qt
-from PySide6.QtGui import QPainter, QPen, QPixmap
+from PySide6.QtGui import QImage, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QWidget
 
 from geoworkbench.printing.form_column_layout import (
@@ -116,7 +116,7 @@ class TabletPrintError(RuntimeError):
 
 @dataclass(frozen=True, slots=True)
 class TabletPrintSnapshot:
-    pixmaps: tuple[QPixmap, ...]
+    pixmaps: tuple[QImage | QPixmap, ...]
     layout: AdaptiveColumnLayout
     content_height: int
     header_height: int
@@ -209,7 +209,7 @@ def capture_tablet_print_snapshot(
     definitions = [item.definition for item in rendered]
     original_widths = [item.widget.width() for item in rendered]
     original_tablet_size = tablet.size()
-    pixmaps: list[QPixmap] = []
+    pixmaps: list[QImage | QPixmap] = []
     curve_style_states: list[_CurvePrintState] = []
     grid_states: list[tuple[TabletGridOverlay, bool, bool]] = []
     layout: AdaptiveColumnLayout | None = None
@@ -380,9 +380,22 @@ def capture_tablet_print_snapshot(
                 max(1, round(logical_width * raster_scale)),
                 max(1, round(logical_height * raster_scale)),
             )
-            pixmap = QPixmap(pixel_size)
-            pixmap.fill(Qt.GlobalColor.white)
-            painter = QPainter(pixmap)
+            image = QImage(
+                pixel_size,
+                QImage.Format.Format_ARGB32_Premultiplied,
+            )
+            if image.isNull():
+                raise TabletPrintError(
+                    "Не удалось выделить память для печати колонки "
+                    f"{item.definition.title} ({pixel_size.width()}×"
+                    f"{pixel_size.height()} px)"
+                )
+            image.fill(Qt.GlobalColor.white)
+            painter = QPainter(image)
+            if not painter.isActive():
+                raise TabletPrintError(
+                    f"Не удалось начать отрисовку колонки: {item.definition.title}"
+                )
             try:
                 painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
                 painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
@@ -391,12 +404,9 @@ def capture_tablet_print_snapshot(
                 item.widget.render(painter, QPoint())
                 tablet.paint_annotations_for_track(item.definition.track_id, painter)
             finally:
-                painter.end()
-            if pixmap.isNull():
-                raise TabletPrintError(
-                    f"Не удалось подготовить колонку к печати: {item.definition.title}"
-                )
-            pixmaps.append(pixmap)
+                if painter.isActive():
+                    painter.end()
+            pixmaps.append(image)
     finally:
         _restore_print_curve_styles(curve_style_states)
         for overlay, print_mode, print_suppressed in reversed(grid_states):
@@ -432,6 +442,20 @@ def capture_tablet_print_snapshot(
         print_ruler_layout,
         print_ruler_ticks_by_track,
     )
+
+
+def _draw_snapshot_raster(
+    painter: QPainter,
+    target: QRectF,
+    raster: QImage | QPixmap,
+    source: QRectF,
+) -> None:
+    """Draw CPU-backed captures while retaining legacy QPixmap compatibility."""
+
+    if isinstance(raster, QImage):
+        painter.drawImage(target, raster, source)
+    else:
+        painter.drawPixmap(target, raster, source)
 
 
 def paint_tablet_snapshot(
@@ -493,7 +517,7 @@ def paint_tablet_snapshot(
                     float(pixmap.width()),
                     source_height,
                 )
-                painter.drawPixmap(target, pixmap, source)
+                _draw_snapshot_raster(painter, target, pixmap, source)
                 x += (logical_width + snapshot.layout.spacing) * scale
         finally:
             painter.restore()
@@ -547,7 +571,7 @@ def paint_tablet_snapshot(
                     source_width,
                     source_height,
                 )
-                painter.drawPixmap(target, pixmap, source)
+                _draw_snapshot_raster(painter, target, pixmap, source)
             source_x = track_right + snapshot.layout.spacing
     finally:
         painter.restore()
@@ -597,7 +621,7 @@ def paint_tablet_header_repeat(
                     logical_width * scale,
                     rendered_height,
                 )
-                painter.drawPixmap(target, pixmap, source)
+                _draw_snapshot_raster(painter, target, pixmap, source)
                 x += (logical_width + snapshot.layout.spacing) * scale
             painter.drawLine(
                 QPoint(round(page.left()), round(y)),
@@ -637,7 +661,7 @@ def paint_tablet_header_repeat(
                     (visible_right - visible_left) * scale,
                     rendered_height,
                 )
-                painter.drawPixmap(target, pixmap, source)
+                _draw_snapshot_raster(painter, target, pixmap, source)
             source_x = track_right + snapshot.layout.spacing
         painter.drawLine(
             QPoint(round(page.left()), round(target_top)),

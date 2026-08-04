@@ -188,8 +188,9 @@ def _paint_tablet_with_repeated_header(
         rendered_width = snapshot.layout.total_width * scale
         rendered_height = logical_total_height * scale
         x = content_rect.left() + (content_rect.width() - rendered_width) / 2.0
-        # Keep a short final graph body at the top of the sheet. The
-        # repeated form legend is anchored independently at the bottom.
+        # Keep the final graph and its repeated legend together. A partial
+        # depth/time interval deliberately remains short to preserve the same
+        # engineering scale as the preceding pages.
         y = content_rect.top()
         region_width = rendered_width
     else:
@@ -211,11 +212,7 @@ def _paint_tablet_with_repeated_header(
         y = top_header.bottom() + gap_target_height
 
     body = QRectF(x, y, region_width, body_target_height)
-    repeated_header_top = (
-        content_rect.bottom() - header_target_height
-        if scale_mode is PrintScaleMode.FIT
-        else body.bottom() + gap_target_height
-    )
+    repeated_header_top = body.bottom() + gap_target_height
     repeated_header = QRectF(
         x,
         repeated_header_top,

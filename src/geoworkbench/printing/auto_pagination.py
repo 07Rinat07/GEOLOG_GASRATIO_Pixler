@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import ceil
+
+from geoworkbench.printing.pagination import validate_print_page_count
 
 
 PRINT_SIMPLE_HEADER_MM = 7.0
@@ -145,7 +148,7 @@ def automatic_tablet_first_page_geometry(
     )
 
 
-_MIN_TINY_FINAL_PAGE_FRACTION = 0.12
+_MAX_SHORT_FINAL_PAGE_FRACTION = 0.35
 _MAX_REBALANCED_PAGE_OVERFLOW_FRACTION = 0.03
 
 
@@ -159,10 +162,10 @@ def balanced_automatic_page_ranges(
     """Build automatic page ranges without a nearly empty final sheet.
 
     A reduced first-page capacity plus fixed continuation capacity can leave a
-    residual interval of less than one metre. When the residual is tiny and two
-    regular pages can absorb it with only a small density change, the remaining
-    interval is distributed evenly. Normal and materially partial final pages
-    keep their original capacity and scale.
+    short residual interval. When the preceding regular pages can absorb it
+    with no more than a small density change, the remaining interval is
+    distributed evenly. Materially filled final pages keep their original
+    capacity and scale.
     """
 
     lower = float(start)
@@ -173,6 +176,12 @@ def balanced_automatic_page_ranges(
         raise ValueError("Автоматические интервалы страниц должны быть положительными")
     if upper <= lower:
         return ((lower, upper),)
+
+    remaining_after_first = max(0.0, upper - lower - first_capacity)
+    expected_page_count = 1 + int(
+        ceil(max(0.0, remaining_after_first - 1e-9) / regular_capacity)
+    )
+    validate_print_page_count(expected_page_count)
 
     ranges: list[tuple[float, float]] = []
     page_start = lower
@@ -187,7 +196,7 @@ def balanced_automatic_page_ranges(
     if len(ranges) < 3:
         return tuple(ranges)
     final_span = ranges[-1][1] - ranges[-1][0]
-    if final_span >= regular_capacity * _MIN_TINY_FINAL_PAGE_FRACTION:
+    if final_span >= regular_capacity * _MAX_SHORT_FINAL_PAGE_FRACTION:
         return tuple(ranges)
 
     first_end = ranges[0][1]
