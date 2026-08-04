@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QPoint, QRectF, Qt
-from PySide6.QtGui import QPainter, QPixmap
+from PySide6.QtGui import QPainter
 from PySide6.QtWidgets import QWidget
 
 from geoworkbench.printing.print_layout import (
@@ -16,6 +16,7 @@ from geoworkbench.printing.tablet_print import (
     paint_tablet_header_repeat,
     paint_tablet_snapshot,
     tablet_header_gap_height,
+    tablet_print_layout_height,
 )
 from geoworkbench.tablet.tablet_view import TabletView
 
@@ -148,7 +149,11 @@ def paint_widget_page(
     except Exception as exc:
         if isinstance(exc, PageRenderError):
             raise
-        raise PageRenderError("Не удалось отрисовать визуализацию") from exc
+        detail = str(exc).strip()
+        cause = type(exc).__name__ + (f": {detail}" if detail else "")
+        raise PageRenderError(
+            f"Не удалось отрисовать визуализацию: {cause}"
+        ) from exc
     finally:
         painter.restore()
 
@@ -162,69 +167,53 @@ def _paint_tablet_with_repeated_header(
     continuation: PrintContinuationSlice | None,
     show_column_header: bool,
 ) -> None:
-    """Paint a graph and repeat its semantic header only when it fits safely.
-
-    A short final interval keeps the same paper column widths as prior pages and
-    may use the remaining space for a repeated legend. A complete interval must
-    never be vertically resampled merely to force that optional legend to fit.
-    """
+    """Paint body and optional header copies with one common geometric scale."""
 
     body_height = max(1.0, float(snapshot.content_height - snapshot.header_height))
     gap_height = float(tablet_header_gap_height(snapshot.content_height))
+    logical_total_height = float(
+        tablet_print_layout_height(
+            snapshot.content_height,
+            snapshot.header_height,
+            show_column_header=show_column_header,
+            repeat_column_header_at_bottom=True,
+        )
+    )
+
     if scale_mode is PrintScaleMode.FIT:
-        scale = content_rect.width() / snapshot.layout.total_width
+        scale = min(
+            content_rect.width() / snapshot.layout.total_width,
+            content_rect.height() / logical_total_height,
+        )
         rendered_width = snapshot.layout.total_width * scale
+        rendered_height = logical_total_height * scale
         x = content_rect.left() + (content_rect.width() - rendered_width) / 2.0
+        y = content_rect.top() + (content_rect.height() - rendered_height) / 2.0
         region_width = rendered_width
     else:
         device = painter.device()
         dpi = max(1, device.logicalDpiX()) if device is not None else REFERENCE_PRINT_DPI
         scale = dpi / REFERENCE_PRINT_DPI
+        rendered_height = logical_total_height * scale
         x = content_rect.left()
+        y = content_rect.top() + max(0.0, (content_rect.height() - rendered_height) / 2.0)
         region_width = content_rect.width()
 
     header_target_height = snapshot.header_height * scale
     body_target_height = body_height * scale
     gap_target_height = gap_height * scale
 
-    y = content_rect.top()
     top_header: QRectF | None = None
     if show_column_header:
         top_header = QRectF(x, y, region_width, header_target_height)
         y = top_header.bottom() + gap_target_height
 
+    body = QRectF(x, y, region_width, body_target_height)
     repeated_header = QRectF(
         x,
-        content_rect.bottom() - header_target_height,
+        body.bottom() + gap_target_height,
         region_width,
         header_target_height,
-    )
-    body_bottom = repeated_header.top() - gap_target_height
-    available_body_height = max(1.0, body_bottom - y)
-
-    # The repeated legend is optional. Never resample a complete graph interval
-    # merely to force the legend onto the same sheet. A tiny rounding overflow
-    # is still absorbed, but material overflow falls back to an undistorted
-    # tablet rendering that preserves the requested top header state.
-    overflow = body_target_height - available_body_height
-    rounding_tolerance = max(2.0, body_target_height * 0.01)
-    if overflow > rounding_tolerance:
-        paint_tablet_snapshot(
-            painter,
-            content_rect,
-            snapshot,
-            scale_mode=scale_mode,
-            continuation=continuation,
-            fill_height=False,
-            show_column_header=show_column_header,
-        )
-        return
-
-    body = QRectF(
-        x,
-        y,
-        region_width,
-        min(body_target_height, available_body_height),
     )
 
     if top_header is not None:
@@ -235,16 +224,10 @@ def _paint_tablet_with_repeated_header(
             scale_mode=scale_mode,
             continuation=continuation,
         )
-    body_snapshot = snapshot
-    if scale_mode is PrintScaleMode.FIT and scale > 0.0:
-        body_snapshot = _snapshot_with_compressed_body(
-            snapshot,
-            target_body_height=max(1.0, body.height() / scale),
-        )
     paint_tablet_snapshot(
         painter,
         body,
-        body_snapshot,
+        snapshot,
         scale_mode=scale_mode,
         continuation=continuation,
         fill_height=False,
@@ -256,65 +239,4 @@ def _paint_tablet_with_repeated_header(
         snapshot,
         scale_mode=scale_mode,
         continuation=continuation,
-    )
-
-
-def _snapshot_with_compressed_body(
-    snapshot: TabletPrintSnapshot,
-    *,
-    target_body_height: float,
-) -> TabletPrintSnapshot:
-    """Compress graph pixels vertically while preserving header pixels exactly."""
-
-    source_body_height = max(1.0, float(snapshot.content_height - snapshot.header_height))
-    resolved_body_height = max(1.0, min(source_body_height, float(target_body_height)))
-    if resolved_body_height >= source_body_height - 0.5:
-        return snapshot
-
-    raster_scale = float(snapshot.raster_scale)
-    header_pixels = max(1, round(snapshot.header_height * raster_scale))
-    body_pixels = max(1, round(resolved_body_height * raster_scale))
-    compressed: list[QPixmap] = []
-    for source in snapshot.pixmaps:
-        header_source_height = min(header_pixels, source.height())
-        body_source_height = max(1, source.height() - header_source_height)
-        target = QPixmap(source.width(), header_pixels + body_pixels)
-        target.fill(Qt.GlobalColor.white)
-        target_painter = QPainter(target)
-        try:
-            target_painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-            target_painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
-            target_painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
-            target_painter.drawPixmap(
-                QRectF(0.0, 0.0, float(source.width()), float(header_pixels)),
-                source,
-                QRectF(0.0, 0.0, float(source.width()), float(header_source_height)),
-            )
-            target_painter.drawPixmap(
-                QRectF(
-                    0.0,
-                    float(header_pixels),
-                    float(source.width()),
-                    float(body_pixels),
-                ),
-                source,
-                QRectF(
-                    0.0,
-                    float(header_source_height),
-                    float(source.width()),
-                    float(body_source_height),
-                ),
-            )
-        finally:
-            target_painter.end()
-        compressed.append(target)
-
-    return TabletPrintSnapshot(
-        tuple(compressed),
-        snapshot.layout,
-        snapshot.header_height + max(1, round(resolved_body_height)),
-        snapshot.header_height,
-        snapshot.raster_scale,
-        snapshot.vertical_ruler_layout,
-        snapshot.vertical_ruler_ticks_by_track,
     )
