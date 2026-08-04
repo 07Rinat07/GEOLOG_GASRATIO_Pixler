@@ -49,6 +49,9 @@ def test_short_final_page_anchors_repeated_header_to_bottom(qapp, monkeypatch) -
 
     assert len(body_rects) == 1
     assert len(header_rects) == 1
-    assert body_rects[0].top() == page.top()
-    assert header_rects[0].bottom() == page.bottom()
-    assert body_rects[0].bottom() < header_rects[0].top()
+    graph_rect = body_rects[0]
+    legend_rect = header_rects[0]
+    assert graph_rect.top() == page.top()
+    assert legend_rect.bottom() == page.bottom()
+    assert graph_rect.bottom() < legend_rect.top()
+    assert not graph_rect.intersects(legend_rect)
