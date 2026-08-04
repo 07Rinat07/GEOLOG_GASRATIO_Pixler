@@ -1,0 +1,55 @@
+name: QFont point-size audit
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Locate invalid font-size paths
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Report font-size call sites with context
+        shell: pwsh
+        run: |
+          @'
+          from pathlib import Path
+          import re
+
+          roots = [Path("src"), Path("tests"), Path("tools"), Path("scripts")]
+          pattern = re.compile(r"setPointSize|pointSize\s*\(|setPixelSize|pixelSize\s*\(")
+          matches = []
+          for root in roots:
+              if not root.exists():
+                  continue
+              for path in sorted(root.rglob("*.py")):
+                  lines = path.read_text(encoding="utf-8").splitlines()
+                  for index, line in enumerate(lines):
+                      if pattern.search(line):
+                          start = max(0, index - 3)
+                          end = min(len(lines), index + 4)
+                          context = "\n".join(
+                              f"{number + 1:5d}: {lines[number]}"
+                              for number in range(start, end)
+                          )
+                          matches.append(f"\n=== {path}:{index + 1} ===\n{context}")
+          report = "".join(matches) or "No font-size call sites found.\n"
+          print(report)
+          Path("qfont-audit.txt").write_text(report, encoding="utf-8")
+          '@ | python -
+
+      - name: Upload audit report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: qfont-audit
+          path: qfont-audit.txt
+          if-no-files-found: error
+          retention-days: 7
