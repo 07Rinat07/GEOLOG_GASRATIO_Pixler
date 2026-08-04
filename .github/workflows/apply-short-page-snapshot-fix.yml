@@ -1,0 +1,45 @@
+name: Apply short-page snapshot fix
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  apply-fix:
+    if: github.head_ref == 'fix/short-page-header-snapshot'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+      - name: Apply focused fix and regression test
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('src/geoworkbench/printing/tablet_print.py')
+          text = path.read_text(encoding='utf-8')
+          old = '''            content_height = max(item.widget.height() for item in rendered)\n            header_height = print_title_band + print_header_band\n\n        canonical_layout_height = max(1, int(layout_content_height or content_height))\n'''
+          new = '''            content_height = max(item.widget.height() for item in rendered)\n            header_height = print_title_band + print_header_band\n\n        # A materially short final depth/time interval may request a hidden\n        # viewport only one pixel taller than the repeated column header. Some\n        # Windows/Qt layouts settle slightly shorter than requested, which used\n        # to create an invalid snapshot with no graph body at all. Preserve a\n        # small real body band instead of rejecting the entire PDF export.\n        if content_height <= header_height:\n            minimum_body_height = max(64, round(header_height * 0.25))\n            minimum_content_height = header_height + minimum_body_height\n            for _attempt in range(3):\n                current_height = max(item.widget.height() for item in rendered)\n                if current_height >= minimum_content_height:\n                    break\n                tablet.resize(\n                    max(1, tablet.width()),\n                    max(1, tablet.height() + minimum_content_height - current_height),\n                )\n                _activate_layout_tree(tablet)\n                tablet.refresh_shared_vertical_rulers()\n            content_height = max(item.widget.height() for item in rendered)\n            header_height = print_title_band + print_header_band\n            if content_height <= header_height:\n                raise TabletPrintError(\n                    'Печатная форма не оставляет места для области графика'\n                )\n\n        canonical_layout_height = max(1, int(layout_content_height or content_height))\n'''
+          if new not in text:
+              if old not in text:
+                  raise SystemExit('tablet_print.py anchor not found')
+              path.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          test = Path('tests/test_short_page_snapshot.py')
+          test.write_text('''from __future__ import annotations\n\nimport numpy as np\n\nfrom geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain\nfrom geoworkbench.printing.tablet_print import capture_tablet_print_snapshot\nfrom geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind\nfrom geoworkbench.tablet.tablet_view import TabletView\n\n\ndef test_short_time_page_keeps_graph_body_below_tall_header(qapp) -> None:\n    axis = np.linspace(0.0, 50.0, 101)\n    dataset = Dataset(\n        "short-time",\n        "Short time",\n        DatasetKind.GTI,\n        DepthDomain.TIME,\n        axis,\n    )\n    dataset.upsert_curve("ROP", np.linspace(1.0, 2.0, axis.size), unit="m/h")\n    tracks = [\n        TrackDefinition("time", "Время", TrackKind.DEPTH, width=124),\n        TrackDefinition(\n            "daily",\n            "Суточные операции с очень длинным переносимым заголовком",\n            TrackKind.GENERIC,\n            ["ROP"],\n            width=220,\n        ),\n    ]\n    tablet = TabletView()\n    tablet.resize(640, 420)\n    tablet.set_layout_and_dataset(\n        TabletLayout(tracks, visible_depth_top=0.0, visible_depth_bottom=50.0),\n        dataset,\n    )\n    tablet.show()\n    qapp.processEvents()\n\n    snapshot = capture_tablet_print_snapshot(\n        tablet,\n        page_aspect_ratio=1.4,\n        fit_columns=True,\n        raster_scale=1.0,\n        show_column_header=False,\n        repeat_column_header_at_bottom=True,\n        target_content_height=1,\n        layout_content_height=420,\n    )\n\n    assert snapshot.content_height > snapshot.header_height\n    assert snapshot.content_height - snapshot.header_height >= 1\n''', encoding='utf-8')
+      - name: Commit patch
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/geoworkbench/printing/tablet_print.py tests/test_short_page_snapshot.py
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "fix: preserve graph body on short print pages"
+          git push origin HEAD:${{ github.head_ref }}
