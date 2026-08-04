@@ -10,7 +10,7 @@ depth dataset. It can:
 2. add the calculated curves to the dataset and display separate
    **Gas Ratio / Pixler**, **Normalized gas**, and **DEXP / NCT** tracks;
 3. scan the whole well for relative gas-anomaly intervals;
-4. keep automatic candidates separate from geologist-confirmed intervals;
+4. keep automatically detected prospective intervals separate from geologist-confirmed intervals;
 5. export XLSX, DOCX, PDF, or print through the system dialog.
 
 The source LAS is never overwritten. Calculated curves, manual intervals, and the
@@ -27,7 +27,7 @@ separate outputs and do not save the project.
    no regional default is silently injected.
 5. Select **Calculate standard methods**.
 6. Review the new tablet curves, gas lag, units, and source-channel quality.
-7. Refresh the analysis and inspect the candidate intervals.
+7. Refresh the analysis and inspect the prospective intervals.
 8. Confirm accepted intervals through **Edit → Interpretation intervals…**, including a
    type, label, and comment.
 9. Refresh and export XLSX, DOCX, or PDF.
@@ -54,7 +54,7 @@ ROP, bit size, flow, WOB, and mud density are converted to the explicit formula-
 units. WOB reported in kg or tonnes is converted to force only in the semantic WOB
 context using standard gravity. An unknown or ambiguous unit blocks that calculation.
 
-## Candidate detection
+## Prospective interval detection
 
 The primary gas curve is selected in this order:
 `TG_NORM` → `C1_NORM_REF` → `C1_NORM` → `TG_CALC` → source Total Gas.
@@ -72,7 +72,7 @@ The default `3.0` threshold is a starting point, not a universal geological cuto
 `low/medium/high` describes only relative anomaly strength and continuity; it is not
 a probability of hydrocarbon saturation.
 
-Each candidate also receives a **preliminary fluid interpretation**. Components are
+Each prospective interval also receives a **preliminary fluid interpretation**. Components are
 integrated over the interval, so sparse non-zero C2–C5 values are not hidden by a
 pointwise median. Interval, background, and robust z are printed with five decimal
 places; the count column is named **Points above threshold**.
@@ -140,7 +140,7 @@ not inferred from C1–C5.
 
 ## Interpretation boundary
 
-The automatic output is a **candidate hydrocarbon-show interval**, and fluid
+The automatic output is a **prospective hydrocarbon-show interval**, and fluid
 character is stated as a preliminary interpretation. It does not establish
 commercial reservoir quality, a definitive fluid type, permeability, saturation,
 pore pressure, or a mud-weight recommendation.
@@ -152,9 +152,9 @@ and pressure context, not direct hydrocarbon evidence.
 
 ## Report contents
 
-- **XLSX**: summary, candidate intervals, manual intervals, methods/sources, and a
+- **XLSX**: summary, prospective intervals, manual intervals, methods/sources, and a
   whole-well data sheet. Text is neutralized against spreadsheet formula injection.
-- **DOCX**: editable methods, candidates, manual confirmations, and limitations.
+- **DOCX**: editable methods, prospective intervals, manual confirmations, and limitations.
 - **PDF/print**: the current preview rendered for distribution; a ramp report can
   include its time chart or use the separate compact interpretation-only mode.
 
