@@ -1,0 +1,254 @@
+name: Apply Windows PDF lock fix
+
+on:
+  push:
+    branches: [fix/windows-pdf-temp-file-lock]
+
+permissions:
+  contents: write
+
+jobs:
+  apply-fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Patch PDF writer lifetime and add regression test
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          source_path = Path("src/geoworkbench/printing/document_export.py")
+          source = source_path.read_text(encoding="utf-8")
+          old = '''    temporary = _temporary_path(destination)
+              painter = QPainter()
+              try:
+                  writer = QPdfWriter(str(temporary))
+                  content_width, content_height = printable_content_dimensions(widget, job)
+                  writer.setPageSize(job.page.page_size_for_content(content_width, content_height))
+                  writer.setPageOrientation(job.page.qt_orientation)
+                  writer.setPageMargins(job.page.qt_margins, QPageLayout.Unit.Millimeter)
+                  writer.setResolution(job.dpi)
+                  writer.setTitle(context.title)
+                  writer.setCreator("GEOLOG GASRATIO@Pixler")
+                  if not painter.begin(writer):
+                      raise DocumentExportError("Не удалось запустить PDF renderer")
+                  plan = paint_document_pages(
+                      widget,
+                      painter,
+                      writer,
+                      QRectF(0.0, 0.0, float(writer.width()), float(writer.height())),
+                      job=job,
+                      context=context,
+                      high_quality=True,
+                  )
+                  if not painter.end():
+                      raise DocumentExportError("Не удалось завершить PDF renderer")
+                  if not temporary.exists() or temporary.stat().st_size == 0:
+                      raise DocumentExportError("Не удалось сформировать PDF")
+                  os.replace(temporary, destination)
+                  return PrintDocumentResult((destination,), plan.page_count)
+              except Exception as exc:
+                  temporary.unlink(missing_ok=True)
+                  if isinstance(exc, (DocumentExportError, UnicodePrintError, ValueError)):
+                      raise
+                  raise DocumentExportError(f"Не удалось экспортировать PDF: {destination}") from exc
+              finally:
+                  if painter.isActive():
+                      painter.end()
+          '''
+          # YAML block indentation adds ten spaces to every embedded line.
+          old = "\n".join(line[10:] if line.startswith("          ") else line for line in old.splitlines()) + "\n"
+          new = '''    temporary = _temporary_path(destination)
+              try:
+                  page_count = _render_document_pdf_file(
+                      widget,
+                      temporary,
+                      job,
+                      context=context,
+                  )
+                  if not temporary.exists() or temporary.stat().st_size == 0:
+                      raise DocumentExportError("Не удалось сформировать PDF")
+                  os.replace(temporary, destination)
+                  return PrintDocumentResult((destination,), page_count)
+              except Exception as exc:
+                  temporary.unlink(missing_ok=True)
+                  if isinstance(exc, (DocumentExportError, UnicodePrintError, ValueError)):
+                      raise
+                  raise DocumentExportError(f"Не удалось экспортировать PDF: {destination}") from exc
+
+
+          def _render_document_pdf_file(
+              widget: QWidget,
+              temporary: Path,
+              job: PrintJobSettings,
+              *,
+              context: PrintDocumentContext,
+          ) -> int:
+              """Render a PDF and release Qt file handles before the caller renames it."""
+
+              writer = QPdfWriter(str(temporary))
+              painter = QPainter()
+              try:
+                  content_width, content_height = printable_content_dimensions(widget, job)
+                  writer.setPageSize(job.page.page_size_for_content(content_width, content_height))
+                  writer.setPageOrientation(job.page.qt_orientation)
+                  writer.setPageMargins(job.page.qt_margins, QPageLayout.Unit.Millimeter)
+                  writer.setResolution(job.dpi)
+                  writer.setTitle(context.title)
+                  writer.setCreator("GEOLOG GASRATIO@Pixler")
+                  if not painter.begin(writer):
+                      raise DocumentExportError("Не удалось запустить PDF renderer")
+                  plan = paint_document_pages(
+                      widget,
+                      painter,
+                      writer,
+                      QRectF(0.0, 0.0, float(writer.width()), float(writer.height())),
+                      job=job,
+                      context=context,
+                      high_quality=True,
+                  )
+                  if not painter.end():
+                      raise DocumentExportError("Не удалось завершить PDF renderer")
+                  return plan.page_count
+              finally:
+                  if painter.isActive():
+                      painter.end()
+                  # QPdfWriter owns the Windows file handle until its wrapper is destroyed.
+                  # Release QPainter first, then the writer, before os.replace() runs.
+                  del painter
+                  del writer
+          '''
+          new = "\n".join(line[10:] if line.startswith("          ") else line for line in new.splitlines()) + "\n"
+          if source.count(old) != 1:
+              raise SystemExit(f"Expected one PDF export block, found {source.count(old)}")
+          source_path.write_text(source.replace(old, new), encoding="utf-8")
+
+          test_path = Path("tests/test_pdf_file_handle_release.py")
+          test_path.write_text('''from __future__ import annotations
+
+          from pathlib import Path
+          from types import SimpleNamespace
+
+          from PySide6.QtWidgets import QLabel
+
+          from geoworkbench.printing import document_export
+          from geoworkbench.printing.document_renderer import PrintDocumentContext
+          from geoworkbench.printing.print_job import PrintJobSettings, PrintOutputFormat
+
+
+          def test_pdf_writer_is_released_before_atomic_replace(
+              qapp, tmp_path, monkeypatch
+          ) -> None:
+              _ = qapp
+
+              class FakePdfWriter:
+                  open_paths: set[Path] = set()
+
+                  def __init__(self, path: str) -> None:
+                      self.path = Path(path)
+                      self.stream = self.path.open("wb")
+                      self.stream.write(b"%PDF-1.4\\n")
+                      self.stream.flush()
+                      type(self).open_paths.add(self.path)
+
+                  def __del__(self) -> None:
+                      self.stream.close()
+                      type(self).open_paths.discard(self.path)
+
+                  def setPageSize(self, _page_size) -> None:
+                      pass
+
+                  def setPageOrientation(self, _orientation) -> None:
+                      pass
+
+                  def setPageMargins(self, _margins, _unit) -> None:
+                      pass
+
+                  def setResolution(self, _dpi: int) -> None:
+                      pass
+
+                  def setTitle(self, _title: str) -> None:
+                      pass
+
+                  def setCreator(self, _creator: str) -> None:
+                      pass
+
+                  def width(self) -> int:
+                      return 100
+
+                  def height(self) -> int:
+                      return 100
+
+              class FakePainter:
+                  def __init__(self) -> None:
+                      self.active = False
+
+                  def begin(self, _device) -> bool:
+                      self.active = True
+                      return True
+
+                  def end(self) -> bool:
+                      self.active = False
+                      return True
+
+                  def isActive(self) -> bool:
+                      return self.active
+
+              original_replace = document_export.os.replace
+
+              def guarded_replace(source, destination) -> None:
+                  assert Path(source) not in FakePdfWriter.open_paths
+                  original_replace(source, destination)
+
+              monkeypatch.setattr(document_export, "QPdfWriter", FakePdfWriter)
+              monkeypatch.setattr(document_export, "QPainter", FakePainter)
+              monkeypatch.setattr(
+                  document_export,
+                  "printable_content_dimensions",
+                  lambda _widget, _job: (100, 100),
+              )
+              monkeypatch.setattr(
+                  document_export,
+                  "paint_document_pages",
+                  lambda *_args, **_kwargs: SimpleNamespace(page_count=1),
+              )
+              monkeypatch.setattr(document_export, "_unicode_preflight", lambda *_args: None)
+              monkeypatch.setattr(document_export.os, "replace", guarded_replace)
+
+              widget = QLabel("PDF handle regression")
+              target = tmp_path / "Планшет.pdf"
+              job = PrintJobSettings(
+                  output_format=PrintOutputFormat.PDF,
+                  target=target,
+                  dpi=96,
+              )
+
+              result = document_export.export_document_pdf(
+                  widget,
+                  target,
+                  job,
+                  context=PrintDocumentContext("Планшет"),
+              )
+
+              assert result.paths == (target,)
+              assert target.read_bytes().startswith(b"%PDF-1.4")
+              assert not FakePdfWriter.open_paths
+              widget.close()
+          '''.replace("          ", ""), encoding="utf-8")
+
+          Path(".github/workflows/apply-windows-pdf-lock-fix.yml").unlink()
+          PY
+
+      - name: Commit fix
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/geoworkbench/printing/document_export.py tests/test_pdf_file_handle_release.py .github/workflows/apply-windows-pdf-lock-fix.yml
+          git commit -m "fix: release PDF writer before atomic replace"
+          git push origin HEAD:fix/windows-pdf-temp-file-lock
