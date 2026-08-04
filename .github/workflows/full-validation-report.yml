@@ -59,11 +59,16 @@ jobs:
       - name: Run quality checks
         shell: pwsh
         run: |
-          python tools/check_documentation.py
-          python -m compileall -q src tests tools scripts
-          python -m ruff check src tests tools scripts
-          python -m mypy src
-          python scripts/run_tests.py -p no:cacheprovider
+          .\.venv\Scripts\python.exe tools/check_documentation.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .\.venv\Scripts\python.exe -m compileall -q src tests tools scripts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .\.venv\Scripts\python.exe -m ruff check src tests tools scripts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .\.venv\Scripts\python.exe -m mypy src
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .\.venv\Scripts\python.exe scripts/run_tests.py -p no:cacheprovider
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
   windows-acceptance:
     name: Windows GUI, HiDPI and PDF acceptance
