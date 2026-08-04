@@ -264,6 +264,31 @@ def capture_tablet_print_snapshot(
             content_height = max(item.widget.height() for item in rendered)
             header_height = print_title_band + print_header_band
 
+        # A materially short final depth/time interval may request a hidden
+        # viewport only one pixel taller than the repeated column header. Some
+        # Windows/Qt layouts settle slightly shorter than requested, which used
+        # to create an invalid snapshot with no graph body at all. Preserve a
+        # small real body band instead of rejecting the entire PDF export.
+        if content_height <= header_height:
+            minimum_body_height = max(64, round(header_height * 0.25))
+            minimum_content_height = header_height + minimum_body_height
+            for _attempt in range(3):
+                current_height = max(item.widget.height() for item in rendered)
+                if current_height >= minimum_content_height:
+                    break
+                tablet.resize(
+                    max(1, tablet.width()),
+                    max(1, tablet.height() + minimum_content_height - current_height),
+                )
+                _activate_layout_tree(tablet)
+                tablet.refresh_shared_vertical_rulers()
+            content_height = max(item.widget.height() for item in rendered)
+            header_height = print_title_band + print_header_band
+            if content_height <= header_height:
+                raise TabletPrintError(
+                    'Печатная форма не оставляет места для области графика'
+                )
+
         canonical_layout_height = max(1, int(layout_content_height or content_height))
 
         def build_layout(measured_header_height: int) -> AdaptiveColumnLayout:
