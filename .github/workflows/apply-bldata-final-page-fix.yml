@@ -11,8 +11,8 @@ permissions:
 
 jobs:
   apply-fix:
-    runs-on: windows-latest
-    timeout-minutes: 45
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Check out repair branch
         uses: actions/checkout@v6
@@ -20,39 +20,19 @@ jobs:
           ref: fix/bldata-final-page-pagination
           fetch-depth: 0
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
-        with:
-          version: "0.11.29"
-          enable-cache: true
-          cache-dependency-glob: requirements/release.lock
-
-      - name: Install test environment
-        shell: pwsh
-        run: |
-          uv venv .venv --python 3.11
-          uv pip sync requirements/release.lock --python .venv --require-hashes
-          uv pip install --python .venv pytest==9.1.1 pytest-asyncio==1.4.0
-          uv pip install --python .venv --no-deps --no-build-isolation --editable .
-
       - name: Patch renderer and add regression tests
-        shell: pwsh
+        shell: bash
         run: |
-          @'
+          python - <<'PY'
           from pathlib import Path
 
           source_path = Path("src/geoworkbench/printing/page_renderer.py")
           source = source_path.read_text(encoding="utf-8")
-          needle = '''    body_bottom = repeated_header.top() - gap_target_height
+          needle = """    body_bottom = repeated_header.top() - gap_target_height
               available_body_height = max(1.0, body_bottom - y)
               body = QRectF(
-          '''.replace("              ", "    ")
-          replacement = '''    body_bottom = repeated_header.top() - gap_target_height
+          """.replace("              ", "    ")
+          replacement = """    body_bottom = repeated_header.top() - gap_target_height
               available_body_height = max(1.0, body_bottom - y)
               # The repeated legend is optional. Never resample a complete graph
               # interval merely to force the legend onto the same sheet. A tiny
@@ -72,13 +52,12 @@ jobs:
                   )
                   return
               body = QRectF(
-          '''.replace("              ", "    ")
+          """.replace("              ", "    ")
           if needle not in source:
               raise SystemExit("page_renderer insertion point not found")
           source_path.write_text(source.replace(needle, replacement, 1), encoding="utf-8")
 
-          test_path = Path("tests/test_repeated_header_fit.py")
-          test_path.write_text(r'''from __future__ import annotations
+          Path("tests/test_repeated_header_fit.py").write_text(r'''from __future__ import annotations
 
 from PySide6.QtCore import QRectF
 from PySide6.QtGui import QColor, QImage, QPainter, QPixmap
@@ -214,17 +193,10 @@ def test_bottom_header_remains_when_graph_and_legend_fit_without_compression(
     assert body_rects[0].height() == 440.0
     assert header_rects[0].bottom() == 800.0
 ''', encoding="utf-8")
-          '@ | .\.venv\Scripts\python.exe -
-
-      - name: Run focused regression tests
-        shell: pwsh
-        run: |
-          .\.venv\Scripts\python.exe -m pytest -q `
-            tests/test_repeated_header_fit.py `
-            tests/test_print_header_layout.py
+          PY
 
       - name: Commit repair branch
-        shell: pwsh
+        shell: bash
         run: |
           git config user.name "07Rinat07"
           git config user.email "102806560+07Rinat07@users.noreply.github.com"
@@ -233,7 +205,7 @@ def test_bottom_header_remains_when_graph_and_legend_fit_without_compression(
           git push origin HEAD:fix/bldata-final-page-pagination
 
       - name: Remove temporary workflow from main
-        shell: pwsh
+        shell: bash
         run: |
           git fetch origin main
           git switch main
