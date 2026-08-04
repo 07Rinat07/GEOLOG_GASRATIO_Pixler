@@ -7,6 +7,9 @@ on:
 permissions:
   contents: read
 
+env:
+  PYTHONUTF8: "1"
+
 jobs:
   audit:
     name: Locate invalid font-size paths
@@ -24,7 +27,9 @@ jobs:
           from pathlib import Path
           import ast
           import re
+          import sys
 
+          sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
           roots = [Path("src"), Path("tests"), Path("tools"), Path("scripts")]
           text_pattern = re.compile(
               r"QFont\s*\(|setPointSize|pointSize\s*\(|setPixelSize|pixelSize\s*\(|font[_ ]?size|point[_ ]?size",
@@ -85,8 +90,8 @@ jobs:
                           sections.append(f"\n=== TEXT {path}:{index} ===\n{context}\n")
 
           report = "".join(sections) or "No font construction or size paths found.\n"
-          print(report)
           Path("qfont-audit.txt").write_text(report, encoding="utf-8")
+          print(report)
           '@ | python -
 
       - name: Upload audit report
