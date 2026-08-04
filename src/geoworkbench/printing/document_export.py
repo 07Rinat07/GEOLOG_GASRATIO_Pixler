@@ -130,9 +130,36 @@ def export_document_pdf(
     _validate_destination(destination, (".pdf",), overwrite)
     _unicode_preflight(widget, context, job)
     temporary = _temporary_path(destination)
+    try:
+        page_count = _render_document_pdf_file(
+            widget,
+            temporary,
+            job,
+            context=context,
+        )
+        if not temporary.exists() or temporary.stat().st_size == 0:
+            raise DocumentExportError("Не удалось сформировать PDF")
+        os.replace(temporary, destination)
+        return PrintDocumentResult((destination,), page_count)
+    except Exception as exc:
+        temporary.unlink(missing_ok=True)
+        if isinstance(exc, (DocumentExportError, UnicodePrintError, ValueError)):
+            raise
+        raise DocumentExportError(f"Не удалось экспортировать PDF: {destination}") from exc
+
+
+def _render_document_pdf_file(
+    widget: QWidget,
+    temporary: Path,
+    job: PrintJobSettings,
+    *,
+    context: PrintDocumentContext,
+) -> int:
+    """Render a PDF and release Qt file handles before the caller renames it."""
+
+    writer = QPdfWriter(str(temporary))
     painter = QPainter()
     try:
-        writer = QPdfWriter(str(temporary))
         content_width, content_height = printable_content_dimensions(widget, job)
         writer.setPageSize(job.page.page_size_for_content(content_width, content_height))
         writer.setPageOrientation(job.page.qt_orientation)
@@ -153,18 +180,14 @@ def export_document_pdf(
         )
         if not painter.end():
             raise DocumentExportError("Не удалось завершить PDF renderer")
-        if not temporary.exists() or temporary.stat().st_size == 0:
-            raise DocumentExportError("Не удалось сформировать PDF")
-        os.replace(temporary, destination)
-        return PrintDocumentResult((destination,), plan.page_count)
-    except Exception as exc:
-        temporary.unlink(missing_ok=True)
-        if isinstance(exc, (DocumentExportError, UnicodePrintError, ValueError)):
-            raise
-        raise DocumentExportError(f"Не удалось экспортировать PDF: {destination}") from exc
+        return plan.page_count
     finally:
         if painter.isActive():
             painter.end()
+        # QPdfWriter owns the Windows file handle until its wrapper is destroyed.
+        # Release QPainter first, then the writer, before os.replace() runs.
+        del painter
+        del writer
 
 
 def export_document_pages(
