@@ -162,11 +162,11 @@ def _paint_tablet_with_repeated_header(
     continuation: PrintContinuationSlice | None,
     show_column_header: bool,
 ) -> None:
-    """Paint the graph at the top and pin the repeated header to the bottom.
+    """Paint a graph and repeat its semantic header only when it fits safely.
 
-    A very short final interval must keep the same paper column widths as prior
-    pages. Only the graph body may be compressed vertically; the semantic header
-    band is copied without graph pixels and never floats in the page centre.
+    A short final interval keeps the same paper column widths as prior pages and
+    may use the remaining space for a repeated legend. A complete interval must
+    never be vertically resampled merely to force that optional legend to fit.
     """
 
     body_height = max(1.0, float(snapshot.content_height - snapshot.header_height))
@@ -201,6 +201,25 @@ def _paint_tablet_with_repeated_header(
     )
     body_bottom = repeated_header.top() - gap_target_height
     available_body_height = max(1.0, body_bottom - y)
+
+    # The repeated legend is optional. Never resample a complete graph interval
+    # merely to force the legend onto the same sheet. A tiny rounding overflow
+    # is still absorbed, but material overflow falls back to an undistorted
+    # tablet rendering that preserves the requested top header state.
+    overflow = body_target_height - available_body_height
+    rounding_tolerance = max(2.0, body_target_height * 0.01)
+    if overflow > rounding_tolerance:
+        paint_tablet_snapshot(
+            painter,
+            content_rect,
+            snapshot,
+            scale_mode=scale_mode,
+            continuation=continuation,
+            fill_height=False,
+            show_column_header=show_column_header,
+        )
+        return
+
     body = QRectF(
         x,
         y,
