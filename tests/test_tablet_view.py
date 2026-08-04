@@ -2919,8 +2919,8 @@ def test_datetime_depth_width_stays_aligned_after_static_refresh(qapp) -> None:
     qapp.processEvents()
 
     time_widget = view._rendered["time"].widget
-    assert time_widget.display_width == 124
-    expected = horizontal_track_extent((124, 280), spacing=2)
+    assert time_widget.display_width == 156
+    expected = horizontal_track_extent((156, 280), spacing=2)
     assert view._tracks_container.width() == expected
 
     labels = view._group_header_container.findChildren(QLabel)
@@ -2931,6 +2931,6 @@ def test_datetime_depth_width_stays_aligned_after_static_refresh(qapp) -> None:
     assert view.refresh_dirty_tracks() == 1
     qapp.processEvents()
 
-    assert time_widget.display_width == 124
+    assert time_widget.display_width == 156
     assert view._tracks_container.width() == expected
     view.close()

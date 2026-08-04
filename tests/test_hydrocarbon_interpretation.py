@@ -128,6 +128,14 @@ def test_report_detects_relative_anomaly_and_keeps_manual_intervals_separate() -
     assert "Well &lt;A&gt;" in html
     assert "Перспективные интервалы" in html
     assert "Кандидатные интервалы" not in html
+
+    kk_html = hydrocarbon_interpretation_html(report, AppLanguage.KK)
+    assert "Көмірсутек көріністерінің перспективалы аралықтары" in kk_html
+    assert "Көмірсутек көріністерінің кандидат аралықтары" not in kk_html
+
+    en_html = hydrocarbon_interpretation_html(report, AppLanguage.EN)
+    assert "Prospective hydrocarbon-show intervals" in en_html
+    assert "Candidate hydrocarbon-show intervals" not in en_html
     assert "page-break-before: always" in html
     assert "тяжёлая или остаточная нефть" in html
     assert "Check DST" in html

@@ -93,18 +93,18 @@ Every selected gas series is analysed independently:
 
 1. the program builds a `log1p` representation of valid values;
 2. a median baseline and robust scale are estimated separately for that series;
-3. continuous candidate intervals are detected at the selected robust-z threshold;
+3. continuous prospective intervals are detected at the selected robust-z threshold;
 4. Haworth/Pixler context and a preliminary fluid hypothesis are calculated for every interval;
 5. every overlapping LBA sample is assessed under the LBA standard;
 6. the gas hypothesis and LBA evidence are classified as concordant, partly concordant, divergent, mixed, or insufficient.
 
-In comparison mode, the server and local series are not arithmetically merged or forced onto an artificial common scale. Each uses its own robust baseline. The report retains the source of every candidate and states the number of matching, server-only, and local-only intervals.
+In comparison mode, the server and local series are not arithmetically merged or forced onto an artificial common scale. Each uses its own robust baseline. The report retains the source of every prospective interval and states the number of matching, server-only, and local-only intervals.
 
 Server total normalized gas is not compared with local `C1_NORM`, because they are different measurements. Comparing the two sources requires local total `TG_NORM_CALC` or a compatible calculated legacy `TG_NORM`.
 
 ## Limitations
 
-- A candidate interval is not a final geological conclusion.
+- A prospective interval is not a final geological conclusion.
 - Do not compare absolute values between the two series until their units and normalization methods have been verified.
 - Account for gas lag, degasser operation, ROP/FLOW/BIT changes, lithology, and LBA quality.
 - At least 20 valid samples are required for a stable baseline in each analysed series.
