@@ -208,6 +208,9 @@ def capture_tablet_print_snapshot(
 
     definitions = [item.definition for item in rendered]
     original_widths = [item.widget.width() for item in rendered]
+    original_header_heights = [
+        item.widget.synchronized_header_heights for item in rendered
+    ]
     original_tablet_size = tablet.size()
     pixmaps: list[QImage | QPixmap] = []
     curve_style_states: list[_CurvePrintState] = []
@@ -414,18 +417,17 @@ def capture_tablet_print_snapshot(
             overlay.set_print_suppressed(print_suppressed)
         if annotation_print_enabled:
             tablet.set_annotation_print_mode(False)
-        for item, width in zip(rendered, original_widths, strict=True):
+        for item, width, header_heights in zip(
+            rendered,
+            original_widths,
+            original_header_heights,
+            strict=True,
+        ):
+            title_height, curve_header_height = header_heights
             item.widget.set_print_mode(False)
             item.widget.set_track_width(width)
-        screen_title_band = max(
-            item.widget.natural_title_header_height for item in rendered
-        )
-        screen_header_band = max(
-            item.widget.natural_curve_header_height for item in rendered
-        )
-        for item in rendered:
-            item.widget.set_synchronized_title_header_height(screen_title_band)
-            item.widget.set_synchronized_header_height(screen_header_band)
+            item.widget.set_synchronized_title_header_height(title_height)
+            item.widget.set_synchronized_header_height(curve_header_height)
         if tablet.size() != original_tablet_size:
             tablet.resize(original_tablet_size)
         _activate_layout_tree(tablet)

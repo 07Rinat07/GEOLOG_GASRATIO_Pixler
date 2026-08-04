@@ -10,6 +10,7 @@ PRINT_SIMPLE_HEADER_MM = 7.0
 PRINT_FOOTER_MM = 6.0
 PRINT_VERTICAL_GAP_MM = 2.0
 _MAX_AUTO_CONTENT_HEIGHT_PX = 6000
+MAX_AUTOMATIC_PRINT_PAGE_COUNT = 96
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,6 +28,35 @@ class TabletAutoFirstPageGeometry:
 
     units_per_page: float
     target_content_height_px: int
+
+
+def bounded_automatic_page_capacities(
+    domain_span: float,
+    *,
+    first_units_per_page: float,
+    regular_units_per_page: float,
+    maximum_pages: int = MAX_AUTOMATIC_PRINT_PAGE_COUNT,
+) -> tuple[float, float]:
+    """Expand automatic intervals when the current zoom would create too many pages."""
+
+    span = float(domain_span)
+    first = float(first_units_per_page)
+    regular = float(regular_units_per_page)
+    if not all(value > 0.0 for value in (span, first, regular)):
+        raise ValueError("Автоматические интервалы и диапазон должны быть положительными")
+    if isinstance(maximum_pages, bool) or not isinstance(maximum_pages, int):
+        raise ValueError("Предел автоматических страниц должен быть целым числом")
+    if maximum_pages < 1:
+        raise ValueError("Предел автоматических страниц должен быть положительным")
+
+    remaining = max(0.0, span - first)
+    page_count = 1 + int(ceil(max(0.0, remaining - 1e-9) / regular))
+    if page_count <= maximum_pages:
+        return first, regular
+
+    available_capacity = first + max(0, maximum_pages - 1) * regular
+    scale = span / available_capacity
+    return first * scale, regular * scale
 
 
 def printable_tablet_body_height_mm(

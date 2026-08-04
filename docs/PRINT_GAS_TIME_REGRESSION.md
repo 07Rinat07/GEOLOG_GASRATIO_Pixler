@@ -20,6 +20,6 @@ This regression set is based on the operator-supplied LAS, Paradox DB, GeoScape/
 
 ## Automated coverage
 
-The focused tests cover datetime boundary normalization, GeoScape time-only automatic mapping, sparse gas continuity, automatic tail-page balancing, adjacent final-page legends, bounded print-job size, CPU-backed track capture, semantic header cropping, screen-only no-data overlays, wrapped title geometry, adaptive-width title resynchronization, print-font clamping, time-ruler geometry, and form materialization.
+The focused tests cover datetime boundary normalization, GeoScape time-only automatic mapping, sparse gas continuity, automatic tail-page balancing, practical full-day time pagination, stable repeated page capture, adjacent final-page legends, bounded print-job size, CPU-backed track capture, semantic header cropping, screen-only no-data overlays, wrapped title geometry, adaptive-width title resynchronization, print-font clamping, time-ruler geometry, and form materialization.
 
 The Windows release gate remains the acceptance authority for Qt rendering, HiDPI behavior, generated PDFs, and screenshot artifacts.

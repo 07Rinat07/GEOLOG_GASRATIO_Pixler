@@ -8,7 +8,11 @@ import pytest
 
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
 from geoworkbench.printing.document_export import export_document_pdf
-from geoworkbench.printing.document_renderer import PrintDocumentContext
+from geoworkbench.printing.auto_pagination import MAX_AUTOMATIC_PRINT_PAGE_COUNT
+from geoworkbench.printing.document_renderer import (
+    PrintDocumentContext,
+    build_document_plan,
+)
 from geoworkbench.printing.page_settings import (
     PrintOrientation,
     PrintPageFormat,
@@ -31,6 +35,8 @@ def _complex_tablet(*, domain: DepthDomain, start: float, end: float) -> TabletV
         domain,
         axis,
     )
+    if domain is DepthDomain.TIME:
+        dataset.active_index.unit = "s"
     phase = np.linspace(0.0, 30.0, axis.size)
     mnemonics = (
         "C1",
@@ -149,7 +155,7 @@ def _render_last_page_metrics(pdf_path: Path) -> tuple[int, float, int]:
     ("domain", "start", "end"),
     (
         (DepthDomain.MD, 1174.8, 1482.4),
-        (DepthDomain.TIME, 0.0, 2000.0),
+        (DepthDomain.TIME, 0.0, 7200.0),
     ),
     ids=("las-depth", "geoscape-time"),
 )
@@ -228,3 +234,75 @@ def test_short_partial_snapshot_reflows_header_and_uses_one_canonical_height(
     assert 0 < snapshot.header_height < snapshot.content_height
     expected_pixel_height = round(snapshot.content_height * snapshot.raster_scale)
     assert all(pixmap.height() == expected_pixel_height for pixmap in snapshot.pixmaps)
+
+
+def test_repeated_print_capture_does_not_accumulate_header_height(qapp) -> None:
+    tablet = _complex_tablet(domain=DepthDomain.MD, start=1174.8, end=1482.4)
+    tablet.show()
+    qapp.processEvents()
+    original_title_heights = tuple(
+        item.widget.title.height() for item in tablet.printable_tracks()
+    )
+    original_curve_header_heights = tuple(
+        item.widget.curve_header_scroll.height() for item in tablet.printable_tracks()
+    )
+    measurements: list[tuple[int, int]] = []
+    try:
+        for _ in range(5):
+            snapshot = capture_tablet_print_snapshot(
+                tablet,
+                page_aspect_ratio=1.45,
+                fit_columns=True,
+                raster_scale=1.0,
+                target_content_height=900,
+                layout_content_height=900,
+            )
+            measurements.append((snapshot.header_height, snapshot.layout.total_width))
+            qapp.processEvents()
+        restored_title_heights = tuple(
+            item.widget.title.height() for item in tablet.printable_tracks()
+        )
+        restored_curve_header_heights = tuple(
+            item.widget.curve_header_scroll.height()
+            for item in tablet.printable_tracks()
+        )
+    finally:
+        tablet.close()
+        qapp.processEvents()
+
+    assert measurements == [measurements[0]] * len(measurements)
+    assert restored_title_heights == original_title_heights
+    assert restored_curve_header_heights == original_curve_header_heights
+
+
+def test_full_day_time_auto_print_ignores_extreme_screen_zoom(qapp) -> None:
+    tablet = _complex_tablet(domain=DepthDomain.TIME, start=0.0, end=86_400.0)
+    tablet.show()
+    qapp.processEvents()
+    job = PrintJobSettings(
+        output_format=PrintOutputFormat.PRINTER,
+        page=PrintPageSettings(
+            page_format=PrintPageFormat.A4,
+            orientation=PrintOrientation.LANDSCAPE,
+            scale_mode=PrintScaleMode.FIT,
+        ),
+        pagination=PrintPaginationSettings(
+            range_mode=PrintRangeMode.FULL,
+            auto_units_per_page=True,
+        ),
+        repeat_column_header_at_bottom=True,
+        strict_unicode=False,
+    )
+    try:
+        plan = build_document_plan(
+            tablet,
+            job,
+            context=PrintDocumentContext("Планшет"),
+        )
+    finally:
+        tablet.close()
+        qapp.processEvents()
+
+    assert plan.resolved_units_per_page is not None
+    assert plan.resolved_units_per_page >= 30.0 * 60.0
+    assert 1 < plan.page_count <= MAX_AUTOMATIC_PRINT_PAGE_COUNT

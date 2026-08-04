@@ -17,6 +17,7 @@ from geoworkbench.printing.auto_pagination import (
     automatic_tablet_first_page_geometry,
     automatic_tablet_page_geometry,
     balanced_automatic_page_ranges,
+    bounded_automatic_page_capacities,
     printable_tablet_body_height_mm,
 )
 from geoworkbench.printing.form_column_layout import original_column_layout
@@ -41,6 +42,7 @@ from geoworkbench.printing.print_layout import (
 from geoworkbench.printing.unicode_support import print_font
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.tablet.camera import recommended_initial_span
 from geoworkbench.tablet.models import minimum_track_width
 from geoworkbench.tablet.tablet_view import TabletView
 
@@ -172,6 +174,16 @@ def build_document_plan(
             )
             current_range = widget.visible_depth_range or full_range
             current_span = abs(float(current_range[1]) - float(current_range[0]))
+            domain_span = abs(float(full_range[1]) - float(full_range[0]))
+            if widget.vertical_axis_is_time:
+                current_span = max(
+                    current_span,
+                    recommended_initial_span(
+                        domain_span,
+                        is_time=True,
+                        unit=widget.printable_vertical_unit,
+                    ),
+                )
             media = job.page.media_dimensions(source_width, source_height)
             full_header_band_mm = _planned_full_header_band_height_mm(
                 context,
@@ -196,7 +208,6 @@ def build_document_plan(
                 content_height_mm=media.content_height_mm,
                 header_band_mm=regular_header_band_mm,
             )
-            domain_span = abs(float(full_range[1]) - float(full_range[0]))
             resolved_units_per_page = auto_geometry.units_per_page
             target_content_height = auto_geometry.target_content_height_px
             tablet_page_aspect_ratio = auto_geometry.page_aspect_ratio
@@ -218,6 +229,14 @@ def build_document_plan(
             )
             first_page_units_per_page = first_geometry.units_per_page
             first_page_target_content_height_px = first_geometry.target_content_height_px
+            (
+                first_page_units_per_page,
+                resolved_units_per_page,
+            ) = bounded_automatic_page_capacities(
+                domain_span,
+                first_units_per_page=first_page_units_per_page,
+                regular_units_per_page=resolved_units_per_page,
+            )
             pagination = replace(
                 pagination,
                 units_per_page=max(min(resolved_units_per_page, domain_span), 1e-9),

@@ -11,11 +11,12 @@ from typing import cast
 
 import numpy as np
 import pyqtgraph as pg
-from PySide6.QtCore import QEvent, QObject, QPoint, QPointF, QRectF, Qt, Signal, QTimer
+from PySide6.QtCore import QEvent, QObject, QPoint, QPointF, QRect, QRectF, Qt, Signal, QTimer
 from PySide6.QtGui import (
     QColor,
     QCursor,
     QKeyEvent,
+    QFontMetrics,
     QMouseEvent,
     QPainter,
     QPaintEvent,
@@ -1485,13 +1486,24 @@ class TabletTrackWidget(QFrame):
         # in the repeated footer header.  Ask QLabel for its word-wrapped height
         # at the actual track width, then keep the historical one-line minimum.
         content_width = max(24, self._display_width - 12)
-        wrapped_height = self.title.heightForWidth(content_width)
-        if wrapped_height < 0:
-            wrapped_height = self.title.sizeHint().height()
-        return max(36, int(wrapped_height) + 6)
+        bounds = QFontMetrics(self.title.font()).boundingRect(
+            QRect(0, 0, content_width, 10_000),
+            int(Qt.AlignmentFlag.AlignHCenter | Qt.TextFlag.TextWordWrap),
+            self.title.text(),
+        )
+        # The stylesheet reserves 6 px above and below the wrapped text. Using
+        # font metrics instead of QLabel.heightForWidth keeps this measurement
+        # independent of a synchronized fixed height left by print rendering.
+        return max(36, int(bounds.height()) + 12)
 
     def set_synchronized_title_header_height(self, height: int) -> None:
         self.title.setFixedHeight(max(36, int(height)))
+
+    @property
+    def synchronized_header_heights(self) -> tuple[int, int]:
+        """Return the currently applied title and curve-header bands."""
+
+        return self.title.height(), self.curve_header_scroll.height()
 
     @property
     def natural_curve_header_height(self) -> int:
