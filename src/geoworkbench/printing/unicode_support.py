@@ -117,6 +117,21 @@ def configure_application_unicode_fonts(app: QApplication) -> UnicodeFontProfile
 
     profile = resolve_unicode_font_profile(_REQUIRED_PRINT_SAMPLE)
     font = QFont(app.font())
+    # Some Windows themes expose the application font in pixels. Qt then
+    # reports pointSizeF() as its sentinel -1. Keeping that sentinel in the
+    # global font lets native dialogs copy it into setPointSize(-1), which
+    # emits a runtime warning. Convert the same physical size to points before
+    # installing the Unicode family stack.
+    if font.pointSizeF() <= 0.0:
+        pixel_size = font.pixelSize()
+        screen = app.primaryScreen()
+        logical_dpi = screen.logicalDotsPerInchY() if screen is not None else 96.0
+        if pixel_size > 0 and logical_dpi > 0.0:
+            point_size = float(pixel_size) * 72.0 / float(logical_dpi)
+        else:
+            system_font = QFontDatabase.systemFont(QFontDatabase.SystemFont.GeneralFont)
+            point_size = system_font.pointSizeF()
+        font.setPointSizeF(max(1.0, point_size if point_size > 0.0 else 9.0))
     if hasattr(font, "setFamilies"):
         font.setFamilies(list(profile.families))
     elif profile.primary_family:
