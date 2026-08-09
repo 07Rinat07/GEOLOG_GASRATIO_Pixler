@@ -1,7 +1,7 @@
 <!-- runtime-contract: package=0.7.93; project=v22; form=v14; layout=v22 -->
 # Архитектура
 
-Актуально на 2 августа 2026 года.
+Актуально на 9 августа 2026 года.
 
 ## Архитектурный стиль
 
@@ -194,6 +194,17 @@ depth/time-to-pixel; renderer не имеет права компенсиров�
 `ReportPassport` сохраняет канонический payload, source fingerprints, semantic bindings, версии
 формул, form/template revisions и output fingerprints. Файловая установка выполняется через
 recoverable transaction staging → verify → install → commit/rollback.
+
+Preview и физический printer job не владеют постоянными файлами и рендерят один resolved document
+напрямую в переданный `QPrinter`. Постоянными являются только явно выбранный пользователем export
+и его `ReportPassport`; служебная PDF-копия не создаётся. Атомарные временные файлы имеют
+application-префикс `geolog-export-`, удаляются после success/failure и могут быть очищены как
+stale только для того же exact destination. Миграционная очистка старых timestamp PDF ограничена
+выделенным каталогом `GEOLOG GASRATIO Pixler/Печатные копии`: каталог сначала подтверждается
+ownership marker либо безопасно принимается только когда все его элементы соответствуют строгим
+legacy-шаблонам. Наличие постороннего файла, symlink/reparse point или неверного marker блокирует
+удаление; произвольное сканирование project directory и удаление пользовательских `*.pdf`
+запрещено.
 
 ## Хранение и совместимость
 

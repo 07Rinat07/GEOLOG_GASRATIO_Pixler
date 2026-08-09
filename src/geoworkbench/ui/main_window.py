@@ -4295,7 +4295,7 @@ class MainWindow(QMainWindow):
         preview = QPrintPreviewDialog(printer, self)
         preview.setWindowTitle(self._t("print.preview_title"))
         preview.paintRequested.connect(
-            lambda requested: self._print_jobs.render_to_printer(
+            lambda requested: self._print_jobs.render_preview(
                 widget,
                 requested,
                 normalized_job,

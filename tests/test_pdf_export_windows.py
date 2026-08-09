@@ -117,3 +117,27 @@ def test_repeated_real_pdf_exports_leave_no_temporary_files(
 
     assert not tuple(tmp_path.glob(".*.tmp"))
     widget.close()
+
+
+def test_stale_export_cleanup_is_scoped_to_exact_destination(tmp_path) -> None:
+    target = tmp_path / "report.pdf"
+    old_exact = tmp_path / ".report.pdf.geolog-export-abcd.tmp"
+    recent_exact = tmp_path / ".report.pdf.geolog-export-efgh.tmp"
+    other_target = tmp_path / ".other.pdf.geolog-export-abcd.tmp"
+    user_file = tmp_path / "report.pdf.notes.tmp"
+    for path in (old_exact, recent_exact, other_target, user_file):
+        path.write_bytes(b"temporary")
+    now = 2_000_000.0
+    old = now - document_export._STALE_EXPORT_TEMP_SECONDS - 1
+    os.utime(old_exact, (old, old))
+    os.utime(other_target, (old, old))
+    os.utime(user_file, (old, old))
+    os.utime(recent_exact, (now, now))
+
+    deleted = document_export._cleanup_stale_temporary_paths(target, now=now)
+
+    assert deleted == 1
+    assert not old_exact.exists()
+    assert user_file.exists()
+    assert recent_exact.exists()
+    assert other_target.exists()

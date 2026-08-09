@@ -24,6 +24,15 @@ def test_physical_output_requires_printer_gate_after_dialog() -> None:
     assert "result.printer_gate.warnings" in source
 
 
+def test_system_preview_and_physical_print_do_not_create_hidden_pdf_copies() -> None:
+    window = (ROOT / "src/geoworkbench/ui/main_window.py").read_text(encoding="utf-8")
+    jobs = (ROOT / "src/geoworkbench/services/print_jobs.py").read_text(encoding="utf-8")
+
+    assert "self._print_jobs.render_preview(" in window
+    assert "_physical_print_copy_path" not in jobs
+    assert "Печатные копии" not in jobs
+
+
 def test_preview_and_output_share_the_same_job_scale_mode() -> None:
     renderer = (ROOT / "src/geoworkbench/printing/document_renderer.py").read_text(
         encoding="utf-8"

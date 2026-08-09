@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
-from datetime import datetime
+from dataclasses import dataclass
 import json
-import re
 from pathlib import Path
 
-from PySide6.QtCore import QStandardPaths
 from PySide6.QtGui import QPageLayout, QPageSize
 from PySide6.QtPrintSupport import QPrinter, QPrinterInfo
 from PySide6.QtWidgets import QWidget
@@ -165,21 +162,6 @@ class PrintJobExecutor:
                     _localized_gate_issue(localizer, issue.code) for issue in gate.errors
                 )
                 raise PhysicalPrintGateError(details or "Physical printer gate failed")
-        print_copy = _physical_print_copy_path(source_name)
-        pdf_job = replace(
-            job,
-            output_format=PrintOutputFormat.PDF,
-            target=print_copy,
-            printer_name=None,
-            copy_count=1,
-        )
-        print_copy_result = export_document_pdf(
-            widget,
-            print_copy,
-            pdf_job,
-            context=context,
-            overwrite=False,
-        )
         page_count = render_document_to_printer(widget, printer, job, context=context)
         if require_physical_gate and _printer_state_name(printer).casefold() in {
             "error",
@@ -191,10 +173,27 @@ class PrintJobExecutor:
         return PrintJobResult(
             PrintOutputFormat.PRINTER,
             page_count,
-            paths=print_copy_result.paths,
             passport_sha256=passport.passport_sha256 if passport is not None else None,
             printer_gate=gate,
         )
+
+    def render_preview(
+        self,
+        widget: QWidget,
+        printer: QPrinter,
+        job: PrintJobSettings,
+        *,
+        source_name: str,
+        language: AppLanguage,
+        header_template: MasterlogTemplate | None = None,
+        session: ProjectSession | None = None,
+    ) -> int:
+        """Render a system preview without creating any persistent file."""
+
+        context = PrintDocumentContext(
+            source_name, language, header_template=header_template, session=session
+        )
+        return render_document_to_printer(widget, printer, job, context=context)
 
     def execute_file(
         self,
@@ -252,22 +251,6 @@ class PrintJobExecutor:
             passport_path=transaction.passport_path,
             passport_sha256=transaction.passport.passport_sha256,
         )
-
-
-
-def _physical_print_copy_path(source_name: str) -> Path:
-    """Return a persistent PDF copy for a physical-printer job."""
-
-    documents = QStandardPaths.writableLocation(
-        QStandardPaths.StandardLocation.DocumentsLocation
-    )
-    root = Path(documents) if documents else Path.home() / "Documents"
-    folder = root / "GEOLOG GASRATIO Pixler" / "Печатные копии"
-    folder.mkdir(parents=True, exist_ok=True)
-    safe_name = re.sub(r'[<>:"/\\|?*\x00-\x1f]+', "_", source_name).strip(" ._")
-    safe_name = (safe_name or "document")[:96]
-    stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-    return folder / f"{safe_name}_{stamp}.pdf"
 
 def report_render_settings(job: PrintJobSettings) -> ReportRenderSettings:
     page = job.page

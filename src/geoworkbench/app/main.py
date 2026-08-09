@@ -132,6 +132,27 @@ def main() -> int:
     _install_qt_message_logging(log_manager)
     app.aboutToQuit.connect(log_manager.close)
 
+    from geoworkbench.services.print_artifacts import (
+        cleanup_legacy_physical_print_copies,
+    )
+
+    try:
+        cleanup = cleanup_legacy_physical_print_copies()
+        log_manager.event(
+            "printing.artifacts.cleanup",
+            scanned_files=cleanup.scanned_files,
+            deleted_files=cleanup.deleted_files,
+            freed_bytes=cleanup.freed_bytes,
+            failed_files=cleanup.failed_files,
+            skipped_reason=cleanup.skipped_reason,
+        )
+    except OSError as exc:
+        log_manager.warning(
+            "printing.artifacts.cleanup_failed",
+            exception_type=type(exc).__name__,
+            exception=str(exc),
+        )
+
     log_manager.event("application.qt.created", arguments=len(sys.argv))
     try:
         from geoworkbench.printing.unicode_support import (

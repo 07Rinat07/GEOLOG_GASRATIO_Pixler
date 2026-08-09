@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 import os
 from pathlib import Path
+import stat
 import tempfile
 import time
 
@@ -46,6 +48,8 @@ class PrintDocumentResult:
 _MAX_RASTER_PAGE_PIXELS = 80_000_000
 _PDF_REPLACE_RETRY_TIMEOUT_SECONDS = 2.0
 _PDF_REPLACE_RETRY_INTERVAL_SECONDS = 0.05
+_STALE_EXPORT_TEMP_SECONDS = 24 * 60 * 60
+_EXPORT_TEMP_PREFIX = "geolog-export-"
 
 
 def render_document_to_printer(
@@ -133,6 +137,7 @@ def export_document_pdf(
     destination = Path(target)
     _validate_destination(destination, (".pdf",), overwrite)
     _unicode_preflight(widget, context, job)
+    _cleanup_stale_temporary_paths(destination)
     temporary = _temporary_path(destination)
     try:
         page_count = _render_document_pdf_file(
@@ -259,6 +264,7 @@ def export_document_pages(
     _unicode_preflight(widget, context, job)
     plan = build_document_plan(widget, job, context=context)
     paths = _page_paths(destination, plan.page_count)
+    _cleanup_stale_temporary_paths(paths)
     for path in paths:
         if path.exists() and not overwrite:
             raise FileExistsError(path)
@@ -443,10 +449,60 @@ def _validate_destination(destination: Path, suffixes: tuple[str, ...], overwrit
 
 def _temporary_path(destination: Path) -> Path:
     descriptor, name = tempfile.mkstemp(
-        prefix=f".{destination.name}.", suffix=".tmp", dir=destination.parent
+        prefix=f".{destination.name}.{_EXPORT_TEMP_PREFIX}",
+        suffix=".tmp",
+        dir=destination.parent,
     )
     os.close(descriptor)
     return Path(name)
+
+
+def _cleanup_stale_temporary_paths(
+    destinations: Path | Iterable[Path],
+    *,
+    now: float | None = None,
+) -> int:
+    """Delete old atomic-write leftovers for the exact destinations only."""
+
+    current_time = time.time() if now is None else float(now)
+    paths = (destinations,) if isinstance(destinations, Path) else tuple(destinations)
+    names_by_parent: dict[Path, set[str]] = {}
+    for destination in paths:
+        names_by_parent.setdefault(destination.parent, set()).add(destination.name)
+    deleted = 0
+    marker = f".{_EXPORT_TEMP_PREFIX}"
+    for parent, destination_names in names_by_parent.items():
+        for candidate in parent.iterdir():
+            name = candidate.name
+            marker_index = name.rfind(marker)
+            if (
+                not name.startswith(".")
+                or not name.endswith(".tmp")
+                or marker_index <= 1
+                or name[1:marker_index] not in destination_names
+                or not candidate.is_file()
+                or _is_reparse_point(candidate)
+            ):
+                continue
+            try:
+                age = current_time - candidate.stat().st_mtime
+                if age >= _STALE_EXPORT_TEMP_SECONDS:
+                    candidate.unlink()
+                    deleted += 1
+            except OSError:
+                # A locked/current export belongs to another process. Leave it alone.
+                continue
+    return deleted
+
+
+def _is_reparse_point(path: Path) -> bool:
+    try:
+        details = path.lstat()
+    except OSError:
+        return True
+    reparse_flag = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
+    attributes = getattr(details, "st_file_attributes", 0)
+    return path.is_symlink() or bool(reparse_flag and attributes & reparse_flag)
 
 
 def _atomic_write(destination: Path, payload: bytes | bytearray | memoryview[int]) -> None:

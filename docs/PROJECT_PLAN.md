@@ -40,6 +40,8 @@ release plan и временные планы в `docs` не создаются.
   компонентов, Haworth и Pixler; исходные кривые не перезаписываются;
 - Windows quality, GUI/HiDPI/PDF и security gates автоматизированы; реальная физическая печать,
   полевые interoperability и длительные soak gates остаются ручными/полевыми критериями;
+- preview и physical printer больше не создают скрытые PDF; legacy timestamp-копии и аварийные
+  временные файлы очищаются только по строгому application-owned контракту;
 - пользовательские project/LAS sidecars исключены из новых коммитов; опубликованная история Git
   требует отдельного согласованного решения SEC-01.
 
@@ -124,6 +126,9 @@ release plan и временные планы в `docs` не создаются.
   1/5/10 млн samples.
 - [ ] **PERF-05:** совместимый versioned storage port: manifest, column chunks, atomic commit и
   crash recovery вместо монолитного JSON для больших проектов.
+- [x] **PERF-06:** исключён двойной PDF-render для preview/printer; постоянный файл создаётся
+  только явным export job, временные файлы имеют ownership-prefix и bounded stale cleanup, а
+  миграционная очистка legacy-копий fails closed при постороннем содержимом каталога.
 
 ## P1 — поддерживаемая архитектура
 
