@@ -402,7 +402,7 @@ def test_print_capture_resynchronizes_titles_after_adaptive_widths() -> None:
         title_measure,
     )
     header_measure = source.index(
-        "measured_header_height = print_title_band + print_header_band",
+        "measured_header_height = _settled_print_header_height(rendered)",
         title_apply,
     )
 
@@ -417,8 +417,9 @@ def test_adaptive_layout_uses_canonical_graph_body_height() -> None:
     assert "canonical_layout_height - measured_header_height" in source
 
 
-def test_print_snapshot_header_crop_uses_semantic_header_band() -> None:
+def test_print_snapshot_header_crop_uses_settled_plot_boundary() -> None:
     source = Path("src/geoworkbench/printing/tablet_print.py").read_text(encoding="utf-8")
 
-    assert "+ print_header_band" in source
+    assert "plot.geometry().top()" in source
+    assert "header_height = _settled_print_header_height(rendered)" in source
     assert "curve_header_scroll.height()" not in source

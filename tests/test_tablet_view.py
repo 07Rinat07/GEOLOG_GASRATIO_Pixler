@@ -1816,6 +1816,19 @@ def test_tablet_tracks_fill_scroll_viewport_height(qapp) -> None:
     view.close()
 
 
+def test_track_print_mode_relaxes_and_restores_screen_plot_minimum(qapp) -> None:
+    widget = TabletTrackWidget(TrackDefinition("curve", "Curve", TrackKind.CURVE))
+
+    assert widget.plot.minimumHeight() == 240
+
+    widget.set_print_mode(True)
+    assert widget.plot.minimumHeight() == 1
+
+    widget.set_print_mode(False)
+    assert widget.plot.minimumHeight() == 240
+    widget.close()
+
+
 def test_track_widget_leaves_plot_body_context_menu_to_tablet_router(qapp) -> None:
     widget = TabletTrackWidget(TrackDefinition("curve", "Curve", TrackKind.CURVE))
     requested: list[str] = []

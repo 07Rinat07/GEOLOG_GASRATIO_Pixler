@@ -98,7 +98,11 @@ from geoworkbench.services.time_display import (
     format_unix_seconds,
 )
 from geoworkbench.ui.oriented_text_label import OrientedTextLabel
-from geoworkbench.tablet.curve_scaling import automatic_curve_range, normalize_curve_values
+from geoworkbench.tablet.curve_scaling import (
+    automatic_curve_range,
+    normalize_curve_values,
+    normalize_curve_values_for_plot,
+)
 from geoworkbench.tablet.axis_selection import (
     dataset_has_absolute_calendar_time,
     resolve_vertical_axis,
@@ -277,6 +281,7 @@ def _safe_delete_later(target: object | None) -> bool:
 
 CURVE_HEADER_EDITOR_HEIGHT = CURVE_HEADER_ROW_HEIGHT
 CURVE_HEADER_LABEL_HEIGHT = CURVE_HEADER_EDITOR_HEIGHT
+SCREEN_PLOT_MINIMUM_HEIGHT = 240
 TIME_VIEW_SPAN_PRESETS_SECONDS: tuple[float, ...] = (
     60.0,
     5 * 60.0,
@@ -1312,7 +1317,7 @@ class TabletTrackWidget(QFrame):
         }
         self.plot = pg.PlotWidget(axisItems=axis_items)
         self.plot.setBackground("#ffffff")
-        self.plot.setMinimumHeight(240)
+        self.plot.setMinimumHeight(SCREEN_PLOT_MINIMUM_HEIGHT)
         self.plot.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         for axis_name in ("left", "bottom"):
             axis = self.plot.getAxis(axis_name)
@@ -1547,6 +1552,14 @@ class TabletTrackWidget(QFrame):
 
         enabled = bool(enabled)
         self._print_mode = enabled
+        # A short final print page can have less than the 240 px screen
+        # minimum available below its repeated column header.  Keeping the
+        # interactive minimum here makes Qt lay the child plot outside the
+        # captured widget and the overflow then reappears below the lower
+        # header.  Print pagination owns the body height, so allow its plot to
+        # shrink to one logical pixel and restore the screen constraint after
+        # capture.
+        self.plot.setMinimumHeight(1 if enabled else SCREEN_PLOT_MINIMUM_HEIGHT)
         if self._no_numeric_message is not None:
             self._no_numeric_message.setVisible(not enabled)
         self._curve_header_row_height = (
@@ -8017,9 +8030,13 @@ class TabletView(QWidget):
                 geometry_key, depth, source_values
             )
             if rendered.definition.kind is TrackKind.CALCIMETRY:
-                normalized = np.where(np.isfinite(values), np.clip(values, 0.0, 100.0), np.nan)
+                normalized = np.where(
+                    np.isfinite(values) & (values >= 0.0) & (values <= 100.0),
+                    values,
+                    np.nan,
+                )
             else:
-                normalized = self._normalize_curve_values(
+                normalized = self._normalize_curve_values_for_plot(
                     values, settings.x_scale, minimum, maximum
                 )
             connect: object = "finite"
@@ -8258,7 +8275,7 @@ class TabletView(QWidget):
                     mnemonic, depth, values, visible_top, visible_bottom, budget, logarithmic
                 )
                 raw_visible, visible_depth = self._geometry_cache.get_or_build(key, depth, values)
-                visible_values = self._normalize_curve_values(
+                visible_values = self._normalize_curve_values_for_plot(
                     raw_visible, settings.x_scale, minimum, maximum
                 )
             display_name = self._curve_display_name(definition, mnemonic, curve)
@@ -8530,6 +8547,12 @@ class TabletView(QWidget):
         values: np.ndarray, scale: XScale, minimum: float, maximum: float
     ) -> np.ndarray:
         return normalize_curve_values(values, scale, minimum, maximum)
+
+    @staticmethod
+    def _normalize_curve_values_for_plot(
+        values: np.ndarray, scale: XScale, minimum: float, maximum: float
+    ) -> np.ndarray:
+        return normalize_curve_values_for_plot(values, scale, minimum, maximum)
 
     def _automatic_track_x_range(
         self, definition: TrackDefinition, logarithmic: bool

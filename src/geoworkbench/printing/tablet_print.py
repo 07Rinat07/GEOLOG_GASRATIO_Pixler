@@ -114,6 +114,18 @@ class TabletPrintError(RuntimeError):
     pass
 
 
+def _settled_print_header_height(rendered: tuple[RenderedTrack, ...]) -> int:
+    """Return the exact pixel row where every synchronized plot body starts."""
+
+    plot_tops = tuple(int(item.widget.plot.geometry().top()) for item in rendered)
+    if not plot_tops or min(plot_tops) <= 0:
+        raise TabletPrintError("Печатная шапка колонок не получила допустимую геометрию")
+    # Fixed title and curve-header bands should align every plot. If Qt reports
+    # a transient one-pixel frame difference, the shallowest boundary is the
+    # only safe crop: it can leave a hairline of white header, never graph data.
+    return min(plot_tops)
+
+
 @dataclass(frozen=True, slots=True)
 class TabletPrintSnapshot:
     pixmaps: tuple[QImage | QPixmap, ...]
@@ -245,10 +257,10 @@ def capture_tablet_print_snapshot(
         content_height = max(item.widget.height() for item in rendered)
         if content_height <= 0:
             raise TabletPrintError("Печатная форма не имеет допустимой высоты")
-        # The print header is title + synchronized natural curve-header band.
-        # QScrollArea may transiently stretch on a short hidden viewport; its live
-        # height can include graph pixels and must not define the repeated header.
-        header_height = print_title_band + print_header_band
+        # Crop at the actual plot boundary. A semantic sum can drift from the
+        # settled Qt geometry on a short final page and include graph pixels in
+        # the repeated lower header.
+        header_height = _settled_print_header_height(rendered)
 
         requested_body_height: int | None = None
         if target_content_height is not None:
@@ -313,7 +325,7 @@ def capture_tablet_print_snapshot(
             _activate_layout_tree(tablet)
             tablet.refresh_shared_vertical_rulers()
 
-            measured_header_height = print_title_band + print_header_band
+            measured_header_height = _settled_print_header_height(rendered)
             current_height = max(item.widget.height() for item in rendered)
             desired_height = current_height
             if requested_body_height is not None:

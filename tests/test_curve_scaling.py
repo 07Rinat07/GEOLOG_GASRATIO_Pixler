@@ -1,6 +1,10 @@
 import numpy as np
 
-from geoworkbench.tablet.curve_scaling import automatic_curve_range, normalize_curve_values
+from geoworkbench.tablet.curve_scaling import (
+    automatic_curve_range,
+    normalize_curve_values,
+    normalize_curve_values_for_plot,
+)
 from geoworkbench.tablet.models import XScale
 
 
@@ -12,6 +16,32 @@ def test_linear_values_are_normalized_to_track_width() -> None:
 def test_values_outside_manual_range_are_clipped() -> None:
     result = normalize_curve_values(np.array([-5.0, 5.0, 15.0]), XScale.LINEAR, 0.0, 10.0)
     assert np.allclose(result, [0.0, 0.5, 1.0])
+
+
+def test_plotting_hides_values_outside_manual_range_instead_of_drawing_edge_strokes() -> None:
+    result = normalize_curve_values_for_plot(
+        np.array([-5.0, 0.0, 5.0, 10.0, 15.0]),
+        XScale.LINEAR,
+        0.0,
+        10.0,
+    )
+
+    assert np.isnan(result[0])
+    assert np.allclose(result[1:4], [0.0, 0.5, 1.0])
+    assert np.isnan(result[4])
+
+
+def test_plotting_hides_logarithmic_values_outside_selected_decades() -> None:
+    result = normalize_curve_values_for_plot(
+        np.array([0.01, 0.1, 1.0, 10.0, 100.0]),
+        XScale.LOGARITHMIC,
+        0.1,
+        10.0,
+    )
+
+    assert np.isnan(result[0])
+    assert np.allclose(result[1:4], [0.0, 0.5, 1.0])
+    assert np.isnan(result[4])
 
 
 def test_logarithmic_values_are_normalized_by_decades() -> None:

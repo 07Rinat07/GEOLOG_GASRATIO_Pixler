@@ -232,6 +232,11 @@ def test_short_partial_snapshot_reflows_header_and_uses_one_canonical_height(
         qapp.processEvents()
 
     assert 0 < snapshot.header_height < snapshot.content_height
+    # The requested partial page has no room for the full header plus the
+    # interactive 240 px plot minimum. Printing must keep only the one-pixel
+    # safety body instead of letting the child plot overflow into the repeated
+    # lower header crop.
+    assert snapshot.content_height == snapshot.header_height + 1
     expected_pixel_height = round(snapshot.content_height * snapshot.raster_scale)
     assert all(pixmap.height() == expected_pixel_height for pixmap in snapshot.pixmaps)
 
