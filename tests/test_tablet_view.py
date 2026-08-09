@@ -26,6 +26,7 @@ from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.tablet.grid_renderer import GridSettings, TabletGridRenderer
 from geoworkbench.tablet.header_geometry import (
     CURVE_HEADER_BOTTOM_CLEARANCE,
+    CURVE_HEADER_PRINT_ROW_HEIGHT,
     curve_header_viewport_height,
 )
 from geoworkbench.tablet.models import (
@@ -74,7 +75,7 @@ def test_dense_form_track_receives_active_localizer_and_renders_overflow_hint(qa
         DepthDomain.MD,
         np.array([100.0, 101.0]),
     )
-    mnemonics = [f"C{index}" for index in range(1, 8)]
+    mnemonics = [f"C{index}" for index in range(1, 9)]
     for mnemonic in mnemonics:
         curve = make_curve(dataset.dataset_id, mnemonic, "%")
         dataset.curves[curve.metadata.curve_id] = curve
@@ -142,6 +143,31 @@ def test_track_print_mode_hides_header_editor_actions_and_scrollbar(qapp) -> Non
         is Qt.ScrollBarPolicy.ScrollBarAsNeeded
     )
     view.close()
+
+
+def test_print_mode_expands_dense_curve_header_to_every_row(qapp) -> None:
+    widget = TabletTrackWidget(
+        TrackDefinition("dense-print", "Dense", TrackKind.CURVE, width=260)
+    )
+    rows = [
+        (f"C{index}", f"Curve {index}", "#2563eb", "#0f172a", None)
+        for index in range(1, 9)
+    ]
+    widget.set_curve_headers(rows)
+
+    assert widget.natural_curve_header_height == curve_header_viewport_height(8)
+
+    widget.set_print_mode(True)
+
+    expected = 8 * CURVE_HEADER_PRINT_ROW_HEIGHT + CURVE_HEADER_BOTTOM_CLEARANCE
+    assert widget.print_curve_header_height == expected
+    assert widget.natural_curve_header_height == expected
+    assert widget.curve_header_scroll.height() == expected
+    assert widget.curve_header.height() == expected
+
+    widget.set_print_mode(False)
+    assert widget.natural_curve_header_height == curve_header_viewport_height(8)
+    widget.close()
 
 def test_wrapped_horizontal_track_title_expands_common_header_band(qapp) -> None:
     widget = TabletTrackWidget(

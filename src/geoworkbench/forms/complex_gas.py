@@ -14,8 +14,6 @@ from geoworkbench.tablet.models import (
     CurveStyle,
     TrackKind,
     XScale,
-    compact_track_title_orientation,
-    compact_track_title_position,
 )
 
 
@@ -24,38 +22,45 @@ TemplateLanguage = Literal["ru", "kk", "en"]
 
 _TEXT: dict[str, dict[TemplateLanguage, str]] = {
     "form_name": {
-        "ru": "Комплексная газовая форма",
-        "kk": "Кешенді газдық пішін",
-        "en": "Integrated gas analysis",
+        "ru": "Интегрированный газовый каротаж C1–C5",
+        "kk": "C1–C5 интеграцияланған газ каротажы",
+        "en": "Integrated C1–C5 gas log",
     },
     "description": {
         "ru": (
-            "Абсолютные, относительные и нормализованные компоненты C1–C5, "
-            "суммарный газ, коэффициенты Haworth, изомерные отношения и Pixler. "
+            "Скорость проходки, суммарный газ, абсолютные, относительные и "
+            "нормализованные компоненты C1–C5, индексы Haworth, изомерные "
+            "отношения и Pixler. "
             "Каждая графическая колонка снабжена собственной синхронной шкалой глубины."
         ),
         "kk": (
-            "C1–C5 абсолюттік, салыстырмалы және нормаланған компоненттері, жалпы газ, "
-            "Haworth коэффициенттері, изомерлік қатынастар және Pixler. Әр графикалық "
+            "Бұрғылау жылдамдығы, жалпы газ, C1–C5 абсолюттік, салыстырмалы және "
+            "нормаланған компоненттері, Haworth индекстері, изомерлік қатынастар "
+            "және Pixler. Әр графикалық "
             "бағанда синхрондалған жеке тереңдік шкаласы бар."
         ),
         "en": (
-            "Absolute, relative and normalized C1–C5 components, total gas, Haworth "
-            "indices, isomer ratios and Pixler ratios. Every graph column has its own "
-            "synchronized internal depth scale."
+            "ROP, total gas, absolute, relative and normalized C1–C5 components, "
+            "Haworth indices, isomer ratios and Pixler ratios. Every graph column "
+            "has its own synchronized internal depth scale."
         ),
     },
     "gas_group": {"ru": "Газовые данные", "kk": "Газ деректері", "en": "Gas data"},
     "depth": {"ru": "Глубина", "kk": "Тереңдік", "en": "Depth"},
+    "rop": {
+        "ru": "ROP / скорость проходки",
+        "kk": "ROP / бұрғылау жылдамдығы",
+        "en": "ROP / drill rate",
+    },
     "absolute": {
-        "ru": "Абсолютные компоненты",
-        "kk": "Абсолюттік компоненттер",
-        "en": "Absolute components",
+        "ru": "Компоненты C1–C5",
+        "kk": "C1–C5 компоненттері",
+        "en": "C1–C5 components",
     },
     "absolute_sum": {
-        "ru": "Сумма абсолютных газов",
-        "kk": "Абсолюттік газдар қосындысы",
-        "en": "Absolute gas sum",
+        "ru": "Суммарный газ",
+        "kk": "Жалпы газ",
+        "en": "Total gas",
     },
     "normalized_total": {
         "ru": "Нормализованный суммарный газ",
@@ -63,41 +68,41 @@ _TEXT: dict[str, dict[TemplateLanguage, str]] = {
         "en": "Normalized total gas",
     },
     "normalized_components": {
-        "ru": "Нормализованные компоненты",
-        "kk": "Нормаланған компоненттер",
-        "en": "Normalized components",
+        "ru": "C1–C5, нормализованные",
+        "kk": "C1–C5, нормаланған",
+        "en": "Normalized C1–C5",
     },
     "relative": {
-        "ru": "Относительный газ",
-        "kk": "Салыстырмалы газ",
-        "en": "Relative gas",
+        "ru": "C1–C5, относительный состав",
+        "kk": "C1–C5, салыстырмалы құрам",
+        "en": "Relative C1–C5",
     },
     "ratios": {
-        "ru": "Wetness, Balance, Character и изомеры",
-        "kk": "Wetness, Balance, Character және изомерлер",
-        "en": "Wetness, Balance, Character and isomers",
+        "ru": "Газовые индексы",
+        "kk": "Газ индекстері",
+        "en": "Gas ratios",
     },
     "pixler": {
-        "ru": "Коэффициенты Pixler",
-        "kk": "Pixler коэффициенттері",
+        "ru": "Отношения Pixler",
+        "kk": "Pixler қатынастары",
         "en": "Pixler ratios",
     },
     "total": {"ru": "Суммарный газ", "kk": "Жалпы газ", "en": "Total gas"},
-    "methane": {"ru": "Метан C1", "kk": "Метан C1", "en": "Methane C1"},
-    "ethane": {"ru": "Этан C2", "kk": "Этан C2", "en": "Ethane C2"},
-    "propane": {"ru": "Пропан C3", "kk": "Пропан C3", "en": "Propane C3"},
+    "methane": {"ru": "C1 Метан", "kk": "C1 Метан", "en": "C1 Methane"},
+    "ethane": {"ru": "C2 Этан", "kk": "C2 Этан", "en": "C2 Ethane"},
+    "propane": {"ru": "C3 Пропан", "kk": "C3 Пропан", "en": "C3 Propane"},
     "isobutane": {
-        "ru": "Изобутан iC4",
-        "kk": "Изобутан iC4",
-        "en": "Isobutane iC4",
+        "ru": "iC4 Изобутан",
+        "kk": "iC4 Изобутан",
+        "en": "iC4 Isobutane",
     },
-    "nbutane": {"ru": "Н-бутан nC4", "kk": "Н-бутан nC4", "en": "N-butane nC4"},
+    "nbutane": {"ru": "nC4 Н-бутан", "kk": "nC4 Н-бутан", "en": "nC4 N-butane"},
     "isopentane": {
-        "ru": "Изопентан iC5",
-        "kk": "Изопентан iC5",
-        "en": "Isopentane iC5",
+        "ru": "iC5 Изопентан",
+        "kk": "iC5 Изопентан",
+        "en": "iC5 Isopentane",
     },
-    "npentane": {"ru": "Н-пентан nC5", "kk": "Н-пентан nC5", "en": "N-pentane nC5"},
+    "npentane": {"ru": "nC5 Н-пентан", "kk": "nC5 Н-пентан", "en": "nC5 N-pentane"},
     "wetness": {"ru": "Wetness", "kk": "Wetness", "en": "Wetness"},
     "balance": {"ru": "Balance", "kk": "Balance", "en": "Balance"},
     "character": {"ru": "Character", "kk": "Character", "en": "Character"},
@@ -106,12 +111,12 @@ _TEXT: dict[str, dict[TemplateLanguage, str]] = {
 
 _COMPONENTS: tuple[tuple[str, str, str], ...] = (
     ("C1", "methane", "#111827"),
-    ("C2", "ethane", "#84cc16"),
-    ("C3", "propane", "#22d3ee"),
+    ("C2", "ethane", "#16a34a"),
+    ("C3", "propane", "#0891b2"),
     ("IC4", "isobutane", "#2563eb"),
-    ("NC4", "nbutane", "#fb923c"),
-    ("IC5", "isopentane", "#d946ef"),
-    ("NC5", "npentane", "#9333ea"),
+    ("NC4", "nbutane", "#ea580c"),
+    ("IC5", "isopentane", "#c026d3"),
+    ("NC5", "npentane", "#7e22ce"),
 )
 
 
@@ -143,7 +148,7 @@ def _binding(
         x_scale=x_scale,
         x_min=x_min,
         x_max=x_max,
-        header_text_color=color,
+        header_text_color="#0f172a",
         header_line_color=color,
     )
 
@@ -181,8 +186,8 @@ def _internal_depth_column(
         group_title=group_title,
         width=96,
         locked=True,
-        title_orientation=compact_track_title_orientation(TrackKind.DEPTH),
-        title_position=compact_track_title_position(TrackKind.DEPTH),
+        title_orientation="horizontal",
+        title_position="center",
         tracks=[
             FormTrack(
                 track_id=f"track-complex-depth-{suffix}",
@@ -196,8 +201,8 @@ def _internal_depth_column(
                 grid_alpha=0.28,
                 grid_print=True,
                 x_axis_label="MD",
-                title_orientation=compact_track_title_orientation(TrackKind.DEPTH),
-                title_position=compact_track_title_position(TrackKind.DEPTH),
+                title_orientation="horizontal",
+                title_position="center",
                 show_interval_labels=True,
             )
         ],
@@ -238,13 +243,17 @@ def _curve_column(
 
 
 def _relative_bindings(language: TemplateLanguage) -> list[ParameterBinding]:
-    return _component_bindings(
-        language,
-        suffix="_REL",
-        unit="% of ΣC1–C5",
-        x_min=0.0,
-        x_max=100.0,
-    )
+    return [
+        _binding(
+            f"{code}_REL",
+            f"{code.replace('IC', 'iC').replace('NC', 'nC')} rel.",
+            "%",
+            color,
+            x_min=0.0,
+            x_max=100.0,
+        )
+        for code, _label_key, color in _COMPONENTS
+    ]
 
 
 def _normalized_bindings(language: TemplateLanguage) -> list[ParameterBinding]:
@@ -254,8 +263,8 @@ def _normalized_bindings(language: TemplateLanguage) -> list[ParameterBinding]:
         bindings.append(
             _binding(
                 normalized_code,
-                f"{_t(label_key, language)} NORM",
-                "normalized gas units",
+                f"{code.replace('IC', 'iC').replace('NC', 'nC')} norm.",
+                "norm. units",
                 color,
                 x_min=None,
                 x_max=None,
@@ -342,19 +351,40 @@ def complex_gas_form(language: str = "ru") -> FormDocument:
     gas_group = _t("gas_group", lang)
     sections: list[tuple[str, FormColumn]] = [
         (
+            "rop",
+            _curve_column(
+                "column-complex-rop",
+                _t("rop", lang),
+                [
+                    _binding(
+                        "ROP",
+                        "ROP",
+                        "",
+                        "#475569",
+                        x_min=None,
+                        x_max=None,
+                        width=1.8,
+                    )
+                ],
+                gas_group,
+                width=220,
+                x_axis_label="ROP",
+            ),
+        ),
+        (
             "absolute",
             _curve_column(
                 "column-complex-absolute",
                 _t("absolute", lang),
                 _component_bindings(
                     lang,
-                    unit="% abs",
+                    unit="",
                     x_min=0.0,
                     x_max=100.0,
                 ),
                 gas_group,
                 width=430,
-                x_axis_label="% abs",
+                x_axis_label="C1–C5",
             ),
         ),
         (
@@ -366,37 +396,25 @@ def complex_gas_form(language: str = "ru") -> FormDocument:
                     _binding(
                         "TG_CALC",
                         _t("total", lang),
-                        "% abs",
+                        "",
                         "#dc2626",
                         x_min=0.0,
                         x_max=100.0,
                         width=2.2,
-                    )
-                ],
-                gas_group,
-                width=230,
-                x_axis_label="% abs",
-            ),
-        ),
-        (
-            "normalized-total",
-            _curve_column(
-                "column-complex-normalized-total",
-                _t("normalized_total", lang),
-                [
+                    ),
                     _binding(
                         "TG_NORM",
-                        _t("normalized_total", lang),
-                        "normalized gas units",
+                        "TG norm.",
+                        "norm. units",
                         "#7c3aed",
                         x_min=None,
                         x_max=None,
-                        width=2.2,
-                    )
+                        width=2.0,
+                    ),
                 ],
                 gas_group,
                 width=250,
-                x_axis_label="normalized gas units",
+                x_axis_label="TG",
             ),
         ),
         (
@@ -407,7 +425,7 @@ def complex_gas_form(language: str = "ru") -> FormDocument:
                 _normalized_bindings(lang),
                 gas_group,
                 width=440,
-                x_axis_label="normalized gas units",
+                x_axis_label="norm. units",
             ),
         ),
         (
@@ -418,7 +436,7 @@ def complex_gas_form(language: str = "ru") -> FormDocument:
                 _relative_bindings(lang),
                 gas_group,
                 width=440,
-                x_axis_label="% ΣC1–C5",
+                x_axis_label="% of total",
             ),
         ),
         (

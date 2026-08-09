@@ -3,7 +3,7 @@ from __future__ import annotations
 
 CURVE_HEADER_ROW_HEIGHT = 44
 CURVE_HEADER_PRINT_ROW_HEIGHT = 52
-CURVE_HEADER_MAX_VISIBLE_ROWS = 6
+CURVE_HEADER_MAX_VISIBLE_ROWS = 7
 # The last ruler paints labels and a bottom border very close to the row edge.
 # A real trailing band prevents QScrollArea and PDF clipping from cutting those
 # glyphs at the graph boundary.

@@ -46,6 +46,10 @@ Available reports:
 
 ### Mud-gas report workflow
 
+The left panel shows the primary route: **1. configure inputs → 2. calculate curves →
+3. review the report → 4. print and export**. Step 4 opens the prepared report and focuses the
+PDF/Word/Excel/print actions; **Instructions** opens the detailed methodology.
+
 1. Select the well and dataset.
 2. Check C1–C5, ROP, RPM, WOB, BIT/BS, and FLOW.
 3. Select the normalised-gas source.
@@ -57,6 +61,11 @@ Available reports:
 9. Save Excel or Word for table review.
 10. Complete the cover-page details before PDF export or physical printing.
 11. Generate a PDF and inspect it from the first page to the last.
+
+For the integrated gas deliverable, apply **Integrated C1–C5 gas log**. Its order is depth/ROP,
+C1–nC5, Total Gas, normalized and relative composition, Wetness/Balance/Character with isomer
+ratios, and Pixler. On the final page the graph must end before the repeated lower header; no
+curve may continue below it.
 
 ### Editable cover-page details
 

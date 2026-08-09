@@ -57,15 +57,16 @@ def test_complex_gas_factory_contains_all_requested_gas_groups() -> None:
 
     assert titles == [
         "Глубина",
-        "Абсолютные компоненты",
-        "Сумма абсолютных газов",
-        "Нормализованный суммарный газ",
-        "Нормализованные компоненты",
-        "Относительный газ",
-        "Wetness, Balance, Character и изомеры",
-        "Коэффициенты Pixler",
+        "ROP / скорость проходки",
+        "Компоненты C1–C5",
+        "Суммарный газ",
+        "C1–C5, нормализованные",
+        "C1–C5, относительный состав",
+        "Газовые индексы",
+        "Отношения Pixler",
     ]
     assert {
+        "ROP",
         "TG_CALC",
         "C1",
         "C2",
@@ -77,6 +78,23 @@ def test_complex_gas_factory_contains_all_requested_gas_groups() -> None:
         "TG_NORM",
         "C1_NORM_REF",
     } <= canonical_ids
+
+    depth_track = form.columns[0].tracks[0]
+    assert depth_track.title_orientation == "horizontal"
+    absolute = next(
+        column for column in form.columns if column.column_id == "column-complex-absolute"
+    )
+    absolute_bindings = absolute.tracks[0].bindings
+    assert [binding.display_name for binding in absolute_bindings] == [
+        "C1 Метан",
+        "C2 Этан",
+        "C3 Пропан",
+        "iC4 Изобутан",
+        "nC4 Н-бутан",
+        "iC5 Изопентан",
+        "nC5 Н-пентан",
+    ]
+    assert all(binding.header_text_color == "#0f172a" for binding in absolute_bindings)
     assert {
         "WETNESS",
         "BALANCE",

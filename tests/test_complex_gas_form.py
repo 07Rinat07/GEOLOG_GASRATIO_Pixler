@@ -68,12 +68,15 @@ def _assert_a4_layout(
 
 def test_complex_gas_builder_contains_all_requested_tracks() -> None:
     form = complex_gas_form("ru")
-    assert form.name == "Комплексная газовая форма"
+    assert form.name == "Интегрированный газовый каротаж C1–C5"
     _assert_complete_layout(form, 96)
+
+    rop = _track(form, "track-column-complex-rop")
+    assert tuple(binding.canonical_parameter_id for binding in rop.bindings) == ("ROP",)
 
     absolute = _track(form, "track-column-complex-absolute")
     assert tuple(binding.canonical_parameter_id for binding in absolute.bindings) == SEVEN_COMPONENTS
-    assert all(binding.unit == "% abs" for binding in absolute.bindings)
+    assert all(binding.unit == "" for binding in absolute.bindings)
 
     relative = _track(form, "track-column-complex-relative")
     assert tuple(binding.canonical_parameter_id for binding in relative.bindings) == tuple(
@@ -115,10 +118,10 @@ def test_both_a4_complex_gas_forms_keep_all_graphs_with_one_shared_depth() -> No
     forms = a4_factory_templates("ru")
     portrait = forms["factory-complex-gas-a4-portrait"]
     landscape = forms["factory-complex-gas-a4-landscape"]
-    assert portrait.name == "Комплексная газовая форма — A4 книжная"
-    assert landscape.name == "Комплексная газовая форма — A4 альбомная"
-    _assert_a4_layout(portrait, 48, (110, 80, 80, 110, 100, 90, 86))
-    _assert_a4_layout(landscape, 55, (160, 100, 110, 160, 150, 140, 130))
+    assert portrait.name == "Интегрированный газовый каротаж C1–C5 — A4 книжная"
+    assert landscape.name == "Интегрированный газовый каротаж C1–C5 — A4 альбомная"
+    _assert_a4_layout(portrait, 48, (80, 110, 80, 110, 100, 90, 86))
+    _assert_a4_layout(landscape, 55, (100, 160, 110, 160, 150, 140, 130))
 
 
 def test_seven_component_calculation_does_not_double_count_aggregate_c4_c5() -> None:

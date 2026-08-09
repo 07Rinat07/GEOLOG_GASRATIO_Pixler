@@ -11,14 +11,15 @@ from geoworkbench.tablet.header_geometry import (
 
 def test_dense_header_viewport_contains_only_complete_rows() -> None:
     assert CURVE_HEADER_ROW_HEIGHT == 44
-    assert CURVE_HEADER_MAX_VISIBLE_ROWS == 6
+    assert CURVE_HEADER_MAX_VISIBLE_ROWS == 7
     expected = (
         CURVE_HEADER_MAX_VISIBLE_ROWS * CURVE_HEADER_ROW_HEIGHT
         + CURVE_HEADER_BOTTOM_CLEARANCE
     )
     assert curve_header_viewport_height(7) == expected
     assert curve_header_viewport_height(12) == expected
-    assert curve_header_overflows(7) is True
+    assert curve_header_overflows(7) is False
+    assert curve_header_overflows(12) is True
 
 
 def test_header_content_keeps_last_row_above_graph_boundary() -> None:

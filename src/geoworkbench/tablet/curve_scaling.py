@@ -27,7 +27,8 @@ def _normalized_curve_coordinates(
     span = upper - lower
     if not np.isfinite(span) or span <= 0:
         return result
-    result[valid] = (transformed[valid] - lower) / span
+    with np.errstate(over="ignore", invalid="ignore"):
+        result[valid] = (transformed[valid] - lower) / span
     return result
 
 
@@ -72,15 +73,22 @@ def normalize_curve_values_for_plot(
     minimum: float,
     maximum: float,
 ) -> np.ndarray:
-    """Normalize visible curve samples and leave off-scale peaks as gaps.
+    """Return continuous, painter-safe coordinates for viewport clipping.
 
-    Clamping every off-scale sample to a track edge creates artificial horizontal
-    strokes when a peak enters or leaves the configured range. Engineering log
-    renderers omit those peaks in the ordinary range mode; retaining ``NaN`` here
-    also prevents PyQtGraph from joining the two neighbouring in-range samples.
+    Off-scale samples must stay in the polyline. Replacing each such sample with
+    ``NaN`` breaks a valid curve into short strokes and isolated points whenever
+    it crosses the configured range. The PlotWidget already clips its children
+    to the 0..1 track viewport, so an off-screen overscan preserves the entry/exit
+    segment without drawing an artificial plateau on the track edge. Bounding
+    the overscan to one track width on either side also prevents extreme sensor
+    outliers from producing unsafe painter coordinates. Invalid values (and
+    non-positive logarithmic values) remain ``NaN`` and still create genuine
+    data gaps.
     """
 
     result = _normalized_curve_coordinates(values, scale, minimum, maximum)
-    outside = np.isfinite(result) & ((result < 0.0) | (result > 1.0))
-    result[outside] = np.nan
+    result[np.isneginf(result)] = -1.0
+    result[np.isposinf(result)] = 2.0
+    finite = np.isfinite(result)
+    result[finite] = np.clip(result[finite], -1.0, 2.0)
     return result

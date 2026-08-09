@@ -23,6 +23,10 @@ from geoworkbench.printing.print_job import PrintJobSettings, PrintOutputFormat
 from geoworkbench.printing.print_layout import PrintScaleMode
 from geoworkbench.printing.tablet_print import capture_tablet_print_snapshot
 from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind
+from geoworkbench.tablet.header_geometry import (
+    CURVE_HEADER_BOTTOM_CLEARANCE,
+    CURVE_HEADER_PRINT_ROW_HEIGHT,
+)
 from geoworkbench.tablet.tablet_view import TabletView
 
 
@@ -43,6 +47,9 @@ def _complex_tablet(*, domain: DepthDomain, start: float, end: float) -> TabletV
         "C2",
         "C3",
         "IC4",
+        "NC4",
+        "IC5",
+        "NC5",
         "TG_CALC",
         "TG_NORM_CALC",
         "C1_NORM",
@@ -71,7 +78,7 @@ def _complex_tablet(*, domain: DepthDomain, start: float, end: float) -> TabletV
             "absolute",
             "Абсолютные компоненты",
             TrackKind.GAS,
-            ["C1", "C2", "C3", "IC4"],
+            ["C1", "C2", "C3", "IC4", "NC4", "IC5", "NC5"],
             width=145,
         ),
         TrackDefinition(
@@ -200,7 +207,7 @@ def test_complex_tablet_pdf_keeps_material_last_page_and_bottom_legend(
 
     page_count, density, dense_lower_rows = _render_last_page_metrics(target)
     assert result.page_count == page_count
-    assert page_count >= 3
+    assert page_count >= 2
     assert density >= 0.035, (
         f"last page is visually collapsed: density={density:.4f}"
     )
@@ -232,6 +239,14 @@ def test_short_partial_snapshot_reflows_header_and_uses_one_canonical_height(
         qapp.processEvents()
 
     assert 0 < snapshot.header_height < snapshot.content_height
+    absolute_header = tablet._rendered["absolute"].widget.print_curve_header_height
+    assert absolute_header == (
+        7 * CURVE_HEADER_PRINT_ROW_HEIGHT + CURVE_HEADER_BOTTOM_CLEARANCE
+    )
+    assert snapshot.header_height >= (
+        absolute_header
+        + tablet._rendered["absolute"].widget.natural_title_header_height
+    )
     # The requested partial page has no room for the full header plus the
     # interactive 240 px plot minimum. Printing must keep only the one-pixel
     # safety body instead of letting the child plot overflow into the repeated

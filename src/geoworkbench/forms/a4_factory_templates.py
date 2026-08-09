@@ -40,9 +40,9 @@ _TEXT = {
         "en": "Daily drilling form",
     },
     "complex_gas": {
-        "ru": "Комплексная газовая форма",
-        "kk": "Кешенді газ пішіні",
-        "en": "Integrated gas form",
+        "ru": "Интегрированный газовый каротаж C1–C5",
+        "kk": "C1–C5 интеграцияланған газ каротажы",
+        "en": "Integrated C1–C5 gas log",
     },
     "stratigraphy": {"ru": "Стратиграфия", "kk": "Стратиграфия", "en": "Stratigraphy"},
     "lithology": {"ru": "Литология", "kk": "Литология", "en": "Lithology"},
@@ -369,9 +369,9 @@ def _complex_gas(language: TemplateLanguage, orientation: str) -> FormDocument:
 
     depth_width = 55 if landscape else 48
     graph_widths = (
-        (160, 100, 110, 160, 150, 140, 130)
+        (100, 160, 110, 160, 150, 140, 130)
         if landscape
-        else (110, 80, 80, 110, 100, 90, 86)
+        else (80, 110, 80, 110, 100, 90, 86)
     )
     depth_index = 0
     graph_index = 0

@@ -18,7 +18,7 @@ def test_values_outside_manual_range_are_clipped() -> None:
     assert np.allclose(result, [0.0, 0.5, 1.0])
 
 
-def test_plotting_hides_values_outside_manual_range_instead_of_drawing_edge_strokes() -> None:
+def test_plotting_preserves_off_scale_samples_for_viewport_clipping() -> None:
     result = normalize_curve_values_for_plot(
         np.array([-5.0, 0.0, 5.0, 10.0, 15.0]),
         XScale.LINEAR,
@@ -26,12 +26,21 @@ def test_plotting_hides_values_outside_manual_range_instead_of_drawing_edge_stro
         10.0,
     )
 
-    assert np.isnan(result[0])
-    assert np.allclose(result[1:4], [0.0, 0.5, 1.0])
-    assert np.isnan(result[4])
+    assert np.allclose(result, [-0.5, 0.0, 0.5, 1.0, 1.5])
 
 
-def test_plotting_hides_logarithmic_values_outside_selected_decades() -> None:
+def test_plotting_bounds_extreme_outliers_outside_the_visible_track() -> None:
+    result = normalize_curve_values_for_plot(
+        np.array([-1e308, 5.0, 1e308]),
+        XScale.LINEAR,
+        0.0,
+        1e-308,
+    )
+
+    assert np.allclose(result, [-1.0, 2.0, 2.0])
+
+
+def test_plotting_preserves_logarithmic_samples_outside_selected_decades() -> None:
     result = normalize_curve_values_for_plot(
         np.array([0.01, 0.1, 1.0, 10.0, 100.0]),
         XScale.LOGARITHMIC,
@@ -39,9 +48,22 @@ def test_plotting_hides_logarithmic_values_outside_selected_decades() -> None:
         10.0,
     )
 
+    assert np.allclose(result, [-0.5, 0.0, 0.5, 1.0, 1.5])
+
+
+def test_plotting_keeps_only_real_invalid_values_as_gaps() -> None:
+    result = normalize_curve_values_for_plot(
+        np.array([-1.0, 0.0, 1.0, np.nan, 10.0]),
+        XScale.LOGARITHMIC,
+        0.1,
+        10.0,
+    )
+
     assert np.isnan(result[0])
-    assert np.allclose(result[1:4], [0.0, 0.5, 1.0])
-    assert np.isnan(result[4])
+    assert np.isnan(result[1])
+    assert result[2] == 0.5
+    assert np.isnan(result[3])
+    assert result[4] == 1.0
 
 
 def test_logarithmic_values_are_normalized_by_decades() -> None:

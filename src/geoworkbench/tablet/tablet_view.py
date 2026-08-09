@@ -1516,10 +1516,9 @@ class TabletTrackWidget(QFrame):
 
     @property
     def print_curve_header_height(self) -> int:
-        return curve_header_viewport_height(
+        return curve_header_content_height(
             len(self._curve_header_labels),
             row_height=CURVE_HEADER_PRINT_ROW_HEIGHT,
-            max_visible_rows=CURVE_HEADER_MAX_VISIBLE_ROWS,
         )
 
     def set_synchronized_header_height(self, height: int) -> None:
@@ -1580,11 +1579,16 @@ class TabletTrackWidget(QFrame):
             row_height=self._curve_header_row_height,
             bottom_clearance=CURVE_HEADER_BOTTOM_CLEARANCE,
         )
-        self._natural_curve_header_height = curve_header_viewport_height(
-            rows,
-            row_height=self._curve_header_row_height,
-            max_visible_rows=CURVE_HEADER_MAX_VISIBLE_ROWS,
-        )
+        if enabled:
+            # Paper has no scrollbar: every configured curve row must be part
+            # of the captured header, including dense gas-component tracks.
+            self._natural_curve_header_height = content_height
+        else:
+            self._natural_curve_header_height = curve_header_viewport_height(
+                rows,
+                row_height=self._curve_header_row_height,
+                max_visible_rows=CURVE_HEADER_MAX_VISIBLE_ROWS,
+            )
         self.curve_header.setFixedHeight(content_height)
         self.set_synchronized_header_height(self._natural_curve_header_height)
 
@@ -8031,7 +8035,7 @@ class TabletView(QWidget):
             )
             if rendered.definition.kind is TrackKind.CALCIMETRY:
                 normalized = np.where(
-                    np.isfinite(values) & (values >= 0.0) & (values <= 100.0),
+                    np.isfinite(values),
                     values,
                     np.nan,
                 )
@@ -8169,9 +8173,7 @@ class TabletView(QWidget):
                         key, depth, source_values
                     )
                     visible_values = np.where(
-                        np.isfinite(visible_values),
-                        np.clip(visible_values, 0.0, 100.0),
-                        np.nan,
+                        np.isfinite(visible_values), visible_values, np.nan
                     )
                 item = track.plot.plot(
                     visible_values,

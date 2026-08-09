@@ -266,9 +266,9 @@ class InterpretationReportWorkspace(_ResponsiveInterpretationReportWorkspace):
             return
         self.preview_toggle.setText(
             self._text(
-                "Предпросмотр отчёта",
-                "Есепті алдын ала қарау",
-                "Report preview",
+                "3. Проверить отчёт",
+                "3. Есепті тексеру",
+                "3. Review report",
             )
         )
         tooltip = self._text(

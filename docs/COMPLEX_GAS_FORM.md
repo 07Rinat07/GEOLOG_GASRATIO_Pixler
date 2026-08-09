@@ -1,8 +1,28 @@
 # Комплексная газовая форма C1–C5
 
 Заводские формы `factory-complex-gas-a4-portrait` и
-`factory-complex-gas-a4-landscape` предназначены для совместного контроля абсолютных,
+`factory-complex-gas-a4-landscape` называются **Integrated C1–C5 gas log / Интегрированный
+газовый каротаж C1–C5**. Они предназначены для совместного контроля бурения, абсолютных,
 нормализованных, относительных и интерпретационных газовых кривых по глубине.
+
+## Отраслевой порядок
+
+Официальные материалы SLB и GEOLOG не задают один обязательный внешний proprietary template,
+но устойчиво используют ROP/depth, Total Gas, раздельную хроматографию
+`C1/C2/C3/iC4/nC4/iC5/nC5`, background/connection/trip gas и диагностические gas ratios.
+Встроенная форма использует этот состав и порядок, не копируя фирменное оформление:
+
+1. общая глубина и `ROP / drill rate`;
+2. абсолютные компоненты `C1–nC5`;
+3. `Total Gas` и, при наличии, `TG_NORM`;
+4. нормализованные компоненты `C1–nC5`;
+5. относительный состав `C1–nC5`, сумма `100%`;
+6. `Wetness`, `Balance`, `Character`, `iC4/nC4`, `iC5/nC5`;
+7. отношения Pixler `C1/C2`, `C1/C3`, `C1/C4`, `C1/C5`.
+
+Источники состава: [SLB Defining Mud Logging](https://www.slb.com/resource-library/oilfield-review/defining-series/defining-mud-logging),
+[GEOLOG Reservoir & Source Rock Evaluation](https://geolog.com/services-category/1) и
+[GEOLOG G5](https://www.geolog.com/files/pdf/geolog_G5_MS.pdf).
 
 ## Компоненты
 
@@ -85,6 +105,11 @@ calculation:conditioned-gas-ratio:2.0
 - `BALANCE`, `CHARACTER`, изомерные отношения и Pixler — логарифмические шкалы;
 - zero/negative на логарифмической шкале остаётся разрывом.
 
+Значение за выбранным диапазоном не превращается в `NaN`: линия продолжается в ограниченную
+off-screen область и обрезается границей колонки. Это сохраняет корректный вход/выход пика без
+точечных островов и без искусственной линии по краю. Реальный `NaN`, длинный outage и
+zero/negative для logarithmic scale остаются настоящими разрывами.
+
 ## A4-компоновка
 
 В полной внутренней модели сохранены семь синхронных depth tracks — по одному перед каждой
@@ -92,16 +117,18 @@ calculation:conditioned-gas-ratio:2.0
 шкалы скрыты, а не удалены. Это сохраняет синхронизацию и позволяет уместить все семь графических
 секций без горизонтального split:
 
-1. абсолютные компоненты;
-2. сумма абсолютных газов;
-3. нормализованный суммарный газ;
+1. ROP;
+2. абсолютные компоненты;
+3. Total Gas и normalized total;
 4. нормализованные компоненты;
-5. относительный газ;
+5. относительный состав;
 6. Wetness/Balance/Character и изомеры;
 7. Pixler.
 
-Печатный шрифт заголовков относительного газа использует тот же компактный размер, что и соседние
-инженерные шкалы.
+Экранная шапка показывает семь полных строк C1–nC5 без половинного последнего ряда. Печать не
+использует scrollbar и резервирует полную высоту всех настроенных curves как в верхней, так и в
+повторной нижней шапке последней страницы. Печатный шрифт относительного состава использует тот
+же компактный размер, что и соседние инженерные шкалы.
 
 ## Проверка после обновления
 
@@ -113,6 +140,7 @@ calculation:conditioned-gas-ratio:2.0
 5. Проверить короткие sparse intervals, длинный outage и логарифмические zero.
 6. Заново создать PDF; ранее сформированный файл не меняется.
 7. Сравнить экран, preview и PDF на границах страниц и в интервале `1703.28–1753.28 м`.
+8. На последней странице убедиться, что после нижней шапки нет продолжения графика.
 
 ## Автоматические контракты
 
@@ -120,4 +148,7 @@ calculation:conditioned-gas-ratio:2.0
 - `tests/test_project_session_gas_ratios.py`;
 - `tests/test_gas_curve_rendering_continuity.py`;
 - `tests/test_complex_gas_form.py`;
-- `tests/test_a4_factory_templates.py`.
+- `tests/test_a4_factory_templates.py`;
+- `tests/test_curve_scaling.py`;
+- `tests/test_real_tablet_pdf_regressions.py`;
+- `tests/test_tablet_view.py`.

@@ -33,7 +33,7 @@ def test_interpretation_workspace_uses_collapsible_left_preview_sidebar(qapp) ->
     assert workspace.main_splitter.widget(0) is workspace.configuration_scroll
     assert workspace.main_splitter.widget(1) is workspace.report_panel
     assert workspace.preview_sidebar.isAncestorOf(workspace.preview_toggle)
-    assert workspace.preview_toggle.text() == "Предпросмотр отчёта"
+    assert workspace.preview_toggle.text() == "3. Проверить отчёт"
     assert "Показывает или скрывает" in workspace.preview_toggle.toolTip()
     assert not workspace.preview_toggle.isChecked()
     assert workspace.configuration_scroll.isVisible()
@@ -84,7 +84,7 @@ def test_interpretation_workspace_replaces_controls_with_preview_on_narrow_windo
     assert workspace.configuration_content.maximumWidth() == 940
     assert workspace.page_title.text() == "Gas logging interpretation"
     assert workspace.report_title.text() == "Report preview"
-    assert workspace.preview_toggle.text() == "Report preview"
+    assert workspace.preview_toggle.text() == "3. Review report"
     assert not workspace.report_panel.isVisible()
     assert workspace.configuration_scroll.isVisible()
 

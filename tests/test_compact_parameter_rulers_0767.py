@@ -21,7 +21,7 @@ def test_parameter_header_keeps_complete_rows_and_bottom_clearance() -> None:
     assert CURVE_HEADER_ROW_HEIGHT == 44
     assert CURVE_HEADER_BOTTOM_CLEARANCE == 8
     assert curve_header_content_height(6) == 6 * 44 + 8
-    assert curve_header_viewport_height(9) == 6 * 44 + 8
+    assert curve_header_viewport_height(9) == 7 * 44 + 8
     # A partial seventh row is rounded upward instead of clipping it away.
     assert align_curve_header_band_height(6 * 44 + 43) == 7 * 44 + 8
 

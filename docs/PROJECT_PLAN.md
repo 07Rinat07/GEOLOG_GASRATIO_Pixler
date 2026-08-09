@@ -1,7 +1,7 @@
 <!-- runtime-contract: package=0.7.93; project=v22; form=v13; layout=v22 -->
 # Единый план проекта
 
-Актуально на 2 августа 2026 года. Это единственный канонический план проекта. Завершённые
+Актуально на 9 августа 2026 года. Это единственный канонический план проекта. Завершённые
 изменения фиксируются в [CHANGELOG.md](CHANGELOG.md); отдельные roadmap, build report,
 release plan и временные планы в `docs` не создаются.
 
@@ -30,7 +30,11 @@ release plan и временные планы в `docs` не создаются.
 - WITS0, WITSML 1.4.1.1, WITSML 2.x/ETP foundation, GS2/Paradox, LAS, планшет, формы,
   расчёты и отчёты реализованы;
 - комплексная газовая A4-форма использует один видимый общий depth track и семь графических
-  секций без удаления внутренних синхронных depth tracks;
+  секций без удаления внутренних синхронных depth tracks; порядок секций соответствует
+  integrated gas log: ROP, C1–C5, Total Gas, normalized/relative gas, diagnostic ratios и Pixler;
+- печатная шапка выводит все семь C1–nC5 rows и на короткой последней странице заканчивает
+  график до повторной нижней шапки; off-scale samples клипуются через bounded overscan без
+  искусственных `NaN`-фрагментов и небезопасных painter coordinates;
 - C1–C5 теперь проходят Qt-независимое bounded conditioning до расчёта `TG_CALC`, относительных
   компонентов, Haworth и Pixler; исходные кривые не перезаписываются;
 - Windows quality, GUI/HiDPI/PDF и security gates автоматизированы; реальная физическая печать,
@@ -82,6 +86,9 @@ release plan и временные планы в `docs` не создаются.
 - [x] **GAS-04:** экранная геометрия применяет gas-only short-gap policy, сохраняет контекстные
   точки на границах viewport/страниц и не распространяет интерполяцию на GR/ROP/DEXP.
 - [x] **GAS-05:** calculation conditioning и render sampling используют единый Qt-независимый `CurveContinuityPolicy`; gas-only viewport geometry кондиционируется до обрезки, а экран/PDF/preview/printer получают явный segment mask.
+- [x] **GAS-09:** встроенная комплексная форма использует отраслевой порядок ROP/C1–C5/Total
+  Gas/normalized/relative/ratios/Pixler, а полный семикомпонентный заголовок и bounded off-scale
+  clipping одинаково работают на экране, preview, PDF и последней странице.
 - [ ] **GAS-06:** сохранять структурированный QC provenance conditioning в проекте и показывать
   оператору количество/диапазоны восстановленных точек без изменения исходного LAS.
 - [ ] **GAS-07:** добавить обезличенный golden dataset для интервала `1703.28–1753.28 м` и

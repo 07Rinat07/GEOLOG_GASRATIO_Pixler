@@ -71,15 +71,29 @@ def test_polished_workspace_groups_controls_and_marks_primary_action(qapp) -> No
     assert "100,0%" in workspace.dexp_quality_summary.text()
     assert (
         workspace.recalculate_all_button.text()
-        == "Пересчитать все доступные кривые и открыть планшет"
+        == "2. Рассчитать кривые и открыть планшет"
     )
+    assert workspace.configure_drilling_inputs_button.text().startswith("1.")
+    assert workspace.refresh_chart_report_button.text().startswith("3.")
     assert workspace.workflow_help_button is not None
-    assert workspace.workflow_help_button.text() == "Настройка и печать"
-    assert "пошаговая" in workspace.workflow_help_button.toolTip().casefold()
+    assert workspace.workflow_help_button.text() == "4. Печать и экспорт"
+    assert "pdf" in workspace.workflow_help_button.toolTip().casefold()
     assert not workspace.workflow_help_button.icon().isNull()
-    assert workspace.workflow_help_button.iconSize().width() == 34
-    assert workspace.workflow_help_button.minimumHeight() >= 58
+    assert workspace.workflow_help_button.iconSize().width() == 20
+    assert workspace.workflow_help_button.minimumHeight() >= 46
     assert workspace.workflow_help_button.property("toolTipPlacement") == "above"
+    assert workspace.workflow_title is not None
+    assert workspace.workflow_title.text() == "Порядок работы"
+    assert workspace.workflow_steps is not None
+    assert "1. Настройте" in workspace.workflow_steps.text()
+    assert "4. Напечатайте" in workspace.workflow_steps.text()
+    assert workspace.workflow_guide_button is not None
+    assert workspace.workflow_guide_button.text() == "Инструкция"
+    workspace.workflow_help_button.click()
+    qapp.processEvents()
+    assert workspace.preview_toggle.isChecked()
+    assert workspace.report_panel.isVisible()
+    assert workspace.print_button.hasFocus()
     guide = workspace._workflow_help_html()
     assert "перспективные интервалы" in guide.casefold()
     assert "печать" in guide.casefold()
