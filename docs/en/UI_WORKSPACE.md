@@ -64,7 +64,9 @@ and geological data entry remain available.
 
 ## Inner depth ruler in a graph column
 
-The selected graph-column editor includes an **Inner vertical ruler** section. A column can use **Automatic**, **Labels and ticks**, **Ticks only**, or **Off**, with separate frequencies for numeric labels, major ticks, and minor ticks. A column only hides a subset of the shared tick sequence: depth values and their Y coordinates always match the main well-depth ruler.
+The **Inner vertical ruler** section is available both in the live graph-column editor and in the **Form structure editor** after selecting a graph track inside a column. A column can use **Automatic**, **Labels and ticks**, **Ticks only**, or **Off**, with separate frequencies for numeric labels, major ticks, and minor ticks. The setting is saved in the user form and applied consistently on screen, in preview, and in PDF.
+
+A column only hides a subset of the shared tick sequence: depth/time values and their Y coordinates always match the main well ruler. Neighbouring curves therefore cannot shift relative to one another.
 
 ## Form library
 

@@ -42,8 +42,15 @@ from geoworkbench.printing.form_width_advisor import FormWidthLevel, audit_form_
 from geoworkbench.printing.text_rendering import draw_oriented_text
 from geoworkbench.tablet.grid_geometry import normalized_grid_lines
 from geoworkbench.tablet.models import TrackKind, minimum_width_for_track_kinds
+from geoworkbench.tablet.vertical_ruler import (
+    VerticalRulerMode,
+    supports_inner_vertical_ruler,
+)
 from geoworkbench.ui.grid_settings_widget import GridSettingsWidget
 from geoworkbench.ui.track_content_editor_dialog import TrackContentEditorDialog
+from geoworkbench.ui.vertical_ruler_settings_widget import (
+    VerticalRulerSettingsWidget,
+)
 
 _ITEM_KIND_ROLE = Qt.ItemDataRole.UserRole
 _ITEM_ID_ROLE = Qt.ItemDataRole.UserRole + 1
@@ -461,6 +468,28 @@ class FormStructureEditorDialog(QDialog):
         grid_layout.addWidget(self.grid_editor)
         self.grid_group.setVisible(False)
         settings_layout.addWidget(self.grid_group)
+
+        self.vertical_ruler_editor = VerticalRulerSettingsWidget(
+            language=self.language
+        )
+        self.vertical_ruler_group = self.vertical_ruler_editor
+        self.vertical_ruler_mode_input = self.vertical_ruler_editor.mode_input
+        self.vertical_ruler_label_every_input = (
+            self.vertical_ruler_editor.label_every_input
+        )
+        self.vertical_ruler_major_tick_every_input = (
+            self.vertical_ruler_editor.major_tick_every_input
+        )
+        self.vertical_ruler_minor_tick_every_input = (
+            self.vertical_ruler_editor.minor_tick_every_input
+        )
+        self.vertical_ruler_editor.settings_changed.connect(
+            self._apply_vertical_ruler
+        )
+        self.vertical_ruler_group.setVisible(False)
+        # Keep the requested per-column ruler control discoverable before the
+        # more detailed grid controls in the scrollable inspector.
+        settings_layout.insertWidget(1, self.vertical_ruler_group)
         settings_layout.addStretch(1)
         settings_scroll = QScrollArea()
         settings_scroll.setWidgetResizable(True)
@@ -526,6 +555,7 @@ class FormStructureEditorDialog(QDialog):
         grid_x: bool | None = None,
         grid_y: bool | None = None,
         grid_print: bool | None = None,
+        vertical_ruler_mode: VerticalRulerMode | None = None,
     ) -> str:
         statuses: list[str] = []
         statuses.append(
@@ -550,6 +580,22 @@ class FormStructureEditorDialog(QDialog):
                     if grid_print
                     else self._text("только экран", "тек экран", "screen only")
                 )
+        if vertical_ruler_mode is VerticalRulerMode.OFF:
+            statuses.append(
+                self._text(
+                    "внутр. шкала выкл.",
+                    "ішкі шкала өшірілген",
+                    "inner ruler off",
+                )
+            )
+        elif vertical_ruler_mode is VerticalRulerMode.TICKS_ONLY:
+            statuses.append(
+                self._text("только риски", "тек белгілер", "ticks only")
+            )
+        elif vertical_ruler_mode is VerticalRulerMode.LABELS_AND_TICKS:
+            statuses.append(
+                self._text("цифры и риски", "сандар мен белгілер", "labels and ticks")
+            )
         return " · ".join(statuses)
 
     def _button(self, layout: QHBoxLayout, caption: str, callback) -> QPushButton:
@@ -750,6 +796,11 @@ class FormStructureEditorDialog(QDialog):
                             grid_x=track.grid_x,
                             grid_y=track.grid_y,
                             grid_print=track.grid_print,
+                            vertical_ruler_mode=(
+                                track.vertical_ruler.mode
+                                if supports_inner_vertical_ruler(track.kind.value)
+                                else None
+                            ),
                         ),
                     ]
                 )
@@ -806,6 +857,7 @@ class FormStructureEditorDialog(QDialog):
                 self.show_interval_labels_check.setChecked(False)
                 self.show_interval_labels_check.setEnabled(False)
                 self.grid_group.setVisible(False)
+                self.vertical_ruler_group.setVisible(False)
                 return
             kind, object_id = ref
             self.title_edit.setEnabled(True)
@@ -818,6 +870,7 @@ class FormStructureEditorDialog(QDialog):
             self.show_interval_labels_check.setEnabled(False)
             self.show_interval_labels_check.setChecked(False)
             self.grid_group.setVisible(False)
+            self.vertical_ruler_group.setVisible(False)
             if kind == "column":
                 column = self.editor.column(object_id)
                 self.title_edit.setText(column.title)
@@ -874,6 +927,12 @@ class FormStructureEditorDialog(QDialog):
                 )
                 self.grid_group.setEnabled(editable)
                 self.grid_group.setVisible(True)
+                supports_ruler = supports_inner_vertical_ruler(track.kind.value)
+                self.vertical_ruler_editor.set_settings(
+                    track.vertical_ruler,
+                    editable=editable,
+                )
+                self.vertical_ruler_group.setVisible(supports_ruler)
             else:
                 track_id, binding_id = object_id.split("::", 1)
                 binding = self.editor.binding(track_id, binding_id)
@@ -972,6 +1031,37 @@ class FormStructureEditorDialog(QDialog):
                 grid_alpha=alpha,
                 grid_print=print_grid,
             )
+            self.preview.set_form(self.editor.form, ref[1])
+            self._form_changed()
+        except (KeyError, PermissionError, ValueError) as exc:
+            QMessageBox.warning(self, self.windowTitle(), str(exc))
+            self._selection_changed(None, None)
+
+    def _apply_vertical_ruler(self) -> None:
+        if self._updating_properties:
+            return
+        ref = self._selected_ref()
+        if ref is None or ref[0] != "track":
+            return
+        try:
+            self.editor.set_track_vertical_ruler(
+                ref[1],
+                self.vertical_ruler_editor.settings(),
+            )
+            _column, track = self.editor.track(ref[1])
+            current = self.tree.currentItem()
+            if current is not None:
+                current.setText(
+                    3,
+                    self._tree_status(
+                        visible=track.visible,
+                        locked=track.locked,
+                        grid_x=track.grid_x,
+                        grid_y=track.grid_y,
+                        grid_print=track.grid_print,
+                        vertical_ruler_mode=track.vertical_ruler.mode,
+                    ),
+                )
             self.preview.set_form(self.editor.form, ref[1])
             self._form_changed()
         except (KeyError, PermissionError, ValueError) as exc:

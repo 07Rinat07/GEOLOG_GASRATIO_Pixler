@@ -23,9 +23,13 @@ from geoworkbench.tablet.models import (
     compact_track_title_position,
     compact_track_width,
 )
+from geoworkbench.tablet.vertical_ruler import (
+    VerticalRulerMode,
+    VerticalRulerTrackSettings,
+)
 
 
-FORM_SCHEMA_VERSION = 13
+FORM_SCHEMA_VERSION = 14
 
 
 class FormFormatError(ValueError):
@@ -78,6 +82,12 @@ def form_to_dict(form: FormDocument) -> dict[str, Any]:
                         "title_orientation": track.title_orientation,
                         "title_position": track.title_position,
                         "show_interval_labels": track.show_interval_labels,
+                        "vertical_ruler": {
+                            "mode": track.vertical_ruler.mode.value,
+                            "label_every_major": track.vertical_ruler.label_every_major,
+                            "major_tick_every": track.vertical_ruler.major_tick_every,
+                            "minor_tick_every": track.vertical_ruler.minor_tick_every,
+                        },
                         "bindings": [_binding_to_dict(binding) for binding in track.bindings],
                     }
                     for track in column.tracks
@@ -219,7 +229,23 @@ def _track_from_dict(data: object) -> FormTrack:
         title_orientation=_string(data, "title_orientation", default="horizontal"),
         title_position=_string(data, "title_position", default="center"),
         show_interval_labels=_boolean(data, "show_interval_labels", default=False),
+        vertical_ruler=_vertical_ruler_from_dict(data.get("vertical_ruler")),
         bindings=[_binding_from_dict(item) for item in _list(data, "bindings", default=[])],
+    )
+
+
+def _vertical_ruler_from_dict(data: object) -> VerticalRulerTrackSettings:
+    if data is None:
+        return VerticalRulerTrackSettings()
+    if not isinstance(data, dict):
+        raise TypeError("vertical_ruler должен быть JSON-объектом")
+    return VerticalRulerTrackSettings(
+        mode=VerticalRulerMode(
+            _string(data, "mode", default=VerticalRulerMode.AUTOMATIC.value)
+        ),
+        label_every_major=_integer(data, "label_every_major", default=1),
+        major_tick_every=_integer(data, "major_tick_every", default=1),
+        minor_tick_every=_integer(data, "minor_tick_every", default=1),
     )
 
 
@@ -243,7 +269,7 @@ def _migrate_form(data: dict[str, Any]) -> dict[str, Any]:
     version = data.get("schema_version", 0)
     if version == FORM_SCHEMA_VERSION:
         return data
-    if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12):
+    if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13):
         raise FormFormatError("Неподдерживаемая версия схемы формы")
     migrated = deepcopy(data)
     if version == 0:
@@ -270,6 +296,15 @@ def _migrate_form(data: dict[str, Any]) -> dict[str, Any]:
                         track.setdefault("grid_major_divisions", 5)
                         track.setdefault("grid_minor_divisions", 5)
                         track.setdefault("grid_print", True)
+                        track.setdefault(
+                            "vertical_ruler",
+                            {
+                                "mode": VerticalRulerMode.AUTOMATIC.value,
+                                "label_every_major": 1,
+                                "major_tick_every": 1,
+                                "minor_tick_every": 1,
+                            },
+                        )
                         bindings = track.get("bindings")
                         if isinstance(bindings, list):
                             for binding in bindings:

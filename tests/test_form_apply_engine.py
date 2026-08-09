@@ -5,6 +5,10 @@ import numpy as np
 from geoworkbench.domain.models import CurveData, CurveMetadata, Dataset, DatasetKind, DepthDomain
 from geoworkbench.forms import FormApplyEngine, factory_templates
 from geoworkbench.forms.a4_factory_templates import a4_factory_templates
+from geoworkbench.tablet.vertical_ruler import (
+    VerticalRulerMode,
+    VerticalRulerTrackSettings,
+)
 
 
 def _dataset() -> Dataset:
@@ -49,6 +53,12 @@ def test_form_apply_propagates_track_title_presentation() -> None:
     )
     source_track.title_orientation = "vertical_top_to_bottom"
     source_track.title_position = "top"
+    source_track.vertical_ruler = VerticalRulerTrackSettings(
+        mode=VerticalRulerMode.OFF,
+        label_every_major=2,
+        major_tick_every=3,
+        minor_tick_every=4,
+    )
 
     result = FormApplyEngine().build_layout(form, _dataset())
     applied = next(track for track in result.layout.tracks if track.title == source_track.title)
@@ -56,6 +66,7 @@ def test_form_apply_propagates_track_title_presentation() -> None:
     assert result.layout.localize_factory_labels is False
     assert applied.title_orientation == "vertical_top_to_bottom"
     assert applied.title_position == "top"
+    assert applied.vertical_ruler == source_track.vertical_ruler
 
 
 def test_explicit_binding_has_priority() -> None:

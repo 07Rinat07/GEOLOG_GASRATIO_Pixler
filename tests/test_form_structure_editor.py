@@ -11,6 +11,10 @@ from geoworkbench.forms.models import FormAxisKind, FormDocument
 from geoworkbench.forms.repository import FormRepository
 from geoworkbench.forms.templates import factory_templates
 from geoworkbench.tablet.models import TrackKind
+from geoworkbench.tablet.vertical_ruler import (
+    VerticalRulerMode,
+    VerticalRulerTrackSettings,
+)
 from geoworkbench.ui.form_structure_editor_dialog import (
     FormStructureEditorDialog,
     _FormPreview,
@@ -104,6 +108,29 @@ def test_structure_editor_manages_visibility_and_track_grid() -> None:
             grid_print=True,
         )
     assert track.grid_major_divisions == 4
+
+
+def test_structure_editor_manages_per_track_inner_ruler() -> None:
+    form = FormDocument.create("Test", FormAxisKind.TIME)
+    editor = FormStructureEditor(form)
+    column = editor.add_column("Gas")
+    track = editor.add_track(column.column_id, title="Gas", kind=TrackKind.GAS)
+    settings = VerticalRulerTrackSettings(
+        mode=VerticalRulerMode.OFF,
+        label_every_major=2,
+        major_tick_every=3,
+        minor_tick_every=4,
+    )
+
+    editor.set_track_vertical_ruler(track.track_id, settings)
+
+    assert track.vertical_ruler == settings
+    column.locked = True
+    with pytest.raises(PermissionError):
+        editor.set_track_vertical_ruler(
+            track.track_id,
+            VerticalRulerTrackSettings(mode=VerticalRulerMode.TICKS_ONLY),
+        )
 
 
 def test_structure_editor_rejects_visibility_and_grid_edits_on_locked_column() -> None:
@@ -243,4 +270,33 @@ def test_structure_editor_dialog_exposes_visibility_grid_and_tree_status(
         edited_track.grid_alpha,
         edited_track.grid_print,
     ) == (True, True, 5, 5, 0.2, True)
+    dialog.close()
+
+
+def test_structure_editor_dialog_edits_inner_ruler_of_selected_graph_track(
+    qapp: QApplication,
+    tmp_path: Path,
+) -> None:
+    repository = FormRepository(tmp_path / "forms")
+    form = FormDocument.create("Editable", FormAxisKind.TIME)
+    editor = FormStructureEditor(form)
+    column = editor.add_column("Gas")
+    track = editor.add_track(column.column_id, title="Gas", kind=TrackKind.GAS)
+    dialog = FormStructureEditorDialog(form, repository, language="en")
+    track_item = dialog.tree.topLevelItem(0).child(0)
+
+    dialog.tree.setCurrentItem(track_item)
+    qapp.processEvents()
+
+    assert dialog.vertical_ruler_group.isHidden() is False
+    off_index = dialog.vertical_ruler_mode_input.findData(VerticalRulerMode.OFF.value)
+    dialog.vertical_ruler_mode_input.setCurrentIndex(off_index)
+    qapp.processEvents()
+
+    _column, edited = dialog.editor.track(track.track_id)
+    assert edited.vertical_ruler.mode is VerticalRulerMode.OFF
+    assert "inner ruler off" in track_item.text(3)
+    assert not dialog.vertical_ruler_label_every_input.isEnabled()
+    assert not dialog.vertical_ruler_major_tick_every_input.isEnabled()
+    assert not dialog.vertical_ruler_minor_tick_every_input.isEnabled()
     dialog.close()

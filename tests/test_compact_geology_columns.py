@@ -96,7 +96,7 @@ def test_form_v7_migration_reduces_user_columns_to_stable_targets_once() -> None
     assert restored.columns[0].tracks[0].title_orientation == "vertical_bottom_to_top"
     assert restored.columns[1].width == 300
     assert restored.columns[1].tracks[0].title_orientation == "horizontal"
-    assert encoded["schema_version"] == 13
+    assert encoded["schema_version"] == 14
     assert restored_again.columns[0].width == 60
 
 
@@ -299,7 +299,7 @@ def test_v10_form_migration_restores_lba_horizontal_default() -> None:
 
     assert restored.columns[0].title_orientation == "horizontal"
     assert restored.columns[0].tracks[0].title_orientation == "horizontal"
-    assert form_to_dict(restored)["schema_version"] == 13
+    assert form_to_dict(restored)["schema_version"] == 14
 
 
 def test_rotated_title_renderer_fits_long_single_word_captions() -> None:

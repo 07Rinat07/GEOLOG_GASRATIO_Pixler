@@ -17,6 +17,7 @@ from geoworkbench.tablet.models import (
     XScale,
     minimum_width_for_track_kinds,
 )
+from geoworkbench.tablet.vertical_ruler import VerticalRulerTrackSettings
 
 
 class FormAxisKind(StrEnum):
@@ -109,6 +110,9 @@ class FormTrack:
     title_orientation: str = "horizontal"
     title_position: str = "center"
     show_interval_labels: bool = False
+    vertical_ruler: VerticalRulerTrackSettings = field(
+        default_factory=VerticalRulerTrackSettings
+    )
 
     def __post_init__(self) -> None:
         _require_id(self.track_id, "track_id")
@@ -133,6 +137,10 @@ class FormTrack:
         self.title_position = normalize_text_vertical_position(self.title_position)
         if not isinstance(self.show_interval_labels, bool):
             raise ValueError("show_interval_labels должен быть логическим")
+        if not isinstance(self.vertical_ruler, VerticalRulerTrackSettings):
+            raise ValueError(
+                "Настройки внутренней вертикальной шкалы имеют неверный тип"
+            )
         _ensure_unique([item.binding_id for item in self.bindings], "binding_id")
 
     @classmethod
@@ -154,6 +162,7 @@ class FormTrack:
         title_orientation: str = "horizontal",
         title_position: str = "center",
         show_interval_labels: bool = False,
+        vertical_ruler: VerticalRulerTrackSettings | None = None,
     ) -> FormTrack:
         return cls(
             track_id=str(uuid4()),
@@ -172,6 +181,7 @@ class FormTrack:
             title_orientation=title_orientation,
             title_position=title_position,
             show_interval_labels=show_interval_labels,
+            vertical_ruler=vertical_ruler or VerticalRulerTrackSettings(),
         )
 
     def add_binding(self, binding: ParameterBinding, index: int | None = None) -> None:

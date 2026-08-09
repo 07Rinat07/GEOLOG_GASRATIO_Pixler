@@ -18,6 +18,10 @@ from geoworkbench.forms import (
     form_to_dict,
 )
 from geoworkbench.tablet.models import TrackKind
+from geoworkbench.tablet.vertical_ruler import (
+    VerticalRulerMode,
+    VerticalRulerTrackSettings,
+)
 
 
 def test_form_round_trip_preserves_binding() -> None:
@@ -31,6 +35,12 @@ def test_form_round_trip_preserves_binding() -> None:
         grid_print=False,
         title_orientation="vertical_bottom_to_top",
         title_position="bottom",
+        vertical_ruler=VerticalRulerTrackSettings(
+            mode=VerticalRulerMode.TICKS_ONLY,
+            label_every_major=2,
+            major_tick_every=3,
+            minor_tick_every=4,
+        ),
     )
     column = FormColumn.create(
         "Газ",
@@ -53,6 +63,7 @@ def test_form_round_trip_preserves_binding() -> None:
     assert restored.columns[0].tracks[0].grid_major_divisions == 4
     assert restored.columns[0].tracks[0].grid_minor_divisions == 10
     assert restored.columns[0].tracks[0].grid_print is False
+    assert restored.columns[0].tracks[0].vertical_ruler == track.vertical_ruler
 
 
 def test_form_grid_settings_control_linked_masterlog_print_grid() -> None:
@@ -120,7 +131,25 @@ def test_repository_saves_utf8_atomically(tmp_path) -> None:
     assert target.exists()
     assert restored.name == "Глубинная форма"
     raw = json.loads(target.read_text(encoding="utf-8"))
-    assert raw["schema_version"] == 13
+    assert raw["schema_version"] == 14
+
+
+def test_form_v13_migrates_to_visible_automatic_inner_ruler() -> None:
+    form = FormDocument.create("Legacy ruler", FormAxisKind.DEPTH)
+    form.add_column(
+        FormColumn.create(
+            "Gas",
+            tracks=[FormTrack.create("Gas", TrackKind.GAS)],
+        )
+    )
+    payload = form_to_dict(form)
+    payload["schema_version"] = 13
+    payload["columns"][0]["tracks"][0].pop("vertical_ruler")
+
+    restored = form_from_dict(payload)
+
+    assert restored.columns[0].tracks[0].vertical_ruler == VerticalRulerTrackSettings()
+    assert form_to_dict(restored)["schema_version"] == 14
 
 
 def test_repository_lists_and_deletes(tmp_path) -> None:
@@ -505,7 +534,7 @@ def test_v8_form_migrates_logarithmic_bindings_to_linear_defaults() -> None:
     assert binding.x_scale.value == "linear"
     assert binding.x_min == 0.0
     assert binding.x_max == 100.0
-    assert form_to_dict(restored)["schema_version"] == 13
+    assert form_to_dict(restored)["schema_version"] == 14
 
 
 def test_every_factory_form_binding_is_linear_by_default() -> None:

@@ -14,6 +14,10 @@ from geoworkbench.tablet.models import (
     TrackKind,
     XScale,
 )
+from geoworkbench.tablet.vertical_ruler import (
+    VerticalRulerMode,
+    VerticalRulerTrackSettings,
+)
 from geoworkbench.ui.constructor_dialog import UniversalConstructorDialog
 from geoworkbench.ui.form_manager_dialog import FormManagerDialog
 from geoworkbench.ui.main_window import MainWindow
@@ -52,6 +56,12 @@ def test_live_tablet_layout_converts_to_editable_user_form() -> None:
         grid_y=False,
         title_orientation="vertical_bottom_to_top",
         title_position="bottom",
+        vertical_ruler=VerticalRulerTrackSettings(
+            mode=VerticalRulerMode.TICKS_ONLY,
+            label_every_major=2,
+            major_tick_every=3,
+            minor_tick_every=4,
+        ),
         curve_styles={"ROP": CurveStyle("#dc2626", 2.0)},
         curve_display={
             "ROP": CurveDisplaySettings("ROP, м/ч", XScale.LINEAR, 0.0, 150.0)
@@ -66,6 +76,7 @@ def test_live_tablet_layout_converts_to_editable_user_form() -> None:
     assert form.columns[0].width == 310
     assert form.columns[0].tracks[0].locked is False
     assert form.columns[0].tracks[0].title_orientation == "vertical_bottom_to_top"
+    assert form.columns[0].tracks[0].vertical_ruler == track.vertical_ruler
     binding = form.columns[0].tracks[0].bindings[0]
     assert binding.source_mnemonic == "ROP"
     assert binding.display_name == "ROP, м/ч"

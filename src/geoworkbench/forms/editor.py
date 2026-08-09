@@ -8,6 +8,7 @@ from geoworkbench.tablet.models import (
     TrackKind,
     minimum_width_for_track_kinds,
 )
+from geoworkbench.tablet.vertical_ruler import VerticalRulerTrackSettings
 
 
 @dataclass(slots=True)
@@ -232,6 +233,19 @@ class FormStructureEditor:
         track.grid_minor_divisions = validated.grid_minor_divisions
         track.grid_alpha = validated.grid_alpha
         track.grid_print = validated.grid_print
+        self.form.validate()
+        self.dirty = True
+
+    def set_track_vertical_ruler(
+        self,
+        track_id: str,
+        settings: VerticalRulerTrackSettings,
+    ) -> None:
+        column, track = self.track(track_id)
+        if track.locked or column.locked:
+            raise PermissionError("Дорожка заблокирована")
+        validated = replace(track, vertical_ruler=settings)
+        track.vertical_ruler = validated.vertical_ruler
         self.form.validate()
         self.dirty = True
 
