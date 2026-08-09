@@ -19,6 +19,7 @@ from geoworkbench.printing.auto_pagination import (
     balanced_automatic_page_ranges,
     bounded_automatic_page_capacities,
     printable_tablet_body_height_mm,
+    reserved_ending_page_ranges,
 )
 from geoworkbench.printing.form_column_layout import original_column_layout
 from geoworkbench.printing.masterlog_renderer import (
@@ -39,6 +40,9 @@ from geoworkbench.printing.print_layout import (
     PrintScaleMode,
     build_horizontal_continuations,
 )
+from geoworkbench.printing.tablet_print import (
+    maximum_tablet_body_height_with_repeated_header,
+)
 from geoworkbench.printing.unicode_support import print_font
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage, Localizer
@@ -48,6 +52,7 @@ from geoworkbench.tablet.tablet_view import TabletView
 
 
 _DOCUMENT_HEADER_FONT_SCALE = 1.60
+_TABLET_END_LAYOUT_SAFETY_PX = 4
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,6 +100,8 @@ class PrintDocumentPlan:
     tablet_header_height_px: int | None = None
     first_page_target_content_height_px: int | None = None
     first_page_units_per_page: float | None = None
+    last_page_units_per_page: float | None = None
+    single_page_units_per_page: float | None = None
 
     @property
     def page_count(self) -> int:
@@ -155,15 +162,23 @@ def build_document_plan(
     tablet_header_height_px: int | None = None
     first_page_target_content_height_px: int | None = None
     first_page_units_per_page: float | None = None
+    last_page_units_per_page: float | None = None
+    single_page_units_per_page: float | None = None
     pagination = job.pagination
 
     if isinstance(widget, TabletView):
         full_range = widget.printable_vertical_range()
-        if (
+        use_auto_density = (
             pagination.auto_units_per_page
             and pagination.range_mode is not PrintRangeMode.CURRENT
-            and job.page.scale_mode is PrintScaleMode.FIT
+        )
+        if (
+            job.page.scale_mode is PrintScaleMode.FIT
             and full_range is not None
+            and (
+                use_auto_density
+                or job.repeat_column_header_at_bottom
+            )
         ):
             printable_tracks = _selected_tablet_tracks(widget, job)
             selected_definitions = [item.definition for item in printable_tracks]
@@ -172,18 +187,24 @@ def build_document_plan(
                 item.widget.title.height() + item.widget.print_curve_header_height
                 for item in printable_tracks
             )
-            current_range = widget.visible_depth_range or full_range
-            current_span = abs(float(current_range[1]) - float(current_range[0]))
             domain_span = abs(float(full_range[1]) - float(full_range[0]))
-            if widget.vertical_axis_is_time:
-                current_span = max(
-                    current_span,
-                    recommended_initial_span(
-                        domain_span,
-                        is_time=True,
-                        unit=widget.printable_vertical_unit,
-                    ),
-                )
+            current_range = widget.visible_depth_range or full_range
+            visible_span = abs(float(current_range[1]) - float(current_range[0]))
+            if use_auto_density:
+                current_span = visible_span
+                if widget.vertical_axis_is_time:
+                    current_span = max(
+                        current_span,
+                        recommended_initial_span(
+                            domain_span,
+                            is_time=True,
+                            unit=widget.printable_vertical_unit,
+                        ),
+                    )
+            elif pagination.range_mode is PrintRangeMode.CURRENT:
+                current_span = max(visible_span, 1e-9)
+            else:
+                current_span = max(float(pagination.units_per_page), 1e-9)
             media = job.page.media_dimensions(source_width, source_height)
             full_header_band_mm = _planned_full_header_band_height_mm(
                 context,
@@ -208,7 +229,11 @@ def build_document_plan(
                 content_height_mm=media.content_height_mm,
                 header_band_mm=regular_header_band_mm,
             )
-            resolved_units_per_page = auto_geometry.units_per_page
+            resolved_units_per_page = (
+                auto_geometry.units_per_page
+                if use_auto_density
+                else current_span
+            )
             target_content_height = auto_geometry.target_content_height_px
             tablet_page_aspect_ratio = auto_geometry.page_aspect_ratio
             tablet_header_height_px = header_height
@@ -229,14 +254,59 @@ def build_document_plan(
             )
             first_page_units_per_page = first_geometry.units_per_page
             first_page_target_content_height_px = first_geometry.target_content_height_px
-            (
-                first_page_units_per_page,
-                resolved_units_per_page,
-            ) = bounded_automatic_page_capacities(
-                domain_span,
-                first_units_per_page=first_page_units_per_page,
-                regular_units_per_page=resolved_units_per_page,
-            )
+            if job.repeat_column_header_at_bottom:
+                canonical_body_height = target_content_height - header_height
+                last_body_height = maximum_tablet_body_height_with_repeated_header(
+                    max(1, canonical_body_height - _TABLET_END_LAYOUT_SAFETY_PX),
+                    header_height,
+                    show_column_header=False,
+                )
+                single_body_height = maximum_tablet_body_height_with_repeated_header(
+                    max(
+                        1,
+                        first_page_target_content_height_px
+                        - _TABLET_END_LAYOUT_SAFETY_PX,
+                    ),
+                    header_height,
+                    show_column_header=True,
+                )
+                if last_body_height <= 0:
+                    raise ValueError(
+                        "Шапка печатной формы не оставляет места для графика "
+                        "при повторе в конце журнала"
+                    )
+                last_page_units_per_page = (
+                    resolved_units_per_page
+                    * last_body_height
+                    / canonical_body_height
+                )
+                single_page_units_per_page = (
+                    resolved_units_per_page
+                    * single_body_height
+                    / canonical_body_height
+                )
+            if use_auto_density:
+                (
+                    first_page_units_per_page,
+                    resolved_units_per_page,
+                ) = bounded_automatic_page_capacities(
+                    domain_span,
+                    first_units_per_page=first_page_units_per_page,
+                    regular_units_per_page=resolved_units_per_page,
+                    last_units_per_page=last_page_units_per_page,
+                    single_units_per_page=single_page_units_per_page,
+                )
+                if last_page_units_per_page is not None:
+                    last_page_units_per_page = (
+                        resolved_units_per_page
+                        * last_body_height
+                        / canonical_body_height
+                    )
+                    single_page_units_per_page = (
+                        resolved_units_per_page
+                        * single_body_height
+                        / canonical_body_height
+                    )
             pagination = replace(
                 pagination,
                 units_per_page=max(min(resolved_units_per_page, domain_span), 1e-9),
@@ -254,6 +324,8 @@ def build_document_plan(
                 full_range=full_range,
                 first_units_per_page=first_page_units_per_page,
                 regular_units_per_page=resolved_units_per_page,
+                last_units_per_page=last_page_units_per_page,
+                single_units_per_page=single_page_units_per_page,
             )
         else:
             vertical_pages = build_page_slices(
@@ -302,6 +374,8 @@ def build_document_plan(
         tablet_header_height_px=tablet_header_height_px,
         first_page_target_content_height_px=first_page_target_content_height_px,
         first_page_units_per_page=first_page_units_per_page,
+        last_page_units_per_page=last_page_units_per_page,
+        single_page_units_per_page=single_page_units_per_page,
     )
 
 
@@ -332,6 +406,8 @@ def _build_automatic_page_slices(
     full_range: tuple[float, float] | None,
     first_units_per_page: float,
     regular_units_per_page: float,
+    last_units_per_page: float | None = None,
+    single_units_per_page: float | None = None,
 ) -> tuple[PrintPageSlice, ...]:
     if full_range is None:
         return (PrintPageSlice(None, None, 1, 1),)
@@ -360,14 +436,26 @@ def _build_automatic_page_slices(
     if end <= start:
         return (PrintPageSlice(start, end, 1, 1),)
 
-    raw = list(
-        balanced_automatic_page_ranges(
-            start,
-            end,
-            first_units_per_page=max(first_units_per_page, 1e-9),
-            regular_units_per_page=max(regular_units_per_page, 1e-9),
+    if last_units_per_page is not None and single_units_per_page is not None:
+        raw = list(
+            reserved_ending_page_ranges(
+                start,
+                end,
+                first_units_per_page=max(first_units_per_page, 1e-9),
+                regular_units_per_page=max(regular_units_per_page, 1e-9),
+                last_units_per_page=max(last_units_per_page, 1e-9),
+                single_units_per_page=max(single_units_per_page, 0.0),
+            )
         )
-    )
+    else:
+        raw = list(
+            balanced_automatic_page_ranges(
+                start,
+                end,
+                first_units_per_page=max(first_units_per_page, 1e-9),
+                regular_units_per_page=max(regular_units_per_page, 1e-9),
+            )
+        )
     total = len(raw)
     return tuple(
         PrintPageSlice(page_start, page_end, index + 1, total)

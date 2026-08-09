@@ -176,6 +176,45 @@ def tablet_print_layout_height(
     )
 
 
+def maximum_tablet_body_height_with_repeated_header(
+    available_height: int,
+    header_height: int,
+    *,
+    show_column_header: bool,
+) -> int:
+    """Return the largest graph body that fits beside a repeated header.
+
+    ``available_height`` is expressed in the canonical logical pixels that fit
+    on the physical page at the document-wide horizontal scale.  The gap is a
+    function of the resulting snapshot height, therefore a small binary search
+    keeps this calculation identical to the renderer instead of approximating
+    it with a fixed percentage.
+    """
+
+    available = int(available_height)
+    header = int(header_height)
+    if available <= 0:
+        raise ValueError("Доступная высота печатной формы должна быть положительной")
+    if header <= 0:
+        raise ValueError("Высота повторяемой шапки должна быть положительной")
+
+    low = 0
+    high = available
+    while low < high:
+        candidate = (low + high + 1) // 2
+        total = tablet_print_layout_height(
+            header + candidate,
+            header,
+            show_column_header=show_column_header,
+            repeat_column_header_at_bottom=True,
+        )
+        if total <= available:
+            low = candidate
+        else:
+            high = candidate - 1
+    return low
+
+
 def capture_tablet_print_snapshot(
     tablet: TabletView,
     *,

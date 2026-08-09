@@ -98,6 +98,10 @@ the ready-preset gallery. Creating it makes an editable project copy and exposes
 editor. Primary actions remain visible; columns, mapping, page, symbols and assets are in a
 collapsible advanced section.
 
+When the ending column header is enabled, pagination reserves its space before rendering.
+The last page keeps the same width and engineering scale as the preceding pages; the final
+range is redistributed or an extra page is added when necessary.
+
 ## Combined LAS export fix
 
 The temporary LAS is now written explicitly as UTF-8. This fixes the Windows failure where

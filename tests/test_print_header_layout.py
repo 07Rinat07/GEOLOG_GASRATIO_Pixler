@@ -29,6 +29,7 @@ from geoworkbench.printing.print_job import (
 from geoworkbench.printing.print_layout import PrintContinuationSlice, PrintScaleMode
 from geoworkbench.printing.tablet_print import (
     TabletPrintSnapshot,
+    maximum_tablet_body_height_with_repeated_header,
     paint_tablet_header_repeat,
     paint_tablet_snapshot,
     tablet_header_gap_height,
@@ -199,6 +200,22 @@ def test_body_only_layout_excludes_hidden_header_height() -> None:
         show_column_header=False,
         repeat_column_header_at_bottom=True,
     ) == 220 + 80 + tablet_header_gap_height(300)
+
+
+def test_final_page_body_reserves_bottom_header_at_document_scale() -> None:
+    assert maximum_tablet_body_height_with_repeated_header(
+        220,
+        80,
+        show_column_header=False,
+    ) == 139
+
+
+def test_single_page_body_reserves_top_and_bottom_headers() -> None:
+    assert maximum_tablet_body_height_with_repeated_header(
+        300,
+        80,
+        show_column_header=True,
+    ) == 138
 
 
 def test_hidden_top_header_makes_adaptive_tablet_fill_the_page(qapp, monkeypatch) -> None:

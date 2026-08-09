@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import pytest
 
-from geoworkbench.printing.auto_pagination import balanced_automatic_page_ranges
+from geoworkbench.printing.auto_pagination import (
+    balanced_automatic_page_ranges,
+    reserved_ending_page_ranges,
+)
 from geoworkbench.printing.pagination import MAX_PRINT_PAGE_COUNT
 
 
@@ -67,3 +70,47 @@ def test_excessive_automatic_page_count_is_rejected_before_looping() -> None:
             first_units_per_page=1.0,
             regular_units_per_page=1.0,
         )
+
+
+def test_bottom_header_capacity_is_reserved_before_page_ranges_are_built() -> None:
+    ranges = reserved_ending_page_ranges(
+        0.0,
+        250.0,
+        first_units_per_page=60.0,
+        regular_units_per_page=100.0,
+        last_units_per_page=50.0,
+        single_units_per_page=30.0,
+    )
+
+    expected = ((0.0, 60.0), (60.0, 130.0), (130.0, 200.0), (200.0, 250.0))
+    assert len(ranges) == len(expected)
+    assert all(actual == pytest.approx(wanted) for actual, wanted in zip(ranges, expected))
+    assert ranges[-1][1] - ranges[-1][0] <= 50.0
+
+
+def test_short_document_uses_capacity_for_both_column_headers() -> None:
+    ranges = reserved_ending_page_ranges(
+        10.0,
+        35.0,
+        first_units_per_page=60.0,
+        regular_units_per_page=100.0,
+        last_units_per_page=50.0,
+        single_units_per_page=30.0,
+    )
+
+    assert ranges == ((10.0, 35.0),)
+
+
+def test_document_larger_than_single_page_capacity_is_balanced_over_two_pages() -> None:
+    ranges = reserved_ending_page_ranges(
+        0.0,
+        80.0,
+        first_units_per_page=60.0,
+        regular_units_per_page=100.0,
+        last_units_per_page=50.0,
+        single_units_per_page=30.0,
+    )
+
+    expected = ((0.0, 40.0), (40.0, 80.0))
+    assert len(ranges) == len(expected)
+    assert all(actual == pytest.approx(wanted) for actual, wanted in zip(ranges, expected))

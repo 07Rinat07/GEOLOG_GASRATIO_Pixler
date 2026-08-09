@@ -35,6 +35,8 @@ def bounded_automatic_page_capacities(
     *,
     first_units_per_page: float,
     regular_units_per_page: float,
+    last_units_per_page: float | None = None,
+    single_units_per_page: float | None = None,
     maximum_pages: int = MAX_AUTOMATIC_PRINT_PAGE_COUNT,
 ) -> tuple[float, float]:
     """Expand automatic intervals when the current zoom would create too many pages."""
@@ -44,17 +46,35 @@ def bounded_automatic_page_capacities(
     regular = float(regular_units_per_page)
     if not all(value > 0.0 for value in (span, first, regular)):
         raise ValueError("Автоматические интервалы и диапазон должны быть положительными")
+    last = None if last_units_per_page is None else float(last_units_per_page)
+    single = None if single_units_per_page is None else float(single_units_per_page)
+    if last is not None and last <= 0.0:
+        raise ValueError("Интервал последней страницы должен быть положительным")
+    if single is not None and single < 0.0:
+        raise ValueError("Интервал одностраничного документа не может быть отрицательным")
     if isinstance(maximum_pages, bool) or not isinstance(maximum_pages, int):
         raise ValueError("Предел автоматических страниц должен быть целым числом")
     if maximum_pages < 1:
         raise ValueError("Предел автоматических страниц должен быть положительным")
 
-    remaining = max(0.0, span - first)
-    page_count = 1 + int(ceil(max(0.0, remaining - 1e-9) / regular))
+    if last is None:
+        remaining = max(0.0, span - first)
+        page_count = 1 + int(ceil(max(0.0, remaining - 1e-9) / regular))
+        available_capacity = first + max(0, maximum_pages - 1) * regular
+    elif single is not None and span <= single + 1e-9:
+        page_count = 1
+        available_capacity = single
+    else:
+        remaining = max(0.0, span - first - last)
+        page_count = 2 + int(ceil(max(0.0, remaining - 1e-9) / regular))
+        available_capacity = (
+            first
+            + max(0, maximum_pages - 2) * regular
+            + last
+        )
     if page_count <= maximum_pages:
         return first, regular
 
-    available_capacity = first + max(0, maximum_pages - 1) * regular
     scale = span / available_capacity
     return first * scale, regular * scale
 
@@ -251,3 +271,82 @@ def balanced_automatic_page_ranges(
         balanced.append((page_start, page_end))
         page_start = page_end
     return tuple(balanced)
+
+
+def reserved_ending_page_ranges(
+    start: float,
+    end: float,
+    *,
+    first_units_per_page: float,
+    regular_units_per_page: float,
+    last_units_per_page: float,
+    single_units_per_page: float,
+) -> tuple[tuple[float, float], ...]:
+    """Build ranges while reserving the final page for a repeated form header.
+
+    The graph, top header and repeated bottom header are all rendered at one
+    horizontal scale.  Consequently the final sheet has a smaller graph
+    capacity than an ordinary continuation.  Page ranges are resolved before
+    painting, so the renderer never has to shrink the complete final tablet.
+    """
+
+    lower = float(start)
+    upper = float(end)
+    capacities = (
+        float(first_units_per_page),
+        float(regular_units_per_page),
+        float(last_units_per_page),
+        float(single_units_per_page),
+    )
+    if not all(value > 0.0 for value in capacities[:3]) or capacities[3] < 0.0:
+        raise ValueError("Автоматические интервалы страниц должны быть положительными")
+    if upper <= lower:
+        return ((lower, upper),)
+
+    total_span = upper - lower
+    first_capacity, regular_capacity, last_capacity, single_capacity = capacities
+    if total_span <= single_capacity + 1e-9:
+        return ((lower, upper),)
+
+    page_count = 2
+    total_capacity = first_capacity + last_capacity
+    while total_capacity < total_span - 1e-9:
+        page_count += 1
+        total_capacity += regular_capacity
+    validate_print_page_count(page_count)
+
+    page_capacities = [first_capacity]
+    page_capacities.extend([regular_capacity] * max(0, page_count - 2))
+    page_capacities.append(last_capacity)
+    page_spans = _balanced_spans_with_capacities(total_span, page_capacities)
+
+    ranges: list[tuple[float, float]] = []
+    page_start = lower
+    for index, page_span in enumerate(page_spans):
+        page_end = upper if index == page_count - 1 else page_start + page_span
+        ranges.append((page_start, page_end))
+        page_start = page_end
+    return tuple(ranges)
+
+
+def _balanced_spans_with_capacities(
+    total_span: float,
+    capacities: list[float],
+) -> tuple[float, ...]:
+    """Distribute a range evenly without exceeding any page's capacity."""
+
+    spans = [0.0] * len(capacities)
+    active = set(range(len(capacities)))
+    remaining = float(total_span)
+    while active:
+        level = remaining / len(active)
+        limited = [index for index in active if capacities[index] < level - 1e-9]
+        if not limited:
+            for index in active:
+                spans[index] = level
+            break
+        for index in limited:
+            spans[index] = capacities[index]
+            remaining -= capacities[index]
+            active.remove(index)
+    return tuple(spans)

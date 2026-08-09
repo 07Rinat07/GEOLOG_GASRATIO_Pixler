@@ -181,13 +181,16 @@ def _paint_tablet_with_repeated_header(
     )
 
     if scale_mode is PrintScaleMode.FIT:
-        scale = min(
-            content_rect.width() / snapshot.layout.total_width,
-            content_rect.height() / logical_total_height,
-        )
+        scale = content_rect.width() / snapshot.layout.total_width
         rendered_width = snapshot.layout.total_width * scale
         rendered_height = logical_total_height * scale
-        x = content_rect.left() + (content_rect.width() - rendered_width) / 2.0
+        if rendered_height > content_rect.height() + 2.0:
+            raise TabletPrintError(
+                "Нижняя шапка не помещается при едином масштабе формы. "
+                "Включите автоматический интервал страницы или уменьшите "
+                "ручной интервал."
+            )
+        x = content_rect.left()
         # Keep the final graph and its repeated legend together. A partial
         # depth/time interval deliberately remains short to preserve the same
         # engineering scale as the preceding pages.

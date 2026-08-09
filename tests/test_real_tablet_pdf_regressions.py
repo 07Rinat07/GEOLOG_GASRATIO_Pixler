@@ -138,7 +138,7 @@ def _complex_tablet(*, domain: DepthDomain, start: float, end: float) -> TabletV
     return view
 
 
-def _render_last_page_metrics(pdf_path: Path) -> tuple[int, float, int]:
+def _render_last_page_metrics(pdf_path: Path) -> tuple[int, float, int, float]:
     with fitz.open(pdf_path) as document:
         page_count = document.page_count
         page = document[-1]
@@ -155,7 +155,14 @@ def _render_last_page_metrics(pdf_path: Path) -> tuple[int, float, int]:
     density = float(body.mean())
     lower = body[int(body.shape[0] * 0.55) :, :]
     dense_lower_rows = int(np.count_nonzero(lower.sum(axis=1) > image.shape[1] * 0.18))
-    return page_count, density, dense_lower_rows
+    column_density = body.sum(axis=0)
+    occupied = np.flatnonzero(column_density > max(4, int(body.shape[0] * 0.01)))
+    occupied_width_ratio = (
+        0.0
+        if occupied.size == 0
+        else float(occupied[-1] - occupied[0] + 1) / image.shape[1]
+    )
+    return page_count, density, dense_lower_rows, occupied_width_ratio
 
 
 @pytest.mark.parametrize(
@@ -205,7 +212,9 @@ def test_complex_tablet_pdf_keeps_material_last_page_and_bottom_legend(
         tablet.close()
         qapp.processEvents()
 
-    page_count, density, dense_lower_rows = _render_last_page_metrics(target)
+    page_count, density, dense_lower_rows, occupied_width_ratio = (
+        _render_last_page_metrics(target)
+    )
     assert result.page_count == page_count
     assert page_count >= 2
     assert density >= 0.035, (
@@ -213,6 +222,10 @@ def test_complex_tablet_pdf_keeps_material_last_page_and_bottom_legend(
     )
     assert dense_lower_rows >= 5, (
         "the repeated form legend is missing from the lower part of the final page"
+    )
+    assert occupied_width_ratio >= 0.90, (
+        "the final tablet was narrowed to satisfy its vertical layout: "
+        f"width_ratio={occupied_width_ratio:.4f}"
     )
 
 

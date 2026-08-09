@@ -178,8 +178,10 @@ def test_full_depth_pdf_contains_multiple_pages_and_restores_view(qapp, tmp_path
 
     document = QPdfDocument()
     assert document.load(str(target)) == QPdfDocument.Error.None_
-    assert document.pageCount() == 4
-    assert result.page_count == 4
+    # The requested 50 m interval is the regular graph capacity. The first
+    # header and repeated ending header reserve their own vertical bands.
+    assert document.pageCount() == 5
+    assert result.page_count == 5
     assert view.visible_depth_range == pytest.approx(original)
     assert live_range_changes == []
     view.close()
@@ -206,10 +208,11 @@ def test_full_depth_png_export_creates_numbered_pages(qapp, tmp_path) -> None:
         context=PrintDocumentContext("Well Ә-1", AppLanguage.EN),
     )
 
-    assert result.page_count == 2
+    assert result.page_count == 3
     assert [path.name for path in result.paths] == [
         "well_page_001.png",
         "well_page_002.png",
+        "well_page_003.png",
     ]
     assert all(path.read_bytes().startswith(b"\x89PNG") for path in result.paths)
     view.close()
