@@ -77,15 +77,6 @@ class FormApplyEngine:
                     "explicit",
                 )
 
-        curve = dataset.curve_by_mnemonic(binding.canonical_parameter_id)
-        if curve is not None:
-            return BindingResolution(
-                binding.binding_id,
-                binding.canonical_parameter_id,
-                curve.metadata.original_mnemonic,
-                "canonical",
-            )
-
         canonical = binding.canonical_parameter_id.strip().upper()
         semantic = semantic or self.parameter_resolver.resolve_dataset(
             dataset, targets=(canonical,), minimum_confidence=0.65
@@ -104,6 +95,15 @@ class FormApplyEngine:
                 binding.canonical_parameter_id,
                 semantic_match.source_mnemonic,
                 f"semantic_{semantic_match.matched_by}",
+            )
+
+        curve = dataset.curve_by_mnemonic(binding.canonical_parameter_id)
+        if curve is not None:
+            return BindingResolution(
+                binding.binding_id,
+                binding.canonical_parameter_id,
+                curve.metadata.original_mnemonic,
+                "canonical",
             )
 
         wanted = normalize_sensor_key(binding.canonical_parameter_id)

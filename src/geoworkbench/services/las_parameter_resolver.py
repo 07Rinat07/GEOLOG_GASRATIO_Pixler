@@ -147,23 +147,57 @@ _PARAMETER_ALIASES: dict[str, tuple[str, ...]] = {
         "C3 GAS",
     ),
     "C4": ("C4", "BUTANE", "БУТАН", "TOTAL BUTANE", "СУММАРНЫЙ БУТАН"),
-    "IC4": ("IC4", "I-C4", "I C4", "ISOBUTANE", "ISO BUTANE", "ИЗОБУТАН"),
+    "IC4": (
+        "IC4",
+        "I-C4",
+        "I C4",
+        "C4I",
+        "I-BUT",
+        "IBUT",
+        "IBUTANE",
+        "ISOBUTANE",
+        "ISO BUTANE",
+        "ISO-C4",
+        "ИЗОБУТАН",
+    ),
     "NC4": (
         "NC4",
         "N-C4",
         "N C4",
+        "C4N",
+        "N-BUT",
+        "NBUT",
+        "NBUTANE",
         "NORMAL BUTANE",
+        "NORMAL-C4",
         "N-BUTANE",
         "Н-БУТАН",
         "НОРМАЛЬНЫЙ БУТАН",
     ),
     "C5": ("C5", "PENTANE", "ПЕНТАН", "TOTAL PENTANE", "СУММАРНЫЙ ПЕНТАН"),
-    "IC5": ("IC5", "I-C5", "I C5", "ISOPENTANE", "ISO PENTANE", "ИЗОПЕНТАН"),
+    "IC5": (
+        "IC5",
+        "I-C5",
+        "I C5",
+        "C5I",
+        "I-PENT",
+        "IPENT",
+        "IPENTANE",
+        "ISOPENTANE",
+        "ISO PENTANE",
+        "ISO-C5",
+        "ИЗОПЕНТАН",
+    ),
     "NC5": (
         "NC5",
         "N-C5",
         "N C5",
+        "C5N",
+        "N-PENT",
+        "NPENT",
+        "NPENTANE",
         "NORMAL PENTANE",
+        "NORMAL-C5",
         "N-PENTANE",
         "Н-ПЕНТАН",
         "НОРМАЛЬНЫЙ ПЕНТАН",
@@ -269,6 +303,9 @@ _PARAMETER_ALIASES: dict[str, tuple[str, ...]] = {
     ),
     "ROP": (
         "ROP",
+        "ROP_AVG",
+        "ROPAVG",
+        "ROPA",
         "RATE OF PENETRATION",
         "DRILL RATE",
         "DRILLING RATE",
@@ -280,10 +317,17 @@ _PARAMETER_ALIASES: dict[str, tuple[str, ...]] = {
     "BIT": (
         "BIT",
         "BS",
+        "BDIA",
+        "DBIT",
+        "DIA_BIT",
         "BIT SIZE",
         "BIT_SIZE",
+        "BIT_SIZE_IN",
+        "BITSIZEIN",
         "BIT DIAMETER",
+        "BIT_DIAMETER_IN",
         "HOLE SIZE",
+        "HOLE_SIZE_IN",
         "DHOL",
         "ДИАМЕТР ДОЛОТА",
     ),
@@ -456,7 +500,10 @@ class LasParameterResolver:
         user_mappings: Mapping[str, str] | None = None,
         minimum_confidence: float = 0.65,
     ) -> DatasetParameterResolution:
-        target_set = {item.strip().upper() for item in targets or () if item.strip()}
+        requested_targets = {item.strip().upper() for item in targets or () if item.strip()}
+        target_set = set(requested_targets)
+        if requested_targets & {"NC4", "NC5"}:
+            target_set.update(("C4", "IC4", "C5", "IC5"))
         user_mappings = user_mappings or {}
         grouped: dict[str, list[ParameterMatch]] = {}
         unresolved: list[str] = []
@@ -492,9 +539,25 @@ class LasParameterResolver:
                 and _coverage_ratio(item.curve) == _coverage_ratio(best.curve)
             )
             if len({item.curve_id for item in tied}) > 1 and best.matched_by != "user_mapping":
-                ambiguities[canonical] = tied
+                if all(_curves_are_equivalent(best.curve, item.curve) for item in tied[1:]):
+                    matches[canonical] = _collapse_equivalent_candidates(canonical, tied)
+                else:
+                    ambiguities[canonical] = tied
             else:
                 matches[canonical] = best
+
+        _install_contextual_normal_isomers(matches, ambiguities)
+        if requested_targets:
+            matches = {
+                canonical: match
+                for canonical, match in matches.items()
+                if canonical in requested_targets
+            }
+            ambiguities = {
+                canonical: candidates
+                for canonical, candidates in ambiguities.items()
+                if canonical in requested_targets
+            }
 
         return DatasetParameterResolution(
             MappingProxyType(matches),
@@ -778,6 +841,117 @@ def _dataset_candidate_key(candidate: ParameterMatch) -> tuple[float, float, int
         0 if candidate.matched_by == "user_mapping" else 1,
         candidate.curve_id,
     )
+
+
+def _equivalent_candidate_key(candidate: ParameterMatch) -> tuple[int, str, str]:
+    mnemonic = candidate.source_mnemonic.strip()
+    return (len(normalize_sensor_key(mnemonic)), mnemonic.casefold(), candidate.curve_id)
+
+
+def _collapse_equivalent_candidates(
+    canonical: str,
+    candidates: tuple[ParameterMatch, ...],
+) -> ParameterMatch:
+    selected = min(candidates, key=_equivalent_candidate_key)
+    aliases = ", ".join(item.source_mnemonic for item in candidates)
+    return ParameterMatch(
+        canonical,
+        selected.curve,
+        selected.confidence,
+        "equivalent_duplicate",
+        (*selected.evidence, f"идентичные дубли автоматически объединены: {aliases}"),
+    )
+
+
+def _install_contextual_normal_isomers(
+    matches: dict[str, ParameterMatch],
+    ambiguities: Mapping[str, tuple[ParameterMatch, ...]],
+) -> None:
+    """Interpret GeoScape-style C4/C5 as normal isomers beside iC4/iC5.
+
+    GeoScape II documents its chromatograph as seven separate components:
+    isobutane, butane, isopentane and pentane.  Older exports shorten the two
+    normal components to C4/C5.  The contextual alias is intentionally not used
+    for an explicitly total/summed channel or for a numeric duplicate of the iso
+    curve; both cases are unsafe to reinterpret automatically.
+    """
+
+    families = (
+        ("C4", "IC4", "NC4"),
+        ("C5", "IC5", "NC5"),
+    )
+    # A complete pair of C4 and C5 families is the recognizable legacy
+    # seven-component chromatograph signature. One isolated generic family is
+    # not enough evidence because another vendor may use C4/C5 for a family sum.
+    if any(
+        matches.get(generic) is None
+        or matches.get(iso_component) is None
+        or generic in ambiguities
+        or iso_component in ambiguities
+        for generic, iso_component, _normal_component in families
+    ):
+        return
+
+    for generic, iso_component, normal_component in families:
+        generic_match = matches.get(generic)
+        iso_match = matches.get(iso_component)
+        normal_match = matches.get(normal_component)
+        assert generic_match is not None
+        assert iso_match is not None
+        if normal_match is not None and _coverage_ratio(normal_match.curve) > 0.0:
+            continue
+        if _looks_like_explicit_aggregate(generic_match.curve, generic):
+            continue
+        if _curves_are_equivalent(generic_match.curve, iso_match.curve):
+            continue
+
+        matches[normal_component] = ParameterMatch(
+            normal_component,
+            generic_match.curve,
+            min(generic_match.confidence, iso_match.confidence),
+            "contextual_normal_isomer",
+            (
+                *generic_match.evidence,
+                f"контекст GeoScape: {generic}+{iso_component} — раздельные нормальный и изокомпонент",
+            ),
+        )
+
+
+def _looks_like_explicit_aggregate(curve: CurveData, family: str) -> bool:
+    text = normalize_sensor_key(
+        " ".join(
+            value
+            for value in (
+                curve.metadata.original_mnemonic,
+                curve.metadata.description or "",
+            )
+            if value
+        )
+    )
+    aggregate_tokens = tuple(
+        normalize_sensor_key(token)
+        for token in (
+            f"TOTAL{family}",
+            f"{family}TOTAL",
+            f"SUM{family}",
+            f"{family}SUM",
+            "TOTAL BUTANE" if family == "C4" else "TOTAL PENTANE",
+            "СУММАРНЫЙ БУТАН" if family == "C4" else "СУММАРНЫЙ ПЕНТАН",
+        )
+    )
+    return any(token in text for token in aggregate_tokens)
+
+
+def _curves_are_equivalent(left: CurveData, right: CurveData) -> bool:
+    left_values = np.asarray(left.values, dtype=np.float64)
+    right_values = np.asarray(right.values, dtype=np.float64)
+    if left_values.shape != right_values.shape:
+        return False
+    left_unit = normalize_unit(left.metadata.unit or "")
+    right_unit = normalize_unit(right.metadata.unit or "")
+    if left_unit and right_unit and left_unit != right_unit:
+        return False
+    return bool(np.array_equal(left_values, right_values, equal_nan=True))
 
 
 def _looks_like_non_concentration_unit(unit: str) -> bool:

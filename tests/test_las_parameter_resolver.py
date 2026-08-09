@@ -148,6 +148,117 @@ def test_resolver_blocks_equal_confidence_duplicate_channels() -> None:
         resolution.require("C1")
 
 
+def test_resolver_collapses_byte_equivalent_duplicate_channels() -> None:
+    dataset = _dataset(
+        ("C1", "Methane primary", "%", [1.0, 2.0]),
+        ("CH4", "Methane duplicate", "%", [1.0, 2.0]),
+    )
+
+    resolution = LasParameterResolver().resolve_dataset(dataset, targets=("C1",))
+
+    assert resolution.require("C1").source_mnemonic == "C1"
+    assert "C1" not in resolution.ambiguities
+
+
+def test_resolver_recognizes_international_isomer_and_bit_aliases() -> None:
+    dataset = _dataset(
+        ("IBUT", "", "%", [0.2, 0.3]),
+        ("NBUT", "", "%", [0.4, 0.5]),
+        ("IPENT", "", "%", [0.1, 0.2]),
+        ("NPENT", "", "%", [0.2, 0.3]),
+        ("BIT_SIZE_IN", "", "in", [8.5, 8.5]),
+    )
+
+    resolution = LasParameterResolver().resolve_dataset(
+        dataset,
+        targets=("IC4", "NC4", "IC5", "NC5", "BIT"),
+    )
+
+    assert resolution.require("IC4").source_mnemonic == "IBUT"
+    assert resolution.require("NC4").source_mnemonic == "NBUT"
+    assert resolution.require("IC5").source_mnemonic == "IPENT"
+    assert resolution.require("NC5").source_mnemonic == "NPENT"
+    assert resolution.require("BIT").source_mnemonic == "BIT_SIZE_IN"
+
+
+def test_gas_inputs_map_geoscape_c4_c5_to_normal_isomers_beside_iso_components() -> None:
+    dataset = _dataset(
+        ("C1", "", "%", [1.0, 1.0]),
+        ("C2", "", "%", [0.2, 0.2]),
+        ("C3", "", "%", [0.1, 0.1]),
+        ("C4", "", "%", [0.4, 0.1]),
+        ("IC4", "", "%", [0.1, 0.2]),
+        ("C5", "", "%", [0.3, 0.2]),
+        ("IC5", "", "%", [0.1, 0.1]),
+    )
+
+    inputs = resolve_gas_ratio_inputs(dataset)
+    nc4_only = LasParameterResolver().resolve_dataset(dataset, targets=("NC4",))
+
+    np.testing.assert_allclose(inputs["NC4"], [0.4, 0.1])
+    np.testing.assert_allclose(inputs["NC5"], [0.3, 0.2])
+    assert nc4_only.require("NC4").source_mnemonic == "C4"
+
+
+def test_empty_explicit_normal_isomer_can_fall_back_to_contextual_geoscape_channel() -> None:
+    dataset = _dataset(
+        ("C1", "", "%", [1.0, 1.0]),
+        ("C2", "", "%", [0.2, 0.2]),
+        ("C3", "", "%", [0.1, 0.1]),
+        ("C4", "", "%", [0.4, 0.5]),
+        ("IC4", "", "%", [0.1, 0.2]),
+        ("NC4", "", "%", [np.nan, np.nan]),
+        ("C5", "", "%", [0.3, 0.4]),
+        ("IC5", "", "%", [0.1, 0.2]),
+    )
+
+    inputs = resolve_gas_ratio_inputs(dataset)
+
+    np.testing.assert_allclose(inputs["NC4"], [0.4, 0.5])
+
+
+def test_equivalent_generic_and_iso_channels_do_not_fabricate_normal_component() -> None:
+    dataset = _dataset(
+        ("C1", "", "%", [1.0, 1.0]),
+        ("C2", "", "%", [0.2, 0.2]),
+        ("C3", "", "%", [0.1, 0.1]),
+        ("C4", "", "%", [0.4, 0.5]),
+        ("IC4", "", "%", [0.4, 0.5]),
+        ("NC4", "", "%", [np.nan, np.nan]),
+        ("C5", "", "%", [0.3, 0.4]),
+        ("IC5", "", "%", [0.1, 0.2]),
+    )
+
+    inputs = resolve_gas_ratio_inputs(dataset)
+
+    assert "NC4" in inputs
+    assert np.all(np.isnan(inputs["NC4"]))
+
+
+@pytest.mark.parametrize(
+    ("mnemonic", "description"),
+    (("TOTAL_C4", "Total butane"), ("C4", "Суммарный бутан")),
+)
+def test_explicit_total_family_channel_is_not_reinterpreted_as_normal_isomer(
+    mnemonic: str,
+    description: str,
+) -> None:
+    dataset = _dataset(
+        ("C1", "", "%", [1.0, 1.0]),
+        ("C2", "", "%", [0.2, 0.2]),
+        ("C3", "", "%", [0.1, 0.1]),
+        (mnemonic, description, "%", [0.4, 0.5]),
+        ("IC4", "", "%", [0.1, 0.2]),
+        ("C5", "", "%", [0.3, 0.4]),
+        ("IC5", "", "%", [0.1, 0.2]),
+    )
+
+    inputs = resolve_gas_ratio_inputs(dataset)
+
+    assert "C4" in inputs
+    assert "NC4" not in inputs
+
+
 def test_user_mapping_resolves_duplicate_channel_conflict() -> None:
     dataset = _dataset(
         ("C1", "Methane primary", "%", [1.0, 2.0]),

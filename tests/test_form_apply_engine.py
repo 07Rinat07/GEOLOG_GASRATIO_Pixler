@@ -4,6 +4,7 @@ import numpy as np
 
 from geoworkbench.domain.models import CurveData, CurveMetadata, Dataset, DatasetKind, DepthDomain
 from geoworkbench.forms import FormApplyEngine, factory_templates
+from geoworkbench.forms.a4_factory_templates import a4_factory_templates
 
 
 def _dataset() -> Dataset:
@@ -105,3 +106,38 @@ def test_factory_form_draws_server_normalized_total_gas_alias() -> None:
         "NORMALIZED_TOTAL_GAS" in track.curve_mnemonics
         for track in result.layout.tracks
     )
+
+
+def test_form_prefers_contextual_geoscape_channel_over_empty_normal_source() -> None:
+    dataset = _dataset()
+    for mnemonic, canonical, values, provenance in (
+        ("S1628", "NC4", [np.nan, np.nan], "source:paradox"),
+        ("C4", "C4", [0.2, 0.3], "source:las"),
+        ("IC4", "IC4", [0.1, 0.1], "source:las"),
+        ("C5", "C5", [0.1, 0.2], "source:las"),
+        ("IC5", "IC5", [0.05, 0.07], "source:las"),
+    ):
+        metadata = CurveMetadata(
+            curve_id=f"curve-{mnemonic}",
+            original_mnemonic=mnemonic,
+            canonical_mnemonic=canonical,
+            unit="%",
+            description="nC4",
+            source_dataset_id=dataset.dataset_id,
+            provenance=provenance,
+        )
+        dataset.curves[metadata.curve_id] = CurveData(
+            metadata,
+            np.asarray(values, dtype=np.float64),
+        )
+
+    result = FormApplyEngine().build_layout(
+        a4_factory_templates()["factory-complex-gas-a4-landscape"],
+        dataset,
+    )
+    component_track = next(
+        track for track in result.layout.tracks if track.title == "Компоненты C1–C5"
+    )
+
+    assert "C4" in component_track.curve_mnemonics
+    assert "S1628" not in component_track.curve_mnemonics

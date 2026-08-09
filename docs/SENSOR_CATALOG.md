@@ -5,6 +5,12 @@
 Проект содержит нормализованный справочник `src/geoworkbench/resources/sensors.ru.json`,
 сформированный из предоставленных таблиц `Editor/Sensors.DB`, `Geolog-055/Sensors.DB` и
 проверенных LAS-псевдонимов. Исходные бинарные таблицы не требуются для запуска приложения.
+Аудит архива GeoScape2 подтвердил покрытие всех 317 уникальных `GID` из его `Sensors.DB`, в том
+числе `1626=iC4`, `1627=iC5`, `1628=nC4` и `1629=nC5`.
+Руководство GeoScape II дополнительно подтверждает семикомпонентный выход хроматографа. Поэтому
+старые `C4/C5` рядом с `iC4/iC5` используются как контекстные алиасы `nC4/nC5`, но явные
+суммарные каналы и численно одинаковые дубли автоматически не переосмысливаются. Канонический
+набор `C1/C2/C3/nC4/iC4/nC5/iC5` дополнительно сверён с официальной терминологией SLB.
 
 Каждая запись хранит стабильный ID, каноническую мнемонику, список псевдонимов, русское
 название, единицу измерения, категорию, физически совместимое семейство дорожки,
@@ -25,6 +31,12 @@ LAS и не подменяет фактические единицы или зн
 Жобада `Editor/Sensors.DB`, `Geolog-055/Sensors.DB` кестелері және тексерілген LAS бүркеншік
 аттары негізінде жасалған `src/geoworkbench/resources/sensors.ru.json` қалыптандырылған
 анықтамалығы бар. Бағдарламаны іске қосу үшін бастапқы бинарлық кестелер қажет емес.
+GeoScape2 мұрағатын тексеру оның `Sensors.DB` кестесіндегі барлық 317 бірегей `GID`, соның ішінде
+`1626=iC4`, `1627=iC5`, `1628=nC4` және `1629=nC5` қамтылғанын растады.
+GeoScape II нұсқаулығы хроматографтың жеті компоненттік шығысын да растайды. Сондықтан ескі
+`C4/C5` арналары `iC4/iC5` жанында `nC4/nC5` контекстік алиастары ретінде қолданылады, бірақ
+нақты жиынтық арналар мен сандық бірдей көшірмелер автоматты түрде қайта түсіндірілмейді.
+`C1/C2/C3/nC4/iC4/nC5/iC5` канондық жиыны SLB ресми терминологиясымен де салыстырылды.
 
 Әр жазба тұрақты ID, канондық мнемоника, бүркеншік аттар, орысша атау, өлшем бірлігі, санат,
 физикалық тұрғыдан үйлесімді жолақ тобы, ұсынылатын диапазон, түс және дереккөзді сақтайды.
@@ -44,6 +56,12 @@ LAS жүктелгеннен кейін «LAS қисықтары» панелі 
 The project ships a normalized `src/geoworkbench/resources/sensors.ru.json` catalog derived from
 the supplied `Editor/Sensors.DB`, `Geolog-055/Sensors.DB`, and validated LAS aliases. The original
 binary tables are not required at runtime.
+An audit of the GeoScape2 archive confirmed coverage of all 317 unique `GID` values from its
+`Sensors.DB`, including `1626=iC4`, `1627=iC5`, `1628=nC4`, and `1629=nC5`.
+The GeoScape II manual also confirms a seven-component chromatograph output. Legacy `C4/C5`
+beside `iC4/iC5` are therefore contextual aliases for `nC4/nC5`; explicitly total channels and
+numerically identical copies are not reinterpreted automatically. The canonical
+`C1/C2/C3/nC4/iC4/nC5/iC5` set was also checked against official SLB terminology.
 
 Each entry stores a stable ID, canonical mnemonic, aliases, Russian name, unit, category,
 physically compatible track family, recommended range, color, and provenance. Matching is

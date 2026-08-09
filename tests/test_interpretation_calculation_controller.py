@@ -187,3 +187,51 @@ def test_standard_suite_preserves_server_normalized_total_gas_alias() -> None:
         issue.code == "source-protected" and "NORMALIZED_TOTAL_GAS" in issue.message
         for issue in result.issues
     )
+
+
+def test_standard_suite_uses_geoscape_c4_c5_as_contextual_normal_isomers() -> None:
+    session = _session()
+    dataset = session.current_dataset
+    assert dataset is not None
+    dataset.curves.pop("NC4")
+    dataset.curves.pop("NC5")
+    _add_curve(dataset, "C4", np.full(dataset.depth.shape, 3.0), "%")
+    _add_curve(dataset, "C5", np.full(dataset.depth.shape, 2.0), "%")
+
+    result = InterpretationCalculationController(session).calculate_standard_curves()
+
+    resolution = InterpretationCalculationController(session).resolver.resolve_dataset(
+        dataset,
+        targets=("NC4", "NC5"),
+    )
+    assert resolution.require("NC4").source_mnemonic == "C4"
+    assert resolution.require("NC5").source_mnemonic == "C5"
+    np.testing.assert_allclose(dataset.curve_by_mnemonic("NC4_REL").values, 3.0 / 102.0 * 100.0)
+    np.testing.assert_allclose(dataset.curve_by_mnemonic("NC5_REL").values, 2.0 / 102.0 * 100.0)
+    assert {"NC4_REL", "NC5_REL"} <= set(result.changed)
+
+
+def test_standard_suite_preserves_empty_source_and_uses_contextual_fallback() -> None:
+    session = _session()
+    dataset = session.current_dataset
+    assert dataset is not None
+    dataset.curve_by_mnemonic("NC4").values[:] = np.nan
+    dataset.curve_by_mnemonic("NC5").values[:] = np.nan
+    _add_curve(dataset, "C4", np.full(dataset.depth.shape, 3.0), "%")
+    _add_curve(dataset, "C5", np.full(dataset.depth.shape, 2.0), "%")
+
+    result = InterpretationCalculationController(session).calculate_standard_curves()
+
+    source_nc4 = dataset.curves["NC4"]
+    source_nc5 = dataset.curves["NC5"]
+    assert np.all(np.isnan(source_nc4.values))
+    assert np.all(np.isnan(source_nc5.values))
+    resolved = InterpretationCalculationController(session).resolver.resolve_dataset(
+        dataset,
+        targets=("NC4", "NC5"),
+    )
+    assert resolved.require("NC4").source_mnemonic == "C4"
+    assert resolved.require("NC5").source_mnemonic == "C5"
+    assert dataset.curve_by_mnemonic("NC4_DERIVED") is None
+    assert dataset.curve_by_mnemonic("NC5_DERIVED") is None
+    assert {"NC4_REL", "NC5_REL"} <= set(result.changed)
