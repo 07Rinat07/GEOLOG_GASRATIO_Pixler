@@ -40,9 +40,6 @@ from geoworkbench.printing.print_layout import (
     PrintScaleMode,
     build_horizontal_continuations,
 )
-from geoworkbench.printing.tablet_print import (
-    maximum_tablet_body_height_with_repeated_header,
-)
 from geoworkbench.printing.unicode_support import print_font
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage, Localizer
@@ -52,9 +49,6 @@ from geoworkbench.tablet.tablet_view import TabletView
 
 
 _DOCUMENT_HEADER_FONT_SCALE = 1.60
-_TABLET_END_LAYOUT_SAFETY_PX = 4
-
-
 @dataclass(frozen=True, slots=True)
 class PrintDocumentContext:
     title: str
@@ -69,6 +63,7 @@ class PrintDocumentPage:
     continuation: PrintContinuationSlice
     index: int
     total: int
+    is_column_header_page: bool = False
 
     @property
     def start(self) -> float | None:
@@ -84,7 +79,10 @@ class PrintDocumentPage:
 
     @property
     def is_last_vertical_page(self) -> bool:
-        return self.vertical.index == self.vertical.total
+        return (
+            not self.is_column_header_page
+            and self.vertical.index == self.vertical.total
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,8 +98,6 @@ class PrintDocumentPlan:
     tablet_header_height_px: int | None = None
     first_page_target_content_height_px: int | None = None
     first_page_units_per_page: float | None = None
-    last_page_units_per_page: float | None = None
-    single_page_units_per_page: float | None = None
 
     @property
     def page_count(self) -> int:
@@ -162,8 +158,6 @@ def build_document_plan(
     tablet_header_height_px: int | None = None
     first_page_target_content_height_px: int | None = None
     first_page_units_per_page: float | None = None
-    last_page_units_per_page: float | None = None
-    single_page_units_per_page: float | None = None
     pagination = job.pagination
 
     if isinstance(widget, TabletView):
@@ -175,10 +169,7 @@ def build_document_plan(
         if (
             job.page.scale_mode is PrintScaleMode.FIT
             and full_range is not None
-            and (
-                use_auto_density
-                or job.repeat_column_header_at_bottom
-            )
+            and use_auto_density
         ):
             printable_tracks = _selected_tablet_tracks(widget, job)
             selected_definitions = [item.definition for item in printable_tracks]
@@ -254,37 +245,6 @@ def build_document_plan(
             )
             first_page_units_per_page = first_geometry.units_per_page
             first_page_target_content_height_px = first_geometry.target_content_height_px
-            if job.repeat_column_header_at_bottom:
-                canonical_body_height = target_content_height - header_height
-                last_body_height = maximum_tablet_body_height_with_repeated_header(
-                    max(1, canonical_body_height - _TABLET_END_LAYOUT_SAFETY_PX),
-                    header_height,
-                    show_column_header=False,
-                )
-                single_body_height = maximum_tablet_body_height_with_repeated_header(
-                    max(
-                        1,
-                        first_page_target_content_height_px
-                        - _TABLET_END_LAYOUT_SAFETY_PX,
-                    ),
-                    header_height,
-                    show_column_header=True,
-                )
-                if last_body_height <= 0:
-                    raise ValueError(
-                        "Шапка печатной формы не оставляет места для графика "
-                        "при повторе в конце журнала"
-                    )
-                last_page_units_per_page = (
-                    resolved_units_per_page
-                    * last_body_height
-                    / canonical_body_height
-                )
-                single_page_units_per_page = (
-                    resolved_units_per_page
-                    * single_body_height
-                    / canonical_body_height
-                )
             if use_auto_density:
                 (
                     first_page_units_per_page,
@@ -293,20 +253,7 @@ def build_document_plan(
                     domain_span,
                     first_units_per_page=first_page_units_per_page,
                     regular_units_per_page=resolved_units_per_page,
-                    last_units_per_page=last_page_units_per_page,
-                    single_units_per_page=single_page_units_per_page,
                 )
-                if last_page_units_per_page is not None:
-                    last_page_units_per_page = (
-                        resolved_units_per_page
-                        * last_body_height
-                        / canonical_body_height
-                    )
-                    single_page_units_per_page = (
-                        resolved_units_per_page
-                        * single_body_height
-                        / canonical_body_height
-                    )
             pagination = replace(
                 pagination,
                 units_per_page=max(min(resolved_units_per_page, domain_span), 1e-9),
@@ -324,8 +271,6 @@ def build_document_plan(
                 full_range=full_range,
                 first_units_per_page=first_page_units_per_page,
                 regular_units_per_page=resolved_units_per_page,
-                last_units_per_page=last_page_units_per_page,
-                single_units_per_page=single_page_units_per_page,
             )
         else:
             vertical_pages = build_page_slices(
@@ -354,13 +299,38 @@ def build_document_plan(
             else 0.0
         ),
     )
+    add_column_header_pages = (
+        isinstance(widget, TabletView)
+        and bool(widget.printable_tracks())
+        and job.repeat_column_header_at_bottom
+    )
     total = len(vertical_pages) * len(continuations)
+    if add_column_header_pages:
+        total += len(continuations)
     validate_print_page_count(total)
     pages: list[PrintDocumentPage] = []
     index = 1
     for vertical in vertical_pages:
         for continuation in continuations:
             pages.append(PrintDocumentPage(vertical, continuation, index, total))
+            index += 1
+    if add_column_header_pages:
+        header_slice = PrintPageSlice(
+            None,
+            None,
+            len(vertical_pages) + 1,
+            len(vertical_pages) + 1,
+        )
+        for continuation in continuations:
+            pages.append(
+                PrintDocumentPage(
+                    header_slice,
+                    continuation,
+                    index,
+                    total,
+                    is_column_header_page=True,
+                )
+            )
             index += 1
     return PrintDocumentPlan(
         pages=tuple(pages),
@@ -374,8 +344,6 @@ def build_document_plan(
         tablet_header_height_px=tablet_header_height_px,
         first_page_target_content_height_px=first_page_target_content_height_px,
         first_page_units_per_page=first_page_units_per_page,
-        last_page_units_per_page=last_page_units_per_page,
-        single_page_units_per_page=single_page_units_per_page,
     )
 
 
@@ -510,6 +478,8 @@ def _page_target_content_height(
     """Return a page-specific hidden viewport without changing widths."""
 
     target = plan.target_content_height_px
+    if page.is_column_header_page:
+        return target
     regular_units = plan.resolved_units_per_page
     if (
         target is None
@@ -611,9 +581,8 @@ def paint_document_page(
             continuation=page.continuation,
             high_quality=high_quality,
             show_column_header=_should_paint_column_header_at_top(page),
-            repeat_column_header_at_bottom=_should_paint_column_header_at_bottom(
-                job, page
-            ),
+            repeat_column_header_at_bottom=False,
+            column_header_only=_should_paint_column_header_only(job, page),
             included_track_ids=job.included_track_ids,
             grid_print_overrides=job.grid_print_overrides,
             target_content_height=_page_target_content_height(plan, page),
@@ -659,18 +628,18 @@ def _should_paint_full_header(
     )
 
 
-def _should_paint_column_header_at_bottom(
+def _should_paint_column_header_only(
     job: PrintJobSettings,
     page: PrintDocumentPage,
 ) -> bool:
-    return job.repeat_column_header_at_bottom and page.is_last_vertical_page
+    return job.repeat_column_header_at_bottom and page.is_column_header_page
 
 
 def _should_paint_column_header_at_top(page: PrintDocumentPage) -> bool:
     # The form header is the legend for the plotted curves.  It always belongs
-    # at the start of the document; the optional bottom copy supplements it at
-    # the end of the well and must never replace it.
-    return page.index == 1
+    # at the start of the document; the optional final-page copy supplements it
+    # at the end of the well and must never replace it.
+    return page.index == 1 and not page.is_column_header_page
 
 
 def _paint_header(painter: QPainter, rect: QRectF, *, title: str, range_text: str) -> None:

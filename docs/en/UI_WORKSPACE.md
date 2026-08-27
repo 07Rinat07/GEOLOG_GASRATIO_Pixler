@@ -98,9 +98,9 @@ the ready-preset gallery. Creating it makes an editable project copy and exposes
 editor. Primary actions remain visible; columns, mapping, page, symbols and assets are in a
 collapsible advanced section.
 
-When the ending column header is enabled, pagination reserves its space before rendering.
-The last page keeps the same width and engineering scale as the preceding pages; the final
-range is redistributed or an extra page is added when necessary.
+When the ending column header is enabled, it is always rendered on a separate final page.
+The graph ends on the preceding page, while the repeated header uses the same full width and
+cannot be narrowed by the available page height.
 
 ## Combined LAS export fix
 

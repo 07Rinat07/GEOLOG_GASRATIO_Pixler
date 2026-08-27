@@ -11,7 +11,7 @@ from geoworkbench.printing.document_renderer import (
     PrintDocumentPlan,
     _build_automatic_page_slices,
     _page_target_content_height,
-    _should_paint_column_header_at_bottom,
+    _should_paint_column_header_only,
     _should_paint_column_header_at_top,
     _should_paint_full_header,
 )
@@ -43,6 +43,8 @@ def _page(
     vertical_total: int,
     continuation_index: int = 1,
     continuation_total: int = 1,
+    *,
+    column_header_only: bool = False,
 ) -> PrintDocumentPage:
     page_index = (vertical_index - 1) * continuation_total + continuation_index
     return PrintDocumentPage(
@@ -56,28 +58,39 @@ def _page(
         ),
         page_index,
         vertical_total * continuation_total,
+        is_column_header_page=column_header_only,
     )
 
 
-def test_bottom_column_header_is_only_added_after_last_vertical_interval() -> None:
+def test_repeated_column_header_is_reserved_for_a_separate_final_page() -> None:
     job = PrintJobSettings(
         output_format=PrintOutputFormat.PRINTER,
         repeat_column_header_at_bottom=True,
     )
 
-    assert not _should_paint_column_header_at_bottom(job, _page(1, 2))
-    assert _should_paint_column_header_at_bottom(job, _page(2, 2))
+    assert not _should_paint_column_header_only(job, _page(1, 2))
+    assert not _should_paint_column_header_only(job, _page(2, 2))
+    assert _should_paint_column_header_only(
+        job,
+        _page(3, 3, column_header_only=True),
+    )
 
 
-def test_bottom_column_header_is_added_to_each_final_depth_continuation() -> None:
+def test_separate_header_page_is_emitted_for_each_horizontal_continuation() -> None:
     job = PrintJobSettings(
         output_format=PrintOutputFormat.PRINTER,
         repeat_column_header_at_bottom=True,
     )
 
-    assert _should_paint_column_header_at_bottom(job, _page(2, 2, 1, 2))
-    assert _should_paint_column_header_at_bottom(job, _page(2, 2, 2, 2))
-    assert not _should_paint_column_header_at_bottom(job, _page(1, 2, 2, 2))
+    assert not _should_paint_column_header_only(job, _page(2, 2, 1, 2))
+    assert _should_paint_column_header_only(
+        job,
+        _page(3, 3, 1, 2, column_header_only=True),
+    )
+    assert _should_paint_column_header_only(
+        job,
+        _page(3, 3, 2, 2, column_header_only=True),
+    )
 
 
 def test_column_header_is_always_at_document_start() -> None:
@@ -92,7 +105,10 @@ def test_end_column_header_can_be_disabled_without_removing_top_header() -> None
     )
 
     assert _should_paint_column_header_at_top(_page(1, 2))
-    assert not _should_paint_column_header_at_bottom(job, _page(2, 2))
+    assert not _should_paint_column_header_only(
+        job,
+        _page(3, 3, column_header_only=True),
+    )
 
 
 def test_full_document_header_placement_is_explicit() -> None:
@@ -142,6 +158,34 @@ def test_repeated_header_preserves_source_aspect_ratio(qapp) -> None:
     assert canvas.pixelColor(1, 20) == QColor("white")
     assert canvas.pixelColor(200, 20) == QColor("#3b82f6")
     assert canvas.pixelColor(398, 20) == QColor("white")
+
+
+def test_separate_header_page_uses_the_full_graph_width(qapp) -> None:
+    header = QPixmap(200, 100)
+    header.fill(QColor("#3b82f6"))
+    snapshot = TabletPrintSnapshot(
+        (header,),
+        AdaptiveColumnLayout((200,), spacing=0),
+        content_height=300,
+        header_height=80,
+    )
+    canvas = QImage(400, 200, QImage.Format.Format_ARGB32)
+    canvas.fill(QColor("white"))
+    painter = QPainter(canvas)
+    try:
+        paint_tablet_header_repeat(
+            painter,
+            QRectF(0.0, 0.0, 400.0, 200.0),
+            snapshot,
+            scale_mode=PrintScaleMode.FIT,
+            fit_width=True,
+        )
+    finally:
+        painter.end()
+
+    assert canvas.pixelColor(1, 100) == QColor("#3b82f6")
+    assert canvas.pixelColor(200, 100) == QColor("#3b82f6")
+    assert canvas.pixelColor(398, 100) == QColor("#3b82f6")
 
 
 def test_body_only_page_never_crops_wide_form_edges(qapp) -> None:

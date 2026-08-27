@@ -173,7 +173,7 @@ def _render_last_page_metrics(pdf_path: Path) -> tuple[int, float, int, float]:
     ),
     ids=("las-depth", "geoscape-time"),
 )
-def test_complex_tablet_pdf_keeps_material_last_page_and_bottom_legend(
+def test_complex_tablet_pdf_uses_a_full_width_final_header_page(
     qapp,
     tmp_path,
     domain: DepthDomain,
@@ -201,6 +201,14 @@ def test_complex_tablet_pdf_keeps_material_last_page_and_bottom_legend(
         strict_unicode=False,
     )
     try:
+        plan = build_document_plan(
+            tablet,
+            job,
+            context=PrintDocumentContext("Планшет"),
+        )
+        assert plan.pages[-1].is_column_header_page
+        assert not plan.pages[-1].has_vertical_range
+        assert all(not page.is_column_header_page for page in plan.pages[:-1])
         result = export_document_pdf(
             tablet,
             target,
@@ -217,14 +225,12 @@ def test_complex_tablet_pdf_keeps_material_last_page_and_bottom_legend(
     )
     assert result.page_count == page_count
     assert page_count >= 2
-    assert density >= 0.035, (
-        f"last page is visually collapsed: density={density:.4f}"
-    )
+    assert density >= 0.01, f"final header page is visually empty: density={density:.4f}"
     assert dense_lower_rows >= 5, (
-        "the repeated form legend is missing from the lower part of the final page"
+        "the repeated form header is missing from the final page"
     )
     assert occupied_width_ratio >= 0.90, (
-        "the final tablet was narrowed to satisfy its vertical layout: "
+        "the final header page was narrowed instead of using the graph width: "
         f"width_ratio={occupied_width_ratio:.4f}"
     )
 

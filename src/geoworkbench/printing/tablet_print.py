@@ -637,6 +637,7 @@ def paint_tablet_header_repeat(
     *,
     scale_mode: PrintScaleMode = PrintScaleMode.FIT,
     continuation: PrintContinuationSlice | None = None,
+    fit_width: bool = False,
 ) -> None:
     """Repeat the captured track/curve header without duplicating graph data."""
 
@@ -651,12 +652,16 @@ def paint_tablet_header_repeat(
         painter.fillRect(page, Qt.GlobalColor.white)
         painter.setClipRect(page)
         if scale_mode is PrintScaleMode.FIT:
-            scale = min(
-                page.width() / snapshot.layout.total_width,
-                page.height() / snapshot.header_height,
-            )
+            horizontal_scale = page.width() / snapshot.layout.total_width
+            vertical_scale = page.height() / snapshot.header_height
+            scale = horizontal_scale if fit_width else min(horizontal_scale, vertical_scale)
             rendered_width = snapshot.layout.total_width * scale
             rendered_height = snapshot.header_height * scale
+            if fit_width and rendered_height > page.height() + 2.0:
+                raise TabletPrintError(
+                    "Шапка колонок не помещается на отдельной странице при "
+                    "масштабе полной ширины"
+                )
             x = page.left() + (page.width() - rendered_width) / 2.0
             y = page.top() + (page.height() - rendered_height) / 2.0
             for pixmap, logical_width in zip(

@@ -57,6 +57,7 @@ def paint_widget_page(
     high_quality: bool = True,
     show_column_header: bool = True,
     repeat_column_header_at_bottom: bool = False,
+    column_header_only: bool = False,
     included_track_ids: tuple[str, ...] | None = None,
     grid_print_overrides: tuple[tuple[str, bool], ...] = (),
     target_content_height: int | None = None,
@@ -98,12 +99,23 @@ def paint_widget_page(
                     raster_scale=raster_scale,
                     included_track_ids=included_track_ids,
                     grid_print_overrides=dict(grid_print_overrides),
-                    show_column_header=show_column_header,
-                    repeat_column_header_at_bottom=repeat_column_header_at_bottom,
+                    show_column_header=(show_column_header or column_header_only),
+                    repeat_column_header_at_bottom=(
+                        repeat_column_header_at_bottom and not column_header_only
+                    ),
                     target_content_height=target_content_height,
                     layout_content_height=layout_content_height,
                 )
-                if repeat_column_header_at_bottom:
+                if column_header_only:
+                    paint_tablet_header_repeat(
+                        painter,
+                        content_rect,
+                        snapshot,
+                        scale_mode=scale_mode,
+                        continuation=continuation,
+                        fit_width=True,
+                    )
+                elif repeat_column_header_at_bottom:
                     _paint_tablet_with_repeated_header(
                         painter,
                         content_rect,
