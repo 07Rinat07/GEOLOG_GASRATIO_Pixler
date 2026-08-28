@@ -4,7 +4,12 @@ from copy import deepcopy
 from typing import Literal
 
 from geoworkbench.forms.complex_gas import complex_gas_form
-from geoworkbench.forms.models import FormAxisKind, FormDocument, ParameterBinding
+from geoworkbench.forms.models import (
+    FormAxisKind,
+    FormDocument,
+    FormPageOrientation,
+    ParameterBinding,
+)
 from geoworkbench.forms.templates import (
     _axis_column,
     _binding,
@@ -95,6 +100,7 @@ def _name(base: str, language: TemplateLanguage, orientation: str) -> str:
 
 def _finalize(form: FormDocument, profile: str, orientation: str) -> FormDocument:
     _with_a4_print_headers(form, profile)
+    form.preferred_page_orientation = FormPageOrientation(orientation)
     form.print_header_template_id = form.print_header_template_ids[orientation]
     form.validate()
     return form
@@ -155,19 +161,19 @@ def _masterlog(language: TemplateLanguage, orientation: str) -> FormDocument:
             f"column-a4-{orientation}-lithology",
             _t("lithology", language),
             TrackKind.LITHOLOGY,
-            70 if landscape else 60,
+            70 if landscape else 48,
         ),
         _special_column(
             f"column-a4-{orientation}-cuttings",
             _t("cuttings", language),
             TrackKind.CUTTINGS,
-            80 if landscape else 60,
+            80 if landscape else 48,
         ),
         _special_column(
             f"column-a4-{orientation}-calcimetry",
             _t("calcimetry", language),
             TrackKind.CALCIMETRY,
-            60 if landscape else 50,
+            60 if landscape else 48,
             [
                 _binding("CACO3", "CaCO3", "%", "#06b6d4", x_min=0, x_max=100),
                 _binding("CAMG_CO3_2", "CaMg(CO3)2", "%", "#8b5cf6", x_min=0, x_max=100),
@@ -188,24 +194,23 @@ def _masterlog(language: TemplateLanguage, orientation: str) -> FormDocument:
                 _binding("RPM", "RPM", "rpm", "#16a34a"),
                 _binding("SPP", "SPP", "atm", "#9333ea"),
             ],
-            240 if landscape else 180,
+            240 if landscape else 144,
         ),
         _curve_column(
             f"column-a4-{orientation}-gas",
             _t("gas", language),
             _absolute_gas(language),
-            260 if landscape else 200,
+            260 if landscape else 160,
         ),
     ]
-    if landscape:
-        columns.append(
-            _special_column(
-                "column-a4-landscape-interpretation",
-                _t("interpretation", language),
-                TrackKind.INTERPRETATION,
-                140,
-            )
+    columns.append(
+        _special_column(
+            f"column-a4-{orientation}-interpretation",
+            _t("cuttings", language),
+            TrackKind.INTERPRETATION,
+            140 if landscape else 106,
         )
+    )
     return _finalize(
         _factory(
             f"factory-masterlog-a4-{orientation}",

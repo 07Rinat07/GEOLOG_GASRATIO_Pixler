@@ -195,7 +195,7 @@ JSON-файл проекта не считается универсальным 
 | EXPORT-010 | Simulator profiles для Eclipse/CMG/tNavigator | позже: GRDECL/EGRID с отдельным preflight совместимости, единиц и geometry |
 | PRINT-001 | Print Preview и проверка разрывов страниц | готово: preview использует тот же двумерный vertical × continuation plan, что PDF и printer |
 | PRINT-002 | A4, A3, пользовательская страница и рулонная печать | готово: единая media schema v1, custom 25–5000 мм, roll auto-length до 5000 мм на сегмент |
-| PRINT-003 | Конструктор шапки, легенды и печатного мастерлога | готово: независимые шаблоны шапки, динамическая литологическая легенда и depth/curve/stratigraphy/lithology/cuttings/calcimetry/LBA/lithology-description/cuttings-description колонки |
+| PRINT-003 | Конструктор шапки, легенды и печатного мастерлога | готово: независимые шаблоны шапки, динамическая литологическая легенда и depth/curve/stratigraphy/lithology/cuttings/calcimetry/LBA/lithology-description/cuttings-description колонки; MASTERLOG A4 portrait/landscape содержит `INTERPRETATION` с отображаемым названием «Шламограмма», portrait занимает 714/718 px без скрытого масштабирования |
 | PRINT-004 | Системный принтер и экспорт без зависимости от экранного масштаба | готово: Fit/100% и continuations используют общий renderer; 100% фиксирует ширину при reference DPI 96 |
 | PRINT-005 | Печать графиков по временному диапазону | запланировано |
 | PRINT-006 | Именованные шаблоны мастерлога с версией, копированием и повторным использованием | готово: project storage и UI создания, копирования, переименования, удаления |

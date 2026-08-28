@@ -159,6 +159,10 @@ to the current schema, and moved to the protected **Ready forms** section:
 - **Геология Plus — A4, книжная**;
 - **Мастерлог — A4, книжная**.
 
+In the current factory **MASTERLOG — A4 portrait/landscape** forms, the system
+`INTERPRETATION` column is displayed as **Cuttings log**. The compact portrait widths keep the
+whole form on one A4 sheet without hidden downscaling.
+
 The migration preserves the actual columns, tracks, parameter bindings, scales, styles, and widths
 from the existing JSON files; it does not create empty placeholders. Ready forms are protected from
 accidental overwrite and are edited through a user copy. On a new computer without the old profile,
