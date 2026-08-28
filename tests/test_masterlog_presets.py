@@ -8,6 +8,7 @@ from geoworkbench.printing.masterlog_presets import (
     CURATED_MASTERLOG_FORM_PRESETS,
     CURATED_MASTERLOG_HEADER_PRESETS,
 )
+from geoworkbench.services.localization import AppLanguage
 
 
 def test_builtin_masterlog_presets_are_unique_and_cover_core_tracks() -> None:
@@ -198,6 +199,53 @@ def test_curated_a4_forms_and_headers_are_paired_and_fit_both_orientations() -> 
             and element.y_mm + element.height_mm <= header.height_mm
             for element in header.elements
         )
+
+
+def test_curated_a4_header_text_is_available_in_all_languages() -> None:
+    header = next(
+        item
+        for item in CURATED_MASTERLOG_HEADER_PRESETS
+        if item.preset_id == "a4_geology_technology_gas_portrait"
+    )
+    text_elements = {
+        element.element_id: element
+        for element in header.elements
+        if element.element_type == "text"
+    }
+
+    title = text_elements["geology_technology_gas_portrait_title"].properties
+    assert title["text_ru"] == "ГЕОЛОГИЯ · ТЕХНОЛОГИЯ · ГАЗ"
+    assert title["text_kk"] == "ГЕОЛОГИЯ · БҰРҒЫЛАУ · ГАЗ"
+    assert title["text_en"] == "GEOLOGY · DRILLING · GAS"
+
+    project = text_elements["geology_technology_gas_portrait_0_0_label"].properties
+    assert project["text_ru"] == "ПРОЕКТ"
+    assert project["text_kk"] == "ЖОБА"
+    assert project["text_en"] == "PROJECT"
+
+    well = text_elements["geology_technology_gas_portrait_0_1_label"].properties
+    assert well["text_ru"] == "СКВАЖИНА"
+    assert well["text_kk"] == "ҰҢҒЫМА"
+    assert well["text_en"] == "WELL"
+
+
+def test_curated_masterlog_column_titles_follow_selected_language() -> None:
+    preset = next(
+        item
+        for item in CURATED_MASTERLOG_FORM_PRESETS
+        if item.preset_id == "a4_geology_technology_gas_portrait"
+    )
+
+    expected = {
+        AppLanguage.RU: ("Глубина", "Описание пород"),
+        AppLanguage.KK: ("Тереңдік", "Тау жыныстарының сипаттамасы"),
+        AppLanguage.EN: ("Depth", "Rock description"),
+    }
+    for language, (depth_title, description_title) in expected.items():
+        template = preset.template_for(language)
+        assert template.name == preset.name(language)
+        assert template.columns[0].title == depth_title
+        assert template.columns[-1].title == description_title
 
 
 def test_operational_header_catalog_contains_daily_technology_and_emergency_templates() -> None:

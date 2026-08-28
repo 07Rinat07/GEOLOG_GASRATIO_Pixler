@@ -256,7 +256,16 @@ class HeaderElementDialog(QDialog):
             json.dumps(element.properties, ensure_ascii=False) if element else "{}"
         )
         self.text_input = QLineEdit()
-        text_value = element.properties.get("text") if element else None
+        localized_text_key = {
+            AppLanguage.RU: "text_ru",
+            AppLanguage.KK: "text_kk",
+            AppLanguage.EN: "text_en",
+        }[language]
+        text_value = (
+            element.properties.get(localized_text_key, element.properties.get("text"))
+            if element
+            else None
+        )
         if isinstance(text_value, (str, int, float)):
             self.text_input.setText(str(text_value))
 

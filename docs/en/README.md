@@ -163,6 +163,10 @@ In the current factory **MASTERLOG — A4 portrait/landscape** forms, the system
 `INTERPRETATION` column is displayed as **Rock description**. The compact portrait widths keep the
 whole form on one A4 sheet without hidden downscaling.
 
+The complete built-in form catalog and ready A4 headers have been checked in RU/KK/EN: form,
+column, parameter, and header-field names follow the selected language. International mnemonics,
+formulas, and units are not translated; existing user copies preserve their custom text.
+
 The migration preserves the actual columns, tracks, parameter bindings, scales, styles, and widths
 from the existing JSON files; it does not create empty placeholders. Ready forms are protected from
 accidental overwrite and are edited through a user copy. On a new computer without the old profile,

@@ -533,7 +533,7 @@ class UniversalConstructorDialog(QDialog):
             self.template_list.clearSelection()
             self.template_list.setCurrentRow(-1)
             self.template_list.blockSignals(False)
-        template = preset.template
+        template = preset.template_for(self.language)
         self.constructor_preview.set_template(template)
         width = sum(column.width_mm for column in template.columns)
         self.template_summary.setPlainText(
@@ -562,7 +562,11 @@ class UniversalConstructorDialog(QDialog):
         if not accepted or not name.strip():
             return
         try:
-            template = self.controller.create_from_preset(preset.preset_id, name.strip())
+            template = self.controller.create_from_preset(
+                preset.preset_id,
+                name.strip(),
+                self.language,
+            )
         except (KeyError, RuntimeError, ValueError) as exc:
             QMessageBox.warning(self, self.windowTitle(), str(exc))
             return

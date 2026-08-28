@@ -38,7 +38,11 @@ _TEXT = {
     "portrait": {"ru": "A4 книжная", "kk": "A4 кітаптық", "en": "A4 portrait"},
     "landscape": {"ru": "A4 альбомная", "kk": "A4 альбомдық", "en": "A4 landscape"},
     "masterlog": {"ru": "MASTERLOG", "kk": "MASTERLOG", "en": "MASTERLOG"},
-    "technology": {"ru": "Технология", "kk": "Технология", "en": "Drilling technology"},
+    "technology": {
+        "ru": "Технология",
+        "kk": "Бұрғылау технологиясы",
+        "en": "Drilling technology",
+    },
     "daily": {
         "ru": "Суточная технологическая форма",
         "kk": "Тәуліктік технологиялық пішін",
@@ -88,6 +92,42 @@ _TEXT = {
         "kk": "Оқиғалар мен түсініктемелер",
         "en": "Events and comments",
     },
+    "total_gas": {"ru": "Суммарный газ", "kk": "Жалпы газ", "en": "Total gas"},
+    "torque": {"ru": "Крутящий момент", "kk": "Айналу моменті", "en": "Torque"},
+    "hook_load": {"ru": "Вес на крюке", "kk": "Ілмектегі салмақ", "en": "Hook load"},
+    "flow_in": {"ru": "Расход на входе", "kk": "Кірістегі шығын", "en": "Flow in"},
+    "flow_out": {"ru": "Расход на выходе", "kk": "Шығыстағы шығын", "en": "Flow out"},
+    "mud_density_in": {
+        "ru": "Плотность раствора на входе",
+        "kk": "Кірістегі ерітінді тығыздығы",
+        "en": "Mud density in",
+    },
+    "pump_1_spm": {"ru": "Насос 1 SPM", "kk": "1-сорғы SPM", "en": "Pump 1 SPM"},
+    "pump_2_spm": {"ru": "Насос 2 SPM", "kk": "2-сорғы SPM", "en": "Pump 2 SPM"},
+    "total_pit_volume": {
+        "ru": "Общий объём ёмкостей",
+        "kk": "Ыдыстардың жалпы көлемі",
+        "en": "Total pit volume",
+    },
+    "pit_1": {"ru": "Ёмкость 1", "kk": "1-ыдыс", "en": "Pit 1"},
+    "pit_2": {"ru": "Ёмкость 2", "kk": "2-ыдыс", "en": "Pit 2"},
+    "pit_3": {"ru": "Ёмкость 3", "kk": "3-ыдыс", "en": "Pit 3"},
+    "hole_depth": {
+        "ru": "Глубина скважины",
+        "kk": "Ұңғыма тереңдігі",
+        "en": "Hole depth",
+    },
+    "bit_depth": {"ru": "Глубина долота", "kk": "Қашау тереңдігі", "en": "Bit depth"},
+    "mud_temperature_in": {
+        "ru": "Температура раствора на входе",
+        "kk": "Кірістегі ерітінді температурасы",
+        "en": "Mud temperature in",
+    },
+    "mud_temperature_out": {
+        "ru": "Температура раствора на выходе",
+        "kk": "Шығыстағы ерітінді температурасы",
+        "en": "Mud temperature out",
+    },
 }
 
 
@@ -130,7 +170,7 @@ def _instance_binding(
 
 def _absolute_gas(language: TemplateLanguage) -> list[ParameterBinding]:
     return [
-        _binding("TOTAL_GAS", "Total Gas", "%", "#dc2626", width=2.0),
+        _binding("TOTAL_GAS", _t("total_gas", language), "%", "#dc2626", width=2.0),
         *_gas_component_bindings(language),
     ]
 
@@ -155,7 +195,7 @@ def _axis(axis: FormAxisKind, language: TemplateLanguage, width: int):
 def _masterlog(language: TemplateLanguage, orientation: str) -> FormDocument:
     landscape = orientation == "landscape"
     columns = [
-        _axis(FormAxisKind.DEPTH, language, 55 if landscape else 48),
+        _axis(FormAxisKind.DEPTH, language, 55 if landscape else 64),
         _special_column(
             f"column-a4-{orientation}-stratigraphy",
             _t("stratigraphy", language),
@@ -205,7 +245,7 @@ def _masterlog(language: TemplateLanguage, orientation: str) -> FormDocument:
             f"column-a4-{orientation}-gas",
             _t("gas", language),
             _absolute_gas(language),
-            260 if landscape else 160,
+            260 if landscape else 144,
         ),
     ]
     columns.append(
@@ -240,8 +280,8 @@ def _technology(language: TemplateLanguage, orientation: str) -> FormDocument:
                 _binding("ROP", "ROP", "m/h", "#dc2626"),
                 _binding("WOB", "WOB", "t", "#2563eb"),
                 _binding("RPM", "RPM", "rpm", "#16a34a"),
-                _binding("TQ", "Torque", "kN·m", "#9333ea"),
-                _binding("HKLD", "Hook load", "t", "#475569"),
+                _binding("TQ", _t("torque", language), "kN·m", "#9333ea"),
+                _binding("HKLD", _t("hook_load", language), "t", "#475569"),
             ],
             260 if landscape else 220,
         ),
@@ -250,9 +290,9 @@ def _technology(language: TemplateLanguage, orientation: str) -> FormDocument:
             _t("hydraulics", language),
             [
                 _binding("SPP", "SPP", "atm", "#dc2626"),
-                _binding("FLOW_IN", "Flow in", "L/s", "#0891b2"),
-                _binding("FLOW_OUT", "Flow out", "L/s", "#0f766e"),
-                _binding("MW_IN", "Mud density in", "g/cm³", "#7c3aed"),
+                _binding("FLOW_IN", _t("flow_in", language), "L/s", "#0891b2"),
+                _binding("FLOW_OUT", _t("flow_out", language), "L/s", "#0f766e"),
+                _binding("MW_IN", _t("mud_density_in", language), "g/cm³", "#7c3aed"),
             ],
             250 if landscape else 220,
         ),
@@ -260,19 +300,19 @@ def _technology(language: TemplateLanguage, orientation: str) -> FormDocument:
             f"column-tech-{orientation}-pumps",
             _t("pumps", language),
             [
-                _binding("SPM1", "Pump 1 SPM", "min-1", "#2563eb"),
-                _binding("SPM2", "Pump 2 SPM", "min-1", "#9333ea"),
+                _binding("SPM1", _t("pump_1_spm", language), "min-1", "#2563eb"),
+                _binding("SPM2", _t("pump_2_spm", language), "min-1", "#9333ea"),
                 _instance_binding(
                     f"binding-tech-{orientation}-pump-flow-in",
                     "FLOW_IN",
-                    "Flow in",
+                    _t("flow_in", language),
                     "L/s",
                     "#0891b2",
                 ),
                 _instance_binding(
                     f"binding-tech-{orientation}-pump-flow-out",
                     "FLOW_OUT",
-                    "Flow out",
+                    _t("flow_out", language),
                     "L/s",
                     "#0f766e",
                 ),
@@ -286,10 +326,10 @@ def _technology(language: TemplateLanguage, orientation: str) -> FormDocument:
                 "column-tech-landscape-pits",
                 _t("pits", language),
                 [
-                    _binding("PIT_VOL", "Total pit volume", "m³", "#111827"),
-                    _binding("PIT1", "Pit 1", "m³", "#fb923c"),
-                    _binding("PIT2", "Pit 2", "m³", "#facc15"),
-                    _binding("PIT3", "Pit 3", "m³", "#84cc16"),
+                    _binding("PIT_VOL", _t("total_pit_volume", language), "m³", "#111827"),
+                    _binding("PIT1", _t("pit_1", language), "m³", "#fb923c"),
+                    _binding("PIT2", _t("pit_2", language), "m³", "#facc15"),
+                    _binding("PIT3", _t("pit_3", language), "m³", "#84cc16"),
                 ],
                 220,
             )
@@ -315,10 +355,10 @@ def _daily(language: TemplateLanguage, orientation: str) -> FormDocument:
             f"column-daily-{orientation}-ops",
             _t("daily_ops", language),
             [
-                _binding("HOLE_DEPTH", "Hole depth", "m", "#2563eb"),
-                _binding("BIT_DEPTH", "Bit depth", "m", "#111827"),
+                _binding("HOLE_DEPTH", _t("hole_depth", language), "m", "#2563eb"),
+                _binding("BIT_DEPTH", _t("bit_depth", language), "m", "#111827"),
                 _binding("ROP", "ROP", "m/h", "#dc2626"),
-                _binding("HKLD", "Hook load", "t", "#0f766e"),
+                _binding("HKLD", _t("hook_load", language), "t", "#0f766e"),
                 _binding("RPM", "RPM", "rpm", "#16a34a"),
             ],
             250 if landscape else 220,
@@ -327,10 +367,10 @@ def _daily(language: TemplateLanguage, orientation: str) -> FormDocument:
             f"column-daily-{orientation}-mud-gas",
             _t("mud_gas", language),
             [
-                _binding("TEMP_IN", "Mud temperature in", "°C", "#16a34a"),
-                _binding("TEMP_OUT", "Mud temperature out", "°C", "#d946ef"),
-                _binding("MW_IN", "Mud density in", "g/cm³", "#2563eb"),
-                _binding("TOTAL_GAS", "Total Gas", "%", "#dc2626"),
+                _binding("TEMP_IN", _t("mud_temperature_in", language), "°C", "#16a34a"),
+                _binding("TEMP_OUT", _t("mud_temperature_out", language), "°C", "#d946ef"),
+                _binding("MW_IN", _t("mud_density_in", language), "g/cm³", "#2563eb"),
+                _binding("TOTAL_GAS", _t("total_gas", language), "%", "#dc2626"),
                 _binding("C1", "C1", "%", "#0891b2"),
             ],
             250 if landscape else 220,
@@ -339,10 +379,10 @@ def _daily(language: TemplateLanguage, orientation: str) -> FormDocument:
             f"column-daily-{orientation}-pits",
             _t("pits", language),
             [
-                _binding("PIT_VOL", "Total pit volume", "m³", "#111827"),
-                _binding("PIT1", "Pit 1", "m³", "#fb923c"),
-                _binding("PIT2", "Pit 2", "m³", "#facc15"),
-                _binding("PIT3", "Pit 3", "m³", "#84cc16"),
+                _binding("PIT_VOL", _t("total_pit_volume", language), "m³", "#111827"),
+                _binding("PIT1", _t("pit_1", language), "m³", "#fb923c"),
+                _binding("PIT2", _t("pit_2", language), "m³", "#facc15"),
+                _binding("PIT3", _t("pit_3", language), "m³", "#84cc16"),
             ],
             240 if landscape else 220,
         ),

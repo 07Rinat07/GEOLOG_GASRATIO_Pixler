@@ -646,7 +646,7 @@ def _paint_header_element(
     if element.element_type == "lba_legend":
         _paint_lba_legend(painter, rect, element.properties, language)
         return
-    text = _header_text(element, session, template)
+    text = _header_text(element, session, template, language)
     color = _color(element.properties.get("color"), "#0f172a")
     raw_background = element.properties.get("background")
     if isinstance(raw_background, str) and QColor(raw_background).isValid():
@@ -2608,9 +2608,15 @@ def _header_text(
     element: MasterlogHeaderElement,
     session: ProjectSession,
     template: MasterlogTemplate,
+    language: AppLanguage = AppLanguage.RU,
 ) -> str:
     if element.element_type == "text":
-        value = element.properties.get("text")
+        localized_key = {
+            AppLanguage.RU: "text_ru",
+            AppLanguage.KK: "text_kk",
+            AppLanguage.EN: "text_en",
+        }[language]
+        value = element.properties.get(localized_key, element.properties.get("text"))
         return str(value) if isinstance(value, (str, int, float)) else ""
     field = element.properties.get("field")
     if not isinstance(field, str):

@@ -1,3 +1,5 @@
+import re
+
 from geoworkbench.forms.a4_factory_templates import (
     A4_FACTORY_TEMPLATE_IDS,
     a4_factory_templates,
@@ -78,14 +80,14 @@ def test_masterlog_portrait_columns_are_compact_and_fit_added_interpretation() -
     audit = audit_form_width(column.width for column in form.columns if column.visible)
 
     assert widths == {
-        "column-depth-axis": 48,
+        "column-depth-axis": 64,
         "column-a4-portrait-stratigraphy": 48,
         "column-a4-portrait-lithology": 48,
         "column-a4-portrait-cuttings": 48,
         "column-a4-portrait-calcimetry": 48,
         "column-a4-portrait-lba": 48,
         "column-a4-portrait-drilling": 144,
-        "column-a4-portrait-gas": 160,
+        "column-a4-portrait-gas": 144,
         "column-a4-portrait-interpretation": 106,
     }
     assert audit.total_width_px == 714
@@ -157,3 +159,77 @@ def test_legacy_forms_remain_resolvable_but_are_hidden() -> None:
     assert HIDDEN_FACTORY_TEMPLATE_IDS <= set(all_templates)
     assert "factory-gas-ratio-pixler-depth" in all_templates
     assert "factory-masterlog-geological-geochemical" in all_templates
+
+
+def test_a4_parameter_names_and_axis_labels_follow_selected_language() -> None:
+    expected = {
+        "ru": {
+            "TQ": "Крутящий момент",
+            "HKLD": "Вес на крюке",
+            "FLOW_IN": "Расход на входе",
+            "PIT_VOL": "Общий объём ёмкостей",
+            "HOLE_DEPTH": "Глубина скважины",
+            "TEMP_IN": "Температура раствора на входе",
+            "TOTAL_GAS": "Суммарный газ",
+        },
+        "kk": {
+            "TQ": "Айналу моменті",
+            "HKLD": "Ілмектегі салмақ",
+            "FLOW_IN": "Кірістегі шығын",
+            "PIT_VOL": "Ыдыстардың жалпы көлемі",
+            "HOLE_DEPTH": "Ұңғыма тереңдігі",
+            "TEMP_IN": "Кірістегі ерітінді температурасы",
+            "TOTAL_GAS": "Жалпы газ",
+        },
+        "en": {
+            "TQ": "Torque",
+            "HKLD": "Hook load",
+            "FLOW_IN": "Flow in",
+            "PIT_VOL": "Total pit volume",
+            "HOLE_DEPTH": "Hole depth",
+            "TEMP_IN": "Mud temperature in",
+            "TOTAL_GAS": "Total gas",
+        },
+    }
+
+    for language, expected_names in expected.items():
+        forms = a4_factory_templates(language)
+        actual_names = {
+            binding.canonical_parameter_id: binding.display_name
+            for form in forms.values()
+            for column in form.columns
+            for track in column.tracks
+            for binding in track.bindings
+            if binding.canonical_parameter_id in expected_names
+        }
+        assert actual_names == expected_names
+
+        complex_form = forms["factory-complex-gas-a4-landscape"]
+        labels = {
+            column.column_id: column.tracks[0].x_axis_label
+            for column in complex_form.columns
+            if column.visible and column.tracks
+        }
+        assert labels["column-complex-relative"] == {
+            "ru": "% от суммы",
+            "kk": "жалпыдан %",
+            "en": "% of total",
+        }[language]
+        assert labels["column-complex-pixler"] == {
+            "ru": "отношение (лог.)",
+            "kk": "қатынас (лог.)",
+            "en": "ratio (log)",
+        }[language]
+
+
+def test_all_english_factory_forms_do_not_contain_cyrillic_visible_text() -> None:
+    visible_text: list[str] = []
+    for form in factory_templates("en").values():
+        visible_text.extend((form.name, form.description))
+        for column in form.columns:
+            visible_text.extend((column.title, column.group_title or ""))
+            for track in column.tracks:
+                visible_text.extend((track.title, track.x_axis_label))
+                visible_text.extend(binding.display_name for binding in track.bindings)
+
+    assert not [text for text in visible_text if re.search(r"[А-Яа-яЁё]", text)]

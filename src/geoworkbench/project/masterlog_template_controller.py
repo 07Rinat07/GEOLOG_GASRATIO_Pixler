@@ -26,6 +26,7 @@ from geoworkbench.printing.header_catalog import (
 )
 from geoworkbench.printing.image_assets import ImageAsset, validate_image_asset
 from geoworkbench.printing.masterlog_presets import builtin_form_preset, builtin_header_preset
+from geoworkbench.services.localization import AppLanguage
 
 
 class MasterlogTemplateController:
@@ -39,11 +40,16 @@ class MasterlogTemplateController:
         self.session.dirty = True
         return template
 
-    def create_from_preset(self, preset_id: str, name: str) -> MasterlogTemplate:
+    def create_from_preset(
+        self,
+        preset_id: str,
+        name: str,
+        language: AppLanguage = AppLanguage.RU,
+    ) -> MasterlogTemplate:
         preset = builtin_form_preset(preset_id)
         normalized = self._validate_unique_name(name)
         template = replace(
-            deepcopy(preset.template), template_id=new_id(), name=normalized, version=1
+            preset.template_for(language), template_id=new_id(), name=normalized, version=1
         )
         self.session.project.masterlog_templates[template.template_id] = template
         self.session.dirty = True

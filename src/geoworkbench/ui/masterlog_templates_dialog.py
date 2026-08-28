@@ -218,7 +218,13 @@ class MasterlogTemplatesDialog(QDialog):
         preset = presets[labels.index(selected)]
         name = self._ask_name(self.preset_button.text(), preset.name(self.localizer.language))
         if name is not None:
-            self._run(lambda: self.controller.create_from_preset(preset.preset_id, name))
+            self._run(
+                lambda: self.controller.create_from_preset(
+                    preset.preset_id,
+                    name,
+                    self.localizer.language,
+                )
+            )
 
     def _copy(self) -> None:
         template_id = self._selected_id()

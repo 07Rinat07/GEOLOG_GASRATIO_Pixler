@@ -35,6 +35,7 @@ from geoworkbench.printing.masterlog_renderer import (
     paint_masterlog,
     render_masterlog_to_printer,
     _aligned_depth_grid_values,
+    _header_text,
     _page_orientation,
     _paint_annotations,
     _paint_column_grid,
@@ -77,6 +78,29 @@ def test_masterlog_size_uses_mm_template_geometry() -> None:
 
     assert size.width() == 70.0
     assert size.height() == 340.0
+
+
+def test_factory_header_text_uses_requested_language_with_safe_fallback() -> None:
+    element = MasterlogHeaderElement(
+        "localized-title",
+        "text",
+        0.0,
+        0.0,
+        50.0,
+        5.0,
+        {
+            "text": "РУССКИЙ",
+            "text_ru": "РУССКИЙ",
+            "text_kk": "ҚАЗАҚША",
+            "text_en": "ENGLISH",
+        },
+    )
+    template = make_template()
+    session = ProjectSession()
+
+    assert _header_text(element, session, template, AppLanguage.RU) == "РУССКИЙ"
+    assert _header_text(element, session, template, AppLanguage.KK) == "ҚАЗАҚША"
+    assert _header_text(element, session, template, AppLanguage.EN) == "ENGLISH"
 
 
 def test_print_interpretation_converts_saved_rich_rock_description_to_text() -> None:

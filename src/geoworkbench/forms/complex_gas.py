@@ -103,9 +103,23 @@ _TEXT: dict[str, dict[TemplateLanguage, str]] = {
         "en": "iC5 Isopentane",
     },
     "npentane": {"ru": "nC5 Н-пентан", "kk": "nC5 Н-пентан", "en": "nC5 N-pentane"},
-    "wetness": {"ru": "Wetness", "kk": "Wetness", "en": "Wetness"},
-    "balance": {"ru": "Balance", "kk": "Balance", "en": "Balance"},
-    "character": {"ru": "Character", "kk": "Character", "en": "Character"},
+    "wetness": {"ru": "Влажность газа", "kk": "Газ ылғалдылығы", "en": "Wetness"},
+    "balance": {"ru": "Баланс газа", "kk": "Газ теңгерімі", "en": "Balance"},
+    "character": {"ru": "Характер газа", "kk": "Газ сипаты", "en": "Character"},
+    "relative_suffix": {"ru": "отн.", "kk": "сал.", "en": "rel."},
+    "normalized_suffix": {"ru": "норм.", "kk": "норм.", "en": "norm."},
+    "normalized_units": {
+        "ru": "норм. ед.",
+        "kk": "норм. бірл.",
+        "en": "norm. units",
+    },
+    "of_total": {"ru": "% от суммы", "kk": "жалпыдан %", "en": "% of total"},
+    "ratio_unit": {"ru": "отношение", "kk": "қатынас", "en": "ratio"},
+    "log_ratio": {
+        "ru": "отношение (лог.)",
+        "kk": "қатынас (лог.)",
+        "en": "ratio (log)",
+    },
 }
 
 
@@ -246,7 +260,7 @@ def _relative_bindings(language: TemplateLanguage) -> list[ParameterBinding]:
     return [
         _binding(
             f"{code}_REL",
-            f"{code.replace('IC', 'iC').replace('NC', 'nC')} rel.",
+            f"{code.replace('IC', 'iC').replace('NC', 'nC')} {_t('relative_suffix', language)}",
             "%",
             color,
             x_min=0.0,
@@ -263,8 +277,8 @@ def _normalized_bindings(language: TemplateLanguage) -> list[ParameterBinding]:
         bindings.append(
             _binding(
                 normalized_code,
-                f"{code.replace('IC', 'iC').replace('NC', 'nC')} norm.",
-                "norm. units",
+                f"{code.replace('IC', 'iC').replace('NC', 'nC')} {_t('normalized_suffix', language)}",
+                _t("normalized_units", language),
                 color,
                 x_min=None,
                 x_max=None,
@@ -287,7 +301,7 @@ def _ratio_bindings(language: TemplateLanguage) -> list[ParameterBinding]:
         _binding(
             "BALANCE",
             _t("balance", language),
-            "ratio",
+            _t("ratio_unit", language),
             "#b45309",
             x_scale=XScale.LOGARITHMIC,
             x_min=0.1,
@@ -296,7 +310,7 @@ def _ratio_bindings(language: TemplateLanguage) -> list[ParameterBinding]:
         _binding(
             "CHARACTER",
             _t("character", language),
-            "ratio",
+            _t("ratio_unit", language),
             "#be123c",
             x_scale=XScale.LOGARITHMIC,
             x_min=0.01,
@@ -305,7 +319,7 @@ def _ratio_bindings(language: TemplateLanguage) -> list[ParameterBinding]:
         _binding(
             "IC4_NC4",
             "iC4/nC4",
-            "ratio",
+            _t("ratio_unit", language),
             "#7c3aed",
             x_scale=XScale.LOGARITHMIC,
             x_min=0.01,
@@ -314,7 +328,7 @@ def _ratio_bindings(language: TemplateLanguage) -> list[ParameterBinding]:
         _binding(
             "IC5_NC5",
             "iC5/nC5",
-            "ratio",
+            _t("ratio_unit", language),
             "#0369a1",
             x_scale=XScale.LOGARITHMIC,
             x_min=0.01,
@@ -323,12 +337,12 @@ def _ratio_bindings(language: TemplateLanguage) -> list[ParameterBinding]:
     ]
 
 
-def _pixler_bindings() -> list[ParameterBinding]:
+def _pixler_bindings(language: TemplateLanguage) -> list[ParameterBinding]:
     return [
         _binding(
             code,
             label,
-            "ratio",
+            _t("ratio_unit", language),
             color,
             x_scale=XScale.LOGARITHMIC,
             x_min=0.1,
@@ -404,8 +418,8 @@ def complex_gas_form(language: str = "ru") -> FormDocument:
                     ),
                     _binding(
                         "TG_NORM",
-                        "TG norm.",
-                        "norm. units",
+                        f"TG {_t('normalized_suffix', lang)}",
+                        _t("normalized_units", lang),
                         "#7c3aed",
                         x_min=None,
                         x_max=None,
@@ -425,7 +439,7 @@ def complex_gas_form(language: str = "ru") -> FormDocument:
                 _normalized_bindings(lang),
                 gas_group,
                 width=440,
-                x_axis_label="norm. units",
+                x_axis_label=_t("normalized_units", lang),
             ),
         ),
         (
@@ -436,7 +450,7 @@ def complex_gas_form(language: str = "ru") -> FormDocument:
                 _relative_bindings(lang),
                 gas_group,
                 width=440,
-                x_axis_label="% of total",
+                x_axis_label=_t("of_total", lang),
             ),
         ),
         (
@@ -447,7 +461,7 @@ def complex_gas_form(language: str = "ru") -> FormDocument:
                 _ratio_bindings(lang),
                 gas_group,
                 width=380,
-                x_axis_label="ratio",
+                x_axis_label=_t("ratio_unit", lang),
             ),
         ),
         (
@@ -455,10 +469,10 @@ def complex_gas_form(language: str = "ru") -> FormDocument:
             _curve_column(
                 "column-complex-pixler",
                 _t("pixler", lang),
-                _pixler_bindings(),
+                _pixler_bindings(lang),
                 gas_group,
                 width=360,
-                x_axis_label="ratio (log)",
+                x_axis_label=_t("log_ratio", lang),
             ),
         ),
     ]

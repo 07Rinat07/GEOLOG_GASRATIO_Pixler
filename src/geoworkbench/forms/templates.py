@@ -186,7 +186,11 @@ _TEXT: dict[str, dict[str, str]] = {
         "kk": "Түзетілген D-экспонента",
         "en": "Corrected D-exponent",
     },
-    "technology": {"ru": "Технология", "kk": "Технология", "en": "Technology"},
+    "technology": {
+        "ru": "Технология",
+        "kk": "Бұрғылау технологиясы",
+        "en": "Technology",
+    },
     "cuttings": {"ru": "Шламограмма", "kk": "Шламограмма", "en": "Cuttings log"},
     "rock_description": {
         "ru": "Описание пород",
@@ -212,7 +216,11 @@ _TEXT: dict[str, dict[str, str]] = {
         "en": "Integrated mud logging form — geology, drilling and gas",
     },
     "geology_section": {"ru": "Геология", "kk": "Геология", "en": "Geology"},
-    "technology_section": {"ru": "Технология", "kk": "Технология", "en": "Technology"},
+    "technology_section": {
+        "ru": "Технология",
+        "kk": "Бұрғылау технологиясы",
+        "en": "Technology",
+    },
     "gas_section": {"ru": "Газовые данные", "kk": "Газ деректері", "en": "Gas data"},
     "age": {"ru": "Возраст", "kk": "Жасы", "en": "Age"},
     "absolute_gas": {"ru": "Абсолютный газ", "kk": "Абсолюттік газ", "en": "Absolute gas"},

@@ -18,12 +18,24 @@ class MasterlogFormPreset:
     names: dict[AppLanguage, str]
     descriptions: dict[AppLanguage, str]
     template: MasterlogTemplate
+    column_titles: dict[AppLanguage, dict[str, str]] | None = None
 
     def name(self, language: AppLanguage) -> str:
         return self.names[language]
 
     def description(self, language: AppLanguage) -> str:
         return self.descriptions[language]
+
+    def template_for(self, language: AppLanguage) -> MasterlogTemplate:
+        """Return a detached preset template localized for the selected UI language."""
+
+        template = deepcopy(self.template)
+        template.name = self.name(language)
+        if self.column_titles is not None:
+            titles = self.column_titles[language]
+            for column in template.columns:
+                column.title = titles.get(column.column_id, column.title)
+        return template
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,6 +56,12 @@ class MasterlogHeaderPreset:
 
 def _texts(ru: str, kk: str, en: str) -> dict[AppLanguage, str]:
     return {AppLanguage.RU: ru, AppLanguage.KK: kk, AppLanguage.EN: en}
+
+
+def _localized_text(ru: str, kk: str, en: str) -> dict[str, str]:
+    """Store one factory label in all UI languages with a safe RU fallback."""
+
+    return {"text": ru, "text_ru": ru, "text_kk": kk, "text_en": en}
 
 
 def _element(
@@ -2036,7 +2054,7 @@ def _a4_profile_header(
     profile_id: str,
     profile_names: dict[AppLanguage, str],
     *,
-    title: str,
+    titles: dict[AppLanguage, str],
     orientation: str,
 ) -> MasterlogHeaderPreset:
     """Build one restrained A4 header whose geometry matches its orientation."""
@@ -2058,7 +2076,11 @@ def _a4_profile_header(
             2.0,
             usable,
             6.5,
-            text=title,
+            **_localized_text(
+                titles[AppLanguage.RU],
+                titles[AppLanguage.KK],
+                titles[AppLanguage.EN],
+            ),
             font_size_mm=4.6,
             bold=False,
             alignment="center",
@@ -2069,24 +2091,24 @@ def _a4_profile_header(
     ]
     rows = (
         (
-            ("ПРОЕКТ", "project.name"),
-            ("СКВАЖИНА", "well.name"),
-            ("ИНТЕРВАЛ", "header.interval"),
+            (_texts("ПРОЕКТ", "ЖОБА", "PROJECT"), "project.name"),
+            (_texts("СКВАЖИНА", "ҰҢҒЫМА", "WELL"), "well.name"),
+            (_texts("ИНТЕРВАЛ", "АРАЛЫҚ", "INTERVAL"), "header.interval"),
         ),
         (
-            ("ЗАКАЗЧИК", "header.customer"),
-            ("ИСПОЛНИТЕЛЬ", "header.contractor"),
-            ("БУРОВАЯ", "header.rig"),
+            (_texts("ЗАКАЗЧИК", "ТАПСЫРЫС БЕРУШІ", "CUSTOMER"), "header.customer"),
+            (_texts("ИСПОЛНИТЕЛЬ", "ОРЫНДАУШЫ", "CONTRACTOR"), "header.contractor"),
+            (_texts("БУРОВАЯ", "БҰРҒЫЛАУ ҚОНДЫРҒЫСЫ", "RIG"), "header.rig"),
         ),
         (
-            ("ФАЙЛ", "dataset.source_name"),
-            ("СПЕЦИАЛИСТЫ", "header.engineers"),
-            ("МАСШТАБ", "header.scale"),
+            (_texts("ФАЙЛ", "ФАЙЛ", "FILE"), "dataset.source_name"),
+            (_texts("СПЕЦИАЛИСТЫ", "МАМАНДАР", "SPECIALISTS"), "header.engineers"),
+            (_texts("МАСШТАБ", "МАСШТАБ", "SCALE"), "header.scale"),
         ),
     )
     for row_index, row in enumerate(rows):
         y = 10.0 + row_index * 7.0
-        for column_index, (label, field_name) in enumerate(row):
+        for column_index, (labels, field_name) in enumerate(row):
             x = margin + column_index * (group_width + gap)
             element_prefix = f"{profile_id}_{orientation}_{row_index}_{column_index}"
             elements.extend(
@@ -2098,7 +2120,11 @@ def _a4_profile_header(
                         y,
                         label_width,
                         5.5,
-                        text=label,
+                        **_localized_text(
+                            labels[AppLanguage.RU],
+                            labels[AppLanguage.KK],
+                            labels[AppLanguage.EN],
+                        ),
                         font_size_mm=1.8,
                         bold=False,
                         alignment="center",
@@ -2159,15 +2185,23 @@ _A4_HEADER_PROFILES = (
         "geology_technology_gas",
         _texts(
             "Геология + технология + газ",
-            "Геология + технология + газ",
+            "Геология + бұрғылау + газ",
             "Geology + drilling + gas",
         ),
-        "ГЕОЛОГИЯ · ТЕХНОЛОГИЯ · ГАЗ",
+        _texts(
+            "ГЕОЛОГИЯ · ТЕХНОЛОГИЯ · ГАЗ",
+            "ГЕОЛОГИЯ · БҰРҒЫЛАУ · ГАЗ",
+            "GEOLOGY · DRILLING · GAS",
+        ),
     ),
     (
         "technology",
-        _texts("Технология", "Технология", "Technology"),
-        "ТЕХНОЛОГИЧЕСКИЕ ПАРАМЕТРЫ БУРЕНИЯ",
+        _texts("Технология", "Бұрғылау технологиясы", "Technology"),
+        _texts(
+            "ТЕХНОЛОГИЧЕСКИЕ ПАРАМЕТРЫ БУРЕНИЯ",
+            "БҰРҒЫЛАУДЫҢ ТЕХНОЛОГИЯЛЫҚ ПАРАМЕТРЛЕРІ",
+            "DRILLING TECHNOLOGY PARAMETERS",
+        ),
     ),
     (
         "gas_interpretation",
@@ -2176,7 +2210,11 @@ _A4_HEADER_PROFILES = (
             "Gas Ratio + Pixler + нормаланған газ",
             "Gas Ratio + Pixler + normalized gas",
         ),
-        "GAS RATIO · PIXLER · НОРМАЛИЗОВАННЫЙ ГАЗ",
+        _texts(
+            "GAS RATIO · PIXLER · НОРМАЛИЗОВАННЫЙ ГАЗ",
+            "GAS RATIO · PIXLER · НОРМАЛАНҒАН ГАЗ",
+            "GAS RATIO · PIXLER · NORMALIZED GAS",
+        ),
     ),
     (
         "geology_lab",
@@ -2185,7 +2223,11 @@ _A4_HEADER_PROFILES = (
             "Геология + шлам + ЛБА + кальциметрия",
             "Geology + cuttings + LBA + calcimetry",
         ),
-        "ГЕОЛОГИЯ · ШЛАМ · ЛБА · КАЛЬЦИМЕТРИЯ",
+        _texts(
+            "ГЕОЛОГИЯ · ШЛАМ · ЛБА · КАЛЬЦИМЕТРИЯ",
+            "ГЕОЛОГИЯ · ШЛАМ · ЛБА · КАЛЬЦИМЕТРИЯ",
+            "GEOLOGY · CUTTINGS · LBA · CALCIMETRY",
+        ),
     ),
     (
         "operational_control",
@@ -2194,13 +2236,17 @@ _A4_HEADER_PROFILES = (
             "Бұрғылауды жедел бақылау",
             "Operational drilling control",
         ),
-        "ОПЕРАТИВНЫЙ КОНТРОЛЬ БУРЕНИЯ",
+        _texts(
+            "ОПЕРАТИВНЫЙ КОНТРОЛЬ БУРЕНИЯ",
+            "БҰРҒЫЛАУДЫ ЖЕДЕЛ БАҚЫЛАУ",
+            "OPERATIONAL DRILLING CONTROL",
+        ),
     ),
 )
 
 CURATED_MASTERLOG_HEADER_PRESETS = tuple(
-    _a4_profile_header(profile_id, names, title=title, orientation=orientation)
-    for profile_id, names, title in _A4_HEADER_PROFILES
+    _a4_profile_header(profile_id, names, titles=titles, orientation=orientation)
+    for profile_id, names, titles in _A4_HEADER_PROFILES
     for orientation in ("portrait", "landscape")
 )
 
@@ -2833,6 +2879,155 @@ _A4_FORM_PROFILE_COLUMNS: dict[str, list[MasterlogColumnTemplate]] = {
 }
 
 
+_A4_FORM_COLUMN_TITLES: dict[str, dict[AppLanguage, dict[str, str]]] = {
+    "geology_technology_gas": {
+        AppLanguage.RU: {
+            "depth": "Глубина",
+            "stratigraphy": "Стратиграфия",
+            "drilling": "ROP / WOB / SPP / DEXP",
+            "cuttings": "Шламограмма",
+            "lba": "ЛБА",
+            "calcimetry": "Кальциметрия",
+            "lithology": "Литология",
+            "gas": "TG / C1–C5",
+            "description": "Описание пород",
+        },
+        AppLanguage.KK: {
+            "depth": "Тереңдік",
+            "stratigraphy": "Стратиграфия",
+            "drilling": "ROP / WOB / SPP / DEXP",
+            "cuttings": "Шламограмма",
+            "lba": "ЛБА",
+            "calcimetry": "Кальциметрия",
+            "lithology": "Литология",
+            "gas": "TG / C1–C5",
+            "description": "Тау жыныстарының сипаттамасы",
+        },
+        AppLanguage.EN: {
+            "depth": "Depth",
+            "stratigraphy": "Stratigraphy",
+            "drilling": "ROP / WOB / SPP / DEXP",
+            "cuttings": "Cuttings log",
+            "lba": "LBA",
+            "calcimetry": "Calcimetry",
+            "lithology": "Lithology",
+            "gas": "TG / C1–C5",
+            "description": "Rock description",
+        },
+    },
+    "technology": {
+        AppLanguage.RU: {
+            "depth": "Глубина",
+            "mechanics": "Механика бурения",
+            "hydraulics": "Гидравлика",
+            "mud": "Плотность и температура раствора",
+            "events": "Операции и комментарии",
+        },
+        AppLanguage.KK: {
+            "depth": "Тереңдік",
+            "mechanics": "Бұрғылау механикасы",
+            "hydraulics": "Гидравлика",
+            "mud": "Ерітінді тығыздығы мен температурасы",
+            "events": "Операциялар мен түсініктемелер",
+        },
+        AppLanguage.EN: {
+            "depth": "Depth",
+            "mechanics": "Drilling mechanics",
+            "hydraulics": "Hydraulics",
+            "mud": "Mud density and temperature",
+            "events": "Operations and comments",
+        },
+    },
+    "gas_interpretation": {
+        AppLanguage.RU: {
+            "depth": "Глубина",
+            "normalized": "TG / нормализованный газ",
+            "components": "C1–C5",
+            "gas_ratio": "Wh / Bh / Ch",
+            "pixler": "Pixler C1/C2–C5",
+            "dexp": "DEXP / скорректированный DEXP",
+            "interpretation": "Интерпретация",
+        },
+        AppLanguage.KK: {
+            "depth": "Тереңдік",
+            "normalized": "TG / нормаланған газ",
+            "components": "C1–C5",
+            "gas_ratio": "Wh / Bh / Ch",
+            "pixler": "Pixler C1/C2–C5",
+            "dexp": "DEXP / түзетілген DEXP",
+            "interpretation": "Интерпретация",
+        },
+        AppLanguage.EN: {
+            "depth": "Depth",
+            "normalized": "TG / normalized gas",
+            "components": "C1–C5",
+            "gas_ratio": "Wh / Bh / Ch",
+            "pixler": "Pixler C1/C2–C5",
+            "dexp": "DEXP / corrected DEXP",
+            "interpretation": "Interpretation",
+        },
+    },
+    "geology_lab": {
+        AppLanguage.RU: {
+            "depth": "Глубина",
+            "stratigraphy": "Стратиграфия",
+            "cuttings": "Шламограмма",
+            "lba": "ЛБА",
+            "calcimetry": "Кальциметрия",
+            "lithology": "Литология",
+            "gas": "Суммарный газ",
+            "description": "Описание пород",
+        },
+        AppLanguage.KK: {
+            "depth": "Тереңдік",
+            "stratigraphy": "Стратиграфия",
+            "cuttings": "Шламограмма",
+            "lba": "ЛБА",
+            "calcimetry": "Кальциметрия",
+            "lithology": "Литология",
+            "gas": "Жалпы газ",
+            "description": "Тау жыныстарының сипаттамасы",
+        },
+        AppLanguage.EN: {
+            "depth": "Depth",
+            "stratigraphy": "Stratigraphy",
+            "cuttings": "Cuttings log",
+            "lba": "LBA",
+            "calcimetry": "Calcimetry",
+            "lithology": "Lithology",
+            "gas": "Total gas",
+            "description": "Rock description",
+        },
+    },
+    "operational_control": {
+        AppLanguage.RU: {
+            "depth": "Время / глубина",
+            "drilling": "WOB / HKLD / ROP / RPM / TQ",
+            "pumps": "SPP / насосы / расход",
+            "mud_gas": "Раствор / газ",
+            "pits": "Объёмы ёмкостей",
+            "events": "Операции и комментарии",
+        },
+        AppLanguage.KK: {
+            "depth": "Уақыт / тереңдік",
+            "drilling": "WOB / HKLD / ROP / RPM / TQ",
+            "pumps": "SPP / сорғылар / шығын",
+            "mud_gas": "Ерітінді / газ",
+            "pits": "Ыдыстар көлемі",
+            "events": "Операциялар мен түсініктемелер",
+        },
+        AppLanguage.EN: {
+            "depth": "Time / depth",
+            "drilling": "WOB / HKLD / ROP / RPM / TQ",
+            "pumps": "SPP / pumps / flow",
+            "mud_gas": "Mud / gas",
+            "pits": "Pit volumes",
+            "events": "Operations and comments",
+        },
+    },
+}
+
+
 def _a4_form_preset(
     profile_id: str,
     profile_names: dict[AppLanguage, str],
@@ -2873,6 +3068,7 @@ def _a4_form_preset(
                 "orientation": orientation,
             },
         ),
+        _A4_FORM_COLUMN_TITLES[profile_id],
     )
 
 

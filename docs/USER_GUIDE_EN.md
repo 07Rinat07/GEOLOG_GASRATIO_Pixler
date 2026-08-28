@@ -88,7 +88,14 @@ Open **Print → Print Centre**.
 In the factory **MASTERLOG — A4 landscape** and **MASTERLOG — A4 portrait** forms, the
 `INTERPRETATION` description column is displayed as **Rock description**. The portrait widths are
 already reduced so this column fits on one A4 sheet. This does not replace the percentage
-cuttings-composition column: description text and percentages remain separate data.
+cuttings-composition column: description text and percentages remain separate data. The depth
+column is widened so four-digit depth labels remain readable.
+
+When Russian, Kazakh, or English is selected, built-in form names, columns, parameters, gas-axis
+labels, and print-header fields are shown in that language. If the library or constructor was open
+during the switch, close and reopen it. ROP, WOB, SPP, C1–C5 mnemonics, chemical formulas, and
+units remain international. Existing user copies keep their saved custom titles; select the ready
+form again after switching language to create a fully localized copy.
 
 A successful export does not guarantee correct layout. Always open and inspect the resulting file.
 
