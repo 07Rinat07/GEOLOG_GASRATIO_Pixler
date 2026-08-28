@@ -52,6 +52,11 @@ _TEXT = {
     "stratigraphy": {"ru": "Стратиграфия", "kk": "Стратиграфия", "en": "Stratigraphy"},
     "lithology": {"ru": "Литология", "kk": "Литология", "en": "Lithology"},
     "cuttings": {"ru": "Шламограмма", "kk": "Шламограмма", "en": "Cuttings log"},
+    "rock_description": {
+        "ru": "Описание пород",
+        "kk": "Тау жыныстарының сипаттамасы",
+        "en": "Rock description",
+    },
     "calcimetry": {"ru": "Кальциметрия", "kk": "Кальциметрия", "en": "Calcimetry"},
     "lba": {"ru": "ЛБА", "kk": "ЛБА", "en": "LBA"},
     "drilling": {"ru": "Бурение", "kk": "Бұрғылау", "en": "Drilling"},
@@ -206,7 +211,7 @@ def _masterlog(language: TemplateLanguage, orientation: str) -> FormDocument:
     columns.append(
         _special_column(
             f"column-a4-{orientation}-interpretation",
-            _t("cuttings", language),
+            _t("rock_description", language),
             TrackKind.INTERPRETATION,
             140 if landscape else 106,
         )

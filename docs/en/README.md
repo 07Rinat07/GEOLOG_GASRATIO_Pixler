@@ -160,7 +160,7 @@ to the current schema, and moved to the protected **Ready forms** section:
 - **Мастерлог — A4, книжная**.
 
 In the current factory **MASTERLOG — A4 portrait/landscape** forms, the system
-`INTERPRETATION` column is displayed as **Cuttings log**. The compact portrait widths keep the
+`INTERPRETATION` column is displayed as **Rock description**. The compact portrait widths keep the
 whole form on one A4 sheet without hidden downscaling.
 
 The migration preserves the actual columns, tracks, parameter bindings, scales, styles, and widths

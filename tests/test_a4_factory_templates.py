@@ -48,8 +48,12 @@ def test_every_a4_factory_fits_its_named_orientation_without_hidden_scaling() ->
             assert form.print_header_template_id == form.print_header_template_ids["landscape"]
 
 
-def test_masterlog_a4_forms_use_cuttings_log_title_for_interpretation_column() -> None:
-    expected_titles = {"ru": "Шламограмма", "kk": "Шламограмма", "en": "Cuttings log"}
+def test_masterlog_a4_forms_use_rock_description_title_for_interpretation() -> None:
+    expected_titles = {
+        "ru": "Описание пород",
+        "kk": "Тау жыныстарының сипаттамасы",
+        "en": "Rock description",
+    }
 
     for language, expected_title in expected_titles.items():
         forms = a4_factory_templates(language)

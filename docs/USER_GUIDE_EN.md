@@ -86,7 +86,7 @@ Open **Print → Print Centre**.
 6. Save a control PDF first. Print physically only after reviewing that PDF.
 
 In the factory **MASTERLOG — A4 landscape** and **MASTERLOG — A4 portrait** forms, the
-`INTERPRETATION` description column is displayed as **Cuttings log**. The portrait widths are
+`INTERPRETATION` description column is displayed as **Rock description**. The portrait widths are
 already reduced so this column fits on one A4 sheet. This does not replace the percentage
 cuttings-composition column: description text and percentages remain separate data.
 
