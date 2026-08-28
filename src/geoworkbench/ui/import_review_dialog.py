@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QListWidget,
     QPushButton,
-    QSplitter,
+    QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -36,6 +36,7 @@ from geoworkbench.services.import_review import (
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.uom_dictionary import QuantityClass
+from geoworkbench.ui.collapsible_section import CollapsibleSection
 
 
 class ImportReviewDialog(QDialog):
@@ -65,18 +66,46 @@ class ImportReviewDialog(QDialog):
         self.accepted_dataset: Dataset | None = None
         self.failure: Exception | None = None
         self.setWindowTitle(self._t("import_review.title", file=source.name))
-        self.resize(1180, 760)
+        self.resize(1040, 700)
 
         root = QVBoxLayout(self)
         root.addWidget(self._build_source_header())
-        root.addWidget(self._build_index_group())
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-        splitter.addWidget(self._build_channel_table())
-        splitter.addWidget(self._build_channel_editor())
-        splitter.setStretchFactor(0, 3)
-        splitter.setStretchFactor(1, 2)
-        root.addWidget(splitter, 1)
-        root.addWidget(self._build_qc_group())
+        self.review_summary = QLabel()
+        self.review_summary.setWordWrap(True)
+        self.review_summary.setObjectName("import-review-summary")
+        root.addWidget(self.review_summary)
+
+        self.index_section = CollapsibleSection(
+            self._t("import_review.advanced_index"),
+            self._build_index_group(),
+            expanded=False,
+        )
+        self.index_section.setObjectName("import-review-index-section")
+        self.index_section.header.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
+        root.addWidget(self.index_section)
+        root.addWidget(self._build_channel_table(), 1)
+        self.channel_section = CollapsibleSection(
+            self._t("import_review.advanced_channel"),
+            self._build_channel_editor(),
+            expanded=False,
+        )
+        self.channel_section.setObjectName("import-review-channel-section")
+        self.channel_section.header.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
+        root.addWidget(self.channel_section)
+        self.qc_section = CollapsibleSection(
+            self._t("import_review.qc_group"),
+            self._build_qc_group(),
+            expanded=False,
+        )
+        self.qc_section.setObjectName("import-review-qc-section")
+        self.qc_section.header.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
+        root.addWidget(self.qc_section)
         self.buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok
             | QDialogButtonBox.StandardButton.Cancel
@@ -157,8 +186,20 @@ class ImportReviewDialog(QDialog):
         panel = QWidget()
         layout = QVBoxLayout(panel)
         layout.setContentsMargins(0, 0, 0, 0)
+        heading = QHBoxLayout()
         title = QLabel(self._t("import_review.channels"))
-        layout.addWidget(title)
+        heading.addWidget(title, 1)
+        self.technical_columns_toggle = QCheckBox(
+            self._t("import_review.show_technical_columns")
+        )
+        self.technical_columns_toggle.setObjectName(
+            "import-review-technical-columns"
+        )
+        self.technical_columns_toggle.toggled.connect(
+            self._set_technical_columns_visible
+        )
+        heading.addWidget(self.technical_columns_toggle)
+        layout.addLayout(heading)
         self.channel_table = QTableWidget()
         self.channel_table.setColumnCount(9)
         self.channel_table.setHorizontalHeaderLabels(
@@ -183,8 +224,13 @@ class ImportReviewDialog(QDialog):
         self.channel_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.channel_table.itemSelectionChanged.connect(self._selected_channel_changed)
         self.channel_table.itemChanged.connect(self._include_changed)
+        self._set_technical_columns_visible(False)
         layout.addWidget(self.channel_table)
         return panel
+
+    def _set_technical_columns_visible(self, visible: bool) -> None:
+        for column in (6, 7, 8):
+            self.channel_table.setColumnHidden(column, not visible)
 
     def _build_channel_editor(self) -> QGroupBox:
         group = QGroupBox(self._t("import_review.channel_editor"))
@@ -219,11 +265,8 @@ class ImportReviewDialog(QDialog):
         return group
 
     def _build_qc_group(self) -> QGroupBox:
-        group = QGroupBox(self._t("import_review.qc_group"))
+        group = QGroupBox()
         layout = QVBoxLayout(group)
-        self.review_summary = QLabel()
-        self.review_summary.setWordWrap(True)
-        layout.addWidget(self.review_summary)
         self.issue_list = QListWidget()
         self.issue_list.setMaximumHeight(150)
         layout.addWidget(self.issue_list)
@@ -306,6 +349,16 @@ class ImportReviewDialog(QDialog):
                 errors=review.error_count,
             )
         )
+        self.qc_section.header.setText(
+            self._t(
+                "import_review.details_title",
+                warnings=review.warning_count,
+                errors=review.error_count,
+            )
+        )
+        self.qc_section.header.setAccessibleName(self.qc_section.header.text())
+        if review.error_count:
+            self.qc_section.set_expanded(True)
         self.buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(
             review.error_count == 0
         )

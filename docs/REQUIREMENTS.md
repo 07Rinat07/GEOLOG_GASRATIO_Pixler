@@ -31,7 +31,7 @@
 | DATA-017 | Создание нового пустого LAS с выбранной версией, индексом, шагом и NULL | готово для LAS 1.2/2.0 и индексов MD/TVD/TVDSS |
 | DATA-018 | Сращивание LAS по глубине/времени с preview конфликтов | частично: depth merge с UI preview и Undo/Redo готов; стратегии конфликтов и TIME запланированы |
 | DATA-019 | Вставка кривых из GIS/GTI LAS с сопоставлением индексов и единиц | готово для exact/linear depth mapping с UI preview конфликтов и Undo/Redo |
-| DATA-020 | Единая точка импорта с маршрутизацией по реализованным форматам | готово для LAS/CSV/TXT/Excel/Paradox; выполнение и регистрация проходят через `DatasetImportJobExecutor` |
+| DATA-020 | Единая точка импорта с маршрутизацией по реализованным форматам | готово для LAS/CSV/TXT/Excel/Paradox/GS2: один выбор файла, определение типа по расширению и выполнение через форматный job; совместимый LAS используется по умолчанию, строгий/ручной режимы и подробные настройки Import Review доступны отдельно |
 | DATA-021 | DLIS v1/LIS79 через изолированный optional adapter | запланировано: read-only inventory, frame/channel mapping и import report на `dlisio` |
 | DATA-022 | SEG-Y как внешний большой dataset без загрузки полного куба в память | запланировано: read-only headers/traces, geometry QC и windowed access на `segyio` |
 | DATA-023 | GIS vector/raster с явным CRS | запланировано: GeoPackage, Shapefile compatibility и GeoTIFF/BigTIFF/COG через optional GDAL |

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import pytest
 
@@ -12,11 +13,13 @@ from geoworkbench.services.import_jobs import (
 
 @dataclass
 class FakeImportJobPort:
-    executed: list[ImportSourceKind] = field(default_factory=list)
+    executed: list[tuple[ImportSourceKind, Path | None]] = field(default_factory=list)
     unknown: list[str] = field(default_factory=list)
 
-    def execute_import(self, kind: ImportSourceKind) -> None:
-        self.executed.append(kind)
+    def execute_import(
+        self, kind: ImportSourceKind, source: Path | None = None
+    ) -> None:
+        self.executed.append((kind, source))
 
     def report_unknown_source(self, selected_label: str) -> None:
         self.unknown.append(selected_label)
@@ -62,7 +65,7 @@ def test_dispatch_routes_every_supported_source(
     controller = ImportJobController(port)
 
     assert controller.dispatch(label, True, localize) is True
-    assert port.executed == [expected]
+    assert port.executed == [(expected, None)]
 
 
 def test_cancel_and_unknown_source_do_not_start_import() -> None:
@@ -74,3 +77,36 @@ def test_cancel_and_unknown_source_do_not_start_import() -> None:
 
     assert port.executed == []
     assert port.unknown == ["Unknown"]
+
+
+@pytest.mark.parametrize(
+    ("filename", "expected"),
+    [
+        ("well.LAS", ImportSourceKind.LAS),
+        ("table.csv", ImportSourceKind.CSV),
+        ("table.TXT", ImportSourceKind.CSV),
+        ("book.xlsx", ImportSourceKind.EXCEL),
+        ("legacy.xls", ImportSourceKind.EXCEL),
+        ("macro.xlsm", ImportSourceKind.EXCEL),
+        ("geoscape.db", ImportSourceKind.PARADOX),
+        ("container.gs2", ImportSourceKind.GS2),
+    ],
+)
+def test_dispatch_path_detects_format_from_extension(
+    filename: str,
+    expected: ImportSourceKind,
+) -> None:
+    port = FakeImportJobPort()
+    controller = ImportJobController(port)
+
+    assert controller.dispatch_path(filename) is True
+    assert port.executed == [(expected, Path(filename))]
+
+
+def test_dispatch_path_reports_unknown_extension() -> None:
+    port = FakeImportJobPort()
+    controller = ImportJobController(port)
+
+    assert controller.dispatch_path("notes.pdf") is False
+    assert port.executed == []
+    assert port.unknown == ["notes.pdf"]

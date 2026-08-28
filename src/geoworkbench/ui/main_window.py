@@ -415,17 +415,19 @@ class _MainWindowWorkspaceCommandPort(_MainWindowPort):
 class _MainWindowImportJobPort(_MainWindowPort):
     """Map stable import kinds to the existing format-specific UI jobs."""
 
-    def execute_import(self, kind: ImportSourceKind) -> None:
+    def execute_import(
+        self, kind: ImportSourceKind, source: Path | None = None
+    ) -> None:
         if kind is ImportSourceKind.LAS:
-            self._window.open_las()
+            self._window.open_las(source)
         elif kind is ImportSourceKind.CSV:
-            self._window.open_csv()
+            self._window.open_csv(source)
         elif kind is ImportSourceKind.EXCEL:
-            self._window.open_excel()
+            self._window.open_excel(source)
         elif kind is ImportSourceKind.PARADOX:
-            self._window.open_paradox()
+            self._window.open_paradox(source)
         elif kind is ImportSourceKind.GS2:
-            self._window.open_gs2()
+            self._window.open_gs2(source)
         else:
             raise ValueError(f"Unsupported import source kind: {kind}")
 
@@ -1341,16 +1343,27 @@ class MainWindow(QMainWindow):
 
         self.open_action = self._localized_action("shell.import_las")
         self.open_action.setShortcut("Ctrl+L")
-        self.open_action.triggered.connect(self.open_las)
+        self.open_action.triggered.connect(lambda _checked=False: self.open_las())
         file_menu.addAction(self.open_action)
         las_editor_menu.addAction(self.open_action)
 
+        self.open_las_advanced_action = self._localized_action(
+            "import.las_advanced"
+        )
+        self.open_las_advanced_action.triggered.connect(
+            lambda _checked=False: self.open_las_advanced()
+        )
+        file_menu.addAction(self.open_las_advanced_action)
+        las_editor_menu.addAction(self.open_las_advanced_action)
+
         self.open_csv_action = self._localized_action("shell.import_csv")
-        self.open_csv_action.triggered.connect(self.open_csv)
+        self.open_csv_action.triggered.connect(lambda _checked=False: self.open_csv())
         file_menu.addAction(self.open_csv_action)
 
         self.open_excel_action = self._localized_action("shell.import_excel")
-        self.open_excel_action.triggered.connect(self.open_excel)
+        self.open_excel_action.triggered.connect(
+            lambda _checked=False: self.open_excel()
+        )
         file_menu.addAction(self.open_excel_action)
 
         self.open_paradox_action = self._localized_action("shell.import_paradox")
@@ -2783,16 +2796,14 @@ class MainWindow(QMainWindow):
             self.user_profile_settings.save_cursor_line_settings(self.cursor_line_settings)
 
     def open_data(self) -> None:
-        choices = self._import_job_controller.choices(self._t)
-        selected, accepted = QInputDialog.getItem(
+        filename, _selected_filter = QFileDialog.getOpenFileName(
             self,
-            self._t("import.title"),
-            self._t("import.source_type"),
-            [choice.label for choice in choices],
-            0,
-            False,
+            self._t("import.select_file"),
+            "",
+            self._t("import.supported_filter"),
         )
-        self._import_job_controller.dispatch(selected, accepted, self._t)
+        if filename:
+            self._import_job_controller.dispatch_path(Path(filename))
 
     def change_language(self, language: AppLanguage) -> None:
         if language is self.language:
@@ -2906,24 +2917,44 @@ class MainWindow(QMainWindow):
         self.print_export_preferences = self.user_profile_settings.print_export_preferences()
         self.las_table_editor.set_number_formats(self.user_profile_settings.table_number_formats())
 
-    def open_las(self) -> None:
+    def _select_las_import_mode(self) -> LasImportMode | None:
         mode_labels = {
-            "Совместимый — открыть с предупреждениями": LasImportMode.COMPATIBLE,
-            "Строгий — блокировать любые предупреждения": LasImportMode.STRICT,
-            "Ручная проверка — подтверждать каждый проблемный файл": LasImportMode.MANUAL,
+            self._t("import.las_mode.compatible"): LasImportMode.COMPATIBLE,
+            self._t("import.las_mode.strict"): LasImportMode.STRICT,
+            self._t("import.las_mode.manual"): LasImportMode.MANUAL,
         }
         selected_mode, accepted = QInputDialog.getItem(
             self,
-            "Режим импорта LAS",
-            "Политика диагностических сообщений",
+            self._t("import.las_mode.title"),
+            self._t("import.las_mode.prompt"),
             list(mode_labels),
             0,
             False,
         )
         if not accepted:
-            return
-        import_mode = mode_labels[selected_mode]
-        filenames, _ = QFileDialog.getOpenFileNames(self, "Открыть LAS", "", "LAS (*.las)")
+            return None
+        return mode_labels[selected_mode]
+
+    def open_las_advanced(self) -> None:
+        import_mode = self._select_las_import_mode()
+        if import_mode is not None:
+            self.open_las(import_mode=import_mode)
+
+    def open_las(
+        self,
+        source: str | Path | None = None,
+        *,
+        import_mode: LasImportMode = LasImportMode.COMPATIBLE,
+    ) -> None:
+        if source is None:
+            filenames, _ = QFileDialog.getOpenFileNames(
+                self,
+                self._t("import.select_las"),
+                "",
+                "LAS (*.las)",
+            )
+        else:
+            filenames = [str(source)]
         if not filenames:
             return
         self._open_las_files(tuple(Path(filename) for filename in filenames), import_mode)
@@ -3158,13 +3189,16 @@ class MainWindow(QMainWindow):
             context=(*diagnostic.context, ("component", component)),
         )
 
-    def open_csv(self) -> None:
-        filename, _ = QFileDialog.getOpenFileName(
-            self,
-            "Импортировать CSV/TXT",
-            "",
-            "Табличные данные (*.csv *.txt);;CSV (*.csv);;TXT (*.txt)",
-        )
+    def open_csv(self, source: str | Path | None = None) -> None:
+        if source is None:
+            filename, _ = QFileDialog.getOpenFileName(
+                self,
+                "Импортировать CSV/TXT",
+                "",
+                "Табличные данные (*.csv *.txt);;CSV (*.csv);;TXT (*.txt)",
+            )
+        else:
+            filename = str(source)
         if not filename:
             return
         dialog = CsvImportDialog(Path(filename), self, language=self.language)
@@ -3194,13 +3228,16 @@ class MainWindow(QMainWindow):
         )
         self.statusBar().showMessage(f"CSV импортирован: {Path(filename).name}")
 
-    def open_excel(self) -> None:
-        filename, _ = QFileDialog.getOpenFileName(
-            self,
-            "Импортировать Excel",
-            "",
-            "Excel (*.xls *.xlsx *.xlsm)",
-        )
+    def open_excel(self, source: str | Path | None = None) -> None:
+        if source is None:
+            filename, _ = QFileDialog.getOpenFileName(
+                self,
+                "Импортировать Excel",
+                "",
+                "Excel (*.xls *.xlsx *.xlsm)",
+            )
+        else:
+            filename = str(source)
         if not filename:
             return
         dialog = ExcelImportDialog(Path(filename), self, language=self.language)

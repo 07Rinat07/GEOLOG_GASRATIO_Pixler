@@ -66,7 +66,9 @@ class ImportSourceChoice:
 
 
 class ImportJobPort(Protocol):
-    def execute_import(self, kind: ImportSourceKind) -> None: ...
+    def execute_import(
+        self, kind: ImportSourceKind, source: Path | None = None
+    ) -> None: ...
 
     def report_unknown_source(self, selected_label: str) -> None: ...
 
@@ -78,6 +80,17 @@ _SOURCE_LABEL_KEYS = (
     (ImportSourceKind.PARADOX, "import.source_paradox"),
     (ImportSourceKind.GS2, "import.source_gs2"),
 )
+
+_SOURCE_KIND_BY_SUFFIX = {
+    ".las": ImportSourceKind.LAS,
+    ".csv": ImportSourceKind.CSV,
+    ".txt": ImportSourceKind.CSV,
+    ".xls": ImportSourceKind.EXCEL,
+    ".xlsx": ImportSourceKind.EXCEL,
+    ".xlsm": ImportSourceKind.EXCEL,
+    ".db": ImportSourceKind.PARADOX,
+    ".gs2": ImportSourceKind.GS2,
+}
 
 
 class ImportJobController:
@@ -107,6 +120,19 @@ class ImportJobController:
             self._port.report_unknown_source(selected_label)
             return False
         self._port.execute_import(kind)
+        return True
+
+    @staticmethod
+    def kind_for_path(source: str | Path) -> ImportSourceKind | None:
+        return _SOURCE_KIND_BY_SUFFIX.get(Path(source).suffix.casefold())
+
+    def dispatch_path(self, source: str | Path) -> bool:
+        selected = Path(source)
+        kind = self.kind_for_path(selected)
+        if kind is None:
+            self._port.report_unknown_source(selected.name)
+            return False
+        self._port.execute_import(kind, selected)
         return True
 
 

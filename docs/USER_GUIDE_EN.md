@@ -11,7 +11,18 @@ The interface is organised by purpose:
 
 Utility windows open separately and no longer occupy permanent workspace tabs.
 
-## 2. Files, PDF, and calculators
+## 2. Quick data import
+
+1. Choose **File → Import data...** (`Ctrl+I`).
+2. Select a LAS, CSV/TXT, Excel, Paradox DB, or GS2 file directly. Its type is detected from the
+   extension, so a separate format prompt is no longer needed.
+3. A regular LAS opens in the safe compatible mode. Use **File → Advanced LAS import...** for
+   strict or manual review modes.
+4. Check the summary and channel list in the compact review. Expand index/NULL, manual mapping,
+   technical columns, or the full warning list only when needed.
+5. Select **Accept import**. Cancelling leaves both the project and source file unchanged.
+
+## 3. Files, PDF, and calculators
 
 Open **Tools → Files / PDF / Calculator**.
 
@@ -22,7 +33,7 @@ Open **Tools → Files / PDF / Calculator**.
 5. Do not use results produced from blank, negative, or physically impossible values.
 6. If PyMuPDF or Pillow is missing, the main application remains available and the window displays the installation command.
 
-## 3. Cuttings log and rock descriptions in Interpretation
+## 4. Cuttings log and rock descriptions in Interpretation
 
 ### Rename the displayed column
 
@@ -63,7 +74,7 @@ In Cuttings, Calcimetry, and LBA tracks, `Shift + left drag` opens the shared sa
 accepts up to four rocks totalling `100%`, analyses, a ready template, and a description. After
 saving, the same description automatically appears in the Interpretation column.
 
-## 4. Print Centre
+## 5. Print Centre
 
 Open **Print → Print Centre**.
 
@@ -76,7 +87,7 @@ Open **Print → Print Centre**.
 
 A successful export does not guarantee correct layout. Always open and inspect the resulting file.
 
-## 5. Interpretation reports
+## 6. Interpretation reports
 
 Open **Print → Interpretation reports**.
 
@@ -153,7 +164,7 @@ PDF export and system printing use the same controlled multi-page renderer.
 
 Prospective intervals do not replace the geologist's conclusion.
 
-## 6. Help and diagnostics
+## 7. Help and diagnostics
 
 Open **Help → Documentation and instructions** for the built-in guide.
 

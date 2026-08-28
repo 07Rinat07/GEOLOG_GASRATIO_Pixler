@@ -9,13 +9,16 @@ Only an accepted copy reaches `ProjectSession`.
 
 ## Workflow
 
-1. Select the source and complete the format-specific options.
+1. Choose **Import data...** and select the file directly; its extension determines the format.
 2. Let the adapter parse the file into a temporary domain model.
-3. Review the active index and channel table.
-4. Apply mapping, UOM, or additional NULL-sentinel overrides when required.
+3. Review the always-visible summary and channel table in the compact Import Review.
+4. Expand index/NULL, manual mapping, technical columns, or detailed warnings only when an
+   override is required.
 5. Resolve blocking errors and choose **Accept import**.
 
 Cancelling the dialog creates no well or dataset and does not change the project dirty state.
+Regular LAS uses compatible mode; strict and manual modes remain available through the separate
+**Advanced LAS import...** command. A critical error automatically expands review details.
 
 ## Index and NULL handling
 
@@ -80,4 +83,3 @@ Since 0.7.47, a mixed numeric index can be repaired with “Sort the accepted co
 index”. GeoScape/Paradox enables the recommendation automatically. All indexes, depth values,
 and curves use one stable permutation; the source DB and loader-owned dataset remain unchanged.
 The review records `index-sorted-copy`, while duplicates and gaps remain explicit warnings.
-

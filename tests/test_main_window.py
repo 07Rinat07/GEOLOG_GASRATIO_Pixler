@@ -1,7 +1,10 @@
+from pathlib import Path
+
 import numpy as np
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialog, QFileDialog, QInputDialog, QLabel, QMessageBox
 
+from geoworkbench.data.las_import_policy import LasImportMode
 from geoworkbench.domain.models import (
     CanvasObject,
     CurveData,
@@ -161,7 +164,7 @@ def test_home_and_workspace_navigation_is_explicit(qapp) -> None:
     window.close()
 
 
-def test_open_las_stops_when_import_mode_is_cancelled(qapp, monkeypatch) -> None:
+def test_advanced_las_import_stops_when_mode_is_cancelled(qapp, monkeypatch) -> None:
     window = MainWindow()
     file_dialog_called = False
 
@@ -180,36 +183,61 @@ def test_open_las_stops_when_import_mode_is_cancelled(qapp, monkeypatch) -> None
         unexpected_file_dialog,
     )
 
-    window.open_las()
+    window.open_las_advanced()
 
     assert not file_dialog_called
     window.close()
 
 
-def test_universal_import_dispatches_selected_format(qapp, monkeypatch) -> None:
+def test_regular_las_action_uses_compatible_mode_without_mode_prompt(
+    qapp, monkeypatch
+) -> None:
     window = MainWindow()
-    called: list[str] = []
-    window.open_las = lambda: called.append("las")  # type: ignore[method-assign]
-    window.open_csv = lambda: called.append("csv")  # type: ignore[method-assign]
-    window.open_excel = lambda: called.append("excel")  # type: ignore[method-assign]
+    opened: list[tuple[tuple[Path, ...], object]] = []
+
+    def unexpected_mode_dialog(*args, **kwargs):
+        raise AssertionError("Regular LAS import must not show a mode prompt")
+
     monkeypatch.setattr(
         "geoworkbench.ui.main_window.QInputDialog.getItem",
-        lambda *args, **kwargs: ("Excel XLS/XLSX/XLSM", True),
+        unexpected_mode_dialog,
+    )
+    monkeypatch.setattr(
+        "geoworkbench.ui.main_window.QFileDialog.getOpenFileNames",
+        lambda *args, **kwargs: (["well.las"], ""),
+    )
+    window._open_las_files = (  # type: ignore[method-assign]
+        lambda paths, mode: opened.append((paths, mode))
+    )
+
+    window.open_action.trigger()
+
+    assert opened == [((Path("well.las"),), LasImportMode.COMPATIBLE)]
+    window.close()
+
+
+def test_universal_import_dispatches_selected_format(qapp, monkeypatch) -> None:
+    window = MainWindow()
+    called: list[Path] = []
+    window.open_excel = lambda source=None: called.append(source)  # type: ignore[method-assign]
+    monkeypatch.setattr(
+        "geoworkbench.ui.main_window.QFileDialog.getOpenFileName",
+        lambda *args, **kwargs: ("sample.xlsx", ""),
     )
 
     window.open_data()
 
-    assert called == ["excel"]
+    assert called == [Path("sample.xlsx")]
     window.close()
 
 
 def test_universal_import_stops_when_cancelled(qapp, monkeypatch) -> None:
     window = MainWindow()
-    called: list[str] = []
-    window.open_las = lambda: called.append("las")  # type: ignore[method-assign]
+    called: list[Path] = []
+    window.open_las = lambda source=None: called.append(source)  # type: ignore[method-assign]
     monkeypatch.setattr(
-        "geoworkbench.ui.main_window.QInputDialog.getItem",
-        lambda *args, **kwargs: ("LAS 1.2/2.0", False),
+        "geoworkbench.ui.main_window.QFileDialog.getOpenFileName",
+        lambda *args, **kwargs: ("", ""),
     )
 
     window.open_data()
