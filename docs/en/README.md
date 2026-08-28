@@ -544,10 +544,13 @@ mouse opens a compact dialog where both depths can be corrected and exactly one 
 selected. `OK` renders the interval immediately. Cuttings composition, LBA, calcimetry, and rich
 text descriptions remain separate sample-editor fields. A track title can be changed from its
 context menu without the localized factory caption replacing it; the standard `Шламограмма`
-caption is shown as `Cuttings log` in English and has RU/KK defaults. In a Cuttings or Rock
-description track, `Shift + left drag` creates an independent sample: the dialog allows exact
-boundary correction, up to four rock types, and a ready RU/KK/EN description. Double-click reopens
-an existing sample. Save the project with the diskette toolbar
+caption is shown as `Cuttings log` in English and has RU/KK defaults. In a Cuttings track,
+`Shift + left drag` creates an independent sample: the sample editor allows exact boundary
+correction, up to four rock types, and a ready RU/KK/EN description. The saved description is also
+rendered in the on-screen and printed Interpretation column. In the Interpretation or Rock
+description track, `Shift + left drag` creates a description interval without requiring rock
+percentages: correct its boundaries, choose a RU/KZ/EN template, or enter arbitrary text.
+Double-click reopens the saved description. Save the project with the diskette toolbar
 action or `Ctrl+S`.
 
 ## Forms, stratigraphy, and LAS editing

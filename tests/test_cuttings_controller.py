@@ -127,8 +127,30 @@ def test_empty_cuttings_description_does_not_create_an_interval() -> None:
     with pytest.raises(ValueError, match="описание шлама"):
         controller.set_description(500, 510, "  ")
 
-    with pytest.raises(ValueError, match="4000"):
-        controller.set_description(500, 510, "x" * 4001)
+    with pytest.raises(ValueError, match="2000000"):
+        controller.set_description(500, 510, "x" * 2_000_001)
+
+
+def test_delete_description_preserves_sample_analysis() -> None:
+    controller = _controller()
+    sample = controller.add(500, 510, {"sandstone": 100}, description="Описание")
+    controller.set_analysis(500, 510, calcite_percent=60.0)
+
+    deleted = controller.delete_description(sample.sample_id)
+
+    assert deleted is sample
+    assert sample.description is None
+    assert sample.calcite_percent == 60.0
+    assert controller.get(sample.sample_id) is sample
+
+
+def test_delete_description_removes_description_only_interval() -> None:
+    controller = _controller()
+    sample = controller.set_description(500, 510, "Описание")
+
+    controller.delete_description(sample.sample_id)
+
+    assert controller.available() == ()
 
 
 def test_sample_analysis_validates_percentages_intensity_and_empty_input() -> None:

@@ -294,7 +294,7 @@ def _inspect_sample_interpretation(
         column.column_id,
         column.title,
         depth,
-        description=sample.analysis_interpretation,
+        description=sample.description or sample.analysis_interpretation,
         interval=(sample.top_depth, sample.bottom_depth),
     )
 

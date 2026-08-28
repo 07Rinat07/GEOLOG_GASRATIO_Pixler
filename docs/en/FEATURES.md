@@ -33,7 +33,7 @@ details remain in Git.
 | Graph editing | pencil, point correction, Undo/Redo, safe rebuild | [Interaction architecture](TABLET_INTERACTION_ARCHITECTURE.md) |
 | Annotations | callouts, comments, images, saved curve values, symbols | [Annotations](ANNOTATIONS.md) |
 | Catalog symbols | transparent/original background, anchoring, independent width/height stretch, Shift aspect lock, save and reopen | [Annotations](ANNOTATIONS.md) |
-| Lithology and intervals | lithotypes, descriptions, stratigraphy, samples, calcimetry and LBA | [User guide](README.md), [Forms and stratigraphy](FORM_CAPTIONS_AND_STRATIGRAPHY.md) |
+| Lithology and intervals | lithotypes, cuttings log, descriptions in Interpretation, RU/KZ/EN templates, stratigraphy, calcimetry and LBA | [User guide](README.md), [Geological working form](GEODATA_DEPTH_WORKSPACE.md) |
 | Operational events | drilling, gas, shows, samples, casing, formation tops, QC | [Operational events](OPERATIONAL_EVENTS.md) |
 | Channels and Sensors | semantic kinds, units, bindings, sensor catalog | [Semantic dictionary](SEMANTIC_CHANNEL_DICTIONARY.md) |
 | Calculations | Gas Ratio/Haworth/Pixler, normalized gas, DEXP/NCT, candidate-show detection | [Mud-gas interpretation](MUD_GAS_INTERPRETATION.md), [User guide](README.md) |

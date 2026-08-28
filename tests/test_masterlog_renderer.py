@@ -40,6 +40,7 @@ from geoworkbench.printing.masterlog_renderer import (
     _paint_column_grid,
     _paint_depth_axis,
     _parameter_symbol_x,
+    _rich_text_to_plain,
     visible_lithology_intervals,
     masterlog_curve_bindings,
     masterlog_curve_style,
@@ -74,6 +75,12 @@ def test_masterlog_size_uses_mm_template_geometry() -> None:
 
     assert size.width() == 70.0
     assert size.height() == 340.0
+
+
+def test_print_interpretation_converts_saved_rich_rock_description_to_text() -> None:
+    assert _rich_text_to_plain(
+        "<p><b>Песчаник</b>, мелкозернистый.<br/>Кварцевый.</p>"
+    ) == "Песчаник, мелкозернистый.\nКварцевый."
 
 
 def test_masterlog_pdf_export_is_independent_and_atomic(qapp, tmp_path) -> None:

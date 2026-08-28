@@ -190,6 +190,37 @@ def test_click_on_interpretation_returns_geologist_interval_text() -> None:
     assert result.description == "Reservoir sandstone with documented show"
 
 
+def test_click_on_interpretation_prefers_saved_rock_description() -> None:
+    session = _session()
+    assert session.current_well is not None
+    session.current_well.cuttings.append(
+        CuttingsSample(
+            "sample-rock-description",
+            400.0,
+            600.0,
+            description="Fine sandstone, quartzose",
+            analysis_interpretation="Oil show",
+        )
+    )
+    template = MasterlogTemplate(
+        "form",
+        "Form",
+        header_height_mm=45.0,
+        columns=[
+            MasterlogColumnTemplate(
+                "interpretation", "Interpretation", "analysis_interpretation", 100.0
+            )
+        ],
+    )
+
+    result = inspect_masterlog_point(
+        QPointF(50.0, 128.5), QRectF(0, 0, 100, 257), template, session
+    )
+
+    assert result is not None
+    assert result.description == "Fine sandstone, quartzose"
+
+
 def test_column_header_hit_test_returns_rendered_column() -> None:
     session = _session()
     template = MasterlogTemplate(

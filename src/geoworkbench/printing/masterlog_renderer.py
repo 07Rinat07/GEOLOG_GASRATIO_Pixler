@@ -19,6 +19,7 @@ from PySide6.QtGui import (
     QPainterPath,
     QPdfWriter,
     QPen,
+    QTextDocument,
 )
 from PySide6.QtPrintSupport import QPrinter
 
@@ -1852,7 +1853,7 @@ def _paint_cuttings_descriptions(
             painter.drawText(
                 sample_rect.adjusted(0.6, 0.3, -0.6, -0.3),
                 Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap,
-                sample.description,
+                _rich_text_to_plain(sample.description),
             )
     painter.restore()
 
@@ -1873,7 +1874,9 @@ def _paint_sample_interpretations(
     _set_scaled_font_points(painter, font, 6.0)
     painter.setFont(font)
     for sample in well.cuttings:
-        text = sample.analysis_interpretation
+        description = _rich_text_to_plain(sample.description)
+        conclusion = (sample.analysis_interpretation or "").strip()
+        text = "\n".join(part for part in (description, conclusion) if part)
         if not text or sample.bottom_depth < top or sample.top_depth > bottom:
             continue
         y_top = rect.top() + (max(top, sample.top_depth) - top) / (bottom - top) * rect.height()
@@ -1892,6 +1895,17 @@ def _paint_sample_interpretations(
                 text,
             )
     painter.restore()
+
+
+def _rich_text_to_plain(value: str | None) -> str:
+    text = (value or "").strip()
+    if not text:
+        return ""
+    if "<" not in text or ">" not in text:
+        return text
+    document = QTextDocument()
+    document.setHtml(text)
+    return document.toPlainText().strip()
 
 
 def _lithotype_name(definition: CatalogLithotype, language: AppLanguage) -> str:

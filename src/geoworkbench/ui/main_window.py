@@ -274,6 +274,7 @@ from geoworkbench.ui.interpretation_properties import InterpretationPropertiesPa
 from geoworkbench.ui.lithology_dialog import LithologyDialog
 from geoworkbench.ui.lithology_interval_dialog import LithologyIntervalDialog
 from geoworkbench.ui.unified_cuttings_sample_dialog import UnifiedCuttingsSampleDialog
+from geoworkbench.ui.rock_description_dialog import RockDescriptionDialog
 from geoworkbench.ui.lithology_legend_dialog import LithologyLegendDialog
 from geoworkbench.ui.lithotype_catalog_dialog import LithotypeCatalogDialog
 from geoworkbench.ui.sensor_catalog_dialog import SensorCatalogDialog
@@ -723,10 +724,10 @@ class MainWindow(QMainWindow):
             self._edit_cuttings_sample_from_tablet
         )
         self.tablet_view.description_interval_requested.connect(
-            self._create_cuttings_sample_from_tablet
+            self._create_rock_description_from_tablet
         )
         self.tablet_view.description_edit_requested.connect(
-            self._edit_cuttings_sample_from_tablet
+            self._edit_rock_description_from_tablet
         )
         self.tablet_view.stratigraphy_interval_requested.connect(
             self._create_stratigraphy_interval_from_tablet
@@ -7412,6 +7413,86 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(
                 self._t(
                     "cuttings.edit_updated",
+                    top=f"{updated.top_depth:g}",
+                    bottom=f"{updated.bottom_depth:g}",
+                )
+            )
+            break
+
+    def _create_rock_description_from_tablet(
+        self, top_depth: float, bottom_depth: float
+    ) -> None:
+        """Create free text for a Shift+dragged Interpretation interval."""
+        if self.session.current_well is None:
+            return
+        dialog = RockDescriptionDialog(
+            top_depth,
+            bottom_depth,
+            language=self.language,
+            parent=self,
+        )
+        while dialog.exec() == QDialog.DialogCode.Accepted:
+            try:
+                created = self.cuttings_controller.set_description(
+                    dialog.top_depth,
+                    dialog.bottom_depth,
+                    dialog.description_html,
+                )
+            except (RuntimeError, ValueError) as exc:
+                QMessageBox.warning(self, self._t("description.create_title"), str(exc))
+                continue
+            self._refresh_cuttings_after_edit()
+            self.statusBar().showMessage(
+                self._t(
+                    "description.created",
+                    top=f"{created.top_depth:g}",
+                    bottom=f"{created.bottom_depth:g}",
+                )
+            )
+            break
+
+    def _edit_rock_description_from_tablet(self, sample_id: str) -> None:
+        """Edit description text or its exact interval without changing analyses."""
+        if self.session.current_well is None:
+            return
+        try:
+            sample = self.cuttings_controller.get(sample_id)
+        except (KeyError, RuntimeError) as exc:
+            QMessageBox.warning(self, self._t("description.edit_title"), str(exc))
+            return
+        dialog = RockDescriptionDialog(
+            sample.top_depth,
+            sample.bottom_depth,
+            language=self.language,
+            sample=sample,
+            parent=self,
+        )
+        while dialog.exec() == QDialog.DialogCode.Accepted:
+            try:
+                if dialog.delete_requested:
+                    deleted = self.cuttings_controller.delete_description(sample_id)
+                    self._refresh_cuttings_after_edit()
+                    self.statusBar().showMessage(
+                        self._t(
+                            "description.deleted",
+                            top=f"{deleted.top_depth:g}",
+                            bottom=f"{deleted.bottom_depth:g}",
+                        )
+                    )
+                    break
+                updated = self.cuttings_controller.update_description(
+                    sample_id,
+                    top_depth=dialog.top_depth,
+                    bottom_depth=dialog.bottom_depth,
+                    description=dialog.description_html,
+                )
+            except (KeyError, RuntimeError, ValueError) as exc:
+                QMessageBox.warning(self, self._t("description.edit_title"), str(exc))
+                continue
+            self._refresh_cuttings_after_edit()
+            self.statusBar().showMessage(
+                self._t(
+                    "description.updated",
                     top=f"{updated.top_depth:g}",
                     bottom=f"{updated.bottom_depth:g}",
                 )

@@ -152,6 +152,45 @@ class CuttingsController:
         self.session.dirty = True
         return sample
 
+    def delete_description(self, sample_id: str) -> CuttingsSample:
+        """Delete only the description and preserve any analysis on the sample.
+
+        A description-only interval is removed completely so it cannot remain
+        as an invisible record that blocks a future overlapping interval.
+        """
+
+        well = self._require_well()
+        sample = self._require_sample(sample_id)
+        sample.description = None
+        if not self._has_non_description_data(sample):
+            well.cuttings.remove(sample)
+        self.session.dirty = True
+        return sample
+
+    @staticmethod
+    def _has_non_description_data(sample: CuttingsSample) -> bool:
+        if sample.components:
+            return True
+        values = (
+            sample.lba_group,
+            sample.lba_type_id,
+            sample.lba_intensity,
+            sample.lba_color,
+            sample.lba_distribution,
+            sample.lba_cut,
+            sample.lba_cut_speed,
+            sample.lba_cut_color,
+            sample.lba_residue_type,
+            sample.lba_residue_color,
+            sample.lba_odour,
+            sample.lba_stain,
+            sample.lba_description,
+            sample.calcite_percent,
+            sample.dolomite_percent,
+            sample.analysis_interpretation,
+        )
+        return any(value is not None and value != "" for value in values)
+
     def remove(self, sample_id: str) -> CuttingsSample:
         well = self._require_well()
         sample = self._require_sample(sample_id)
@@ -201,7 +240,7 @@ class CuttingsController:
     ) -> CuttingsSample:
         """Create or update free-text cuttings description for an exact sample interval."""
         top, bottom = self._validate_interval(top_depth, bottom_depth)
-        normalized = self._normalize_text(description, 4000, "Описание шлама")
+        normalized = self._normalize_text(description, 2_000_000, "Описание шлама")
         sample = self._find_exact_sample(top, bottom)
         if sample is None:
             if normalized is None:

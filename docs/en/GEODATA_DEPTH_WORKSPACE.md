@@ -94,6 +94,17 @@ sample can also be deleted from that dialog.
 
 ## Description editor
 
+A saved sample description is rendered both in the dedicated description track and in the
+on-screen and printed column whose system type is Interpretation. Its displayed heading may be
+renamed from the context menu or form editor, for example to Cuttings log; the system type and
+project compatibility do not change.
+
+In Select mode (`Alt+1`), hold `Shift` and left-drag in an Interpretation or Rock description
+track. A dedicated editor opens without requiring rock percentages. Correct the exact top and
+bottom, select a RU/KZ/EN language and ready template, or enter arbitrary text. Double-click a
+saved description to reopen it. Deleting the description preserves composition, LBA, and
+calcimetry.
+
 Descriptions can be typed directly or pasted from Excel/the clipboard. The editor supports:
 
 - font family and size;
@@ -105,9 +116,9 @@ Descriptions can be typed directly or pasted from Excel/the clipboard. The edito
 - embedded images and cuttings photographs;
 - persistence of rich formatting in the project.
 
-Text is rendered within the sample interval and wrapped to the track width. If the interval is too
-short, the screen label may be hidden to avoid overlapping adjacent data; the complete content
-remains available in the editor and tooltip.
+Text is rendered within the sample interval, wrapped to the track width, and included in
+Masterlog, PDF, and printing. Existing system interpretation intervals are not deleted and remain
+visible outside an overlapping description.
 
 ## Curves and missing values
 

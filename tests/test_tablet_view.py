@@ -19,8 +19,10 @@ from geoworkbench.domain.models import (
     DepthDomain,
     IndexRole,
     IndexType,
+    InterpretationInterval,
     LithologyInterval,
     StratigraphyInterval,
+    WellInterpretation,
 )
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.tablet.grid_renderer import GridSettings, TabletGridRenderer
@@ -1208,6 +1210,68 @@ def test_tablet_interpretation_selection_updates_style_and_signal(qapp) -> None:
     assert view.clear_interval_selection(emit_signal=True) is True
     assert bar.opts["pen"].widthF() == 0.8
     assert cleared == [True]
+    view.close()
+
+
+def test_interpretation_track_displays_saved_cuttings_description(qapp) -> None:
+    dataset = Dataset(
+        "dataset-interpretation-rock-text",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.linspace(100.0, 160.0, 61),
+    )
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout(
+            [
+                TrackDefinition(
+                    "interpretation",
+                    "Интерпретация",
+                    TrackKind.INTERPRETATION,
+                    width=280,
+                )
+            ]
+        )
+    )
+    view.set_cuttings(
+        [
+            CuttingsSample(
+                "sample-description",
+                110.0,
+                130.0,
+                [CuttingsComponent("sandstone", 100.0)],
+                description="<p><b>Песчаник</b>, мелкозернистый, кварцевый.</p>",
+            )
+        ]
+    )
+    interpretation = WellInterpretation(
+        "existing-interpretation",
+        "Existing",
+        intervals=[
+            InterpretationInterval(
+                "existing-interval",
+                135.0,
+                150.0,
+                "Reservoir",
+                "B",
+            )
+        ],
+    )
+    view.set_interpretations([interpretation], interpretation.interpretation_id)
+    view.set_dataset(dataset)
+    qapp.processEvents()
+
+    assert view.rendered_lithology_descriptions("interpretation") == (
+        "Песчаник, мелкозернистый, кварцевый.",
+    )
+    assert view.visible_lithology_text_ids("interpretation") == (
+        "sample-description",
+    )
+    assert view.rendered_interpretation_ids("interpretation") == (
+        "existing-interval",
+    )
+    assert view._rendered["interpretation"].widget.title.text() == "Интерпретация"
     view.close()
 
 

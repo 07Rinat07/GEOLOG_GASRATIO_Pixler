@@ -34,6 +34,27 @@ dataset. A translucent dashed preview is shown during the gesture, and `Esc` can
 release the existing `InterpretationController` validates dataset bounds, top/bottom ordering, and
 same-type overlap. Only a valid command is persisted and recorded in Undo/Redo history
 (`Ctrl+Alt+Z` / `Ctrl+Alt+Shift+Z`).
+
+## Описание пород в колонке Interpretation / Interpretation бағанындағы сипаттама / Rock descriptions in Interpretation
+
+**RU.** В режиме **Выбор** (`Alt+1`) `Shift + левая кнопка` на дорожке системного типа
+`INTERPRETATION` или `TEXT` создаёт интервал свободного описания, а не обычный системный
+интервал интерпретации. После отпускания мыши отдельный редактор позволяет точно исправить обе
+глубины, выбрать шаблон RU/KZ/EN или ввести rich text без состава `100%`. Двойной щелчок по
+сохранённому описанию открывает его повторно. Обычные режимы **Рисование** и **Границы** продолжают
+редактировать `WellInterpretation`; эти данные не удаляются.
+
+**KK.** **Таңдау** (`Alt+1`) режимінде жүйелік түрі `INTERPRETATION` немесе `TEXT` болатын
+жолақтағы `Shift + сол жақ батырма` еркін сипаттама аралығын жасайды. Батырманы жібергенде екі
+тереңдікті дәл түзетуге, RU/KZ/EN үлгісін таңдауға немесе `100%` құрамынсыз rich text енгізуге
+болады. Екі рет шерту сипаттаманы қайта ашады. **Сызу** және **Шекаралар** режимдері бұрынғыдай
+`WellInterpretation` аралықтарын өңдейді және олар жойылмайды.
+
+**EN.** In **Select** mode (`Alt+1`), `Shift + left drag` on a track whose system type is
+`INTERPRETATION` or `TEXT` creates a free-description interval rather than a system interpretation
+interval. On release, the dedicated editor accepts exact boundaries, a RU/KZ/EN template, or rich
+text without a `100%` composition. Double-click reopens a saved description. **Draw** and
+**Boundaries** continue to edit `WellInterpretation`; those records are preserved.
 ## Литологические интервалы / Литологиялық аралықтар / Lithology intervals
 
 **RU.** На дорожке «Литология» удерживайте `Shift`, нажмите левую кнопку и протяните от кровли до подошвы. После отпускания откроется отдельное окно: можно уточнить обе глубины и выбрать ровно одну породу. Состав шламовой пробы, ЛБА, кальциметрия и текстовое описание редактируются в редакторе пробы и не смешиваются с литологическим интервалом.
@@ -41,4 +62,3 @@ same-type overlap. Only a valid command is persisted and recorded in Undo/Redo h
 **KK.** «Литология» жолағында `Shift` ұстап, сол жақ батырмамен төбеден табанға дейін созыңыз. Батырманы жібергенде екі тереңдікті түзетуге және бір тау жынысын таңдауға арналған терезе ашылады. Шлам құрамы, ЛБА, кальциметрия және мәтіндік сипаттама үлгі редакторында бөлек өңделеді.
 
 **EN.** Hold `Shift` and left-drag from top to bottom in a Lithology track. On release, a dedicated dialog lets the user correct both depths and select exactly one rock type. Cuttings composition, LBA, calcimetry, and rich descriptions remain separate sample-editor responsibilities.
-

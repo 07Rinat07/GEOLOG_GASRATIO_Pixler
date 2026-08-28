@@ -128,6 +128,12 @@ same object atomically by `sample_id`, so linked tracks cannot drift apart or cr
 Validation allows up to four rock components with an exact `100%` total; calcite plus dolomite may
 not exceed `100%`.
 
+`CuttingsSample.description` is also the text source for the on-screen and printed column whose
+system type is `INTERPRETATION`. The displayed `TrackDefinition.title` remains user-defined and is
+printed without replacement by the system caption. In Select mode, `Shift + left drag` on an
+`INTERPRETATION`/`TEXT` track opens the dedicated description editor without requiring a `100%`
+composition; existing `WellInterpretation` intervals are preserved.
+
 ## Compact geological columns
 
 During upgrade, **Stratigraphy**, **Lithology**, **Cuttings**, **Calcimetry**, **LBA**, and

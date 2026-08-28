@@ -5401,9 +5401,10 @@ class TabletView(QWidget):
             TrackKind.CUTTINGS,
             TrackKind.CALCIMETRY,
             TrackKind.LBA,
-            TrackKind.TEXT,
         }:
             hint = self._localizer.text("cuttings.drag_hint")
+        elif definition.kind in {TrackKind.TEXT, TrackKind.INTERPRETATION}:
+            hint = self._localizer.text("description.drag_hint")
         elif definition.kind in {
             TrackKind.DEPTH,
             TrackKind.CURVE,
@@ -7283,7 +7284,13 @@ class TabletView(QWidget):
         if (
             rendered is None
             or rendered.definition.kind
-            not in {TrackKind.CUTTINGS, TrackKind.CALCIMETRY, TrackKind.LBA, TrackKind.TEXT}
+            not in {
+                TrackKind.CUTTINGS,
+                TrackKind.CALCIMETRY,
+                TrackKind.LBA,
+                TrackKind.TEXT,
+                TrackKind.INTERPRETATION,
+            }
             or rendered.plot is None
             or (descriptor is not None and descriptor.role is not IndexRole.DEPTH)
         ):
@@ -7318,7 +7325,10 @@ class TabletView(QWidget):
         if result is None:
             return False
         rendered = self._rendered.get(gesture.track_id)
-        if rendered is not None and rendered.definition.kind is TrackKind.TEXT:
+        if rendered is not None and rendered.definition.kind in {
+            TrackKind.TEXT,
+            TrackKind.INTERPRETATION,
+        }:
             self.description_interval_requested.emit(result.top_depth, result.bottom_depth)
         else:
             self.cuttings_interval_requested.emit(result.top_depth, result.bottom_depth)
@@ -8704,6 +8714,9 @@ class TabletView(QWidget):
     ) -> tuple[dict[str, tuple[object, ...]], dict[str, int]]:
         if definition.kind is not TrackKind.INTERPRETATION:
             return {}, {}
+        has_descriptions = any(
+            (sample.description or "").strip() for sample in self._cuttings
+        )
         interpretation = self._current_interpretation()
         track.plot.hideAxis("bottom")
         track.plot.setMouseEnabled(x=False, y=True)
@@ -8712,7 +8725,11 @@ class TabletView(QWidget):
             track.title.setText(localized_title)
             track.plot.setXRange(0.0, 1.0, padding=0)
             return {}, {}
-        track.title.setText(f"{localized_title}: {interpretation.name}")
+        track.title.setText(
+            localized_title
+            if has_descriptions
+            else f"{localized_title}: {interpretation.name}"
+        )
         interval_types = sorted(
             {item.interval_type for item in interpretation.intervals}, key=str.casefold
         )
@@ -8893,9 +8910,41 @@ class TabletView(QWidget):
     def _handle_interpretation_mouse_event(
         self, rendered: RenderedTrack, event: QMouseEvent
     ) -> bool:
-        if rendered.plot is None or self._interval_edit_mode is IntervalEditMode.SELECT:
+        if rendered.plot is None:
             return False
         event_type = event.type()
+        if self._interval_edit_mode is IntervalEditMode.SELECT:
+            if (
+                event_type == QEvent.Type.MouseButtonDblClick
+                and event.button() == Qt.MouseButton.LeftButton
+            ):
+                point = self._mouse_event_view_point(rendered, event)
+                sample = self.cuttings_sample_at_depth(
+                    self._axis_to_depth_value(float(point.y()))
+                )
+                if sample is not None:
+                    self.description_edit_requested.emit(sample.sample_id)
+                    return True
+            if (
+                event_type == QEvent.Type.MouseButtonPress
+                and event.button() == Qt.MouseButton.LeftButton
+                and bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier)
+            ):
+                point = self._mouse_event_view_point(rendered, event)
+                return self.begin_sample_drag(
+                    rendered.definition.track_id, float(point.y())
+                )
+            if event_type == QEvent.Type.MouseMove and self._sample_gesture is not None:
+                point = self._mouse_event_view_point(rendered, event)
+                return self.update_sample_drag(float(point.y()))
+            if (
+                event_type == QEvent.Type.MouseButtonRelease
+                and event.button() == Qt.MouseButton.LeftButton
+                and self._sample_gesture is not None
+            ):
+                point = self._mouse_event_view_point(rendered, event)
+                return self.finish_sample_drag(float(point.y()))
+            return False
         if event_type == QEvent.Type.MouseButtonPress:
             if event.button() != Qt.MouseButton.LeftButton:
                 return False
@@ -9580,7 +9629,7 @@ class TabletView(QWidget):
         Lithology text is used only when no cuttings description overlaps the
         interval, which keeps old projects readable without duplicating text.
         """
-        if definition.kind is not TrackKind.TEXT:
+        if definition.kind not in {TrackKind.TEXT, TrackKind.INTERPRETATION}:
             return {}
         rendered: dict[str, pg.TextItem] = {}
         # ``QGraphicsTextItem.setTextWidth`` looks attractive for wrapping, but
@@ -9590,6 +9639,12 @@ class TabletView(QWidget):
         text_width = max(32, definition.width - 16)
         wrap_columns = max(18, int(text_width / 7.0))
         described_ranges: list[tuple[float, float]] = []
+        interpretation = self._current_interpretation()
+        interpretation_width = 1.0
+        if definition.kind is TrackKind.INTERPRETATION and interpretation is not None:
+            interpretation_width = float(
+                max(1, len({item.interval_type for item in interpretation.intervals}))
+            )
 
         def plain_html(value: str) -> str:
             paragraphs = value.replace("\r\n", "\n").replace("\r", "\n").split("\n")
@@ -9627,12 +9682,29 @@ class TabletView(QWidget):
                 if "<" in description and ">" in description
                 else plain_html(description)
             )
-            label.setHtml(f'<div style="color:#202020; margin:0; padding:0;">{body}</div>')
+            style = "color:#202020; margin:0; padding:2px;"
+            if definition.kind is TrackKind.INTERPRETATION:
+                style += " background:#f8fafc; border:1px solid #94a3b8;"
+            label.setHtml(f'<div style="{style}">{body}</div>')
             label.textItem.setTextWidth(float(text_width))
             label.updateTextPos()
             axis_top, axis_bottom = self._depth_interval_to_axis(
                 sample.top_depth, sample.bottom_depth
             )
+            if definition.kind is TrackKind.INTERPRETATION:
+                interval_block = DeviceTiledRectItem(
+                    QRectF(
+                        0.0,
+                        axis_top,
+                        interpretation_width,
+                        max(axis_bottom - axis_top, np.finfo(float).eps),
+                    ),
+                    pg.mkBrush("#f8fafc"),
+                    pg.mkPen("#64748b", width=0.8),
+                )
+                interval_block.setZValue(20.0)
+                track.plot.addItem(interval_block)
+                label.setZValue(21.0)
             label.setPos(0.02, (axis_top + axis_bottom) / 2.0)
             label.setToolTip(
                 self._localizer.text(
@@ -9644,6 +9716,9 @@ class TabletView(QWidget):
             track.plot.addItem(label)
             rendered[sample.sample_id] = label
             described_ranges.append((sample.top_depth, sample.bottom_depth))
+
+        if definition.kind is TrackKind.INTERPRETATION:
+            return rendered
 
         for interval in self._lithology:
             overlaps_sample_text = any(

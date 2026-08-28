@@ -22,7 +22,41 @@ Open **Tools → Files / PDF / Calculator**.
 5. Do not use results produced from blank, negative, or physically impossible values.
 6. If PyMuPDF or Pillow is missing, the main application remains available and the window displays the installation command.
 
-## 3. Print Centre
+## 3. Cuttings log and rock descriptions in Interpretation
+
+### Rename the displayed column
+
+1. Open the tablet and enable **Edit form (F4)** or use the heading context menu.
+2. Select the column whose system type is **Interpretation**.
+3. Enter the required displayed title, for example **Cuttings log**.
+4. Save the user form or project.
+
+The same title is shown on screen and in print. The system type remains `INTERPRETATION`, so
+saved projects and print templates remain compatible.
+
+### Fill any description interval
+
+1. Make sure **Select** mode (`Alt+1`) is active.
+2. Hold `Shift` in an Interpretation or Rock description track.
+3. Left-drag from the interval top to bottom and release the mouse button.
+4. Correct the exact **From, m** and **To, m** values in the dialog.
+5. Select the ready-description language: Russian, Kazakh, or English.
+6. Select a ready rock template or enter arbitrary text. Rock percentages are not required for
+   this workflow.
+7. Press **OK**, then save the project with `Ctrl+S`.
+
+The saved text appears immediately in the selected interval and is included in Masterlog, PDF,
+and printing. Double-click the description to reopen it. **Delete description** removes only the
+text; composition, LBA, and calcimetry remain intact. Existing system interpretation intervals
+are not deleted and remain visible outside an overlapping description.
+
+### Description from the shared sample editor
+
+In Cuttings, Calcimetry, and LBA tracks, `Shift + left drag` opens the shared sample editor. It
+accepts up to four rocks totalling `100%`, analyses, a ready template, and a description. After
+saving, the same description automatically appears in the Interpretation column.
+
+## 4. Print Centre
 
 Open **Print → Print Centre**.
 
@@ -35,7 +69,7 @@ Open **Print → Print Centre**.
 
 A successful export does not guarantee correct layout. Always open and inspect the resulting file.
 
-## 4. Interpretation reports
+## 5. Interpretation reports
 
 Open **Print → Interpretation reports**.
 
@@ -112,7 +146,7 @@ PDF export and system printing use the same controlled multi-page renderer.
 
 Prospective intervals do not replace the geologist's conclusion.
 
-## 5. Help and diagnostics
+## 6. Help and diagnostics
 
 Open **Help → Documentation and instructions** for the built-in guide.
 

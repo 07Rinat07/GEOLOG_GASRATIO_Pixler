@@ -118,8 +118,10 @@ def _mouse_event(
     )
 
 
-def _viewport_point_for_depth(view: TabletView, depth: float) -> QPointF:
-    plot = view._rendered["lithology"].plot
+def _viewport_point_for_depth(
+    view: TabletView, depth: float, track_id: str = "lithology"
+) -> QPointF:
+    plot = view._rendered[track_id].plot
     assert plot is not None
     scene = plot.getViewBox().mapViewToScene(QPointF(0.5, depth))
     plot_position = plot.mapFromScene(scene)
@@ -224,6 +226,115 @@ def test_shift_drag_on_description_track_requests_independent_sample(qapp) -> No
     assert view.finish_sample_drag(151.0)
 
     assert requests == [(110.0, 150.0)]
+    view.close()
+
+
+def test_shift_left_drag_in_interpretation_track_requests_rock_description(qapp) -> None:
+    dataset = Dataset(
+        "dataset-interpretation-description",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.arange(100.0, 181.0, 10.0),
+    )
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout(
+            [TrackDefinition("interpretation", "Интерпретация", TrackKind.INTERPRETATION)]
+        )
+    )
+    view.resize(520, 620)
+    view.show()
+    view.set_dataset(dataset)
+    qapp.processEvents()
+    rendered = view._rendered["interpretation"]
+    assert rendered.plot is not None
+    viewport = rendered.plot.viewport()
+    requests: list[tuple[float, float]] = []
+    view.description_interval_requested.connect(
+        lambda top, bottom: requests.append((top, bottom))
+    )
+    start = _viewport_point_for_depth(view, 110.0, "interpretation")
+    finish = _viewport_point_for_depth(view, 140.0, "interpretation")
+
+    press = _mouse_event(
+        QEvent.Type.MouseButtonPress,
+        viewport,
+        start,
+        button=Qt.MouseButton.LeftButton,
+        buttons=Qt.MouseButton.LeftButton,
+        modifiers=Qt.KeyboardModifier.ShiftModifier,
+    )
+    move = _mouse_event(
+        QEvent.Type.MouseMove,
+        viewport,
+        finish,
+        button=Qt.MouseButton.NoButton,
+        buttons=Qt.MouseButton.LeftButton,
+        modifiers=Qt.KeyboardModifier.ShiftModifier,
+    )
+    release = _mouse_event(
+        QEvent.Type.MouseButtonRelease,
+        viewport,
+        finish,
+        button=Qt.MouseButton.LeftButton,
+        buttons=Qt.MouseButton.NoButton,
+        modifiers=Qt.KeyboardModifier.ShiftModifier,
+    )
+
+    assert view.eventFilter(viewport, press) is True
+    assert view.eventFilter(viewport, move) is True
+    assert view.eventFilter(viewport, release) is True
+    assert requests == [(110.0, 140.0)]
+    view.close()
+
+
+def test_double_click_description_in_interpretation_track_requests_reedit(qapp) -> None:
+    dataset = Dataset(
+        "dataset-interpretation-reedit",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.arange(100.0, 181.0, 10.0),
+    )
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout(
+            [TrackDefinition("interpretation", "Интерпретация", TrackKind.INTERPRETATION)]
+        )
+    )
+    view.set_cuttings(
+        [
+            CuttingsSample(
+                "sample-edit",
+                120.0,
+                150.0,
+                [CuttingsComponent("clay", 100.0)],
+                description="Глина серая",
+            )
+        ]
+    )
+    view.resize(520, 620)
+    view.show()
+    view.set_dataset(dataset)
+    qapp.processEvents()
+    rendered = view._rendered["interpretation"]
+    assert rendered.plot is not None
+    viewport = rendered.plot.viewport()
+    requests: list[str] = []
+    view.description_edit_requested.connect(requests.append)
+    position = _viewport_point_for_depth(view, 135.0, "interpretation")
+    event = _mouse_event(
+        QEvent.Type.MouseButtonDblClick,
+        viewport,
+        position,
+        button=Qt.MouseButton.LeftButton,
+        buttons=Qt.MouseButton.LeftButton,
+        modifiers=Qt.KeyboardModifier.NoModifier,
+    )
+
+    assert view.eventFilter(viewport, event) is True
+    assert requests == ["sample-edit"]
     view.close()
 
 
