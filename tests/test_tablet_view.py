@@ -101,6 +101,37 @@ def test_dense_form_track_receives_active_localizer_and_renders_overflow_hint(qa
     view.close()
 
 
+def test_standard_track_rename_is_visible_and_known_cuttings_name_is_localized(qapp) -> None:
+    dataset = Dataset(
+        "dataset-track-title",
+        "Track title",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 101.0]),
+    )
+    custom = TabletView(language=AppLanguage.EN)
+    custom.set_layout_model(
+        TabletLayout(
+            [TrackDefinition("interpretation", "Моя колонка", TrackKind.INTERPRETATION)],
+            localize_factory_labels=True,
+        )
+    )
+    custom.set_dataset(dataset)
+    assert custom._rendered["interpretation"].widget.title.text() == "Моя колонка"
+    custom.close()
+
+    localized = TabletView(language=AppLanguage.EN)
+    localized.set_layout_model(
+        TabletLayout(
+            [TrackDefinition("interpretation", "Шламограмма", TrackKind.INTERPRETATION)],
+            localize_factory_labels=True,
+        )
+    )
+    localized.set_dataset(dataset)
+    assert localized._rendered["interpretation"].widget.title.text() == "Cuttings log"
+    localized.close()
+
+
 def test_track_print_mode_hides_header_editor_actions_and_scrollbar(qapp) -> None:
     dataset = Dataset(
         "dataset-clean-print-header",

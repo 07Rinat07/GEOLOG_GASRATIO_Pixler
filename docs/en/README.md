@@ -542,7 +542,12 @@ audit.
 In a Lithology column, hold `Shift` and left-drag from the interval top to its bottom. Releasing the
 mouse opens a compact dialog where both depths can be corrected and exactly one rock type is
 selected. `OK` renders the interval immediately. Cuttings composition, LBA, calcimetry, and rich
-text descriptions remain separate sample-editor fields. Save the project with the diskette toolbar
+text descriptions remain separate sample-editor fields. A track title can be changed from its
+context menu without the localized factory caption replacing it; the standard `Шламограмма`
+caption is shown as `Cuttings log` in English and has RU/KK defaults. In a Cuttings or Rock
+description track, `Shift + left drag` creates an independent sample: the dialog allows exact
+boundary correction, up to four rock types, and a ready RU/KK/EN description. Double-click reopens
+an existing sample. Save the project with the diskette toolbar
 action or `Ctrl+S`.
 
 ## Forms, stratigraphy, and LAS editing

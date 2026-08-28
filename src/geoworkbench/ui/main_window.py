@@ -722,6 +722,12 @@ class MainWindow(QMainWindow):
         self.tablet_view.cuttings_sample_edit_requested.connect(
             self._edit_cuttings_sample_from_tablet
         )
+        self.tablet_view.description_interval_requested.connect(
+            self._create_cuttings_sample_from_tablet
+        )
+        self.tablet_view.description_edit_requested.connect(
+            self._edit_cuttings_sample_from_tablet
+        )
         self.tablet_view.stratigraphy_interval_requested.connect(
             self._create_stratigraphy_interval_from_tablet
         )

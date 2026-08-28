@@ -26,13 +26,14 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from geoworkbench.catalogs.description_templates import load_rock_description_templates
 from geoworkbench.domain.models import CuttingsSample
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.services.lba_standard import (
     LBA_STANDARD_GROUPS,
     all_lba_color_labels,
 )
-from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.localization import AppLanguage, LANGUAGE_NAMES
 from geoworkbench.ui.lithotype_visuals import configure_lithotype_combo, lithotype_icon
 from geoworkbench.ui.rich_interval_text_editor import RichIntervalTextEditor
 
@@ -71,6 +72,11 @@ _TEXT = {
         "lba_color": "Цвет свечения",
         "lba_details": "Дополнительное описание ЛБА",
         "description": "Описание шлама",
+        "description_template_language": "Язык готового описания",
+        "description_template": "Готовое описание породы",
+        "description_template_select": "Выберите шаблон",
+        "description_template_formula": "Схема описания: {formula}",
+        "description_template_warning": "Важно: {warning}",
         "interpretation": "Заключение",
         "delete": "Удалить пробу",
         "interval_error": "Начальная глубина должна быть меньше конечной.",
@@ -118,6 +124,11 @@ _TEXT = {
         "lba_color": "Жарқырау түсі",
         "lba_details": "ЛБА қосымша сипаттамасы",
         "description": "Шлам сипаттамасы",
+        "description_template_language": "Дайын сипаттаманың тілі",
+        "description_template": "Тау жынысының дайын сипаттамасы",
+        "description_template_select": "Үлгіні таңдаңыз",
+        "description_template_formula": "Сипаттама сызбасы: {formula}",
+        "description_template_warning": "Маңызды: {warning}",
         "interpretation": "Қорытынды",
         "delete": "Үлгіні жою",
         "interval_error": "Бастапқы тереңдік соңғы тереңдіктен кіші болуы керек.",
@@ -165,6 +176,11 @@ _TEXT = {
         "lba_color": "Fluorescence color",
         "lba_details": "Additional LBA description",
         "description": "Cuttings description",
+        "description_template_language": "Ready-description language",
+        "description_template": "Ready rock description",
+        "description_template_select": "Select a template",
+        "description_template_formula": "Description scheme: {formula}",
+        "description_template_warning": "Important: {warning}",
         "interpretation": "Conclusion",
         "delete": "Delete sample",
         "interval_error": "The start depth must be less than the end depth.",
@@ -189,6 +205,12 @@ _LBA_TYPES = tuple(
         strict=True,
     )
 )
+
+_LITHOTYPE_TEMPLATE_ALIASES = {
+    "claystone": "argillite",
+    "gravelite": "gravelstone",
+}
+_TEMPLATE_ID_ROLE = 257
 
 
 class UnifiedCuttingsSampleDialog(QDialog):
@@ -215,6 +237,8 @@ class UnifiedCuttingsSampleDialog(QDialog):
         self._language = language
         self._sample = sample
         self._catalog = tuple(catalog)
+        self._description_template_catalog = load_rock_description_templates()
+        self._description_from_template = False
         self.delete_requested = False
         self.setWindowTitle(self._text["edit"] if sample is not None else self._text["create"])
         self.setMinimumSize(560, 460)
@@ -232,9 +256,7 @@ class UnifiedCuttingsSampleDialog(QDialog):
         self.tabs.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding)
         self.tabs.addTab(self._composition_widget(sample), self._text["composition"])
         self.tabs.addTab(self._analysis_widget(sample), self._text["analysis"])
-        self.rich_description = RichIntervalTextEditor(language=language)
-        self.rich_description.set_html(sample.description if sample is not None else None)
-        self.tabs.addTab(self.rich_description, self._text["description"])
+        self.tabs.addTab(self._description_widget(sample), self._text["description"])
         self.interpretation_input = QPlainTextEdit()
         self.interpretation_input.setObjectName("cuttings-analysis-interpretation")
         if sample is not None:
@@ -275,6 +297,131 @@ class UnifiedCuttingsSampleDialog(QDialog):
         layout.addWidget(scroll, 1)
         layout.addWidget(buttons)
         self._apply_adaptive_size()
+
+    def _description_widget(self, sample: CuttingsSample | None) -> QWidget:
+        widget = QWidget()
+        root = QVBoxLayout(widget)
+
+        template_form = QFormLayout()
+        self.description_template_language_input = QComboBox()
+        self.description_template_language_input.setObjectName(
+            "cuttings-description-template-language"
+        )
+        for template_language in AppLanguage:
+            self.description_template_language_input.addItem(
+                LANGUAGE_NAMES[template_language], template_language.value
+            )
+        self.description_template_language_input.setCurrentIndex(
+            self.description_template_language_input.findData(self._language.value)
+        )
+        self.description_template_input = QComboBox()
+        self.description_template_input.setObjectName("cuttings-description-template")
+        template_form.addRow(
+            self._text["description_template_language"],
+            self.description_template_language_input,
+        )
+        template_form.addRow(
+            self._text["description_template"], self.description_template_input
+        )
+        root.addLayout(template_form)
+
+        self.description_template_formula = QLabel()
+        self.description_template_formula.setObjectName(
+            "cuttings-description-template-formula"
+        )
+        self.description_template_formula.setWordWrap(True)
+        self.description_template_formula.setStyleSheet("color:#475569; font-size:11px;")
+        root.addWidget(self.description_template_formula)
+        self.description_template_warning = QLabel()
+        self.description_template_warning.setObjectName(
+            "cuttings-description-template-warning"
+        )
+        self.description_template_warning.setWordWrap(True)
+        self.description_template_warning.setStyleSheet(
+            "background:#fff7ed; color:#9a3412; border:1px solid #fdba74; "
+            "border-radius:4px; padding:4px 6px;"
+        )
+        root.addWidget(self.description_template_warning)
+
+        self.rich_description = RichIntervalTextEditor(language=self._language)
+        self.rich_description.set_html(sample.description if sample is not None else None)
+        self.rich_description.editor.textChanged.connect(
+            self._mark_description_as_user_edited
+        )
+        root.addWidget(self.rich_description, 1)
+
+        self.description_template_language_input.currentIndexChanged.connect(
+            self._refresh_description_templates
+        )
+        self.description_template_input.currentIndexChanged.connect(
+            self._insert_description_template
+        )
+        self._refresh_description_templates()
+        return widget
+
+    def _description_template_language(self) -> AppLanguage:
+        try:
+            return AppLanguage(str(self.description_template_language_input.currentData()))
+        except ValueError:
+            return self._language
+
+    def _refresh_description_templates(self) -> None:
+        language = self._description_template_language()
+        self.description_template_input.blockSignals(True)
+        self.description_template_input.clear()
+        self.description_template_input.addItem(
+            self._text["description_template_select"], None
+        )
+        for template in self._description_template_catalog.templates:
+            name, description = template.localized(language.value)
+            self.description_template_input.addItem(name, description)
+            self.description_template_input.setItemData(
+                self.description_template_input.count() - 1,
+                template.template_id,
+                _TEMPLATE_ID_ROLE,
+            )
+        self.description_template_input.setCurrentIndex(0)
+        self.description_template_input.blockSignals(False)
+
+        formula, warning = self._description_template_catalog.localized_guidance(
+            language.value
+        )
+        self.description_template_formula.setText(
+            self._text["description_template_formula"].format(formula=formula)
+        )
+        self.description_template_warning.setText(
+            self._text["description_template_warning"].format(warning=warning)
+        )
+        self._suggest_description_template()
+
+    def _insert_description_template(self, index: int) -> None:
+        description = self.description_template_input.itemData(index)
+        if isinstance(description, str):
+            self.rich_description.set_html(description)
+            self._description_from_template = True
+
+    def _mark_description_as_user_edited(self) -> None:
+        self._description_from_template = False
+
+    def _suggest_description_template(self) -> None:
+        if not hasattr(self, "rock_inputs") or not self.rock_inputs:
+            return
+        lithotype_id = str(self.rock_inputs[0].currentData() or "")
+        template_id = _LITHOTYPE_TEMPLATE_ALIASES.get(lithotype_id, lithotype_id)
+        if not template_id:
+            return
+        for index in range(1, self.description_template_input.count()):
+            if self.description_template_input.itemData(index, _TEMPLATE_ID_ROLE) == template_id:
+                preserve_existing = (
+                    self.rich_description.html() is not None
+                    and not self._description_from_template
+                )
+                if preserve_existing:
+                    self.description_template_input.blockSignals(True)
+                self.description_template_input.setCurrentIndex(index)
+                if preserve_existing:
+                    self.description_template_input.blockSignals(False)
+                return
 
     def _interval_group(self, top_depth: float, bottom_depth: float) -> QGroupBox:
         group = QGroupBox(self._text["interval"])
@@ -586,6 +733,8 @@ class UnifiedCuttingsSampleDialog(QDialog):
             if remaining > 0.0:
                 percent.setValue(remaining)
         self._update_total()
+        if row == 0 and hasattr(self, "description_template_input"):
+            self._suggest_description_template()
 
     def _fill_remainder(self, row: int) -> None:
         if not self.rock_inputs[row].currentData():

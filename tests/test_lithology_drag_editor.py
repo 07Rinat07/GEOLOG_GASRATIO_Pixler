@@ -5,12 +5,13 @@ from PySide6.QtCore import QEvent, QPointF, Qt
 from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import QPushButton
 
-from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
+from geoworkbench.domain.models import CuttingsComponent, CuttingsSample, Dataset, DatasetKind, DepthDomain
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind
 from geoworkbench.tablet.tablet_view import TabletView
 from geoworkbench.ui.lithology_interval_dialog import LithologyIntervalDialog
+from geoworkbench.ui.unified_cuttings_sample_dialog import UnifiedCuttingsSampleDialog
 
 
 def _catalog() -> tuple[CatalogLithotype, ...]:
@@ -195,6 +196,81 @@ def test_shift_drag_on_cuttings_track_requests_new_shared_sample(qapp) -> None:
     assert requests == [(110.0, 150.0)]
     assert view.sample_preview_range is None
     view.close()
+
+
+def test_shift_drag_on_description_track_requests_independent_sample(qapp) -> None:
+    dataset = Dataset(
+        "dataset-description-drag",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.arange(100.0, 181.0, 10.0),
+    )
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout([TrackDefinition("description", "Описание шлама", TrackKind.TEXT)])
+    )
+    view.resize(520, 620)
+    view.show()
+    view.set_dataset(dataset)
+    qapp.processEvents()
+    requests: list[tuple[float, float]] = []
+    view.description_interval_requested.connect(
+        lambda top, bottom: requests.append((top, bottom))
+    )
+
+    assert view.begin_sample_drag("description", 109.0)
+    assert view.update_sample_drag(151.0)
+    assert view.finish_sample_drag(151.0)
+
+    assert requests == [(110.0, 150.0)]
+    view.close()
+
+
+def test_cuttings_dialog_suggests_localized_rock_description_and_exact_depths(qapp) -> None:
+    dialog = UnifiedCuttingsSampleDialog(
+        110.125,
+        120.875,
+        _catalog(),
+        language=AppLanguage.RU,
+    )
+
+    sandstone = dialog.rock_inputs[0].findData("sandstone")
+    dialog.rock_inputs[0].setCurrentIndex(sandstone)
+
+    assert dialog.top_depth == 110.125
+    assert dialog.bottom_depth == 120.875
+    assert dialog.description_template_language_input.count() == 3
+    assert "Песчаники" in dialog.rich_description.editor.toPlainText()
+
+    english = dialog.description_template_language_input.findData("en")
+    dialog.rich_description.set_html(None)
+    dialog.description_template_language_input.setCurrentIndex(english)
+    assert "Sandstone" in dialog.rich_description.editor.toPlainText()
+    dialog.close()
+
+
+def test_cuttings_dialog_does_not_replace_existing_description(qapp) -> None:
+    sample = CuttingsSample(
+        "sample-existing-description",
+        110.0,
+        120.0,
+        [CuttingsComponent("sandstone", 100.0)],
+        description="Авторское описание",
+    )
+    dialog = UnifiedCuttingsSampleDialog(
+        sample.top_depth,
+        sample.bottom_depth,
+        _catalog(),
+        language=AppLanguage.RU,
+        sample=sample,
+    )
+
+    assert dialog.rich_description.editor.toPlainText() == "Авторское описание"
+    english = dialog.description_template_language_input.findData("en")
+    dialog.description_template_language_input.setCurrentIndex(english)
+    assert dialog.rich_description.editor.toPlainText() == "Авторское описание"
+    dialog.close()
 
 
 def test_quick_lithology_dialog_prefills_existing_rock_for_reedit(qapp) -> None:

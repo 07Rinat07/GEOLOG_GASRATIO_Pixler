@@ -8536,16 +8536,18 @@ class TabletView(QWidget):
             TrackKind.TEXT: "tablet.track.description",
         }
         key = standard.get(definition.kind)
-        if key is not None and self._layout_model.localize_factory_labels:
-            return self._localizer.text(key)
-
         if self._layout_model.localize_factory_labels:
             localized_title = localized_factory_label(
                 definition.title,
                 self._localizer.language,
             )
-            if localized_title != definition.title:
+            # Factory captions are translated through their RU/KK/EN aliases,
+            # while an unknown caption is a deliberate user rename and must be
+            # displayed exactly as it was entered.
+            if localized_title.strip():
                 return localized_title
+            if key is not None:
+                return self._localizer.text(key)
 
         if definition.kind in {TrackKind.CURVE, TrackKind.DEXP} and definition.curve_mnemonics:
             generated = " / ".join(definition.curve_mnemonics)
