@@ -1850,10 +1850,12 @@ def _paint_cuttings_descriptions(
         painter.drawRect(sample_rect)
         if sample_rect.height() >= 3.0:
             painter.setPen(QColor("#0f172a"))
-            painter.drawText(
+            _draw_fitted_interval_text(
+                painter,
                 sample_rect.adjusted(0.6, 0.3, -0.6, -0.3),
-                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap,
                 _rich_text_to_plain(sample.description),
+                alignment=_rich_text_alignment(sample.description),
+                maximum_point_size=6.5,
             )
     painter.restore()
 
@@ -1889,10 +1891,12 @@ def _paint_sample_interpretations(
         painter.drawRect(sample_rect)
         if sample_rect.height() >= 3.0:
             painter.setPen(QColor("#0f172a"))
-            painter.drawText(
+            _draw_fitted_interval_text(
+                painter,
                 sample_rect.adjusted(0.5, 0.25, -0.5, -0.25),
-                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap,
                 text,
+                alignment=_rich_text_alignment(sample.description),
+                maximum_point_size=6.0,
             )
     painter.restore()
 
@@ -1906,6 +1910,75 @@ def _rich_text_to_plain(value: str | None) -> str:
     document = QTextDocument()
     document.setHtml(text)
     return document.toPlainText().strip()
+
+
+def _rich_text_alignment(value: str | None) -> Qt.AlignmentFlag:
+    text = (value or "").strip()
+    if not text or "<" not in text or ">" not in text:
+        return Qt.AlignmentFlag.AlignLeft
+    document = QTextDocument()
+    document.setHtml(text)
+    alignment = document.firstBlock().blockFormat().alignment()
+    if alignment & Qt.AlignmentFlag.AlignRight:
+        return Qt.AlignmentFlag.AlignRight
+    if alignment & Qt.AlignmentFlag.AlignHCenter:
+        return Qt.AlignmentFlag.AlignHCenter
+    return Qt.AlignmentFlag.AlignLeft
+
+
+def _draw_fitted_interval_text(
+    painter: QPainter,
+    rect: QRectF,
+    text: str,
+    *,
+    alignment: Qt.AlignmentFlag,
+    maximum_point_size: float,
+    minimum_point_size: float = 3.5,
+) -> None:
+    """Wrap, shrink and finally elide text without painting outside ``rect``."""
+
+    content = text.strip()
+    if not content or rect.width() <= 0 or rect.height() <= 0:
+        return
+    painter.save()
+    try:
+        flags = alignment | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap
+        measure_flags = flags | Qt.TextFlag.TextDontClip
+        base_font = QFont(painter.font())
+
+        def fits(candidate: str, point_size: float) -> bool:
+            font = QFont(base_font)
+            _set_scaled_font_points(painter, font, point_size)
+            painter.setFont(font)
+            bounds = painter.boundingRect(rect, int(measure_flags), candidate)
+            return bounds.width() <= rect.width() + 0.1 and bounds.height() <= rect.height() + 0.1
+
+        selected_size = float(maximum_point_size)
+        while selected_size > minimum_point_size and not fits(content, selected_size):
+            selected_size = max(minimum_point_size, selected_size - 0.5)
+
+        rendered_text = content
+        if not fits(rendered_text, selected_size):
+            low, high = 1, len(content)
+            best = 0
+            while low <= high:
+                middle = (low + high) // 2
+                candidate = content[:middle].rstrip() + ("…" if middle < len(content) else "")
+                if fits(candidate, selected_size):
+                    best = middle
+                    low = middle + 1
+                else:
+                    high = middle - 1
+            if best <= 0:
+                return
+            rendered_text = content[:best].rstrip()
+            if best < len(content):
+                rendered_text += "…"
+
+        painter.setClipRect(rect, Qt.ClipOperation.IntersectClip)
+        painter.drawText(rect, int(flags), rendered_text)
+    finally:
+        painter.restore()
 
 
 def _lithotype_name(definition: CatalogLithotype, language: AppLanguage) -> str:

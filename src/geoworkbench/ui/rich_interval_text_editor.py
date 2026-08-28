@@ -38,6 +38,7 @@ _TEXT = {
         "align_left": "По левому краю",
         "align_center": "По центру",
         "align_right": "По правому краю",
+        "alignment": "Расположение текста",
         "symbol": "Символ",
         "image": "Изображение",
         "placeholder": "Введите описание вручную или вставьте текст из Excel…",
@@ -53,6 +54,7 @@ _TEXT = {
         "align_left": "Сол жақ",
         "align_center": "Ортаға",
         "align_right": "Оң жақ",
+        "alignment": "Мәтінді орналастыру",
         "symbol": "Таңба",
         "image": "Сурет",
         "placeholder": "Сипаттаманы енгізіңіз немесе Excel-ден мәтінді қойыңыз…",
@@ -68,6 +70,7 @@ _TEXT = {
         "align_left": "Align left",
         "align_center": "Align center",
         "align_right": "Align right",
+        "alignment": "Text alignment",
         "symbol": "Symbol",
         "image": "Image",
         "placeholder": "Type a description or paste text from Excel…",
@@ -170,6 +173,23 @@ class RichIntervalTextEditor(QWidget):
                 lambda _checked=False, selected=alignment: self._set_alignment(selected)
             )
             toolbar.addWidget(button)
+
+        self.alignment_input = QComboBox()
+        self.alignment_input.setObjectName("rich-text-document-alignment")
+        self.alignment_input.setToolTip(self._text["alignment"])
+        self.alignment_input.addItem(
+            self._text["align_left"], int(Qt.AlignmentFlag.AlignLeft)
+        )
+        self.alignment_input.addItem(
+            self._text["align_center"], int(Qt.AlignmentFlag.AlignHCenter)
+        )
+        self.alignment_input.addItem(
+            self._text["align_right"], int(Qt.AlignmentFlag.AlignRight)
+        )
+        self.alignment_input.currentIndexChanged.connect(
+            self._set_document_alignment
+        )
+        toolbar.addWidget(self.alignment_input)
 
         self.symbol_input = QComboBox()
         self.symbol_input.addItem(self._text["symbol"], "")
@@ -290,6 +310,20 @@ class RichIntervalTextEditor(QWidget):
         block_format.setAlignment(alignment)
         cursor.mergeBlockFormat(block_format)
         self.editor.setTextCursor(cursor)
+        self.editor.setFocus()
+
+    def _set_document_alignment(self, index: int) -> None:
+        try:
+            alignment = Qt.AlignmentFlag(int(self.alignment_input.itemData(index)))
+        except (TypeError, ValueError):
+            alignment = Qt.AlignmentFlag.AlignLeft
+        original = self.editor.textCursor()
+        cursor = QTextCursor(self.editor.document())
+        cursor.select(QTextCursor.SelectionType.Document)
+        block_format = QTextBlockFormat()
+        block_format.setAlignment(alignment)
+        cursor.mergeBlockFormat(block_format)
+        self.editor.setTextCursor(original)
         self.editor.setFocus()
 
     def _insert_symbol(self, index: int) -> None:

@@ -42,19 +42,25 @@ same-type overlap. Only a valid command is persisted and recorded in Undo/Redo h
 интервал интерпретации. После отпускания мыши отдельный редактор позволяет точно исправить обе
 глубины, выбрать шаблон RU/KZ/EN или ввести rich text без состава `100%`. Двойной щелчок по
 сохранённому описанию открывает его повторно. Обычные режимы **Рисование** и **Границы** продолжают
-редактировать `WellInterpretation`; эти данные не удаляются.
+редактировать `WellInterpretation`; эти данные не удаляются. Выравнивание слева/по центру/справа
+хранится в HTML; экран и печать переносят слова, уменьшают шрифт и не рисуют текст вне интервала.
 
 **KK.** **Таңдау** (`Alt+1`) режимінде жүйелік түрі `INTERPRETATION` немесе `TEXT` болатын
 жолақтағы `Shift + сол жақ батырма` еркін сипаттама аралығын жасайды. Батырманы жібергенде екі
 тереңдікті дәл түзетуге, RU/KZ/EN үлгісін таңдауға немесе `100%` құрамынсыз rich text енгізуге
 болады. Екі рет шерту сипаттаманы қайта ашады. **Сызу** және **Шекаралар** режимдері бұрынғыдай
-`WellInterpretation` аралықтарын өңдейді және олар жойылмайды.
+`WellInterpretation` аралықтарын өңдейді және олар жойылмайды. Солға/ортаға/оңға туралау HTML
+ішінде сақталады; экран мен баспа сөздерді тасымалдап, қаріпті кішірейтеді және мәтінді аралықтан
+тыс салмайды.
 
 **EN.** In **Select** mode (`Alt+1`), `Shift + left drag` on a track whose system type is
 `INTERPRETATION` or `TEXT` creates a free-description interval rather than a system interpretation
 interval. On release, the dedicated editor accepts exact boundaries, a RU/KZ/EN template, or rich
 text without a `100%` composition. Double-click reopens a saved description. **Draw** and
-**Boundaries** continue to edit `WellInterpretation`; those records are preserved.
+**Boundaries** continue to edit `WellInterpretation`; those records are preserved. Left/centre/right
+alignment is stored in HTML; screen and print wrap words, shrink the font, and never paint text
+outside its interval.
+
 ## Литологические интервалы / Литологиялық аралықтар / Lithology intervals
 
 **RU.** На дорожке «Литология» удерживайте `Shift`, нажмите левую кнопку и протяните от кровли до подошвы. После отпускания откроется отдельное окно: можно уточнить обе глубины и выбрать ровно одну породу. Состав шламовой пробы, ЛБА, кальциметрия и текстовое описание редактируются в редакторе пробы и не смешиваются с литологическим интервалом.

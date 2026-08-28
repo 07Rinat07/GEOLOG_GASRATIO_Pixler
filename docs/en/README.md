@@ -550,7 +550,8 @@ correction, up to four rock types, and a ready RU/KK/EN description. The saved d
 rendered in the on-screen and printed Interpretation column. In the Interpretation or Rock
 description track, `Shift + left drag` creates a description interval without requiring rock
 percentages: correct its boundaries, choose a RU/KZ/EN template, or enter arbitrary text.
-Double-click reopens the saved description. Save the project with the diskette toolbar
+Choose left, centre, or right alignment; screen and print wrap words, shrink the font, and keep
+text inside its interval. Double-click reopens the saved description. Save the project with the diskette toolbar
 action or `Ctrl+S`.
 
 ## Forms, stratigraphy, and LAS editing

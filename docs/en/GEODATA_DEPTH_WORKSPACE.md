@@ -105,6 +105,12 @@ bottom, select a RU/KZ/EN language and ready template, or enter arbitrary text. 
 saved description to reopen it. Deleting the description preserves composition, LBA, and
 calcimetry.
 
+The **Text alignment** list applies left, centre, or right alignment to the complete description.
+On screen and in print, words wrap automatically and the font shrinks to the available height. If
+the complete text cannot fit at the safe minimum, the tablet shows an ellipsis; zooming in restores
+the complete text. Painting is strictly clipped to the interval top and bottom, and shortening does
+not modify the stored rich text.
+
 Descriptions can be typed directly or pasted from Excel/the clipboard. The editor supports:
 
 - font family and size;

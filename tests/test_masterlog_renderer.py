@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 from unittest.mock import MagicMock
-from PySide6.QtCore import QMarginsF, QRectF
+from PySide6.QtCore import QMarginsF, QRectF, Qt
 from PySide6.QtGui import QImage, QPageLayout, QPageSize, QPainter, QPdfWriter
 
 from geoworkbench.domain.models import (
@@ -39,7 +39,9 @@ from geoworkbench.printing.masterlog_renderer import (
     _paint_annotations,
     _paint_column_grid,
     _paint_depth_axis,
+    _paint_sample_interpretations,
     _parameter_symbol_x,
+    _rich_text_alignment,
     _rich_text_to_plain,
     visible_lithology_intervals,
     masterlog_curve_bindings,
@@ -81,6 +83,43 @@ def test_print_interpretation_converts_saved_rich_rock_description_to_text() -> 
     assert _rich_text_to_plain(
         "<p><b>Песчаник</b>, мелкозернистый.<br/>Кварцевый.</p>"
     ) == "Песчаник, мелкозернистый.\nКварцевый."
+
+
+def test_print_interpretation_preserves_alignment_and_clips_long_text(qapp) -> None:
+    session = make_session_with_curves()
+    assert session.current_well is not None
+    session.current_well.cuttings.append(
+        CuttingsSample(
+            "long-description",
+            100.0,
+            120.0,
+            description=(
+                '<p style="text-align:right">'
+                + "Очень длинное геологическое описание " * 80
+                + "</p>"
+            ),
+        )
+    )
+    image = QImage(120, 200, QImage.Format.Format_ARGB32_Premultiplied)
+    image.fill(0xFFFFFFFF)
+    painter = QPainter(image)
+
+    _paint_sample_interpretations(
+        painter,
+        QRectF(0.0, 0.0, 120.0, 200.0),
+        session,
+        (100.0, 200.0),
+    )
+    painter.end()
+
+    assert _rich_text_alignment(
+        '<p style="text-align:right">Описание</p>'
+    ) == Qt.AlignmentFlag.AlignRight
+    assert all(
+        image.pixelColor(x, y).name() == "#ffffff"
+        for y in range(50, image.height())
+        for x in range(image.width())
+    )
 
 
 def test_masterlog_pdf_export_is_independent_and_atomic(qapp, tmp_path) -> None:

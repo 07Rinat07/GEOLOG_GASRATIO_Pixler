@@ -23,6 +23,9 @@ from PySide6.QtGui import (
     QPen,
     QBrush,
     QPixmap,
+    QTextCharFormat,
+    QTextCursor,
+    QTextOption,
     QWheelEvent,
 )
 from shiboken6 import isValid as shiboken_is_valid
@@ -131,6 +134,8 @@ from geoworkbench.tablet.grid_renderer import (
     GridSettings,
     TabletGridRenderer,
 )
+
+
 from geoworkbench.tablet.vertical_ruler import (
     VerticalRulerKind,
     VerticalRulerLayout,
@@ -237,6 +242,106 @@ from geoworkbench.tablet.selection_interaction import (
     TrackHeaderDrag,
     choose_best_hit,
 )
+
+
+_DESCRIPTION_HTML_ROLE = 0x4752
+_DESCRIPTION_MAX_FONT_POINTS = 10.0
+_DESCRIPTION_MIN_FONT_POINTS = 5.5
+_DESCRIPTION_VERTICAL_PADDING_PIXELS = 4.0
+
+
+def _apply_description_font_size(item: pg.TextItem, point_size: float) -> float:
+    document = item.textItem.document()
+    cursor = QTextCursor(document)
+    cursor.select(QTextCursor.SelectionType.Document)
+    char_format = QTextCharFormat()
+    char_format.setFontPointSize(float(point_size))
+    cursor.mergeCharFormat(char_format)
+    item.updateTextPos()
+    return float(item.textItem.boundingRect().height())
+
+
+def _description_alignment_css(item: pg.TextItem) -> str:
+    alignment = item.textItem.document().firstBlock().blockFormat().alignment()
+    if alignment & Qt.AlignmentFlag.AlignRight:
+        return "right"
+    if alignment & Qt.AlignmentFlag.AlignHCenter:
+        return "center"
+    return "left"
+
+
+def _fit_interval_description_text(
+    item: pg.TextItem,
+    *,
+    width_pixels: float,
+    height_pixels: float,
+) -> bool:
+    """Fit one rich description inside a screen-space interval rectangle."""
+
+    raw_html = item.data(_DESCRIPTION_HTML_ROLE)
+    if not isinstance(raw_html, str) or not raw_html.strip():
+        return False
+    available_width = max(20.0, float(width_pixels))
+    available_height = max(
+        0.0,
+        float(height_pixels) - _DESCRIPTION_VERTICAL_PADDING_PIXELS,
+    )
+    if available_height < 8.0:
+        return False
+
+    item.setHtml(raw_html)
+    document = item.textItem.document()
+    option = document.defaultTextOption()
+    option.setWrapMode(QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere)
+    document.setDefaultTextOption(option)
+    document.setDocumentMargin(1.0)
+    document.setTextWidth(available_width)
+    plain_text = document.toPlainText().strip()
+    alignment = _description_alignment_css(item)
+
+    point_size = _DESCRIPTION_MAX_FONT_POINTS
+    while point_size >= _DESCRIPTION_MIN_FONT_POINTS:
+        if _apply_description_font_size(item, point_size) <= available_height:
+            return True
+        point_size -= 0.5
+
+    if not plain_text:
+        return False
+
+    def set_shortened(character_count: int) -> float:
+        shortened = plain_text[:character_count].rstrip()
+        if character_count < len(plain_text):
+            shortened += "…"
+        body = escape(shortened).replace("\n", "<br/>")
+        item.setHtml(
+            f'<div style="color:#202020; margin:0; padding:1px; '
+            f'text-align:{alignment};">{body}</div>'
+        )
+        shortened_document = item.textItem.document()
+        shortened_option = shortened_document.defaultTextOption()
+        shortened_option.setWrapMode(
+            QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere
+        )
+        shortened_document.setDefaultTextOption(shortened_option)
+        shortened_document.setDocumentMargin(1.0)
+        shortened_document.setTextWidth(available_width)
+        return _apply_description_font_size(
+            item, _DESCRIPTION_MIN_FONT_POINTS
+        )
+
+    low, high = 1, len(plain_text)
+    best = 0
+    while low <= high:
+        middle = (low + high) // 2
+        if set_shortened(middle) <= available_height:
+            best = middle
+            low = middle + 1
+        else:
+            high = middle - 1
+    if best <= 0:
+        return False
+    set_shortened(best)
+    return True
 
 
 def _qt_object_is_alive(target: object | None) -> bool:
@@ -5959,6 +6064,7 @@ class TabletView(QWidget):
             return
         self._synchronize_depth_ranges(*current)
         self._synchronize_vertical_rulers(*current)
+        self._update_lithology_text_visibility(*current)
         self._update_navigation_controls()
         self._refresh_annotation_overlay()
 
@@ -9685,7 +9791,9 @@ class TabletView(QWidget):
             style = "color:#202020; margin:0; padding:2px;"
             if definition.kind is TrackKind.INTERPRETATION:
                 style += " background:#f8fafc; border:1px solid #94a3b8;"
-            label.setHtml(f'<div style="{style}">{body}</div>')
+            display_html = f'<div style="{style}">{body}</div>'
+            label.setData(_DESCRIPTION_HTML_ROLE, display_html)
+            label.setHtml(display_html)
             label.textItem.setTextWidth(float(text_width))
             label.updateTextPos()
             axis_top, axis_bottom = self._depth_interval_to_axis(
@@ -9732,9 +9840,12 @@ class TabletView(QWidget):
             raw_description = (interval.description or "").strip()
             description = self._localized_rock_text(raw_description) if raw_description else fallback
             label = pg.TextItem(anchor=(0.0, 0.5))
-            label.setHtml(
-                f'<div style="color:#202020; margin:0; padding:0;">{plain_html(description)}</div>'
+            display_html = (
+                '<div style="color:#202020; margin:0; padding:0;">'
+                f"{plain_html(description)}</div>"
             )
+            label.setData(_DESCRIPTION_HTML_ROLE, display_html)
+            label.setHtml(display_html)
             label.textItem.setTextWidth(float(text_width))
             label.updateTextPos()
             axis_top, axis_bottom = self._depth_interval_to_axis(
@@ -10016,9 +10127,9 @@ class TabletView(QWidget):
             if rendered.plot is None:
                 continue
             viewport_height = rendered.plot.viewport().height()
-            for items, minimum_pixels in (
-                (rendered.lithology_label_items or {}, 16),
-                (rendered.lithology_description_items or {}, 34),
+            for items, minimum_pixels, auto_fit in (
+                (rendered.lithology_label_items or {}, 16, False),
+                (rendered.lithology_description_items or {}, 18, True),
             ):
                 for interval_id, text_item in items.items():
                     lithology_interval = lithology_intervals.get(interval_id)
@@ -10050,6 +10161,17 @@ class TabletView(QWidget):
                         viewport_height,
                         minimum_pixels=minimum_pixels,
                     )
+                    if visible and auto_fit and axis_interval is not None:
+                        interval_pixels = (
+                            abs(axis_interval[1] - axis_interval[0])
+                            / max(abs(bottom - top), np.finfo(float).eps)
+                            * viewport_height
+                        )
+                        visible = _fit_interval_description_text(
+                            text_item,
+                            width_pixels=max(20.0, rendered.definition.width - 16.0),
+                            height_pixels=interval_pixels,
+                        )
                     text_item.setVisible(visible)
 
     def _update_stratigraphy_text_visibility(self, top: float, bottom: float) -> None:

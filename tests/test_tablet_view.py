@@ -1275,6 +1275,67 @@ def test_interpretation_track_displays_saved_cuttings_description(qapp) -> None:
     view.close()
 
 
+def test_interpretation_description_wraps_scales_and_stays_inside_interval(qapp) -> None:
+    dataset = Dataset(
+        "dataset-description-autofit",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.linspace(100.0, 160.0, 61),
+    )
+    full_text = " ".join(["Песчаник мелкозернистый кварцевый"] * 12)
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout(
+            [
+                TrackDefinition(
+                    "interpretation",
+                    "Шламограмма",
+                    TrackKind.INTERPRETATION,
+                    width=190,
+                )
+            ]
+        )
+    )
+    view.set_cuttings(
+        [
+            CuttingsSample(
+                "short-description",
+                110.0,
+                116.0,
+                description=f'<p style="text-align:center">{full_text}</p>',
+            )
+        ]
+    )
+    view.resize(420, 620)
+    view.show()
+    view.set_dataset(dataset)
+    view.set_visible_depth(100.0, 160.0)
+    qapp.processEvents()
+
+    rendered = view._rendered["interpretation"]
+    item = rendered.lithology_description_items["short-description"]
+    assert rendered.plot is not None
+    interval_pixels = 6.0 / 60.0 * rendered.plot.viewport().height()
+    assert item.isVisible()
+    assert item.textItem.boundingRect().height() <= interval_pixels - 4.0 + 1.0
+    assert item.toPlainText().endswith("…")
+    assert (
+        item.textItem.document().firstBlock().blockFormat().alignment()
+        & Qt.AlignmentFlag.AlignHCenter
+    )
+
+    shortened_length = len(item.toPlainText())
+    view.set_visible_depth(108.0, 118.0)
+    qapp.processEvents()
+
+    assert len(item.toPlainText()) > shortened_length
+    assert item.textItem.boundingRect().height() <= (
+        6.0 / 10.0 * rendered.plot.viewport().height() - 4.0 + 1.0
+    )
+    view.close()
+
+
 def _dataset_with_depth_and_datetime() -> Dataset:
     depth = np.array([1000.0, 1010.0, 1020.0, 1030.0, 1040.0])
     dataset = Dataset(

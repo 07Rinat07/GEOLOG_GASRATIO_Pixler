@@ -41,12 +41,16 @@ saved projects and print templates remain compatible.
 3. Left-drag from the interval top to bottom and release the mouse button.
 4. Correct the exact **From, m** and **To, m** values in the dialog.
 5. Select the ready-description language: Russian, Kazakh, or English.
-6. Select a ready rock template or enter arbitrary text. Rock percentages are not required for
-   this workflow.
+6. Select a ready rock template or enter arbitrary text. Use **Text alignment** to select left,
+   centre, or right. Rock percentages are not required for this workflow.
 7. Press **OK**, then save the project with `Ctrl+S`.
 
 The saved text appears immediately in the selected interval and is included in Masterlog, PDF,
-and printing. Double-click the description to reopen it. **Delete description** removes only the
+and printing. Words wrap automatically. If height is limited, the screen and print font shrink;
+if the complete text still cannot fit at the safe minimum, the tablet shows an ellipsised preview.
+Zooming in restores the complete text automatically. Text is never painted above the top or below
+the bottom of its interval, while the complete original remains stored in the project.
+Double-click the description to reopen it. **Delete description** removes only the
 text; composition, LBA, and calcimetry remain intact. Existing system interpretation intervals
 are not deleted and remain visible outside an overlapping description.
 

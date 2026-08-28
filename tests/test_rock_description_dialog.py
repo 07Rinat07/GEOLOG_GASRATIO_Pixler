@@ -1,6 +1,7 @@
 from geoworkbench.domain.models import CuttingsSample
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.rock_description_dialog import RockDescriptionDialog
+from PySide6.QtCore import Qt
 
 
 def test_rock_description_dialog_allows_exact_interval_and_free_text(qapp) -> None:
@@ -43,4 +44,16 @@ def test_rock_description_dialog_preserves_existing_text_on_open(qapp) -> None:
 
     assert dialog.editor.editor.toPlainText() == "Авторский текст"
     assert dialog.template_input.currentIndex() == 0
+    dialog.close()
+
+
+def test_rock_description_editor_applies_document_alignment(qapp) -> None:
+    dialog = RockDescriptionDialog(70.0, 80.0, language=AppLanguage.RU)
+    dialog.editor.editor.setPlainText("Первая строка\nВторая строка")
+
+    dialog.editor.alignment_input.setCurrentIndex(1)
+
+    block = dialog.editor.editor.document().firstBlock()
+    assert block.blockFormat().alignment() & Qt.AlignmentFlag.AlignHCenter
+    assert "Первая строка" in (dialog.description_html or "")
     dialog.close()
