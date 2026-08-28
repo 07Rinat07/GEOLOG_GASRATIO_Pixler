@@ -36,9 +36,44 @@ def test_lithology_dialog_inserts_description_template(qapp) -> None:
         description_templates=(("Песчаник", "Песчаник серый, мелкозернистый"),),
     )
 
-    dialog.template_input.setCurrentIndex(1)
+    dialog.template_input.setCurrentIndex(dialog.template_input.findText("Песчаник"))
 
     assert dialog.description_input.text() == "Песчаник серый, мелкозернистый"
+    dialog.close()
+
+
+def test_lithology_dialog_offers_factory_templates_in_selected_language(qapp) -> None:
+    session = ProjectSession()
+    session.project.wells["well"] = Well("well", "Well")
+    session.current_well_id = "well"
+    dialog = LithologyDialog(LithologyController(session), language=AppLanguage.RU)
+
+    sandstone_lithotype = dialog.lithotype_input.findData("sandstone")
+    dialog.lithotype_input.setCurrentIndex(sandstone_lithotype)
+    english = dialog.template_language_input.findData(AppLanguage.EN.value)
+    dialog.template_language_input.setCurrentIndex(english)
+    sandstone = dialog.template_input.findText("Sandstone")
+
+    assert english >= 0
+    assert sandstone >= 0
+    assert dialog.template_input.currentIndex() == sandstone
+    assert dialog.description_input.text().startswith("Sandstone [X%]")
+    assert "quartz-micaceous" in dialog.description_input.text()
+    dialog.close()
+
+
+def test_lithology_dialog_suggests_matching_template_for_lithotype(qapp) -> None:
+    session = ProjectSession()
+    session.project.wells["well"] = Well("well", "Well")
+    session.current_well_id = "well"
+    dialog = LithologyDialog(LithologyController(session), language=AppLanguage.KK)
+
+    sandstone = dialog.lithotype_input.findData("sandstone")
+    dialog.lithotype_input.setCurrentIndex(sandstone)
+
+    assert dialog.template_language_input.currentData() == AppLanguage.KK.value
+    assert dialog.template_input.currentText() == "Құмтастар"
+    assert dialog.description_input.text().startswith("Құмтастар [X%]")
     dialog.close()
 
 

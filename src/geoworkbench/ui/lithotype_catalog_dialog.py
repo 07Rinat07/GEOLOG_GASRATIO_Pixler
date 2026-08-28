@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QTabWidget,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -25,6 +26,7 @@ from PySide6.QtWidgets import (
 from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.tablet.lithology_patterns import lithology_brush, supported_pattern_keys
+from geoworkbench.ui.dunham_reference_widget import DunhamClassificationReference
 from geoworkbench.ui.lithotype_visuals import lithotype_icon, pattern_icon
 
 
@@ -66,6 +68,21 @@ class LithotypeCatalogDialog(QDialog):
         self.resize(1100, 620)
 
         root = QVBoxLayout(self)
+        self.sections = QTabWidget(self)
+        self.sections.setObjectName("lithotype-reference-tabs")
+        self.sections.setDocumentMode(True)
+        root.addWidget(self.sections, 1)
+        catalog_page = QWidget(self.sections)
+        catalog_page.setObjectName("lithotype-catalog-section")
+        catalog_root = QVBoxLayout(catalog_page)
+        self.sections.addTab(
+            catalog_page,
+            {
+                AppLanguage.RU: "Литотипы",
+                AppLanguage.KK: "Литотиптер",
+                AppLanguage.EN: "Lithotypes",
+            }[language],
+        )
         info = QLabel(
             {
                 AppLanguage.RU: (
@@ -85,7 +102,7 @@ class LithotypeCatalogDialog(QDialog):
             }[language]
         )
         info.setWordWrap(True)
-        root.addWidget(info)
+        catalog_root.addWidget(info)
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText(
             {
@@ -95,7 +112,7 @@ class LithotypeCatalogDialog(QDialog):
             }[language]
         )
         self.search_input.textChanged.connect(self._apply_filter)
-        root.addWidget(self.search_input)
+        catalog_root.addWidget(self.search_input)
         self.table = QTableWidget(0, 9)
         self.table.setObjectName("lithotype-catalog-table")
         self.table.setHorizontalHeaderLabels(
@@ -112,7 +129,7 @@ class LithotypeCatalogDialog(QDialog):
             ]
         )
         self.table.itemSelectionChanged.connect(self._load_selected)
-        root.addWidget(self.table)
+        catalog_root.addWidget(self.table)
 
         form = QFormLayout()
         self.id_input = QLineEdit()
@@ -153,7 +170,7 @@ class LithotypeCatalogDialog(QDialog):
         form.addRow(self._t("catalog.preview"), self.pattern_preview)
         self.color_input.textChanged.connect(self._update_preview)
         self.pattern_input.currentTextChanged.connect(self._update_preview)
-        root.addLayout(form)
+        catalog_root.addLayout(form)
 
         actions = QHBoxLayout()
         for object_name, title, handler in (
@@ -174,7 +191,20 @@ class LithotypeCatalogDialog(QDialog):
             button.setObjectName(object_name)
             button.clicked.connect(handler)
             actions.addWidget(button)
-        root.addLayout(actions)
+        catalog_root.addLayout(actions)
+
+        self.dunham_reference = DunhamClassificationReference(
+            self.sections,
+            language=language,
+        )
+        self.sections.addTab(
+            self.dunham_reference,
+            {
+                AppLanguage.RU: "Классификация Данэма",
+                AppLanguage.KK: "Данэм жіктемесі",
+                AppLanguage.EN: "Dunham classification",
+            }[language],
+        )
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.button(QDialogButtonBox.StandardButton.Close).setText(self._t("common.close"))

@@ -1,0 +1,177 @@
+{
+  "schema_version": 1,
+  "formula": {
+    "ru": "[Литотип] [X%], [цвет], [зернистость], [состав], [окатанность/сортировка], [цемент/матрица], [структура/текстура], [крепость], [включения/изменения], [пористость/трещиноватость].",
+    "kk": "[Литотип] [X%], [түсі], [түйірлілігі], [құрамы], [жұмырлануы/сұрыпталуы], [цементі/матрицасы], [құрылымы/бітімі], [беріктігі], [кірікпелері/өзгерістері], [кеуектілігі/жарықшақтылығы].",
+    "en": "[Lithology] [X%], [color], [grain/crystal size], [composition], [roundness/sorting], [cement/matrix], [structure/fabric], [strength/hardness], [inclusions/alteration], [porosity/fracturing]."
+  },
+  "warning": {
+    "ru": "Не смешивать в одном признаке литологию и техногенную примесь. LCM/NUT PLUG, металлическая стружка и подобные материалы отмечаются отдельно как drilling contamination / additives.",
+    "kk": "Бір белгіде литология мен техногендік қоспаны араластырмаңыз. LCM/NUT PLUG, металл жоңқалары және ұқсас материалдар drilling contamination / additives ретінде бөлек белгіленеді.",
+    "en": "Do not combine lithology and man-made contamination in one attribute. LCM/NUT PLUG, metal shavings, and similar materials must be recorded separately as drilling contamination / additives."
+  },
+  "templates": [
+    {
+      "id": "clay",
+      "name": {"ru": "Глины", "kk": "Саздар", "en": "Clay"},
+      "text": {
+        "ru": "Глины [X%], от темно-зеленых до темно-серых, местами коричневые, плотные, вязкие/пластичные, местами мягкие, аргиллитоподобные, с обломками фауны и примесью кварцевого песка, карбонатные.",
+        "kk": "Саздар [X%], қою жасылдан қою сұрға дейін, кей жерлерде қоңыр, тығыз, иілімді/жабысқақ, кей жерлерде жұмсақ, сазтас тәрізді, фауна қалдықтарының сынықтары мен кварц құмының қоспасы бар, карбонатты.",
+        "en": "Clay [X%], dark green to dark gray, locally brown, compact, plastic/sticky, locally soft, argillite-like, with fossil fragments and an admixture of quartz sand, carbonate-bearing."
+      }
+    },
+    {
+      "id": "argillite",
+      "name": {"ru": "Аргиллиты", "kk": "Сазтастар", "en": "Argillite"},
+      "text": {
+        "ru": "Аргиллиты [X%], красновато-коричневые, коричневые, серые до зеленовато-серых, плотные, массивные, местами алевритистые, от слабой до высокой крепости, без видимой пористости.",
+        "kk": "Сазтастар [X%], қызғылт қоңыр, қоңыр, сұрдан жасылдау сұрға дейін, тығыз, массивті, кей жерлерде құмайтты, беріктігі төменнен жоғарыға дейін, көзге көрінетін кеуектіліксіз.",
+        "en": "Argillite [X%], reddish brown, brown, gray to greenish gray, compact and massive, locally silty, weak to strong, with no visible porosity."
+      }
+    },
+    {
+      "id": "siltstone",
+      "name": {"ru": "Алевролиты", "kk": "Құмайттастар", "en": "Siltstone"},
+      "text": {
+        "ru": "Алевролиты [X%], красновато-коричневые до серых, мелкозернистые, плотные, на глинистом цементе, без видимой пористости, слабой или средней крепости.",
+        "kk": "Құмайттастар [X%], қызғылт қоңырдан сұрға дейін, ұсақ түйірлі, тығыз, сазды цементте, көзге көрінетін кеуектіліксіз, беріктігі төмен немесе орташа.",
+        "en": "Siltstone [X%], reddish brown to gray, fine-grained, compact, clay-cemented, with no visible porosity, weak to moderately strong."
+      }
+    },
+    {
+      "id": "sand",
+      "name": {"ru": "Пески", "kk": "Құм", "en": "Sand"},
+      "text": {
+        "ru": "Пески [X%], темно-серые и серые, мелкозернистые, кварцевые, известковистые; зерна окатанные и полуокатанные, хорошо отсортированные.",
+        "kk": "Құм [X%], қою сұр және сұр, ұсақ түйірлі, кварцты, әкті; түйірлері жұмырланған және шала жұмырланған, жақсы сұрыпталған.",
+        "en": "Sand [X%], dark gray to gray, fine-grained, quartzose and calcareous; grains rounded to subrounded and well sorted."
+      }
+    },
+    {
+      "id": "sandstone",
+      "name": {"ru": "Песчаники", "kk": "Құмтастар", "en": "Sandstone"},
+      "text": {
+        "ru": "Песчаники [X%], светло-серые, серые и зеленовато-серые, тонко-мелкозернистые, кварцево-слюдистые; зерна окатанные и полуокатанные, на глинистом-слабокарбонатном цементе, местами с глауконитом и кальцитом; часто разбурены до свободных зерен.",
+        "kk": "Құмтастар [X%], ашық сұр, сұр және жасылдау сұр, өте ұсақтан ұсақ түйірлі, кварц-слюдалы; түйірлері жұмырланған және шала жұмырланған, сазды-әлсіз карбонатты цементте, кей жерлерде глауконит пен кальцит кірікпелері бар; жиі бұрғылау әсерінен бос түйірлерге дейін ыдыраған.",
+        "en": "Sandstone [X%], light gray, gray to greenish gray, very fine- to fine-grained and quartz-micaceous; grains rounded to subrounded, with clay to slightly carbonate cement, locally containing glauconite and calcite; commonly disaggregated by drilling to free grains."
+      }
+    },
+    {
+      "id": "gravelstone",
+      "name": {"ru": "Гравелиты", "kk": "Гравелиттер", "en": "Gravelstone"},
+      "text": {
+        "ru": "Гравелиты [X%], разнообломочные (размер образцов от 0,2 до 1,5 см), сложены разноокрашенным (от светло-серого до черного) гравием кварцевого и кремнистого состава. Также встречаются темно-серые, серые, местами желтовато-зеленые и пестроцветные разновидности кварцево-кремнистого состава, разнозернистые, с фрагментами галек и кварца; зерна от остроугольных до полуокатанных, сортировка слабая, видимая цементация слабая или отсутствует.",
+        "kk": "Гравелиттер [X%], әртүрлі сынықты (үлгі бөлшектерінің өлшемі 0,2-ден 1,5 см-ге дейін), ашық сұрдан қараға дейін әртүрлі түсті, кварцты және кремнийлі құрамды қиыршықтастан құралған. Сондай-ақ қою сұр, сұр, кей жерлерде сарғыш-жасыл және ала түсті, кварц-кремнийлі құрамды, әртүрлі түйірлі түрлері кездеседі; малтатас пен кварц сынықтары бар, түйірлері өткір қырлыдан шала жұмырланғанға дейін, сұрыпталуы нашар, көзге көрінетін цементтелуі әлсіз немесе жоқ.",
+        "en": "Gravelstone [X%], composed of heterogeneous clasts (sample/clast size 0.2-1.5 cm) and varicolored gravel, from light gray to black, of quartz and siliceous composition. Dark gray to gray, locally yellowish green and variegated varieties also occur; they are quartz-siliceous and variable-grained, contain pebble and quartz fragments, have very angular to subrounded grains, are poorly sorted, and show weak or no visible cementation."
+      }
+    },
+    {
+      "id": "pebble_gravel",
+      "name": {"ru": "Галечники", "kk": "Малтатас", "en": "Pebble gravel"},
+      "text": {
+        "ru": "Галечники [X%], разногалечные (размер образцов от 0,2 до 2 см), сложены разноокрашенным (от светло-серого до черного) гравием кварцевого и кремнистого состава.",
+        "kk": "Малтатас [X%], әртүрлі малтатасты (үлгі бөлшектерінің өлшемі 0,2-ден 2 см-ге дейін), ашық сұрдан қараға дейін әртүрлі түсті, кварцты және кремнийлі құрамды қиыршықтас материалынан құралған.",
+        "en": "Pebble gravel [X%], with mixed pebbles (sample/clast size 0.2-2 cm), composed of varicolored gravel, from light gray to black, of quartz and siliceous composition."
+      }
+    },
+    {
+      "id": "coal",
+      "name": {"ru": "Угли", "kk": "Көмір", "en": "Coal"},
+      "text": {
+        "ru": "Угли [X%], черные, матовые, слоистые, хрупкие.",
+        "kk": "Көмір [X%], қара, күңгірт, қабатты, морт.",
+        "en": "Coal [X%], black, dull, bedded, brittle."
+      }
+    },
+    {
+      "id": "marl",
+      "name": {"ru": "Мергель", "kk": "Мергель", "en": "Marl"},
+      "text": {
+        "ru": "Мергель [X%], серый до светло-серого, глинисто-карбонатного состава, плотный, местами алевритистый и слабослоистый.",
+        "kk": "Мергель [X%], сұрдан ашық сұрға дейін, сазды-карбонатты құрамды, тығыз, кей жерлерде құмайтты және әлсіз қабатты.",
+        "en": "Marl [X%], gray to light gray, argillaceous-carbonate in composition, compact, locally silty and weakly bedded."
+      }
+    },
+    {
+      "id": "argillaceous_limestone",
+      "name": {"ru": "Глинистые известняки", "kk": "Сазды әктастар", "en": "Argillaceous limestone"},
+      "text": {
+        "ru": "Известняки глинистые [X%], серые и беловато-серые, зернистые до микрокристаллических, плотные, местами микротрещиноватые, с глинистой примесью, от слабой до средней крепости.",
+        "kk": "Сазды әктастар [X%], сұр және ақшыл сұр, түйірліден микрокристалдыға дейін, тығыз, кей жерлерде микрожарықшақты, саз қоспасы бар, беріктігі төменнен орташаға дейін.",
+        "en": "Argillaceous limestone [X%], gray to whitish gray, granular to microcrystalline, compact, locally microfractured, with clay admixture, weak to moderately strong."
+      }
+    },
+    {
+      "id": "limestone",
+      "name": {"ru": "Известняки", "kk": "Әктастар", "en": "Limestone"},
+      "text": {
+        "ru": "Известняки [X%], белые, светло-серые, скрытокристаллические, рыхлые, мягкие, окремнелые, слабодоломитистые; буровато-серые, реже темно-серые, скрытокристаллические, тонкослоистые, местами трещиноватые, плотные, средней крепости и крепкие. Также встречаются серые, белые и неярко-белые разновидности, зернистые до микрокристаллических, плотные, местами мягкие или средне твердые, микротрещиноватые и местами заглинизированные, от слабой до средней крепости.",
+        "kk": "Әктастар [X%], ақ, ашық сұр, жасырын кристалды, борпылдақ, жұмсақ, кремнийленген, әлсіз доломиттенген; қоңырқай сұр, сирек қою сұр, жасырын кристалды, жұқа қабатты, кей жерлерде жарықшақты, тығыз, орташа берік және берік. Сондай-ақ сұр, ақ және күңгірт ақ, түйірліден микрокристалдыға дейінгі, тығыз, кей жерлерде жұмсақ немесе орташа қатты, микрожарықшақты және кей жерлерде сазданған, беріктігі төменнен орташаға дейінгі түрлері кездеседі.",
+        "en": "Limestone [X%], white to light gray, cryptocrystalline, friable, soft, silicified and slightly dolomitic; brownish gray, less commonly dark gray, cryptocrystalline, thinly bedded, locally fractured, dense, moderately strong to strong. Gray, white to off-white varieties also occur; these are granular to microcrystalline, compact, locally soft to moderately hard, microfractured and locally argillized, weak to moderately strong."
+      }
+    },
+    {
+      "id": "gypsum",
+      "name": {"ru": "Гипсы", "kk": "Гипс (ғаныш)", "en": "Gypsum"},
+      "text": {
+        "ru": "Гипсы [X%], светло-серые, уплотненные, средней и слабой крепости.",
+        "kk": "Гипс (ғаныш) [X%], ашық сұр, тығыздалған, орташа және төмен беріктікті.",
+        "en": "Gypsum [X%], light gray, compacted, weak to moderately strong."
+      }
+    },
+    {
+      "id": "anhydrite",
+      "name": {"ru": "Ангидриты", "kk": "Ангидриттер", "en": "Anhydrite"},
+      "text": {
+        "ru": "Ангидриты [X%], грязно-белые, светло-серые, белые, микрокристаллические, микротрещиноватые, плотные, от слабой до средней крепости.",
+        "kk": "Ангидриттер [X%], кіршең ақ, ашық сұр, ақ, микрокристалды, микрожарықшақты, тығыз, әлсізден орташа беріктікке дейін.",
+        "en": "Anhydrite [X%], dirty white, light gray to white, microcrystalline, microfractured, dense, weak to moderately strong."
+      }
+    },
+    {
+      "id": "halite",
+      "name": {"ru": "Каменная соль (галит)", "kk": "Тас тұзы (галит)", "en": "Rock salt (halite)"},
+      "text": {
+        "ru": "Каменная соль (галит) [X%], матово-белая, серовато-белая, реже прозрачная, полупрозрачная, средне- и крупнокристаллическая, от хрупкой до средней крепости.",
+        "kk": "Тас тұзы (галит) [X%], күңгірт ақ, сұрғылт ақ, сирек мөлдір, жартылай мөлдір, орташа және ірі кристалды, морттан орташа беріктікке дейін.",
+        "en": "Rock salt (halite) [X%], dull white to grayish white, rarely transparent, translucent, medium- to coarse-crystalline, brittle to moderately strong."
+      }
+    },
+    {
+      "id": "schist",
+      "name": {"ru": "Сланец", "kk": "Тақтатас", "en": "Schist"},
+      "text": {
+        "ru": "Сланец [X%], серый, светло-серый, зеленоватый, местами слегка золотистый; мусковитсодержащий, сланцеватый, пластинчатый и чешуйчатый, мягкий, от слабой до средней крепости.",
+        "kk": "Тақтатас [X%], сұр, ашық сұр, жасылдау, кей жерлерде сәл алтын түстес; мусковитті, тақтатасты бітімді, тақташалы және қабыршақты, жұмсақ, беріктігі төменнен орташаға дейін.",
+        "en": "Schist [X%], gray, light gray to greenish, locally slightly golden; muscovite-bearing, schistose/foliated, platy and scaly, soft, weak to moderately strong."
+      }
+    },
+    {
+      "id": "gneiss",
+      "name": {"ru": "Гнейсы", "kk": "Гнейс", "en": "Gneiss"},
+      "text": {
+        "ru": "Гнейсы [X%], серые, светло-серые, серовато-зеленые, беловато-серые и темно-серые, местами розовато-белые; сланцеватые и полосчатые, разнозернистые, преимущественно кварцево-слюдистого, реже кварцево-полевошпатового состава, плотные.",
+        "kk": "Гнейстер [X%], сұр, ашық сұр, сұрғылт жасыл, ақшыл сұр және қою сұр, кей жерлерде қызғылт ақ; тақтатасты және жолақты бітімді, әртүрлі түйірлі, негізінен кварц-слюдалы, сирек кварц-далашпатты құрамды, тығыз.",
+        "en": "Gneiss [X%], gray, light gray, grayish green, whitish gray to dark gray, locally pinkish white; foliated/schistose and banded, variable-grained, predominantly quartz-micaceous and less commonly quartz-feldspathic, compact."
+      }
+    },
+    {
+      "id": "quartzite",
+      "name": {"ru": "Кварциты", "kk": "Кварцит", "en": "Quartzite"},
+      "text": {
+        "ru": "Кварциты [X%], полупрозрачные, светло-серые, серовато-зеленые, серые и беловато-серые, местами брекчиевидные; разнозернистые агрегаты преимущественно кварцево-кремнистого состава, местами с частичной хлоритизацией; плотные, твердые и крепкие.",
+        "kk": "Кварциттер [X%], жартылай мөлдір, ашық сұр, сұрғылт жасыл, сұр және ақшыл сұр, кей жерлерде брекчия тәрізді; әртүрлі түйірлі агрегаттар негізінен кварц-кремнийлі құрамды, кей жерлерде ішінара хлориттенген; тығыз, қатты және берік.",
+        "en": "Quartzite [X%], translucent, light gray, grayish green, gray to whitish gray, locally breccia-like; variable-grained aggregates of predominantly quartz-siliceous composition, locally partly chloritized; compact, hard and strong."
+      }
+    },
+    {
+      "id": "marble",
+      "name": {"ru": "Мрамор", "kk": "Мәрмәр", "en": "Marble"},
+      "text": {
+        "ru": "Мрамор [X%], белый, серый, темно-серый, реже розовый; зернистый, мелко-среднезернистый, преимущественно кальцитового состава, местами с доломитом и халькопиритом; плотный, массивный, средне твердый, от средней крепости до крепкого.",
+        "kk": "Мәрмәр [X%], ақ, сұр, қою сұр, сирек қызғылт; түйірлі, ұсақтан орташа түйірлі, негізінен кальцитті құрамды, кей жерлерде доломит пен халькопирит кірікпелері бар; тығыз, массивті, орташа қатты, орташа беріктен берікке дейін.",
+        "en": "Marble [X%], white, gray to dark gray, rarely pink; granular, fine- to medium-grained, predominantly calcitic, locally with dolomite and chalcopyrite; compact, massive, moderately hard and moderately strong to strong."
+      }
+    }
+  ]
+}

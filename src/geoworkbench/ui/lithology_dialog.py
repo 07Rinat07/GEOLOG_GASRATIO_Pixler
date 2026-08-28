@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QFormLayout,
     QHBoxLayout,
+    QLabel,
     QLineEdit,
     QMessageBox,
     QPushButton,
@@ -18,10 +19,18 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from geoworkbench.catalogs.description_templates import load_rock_description_templates
 from geoworkbench.catalogs.lithotypes import load_lithotype_catalog
 from geoworkbench.project.lithology_controller import LithologyController
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
-from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.services.localization import AppLanguage, LANGUAGE_NAMES, Localizer
+
+
+_LITHOTYPE_TEMPLATE_ALIASES = {
+    "claystone": "argillite",
+    "gravelite": "gravelstone",
+}
+_TEMPLATE_ID_ROLE = 257
 
 
 class LithologyDialog(QDialog):
@@ -39,6 +48,8 @@ class LithologyDialog(QDialog):
         self.localizer = Localizer.create(language)
         self.controller = controller
         self.catalog = catalog if catalog is not None else load_lithotype_catalog()
+        self._custom_description_templates = tuple(description_templates)
+        self._description_template_catalog = load_rock_description_templates()
         self.setWindowTitle(self._t("lithology.window_title"))
         self.resize(820, 520)
         root = QVBoxLayout(self)
@@ -69,16 +80,42 @@ class LithologyDialog(QDialog):
                 name = item.name_ru
             self.lithotype_input.addItem(f"{name} ({item.lithotype_id})", item.lithotype_id)
         self.description_input = QLineEdit()
+        self.template_language_input = QComboBox()
+        self.template_language_input.setObjectName("description-template-language")
+        for template_language in AppLanguage:
+            self.template_language_input.addItem(
+                LANGUAGE_NAMES[template_language], template_language.value
+            )
+        self.template_language_input.setCurrentIndex(
+            self.template_language_input.findData(language.value)
+        )
         self.template_input = QComboBox()
-        self.template_input.addItem(self._t("lithology.select_template"), None)
-        for name, text in description_templates:
-            self.template_input.addItem(name, text)
+        self.template_input.setObjectName("description-template-selector")
+        self.template_formula = QLabel()
+        self.template_formula.setObjectName("description-template-formula")
+        self.template_formula.setWordWrap(True)
+        self.template_formula.setStyleSheet("color:#475569; font-size:11px;")
+        self.template_warning = QLabel()
+        self.template_warning.setObjectName("description-template-warning")
+        self.template_warning.setWordWrap(True)
+        self.template_warning.setStyleSheet(
+            "background:#fff7ed; color:#9a3412; border:1px solid #fdba74; "
+            "border-radius:4px; padding:4px 6px;"
+        )
+        self.template_language_input.currentIndexChanged.connect(
+            self._refresh_description_templates
+        )
         self.template_input.currentIndexChanged.connect(self._insert_template)
+        self.lithotype_input.currentIndexChanged.connect(self._suggest_description_template)
+        self._refresh_description_templates()
         form.addRow(self._t("lithology.top"), self.top_input)
         form.addRow(self._t("lithology.bottom"), self.bottom_input)
         form.addRow(self._t("lithology.lithotype_id"), self.lithotype_input)
         form.addRow(self._t("lithology.description"), self.description_input)
+        form.addRow(self._t("lithology.template_language"), self.template_language_input)
         form.addRow(self._t("lithology.description_template"), self.template_input)
+        form.addRow("", self.template_formula)
+        form.addRow("", self.template_warning)
         root.addLayout(form)
 
         actions = QHBoxLayout()
@@ -198,3 +235,48 @@ class LithologyDialog(QDialog):
         text = self.template_input.itemData(index)
         if isinstance(text, str):
             self.description_input.setText(text)
+
+    def _refresh_description_templates(self) -> None:
+        language = self._template_language()
+        self.template_input.blockSignals(True)
+        self.template_input.clear()
+        self.template_input.addItem(self._t("lithology.select_template"), None)
+        for template in self._description_template_catalog.templates:
+            name, text = template.localized(language.value)
+            self.template_input.addItem(name, text)
+            self.template_input.setItemData(
+                self.template_input.count() - 1,
+                template.template_id,
+                _TEMPLATE_ID_ROLE,
+            )
+        if self._custom_description_templates:
+            self.template_input.insertSeparator(self.template_input.count())
+            for name, text in self._custom_description_templates:
+                self.template_input.addItem(name, text)
+        self.template_input.setCurrentIndex(0)
+        self.template_input.blockSignals(False)
+
+        formula, warning = self._description_template_catalog.localized_guidance(
+            language.value
+        )
+        self.template_formula.setText(
+            self._t("lithology.template_formula", formula=formula)
+        )
+        self.template_warning.setText(
+            self._t("lithology.template_warning", warning=warning)
+        )
+        self._suggest_description_template(self.lithotype_input.currentIndex())
+
+    def _template_language(self) -> AppLanguage:
+        try:
+            return AppLanguage(str(self.template_language_input.currentData()))
+        except ValueError:
+            return self.language
+
+    def _suggest_description_template(self, _index: int) -> None:
+        lithotype_id = self._lithotype_id()
+        template_id = _LITHOTYPE_TEMPLATE_ALIASES.get(lithotype_id, lithotype_id)
+        for index in range(1, self.template_input.count()):
+            if self.template_input.itemData(index, _TEMPLATE_ID_ROLE) == template_id:
+                self.template_input.setCurrentIndex(index)
+                return

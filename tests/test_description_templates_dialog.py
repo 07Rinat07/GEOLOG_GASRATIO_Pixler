@@ -15,7 +15,9 @@ def test_description_templates_dialog_adds_template(qapp) -> None:
     dialog._add()
 
     assert session.project.description_templates["Аргиллит"].startswith("Аргиллит")
-    assert dialog.table.rowCount() == 1
+    assert dialog.table.rowCount() == 19
+    assert dialog.table.item(18, 0).text() == "Аргиллит"
+    assert dialog.table.item(18, 2).text() == "Проектный"
     dialog.close()
 
 
@@ -30,8 +32,30 @@ def test_description_templates_dialog_uses_selected_language(qapp) -> None:
     assert dialog.windowTitle() == "Rock description templates"
     assert dialog.table.horizontalHeaderItem(0).text() == "Name"
     assert dialog.table.horizontalHeaderItem(1).text() == "Text"
+    assert dialog.table.horizontalHeaderItem(2).text() == "Source"
+    assert dialog.table.rowCount() == 18
+    assert dialog.table.item(0, 0).text() == "Clay"
+    assert dialog.table.item(0, 2).text() == "Built-in"
     assert dialog.findChild(QPushButton, "template-add-button").text() == "Add"
     assert dialog.findChild(QPushButton, "template-update-button").text() == "Update"
     assert dialog.findChild(QPushButton, "template-remove-button").text() == "Remove"
     assert buttons.button(QDialogButtonBox.StandardButton.Close).text() == "Close"
+    dialog.close()
+
+
+def test_description_templates_dialog_switches_factory_language(qapp) -> None:
+    dialog = DescriptionTemplatesDialog(
+        DescriptionTemplateController(ProjectSession()),
+        language=AppLanguage.RU,
+    )
+
+    kazakh = dialog.template_language_input.findData(AppLanguage.KK.value)
+    dialog.template_language_input.setCurrentIndex(kazakh)
+    dialog.table.selectRow(0)
+
+    assert dialog.table.item(0, 0).text() == "Саздар"
+    assert dialog.text_input.toPlainText().startswith("Саздар [X%]")
+    assert dialog.update_button.isEnabled() is False
+    assert dialog.remove_button.isEnabled() is False
+    assert dialog.add_button.isEnabled() is True
     dialog.close()

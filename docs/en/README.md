@@ -205,14 +205,15 @@ numeric track.
 
 ## Lithology intervals
 
-The editor sets interval top, bottom, lithotype, and description and supports description
-templates. The UI is available in RU/KK/EN; lithotype IDs and user descriptions remain
-unchanged.
+The editor sets interval top, bottom, lithotype, and description. The template language can be
+selected independently from the UI language (RU/KK/EN), and choosing a lithotype suggests its
+matching ready-made text. Lithotype IDs and existing user descriptions are not translated.
 
 ## Description templates
 
-The editor stores reusable rock-description names and text in the project. Its interface is
-available in RU/KK/EN; template content remains user-authored and is not translated automatically.
+The built-in catalog provides 18 standardized rock descriptions in Russian, Kazakh, and English,
+plus the common description formula and a warning about drilling contamination. Project-specific
+user templates remain separate and are not translated automatically.
 
 ## Lithology legend
 
@@ -222,7 +223,10 @@ available in RU/KK/EN; codes, IDs, colors, and patterns remain identical across 
 ## Lithotype catalog
 
 The catalog lists system and project rocks and creates project records with a code, RU/EN names,
-category, color, and pattern. System records are protected from modification.
+category, color, and pattern. System records are protected from modification. The Dunham
+classification tab presents source PDF pages 12-16 unchanged, including the identification scheme,
+descriptions, six photo examples, additional classes, practical note, and sources. Pages can be
+scrolled and zoomed.
 
 ## Track Inspector
 
