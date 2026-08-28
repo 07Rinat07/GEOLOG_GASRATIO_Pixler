@@ -126,6 +126,10 @@ class CuttingsController:
         sample.description = self._normalize_text(
             values.get("description"), 2_000_000, "Описание шлама"
         )
+        if "description_word_wrap" in values:
+            sample.description_word_wrap = self._validate_word_wrap(
+                values["description_word_wrap"]
+            )
 
     def update_description(
         self,
@@ -134,6 +138,7 @@ class CuttingsController:
         top_depth: float,
         bottom_depth: float,
         description: str | None,
+        description_word_wrap: bool | None = None,
     ) -> CuttingsSample:
         """Edit one rich-text description without losing sample analysis.
 
@@ -149,6 +154,10 @@ class CuttingsController:
         sample.top_depth = top
         sample.bottom_depth = bottom
         sample.description = normalized
+        if description_word_wrap is not None:
+            sample.description_word_wrap = self._validate_word_wrap(
+                description_word_wrap
+            )
         self.session.dirty = True
         return sample
 
@@ -205,6 +214,7 @@ class CuttingsController:
         components: dict[str, float],
         *,
         description: str | None = None,
+        description_word_wrap: bool = True,
     ) -> CuttingsSample:
         top, bottom = self._validate_interval(top_depth, bottom_depth)
         normalized = self._validate_components(components)
@@ -227,6 +237,7 @@ class CuttingsController:
             bottom,
             [CuttingsComponent(name, percentage) for name, percentage in normalized.items()],
             description=normalized_description,
+            description_word_wrap=self._validate_word_wrap(description_word_wrap),
         )
         self._require_well().cuttings.append(sample)
         self.session.dirty = True
@@ -237,6 +248,8 @@ class CuttingsController:
         top_depth: float,
         bottom_depth: float,
         description: str | None,
+        *,
+        description_word_wrap: bool | None = None,
     ) -> CuttingsSample:
         """Create or update free-text cuttings description for an exact sample interval."""
         top, bottom = self._validate_interval(top_depth, bottom_depth)
@@ -246,10 +259,25 @@ class CuttingsController:
             if normalized is None:
                 raise ValueError("Введите описание шлама")
             self._ensure_no_overlap(top, bottom)
-            sample = CuttingsSample(new_id(), top, bottom, description=normalized)
+            word_wrap = (
+                True
+                if description_word_wrap is None
+                else self._validate_word_wrap(description_word_wrap)
+            )
+            sample = CuttingsSample(
+                new_id(),
+                top,
+                bottom,
+                description=normalized,
+                description_word_wrap=word_wrap,
+            )
             self._require_well().cuttings.append(sample)
         else:
             sample.description = normalized
+            if description_word_wrap is not None:
+                sample.description_word_wrap = self._validate_word_wrap(
+                    description_word_wrap
+                )
         self.session.dirty = True
         return sample
 
@@ -263,6 +291,12 @@ class CuttingsController:
             if finite.size and (top < float(np.min(finite)) or bottom > float(np.max(finite))):
                 raise ValueError("Шламовый интервал выходит за диапазон dataset")
         return top, bottom
+
+    @staticmethod
+    def _validate_word_wrap(value: object) -> bool:
+        if not isinstance(value, bool):
+            raise ValueError("Настройка переноса слов должна быть логическим значением")
+        return value
 
     def set_analysis(
         self,

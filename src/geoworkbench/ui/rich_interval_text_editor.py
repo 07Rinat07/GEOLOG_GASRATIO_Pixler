@@ -7,6 +7,7 @@ from pathlib import Path
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QTextBlockFormat, QTextCharFormat, QTextCursor
 from PySide6.QtWidgets import (
+    QCheckBox,
     QColorDialog,
     QComboBox,
     QFileDialog,
@@ -39,6 +40,8 @@ _TEXT = {
         "align_center": "По центру",
         "align_right": "По правому краю",
         "alignment": "Расположение текста",
+        "word_wrap": "Переносить слова",
+        "word_wrap_tooltip": "Автоматически переносить текст по ширине колонки",
         "symbol": "Символ",
         "image": "Изображение",
         "placeholder": "Введите описание вручную или вставьте текст из Excel…",
@@ -55,6 +58,8 @@ _TEXT = {
         "align_center": "Ортаға",
         "align_right": "Оң жақ",
         "alignment": "Мәтінді орналастыру",
+        "word_wrap": "Сөздерді тасымалдау",
+        "word_wrap_tooltip": "Мәтінді баған ені бойынша автоматты түрде тасымалдау",
         "symbol": "Таңба",
         "image": "Сурет",
         "placeholder": "Сипаттаманы енгізіңіз немесе Excel-ден мәтінді қойыңыз…",
@@ -71,6 +76,8 @@ _TEXT = {
         "align_center": "Align center",
         "align_right": "Align right",
         "alignment": "Text alignment",
+        "word_wrap": "Wrap words",
+        "word_wrap_tooltip": "Automatically wrap text to the column width",
         "symbol": "Symbol",
         "image": "Image",
         "placeholder": "Type a description or paste text from Excel…",
@@ -190,6 +197,13 @@ class RichIntervalTextEditor(QWidget):
             self._set_document_alignment
         )
         toolbar.addWidget(self.alignment_input)
+
+        self.word_wrap_input = QCheckBox(self._text["word_wrap"])
+        self.word_wrap_input.setObjectName("rich-text-word-wrap")
+        self.word_wrap_input.setToolTip(self._text["word_wrap_tooltip"])
+        self.word_wrap_input.setChecked(True)
+        self.word_wrap_input.toggled.connect(self._apply_word_wrap)
+        toolbar.addWidget(self.word_wrap_input)
 
         self.symbol_input = QComboBox()
         self.symbol_input.addItem(self._text["symbol"], "")
@@ -325,6 +339,22 @@ class RichIntervalTextEditor(QWidget):
         cursor.mergeBlockFormat(block_format)
         self.editor.setTextCursor(original)
         self.editor.setFocus()
+
+    def _apply_word_wrap(self, enabled: bool) -> None:
+        mode = (
+            QTextEdit.LineWrapMode.WidgetWidth
+            if enabled
+            else QTextEdit.LineWrapMode.NoWrap
+        )
+        self.editor.setLineWrapMode(mode)
+
+    def set_word_wrap(self, enabled: bool) -> None:
+        self.word_wrap_input.setChecked(bool(enabled))
+        self._apply_word_wrap(bool(enabled))
+
+    @property
+    def word_wrap(self) -> bool:
+        return self.word_wrap_input.isChecked()
 
     def _insert_symbol(self, index: int) -> None:
         symbol = self.symbol_input.itemData(index)

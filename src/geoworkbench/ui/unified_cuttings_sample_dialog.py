@@ -345,6 +345,9 @@ class UnifiedCuttingsSampleDialog(QDialog):
 
         self.rich_description = RichIntervalTextEditor(language=self._language)
         self.rich_description.set_html(sample.description if sample is not None else None)
+        self.rich_description.set_word_wrap(
+            sample.description_word_wrap if sample is not None else True
+        )
         self.rich_description.editor.textChanged.connect(
             self._mark_description_as_user_edited
         )
@@ -693,6 +696,7 @@ class UnifiedCuttingsSampleDialog(QDialog):
         normalized_intensity = intensity if intensity > 0 else None
         return {
             "description": self.rich_description.html(),
+            "description_word_wrap": self.rich_description.word_wrap,
             "calcite_percent": self.calcite_input.value()
             if self.calcite_input.value() >= 0
             else None,

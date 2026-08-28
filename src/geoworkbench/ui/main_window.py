@@ -7437,6 +7437,7 @@ class MainWindow(QMainWindow):
                     dialog.top_depth,
                     dialog.bottom_depth,
                     dialog.description_html,
+                    description_word_wrap=dialog.description_word_wrap,
                 )
             except (RuntimeError, ValueError) as exc:
                 QMessageBox.warning(self, self._t("description.create_title"), str(exc))
@@ -7485,6 +7486,7 @@ class MainWindow(QMainWindow):
                     top_depth=dialog.top_depth,
                     bottom_depth=dialog.bottom_depth,
                     description=dialog.description_html,
+                    description_word_wrap=dialog.description_word_wrap,
                 )
             except (KeyError, RuntimeError, ValueError) as exc:
                 QMessageBox.warning(self, self._t("description.edit_title"), str(exc))

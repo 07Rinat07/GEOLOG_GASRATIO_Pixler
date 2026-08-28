@@ -106,7 +106,9 @@ saved description to reopen it. Deleting the description preserves composition, 
 calcimetry.
 
 The **Text alignment** list applies left, centre, or right alignment to the complete description.
-On screen and in print, words wrap automatically and the font shrinks to the available height. If
+**Wrap words** is enabled by default and is stored for each description. Wrapping may be disabled;
+the font still shrinks to the available width and height. Every track-width change recalculates the
+fit against the actual visible viewport. If
 the complete text cannot fit at the safe minimum, the tablet shows an ellipsis; zooming in restores
 the complete text. Painting is strictly clipped to the interval top and bottom, and shortening does
 not modify the stored rich text.
@@ -118,6 +120,7 @@ Descriptions can be typed directly or pasted from Excel/the clipboard. The edito
 - superscript and subscript;
 - text colour and highlight/background colour;
 - left, centre, and right alignment;
+- optional automatic word wrapping;
 - engineering and geological symbols;
 - embedded images and cuttings photographs;
 - persistence of rich formatting in the project.

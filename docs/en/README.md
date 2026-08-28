@@ -551,7 +551,8 @@ rendered in the on-screen and printed Interpretation column. In the Interpretati
 description track, `Shift + left drag` creates a description interval without requiring rock
 percentages: correct its boundaries, choose a RU/KZ/EN template, or enter arbitrary text.
 Choose left, centre, or right alignment; screen and print wrap words, shrink the font, and keep
-text inside its interval. Double-click reopens the saved description. Save the project with the diskette toolbar
+text inside its interval. Wrapping is enabled by default and can be cleared; changing the track width
+immediately recalculates the fit. Double-click reopens the saved description. Save the project with the diskette toolbar
 action or `Ctrl+S`.
 
 ## Forms, stratigraphy, and LAS editing

@@ -1856,6 +1856,7 @@ def _paint_cuttings_descriptions(
                 _rich_text_to_plain(sample.description),
                 alignment=_rich_text_alignment(sample.description),
                 maximum_point_size=6.5,
+                word_wrap=sample.description_word_wrap,
             )
     painter.restore()
 
@@ -1897,6 +1898,7 @@ def _paint_sample_interpretations(
                 text,
                 alignment=_rich_text_alignment(sample.description),
                 maximum_point_size=6.0,
+                word_wrap=sample.description_word_wrap,
             )
     painter.restore()
 
@@ -1934,6 +1936,7 @@ def _draw_fitted_interval_text(
     alignment: Qt.AlignmentFlag,
     maximum_point_size: float,
     minimum_point_size: float = 3.5,
+    word_wrap: bool = True,
 ) -> None:
     """Wrap, shrink and finally elide text without painting outside ``rect``."""
 
@@ -1942,7 +1945,9 @@ def _draw_fitted_interval_text(
         return
     painter.save()
     try:
-        flags = alignment | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap
+        flags = alignment | Qt.AlignmentFlag.AlignTop
+        if word_wrap:
+            flags |= Qt.TextFlag.TextWordWrap
         measure_flags = flags | Qt.TextFlag.TextDontClip
         base_font = QFont(painter.font())
 

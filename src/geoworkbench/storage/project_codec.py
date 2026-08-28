@@ -330,6 +330,13 @@ def _optional_float_field(data: dict[str, Any], key: str) -> float | None:
     return float(value) if value is not None else None
 
 
+def _optional_bool_field(data: dict[str, Any], key: str, *, default: bool) -> bool:
+    value = data.get(key, default)
+    if not isinstance(value, bool):
+        raise ProjectFormatError(f"Поле '{key}' должно быть логическим значением")
+    return value
+
+
 def _dataset_append_record_from_dict(data: object) -> DatasetAppendRecord:
     if not isinstance(data, dict):
         raise ProjectFormatError("Запись истории наращивания должна быть объектом")
@@ -1102,6 +1109,9 @@ def _well_from_dict(data: dict[str, Any]) -> Well:
             ),
             description=item.get("description"),
             analysis_interpretation=item.get("analysis_interpretation"),
+            description_word_wrap=_optional_bool_field(
+                item, "description_word_wrap", default=True
+            ),
         )
         for item in data.get("cuttings", [])
     ]

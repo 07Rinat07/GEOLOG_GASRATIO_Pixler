@@ -98,6 +98,7 @@ def test_print_interpretation_preserves_alignment_and_clips_long_text(qapp) -> N
                 + "Очень длинное геологическое описание " * 80
                 + "</p>"
             ),
+            description_word_wrap=False,
         )
     )
     image = QImage(120, 200, QImage.Format.Format_ARGB32_Premultiplied)

@@ -6,7 +6,6 @@ from datetime import datetime, timezone
 from html import escape
 from enum import StrEnum
 import re
-import textwrap
 from typing import cast
 
 import numpy as np
@@ -245,12 +244,15 @@ from geoworkbench.tablet.selection_interaction import (
 
 
 _DESCRIPTION_HTML_ROLE = 0x4752
+_DESCRIPTION_WORD_WRAP_ROLE = 0x4753
 _DESCRIPTION_MAX_FONT_POINTS = 10.0
 _DESCRIPTION_MIN_FONT_POINTS = 5.5
 _DESCRIPTION_VERTICAL_PADDING_PIXELS = 4.0
 
 
-def _apply_description_font_size(item: pg.TextItem, point_size: float) -> float:
+def _apply_description_font_size(
+    item: pg.TextItem, point_size: float
+) -> tuple[float, float]:
     document = item.textItem.document()
     cursor = QTextCursor(document)
     cursor.select(QTextCursor.SelectionType.Document)
@@ -258,7 +260,8 @@ def _apply_description_font_size(item: pg.TextItem, point_size: float) -> float:
     char_format.setFontPointSize(float(point_size))
     cursor.mergeCharFormat(char_format)
     item.updateTextPos()
-    return float(item.textItem.boundingRect().height())
+    bounds = item.textItem.boundingRect()
+    return float(bounds.width()), float(bounds.height())
 
 
 def _description_alignment_css(item: pg.TextItem) -> str:
@@ -291,24 +294,40 @@ def _fit_interval_description_text(
 
     item.setHtml(raw_html)
     document = item.textItem.document()
-    option = document.defaultTextOption()
-    option.setWrapMode(QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere)
-    document.setDefaultTextOption(option)
-    document.setDocumentMargin(1.0)
-    document.setTextWidth(available_width)
+    wrap_value = item.data(_DESCRIPTION_WORD_WRAP_ROLE)
+    word_wrap = wrap_value if isinstance(wrap_value, bool) else True
+
+    def configure_document() -> None:
+        current_document = item.textItem.document()
+        option = current_document.defaultTextOption()
+        option.setWrapMode(
+            QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere
+            if word_wrap
+            else QTextOption.WrapMode.NoWrap
+        )
+        current_document.setDefaultTextOption(option)
+        current_document.setDocumentMargin(1.0)
+        current_document.setTextWidth(available_width if word_wrap else -1.0)
+        item.updateTextPos()
+
+    def fits(point_size: float) -> bool:
+        width, height = _apply_description_font_size(item, point_size)
+        return height <= available_height and (word_wrap or width <= available_width)
+
+    configure_document()
     plain_text = document.toPlainText().strip()
     alignment = _description_alignment_css(item)
 
     point_size = _DESCRIPTION_MAX_FONT_POINTS
     while point_size >= _DESCRIPTION_MIN_FONT_POINTS:
-        if _apply_description_font_size(item, point_size) <= available_height:
+        if fits(point_size):
             return True
         point_size -= 0.5
 
     if not plain_text:
         return False
 
-    def set_shortened(character_count: int) -> float:
+    def set_shortened(character_count: int) -> bool:
         shortened = plain_text[:character_count].rstrip()
         if character_count < len(plain_text):
             shortened += "…"
@@ -317,23 +336,14 @@ def _fit_interval_description_text(
             f'<div style="color:#202020; margin:0; padding:1px; '
             f'text-align:{alignment};">{body}</div>'
         )
-        shortened_document = item.textItem.document()
-        shortened_option = shortened_document.defaultTextOption()
-        shortened_option.setWrapMode(
-            QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere
-        )
-        shortened_document.setDefaultTextOption(shortened_option)
-        shortened_document.setDocumentMargin(1.0)
-        shortened_document.setTextWidth(available_width)
-        return _apply_description_font_size(
-            item, _DESCRIPTION_MIN_FONT_POINTS
-        )
+        configure_document()
+        return fits(_DESCRIPTION_MIN_FONT_POINTS)
 
     low, high = 1, len(plain_text)
     best = 0
     while low <= high:
         middle = (low + high) // 2
-        if set_shortened(middle) <= available_height:
+        if set_shortened(middle):
             best = middle
             low = middle + 1
         else:
@@ -3091,6 +3101,10 @@ class TabletView(QWidget):
             self._rebuild_group_headers()
             self.invalidate_track(track_id, DirtyReason.STATIC)
             self.refresh_dirty_tracks()
+            # The plot viewport receives its final width on the next Qt layout
+            # pass. Re-fit interval text against that real width, including
+            # resize operations that do not resize the whole tablet widget.
+            self._resize_restore_timer.start(0)
 
         self._interaction_history.execute(
             CallbackCommand(
@@ -9738,12 +9752,7 @@ class TabletView(QWidget):
         if definition.kind not in {TrackKind.TEXT, TrackKind.INTERPRETATION}:
             return {}
         rendered: dict[str, pg.TextItem] = {}
-        # ``QGraphicsTextItem.setTextWidth`` looks attractive for wrapping, but
-        # inside the vertically transformed pyqtgraph ViewBox it can collapse a
-        # rich-text item to an invisible geometry.  Wrap plain text explicitly
-        # and let rich HTML retain the formatting produced by QTextEdit.
         text_width = max(32, definition.width - 16)
-        wrap_columns = max(18, int(text_width / 7.0))
         described_ranges: list[tuple[float, float]] = []
         interpretation = self._current_interpretation()
         interpretation_width = 1.0
@@ -9753,22 +9762,8 @@ class TabletView(QWidget):
             )
 
         def plain_html(value: str) -> str:
-            paragraphs = value.replace("\r\n", "\n").replace("\r", "\n").split("\n")
-            lines: list[str] = []
-            for paragraph in paragraphs:
-                if not paragraph:
-                    lines.append("")
-                    continue
-                wrapped = textwrap.wrap(
-                    paragraph,
-                    width=wrap_columns,
-                    replace_whitespace=False,
-                    drop_whitespace=True,
-                    break_long_words=True,
-                    break_on_hyphens=False,
-                )
-                lines.extend(wrapped or [paragraph])
-            return "<br/>".join(escape(line) for line in lines)
+            normalized = value.replace("\r\n", "\n").replace("\r", "\n")
+            return "<br/>".join(escape(line) for line in normalized.split("\n"))
 
         def rich_body(value: str) -> str:
             body_match = re.search(
@@ -9793,6 +9788,10 @@ class TabletView(QWidget):
                 style += " background:#f8fafc; border:1px solid #94a3b8;"
             display_html = f'<div style="{style}">{body}</div>'
             label.setData(_DESCRIPTION_HTML_ROLE, display_html)
+            label.setData(
+                _DESCRIPTION_WORD_WRAP_ROLE,
+                sample.description_word_wrap,
+            )
             label.setHtml(display_html)
             label.textItem.setTextWidth(float(text_width))
             label.updateTextPos()
@@ -9845,6 +9844,7 @@ class TabletView(QWidget):
                 f"{plain_html(description)}</div>"
             )
             label.setData(_DESCRIPTION_HTML_ROLE, display_html)
+            label.setData(_DESCRIPTION_WORD_WRAP_ROLE, True)
             label.setHtml(display_html)
             label.textItem.setTextWidth(float(text_width))
             label.updateTextPos()
@@ -10169,7 +10169,10 @@ class TabletView(QWidget):
                         )
                         visible = _fit_interval_description_text(
                             text_item,
-                            width_pixels=max(20.0, rendered.definition.width - 16.0),
+                            width_pixels=max(
+                                20.0,
+                                float(rendered.plot.viewport().width()) - 4.0,
+                            ),
                             height_pixels=interval_pixels,
                         )
                     text_item.setVisible(visible)

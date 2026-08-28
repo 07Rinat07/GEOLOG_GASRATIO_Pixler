@@ -272,7 +272,9 @@ def test_cuttings_description_is_visible_and_wrapped_in_text_track(qapp) -> None
     )
     assert view.visible_lithology_text_ids("description") == ("sample-description",)
     item = view._rendered["description"].lithology_description_items["sample-description"]
-    assert item.textItem.textWidth() == 204.0
+    rendered = view._rendered["description"]
+    assert rendered.plot is not None
+    assert item.textItem.textWidth() == float(rendered.plot.viewport().width() - 4)
     assert item.boundingRect().height() > 25.0
     view.close()
 

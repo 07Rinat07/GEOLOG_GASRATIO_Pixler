@@ -4,7 +4,7 @@ import numpy as np
 import pyqtgraph as pg
 import pytest
 from PySide6.QtCore import QEvent, QPoint, QPointF, Qt
-from PySide6.QtGui import QKeyEvent, QMouseEvent, QWheelEvent
+from PySide6.QtGui import QKeyEvent, QMouseEvent, QTextOption, QWheelEvent
 from PySide6.QtTest import QTest
 
 from geoworkbench.domain.models import (
@@ -1333,6 +1333,68 @@ def test_interpretation_description_wraps_scales_and_stays_inside_interval(qapp)
     assert item.textItem.boundingRect().height() <= (
         6.0 / 10.0 * rendered.plot.viewport().height() - 4.0 + 1.0
     )
+
+    text_length_before_narrowing = len(item.toPlainText())
+    view._resize_track_from_widget("interpretation", 90)
+    qapp.processEvents()
+    qapp.processEvents()
+
+    rendered = view._rendered["interpretation"]
+    item = rendered.lithology_description_items["short-description"]
+    available_width = rendered.plot.viewport().width() - 4.0
+    assert item.textItem.document().textWidth() <= available_width + 1.0
+    assert item.textItem.boundingRect().width() <= available_width + 1.0
+    assert len(item.toPlainText()) <= text_length_before_narrowing
+    view.close()
+
+
+def test_interpretation_description_can_disable_automatic_word_wrap(qapp) -> None:
+    dataset = Dataset(
+        "dataset-description-nowrap",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.linspace(100.0, 120.0, 21),
+    )
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout(
+            [
+                TrackDefinition(
+                    "interpretation",
+                    "Шламограмма",
+                    TrackKind.INTERPRETATION,
+                    width=90,
+                )
+            ]
+        )
+    )
+    view.set_cuttings(
+        [
+            CuttingsSample(
+                "nowrap-description",
+                105.0,
+                115.0,
+                description="Очень длинное описание без автоматического переноса слов",
+                description_word_wrap=False,
+            )
+        ]
+    )
+    view.resize(300, 600)
+    view.show()
+    view.set_dataset(dataset)
+    view.set_visible_depth(100.0, 120.0)
+    qapp.processEvents()
+
+    rendered = view._rendered["interpretation"]
+    item = rendered.lithology_description_items["nowrap-description"]
+    available_width = rendered.plot.viewport().width() - 4.0
+    assert (
+        item.textItem.document().defaultTextOption().wrapMode()
+        is QTextOption.WrapMode.NoWrap
+    )
+    assert item.textItem.boundingRect().width() <= available_width + 1.0
+    assert item.toPlainText().endswith("…")
     view.close()
 
 

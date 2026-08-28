@@ -113,10 +113,19 @@ def test_cuttings_description_can_be_entered_before_composition_and_is_preserved
 
 def test_cuttings_description_can_be_edited_and_cleared() -> None:
     controller = _controller()
-    sample = controller.add(500, 510, {"sandstone": 100}, description="Initial")
+    sample = controller.add(
+        500,
+        510,
+        {"sandstone": 100},
+        description="Initial",
+        description_word_wrap=False,
+    )
 
     assert controller.set_description(500, 510, "  Updated  ") is sample
     assert sample.description == "Updated"
+    assert sample.description_word_wrap is False
+    controller.set_description(500, 510, "Updated", description_word_wrap=True)
+    assert sample.description_word_wrap is True
     controller.set_description(500, 510, "")
     assert sample.description is None
 

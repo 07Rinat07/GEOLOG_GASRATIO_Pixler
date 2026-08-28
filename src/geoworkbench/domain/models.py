@@ -378,6 +378,7 @@ class CuttingsSample:
     dolomite_percent: float | None = None
     description: str | None = None
     analysis_interpretation: str | None = None
+    description_word_wrap: bool = True
 
     @property
     def insoluble_residue_percent(self) -> float | None:
