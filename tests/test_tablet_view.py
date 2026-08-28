@@ -2810,12 +2810,22 @@ def test_tablet_curve_pencil_keeps_visible_live_readout(qapp) -> None:
     )
 
     view._update_curve_pencil_hover(rendered.plot, event, "readout-track")
+    live_point = view._curve_pencil_point_from_values(101.0, 5.0)
+    cursor_position = QPoint(100, 100)
+    view._show_curve_pencil_readout(rendered, live_point, cursor_position)
 
     assert rendered.curve_pencil_readout is not None
     assert rendered.curve_pencil_readout.isVisible()
     assert "ROP" in rendered.curve_pencil_readout.text()
-    assert "Новое" in rendered.curve_pencil_readout.text()
-    assert "Было" in rendered.curve_pencil_readout.text()
+    assert "Было: 2 m/h" in rendered.curve_pencil_readout.text()
+    assert "Стало: 5 m/h" in rendered.curve_pencil_readout.text()
+    assert "Δ: +3 m/h" in rendered.curve_pencil_readout.text()
+    assert rendered.curve_pencil_readout.x() <= cursor_position.x()
+    assert (
+        rendered.curve_pencil_readout.x() + rendered.curve_pencil_readout.width()
+        >= cursor_position.x()
+    )
+    assert rendered.curve_pencil_readout.y() > cursor_position.y()
     view.close()
 
 

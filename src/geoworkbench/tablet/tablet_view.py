@@ -58,6 +58,7 @@ from geoworkbench.domain.models import (
     StratigraphyInterval,
     WellInterpretation,
 )
+from geoworkbench.data.number_format import format_decimal_number
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.project.stratigraphy_controller import (
     stratigraphy_rank_order,
@@ -3733,8 +3734,8 @@ class TabletView(QWidget):
                 readout.setWordWrap(False)
                 readout.setStyleSheet(
                     "background:rgba(15,23,42,238); color:#ffffff; "
-                    "border:2px solid #f97316; border-radius:6px; "
-                    "padding:5px 8px; font-weight:700;"
+                    "border:1px solid #f97316; border-radius:5px; "
+                    "padding:4px 6px; font-size:11px; font-weight:700;"
                 )
                 rendered.curve_pencil_readout = readout
             if (
@@ -3827,29 +3828,47 @@ class TabletView(QWidget):
         axis_text = self._format_axis_value(point.axis_value)
         axis_descriptor = self._axis_descriptor()
         axis_name = axis_descriptor.label if axis_descriptor is not None else "Axis"
-        value_text = f"{point.source_value:.6g}{(' ' + unit) if unit else ''}"
+        unit_suffix = f" {unit}" if unit else ""
+        value_text = (
+            f"{format_decimal_number(point.source_value, precision=7)}{unit_suffix}"
+        )
         old_text = (
-            f"{old_value:.6g}{(' ' + unit) if unit else ''}"
+            f"{format_decimal_number(old_value, precision=7)}{unit_suffix}"
             if old_value is not None
             else "—"
         )
+        delta_text = "—"
+        if old_value is not None:
+            delta = point.source_value - old_value
+            delta_prefix = "+" if delta > 0.0 else ""
+            delta_text = (
+                f"{delta_prefix}{format_decimal_number(delta, precision=7)}{unit_suffix}"
+            )
         label = rendered.curve_pencil_readout
         if label is None:
             return
         label.setText(
             self._localizer.text(
                 "tablet.curve_pencil_live_readout",
-                curve=self._curve_pencil_display_label(),
+                # The full localized name is already visible in the fixed badge.
+                # Keep the moving box narrow enough for standard curve tracks.
+                curve=self._curve_pencil_mnemonic,
                 axis_name=axis_name,
                 axis=axis_text,
                 value=value_text,
                 old=old_text,
+                delta=delta_text,
             )
         )
         label.adjustSize()
         viewport = rendered.plot.viewport()
         margin = 10
-        position = QPoint(cursor_position) + QPoint(20, 20)
+        # The cursor hotspot is the pencil tip. Center the compact readout just
+        # below it so the changing curve remains visible on either side.
+        position = QPoint(
+            cursor_position.x() - label.width() // 2 + 6,
+            cursor_position.y() + 16,
+        )
         maximum_x = max(margin, viewport.width() - label.width() - margin)
         maximum_y = max(margin, viewport.height() - label.height() - margin)
         position.setX(max(margin, min(position.x(), maximum_x)))

@@ -82,3 +82,6 @@ def test_localizations_preserve_curve_identity_placeholder() -> None:
         assert "{curve}" in payload["tablet.curve_pencil_active"]
         assert "{curve}" in payload["tablet.curve_pencil_live_readout"]
         assert "{mnemonic}" not in payload["tablet.curve_pencil_live_readout"]
+        assert "{old}" in payload["tablet.curve_pencil_live_readout"]
+        assert "{value}" in payload["tablet.curve_pencil_live_readout"]
+        assert "{delta}" in payload["tablet.curve_pencil_live_readout"]

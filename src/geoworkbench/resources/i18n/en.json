@@ -1822,7 +1822,7 @@
   "tablet.curve_pencil_clear_points": "Clear points",
   "tablet.curve_pencil_commit_failed": "Edit was not applied: {error}. The orange line remains visible for correction and retry.",
   "tablet.curve_pencil_inactive": "Pencil is off. Choose a curve and enable the tool.",
-  "tablet.curve_pencil_live_readout": "✎ {curve}\n{axis_name}: {axis}\nNew: {value}\nPrevious: {old}",
+  "tablet.curve_pencil_live_readout": "✎ {curve} · {axis}\nBefore: {old}\nNow: {value}\nΔ: {delta}",
   "tablet.curve_pencil_mode": "Mode",
   "tablet.curve_pencil_mode_freehand": "Freehand stroke",
   "tablet.curve_pencil_mode_freehand_button": "✎ Freehand",

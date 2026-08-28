@@ -1822,7 +1822,7 @@
   "tablet.curve_pencil_clear_points": "Очистить точки",
   "tablet.curve_pencil_commit_failed": "Правка не применена: {error}. Оранжевая линия сохранена для исправления и повторной попытки.",
   "tablet.curve_pencil_inactive": "Карандаш выключен. Выберите кривую и включите инструмент.",
-  "tablet.curve_pencil_live_readout": "✎ {curve}\n{axis_name}: {axis}\nНовое: {value}\nБыло: {old}",
+  "tablet.curve_pencil_live_readout": "✎ {curve} · {axis}\nБыло: {old}\nСтало: {value}\nΔ: {delta}",
   "tablet.curve_pencil_mode": "Режим",
   "tablet.curve_pencil_mode_freehand": "Свободный штрих",
   "tablet.curve_pencil_mode_freehand_button": "✎ Свободно",

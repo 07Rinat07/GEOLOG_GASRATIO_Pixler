@@ -1822,7 +1822,7 @@
   "tablet.curve_pencil_clear_points": "Нүктелерді тазарту",
   "tablet.curve_pencil_commit_failed": "Өзгеріс қолданылмады: {error}. Қызғылт сары сызық түзету және қайта әрекет ету үшін сақталды.",
   "tablet.curve_pencil_inactive": "Қарындаш өшірулі. Қисықты таңдап, құралды қосыңыз.",
-  "tablet.curve_pencil_live_readout": "✎ {curve}\n{axis_name}: {axis}\nЖаңа: {value}\nБұрын: {old}",
+  "tablet.curve_pencil_live_readout": "✎ {curve} · {axis}\nБұрын: {old}\nҚазір: {value}\nΔ: {delta}",
   "tablet.curve_pencil_mode": "Режим",
   "tablet.curve_pencil_mode_freehand": "Еркін штрих",
   "tablet.curve_pencil_mode_freehand_button": "✎ Еркін",
