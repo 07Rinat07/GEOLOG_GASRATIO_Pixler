@@ -162,6 +162,7 @@ python scripts/run_tests.py -p no:cacheprovider
 - [Каталог документации](docs/DOCUMENTATION_INDEX.md)
 - [Архитектура](docs/ARCHITECTURE.md)
 - [Единый актуальный план проекта](docs/PROJECT_PLAN.md)
+- [Инструкция по реализации профиля «ОПУС Газомер»](docs/OPUS_GASOMER_IMPLEMENTATION.md)
 - [Политика безопасности и сообщение об уязвимости](SECURITY.md)
 - [История изменений](docs/CHANGELOG.md)
 

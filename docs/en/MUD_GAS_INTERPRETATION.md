@@ -77,9 +77,10 @@ zero-valued gaps between peaks cannot change the fluid label. `OPUS5_REF` and fo
 the Integration Kit are excluded because the profile requires an independent TotalGas
 channel and domain validation, and no open primary source for the formula and thresholds
 was found. The basis of every automatic label is recorded in the interval evidence.
-The published applicability
-conditions require at least 0.1 vol% background and anomaly/background contrast of at
-least 3. A failed applicability gate now qualifies OPUS classification confidence but no
+The publication presents 0.1 vol% background and contrast 3 as recommended quality
+conditions, not as a universal calculation ban: mud properties, degassing, and drilling
+conditions may produce a lower background while a real HC show is drilled. Missing those
+recommendations qualifies OPUS classification confidence but no
 longer deletes already detected gas anomalies. The label remains preliminary and does
 not prove productivity. Wireline/LWD
 or test confirmation is still required.
@@ -97,6 +98,12 @@ The automatic label is refreshed only by **Calculate OPUS**. Run it again after 
 source gas curves, changing units, or changing channel mappings, and then regenerate the
 report. Interval evidence records the method, indicators, and applicability limits, so a
 direct OPUS result cannot be confused with a fallback result.
+
+A separate practical **OPUS Gasomer** profile using independent TotalGas, five indicators,
+a local baseline, and row-wise voting is accepted into the plan but is not implemented yet.
+Until then, the current screen and report continue to use the historical profile described
+above. Engineering contract:
+[OPUS_GASOMER_IMPLEMENTATION.md](../OPUS_GASOMER_IMPLEMENTATION.md).
 
 ## Prospective interval detection
 

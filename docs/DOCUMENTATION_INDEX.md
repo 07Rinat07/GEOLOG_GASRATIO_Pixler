@@ -26,6 +26,8 @@ artifacts workflow `.github/workflows/release-gate.yml`.
 - [TESTING.md](TESTING.md) — обязательный автоматический и Windows gate.
 - [CHANGELOG.md](CHANGELOG.md) — единая краткая история крупных изменений.
 - [DOCUMENTATION_POLICY.md](DOCUMENTATION_POLICY.md) — правила порядка и актуальности.
+- [OPUS_GASOMER_IMPLEMENTATION.md](OPUS_GASOMER_IMPLEMENTATION.md) — утверждённый
+  инженерный контракт практического профиля ОПУС, решения и порядок продолжения.
 
 ## Основные пользовательские процессы
 
@@ -91,6 +93,7 @@ artifacts workflow `.github/workflows/release-gate.yml`.
   [LAG_DEPTH_CORRECTION.md](LAG_DEPTH_CORRECTION.md).
 - Расчёты и события: [DEXP_FORMULAS.md](DEXP_FORMULAS.md),
   [MUD_GAS_FORMULAS.md](MUD_GAS_FORMULAS.md),
+  [OPUS_GASOMER_IMPLEMENTATION.md](OPUS_GASOMER_IMPLEMENTATION.md),
   [NORMALIZED_GAS.md](NORMALIZED_GAS.md),
   [COMPLEX_GAS_FORM.md](COMPLEX_GAS_FORM.md),
   [OPERATIONAL_EVENTS.md](OPERATIONAL_EVENTS.md),
