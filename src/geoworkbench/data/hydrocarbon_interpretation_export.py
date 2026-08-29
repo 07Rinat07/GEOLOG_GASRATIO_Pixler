@@ -84,8 +84,13 @@ def _write_docx(
         build_candidate_interval_statistics(dataset, candidate) if dataset is not None else None
         for candidate in report.candidates
     )
+    report_title = (
+        "Дополнительный отчёт ОПУС по C1-C5"
+        if report.report_profile == "opus"
+        else "Отчёт по интерпретации газового каротажа"
+    )
     body: list[str] = [
-        _paragraph("Отчёт по интерпретации газового каротажа", style="Title"),
+        _paragraph(report_title, style="Title"),
         _paragraph(f"Проект: {report.project_name}"),
         _paragraph(f"Скважина: {report.well_name}"),
         _paragraph(f"Набор данных: {report.dataset_name}"),

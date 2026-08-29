@@ -132,10 +132,12 @@ def test_window_exposes_interpretation_report_workspace(qapp) -> None:
     report_mode = window.interpretation_report_workspace.report_mode
     assert [report_mode.itemData(index) for index in range(report_mode.count())] == [
         "well_text",
+        "opus_text",
         "mixture_chart",
         "mixture_text",
     ]
-    assert "Gas mixture ramp" in report_mode.itemText(1)
+    assert "OPUS C1-C5" in report_mode.itemText(1)
+    assert "Gas mixture ramp" in report_mode.itemText(2)
     assert window.interpretation_report_workspace.rop_reference.value() == 50.0
     assert window.interpretation_report_workspace.bit_reference.value() == 10.0
     assert window.interpretation_report_workspace.flow_reference.value() == 500.0
@@ -144,6 +146,9 @@ def test_window_exposes_interpretation_report_workspace(qapp) -> None:
     assert "not the current diameter" in (
         window.interpretation_report_workspace.bit_reference.toolTip()
     )
+    report_mode.setCurrentIndex(report_mode.findData("opus_text"))
+    assert "10,000 ppm" in window.interpretation_report_workspace.calculation_inputs_help.text()
+    assert not window.interpretation_report_workspace.rop_reference.isEnabled()
     window.close()
 
 

@@ -87,6 +87,7 @@ class HydrocarbonInterpretationReport:
     candidates: tuple[HydrocarbonCandidateInterval, ...]
     manual_intervals: tuple[ManualInterpretationInterval, ...]
     warnings: tuple[str, ...]
+    report_profile: str = "standard"
 
 
 @dataclass(frozen=True, slots=True)

@@ -138,7 +138,11 @@ def export_readable_hydrocarbon_interpretation_xlsx(
 def _write_main_sheet(sheet, report: HydrocarbonInterpretationReport, dataset: Dataset) -> None:
     sheet.sheet_view.showGridLines = False
     sheet.merge_cells("A1:W1")
-    sheet["A1"] = "Сводная интерпретация газового каротажа и УВ-интервалов"
+    sheet["A1"] = (
+        "Дополнительный отчёт ОПУС C1-C5 по всей скважине"
+        if report.report_profile == "opus"
+        else "Сводная интерпретация газового каротажа и УВ-интервалов"
+    )
     sheet["A1"].font = Font(size=16, bold=True, color="FFFFFF")
     sheet["A1"].fill = PatternFill("solid", fgColor="17365D")
     sheet["A1"].alignment = Alignment(horizontal="center", vertical="center")

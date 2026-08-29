@@ -47,6 +47,7 @@ from geoworkbench.project.interpretation_calculation_controller import (
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
     build_hydrocarbon_interpretation_report,
+    build_opus_interpretation_report,
     hydrocarbon_interpretation_html,
 )
 from geoworkbench.services.localization import AppLanguage
@@ -297,15 +298,27 @@ class InterpretationReportWorkspace(QWidget):
 
     def refresh(self) -> None:
         mixture_mode = self._is_mixture_mode()
+        opus_mode = self._is_opus_mode()
         has_dataset = self.controller.session.current_dataset is not None
         self.calculate_button.setEnabled(has_dataset and not mixture_mode)
-        self.normal_density.setEnabled(not mixture_mode)
+        self.calculate_button.setText(
+            self._text("Рассчитать ОПУС", "ОПУС есептеу", "Calculate OPUS")
+            if opus_mode
+            else self._text(
+                "Рассчитать стандартные методы",
+                "Стандартты әдістерді есептеу",
+                "Calculate standard methods",
+            )
+        )
+        standard_inputs = not mixture_mode and not opus_mode
+        self._update_calculation_inputs_help()
+        self.normal_density.setEnabled(standard_inputs)
         self.calculation_inputs_help.setEnabled(not mixture_mode)
-        self.normalized_gas_reference_note.setEnabled(not mixture_mode)
-        self.rop_reference.setEnabled(not mixture_mode)
-        self.bit_reference.setEnabled(not mixture_mode)
-        self.flow_reference.setEnabled(not mixture_mode)
-        self.gas_efficiency.setEnabled(not mixture_mode)
+        self.normalized_gas_reference_note.setEnabled(standard_inputs)
+        self.rop_reference.setEnabled(standard_inputs)
+        self.bit_reference.setEnabled(standard_inputs)
+        self.flow_reference.setEnabled(standard_inputs)
+        self.gas_efficiency.setEnabled(standard_inputs)
         self.threshold.setEnabled(not mixture_mode)
         self.gas_mixture_report = None
         if mixture_mode:
@@ -345,10 +358,12 @@ class InterpretationReportWorkspace(QWidget):
             return
 
         try:
-            self.report = build_hydrocarbon_interpretation_report(
-                self.controller.session,
-                threshold=self.threshold.value(),
+            builder = (
+                build_opus_interpretation_report
+                if opus_mode
+                else build_hydrocarbon_interpretation_report
             )
+            self.report = builder(self.controller.session, threshold=self.threshold.value())
         except RuntimeError:
             self.report = None
             self.preview.setHtml(
@@ -377,6 +392,25 @@ class InterpretationReportWorkspace(QWidget):
         self._set_exports_enabled(True)
 
     def calculate_standard_methods(self) -> None:
+        if self._is_opus_mode():
+            try:
+                result = self.controller.calculate_opus_curves()
+            except (RuntimeError, ValueError, KeyError) as exc:
+                QMessageBox.critical(self, self.tab_title(self.language), str(exc))
+                return
+            self.calculation_completed.emit(result)
+            self.refresh()
+            issue_text = "\n".join(f"• {issue.message}" for issue in result.issues)
+            changed = ", ".join(result.changed) or self._text("нет", "жоқ", "none")
+            self.status.setText(
+                self._text(
+                    f"Кривые ОПУС созданы/обновлены: {changed}.",
+                    f"ОПУС қисықтары құрылды/жаңартылды: {changed}.",
+                    f"OPUS curves created/updated: {changed}.",
+                )
+                + (f"\n{issue_text}" if issue_text else "")
+            )
+            return
         density = self.normal_density.value()
         try:
             result = self.controller.calculate_standard_curves(
@@ -712,6 +746,14 @@ class InterpretationReportWorkspace(QWidget):
         )
         self.report_mode.addItem(
             self._text(
+                "ОПУС C1-C5 — отдельный отчёт по всей скважине",
+                "ОПУС C1-C5 — бүкіл ұңғыма бойынша жеке есеп",
+                "OPUS C1-C5 — separate whole-well report",
+            ),
+            "opus_text",
+        )
+        self.report_mode.addItem(
+            self._text(
                 "Разгонка газовой смеси — временной график",
                 "Газ қоспасын айдау — уақыт графигі",
                 "Gas mixture ramp — time chart",
@@ -740,28 +782,7 @@ class InterpretationReportWorkspace(QWidget):
                 "Candidates do not replace the geologist's interpretation.",
             )
         )
-        self.calculation_inputs_help.setText(
-            self._text(
-                "Что нужно для расчётов: C1–C5 и фактические кривые ROP, BIT/BS "
-                "(диаметр долота) и FLOW_IN/FLOW_OUT. Программа берёт их из открытого "
-                "LAS/GS2 и приводит совместимые единицы автоматически. Если BIT отсутствует: "
-                "откройте «Инспектор данных → Кривые», добавьте кривую BIT с единицей in, "
-                "затем в таблице заполните её значением по соответствующему интервалу. "
-                "Поля *_REF ниже — эталонные условия нормализации, а не фактические кривые.",
-                "Есептеу үшін C1–C5 және нақты ROP, BIT/BS (қашау диаметрі), "
-                "FLOW_IN/FLOW_OUT қисықтары қажет. Бағдарлама оларды ашық LAS/GS2 "
-                "деректерінен алып, үйлесімді бірліктерді автоматты түрлендіреді. BIT жоқ "
-                "болса, «Деректер инспекторы → Қисықтар» арқылы in бірлігіндегі BIT "
-                "қисығын қосып, кестеде тиісті аралықтарды толтырыңыз. Төмендегі *_REF "
-                "өрістері нақты қисықтар емес, нормалаудың эталондық шарттары.",
-                "Required inputs: C1–C5 plus actual ROP, BIT/BS (bit diameter), and "
-                "FLOW_IN/FLOW_OUT curves. They are read from the open LAS/GS2 dataset and "
-                "compatible units are converted automatically. If BIT is missing, use "
-                "Data Inspector → Curves to add BIT in inches, then fill its values over "
-                "the relevant intervals in the table. The *_REF fields below are reference "
-                "normalization conditions, not the actual curves.",
-            )
-        )
+        self._update_calculation_inputs_help()
         self.normal_density_label.setText(
             self._text(
                 "Нормальная плотность раствора:",
@@ -890,6 +911,48 @@ class InterpretationReportWorkspace(QWidget):
 
     def _is_mixture_mode(self) -> bool:
         return self._report_mode().startswith("mixture_")
+
+    def _is_opus_mode(self) -> bool:
+        return self._report_mode() == "opus_text"
+
+    def _update_calculation_inputs_help(self) -> None:
+        if self._is_opus_mode():
+            self.calculation_inputs_help.setText(
+                self._text(
+                    "Для отдельного отчёта ОПУС нужны только согласованные C1–C5. "
+                    "Исходные ppm и % сохраняются; рабочие копии приводятся к % об. "
+                    "по правилу 1 % = 10 000 ppm. ROP/BIT/FLOW для ОПУС не требуются.",
+                    "Жеке ОПУС есебіне тек келісілген C1–C5 керек. Бастапқы ppm және % "
+                    "сақталады; жұмыс көшірмелері 1 % = 10 000 ppm ережесімен көлемдік "
+                    "% бірлігіне келтіріледі. ОПУС үшін ROP/BIT/FLOW қажет емес.",
+                    "The separate OPUS report requires only consistent C1–C5. Source ppm "
+                    "and percent curves are preserved; working copies use vol% with "
+                    "1% = 10,000 ppm. OPUS does not require ROP, BIT, or FLOW.",
+                )
+            )
+            return
+        self.calculation_inputs_help.setText(
+            self._text(
+                "Что нужно для расчётов: C1–C5 и фактические кривые ROP, BIT/BS "
+                "(диаметр долота) и FLOW_IN/FLOW_OUT. Программа берёт их из открытого "
+                "LAS/GS2 и приводит совместимые единицы автоматически. Если BIT отсутствует: "
+                "откройте «Инспектор данных → Кривые», добавьте кривую BIT с единицей in, "
+                "затем в таблице заполните её значением по соответствующему интервалу. "
+                "Поля *_REF ниже — эталонные условия нормализации, а не фактические кривые.",
+                "Есептеу үшін C1–C5 және нақты ROP, BIT/BS (қашау диаметрі), "
+                "FLOW_IN/FLOW_OUT қисықтары қажет. Бағдарлама оларды ашық LAS/GS2 "
+                "деректерінен алып, үйлесімді бірліктерді автоматты түрлендіреді. BIT жоқ "
+                "болса, «Деректер инспекторы → Қисықтар» арқылы in бірлігіндегі BIT "
+                "қисығын қосып, кестеде тиісті аралықтарды толтырыңыз. Төмендегі *_REF "
+                "өрістері нақты қисықтар емес, нормалаудың эталондық шарттары.",
+                "Required inputs: C1–C5 plus actual ROP, BIT/BS (bit diameter), and "
+                "FLOW_IN/FLOW_OUT curves. They are read from the open LAS/GS2 dataset and "
+                "compatible units are converted automatically. If BIT is missing, use "
+                "Data Inspector → Curves to add BIT in inches, then fill its values over "
+                "the relevant intervals in the table. The *_REF fields below are reference "
+                "normalization conditions, not the actual curves.",
+            )
+        )
 
     def _require_any_report(
         self,

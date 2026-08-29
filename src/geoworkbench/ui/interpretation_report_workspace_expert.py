@@ -239,11 +239,18 @@ class InterpretationReportWorkspace(_LegacyInterpretationReportWorkspace):
         super().refresh()
 
         mixture_mode = self._is_mixture_mode()
+        opus_mode = self._is_opus_mode()
         has_dataset = self.controller.session.current_dataset is not None
-        self.normalized_gas_panel.setEnabled(not mixture_mode)
-        self.recalculate_all_button.setEnabled(has_dataset and not mixture_mode)
-        self.refresh_chart_report_button.setEnabled(has_dataset and not mixture_mode)
+        standard_mode = not mixture_mode and not opus_mode
+        self.normalized_gas_panel.setEnabled(standard_mode)
+        self.recalculate_all_button.setEnabled(has_dataset and standard_mode)
+        self.refresh_chart_report_button.setEnabled(has_dataset and standard_mode)
         if mixture_mode:
+            return
+        if opus_mode:
+            self.calculate_button.setText(
+                self._text("Рассчитать ОПУС", "ОПУС есептеу", "Calculate OPUS")
+            )
             return
 
         local_enabled = mode is not NormalizedGasCalculationMode.SERVER

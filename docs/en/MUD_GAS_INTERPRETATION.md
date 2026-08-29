@@ -54,6 +54,25 @@ ROP, bit size, flow, WOB, and mud density are converted to the explicit formula-
 units. WOB reported in kg or tonnes is converted to force only in the semantic WOB
 context using standard gravity. An unknown or ambiguous unit blocks that calculation.
 
+## Separate OPUS C1-C5 report
+
+Choose **OPUS C1-C5 — separate whole-well report** under **Report type**, then select
+**Calculate OPUS**. This path neither runs nor changes the standard methods. It creates
+separate `OPUS_*` curves at every depth sample; 0–5000 m at 0.2 m spacing contains
+25,001 data rows.
+
+C1–C5 inputs may use `ppm`, `ppb`, fractions, or percent. Compatible units are converted
+to the working unit, percent by volume; `1 vol% = 10,000 ppm`. Source LAS curves are
+not overwritten. `OPUS_C1_PCT…C5_PCT` and `OPUS_TG_PCT` are absolute vol%, whereas
+`OPUS_P1…P5` are relative percentages of the C1–C5 sum used only in OPUS formulas.
+
+The report includes `OPUS3`, `OPUS4`, `OPUS_K1_3`, `OPUS_1_5`, the complete depth
+series, and interval means. The published applicability conditions require at least
+0.1 vol% background and anomaly/background contrast of at least 3. Because the
+published indicator bands overlap, OPUS does not assign one automatic class or prove
+productivity. Preliminary gas/gas-condensate/oil alternatives are independent combined
+Haworth/Pixler evidence and require wireline/LWD or test confirmation.
+
 ## Prospective interval detection
 
 The primary gas curve is selected in this order:

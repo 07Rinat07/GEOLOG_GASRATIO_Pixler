@@ -99,6 +99,17 @@ screen / preview / PDF / printer
 - `tablet/geometry_cache.py` ограничивает render-only short-gap policy газовыми мнемониками и
   сохраняет контекстные точки на границе viewport.
 
+### Изолированный контур ОПУС
+
+ОПУС не входит в стандартный `calculate_conditioned_ratios()` и запускается отдельной
+командой `InterpretationCalculationController.calculate_opus_curves()`. Semantic resolver
+приводит поддерживаемые исходные `ppm`/`ppb`/fraction/percent к `% об.`, но не изменяет
+source arrays. Контур создаёт только versioned curves с provenance
+`calculation:opus-screening:1.0`: рабочие абсолютные C1–C5/Total в `% об.`, относительные
+`OPUS_P1-P5` и четыре проверяемых индекса. `services/opus_interpretation.py` строит отдельную
+report model, применяет заявленные ограничения фона/контраста и использует общий exporter,
+который сохраняет полный ряд Dataset. Стандартная report model не содержит ОПУС-метод.
+
 ### Инварианты conditioning
 
 1. Source depth и source component arrays не мутируются.

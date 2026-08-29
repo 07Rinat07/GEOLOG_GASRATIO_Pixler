@@ -5,6 +5,10 @@ from enum import StrEnum
 
 import numpy as np
 
+from geoworkbench.calculations.gas_ratio import (
+    OPUS_SCREENING_PROFILE_VERSION,
+    calculate_opus_report_curves,
+)
 from geoworkbench.domain.models import Dataset
 from geoworkbench.project.interpretation_calculation_controller_legacy import (
     DEFAULT_NORMALIZED_GAS_REFERENCE,
@@ -236,6 +240,50 @@ class InterpretationCalculationController(_LegacyInterpretationCalculationContro
                 "normalized_gas": self._normalized_track_curves(dataset, mode),
                 "dexp": (),
             },
+        )
+
+    def calculate_opus_curves(self) -> InterpretationCalculationResult:
+        """Calculate only the additional OPUS report curves.
+
+        Source LAS curves are never overwritten. Gas concentrations resolved from
+        ppm, ppb, fractions or percent are converted by the existing resolver to
+        the OPUS working unit, percent by volume.
+        """
+
+        dataset = self._require_dataset()
+        created: list[str] = []
+        updated: list[str] = []
+        skipped: list[str] = []
+        issues: list[InterpretationCalculationIssue] = []
+        try:
+            gas_inputs = resolve_gas_ratio_inputs(dataset, resolver=self.resolver)
+            curves = calculate_opus_report_curves(gas_inputs)
+        except (KeyError, ParameterResolutionError, ValueError) as exc:
+            issues.append(InterpretationCalculationIssue("opus-inputs", str(exc)))
+            curves = {}
+
+        provenance = f"calculation:opus-screening:{OPUS_SCREENING_PROFILE_VERSION}"
+        for result in curves.values():
+            self._install_curve(
+                dataset,
+                result.mnemonic,
+                result.values,
+                unit=result.unit,
+                description=result.description,
+                provenance=provenance,
+                created=created,
+                updated=updated,
+                skipped=skipped,
+                issues=issues,
+            )
+        if created or updated:
+            self.session.dirty = True
+        return InterpretationCalculationResult(
+            tuple(dict.fromkeys(created)),
+            tuple(dict.fromkeys(updated)),
+            tuple(dict.fromkeys(skipped)),
+            tuple(self._deduplicate_issues(issues)),
+            {"opus": tuple(curves)},
         )
 
     def normalized_gas_track_result(

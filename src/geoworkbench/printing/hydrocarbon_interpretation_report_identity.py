@@ -29,6 +29,21 @@ _DEFAULT_TEXT = {
     },
 }
 
+_OPUS_TEXT = {
+    AppLanguage.RU: {
+        "title": "Дополнительный отчёт ОПУС по C1-C5",
+        "subtitle": "Скрининг газопроявлений по всей глубине; рабочая единица % об.",
+    },
+    AppLanguage.KK: {
+        "title": "C1-C5 бойынша қосымша ОПУС есебі",
+        "subtitle": "Бүкіл тереңдік бойынша газ көріністерін скринингтеу; жұмыс бірлігі көлемдік %",
+    },
+    AppLanguage.EN: {
+        "title": "Additional OPUS C1-C5 report",
+        "subtitle": "Whole-depth gas-show screening; working unit % by volume",
+    },
+}
+
 
 @dataclass(frozen=True, slots=True)
 class InterpretationReportIdentity:
@@ -70,9 +85,10 @@ def default_interpretation_report_identity(
     interval: str = "",
 ) -> InterpretationReportIdentity:
     text = _DEFAULT_TEXT[language]
+    presentation = _OPUS_TEXT[language] if report.report_profile == "opus" else text
     return InterpretationReportIdentity(
-        report_title=text["title"],
-        report_subtitle=text["subtitle"],
+        report_title=presentation["title"],
+        report_subtitle=presentation["subtitle"],
         project_name=report.project_name,
         well_name=report.well_name,
         dataset_name=report.dataset_name,

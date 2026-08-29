@@ -121,6 +121,8 @@ def test_report_detects_relative_anomaly_and_keeps_manual_intervals_separate() -
     assert len(report.manual_intervals) == 1
     assert report.manual_intervals[0].label == "+Confirmed"
     assert any("не заключение" in warning for warning in report.warnings)
+    assert report.report_profile == "standard"
+    assert not any(method.method.startswith("OPUS") for method in report.methods)
 
     html = hydrocarbon_interpretation_html(report, AppLanguage.RU)
     assert "background: #ffffff" in html

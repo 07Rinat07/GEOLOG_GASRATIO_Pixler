@@ -18,6 +18,8 @@ CONDITIONED_GAS_PROFILE_VERSION = "2.0"
 CONDITIONED_GAS_PROVENANCE = (
     f"calculation:conditioned-gas-ratio:{CONDITIONED_GAS_PROFILE_VERSION}"
 )
+OPUS_SCREENING_PROFILE_VERSION = "1.0"
+OPUS_SCREENING_PROFILE_ID = "opus-lukyanov-c1-c5-relative-1987-1997"
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,6 +75,126 @@ def relative_component_percent(component: Array, total: Array) -> Array:
     """Return a component share in percent of the available hydrocarbon sum."""
 
     return safe_ratio(component, total) * 100.0
+
+
+def calculate_opus_screening(
+    c1: Array,
+    c2: Array,
+    c3: Array,
+    c4: Array,
+    c5: Array,
+) -> dict[str, GasRatioResult]:
+    """Calculate the four source-backed OPUS screening indicators.
+
+    Inputs are absolute concentrations already converted to percent by volume.
+    The published worked example normalizes C1-C5 to their component sum before
+    calculating the indicators.  The published fluid bands overlap, so these
+    curves are supporting evidence only: this function deliberately does not
+    turn them into a unique fluid class or a productivity verdict.
+    """
+
+    components = {
+        "C1": np.asarray(c1, dtype=np.float64),
+        "C2": np.asarray(c2, dtype=np.float64),
+        "C3": np.asarray(c3, dtype=np.float64),
+        "C4": np.asarray(c4, dtype=np.float64),
+        "C5": np.asarray(c5, dtype=np.float64),
+    }
+    total = sum_components(components)
+    relative = {
+        name: relative_component_percent(values, total)
+        for name, values in components.items()
+    }
+    p1, p2, p3, p4, p5 = (relative[name] for name in ("C1", "C2", "C3", "C4", "C5"))
+
+    return {
+        "OPUS3": GasRatioResult(
+            "OPUS3",
+            safe_ratio(p1 * p2, np.square(p2 + p3)),
+            "index",
+            "ОПУС3 по относительным C1-C5; дополнительный скрининговый показатель",
+        ),
+        "OPUS4": GasRatioResult(
+            "OPUS4",
+            safe_ratio(p1 * p2 * p3, np.power(p2 + p3 + p4, 3)),
+            "index",
+            "ОПУС4 по относительным C1-C5; дополнительный скрининговый показатель",
+        ),
+        "OPUS_K1_3": GasRatioResult(
+            "OPUS_K1_3",
+            (p1 * p2 * p3) / 3.0,
+            "index",
+            "ОПУС K1/3 по относительным C1-C5; дополнительный скрининговый показатель",
+        ),
+        "OPUS_1_5": GasRatioResult(
+            "OPUS_1_5",
+            (p1 * p2 * p3 * p4 * p5) / 5.0,
+            "index",
+            "ОПУС 1/5 по относительным C1-C5; дополнительный скрининговый показатель",
+        ),
+    }
+
+
+def calculate_opus_report_curves(
+    curves: Mapping[str, Array],
+) -> dict[str, GasRatioResult]:
+    """Build the isolated OPUS report curve set from C1-C5 in percent by volume.
+
+    Aggregate C4/C5 channels take precedence over their isomers, matching the
+    existing gas-ratio conditioning rule and preventing double counting.
+    """
+
+    c1 = np.asarray(curves["C1"], dtype=np.float64)
+    c2 = np.asarray(curves["C2"], dtype=np.float64)
+    c3 = np.asarray(curves["C3"], dtype=np.float64)
+    normalized = {
+        name.upper(): np.asarray(values, dtype=np.float64)
+        for name, values in curves.items()
+    }
+    c4 = _family_total(
+        _family_components(normalized, "IC4", "NC4", "C4"),
+        "IC4",
+        "NC4",
+        "C4",
+    )
+    c5 = _family_total(
+        _family_components(normalized, "IC5", "NC5", "C5"),
+        "IC5",
+        "NC5",
+        "C5",
+    )
+    if c4 is None or c5 is None:
+        raise ValueError("Для отчёта ОПУС нужны согласованные C4 и C5 или их изомеры")
+
+    absolute = {"C1": c1, "C2": c2, "C3": c3, "C4": c4, "C5": c5}
+    total = sum_components(absolute)
+    relative = {
+        name: relative_component_percent(values, total)
+        for name, values in absolute.items()
+    }
+    results: dict[str, GasRatioResult] = {
+        "OPUS_TG_PCT": GasRatioResult(
+            "OPUS_TG_PCT",
+            total,
+            "%vol",
+            "ОПУС: сумма C1-C5 в рабочей единице % об.; исходные LAS-кривые сохранены",
+        )
+    }
+    for name, values in absolute.items():
+        results[f"OPUS_{name}_PCT"] = GasRatioResult(
+            f"OPUS_{name}_PCT",
+            values,
+            "%vol",
+            f"ОПУС: {name}, приведённый из исходной единицы к % об.",
+        )
+        results[f"OPUS_P{name[1:]}"] = GasRatioResult(
+            f"OPUS_P{name[1:]}",
+            relative[name],
+            "%rel",
+            f"ОПУС: относительная доля {name} в сумме C1-C5, %",
+        )
+    results.update(calculate_opus_screening(c1, c2, c3, c4, c5))
+    return results
 
 
 def _family_components(

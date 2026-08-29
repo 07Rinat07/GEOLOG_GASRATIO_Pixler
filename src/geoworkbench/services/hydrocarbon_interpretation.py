@@ -22,6 +22,7 @@ from geoworkbench.services.hydrocarbon_interpretation_modes import (
     hydrocarbon_interpretation_html as _base_hydrocarbon_interpretation_html,
 )
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.opus_interpretation import build_opus_interpretation_report
 
 
 _SERVER_TOTAL_NAMES = (
@@ -170,6 +171,20 @@ def hydrocarbon_interpretation_html(
     """Render the report with user-facing prospective-interval terminology."""
 
     html = _base_hydrocarbon_interpretation_html(report, language)
+    if report.report_profile == "opus":
+        opus_title = {
+            AppLanguage.RU: "Дополнительный отчёт ОПУС по C1-C5",
+            AppLanguage.KK: "C1-C5 бойынша қосымша ОПУС есебі",
+            AppLanguage.EN: "Additional OPUS C1-C5 report",
+        }[language]
+        title_start = html.find("<h1>")
+        title_end = html.find("</h1>", title_start)
+        if title_start >= 0 and title_end >= 0:
+            html = (
+                html[:title_start]
+                + f"<h1>{opus_title}</h1>"
+                + html[title_end + len("</h1>") :]
+            )
     for old, new in _REPORT_TERMINOLOGY_REPLACEMENTS[language]:
         html = html.replace(old, new)
 
@@ -233,6 +248,7 @@ __all__ = [
     "InterpretationMethodStatus",
     "ManualInterpretationInterval",
     "build_hydrocarbon_interpretation_report",
+    "build_opus_interpretation_report",
     "candidate_evidence_summary",
     "fluid_hypothesis_basis",
     "fluid_hypothesis_label",
