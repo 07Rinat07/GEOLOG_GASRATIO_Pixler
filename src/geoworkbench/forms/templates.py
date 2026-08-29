@@ -118,7 +118,7 @@ _TEXT: dict[str, dict[str, str]] = {
     "isopentane": {"ru": "Изопентан iC5", "kk": "Изопентан iC5", "en": "Isopentane iC5"},
     "npentane": {"ru": "Н-пентан nC5", "kk": "Н-пентан nC5", "en": "N-pentane nC5"},
     "wetness": {"ru": "Влажность газа", "kk": "Газ ылғалдылығы", "en": "Wetness"},
-    "balance": {"ru": "Баланс газа", "kk": "Газ балансы", "en": "Balance"},
+    "balance": {"ru": "Баланс газа", "kk": "Газ теңгерімі", "en": "Balance"},
     "character": {"ru": "Характер газа", "kk": "Газ сипаты", "en": "Character"},
     "ic4_nc4": {"ru": "Отношение iC4/nC4", "kk": "iC4/nC4 қатынасы", "en": "iC4/nC4 ratio"},
     "ic5_nc5": {"ru": "Отношение iC5/nC5", "kk": "iC5/nC5 қатынасы", "en": "iC5/nC5 ratio"},
@@ -274,7 +274,7 @@ def _language_code(language: object) -> TemplateLanguage:
 
 
 def _normalized_factory_label(value: str) -> str:
-    normalized = " ".join(str(value).split()).casefold()
+    normalized = " ".join(str(value).split()).casefold().replace("ё", "е")
     return normalized.translate(str.maketrans("–—−‑", "----"))
 
 
@@ -288,8 +288,23 @@ def _factory_label_aliases(language: TemplateLanguage) -> dict[str, str]:
     custom names.
     """
 
+    # Import lazily because A4 templates reuse builders from this module.  By
+    # the time a tablet requests runtime localization, all modules are fully
+    # initialized and their complete caption catalogs are safe to consume.
+    from geoworkbench.forms.a4_factory_templates import (
+        factory_label_translations as a4_label_translations,
+    )
+    from geoworkbench.forms.complex_gas import (
+        factory_label_translations as complex_gas_label_translations,
+    )
+
     aliases: dict[str, str] = {}
-    for translations in _TEXT.values():
+    translations_catalog = (
+        *_TEXT.values(),
+        *a4_label_translations(),
+        *complex_gas_label_translations(),
+    )
+    for translations in translations_catalog:
         target = translations.get(language, translations.get("ru", "")).strip()
         if not target:
             continue

@@ -25,6 +25,22 @@ def test_known_factory_titles_retranslate_without_changing_saved_text() -> None:
     assert localized_factory_label("Абсолютные газы C1–C5", AppLanguage.EN) == (
         "Absolute gas C1–C5"
     )
+    assert localized_factory_label("ROP / скорость проходки", AppLanguage.KK) == (
+        "ROP / бұрғылау жылдамдығы"
+    )
+    assert localized_factory_label("Компоненты C1-C5", AppLanguage.EN) == (
+        "C1–C5 components"
+    )
+    assert localized_factory_label("C1-C5, нормализованные", AppLanguage.KK) == (
+        "C1–C5, нормаланған"
+    )
+    assert localized_factory_label("Газовые индексы", AppLanguage.EN) == "Gas ratios"
+    assert localized_factory_label("Гидравлика и раствор", AppLanguage.KK) == (
+        "Гидравлика және ерітінді"
+    )
+    assert localized_factory_label("Общий объем емкостей", AppLanguage.KK) == (
+        "Ыдыстардың жалпы көлемі"
+    )
 
 
 def test_generated_split_column_suffix_is_preserved_after_translation() -> None:

@@ -142,6 +142,33 @@ def _t(key: str, language: TemplateLanguage) -> str:
     return _TEXT[key][language]
 
 
+def factory_label_translations() -> tuple[dict[str, str], ...]:
+    """Return static and generated captions used by persisted complex-gas forms."""
+
+    generated: list[dict[str, str]] = []
+    for code, _label_key, _color in _COMPONENTS:
+        display_code = code.replace("IC", "iC").replace("NC", "nC")
+        generated.extend(
+            (
+                {
+                    language: f"{display_code} {_TEXT['relative_suffix'][language]}"
+                    for language in ("ru", "kk", "en")
+                },
+                {
+                    language: f"{display_code} {_TEXT['normalized_suffix'][language]}"
+                    for language in ("ru", "kk", "en")
+                },
+            )
+        )
+    generated.append(
+        {
+            language: f"TG {_TEXT['normalized_suffix'][language]}"
+            for language in ("ru", "kk", "en")
+        }
+    )
+    return (*_TEXT.values(), *generated)
+
+
 def _binding(
     code: str,
     name: str,

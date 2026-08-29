@@ -139,6 +139,12 @@ def _t(key: str, language: TemplateLanguage) -> str:
     return _TEXT[key][language]
 
 
+def factory_label_translations() -> tuple[dict[str, str], ...]:
+    """Return A4 captions that can appear in persisted factory layouts."""
+
+    return tuple(_TEXT.values())
+
+
 def _name(base: str, language: TemplateLanguage, orientation: str) -> str:
     return f"{_t(base, language)} — {_t(orientation, language)}"
 

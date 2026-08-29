@@ -92,10 +92,10 @@ cuttings-composition column: description text and percentages remain separate da
 column is widened so four-digit depth labels remain readable.
 
 When Russian, Kazakh, or English is selected, built-in form names, columns, parameters, gas-axis
-labels, and print-header fields are shown in that language. If the library or constructor was open
-during the switch, close and reopen it. ROP, WOB, SPP, C1–C5 mnemonics, chemical formulas, and
-units remain international. Existing user copies keep their saved custom titles; select the ready
-form again after switching language to create a fully localized copy.
+labels, and print-header fields are shown in that language. The active log display refreshes
+immediately; reopen a modal Library or Constructor window if necessary. Known factory captions in
+an existing form are also translated without recreating it, while arbitrary custom titles remain
+unchanged. ROP, WOB, SPP, C1–C5 mnemonics, chemical formulas, and units remain international.
 
 A successful export does not guarantee correct layout. Always open and inspect the resulting file.
 

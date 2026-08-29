@@ -7,7 +7,9 @@ from geoworkbench.forms.a4_factory_templates import (
 from geoworkbench.forms.catalog import HIDDEN_FACTORY_TEMPLATE_IDS, visible_factory_forms
 from geoworkbench.forms.models import FormTemplateOrigin
 from geoworkbench.forms.templates import factory_templates
+from geoworkbench.forms.templates import localized_factory_label
 from geoworkbench.printing.form_width_advisor import FormWidthLevel, audit_form_width
+from geoworkbench.services.localization import AppLanguage
 from geoworkbench.tablet.models import TrackKind
 
 PORTRAIT_IDS = {
@@ -233,3 +235,45 @@ def test_all_english_factory_forms_do_not_contain_cyrillic_visible_text() -> Non
                 visible_text.extend(binding.display_name for binding in track.bindings)
 
     assert not [text for text in visible_text if re.search(r"[А-Яа-яЁё]", text)]
+
+
+def test_every_visible_a4_caption_retranslates_from_saved_russian_text() -> None:
+    russian_forms = a4_factory_templates("ru")
+
+    for language in (AppLanguage.KK, AppLanguage.EN):
+        localized_forms = a4_factory_templates(language.value)
+        for form_id, russian_form in russian_forms.items():
+            localized_form = localized_forms[form_id]
+            assert len(russian_form.columns) == len(localized_form.columns)
+
+            for russian_column, localized_column in zip(
+                russian_form.columns,
+                localized_form.columns,
+                strict=True,
+            ):
+                assert localized_factory_label(russian_column.title, language) == (
+                    localized_column.title
+                )
+                assert localized_factory_label(russian_column.group_title, language) == (
+                    localized_column.group_title
+                )
+                assert len(russian_column.tracks) == len(localized_column.tracks)
+
+                for russian_track, localized_track in zip(
+                    russian_column.tracks,
+                    localized_column.tracks,
+                    strict=True,
+                ):
+                    assert localized_factory_label(russian_track.title, language) == (
+                        localized_track.title
+                    )
+                    assert len(russian_track.bindings) == len(localized_track.bindings)
+                    for russian_binding, localized_binding in zip(
+                        russian_track.bindings,
+                        localized_track.bindings,
+                        strict=True,
+                    ):
+                        assert localized_factory_label(
+                            russian_binding.display_name,
+                            language,
+                        ) == localized_binding.display_name
