@@ -67,11 +67,36 @@ not overwritten. `OPUS_C1_PCT…C5_PCT` and `OPUS_TG_PCT` are absolute vol%, whe
 `OPUS_P1…P5` are relative percentages of the C1–C5 sum used only in OPUS formulas.
 
 The report includes `OPUS3`, `OPUS4`, `OPUS_K1_3`, `OPUS_1_5`, the complete depth
-series, and interval means. The published applicability conditions require at least
-0.1 vol% background and anomaly/background contrast of at least 3. Because the
-published indicator bands overlap, OPUS does not assign one automatic class or prove
-productivity. Preliminary gas/gas-condensate/oil alternatives are independent combined
-Haworth/Pixler evidence and require wireline/LWD or test confirmation.
+series, and interval means. For every detected interval, the application intersects the
+published overlapping ranges of the four indicators. It emits a gas, oil,
+gas-condensate/gas-oil, or oxidized/residual-oil label only when one compatible class
+remains; otherwise it explicitly reports ambiguity and shows the independent
+Haworth/Pixler working hypothesis as an automatic fallback. Only samples that exceed the anomaly
+threshold are used for interval composition, so
+zero-valued gaps between peaks cannot change the fluid label. `OPUS5_REF` and forced voting from
+the Integration Kit are excluded because the profile requires an independent TotalGas
+channel and domain validation, and no open primary source for the formula and thresholds
+was found. The basis of every automatic label is recorded in the interval evidence.
+The published applicability
+conditions require at least 0.1 vol% background and anomaly/background contrast of at
+least 3. A failed applicability gate now qualifies OPUS classification confidence but no
+longer deletes already detected gas anomalies. The label remains preliminary and does
+not prove productivity. Wireline/LWD
+or test confirmation is still required.
+
+### Reading the automatic OPUS label
+
+| Report label | What the application did |
+|---|---|
+| `HC show; preliminary OPUS: …` | Exactly one common class remained after intersecting the ranges of all available OPUS indicators. |
+| `HC show; Haworth/Pixler fallback: … (OPUS ambiguous)` | The OPUS intersection was empty or contained multiple classes, so the application automatically displayed the independent fallback hypothesis. |
+| `HC show; fluid type indeterminate` | The data were insufficient for both unique OPUS classification and a supported Haworth/Pixler fallback. |
+
+`low/medium/high` describes statistical anomaly strength, not reservoir productivity.
+The automatic label is refreshed only by **Calculate OPUS**. Run it again after replacing
+source gas curves, changing units, or changing channel mappings, and then regenerate the
+report. Interval evidence records the method, indicators, and applicability limits, so a
+direct OPUS result cannot be confused with a fallback result.
 
 ## Prospective interval detection
 

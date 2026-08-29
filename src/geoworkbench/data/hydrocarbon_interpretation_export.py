@@ -99,17 +99,24 @@ def _write_docx(
         _paragraph(f"Порог robust z: {report.threshold:.2f}"),
         _paragraph("Методы и доступность", style="Heading1"),
         _table(
-            ("Метод", "Статус", "Использованные данные", "Источник"),
+            (
+                "Метод",
+                "Статус",
+                "Использованные данные",
+                "Расчёт и правило интерпретации",
+                "Источник и степень подтверждения",
+            ),
             tuple(
                 (
                     method.method,
                     "доступен" if method.available else "нет данных",
                     ", ".join(method.available_mnemonics) or "нет данных",
+                    method.calculation or "—",
                     method.source,
                 )
                 for method in report.methods
             ),
-            widths=(3_800, 1_500, 3_500, 6_300),
+            widths=(2_400, 1_000, 2_200, 4_700, 4_800),
         ),
         _paragraph("Перспективные интервалы УВ-проявлений", style="Heading1"),
     ]

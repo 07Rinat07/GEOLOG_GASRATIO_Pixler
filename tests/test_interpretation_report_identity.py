@@ -95,6 +95,7 @@ def test_default_identity_uses_loaded_values_only_as_initial_suggestion() -> Non
     assert identity.dataset_name.endswith(".las")
     assert identity.interval == "1000.00–1200.00 m"
     assert identity.revision == "00"
+    assert identity.report_date == "01.08.2026"
 
 
 def test_details_dialog_returns_manually_edited_values(qapp) -> None:

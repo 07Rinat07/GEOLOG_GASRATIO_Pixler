@@ -20,7 +20,9 @@ from geoworkbench.tablet.models import (
 TemplateLanguage = Literal["ru", "kk", "en"]
 
 
-_TEXT: dict[str, dict[TemplateLanguage, str]] = {
+# The catalog is exposed to the shared runtime-localization index as ordinary
+# string-keyed mappings; TemplateLanguage still constrains every lookup entry point.
+_TEXT: dict[str, dict[str, str]] = {
     "form_name": {
         "ru": "Интегрированный газовый каротаж C1–C5",
         "kk": "C1–C5 интеграцияланған газ каротажы",

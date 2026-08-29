@@ -325,6 +325,26 @@ wall-clock assertion не добавляется в обычный unit suite.
 python -m pytest -q tests/test_curve_continuity_policy.py tests/test_gas_conditioning.py tests/test_gas_curve_rendering_continuity.py tests/test_tablet_gas_segment_mask.py
 ```
 
+## 13A. ОПУС: формулы, автоматическая интерпретация и паспорт методики
+
+Минимальная проверка отдельного режима ОПУС и одинакового содержания отчётов:
+
+```powershell
+python -m pytest -p no:cacheprovider -q tests/test_opus_screening.py tests/test_hydrocarbon_interpretation.py tests/test_interpretation_report_charts.py tests/test_interpretation_report_identity.py
+```
+
+Набор закрепляет следующие контракты:
+
+- равенство результатов для эквивалентных входов в `% об.` и ppm;
+- четыре контрольные формулы и отсутствие `OPUS5_REF` в runtime/экспорте;
+- классификацию только по отсчётам выше порога аномалии;
+- единственное пересечение перекрывающихся диапазонов и отказ от класса вне профиля;
+- явную цепочку ОПУС → Haworth/Pixler → неопределённый тип;
+- сохранение найденных интервалов при низком фоне с отдельной отметкой применимости;
+- одинаковые ОПУС-кривые на экране и в PDF и полный ряд глубин в XLSX;
+- наличие в HTML/PDF, DOCX и XLSX формул, правил интерпретации, источников и степени
+  подтверждения методики.
+
 ## 14. Правило обновления тестов и документации
 
 Любое изменение запуска, импорта, формы, миграции, расчётного профиля, формата проекта или

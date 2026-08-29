@@ -61,6 +61,27 @@ _PANEL_METHOD_MARKERS: tuple[tuple[str, tuple[str, ...]], ...] = (
         ),
     ),
 )
+_OPUS_PANEL_METHOD_MARKERS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    (
+        "total",
+        (
+            "OPUS_TG_PCT",
+            "TG_CALC",
+            "TG",
+            "TGAS",
+            "TOTALGAS",
+            "TOTAL_GAS",
+        ),
+    ),
+    (
+        "opus",
+        ("OPUS3", "OPUS4", "OPUS_K1_3", "OPUS_1_5"),
+    ),
+    (
+        "ratios",
+        ("WH", "BH", "CH", "C1_C2", "C1_C3", "C1_C4", "C1_C5"),
+    ),
+)
 _COLORS = (
     "#1d4ed8",
     "#dc2626",
@@ -474,7 +495,12 @@ def _panel_curves(
         preferred.extend(method.available_mnemonics)
 
     result: list[tuple[str, tuple[CurveData, ...]]] = []
-    for panel_name, fallback_order in _PANEL_METHOD_MARKERS:
+    marker_groups = (
+        _OPUS_PANEL_METHOD_MARKERS
+        if report.report_profile == "opus"
+        else _PANEL_METHOD_MARKERS
+    )
+    for panel_name, fallback_order in marker_groups:
         curves: list[CurveData] = []
         seen: set[str] = set()
         for mnemonic in (*preferred, *fallback_order):
@@ -582,6 +608,7 @@ def _labels(language: AppLanguage) -> dict[str, str]:
             ),
             "depth": "Глубина",
             "total": "Общий и нормализованный газ",
+            "opus": "Показатели ОПУС",
             "ratios": "Haworth и Pixler",
             "drilling": "Буровой контекст и DEXP",
             "note": (
@@ -598,6 +625,7 @@ def _labels(language: AppLanguage) -> dict[str, str]:
             ),
             "depth": "Тереңдік",
             "total": "Жалпы және нормаланған газ",
+            "opus": "ОПУС көрсеткіштері",
             "ratios": "Haworth және Pixler",
             "drilling": "Бұрғылау контексті және DEXP",
             "note": (
@@ -614,6 +642,7 @@ def _labels(language: AppLanguage) -> dict[str, str]:
             ),
             "depth": "Depth",
             "total": "Total and normalized gas",
+            "opus": "OPUS indicators",
             "ratios": "Haworth and Pixler",
             "drilling": "Drilling context and DEXP",
             "note": (

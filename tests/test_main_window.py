@@ -339,6 +339,11 @@ def test_about_dialog_contains_author_details(qapp, monkeypatch) -> None:
     assert any(text.startswith("Версия ") for text in texts)
     assert "Rinat Sarmuldin" in texts
     assert "ura07srr@gmail.com" in texts
+    assert any("Профессиональная среда" in text for text in texts)
+    logo_label = captured[0].findChild(QLabel, "aboutProgramLogo")
+    assert logo_label is not None
+    assert logo_label.pixmap() is not None
+    assert not logo_label.pixmap().isNull()
     email_label = next(label for label in labels if label.text() == "ura07srr@gmail.com")
     assert not email_label.openExternalLinks()
     assert email_label.textInteractionFlags() & Qt.TextInteractionFlag.TextSelectableByMouse

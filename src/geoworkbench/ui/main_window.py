@@ -184,7 +184,7 @@ from geoworkbench.ui.toolbar_adaptation import (
     choose_toolbar_adaptation,
     overflow_item_count,
 )
-from geoworkbench.ui.branding import application_icon, about_rig_pixmap
+from geoworkbench.ui.branding import application_icon, about_program_logo_pixmap
 from geoworkbench.ui.home_page import HomeAction, HomePage
 from geoworkbench.services.import_jobs import (
     DatasetImportJobExecutor,
@@ -9164,8 +9164,8 @@ class MainWindow(QMainWindow):
         dialog.setWindowTitle("GEOLOG GASRATIO@Pixler")
         dialog.setWindowIcon(application_icon())
         dialog.setModal(True)
-        dialog.setMinimumSize(860, 500)
-        dialog.resize(900, 520)
+        dialog.setMinimumSize(960, 580)
+        dialog.resize(1020, 610)
 
         root_layout = QVBoxLayout(dialog)
         root_layout.setContentsMargins(28, 28, 28, 20)
@@ -9175,16 +9175,17 @@ class MainWindow(QMainWindow):
         content_layout.setSpacing(34)
 
         image_label = QLabel(dialog)
+        image_label.setObjectName("aboutProgramLogo")
         image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        image_label.setFixedSize(520, 330)
-        image_label.setPixmap(about_rig_pixmap(520, 330))
+        image_label.setFixedSize(430, 430)
+        image_label.setPixmap(about_program_logo_pixmap(430, 430))
         content_layout.addWidget(image_label, 1, Qt.AlignmentFlag.AlignCenter)
 
         # The information column deliberately has no forced background.  It follows
         # the active Qt palette, so dark and light themes remain readable.
         info_panel = QWidget(dialog)
         info_panel.setObjectName("aboutInfoPanel")
-        info_panel.setMinimumWidth(260)
+        info_panel.setMinimumWidth(390)
         info_layout = QVBoxLayout(info_panel)
         info_layout.setContentsMargins(0, 12, 0, 12)
         info_layout.setSpacing(7)
@@ -9217,14 +9218,32 @@ class MainWindow(QMainWindow):
         title_label.setWordWrap(True)
         configure_label(
             title_label,
-            point_size=15,
+            point_size=18,
             weight=QFont.Weight.Bold,
         )
         info_layout.addWidget(title_label)
 
-        version_label = QLabel(f"Версия {__version__}", info_panel)
+        tagline_label = QLabel(self._t("shell.about_tagline"), info_panel)
+        tagline_label.setWordWrap(True)
+        configure_label(
+            tagline_label,
+            point_size=11,
+            weight=QFont.Weight.DemiBold,
+            color=QColor("#E28A00" if dark_theme else "#A85F00"),
+        )
+        info_layout.addWidget(tagline_label)
+
+        version_label = QLabel(self._t("shell.about_version", version=__version__), info_panel)
         configure_label(version_label, point_size=10, color=muted_color)
         info_layout.addWidget(version_label)
+
+        overview_label = QLabel(self._t("shell.about_overview"), info_panel)
+        overview_label.setObjectName("aboutOverview")
+        overview_label.setWordWrap(True)
+        overview_label.setTextFormat(Qt.TextFormat.PlainText)
+        configure_label(overview_label, point_size=10)
+        info_layout.addSpacing(7)
+        info_layout.addWidget(overview_label)
 
         separator = QFrame(info_panel)
         separator.setObjectName("aboutSeparator")
@@ -9236,7 +9255,7 @@ class MainWindow(QMainWindow):
         info_layout.addWidget(separator)
         info_layout.addSpacing(12)
 
-        author_caption = QLabel("Автор и разработчик", info_panel)
+        author_caption = QLabel(self._t("shell.about_author"), info_panel)
         configure_label(author_caption, point_size=10, color=muted_color)
         info_layout.addWidget(author_caption)
 
@@ -9248,7 +9267,7 @@ class MainWindow(QMainWindow):
         )
         info_layout.addWidget(author_name)
 
-        email_caption = QLabel("Электронная почта", info_panel)
+        email_caption = QLabel(self._t("shell.about_email"), info_panel)
         configure_label(email_caption, point_size=10, color=muted_color)
         info_layout.addSpacing(9)
         info_layout.addWidget(email_caption)

@@ -33,6 +33,7 @@ class InterpretationMethodStatus:
     curve_mnemonics: tuple[str, ...]
     available_mnemonics: tuple[str, ...]
     source: str
+    calculation: str = ""
 
     @property
     def available(self) -> bool:
@@ -104,16 +105,22 @@ class _FluidInterpretationContext:
     background_scale: float | None
 
 
-_METHODS: tuple[tuple[str, tuple[str, ...], str], ...] = (
+_METHODS: tuple[tuple[str, tuple[str, ...], str, str], ...] = (
     (
         "Haworth wetness/balance/character",
         ("WH", "BH", "CH"),
         "Haworth, Sellens & Whittaker (1985), AAPG Bulletin 69(8), 1305–1310.",
+        (
+            "Wh=100×(C2+C3+ΣC4+ΣC5)/(C1+C2+C3+ΣC4+ΣC5); "
+            "Bh=(C1+C2)/(C3+ΣC4+ΣC5); Ch=(ΣC4+ΣC5)/C3. "
+            "The fluid label is a preliminary palette-based interpretation."
+        ),
     ),
     (
         "Pixler hydrocarbon ratios",
         ("C1_C2", "C1_C3", "C1_C4", "C1_C5"),
         "Pixler (1969), Journal of Petroleum Technology. DOI 10.2118/2254-PA.",
+        "C1/C2, C1/C3, C1/ΣC4 and C1/ΣC5; profile shape is supporting evidence, not a standalone productivity proof.",
     ),
     (
         "Drilling-normalized C1–C5 / total gas",
@@ -129,11 +136,13 @@ _METHODS: tuple[tuple[str, tuple[str, ...], str], ...] = (
             "TG_NORM",
         ),
         "US20140379265A1, Equation 2; US20150060054A1 reference normalization.",
+        "Each component is normalized to explicit reference drilling conditions; source and calculated normalized curves remain separate.",
     ),
     (
         "Jorden–Shirley / Rehm–McClendon d-exponent",
         ("DEXP", "DEXPC", "NCT", "DEXPC_NCT"),
         "Jorden & Shirley (1966), SPE 1407; Rehm & McClendon (1971), SPE 3601.",
+        "DEXP is calculated from ROP, RPM, WOB and bit diameter; DEXPC additionally applies the explicitly supplied normal mud density.",
     ),
 )
 
@@ -175,11 +184,7 @@ def build_hydrocarbon_interpretation_report(
         raise RuntimeError("Сначала выберите скважину и набор данных")
 
     semantic_targets = tuple(
-        dict.fromkeys(
-            mnemonic
-            for _, mnemonics, _ in _METHODS
-            for mnemonic in mnemonics
-        )
+        dict.fromkeys(mnemonic for _, mnemonics, _, _ in _METHODS for mnemonic in mnemonics)
     )
     semantic = LasParameterResolver().resolve_dataset(
         dataset,
@@ -305,6 +310,7 @@ def _method_status(
     method: str,
     mnemonics: tuple[str, ...],
     source: str,
+    calculation: str,
 ) -> InterpretationMethodStatus:
     available: list[str] = []
     seen: set[str] = set()
@@ -316,7 +322,7 @@ def _method_status(
             continue
         seen.add(curve.metadata.curve_id)
         available.append(curve.metadata.original_mnemonic)
-    return InterpretationMethodStatus(method, mnemonics, tuple(available), source)
+    return InterpretationMethodStatus(method, mnemonics, tuple(available), source, calculation)
 
 
 def _detect_candidates(
@@ -351,7 +357,12 @@ def _detect_candidates(
     finite_values = transformed[valid]
     median, scale = _robust_center_scale(finite_values)
     if scale is None:
-        return (), median, None, "Газовая кривая не имеет достаточного разброса для поиска аномалий."
+        return (
+            (),
+            median,
+            None,
+            "Газовая кривая не имеет достаточного разброса для поиска аномалий.",
+        )
 
     robust_z = np.full(values.shape, np.nan, dtype=np.float64)
     robust_z[valid] = (transformed[valid] - median) / scale
@@ -420,8 +431,7 @@ def _detect_candidates(
         ]
         if metrics:
             evidence_parts.append(
-                "context means: "
-                + ", ".join(f"{name}={value:.6g}" for name, value in metrics)
+                "context means: " + ", ".join(f"{name}={value:.6g}" for name, value in metrics)
             )
         for assessment in lba_assessments:
             evidence_parts.append(
@@ -432,11 +442,7 @@ def _detect_candidates(
                     if assessment.intensity is not None
                     else ""
                 )
-                + (
-                    f", colour {assessment.color_code}"
-                    if assessment.color_code
-                    else ""
-                )
+                + (f", colour {assessment.color_code}" if assessment.color_code else "")
             )
         if pixler_assessment is not None:
             evidence_parts.append(
@@ -593,35 +599,15 @@ def _preliminary_fluid_hypothesis(
         if balance_denominator > np.finfo(np.float64).eps
         else None
     )
-    interval_character = (
-        (c4_sum + c5_sum) / c3_sum
-        if c3_sum > np.finfo(np.float64).eps
-        else None
-    )
+    interval_character = (c4_sum + c5_sum) / c3_sum if c3_sum > np.finfo(np.float64).eps else None
     pixler_assessment = None
-    c1_c2 = (
-        c1_sum / c2_sum
-        if c2_sum > np.finfo(np.float64).eps
-        else None
-    )
+    c1_c2 = c1_sum / c2_sum if c2_sum > np.finfo(np.float64).eps else None
     if c1_c2 is not None:
         pixler_assessment = classify_pixler_ratios(
             c1_c2=c1_c2,
-            c1_c3=(
-                c1_sum / c3_sum
-                if c3_sum > np.finfo(np.float64).eps
-                else None
-            ),
-            c1_c4=(
-                c1_sum / c4_sum
-                if c4_sum > np.finfo(np.float64).eps
-                else None
-            ),
-            c1_c5=(
-                c1_sum / c5_sum
-                if c5_sum > np.finfo(np.float64).eps
-                else None
-            ),
+            c1_c3=(c1_sum / c3_sum if c3_sum > np.finfo(np.float64).eps else None),
+            c1_c4=(c1_sum / c4_sum if c4_sum > np.finfo(np.float64).eps else None),
+            c1_c5=(c1_sum / c5_sum if c5_sum > np.finfo(np.float64).eps else None),
         )
     assessment = classify_gas_ratio(
         wetness=interval_wetness,
@@ -648,9 +634,7 @@ def _preliminary_fluid_hypothesis(
             interval_character,
             pixler_assessment,
         )
-    relative_z = (
-        interval_wetness - context.background_median
-    ) / context.background_scale
+    relative_z = (interval_wetness - context.background_median) / context.background_scale
     return (
         assessment.code,
         interval_wetness,
@@ -733,13 +717,7 @@ def _gas_lba_correlation(
         elif gas_family == "oil":
             result = "concordant" if 2 <= group <= 4 else "partial"
         elif gas_family == "heavy_oil":
-            result = (
-                "concordant"
-                if group >= 4
-                else "partial"
-                if group == 3
-                else "divergent"
-            )
+            result = "concordant" if group >= 4 else "partial" if group == 3 else "divergent"
         else:
             result = "indeterminate"
         group_results.append(result)
@@ -808,6 +786,7 @@ _HTML_LABELS = {
         "method": "Метод",
         "curves": "Использованные данные",
         "source": "Источник",
+        "calculation": "Расчёт и правило интерпретации",
         "candidates": "Кандидатные интервалы УВ-проявлений",
         "interval": "Интервал",
         "strength": "Относительная сила аномалии",
@@ -824,40 +803,52 @@ _HTML_LABELS = {
         "empty": "Кандидатные интервалы по выбранному порогу не найдены.",
         "no_manual": "Подтверждённые геологом интервалы пока не заполнены.",
         "hypothesis_probable_gas": "вероятный газ",
-        "hypothesis_probable_liquid_hydrocarbons": (
-            "вероятные жидкие УВ (нефть/конденсат)"
-        ),
+        "hypothesis_probable_liquid_hydrocarbons": ("вероятные жидкие УВ (нефть/конденсат)"),
         "hypothesis_indeterminate": "УВ-проявление смешанного/неопределённого типа",
         "hypothesis_insufficient_data": (
             "газовое УВ-проявление; C1–C5 недостаточно для определения типа"
         ),
-        "hypothesis_very_light_dry_gas": (
-            "очень лёгкий сухой газ; возможно непродуктивный"
-        ),
+        "hypothesis_very_light_dry_gas": ("очень лёгкий сухой газ; возможно непродуктивный"),
         "hypothesis_light_dry_gas": "возможный лёгкий сухой газ",
         "hypothesis_productive_gas_increasing_wetness": (
             "газовая залежь с увеличением содержания тяжёлых УВ"
         ),
-        "hypothesis_gas_increasing_wetness": (
-            "газ с увеличением содержания тяжёлых УВ"
-        ),
+        "hypothesis_gas_increasing_wetness": ("газ с увеличением содержания тяжёлых УВ"),
         "hypothesis_wet_gas_or_gas_condensate": (
             "продуктивная газовая фаза: влажный газ или газоконденсат"
         ),
-        "hypothesis_light_oil_high_gor": (
-            "лёгкая нефть с высоким газовым фактором"
-        ),
+        "hypothesis_light_oil_high_gor": ("лёгкая нефть с высоким газовым фактором"),
         "hypothesis_gas_condensate_or_high_api_oil": (
             "газоконденсат или лёгкая нефть с высоким API/GOR"
         ),
         "hypothesis_productive_oil_decreasing_gravity": (
             "нефтяная залежь с увеличением плотности нефти"
         ),
-        "hypothesis_poor_low_gravity_oil": (
-            "бедная тяжёлая нефть с низким газосодержанием"
-        ),
+        "hypothesis_poor_low_gravity_oil": ("бедная тяжёлая нефть с низким газосодержанием"),
         "hypothesis_heavy_or_residual_oil": (
             "тяжёлая или остаточная нефть; возможна непродуктивная зона"
+        ),
+        "hypothesis_opus_oxidized_residual_oil": (
+            "УВ-газопроявление; ОПУС предварительно: окисленная (остаточная) нефть"
+        ),
+        "hypothesis_opus_oil": "УВ-газопроявление; ОПУС предварительно: нефть",
+        "hypothesis_opus_combustible_gas": (
+            "УВ-газопроявление; ОПУС предварительно: горючий газ"
+        ),
+        "hypothesis_opus_water_dissolved_gas": (
+            "УВ-газопроявление; ОПУС предварительно: газ в воде/у контакта"
+        ),
+        "hypothesis_opus_gas_condensate": "ОПУС: газоконденсат",
+        "hypothesis_opus_gassy_oil": "ОПУС: газированная нефть",
+        "hypothesis_opus_gas_condensate_or_gassy_oil": (
+            "УВ-газопроявление; ОПУС предварительно: газоконденсатная или "
+            "газонефтяная залежь"
+        ),
+        "hypothesis_opus_no_consensus": (
+            "УВ-газопроявление; ОПУС: тип флюида не определён по опубликованным диапазонам"
+        ),
+        "opus_fallback_prefix": (
+            "УВ-проявление; резерв Haworth/Pixler: {label} (ОПУС неоднозначен)"
         ),
         "wetness_basis": (
             "Средняя относительная доля C2–C5 в интервале {interval:.5f}%; "
@@ -872,22 +863,16 @@ _HTML_LABELS = {
         ),
         "ratio_basis": "Палетка Haworth/DATALOG: Wh={wh}, Bh={bh}, Ch={ch}.",
         "phase_productive_gas_phase": "Ch подтверждает продуктивную газовую фазу.",
-        "phase_productive_liquid_phase": (
-            "Ch подтверждает жидкую фазу или лёгкую нефть."
-        ),
+        "phase_productive_liquid_phase": ("Ch подтверждает жидкую фазу или лёгкую нефть."),
         "phase_phase_boundary": "Ch находится на границе 0,5.",
-        "pixler_basis": (
-            "Pixler: {label}; C1/C2={c1_c2}, профиль {shape}{water}."
-        ),
+        "pixler_basis": ("Pixler: {label}; C1/C2={c1_c2}, профиль {shape}{water}."),
         "pixler_nonproductive_residual_or_very_heavy_oil": (
             "остаточная или очень тяжёлая непродуктивная нефть"
         ),
         "pixler_low_api_oil": "тяжёлая нефть с низким API",
         "pixler_medium_api_oil": "нефть средней плотности",
         "pixler_high_api_light_oil": "лёгкая нефть с высоким API",
-        "pixler_light_oil_or_gas_condensate": (
-            "переходная зона: лёгкая нефть или газоконденсат"
-        ),
+        "pixler_light_oil_or_gas_condensate": ("переходная зона: лёгкая нефть или газоконденсат"),
         "pixler_gas_or_gas_condensate": "газ или газоконденсат",
         "pixler_gas": "газ",
         "pixler_very_light_methane_rich_gas": (
@@ -900,15 +885,11 @@ _HTML_LABELS = {
         "possible_water": "; возможно влияние пластовой воды",
         "lba_basis": "ЛБА: {description}.",
         "correlation_gas_only": "Сопоставление: имеются только газовые данные.",
-        "correlation_concordant": (
-            "Сопоставление газа и ЛБА: признаки согласуются."
-        ),
+        "correlation_concordant": ("Сопоставление газа и ЛБА: признаки согласуются."),
         "correlation_partial": (
             "Сопоставление газа и ЛБА: частичное согласие, нужна проверка геологом."
         ),
-        "correlation_divergent": (
-            "Сопоставление газа и ЛБА: признаки расходятся."
-        ),
+        "correlation_divergent": ("Сопоставление газа и ЛБА: признаки расходятся."),
         "correlation_mixed": (
             "Сопоставление газа и ЛБА: одновременно согласующиеся и расходящиеся признаки."
         ),
@@ -933,6 +914,7 @@ _HTML_LABELS = {
         "method": "Әдіс",
         "curves": "Пайдаланылған деректер",
         "source": "Дереккөз",
+        "calculation": "Есептеу және интерпретация ережесі",
         "candidates": "Көмірсутек көріністерінің кандидат аралықтары",
         "interval": "Аралық",
         "strength": "Аномалияның салыстырмалы күші",
@@ -956,16 +938,12 @@ _HTML_LABELS = {
         "hypothesis_insufficient_data": (
             "газдық көмірсутек көрінісі; түрін анықтау үшін C1–C5 жеткіліксіз"
         ),
-        "hypothesis_very_light_dry_gas": (
-            "өте жеңіл құрғақ газ; өнімсіз болуы мүмкін"
-        ),
+        "hypothesis_very_light_dry_gas": ("өте жеңіл құрғақ газ; өнімсіз болуы мүмкін"),
         "hypothesis_light_dry_gas": "ықтимал жеңіл құрғақ газ",
         "hypothesis_productive_gas_increasing_wetness": (
             "ауыр көмірсутектер мөлшері артатын газ шоғыры"
         ),
-        "hypothesis_gas_increasing_wetness": (
-            "ауыр көмірсутектер мөлшері артатын газ"
-        ),
+        "hypothesis_gas_increasing_wetness": ("ауыр көмірсутектер мөлшері артатын газ"),
         "hypothesis_wet_gas_or_gas_condensate": (
             "өнімді газ фазасы: ылғалды газ немесе газ конденсаты"
         ),
@@ -973,14 +951,32 @@ _HTML_LABELS = {
         "hypothesis_gas_condensate_or_high_api_oil": (
             "газ конденсаты немесе API/GOR жоғары жеңіл мұнай"
         ),
-        "hypothesis_productive_oil_decreasing_gravity": (
-            "мұнай тығыздығы артатын мұнай шоғыры"
-        ),
-        "hypothesis_poor_low_gravity_oil": (
-            "газ мөлшері аз ауыр мұнай шоғыры"
-        ),
+        "hypothesis_productive_oil_decreasing_gravity": ("мұнай тығыздығы артатын мұнай шоғыры"),
+        "hypothesis_poor_low_gravity_oil": ("газ мөлшері аз ауыр мұнай шоғыры"),
         "hypothesis_heavy_or_residual_oil": (
             "ауыр немесе қалдық мұнай; өнімсіз аймақ болуы мүмкін"
+        ),
+        "hypothesis_opus_oxidized_residual_oil": (
+            "КС газ көрінісі; ОПУС алдын ала: тотыққан (қалдық) мұнай"
+        ),
+        "hypothesis_opus_oil": "КС газ көрінісі; ОПУС алдын ала: мұнай",
+        "hypothesis_opus_combustible_gas": (
+            "КС газ көрінісі; ОПУС алдын ала: жанғыш газ"
+        ),
+        "hypothesis_opus_water_dissolved_gas": (
+            "КС газ көрінісі; ОПУС алдын ала: судағы/жанасудағы газ"
+        ),
+        "hypothesis_opus_gas_condensate": "ОПУС: газ конденсаты",
+        "hypothesis_opus_gassy_oil": "ОПУС: газдалған мұнай",
+        "hypothesis_opus_gas_condensate_or_gassy_oil": (
+            "КС газ көрінісі; ОПУС алдын ала: газ-конденсатты немесе "
+            "газ-мұнайлы шоғыр"
+        ),
+        "hypothesis_opus_no_consensus": (
+            "КС газ көрінісі; ОПУС: флюид түрі жарияланған диапазондар бойынша анықталмады"
+        ),
+        "opus_fallback_prefix": (
+            "КС көрінісі; Haworth/Pixler резерві: {label} (ОПУС бірмәнді емес)"
         ),
         "wetness_basis": (
             "Аралықтағы C2–C5 орташа салыстырмалы үлесі {interval:.5f}%; "
@@ -995,27 +991,17 @@ _HTML_LABELS = {
         ),
         "ratio_basis": "Haworth/DATALOG палеткасы: Wh={wh}, Bh={bh}, Ch={ch}.",
         "phase_productive_gas_phase": "Ch өнімді газ фазасын растайды.",
-        "phase_productive_liquid_phase": (
-            "Ch сұйық фазаны немесе жеңіл мұнайды растайды."
-        ),
+        "phase_productive_liquid_phase": ("Ch сұйық фазаны немесе жеңіл мұнайды растайды."),
         "phase_phase_boundary": "Ch 0,5 шекарасында.",
-        "pixler_basis": (
-            "Pixler: {label}; C1/C2={c1_c2}, профиль {shape}{water}."
-        ),
-        "pixler_nonproductive_residual_or_very_heavy_oil": (
-            "қалдық немесе өте ауыр өнімсіз мұнай"
-        ),
+        "pixler_basis": ("Pixler: {label}; C1/C2={c1_c2}, профиль {shape}{water}."),
+        "pixler_nonproductive_residual_or_very_heavy_oil": ("қалдық немесе өте ауыр өнімсіз мұнай"),
         "pixler_low_api_oil": "API төмен ауыр мұнай",
         "pixler_medium_api_oil": "орташа тығыздықтағы мұнай",
         "pixler_high_api_light_oil": "API жоғары жеңіл мұнай",
-        "pixler_light_oil_or_gas_condensate": (
-            "өтпелі аймақ: жеңіл мұнай немесе газ конденсаты"
-        ),
+        "pixler_light_oil_or_gas_condensate": ("өтпелі аймақ: жеңіл мұнай немесе газ конденсаты"),
         "pixler_gas_or_gas_condensate": "газ немесе газ конденсаты",
         "pixler_gas": "газ",
-        "pixler_very_light_methane_rich_gas": (
-            "өте жеңіл метанды газ; өнімсіз болуы мүмкін"
-        ),
+        "pixler_very_light_methane_rich_gas": ("өте жеңіл метанды газ; өнімсіз болуы мүмкін"),
         "shape_positive": "оң",
         "shape_negative": "теріс",
         "shape_mixed": "аралас",
@@ -1024,16 +1010,10 @@ _HTML_LABELS = {
         "lba_basis": "ЛБА: {description}.",
         "correlation_gas_only": "Салыстыру: тек газ деректері бар.",
         "correlation_concordant": "Газ және ЛБА белгілері сәйкес келеді.",
-        "correlation_partial": (
-            "Газ және ЛБА белгілері ішінара сәйкес; геолог тексеруі қажет."
-        ),
+        "correlation_partial": ("Газ және ЛБА белгілері ішінара сәйкес; геолог тексеруі қажет."),
         "correlation_divergent": "Газ және ЛБА белгілері сәйкес емес.",
-        "correlation_mixed": (
-            "Газ және ЛБА салыстыруында сәйкес те, қайшы да белгілер бар."
-        ),
-        "correlation_indeterminate": (
-            "Газ және ЛБА сәйкестігін бағалау үшін дерек жеткіліксіз."
-        ),
+        "correlation_mixed": ("Газ және ЛБА салыстыруында сәйкес те, қайшы да белгілер бар."),
+        "correlation_indeterminate": ("Газ және ЛБА сәйкестігін бағалау үшін дерек жеткіліксіз."),
         "low": "төмен",
         "medium": "орташа",
         "high": "жоғары",
@@ -1052,6 +1032,7 @@ _HTML_LABELS = {
         "method": "Method",
         "curves": "Data used",
         "source": "Source",
+        "calculation": "Calculation and interpretation rule",
         "candidates": "Candidate hydrocarbon-show intervals",
         "interval": "Interval",
         "strength": "Relative anomaly strength",
@@ -1075,19 +1056,13 @@ _HTML_LABELS = {
         "hypothesis_insufficient_data": (
             "gas hydrocarbon show; insufficient C1–C5 to determine fluid type"
         ),
-        "hypothesis_very_light_dry_gas": (
-            "very light dry gas; possibly non-productive"
-        ),
+        "hypothesis_very_light_dry_gas": ("very light dry gas; possibly non-productive"),
         "hypothesis_light_dry_gas": "possible light dry gas",
         "hypothesis_productive_gas_increasing_wetness": (
             "gas accumulation with increasing heavy-hydrocarbon content"
         ),
-        "hypothesis_gas_increasing_wetness": (
-            "gas with increasing heavy-hydrocarbon content"
-        ),
-        "hypothesis_wet_gas_or_gas_condensate": (
-            "productive gas phase: wet gas or gas condensate"
-        ),
+        "hypothesis_gas_increasing_wetness": ("gas with increasing heavy-hydrocarbon content"),
+        "hypothesis_wet_gas_or_gas_condensate": ("productive gas phase: wet gas or gas condensate"),
         "hypothesis_light_oil_high_gor": "light oil with high GOR",
         "hypothesis_gas_condensate_or_high_api_oil": (
             "gas condensate or high-API/high-GOR light oil"
@@ -1095,11 +1070,29 @@ _HTML_LABELS = {
         "hypothesis_productive_oil_decreasing_gravity": (
             "oil accumulation with increasing oil density"
         ),
-        "hypothesis_poor_low_gravity_oil": (
-            "poor low-gravity oil with low gas content"
+        "hypothesis_poor_low_gravity_oil": ("poor low-gravity oil with low gas content"),
+        "hypothesis_heavy_or_residual_oil": ("heavy or residual oil; possibly non-productive"),
+        "hypothesis_opus_oxidized_residual_oil": (
+            "HC gas show; preliminary OPUS: oxidized (residual) oil"
         ),
-        "hypothesis_heavy_or_residual_oil": (
-            "heavy or residual oil; possibly non-productive"
+        "hypothesis_opus_oil": "HC gas show; preliminary OPUS: oil",
+        "hypothesis_opus_combustible_gas": (
+            "HC gas show; preliminary OPUS: combustible gas"
+        ),
+        "hypothesis_opus_water_dissolved_gas": (
+            "HC gas show; preliminary OPUS: gas in/contacting water"
+        ),
+        "hypothesis_opus_gas_condensate": "OPUS: gas condensate",
+        "hypothesis_opus_gassy_oil": "OPUS: gassy oil",
+        "hypothesis_opus_gas_condensate_or_gassy_oil": (
+            "HC gas show; preliminary OPUS: gas-condensate or gas-oil "
+            "accumulation"
+        ),
+        "hypothesis_opus_no_consensus": (
+            "HC gas show; OPUS fluid type is indeterminate from the published ranges"
+        ),
+        "opus_fallback_prefix": (
+            "HC show; Haworth/Pixler fallback: {label} (OPUS ambiguous)"
         ),
         "wetness_basis": (
             "Mean relative C2–C5 share in the interval is {interval:.5f}%; "
@@ -1114,22 +1107,16 @@ _HTML_LABELS = {
         ),
         "ratio_basis": "Haworth/DATALOG palette: Wh={wh}, Bh={bh}, Ch={ch}.",
         "phase_productive_gas_phase": "Ch supports a productive gas phase.",
-        "phase_productive_liquid_phase": (
-            "Ch supports a liquid phase or light oil."
-        ),
+        "phase_productive_liquid_phase": ("Ch supports a liquid phase or light oil."),
         "phase_phase_boundary": "Ch is on the 0.5 boundary.",
-        "pixler_basis": (
-            "Pixler: {label}; C1/C2={c1_c2}, {shape} profile{water}."
-        ),
+        "pixler_basis": ("Pixler: {label}; C1/C2={c1_c2}, {shape} profile{water}."),
         "pixler_nonproductive_residual_or_very_heavy_oil": (
             "residual or very heavy non-productive oil"
         ),
         "pixler_low_api_oil": "low-API heavy oil",
         "pixler_medium_api_oil": "medium-density oil",
         "pixler_high_api_light_oil": "high-API light oil",
-        "pixler_light_oil_or_gas_condensate": (
-            "transition: light oil or gas condensate"
-        ),
+        "pixler_light_oil_or_gas_condensate": ("transition: light oil or gas condensate"),
         "pixler_gas_or_gas_condensate": "gas or gas condensate",
         "pixler_gas": "gas",
         "pixler_very_light_methane_rich_gas": (
@@ -1171,13 +1158,14 @@ def hydrocarbon_interpretation_html(
         "<tr>"
         f"<td>{escape(method.method)}</td>"
         f"<td>{escape(', '.join(method.available_mnemonics) or labels['no'])}</td>"
+        f"<td>{escape(method.calculation or '—')}</td>"
         f"<td>{escape(method.source)}</td>"
         "</tr>"
         for method in report.methods
     )
     candidate_rows = "".join(
         "<tr>"
-        f"<td>{candidate.top_depth:.2f}–{candidate.bottom_depth:.2f} "
+        f"<td>{candidate.top_depth:.2f}-{candidate.bottom_depth:.2f} "
         f"{escape(report.depth_unit)}</td>"
         f"<td>{escape(labels[candidate.anomaly_strength])}</td>"
         f"<td>{escape(fluid_hypothesis_label(candidate, language))}</td>"
@@ -1188,19 +1176,32 @@ def hydrocarbon_interpretation_html(
     )
     if not candidate_rows:
         candidate_rows = f"<tr><td colspan='5'>{escape(labels['empty'])}</td></tr>"
-    candidate_details = "".join(
-        "<div class='candidate-detail'>"
-        f"<b>{candidate.top_depth:.2f}–{candidate.bottom_depth:.2f} "
-        f"{escape(report.depth_unit)} — "
-        f"{escape(fluid_hypothesis_label(candidate, language))}</b>"
-        f"<p>{escape(fluid_hypothesis_basis(candidate, language))}</p>"
-        "</div>"
-        for candidate in report.candidates
-    )
+    if report.report_profile == "opus":
+        candidate_details = "".join(
+            "<div class='candidate-detail-heading'>"
+            f"<b>{candidate.top_depth:.2f}-{candidate.bottom_depth:.2f} "
+            f"{escape(report.depth_unit)} - "
+            f"{escape(fluid_hypothesis_label(candidate, language))}</b>"
+            "</div>"
+            "<div class='candidate-detail-basis'>"
+            f"<p>{escape(fluid_hypothesis_basis(candidate, language))}</p>"
+            "</div>"
+            for candidate in report.candidates
+        )
+    else:
+        candidate_details = "".join(
+            "<div class='candidate-detail'>"
+            f"<b>{candidate.top_depth:.2f}-{candidate.bottom_depth:.2f} "
+            f"{escape(report.depth_unit)} - "
+            f"{escape(fluid_hypothesis_label(candidate, language))}</b>"
+            f"<p>{escape(fluid_hypothesis_basis(candidate, language))}</p>"
+            "</div>"
+            for candidate in report.candidates
+        )
     manual_rows = "".join(
         "<tr>"
         f"<td>{escape(interval.interpretation_name)}</td>"
-        f"<td>{interval.top_depth:.2f}–{interval.bottom_depth:.2f} "
+        f"<td>{interval.top_depth:.2f}-{interval.bottom_depth:.2f} "
         f"{escape(report.depth_unit)}</td>"
         f"<td>{escape(interval.interval_type)}</td>"
         f"<td>{escape(interval.label)}</td>"
@@ -1227,36 +1228,42 @@ small {{ color: #44566c; }}
                      padding: 7px 10px; margin: 7px 0; page-break-inside: avoid;
                      font-size: 9pt; }}
 .candidate-detail p {{ color: #44566c; margin: 4px 0 0 0; }}
+.candidate-detail-heading {{ border-left: 4px solid #315a7d; padding: 5px 10px 2px 10px;
+                             margin: 7px 0 0 0; page-break-inside: avoid; }}
+.candidate-detail-basis {{ border-left: 4px solid #315a7d; padding: 0 10px 6px 10px;
+                           margin: 0 0 7px 0; page-break-inside: avoid; }}
+.candidate-detail-basis p {{ color: #44566c; margin: 0; }}
 .notice {{ color: #3d3300; background: #fff7d6;
            border-left: 4px solid #d59b00; padding: 8px 12px; }}
 .interpretation-curves {{ width: 100%; text-align: center; margin: 0 auto 14px auto; }}
 .interpretation-curves img {{ display: block; max-width: 100%; height: auto; margin: 0 auto; }}
 </style></head><body>
-<h1>{escape(labels['title'])}</h1>
-<p><b>{escape(labels['project'])}:</b> {escape(report.project_name)}<br>
-<b>{escape(labels['well'])}:</b> {escape(report.well_name)}<br>
-<b>{escape(labels['dataset'])}:</b> {escape(report.dataset_name)}<br>
-<b>{escape(labels['created'])}:</b> {escape(report.generated_at)}<br>
-<b>{escape(labels['primary'])}:</b> {escape(report.primary_mnemonic or '—')}<br>
-<b>{escape(labels['threshold'])}:</b> {report.threshold:.2f}</p>
-<h2>{escape(labels['methods'])}</h2>
-<table><thead><tr><th>{escape(labels['method'])}</th><th>{escape(labels['curves'])}</th>
-<th>{escape(labels['source'])}</th></tr></thead><tbody>{method_rows}</tbody></table>
-<h2>{escape(labels['candidates'])}</h2>
+<h1>{escape(labels["title"])}</h1>
+<p><b>{escape(labels["project"])}:</b> {escape(report.project_name)}<br>
+<b>{escape(labels["well"])}:</b> {escape(report.well_name)}<br>
+<b>{escape(labels["dataset"])}:</b> {escape(report.dataset_name)}<br>
+<b>{escape(labels["created"])}:</b> {escape(report.generated_at)}<br>
+<b>{escape(labels["primary"])}:</b> {escape(report.primary_mnemonic or "—")}<br>
+<b>{escape(labels["threshold"])}:</b> {report.threshold:.2f}</p>
+<h2>{escape(labels["methods"])}</h2>
+<table><thead><tr><th>{escape(labels["method"])}</th><th>{escape(labels["curves"])}</th>
+<th>{escape(labels["calculation"])}</th><th>{escape(labels["source"])}</th></tr></thead>
+<tbody>{method_rows}</tbody></table>
+<h2>{escape(labels["candidates"])}</h2>
 <table><colgroup><col style="width:14%"><col style="width:13%">
 <col style="width:36%"><col style="width:10%"><col style="width:27%"></colgroup>
-<thead><tr><th>{escape(labels['interval'])}</th><th>{escape(labels['strength'])}</th>
-<th>{escape(labels['hypothesis'])}</th><th>{escape(labels['absolute_gas'])}</th>
-<th>{escape(labels['evidence'])}</th></tr></thead>
+<thead><tr><th>{escape(labels["interval"])}</th><th>{escape(labels["strength"])}</th>
+<th>{escape(labels["hypothesis"])}</th><th>{escape(labels["absolute_gas"])}</th>
+<th>{escape(labels["evidence"])}</th></tr></thead>
 <tbody>{candidate_rows}</tbody></table>
-<h2>{escape(labels['details'])}</h2>
+<h2>{escape(labels["details"])}</h2>
 {candidate_details or f"<p>{escape(labels['empty'])}</p>"}
-<h2>{escape(labels['manual'])}</h2>
-<table><thead><tr><th>{escape(labels['interpretation'])}</th>
-<th>{escape(labels['interval'])}</th><th>{escape(labels['type'])}</th>
-<th>{escape(labels['label'])}</th><th>{escape(labels['comment'])}</th></tr></thead>
+<h2>{escape(labels["manual"])}</h2>
+<table><thead><tr><th>{escape(labels["interpretation"])}</th>
+<th>{escape(labels["interval"])}</th><th>{escape(labels["type"])}</th>
+<th>{escape(labels["label"])}</th><th>{escape(labels["comment"])}</th></tr></thead>
 <tbody>{manual_rows}</tbody></table>
-<div class="notice"><h2>{escape(labels['warnings'])}</h2><ul>{warnings}</ul></div>
+<div class="notice"><h2>{escape(labels["warnings"])}</h2><ul>{warnings}</ul></div>
 </body></html>"""
 
 
@@ -1265,6 +1272,14 @@ def fluid_hypothesis_label(
     language: AppLanguage = AppLanguage.RU,
 ) -> str:
     labels = _HTML_LABELS[language]
+    fallback_prefix = "opus_fallback__"
+    if candidate.fluid_hypothesis.startswith(fallback_prefix):
+        fallback_key = candidate.fluid_hypothesis[len(fallback_prefix) :]
+        fallback_label = labels.get(
+            f"hypothesis_{fallback_key}",
+            labels["hypothesis_indeterminate"],
+        )
+        return labels["opus_fallback_prefix"].format(label=fallback_label)
     return labels.get(
         f"hypothesis_{candidate.fluid_hypothesis}",
         labels["hypothesis_indeterminate"],
@@ -1277,10 +1292,7 @@ def fluid_hypothesis_basis(
 ) -> str:
     labels = _HTML_LABELS[language]
     parts: list[str] = []
-    if (
-        candidate.interval_wetness is None
-        or candidate.background_wetness is None
-    ):
+    if candidate.interval_wetness is None or candidate.background_wetness is None:
         parts.append(labels["wetness_insufficient"])
     elif candidate.wetness_robust_z is None:
         parts.append(
@@ -1320,15 +1332,11 @@ def fluid_hypothesis_basis(
                 label=labels[f"pixler_{pixler.code}"],
                 c1_c2=_format_optional(pixler.c1_c2),
                 shape=labels[f"shape_{shape}"],
-                water=labels["possible_water"]
-                if pixler.water_association_possible
-                else "",
+                water=labels["possible_water"] if pixler.water_association_possible else "",
             )
         )
     parts.extend(
-        labels["lba_basis"].format(
-            description=describe_lba_assessment(assessment, language)
-        )
+        labels["lba_basis"].format(description=describe_lba_assessment(assessment, language))
         for assessment in candidate.lba_assessments
     )
     parts.append(labels[f"correlation_{candidate.gas_lba_correlation}"])

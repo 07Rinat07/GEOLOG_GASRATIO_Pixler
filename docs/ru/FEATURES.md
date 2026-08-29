@@ -37,11 +37,11 @@
 | Литология и интервалы | литотипы, шламограмма, описания в «Интерпретации», шаблоны RU/KZ/EN, стратиграфия, кальциметрия и ЛБА | [Руководство пользователя](README.md), [Рабочая геологическая форма](GEODATA_DEPTH_WORKSPACE.md) |
 | Операционные события | бурение, газ, проявления, отбор проб, колонны, пласты, QC | [Операционные события](OPERATIONAL_EVENTS.md) |
 | Каналы и Sensors | семантические типы, единицы, привязки и справочник датчиков | [Семантический словарь](SEMANTIC_CHANNEL_DICTIONARY.md) |
-| Расчёты | Gas Ratio/Haworth/Pixler, нормализованный газ, DEXP/NCT, поиск кандидатных УВ-интервалов | [Интерпретация бурового газа](MUD_GAS_INTERPRETATION.md), [Руководство](README.md) |
+| Расчёты | Gas Ratio/Haworth/Pixler, нормализованный газ, DEXP/NCT, изолированный ОПУС для `%`/ppm, поиск и автоматическая интерпретация УВ-интервалов | [Интерпретация бурового газа](MUD_GAS_INTERPRETATION.md), [Руководство](README.md) |
 | Lag/depth | версии коррекции, preview, производный dataset, откат | [Lag/depth correction](LAG_DEPTH_CORRECTION.md) |
 | Формы Masterlog | библиотека, независимые шапки, дорожки, условные обозначения | [Конструктор](CONSTRUCTOR.md), [Form Engine](FORM_ENGINE.md) |
 | Конструктор | текст, фигуры, изображения, литотипы, импорт ресурсов, шаблоны | [Конструктор](CONSTRUCTOR.md) |
-| Отчёты | отдельная вкладка интерпретации, XLSX/DOCX/PDF/печать, ReportDefinition и паспорт общих отчётов | [Интерпретация бурового газа](MUD_GAS_INTERPRETATION.md), [Определение отчёта](REPORT_DEFINITION.md), [Паспорт](REPORT_PASSPORT.md) |
+| Отчёты | отдельная вкладка интерпретации, динамический отчёт ОПУС с формулами/источниками и явным резервом Haworth/Pixler, XLSX/DOCX/PDF/печать, ReportDefinition и паспорт общих отчётов | [Интерпретация бурового газа](MUD_GAS_INTERPRETATION.md), [Определение отчёта](REPORT_DEFINITION.md), [Паспорт](REPORT_PASSPORT.md) |
 | Печать и экспорт | preview, A4/A3/рулон, Fit/100%, PDF, физическая печать | [Центр печати](UNIVERSAL_PRINT_CENTER.md), [Экспорт отчёта](REPORT_EXPORT.md) |
 | DOCX и HTML | документные адаптеры через единый отчётный контракт | [DOCX/HTML](DOCX_HTML_EXPORT.md) |
 | Диагностика | журналы, системный отчёт, support ZIP без копирования проекта/LAS | [Диагностика приложения](APPLICATION_DIAGNOSTICS.md) |

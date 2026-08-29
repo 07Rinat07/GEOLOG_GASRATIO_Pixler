@@ -84,13 +84,16 @@ def calculate_opus_screening(
     c4: Array,
     c5: Array,
 ) -> dict[str, GasRatioResult]:
-    """Calculate the four source-backed OPUS screening indicators.
+    """Calculate the four source-backed historical OPUS screening indicators.
 
     Inputs are absolute concentrations already converted to percent by volume.
     The published worked example normalizes C1-C5 to their component sum before
     calculating the indicators.  The published fluid bands overlap, so these
     curves are supporting evidence only: this function deliberately does not
-    turn them into a unique fluid class or a productivity verdict.
+    turn them into a unique fluid class or a productivity verdict. The supplied
+    OPUS5 reference profile is deliberately excluded: it requires an independent
+    TotalGas channel and its formula/bands have not been verified in an open
+    primary source.
     """
 
     components = {

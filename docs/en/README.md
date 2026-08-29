@@ -320,6 +320,15 @@ source conclusion remains separate.
 See [Mud-gas interpretation](MUD_GAS_INTERPRETATION.md) for
 the workflow, formulas, and limitations.
 
+For the independent OPUS workflow, select **OPUS C1-C5 — separate whole-well report**,
+choose **Calculate OPUS**, and then generate the report. Percent, ppm, ppb, and fractional
+inputs are converted to vol% without changing the source LAS. The application detects HC
+shows from `OPUS_TG_PCT` dynamics and assigns an automatic interval label: a unique
+intersection of the published OPUS ranges takes priority; an explicitly identified
+Haworth/Pixler fallback is shown when OPUS is ambiguous. Recalculate after replacing or
+editing source gas curves. The label is preliminary, and anomaly strength is not proof of
+commercial productivity.
+
 ## Custom formulas
 
 “Calculations → Custom formulas” creates and stores project formulas using curve mnemonics, for

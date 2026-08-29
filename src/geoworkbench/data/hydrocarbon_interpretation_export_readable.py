@@ -392,7 +392,17 @@ def _manual_row(
 def _write_methods_sheet(workbook: Workbook, report: HydrocarbonInterpretationReport) -> None:
     sheet = workbook.create_sheet("Методика")
     sheet.sheet_view.showGridLines = False
-    sheet.append(protect_spreadsheet_row(("Метод", "Статус", "Использованные данные", "Источник")))
+    sheet.append(
+        protect_spreadsheet_row(
+            (
+                "Метод",
+                "Статус",
+                "Использованные данные",
+                "Расчёт и правило интерпретации",
+                "Источник и степень подтверждения",
+            )
+        )
+    )
     for method in report.methods:
         sheet.append(
             protect_spreadsheet_row(
@@ -400,6 +410,7 @@ def _write_methods_sheet(workbook: Workbook, report: HydrocarbonInterpretationRe
                     method.method,
                     "доступен" if method.available else "нет данных",
                     ", ".join(method.available_mnemonics) or "нет данных",
+                    method.calculation or "—",
                     method.source,
                 )
             )
@@ -408,7 +419,7 @@ def _write_methods_sheet(workbook: Workbook, report: HydrocarbonInterpretationRe
     sheet.append(protect_spreadsheet_row(("Ограничения методики",)))
     for warning in report.warnings:
         sheet.append(protect_spreadsheet_row((warning,)))
-    _format_auxiliary_sheet(sheet, widths=(42, 16, 48, 90))
+    _format_auxiliary_sheet(sheet, widths=(42, 16, 48, 90, 90))
 
 
 def _write_whole_well_sheet(
