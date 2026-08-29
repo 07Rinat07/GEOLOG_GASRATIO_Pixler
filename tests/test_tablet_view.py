@@ -134,6 +134,32 @@ def test_standard_track_rename_is_visible_and_known_cuttings_name_is_localized(q
     localized.close()
 
 
+def test_existing_russian_absolute_gas_title_retranslates_on_tablet(qapp) -> None:
+    dataset = Dataset(
+        "dataset-absolute-gas-title",
+        "Absolute gas title",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 101.0]),
+    )
+
+    for language, expected in (
+        (AppLanguage.KK, "C1–C5 абсолюттік газдары"),
+        (AppLanguage.EN, "Absolute gas C1–C5"),
+    ):
+        view = TabletView(language=language)
+        view.set_layout_model(
+            TabletLayout(
+                [TrackDefinition("gas", "Абсолютные газы C1–C5", TrackKind.CURVE)],
+                localize_factory_labels=True,
+            )
+        )
+        view.set_dataset(dataset)
+
+        assert view._rendered["gas"].widget.title.text().startswith(expected)
+        view.close()
+
+
 def test_track_print_mode_hides_header_editor_actions_and_scrollbar(qapp) -> None:
     dataset = Dataset(
         "dataset-clean-print-header",

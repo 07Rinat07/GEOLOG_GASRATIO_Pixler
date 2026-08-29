@@ -224,6 +224,11 @@ _TEXT: dict[str, dict[str, str]] = {
     "gas_section": {"ru": "Газовые данные", "kk": "Газ деректері", "en": "Gas data"},
     "age": {"ru": "Возраст", "kk": "Жасы", "en": "Age"},
     "absolute_gas": {"ru": "Абсолютный газ", "kk": "Абсолюттік газ", "en": "Absolute gas"},
+    "absolute_gases_c1_c5": {
+        "ru": "Абсолютные газы C1–C5",
+        "kk": "C1–C5 абсолюттік газдары",
+        "en": "Absolute gas C1–C5",
+    },
     "relative_gas": {"ru": "Относительный газ", "kk": "Салыстырмалы газ", "en": "Relative gas"},
     "calcite": {"ru": "Кальцит CaCO₃", "kk": "Кальцит CaCO₃", "en": "Calcite CaCO₃"},
     "dolomite": {

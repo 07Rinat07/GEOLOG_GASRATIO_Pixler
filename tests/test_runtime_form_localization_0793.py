@@ -19,6 +19,12 @@ def test_known_factory_titles_retranslate_without_changing_saved_text() -> None:
     assert localized_factory_label("Описание пород", AppLanguage.EN) == "Rock description"
     assert localized_factory_label("Технология", AppLanguage.EN) == "Technology"
     assert localized_factory_label("Газ C1-C5", AppLanguage.EN) == "C1–C5 gas"
+    assert localized_factory_label("Абсолютные газы C1-C5", AppLanguage.KK) == (
+        "C1–C5 абсолюттік газдары"
+    )
+    assert localized_factory_label("Абсолютные газы C1–C5", AppLanguage.EN) == (
+        "Absolute gas C1–C5"
+    )
 
 
 def test_generated_split_column_suffix_is_preserved_after_translation() -> None:
