@@ -16,7 +16,7 @@ from numpy.typing import NDArray
 
 
 OPUS_GASOMER_PROFILE_ID = "opus-gasomer-total-gas-workbook"
-OPUS_GASOMER_PROFILE_VERSION = "1.0.0"
+OPUS_GASOMER_PROFILE_VERSION = "1.1.0"
 OPUS_GASOMER_INDICATORS = (
     "OPUS_GM_1",
     "OPUS_GM_2",
@@ -1001,7 +1001,16 @@ def _unit_scale_to_percent(unit: str) -> float:
     normalized = unit.strip().casefold()
     normalized = normalized.replace("об.%", "%").replace("vol.", "vol")
     normalized = "".join(char for char in normalized if char not in " _-")
-    if normalized in {"%", "%vol", "vol%", "pct", "percent", "процент", "проценты"}:
+    if normalized in {
+        "%",
+        "%abs",
+        "%vol",
+        "vol%",
+        "pct",
+        "percent",
+        "процент",
+        "проценты",
+    }:
         return 1.0
     if normalized in {"ppm", "ppmv", "ppmvol"}:
         return 1.0e-4
@@ -1050,9 +1059,17 @@ def _combined_indicator_states(
 ) -> StateArray:
     first = input_states[required[0]]
     combined = np.full(first.shape, int(OpusGasomerValueState.AVAILABLE), dtype=np.uint8)
+    # A measured zero component is a valid numeric operand in the workbook.
+    # It may make a particular division undefined, but it must not suppress the
+    # other multiplicative formulas.  A zero TotalGas is different: every p_i
+    # normalization divides by it, so all five indicators remain unavailable.
+    if "TOTAL_GAS" in required:
+        total_zero = input_states["TOTAL_GAS"] == int(
+            OpusGasomerValueState.MEASURED_ZERO
+        )
+        combined[total_zero] = int(OpusGasomerValueState.MEASURED_ZERO)
     priorities = (
         OpusGasomerValueState.BELOW_LOD,
-        OpusGasomerValueState.MEASURED_ZERO,
         OpusGasomerValueState.MISSING,
         OpusGasomerValueState.INVALID,
     )

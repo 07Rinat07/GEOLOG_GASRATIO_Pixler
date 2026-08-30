@@ -1,7 +1,7 @@
 {
   "schema": "geoworkbench.opus-gasomer-profile/v1",
   "profile_id": "opus-gasomer-total-gas-workbook",
-  "profile_version": "1.0.0",
+  "profile_version": "1.1.0",
   "status": "workbook-derived-pending-field-validation",
   "source": {
     "file_name": "Газомер.xls",
@@ -51,7 +51,7 @@
   },
   "input_basis": {
     "formula": "pi = 100 * Ci / TotalGas",
-    "total_gas_policy": "independent_synchronous_channel",
+    "total_gas_policy": "independent_synchronous_channel_or_explicit_component_sum_fallback",
     "working_unit": "%vol"
   },
   "formulas": {
@@ -130,6 +130,7 @@
   "consensus": {
     "workbook_formula": "MODE(Y4:AC4)",
     "production_policy": "unique_mode",
+    "measured_zero_policy": "numeric_operand_with_formula_specific_singularity_check",
     "minimum_valid_indicators": 3,
     "tie_result_class_code": 7,
     "note": "The workbook MODE formula silently chooses one mode on a 2-2-1 tie; production returns class 7 instead."

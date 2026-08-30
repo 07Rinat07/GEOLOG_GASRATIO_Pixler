@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CONTROL_PATH = ROOT / "tests" / "fixtures" / "opus_gasomer" / "workbook_control_v1.json"
 PROFILE_PATH = ROOT / "src" / "geoworkbench" / "resources" / "opus_gasomer_profile_v1.json"
 SOURCE_SHA256 = "bd70ce36ac9f99f56267c7fc24b51bf4ba0a26e2ffb86e768b282e1bd5201818"
-PROFILE_SHA256 = "891c801f844c5bcd12a7bf87ceb3d5b026540dce6063dda60b085e068fdb6f02"
+PROFILE_SHA256 = "4f6d87184488b4e04b12b6e3fe232b45b2caede95ab6dbd98aa92c8aca827460"
 CONTROL_SHA256 = "400966ac853ac62793773a3c9d020534ff0a86b4e77a3f463792dc9b5f342306"
 
 

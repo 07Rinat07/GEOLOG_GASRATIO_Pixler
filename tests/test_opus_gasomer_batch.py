@@ -131,27 +131,46 @@ def test_qc_states_are_kept_per_indicator_dependency() -> None:
     assert result.indicators["OPUS_GM_1"].states.tolist() == [
         available,
         available,
-        zero,
+        available,
         available,
         invalid,
     ]
     assert result.indicators["OPUS_GM_2"].states.tolist() == [
         available,
         available,
-        zero,
+        available,
         below_lod,
         invalid,
     ]
     assert result.indicators["OPUS_GM_4"].states.tolist() == [
         available,
         missing,
-        zero,
+        available,
         below_lod,
         invalid,
     ]
-    assert np.isnan(result.indicators["OPUS_GM_4"].values[1:]).all()
-    assert result.valid_vote_counts.tolist() == [5, 3, 0, 2, 0]
-    assert result.row_class_codes[2:].tolist() == [7, 7, 7]
+    assert result.indicators["OPUS_GM_4"].values[2] == 0.0
+    assert np.isnan(result.indicators["OPUS_GM_4"].values[[1, 3, 4]]).all()
+    assert result.valid_vote_counts.tolist() == [5, 3, 5, 2, 0]
+    assert result.row_class_codes[2:].tolist() == [3, 7, 7]
+
+
+def test_zero_components_only_invalidate_formulas_with_a_singular_denominator() -> None:
+    inputs = {
+        "C1": np.array([0.0137]),
+        "C2": np.array([0.0]),
+        "C3": np.array([0.0]),
+        "C4": np.array([0.0051]),
+        "C5": np.array([0.0]),
+        "TOTAL_GAS": np.array([0.0188]),
+    }
+
+    result = calculate_opus_gasomer_batch(inputs)
+
+    assert np.isnan(result.indicators["OPUS_GM_1"].values[0])
+    assert result.row_votes[0].tolist() == [7, 1, 3, 3, 3]
+    assert int(result.valid_vote_counts[0]) == 4
+    assert int(result.row_class_codes[0]) == 3
 
 
 @pytest.mark.parametrize(

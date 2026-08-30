@@ -900,6 +900,28 @@ _HTML_LABELS = {
         "hypothesis_opus_no_consensus": (
             "УВ-газопроявление; ОПУС: тип флюида не определён по опубликованным диапазонам"
         ),
+        "hypothesis_opus_gasomer_oxidized_residual_oil": (
+            "УВ-проявление; ОПУС Газомер: класс 1 — окисленная (остаточная) нефть"
+        ),
+        "hypothesis_opus_gasomer_oil": (
+            "УВ-проявление; ОПУС Газомер: класс 2 — нефть"
+        ),
+        "hypothesis_opus_gasomer_combustible_gas": (
+            "УВ-проявление; ОПУС Газомер: класс 3 — горючий газ"
+        ),
+        "hypothesis_opus_gasomer_water_dissolved_gas": (
+            "УВ-проявление; ОПУС Газомер: класс 4 — водорастворённый газ"
+        ),
+        "hypothesis_opus_gasomer_gas_condensate": (
+            "УВ-проявление; ОПУС Газомер: класс 5 — газоконденсат"
+        ),
+        "hypothesis_opus_gasomer_gassy_oil": (
+            "УВ-проявление; ОПУС Газомер: класс 6 — газированная нефть"
+        ),
+        "hypothesis_opus_gasomer_undefined": (
+            "УВ-проявление; ОПУС Газомер: класс 7 — расчётный тип не определён; "
+            "точная причина указана в доказательствах"
+        ),
         "opus_fallback_prefix": (
             "УВ-проявление; резерв Haworth/Pixler: {label} (ОПУС неоднозначен)"
         ),
@@ -1028,6 +1050,26 @@ _HTML_LABELS = {
         "hypothesis_opus_no_consensus": (
             "КС газ көрінісі; ОПУС: флюид түрі жарияланған диапазондар бойынша анықталмады"
         ),
+        "hypothesis_opus_gasomer_oxidized_residual_oil": (
+            "КС көрінісі; ОПУС Газомер: 1-класс — тотыққан (қалдық) мұнай"
+        ),
+        "hypothesis_opus_gasomer_oil": "КС көрінісі; ОПУС Газомер: 2-класс — мұнай",
+        "hypothesis_opus_gasomer_combustible_gas": (
+            "КС көрінісі; ОПУС Газомер: 3-класс — жанғыш газ"
+        ),
+        "hypothesis_opus_gasomer_water_dissolved_gas": (
+            "КС көрінісі; ОПУС Газомер: 4-класс — суда еріген газ"
+        ),
+        "hypothesis_opus_gasomer_gas_condensate": (
+            "КС көрінісі; ОПУС Газомер: 5-класс — газ конденсаты"
+        ),
+        "hypothesis_opus_gasomer_gassy_oil": (
+            "КС көрінісі; ОПУС Газомер: 6-класс — газдалған мұнай"
+        ),
+        "hypothesis_opus_gasomer_undefined": (
+            "КС көрінісі; ОПУС Газомер: 7-класс — есептік түр анықталмады; "
+            "нақты себеп дәлелдерде көрсетілген"
+        ),
         "opus_fallback_prefix": (
             "КС көрінісі; Haworth/Pixler резерві: {label} (ОПУС бірмәнді емес)"
         ),
@@ -1143,6 +1185,26 @@ _HTML_LABELS = {
         ),
         "hypothesis_opus_no_consensus": (
             "HC gas show; OPUS fluid type is indeterminate from the published ranges"
+        ),
+        "hypothesis_opus_gasomer_oxidized_residual_oil": (
+            "HC show; OPUS Gasomer: class 1 — oxidized (residual) oil"
+        ),
+        "hypothesis_opus_gasomer_oil": "HC show; OPUS Gasomer: class 2 — oil",
+        "hypothesis_opus_gasomer_combustible_gas": (
+            "HC show; OPUS Gasomer: class 3 — combustible gas"
+        ),
+        "hypothesis_opus_gasomer_water_dissolved_gas": (
+            "HC show; OPUS Gasomer: class 4 — water-dissolved gas"
+        ),
+        "hypothesis_opus_gasomer_gas_condensate": (
+            "HC show; OPUS Gasomer: class 5 — gas condensate"
+        ),
+        "hypothesis_opus_gasomer_gassy_oil": (
+            "HC show; OPUS Gasomer: class 6 — gassy oil"
+        ),
+        "hypothesis_opus_gasomer_undefined": (
+            "HC show; OPUS Gasomer: class 7 — calculated type undefined; "
+            "the exact reason is listed in evidence"
         ),
         "opus_fallback_prefix": (
             "HC show; Haworth/Pixler fallback: {label} (OPUS ambiguous)"

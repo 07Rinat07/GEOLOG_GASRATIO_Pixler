@@ -749,6 +749,7 @@ def concentration_scale_to_percent(unit: str | None) -> float | None:
     normalized = re.sub(r"[\s_\-]", "", normalized)
     percent_units = {
         "%",
+        "%abs",
         "pct",
         "percent",
         "percentage",

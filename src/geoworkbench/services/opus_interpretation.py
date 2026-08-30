@@ -58,6 +58,16 @@ _OPUS_CLASS_KEYS = {
     5: "opus_gas_condensate_or_gassy_oil",
 }
 
+_GASOMER_CLASS_KEYS = {
+    1: "opus_gasomer_oxidized_residual_oil",
+    2: "opus_gasomer_oil",
+    3: "opus_gasomer_combustible_gas",
+    4: "opus_gasomer_water_dissolved_gas",
+    5: "opus_gasomer_gas_condensate",
+    6: "opus_gasomer_gassy_oil",
+    7: "opus_gasomer_undefined",
+}
+
 # Published ranges overlap.  A label is emitted only when the intersection of
 # all available indicator ranges contains one fluid family.
 _OPUS_PUBLISHED_BANDS: dict[str, tuple[tuple[float, float, int], ...]] = {
@@ -164,8 +174,8 @@ def build_opus_interpretation_report(
             ),
             "Haworth et al. (1985); Pixler (1969). Not an OPUS classification.",
             (
-                "Independent fallback only when the published OPUS-band intersection is "
-                "empty or non-unique; Wh/Bh/Ch and C1/C2…C1/C5 are evaluated separately."
+                "Independent comparison only; it never replaces the result of the OPUS "
+                "Gasomer formulas. Wh/Bh/Ch and C1/C2…C1/C5 are evaluated separately."
             ),
         ),
         InterpretationMethodStatus(
@@ -182,9 +192,10 @@ def build_opus_interpretation_report(
                 "This is a documented application algorithm, not a GOST/ISO fluid standard."
             ),
             (
-                "Detect OPUS_TG_PCT anomalies by log1p robust-z; classify on threshold-exceeding "
-                "rows only; intersect all available published bands; use the unique OPUS class, "
-                "otherwise an explicitly labelled Haworth/Pixler fallback, otherwise indeterminate."
+                "Detect OPUS_TG_PCT anomalies by log1p robust-z; classify each synchronous row "
+                "with five OPUS Gasomer formula votes and aggregate the row classes by unique "
+                "mode. A valid class 1–6 is the primary interval answer; class 7 includes the "
+                "exact missing-data or tied-support reason. Haworth/Pixler remains comparison only."
             ),
         ),
     )
@@ -196,15 +207,15 @@ def build_opus_interpretation_report(
             "являются относительными процентами от суммы C1-C5, а не показаниями прибора."
         ),
         (
-            "Опубликованные диапазоны четырёх показателей ОПУС перекрываются. Подпись "
-            "флюида даётся только при единственном пересечении диапазонов всех доступных "
-            "показателей; при неоднозначности отчёт автоматически показывает независимую "
-            "рабочую гипотезу Haworth/Pixler как резерв и явно отмечает её основу."
+            "Опубликованные диапазоны исторических четырёх показателей ОПУС перекрываются, "
+            "поэтому их пересечение сохранено как контроль. Итог интервала формируется по "
+            "пяти формулам и голосам профиля «Газомер.xls»; Haworth/Pixler показывается "
+            "отдельно и не подменяет ответ ОПУС."
         ),
         (
-            "ОПУС5 из переданного Integration Kit не участвует в расчёте и классификации: "
-            "профиль требует отдельный TotalGas и доменную валидацию, а открытый первичный "
-            "источник формулы и порогов не найден."
+            "Референсный ОПУС5 из переданного Integration Kit не используется. В профиле "
+            "«Газомер» участвует отдельный OPUS_GM_5, точно перенесённый из «Газомер.xls»; "
+            "открытый первичный источник его формулы и порогов пока не найден."
         ),
         (
             "Промышленная продуктивность, вода и окончательный тип флюида не доказываются "
@@ -279,6 +290,7 @@ def build_opus_interpretation_report(
         candidates,
         total_gas_lod=total_gas_lod,
     )
+    candidates = _with_gasomer_primary_results(candidates, gasomer)
     return replace(
         base,
         primary_mnemonic="OPUS_TG_PCT",
@@ -378,20 +390,113 @@ def _with_opus_evidence(
     if opus_class:
         final_hypothesis = _OPUS_CLASS_KEYS[opus_class]
         evidence.append("final automatic interpretation basis=OPUS published-band agreement")
-    elif candidate.fluid_hypothesis not in {"indeterminate", "insufficient_data"}:
-        final_hypothesis = f"opus_fallback__{candidate.fluid_hypothesis}"
-        evidence.append(
-            "final automatic interpretation basis=Haworth/Pixler fallback; OPUS ambiguous"
-        )
     else:
         final_hypothesis = _OPUS_CLASS_KEYS[0]
-        evidence.append("final automatic interpretation basis=insufficient for fluid typing")
+        evidence.append(
+            "historical OPUS result=non-unique; Haworth/Pixler retained as comparison only"
+        )
     return replace(
         candidate,
         fluid_hypothesis=final_hypothesis,
         metrics=tuple((*candidate.metrics, *means)),
         evidence=tuple(evidence),
     )
+
+
+def _with_gasomer_primary_results(
+    candidates: tuple[HydrocarbonCandidateInterval, ...],
+    section: OpusGasomerReportSection,
+) -> tuple[HydrocarbonCandidateInterval, ...]:
+    """Make the five-formula Gasomer result the interval headline.
+
+    The historical four-band intersection and Haworth/Pixler remain in evidence,
+    but neither is allowed to replace a valid Gasomer result or hide why class 7
+    was produced.
+    """
+
+    if not candidates or not section.intervals:
+        return candidates
+    remaining = list(section.intervals)
+    updated: list[HydrocarbonCandidateInterval] = []
+    for candidate in candidates:
+        match = _take_matching_gasomer_interval(candidate, remaining)
+        if match is None:
+            updated.append(candidate)
+            continue
+        indicator_votes = ", ".join(
+            f"{item.mnemonic}={item.class_code}"
+            for item in match.indicators
+        )
+        evidence = [*candidate.evidence]
+        evidence.append(
+            f"OPUS Gasomer primary result: class={match.class_code} "
+            f"({match.class_label}); support={match.support_fraction:.3f}; "
+            f"valid synchronous rows={match.valid_rows}/{match.total_rows}; "
+            f"interval indicator votes: {indicator_votes or 'none'}"
+        )
+        if match.class_code == 7:
+            if match.valid_rows == 0:
+                reason = (
+                    "no synchronous row has at least three mathematically valid "
+                    "formula votes"
+                )
+            elif any("tied" in warning.casefold() for warning in match.warnings):
+                reason = "interval row-class support is tied"
+            else:
+                reason = "no unique five-formula mode"
+            evidence.append(f"OPUS Gasomer exact class-7 reason={reason}")
+        else:
+            evidence.append(
+                "final automatic interpretation basis=OPUS Gasomer five-formula mode"
+            )
+        metrics = (
+            *candidate.metrics,
+            ("OPUS_GASOMER_CLASS", float(match.class_code)),
+            ("OPUS_GASOMER_SUPPORT", float(match.support_fraction)),
+            ("OPUS_GASOMER_VALID_ROWS", float(match.valid_rows)),
+            ("OPUS_GASOMER_TOTAL_ROWS", float(match.total_rows)),
+        )
+        updated.append(
+            replace(
+                candidate,
+                fluid_hypothesis=_GASOMER_CLASS_KEYS[match.class_code],
+                metrics=metrics,
+                evidence=tuple(evidence),
+            )
+        )
+    return tuple(updated)
+
+
+def _take_matching_gasomer_interval(
+    candidate: HydrocarbonCandidateInterval,
+    intervals: list[OpusGasomerIntervalReport],
+) -> OpusGasomerIntervalReport | None:
+    if not intervals:
+        return None
+    exact_index = next(
+        (
+            index
+            for index, interval in enumerate(intervals)
+            if abs(interval.top_depth - candidate.top_depth) <= 1.0e-6
+            and abs(interval.bottom_depth - candidate.bottom_depth) <= 1.0e-6
+        ),
+        None,
+    )
+    if exact_index is not None:
+        return intervals.pop(exact_index)
+    overlaps = [
+        max(
+            0.0,
+            min(candidate.bottom_depth, interval.bottom_depth)
+            - max(candidate.top_depth, interval.top_depth),
+        )
+        for interval in intervals
+    ]
+    best_index = int(np.argmax(overlaps))
+    candidate_span = max(candidate.bottom_depth - candidate.top_depth, 1.0e-9)
+    if overlaps[best_index] / candidate_span < 0.5:
+        return None
+    return intervals.pop(best_index)
 
 
 def _raw_background(values: np.ndarray) -> float | None:
@@ -476,7 +581,9 @@ def _build_gasomer_section(
             input_curves,
             input_units,
             total_source_unit,
+            input_warnings,
         ) = _resolve_gasomer_inputs(dataset)
+        warnings.extend(input_warnings)
         total_scale = concentration_scale_to_percent(total_source_unit)
         if total_scale is None:
             raise ValueError(
@@ -561,8 +668,8 @@ def _build_gasomer_section(
             detector_warnings = detector_values[5] if detector_values is not None else ()
             interval_reports.append(
                 OpusGasomerIntervalReport(
-                    top_depth=aggregate.sample_top_depth,
-                    bottom_depth=aggregate.sample_bottom_depth,
+                    top_depth=aggregate.requested_top_depth,
+                    bottom_depth=aggregate.requested_bottom_depth,
                     class_code=aggregate.class_code,
                     class_label=labels[aggregate.class_code],
                     support_fraction=aggregate.support_fraction,
@@ -615,6 +722,7 @@ def _resolve_gasomer_inputs(
     tuple[tuple[str, str], ...],
     tuple[tuple[str, str], ...],
     str,
+    tuple[str, ...],
 ]:
     resolver = LasParameterResolver()
     components = resolve_gas_ratio_inputs(dataset, resolver=resolver)
@@ -622,12 +730,6 @@ def _resolve_gasomer_inputs(
         dataset,
         targets=("C1", "C2", "C3", "C4", "IC4", "NC4", "C5", "IC5", "NC5", "TG"),
     )
-    total_match = resolution.require("TG")
-    total_scale = concentration_scale_to_percent(total_match.unit)
-    if total_scale is None:
-        raise ValueError(
-            f"Неподдерживаемая единица TotalGas: {total_match.unit or 'не указана'}"
-        )
     c4_values, c4_names, c4_units = _resolve_family(
         components,
         resolution,
@@ -650,29 +752,67 @@ def _resolve_gasomer_inputs(
         for name in (*c4_names, *c5_names)
         if (match := resolution.get(name)) is not None
     )
-    if total_match.curve_id in source_ids:
-        raise ValueError("TotalGas должен быть отдельным синхронным каналом, а не C1-C5")
     inputs = {
         "C1": np.asarray(components["C1"], dtype=np.float64),
         "C2": np.asarray(components["C2"], dtype=np.float64),
         "C3": np.asarray(components["C3"], dtype=np.float64),
         "C4": c4_values,
         "C5": c5_values,
-        "TOTAL_GAS": np.asarray(total_match.curve.values, dtype=np.float64) * total_scale,
     }
+    total_match = resolution.get("TG")
+    input_warnings: list[str] = []
+    if total_match is not None and total_match.curve_id not in source_ids:
+        total_scale = concentration_scale_to_percent(total_match.unit)
+        if total_scale is None:
+            raise ValueError(
+                f"Неподдерживаемая единица TotalGas: {total_match.unit or 'не указана'}"
+            )
+        inputs["TOTAL_GAS"] = (
+            np.asarray(total_match.curve.values, dtype=np.float64) * total_scale
+        )
+        total_curve_name = total_match.curve.metadata.original_mnemonic
+        total_curve_unit = total_match.unit or ""
+        total_source_unit = total_match.unit or ""
+    else:
+        ambiguous_total = resolution.ambiguities.get("TG", ())
+        reason = (
+            "несколько равноправных каналов TotalGas: "
+            + ", ".join(
+                match.curve.metadata.original_mnemonic for match in ambiguous_total
+            )
+            if ambiguous_total
+            else "отдельный канал TotalGas отсутствует"
+        )
+        inputs["TOTAL_GAS"] = sum_components(
+            {name: inputs[name] for name in ("C1", "C2", "C3", "C4", "C5")}
+        )
+        total_curve_name = "Σ(C1–C5)"
+        total_curve_unit = "%vol"
+        total_source_unit = "%vol"
+        input_warnings.append(
+            "ОПУС Газомер: "
+            f"{reason}; по выбранной пользователем политике TotalGas заменён "
+            "синхронной суммой C1–C5. Подстановка явно указана в отчёте."
+        )
     input_curves = (
         *((name, resolution.require(name).curve.metadata.original_mnemonic) for name in component_names),
         ("C4", "+".join(c4_names)),
         ("C5", "+".join(c5_names)),
-        ("TOTAL_GAS", total_match.curve.metadata.original_mnemonic),
+        ("TOTAL_GAS", total_curve_name),
     )
     input_units = (
         *((name, resolution.require(name).unit or "") for name in component_names),
         ("C4", "+".join(c4_units)),
         ("C5", "+".join(c5_units)),
-        ("TOTAL_GAS", total_match.unit or ""),
+        ("TOTAL_GAS", total_curve_unit),
     )
-    return inputs, tuple(input_curves), tuple(input_units), total_match.unit or ""
+    return (
+        inputs,
+        tuple(input_curves),
+        tuple(input_units),
+        total_source_unit,
+        tuple(input_warnings),
+    )
 
 
 def _resolve_family(

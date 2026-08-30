@@ -293,6 +293,7 @@ def test_import_inference_returns_none_for_unknown_curve() -> None:
 
 def test_concentration_unit_scales() -> None:
     assert concentration_scale_to_percent("%") == 1.0
+    assert concentration_scale_to_percent("%abs") == 1.0
     assert concentration_scale_to_percent("ppmv") == pytest.approx(1.0e-4)
     assert concentration_scale_to_percent("ppb") == pytest.approx(1.0e-7)
     assert concentration_scale_to_percent("fraction") == 100.0

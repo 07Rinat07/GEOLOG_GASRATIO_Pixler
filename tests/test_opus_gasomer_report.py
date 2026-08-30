@@ -13,6 +13,9 @@ from geoworkbench.data.hydrocarbon_interpretation_export import (
 )
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.project.interpretation_calculation_controller import (
+    InterpretationCalculationController,
+)
 from geoworkbench.printing.hydrocarbon_interpretation_report import (
     export_hydrocarbon_interpretation_pdf,
 )
@@ -21,6 +24,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_chart_front import (
 )
 from geoworkbench.services.hydrocarbon_interpretation import (
     build_opus_interpretation_report,
+    fluid_hypothesis_label,
     hydrocarbon_interpretation_html,
 )
 from geoworkbench.services.localization import AppLanguage
@@ -171,3 +175,51 @@ def test_missing_lod_is_explicit_and_does_not_run_gasomer_detector() -> None:
     assert section.interval_source == "existing-opus-report-candidates"
     assert not section.intervals
     assert any("детектор ОПУС Газомер не запускался" in item for item in section.warnings)
+
+
+def test_gasomer_class_replaces_ambiguous_historical_headline() -> None:
+    session = _gasomer_session()
+    InterpretationCalculationController(session).calculate_opus_curves()
+
+    report = build_opus_interpretation_report(session)
+
+    assert len(report.candidates) == 1
+    candidate = report.candidates[0]
+    assert candidate.fluid_hypothesis == "opus_gasomer_oil"
+    assert "ОПУС Газомер: класс 2 — нефть" in fluid_hypothesis_label(
+        candidate,
+        AppLanguage.RU,
+    )
+    assert not candidate.fluid_hypothesis.startswith("opus_fallback__")
+    assert any(
+        "OPUS Gasomer primary result: class=2" in item
+        and "valid synchronous rows=" in item
+        for item in candidate.evidence
+    )
+
+
+def test_ambiguous_total_gas_uses_explicit_component_sum_policy() -> None:
+    session = _gasomer_session()
+    dataset = session.current_dataset
+    assert dataset is not None
+    total = dataset.curve_by_mnemonic("TOTAL_GAS")
+    assert total is not None
+    dataset.upsert_curve(
+        "TG_CALC",
+        total.values * 1.01,
+        unit="%abs",
+        description="Calculated component sum",
+        provenance="source:test",
+    )
+    InterpretationCalculationController(session).calculate_opus_curves()
+
+    report = build_opus_interpretation_report(session)
+
+    section = report.opus_gasomer
+    assert section is not None
+    assert dict(section.input_curves)["TOTAL_GAS"] == "Σ(C1–C5)"
+    assert any(
+        "несколько равноправных каналов TotalGas" in warning
+        and "синхронной суммой C1–C5" in warning
+        for warning in section.warnings
+    )
