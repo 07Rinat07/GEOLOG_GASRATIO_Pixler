@@ -251,6 +251,7 @@ def test_interpretation_report_html_is_localized_and_escapes_project_data() -> N
     assert "Сумма компонентов [ppm]" in html
     assert "мин 28; среднее 33; макс 38" in html
     assert "не подменяет Total Gas" in html
+    assert "отсчётов:" not in html
     assert "Песчаник (SANDSTONE): 70%" in html
     assert "500-510 m" in html
     assert "Lower Cretaceous" in html
@@ -313,9 +314,9 @@ def test_interpretation_report_dialog_previews_report(qapp) -> None:
     assert "color: #172033" in preview.styleSheet()
     assert (
         preview.horizontalScrollBarPolicy()
-        is Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        is Qt.ScrollBarPolicy.ScrollBarAlwaysOn
     )
-    assert preview.verticalScrollBarPolicy() is Qt.ScrollBarPolicy.ScrollBarAsNeeded
+    assert preview.verticalScrollBarPolicy() is Qt.ScrollBarPolicy.ScrollBarAlwaysOn
     assert preview.lineWrapMode() is QTextEdit.LineWrapMode.FixedPixelWidth
     assert preview.lineWrapColumnOrWidth() == 1600
     assert preview.horizontalScrollBar().maximum() > 0

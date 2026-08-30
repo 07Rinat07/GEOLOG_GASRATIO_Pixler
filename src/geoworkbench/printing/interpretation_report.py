@@ -998,8 +998,7 @@ def _gas_html(
             statistics = (
                 f'{labels["minimum"]} {_format_gas_value(item.minimum)}; '
                 f'{labels["mean"]} {_format_gas_value(item.mean)}; '
-                f'{labels["maximum"]} {_format_gas_value(item.maximum)}; '
-                f'{labels["samples"]}: {item.valid_count}'
+                f'{labels["maximum"]} {_format_gas_value(item.maximum)}'
             )
         else:
             statistics = labels["no_values"]

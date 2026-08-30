@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QMessageBox,
     QPushButton,
+    QSizePolicy,
     QTextBrowser,
     QTextEdit,
     QVBoxLayout,
@@ -58,13 +59,27 @@ class InterpretationReportDialog(QDialog):
             "QTextBrowser#interpretation-report-preview { "
             "background-color: #ffffff; color: #172033; "
             "border: 1px solid #cbd5e1; }"
+            "QTextBrowser#interpretation-report-preview QScrollBar:vertical { "
+            "width: 14px; background: #e2e8f0; margin: 0; }"
+            "QTextBrowser#interpretation-report-preview QScrollBar:horizontal { "
+            "height: 14px; background: #e2e8f0; margin: 0; }"
+            "QTextBrowser#interpretation-report-preview QScrollBar::handle { "
+            "background: #64748b; min-width: 28px; min-height: 28px; }"
+            "QTextBrowser#interpretation-report-preview QScrollBar::add-line, "
+            "QTextBrowser#interpretation-report-preview QScrollBar::sub-line { "
+            "background: #cbd5e1; }"
         )
         self.preview.setVerticalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOn
         )
         self.preview.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOn
         )
+        self.preview.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Expanding,
+        )
+        self.preview.setMinimumSize(0, 0)
         # Keep the multi-section report at a readable desktop width. The
         # viewport can then scroll horizontally instead of squeezing every
         # geological and gas column into the dialog width.
