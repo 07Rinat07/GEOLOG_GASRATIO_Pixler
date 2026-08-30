@@ -801,7 +801,9 @@ def _regular_window_radius(depth: Array, half_span: float) -> int | None:
     step = float(np.median(differences))
     tolerance = max(
         step * 1.0e-9,
-        np.finfo(np.float64).eps * max(1.0, float(np.max(np.abs(depth)))) * 16.0,
+        float(np.finfo(np.float64).eps)
+        * max(1.0, float(np.max(np.abs(depth))))
+        * 16.0,
     )
     if np.any(np.abs(differences - step) > tolerance):
         return None
