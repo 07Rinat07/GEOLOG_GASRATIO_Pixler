@@ -74,6 +74,7 @@ def test_utility_workspaces_are_opened_from_purpose_specific_menus(qapp) -> None
         window.gas_interpretation_report_action,
         window.interpretation_report_action,
     ]
+    assert window.interpretation_report_action.text() == "Полный геологический отчёт..."
 
     assert help_menu.actions()[0] is window.help_center_action
     assert window.help_center_action.text() == "Документация и инструкции..."
@@ -116,6 +117,7 @@ def test_utility_workspaces_are_opened_from_purpose_specific_menus(qapp) -> None
     assert window.file_workspace_action.text() == "Files / PDF / Calculator"
     assert window.interpretation_reports_menu.title() == "Interpretation reports"
     assert window.gas_interpretation_report_action.text() == "Mud-gas interpretation..."
+    assert window.interpretation_report_action.text() == "Full geological report..."
     assert window.help_center_action.text() == "Documentation and instructions..."
     assert window.help_center_dialog.windowTitle() == "Documentation and instructions"
 

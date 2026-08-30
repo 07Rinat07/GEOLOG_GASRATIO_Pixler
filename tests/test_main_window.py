@@ -323,7 +323,7 @@ def test_window_opens_localized_interpretation_report(qapp, monkeypatch) -> None
 
     window.show_interpretation_report()
 
-    assert window.interpretation_report_action.text() == "Calcimetry and LBA interpretation..."
+    assert window.interpretation_report_action.text() == "Full geological report..."
     assert opened == ["Well"]
     window.close()
 

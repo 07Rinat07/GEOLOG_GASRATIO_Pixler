@@ -419,10 +419,13 @@ them automatically when data exists. The application records field/laboratory ob
 does not replace instrument calibration or infer hydrocarbon saturation from fluorescence alone.
 See [`docs/CALCIMETRY_LBA.md`](../CALCIMETRY_LBA.md) for method notes and sources.
 
-“Print → Calcimetry and LBA interpretation...” opens the active-well summary and exports a
-separate PDF report. It includes intervals, Ca/Dol/insoluble residue, every LBA field,
-the built-in five-group standard assessment, and the manual geologist interpretation
-in the current interface language.
+“Print → Interpretation reports → Full geological report...” opens the active-well summary and
+exports a PDF. It includes one-metre rock descriptions with actual sampling coverage, source
+sample intervals and rock percentages, sample and whole-well stratigraphy, Ca/Dol/insoluble
+residue, every LBA field, the standard assessment, and the manual geologist interpretation.
+Each sample interval lists minimum, mean, and maximum for a dedicated `Total Gas` curve, every
+resolved gas component, and their separate component sum. Missing `Total Gas` is not substituted; the
+component sum is still calculated independently. The report uses the current interface language.
 
 ### Stratigraphic intervals
 

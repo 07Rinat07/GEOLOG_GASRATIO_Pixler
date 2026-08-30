@@ -6,12 +6,14 @@ import re
 
 import numpy as np
 
+from geoworkbench.catalogs.sensors import normalize_unit
 from geoworkbench.domain.models import CurveData, Dataset
 from geoworkbench.services.hydrocarbon_interpretation_modes import (
     HydrocarbonCandidateInterval,
     HydrocarbonInterpretationReport,
 )
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.las_parameter_resolver import concentration_scale_to_percent
 
 
 _RAW_TOTAL_NAMES = (
@@ -90,19 +92,103 @@ def build_interval_statistics(
     raw_total = _curve_stats(raw_curve, depth, mask, gas=True)
 
     components: list[IntervalCurveStatistics] = []
-    for name in ("C1", "C2", "C3", "IC4", "NC4", "IC5", "NC5"):
-        item = _curve_stats(_find_curve(dataset, (name,)), depth, mask, gas=False)
-        if item is not None:
-            components.append(item)
-    for total, iso, normal in (("C4", "IC4", "NC4"), ("C5", "IC5", "NC5")):
-        if any(_component_name(item.mnemonic) in {iso, normal} for item in components):
-            continue
-        item = _curve_stats(_find_curve(dataset, (total,)), depth, mask, gas=False)
+    for curve in _component_curves(dataset):
+        item = _curve_stats(curve, depth, mask, gas=False)
         if item is not None:
             components.append(item)
 
     dexp = _curve_stats(_find_curve(dataset, ("DEXPC", "DEXP")), depth, mask, gas=False)
     return CandidateIntervalGasStatistics(primary, raw_total, tuple(components), dexp)
+
+
+def build_interval_component_sum_statistics(
+    dataset: Dataset,
+    top_depth: float,
+    bottom_depth: float,
+) -> IntervalCurveStatistics | None:
+    """Return a row-wise sum of every resolved hydrocarbon gas component.
+
+    A common source unit is preserved when all component units match. Mixed known
+    concentration units are converted to percent by volume before summation. An
+    incompatible mixed-unit set returns ``None`` instead of adding incomparable values.
+    Only rows where every selected component is finite contribute to the statistics.
+    """
+
+    curves = _component_curves(dataset)
+    if not curves:
+        return None
+    depth = np.asarray(dataset.depth, dtype=np.float64)
+    mask = (
+        np.isfinite(depth)
+        & (depth >= min(top_depth, bottom_depth))
+        & (depth <= max(top_depth, bottom_depth))
+    )
+    source_units = tuple((curve.metadata.unit or "").strip() for curve in curves)
+    normalized_units = {normalize_unit(unit).casefold() for unit in source_units}
+    arrays = [np.asarray(curve.values, dtype=np.float64) for curve in curves]
+    if any(values.shape != depth.shape for values in arrays):
+        return IntervalCurveStatistics(
+            "SUM_COMPONENTS",
+            source_units[0] if len(normalized_units) == 1 else "",
+            None,
+            None,
+            None,
+            None,
+            None,
+            0,
+            0,
+        )
+    if len(normalized_units) == 1:
+        unit = source_units[0]
+        converted = arrays
+    else:
+        raw_scales = tuple(concentration_scale_to_percent(unit) for unit in source_units)
+        known_scales = {scale for scale in raw_scales if scale is not None}
+        if any(scale is None for scale in raw_scales):
+            unknown_units = tuple(
+                unit
+                for unit, scale in zip(source_units, raw_scales, strict=True)
+                if scale is None
+            )
+            if len(known_scales) != 1 or any(unit for unit in unknown_units):
+                return None
+        inferred_scale = next(iter(known_scales), None)
+        scales = tuple(
+            scale if scale is not None else inferred_scale for scale in raw_scales
+        )
+        unit = "%vol"
+        converted = []
+        for values, scale in zip(arrays, scales, strict=True):
+            if scale is None:
+                return None
+            converted.append(values * scale)
+    matrix = np.vstack(converted)
+    valid = np.all(np.isfinite(matrix), axis=0)
+    summed = np.full(depth.shape, np.nan, dtype=np.float64)
+    summed[valid] = np.sum(matrix[:, valid], axis=0)
+    return _stats_from_values(
+        "SUM_COMPONENTS",
+        unit,
+        summed,
+        depth,
+        mask,
+        gas=False,
+    )
+
+
+def _component_curves(dataset: Dataset) -> tuple[CurveData, ...]:
+    components: list[CurveData] = []
+    for name in ("C1", "C2", "C3", "IC4", "NC4", "IC5", "NC5"):
+        curve = _find_curve(dataset, (name,))
+        if curve is not None:
+            components.append(curve)
+    for total, iso, normal in (("C4", "IC4", "NC4"), ("C5", "IC5", "NC5")):
+        if any(_component_name(item.metadata.original_mnemonic) in {iso, normal} for item in components):
+            continue
+        curve = _find_curve(dataset, (total,))
+        if curve is not None:
+            components.append(curve)
+    return tuple(components)
 
 
 def enhanced_fluid_hypothesis_basis(
@@ -401,6 +487,7 @@ __all__ = [
     "CandidateIntervalGasStatistics",
     "IntervalCurveStatistics",
     "build_candidate_interval_statistics",
+    "build_interval_component_sum_statistics",
     "build_interval_statistics",
     "absolute_gas_components_summary",
     "enhanced_fluid_hypothesis_basis",

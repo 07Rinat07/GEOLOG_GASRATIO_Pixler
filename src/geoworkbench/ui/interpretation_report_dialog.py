@@ -52,6 +52,11 @@ class InterpretationReportDialog(QDialog):
         layout = QVBoxLayout(self)
         self.preview = QTextBrowser()
         self.preview.setObjectName("interpretation-report-preview")
+        self.preview.setStyleSheet(
+            "QTextBrowser#interpretation-report-preview { "
+            "background-color: #ffffff; color: #172033; "
+            "border: 1px solid #cbd5e1; }"
+        )
         self.preview.setHtml(interpretation_report_html(self.report, language))
         layout.addWidget(self.preview)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
@@ -74,7 +79,7 @@ class InterpretationReportDialog(QDialog):
         filename, _ = QFileDialog.getSaveFileName(
             self,
             self._t("interpretation_report.save_title"),
-            str(Path.cwd() / f"{safe_well_name or 'well'}-interpretation.pdf"),
+            str(Path.cwd() / f"{safe_well_name or 'well'}-geology-report.pdf"),
             "PDF (*.pdf)",
         )
         if not filename:
@@ -135,10 +140,22 @@ class InterpretationReportDialog(QDialog):
             "interpretation-report",
             self._t("interpretation_report.title"),
             {
-                "schema_version": 1,
-                "columns": ("interval", "calcimetry", "lba", "interpretation"),
+                "schema_version": 3,
+                "columns": (
+                    "meter_geology",
+                    "sampling_interval",
+                    "rock_composition",
+                    "rock_description",
+                    "stratigraphy",
+                    "calcimetry",
+                    "gas_total",
+                    "gas_components",
+                    "gas_component_sum",
+                    "lba",
+                    "interpretation",
+                ),
                 "page_format": "a4",
-                "orientation": "portrait",
+                "orientation": "landscape",
             },
         )
         request = ReportPassportRequest(
@@ -146,10 +163,10 @@ class InterpretationReportDialog(QDialog):
             report_name=self._t("interpretation_report.title"),
             language=self.language,
             render=ReportRenderSettings(
-                renderer="interpretation-report-html:1",
+                renderer="interpretation-report-html:3",
                 output_format="pdf",
                 page_format="a4",
-                orientation="portrait",
+                orientation="landscape",
                 dpi=300,
                 margins_mm=(14.0, 14.0, 14.0, 14.0),
                 strict_unicode=True,

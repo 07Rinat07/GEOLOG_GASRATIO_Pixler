@@ -106,7 +106,9 @@ Open **Print → Interpretation reports**.
 Available reports:
 
 - **Mud-gas interpretation** — calculations, charts, prospective intervals, Excel, Word, PDF, and printing;
-- **Calcimetry and LBA** — a separate interpretation report.
+- **Full geological report** — one-metre and actual-sample rocks, stratigraphy, calcimetry,
+  interval gas statistics, and detailed LBA. The component sum is calculated independently and
+  does not substitute for missing `Total Gas`.
 
 ### Mud-gas report workflow
 
