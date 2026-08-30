@@ -273,6 +273,19 @@ class FormStructureEditor:
         self.form.validate()
         self.dirty = True
 
+    def set_track_lba_label_orientation(
+        self, track_id: str, orientation: str
+    ) -> None:
+        column, track = self.track(track_id)
+        if track.locked or column.locked:
+            raise PermissionError("Дорожка заблокирована")
+        if track.kind is not TrackKind.LBA:
+            raise ValueError("Направление подписей «Цвет / Битум» доступно только для ЛБА")
+        validated = replace(track, lba_label_orientation=orientation)
+        track.lba_label_orientation = validated.lba_label_orientation
+        self.form.validate()
+        self.dirty = True
+
     def binding(self, track_id: str, binding_id: str):
         _column, track = self.track(track_id)
         for binding in track.bindings:

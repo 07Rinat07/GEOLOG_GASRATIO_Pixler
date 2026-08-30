@@ -113,6 +113,7 @@ class FormTrack:
     vertical_ruler: VerticalRulerTrackSettings = field(
         default_factory=VerticalRulerTrackSettings
     )
+    lba_label_orientation: str = "vertical_bottom_to_top"
 
     def __post_init__(self) -> None:
         _require_id(self.track_id, "track_id")
@@ -135,6 +136,9 @@ class FormTrack:
         _require_text(self.x_axis_label, "x_axis_label", max_length=100, allow_empty=True)
         self.title_orientation = normalize_text_orientation(self.title_orientation)
         self.title_position = normalize_text_vertical_position(self.title_position)
+        self.lba_label_orientation = normalize_text_orientation(
+            self.lba_label_orientation
+        )
         if not isinstance(self.show_interval_labels, bool):
             raise ValueError("show_interval_labels должен быть логическим")
         if not isinstance(self.vertical_ruler, VerticalRulerTrackSettings):
@@ -162,6 +166,7 @@ class FormTrack:
         title_orientation: str = "horizontal",
         title_position: str = "center",
         show_interval_labels: bool = False,
+        lba_label_orientation: str = "vertical_bottom_to_top",
         vertical_ruler: VerticalRulerTrackSettings | None = None,
     ) -> FormTrack:
         return cls(
@@ -181,6 +186,7 @@ class FormTrack:
             title_orientation=title_orientation,
             title_position=title_position,
             show_interval_labels=show_interval_labels,
+            lba_label_orientation=lba_label_orientation,
             vertical_ruler=vertical_ruler or VerticalRulerTrackSettings(),
         )
 

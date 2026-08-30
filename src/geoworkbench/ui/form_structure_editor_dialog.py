@@ -452,6 +452,28 @@ class FormStructureEditorDialog(QDialog):
             self._text("Подписи интервалов", "Интервал жазулары", "Interval labels"),
             self.show_interval_labels_check,
         )
+
+        self.lba_label_orientation_label = QLabel(
+            self._text(
+                "Направление подписей «Цвет / Битум»",
+                "«Түс / Битум» жазуларының бағыты",
+                "Colour / Bitumen label direction",
+            )
+        )
+        self.lba_label_orientation_combo = QComboBox()
+        for value in TEXT_ORIENTATIONS:
+            self.lba_label_orientation_combo.addItem(
+                orientation_labels[value], value
+            )
+        self.lba_label_orientation_combo.currentIndexChanged.connect(
+            self._apply_lba_label_orientation
+        )
+        properties.addRow(
+            self.lba_label_orientation_label,
+            self.lba_label_orientation_combo,
+        )
+        self.lba_label_orientation_label.setVisible(False)
+        self.lba_label_orientation_combo.setVisible(False)
         settings_layout.addLayout(properties)
 
         self.grid_group = QGroupBox(
@@ -856,6 +878,8 @@ class FormStructureEditorDialog(QDialog):
                 self.axis_label_edit.setEnabled(False)
                 self.show_interval_labels_check.setChecked(False)
                 self.show_interval_labels_check.setEnabled(False)
+                self.lba_label_orientation_label.setVisible(False)
+                self.lba_label_orientation_combo.setVisible(False)
                 self.grid_group.setVisible(False)
                 self.vertical_ruler_group.setVisible(False)
                 return
@@ -869,6 +893,8 @@ class FormStructureEditorDialog(QDialog):
             self.axis_label_edit.clear()
             self.show_interval_labels_check.setEnabled(False)
             self.show_interval_labels_check.setChecked(False)
+            self.lba_label_orientation_label.setVisible(False)
+            self.lba_label_orientation_combo.setVisible(False)
             self.grid_group.setVisible(False)
             self.vertical_ruler_group.setVisible(False)
             if kind == "column":
@@ -910,6 +936,14 @@ class FormStructureEditorDialog(QDialog):
                     track.kind in {TrackKind.LITHOLOGY, TrackKind.CUTTINGS}
                 )
                 self.show_interval_labels_check.setChecked(track.show_interval_labels)
+                is_lba = track.kind is TrackKind.LBA
+                self.lba_label_orientation_label.setVisible(is_lba)
+                self.lba_label_orientation_combo.setVisible(is_lba)
+                self.lba_label_orientation_combo.setEnabled(editable)
+                self._select_combo_data(
+                    self.lba_label_orientation_combo,
+                    track.lba_label_orientation,
+                )
                 self._select_combo_data(
                     self.title_orientation_combo, track.title_orientation
                 )
@@ -994,6 +1028,23 @@ class FormStructureEditorDialog(QDialog):
             self.editor.set_track_interval_labels(ref[1], enabled)
             self._form_changed()
             self.preview.set_form(self.editor.form, ref[1])
+        except (KeyError, PermissionError, ValueError) as exc:
+            QMessageBox.warning(self, self.windowTitle(), str(exc))
+
+    def _apply_lba_label_orientation(self, _index: int = -1) -> None:
+        if self._updating_properties:
+            return
+        ref = self._selected_ref()
+        if ref is None or ref[0] != "track":
+            return
+        orientation = str(
+            self.lba_label_orientation_combo.currentData()
+            or "vertical_bottom_to_top"
+        )
+        try:
+            self.editor.set_track_lba_label_orientation(ref[1], orientation)
+            self.preview.set_form(self.editor.form, ref[1])
+            self._form_changed()
         except (KeyError, PermissionError, ValueError) as exc:
             QMessageBox.warning(self, self.windowTitle(), str(exc))
 

@@ -16,7 +16,7 @@ from geoworkbench.tablet.vertical_ruler import (
 )
 
 
-def test_vertical_ruler_settings_round_trip_with_layout_v22() -> None:
+def test_vertical_ruler_settings_round_trip_with_layout_v23() -> None:
     track = TrackDefinition(
         track_id="gas",
         title="Газы",
@@ -39,7 +39,7 @@ def test_vertical_ruler_settings_round_trip_with_layout_v22() -> None:
     payload = layout_to_dict(layout)
     restored = layout_from_dict(payload)
 
-    assert payload["version"] == LAYOUT_FORMAT_VERSION == 22
+    assert payload["version"] == LAYOUT_FORMAT_VERSION == 23
     assert payload["vertical_ruler_scale"] == {
         "major_step": 10.0,
         "minor_divisions": 5,
@@ -65,7 +65,7 @@ def test_layout_v21_migrates_to_safe_shared_ruler_defaults() -> None:
     assert restored.vertical_ruler_scale == VerticalRulerScaleSettings()
     assert restored.tracks[0].vertical_ruler == VerticalRulerTrackSettings()
     migrated = layout_to_dict(restored)
-    assert migrated["version"] == 22
+    assert migrated["version"] == 23
 
 
 def test_layout_rejects_invalid_global_ruler_frequency() -> None:

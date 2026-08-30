@@ -15,7 +15,12 @@ from geoworkbench.tablet.grid_geometry import (
     aligned_engineering_grid_lines,
     normalized_grid_lines,
 )
-from geoworkbench.tablet.models import CurveLineStyle, CurveStyle, TrackDefinition
+from geoworkbench.tablet.models import (
+    CurveLineStyle,
+    CurveStyle,
+    TrackDefinition,
+    TrackKind,
+)
 
 
 _PREVIEW_DEPTH_MINIMUM = 0.0
@@ -125,7 +130,10 @@ class TabletTrackPreviewWidget(QWidget):
         body = QRectF(page.left(), body_top, page.width(), max(20.0, page.bottom() - body_top))
         painter.fillRect(body, QColor("#ffffff"))
         self._draw_grid(painter, body)
-        self._draw_curves(painter, body)
+        if self._track.kind is TrackKind.LBA:
+            self._draw_lba_preview(painter, body)
+        else:
+            self._draw_curves(painter, body)
         painter.setPen(QPen(QColor("#475569"), 0.9))
         painter.drawRect(body)
 
@@ -218,6 +226,49 @@ class TabletTrackPreviewWidget(QWidget):
                     path.lineTo(x, y)
             painter.setPen(self._curve_pen(style, style.color, 0.8))
             painter.drawPath(path)
+
+    def _draw_lba_preview(self, painter: QPainter, body: QRectF) -> None:
+        interval = QRectF(
+            body.left(),
+            body.top() + body.height() * 0.24,
+            body.width(),
+            body.height() * 0.42,
+        )
+        cell_width = interval.width() / 3.0
+        values = (
+            ("3", "#ffffff", "#0f172a", "horizontal"),
+            ("ОЖ", "#fb923c", "#0f172a", self._track.lba_label_orientation),
+            ("МСБ", "#f97316", "#0f172a", self._track.lba_label_orientation),
+        )
+        for index, (text, fill, foreground, orientation) in enumerate(values):
+            cell = QRectF(
+                interval.left() + index * cell_width,
+                interval.top(),
+                cell_width,
+                interval.height(),
+            )
+            painter.fillRect(cell, QColor(fill))
+            painter.setPen(QPen(QColor("#64748b"), 0.8))
+            painter.drawRect(cell)
+            painter.save()
+            painter.setPen(QColor(foreground))
+            if orientation == "horizontal":
+                painter.drawText(cell.adjusted(3, 3, -3, -3), Qt.AlignmentFlag.AlignCenter, text)
+            else:
+                painter.translate(cell.center())
+                painter.rotate(text_angle(orientation))
+                rotated = QRectF(
+                    -cell.height() / 2.0,
+                    -cell.width() / 2.0,
+                    cell.height(),
+                    cell.width(),
+                )
+                painter.drawText(
+                    rotated.adjusted(3, 3, -3, -3),
+                    Qt.AlignmentFlag.AlignCenter,
+                    text,
+                )
+            painter.restore()
 
     @staticmethod
     def _curve_pen(style: CurveStyle, color: str, width_scale: float) -> QPen:

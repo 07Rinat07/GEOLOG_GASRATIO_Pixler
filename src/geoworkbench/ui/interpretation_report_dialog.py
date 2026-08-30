@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from pathlib import Path
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -10,6 +11,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QTextBrowser,
+    QTextEdit,
     QVBoxLayout,
     QWidget,
 )
@@ -57,6 +59,17 @@ class InterpretationReportDialog(QDialog):
             "background-color: #ffffff; color: #172033; "
             "border: 1px solid #cbd5e1; }"
         )
+        self.preview.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        self.preview.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        # Keep the multi-section report at a readable desktop width. The
+        # viewport can then scroll horizontally instead of squeezing every
+        # geological and gas column into the dialog width.
+        self.preview.setLineWrapMode(QTextEdit.LineWrapMode.FixedPixelWidth)
+        self.preview.setLineWrapColumnOrWidth(1600)
         self.preview.setHtml(interpretation_report_html(self.report, language))
         layout.addWidget(self.preview)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)

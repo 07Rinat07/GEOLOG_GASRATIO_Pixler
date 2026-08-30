@@ -60,6 +60,7 @@ from geoworkbench.domain.models import (
     StratigraphyInterval,
     WellInterpretation,
 )
+from geoworkbench.domain.text_presentation import text_angle
 from geoworkbench.data.number_format import format_decimal_number
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.project.stratigraphy_controller import (
@@ -9685,6 +9686,9 @@ class TabletView(QWidget):
                     color_label = pg.TextItem(
                         fluorescence_code, color=foreground, anchor=(0.5, 0.5)
                     )
+                    color_label.setAngle(
+                        text_angle(definition.lba_label_orientation)
+                    )
                     color_label.setPos(1.5, center)
                     color_label.setToolTip(tooltip)
                     track.plot.addItem(color_label)
@@ -9704,6 +9708,7 @@ class TabletView(QWidget):
                 items.append(bitumen_cell)
                 label_color = "#0f172a" if style.code in {"ЛБ", "МБ", "МСБ"} else "#ffffff"
                 label = pg.TextItem(style.code, color=label_color, anchor=(0.5, 0.5))
+                label.setAngle(text_angle(definition.lba_label_orientation))
                 label.setPos(2.5, center)
                 label.setToolTip(tooltip)
                 track.plot.addItem(label)

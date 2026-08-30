@@ -23,7 +23,7 @@ from geoworkbench.tablet.vertical_ruler import (
 )
 
 
-LAYOUT_FORMAT_VERSION = 22
+LAYOUT_FORMAT_VERSION = 23
 
 
 class TabletLayoutFormatError(ValueError):
@@ -51,6 +51,7 @@ def layout_to_dict(layout: TabletLayout) -> dict[str, Any]:
                 "title_orientation": track.title_orientation,
                 "title_position": track.title_position,
                 "show_interval_labels": track.show_interval_labels,
+                "lba_label_orientation": track.lba_label_orientation,
                 "vertical_ruler": {
                     "mode": track.vertical_ruler.mode.value,
                     "label_every_major": (
@@ -211,6 +212,9 @@ def _track_from_dict(data: object) -> TrackDefinition:
     title_orientation = data.get("title_orientation", "horizontal")
     title_position = data.get("title_position", "center")
     show_interval_labels = data.get("show_interval_labels", False)
+    lba_label_orientation = data.get(
+        "lba_label_orientation", "vertical_bottom_to_top"
+    )
     raw_vertical_ruler = data.get("vertical_ruler", {})
     raw_mnemonics = data.get("curve_mnemonics", [])
     width = data.get("width", 260)
@@ -235,6 +239,8 @@ def _track_from_dict(data: object) -> TrackDefinition:
         raise TypeError("group_title должен быть строкой")
     if not isinstance(title_orientation, str) or not isinstance(title_position, str):
         raise TypeError("Настройки заголовка трека должны быть строками")
+    if not isinstance(lba_label_orientation, str):
+        raise TypeError("Направление подписей ЛБА должно быть строкой")
     if not isinstance(show_interval_labels, bool):
         raise TypeError("show_interval_labels должен быть логическим")
     if not isinstance(raw_vertical_ruler, dict):
@@ -325,6 +331,7 @@ def _track_from_dict(data: object) -> TrackDefinition:
         title_orientation=title_orientation,
         title_position=title_position,
         show_interval_labels=show_interval_labels,
+        lba_label_orientation=lba_label_orientation,
         vertical_ruler=vertical_ruler,
         curve_mnemonics=list(raw_mnemonics),
         width=width,
@@ -350,7 +357,7 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
     if version == LAYOUT_FORMAT_VERSION:
         return data
     if version not in (
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22
     ):
         raise TabletLayoutFormatError("Неподдерживаемая версия компоновки планшета")
     migrated = deepcopy(data)
@@ -501,6 +508,12 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
                         "major_tick_every": 1,
                         "minor_tick_every": 1,
                     },
+                )
+    if isinstance(tracks, list):
+        for track in tracks:
+            if isinstance(track, dict):
+                track.setdefault(
+                    "lba_label_orientation", "vertical_bottom_to_top"
                 )
     migrated["version"] = LAYOUT_FORMAT_VERSION
     return migrated

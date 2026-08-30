@@ -186,12 +186,16 @@ class TrackDefinition:
     vertical_ruler: VerticalRulerTrackSettings = field(
         default_factory=VerticalRulerTrackSettings
     )
+    lba_label_orientation: str = "vertical_bottom_to_top"
 
     def __post_init__(self) -> None:
         if not isinstance(self.group_title, str) or len(self.group_title.strip()) > 120:
             raise ValueError("Название раздела должно быть строкой не длиннее 120 символов")
         self.title_orientation = normalize_text_orientation(self.title_orientation)
         self.title_position = normalize_text_vertical_position(self.title_position)
+        self.lba_label_orientation = normalize_text_orientation(
+            self.lba_label_orientation
+        )
         if not isinstance(self.show_interval_labels, bool):
             raise ValueError("show_interval_labels должен быть логическим")
         if not isinstance(self.vertical_ruler, VerticalRulerTrackSettings):

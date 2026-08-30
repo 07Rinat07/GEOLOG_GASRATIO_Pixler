@@ -3,8 +3,9 @@ from dataclasses import replace
 import fitz
 import numpy as np
 import pytest
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QPalette
-from PySide6.QtWidgets import QPushButton, QTextBrowser
+from PySide6.QtWidgets import QPushButton, QTextBrowser, QTextEdit
 
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
 from geoworkbench.printing.interpretation_report import (
@@ -294,6 +295,7 @@ def test_interpretation_report_exports_pdf(qapp, tmp_path) -> None:
 
 def test_interpretation_report_dialog_previews_report(qapp) -> None:
     dialog = InterpretationReportDialog(_session(), language=AppLanguage.EN)
+    dialog.resize(720, 420)
     dark_palette = QPalette(dialog.palette())
     dark_palette.setColor(QPalette.ColorRole.Window, QColor("#252a31"))
     dark_palette.setColor(QPalette.ColorRole.Base, QColor("#30363d"))
@@ -309,6 +311,15 @@ def test_interpretation_report_dialog_previews_report(qapp) -> None:
     assert "Manual conclusion" in preview.toPlainText()
     assert "background-color: #ffffff" in preview.styleSheet()
     assert "color: #172033" in preview.styleSheet()
+    assert (
+        preview.horizontalScrollBarPolicy()
+        is Qt.ScrollBarPolicy.ScrollBarAsNeeded
+    )
+    assert preview.verticalScrollBarPolicy() is Qt.ScrollBarPolicy.ScrollBarAsNeeded
+    assert preview.lineWrapMode() is QTextEdit.LineWrapMode.FixedPixelWidth
+    assert preview.lineWrapColumnOrWidth() == 1600
+    assert preview.horizontalScrollBar().maximum() > 0
+    assert preview.verticalScrollBar().maximum() > 0
     viewport = preview.viewport()
     image = viewport.grab().toImage()
     canvas_pixel = image.pixelColor(max(0, image.width() - 8), max(0, image.height() - 8))

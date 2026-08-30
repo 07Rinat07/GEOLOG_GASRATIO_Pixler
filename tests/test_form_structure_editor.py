@@ -133,6 +133,22 @@ def test_structure_editor_manages_per_track_inner_ruler() -> None:
         )
 
 
+def test_structure_editor_manages_lba_colour_and_bitumen_label_direction() -> None:
+    form = FormDocument.create("Test", FormAxisKind.DEPTH)
+    editor = FormStructureEditor(form)
+    column = editor.add_column("LBA", width=180)
+    track = editor.add_track(column.column_id, title="LBA", kind=TrackKind.LBA)
+
+    editor.set_track_lba_label_orientation(track.track_id, "horizontal")
+
+    assert track.lba_label_orientation == "horizontal"
+    with pytest.raises(ValueError, match="только для ЛБА"):
+        curve = editor.add_track(column.column_id, title="Curve", kind=TrackKind.CURVE)
+        editor.set_track_lba_label_orientation(
+            curve.track_id, "vertical_top_to_bottom"
+        )
+
+
 def test_structure_editor_rejects_visibility_and_grid_edits_on_locked_column() -> None:
     form = FormDocument.create("Test", FormAxisKind.DEPTH)
     editor = FormStructureEditor(form)
@@ -299,4 +315,34 @@ def test_structure_editor_dialog_edits_inner_ruler_of_selected_graph_track(
     assert not dialog.vertical_ruler_label_every_input.isEnabled()
     assert not dialog.vertical_ruler_major_tick_every_input.isEnabled()
     assert not dialog.vertical_ruler_minor_tick_every_input.isEnabled()
+    dialog.close()
+
+
+def test_structure_editor_dialog_edits_lba_label_direction(
+    qapp: QApplication,
+    tmp_path: Path,
+) -> None:
+    repository = FormRepository(tmp_path / "forms")
+    form = FormDocument.create("Editable", FormAxisKind.DEPTH)
+    editor = FormStructureEditor(form)
+    column = editor.add_column("LBA", width=180)
+    track = editor.add_track(column.column_id, title="LBA", kind=TrackKind.LBA)
+    dialog = FormStructureEditorDialog(form, repository, language="en")
+    track_item = dialog.tree.topLevelItem(0).child(0)
+
+    dialog.tree.setCurrentItem(track_item)
+    qapp.processEvents()
+
+    assert dialog.lba_label_orientation_combo.isHidden() is False
+    assert (
+        dialog.lba_label_orientation_combo.currentData()
+        == "vertical_bottom_to_top"
+    )
+    dialog.lba_label_orientation_combo.setCurrentIndex(
+        dialog.lba_label_orientation_combo.findData("vertical_top_to_bottom")
+    )
+    qapp.processEvents()
+
+    _column, edited = dialog.editor.track(track.track_id)
+    assert edited.lba_label_orientation == "vertical_top_to_bottom"
     dialog.close()

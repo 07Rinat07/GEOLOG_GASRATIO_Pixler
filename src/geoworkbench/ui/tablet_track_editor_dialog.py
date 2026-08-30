@@ -136,6 +136,27 @@ class TabletTrackEditorDialog(QDialog):
         self.title_position_input.setCurrentIndex(
             max(0, self.title_position_input.findData(self.track.title_position))
         )
+        self.lba_label_orientation_input = QComboBox()
+        for value in TEXT_ORIENTATIONS:
+            self.lba_label_orientation_input.addItem(orientation_labels[value], value)
+        self.lba_label_orientation_input.setCurrentIndex(
+            max(
+                0,
+                self.lba_label_orientation_input.findData(
+                    self.track.lba_label_orientation
+                ),
+            )
+        )
+        self.lba_label_orientation_label = QLabel(
+            self._text(
+                "Направление подписей «Цвет / Битум»",
+                "«Түс / Битум» жазуларының бағыты",
+                "Colour / bitumen label direction",
+            )
+        )
+        is_lba_track = self.track.kind is TrackKind.LBA
+        self.lba_label_orientation_label.setVisible(is_lba_track)
+        self.lba_label_orientation_input.setVisible(is_lba_track)
         self.group_input = QLineEdit(self.track.group_title)
         self.group_input.setPlaceholderText(
             self._text("Например: Геология", "Мысалы: Геология", "For example: Geology")
@@ -164,6 +185,10 @@ class TabletTrackEditorDialog(QDialog):
         form.addRow(
             self._text("Положение текста", "Мәтін орны", "Text position"),
             self.title_position_input,
+        )
+        form.addRow(
+            self.lba_label_orientation_label,
+            self.lba_label_orientation_input,
         )
         form.addRow(self._text("Название раздела", "Бөлім атауы", "Section title"), self.group_input)
         form.addRow(self._text("Ширина", "Ені", "Width"), self.width_input)
@@ -422,6 +447,7 @@ class TabletTrackEditorDialog(QDialog):
         for combo_box in (
             self.title_orientation_input,
             self.title_position_input,
+            self.lba_label_orientation_input,
             self.style_input,
             self.scale_input,
             self.auto_range_input,
@@ -575,6 +601,10 @@ class TabletTrackEditorDialog(QDialog):
             self.title_orientation_input.currentData() or "horizontal"
         )
         candidate.title_position = str(self.title_position_input.currentData() or "center")
+        candidate.lba_label_orientation = str(
+            self.lba_label_orientation_input.currentData()
+            or "vertical_bottom_to_top"
+        )
         candidate.group_title = self.group_input.text().strip()
         candidate.width = self.width_input.value()
         candidate.x_axis_label = self.axis_input.text().strip()

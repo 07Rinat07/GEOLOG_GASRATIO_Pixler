@@ -1,4 +1,4 @@
-<!-- runtime-contract: package=0.7.93; project=v22; form=v14; layout=v22 -->
+<!-- runtime-contract: package=0.7.93; project=v22; form=v15; layout=v23 -->
 # Архитектура
 
 Актуально на 9 августа 2026 года.
@@ -262,8 +262,8 @@ legacy-шаблонам. Наличие постороннего файла, sym
 ## Хранение и совместимость
 
 - project format `v22`;
-- form schema `v14`;
-- tablet layout `v22`;
+- form schema `v15`;
+- tablet layout `v23`;
 - текущий проект — JSON плюс content-addressed `.assets`;
 - запись JSON атомарная, migration последовательная;
 - неизвестные данные не удаляются молча;

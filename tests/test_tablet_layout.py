@@ -458,4 +458,4 @@ def test_layout_v18_migrates_track_and_curve_log_scales_to_linear() -> None:
     assert settings.x_scale is XScale.LINEAR
     assert settings.x_min == 0.0
     assert settings.x_max == 100.0
-    assert layout_to_dict(restored)["version"] == 22
+    assert layout_to_dict(restored)["version"] == 23
