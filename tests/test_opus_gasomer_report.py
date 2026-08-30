@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import zipfile
 from html import unescape
+from types import SimpleNamespace
 
 import fitz
 import numpy as np
@@ -27,7 +28,20 @@ from geoworkbench.services.hydrocarbon_interpretation import (
     fluid_hypothesis_label,
     hydrocarbon_interpretation_html,
 )
+from geoworkbench.services.opus_interpretation import _gasomer_ambiguous_hypothesis
 from geoworkbench.services.localization import AppLanguage
+
+
+def test_gasomer_ambiguous_oil_gas_result_is_reported_as_possible_alternatives() -> None:
+    interval = SimpleNamespace(
+        indicators=tuple(SimpleNamespace(class_code=code) for code in (2, 1, 2, 3, 3)),
+        support_fraction=0.605,
+    )
+
+    hypothesis = _gasomer_ambiguous_hypothesis(interval)
+    assert hypothesis == "opus_gasomer_ambiguous__possible__2-3"
+    label = fluid_hypothesis_label(SimpleNamespace(fluid_hypothesis=hypothesis), AppLanguage.RU)
+    assert "возможно, нефть или горючий газ" in label
 
 
 def _gasomer_session() -> ProjectSession:

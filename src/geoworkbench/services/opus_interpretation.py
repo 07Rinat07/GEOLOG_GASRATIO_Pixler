@@ -445,10 +445,18 @@ def _with_gasomer_primary_results(
             else:
                 reason = "no unique five-formula mode"
             evidence.append(f"OPUS Gasomer exact class-7 reason={reason}")
+        ambiguous_hypothesis = _gasomer_ambiguous_hypothesis(match)
+        if ambiguous_hypothesis is not None:
+            fluid_hypothesis = ambiguous_hypothesis
+            evidence.append(
+                "OPUS Gasomer indicator families are close; report shows alternatives "
+                "instead of presenting the row-class mode as a unique fluid type"
+            )
         else:
             evidence.append(
                 "final automatic interpretation basis=OPUS Gasomer five-formula mode"
             )
+            fluid_hypothesis = _GASOMER_CLASS_KEYS[match.class_code]
         metrics = (
             *candidate.metrics,
             ("OPUS_GASOMER_CLASS", float(match.class_code)),
@@ -459,12 +467,33 @@ def _with_gasomer_primary_results(
         updated.append(
             replace(
                 candidate,
-                fluid_hypothesis=_GASOMER_CLASS_KEYS[match.class_code],
+                fluid_hypothesis=fluid_hypothesis,
                 metrics=metrics,
                 evidence=tuple(evidence),
             )
         )
     return tuple(updated)
+
+
+def _gasomer_ambiguous_hypothesis(
+    interval: OpusGasomerIntervalReport,
+) -> str | None:
+    """Return an explicit alternative label when oil/gas formula families are close."""
+
+    class_counts: dict[int, int] = {}
+    for indicator in interval.indicators:
+        if indicator.class_code in range(1, 7):
+            class_counts[indicator.class_code] = class_counts.get(indicator.class_code, 0) + 1
+    oil_codes = {1, 2, 6}
+    gas_codes = {3, 4, 5}
+    oil_count = sum(class_counts.get(code, 0) for code in oil_codes)
+    gas_count = sum(class_counts.get(code, 0) for code in gas_codes)
+    if not oil_count or not gas_count or abs(oil_count - gas_count) > 1:
+        return None
+    oil_code = max(oil_codes, key=lambda code: (class_counts.get(code, 0), -code))
+    gas_code = max(gas_codes, key=lambda code: (class_counts.get(code, 0), -code))
+    qualifier = "possible__" if interval.support_fraction < 0.75 else ""
+    return f"opus_gasomer_ambiguous__{qualifier}{oil_code}-{gas_code}"
 
 
 def _take_matching_gasomer_interval(

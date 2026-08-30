@@ -144,6 +144,35 @@ class HydrocarbonInterpretationReport:
     opus_gasomer: OpusGasomerReportSection | None = None
 
 
+_GASOMER_AMBIGUOUS_PREFIX = "opus_gasomer_ambiguous__"
+_GASOMER_SHORT_LABELS = {
+    AppLanguage.RU: {
+        1: "окисленная (остаточная) нефть",
+        2: "нефть",
+        3: "горючий газ",
+        4: "водорастворенный газ",
+        5: "газоконденсат",
+        6: "газированная нефть",
+    },
+    AppLanguage.KK: {
+        1: "тотыққан (қалдық) мұнай",
+        2: "мұнай",
+        3: "жанғыш газ",
+        4: "суда еріген газ",
+        5: "газ конденсаты",
+        6: "газдалған мұнай",
+    },
+    AppLanguage.EN: {
+        1: "oxidized (residual) oil",
+        2: "oil",
+        3: "combustible gas",
+        4: "water-dissolved gas",
+        5: "gas condensate",
+        6: "gassy oil",
+    },
+}
+
+
 @dataclass(frozen=True, slots=True)
 class _FluidInterpretationContext:
     wetness: np.ndarray | None
@@ -1387,6 +1416,33 @@ def fluid_hypothesis_label(
     language: AppLanguage = AppLanguage.RU,
 ) -> str:
     labels = _HTML_LABELS[language]
+    if candidate.fluid_hypothesis.startswith(_GASOMER_AMBIGUOUS_PREFIX):
+        raw_codes = candidate.fluid_hypothesis[len(_GASOMER_AMBIGUOUS_PREFIX) :]
+        possible = raw_codes.startswith("possible__")
+        if possible:
+            raw_codes = raw_codes[len("possible__") :]
+        try:
+            codes = tuple(int(value) for value in raw_codes.split("-") if value)
+        except ValueError:
+            codes = ()
+        short_labels = _GASOMER_SHORT_LABELS[language]
+        alternatives = tuple(short_labels[code] for code in codes if code in short_labels)
+        if len(alternatives) >= 2:
+            prefix = {
+                AppLanguage.RU: "УВ-проявление; ОПУС Газомер: ",
+                AppLanguage.KK: "КС көрінісі; ОПУС Газомер: ",
+                AppLanguage.EN: "HC show; OPUS Gasomer: ",
+            }[language]
+            conjunction = {AppLanguage.RU: " или ", AppLanguage.KK: " немесе ", AppLanguage.EN: " or "}[language]
+            wording = conjunction.join(alternatives)
+            if possible:
+                wording = {
+                    AppLanguage.RU: "возможно, " + wording,
+                    AppLanguage.KK: "мүмкін, " + wording,
+                    AppLanguage.EN: "possibly, " + wording,
+                }[language]
+            return prefix + wording
+        return labels["hypothesis_indeterminate"]
     fallback_prefix = "opus_fallback__"
     if candidate.fluid_hypothesis.startswith(fallback_prefix):
         fallback_key = candidate.fluid_hypothesis[len(fallback_prefix) :]
