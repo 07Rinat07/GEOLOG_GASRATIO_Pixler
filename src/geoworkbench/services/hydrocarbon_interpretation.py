@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from html import escape
 
 import numpy as np
 
@@ -20,6 +21,11 @@ from geoworkbench.services.hydrocarbon_interpretation_modes import (
     fluid_hypothesis_basis,
     fluid_hypothesis_label,
     hydrocarbon_interpretation_html as _base_hydrocarbon_interpretation_html,
+)
+from geoworkbench.services.hydrocarbon_interpretation_legacy import (
+    OpusGasomerIndicatorReport,
+    OpusGasomerIntervalReport,
+    OpusGasomerReportSection,
 )
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.opus_interpretation import build_opus_interpretation_report
@@ -185,6 +191,15 @@ def hydrocarbon_interpretation_html(
                 + f"<h1>{opus_title}</h1>"
                 + html[title_end + len("</h1>") :]
             )
+        if report.opus_gasomer is not None:
+            gasomer_html = _opus_gasomer_html(report)
+            marker = '<div class="notice"><h2>'
+            position = html.find(marker)
+            html = (
+                html[:position] + gasomer_html + html[position:]
+                if position >= 0
+                else html.replace("</body>", gasomer_html + "</body>")
+            )
     for old, new in _REPORT_TERMINOLOGY_REPLACEMENTS[language]:
         html = html.replace(old, new)
 
@@ -202,6 +217,109 @@ def hydrocarbon_interpretation_html(
 }
 """
     return html.replace("</style>", pagination_css + "</style>", 1)
+
+
+def _opus_gasomer_html(report: HydrocarbonInterpretationReport) -> str:
+    section = report.opus_gasomer
+    if section is None:
+        return ""
+    curve_names = dict(section.input_curves)
+    curve_units = dict(section.input_units)
+    inputs = ", ".join(
+        f"{escape(name)}={escape(curve_names.get(name, '—'))} "
+        f"[{escape(curve_units.get(name, '—') or '—')}]"
+        for name in ("TOTAL_GAS", "C1", "C2", "C3", "C4", "C5")
+    ) or "—"
+    formula_rows = "".join(
+        "<tr>"
+        f"<td>{escape(name)}</td><td><code>{escape(formula)}</code></td>"
+        "</tr>"
+        for name, formula in section.formulas
+    )
+    interval_blocks: list[str] = []
+    for interval in section.intervals:
+        indicator_rows = "".join(
+            "<tr>"
+            f"<td>{escape(item.mnemonic)}</td>"
+            f"<td>{'—' if item.median_value is None else f'{item.median_value:.6g}'}</td>"
+            f"<td>{item.class_code} — {escape(item.class_label)}</td>"
+            f"<td>{item.vote_support * 100.0:.1f}%</td>"
+            f"<td>{item.available_rows}/{item.total_rows}</td>"
+            f"<td>{escape(_counts_text(item.vote_counts))}</td>"
+            f"<td>{escape(_state_counts_text(item.state_counts))}</td>"
+            "</tr>"
+            for item in interval.indicators
+        )
+        detector = (
+            "локальный фон —; пик —; ΔTG —; robust z —; контраст —"
+            if interval.background_median is None
+            else (
+                f"локальный фон {interval.background_median:.6g} {section.working_unit}; "
+                f"пик {interval.peak_total_gas:.6g}; ΔTG {interval.delta_peak:.6g}; "
+                f"max robust z {interval.max_robust_z:.3f}; "
+                f"max контраст {interval.max_contrast:.3f}"
+            )
+        )
+        interval_blocks.append(
+            f"<h3 class='opus-gasomer-interval'>{interval.top_depth:.2f}–"
+            f"{interval.bottom_depth:.2f} "
+            f"{escape(report.depth_unit)}: класс {interval.class_code} — "
+            f"{escape(interval.class_label)}</h3>"
+            f"<p>Поддержка класса: {interval.support_fraction * 100.0:.1f}%; "
+            f"валидных синхронных строк: {interval.valid_rows}/{interval.total_rows}; "
+            f"{escape(detector)}.</p>"
+            "<table><thead><tr><th>Показатель</th><th>Медиана</th><th>Голос</th>"
+            "<th>Поддержка голоса</th><th>Доступно</th><th>Голоса 1–7</th>"
+            "<th>QC-состояния</th></tr></thead>"
+            f"<tbody>{indicator_rows}</tbody></table>"
+            + (
+                "<p><small>" + escape("; ".join(interval.warnings)) + "</small></p>"
+                if interval.warnings
+                else ""
+            )
+        )
+    lod_text = (
+        "не задан; detector не запускается без скрытого значения"
+        if section.total_gas_lod is None
+        else f"{section.total_gas_lod:.6g} {section.working_unit}"
+    )
+    provenance = "".join(f"<li>{escape(item)}</li>" for item in section.provenance)
+    errata = "".join(f"<li>{escape(item)}</li>" for item in section.errata)
+    warnings = "".join(f"<li>{escape(item)}</li>" for item in section.warnings)
+    intervals_html = "".join(interval_blocks) or (
+        "<p>Интервалы ОПУС Газомер не сформированы: проверьте независимый TotalGas, "
+        "C1–C5, единицы и положительный LOD TotalGas.</p>"
+    )
+    return (
+        "<h2 class='opus-gasomer-section'>"
+        "ОПУС Газомер — пять показателей и голоса</h2>"
+        f"<p><b>Профиль:</b> {escape(section.profile_id)} v{escape(section.profile_version)}; "
+        f"статус: {escape(section.profile_status)}.<br>"
+        f"<b>Режим:</b> {escape(section.calculation_mode)}; источник интервалов: "
+        f"{escape(section.interval_source)}; рабочая единица: "
+        f"{escape(section.working_unit)}; LOD TotalGas: {escape(lod_text)}.<br>"
+        f"<b>Входные кривые:</b> {inputs}.</p>"
+        "<table><thead><tr><th>Показатель</th><th>Точная формула профиля</th>"
+        f"</tr></thead><tbody>{formula_rows}</tbody></table>"
+        + intervals_html
+        + "<h3>Происхождение формул</h3><ul>"
+        + provenance
+        + f"<li>SHA-256 книги: {escape(section.source_workbook_sha256)}</li></ul>"
+        + "<h3>Исправления исходной книги</h3><ul>"
+        + errata
+        + "</ul>"
+        + "<h3>QC и ограничения</h3><ul>"
+        + warnings
+        + "</ul>"
+    )
+
+
+def _counts_text(counts: tuple[tuple[int, int], ...]) -> str:
+    return ", ".join(f"{code}:{count}" for code, count in counts)
+
+
+def _state_counts_text(counts: tuple[tuple[str, int], ...]) -> str:
+    return ", ".join(f"{name}:{count}" for name, count in counts)
 
 
 def _coerce_mode(
@@ -247,6 +365,9 @@ __all__ = [
     "HydrocarbonInterpretationReport",
     "InterpretationMethodStatus",
     "ManualInterpretationInterval",
+    "OpusGasomerIndicatorReport",
+    "OpusGasomerIntervalReport",
+    "OpusGasomerReportSection",
     "build_hydrocarbon_interpretation_report",
     "build_opus_interpretation_report",
     "candidate_evidence_summary",

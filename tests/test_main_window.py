@@ -148,6 +148,14 @@ def test_window_exposes_interpretation_report_workspace(qapp) -> None:
     )
     report_mode.setCurrentIndex(report_mode.findData("opus_text"))
     assert "10,000 ppm" in window.interpretation_report_workspace.calculation_inputs_help.text()
+    assert "separate synchronous TotalGas" in (
+        window.interpretation_report_workspace.calculation_inputs_help.text()
+    )
+    assert window.interpretation_report_workspace.total_gas_lod.isEnabled()
+    assert window.interpretation_report_workspace.total_gas_lod.value() == 0.0
+    assert "no hidden value" in (
+        window.interpretation_report_workspace.total_gas_lod.toolTip()
+    )
     assert not window.interpretation_report_workspace.rop_reference.isEnabled()
     window.close()
 

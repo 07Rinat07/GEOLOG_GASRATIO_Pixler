@@ -99,10 +99,13 @@ source gas curves, changing units, or changing channel mappings, and then regene
 report. Interval evidence records the method, indicators, and applicability limits, so a
 direct OPUS result cannot be confused with a fallback result.
 
-A separate practical **OPUS Gasomer** profile using independent TotalGas, five indicators,
-a local baseline, and row-wise voting is accepted into the plan but is not implemented yet.
-Until then, the current screen and report continue to use the historical profile described
-above. Engineering contract:
+A separate practical **OPUS Gasomer** profile is implemented as an additional OPUS report
+section and does not replace the historical profile described above. Its local detector
+requires synchronous C1–C5, a separate TotalGas curve, and a positive LOD in the source
+TotalGas unit; a zero or missing LOD is never replaced by a hidden value, so the detector is
+not run. Five indicators are calculated on synchronous rows and accept only a unique modal
+vote. The result remains preliminary screening until independent `OPUS-08` field validation.
+Engineering contract:
 [OPUS_GASOMER_IMPLEMENTATION.md](../OPUS_GASOMER_IMPLEMENTATION.md).
 
 ## Prospective interval detection

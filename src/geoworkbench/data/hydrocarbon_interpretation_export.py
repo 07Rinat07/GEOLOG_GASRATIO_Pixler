@@ -118,8 +118,10 @@ def _write_docx(
             ),
             widths=(2_400, 1_000, 2_200, 4_700, 4_800),
         ),
-        _paragraph("Перспективные интервалы УВ-проявлений", style="Heading1"),
     ]
+    if report.opus_gasomer is not None:
+        body.extend(_opus_gasomer_docx(report))
+    body.append(_paragraph("Перспективные интервалы УВ-проявлений", style="Heading1"))
     if report.candidates:
         body.append(
             _table(
@@ -232,6 +234,108 @@ def _write_docx(
             '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"/>',
         )
         package.writestr("word/styles.xml", _docx_styles())
+
+
+def _opus_gasomer_docx(report: HydrocarbonInterpretationReport) -> list[str]:
+    section = report.opus_gasomer
+    if section is None:
+        return []
+    curve_names = dict(section.input_curves)
+    curve_units = dict(section.input_units)
+    lod_text = (
+        "не задан; detector не запускается без скрытого значения"
+        if section.total_gas_lod is None
+        else f"{section.total_gas_lod:.6g} {section.working_unit}"
+    )
+    body = [
+        _paragraph("ОПУС Газомер — пять показателей и голоса", style="Heading1"),
+        _paragraph(
+            f"Профиль: {section.profile_id} v{section.profile_version}; "
+            f"статус: {section.profile_status}. Режим: {section.calculation_mode}; "
+            f"источник интервалов: {section.interval_source}; "
+            f"рабочая единица: {section.working_unit}; LOD TotalGas: {lod_text}."
+        ),
+        _table(
+            ("Вход", "Кривая", "Исходная единица"),
+            tuple(
+                (
+                    name,
+                    curve_names.get(name, "—"),
+                    curve_units.get(name, "—") or "—",
+                )
+                for name in ("TOTAL_GAS", "C1", "C2", "C3", "C4", "C5")
+            ),
+            widths=(2_600, 6_500, 6_000),
+        ),
+        _table(
+            ("Показатель", "Точная формула профиля"),
+            tuple(section.formulas),
+            widths=(3_000, 12_100),
+        ),
+    ]
+    if not section.intervals:
+        body.append(
+            _paragraph(
+                "Интервалы ОПУС Газомер не сформированы: проверьте независимый "
+                "TotalGas, C1–C5, единицы и положительный LOD TotalGas."
+            )
+        )
+    for interval in section.intervals:
+        detector = (
+            "локальный detector не запускался"
+            if interval.background_median is None
+            else (
+                f"фон={interval.background_median:.6g}; пик={interval.peak_total_gas:.6g}; "
+                f"ΔTG={interval.delta_peak:.6g}; max robust z={interval.max_robust_z:.3f}; "
+                f"контраст={interval.max_contrast:.3f}"
+            )
+        )
+        body.append(
+            _paragraph(
+                f"{interval.top_depth:.2f}–{interval.bottom_depth:.2f} "
+                f"{report.depth_unit}: класс {interval.class_code} — {interval.class_label}; "
+                f"поддержка {interval.support_fraction * 100.0:.1f}%; "
+                f"валидных строк {interval.valid_rows}/{interval.total_rows}; {detector}."
+            )
+        )
+        body.append(
+            _table(
+                (
+                    "Показатель",
+                    "Медиана",
+                    "Голос",
+                    "Поддержка",
+                    "Доступно",
+                    "Голоса 1–7 / QC",
+                ),
+                tuple(
+                    (
+                        item.mnemonic,
+                        "—" if item.median_value is None else f"{item.median_value:.6g}",
+                        f"{item.class_code} — {item.class_label}",
+                        f"{item.vote_support * 100.0:.1f}%",
+                        f"{item.available_rows}/{item.total_rows}",
+                        ", ".join(
+                            f"{code}:{count}" for code, count in item.vote_counts
+                        )
+                        + "; "
+                        + ", ".join(
+                            f"{name}:{count}" for name, count in item.state_counts
+                        ),
+                    )
+                    for item in interval.indicators
+                ),
+                widths=(2_000, 1_600, 3_100, 1_500, 1_500, 5_400),
+            )
+        )
+        body.extend(_paragraph(f"QC интервала: {item}") for item in interval.warnings)
+    body.append(_paragraph("Происхождение формул и ограничения"))
+    body.extend(_paragraph(f"• {item}") for item in section.provenance)
+    body.append(_paragraph(f"• SHA-256 книги: {section.source_workbook_sha256}"))
+    body.append(_paragraph("Исправления исходной книги"))
+    body.extend(_paragraph(f"• {item}") for item in section.errata)
+    body.extend(_paragraph(f"• {item}") for item in section.warnings)
+    return body
 
 
 def _paragraph(text: str, *, style: str | None = None) -> str:

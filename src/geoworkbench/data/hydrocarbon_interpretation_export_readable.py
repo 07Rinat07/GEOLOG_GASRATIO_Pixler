@@ -109,6 +109,7 @@ def export_readable_hydrocarbon_interpretation_xlsx(
         _write_main_sheet(main, report, dataset)
         _notify(progress, "Интервалы и статистика готовы", 15, 100)
         _write_methods_sheet(workbook, report)
+        _write_opus_gasomer_sheet(workbook, report)
         _write_whole_well_sheet(workbook, dataset, progress=progress)
         _notify(progress, "Сохранение Excel-файла", 95, 100)
 
@@ -420,6 +421,146 @@ def _write_methods_sheet(workbook: Workbook, report: HydrocarbonInterpretationRe
     for warning in report.warnings:
         sheet.append(protect_spreadsheet_row((warning,)))
     _format_auxiliary_sheet(sheet, widths=(42, 16, 48, 90, 90))
+
+
+def _write_opus_gasomer_sheet(
+    workbook: Workbook,
+    report: HydrocarbonInterpretationReport,
+) -> None:
+    section = report.opus_gasomer
+    if section is None:
+        return
+    sheet = workbook.create_sheet("ОПУС Газомер")
+    sheet.sheet_view.showGridLines = False
+    sheet.append(protect_spreadsheet_row(("ОПУС Газомер — воспроизводимый профиль",)))
+    sheet.append(
+        protect_spreadsheet_row(
+            (
+                "Профиль",
+                f"{section.profile_id} v{section.profile_version}",
+                "Статус",
+                section.profile_status,
+            )
+        )
+    )
+    sheet.append(
+        protect_spreadsheet_row(
+            (
+                "Режим",
+                section.calculation_mode,
+                "Источник интервалов",
+                section.interval_source,
+            )
+        )
+    )
+    sheet.append(
+        protect_spreadsheet_row(
+            (
+                "Рабочая единица",
+                section.working_unit,
+                "LOD TotalGas",
+                section.total_gas_lod,
+            )
+        )
+    )
+    sheet.append(
+        protect_spreadsheet_row(
+            ("SHA-256 книги", section.source_workbook_sha256)
+        )
+    )
+    sheet.append(())
+    sheet.append(protect_spreadsheet_row(("Вход", "Кривая", "Исходная единица")))
+    curve_names = dict(section.input_curves)
+    curve_units = dict(section.input_units)
+    for name in ("TOTAL_GAS", "C1", "C2", "C3", "C4", "C5"):
+        sheet.append(
+            protect_spreadsheet_row(
+                (name, curve_names.get(name, "—"), curve_units.get(name, "—") or "—")
+            )
+        )
+    sheet.append(())
+    sheet.append(protect_spreadsheet_row(("Показатель", "Точная формула профиля")))
+    for name, formula in section.formulas:
+        sheet.append(protect_spreadsheet_row((name, formula)))
+    sheet.append(())
+    sheet.append(
+        protect_spreadsheet_row(
+            (
+                "Интервал",
+                "Класс",
+                "Интерпретация",
+                "Поддержка класса, %",
+                "Валидные / все строки",
+                "Локальный фон",
+                "Пик TotalGas",
+                "ΔTG",
+                "Max robust z",
+                "Max контраст",
+            )
+        )
+    )
+    for interval in section.intervals:
+        sheet.append(
+            protect_spreadsheet_row(
+                (
+                    f"{interval.top_depth:.2f}–{interval.bottom_depth:.2f} {report.depth_unit}",
+                    interval.class_code,
+                    interval.class_label,
+                    interval.support_fraction * 100.0,
+                    f"{interval.valid_rows}/{interval.total_rows}",
+                    interval.background_median,
+                    interval.peak_total_gas,
+                    interval.delta_peak,
+                    interval.max_robust_z,
+                    interval.max_contrast,
+                )
+            )
+        )
+        sheet.append(
+            protect_spreadsheet_row(
+                (
+                    "Показатель",
+                    "Медиана",
+                    "Голос",
+                    "Интерпретация голоса",
+                    "Поддержка голоса, %",
+                    "Доступные / все строки",
+                    "Голоса 1–7",
+                    "QC-состояния",
+                )
+            )
+        )
+        for item in interval.indicators:
+            sheet.append(
+                protect_spreadsheet_row(
+                    (
+                        item.mnemonic,
+                        item.median_value,
+                        item.class_code,
+                        item.class_label,
+                        item.vote_support * 100.0,
+                        f"{item.available_rows}/{item.total_rows}",
+                        ", ".join(f"{code}:{count}" for code, count in item.vote_counts),
+                        ", ".join(f"{name}:{count}" for name, count in item.state_counts),
+                    )
+                )
+            )
+        for warning in interval.warnings:
+            sheet.append(protect_spreadsheet_row(("QC интервала", warning)))
+    sheet.append(())
+    sheet.append(protect_spreadsheet_row(("Происхождение формул",)))
+    for provenance_item in section.provenance:
+        sheet.append(protect_spreadsheet_row((provenance_item,)))
+    sheet.append(protect_spreadsheet_row(("Исправления исходной книги",)))
+    for erratum in section.errata:
+        sheet.append(protect_spreadsheet_row((erratum,)))
+    sheet.append(protect_spreadsheet_row(("QC и ограничения",)))
+    for warning in section.warnings:
+        sheet.append(protect_spreadsheet_row((warning,)))
+    _format_auxiliary_sheet(
+        sheet,
+        widths=(34, 22, 34, 34, 24, 24, 52, 68, 20, 20),
+    )
 
 
 def _write_whole_well_sheet(

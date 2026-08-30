@@ -40,7 +40,13 @@ Character, коэффициента флюидности и D-экспонент
 runtime не включены. Для отдельного будущего профиля `OPUS Gasomer` принят другой прикладной
 контракт из книги пользователя: нормализация на независимый TotalGas, пять показателей,
 уникальная мода с явной ничьей и построчная агрегация внутри интервала. Пятый показатель и
-границы будут помечены как workbook-derived, а не как подтверждённая первичная формула.
+границы помечены как workbook-derived, а не как подтверждённая первичная формула. Этап
+воспроизводимости книги и `OPUS-02/03` реализованы в versioned JSON-профиле, scalar/golden
+fixture и vectorized-ядре с ppm/`% об.`, LOD/QC states, data-driven bands и интервальной
+support-агрегацией синхронных строк. Legacy MAX изолирован compatibility marker, explicit
+maximum span и source depths. Локальный detector по `ΔTG`, robust z и LOD-floor contrast также
+готов; его versioned параметры требуют полевой калибровки. Runtime controller и отчёт ещё не
+подключены.
 Инструкция реализации: [`docs/OPUS_GASOMER_IMPLEMENTATION.md`](../../docs/OPUS_GASOMER_IMPLEMENTATION.md).
 
 `build_all_sourced_formula_registry()` дополнительно регистрирует профили

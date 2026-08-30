@@ -345,22 +345,50 @@ python -m pytest -p no:cacheprovider -q tests/test_opus_screening.py tests/test_
 - наличие в HTML/PDF, DOCX и XLSX формул, правил интерпретации, источников и степени
   подтверждения методики.
 
-## 13B. Планируемый профиль «ОПУС Газомер»
+## 13B. Профиль «ОПУС Газомер»
 
-До реализации тесты добавляются в таком порядке:
+Этап `OPUS-01` закреплён в `tests/test_opus_gasomer_fixture.py`: primary-workbook SHA,
+контрольная строка, пять формул, каждая граница ниже/на/выше, явная errata AB4 и уникальная
+мода без произвольного разрешения ничьей. `tests/test_opus_gasomer_batch.py` закрепляет
+`OPUS-02`: ppm/% equivalence, синхронный независимый TotalGas, LOD boundary, missing/zero/
+below-LOD/invalid states, зависимости отдельных показателей и неизменность source arrays.
+`tests/test_opus_gasomer_interval.py` закрепляет `OPUS-03`: уникальную поддержку по
+синхронным строкам, ничью интервала, QC/vote distributions, explicit maximum span и
+доказательство синтетического legacy-состава из разных глубин.
+`tests/test_opus_gasomer_detector.py` закрепляет `OPUS-04`: низкий фон без hard gate, отсутствие
+ложного события на ровном фоне, смену локального фона, ppm/% equivalence, обязательный LOD,
+монотонную прямую/обратную глубину и сохранение missing/invalid states.
+`tests/test_opus_gasomer_report.py` закрепляет `OPUS-05/06`: отдельный TotalGas и явный LOD,
+готовый report snapshot с прямым классом/support, пятью голосами/QC и provenance, одинаковые
+формулы/класс в HTML, XLSX, DOCX, PDF и print HTML, неизменность исправления
+`AB2>AB5=250000` → `AB2>=250000`, а также запрет скрытого detector LOD.
+`tests/test_opus_gasomer_performance_contract.py` и
+`benchmarks/benchmark_opus_gasomer.py` закрепляют `OPUS-07`: chunked regular-axis fast path,
+physical-window fallback для нерегулярной оси, 25k/100k/1M и additional traced peak memory.
 
-1. golden fixture одной строки и одного короткого интервала из `Газомер.xls`;
-2. пять формул и все data-driven границы: ниже, точно на границе и выше;
-3. исправленное условие книги `AB2>AB5=250000` с явным fixture note;
-4. эквивалентность ppm и `% об.`;
-5. различение `NaN`, измеренного нуля и значения ниже LOD;
-6. уникальная мода, ничья и недостаток валидных голосов;
-7. запрет синтетического состава из максимумов компонентов на разных глубинах;
-8. локальный фон, `ΔTG`, robust z и LOD-floor при фоне `0,01 %` и ниже;
-9. смена фона по глубине без потери последующего проявления;
-10. неизменность текущего ОПУС, Gas Ratio, Haworth и Pixler;
-11. идентичность report model, XLSX, DOCX, PDF и печати;
-12. линейный benchmark на 25k/100k/1M строк и bounded peak memory.
+Воспроизводимый performance-run:
+
+```powershell
+python benchmarks/benchmark_opus_gasomer.py 25000 100000 1000000 --json
+```
+
+Контрольный Windows/Python 3.11 run 30 августа 2026 года:
+
+| Строк | Batch, с | Detector, с | Batch peak, MiB | Detector peak, MiB |
+|---:|---:|---:|---:|---:|
+| 25 000 | 0,024 | 0,293 | 5,1 | 64,6 |
+| 100 000 | 0,034 | 0,841 | 18,5 | 67,9 |
+| 1 000 000 | 0,381 | 8,168 | 185,0 | 118,6 |
+
+Traced peak не включает уже созданные source arrays. От 100k к 1M batch/detector дали
+11,28×/9,72× времени при росте данных 10×; retained/result arrays растут линейно, а временный
+rolling block ограничен по числу window elements. Пересчёт при PDF/печати запрещён report
+snapshot-контрактом и проверяется экспортным тестом.
+
+Дальнейшая полевая проверка:
+
+1. confusion matrix на независимых интервалах ГИС/испытаний;
+2. анализ false positive/false negative и отдельная версия полевой калибровки.
 
 Полевой acceptance выполняется отдельно на обезличенных интервалах с независимым заключением
 ГИС/испытаний. Для каждого класса строится confusion matrix и анализируются false positive и

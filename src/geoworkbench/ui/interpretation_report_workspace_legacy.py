@@ -234,6 +234,15 @@ class InterpretationReportWorkspace(QWidget):
         )
         self.threshold_label = QLabel()
         form.addRow(self.threshold_label, self.threshold)
+        self.total_gas_lod = QDoubleSpinBox()
+        self.total_gas_lod.setRange(0.0, 1_000_000_000.0)
+        self.total_gas_lod.setDecimals(8)
+        self.total_gas_lod.setSingleStep(0.0001)
+        self.total_gas_lod.setSpecialValueText(
+            self._text("не задан", "берілмеген", "not set")
+        )
+        self.total_gas_lod_label = QLabel()
+        form.addRow(self.total_gas_lod_label, self.total_gas_lod)
         root.addLayout(form)
 
         actions = QHBoxLayout()
@@ -320,6 +329,7 @@ class InterpretationReportWorkspace(QWidget):
         self.flow_reference.setEnabled(standard_inputs)
         self.gas_efficiency.setEnabled(standard_inputs)
         self.threshold.setEnabled(not mixture_mode)
+        self.total_gas_lod.setEnabled(opus_mode)
         self.gas_mixture_report = None
         if mixture_mode:
             try:
@@ -358,12 +368,18 @@ class InterpretationReportWorkspace(QWidget):
             return
 
         try:
-            builder = (
-                build_opus_interpretation_report
-                if opus_mode
-                else build_hydrocarbon_interpretation_report
-            )
-            self.report = builder(self.controller.session, threshold=self.threshold.value())
+            if opus_mode:
+                lod = self.total_gas_lod.value()
+                self.report = build_opus_interpretation_report(
+                    self.controller.session,
+                    threshold=self.threshold.value(),
+                    total_gas_lod=lod if lod > 0.0 else None,
+                )
+            else:
+                self.report = build_hydrocarbon_interpretation_report(
+                    self.controller.session,
+                    threshold=self.threshold.value(),
+                )
         except RuntimeError:
             self.report = None
             self.preview.setHtml(
@@ -893,6 +909,28 @@ class InterpretationReportWorkspace(QWidget):
                 "Threshold relative to the robust baseline of the current well dataset.",
             )
         )
+        self.total_gas_lod_label.setText(
+            self._text(
+                "LOD независимого TotalGas:",
+                "Тәуелсіз TotalGas LOD:",
+                "Independent TotalGas LOD:",
+            )
+        )
+        self.total_gas_lod.setSpecialValueText(
+            self._text("не задан", "берілмеген", "not set")
+        )
+        self.total_gas_lod.setToolTip(
+            self._text(
+                "Положительный предел обнаружения в исходной единице кривой TotalGas. "
+                "При нуле локальный детектор ОПУС Газомер не запускается и скрытое "
+                "значение не подставляется.",
+                "TotalGas қисығының бастапқы бірлігіндегі оң анықтау шегі. Нөл болса, "
+                "ОПУС Газомер жергілікті детекторы іске қосылмайды және жасырын мән "
+                "қойылмайды.",
+                "Positive detection limit in the source TotalGas curve unit. At zero, "
+                "the local OPUS Gasomer detector is not run and no hidden value is used.",
+            )
+        )
         self.calculate_button.setText(
             self._text(
                 "Рассчитать стандартные методы",
@@ -919,13 +957,19 @@ class InterpretationReportWorkspace(QWidget):
         if self._is_opus_mode():
             self.calculation_inputs_help.setText(
                 self._text(
-                    "Для отдельного отчёта ОПУС нужны только согласованные C1–C5. "
+                    "Для исторического ОПУС нужны согласованные C1–C5. Раздел «ОПУС "
+                    "Газомер» дополнительно требует отдельный синхронный TotalGas и для "
+                    "локального детектора — положительный LOD TotalGas в его исходной единице. "
                     "Исходные ppm и % сохраняются; рабочие копии приводятся к % об. "
                     "по правилу 1 % = 10 000 ppm. ROP/BIT/FLOW для ОПУС не требуются.",
-                    "Жеке ОПУС есебіне тек келісілген C1–C5 керек. Бастапқы ppm және % "
+                    "Тарихи ОПУС үшін келісілген C1–C5 керек. «ОПУС Газомер» бөліміне "
+                    "қосымша жеке синхронды TotalGas, ал жергілікті детектор үшін оның "
+                    "бастапқы бірлігіндегі оң TotalGas LOD керек. Бастапқы ppm және % "
                     "сақталады; жұмыс көшірмелері 1 % = 10 000 ppm ережесімен көлемдік "
                     "% бірлігіне келтіріледі. ОПУС үшін ROP/BIT/FLOW қажет емес.",
-                    "The separate OPUS report requires only consistent C1–C5. Source ppm "
+                    "Historical OPUS requires consistent C1–C5. The OPUS Gasomer section "
+                    "also requires a separate synchronous TotalGas channel and, for local "
+                    "detection, a positive TotalGas LOD in its source unit. Source ppm "
                     "and percent curves are preserved; working copies use vol% with "
                     "1% = 10,000 ppm. OPUS does not require ROP, BIT, or FLOW.",
                 )

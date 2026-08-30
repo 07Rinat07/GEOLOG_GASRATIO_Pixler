@@ -1,0 +1,163 @@
+{
+  "schema": "geoworkbench.opus-gasomer-profile/v1",
+  "profile_id": "opus-gasomer-total-gas-workbook",
+  "profile_version": "1.0.0",
+  "status": "workbook-derived-pending-field-validation",
+  "source": {
+    "file_name": "Газомер.xls",
+    "sha256": "bd70ce36ac9f99f56267c7fc24b51bf4ba0a26e2ffb86e768b282e1bd5201818",
+    "sheet": "отчет по газу",
+    "formula_cells": {
+      "OPUS_GM_1": "Y2",
+      "OPUS_GM_2": "Z2",
+      "OPUS_GM_3": "AA2",
+      "OPUS_GM_4": "AB2",
+      "OPUS_GM_5": "AC2"
+    },
+    "classification_cells": {
+      "OPUS_GM_1": "Y4",
+      "OPUS_GM_2": "Z4",
+      "OPUS_GM_3": "AA4",
+      "OPUS_GM_4": "AB4",
+      "OPUS_GM_5": "AC4"
+    },
+    "consensus_cell": "AD4"
+  },
+  "source_evidence": {
+    "primary_workbook": {
+      "scope": "All five formulas, Y4:AC4 palettes, legacy MAX inputs and MODE consensus",
+      "strength": "user-provided applied workbook"
+    },
+    "open_formula_cross_checks": [
+      {
+        "scope": ["OPUS_GM_1", "OPUS_GM_2"],
+        "strength": "open industry presentation with formulas",
+        "title": "ДЮК — отраслевой доклад, слайд «Метод ОПУС (Лукьянов Э.Е.)»",
+        "url": "https://oil-industry.net/SD_Prezent/2024/11/%D0%90%D0%BB%D0%B5%D0%BA%D1%81%D0%B5%D0%B5%D0%B2.pdf"
+      },
+      {
+        "scope": ["OPUS_GM_1", "OPUS_GM_2", "OPUS_GM_3", "OPUS_GM_4", "bands 1-5"],
+        "strength": "open secondary academic work with worked example and bibliography",
+        "title": "ТПУ: сравнительный анализ насыщенности по ГИС и газовому каротажу, таблица 6.1",
+        "url": "https://earchive.tpu.ru/bitstream/11683/75789/1/TPU1463657.pdf"
+      }
+    ],
+    "historical_primary_reference": {
+      "citation": "Лукьянов Э. Е. Новая технология определения характера насыщения пластов-коллекторов по данным газового каротажа // НТВ «Каротажник». 2008. Вып. 8 (173). С. 74–104.",
+      "catalog_url": "https://karotazhnik.ru/ntv/vypusk-320/",
+      "open_full_text_status": "not found during the 2026-08-29 verification"
+    },
+    "OPUS_GM_5_status": "Formula, bands and five-vote consensus are workbook-derived; no open primary publication was found."
+  },
+  "input_basis": {
+    "formula": "pi = 100 * Ci / TotalGas",
+    "total_gas_policy": "independent_synchronous_channel",
+    "working_unit": "%vol"
+  },
+  "formulas": {
+    "OPUS_GM_1": "(p1 * p2) / (p2 + p3)^2",
+    "OPUS_GM_2": "(p1 * p2 * p3) / (p2 + p3 + p4)^3",
+    "OPUS_GM_3": "(p1 * p2 * p3) / 3",
+    "OPUS_GM_4": "(p1 * p2 * p3 * p4 * p5) / 5",
+    "OPUS_GM_5": "((p2 * p3 * p4 * p5) / p1) * (p2 + p3 + p4 + p5) * 100"
+  },
+  "class_labels_ru": {
+    "1": "Окисленная (остаточная) нефть",
+    "2": "Нефть",
+    "3": "Горючий газ",
+    "4": "Водорастворенный газ",
+    "5": "Газоконденсат",
+    "6": "Газированная нефть",
+    "7": "Не определено"
+  },
+  "bands": {
+    "OPUS_GM_1": {
+      "direction": "upper",
+      "rules": [
+        {"boundary": 0.25, "inclusive": true, "class_code": 1},
+        {"boundary": 2.0, "inclusive": true, "class_code": 2},
+        {"boundary": 5.0, "inclusive": true, "class_code": 6},
+        {"boundary": 10.0, "inclusive": true, "class_code": 5},
+        {"boundary": 25.0, "inclusive": true, "class_code": 4}
+      ],
+      "fallback_class_code": 3
+    },
+    "OPUS_GM_2": {
+      "direction": "upper",
+      "rules": [
+        {"boundary": 0.05, "inclusive": true, "class_code": 1},
+        {"boundary": 0.7, "inclusive": true, "class_code": 2},
+        {"boundary": 0.95, "inclusive": true, "class_code": 6},
+        {"boundary": 2.0, "inclusive": true, "class_code": 5},
+        {"boundary": 6.0, "inclusive": true, "class_code": 4}
+      ],
+      "fallback_class_code": 3
+    },
+    "OPUS_GM_3": {
+      "direction": "lower",
+      "rules": [
+        {"boundary": 9000.0, "inclusive": true, "class_code": 1},
+        {"boundary": 760.0, "inclusive": true, "class_code": 2},
+        {"boundary": 200.0, "inclusive": true, "class_code": 6},
+        {"boundary": 160.0, "inclusive": true, "class_code": 5},
+        {"boundary": 100.0, "inclusive": true, "class_code": 4}
+      ],
+      "fallback_class_code": 3
+    },
+    "OPUS_GM_4": {
+      "direction": "lower",
+      "rules": [
+        {"boundary": 250000.0, "inclusive": true, "class_code": 1},
+        {"boundary": 1100.0, "inclusive": true, "class_code": 2},
+        {"boundary": 700.0, "inclusive": true, "class_code": 5},
+        {"boundary": 100.0, "inclusive": true, "class_code": 6},
+        {"boundary": 1.0, "inclusive": true, "class_code": 4}
+      ],
+      "fallback_class_code": 3
+    },
+    "OPUS_GM_5": {
+      "direction": "lower",
+      "rules": [
+        {"boundary": 1200.0, "inclusive": true, "class_code": 1},
+        {"boundary": 5.0, "inclusive": true, "class_code": 2},
+        {"boundary": 3.3, "inclusive": true, "class_code": 6},
+        {"boundary": 0.65, "inclusive": true, "class_code": 5},
+        {"boundary": 0.1, "inclusive": true, "class_code": 4}
+      ],
+      "fallback_class_code": 3
+    }
+  },
+  "consensus": {
+    "workbook_formula": "MODE(Y4:AC4)",
+    "production_policy": "unique_mode",
+    "minimum_valid_indicators": 3,
+    "tie_result_class_code": 7,
+    "note": "The workbook MODE formula silently chooses one mode on a 2-2-1 tie; production returns class 7 instead."
+  },
+  "detector": {
+    "status": "engineering-defaults-pending-field-validation",
+    "working_unit": "%vol",
+    "smoothing_span": 1.0,
+    "background_half_span": 10.0,
+    "peak_exclusion_z": 3.5,
+    "robust_scale_factor": 1.4826,
+    "robust_z_threshold": 3.0,
+    "minimum_delta_lod_multiple": 3.0,
+    "minimum_contrast": 3.0,
+    "maximum_candidate_separation": 0.6,
+    "minimum_interval_span": 0.4,
+    "minimum_candidate_samples": 3,
+    "low_background_warning_percent": 0.1,
+    "note": "These are versioned engineering defaults, not universal Lukyanov thresholds; calibrate separately from formula bands."
+  },
+  "errata": [
+    {
+      "id": "GASOMER-AB4-CHAINED-COMPARISON",
+      "cell": "AB4",
+      "source_expression": "AB2>AB5=250000",
+      "corrected_expression": "AB2>=250000",
+      "reason": "Excel evaluates the chained comparison as (AB2>AB5)=250000, so the class-1 branch cannot be reached for ordinary numeric inputs.",
+      "evidence": "The descending OPUS_GM_4 palette starts at 250000 in both the workbook's own threshold sequence and OPUS Integration Kit v1.0.0."
+    }
+  ]
+}

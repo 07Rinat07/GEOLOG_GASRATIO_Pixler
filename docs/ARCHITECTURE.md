@@ -119,16 +119,29 @@ Haworth/Pixler; основа решения сохраняется в evidence.
 Общий exporter сохраняет полный ряд
 Dataset. Стандартная report model не содержит ОПУС-метод.
 
-Целевое расширение **`OPUS Gasomer`** реализуется как второй versioned profile внутри того же
+Расширение **`OPUS Gasomer`** реализовано как второй versioned profile внутри того же
 изолированного контура, но не меняет профиль `opus-lukyanov-c1-c5-relative-1987-1997`.
 Его знаменатель — отдельный синхронный TotalGas; пять индикаторов получают имена
-`OPUS_GM_1…OPUS_GM_5`, чтобы не столкнуться с существующими `OPUS3/OPUS4`. Чистый расчётный
-слой выполняет построчный расчёт, LOD guards, уникальную моду с явной ничьей и агрегацию
-поддержки внутри интервала. Детектор использует локальный фон, `ΔTG`, robust z-score и контраст
-с LOD-floor; `0,1 % об.` является warning источника, а не блокирующим условием.
+`OPUS_GM_1…OPUS_GM_5`, чтобы не столкнуться с существующими `OPUS3/OPUS4`. Versioned JSON и
+чистое vectorized-ядро в `calculations.opus_gasomer` выполняют синхронный построчный расчёт,
+точное ppm↔`% об.`, LOD/QC states и уникальную моду с явной ничьей без изменения source arrays.
+Тот же слой агрегирует поддержку синхронных классов внутри интервала и хранит class/QC/vote
+distributions. Legacy MAX возвращается только отдельным compatibility-result с explicit
+maximum span и source depth каждого максимума. Чистый detector использует локальный robust
+фон, `ΔTG`, robust z-score и контраст
+с обязательным приборным LOD-floor; `0,1 % об.` является warning источника, а не блокирующим
+условием. Параметры detector хранятся в том же versioned JSON и помечены как engineering
+defaults до полевой калибровки. Для строго регулярной depth-оси rolling median/MAD выполняется
+векторно bounded-блоками до `1 500 000` window elements; нерегулярная монотонная ось сохраняет
+физический two-pointer fallback. Поэтому memory зависит линейно от выходных массивов, а
+временное rolling-окно имеет фиксированный верхний budget.
 
-Report model хранит прямой результат каждого профиля, независимый Haworth/Pixler, доступность
-пяти показателей, поддержку, QC и provenance раздельно. Exporter не пересчитывает эти значения.
+`HydrocarbonInterpretationReport.opus_gasomer` хранит immutable snapshot прямого результата:
+версию/статус профиля, точные формулы, source curve identities и units, LOD, detector evidence,
+класс/support интервала, пять медианных значений/голосов, QC distributions и workbook
+provenance. HTML, PDF/печать, XLSX и DOCX читают этот snapshot и не пересчитывают значения.
+UI принимает LOD независимого TotalGas в исходной единице; ноль означает отсутствие LOD и
+запрещает запуск локального detector без удаления исторического отчёта.
 Legacy-расчёт по независимым MAX допускается только для одного выбранного короткого интервала и
 получает отдельный compatibility marker. Полный контракт:
 [OPUS_GASOMER_IMPLEMENTATION.md](OPUS_GASOMER_IMPLEMENTATION.md).

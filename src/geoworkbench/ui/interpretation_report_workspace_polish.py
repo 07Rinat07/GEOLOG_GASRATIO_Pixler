@@ -223,6 +223,7 @@ class InterpretationReportWorkspace(_DrillingInterpretationReportWorkspace):
         analysis_form.addRow(self.report_mode_label, self.report_mode)
         analysis_form.addRow(self.normal_density_label, self.normal_density)
         analysis_form.addRow(self.threshold_label, self.threshold)
+        analysis_form.addRow(self.total_gas_lod_label, self.total_gas_lod)
         analysis_layout.addLayout(analysis_form)
         grid.addWidget(self.analysis_settings_card, 0, 0)
 

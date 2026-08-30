@@ -73,6 +73,58 @@ class ManualInterpretationInterval:
 
 
 @dataclass(frozen=True, slots=True)
+class OpusGasomerIndicatorReport:
+    mnemonic: str
+    formula: str
+    median_value: float | None
+    class_code: int
+    class_label: str
+    vote_support: float
+    available_rows: int
+    total_rows: int
+    vote_counts: tuple[tuple[int, int], ...]
+    state_counts: tuple[tuple[str, int], ...]
+
+
+@dataclass(frozen=True, slots=True)
+class OpusGasomerIntervalReport:
+    top_depth: float
+    bottom_depth: float
+    class_code: int
+    class_label: str
+    support_fraction: float
+    valid_rows: int
+    total_rows: int
+    background_median: float | None
+    peak_total_gas: float | None
+    delta_peak: float | None
+    max_robust_z: float | None
+    max_contrast: float | None
+    indicators: tuple[OpusGasomerIndicatorReport, ...]
+    warnings: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class OpusGasomerReportSection:
+    profile_id: str
+    profile_version: str
+    profile_status: str
+    calculation_mode: str
+    interval_source: str
+    working_unit: str
+    total_gas_lod: float | None
+    input_curves: tuple[tuple[str, str], ...]
+    input_units: tuple[tuple[str, str], ...]
+    formulas: tuple[tuple[str, str], ...]
+    class_labels: tuple[tuple[int, str], ...]
+    source_workbook_sha256: str
+    provenance: tuple[str, ...]
+    errata: tuple[str, ...]
+    intervals: tuple[OpusGasomerIntervalReport, ...]
+    warnings: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class HydrocarbonInterpretationReport:
     project_name: str
     well_name: str
@@ -89,6 +141,7 @@ class HydrocarbonInterpretationReport:
     manual_intervals: tuple[ManualInterpretationInterval, ...]
     warnings: tuple[str, ...]
     report_profile: str = "standard"
+    opus_gasomer: OpusGasomerReportSection | None = None
 
 
 @dataclass(frozen=True, slots=True)

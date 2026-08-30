@@ -1,0 +1,64 @@
+{
+  "schema": "geoworkbench.opus-gasomer-workbook-control/v1",
+  "fixture_id": "gasomer.xls.report-row-2-4.v1",
+  "source": {
+    "file_name": "Газомер.xls",
+    "sha256": "bd70ce36ac9f99f56267c7fc24b51bf4ba0a26e2ffb86e768b282e1bd5201818",
+    "sheet": "отчет по газу",
+    "read_mode": "Excel COM ReadOnly",
+    "input_cells": "N7:S8",
+    "indicator_cells": "Y2:AC2",
+    "vote_cells": "Y4:AC4",
+    "consensus_cell": "AD4"
+  },
+  "legacy_max_inputs": {
+    "TotalGas": 9.0,
+    "C1": 3.0,
+    "C2": 2.0,
+    "C3": 1.0,
+    "C4": 1.0,
+    "C5": 1.0
+  },
+  "normalized_percent": {
+    "p1": 33.333333333333336,
+    "p2": 22.22222222222222,
+    "p3": 11.11111111111111,
+    "p4": 11.11111111111111,
+    "p5": 11.11111111111111
+  },
+  "indicator_values": {
+    "OPUS_GM_1": 0.6666666666666669,
+    "OPUS_GM_2": 0.09375,
+    "OPUS_GM_3": 2743.4842249657063,
+    "OPUS_GM_4": 203221.05370116342,
+    "OPUS_GM_5": 5080526.342529085
+  },
+  "indicator_votes": {
+    "OPUS_GM_1": 2,
+    "OPUS_GM_2": 2,
+    "OPUS_GM_3": 2,
+    "OPUS_GM_4": 2,
+    "OPUS_GM_5": 1
+  },
+  "workbook_consensus": {
+    "formula": "MODE(Y4:AC4)",
+    "class_code": 2,
+    "class_label_ru": "Нефть"
+  },
+  "legacy_max_ranges": {
+    "TotalGas": "D9:D4255",
+    "C1": "E9:E4255",
+    "C2": "F9:F4255",
+    "C3": "G9:G4255",
+    "C4": "I9:I4255",
+    "C5": "K9:K4255"
+  },
+  "errata_control": {
+    "cell": "AB4",
+    "source_expression": "AB2>AB5=250000",
+    "corrected_expression": "AB2>=250000",
+    "boundary_value": 250000.0,
+    "source_branch_reachable": false,
+    "corrected_class_code_at_boundary": 1
+  }
+}
