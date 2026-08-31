@@ -144,7 +144,7 @@ python scripts/run_tests.py -p no:cacheprovider
 <p align="center">
   <img
     src="docs/assets/author-rinat-sarmuldin.png"
-    alt="Rinat Sarmuldin — автор и разработчик GEOLOG GASRATIO@Pixler"
+    alt="Логотип GEOLOG GASRATIO@Pixler"
     width="720"
   >
 </p>
