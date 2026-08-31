@@ -131,7 +131,7 @@ def test_repository_saves_utf8_atomically(tmp_path) -> None:
     assert target.exists()
     assert restored.name == "Глубинная форма"
     raw = json.loads(target.read_text(encoding="utf-8"))
-    assert raw["schema_version"] == 15
+    assert raw["schema_version"] == 16
 
 
 def test_form_v13_migrates_to_visible_automatic_inner_ruler() -> None:
@@ -149,7 +149,7 @@ def test_form_v13_migrates_to_visible_automatic_inner_ruler() -> None:
     restored = form_from_dict(payload)
 
     assert restored.columns[0].tracks[0].vertical_ruler == VerticalRulerTrackSettings()
-    assert form_to_dict(restored)["schema_version"] == 15
+    assert form_to_dict(restored)["schema_version"] == 16
 
 
 def test_repository_lists_and_deletes(tmp_path) -> None:
@@ -478,6 +478,7 @@ def test_masterlog_screen_form_matches_reference_column_order() -> None:
     assert [item.canonical_parameter_id for item in calc_track.bindings] == [
         "CACO3",
         "CAMG_CO3_2",
+        "INSOLUBLE_RESIDUE",
     ]
     gas_bindings = form.columns[7].tracks[0].bindings
     assert [item.canonical_parameter_id for item in gas_bindings] == [
@@ -534,7 +535,7 @@ def test_v8_form_migrates_logarithmic_bindings_to_linear_defaults() -> None:
     assert binding.x_scale.value == "linear"
     assert binding.x_min == 0.0
     assert binding.x_max == 100.0
-    assert form_to_dict(restored)["schema_version"] == 15
+    assert form_to_dict(restored)["schema_version"] == 16
 
 
 def test_every_factory_form_binding_is_linear_by_default() -> None:

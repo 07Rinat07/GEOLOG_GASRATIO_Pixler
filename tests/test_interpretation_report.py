@@ -1,8 +1,10 @@
 from dataclasses import replace
+import zipfile
 
 import fitz
 import numpy as np
 import pytest
+from openpyxl import load_workbook
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QPushButton, QTextBrowser, QTextEdit
@@ -12,6 +14,10 @@ from geoworkbench.printing.interpretation_report import (
     build_interpretation_report,
     export_interpretation_report_pdf,
     interpretation_report_html,
+)
+from geoworkbench.printing.interpretation_report_office import (
+    export_interpretation_report_docx,
+    export_interpretation_report_xlsx,
 )
 from geoworkbench.project.cuttings_controller import CuttingsController
 from geoworkbench.project.session import ProjectSession
@@ -294,6 +300,56 @@ def test_interpretation_report_exports_pdf(qapp, tmp_path) -> None:
     assert "Lower Cretaceous" in text
 
 
+def test_interpretation_report_exports_excel_and_word(tmp_path) -> None:
+    report = build_interpretation_report(_session())
+    report = replace(
+        report,
+        entries=(
+            replace(report.entries[0], rock_description="=2+2"),
+            *report.entries[1:],
+        ),
+    )
+    xlsx = tmp_path / "geology.xlsx"
+    docx = tmp_path / "geology.docx"
+
+    export_interpretation_report_xlsx(
+        report, xlsx, language=AppLanguage.RU
+    )
+    export_interpretation_report_docx(
+        report, docx, language=AppLanguage.RU
+    )
+
+    workbook = load_workbook(xlsx, data_only=False)
+    assert len(workbook.sheetnames) == 5
+    summary_values = tuple(
+        cell.value
+        for row in workbook[workbook.sheetnames[0]].iter_rows()
+        for cell in row
+    )
+    assert "Фактические отборы" in summary_values
+    assert "отсчётов" not in summary_values
+    gas_sheet = workbook[workbook.sheetnames[3]]
+    gas_values = tuple(
+        cell.value for row in gas_sheet.iter_rows() for cell in row
+    )
+    assert "Сумма компонентов" in gas_values
+    assert "TG" in gas_values
+    samples_sheet = workbook[workbook.sheetnames[2]]
+    sample_values = tuple(
+        cell.value for row in samples_sheet.iter_rows() for cell in row
+    )
+    assert "Нерастворимый остаток, %" in sample_values
+    assert "Petroleum" in sample_values
+    assert "'=2+2" in sample_values
+
+    with zipfile.ZipFile(docx) as package:
+        document_xml = package.read("word/document.xml").decode("utf-8")
+    assert "Фактические интервалы отбора шлама" in document_xml
+    assert "Сумма компонентов" in document_xml
+    assert "Petroleum" in document_xml
+    assert "Нерастворимый остаток" in document_xml
+
+
 def test_interpretation_report_dialog_previews_report(qapp) -> None:
     dialog = InterpretationReportDialog(_session(), language=AppLanguage.EN)
     dialog.resize(720, 420)
@@ -307,6 +363,12 @@ def test_interpretation_report_dialog_previews_report(qapp) -> None:
 
     preview = dialog.findChild(QTextBrowser, "interpretation-report-preview")
     export_button = dialog.findChild(QPushButton, "interpretation-report-export")
+    xlsx_button = dialog.findChild(
+        QPushButton, "interpretation-report-export-xlsx"
+    )
+    docx_button = dialog.findChild(
+        QPushButton, "interpretation-report-export-docx"
+    )
 
     assert preview is not None
     assert "Manual conclusion" in preview.toPlainText()
@@ -326,4 +388,6 @@ def test_interpretation_report_dialog_previews_report(qapp) -> None:
     canvas_pixel = image.pixelColor(max(0, image.width() - 8), max(0, image.height() - 8))
     assert canvas_pixel.lightness() > 220
     assert export_button is not None and export_button.text() == "Export PDF..."
+    assert xlsx_button is not None and xlsx_button.text() == "Export Excel..."
+    assert docx_button is not None and docx_button.text() == "Export Word..."
     dialog.close()

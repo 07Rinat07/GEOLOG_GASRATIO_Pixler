@@ -29,7 +29,7 @@ from geoworkbench.tablet.vertical_ruler import (
 )
 
 
-FORM_SCHEMA_VERSION = 15
+FORM_SCHEMA_VERSION = 16
 
 
 class FormFormatError(ValueError):
@@ -83,6 +83,8 @@ def form_to_dict(form: FormDocument) -> dict[str, Any]:
                         "title_position": track.title_position,
                         "show_interval_labels": track.show_interval_labels,
                         "lba_label_orientation": track.lba_label_orientation,
+                        "calcimetry_label_orientation": track.calcimetry_label_orientation,
+                        "show_description_borders": track.show_description_borders,
                         "vertical_ruler": {
                             "mode": track.vertical_ruler.mode.value,
                             "label_every_major": track.vertical_ruler.label_every_major,
@@ -235,6 +237,14 @@ def _track_from_dict(data: object) -> FormTrack:
             "lba_label_orientation",
             default="vertical_bottom_to_top",
         ),
+        calcimetry_label_orientation=_string(
+            data,
+            "calcimetry_label_orientation",
+            default="horizontal",
+        ),
+        show_description_borders=_boolean(
+            data, "show_description_borders", default=True
+        ),
         vertical_ruler=_vertical_ruler_from_dict(data.get("vertical_ruler")),
         bindings=[_binding_from_dict(item) for item in _list(data, "bindings", default=[])],
     )
@@ -275,7 +285,7 @@ def _migrate_form(data: dict[str, Any]) -> dict[str, Any]:
     version = data.get("schema_version", 0)
     if version == FORM_SCHEMA_VERSION:
         return data
-    if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14):
+    if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15):
         raise FormFormatError("Неподдерживаемая версия схемы формы")
     migrated = deepcopy(data)
     if version == 0:
@@ -302,6 +312,8 @@ def _migrate_form(data: dict[str, Any]) -> dict[str, Any]:
                         track.setdefault(
                             "lba_label_orientation", "vertical_bottom_to_top"
                         )
+                        track.setdefault("calcimetry_label_orientation", "horizontal")
+                        track.setdefault("show_description_borders", True)
                         track.setdefault("grid_major_divisions", 5)
                         track.setdefault("grid_minor_divisions", 5)
                         track.setdefault("grid_print", True)

@@ -23,7 +23,7 @@ from geoworkbench.tablet.vertical_ruler import (
 )
 
 
-LAYOUT_FORMAT_VERSION = 23
+LAYOUT_FORMAT_VERSION = 24
 
 
 class TabletLayoutFormatError(ValueError):
@@ -52,6 +52,8 @@ def layout_to_dict(layout: TabletLayout) -> dict[str, Any]:
                 "title_position": track.title_position,
                 "show_interval_labels": track.show_interval_labels,
                 "lba_label_orientation": track.lba_label_orientation,
+                "calcimetry_label_orientation": track.calcimetry_label_orientation,
+                "show_description_borders": track.show_description_borders,
                 "vertical_ruler": {
                     "mode": track.vertical_ruler.mode.value,
                     "label_every_major": (
@@ -215,6 +217,10 @@ def _track_from_dict(data: object) -> TrackDefinition:
     lba_label_orientation = data.get(
         "lba_label_orientation", "vertical_bottom_to_top"
     )
+    calcimetry_label_orientation = data.get(
+        "calcimetry_label_orientation", "horizontal"
+    )
+    show_description_borders = data.get("show_description_borders", True)
     raw_vertical_ruler = data.get("vertical_ruler", {})
     raw_mnemonics = data.get("curve_mnemonics", [])
     width = data.get("width", 260)
@@ -241,8 +247,12 @@ def _track_from_dict(data: object) -> TrackDefinition:
         raise TypeError("Настройки заголовка трека должны быть строками")
     if not isinstance(lba_label_orientation, str):
         raise TypeError("Направление подписей ЛБА должно быть строкой")
+    if not isinstance(calcimetry_label_orientation, str):
+        raise TypeError("Направление подписей кальциметрии должно быть строкой")
     if not isinstance(show_interval_labels, bool):
         raise TypeError("show_interval_labels должен быть логическим")
+    if not isinstance(show_description_borders, bool):
+        raise TypeError("show_description_borders должен быть логическим")
     if not isinstance(raw_vertical_ruler, dict):
         raise TypeError("vertical_ruler должен быть JSON-объектом")
     vertical_ruler = VerticalRulerTrackSettings(
@@ -332,6 +342,8 @@ def _track_from_dict(data: object) -> TrackDefinition:
         title_position=title_position,
         show_interval_labels=show_interval_labels,
         lba_label_orientation=lba_label_orientation,
+        calcimetry_label_orientation=calcimetry_label_orientation,
+        show_description_borders=show_description_borders,
         vertical_ruler=vertical_ruler,
         curve_mnemonics=list(raw_mnemonics),
         width=width,
@@ -357,7 +369,7 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
     if version == LAYOUT_FORMAT_VERSION:
         return data
     if version not in (
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23
     ):
         raise TabletLayoutFormatError("Неподдерживаемая версия компоновки планшета")
     migrated = deepcopy(data)
@@ -515,6 +527,8 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
                 track.setdefault(
                     "lba_label_orientation", "vertical_bottom_to_top"
                 )
+                track.setdefault("calcimetry_label_orientation", "horizontal")
+                track.setdefault("show_description_borders", True)
     migrated["version"] = LAYOUT_FORMAT_VERSION
     return migrated
 

@@ -114,6 +114,8 @@ class FormTrack:
         default_factory=VerticalRulerTrackSettings
     )
     lba_label_orientation: str = "vertical_bottom_to_top"
+    calcimetry_label_orientation: str = "horizontal"
+    show_description_borders: bool = True
 
     def __post_init__(self) -> None:
         _require_id(self.track_id, "track_id")
@@ -139,8 +141,13 @@ class FormTrack:
         self.lba_label_orientation = normalize_text_orientation(
             self.lba_label_orientation
         )
+        self.calcimetry_label_orientation = normalize_text_orientation(
+            self.calcimetry_label_orientation
+        )
         if not isinstance(self.show_interval_labels, bool):
             raise ValueError("show_interval_labels должен быть логическим")
+        if not isinstance(self.show_description_borders, bool):
+            raise ValueError("show_description_borders должен быть логическим")
         if not isinstance(self.vertical_ruler, VerticalRulerTrackSettings):
             raise ValueError(
                 "Настройки внутренней вертикальной шкалы имеют неверный тип"
@@ -167,6 +174,8 @@ class FormTrack:
         title_position: str = "center",
         show_interval_labels: bool = False,
         lba_label_orientation: str = "vertical_bottom_to_top",
+        calcimetry_label_orientation: str = "horizontal",
+        show_description_borders: bool = True,
         vertical_ruler: VerticalRulerTrackSettings | None = None,
     ) -> FormTrack:
         return cls(
@@ -187,6 +196,8 @@ class FormTrack:
             title_position=title_position,
             show_interval_labels=show_interval_labels,
             lba_label_orientation=lba_label_orientation,
+            calcimetry_label_orientation=calcimetry_label_orientation,
+            show_description_borders=show_description_borders,
             vertical_ruler=vertical_ruler or VerticalRulerTrackSettings(),
         )
 

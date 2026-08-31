@@ -32,6 +32,8 @@ A4_FACTORY_TEMPLATE_IDS: tuple[str, ...] = (
     "factory-daily-a4-landscape",
     "factory-complex-gas-a4-portrait",
     "factory-complex-gas-a4-landscape",
+    "factory-composite-log-a4-portrait",
+    "factory-composite-log-a4-landscape",
 )
 
 _TEXT = {
@@ -53,6 +55,11 @@ _TEXT = {
         "kk": "C1–C5 интеграцияланған газ каротажы",
         "en": "Integrated C1–C5 gas log",
     },
+    "composite_log": {
+        "ru": "Композитный каротаж",
+        "kk": "Композиттік каротаж",
+        "en": "Composite Log",
+    },
     "stratigraphy": {"ru": "Стратиграфия", "kk": "Стратиграфия", "en": "Stratigraphy"},
     "lithology": {"ru": "Литология", "kk": "Литология", "en": "Lithology"},
     "cuttings": {"ru": "Шламограмма", "kk": "Шламограмма", "en": "Cuttings log"},
@@ -62,6 +69,9 @@ _TEXT = {
         "en": "Rock description",
     },
     "calcimetry": {"ru": "Кальциметрия", "kk": "Кальциметрия", "en": "Calcimetry"},
+    "calcite_short": {"ru": "Кальцит", "kk": "Кальцит", "en": "Calcite"},
+    "dolomite_short": {"ru": "Дол.", "kk": "Дол.", "en": "Dol."},
+    "insoluble_short": {"ru": "Н.О.", "kk": "Е.Қ.", "en": "I.R."},
     "lba": {"ru": "ЛБА", "kk": "ЛБА", "en": "LBA"},
     "drilling": {"ru": "Бурение", "kk": "Бұрғылау", "en": "Drilling"},
     "gas": {
@@ -128,6 +138,38 @@ _TEXT = {
         "kk": "Шығыстағы ерітінді температурасы",
         "en": "Mud temperature out",
     },
+    "correlation": {
+        "ru": "Корреляция и ствол",
+        "kk": "Корреляция және ұңғыма оқпаны",
+        "en": "Correlation and borehole",
+    },
+    "resistivity": {
+        "ru": "Удельное сопротивление",
+        "kk": "Меншікті кедергі",
+        "en": "Resistivity",
+    },
+    "density_neutron": {
+        "ru": "Плотностной–нейтронный",
+        "kk": "Тығыздық–нейтрондық",
+        "en": "Density–neutron",
+    },
+    "sonic": {
+        "ru": "Акустический каротаж",
+        "kk": "Акустикалық каротаж",
+        "en": "Sonic log",
+    },
+    "gamma_ray": {"ru": "Гамма-каротаж", "kk": "Гамма-каротаж", "en": "Gamma ray"},
+    "sp": {"ru": "Потенциал ПС", "kk": "Өздік потенциал", "en": "Spontaneous potential"},
+    "caliper": {"ru": "Кавернометрия", "kk": "Кавернометрия", "en": "Caliper"},
+    "bit_size": {"ru": "Диаметр долота", "kk": "Қашау диаметрі", "en": "Bit diameter"},
+    "deep_resistivity": {"ru": "Глубокое УЭС", "kk": "Терең кедергі", "en": "Deep resistivity"},
+    "medium_resistivity": {"ru": "Среднее УЭС", "kk": "Орта кедергі", "en": "Medium resistivity"},
+    "shallow_resistivity": {"ru": "Микро УЭС", "kk": "Микро кедергі", "en": "Shallow resistivity"},
+    "bulk_density": {"ru": "Объёмная плотность", "kk": "Көлемдік тығыздық", "en": "Bulk density"},
+    "neutron_porosity": {"ru": "Нейтронная пористость", "kk": "Нейтрондық кеуектілік", "en": "Neutron porosity"},
+    "photoelectric": {"ru": "Фотоэлектрический фактор", "kk": "Фотоэлектрлік фактор", "en": "Photoelectric factor"},
+    "density_correction": {"ru": "Поправка плотности", "kk": "Тығыздық түзетуі", "en": "Density correction"},
+    "sonic_interval_time": {"ru": "Интервальное время", "kk": "Интервалдық уақыт", "en": "Interval transit time"},
 }
 
 
@@ -226,8 +268,30 @@ def _masterlog(language: TemplateLanguage, orientation: str) -> FormDocument:
             TrackKind.CALCIMETRY,
             60 if landscape else 48,
             [
-                _binding("CACO3", "CaCO3", "%", "#06b6d4", x_min=0, x_max=100),
-                _binding("CAMG_CO3_2", "CaMg(CO3)2", "%", "#8b5cf6", x_min=0, x_max=100),
+                _binding(
+                    "CACO3",
+                    _t("calcite_short", language),
+                    "%",
+                    "#06b6d4",
+                    x_min=0,
+                    x_max=100,
+                ),
+                _binding(
+                    "CAMG_CO3_2",
+                    _t("dolomite_short", language),
+                    "%",
+                    "#8b5cf6",
+                    x_min=0,
+                    x_max=100,
+                ),
+                _binding(
+                    "INSOLUBLE_RESIDUE",
+                    _t("insoluble_short", language),
+                    "%",
+                    "#94a3b8",
+                    x_min=0,
+                    x_max=100,
+                ),
             ],
         ),
         _special_column(
@@ -445,6 +509,91 @@ def _complex_gas(language: TemplateLanguage, orientation: str) -> FormDocument:
     return _finalize(form, "gas_interpretation", orientation)
 
 
+def _composite_log(
+    language: TemplateLanguage, orientation: str
+) -> FormDocument:
+    """Build an editable conventional open-hole composite well-log layout."""
+
+    landscape = orientation == "landscape"
+    widths = (
+        (55, 168, 190, 210, 145, 70, 55, 140)
+        if landscape
+        else (48, 110, 128, 142, 100, 48, 48, 80)
+    )
+    columns = [
+        _axis(FormAxisKind.DEPTH, language, widths[0]),
+        _curve_column(
+            f"column-composite-{orientation}-correlation",
+            _t("correlation", language),
+            [
+                _binding("GR", _t("gamma_ray", language), "gAPI", "#16a34a", x_min=0, x_max=200),
+                _binding("SP", _t("sp", language), "mV", "#2563eb", x_min=-100, x_max=100),
+                _binding("CALI", _t("caliper", language), "in", "#dc2626", x_min=6, x_max=16),
+                _binding("BS", _t("bit_size", language), "in", "#111827", x_min=6, x_max=16),
+            ],
+            widths[1],
+        ),
+        _curve_column(
+            f"column-composite-{orientation}-resistivity",
+            _t("resistivity", language),
+            [
+                _binding("ILD", _t("deep_resistivity", language), "ohm·m", "#dc2626", x_min=0.2, x_max=2000, x_scale=XScale.LOGARITHMIC),
+                _binding("ILM", _t("medium_resistivity", language), "ohm·m", "#2563eb", x_min=0.2, x_max=2000, x_scale=XScale.LOGARITHMIC),
+                _binding("MSFL", _t("shallow_resistivity", language), "ohm·m", "#16a34a", x_min=0.2, x_max=2000, x_scale=XScale.LOGARITHMIC),
+            ],
+            widths[2],
+        ),
+        _curve_column(
+            f"column-composite-{orientation}-porosity",
+            _t("density_neutron", language),
+            [
+                _binding("RHOB", _t("bulk_density", language), "g/cm³", "#dc2626", x_min=1.95, x_max=2.95),
+                _binding("NPHI", _t("neutron_porosity", language), "%", "#2563eb", x_min=-15, x_max=45),
+                _binding("PEF", _t("photoelectric", language), "b/e", "#9333ea", x_min=0, x_max=10),
+                _binding("DRHO", _t("density_correction", language), "g/cm³", "#64748b", x_min=-0.25, x_max=0.25),
+            ],
+            widths[3],
+        ),
+        _curve_column(
+            f"column-composite-{orientation}-sonic",
+            _t("sonic", language),
+            [
+                _binding("DT", _t("sonic_interval_time", language), "µs/ft", "#0f766e", x_min=40, x_max=140),
+            ],
+            widths[4],
+        ),
+        _special_column(
+            f"column-composite-{orientation}-lithology",
+            _t("lithology", language),
+            TrackKind.LITHOLOGY,
+            widths[5],
+        ),
+        _special_column(
+            f"column-composite-{orientation}-stratigraphy",
+            _t("stratigraphy", language),
+            TrackKind.STRATIGRAPHY,
+            widths[6],
+        ),
+        _special_column(
+            f"column-composite-{orientation}-description",
+            _t("rock_description", language),
+            TrackKind.TEXT,
+            widths[7],
+        ),
+    ]
+    return _finalize(
+        _factory(
+            f"factory-composite-log-a4-{orientation}",
+            _name("composite_log", language, orientation),
+            FormAxisKind.DEPTH,
+            columns,
+            language,
+        ),
+        "masterlog",
+        orientation,
+    )
+
+
 def a4_factory_templates(language: str = "ru") -> dict[str, FormDocument]:
     lang = _language(language)
     forms = {
@@ -456,5 +605,7 @@ def a4_factory_templates(language: str = "ru") -> dict[str, FormDocument]:
         "factory-daily-a4-landscape": _daily(lang, "landscape"),
         "factory-complex-gas-a4-portrait": _complex_gas(lang, "portrait"),
         "factory-complex-gas-a4-landscape": _complex_gas(lang, "landscape"),
+        "factory-composite-log-a4-portrait": _composite_log(lang, "portrait"),
+        "factory-composite-log-a4-landscape": _composite_log(lang, "landscape"),
     }
     return {form_id: deepcopy(forms[form_id]) for form_id in A4_FACTORY_TEMPLATE_IDS}

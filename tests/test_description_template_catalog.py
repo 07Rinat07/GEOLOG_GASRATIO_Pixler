@@ -13,7 +13,7 @@ SOURCE = ROOT / "src/geoworkbench/resources/rock_description_templates.json"
 def test_factory_rock_description_catalog_contains_all_source_templates() -> None:
     catalog = load_rock_description_templates()
 
-    assert len(catalog.templates) == 18
+    assert len(catalog.templates) == 19
     assert {template.template_id for template in catalog.templates} == {
         "clay",
         "argillite",
@@ -26,6 +26,7 @@ def test_factory_rock_description_catalog_contains_all_source_templates() -> Non
         "marl",
         "argillaceous_limestone",
         "limestone",
+        "dolomite",
         "gypsum",
         "anhydrite",
         "halite",
@@ -64,4 +65,4 @@ def test_catalog_resource_is_valid_json() -> None:
     payload = json.loads(SOURCE.read_text(encoding="utf-8"))
 
     assert payload["schema_version"] == 1
-    assert len(payload["templates"]) == 18
+    assert len(payload["templates"]) == 19

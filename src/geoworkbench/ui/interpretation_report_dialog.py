@@ -23,6 +23,11 @@ from geoworkbench.printing.interpretation_report import (
     export_interpretation_report_pdf,
     interpretation_report_html,
 )
+from geoworkbench.printing.interpretation_report_office import (
+    InterpretationReportOfficeError,
+    export_interpretation_report_docx,
+    export_interpretation_report_xlsx,
+)
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.report_passport import (
@@ -93,6 +98,22 @@ class InterpretationReportDialog(QDialog):
         self.export_button.setObjectName("interpretation-report-export")
         self.export_button.clicked.connect(self._export_pdf)
         buttons.addButton(self.export_button, QDialogButtonBox.ButtonRole.ActionRole)
+        self.export_xlsx_button = QPushButton(
+            self._t("interpretation_report.export_xlsx")
+        )
+        self.export_xlsx_button.setObjectName("interpretation-report-export-xlsx")
+        self.export_xlsx_button.clicked.connect(self._export_xlsx)
+        buttons.addButton(
+            self.export_xlsx_button, QDialogButtonBox.ButtonRole.ActionRole
+        )
+        self.export_docx_button = QPushButton(
+            self._t("interpretation_report.export_docx")
+        )
+        self.export_docx_button.setObjectName("interpretation-report-export-docx")
+        self.export_docx_button.clicked.connect(self._export_docx)
+        buttons.addButton(
+            self.export_docx_button, QDialogButtonBox.ButtonRole.ActionRole
+        )
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
@@ -130,7 +151,9 @@ class InterpretationReportDialog(QDialog):
                 return
             overwrite = True
         try:
-            passport = self._build_report_passport()
+            passport = self._build_report_passport(
+                output_format="pdf", renderer="interpretation-report-html:3"
+            )
             exported = export_interpretation_report_pdf(
                 self.report,
                 target,
@@ -153,7 +176,84 @@ class InterpretationReportDialog(QDialog):
         )
         QMessageBox.information(self, self._t("interpretation_report.title"), message)
 
-    def _build_report_passport(self):
+    def _export_xlsx(self) -> None:
+        self._export_office("xlsx")
+
+    def _export_docx(self) -> None:
+        self._export_office("docx")
+
+    def _export_office(self, output_format: str) -> None:
+        safe_well_name = "".join(
+            character if character.isalnum() or character in "-_" else "_"
+            for character in self.report.well_name
+        ).strip("_")
+        is_xlsx = output_format == "xlsx"
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            self._t(
+                "interpretation_report.save_xlsx_title"
+                if is_xlsx
+                else "interpretation_report.save_docx_title"
+            ),
+            str(
+                Path.cwd()
+                / f"{safe_well_name or 'well'}-geology-report.{output_format}"
+            ),
+            "Excel (*.xlsx)" if is_xlsx else "Word (*.docx)",
+        )
+        if not filename:
+            return
+        target = Path(filename)
+        suffix = f".{output_format}"
+        if target.suffix.casefold() != suffix:
+            target = target.with_suffix(suffix)
+        overwrite = False
+        sidecar = passport_sidecar_path(target)
+        existing = target if target.exists() else sidecar if sidecar.exists() else None
+        if existing is not None:
+            answer = QMessageBox.question(
+                self,
+                self._t("interpretation_report.title"),
+                self._t("export.overwrite_question", name=existing.name),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                return
+            overwrite = True
+        try:
+            passport = self._build_report_passport(
+                output_format=output_format,
+                renderer=f"interpretation-report-{output_format}:1",
+            )
+            exporter = (
+                export_interpretation_report_xlsx
+                if is_xlsx
+                else export_interpretation_report_docx
+            )
+            exported = exporter(
+                self.report,
+                target,
+                language=self.language,
+                overwrite=overwrite,
+                passport=passport,
+            )
+        except (
+            FileExistsError,
+            InterpretationReportOfficeError,
+            OSError,
+            ReportPassportError,
+            ValueError,
+        ) as exc:
+            QMessageBox.critical(self, self._t("interpretation_report.title"), str(exc))
+            return
+        message = self._t("interpretation_report.exported", name=exported.name)
+        message += "\n" + self._t(
+            "report_passport.saved", name=passport_sidecar_path(exported).name
+        )
+        QMessageBox.information(self, self._t("interpretation_report.title"), message)
+
+    def _build_report_passport(self, *, output_format: str, renderer: str):
         dataset = self.session.current_dataset
         index_type = dataset.active_index.index_type.value if dataset is not None else "md"
         unit = dataset.active_index.unit if dataset is not None else None
@@ -191,8 +291,8 @@ class InterpretationReportDialog(QDialog):
             report_name=self._t("interpretation_report.title"),
             language=self.language,
             render=ReportRenderSettings(
-                renderer="interpretation-report-html:3",
-                output_format="pdf",
+                renderer=renderer,
+                output_format=output_format,
                 page_format="a4",
                 orientation="landscape",
                 dpi=300,

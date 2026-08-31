@@ -9547,14 +9547,23 @@ class TabletView(QWidget):
 
                 text_values = []
                 if calcite is not None:
-                    text_values.append(f"Ca {calcite:g}")
+                    text_values.append(
+                        f"{self._localizer.text('tablet.calcimetry_short_calcite')} {calcite:g}"
+                    )
                 if dolomite is not None:
-                    text_values.append(f"Do {dolomite:g}")
+                    text_values.append(
+                        f"{self._localizer.text('tablet.calcimetry_short_dolomite')} {dolomite:g}"
+                    )
+                if residue is not None:
+                    text_values.append(
+                        f"{self._localizer.text('tablet.calcimetry_short_residue')} {residue:g}"
+                    )
                 label = pg.TextItem(
                     " / ".join(text_values),
                     color="#0f172a",
                     anchor=(0.5, 0.5),
                 )
+                label.setAngle(text_angle(definition.calcimetry_label_orientation))
                 label.setPos(50.0, center)
                 label.setToolTip(tooltip)
                 track.plot.addItem(label)
@@ -9789,7 +9798,10 @@ class TabletView(QWidget):
                 else plain_html(description)
             )
             style = "color:#202020; margin:0; padding:2px;"
-            if definition.kind is TrackKind.INTERPRETATION:
+            if (
+                definition.kind is TrackKind.INTERPRETATION
+                and definition.show_description_borders
+            ):
                 style += " background:#f8fafc; border:1px solid #94a3b8;"
             display_html = f'<div style="{style}">{body}</div>'
             label.setData(_DESCRIPTION_HTML_ROLE, display_html)
@@ -9803,7 +9815,10 @@ class TabletView(QWidget):
             axis_top, axis_bottom = self._depth_interval_to_axis(
                 sample.top_depth, sample.bottom_depth
             )
-            if definition.kind is TrackKind.INTERPRETATION:
+            if (
+                definition.kind is TrackKind.INTERPRETATION
+                or definition.show_description_borders
+            ):
                 interval_block = DeviceTiledRectItem(
                     QRectF(
                         0.0,
@@ -9811,8 +9826,16 @@ class TabletView(QWidget):
                         interpretation_width,
                         max(axis_bottom - axis_top, np.finfo(float).eps),
                     ),
-                    pg.mkBrush("#f8fafc"),
-                    pg.mkPen("#64748b", width=0.8),
+                    (
+                        pg.mkBrush("#f8fafc")
+                        if definition.kind is TrackKind.INTERPRETATION
+                        else pg.mkBrush(255, 255, 255, 0)
+                    ),
+                    (
+                        pg.mkPen("#64748b", width=0.8)
+                        if definition.show_description_borders
+                        else pg.mkPen(None)
+                    ),
                 )
                 interval_block.setZValue(20.0)
                 track.plot.addItem(interval_block)
@@ -9856,6 +9879,20 @@ class TabletView(QWidget):
             axis_top, axis_bottom = self._depth_interval_to_axis(
                 interval.top_depth, interval.bottom_depth
             )
+            if definition.show_description_borders:
+                interval_block = DeviceTiledRectItem(
+                    QRectF(
+                        0.0,
+                        axis_top,
+                        1.0,
+                        max(axis_bottom - axis_top, np.finfo(float).eps),
+                    ),
+                    pg.mkBrush(255, 255, 255, 0),
+                    pg.mkPen("#64748b", width=0.8),
+                )
+                interval_block.setZValue(20.0)
+                track.plot.addItem(interval_block)
+                label.setZValue(21.0)
             label.setPos(0.02, (axis_top + axis_bottom) / 2.0)
             track.plot.addItem(label)
             rendered[interval.interval_id] = label

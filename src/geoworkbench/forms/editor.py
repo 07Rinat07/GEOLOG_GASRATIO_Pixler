@@ -286,6 +286,30 @@ class FormStructureEditor:
         self.form.validate()
         self.dirty = True
 
+    def set_track_calcimetry_label_orientation(
+        self, track_id: str, orientation: str
+    ) -> None:
+        column, track = self.track(track_id)
+        if track.locked or column.locked:
+            raise PermissionError("Дорожка заблокирована")
+        if track.kind is not TrackKind.CALCIMETRY:
+            raise ValueError("Направление подписей доступно только для кальциметрии")
+        validated = replace(track, calcimetry_label_orientation=orientation)
+        track.calcimetry_label_orientation = validated.calcimetry_label_orientation
+        self.form.validate()
+        self.dirty = True
+
+    def set_track_description_borders(self, track_id: str, enabled: bool) -> None:
+        column, track = self.track(track_id)
+        if track.locked or column.locked:
+            raise PermissionError("Дорожка заблокирована")
+        if track.kind not in {TrackKind.TEXT, TrackKind.INTERPRETATION}:
+            raise ValueError("Границы интервалов доступны только для описаний пород")
+        track.show_description_borders = bool(enabled)
+        track.__post_init__()
+        self.form.validate()
+        self.dirty = True
+
     def binding(self, track_id: str, binding_id: str):
         _column, track = self.track(track_id)
         for binding in track.bindings:

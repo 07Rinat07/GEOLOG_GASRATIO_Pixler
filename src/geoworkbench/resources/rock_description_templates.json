@@ -120,6 +120,15 @@
       }
     },
     {
+      "id": "dolomite",
+      "name": {"ru": "Доломиты", "kk": "Доломиттер", "en": "Dolomite"},
+      "text": {
+        "ru": "Доломиты [X%], светло-серые с желтоватым оттенком, скрытокристаллические, массивные, уплотнённые, средней крепости, микротрещиноватые.",
+        "kk": "Доломиттер [X%], сарғыш реңкті ашық сұр, жасырын кристалды, массивті, тығыздалған, орташа берік, микрожарықшақты.",
+        "en": "Dolomite [X%], light gray with a yellowish tint, cryptocrystalline, massive, compacted, moderately strong, microfractured."
+      }
+    },
+    {
       "id": "anhydrite",
       "name": {"ru": "Ангидриты", "kk": "Ангидриттер", "en": "Anhydrite"},
       "text": {

@@ -212,6 +212,8 @@ class FormApplyEngine:
                         title_position=form_track.title_position,
                         show_interval_labels=form_track.show_interval_labels,
                         lba_label_orientation=form_track.lba_label_orientation,
+                        calcimetry_label_orientation=form_track.calcimetry_label_orientation,
+                        show_description_borders=form_track.show_description_borders,
                         vertical_ruler=form_track.vertical_ruler,
                     )
                 )

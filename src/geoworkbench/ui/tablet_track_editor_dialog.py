@@ -157,6 +157,44 @@ class TabletTrackEditorDialog(QDialog):
         is_lba_track = self.track.kind is TrackKind.LBA
         self.lba_label_orientation_label.setVisible(is_lba_track)
         self.lba_label_orientation_input.setVisible(is_lba_track)
+        self.calcimetry_label_orientation_input = QComboBox()
+        for value in TEXT_ORIENTATIONS:
+            self.calcimetry_label_orientation_input.addItem(
+                orientation_labels[value], value
+            )
+        self.calcimetry_label_orientation_input.setCurrentIndex(
+            max(
+                0,
+                self.calcimetry_label_orientation_input.findData(
+                    self.track.calcimetry_label_orientation
+                ),
+            )
+        )
+        self.calcimetry_label_orientation_label = QLabel(
+            self._text(
+                "Направление подписей «Кальцит / Дол. / Н.О.»",
+                "«Кальцит / Дол. / Е.Қ.» жазуларының бағыты",
+                "Calcite / Dol. / I.R. label direction",
+            )
+        )
+        is_calcimetry_track = self.track.kind is TrackKind.CALCIMETRY
+        self.calcimetry_label_orientation_label.setVisible(is_calcimetry_track)
+        self.calcimetry_label_orientation_input.setVisible(is_calcimetry_track)
+        self.show_description_borders_input = QCheckBox(
+            self._text(
+                "Показывать границы интервалов описания пород",
+                "Тау жыныстары сипаттамасының интервал шекараларын көрсету",
+                "Show rock-description interval borders",
+            )
+        )
+        self.show_description_borders_input.setChecked(
+            self.track.show_description_borders
+        )
+        is_description_track = self.track.kind in {
+            TrackKind.TEXT,
+            TrackKind.INTERPRETATION,
+        }
+        self.show_description_borders_input.setVisible(is_description_track)
         self.group_input = QLineEdit(self.track.group_title)
         self.group_input.setPlaceholderText(
             self._text("Например: Геология", "Мысалы: Геология", "For example: Geology")
@@ -190,6 +228,11 @@ class TabletTrackEditorDialog(QDialog):
             self.lba_label_orientation_label,
             self.lba_label_orientation_input,
         )
+        form.addRow(
+            self.calcimetry_label_orientation_label,
+            self.calcimetry_label_orientation_input,
+        )
+        form.addRow(self.show_description_borders_input)
         form.addRow(self._text("Название раздела", "Бөлім атауы", "Section title"), self.group_input)
         form.addRow(self._text("Ширина", "Ені", "Width"), self.width_input)
         form.addRow(self._text("Подпись оси X", "X осінің жазуы", "X-axis label"), self.axis_input)
@@ -448,6 +491,7 @@ class TabletTrackEditorDialog(QDialog):
             self.title_orientation_input,
             self.title_position_input,
             self.lba_label_orientation_input,
+            self.calcimetry_label_orientation_input,
             self.style_input,
             self.scale_input,
             self.auto_range_input,
@@ -466,6 +510,7 @@ class TabletTrackEditorDialog(QDialog):
             spin_box.valueChanged.connect(self._refresh_preview)
         for check_box in (
             self.show_interval_labels_input,
+            self.show_description_borders_input,
         ):
             check_box.toggled.connect(self._refresh_preview)
         self.grid_editor.settings_changed.connect(self._refresh_preview)
@@ -604,6 +649,12 @@ class TabletTrackEditorDialog(QDialog):
         candidate.lba_label_orientation = str(
             self.lba_label_orientation_input.currentData()
             or "vertical_bottom_to_top"
+        )
+        candidate.calcimetry_label_orientation = str(
+            self.calcimetry_label_orientation_input.currentData() or "horizontal"
+        )
+        candidate.show_description_borders = (
+            self.show_description_borders_input.isChecked()
         )
         candidate.group_title = self.group_input.text().strip()
         candidate.width = self.width_input.value()

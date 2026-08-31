@@ -15,9 +15,9 @@ def test_description_templates_dialog_adds_template(qapp) -> None:
     dialog._add()
 
     assert session.project.description_templates["Аргиллит"].startswith("Аргиллит")
-    assert dialog.table.rowCount() == 19
-    assert dialog.table.item(18, 0).text() == "Аргиллит"
-    assert dialog.table.item(18, 2).text() == "Проектный"
+    assert dialog.table.rowCount() == 20
+    assert dialog.table.item(19, 0).text() == "Аргиллит"
+    assert dialog.table.item(19, 2).text() == "Проектный"
     dialog.close()
 
 
@@ -33,7 +33,7 @@ def test_description_templates_dialog_uses_selected_language(qapp) -> None:
     assert dialog.table.horizontalHeaderItem(0).text() == "Name"
     assert dialog.table.horizontalHeaderItem(1).text() == "Text"
     assert dialog.table.horizontalHeaderItem(2).text() == "Source"
-    assert dialog.table.rowCount() == 18
+    assert dialog.table.rowCount() == 19
     assert dialog.table.item(0, 0).text() == "Clay"
     assert dialog.table.item(0, 2).text() == "Built-in"
     assert dialog.findChild(QPushButton, "template-add-button").text() == "Add"

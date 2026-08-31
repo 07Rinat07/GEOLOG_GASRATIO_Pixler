@@ -18,7 +18,7 @@ def test_visible_factory_catalog_contains_only_a4_workflows() -> None:
     forms = visible_factory_forms(None, "ru")
     ids = {form.form_id for form in forms}
 
-    assert len(forms) == 8
+    assert len(forms) == 10
     assert ids.isdisjoint(HIDDEN_FACTORY_TEMPLATE_IDS)
     assert ids == {
         "factory-masterlog-a4-portrait",
@@ -29,6 +29,8 @@ def test_visible_factory_catalog_contains_only_a4_workflows() -> None:
         "factory-daily-a4-landscape",
         "factory-complex-gas-a4-portrait",
         "factory-complex-gas-a4-landscape",
+        "factory-composite-log-a4-portrait",
+        "factory-composite-log-a4-landscape",
     }
 
 

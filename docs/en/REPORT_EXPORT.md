@@ -48,6 +48,12 @@ explicit interpolation policy. A measured zero remains distinct from a missing m
 
 ## Implemented mud-gas interpretation report
 
+The full cuttings-based geological report is available from the interpretation window in three
+formats: PDF for printing, XLSX for analysis, and DOCX for editing. Each retains one-metre geology,
+actual sampling intervals, rock percentages and descriptions, stratigraphy,
+calcite/dolomite/insoluble residue, complete LBA observations, and gas minimum/mean/maximum with a
+separate component sum.
+
 The main workspace now includes a dedicated **Interpretation reports** tab. It produces
 a whole-well report, keeps automatic relative gas-anomaly candidates separate from
 geologist-confirmed intervals, and exports XLSX, DOCX, PDF, or system print. The XLSX

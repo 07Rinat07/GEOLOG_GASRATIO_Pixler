@@ -524,6 +524,7 @@ def _binding(
     line_style: CurveLineStyle = CurveLineStyle.SOLID,
     x_min: float | None = None,
     x_max: float | None = None,
+    x_scale: XScale = XScale.LINEAR,
 ) -> ParameterBinding:
     return ParameterBinding(
         binding_id=f"binding-{code.lower().replace('_', '-')}",
@@ -531,7 +532,7 @@ def _binding(
         display_name=name,
         unit=unit,
         style=CurveStyle(color=color, width=width, line_style=line_style),
-        x_scale=XScale.LINEAR,
+        x_scale=x_scale,
         x_min=x_min,
         x_max=x_max,
     )
@@ -1101,6 +1102,14 @@ def _lithology_cuttings(language: TemplateLanguage) -> FormDocument:
                             x_min=0,
                             x_max=100,
                         ),
+                        _binding(
+                            "INSOLUBLE_RESIDUE",
+                            _t("insoluble_residue", language),
+                            "%",
+                            "#94a3b8",
+                            x_min=0,
+                            x_max=100,
+                        ),
                     ],
                 ),
                 _curve_column(
@@ -1132,6 +1141,14 @@ def _calcimetry(language: TemplateLanguage) -> FormDocument:
                     _binding("CACO3", _t("calcite", language), "%", "#06b6d4", x_min=0, x_max=100),
                     _binding(
                         "CAMG_CO3_2", _t("dolomite", language), "%", "#8b5cf6", x_min=0, x_max=100
+                    ),
+                    _binding(
+                        "INSOLUBLE_RESIDUE",
+                        _t("insoluble_residue", language),
+                        "%",
+                        "#94a3b8",
+                        x_min=0,
+                        x_max=100,
                     ),
                 ],
             ),
@@ -1296,6 +1313,14 @@ def _geodata_depth_workspace(language: TemplateLanguage) -> FormDocument:
                     _binding(
                         "CAMG_CO3_2", _t("dolomite", language), "%", "#86efac", x_min=0, x_max=100
                     ),
+                    _binding(
+                        "INSOLUBLE_RESIDUE",
+                        _t("insoluble_residue", language),
+                        "%",
+                        "#94a3b8",
+                        x_min=0,
+                        x_max=100,
+                    ),
                 ],
                 group_title=geology,
             ),
@@ -1433,6 +1458,15 @@ def _masterlog_geological_geochemical(language: TemplateLanguage) -> FormDocumen
                         _t("dolomite", language),
                         "%",
                         "#8b5cf6",
+                        x_min=0,
+                        x_max=100,
+                        width=2.0,
+                    ),
+                    _binding(
+                        "INSOLUBLE_RESIDUE",
+                        _t("insoluble_residue", language),
+                        "%",
+                        "#94a3b8",
                         x_min=0,
                         x_max=100,
                         width=2.0,

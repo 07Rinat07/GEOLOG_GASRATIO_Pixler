@@ -187,6 +187,8 @@ class TrackDefinition:
         default_factory=VerticalRulerTrackSettings
     )
     lba_label_orientation: str = "vertical_bottom_to_top"
+    calcimetry_label_orientation: str = "horizontal"
+    show_description_borders: bool = True
 
     def __post_init__(self) -> None:
         if not isinstance(self.group_title, str) or len(self.group_title.strip()) > 120:
@@ -196,8 +198,13 @@ class TrackDefinition:
         self.lba_label_orientation = normalize_text_orientation(
             self.lba_label_orientation
         )
+        self.calcimetry_label_orientation = normalize_text_orientation(
+            self.calcimetry_label_orientation
+        )
         if not isinstance(self.show_interval_labels, bool):
             raise ValueError("show_interval_labels должен быть логическим")
+        if not isinstance(self.show_description_borders, bool):
+            raise ValueError("show_description_borders должен быть логическим")
         if not isinstance(self.vertical_ruler, VerticalRulerTrackSettings):
             raise ValueError(
                 "Настройки внутренней вертикальной шкалы имеют неверный тип"

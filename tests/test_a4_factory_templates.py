@@ -17,6 +17,7 @@ PORTRAIT_IDS = {
     "factory-technology-a4-portrait",
     "factory-daily-a4-portrait",
     "factory-complex-gas-a4-portrait",
+    "factory-composite-log-a4-portrait",
 }
 LANDSCAPE_IDS = set(A4_FACTORY_TEMPLATE_IDS) - PORTRAIT_IDS
 
@@ -155,6 +156,46 @@ def test_complex_gas_factory_contains_all_requested_gas_groups() -> None:
         "PIXLER_C1_C5",
     } <= canonical_ids
 
+
+def test_composite_log_contains_standard_open_hole_tracks_and_scales() -> None:
+    for language in ("ru", "kk", "en"):
+        forms = a4_factory_templates(language)
+        for orientation in ("portrait", "landscape"):
+            form = forms[f"factory-composite-log-a4-{orientation}"]
+            bindings = {
+                binding.canonical_parameter_id: binding
+                for column in form.columns
+                for track in column.tracks
+                for binding in track.bindings
+            }
+
+            assert {
+                "GR",
+                "SP",
+                "CALI",
+                "BS",
+                "ILD",
+                "ILM",
+                "MSFL",
+                "RHOB",
+                "NPHI",
+                "PEF",
+                "DRHO",
+                "DT",
+            } <= set(bindings)
+            assert bindings["GR"].x_min == 0
+            assert bindings["GR"].x_max == 200
+            assert bindings["ILD"].x_scale.value == "logarithmic"
+            assert bindings["ILD"].x_min == 0.2
+            assert bindings["ILD"].x_max == 2000
+            assert bindings["DT"].x_min == 40
+            assert bindings["DT"].x_max == 140
+            assert {track.kind for column in form.columns for track in column.tracks} >= {
+                TrackKind.DEPTH,
+                TrackKind.LITHOLOGY,
+                TrackKind.STRATIGRAPHY,
+                TrackKind.TEXT,
+            }
 
 def test_legacy_forms_remain_resolvable_but_are_hidden() -> None:
     all_templates = factory_templates("ru")

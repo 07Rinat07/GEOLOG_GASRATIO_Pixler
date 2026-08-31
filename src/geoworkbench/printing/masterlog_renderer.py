@@ -1194,15 +1194,33 @@ def _paint_columns(
                     painter, plot_rect, column, session, depth_range, lithotype_catalog
                 )
             elif column.column_type == "cuttings_description":
-                _paint_cuttings_descriptions(painter, plot_rect, session, depth_range)
+                _paint_cuttings_descriptions(
+                    painter,
+                    plot_rect,
+                    session,
+                    depth_range,
+                    show_borders=bool(
+                        column.properties.get("show_description_borders", True)
+                    ),
+                )
             elif column.column_type == "analysis_interpretation":
-                _paint_sample_interpretations(painter, plot_rect, session, depth_range)
+                _paint_sample_interpretations(
+                    painter,
+                    plot_rect,
+                    session,
+                    depth_range,
+                    show_borders=bool(
+                        column.properties.get("show_description_borders", True)
+                    ),
+                )
             elif column.column_type == "calcimetry":
                 _paint_calcimetry_column(
                     painter, plot_rect, column, dataset, session, depth_range, bindings
                 )
             elif column.column_type == "lba":
-                _paint_lba_column(painter, plot_rect, session, depth_range)
+                _paint_lba_column(
+                    painter, plot_rect, column, session, depth_range
+                )
             elif column.column_type in {"text", "description"}:
                 _paint_lithology_descriptions(
                     painter,
@@ -1211,6 +1229,9 @@ def _paint_columns(
                     depth_range,
                     language,
                     lithotype_catalog,
+                    show_borders=bool(
+                        column.properties.get("show_description_borders", True)
+                    ),
                 )
             else:
                 _paint_curve_column(painter, plot_rect, column, dataset, depth_range, bindings)
@@ -1699,10 +1720,18 @@ def _paint_calcimetry_column(
                 parts.append(f"Dol {dolomite:g}%")
             if residue is not None:
                 parts.append(f"IR {residue:g}%")
-            painter.drawText(
+            draw_oriented_text(
+                painter,
                 QRectF(rect.left() + 0.5, y_top, rect.width() - 1.0, height),
-                Qt.AlignmentFlag.AlignCenter,
                 "  ".join(parts),
+                orientation=str(
+                    column.properties.get(
+                        "calcimetry_label_orientation", "horizontal"
+                    )
+                ),
+                position="center",
+                padding_x=0.2,
+                padding_y=0.2,
             )
     painter.restore()
 
@@ -1710,6 +1739,7 @@ def _paint_calcimetry_column(
 def _paint_lba_column(
     painter: QPainter,
     rect: QRectF,
+    column: MasterlogColumnTemplate,
     session: ProjectSession,
     depth_range: tuple[float, float],
 ) -> None:
@@ -1747,42 +1777,70 @@ def _paint_lba_column(
         sample_rect = QRectF(rect.left(), y_top, rect.width(), max(0.2, y_bottom - y_top))
         painter.setPen(QPen(QColor("#cbd5e1"), 0.15))
         painter.drawRect(sample_rect)
-        symbol_diameter = min(max(2.0, sample_rect.height() * 0.72), max(2.0, rect.width() * 0.42), 6.5)
+        lane_width = sample_rect.width() / 3.0
+        for lane in (1, 2):
+            painter.drawLine(
+                QLineF(
+                    sample_rect.left() + lane * lane_width,
+                    sample_rect.top(),
+                    sample_rect.left() + lane * lane_width,
+                    sample_rect.bottom(),
+                )
+            )
+        symbol_rect = QRectF(
+            sample_rect.left(), sample_rect.top(), lane_width, sample_rect.height()
+        )
+        symbol_diameter = min(
+            max(2.0, symbol_rect.height() * 0.72),
+            max(2.0, symbol_rect.width() * 0.72),
+            6.5,
+        )
         _paint_lba_intensity_symbol(
             painter,
-            sample_rect.center().x(),
-            sample_rect.center().y(),
+            symbol_rect.center().x(),
+            symbol_rect.center().y(),
             symbol_diameter,
             QColor(style.color),
             intensity,
         )
-        if sample_rect.height() >= 4.0 and rect.width() >= 10.0:
-            painter.setPen(QColor("#0f172a"))
-            painter.drawText(
-                QRectF(sample_rect.left() + 0.4, sample_rect.top(), sample_rect.width() * 0.34, sample_rect.height()),
-                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-                style.code,
+        orientation = str(
+            column.properties.get(
+                "lba_label_orientation", "vertical_bottom_to_top"
             )
-        if sample_rect.height() >= 5.5 and rect.width() >= 18.0:
-            details = []
-            if intensity is not None:
-                details.append(str(intensity))
-            if lba_color_code(sample.lba_color):
-                details.append(lba_color_code(sample.lba_color))
-            if sample.lba_description:
-                details.append(sample.lba_description)
-            if details:
-                painter.setPen(QColor("#475569"))
-                painter.drawText(
-                    QRectF(
-                        sample_rect.center().x() + symbol_diameter / 2.0 + 0.5,
-                        sample_rect.top(),
-                        max(0.2, sample_rect.right() - sample_rect.center().x() - symbol_diameter / 2.0 - 0.8),
-                        sample_rect.height(),
-                    ),
-                    Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter | Qt.TextFlag.TextWordWrap,
-                    " ".join(details),
-                )
+        )
+        color_code = lba_color_code(sample.lba_color) or ""
+        if sample_rect.height() >= 4.0 and color_code:
+            painter.setPen(QColor("#0f172a"))
+            draw_oriented_text(
+                painter,
+                QRectF(
+                    sample_rect.left() + lane_width,
+                    sample_rect.top(),
+                    lane_width,
+                    sample_rect.height(),
+                ),
+                color_code,
+                orientation=orientation,
+                position="center",
+                padding_x=0.2,
+                padding_y=0.2,
+            )
+        if sample_rect.height() >= 4.0:
+            painter.setPen(QColor("#0f172a"))
+            draw_oriented_text(
+                painter,
+                QRectF(
+                    sample_rect.left() + lane_width * 2.0,
+                    sample_rect.top(),
+                    lane_width,
+                    sample_rect.height(),
+                ),
+                style.code,
+                orientation=orientation,
+                position="center",
+                padding_x=0.2,
+                padding_y=0.2,
+            )
     painter.restore()
 
 
@@ -1793,6 +1851,8 @@ def _paint_lithology_descriptions(
     depth_range: tuple[float, float],
     language: AppLanguage,
     lithotype_catalog: dict[str, CatalogLithotype],
+    *,
+    show_borders: bool = True,
 ) -> None:
     well = session.current_well
     if well is None:
@@ -1811,8 +1871,9 @@ def _paint_lithology_descriptions(
             else interval.lithotype_id
         )
         description = interval.description.strip() if interval.description else name
-        painter.setPen(QPen(QColor("#94a3b8"), 0.15))
-        painter.drawRect(interval_rect)
+        if show_borders:
+            painter.setPen(QPen(QColor("#94a3b8"), 0.15))
+            painter.drawRect(interval_rect)
         if interval_rect.height() >= 3.0:
             painter.setPen(QColor("#0f172a"))
             painter.drawText(
@@ -1828,6 +1889,8 @@ def _paint_cuttings_descriptions(
     rect: QRectF,
     session: ProjectSession,
     depth_range: tuple[float, float],
+    *,
+    show_borders: bool = True,
 ) -> None:
     well = session.current_well
     if well is None:
@@ -1846,8 +1909,9 @@ def _paint_cuttings_descriptions(
             rect.top() + (min(bottom, sample.bottom_depth) - top) / (bottom - top) * rect.height()
         )
         sample_rect = QRectF(rect.left(), y_top, rect.width(), max(0.2, y_bottom - y_top))
-        painter.setPen(QPen(QColor("#94a3b8"), 0.15))
-        painter.drawRect(sample_rect)
+        if show_borders:
+            painter.setPen(QPen(QColor("#94a3b8"), 0.15))
+            painter.drawRect(sample_rect)
         if sample_rect.height() >= 3.0:
             painter.setPen(QColor("#0f172a"))
             _draw_fitted_interval_text(
@@ -1866,6 +1930,8 @@ def _paint_sample_interpretations(
     rect: QRectF,
     session: ProjectSession,
     depth_range: tuple[float, float],
+    *,
+    show_borders: bool = True,
 ) -> None:
     well = session.current_well
     if well is None:
@@ -1888,8 +1954,9 @@ def _paint_sample_interpretations(
         )
         sample_rect = QRectF(rect.left(), y_top, rect.width(), max(0.2, y_bottom - y_top))
         painter.fillRect(sample_rect, QColor("#f8fafc"))
-        painter.setPen(QPen(QColor("#64748b"), 0.15))
-        painter.drawRect(sample_rect)
+        if show_borders:
+            painter.setPen(QPen(QColor("#64748b"), 0.15))
+            painter.drawRect(sample_rect)
         if sample_rect.height() >= 3.0:
             painter.setPen(QColor("#0f172a"))
             _draw_fitted_interval_text(

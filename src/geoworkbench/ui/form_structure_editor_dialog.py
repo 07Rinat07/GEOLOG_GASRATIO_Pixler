@@ -474,6 +474,39 @@ class FormStructureEditorDialog(QDialog):
         )
         self.lba_label_orientation_label.setVisible(False)
         self.lba_label_orientation_combo.setVisible(False)
+        self.calcimetry_label_orientation_label = QLabel(
+            self._text(
+                "Направление подписей «Кальцит / Дол. / Н.О.»",
+                "«Кальцит / Дол. / Е.Қ.» жазуларының бағыты",
+                "Calcite / Dol. / I.R. label direction",
+            )
+        )
+        self.calcimetry_label_orientation_combo = QComboBox()
+        for value in TEXT_ORIENTATIONS:
+            self.calcimetry_label_orientation_combo.addItem(
+                orientation_labels[value], value
+            )
+        self.calcimetry_label_orientation_combo.currentIndexChanged.connect(
+            self._apply_calcimetry_label_orientation
+        )
+        properties.addRow(
+            self.calcimetry_label_orientation_label,
+            self.calcimetry_label_orientation_combo,
+        )
+        self.calcimetry_label_orientation_label.setVisible(False)
+        self.calcimetry_label_orientation_combo.setVisible(False)
+        self.show_description_borders_check = QCheckBox(
+            self._text(
+                "Показывать границы интервалов описания пород",
+                "Тау жыныстары сипаттамасының интервал шекараларын көрсету",
+                "Show rock-description interval borders",
+            )
+        )
+        self.show_description_borders_check.toggled.connect(
+            self._apply_description_borders
+        )
+        properties.addRow(self.show_description_borders_check)
+        self.show_description_borders_check.setVisible(False)
         settings_layout.addLayout(properties)
 
         self.grid_group = QGroupBox(
@@ -880,6 +913,9 @@ class FormStructureEditorDialog(QDialog):
                 self.show_interval_labels_check.setEnabled(False)
                 self.lba_label_orientation_label.setVisible(False)
                 self.lba_label_orientation_combo.setVisible(False)
+                self.calcimetry_label_orientation_label.setVisible(False)
+                self.calcimetry_label_orientation_combo.setVisible(False)
+                self.show_description_borders_check.setVisible(False)
                 self.grid_group.setVisible(False)
                 self.vertical_ruler_group.setVisible(False)
                 return
@@ -895,6 +931,9 @@ class FormStructureEditorDialog(QDialog):
             self.show_interval_labels_check.setChecked(False)
             self.lba_label_orientation_label.setVisible(False)
             self.lba_label_orientation_combo.setVisible(False)
+            self.calcimetry_label_orientation_label.setVisible(False)
+            self.calcimetry_label_orientation_combo.setVisible(False)
+            self.show_description_borders_check.setVisible(False)
             self.grid_group.setVisible(False)
             self.vertical_ruler_group.setVisible(False)
             if kind == "column":
@@ -943,6 +982,23 @@ class FormStructureEditorDialog(QDialog):
                 self._select_combo_data(
                     self.lba_label_orientation_combo,
                     track.lba_label_orientation,
+                )
+                is_calcimetry = track.kind is TrackKind.CALCIMETRY
+                self.calcimetry_label_orientation_label.setVisible(is_calcimetry)
+                self.calcimetry_label_orientation_combo.setVisible(is_calcimetry)
+                self.calcimetry_label_orientation_combo.setEnabled(editable)
+                self._select_combo_data(
+                    self.calcimetry_label_orientation_combo,
+                    track.calcimetry_label_orientation,
+                )
+                is_description = track.kind in {
+                    TrackKind.TEXT,
+                    TrackKind.INTERPRETATION,
+                }
+                self.show_description_borders_check.setVisible(is_description)
+                self.show_description_borders_check.setEnabled(editable)
+                self.show_description_borders_check.setChecked(
+                    track.show_description_borders
                 )
                 self._select_combo_data(
                     self.title_orientation_combo, track.title_orientation
@@ -1043,6 +1099,35 @@ class FormStructureEditorDialog(QDialog):
         )
         try:
             self.editor.set_track_lba_label_orientation(ref[1], orientation)
+            self.preview.set_form(self.editor.form, ref[1])
+            self._form_changed()
+        except (KeyError, PermissionError, ValueError) as exc:
+            QMessageBox.warning(self, self.windowTitle(), str(exc))
+
+    def _apply_calcimetry_label_orientation(self, _index: int = -1) -> None:
+        if self._updating_properties:
+            return
+        ref = self._selected_ref()
+        if ref is None or ref[0] != "track":
+            return
+        orientation = str(
+            self.calcimetry_label_orientation_combo.currentData() or "horizontal"
+        )
+        try:
+            self.editor.set_track_calcimetry_label_orientation(ref[1], orientation)
+            self.preview.set_form(self.editor.form, ref[1])
+            self._form_changed()
+        except (KeyError, PermissionError, ValueError) as exc:
+            QMessageBox.warning(self, self.windowTitle(), str(exc))
+
+    def _apply_description_borders(self, enabled: bool) -> None:
+        if self._updating_properties:
+            return
+        ref = self._selected_ref()
+        if ref is None or ref[0] != "track":
+            return
+        try:
+            self.editor.set_track_description_borders(ref[1], enabled)
             self.preview.set_form(self.editor.form, ref[1])
             self._form_changed()
         except (KeyError, PermissionError, ValueError) as exc:

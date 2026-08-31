@@ -132,6 +132,8 @@ class TabletTrackPreviewWidget(QWidget):
         self._draw_grid(painter, body)
         if self._track.kind is TrackKind.LBA:
             self._draw_lba_preview(painter, body)
+        elif self._track.kind is TrackKind.CALCIMETRY:
+            self._draw_calcimetry_preview(painter, body)
         else:
             self._draw_curves(painter, body)
         painter.setPen(QPen(QColor("#475569"), 0.9))
@@ -269,6 +271,49 @@ class TabletTrackPreviewWidget(QWidget):
                     text,
                 )
             painter.restore()
+
+    def _draw_calcimetry_preview(self, painter: QPainter, body: QRectF) -> None:
+        interval = QRectF(
+            body.left(),
+            body.top() + body.height() * 0.24,
+            body.width(),
+            body.height() * 0.42,
+        )
+        left = interval.left()
+        for fraction, color in ((0.55, "#22d3ee"), (0.35, "#a78bfa"), (0.10, "#d1d5db")):
+            width = interval.width() * fraction
+            painter.fillRect(
+                QRectF(left, interval.top(), width, interval.height()),
+                QColor(color),
+            )
+            left += width
+        painter.setPen(QPen(QColor("#64748b"), 0.8))
+        painter.drawRect(interval)
+        painter.save()
+        painter.setPen(QColor("#0f172a"))
+        orientation = self._track.calcimetry_label_orientation
+        text = "Calcite 55 / Dol. 35 / I.R. 10"
+        if orientation == "horizontal":
+            painter.drawText(
+                interval.adjusted(3, 3, -3, -3),
+                Qt.AlignmentFlag.AlignCenter,
+                text,
+            )
+        else:
+            painter.translate(interval.center())
+            painter.rotate(text_angle(orientation))
+            rotated = QRectF(
+                -interval.height() / 2.0,
+                -interval.width() / 2.0,
+                interval.height(),
+                interval.width(),
+            )
+            painter.drawText(
+                rotated.adjusted(3, 3, -3, -3),
+                Qt.AlignmentFlag.AlignCenter,
+                text,
+            )
+        painter.restore()
 
     @staticmethod
     def _curve_pen(style: CurveStyle, color: str, width_scale: float) -> QPen:
