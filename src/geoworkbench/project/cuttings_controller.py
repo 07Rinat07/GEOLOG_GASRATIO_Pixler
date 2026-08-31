@@ -5,6 +5,12 @@ from dataclasses import dataclass
 import numpy as np
 
 from geoworkbench.domain.models import CuttingsComponent, CuttingsSample, Well, new_id
+from geoworkbench.domain.localized_content import (
+    bump_language_revision,
+    localized_text,
+    normalize_content_language,
+    set_localized_text,
+)
 from geoworkbench.project.session import ProjectSession
 
 
@@ -98,6 +104,7 @@ class CuttingsController:
         return sample
 
     def _apply_full_values(self, sample: CuttingsSample, values: dict[str, object]) -> None:
+        content_language = values.get("content_language")
         calcite, dolomite = self._validate_calcimetry(
             values.get("calcite_percent"), values.get("dolomite_percent")
         )
@@ -117,15 +124,38 @@ class CuttingsController:
         sample.lba_residue_color = self._normalize_text(values.get("lba_residue_color"), 100)
         sample.lba_odour = self._normalize_text(values.get("lba_odour"), 100)
         sample.lba_stain = self._normalize_text(values.get("lba_stain"), 100)
-        sample.lba_description = self._normalize_text(values.get("lba_description"), 2000)
-        sample.analysis_interpretation = self._normalize_text(
+        lba_description = self._normalize_text(values.get("lba_description"), 2000)
+        interpretation = self._normalize_text(
             values.get("analysis_interpretation"), 20_000, "Текст интерпретации"
         )
         # Rich HTML may contain embedded image data, therefore its safe storage
         # limit is intentionally much larger than a plain LAS comment field.
-        sample.description = self._normalize_text(
+        description = self._normalize_text(
             values.get("description"), 2_000_000, "Описание шлама"
         )
+        if content_language is None:
+            sample.lba_description = lba_description
+            sample.analysis_interpretation = interpretation
+            sample.description = description
+        else:
+            language = normalize_content_language(content_language)
+            set_localized_text(
+                sample.lba_description_i18n, language, lba_description, maximum=2_000
+            )
+            set_localized_text(
+                sample.analysis_interpretation_i18n,
+                language,
+                interpretation,
+                maximum=20_000,
+            )
+            set_localized_text(
+                sample.description_i18n, language, description, maximum=2_000_000
+            )
+            if language == "ru":
+                sample.lba_description = lba_description
+                sample.analysis_interpretation = interpretation
+                sample.description = description
+            self._bump_content(language)
         if "description_word_wrap" in values:
             sample.description_word_wrap = self._validate_word_wrap(
                 values["description_word_wrap"]
@@ -139,6 +169,7 @@ class CuttingsController:
         bottom_depth: float,
         description: str | None,
         description_word_wrap: bool | None = None,
+        language: object | None = None,
     ) -> CuttingsSample:
         """Edit one rich-text description without losing sample analysis.
 
@@ -153,7 +184,16 @@ class CuttingsController:
         self._ensure_no_overlap(top, bottom, excluded_id=sample_id)
         sample.top_depth = top
         sample.bottom_depth = bottom
-        sample.description = normalized
+        if language is None:
+            sample.description = normalized
+        else:
+            code = normalize_content_language(language)
+            set_localized_text(
+                sample.description_i18n, code, normalized, maximum=2_000_000
+            )
+            if code == "ru":
+                sample.description = normalized
+            self._bump_content(code)
         if description_word_wrap is not None:
             sample.description_word_wrap = self._validate_word_wrap(
                 description_word_wrap
@@ -161,7 +201,9 @@ class CuttingsController:
         self.session.dirty = True
         return sample
 
-    def delete_description(self, sample_id: str) -> CuttingsSample:
+    def delete_description(
+        self, sample_id: str, *, language: object | None = None
+    ) -> CuttingsSample:
         """Delete only the description and preserve any analysis on the sample.
 
         A description-only interval is removed completely so it cannot remain
@@ -170,8 +212,16 @@ class CuttingsController:
 
         well = self._require_well()
         sample = self._require_sample(sample_id)
-        sample.description = None
-        if not self._has_non_description_data(sample):
+        if language is None:
+            sample.description = None
+            sample.description_i18n.clear()
+        else:
+            code = normalize_content_language(language)
+            sample.description_i18n.pop(code, None)
+            if code == "ru":
+                sample.description = None
+            self._bump_content(code)
+        if not self._has_non_description_data(sample) and not self._has_description_data(sample):
             well.cuttings.remove(sample)
         self.session.dirty = True
         return sample
@@ -197,8 +247,14 @@ class CuttingsController:
             sample.calcite_percent,
             sample.dolomite_percent,
             sample.analysis_interpretation,
+            sample.lba_description_i18n,
+            sample.analysis_interpretation_i18n,
         )
-        return any(value is not None and value != "" for value in values)
+        return any(bool(value) for value in values)
+
+    @staticmethod
+    def _has_description_data(sample: CuttingsSample) -> bool:
+        return bool(sample.description or sample.description_i18n)
 
     def remove(self, sample_id: str) -> CuttingsSample:
         well = self._require_well()
@@ -250,6 +306,7 @@ class CuttingsController:
         description: str | None,
         *,
         description_word_wrap: bool | None = None,
+        language: object | None = None,
     ) -> CuttingsSample:
         """Create or update free-text cuttings description for an exact sample interval."""
         top, bottom = self._validate_interval(top_depth, bottom_depth)
@@ -271,9 +328,26 @@ class CuttingsController:
                 description=normalized,
                 description_word_wrap=word_wrap,
             )
+            if language is not None:
+                code = normalize_content_language(language)
+                set_localized_text(
+                    sample.description_i18n, code, normalized, maximum=2_000_000
+                )
+                if code != "ru":
+                    sample.description = None
+                self._bump_content(code)
             self._require_well().cuttings.append(sample)
         else:
-            sample.description = normalized
+            if language is None:
+                sample.description = normalized
+            else:
+                code = normalize_content_language(language)
+                set_localized_text(
+                    sample.description_i18n, code, normalized, maximum=2_000_000
+                )
+                if code == "ru":
+                    sample.description = normalized
+                self._bump_content(code)
             if description_word_wrap is not None:
                 sample.description_word_wrap = self._validate_word_wrap(
                     description_word_wrap
@@ -319,6 +393,7 @@ class CuttingsController:
         lba_stain: str | None = None,
         lba_description: str | None = None,
         analysis_interpretation: str | None = None,
+        content_language: object | None = None,
     ) -> CuttingsSample:
         top, bottom = self._validate_interval(top_depth, bottom_depth)
         calcite, dolomite = self._validate_calcimetry(calcite_percent, dolomite_percent)
@@ -367,10 +442,56 @@ class CuttingsController:
         sample.lba_residue_color = strings["residue_color"]
         sample.lba_odour = strings["odour"]
         sample.lba_stain = strings["stain"]
-        sample.lba_description = strings["description"]
-        sample.analysis_interpretation = strings["interpretation"]
+        if content_language is None:
+            sample.lba_description = strings["description"]
+            sample.analysis_interpretation = strings["interpretation"]
+        else:
+            language = normalize_content_language(content_language)
+            set_localized_text(
+                sample.lba_description_i18n,
+                language,
+                strings["description"],
+                maximum=2_000,
+            )
+            set_localized_text(
+                sample.analysis_interpretation_i18n,
+                language,
+                strings["interpretation"],
+                maximum=20_000,
+            )
+            if language == "ru":
+                sample.lba_description = strings["description"]
+                sample.analysis_interpretation = strings["interpretation"]
+            self._bump_content(language)
         self.session.dirty = True
         return sample
+
+    @staticmethod
+    def localized_description(sample: CuttingsSample, language: object) -> str:
+        return localized_text(
+            sample.description_i18n, language, legacy=sample.description
+        )
+
+    @staticmethod
+    def localized_lba_description(sample: CuttingsSample, language: object) -> str:
+        return localized_text(
+            sample.lba_description_i18n, language, legacy=sample.lba_description
+        )
+
+    @staticmethod
+    def localized_analysis_interpretation(
+        sample: CuttingsSample, language: object
+    ) -> str:
+        return localized_text(
+            sample.analysis_interpretation_i18n,
+            language,
+            legacy=sample.analysis_interpretation,
+        )
+
+    def _bump_content(self, language: object) -> None:
+        well = self._require_well()
+        well.content_revision += 1
+        bump_language_revision(well.language_revisions, language)
 
     @staticmethod
     def _validate_calcimetry(

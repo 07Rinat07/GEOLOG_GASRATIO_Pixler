@@ -20,6 +20,11 @@ from PySide6.QtWidgets import (
 from geoworkbench.project.daily_las_growth_controller import DailyLasGrowthController
 from geoworkbench.services.daily_las_growth import DailyLasGrowthPlan
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.local_las_folder import (
+    LocalLasCandidate,
+    LocalLasFolderError,
+    LocalLasFolderProvider,
+)
 
 
 class DailyLasGrowthDialog(QDialog):
@@ -36,6 +41,7 @@ class DailyLasGrowthDialog(QDialog):
         self.controller = controller
         self.language = language.value if isinstance(language, AppLanguage) else str(language)
         self.plan: DailyLasGrowthPlan | None = None
+        self._folder_candidates: tuple[LocalLasCandidate, ...] = ()
         self.setWindowTitle(self._text("Ежедневное наращивание LAS", "LAS күнделікті өсіру", "Daily LAS growth"))
         self.resize(720, 470)
         root = QVBoxLayout(self)
@@ -62,6 +68,29 @@ class DailyLasGrowthDialog(QDialog):
         browse.clicked.connect(self._browse)
         file_row.addWidget(browse)
         form.addRow(self._text("Целевой dataset", "Мақсатты dataset", "Target dataset"), self.target_combo)
+        self.folder_input = QLineEdit()
+        folder_row = QHBoxLayout()
+        folder_row.addWidget(self.folder_input, 1)
+        folder_browse = QPushButton(
+            self._text("Папка…", "Қалта…", "Folder…")
+        )
+        folder_browse.clicked.connect(self._browse_folder)
+        folder_row.addWidget(folder_browse)
+        refresh = QPushButton(self._text("Обновить", "Жаңарту", "Refresh"))
+        refresh.clicked.connect(self._refresh_folder)
+        folder_row.addWidget(refresh)
+        form.addRow(
+            self._text(
+                "Синхронизируемая папка", "Синхрондалатын қалта", "Synchronized folder"
+            ),
+            folder_row,
+        )
+        self.folder_files = QComboBox()
+        self.folder_files.currentIndexChanged.connect(self._select_folder_candidate)
+        form.addRow(
+            self._text("Доступные LAS", "Қолжетімді LAS", "Available LAS"),
+            self.folder_files,
+        )
         form.addRow(self._text("Новый LAS", "Жаңа LAS", "New LAS"), file_row)
         root.addLayout(form)
 
@@ -98,6 +127,50 @@ class DailyLasGrowthDialog(QDialog):
         if filename:
             self.file_input.setText(filename)
 
+    def _browse_folder(self) -> None:
+        folder = QFileDialog.getExistingDirectory(
+            self,
+            self._text(
+                "Выберите синхронизируемую папку LAS",
+                "LAS синхрондалатын қалтаны таңдаңыз",
+                "Choose synchronized LAS folder",
+            ),
+            self.folder_input.text().strip(),
+        )
+        if folder:
+            self.folder_input.setText(folder)
+            self._refresh_folder()
+
+    def _refresh_folder(self) -> None:
+        folder = self.folder_input.text().strip()
+        if not folder:
+            return
+        try:
+            self._folder_candidates = LocalLasFolderProvider(folder).discover()
+        except (OSError, ValueError, LocalLasFolderError) as exc:
+            self._folder_candidates = ()
+            self.folder_files.clear()
+            QMessageBox.warning(self, self.windowTitle(), str(exc))
+            return
+        self.folder_files.clear()
+        for candidate in self._folder_candidates:
+            self.folder_files.addItem(
+                f"{candidate.relative_path} — {candidate.size_bytes} B — {candidate.modified_at}",
+                candidate.sha256,
+            )
+        if not self._folder_candidates:
+            self.preview.setPlainText(
+                self._text(
+                    "В папке нет LAS-файлов.",
+                    "Қалтада LAS файлдары жоқ.",
+                    "No LAS files were found in the folder.",
+                )
+            )
+
+    def _select_folder_candidate(self, index: int) -> None:
+        if 0 <= index < len(self._folder_candidates):
+            self.file_input.setText(str(self._folder_candidates[index].path))
+
     def _invalidate(self) -> None:
         self.plan = None
         self.buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
@@ -113,7 +186,22 @@ class DailyLasGrowthDialog(QDialog):
             )
             return
         try:
-            plan = self.controller.analyze(source, dataset_id)
+            candidate = next(
+                (item for item in self._folder_candidates if item.path == source.resolve()),
+                None,
+            )
+            if candidate is not None:
+                LocalLasFolderProvider(self.folder_input.text().strip()).verify(candidate)
+                plan = self.controller.analyze(
+                    source,
+                    dataset_id,
+                    provider_kind=LocalLasFolderProvider.provider_kind,
+                    provider_location=(
+                        f"{self.folder_input.text().strip()}::{candidate.relative_path}"
+                    ),
+                )
+            else:
+                plan = self.controller.analyze(source, dataset_id)
         except (OSError, RuntimeError, ValueError) as exc:
             self.preview.setPlainText(str(exc))
             QMessageBox.warning(self, self.windowTitle(), str(exc))

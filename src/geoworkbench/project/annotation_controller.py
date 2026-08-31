@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -8,6 +9,12 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from geoworkbench.domain.models import CanvasObject, Well, new_id
+from geoworkbench.domain.localized_content import (
+    bump_language_revision,
+    normalize_content_language,
+    set_localized_text,
+    validate_localized_texts,
+)
 from geoworkbench.project.annotation_schema import (
     ANNOTATION_OBJECT_TYPE,
     CATALOG_SYMBOL_MINIMUM_DIMENSION,
@@ -237,6 +244,8 @@ class DepthAnnotationController:
         scope_id: str | None = None,
         symbol_id: str | None = None,
         transparent_background: bool = True,
+        text_i18n: dict[str, str] | None = None,
+        content_language: object | None = None,
     ) -> AnnotationRecord:
         normalized = self._normalize_annotation(
             kind=kind,
@@ -262,11 +271,15 @@ class DepthAnnotationController:
             scope_id=scope_id or self.current_scope_id(),
             symbol_id=symbol_id,
             transparent_background=transparent_background,
+            text_i18n=text_i18n,
+            content_language=content_language,
         )
         well = self._require_well()
         before = deepcopy(well.canvas_objects)
         item = self._canvas_from_record(new_id(), normalized)
         well.canvas_objects.append(item)
+        if content_language is not None:
+            self._bump_content(content_language)
         self.history.record(well, before, description="Добавление аннотации")
         self.session.dirty = True
         return annotation_from_canvas(item)
@@ -301,6 +314,7 @@ class DepthAnnotationController:
             "scope_id": current.scope_id,
             "symbol_id": current.symbol_id,
             "transparent_background": current.transparent_background,
+            "text_i18n": current.text_i18n,
         }
         values.update(changes)
         if (
@@ -328,6 +342,8 @@ class DepthAnnotationController:
         item.parameter_mnemonic = replacement.parameter_mnemonic
         item.track_id = replacement.track_id
         item.properties = replacement.properties
+        if changes.get("content_language") is not None:
+            self._bump_content(changes["content_language"])
         self.history.record(well, before, description="Изменение аннотации")
         self.session.dirty = True
         return annotation_from_canvas(item)
@@ -380,6 +396,7 @@ class DepthAnnotationController:
             scope_id=current.scope_id,
             symbol_id=current.symbol_id,
             transparent_background=current.transparent_background,
+            text_i18n=current.text_i18n,
         )
 
     def add_curve_value(
@@ -507,6 +524,14 @@ class DepthAnnotationController:
             str(values.get("text", "")),
             required=kind not in {AnnotationKind.IMAGE, AnnotationKind.SYMBOL},
         )
+        raw_text_i18n = values.get("text_i18n")
+        if raw_text_i18n is not None and not isinstance(raw_text_i18n, Mapping):
+            raise ValueError("Многоязычный текст аннотации должен быть объектом")
+        text_i18n = validate_localized_texts(raw_text_i18n, maximum=10_000)
+        content_language = values.get("content_language")
+        if content_language is not None:
+            language = normalize_content_language(content_language)
+            set_localized_text(text_i18n, language, text, maximum=10_000)
         depth_raw = values.get("depth")
         depth = self._validate_depth(depth_raw) if depth_raw is not None else None
         axis_value = self._optional_finite(values.get("axis_value"), "Координата времени")
@@ -602,6 +627,7 @@ class DepthAnnotationController:
             ),
             symbol_id=symbol_id if kind is AnnotationKind.SYMBOL else None,
             transparent_background=transparent_background,
+            text_i18n=text_i18n,
         )
 
     @staticmethod
@@ -646,8 +672,14 @@ class DepthAnnotationController:
                 scope_id=record.scope_id,
                 symbol_id=record.symbol_id,
                 transparent_background=record.transparent_background,
+                text_i18n=record.text_i18n,
             ),
         )
+
+    def _bump_content(self, language: object) -> None:
+        well = self._require_well()
+        well.content_revision += 1
+        bump_language_revision(well.language_revisions, language)
 
     def _validate_depth(self, depth: object) -> float:
         if not isinstance(depth, (str, int, float)) or isinstance(depth, bool):

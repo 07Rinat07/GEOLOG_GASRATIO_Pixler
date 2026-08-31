@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 
 from geoworkbench.catalogs.description_templates import load_rock_description_templates
 from geoworkbench.domain.models import CuttingsSample
+from geoworkbench.domain.localized_content import localized_text
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.services.lba_standard import (
     LBA_STANDARD_GROUPS,
@@ -260,7 +261,13 @@ class UnifiedCuttingsSampleDialog(QDialog):
         self.interpretation_input = QPlainTextEdit()
         self.interpretation_input.setObjectName("cuttings-analysis-interpretation")
         if sample is not None:
-            self.interpretation_input.setPlainText(sample.analysis_interpretation or "")
+            self.interpretation_input.setPlainText(
+                localized_text(
+                    sample.analysis_interpretation_i18n,
+                    language,
+                    legacy=sample.analysis_interpretation,
+                )
+            )
         self.tabs.addTab(self.interpretation_input, self._text["interpretation"])
         content_layout.addWidget(self.tabs, 1)
 
@@ -344,7 +351,15 @@ class UnifiedCuttingsSampleDialog(QDialog):
         root.addWidget(self.description_template_warning)
 
         self.rich_description = RichIntervalTextEditor(language=self._language)
-        self.rich_description.set_html(sample.description if sample is not None else None)
+        self.rich_description.set_html(
+            localized_text(
+                sample.description_i18n,
+                self._language,
+                legacy=sample.description,
+            )
+            if sample is not None
+            else None
+        )
         self.rich_description.set_word_wrap(
             sample.description_word_wrap if sample is not None else True
         )

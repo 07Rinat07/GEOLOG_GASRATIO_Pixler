@@ -171,6 +171,11 @@ class DatasetAppendRecord:
     rows_added: int
     rows_skipped: int
     curve_mnemonics: tuple[str, ...] = ()
+    source_artifact_id: str | None = None
+    provider_kind: str = "manual_file"
+    provider_location: str | None = None
+    dataset_sha256_before: str | None = None
+    dataset_sha256_after: str | None = None
 
     def __post_init__(self) -> None:
         if not self.import_id or not isinstance(self.import_id, str):
@@ -194,6 +199,55 @@ class DatasetAppendRecord:
             isinstance(item, str) and item.strip() for item in self.curve_mnemonics
         ):
             raise ValueError("curve_mnemonics должен быть tuple непустых строк")
+        if self.source_artifact_id is not None and (
+            not isinstance(self.source_artifact_id, str) or not self.source_artifact_id.strip()
+        ):
+            raise ValueError("source_artifact_id должен быть непустой строкой или null")
+        if not isinstance(self.provider_kind, str) or not self.provider_kind.strip():
+            raise ValueError("provider_kind должен быть непустой строкой")
+        if self.provider_location is not None and not isinstance(self.provider_location, str):
+            raise ValueError("provider_location должен быть строкой или null")
+        for digest in (self.dataset_sha256_before, self.dataset_sha256_after):
+            if digest is not None and not re.fullmatch(r"[0-9a-f]{64}", digest):
+                raise ValueError("Хеш ревизии dataset должен быть SHA-256")
+
+
+@dataclass(frozen=True, slots=True)
+class DatasetSourceRevision:
+    """Immutable provenance record for one LAS artifact in a composite dataset."""
+
+    source_revision_id: str
+    artifact_id: str
+    source_name: str
+    source_sha256: str
+    size_bytes: int
+    imported_at: str
+    provider_kind: str = "manual_file"
+    provider_location: str | None = None
+    start_value: str = ""
+    stop_value: str = ""
+    rows_added: int = 0
+    rows_skipped: int = 0
+
+    def __post_init__(self) -> None:
+        for value, label in (
+            (self.source_revision_id, "source_revision_id"),
+            (self.artifact_id, "artifact_id"),
+            (self.source_name, "source_name"),
+            (self.imported_at, "imported_at"),
+            (self.provider_kind, "provider_kind"),
+        ):
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"{label} должен быть непустой строкой")
+        if not re.fullmatch(r"[0-9a-f]{64}", self.source_sha256):
+            raise ValueError("source_sha256 должен быть SHA-256")
+        if isinstance(self.size_bytes, bool) or not isinstance(self.size_bytes, int) or self.size_bytes < 0:
+            raise ValueError("size_bytes должен быть неотрицательным целым")
+        if self.provider_location is not None and not isinstance(self.provider_location, str):
+            raise ValueError("provider_location должен быть строкой или null")
+        for counter in (self.rows_added, self.rows_skipped):
+            if isinstance(counter, bool) or not isinstance(counter, int) or counter < 0:
+                raise ValueError("Счётчики source revision должны быть неотрицательными")
 
 
 @dataclass(slots=True)
@@ -211,12 +265,17 @@ class Dataset:
     active_index_id: str | None = None
     version_headers: dict[str, str] = field(default_factory=dict)
     append_history: list[DatasetAppendRecord] = field(default_factory=list)
+    source_revisions: list[DatasetSourceRevision] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if not isinstance(self.append_history, list) or not all(
             isinstance(item, DatasetAppendRecord) for item in self.append_history
         ):
             raise ValueError("append_history должен содержать DatasetAppendRecord")
+        if not isinstance(self.source_revisions, list) or not all(
+            isinstance(item, DatasetSourceRevision) for item in self.source_revisions
+        ):
+            raise ValueError("source_revisions должен содержать DatasetSourceRevision")
         self.depth = np.asarray(self.depth, dtype=np.float64)
         if self.depth.ndim != 1:
             raise ValueError("Шкала depth должна быть одномерной")
@@ -347,6 +406,7 @@ class LithologyInterval:
     bottom_depth: float
     lithotype_id: str
     description: str | None = None
+    description_i18n: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -379,6 +439,9 @@ class CuttingsSample:
     description: str | None = None
     analysis_interpretation: str | None = None
     description_word_wrap: bool = True
+    description_i18n: dict[str, str] = field(default_factory=dict)
+    lba_description_i18n: dict[str, str] = field(default_factory=dict)
+    analysis_interpretation_i18n: dict[str, str] = field(default_factory=dict)
 
     @property
     def insoluble_residue_percent(self) -> float | None:
@@ -399,6 +462,8 @@ class StratigraphyInterval:
     description: str | None = None
     text_orientation: str = "horizontal"
     text_position: str = "center"
+    name_i18n: dict[str, str] = field(default_factory=dict)
+    description_i18n: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -654,6 +719,8 @@ class Well:
     operational_events: dict[str, OperationalEvent] = field(default_factory=dict)
     acquisition_sessions: dict[str, AcquisitionSession] = field(default_factory=dict)
     lag_correction_profiles: dict[str, LagCorrectionProfile] = field(default_factory=dict)
+    content_revision: int = 1
+    language_revisions: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -691,3 +758,4 @@ class Project:
     custom_formulas: dict[str, CustomFormulaDefinition] = field(default_factory=dict)
     export_profiles: dict[str, ExportProfile] = field(default_factory=dict)
     time_depth_mapping_profiles: dict[str, TimeDepthMappingProfile] = field(default_factory=dict)
+    save_revision: int = 1

@@ -6,7 +6,7 @@ from pathlib import Path
 from geoworkbench.domain.models import Dataset
 from geoworkbench.project.repository import ProjectRepository
 from geoworkbench.project.session import ProjectSession
-from geoworkbench.storage.json_project_repository import JsonProjectRepository
+from geoworkbench.storage.project_repository_router import ProjectRepositoryRouter
 from geoworkbench.storage.project_codec import ProjectDocument
 
 
@@ -14,7 +14,7 @@ from geoworkbench.storage.project_codec import ProjectDocument
 class ProjectController:
     """Application workflows for opening and saving projects, independent of Qt."""
 
-    repository: ProjectRepository = field(default_factory=JsonProjectRepository)
+    repository: ProjectRepository = field(default_factory=ProjectRepositoryRouter)
     session: ProjectSession = field(default_factory=ProjectSession)
     project_path: Path | None = None
 
@@ -75,7 +75,13 @@ class ProjectController:
             import_reports=self.session.import_reports,
             image_assets=self.session.image_assets,
         )
-        self.repository.save(document, destination)
+        previous_revision = self.session.project.save_revision
+        self.session.project.save_revision = previous_revision + 1
+        try:
+            self.repository.save(document, destination)
+        except Exception:
+            self.session.project.save_revision = previous_revision
+            raise
         self.project_path = destination
         self.session.dirty = False
         return destination

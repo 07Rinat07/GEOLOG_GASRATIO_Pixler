@@ -774,7 +774,7 @@ def test_project_round_trip_preserves_semantic_channel_binding(tmp_path) -> None
     assert restored.semantic.source_mnemonic == "Vendor_CH4"
     assert restored.semantic.sensor_id == binding.sensor_id
     raw = json.loads(target.read_text(encoding="utf-8"))
-    assert raw["format_version"] == 22
+    assert raw["format_version"] == 23
     semantic = raw["project"]["wells"]["well-1"]["datasets"]["dataset-1"]["curves"][
         "curve-1"
     ]["metadata"]["semantic"]

@@ -1,4 +1,4 @@
-<!-- runtime-contract: package=0.7.93; project=v22; form=v16; layout=v24 -->
+<!-- runtime-contract: package=0.7.93; project=v23; form=v16; layout=v24 -->
 # Архитектура
 
 Актуально на 9 августа 2026 года.
@@ -71,6 +71,25 @@ PDF / printer / LAS / CSV / XLSX / DOCX / HTML
 Исходный LAS/GS2/raw artifact, source mnemonic, unit, mapping evidence и fingerprint являются
 доказательствами происхождения. Производная кривая не подменяет source-кривую и получает
 versioned provenance. Экспорт является проекцией проекта и не заменяет `Ctrl+S`.
+
+### Переносимый проект и ежедневный LAS
+
+`ProjectRepositoryRouter` сохраняет legacy `.geolog.json` через прежний repository, а
+`.geologpkg` — через атомарный ZIP-контейнер. Пакет содержит `project.geolog.json`, raw LAS и
+image assets, а `manifest.json` фиксирует путь, размер и SHA-256 каждого элемента. Reader до
+распаковки проверяет число файлов, суммарный размер, коэффициент сжатия, повторяющиеся и
+небезопасные пути; затем проверяет хэш каждого payload и только после этого вызывает project
+codec v23.
+
+`LocalLasFolderProvider` является read-only adapter локальной папки, которую синхронизирует
+внешний серверный клиент. Он не управляет сетью и не удаляет файлы. Daily append сначала строит
+немутирующий план, затем готовит все NumPy-массивы и фиксирует source revision, provider,
+before/after Dataset SHA-256 и raw artifact. Well-level ручные слои и языковые тексты не входят в
+числовую замену и сохраняют стабильные идентификаторы.
+
+Авторские тексты используют карты `ru`/`kk`/`en` и отдельные language revisions. Общие числа,
+геометрия интервалов и кривые не дублируются. UI и печатный renderer разрешают текст выбранного
+языка; legacy scalar-поля остаются fallback для проектов v1–v22.
 
 ## Газовый conditioning и расчётная граница
 

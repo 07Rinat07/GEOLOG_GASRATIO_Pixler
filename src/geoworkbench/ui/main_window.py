@@ -78,6 +78,7 @@ from geoworkbench.importers.gs2.metadata import (
 )
 from geoworkbench.importers.skf_importer import import_skf_file
 from geoworkbench.domain.models import CurveData, Dataset, IndexRole, IndexType
+from geoworkbench.domain.localized_content import localized_text
 from geoworkbench.data.las_adapter import LasExportError
 from geoworkbench.data.las_import_policy import LasImportMode
 from geoworkbench.data.las_import_report import LasImportIssue, LasImportReport
@@ -3705,7 +3706,7 @@ class MainWindow(QMainWindow):
             self,
             "Открыть проект",
             str(self.project_path or Path.cwd()),
-            "GeoLog Project (*.geolog.json);;JSON (*.json)",
+            "GeoLog Package (*.geologpkg);;GeoLog Project (*.geolog.json);;JSON (*.json)",
         )
         if not filename:
             return
@@ -7386,6 +7387,7 @@ class MainWindow(QMainWindow):
                     dialog.bottom_depth,
                     dialog.components(),
                     **dialog.values(),
+                    content_language=self.language.value,
                 )
             except (RuntimeError, ValueError) as exc:
                 QMessageBox.warning(self, self._t("cuttings.create_title"), str(exc))
@@ -7442,6 +7444,7 @@ class MainWindow(QMainWindow):
                     bottom_depth=dialog.bottom_depth,
                     components=dialog.components(),
                     **dialog.values(),
+                    content_language=self.language.value,
                 )
             except (KeyError, RuntimeError, ValueError) as exc:
                 QMessageBox.warning(self, self._t("cuttings.edit_title"), str(exc))
@@ -7475,6 +7478,7 @@ class MainWindow(QMainWindow):
                     dialog.bottom_depth,
                     dialog.description_html,
                     description_word_wrap=dialog.description_word_wrap,
+                    language=self.language,
                 )
             except (RuntimeError, ValueError) as exc:
                 QMessageBox.warning(self, self._t("description.create_title"), str(exc))
@@ -7508,7 +7512,9 @@ class MainWindow(QMainWindow):
         while dialog.exec() == QDialog.DialogCode.Accepted:
             try:
                 if dialog.delete_requested:
-                    deleted = self.cuttings_controller.delete_description(sample_id)
+                    deleted = self.cuttings_controller.delete_description(
+                        sample_id, language=self.language
+                    )
                     self._refresh_cuttings_after_edit()
                     self.statusBar().showMessage(
                         self._t(
@@ -7524,6 +7530,7 @@ class MainWindow(QMainWindow):
                     bottom_depth=dialog.bottom_depth,
                     description=dialog.description_html,
                     description_word_wrap=dialog.description_word_wrap,
+                    language=self.language,
                 )
             except (KeyError, RuntimeError, ValueError) as exc:
                 QMessageBox.warning(self, self._t("description.edit_title"), str(exc))
@@ -7625,9 +7632,19 @@ class MainWindow(QMainWindow):
             )
             dialog.rank_input.setCurrentText(interval.rank or "")
             dialog.code_input.setText(interval.code)
-            dialog.name_input.setText(interval.name or "")
+            dialog.name_input.setText(
+                localized_text(
+                    interval.name_i18n, self.language, legacy=interval.name
+                )
+            )
             dialog.color_input.setText(interval.color)
-            dialog.description_input.setText(interval.description or "")
+            dialog.description_input.setText(
+                localized_text(
+                    interval.description_i18n,
+                    self.language,
+                    legacy=interval.description,
+                )
+            )
             dialog.set_text_presentation(interval.text_orientation, interval.text_position)
             if dialog.exec() != QDialog.DialogCode.Accepted:
                 return
@@ -8296,8 +8313,8 @@ class MainWindow(QMainWindow):
         filename, _ = QFileDialog.getSaveFileName(
             self,
             "Сохранить проект",
-            str(self.project_path or Path("project.geolog.json")),
-            "GeoLog Project (*.geolog.json);;JSON (*.json)",
+            str(self.project_path or Path("project.geologpkg")),
+            "GeoLog Package (*.geologpkg);;GeoLog Project (*.geolog.json);;JSON (*.json)",
         )
         if not filename:
             return

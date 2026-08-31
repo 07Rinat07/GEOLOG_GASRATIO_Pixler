@@ -55,6 +55,38 @@ def file_sha256(path: str | Path) -> str:
     return digest.hexdigest()
 
 
+def dataset_content_sha256(dataset: Dataset) -> str:
+    """Return a deterministic digest of the persisted numerical projection."""
+
+    digest = sha256()
+    digest.update(dataset.dataset_id.encode("utf-8"))
+    for index in sorted(dataset.indexes.values(), key=lambda item: item.index_id):
+        digest.update(index.index_id.encode("utf-8"))
+        digest.update(index.mnemonic.encode("utf-8"))
+        digest.update(index.index_type.value.encode("ascii"))
+        digest.update(index.role.value.encode("ascii"))
+        _update_array_digest(digest, np.asarray(index.values))
+    curves = sorted(
+        dataset.curves.values(),
+        key=lambda item: (
+            item.metadata.original_mnemonic.casefold(), item.metadata.curve_id
+        ),
+    )
+    for curve in curves:
+        digest.update(curve.metadata.curve_id.encode("utf-8"))
+        digest.update(curve.metadata.original_mnemonic.encode("utf-8"))
+        digest.update((curve.metadata.unit or "").encode("utf-8"))
+        _update_array_digest(digest, np.asarray(curve.values))
+    return digest.hexdigest()
+
+
+def _update_array_digest(digest, values: np.ndarray) -> None:
+    contiguous = np.ascontiguousarray(values)
+    digest.update(contiguous.dtype.str.encode("ascii"))
+    digest.update(str(contiguous.shape).encode("ascii"))
+    digest.update(contiguous.tobytes())
+
+
 def analyze_daily_las_growth(
     target: Dataset,
     source: Dataset,
@@ -76,7 +108,9 @@ def analyze_daily_las_growth(
         raise DailyLasGrowthError("Не задано имя исходного LAS")
     if len(source_sha256) != 64 or any(ch not in "0123456789abcdef" for ch in source_sha256):
         raise DailyLasGrowthError("Некорректный SHA-256 исходного LAS")
-    if any(item.source_sha256 == source_sha256 for item in target.append_history):
+    if any(item.source_sha256 == source_sha256 for item in target.append_history) or any(
+        item.source_sha256 == source_sha256 for item in target.source_revisions
+    ):
         active = source.active_index
         return DailyLasGrowthPlan(
             target.dataset_id,
@@ -177,11 +211,18 @@ def apply_daily_las_growth(
     plan: DailyLasGrowthPlan,
     *,
     imported_at: datetime | None = None,
+    provider_kind: str = "manual_file",
+    provider_location: str | None = None,
 ) -> DailyLasGrowthOutcome:
     """Atomically append the rows described by a fresh plan."""
 
     if target.dataset_id != plan.target_dataset_id:
         raise DailyLasGrowthError("План относится к другому dataset")
+    normalized_provider_kind = provider_kind.strip()
+    if not normalized_provider_kind or len(normalized_provider_kind) > 80:
+        raise DailyLasGrowthError("Некорректный тип источника LAS")
+    if provider_location is not None and len(provider_location) > 2_000:
+        raise DailyLasGrowthError("Путь источника LAS слишком длинный")
     current = analyze_daily_las_growth(
         target,
         source,
@@ -210,21 +251,9 @@ def apply_daily_las_growth(
         key: np.concatenate((target_curves[key].values, source_curves[key].values[rows]))
         for key in target_curves
     }
+    before_digest = dataset_content_sha256(target)
     moment = (imported_at or datetime.now(timezone.utc)).astimezone(timezone.utc)
-    record = DatasetAppendRecord(
-        import_id=str(uuid4()),
-        source_name=plan.source_name,
-        source_sha256=plan.source_sha256,
-        imported_at=moment.isoformat().replace("+00:00", "Z"),
-        index_role=source.active_index.role,
-        index_type=source.active_index.index_type,
-        index_unit=source.active_index.unit,
-        start_value=plan.start_value,
-        stop_value=plan.stop_value,
-        rows_added=plan.rows_added,
-        rows_skipped=plan.rows_skipped,
-        curve_mnemonics=plan.curve_mnemonics,
-    )
+    import_id = str(uuid4())
 
     target.active_index.values = new_index_values
     if target.active_index.role is IndexRole.DEPTH:
@@ -236,8 +265,28 @@ def apply_daily_las_growth(
         curve = target_curves[key]
         curve.values = values
         curve.version += 1
-    target.append_history.append(record)
     _refresh_las_range_headers(target)
+    after_digest = dataset_content_sha256(target)
+    record = DatasetAppendRecord(
+        import_id=import_id,
+        source_name=plan.source_name,
+        source_sha256=plan.source_sha256,
+        imported_at=moment.isoformat().replace("+00:00", "Z"),
+        index_role=source.active_index.role,
+        index_type=source.active_index.index_type,
+        index_unit=source.active_index.unit,
+        start_value=plan.start_value,
+        stop_value=plan.stop_value,
+        rows_added=plan.rows_added,
+        rows_skipped=plan.rows_skipped,
+        curve_mnemonics=plan.curve_mnemonics,
+        source_artifact_id=import_id,
+        provider_kind=normalized_provider_kind,
+        provider_location=provider_location,
+        dataset_sha256_before=before_digest,
+        dataset_sha256_after=after_digest,
+    )
+    target.append_history.append(record)
     return DailyLasGrowthOutcome(plan, record)
 
 

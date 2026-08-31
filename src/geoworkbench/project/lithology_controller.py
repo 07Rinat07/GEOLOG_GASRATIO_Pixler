@@ -5,6 +5,11 @@ from dataclasses import dataclass
 import numpy as np
 
 from geoworkbench.domain.models import LithologyInterval, Well, new_id
+from geoworkbench.domain.localized_content import (
+    bump_language_revision,
+    normalize_content_language,
+    set_localized_text,
+)
 from geoworkbench.project.session import ProjectSession
 
 
@@ -30,6 +35,7 @@ class LithologyController:
         lithotype_id: str,
         *,
         description: str | None = None,
+        content_language: object | None = None,
     ) -> LithologyInterval:
         top, bottom, lithotype, normalized_description = self._validate(
             top_depth,
@@ -45,6 +51,17 @@ class LithologyController:
             lithotype_id=lithotype,
             description=normalized_description,
         )
+        if content_language is not None:
+            language = normalize_content_language(content_language)
+            set_localized_text(
+                interval.description_i18n,
+                language,
+                normalized_description,
+                maximum=4_000,
+            )
+            if language != "ru":
+                interval.description = None
+            self._bump_content(language)
         self._require_well().lithology.append(interval)
         self.session.dirty = True
         return interval
@@ -57,6 +74,7 @@ class LithologyController:
         bottom_depth: float,
         lithotype_id: str,
         description: str | None = None,
+        content_language: object | None = None,
     ) -> LithologyInterval:
         interval = self._require_interval(interval_id)
         top, bottom, lithotype, normalized_description = self._validate(
@@ -69,7 +87,19 @@ class LithologyController:
         interval.top_depth = top
         interval.bottom_depth = bottom
         interval.lithotype_id = lithotype
-        interval.description = normalized_description
+        if content_language is None:
+            interval.description = normalized_description
+        else:
+            language = normalize_content_language(content_language)
+            set_localized_text(
+                interval.description_i18n,
+                language,
+                normalized_description,
+                maximum=4_000,
+            )
+            if language == "ru":
+                interval.description = normalized_description
+            self._bump_content(language)
         self.session.dirty = True
         return interval
 
@@ -131,6 +161,11 @@ class LithologyController:
         if well is None:
             raise RuntimeError("Сначала выберите скважину")
         return well
+
+    def _bump_content(self, language: object) -> None:
+        well = self._require_well()
+        well.content_revision += 1
+        bump_language_revision(well.language_revisions, language)
 
     def _require_interval(self, interval_id: str) -> LithologyInterval:
         for interval in self._require_well().lithology:

@@ -430,6 +430,45 @@ def _migrate_v21_to_v22(payload: ProjectPayload) -> ProjectPayload:
     return migrated
 
 
+def _migrate_v22_to_v23(payload: ProjectPayload) -> ProjectPayload:
+    """Add multilingual content and immutable LAS source-revision ledgers."""
+
+    migrated = deepcopy(payload)
+    project = migrated.get("project")
+    if not isinstance(project, dict):
+        raise ProjectMigrationError("Проект версии 22 не содержит объекта 'project'")
+    project.setdefault("save_revision", 1)
+    wells = project.get("wells", {})
+    if not isinstance(wells, dict):
+        raise ProjectMigrationError("Проект версии 22 содержит некорректный wells")
+    for well in wells.values():
+        if not isinstance(well, dict):
+            raise ProjectMigrationError("Некорректная скважина проекта версии 22")
+        well.setdefault("content_revision", 1)
+        well.setdefault("language_revisions", {})
+        datasets = well.get("datasets", {})
+        if not isinstance(datasets, dict):
+            raise ProjectMigrationError("Некорректные datasets проекта версии 22")
+        for dataset in datasets.values():
+            if not isinstance(dataset, dict):
+                raise ProjectMigrationError("Некорректный dataset проекта версии 22")
+            dataset.setdefault("source_revisions", [])
+        for interval in well.get("lithology", []):
+            if isinstance(interval, dict):
+                interval.setdefault("description_i18n", {})
+        for sample in well.get("cuttings", []):
+            if isinstance(sample, dict):
+                sample.setdefault("description_i18n", {})
+                sample.setdefault("lba_description_i18n", {})
+                sample.setdefault("analysis_interpretation_i18n", {})
+        for interval in well.get("stratigraphy", []):
+            if isinstance(interval, dict):
+                interval.setdefault("name_i18n", {})
+                interval.setdefault("description_i18n", {})
+    migrated["format_version"] = 23
+    return migrated
+
+
 def _migrate_scale_payload_to_linear(payload: dict[str, Any]) -> bool:
     """Convert a legacy logarithmic payload and report whether it changed."""
 
@@ -479,6 +518,7 @@ DEFAULT_PROJECT_MIGRATIONS.register(18, _migrate_v18_to_v19)
 DEFAULT_PROJECT_MIGRATIONS.register(19, _migrate_v19_to_v20)
 DEFAULT_PROJECT_MIGRATIONS.register(20, _migrate_v20_to_v21)
 DEFAULT_PROJECT_MIGRATIONS.register(21, _migrate_v21_to_v22)
+DEFAULT_PROJECT_MIGRATIONS.register(22, _migrate_v22_to_v23)
 
 
 def migrate_project_payload(payload: ProjectPayload, target_version: int) -> ProjectPayload:

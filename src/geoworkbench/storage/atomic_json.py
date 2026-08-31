@@ -42,7 +42,13 @@ def save_project(
     target.parent.mkdir(parents=True, exist_ok=True)
     documents = source_documents or {}
     dataset_ids = {dataset_id for well in project.wells.values() for dataset_id in well.datasets}
-    unknown_document_ids = set(documents) - dataset_ids
+    source_artifact_ids = {
+        revision.artifact_id
+        for well in project.wells.values()
+        for dataset in well.datasets.values()
+        for revision in dataset.source_revisions
+    }
+    unknown_document_ids = set(documents) - dataset_ids - source_artifact_ids
     if unknown_document_ids:
         unknown = ", ".join(sorted(unknown_document_ids))
         raise ValueError(f"Source document ссылается на неизвестный набор: {unknown}")

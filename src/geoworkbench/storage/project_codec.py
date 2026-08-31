@@ -57,6 +57,7 @@ from geoworkbench.domain.models import (
     CuttingsSample,
     Dataset,
     DatasetAppendRecord,
+    DatasetSourceRevision,
     DatasetIndex,
     DatasetKind,
     DepthDomain,
@@ -79,6 +80,7 @@ from geoworkbench.domain.models import (
     Well,
     ExportProfile,
 )
+from geoworkbench.domain.localized_content import validate_localized_texts
 from geoworkbench.tablet.layout_codec import TabletLayoutFormatError, layout_from_dict
 from geoworkbench.tablet.models import TabletLayout
 from geoworkbench.catalogs.sensors import normalize_sensor_key
@@ -116,7 +118,7 @@ from geoworkbench.storage.source_artifacts import (
 )
 
 
-PROJECT_FORMAT_VERSION = 22
+PROJECT_FORMAT_VERSION = 23
 
 
 @dataclass(slots=True)
@@ -357,9 +359,56 @@ def _dataset_append_record_from_dict(data: object) -> DatasetAppendRecord:
             rows_added=_required_int(data, "rows_added"),
             rows_skipped=_required_int(data, "rows_skipped"),
             curve_mnemonics=tuple(raw_curves),
+            source_artifact_id=(
+                str(data["source_artifact_id"])
+                if data.get("source_artifact_id") is not None
+                else None
+            ),
+            provider_kind=str(data.get("provider_kind", "manual_file")),
+            provider_location=(
+                str(data["provider_location"])
+                if data.get("provider_location") is not None
+                else None
+            ),
+            dataset_sha256_before=(
+                str(data["dataset_sha256_before"])
+                if data.get("dataset_sha256_before") is not None
+                else None
+            ),
+            dataset_sha256_after=(
+                str(data["dataset_sha256_after"])
+                if data.get("dataset_sha256_after") is not None
+                else None
+            ),
         )
     except (TypeError, ValueError) as exc:
         raise ProjectFormatError("Некорректная запись истории наращивания LAS") from exc
+
+
+def _dataset_source_revision_from_dict(data: object) -> DatasetSourceRevision:
+    if not isinstance(data, dict):
+        raise ProjectFormatError("Запись ревизии LAS-источника должна быть объектом")
+    try:
+        return DatasetSourceRevision(
+            source_revision_id=str(_required(data, "source_revision_id", str)),
+            artifact_id=str(_required(data, "artifact_id", str)),
+            source_name=str(_required(data, "source_name", str)),
+            source_sha256=str(_required(data, "source_sha256", str)),
+            size_bytes=_required_int(data, "size_bytes"),
+            imported_at=str(_required(data, "imported_at", str)),
+            provider_kind=str(data.get("provider_kind", "manual_file")),
+            provider_location=(
+                str(data["provider_location"])
+                if data.get("provider_location") is not None
+                else None
+            ),
+            start_value=str(data.get("start_value", "")),
+            stop_value=str(data.get("stop_value", "")),
+            rows_added=int(data.get("rows_added", 0)),
+            rows_skipped=int(data.get("rows_skipped", 0)),
+        )
+    except (TypeError, ValueError) as exc:
+        raise ProjectFormatError("Некорректная ревизия LAS-источника") from exc
 
 
 def _dataset_from_dict(data: dict[str, Any]) -> Dataset:
@@ -382,6 +431,9 @@ def _dataset_from_dict(data: dict[str, Any]) -> Dataset:
     raw_append_history = data.get("append_history", [])
     if not isinstance(raw_append_history, list):
         raise ProjectFormatError("Поле append_history должно быть списком")
+    raw_source_revisions = data.get("source_revisions", [])
+    if not isinstance(raw_source_revisions, list):
+        raise ProjectFormatError("Поле source_revisions должно быть списком")
     try:
         dataset = Dataset(
             dataset_id=str(_required(data, "dataset_id", str)),
@@ -407,6 +459,10 @@ def _dataset_from_dict(data: dict[str, Any]) -> Dataset:
             append_history=[
                 _dataset_append_record_from_dict(item)
                 for item in raw_append_history
+            ],
+            source_revisions=[
+                _dataset_source_revision_from_dict(item)
+                for item in raw_source_revisions
             ],
         )
     except (TypeError, ValueError) as exc:
@@ -1074,12 +1130,29 @@ def _well_from_dict(data: dict[str, Any]) -> Well:
     well = Well(
         well_id=str(_required(data, "well_id", str)),
         name=str(_required(data, "name", str)),
+        content_revision=int(data.get("content_revision", 1)),
+        language_revisions={
+            str(language): int(revision)
+            for language, revision in dict(data.get("language_revisions", {})).items()
+        },
     )
     datasets = _required(data, "datasets", dict)
     well.datasets = {
         str(dataset_id): _dataset_from_dict(item) for dataset_id, item in datasets.items()
     }
-    well.lithology = [LithologyInterval(**item) for item in data.get("lithology", [])]
+    well.lithology = [
+        LithologyInterval(
+            interval_id=str(_required(item, "interval_id", str)),
+            top_depth=float(item["top_depth"]),
+            bottom_depth=float(item["bottom_depth"]),
+            lithotype_id=str(_required(item, "lithotype_id", str)),
+            description=item.get("description"),
+            description_i18n=validate_localized_texts(
+                item.get("description_i18n", {}), maximum=20_000
+            ),
+        )
+        for item in data.get("lithology", [])
+    ]
     well.cuttings = [
         CuttingsSample(
             sample_id=item["sample_id"],
@@ -1112,10 +1185,39 @@ def _well_from_dict(data: dict[str, Any]) -> Well:
             description_word_wrap=_optional_bool_field(
                 item, "description_word_wrap", default=True
             ),
+            description_i18n=validate_localized_texts(
+                item.get("description_i18n", {}), maximum=2_000_000
+            ),
+            lba_description_i18n=validate_localized_texts(
+                item.get("lba_description_i18n", {}), maximum=2_000
+            ),
+            analysis_interpretation_i18n=validate_localized_texts(
+                item.get("analysis_interpretation_i18n", {}), maximum=20_000
+            ),
         )
         for item in data.get("cuttings", [])
     ]
-    well.stratigraphy = [StratigraphyInterval(**item) for item in data.get("stratigraphy", [])]
+    well.stratigraphy = [
+        StratigraphyInterval(
+            interval_id=str(_required(item, "interval_id", str)),
+            top_depth=float(item["top_depth"]),
+            bottom_depth=float(item["bottom_depth"]),
+            code=str(_required(item, "code", str)),
+            name=item.get("name"),
+            rank=item.get("rank"),
+            color=str(item.get("color", "#dbeafe")),
+            description=item.get("description"),
+            text_orientation=str(item.get("text_orientation", "horizontal")),
+            text_position=str(item.get("text_position", "center")),
+            name_i18n=validate_localized_texts(
+                item.get("name_i18n", {}), maximum=2_000
+            ),
+            description_i18n=validate_localized_texts(
+                item.get("description_i18n", {}), maximum=20_000
+            ),
+        )
+        for item in data.get("stratigraphy", [])
+    ]
     raw_interpretations = data.get("interpretations", {})
     if not isinstance(raw_interpretations, dict):
         raise ProjectFormatError("Поле interpretations скважины должно быть объектом")
@@ -1222,6 +1324,7 @@ def project_from_dict(data: dict[str, Any]) -> Project:
     project = Project(
         project_id=str(_required(data, "project_id", str)),
         name=str(_required(data, "name", str)),
+        save_revision=int(data.get("save_revision", 1)),
     )
     wells = _required(data, "wells", dict)
     project.wells = {str(well_id): _well_from_dict(item) for well_id, item in wells.items()}
@@ -1453,7 +1556,13 @@ def project_document_from_dict(data: dict[str, Any]) -> ProjectDocument:
         artifact_manifest = validate_artifact_manifest(data.get("source_artifacts", {}))
     except SourceArtifactError as exc:
         raise ProjectFormatError(str(exc)) from exc
-    unknown_artifact_ids = set(artifact_manifest) - known_dataset_ids
+    known_source_artifact_ids = {
+        revision.artifact_id
+        for well in project.wells.values()
+        for dataset in well.datasets.values()
+        for revision in dataset.source_revisions
+    }
+    unknown_artifact_ids = set(artifact_manifest) - known_dataset_ids - known_source_artifact_ids
     if unknown_artifact_ids:
         unknown = ", ".join(sorted(unknown_artifact_ids))
         raise ProjectFormatError(f"Source artifact ссылается на неизвестный набор: {unknown}")

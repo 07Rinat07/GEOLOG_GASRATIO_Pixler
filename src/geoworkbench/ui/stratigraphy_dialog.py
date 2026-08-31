@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.domain.localized_content import localized_text
 from geoworkbench.project.stratigraphy_catalog_controller import (
     StratigraphyCatalogController,
 )
@@ -46,6 +47,7 @@ class StratigraphyValues(TypedDict):
     description: str
     text_orientation: str
     text_position: str
+    content_language: str
 
 
 _TEXT_ORIENTATION_LABELS = {
@@ -519,6 +521,7 @@ class StratigraphyIntervalDialog(QDialog, _CatalogMixin):
                 self.text_orientation_input, "horizontal"
             ),
             "text_position": _combo_value(self.text_position_input, "center"),
+            "content_language": self.language.value,
         }
 
 
@@ -667,9 +670,15 @@ class StratigraphyDialog(QDialog, _CatalogMixin):
                 f"{interval.bottom_depth:g}",
                 interval.rank or "",
                 interval.code,
-                interval.name or "",
+                localized_text(
+                    interval.name_i18n, self.language, legacy=interval.name
+                ),
                 interval.color,
-                interval.description or "",
+                localized_text(
+                    interval.description_i18n,
+                    self.language,
+                    legacy=interval.description,
+                ),
                 _TEXT_ORIENTATION_LABELS[interval.text_orientation].get(
                     self.language, interval.text_orientation
                 ),
@@ -702,9 +711,17 @@ class StratigraphyDialog(QDialog, _CatalogMixin):
         self.bottom_input.setValue(interval.bottom_depth)
         self.rank_input.setCurrentText(interval.rank or "")
         self.code_input.setText(interval.code)
-        self.name_input.setText(interval.name or "")
+        self.name_input.setText(
+            localized_text(interval.name_i18n, self.language, legacy=interval.name)
+        )
         self.color_input.setText(interval.color)
-        self.description_input.setText(interval.description or "")
+        self.description_input.setText(
+            localized_text(
+                interval.description_i18n,
+                self.language,
+                legacy=interval.description,
+            )
+        )
         orientation_index = self.text_orientation_input.findData(interval.text_orientation)
         if orientation_index >= 0:
             self.text_orientation_input.setCurrentIndex(orientation_index)
@@ -725,6 +742,7 @@ class StratigraphyDialog(QDialog, _CatalogMixin):
                 self.text_orientation_input, "horizontal"
             ),
             "text_position": _combo_value(self.text_position_input, "center"),
+            "content_language": self.language.value,
         }
 
     def _add(self) -> None:

@@ -36,6 +36,7 @@ from geoworkbench.domain.models import (
     MasterlogHeaderElement,
     MasterlogTemplate,
 )
+from geoworkbench.domain.localized_content import localized_text
 from geoworkbench.project.lithotype_catalog_controller import (
     CatalogLithotype,
     LithotypeCatalogController,
@@ -866,9 +867,14 @@ def _masterlog_lithology_legend_entries(
                 if interval.bottom_depth < top or interval.top_depth > bottom:
                     continue
                 events.append((interval.top_depth, 0, interval.lithotype_id))
-                if interval.description:
+                interval_description = localized_text(
+                    interval.description_i18n,
+                    language,
+                    legacy=interval.description,
+                )
+                if interval_description:
                     unknown_descriptions.setdefault(
-                        interval.lithotype_id, interval.description.strip()
+                        interval.lithotype_id, interval_description.strip()
                     )
             for sample in well.cuttings:
                 if sample.bottom_depth < top or sample.top_depth > bottom:
@@ -1184,7 +1190,9 @@ def _paint_columns(
             if column.column_type == "depth":
                 _paint_depth_axis(painter, plot_rect, depth_range)
             elif column.column_type == "stratigraphy":
-                _paint_stratigraphy_column(painter, plot_rect, session, depth_range)
+                _paint_stratigraphy_column(
+                    painter, plot_rect, session, depth_range, language
+                )
             elif column.column_type == "lithology":
                 _paint_lithology_column(
                     painter, plot_rect, column, session, depth_range, lithotype_catalog
@@ -1199,6 +1207,7 @@ def _paint_columns(
                     plot_rect,
                     session,
                     depth_range,
+                    language,
                     show_borders=bool(
                         column.properties.get("show_description_borders", True)
                     ),
@@ -1209,6 +1218,7 @@ def _paint_columns(
                     plot_rect,
                     session,
                     depth_range,
+                    language,
                     show_borders=bool(
                         column.properties.get("show_description_borders", True)
                     ),
@@ -1219,7 +1229,7 @@ def _paint_columns(
                 )
             elif column.column_type == "lba":
                 _paint_lba_column(
-                    painter, plot_rect, column, session, depth_range
+                    painter, plot_rect, column, session, depth_range, language
                 )
             elif column.column_type in {"text", "description"}:
                 _paint_lithology_descriptions(
@@ -1244,7 +1254,7 @@ def _paint_columns(
         # after all columns allows the same free cross-column placement seen on
         # the F4 canvas and prevents per-column duplication/clipping.
         _paint_annotations(
-            painter, annotation_columns, session, depth_range, bindings
+            painter, annotation_columns, session, depth_range, bindings, language
         )
 
 
@@ -1561,6 +1571,7 @@ def _paint_stratigraphy_column(
     rect: QRectF,
     session: ProjectSession,
     depth_range: tuple[float, float],
+    language: AppLanguage = AppLanguage.RU,
 ) -> None:
     well = session.current_well
     if well is None:
@@ -1600,7 +1611,10 @@ def _paint_stratigraphy_column(
         painter.setPen(QPen(QColor("#334155"), 0.2))
         painter.drawRect(interval_rect)
         if interval_rect.height() >= 3.0:
-            text = "\n".join(value for value in (interval.code, interval.name) if value)
+            interval_name = localized_text(
+                interval.name_i18n, language, legacy=interval.name
+            )
+            text = "\n".join(value for value in (interval.code, interval_name) if value)
             painter.setPen(QColor("#0f172a"))
             _paint_stratigraphy_label(
                 painter,
@@ -1742,6 +1756,7 @@ def _paint_lba_column(
     column: MasterlogColumnTemplate,
     session: ProjectSession,
     depth_range: tuple[float, float],
+    language: AppLanguage = AppLanguage.RU,
 ) -> None:
     well = session.current_well
     if well is None:
@@ -1765,7 +1780,11 @@ def _paint_lba_column(
                 lba_color_code(sample.lba_color),
                 sample.lba_distribution,
                 sample.lba_cut,
-                sample.lba_description,
+                localized_text(
+                    sample.lba_description_i18n,
+                    language,
+                    legacy=sample.lba_description,
+                ),
             )
         )
         if not has_lba:
@@ -1870,7 +1889,11 @@ def _paint_lithology_descriptions(
             if definition is not None
             else interval.lithotype_id
         )
-        description = interval.description.strip() if interval.description else name
+        description = localized_text(
+            interval.description_i18n,
+            language,
+            legacy=interval.description,
+        ).strip() or name
         if show_borders:
             painter.setPen(QPen(QColor("#94a3b8"), 0.15))
             painter.drawRect(interval_rect)
@@ -1889,6 +1912,7 @@ def _paint_cuttings_descriptions(
     rect: QRectF,
     session: ProjectSession,
     depth_range: tuple[float, float],
+    language: AppLanguage = AppLanguage.RU,
     *,
     show_borders: bool = True,
 ) -> None:
@@ -1902,7 +1926,12 @@ def _paint_cuttings_descriptions(
     _set_scaled_font_points(painter, font, 6.5)
     painter.setFont(font)
     for sample in well.cuttings:
-        if not sample.description or sample.bottom_depth < top or sample.top_depth > bottom:
+        description = localized_text(
+            sample.description_i18n,
+            language,
+            legacy=sample.description,
+        )
+        if not description or sample.bottom_depth < top or sample.top_depth > bottom:
             continue
         y_top = rect.top() + (max(top, sample.top_depth) - top) / (bottom - top) * rect.height()
         y_bottom = (
@@ -1917,8 +1946,8 @@ def _paint_cuttings_descriptions(
             _draw_fitted_interval_text(
                 painter,
                 sample_rect.adjusted(0.6, 0.3, -0.6, -0.3),
-                _rich_text_to_plain(sample.description),
-                alignment=_rich_text_alignment(sample.description),
+                _rich_text_to_plain(description),
+                alignment=_rich_text_alignment(description),
                 maximum_point_size=6.5,
                 word_wrap=sample.description_word_wrap,
             )
@@ -1930,6 +1959,7 @@ def _paint_sample_interpretations(
     rect: QRectF,
     session: ProjectSession,
     depth_range: tuple[float, float],
+    language: AppLanguage = AppLanguage.RU,
     *,
     show_borders: bool = True,
 ) -> None:
@@ -1943,8 +1973,17 @@ def _paint_sample_interpretations(
     _set_scaled_font_points(painter, font, 6.0)
     painter.setFont(font)
     for sample in well.cuttings:
-        description = _rich_text_to_plain(sample.description)
-        conclusion = (sample.analysis_interpretation or "").strip()
+        raw_description = localized_text(
+            sample.description_i18n,
+            language,
+            legacy=sample.description,
+        )
+        description = _rich_text_to_plain(raw_description)
+        conclusion = localized_text(
+            sample.analysis_interpretation_i18n,
+            language,
+            legacy=sample.analysis_interpretation,
+        ).strip()
         text = "\n".join(part for part in (description, conclusion) if part)
         if not text or sample.bottom_depth < top or sample.top_depth > bottom:
             continue
@@ -1963,7 +2002,7 @@ def _paint_sample_interpretations(
                 painter,
                 sample_rect.adjusted(0.5, 0.25, -0.5, -0.25),
                 text,
-                alignment=_rich_text_alignment(sample.description),
+                alignment=_rich_text_alignment(raw_description),
                 maximum_point_size=6.0,
                 word_wrap=sample.description_word_wrap,
             )
@@ -2068,6 +2107,7 @@ def _paint_annotations(
     session: ProjectSession,
     depth_range: tuple[float, float],
     bindings: dict[str, str],
+    language: AppLanguage = AppLanguage.RU,
 ) -> None:
     """Paint one page-wide annotation layer after every Masterlog column."""
 
@@ -2110,6 +2150,9 @@ def _paint_annotations(
             continue
         if not record.visible or not record.print_enabled:
             continue
+        annotation_text = localized_text(
+            record.text_i18n, language, legacy=record.text
+        )
         owner = owner_by_id.get(record.track_id or "", default_owner)
         column, rect = owner
         if record.depth is None or not isfinite(record.depth):
@@ -2212,7 +2255,7 @@ def _paint_annotations(
         asset = session.image_assets.get(record.asset_ref) if record.asset_ref else None
         if record.kind in {AnnotationKind.IMAGE, AnnotationKind.SYMBOL} and asset is not None:
             caption_height = 0.0
-            if record.text:
+            if annotation_text:
                 caption_height = min(content.height() * 0.35, max(4.0, style.font_size * 0.45))
             image_rect = content.adjusted(0.0, 0.0, 0.0, -caption_height)
             draw_image_asset(painter, image_rect, asset)
@@ -2223,9 +2266,9 @@ def _paint_annotations(
                     content.width(),
                     caption_height,
                 )
-                _paint_annotation_text(painter, caption, record.text, style)
+                _paint_annotation_text(painter, caption, annotation_text, style)
         else:
-            _paint_annotation_text(painter, content, record.text, style)
+            _paint_annotation_text(painter, content, annotation_text, style)
         painter.restore()
 
     painter.restore()

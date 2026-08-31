@@ -1,7 +1,7 @@
-<!-- runtime-contract: package=0.7.93; project=v22; form=v16; layout=v24 -->
+<!-- runtime-contract: package=0.7.93; project=v23; form=v16; layout=v24 -->
 # Единый план проекта
 
-Актуально на 29 августа 2026 года. Это единственный канонический план проекта. Завершённые
+Актуально на 31 августа 2026 года. Это единственный канонический план проекта. Завершённые
 изменения фиксируются в [CHANGELOG.md](CHANGELOG.md); отдельные roadmap, build report,
 release plan и временные планы в `docs` не создаются.
 
@@ -25,7 +25,7 @@ release plan и временные планы в `docs` не создаются.
 
 ## Текущая база
 
-- пакет `0.7.93`; project `v22`; form `v15`; tablet layout `v23`;
+- пакет `0.7.93`; project `v23`; form `v16`; tablet layout `v24`;
 - desktop-модульный монолит: Python 3.11, PySide6, PyQtGraph, NumPy;
 - WITS0, WITSML 1.4.1.1, WITSML 2.x/ETP foundation, GS2/Paradox, LAS, планшет, формы,
   расчёты и отчёты реализованы;
@@ -155,10 +155,16 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
   проекта после первого импорта и вынести **«Сохранить LAS»** в общий export controller.
 - [ ] **PROJ-02:** dirty close guard, autosave после материальных операций и ротационные backup
   с проверяемым восстановлением после сбоя.
-- [ ] **PROJ-03:** переносимый архив проекта с JSON, `.assets`, manifest, SHA-256 и проверкой до
-  открытия.
-- [ ] **PROJ-04:** неизменяемый реестр каждого суточного LAS/GS2 с raw artifact, fingerprint,
-  диапазоном, import report и транзакционным откатом отдельного добавления.
+- [x] **PROJ-03:** переносимый `.geologpkg` с JSON, raw LAS/image assets, manifest, SHA-256,
+  bounded ZIP-проверкой и атомарной заменой; legacy `.geolog.json` остаётся совместимым.
+- [ ] **PROJ-04:** LAS-часть реестра готова: первый и каждый добавленный LAS сохраняются как
+  immutable raw artifact с SHA-256, provider, диапазоном, числом строк и hash-chain состояния
+  Dataset. Остались единый GS2-маршрут и транзакционный откат отдельного добавления.
+- [x] **PROJ-05:** локальная синхронизируемая папка подключена как read-only provider с повторной
+  проверкой size/mtime/SHA-256; повторный source является no-op, конфликт перекрытия не мутирует
+  Dataset.
+- [x] **PROJ-06:** авторские тексты литологии, стратиграфии, шлама, ЛБА, заключений и аннотаций
+  хранятся раздельно для RU/KK/EN; экран и Masterlog выбирают язык без дублирования Dataset.
 
 ## P0 — производительность и хранение
 

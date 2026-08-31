@@ -2,13 +2,14 @@
 
 ## Core model
 
-GEOLOG GASRATIO@Pixler uses a project-based workflow. The primary working document is the
-`*.geolog.json` well project, not the source LAS, GS2, or Paradox DB file.
+GEOLOG GASRATIO@Pixler uses a project-based workflow. The primary portable working document is the
+`*.geologpkg` well project, not the source LAS, GS2, or Paradox DB file. Legacy
+`*.geolog.json` projects remain readable and writable for compatibility.
 
 | Object | Purpose |
 |---|---|
 | Source LAS/GS2/DB | Immutable measurement source |
-| `*.geolog.json` project | All continuing work for the well |
+| `*.geologpkg` project | All continuing work and source LAS revisions in one file |
 | Exported LAS | Separate copy of current numeric curves for another application |
 | PDF/Masterlog | Final presentation and print output |
 
@@ -27,9 +28,12 @@ Pressing **Ctrl+S** writes the following to the project:
 - LBA, calcite, dolomite, and interpretations;
 - symbols, images, comments, callouts, and saved curve values;
 - interpretation intervals, events, and project catalogs.
+- separate authored RU, KK, and EN text without one language overwriting another;
+- the initial LAS and every successfully appended LAS with SHA-256, range, and provider details.
 
-A `<project name>.geolog.json.assets` directory may be created next to the project for source LAS
-artifacts and inserted images. The JSON file and this directory form one project set. A normal LAS
+The recommended `.geologpkg` contains JSON, source LAS files, and images together and verifies
+their checksums. A legacy project may create `<project name>.geolog.json.assets`; that directory
+and its JSON file form one project set. A normal LAS
 cannot fully retain forms, images, formatted descriptions, cuttings, LBA, or the other manual
 layers.
 
@@ -38,7 +42,7 @@ layers.
 1. Import LAS, GS2, or Paradox DB and complete Import Review.
 2. Select the tablet form.
 3. Verify the well, active Dataset, axis, range, and critical curves.
-4. Press **Ctrl+S** and choose a stable name such as `Well_101.geolog.json`.
+4. Press **Ctrl+S** and choose a stable name such as `Well_101.geologpkg`.
 5. Enter cuttings, LBA, calcimetry, descriptions, symbols, and intervals.
 6. Press **Ctrl+S** again after material changes.
 
@@ -52,7 +56,8 @@ Do not open yesterday's LAS as a new well. Open the saved project and use
 **File → Daily LAS growth…**:
 
 1. select the same main Dataset in the current well;
-2. select today's LAS;
+2. select the local folder maintained by the server sync client, then choose today's LAS from the
+   list; direct file selection remains available;
 3. click **Analyze growth**;
 4. review the range and the new/matching row counts;
 5. click **Append**;
@@ -76,6 +81,18 @@ Daily growth is a strict append-only operation:
 - a changed value at an already stored depth is a conflict;
 - reimporting the same SHA-256 is a safe no-op.
 
+The application treats the synchronized folder as read-only. It records size, modification time,
+and SHA-256 during discovery and verifies the file again before analysis. A file that changes
+during reading is rejected.
+
+## Three languages in one project
+
+Switch the application language and edit the same interval. Lithology, stratigraphy, cuttings
+descriptions, LBA text, interpretations, and notes retain separate `ru`, `kk`, and `en` values.
+Interval geometry, calcimetry numbers, cuttings composition, and curves are shared. Choose RU, KK,
+or EN at print time; Masterlog resolves the matching text from the same project. When a translation
+has not been entered, compatible saved text is shown. No automatic machine translation occurs.
+
 Do not bypass a conflict with ordinary import. Save the project, compare the sources, and then use
 a separate controlled merge or correction workflow.
 
@@ -88,16 +105,15 @@ the window: explicitly press **Ctrl+S** after import, daily growth, and manual e
 backup can be created under a new name, after which work continues in that new version. Before
 copying the project with Windows tools, press **Ctrl+S** first.
 
-Move or copy these items together:
+For the new format, move or copy one file:
 
 ```text
-Well_101.geolog.json
-Well_101.geolog.json.assets\
+Well_101.geologpkg
 ```
 
-If no `.assets` directory exists, the JSON file is sufficient. Keep daily input LAS/GS2/DB files
-in a separate protected archive as well: append history records name, SHA-256, and range, but does
-not replace a full archive of every source file.
+Open the `.geologpkg` on the other computer and verify the range and one entry in each language.
+For legacy `.geolog.json`, continue to copy `.assets` with the JSON. An independent protected
+source archive is still recommended as a separate backup.
 
 ## LAS export
 
@@ -112,8 +128,8 @@ edits; export it again.
 - A source LAS is intentionally never overwritten.
 - The GS2 import path does not propagate its inner **Save LAS** action to the normal exporter;
   after GS2 import use the separate current-Dataset export command.
-- Autosave, a separate Save Backup Copy command, and one portable ZIP project package are not yet
-  implemented.
+- Autosave and a separate Save Backup Copy command are not yet implemented.
+- There is no command to roll back one committed daily append; use a dated `.geologpkg` copy.
 - A large project stores curve arrays in JSON and can consume substantial disk space.
 
 ## Control check

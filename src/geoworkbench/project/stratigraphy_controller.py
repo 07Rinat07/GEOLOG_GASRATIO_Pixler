@@ -6,6 +6,11 @@ import re
 import numpy as np
 
 from geoworkbench.domain.models import StratigraphyInterval, Well, new_id
+from geoworkbench.domain.localized_content import (
+    bump_language_revision,
+    normalize_content_language,
+    set_localized_text,
+)
 from geoworkbench.domain.stratigraphy_presentation import (
     STRATIGRAPHY_TEXT_ORIENTATIONS,
     STRATIGRAPHY_TEXT_POSITIONS,
@@ -86,6 +91,7 @@ class StratigraphyController:
         description: str | None = None,
         text_orientation: str = "horizontal",
         text_position: str = "center",
+        content_language: object | None = None,
     ) -> StratigraphyInterval:
         values = self._validate(
             top_depth,
@@ -100,6 +106,16 @@ class StratigraphyController:
         )
         self._ensure_no_overlap(values[0], values[1], values[4])
         interval = StratigraphyInterval(new_id(), *values)
+        if content_language is not None:
+            language = normalize_content_language(content_language)
+            set_localized_text(interval.name_i18n, language, values[3], maximum=300)
+            set_localized_text(
+                interval.description_i18n, language, values[6], maximum=4_000
+            )
+            if language != "ru":
+                interval.name = None
+                interval.description = None
+            self._bump_content(language)
         self._require_well().stratigraphy.append(interval)
         self.session.dirty = True
         return interval
@@ -117,6 +133,7 @@ class StratigraphyController:
         description: str | None = None,
         text_orientation: str = "horizontal",
         text_position: str = "center",
+        content_language: object | None = None,
     ) -> StratigraphyInterval:
         interval = self._require_interval(interval_id)
         values = self._validate(
@@ -131,17 +148,26 @@ class StratigraphyController:
             text_position,
         )
         self._ensure_no_overlap(values[0], values[1], values[4], excluded_id=interval_id)
-        (
-            interval.top_depth,
-            interval.bottom_depth,
-            interval.code,
-            interval.name,
-            interval.rank,
-            interval.color,
-            interval.description,
-            interval.text_orientation,
-            interval.text_position,
-        ) = values
+        interval.top_depth = values[0]
+        interval.bottom_depth = values[1]
+        interval.code = values[2]
+        interval.rank = values[4]
+        interval.color = values[5]
+        interval.text_orientation = values[7]
+        interval.text_position = values[8]
+        if content_language is None:
+            interval.name = values[3]
+            interval.description = values[6]
+        else:
+            language = normalize_content_language(content_language)
+            set_localized_text(interval.name_i18n, language, values[3], maximum=300)
+            set_localized_text(
+                interval.description_i18n, language, values[6], maximum=4_000
+            )
+            if language == "ru":
+                interval.name = values[3]
+                interval.description = values[6]
+            self._bump_content(language)
         self.session.dirty = True
         return interval
 
@@ -237,6 +263,11 @@ class StratigraphyController:
         if well is None:
             raise RuntimeError("Сначала выберите скважину")
         return well
+
+    def _bump_content(self, language: object) -> None:
+        well = self._require_well()
+        well.content_revision += 1
+        bump_language_revision(well.language_revisions, language)
 
     def _require_interval(self, interval_id: str) -> StratigraphyInterval:
         for interval in self._require_well().stratigraphy:

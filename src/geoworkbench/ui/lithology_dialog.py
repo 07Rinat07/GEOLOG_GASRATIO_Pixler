@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 from geoworkbench.catalogs.description_templates import load_rock_description_templates
 from geoworkbench.catalogs.lithotypes import load_lithotype_catalog
 from geoworkbench.project.lithology_controller import LithologyController
+from geoworkbench.domain.localized_content import localized_text
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.services.localization import AppLanguage, LANGUAGE_NAMES, Localizer
 
@@ -154,7 +155,17 @@ class LithologyDialog(QDialog):
             self.table.setItem(row, 0, top_item)
             self.table.setItem(row, 1, QTableWidgetItem(f"{interval.bottom_depth:g}"))
             self.table.setItem(row, 2, QTableWidgetItem(interval.lithotype_id))
-            self.table.setItem(row, 3, QTableWidgetItem(interval.description or ""))
+            self.table.setItem(
+                row,
+                3,
+                QTableWidgetItem(
+                    localized_text(
+                        interval.description_i18n,
+                        self.language,
+                        legacy=interval.description,
+                    )
+                ),
+            )
         self.table.resizeColumnsToContents()
 
     def _selected_id(self) -> str | None:
@@ -188,6 +199,7 @@ class LithologyDialog(QDialog):
                 self.bottom_input.value(),
                 self._lithotype_id(),
                 description=self.description_input.text(),
+                content_language=self.language.value,
             )
         ):
             self.description_input.clear()
@@ -206,6 +218,7 @@ class LithologyDialog(QDialog):
                 bottom_depth=self.bottom_input.value(),
                 lithotype_id=self._lithotype_id(),
                 description=self.description_input.text(),
+                content_language=self.language.value,
             )
         )
 

@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from geoworkbench.domain.models import CuttingsSample
+from geoworkbench.domain.localized_content import localized_text
 from geoworkbench.services.lba_standard import (
     LBA_STANDARD_GROUPS,
     all_lba_color_labels,
@@ -112,6 +113,7 @@ class SampleAnalysisDialog(QDialog):
         parent=None,
     ) -> None:
         super().__init__(parent)
+        self.language = language
         text = _TEXT[language]
         self.setWindowTitle(f"{text[0]} — {top_depth:g}–{bottom_depth:g} м")
         self.calcite_input = QDoubleSpinBox()
@@ -236,8 +238,20 @@ class SampleAnalysisDialog(QDialog):
         self.lba_residue_color_input.setCurrentText(sample.lba_residue_color or "")
         self.lba_odour_input.setCurrentText(sample.lba_odour or "")
         self.lba_stain_input.setCurrentText(sample.lba_stain or "")
-        self.lba_description_input.setText(sample.lba_description or "")
-        self.interpretation_input.setPlainText(sample.analysis_interpretation or "")
+        self.lba_description_input.setText(
+            localized_text(
+                sample.lba_description_i18n,
+                self.language,
+                legacy=sample.lba_description,
+            )
+        )
+        self.interpretation_input.setPlainText(
+            localized_text(
+                sample.analysis_interpretation_i18n,
+                self.language,
+                legacy=sample.analysis_interpretation,
+            )
+        )
 
     def values(self) -> dict[str, Any]:
         return {

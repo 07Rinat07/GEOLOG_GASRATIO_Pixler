@@ -87,8 +87,8 @@ def test_lag_correction_round_trip_and_project_format_v19(tmp_path) -> None:
     loaded = load_project(target)
     profile = loaded.wells["well"].lag_correction_profiles["lag"]
 
-    assert PROJECT_FORMAT_VERSION == 22
-    assert json.loads(target.read_text(encoding="utf-8"))["format_version"] == 22
+    assert PROJECT_FORMAT_VERSION == 23
+    assert json.loads(target.read_text(encoding="utf-8"))["format_version"] == 23
     assert profile.active.method is LagCorrectionMethod.CONSTANT_TIME
     assert profile.active.parameters == ConstantTimeLagParameters(10.0)
     np.testing.assert_allclose(

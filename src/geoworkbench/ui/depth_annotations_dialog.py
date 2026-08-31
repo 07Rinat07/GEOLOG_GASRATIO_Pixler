@@ -34,6 +34,7 @@ from PySide6.QtWidgets import (
 )
 
 from geoworkbench.domain.models import IndexRole, IndexType
+from geoworkbench.domain.localized_content import localized_text
 from geoworkbench.printing.image_assets import ImageAssetError
 from geoworkbench.project.annotation_controller import DepthAnnotationController
 from geoworkbench.project.annotation_schema import (
@@ -69,6 +70,7 @@ class _AnnotationValues(TypedDict):
     visible: bool
     locked: bool
     print_enabled: bool
+    content_language: str
 
 
 class _ColorButton(QPushButton):
@@ -119,6 +121,7 @@ class DepthAnnotationsDialog(QDialog):
         annotation_id: str | None = None,
     ) -> None:
         super().__init__(parent)
+        self.language = language
         self.localizer = Localizer.create(language)
         self.controller = controller
         self.controller.adopt_unscoped_annotations()
@@ -624,7 +627,17 @@ class DepthAnnotationsDialog(QDialog):
             depth_item = QTableWidgetItem(depth_text)
             depth_item.setData(Qt.ItemDataRole.UserRole, annotation.annotation_id)
             self.table.setItem(row, 0, depth_item)
-            self.table.setItem(row, 1, QTableWidgetItem(annotation.text))
+            self.table.setItem(
+                row,
+                1,
+                QTableWidgetItem(
+                    localized_text(
+                        annotation.text_i18n,
+                        self.language,
+                        legacy=annotation.text,
+                    )
+                ),
+            )
             self.table.setItem(row, 2, QTableWidgetItem(self._kind_text(annotation.kind)))
             self.table.setItem(
                 row,
@@ -684,7 +697,9 @@ class DepthAnnotationsDialog(QDialog):
             self.depth_input.setValue(record.depth)
         if record.axis_value is not None:
             self.axis_input.setValue(record.axis_value)
-        self.text_input.setText(record.text)
+        self.text_input.setText(
+            localized_text(record.text_i18n, self.language, legacy=record.text)
+        )
         self.x_fraction_input.setValue(record.x_fraction * 100.0)
         self.offset_x_input.setValue(record.offset_x)
         self.offset_y_input.setValue(record.offset_y)
@@ -792,6 +807,7 @@ class DepthAnnotationsDialog(QDialog):
             "visible": self.visible_input.isChecked(),
             "locked": self.locked_input.isChecked(),
             "print_enabled": self.print_input.isChecked(),
+            "content_language": self.language.value,
         }
 
     def _save_single_item(self) -> None:

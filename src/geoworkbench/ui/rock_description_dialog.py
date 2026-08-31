@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 
 from geoworkbench.catalogs.description_templates import load_rock_description_templates
 from geoworkbench.domain.models import CuttingsSample
+from geoworkbench.domain.localized_content import localized_text
 from geoworkbench.services.localization import AppLanguage, LANGUAGE_NAMES
 from geoworkbench.ui.rich_interval_text_editor import RichIntervalTextEditor
 
@@ -164,7 +165,15 @@ class RockDescriptionDialog(QDialog):
         content_layout.addWidget(hint)
 
         self.editor = RichIntervalTextEditor(language=language)
-        self.editor.set_html(sample.description if sample is not None else None)
+        self.editor.set_html(
+            localized_text(
+                sample.description_i18n,
+                language,
+                legacy=sample.description,
+            )
+            if sample is not None
+            else None
+        )
         self.editor.set_word_wrap(
             sample.description_word_wrap if sample is not None else True
         )

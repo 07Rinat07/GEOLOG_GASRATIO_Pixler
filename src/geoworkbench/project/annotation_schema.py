@@ -7,11 +7,12 @@ from math import isfinite
 from typing import Any, Mapping
 
 from geoworkbench.domain.models import CanvasObject
+from geoworkbench.domain.localized_content import validate_localized_texts
 
 
 ANNOTATION_OBJECT_TYPE = "annotation"
 LEGACY_DEPTH_ANNOTATION_TYPE = "depth_annotation"
-ANNOTATION_SCHEMA_VERSION = 2
+ANNOTATION_SCHEMA_VERSION = 3
 # Catalog symbols may be flattened to a single rendered device pixel.  The
 # small positive reference-space floor prevents invalid zero/negative geometry
 # while imposing no practical visual width limit.
@@ -149,6 +150,7 @@ class AnnotationRecord:
     scope_id: str | None = None
     symbol_id: str | None = None
     transparent_background: bool = True
+    text_i18n: dict[str, str] = field(default_factory=dict)
 
 
 STYLE_PRESETS: dict[str, AnnotationStyle] = {
@@ -221,6 +223,9 @@ def annotation_from_canvas(item: CanvasObject) -> AnnotationRecord:
             transparent_background=bool(
                 item.properties.get("transparent_background", True)
             ),
+            text_i18n=validate_localized_texts(
+                item.properties.get("text_i18n"), maximum=10_000
+            ),
         )
     raw_kind = item.properties.get("kind", AnnotationKind.CALLOUT.value)
     raw_anchor = item.anchor_type or AnnotationAnchor.TRACK.value
@@ -268,6 +273,9 @@ def annotation_from_canvas(item: CanvasObject) -> AnnotationRecord:
         transparent_background=bool(
             item.properties.get("transparent_background", True)
         ),
+        text_i18n=validate_localized_texts(
+            item.properties.get("text_i18n"), maximum=10_000
+        ),
     )
 
 
@@ -289,6 +297,7 @@ def annotation_properties(
     scope_id: str | None = None,
     symbol_id: str | None = None,
     transparent_background: bool = True,
+    text_i18n: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     properties: dict[str, Any] = {
         "schema_version": ANNOTATION_SCHEMA_VERSION,
@@ -302,6 +311,9 @@ def annotation_properties(
         "print_enabled": bool(print_enabled),
         "unit": unit,
     }
+    localized = validate_localized_texts(text_i18n, maximum=10_000)
+    if localized:
+        properties["text_i18n"] = localized
     if scope_id:
         properties["scope_id"] = scope_id
     if axis_value is not None:

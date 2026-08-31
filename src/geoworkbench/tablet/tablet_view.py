@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from html import escape
 from enum import StrEnum
@@ -60,6 +60,7 @@ from geoworkbench.domain.models import (
     StratigraphyInterval,
     WellInterpretation,
 )
+from geoworkbench.domain.localized_content import localized_text
 from geoworkbench.domain.text_presentation import text_angle
 from geoworkbench.data.number_format import format_decimal_number
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
@@ -5370,8 +5371,13 @@ class TabletView(QWidget):
                 f"{self._localizer.text('cursor.lithology')}: {rock} "
                 f"({interval.top_depth:g}–{interval.bottom_depth:g} {depth_unit})"
             )
-            if interval.description:
-                interval_text += f" — {interval.description}"
+            interval_description = localized_text(
+                interval.description_i18n,
+                self._localizer.language,
+                legacy=interval.description,
+            )
+            if interval_description:
+                interval_text += f" — {interval_description}"
             values.append(interval_text)
         active_stratigraphy = sorted(
             (
@@ -5382,15 +5388,25 @@ class TabletView(QWidget):
             key=lambda item: (stratigraphy_rank_order(item.rank), item.top_depth),
         )
         for stratigraphy in active_stratigraphy:
+            stratigraphy_name = localized_text(
+                stratigraphy.name_i18n,
+                self._localizer.language,
+                legacy=stratigraphy.name,
+            )
+            stratigraphy_description = localized_text(
+                stratigraphy.description_i18n,
+                self._localizer.language,
+                legacy=stratigraphy.description,
+            )
             label = " / ".join(
                 value
-                for value in (stratigraphy.rank, stratigraphy.code, stratigraphy.name)
+                for value in (stratigraphy.rank, stratigraphy.code, stratigraphy_name)
                 if value
             )
             values.append(
                 f"{self._localizer.text('cursor.stratigraphy')}: {label} "
                 f"({stratigraphy.top_depth:g}–{stratigraphy.bottom_depth:g} {depth_unit})"
-                + (f" — {stratigraphy.description}" if stratigraphy.description else "")
+                + (f" — {stratigraphy_description}" if stratigraphy_description else "")
             )
         interpretation = self._current_interpretation()
         if interpretation is not None:
@@ -5455,17 +5471,26 @@ class TabletView(QWidget):
                 sample.lba_residue_color,
                 sample.lba_odour,
                 sample.lba_stain,
-                sample.lba_description,
+                localized_text(
+                    sample.lba_description_i18n,
+                    self._localizer.language,
+                    legacy=sample.lba_description,
+                ),
             ]
             if any(lba):
                 values.append(
                     f"{self._localizer.text('cursor.lba')}: "
                     + "; ".join(value for value in lba if value)
                 )
-            if sample.analysis_interpretation:
+            analysis_interpretation = localized_text(
+                sample.analysis_interpretation_i18n,
+                self._localizer.language,
+                legacy=sample.analysis_interpretation,
+            )
+            if analysis_interpretation:
                 values.append(
                     f"{self._localizer.text('cursor.geologist_interpretation')}: "
-                    + sample.analysis_interpretation
+                    + analysis_interpretation
                 )
         seen: set[str] = set()
         for definition in self._layout_model.visible_tracks():
@@ -8813,7 +8838,12 @@ class TabletView(QWidget):
                 pen=pg.mkPen("#334155", width=0.7),
             )
             track.plot.addItem(bar)
-            label_text = "\n".join(value for value in (interval.code, interval.name) if value)
+            interval_name = localized_text(
+                interval.name_i18n,
+                self._localizer.language,
+                legacy=interval.name,
+            )
+            label_text = "\n".join(value for value in (interval.code, interval_name) if value)
             label = pg.TextItem(
                 label_text,
                 color="#0f172a",
@@ -8836,7 +8866,12 @@ class TabletView(QWidget):
         if definition.kind is not TrackKind.INTERPRETATION:
             return {}, {}
         has_descriptions = any(
-            (sample.description or "").strip() for sample in self._cuttings
+            localized_text(
+                sample.description_i18n,
+                self._localizer.language,
+                legacy=sample.description,
+            ).strip()
+            for sample in self._cuttings
         )
         interpretation = self._current_interpretation()
         track.plot.hideAxis("bottom")
@@ -9606,7 +9641,11 @@ class TabletView(QWidget):
                     f"{self._localizer.text('tablet.lba_stain')}: {sample.lba_stain}"
                     if sample.lba_stain
                     else None,
-                    sample.lba_description,
+                    localized_text(
+                        sample.lba_description_i18n,
+                        self._localizer.language,
+                        legacy=sample.lba_description,
+                    ),
                 ]
                 if not any(value not in (None, "") for value in fields):
                     continue
@@ -9788,7 +9827,11 @@ class TabletView(QWidget):
             return body_match.group("body") if body_match is not None else value
 
         for sample in self._cuttings:
-            description = (sample.description or "").strip()
+            description = localized_text(
+                sample.description_i18n,
+                self._localizer.language,
+                legacy=sample.description,
+            ).strip()
             if not description:
                 continue
             label = pg.TextItem(anchor=(0.0, 0.5))
@@ -9864,7 +9907,11 @@ class TabletView(QWidget):
                 continue
             lithotype = self._lithotype_catalog.get(interval.lithotype_id)
             fallback = self._localized_lithotype_name(lithotype, interval.lithotype_id)
-            raw_description = (interval.description or "").strip()
+            raw_description = localized_text(
+                interval.description_i18n,
+                self._localizer.language,
+                legacy=interval.description,
+            ).strip()
             description = self._localized_rock_text(raw_description) if raw_description else fallback
             label = pg.TextItem(anchor=(0.0, 0.5))
             display_html = (
@@ -9991,6 +10038,14 @@ class TabletView(QWidget):
             if not is_annotation_object(canvas_item):
                 continue
             record = annotation_from_canvas(canvas_item)
+            record = replace(
+                record,
+                text=localized_text(
+                    record.text_i18n,
+                    self._localizer.language,
+                    legacy=record.text,
+                ),
+            )
             anchor = self._annotation_anchor_in_canvas(record)
             if anchor is None:
                 continue
