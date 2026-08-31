@@ -73,7 +73,7 @@ class CurveTransferController:
         self.session.dirty = True
         return curves
 
-    def undo(self) -> None:
+    def undo(self) -> tuple[CurveData, ...]:
         if not self._undo_stack:
             raise RuntimeError("Нет вставки кривых для отмены")
         command = self._undo_stack[-1]
@@ -92,8 +92,9 @@ class CurveTransferController:
         self._undo_stack.pop()
         self._redo_stack.append(command)
         self.session.dirty = True
+        return command.curves
 
-    def redo(self) -> None:
+    def redo(self) -> tuple[CurveData, ...]:
         if not self._redo_stack:
             raise RuntimeError("Нет вставки кривых для повтора")
         command = self._redo_stack[-1]
@@ -110,6 +111,7 @@ class CurveTransferController:
         self._redo_stack.pop()
         self._undo_stack.append(command)
         self.session.dirty = True
+        return command.curves
 
     def clear_history(self) -> None:
         self._undo_stack.clear()

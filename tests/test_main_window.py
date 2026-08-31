@@ -778,6 +778,10 @@ def test_window_inserts_curves_and_updates_transfer_history_actions(qapp, monkey
     well.datasets[source.dataset_id] = source
     bind_session(window, session)
     window.curve_transfer_controller = CurveTransferController(session)
+    rendered_widgets = {
+        track_id: rendered.widget
+        for track_id, rendered in window.tablet_view._rendered.items()
+    }
     monkeypatch.setattr(
         "geoworkbench.ui.main_window.CurveTransferDialog.exec",
         lambda self: QDialog.DialogCode.Accepted,
@@ -788,9 +792,24 @@ def test_window_inserts_curves_and_updates_transfer_history_actions(qapp, monkey
     transferred = target.curve_by_mnemonic("GR")
     assert transferred is not None
     assert window.undo_transfer_action.isEnabled()
+    assert all(
+        window.tablet_view._rendered[track_id].widget is widget
+        for track_id, widget in rendered_widgets.items()
+    )
     window.undo_curve_transfer()
     assert target.curve_by_mnemonic("GR") is None
     assert window.redo_transfer_action.isEnabled()
+    assert all(
+        window.tablet_view._rendered[track_id].widget is widget
+        for track_id, widget in rendered_widgets.items()
+    )
+    window.redo_curve_transfer()
+    assert target.curve_by_mnemonic("GR") is transferred
+    assert window.undo_transfer_action.isEnabled()
+    assert all(
+        window.tablet_view._rendered[track_id].widget is widget
+        for track_id, widget in rendered_widgets.items()
+    )
     window.close()
 
 

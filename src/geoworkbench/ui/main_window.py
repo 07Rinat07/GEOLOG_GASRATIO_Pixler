@@ -8067,7 +8067,10 @@ class MainWindow(QMainWindow):
         except (KeyError, RuntimeError, ValueError) as exc:
             QMessageBox.warning(self, self._t("transfer.title"), str(exc))
             return
-        self._after_curve_transfer(self._t("transfer.completed", count=len(curves)))
+        self._after_curve_transfer(
+            self._t("transfer.completed", count=len(curves)),
+            curves,
+        )
 
     def show_external_las_insert(self) -> None:
         target = self.session.current_dataset
@@ -8208,22 +8211,32 @@ class MainWindow(QMainWindow):
 
     def undo_curve_transfer(self) -> None:
         try:
-            self.curve_transfer_controller.undo()
+            curves = self.curve_transfer_controller.undo()
         except RuntimeError as exc:
             QMessageBox.warning(self, self._t("transfer.title"), str(exc))
             return
-        self._after_curve_transfer(self._t("transfer.undone"))
+        self._after_curve_transfer(self._t("transfer.undone"), curves)
 
     def redo_curve_transfer(self) -> None:
         try:
-            self.curve_transfer_controller.redo()
+            curves = self.curve_transfer_controller.redo()
         except RuntimeError as exc:
             QMessageBox.warning(self, self._t("transfer.title"), str(exc))
             return
-        self._after_curve_transfer(self._t("transfer.redone"))
+        self._after_curve_transfer(self._t("transfer.redone"), curves)
 
-    def _after_curve_transfer(self, message: str) -> None:
-        self._show_current_dataset()
+    def _after_curve_transfer(
+        self,
+        message: str,
+        curves: tuple[CurveData, ...],
+    ) -> None:
+        dataset = self.session.current_dataset
+        if dataset is not None:
+            mnemonics = tuple(curve.metadata.original_mnemonic for curve in curves)
+            self.curve_view.show_dataset(dataset)
+            self.las_table_editor.set_dataset(dataset)
+            self.curve_browser.set_dataset(dataset)
+            self.tablet_view.refresh_dataset_curves(dataset, mnemonics)
         self._refresh_tree()
         self._update_title()
         self._update_transfer_actions()

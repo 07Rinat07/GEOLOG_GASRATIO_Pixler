@@ -29,11 +29,13 @@ def test_controller_applies_transfer_atomically_and_supports_history() -> None:
     curve = curves[0]
     assert target.curves[curve.metadata.curve_id] is curve
     assert controller.can_undo
-    controller.undo()
+    undone = controller.undo()
     assert curve.metadata.curve_id not in target.curves
+    assert undone == curves
     assert controller.can_redo
-    controller.redo()
+    redone = controller.redo()
     assert target.curves[curve.metadata.curve_id] is curve
+    assert redone == curves
 
 
 def test_controller_blocks_undo_after_transferred_values_are_edited() -> None:
