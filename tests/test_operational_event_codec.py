@@ -56,8 +56,8 @@ def test_project_v18_round_trip_preserves_typed_events(tmp_path) -> None:
     loaded = load_project(target)
     events = loaded.wells["well-1"].operational_events
 
-    assert json.loads(target.read_text(encoding="utf-8"))["format_version"] == 23
-    assert PROJECT_FORMAT_VERSION == 23
+    assert PROJECT_FORMAT_VERSION == 24
+    assert json.loads(target.read_text(encoding="utf-8"))["format_version"] == PROJECT_FORMAT_VERSION
     assert isinstance(events["casing-1"].payload, CasingEventPayload)
     assert events["casing-1"].payload.outer_diameter_mm == 177.8
     assert isinstance(events["top-1"].payload, FormationTopEventPayload)
@@ -138,6 +138,11 @@ def test_codec_rejects_unknown_event_fields() -> None:
                             "depth_m": 100.0,
                             "elapsed_time_s": None,
                             "measured_at": None,
+                            "received_at": None,
+                            "source": "manual",
+                            "revision": 1,
+                            "calibration_id": None,
+                            "calibrated_at": None,
                             "received_at": None,
                             "source": "manual",
                             "revision": 1,
