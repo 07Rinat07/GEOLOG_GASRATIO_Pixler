@@ -1,16 +1,15 @@
 name: GAS-06 v24 documentation sync
 
 on:
-  pull_request:
-    types: [reopened]
-    branches: [main]
+  push:
+    branches:
+      - feat/gas-conditioning-qc-persistence
 
 permissions:
   contents: write
 
 jobs:
   sync-docs:
-    if: github.head_ref == 'feat/gas-conditioning-qc-persistence'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -44,6 +43,7 @@ jobs:
               "  [OPUS_GASOMER_IMPLEMENTATION.md](OPUS_GASOMER_IMPLEMENTATION.md),\n  [GAS_CONDITIONING_QC.md](GAS_CONDITIONING_QC.md),\n  [NORMALIZED_GAS.md](NORMALIZED_GAS.md),",
           )
           Path(".github/workflows/gas06-doc-sync.yml").unlink()
+          Path(".github/gas06-doc-sync.marker").unlink(missing_ok=True)
       - name: Commit synchronized documentation
         shell: bash
         run: |
