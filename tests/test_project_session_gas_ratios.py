@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import replace
 
 import numpy as np
-from numpy.typing import NDArray
 import pytest
+from numpy.typing import NDArray
 
 from geoworkbench.domain.models import CurveData, Dataset, DatasetKind, DepthDomain
 from geoworkbench.project.session import ProjectSession
