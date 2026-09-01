@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict
 
 import numpy as np
 import pytest
@@ -107,16 +106,10 @@ def test_v23_migration_adds_empty_gas_conditioning_qc_without_mutating_source() 
     ]
 
 
-def test_current_project_rejects_invalid_gas_conditioning_qc_payload() -> None:
-    payload = {
-        "format_version": PROJECT_FORMAT_VERSION,
-        "project": asdict(_project_with_qc()),
-        "tablet_layouts": {},
-        "tablet_presets": {},
-        "source_artifacts": {},
-        "image_assets": {},
-        "import_reports": {},
-    }
+def test_current_project_rejects_invalid_gas_conditioning_qc_payload(tmp_path) -> None:
+    target = tmp_path / "invalid-gas-qc.geolog.json"
+    save_project(_project_with_qc(), target)
+    payload = json.loads(target.read_text(encoding="utf-8"))
     qc = payload["project"]["wells"]["well"]["datasets"]["gas"]["gas_conditioning_qc"]
     assert isinstance(qc, dict)
     qc["affected_depth_row_count"] = -1
