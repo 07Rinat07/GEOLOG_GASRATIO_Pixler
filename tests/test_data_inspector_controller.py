@@ -123,6 +123,7 @@ def test_data_inspector_changes_active_index_and_marks_session_dirty() -> None:
     assert controller.session.current_dataset.depth_domain is DepthDomain.MD  # type: ignore[union-attr]
     assert controller.session.dirty
 
+
 def test_data_inspector_exposes_persisted_gas_conditioning_qc_without_recalculation() -> None:
     controller = make_controller()
     dataset = controller.session.current_dataset
