@@ -88,6 +88,7 @@ def test_data_inspector_dialog_renders_and_activates_index(qapp) -> None:
 def test_data_inspector_dialog_uses_selected_language(qapp) -> None:
     dialog = DataInspectorDialog(make_controller(), language=AppLanguage.EN)
     buttons = dialog.findChild(QDialogButtonBox)
+    gas_qc_summary = dialog.findChild(QPlainTextEdit, "gas-conditioning-qc-summary")
 
     assert buttons is not None
     assert dialog.windowTitle() == "Data and index information"
@@ -103,6 +104,8 @@ def test_data_inspector_dialog_uses_selected_language(qapp) -> None:
     assert dialog.index_table.horizontalHeaderItem(0).text() == "Active"
     assert dialog.curve_table.horizontalHeaderItem(2).text() == "Description"
     assert "The dataset has no saved LAS import report" in dialog.source_text.toPlainText()
+    assert gas_qc_summary is not None
+    assert "No saved gas-conditioning QC provenance" in gas_qc_summary.toPlainText()
     assert dialog.header_table.item(1, 2).text() == "editor"
     assert "Direction: ascending" in dialog.depth_header_summary.toPlainText()
     assert buttons.button(QDialogButtonBox.StandardButton.Close).text() == "Close"
@@ -149,6 +152,7 @@ def test_data_inspector_dialog_confirms_and_removes_user_curve(qapp, monkeypatch
     dialog._undo_curve_metadata()
     assert dataset.curve_by_mnemonic("ROP") is not None
     dialog.close()
+
 
 def test_data_inspector_dialog_renders_persisted_gas_conditioning_qc(qapp) -> None:
     controller = make_controller()
