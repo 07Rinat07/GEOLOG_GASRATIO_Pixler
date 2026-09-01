@@ -26,7 +26,7 @@ def test_project_v21_migrates_empty_logo_catalog_to_v22() -> None:
         "image_assets": {},
     }
     migrated = migrate_project_payload(raw, PROJECT_FORMAT_VERSION)
-    assert migrated["format_version"] == 23
+    assert migrated["format_version"] == PROJECT_FORMAT_VERSION == 24
     assert migrated["project"]["logo_catalog"] == {}
 
     document = project_document_from_dict(migrated)

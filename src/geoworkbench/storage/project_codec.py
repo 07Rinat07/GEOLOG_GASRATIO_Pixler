@@ -34,6 +34,12 @@ from geoworkbench.domain.lag_correction import (
     PumpStrokeLagParameters,
 )
 
+from geoworkbench.domain.gas_conditioning_qc import (
+    GasComponentConditioningQc,
+    GasConditioningQcInterval,
+    GasConditioningQcSummary,
+)
+
 from geoworkbench.domain.operational_events import (
     CasingEventPayload,
     ConnectionEventPayload,
@@ -118,7 +124,7 @@ from geoworkbench.storage.source_artifacts import (
 )
 
 
-PROJECT_FORMAT_VERSION = 23
+PROJECT_FORMAT_VERSION = 24
 
 
 @dataclass(slots=True)
@@ -411,6 +417,97 @@ def _dataset_source_revision_from_dict(data: object) -> DatasetSourceRevision:
         raise ProjectFormatError("Некорректная ревизия LAS-источника") from exc
 
 
+
+def _required_qc_float(data: dict[str, Any], key: str) -> float:
+    value = data.get(key)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ProjectFormatError(f"Поле QC '{key}' должно быть числом")
+    return float(value)
+
+
+def _gas_conditioning_qc_interval_from_dict(data: object) -> GasConditioningQcInterval:
+    if not isinstance(data, dict):
+        raise ProjectFormatError("QC-интервал кондиционирования должен быть объектом")
+    _require_exact_keys(
+        data,
+        {"minimum_depth", "maximum_depth", "sample_count"},
+        "gas conditioning QC interval",
+    )
+    try:
+        return GasConditioningQcInterval(
+            minimum_depth=_required_qc_float(data, "minimum_depth"),
+            maximum_depth=_required_qc_float(data, "maximum_depth"),
+            sample_count=_required_int(data, "sample_count"),
+        )
+    except (TypeError, ValueError) as exc:
+        raise ProjectFormatError("Некорректный QC-интервал кондиционирования") from exc
+
+
+def _gas_component_conditioning_qc_from_dict(
+    data: object,
+) -> GasComponentConditioningQc:
+    if not isinstance(data, dict):
+        raise ProjectFormatError("QC газового компонента должен быть объектом")
+    _require_exact_keys(
+        data,
+        {
+            "mnemonic",
+            "interpolated_sample_count",
+            "interpolated_intervals",
+            "max_gap",
+        },
+        "gas component conditioning QC",
+    )
+    raw_intervals = _required(data, "interpolated_intervals", list)
+    max_gap = data.get("max_gap")
+    if max_gap is not None and (
+        isinstance(max_gap, bool) or not isinstance(max_gap, (int, float))
+    ):
+        raise ProjectFormatError("max_gap QC должен быть числом или null")
+    try:
+        return GasComponentConditioningQc(
+            mnemonic=str(_required(data, "mnemonic", str)),
+            interpolated_sample_count=_required_int(data, "interpolated_sample_count"),
+            interpolated_intervals=tuple(
+                _gas_conditioning_qc_interval_from_dict(item) for item in raw_intervals
+            ),
+            max_gap=float(max_gap) if max_gap is not None else None,
+        )
+    except (TypeError, ValueError) as exc:
+        raise ProjectFormatError("Некорректный QC газового компонента") from exc
+
+
+def _gas_conditioning_qc_from_dict(data: object) -> GasConditioningQcSummary | None:
+    if data is None:
+        return None
+    if not isinstance(data, dict):
+        raise ProjectFormatError("gas_conditioning_qc должен быть объектом или null")
+    _require_exact_keys(
+        data,
+        {
+            "nominal_depth_step",
+            "affected_depth_row_count",
+            "interpolated_component_sample_count",
+            "components",
+        },
+        "gas conditioning QC summary",
+    )
+    raw_components = _required(data, "components", list)
+    try:
+        return GasConditioningQcSummary(
+            nominal_depth_step=_required_qc_float(data, "nominal_depth_step"),
+            affected_depth_row_count=_required_int(data, "affected_depth_row_count"),
+            interpolated_component_sample_count=_required_int(
+                data, "interpolated_component_sample_count"
+            ),
+            components=tuple(
+                _gas_component_conditioning_qc_from_dict(item) for item in raw_components
+            ),
+        )
+    except (TypeError, ValueError) as exc:
+        raise ProjectFormatError("Некорректный gas conditioning QC summary") from exc
+
+
 def _dataset_from_dict(data: dict[str, Any]) -> Dataset:
     try:
         kind = DatasetKind(str(_required(data, "kind", str)))
@@ -464,6 +561,9 @@ def _dataset_from_dict(data: dict[str, Any]) -> Dataset:
                 _dataset_source_revision_from_dict(item)
                 for item in raw_source_revisions
             ],
+            gas_conditioning_qc=_gas_conditioning_qc_from_dict(
+                data.get("gas_conditioning_qc")
+            ),
         )
     except (TypeError, ValueError) as exc:
         raise ProjectFormatError("Файл содержит некорректные данные dataset") from exc

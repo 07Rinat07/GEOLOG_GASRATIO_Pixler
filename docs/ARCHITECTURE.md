@@ -1,4 +1,4 @@
-<!-- runtime-contract: package=0.7.93; project=v23; form=v16; layout=v24 -->
+<!-- runtime-contract: package=0.7.93; project=v24; form=v16; layout=v24 -->
 # Архитектура
 
 Актуально на 9 августа 2026 года.
@@ -98,7 +98,7 @@ Daily LAS требует `.geologpkg` до mutation и после реально
 image assets, а `manifest.json` фиксирует путь, размер и SHA-256 каждого элемента. Reader до
 распаковки проверяет число файлов, суммарный размер, коэффициент сжатия, повторяющиеся и
 небезопасные пути; затем проверяет хэш каждого payload и только после этого вызывает project
-codec v23.
+codec v24.
 
 Для legacy explicit save safety-слой пишет полный bundle в owned staging, устанавливает только
 отсутствующие content-addressed assets без удаления orphan-файлов и заменяет JSON-манифест
