@@ -12,6 +12,11 @@ from geoworkbench.calculations.curve_continuity import (
     interpolate_bounded_gaps as interpolate_bounded_gaps,
     interpolate_monotonic_unique,
 )
+from geoworkbench.domain.gas_conditioning_qc import (
+    GasComponentConditioningQc,
+    GasConditioningQcInterval,
+    GasConditioningQcSummary,
+)
 
 
 Array = NDArray[np.float64]
@@ -20,42 +25,6 @@ IntArray = NDArray[np.int64]
 
 
 GasConditioningPolicy = CurveContinuityPolicy
-
-
-@dataclass(frozen=True, slots=True)
-class GasConditioningQcInterval:
-    """One contiguous source-row interval restored by gas conditioning."""
-
-    minimum_depth: float
-    maximum_depth: float
-    sample_count: int
-
-
-@dataclass(frozen=True, slots=True)
-class GasComponentConditioningQc:
-    """Structured QC provenance for one conditioned gas component."""
-
-    mnemonic: str
-    interpolated_sample_count: int
-    interpolated_intervals: tuple[GasConditioningQcInterval, ...]
-    max_gap: float | None
-
-
-@dataclass(frozen=True, slots=True)
-class GasConditioningQcSummary:
-    """Deterministic, Qt-independent conditioning provenance for persistence/UI."""
-
-    nominal_depth_step: float
-    affected_depth_row_count: int
-    interpolated_component_sample_count: int
-    components: tuple[GasComponentConditioningQc, ...]
-
-    def component(self, mnemonic: str) -> GasComponentConditioningQc:
-        key = mnemonic.strip().upper()
-        for item in self.components:
-            if item.mnemonic == key:
-                return item
-        raise KeyError(f"Газовый компонент не найден: {mnemonic}")
 
 
 @dataclass(frozen=True, slots=True)
