@@ -25,7 +25,7 @@ release plan и временные планы в `docs` не создаются.
 
 ## Текущая база
 
-- пакет `0.7.93`; project `v23`; form `v16`; tablet layout `v24`;
+- пакет `0.7.93`; project `v24`; form `v16`; tablet layout `v24`;
 - desktop-модульный монолит: Python 3.11, PySide6, PyQtGraph, NumPy;
 - WITS0, WITSML 1.4.1.1, WITSML 2.x/ETP foundation, GS2/Paradox, LAS, планшет, формы,
   расчёты и отчёты реализованы;

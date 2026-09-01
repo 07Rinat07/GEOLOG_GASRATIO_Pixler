@@ -8,6 +8,11 @@ from geoworkbench.data.las_import_report import (
     LasIssueSeverity,
     LasSourceSnapshot,
 )
+from geoworkbench.domain.gas_conditioning_qc import (
+    GasComponentConditioningQc,
+    GasConditioningQcInterval,
+    GasConditioningQcSummary,
+)
 from geoworkbench.domain.models import (
     CurveData,
     CurveMetadata,
@@ -117,3 +122,34 @@ def test_data_inspector_changes_active_index_and_marks_session_dirty() -> None:
     assert controller.session.current_dataset.active_index_id == "time"  # type: ignore[union-attr]
     assert controller.session.current_dataset.depth_domain is DepthDomain.MD  # type: ignore[union-attr]
     assert controller.session.dirty
+
+def test_data_inspector_exposes_persisted_gas_conditioning_qc_without_recalculation() -> None:
+    controller = make_controller()
+    dataset = controller.session.current_dataset
+    assert dataset is not None
+    dataset.gas_conditioning_qc = GasConditioningQcSummary(
+        nominal_depth_step=1.0,
+        affected_depth_row_count=2,
+        interpolated_component_sample_count=2,
+        components=(
+            GasComponentConditioningQc(
+                mnemonic="C1",
+                interpolated_sample_count=2,
+                interpolated_intervals=(GasConditioningQcInterval(100.0, 101.0, 2),),
+                max_gap=4.0,
+            ),
+        ),
+    )
+
+    inspection = controller.gas_conditioning_qc()
+
+    assert inspection is not None
+    assert inspection.nominal_depth_step == 1.0
+    assert inspection.affected_depth_row_count == 2
+    assert inspection.interpolated_component_sample_count == 2
+    assert inspection.components[0].mnemonic == "C1"
+    assert inspection.components[0].interpolated_sample_count == 2
+    assert inspection.components[0].max_gap == 4.0
+    assert inspection.components[0].intervals[0].minimum_depth == 100.0
+    assert inspection.components[0].intervals[0].maximum_depth == 101.0
+    assert inspection.components[0].intervals[0].sample_count == 2
