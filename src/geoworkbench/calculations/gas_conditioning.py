@@ -12,6 +12,11 @@ from geoworkbench.calculations.curve_continuity import (
     interpolate_bounded_gaps as interpolate_bounded_gaps,
     interpolate_monotonic_unique,
 )
+from geoworkbench.domain.gas_conditioning_qc import (
+    GasComponentConditioningQc,
+    GasConditioningQcInterval,
+    GasConditioningQcSummary,
+)
 
 
 Array = NDArray[np.float64]
@@ -31,13 +36,10 @@ class ConditionedGasComponents:
     interpolated_masks: dict[str, BoolArray]
     max_gap_by_component: dict[str, float | None]
     nominal_depth_step: float
+    qc_summary: GasConditioningQcSummary
 
     def interpolated_count(self, mnemonic: str) -> int:
-        key = mnemonic.strip().upper()
-        try:
-            return int(np.count_nonzero(self.interpolated_masks[key]))
-        except KeyError as exc:
-            raise KeyError(f"Газовый компонент не найден: {mnemonic}") from exc
+        return self.qc_summary.component(mnemonic).interpolated_sample_count
 
 
 @dataclass(frozen=True, slots=True)
@@ -140,6 +142,63 @@ def _expand_conditioned_values(
     return output, fillable.astype(np.bool_, copy=False)
 
 
+def _mask_depth_intervals(
+    depth: Array,
+    mask: BoolArray,
+) -> tuple[GasConditioningQcInterval, ...]:
+    indices = np.flatnonzero(mask).astype(np.int64, copy=False)
+    if indices.size == 0:
+        return ()
+
+    split_at = np.flatnonzero(np.diff(indices) > 1) + 1
+    groups = np.split(indices, split_at)
+    intervals: list[GasConditioningQcInterval] = []
+    for group in groups:
+        first_depth = float(depth[int(group[0])])
+        last_depth = float(depth[int(group[-1])])
+        intervals.append(
+            GasConditioningQcInterval(
+                minimum_depth=min(first_depth, last_depth),
+                maximum_depth=max(first_depth, last_depth),
+                sample_count=int(group.size),
+            )
+        )
+    return tuple(intervals)
+
+
+def _build_qc_summary(
+    depth: Array,
+    masks: Mapping[str, BoolArray],
+    max_gap_by_component: Mapping[str, float | None],
+    *,
+    nominal_depth_step: float,
+) -> GasConditioningQcSummary:
+    components: list[GasComponentConditioningQc] = []
+    affected_rows = np.zeros(depth.shape, dtype=np.bool_)
+    interpolated_component_sample_count = 0
+
+    for mnemonic in sorted(masks):
+        mask = np.asarray(masks[mnemonic], dtype=np.bool_)
+        count = int(np.count_nonzero(mask))
+        interpolated_component_sample_count += count
+        affected_rows |= mask
+        components.append(
+            GasComponentConditioningQc(
+                mnemonic=mnemonic,
+                interpolated_sample_count=count,
+                interpolated_intervals=_mask_depth_intervals(depth, mask),
+                max_gap=max_gap_by_component[mnemonic],
+            )
+        )
+
+    return GasConditioningQcSummary(
+        nominal_depth_step=nominal_depth_step,
+        affected_depth_row_count=int(np.count_nonzero(affected_rows)),
+        interpolated_component_sample_count=interpolated_component_sample_count,
+        components=tuple(components),
+    )
+
+
 def condition_gas_components(
     depth: Array,
     components: Mapping[str, Array],
@@ -179,11 +238,7 @@ def condition_gas_components(
     masks: dict[str, BoolArray] = {}
     limits: dict[str, float | None] = {}
     for mnemonic, source_values in normalized.items():
-        working_values = (
-            source_values[::-1]
-            if prepared.decreasing
-            else source_values
-        )
+        working_values = source_values[::-1] if prepared.decreasing else source_values
         collapsed = _collapse_values(
             working_values,
             prepared.inverse,
@@ -218,10 +273,17 @@ def condition_gas_components(
             conditioned[mnemonic] = working_output
             masks[mnemonic] = working_mask
 
+    qc_summary = _build_qc_summary(
+        prepared.source,
+        masks,
+        limits,
+        nominal_depth_step=prepared.nominal_step,
+    )
     return ConditionedGasComponents(
         depth=prepared.source,
         components=conditioned,
         interpolated_masks=masks,
         max_gap_by_component=limits,
         nominal_depth_step=prepared.nominal_step,
+        qc_summary=qc_summary,
     )
