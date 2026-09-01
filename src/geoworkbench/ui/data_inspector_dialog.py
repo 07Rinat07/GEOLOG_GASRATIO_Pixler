@@ -316,11 +316,9 @@ class DataInspectorDialog(QDialog):
         else:
             self.gas_qc_summary.setPlainText(
                 f"{self._t('data.gas_qc_nominal_step')}: "
-                f"{self._number(gas_qc.nominal_depth_step)}
-"
+                f"{self._number(gas_qc.nominal_depth_step)}\n"
                 f"{self._t('data.gas_qc_affected_rows')}: "
-                f"{gas_qc.affected_depth_row_count}
-"
+                f"{gas_qc.affected_depth_row_count}\n"
                 f"{self._t('data.gas_qc_restored_samples')}: "
                 f"{gas_qc.interpolated_component_sample_count}"
             )
