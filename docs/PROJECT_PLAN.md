@@ -1,4 +1,4 @@
-<!-- runtime-contract: package=0.7.93; project=v23; form=v16; layout=v24 -->
+<!-- runtime-contract: package=0.7.93; project=v24; form=v16; layout=v24 -->
 # Единый план проекта
 
 Актуально на 31 августа 2026 года. Это единственный канонический план проекта. Завершённые
