@@ -4,9 +4,9 @@ import numpy as np
 
 from geoworkbench.calculations.gas_conditioning import (
     GasConditioningPolicy,
-    GasConditioningQcInterval,
     condition_gas_components,
 )
+from geoworkbench.domain.gas_conditioning_qc import GasConditioningQcInterval
 
 
 def test_qc_summary_reports_component_and_affected_row_counts() -> None:
