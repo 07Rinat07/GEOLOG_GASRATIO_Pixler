@@ -279,7 +279,7 @@
   "description.updated": "Rock description {top}–{bottom} m updated",
   "daily_las_growth.action": "Append daily LAS data...",
   "daily_las_growth.no_changes": "No new rows: the file was already imported or fully matches the dataset.",
-  "daily_las_growth.success": "LAS appended: {added} rows added and {skipped} matching rows skipped.",
+  "daily_las_growth.success": "LAS appended: {added} rows added and {skipped} matching rows skipped. Save the working .geologpkg with Ctrl+S, then recalculate calculated curves for the new interval.",
   "data.action": "Data and index information...",
   "data.activate_index": "Set as active index",
   "data.active": "Active",

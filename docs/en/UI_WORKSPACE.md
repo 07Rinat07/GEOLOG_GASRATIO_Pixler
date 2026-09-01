@@ -29,7 +29,7 @@ The target plot reasserts the custom pencil cursor on every mouse event. A float
 
 ## Connected-point pencil and acknowledged edits — 0.7.11
 
-Choose Freehand stroke or Connect points. In point mode, click anchors and press Connect, Enter, or double-click the final point. Dependants recalculate immediately in memory; the project is written only after Save. Failed edits keep the orange preview. Save writes the `*.geolog.json` project, not the source LAS.
+Choose Freehand stroke or Connect points. In point mode, click anchors and press Connect, Enter, or double-click the final point. Dependants recalculate immediately in memory; the project is written only after Save. Failed edits keep the orange preview. Save writes the primary `*.geologpkg` project, not the source LAS; an open legacy `*.geolog.json` is written back only for compatibility.
 
 # Interface workspace 0.7.7
 

@@ -86,6 +86,159 @@ _OVERVIEW = {
 }
 
 
+_PROJECT = {
+    AppLanguage.RU: """
+        <h1>Проект и ежедневное наращивание LAS</h1>
+        <p><b>Главное правило:</b> рабочая форма, геологические описания,
+        комментарии, символы и переводы хранятся в одном файле проекта
+        <b>.geologpkg</b>. Ежедневный LAS добавляет новые глубины в выбранный
+        набор данных и не заменяет уже заполненные слои.</p>
+        <h2>Первый LAS и создание проекта</h2>
+        <ol>
+          <li>Импортируйте первый LAS и проверьте скважину, диапазон глубин,
+              шаг, единицы и кривые.</li>
+          <li>Сразу сохраните проект как <b>.geologpkg</b> в отдельной рабочей
+              папке. Исходные LAS из синхронизируемой папки не редактируйте.</li>
+          <li>Заполните форму: описание пород, ЛБА, шламограмму, кальциметрию,
+              литологию, заметки и другие слои.</li>
+          <li>Добавьте русскую, казахскую и английскую версии текста в этом же
+              проекте и сохраните его сочетанием <b>Ctrl+S</b>.</li>
+        </ol>
+        <h2>Безопасное ежедневное наращивание</h2>
+        <ol>
+          <li>Дождитесь окончания синхронизации серверной папки и откройте тот же
+              рабочий <b>.geologpkg</b>, а не вчерашнюю копию.</li>
+          <li>Выберите <b>Файл → Ежедневно нарастить LAS...</b>, нужный набор
+              данных и новый LAS из локальной синхронизируемой папки.</li>
+          <li>Нажмите «Проверить прирост» и внимательно проверьте скважину,
+              границу старых и новых глубин, шаг, единицы и список кривых.</li>
+          <li>Если проверка успешна, выполните наращивание и сразу нажмите
+              <b>Ctrl+S</b>. Старые интервалы и все языковые версии остаются в
+              проекте.</li>
+        </ol>
+        <h2>Дубликат, конфликт и версии</h2>
+        <ul>
+          <li>Повторная загрузка того же LAS распознаётся как дубликат и не
+              должна добавлять строки второй раз.</li>
+          <li>При конфликте скважины, глубин, шага, единиц или ранее записанных
+              значений наращивание отклоняется. Не обходите предупреждение
+              обычным импортом — запросите правильный LAS.</li>
+          <li>Локальные, перенесённые и расчётные кривые сохраняют старые
+              значения, но их новый участок остаётся пустым. После наращивания
+              повторно выполните нужные расчёты.</li>
+          <li>Храните один активный проект и датированные резервные копии. Если
+              сам <b>.geologpkg</b> синхронизируется, редактируйте его только на
+              одном компьютере одновременно.</li>
+        </ul>
+        <h2>Печать и перенос</h2>
+        <p>Для каждого PDF переключите язык приложения на <b>RU</b>, <b>KK</b>
+        или <b>EN</b>, заново откройте Центр печати и проверьте предпросмотр.
+        Для переноса на другой компьютер закройте проект после <b>Ctrl+S</b>,
+        скопируйте один файл <b>.geologpkg</b> и откройте его на новом
+        компьютере.</p>
+    """,
+    AppLanguage.KK: """
+        <h1>Жоба және LAS деректерін күнделікті өсіру</h1>
+        <p><b>Негізгі қағида:</b> жұмыс пішіні, геологиялық сипаттамалар,
+        түсініктемелер, белгілер және аудармалар бір <b>.geologpkg</b> жоба
+        файлында сақталады. Күнделікті LAS таңдалған деректер жиынына жаңа
+        тереңдіктерді қосады және бұрын толтырылған қабаттарды алмастырмайды.</p>
+        <h2>Бірінші LAS және жоба жасау</h2>
+        <ol>
+          <li>Бірінші LAS файлын импорттап, ұңғыманы, тереңдік ауқымын, қадамды,
+              өлшем бірліктерін және қисықтарды тексеріңіз.</li>
+          <li>Жобаны бірден бөлек жұмыс қалтасындағы <b>.geologpkg</b> файлына
+              сақтаңыз. Синхрондалатын қалтадағы бастапқы LAS файлдарын өзгертпеңіз.</li>
+          <li>Пішінді толтырыңыз: тау жыныстарының сипаттамасы, LBA, шламограмма,
+              кальциметрия, литология, ескертпелер және басқа қабаттар.</li>
+          <li>Осы жобада мәтіннің қазақ, орыс және ағылшын нұсқаларын қосып,
+              <b>Ctrl+S</b> арқылы сақтаңыз.</li>
+        </ol>
+        <h2>Қауіпсіз күнделікті өсіру</h2>
+        <ol>
+          <li>Сервер қалтасының синхрондалуы аяқталғанын күтіп, кешегі көшірмені
+              емес, сол жұмыс <b>.geologpkg</b> файлын ашыңыз.</li>
+          <li><b>Файл → LAS деректерін күнделікті өсіру...</b> тармағын, қажетті
+              деректер жиынын және жергілікті синхрондалатын қалтадағы жаңа LAS
+              файлын таңдаңыз.</li>
+          <li>«Өсімді тексеру» түймесін басып, ұңғыманы, ескі және жаңа
+              тереңдіктердің шекарасын, қадамды, бірліктерді және қисықтарды тексеріңіз.</li>
+          <li>Тексеру сәтті болса, өсіруді орындап, бірден <b>Ctrl+S</b> басыңыз.
+              Ескі аралықтар мен барлық тілдік нұсқалар жобада қалады.</li>
+        </ol>
+        <h2>Қайталанатын файл, қайшылық және нұсқалар</h2>
+        <ul>
+          <li>Сол LAS файлын қайта жүктеу қайталанатын файл ретінде танылады
+              және жолдарды екінші рет қоспайды.</li>
+          <li>Ұңғыма, тереңдік, қадам, бірлік немесе бұрын жазылған мәндер бойынша
+              қайшылық болса, өсіру қабылданбайды. Ескертуді кәдімгі импортпен
+              айналып өтпеңіз — дұрыс LAS файлын сұраңыз.</li>
+          <li>Жергілікті, тасымалданған және есептік қисықтардың ескі мәндері
+              сақталады, бірақ жаңа бөлігі бос қалады. Өсіруден кейін қажетті
+              есептеулерді қайта орындаңыз.</li>
+          <li>Бір белсенді жоба мен күні көрсетілген резервтік көшірмелерді
+              сақтаңыз. <b>.geologpkg</b> өзі синхрондалса, оны бір уақытта тек
+              бір компьютерде өңдеңіз.</li>
+        </ul>
+        <h2>Басып шығару және тасымалдау</h2>
+        <p>Әр PDF үшін қолданба тілін <b>RU</b>, <b>KK</b> немесе <b>EN</b> етіп
+        ауыстырып, Баспа орталығын қайта ашыңыз және алдын ала көріністі
+        тексеріңіз. Басқа компьютерге тасымалдау үшін <b>Ctrl+S</b> басқаннан
+        кейін жобаны жауып, бір <b>.geologpkg</b> файлын көшіріп, оны жаңа
+        компьютерде ашыңыз.</p>
+    """,
+    AppLanguage.EN: """
+        <h1>Project and daily LAS append</h1>
+        <p><b>Key rule:</b> the working form, geological descriptions, comments,
+        symbols, and translations are stored together in one <b>.geologpkg</b>
+        project. A daily LAS appends new depths to the selected dataset; it does
+        not replace the layers you already completed.</p>
+        <h2>First LAS and project creation</h2>
+        <ol>
+          <li>Import the first LAS and check the well, depth range, step, units,
+              and curves.</li>
+          <li>Immediately save the project as <b>.geologpkg</b> in a separate
+              working folder. Do not edit source LAS files in the synced folder.</li>
+          <li>Complete the form: rock description, LBA, cuttings log,
+              calcimetry, lithology, notes, and other layers.</li>
+          <li>Add Russian, Kazakh, and English text versions in this same project,
+              then save it with <b>Ctrl+S</b>.</li>
+        </ol>
+        <h2>Safe daily append</h2>
+        <ol>
+          <li>Wait for the server folder to finish syncing and open the same
+              working <b>.geologpkg</b>, not a copy from the previous day.</li>
+          <li>Select <b>File → Append daily LAS data...</b>, the required dataset,
+              and the new LAS from the local synced folder.</li>
+          <li>Select “Analyze growth” and carefully check the well, old/new depth
+              boundary, step, units, and curve list.</li>
+          <li>If validation succeeds, append the data and immediately press
+              <b>Ctrl+S</b>. Old intervals and all language versions remain in
+              the project.</li>
+        </ol>
+        <h2>Duplicate, conflict, and version control</h2>
+        <ul>
+          <li>Loading the same LAS again is recognised as a duplicate and must
+              not add its rows a second time.</li>
+          <li>A well, depth, step, unit, or previously stored value conflict
+              rejects the append. Do not bypass the warning with a regular
+              import; request the correct LAS.</li>
+          <li>Local, transferred, and calculated curves keep their old values,
+              but their new interval remains empty. Rerun the required
+              calculations after appending.</li>
+          <li>Keep one active project and dated backups. If the <b>.geologpkg</b>
+              itself is synced, edit it on only one computer at a time.</li>
+        </ul>
+        <h2>Printing and transfer</h2>
+        <p>For each PDF, switch the application language to <b>RU</b>, <b>KK</b>,
+        or <b>EN</b>, reopen Print Centre, and inspect the preview. To transfer
+        the work to another computer, close the project after <b>Ctrl+S</b>,
+        copy the single <b>.geologpkg</b> file, and open it on the other
+        computer.</p>
+    """,
+}
+
+
 _TOOLS = {
     AppLanguage.RU: """
         <h1>Файлы, PDF и калькуляторы</h1>
@@ -329,6 +482,7 @@ _DIAGNOSTICS = {
 _SECTION_TITLES = {
     AppLanguage.RU: {
         "overview": "Начало работы",
+        "project": "Проект и ежедневный LAS",
         "tools": "Файлы, PDF и калькуляторы",
         "printing": "Печать и отчёты",
         "interpretation": "Газовый каротаж",
@@ -336,6 +490,7 @@ _SECTION_TITLES = {
     },
     AppLanguage.KK: {
         "overview": "Жұмысты бастау",
+        "project": "Жоба және күнделікті LAS",
         "tools": "Файлдар, PDF және калькуляторлар",
         "printing": "Басып шығару және есептер",
         "interpretation": "Газ каротажы",
@@ -343,6 +498,7 @@ _SECTION_TITLES = {
     },
     AppLanguage.EN: {
         "overview": "Getting started",
+        "project": "Project and daily LAS",
         "tools": "Files, PDF, and calculators",
         "printing": "Printing and reports",
         "interpretation": "Mud-gas interpretation",
@@ -373,6 +529,7 @@ def help_sections(language: AppLanguage | str) -> tuple[HelpSection, ...]:
     selected = normalized_language(language)
     contents = {
         "overview": _OVERVIEW[selected],
+        "project": _PROJECT[selected],
         "tools": _TOOLS[selected],
         "printing": _PRINTING[selected],
         "interpretation": _INTERPRETATION[selected],
@@ -380,7 +537,14 @@ def help_sections(language: AppLanguage | str) -> tuple[HelpSection, ...]:
     }
     return tuple(
         HelpSection(key, _SECTION_TITLES[selected][key], contents[key])
-        for key in ("overview", "tools", "printing", "interpretation", "diagnostics")
+        for key in (
+            "overview",
+            "project",
+            "tools",
+            "printing",
+            "interpretation",
+            "diagnostics",
+        )
     )
 
 

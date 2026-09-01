@@ -14,7 +14,7 @@ depth dataset. It can:
 5. export XLSX, DOCX, PDF, or print through the system dialog.
 
 The source LAS is never overwritten. Calculated curves, manual intervals, and the
-layout are persisted in the `*.geolog.json` project with **Ctrl+S**. Report files are
+layout are persisted in the primary `*.geologpkg` project with **Ctrl+S**. Report files are
 separate outputs and do not save the project.
 
 ## Workflow

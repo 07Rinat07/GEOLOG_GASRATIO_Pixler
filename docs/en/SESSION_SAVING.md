@@ -11,7 +11,8 @@ curve counts, project path, and the expected save target.
 When the working session contains unsaved changes, closing offers four actions:
 
 1. **Save project** — preserves data, forms, presentation, intervals, and the other project
-   objects in `*.geolog.json`.
+   objects in the primary `*.geologpkg` format; an open legacy `*.geolog.json` is written back for
+   compatibility.
 2. **Export LAS copy** — writes the current numeric curves and headers to a new LAS file.
 3. **Don't save** — closes and discards the current session changes.
 4. **Cancel** — returns to the application.

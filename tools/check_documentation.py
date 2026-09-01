@@ -490,6 +490,82 @@ def audit_user_workflow_coverage(root: Path) -> list[AuditIssue]:
     return issues
 
 
+def audit_daily_project_workflow_coverage(root: Path) -> list[AuditIssue]:
+    """Keep the portable-project and append instructions present in all languages."""
+
+    issues: list[AuditIssue] = []
+    guide_paths = {
+        "ru": root / "docs" / "USER_GUIDE_RU.md",
+        "kk": root / "docs" / "USER_GUIDE_KK.md",
+        "en": root / "docs" / "USER_GUIDE_EN.md",
+    }
+    guide_tokens = {
+        "ru": (
+            ".geologpkg",
+            "Ежедневно нарастить LAS",
+            "Проверить прирост",
+            "Нарастить",
+            "Ctrl+S",
+            "RU, KK и EN",
+            "Центр печати",
+            "двух компьютерах",
+        ),
+        "kk": (
+            ".geologpkg",
+            "LAS деректерін күнделікті өсіру",
+            "Өсімді тексеру",
+            "Өсіру",
+            "Ctrl+S",
+            "RU, KK және EN",
+            "баспа орталығын",
+            "екі компьютерде",
+        ),
+        "en": (
+            ".geologpkg",
+            "Append daily LAS data",
+            "Analyze growth",
+            "Append",
+            "Ctrl+S",
+            "RU, KK, and EN",
+            "Print Centre",
+            "two computers",
+        ),
+    }
+    workflow_tokens = {
+        "ru": ("SHA-256", "локальную папку", "двух компьютерах"),
+        "kk": ("SHA-256", "жергілікті қалтаны", "екі компьютерде"),
+        "en": ("SHA-256", "local folder", "two computers"),
+    }
+
+    for language in LANGUAGES:
+        paths_and_tokens = (
+            (guide_paths[language], guide_tokens[language]),
+            (
+                root / "docs" / language / "PROJECT_WORKFLOW.md",
+                workflow_tokens[language],
+            ),
+        )
+        for path, tokens in paths_and_tokens:
+            if not path.exists():
+                issues.append(
+                    AuditIssue(
+                        "daily-project-workflow",
+                        f"{path.relative_to(root).as_posix()} is required",
+                    )
+                )
+                continue
+            content = _read_text(path)
+            for token in tokens:
+                if token not in content:
+                    issues.append(
+                        AuditIssue(
+                            "daily-project-workflow",
+                            f"{path.relative_to(root).as_posix()} does not cover: {token}",
+                        )
+                    )
+    return issues
+
+
 
 def audit_compact_column_coverage(root: Path) -> list[AuditIssue]:
     """Require the compact-column and embedded-template workflow in every language."""
@@ -670,6 +746,7 @@ def run_audit(root: Path) -> list[AuditIssue]:
         audit_startup_command_contract,
         audit_current_documentation_contract,
         audit_user_workflow_coverage,
+        audit_daily_project_workflow_coverage,
         audit_compact_column_coverage,
         audit_form_creation_naming_coverage,
         audit_catalog_toolbar_diagnostics_coverage,
@@ -682,6 +759,9 @@ def run_audit(root: Path) -> list[AuditIssue]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if callable(reconfigure):
+        reconfigure(errors="backslashreplace")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path.cwd())
     args = parser.parse_args(argv)

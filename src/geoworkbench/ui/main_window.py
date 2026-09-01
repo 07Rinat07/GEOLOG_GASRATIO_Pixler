@@ -5172,6 +5172,11 @@ class MainWindow(QMainWindow):
         bindings.register(self.nct_calculation_controller, name="nct_calculation")
         bindings.register(self.new_las_controller, name="new_las")
         bindings.register(
+            self.daily_las_growth_controller,
+            reset_hooks=(self.daily_las_growth_controller.reset_state,),
+            name="daily_las_growth",
+        )
+        bindings.register(
             self.las_range_editing_controller,
             reset_hooks=(self.las_range_editing_controller.clear_history,),
             name="las_range_editing",
@@ -8232,7 +8237,17 @@ class MainWindow(QMainWindow):
     ) -> None:
         dataset = self.session.current_dataset
         if dataset is not None:
-            mnemonics = tuple(curve.metadata.original_mnemonic for curve in curves)
+            mnemonics = tuple(
+                dict.fromkeys(
+                    mnemonic
+                    for curve in curves
+                    for mnemonic in (
+                        curve.metadata.original_mnemonic,
+                        curve.metadata.canonical_mnemonic,
+                    )
+                    if mnemonic
+                )
+            )
             self.curve_view.show_dataset(dataset)
             self.las_table_editor.set_dataset(dataset)
             self.curve_browser.set_dataset(dataset)

@@ -13,6 +13,8 @@ from geoworkbench.ui.help_pdf_layout_content import pdf_layout_help_html
     (
         "language",
         "title",
+        "project_title",
+        "project_tokens",
         "tools_text",
         "print_text",
         "interpretation_text",
@@ -27,6 +29,19 @@ from geoworkbench.ui.help_pdf_layout_content import pdf_layout_help_html
         (
             AppLanguage.RU,
             "Документация и инструкции",
+            "Проект и ежедневный LAS",
+            (
+                ".geologpkg",
+                "первый LAS",
+                "Ежедневно нарастить LAS",
+                "дубликат",
+                "конфликт",
+                "Ctrl+S",
+                "RU",
+                "KK",
+                "EN",
+                "другой компьютер",
+            ),
             "Файлы, PDF и калькуляторы",
             "Печать и отчёты",
             "перспективные интервалы",
@@ -40,6 +55,19 @@ from geoworkbench.ui.help_pdf_layout_content import pdf_layout_help_html
         (
             AppLanguage.KK,
             "Құжаттама және нұсқаулықтар",
+            "Жоба және күнделікті LAS",
+            (
+                ".geologpkg",
+                "Бірінші LAS",
+                "LAS деректерін күнделікті өсіру",
+                "қайталанатын",
+                "қайшылық",
+                "Ctrl+S",
+                "RU",
+                "KK",
+                "EN",
+                "Басқа компьютерге",
+            ),
             "Файлдар, PDF және калькуляторлар",
             "Басып шығару және есептер",
             "перспективалы аралықтар",
@@ -53,6 +81,19 @@ from geoworkbench.ui.help_pdf_layout_content import pdf_layout_help_html
         (
             AppLanguage.EN,
             "Documentation and instructions",
+            "Project and daily LAS",
+            (
+                ".geologpkg",
+                "First LAS",
+                "Append daily LAS data",
+                "duplicate",
+                "conflict",
+                "Ctrl+S",
+                "RU",
+                "KK",
+                "EN",
+                "another computer",
+            ),
             "Files, PDF, and calculators",
             "Printing and reports",
             "prospective intervals",
@@ -68,6 +109,8 @@ from geoworkbench.ui.help_pdf_layout_content import pdf_layout_help_html
 def test_help_content_is_complete_in_each_language(
     language: AppLanguage,
     title: str,
+    project_title: str,
+    project_tokens: tuple[str, ...],
     tools_text: str,
     print_text: str,
     interpretation_text: str,
@@ -79,17 +122,22 @@ def test_help_content_is_complete_in_each_language(
     scale_text: str,
 ) -> None:
     sections = help_sections(language)
+    sections_by_key = {section.key: section for section in sections}
     pdf_help = pdf_layout_help_html(language)
 
     assert [section.key for section in sections] == [
         "overview",
+        "project",
         "tools",
         "printing",
         "interpretation",
         "diagnostics",
     ]
-    assert tools_text == sections[1].title
-    assert print_text == sections[2].title
+    assert project_title == sections_by_key["project"].title
+    project_html = " ".join(sections_by_key["project"].html.casefold().split())
+    assert all(token.casefold() in project_html for token in project_tokens)
+    assert tools_text == sections_by_key["tools"].title
+    assert print_text == sections_by_key["printing"].title
     assert interpretation_text in interpretation_guide_html(language).casefold()
     assert pdf_layout_text in pdf_help
     assert physical_print_text in pdf_help
@@ -135,7 +183,7 @@ def test_help_dialog_builds_all_sections(
     dialog.show()
     qapp.processEvents()
 
-    assert dialog.sections.count() == 5
+    assert dialog.sections.count() == 6
     assert dialog.current_section() == "interpretation"
     assert dialog.windowTitle()
     assert all(dialog.sections.tabText(index) for index in range(dialog.sections.count()))

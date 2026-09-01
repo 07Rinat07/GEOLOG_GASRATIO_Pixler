@@ -33,7 +33,7 @@ does not reopen the source path.
 
 ## Continuing the same well each day
 
-Do not import the new daily LAS as another well. Open yesterday's `*.geolog.json`, choose
+Do not import the new daily LAS as another well. Open yesterday's working `*.geologpkg`, choose
 **File → Daily LAS growth…**, review well identity, index, units, and overlap, and then confirm the
 append. New rows are added to the same dataset while cuttings, symbols, LBA, calcimetry, and other
 manual well layers are preserved. Press **Ctrl+S** after the operation. See the full

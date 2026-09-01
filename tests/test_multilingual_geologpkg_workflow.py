@@ -309,6 +309,26 @@ def test_local_las_folder_rejects_changed_candidate(tmp_path: Path) -> None:
         provider.verify(candidate)
 
 
+def test_daily_append_rejects_file_changed_after_preview(tmp_path: Path) -> None:
+    session, dataset_id = _new_session()
+    source = tmp_path / "daily.las"
+    shutil.copy2(FIXTURES / "02_daily_append.las", source)
+    controller = DailyLasGrowthController(session)
+    plan = controller.analyze(source, dataset_id)
+    assert session.current_dataset is not None
+    original_depth = session.current_dataset.depth.copy()
+
+    source.write_text(source.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+
+    with pytest.raises(DailyLasGrowthError, match="изменился после анализа"):
+        controller.apply(plan)
+    assert np.array_equal(session.current_dataset.depth, original_depth)
+    assert session.current_dataset.append_history == []
+    assert session.current_dataset.source_revisions == []
+    with pytest.raises(RuntimeError, match="Сначала повторно проанализируйте"):
+        controller.apply(plan)
+
+
 def test_geologpkg_rejects_unsafe_archive_member(tmp_path: Path) -> None:
     package = tmp_path / "unsafe.geologpkg"
     with ZipFile(package, "w") as archive:

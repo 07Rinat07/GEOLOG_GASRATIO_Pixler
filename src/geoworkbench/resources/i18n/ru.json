@@ -279,7 +279,7 @@
   "description.updated": "Описание пород {top}–{bottom} м обновлено",
   "daily_las_growth.action": "Ежедневно нарастить LAS...",
   "daily_las_growth.no_changes": "Новых строк нет: файл уже учтён или полностью совпадает с dataset.",
-  "daily_las_growth.success": "LAS наращён: добавлено строк — {added}, совпадающих пропущено — {skipped}.",
+  "daily_las_growth.success": "LAS наращён: добавлено строк — {added}, совпадающих пропущено — {skipped}. Сохраните рабочий .geologpkg через Ctrl+S; расчётные кривые пересчитайте для нового участка.",
   "data.action": "Сведения о данных и индексах...",
   "data.activate_index": "Сделать индекс активным",
   "data.active": "Активный",

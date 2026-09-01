@@ -53,7 +53,7 @@ the normal export dialog after the Dataset has been registered.
 ## Every following day
 
 Do not open yesterday's LAS as a new well. Open the saved project and use
-**File → Daily LAS growth…**:
+**File → Append daily LAS data...**:
 
 1. select the same main Dataset in the current well;
 2. select the local folder maintained by the server sync client, then choose today's LAS from the
@@ -63,6 +63,11 @@ Do not open yesterday's LAS as a new well. Open the saved project and use
 5. click **Append**;
 6. confirm that old manual layers remain and the new depth section appears;
 7. save the project with **Ctrl+S**.
+
+User-created, transferred, and locally calculated curves are not part of the required daily-LAS
+schema. Their previous values are preserved, the new suffix is filled with missing values, and
+calculated curves are marked for recalculation. Rerun and inspect them over the new range before
+printing.
 
 The command mutates the selected Dataset in place. Its identifier does not change, so its form,
 cuttings, LBA, calcimetry, intervals, and Dataset-scoped symbols remain associated. Both a
@@ -82,16 +87,21 @@ Daily growth is a strict append-only operation:
 - reimporting the same SHA-256 is a safe no-op.
 
 The application treats the synchronized folder as read-only. It records size, modification time,
-and SHA-256 during discovery and verifies the file again before analysis. A file that changes
-during reading is rejected.
+and SHA-256 during analysis and verifies the file again immediately before append. A LAS that
+changes during analysis or between analysis and selecting **Append** is rejected without changing
+the Dataset. Wait for synchronization to finish, select the file again, and repeat
+**Analyze growth**.
 
 ## Three languages in one project
 
 Switch the application language and edit the same interval. Lithology, stratigraphy, cuttings
 descriptions, LBA text, interpretations, and notes retain separate `ru`, `kk`, and `en` values.
-Interval geometry, calcimetry numbers, cuttings composition, and curves are shared. Choose RU, KK,
-or EN at print time; Masterlog resolves the matching text from the same project. When a translation
-has not been entered, compatible saved text is shown. No automatic machine translation occurs.
+Interval geometry, calcimetry numbers, cuttings composition, and curves are shared. For RU, KK,
+or EN output, switch the language of the whole application, close any Print Centre that is already
+open, and reopen **Print → Print and export center...**. Masterlog resolves the application-language
+text from the same project. When a translation has not been entered, compatible saved text is
+shown. No automatic machine translation occurs. Always check the authored-description language in
+preview before delivery.
 
 Do not bypass a conflict with ordinary import. Save the project, compare the sources, and then use
 a separate controlled merge or correction workflow.
@@ -101,9 +111,22 @@ a separate controlled merge or correction workflow.
 The current release does not provide dependable automatic project saving. Do not rely on closing
 the window: explicitly press **Ctrl+S** after import, daily growth, and manual entry.
 
-**Save project as…** writes a new path and makes that path the current working project. A dated
-backup can be created under a new name, after which work continues in that new version. Before
-copying the project with Windows tools, press **Ctrl+S** first.
+The recommended layout separates synchronized LAS input from the working project and outputs:
+
+```text
+Well_101/
+  incoming_las/
+  project/Well_101.geologpkg
+  backups/Well_101_YYYY-MM-DD.geologpkg
+  exports/Well_101_YYYY-MM-DD_RU.pdf
+```
+
+Use `incoming_las` as read-only input. Keep one canonical working
+`project/Well_101.geologpkg` so work is not accidentally continued in an old copy.
+
+**Save project as...** writes a new path and makes that path the current working project. A dated
+copy created with this command therefore becomes active. For a simple backup, it is safer to press
+**Ctrl+S**, close the application, and copy the canonical file to `backups` with Windows tools.
 
 For the new format, move or copy one file:
 
@@ -111,14 +134,17 @@ For the new format, move or copy one file:
 Well_101.geologpkg
 ```
 
-Open the `.geologpkg` on the other computer and verify the range and one entry in each language.
-For legacy `.geolog.json`, continue to copy `.assets` with the JSON. An independent protected
-source archive is still recommended as a separate backup.
+Do not edit the same synchronized `.geologpkg` concurrently on two computers: this is not
+collaborative editing, and the last synchronized copy can overwrite the other. To transfer the
+project, press **Ctrl+S**, close the application, and wait for one file to finish copying or
+synchronizing. Open the `.geologpkg` on the other computer and verify the range, form, and one
+entry in each language. For legacy `.geolog.json`, continue to copy `.assets` with the JSON. An
+independent protected source archive is still recommended as a separate backup.
 
 ## LAS export
 
 To send edited numeric curves to another application, use
-**File → Export current Dataset to LAS…**. Select LAS 1.2/2.0 settings and a new output path.
+**File → Export current dataset to LAS...**. Select LAS 1.2/2.0 settings and a new output path.
 Export does not retain the project form, symbols, cuttings, LBA, or formatted descriptions and
 does not replace **Ctrl+S**. A previously exported LAS is not updated automatically after later
 edits; export it again.

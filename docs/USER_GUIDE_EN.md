@@ -22,7 +22,84 @@ Utility windows open separately and no longer occupy permanent workspace tabs.
    technical columns, or the full warning list only when needed.
 5. Select **Accept import**. Cancelling leaves both the project and source file unchanged.
 
-## 3. Files, PDF, and calculators
+## 3. Well project and daily LAS append
+
+Keep continuing work in one `*.geologpkg` project. It stores the numeric curves, selected form,
+cuttings log, lithology, LBA, calcimetry, intervals, images, comments, and separate RU, KK, and EN
+texts. Source LAS files remain immutable inputs; regular LAS import or export does not replace
+saving the project.
+
+### Folder setup and the first working day
+
+Use a clear folder structure and one stable working-project name for each well:
+
+```text
+Well_101/
+  incoming_las/                  LAS files from the server-synchronised folder
+  project/Well_101.geologpkg
+  backups/                       dated copies of a closed project
+  exports/                       PDF, LAS, and other deliverables
+```
+
+Treat `incoming_las` as input only. Wait for synchronisation to finish, do not edit a received LAS
+manually, and never save the project over the source file.
+
+1. Import the first LAS through **File → Import data...**, review the channels, and select
+   **Accept import**.
+2. Select the tablet form and verify the well, dataset, axis, and range.
+3. Press `Ctrl+S` and save, for example, `project/Well_101.geologpkg`.
+4. Fill intervals, geology, cuttings, LBA, calcimetry, symbols, and comments.
+5. Enter Russian, Kazakh, and English versions of the text in the same project by switching the
+   application language. Press `Ctrl+S` after each important block of work.
+6. Close and reopen the `.geologpkg`; verify the form, old range, and one entry in every language.
+
+### Daily LAS append without losing previous work
+
+1. Open the existing `Well_101.geologpkg`; do not open yesterday's LAS as a new project.
+2. Wait until the server client has completely synchronised today's LAS.
+3. Open **File → Append daily LAS data...**.
+4. Select the main dataset for the same well, then select the synchronised folder and LAS.
+5. Select **Analyze growth**. Verify the current and incoming ranges and the counts of new and
+   matching rows.
+6. Select **Append** only when the result is expected. The existing dataset grows in place, so its
+   forms, intervals, geology, comments, and three language versions remain attached.
+7. Immediately press `Ctrl+S`, then reopen the project and check both old and new intervals.
+
+Curves created in the project, transferred from another dataset, or calculated locally do not
+have to exist in the daily LAS. Their old values are preserved and their new rows remain empty.
+After appending, rerun the required calculations and inspect the new interval before printing.
+
+Possible analysis outcomes:
+
+| Result | Required action |
+|---|---|
+| A new compatible suffix is present | Verify the range, select **Append**, then press `Ctrl+S` |
+| The same LAS or all rows already match | This is a safe repeat: there is nothing to append and the project is unchanged |
+| Existing-depth, schema, unit, or well conflict | Append is rejected; do not bypass protection with regular import—save the project and investigate the source difference |
+| The LAS changed during or after analysis | Wait for synchronisation to finish, select the file again, and repeat **Analyze growth** |
+
+### Three languages, printing, versions, and transfer
+
+Interval geometry, curves, numeric calcimetry, and cuttings composition are shared. Author text in
+RU, KK, and EN is stored separately; switching language must not erase an existing translation.
+There is no automatic machine translation. A saved compatible text may be shown when a
+translation is missing, so verify every language manually before delivery.
+
+To print RU, KK, and EN from one project, save the changes, switch the **application language**,
+close any Print Centre window that is already open, and reopen **Print → Print and export
+center...**. Inspect preview and use distinct names such as `Well_101_2026-08-31_RU.pdf`,
+`_KK.pdf`, and `_EN.pdf`.
+
+Keep only one canonical working file, `Well_101.geologpkg`. Create a backup after pressing
+`Ctrl+S` and closing the application, for example `backups/Well_101_2026-08-31.geologpkg`.
+Never edit the same synchronised `.geologpkg` on two computers at the same time. To transfer it,
+save and close the project, wait for one complete copy or synchronisation, open that file on the
+other computer, and verify the range, form, and RU/KK/EN text.
+
+See [Well project and daily LAS growth](en/PROJECT_WORKFLOW.md) for the complete workflow and
+current limitations.
+
+## 4. Files, PDF, and calculators
 
 Open **Tools → Files / PDF / Calculator**.
 
@@ -33,7 +110,7 @@ Open **Tools → Files / PDF / Calculator**.
 5. Do not use results produced from blank, negative, or physically impossible values.
 6. If PyMuPDF or Pillow is missing, the main application remains available and the window displays the installation command.
 
-## 4. Cuttings log and rock descriptions in Interpretation
+## 5. Cuttings log and rock descriptions in Interpretation
 
 ### Rename the displayed column
 
@@ -74,9 +151,9 @@ In Cuttings, Calcimetry, and LBA tracks, `Shift + left drag` opens the shared sa
 accepts up to four rocks totalling `100%`, analyses, a ready template, and a description. After
 saving, the same description automatically appears in the Interpretation column.
 
-## 5. Print Centre
+## 6. Print Centre
 
-Open **Print → Print Centre**.
+Open **Print → Print and export center...**.
 
 1. Verify the well, dataset, and selected interval.
 2. Select paper, orientation, margins, scale, and print header.
@@ -97,9 +174,13 @@ immediately; reopen a modal Library or Constructor window if necessary. Known fa
 an existing form are also translated without recreating it, while arbitrary custom titles remain
 unchanged. ROP, WOB, SPP, C1–C5 mnemonics, chemical formulas, and units remain international.
 
+To create another language version, close the open Print Centre, switch the language of the whole
+application, and reopen **Print → Print and export center...**. Then verify the author-description
+language in preview; changing the interface language alone does not create a missing translation.
+
 A successful export does not guarantee correct layout. Always open and inspect the resulting file.
 
-## 6. Interpretation reports
+## 7. Interpretation reports
 
 Open **Print → Interpretation reports**.
 
@@ -178,7 +259,7 @@ PDF export and system printing use the same controlled multi-page renderer.
 
 Prospective intervals do not replace the geologist's conclusion.
 
-## 7. Help and diagnostics
+## 8. Help and diagnostics
 
 Open **Help → Documentation and instructions** for the built-in guide.
 
@@ -189,3 +270,7 @@ If an error occurs:
 3. open the log folder or create a diagnostic bundle;
 4. do not repeat bulk exports until the cause is analysed;
 5. provide the log, bundle, sample input, and a screenshot of the affected page to the developer.
+
+For a daily-append problem, also include the `.geologpkg` path, target dataset name, LAS name,
+synchronisation completion time, and the **Analyze growth** result. A diagnostic bundle is not a
+backup of the project or source LAS.

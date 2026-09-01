@@ -279,7 +279,7 @@
   "description.updated": "{top}–{bottom} м жыныстар сипаттамасы жаңартылды",
   "daily_las_growth.action": "LAS деректерін күнделікті өсіру...",
   "daily_las_growth.no_changes": "Жаңа жолдар жоқ: файл бұрын есепке алынған немесе dataset-пен толық сәйкес.",
-  "daily_las_growth.success": "LAS өсірілді: {added} жол қосылды, {skipped} сәйкес жол өткізіліп жіберілді.",
+  "daily_las_growth.success": "LAS өсірілді: {added} жол қосылды, {skipped} сәйкес жол өткізіліп жіберілді. Жұмыс .geologpkg жобасын Ctrl+S арқылы сақтап, жаңа бөлік үшін есептік қисықтарды қайта есептеңіз.",
   "data.action": "Деректер мен индекстер туралы мәлімет...",
   "data.activate_index": "Индексті белсенді ету",
   "data.active": "Белсенді",

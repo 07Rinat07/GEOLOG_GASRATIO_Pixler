@@ -1,17 +1,18 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 
 from geoworkbench.data.las_adapter import LasImportResult, import_las_with_report
-from datetime import datetime, timezone
-
 from geoworkbench.domain.models import Dataset, DatasetSourceRevision
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.daily_las_growth import (
+    DailyLasGrowthError,
     DailyLasGrowthOutcome,
     DailyLasGrowthPlan,
     analyze_daily_las_growth,
     apply_daily_las_growth,
+    file_sha256,
 )
 
 
@@ -40,9 +41,17 @@ class DailyLasGrowthController:
         provider_kind: str = "manual_file",
         provider_location: str | None = None,
     ) -> DailyLasGrowthPlan:
+        # A failed second preview must never leave the first file eligible for
+        # confirmation.  Start every analysis from a clean transient state.
+        self.reset_state()
         target = self._target(target_dataset_id)
         path = Path(source_path)
         imported = import_las_with_report(path, kind=target.kind)
+        current_sha256 = self._stable_source_sha256(path)
+        if current_sha256 != imported.report.source.sha256:
+            raise DailyLasGrowthError(
+                "Исходный LAS изменился во время анализа; проверьте прирост повторно"
+            )
         plan = analyze_daily_las_growth(
             target,
             imported.dataset,
@@ -59,45 +68,88 @@ class DailyLasGrowthController:
     def apply(self, plan: DailyLasGrowthPlan) -> DailyLasGrowthOutcome:
         if self._plan != plan or self._source is None or self._source_path is None:
             raise RuntimeError("Сначала повторно проанализируйте ежедневный LAS")
-        target = self._target(plan.target_dataset_id)
         source_result = self._source
-        outcome = apply_daily_las_growth(
-            target,
-            source_result.dataset,
-            plan,
-            provider_kind=self._provider_kind,
-            provider_location=self._provider_location,
-        )
-        if outcome.record is not None:
-            self._preserve_initial_source(target)
-            artifact_id = outcome.record.source_artifact_id
-            if artifact_id is None:
-                raise RuntimeError("История наращивания не содержит source artifact ID")
-            self.session.source_documents[artifact_id] = source_result.source_document
-            target.source_revisions.append(
-                DatasetSourceRevision(
-                    source_revision_id=outcome.record.import_id,
-                    artifact_id=artifact_id,
-                    source_name=outcome.record.source_name,
-                    source_sha256=outcome.record.source_sha256,
-                    size_bytes=source_result.source_document.size_bytes,
-                    imported_at=outcome.record.imported_at,
-                    provider_kind=outcome.record.provider_kind,
-                    provider_location=outcome.record.provider_location,
-                    start_value=outcome.record.start_value,
-                    stop_value=outcome.record.stop_value,
-                    rows_added=outcome.record.rows_added,
-                    rows_skipped=outcome.record.rows_skipped,
+        source_path = self._source_path
+        provider_kind = self._provider_kind
+        provider_location = self._provider_location
+        try:
+            if self._stable_source_sha256(source_path) != plan.source_sha256:
+                raise DailyLasGrowthError(
+                    "Исходный LAS изменился после анализа; "
+                    "проверьте прирост повторно"
                 )
+            target = self._target(plan.target_dataset_id)
+            outcome = apply_daily_las_growth(
+                target,
+                source_result.dataset,
+                plan,
+                provider_kind=provider_kind,
+                provider_location=provider_location,
             )
-            self.session.import_reports.pop(target.dataset_id, None)
-            self.session.dirty = True
+            if outcome.record is not None:
+                self._preserve_initial_source(target)
+                artifact_id = outcome.record.source_artifact_id
+                if artifact_id is None:
+                    raise RuntimeError(
+                        "История наращивания не содержит source artifact ID"
+                    )
+                self.session.source_documents[artifact_id] = source_result.source_document
+                target.source_revisions.append(
+                    DatasetSourceRevision(
+                        source_revision_id=outcome.record.import_id,
+                        artifact_id=artifact_id,
+                        source_name=outcome.record.source_name,
+                        source_sha256=outcome.record.source_sha256,
+                        size_bytes=source_result.source_document.size_bytes,
+                        imported_at=outcome.record.imported_at,
+                        provider_kind=outcome.record.provider_kind,
+                        provider_location=outcome.record.provider_location,
+                        start_value=outcome.record.start_value,
+                        stop_value=outcome.record.stop_value,
+                        rows_added=outcome.record.rows_added,
+                        rows_skipped=outcome.record.rows_skipped,
+                    )
+                )
+                self.session.import_reports.pop(target.dataset_id, None)
+                self.session.dirty = True
+            return outcome
+        finally:
+            # A preview is a one-shot authorization for one exact source and
+            # project state. Any failed commit must be analyzed again.
+            self.reset_state()
+
+    def reset_state(self) -> None:
+        """Discard a preview that belongs to a previous file or project."""
+
         self._source = None
         self._source_path = None
         self._plan = None
         self._provider_kind = "manual_file"
         self._provider_location = None
-        return outcome
+
+    @staticmethod
+    def _stable_source_sha256(path: Path) -> str:
+        """Hash one stable on-disk revision before committing an append.
+
+        A server synchronization client may replace a LAS between preview and
+        confirmation.  Compare file identity around the hash read so that the
+        audit record can never point at a different revision than the bytes
+        already parsed into the append plan.
+        """
+
+        try:
+            before = path.stat()
+            digest = file_sha256(path)
+            after = path.stat()
+        except OSError as exc:
+            raise DailyLasGrowthError(f"Не удалось повторно проверить LAS: {path.name}") from exc
+        before_identity = (before.st_size, before.st_mtime_ns, before.st_ino)
+        after_identity = (after.st_size, after.st_mtime_ns, after.st_ino)
+        if before_identity != after_identity:
+            raise DailyLasGrowthError(
+                f"LAS изменился во время контрольного чтения: {path.name}"
+            )
+        return digest
 
     def _preserve_initial_source(self, target: Dataset) -> None:
         document = self.session.source_documents.pop(target.dataset_id, None)

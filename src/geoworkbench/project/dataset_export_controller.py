@@ -157,7 +157,7 @@ class DatasetExportController:
         return analyze_las_export(
             dataset,
             plan,
-            self.session.source_documents.get(dataset.dataset_id),
+            self._source_document(dataset),
         )
 
     def export_current_las(
@@ -174,9 +174,25 @@ class DatasetExportController:
             dataset,
             target,
             overwrite=overwrite,
-            source_document=self.session.source_documents.get(dataset.dataset_id),
+            source_document=self._source_document(dataset),
             plan=plan,
         )
+
+    def _source_document(self, dataset: Dataset) -> Any:
+        """Use the initial LAS as the header template for a composite dataset."""
+
+        direct = self.session.source_documents.get(dataset.dataset_id)
+        if direct is not None:
+            return direct
+        revisions = sorted(
+            dataset.source_revisions,
+            key=lambda item: item.provider_kind != "initial_import",
+        )
+        for revision in revisions:
+            document = self.session.source_documents.get(revision.artifact_id)
+            if document is not None:
+                return document
+        return None
 
     def resolve_report(
         self,

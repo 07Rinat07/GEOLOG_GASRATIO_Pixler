@@ -10,6 +10,8 @@ from uuid import uuid4
 import numpy as np
 
 from geoworkbench.domain.models import (
+    CalculationState,
+    CurveData,
     Dataset,
     DatasetAppendRecord,
     DatasetIndex,
@@ -19,6 +21,10 @@ from geoworkbench.domain.models import (
 
 class DailyLasGrowthError(ValueError):
     """Raised when a LAS file cannot be appended without changing history."""
+
+
+_LOCAL_DERIVED_PROVENANCE_PREFIXES = ("calculation:", "custom-formula:")
+_STABLE_WELL_ID_HEADERS = ("WELL", "UWI", "API")
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,6 +114,7 @@ def analyze_daily_las_growth(
         raise DailyLasGrowthError("Не задано имя исходного LAS")
     if len(source_sha256) != 64 or any(ch not in "0123456789abcdef" for ch in source_sha256):
         raise DailyLasGrowthError("Некорректный SHA-256 исходного LAS")
+    _validate_well_identity(target, source)
     if any(item.source_sha256 == source_sha256 for item in target.append_history) or any(
         item.source_sha256 == source_sha256 for item in target.source_revisions
     ):
@@ -130,24 +137,30 @@ def analyze_daily_las_growth(
     target_index = target.active_index
     source_index = source.active_index
     _validate_axis_compatibility(target_index, source_index)
-    _validate_well_identity(target, source)
     target_curves = _curve_map(target)
+    target_native_curves = {
+        key: curve
+        for key, curve in target_curves.items()
+        if not _is_local_project_curve(curve)
+    }
     source_curves = _curve_map(source)
-    if set(target_curves) != set(source_curves):
-        missing = sorted(set(target_curves) - set(source_curves))
-        extra = sorted(set(source_curves) - set(target_curves))
+    _validate_curve_lengths(target, target_curves, label="целевого dataset")
+    _validate_curve_lengths(source, source_curves, label="исходного LAS")
+    if set(target_native_curves) != set(source_curves):
+        missing = sorted(set(target_native_curves) - set(source_curves))
+        extra = sorted(set(source_curves) - set(target_native_curves))
         parts: list[str] = []
         if missing:
             parts.append("нет обязательных кривых: " + ", ".join(missing))
         if extra:
             parts.append("лишние кривые: " + ", ".join(extra))
         raise DailyLasGrowthError("Схема LAS не совпадает с dataset (" + "; ".join(parts) + ")")
-    for key in sorted(target_curves):
-        left = _unit(target_curves[key].metadata.unit)
+    for key in sorted(target_native_curves):
+        left = _unit(target_native_curves[key].metadata.unit)
         right = _unit(source_curves[key].metadata.unit)
         if left != right:
             raise DailyLasGrowthError(
-                f"Единица кривой {target_curves[key].metadata.original_mnemonic} "
+                f"Единица кривой {target_native_curves[key].metadata.original_mnemonic} "
                 f"не совпадает: {left or '—'} / {right or '—'}"
             )
 
@@ -171,7 +184,7 @@ def analyze_daily_las_growth(
                     "Пересекающиеся строки должны находиться перед новым append-only суффиксом"
                 )
             _validate_overlapping_row(
-                target_curves,
+                target_native_curves,
                 source_curves,
                 existing_row=existing_row,
                 source_row=source_row,
@@ -200,7 +213,8 @@ def analyze_daily_las_growth(
         rows_skipped=skipped,
         new_row_indices=tuple(new_rows),
         curve_mnemonics=tuple(
-            target_curves[key].metadata.original_mnemonic for key in sorted(target_curves)
+            target_native_curves[key].metadata.original_mnemonic
+            for key in sorted(target_native_curves)
         ),
     )
 
@@ -247,10 +261,13 @@ def apply_daily_las_growth(
     # Prepare every resulting array before touching the target. This keeps the
     # operation transactional even if allocation or conversion fails.
     new_index_values = np.concatenate((target.active_index.values, source.active_index.values[rows]))
-    prepared_curves = {
-        key: np.concatenate((target_curves[key].values, source_curves[key].values[rows]))
-        for key in target_curves
-    }
+    prepared_curves: dict[str, np.ndarray] = {}
+    for key, curve in target_curves.items():
+        if _is_local_project_curve(curve):
+            appended_values = np.full(len(rows), np.nan, dtype=np.float64)
+        else:
+            appended_values = source_curves[key].values[rows]
+        prepared_curves[key] = np.concatenate((curve.values, appended_values))
     before_digest = dataset_content_sha256(target)
     moment = (imported_at or datetime.now(timezone.utc)).astimezone(timezone.utc)
     import_id = str(uuid4())
@@ -265,6 +282,8 @@ def apply_daily_las_growth(
         curve = target_curves[key]
         curve.values = values
         curve.version += 1
+        if _is_local_derived(curve):
+            curve.state = CalculationState.STALE
     _refresh_las_range_headers(target)
     after_digest = dataset_content_sha256(target)
     record = DatasetAppendRecord(
@@ -310,14 +329,54 @@ def _validate_axis_compatibility(target: DatasetIndex, source: DatasetIndex) -> 
 
 
 def _validate_well_identity(target: Dataset, source: Dataset) -> None:
-    target_well = (target.headers.get("WELL") or "").strip().casefold()
-    source_well = (source.headers.get("WELL") or "").strip().casefold()
-    if target_well and source_well and target_well != source_well:
-        raise DailyLasGrowthError("Имя скважины в LAS не совпадает с выбранной скважиной")
+    for header in _STABLE_WELL_ID_HEADERS:
+        target_value = _header_value(target, header).strip().casefold()
+        source_value = _header_value(source, header).strip().casefold()
+        if target_value and source_value and target_value != source_value:
+            raise DailyLasGrowthError(
+                f"Идентификатор скважины {header} в LAS не совпадает с выбранной скважиной"
+            )
 
 
-def _curve_map(dataset: Dataset):
-    result = {}
+def _header_value(dataset: Dataset, mnemonic: str) -> str:
+    expected = mnemonic.casefold()
+    for key, value in dataset.headers.items():
+        if key.strip().casefold() == expected:
+            return value
+    return ""
+
+
+def _is_local_derived(curve: CurveData) -> bool:
+    provenance = curve.metadata.provenance.strip().casefold()
+    return provenance.startswith(_LOCAL_DERIVED_PROVENANCE_PREFIXES)
+
+
+def _is_local_project_curve(curve: CurveData) -> bool:
+    """Distinguish original LAS channels from curves added inside the project."""
+
+    return curve.metadata.provenance.strip().casefold() not in {"", "source"}
+
+
+def _validate_curve_lengths(
+    dataset: Dataset,
+    curves: dict[str, CurveData],
+    *,
+    label: str,
+) -> None:
+    row_count = len(dataset.active_index.values)
+    invalid = [
+        curve.metadata.original_mnemonic
+        for curve in curves.values()
+        if np.asarray(curve.values).shape != (row_count,)
+    ]
+    if invalid:
+        raise DailyLasGrowthError(
+            f"Размер кривых {label} не совпадает с индексом: " + ", ".join(sorted(invalid))
+        )
+
+
+def _curve_map(dataset: Dataset) -> dict[str, CurveData]:
+    result: dict[str, CurveData] = {}
     for curve in dataset.curves.values():
         key = curve.metadata.original_mnemonic.strip().casefold()
         if key in result:

@@ -828,6 +828,28 @@ def _source_fingerprints(
                 "embedded-project-artifact",
             )
             captured = True
+        for revision in source_dataset.source_revisions:
+            revision_document = session.source_documents.get(revision.artifact_id)
+            capture = f"recorded-project-revision:{revision.provider_kind}"
+            if revision_document is not None:
+                capture = f"embedded-project-revision:{revision.provider_kind}"
+                if (
+                    revision_document.sha256 != revision.source_sha256
+                    or revision_document.size_bytes != revision.size_bytes
+                ):
+                    warnings.append(
+                        f"source-revision-artifact-mismatch:{revision.source_name}"
+                    )
+            else:
+                warnings.append(f"source-revision-artifact-missing:{revision.source_name}")
+            sources[("source-revision", revision.source_sha256)] = ReportSourceFingerprint(
+                "source-revision",
+                revision.source_name,
+                revision.source_sha256,
+                revision.size_bytes,
+                capture,
+            )
+            captured = True
 
         if captured:
             continue

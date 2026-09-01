@@ -4934,12 +4934,27 @@ class TabletView(QWidget):
         for mnemonic in changed:
             self._geometry_cache.invalidate_curve(mnemonic)
 
+        changed_keys = {mnemonic.casefold() for mnemonic in changed}
         track_ids: list[str] = []
+        structural_change = False
         for track_id, rendered in self._rendered.items():
-            affected = changed.intersection(rendered.definition.curve_mnemonics)
+            affected = {
+                mnemonic
+                for mnemonic in rendered.definition.curve_mnemonics
+                if mnemonic.casefold() in changed_keys
+            }
             if not affected:
                 continue
             track_ids.append(track_id)
+            expected = self._renderable_curve_mnemonics(rendered.definition)
+            existing = tuple((rendered.curve_items or {}).keys())
+            if existing != expected:
+                self._repopulate_rendered_track_curves(rendered)
+                structural_change = True
+                for mnemonic in affected:
+                    self._geometry_cache.invalidate_curve(mnemonic)
+                self.invalidate_track(track_id, DirtyReason.DATA)
+                continue
             # Preserve every existing CurveHeaderEditor.  Automatic ranges are
             # refreshed in place; the curve geometry receives a data-only dirty
             # reason, so no form/header widget is recreated after a pencil stroke.
@@ -4967,6 +4982,9 @@ class TabletView(QWidget):
                     )
             self.invalidate_track(track_id, DirtyReason.DATA)
         updated = self.refresh_dirty_tracks() if track_ids else 0
+        if structural_change:
+            self._synchronize_track_header_bands()
+            self._refresh_curve_pencil_targets()
         log_event(
             "tablet.curves.incremental_refresh",
             dataset_id=dataset.dataset_id,
@@ -4976,6 +4994,74 @@ class TabletView(QWidget):
             pencil_active=self._curve_pencil_enabled,
         )
         return updated
+
+    def _renderable_curve_mnemonics(
+        self, definition: TrackDefinition
+    ) -> tuple[str, ...]:
+        """Return the curve-item membership produced by ``_populate_track``."""
+
+        if self._dataset is None or definition.kind in {
+            TrackKind.DEPTH,
+            TrackKind.LITHOLOGY,
+            TrackKind.CUTTINGS,
+            TrackKind.LBA,
+            TrackKind.STRATIGRAPHY,
+            TrackKind.INTERPRETATION,
+            TrackKind.TEXT,
+        }:
+            return ()
+        relative_gas = is_relative_gas_track(definition.curve_mnemonics)
+        depth = self._axis_values()
+        available: list[str] = []
+        for mnemonic in definition.curve_mnemonics:
+            curve = self._dataset.curve_by_mnemonic(mnemonic)
+            if curve is None:
+                continue
+            values = np.asarray(curve.values, dtype=float)
+            valid = np.isfinite(values)
+            if not relative_gas:
+                valid &= np.isfinite(depth)
+            if (
+                not relative_gas
+                and definition.kind is not TrackKind.CALCIMETRY
+                and definition.curve_display_settings(mnemonic).x_scale
+                is XScale.LOGARITHMIC
+            ):
+                valid &= values > 0
+            if np.any(valid):
+                available.append(mnemonic)
+        return tuple(available)
+
+    def _repopulate_rendered_track_curves(self, rendered: RenderedTrack) -> None:
+        """Reconcile curve graphics while preserving the containing track widget."""
+
+        plot = rendered.plot
+        if plot is None:
+            return
+        for fill in tuple((rendered.relative_fill_items or {}).values()):
+            plot.removeItem(fill)
+        for item in tuple((rendered.curve_items or {}).values()):
+            plot.removeItem(item)
+        if rendered.relative_baseline_item is not None:
+            plot.removeItem(rendered.relative_baseline_item)
+        rendered.widget.clear_no_numeric_message()
+        rendered.widget.title.setText(self._localized_track_title(rendered.definition))
+        visible = self.visible_depth_range
+        visible_top, visible_bottom = visible if visible is not None else (None, None)
+        (
+            rendered.legend_labels,
+            rendered.curve_items,
+            rendered.relative_fill_items,
+            rendered.relative_baseline_item,
+        ) = self._populate_track(
+            rendered.widget,
+            rendered.definition,
+            visible_top,
+            visible_bottom,
+        )
+        if rendered.curve_render_keys is not None:
+            rendered.curve_render_keys.clear()
+        self._register_wheel_targets(rendered.widget, plot)
 
     def set_canvas_objects(self, canvas_objects: list[CanvasObject]) -> None:
         """Synchronize project canvas objects without rebuilding curves.

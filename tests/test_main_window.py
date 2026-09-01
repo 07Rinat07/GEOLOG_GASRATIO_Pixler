@@ -766,17 +766,19 @@ def test_window_creates_new_las_dataset(qapp, monkeypatch) -> None:
 
 def test_window_inserts_curves_and_updates_transfer_history_actions(qapp, monkeypatch) -> None:
     window = MainWindow(language=AppLanguage.EN)
-    session, _ = make_session()
+    session, layout = make_session()
     target = session.current_dataset
     well = session.current_well
     assert target is not None and well is not None
+    layout.tracks[1].curve_mnemonics = ["GR"]
     source = Dataset("source", "Source GIS", DatasetKind.GIS, DepthDomain.MD, target.depth.copy())
     source.curves["gr"] = CurveData(
-        CurveMetadata("gr", "GR", "GR", "API", None, source.dataset_id),
+        CurveMetadata("gr", "GAMMA", "GR", "API", None, source.dataset_id),
         np.array([10.0, 20.0]),
     )
     well.datasets[source.dataset_id] = source
     bind_session(window, session)
+    window._show_current_dataset()
     window.curve_transfer_controller = CurveTransferController(session)
     rendered_widgets = {
         track_id: rendered.widget
@@ -792,12 +794,23 @@ def test_window_inserts_curves_and_updates_transfer_history_actions(qapp, monkey
     transferred = target.curve_by_mnemonic("GR")
     assert transferred is not None
     assert window.undo_transfer_action.isEnabled()
+    rendered = window.tablet_view._rendered["curve"]
+    assert "GR" in (rendered.curve_items or {})
+    assert "GR" in rendered.widget._curve_header_labels
     assert all(
         window.tablet_view._rendered[track_id].widget is widget
         for track_id, widget in rendered_widgets.items()
     )
+    assert window.tablet_view.set_curve_pencil_mode(
+        True, track_id="curve", mnemonic="GR"
+    )
     window.undo_curve_transfer()
     assert target.curve_by_mnemonic("GR") is None
+    assert "GR" not in (rendered.curve_items or {})
+    assert "GR" not in rendered.widget._curve_header_labels
+    assert "GR" not in (rendered.curve_render_keys or {})
+    assert window.tablet_view.curve_pencil_enabled is False
+    assert window.tablet_view.curve_pencil_target is None
     assert window.redo_transfer_action.isEnabled()
     assert all(
         window.tablet_view._rendered[track_id].widget is widget
@@ -805,11 +818,38 @@ def test_window_inserts_curves_and_updates_transfer_history_actions(qapp, monkey
     )
     window.redo_curve_transfer()
     assert target.curve_by_mnemonic("GR") is transferred
+    assert "GR" in (rendered.curve_items or {})
+    first_x, first_y = rendered.curve_items["GR"].getData()
+    assert first_x is not None and len(first_x) == 2
+    assert first_y is not None and len(first_y) == 2
     assert window.undo_transfer_action.isEnabled()
     assert all(
         window.tablet_view._rendered[track_id].widget is widget
         for track_id, widget in rendered_widgets.items()
     )
+    # A second cycle catches stale render-key cache entries left by removal.
+    window.undo_curve_transfer()
+    window.redo_curve_transfer()
+    second_x, second_y = rendered.curve_items["GR"].getData()
+    assert second_x is not None and len(second_x) == 2
+    assert second_y is not None and len(second_y) == 2
+    window.close()
+
+
+def test_daily_las_controller_follows_reopened_project_session(qapp) -> None:
+    window = MainWindow(language=AppLanguage.EN)
+    previous_session = window.daily_las_growth_controller.session
+    session, _layout = make_session()
+
+    bind_session(window, session)
+
+    assert "daily_las_growth" in window._session_bindings.binding_names
+    assert window.daily_las_growth_controller.session is session
+    assert window.daily_las_growth_controller.session is not previous_session
+    assert tuple(
+        dataset.dataset_id
+        for dataset in window.daily_las_growth_controller.datasets_for_current_well()
+    ) == ("dataset-1",)
     window.close()
 
 

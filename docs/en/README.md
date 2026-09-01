@@ -57,15 +57,17 @@ Choose Русский, Қазақша, or English on first launch. You can later
 
 ## Saving the project and user changes
 
-The primary working document is the `*.geolog.json` well project. It stores curves, the tablet
-form, cuttings, LBA, calcimetry, descriptions, intervals, and symbols. Source LAS/GS2/DB files
-remain immutable inputs, while LAS/PDF/CSV/Excel/DOCX/HTML export creates a separate output.
+The primary portable working document is the `*.geologpkg` well project. It stores curves, the
+tablet form, cuttings, LBA, calcimetry, descriptions, intervals, and symbols. Source LAS/GS2/DB
+files remain immutable inputs, while LAS/PDF/CSV/Excel/DOCX/HTML export creates a separate output.
+Legacy `*.geolog.json` remains readable and writable for compatibility.
 
 Changes first exist in the current session. Press **Ctrl+S** or choose **File → Save** to write
 them to disk; individual objects do not need separate save buttons. The current release does not
 provide dependable autosave and must not be used on the assumption that closing will always
-prompt: save explicitly after import, daily growth, and manual entry. If a
-`<project>.geolog.json.assets` directory is created, move it together with the JSON file. See
+prompt: save explicitly after import, daily growth, and manual entry. A `*.geologpkg` is moved as
+one file. If a `<project>.geolog.json.assets` directory is created beside a legacy JSON project,
+move it together with the JSON file. See
 [Well project workflow](PROJECT_WORKFLOW.md) for the first-day and daily process and
 [Features and instructions](FEATURES.md) for the feature map.
 

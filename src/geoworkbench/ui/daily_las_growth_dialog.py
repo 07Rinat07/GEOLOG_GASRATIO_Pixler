@@ -25,6 +25,7 @@ from geoworkbench.services.local_las_folder import (
     LocalLasFolderError,
     LocalLasFolderProvider,
 )
+from geoworkbench.ui.navigation_organization import open_help_for_widget
 
 
 class DailyLasGrowthDialog(QDialog):
@@ -45,23 +46,66 @@ class DailyLasGrowthDialog(QDialog):
         self.setWindowTitle(self._text("Ежедневное наращивание LAS", "LAS күнделікті өсіру", "Daily LAS growth"))
         self.resize(720, 470)
         root = QVBoxLayout(self)
-        info = QLabel(
+        self.info_label = QLabel(
             self._text(
-                "Добавляются только новые строки в явно выбранный dataset. Другие глубинки, временки, формы, значки и комментарии не изменяются.",
-                "Тек нақты таңдалған dataset-ке жаңа жолдар қосылады. Басқа тереңдік/уақыт деректері, пішіндер, белгілер және пікірлер өзгермейді.",
-                "Only new rows are appended to the explicitly selected dataset. Other depth/time datasets, forms, symbols and comments are not changed.",
+                "Откройте рабочий .geologpkg и добавляйте только новые строки в явно выбранный dataset. Формы, геология, значки и комментарии не заменяются.",
+                "Жұмыс .geologpkg жобасын ашып, тек нақты таңдалған dataset-ке жаңа жолдарды қосыңыз. Пішіндер, геология, белгілер мен пікірлер ауыстырылмайды.",
+                "Open the working .geologpkg and append only new rows to the explicitly selected dataset. Forms, geology, symbols, and comments are not replaced.",
             )
         )
-        info.setWordWrap(True)
-        root.addWidget(info)
+        self.info_label.setObjectName("daily-las-safety-summary")
+        self.info_label.setWordWrap(True)
+        assistant_row = QHBoxLayout()
+        assistant_row.addWidget(self.info_label, 1)
+        self.workflow_help_button = QPushButton(
+            self._text(
+                "Помощник: как наращивать безопасно",
+                "Көмекші: қауіпсіз толықтыру тәртібі",
+                "Assistant: safe daily append",
+            )
+        )
+        self.workflow_help_button.setObjectName("daily-las-workflow-help")
+        self.workflow_help_button.setToolTip(
+            self._text(
+                "Открыть пошаговую инструкцию: первый LAS, ежедневный прирост, три языка, сохранение и перенос.",
+                "Қадамдық нұсқаулықты ашу: алғашқы LAS, күнделікті өсім, үш тіл, сақтау және тасымалдау.",
+                "Open the step-by-step guide for the first LAS, daily growth, three languages, saving, and transfer.",
+            )
+        )
+        self.workflow_help_button.clicked.connect(
+            lambda: open_help_for_widget(self, "project")
+        )
+        assistant_row.addWidget(self.workflow_help_button)
+        root.addLayout(assistant_row)
 
         form = QFormLayout()
         self.target_combo = QComboBox()
+        self.target_combo.setToolTip(
+            self._text(
+                "Выберите основной dataset этой скважины. Его идентификатор и ручные слои сохранятся.",
+                "Осы ұңғыманың негізгі dataset-ін таңдаңыз. Оның идентификаторы мен қолмен енгізілген қабаттары сақталады.",
+                "Select this well's main dataset. Its identity and manual layers will be preserved.",
+            )
+        )
         for dataset in controller.datasets_for_current_well():
             index = dataset.active_index
             label = f"{dataset.name} — {index.role.value.upper()} / {index.mnemonic}"
             self.target_combo.addItem(label, dataset.dataset_id)
         self.file_input = QLineEdit()
+        self.file_input.setPlaceholderText(
+            self._text(
+                "Сегодняшний LAS или накопительный LAS",
+                "Бүгінгі LAS немесе жинақталған LAS",
+                "Today's LAS or a cumulative LAS",
+            )
+        )
+        self.file_input.setToolTip(
+            self._text(
+                "Не выбирайте .geologpkg: здесь нужен только новый исходный LAS с теми же кривыми и единицами.",
+                ".geologpkg таңдамаңыз: мұнда қисықтары мен бірліктері сәйкес жаңа бастапқы LAS қажет.",
+                "Do not select a .geologpkg here; choose only a new source LAS with matching curves and units.",
+            )
+        )
         file_row = QHBoxLayout()
         file_row.addWidget(self.file_input, 1)
         browse = QPushButton(self._text("Выбрать…", "Таңдау…", "Browse…"))
@@ -69,6 +113,20 @@ class DailyLasGrowthDialog(QDialog):
         file_row.addWidget(browse)
         form.addRow(self._text("Целевой dataset", "Мақсатты dataset", "Target dataset"), self.target_combo)
         self.folder_input = QLineEdit()
+        self.folder_input.setPlaceholderText(
+            self._text(
+                "Локальная папка, синхронизируемая серверным клиентом",
+                "Сервер клиенті синхрондайтын жергілікті қалта",
+                "Local folder synchronized by the server client",
+            )
+        )
+        self.folder_input.setToolTip(
+            self._text(
+                "Приложение только читает эту папку. Дождитесь окончания серверной синхронизации перед обновлением списка.",
+                "Қолданба бұл қалтаны тек оқиды. Тізімді жаңартпас бұрын сервер синхрондауының аяқталуын күтіңіз.",
+                "The application only reads this folder. Wait for server synchronization to finish before refreshing the list.",
+            )
+        )
         folder_row = QHBoxLayout()
         folder_row.addWidget(self.folder_input, 1)
         folder_browse = QPushButton(
@@ -86,6 +144,13 @@ class DailyLasGrowthDialog(QDialog):
             folder_row,
         )
         self.folder_files = QComboBox()
+        self.folder_files.setToolTip(
+            self._text(
+                "Список отсортирован по времени изменения. Всегда сверяйте имя и диапазон в предварительном анализе.",
+                "Тізім өзгерту уақыты бойынша сұрыпталған. Алдын ала талдауда атау мен ауқымды әрқашан тексеріңіз.",
+                "The list is sorted by modification time. Always verify the name and range in the preview.",
+            )
+        )
         self.folder_files.currentIndexChanged.connect(self._select_folder_candidate)
         form.addRow(
             self._text("Доступные LAS", "Қолжетімді LAS", "Available LAS"),
@@ -94,11 +159,28 @@ class DailyLasGrowthDialog(QDialog):
         form.addRow(self._text("Новый LAS", "Жаңа LAS", "New LAS"), file_row)
         root.addLayout(form)
 
-        analyze = QPushButton(self._text("Проверить прирост", "Өсімді тексеру", "Analyze growth"))
-        analyze.clicked.connect(self._analyze)
-        root.addWidget(analyze)
+        self.analyze_button = QPushButton(
+            self._text("Проверить прирост", "Өсімді тексеру", "Analyze growth")
+        )
+        self.analyze_button.setToolTip(
+            self._text(
+                "Проверить ось, скважину, схему, единицы, перекрытие, SHA-256 и число новых строк без изменения проекта.",
+                "Жобаны өзгертпей осьті, ұңғыманы, схеманы, бірліктерді, қабаттасуды, SHA-256 және жаңа жолдар санын тексеру.",
+                "Validate the axis, well, schema, units, overlap, SHA-256, and new-row count without changing the project.",
+            )
+        )
+        self.analyze_button.clicked.connect(self._analyze)
+        root.addWidget(self.analyze_button)
         self.preview = QTextEdit()
+        self.preview.setObjectName("daily-las-growth-preview")
         self.preview.setReadOnly(True)
+        self.preview.setPlainText(
+            self._text(
+                "1. Выберите основной dataset.\n2. Выберите LAS.\n3. Нажмите «Проверить прирост».\n4. Наращивайте только после проверки диапазона и числа строк.",
+                "1. Негізгі dataset-ті таңдаңыз.\n2. LAS таңдаңыз.\n3. «Өсімді тексеру» басыңыз.\n4. Ауқым мен жолдар санын тексергеннен кейін ғана толықтырыңыз.",
+                "1. Select the main dataset.\n2. Select the LAS.\n3. Press Analyze growth.\n4. Append only after checking the range and row counts.",
+            )
+        )
         root.addWidget(self.preview, 1)
 
         self.buttons = QDialogButtonBox(
@@ -107,7 +189,15 @@ class DailyLasGrowthDialog(QDialog):
         self.buttons.button(QDialogButtonBox.StandardButton.Ok).setText(
             self._text("Нарастить", "Өсіру", "Append")
         )
-        self.buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
+        append_button = self.buttons.button(QDialogButtonBox.StandardButton.Ok)
+        append_button.setEnabled(False)
+        append_button.setToolTip(
+            self._text(
+                "После наращивания обязательно сохраните .geologpkg через Ctrl+S.",
+                "Толықтырғаннан кейін .geologpkg жобасын Ctrl+S арқылы міндетті түрде сақтаңыз.",
+                "After appending, save the .geologpkg with Ctrl+S.",
+            )
+        )
         self.buttons.accepted.connect(self._accept)
         self.buttons.rejected.connect(self.reject)
         root.addWidget(self.buttons)
@@ -209,11 +299,24 @@ class DailyLasGrowthDialog(QDialog):
         self.plan = plan
         role = plan.index_role.value.upper()
         duplicate = self._text("Да", "Иә", "Yes") if plan.duplicate_source else self._text("Нет", "Жоқ", "No")
+        next_step = (
+            self._text(
+                "Файл уже учтён. Повторное подтверждение безопасно и не изменит dataset.",
+                "Файл бұрын есепке алынған. Қайта растау қауіпсіз және dataset-ті өзгертпейді.",
+                "The file is already recorded. Confirming again is safe and will not change the dataset.",
+            )
+            if plan.duplicate_source or not plan.changes_data
+            else self._text(
+                "Если диапазон и строки верны, нажмите «Нарастить», сразу сохраните .geologpkg через Ctrl+S и повторите нужные расчёты.",
+                "Ауқым мен жолдар дұрыс болса, «Өсіру» басып, .geologpkg жобасын бірден Ctrl+S арқылы сақтаңыз және қажетті есептеулерді қайталаңыз.",
+                "If the range and rows are correct, press Append, immediately save the .geologpkg with Ctrl+S, and rerun the required calculations.",
+            )
+        )
         self.preview.setPlainText(
             self._text(
-                f"Ось: {role} ({plan.index_mnemonic})\nДиапазон файла: {plan.start_value} … {plan.stop_value}\nНовых строк: {plan.rows_added}\nСовпадающих строк: {plan.rows_skipped}\nФайл уже импортирован: {duplicate}\n\nБудет изменён только выбранный dataset.",
-                f"Ось: {role} ({plan.index_mnemonic})\nФайл ауқымы: {plan.start_value} … {plan.stop_value}\nЖаңа жолдар: {plan.rows_added}\nСәйкес жолдар: {plan.rows_skipped}\nФайл бұрын импортталған: {duplicate}\n\nТек таңдалған dataset өзгереді.",
-                f"Axis: {role} ({plan.index_mnemonic})\nFile range: {plan.start_value} … {plan.stop_value}\nNew rows: {plan.rows_added}\nMatching rows: {plan.rows_skipped}\nAlready imported: {duplicate}\n\nOnly the selected dataset will change.",
+                f"Ось: {role} ({plan.index_mnemonic})\nДиапазон файла: {plan.start_value} … {plan.stop_value}\nНовых строк: {plan.rows_added}\nСовпадающих строк: {plan.rows_skipped}\nФайл уже импортирован: {duplicate}\n\nБудет изменён только выбранный dataset.\n\n{next_step}",
+                f"Ось: {role} ({plan.index_mnemonic})\nФайл ауқымы: {plan.start_value} … {plan.stop_value}\nЖаңа жолдар: {plan.rows_added}\nСәйкес жолдар: {plan.rows_skipped}\nФайл бұрын импортталған: {duplicate}\n\nТек таңдалған dataset өзгереді.\n\n{next_step}",
+                f"Axis: {role} ({plan.index_mnemonic})\nFile range: {plan.start_value} … {plan.stop_value}\nNew rows: {plan.rows_added}\nMatching rows: {plan.rows_skipped}\nAlready imported: {duplicate}\n\nOnly the selected dataset will change.\n\n{next_step}",
             )
         )
         self.buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(True)

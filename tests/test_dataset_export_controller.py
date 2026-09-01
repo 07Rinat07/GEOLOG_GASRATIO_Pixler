@@ -8,6 +8,7 @@ from geoworkbench.domain.models import (
     CurveData,
     CurveMetadata,
     Dataset,
+    DatasetSourceRevision,
     DatasetIndex,
     DatasetKind,
     DepthDomain,
@@ -62,6 +63,51 @@ def test_export_controller_uses_current_dataset(tmp_path, monkeypatch) -> None:
 def test_export_controller_requires_current_dataset(tmp_path) -> None:
     with pytest.raises(RuntimeError, match="набор данных"):
         DatasetExportController(ProjectSession()).export_current_las(tmp_path / "result.las")
+
+
+def test_export_controller_uses_initial_revision_after_daily_append(
+    tmp_path, monkeypatch
+) -> None:
+    dataset = Dataset(
+        "dataset-1",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([1.0, 2.0]),
+    )
+    initial = parse_lossless_las(b"~V\nVERS. 2.0\n~A\n1\n")
+    dataset.source_revisions.append(
+        DatasetSourceRevision(
+            source_revision_id="initial:dataset-1",
+            artifact_id="initial-artifact",
+            source_name="day-01.las",
+            source_sha256=initial.sha256,
+            size_bytes=initial.size_bytes,
+            imported_at="2026-08-30T00:00:00Z",
+            provider_kind="initial_import",
+        )
+    )
+    well = Well("well-1", "Well", datasets={dataset.dataset_id: dataset})
+    session = ProjectSession(
+        project=Project("project-1", "Project", wells={well.well_id: well}),
+        current_well_id=well.well_id,
+        current_dataset_id=dataset.dataset_id,
+        source_documents={"initial-artifact": initial},
+    )
+    captured: list[object] = []
+
+    def fake_export(selected, target, *, overwrite=False, source_document=None, plan=None):
+        captured.append(source_document)
+        return target
+
+    monkeypatch.setattr(
+        "geoworkbench.project.dataset_export_controller.export_las",
+        fake_export,
+    )
+
+    DatasetExportController(session).export_current_las(tmp_path / "composite.las")
+
+    assert captured == [initial]
 
 
 def test_export_controller_exports_current_selection_to_csv_and_excel(tmp_path) -> None:

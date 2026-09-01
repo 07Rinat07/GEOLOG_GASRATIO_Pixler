@@ -11,6 +11,7 @@ from geoworkbench.domain.models import (
     CurveData,
     CurveMetadata,
     Dataset,
+    DatasetSourceRevision,
     DatasetKind,
     DepthDomain,
     Project,
@@ -278,6 +279,42 @@ def test_report_passport_marks_external_source_captured_at_report_time(tmp_path)
     assert external.name == "source.csv"
     assert external.capture == "captured-at-report-time"
     assert any(item.startswith("source-fingerprint-captured-at-report-time") for item in passport.warnings)
+
+
+def test_report_passport_includes_every_daily_source_revision() -> None:
+    from geoworkbench.data.lossless_las import parse_lossless_las
+
+    session = make_session()
+    dataset = session.current_dataset
+    assert dataset is not None
+    documents = (
+        ("initial", "day-01.las", b"~A\n1000 1\n", "initial_import"),
+        ("daily", "day-02.las", b"~A\n1002 3\n", "local_folder"),
+    )
+    for artifact_id, name, raw, provider_kind in documents:
+        document = parse_lossless_las(raw)
+        session.source_documents[artifact_id] = document
+        dataset.source_revisions.append(
+            DatasetSourceRevision(
+                source_revision_id=f"revision:{artifact_id}",
+                artifact_id=artifact_id,
+                source_name=name,
+                source_sha256=document.sha256,
+                size_bytes=document.size_bytes,
+                imported_at="2026-08-31T00:00:00Z",
+                provider_kind=provider_kind,
+            )
+        )
+
+    passport = ReportPassportBuilder().build(session, request())
+    revisions = [item for item in passport.sources if item.kind == "source-revision"]
+
+    assert [item.name for item in revisions] == ["day-01.las", "day-02.las"]
+    assert {item.sha256 for item in revisions} == {
+        session.source_documents[artifact_id].sha256
+        for artifact_id, _name, _raw, _provider in documents
+    }
+    assert all(item.capture.startswith("embedded-project-revision:") for item in revisions)
 
 
 def test_report_form_revision_is_content_addressed() -> None:

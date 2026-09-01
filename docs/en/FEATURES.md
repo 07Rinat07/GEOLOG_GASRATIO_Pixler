@@ -7,8 +7,8 @@ details remain in Git.
 
 ## General working rules
 
-- The primary working document is the `*.geolog.json` project; source LAS/GS2/DB files remain
-  immutable inputs.
+- The primary portable working document is the `*.geologpkg` project; legacy `*.geolog.json`
+  remains supported for compatibility, while source LAS/GS2/DB files remain immutable inputs.
 - Changes to data, forms, intervals, and annotations first exist in the open session. Use
   **Ctrl+S** or **File → Save** to write them to the project on disk.
 - The current release has no dependable autosave or guaranteed close prompt. Save explicitly
