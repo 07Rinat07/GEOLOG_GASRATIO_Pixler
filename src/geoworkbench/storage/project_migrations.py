@@ -469,6 +469,31 @@ def _migrate_v22_to_v23(payload: ProjectPayload) -> ProjectPayload:
     return migrated
 
 
+
+def _migrate_v23_to_v24(payload: ProjectPayload) -> ProjectPayload:
+    """Add a typed gas-conditioning QC slot to every dataset."""
+
+    migrated = deepcopy(payload)
+    project = migrated.get("project")
+    if not isinstance(project, dict):
+        raise ProjectMigrationError("Проект версии 23 не содержит объекта 'project'")
+    wells = project.get("wells", {})
+    if not isinstance(wells, dict):
+        raise ProjectMigrationError("Проект версии 23 содержит некорректный wells")
+    for well in wells.values():
+        if not isinstance(well, dict):
+            raise ProjectMigrationError("Некорректная скважина проекта версии 23")
+        datasets = well.get("datasets", {})
+        if not isinstance(datasets, dict):
+            raise ProjectMigrationError("Некорректные datasets проекта версии 23")
+        for dataset in datasets.values():
+            if not isinstance(dataset, dict):
+                raise ProjectMigrationError("Некорректный dataset проекта версии 23")
+            dataset.setdefault("gas_conditioning_qc", None)
+    migrated["format_version"] = 24
+    return migrated
+
+
 def _migrate_scale_payload_to_linear(payload: dict[str, Any]) -> bool:
     """Convert a legacy logarithmic payload and report whether it changed."""
 
@@ -519,6 +544,7 @@ DEFAULT_PROJECT_MIGRATIONS.register(19, _migrate_v19_to_v20)
 DEFAULT_PROJECT_MIGRATIONS.register(20, _migrate_v20_to_v21)
 DEFAULT_PROJECT_MIGRATIONS.register(21, _migrate_v21_to_v22)
 DEFAULT_PROJECT_MIGRATIONS.register(22, _migrate_v22_to_v23)
+DEFAULT_PROJECT_MIGRATIONS.register(23, _migrate_v23_to_v24)
 
 
 def migrate_project_payload(payload: ProjectPayload, target_version: int) -> ProjectPayload:

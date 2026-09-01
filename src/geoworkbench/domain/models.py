@@ -13,6 +13,7 @@ from numpy.typing import NDArray
 
 if TYPE_CHECKING:
     from geoworkbench.domain.acquisition import AcquisitionSession
+    from geoworkbench.domain.gas_conditioning_qc import GasConditioningQcSummary
     from geoworkbench.domain.lag_correction import LagCorrectionProfile
     from geoworkbench.domain.operational_events import OperationalEvent
     from geoworkbench.services.semantic_channels import SemanticChannelBinding
@@ -266,6 +267,7 @@ class Dataset:
     version_headers: dict[str, str] = field(default_factory=dict)
     append_history: list[DatasetAppendRecord] = field(default_factory=list)
     source_revisions: list[DatasetSourceRevision] = field(default_factory=list)
+    gas_conditioning_qc: GasConditioningQcSummary | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.append_history, list) or not all(
