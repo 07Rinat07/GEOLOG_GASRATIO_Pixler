@@ -66,6 +66,33 @@ def test_create_entries_preserves_order_and_dispose_runs_in_reverse() -> None:
     assert disposed == ["rendered:rop", "rendered:gas", "rendered:depth"]
 
 
+def test_dispose_entries_settles_each_entry_before_disposing_the_next() -> None:
+    events: list[tuple[str, str]] = []
+    coordinator = TrackLifecycleCoordinator(
+        settle_disposal=lambda entry: events.append(("settle", str(entry)))
+    )
+    entries = {
+        "depth": "rendered:depth",
+        "gas": "rendered:gas",
+        "rop": "rendered:rop",
+    }
+
+    released = coordinator.dispose_entries(
+        entries,
+        lambda entry: events.append(("dispose", entry)),
+    )
+
+    assert released == ("depth", "gas", "rop")
+    assert events == [
+        ("dispose", "rendered:rop"),
+        ("settle", "rendered:rop"),
+        ("dispose", "rendered:gas"),
+        ("settle", "rendered:gas"),
+        ("dispose", "rendered:depth"),
+        ("settle", "rendered:depth"),
+    ]
+
+
 def test_create_entries_rolls_back_partial_build() -> None:
     coordinator = TrackLifecycleCoordinator()
     disposed: list[str] = []
@@ -84,3 +111,28 @@ def test_create_entries_rolls_back_partial_build() -> None:
         )
 
     assert disposed == ["rendered:depth"]
+
+
+def test_create_entries_settles_rolled_back_entries_before_reraising() -> None:
+    events: list[tuple[str, str]] = []
+    coordinator = TrackLifecycleCoordinator(
+        settle_disposal=lambda entry: events.append(("settle", str(entry)))
+    )
+
+    def create(track_id: str) -> str:
+        if track_id == "broken":
+            raise RuntimeError("render failed")
+        return f"rendered:{track_id}"
+
+    with pytest.raises(RuntimeError, match="render failed"):
+        coordinator.create_entries(
+            ("depth", "broken"),
+            identify=lambda track_id: track_id,
+            create=create,
+            rollback=lambda entry: events.append(("dispose", entry)),
+        )
+
+    assert events == [
+        ("dispose", "rendered:depth"),
+        ("settle", "rendered:depth"),
+    ]
