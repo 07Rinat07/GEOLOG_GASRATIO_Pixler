@@ -143,11 +143,6 @@ def test_codec_rejects_unknown_event_fields() -> None:
                             "revision": 1,
                             "calibration_id": None,
                             "calibrated_at": None,
-                            "received_at": None,
-                            "source": "manual",
-                            "revision": 1,
-                            "calibration_id": None,
-                            "calibrated_at": None,
                             "qc_flags": [],
                             "unexpected": True,
                         }
