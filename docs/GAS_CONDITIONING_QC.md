@@ -34,6 +34,12 @@ Project format v23 migrates to v24 by adding `gas_conditioning_qc: null` to ever
 
 The v24 decoder validates the nested QC object strictly and rejects malformed counts, invalid intervals, unknown keys and invalid numeric values with `ProjectFormatError`.
 
-## Remaining GAS-06 work
+## Operator visibility
 
-The domain, persistence and calculation-session slices are implemented. A later isolated branch must expose the persisted QC summary in the operator UI/reporting path. GAS-06 should be marked complete in the canonical project plan only after that UI slice and its acceptance tests are green and merged.
+Data Inspector exposes the persisted summary without recalculating conditioning. The read-only QC tab shows nominal depth step, affected depth rows, total restored component samples and one row per gas component with restored-point count, effective max-gap and inclusive restored depth ranges.
+
+Datasets without saved provenance show an explicit localized empty-state message instead of inferring historical QC from derived curves.
+
+## Completion gate
+
+The domain, persistence, calculation-session and operator-visibility slices are implemented. GAS-06 remains open in the canonical project plan until this UI slice and its acceptance tests pass the complete release gate and the branch is ready to merge.

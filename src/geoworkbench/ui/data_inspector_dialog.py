@@ -141,6 +141,28 @@ class DataInspectorDialog(QDialog):
         curves_layout.addLayout(curve_actions)
         self.tabs.addTab(curves_page, self._t("data.curves"))
 
+        gas_qc_page = QWidget()
+        gas_qc_layout = QVBoxLayout(gas_qc_page)
+        self.gas_qc_summary = QPlainTextEdit()
+        self.gas_qc_summary.setObjectName("gas-conditioning-qc-summary")
+        self.gas_qc_summary.setReadOnly(True)
+        self.gas_qc_summary.setMaximumHeight(120)
+        gas_qc_layout.addWidget(self.gas_qc_summary)
+        self.gas_qc_table = QTableWidget(0, 4)
+        self.gas_qc_table.setObjectName("gas-conditioning-qc-table")
+        self.gas_qc_table.setHorizontalHeaderLabels(
+            [
+                self._t("data.gas_qc_component"),
+                self._t("data.gas_qc_restored_points"),
+                self._t("data.gas_qc_max_gap"),
+                self._t("data.gas_qc_ranges"),
+            ]
+        )
+        self.gas_qc_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.gas_qc_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        gas_qc_layout.addWidget(self.gas_qc_table)
+        self.tabs.addTab(gas_qc_page, self._t("data.gas_qc"))
+
         self.issue_table = QTableWidget(0, 3)
         self.issue_table.setObjectName("import-issues")
         self.issue_table.setHorizontalHeaderLabels(
@@ -286,6 +308,36 @@ class DataInspectorDialog(QDialog):
                     item.setData(Qt.ItemDataRole.UserRole, curve.curve_id)
                 self.curve_table.setItem(row, column, item)
         self.curve_table.resizeColumnsToContents()
+
+        gas_qc = self.controller.gas_conditioning_qc()
+        if gas_qc is None:
+            self.gas_qc_summary.setPlainText(self._t("data.gas_qc_none"))
+            self.gas_qc_table.setRowCount(0)
+        else:
+            self.gas_qc_summary.setPlainText(
+                f"{self._t('data.gas_qc_nominal_step')}: "
+                f"{self._number(gas_qc.nominal_depth_step)}\n"
+                f"{self._t('data.gas_qc_affected_rows')}: "
+                f"{gas_qc.affected_depth_row_count}\n"
+                f"{self._t('data.gas_qc_restored_samples')}: "
+                f"{gas_qc.interpolated_component_sample_count}"
+            )
+            self.gas_qc_table.setRowCount(len(gas_qc.components))
+            for row, component in enumerate(gas_qc.components):
+                restored_ranges = "; ".join(
+                    f"{self._number(interval.minimum_depth)}–"
+                    f"{self._number(interval.maximum_depth)} ({interval.sample_count})"
+                    for interval in component.intervals
+                )
+                values = (
+                    component.mnemonic,
+                    str(component.interpolated_sample_count),
+                    self._number(component.max_gap),
+                    restored_ranges or "—",
+                )
+                for column, value in enumerate(values):
+                    self.gas_qc_table.setItem(row, column, QTableWidgetItem(value))
+            self.gas_qc_table.resizeColumnsToContents()
 
         issues = self.controller.import_issues()
         self.issue_table.setRowCount(len(issues))

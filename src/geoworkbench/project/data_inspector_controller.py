@@ -67,6 +67,29 @@ class LasSourceInspection:
     error_count: int
 
 
+@dataclass(frozen=True, slots=True)
+class GasConditioningQcIntervalInspection:
+    minimum_depth: float
+    maximum_depth: float
+    sample_count: int
+
+
+@dataclass(frozen=True, slots=True)
+class GasComponentConditioningQcInspection:
+    mnemonic: str
+    interpolated_sample_count: int
+    max_gap: float | None
+    intervals: tuple[GasConditioningQcIntervalInspection, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class GasConditioningQcInspection:
+    nominal_depth_step: float
+    affected_depth_row_count: int
+    interpolated_component_sample_count: int
+    components: tuple[GasComponentConditioningQcInspection, ...]
+
+
 @dataclass(slots=True)
 class DataInspectorController:
     session: ProjectSession
@@ -106,6 +129,32 @@ class DataInspectorController:
                 missing_count=int(np.count_nonzero(~np.isfinite(curve.values))),
             )
             for curve in dataset.curves.values()
+        )
+
+    def gas_conditioning_qc(self) -> GasConditioningQcInspection | None:
+        summary = self._dataset().gas_conditioning_qc
+        if summary is None:
+            return None
+        return GasConditioningQcInspection(
+            nominal_depth_step=summary.nominal_depth_step,
+            affected_depth_row_count=summary.affected_depth_row_count,
+            interpolated_component_sample_count=summary.interpolated_component_sample_count,
+            components=tuple(
+                GasComponentConditioningQcInspection(
+                    mnemonic=component.mnemonic,
+                    interpolated_sample_count=component.interpolated_sample_count,
+                    max_gap=component.max_gap,
+                    intervals=tuple(
+                        GasConditioningQcIntervalInspection(
+                            minimum_depth=interval.minimum_depth,
+                            maximum_depth=interval.maximum_depth,
+                            sample_count=interval.sample_count,
+                        )
+                        for interval in component.interpolated_intervals
+                    ),
+                )
+                for component in summary.components
+            ),
         )
 
     def import_issues(self) -> tuple[LasImportIssue, ...]:

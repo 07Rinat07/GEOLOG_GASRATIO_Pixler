@@ -1,6 +1,11 @@
 import numpy as np
 from PySide6.QtWidgets import QDialogButtonBox, QMessageBox, QPlainTextEdit, QTableWidget
 
+from geoworkbench.domain.gas_conditioning_qc import (
+    GasComponentConditioningQc,
+    GasConditioningQcInterval,
+    GasConditioningQcSummary,
+)
 from geoworkbench.domain.models import (
     CurveData,
     CurveMetadata,
@@ -83,6 +88,7 @@ def test_data_inspector_dialog_renders_and_activates_index(qapp) -> None:
 def test_data_inspector_dialog_uses_selected_language(qapp) -> None:
     dialog = DataInspectorDialog(make_controller(), language=AppLanguage.EN)
     buttons = dialog.findChild(QDialogButtonBox)
+    gas_qc_summary = dialog.findChild(QPlainTextEdit, "gas-conditioning-qc-summary")
 
     assert buttons is not None
     assert dialog.windowTitle() == "Data and index information"
@@ -90,6 +96,7 @@ def test_data_inspector_dialog_uses_selected_language(qapp) -> None:
         "Summary",
         "Indexes",
         "Curves",
+        "Gas conditioning QC",
         "Import diagnostics",
         "LAS source",
         "LAS header",
@@ -97,6 +104,8 @@ def test_data_inspector_dialog_uses_selected_language(qapp) -> None:
     assert dialog.index_table.horizontalHeaderItem(0).text() == "Active"
     assert dialog.curve_table.horizontalHeaderItem(2).text() == "Description"
     assert "The dataset has no saved LAS import report" in dialog.source_text.toPlainText()
+    assert gas_qc_summary is not None
+    assert "No saved gas-conditioning QC provenance" in gas_qc_summary.toPlainText()
     assert dialog.header_table.item(1, 2).text() == "editor"
     assert "Direction: ascending" in dialog.depth_header_summary.toPlainText()
     assert buttons.button(QDialogButtonBox.StandardButton.Close).text() == "Close"
@@ -142,4 +151,38 @@ def test_data_inspector_dialog_confirms_and_removes_user_curve(qapp, monkeypatch
     assert dialog.curve_table.rowCount() == 1
     dialog._undo_curve_metadata()
     assert dataset.curve_by_mnemonic("ROP") is not None
+    dialog.close()
+
+
+def test_data_inspector_dialog_renders_persisted_gas_conditioning_qc(qapp) -> None:
+    controller = make_controller()
+    dataset = controller.session.current_dataset
+    assert dataset is not None
+    dataset.gas_conditioning_qc = GasConditioningQcSummary(
+        nominal_depth_step=1.0,
+        affected_depth_row_count=2,
+        interpolated_component_sample_count=2,
+        components=(
+            GasComponentConditioningQc(
+                mnemonic="C1",
+                interpolated_sample_count=2,
+                interpolated_intervals=(GasConditioningQcInterval(1.0, 2.0, 2),),
+                max_gap=4.0,
+            ),
+        ),
+    )
+
+    dialog = DataInspectorDialog(controller, language=AppLanguage.EN)
+    summary = dialog.findChild(QPlainTextEdit, "gas-conditioning-qc-summary")
+    table = dialog.findChild(QTableWidget, "gas-conditioning-qc-table")
+
+    assert summary is not None
+    assert "Nominal depth step: 1" in summary.toPlainText()
+    assert "Affected depth rows: 2" in summary.toPlainText()
+    assert "Restored component samples: 2" in summary.toPlainText()
+    assert table is not None and table.rowCount() == 1
+    assert table.item(0, 0).text() == "C1"
+    assert table.item(0, 1).text() == "2"
+    assert table.item(0, 2).text() == "4"
+    assert table.item(0, 3).text() == "1–2 (2)"
     dialog.close()

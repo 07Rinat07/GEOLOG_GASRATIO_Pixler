@@ -25,7 +25,7 @@ release plan и временные планы в `docs` не создаются.
 
 ## Текущая база
 
-- пакет `0.7.93`; project `v23`; form `v16`; tablet layout `v24`;
+- пакет `0.7.93`; project `v24`; form `v16`; tablet layout `v24`;
 - desktop-модульный монолит: Python 3.11, PySide6, PyQtGraph, NumPy;
 - WITS0, WITSML 1.4.1.1, WITSML 2.x/ETP foundation, GS2/Paradox, LAS, планшет, формы,
   расчёты и отчёты реализованы;
@@ -112,7 +112,7 @@ release plan и временные планы в `docs` не создаются.
   дубли и по семикомпонентному контракту GeoScape трактует старые `C4/C5` рядом с
   `iC4/iC5` как прямые контекстные алиасы `nC4/nC5` без изменения измерений; канонический
   набор и структура mud log сверены с официальными материалами SLB.
-- [ ] **GAS-06:** сохранять структурированный QC provenance conditioning в проекте и показывать
+- [x] **GAS-06:** сохранять структурированный QC provenance conditioning в проекте и показывать
   оператору количество/диапазоны восстановленных точек без изменения исходного LAS.
 - [ ] **GAS-07:** добавить обезличенный golden dataset для интервала `1703.28–1753.28 м` и
   реальных sparse C1–C5: сравнивать source, conditioned, derived, screen segments и PDF pages.
