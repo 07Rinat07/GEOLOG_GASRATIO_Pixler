@@ -80,7 +80,8 @@ in the created result.
 
 - **Ctrl+S** saves the working model inside the project.
 - **LAS export** creates a separate portable file.
-- The current release has no dependable autosave or guaranteed close prompt: the diskette saves
-  the project, not the source LAS.
+- Dependable autosave is not available yet. When a dirty session closes, the guard offers to save
+  the project, export a LAS copy, close without saving, or cancel; the diskette saves the project,
+  not the source LAS.
 - After important edits, save the project, export a LAS copy, and reopen both results to verify row
   count, index, and critical curves.

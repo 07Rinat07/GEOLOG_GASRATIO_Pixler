@@ -3311,8 +3311,7 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(
             self._t("paradox.imported", file=selected.name, rows=result.table.rows_read)
         )
-        if dialog.requested_action == "save_las":
-            self.export_current_las()
+        self._dispatch_registered_import_action(dialog.requested_action)
 
     def open_gs2(self, source: str | Path | None = None) -> None:
         if source is None:
@@ -3361,6 +3360,7 @@ class MainWindow(QMainWindow):
                 member_names[0],
             )
         result = None
+        requested_action = "open"
         if len(member_names) == 1:
             member_name = member_names[0]
             try:
@@ -3374,6 +3374,7 @@ class MainWindow(QMainWindow):
                     if dialog.exec() != QDialog.DialogCode.Accepted or dialog.import_result is None:
                         return
                     result = dialog.import_result
+                    requested_action = dialog.requested_action
             except Gs2ContainerError as exc:
                 QMessageBox.critical(self, self._t("gs2.title"), str(exc))
                 return
@@ -3392,6 +3393,7 @@ class MainWindow(QMainWindow):
             if dialog.exec() != QDialog.DialogCode.Accepted or dialog.import_result is None:
                 return
             result = dialog.import_result
+            requested_action = dialog.requested_action
             table_label = f"{Path(member_names[0]).stem} ({len(member_names)} parts)"
 
         if result is None:
@@ -3444,6 +3446,13 @@ class MainWindow(QMainWindow):
                 rows=registration.result.table.rows_read,
             )
         )
+        self._dispatch_registered_import_action(requested_action)
+
+    def _dispatch_registered_import_action(self, requested_action: str) -> None:
+        """Run post-registration actions through the normal application workflow."""
+
+        if requested_action == "save_las":
+            self.export_current_las()
 
     def open_paradox_batch(self) -> None:
         filenames, _ = QFileDialog.getOpenFileNames(

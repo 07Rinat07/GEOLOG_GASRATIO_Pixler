@@ -62,10 +62,13 @@ tablet form, cuttings, LBA, calcimetry, descriptions, intervals, and symbols. So
 files remain immutable inputs, while LAS/PDF/CSV/Excel/DOCX/HTML export creates a separate output.
 Legacy `*.geolog.json` remains readable and writable for compatibility.
 
+The permanent lower panel shows **Source → Project file → Export**: the selected read-only input,
+**Not saved** or the full active `.geologpkg` path, and a separate LAS copy.
 Changes first exist in the current session. Press **Ctrl+S** or choose **File → Save** to write
-them to disk; individual objects do not need separate save buttons. The current release does not
-provide dependable autosave and must not be used on the assumption that closing will always
-prompt: save explicitly after import, daily growth, and manual entry. A `*.geologpkg` is moved as
+them to disk; individual objects do not need separate save buttons. Dependable autosave is not
+available yet, but closing a dirty session offers to save the project, export a LAS copy, close
+without saving, or cancel. Still save explicitly after import, daily growth, and manual entry. A
+`*.geologpkg` is moved as
 one file. If a `<project>.geolog.json.assets` directory is created beside a legacy JSON project,
 move it together with the JSON file. See
 [Well project workflow](PROJECT_WORKFLOW.md) for the first-day and daily process and
@@ -73,7 +76,7 @@ move it together with the JSON file. See
 
 ## Import
 
-Use “File → Import data...” (`Ctrl+I`) and select a LAS, CSV/TXT, Excel, GeoScape/Paradox DB, or GS2 file directly; the application detects its type from the extension. Regular LAS uses compatible mode, while strict and manual policies remain under “File → Advanced LAS import...”. Import Review shows the summary and channels immediately; index/NULL, manual mapping, technical columns, and the full warning list expand on demand. Paradox also has a dedicated command and `.db` drag-and-drop. The application validates the binary format, discovers same-name `.PX/.TV/.FAM` files, presents channels and depth/time candidates, and never applies an ambiguous index without confirmation. Source files are opened read-only. A dataset is committed to the project only after successful reading, policy evaluation, and any required user confirmation; cancelled or rejected files cannot create a partial well. See [PARADOX_IMPORT.md](PARADOX_IMPORT.md).
+Use “File → Import data...” (`Ctrl+I`) and select a LAS, CSV/TXT, Excel, GeoScape/Paradox DB, or GS2 file directly; the application detects its type from the extension. Regular LAS uses compatible mode, while strict and manual policies remain under “File → Advanced LAS import...”. Import Review shows the summary and channels immediately; index/NULL, manual mapping, technical columns, and the full warning list expand on demand. Paradox also has a dedicated command and `.db` drag-and-drop. The application validates the binary format, discovers same-name `.PX/.TV/.FAM` files, presents channels and depth/time candidates, and never applies an ambiguous index without confirmation. Source files are opened read-only. A dataset is committed to the project only after successful reading, policy evaluation, and any required user confirmation; cancelled or rejected files cannot create a partial well. For a direct Paradox or GS2 import, **Save LAS** opens the shared standard exporter only after successful Dataset registration; cancellation or failure exports nothing. See [PARADOX_IMPORT.md](PARADOX_IMPORT.md).
 
 Legacy Delphi SKF forms can be imported from “Forms → Form Library → Import and export → Import SKF” or “Constructor → Tablet forms”. See [SKF_IMPORT.md](SKF_IMPORT.md).
 

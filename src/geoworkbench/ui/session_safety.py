@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QSizePolicy,
+    QVBoxLayout,
     QWidget,
 )
 
@@ -45,6 +46,9 @@ _TEXTS = {
         "rows": "Строк",
         "curves": "Кривых",
         "project_path": "Файл проекта",
+        "project_unsaved": "не сохранён",
+        "export": "Экспорт",
+        "export_copy": "отдельный LAS-файл",
         "save_target": "Сохранение",
         "save_project_target": "проект",
         "save_copy_target": "проект или LAS-копия",
@@ -82,6 +86,9 @@ _TEXTS = {
         "rows": "Жол",
         "curves": "Қисық",
         "project_path": "Жоба файлы",
+        "project_unsaved": "сақталмаған",
+        "export": "Экспорт",
+        "export_copy": "бөлек LAS файлы",
         "save_target": "Сақтау",
         "save_project_target": "жоба",
         "save_copy_target": "жоба немесе LAS көшірмесі",
@@ -119,6 +126,9 @@ _TEXTS = {
         "rows": "Rows",
         "curves": "Curves",
         "project_path": "Project file",
+        "project_unsaved": "not saved",
+        "export": "Export",
+        "export_copy": "separate LAS file",
         "save_target": "Save as",
         "save_project_target": "project",
         "save_copy_target": "project or LAS copy",
@@ -198,15 +208,34 @@ class SessionInfoPanel(QFrame):
             }
             """
         )
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(7, 1, 7, 1)
-        layout.setSpacing(9)
-        self.project_label = self._add_label(layout, "sessionProjectLabel")
-        self.well_label = self._add_label(layout, "sessionWellLabel")
-        self.dataset_label = self._add_label(layout, "sessionDatasetLabel")
-        self.source_label = self._add_label(layout, "sessionSourceLabel")
-        layout.addStretch(1)
-        self.state_label = self._add_label(layout, "sessionStateSaved")
+        root = QVBoxLayout(self)
+        root.setContentsMargins(7, 2, 7, 2)
+        root.setSpacing(1)
+
+        summary = QHBoxLayout()
+        summary.setContentsMargins(0, 0, 0, 0)
+        summary.setSpacing(9)
+        self.project_label = self._add_label(summary, "sessionProjectLabel")
+        self.well_label = self._add_label(summary, "sessionWellLabel")
+        self.dataset_label = self._add_label(summary, "sessionDatasetLabel")
+        self.source_label = self._add_label(summary, "sessionSourceLabel")
+        summary.addStretch(1)
+        self.state_label = self._add_label(summary, "sessionStateSaved")
+        root.addLayout(summary)
+
+        self.workflow_label = QLabel()
+        self.workflow_label.setObjectName("sessionWorkflowLabel")
+        self.workflow_label.setTextFormat(Qt.TextFormat.PlainText)
+        self.workflow_label.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+        )
+        # Keep the full path in the label and tooltip without allowing one long
+        # path to impose a large minimum width on the main window.
+        self.workflow_label.setSizePolicy(
+            QSizePolicy.Policy.Ignored,
+            QSizePolicy.Policy.Fixed,
+        )
+        root.addWidget(self.workflow_label)
 
     @staticmethod
     def _add_label(layout: QHBoxLayout, object_name: str) -> QLabel:
@@ -253,6 +282,16 @@ class SessionInfoPanel(QFrame):
         rows = len(getattr(dataset, "depth", ())) if dataset is not None else 0
         curves = len(getattr(dataset, "curves", {})) if dataset is not None else 0
         project_path = getattr(controller, "project_path", None)
+        project_path_text = (
+            str(project_path)
+            if project_path is not None
+            else texts["project_unsaved"]
+        )
+        self.workflow_label.setText(
+            f"{texts['source']}: {source_value}  →  "
+            f"{texts['project_path']}: {project_path_text}  →  "
+            f"{texts['export']}: {texts['export_copy']}"
+        )
         save_target = (
             texts["save_project_target"] if project_path else texts["save_copy_target"]
         )
@@ -265,6 +304,7 @@ class SessionInfoPanel(QFrame):
             f"{texts['rows']}: {rows}\n"
             f"{texts['curves']}: {curves}\n"
             f"{texts['project_path']}: {project_path or texts['empty']}\n"
+            f"{texts['export']}: {texts['export_copy']}\n"
             f"{texts['save_target']}: {save_target}"
         )
         self.setToolTip(details)
@@ -274,6 +314,7 @@ class SessionInfoPanel(QFrame):
             self.dataset_label,
             self.source_label,
             self.state_label,
+            self.workflow_label,
         ):
             label.setToolTip(details)
 

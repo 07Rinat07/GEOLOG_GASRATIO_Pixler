@@ -58,9 +58,10 @@ Control check:
 4. verify position, size, depth, track, parameter, and background mode;
 5. open preview or PDF when the symbol must be printed.
 
-The current release does not guarantee a close-time save prompt: without an explicit **Ctrl+S**,
-the insertion and later edits may be lost. PDF, a screenshot, and printing do not replace project
-saving. The external BMP/PNG is not required after a successful save because the project owns a
+Dependable autosave is not available yet, so save changes with **Ctrl+S**. When a dirty session
+closes, the guard offers to save the project, export a LAS copy, close without saving, or cancel.
+PDF, a screenshot, and printing do not replace project saving. The external BMP/PNG is not
+required after a successful save because the project owns a
 copy; move the `.assets` directory together with the project JSON. See the
 [well project workflow](PROJECT_WORKFLOW.md).
 

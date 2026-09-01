@@ -1,4 +1,6 @@
+from contextlib import nullcontext
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 from PySide6.QtCore import Qt
@@ -226,6 +228,104 @@ def test_regular_las_action_uses_compatible_mode_without_mode_prompt(
     window.open_action.trigger()
 
     assert opened == [((Path("well.las"),), LasImportMode.COMPATIBLE)]
+    window.close()
+
+
+def test_registered_import_action_exports_once_only_for_save_las(
+    qapp, monkeypatch
+) -> None:
+    window = MainWindow()
+    exported: list[str] = []
+    monkeypatch.setattr(window, "export_current_las", lambda: exported.append("LAS"))
+
+    window._dispatch_registered_import_action("open")
+    window._dispatch_registered_import_action("unknown")
+    assert exported == []
+
+    window._dispatch_registered_import_action("save_las")
+    assert exported == ["LAS"]
+    window.close()
+
+
+def test_gs2_save_las_dispatches_only_after_successful_registration(
+    qapp, tmp_path, monkeypatch
+) -> None:
+    class FakeGs2ImportDialog:
+        def __init__(self, *_args, **_kwargs) -> None:
+            self.selected_table_members = ("GS2#1.db",)
+            self.manifest = SimpleNamespace(tables=())
+            self.metadata = None
+
+        def exec(self) -> QDialog.DialogCode:
+            return QDialog.DialogCode.Accepted
+
+    class FakeParadoxImportDialog:
+        def __init__(self, *_args, **_kwargs) -> None:
+            dataset = Dataset(
+                "gs2-dataset",
+                "GS2 dataset",
+                DatasetKind.USER,
+                DepthDomain.MD,
+                np.asarray([1000.0, 1000.5], dtype=np.float64),
+            )
+            self.import_result = SimpleNamespace(
+                dataset=dataset,
+                table=SimpleNamespace(rows_read=2),
+            )
+            self.requested_action = "save_las"
+
+        def exec(self) -> QDialog.DialogCode:
+            return QDialog.DialogCode.Accepted
+
+    window = MainWindow()
+    exported: list[str] = []
+    registration_calls: list[Path] = []
+    registration_states = iter(("success", "review_skipped", "error"))
+
+    def register_gs2(source, result, *, review_dataset):
+        del review_dataset
+        registration_calls.append(source)
+        state = next(registration_states)
+        if state == "success":
+            return SimpleNamespace(review_skipped=False, result=result, error="")
+        if state == "review_skipped":
+            return SimpleNamespace(review_skipped=True, result=None, error="")
+        return SimpleNamespace(review_skipped=False, result=None, error="registration failed")
+
+    critical_messages: list[str] = []
+    monkeypatch.setattr(
+        "geoworkbench.ui.main_window.Gs2ImportDialog", FakeGs2ImportDialog
+    )
+    monkeypatch.setattr(
+        "geoworkbench.ui.main_window.ParadoxImportDialog", FakeParadoxImportDialog
+    )
+    monkeypatch.setattr(
+        "geoworkbench.ui.main_window.extract_gs2_table",
+        lambda *_args, **_kwargs: nullcontext((tmp_path / "GS2#1.db", None)),
+    )
+    monkeypatch.setattr(window._dataset_import_jobs, "register_gs2", register_gs2)
+    monkeypatch.setattr(window, "_refresh_tree", lambda: None)
+    monkeypatch.setattr(window, "_show_current_dataset", lambda: None)
+    monkeypatch.setattr(window, "_update_title", lambda: None)
+    monkeypatch.setattr(window, "export_current_las", lambda: exported.append("LAS"))
+    monkeypatch.setattr(
+        "geoworkbench.ui.main_window.QMessageBox.critical",
+        lambda _parent, _title, message: critical_messages.append(message),
+    )
+
+    window.open_gs2(tmp_path / "success.gs2")
+    assert exported == ["LAS"]
+
+    window.open_gs2(tmp_path / "review-skipped.gs2")
+    window.open_gs2(tmp_path / "error.gs2")
+
+    assert exported == ["LAS"]
+    assert registration_calls == [
+        tmp_path / "success.gs2",
+        tmp_path / "review-skipped.gs2",
+        tmp_path / "error.gs2",
+    ]
+    assert critical_messages == ["registration failed"]
     window.close()
 
 

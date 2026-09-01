@@ -52,6 +52,12 @@ def test_session_panel_shows_active_project_well_dataset_and_source(qapp, tmp_pa
     assert "GeoScape II GS2" in panel.toolTip()
     assert "Строк: 3" in panel.toolTip()
     assert "Кривых: 0" in panel.toolTip()
+    assert panel.workflow_label.objectName() == "sessionWorkflowLabel"
+    assert panel.workflow_label.text() == (
+        f"Источник: {dataset.source_path}  →  "
+        "Файл проекта: не сохранён  →  "
+        "Экспорт: отдельный LAS-файл"
+    )
 
     window.session.dirty = False
     controller.refresh()
@@ -61,6 +67,28 @@ def test_session_panel_shows_active_project_well_dataset_and_source(qapp, tmp_pa
     controller.refresh()
     assert panel.project_label.text().startswith("Project:")
     assert panel.state_label.text() == "Saved"
+    assert panel.workflow_label.text() == (
+        f"Source: {dataset.source_path}  →  "
+        "Project file: not saved  →  "
+        "Export: separate LAS file"
+    )
+
+    project_path = tmp_path / "projects" / "Well 494.geologpkg"
+    window.project_controller.project_path = project_path
+    controller.refresh()
+    assert panel.workflow_label.text() == (
+        f"Source: {dataset.source_path}  →  "
+        f"Project file: {project_path}  →  "
+        "Export: separate LAS file"
+    )
+
+    window.change_language(AppLanguage.RU)
+    controller.refresh()
+    assert panel.workflow_label.text() == (
+        f"Источник: {dataset.source_path}  →  "
+        f"Файл проекта: {project_path}  →  "
+        "Экспорт: отдельный LAS-файл"
+    )
 
     window.close()
 

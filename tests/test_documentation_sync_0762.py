@@ -11,6 +11,7 @@ from tools.check_documentation import (
     audit_localized_document_structure,
     audit_localized_file_parity,
     audit_markdown_links,
+    audit_project_lifecycle_contract,
     audit_runtime_contract,
     audit_startup_command_contract,
     audit_user_workflow_coverage,
@@ -18,6 +19,42 @@ from tools.check_documentation import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _write_valid_project_lifecycle_docs(root: Path) -> None:
+    content = {
+        "ru": (
+            "# Рабочий процесс\n\nИсточник LAS, проект `.geologpkg` и экспорт LAS — "
+            "разные объекты. GS2 и Paradox используют единый экспорт. При закрытии "
+            "dirty-сессии защита предлагает сохранить проект или отменить действие.\n",
+            "# Сохранение\n\nИсходный файл, проект и экспорт разделены. Если есть "
+            "несохранённые изменения, при закрытии предлагаются четыре действия: "
+            "Сохранить проект, Экспортировать LAS-копию, Не сохранять и Отмена. "
+            "GS2 и Paradox используют единый экспорт.\n",
+        ),
+        "kk": (
+            "# Жұмыс реті\n\nLAS дереккөзі, `.geologpkg` жобасы және LAS экспорты — "
+            "бөлек нысандар. GS2 және Paradox бірыңғай экспортты қолданады. Dirty-сеанс "
+            "жабылғанда қорғаныс жобаны сақтауды немесе әрекетті болдырмауды ұсынады.\n",
+            "# Сақтау\n\nБастапқы дереккөз, жоба және экспорт бөлек. Сақталмаған "
+            "өзгерістер болса, жабу кезінде төрт әрекет ұсынылады: Жобаны сақтау, "
+            "LAS көшірмесін экспорттау, Сақтамау және Болдырмау. GS2 және Paradox "
+            "бірыңғай экспортты қолданады.\n",
+        ),
+        "en": (
+            "# Workflow\n\nThe source LAS, `.geologpkg` project, and LAS export are "
+            "different objects. GS2 and Paradox use the same export path. When a dirty "
+            "session closes, the guard offers to save the project or cancel.\n",
+            "# Saving\n\nSource data, the project, and export are separate. When there "
+            "are unsaved changes, closing offers four actions: Save project, Export LAS "
+            "copy, Don't save, and Cancel. GS2 and Paradox use the same export path.\n",
+        ),
+    }
+    for language, (workflow, saving) in content.items():
+        directory = root / "docs" / language
+        directory.mkdir(parents=True)
+        (directory / "PROJECT_WORKFLOW.md").write_text(workflow, encoding="utf-8")
+        (directory / "SESSION_SAVING.md").write_text(saving, encoding="utf-8")
 
 
 def test_localized_document_sets_are_identical() -> None:
@@ -140,6 +177,54 @@ def test_guides_cover_portable_project_daily_append_and_three_languages() -> Non
     """The main guides must retain the safe daily .geologpkg workflow."""
 
     assert audit_daily_project_workflow_coverage(ROOT) == []
+
+
+def test_project_lifecycle_guides_match_the_current_ui_contract() -> None:
+    """Source/project/export and dirty-close behavior must stay explicit in every language."""
+
+    assert audit_project_lifecycle_contract(ROOT) == []
+
+
+def test_project_lifecycle_audit_rejects_stale_inner_export_guidance(
+    tmp_path: Path,
+) -> None:
+    """A removed GS2 exporter limitation may not return under another line wrap."""
+
+    _write_valid_project_lifecycle_docs(tmp_path)
+    path = tmp_path / "docs" / "en" / "PROJECT_WORKFLOW.md"
+    path.write_text(
+        path.read_text(encoding="utf-8")
+        + "The GS2 path does not propagate its inner Save LAS action.\n",
+        encoding="utf-8",
+    )
+
+    issues = audit_project_lifecycle_contract(tmp_path)
+
+    assert [issue.message for issue in issues] == [
+        "docs/en/PROJECT_WORKFLOW.md contains stale guidance: "
+        "does not propagate its inner"
+    ]
+
+
+def test_project_lifecycle_audit_rejects_stale_close_prompt_guidance(
+    tmp_path: Path,
+) -> None:
+    """Current guides may not deny the dirty-close prompt that the application provides."""
+
+    _write_valid_project_lifecycle_docs(tmp_path)
+    path = tmp_path / "docs" / "ru" / "FEATURES.md"
+    path.write_text(
+        "# Возможности\n\n"
+        "Текущая версия не гарантирует запрос на сохранение при закрытии.\n",
+        encoding="utf-8",
+    )
+
+    issues = audit_project_lifecycle_contract(tmp_path)
+
+    assert [issue.message for issue in issues] == [
+        "docs/ru/FEATURES.md contains stale guidance: "
+        "не гарантирует запрос на сохранение при закрытии"
+    ]
 
 
 def test_guides_cover_compact_columns_and_embedded_user_template() -> None:

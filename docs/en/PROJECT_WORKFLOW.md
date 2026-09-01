@@ -17,6 +17,11 @@ Opening or importing a LAS creates a Dataset in the current session but does not
 on disk. After the first import the project is still unsaved; the main-window title shows this with
 an asterisk (`*`).
 
+The permanent lower panel shows **Source → Project file → Export**. It identifies the selected
+read-only source, displays **Not saved** or the full path of the active `.geologpkg`, and treats
+export as a separate LAS copy. The operator can therefore distinguish the input, the continuing
+working file, and the external result at all times.
+
 ## What the project stores
 
 Pressing **Ctrl+S** writes the following to the project:
@@ -47,8 +52,9 @@ layers.
 6. Press **Ctrl+S** again after material changes.
 
 The GeoScape/Paradox **Open in editor** button only passes the Dataset to the project. It does not
-mean that a LAS file has already been saved. For a direct `.db` import, **Save LAS** should open
-the normal export dialog after the Dataset has been registered.
+mean that a LAS file has already been saved. For a direct Paradox DB or GS2 import, **Save LAS**
+opens the shared standard exporter only after the Dataset has been registered successfully.
+Cancelling Import Review, closing the dialog, or encountering an error exports nothing.
 
 ## Every following day
 
@@ -108,8 +114,10 @@ a separate controlled merge or correction workflow.
 
 ## Saving, backup, and transfer
 
-The current release does not provide dependable automatic project saving. Do not rely on closing
-the window: explicitly press **Ctrl+S** after import, daily growth, and manual entry.
+The current release does not provide dependable automatic project saving. Press **Ctrl+S**
+explicitly after import, daily growth, and manual entry. When a dirty session is closed, the guard
+offers to save the project, export a LAS copy, close without saving, or cancel. This prompt reduces
+accidental loss but is not autosave.
 
 The recommended layout separates synchronized LAS input from the working project and outputs:
 
@@ -152,8 +160,6 @@ edits; export it again.
 ## Current-release limitations
 
 - A source LAS is intentionally never overwritten.
-- The GS2 import path does not propagate its inner **Save LAS** action to the normal exporter;
-  after GS2 import use the separate current-Dataset export command.
 - Autosave and a separate Save Backup Copy command are not yet implemented.
 - There is no command to roll back one committed daily append; use a dated `.geologpkg` copy.
 - A large project stores curve arrays in JSON and can consume substantial disk space.

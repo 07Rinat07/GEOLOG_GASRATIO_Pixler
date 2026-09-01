@@ -29,6 +29,17 @@ cuttings log, lithology, LBA, calcimetry, intervals, images, comments, and separ
 texts. Source LAS files remain immutable inputs; regular LAS import or export does not replace
 saving the project.
 
+### Source → Project file → Export
+
+The lower application panel continuously shows this working chain. **Source** is the selected
+read-only LAS/GS2/DB input. **Project file** shows **Not saved** until the first `Ctrl+S`, then the
+full path of the active `.geologpkg`. **Export** always creates a separate LAS copy; it does not
+preserve the form, comments, or language text in place of the project.
+
+For a direct Paradox DB or GS2 import, **Save LAS** first completes review and successful Dataset
+registration, then opens the same standard LAS exporter. If Import Review is cancelled, the
+dialog is closed, or import fails, export is not started and no file is created.
+
 ### Folder setup and the first working day
 
 Use a clear folder structure and one stable working-project name for each well:
@@ -95,6 +106,11 @@ Keep only one canonical working file, `Well_101.geologpkg`. Create a backup afte
 Never edit the same synchronised `.geologpkg` on two computers at the same time. To transfer it,
 save and close the project, wait for one complete copy or synchronisation, open that file on the
 other computer, and verify the range, form, and RU/KK/EN text.
+
+Dependable autosave is not available yet, so press `Ctrl+S` explicitly after material work. If a
+modified session is closed, the guard offers four actions: **Save project**, **Export LAS copy**,
+**close without saving**, or **cancel closing**. LAS export does not mark the project as saved and
+does not replace the first action.
 
 See [Well project and daily LAS growth](en/PROJECT_WORKFLOW.md) for the complete workflow and
 current limitations.

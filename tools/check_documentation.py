@@ -39,6 +39,101 @@ FORBIDDEN_DOCUMENT_NAMES = {
 FORBIDDEN_DOCUMENT_NAMES_CASEFOLD = {
     filename.casefold() for filename in FORBIDDEN_DOCUMENT_NAMES
 }
+PROJECT_LIFECYCLE_DOCUMENTS = ("PROJECT_WORKFLOW.md", "SESSION_SAVING.md")
+PROJECT_LIFECYCLE_MODEL_MARKERS = {
+    "ru": (("источник", "исходн"), ("проект",), ("экспорт",)),
+    "kk": (("дереккөз", "бастапқы"), ("жоба",), ("экспорт",)),
+    "en": (("source", "original"), ("project",), ("export",)),
+}
+PROJECT_LIFECYCLE_UNIFIED_EXPORT_MARKERS = {
+    "ru": (
+        "единый экспорт",
+        "единый штатный экспорт",
+        "единый диалог экспорта",
+        "общий экспорт",
+    ),
+    "kk": (
+        "бірыңғай экспорт",
+        "бірыңғай штаттық экспорт",
+        "ортақ экспорт",
+        "бірдей экспорт",
+    ),
+    "en": (
+        "unified export",
+        "single export",
+        "same export",
+        "common export",
+        "shared standard exporter",
+    ),
+}
+PROJECT_LIFECYCLE_DIRTY_GUARD_MARKERS = {
+    "ru": (
+        ("dirty", "несохранён"),
+        ("закры",),
+        ("защит", "предлага"),
+        ("сохран",),
+        ("отмен",),
+    ),
+    "kk": (
+        ("dirty", "сақталмаған"),
+        ("жаб",),
+        ("қорған", "ұсын"),
+        ("сақта",),
+        ("болдыр",),
+    ),
+    "en": (
+        ("dirty", "unsaved"),
+        ("clos",),
+        ("guard", "offer"),
+        ("save",),
+        ("cancel",),
+    ),
+}
+PROJECT_LIFECYCLE_DIRTY_CLOSE_MARKERS = {
+    "ru": (
+        "несохранённ",
+        "закрыт",
+        "четыре",
+        "сохранить проект",
+        "не сохранять",
+        "отмена",
+    ),
+    "kk": (
+        "сақталмаған",
+        "жабу",
+        "төрт",
+        "жобаны сақтау",
+        "сақтамау",
+        "болдырмау",
+    ),
+    "en": (
+        "unsaved",
+        "closing",
+        "four",
+        "save project",
+        "don't save",
+        "cancel",
+    ),
+}
+PROJECT_LIFECYCLE_FORBIDDEN_MARKERS = {
+    "ru": (
+        "не передаёт действие внутренней кнопки",
+        "нет надёжного автосохранения и гарантированного запроса при закрытии",
+        "не имеет надёжного автосохранения или гарантированного запроса при закрытии",
+        "не гарантирует запрос на сохранение при закрытии",
+    ),
+    "kk": (
+        "әрекетін қалыпты экспортқа жеткізбейді",
+        "сенімді автосақтау және жабу кезінде міндетті сұрау жоқ",
+        "сенімді автосақтау немесе жабу кезіндегі міндетті сұрау жоқ",
+        "жабу кезінде сақтау сұрағын кепілдемейді",
+    ),
+    "en": (
+        "does not propagate its inner",
+        "no dependable autosave or guaranteed close prompt",
+        "does not guarantee a close-time save prompt",
+    ),
+}
 
 
 @dataclass(frozen=True)
@@ -51,6 +146,12 @@ class AuditIssue:
 
 def _read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
+
+
+def _normalized_prose(text: str) -> str:
+    """Return case-insensitive prose with Markdown line wrapping removed."""
+
+    return re.sub(r"\s+", " ", text).casefold()
 
 
 def localized_markdown_sets(root: Path) -> dict[str, set[str]]:
@@ -566,6 +667,94 @@ def audit_daily_project_workflow_coverage(root: Path) -> list[AuditIssue]:
     return issues
 
 
+def audit_project_lifecycle_contract(root: Path) -> list[AuditIssue]:
+    """Keep source, project, export, and dirty-close guidance aligned with the UI."""
+
+    issues: list[AuditIssue] = []
+    for language in LANGUAGES:
+        language_dir = root / "docs" / language
+        documents: dict[str, str] = {}
+        for filename in PROJECT_LIFECYCLE_DOCUMENTS:
+            path = language_dir / filename
+            if not path.exists():
+                issues.append(
+                    AuditIssue(
+                        "project-lifecycle",
+                        f"docs/{language}/{filename} is required for the project lifecycle",
+                    )
+                )
+                continue
+            documents[filename] = _normalized_prose(_read_text(path))
+
+        for filename, content in documents.items():
+            for marker_group in PROJECT_LIFECYCLE_MODEL_MARKERS[language]:
+                if not any(marker in content for marker in marker_group):
+                    choices = " / ".join(marker_group)
+                    issues.append(
+                        AuditIssue(
+                            "project-lifecycle",
+                            f"docs/{language}/{filename} does not explain the "
+                            f"source/project/export model: {choices}",
+                        )
+                    )
+            for product in ("gs2", "paradox"):
+                if product not in content:
+                    issues.append(
+                        AuditIssue(
+                            "project-lifecycle",
+                            f"docs/{language}/{filename} does not cover {product.upper()}",
+                        )
+                    )
+            if not any(
+                marker in content
+                for marker in PROJECT_LIFECYCLE_UNIFIED_EXPORT_MARKERS[language]
+            ):
+                issues.append(
+                    AuditIssue(
+                        "project-lifecycle",
+                        f"docs/{language}/{filename} must describe one shared "
+                        "GS2/Paradox export path",
+                    )
+                )
+            for marker_group in PROJECT_LIFECYCLE_DIRTY_GUARD_MARKERS[language]:
+                if not any(marker in content for marker in marker_group):
+                    choices = " / ".join(marker_group)
+                    issues.append(
+                        AuditIssue(
+                            "project-lifecycle",
+                            f"docs/{language}/{filename} does not explain the dirty-close "
+                            f"guard: {choices}",
+                        )
+                    )
+
+        session_saving = documents.get("SESSION_SAVING.md")
+        if session_saving is not None:
+            for marker in PROJECT_LIFECYCLE_DIRTY_CLOSE_MARKERS[language]:
+                if marker not in session_saving:
+                    issues.append(
+                        AuditIssue(
+                            "project-lifecycle",
+                            f"docs/{language}/SESSION_SAVING.md does not guarantee the "
+                            f"dirty-close choice: {marker}",
+                        )
+                    )
+
+        if not language_dir.exists():
+            continue
+        for path in sorted(language_dir.rglob("*.md")):
+            content = _normalized_prose(_read_text(path))
+            for marker in PROJECT_LIFECYCLE_FORBIDDEN_MARKERS[language]:
+                if marker in content:
+                    issues.append(
+                        AuditIssue(
+                            "project-lifecycle",
+                            f"{path.relative_to(root).as_posix()} contains stale guidance: "
+                            f"{marker}",
+                        )
+                    )
+    return issues
+
+
 
 def audit_compact_column_coverage(root: Path) -> list[AuditIssue]:
     """Require the compact-column and embedded-template workflow in every language."""
@@ -747,6 +936,7 @@ def run_audit(root: Path) -> list[AuditIssue]:
         audit_current_documentation_contract,
         audit_user_workflow_coverage,
         audit_daily_project_workflow_coverage,
+        audit_project_lifecycle_contract,
         audit_compact_column_coverage,
         audit_form_creation_naming_coverage,
         audit_catalog_toolbar_diagnostics_coverage,

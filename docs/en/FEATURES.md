@@ -9,13 +9,18 @@ details remain in Git.
 
 - The primary portable working document is the `*.geologpkg` project; legacy `*.geolog.json`
   remains supported for compatibility, while source LAS/GS2/DB files remain immutable inputs.
+- The permanent lower panel shows **Source → Project file → Export**: the read-only input,
+  **Not saved** or the full `.geologpkg` path, and a separate LAS copy.
 - Changes to data, forms, intervals, and annotations first exist in the open session. Use
   **Ctrl+S** or **File → Save** to write them to the project on disk.
-- The current release has no dependable autosave or guaranteed close prompt. Save explicitly
-  after import, daily growth, and manual entry.
+- Dependable autosave is not available yet. When a dirty session closes, the guard offers to save
+  the project, export a LAS copy, close without saving, or cancel; still save explicitly after
+  import, daily growth, and manual entry.
 - **Undo/Redo** reverses or reapplies supported operations only in the current session.
 - LAS, CSV, Excel, PDF, DOCX, or HTML export creates a separate file and does not replace saving
   the project itself.
+- For a direct Paradox or GS2 import, **Save LAS** opens the shared standard exporter only after
+  successful Dataset registration; cancellation or failure exports nothing.
 - After important changes, save the project, close it, and reopen it for a control check. See the
   complete [project workflow](PROJECT_WORKFLOW.md).
 

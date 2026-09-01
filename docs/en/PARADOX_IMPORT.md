@@ -39,10 +39,10 @@ choice. Every correction and row count is recorded in provenance.
 ## What happens after import
 
 **Open in editor** registers the `Dataset` in the current unsaved project; it does not create a
-LAS file. When a `.db` is selected directly, **Save LAS** opens the export dialog. In the current
-release the same action inside the GeoScape2/GS2 route is not forwarded: finish the import, select
-the created dataset, and run **File → Export LAS** separately. **Ctrl+S** saves the project, not
-LAS. See the [project workflow](PROJECT_WORKFLOW.md) for continued work.
+LAS file. When Paradox DB or GS2 is selected directly, **Save LAS** opens the same standard export
+dialog after the Dataset has registered successfully. If Import Review is cancelled, the dialog
+is closed, or import fails, export does not start and no file is created. **Ctrl+S** saves the
+project, not LAS. See the [project workflow](PROJECT_WORKFLOW.md) for continued work.
 
 ## Actual step and resampling
 

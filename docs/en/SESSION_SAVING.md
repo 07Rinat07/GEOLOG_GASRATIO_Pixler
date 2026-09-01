@@ -2,13 +2,22 @@
 
 ## Current-session information panel
 
-The lower application bar continuously shows the project, well, active dataset, source file, and
-**Saved / Modified** state. The panel tooltip contains the full source path, source format, row and
-curve counts, project path, and the expected save target.
+The lower application bar continuously shows **Source → Project file → Export**, together with
+the well, active dataset, and **Saved / Modified** state. The source remains read-only. Before the
+first save, the project field says **Not saved**; afterwards it shows the full path of the active
+`.geologpkg`. The export field identifies LAS as a separate copy. The panel tooltip adds the full
+source path, format, and row and curve counts.
+
+## Save LAS after Paradox and GS2 import
+
+For a direct Paradox DB or GS2 import, **Save LAS** opens the shared standard exporter only after
+the Dataset has passed review and registered successfully. Cancelling Import Review, closing the
+dialog, or encountering an error does not start export or create a partial file. **Ctrl+S** saves
+the complete project, not the LAS copy.
 
 ## Closing the application
 
-When the working session contains unsaved changes, closing offers four actions:
+When the working session contains unsaved changes, the close guard offers four actions:
 
 1. **Save project** — preserves data, forms, presentation, intervals, and the other project
    objects in the primary `*.geologpkg` format; an open legacy `*.geolog.json` is written back for
@@ -16,6 +25,9 @@ When the working session contains unsaved changes, closing offers four actions:
 2. **Export LAS copy** — writes the current numeric curves and headers to a new LAS file.
 3. **Don't save** — closes and discards the current session changes.
 4. **Cancel** — returns to the application.
+
+This is dirty-session protection, not autosave. Dependable autosave is not available yet, so
+continue to press **Ctrl+S** explicitly after material operations.
 
 Original GeoScape, GeoScape II/GS2, and Paradox files are never overwritten automatically. Use a
 project or a new LAS file for edited data. A source LAS also always opens a file-location dialog;
