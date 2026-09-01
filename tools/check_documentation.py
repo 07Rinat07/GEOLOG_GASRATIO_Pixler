@@ -118,18 +118,24 @@ PROJECT_LIFECYCLE_DIRTY_CLOSE_MARKERS = {
 PROJECT_LIFECYCLE_FORBIDDEN_MARKERS = {
     "ru": (
         "не передаёт действие внутренней кнопки",
+        "надёжного автосохранения пока нет",
+        "нет надёжного автосохранения",
         "нет надёжного автосохранения и гарантированного запроса при закрытии",
         "не имеет надёжного автосохранения или гарантированного запроса при закрытии",
         "не гарантирует запрос на сохранение при закрытии",
     ),
     "kk": (
         "әрекетін қалыпты экспортқа жеткізбейді",
+        "сенімді автосақтау әзірге жоқ",
+        "сенімді автосақтау жоқ",
         "сенімді автосақтау және жабу кезінде міндетті сұрау жоқ",
         "сенімді автосақтау немесе жабу кезіндегі міндетті сұрау жоқ",
         "жабу кезінде сақтау сұрағын кепілдемейді",
     ),
     "en": (
         "does not propagate its inner",
+        "dependable autosave is not available yet",
+        "autosave and a separate save backup copy command are not yet implemented",
         "no dependable autosave or guaranteed close prompt",
         "does not guarantee a close-time save prompt",
     ),
@@ -610,6 +616,9 @@ def audit_daily_project_workflow_coverage(root: Path) -> list[AuditIssue]:
             "RU, KK и EN",
             "Центр печати",
             "двух компьютерах",
+            ".geolog-backups",
+            "сохраняется автоматически",
+            "recovery-копию",
         ),
         "kk": (
             ".geologpkg",
@@ -620,6 +629,9 @@ def audit_daily_project_workflow_coverage(root: Path) -> list[AuditIssue]:
             "RU, KK және EN",
             "баспа орталығын",
             "екі компьютерде",
+            ".geolog-backups",
+            "автоматты сақталады",
+            "қалпына келтіру",
         ),
         "en": (
             ".geologpkg",
@@ -630,12 +642,36 @@ def audit_daily_project_workflow_coverage(root: Path) -> list[AuditIssue]:
             "RU, KK, and EN",
             "Print Centre",
             "two computers",
+            ".geolog-backups",
+            "saved automatically",
+            "Restore recovery copy",
         ),
     }
     workflow_tokens = {
-        "ru": ("SHA-256", "локальную папку", "двух компьютерах"),
-        "kk": ("SHA-256", "жергілікті қалтаны", "екі компьютерде"),
-        "en": ("SHA-256", "local folder", "two computers"),
+        "ru": (
+            "SHA-256",
+            "локальную папку",
+            "двух компьютерах",
+            "index.v1.json",
+            "пять последних",
+            "блокирует перезапись",
+        ),
+        "kk": (
+            "SHA-256",
+            "жергілікті қалтаны",
+            "екі компьютерде",
+            "index.v1.json",
+            "соңғы бес",
+            "қайта жазуды блоктап",
+        ),
+        "en": (
+            "SHA-256",
+            "local folder",
+            "two computers",
+            "index.v1.json",
+            "five newest",
+            "blocks overwrite",
+        ),
     }
 
     for language in LANGUAGES:

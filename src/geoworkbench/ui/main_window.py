@@ -167,6 +167,11 @@ from geoworkbench.ui.file_workspace_widget import FileWorkspaceWidget
 from geoworkbench.printing.pagination import PrintRangeMode
 from geoworkbench.printing.form_width_advisor import FormWidthLevel, audit_form_width
 from geoworkbench.storage.project_codec import ProjectFormatError
+from geoworkbench.storage.project_file_safety import (
+    ProjectChangedExternallyError,
+    ProjectFileSafetyError,
+    SaveMode,
+)
 from geoworkbench.tablet import TabletLayout, TrackDefinition, TrackKind, XScale
 from geoworkbench.tablet.render_invalidation import DirtyReason
 from geoworkbench.tablet.models import (
@@ -1434,6 +1439,12 @@ class MainWindow(QMainWindow):
         self.save_as_action.setShortcut("Ctrl+Shift+S")
         self.save_as_action.triggered.connect(self.save_project_as)
         file_menu.addAction(self.save_as_action)
+
+        self.restore_project_backup_action = self._localized_action(
+            "shell.restore_project_backup"
+        )
+        self.restore_project_backup_action.triggered.connect(self.restore_project_backup)
+        file_menu.addAction(self.restore_project_backup_action)
 
         self.export_las_action = self._localized_action("shell.export_las")
         self.export_las_action.triggered.connect(self.export_current_las)
@@ -3874,25 +3885,204 @@ class MainWindow(QMainWindow):
         )
         if dialog.exec() != QDialog.DialogCode.Accepted or dialog.plan is None:
             return
+        if not self._ensure_daily_las_project_target():
+            self.daily_las_growth_controller.reset_state()
+            return
+        try:
+            self.project_controller.assert_project_storage_current()
+        except ProjectChangedExternallyError as exc:
+            self.daily_las_growth_controller.reset_state()
+            log_exception(
+                "daily_las_growth.project_changed_before_append",
+                exc,
+                project_path=self.project_path,
+            )
+            QMessageBox.critical(
+                self,
+                self._t("daily_las_growth.action"),
+                self._t("project.external_change"),
+            )
+            return
+        except (OSError, ProjectFileSafetyError, RuntimeError, ValueError) as exc:
+            self.daily_las_growth_controller.reset_state()
+            log_exception(
+                "daily_las_growth.project_preflight_failed",
+                exc,
+                project_path=self.project_path,
+            )
+            QMessageBox.critical(
+                self,
+                self._t("daily_las_growth.action"),
+                self._t("project.save_failed"),
+            )
+            return
         try:
             outcome = self.daily_las_growth_controller.apply(dialog.plan)
         except (OSError, RuntimeError, ValueError) as exc:
             QMessageBox.warning(self, self._t("daily_las_growth.action"), str(exc))
             return
-        self.session.current_dataset_id = dialog.plan.target_dataset_id
+        self.project_controller.select_existing_dataset(dialog.plan.target_dataset_id)
+        if outcome.record is None:
+            message = self._t("daily_las_growth.no_changes")
+            self._refresh_after_daily_las_growth()
+            self.statusBar().showMessage(message)
+            self._log(message)
+            return
+        try:
+            saved_path = self.project_controller.save_project(
+                mode=SaveMode.MATERIAL_AUTOSAVE,
+            )
+        except ProjectChangedExternallyError as exc:
+            self._handle_daily_las_persist_failure(
+                exc,
+                reason_key="project.external_change",
+            )
+            return
+        except (OSError, ProjectFileSafetyError, RuntimeError, ValueError) as exc:
+            self._handle_daily_las_persist_failure(
+                exc,
+                reason_key="project.save_failed",
+            )
+            return
+
+        self._acknowledge_background_project_save()
+        self._refresh_after_daily_las_growth()
+        save_result = self.project_controller.last_save_result
+        backup = getattr(save_result, "backup", None)
+        backup_path = getattr(backup, "backup_path", None)
+        message = self._t(
+            "daily_las_growth.success",
+            added=outcome.plan.rows_added,
+            skipped=outcome.plan.rows_skipped,
+            project=saved_path,
+            backup=backup_path or "—",
+        )
+        self.statusBar().showMessage(message)
+        self._log(message)
+
+        warnings = tuple(getattr(save_result, "warnings", ()))
+        if warnings:
+            log_event(
+                "daily_las_growth.recovery_warning",
+                project_path=saved_path,
+                warning_count=len(warnings),
+            )
+            QMessageBox.warning(
+                self,
+                self._t("daily_las_growth.action"),
+                self._t("project.recovery_warning"),
+            )
+
+    def _ensure_daily_las_project_target(self) -> bool:
+        current = self.project_path
+        if current is not None and current.suffix.casefold() == ".geologpkg":
+            return True
+
+        QMessageBox.information(
+            self,
+            self._t("daily_las_growth.project_target_title"),
+            self._t("daily_las_growth.project_target_required"),
+        )
+        initial = self._daily_las_project_target_hint(current)
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            self._t("daily_las_growth.project_target_title"),
+            str(initial),
+            "GeoLog Package (*.geologpkg)",
+        )
+        if not filename:
+            return False
+
+        target = self._daily_las_package_path(Path(filename))
+        try:
+            self.project_controller.save_project(
+                target,
+                mode=SaveMode.EXPLICIT,
+                allow_existing_target=True,
+            )
+        except ProjectChangedExternallyError as exc:
+            log_exception(
+                "daily_las_growth.project_target_changed",
+                exc,
+                project_path=target,
+            )
+            QMessageBox.critical(
+                self,
+                self._t("daily_las_growth.action"),
+                self._t("project.external_change"),
+            )
+            return False
+        except (OSError, ProjectFileSafetyError, RuntimeError, ValueError) as exc:
+            log_exception(
+                "daily_las_growth.project_target_save_failed",
+                exc,
+                project_path=target,
+            )
+            QMessageBox.critical(
+                self,
+                self._t("daily_las_growth.action"),
+                self._t("project.save_failed"),
+            )
+            return False
+        self._acknowledge_background_project_save()
+        self._update_title()
+        return True
+
+    @staticmethod
+    def _daily_las_package_path(path: Path) -> Path:
+        if path.suffix.casefold() == ".geologpkg":
+            return path
+        if path.name.casefold().endswith(".geolog.json"):
+            return path.with_name(path.name[: -len(".geolog.json")] + ".geologpkg")
+        return path.with_suffix(".geologpkg")
+
+    def _daily_las_project_target_hint(self, current: Path | None) -> Path:
+        if current is not None:
+            return self._daily_las_package_path(current)
+        return Path.cwd() / "project.geologpkg"
+
+    def _handle_daily_las_persist_failure(
+        self,
+        exc: BaseException,
+        *,
+        reason_key: str,
+    ) -> None:
+        self._refresh_after_daily_las_growth()
+        message = self._t(
+            "daily_las_growth.persist_failed",
+            reason=self._t(reason_key),
+        )
+        log_exception(
+            "daily_las_growth.project_save_failed",
+            exc,
+            project_path=self.project_path,
+        )
+        self.statusBar().showMessage(message)
+        self._log(message)
+        QMessageBox.critical(
+            self,
+            self._t("daily_las_growth.action"),
+            message,
+        )
+
+    def _refresh_after_daily_las_growth(self) -> None:
         self._show_current_dataset()
         self._refresh_tree()
         self._update_title()
-        if outcome.record is None:
-            message = self._t("daily_las_growth.no_changes")
-        else:
-            message = self._t(
-                "daily_las_growth.success",
-                added=outcome.plan.rows_added,
-                skipped=outcome.plan.rows_skipped,
-            )
-        self.statusBar().showMessage(message)
-        self._log(message)
+
+    def _acknowledge_background_project_save(self) -> None:
+        safety = getattr(self, "_session_safety_controller", None)
+        if safety is None:
+            return
+        refresh = getattr(safety, "refresh", None)
+        if not callable(refresh):
+            return
+        prompt_enabled = bool(getattr(safety, "prompt_enabled", False))
+        try:
+            safety.prompt_enabled = False
+            refresh()
+        finally:
+            safety.prompt_enabled = prompt_enabled
 
     def export_current_las(self) -> None:
         dataset = self.session.current_dataset
@@ -8333,36 +8523,164 @@ class MainWindow(QMainWindow):
         )
         LithologyLegendDialog(entries, self, language=self.language).exec()
 
-    def save_project(self) -> None:
+    def save_project(self) -> Path | None:
         if self.project_path is None:
-            self.save_project_as()
-            return
+            return self.save_project_as()
         try:
             saved_path = self.project_controller.save_project()
+        except ProjectChangedExternallyError as exc:
+            log_exception("project.save.external_change", exc, project_path=self.project_path)
+            QMessageBox.critical(
+                self,
+                self._t("shell.save_project"),
+                self._t("project.external_change"),
+            )
+            return None
         except (OSError, RuntimeError, ValueError) as exc:
-            QMessageBox.critical(self, self._t("shell.save_project"), str(exc))
-            return
+            log_exception("project.save.failed", exc, project_path=self.project_path)
+            QMessageBox.critical(
+                self,
+                self._t("shell.save_project"),
+                self._t("project.save_failed"),
+            )
+            return None
         self.tablet_view.clear_curve_pencil_unsaved()
         self._update_title()
         self._log(f"Проект сохранён: {saved_path}")
+        self._show_project_recovery_warnings()
+        return saved_path
 
-    def save_project_as(self) -> None:
+    def save_project_as(self) -> Path | None:
         filename, _ = QFileDialog.getSaveFileName(
             self,
-            "Сохранить проект",
+            self._t("shell.save_project_as"),
             str(self.project_path or Path("project.geologpkg")),
             "GeoLog Package (*.geologpkg);;GeoLog Project (*.geolog.json);;JSON (*.json)",
         )
         if not filename:
-            return
+            return None
         try:
-            saved_path = self.project_controller.save_project(Path(filename))
+            saved_path = self.project_controller.save_project(
+                Path(filename),
+                allow_existing_target=True,
+            )
+        except ProjectChangedExternallyError as exc:
+            log_exception("project.save_as.external_change", exc, project_path=filename)
+            QMessageBox.critical(
+                self,
+                self._t("shell.save_project_as"),
+                self._t("project.external_change"),
+            )
+            return None
         except (OSError, RuntimeError, ValueError) as exc:
-            QMessageBox.critical(self, "Сохранение", str(exc))
-            return
+            log_exception("project.save_as.failed", exc, project_path=filename)
+            QMessageBox.critical(
+                self,
+                self._t("shell.save_project_as"),
+                self._t("project.save_failed"),
+            )
+            return None
         self.tablet_view.clear_curve_pencil_unsaved()
         self._update_title()
         self._log(f"Проект сохранён: {saved_path}")
+        self._show_project_recovery_warnings()
+        return saved_path
+
+    def _show_project_recovery_warnings(self) -> None:
+        result = self.project_controller.last_save_result
+        warnings = tuple(getattr(result, "warnings", ()))
+        if not warnings:
+            return
+        log_event(
+            "project.save.recovery_warning",
+            project_path=self.project_path,
+            warning_count=len(warnings),
+        )
+        QMessageBox.warning(
+            self,
+            self._t("shell.save_project"),
+            self._t("project.recovery_warning"),
+        )
+
+    def restore_project_backup(self) -> None:
+        source = self.project_path
+        if source is None:
+            QMessageBox.information(
+                self,
+                self._t("project.recovery_title"),
+                self._t("project.recovery_open_first"),
+            )
+            return
+        try:
+            candidates = self.project_controller.recovery_candidates()
+        except (OSError, RuntimeError, ValueError) as exc:
+            log_exception("project.recovery.list_failed", exc, project_path=source)
+            QMessageBox.critical(
+                self,
+                self._t("project.recovery_title"),
+                self._t("project.recovery_failed"),
+            )
+            return
+        if not candidates:
+            QMessageBox.information(
+                self,
+                self._t("project.recovery_title"),
+                self._t("project.recovery_empty"),
+            )
+            return
+        labels = [
+            self._t(
+                "project.recovery_item",
+                revision=record.save_revision,
+                created=record.created_at,
+                filename=record.backup_path.name,
+            )
+            for record in candidates
+        ]
+        selected, accepted = QInputDialog.getItem(
+            self,
+            self._t("project.recovery_title"),
+            self._t("project.recovery_choose"),
+            labels,
+            0,
+            False,
+        )
+        if not accepted:
+            return
+        record = candidates[labels.index(selected)]
+        default_name = source.with_name(
+            f"{source.stem}_recovered_r{record.save_revision}.geologpkg"
+        )
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            self._t("project.recovery_target_title"),
+            str(default_name),
+            "GeoLog Package (*.geologpkg)",
+        )
+        if not filename:
+            return
+        target = self._daily_las_package_path(Path(filename))
+        try:
+            self.project_controller.restore_backup_as_copy(record, target)
+        except (OSError, RuntimeError, ValueError) as exc:
+            log_exception(
+                "project.recovery.restore_failed",
+                exc,
+                project_path=source,
+                target=target,
+            )
+            QMessageBox.critical(
+                self,
+                self._t("project.recovery_title"),
+                self._t("project.recovery_failed"),
+            )
+            return
+        QMessageBox.information(
+            self,
+            self._t("project.recovery_title"),
+            self._t("project.recovery_done", path=target),
+        )
+        self._log(self._t("project.recovery_done", path=target))
 
     def _refresh_tree(self) -> None:
         self.tree.clear()

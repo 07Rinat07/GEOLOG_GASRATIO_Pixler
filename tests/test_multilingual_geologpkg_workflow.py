@@ -32,6 +32,7 @@ from geoworkbench.storage.package_project_repository import (
     PackageProjectRepository,
     ProjectPackageError,
 )
+from geoworkbench.storage.project_file_safety import SaveMode
 
 
 FIXTURES = Path(__file__).parent / "fixtures" / "las_sync"
@@ -245,7 +246,18 @@ def test_complete_multilingual_local_folder_append_and_transfer_workflow(
     assert len(reopened.source_documents) == 2
     _assert_languages(reopened, ids)
 
-    reopened_controller.save_project()
+    reopened_controller.save_project(mode=SaveMode.MATERIAL_AUTOSAVE)
+    save_result = reopened_controller.last_save_result
+    assert save_result is not None and save_result.backup is not None
+    assert reopened_controller.recovery_candidates() == (save_result.backup,)
+    recovered_path = tmp_path / "TEST-101-before-daily-append.geologpkg"
+    reopened_controller.restore_backup_as_copy(save_result.backup, recovered_path)
+    recovered = ProjectController().open_project(recovered_path)
+    _assert_languages(recovered, ids)
+    assert recovered.current_dataset is not None
+    assert recovered.current_dataset.depth[-1] == pytest.approx(1002.0)
+    assert recovered.current_dataset.append_history == []
+
     after_append = ProjectController().open_project(package)
     _assert_languages(after_append, ids)
     assert after_append.current_dataset is not None

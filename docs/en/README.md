@@ -65,9 +65,9 @@ Legacy `*.geolog.json` remains readable and writable for compatibility.
 The permanent lower panel shows **Source → Project file → Export**: the selected read-only input,
 **Not saved** or the full active `.geologpkg` path, and a separate LAS copy.
 Changes first exist in the current session. Press **Ctrl+S** or choose **File → Save** to write
-them to disk; individual objects do not need separate save buttons. Dependable autosave is not
-available yet, but closing a dirty session offers to save the project, export a LAS copy, close
-without saving, or cancel. Still save explicitly after import, daily growth, and manual entry. A
+manual edits to disk; individual objects do not need separate save buttons. Successful daily
+growth saves `.geologpkg` automatically and creates a recovery copy of the previous revision.
+Closing a dirty session offers to save the project, export a LAS copy, close without saving, or cancel. A
 `*.geologpkg` is moved as
 one file. If a `<project>.geolog.json.assets` directory is created beside a legacy JSON project,
 move it together with the JSON file. See

@@ -74,7 +74,8 @@ manually, and never save the project over the source file.
    matching rows.
 6. Select **Append** only when the result is expected. The existing dataset grows in place, so its
    forms, intervals, geology, comments, and three language versions remain attached.
-7. Immediately press `Ctrl+S`, then reopen the project and check both old and new intervals.
+7. Wait for confirmation that `.geologpkg` was saved automatically and that the previous revision
+   has a recovery copy, then reopen the project and check both old and new intervals.
 
 Curves created in the project, transferred from another dataset, or calculated locally do not
 have to exist in the daily LAS. Their old values are preserved and their new rows remain empty.
@@ -84,7 +85,7 @@ Possible analysis outcomes:
 
 | Result | Required action |
 |---|---|
-| A new compatible suffix is present | Verify the range, select **Append**, then press `Ctrl+S` |
+| A new compatible suffix is present | Verify the range and select **Append**; the new `.geologpkg` revision is saved automatically |
 | The same LAS or all rows already match | This is a safe repeat: there is nothing to append and the project is unchanged |
 | Existing-depth, schema, unit, or well conflict | Append is rejected; do not bypass protection with regular import—save the project and investigate the source difference |
 | The LAS changed during or after analysis | Wait for synchronisation to finish, select the file again, and repeat **Analyze growth** |
@@ -101,14 +102,16 @@ close any Print Centre window that is already open, and reopen **Print → Print
 center...**. Inspect preview and use distinct names such as `Well_101_2026-08-31_RU.pdf`,
 `_KK.pdf`, and `_EN.pdf`.
 
-Keep only one canonical working file, `Well_101.geologpkg`. Create a backup after pressing
-`Ctrl+S` and closing the application, for example `backups/Well_101_2026-08-31.geologpkg`.
+Keep only one canonical working file, `Well_101.geologpkg`. Before every successful daily append,
+the application stores the previous revision in `.geolog-backups` and retains the five newest
+verified copies. To restore one, use **File → Restore recovery copy...** and always select a new
+`.geologpkg` filename.
 Never edit the same synchronised `.geologpkg` on two computers at the same time. To transfer it,
 save and close the project, wait for one complete copy or synchronisation, open that file on the
 other computer, and verify the range, form, and RU/KK/EN text.
 
-Dependable autosave is not available yet, so press `Ctrl+S` explicitly after material work. If a
-modified session is closed, the guard offers four actions: **Save project**, **Export LAS copy**,
+Daily append is saved automatically; use `Ctrl+S` for other important manual edits. If a modified
+session is closed, the guard offers four actions: **Save project**, **Export LAS copy**,
 **close without saving**, or **cancel closing**. LAS export does not mark the project as saved and
 does not replace the first action.
 

@@ -227,6 +227,27 @@ def test_project_lifecycle_audit_rejects_stale_close_prompt_guidance(
     ]
 
 
+def test_project_lifecycle_audit_rejects_stale_no_autosave_guidance(
+    tmp_path: Path,
+) -> None:
+    """Daily append autosave and recovery must not be documented as absent."""
+
+    _write_valid_project_lifecycle_docs(tmp_path)
+    path = tmp_path / "docs" / "en" / "PROJECT_WORKFLOW.md"
+    path.write_text(
+        path.read_text(encoding="utf-8")
+        + "Dependable autosave is not available yet.\n",
+        encoding="utf-8",
+    )
+
+    issues = audit_project_lifecycle_contract(tmp_path)
+
+    assert [issue.message for issue in issues] == [
+        "docs/en/PROJECT_WORKFLOW.md contains stale guidance: "
+        "dependable autosave is not available yet"
+    ]
+
+
 def test_guides_cover_compact_columns_and_embedded_user_template() -> None:
     """All three languages must explain widths, migration, and the built-in template."""
 

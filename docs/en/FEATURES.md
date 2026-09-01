@@ -13,9 +13,9 @@ details remain in Git.
   **Not saved** or the full `.geologpkg` path, and a separate LAS copy.
 - Changes to data, forms, intervals, and annotations first exist in the open session. Use
   **Ctrl+S** or **File → Save** to write them to the project on disk.
-- Dependable autosave is not available yet. When a dirty session closes, the guard offers to save
-  the project, export a LAS copy, close without saving, or cancel; still save explicitly after
-  import, daily growth, and manual entry.
+- Successful daily growth automatically saves `.geologpkg` and a recovery copy of the previous
+  revision. Save manual edits with **Ctrl+S**. When a dirty session closes, the guard offers to
+  save the project, export a LAS copy, close without saving, or cancel.
 - **Undo/Redo** reverses or reapplies supported operations only in the current session.
 - LAS, CSV, Excel, PDF, DOCX, or HTML export creates a separate file and does not replace saving
   the project itself.

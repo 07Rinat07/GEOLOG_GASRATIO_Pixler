@@ -26,8 +26,15 @@ When the working session contains unsaved changes, the close guard offers four a
 3. **Don't save** — closes and discards the current session changes.
 4. **Cancel** — returns to the application.
 
-This is dirty-session protection, not autosave. Dependable autosave is not available yet, so
-continue to press **Ctrl+S** explicitly after material operations.
+Daily growth is a separate protected material operation: a working `.geologpkg` is required before
+the Dataset changes; after a successful append the new revision is saved automatically and the
+previous one is stored in `.geolog-backups`. Repeating an identical LAS writes nothing. Continue
+to save ordinary manual edits with **Ctrl+S**.
+
+If synchronization changes the project after it was opened, overwrite is blocked. Save the current
+session under a new name or reopen the current file. A verified earlier revision can be restored
+with **File → Restore recovery copy...** only to a new `.geologpkg`; the active file is not
+overwritten.
 
 Original GeoScape, GeoScape II/GS2, and Paradox files are never overwritten automatically. Use a
 project or a new LAS file for edited data. A source LAS also always opens a file-location dialog;

@@ -112,9 +112,9 @@ _PROJECT = {
               данных и новый LAS из локальной синхронизируемой папки.</li>
           <li>Нажмите «Проверить прирост» и внимательно проверьте скважину,
               границу старых и новых глубин, шаг, единицы и список кривых.</li>
-          <li>Если проверка успешна, выполните наращивание и сразу нажмите
-              <b>Ctrl+S</b>. Старые интервалы и все языковые версии остаются в
-              проекте.</li>
+          <li>Если проверка успешна, выполните наращивание. Рабочий
+              <b>.geologpkg</b> сохранится автоматически, а прежняя ревизия —
+              в recovery-копии. Старые интервалы и языковые версии останутся.</li>
         </ol>
         <h2>Дубликат, конфликт и версии</h2>
         <ul>
@@ -126,9 +126,11 @@ _PROJECT = {
           <li>Локальные, перенесённые и расчётные кривые сохраняют старые
               значения, но их новый участок остаётся пустым. После наращивания
               повторно выполните нужные расчёты.</li>
-          <li>Храните один активный проект и датированные резервные копии. Если
-              сам <b>.geologpkg</b> синхронизируется, редактируйте его только на
-              одном компьютере одновременно.</li>
+          <li>Пять последних проверенных recovery-копий хранятся в
+              <b>.geolog-backups</b>. Для возврата выберите <b>Файл →
+              Восстановить recovery-копию...</b> и укажите новое имя.</li>
+          <li>Если <b>.geologpkg</b> синхронизируется, редактируйте его только на
+              одном компьютере. Внешнее изменение блокирует перезапись.</li>
         </ul>
         <h2>Печать и перенос</h2>
         <p>Для каждого PDF переключите язык приложения на <b>RU</b>, <b>KK</b>
@@ -163,8 +165,9 @@ _PROJECT = {
               файлын таңдаңыз.</li>
           <li>«Өсімді тексеру» түймесін басып, ұңғыманы, ескі және жаңа
               тереңдіктердің шекарасын, қадамды, бірліктерді және қисықтарды тексеріңіз.</li>
-          <li>Тексеру сәтті болса, өсіруді орындап, бірден <b>Ctrl+S</b> басыңыз.
-              Ескі аралықтар мен барлық тілдік нұсқалар жобада қалады.</li>
+          <li>Тексеру сәтті болса, өсіруді орындаңыз. Жұмыс <b>.geologpkg</b>
+              автоматты сақталып, алдыңғы ревизия қалпына келтіру көшірмесіне
+              жазылады. Ескі аралықтар мен тілдік нұсқалар қалады.</li>
         </ol>
         <h2>Қайталанатын файл, қайшылық және нұсқалар</h2>
         <ul>
@@ -176,9 +179,11 @@ _PROJECT = {
           <li>Жергілікті, тасымалданған және есептік қисықтардың ескі мәндері
               сақталады, бірақ жаңа бөлігі бос қалады. Өсіруден кейін қажетті
               есептеулерді қайта орындаңыз.</li>
-          <li>Бір белсенді жоба мен күні көрсетілген резервтік көшірмелерді
-              сақтаңыз. <b>.geologpkg</b> өзі синхрондалса, оны бір уақытта тек
-              бір компьютерде өңдеңіз.</li>
+          <li>Соңғы бес тексерілген көшірме <b>.geolog-backups</b> ішінде қалады.
+              Қайтару үшін <b>Файл → Қалпына келтіру көшірмесін қалпына
+              келтіру...</b> таңдап, жаңа атау көрсетіңіз.</li>
+          <li><b>.geologpkg</b> синхрондалса, оны бір уақытта бір компьютерде
+              өңдеңіз. Сыртқы өзгеріс қайта жазуды блоктайды.</li>
         </ul>
         <h2>Басып шығару және тасымалдау</h2>
         <p>Әр PDF үшін қолданба тілін <b>RU</b>, <b>KK</b> немесе <b>EN</b> етіп
@@ -212,9 +217,9 @@ _PROJECT = {
               and the new LAS from the local synced folder.</li>
           <li>Select “Analyze growth” and carefully check the well, old/new depth
               boundary, step, units, and curve list.</li>
-          <li>If validation succeeds, append the data and immediately press
-              <b>Ctrl+S</b>. Old intervals and all language versions remain in
-              the project.</li>
+          <li>If validation succeeds, append the data. The working
+              <b>.geologpkg</b> is saved automatically and the previous revision
+              becomes a recovery copy. Old intervals and languages remain.</li>
         </ol>
         <h2>Duplicate, conflict, and version control</h2>
         <ul>
@@ -226,8 +231,11 @@ _PROJECT = {
           <li>Local, transferred, and calculated curves keep their old values,
               but their new interval remains empty. Rerun the required
               calculations after appending.</li>
-          <li>Keep one active project and dated backups. If the <b>.geologpkg</b>
-              itself is synced, edit it on only one computer at a time.</li>
+          <li>The five newest verified copies remain in <b>.geolog-backups</b>.
+              Choose <b>File → Restore recovery copy...</b> and a new filename
+              when an earlier revision is needed.</li>
+          <li>If <b>.geologpkg</b> is synced, edit it on one computer at a time.
+              An external change blocks overwrite.</li>
         </ul>
         <h2>Printing and transfer</h2>
         <p>For each PDF, switch the application language to <b>RU</b>, <b>KK</b>,

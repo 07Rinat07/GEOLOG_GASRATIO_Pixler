@@ -68,7 +68,13 @@ Do not open yesterday's LAS as a new well. Open the saved project and use
 4. review the range and the new/matching row counts;
 5. click **Append**;
 6. confirm that old manual layers remain and the new depth section appears;
-7. save the project with **Ctrl+S**.
+7. wait for confirmation that the working `.geologpkg` was saved automatically and note the
+   recovery-copy path for the previous revision.
+
+If the project has not been saved yet, or a legacy `.geolog.json` is open, the application asks
+for a working `.geologpkg` before changing the Dataset. Cancelling leaves the Dataset unchanged.
+A successful append writes the new revision immediately; repeating an identical LAS remains a
+no-op and creates no redundant backup.
 
 User-created, transferred, and locally calculated curves are not part of the required daily-LAS
 schema. Their previous values are preserved, the new suffix is filled with missing values, and
@@ -114,10 +120,12 @@ a separate controlled merge or correction workflow.
 
 ## Saving, backup, and transfer
 
-The current release does not provide dependable automatic project saving. Press **Ctrl+S**
-explicitly after import, daily growth, and manual entry. When a dirty session is closed, the guard
-offers to save the project, export a LAS copy, close without saving, or cancel. This prompt reduces
-accidental loss but is not autosave.
+After a material daily append, the working `.geologpkg` is saved automatically. Before replacement,
+the application verifies that synchronization or another computer has not changed the file,
+creates a self-contained recovery copy of the previous revision, checks the canonical file again,
+and only then replaces it atomically. Continue to use **Ctrl+S** for ordinary manual editing. When
+a dirty session is closed, the guard offers to save the project, export a LAS copy, close without
+saving, or cancel.
 
 The recommended layout separates synchronized LAS input from the working project and outputs:
 
@@ -125,7 +133,7 @@ The recommended layout separates synchronized LAS input from the working project
 Well_101/
   incoming_las/
   project/Well_101.geologpkg
-  backups/Well_101_YYYY-MM-DD.geologpkg
+  project/.geolog-backups/...
   exports/Well_101_YYYY-MM-DD_RU.pdf
 ```
 
@@ -133,8 +141,14 @@ Use `incoming_las` as read-only input. Keep one canonical working
 `project/Well_101.geologpkg` so work is not accidentally continued in an old copy.
 
 **Save project as...** writes a new path and makes that path the current working project. A dated
-copy created with this command therefore becomes active. For a simple backup, it is safer to press
-**Ctrl+S**, close the application, and copy the canonical file to `backups` with Windows tools.
+copy created with this command therefore becomes active. Automatic recovery copies are stored
+beside the canonical file in the managed `.geolog-backups` directory; the five newest verified
+revisions are retained per project path. Do not rename its files or edit `index.v1.json`.
+
+To restore an earlier revision, open the canonical project and choose
+**File → Restore recovery copy...**. Select the revision and a new `.geologpkg` filename. The
+canonical and active project are neither overwritten nor switched; save current work first, then
+open the restored copy separately and compare it.
 
 For the new format, move or copy one file:
 
@@ -143,7 +157,8 @@ Well_101.geologpkg
 ```
 
 Do not edit the same synchronized `.geologpkg` concurrently on two computers: this is not
-collaborative editing, and the last synchronized copy can overwrite the other. To transfer the
+collaborative editing. If the file changed after opening, the application blocks overwrite and
+asks you to reopen the current file or save this session under a new name. To transfer the
 project, press **Ctrl+S**, close the application, and wait for one file to finish copying or
 synchronizing. Open the `.geologpkg` on the other computer and verify the range, form, and one
 entry in each language. For legacy `.geolog.json`, continue to copy `.assets` with the JSON. An
@@ -160,7 +175,9 @@ edits; export it again.
 ## Current-release limitations
 
 - A source LAS is intentionally never overwritten.
-- Autosave and a separate Save Backup Copy command are not yet implemented.
+- Autosave runs after a successful daily append; save ordinary manual edits with **Ctrl+S**.
+- Recovery copies live beside the project, so also copy the closed `.geologpkg` to independent
+  protected storage when organizational policy requires it.
 - There is no command to roll back one committed daily append; use a dated `.geologpkg` copy.
 - A large project stores curve arrays in JSON and can consume substantial disk space.
 

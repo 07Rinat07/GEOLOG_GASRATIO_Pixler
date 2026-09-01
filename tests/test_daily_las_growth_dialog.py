@@ -29,11 +29,11 @@ def _controller() -> DailyLasGrowthController:
 
 
 @pytest.mark.parametrize(
-    ("language", "assistant_text", "analyze_text", "append_text"),
+    ("language", "assistant_text", "analyze_text", "append_text", "autosave_text"),
     (
-        (AppLanguage.RU, "Помощник", "Проверить прирост", "Нарастить"),
-        (AppLanguage.KK, "Көмекші", "Өсімді тексеру", "Өсіру"),
-        (AppLanguage.EN, "Assistant", "Analyze growth", "Append"),
+        (AppLanguage.RU, "Помощник", "Проверить прирост", "Нарастить", "автоматически"),
+        (AppLanguage.KK, "Көмекші", "Өсімді тексеру", "Өсіру", "автоматты"),
+        (AppLanguage.EN, "Assistant", "Analyze growth", "Append", "automatically"),
     ),
 )
 def test_daily_las_dialog_explains_safe_workflow_in_each_language(
@@ -42,6 +42,7 @@ def test_daily_las_dialog_explains_safe_workflow_in_each_language(
     assistant_text: str,
     analyze_text: str,
     append_text: str,
+    autosave_text: str,
 ) -> None:
     dialog = DailyLasGrowthDialog(_controller(), language=language)
     append_button = dialog.buttons.button(QDialogButtonBox.StandardButton.Ok)
@@ -56,7 +57,7 @@ def test_daily_las_dialog_explains_safe_workflow_in_each_language(
     assert dialog.analyze_button.text() == analyze_text
     assert dialog.analyze_button.toolTip()
     assert append_button.text() == append_text
-    assert "Ctrl+S" in append_button.toolTip()
+    assert autosave_text in append_button.toolTip()
     assert dialog.preview.toPlainText().startswith("1.")
     assert append_button.isEnabled() is False
     dialog.close()

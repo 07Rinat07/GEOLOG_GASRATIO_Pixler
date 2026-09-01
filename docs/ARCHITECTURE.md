@@ -79,7 +79,17 @@ Paradox- и GS2-импорт передаёт действие **«Сохран�
 только после успешной регистрации Dataset. Отмена Import Review, закрытие диалога и ошибка не
 создают export job. `SessionSafetyController` защищает dirty-сессию при закрытии четырьмя
 исходами: сохранить проект, экспортировать LAS-копию, закрыть без сохранения или отменить.
-Надёжный autosave и ротационные recovery-копии остаются отдельным этапом PROJ-02.
+`ProjectFileSafetyService` реализует PROJ-02 вне Qt: стабильное чтение и SHA-256 fingerprint,
+optimistic external-change check, staging рядом с target, проверку повторным открытием,
+self-contained backup прежней ревизии и атомарный commit. После commit ротация не может
+превратить успешное сохранение в ложный rollback: её ошибки возвращаются как warnings.
+
+`ProjectController` хранит `ProjectDiskState` открытой ревизии. Обычный `Ctrl+S` и material
+autosave сравнивают canonical bundle с этой базой; изменение синхронизацией блокирует overwrite.
+Daily LAS требует `.geologpkg` до mutation и после реального append вызывает
+`SaveMode.MATERIAL_AUTOSAVE`. Duplicate/no-op не пишет файл и не создаёт backup. Пять последних
+проверенных копий каждого project path индексируются в `.geolog-backups`; recovery всегда
+восстанавливает выбранную копию как новый `.geologpkg`, не заменяя active/canonical файл.
 
 ### Переносимый проект и ежедневный LAS
 
@@ -89,6 +99,10 @@ image assets, а `manifest.json` фиксирует путь, размер и SH
 распаковки проверяет число файлов, суммарный размер, коэффициент сжатия, повторяющиеся и
 небезопасные пути; затем проверяет хэш каждого payload и только после этого вызывает project
 codec v23.
+
+Для legacy explicit save safety-слой пишет полный bundle в owned staging, устанавливает только
+отсутствующие content-addressed assets без удаления orphan-файлов и заменяет JSON-манифест
+последним. Material autosave legacy запрещён: UI сначала переводит рабочую сессию в `.geologpkg`.
 
 `LocalLasFolderProvider` является read-only adapter локальной папки, которую синхронизирует
 внешний серверный клиент. Он не управляет сетью и не удаляет файлы. Daily append сначала строит

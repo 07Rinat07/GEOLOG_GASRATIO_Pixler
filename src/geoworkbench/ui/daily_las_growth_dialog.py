@@ -193,9 +193,9 @@ class DailyLasGrowthDialog(QDialog):
         append_button.setEnabled(False)
         append_button.setToolTip(
             self._text(
-                "После наращивания обязательно сохраните .geologpkg через Ctrl+S.",
-                "Толықтырғаннан кейін .geologpkg жобасын Ctrl+S арқылы міндетті түрде сақтаңыз.",
-                "After appending, save the .geologpkg with Ctrl+S.",
+                "После успешного наращивания рабочий .geologpkg сохраняется автоматически; прежняя версия остаётся в recovery-копии.",
+                "Сәтті толықтырғаннан кейін жұмыс .geologpkg файлы автоматты түрде сақталады; алдыңғы нұсқа қалпына келтіру көшірмесінде қалады.",
+                "After a successful append, the working .geologpkg is saved automatically and the previous version remains in a recovery backup.",
             )
         )
         self.buttons.accepted.connect(self._accept)
@@ -307,9 +307,9 @@ class DailyLasGrowthDialog(QDialog):
             )
             if plan.duplicate_source or not plan.changes_data
             else self._text(
-                "Если диапазон и строки верны, нажмите «Нарастить», сразу сохраните .geologpkg через Ctrl+S и повторите нужные расчёты.",
-                "Ауқым мен жолдар дұрыс болса, «Өсіру» басып, .geologpkg жобасын бірден Ctrl+S арқылы сақтаңыз және қажетті есептеулерді қайталаңыз.",
-                "If the range and rows are correct, press Append, immediately save the .geologpkg with Ctrl+S, and rerun the required calculations.",
+                "Если диапазон и строки верны, нажмите «Нарастить». .geologpkg сохранится автоматически вместе с recovery-копией; затем повторите нужные расчёты.",
+                "Ауқым мен жолдар дұрыс болса, «Өсіру» басыңыз. .geologpkg қалпына келтіру көшірмесімен бірге автоматты сақталады; содан кейін қажетті есептеулерді қайталаңыз.",
+                "If the range and rows are correct, press Append. The .geologpkg is saved automatically with a recovery copy; then rerun the required calculations.",
             )
         )
         self.preview.setPlainText(
