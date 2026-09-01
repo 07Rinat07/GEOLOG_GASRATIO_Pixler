@@ -133,5 +133,11 @@ class ProjectSession:
                 provenance=CONDITIONED_GAS_PROVENANCE,
             )
             created.append(result.mnemonic)
+
+        # QC provenance is committed only after every derived curve has been
+        # written successfully. If calculation or curve persistence raises, an
+        # earlier persisted QC summary remains intact instead of describing a
+        # partial/failed recalculation.
+        dataset.gas_conditioning_qc = calculation.conditioned_components.qc_summary
         self.dirty = True
         return created
