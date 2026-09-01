@@ -9,6 +9,43 @@ T = TypeVar("T")
 D = TypeVar("D")
 
 
+def _settle_rendered_widget_deferred_delete(entry: object) -> None:
+    """Finish a rendered QWidget DeferredDelete without pumping unrelated events.
+
+    ``TabletView`` disposes a rendered track and immediately constructs the next
+    pyqtgraph widget tree in the same event-loop turn.  On Windows, leaving the
+    previous PlotWidget pending in Qt's DeferredDelete queue can overlap native
+    graphics teardown with the new PlotWidget construction.  Only entries that
+    expose a live ``widget`` QObject are handled here; pure lifecycle users stay
+    Qt-independent and no global ``processEvents()`` call is performed.
+    """
+
+    widget = getattr(entry, "widget", None)
+    if widget is None:
+        return
+
+    # Keep Qt an optional runtime detail of the disposal adapter.  Planning and
+    # ordering helpers remain importable/testable without constructing Qt UI.
+    try:
+        from PySide6.QtCore import QCoreApplication, QEvent, QObject, QThread
+        from shiboken6 import isValid as shiboken_is_valid
+    except ImportError:
+        return
+
+    try:
+        if QCoreApplication.instance() is None:
+            return
+        if not isinstance(widget, QObject) or not shiboken_is_valid(widget):
+            return
+        if widget.thread() != QThread.currentThread():
+            return
+        QCoreApplication.sendPostedEvents(widget, QEvent.Type.DeferredDelete)
+    except (RuntimeError, TypeError):
+        # Qt may already have completed destruction while a queued rebuild is
+        # unwinding.  Disposal is deliberately idempotent in that state.
+        return
+
+
 @dataclass(frozen=True, slots=True)
 class TrackLifecyclePlan:
     """Difference between rendered and requested track topology."""
@@ -31,10 +68,18 @@ class TrackLifecyclePlan:
 class TrackLifecycleCoordinator:
     """Plan track creation, disposal and stable in-place ordering.
 
-    The coordinator is deliberately independent of Qt. Widget construction and
-    destruction remain explicit adapter operations in ``TabletView``, while
-    identity and ordering rules can be verified without creating a window.
+    Topology planning is deliberately independent of Qt.  The default disposal
+    settlement adapter recognizes rendered entries that expose a QWidget and
+    drains only that receiver's DeferredDelete event before an immediate rebuild.
+    Tests and non-Qt users can inject a different settlement callback.
     """
+
+    def __init__(
+        self,
+        *,
+        settle_disposal: Callable[[object], None] | None = None,
+    ) -> None:
+        self._settle_disposal = settle_disposal or _settle_rendered_widget_deferred_delete
 
     def plan(
         self,
@@ -90,11 +135,12 @@ class TrackLifecycleCoordinator:
             if rollback is not None:
                 for entry in reversed(tuple(entries.values())):
                     rollback(entry)
+                    self._settle_disposal(entry)
             raise
         return entries
 
-    @staticmethod
     def dispose_entries(
+        self,
         entries: Mapping[str, T],
         dispose: Callable[[T], None],
         *,
@@ -104,13 +150,16 @@ class TrackLifecycleCoordinator:
 
         Qt widget trees can already be partially destroyed when a queued form
         switch or import-recovery refresh reaches Python.  One stale wrapper must
-        not prevent later tracks and registries from being released.
+        not prevent later tracks and registries from being released.  Settlement
+        runs immediately after each successful disposal so an immediate rebuild
+        cannot overlap the old widget tree's native DeferredDelete teardown.
         """
 
         released = tuple(entries)
         for track_id, entry in reversed(tuple(entries.items())):
             try:
                 dispose(entry)
+                self._settle_disposal(entry)
             except BaseException as exc:
                 if on_error is not None:
                     on_error(track_id, exc)
