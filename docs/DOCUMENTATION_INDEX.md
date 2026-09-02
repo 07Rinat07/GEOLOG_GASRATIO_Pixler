@@ -24,6 +24,7 @@ artifacts workflow `.github/workflows/release-gate.yml`.
 - [ARCHITECTURE.md](ARCHITECTURE.md) — текущие границы и целевая декомпозиция.
 - [REQUIREMENTS.md](REQUIREMENTS.md) — требования и критерии приёмки.
 - [TESTING.md](TESTING.md) — обязательный автоматический и Windows gate.
+- [PERFORMANCE.md](PERFORMANCE.md) — воспроизводимые performance-baselines и regression guardrails.
 - [CHANGELOG.md](CHANGELOG.md) — единая краткая история крупных изменений.
 - [DOCUMENTATION_POLICY.md](DOCUMENTATION_POLICY.md) — правила порядка и актуальности.
 - [OPUS_GASOMER_IMPLEMENTATION.md](OPUS_GASOMER_IMPLEMENTATION.md) — утверждённый
