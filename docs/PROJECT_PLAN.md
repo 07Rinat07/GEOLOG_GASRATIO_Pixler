@@ -32,8 +32,7 @@ release plan и временные планы в `docs` не создаются.
    печать длинных rich-text описаний/фотографий.
 2. **SEC-01 / SEC-05** — решение по опубликованной Git history и provenance/license review
    встроенных lithology/symbol assets.
-3. **PROJ-04 / PERF-02…05 / ARCH-01…06** — завершение transactional GS2 path, больших проектов,
-   cache/storage performance и архитектурных границ.
+3. **PERF-04…05 / ARCH-01…06** — cache/storage performance и архитектурные границы.
 4. **FIELD-01…05** — полевые soak/interoperability gates; затем P2-расширения.
 
 ## Текущая база
@@ -185,9 +184,10 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
   не пишет. Ручные формы и тексты сохраняются через `Ctrl+S`.
 - [x] **PROJ-03:** переносимый `.geologpkg` с JSON, raw LAS/image assets, manifest, SHA-256,
   bounded ZIP-проверкой и атомарной заменой; legacy `.geolog.json` остаётся совместимым.
-- [ ] **PROJ-04:** LAS-часть реестра готова: первый и каждый добавленный LAS сохраняются как
-  immutable raw artifact с SHA-256, provider, диапазоном, числом строк и hash-chain состояния
-  Dataset. Остались единый GS2-маршрут и транзакционный откат отдельного добавления.
+- [x] **PROJ-04:** LAS и GS2 проходят единый source registry: raw source сохраняется как immutable
+  artifact с SHA-256/provider/provenance, диапазоном и hash-chain состояния Dataset; отдельный
+  append выполняется транзакционно и полностью откатывает Dataset/source registry при ошибке.
+  Реализация интегрирована PR #67 после полностью зелёного release-gate #880.
 - [x] **PROJ-05:** локальная синхронизируемая папка подключена как read-only provider с повторной
   проверкой size/mtime/SHA-256; повторный source является no-op, конфликт перекрытия не мутирует
   Dataset.
@@ -206,9 +206,16 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
 
 - [x] **PERF-01:** acquisition `append_many()` batch 64, геометрические buffers, logical rollback
   и incremental hash chains.
-- [ ] **PERF-02:** checkpoint/replay без двойного хранения materialized Dataset и journal.
-- [ ] **PERF-03:** обязательный benchmark 50k/100k/1M: `T(2N)/T(N) <= 2.5`, p95 batch64
-  `<= 50 ms`, last/first 10k `<= 2`.
+- [x] **PERF-02:** replay больше не `deepcopy`-ит всю `Well`: fresh replay staging хранит только
+  нужные контейнеры, а checkpoint resume копирует один изменяемый acquisition Dataset; immutable
+  journal/checkpoints/events переиспользуются без второй materialized копии. PR #68 прошёл
+  release-gate #882 и интегрирован в `main`.
+- [x] **PERF-03:** enforcing benchmark 50k/100k/1M запускает каждый размер в отдельном worker,
+  измеряет production `enqueue_many()+drain()` batch64 и фиксирует peak RSS. Gate требует
+  `T(2N)/T(N) <= 2.5`, p95 batch64 `<= 50 ms`, last/first 10k `<= 2`. Windows baseline
+  release-gate #886 на `112d4bb4`: 50k — `3.504 s / 4.684 ms p95 / 69.6 MiB`, 100k —
+  `7.027 s / 4.663 ms / 107.9 MiB`, 1M — `70.605 s / 4.640 ms / 784.5 MiB`; ratio
+  `T(100k)/T(50k)=2.005`, last/first — `1.017 / 1.008 / 0.988`, violations отсутствуют.
 - [ ] **PERF-04:** revision-based tablet caches с byte budget; cold/hit/zoom и peak RSS на
   1/5/10 млн samples.
 - [ ] **PERF-05:** совместимый versioned storage port: manifest, column chunks, atomic commit и
