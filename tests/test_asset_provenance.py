@@ -6,6 +6,7 @@ import tomllib
 
 from tools.check_asset_provenance import (
     DEFAULT_PROVENANCE,
+    _collection_dirs,
     _discover_collection_manifests,
     _resolve_collection_asset,
     main,
@@ -32,6 +33,13 @@ def test_bundled_constructor_assets_have_provenance_coverage() -> None:
 
 def test_development_and_packaged_constructor_asset_trees_are_identical() -> None:
     assert validate_asset_tree_parity() == []
+
+
+def test_collection_directory_discovery_uses_child_names(tmp_path: Path) -> None:
+    for collection in ("lithology", "symbols", "future-assets"):
+        (tmp_path / collection).mkdir()
+
+    assert _collection_dirs(tmp_path) == {"lithology", "symbols", "future-assets"}
 
 
 def test_collection_manifest_discovery_is_dynamic(tmp_path: Path) -> None:
