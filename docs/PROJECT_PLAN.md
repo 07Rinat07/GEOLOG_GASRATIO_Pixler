@@ -1,7 +1,7 @@
 <!-- runtime-contract: package=0.7.93; project=v24; form=v16; layout=v24 -->
 # Единый план проекта
 
-Актуально на 31 августа 2026 года. Это единственный канонический план проекта. Завершённые
+Актуально на 2 сентября 2026 года. Это единственный канонический план проекта. Завершённые
 изменения фиксируются в [CHANGELOG.md](CHANGELOG.md); отдельные roadmap, build report,
 release plan и временные планы в `docs` не создаются.
 
@@ -23,6 +23,19 @@ release plan и временные планы в `docs` не создаются.
 7. `main` остаётся пригодным для запуска. Большой рефакторинг делится на обратимо проверяемые
    инкременты; совместимость сериализуемых форматов не меняется без миграции.
 
+## Ближайший порядок работ
+
+1. **GAS-07** — golden dataset и end-to-end acceptance baseline для source/conditioned/derived,
+   screen segments и PDF pages на интервале `1703.28–1753.28 м`.
+2. **GAS-08** — deterministic benchmark conditioning/ratios на 100k и 1M строк с bounded RSS.
+3. **REL-03 / CUT-03** — реальная Windows GUI/HiDPI/PDF/physical-printer matrix и физическая
+   печать длинных rich-text описаний/фотографий.
+4. **SEC-01 / SEC-05** — решение по опубликованной Git history и provenance/license review
+   встроенных lithology/symbol assets.
+5. **PROJ-04 / PERF-02…05 / ARCH-01…06** — завершение transactional GS2 path, больших проектов,
+   cache/storage performance и архитектурных границ.
+6. **FIELD-01…05** — полевые soak/interoperability gates; затем P2-расширения.
+
 ## Текущая база
 
 - пакет `0.7.93`; project `v24`; form `v16`; tablet layout `v24`;
@@ -42,6 +55,8 @@ release plan и временные планы в `docs` не создаются.
   полевые interoperability и длительные soak gates остаются ручными/полевыми критериями;
 - preview и physical printer больше не создают скрытые PDF; legacy timestamp-копии и аварийные
   временные файлы очищаются только по строгому application-owned контракту;
+- root-level PDF export passport sidecars `*.pdf.passport.json` считаются generated output и
+  исключены из новых коммитов вместе с ручными root PDF-экспортами;
 - колонка системного типа `INTERPRETATION` может иметь пользовательское отображаемое название;
   сохранённое описание породы из `CuttingsSample.description` видно в ней на планшете и в печати.
   `Shift + левая кнопка` создаёт интервал описания с точной коррекцией границ, шаблоном
