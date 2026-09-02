@@ -5,6 +5,16 @@
 
 ## Unreleased
 
+- Для `GAS-08` добавлен детерминированный release-gate производительности conditioning/Gas Ratio
+  на 100k и 1M строк с тремя повторениями, median wall time, отдельными worker-процессами,
+  OS-level peak RSS, SHA-256 проверкой неизменности входов и absolute/scaling guardrails.
+  Первый enforcing Windows baseline принят в release-gate #844: 100k — `3.080 s / 155.2 MiB`,
+  1M — `30.248 s / 1230.2 MiB`; при росте данных `10×` время выросло `9.82×`, RSS — `7.93×`.
+  Полный JSON сохраняется в quality artifact, а reference point зафиксирована в
+  `PERFORMANCE.md`.
+- `GAS-07` завершён merge PR #60: обезличенный golden dataset `1703.28–1753.28 м` проверяет
+  source/conditioned/derived данные, screen segmentation, scale bounds и PDF pagination через
+  production pipeline; применимые Windows quality/GUI/PDF/security gates прошли.
 - Data Inspector получил read-only QC кондиционирования газа: оператор видит номинальный шаг,
   число затронутых depth rows, суммарное количество восстановленных компонентных значений и
   по каждому C1–C5 каналу — число точек, фактический max-gap и сохранённые диапазоны глубин.
