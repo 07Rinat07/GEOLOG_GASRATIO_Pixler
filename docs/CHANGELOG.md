@@ -5,6 +5,14 @@
 
 ## Unreleased
 
+- `PERF-04` ограничивает revision-based tablet geometry cache hard NumPy payload budget `64 MiB`
+  поверх LRU entry limit: byte accounting освобождается при clear/invalidate, а единичная
+  oversize geometry возвращается renderer'у без retention сверх бюджета. Добавлены regression
+  tests byte/LRU/MRU/revision semantics и обязательный isolated Windows benchmark cold/hit/zoom
+  на 1M/5M/10M samples с peak RSS. Release-gate #894 на code head `ac6c60d7` полностью прошёл:
+  cold `43.049/161.581/289.547 ms`, hit около `0.004 ms`, zoom
+  `27.797/106.746/197.813 ms`, peak RSS `84.5/302.1/574.2 MiB`; две cached geometry во всех
+  сценариях занимают `131 072 B` из `67 108 864 B`.
 - `PERF-03` добавляет обязательный deterministic acquisition benchmark на 50k/100k/1M с
   production `enqueue_many()+drain()` batch64, отдельными worker-процессами и retained JSON.
   Enforcing gate фиксирует `T(2N)/T(N) <= 2.5`, p95 batch64 `<= 50 ms` и last/first 10k `<= 2`;
@@ -197,8 +205,7 @@
   — проверяемую вторичную; ОПУС не выдаётся за ГОСТ/ISO-стандарт.
 - Полностью проверена локализация всех 19 встроенных планшетных форм, десяти готовых A4
   Masterlog-форм и десяти парных шапок. В RU/KK/EN теперь переключаются названия форм, колонок,
-  параметров,
-  газовых шкал и служебных полей печатной шапки; устранены английские подписи параметров в
+  параметров, газовых шкал и служебных полей печатной шапки; устранены английские подписи параметров в
   русских и казахских A4-формах и русские заголовки в английской печати. Международные
   мнемоники, химические формулы и единицы измерения сохранены без перевода. Пользовательская
   копия готовой Masterlog-формы создаётся сразу на выбранном языке. Существующая русская
