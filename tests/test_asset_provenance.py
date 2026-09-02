@@ -2,13 +2,19 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import tomllib
 
 from tools.check_asset_provenance import (
     DEFAULT_PROVENANCE,
+    _discover_collection_manifests,
     _resolve_collection_asset,
     main,
+    validate_asset_tree_parity,
     validate_provenance,
 )
+
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def _write_manifest(tmp_path: Path, payload: dict[str, object]) -> Path:
@@ -22,6 +28,32 @@ def test_bundled_constructor_assets_have_provenance_coverage() -> None:
 
     assert errors == []
     assert set(unresolved) == {"constructor-lithology", "constructor-symbols"}
+
+
+def test_development_and_packaged_constructor_asset_trees_are_identical() -> None:
+    assert validate_asset_tree_parity() == []
+
+
+def test_collection_manifest_discovery_is_dynamic(tmp_path: Path) -> None:
+    for collection in ("lithology", "symbols", "future-assets"):
+        target = tmp_path / collection / "manifest.json"
+        target.parent.mkdir(parents=True)
+        target.write_text("{}", encoding="utf-8")
+
+    discovered = _discover_collection_manifests(tmp_path)
+
+    assert set(discovered) == {
+        "constructor_assets/lithology/manifest.json",
+        "constructor_assets/symbols/manifest.json",
+        "constructor_assets/future-assets/manifest.json",
+    }
+
+
+def test_provenance_manifest_is_in_packaged_resource_patterns() -> None:
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    package_data = pyproject["tool"]["setuptools"]["package-data"]["geoworkbench"]
+
+    assert "resources/*.json" in package_data
 
 
 def test_strict_clearance_fails_closed_for_unresolved_archives() -> None:
