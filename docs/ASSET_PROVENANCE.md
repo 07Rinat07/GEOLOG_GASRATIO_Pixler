@@ -46,7 +46,10 @@ python tools/check_asset_provenance.py
   побайтово по SHA-256;
 - нет неизвестного `review_status`;
 - запись со статусом `cleared` содержит непустые строковые `rights_holder`, `license_basis` и
-  `evidence_reference`.
+  `evidence_reference`;
+- `evidence_reference` для `cleared` указывает на существующий JSON внутри
+  `docs/asset_evidence`, а evidence record совпадает с provenance по коллекции, исходным архивам,
+  правообладателю и основанию лицензии.
 
 Список коллекций не захардкожен в validator: он строится из фактически пакуемых manifests.
 Поэтому добавление новой папки с `manifest.json` без provenance записи, появление каталога без
@@ -76,7 +79,15 @@ python tools/check_asset_provenance.py --require-cleared
 Допустимое основание для `cleared` должно быть проверяемым и относиться именно к коллекции:
 письменное разрешение правообладателя, подтверждённое собственное авторство исходников,
 лицензия источника с разрешением требуемого распространения или замена коллекции на ресурсы с
-однозначным provenance. Ссылка/документ основания записывается в `evidence_reference`.
+однозначным provenance.
+
+Поле `evidence_reference` теперь не является произвольной заметкой. Оно содержит безопасный
+относительный путь к JSON-записи внутри `docs/asset_evidence`. Формат записи описан в
+[`asset_evidence/README.md`](asset_evidence/README.md). Validator отклоняет отсутствующий файл,
+absolute/traversal/backslash путь, неподдерживаемую schema, другую коллекцию, drift списка
+source archives и несовпадение `rights_holder`/`license_basis`. Сама evidence-запись содержит
+санитизированный locator на первичный документ; приватные договоры, подписи и персональные данные
+в репозиторий помещать не нужно.
 
 ## Критерий закрытия SEC-05
 

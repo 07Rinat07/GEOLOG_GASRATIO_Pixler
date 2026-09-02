@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Validate provenance coverage for bundled constructor assets.
 
-Coverage validation is suitable for CI: every shipped lithology/symbol collection must have a
+Coverage validation is suitable for CI: every shipped constructor-asset collection must have a
 provenance record consistent with its asset manifest and every referenced image must exist.
 Legal clearance is intentionally a stricter, explicit mode; unresolved source archives must not
 be silently promoted to cleared merely because repository metadata declares general ownership.
@@ -20,10 +20,12 @@ ROOT = Path(__file__).resolve().parents[1]
 RESOURCES = ROOT / "src" / "geoworkbench" / "resources"
 CONSTRUCTOR_ASSETS = RESOURCES / "constructor_assets"
 DEVELOPMENT_CONSTRUCTOR_ASSETS = ROOT / "resources" / "constructor_assets"
+CLEARANCE_EVIDENCE_ROOT = ROOT / "docs" / "asset_evidence"
 DEFAULT_PROVENANCE = RESOURCES / "asset-provenance.json"
 CLEARANCE_FIELDS = ("rights_holder", "license_basis", "evidence_reference")
 ASSET_MANIFEST_SCHEMA = "geoworkbench.constructor-assets/v1"
 PROVENANCE_SCHEMA = "geolog.asset-provenance.v1"
+CLEARANCE_EVIDENCE_SCHEMA = "geolog.asset-clearance-evidence.v1"
 
 
 def _load_object(path: Path) -> dict[str, Any]:
@@ -153,7 +155,78 @@ def validate_asset_tree_parity(
     return errors
 
 
-def validate_provenance(path: Path = DEFAULT_PROVENANCE) -> tuple[list[str], list[str]]:
+def _resolve_evidence_reference(reference: str, evidence_root: Path) -> Path | None:
+    """Resolve a clearance evidence JSON path below the controlled evidence directory."""
+
+    if not reference or reference != reference.strip() or "\\" in reference:
+        return None
+    if reference.startswith("/"):
+        return None
+    parts = reference.split("/")
+    if any(part in {"", ".", ".."} for part in parts):
+        return None
+
+    candidate = _resolve_below(evidence_root, reference)
+    if candidate is None or candidate.suffix.lower() != ".json" or not candidate.is_file():
+        return None
+    return candidate
+
+
+def _validate_clearance_evidence(
+    collection_id: str,
+    provenance_record: dict[str, Any],
+    expected_archives: list[str] | None,
+    *,
+    evidence_root: Path,
+) -> list[str]:
+    """Validate a repository-controlled, collection-specific clearance evidence record."""
+
+    reference = provenance_record.get("evidence_reference")
+    if not isinstance(reference, str):
+        return []
+
+    evidence_path = _resolve_evidence_reference(reference, evidence_root)
+    if evidence_path is None:
+        return [
+            f"{collection_id}: evidence_reference must resolve to a JSON file below "
+            f"{evidence_root}"
+        ]
+
+    try:
+        evidence = _load_object(evidence_path)
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        return [f"{collection_id}: cannot read clearance evidence: {exc}"]
+
+    errors: list[str] = []
+    if evidence.get("schema") != CLEARANCE_EVIDENCE_SCHEMA:
+        errors.append(f"{collection_id}: unsupported clearance evidence schema")
+    if evidence.get("collection_id") != collection_id:
+        errors.append(f"{collection_id}: clearance evidence collection_id does not match")
+
+    evidence_archives = _string_list(evidence.get("source_archives"))
+    if evidence_archives is None:
+        errors.append(
+            f"{collection_id}: clearance evidence source_archives must be unique non-empty strings"
+        )
+    elif expected_archives is not None and sorted(evidence_archives) != sorted(expected_archives):
+        errors.append(f"{collection_id}: clearance evidence source_archives do not match provenance")
+
+    if evidence.get("rights_holder") != provenance_record.get("rights_holder"):
+        errors.append(f"{collection_id}: clearance evidence rights_holder does not match provenance")
+    if evidence.get("license_basis") != provenance_record.get("license_basis"):
+        errors.append(f"{collection_id}: clearance evidence license_basis does not match provenance")
+
+    for field in ("evidence_kind", "evidence_locator", "reviewed_by", "reviewed_at_utc"):
+        if not _has_clearance_text(evidence.get(field)):
+            errors.append(f"{collection_id}: clearance evidence has no valid {field}")
+    return errors
+
+
+def validate_provenance(
+    path: Path = DEFAULT_PROVENANCE,
+    *,
+    evidence_root: Path = CLEARANCE_EVIDENCE_ROOT,
+) -> tuple[list[str], list[str]]:
     """Return coverage errors and unresolved collection ids."""
 
     errors = validate_asset_tree_parity()
@@ -180,9 +253,11 @@ def validate_provenance(path: Path = DEFAULT_PROVENANCE) -> tuple[list[str], lis
         errors.append(
             "constructor asset directories without manifest.json: " + ", ".join(missing_manifests)
         )
-    loose_files = sorted(
-        path.name for path in CONSTRUCTOR_ASSETS.iterdir() if path.is_file()
-    ) if CONSTRUCTOR_ASSETS.is_dir() else []
+    loose_files = (
+        sorted(path.name for path in CONSTRUCTOR_ASSETS.iterdir() if path.is_file())
+        if CONSTRUCTOR_ASSETS.is_dir()
+        else []
+    )
     if loose_files:
         errors.append("loose constructor asset files are not allowed: " + ", ".join(loose_files))
 
@@ -318,6 +393,15 @@ def validate_provenance(path: Path = DEFAULT_PROVENANCE) -> tuple[list[str], lis
                 errors.append(
                     f"{collection_id}: cleared record is missing non-empty string evidence: "
                     + ", ".join(missing)
+                )
+            else:
+                errors.extend(
+                    _validate_clearance_evidence(
+                        collection_id,
+                        raw,
+                        expected_archives,
+                        evidence_root=evidence_root,
+                    )
                 )
 
     missing_records = sorted(set(discovered) - set(manifest_records))
