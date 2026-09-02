@@ -5,16 +5,22 @@ from pathlib import Path
 
 import pytest
 
+from tools.physical_print_acceptance_sheet import PRODUCTION_IMAGE_RENDERER
 from tools.windows_release_matrix import (
     AUTOMATED_CASES,
     CHECKLIST_SCHEMA,
+    CUT03_REQUIRED_CASES,
     PHYSICAL_CASES,
+    PHYSICAL_EVIDENCE_FIELDS,
+    PHYSICAL_EVIDENCE_SCHEMA,
     CaseResult,
     SUPPORTED_SCALE_FACTORS,
     build_checklist,
     configure_qt_environment,
+    physical_evidence_complete,
     validate_effective_scale,
     validate_physical_arguments,
+    validate_physical_payload,
     wait_for_pdf_ready,
 )
 
@@ -35,12 +41,45 @@ def _result(case_id: str, status: str = "passed") -> CaseResult:
     )
 
 
+def _evidence(**changes: bool) -> dict[str, bool]:
+    payload = {field: True for field in PHYSICAL_EVIDENCE_FIELDS}
+    payload.update(changes)
+    return payload
+
+
+def _physical_payload(**changes) -> dict:
+    payload = {
+        "status": "passed",
+        "printer": "Engineering Plotter",
+        "operator": "Engineer",
+        "printed": True,
+        "visually_confirmed": True,
+        "evidence_schema": PHYSICAL_EVIDENCE_SCHEMA,
+        "evidence": _evidence(),
+        "cases": [
+            {
+                "case_id": case.case_id,
+                "page_format": case.page_format,
+                "orientation": case.orientation,
+                "scale_mode": case.scale_mode,
+                "gate_ok": True,
+                "printed": True,
+                "page_count": case.expected_min_pages,
+            }
+            for case in PHYSICAL_CASES
+        ],
+    }
+    payload.update(changes)
+    return payload
+
+
 def _args(**changes) -> argparse.Namespace:
     values = {
         "printer": None,
         "operator": None,
         "print_test": False,
         "confirm_physical_output": False,
+        **{field: False for field in PHYSICAL_EVIDENCE_FIELDS},
     }
     values.update(changes)
     return argparse.Namespace(**values)
@@ -59,6 +98,17 @@ def test_matrix_covers_required_media_scale_and_hidpi_contract() -> None:
     assert tablet_case.expected_min_pages >= 4
     assert {case.page_format for case in PHYSICAL_CASES} == {"a4", "a3", "custom", "roll"}
     assert any(case.expected_min_pages >= 2 for case in PHYSICAL_CASES)
+    assert CUT03_REQUIRED_CASES == {
+        "physical-a4-portrait-fit": ("a4", "portrait"),
+        "physical-a3-landscape-actual-size": ("a3", "landscape"),
+    }
+
+
+def test_automated_matrix_exercises_production_embedded_image_renderer() -> None:
+    a4 = next(case for case in AUTOMATED_CASES if case.case_id == "a4-portrait-fit")
+
+    assert a4.widget_kind == "physical_acceptance"
+    assert PRODUCTION_IMAGE_RENDERER.endswith(".TabletAnnotationItem")
 
 
 def test_checklist_stays_pending_until_physical_output_is_confirmed() -> None:
@@ -75,17 +125,29 @@ def test_checklist_stays_pending_until_physical_output_is_confirmed() -> None:
     assert checklist["overall_status"] == "pending_physical_printer"
 
 
-def test_checklist_passes_only_after_automated_and_physical_gates() -> None:
+def test_checklist_passes_only_after_automated_and_complete_physical_evidence() -> None:
     checklist = build_checklist(
         scale_factor=2.0,
+        qt_platform="windows",
+        environment={"os": "Windows"},
+        cases=tuple(_result(case.case_id) for case in AUTOMATED_CASES),
+        physical=_physical_payload(),
+    )
+
+    assert checklist["automated"]["status"] == "passed"
+    assert checklist["overall_status"] == "passed"
+
+
+def test_forged_legacy_pass_without_structured_evidence_fails_closed() -> None:
+    checklist = build_checklist(
+        scale_factor=1.0,
         qt_platform="windows",
         environment={"os": "Windows"},
         cases=tuple(_result(case.case_id) for case in AUTOMATED_CASES),
         physical={"status": "passed", "operator": "Engineer"},
     )
 
-    assert checklist["automated"]["status"] == "passed"
-    assert checklist["overall_status"] == "passed"
+    assert checklist["overall_status"] == "failed"
 
 
 def test_failed_automated_case_blocks_the_checklist() -> None:
@@ -94,19 +156,26 @@ def test_failed_automated_case_blocks_the_checklist() -> None:
         qt_platform="offscreen",
         environment={},
         cases=(_result("ok"), _result("broken", status="failed")),
-        physical={"status": "passed"},
+        physical=_physical_payload(),
     )
 
     assert checklist["automated"]["status"] == "failed"
     assert checklist["overall_status"] == "failed"
 
 
-def test_physical_confirmation_requires_printer_operator_and_real_print() -> None:
+def test_physical_confirmation_requires_printer_operator_real_print_and_each_evidence_flag() -> None:
     with pytest.raises(ValueError, match="--printer"):
         validate_physical_arguments(_args(confirm_physical_output=True))
+
+    full = {field: True for field in PHYSICAL_EVIDENCE_FIELDS}
     with pytest.raises(ValueError, match="--operator"):
         validate_physical_arguments(
-            _args(printer="Engineering Plotter", print_test=True, confirm_physical_output=True)
+            _args(
+                printer="Engineering Plotter",
+                print_test=True,
+                confirm_physical_output=True,
+                **full,
+            )
         )
     with pytest.raises(ValueError, match="--print-test"):
         validate_physical_arguments(
@@ -114,8 +183,70 @@ def test_physical_confirmation_requires_printer_operator_and_real_print() -> Non
                 printer="Engineering Plotter",
                 operator="Engineer",
                 confirm_physical_output=True,
+                **full,
             )
         )
+
+    for missing_field in PHYSICAL_EVIDENCE_FIELDS:
+        evidence = dict(full)
+        evidence[missing_field] = False
+        with pytest.raises(ValueError, match="--confirm-"):
+            validate_physical_arguments(
+                _args(
+                    printer="Engineering Plotter",
+                    operator="Engineer",
+                    print_test=True,
+                    confirm_physical_output=True,
+                    **evidence,
+                )
+            )
+
+    validate_physical_arguments(
+        _args(
+            printer="Engineering Plotter",
+            operator="Engineer",
+            print_test=True,
+            confirm_physical_output=True,
+            **full,
+        )
+    )
+
+
+def test_partial_structured_evidence_cannot_be_recorded_without_final_confirmation() -> None:
+    with pytest.raises(ValueError, match="require --confirm-physical-output"):
+        validate_physical_arguments(_args(long_rich_text_readable=True))
+
+
+def test_physical_payload_requires_every_visual_check() -> None:
+    assert physical_evidence_complete(_evidence())
+    assert validate_physical_payload(_physical_payload())
+
+    for field in PHYSICAL_EVIDENCE_FIELDS:
+        assert not validate_physical_payload(
+            _physical_payload(evidence=_evidence(**{field: False}))
+        )
+
+
+def test_physical_payload_requires_all_real_media_cases_and_exact_cut03_a4_a3_identity() -> None:
+    payload = _physical_payload()
+    payload["cases"] = payload["cases"][:-1]
+    assert not validate_physical_payload(payload)
+
+    payload = _physical_payload()
+    a4 = next(
+        item for item in payload["cases"] if item["case_id"] == "physical-a4-portrait-fit"
+    )
+    a4["orientation"] = "landscape"
+    assert not validate_physical_payload(payload)
+
+    payload = _physical_payload()
+    a3 = next(
+        item
+        for item in payload["cases"]
+        if item["case_id"] == "physical-a3-landscape-actual-size"
+    )
+    a3["printed"] = False
+    assert not validate_physical_payload(payload)
 
 
 def test_qt_environment_is_set_before_qt_import(monkeypatch) -> None:
@@ -192,7 +323,8 @@ def test_pdf_readiness_reports_qt_load_error() -> None:
 
 def test_actual_size_continuation_case_is_unambiguously_multi_page() -> None:
     case = next(
-        item for item in AUTOMATED_CASES
+        item
+        for item in AUTOMATED_CASES
         if item.case_id == "a4-landscape-actual-size-continuation"
     )
     assert case.widget_width >= 8000

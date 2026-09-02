@@ -198,6 +198,11 @@ continuation pages, Unicode RU/KK/EN, инженерные символы, со�
 каждого случая сохраняются PDF, снимок тестового QWidget и `windows-release-checklist.json`.
 Результаты создаются только в игнорируемом `build/ci-artifacts/windows-acceptance`.
 
+`a4-portrait-fit` дополнительно рендерит тот же REL-03/CUT-03 acceptance sheet, который используется
+при физической печати: длинный rich-text, границы интервала, простой LBA, цвет и детерминированное
+cuttings image через production `AnnotationRecord(kind=IMAGE)` / `TabletAnnotationItem` image
+renderer. Это проверяет production image paint path в PDF, но не заменяет осмотр бумаги.
+
 Локальный запуск одного масштаба в Windows:
 
 ```powershell
@@ -228,8 +233,9 @@ CI запускает все четыре масштаба. Успешная а�
 При ошибке нужно создать diagnostics ZIP через меню «Справка» и приложить его вместе со
 скриншотом, исходным файлом и точной последовательностью действий.
 
-Физический acceptance checklist фиксируется той же командой и считается пройденным только при
-явном выборе принтера, фактической отправке задания и визуальном подтверждении оператором:
+Физический acceptance checklist фиксируется той же командой. `passed` допустим только после
+реальной отправки всех cases на принтер и отдельного подтверждения каждого визуального критерия
+после осмотра бумаги. Полный операторский порядок: [PHYSICAL_PRINT_ACCEPTANCE.md](PHYSICAL_PRINT_ACCEPTANCE.md).
 
 ```powershell
 python tools/windows_release_matrix.py `
@@ -239,14 +245,22 @@ python tools/windows_release_matrix.py `
   --printer "ТОЧНОЕ ИМЯ ПРИНТЕРА" `
   --operator "ФИО инженера" `
   --print-test `
+  --confirm-rich-text `
+  --confirm-cuttings-photo `
+  --confirm-custom-heading `
+  --confirm-interval-bounds `
+  --confirm-color `
+  --confirm-driver-margins `
+  --confirm-no-driver-warning `
   --confirm-physical-output `
+  --physical-notes "модель принтера, бумага/лоток, замечания" `
   --require-physical
 ```
 
 Команда последовательно проверяет и печатает A4, A3, custom и roll cases, включая все страницы
-продолжения. Без `--print-test`, `--operator` и `--confirm-physical-output` инструмент не может
-записать physical-printer status `passed`. Полученный checklist хранится как release artifact,
-а не в Git.
+продолжения. Без `--print-test`, `--operator`, всех семи `--confirm-*` evidence flags и финального
+`--confirm-physical-output` инструмент не может записать physical-printer status `passed`.
+Полученный checklist хранится как release artifact, а не в Git.
 
 ## 10. PERF-01: acquisition batch/buffer/hash-chain contract
 
