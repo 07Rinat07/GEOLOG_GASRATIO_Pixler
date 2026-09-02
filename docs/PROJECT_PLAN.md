@@ -29,8 +29,9 @@ release plan и временные планы в `docs` не создаются.
 ## Ближайший порядок работ
 
 1. **GAS-08** — deterministic benchmark conditioning/ratios на 100k и 1M строк с bounded RSS
-   реализован в PR #61; первый enforcing Windows baseline принят в release-gate #844. Задача
-   остаётся активной до финального зелёного gate и merge в `main`.
+   реализован в PR #61; первый enforcing Windows baseline принят в release-gate #844, а
+   regression фиксирует отсутствие повторного conditioning при scroll/zoom. Задача остаётся
+   активной до финального зелёного gate и merge в `main`.
 2. **REL-03 / CUT-03** — реальная Windows GUI/HiDPI/PDF/physical-printer matrix и физическая
    печать длинных rich-text описаний/фотографий.
 3. **SEC-01 / SEC-05** — решение по опубликованной Git history и provenance/license review
@@ -137,10 +138,12 @@ release plan и временные планы в `docs` не создаются.
   segments, scale bounds и PDF pages, все применимые automated gates прошли.
 - [ ] **GAS-08:** deterministic benchmark conditioning/ratios на 100k и 1M строк реализован в
   PR #61 с отдельными worker-процессами, median wall time, OS-level peak RSS, immutable-input
-  SHA-256 checks, absolute/scaling guardrails и retained JSON artifact. Принятый Windows baseline
-  release-gate #844: 100k — `3.080 s / 155.2 MiB`, 1M — `30.248 s / 1230.2 MiB`; scaling
-  `9.82×` по времени и `7.93×` по RSS при `10×` строк. `[x]` ставится только после финального
-  зелёного gate и merge в `main`.
+  SHA-256 checks, absolute/scaling guardrails и retained JSON artifact; regression
+  `tests/test_gas_viewport_hotpath.py` фиксирует отсутствие покадрового пересчёта conditioning
+  при реальных `scroll_depth()`/`zoom_depth()`. Принятый Windows baseline release-gate #844:
+  100k — `3.080 s / 155.2 MiB`, 1M — `30.248 s / 1230.2 MiB`; scaling `9.82×` по времени и
+  `7.93×` по RSS при `10×` строк. `[x]` ставится только после финального зелёного gate и merge
+  в `main`.
 
 ## P0 — ОПУС «Газомер»: практический профиль по всей скважине
 
