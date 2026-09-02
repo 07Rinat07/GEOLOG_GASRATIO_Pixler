@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, replace
+from datetime import datetime, timezone
 from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
@@ -26,8 +27,8 @@ from geoworkbench.data.las_import_report import (
     LasImportReport,
     LasIssueSeverity,
 )
-from geoworkbench.data.lossless_las import LosslessLasDocument
-from geoworkbench.domain.models import Dataset
+from geoworkbench.data.lossless_las import LosslessLasDocument, read_lossless_las
+from geoworkbench.domain.models import Dataset, DatasetSourceRevision
 from geoworkbench.importers.paradox.models import ParadoxImportResult
 from geoworkbench.services.depth_axis import DepthDirection, analyze_depth_axis
 from geoworkbench.services.import_diagnostics import (
@@ -476,10 +477,52 @@ class DatasetImportJobExecutor:
                     imported_channels=len(dataset.curves),
                     skipped_channels=result.skipped_channels + removed,
                 )
+            source_document: LosslessLasDocument | None = None
+            if source_kind is ImportSourceKind.GS2:
+                source_document = read_lossless_las(source)
+                self._register_gs2_source_revision(dataset, source, source_document)
             well_name = self._port.add_imported_dataset(
                 result.dataset,
+                source_document=source_document,
                 create_new_well=True,
             )
         except (OSError, ValueError) as exc:
             return ParadoxImportOutcome(source, error=str(exc))
         return ParadoxImportOutcome(source, result=result, well_name=well_name)
+
+    @staticmethod
+    def _register_gs2_source_revision(
+        dataset: Dataset,
+        source: Path,
+        document: LosslessLasDocument,
+    ) -> None:
+        """Attach GS2 provenance to the same dataset source registry used by LAS."""
+
+        for index, revision in enumerate(dataset.source_revisions):
+            if revision.source_sha256 != document.sha256:
+                continue
+            if revision.artifact_id != dataset.dataset_id:
+                dataset.source_revisions[index] = replace(
+                    revision,
+                    artifact_id=dataset.dataset_id,
+                )
+            return
+
+        active_index = dataset.active_index
+        imported_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        dataset.source_revisions.append(
+            DatasetSourceRevision(
+                source_revision_id=f"primary:{dataset.dataset_id}:{document.sha256[:12]}",
+                artifact_id=dataset.dataset_id,
+                source_name=source.name,
+                source_sha256=document.sha256,
+                size_bytes=document.size_bytes,
+                imported_at=imported_at,
+                provider_kind="gs2_file",
+                provider_location=str(source.resolve()),
+                start_value=(str(active_index.values[0]) if len(active_index.values) else ""),
+                stop_value=(str(active_index.values[-1]) if len(active_index.values) else ""),
+                rows_added=len(active_index.values),
+                rows_skipped=0,
+            )
+        )
