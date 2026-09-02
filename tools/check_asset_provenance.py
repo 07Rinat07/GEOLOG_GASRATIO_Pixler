@@ -17,8 +17,12 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 RESOURCES = ROOT / "src" / "geoworkbench" / "resources"
+CONSTRUCTOR_ASSETS = RESOURCES / "constructor_assets"
 DEFAULT_PROVENANCE = RESOURCES / "asset-provenance.json"
-EXPECTED_KINDS = {"lithology", "symbols"}
+EXPECTED_COLLECTIONS = {
+    "constructor-lithology": ("lithology", "constructor_assets/lithology/manifest.json"),
+    "constructor-symbols": ("symbols", "constructor_assets/symbols/manifest.json"),
+}
 CLEARANCE_FIELDS = ("rights_holder", "license_basis", "evidence_reference")
 
 
@@ -27,6 +31,15 @@ def _load_object(path: Path) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ValueError(f"{path} must contain a JSON object")
     return payload
+
+
+def _resolve_below(root: Path, relative: str) -> Path | None:
+    candidate = (root / relative).resolve()
+    try:
+        candidate.relative_to(root.resolve())
+    except ValueError:
+        return None
+    return candidate
 
 
 def validate_provenance(path: Path = DEFAULT_PROVENANCE) -> tuple[list[str], list[str]]:
@@ -46,13 +59,11 @@ def validate_provenance(path: Path = DEFAULT_PROVENANCE) -> tuple[list[str], lis
         return errors + ["collections must be an array"], unresolved
 
     records: dict[str, dict[str, Any]] = {}
-    kinds: set[str] = set()
     for raw in collections:
         if not isinstance(raw, dict):
             errors.append("collection entries must be objects")
             continue
         collection_id = raw.get("id")
-        kind = raw.get("kind")
         if not isinstance(collection_id, str) or not collection_id:
             errors.append("collection id must be a non-empty string")
             continue
@@ -60,24 +71,38 @@ def validate_provenance(path: Path = DEFAULT_PROVENANCE) -> tuple[list[str], lis
             errors.append(f"duplicate collection id: {collection_id}")
             continue
         records[collection_id] = raw
-        if isinstance(kind, str):
-            kinds.add(kind)
+
+        expected = EXPECTED_COLLECTIONS.get(collection_id)
+        if expected is None:
+            errors.append(f"unexpected provenance collection: {collection_id}")
+            continue
+        expected_kind, expected_manifest_rel = expected
+        kind = raw.get("kind")
+        if kind != expected_kind:
+            errors.append(
+                f"{collection_id}: expected kind {expected_kind!r}, got {kind!r}"
+            )
 
         manifest_rel = raw.get("manifest_path")
-        if not isinstance(manifest_rel, str) or not manifest_rel:
-            errors.append(f"{collection_id}: manifest_path is required")
+        if manifest_rel != expected_manifest_rel:
+            errors.append(
+                f"{collection_id}: manifest_path must be {expected_manifest_rel!r}"
+            )
             continue
-        manifest_path = RESOURCES / manifest_rel
+        manifest_path = _resolve_below(RESOURCES, expected_manifest_rel)
+        if manifest_path is None:
+            errors.append(f"{collection_id}: manifest_path escapes resources directory")
+            continue
         try:
             asset_manifest = _load_object(manifest_path)
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             errors.append(f"{collection_id}: cannot read asset manifest: {exc}")
             continue
 
-        if asset_manifest.get("kind") != kind:
+        if asset_manifest.get("kind") != expected_kind:
             errors.append(
-                f"{collection_id}: kind mismatch: provenance={kind!r}, "
-                f"asset manifest={asset_manifest.get('kind')!r}"
+                f"{collection_id}: asset manifest kind is {asset_manifest.get('kind')!r}, "
+                f"expected {expected_kind!r}"
             )
         expected_archives = raw.get("source_archives")
         actual_archives = asset_manifest.get("source_archives")
@@ -99,8 +124,12 @@ def validate_provenance(path: Path = DEFAULT_PROVENANCE) -> tuple[list[str], lis
                     if not isinstance(rel, str) or not rel:
                         errors.append(f"{collection_id}: asset #{index} has no {field}")
                         continue
-                    candidate = RESOURCES / "constructor_assets" / rel
-                    if not candidate.is_file():
+                    candidate = _resolve_below(CONSTRUCTOR_ASSETS, rel)
+                    if candidate is None:
+                        errors.append(
+                            f"{collection_id}: referenced {field} escapes constructor assets: {rel}"
+                        )
+                    elif not candidate.is_file():
                         errors.append(
                             f"{collection_id}: referenced {field} does not exist: {rel}"
                         )
@@ -117,12 +146,10 @@ def validate_provenance(path: Path = DEFAULT_PROVENANCE) -> tuple[list[str], lis
                     f"{collection_id}: cleared record is missing {', '.join(missing)}"
                 )
 
-    missing_kinds = EXPECTED_KINDS - kinds
-    extra_kinds = kinds - EXPECTED_KINDS
-    if missing_kinds:
-        errors.append("missing provenance collections: " + ", ".join(sorted(missing_kinds)))
-    if extra_kinds:
-        errors.append("unexpected provenance collections: " + ", ".join(sorted(extra_kinds)))
+    expected_ids = set(EXPECTED_COLLECTIONS)
+    missing_ids = expected_ids - set(records)
+    if missing_ids:
+        errors.append("missing provenance collections: " + ", ".join(sorted(missing_ids)))
     return errors, unresolved
 
 
