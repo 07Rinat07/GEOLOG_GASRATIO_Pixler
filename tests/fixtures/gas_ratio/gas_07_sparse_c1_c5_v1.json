@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "case_id": "GAS-07",
-  "description": "Deterministic anonymized sparse C1-C5 interval for end-to-end gas conditioning, rendering segmentation and PDF pagination acceptance.",
+  "description": "Deterministic anonymized sparse C1-C5 interval for end-to-end gas conditioning, rendering segmentation, scale bounds and PDF pagination acceptance.",
   "axis": {
     "start": 1703.28,
     "step": 1.0,
@@ -43,6 +43,10 @@
     "segmentation": {
       "connected_probe_depth": 1704.28,
       "broken_probe_depth": 1720.28
+    },
+    "scale_bounds": {
+      "C1_LINEAR": [60.52, 79.82666666666667],
+      "TG_CALC_LINEAR": [89.186, 99.90033333333334]
     },
     "pagination": {
       "units_per_page": 20.0,

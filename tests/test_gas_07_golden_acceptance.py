@@ -19,7 +19,8 @@ from geoworkbench.printing.page_settings import (
 from geoworkbench.printing.pagination import PrintPaginationSettings, PrintRangeMode
 from geoworkbench.printing.print_job import PrintJobSettings, PrintOutputFormat
 from geoworkbench.printing.print_layout import PrintScaleMode
-from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind
+from geoworkbench.tablet.curve_scaling import automatic_curve_range
+from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind, XScale
 from geoworkbench.tablet.tablet_view import TabletView
 
 
@@ -138,6 +139,34 @@ def _build_tablet(
     return view
 
 
+def _assert_rendered_segmentation(
+    item: Any,
+    *,
+    connected_depth: float,
+    broken_depth: float,
+) -> None:
+    x_values, y_values = item.getData()
+    assert x_values is not None and y_values is not None
+    rendered_depth = np.asarray(y_values, dtype=np.float64)
+    rendered_values = np.asarray(x_values, dtype=np.float64)
+    connected_index = _sample_index(rendered_depth, connected_depth)
+    broken_index = _sample_index(rendered_depth, broken_depth)
+
+    assert np.isfinite(rendered_values[connected_index])
+    assert np.isnan(rendered_values[broken_index])
+
+    connect = item.curve.opts["connect"]
+    if isinstance(connect, np.ndarray):
+        assert connect.dtype == np.bool_
+        assert connect.shape == rendered_depth.shape
+        assert bool(connect[connected_index])
+        assert not bool(connect[broken_index])
+    else:
+        assert connect in ("auto", "finite")
+
+    assert item.opts.get("symbol") is None
+
+
 def test_gas_07_golden_dataset_through_production_pipeline(
     qapp,
     tmp_path: Path,
@@ -168,6 +197,25 @@ def test_gas_07_golden_dataset_through_production_pipeline(
             actual = result.curves[mnemonic].values[outage_index]
         assert np.isnan(actual), f"{mnemonic} must remain missing across the long outage"
 
+    scale_expected = expected["scale_bounds"]
+    c1_scale = automatic_curve_range(
+        result.conditioned_components.components["C1"],
+        XScale.LINEAR,
+    )
+    tg_scale = automatic_curve_range(result.curves["TG_CALC"].values, XScale.LINEAR)
+    np.testing.assert_allclose(
+        c1_scale,
+        np.asarray(scale_expected["C1_LINEAR"], dtype=np.float64),
+        rtol=0.0,
+        atol=1e-12,
+    )
+    np.testing.assert_allclose(
+        tg_scale,
+        np.asarray(scale_expected["TG_CALC_LINEAR"], dtype=np.float64),
+        rtol=0.0,
+        atol=1e-12,
+    )
+
     tablet = _build_tablet(
         depth,
         result.conditioned_components.components,
@@ -179,25 +227,11 @@ def test_gas_07_golden_dataset_through_production_pipeline(
 
     try:
         segment_expected = expected["segmentation"]
-        item = tablet._rendered["components"].curve_items["C1"]
-        x_values, y_values = item.getData()
-        connect = np.asarray(item.curve.opts["connect"], dtype=bool)
-
-        assert x_values is not None and y_values is not None
-        assert connect.shape == y_values.shape
-        connected_index = _sample_index(
-            np.asarray(y_values, dtype=np.float64),
-            float(segment_expected["connected_probe_depth"]),
+        _assert_rendered_segmentation(
+            tablet._rendered["components"].curve_items["C1"],
+            connected_depth=float(segment_expected["connected_probe_depth"]),
+            broken_depth=float(segment_expected["broken_probe_depth"]),
         )
-        broken_index = _sample_index(
-            np.asarray(y_values, dtype=np.float64),
-            float(segment_expected["broken_probe_depth"]),
-        )
-        assert np.isfinite(x_values[connected_index])
-        assert connect[connected_index]
-        assert np.isnan(x_values[broken_index])
-        assert not connect[broken_index]
-        assert item.opts.get("symbol") is None
 
         pagination = expected["pagination"]
         job = PrintJobSettings(
