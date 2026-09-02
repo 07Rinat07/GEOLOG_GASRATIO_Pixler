@@ -28,17 +28,16 @@ release plan и временные планы в `docs` не создаются.
 
 ## Ближайший порядок работ
 
-1. **GAS-07** — реализация golden dataset и end-to-end acceptance baseline готова в PR #60,
-   все применимые automated gates зелёные; задача остаётся активной до merge в `main` и
-   последующей отметки `[x]` в тематическом разделе.
-2. **GAS-08** — deterministic benchmark conditioning/ratios на 100k и 1M строк с bounded RSS.
-3. **REL-03 / CUT-03** — реальная Windows GUI/HiDPI/PDF/physical-printer matrix и физическая
+1. **GAS-08** — deterministic benchmark conditioning/ratios на 100k и 1M строк с bounded RSS
+   реализован в PR #61; первый enforcing Windows baseline принят в release-gate #844. Задача
+   остаётся активной до финального зелёного gate и merge в `main`.
+2. **REL-03 / CUT-03** — реальная Windows GUI/HiDPI/PDF/physical-printer matrix и физическая
    печать длинных rich-text описаний/фотографий.
-4. **SEC-01 / SEC-05** — решение по опубликованной Git history и provenance/license review
+3. **SEC-01 / SEC-05** — решение по опубликованной Git history и provenance/license review
    встроенных lithology/symbol assets.
-5. **PROJ-04 / PERF-02…05 / ARCH-01…06** — завершение transactional GS2 path, больших проектов,
+4. **PROJ-04 / PERF-02…05 / ARCH-01…06** — завершение transactional GS2 path, больших проектов,
    cache/storage performance и архитектурных границ.
-6. **FIELD-01…05** — полевые soak/interoperability gates; затем P2-расширения.
+5. **FIELD-01…05** — полевые soak/interoperability gates; затем P2-расширения.
 
 ## Текущая база
 
@@ -133,12 +132,15 @@ release plan и временные планы в `docs` не создаются.
   набор и структура mud log сверены с официальными материалами SLB.
 - [x] **GAS-06:** сохранять структурированный QC provenance conditioning в проекте и показывать
   оператору количество/диапазоны восстановленных точек без изменения исходного LAS.
-- [ ] **GAS-07:** обезличенный golden dataset для интервала `1703.28–1753.28 м` и sparse C1–C5
-  реализован в PR #60; production acceptance сравнивает source, conditioned, derived, screen
-  segments, scale bounds и PDF pages, все automated gates зелёные. `[x]` ставится только после
-  merge в `main`.
-- [ ] **GAS-08:** закрепить benchmark conditioning/ratios на 100k и 1M строк: линейное
-  масштабирование, ограниченный peak RSS и отсутствие покадрового пересчёта при scroll/zoom.
+- [x] **GAS-07:** обезличенный golden dataset для интервала `1703.28–1753.28 м` и sparse C1–C5
+  интегрирован PR #60; production acceptance сравнивает source, conditioned, derived, screen
+  segments, scale bounds и PDF pages, все применимые automated gates прошли.
+- [ ] **GAS-08:** deterministic benchmark conditioning/ratios на 100k и 1M строк реализован в
+  PR #61 с отдельными worker-процессами, median wall time, OS-level peak RSS, immutable-input
+  SHA-256 checks, absolute/scaling guardrails и retained JSON artifact. Принятый Windows baseline
+  release-gate #844: 100k — `3.080 s / 155.2 MiB`, 1M — `30.248 s / 1230.2 MiB`; scaling
+  `9.82×` по времени и `7.93×` по RSS при `10×` строк. `[x]` ставится только после финального
+  зелёного gate и merge в `main`.
 
 ## P0 — ОПУС «Газомер»: практический профиль по всей скважине
 
