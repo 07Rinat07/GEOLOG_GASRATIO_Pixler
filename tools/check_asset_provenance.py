@@ -24,6 +24,7 @@ EXPECTED_COLLECTIONS = {
     "constructor-symbols": ("symbols", "constructor_assets/symbols/manifest.json"),
 }
 CLEARANCE_FIELDS = ("rights_holder", "license_basis", "evidence_reference")
+ASSET_MANIFEST_SCHEMA = "geoworkbench.constructor-assets/v1"
 
 
 def _load_object(path: Path) -> dict[str, Any]:
@@ -40,6 +41,35 @@ def _resolve_below(root: Path, relative: str) -> Path | None:
     except ValueError:
         return None
     return candidate
+
+
+def _resolve_collection_asset(kind: str, relative: str) -> Path | None:
+    candidate = _resolve_below(CONSTRUCTOR_ASSETS, relative)
+    if candidate is None:
+        return None
+    collection_root = (CONSTRUCTOR_ASSETS / kind).resolve()
+    try:
+        candidate.relative_to(collection_root)
+    except ValueError:
+        return None
+    return candidate
+
+
+def _string_list(value: Any) -> list[str] | None:
+    if not isinstance(value, list):
+        return None
+    result: list[str] = []
+    for item in value:
+        if not isinstance(item, str) or not item.strip() or item != item.strip():
+            return None
+        result.append(item)
+    if len(result) != len(set(result)):
+        return None
+    return result
+
+
+def _has_clearance_text(value: Any) -> bool:
+    return isinstance(value, str) and bool(value.strip())
 
 
 def validate_provenance(path: Path = DEFAULT_PROVENANCE) -> tuple[list[str], list[str]]:
@@ -99,40 +129,89 @@ def validate_provenance(path: Path = DEFAULT_PROVENANCE) -> tuple[list[str], lis
             errors.append(f"{collection_id}: cannot read asset manifest: {exc}")
             continue
 
+        if asset_manifest.get("schema") != ASSET_MANIFEST_SCHEMA:
+            errors.append(
+                f"{collection_id}: unsupported asset manifest schema "
+                f"{asset_manifest.get('schema')!r}"
+            )
         if asset_manifest.get("kind") != expected_kind:
             errors.append(
                 f"{collection_id}: asset manifest kind is {asset_manifest.get('kind')!r}, "
                 f"expected {expected_kind!r}"
             )
-        expected_archives = raw.get("source_archives")
-        actual_archives = asset_manifest.get("source_archives")
-        if not isinstance(expected_archives, list) or sorted(expected_archives) != sorted(
-            actual_archives if isinstance(actual_archives, list) else []
+
+        expected_archives = _string_list(raw.get("source_archives"))
+        actual_archives = _string_list(asset_manifest.get("source_archives"))
+        if expected_archives is None:
+            errors.append(
+                f"{collection_id}: provenance source_archives must be unique non-empty strings"
+            )
+        if actual_archives is None:
+            errors.append(
+                f"{collection_id}: asset manifest source_archives must be unique non-empty strings"
+            )
+        if (
+            expected_archives is not None
+            and actual_archives is not None
+            and sorted(expected_archives) != sorted(actual_archives)
         ):
             errors.append(f"{collection_id}: source_archives do not match the asset manifest")
+        allowed_archives = set(actual_archives or [])
 
         assets = asset_manifest.get("assets")
         if not isinstance(assets, list) or not assets:
             errors.append(f"{collection_id}: asset manifest has no assets")
         else:
+            asset_ids: set[str] = set()
+            paths_by_field: dict[str, set[Path]] = {
+                "asset_path": set(),
+                "thumbnail_path": set(),
+            }
             for index, asset in enumerate(assets):
                 if not isinstance(asset, dict):
                     errors.append(f"{collection_id}: asset #{index} is not an object")
                     continue
+
+                asset_id = asset.get("id")
+                if not isinstance(asset_id, str) or not asset_id.strip():
+                    errors.append(f"{collection_id}: asset #{index} has no valid id")
+                elif asset_id in asset_ids:
+                    errors.append(f"{collection_id}: duplicate asset id: {asset_id}")
+                else:
+                    asset_ids.add(asset_id)
+
+                asset_archives = _string_list(asset.get("source_archives"))
+                if not asset_archives:
+                    errors.append(
+                        f"{collection_id}: asset #{index} has invalid source_archives"
+                    )
+                elif not set(asset_archives).issubset(allowed_archives):
+                    errors.append(
+                        f"{collection_id}: asset #{index} references source archive outside "
+                        "the collection manifest"
+                    )
+
                 for field in ("asset_path", "thumbnail_path"):
                     rel = asset.get(field)
                     if not isinstance(rel, str) or not rel:
                         errors.append(f"{collection_id}: asset #{index} has no {field}")
                         continue
-                    candidate = _resolve_below(CONSTRUCTOR_ASSETS, rel)
+                    candidate = _resolve_collection_asset(expected_kind, rel)
                     if candidate is None:
                         errors.append(
-                            f"{collection_id}: referenced {field} escapes constructor assets: {rel}"
+                            f"{collection_id}: referenced {field} escapes or crosses the "
+                            f"{expected_kind} collection: {rel}"
                         )
                     elif not candidate.is_file():
                         errors.append(
                             f"{collection_id}: referenced {field} does not exist: {rel}"
                         )
+                    elif candidate in paths_by_field[field]:
+                        errors.append(
+                            f"{collection_id}: duplicate referenced {field}: {rel}"
+                        )
+                    else:
+                        paths_by_field[field].add(candidate)
 
         status = raw.get("review_status")
         if status not in {"unresolved", "cleared"}:
@@ -140,10 +219,13 @@ def validate_provenance(path: Path = DEFAULT_PROVENANCE) -> tuple[list[str], lis
         elif status == "unresolved":
             unresolved.append(collection_id)
         else:
-            missing = [field for field in CLEARANCE_FIELDS if not raw.get(field)]
+            missing = [
+                field for field in CLEARANCE_FIELDS if not _has_clearance_text(raw.get(field))
+            ]
             if missing:
                 errors.append(
-                    f"{collection_id}: cleared record is missing {', '.join(missing)}"
+                    f"{collection_id}: cleared record is missing non-empty string evidence: "
+                    + ", ".join(missing)
                 )
 
     expected_ids = set(EXPECTED_COLLECTIONS)
