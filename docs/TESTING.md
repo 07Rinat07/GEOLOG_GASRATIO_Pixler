@@ -1,6 +1,6 @@
 # Проверка качества и release gate
 
-Документ актуален для **GEOLOG GASRATIO@Pixler 0.7.93** на 31 августа 2026 года. Краткая история
+Документ актуален для **GEOLOG GASRATIO@Pixler 0.7.93** на 2 сентября 2026 года. Краткая история
 находится только в `CHANGELOG.md`; результаты конкретных CI/сборок хранятся как artifacts и не
 заменяют текущие команды проверки.
 
@@ -262,23 +262,46 @@ python tools/windows_release_matrix.py `
 `--confirm-physical-output` инструмент не может записать physical-printer status `passed`.
 Полученный checklist хранится как release artifact, а не в Git.
 
-## 10. PERF-01: acquisition batch/buffer/hash-chain contract
+## 10. PERF-01…03: acquisition batch, replay и performance contract
 
 `tests/test_acquisition.py` проверяет default batch 64, отсутствие full projection digest во время
 `append_many`, геометрический рост capacity, logical rollback mixed batch и детерминированное
 восстановление incremental chain после replay. WITS0 и ETP runtime передают собственный
 `drain_batch_size` в единый controller boundary.
 
-Минимальный запуск:
+`tests/test_acquisition_replay_memory.py` закрепляет PERF-02: fresh replay не выполняет
+`deepcopy(Well)` и не копирует unrelated datasets; checkpoint resume staging копирует только один
+изменяемый acquisition Dataset, а immutable journal/checkpoints/events переиспользуются через
+новые контейнеры без ослабления transactional rollback.
+
+`tests/test_acquisition_benchmark.py` проверяет логику PERF-03 guardrails: nearest-rank p95,
+обязательный batch64, `T(2N)/T(N) <= 2.5`, p95 `<= 50 ms` и last/first `<= 2`. Сам wall-clock
+performance не помещается в обычный unit suite: enforcing runner выполняется Windows quality gate
+на `50k/100k/1M` и сохраняет JSON artifact.
+
+Минимальный correctness-запуск:
 
 ```bash
-python -m pytest -q tests/test_acquisition.py tests/test_wits0_acquisition.py \
+python -m pytest -q tests/test_acquisition.py tests/test_acquisition_replay_memory.py \
+  tests/test_acquisition_benchmark.py tests/test_wits0_acquisition.py \
   tests/test_etp12_acquisition.py tests/test_acquisition_codec.py
-python benchmarks/benchmark_acquisition.py 50000 100000
 ```
 
-Benchmark является диагностическим для PERF-01; обязательные scaling/p95/RSS thresholds остаются
-отдельной незакрытой задачей PERF-03.
+Воспроизводимый performance-run:
+
+```powershell
+python benchmarks/benchmark_acquisition.py --json
+```
+
+Quality gate сохраняет результат как
+`build/ci-artifacts/quality/acquisition-benchmark.txt`. Каждый размер запускается в отдельном
+worker-процессе; p95 и first/last сравниваются по полным batch64. Batch-aligned окно содержит
+`157 × 64 = 10 048` строк, поэтому partial tail не искажает последнюю метрику. Peak RSS
+фиксируется для наблюдения, но PERF-03 не задаёт отдельный RSS threshold.
+
+Принятый Windows baseline release-gate #886: 50k/100k/1M — `3.504 / 7.027 / 70.605 s`,
+p95 batch64 — `4.684 / 4.663 / 4.640 ms`, last/first — `1.017 / 1.008 / 0.988`;
+`T(100k)/T(50k)=2.005`, violations отсутствуют.
 
 ## 11. Регрессия GeoScape2/GS2 временного планшета
 

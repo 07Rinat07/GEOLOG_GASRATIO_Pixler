@@ -5,6 +5,20 @@
 
 ## Unreleased
 
+- `PERF-03` добавляет обязательный deterministic acquisition benchmark на 50k/100k/1M с
+  production `enqueue_many()+drain()` batch64, отдельными worker-процессами и retained JSON.
+  Enforcing gate фиксирует `T(2N)/T(N) <= 2.5`, p95 batch64 `<= 50 ms` и last/first 10k `<= 2`;
+  peak RSS сохраняется как наблюдаемая метрика. Windows release-gate #886 на code head
+  `112d4bb4` прошёл без violations: 50k/100k/1M — `3.504/7.027/70.605 s`, p95 —
+  `4.684/4.663/4.640 ms`, last/first — `1.017/1.008/0.988`, peak RSS —
+  `69.6/107.9/784.5 MiB`; `T(100k)/T(50k)=2.005`.
+- `PERF-02` завершён merge PR #68 после release-gate #882: acquisition replay больше не
+  `deepcopy`-ит всю `Well`; fresh staging не копирует unrelated datasets, checkpoint resume
+  копирует только изменяемый acquisition Dataset, а immutable journal/checkpoints/events
+  переиспользуются через новые контейнеры с сохранением transactional fail-closed поведения.
+- `PROJ-04` завершён merge PR #67 после release-gate #880: GS2 включён в единый source registry
+  вместе с LAS, а отдельный daily append получил транзакционный rollback Dataset/source registry
+  при ошибке без частичной регистрации source.
 - Для `GAS-08` добавлен детерминированный release-gate производительности conditioning/Gas Ratio
   на 100k и 1M строк с тремя повторениями, median wall time, отдельными worker-процессами,
   OS-level peak RSS, SHA-256 проверкой неизменности входов и absolute/scaling guardrails.
