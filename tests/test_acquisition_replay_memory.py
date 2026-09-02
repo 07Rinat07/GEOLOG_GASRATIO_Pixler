@@ -76,7 +76,7 @@ def test_fresh_replay_does_not_deepcopy_well_or_unrelated_datasets(monkeypatch) 
     unrelated = _unrelated_dataset()
     target_well.datasets[unrelated.dataset_id] = unrelated
 
-    def unexpected_deepcopy(value):
+    def unexpected_deepcopy(value: object) -> object:
         raise AssertionError(f"fresh replay must not deepcopy {type(value).__name__}")
 
     monkeypatch.setattr(acquisition_module, "deepcopy", unexpected_deepcopy)
@@ -111,7 +111,7 @@ def test_checkpoint_resume_copies_only_acquisition_dataset_and_reuses_immutable_
 
     copied_types: list[type[object]] = []
 
-    def scoped_deepcopy(value):
+    def scoped_deepcopy(value: object) -> object:
         copied_types.append(type(value))
         assert isinstance(value, Dataset)
         assert value.dataset_id == "live-dataset"
