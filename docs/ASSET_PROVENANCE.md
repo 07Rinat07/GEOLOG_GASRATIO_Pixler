@@ -32,23 +32,35 @@ python tools/check_asset_provenance.py
 
 Она завершается успешно только когда:
 
-- присутствует provenance record для каждой встроенной lithology/symbol коллекции;
-- schema, `kind` и `source_archives` совпадают с существующим asset manifest;
+- каждый каталог `constructor_assets/*` имеет собственный `manifest.json`;
+- каждый обнаруженный `constructor_assets/*/manifest.json` покрыт ровно одной provenance записью;
+- нет loose-файлов непосредственно в корне `constructor_assets` вне коллекции;
+- schema, `kind` и `source_archives` provenance записи совпадают с существующим asset manifest;
 - source archive lists состоят только из уникальных непустых строк;
 - asset IDs в каждом manifest уникальны, а asset-level `source_archives` являются подмножеством
   archive list своей коллекции;
 - все `asset_path` и `thumbnail_path`, перечисленные в manifests, остаются внутри каталога именно
   своей коллекции, существуют и не дублируются между разными asset records одного типа пути;
+- development tree `resources/constructor_assets` и реально пакуемый tree
+  `src/geoworkbench/resources/constructor_assets` имеют одинаковый набор файлов и совпадают
+  побайтово по SHA-256;
 - нет неизвестного `review_status`;
 - запись со статусом `cleared` содержит непустые строковые `rights_holder`, `license_basis` и
   `evidence_reference`.
 
-Таким образом, подмена provenance полями другого типа, path traversal или ссылка lithology
-manifest на shipped symbol file не могут использоваться для получения зелёного coverage gate.
+Список коллекций не захардкожен в validator: он строится из фактически пакуемых manifests.
+Поэтому добавление новой папки с `manifest.json` без provenance записи, появление каталога без
+manifest или drift только одной из двух копий assets делает gate красным. Подмена provenance
+полями другого типа, path traversal или ссылка lithology manifest на shipped symbol file также
+не могут использоваться для получения зелёного coverage gate.
 
-Release workflow запускает этот coverage gate в Windows security job. Добавление новой
-коллекции или изменение source archive без синхронного provenance update должно сделать CI
-красным.
+`asset-provenance.json` находится на верхнем уровне `src/geoworkbench/resources`, который уже
+включён в package-data шаблоном `resources/*.json`; regression test фиксирует этот packaging
+contract.
+
+Release workflow запускает coverage gate в Windows security job. Изменение source archive,
+структуры shipped collections или development/package parity без синхронного provenance update
+должно сделать CI красным.
 
 ## Строгая проверка clearance
 
