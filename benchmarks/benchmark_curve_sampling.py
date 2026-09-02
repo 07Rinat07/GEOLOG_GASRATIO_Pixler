@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import argparse
-import ctypes
 import json
 import os
 from pathlib import Path
-import resource
 import subprocess
 import sys
 from time import perf_counter
@@ -19,6 +17,7 @@ from geoworkbench.tablet.geometry_cache import CurveGeometryCache, CurveGeometry
 DEFAULT_SIZES = (1_000_000, 5_000_000, 10_000_000)
 DEFAULT_MAX_POINTS = 4096
 DEFAULT_CACHE_BYTES = 64 * 1024 * 1024
+BYTES_PER_MIB = 1024.0 * 1024.0
 
 
 def _key(*, top: float, bottom: float, max_points: int) -> CurveGeometryKey:
@@ -34,39 +33,61 @@ def _key(*, top: float, bottom: float, max_points: int) -> CurveGeometryKey:
     )
 
 
-def _peak_rss_mib() -> float:
+def _peak_rss_bytes() -> int:
     if os.name == "nt":
-        class ProcessMemoryCounters(ctypes.Structure):
-            _fields_ = [
-                ("cb", ctypes.c_ulong),
-                ("PageFaultCount", ctypes.c_ulong),
-                ("PeakWorkingSetSize", ctypes.c_size_t),
-                ("WorkingSetSize", ctypes.c_size_t),
-                ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
-                ("QuotaPagedPoolUsage", ctypes.c_size_t),
-                ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
-                ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
-                ("PagefileUsage", ctypes.c_size_t),
-                ("PeakPagefileUsage", ctypes.c_size_t),
-            ]
+        return _windows_peak_rss_bytes()
 
-        counters = ProcessMemoryCounters()
-        counters.cb = ctypes.sizeof(counters)
-        process = ctypes.windll.kernel32.GetCurrentProcess()
-        ok = ctypes.windll.psapi.GetProcessMemoryInfo(
-            process, ctypes.byref(counters), counters.cb
-        )
-        if not ok:
-            raise OSError("GetProcessMemoryInfo failed")
-        return float(counters.PeakWorkingSetSize) / (1024.0 * 1024.0)
+    import resource
 
-    peak = float(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+    peak = int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
     if sys.platform == "darwin":
-        return peak / (1024.0 * 1024.0)
-    return peak / 1024.0
+        return peak
+    return peak * 1024
 
 
-def _measure(rows: int, *, max_points: int, cache_bytes: int) -> dict[str, Any]:
+def _windows_peak_rss_bytes() -> int:
+    import ctypes
+    from ctypes import wintypes
+
+    class ProcessMemoryCounters(ctypes.Structure):
+        _fields_ = [
+            ("cb", wintypes.DWORD),
+            ("PageFaultCount", wintypes.DWORD),
+            ("PeakWorkingSetSize", ctypes.c_size_t),
+            ("WorkingSetSize", ctypes.c_size_t),
+            ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
+            ("QuotaPagedPoolUsage", ctypes.c_size_t),
+            ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
+            ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+            ("PagefileUsage", ctypes.c_size_t),
+            ("PeakPagefileUsage", ctypes.c_size_t),
+        ]
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    psapi = ctypes.WinDLL("psapi", use_last_error=True)
+    kernel32.GetCurrentProcess.restype = wintypes.HANDLE
+    psapi.GetProcessMemoryInfo.argtypes = [
+        wintypes.HANDLE,
+        ctypes.POINTER(ProcessMemoryCounters),
+        wintypes.DWORD,
+    ]
+    psapi.GetProcessMemoryInfo.restype = wintypes.BOOL
+
+    counters = ProcessMemoryCounters()
+    counters.cb = ctypes.sizeof(counters)
+    process = kernel32.GetCurrentProcess()
+    if not psapi.GetProcessMemoryInfo(process, ctypes.byref(counters), counters.cb):
+        error_code = ctypes.get_last_error()
+        raise OSError(error_code, "GetProcessMemoryInfo failed")
+    return int(counters.PeakWorkingSetSize)
+
+
+def run_benchmark_worker(
+    rows: int,
+    *,
+    max_points: int = DEFAULT_MAX_POINTS,
+    cache_bytes: int = DEFAULT_CACHE_BYTES,
+) -> dict[str, Any]:
     depth = np.linspace(0.0, 20_000.0, rows, dtype=np.float64)
     values = depth.copy()
     values /= 30.0
@@ -78,18 +99,18 @@ def _measure(rows: int, *, max_points: int, cache_bytes: int) -> dict[str, Any]:
 
     started = perf_counter()
     cold = cache.get_or_build(full_key, depth, values)
-    cold_ms = (perf_counter() - started) * 1000.0
+    cold_ms = (perf_counter() - started) * 1_000.0
 
     started = perf_counter()
     hit = cache.get_or_build(full_key, depth, values)
-    hit_ms = (perf_counter() - started) * 1000.0
+    hit_ms = (perf_counter() - started) * 1_000.0
     if hit is not cold:
         raise AssertionError("cache hit did not reuse the cached geometry")
 
     zoom_key = _key(top=9_000.0, bottom=11_000.0, max_points=max_points)
     started = perf_counter()
     zoom = cache.get_or_build(zoom_key, depth, values)
-    zoom_ms = (perf_counter() - started) * 1000.0
+    zoom_ms = (perf_counter() - started) * 1_000.0
 
     stats = cache.stats()
     result: dict[str, Any] = {
@@ -106,13 +127,13 @@ def _measure(rows: int, *, max_points: int, cache_bytes: int) -> dict[str, Any]:
         "cache_hits": stats.hits,
         "cache_misses": stats.misses,
         "cache_evictions": stats.evictions,
-        "peak_rss_mib": _peak_rss_mib(),
+        "peak_rss_mib": _peak_rss_bytes() / BYTES_PER_MIB,
     }
-    _enforce_structural_contract(result)
+    evaluate_result(result)
     return result
 
 
-def _enforce_structural_contract(result: dict[str, Any]) -> None:
+def evaluate_result(result: dict[str, Any]) -> None:
     if result["cache_current_bytes"] > result["cache_max_bytes"]:
         raise AssertionError("geometry cache exceeded its byte budget")
     if result["cache_hits"] != 1 or result["cache_misses"] != 2:
@@ -125,8 +146,13 @@ def _enforce_structural_contract(result: dict[str, Any]) -> None:
         raise AssertionError("peak RSS measurement is unavailable")
 
 
-def _worker_command(rows: int, max_points: int, cache_bytes: int) -> list[str]:
-    return [
+def run_isolated_benchmark(
+    rows: int,
+    *,
+    max_points: int = DEFAULT_MAX_POINTS,
+    cache_bytes: int = DEFAULT_CACHE_BYTES,
+) -> dict[str, Any]:
+    command = [
         sys.executable,
         str(Path(__file__).resolve()),
         "--worker-rows",
@@ -136,16 +162,41 @@ def _worker_command(rows: int, max_points: int, cache_bytes: int) -> list[str]:
         "--cache-bytes",
         str(cache_bytes),
     ]
-
-
-def _run_isolated(rows: int, *, max_points: int, cache_bytes: int) -> dict[str, Any]:
+    environment = os.environ.copy()
+    environment["PYTHONUTF8"] = "1"
     completed = subprocess.run(
-        _worker_command(rows, max_points, cache_bytes),
-        check=True,
+        command,
+        check=False,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
+        env=environment,
     )
-    return json.loads(completed.stdout)
+    if completed.returncode != 0:
+        details = completed.stderr.strip() or completed.stdout.strip() or "unknown worker failure"
+        raise RuntimeError(f"Curve benchmark worker failed for {rows:,} rows: {details}")
+    try:
+        payload = json.loads(completed.stdout)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(
+            f"Curve benchmark worker returned invalid JSON for {rows:,} rows: "
+            f"{completed.stdout!r}"
+        ) from exc
+    if not isinstance(payload, dict):
+        raise RuntimeError(f"Curve benchmark worker returned non-object JSON for {rows:,}")
+    return payload
+
+
+def _parse_sizes(value: str) -> tuple[int, ...]:
+    sizes = tuple(int(item.strip()) for item in value.split(",") if item.strip())
+    if not sizes:
+        raise argparse.ArgumentTypeError("at least one benchmark size is required")
+    if len(set(sizes)) != len(sizes):
+        raise argparse.ArgumentTypeError("benchmark sizes must be unique")
+    if any(size < 1 for size in sizes):
+        raise argparse.ArgumentTypeError("benchmark sizes must be positive")
+    return sizes
 
 
 def _positive_int(value: str) -> int:
@@ -155,46 +206,45 @@ def _positive_int(value: str) -> int:
     return parsed
 
 
-def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Benchmark revision-aware tablet geometry cache cold/hit/zoom paths."
-    )
-    parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
+def _build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Tablet geometry PERF-04 benchmark")
     parser.add_argument(
         "--sizes",
-        nargs="+",
-        type=_positive_int,
-        default=list(DEFAULT_SIZES),
-        help="input sample counts; default: 1M 5M 10M",
+        type=_parse_sizes,
+        default=DEFAULT_SIZES,
+        help="comma-separated row counts; default: 1000000,5000000,10000000",
     )
     parser.add_argument("--max-points", type=_positive_int, default=DEFAULT_MAX_POINTS)
     parser.add_argument("--cache-bytes", type=_positive_int, default=DEFAULT_CACHE_BYTES)
-    parser.add_argument("--worker-rows", type=_positive_int, help=argparse.SUPPRESS)
-    return parser.parse_args()
+    parser.add_argument("--json", action="store_true")
+    parser.add_argument("--worker-rows", type=int, default=None, help=argparse.SUPPRESS)
+    return parser
 
 
-def main() -> None:
-    args = _parse_args()
+def main(argv: list[str] | None = None) -> int:
+    args = _build_parser().parse_args(argv)
     if args.worker_rows is not None:
-        print(
-            json.dumps(
-                _measure(
-                    args.worker_rows,
-                    max_points=args.max_points,
-                    cache_bytes=args.cache_bytes,
-                ),
-                sort_keys=True,
-            )
+        if args.worker_rows < 1:
+            raise ValueError("worker rows must be positive")
+        result = run_benchmark_worker(
+            args.worker_rows,
+            max_points=args.max_points,
+            cache_bytes=args.cache_bytes,
         )
-        return
+        print(json.dumps(result, sort_keys=True))
+        return 0
 
     results = [
-        _run_isolated(rows, max_points=args.max_points, cache_bytes=args.cache_bytes)
+        run_isolated_benchmark(
+            rows,
+            max_points=args.max_points,
+            cache_bytes=args.cache_bytes,
+        )
         for rows in args.sizes
     ]
     payload = {
         "contract": {
-            "sizes": args.sizes,
+            "sizes": list(args.sizes),
             "max_points": args.max_points,
             "cache_max_bytes": args.cache_bytes,
             "timing_thresholds": None,
@@ -202,16 +252,16 @@ def main() -> None:
         "results": results,
     }
     if args.json:
-        print(json.dumps(payload, indent=2, sort_keys=True))
-        return
-
-    for result in results:
-        print(
-            "rows={input_rows} cold={cold_ms:.3f}ms hit={hit_ms:.3f}ms "
-            "zoom={zoom_ms:.3f}ms cache={cache_current_bytes}/{cache_max_bytes}B "
-            "peak_rss={peak_rss_mib:.1f}MiB".format(**result)
-        )
+        print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
+    else:
+        for result in results:
+            print(
+                "rows={input_rows:,} cold={cold_ms:.3f}ms hit={hit_ms:.3f}ms "
+                "zoom={zoom_ms:.3f}ms cache={cache_current_bytes}/{cache_max_bytes}B "
+                "peak_rss={peak_rss_mib:.1f}MiB".format(**result)
+            )
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
