@@ -11,6 +11,8 @@ from geoworkbench.tablet.derived_gas_sampling import select_derived_gas_samples
 from geoworkbench.tablet.sampling import select_visible_samples
 
 
+DEFAULT_CURVE_GEOMETRY_CACHE_MAX_BYTES = 64 * 1024 * 1024
+
 _PARADOX_SPARSE_TIME_AXIS_SUFFIXES = (
     ":paradox-datetime",
     ":paradox-elapsed",
@@ -120,26 +122,57 @@ class GeometryCacheStats:
         return self.hits / self.requests if self.requests else 0.0
 
 
-class CurveGeometryCache:
-    """Small LRU cache for peak-preserving viewport geometry."""
+Geometry = tuple[NDArray[np.float64], NDArray[np.float64]]
 
-    def __init__(self, *, max_entries: int = 256) -> None:
+
+class CurveGeometryCache:
+    """LRU cache for sampled viewport geometry with a hard NumPy byte budget.
+
+    ``max_bytes`` accounts for the payload owned by cached NumPy arrays. Python
+    object/key/``OrderedDict`` overhead is implementation-dependent and remains
+    bounded separately by ``max_entries``.
+    """
+
+    def __init__(
+        self,
+        *,
+        max_entries: int = 256,
+        max_bytes: int = DEFAULT_CURVE_GEOMETRY_CACHE_MAX_BYTES,
+    ) -> None:
         if max_entries < 1:
             raise ValueError("Размер кэша геометрии должен быть положительным")
-        self._max_entries = max_entries
-        self._entries: OrderedDict[
-            CurveGeometryKey, tuple[NDArray[np.float64], NDArray[np.float64]]
-        ] = OrderedDict()
+        if max_bytes < 1:
+            raise ValueError("Бюджет кэша геометрии должен быть положительным")
+        self._max_entries = int(max_entries)
+        self._max_bytes = int(max_bytes)
+        self._current_bytes = 0
+        self._entries: OrderedDict[CurveGeometryKey, Geometry] = OrderedDict()
         self._hits = 0
         self._misses = 0
         self._evictions = 0
+
+    @property
+    def max_entries(self) -> int:
+        return self._max_entries
+
+    @property
+    def max_bytes(self) -> int:
+        return self._max_bytes
+
+    @property
+    def current_bytes(self) -> int:
+        return self._current_bytes
+
+    @property
+    def entry_count(self) -> int:
+        return len(self._entries)
 
     def get_or_build(
         self,
         key: CurveGeometryKey,
         axis: NDArray[np.float64],
         values: NDArray[np.float64],
-    ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    ) -> Geometry:
         cached = self._entries.get(key)
         if cached is not None:
             self._hits += 1
@@ -173,20 +206,27 @@ class CurveGeometryCache:
         sampled_values.setflags(write=False)
         sampled_axis.setflags(write=False)
         geometry = (sampled_values, sampled_axis)
+        geometry_bytes = _geometry_nbytes(geometry)
+
+        # A single pathological viewport must never evict the whole cache and
+        # then remain resident above the configured hard payload budget.
+        if geometry_bytes > self._max_bytes:
+            return geometry
+
         self._entries[key] = geometry
+        self._current_bytes += geometry_bytes
         self._entries.move_to_end(key)
-        while len(self._entries) > self._max_entries:
-            self._entries.popitem(last=False)
-            self._evictions += 1
+        self._evict_to_budget()
         return geometry
 
     def clear(self) -> None:
         self._entries.clear()
+        self._current_bytes = 0
 
     def invalidate_curve(self, curve_id: Hashable) -> int:
         keys = [key for key in self._entries if key.curve_id == curve_id]
         for key in keys:
-            del self._entries[key]
+            self._remove(key, count_eviction=False)
         return len(keys)
 
     def stats(self) -> GeometryCacheStats:
@@ -196,3 +236,19 @@ class CurveGeometryCache:
             evictions=self._evictions,
             entries=len(self._entries),
         )
+
+    def _evict_to_budget(self) -> None:
+        while len(self._entries) > self._max_entries or self._current_bytes > self._max_bytes:
+            key = next(iter(self._entries))
+            self._remove(key, count_eviction=True)
+
+    def _remove(self, key: CurveGeometryKey, *, count_eviction: bool) -> None:
+        geometry = self._entries.pop(key)
+        self._current_bytes -= _geometry_nbytes(geometry)
+        if count_eviction:
+            self._evictions += 1
+
+
+def _geometry_nbytes(geometry: Geometry) -> int:
+    values, axis = geometry
+    return int(values.nbytes + axis.nbytes)
