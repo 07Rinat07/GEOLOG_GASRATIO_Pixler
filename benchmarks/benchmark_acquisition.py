@@ -147,7 +147,7 @@ def _window_total_ms(batch_durations_ms: list[float]) -> tuple[float, float]:
     window_batches = math.ceil(WINDOW_ROWS / BATCH_SIZE)
     if len(batch_durations_ms) < window_batches * 2:
         raise ValueError(
-            f"benchmark requires at least {window_batches * 2} batches for first/last windows"
+            f"benchmark requires at least {window_batches * 2} full batches for first/last windows"
         )
     return (
         sum(batch_durations_ms[:window_batches]),
@@ -242,7 +242,7 @@ def run_benchmark_worker(rows: int) -> AcquisitionBenchmarkResult:
     if len(controller.dataset.depth) != rows:
         raise AssertionError("acquisition benchmark dataset row count diverged")
 
-    first_window_ms, last_window_ms = _window_total_ms(batch_durations_ms)
+    first_window_ms, last_window_ms = _window_total_ms(full_batch_durations_ms)
     total_seconds = sum(batch_durations_ms) / 1_000.0
     return AcquisitionBenchmarkResult(
         rows=rows,
