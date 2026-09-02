@@ -1,10 +1,13 @@
-# Производительность расчётов бурового газа
+# Производительность
 
-Этот документ фиксирует воспроизводимый performance-контракт для кондиционирования C1-C5 и
-производных Gas Ratio/Pixler/Haworth кривых. Он относится к задаче `GAS-08` из
-[PROJECT_PLAN.md](PROJECT_PLAN.md) и не меняет математические формулы расчёта.
+Этот документ фиксирует воспроизводимые performance-контракты для ресурсоёмких production paths.
+Контракт `GAS-08` относится к кондиционированию C1-C5 и производным Gas Ratio/Pixler/Haworth;
+контракт `PERF-03` — к длительному acquisition append. Математические формулы расчёта здесь не
+дублируются и не изменяются.
 
-## Что измеряется
+## GAS-08 — кондиционирование и Gas Ratio
+
+### Что измеряется
 
 Канонический runner: `benchmarks/benchmark_gas_conditioning.py`.
 
@@ -30,7 +33,7 @@
 Исходные массивы дополнительно проверяются по SHA-256 до и после расчёта. Benchmark считается
 некорректным, если production pipeline изменил входные `depth` или gas arrays in-place.
 
-## Почему каждый размер запускается отдельно
+### Почему каждый размер запускается отдельно
 
 Peak RSS — lifetime maximum процесса. Если 100k и 1M измерять последовательно в одном процессе,
 первый сценарий может загрязнить результат второго. Поэтому основной runner создаёт отдельный
@@ -41,7 +44,7 @@ NumPy/SciPy, которую `tracemalloc` не видит полностью.
 На Windows используется `GetProcessMemoryInfo(...).PeakWorkingSetSize`; на POSIX —
 `resource.getrusage(...).ru_maxrss` с нормализацией единиц.
 
-## Release-gate
+### Release-gate
 
 Pull request и push в `main` выполняют benchmark через `.github/workflows/release-gate.yml`.
 Полный JSON сохраняется в artifact качества как:
@@ -63,7 +66,7 @@ python benchmarks/benchmark_gas_conditioning.py --json --no-enforce
 `--no-enforce` допустим только для локального профилирования. Release-gate всегда запускает
 обычный enforcing mode.
 
-## Начальные guardrails
+### Начальные guardrails
 
 Первый hardware-independent gate использует широкие абсолютные пределы и отдельную проверку
 масштабирования. Они предназначены для обнаружения material regression, а не для сравнения
@@ -82,7 +85,7 @@ python benchmarks/benchmark_gas_conditioning.py --json --no-enforce
 Для канонических 100k → 1M это означает явный запрет на очевидно сверхлинейное поведение без
 изменения production-формул.
 
-## Принятый Windows baseline
+### Принятый Windows baseline
 
 Первой принятой точкой является Windows release-gate run `#844` для commit
 `8f3bb773423ea30a273bf77994a62850118bffe9` от 2 сентября 2026 года. Gate завершился успешно,
@@ -98,7 +101,7 @@ python benchmarks/benchmark_gas_conditioning.py --json --no-enforce
 Для сравнения последующих изменений используется полный JSON artifact, а округлённые значения в
 таблице служат читаемой зафиксированной reference point.
 
-## Правило изменения baseline
+### Правило изменения baseline GAS-08
 
 Принятый Windows release-gate JSON является исходной наблюдаемой точкой для дальнейших
 сравнений. Любое последующее изменение benchmark fixture, сценария, числа повторений или
@@ -115,9 +118,79 @@ guardrails должно обновляться в одном PR вместе с 
 Absolute guardrails можно только ослаблять с явным техническим обоснованием в PR. Улучшения
 производительности допускают ratchet вниз после нескольких повторяемых Windows CI прогонов.
 
+## PERF-03 — длительный acquisition append
+
+Канонический runner: `benchmarks/benchmark_acquisition.py`. Он создаёт детерминированную GTI
+session с depth index, Total Gas и ROP и прогоняет `50 000`, `100 000` и `1 000 000` записей.
+Каждый размер выполняется в отдельном worker-процессе, поэтому peak RSS одного сценария не
+загрязняется предыдущим.
+
+Измеряемый production hot path — только `AcquisitionController.enqueue_many()` и
+`AcquisitionController.drain()` с `batch_size=64`. Конструирование входных `AcquisitionRecord`
+в таймер не входит. Apply-results удерживаются только на время текущего batch; append-only journal
+session при этом естественно растёт до полного размера и участвует в long-session проверке.
+
+Latency p95 рассчитывается nearest-rank методом только по полным batch64. Сравнение начала и конца
+session использует одинаковые batch-aligned окна по `157 × 64 = 10 048` строк; это намеренно
+чуть больше номинальных 10k, чтобы partial tail не улучшал последнюю метрику искусственно.
+Peak RSS фиксируется как наблюдаемая диагностическая метрика, но PERF-03 не задаёт для него
+отдельный release threshold.
+
+### Enforcing guardrails PERF-03
+
+Release gate считается неуспешным при любом из условий:
+
+- для доступной пары `N → 2N`: `T(2N) / T(N) > 2.5`;
+- p95 полного batch64 `> 50 ms`;
+- отношение суммарного времени последнего/первого batch-aligned окна `> 2.0`;
+- benchmark фактически использовал batch size, отличный от 64.
+
+По умолчанию матрица содержит 50k/100k/1M, поэтому прямой doubled-size guard применяется к
+50k → 100k. 1M дополнительно покрывает длительную session, p95, last/first и наблюдаемую память.
+
+Quality artifact:
+
+`build/ci-artifacts/quality/acquisition-benchmark.txt`
+
+Команды:
+
+```powershell
+python benchmarks/benchmark_acquisition.py --json
+python benchmarks/benchmark_acquisition.py --json --no-enforce
+```
+
+`--no-enforce` предназначен только для локального исследования; Windows release gate использует
+enforcing mode.
+
+### Принятый Windows baseline PERF-03
+
+Первой принятой точкой является Release gate `#886` для code head
+`112d4bb488515c06aaaa0580ebf51636a35c7136` от 2 сентября 2026 года. Все quality, security и
+GUI/HiDPI/PDF jobs завершились успешно; исходный JSON сохранён в artifact
+`release-quality-33661028295`.
+
+| Набор | Timed total | Throughput | p95 batch64 | First window | Last window | Last/first | Peak RSS |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 50 000 | 3.504 s | 14 267 rows/s | 4.684 ms | 699.652 ms | 711.888 ms | 1.017 | 69.6 MiB |
+| 100 000 | 7.027 s | 14 231 rows/s | 4.663 ms | 688.363 ms | 694.121 ms | 1.008 | 107.9 MiB |
+| 1 000 000 | 70.605 s | 14 163 rows/s | 4.640 ms | 691.953 ms | 683.928 ms | 0.988 | 784.5 MiB |
+
+Для 50k → 100k `T(2N)/T(N)=2.005`, то есть меньше лимита `2.5`. Максимальный наблюдённый p95
+составил `4.684 ms` против лимита `50 ms`, а максимальный last/first — `1.017` против `2.0`.
+В baseline JSON список `violations` пуст.
+
+### Правило изменения baseline PERF-03
+
+Изменение fixture, timed region, batch size, percentile method, размера first/last window или
+любого enforcing guardrail выполняется только вместе с обновлением этого документа и
+`PROJECT_PLAN.md`. Ослабление guardrail требует явного технического обоснования; локальный
+`--no-enforce` не является доказательством прохождения release criteria. Peak RSS может получить
+отдельный enforcing budget только отдельным плановым инкрементом, а не задним числом внутри
+PERF-03.
+
 ## Границы ответственности
 
-Benchmark не является заменой correctness-тестам. Он не меняет и не дублирует алгоритмы из
-`src/geoworkbench/calculations/`; расчётные функции остаются единственным production source of
-truth. Performance runner отвечает только за fixture, измерение, проверку immutable inputs и
-регрессионный gate.
+Benchmarks не заменяют correctness-тесты и не дублируют production-алгоритмы. GAS runner отвечает
+за fixture, измерение и immutable-input checks вокруг расчётного pipeline. Acquisition runner
+отвечает за детерминированную нагрузку, измерение production controller и enforcement
+performance-контракта; источником истины для append/replay остаётся application service.
