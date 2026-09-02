@@ -22,11 +22,15 @@ release plan и временные планы в `docs` не создаются.
    сгенерированные artifacts или локальные пользовательские данные.
 7. `main` остаётся пригодным для запуска. Большой рефакторинг делится на обратимо проверяемые
    инкременты; совместимость сериализуемых форматов не меняется без миграции.
+8. **«Ближайший порядок работ» содержит только незавершённые задачи.** После интеграции задача
+   удаляется из активной очереди, остаётся отмеченной `[x]` в тематическом разделе и фиксируется
+   в `CHANGELOG.md`. Работа в открытом PR не считается завершённой до merge в целевую ветку.
 
 ## Ближайший порядок работ
 
-1. **GAS-07** — golden dataset и end-to-end acceptance baseline для source/conditioned/derived,
-   screen segments и PDF pages на интервале `1703.28–1753.28 м`.
+1. **GAS-07** — реализация golden dataset и end-to-end acceptance baseline готова в PR #60,
+   все применимые automated gates зелёные; задача остаётся активной до merge в `main` и
+   последующей отметки `[x]` в тематическом разделе.
 2. **GAS-08** — deterministic benchmark conditioning/ratios на 100k и 1M строк с bounded RSS.
 3. **REL-03 / CUT-03** — реальная Windows GUI/HiDPI/PDF/physical-printer matrix и физическая
    печать длинных rich-text описаний/фотографий.
@@ -129,8 +133,10 @@ release plan и временные планы в `docs` не создаются.
   набор и структура mud log сверены с официальными материалами SLB.
 - [x] **GAS-06:** сохранять структурированный QC provenance conditioning в проекте и показывать
   оператору количество/диапазоны восстановленных точек без изменения исходного LAS.
-- [ ] **GAS-07:** добавить обезличенный golden dataset для интервала `1703.28–1753.28 м` и
-  реальных sparse C1–C5: сравнивать source, conditioned, derived, screen segments и PDF pages.
+- [ ] **GAS-07:** обезличенный golden dataset для интервала `1703.28–1753.28 м` и sparse C1–C5
+  реализован в PR #60; production acceptance сравнивает source, conditioned, derived, screen
+  segments, scale bounds и PDF pages, все automated gates зелёные. `[x]` ставится только после
+  merge в `main`.
 - [ ] **GAS-08:** закрепить benchmark conditioning/ratios на 100k и 1M строк: линейное
   масштабирование, ограниченный peak RSS и отсутствие покадрового пересчёта при scroll/zoom.
 
