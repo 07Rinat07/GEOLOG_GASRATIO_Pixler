@@ -88,6 +88,14 @@ def _discover_collection_manifests(root: Path = CONSTRUCTOR_ASSETS) -> dict[str,
     }
 
 
+def _collection_dirs(root: Path = CONSTRUCTOR_ASSETS) -> set[str]:
+    """Return immediate constructor collection directory names."""
+
+    if not root.is_dir():
+        return set()
+    return {path.name for path in root.iterdir() if path.is_dir()}
+
+
 def _sha256_file(path: Path) -> str:
     digest = sha256()
     with path.open("rb") as stream:
@@ -165,11 +173,7 @@ def validate_provenance(path: Path = DEFAULT_PROVENANCE) -> tuple[list[str], lis
     if not discovered:
         errors.append("no packaged constructor asset manifests were discovered")
 
-    collection_dirs = {
-        path.parent.name
-        for path in CONSTRUCTOR_ASSETS.iterdir()
-        if path.is_dir()
-    } if CONSTRUCTOR_ASSETS.is_dir() else set()
+    collection_dirs = _collection_dirs()
     manifests_by_dir = {path.parent.name for path in discovered.values()}
     missing_manifests = sorted(collection_dirs - manifests_by_dir)
     if missing_manifests:
