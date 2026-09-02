@@ -128,6 +128,7 @@ AUTOMATED_CASES = (
         widget_width=900,
         widget_height=620,
         language="ru",
+        widget_kind="physical_acceptance",
     ),
     MatrixCase(
         case_id="a3-landscape-fit",
@@ -635,71 +636,34 @@ def _run_case(app, case: MatrixCase, output_dir: Path) -> CaseResult:
 def _build_acceptance_widget(case: MatrixCase):
     if case.widget_kind == "tablet":
         return _build_acceptance_tablet(case)
+    if case.widget_kind == "physical_acceptance" or case.case_id.startswith("physical-"):
+        from tools.physical_print_acceptance_sheet import build_physical_acceptance_widget
+
+        return build_physical_acceptance_widget(case)
     if case.widget_kind != "label":
         raise ValueError(f"unsupported acceptance widget kind: {case.widget_kind}")
 
     from PySide6.QtCore import Qt
-    from PySide6.QtGui import QFont, QImage, QPainter
-    from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
-
-    widget = QWidget()
-    widget.setObjectName("physicalAcceptanceSheet")
-    widget.resize(case.widget_width, case.widget_height)
-    widget.setStyleSheet("QWidget#physicalAcceptanceSheet { background: white; color: black; }")
-    layout = QVBoxLayout(widget)
-    layout.setContentsMargins(28, 28, 28, 28)
+    from PySide6.QtGui import QFont
+    from PySide6.QtWidgets import QLabel
 
     label = QLabel(
         "GEOLOG GASRATIO@Pixler — Windows release acceptance\n"
-        "Custom heading: Описание пород / Тау жыныстарының сипаттамасы\n"
         f"Case: {case.case_id}\n"
-        "Interval: 1703.28–1753.28 m — boundaries must remain visible\n"
-        "Русский: длинное форматированное описание должно переноситься без обрезания; "
-        "тонкие прослои, нефтенасыщенность и трещиноватость сохраняются полностью.\n"
-        "Қазақша: ұзын сипаттама жолдарға дұрыс бөлініп, интервал шекарасынан шықпауы тиіс.\n"
-        "English: rich-text description must remain readable inside the interval bounds.\n"
-        "Colors: RED / GREEN / BLUE / BLACK — distinguish all swatches on paper."
+        "Русский: глубина, скважина, газовый каротаж\n"
+        "Қазақша: тереңдік, ұңғыма, Ә Ғ Қ Ң Ө Ұ Ү Һ І\n"
+        "English: depth, well, gas ratio and Pixler\n"
+        "Engineering: ΔP ± 0.5 · µg/L · Ω · φ · ρ · 10² · 10³\n"
+        "Continuation markers: 1 → 2 → 3 → 4 → 5"
     )
-    label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+    label.setAlignment(Qt.AlignmentFlag.AlignCenter)
     label.setWordWrap(True)
-    label.setFont(QFont("Segoe UI", 14))
+    label.setFont(QFont("Segoe UI", 18))
     label.setStyleSheet(
-        "QLabel { padding: 18px; border: 3px solid #202020; background: white; color: black; }"
+        "QLabel { padding: 32px; border: 3px solid #202020; background: white; color: black; }"
     )
-    layout.addWidget(label, 3)
-
-    photo = QLabel()
-    photo.setAlignment(Qt.AlignmentFlag.AlignCenter)
-    photo.setMinimumHeight(max(90, case.widget_height // 5))
-    image = QImage(720, 180, QImage.Format.Format_RGB32)
-    image.fill(Qt.GlobalColor.white)
-    painter = QPainter(image)
-    try:
-        swatches = (
-            (Qt.GlobalColor.red, "RED"),
-            (Qt.GlobalColor.green, "GREEN"),
-            (Qt.GlobalColor.blue, "BLUE"),
-            (Qt.GlobalColor.black, "CUTTINGS PHOTO / ФОТО ШЛАМА"),
-        )
-        width = image.width() // len(swatches)
-        for index, (color, text) in enumerate(swatches):
-            x = index * width
-            painter.fillRect(x + 8, 8, width - 16, image.height() - 16, color)
-            painter.setPen(Qt.GlobalColor.white)
-            painter.drawText(
-                x + 12,
-                12,
-                width - 24,
-                image.height() - 24,
-                Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
-                text,
-            )
-    finally:
-        painter.end()
-    photo.setPixmap(__import__("PySide6.QtGui", fromlist=["QPixmap"]).QPixmap.fromImage(image))
-    photo.setStyleSheet("QLabel { border: 3px solid #202020; background: white; }")
-    layout.addWidget(photo, 2)
-    return widget
+    label.resize(case.widget_width, case.widget_height)
+    return label
 
 
 def _build_acceptance_tablet(case: MatrixCase):
