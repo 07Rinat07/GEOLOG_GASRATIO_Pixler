@@ -26,6 +26,8 @@ artifacts workflow `.github/workflows/release-gate.yml`.
 - [TESTING.md](TESTING.md) — обязательный автоматический и Windows gate.
 - [PHYSICAL_PRINT_ACCEPTANCE.md](PHYSICAL_PRINT_ACCEPTANCE.md) — ручной REL-03/CUT-03 gate
   реального A4/A3 принтера и структурированное operator evidence.
+- [ASSET_PROVENANCE.md](ASSET_PROVENANCE.md) — SEC-05 inventory, provenance/license coverage
+  и строгий clearance gate встроенных lithology/symbol assets.
 - [PERFORMANCE.md](PERFORMANCE.md) — воспроизводимые performance-baselines и regression guardrails.
 - [CHANGELOG.md](CHANGELOG.md) — единая краткая история крупных изменений.
 - [DOCUMENTATION_POLICY.md](DOCUMENTATION_POLICY.md) — правила порядка и актуальности.
