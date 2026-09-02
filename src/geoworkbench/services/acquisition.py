@@ -763,6 +763,51 @@ class AcquisitionController:
             raise AcquisitionConflictError("Acquisition session уже закрыта")
 
 
+def _replay_working_well(
+    source: AcquisitionSession,
+    target_well: Well,
+    *,
+    checkpoint_id: str | None,
+) -> Well:
+    """Stage only mutable replay projection state instead of cloning the complete well.
+
+    Acquisition records, checkpoints and operational events are immutable domain objects, so the
+    staging transaction only needs new containers for them. A checkpoint resume deep-copies the
+    single materialized acquisition dataset because its NumPy arrays are mutated during replay.
+    Unrelated datasets and their arrays never enter the staging graph.
+    """
+
+    working_well = Well(target_well.well_id, target_well.name)
+    working_well.operational_events = dict(target_well.operational_events)
+    working_well.acquisition_sessions = dict(target_well.acquisition_sessions)
+
+    dataset_id = source.dataset_schema.dataset_id
+    if checkpoint_id is None:
+        existing_dataset = target_well.datasets.get(dataset_id)
+        if existing_dataset is not None:
+            working_well.datasets[dataset_id] = existing_dataset
+        return working_well
+
+    existing_dataset = target_well.datasets.get(dataset_id)
+    if existing_dataset is not None:
+        working_well.datasets[dataset_id] = deepcopy(existing_dataset)
+
+    existing_session = target_well.acquisition_sessions.get(source.session_id)
+    if existing_session is not None:
+        working_well.acquisition_sessions[source.session_id] = AcquisitionSession(
+            session_id=existing_session.session_id,
+            well_id=existing_session.well_id,
+            dataset_schema=existing_session.dataset_schema,
+            records=list(existing_session.records),
+            checkpoints=list(existing_session.checkpoints),
+            state=existing_session.state,
+            closed_at=existing_session.closed_at,
+            final_audit_digest=existing_session.final_audit_digest,
+            schema_version=existing_session.schema_version,
+        )
+    return working_well
+
+
 def replay_acquisition_session(
     source: AcquisitionSession,
     target_well: Well,
@@ -775,7 +820,11 @@ def replay_acquisition_session(
 
     if source.well_id != target_well.well_id:
         raise AcquisitionReplayError("Acquisition source относится к другой скважине")
-    working_well = deepcopy(target_well)
+    working_well = _replay_working_well(
+        source,
+        target_well,
+        checkpoint_id=checkpoint_id,
+    )
     start_sequence = 0
     try:
         if checkpoint_id is None:
@@ -854,7 +903,7 @@ def replay_acquisition_session(
             upserts += sum(item.events_upserted for item in results)
             deletes += sum(item.events_deleted for item in results)
 
-        target_session.checkpoints = deepcopy(source.checkpoints)
+        target_session.checkpoints = list(source.checkpoints)
         target_session.state = source.state
         target_session.closed_at = source.closed_at
         target_session.final_audit_digest = source.final_audit_digest
@@ -1080,8 +1129,8 @@ def _copy_dataset_projection(target: Dataset, source: Dataset) -> None:
 def _copy_session_state(target: AcquisitionSession, source: AcquisitionSession) -> None:
     """Commit replayed append-only state while preserving references held by callers."""
 
-    target.records = deepcopy(source.records)
-    target.checkpoints = deepcopy(source.checkpoints)
+    target.records = list(source.records)
+    target.checkpoints = list(source.checkpoints)
     target.state = source.state
     target.closed_at = source.closed_at
     target.final_audit_digest = source.final_audit_digest
