@@ -100,16 +100,16 @@ class _DailyAppendRollbackState:
         target.active_index_id = self.active_index_id
 
         target.indexes.clear()
-        for index_id, state in self.indexes.items():
-            state.index.values = state.values.copy()
-            target.indexes[index_id] = state.index
+        for index_id, index_state in self.indexes.items():
+            index_state.index.values = index_state.values.copy()
+            target.indexes[index_id] = index_state.index
 
         target.curves.clear()
-        for curve_id, state in self.curves.items():
-            state.curve.values = state.values.copy()
-            state.curve.version = state.version
-            state.curve.state = state.state
-            target.curves[curve_id] = state.curve
+        for curve_id, curve_state in self.curves.items():
+            curve_state.curve.values = curve_state.values.copy()
+            curve_state.curve.version = curve_state.version
+            curve_state.curve.state = curve_state.state
+            target.curves[curve_id] = curve_state.curve
 
         target.headers.clear()
         target.headers.update(self.headers)
