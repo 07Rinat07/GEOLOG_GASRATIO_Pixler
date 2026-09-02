@@ -33,11 +33,18 @@ python tools/check_asset_provenance.py
 Она завершается успешно только когда:
 
 - присутствует provenance record для каждой встроенной lithology/symbol коллекции;
-- `kind` и `source_archives` совпадают с существующим asset manifest;
-- все `asset_path` и `thumbnail_path`, перечисленные в manifests, существуют;
+- schema, `kind` и `source_archives` совпадают с существующим asset manifest;
+- source archive lists состоят только из уникальных непустых строк;
+- asset IDs в каждом manifest уникальны, а asset-level `source_archives` являются подмножеством
+  archive list своей коллекции;
+- все `asset_path` и `thumbnail_path`, перечисленные в manifests, остаются внутри каталога именно
+  своей коллекции, существуют и не дублируются между разными asset records одного типа пути;
 - нет неизвестного `review_status`;
-- запись со статусом `cleared` содержит `rights_holder`, `license_basis` и
+- запись со статусом `cleared` содержит непустые строковые `rights_holder`, `license_basis` и
   `evidence_reference`.
+
+Таким образом, подмена provenance полями другого типа, path traversal или ссылка lithology
+manifest на shipped symbol file не могут использоваться для получения зелёного coverage gate.
 
 Release workflow запускает этот coverage gate в Windows security job. Добавление новой
 коллекции или изменение source archive без синхронного provenance update должно сделать CI
