@@ -772,7 +772,7 @@ def _replay_working_well(
     """Stage only mutable replay projection state instead of cloning the complete well.
 
     Acquisition records, checkpoints and operational events are immutable domain objects, so the
-    staging transaction only needs new containers for them.  A checkpoint resume deep-copies the
+    staging transaction only needs new containers for them. A checkpoint resume deep-copies the
     single materialized acquisition dataset because its NumPy arrays are mutated during replay.
     Unrelated datasets and their arrays never enter the staging graph.
     """
@@ -1049,7 +1049,7 @@ def canonical_curve_metadata(metadata: CurveMetadata) -> CurveMetadata:
     semantic = metadata.semantic or default_semantic_channel_dictionary().resolve(
         original_mnemonic,
         description=description or "",
-        unit=unit,
+        unit=unit or "",
         canonical_mnemonic=canonical_mnemonic,
     )
     return replace(
