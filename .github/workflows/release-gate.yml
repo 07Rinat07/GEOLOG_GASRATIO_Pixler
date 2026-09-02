@@ -193,6 +193,10 @@ jobs:
             detect-secrets==1.5.0 `
             bandit==1.9.4
 
+      - name: Check bundled asset provenance coverage
+        shell: pwsh
+        run: .\.venv\Scripts\python.exe tools/check_asset_provenance.py
+
       - name: Run security checks
         shell: pwsh
         run: .\.venv\Scripts\python.exe tools/release_security_gate.py

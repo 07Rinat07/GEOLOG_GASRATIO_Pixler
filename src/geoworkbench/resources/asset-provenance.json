@@ -1,0 +1,45 @@
+{
+  "schema": "geolog.asset-provenance.v1",
+  "scope": "bundled-constructor-lithology-and-symbol-assets",
+  "policy": {
+    "cleared_review_status": "cleared",
+    "unresolved_review_status": "unresolved",
+    "clearance_requires": [
+      "rights_holder",
+      "license_basis",
+      "evidence_reference"
+    ],
+    "distribution_note": "Repository ownership declarations do not by themselves prove redistribution rights for imported source archives."
+  },
+  "collections": [
+    {
+      "id": "constructor-lithology",
+      "kind": "lithology",
+      "manifest_path": "constructor_assets/lithology/manifest.json",
+      "source_archives": [
+        "Litol_Bmp(2).zip",
+        "Litol2_Bmp(2).zip"
+      ],
+      "review_status": "unresolved",
+      "rights_holder": null,
+      "license_basis": null,
+      "evidence_reference": null,
+      "repository_license_declaration": "Root LICENSE section 1 declares repository assets proprietary to Rinat Sarmuldin, but no archive-specific provenance evidence is present.",
+      "review_note": "Do not mark cleared until archive origin and redistribution rights are documented."
+    },
+    {
+      "id": "constructor-symbols",
+      "kind": "symbols",
+      "manifest_path": "constructor_assets/symbols/manifest.json",
+      "source_archives": [
+        "Значки(2).zip"
+      ],
+      "review_status": "unresolved",
+      "rights_holder": null,
+      "license_basis": null,
+      "evidence_reference": null,
+      "repository_license_declaration": "Root LICENSE section 1 declares repository assets proprietary to Rinat Sarmuldin, but no archive-specific provenance evidence is present.",
+      "review_note": "Do not mark cleared until archive origin and redistribution rights are documented."
+    }
+  ]
+}
