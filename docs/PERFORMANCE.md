@@ -188,9 +188,72 @@ GUI/HiDPI/PDF jobs завершились успешно; исходный JSON 
 отдельный enforcing budget только отдельным плановым инкрементом, а не задним числом внутри
 PERF-03.
 
+## PERF-04 — revision-based tablet geometry cache
+
+`CurveGeometryCache` сохраняет sampled viewport geometry по ключу, включающему curve/axis id,
+`values_revision`, `axis_revision`, границы viewport, LOD budget и continuity-specific признаки.
+Кэш ограничен одновременно числом записей и hard budget `64 MiB` для NumPy payload. В byte
+accounting входят `nbytes` двух принадлежащих кэшу массивов (`values` и vertical axis); Python
+object/key/`OrderedDict` overhead остаётся ограничен отдельным `max_entries`.
+
+Cold miss и zoom miss выполняют production `select_visible_samples(...)`/gas-specific sampler и
+имеют сложность `O(N)` по рассматриваемому исходному массиву. Cache hit выполняется через
+`OrderedDict` lookup/move-to-end и имеет ожидаемую сложность `O(1)`. При превышении бюджета
+удаляются LRU entries до одновременного соблюдения `max_entries` и `max_bytes`; единичная geometry,
+которая сама превышает budget, возвращается renderer'у, но не удерживается в кэше.
+
+### Benchmark и release contract PERF-04
+
+Канонический runner: `benchmarks/benchmark_curve_sampling.py`. Каждый размер выполняется в
+отдельном worker-процессе, чтобы lifetime peak RSS предыдущего сценария не загрязнял следующий.
+По умолчанию проверяются `1 000 000`, `5 000 000` и `10 000 000` source samples с
+`max_points=4096` и три последовательных операции:
+
+1. **cold** — full-viewport miss, sampling + cache insert;
+2. **hit** — повторный запрос того же revision/viewport key;
+3. **zoom** — новый viewport key, требующий повторного sampling.
+
+Runner проверяет структурный контракт: ровно один hit и два miss, обе cold/zoom geometry остаются
+в кэше, `current_bytes <= max_bytes`, sampled geometry не пуста, peak RSS доступен. Первый baseline
+намеренно не вводит hardware-dependent timing threshold; timings и RSS являются принятой reference
+point, а bounded-memory invariants уже являются enforcing criteria. Любой будущий timing guardrail
+добавляется отдельным обоснованным ratchet после повторяемых Windows CI прогонов.
+
+Quality artifact:
+
+`build/ci-artifacts/quality/curve-sampling-benchmark.txt`
+
+Команда:
+
+```powershell
+python benchmarks/benchmark_curve_sampling.py --json
+```
+
+### Принятый Windows baseline PERF-04
+
+Первой принятой точкой является Release gate `#894` для code head
+`ac6c60d7f50825bd59a6c5ada5a0595e06fa3bb2` от 2 сентября 2026 года. Quality, security и
+GUI/HiDPI/PDF jobs завершились успешно; исходный JSON сохранён в artifact
+`release-quality-33668589275`.
+
+| Source samples | Cold | Hit | Zoom | Cached payload | Peak RSS |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 000 000 | 43.049 ms | 0.0038 ms | 27.797 ms | 128 KiB | 84.5 MiB |
+| 5 000 000 | 161.581 ms | 0.0036 ms | 106.746 ms | 128 KiB | 302.1 MiB |
+| 10 000 000 | 289.547 ms | 0.0034 ms | 197.813 ms | 128 KiB | 574.2 MiB |
+
+Во всех трёх worker-процессах cold и zoom сохранили по `4096` output rows, кэш содержал ровно две
+geometry без eviction: `131 072 B` при hard budget `67 108 864 B`. Это фиксирует, что cache
+residency зависит от bounded rendered geometry, а не от 1/5/10M source length. Peak RSS включает
+исходные benchmark arrays и поэтому ожидаемо растёт с размером fixture; он не является размером
+самого geometry cache.
+
 ## Границы ответственности
 
 Benchmarks не заменяют correctness-тесты и не дублируют production-алгоритмы. GAS runner отвечает
 за fixture, измерение и immutable-input checks вокруг расчётного pipeline. Acquisition runner
 отвечает за детерминированную нагрузку, измерение production controller и enforcement
 performance-контракта; источником истины для append/replay остаётся application service.
+Tablet PERF-04 runner отвечает за cold/hit/zoom измерение production geometry-cache seam,
+структурный byte-budget contract и OS-level peak RSS; sampling semantics остаются в production
+`geoworkbench.tablet` модулях.
