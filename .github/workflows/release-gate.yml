@@ -69,10 +69,11 @@ jobs:
           }
 
           Invoke-Logged "documentation" { .\.venv\Scripts\python.exe tools/check_documentation.py }
-          Invoke-Logged "compileall" { .\.venv\Scripts\python.exe -m compileall -q src tests tools scripts }
-          Invoke-Logged "ruff" { .\.venv\Scripts\python.exe -m ruff check src tests tools scripts }
+          Invoke-Logged "compileall" { .\.venv\Scripts\python.exe -m compileall -q src tests tools scripts benchmarks }
+          Invoke-Logged "ruff" { .\.venv\Scripts\python.exe -m ruff check src tests tools scripts benchmarks }
           Invoke-Logged "mypy" { .\.venv\Scripts\python.exe -m mypy src }
           Invoke-Logged "pytest" { .\.venv\Scripts\python.exe scripts/run_tests.py -p no:cacheprovider }
+          Invoke-Logged "gas-conditioning-benchmark" { .\.venv\Scripts\python.exe benchmarks/benchmark_gas_conditioning.py --json }
 
       - name: Upload quality artifacts
         if: always()
