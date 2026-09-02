@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from tools.physical_print_acceptance_sheet import PRODUCTION_IMAGE_RENDERER
 from tools.windows_release_matrix import (
     AUTOMATED_CASES,
     CHECKLIST_SCHEMA,
@@ -101,6 +102,13 @@ def test_matrix_covers_required_media_scale_and_hidpi_contract() -> None:
         "physical-a4-portrait-fit": ("a4", "portrait"),
         "physical-a3-landscape-actual-size": ("a3", "landscape"),
     }
+
+
+def test_automated_matrix_exercises_production_embedded_image_renderer() -> None:
+    a4 = next(case for case in AUTOMATED_CASES if case.case_id == "a4-portrait-fit")
+
+    assert a4.widget_kind == "physical_acceptance"
+    assert PRODUCTION_IMAGE_RENDERER.endswith(".TabletAnnotationItem")
 
 
 def test_checklist_stays_pending_until_physical_output_is_confirmed() -> None:
