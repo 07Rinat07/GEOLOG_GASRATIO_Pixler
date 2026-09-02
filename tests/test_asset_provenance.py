@@ -5,6 +5,7 @@ from pathlib import Path
 import tomllib
 
 from tools.check_asset_provenance import (
+    CLEARANCE_EVIDENCE_SCHEMA,
     DEFAULT_PROVENANCE,
     _collection_dirs,
     _discover_collection_manifests,
@@ -22,6 +23,43 @@ def _write_manifest(tmp_path: Path, payload: dict[str, object]) -> Path:
     manifest = tmp_path / "asset-provenance.json"
     manifest.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
     return manifest
+
+
+def _clear_first_collection(payload: dict[str, object], evidence_reference: str) -> dict[str, object]:
+    collections = payload["collections"]
+    assert isinstance(collections, list)
+    record = collections[0]
+    assert isinstance(record, dict)
+    record["review_status"] = "cleared"
+    record["rights_holder"] = "Verified rights holder"
+    record["license_basis"] = "Verified redistribution permission"
+    record["evidence_reference"] = evidence_reference
+    return record
+
+
+def _write_clearance_evidence(
+    evidence_root: Path,
+    reference: str,
+    record: dict[str, object],
+    *,
+    source_archives: list[str] | None = None,
+) -> Path:
+    target = evidence_root / reference
+    target.parent.mkdir(parents=True, exist_ok=True)
+    archives = record["source_archives"] if source_archives is None else source_archives
+    payload = {
+        "schema": CLEARANCE_EVIDENCE_SCHEMA,
+        "collection_id": record["id"],
+        "source_archives": archives,
+        "rights_holder": record["rights_holder"],
+        "license_basis": record["license_basis"],
+        "evidence_kind": "test-verification",
+        "evidence_locator": "test-fixture://SEC-05",
+        "reviewed_by": "pytest",
+        "reviewed_at_utc": "2026-09-02T00:00:00Z",
+    }
+    target.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    return target
 
 
 def test_bundled_constructor_assets_have_provenance_coverage() -> None:
@@ -81,6 +119,67 @@ def test_cleared_record_requires_concrete_string_evidence(tmp_path: Path) -> Non
     assert any("missing non-empty string evidence" in item for item in errors)
     assert "constructor-lithology" not in unresolved
     assert "constructor-symbols" in unresolved
+
+
+def test_cleared_record_requires_existing_structured_evidence(tmp_path: Path) -> None:
+    payload = json.loads(DEFAULT_PROVENANCE.read_text(encoding="utf-8"))
+    _clear_first_collection(payload, "missing.json")
+    evidence_root = tmp_path / "evidence"
+    evidence_root.mkdir()
+
+    errors, unresolved = validate_provenance(
+        _write_manifest(tmp_path, payload), evidence_root=evidence_root
+    )
+
+    assert any("evidence_reference must resolve" in item for item in errors)
+    assert "constructor-lithology" not in unresolved
+    assert "constructor-symbols" in unresolved
+
+
+def test_cleared_record_rejects_evidence_path_traversal(tmp_path: Path) -> None:
+    payload = json.loads(DEFAULT_PROVENANCE.read_text(encoding="utf-8"))
+    record = _clear_first_collection(payload, "../outside.json")
+    evidence_root = tmp_path / "evidence"
+    evidence_root.mkdir()
+    _write_clearance_evidence(tmp_path, "outside.json", record)
+
+    errors, _ = validate_provenance(
+        _write_manifest(tmp_path, payload), evidence_root=evidence_root
+    )
+
+    assert any("evidence_reference must resolve" in item for item in errors)
+
+
+def test_cleared_record_accepts_matching_structured_evidence(tmp_path: Path) -> None:
+    payload = json.loads(DEFAULT_PROVENANCE.read_text(encoding="utf-8"))
+    record = _clear_first_collection(payload, "constructor-lithology.json")
+    evidence_root = tmp_path / "evidence"
+    _write_clearance_evidence(evidence_root, "constructor-lithology.json", record)
+
+    errors, unresolved = validate_provenance(
+        _write_manifest(tmp_path, payload), evidence_root=evidence_root
+    )
+
+    assert errors == []
+    assert unresolved == ["constructor-symbols"]
+
+
+def test_cleared_record_rejects_evidence_archive_drift(tmp_path: Path) -> None:
+    payload = json.loads(DEFAULT_PROVENANCE.read_text(encoding="utf-8"))
+    record = _clear_first_collection(payload, "constructor-lithology.json")
+    evidence_root = tmp_path / "evidence"
+    _write_clearance_evidence(
+        evidence_root,
+        "constructor-lithology.json",
+        record,
+        source_archives=["unknown.zip"],
+    )
+
+    errors, _ = validate_provenance(
+        _write_manifest(tmp_path, payload), evidence_root=evidence_root
+    )
+
+    assert any("clearance evidence source_archives do not match provenance" in item for item in errors)
 
 
 def test_source_archive_drift_is_rejected(tmp_path: Path) -> None:
