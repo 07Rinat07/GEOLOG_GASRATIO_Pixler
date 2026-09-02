@@ -1,10 +1,25 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
+
+import numpy as np
+from numpy.typing import NDArray
 
 from geoworkbench.data.las_adapter import LasImportResult, import_las_with_report
-from geoworkbench.domain.models import Dataset, DatasetSourceRevision
+from geoworkbench.data.las_import_report import LasImportReport
+from geoworkbench.data.lossless_las import LosslessLasDocument
+from geoworkbench.domain.models import (
+    CalculationState,
+    CurveData,
+    Dataset,
+    DatasetAppendRecord,
+    DatasetIndex,
+    DatasetSourceRevision,
+    DepthDomain,
+)
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.daily_las_growth import (
     DailyLasGrowthError,
@@ -14,6 +29,98 @@ from geoworkbench.services.daily_las_growth import (
     apply_daily_las_growth,
     file_sha256,
 )
+
+
+@dataclass(frozen=True, slots=True)
+class _IndexRollbackState:
+    index: DatasetIndex
+    values: NDArray[Any]
+
+
+@dataclass(frozen=True, slots=True)
+class _CurveRollbackState:
+    curve: CurveData
+    values: NDArray[np.float64]
+    version: int
+    state: CalculationState
+
+
+@dataclass(frozen=True, slots=True)
+class _DailyAppendRollbackState:
+    """Snapshot only state that one daily append is allowed to mutate."""
+
+    depth: NDArray[np.float64]
+    depth_domain: DepthDomain
+    active_index_id: str | None
+    indexes: dict[str, _IndexRollbackState]
+    curves: dict[str, _CurveRollbackState]
+    headers: dict[str, str]
+    append_history: tuple[DatasetAppendRecord, ...]
+    source_revisions: tuple[DatasetSourceRevision, ...]
+    source_documents: dict[str, LosslessLasDocument]
+    import_reports: dict[str, LasImportReport]
+    dirty: bool
+
+    @classmethod
+    def capture(
+        cls,
+        target: Dataset,
+        session: ProjectSession,
+    ) -> _DailyAppendRollbackState:
+        return cls(
+            depth=np.asarray(target.depth).copy(),
+            depth_domain=target.depth_domain,
+            active_index_id=target.active_index_id,
+            indexes={
+                index_id: _IndexRollbackState(index, np.asarray(index.values).copy())
+                for index_id, index in target.indexes.items()
+            },
+            curves={
+                curve_id: _CurveRollbackState(
+                    curve,
+                    np.asarray(curve.values, dtype=np.float64).copy(),
+                    curve.version,
+                    curve.state,
+                )
+                for curve_id, curve in target.curves.items()
+            },
+            headers=dict(target.headers),
+            append_history=tuple(target.append_history),
+            source_revisions=tuple(target.source_revisions),
+            source_documents=dict(session.source_documents),
+            import_reports=dict(session.import_reports),
+            dirty=session.dirty,
+        )
+
+    def restore(self, target: Dataset, session: ProjectSession) -> None:
+        """Restore the append target in-place and leave unrelated project objects intact."""
+
+        target.depth = self.depth.copy()
+        target.depth_domain = self.depth_domain
+        target.active_index_id = self.active_index_id
+
+        target.indexes.clear()
+        for index_id, state in self.indexes.items():
+            state.index.values = state.values.copy()
+            target.indexes[index_id] = state.index
+
+        target.curves.clear()
+        for curve_id, state in self.curves.items():
+            state.curve.values = state.values.copy()
+            state.curve.version = state.version
+            state.curve.state = state.state
+            target.curves[curve_id] = state.curve
+
+        target.headers.clear()
+        target.headers.update(self.headers)
+        target.append_history[:] = self.append_history
+        target.source_revisions[:] = self.source_revisions
+
+        session.source_documents.clear()
+        session.source_documents.update(self.source_documents)
+        session.import_reports.clear()
+        session.import_reports.update(self.import_reports)
+        session.dirty = self.dirty
 
 
 class DailyLasGrowthController:
@@ -79,40 +186,45 @@ class DailyLasGrowthController:
                     "проверьте прирост повторно"
                 )
             target = self._target(plan.target_dataset_id)
-            outcome = apply_daily_las_growth(
-                target,
-                source_result.dataset,
-                plan,
-                provider_kind=provider_kind,
-                provider_location=provider_location,
-            )
-            if outcome.record is not None:
-                self._preserve_initial_source(target)
-                artifact_id = outcome.record.source_artifact_id
-                if artifact_id is None:
-                    raise RuntimeError(
-                        "История наращивания не содержит source artifact ID"
-                    )
-                self.session.source_documents[artifact_id] = source_result.source_document
-                target.source_revisions.append(
-                    DatasetSourceRevision(
-                        source_revision_id=outcome.record.import_id,
-                        artifact_id=artifact_id,
-                        source_name=outcome.record.source_name,
-                        source_sha256=outcome.record.source_sha256,
-                        size_bytes=source_result.source_document.size_bytes,
-                        imported_at=outcome.record.imported_at,
-                        provider_kind=outcome.record.provider_kind,
-                        provider_location=outcome.record.provider_location,
-                        start_value=outcome.record.start_value,
-                        stop_value=outcome.record.stop_value,
-                        rows_added=outcome.record.rows_added,
-                        rows_skipped=outcome.record.rows_skipped,
-                    )
+            rollback = _DailyAppendRollbackState.capture(target, self.session)
+            try:
+                outcome = apply_daily_las_growth(
+                    target,
+                    source_result.dataset,
+                    plan,
+                    provider_kind=provider_kind,
+                    provider_location=provider_location,
                 )
-                self.session.import_reports.pop(target.dataset_id, None)
-                self.session.dirty = True
-            return outcome
+                if outcome.record is not None:
+                    self._preserve_initial_source(target)
+                    artifact_id = outcome.record.source_artifact_id
+                    if artifact_id is None:
+                        raise RuntimeError(
+                            "История наращивания не содержит source artifact ID"
+                        )
+                    self.session.source_documents[artifact_id] = source_result.source_document
+                    target.source_revisions.append(
+                        DatasetSourceRevision(
+                            source_revision_id=outcome.record.import_id,
+                            artifact_id=artifact_id,
+                            source_name=outcome.record.source_name,
+                            source_sha256=outcome.record.source_sha256,
+                            size_bytes=source_result.source_document.size_bytes,
+                            imported_at=outcome.record.imported_at,
+                            provider_kind=outcome.record.provider_kind,
+                            provider_location=outcome.record.provider_location,
+                            start_value=outcome.record.start_value,
+                            stop_value=outcome.record.stop_value,
+                            rows_added=outcome.record.rows_added,
+                            rows_skipped=outcome.record.rows_skipped,
+                        )
+                    )
+                    self.session.import_reports.pop(target.dataset_id, None)
+                    self.session.dirty = True
+                return outcome
+            except Exception:
+                rollback.restore(target, self.session)
+                raise
         finally:
             # A preview is a one-shot authorization for one exact source and
             # project state. Any failed commit must be analyzed again.
