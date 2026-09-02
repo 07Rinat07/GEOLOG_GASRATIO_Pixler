@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import argparse
+import math
 from dataclasses import replace
 
 import pytest
@@ -17,7 +19,7 @@ def _result(
     return benchmark.AcquisitionBenchmarkResult(
         rows=rows,
         batch_size=benchmark.BATCH_SIZE,
-        batches=rows // benchmark.BATCH_SIZE + 1,
+        batches=math.ceil(rows / benchmark.BATCH_SIZE),
         full_batches=rows // benchmark.BATCH_SIZE,
         total_seconds=total_seconds,
         rows_per_second=rows / total_seconds,
@@ -84,7 +86,7 @@ def test_evaluate_results_rejects_noncanonical_batch_size() -> None:
 
 
 def test_size_parser_rejects_empty_and_duplicate_sizes() -> None:
-    with pytest.raises(Exception, match="at least one"):
+    with pytest.raises(argparse.ArgumentTypeError, match="at least one"):
         benchmark._parse_sizes(",")
-    with pytest.raises(Exception, match="unique"):
+    with pytest.raises(argparse.ArgumentTypeError, match="unique"):
         benchmark._parse_sizes("50000,50000")
