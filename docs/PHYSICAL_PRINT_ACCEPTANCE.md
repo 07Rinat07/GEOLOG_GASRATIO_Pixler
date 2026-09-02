@@ -13,9 +13,18 @@ printer и успешный GitHub Actions job не заменяют бумаж�
 - `physical-a4-portrait-fit` — A4, portrait, Fit;
 - `physical-a3-landscape-actual-size` — A3, landscape, 100%, включая continuation pages.
 
-Acceptance sheet специально содержит длинный многоязычный текст `INTERPRETATION`, пользовательский
-заголовок, границы интервала, цветные swatches и cuttings-style image. Это device/driver acceptance
-fixture; оно не подменяет исходные данные проекта и не записывается в Dataset.
+Acceptance sheet содержит длинный форматированный многоязычный текст `INTERPRETATION`,
+пользовательский заголовок, границы интервала, простой блок LBA, цветные swatches и встроенное
+изображение шлама. Растровое содержимое изображения детерминировано и предназначено только для
+приёмки, но его embedding/scaling/paint проходит через production
+`geoworkbench.tablet.annotation_graphics.TabletAnnotationItem` с `AnnotationRecord(kind=IMAGE)`.
+Тем самым PDF и физический принтер проверяют тот же `QPixmap`/`QPainter` image path, который
+используется встроенными изображениями планшета. Fixture не подменяет исходные данные проекта и
+не записывается в Dataset.
+
+Автоматический `a4-portrait-fit` использует тот же acceptance sheet. Поэтому Windows CI заранее
+проверяет создание PDF с production image renderer, но его успешный результат всё равно не
+доказывает качество бумаги, цвет, реальные поля драйвера или отсутствие предупреждений принтера.
 
 ## Порядок оператора
 
@@ -31,7 +40,8 @@ fixture; оно не подменяет исходные данные проек
 Обязательные визуальные критерии:
 
 - длинный rich-text `INTERPRETATION` полностью читаем и корректно переносится;
-- cuttings-style photo/image присутствует и различима;
+- embedded cuttings image присутствует, не искажена и различима;
+- простой блок LBA читаем и не обрезан;
 - пользовательский заголовок напечатан правильно;
 - верхняя/нижняя границы интервала не потеряны и не обрезаны;
 - цветовые элементы различимы на физическом носителе;
