@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import os
 from pathlib import Path
 import tempfile
@@ -14,6 +15,11 @@ from geoworkbench.printing.hydrocarbon_interpretation_pdf_renderer import (
 from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
     InterpretationReportIdentity,
     default_interpretation_report_identity,
+)
+from geoworkbench.printing.hydrocarbon_interpretation_report_range import (
+    ReportDepthRangeError,
+    resolve_report_depth_range,
+    scope_report_to_depth_range,
 )
 from geoworkbench.printing.unicode_support import preflight_texts
 from geoworkbench.services.hydrocarbon_interpretation import (
@@ -55,6 +61,22 @@ def export_hydrocarbon_interpretation_pdf(
         identity
         or default_interpretation_report_identity(report, language)
     ).cleaned()
+    effective_report = report
+    depth_range = None
+    if dataset is not None:
+        try:
+            depth_range = resolve_report_depth_range(details.interval, dataset)
+        except ReportDepthRangeError as exc:
+            temporary.unlink(missing_ok=True)
+            raise HydrocarbonInterpretationPdfError(
+                f"Некорректный интервал отчёта: {exc}"
+            ) from exc
+        effective_report = scope_report_to_depth_range(report, depth_range)
+        if details.interval:
+            details = replace(
+                details,
+                interval=depth_range.formatted(report.depth_unit),
+            )
     try:
         writer = QPdfWriter(str(temporary))
         writer.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
@@ -70,7 +92,7 @@ def export_hydrocarbon_interpretation_pdf(
         writer.setTitle(details.report_title)
         writer.setCreator("GEOLOG GASRATIO@Pixler")
 
-        html = hydrocarbon_interpretation_html(report, language)
+        html = hydrocarbon_interpretation_html(effective_report, language)
         if dataset is not None:
             from geoworkbench.services.hydrocarbon_interpretation_gas_html import (
                 inject_interval_gas_statistics_html,
@@ -78,7 +100,7 @@ def export_hydrocarbon_interpretation_pdf(
 
             html = inject_interval_gas_statistics_html(
                 html,
-                report,
+                effective_report,
                 dataset,
                 language,
             )
@@ -110,11 +132,12 @@ def export_hydrocarbon_interpretation_pdf(
 
         render_hydrocarbon_interpretation_report(
             writer,
-            report,
+            effective_report,
             language=language,
             dataset=dataset,
             include_chart=include_chart,
             identity=details,
+            depth_range=depth_range,
         )
         del writer
         if temporary.stat().st_size <= 0:
