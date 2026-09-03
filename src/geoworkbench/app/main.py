@@ -59,9 +59,6 @@ class DiagnosticApplication(QApplication):
                     },
                 )
                 manager.flush()
-            # Returning False prevents an exception from tearing down the Qt event
-            # dispatcher.  The operation that failed remains cancelled and the log
-            # contains the complete traceback for support analysis.
             return False
 
 
@@ -120,9 +117,10 @@ def main() -> int:
     app.setApplicationName("GEOLOG GASRATIO@Pixler")
     app.setOrganizationName("GeoLog")
 
-    log_root = Path(
+    app_data_root = Path(
         QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation)
-    ) / "logs"
+    )
+    log_root = app_data_root / "logs"
     log_manager = configure_application_logging(
         log_root,
         application_version=__version__,
@@ -155,6 +153,7 @@ def main() -> int:
 
     log_manager.event("application.qt.created", arguments=len(sys.argv))
     try:
+        from geoworkbench.app.context import build_application_context
         from geoworkbench.printing.unicode_support import (
             configure_application_unicode_fonts,
         )
@@ -194,7 +193,12 @@ def main() -> int:
     splash.set_stage(startup_localizer.text("startup.stage.catalogs"), 38)
     app.processEvents()
     try:
-        window = MainWindow(language=language, language_settings=settings)
+        application_context = build_application_context(app_data_root)
+        window = MainWindow(
+            language=language,
+            language_settings=settings,
+            application_context=application_context,
+        )
         window.show()
         app.processEvents()
         splash.finish()
