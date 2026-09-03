@@ -16,6 +16,7 @@ from geoworkbench.services.las_parameter_resolver import (
     LasParameterResolver,
 )
 from geoworkbench.tablet.models import (
+    COMPACT_TRACK_KINDS,
     CurveDisplaySettings,
     TabletLayout,
     TrackDefinition,
@@ -189,7 +190,12 @@ class FormApplyEngine:
                         x_min = binding.x_min
                         x_max = binding.x_max
 
+                factory_vertical = (
+                    form.origin is FormTemplateOrigin.FACTORY
+                    and form_track.kind in COMPACT_TRACK_KINDS
+                )
                 is_lba = form_track.kind is TrackKind.LBA
+                is_calcimetry = form_track.kind is TrackKind.CALCIMETRY
                 tracks.append(
                     TrackDefinition(
                         track_id=form_track.track_id or new_id(),
@@ -217,7 +223,7 @@ class FormApplyEngine:
                         x_axis_label=form_track.x_axis_label,
                         title_orientation=(
                             "vertical_top_to_bottom"
-                            if is_lba
+                            if factory_vertical
                             else form_track.title_orientation
                         ),
                         title_position=form_track.title_position,
@@ -227,7 +233,11 @@ class FormApplyEngine:
                             if is_lba
                             else form_track.lba_label_orientation
                         ),
-                        calcimetry_label_orientation=form_track.calcimetry_label_orientation,
+                        calcimetry_label_orientation=(
+                            "vertical_top_to_bottom"
+                            if is_calcimetry
+                            else form_track.calcimetry_label_orientation
+                        ),
                         show_description_borders=form_track.show_description_borders,
                         vertical_ruler=form_track.vertical_ruler,
                     )
