@@ -5,7 +5,9 @@ import json
 from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
-from geoworkbench.domain.models import Project
+import numpy as np
+
+from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain, Project, Well
 from geoworkbench.storage.atomic_json import save_project
 from geoworkbench.storage.chunked_project_document import (
     ChunkedProjectDocumentCodec,
@@ -57,21 +59,34 @@ def test_chunked_codec_externalizes_large_scalar_lists_and_round_trips(tmp_path:
     assert json.loads(project_path.read_text(encoding="utf-8")) == original
 
 
-def test_package_v2_manifest_is_versioned_and_recovers_pending_commit(tmp_path: Path) -> None:
+def test_package_v2_chunks_dataset_columns_and_recovers_pending_commit(tmp_path: Path) -> None:
     package = tmp_path / "project.geologpkg"
     repository = PackageProjectRepository(
         chunk_codec=ChunkedProjectDocumentCodec(chunk_threshold=2, chunk_size=2)
     )
-    document = ProjectDocument(project=Project("project-perf05", "PERF-05"))
+    dataset = Dataset(
+        dataset_id="dataset-perf05",
+        name="Dataset",
+        kind=DatasetKind.GTI,
+        depth_domain=DepthDomain.MD,
+        depth=np.asarray([1000.0, 1000.5, 1001.0, 1001.5], dtype=float),
+    )
+    well = Well("well-perf05", "Well", datasets={dataset.dataset_id: dataset})
+    document = ProjectDocument(
+        project=Project("project-perf05", "PERF-05", wells={well.well_id: well})
+    )
 
     repository.save(document, package)
 
     with ZipFile(package, "r") as archive:
         manifest = json.loads(archive.read(PACKAGE_MANIFEST).decode("utf-8"))
+        archive_names = set(archive.namelist())
     assert manifest["format"] == PACKAGE_FORMAT
     assert manifest["package_version"] == PACKAGE_VERSION == 2
     assert manifest["storage"]["format"] == "geolog-chunked-json"
     assert manifest["storage"]["version"] == 1
+    assert manifest["storage"]["chunk_count"] >= 2
+    assert any(name.startswith("chunks/") for name in archive_names)
 
     pending = repository.pending_path(package)
     package.replace(pending)
@@ -81,6 +96,8 @@ def test_package_v2_manifest_is_versioned_and_recovers_pending_commit(tmp_path: 
     recovered = repository.load(package)
 
     assert recovered.project.project_id == "project-perf05"
+    recovered_dataset = recovered.project.wells[well.well_id].datasets[dataset.dataset_id]
+    assert np.array_equal(recovered_dataset.depth, dataset.depth)
     assert package.exists()
     assert not pending.exists()
 
