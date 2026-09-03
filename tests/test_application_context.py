@@ -102,7 +102,9 @@ def test_import_controller_is_created_at_composition_boundary(tmp_path: Path) ->
     port = _ImportPort()
     controller = context.create_import_job_controller(port)
 
-    localize = lambda key: key
+    def localize(key: str) -> str:
+        return key
+
     selected = dict(
         (choice.kind, choice.label) for choice in controller.choices(localize)
     )[ImportSourceKind.LAS]
