@@ -75,6 +75,7 @@ jobs:
           Invoke-Logged "pytest" { .\.venv\Scripts\python.exe scripts/run_tests.py -p no:cacheprovider }
           Invoke-Logged "gas-conditioning-benchmark" { .\.venv\Scripts\python.exe benchmarks/benchmark_gas_conditioning.py --json }
           Invoke-Logged "acquisition-benchmark" { .\.venv\Scripts\python.exe benchmarks/benchmark_acquisition.py --json }
+          Invoke-Logged "curve-sampling-benchmark" { .\.venv\Scripts\python.exe benchmarks/benchmark_curve_sampling.py --json }
 
       - name: Upload quality artifacts
         if: always()

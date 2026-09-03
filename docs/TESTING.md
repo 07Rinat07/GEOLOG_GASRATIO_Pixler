@@ -262,7 +262,7 @@ python tools/windows_release_matrix.py `
 `--confirm-physical-output` инструмент не может записать physical-printer status `passed`.
 Полученный checklist хранится как release artifact, а не в Git.
 
-## 10. PERF-01…03: acquisition batch, replay и performance contract
+## 10. PERF-01…04: acquisition и tablet performance contracts
 
 `tests/test_acquisition.py` проверяет default batch 64, отсутствие full projection digest во время
 `append_many`, геометрический рост capacity, logical rollback mixed batch и детерминированное
@@ -279,29 +279,45 @@ python tools/windows_release_matrix.py `
 performance не помещается в обычный unit suite: enforcing runner выполняется Windows quality gate
 на `50k/100k/1M` и сохраняет JSON artifact.
 
+`tests/test_geometry_cache_byte_budget.py` закрепляет PERF-04: точный `numpy.nbytes` accounting,
+LRU eviction по byte budget и entry count, MRU promotion после hit, oversize geometry без
+retention, освобождение bytes при clear/invalidate и независимые revision keys. Тест также
+проверяет read-only sampled arrays. `tests/test_curve_sampling_benchmark.py` выполняет малый
+production-seam cold→hit→zoom worker и проверяет structural benchmark contract.
+
 Минимальный correctness-запуск:
 
 ```bash
 python -m pytest -q tests/test_acquisition.py tests/test_acquisition_replay_memory.py \
-  tests/test_acquisition_benchmark.py tests/test_wits0_acquisition.py \
+  tests/test_acquisition_benchmark.py tests/test_geometry_cache_byte_budget.py \
+  tests/test_curve_sampling_benchmark.py tests/test_wits0_acquisition.py \
   tests/test_etp12_acquisition.py tests/test_acquisition_codec.py
 ```
 
-Воспроизводимый performance-run:
+Воспроизводимые performance-runs:
 
 ```powershell
 python benchmarks/benchmark_acquisition.py --json
+python benchmarks/benchmark_curve_sampling.py --json
 ```
 
-Quality gate сохраняет результат как
+Quality gate сохраняет PERF-03 как
 `build/ci-artifacts/quality/acquisition-benchmark.txt`. Каждый размер запускается в отдельном
 worker-процессе; p95 и first/last сравниваются по полным batch64. Batch-aligned окно содержит
 `157 × 64 = 10 048` строк, поэтому partial tail не искажает последнюю метрику. Peak RSS
 фиксируется для наблюдения, но PERF-03 не задаёт отдельный RSS threshold.
 
-Принятый Windows baseline release-gate #886: 50k/100k/1M — `3.504 / 7.027 / 70.605 s`,
-p95 batch64 — `4.684 / 4.663 / 4.640 ms`, last/first — `1.017 / 1.008 / 0.988`;
-`T(100k)/T(50k)=2.005`, violations отсутствуют.
+Принятый Windows baseline PERF-03 release-gate #886: 50k/100k/1M —
+`3.504 / 7.027 / 70.605 s`, p95 batch64 — `4.684 / 4.663 / 4.640 ms`, last/first —
+`1.017 / 1.008 / 0.988`; `T(100k)/T(50k)=2.005`, violations отсутствуют.
+
+PERF-04 сохраняется как `build/ci-artifacts/quality/curve-sampling-benchmark.txt`. Runner
+изолирует 1M/5M/10M samples в отдельных процессах и для каждого выполняет cold miss, O(1) cache
+hit и zoom miss при `max_points=4096`, одновременно проверяя `current_bytes <= max_bytes`.
+Принятый Windows baseline release-gate #894: cold `43.049 / 161.581 / 289.547 ms`, hit
+`0.0038 / 0.0036 / 0.0034 ms`, zoom `27.797 / 106.746 / 197.813 ms`, peak RSS
+`84.5 / 302.1 / 574.2 MiB`. Во всех сценариях две cached geometry занимают `131 072 B` из
+hard budget `67 108 864 B`.
 
 ## 11. Регрессия GeoScape2/GS2 временного планшета
 

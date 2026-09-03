@@ -1,7 +1,7 @@
 <!-- runtime-contract: package=0.7.93; project=v24; form=v16; layout=v24 -->
 # Единый план проекта
 
-Актуально на 2 сентября 2026 года. Это единственный канонический план проекта. Завершённые
+Актуально на 3 сентября 2026 года. Это единственный канонический план проекта. Завершённые
 изменения фиксируются в [CHANGELOG.md](CHANGELOG.md); отдельные roadmap, build report,
 release plan и временные планы в `docs` не создаются.
 
@@ -32,7 +32,7 @@ release plan и временные планы в `docs` не создаются.
    печать длинных rich-text описаний/фотографий.
 2. **SEC-01 / SEC-05** — решение по опубликованной Git history и provenance/license review
    встроенных lithology/symbol assets.
-3. **PERF-04…05 / ARCH-01…06** — cache/storage performance и архитектурные границы.
+3. **PERF-05 / ARCH-01…06** — versioned storage performance и архитектурные границы.
 4. **FIELD-01…05** — полевые soak/interoperability gates; затем P2-расширения.
 
 ## Текущая база
@@ -216,8 +216,13 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
   release-gate #886 на `112d4bb4`: 50k — `3.504 s / 4.684 ms p95 / 69.6 MiB`, 100k —
   `7.027 s / 4.663 ms / 107.9 MiB`, 1M — `70.605 s / 4.640 ms / 784.5 MiB`; ratio
   `T(100k)/T(50k)=2.005`, last/first — `1.017 / 1.008 / 0.988`, violations отсутствуют.
-- [ ] **PERF-04:** revision-based tablet caches с byte budget; cold/hit/zoom и peak RSS на
-  1/5/10 млн samples.
+- [x] **PERF-04:** revision-based `CurveGeometryCache` ограничен hard NumPy payload budget
+  `64 MiB` поверх LRU entry limit; oversize geometry не удерживается сверх бюджета, а clear/
+  invalidate освобождают byte accounting. Canonical isolated benchmark выполняет cold/hit/zoom
+  на 1/5/10M samples с OS-level peak RSS. Windows release-gate #894 на `ac6c60d7` прошёл quality,
+  security и GUI/HiDPI/PDF: cold `43.049/161.581/289.547 ms`, hit около `0.004 ms`, zoom
+  `27.797/106.746/197.813 ms`, peak RSS `84.5/302.1/574.2 MiB`; две cached geometry занимают
+  `131 072 B` из `67 108 864 B` независимо от длины source fixture.
 - [ ] **PERF-05:** совместимый versioned storage port: manifest, column chunks, atomic commit и
   crash recovery вместо монолитного JSON для больших проектов.
 - [x] **PERF-06:** исключён двойной PDF-render для preview/printer; постоянный файл создаётся
