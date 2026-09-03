@@ -258,9 +258,13 @@ def _render_atomic_html(
     if height <= canvas.remaining_height + 0.5:
         _draw_document(canvas, document, height)
         return
-    if allow_scale or height > canvas.remaining_height:
-        scale = max(0.68, min(1.0, canvas.remaining_height / max(height, 1.0)))
-        _draw_document(canvas, document, height, scale=scale)
+
+    # ``allow_scale`` is kept for compatibility with the row/list fallback
+    # callers.  Oversized rich-text fragments are deliberately paginated at
+    # 100% width instead of being uniformly shrunk: scaling both axes made
+    # individual PDF pages appear narrower than the rest of an A4 report.
+    _ = allow_scale
+    _draw_document_paginated(canvas, document, height)
 
 
 def _draw_html(
@@ -284,27 +288,65 @@ def _draw_document(
     canvas: PageCanvas,
     document: QTextDocument,
     height: float,
-    *,
-    scale: float = 1.0,
 ) -> None:
     painter = canvas.painter
     painter.save()
     try:
         painter.translate(canvas.content_rect.left(), canvas.y)
-        if scale != 1.0:
-            painter.scale(scale, scale)
         document.drawContents(
             painter,
             QRectF(
                 0.0,
                 0.0,
-                canvas.content_rect.width() / scale,
+                canvas.content_rect.width(),
                 height,
             ),
         )
     finally:
         painter.restore()
-    canvas.advance(height * scale)
+    canvas.advance(height)
+
+
+def _draw_document_paginated(
+    canvas: PageCanvas,
+    document: QTextDocument,
+    height: float,
+) -> None:
+    """Draw a tall document in vertical slices without changing its width."""
+
+    offset = 0.0
+    epsilon = 0.5
+    while offset < height - epsilon:
+        if canvas.remaining_height <= epsilon:
+            canvas.new_page()
+            continue
+
+        slice_height = min(canvas.remaining_height, height - offset)
+        painter = canvas.painter
+        painter.save()
+        try:
+            painter.translate(
+                canvas.content_rect.left(),
+                canvas.y - offset,
+            )
+            document.drawContents(
+                painter,
+                QRectF(
+                    0.0,
+                    offset,
+                    canvas.content_rect.width(),
+                    slice_height,
+                ),
+            )
+        finally:
+            painter.restore()
+
+        offset += slice_height
+        canvas.advance(slice_height, spacing=0.0)
+        if offset < height - epsilon:
+            canvas.new_page()
+
+    canvas.advance(0.0, spacing=5.0)
 
 
 def _html_document(
