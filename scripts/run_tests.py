@@ -28,7 +28,12 @@ _CHILD_FLAG = "--geolog-single-shard"
 _DEFAULT_WINDOWS_SHARDS = 8
 _NATIVE_HEAVY_TEST_THRESHOLD = 24
 _NATIVE_TEST_BATCH_SIZE = 4
-_FORCED_NATIVE_BATCH_FILES = frozenset({"tests/test_curve_view_editing.py"})
+_FORCED_NATIVE_BATCH_FILES = frozenset(
+    {
+        "tests/test_curve_view_editing.py",
+        "tests/test_masterlog_curve_mapping_dialog.py",
+    }
+)
 _SINGLE_TEST_PROCESS_FILES = frozenset(
     {
         "tests/test_main_window.py",
