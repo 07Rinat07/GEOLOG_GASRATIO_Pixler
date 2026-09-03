@@ -14,6 +14,9 @@ from geoworkbench.project.drilling_calculation_coordinator import (
     DrillingCalculationCoordinator,
 )
 from geoworkbench.project.gs2_import_coordinator import Gs2ImportCoordinator
+from geoworkbench.project.interpretation_feature_coordinator import (
+    InterpretationFeatureCoordinator,
+)
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.drilling_calculation_dialog import DrillingCalculationDialog
 from geoworkbench.ui.gs2_import_dialog import Gs2ImportDialog
@@ -31,11 +34,20 @@ class MainWindow(_LegacyMainWindow):
         **kwargs,
     ) -> None:
         self.application_context = application_context
+        # Base initialization wires Qt signals that resolve methods dynamically.
+        # Keep a sentinel so an unlikely initialization-time callback can fall back
+        # to the legacy implementation until all project controllers exist.
+        self.interpretation_feature_coordinator: InterpretationFeatureCoordinator | None = None
         super().__init__(*args, **kwargs)
         self.drilling_calculation_coordinator = DrillingCalculationCoordinator(
             self.interpretation_calculation_controller
         )
         self.gs2_import_coordinator = Gs2ImportCoordinator(self._dataset_import_jobs)
+        self.interpretation_feature_coordinator = InterpretationFeatureCoordinator(
+            self.session,
+            self.interpretation_controller,
+            self.tablet_controller,
+        )
         self._install_drilling_calculation_action()
 
     def _install_drilling_calculation_action(self) -> None:
@@ -246,6 +258,37 @@ class MainWindow(_LegacyMainWindow):
             )
         )
         self._dispatch_registered_import_action(requested_action)
+
+    def _clear_interpretation_interval_selection(self) -> None:
+        coordinator = self.interpretation_feature_coordinator
+        if coordinator is None:
+            super()._clear_interpretation_interval_selection()
+            return
+        coordinator.clear_interval_selection()
+        self.tablet_view.clear_interval_selection()
+        self.interpretation_properties.clear()
+        self.interpretation_properties_dock.hide()
+
+    def _after_interpretation_change(self) -> None:
+        coordinator = self.interpretation_feature_coordinator
+        if coordinator is None:
+            super()._after_interpretation_change()
+            return
+        state = coordinator.sync_after_change()
+        self.tablet_view.set_interpretations(
+            list(state.interpretations),
+            state.selected_interpretation_id,
+        )
+        if state.selected_interpretation_id and state.selected_interval_id:
+            self._select_interpretation_interval(
+                state.selected_interpretation_id,
+                state.selected_interval_id,
+            )
+        else:
+            self._clear_interpretation_interval_selection()
+        self._refresh_tree()
+        self._update_title()
+        self._update_interpretation_history_actions()
 
     def change_language(self, language: AppLanguage) -> None:
         super().change_language(language)
