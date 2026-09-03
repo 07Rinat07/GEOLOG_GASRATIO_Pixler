@@ -146,13 +146,24 @@ def _render_table(
                 canvas.new_page()
                 continue
             candidate = prefix + _table_html(parts, (parts.rows[row_index],))
-            _render_atomic_html(
-                canvas,
+            compact_document, compact_height = _html_document(
                 style,
                 candidate,
+                canvas.content_rect.width(),
                 table=True,
-                allow_scale=True,
+                compact_table=True,
             )
+            if compact_height <= canvas.remaining_height + 0.5:
+                _draw_document(canvas, compact_document, compact_height)
+            else:
+                _render_atomic_html(
+                    canvas,
+                    style,
+                    candidate,
+                    table=True,
+                    allow_scale=True,
+                    compact_table=True,
+                )
             row_index += 1
             first_chunk = False
             continue
@@ -242,12 +253,14 @@ def _render_atomic_html(
     *,
     table: bool = False,
     allow_scale: bool = False,
+    compact_table: bool = False,
 ) -> None:
     document, height = _html_document(
         style,
         fragment,
         canvas.content_rect.width(),
         table=table,
+        compact_table=compact_table,
     )
     canvas.reserve(height)
     if height <= canvas.remaining_height + 0.5:
@@ -260,9 +273,9 @@ def _render_atomic_html(
         return
 
     # ``allow_scale`` is kept for compatibility with the row/list fallback
-    # callers.  Oversized rich-text fragments are deliberately paginated at
-    # 100% width instead of being uniformly shrunk: scaling both axes made
-    # individual PDF pages appear narrower than the rest of an A4 report.
+    # callers. Oversized fragments keep the physical A4 width; only an
+    # exceptional oversized table row may use the compact table typography
+    # selected above before it is vertically paginated.
     _ = allow_scale
     _draw_document_paginated(canvas, document, height)
 
@@ -312,16 +325,32 @@ def _draw_document_paginated(
     document: QTextDocument,
     height: float,
 ) -> None:
-    """Draw a tall document in vertical slices without changing its width."""
+    """Draw a tall document at full width without leaving tiny tail pages."""
 
     offset = 0.0
     epsilon = 0.5
+    page_capacity = max(1.0, float(canvas.content_rect.height()))
+    minimum_final_slice = min(
+        page_capacity * 0.30,
+        max(24.0, page_capacity * 0.20),
+    )
     while offset < height - epsilon:
         if canvas.remaining_height <= epsilon:
             canvas.new_page()
             continue
 
-        slice_height = min(canvas.remaining_height, height - offset)
+        available = canvas.remaining_height
+        remaining = height - offset
+        slice_height = min(available, remaining)
+        if remaining > available + epsilon:
+            tail_height = remaining - available
+            if 0.0 < tail_height < minimum_final_slice:
+                borrow = min(
+                    minimum_final_slice - tail_height,
+                    available * 0.35,
+                )
+                slice_height = max(available * 0.55, available - borrow)
+
         painter = canvas.painter
         painter.save()
         try:
@@ -355,6 +384,7 @@ def _html_document(
     width: float,
     *,
     table: bool = False,
+    compact_table: bool = False,
 ) -> tuple[QTextDocument, float]:
     overrides = """
 html, body { background: #ffffff; color: #172033; }
@@ -365,10 +395,12 @@ h2 { margin: 8px 0 5px 0; font-size: 12pt; page-break-before: auto; break-before
 .candidate-detail { page-break-inside: avoid; break-inside: avoid; }
 """
     if table:
-        overrides += """
-table { font-size: 7.2pt; border-collapse: collapse; }
-th, td { padding: 3px; }
-tr { page-break-inside: avoid; break-inside: avoid; }
+        table_font = "6.8pt" if compact_table else "7.2pt"
+        table_padding = "2px" if compact_table else "3px"
+        overrides += f"""
+table {{ font-size: {table_font}; border-collapse: collapse; }}
+th, td {{ padding: {table_padding}; }}
+tr {{ page-break-inside: avoid; break-inside: avoid; }}
 """
     html = (
         "<html><head><meta charset='utf-8'><style>"
