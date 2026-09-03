@@ -4,6 +4,9 @@ from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QDialog, QMenu, QMessageBox
 
 from geoworkbench.app.context import ApplicationContext
+from geoworkbench.project.drilling_calculation_coordinator import (
+    DrillingCalculationCoordinator,
+)
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.drilling_calculation_dialog import DrillingCalculationDialog
 from geoworkbench.ui.main_window import MainWindow as _LegacyMainWindow
@@ -20,6 +23,9 @@ class MainWindow(_LegacyMainWindow):
     ) -> None:
         self.application_context = application_context
         super().__init__(*args, **kwargs)
+        self.drilling_calculation_coordinator = DrillingCalculationCoordinator(
+            self.interpretation_calculation_controller
+        )
         self._install_drilling_calculation_action()
 
     def _install_drilling_calculation_action(self) -> None:
@@ -78,7 +84,13 @@ class MainWindow(_LegacyMainWindow):
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         request = dialog.request()
-        self.interpretation_calculation_controller.set_drilling_input_plan(request.plan)
+        outcome = self.drilling_calculation_coordinator.apply_and_calculate(
+            plan=request.plan,
+            normalized_reference=request.normalized_reference,
+            normal_mud_density_ppg=request.normal_mud_density_ppg,
+            normalized_gas_mode=workspace._current_normalized_gas_mode(),
+        )
+
         workspace.rop_reference.setValue(request.normalized_reference.rop_ref_fph)
         workspace.bit_reference.setValue(request.normalized_reference.bit_ref_in)
         workspace.flow_reference.setValue(request.normalized_reference.flow_ref_gpm)
@@ -87,26 +99,12 @@ class MainWindow(_LegacyMainWindow):
         )
         workspace.normal_density.setValue(request.normal_mud_density_ppg or 0.0)
 
-        result = self.interpretation_calculation_controller.calculate_standard_curves(
-            normal_mud_density_ppg=request.normal_mud_density_ppg,
-            normalized_gas_reference=request.normalized_reference,
-            normalized_gas_mode=workspace._current_normalized_gas_mode(),
-        )
-        self._after_interpretation_calculation(result)
+        self._after_interpretation_calculation(outcome.result)
         workspace.refresh()
         workspace._update_drilling_input_status()
-        visible = tuple(
-            dict.fromkeys(
-                (
-                    *result.track_curves.get("gas_ratio_pixler", ()),
-                    *result.track_curves.get("normalized_gas", ()),
-                    *result.track_curves.get("dexp", ()),
-                )
-            )
-        )
-        if visible:
+        if outcome.visible_curves:
             self.tabs.setCurrentWidget(self.tablet_view)
-        if result.issues:
+        if outcome.result.issues:
             QMessageBox.warning(
                 self,
                 self._drilling_text(
@@ -114,7 +112,7 @@ class MainWindow(_LegacyMainWindow):
                     "Есептеу нәтижесі",
                     "Calculation result",
                 ),
-                "\n".join(f"• {issue.message}" for issue in result.issues),
+                "\n".join(f"• {issue.message}" for issue in outcome.result.issues),
             )
 
     def change_language(self, language: AppLanguage) -> None:
