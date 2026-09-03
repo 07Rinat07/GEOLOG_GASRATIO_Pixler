@@ -3,6 +3,7 @@ from __future__ import annotations
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QDialog, QMenu, QMessageBox
 
+from geoworkbench.app.context import ApplicationContext
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.drilling_calculation_dialog import DrillingCalculationDialog
 from geoworkbench.ui.main_window import MainWindow as _LegacyMainWindow
@@ -11,7 +12,13 @@ from geoworkbench.ui.main_window import MainWindow as _LegacyMainWindow
 class MainWindow(_LegacyMainWindow):
     """Main window with one shared normalized-gas and DEXP calculation command."""
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(
+        self,
+        *args,
+        application_context: ApplicationContext | None = None,
+        **kwargs,
+    ) -> None:
+        self.application_context = application_context
         super().__init__(*args, **kwargs)
         self._install_drilling_calculation_action()
 
