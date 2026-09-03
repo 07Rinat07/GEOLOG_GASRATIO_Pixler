@@ -113,8 +113,8 @@ class FormTrack:
     vertical_ruler: VerticalRulerTrackSettings = field(
         default_factory=VerticalRulerTrackSettings
     )
-    lba_label_orientation: str = "vertical_bottom_to_top"
-    calcimetry_label_orientation: str = "horizontal"
+    lba_label_orientation: str = "vertical_top_to_bottom"
+    calcimetry_label_orientation: str = "vertical_top_to_bottom"
     show_description_borders: bool = True
 
     def __post_init__(self) -> None:
@@ -173,8 +173,8 @@ class FormTrack:
         title_orientation: str = "horizontal",
         title_position: str = "center",
         show_interval_labels: bool = False,
-        lba_label_orientation: str = "vertical_bottom_to_top",
-        calcimetry_label_orientation: str = "horizontal",
+        lba_label_orientation: str = "vertical_top_to_bottom",
+        calcimetry_label_orientation: str = "vertical_top_to_bottom",
         show_description_borders: bool = True,
         vertical_ruler: VerticalRulerTrackSettings | None = None,
     ) -> FormTrack:
