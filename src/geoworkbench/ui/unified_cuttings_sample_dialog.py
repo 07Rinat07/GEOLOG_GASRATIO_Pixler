@@ -530,13 +530,16 @@ class UnifiedCuttingsSampleDialog(QDialog):
             remainder.clicked.connect(
                 lambda _checked=False, selected_row=row: self._fill_remainder(selected_row)
             )
+            # Register the controls before restoring an existing selection.
+            # QComboBox.setCurrentIndex() emits currentIndexChanged immediately,
+            # and _rock_changed() indexes these lists synchronously.
+            self.rock_inputs.append(rock)
+            self.percent_inputs.append(percent)
+            self.remainder_buttons.append(remainder)
             if row < len(existing):
                 found = rock.findData(existing[row].lithotype_id)
                 rock.setCurrentIndex(max(0, found))
                 percent.setValue(existing[row].percentage)
-            self.rock_inputs.append(rock)
-            self.percent_inputs.append(percent)
-            self.remainder_buttons.append(remainder)
             grid.addWidget(rock, row + 1, 0)
             grid.addWidget(percent, row + 1, 1)
             grid.addWidget(remainder, row + 1, 2)
