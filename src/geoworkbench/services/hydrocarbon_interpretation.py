@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from html import escape
+import re
 
 import numpy as np
 
@@ -40,6 +41,10 @@ _SERVER_TOTAL_NAMES = (
 )
 _LOCAL_TOTAL_NAMES = ("TG_NORM_CALC", "TG_NORM")
 _SELECTED_MODES: dict[int, NormalizedGasCalculationMode] = {}
+_CLIENT_LIMITATIONS_PATTERN = re.compile(
+    r"<div\b[^>]*class=[\"'][^\"']*\bnotice\b[^\"']*[\"'][^>]*>.*?</div>",
+    re.IGNORECASE | re.DOTALL,
+)
 
 
 _REPORT_TERMINOLOGY_REPLACEMENTS: dict[
@@ -174,7 +179,7 @@ def hydrocarbon_interpretation_html(
     report: HydrocarbonInterpretationReport,
     language: AppLanguage = AppLanguage.RU,
 ) -> str:
-    """Render the report with user-facing prospective-interval terminology."""
+    """Render a presentation-ready report while retaining QC in structured data."""
 
     html = _base_hydrocarbon_interpretation_html(report, language)
     if report.report_profile == "opus":
@@ -216,7 +221,19 @@ def hydrocarbon_interpretation_html(
     margin-top: 0;
 }
 """
-    return html.replace("</style>", pagination_css + "</style>", 1)
+    html = html.replace("</style>", pagination_css + "</style>", 1)
+    return _strip_client_limitations(html)
+
+
+def _strip_client_limitations(html: str) -> str:
+    """Remove methodology-limitations cards from customer-facing documents.
+
+    Structured warnings remain on ``HydrocarbonInterpretationReport`` and in
+    diagnostics/audit data.  Only presentation HTML is sanitized so PDF/DOCX
+    exports stay concise without weakening internal validation.
+    """
+
+    return _CLIENT_LIMITATIONS_PATTERN.sub("", html)
 
 
 def _opus_gasomer_html(report: HydrocarbonInterpretationReport) -> str:
@@ -272,11 +289,6 @@ def _opus_gasomer_html(report: HydrocarbonInterpretationReport) -> str:
             "<th>Поддержка голоса</th><th>Доступно</th><th>Голоса 1–7</th>"
             "<th>QC-состояния</th></tr></thead>"
             f"<tbody>{indicator_rows}</tbody></table>"
-            + (
-                "<p><small>" + escape("; ".join(interval.warnings)) + "</small></p>"
-                if interval.warnings
-                else ""
-            )
         )
     lod_text = (
         "не задан; detector не запускается без скрытого значения"
@@ -285,7 +297,6 @@ def _opus_gasomer_html(report: HydrocarbonInterpretationReport) -> str:
     )
     provenance = "".join(f"<li>{escape(item)}</li>" for item in section.provenance)
     errata = "".join(f"<li>{escape(item)}</li>" for item in section.errata)
-    warnings = "".join(f"<li>{escape(item)}</li>" for item in section.warnings)
     intervals_html = "".join(interval_blocks) or (
         "<p>Интервалы ОПУС Газомер не сформированы: проверьте независимый TotalGas, "
         "C1–C5, единицы и положительный LOD TotalGas.</p>"
@@ -307,9 +318,6 @@ def _opus_gasomer_html(report: HydrocarbonInterpretationReport) -> str:
         + f"<li>SHA-256 книги: {escape(section.source_workbook_sha256)}</li></ul>"
         + "<h3>Исправления исходной книги</h3><ul>"
         + errata
-        + "</ul>"
-        + "<h3>QC и ограничения</h3><ul>"
-        + warnings
         + "</ul>"
     )
 
