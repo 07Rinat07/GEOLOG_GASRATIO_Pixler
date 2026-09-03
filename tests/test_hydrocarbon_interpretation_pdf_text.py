@@ -62,3 +62,17 @@ def test_oversized_document_is_vertically_paginated_without_width_scaling() -> N
     assert [clip.height() for clip in document.clips] == [50.0, 50.0, 20.0]
     # The painter probe intentionally has no scale() method. Any regression to
     # uniform X/Y shrinking fails this test with AttributeError before asserts.
+
+
+def test_tiny_final_fragment_is_rebalanced_with_previous_page() -> None:
+    canvas = _CanvasProbe()
+    document = _DocumentProbe()
+
+    _draw_document_paginated(canvas, document, 105.0)  # type: ignore[arg-type]
+
+    assert canvas.page_count == 3
+    assert [clip.width() for clip in document.clips] == [100.0, 100.0, 100.0]
+    assert [clip.y() for clip in document.clips] == [0.0, 50.0, 90.0]
+    assert [clip.height() for clip in document.clips] == [50.0, 40.0, 15.0]
+    # Without rebalancing the last page would contain only 5/50 px (10%) of
+    # report content, reproducing the almost-empty pages seen in the field PDF.
