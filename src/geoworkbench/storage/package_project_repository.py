@@ -10,11 +10,17 @@ import tempfile
 from zipfile import ZIP_DEFLATED, BadZipFile, ZipFile, ZipInfo
 
 from geoworkbench.storage.atomic_json import save_project
+from geoworkbench.storage.chunked_project_document import (
+    ChunkedProjectDocumentCodec,
+    ChunkedProjectDocumentError,
+    ChunkedStorageDescriptor,
+)
 from geoworkbench.storage.project_codec import ProjectDocument, ProjectFormatError, load_project_document
 
 
 PACKAGE_FORMAT = "geolog-project-package"
-PACKAGE_VERSION = 1
+PACKAGE_VERSION = 2
+SUPPORTED_PACKAGE_VERSIONS = frozenset({1, PACKAGE_VERSION})
 PACKAGE_MANIFEST = "manifest.json"
 PACKAGE_PROJECT = "project.geolog.json"
 
@@ -31,20 +37,24 @@ class PackageEntry:
 
 
 class PackageProjectRepository:
-    """Single-file, checksummed project package repository."""
+    """Single-file, checksummed, crash-recoverable project package repository."""
 
     def __init__(
         self,
         *,
         max_entries: int = 20_000,
         max_uncompressed_bytes: int = 2 * 1024**3,
+        chunk_codec: ChunkedProjectDocumentCodec | None = None,
     ) -> None:
         self.max_entries = max_entries
         self.max_uncompressed_bytes = max_uncompressed_bytes
+        self.chunk_codec = chunk_codec or ChunkedProjectDocumentCodec()
 
     def save(self, document: ProjectDocument, target: Path) -> None:
         destination = Path(target)
         destination.parent.mkdir(parents=True, exist_ok=True)
+        self._recover_or_discard_pending(destination)
+
         with tempfile.TemporaryDirectory(
             prefix=f".{destination.stem}-package-", dir=destination.parent
         ) as temporary:
@@ -59,11 +69,13 @@ class PackageProjectRepository:
                 import_reports=document.import_reports,
                 image_assets=document.image_assets,
             )
+            storage = self.chunk_codec.encode(project_path, root)
             entries = self._collect_entries(root)
             manifest = {
                 "format": PACKAGE_FORMAT,
                 "package_version": PACKAGE_VERSION,
                 "project_path": PACKAGE_PROJECT,
+                "storage": storage.to_dict(),
                 "entries": [
                     {
                         "path": entry.path,
@@ -73,28 +85,54 @@ class PackageProjectRepository:
                     for entry in entries
                 ],
             }
-            descriptor, temporary_name = tempfile.mkstemp(
-                prefix=f".{destination.name}.", suffix=".tmp", dir=destination.parent
-            )
-            os.close(descriptor)
+            pending = self.pending_path(destination)
             try:
-                with ZipFile(temporary_name, "w", compression=ZIP_DEFLATED, compresslevel=6) as archive:
+                with ZipFile(pending, "w", compression=ZIP_DEFLATED, compresslevel=6) as archive:
                     archive.writestr(
                         PACKAGE_MANIFEST,
                         json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8"),
                     )
                     for entry in entries:
                         archive.write(root / Path(entry.path), entry.path)
-                # Windows requires a writable descriptor for ``fsync``.
-                with open(temporary_name, "rb+") as stream:
+                with open(pending, "rb+") as stream:
+                    stream.flush()
                     os.fsync(stream.fileno())
-                os.replace(temporary_name, destination)
             except Exception:
-                Path(temporary_name).unlink(missing_ok=True)
+                pending.unlink(missing_ok=True)
                 raise
+
+            try:
+                os.replace(pending, destination)
+                self._fsync_parent(destination.parent)
+            except OSError as exc:
+                raise ProjectPackageError(
+                    f"Не удалось атомарно зафиксировать пакет проекта: {destination}. "
+                    f"Восстановление доступно из {pending.name}"
+                ) from exc
 
     def load(self, source: Path) -> ProjectDocument:
         package = Path(source)
+        pending = self.pending_path(package)
+        if not package.exists() and pending.exists():
+            document = self._load_verified(pending)
+            try:
+                os.replace(pending, package)
+                self._fsync_parent(package.parent)
+            except OSError as exc:
+                raise ProjectPackageError(
+                    f"Проверенный recovery-пакет не удалось восстановить: {package}"
+                ) from exc
+            return document
+        if package.exists() and pending.exists():
+            pending.unlink(missing_ok=True)
+        return self._load_verified(package)
+
+    @staticmethod
+    def pending_path(target: Path) -> Path:
+        destination = Path(target)
+        return destination.with_name(f".{destination.name}.pending")
+
+    def _load_verified(self, package: Path) -> ProjectDocument:
         try:
             package_stat = package.lstat()
         except OSError as exc:
@@ -124,9 +162,40 @@ class PackageProjectRepository:
                     project_name = manifest.get("project_path")
                     if project_name != PACKAGE_PROJECT:
                         raise ProjectPackageError("Пакет содержит неизвестный путь проекта")
+                    if manifest.get("package_version") == PACKAGE_VERSION:
+                        expected = self._storage_descriptor(manifest)
+                        actual = self.chunk_codec.decode(root / PACKAGE_PROJECT, root)
+                        if actual != expected:
+                            raise ProjectPackageError(
+                                "Фактические chunks проекта не совпадают с storage manifest"
+                            )
                     return load_project_document(root / PACKAGE_PROJECT)
+        except ProjectPackageError:
+            raise
+        except ChunkedProjectDocumentError as exc:
+            raise ProjectPackageError(str(exc)) from exc
         except (BadZipFile, OSError, KeyError, UnicodeError, json.JSONDecodeError) as exc:
             raise ProjectPackageError(f"Не удалось открыть пакет проекта: {package}") from exc
+
+    def _recover_or_discard_pending(self, destination: Path) -> None:
+        pending = self.pending_path(destination)
+        if not pending.exists():
+            return
+        if destination.exists():
+            pending.unlink(missing_ok=True)
+            return
+        try:
+            self._load_verified(pending)
+        except ProjectPackageError:
+            pending.unlink(missing_ok=True)
+            return
+        try:
+            os.replace(pending, destination)
+            self._fsync_parent(destination.parent)
+        except OSError as exc:
+            raise ProjectPackageError(
+                f"Не удалось восстановить предыдущий атомарный commit: {destination}"
+            ) from exc
 
     def _collect_entries(self, root: Path) -> tuple[PackageEntry, ...]:
         entries: list[PackageEntry] = []
@@ -180,7 +249,13 @@ class PackageProjectRepository:
         manifest = json.loads(raw.decode("utf-8"))
         if not isinstance(manifest, dict):
             raise ProjectPackageError("Манифест пакета должен быть объектом")
-        if manifest.get("format") != PACKAGE_FORMAT or manifest.get("package_version") != PACKAGE_VERSION:
+        package_version = manifest.get("package_version")
+        if (
+            manifest.get("format") != PACKAGE_FORMAT
+            or isinstance(package_version, bool)
+            or not isinstance(package_version, int)
+            or package_version not in SUPPORTED_PACKAGE_VERSIONS
+        ):
             raise ProjectPackageError("Версия пакета проекта не поддерживается")
         return manifest
 
@@ -208,3 +283,23 @@ class PackageProjectRepository:
         if len({entry.path for entry in entries}) != len(entries):
             raise ProjectPackageError("Манифест содержит повторяющиеся пути")
         return tuple(entries)
+
+    def _storage_descriptor(self, manifest: dict[str, object]) -> ChunkedStorageDescriptor:
+        try:
+            return self.chunk_codec.validate_descriptor(manifest.get("storage"))
+        except ChunkedProjectDocumentError as exc:
+            raise ProjectPackageError(str(exc)) from exc
+
+    @staticmethod
+    def _fsync_parent(directory: Path) -> None:
+        if os.name == "nt":
+            return
+        descriptor: int | None = None
+        try:
+            descriptor = os.open(directory, os.O_RDONLY)
+            os.fsync(descriptor)
+        except OSError:
+            return
+        finally:
+            if descriptor is not None:
+                os.close(descriptor)
