@@ -48,7 +48,10 @@ def test_calcimetry_orientation_and_description_borders_round_trip() -> None:
         track.pop("calcimetry_label_orientation")
         track.pop("show_description_borders")
     migrated = layout_from_dict(legacy)
-    assert migrated.track_by_id("calc").calcimetry_label_orientation == "horizontal"
+    assert (
+        migrated.track_by_id("calc").calcimetry_label_orientation
+        == "vertical_top_to_bottom"
+    )
     assert migrated.track_by_id("description").show_description_borders is True
 
 
