@@ -92,6 +92,7 @@ def form_from_tablet_layout(
             grid_minor_divisions=live_track.grid_minor_divisions,
             grid_alpha=live_track.grid_alpha,
             grid_print=live_track.grid_print,
+            show_x_scale=live_track.show_x_scale,
             x_axis_label=live_track.x_axis_label,
             title_orientation=live_track.title_orientation,
             title_position=live_track.title_position,
