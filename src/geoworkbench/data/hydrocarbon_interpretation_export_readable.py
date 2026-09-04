@@ -416,10 +416,6 @@ def _write_methods_sheet(workbook: Workbook, report: HydrocarbonInterpretationRe
                 )
             )
         )
-    sheet.append(())
-    sheet.append(protect_spreadsheet_row(("Ограничения методики",)))
-    for warning in report.warnings:
-        sheet.append(protect_spreadsheet_row((warning,)))
     _format_auxiliary_sheet(sheet, widths=(42, 16, 48, 90, 90))
 
 
@@ -545,8 +541,6 @@ def _write_opus_gasomer_sheet(
                     )
                 )
             )
-        for warning in interval.warnings:
-            sheet.append(protect_spreadsheet_row(("QC интервала", warning)))
     sheet.append(())
     sheet.append(protect_spreadsheet_row(("Происхождение формул",)))
     for provenance_item in section.provenance:
@@ -554,9 +548,6 @@ def _write_opus_gasomer_sheet(
     sheet.append(protect_spreadsheet_row(("Исправления исходной книги",)))
     for erratum in section.errata:
         sheet.append(protect_spreadsheet_row((erratum,)))
-    sheet.append(protect_spreadsheet_row(("QC и ограничения",)))
-    for warning in section.warnings:
-        sheet.append(protect_spreadsheet_row((warning,)))
     _format_auxiliary_sheet(
         sheet,
         widths=(34, 22, 34, 34, 24, 24, 52, 68, 20, 20),
