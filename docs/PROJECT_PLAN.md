@@ -1,7 +1,7 @@
 <!-- runtime-contract: package=0.7.93; project=v24; form=v16; layout=v24 -->
 # Единый план проекта
 
-Актуально на 3 сентября 2026 года. Это единственный канонический план проекта. Завершённые
+Актуально на 4 сентября 2026 года. Это единственный канонический план проекта. Завершённые
 изменения фиксируются в [CHANGELOG.md](CHANGELOG.md); отдельные roadmap, build report,
 release plan и временные планы в `docs` не создаются.
 
@@ -96,6 +96,28 @@ release plan и временные планы в `docs` не создаются.
   dependency/secret/static scans и отдельные quality/security artifacts.
 - [ ] **REL-03:** завершить Windows GUI/HiDPI/PDF/physical-printer matrix с реальным отпечатком,
   цветом, clipping, полями драйвера и операторским checklist.
+
+  Текущий print/presentation scope PR #76 сохраняется здесь до полной acceptance:
+  - [x] код и regression для выбранного диапазона печати и устранения почти пустых orphan-
+    continuation страниц без скрытого `painter.scale()`;
+  - [x] customer-facing блоки «Ограничения методики» / `Әдістеме шектеулері` /
+    `Method limitations` убраны из HTML/PDF и независимых DOCX/XLSX экспортов; structured
+    warnings/QC остаются во внутренней модели и diagnostics, provenance/формулы/errata сохранены;
+  - [x] HTML-sanitizer ограничен только тремя локализованными заголовками ограничений и не
+    удаляет произвольные полезные `.notice`-блоки;
+  - [x] factory compact/LBA/calcimetry подписи приведены к единому вертикальному `top→bottom`;
+  - [x] production MASTERLOG получает более широкое «Описание пород», скрытые по умолчанию
+    границы описаний и компенсирующее уменьшение соседних колонок;
+  - [x] C1–C5 components получают индивидуальный linear auto-range и скрытую по умолчанию
+    цифровую depth-колонку;
+  - [ ] добавить controller-backed переключатель границ описаний без прямой мутации UI state;
+  - [ ] добавить явную пользовательскую видимость числовой X-шкалы; при сериализации выполнить
+    version bump/migration вместо неявного изменения старых форм;
+  - [ ] проверить штатное ручное включение depth-колонки complex gas и решить, переносить ли
+    production defaults из catalog postprocess в canonical factory source;
+  - [ ] выполнить exact-final-head Windows quality/security/GUI/HiDPI/PDF gate, повторно
+    осмотреть реальный PDF и завершить physical-printer acceptance A4/A3 с длинным rich text и
+    фотографиями шлама. До этого PR #76 остаётся draft и не сливается.
 - [ ] **SEC-01:** согласовать очистку опубликованной Git history от пользовательских project/LAS
   sidecars и проверить clones, caches, forks и releases.
 - [x] **SEC-02:** bounded ETP multipart по размеру, числу частей и времени сборки.
