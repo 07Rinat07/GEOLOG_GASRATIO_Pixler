@@ -215,10 +215,10 @@ def _track_from_dict(data: object) -> TrackDefinition:
     title_position = data.get("title_position", "center")
     show_interval_labels = data.get("show_interval_labels", False)
     lba_label_orientation = data.get(
-        "lba_label_orientation", "vertical_bottom_to_top"
+        "lba_label_orientation", "vertical_top_to_bottom"
     )
     calcimetry_label_orientation = data.get(
-        "calcimetry_label_orientation", "horizontal"
+        "calcimetry_label_orientation", "vertical_top_to_bottom"
     )
     show_description_borders = data.get("show_description_borders", True)
     raw_vertical_ruler = data.get("vertical_ruler", {})
@@ -487,8 +487,9 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
                         _migrate_scale_payload_to_linear(settings)
     migrated["version"] = 20
     if isinstance(tracks, list):
-        # Version 21 preserves vertical captions for long compact columns and
-        # changes the short LBA caption back to horizontal in existing layouts.
+        # Compact geology/reference captions use one canonical +90°
+        # top-to-bottom direction. Rewrite both the old horizontal LBA default
+        # and reversed vertical captions in previously saved layouts.
         for track in tracks:
             if not isinstance(track, dict):
                 continue
@@ -498,11 +499,7 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
                 continue
             if kind not in COMPACT_TRACK_KINDS:
                 continue
-            orientation = compact_track_title_orientation(kind)
-            if kind is TrackKind.LBA:
-                track["title_orientation"] = orientation
-            elif str(track.get("title_orientation", "horizontal")) == "horizontal":
-                track["title_orientation"] = orientation
+            track["title_orientation"] = compact_track_title_orientation(kind)
             track.setdefault("title_position", compact_track_title_position(kind))
     migrated["version"] = 22
     migrated.setdefault(
@@ -525,9 +522,11 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
         for track in tracks:
             if isinstance(track, dict):
                 track.setdefault(
-                    "lba_label_orientation", "vertical_bottom_to_top"
+                    "lba_label_orientation", "vertical_top_to_bottom"
                 )
-                track.setdefault("calcimetry_label_orientation", "horizontal")
+                track.setdefault(
+                    "calcimetry_label_orientation", "vertical_top_to_bottom"
+                )
                 track.setdefault("show_description_borders", True)
     migrated["version"] = LAYOUT_FORMAT_VERSION
     return migrated
