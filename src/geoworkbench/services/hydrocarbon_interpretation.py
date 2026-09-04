@@ -41,8 +41,16 @@ _SERVER_TOTAL_NAMES = (
 )
 _LOCAL_TOTAL_NAMES = ("TG_NORM_CALC", "TG_NORM")
 _SELECTED_MODES: dict[int, NormalizedGasCalculationMode] = {}
+_CLIENT_LIMITATION_HEADINGS = (
+    "Ограничения методики",
+    "Әдістеме шектеулері",
+    "Method limitations",
+)
 _CLIENT_LIMITATIONS_PATTERN = re.compile(
-    r"<div\b[^>]*class=[\"'][^\"']*\bnotice\b[^\"']*[\"'][^>]*>.*?</div>",
+    r"<div\b(?=[^>]*\bclass=[\"'][^\"']*\bnotice\b[^\"']*[\"'])[^>]*>\s*"
+    r"<h2>\s*(?:"
+    + "|".join(re.escape(heading) for heading in _CLIENT_LIMITATION_HEADINGS)
+    + r")\s*</h2>.*?</div>",
     re.IGNORECASE | re.DOTALL,
 )
 
@@ -198,13 +206,7 @@ def hydrocarbon_interpretation_html(
             )
         if report.opus_gasomer is not None:
             gasomer_html = _opus_gasomer_html(report)
-            marker = '<div class="notice"><h2>'
-            position = html.find(marker)
-            html = (
-                html[:position] + gasomer_html + html[position:]
-                if position >= 0
-                else html.replace("</body>", gasomer_html + "</body>")
-            )
+            html = html.replace("</body>", gasomer_html + "</body>", 1)
     for old, new in _REPORT_TERMINOLOGY_REPLACEMENTS[language]:
         html = html.replace(old, new)
 
@@ -229,8 +231,8 @@ def _strip_client_limitations(html: str) -> str:
     """Remove methodology-limitations cards from customer-facing documents.
 
     Structured warnings remain on ``HydrocarbonInterpretationReport`` and in
-    diagnostics/audit data.  Only presentation HTML is sanitized so PDF/DOCX
-    exports stay concise without weakening internal validation.
+    diagnostics/audit data. Only the localized methodology-limitations card is
+    removed; unrelated notice cards remain visible.
     """
 
     return _CLIENT_LIMITATIONS_PATTERN.sub("", html)
