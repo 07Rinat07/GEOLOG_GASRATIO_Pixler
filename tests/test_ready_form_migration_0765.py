@@ -93,7 +93,7 @@ def test_confirmed_local_forms_are_promoted_and_renamed_atomically(
     assert payload["read_only"] is True
     assert payload["origin"] == "factory"
     assert payload["columns"][0]["width"] == 60
-    assert payload["columns"][0]["tracks"][0]["title_orientation"] == "vertical_bottom_to_top"
+    assert payload["columns"][0]["tracks"][0]["title_orientation"] == "vertical_top_to_bottom"
 
     # A second process/startup sees the same protected template and does not
     # increment the revision or reduce the width again.
