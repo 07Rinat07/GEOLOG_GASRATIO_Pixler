@@ -235,12 +235,12 @@ def _track_from_dict(data: object) -> FormTrack:
         lba_label_orientation=_string(
             data,
             "lba_label_orientation",
-            default="vertical_bottom_to_top",
+            default="vertical_top_to_bottom",
         ),
         calcimetry_label_orientation=_string(
             data,
             "calcimetry_label_orientation",
-            default="horizontal",
+            default="vertical_top_to_bottom",
         ),
         show_description_borders=_boolean(
             data, "show_description_borders", default=True
@@ -310,9 +310,11 @@ def _migrate_form(data: dict[str, Any]) -> dict[str, Any]:
                         track.setdefault("title_position", "center")
                         track.setdefault("show_interval_labels", False)
                         track.setdefault(
-                            "lba_label_orientation", "vertical_bottom_to_top"
+                            "lba_label_orientation", "vertical_top_to_bottom"
                         )
-                        track.setdefault("calcimetry_label_orientation", "horizontal")
+                        track.setdefault(
+                            "calcimetry_label_orientation", "vertical_top_to_bottom"
+                        )
                         track.setdefault("show_description_borders", True)
                         track.setdefault("grid_major_divisions", 5)
                         track.setdefault("grid_minor_divisions", 5)
@@ -375,9 +377,9 @@ def _migrate_form(data: dict[str, Any]) -> dict[str, Any]:
                         _migrate_binding_to_linear_default(binding)
 
     if version <= 10 and isinstance(columns, list):
-        # Version 11 keeps long compact geology/reference titles vertical, but
-        # restores the three-letter LBA caption to a horizontal default. Apply
-        # the same presentation to the form column and its tablet track.
+        # Compact geology/reference captions now use one canonical +90°
+        # top-to-bottom direction.  Rewrite legacy horizontal and reversed
+        # vertical values together so old forms cannot mix directions.
         for column in columns:
             if not isinstance(column, dict):
                 continue
@@ -397,20 +399,12 @@ def _migrate_form(data: dict[str, Any]) -> dict[str, Any]:
                     continue
                 orientation = compact_track_title_orientation(kind)
                 position = compact_track_title_position(kind)
-                if kind is TrackKind.LBA:
-                    track["title_orientation"] = orientation
-                elif str(track.get("title_orientation", "horizontal")) == "horizontal":
-                    track["title_orientation"] = orientation
+                track["title_orientation"] = orientation
                 track.setdefault("title_position", position)
                 desired_orientations.append(orientation)
                 desired_positions.append(position)
             if desired_orientations and len(set(desired_orientations)) == 1:
-                desired = desired_orientations[0]
-                if (
-                    desired == "horizontal"
-                    or str(column.get("title_orientation", "horizontal")) == "horizontal"
-                ):
-                    column["title_orientation"] = desired
+                column["title_orientation"] = desired_orientations[0]
                 column.setdefault("title_position", desired_positions[0])
 
     migrated.setdefault("source_dataset_id", None)
