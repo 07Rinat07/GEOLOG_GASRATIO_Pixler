@@ -68,8 +68,8 @@ def test_auto_fit_respects_a4_capacity_and_compact_minimums() -> None:
     assert form.columns[0].width >= 48
     assert form.columns[1].width >= 48
     assert form.columns[2].width >= 80
-    assert form.columns[0].title_orientation == "vertical_bottom_to_top"
-    assert form.columns[1].title_orientation == "vertical_bottom_to_top"
+    assert form.columns[0].title_orientation == "vertical_top_to_bottom"
+    assert form.columns[1].title_orientation == "vertical_top_to_bottom"
 
 
 def test_create_dialog_exposes_a4_orientation(qapp) -> None:
