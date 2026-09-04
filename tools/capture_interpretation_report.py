@@ -46,8 +46,11 @@ _SECTION_MARKERS = {
     "prospective_intervals": "Перспективные интервалы УВ-проявлений",
     "details": "Интерпретация по интервалам",
     "manual": "Интервалы, подтверждённые геологом",
-    "warnings": "Ограничения методики",
 }
+_FORBIDDEN_CLIENT_MARKERS = (
+    "Ограничения методики",
+    "QC и ограничения",
+)
 _PROSPECTIVE_TABLE_HEADERS = (
     "Интервал",
     "Относительная сила аномалии",
@@ -281,6 +284,12 @@ def _require_text(text: str, markers: tuple[str, ...], label: str) -> None:
         raise RuntimeError(f"{label}: missing printed fields: {missing}")
 
 
+def _reject_text(text: str, markers: tuple[str, ...], label: str) -> None:
+    present = [marker for marker in markers if marker in text]
+    if present:
+        raise RuntimeError(f"{label}: forbidden client-facing fields: {present}")
+
+
 def _verify_page_geometry(document: fitz.Document, label: str) -> float:
     maximum_font_size = 0.0
     for page_index, page in enumerate(document):
@@ -309,6 +318,7 @@ def _verify_page_geometry(document: fitz.Document, label: str) -> float:
 def _verify_cover(document: fitz.Document, label: str) -> None:
     cover_text = document[0].get_text()
     _require_text(cover_text, _COVER_FIELDS, f"{label} cover")
+    _reject_text(cover_text, _FORBIDDEN_CLIENT_MARKERS, f"{label} cover")
     title_spans = [
         span
         for span in _text_spans(document[0])
@@ -328,6 +338,7 @@ def _verify_forms(
 ) -> dict[str, list[int]]:
     all_text = "\n".join(page.get_text() for page in document)
     _require_text(all_text, tuple(_SECTION_MARKERS.values()), f"{label} forms")
+    _reject_text(all_text, _FORBIDDEN_CLIENT_MARKERS, f"{label} forms")
     _require_text(all_text, _METHOD_TABLE_HEADERS, f"{label} methods form")
     _require_text(all_text, _MANUAL_TABLE_HEADERS, f"{label} manual form")
 
