@@ -262,9 +262,13 @@ def test_report_can_interpret_probable_gas_without_claiming_final_fluid_type() -
     report = build_hydrocarbon_interpretation_report(session)
 
     assert report.candidates[0].fluid_hypothesis == "very_light_dry_gas"
+    assert any(
+        "Категория «вода» по mud-gas не назначается" in warning
+        for warning in report.warnings
+    )
     html = hydrocarbon_interpretation_html(report, AppLanguage.RU)
     assert "очень лёгкий сухой газ" in html
-    assert "Категория «вода» по mud-gas не назначается" in html
+    assert "Категория «вода» по mud-gas не назначается" not in html
 
 
 def test_sparse_heavy_components_use_integrated_interval_composition() -> None:
