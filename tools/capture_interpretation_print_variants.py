@@ -10,7 +10,12 @@ from PySide6.QtGui import QPageLayout
 from PySide6.QtPrintSupport import QPrinter
 from PySide6.QtWidgets import QApplication
 
-from capture_interpretation_report import _render_page, _session, _text_spans
+from capture_interpretation_report import (
+    _FORBIDDEN_CLIENT_MARKERS,
+    _render_page,
+    _session,
+    _text_spans,
+)
 from geoworkbench.printing.hydrocarbon_interpretation_report import (
     export_hydrocarbon_interpretation_pdf,
 )
@@ -133,6 +138,13 @@ def _verify_portrait_report(
         missing = [marker for marker in _COVER_MARKERS if marker not in cover_text]
         if missing:
             raise RuntimeError(f"{label}: cover fields are missing: {missing}")
+        forbidden_cover = [
+            marker for marker in _FORBIDDEN_CLIENT_MARKERS if marker in cover_text
+        ]
+        if forbidden_cover:
+            raise RuntimeError(
+                f"{label}: forbidden client-facing cover fields: {forbidden_cover}"
+            )
         if _COVER_TITLE not in normalized_cover_text:
             raise RuntimeError(f"{label}: cover title is not visible")
         if "Новый проект" in cover_text or "acceptance-dataset" in cover_text:
@@ -195,10 +207,14 @@ def _verify_portrait_report(
             "Перспективные интервалы УВ-проявлений",
             "Интерпретация по интервалам",
             "Интервалы, подтверждённые геологом",
-            "Ограничения методики",
         ):
             if marker not in all_text:
                 raise RuntimeError(f"{label}: report section is missing: {marker}")
+        forbidden = [marker for marker in _FORBIDDEN_CLIENT_MARKERS if marker in all_text]
+        if forbidden:
+            raise RuntimeError(
+                f"{label}: forbidden client-facing report sections: {forbidden}"
+            )
 
         _render_page(cover, artifact_dir / f"{label}-cover.png", zoom=1.5)
         _render_page(
