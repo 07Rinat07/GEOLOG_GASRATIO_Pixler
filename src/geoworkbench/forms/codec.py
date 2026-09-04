@@ -29,7 +29,7 @@ from geoworkbench.tablet.vertical_ruler import (
 )
 
 
-FORM_SCHEMA_VERSION = 16
+FORM_SCHEMA_VERSION = 17
 
 
 class FormFormatError(ValueError):
@@ -78,6 +78,7 @@ def form_to_dict(form: FormDocument) -> dict[str, Any]:
                         "grid_minor_divisions": track.grid_minor_divisions,
                         "grid_alpha": track.grid_alpha,
                         "grid_print": track.grid_print,
+                        "show_x_scale": track.show_x_scale,
                         "x_axis_label": track.x_axis_label,
                         "title_orientation": track.title_orientation,
                         "title_position": track.title_position,
@@ -228,6 +229,7 @@ def _track_from_dict(data: object) -> FormTrack:
         grid_minor_divisions=_integer(data, "grid_minor_divisions", default=5),
         grid_alpha=float(_number(data, "grid_alpha", default=0.2)),
         grid_print=_boolean(data, "grid_print", default=True),
+        show_x_scale=_boolean(data, "show_x_scale", default=True),
         x_axis_label=_string(data, "x_axis_label", allow_empty=True, default=""),
         title_orientation=_string(data, "title_orientation", default="horizontal"),
         title_position=_string(data, "title_position", default="center"),
@@ -285,7 +287,7 @@ def _migrate_form(data: dict[str, Any]) -> dict[str, Any]:
     version = data.get("schema_version", 0)
     if version == FORM_SCHEMA_VERSION:
         return data
-    if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15):
+    if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16):
         raise FormFormatError("Неподдерживаемая версия схемы формы")
     migrated = deepcopy(data)
     if version == 0:
@@ -316,6 +318,7 @@ def _migrate_form(data: dict[str, Any]) -> dict[str, Any]:
                             "calcimetry_label_orientation", "vertical_top_to_bottom"
                         )
                         track.setdefault("show_description_borders", True)
+                        track.setdefault("show_x_scale", True)
                         track.setdefault("grid_major_divisions", 5)
                         track.setdefault("grid_minor_divisions", 5)
                         track.setdefault("grid_print", True)
