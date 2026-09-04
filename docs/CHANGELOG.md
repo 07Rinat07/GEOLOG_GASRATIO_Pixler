@@ -5,6 +5,13 @@
 
 ## Unreleased
 
+- В рамках `REL-03/CUT-03` клиентские отчёты интерпретации больше не выводят отдельный блок
+  «Ограничения методики» / `Әдістеме шектеулері` / `Method limitations`: правило применяется к
+  HTML/PDF и независимым DOCX/XLSX экспортам. Structured warnings, interval QC и диагностические
+  данные сохраняются во внутренней модели для проверки и аудита; формулы, provenance, SHA-256
+  исходной книги и errata остаются доступными в отчёте. HTML-sanitizer ограничен только этими
+  локализованными заголовками и не удаляет обычные полезные `.notice`-примечания. PR #76 остаётся
+  draft до exact-head Windows gates и физической печати.
 - `PERF-04` ограничивает revision-based tablet geometry cache hard NumPy payload budget `64 MiB`
   поверх LRU entry limit: byte accounting освобождается при clear/invalidate, а единичная
   oversize geometry возвращается renderer'у без retention сверх бюджета. Добавлены regression
