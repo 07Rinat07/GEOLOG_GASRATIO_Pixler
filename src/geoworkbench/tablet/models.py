@@ -177,6 +177,7 @@ class TrackDefinition:
     grid_minor_divisions: int = 5
     grid_alpha: float = 0.2
     grid_print: bool = True
+    show_x_scale: bool = True
     x_axis_label: str = ""
     group_title: str = ""
     title_orientation: str = "horizontal"
@@ -204,6 +205,8 @@ class TrackDefinition:
             raise ValueError("show_interval_labels должен быть логическим")
         if not isinstance(self.show_description_borders, bool):
             raise ValueError("show_description_borders должен быть логическим")
+        if not isinstance(self.show_x_scale, bool):
+            raise ValueError("show_x_scale должен быть логическим")
         if not isinstance(self.vertical_ruler, VerticalRulerTrackSettings):
             raise ValueError(
                 "Настройки внутренней вертикальной шкалы имеют неверный тип"
@@ -242,6 +245,11 @@ class TrackDefinition:
         self._validate_x_settings(self.x_scale, minimum, maximum)
         self.x_min = minimum
         self.x_max = maximum
+
+    def set_x_scale_visible(self, visible: bool) -> None:
+        if not isinstance(visible, bool):
+            raise ValueError("Видимость шкалы X должна быть логическим значением")
+        self.show_x_scale = visible
 
     def update_view_settings(
         self,
@@ -451,6 +459,9 @@ class TabletLayout:
         maximum: float | None,
     ) -> None:
         self.track_by_id(track_id).set_x_range(minimum, maximum)
+
+    def set_track_x_scale_visible(self, track_id: str, visible: bool) -> None:
+        self.track_by_id(track_id).set_x_scale_visible(visible)
 
     def set_visible_depth(self, top: float | None, bottom: float | None) -> bool:
         self._validate_visible_depth(top, bottom)
