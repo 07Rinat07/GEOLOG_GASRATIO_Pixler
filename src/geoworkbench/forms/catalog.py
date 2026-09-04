@@ -121,6 +121,7 @@ def _configure_integrated_components(form: FormDocument) -> None:
         if column.column_id != "column-complex-absolute":
             continue
         for track in column.tracks:
+            track.show_x_scale = False
             track.x_axis_label = ""
             track.grid_x = False
             track.bindings = [
