@@ -23,7 +23,7 @@ from geoworkbench.tablet.vertical_ruler import (
 )
 
 
-LAYOUT_FORMAT_VERSION = 24
+LAYOUT_FORMAT_VERSION = 25
 
 
 class TabletLayoutFormatError(ValueError):
@@ -100,6 +100,7 @@ def layout_to_dict(layout: TabletLayout) -> dict[str, Any]:
                 "grid_minor_divisions": track.grid_minor_divisions,
                 "grid_alpha": track.grid_alpha,
                 "grid_print": track.grid_print,
+                "show_x_scale": track.show_x_scale,
                 "x_axis_label": track.x_axis_label,
             }
             for track in layout.tracks
@@ -236,6 +237,7 @@ def _track_from_dict(data: object) -> TrackDefinition:
     raw_grid_minor = data.get("grid_minor_divisions", 5)
     raw_grid_alpha = data.get("grid_alpha", 0.2)
     raw_grid_print = data.get("grid_print", True)
+    raw_show_x_scale = data.get("show_x_scale", True)
     raw_x_axis_label = data.get("x_axis_label", "")
     if not isinstance(track_id, str) or not track_id.strip():
         raise TypeError("track_id должен быть непустой строкой")
@@ -330,6 +332,8 @@ def _track_from_dict(data: object) -> TrackDefinition:
         raise TypeError("grid_alpha должен быть числом")
     if not isinstance(raw_grid_print, bool):
         raise TypeError("grid_print должен быть логическим значением")
+    if not isinstance(raw_show_x_scale, bool):
+        raise TypeError("show_x_scale должен быть логическим значением")
     if not isinstance(raw_x_axis_label, str):
         raise TypeError("x_axis_label должен быть строкой")
 
@@ -360,6 +364,7 @@ def _track_from_dict(data: object) -> TrackDefinition:
         grid_minor_divisions=raw_grid_minor,
         grid_alpha=float(raw_grid_alpha),
         grid_print=raw_grid_print,
+        show_x_scale=raw_show_x_scale,
         x_axis_label=raw_x_axis_label,
     )
 
@@ -369,7 +374,7 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
     if version == LAYOUT_FORMAT_VERSION:
         return data
     if version not in (
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24
     ):
         raise TabletLayoutFormatError("Неподдерживаемая версия компоновки планшета")
     migrated = deepcopy(data)
@@ -528,6 +533,7 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
                     "calcimetry_label_orientation", "vertical_top_to_bottom"
                 )
                 track.setdefault("show_description_borders", True)
+                track.setdefault("show_x_scale", True)
     migrated["version"] = LAYOUT_FORMAT_VERSION
     return migrated
 
