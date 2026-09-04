@@ -13,6 +13,7 @@ from geoworkbench.data.hydrocarbon_interpretation_export_readable import (
     _write_methods_sheet,
     _write_opus_gasomer_sheet,
 )
+from geoworkbench.services.hydrocarbon_interpretation import _strip_client_limitations
 
 
 def _minimal_report(**overrides):
@@ -63,6 +64,26 @@ def _workbook_values(workbook: Workbook) -> tuple[str, ...]:
                 if cell.value is not None:
                     values.append(str(cell.value))
     return tuple(values)
+
+
+def test_html_sanitizer_removes_only_localized_methodology_limitations() -> None:
+    for heading in (
+        "Ограничения методики",
+        "Әдістеме шектеулері",
+        "Method limitations",
+    ):
+        html = (
+            '<div class="notice"><h2>'
+            + heading
+            + "</h2><ul><li>internal warning</li></ul></div>"
+        )
+        assert _strip_client_limitations(html) == ""
+
+    ordinary_notice = (
+        '<div class="notice"><h2>Важное примечание</h2>'
+        "<p>Полезная информация для клиента.</p></div>"
+    )
+    assert _strip_client_limitations(ordinary_notice) == ordinary_notice
 
 
 def test_docx_omits_methodology_limitations_but_keeps_report_content(tmp_path) -> None:
