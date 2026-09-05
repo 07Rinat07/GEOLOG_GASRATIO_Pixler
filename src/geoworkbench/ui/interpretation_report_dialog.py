@@ -54,7 +54,7 @@ class InterpretationReportDialog(QDialog):
         self.session = session
         self.language = language
         self.localizer = Localizer.create(language)
-        self.report = build_interpretation_report(session)
+        self.report = build_interpretation_report(session, language=language)
         self.setWindowTitle(self._t("interpretation_report.title"))
         self.resize(1000, 700)
         layout = QVBoxLayout(self)

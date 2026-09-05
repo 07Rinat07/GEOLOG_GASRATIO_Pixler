@@ -17,6 +17,7 @@ from geoworkbench.printing.masterlog_renderer import (
     masterlog_size_mm,
 )
 from geoworkbench.printing.text_rendering import column_heading_height
+from geoworkbench.domain.localized_content import localized_text
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.time_display import format_time_curve_at_row
 
@@ -91,13 +92,13 @@ def inspect_masterlog_point(
     if column.column_type in {"lithology", "text", "description"}:
         return _inspect_lithology(column, depth, session, language)
     if column.column_type == "stratigraphy":
-        return _inspect_stratigraphy(column, depth, session)
+        return _inspect_stratigraphy(column, depth, session, language)
     if column.column_type == "cuttings":
         return _inspect_cuttings(column, depth, session, language)
     if column.column_type == "cuttings_description":
-        return _inspect_cuttings_description(column, depth, session)
+        return _inspect_cuttings_description(column, depth, session, language)
     if column.column_type == "analysis_interpretation":
-        return _inspect_sample_interpretation(column, depth, session)
+        return _inspect_sample_interpretation(column, depth, session, language)
     if column.column_type in {"calcimetry", "lba"}:
         return _inspect_sample_analysis(column, depth, session, language)
     if column.column_type == "depth":
@@ -189,6 +190,7 @@ def _inspect_stratigraphy(
     column: MasterlogColumnTemplate,
     depth: float,
     session: ProjectSession,
+    language: AppLanguage,
 ) -> MasterlogInspection:
     well = session.current_well
     intervals = sorted(
@@ -202,8 +204,20 @@ def _inspect_stratigraphy(
     if not intervals:
         return MasterlogInspection(column.column_id, column.title, depth)
     parts = [
-        " / ".join(value for value in (item.rank, item.code, item.name) if value)
-        + (f" — {item.description}" if item.description else "")
+        " / ".join(
+            value
+            for value in (
+                item.rank,
+                item.code,
+                localized_text(item.name_i18n, language, legacy=item.name),
+            )
+            if value
+        )
+        + (
+            f" — {localized_text(item.description_i18n, language, legacy=item.description)}"
+            if localized_text(item.description_i18n, language, legacy=item.description)
+            else ""
+        )
         for item in intervals
     ]
     narrowest = intervals[0]
@@ -238,8 +252,13 @@ def _inspect_cuttings(
         f"{catalog[item.lithotype_id].localized_name(language.value) if item.lithotype_id in catalog else item.lithotype_id}: {item.percentage:g}%"
         for item in sample.components
     ]
-    if sample.description:
-        parts.append(sample.description)
+    description = localized_text(
+        sample.description_i18n,
+        language,
+        legacy=sample.description,
+    )
+    if description:
+        parts.append(description)
     return MasterlogInspection(
         column.column_id,
         column.title,
@@ -253,6 +272,7 @@ def _inspect_cuttings_description(
     column: MasterlogColumnTemplate,
     depth: float,
     session: ProjectSession,
+    language: AppLanguage,
 ) -> MasterlogInspection:
     well = session.current_well
     sample = next(
@@ -269,7 +289,11 @@ def _inspect_cuttings_description(
         column.column_id,
         column.title,
         depth,
-        description=sample.description,
+        description=localized_text(
+            sample.description_i18n,
+            language,
+            legacy=sample.description,
+        ),
         interval=(sample.top_depth, sample.bottom_depth),
     )
 
@@ -278,6 +302,7 @@ def _inspect_sample_interpretation(
     column: MasterlogColumnTemplate,
     depth: float,
     session: ProjectSession,
+    language: AppLanguage,
 ) -> MasterlogInspection:
     well = session.current_well
     sample = next(
@@ -294,7 +319,14 @@ def _inspect_sample_interpretation(
         column.column_id,
         column.title,
         depth,
-        description=sample.description or sample.analysis_interpretation,
+        description=(
+            localized_text(sample.description_i18n, language, legacy=sample.description)
+            or localized_text(
+                sample.analysis_interpretation_i18n,
+                language,
+                legacy=sample.analysis_interpretation,
+            )
+        ),
         interval=(sample.top_depth, sample.bottom_depth),
     )
 

@@ -30,6 +30,7 @@ from geoworkbench.services.interval_gas_statistics import (
     build_interval_statistics,
 )
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.domain.localized_content import localized_text
 from geoworkbench.services.report_passport import ReportPassport
 from geoworkbench.services.report_output_transaction import (
     execute_report_output_transaction,
@@ -172,14 +173,17 @@ class InterpretationReport:
         return sum(bool(entry.interpretation) for entry in self.entries)
 
 
-def build_interpretation_report(session: ProjectSession) -> InterpretationReport:
+def build_interpretation_report(
+    session: ProjectSession,
+    language: AppLanguage = AppLanguage.RU,
+) -> InterpretationReport:
     well = session.current_well
     if well is None:
         raise RuntimeError("Сначала выберите скважину")
     lithotypes = {
         item.lithotype_id: item for item in LithotypeCatalogController(session).available()
     }
-    stratigraphy = _build_stratigraphy_snapshot(session)
+    stratigraphy = _build_stratigraphy_snapshot(session, language=language)
     dataset = session.current_dataset
     entries = tuple(
         _entry_from_sample(
@@ -187,6 +191,7 @@ def build_interpretation_report(session: ProjectSession) -> InterpretationReport
             lithotypes=lithotypes,
             stratigraphy=stratigraphy,
             dataset=dataset,
+            language=language,
         )
         for sample in sorted(
             well.cuttings,
@@ -215,15 +220,27 @@ def _entry_from_sample(
     lithotypes: dict[str, CatalogLithotype],
     stratigraphy: tuple[GeologicalStratigraphyEntry, ...],
     dataset: Dataset | None,
+    language: AppLanguage,
 ) -> AnalysisInterpretationEntry:
-    observations = tuple(
-        (key, str(value))
-        for key, attribute in LBA_FIELDS
-        if (value := getattr(sample, attribute)) is not None and str(value).strip()
-    )
-    interpretation = (
-        sample.analysis_interpretation.strip() if sample.analysis_interpretation else None
-    )
+    observations_list: list[tuple[str, str]] = []
+    for key, attribute in LBA_FIELDS:
+        if attribute == "lba_description":
+            value = localized_text(
+                sample.lba_description_i18n,
+                language,
+                legacy=sample.lba_description,
+            )
+        else:
+            raw_value = getattr(sample, attribute)
+            value = "" if raw_value is None else str(raw_value)
+        if value.strip():
+            observations_list.append((key, value))
+    observations = tuple(observations_list)
+    interpretation = localized_text(
+        sample.analysis_interpretation_i18n,
+        language,
+        legacy=sample.analysis_interpretation,
+    ).strip() or None
     lba_standard_assessment = assess_lba_standard(
         group=sample.lba_group,
         type_id=sample.lba_type_id,
@@ -239,7 +256,9 @@ def _entry_from_sample(
             key=lambda item: (-item.percentage, item.code.casefold(), item.lithotype_id),
         )
     )
-    rock_description = _rich_text_to_plain(sample.description)
+    rock_description = _rich_text_to_plain(
+        localized_text(sample.description_i18n, language, legacy=sample.description)
+    )
     sample_stratigraphy = _overlapping_stratigraphy(
         stratigraphy,
         sample.top_depth,
@@ -329,6 +348,8 @@ def _rock_component(
 
 def _build_stratigraphy_snapshot(
     session: ProjectSession,
+    *,
+    language: AppLanguage = AppLanguage.RU,
 ) -> tuple[GeologicalStratigraphyEntry, ...]:
     well = session.current_well
     if well is None:
@@ -371,7 +392,11 @@ def _build_stratigraphy_snapshot(
                 names[0],
                 names[1],
                 names[2],
-                interval.description
+                localized_text(
+                    interval.description_i18n,
+                    language,
+                    legacy=interval.description,
+                )
                 or (definition.description if definition is not None else None)
                 or None,
             )

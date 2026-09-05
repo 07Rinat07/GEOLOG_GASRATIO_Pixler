@@ -96,6 +96,10 @@ Interval geometry, curves, numeric calcimetry, and cuttings composition are shar
 RU, KK, and EN is stored separately; switching language must not erase an existing translation.
 There is no automatic machine translation. A saved compatible text may be shown when a
 translation is missing, so verify every language manually before delivery.
+The selected application language is applied consistently to the interface, form headers and
+captions, column and lithotype names, legends, reports, and PDF output. Authored rock descriptions,
+comments, and other entered data appear in the selected language only after that language version
+has been filled in.
 For example, a Russian description imported from LAS is not translated automatically when English
 is enabled. To show English text in the tablet and PDF, open the **Rock description** interval,
 choose **English**, enter the translation or insert a ready template, and save the project. Fill
