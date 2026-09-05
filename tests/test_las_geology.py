@@ -10,10 +10,7 @@ from geoworkbench.storage.project_codec import load_project
 from geoworkbench.tablet.lithology_legend import build_lithology_legend
 
 
-LAS_494 = Path(
-    "C:/Users/SRR07/Videos/Archiv_SSD1000/ГТИ/28-05-2024_ГИС_АКШ_494/"
-    "Геология_plus_Технология_plus_Технология_plus_ГК,ННК,Дср.las"
-)
+LAS_FIXTURE = Path(__file__).parent / "fixtures" / "las_geology" / "portable_codes.las"
 
 
 def test_las_code_id_is_stable_and_validated() -> None:
@@ -22,7 +19,7 @@ def test_las_code_id_is_stable_and_validated() -> None:
 
 def test_import_las_geology_materializes_codes_and_compositions() -> None:
     session = ProjectSession()
-    dataset = import_las(LAS_494)
+    dataset = import_las(LAS_FIXTURE)
     well = session.add_dataset(dataset, "494")
 
     assert len(well.lithology) > 0
@@ -42,7 +39,7 @@ def test_import_las_geology_materializes_codes_and_compositions() -> None:
 
 def test_import_las_geology_does_not_overwrite_manual_layers() -> None:
     session = ProjectSession()
-    dataset = import_las(LAS_494)
+    dataset = import_las(LAS_FIXTURE)
     well = session.add_dataset(dataset, "494")
     before = (len(well.lithology), len(well.cuttings))
     result = import_las_geology(session)
@@ -53,7 +50,7 @@ def test_import_las_geology_does_not_overwrite_manual_layers() -> None:
 
 def test_reading_codes_refreshes_catalog_when_layers_already_exist() -> None:
     session = ProjectSession()
-    well = session.add_dataset(import_las(LAS_494), "494")
+    well = session.add_dataset(import_las(LAS_FIXTURE), "494")
     well.lithology = [LithologyInterval("manual", 47.0, 48.0, "manual-rock")]
     well.cuttings = [CuttingsSample("manual-cuttings", 47.0, 48.0, [])]
     for identity in tuple(session.project.lithotypes):
@@ -71,7 +68,7 @@ def test_reading_codes_refreshes_catalog_when_layers_already_exist() -> None:
 
 def test_las_code_mapping_can_be_reset_to_neutral_record() -> None:
     session = ProjectSession()
-    well = session.add_dataset(import_las(LAS_494), "494")
+    well = session.add_dataset(import_las(LAS_FIXTURE), "494")
     controller = LithotypeCatalogController(session)
 
     controller.adapt_las_code(5, "sandstone")
@@ -85,7 +82,7 @@ def test_las_code_mapping_can_be_reset_to_neutral_record() -> None:
 
 def test_las_code_mapping_survives_project_round_trip(tmp_path) -> None:
     session = ProjectSession()
-    session.add_dataset(import_las(LAS_494), "494")
+    session.add_dataset(import_las(LAS_FIXTURE), "494")
     controller = LithotypeCatalogController(session)
     selected = controller.get("sandstone")
     controller.adapt_las_code(5, selected.lithotype_id)
@@ -102,7 +99,7 @@ def test_las_code_mapping_survives_project_round_trip(tmp_path) -> None:
 
 def test_las_code_mapping_changes_visual_contract_without_rewriting_source_id() -> None:
     session = ProjectSession()
-    well = session.add_dataset(import_las(LAS_494), "494")
+    well = session.add_dataset(import_las(LAS_FIXTURE), "494")
     controller = LithotypeCatalogController(session)
     selected = controller.get("sandstone")
 
