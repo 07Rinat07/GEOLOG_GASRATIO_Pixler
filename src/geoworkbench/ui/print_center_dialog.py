@@ -77,6 +77,7 @@ class PrintCenterDialog(QDialog):
         header_choices: tuple[tuple[str, str], ...] = (),
         initial_header_template_id: str | None = None,
         paired_header_template_ids: dict[str, str] | None = None,
+        header_orientation_by_id: dict[str, str] | None = None,
         manage_headers_callback: HeaderCatalogCallback | None = None,
         header_preview_callback: HeaderPreviewCallback | None = None,
         edit_header_callback: HeaderEditCallback | None = None,
@@ -99,6 +100,11 @@ class PrintCenterDialog(QDialog):
             for orientation, template_id in (paired_header_template_ids or {}).items()
             if str(orientation).strip().casefold() in {"portrait", "landscape"}
             and str(template_id).strip()
+        }
+        self.header_orientation_by_id = {
+            str(template_id).strip(): str(orientation).strip().casefold()
+            for template_id, orientation in (header_orientation_by_id or {}).items()
+            if str(template_id).strip()
         }
         self.manage_headers_callback = manage_headers_callback
         self.header_preview_callback = header_preview_callback
@@ -137,6 +143,7 @@ class PrintCenterDialog(QDialog):
         self.header_combo = QComboBox()
         self.header_combo.setObjectName("print-header-template-combo")
         self.header_combo.currentIndexChanged.connect(self._refresh_header_preview)
+        self.header_combo.currentIndexChanged.connect(self._sync_orientation_to_header)
         header_form.addRow(self._t("print_center.document_header"), self.header_combo)
 
         self.header_placement_combo = QComboBox()
@@ -915,6 +922,21 @@ class PrintCenterDialog(QDialog):
         if index >= 0:
             self.header_combo.setCurrentIndex(index)
 
+    def _sync_orientation_to_header(self, _index: int = -1) -> None:
+        """Keep the A4 sheet and a fixed-orientation header on one contract."""
+
+        catalog_id = self.header_combo.currentData()
+        if not isinstance(catalog_id, str) or not catalog_id.strip():
+            return
+        orientation = self.header_orientation_by_id.get(catalog_id.strip(), "both")
+        if orientation not in {"portrait", "landscape"}:
+            return
+        if self.orientation_combo.currentData() == orientation:
+            return
+        index = self.orientation_combo.findData(orientation)
+        if index >= 0:
+            self.orientation_combo.setCurrentIndex(index)
+
     def _orientation_header_candidate(
         self,
         selected_id: str | None,
@@ -931,11 +953,19 @@ class PrintCenterDialog(QDialog):
         opposite_suffix = f"_{opposite}"
         if normalized_id.casefold().endswith(desired_suffix):
             return normalized_id
-        if not normalized_id.casefold().endswith(opposite_suffix):
-            return normalized_id
-        candidate = normalized_id[: -len(opposite_suffix)] + desired_suffix
         available_ids = {catalog_id for catalog_id, _label in self.header_choices}
-        return candidate if candidate in available_ids else normalized_id
+        if normalized_id.casefold().endswith(opposite_suffix):
+            candidate = normalized_id[: -len(opposite_suffix)] + desired_suffix
+            if candidate in available_ids:
+                return candidate
+        current_orientation = self.header_orientation_by_id.get(normalized_id, "both")
+        if current_orientation in {normalized_orientation, "both", ""}:
+            return normalized_id
+        for catalog_id, _label in self.header_choices:
+            item_orientation = self.header_orientation_by_id.get(catalog_id, "both")
+            if item_orientation in {normalized_orientation, "both", ""}:
+                return catalog_id
+        return normalized_id
 
     def _manage_headers(self) -> None:
         if self.manage_headers_callback is None:

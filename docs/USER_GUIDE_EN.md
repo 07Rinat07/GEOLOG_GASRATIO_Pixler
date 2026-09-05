@@ -109,6 +109,9 @@ To print RU, KK, and EN from one project, save the changes, switch the **applica
 close any Print Centre window that is already open, and reopen **Print → Print and export
 center...**. Inspect preview and use distinct names such as `Well_101_2026-08-31_RU.pdf`,
 `_KK.pdf`, and `_EN.pdf`.
+The A4 page orientation and print header are selected as a pair: when Portrait or Landscape is
+chosen, Print Centre automatically selects the matching paired header when one is available.
+A header marked “both orientations” is valid for either choice.
 
 Keep only one canonical working file, `Well_101.geologpkg`. Before every successful daily append,
 the application stores the previous revision in `.geolog-backups` and retains the five newest

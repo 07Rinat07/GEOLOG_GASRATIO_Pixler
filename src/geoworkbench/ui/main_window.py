@@ -4467,6 +4467,7 @@ class MainWindow(QMainWindow):
                 if report_form is not None
                 else {}
             ),
+            header_orientation_by_id=self._print_header_orientation_by_id(),
             manage_headers_callback=self._manage_print_headers,
             header_preview_callback=self._print_header_preview_pixmap,
             edit_header_callback=self._open_print_header_from_center,
@@ -5090,6 +5091,21 @@ class MainWindow(QMainWindow):
                 continue
             choices.append((template.template_id, f"{template.name} — из Masterlog"))
         return tuple(choices)
+
+    def _print_header_orientation_by_id(self) -> dict[str, str]:
+        """Return the persisted orientation contract for every print header."""
+
+        result = {
+            item.catalog_id: item.preferred_orientation
+            for item in catalog_items(self.session.project.masterlog_templates, self.language)
+        }
+        for template in self.session.project.masterlog_templates.values():
+            if template.header_elements:
+                result.setdefault(
+                    template.template_id,
+                    str(template.properties.get("preferred_orientation", "both")),
+                )
+        return result
 
     def _manage_print_headers(self) -> tuple[tuple[str, str], ...]:
         self.show_header_catalog()
