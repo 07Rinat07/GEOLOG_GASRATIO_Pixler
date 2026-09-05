@@ -96,6 +96,10 @@ Interval geometry, curves, numeric calcimetry, and cuttings composition are shar
 RU, KK, and EN is stored separately; switching language must not erase an existing translation.
 There is no automatic machine translation. A saved compatible text may be shown when a
 translation is missing, so verify every language manually before delivery.
+For example, a Russian description imported from LAS is not translated automatically when English
+is enabled. To show English text in the tablet and PDF, open the **Rock description** interval,
+choose **English**, enter the translation or insert a ready template, and save the project. Fill
+the **қазақша** version in the same way.
 
 To print RU, KK, and EN from one project, save the changes, switch the **application language**,
 close any Print Centre window that is already open, and reopen **Print → Print and export
