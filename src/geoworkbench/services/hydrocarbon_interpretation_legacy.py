@@ -1394,8 +1394,8 @@ small {{ color: #44566c; }}
 <th>{escape(labels["calculation"])}</th><th>{escape(labels["source"])}</th></tr></thead>
 <tbody>{method_rows}</tbody></table>
 <h2>{escape(labels["candidates"])}</h2>
-<table><colgroup><col style="width:14%"><col style="width:10%">
-<col style="width:20%"><col style="width:22%"><col style="width:34%"></colgroup>
+<table><colgroup><col style="width:14%"><col style="width:20%">
+<col style="width:18%"><col style="width:20%"><col style="width:28%"></colgroup>
 <thead><tr><th>{escape(labels["interval"])}</th><th>{escape(labels["strength"])}</th>
 <th>{escape(labels["hypothesis"])}</th><th>{escape(labels["absolute_gas"])}</th>
 <th>{escape(labels["evidence"])}</th></tr></thead>

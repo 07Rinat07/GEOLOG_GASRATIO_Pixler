@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+import re
 
 import fitz
 import numpy as np
@@ -274,20 +275,28 @@ def _page_indexes(document: fitz.Document, marker: str) -> list[int]:
     return [
         page_index
         for page_index, page in enumerate(document)
-        if marker in page.get_text()
+        if _normalized_text(marker) in _normalized_text(page.get_text())
     ]
 
 
 def _require_text(text: str, markers: tuple[str, ...], label: str) -> None:
-    missing = [marker for marker in markers if marker not in text]
+    normalized = _normalized_text(text)
+    missing = [marker for marker in markers if _normalized_text(marker) not in normalized]
     if missing:
         raise RuntimeError(f"{label}: missing printed fields: {missing}")
 
 
 def _reject_text(text: str, markers: tuple[str, ...], label: str) -> None:
-    present = [marker for marker in markers if marker in text]
+    normalized = _normalized_text(text)
+    present = [marker for marker in markers if _normalized_text(marker) in normalized]
     if present:
         raise RuntimeError(f"{label}: forbidden client-facing fields: {present}")
+
+
+def _normalized_text(value: str) -> str:
+    """Collapse PDF line wrapping before checking semantic report markers."""
+
+    return re.sub(r"\s+", " ", value).strip()
 
 
 def _verify_page_geometry(document: fitz.Document, label: str) -> float:
