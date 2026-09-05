@@ -1744,7 +1744,7 @@ def _paint_calcimetry_column(
                 "  ".join(parts),
                 orientation=str(
                     column.properties.get(
-                        "calcimetry_label_orientation", "horizontal"
+                        "calcimetry_label_orientation", "vertical_top_to_bottom"
                     )
                 ),
                 position="center",
@@ -1828,7 +1828,7 @@ def _paint_lba_column(
         )
         orientation = str(
             column.properties.get(
-                "lba_label_orientation", "vertical_bottom_to_top"
+                "lba_label_orientation", "vertical_top_to_bottom"
             )
         )
         color_code = lba_color_code(sample.lba_color) or ""

@@ -2394,7 +2394,7 @@ def _kazgeology_reference_columns() -> list[MasterlogColumnTemplate]:
             "Стратиграфия",
             "stratigraphy",
             18.0,
-            properties={"title_orientation": "vertical_bottom_to_top", "title_position": "center"},
+            properties={"title_orientation": "vertical_top_to_bottom", "title_position": "center"},
         ),
         _reference_drilling_column(),
         MasterlogColumnTemplate("depth", "Глубина, м", "depth", 15.0),

@@ -176,6 +176,19 @@ def test_every_builtin_masterlog_column_is_linear_by_default() -> None:
         assert all(column.x_scale == "linear" for column in preset.template.columns)
 
 
+def test_reference_masterlog_uses_top_to_bottom_text_direction() -> None:
+    reference = next(
+        item
+        for item in BUILTIN_MASTERLOG_FORM_PRESETS
+        if item.preset_id == "kazgeology_reference_blank"
+    )
+    stratigraphy = next(
+        column for column in reference.template.columns if column.column_type == "stratigraphy"
+    )
+
+    assert stratigraphy.properties["title_orientation"] == "vertical_top_to_bottom"
+
+
 def test_curated_a4_forms_and_headers_are_paired_and_fit_both_orientations() -> None:
     assert len(CURATED_MASTERLOG_FORM_PRESETS) == 10
     assert len(CURATED_MASTERLOG_HEADER_PRESETS) == 10
