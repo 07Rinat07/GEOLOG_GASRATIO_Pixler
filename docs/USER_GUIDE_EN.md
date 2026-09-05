@@ -153,6 +153,22 @@ and save the result as a user header.
 Edited numeric codes are used both in exported curves and the dictionary; duplicate codes
 block export. A lithotype referenced by cuttings cannot be deleted.
 
+### When LAS contains only the cuttings log
+
+This is normal for files produced by different drilling programs. Do not re-import the LAS or
+change the source file. Turn on **Select** mode (`Alt+1`) and fill the missing tracks:
+
+1. In **Stratigraphy**, `Shift + left drag` the interval and choose its code/name.
+2. In **Calcimetry** or **LBA**, drag the interval and choose **Fill calcimetry and LBA**.
+   Edit the From and To depths manually; leave unknown fields empty.
+3. In **Rock description**, drag an interval and enter text or select a template. It may overlap
+   an imported cuttings interval.
+4. Press **OK** after each interval and save the project with `Ctrl+S`.
+
+These records do not rewrite LAS lithology or the cuttings log. Reopen the project and verify the
+tablet, then open **Print → Print and export center** and preview the PDF: stratigraphy, rock
+description, calcimetry, and LBA should appear in their own tracks.
+
 When a new LAS is exported, manually entered lithology and cuttings are written to the numeric
 `КОД_ПОРОДЫ`, `ПОРОДА1_КОД`…`ПОРОДА5_КОД` and `ПОРОДА1_КОЛИЧ`…`ПОРОДА5_КОЛИЧ` channels
 when the lithotypes have numeric codes. Before ASCII data, the exported copy includes an ASCII-safe `~Other`
