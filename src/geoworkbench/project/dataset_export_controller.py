@@ -181,6 +181,7 @@ class DatasetExportController:
         if dataset is None:
             raise RuntimeError("Сначала выберите набор данных")
         export_dataset = dataset_with_well_geology(self.session)
+        dictionary = dictionary_from_session(self.session)
         result = export_las(
             export_dataset,
             target,
@@ -188,7 +189,6 @@ class DatasetExportController:
             source_document=self._source_document(dataset),
             plan=plan,
         )
-        dictionary = dictionary_from_session(self.session)
         if result.exists() and dictionary.entries:
             append_las_dictionary(result, dictionary)
         return result

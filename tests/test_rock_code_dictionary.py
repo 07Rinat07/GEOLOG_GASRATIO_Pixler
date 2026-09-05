@@ -1,6 +1,8 @@
 from pathlib import Path
+from dataclasses import replace
 
 import numpy as np
+import pytest
 
 from geoworkbench.data.las_adapter import import_las, import_las_with_report
 from geoworkbench.domain.models import (
@@ -16,7 +18,7 @@ from geoworkbench.domain.models import (
 from geoworkbench.project.dataset_export_controller import DatasetExportController
 from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
 from geoworkbench.project.session import ProjectSession
-from geoworkbench.services.las_geology import unmapped_las_lithotype
+from geoworkbench.services.las_geology import import_las_geology, unmapped_las_lithotype
 from geoworkbench.services.rock_code_dictionary import (
     RockCodeDictionary,
     RockCodeEntry,
@@ -122,7 +124,8 @@ def test_embedded_dictionary_reader_uses_latest_custom_section() -> None:
     assert [entry.source_code for entry in embedded.entries] == [6]
 
 
-def test_las_export_contains_project_geology_and_embedded_dictionary(tmp_path: Path) -> None:
+@pytest.mark.parametrize("export_code", [5, 105])
+def test_las_export_contains_project_geology_and_embedded_dictionary(tmp_path: Path, export_code: int) -> None:
     dataset = Dataset(
         "dataset-1",
         "Dataset",
@@ -149,6 +152,9 @@ def test_las_export_contains_project_geology_and_embedded_dictionary(tmp_path: P
     session.project.lithotypes["las-code-6"] = unmapped_las_lithotype(6)
     selected = LithotypeCatalogController(session).get("sandstone")
     LithotypeCatalogController(session).adapt_las_code(5, selected.lithotype_id)
+    session.project.lithotypes["las-code-5"] = replace(
+        session.project.lithotypes["las-code-5"], code=str(export_code)
+    )
     target = tmp_path / "geology.las"
 
     DatasetExportController(session).export_current_las(target, overwrite=True)
@@ -161,9 +167,23 @@ def test_las_export_contains_project_geology_and_embedded_dictionary(tmp_path: P
     assert b"GEOWORKBENCH_ROCK_DICTIONARY" in raw
     embedded = dictionary_from_las_bytes(raw)
     assert embedded is not None
-    assert {entry.source_code for entry in embedded.entries} == {5, 6}
+    assert {entry.source_code for entry in embedded.entries} == {export_code, 6}
+    np.testing.assert_array_equal(exported.curve_by_mnemonic("КОД_ПОРОДЫ").values, [export_code] * 3)
 
     imported = import_las_with_report(target)
     reopened = ProjectSession()
     reopened.add_dataset(imported.dataset, source_document=imported.source_document)
-    assert reopened.project.lithotypes["las-code-5"].name_ru == selected.name_ru
+    identity = f"las-code-{export_code}"
+    assert reopened.project.lithotypes[identity].name_ru == selected.name_ru
+    manual = replace(reopened.project.lithotypes[identity], color="#123456", name_ru="Ручная настройка")
+    reopened.project.lithotypes[identity] = manual
+    import_las_geology(reopened)
+    assert reopened.project.lithotypes[identity] == manual
+
+
+def test_dictionary_export_rejects_ambiguous_numeric_codes() -> None:
+    session = ProjectSession()
+    session.project.lithotypes["las-code-5"] = unmapped_las_lithotype(5)
+    session.project.lithotypes["custom"] = replace(unmapped_las_lithotype(5), lithotype_id="custom")
+    with pytest.raises(RockCodeDictionaryError, match="уникальны"):
+        dictionary_from_session(session)

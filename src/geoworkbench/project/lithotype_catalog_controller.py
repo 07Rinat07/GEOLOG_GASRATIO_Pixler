@@ -150,6 +150,14 @@ class LithotypeCatalogController:
             for interval in well.lithology
             if interval.lithotype_id == lithotype_id
         ]
+        used_in_cuttings = any(
+            component.lithotype_id == lithotype_id
+            for well in self.session.project.wells.values()
+            for sample in well.cuttings
+            for component in sample.components
+        )
+        if used_in_cuttings and not base_exists:
+            raise ValueError("Литотип используется в шламограмме")
         if used and not base_exists:
             raise ValueError("Литотип используется в литологических интервалах")
         del self.session.project.lithotypes[lithotype_id]

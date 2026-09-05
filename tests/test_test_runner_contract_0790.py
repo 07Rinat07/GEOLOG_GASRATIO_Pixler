@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
+from scripts import run_tests
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -36,3 +40,28 @@ def test_headless_runner_only_suppresses_known_missing_desktop_dependencies() ->
     assert 'OPTIONAL_DESKTOP_MODULES = frozenset({"PySide6", "pyqtgraph", "lasio"})' in source
     assert "Unexpected collection failures" in source
     assert "pytest_asyncio.plugin" in source
+
+
+@pytest.mark.parametrize("status", [1, 0xC0000005, -1073741819])
+def test_child_failure_reports_selector_and_preserves_exit_status(monkeypatch, capsys, status):
+    from subprocess import CompletedProcess
+
+    monkeypatch.setattr(
+        run_tests.subprocess, "run", lambda *args, **kwargs: CompletedProcess([], status)
+    )
+    result = run_tests._run_child([], ["tests/example.py::test_case"], {})
+    assert result == status
+    error = capsys.readouterr().err
+    assert f"exit={status}" in error
+    assert f"0x{status & 0xFFFFFFFF:08X}" in error
+    assert "tests/example.py::test_case" in error
+
+
+def test_successful_child_does_not_report_failure(monkeypatch, capsys):
+    from subprocess import CompletedProcess
+
+    monkeypatch.setattr(
+        run_tests.subprocess, "run", lambda *args, **kwargs: CompletedProcess([], 0)
+    )
+    assert run_tests._run_child([], ["tests/example.py::test_case"], {}) == 0
+    assert capsys.readouterr().err == ""

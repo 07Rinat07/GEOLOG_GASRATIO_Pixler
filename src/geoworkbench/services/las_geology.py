@@ -91,7 +91,7 @@ def import_las_geology(session: ProjectSession) -> LasGeologyResult:
     if source_document is not None:
         embedded = dictionary_from_las_bytes(source_document.raw_bytes)
         if embedded is not None:
-            apply_dictionary(session, embedded)
+            apply_dictionary(session, embedded, overwrite=False)
     if not any("ПОРОД" in c.metadata.original_mnemonic.upper() for c in dataset.curves.values()):
         return LasGeologyResult()
     depth = np.asarray(dataset.depth, dtype=float)

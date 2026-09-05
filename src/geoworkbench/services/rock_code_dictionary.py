@@ -209,8 +209,10 @@ def dictionary_from_session(
     seen: set[int] = set()
     for record in session.project.lithotypes.values():
         source_code = _source_code_for_record(record)
-        if source_code is None or source_code in seen:
+        if source_code is None:
             continue
+        if source_code in seen:
+            raise RockCodeDictionaryError(f"Коды экспорта должны быть уникальны: {source_code}")
         entries.append(RockCodeEntry.from_project_lithotype(record, source_code))
         seen.add(source_code)
     return RockCodeDictionary(
@@ -223,6 +225,8 @@ def dictionary_from_session(
 def apply_dictionary(
     session: "ProjectSession",
     dictionary: RockCodeDictionary,
+    *,
+    overwrite: bool = True,
 ) -> tuple[int, int]:
     """Merge dictionary entries into a project without rewriting intervals.
 
@@ -246,6 +250,8 @@ def apply_dictionary(
             entry.name_kk,
         )
         previous = session.project.lithotypes.get(identity)
+        if previous is not None and not overwrite:
+            continue
         if previous == record:
             continue
         session.project.lithotypes[identity] = record
@@ -259,7 +265,7 @@ def apply_dictionary(
 
 
 def append_las_dictionary(path: str | Path, dictionary: RockCodeDictionary) -> Path:
-    """Append an ASCII-safe ``~Other`` dictionary section to an exported LAS."""
+    """Place the dictionary before ASCII data to preserve LAS reader compatibility."""
 
     target = Path(path)
     raw = target.read_bytes()
@@ -267,7 +273,11 @@ def append_las_dictionary(path: str | Path, dictionary: RockCodeDictionary) -> P
     section = render_las_dictionary_section(dictionary, newline=newline)
     if raw and not raw.endswith((b"\n", b"\r")):
         raw += newline
-    target.write_bytes(raw + section)
+    data_section = re.search(rb"(?im)^~A(?:SCII)?\b[^\r\n]*", raw)
+    if data_section is None:
+        raise RockCodeDictionaryError("В LAS отсутствует секция ASCII")
+    offset = data_section.start()
+    target.write_bytes(raw[:offset] + section + raw[offset:])
     return target
 
 
@@ -330,9 +340,7 @@ def render_las_dictionary_section(
 
 
 def _source_code_for_record(record: ProjectLithotype) -> int | None:
-    match = re.fullmatch(r"las-code-([1-9][0-9]{0,5})", record.lithotype_id)
-    if match:
-        return int(match.group(1))
+    # Exported curves use the editable numeric code, not the stable interval ID.
     if _CODE_PATTERN.fullmatch(record.code):
         return int(record.code)
     return None

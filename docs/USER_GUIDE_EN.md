@@ -141,13 +141,16 @@ after manual lithology or cuttings edits; existing intervals are not overwritten
 
 Use **Import dictionary** and **Export dictionary** in the same tab to exchange mappings
 between projects. The portable JSON stores its schema version, source code, lithotype ID,
-RU/KK/EN names, category, `#RRGGBB` colour, and pattern key. Keep a separate profile for
-each supplier or rig and load the matching profile before reading that LAS; the same numeric
-code from two suppliers must not be treated as the same rock without verification.
+RU/KK/EN names, category, `#RRGGBB` colour, and pattern key. The catalog is project-wide;
+independent source profiles are not available yet. Use separate projects for suppliers with
+conflicting codes. Explicit JSON import replaces matching records; rereading LAS preserves
+existing settings. Only the pattern key is transferred, not a custom image file.
+Edited numeric codes are used both in exported curves and the dictionary; duplicate codes
+block export. A lithotype referenced by cuttings cannot be deleted.
 
 When a new LAS is exported, manually entered lithology and cuttings are written to the numeric
 `КОД_ПОРОДЫ`, `ПОРОДА1_КОД`…`ПОРОДА5_КОД` and `ПОРОДА1_КОЛИЧ`…`ПОРОДА5_КОЛИЧ` channels
-when the lithotypes have numeric codes. The exported copy ends with an ASCII-safe `~Other`
+when the lithotypes have numeric codes. Before ASCII data, the exported copy includes an ASCII-safe `~Other`
 section carrying the `GEOWORKBENCH_ROCK_DICTIONARY` marker and the JSON dictionary contract.
 The source LAS is unchanged; a colleague can use the sidecar JSON or extract the contract
 from the exported copy in another program.

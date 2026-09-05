@@ -195,7 +195,17 @@ def _run_child(
         env=environment,
         check=False,
     )
-    return int(completed.returncode)
+    result = int(completed.returncode)
+    if result:
+        # Native Qt failures may exit without a pytest summary. Keep the exact
+        # selector and Windows status visible in both console and CI logs.
+        print(
+            f"Test subprocess failed: exit={result} (0x{result & 0xFFFFFFFF:08X}); "
+            f"selectors={', '.join(selectors)}",
+            file=sys.stderr,
+            flush=True,
+        )
+    return result
 
 
 def _run_isolated_shards(args: Sequence[str]) -> int:

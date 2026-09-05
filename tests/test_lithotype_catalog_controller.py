@@ -1,6 +1,6 @@
 import pytest
 
-from geoworkbench.domain.models import LithologyInterval, Well
+from geoworkbench.domain.models import CuttingsComponent, CuttingsSample, LithologyInterval, Well
 from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
 from geoworkbench.project.session import ProjectSession
 
@@ -62,3 +62,17 @@ def test_used_project_lithotype_cannot_be_removed() -> None:
         controller.remove("custom")
 
     assert "custom" in session.project.lithotypes
+
+
+def test_cuttings_only_lithotype_cannot_be_removed() -> None:
+    session = ProjectSession()
+    controller = LithotypeCatalogController(session)
+    controller.add("custom", "CUS", "Порода", "Rock", "other", "#112233", "solid")
+    session.project.wells["well"] = Well(
+        "well", "Well", cuttings=[CuttingsSample("sample", 10, 20, [CuttingsComponent("custom", 100)])],
+    )
+    session.dirty = False
+    with pytest.raises(ValueError, match="шламограмме"):
+        controller.remove("custom")
+    assert "custom" in session.project.lithotypes
+    assert not session.dirty
