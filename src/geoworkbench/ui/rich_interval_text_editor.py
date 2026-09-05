@@ -386,6 +386,23 @@ class RichIntervalTextEditor(QWidget):
         else:
             self.editor.setPlainText(text)
 
+    def append_html(self, value: str | None) -> None:
+        """Append a ready description while preserving existing rich text."""
+        text = (value or "").strip()
+        if not text:
+            return
+        cursor = self.editor.textCursor()
+        cursor.clearSelection()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        if self.editor.toPlainText().strip() or "<img" in self.editor.toHtml().casefold():
+            cursor.insertHtml("<p></p>")
+        if "<" in text and ">" in text:
+            cursor.insertHtml(text)
+        else:
+            cursor.insertText(text)
+        self.editor.setTextCursor(cursor)
+        self.editor.ensureCursorVisible()
+
     def html(self) -> str | None:
         html = self.editor.toHtml()
         if not self.editor.toPlainText().strip() and "<img" not in html.casefold():

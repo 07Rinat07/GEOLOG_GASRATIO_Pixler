@@ -257,7 +257,10 @@ class RockDescriptionDialog(QDialog):
     def _insert_template(self, index: int) -> None:
         description = self.template_input.itemData(index)
         if isinstance(description, str):
-            self.editor.set_html(description)
+            self.editor.append_html(description)
+            self.template_input.blockSignals(True)
+            self.template_input.setCurrentIndex(0)
+            self.template_input.blockSignals(False)
 
     @property
     def top_depth(self) -> float:

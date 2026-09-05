@@ -415,8 +415,11 @@ class UnifiedCuttingsSampleDialog(QDialog):
     def _insert_description_template(self, index: int) -> None:
         description = self.description_template_input.itemData(index)
         if isinstance(description, str):
-            self.rich_description.set_html(description)
+            self.rich_description.append_html(description)
             self._description_from_template = True
+            self.description_template_input.blockSignals(True)
+            self.description_template_input.setCurrentIndex(0)
+            self.description_template_input.blockSignals(False)
 
     def _mark_description_as_user_edited(self) -> None:
         self._description_from_template = False

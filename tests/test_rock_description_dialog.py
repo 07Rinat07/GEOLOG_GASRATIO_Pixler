@@ -33,6 +33,21 @@ def test_rock_description_dialog_offers_localized_ready_templates(qapp) -> None:
     dialog.close()
 
 
+def test_rock_description_dialog_appends_multiple_ready_templates(qapp) -> None:
+    dialog = RockDescriptionDialog(70.0, 80.0, language=AppLanguage.RU)
+
+    dialog.template_input.setCurrentIndex(1)
+    first = dialog.editor.editor.toPlainText().strip()
+    dialog.template_input.setCurrentIndex(2)
+    combined = dialog.editor.editor.toPlainText().strip()
+
+    assert first
+    assert first in combined
+    assert len(combined) > len(first)
+    assert dialog.template_input.currentIndex() == 0
+    dialog.close()
+
+
 def test_rock_description_dialog_preserves_existing_text_on_open(qapp) -> None:
     sample = CuttingsSample("sample", 70.0, 80.0, description="Авторский текст")
 

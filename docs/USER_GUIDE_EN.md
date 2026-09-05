@@ -196,6 +196,8 @@ saved projects and print templates remain compatible.
 6. Select a ready rock template or enter arbitrary text. Use **Text alignment** to select left,
    centre, or right. **Wrap words** is enabled by default; clear it when automatic wrapping is not
    wanted. Rock percentages are not required for this workflow.
+   You can select any number of ready templates in succession; each new template is appended
+   instead of replacing the existing description.
 7. Press **OK**, then save the project with `Ctrl+S`.
 
 The saved text appears immediately in the selected interval and is included in Masterlog, PDF,
@@ -214,6 +216,8 @@ are not deleted and remain visible outside an overlapping description.
 In Cuttings, Calcimetry, and LBA tracks, `Shift + left drag` opens the shared sample editor. It
 accepts up to four rocks totalling `100%`, analyses, a ready template, and a description. After
 saving, the same description automatically appears in the Interpretation column.
+The description tab supports repeated insertion: choose ready templates one after another and
+each one is appended to the description already assembled.
 
 When LAS already contains cuttings intervals, fill an analysis independently: use
 `Shift + left drag` in the Calcimetry or LBA column and choose **Fill calcimetry and LBA**.
