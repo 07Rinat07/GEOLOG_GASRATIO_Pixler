@@ -180,6 +180,59 @@ edits; export it again.
   protected storage when organizational policy requires it.
 - There is no command to roll back one committed daily append; use a dated `.geologpkg` copy.
 - A large project stores curve arrays in JSON and can consume substantial disk space.
+- Daily numeric append preserves existing geology but does not yet build new LAS rock-code
+  intervals into already populated lithology and cuttings layers.
+- Header details currently live in templates, rather than a shared well passport.
+- The ready-description language selector chooses only the inserted text language. To save an
+  authored RU/KK/EN version, switch the application language before opening the editor.
+
+## Approved development model, 2026-09-05 — planned, not yet available
+
+The following decisions are approved for development; they do not replace the current commands
+above. WELL-01–WELL-06 stages and dependencies are tracked only in the
+[project plan](../PROJECT_PLAN.md), with verifiable contracts in the [requirements](../REQUIREMENTS.md).
+
+**One project and a shared passport (WELL-01).** Maintain a well in one canonical `.geologpkg`.
+Depths, curves, interval geometry, rock percentages, and analyses are shared; descriptions,
+interpretations, and comments have RU/KK/EN versions in the same record. Three languages do not
+require three projects. The shared passport holds well details, logos, and construction, with
+language variants where text needs translation. All forms use this passport. Migration preserves
+identifiers and manual data; conflicting details in existing headers are presented for resolution
+instead of silently choosing a value.
+
+**Update well data (WELL-02).** The proposed workflow distinguishes a new depth section, late
+analyses, and corrections to stored values. Preview lists added measurements, coded geology
+intervals, missing-value fills, and conflicts. Changes retain provenance, and manual edits are
+protected against silent replacement. Supplier codes are resolved through PROJ-09 source profiles
+into a common rock catalog. Unknown codes require mapping rather than a guessed rock. Cancellation
+retains the previous revision; applying the approved set creates a revision and recovery copy.
+Affected calculations are rerun before issuing documents.
+
+**Three-language editor and templates (WELL-03).** Each interval has Russian / Қазақша / English
+tabs, initially following the application language. Selecting multiple multilingual templates
+inserts matching fragments into all three versions. Block order, the template version at insertion,
+and manual additions are retained. Later catalog changes do not rewrite finished descriptions.
+Free authored text and its translations remain independently editable; machine translation is not
+an already implemented feature.
+
+**Translation readiness (WELL-04).** Each language field has missing, draft, reviewed, or stale
+status. A translation retains its dependency on the original text revision. Editing the original
+marks dependent translations for review without deleting them. New depths do not invalidate
+translations in unrelated existing intervals.
+
+**Linked forms (WELL-05).** One form has portrait and landscape layouts. The header, paper, and
+tablet share one orientation; language controls captions and prepared text. Custom captions are
+preserved per language. Orientation changes select a pair from the same custom header family;
+a missing pair needs explicit configuration rather than an arbitrary substitute. Wrapping and
+placement accommodate different translation lengths.
+
+**Document package (WELL-06).** Select forms, languages, orientations, and a range: the entire well,
+a new section, or a chosen interval. All outputs use the same saved revision. Readiness checks
+identify missing data, stale translations, and calculations. Final documents must not silently
+contain fallback text in another language; a working draft is allowed with an explicit mark.
+Dated PDFs are immutable issue snapshots and do not change with subsequent project edits. At the
+end of a day, the operator checks old and new sections, saves the project, completes only the
+necessary translations, and issues the reviewed package.
 
 ## Control check
 

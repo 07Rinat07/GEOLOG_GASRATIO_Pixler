@@ -101,9 +101,16 @@ captions, column and lithotype names, legends, reports, and PDF output. Authored
 comments, and other entered data appear in the selected language only after that language version
 has been filled in.
 For example, a Russian description imported from LAS is not translated automatically when English
-is enabled. To show English text in the tablet and PDF, open the **Rock description** interval,
-choose **English**, enter the translation or insert a ready template, and save the project. Fill
-the **қазақша** version in the same way.
+is enabled. To save an English version, first select **English** as the application language,
+then open the **Rock description** interval, enter the translation or insert an English template,
+and save the project. Fill the **қазақша** version in the same way. The ready-description language
+selector changes only the inserted text, not the language version to which it is saved.
+
+**Approved for development on 2026-09-05, not yet available:** one project with a shared passport,
+safe measurement and geology updates, RU/KK/EN tabs and multilingual templates, translation
+readiness, linked portrait/landscape layouts, and PDF packages from one revision.
+The [accepted workflow model](en/PROJECT_WORKFLOW.md) explains these decisions;
+WELL-01–WELL-06 stages are tracked in the [single project plan](PROJECT_PLAN.md).
 
 To print RU, KK, and EN from one project, save the changes, switch the **application language**,
 close any Print Centre window that is already open, and reopen **Print → Print and export
@@ -153,8 +160,10 @@ after manual lithology or cuttings edits; existing intervals are not overwritten
 Use **Import dictionary** and **Export dictionary** in the same tab to exchange mappings
 between projects. The portable JSON stores its schema version, source code, lithotype ID,
 RU/KK/EN names, category, `#RRGGBB` colour, and pattern key. The catalog is project-wide;
-independent source profiles are not available yet. Use separate projects for suppliers with
-conflicting codes. Explicit JSON import replaces matching records; rereading LAS preserves
+independent source profiles are not available yet. Separate projects for suppliers with conflicting
+codes are a temporary workaround for the current release, not a recommendation to create projects
+per language. The target model uses PROJ-09 supplier profiles within one well project.
+Explicit JSON import replaces matching records; rereading LAS preserves
 existing settings. Only the pattern key is transferred, not a custom image file.
 The print-header catalog also includes **Masterlog header — A4 portrait** and **A4 landscape**.
 They follow the supplied example: an empty customer logo slot on the left, BP Services on the right,
@@ -199,11 +208,12 @@ saved projects and print templates remain compatible.
 
 ### Fill any description interval
 
-1. Make sure **Select** mode (`Alt+1`) is active.
+1. Select the required application language before opening the editor and enable **Select** mode (`Alt+1`).
 2. Hold `Shift` in an Interpretation or Rock description track.
 3. Left-drag from the interval top to bottom and release the mouse button.
 4. Correct the exact **From, m** and **To, m** values in the dialog.
-5. Select the ready-description language: Russian, Kazakh, or English.
+5. Select the inserted ready-description language: Russian, Kazakh, or English. This selector does
+   not change the saved author field language, which follows the application language when the editor opens.
 6. Select a ready rock template or enter arbitrary text. Use **Text alignment** to select left,
    centre, or right. **Wrap words** is enabled by default; clear it when automatic wrapping is not
    wanted. Rock percentages are not required for this workflow.

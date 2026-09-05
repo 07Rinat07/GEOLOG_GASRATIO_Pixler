@@ -36,6 +36,9 @@ artifacts workflow `.github/workflows/release-gate.yml`.
 
 ## Основные пользовательские процессы
 
+- Утверждённая модель «одна скважина — три языка — два макета» (разработка WELL-01…06):
+  [план](PROJECT_PLAN.md), [требования](REQUIREMENTS.md), [политика переводов](I18N.md).
+  Целевые функции отделены от доступных команд в рабочих процессах RU/KK/EN ниже.
 - Рабочий проект и ежедневное наращивание: [RU](ru/PROJECT_WORKFLOW.md) ·
   [KK](kk/PROJECT_WORKFLOW.md) · [EN](en/PROJECT_WORKFLOW.md)
 - Сохранение импортированных и изменённых данных: [RU](ru/SESSION_SAVING.md) ·
