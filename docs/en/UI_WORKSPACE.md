@@ -62,6 +62,20 @@ When enabled, it provides:
 When disabled, structural commands are hidden from the tablet context menu while navigation
 and geological data entry remain available.
 
+## Numeric X scale and vertical grid
+
+For the selected graph column, **Track Inspector → Track and scale** provides a
+**Show numeric X scale** checkbox. It shows or hides the minimum, maximum, unit, and engineering
+ruler in the curve header. The change is applied through the controller and is used consistently
+on screen, in preview, in PDF, and by the physical printer.
+
+The **Vertical grid** checkbox controls only the `grid_x` lines inside the graph and does not
+enable the numeric scale implicitly. The scale can therefore be shown without a grid, or the grid
+can remain while the scale is hidden. Both values are stored in the tablet layout and user form.
+Legacy forms and projects open with the numeric scale visible so their appearance is preserved.
+The **C1–C5 components** section of the factory **Integrated C1–C5 gas log** is the intentional
+exception: its numeric X scale is hidden by default and can be enabled with the same checkbox.
+
 ## Inner depth ruler in a graph column
 
 The **Inner vertical ruler** section is available both in the live graph-column editor and in the **Form structure editor** after selecting a graph track inside a column. A column can use **Automatic**, **Labels and ticks**, **Ticks only**, or **Off**, with separate frequencies for numeric labels, major ticks, and minor ticks. The setting is saved in the user form and applied consistently on screen, in preview, and in PDF.

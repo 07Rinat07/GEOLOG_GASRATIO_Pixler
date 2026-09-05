@@ -56,12 +56,12 @@ def test_layout_v17_migration_applies_stable_target_widths() -> None:
     )
 
     assert restored.track_by_id("depth").width == 60
-    assert restored.track_by_id("depth").title_orientation == "vertical_bottom_to_top"
+    assert restored.track_by_id("depth").title_orientation == "vertical_top_to_bottom"
     assert restored.track_by_id("lithology").width == 110
-    assert restored.track_by_id("lithology").title_orientation == "vertical_bottom_to_top"
+    assert restored.track_by_id("lithology").title_orientation == "vertical_top_to_bottom"
     assert restored.track_by_id("curve").width == 300
     assert restored.track_by_id("curve").title_orientation == "horizontal"
-    assert layout_to_dict(restored)["version"] == 24
+    assert layout_to_dict(restored)["version"] == 25
 
 
 def test_form_v7_migration_reduces_user_columns_to_stable_targets_once() -> None:
@@ -93,10 +93,10 @@ def test_form_v7_migration_reduces_user_columns_to_stable_targets_once() -> None
     restored_again = form_from_dict(encoded)
 
     assert restored.columns[0].width == 60
-    assert restored.columns[0].tracks[0].title_orientation == "vertical_bottom_to_top"
+    assert restored.columns[0].tracks[0].title_orientation == "vertical_top_to_bottom"
     assert restored.columns[1].width == 300
     assert restored.columns[1].tracks[0].title_orientation == "horizontal"
-    assert encoded["schema_version"] == 16
+    assert encoded["schema_version"] == 17
     assert restored_again.columns[0].width == 60
 
 
@@ -134,7 +134,7 @@ def test_repository_reads_legacy_user_form_with_compact_widths(tmp_path) -> None
     form = FormRepository(tmp_path / "forms").load("legacy")
 
     assert form.columns[0].width == COMPACT_MIN_TRACK_WIDTH
-    assert form.columns[0].tracks[0].title_orientation == "vertical_bottom_to_top"
+    assert form.columns[0].tracks[0].title_orientation == "vertical_top_to_bottom"
 
 
 def test_all_factory_forms_use_compact_widths_for_requested_column_kinds() -> None:
@@ -227,7 +227,7 @@ def test_layout_v17_migration_compacts_every_requested_kind() -> None:
     assert restored.track_by_id("text").width == 200
 
 
-def test_lba_defaults_to_horizontal_while_long_compact_titles_stay_vertical() -> None:
+def test_all_compact_titles_default_to_one_top_to_bottom_direction() -> None:
     forms = factory_templates("ru")
     compact_tracks = [
         track
@@ -238,12 +238,12 @@ def test_lba_defaults_to_horizontal_while_long_compact_titles_stay_vertical() ->
     ]
 
     assert any(track.kind is TrackKind.LBA for track in compact_tracks)
+    assert any(track.kind is TrackKind.CALCIMETRY for track in compact_tracks)
     for track in compact_tracks:
-        expected = "horizontal" if track.kind is TrackKind.LBA else "vertical_bottom_to_top"
-        assert track.title_orientation == expected
+        assert track.title_orientation == "vertical_top_to_bottom"
 
 
-def test_v20_layout_migration_restores_lba_horizontal_default() -> None:
+def test_v20_layout_migration_canonicalizes_compact_caption_direction() -> None:
     restored = layout_from_dict(
         {
             "version": 20,
@@ -266,12 +266,12 @@ def test_v20_layout_migration_restores_lba_horizontal_default() -> None:
         }
     )
 
-    assert restored.track_by_id("lba").title_orientation == "horizontal"
-    assert restored.track_by_id("cuttings").title_orientation == "vertical_bottom_to_top"
-    assert layout_to_dict(restored)["version"] == 24
+    assert restored.track_by_id("lba").title_orientation == "vertical_top_to_bottom"
+    assert restored.track_by_id("cuttings").title_orientation == "vertical_top_to_bottom"
+    assert layout_to_dict(restored)["version"] == 25
 
 
-def test_v10_form_migration_restores_lba_horizontal_default() -> None:
+def test_v10_form_migration_canonicalizes_lba_caption_direction() -> None:
     restored = form_from_dict(
         {
             "schema_version": 10,
@@ -297,9 +297,9 @@ def test_v10_form_migration_restores_lba_horizontal_default() -> None:
         }
     )
 
-    assert restored.columns[0].title_orientation == "horizontal"
-    assert restored.columns[0].tracks[0].title_orientation == "horizontal"
-    assert form_to_dict(restored)["schema_version"] == 16
+    assert restored.columns[0].title_orientation == "vertical_top_to_bottom"
+    assert restored.columns[0].tracks[0].title_orientation == "vertical_top_to_bottom"
+    assert form_to_dict(restored)["schema_version"] == 17
 
 
 def test_rotated_title_renderer_fits_long_single_word_captions() -> None:

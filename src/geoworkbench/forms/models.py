@@ -106,6 +106,7 @@ class FormTrack:
     grid_minor_divisions: int = 5
     grid_alpha: float = 0.2
     grid_print: bool = True
+    show_x_scale: bool = True
     x_axis_label: str = ""
     title_orientation: str = "horizontal"
     title_position: str = "center"
@@ -113,8 +114,8 @@ class FormTrack:
     vertical_ruler: VerticalRulerTrackSettings = field(
         default_factory=VerticalRulerTrackSettings
     )
-    lba_label_orientation: str = "vertical_bottom_to_top"
-    calcimetry_label_orientation: str = "horizontal"
+    lba_label_orientation: str = "vertical_top_to_bottom"
+    calcimetry_label_orientation: str = "vertical_top_to_bottom"
     show_description_borders: bool = True
 
     def __post_init__(self) -> None:
@@ -128,6 +129,8 @@ class FormTrack:
             raise ValueError("grid_x и grid_y должны быть логическими")
         if not isinstance(self.grid_print, bool):
             raise ValueError("grid_print должен быть логическим")
+        if not isinstance(self.show_x_scale, bool):
+            raise ValueError("show_x_scale должен быть логическим")
         for value in (self.grid_major_divisions, self.grid_minor_divisions):
             if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 20:
                 raise ValueError("Деления сетки должны быть от 1 до 20")
@@ -169,12 +172,13 @@ class FormTrack:
         grid_minor_divisions: int = 5,
         grid_alpha: float = 0.2,
         grid_print: bool = True,
+        show_x_scale: bool = True,
         x_axis_label: str = "",
         title_orientation: str = "horizontal",
         title_position: str = "center",
         show_interval_labels: bool = False,
-        lba_label_orientation: str = "vertical_bottom_to_top",
-        calcimetry_label_orientation: str = "horizontal",
+        lba_label_orientation: str = "vertical_top_to_bottom",
+        calcimetry_label_orientation: str = "vertical_top_to_bottom",
         show_description_borders: bool = True,
         vertical_ruler: VerticalRulerTrackSettings | None = None,
     ) -> FormTrack:
@@ -191,6 +195,7 @@ class FormTrack:
             grid_minor_divisions=grid_minor_divisions,
             grid_alpha=grid_alpha,
             grid_print=grid_print,
+            show_x_scale=show_x_scale,
             x_axis_label=x_axis_label,
             title_orientation=title_orientation,
             title_position=title_position,

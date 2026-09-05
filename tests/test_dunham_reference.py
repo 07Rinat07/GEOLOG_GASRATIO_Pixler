@@ -62,9 +62,10 @@ def test_lithotype_reference_dialog_exposes_dunham_section(qapp) -> None:
     )
     qapp.processEvents()
 
-    assert dialog.sections.count() == 2
-    assert dialog.sections.tabText(0) == "Литотипы"
-    assert dialog.sections.tabText(1) == "Классификация Данэма"
+    assert dialog.sections.count() == 3
+    assert dialog.sections.tabText(0) == "Коды пород LAS"
+    assert dialog.sections.tabText(1) == "Литотипы"
+    assert dialog.sections.tabText(2) == "Классификация Данэма"
     assert dialog.dunham_reference.document.status() is QPdfDocument.Status.Ready
     assert dialog.dunham_reference.document.pageCount() == 5
     assert dialog.dunham_reference.view.pageMode() is QPdfView.PageMode.MultiPage
@@ -78,6 +79,6 @@ def test_dunham_tab_title_follows_interface_language(qapp) -> None:
         language=AppLanguage.EN,
     )
 
-    assert dialog.sections.tabText(1) == "Dunham classification"
+    assert dialog.sections.tabText(2) == "Dunham classification"
     assert dialog.dunham_reference.fit_width_button.text() == "Fit width"
     dialog.close()

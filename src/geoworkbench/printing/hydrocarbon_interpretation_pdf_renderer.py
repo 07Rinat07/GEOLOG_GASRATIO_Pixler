@@ -25,6 +25,9 @@ from geoworkbench.printing.hydrocarbon_interpretation_pdf_text import (
 from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
     InterpretationReportIdentity,
 )
+from geoworkbench.printing.hydrocarbon_interpretation_report_range import (
+    ReportDepthRange,
+)
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
     hydrocarbon_interpretation_html,
@@ -49,6 +52,7 @@ def render_hydrocarbon_interpretation_report(
     dataset: Dataset | None = None,
     include_chart: bool = False,
     identity: InterpretationReportIdentity | None = None,
+    depth_range: ReportDepthRange | None = None,
 ) -> None:
     """Render one controlled multi-page report to QPdfWriter or QPrinter."""
 
@@ -72,7 +76,13 @@ def render_hydrocarbon_interpretation_report(
         render_report_cover(canvas, report, language, identity)
 
         if include_chart and dataset is not None:
-            render_chart_pages(canvas, report, dataset, language)
+            render_chart_pages(
+                canvas,
+                report,
+                dataset,
+                language,
+                depth_range=depth_range,
+            )
 
         render_report_html(
             canvas,

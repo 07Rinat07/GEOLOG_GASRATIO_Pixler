@@ -572,6 +572,21 @@ def test_window_applies_grid_from_inspector(qapp) -> None:
     window.close()
 
 
+def test_window_applies_x_scale_visibility_from_inspector(qapp) -> None:
+    window = MainWindow()
+    session, layout = make_session()
+    bind_session(window, session)
+    window._show_current_dataset()
+    session.dirty = False
+
+    window._apply_inspector_x_scale_visibility("curve", False)
+
+    assert layout.track_by_id("curve").show_x_scale is False
+    assert window.inspector.show_x_scale_input.isChecked() is False
+    assert session.dirty is True
+    window.close()
+
+
 def test_window_applies_x_axis_label_from_inspector(qapp) -> None:
     window = MainWindow()
     session, layout = make_session()

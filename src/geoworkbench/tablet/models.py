@@ -44,18 +44,17 @@ STANDARD_MIN_TRACK_WIDTH = 80
 COMPACT_MIN_TRACK_WIDTH = 48
 MAX_TRACK_WIDTH = 2000
 COMPACT_WIDTH_FACTOR = 0.50
-COMPACT_TITLE_ORIENTATION = "vertical_bottom_to_top"
+COMPACT_TITLE_ORIENTATION = "vertical_top_to_bottom"
 COMPACT_TITLE_POSITION = "center"
-VERTICAL_COMPACT_TITLE_KINDS = COMPACT_TRACK_KINDS - {TrackKind.LBA}
+VERTICAL_COMPACT_TITLE_KINDS = COMPACT_TRACK_KINDS
 
 
 def compact_track_title_orientation(kind: TrackKind) -> str:
-    """Return the compact default caption direction for special tablet columns.
+    """Return one canonical vertical direction for compact special columns.
 
-    Geology/reference tracks such as depth, stratigraphy, lithology and
-    cuttings have no parameter-header band of their own. Rendering their title
-    vertically makes the requested compact widths usable without truncating the
-    caption across all ready forms and migrated projects.
+    All compact geology/reference columns use the same top-to-bottom +90°
+    direction. This removes the historical LBA exception and prevents mixed
+    bottom-to-top/top-to-bottom headers across screen, forms and print output.
     """
 
     return COMPACT_TITLE_ORIENTATION if kind in VERTICAL_COMPACT_TITLE_KINDS else "horizontal"
@@ -178,6 +177,7 @@ class TrackDefinition:
     grid_minor_divisions: int = 5
     grid_alpha: float = 0.2
     grid_print: bool = True
+    show_x_scale: bool = True
     x_axis_label: str = ""
     group_title: str = ""
     title_orientation: str = "horizontal"
@@ -186,8 +186,8 @@ class TrackDefinition:
     vertical_ruler: VerticalRulerTrackSettings = field(
         default_factory=VerticalRulerTrackSettings
     )
-    lba_label_orientation: str = "vertical_bottom_to_top"
-    calcimetry_label_orientation: str = "horizontal"
+    lba_label_orientation: str = "vertical_top_to_bottom"
+    calcimetry_label_orientation: str = "vertical_top_to_bottom"
     show_description_borders: bool = True
 
     def __post_init__(self) -> None:
@@ -205,6 +205,8 @@ class TrackDefinition:
             raise ValueError("show_interval_labels должен быть логическим")
         if not isinstance(self.show_description_borders, bool):
             raise ValueError("show_description_borders должен быть логическим")
+        if not isinstance(self.show_x_scale, bool):
+            raise ValueError("show_x_scale должен быть логическим")
         if not isinstance(self.vertical_ruler, VerticalRulerTrackSettings):
             raise ValueError(
                 "Настройки внутренней вертикальной шкалы имеют неверный тип"
@@ -243,6 +245,11 @@ class TrackDefinition:
         self._validate_x_settings(self.x_scale, minimum, maximum)
         self.x_min = minimum
         self.x_max = maximum
+
+    def set_x_scale_visible(self, visible: bool) -> None:
+        if not isinstance(visible, bool):
+            raise ValueError("Видимость шкалы X должна быть логическим значением")
+        self.show_x_scale = visible
 
     def update_view_settings(
         self,
@@ -452,6 +459,9 @@ class TabletLayout:
         maximum: float | None,
     ) -> None:
         self.track_by_id(track_id).set_x_range(minimum, maximum)
+
+    def set_track_x_scale_visible(self, track_id: str, visible: bool) -> None:
+        self.track_by_id(track_id).set_x_scale_visible(visible)
 
     def set_visible_depth(self, top: float | None, bottom: float | None) -> bool:
         self._validate_visible_depth(top, bottom)

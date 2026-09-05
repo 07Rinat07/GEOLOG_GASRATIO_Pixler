@@ -151,6 +151,19 @@ def test_controller_sets_track_x_axis_label() -> None:
     assert session.dirty is True
 
 
+def test_controller_sets_track_x_scale_visibility_and_marks_project_dirty() -> None:
+    session = make_session()
+    controller = TabletController(session)
+    layout = controller.build_default_layout()
+    track = next(item for item in layout.tracks if item.kind is TrackKind.GAS)
+    session.dirty = False
+
+    controller.set_track_x_scale_visible(track.track_id, False)
+
+    assert track.show_x_scale is False
+    assert session.dirty is True
+
+
 def test_controller_saves_and_applies_independent_preset_copy() -> None:
     session = make_session()
     controller = TabletController(session)

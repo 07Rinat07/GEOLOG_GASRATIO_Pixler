@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import fitz
 import numpy as np
+import pytest
 from openpyxl import load_workbook
 
 from geoworkbench.data.hydrocarbon_interpretation_export import (
@@ -30,6 +31,62 @@ from geoworkbench.services.hydrocarbon_interpretation import (
 )
 from geoworkbench.services.opus_interpretation import _gasomer_ambiguous_hypothesis
 from geoworkbench.services.localization import AppLanguage
+
+
+@pytest.mark.parametrize(
+    ("language", "title", "qc", "missing"),
+    [
+        (AppLanguage.RU, "ОПУС Газомер — пять показателей и голоса", "QC-состояния", "не задан"),
+        (AppLanguage.KK, "ОПУС Газомер — бес көрсеткіш және дауыстар", "QC күйлері", "берілмеген"),
+        (AppLanguage.EN, "OPUS Gasomer — five indicators and votes", "QC states", "not set"),
+    ],
+)
+def test_gasomer_section_uses_selected_language(qapp, language, title, qc, missing) -> None:
+    from dataclasses import replace
+    from geoworkbench.services.hydrocarbon_interpretation import _opus_gasomer_html
+
+    session = _gasomer_session()
+    report = build_opus_interpretation_report(session, total_gas_lod=0.001)
+    assert report.opus_gasomer is not None
+    report = replace(report, opus_gasomer=replace(report.opus_gasomer, total_gas_lod=None))
+    before = report.opus_gasomer
+    html = unescape(_opus_gasomer_html(report, language))
+    assert title in html
+    assert qc in html
+    assert missing in html
+    assert report.opus_gasomer == before
+    if language is AppLanguage.EN:
+        assert "Поддержка класса" not in html
+        assert "Входные кривые" not in html
+
+
+def test_gasomer_qc_labels_preserve_counts_and_unknown_states() -> None:
+    from geoworkbench.services.hydrocarbon_interpretation import _state_counts_text
+
+    counts = (("available", 10), ("measured_zero", 2), ("future_state", 1))
+    assert _state_counts_text(counts, AppLanguage.EN) == "available:10, measured zero:2, future_state:1"
+    assert _state_counts_text(counts, AppLanguage.RU) == "доступно:10, измеренный ноль:2, future_state:1"
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+def test_gasomer_sources_hide_file_names_and_hash_but_preserve_audit(qapp, language) -> None:
+    from PySide6.QtGui import QTextDocument
+    from geoworkbench.services.hydrocarbon_interpretation import _opus_gasomer_html
+
+    report = build_opus_interpretation_report(_gasomer_session())
+    section = report.opus_gasomer
+    assert section is not None
+    html = _opus_gasomer_html(report, language)
+    document = QTextDocument()
+    document.setHtml(html)
+    visible = document.toPlainText()
+    assert ".pdf" not in visible.casefold()
+    assert ".xls" not in visible.casefold()
+    assert section.source_workbook_sha256 not in visible
+    assert "Лукьянов" in visible
+    assert '<a href="https://' in html
+    assert any("Газомер.xls" in source for source in section.provenance)
+    assert len(section.source_workbook_sha256) == 64
 
 
 def test_gasomer_ambiguous_oil_gas_result_is_reported_as_possible_alternatives() -> None:

@@ -194,8 +194,6 @@ def _write_docx(
         )
     else:
         body.append(_paragraph("Подтверждённые геологом интервалы пока не заполнены."))
-    body.append(_paragraph("Ограничения методики", style="Heading1"))
-    body.extend(_paragraph(f"• {warning}") for warning in report.warnings)
     document_xml = (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
@@ -328,13 +326,11 @@ def _opus_gasomer_docx(report: HydrocarbonInterpretationReport) -> list[str]:
                 widths=(2_000, 1_600, 3_100, 1_500, 1_500, 5_400),
             )
         )
-        body.extend(_paragraph(f"QC интервала: {item}") for item in interval.warnings)
-    body.append(_paragraph("Происхождение формул и ограничения"))
+    body.append(_paragraph("Происхождение формул"))
     body.extend(_paragraph(f"• {item}") for item in section.provenance)
     body.append(_paragraph(f"• SHA-256 книги: {section.source_workbook_sha256}"))
     body.append(_paragraph("Исправления исходной книги"))
     body.extend(_paragraph(f"• {item}") for item in section.errata)
-    body.extend(_paragraph(f"• {item}") for item in section.warnings)
     return body
 
 

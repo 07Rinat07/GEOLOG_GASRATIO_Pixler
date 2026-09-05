@@ -24,6 +24,15 @@ from geoworkbench.data.report_document_export import (
 from geoworkbench.domain.models import Dataset, ExportProfile, new_id
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.las_geology import dataset_with_well_geology
+from geoworkbench.services.rock_code_dictionary import (
+    RockCodeDictionary,
+    apply_dictionary,
+    append_las_dictionary,
+    dictionary_from_session,
+    load_dictionary,
+    save_dictionary,
+)
 from geoworkbench.services.report_definition import (
     ReportDefinition,
     ReportDefinitionError,
@@ -154,6 +163,7 @@ class DatasetExportController:
         dataset = self.session.current_dataset
         if dataset is None:
             raise RuntimeError("Сначала выберите набор данных")
+        dataset = dataset_with_well_geology(self.session)
         return analyze_las_export(
             dataset,
             plan,
@@ -170,13 +180,39 @@ class DatasetExportController:
         dataset = self.session.current_dataset
         if dataset is None:
             raise RuntimeError("Сначала выберите набор данных")
-        return export_las(
-            dataset,
+        export_dataset = dataset_with_well_geology(self.session)
+        result = export_las(
+            export_dataset,
             target,
             overwrite=overwrite,
             source_document=self._source_document(dataset),
             plan=plan,
         )
+        dictionary = dictionary_from_session(self.session)
+        if result.exists() and dictionary.entries:
+            append_las_dictionary(result, dictionary)
+        return result
+
+    def export_current_rock_dictionary(
+        self,
+        target: Path,
+        *,
+        name: str | None = None,
+        source: str = "GeoWorkbench project",
+    ) -> Path:
+        """Export the active project's numeric LAS mappings as a sidecar JSON."""
+
+        dictionary = dictionary_from_session(self.session, name=name, source=source)
+        if not dictionary.entries:
+            raise ValueError("В проекте нет числовых кодов пород для экспорта")
+        return save_dictionary(target, dictionary)
+
+    def import_rock_dictionary(self, source: Path) -> tuple[RockCodeDictionary, int, int]:
+        """Merge a portable dictionary into the current project."""
+
+        dictionary = load_dictionary(source)
+        created, updated = apply_dictionary(self.session, dictionary)
+        return dictionary, created, updated
 
     def _source_document(self, dataset: Dataset) -> Any:
         """Use the initial LAS as the header template for a composite dataset."""

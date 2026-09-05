@@ -23,7 +23,7 @@ from geoworkbench.tablet.vertical_ruler import (
 )
 
 
-LAYOUT_FORMAT_VERSION = 24
+LAYOUT_FORMAT_VERSION = 25
 
 
 class TabletLayoutFormatError(ValueError):
@@ -100,6 +100,7 @@ def layout_to_dict(layout: TabletLayout) -> dict[str, Any]:
                 "grid_minor_divisions": track.grid_minor_divisions,
                 "grid_alpha": track.grid_alpha,
                 "grid_print": track.grid_print,
+                "show_x_scale": track.show_x_scale,
                 "x_axis_label": track.x_axis_label,
             }
             for track in layout.tracks
@@ -215,10 +216,10 @@ def _track_from_dict(data: object) -> TrackDefinition:
     title_position = data.get("title_position", "center")
     show_interval_labels = data.get("show_interval_labels", False)
     lba_label_orientation = data.get(
-        "lba_label_orientation", "vertical_bottom_to_top"
+        "lba_label_orientation", "vertical_top_to_bottom"
     )
     calcimetry_label_orientation = data.get(
-        "calcimetry_label_orientation", "horizontal"
+        "calcimetry_label_orientation", "vertical_top_to_bottom"
     )
     show_description_borders = data.get("show_description_borders", True)
     raw_vertical_ruler = data.get("vertical_ruler", {})
@@ -236,6 +237,7 @@ def _track_from_dict(data: object) -> TrackDefinition:
     raw_grid_minor = data.get("grid_minor_divisions", 5)
     raw_grid_alpha = data.get("grid_alpha", 0.2)
     raw_grid_print = data.get("grid_print", True)
+    raw_show_x_scale = data.get("show_x_scale", True)
     raw_x_axis_label = data.get("x_axis_label", "")
     if not isinstance(track_id, str) or not track_id.strip():
         raise TypeError("track_id должен быть непустой строкой")
@@ -330,6 +332,8 @@ def _track_from_dict(data: object) -> TrackDefinition:
         raise TypeError("grid_alpha должен быть числом")
     if not isinstance(raw_grid_print, bool):
         raise TypeError("grid_print должен быть логическим значением")
+    if not isinstance(raw_show_x_scale, bool):
+        raise TypeError("show_x_scale должен быть логическим значением")
     if not isinstance(raw_x_axis_label, str):
         raise TypeError("x_axis_label должен быть строкой")
 
@@ -360,6 +364,7 @@ def _track_from_dict(data: object) -> TrackDefinition:
         grid_minor_divisions=raw_grid_minor,
         grid_alpha=float(raw_grid_alpha),
         grid_print=raw_grid_print,
+        show_x_scale=raw_show_x_scale,
         x_axis_label=raw_x_axis_label,
     )
 
@@ -369,7 +374,7 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
     if version == LAYOUT_FORMAT_VERSION:
         return data
     if version not in (
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24
     ):
         raise TabletLayoutFormatError("Неподдерживаемая версия компоновки планшета")
     migrated = deepcopy(data)
@@ -460,7 +465,10 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
                     if isinstance(settings, dict):
                         settings.setdefault("unit_override", None)
     migrated["version"] = 17
-    if isinstance(tracks, list):
+    # Compact widths were introduced by layout v18.  Do not apply the
+    # one-time reduction again when a newer layout is migrated for an
+    # unrelated field (for example v24 -> v25).
+    if version <= 17 and isinstance(tracks, list):
         for track in tracks:
             if not isinstance(track, dict):
                 continue
@@ -472,7 +480,7 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
             if isinstance(raw_width, int) and not isinstance(raw_width, bool):
                 track["width"] = compact_track_width(kind, raw_width)
     migrated["version"] = 18
-    if isinstance(tracks, list):
+    if version <= 18 and isinstance(tracks, list):
         # Version 19 makes every previously saved tablet/form layout linear by
         # default.  This is a one-time migration: users may explicitly switch a
         # curve back to logarithmic mode after the project has been upgraded.
@@ -486,9 +494,12 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
                     if isinstance(settings, dict):
                         _migrate_scale_payload_to_linear(settings)
     migrated["version"] = 20
-    if isinstance(tracks, list):
-        # Version 21 preserves vertical captions for long compact columns and
-        # changes the short LBA caption back to horizontal in existing layouts.
+    # The canonical compact-caption direction is the v20 -> v21 migration.
+    # Later user choices must survive subsequent schema upgrades unchanged.
+    if version <= 20 and isinstance(tracks, list):
+        # Compact geology/reference captions use one canonical +90°
+        # top-to-bottom direction. Rewrite both the old horizontal LBA default
+        # and reversed vertical captions in previously saved layouts.
         for track in tracks:
             if not isinstance(track, dict):
                 continue
@@ -498,11 +509,7 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
                 continue
             if kind not in COMPACT_TRACK_KINDS:
                 continue
-            orientation = compact_track_title_orientation(kind)
-            if kind is TrackKind.LBA:
-                track["title_orientation"] = orientation
-            elif str(track.get("title_orientation", "horizontal")) == "horizontal":
-                track["title_orientation"] = orientation
+            track["title_orientation"] = compact_track_title_orientation(kind)
             track.setdefault("title_position", compact_track_title_position(kind))
     migrated["version"] = 22
     migrated.setdefault(
@@ -525,10 +532,13 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
         for track in tracks:
             if isinstance(track, dict):
                 track.setdefault(
-                    "lba_label_orientation", "vertical_bottom_to_top"
+                    "lba_label_orientation", "vertical_top_to_bottom"
                 )
-                track.setdefault("calcimetry_label_orientation", "horizontal")
+                track.setdefault(
+                    "calcimetry_label_orientation", "vertical_top_to_bottom"
+                )
                 track.setdefault("show_description_borders", True)
+                track.setdefault("show_x_scale", True)
     migrated["version"] = LAYOUT_FORMAT_VERSION
     return migrated
 

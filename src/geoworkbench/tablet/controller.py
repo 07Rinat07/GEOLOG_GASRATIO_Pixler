@@ -570,6 +570,10 @@ class TabletController:
         )
         self.session.dirty = True
 
+    def set_track_x_scale_visible(self, track_id: str, visible: bool) -> None:
+        self._require_layout().set_track_x_scale_visible(track_id, visible)
+        self.session.dirty = True
+
     def set_track_x_axis_label(self, track_id: str, label: str) -> None:
         self._require_layout().track_by_id(track_id).set_x_axis_label(label)
         self.session.dirty = True

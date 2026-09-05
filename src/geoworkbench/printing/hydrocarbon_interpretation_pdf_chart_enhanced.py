@@ -19,6 +19,9 @@ from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import (
     chart_geometry,
     plan_depth_pages,
 )
+from geoworkbench.printing.hydrocarbon_interpretation_report_range import (
+    ReportDepthRange,
+)
 from geoworkbench.printing.unicode_support import print_font
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
@@ -35,6 +38,8 @@ def render_chart_pages(
     report: HydrocarbonInterpretationReport,
     dataset: Dataset,
     language: AppLanguage,
+    *,
+    depth_range: ReportDepthRange | None = None,
 ) -> None:
     """Render chart pages with printer-safe major and minor depth graduations."""
 
@@ -57,9 +62,14 @@ def render_chart_pages(
         - CHART_LEGEND_HEIGHT
         - CHART_NOTE_HEIGHT
     )
+    depth_min = float(np.nanmin(depth[finite_depth]))
+    depth_max = float(np.nanmax(depth[finite_depth]))
+    if depth_range is not None:
+        depth_min = depth_range.top_depth
+        depth_max = depth_range.bottom_depth
     pages = plan_depth_pages(
-        float(np.nanmin(depth[finite_depth])),
-        float(np.nanmax(depth[finite_depth])),
+        depth_min,
+        depth_max,
         available_height,
     )
     ranges = base_chart._curve_ranges(panels, dataset)

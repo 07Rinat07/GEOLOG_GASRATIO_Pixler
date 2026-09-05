@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from html import escape
+import re
 
 import numpy as np
 
@@ -40,6 +41,18 @@ _SERVER_TOTAL_NAMES = (
 )
 _LOCAL_TOTAL_NAMES = ("TG_NORM_CALC", "TG_NORM")
 _SELECTED_MODES: dict[int, NormalizedGasCalculationMode] = {}
+_CLIENT_LIMITATION_HEADINGS = (
+    "Ограничения методики",
+    "Әдістеме шектеулері",
+    "Method limitations",
+)
+_CLIENT_LIMITATIONS_PATTERN = re.compile(
+    r"<div\b(?=[^>]*\bclass=[\"'][^\"']*\bnotice\b[^\"']*[\"'])[^>]*>\s*"
+    r"<h2>\s*(?:"
+    + "|".join(re.escape(heading) for heading in _CLIENT_LIMITATION_HEADINGS)
+    + r")\s*</h2>.*?</div>",
+    re.IGNORECASE | re.DOTALL,
+)
 
 
 _REPORT_TERMINOLOGY_REPLACEMENTS: dict[
@@ -174,7 +187,7 @@ def hydrocarbon_interpretation_html(
     report: HydrocarbonInterpretationReport,
     language: AppLanguage = AppLanguage.RU,
 ) -> str:
-    """Render the report with user-facing prospective-interval terminology."""
+    """Render a presentation-ready report while retaining QC in structured data."""
 
     html = _base_hydrocarbon_interpretation_html(report, language)
     if report.report_profile == "opus":
@@ -192,14 +205,8 @@ def hydrocarbon_interpretation_html(
                 + html[title_end + len("</h1>") :]
             )
         if report.opus_gasomer is not None:
-            gasomer_html = _opus_gasomer_html(report)
-            marker = '<div class="notice"><h2>'
-            position = html.find(marker)
-            html = (
-                html[:position] + gasomer_html + html[position:]
-                if position >= 0
-                else html.replace("</body>", gasomer_html + "</body>")
-            )
+            gasomer_html = _opus_gasomer_html(report, language)
+            html = html.replace("</body>", gasomer_html + "</body>", 1)
     for old, new in _REPORT_TERMINOLOGY_REPLACEMENTS[language]:
         html = html.replace(old, new)
 
@@ -216,10 +223,30 @@ def hydrocarbon_interpretation_html(
     margin-top: 0;
 }
 """
-    return html.replace("</style>", pagination_css + "</style>", 1)
+    html = html.replace("</style>", pagination_css + "</style>", 1)
+    return _strip_client_limitations(html)
 
 
-def _opus_gasomer_html(report: HydrocarbonInterpretationReport) -> str:
+def _strip_client_limitations(html: str) -> str:
+    """Remove methodology-limitations cards from customer-facing documents.
+
+    Structured warnings remain on ``HydrocarbonInterpretationReport`` and in
+    diagnostics/audit data. Only the localized methodology-limitations card is
+    removed; unrelated notice cards remain visible.
+    """
+
+    return _CLIENT_LIMITATIONS_PATTERN.sub("", html)
+
+
+def _opus_gasomer_html(
+    report: HydrocarbonInterpretationReport,
+    language: AppLanguage = AppLanguage.RU,
+) -> str:
+    from geoworkbench.services.opus_report_labels import opus_report_label
+
+    def label(key: str) -> str:
+        return escape(opus_report_label(key, language))
+
     section = report.opus_gasomer
     if section is None:
         return ""
@@ -242,84 +269,94 @@ def _opus_gasomer_html(report: HydrocarbonInterpretationReport) -> str:
             "<tr>"
             f"<td>{escape(item.mnemonic)}</td>"
             f"<td>{'—' if item.median_value is None else f'{item.median_value:.6g}'}</td>"
-            f"<td>{item.class_code} — {escape(item.class_label)}</td>"
+            f"<td>{item.class_code} — {label(f'class_{item.class_code}')}</td>"
             f"<td>{item.vote_support * 100.0:.1f}%</td>"
             f"<td>{item.available_rows}/{item.total_rows}</td>"
             f"<td>{escape(_counts_text(item.vote_counts))}</td>"
-            f"<td>{escape(_state_counts_text(item.state_counts))}</td>"
+            f"<td>{escape(_state_counts_text(item.state_counts, language))}</td>"
             "</tr>"
             for item in interval.indicators
         )
         detector = (
-            "локальный фон —; пик —; ΔTG —; robust z —; контраст —"
+            f"{label('background')} —; {label('peak')} —; ΔTG —; robust z —; {label('contrast')} —"
             if interval.background_median is None
             else (
-                f"локальный фон {interval.background_median:.6g} {section.working_unit}; "
-                f"пик {interval.peak_total_gas:.6g}; ΔTG {interval.delta_peak:.6g}; "
+                f"{label('background')} {interval.background_median:.6g} {section.working_unit}; "
+                f"{label('peak')} {interval.peak_total_gas:.6g}; ΔTG {interval.delta_peak:.6g}; "
                 f"max robust z {interval.max_robust_z:.3f}; "
-                f"max контраст {interval.max_contrast:.3f}"
+                f"max {label('contrast')} {interval.max_contrast:.3f}"
             )
         )
         interval_blocks.append(
             f"<h3 class='opus-gasomer-interval'>{interval.top_depth:.2f}–"
             f"{interval.bottom_depth:.2f} "
-            f"{escape(report.depth_unit)}: класс {interval.class_code} — "
-            f"{escape(interval.class_label)}</h3>"
-            f"<p>Поддержка класса: {interval.support_fraction * 100.0:.1f}%; "
-            f"валидных синхронных строк: {interval.valid_rows}/{interval.total_rows}; "
+            f"{escape(report.depth_unit)}: {label('class')} {interval.class_code} — "
+            f"{label(f'class_{interval.class_code}')}</h3>"
+            f"<p>{label('support')}: {interval.support_fraction * 100.0:.1f}%; "
+            f"{label('rows')}: {interval.valid_rows}/{interval.total_rows}; "
             f"{escape(detector)}.</p>"
-            "<table><thead><tr><th>Показатель</th><th>Медиана</th><th>Голос</th>"
-            "<th>Поддержка голоса</th><th>Доступно</th><th>Голоса 1–7</th>"
-            "<th>QC-состояния</th></tr></thead>"
+            f"<table><thead><tr><th>{label('indicator')}</th><th>{label('median')}</th><th>{label('vote')}</th>"
+            f"<th>{label('vote_support')}</th><th>{label('available_header')}</th><th>{label('votes')}</th>"
+            f"<th>{label('qc')}</th></tr></thead>"
             f"<tbody>{indicator_rows}</tbody></table>"
-            + (
-                "<p><small>" + escape("; ".join(interval.warnings)) + "</small></p>"
-                if interval.warnings
-                else ""
-            )
         )
     lod_text = (
-        "не задан; detector не запускается без скрытого значения"
+        opus_report_label('lod_missing', language)
         if section.total_gas_lod is None
         else f"{section.total_gas_lod:.6g} {section.working_unit}"
     )
-    provenance = "".join(f"<li>{escape(item)}</li>" for item in section.provenance)
-    errata = "".join(f"<li>{escape(item)}</li>" for item in section.errata)
-    warnings = "".join(f"<li>{escape(item)}</li>" for item in section.warnings)
-    intervals_html = "".join(interval_blocks) or (
-        "<p>Интервалы ОПУС Газомер не сформированы: проверьте независимый TotalGas, "
-        "C1–C5, единицы и положительный LOD TotalGas.</p>"
+    provenance = "".join(
+        f"<li>{_source_reference_html(item, language)}</li>"
+        for item in section.provenance
     )
+    errata = "".join(f"<li>{escape(item)}</li>" for item in section.errata)
+    intervals_html = "".join(interval_blocks) or f"<p>{label('empty')}</p>"
     return (
         "<h2 class='opus-gasomer-section'>"
-        "ОПУС Газомер — пять показателей и голоса</h2>"
-        f"<p><b>Профиль:</b> {escape(section.profile_id)} v{escape(section.profile_version)}; "
-        f"статус: {escape(section.profile_status)}.<br>"
-        f"<b>Режим:</b> {escape(section.calculation_mode)}; источник интервалов: "
-        f"{escape(section.interval_source)}; рабочая единица: "
+        f"{label('title')}</h2>"
+        f"<p><b>{label('profile')}:</b> {escape(section.profile_id)} v{escape(section.profile_version)}; "
+        f"{label('status')}: {escape(section.profile_status)}.<br>"
+        f"<b>{label('mode')}:</b> {escape(section.calculation_mode)}; {label('source')}: "
+        f"{escape(section.interval_source)}; {label('unit')}: "
         f"{escape(section.working_unit)}; LOD TotalGas: {escape(lod_text)}.<br>"
-        f"<b>Входные кривые:</b> {inputs}.</p>"
-        "<table><thead><tr><th>Показатель</th><th>Точная формула профиля</th>"
+        f"<b>{label('inputs')}:</b> {inputs}.</p>"
+        f"<table><thead><tr><th>{label('indicator')}</th><th>{label('formula')}</th>"
         f"</tr></thead><tbody>{formula_rows}</tbody></table>"
         + intervals_html
-        + "<h3>Происхождение формул</h3><ul>"
+        + f"<h3>{label('provenance')}</h3><ul>"
         + provenance
-        + f"<li>SHA-256 книги: {escape(section.source_workbook_sha256)}</li></ul>"
-        + "<h3>Исправления исходной книги</h3><ul>"
+        + "</ul>"
+        + f"<h3>{label('errata')}</h3><ul>"
         + errata
         + "</ul>"
-        + "<h3>QC и ограничения</h3><ul>"
-        + warnings
-        + "</ul>"
     )
+
+
+def _source_reference_html(value: str, language: AppLanguage) -> str:
+    """Show bibliographic titles, keeping file locations out of printed prose."""
+    if value.endswith("; workbook-derived applied profile"):
+        return escape({
+            AppLanguage.RU: "Прикладной расчётный профиль «ОПУС Газомер».",
+            AppLanguage.KK: "«ОПУС Газомер» қолданбалы есептеу профилі.",
+            AppLanguage.EN: "Applied OPUS Gasomer calculation profile.",
+        }[language])
+    reference = re.fullmatch(r"(.+?):\s*(https?://\S+)", value.strip(), re.I)
+    if reference:
+        title, url = reference.groups()
+        return f'<a href="{escape(url, quote=True)}">{escape(title)}</a>'
+    return escape(value)
 
 
 def _counts_text(counts: tuple[tuple[int, int], ...]) -> str:
     return ", ".join(f"{code}:{count}" for code, count in counts)
 
 
-def _state_counts_text(counts: tuple[tuple[str, int], ...]) -> str:
-    return ", ".join(f"{name}:{count}" for name, count in counts)
+def _state_counts_text(
+    counts: tuple[tuple[str, int], ...], language: AppLanguage = AppLanguage.RU,
+) -> str:
+    from geoworkbench.services.opus_report_labels import opus_report_label
+
+    return ", ".join(f"{opus_report_label(name, language)}:{count}" for name, count in counts)
 
 
 def _coerce_mode(

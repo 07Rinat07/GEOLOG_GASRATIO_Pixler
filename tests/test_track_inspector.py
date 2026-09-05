@@ -159,6 +159,53 @@ def test_inspector_edits_x_axis_label(qapp) -> None:
     inspector.close()
 
 
+def test_inspector_emits_x_scale_visibility_without_emitting_during_load(qapp) -> None:
+    for language, expected_label in (
+        (AppLanguage.RU, "Показывать числовую шкалу X"),
+        (AppLanguage.KK, "X сандық шкаласын көрсету"),
+        (AppLanguage.EN, "Show numeric X scale"),
+    ):
+        inspector = TrackInspector(language=language)
+        emitted: list[tuple[object, ...]] = []
+        inspector.x_scale_visibility_requested.connect(lambda *args: emitted.append(args))
+
+        inspector.show_track(
+            TrackDefinition(
+                "curve",
+                "Curve",
+                TrackKind.CURVE,
+                show_x_scale=False,
+            )
+        )
+        inspector.resize(360, 640)
+        inspector.show()
+        qapp.processEvents()
+
+        assert inspector.show_x_scale_input.text() == expected_label
+        assert inspector.show_x_scale_input.isChecked() is False
+        assert inspector.show_x_scale_input.isEnabled() is True
+        assert emitted == []
+
+        # Invoke the control directly: after MainWindow tests Qt can retain a
+        # closing top-level window, which makes an offscreen pointer click flaky.
+        # QCheckBox.click() still exercises the public toggled signal path.
+        inspector.show_x_scale_input.click()
+
+        assert emitted == [("curve", True)]
+        for kind in (TrackKind.DEPTH, TrackKind.CALCIMETRY):
+            inspector.show_track(
+                TrackDefinition(
+                    f"other-{kind.value}",
+                    "Other",
+                    kind,
+                    show_x_scale=False,
+                )
+            )
+            assert inspector.show_x_scale_input.isEnabled() is False
+            assert emitted == [("curve", True)]
+        inspector.close()
+
+
 def test_inspector_editor_scrolls_vertically_and_keeps_grid_control_api(qapp) -> None:
     inspector = TrackInspector(language=AppLanguage.RU)
     inspector.show_track(

@@ -1005,6 +1005,9 @@ class MainWindow(QMainWindow):
         self.inspector.settings_requested.connect(self._apply_inspector_track_settings)
         self.inspector.curve_style_requested.connect(self._apply_inspector_curve_style)
         self.inspector.grid_requested.connect(self._apply_inspector_grid)
+        self.inspector.x_scale_visibility_requested.connect(
+            self._apply_inspector_x_scale_visibility
+        )
         self.inspector.x_axis_label_requested.connect(self._apply_inspector_x_axis_label)
         self.inspector_dock.setWidget(self.inspector)
         self.inspector_dock.setMinimumWidth(260)
@@ -7764,6 +7767,7 @@ class MainWindow(QMainWindow):
             well.lithology if well is not None else [],
             self.lithotype_catalog_controller.available(),
         )
+        self.tablet_view.set_cuttings(well.cuttings if well is not None else [])
         self._update_title()
 
     def show_stratigraphy_editor(self) -> None:
@@ -9287,6 +9291,21 @@ class MainWindow(QMainWindow):
         self._refresh_tree()
         self._update_title()
         self._log(self._t("inspector.grid_updated"))
+        self.inspector.show_track(track, suggested_range=self._track_data_range(track))
+
+    def _apply_inspector_x_scale_visibility(
+        self, track_id: str, visible: bool
+    ) -> None:
+        try:
+            self.tablet_controller.set_track_x_scale_visible(track_id, visible)
+            track = self.tablet_view.layout_model.track_by_id(track_id)
+        except (KeyError, TypeError, ValueError) as exc:
+            QMessageBox.warning(self, self._t("inspector.title"), str(exc))
+            return
+        self.tablet_view.refresh_track(track_id, DirtyReason.STYLE)
+        self._refresh_tree()
+        self._update_title()
+        self._log(self._t("inspector.x_scale_visibility_updated"))
         self.inspector.show_track(track, suggested_range=self._track_data_range(track))
 
     def _apply_inspector_x_axis_label(self, track_id: str, label: str) -> None:

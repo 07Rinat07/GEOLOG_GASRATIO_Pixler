@@ -5,6 +5,25 @@
 
 ## Unreleased
 
+- Для REL-03 числовая шкала X отделена от вертикальной сетки: `show_x_scale` управляет диапазоном
+  и инженерной линейкой в шапке графической колонки, а `grid_x` — только линиями сетки. Флаг
+  проходит через factory form, `FormTrack`, `TabletLayout`, controller-backed переключатель
+  инспектора, screen/PDF/printer renderer и сохранение пользовательской формы. Form schema
+  обновлена v16→v17, tablet layout v24→v25; старые документы мигрируют с
+  `show_x_scale=True` и сохраняют прежний вид. В секции **«Компоненты C1–C5»** встроенной формы
+  **«Интегрированный газовый каротаж C1–C5»** шкала скрыта по умолчанию, при этом C1–C5 остаются
+  линейными с индивидуальным auto-range. Последний проверенный release-gate #943 был зелёным,
+  но exact-final-head Windows quality/security/GUI/HiDPI/PDF gate, повторный осмотр реального PDF
+  и физическая A4/A3-печать ещё обязательны; PR #76 до них не сливается. Эти defaults теперь
+  определены в canonical factory source, а скрытую повторную depth-колонку можно включить в
+  редактируемой копии формы без снятия защиты с её depth-track.
+- В рамках `REL-03/CUT-03` клиентские отчёты интерпретации больше не выводят отдельный блок
+  «Ограничения методики» / `Әдістеме шектеулері` / `Method limitations`: правило применяется к
+  HTML/PDF и независимым DOCX/XLSX экспортам. Structured warnings, interval QC и диагностические
+  данные сохраняются во внутренней модели для проверки и аудита; формулы, provenance, SHA-256
+  исходной книги и errata остаются доступными в отчёте. HTML-sanitizer ограничен только этими
+  локализованными заголовками и не удаляет обычные полезные `.notice`-примечания. PR #76 остаётся
+  draft до exact-head Windows gates и физической печати.
 - `PERF-04` ограничивает revision-based tablet geometry cache hard NumPy payload budget `64 MiB`
   поверх LRU entry limit: byte accounting освобождается при clear/invalidate, а единичная
   oversize geometry возвращается renderer'у без retention сверх бюджета. Добавлены regression

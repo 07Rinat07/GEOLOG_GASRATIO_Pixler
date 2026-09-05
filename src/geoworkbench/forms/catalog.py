@@ -7,6 +7,7 @@ from geoworkbench.forms.a4_factory_templates import (
 )
 from geoworkbench.forms.models import FormDocument, FormPageOrientation
 from geoworkbench.forms.repository import FormRepository
+from geoworkbench.tablet.models import COMPACT_TRACK_KINDS, TrackKind
 
 # Legacy factory IDs remain resolvable through ``factory_templates`` for old
 # projects and JSON imports, but are no longer displayed in form workflows.
@@ -36,6 +37,23 @@ HIDDEN_FACTORY_TEMPLATE_IDS: frozenset[str] = frozenset(
     }
 )
 
+_MASTERLOG_WIDTHS = {
+    "portrait": {
+        "stratigraphy": 48,
+        "lithology": 48,
+        "drilling": 100,
+        "gas": 100,
+        "interpretation": 194,
+    },
+    "landscape": {
+        "stratigraphy": 48,
+        "lithology": 48,
+        "drilling": 200,
+        "gas": 220,
+        "interpretation": 249,
+    },
+}
+
 
 def visible_factory_forms(
     dataset: Dataset | None,
@@ -46,13 +64,44 @@ def visible_factory_forms(
     del dataset  # Canonical A4 forms are intentionally stable across datasets.
     forms = a4_factory_templates(language)
     for form_id, form in forms.items():
-        form.preferred_page_orientation = (
-            FormPageOrientation.LANDSCAPE
-            if form_id.endswith("-landscape")
-            else FormPageOrientation.PORTRAIT
-        )
+        orientation = "landscape" if form_id.endswith("-landscape") else "portrait"
+        form.preferred_page_orientation = FormPageOrientation(orientation)
+        _apply_factory_presentation_defaults(form_id, form, orientation)
+        form.validate()
     return tuple(forms[form_id] for form_id in A4_FACTORY_TEMPLATE_IDS)
 
+
+def _apply_factory_presentation_defaults(
+    form_id: str,
+    form: FormDocument,
+    orientation: str,
+) -> None:
+    """Apply one presentation policy after canonical factory construction.
+
+    The source templates remain semantically stable while production forms get
+    customer-facing defaults requested for screen/PDF consistency.
+    """
+
+    for column in form.columns:
+        for track in column.tracks:
+            if track.kind in COMPACT_TRACK_KINDS:
+                column.title_orientation = "vertical_top_to_bottom"
+                track.title_orientation = "vertical_top_to_bottom"
+            if track.kind is TrackKind.LBA:
+                track.lba_label_orientation = "vertical_top_to_bottom"
+            if track.kind is TrackKind.CALCIMETRY:
+                track.calcimetry_label_orientation = "vertical_top_to_bottom"
+
+    if form_id.startswith("factory-masterlog-a4-"):
+        widths = _MASTERLOG_WIDTHS[orientation]
+        for column in form.columns:
+            for key, width in widths.items():
+                if column.column_id.endswith(f"-{key}"):
+                    column.width = width
+                    break
+            if column.column_id.endswith("-interpretation"):
+                for track in column.tracks:
+                    track.show_description_borders = False
 
 def complete_form_catalog(
     repository: FormRepository,

@@ -16,9 +16,11 @@ from geoworkbench.services.las_parameter_resolver import (
     LasParameterResolver,
 )
 from geoworkbench.tablet.models import (
+    COMPACT_TRACK_KINDS,
     CurveDisplaySettings,
     TabletLayout,
     TrackDefinition,
+    TrackKind,
     XScale,
 )
 
@@ -162,10 +164,15 @@ class FormApplyEngine:
                 x_scale = None
                 x_min = None
                 x_max = None
+                discrete_calcimetry = form_track.kind is TrackKind.CALCIMETRY
                 for binding in form_track.bindings:
                     resolution = self.resolve_binding(dataset, binding, semantic)
                     resolutions.append(resolution)
-                    if not binding.visible or resolution.mnemonic is None:
+                    if (
+                        not binding.visible
+                        or resolution.mnemonic is None
+                        or discrete_calcimetry
+                    ):
                         continue
                     resolved_mnemonics.append(resolution.mnemonic)
                     styles[resolution.mnemonic] = binding.style
@@ -183,6 +190,12 @@ class FormApplyEngine:
                         x_min = binding.x_min
                         x_max = binding.x_max
 
+                factory_vertical = (
+                    form.origin is FormTemplateOrigin.FACTORY
+                    and form_track.kind in COMPACT_TRACK_KINDS
+                )
+                is_lba = form_track.kind is TrackKind.LBA
+                is_calcimetry = form_track.kind is TrackKind.CALCIMETRY
                 tracks.append(
                     TrackDefinition(
                         track_id=form_track.track_id or new_id(),
@@ -207,12 +220,25 @@ class FormApplyEngine:
                         grid_minor_divisions=form_track.grid_minor_divisions,
                         grid_alpha=form_track.grid_alpha,
                         grid_print=form_track.grid_print,
+                        show_x_scale=form_track.show_x_scale,
                         x_axis_label=form_track.x_axis_label,
-                        title_orientation=form_track.title_orientation,
+                        title_orientation=(
+                            "vertical_top_to_bottom"
+                            if factory_vertical
+                            else form_track.title_orientation
+                        ),
                         title_position=form_track.title_position,
                         show_interval_labels=form_track.show_interval_labels,
-                        lba_label_orientation=form_track.lba_label_orientation,
-                        calcimetry_label_orientation=form_track.calcimetry_label_orientation,
+                        lba_label_orientation=(
+                            "vertical_top_to_bottom"
+                            if is_lba
+                            else form_track.lba_label_orientation
+                        ),
+                        calcimetry_label_orientation=(
+                            "vertical_top_to_bottom"
+                            if is_calcimetry
+                            else form_track.calcimetry_label_orientation
+                        ),
                         show_description_borders=form_track.show_description_borders,
                         vertical_ruler=form_track.vertical_ruler,
                     )

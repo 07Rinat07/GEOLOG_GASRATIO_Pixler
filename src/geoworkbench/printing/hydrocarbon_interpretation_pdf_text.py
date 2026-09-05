@@ -82,6 +82,19 @@ def _render_html_blocks(
     while index < len(blocks):
         block = blocks[index]
         next_block = blocks[index + 1] if index + 1 < len(blocks) else ""
+        while _is_heading(block) and _is_heading(next_block):
+            block += next_block
+            index += 1
+            next_block = blocks[index + 1] if index + 1 < len(blocks) else ""
+        following = blocks[index + 2] if index + 2 < len(blocks) else ""
+        if (
+            _is_heading(block)
+            and re.match(r"\s*<p\b", next_block, re.I)
+            and following.lstrip().lower().startswith("<table")
+        ):
+            _render_table(canvas, style, following, heading=block + next_block)
+            index += 3
+            continue
         if _is_heading(block) and next_block.lstrip().lower().startswith("<table"):
             _render_table(canvas, style, next_block, heading=block)
             index += 2
@@ -146,13 +159,24 @@ def _render_table(
                 canvas.new_page()
                 continue
             candidate = prefix + _table_html(parts, (parts.rows[row_index],))
-            _render_atomic_html(
-                canvas,
+            compact_document, compact_height = _html_document(
                 style,
                 candidate,
+                canvas.content_rect.width(),
                 table=True,
-                allow_scale=True,
+                compact_table=True,
             )
+            if compact_height <= canvas.remaining_height + 0.5:
+                _draw_document(canvas, compact_document, compact_height)
+            else:
+                _render_atomic_html(
+                    canvas,
+                    style,
+                    candidate,
+                    table=True,
+                    allow_scale=True,
+                    compact_table=True,
+                )
             row_index += 1
             first_chunk = False
             continue
@@ -242,12 +266,14 @@ def _render_atomic_html(
     *,
     table: bool = False,
     allow_scale: bool = False,
+    compact_table: bool = False,
 ) -> None:
     document, height = _html_document(
         style,
         fragment,
         canvas.content_rect.width(),
         table=table,
+        compact_table=compact_table,
     )
     canvas.reserve(height)
     if height <= canvas.remaining_height + 0.5:
@@ -258,9 +284,13 @@ def _render_atomic_html(
     if height <= canvas.remaining_height + 0.5:
         _draw_document(canvas, document, height)
         return
-    if allow_scale or height > canvas.remaining_height:
-        scale = max(0.68, min(1.0, canvas.remaining_height / max(height, 1.0)))
-        _draw_document(canvas, document, height, scale=scale)
+
+    # ``allow_scale`` is kept for compatibility with the row/list fallback
+    # callers. Oversized fragments keep the physical A4 width; only an
+    # exceptional oversized table row may use the compact table typography
+    # selected above before it is vertically paginated.
+    _ = allow_scale
+    _draw_document_paginated(canvas, document, height)
 
 
 def _draw_html(
@@ -284,27 +314,81 @@ def _draw_document(
     canvas: PageCanvas,
     document: QTextDocument,
     height: float,
-    *,
-    scale: float = 1.0,
 ) -> None:
     painter = canvas.painter
     painter.save()
     try:
         painter.translate(canvas.content_rect.left(), canvas.y)
-        if scale != 1.0:
-            painter.scale(scale, scale)
         document.drawContents(
             painter,
             QRectF(
                 0.0,
                 0.0,
-                canvas.content_rect.width() / scale,
+                canvas.content_rect.width(),
                 height,
             ),
         )
     finally:
         painter.restore()
-    canvas.advance(height * scale)
+    canvas.advance(height)
+
+
+def _draw_document_paginated(
+    canvas: PageCanvas,
+    document: QTextDocument,
+    height: float,
+) -> None:
+    """Draw a tall document at full width without leaving tiny tail pages."""
+
+    offset = 0.0
+    epsilon = 0.5
+    page_capacity = max(1.0, float(canvas.content_rect.height()))
+    minimum_final_slice = min(
+        page_capacity * 0.30,
+        max(24.0, page_capacity * 0.20),
+    )
+    while offset < height - epsilon:
+        if canvas.remaining_height <= epsilon:
+            canvas.new_page()
+            continue
+
+        available = canvas.remaining_height
+        remaining = height - offset
+        slice_height = min(available, remaining)
+        if remaining > available + epsilon:
+            tail_height = remaining - available
+            if 0.0 < tail_height < minimum_final_slice:
+                borrow = min(
+                    minimum_final_slice - tail_height,
+                    available * 0.35,
+                )
+                slice_height = max(available * 0.55, available - borrow)
+
+        painter = canvas.painter
+        painter.save()
+        try:
+            painter.translate(
+                canvas.content_rect.left(),
+                canvas.y - offset,
+            )
+            document.drawContents(
+                painter,
+                QRectF(
+                    0.0,
+                    offset,
+                    canvas.content_rect.width(),
+                    slice_height,
+                ),
+            )
+        finally:
+            painter.restore()
+
+        offset += slice_height
+        canvas.advance(slice_height, spacing=0.0)
+        if offset < height - epsilon:
+            canvas.new_page()
+
+    canvas.advance(0.0, spacing=5.0)
 
 
 def _html_document(
@@ -313,6 +397,7 @@ def _html_document(
     width: float,
     *,
     table: bool = False,
+    compact_table: bool = False,
 ) -> tuple[QTextDocument, float]:
     overrides = """
 html, body { background: #ffffff; color: #172033; }
@@ -323,10 +408,12 @@ h2 { margin: 8px 0 5px 0; font-size: 12pt; page-break-before: auto; break-before
 .candidate-detail { page-break-inside: avoid; break-inside: avoid; }
 """
     if table:
-        overrides += """
-table { font-size: 7.2pt; border-collapse: collapse; }
-th, td { padding: 3px; }
-tr { page-break-inside: avoid; break-inside: avoid; }
+        table_font = "6.8pt" if compact_table else "7.2pt"
+        table_padding = "2px" if compact_table else "3px"
+        overrides += f"""
+table {{ font-size: {table_font}; border-collapse: collapse; }}
+th, td {{ padding: {table_padding}; }}
+tr {{ page-break-inside: avoid; break-inside: avoid; }}
 """
     html = (
         "<html><head><meta charset='utf-8'><style>"
@@ -389,10 +476,29 @@ def _table_parts(table_html: str) -> _TableParts:
     thead_match = _THEAD_PATTERN.search(table_html)
     tbody_match = _TBODY_PATTERN.search(table_html)
     body = tbody_match.group(1) if tbody_match else table_html
+    colgroup = colgroup_match.group(0) if colgroup_match else ""
+    thead = thead_match.group(0) if thead_match else ""
+    # QTextDocument does not apply HTML colgroup widths. Its supported width
+    # attribute on header cells preserves the same column layout on every page.
+    widths = re.findall(r"\bwidth\s*:\s*(\d+(?:\.\d+)?%)", colgroup, re.I)
+    headers = tuple(re.finditer(r"<th\b[^>]*>", thead, re.I))
+    if widths and len(widths) == len(headers):
+        width_index = 0
+
+        def with_width(match: re.Match[str]) -> str:
+            nonlocal width_index
+            width = widths[width_index]
+            width_index += 1
+            tag = match.group(0)
+            if re.search(r"\bwidth\s*=", tag, re.I):
+                return tag
+            return tag[:-1] + f' width="{width}">'
+
+        thead = re.sub(r"<th\b[^>]*>", with_width, thead, flags=re.I)
     return _TableParts(
         opening,
-        colgroup_match.group(0) if colgroup_match else "",
-        thead_match.group(0) if thead_match else "",
+        colgroup,
+        thead,
         tuple(_ROW_PATTERN.findall(body)),
     )
 
@@ -409,7 +515,16 @@ def _table_html(parts: _TableParts, rows: tuple[str, ...]) -> str:
 
 
 def _is_heading(block: str) -> bool:
-    return bool(re.match(r"\s*<h[1-6]\b", block, re.I))
+    # OPUS uses styled divs for interval headings. Keep them with their basis
+    # just like semantic headings, otherwise a title can end the previous page.
+    return bool(
+        re.match(r"\s*<h[1-6]\b", block, re.I)
+        or re.match(
+            r"\s*<div\b[^>]*class=[\"'][^\"']*\bcandidate-detail-heading\b",
+            block,
+            re.I,
+        )
+    )
 
 
 def _is_notice(block: str) -> bool:

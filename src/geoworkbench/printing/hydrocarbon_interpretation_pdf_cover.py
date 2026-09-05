@@ -38,10 +38,7 @@ _LABELS = {
         "checked": "Проверил",
         "approved": "Утвердил",
         "signature": "Подпись / дата",
-        "footer": (
-            "Графики, методы, перспективные интервалы и ограничения методики "
-            "приведены на следующих страницах."
-        ),
+        "footer": "Графики, методы и перспективные интервалы приведены на следующих страницах.",
     },
     AppLanguage.KK: {
         "brand": "GEOLOG GASRATIO@Pixler",
@@ -65,10 +62,7 @@ _LABELS = {
         "checked": "Тексерген",
         "approved": "Бекіткен",
         "signature": "Қолы / күні",
-        "footer": (
-            "Графиктер, әдістер, перспективалы аралықтар және әдістеме "
-            "шектеулері келесі беттерде берілген."
-        ),
+        "footer": "Графиктер, әдістер және перспективалы аралықтар келесі беттерде берілген.",
     },
     AppLanguage.EN: {
         "brand": "GEOLOG GASRATIO@Pixler",
@@ -92,10 +86,7 @@ _LABELS = {
         "checked": "Checked by",
         "approved": "Approved by",
         "signature": "Signature / date",
-        "footer": (
-            "Charts, methods, prospective intervals, and methodology limitations "
-            "are presented on the following pages."
-        ),
+        "footer": "Charts, methods, and prospective intervals are presented on the following pages.",
     },
 }
 
