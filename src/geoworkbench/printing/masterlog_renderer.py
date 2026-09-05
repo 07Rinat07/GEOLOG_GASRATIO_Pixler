@@ -601,6 +601,10 @@ def _paint_header_element(
     if element.element_type == "image":
         asset_ref = element.properties.get("asset_ref")
         asset = session.image_assets.get(asset_ref) if isinstance(asset_ref, str) else None
+        if asset is None and isinstance(asset_ref, str):
+            from geoworkbench.printing.masterlog_header_forms import default_header_asset
+
+            asset = default_header_asset(asset_ref)
         if asset is not None:
             if element.properties.get("background") and isinstance(
                 element.properties.get("background"), str

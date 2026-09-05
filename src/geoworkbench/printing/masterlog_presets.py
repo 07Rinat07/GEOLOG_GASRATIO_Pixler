@@ -10,6 +10,7 @@ from geoworkbench.domain.models import (
     MasterlogTemplate,
 )
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.printing.masterlog_header_forms import masterlog_header_elements
 
 
 @dataclass(frozen=True, slots=True)
@@ -2250,6 +2251,29 @@ CURATED_MASTERLOG_HEADER_PRESETS = tuple(
     for orientation in ("portrait", "landscape")
 )
 
+MASTERLOG_REFERENCE_HEADER_PRESETS = tuple(
+    MasterlogHeaderPreset(
+        f"masterlog_header_a4_{orientation}",
+        _texts(
+            f"Шапка для мастерлогов — А4 {ru}",
+            f"Мастерлог тақырыбы — A4 {kk}",
+            f"Masterlog header — A4 {orientation}",
+        ),
+        _texts(
+            "Редактируемая шапка по образцу: логотипы, реквизиты, породы, ЛБА и конструкция.",
+            "Үлгі бойынша өңделетін тақырып: логотиптер, деректер, жыныстар, ЛБА және конструкция.",
+            "Editable reference header: logos, well data, rocks, LBA and casing.",
+        ),
+        height,
+        masterlog_header_elements(orientation),
+        orientation,
+    )
+    for orientation, ru, kk, height in (
+        ("portrait", "книжная", "тік", 140.0),
+        ("landscape", "альбомная", "көлденең", 100.0),
+    )
+)
+
 LEGACY_MASTERLOG_HEADER_PRESETS = (
     STANDARD_HEADER,
     LITHOLOGY_HEADER,
@@ -2262,7 +2286,9 @@ LEGACY_MASTERLOG_HEADER_PRESETS = (
 )
 
 BUILTIN_MASTERLOG_HEADER_PRESETS = (
-    LEGACY_MASTERLOG_HEADER_PRESETS + CURATED_MASTERLOG_HEADER_PRESETS
+    LEGACY_MASTERLOG_HEADER_PRESETS
+    + CURATED_MASTERLOG_HEADER_PRESETS
+    + MASTERLOG_REFERENCE_HEADER_PRESETS
 )
 
 

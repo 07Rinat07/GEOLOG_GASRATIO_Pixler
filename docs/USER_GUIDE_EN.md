@@ -145,6 +145,11 @@ RU/KK/EN names, category, `#RRGGBB` colour, and pattern key. The catalog is proj
 independent source profiles are not available yet. Use separate projects for suppliers with
 conflicting codes. Explicit JSON import replaces matching records; rereading LAS preserves
 existing settings. Only the pattern key is transferred, not a custom image file.
+The print-header catalog also includes **Masterlog header — A4 portrait** and **A4 landscape**.
+They follow the supplied example: an empty customer logo slot on the left, BP Services on the right,
+editable depths, dates, well and rig metadata, coordinates, geologists and engineers, lithology/LBA
+legends, event symbols, and well construction. Double-click an element to edit it, drag to move it,
+and save the result as a user header.
 Edited numeric codes are used both in exported curves and the dictionary; duplicate codes
 block export. A lithotype referenced by cuttings cannot be deleted.
 

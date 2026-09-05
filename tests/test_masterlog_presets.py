@@ -7,6 +7,7 @@ from geoworkbench.printing.masterlog_presets import (
     BUILTIN_MASTERLOG_HEADER_PRESETS,
     CURATED_MASTERLOG_FORM_PRESETS,
     CURATED_MASTERLOG_HEADER_PRESETS,
+    MASTERLOG_REFERENCE_HEADER_PRESETS,
 )
 from geoworkbench.services.localization import AppLanguage
 
@@ -199,6 +200,30 @@ def test_curated_a4_forms_and_headers_are_paired_and_fit_both_orientations() -> 
             and element.y_mm + element.height_mm <= header.height_mm
             for element in header.elements
         )
+
+
+def test_reference_masterlog_headers_are_editable_and_have_default_logo_contract() -> None:
+    assert {item.preferred_orientation for item in MASTERLOG_REFERENCE_HEADER_PRESETS} == {
+        "portrait", "landscape"
+    }
+    for preset in MASTERLOG_REFERENCE_HEADER_PRESETS:
+        assert preset.height_mm in {100.0, 140.0}
+        assert set(preset.names) == {AppLanguage.RU, AppLanguage.KK, AppLanguage.EN}
+        images = [
+            item for item in preset.elements
+            if item.element_type == "image" and item.properties.get("logo_role")
+        ]
+        assert {item.properties.get("logo_role") for item in images} == {"customer", "contractor"}
+        contractor = next(item for item in images if item.properties.get("logo_role") == "contractor")
+        assert isinstance(contractor.properties.get("asset_ref"), str)
+        customer = next(item for item in images if item.properties.get("logo_role") == "customer")
+        assert customer.properties.get("asset_ref") is None
+        fields = {
+            item.properties.get("field")
+            for item in preset.elements
+            if item.element_type == "field"
+        }
+        assert {"header.interval_start", "header.interval_end", "header.geologists"} <= fields
 
 
 def test_curated_a4_header_text_is_available_in_all_languages() -> None:

@@ -23,6 +23,8 @@ def test_factory_and_user_headers_are_separate_catalog_entries() -> None:
     )
     curated_id = "factory-header:a4_geology_technology_gas_portrait"
     assert any(item.catalog_id == curated_id for item in factory_items)
+    assert any(item.catalog_id == "factory-header:masterlog_header_a4_portrait" for item in factory_items)
+    assert any(item.catalog_id == "factory-header:masterlog_header_a4_landscape" for item in factory_items)
     assert all("geological_geochemical" not in item.catalog_id for item in factory_items)
     assert all(item.read_only for item in factory_items)
 

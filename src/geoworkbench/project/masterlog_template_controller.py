@@ -26,6 +26,7 @@ from geoworkbench.printing.header_catalog import (
 )
 from geoworkbench.printing.image_assets import ImageAsset, validate_image_asset
 from geoworkbench.printing.masterlog_presets import builtin_form_preset, builtin_header_preset
+from geoworkbench.printing.masterlog_header_forms import masterlog_header_assets
 from geoworkbench.services.localization import AppLanguage
 
 
@@ -108,6 +109,7 @@ class MasterlogTemplateController:
                 },
             },
         )
+        self._install_default_header_assets(template)
         self.session.project.masterlog_templates[template.template_id] = template
         self.session.dirty = True
         return template
@@ -182,6 +184,7 @@ class MasterlogTemplateController:
             **(source_fields if isinstance(source_fields, dict) else {}),
             **(current_fields if isinstance(current_fields, dict) else {}),
         }
+        self._install_default_header_assets(target)
         self._touch(target)
         return target
 
@@ -953,6 +956,17 @@ class MasterlogTemplateController:
     def _touch(self, template: MasterlogTemplate) -> None:
         template.version += 1
         self.session.dirty = True
+
+    def _install_default_header_assets(self, template: MasterlogTemplate) -> None:
+        """Make factory logos/symbols available to the editable header preview."""
+        refs = {
+            element.properties.get("asset_ref")
+            for element in template.header_elements
+            if isinstance(element.properties.get("asset_ref"), str)
+        }
+        for asset in masterlog_header_assets().values():
+            if asset.asset_id in refs and asset.asset_id not in self.session.image_assets:
+                self.session.image_assets[asset.asset_id] = asset
 
     def _require(self, template_id: str) -> MasterlogTemplate:
         try:

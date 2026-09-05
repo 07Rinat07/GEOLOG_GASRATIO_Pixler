@@ -7,6 +7,7 @@ from geoworkbench.domain.models import MasterlogTemplate
 from geoworkbench.printing.masterlog_presets import (
     BUILTIN_MASTERLOG_HEADER_PRESETS,
     CURATED_MASTERLOG_HEADER_PRESETS,
+    MASTERLOG_REFERENCE_HEADER_PRESETS,
     MasterlogHeaderPreset,
 )
 from geoworkbench.services.localization import AppLanguage
@@ -89,7 +90,7 @@ def catalog_items(
             element_count=len(preset.elements),
             preferred_orientation=preset.preferred_orientation,
         )
-        for preset in CURATED_MASTERLOG_HEADER_PRESETS
+        for preset in CURATED_MASTERLOG_HEADER_PRESETS + MASTERLOG_REFERENCE_HEADER_PRESETS
     )
     user = tuple(
         HeaderCatalogItem(
