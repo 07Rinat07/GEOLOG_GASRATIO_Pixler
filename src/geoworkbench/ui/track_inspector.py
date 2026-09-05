@@ -36,6 +36,7 @@ class TrackInspector(QWidget):
     settings_requested = Signal(str, int, str, object, object)
     curve_style_requested = Signal(str, str, str, float, str)
     grid_requested = Signal(str, bool, bool, float, int, int, bool)
+    x_scale_visibility_requested = Signal(str, bool)
     x_axis_label_requested = Signal(str, str)
 
     def __init__(self, *, language: AppLanguage = AppLanguage.RU) -> None:
@@ -70,6 +71,10 @@ class TrackInspector(QWidget):
         self.scale_input.addItem(self._t("inspector.linear"), XScale.LINEAR.value)
         self.scale_input.addItem(self._t("inspector.logarithmic"), XScale.LOGARITHMIC.value)
         form.addRow(self._t("inspector.x_scale"), self.scale_input)
+
+        self.show_x_scale_input = QCheckBox(self._t("inspector.show_x_scale"))
+        self.show_x_scale_input.toggled.connect(self._emit_x_scale_visibility)
+        form.addRow(self.show_x_scale_input)
 
         self.auto_range_input = QCheckBox(self._t("common.auto"))
         self.auto_range_input.toggled.connect(self._update_range_enabled)
@@ -196,6 +201,7 @@ class TrackInspector(QWidget):
             self._t("inspector.logarithmic"),
         )
         self.auto_range_input.setText(self._t("common.auto"))
+        self.show_x_scale_input.setText(self._t("inspector.show_x_scale"))
 
         style_fields: tuple[tuple[QWidget, str], ...] = (
             (self.curve_input, "inspector.style_curve"),
@@ -306,6 +312,19 @@ class TrackInspector(QWidget):
         self.width_input.setMinimum(minimum_track_width(track.kind))
         self.width_input.setValue(track.width)
         self.scale_input.setCurrentIndex(self.scale_input.findData(track.x_scale.value))
+        previous_block_state = self.show_x_scale_input.blockSignals(True)
+        try:
+            self.show_x_scale_input.setChecked(track.show_x_scale)
+        finally:
+            self.show_x_scale_input.blockSignals(previous_block_state)
+        self.show_x_scale_input.setEnabled(
+            track.kind
+            in {
+                TrackKind.CURVE,
+                TrackKind.GAS,
+                TrackKind.DEXP,
+            }
+        )
         automatic = track.x_min is None or track.x_max is None
         self.auto_range_input.setChecked(automatic)
         fallback = suggested_range or (0.1, 100.0)
@@ -395,6 +414,11 @@ class TrackInspector(QWidget):
             self.grid_minor_input.value(),
             self.grid_print_input.isChecked(),
         )
+
+    def _emit_x_scale_visibility(self, visible: bool) -> None:
+        if self._track_id is None:
+            return
+        self.x_scale_visibility_requested.emit(self._track_id, bool(visible))
 
     def _emit_x_axis_label(self) -> None:
         if self._track_id is None:

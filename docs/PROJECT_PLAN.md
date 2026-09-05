@@ -1,4 +1,4 @@
-<!-- runtime-contract: package=0.7.93; project=v24; form=v16; layout=v24 -->
+<!-- runtime-contract: package=0.7.93; project=v24; form=v17; layout=v25 -->
 # Единый план проекта
 
 Актуально на 4 сентября 2026 года. Это единственный канонический план проекта. Завершённые
@@ -37,13 +37,20 @@ release plan и временные планы в `docs` не создаются.
 
 ## Текущая база
 
-- пакет `0.7.93`; project `v24`; form `v16`; tablet layout `v24`;
+- пакет `0.7.93`; project `v24`; form `v17`; tablet layout `v25`;
 - desktop-модульный монолит: Python 3.11, PySide6, PyQtGraph, NumPy;
 - WITS0, WITSML 1.4.1.1, WITSML 2.x/ETP foundation, GS2/Paradox, LAS, планшет, формы,
   расчёты и отчёты реализованы;
 - комплексная газовая A4-форма использует один видимый общий depth track и семь графических
   секций без удаления внутренних синхронных depth tracks; порядок секций соответствует
   integrated gas log: ROP, C1–C5, Total Gas, normalized/relative gas, diagnostic ratios и Pixler;
+- `show_x_scale` отдельно управляет числовой шкалой X в шапке графической колонки, а `grid_x` —
+  вертикальными линиями сетки; оба флага независимо проходят через factory form → `FormTrack` →
+  `TabletLayout` → пользовательскую форму. Старые формы v1–v16 и layouts v1–v24 мигрируют с
+  `show_x_scale=True`, поэтому их внешний вид сохраняется;
+- в секции **«Компоненты C1–C5»** формы **«Интегрированный газовый каротаж C1–C5»** числовая
+  шкала X по умолчанию скрыта независимо от сетки; C1–C5 остаются `LINEAR` с индивидуальным
+  автоматическим диапазоном, а шкалу можно штатно включить через инспектор;
 - печатная шапка выводит все семь C1–nC5 rows; повторная конечная шапка занимает отдельную
   финальную страницу и использует ширину графика, не уменьшая последнюю страницу планшета;
   off-scale samples клипуются через bounded overscan без искусственных `NaN`-фрагментов и
@@ -113,13 +120,30 @@ release plan и временные планы в `docs` не создаются.
   - [x] editor-backed переключатель границ описаний работает через копию `TrackDefinition` и
     `TabletController.update_track_definition`, без прямой мутации live layout из UI; отдельная
     regression фиксирует доступность для `TEXT/INTERPRETATION` и скрытие для остальных треков;
-  - [ ] добавить явную пользовательскую видимость числовой X-шкалы; при сериализации выполнить
-    version bump/migration вместо неявного изменения старых форм;
-  - [ ] проверить штатное ручное включение depth-колонки complex gas и решить, переносить ли
-    production defaults из catalog postprocess в canonical factory source;
-  - [ ] выполнить exact-final-head Windows quality/security/GUI/HiDPI/PDF gate, повторно
-    осмотреть реальный PDF и завершить physical-printer acceptance A4/A3 с длинным rich text и
-    фотографиями шлама. До этого PR #76 остаётся draft и не сливается.
+  - [x] добавлена отдельная пользовательская видимость числовой X-шкалы: controller-backed
+    переключатель инспектора и renderer используют `show_x_scale` независимо от `grid_x`, form
+    schema поднята v16→v17, tablet layout v24→v25, а совместимая миграция сохраняет старым
+    формам/layouts `show_x_scale=True`;
+  - [x] production defaults секции C1–C5 перенесены из catalog postprocess в canonical
+    `complex_gas.py`; скрытая повторная depth-колонка остаётся в форме и штатно включается в
+    редактируемой копии, потому что разблокирована сама колонка, но защищён её depth-track;
+  - [ ] выполнить exact-final-head Windows quality/security/GUI/HiDPI/PDF gate. Последний
+    проверенный release-gate #943 был зелёным до завершения текущего инкремента и не заменяет
+    проверку нового exact head;
+    CI run `33848155208` на `05e26b5` остановился на проверке runtime-contract в
+    `ARCHITECTURE.md` и этом плане: требуются form v17/layout v25. Маркеры исправлены
+    в рабочем дереве; успешный локальный documentation audit не заменяет повторный CI.
+    Локальная проверка 5 сентября 2026: полный `scripts/run_tests.py` завершился с кодом 0
+    (8 основных shards и 124 native-heavy batches); также прошли documentation audit
+    (50 файлов на язык, 2362 ключа), Ruff, mypy и `git diff --check`.
+  - [ ] повторно осмотреть реальный PDF и завершить physical-printer acceptance A4/A3 с длинным
+    rich text и фотографиями шлама. До этого PR #76 остаётся draft и не сливается.
+    Проверка пользовательского LAS 5 сентября выявила незакрытые пункты: отдельный
+    Masterlog-renderer выводит повреждённые шрифты/обрезанную шапку в локальном offscreen
+    окружении; форма MASTERLOG через Центр печати сохраняет границы интервала, но требует
+    проверки импорта кодов пород в геологические интервалы и плотной шапки газовых кривых.
+    В PDF ОПУС технические основания частично остаются английскими и заметно увеличивают
+    объём таблиц; необходима синхронная локализация RU/KK/EN перед клиентским выпуском.
 - [ ] **SEC-01:** согласовать очистку опубликованной Git history от пользовательских project/LAS
   sidecars и проверить clones, caches, forks и releases.
 - [x] **SEC-02:** bounded ETP multipart по размеру, числу частей и времени сборки.

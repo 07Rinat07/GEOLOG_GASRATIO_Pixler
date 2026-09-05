@@ -233,6 +233,17 @@ C1–nC5, Total Gas, normalized and relative composition, Wetness/Balance/Charac
 ratios, and Pixler. On the final page the graph must end before the repeated lower header; no
 curve may continue below it.
 
+In **C1–C5 components**, the numeric X scale is hidden by default so seven components do not
+overload the header. Each C1–C5 curve remains linear and keeps its own automatic range. To show
+the numbers and engineering ruler, select the column and enable **Track Inspector → Track and
+scale → Show numeric X scale**. **Vertical grid** is independent, so the scale can be enabled
+without a grid. After changing it, save the user form, regenerate the PDF, and inspect the header
+on every page. Forms saved before the upgrade keep the numeric scale visible and do not change
+their appearance.
+If a separate numeric depth is needed before the components, first create a user copy of the
+factory form and enable the hidden repeat depth column in the structure editor. Column visibility
+is editable, while its depth track remains protected against accidental replacement.
+
 ### Editable cover-page details
 
 A separate form opens before PDF export and physical printing. It allows manual editing of:

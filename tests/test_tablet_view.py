@@ -44,6 +44,7 @@ from geoworkbench.tablet.screen_style import muted_screen_curve_color
 from geoworkbench.tablet.tablet_view import (
     CURVE_HEADER_EDITOR_HEIGHT,
     CurveHeaderEditor,
+    CurveHeaderLabel,
     TabletTrackWidget,
     TabletVerticalAxisItem,
     TabletView,
@@ -201,6 +202,50 @@ def test_track_print_mode_hides_header_editor_actions_and_scrollbar(qapp) -> Non
         widget.curve_header_scroll.verticalScrollBarPolicy()
         is Qt.ScrollBarPolicy.ScrollBarAsNeeded
     )
+    view.close()
+
+
+def test_hidden_x_scale_keeps_curve_caption_and_vertical_grid(qapp) -> None:
+    from geoworkbench.tablet.render_invalidation import DirtyReason
+
+    dataset = Dataset(
+        "dataset-hidden-x-scale",
+        "Hidden X scale",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 101.0]),
+    )
+    curve = make_curve(dataset.dataset_id, "C1", "%")
+    dataset.curves[curve.metadata.curve_id] = curve
+    definition = TrackDefinition(
+        "gas",
+        "Gas",
+        TrackKind.GAS,
+        curve_mnemonics=["C1"],
+        curve_display={"C1": CurveDisplaySettings(display_name="Methane")},
+        grid_x=True,
+        show_x_scale=False,
+    )
+    view = TabletView(language=AppLanguage.EN)
+    view.set_layout_model(TabletLayout([definition]))
+    view.set_dataset(dataset)
+
+    widget = view._rendered["gas"].widget
+    caption = widget._curve_header_labels["C1"]
+    overlay = TabletGridRenderer.overlay_for(widget.plot)
+    assert isinstance(caption, CurveHeaderLabel)
+    assert caption.text() == "Methane"
+    assert overlay is not None
+    assert overlay.settings.show_x is True
+
+    widget.set_print_mode(True)
+    assert caption.text() == "Methane"
+    widget.set_print_mode(False)
+
+    definition.set_x_scale_visible(True)
+    assert view.refresh_track("gas", DirtyReason.STYLE) is True
+    assert isinstance(widget._curve_header_labels["C1"], CurveHeaderEditor)
+    assert TabletGridRenderer.overlay_for(widget.plot).settings.show_x is True
     view.close()
 
 
@@ -513,6 +558,8 @@ def test_tablet_renders_percentage_cuttings_track_and_cursor_summary(qapp) -> No
 
 
 def test_tablet_renders_calcimetry_lba_and_cursor_summary(qapp) -> None:
+    from geoworkbench.tablet.render_invalidation import DirtyReason
+
     dataset = Dataset(
         "dataset-1",
         "Dataset",
@@ -550,9 +597,18 @@ def test_tablet_renders_calcimetry_lba_and_cursor_summary(qapp) -> None:
     calc_items = view._rendered["calc"].analysis_items
     lba_items = view._rendered["lba"].analysis_items
     summary = view.cursor_summary(105.0)
+    calc_headers = tuple(view._rendered["calc"].widget._curve_header_labels)
+    lba_headers = tuple(view._rendered["lba"].widget._curve_header_labels)
+
+    assert view.refresh_track("calc", DirtyReason.STYLE) is True
+    assert view.refresh_track("lba", DirtyReason.STYLE) is True
 
     assert calc_items is not None and len(calc_items["sample"]) >= 4
     assert lba_items is not None and len(lba_items["sample"]) >= 6
+    assert calc_headers == ("__calcite__", "__dolomite__", "__residue__")
+    assert tuple(view._rendered["calc"].widget._curve_header_labels) == calc_headers
+    assert lba_headers == ("__lba_legend__",)
+    assert tuple(view._rendered["lba"].widget._curve_header_labels) == lba_headers
     assert view._rendered["lba"].plot.viewRange()[0][1] >= 2.9
     assert ("Кальциметрия: CaCO₃ 65%; CaMg(CO₃)₂ 20%; нерастворимый остаток 15%") in summary
     assert "ЛБА: Oil show; I=3; yellow; Streaming" in summary

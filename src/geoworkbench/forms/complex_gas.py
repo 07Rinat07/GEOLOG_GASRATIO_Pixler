@@ -228,7 +228,10 @@ def _internal_depth_column(
         title=title,
         group_title=group_title,
         width=96,
-        locked=True,
+        # Factory documents are read-only already.  Keeping the column itself
+        # unlocked lets an editable copy enable any hidden repeat depth column,
+        # while the locked depth track still protects its axis semantics.
+        locked=False,
         title_orientation="horizontal",
         title_position="center",
         tracks=[
@@ -260,6 +263,8 @@ def _curve_column(
     *,
     width: int,
     x_axis_label: str,
+    grid_x: bool = True,
+    show_x_scale: bool = True,
 ) -> FormColumn:
     return FormColumn(
         column_id=column_id,
@@ -272,12 +277,13 @@ def _curve_column(
                 title=title,
                 kind=TrackKind.CURVE,
                 bindings=bindings,
-                grid_x=True,
+                grid_x=grid_x,
                 grid_y=True,
                 grid_major_divisions=5,
                 grid_minor_divisions=5,
                 grid_alpha=0.22,
                 grid_print=True,
+                show_x_scale=show_x_scale,
                 x_axis_label=x_axis_label,
                 show_interval_labels=True,
             )
@@ -422,12 +428,14 @@ def complex_gas_form(language: str = "ru") -> FormDocument:
                 _component_bindings(
                     lang,
                     unit="",
-                    x_min=0.0,
-                    x_max=100.0,
+                    x_min=None,
+                    x_max=None,
                 ),
                 gas_group,
                 width=430,
-                x_axis_label="C1–C5",
+                x_axis_label="",
+                grid_x=False,
+                show_x_scale=False,
             ),
         ),
         (

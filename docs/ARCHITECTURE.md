@@ -1,4 +1,4 @@
-<!-- runtime-contract: package=0.7.93; project=v24; form=v16; layout=v24 -->
+<!-- runtime-contract: package=0.7.93; project=v24; form=v17; layout=v25 -->
 # Архитектура
 
 Актуально на 9 августа 2026 года.
@@ -262,6 +262,15 @@ LAS/XML/adapters обязаны ограничивать bytes, elements, nestin
 Общая вертикальная ось синхронизирует треки; X независим. Экран виртуализирует viewport, а
 geometry cache хранит только производную геометрию, не source arrays.
 
+Числовая шкала X и сетка являются разными presentation-контрактами. `show_x_scale` управляет
+видимостью числового диапазона и инженерной линейки в шапке графической колонки, тогда как
+`grid_x` управляет только вертикальными линиями сетки внутри графика. Один флаг не выводится из
+другого. Изменение из инспектора проходит через controller mutation, а screen, preview, PDF и
+printer читают один сохранённый `TrackDefinition`. Контракт сериализуется в form schema v17 и
+tablet layout v25; формы v1–v16 и layouts v1–v24 мигрируют с `show_x_scale=True`. Только factory
+секция **«Интегрированный газовый каротаж C1–C5 / Компоненты C1–C5»** явно задаёт
+`show_x_scale=False`, сохраняя для каждой C1–C5 кривой `LINEAR` и индивидуальный auto-range.
+
 `tablet_view.py` всё ещё содержит значительную orchestration-нагрузку. Новая логика должна
 сначала появляться в Qt-независимом controller/service с unit tests, после чего view только
 маршрутизирует сигналы и применяет read model.
@@ -308,9 +317,9 @@ legacy-шаблонам. Наличие постороннего файла, sym
 
 ## Хранение и совместимость
 
-- project format `v22`;
-- form schema `v15`;
-- tablet layout `v23`;
+- project format `v24`;
+- form schema `v17`;
+- tablet layout `v25`;
 - текущий проект — JSON плюс content-addressed `.assets`;
 - запись JSON атомарная, migration последовательная;
 - неизвестные данные не удаляются молча;

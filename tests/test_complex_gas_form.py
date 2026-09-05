@@ -4,6 +4,7 @@ import numpy as np
 
 from geoworkbench.calculations.gas_ratio import calculate_basic_ratios
 from geoworkbench.forms.a4_factory_templates import a4_factory_templates
+from geoworkbench.forms.editor import FormStructureEditor
 from geoworkbench.forms.complex_gas import complex_gas_form
 from geoworkbench.tablet.models import TrackKind, XScale
 
@@ -77,6 +78,11 @@ def test_complex_gas_builder_contains_all_requested_tracks() -> None:
     absolute = _track(form, "track-column-complex-absolute")
     assert tuple(binding.canonical_parameter_id for binding in absolute.bindings) == SEVEN_COMPONENTS
     assert all(binding.unit == "" for binding in absolute.bindings)
+    assert absolute.show_x_scale is False
+    assert absolute.grid_x is False
+    assert absolute.x_axis_label == ""
+    assert all(binding.x_scale is XScale.LINEAR for binding in absolute.bindings)
+    assert all(binding.x_min is None and binding.x_max is None for binding in absolute.bindings)
 
     relative = _track(form, "track-column-complex-relative")
     assert tuple(binding.canonical_parameter_id for binding in relative.bindings) == tuple(
@@ -122,6 +128,27 @@ def test_both_a4_complex_gas_forms_keep_all_graphs_with_one_shared_depth() -> No
     assert landscape.name == "Интегрированный газовый каротаж C1–C5 — A4 альбомная"
     _assert_a4_layout(portrait, 48, (80, 110, 80, 110, 100, 90, 86))
     _assert_a4_layout(landscape, 55, (100, 160, 110, 160, 150, 140, 130))
+
+
+def test_editable_complex_gas_copy_can_enable_hidden_repeat_depth_column() -> None:
+    form = a4_factory_templates("ru")[
+        "factory-complex-gas-a4-landscape"
+    ].editable_copy()
+    editor = FormStructureEditor(form)
+    depth_column = next(
+        column
+        for column in form.columns
+        if column.column_id == "column-complex-depth-absolute"
+    )
+
+    assert depth_column.visible is False
+    assert depth_column.locked is False
+    assert depth_column.tracks[0].locked is True
+
+    editor.set_column_visible(depth_column.column_id, True)
+
+    assert depth_column.visible is True
+    assert editor.dirty is True
 
 
 def test_seven_component_calculation_does_not_double_count_aggregate_c4_c5() -> None:

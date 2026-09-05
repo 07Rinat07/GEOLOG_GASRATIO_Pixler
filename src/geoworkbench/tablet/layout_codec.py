@@ -465,7 +465,10 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
                     if isinstance(settings, dict):
                         settings.setdefault("unit_override", None)
     migrated["version"] = 17
-    if isinstance(tracks, list):
+    # Compact widths were introduced by layout v18.  Do not apply the
+    # one-time reduction again when a newer layout is migrated for an
+    # unrelated field (for example v24 -> v25).
+    if version <= 17 and isinstance(tracks, list):
         for track in tracks:
             if not isinstance(track, dict):
                 continue
@@ -477,7 +480,7 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
             if isinstance(raw_width, int) and not isinstance(raw_width, bool):
                 track["width"] = compact_track_width(kind, raw_width)
     migrated["version"] = 18
-    if isinstance(tracks, list):
+    if version <= 18 and isinstance(tracks, list):
         # Version 19 makes every previously saved tablet/form layout linear by
         # default.  This is a one-time migration: users may explicitly switch a
         # curve back to logarithmic mode after the project has been upgraded.
@@ -491,7 +494,9 @@ def _migrate_layout(data: dict[str, Any]) -> dict[str, Any]:
                     if isinstance(settings, dict):
                         _migrate_scale_payload_to_linear(settings)
     migrated["version"] = 20
-    if isinstance(tracks, list):
+    # The canonical compact-caption direction is the v20 -> v21 migration.
+    # Later user choices must survive subsequent schema upgrades unchanged.
+    if version <= 20 and isinstance(tracks, list):
         # Compact geology/reference captions use one canonical +90°
         # top-to-bottom direction. Rewrite both the old horizontal LBA default
         # and reversed vertical captions in previously saved layouts.

@@ -89,6 +89,62 @@ def test_layout_codec_round_trip_preserves_track_settings() -> None:
     assert restored.track_by_id("gas").title_position == "bottom"
 
 
+def test_layout_v24_migrates_x_scale_visibility_to_visible_default() -> None:
+    source = TabletLayout(
+        [
+            TrackDefinition(
+                "lithology",
+                "Lithology",
+                TrackKind.LITHOLOGY,
+                width=120,
+                x_scale=XScale.LOGARITHMIC,
+                x_min=1.0,
+                x_max=100.0,
+                grid_x=False,
+                title_orientation="vertical_bottom_to_top",
+                title_position="bottom",
+            )
+        ]
+    )
+    payload = layout_to_dict(source)
+    payload["version"] = 24
+    payload["tracks"][0].pop("show_x_scale")
+
+    restored = layout_from_dict(payload)
+    encoded = layout_to_dict(restored)
+    track = restored.track_by_id("lithology")
+
+    assert track.grid_x is False
+    assert track.show_x_scale is True
+    assert track.width == 120
+    assert track.x_scale is XScale.LOGARITHMIC
+    assert (track.x_min, track.x_max) == (1.0, 100.0)
+    assert track.title_orientation == "vertical_bottom_to_top"
+    assert track.title_position == "bottom"
+    assert encoded["version"] == 25
+    assert encoded["tracks"][0]["show_x_scale"] is True
+    assert "show_x_scale" not in payload["tracks"][0]
+
+
+def test_layout_round_trip_preserves_hidden_x_scale_independently_from_grid() -> None:
+    source = make_layout()
+    source.track_by_id("gas").set_x_scale_visible(False)
+
+    restored = layout_from_dict(layout_to_dict(source))
+    track = restored.track_by_id("gas")
+
+    assert track.grid_x is True
+    assert track.show_x_scale is False
+
+
+def test_layout_codec_rejects_non_boolean_x_scale_visibility() -> None:
+    payload = layout_to_dict(make_layout())
+    payload["tracks"][1]["show_x_scale"] = "false"
+
+    with pytest.raises(TabletLayoutFormatError, match="Некорректный трек"):
+        layout_from_dict(payload)
+
+
 def test_layout_codec_treats_legacy_caption_provenance_as_factory() -> None:
     payload = layout_to_dict(make_layout())
     payload.pop("localize_factory_labels")
@@ -458,4 +514,4 @@ def test_layout_v18_migrates_track_and_curve_log_scales_to_linear() -> None:
     assert settings.x_scale is XScale.LINEAR
     assert settings.x_min == 0.0
     assert settings.x_max == 100.0
-    assert layout_to_dict(restored)["version"] == 24
+    assert layout_to_dict(restored)["version"] == 25

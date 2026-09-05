@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import replace
-
 from geoworkbench.domain.models import Dataset
 from geoworkbench.forms.a4_factory_templates import (
     A4_FACTORY_TEMPLATE_IDS,
@@ -9,7 +7,7 @@ from geoworkbench.forms.a4_factory_templates import (
 )
 from geoworkbench.forms.models import FormDocument, FormPageOrientation
 from geoworkbench.forms.repository import FormRepository
-from geoworkbench.tablet.models import COMPACT_TRACK_KINDS, TrackKind, XScale
+from geoworkbench.tablet.models import COMPACT_TRACK_KINDS, TrackKind
 
 # Legacy factory IDs remain resolvable through ``factory_templates`` for old
 # projects and JSON imports, but are no longer displayed in form workflows.
@@ -104,36 +102,6 @@ def _apply_factory_presentation_defaults(
             if column.column_id.endswith("-interpretation"):
                 for track in column.tracks:
                     track.show_description_borders = False
-
-    if form_id.startswith("factory-complex-gas-a4-"):
-        _configure_integrated_components(form)
-
-
-def _configure_integrated_components(form: FormDocument) -> None:
-    """Use linear per-component auto-range with quiet default presentation."""
-
-    for column in form.columns:
-        if column.column_id == "column-complex-depth-absolute":
-            # Keep the depth column in the editable factory document so it can
-            # be enabled manually, but do not display it by default.
-            column.visible = False
-            continue
-        if column.column_id != "column-complex-absolute":
-            continue
-        for track in column.tracks:
-            track.show_x_scale = False
-            track.x_axis_label = ""
-            track.grid_x = False
-            track.bindings = [
-                replace(
-                    binding,
-                    x_scale=XScale.LINEAR,
-                    x_min=None,
-                    x_max=None,
-                )
-                for binding in track.bindings
-            ]
-
 
 def complete_form_catalog(
     repository: FormRepository,

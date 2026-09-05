@@ -629,6 +629,13 @@ count, colour, and opacity. These settings are stored in the form. Review them i
 the grid can be retained, softened, or disabled without changing data. Preview, PDF, and the
 printer use the same form model.
 
+The numeric X scale in a curve header is configured separately from the vertical grid:
+**Show numeric X scale** does not change `grid_x`, and **Vertical grid** does not enable the
+scale. The scale is hidden by default in the **C1–C5 components** section of the factory
+**Integrated C1–C5 gas log**; the components remain linear with independent automatic ranges.
+Change the setting in Track Inspector, save it in a user form, and verify the same result on
+screen, in preview, in PDF, and on the printer.
+
 ## Rendering golden fixtures
 
 Screen and print grids, legend ordering, lithotype patterns, and annotation geometry are fixed by

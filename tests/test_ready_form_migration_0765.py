@@ -88,7 +88,7 @@ def test_confirmed_local_forms_are_promoted_and_renamed_atomically(
     assert ready_path.exists()
     assert not legacy_path.exists()
     payload = json.loads(ready_path.read_text(encoding="utf-8"))
-    assert payload["schema_version"] == 16
+    assert payload["schema_version"] == 17
     assert payload["name"] == polished_name
     assert payload["read_only"] is True
     assert payload["origin"] == "factory"

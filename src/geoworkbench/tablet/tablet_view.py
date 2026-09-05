@@ -1513,12 +1513,18 @@ class TabletTrackWidget(QFrame):
             widget = item.widget() if item is not None else None
             if widget is not None:
                 _safe_delete_later(widget)
-        ranges = editable_ranges or {}
+        # ``show_x_scale`` controls only the numeric engineering scale.  Keep
+        # the curve caption (and therefore its colour/selection/context-menu
+        # affordances) visible when the scale is hidden.  Centralising the
+        # decision here also keeps the live tablet and print clone identical.
+        show_x_scale = self.definition.show_x_scale
+        ranges = (editable_ranges or {}) if show_x_scale else {}
         for mnemonic, text, curve_color, text_color, line_color in rows:
             spec = ranges.get(mnemonic)
+            visible_text = text if show_x_scale else text.split("\n", 1)[0]
             if spec is None:
                 label: CurveHeaderLabel | CurveHeaderEditor = CurveHeaderLabel(
-                    mnemonic, text, curve_color, text_color, line_color
+                    mnemonic, visible_text, curve_color, text_color, line_color
                 )
             else:
                 label = CurveHeaderEditor(
@@ -8137,6 +8143,14 @@ class TabletView(QWidget):
             rendered.plot.setLabel("bottom", str(x_axis_label))
 
     def _apply_curve_styles(self, rendered: RenderedTrack, definition: TrackDefinition) -> None:
+        if definition.kind in {TrackKind.CALCIMETRY, TrackKind.LBA} and not (
+            rendered.curve_items
+        ):
+            # Discrete sample-analysis tracks own their specialized captions
+            # (Calcite/Dolomite/Residue or the LBA column legend).  A generic
+            # STYLE refresh has no curve items to restyle and must not replace
+            # those captions with an empty header.
+            return
         relative_gas = is_relative_gas_track(definition.curve_mnemonics)
         if rendered.plot is not None:
             rendered.plot.setLogMode(x=False, y=False)
@@ -8246,6 +8260,10 @@ class TabletView(QWidget):
             self._apply_static_track_configuration(rendered, definition)
         if reasons & DirtyReason.STYLE:
             self._apply_curve_styles(rendered, definition)
+            # A scale-visibility toggle replaces CurveHeaderEditor with the
+            # caption-only CurveHeaderLabel (or vice versa).  Recompute the
+            # shared band immediately so all plot viewports remain aligned.
+            self._synchronize_track_header_bands()
         if reasons & (DirtyReason.DATA | DirtyReason.VIEWPORT | DirtyReason.STYLE):
             visible = self.visible_depth_range
             if visible is not None:

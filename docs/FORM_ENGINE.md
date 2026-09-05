@@ -6,7 +6,7 @@ curves in the currently opened dataset.
 
 ## Implemented first slice
 
-- versioned form schema v12 with migrations from earlier versions;
+- versioned form schema v17 with sequential migrations from earlier versions;
 - form, column, track and parameter-binding models;
 - depth and time form types;
 - validation of identifiers, widths, ranges and duplicate links;
@@ -14,9 +14,6 @@ curves in the currently opened dataset.
 - atomic repository for user forms;
 - read-only factory templates and editable copies;
 - factory templates: basic depth, basic time, gas components, Gas Ratio, Pixler and interpretation.
-
-The visual form editor is not part of this slice. It will use these models as the single source
-of truth.
 
 ## Визуальный редактор структуры формы
 
@@ -35,6 +32,19 @@ of truth.
 - автоматический или ручной диапазон.
 
 Изменения сохраняются в пользовательском JSON-шаблоне и применяются через существующий Form Apply Engine. Исходные данные LAS не переименовываются и не изменяются.
+
+## Numeric X-scale visibility
+
+For graph tracks, `show_x_scale` controls the numeric range and engineering ruler in the curve
+header. `grid_x` remains an independent setting for vertical grid lines inside the graph. The
+**Track Inspector → Track and scale** checkbox updates `show_x_scale` through `TabletController`;
+the live tablet, preview, PDF, and printer all consume that same renderer state. Saving the active
+tablet as a user form preserves the flag.
+
+The contract is stored in form schema v17 and tablet layout v25. Forms v1–v16 and layouts v1–v24
+without the field migrate with `show_x_scale=True`, preserving their previous appearance. The
+factory **Integrated C1–C5 gas log / C1–C5 components** track explicitly uses `False`; its curves
+remain linear and retain independent automatic ranges.
 
 
 ## Live Form Preview

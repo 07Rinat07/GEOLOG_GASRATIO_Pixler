@@ -152,3 +152,13 @@ def test_form_prefers_contextual_geoscape_channel_over_empty_normal_source() -> 
 
     assert "C4" in component_track.curve_mnemonics
     assert "S1628" not in component_track.curve_mnemonics
+    assert component_track.show_x_scale is False
+    assert component_track.grid_x is False
+    assert all(
+        component_track.curve_display_settings(mnemonic).automatic_range
+        for mnemonic in component_track.curve_mnemonics
+    )
+    assert all(
+        component_track.curve_display_settings(mnemonic).x_scale.value == "linear"
+        for mnemonic in component_track.curve_mnemonics
+    )

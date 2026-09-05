@@ -131,7 +131,7 @@ def test_repository_saves_utf8_atomically(tmp_path) -> None:
     assert target.exists()
     assert restored.name == "Глубинная форма"
     raw = json.loads(target.read_text(encoding="utf-8"))
-    assert raw["schema_version"] == 16
+    assert raw["schema_version"] == 17
 
 
 def test_form_v13_migrates_to_visible_automatic_inner_ruler() -> None:
@@ -149,7 +149,68 @@ def test_form_v13_migrates_to_visible_automatic_inner_ruler() -> None:
     restored = form_from_dict(payload)
 
     assert restored.columns[0].tracks[0].vertical_ruler == VerticalRulerTrackSettings()
-    assert form_to_dict(restored)["schema_version"] == 16
+    assert form_to_dict(restored)["schema_version"] == 17
+
+
+def test_form_v16_migrates_x_scale_visibility_to_visible_default() -> None:
+    form = FormDocument.create("Legacy X scale", FormAxisKind.DEPTH)
+    form.add_column(
+        FormColumn.create(
+            "Gas",
+            tracks=[FormTrack.create("Gas", TrackKind.GAS, grid_x=False)],
+        )
+    )
+    payload = form_to_dict(form)
+    payload["schema_version"] = 16
+    payload["columns"][0]["tracks"][0].pop("show_x_scale")
+
+    restored = form_from_dict(payload)
+    encoded = form_to_dict(restored)
+    track = restored.columns[0].tracks[0]
+
+    assert track.grid_x is False
+    assert track.show_x_scale is True
+    assert encoded["schema_version"] == 17
+    assert encoded["columns"][0]["tracks"][0]["show_x_scale"] is True
+    assert "show_x_scale" not in payload["columns"][0]["tracks"][0]
+
+
+def test_form_round_trip_preserves_hidden_x_scale_independently_from_grid() -> None:
+    form = FormDocument.create("Hidden X scale", FormAxisKind.DEPTH)
+    form.add_column(
+        FormColumn.create(
+            "Gas",
+            tracks=[
+                FormTrack.create(
+                    "Gas",
+                    TrackKind.GAS,
+                    grid_x=True,
+                    show_x_scale=False,
+                )
+            ],
+        )
+    )
+
+    restored = form_from_dict(form_to_dict(form))
+    track = restored.columns[0].tracks[0]
+
+    assert track.grid_x is True
+    assert track.show_x_scale is False
+
+
+def test_form_codec_rejects_non_boolean_x_scale_visibility() -> None:
+    form = FormDocument.create("Invalid X scale", FormAxisKind.DEPTH)
+    form.add_column(
+        FormColumn.create(
+            "Gas",
+            tracks=[FormTrack.create("Gas", TrackKind.GAS)],
+        )
+    )
+    payload = form_to_dict(form)
+    payload["columns"][0]["tracks"][0]["show_x_scale"] = "false"
+
+    with pytest.raises(FormFormatError, match="Некорректная структура формы"):
+        form_from_dict(payload)
 
 
 def test_repository_lists_and_deletes(tmp_path) -> None:
@@ -535,7 +596,7 @@ def test_v8_form_migrates_logarithmic_bindings_to_linear_defaults() -> None:
     assert binding.x_scale.value == "linear"
     assert binding.x_min == 0.0
     assert binding.x_max == 100.0
-    assert form_to_dict(restored)["schema_version"] == 16
+    assert form_to_dict(restored)["schema_version"] == 17
 
 
 def test_every_factory_form_binding_is_linear_by_default() -> None:

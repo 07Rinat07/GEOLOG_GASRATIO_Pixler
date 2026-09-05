@@ -6,7 +6,7 @@ the active dataset.
 
 ## Current model
 
-- versioned form schema, currently v12;
+- versioned form schema, currently v17;
 - form, column, track and parameter-binding models;
 - depth and time form types;
 - identifier, width, range and duplicate-link validation;
@@ -40,6 +40,22 @@ Changes are stored in the user JSON template and consumed by the existing Form A
 
 ## Live preview
 The editor uses a safe draft copy, supports automatic preview, manual apply, saving without closing the editor, and reverting to the last saved version.
+
+## Numeric X-scale visibility
+
+For a graph track, `show_x_scale` stores whether the numeric range and engineering ruler are
+visible in the curve header. It is independent from `grid_x`, which stores only the vertical grid
+lines inside the graph. Track Inspector changes the flag through a controller-backed
+update; screen, preview, PDF, and the printer then consume the same value. Saving the active tablet
+as a user form preserves the flag.
+
+This applies to tablet printing. The separate linked MASTERLOG renderer does not receive
+`show_x_scale` through the bridge; its legend visibility is controlled separately.
+
+The contract is stored in form schema v17 and tablet layout v25. Forms v1–v16 and layouts v1–v24
+without the field receive `show_x_scale=True`, preserving the appearance of existing documents.
+The built-in **Integrated C1–C5 gas log / C1–C5 components** section explicitly sets `False`;
+its C1–C5 curves remain `LINEAR` with independent automatic ranges.
 
 ## Specialized Gas Ratio & Pixler forms
 
@@ -146,10 +162,12 @@ minimum. After migration, users can resize a column by dragging its boundary, us
 Inspector, or using the structure editor; current-schema objects preserve that explicit width
 without another automatic reduction.
 
-Forms using schema v7 or older migrate to **form schema v8** on first load. Saved tablets using
-layout v17 or older migrate to **tablet layout v18**. Successfully read user forms are immediately
-rewritten in the new schema, so the conversion does not depend on a manual resave. Names, order,
-parameter bindings, scales, styles, and other graph widths are preserved.
+The historical width reduction was introduced in form schema v8 and tablet layout v18. On load,
+an older payload now passes through every sequential migration directly to the current **form
+schema v17** and **tablet layout v25**. Versions v17/v25 persist `show_x_scale` separately:
+forms v1–v16 and layouts v1–v24 receive `True`, preserving the previous numeric scale independently
+of `grid_x`. Successfully read user forms are immediately rewritten in the current schema; names,
+order, parameter bindings, scale modes/ranges, styles, and other graph widths are preserved.
 
 Actual-size preview, PDF, and physical printing use the stored compact proportions. Fit columns may
 temporarily redistribute widths for the selected paper, but the working form is restored when the

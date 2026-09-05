@@ -36,7 +36,7 @@ def test_repository_separates_depth_and_time_forms(tmp_path) -> None:
     assert {item.name for item in repository.list_forms()} == {"Depth", "Time"}
 
 
-def test_live_tablet_layout_converts_to_editable_user_form() -> None:
+def test_live_tablet_layout_converts_to_editable_user_form(tmp_path) -> None:
     dataset = Dataset(
         "dataset-ui-form",
         "Well A",
@@ -54,6 +54,7 @@ def test_live_tablet_layout_converts_to_editable_user_form() -> None:
         locked=True,
         grid_x=True,
         grid_y=False,
+        show_x_scale=False,
         title_orientation="vertical_bottom_to_top",
         title_position="bottom",
         vertical_ruler=VerticalRulerTrackSettings(
@@ -75,6 +76,8 @@ def test_live_tablet_layout_converts_to_editable_user_form() -> None:
     assert form.read_only is False
     assert form.columns[0].width == 310
     assert form.columns[0].tracks[0].locked is False
+    assert form.columns[0].tracks[0].grid_x is True
+    assert form.columns[0].tracks[0].show_x_scale is False
     assert form.columns[0].tracks[0].title_orientation == "vertical_bottom_to_top"
     assert form.columns[0].tracks[0].vertical_ruler == track.vertical_ruler
     binding = form.columns[0].tracks[0].bindings[0]
@@ -82,6 +85,13 @@ def test_live_tablet_layout_converts_to_editable_user_form() -> None:
     assert binding.display_name == "ROP, м/ч"
     assert binding.x_min == 0.0
     assert binding.x_max == 150.0
+
+    repository = FormRepository(tmp_path / "saved-forms")
+    repository.save(form)
+    restored = repository.load(form.form_id)
+
+    assert restored.columns[0].tracks[0].grid_x is True
+    assert restored.columns[0].tracks[0].show_x_scale is False
 
 
 def test_form_manager_has_axis_grouped_library(qapp, tmp_path) -> None:
