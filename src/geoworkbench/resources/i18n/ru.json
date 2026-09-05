@@ -277,6 +277,8 @@
   "description.drag_hint": "Shift + левая кнопка: протяните нужный интервал описания. После отпускания точно исправьте границы и выберите шаблон RU/KZ/EN или введите любой текст. Двойной щелчок открывает сохранённое описание.",
   "description.edit_title": "Редактирование описания пород",
   "description.updated": "Описание пород {top}–{bottom} м обновлено",
+  "analysis.created": "Анализ интервала {top}–{bottom} м сохранён",
+  "geology.context.new_analysis": "Заполнить кальциметрию и ЛБА…",
   "daily_las_growth.action": "Ежедневно нарастить LAS...",
   "daily_las_growth.no_changes": "Новых строк нет: файл уже учтён или полностью совпадает с dataset.",
   "daily_las_growth.persist_failed": "LAS-строки добавлены в память, но не записаны в файл проекта.\n\n{reason}",

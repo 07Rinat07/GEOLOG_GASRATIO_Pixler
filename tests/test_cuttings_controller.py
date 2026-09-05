@@ -84,6 +84,29 @@ def test_sample_analysis_stores_calcimetry_and_lba_in_same_interval() -> None:
     assert controller.session.dirty is True
 
 
+def test_analysis_interval_can_overlay_imported_cuttings_interval() -> None:
+    controller = _controller()
+    imported = controller.add(500, 510, {"sandstone": 100})
+
+    analysis = controller.set_analysis(503, 507, calcite_percent=62.5)
+
+    assert analysis is not imported
+    assert (analysis.top_depth, analysis.bottom_depth) == (503.0, 507.0)
+    assert analysis.calcite_percent == 62.5
+    assert imported.components
+
+
+def test_description_interval_can_overlay_imported_cuttings_interval() -> None:
+    controller = _controller()
+    imported = controller.add(500, 510, {"sandstone": 100})
+
+    description = controller.set_description(502, 506, "Изменение литологии")
+
+    assert description is not imported
+    assert (description.top_depth, description.bottom_depth) == (502.0, 506.0)
+    assert description.description == "Изменение литологии"
+
+
 def test_cuttings_composition_can_be_added_after_interval_analysis() -> None:
     controller = _controller()
     sample = controller.set_analysis(500, 510, calcite_percent=60.0)

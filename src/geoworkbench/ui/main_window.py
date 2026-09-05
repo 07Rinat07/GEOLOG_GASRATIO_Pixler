@@ -280,6 +280,7 @@ from geoworkbench.ui.interpretation_properties import InterpretationPropertiesPa
 from geoworkbench.ui.lithology_dialog import LithologyDialog
 from geoworkbench.ui.lithology_interval_dialog import LithologyIntervalDialog
 from geoworkbench.ui.unified_cuttings_sample_dialog import UnifiedCuttingsSampleDialog
+from geoworkbench.ui.sample_analysis_dialog import SampleAnalysisDialog
 from geoworkbench.ui.rock_description_dialog import RockDescriptionDialog
 from geoworkbench.ui.lithology_legend_dialog import LithologyLegendDialog
 from geoworkbench.ui.lithotype_catalog_dialog import LithotypeCatalogDialog
@@ -727,6 +728,9 @@ class MainWindow(QMainWindow):
         )
         self.tablet_view.cuttings_interval_requested.connect(
             self._create_cuttings_sample_from_tablet
+        )
+        self.tablet_view.analysis_interval_requested.connect(
+            self._create_analysis_interval_from_tablet
         )
         self.tablet_view.cuttings_sample_edit_requested.connect(
             self._edit_cuttings_sample_from_tablet
@@ -7605,6 +7609,49 @@ class MainWindow(QMainWindow):
                     "cuttings.created",
                     top=f"{created.top_depth:g}",
                     bottom=f"{created.bottom_depth:g}",
+                )
+            )
+            break
+
+    def _create_analysis_interval_from_tablet(
+        self, top_depth: float, bottom_depth: float
+    ) -> None:
+        """Enter calcimetry/LBA for an interval independent of LAS cuttings."""
+        if self.session.current_well is None:
+            return
+        sample = next(
+            (
+                item
+                for item in self.session.current_well.cuttings
+                if abs(item.top_depth - top_depth) <= 1e-6
+                and abs(item.bottom_depth - bottom_depth) <= 1e-6
+            ),
+            None,
+        )
+        dialog = SampleAnalysisDialog(
+            top_depth,
+            bottom_depth,
+            language=self.language,
+            sample=sample,
+            parent=self,
+        )
+        while dialog.exec() == QDialog.DialogCode.Accepted:
+            try:
+                saved = self.cuttings_controller.set_analysis(
+                    dialog.top_depth if hasattr(dialog, "top_depth") else top_depth,
+                    dialog.bottom_depth if hasattr(dialog, "bottom_depth") else bottom_depth,
+                    **dialog.values(),
+                    content_language=self.language.value,
+                )
+            except (RuntimeError, ValueError) as exc:
+                QMessageBox.warning(self, self._t("cuttings.create_title"), str(exc))
+                continue
+            self._refresh_cuttings_after_edit()
+            self.statusBar().showMessage(
+                self._t(
+                    "analysis.created",
+                    top=f"{saved.top_depth:g}",
+                    bottom=f"{saved.bottom_depth:g}",
                 )
             )
             break

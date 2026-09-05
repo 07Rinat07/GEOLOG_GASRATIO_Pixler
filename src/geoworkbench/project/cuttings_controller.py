@@ -181,7 +181,8 @@ class CuttingsController:
         sample = self._require_sample(sample_id)
         top, bottom = self._validate_interval(top_depth, bottom_depth)
         normalized = self._normalize_text(description, 2_000_000, "Описание шлама")
-        self._ensure_no_overlap(top, bottom, excluded_id=sample_id)
+        if self._has_non_description_data(sample):
+            self._ensure_no_overlap(top, bottom, excluded_id=sample_id)
         sample.top_depth = top
         sample.bottom_depth = bottom
         if language is None:
@@ -315,7 +316,10 @@ class CuttingsController:
         if sample is None:
             if normalized is None:
                 raise ValueError("Введите описание шлама")
-            self._ensure_no_overlap(top, bottom)
+            # A description is an independent interpretation track.  LAS files
+            # commonly contain cuttings intervals already, so a manually
+            # entered description may legitimately cover part of one of them.
+            # Composition-bearing samples still use the strict overlap guard.
             word_wrap = (
                 True
                 if description_word_wrap is None
@@ -425,7 +429,9 @@ class CuttingsController:
             raise ValueError("Укажите хотя бы один результат кальциметрии или ЛБА")
         sample = self._find_exact_sample(top, bottom)
         if sample is None:
-            self._ensure_no_overlap(top, bottom)
+            # Calcimetry/LBA are independent laboratory tracks.  Keep their
+            # interval separate from imported cuttings so an analyst can fill
+            # a missing range without rewriting the LAS lithology.
             sample = CuttingsSample(new_id(), top, bottom)
             self._require_well().cuttings.append(sample)
         sample.calcite_percent = calcite

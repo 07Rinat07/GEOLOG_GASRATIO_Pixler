@@ -115,6 +115,13 @@ class SampleAnalysisDialog(QDialog):
         super().__init__(parent)
         self.language = language
         text = _TEXT[language]
+        self.top_input = QDoubleSpinBox()
+        self.bottom_input = QDoubleSpinBox()
+        for control, value in ((self.top_input, top_depth), (self.bottom_input, bottom_depth)):
+            control.setRange(-100_000.0, 100_000.0)
+            control.setDecimals(3)
+            control.setSuffix(" m")
+            control.setValue(float(value))
         self.setWindowTitle(f"{text[0]} — {top_depth:g}–{bottom_depth:g} м")
         self.calcite_input = QDoubleSpinBox()
         self.dolomite_input = QDoubleSpinBox()
@@ -202,11 +209,23 @@ class SampleAnalysisDialog(QDialog):
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout = QVBoxLayout(self)
+        interval = QFormLayout()
+        interval.addRow("От, м", self.top_input)
+        interval.addRow("До, м", self.bottom_input)
+        layout.addLayout(interval)
         layout.addWidget(tabs)
         layout.addWidget(buttons)
         self.resize(620, 650)
         if sample is not None:
             self._load_sample(sample)
+
+    @property
+    def top_depth(self) -> float:
+        return float(self.top_input.value())
+
+    @property
+    def bottom_depth(self) -> float:
+        return float(self.bottom_input.value())
 
     def _on_lba_group_changed(self) -> None:
         group = self.lba_group_input.currentData()

@@ -277,6 +277,8 @@
   "description.drag_hint": "Shift + left drag: select the required description interval. After release, correct the exact boundaries and choose a RU/KZ/EN template or enter any text. Double-click opens the saved description.",
   "description.edit_title": "Edit rock description",
   "description.updated": "Rock description {top}–{bottom} m updated",
+  "analysis.created": "Analysis for {top}–{bottom} m saved",
+  "geology.context.new_analysis": "Fill calcimetry and LBA…",
   "daily_las_growth.action": "Append daily LAS data...",
   "daily_las_growth.no_changes": "No new rows: the file was already imported or fully matches the dataset.",
   "daily_las_growth.persist_failed": "The LAS rows were appended in memory but were not written to the project file.\n\n{reason}",

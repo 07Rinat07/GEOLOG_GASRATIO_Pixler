@@ -2072,6 +2072,7 @@ class TabletView(QWidget):
     lithology_interval_requested = Signal(float, float)
     lithology_interval_edit_requested = Signal(str)
     cuttings_interval_requested = Signal(float, float)
+    analysis_interval_requested = Signal(float, float)
     cuttings_sample_edit_requested = Signal(str)
     description_interval_requested = Signal(float, float)
     description_edit_requested = Signal(str)
@@ -4347,7 +4348,13 @@ class TabletView(QWidget):
                 )
         else:
             if sample is None:
-                create_action = menu.addAction(self._localizer.text("geology.context.new_sample"))
+                create_action = menu.addAction(
+                    self._localizer.text(
+                        "geology.context.new_analysis"
+                        if definition.kind in {TrackKind.CALCIMETRY, TrackKind.LBA}
+                        else "geology.context.new_sample"
+                    )
+                )
             else:
                 edit_action = menu.addAction(
                     self._localizer.text("geology.context.edit_full_sample")
@@ -4436,6 +4443,8 @@ class TabletView(QWidget):
                 self.lithology_interval_requested.emit(top, bottom)
             elif definition.kind is TrackKind.TEXT:
                 self.description_interval_requested.emit(top, bottom)
+            elif definition.kind in {TrackKind.CALCIMETRY, TrackKind.LBA}:
+                self.analysis_interval_requested.emit(top, bottom)
             else:
                 self.cuttings_interval_requested.emit(top, bottom)
 
@@ -7572,6 +7581,11 @@ class TabletView(QWidget):
             TrackKind.INTERPRETATION,
         }:
             self.description_interval_requested.emit(result.top_depth, result.bottom_depth)
+        elif rendered is not None and rendered.definition.kind in {
+            TrackKind.CALCIMETRY,
+            TrackKind.LBA,
+        }:
+            self.analysis_interval_requested.emit(result.top_depth, result.bottom_depth)
         else:
             self.cuttings_interval_requested.emit(result.top_depth, result.bottom_depth)
         return True

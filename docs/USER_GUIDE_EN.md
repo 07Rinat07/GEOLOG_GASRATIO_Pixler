@@ -199,6 +199,12 @@ In Cuttings, Calcimetry, and LBA tracks, `Shift + left drag` opens the shared sa
 accepts up to four rocks totalling `100%`, analyses, a ready template, and a description. After
 saving, the same description automatically appears in the Interpretation column.
 
+When LAS already contains cuttings intervals, fill an analysis independently: use
+`Shift + left drag` in the Calcimetry or LBA column and choose **Fill calcimetry and LBA**.
+The From and To depths are editable in the dialog. The analysis is stored as its own interval
+without changing the imported LAS composition. In the Rock description column you can likewise
+drag an interval over the cuttings log; overlap with an imported sample no longer blocks the description.
+
 ## 6. Print Centre
 
 Open **Print → Print and export center...**.
