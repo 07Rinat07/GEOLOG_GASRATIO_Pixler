@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from pathlib import Path
 
 from geoworkbench.catalogs.lithotypes import LithotypeDefinition, load_lithotype_catalog
 from geoworkbench.domain.models import ProjectLithotype
@@ -11,6 +12,14 @@ from geoworkbench.form_constructor.asset_install import (
 )
 from geoworkbench.project.lithotype_catalog_models import CatalogLithotype
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.services.las_geology import las_code_id, unmapped_las_lithotype
+from geoworkbench.services.rock_code_dictionary import (
+    RockCodeDictionary,
+    apply_dictionary,
+    dictionary_from_session,
+    load_dictionary,
+    save_dictionary,
+)
 
 
 _ID_PATTERN = re.compile(r"^[a-z][a-z0-9_-]*$")
@@ -21,6 +30,39 @@ _COLOR_PATTERN = re.compile(r"^#[0-9a-fA-F]{6}$")
 @dataclass(slots=True)
 class LithotypeCatalogController:
     session: ProjectSession
+
+    def adapt_las_code(self, code: int, lithotype_id: str) -> CatalogLithotype:
+        """Bind a source code to catalog visuals without rewriting intervals."""
+        identity = las_code_id(code)
+        selected = self.get(lithotype_id)
+        record = ProjectLithotype(
+            identity, str(code), selected.name_ru, selected.name_en, selected.category,
+            selected.color, selected.pattern_key, selected.name_kk,
+        )
+        # The LAS source-code namespace is independent of conventional rock
+        # abbreviations. Existing intervals retain this stable source identity.
+        self.session.project.lithotypes[identity] = record
+        self.session.dirty = True
+        return self._from_project(record)
+
+    def reset_las_code(self, code: int) -> CatalogLithotype:
+        """Restore one source code to its neutral, explicitly unidentified record."""
+
+        record = unmapped_las_lithotype(code)
+        self.session.project.lithotypes[record.lithotype_id] = record
+        self.session.dirty = True
+        return self._from_project(record)
+
+    def export_current_rock_dictionary(self, target: Path) -> Path:
+        dictionary = dictionary_from_session(self.session)
+        if not dictionary.entries:
+            raise ValueError("В проекте нет числовых кодов пород для экспорта")
+        return save_dictionary(target, dictionary)
+
+    def import_rock_dictionary(self, source: Path) -> tuple[RockCodeDictionary, int, int]:
+        dictionary = load_dictionary(source)
+        created, updated = apply_dictionary(self.session, dictionary)
+        return dictionary, created, updated
 
     def available(self) -> tuple[CatalogLithotype, ...]:
         base = self._base_catalog()

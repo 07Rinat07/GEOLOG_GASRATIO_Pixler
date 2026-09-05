@@ -82,6 +82,19 @@ def _render_html_blocks(
     while index < len(blocks):
         block = blocks[index]
         next_block = blocks[index + 1] if index + 1 < len(blocks) else ""
+        while _is_heading(block) and _is_heading(next_block):
+            block += next_block
+            index += 1
+            next_block = blocks[index + 1] if index + 1 < len(blocks) else ""
+        following = blocks[index + 2] if index + 2 < len(blocks) else ""
+        if (
+            _is_heading(block)
+            and re.match(r"\s*<p\b", next_block, re.I)
+            and following.lstrip().lower().startswith("<table")
+        ):
+            _render_table(canvas, style, following, heading=block + next_block)
+            index += 3
+            continue
         if _is_heading(block) and next_block.lstrip().lower().startswith("<table"):
             _render_table(canvas, style, next_block, heading=block)
             index += 2
@@ -463,10 +476,29 @@ def _table_parts(table_html: str) -> _TableParts:
     thead_match = _THEAD_PATTERN.search(table_html)
     tbody_match = _TBODY_PATTERN.search(table_html)
     body = tbody_match.group(1) if tbody_match else table_html
+    colgroup = colgroup_match.group(0) if colgroup_match else ""
+    thead = thead_match.group(0) if thead_match else ""
+    # QTextDocument does not apply HTML colgroup widths. Its supported width
+    # attribute on header cells preserves the same column layout on every page.
+    widths = re.findall(r"\bwidth\s*:\s*(\d+(?:\.\d+)?%)", colgroup, re.I)
+    headers = tuple(re.finditer(r"<th\b[^>]*>", thead, re.I))
+    if widths and len(widths) == len(headers):
+        width_index = 0
+
+        def with_width(match: re.Match[str]) -> str:
+            nonlocal width_index
+            width = widths[width_index]
+            width_index += 1
+            tag = match.group(0)
+            if re.search(r"\bwidth\s*=", tag, re.I):
+                return tag
+            return tag[:-1] + f' width="{width}">'
+
+        thead = re.sub(r"<th\b[^>]*>", with_width, thead, flags=re.I)
     return _TableParts(
         opening,
-        colgroup_match.group(0) if colgroup_match else "",
-        thead_match.group(0) if thead_match else "",
+        colgroup,
+        thead,
         tuple(_ROW_PATTERN.findall(body)),
     )
 
@@ -483,7 +515,16 @@ def _table_html(parts: _TableParts, rows: tuple[str, ...]) -> str:
 
 
 def _is_heading(block: str) -> bool:
-    return bool(re.match(r"\s*<h[1-6]\b", block, re.I))
+    # OPUS uses styled divs for interval headings. Keep them with their basis
+    # just like semantic headings, otherwise a title can end the previous page.
+    return bool(
+        re.match(r"\s*<h[1-6]\b", block, re.I)
+        or re.match(
+            r"\s*<div\b[^>]*class=[\"'][^\"']*\bcandidate-detail-heading\b",
+            block,
+            re.I,
+        )
+    )
 
 
 def _is_notice(block: str) -> bool:

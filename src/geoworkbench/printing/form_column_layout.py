@@ -77,7 +77,14 @@ def adaptive_column_layout(
     if spacing < 0:
         raise ValueError("Интервал между колонками не может быть отрицательным")
 
-    minimums = [_minimum_width(track.kind) for track in visible]
+    # Narrow geological/depth strips are intentional in MASTERLOG. Expanding
+    # them to generic chart minimums steals space from curves and their captions.
+    compact_kinds = {TrackKind.DEPTH, TrackKind.STRATIGRAPHY, TrackKind.LITHOLOGY}
+    minimums = [
+        max(COMPACT_MIN_TRACK_WIDTH, min(_minimum_width(track.kind), int(track.width)))
+        if track.kind in compact_kinds else _minimum_width(track.kind)
+        for track in visible
+    ]
     preferred = [
         max(minimum, min(_preferred_cap(track.kind), int(track.width)))
         for track, minimum in zip(visible, minimums, strict=True)

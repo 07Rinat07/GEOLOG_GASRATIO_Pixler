@@ -7767,6 +7767,7 @@ class MainWindow(QMainWindow):
             well.lithology if well is not None else [],
             self.lithotype_catalog_controller.available(),
         )
+        self.tablet_view.set_cuttings(well.cuttings if well is not None else [])
         self._update_title()
 
     def show_stratigraphy_editor(self) -> None:

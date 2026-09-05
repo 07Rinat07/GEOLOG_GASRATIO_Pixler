@@ -53,6 +53,7 @@ class ProjectSession:
         """
 
         well = None if create_new_well else self.current_well
+        created_well = well is None
         if well is None:
             requested_name = (well_name or dataset.headers.get("WELL") or dataset.name).strip()
             well = Well(new_id(), self._unique_well_name(requested_name or "Well"))
@@ -65,6 +66,10 @@ class ProjectSession:
             self.import_reports[dataset.dataset_id] = import_report
         self.current_dataset_id = dataset.dataset_id
         self.dirty = True
+        if created_well:
+            from geoworkbench.services.las_geology import import_las_geology
+
+            import_las_geology(self)
         return well
 
     def _unique_well_name(self, requested: str) -> str:

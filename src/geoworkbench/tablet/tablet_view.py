@@ -1077,6 +1077,10 @@ class CurveHeaderEditor(QFrame):
 
         self._print_mode = bool(enabled)
         self.action_strip.setVisible(not self._print_mode)
+        # Paper uses the labelled engineering ruler, not editable screen fields.
+        # Hiding the duplicate range row leaves room for the full curve caption.
+        for control in (self.minimum, self.maximum, self.unit, self.separator):
+            control.setVisible(not self._print_mode)
         row_height = (
             CURVE_HEADER_PRINT_ROW_HEIGHT
             if self._print_mode

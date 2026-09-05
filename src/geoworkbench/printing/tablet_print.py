@@ -685,6 +685,10 @@ def paint_tablet_header_repeat(
                 QPoint(round(page.left()), round(y)),
                 QPoint(round(page.right()), round(y)),
             )
+            painter.drawLine(
+                QPoint(round(page.left()), round(y + rendered_height)),
+                QPoint(round(page.right()), round(y + rendered_height)),
+            )
             return
 
         device = painter.device()
@@ -724,6 +728,10 @@ def paint_tablet_header_repeat(
         painter.drawLine(
             QPoint(round(page.left()), round(target_top)),
             QPoint(round(page.right()), round(target_top)),
+        )
+        painter.drawLine(
+            QPoint(round(page.left()), round(target_top + rendered_height)),
+            QPoint(round(page.right()), round(target_top + rendered_height)),
         )
     finally:
         painter.restore()

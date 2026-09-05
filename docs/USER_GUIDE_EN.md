@@ -131,6 +131,27 @@ Open **Tools → Files / PDF / Calculator**.
 
 ## 5. Cuttings log and rock descriptions in Interpretation
 
+When LAS contains `КОД_ПОРОДЫ` or `ПОРОДА1_КОД`…`ПОРОДА5_КОД` channels, the application creates
+lithology intervals and cuttings composition. A numeric code is not given an invented name: it gets
+a neutral `Unidentified rock, code N` record. Use **Lithotype catalog → LAS rock codes** to read
+codes from the current LAS, add a code, and select a confirmed lithotype. After applying, its name,
+colour and pattern are used on screen, in MASTERLOG and in PDF. Mappings are saved in the project;
+the source LAS is unchanged. **Reset** returns a code to its neutral record. Codes can be read again
+after manual lithology or cuttings edits; existing intervals are not overwritten.
+
+Use **Import dictionary** and **Export dictionary** in the same tab to exchange mappings
+between projects. The portable JSON stores its schema version, source code, lithotype ID,
+RU/KK/EN names, category, `#RRGGBB` colour, and pattern key. Keep a separate profile for
+each supplier or rig and load the matching profile before reading that LAS; the same numeric
+code from two suppliers must not be treated as the same rock without verification.
+
+When a new LAS is exported, manually entered lithology and cuttings are written to the numeric
+`КОД_ПОРОДЫ`, `ПОРОДА1_КОД`…`ПОРОДА5_КОД` and `ПОРОДА1_КОЛИЧ`…`ПОРОДА5_КОЛИЧ` channels
+when the lithotypes have numeric codes. The exported copy ends with an ASCII-safe `~Other`
+section carrying the `GEOWORKBENCH_ROCK_DICTIONARY` marker and the JSON dictionary contract.
+The source LAS is unchanged; a colleague can use the sidecar JSON or extract the contract
+from the exported copy in another program.
+
 ### Rename the displayed column
 
 1. Open the tablet and enable **Edit form (F4)** or use the heading context menu.
@@ -200,6 +221,12 @@ language in preview; changing the interface language alone does not create a mis
 A successful export does not guarantee correct layout. Always open and inspect the resulting file.
 
 ## 7. Interpretation reports
+
+OPUS Gasomer section headings, classes, QC states and the missing-LOD message follow the
+selected RU/KK/EN language. Formulas, technical identifiers and original references remain
+unchanged. Full technical evidence may still contain English text.
+PDF interval headings stay with their descriptions, and column widths are passed explicitly
+to Qt; long tables still require a readability check before release.
 
 Open **Print → Interpretation reports**.
 

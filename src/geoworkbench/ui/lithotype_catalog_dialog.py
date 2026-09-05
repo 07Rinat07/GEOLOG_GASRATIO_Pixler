@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from pathlib import Path
 from typing import cast
 
 from PySide6.QtCore import Qt
@@ -10,7 +11,9 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
+    QFileDialog,
     QFormLayout,
+    QHeaderView,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -72,6 +75,7 @@ class LithotypeCatalogDialog(QDialog):
         self.sections.setObjectName("lithotype-reference-tabs")
         self.sections.setDocumentMode(True)
         root.addWidget(self.sections, 1)
+        self._build_las_codes_page()
         catalog_page = QWidget(self.sections)
         catalog_page.setObjectName("lithotype-catalog-section")
         catalog_root = QVBoxLayout(catalog_page)
@@ -215,6 +219,171 @@ class LithotypeCatalogDialog(QDialog):
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)
+
+    def _las_text(self, ru: str, kk: str, en: str) -> str:
+        return {AppLanguage.RU: ru, AppLanguage.KK: kk, AppLanguage.EN: en}[self.language]
+
+    def _build_las_codes_page(self) -> None:
+        page = QWidget(self.sections)
+        layout = QVBoxLayout(page)
+        note = QLabel(self._las_text(
+            "Соответствия кодов действуют в текущем проекте. Неопознанные породы показаны нейтрально. "
+            "Выберите подтверждённый литотип; его название, цвет и рисунок будут использованы на экране и в PDF. "
+            "Новые литотипы добавляются в основном каталоге. Исходный LAS и ручные интервалы не изменяются.",
+            "Код сәйкестіктері ағымдағы жобада қолданылады. Анықталмаған жыныстар бейтарап көрсетіледі. "
+            "Расталған литотипті таңдаңыз: атауы, түсі және өрнегі экранда және PDF ішінде қолданылады. "
+            "Жаңа литотиптер негізгі каталогта қосылады. Бастапқы LAS және қолмен енгізілген аралықтар өзгермейді.",
+            "Code mappings apply within this project. Unidentified rocks use neutral symbols. "
+            "Select a confirmed lithotype for its name, colour and pattern in the view and PDF. "
+            "Add new lithotypes in the main catalog. Source LAS and manual intervals are unchanged.",
+        ))
+        note.setWordWrap(True)
+        layout.addWidget(note)
+        self.las_codes_table = QTableWidget(0, 3)
+        self.las_codes_table.setObjectName("las-rock-code-mappings")
+        self.las_codes_table.setHorizontalHeaderLabels([
+            self._las_text("Код LAS", "LAS коды", "LAS code"),
+            self._las_text("Литотип из единого каталога", "Бірыңғай каталогтағы литотип", "Lithotype from unified catalog"),
+            self._las_text("Действие", "Әрекет", "Action"),
+        ])
+        header = self.las_codes_table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        layout.addWidget(self.las_codes_table)
+        self.las_code_input = QLineEdit()
+        self.las_code_input.setPlaceholderText(self._las_text("Добавить код (1–999999)", "Код қосу (1–999999)", "Add code (1–999999)"))
+        layout.addWidget(self.las_code_input)
+        buttons = QHBoxLayout()
+        for texts, action in (
+            (("Прочитать коды текущего LAS", "Ағымдағы LAS кодтарын оқу", "Read current LAS codes"), self._read_las_codes),
+            (("Добавить код", "Код қосу", "Add code"), self._add_las_code),
+            (("Применить соответствия", "Сәйкестіктерді қолдану", "Apply mappings"), self._apply_las_codes),
+            (("Импорт справочника", "Справочникті импорттау", "Import dictionary"), self._import_dictionary),
+            (("Экспорт справочника", "Справочникті экспорттау", "Export dictionary"), self._export_dictionary),
+        ):
+            button = QPushButton(self._las_text(*texts))
+            button.clicked.connect(action)
+            buttons.addWidget(button)
+        layout.addLayout(buttons)
+        self.sections.addTab(page, self._las_text("Коды пород LAS", "LAS жыныс кодтары", "LAS rock codes"))
+        self._refresh_las_codes()
+
+    def _refresh_las_codes(self) -> None:
+        records = [r for r in self.controller.available() if r.lithotype_id.startswith("las-code-")]
+        catalog = self.controller.available()
+        self.las_codes_table.setRowCount(len(records))
+        for row, record in enumerate(records):
+            item = QTableWidgetItem(record.lithotype_id.removeprefix("las-code-"))
+            item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            self.las_codes_table.setItem(row, 0, item)
+            choices = QComboBox()
+            for option in catalog:
+                choices.addItem(f"{option.code} — {option.localized_name(str(self.language))}", option.lithotype_id)
+            choices.setCurrentIndex(choices.findData(record.lithotype_id))
+            self.las_codes_table.setCellWidget(row, 1, choices)
+            reset = QPushButton(self._las_text("Сбросить", "Қалпына келтіру", "Reset"))
+            reset.clicked.connect(lambda _checked=False, code=int(item.text()): self._reset_las_code(code))
+            self.las_codes_table.setCellWidget(row, 2, reset)
+
+    def _read_las_codes(self) -> None:
+        from geoworkbench.services.las_geology import import_las_geology
+
+        result = import_las_geology(self.controller.session)
+        self._refresh_las_codes()
+        self._refresh()
+        if result.invalid_composition_rows:
+            QMessageBox.warning(self, self.windowTitle(), self._las_text(
+                f"Пропущено строк с некорректным составом: {result.invalid_composition_rows}",
+                f"Қате құрамы бар өткізіп жіберілген жолдар: {result.invalid_composition_rows}",
+                f"Rows with invalid composition skipped: {result.invalid_composition_rows}",
+            ))
+
+    def _import_dictionary(self) -> None:
+        from geoworkbench.services.rock_code_dictionary import RockCodeDictionaryError
+
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            self._las_text("Импорт справочника кодов", "Кодтар справочнигін импорттау", "Import rock-code dictionary"),
+            "",
+            "Rock code dictionary (*.rock-codes.json *.json)",
+        )
+        if not path:
+            return
+        try:
+            _loaded, created, updated = self.controller.import_rock_dictionary(Path(path))
+        except (OSError, RockCodeDictionaryError, ValueError) as exc:
+            QMessageBox.warning(self, self.windowTitle(), str(exc))
+            return
+        self._refresh_las_codes()
+        self._refresh()
+        QMessageBox.information(
+            self,
+            self.windowTitle(),
+            self._las_text(
+                f"Импортировано записей: {created + updated} (новых: {created}, обновлено: {updated})",
+                f"Импортталған жазбалар: {created + updated} (жаңа: {created}, жаңартылған: {updated})",
+                f"Imported entries: {created + updated} (new: {created}, updated: {updated})",
+            ),
+        )
+
+    def _export_dictionary(self) -> None:
+        from geoworkbench.services.rock_code_dictionary import RockCodeDictionaryError
+
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            self._las_text("Экспорт справочника кодов", "Кодтар справочнигін экспорттау", "Export rock-code dictionary"),
+            "rock-codes.rock-codes.json",
+            "Rock code dictionary (*.rock-codes.json *.json)",
+        )
+        if not path:
+            return
+        try:
+            self.controller.export_current_rock_dictionary(Path(path))
+        except (OSError, RockCodeDictionaryError, ValueError) as exc:
+            QMessageBox.warning(self, self.windowTitle(), str(exc))
+            return
+        QMessageBox.information(
+            self,
+            self.windowTitle(),
+            self._las_text(
+                "Справочник экспортирован",
+                "Справочник экспортталды",
+                "Dictionary exported",
+            ),
+        )
+    def _add_las_code(self) -> None:
+        from geoworkbench.services.las_geology import las_code_id, unmapped_las_lithotype
+
+        try:
+            code = int(self.las_code_input.text().strip())
+            identity = las_code_id(code)
+        except ValueError:
+            QMessageBox.warning(self, self.windowTitle(), self._las_text("Введите целый код 1–999999", "1–999999 бүтін кодын енгізіңіз", "Enter an integer code 1–999999"))
+            return
+        project = self.controller.session.project
+        if identity not in project.lithotypes:
+            project.lithotypes[identity] = unmapped_las_lithotype(code)
+            self.controller.session.dirty = True
+        self._refresh_las_codes()
+        self._refresh()
+
+    def _reset_las_code(self, code: int) -> None:
+        self.controller.reset_las_code(code)
+        self._refresh_las_codes()
+        self._refresh()
+
+    def _apply_las_codes(self) -> None:
+        for row in range(self.las_codes_table.rowCount()):
+            item = self.las_codes_table.item(row, 0)
+            choices = self.las_codes_table.cellWidget(row, 1)
+            if item is not None and isinstance(choices, QComboBox):
+                code = int(item.text())
+                selected = str(choices.currentData())
+                if selected != f"las-code-{code}":
+                    self.controller.adapt_las_code(code, selected)
+        self._refresh_las_codes()
+        self._refresh()
 
     def _refresh(self) -> None:
         records = self.controller.available()

@@ -75,3 +75,15 @@ def test_original_layout_preserves_48_px_compact_columns() -> None:
     layout = original_column_layout(tracks)
 
     assert layout.widths == (48, 54, 180)
+
+
+def test_adaptive_masterlog_preserves_compact_geological_strip_priority() -> None:
+    tracks = [
+        TrackDefinition("depth", "Depth", TrackKind.DEPTH, width=48),
+        TrackDefinition("strat", "Stratigraphy", TrackKind.STRATIGRAPHY, width=48),
+        TrackDefinition("lith", "Lithology", TrackKind.LITHOLOGY, width=48),
+        TrackDefinition("gas", "Gas", TrackKind.GAS, width=220),
+    ]
+    layout = adaptive_column_layout(tracks, page_aspect_ratio=1.4, content_height=700)
+    assert all(width < layout.widths[-1] / 2 for width in layout.widths[:3])
+    assert [track.width for track in tracks] == [48, 48, 48, 220]
