@@ -265,3 +265,5 @@ necessary translations, and issues the reviewed package.
 At the end of a workday, save, close, and reopen the project. Check the old and new ranges, several
 critical curves, one cuttings sample, LBA/calcimetry, a symbol, and the selected form. Only then
 create the final LAS, PDF, or Masterlog output.
+
+Internal WELL-02 analysis now separates new depth, missing-value fills and corrections. This prepares a future feature: the daily LAS dialog still performs strict append only. Applying corrections and extending geological layers are not yet available.

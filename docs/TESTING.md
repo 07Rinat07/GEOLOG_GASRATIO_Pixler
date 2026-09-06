@@ -559,3 +559,20 @@ python scripts/run_tests.py -p no:cacheprovider tests/test_well_passport_storage
 по одному `compileall`. При чисто документационном утверждении этого решения выполняется
 документационный gate из [DOCUMENTATION_POLICY.md](DOCUMENTATION_POLICY.md), без заявления
 об успешной runtime-приёмке ещё не реализованных функций.
+
+### WELL-02: read-only план числовых обновлений
+
+```powershell
+python scripts/run_tests.py -q -p no:cacheprovider tests/test_well_update_plan.py tests/test_daily_las_growth.py tests/test_daily_las_growth_dialog.py tests/test_proj04_daily_append_rollback.py tests/test_daily_las_growth_autosave.py
+python -m benchmarks.benchmark_well_update_plan
+```
+
+Проверяются новая глубина, NaN→0, correction с before/after, отсутствие очистки при
+NaN источника, восходящая/нисходящая ось, локальные кривые, ограничение diff,
+неизменность обоих Dataset, несовместимые единицы/домен/скважина и устаревший fingerprint.
+Локальный Windows baseline 6 сентября 2026: 74 профильных теста прошли; synthetic
+100k/1M (одна кривая, заполнение пропусков) — 0.423/4.235 s, ratio 10.01 при 10× строк.
+В DTO остаётся 200 ячеек diff при полном счётчике. Это замер времени данного сценария,
+не RSS gate и не проверка транзакционного применения новых режимов.
+
+Полный локальный Windows-прогон этого инкремента завершился с кодом 0: 2904 passed, 8 skipped; 8 основных shards и 124 native-heavy batches. Полные Ruff, mypy (486 модулей), documentation audit и diff check прошли. Bandit не установлен в окружении; полный release security gate и физическая приёмка REL-03 остаются открытыми.

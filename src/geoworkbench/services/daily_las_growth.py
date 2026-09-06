@@ -178,42 +178,10 @@ def analyze_daily_las_growth(
             True,
         )
 
-    target_index = target.active_index
+    target_native_curves, source_curves, target_values, source_values, direction = (
+        _validate_numerical_update_inputs(target, source)
+    )
     source_index = source.active_index
-    _validate_axis_compatibility(target_index, source_index)
-    target_curves = _curve_map(target)
-    target_native_curves = {
-        key: curve
-        for key, curve in target_curves.items()
-        if not _is_local_project_curve(curve)
-    }
-    source_curves = _curve_map(source)
-    _validate_curve_lengths(target, target_curves, label="целевого dataset")
-    _validate_curve_lengths(source, source_curves, label="исходного LAS")
-    if set(target_native_curves) != set(source_curves):
-        missing = sorted(set(target_native_curves) - set(source_curves))
-        extra = sorted(set(source_curves) - set(target_native_curves))
-        parts: list[str] = []
-        if missing:
-            parts.append("нет обязательных кривых: " + ", ".join(missing))
-        if extra:
-            parts.append("лишние кривые: " + ", ".join(extra))
-        raise DailyLasGrowthError("Схема LAS не совпадает с dataset (" + "; ".join(parts) + ")")
-    for key in sorted(target_native_curves):
-        left = _unit(target_native_curves[key].metadata.unit)
-        right = _unit(source_curves[key].metadata.unit)
-        if left != right:
-            raise DailyLasGrowthError(
-                f"Единица кривой {target_native_curves[key].metadata.original_mnemonic} "
-                f"не совпадает: {left or '—'} / {right or '—'}"
-            )
-
-    target_values = _comparable_index(target_index)
-    source_values = _comparable_index(source_index)
-    direction = _strict_direction(target_values, "целевого dataset")
-    source_direction = _strict_direction(source_values, "исходного LAS")
-    if direction != source_direction:
-        raise DailyLasGrowthError("Направление индекса исходного LAS не совпадает с dataset")
 
     existing_lookup = {_index_key(value): pos for pos, value in enumerate(target_values)}
     new_rows: list[int] = []
@@ -263,6 +231,52 @@ def analyze_daily_las_growth(
         target_state_sha256=dataset_append_state_sha256(target),
         source_state_sha256=dataset_append_state_sha256(source),
     )
+
+
+def _validate_numerical_update_inputs(
+    target: Dataset, source: Dataset,
+) -> tuple[dict[str, CurveData], dict[str, CurveData], np.ndarray, np.ndarray, int]:
+    """Shared strict schema/axis contract for append and read-only update review."""
+    target_index = target.active_index
+    source_index = source.active_index
+    _validate_axis_compatibility(target_index, source_index)
+    if target.depth_domain != source.depth_domain:
+        raise DailyLasGrowthError("Область индекса исходного LAS не совпадает с dataset")
+    target_curves = _curve_map(target)
+    target_native_curves = {
+        key: curve
+        for key, curve in target_curves.items()
+        if not _is_local_project_curve(curve)
+    }
+    source_curves = _curve_map(source)
+    _validate_curve_lengths(target, target_curves, label="целевого dataset")
+    _validate_curve_lengths(source, source_curves, label="исходного LAS")
+    if set(target_native_curves) != set(source_curves):
+        missing = sorted(set(target_native_curves) - set(source_curves))
+        extra = sorted(set(source_curves) - set(target_native_curves))
+        parts: list[str] = []
+        if missing:
+            parts.append("нет обязательных кривых: " + ", ".join(missing))
+        if extra:
+            parts.append("лишние кривые: " + ", ".join(extra))
+        raise DailyLasGrowthError("Схема LAS не совпадает с dataset (" + "; ".join(parts) + ")")
+    for key in sorted(target_native_curves):
+        left = _unit(target_native_curves[key].metadata.unit)
+        right = _unit(source_curves[key].metadata.unit)
+        if left != right:
+            raise DailyLasGrowthError(
+                f"Единица кривой {target_native_curves[key].metadata.original_mnemonic} "
+                f"не совпадает: {left or '—'} / {right or '—'}"
+            )
+
+    target_values = _comparable_index(target_index)
+    source_values = _comparable_index(source_index)
+    direction = _strict_direction(target_values, "целевого dataset")
+    source_direction = _strict_direction(source_values, "исходного LAS")
+    if direction != source_direction:
+        raise DailyLasGrowthError("Направление индекса исходного LAS не совпадает с dataset")
+
+    return target_native_curves, source_curves, target_values, source_values, direction
 
 
 def apply_daily_las_growth(

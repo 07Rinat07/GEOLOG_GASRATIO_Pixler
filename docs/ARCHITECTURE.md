@@ -470,3 +470,15 @@ Benchmark должен измерять latency, scaling ratio, allocations/peak
 8. одинаковый контракт screen/preview/PDF/printer;
 9. актуальность `PROJECT_PLAN.md`, `TESTING.md` и `CHANGELOG.md`;
 10. отсутствие временных workflow, trigger-файлов и artifacts в дереве.
+
+### WELL-02: числовой план обновления
+
+`services/well_update_plan.py` строит immutable read-only DTO для новой глубины,
+заполнения NaN и correction. Общая проверка схемы/оси находится в `daily_las_growth`;
+разные depth domains отклоняются даже при одинаковой роли DEPTH. Локальные кривые
+исключены. NaN источника не очищает значение, ноль считается измерением, infinity
+и новые точки внутри сохранённой сетки отклоняются. Счётчики полные, diff ограничен
+`preview_limit` (0–10000, default 200); `preview_truncated` явно обозначает сокращение.
+Стоимость O(N + M*C), память O(N + M + limit), без копии Dataset. SHA-256 связывают план
+с обоими Dataset. DTO не разрешает запись: UI, выбор ячеек, повторная проверка файла,
+транзакционное применение и persisted correction provenance остаются следующим этапом.
