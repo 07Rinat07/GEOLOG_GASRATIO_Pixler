@@ -363,12 +363,16 @@ def _installed_font_families() -> tuple[str, ...]:
     # The Windows offscreen Qt backend used for automated PDF creation may not
     # enumerate system fonts even though the files are available. Register a
     # small, known Unicode-capable set explicitly so generated PDFs embed real
-    # glyphs instead of opaque rectangles. The Linux/macOS paths are harmless
+    # glyphs instead of opaque rectangles. Include real bold faces to avoid
+    # oversized synthetic strokes on the scaled millimetre canvas.
+    # The Linux/macOS paths are harmless
     # fallbacks for headless packaging environments.
     candidates = (
         Path("C:/Windows/Fonts/arial.ttf"),
+        Path("C:/Windows/Fonts/arialbd.ttf"),
         Path("C:/Windows/Fonts/ARIALUNI.ttf"),
         Path("C:/Windows/Fonts/segoeui.ttf"),
+        Path("C:/Windows/Fonts/segoeuib.ttf"),
         Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
         Path("/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf"),
         Path("/System/Library/Fonts/Supplemental/Arial Unicode.ttf"),

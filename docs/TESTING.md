@@ -511,6 +511,20 @@ python -m pytest -q tests/test_header_catalog.py tests/test_logo_catalog.py \
 
 ## 16. Приёмка утверждённого сценария WELL-01…06
 
+Для реализованного паспорта WELL-01:
+
+```powershell
+python scripts/run_tests.py -p no:cacheprovider tests/test_well_passport_storage.py tests/test_well_passport_headers.py tests/test_well_passport_dialog.py tests/test_well_passport_pdf.py
+```
+
+Набор проверяет валидацию и no-op, отмену, выбор legacy-значений, миграцию конструкции,
+раздельность скважин и языков, JSON/пакет/перенос/pending recovery, потерянные assets,
+скрытие логотипа, обе A4-ориентации и фактическое содержимое PDF на RU/KK/EN. PDF-тест
+инициализирует Unicode-шрифты тем же способом, что точка входа приложения.
+Ручная проверка: «Файл → Паспорт скважины», заполнить общие поля и переводы, сохранить
+диалог и проект (Ctrl+S), открыть повторно и сравнить две ориентации в Центре печати.
+Физическую печать этот набор не подменяет.
+
 Матрица принята 5 сентября 2026 года для будущих инкрементов, а не как отчёт о пройденных
 проверках. Основа — существующий `tests/test_multilingual_geologpkg_workflow.py`, но он один
 не подтверждает готовность всех новых сценариев. Требования WFLOW-001…006 находятся в

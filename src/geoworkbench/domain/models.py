@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from geoworkbench.domain.gas_conditioning_qc import GasConditioningQcSummary
     from geoworkbench.domain.lag_correction import LagCorrectionProfile
     from geoworkbench.domain.operational_events import OperationalEvent
+    from geoworkbench.domain.well_passport import WellPassport
     from geoworkbench.services.semantic_channels import SemanticChannelBinding
 
 
@@ -723,6 +724,7 @@ class Well:
     lag_correction_profiles: dict[str, LagCorrectionProfile] = field(default_factory=dict)
     content_revision: int = 1
     language_revisions: dict[str, int] = field(default_factory=dict)
+    passport: WellPassport | None = None
 
 
 @dataclass(slots=True)

@@ -46,10 +46,12 @@ from geoworkbench.domain.text_presentation import (
     text_position_fraction,
 )
 from geoworkbench.printing.header_fields import (
+    PASSPORT_HEADER_FIELDS,
     SUPPORTED_HEADER_FIELDS,
     editable_header_field_definitions,
     header_field_label,
     resolve_header_field,
+    resolve_header_asset_ref,
 )
 from geoworkbench.printing.image_asset_rendering import image_asset_pixmap
 from geoworkbench.printing.image_assets import (
@@ -854,7 +856,12 @@ class HeaderElementDialog(QDialog):
             properties: dict[str, object] = {"text": self.text_input.text(), **text_style}
         elif element_type == "field":
             field_name = self.field_input.currentData()
-            properties = {"field": str(field_name), **text_style}
+            properties = {
+                key: value for key, value in self._original_properties.items()
+                if key in {"text", "text_ru", "text_kk", "text_en", "missing_text"}
+                and self._original_properties.get("field") == field_name
+            }
+            properties.update({"field": str(field_name), **text_style})
         elif element_type == "line":
             color = QColor(self.line_color_input.text().strip())
             if not color.isValid():
@@ -958,7 +965,10 @@ class HeaderDataDialog(QDialog):
 
         form_widget = QWidget()
         form = QFormLayout(form_widget)
+        well = controller.session.current_well
         for definition in editable_header_field_definitions():
+            if well is not None and well.passport is not None and definition.field_id in PASSPORT_HEADER_FIELDS:
+                continue
             control: QLineEdit | QTextEdit
             if definition.multiline:
                 control = QTextEdit()
@@ -966,7 +976,7 @@ class HeaderDataDialog(QDialog):
             else:
                 control = QLineEdit()
             current = saved.get(definition.field_id, "")
-            fallback = resolve_header_field(controller.session, definition.field_id, template) or ""
+            fallback = resolve_header_field(controller.session, definition.field_id, template, language) or ""
             if current:
                 control.setText(current) if isinstance(control, QLineEdit) else control.setPlainText(current)
             elif fallback:
@@ -1162,6 +1172,13 @@ class MasterlogHeaderDialog(QDialog):
         self.save_catalog_button.clicked.connect(self._save_to_header_catalog)
         self.data_button = QPushButton(_TEXT[language]["data"])
         self.data_button.clicked.connect(self._edit_header_data)
+        self.passport_button = QPushButton({
+            AppLanguage.RU: "Паспорт скважины…",
+            AppLanguage.KK: "Ұңғыма паспорты…",
+            AppLanguage.EN: "Well passport…",
+        }[language])
+        self.passport_button.setEnabled(controller.session.current_well is not None)
+        self.passport_button.clicked.connect(self._edit_well_passport)
         self.fit_button = QPushButton(_TEXT[language]["fit"])
         self.fit_button.clicked.connect(self._fit_preview)
         self.edit_zoom_button = QPushButton(
@@ -1192,6 +1209,7 @@ class MasterlogHeaderDialog(QDialog):
 
         self.toolbar = AdaptiveActionToolBar(parent=self)
         for button in (
+            self.passport_button,
             self.data_button,
             self.catalog_button,
             self.save_catalog_button,
@@ -1762,11 +1780,29 @@ class MasterlogHeaderDialog(QDialog):
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         try:
-            self.controller.update_header_fields(self.template_id, dialog.values())
+            values = dialog.values()
+            well = self.controller.session.current_well
+            if well is not None and well.passport is not None:
+                # Layout-only editing must preserve the archived legacy values.
+                values = {
+                    **{key: value for key, value in self.controller.header_fields(self.template_id).items()
+                       if key in PASSPORT_HEADER_FIELDS},
+                    **values,
+                }
+            self.controller.update_header_fields(self.template_id, values)
         except ValueError as exc:
             QMessageBox.warning(self, self.windowTitle(), str(exc))
             return
         self.refresh()
+
+    def _edit_well_passport(self) -> None:
+        from geoworkbench.ui.well_passport_dialog import WellPassportDialog
+
+        dialog = WellPassportDialog(
+            self.controller.session, self, language=self.localizer.language,
+        )
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.refresh()
 
     @staticmethod
     def _line_pen(element: MasterlogHeaderElement) -> QPen:
@@ -1805,7 +1841,7 @@ class MasterlogHeaderDialog(QDialog):
         element: MasterlogHeaderElement,
         parent: QGraphicsRectItem | None = None,
     ) -> bool:
-        asset_ref = element.properties.get("asset_ref")
+        asset_ref = resolve_header_asset_ref(self.controller.session, element)
         asset = self.controller.session.image_assets.get(asset_ref) if isinstance(asset_ref, str) else None
         if asset is None:
             return False
@@ -1982,16 +2018,22 @@ class MasterlogHeaderDialog(QDialog):
 
     def _preview_text(self, element: MasterlogHeaderElement) -> str:
         if element.element_type == "text":
-            value = element.properties.get("text")
+            value = element.properties.get(
+                "text_" + self.localizer.language.value, element.properties.get("text"),
+            )
             return str(value) if isinstance(value, (str, int, float)) else "text"
         if element.element_type == "field":
             field_name = element.properties.get("field")
             if not isinstance(field_name, str):
                 return "{field}"
-            resolved = resolve_header_field(self.controller.session, field_name, self.template)
+            resolved = resolve_header_field(
+                self.controller.session, field_name, self.template, self.localizer.language,
+            )
             return resolved if resolved is not None else "{" + field_name + "}"
         if element.element_type == "image":
-            asset_ref = element.properties.get("asset_ref")
+            asset_ref = resolve_header_asset_ref(self.controller.session, element)
+            if asset_ref == "":
+                return ""
             if isinstance(asset_ref, str) and asset_ref:
                 asset = self.controller.session.image_assets.get(asset_ref)
                 if asset is not None:

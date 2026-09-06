@@ -182,14 +182,35 @@ edits; export it again.
 - A large project stores curve arrays in JSON and can consume substantial disk space.
 - Daily numeric append preserves existing geology but does not yet build new LAS rock-code
   intervals into already populated lithology and cuttings layers.
-- Header details currently live in templates, rather than a shared well passport.
+- Legacy headers keep their own details until explicitly adopted into the shared passport.
 - The ready-description language selector chooses only the inserted text language. To save an
   authored RU/KK/EN version, switch the application language before opening the editor.
 
-## Approved development model, 2026-09-05 — planned, not yet available
+## Shared well passport (WELL-01)
 
-The following decisions are approved for development; they do not replace the current commands
-above. WELL-01–WELL-06 stages and dependencies are tracked only in the
+Select a well and open **File → Well passport…**, or the same command in **Print** or
+the header editor. **Shared data** contains the well number, depths, decimal coordinates,
+`YYYY-MM-DD` dates and logos. Enter diameters in mm and depths in m for the five A4
+construction rows. Enter casing names and other translated details separately on the
+**Русский / Қазақша / English** tabs.
+
+To adopt a legacy value, select its source header beneath the field. Conflicting sources
+remain visible and original templates are preserved. Sample values are not accepted
+automatically. **Cancel** changes nothing; **Save** applies the passport to this well,
+then **Ctrl+S** saves the project. Other wells retain their own data.
+
+Once a passport is adopted, empty fields stay empty in both A4 headers. Print range and
+scale remain separate and cannot change the actual well depth. Select a project image,
+retain the layout logo or hide it; add new images through the logo catalog first.
+For custom headers, select the corresponding passport field in the element editor.
+The A4 construction table has five rows; additional details can use the free construction
+text field. Missing translations use another populated language without automatic translation.
+Saved projects use format v25; older applications require the original project file.
+
+## Approved development model, 2026-09-05 — WELL-01 implemented, WELL-02…06 planned
+
+The shared passport is available as described above. The remaining stages do not replace
+current commands. WELL-01–WELL-06 stages and dependencies are tracked in the
 [project plan](../PROJECT_PLAN.md), with verifiable contracts in the [requirements](../REQUIREMENTS.md).
 
 **One project and a shared passport (WELL-01).** Maintain a well in one canonical `.geologpkg`.

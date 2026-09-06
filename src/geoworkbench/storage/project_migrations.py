@@ -494,6 +494,39 @@ def _migrate_v23_to_v24(payload: ProjectPayload) -> ProjectPayload:
     return migrated
 
 
+def _migrate_v24_to_v25(payload: ProjectPayload) -> ProjectPayload:
+    """Keep legacy template values untouched until the user adopts a well passport."""
+
+    migrated = deepcopy(payload)
+    project = migrated.get("project")
+    if not isinstance(project, dict):
+        raise ProjectMigrationError("Проект версии 24 не содержит объекта 'project'")
+    wells = project.get("wells", {})
+    if not isinstance(wells, dict):
+        raise ProjectMigrationError("Проект версии 24 содержит некорректный wells")
+    for well in wells.values():
+        if not isinstance(well, dict):
+            raise ProjectMigrationError("Некорректная скважина проекта версии 24")
+        well.setdefault("passport", None)
+    from geoworkbench.domain.well_passport import CONSTRUCTION_FIELDS
+
+    templates = project.get("masterlog_templates", {})
+    if not isinstance(templates, dict):
+        raise ProjectMigrationError("Некорректные шаблоны проекта версии 24")
+    for template in templates.values():
+        if not isinstance(template, dict) or not isinstance(template.get("header_elements", []), list):
+            raise ProjectMigrationError("Некорректная шапка проекта версии 24")
+        for element in template.get("header_elements", []):
+            if not isinstance(element, dict) or not isinstance(element.get("properties", {}), dict):
+                raise ProjectMigrationError("Некорректный элемент шапки проекта версии 24")
+            field_name = "header." + str(element.get("element_id", ""))
+            if element.get("element_type") == "text" and field_name in CONSTRUCTION_FIELDS:
+                element["element_type"] = "field"
+                element.setdefault("properties", {})["field"] = field_name
+    migrated["format_version"] = 25
+    return migrated
+
+
 def _migrate_scale_payload_to_linear(payload: dict[str, Any]) -> bool:
     """Convert a legacy logarithmic payload and report whether it changed."""
 
@@ -545,6 +578,7 @@ DEFAULT_PROJECT_MIGRATIONS.register(20, _migrate_v20_to_v21)
 DEFAULT_PROJECT_MIGRATIONS.register(21, _migrate_v21_to_v22)
 DEFAULT_PROJECT_MIGRATIONS.register(22, _migrate_v22_to_v23)
 DEFAULT_PROJECT_MIGRATIONS.register(23, _migrate_v23_to_v24)
+DEFAULT_PROJECT_MIGRATIONS.register(24, _migrate_v24_to_v25)
 
 
 def migrate_project_payload(payload: ProjectPayload, target_version: int) -> ProjectPayload:

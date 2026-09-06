@@ -52,7 +52,7 @@ from geoworkbench.project.annotation_schema import (
     is_annotation_object,
 )
 from geoworkbench.project.stratigraphy_controller import stratigraphy_rank_order
-from geoworkbench.printing.header_fields import resolve_header_field
+from geoworkbench.printing.header_fields import resolve_header_asset_ref, resolve_header_field
 from geoworkbench.printing.image_asset_rendering import draw_image_asset
 from geoworkbench.printing.lba_visuals import (
     LBA_TYPE_STYLES,
@@ -102,6 +102,10 @@ def _set_scaled_font_mm(painter: QPainter, font: QFont, size_mm: float) -> None:
         dpi_y = 96.0
     safe_mm = max(0.25, min(float(size_mm), 50.0))
     font.setPointSizeF(safe_mm * 72.0 / dpi_y)
+    # Hinting rounds the tiny pre-transform glyphs and can erase decimal dots
+    # before the millimetre canvas is enlarged for preview or PDF.
+    font.setHintingPreference(QFont.HintingPreference.PreferNoHinting)
+    font.setStyleStrategy(QFont.StyleStrategy.ForceOutline)
 
 
 def _set_scaled_font_points(painter: QPainter, font: QFont, size_points: float) -> None:
@@ -599,7 +603,9 @@ def _paint_header_element(
         painter.drawLine(rect.topLeft(), rect.bottomRight())
         return
     if element.element_type == "image":
-        asset_ref = element.properties.get("asset_ref")
+        asset_ref = resolve_header_asset_ref(session, element)
+        if asset_ref == "":
+            return
         asset = session.image_assets.get(asset_ref) if isinstance(asset_ref, str) else None
         if asset is None and isinstance(asset_ref, str):
             from geoworkbench.printing.masterlog_header_forms import default_header_asset
@@ -2735,8 +2741,8 @@ def _header_text(
     field = element.properties.get("field")
     if not isinstance(field, str):
         return "{field}"
-    resolved = resolve_header_field(session, field, template)
-    if resolved:
+    resolved = resolve_header_field(session, field, template, language)
+    if resolved is not None:
         return resolved
     missing_text = element.properties.get("missing_text")
     return str(missing_text) if isinstance(missing_text, str) else "{" + field + "}"

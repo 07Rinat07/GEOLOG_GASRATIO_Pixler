@@ -1493,6 +1493,16 @@ class MainWindow(QMainWindow):
         templates_action = self._localized_action("masterlog_templates.action")
         templates_action.triggered.connect(self.show_masterlog_templates)
         print_menu.addAction(templates_action)
+        passport_action = QAction(
+            {
+                AppLanguage.RU: "Паспорт скважины…",
+                AppLanguage.KK: "Ұңғыма паспорты…",
+                AppLanguage.EN: "Well passport…",
+            }[self.language], self,
+        )
+        passport_action.triggered.connect(self.show_well_passport)
+        file_menu.addAction(passport_action)
+        print_menu.addAction(passport_action)
         header_catalog_action = QAction(
             {
                 AppLanguage.RU: "Каталог печатных шапок...",
@@ -5051,6 +5061,19 @@ class MainWindow(QMainWindow):
         self.tablet_view.set_cuttings(well.cuttings if well is not None else [])
         self.tablet_view.set_stratigraphy(well.stratigraphy if well is not None else [])
         self._update_title()
+
+    def show_well_passport(self) -> None:
+        from geoworkbench.ui.well_passport_dialog import WellPassportDialog
+
+        if self.session.current_well is None:
+            QMessageBox.information(self, self.windowTitle(), {
+                AppLanguage.RU: "Сначала выберите скважину в проекте.",
+                AppLanguage.KK: "Алдымен жобадан ұңғыманы таңдаңыз.",
+                AppLanguage.EN: "Select a well in the project first.",
+            }[self.language])
+            return
+        if WellPassportDialog(self.session, self, language=self.language).exec() == QDialog.DialogCode.Accepted:
+            self._update_title()
 
     def show_header_catalog(self) -> None:
         HeaderCatalogDialog(

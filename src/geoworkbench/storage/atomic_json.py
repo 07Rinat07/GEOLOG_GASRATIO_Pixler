@@ -10,6 +10,7 @@ from typing import Any
 import numpy as np
 
 from geoworkbench.domain.models import Project
+from geoworkbench.domain.well_passport import validate_passport
 from geoworkbench.data.lossless_las import LosslessLasDocument
 from geoworkbench.data.las_import_report import LasImportReport, validate_import_report
 from geoworkbench.storage.source_artifacts import save_source_documents
@@ -39,6 +40,11 @@ def save_project(
     import_reports: dict[str, LasImportReport] | None = None,
     image_assets: dict[str, ImageAsset] | None = None,
 ) -> None:
+    for well in project.wells.values():
+        if well.passport is not None:
+            passport = validate_passport(well.passport)
+            if set(filter(None, passport.logo_refs.values())) - set(image_assets or {}):
+                raise ValueError("Паспорт скважины ссылается на отсутствующие image assets")
     target.parent.mkdir(parents=True, exist_ok=True)
     documents = source_documents or {}
     dataset_ids = {dataset_id for well in project.wells.values() for dataset_id in well.datasets}

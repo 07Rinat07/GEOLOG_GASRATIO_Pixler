@@ -745,6 +745,8 @@ class MasterlogTemplateController:
             for template_id, template in self.session.project.masterlog_templates.items()
         }
         for well in self.session.project.wells.values():
+            if well.passport is not None and asset_id in well.passport.logo_refs.values():
+                references.add(well.name)
             for item in well.canvas_objects:
                 if (
                     item.object_type == "masterlog_symbol"

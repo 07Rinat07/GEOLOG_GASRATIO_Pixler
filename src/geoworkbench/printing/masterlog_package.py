@@ -14,6 +14,7 @@ from geoworkbench.domain.models import (
     MasterlogHeaderElement,
     MasterlogTemplate,
 )
+from geoworkbench.domain.well_passport import CONSTRUCTION_FIELDS
 from geoworkbench.printing.image_assets import (
     ImageAsset,
     ImageAssetError,
@@ -140,6 +141,11 @@ def _template_from_dict(raw: object) -> MasterlogTemplate:
             raise TypeError
         data = dict(raw)
         data["header_elements"] = [MasterlogHeaderElement(**item) for item in elements_raw]
+        for element in data["header_elements"]:
+            field_name = "header." + element.element_id
+            if element.element_type == "text" and field_name in CONSTRUCTION_FIELDS:
+                element.element_type = "field"
+                element.properties = {**element.properties, "field": field_name}
         columns: list[MasterlogColumnTemplate] = []
         for item in columns_raw:
             if not isinstance(item, dict):

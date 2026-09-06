@@ -5,7 +5,12 @@ from pathlib import Path
 
 import numpy as np
 
-from geoworkbench.domain.models import MasterlogTemplate
+from geoworkbench.domain.models import MasterlogHeaderElement, MasterlogTemplate
+from geoworkbench.domain.localized_content import localized_text
+from geoworkbench.domain.well_passport import (
+    CONSTRUCTION_FIELDS, CONSTRUCTION_ROWS,
+    DATE_FIELDS, LOCALIZED_FIELDS, NUMERIC_FIELDS, SHARED_TEXT_FIELDS,
+)
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage
 
@@ -91,9 +96,27 @@ _EDITABLE_FIELDS: tuple[HeaderFieldDefinition, ...] = (
     HeaderFieldDefinition("header.notes", "Примечание", "Ескерту", "Notes", multiline=True),
 )
 
+_EDITABLE_FIELDS += tuple(
+    HeaderFieldDefinition(
+        f"header.casing_{row}_{part}",
+        f"Конструкция, строка {row + 1}: {ru}",
+        f"Конструкция, {row + 1}-жол: {kk}",
+        f"Construction, row {row + 1}: {en}",
+    )
+    for row in range(CONSTRUCTION_ROWS)
+    for part, ru, kk, en in (
+        ("diameter", "диаметр, мм", "диаметрі, мм", "diameter, mm"),
+        ("name", "название колонны", "бағана атауы", "casing name"),
+        ("depth", "глубина, м", "тереңдігі, м", "depth, m"),
+    )
+)
+
 HEADER_FIELD_DEFINITIONS: tuple[HeaderFieldDefinition, ...] = _SYSTEM_FIELDS + _EDITABLE_FIELDS
 SUPPORTED_HEADER_FIELDS = tuple(item.field_id for item in HEADER_FIELD_DEFINITIONS)
 EDITABLE_HEADER_FIELDS = tuple(item.field_id for item in _EDITABLE_FIELDS)
+PASSPORT_HEADER_FIELDS = frozenset(
+    (*DATE_FIELDS, *LOCALIZED_FIELDS, *NUMERIC_FIELDS, *SHARED_TEXT_FIELDS)
+)
 
 _FIELD_BY_ID = {item.field_id: item for item in HEADER_FIELD_DEFINITIONS}
 
@@ -145,6 +168,7 @@ def resolve_header_field(
     session: ProjectSession,
     field_name: str,
     template: MasterlogTemplate | None = None,
+    language: AppLanguage = AppLanguage.RU,
 ) -> str | None:
     if field_name == "project.name":
         return session.project.name
@@ -161,8 +185,46 @@ def resolve_header_field(
     if field_name in {"dataset.depth_min", "dataset.depth_max", "dataset.interval"}:
         return _resolve_dataset_depth(session, field_name)
     if field_name.startswith("header."):
+        well = session.current_well
+        if well is not None and well.passport is not None and field_name in PASSPORT_HEADER_FIELDS:
+            # An adopted passport is authoritative, including deliberately empty
+            # fields. Falling back here would resurrect different template values.
+            if field_name in LOCALIZED_FIELDS:
+                return localized_text(well.passport.texts_i18n.get(field_name), language)
+            value = well.passport.values.get(field_name, "")
+            text = f"{value:.15g}" if isinstance(value, (int, float)) else value
+            if text and field_name in CONSTRUCTION_FIELDS:
+                if field_name.endswith("_diameter"):
+                    return f"Ø {text} {'mm' if language is AppLanguage.EN else 'мм'}"
+                return f"{text} {'m' if language is AppLanguage.EN else 'м'}"
+            return text
+        if field_name in CONSTRUCTION_FIELDS and template is not None:
+            saved = template_header_values(template).get(field_name)
+            if saved:
+                return saved
+            for element in template.header_elements:
+                if element.properties.get("field") == field_name:
+                    value = element.properties.get(
+                        "text_" + language.value, element.properties.get("text", ""),
+                    )
+                    return str(value) if isinstance(value, (str, int, float)) else ""
         return _resolve_editable_header_field(session, field_name, template)
     return None
+
+
+def resolve_header_asset_ref(
+    session: ProjectSession, element: MasterlogHeaderElement,
+) -> str | None:
+    well = session.current_well
+    role = element.properties.get("logo_role")
+    if (
+        well is not None and well.passport is not None
+        and isinstance(role, str) and role in {"customer", "contractor"}
+    ):
+        if role in well.passport.logo_refs:
+            return well.passport.logo_refs[role]
+    value = element.properties.get("asset_ref")
+    return value if isinstance(value, str) else None
 
 
 def _resolve_editable_header_field(

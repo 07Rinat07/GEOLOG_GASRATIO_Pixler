@@ -87,6 +87,7 @@ from geoworkbench.domain.models import (
     ExportProfile,
 )
 from geoworkbench.domain.localized_content import validate_localized_texts
+from geoworkbench.domain.well_passport import WellPassport, validate_passport
 from geoworkbench.tablet.layout_codec import TabletLayoutFormatError, layout_from_dict
 from geoworkbench.tablet.models import TabletLayout
 from geoworkbench.catalogs.sensors import normalize_sensor_key
@@ -124,7 +125,7 @@ from geoworkbench.storage.source_artifacts import (
 )
 
 
-PROJECT_FORMAT_VERSION = 24
+PROJECT_FORMAT_VERSION = 25
 
 
 @dataclass(slots=True)
@@ -1226,6 +1227,17 @@ def _lag_profile_from_dict(data: dict[str, Any]) -> LagCorrectionProfile:
         raise ProjectFormatError("Некорректный lag correction profile") from exc
 
 
+def _passport_from_dict(data: object) -> WellPassport | None:
+    if data is None:
+        return None
+    if not isinstance(data, dict) or set(data) - {"values", "texts_i18n", "logo_refs"}:
+        raise ProjectFormatError("Некорректный паспорт скважины")
+    try:
+        return validate_passport(WellPassport(**data))
+    except (TypeError, ValueError) as exc:
+        raise ProjectFormatError("Некорректный паспорт скважины") from exc
+
+
 def _well_from_dict(data: dict[str, Any]) -> Well:
     well = Well(
         well_id=str(_required(data, "well_id", str)),
@@ -1235,6 +1247,7 @@ def _well_from_dict(data: dict[str, Any]) -> Well:
             str(language): int(revision)
             for language, revision in dict(data.get("language_revisions", {})).items()
         },
+        passport=_passport_from_dict(data.get("passport")),
     )
     datasets = _required(data, "datasets", dict)
     well.datasets = {
@@ -1714,6 +1727,17 @@ def load_project_document(path: str | Path, *, max_size_mb: int = 512) -> Projec
                 raise ProjectFormatError(
                     "Каталог логотипов ссылается на отсутствующие image assets: "
                     + ", ".join(missing_logo_assets)
+                )
+            missing_passport_assets = {
+                asset_ref
+                for well in document.project.wells.values()
+                if well.passport is not None
+                for asset_ref in well.passport.logo_refs.values()
+                if asset_ref
+            } - set(document.image_assets)
+            if missing_passport_assets:
+                raise ProjectFormatError(
+                    "Паспорт скважины ссылается на отсутствующие image assets"
                 )
         except ImageAssetError as exc:
             raise ProjectFormatError(str(exc)) from exc

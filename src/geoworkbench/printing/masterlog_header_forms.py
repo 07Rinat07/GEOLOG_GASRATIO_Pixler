@@ -142,4 +142,8 @@ def masterlog_header_elements(orientation: str) -> tuple[MasterlogHeaderElement,
         label(f"casing_{i}_diameter", (f"Ø {diameter} мм", f"Ø {diameter} мм", f"Ø {diameter} mm"), x+1, y, w*.24, ch)
         label(f"casing_{i}_name", names, x+w*.25, y, w*.49, ch)
         label(f"casing_{i}_depth", (f"{depth} м", f"{depth} м", f"{depth} m"), x+w*.75, y, w*.24-1, ch)
+        for element in elements[-3:]:
+            # Retain sample text for projects which have not adopted a passport.
+            element.element_type = "field"
+            element.properties["field"] = f"header.{element.element_id}"
     return tuple(elements)

@@ -106,8 +106,13 @@ then open the **Rock description** interval, enter the translation or insert an 
 and save the project. Fill the **қазақша** version in the same way. The ready-description language
 selector changes only the inserted text, not the language version to which it is saved.
 
-**Approved for development on 2026-09-05, not yet available:** one project with a shared passport,
-safe measurement and geology updates, RU/KK/EN tabs and multilingual templates, translation
+**The shared passport is available:** open **File → Well passport…** or the Print menu.
+Details, five A4 construction rows and logos are shared; translated texts have RU/KK/EN tabs.
+Save the dialog, then the project (Ctrl+S). Legacy values are adopted explicitly;
+Cancel preserves existing data. See the [workflow](en/PROJECT_WORKFLOW.md).
+
+**Approved for development on 2026-09-05, not yet available:** safe measurement and geology
+updates, an interval editor with RU/KK/EN tabs and multilingual templates, translation
 readiness, linked portrait/landscape layouts, and PDF packages from one revision.
 The [accepted workflow model](en/PROJECT_WORKFLOW.md) explains these decisions;
 WELL-01–WELL-06 stages are tracked in the [single project plan](PROJECT_PLAN.md).
