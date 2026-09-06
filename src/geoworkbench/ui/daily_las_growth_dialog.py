@@ -263,9 +263,11 @@ class DailyLasGrowthDialog(QDialog):
 
     def _invalidate(self) -> None:
         self.plan = None
+        self.controller.reset_state()
         self.buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
 
     def _analyze(self) -> None:
+        self._invalidate()
         dataset_id = self.target_combo.currentData()
         source = Path(self.file_input.text().strip())
         if not isinstance(dataset_id, str) or not source.is_file():
@@ -324,3 +326,7 @@ class DailyLasGrowthDialog(QDialog):
     def _accept(self) -> None:
         if self.plan is not None:
             self.accept()
+
+    def reject(self) -> None:
+        self._invalidate()
+        super().reject()

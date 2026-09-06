@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from hashlib import sha256
+import json
 from pathlib import Path
 from typing import cast
 from uuid import uuid4
@@ -40,6 +41,8 @@ class DailyLasGrowthPlan:
     rows_skipped: int
     new_row_indices: tuple[int, ...]
     curve_mnemonics: tuple[str, ...]
+    target_state_sha256: str
+    source_state_sha256: str
     duplicate_source: bool = False
 
     @property
@@ -87,10 +90,49 @@ def dataset_content_sha256(dataset: Dataset) -> str:
 
 
 def _update_array_digest(digest, values: np.ndarray) -> None:
-    contiguous = np.ascontiguousarray(values)
-    digest.update(contiguous.dtype.str.encode("ascii"))
-    digest.update(str(contiguous.shape).encode("ascii"))
-    digest.update(contiguous.tobytes())
+    digest.update(values.dtype.str.encode("ascii"))
+    digest.update(str(values.shape).encode("ascii"))
+    # Preserve the historical C-order digest while bounding temporary copies,
+    # including for strided arrays. A float64 buffer is at most 1 MiB.
+    with np.nditer(
+        values, flags=["external_loop", "buffered", "zerosize_ok"],
+        op_flags=["readonly"], order="C", buffersize=131_072,
+    ) as chunks:
+        for chunk in chunks:
+            digest.update(cast(np.ndarray, chunk).tobytes())
+
+
+def dataset_append_state_sha256(dataset: Dataset) -> str:
+    """Bind preview to all append inputs without changing persisted audit hashes.
+
+    Cost is O(samples + metadata), with bounded array buffers; the plan retains
+    only the digest. Presentation names and well-level authored layers are not
+    append inputs and deliberately do not invalidate a numerical preview.
+    """
+    digest = sha256(b"daily-las-preview:1\0")
+    digest.update(dataset_content_sha256(dataset).encode("ascii"))
+    _update_array_digest(digest, np.asarray(dataset.depth))
+    metadata = {
+        "kind": dataset.kind,
+        "depth_domain": dataset.depth_domain,
+        "active_index_id": dataset.active_index_id,
+        "headers": dataset.headers,
+        "indexes": {
+            key: (index.index_id, index.mnemonic, index.index_type, index.role,
+                  index.unit, index.datetime_format, index.timezone)
+            for key, index in dataset.indexes.items()
+        },
+        "curves": {
+            key: (curve.metadata.curve_id, curve.metadata.original_mnemonic,
+                  curve.metadata.unit, curve.metadata.source_dataset_id,
+                  curve.metadata.provenance, curve.version, curve.state)
+            for key, curve in dataset.curves.items()
+        },
+        "append_history": [asdict(record) for record in dataset.append_history],
+        "source_revisions": [asdict(record) for record in dataset.source_revisions],
+    }
+    digest.update(json.dumps(metadata, sort_keys=True, ensure_ascii=True).encode("ascii"))
+    return digest.hexdigest()
 
 
 def analyze_daily_las_growth(
@@ -131,6 +173,8 @@ def analyze_daily_las_growth(
             len(active.values),
             (),
             tuple(sorted(_curve_map(source))),
+            dataset_append_state_sha256(target),
+            dataset_append_state_sha256(source),
             True,
         )
 
@@ -216,6 +260,8 @@ def analyze_daily_las_growth(
             target_native_curves[key].metadata.original_mnemonic
             for key in sorted(target_native_curves)
         ),
+        target_state_sha256=dataset_append_state_sha256(target),
+        source_state_sha256=dataset_append_state_sha256(source),
     )
 
 

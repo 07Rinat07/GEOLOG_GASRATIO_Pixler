@@ -63,6 +63,37 @@ def test_daily_las_dialog_explains_safe_workflow_in_each_language(
     dialog.close()
 
 
+def test_controller_rejects_unreviewed_old_value_and_allows_fresh_preview() -> None:
+    from geoworkbench.services.daily_las_growth import DailyLasGrowthError
+
+    controller = _controller()
+    session = controller.session
+    target = session.current_dataset
+    assert target is not None
+    source = FIXTURES / "02_daily_append.las"
+    plan = controller.analyze(source, target.dataset_id)
+    curve = next(iter(target.curves.values()))
+    curve.values[0] += 1
+    before = curve.values.copy()
+    source_documents = dict(session.source_documents)
+    source_revisions = tuple(target.source_revisions)
+    session.dirty = True
+
+    with pytest.raises(DailyLasGrowthError, match="после предварительного анализа"):
+        controller.apply(plan)
+    assert (curve.values == before).all()
+    assert session.source_documents == source_documents
+    assert tuple(target.source_revisions) == source_revisions
+    assert session.dirty
+    assert not target.append_history
+    with pytest.raises(RuntimeError, match="повторно проанализируйте"):
+        controller.apply(plan)
+
+    fresh_plan = controller.analyze(source, target.dataset_id)
+    assert controller.apply(fresh_plan).record is not None
+    assert curve.values[0] == before[0]
+
+
 def test_daily_las_dialog_assistant_opens_project_help(qapp, monkeypatch) -> None:
     calls: list[tuple[object, str]] = []
     monkeypatch.setattr(
@@ -74,4 +105,43 @@ def test_daily_las_dialog_assistant_opens_project_help(qapp, monkeypatch) -> Non
     dialog.workflow_help_button.click()
 
     assert calls == [(dialog, "project")]
+    dialog.close()
+
+
+@pytest.mark.parametrize("action", ["missing_file", "failed_analysis", "file_edit", "cancel"])
+def test_invalid_or_cancelled_preview_cannot_reuse_previous_confirmation(
+    qapp, monkeypatch, tmp_path: Path, action: str,
+) -> None:
+    from PySide6.QtWidgets import QMessageBox
+
+    monkeypatch.setattr(QMessageBox, "warning", lambda *args: QMessageBox.StandardButton.Ok)
+    controller = _controller()
+    dialog = DailyLasGrowthDialog(controller)
+    source = tmp_path / "daily.las"
+    source.write_bytes((FIXTURES / "02_daily_append.las").read_bytes())
+    dialog.file_input.setText(str(source))
+    dialog._analyze()
+    previous_plan = dialog.plan
+    assert previous_plan is not None
+    assert dialog.buttons.button(QDialogButtonBox.StandardButton.Ok).isEnabled()
+    target = controller.session.current_dataset
+    assert target is not None
+    before = target.depth.copy()
+    if action == "missing_file":
+        source.unlink()
+        dialog._analyze()
+    elif action == "failed_analysis":
+        source.write_bytes((FIXTURES / "03_conflict.las").read_bytes())
+        dialog._analyze()
+    elif action == "file_edit":
+        dialog.file_input.setText(str(tmp_path / "other.las"))
+    else:
+        dialog.reject()
+
+    assert dialog.plan is None
+    assert not dialog.buttons.button(QDialogButtonBox.StandardButton.Ok).isEnabled()
+    with pytest.raises(RuntimeError, match="повторно проанализируйте"):
+        controller.apply(previous_plan)
+    assert (target.depth == before).all()
+    assert not target.append_history
     dialog.close()

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from dataclasses import replace
+from hashlib import sha256
 
 import numpy as np
 import pytest
@@ -18,6 +20,8 @@ from geoworkbench.services.daily_las_growth import (
     DailyLasGrowthError,
     analyze_daily_las_growth,
     apply_daily_las_growth,
+    dataset_append_state_sha256,
+    _update_array_digest,
 )
 
 
@@ -403,3 +407,97 @@ def test_append_history_survives_project_round_trip(tmp_path) -> None:
         restored_target.curve_by_mnemonic("ROP").values,
         target.curve_by_mnemonic("ROP").values,
     )
+
+
+@pytest.mark.parametrize("changed_input", [
+    "old_target_value", "new_source_value", "local_value", "local_provenance",
+    "curve_version", "curve_state", "both_curve_units", "both_axis_units",
+    "target_header", "source_header", "source_identity", "depth_projection",
+])
+def test_preview_rejects_changed_inputs_even_when_row_summary_is_unchanged(
+    changed_input: str,
+) -> None:
+    target = _dataset("target", [10.0, 11.0], [1.0, 2.0])
+    source = _dataset("source", [11.0, 12.0], [2.0, 3.0])
+    local = _add_curve(target, "LOCAL", [8.0, 9.0], provenance="user")
+    plan = analyze_daily_las_growth(
+        target, source, source_name="daily.las", source_sha256="a" * 64,
+    )
+    target_curve = target.curve_by_mnemonic("ROP")
+    source_curve = source.curve_by_mnemonic("ROP")
+    assert target_curve is not None and source_curve is not None
+    if changed_input == "old_target_value":
+        target_curve.values[0] = 99
+    elif changed_input == "new_source_value":
+        source_curve.values[-1] = 99
+    elif changed_input == "local_value":
+        local.values[0] = 99
+    elif changed_input == "local_provenance":
+        local.metadata = replace(local.metadata, provenance="calculation:test:1")
+    elif changed_input == "curve_version":
+        target_curve.version += 1
+    elif changed_input == "curve_state":
+        local.state = CalculationState.STALE
+    elif changed_input == "both_curve_units":
+        for curve in (target_curve, source_curve):
+            curve.metadata = replace(curve.metadata, unit="ft/h")
+    elif changed_input == "both_axis_units":
+        target.active_index.unit = source.active_index.unit = "ft"
+    elif changed_input == "target_header":
+        target.headers["UWI"] = "new-well-identity"
+    elif changed_input == "source_header":
+        source.headers["UWI"] = "new-well-identity"
+    elif changed_input == "source_identity":
+        source.dataset_id = "replacement"
+    elif changed_input == "depth_projection":
+        target.depth = target.depth.copy() + 1
+
+    refreshed = analyze_daily_las_growth(
+        target, source, source_name="daily.las", source_sha256="a" * 64,
+    )
+    assert (refreshed.rows_added, refreshed.rows_skipped, refreshed.new_row_indices) == (
+        plan.rows_added, plan.rows_skipped, plan.new_row_indices,
+    )
+    before_target = dataset_append_state_sha256(target)
+    before_source = dataset_append_state_sha256(source)
+    with pytest.raises(DailyLasGrowthError, match="после предварительного анализа"):
+        apply_daily_las_growth(target, source, plan)
+    assert dataset_append_state_sha256(target) == before_target
+    assert dataset_append_state_sha256(source) == before_source
+    assert not target.append_history
+
+
+@pytest.mark.parametrize("descending", [False, True])
+def test_unchanged_preview_accepts_nan_and_reordered_containers(descending: bool) -> None:
+    sign = -1 if descending else 1
+    target = _dataset("target", [sign * 10., sign * 11.], [float("nan"), 2.])
+    source = _dataset("source", [sign * 11., sign * 12.], [2., float("nan")])
+    _add_curve(target, "LOCAL", [8., float("nan")], provenance="user")
+    plan = analyze_daily_las_growth(
+        target, source, source_name="daily.las", source_sha256="a" * 64,
+    )
+    target.curves = dict(reversed(list(target.curves.items())))
+    target.name = "Presentation name changed"
+    outcome = apply_daily_las_growth(target, source, plan)
+    assert outcome.record is not None
+    assert outcome.record.rows_added == 1
+
+
+@pytest.mark.parametrize("layout", ["contiguous", "strided", "reverse", "empty", "datetime"])
+def test_bounded_array_hash_preserves_historical_audit_digest(layout: str) -> None:
+    values = np.arange(300_001, dtype=np.float64)
+    if layout == "strided":
+        values = values[::2]
+    elif layout == "reverse":
+        values = values[::-1]
+    elif layout == "empty":
+        values = values[:0]
+    elif layout == "datetime":
+        values = values.astype("datetime64[ns]")
+    expected = sha256()
+    expected.update(values.dtype.str.encode("ascii"))
+    expected.update(str(values.shape).encode("ascii"))
+    expected.update(np.ascontiguousarray(values).tobytes())
+    actual = sha256()
+    _update_array_digest(actual, values)
+    assert actual.hexdigest() == expected.hexdigest()

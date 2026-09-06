@@ -115,6 +115,19 @@ python -m pytest -q `
 LAS. Проверяются RU/KK/EN, reopen, duplicate no-op, конфликт без мутации, три PDF и копирование
 одного `.geologpkg` в каталог «другого компьютера».
 
+### Проверка состояния daily LAS preview (WELL-02)
+
+Проверка привязки daily LAS preview к состоянию данных (первый инкремент WELL-02):
+
+```powershell
+python scripts/run_tests.py -q -p no:cacheprovider tests/test_daily_las_growth.py tests/test_daily_las_growth_dialog.py tests/test_proj04_daily_append_rollback.py tests/test_daily_las_growth_autosave.py
+python -m benchmarks.benchmark_daily_las_preview
+```
+
+Проверяются изменения вне перекрытия, единицы, локальные кривые, отказ без мутации, повторный
+анализ, отмена/ошибка окна, autosave и совместимость исторического audit SHA-256.
+Benchmark измеряет только fingerprint 100k/1M, с лимитом временных выделений 4 MiB.
+
 ## 3. Расширенная проверка в headless-контейнере
 
 Когда в среде нет PySide6, pyqtgraph или lasio, используйте:

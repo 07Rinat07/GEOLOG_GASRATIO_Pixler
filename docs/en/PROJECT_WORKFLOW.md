@@ -104,6 +104,11 @@ changes during analysis or between analysis and selecting **Append** is rejected
 the Dataset. Wait for synchronization to finish, select the file again, and repeat
 **Analyze growth**.
 
+The preview also records the state of both the source and target datasets. Repeat
+**Analyze growth** if values (including older rows outside the overlap), units, or LAS headers
+change after analysis. A failed recheck, selecting another file/dataset, or cancelling the
+dialog clears the previous confirmation. Your existing edits are preserved.
+
 ## Three languages in one project
 
 Switch the application language and edit the same interval. Lithology, stratigraphy, cuttings
