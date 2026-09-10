@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QCheckBox, QTableWidget, QTableWidgetItem,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -19,6 +21,7 @@ from PySide6.QtWidgets import (
 
 from geoworkbench.project.daily_las_growth_controller import DailyLasGrowthController
 from geoworkbench.services.daily_las_growth import DailyLasGrowthPlan
+from geoworkbench.services.well_update_plan import WellNumericalUpdatePlan, NumericalUpdateKind
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.local_las_folder import (
     LocalLasCandidate,
@@ -41,7 +44,7 @@ class DailyLasGrowthDialog(QDialog):
         super().__init__(parent)
         self.controller = controller
         self.language = language.value if isinstance(language, AppLanguage) else str(language)
-        self.plan: DailyLasGrowthPlan | None = None
+        self.plan: DailyLasGrowthPlan | WellNumericalUpdatePlan | None = None
         self._folder_candidates: tuple[LocalLasCandidate, ...] = ()
         self.setWindowTitle(self._text("Ежедневное наращивание LAS", "LAS күнделікті өсіру", "Daily LAS growth"))
         self.resize(720, 470)
@@ -53,6 +56,7 @@ class DailyLasGrowthDialog(QDialog):
                 "Open the working .geologpkg and append only new rows to the explicitly selected dataset. Forms, geology, symbols, and comments are not replaced.",
             )
         )
+        self._append_summary = self.info_label.text()
         self.info_label.setObjectName("daily-las-safety-summary")
         self.info_label.setWordWrap(True)
         assistant_row = QHBoxLayout()
@@ -158,6 +162,28 @@ class DailyLasGrowthDialog(QDialog):
         )
         form.addRow(self._text("Новый LAS", "Жаңа LAS", "New LAS"), file_row)
         root.addLayout(form)
+        self.numerical_mode = QCheckBox(self._text(
+            "Числовое обновление: новые строки, пропуски и исправления",
+            "Сандық жаңарту: жаңа жолдар, бос мәндер және түзетулер",
+            "Numerical update: new rows, gaps and corrections",
+        ))
+        root.addWidget(self.numerical_mode)
+        self.append_rows = QCheckBox(self._text(
+            "Добавить все новые строки", "Барлық жаңа жолдарды қосу", "Append all new rows",
+        ))
+        self.append_rows.setVisible(False)
+        root.addWidget(self.append_rows)
+        self.change_table = QTableWidget(0, 6)
+        self.change_table.setHorizontalHeaderLabels([
+            self._text("Выбрать", "Таңдау", "Select"),
+            self._text("Операция", "Операция", "Operation"),
+            self._text("Кривая", "Қисық", "Curve"),
+            self._text("Индекс", "Индекс", "Index"),
+            self._text("Было", "Бұрын", "Before"),
+            self._text("Стало", "Кейін", "After"),
+        ])
+        self.change_table.setVisible(False)
+        root.addWidget(self.change_table)
 
         self.analyze_button = QPushButton(
             self._text("Проверить прирост", "Өсімді тексеру", "Analyze growth")
@@ -203,6 +229,7 @@ class DailyLasGrowthDialog(QDialog):
         root.addWidget(self.buttons)
         self.file_input.textChanged.connect(self._invalidate)
         self.target_combo.currentIndexChanged.connect(self._invalidate)
+        self.numerical_mode.toggled.connect(self._switch_mode)
 
     def _text(self, ru: str, kk: str, en: str) -> str:
         return {"ru": ru, "kk": kk, "en": en}.get(self.language, ru)
@@ -263,6 +290,8 @@ class DailyLasGrowthDialog(QDialog):
 
     def _invalidate(self) -> None:
         self.plan = None
+        self.append_rows.setChecked(False)
+        self.change_table.setRowCount(0)
         self.controller.reset_state()
         self.buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
 
@@ -277,6 +306,7 @@ class DailyLasGrowthDialog(QDialog):
                 self._text("Выберите существующий LAS и целевой dataset", "LAS және мақсатты dataset таңдаңыз", "Choose an existing LAS and target dataset"),
             )
             return
+        analyze = self.controller.analyze_numerical if self.numerical_mode.isChecked() else self.controller.analyze
         try:
             candidate = next(
                 (item for item in self._folder_candidates if item.path == source.resolve()),
@@ -284,7 +314,7 @@ class DailyLasGrowthDialog(QDialog):
             )
             if candidate is not None:
                 LocalLasFolderProvider(self.folder_input.text().strip()).verify(candidate)
-                plan = self.controller.analyze(
+                plan = analyze(
                     source,
                     dataset_id,
                     provider_kind=LocalLasFolderProvider.provider_kind,
@@ -293,12 +323,15 @@ class DailyLasGrowthDialog(QDialog):
                     ),
                 )
             else:
-                plan = self.controller.analyze(source, dataset_id)
+                plan = analyze(source, dataset_id)
         except (OSError, RuntimeError, ValueError) as exc:
             self.preview.setPlainText(str(exc))
             QMessageBox.warning(self, self.windowTitle(), str(exc))
             return
         self.plan = plan
+        if isinstance(plan, WellNumericalUpdatePlan):
+            self._show_numerical_preview(plan)
+            return
         role = plan.index_role.value.upper()
         duplicate = self._text("Да", "Иә", "Yes") if plan.duplicate_source else self._text("Нет", "Жоқ", "No")
         next_step = (
@@ -322,6 +355,78 @@ class DailyLasGrowthDialog(QDialog):
             )
         )
         self.buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(True)
+
+    def _switch_mode(self) -> None:
+        self._invalidate()
+        enabled = self.numerical_mode.isChecked()
+        if enabled:
+            self.resize(max(self.width(), 900), max(self.height(), 700))
+        self.append_rows.setVisible(enabled)
+        self.change_table.setVisible(enabled)
+        self.buttons.button(QDialogButtonBox.StandardButton.Ok).setText(
+            self._text("Применить выбранное", "Таңдалғанын қолдану", "Apply selected") if enabled
+            else self._text("Нарастить", "Өсіру", "Append")
+        )
+        self.info_label.setText(self._text(
+            "Выберите новые строки и ячейки для обновления. Геология и ручные тексты сохраняются. После применения .geologpkg сохраняется автоматически с резервной копией.",
+            "Жаңарту үшін жаңа жолдар мен ұяшықтарды таңдаңыз. Геология мен қолмен енгізілген мәтіндер сақталады. Қолданғаннан кейін .geologpkg сақтық көшірмесімен автоматты сақталады.",
+            "Select new rows and cells to update. Geology and authored texts are preserved. After applying, the .geologpkg is saved automatically with a backup.",
+        ) if enabled else self._append_summary)
+        self.preview.clear()
+
+    def _show_numerical_preview(self, plan: WellNumericalUpdatePlan) -> None:
+        self.append_rows.setEnabled(plan.rows_added > 0)
+        labels = (
+            ("Новых строк", "Жаңа жолдар", "New rows", plan.rows_added),
+            ("Новых измерений", "Жаңа өлшемдер", "New measurements", plan.cells_added),
+            ("Заполнений пропусков", "Бос мәндерді толтыру", "Gap fills", plan.gaps_filled),
+            ("Исправлений", "Түзетулер", "Corrections", plan.corrections),
+            ("Пропусков в источнике", "Дереккөздегі бос мәндер", "Missing source values", plan.source_missing),
+            ("Без изменений", "Өзгеріссіз", "Unchanged", plan.cells_unchanged),
+        )
+        lines = [plan.source_name,
+                 f"{plan.index_role.upper()} / {plan.index_mnemonic} ({plan.index_unit or '—'})",
+                 f"{plan.start_value} … {plan.stop_value}"]
+        lines.extend(f"{self._text(ru, kk, en)}: {count}" for ru, kk, en, count in labels)
+        if plan.rows_added:
+            lines.append(self._text("Новый участок", "Жаңа аралық", "New range")
+                         + f": {plan.append_start_value} … {plan.append_stop_value}")
+        lines.append(self._text(
+            "Отметьте нужные ячейки. Выбор исправления подтверждает показанные значения «было → стало».",
+            "Қажетті ұяшықтарды белгілеңіз. Түзетуді таңдау көрсетілген «бұрын → кейін» мәндерін растайды.",
+            "Select the required cells. Selecting a correction confirms its displayed before → after values.",
+        ))
+        if plan.preview_truncated:
+            lines.append(self._text(
+                "Показана только часть изменений. Применятся лишь выбранные ячейки; затем повторите анализ для остальных.",
+                "Өзгерістердің бір бөлігі ғана көрсетілген. Тек таңдалған ұяшықтар қолданылады; қалғандары үшін талдауды қайталаңыз.",
+                "Only part of the diff is shown. Only selected cells will change; analyze again for the remaining cells.",
+            ))
+        self.preview.setPlainText("\n".join(lines))
+        changes = [c for c in plan.changes if c.kind is not NumericalUpdateKind.APPEND]
+        self.change_table.setRowCount(len(changes))
+        for row, change in enumerate(changes):
+            choice = QTableWidgetItem()
+            choice.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsUserCheckable)
+            choice.setCheckState(Qt.CheckState.Unchecked)
+            choice.setData(Qt.ItemDataRole.UserRole, change)
+            self.change_table.setItem(row, 0, choice)
+            kind = (self._text("Заполнить", "Толтыру", "Fill") if change.kind is NumericalUpdateKind.FILL
+                    else self._text("Исправить", "Түзету", "Correct"))
+            for col, value in enumerate((kind, change.mnemonic, change.index_value,
+                                         "—" if change.before is None else str(change.before), str(change.after)), 1):
+                item = QTableWidgetItem(value)
+                item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
+                self.change_table.setItem(row, col, item)
+        self.change_table.resizeColumnsToContents()
+        self.buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(True)
+
+    def selected_numerical_changes(self):
+        return tuple(
+            self.change_table.item(row, 0).data(Qt.ItemDataRole.UserRole)
+            for row in range(self.change_table.rowCount())
+            if self.change_table.item(row, 0).checkState() == Qt.CheckState.Checked
+        )
 
     def _accept(self) -> None:
         if self.plan is not None:

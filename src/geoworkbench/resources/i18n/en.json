@@ -2362,5 +2362,8 @@
   "witsml_import.title": "Import WITSML 2.x data",
   "tablet.rename_curve": "Rename parameter…",
   "tablet.rename_curve_title": "Parameter name",
-  "tablet.rename_curve_prompt": "Enter a readable name for {mnemonic}:"
+  "tablet.rename_curve_prompt": "Enter a readable name for {mnemonic}:",
+  "daily_las_growth.numerical_success": "Numerical update saved: {added} new rows, {changed} selected cells. Project: {project}. Backup: {backup}.",
+  "daily_las_growth.numerical_no_changes": "No selected changes. The project is unchanged.",
+  "daily_las_growth.numerical_persist_failed": "The LAS changes were applied in memory but were not written to the project file.\n\n{reason}"
 }

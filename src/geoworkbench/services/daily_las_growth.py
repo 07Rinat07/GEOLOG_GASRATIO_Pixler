@@ -130,6 +130,7 @@ def dataset_append_state_sha256(dataset: Dataset) -> str:
         },
         "append_history": [asdict(record) for record in dataset.append_history],
         "source_revisions": [asdict(record) for record in dataset.source_revisions],
+        "numerical_update_history": [asdict(record) for record in dataset.numerical_update_history],
     }
     digest.update(json.dumps(metadata, sort_keys=True, ensure_ascii=True).encode("ascii"))
     return digest.hexdigest()
@@ -157,8 +158,10 @@ def analyze_daily_las_growth(
     if len(source_sha256) != 64 or any(ch not in "0123456789abcdef" for ch in source_sha256):
         raise DailyLasGrowthError("Некорректный SHA-256 исходного LAS")
     _validate_well_identity(target, source)
+    numerical_revision_ids = {record.update_id for record in target.numerical_update_history}
     if any(item.source_sha256 == source_sha256 for item in target.append_history) or any(
-        item.source_sha256 == source_sha256 for item in target.source_revisions
+        item.source_sha256 == source_sha256 and item.source_revision_id not in numerical_revision_ids
+        for item in target.source_revisions
     ):
         active = source.active_index
         return DailyLasGrowthPlan(

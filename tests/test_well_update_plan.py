@@ -9,7 +9,7 @@ from geoworkbench.services.daily_las_growth import (
     DailyLasGrowthError, dataset_append_state_sha256,
 )
 from geoworkbench.services.well_update_plan import (
-    NumericalUpdateKind, analyze_well_numerical_update,
+    NumericalUpdateKind, analyze_well_numerical_update, revalidate_well_numerical_update,
 )
 
 
@@ -90,3 +90,64 @@ def test_preview_fingerprint_changes_for_nonoverlapping_edit():
     second = review(target, source)
     assert first.changes == second.changes
     assert first.target_state_sha256 != second.target_state_sha256
+
+
+@pytest.mark.parametrize("limit", [0, 1, 200])
+def test_revalidation_preserves_full_and_truncated_reviews_without_mutation(limit):
+    target = _dataset("target", [1, 2], [np.nan, 2])
+    source = _dataset("source", [1, 2, 3], [0, 9, 3])
+    plan = review(target, source, preview_limit=limit)
+    before = [dataset_append_state_sha256(ds) for ds in (target, source)]
+    assert revalidate_well_numerical_update(
+        target, source, plan, source_name="daily.las", source_sha256="a" * 64,
+    ) == plan
+    assert before == [dataset_append_state_sha256(ds) for ds in (target, source)]
+
+
+@pytest.mark.parametrize("edit", [
+    "target", "source", "local", "headers", "file", "name", "count", "diff",
+])
+def test_revalidation_rejects_stale_or_altered_review_without_mutation(edit):
+    target = _dataset("target", [1, 2], [1, 2])
+    source = _dataset("source", [2, 3], [9, 3])
+    _add_curve(target, "LOCAL", [10, 20], provenance="calculation:test")
+    plan = review(target, source)
+    name, digest = "daily.las", "a" * 64
+    if edit == "target":
+        target.curve_by_mnemonic("ROP").values[0] = 99
+    elif edit == "source":
+        source.curve_by_mnemonic("ROP").values[-1] = 99
+    elif edit == "local":
+        target.curve_by_mnemonic("LOCAL").values[0] = 99
+    elif edit == "headers":
+        target.headers["NOTE"] = "changed"
+    elif edit == "file":
+        digest = "b" * 64
+    elif edit == "name":
+        name = "another.las"
+    elif edit == "count":
+        plan = replace(plan, corrections=0)
+    else:
+        plan = replace(plan, changes=(replace(plan.changes[0], after=42), *plan.changes[1:]))
+    before = [dataset_append_state_sha256(ds) for ds in (target, source)]
+    with pytest.raises(DailyLasGrowthError, match="повторный анализ"):
+        revalidate_well_numerical_update(
+            target, source, plan, source_name=name, source_sha256=digest,
+        )
+    assert before == [dataset_append_state_sha256(ds) for ds in (target, source)]
+
+
+@pytest.mark.parametrize("ambiguous", ["source_axis", "curve_id"])
+def test_review_rejects_ambiguous_cell_identity(ambiguous):
+    target = _dataset("t", [1, 2], [1, 2])
+    source = _dataset("s", [1, 2], [1, 2])
+    if ambiguous == "source_axis":
+        source.active_index.values[:] = [1, 1 + 1e-10]
+    else:
+        _add_curve(target, "LOCAL", [10, 20], provenance="calculation:test")
+        curve = target.curve_by_mnemonic("LOCAL")
+        curve.metadata = replace(curve.metadata, curve_id=target.curve_by_mnemonic("ROP").metadata.curve_id)
+    before = dataset_append_state_sha256(target)
+    with pytest.raises(DailyLasGrowthError, match="неоднозначные"):
+        review(target, source)
+    assert dataset_append_state_sha256(target) == before

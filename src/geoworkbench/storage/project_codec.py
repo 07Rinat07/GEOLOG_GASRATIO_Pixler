@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from geoworkbench.domain.numerical_update import NumericalCellChange, NumericalUpdateKind, NumericalUpdateRecord
+
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -125,7 +127,7 @@ from geoworkbench.storage.source_artifacts import (
 )
 
 
-PROJECT_FORMAT_VERSION = 25
+PROJECT_FORMAT_VERSION = 26
 
 
 @dataclass(slots=True)
@@ -346,6 +348,23 @@ def _optional_bool_field(data: dict[str, Any], key: str, *, default: bool) -> bo
     return value
 
 
+def _numerical_update_record_from_dict(data: object) -> NumericalUpdateRecord:
+    if not isinstance(data, dict):
+        raise ProjectFormatError("Запись числового обновления должна быть объектом")
+    raw = data.get("changes")
+    if not isinstance(raw, list) or len(raw) > 10_000:
+        raise ProjectFormatError("Некорректный список числовых изменений")
+    try:
+        changes = []
+        for item in raw:
+            if not isinstance(item, dict):
+                raise ValueError("Ячейка должна быть объектом")
+            changes.append(NumericalCellChange(**{**item, "kind": NumericalUpdateKind(item["kind"])}))
+        return NumericalUpdateRecord(**{**data, "changes": tuple(changes)})
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ProjectFormatError("Некорректная история числовых обновлений") from exc
+
+
 def _dataset_append_record_from_dict(data: object) -> DatasetAppendRecord:
     if not isinstance(data, dict):
         raise ProjectFormatError("Запись истории наращивания должна быть объектом")
@@ -529,6 +548,9 @@ def _dataset_from_dict(data: dict[str, Any]) -> Dataset:
     raw_append_history = data.get("append_history", [])
     if not isinstance(raw_append_history, list):
         raise ProjectFormatError("Поле append_history должно быть списком")
+    raw_numerical_history = data.get("numerical_update_history", [])
+    if not isinstance(raw_numerical_history, list):
+        raise ProjectFormatError("numerical_update_history должен быть списком")
     raw_source_revisions = data.get("source_revisions", [])
     if not isinstance(raw_source_revisions, list):
         raise ProjectFormatError("Поле source_revisions должно быть списком")
@@ -562,6 +584,7 @@ def _dataset_from_dict(data: dict[str, Any]) -> Dataset:
                 _dataset_source_revision_from_dict(item)
                 for item in raw_source_revisions
             ],
+            numerical_update_history=[_numerical_update_record_from_dict(item) for item in raw_numerical_history],
             gas_conditioning_qc=_gas_conditioning_qc_from_dict(
                 data.get("gas_conditioning_qc")
             ),

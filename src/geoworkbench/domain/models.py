@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from geoworkbench.domain.numerical_update import NumericalUpdateRecord
+
 from dataclasses import dataclass, field
 from enum import StrEnum
 from math import isfinite
@@ -269,6 +271,7 @@ class Dataset:
     append_history: list[DatasetAppendRecord] = field(default_factory=list)
     source_revisions: list[DatasetSourceRevision] = field(default_factory=list)
     gas_conditioning_qc: GasConditioningQcSummary | None = None
+    numerical_update_history: list[NumericalUpdateRecord] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if not isinstance(self.append_history, list) or not all(
@@ -279,6 +282,10 @@ class Dataset:
             isinstance(item, DatasetSourceRevision) for item in self.source_revisions
         ):
             raise ValueError("source_revisions должен содержать DatasetSourceRevision")
+        if not isinstance(self.numerical_update_history, list) or not all(
+            isinstance(item, NumericalUpdateRecord) for item in self.numerical_update_history
+        ):
+            raise ValueError("Некорректная история числовых обновлений")
         self.depth = np.asarray(self.depth, dtype=np.float64)
         if self.depth.ndim != 1:
             raise ValueError("Шкала depth должна быть одномерной")

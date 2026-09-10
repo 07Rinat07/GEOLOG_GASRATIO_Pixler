@@ -266,4 +266,19 @@ At the end of a workday, save, close, and reopen the project. Check the old and 
 critical curves, one cuttings sample, LBA/calcimetry, a symbol, and the selected form. Only then
 create the final LAS, PDF, or Masterlog output.
 
-Internal WELL-02 analysis now separates new depth, missing-value fills and corrections. This prepares a future feature: the daily LAS dialog still performs strict append only. Applying corrections and extending geological layers are not yet available.
+## Numerical updates from daily LAS
+
+In the daily LAS dialog, enable “Numerical update”, choose the source, and analyze it.
+Check the axis, units, range, and counts. Select “Append all new rows” separately from the
+required cells in the table. Selecting a correction confirms its exact before/after values;
+unselected historical values stay unchanged. Source NaN never clears data; zero is valid.
+
+The table shows up to 200 changes. Hidden cells are never applied: analyze again after applying
+the selected batch to review the remainder. New rows append across the displayed new range
+regardless of the cell limit. Changing the file, mode, or dataset, or cancelling, resets the review.
+
+“Apply selected” rechecks the source and data, then saves the working `.geologpkg` with a backup.
+The v26 history stores source identity, selected changes, and before/after hashes; v25 projects
+migrate on opening. If saving fails, the complete result stays unsaved in memory: resolve the
+cause and save the project. No successful-save message is shown on failure. This mode does not
+update geology, authored descriptions, or translations.

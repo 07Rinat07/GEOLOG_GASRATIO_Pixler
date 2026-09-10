@@ -553,6 +553,22 @@ def _migrate_positive_minimum_to_zero(payload: dict[str, Any]) -> None:
         payload["x_min"] = 0.0
 
 
+def _migrate_v25_to_v26(payload: ProjectPayload) -> ProjectPayload:
+    migrated = deepcopy(payload)
+    project = migrated.get("project")
+    if not isinstance(project, dict) or not isinstance(project.get("wells", {}), dict):
+        raise ProjectMigrationError("Некорректный проект версии 25")
+    for well in project.get("wells", {}).values():
+        if not isinstance(well, dict) or not isinstance(well.get("datasets", {}), dict):
+            raise ProjectMigrationError("Некорректная скважина версии 25")
+        for dataset in well.get("datasets", {}).values():
+            if not isinstance(dataset, dict):
+                raise ProjectMigrationError("Некорректный dataset версии 25")
+            dataset.setdefault("numerical_update_history", [])
+    migrated["format_version"] = 26
+    return migrated
+
+
 DEFAULT_PROJECT_MIGRATIONS = ProjectMigrationRegistry()
 DEFAULT_PROJECT_MIGRATIONS.register(0, _migrate_legacy_to_v1)
 DEFAULT_PROJECT_MIGRATIONS.register(1, _migrate_v1_to_v2)
@@ -579,6 +595,7 @@ DEFAULT_PROJECT_MIGRATIONS.register(21, _migrate_v21_to_v22)
 DEFAULT_PROJECT_MIGRATIONS.register(22, _migrate_v22_to_v23)
 DEFAULT_PROJECT_MIGRATIONS.register(23, _migrate_v23_to_v24)
 DEFAULT_PROJECT_MIGRATIONS.register(24, _migrate_v24_to_v25)
+DEFAULT_PROJECT_MIGRATIONS.register(25, _migrate_v25_to_v26)
 
 
 def migrate_project_payload(payload: ProjectPayload, target_version: int) -> ProjectPayload:

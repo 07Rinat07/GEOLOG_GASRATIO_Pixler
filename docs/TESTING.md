@@ -1,6 +1,6 @@
 # Проверка качества и release gate
 
-Документ актуален для **GEOLOG GASRATIO@Pixler 0.7.93** на 2 сентября 2026 года. Краткая история
+Документ актуален для **GEOLOG GASRATIO@Pixler 0.7.93** на 9 сентября 2026 года. Краткая история
 находится только в `CHANGELOG.md`; результаты конкретных CI/сборок хранятся как artifacts и не
 заменяют текущие команды проверки.
 
@@ -576,3 +576,20 @@ NaN источника, восходящая/нисходящая ось, лок
 не RSS gate и не проверка транзакционного применения новых режимов.
 
 Полный локальный Windows-прогон этого инкремента завершился с кодом 0: 2904 passed, 8 skipped; 8 основных shards и 124 native-heavy batches. Полные Ruff, mypy (486 модулей), documentation audit и diff check прошли. Bandit не установлен в окружении; полный release security gate и физическая приёмка REL-03 остаются открытыми.
+
+Повторная проверка WELL-02 покрыта в `test_well_update_plan.py`: полный/сокращённый/пустой
+preview, изменение источника, старого участка, локальной кривой, headers, имени/SHA-256
+файла и подмена счётчиков/diff. Успех и отказ сохраняют оба Dataset без изменений.
+
+### Применение WELL-02 и история v26
+
+```powershell
+python scripts/run_tests.py -q -p no:cacheprovider tests/test_well_update_plan.py tests/test_well_update_apply.py tests/test_well_update_workflow.py tests/test_daily_las_growth_dialog.py tests/test_daily_las_growth_autosave.py tests/test_proj04_daily_append_rollback.py
+python -m benchmarks.benchmark_well_update_apply
+```
+
+Покрываются явный выбор ячеек, скрытый/подменённый diff, возрастающая/убывающая ось,
+NaN и ноль, no-op после повторного анализа, ошибки выделения памяти/регистрации источника,
+отмена, external-change, disk-full без ложного успеха, пакетный roundtrip исходных LAS и
+истории, миграция v25 → v26 и отказ повреждённой истории. Benchmark 100k/1M проверяет
+200 выбранных ячеек и предел временной памяти 240 bytes/row + 8 MiB.

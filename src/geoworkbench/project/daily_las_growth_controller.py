@@ -20,6 +20,9 @@ from geoworkbench.domain.models import (
     DatasetSourceRevision,
     DepthDomain,
 )
+from geoworkbench.domain.numerical_update import NumericalCellChange, NumericalUpdateRecord
+from geoworkbench.services.well_update_plan import WellNumericalUpdatePlan, analyze_well_numerical_update
+from geoworkbench.services.well_update_apply import WellNumericalUpdateOutcome, apply_well_numerical_update
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.daily_las_growth import (
     DailyLasGrowthError,
@@ -60,6 +63,8 @@ class _DailyAppendRollbackState:
     source_documents: dict[str, LosslessLasDocument]
     import_reports: dict[str, LasImportReport]
     dirty: bool
+    numerical_update_history: tuple[NumericalUpdateRecord, ...]
+    gas_conditioning_qc: Any
 
     @classmethod
     def capture(
@@ -90,6 +95,8 @@ class _DailyAppendRollbackState:
             source_documents=dict(session.source_documents),
             import_reports=dict(session.import_reports),
             dirty=session.dirty,
+            numerical_update_history=tuple(target.numerical_update_history),
+            gas_conditioning_qc=target.gas_conditioning_qc,
         )
 
     def restore(self, target: Dataset, session: ProjectSession) -> None:
@@ -115,6 +122,8 @@ class _DailyAppendRollbackState:
         target.headers.update(self.headers)
         target.append_history[:] = self.append_history
         target.source_revisions[:] = self.source_revisions
+        target.numerical_update_history[:] = self.numerical_update_history
+        target.gas_conditioning_qc = self.gas_conditioning_qc
 
         session.source_documents.clear()
         session.source_documents.update(self.source_documents)
@@ -131,6 +140,7 @@ class DailyLasGrowthController:
         self._source: LasImportResult | None = None
         self._source_path: Path | None = None
         self._plan: DailyLasGrowthPlan | None = None
+        self._numerical_plan: WellNumericalUpdatePlan | None = None
         self._provider_kind = "manual_file"
         self._provider_location: str | None = None
 
@@ -230,12 +240,70 @@ class DailyLasGrowthController:
             # project state. Any failed commit must be analyzed again.
             self.reset_state()
 
+    def analyze_numerical(
+        self, source_path: str | Path, target_dataset_id: str, *,
+        provider_kind: str = "manual_file", provider_location: str | None = None,
+    ) -> WellNumericalUpdatePlan:
+        self.reset_state()
+        target = self._target(target_dataset_id)
+        path = Path(source_path)
+        imported = import_las_with_report(path, kind=target.kind)
+        digest = self._stable_source_sha256(path)
+        if digest != imported.report.source.sha256:
+            raise DailyLasGrowthError("LAS изменился во время анализа")
+        plan = analyze_well_numerical_update(
+            target, imported.dataset, source_name=path.name, source_sha256=digest,
+        )
+        self._source, self._source_path, self._numerical_plan = imported, path, plan
+        self._provider_kind, self._provider_location = provider_kind, provider_location or str(path)
+        return plan
+
+    def apply_numerical(
+        self, plan: WellNumericalUpdatePlan, *, append_rows: bool = False,
+        selected_changes: tuple[NumericalCellChange, ...] = (),
+    ) -> WellNumericalUpdateOutcome:
+        try:
+            if self._numerical_plan != plan or self._source is None or self._source_path is None:
+                raise DailyLasGrowthError("Сначала повторно проанализируйте LAS")
+            digest = self._stable_source_sha256(self._source_path)
+            target = self._target(plan.target_dataset_id)
+            original_rows = len(target.active_index.values)
+            rollback = _DailyAppendRollbackState.capture(target, self.session)
+            try:
+                outcome = apply_well_numerical_update(
+                    target, self._source.dataset, plan, source_name=self._source_path.name,
+                    source_sha256=digest, append_rows=append_rows, selected_changes=selected_changes,
+                )
+                if outcome.record is not None:
+                    record = outcome.record
+                    self._preserve_initial_source(target, original_rows=original_rows)
+                    self.session.source_documents[record.update_id] = self._source.source_document
+                    target.source_revisions.append(DatasetSourceRevision(
+                        source_revision_id=record.update_id, artifact_id=record.update_id,
+                        source_name=record.source_name, source_sha256=record.source_sha256,
+                        size_bytes=self._source.source_document.size_bytes,
+                        imported_at=record.imported_at, provider_kind=self._provider_kind,
+                        provider_location=self._provider_location,
+                        start_value=plan.start_value, stop_value=plan.stop_value,
+                        rows_added=record.rows_added,
+                        rows_skipped=len(self._source.dataset.active_index.values) - record.rows_added,
+                    ))
+                    self.session.import_reports.pop(target.dataset_id, None)
+                    self.session.dirty = True
+                return outcome
+            except Exception:
+                rollback.restore(target, self.session)
+                raise
+        finally:
+            self.reset_state()
+
     def reset_state(self) -> None:
         """Discard a preview that belongs to a previous file or project."""
 
         self._source = None
         self._source_path = None
         self._plan = None
+        self._numerical_plan = None
         self._provider_kind = "manual_file"
         self._provider_location = None
 
@@ -263,7 +331,7 @@ class DailyLasGrowthController:
             )
         return digest
 
-    def _preserve_initial_source(self, target: Dataset) -> None:
+    def _preserve_initial_source(self, target: Dataset, *, original_rows: int | None = None) -> None:
         document = self.session.source_documents.pop(target.dataset_id, None)
         if document is None:
             return
@@ -272,7 +340,8 @@ class DailyLasGrowthController:
         if any(item.source_sha256 == document.sha256 for item in target.source_revisions):
             return
         index = target.active_index
-        original_rows = max(0, len(index.values) - (target.append_history[-1].rows_added or 0))
+        if original_rows is None:
+            original_rows = max(0, len(index.values) - (target.append_history[-1].rows_added or 0))
         start = str(index.values[0]) if original_rows else ""
         stop = str(index.values[original_rows - 1]) if original_rows else ""
         target.source_revisions.insert(

@@ -142,6 +142,9 @@ from geoworkbench.project.stratigraphy_controller import StratigraphyController
 from geoworkbench.project.stratigraphy_catalog_controller import StratigraphyCatalogController
 from geoworkbench.project.nct_controller import NctCalculationController
 from geoworkbench.project.new_las_controller import NewLasController
+from geoworkbench.services.well_update_plan import WellNumericalUpdatePlan
+from geoworkbench.services.well_update_apply import WellNumericalUpdateOutcome
+from geoworkbench.services.daily_las_growth import DailyLasGrowthOutcome
 from geoworkbench.project.daily_las_growth_controller import DailyLasGrowthController
 from geoworkbench.project.las_range_editor import LasRangeEditingController
 from geoworkbench.project.dataset_export_controller import DatasetExportController
@@ -3933,14 +3936,21 @@ class MainWindow(QMainWindow):
                 self._t("project.save_failed"),
             )
             return
+        outcome: WellNumericalUpdateOutcome | DailyLasGrowthOutcome
         try:
-            outcome = self.daily_las_growth_controller.apply(dialog.plan)
+            if isinstance(dialog.plan, WellNumericalUpdatePlan):
+                outcome = self.daily_las_growth_controller.apply_numerical(
+                    dialog.plan, append_rows=dialog.append_rows.isChecked(),
+                    selected_changes=dialog.selected_numerical_changes(),
+                )
+            else:
+                outcome = self.daily_las_growth_controller.apply(dialog.plan)
         except (OSError, RuntimeError, ValueError) as exc:
             QMessageBox.warning(self, self._t("daily_las_growth.action"), str(exc))
             return
         self.project_controller.select_existing_dataset(dialog.plan.target_dataset_id)
         if outcome.record is None:
-            message = self._t("daily_las_growth.no_changes")
+            message = self._t("daily_las_growth.numerical_no_changes" if isinstance(outcome.plan, WellNumericalUpdatePlan) else "daily_las_growth.no_changes")
             self._refresh_after_daily_las_growth()
             self.statusBar().showMessage(message)
             self._log(message)
@@ -3953,12 +3963,14 @@ class MainWindow(QMainWindow):
             self._handle_daily_las_persist_failure(
                 exc,
                 reason_key="project.external_change",
+                numerical=isinstance(outcome.plan, WellNumericalUpdatePlan),
             )
             return
         except (OSError, ProjectFileSafetyError, RuntimeError, ValueError) as exc:
             self._handle_daily_las_persist_failure(
                 exc,
                 reason_key="project.save_failed",
+                numerical=isinstance(outcome.plan, WellNumericalUpdatePlan),
             )
             return
 
@@ -3967,13 +3979,19 @@ class MainWindow(QMainWindow):
         save_result = self.project_controller.last_save_result
         backup = getattr(save_result, "backup", None)
         backup_path = getattr(backup, "backup_path", None)
-        message = self._t(
-            "daily_las_growth.success",
-            added=outcome.plan.rows_added,
-            skipped=outcome.plan.rows_skipped,
-            project=saved_path,
-            backup=backup_path or "—",
-        )
+        if isinstance(outcome, WellNumericalUpdateOutcome):
+            message = self._t(
+                "daily_las_growth.numerical_success", added=outcome.record.rows_added,
+                changed=len(outcome.record.changes), project=saved_path, backup=backup_path or "—",
+            )
+        else:
+            message = self._t(
+                "daily_las_growth.success",
+                added=outcome.plan.rows_added,
+                skipped=outcome.plan.rows_skipped,
+                project=saved_path,
+                backup=backup_path or "—",
+            )
         self.statusBar().showMessage(message)
         self._log(message)
 
@@ -4063,10 +4081,11 @@ class MainWindow(QMainWindow):
         exc: BaseException,
         *,
         reason_key: str,
+        numerical: bool = False,
     ) -> None:
         self._refresh_after_daily_las_growth()
         message = self._t(
-            "daily_las_growth.persist_failed",
+            "daily_las_growth.numerical_persist_failed" if numerical else "daily_las_growth.persist_failed",
             reason=self._t(reason_key),
         )
         log_exception(

@@ -175,7 +175,7 @@ def test_v24_migration_preserves_conflicting_headers_and_source_payload() -> Non
     migrated = migrate_project_payload(raw, PROJECT_FORMAT_VERSION)
     restored = project_document_from_dict(migrated)
 
-    assert migrated["format_version"] == 25
+    assert migrated["format_version"] == 26
     assert raw == original
     assert migrated["project"]["masterlog_templates"] == project["masterlog_templates"]
     assert all(well.passport is None for well in restored.project.wells.values())
