@@ -59,12 +59,6 @@ class MainWindow(_LegacyMainWindow):
             self.interpretation_controller,
             self.tablet_controller,
         )
-        self.well_analysis_update_controller = WellAnalysisUpdateController(self.session)
-        self.well_analysis_update_workflow = WellAnalysisUpdateWorkflow(
-            self.session,
-            self.well_analysis_update_controller,
-            self.project_controller,
-        )
         self._install_drilling_calculation_action()
         self._install_late_analysis_action()
 
@@ -91,7 +85,7 @@ class MainWindow(_LegacyMainWindow):
         self.late_analysis_import_action = QAction(self)
         self.late_analysis_import_action.setObjectName("lateAnalysisImportAction")
         self.late_analysis_import_action.triggered.connect(
-            self.show_late_analysis_import
+            lambda _checked=False: self.show_late_analysis_import()
         )
         self._retranslate_late_analysis_action()
         before = getattr(self, "open_data_action", None)
@@ -183,8 +177,14 @@ class MainWindow(_LegacyMainWindow):
 
         revision_before = well.content_revision
         history_count_before = len(well.analysis_update_history)
+        controller = WellAnalysisUpdateController(self.session)
+        workflow = WellAnalysisUpdateWorkflow(
+            self.session,
+            controller,
+            self.project_controller,
+        )
         dialog = LateAnalysisReviewDialog(
-            self.well_analysis_update_workflow,
+            workflow,
             imported.source_samples,
             source_name=imported.source_name,
             source_sha256=imported.source_sha256,
