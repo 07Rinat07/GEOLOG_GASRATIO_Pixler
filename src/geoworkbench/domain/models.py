@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from geoworkbench.domain.analysis_update import AnalysisUpdateRecord
 from geoworkbench.domain.numerical_update import NumericalUpdateRecord
 from geoworkbench.domain.geology_update import GeologyUpdateRecord
 
@@ -156,8 +157,6 @@ class DatasetIndex:
             raise ValueError("Confidence индекса должен быть числом")
         if not 0.0 <= self.confidence <= 1.0:
             raise ValueError("Confidence индекса должен находиться в диапазоне 0–1")
-
-
 
 
 @dataclass(frozen=True, slots=True)
@@ -738,6 +737,13 @@ class Well:
     content_revision: int = 1
     language_revisions: dict[str, int] = field(default_factory=dict)
     passport: WellPassport | None = None
+    analysis_update_history: list[AnalysisUpdateRecord] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.analysis_update_history, list) or not all(
+            isinstance(item, AnalysisUpdateRecord) for item in self.analysis_update_history
+        ):
+            raise ValueError("Некорректная история отдельных анализов скважины")
 
 
 @dataclass(slots=True)
