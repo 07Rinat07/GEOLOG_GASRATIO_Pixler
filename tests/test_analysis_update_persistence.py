@@ -146,7 +146,7 @@ def test_project_v28_rejects_unknown_analysis_field() -> None:
     history = payload["project"]["wells"]["well-1"]["analysis_update_history"]
     history[0]["selected_fields"] = ["not_supported"]
 
-    with pytest.raises(ProjectFormatError, match="истори"):
+    with pytest.raises(ProjectFormatError, match="(?i)истори"):
         project_document_from_dict(payload)
 
 
@@ -155,7 +155,7 @@ def test_project_v28_rejects_non_fill_only_analysis_history() -> None:
     history = payload["project"]["wells"]["well-1"]["analysis_update_history"]
     history[0]["changes"][0]["old_value"] = 12.0
 
-    with pytest.raises(ProjectFormatError, match="истори"):
+    with pytest.raises(ProjectFormatError, match="(?i)истори"):
         project_document_from_dict(payload)
 
 
@@ -163,5 +163,5 @@ def test_project_v28_rejects_non_list_analysis_history() -> None:
     payload = _current_payload()
     payload["project"]["wells"]["well-1"]["analysis_update_history"] = {}
 
-    with pytest.raises(ProjectFormatError, match="истори"):
+    with pytest.raises(ProjectFormatError, match="(?i)истори"):
         project_document_from_dict(payload)
