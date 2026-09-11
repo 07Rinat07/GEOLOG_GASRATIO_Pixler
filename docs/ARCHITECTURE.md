@@ -1,4 +1,4 @@
-<!-- runtime-contract: package=0.7.93; project=v27; form=v17; layout=v25 -->
+<!-- runtime-contract: package=0.7.93; project=v28; form=v17; layout=v25 -->
 # Архитектура
 
 Архитектурные решения обновлены 9 сентября 2026 года. Целевые контракты отмечены отдельно
@@ -99,7 +99,7 @@ Daily LAS требует `.geologpkg` до mutation и после реально
 image assets, а `manifest.json` фиксирует путь, размер и SHA-256 каждого элемента. Reader до
 распаковки проверяет число файлов, суммарный размер, коэффициент сжатия, повторяющиеся и
 небезопасные пути; затем проверяет хэш каждого payload и только после этого вызывает project
-codec v27.
+codec v28.
 
 Preview ежедневного append дополнительно хранит два transient fingerprint
 `dataset_append_state_sha256` (контракт `daily-las-preview:1`). Они связывают подтверждение с
@@ -414,7 +414,7 @@ legacy-шаблонам. Наличие постороннего файла, sym
 
 ## Хранение и совместимость
 
-- project format `v27`;
+- project format `v28`;
 - form schema `v17`;
 - tablet layout `v25`;
 - рекомендуемый рабочий проект — `.geologpkg`: versioned JSON, исходные LAS и изображения,
@@ -514,3 +514,16 @@ Benchmark должен измерять latency, scaling ratio, allocations/peak
 и каталог. Контроллер объединяет геологию и числовые изменения одним откатом и сохраняет
 исходный LAS. `geology_update_history` содержит снимок профиля и ID добавленных интервалов.
 Миграция v26 → v27 добавляет пустую историю; существующие ID и данные не меняются.
+
+### Отдельные анализы и project v28
+
+Project v28 добавляет `Well.analysis_update_history` для immutable provenance поздних анализов
+шлама. Запись хранит источник и SHA-256, выбранные поля, точный fill-only diff и хэши состояния
+скважины до/после. Миграция v27 → v28 добавляет пустой well-level ledger и не связывает анализ
+с произвольным Dataset. Декодирование audit fail-closed: неизвестные поля, повреждённые enum,
+не-fill-only изменения и более 10000 записей/изменений отклоняются.
+
+Чтобы изменение формата оставалось узким и проверяемым, доказанный decoder v27 заморожен в
+`storage/project_codec_v27.py`. Текущий `project_codec.py` выполняет миграцию v28, строго
+декодирует только новый well-level ledger и делегирует все прежние структуры v27 без изменения
+их semantics, включая source artifacts, image assets и persisted projections.
