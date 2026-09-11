@@ -18,7 +18,9 @@ from PySide6.QtWidgets import (
 )
 
 from geoworkbench.domain.analysis_update import AnalysisCellChange, AnalysisField
-from geoworkbench.project.well_analysis_update_controller import WellAnalysisUpdateController
+from geoworkbench.project.well_analysis_update_workflow import (
+    WellAnalysisUpdateApplication,
+)
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.well_analysis_update import (
     AnalysisConflict,
@@ -85,7 +87,7 @@ class LateAnalysisReviewDialog(QDialog):
 
     def __init__(
         self,
-        controller: WellAnalysisUpdateController,
+        controller: WellAnalysisUpdateApplication,
         source_samples: tuple[AnalysisSourceSample, ...],
         *,
         source_name: str,
