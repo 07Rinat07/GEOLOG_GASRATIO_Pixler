@@ -142,7 +142,7 @@ def test_prepare_rejects_binding_changed_after_preview(monkeypatch: pytest.Monke
         fake_prepare,
     )
 
-    with pytest.raises(DailyLasGrowthError, match="привязка источника.*изменилась"):
+    with pytest.raises(DailyLasGrowthError, match="Привязка источника.*изменилась"):
         prepare_persisted_well_geology_update(
             session,
             object(),
