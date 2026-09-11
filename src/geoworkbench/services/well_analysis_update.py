@@ -1,8 +1,7 @@
 """Fill-only preview and staged application for late cuttings analyses.
 
-The service is deliberately source-format agnostic. File/network adapters convert their
-payload into :class:`AnalysisSourceSample`; the core then owns interval matching, validation,
-stale-preview protection and immutable audit preparation.
+Adapters convert file/network payloads into :class:`AnalysisSourceSample`. This core owns
+interval binding, validation, stale-preview protection and immutable audit preparation.
 """
 from __future__ import annotations
 
@@ -30,10 +29,7 @@ from geoworkbench.services.lba_standard import (
 
 
 _MAX_REVIEW_ITEMS = 10_000
-_NUMERIC_PERCENT_FIELDS = {
-    AnalysisField.CALCITE_PERCENT,
-    AnalysisField.DOLOMITE_PERCENT,
-}
+_PERCENT_FIELDS = {AnalysisField.CALCITE_PERCENT, AnalysisField.DOLOMITE_PERCENT}
 _INTEGER_FIELDS = {AnalysisField.LBA_GROUP, AnalysisField.LBA_INTENSITY}
 _LBA_FIELDS = {
     AnalysisField.LBA_GROUP,
@@ -152,6 +148,7 @@ def analyze_well_analysis_update(
 
     changes: list[AnalysisCellChange] = []
     conflicts: list[AnalysisConflict] = []
+    matched_target_ids: set[str] = set()
     missing = ignored_empty = equal = 0
 
     for source in normalized_source:
@@ -159,6 +156,10 @@ def analyze_well_analysis_update(
         if target is None:
             missing += 1
             continue
+        if target.sample_id in matched_target_ids:
+            raise AnalysisUpdateError("Источник содержит повтор одного целевого образца анализа")
+        matched_target_ids.add(target.sample_id)
+
         patch_changes: list[AnalysisCellChange] = []
         for item in source.values:
             if item.field not in fields:
@@ -170,15 +171,16 @@ def analyze_well_analysis_update(
             assert incoming is not None
             current = getattr(target, item.field.value)
             if _is_empty(current):
-                change = AnalysisCellChange(
-                    target.sample_id,
-                    float(target.top_depth),
-                    float(target.bottom_depth),
-                    item.field,
-                    _audit_scalar(current),
-                    incoming,
+                patch_changes.append(
+                    AnalysisCellChange(
+                        sample_id=target.sample_id,
+                        top_depth=float(target.top_depth),
+                        bottom_depth=float(target.bottom_depth),
+                        field=item.field,
+                        old_value=_audit_scalar(current),
+                        new_value=incoming,
+                    )
                 )
-                patch_changes.append(change)
                 continue
             if _values_equal(item.field, current, incoming):
                 equal += 1
@@ -186,7 +188,10 @@ def analyze_well_analysis_update(
             existing = _audit_scalar(current)
             if existing is None:
                 raise AnalysisUpdateError("Внутренняя ошибка нормализации анализа")
-            conflicts.append(AnalysisConflict(target.sample_id, item.field, existing, incoming))
+            conflicts.append(
+                AnalysisConflict(target.sample_id, item.field, existing, incoming)
+            )
+
         _validate_proposed_patch(target, patch_changes)
         changes.extend(patch_changes)
         if len(changes) + len(conflicts) > _MAX_REVIEW_ITEMS:
@@ -259,15 +264,15 @@ def prepare_well_analysis_update(
         _validate_staged_sample(updated, changed_fields_by_sample[sample.sample_id])
         staged.append(updated)
 
-    if len(staged) != len(well.cuttings):
-        raise AnalysisUpdateError("Не удалось подготовить все образцы анализа")
     staged_well = replace(
         well,
         cuttings=staged,
         content_revision=well.content_revision + 1,
     )
     applied_fields = tuple(
-        field for field in plan.selected_fields if any(change.field is field for change in ordered_changes)
+        field
+        for field in plan.selected_fields
+        if any(change.field is field for change in ordered_changes)
     )
     record = AnalysisUpdateRecord(
         update_id=str(uuid4()),
@@ -332,19 +337,28 @@ def _normalize_source_samples(
         raise AnalysisUpdateError("Источник анализов должен быть неизменяемым tuple")
     if len(source_samples) > _MAX_REVIEW_ITEMS:
         raise AnalysisUpdateError("Более 10000 записей анализа: разделите источник")
+
     normalized: list[AnalysisSourceSample] = []
     identities: set[tuple[str, str | float, float | None]] = set()
     for source in source_samples:
         if not isinstance(source, AnalysisSourceSample):
             raise AnalysisUpdateError("Источник содержит неизвестный тип записи анализа")
-        identity: tuple[str, str | float, float | None]
         if source.target_sample_id is not None:
-            identity = ("id", source.target_sample_id, None)
+            identity: tuple[str, str | float, float | None] = (
+                "id",
+                source.target_sample_id,
+                None,
+            )
         else:
-            identity = ("interval", float(source.top_depth), float(source.bottom_depth))
+            identity = (
+                "interval",
+                float(source.top_depth),
+                float(source.bottom_depth),
+            )
         if identity in identities:
             raise AnalysisUpdateError("Источник содержит повтор одного образца анализа")
         identities.add(identity)
+
         values = tuple(
             AnalysisSourceValue(item.field, _normalize_value(item.field, item.value))
             for item in source.values
@@ -382,17 +396,17 @@ def _match_target(
     by_id: dict[str, CuttingsSample],
     by_interval: dict[tuple[float, float], CuttingsSample],
 ) -> CuttingsSample | None:
-    if source.target_sample_id is not None:
-        target = by_id.get(source.target_sample_id)
-        if target is None:
-            return None
-        if (
-            float(target.top_depth) != float(source.top_depth)
-            or float(target.bottom_depth) != float(source.bottom_depth)
-        ):
-            raise AnalysisUpdateError("sample_id источника не совпадает с интервалом проекта")
-        return target
-    return by_interval.get((float(source.top_depth), float(source.bottom_depth)))
+    if source.target_sample_id is None:
+        return by_interval.get((float(source.top_depth), float(source.bottom_depth)))
+    target = by_id.get(source.target_sample_id)
+    if target is None:
+        return None
+    if (
+        float(target.top_depth) != float(source.top_depth)
+        or float(target.bottom_depth) != float(source.bottom_depth)
+    ):
+        raise AnalysisUpdateError("sample_id источника не совпадает с интервалом проекта")
+    return target
 
 
 def _normalize_value(
@@ -403,7 +417,7 @@ def _normalize_value(
         return None
     if isinstance(value, bool):
         raise AnalysisUpdateError(f"Поле {field.value} не принимает bool")
-    if field in _NUMERIC_PERCENT_FIELDS:
+    if field in _PERCENT_FIELDS:
         if not isinstance(value, (int, float)) or not isfinite(float(value)):
             raise AnalysisUpdateError(f"Поле {field.value} должно быть конечным числом")
         number = float(value)
@@ -447,13 +461,15 @@ def _validate_source_lba(values: tuple[AnalysisSourceValue, ...]) -> None:
     color = provided.get(AnalysisField.LBA_COLOR)
     intensity = provided.get(AnalysisField.LBA_INTENSITY)
     assessment = assess_lba_standard(
-        group=int(group) if isinstance(group, int) else None,
-        type_id=str(type_id) if isinstance(type_id, str) else None,
-        color=str(color) if isinstance(color, str) else None,
-        intensity=int(intensity) if isinstance(intensity, int) else None,
+        group=group if isinstance(group, int) else None,
+        type_id=type_id if isinstance(type_id, str) else None,
+        color=color if isinstance(color, str) else None,
+        intensity=intensity if isinstance(intensity, int) else None,
     )
     if assessment is not None and assessment.conflicts:
-        raise AnalysisUpdateError("Несогласованные поля ЛБА в источнике: " + "; ".join(assessment.conflicts))
+        raise AnalysisUpdateError(
+            "Несогласованные поля ЛБА в источнике: " + "; ".join(assessment.conflicts)
+        )
 
 
 def _validate_proposed_patch(
@@ -462,13 +478,12 @@ def _validate_proposed_patch(
 ) -> None:
     if not changes:
         return
-    values = {change.field.value: change.new_value for change in changes}
-    staged = replace(target, **values)
-    _validate_staged_sample(staged, {change.field for change in changes})
+    updated = replace(target, **{item.field.value: item.new_value for item in changes})
+    _validate_staged_sample(updated, {item.field for item in changes})
 
 
 def _validate_staged_sample(sample: CuttingsSample, changed_fields: set[AnalysisField]) -> None:
-    if changed_fields & _NUMERIC_PERCENT_FIELDS:
+    if changed_fields & _PERCENT_FIELDS:
         calcite = sample.calcite_percent
         dolomite = sample.dolomite_percent
         for value, label in ((calcite, "calcite_percent"), (dolomite, "dolomite_percent")):
@@ -483,9 +498,13 @@ def _validate_staged_sample(sample: CuttingsSample, changed_fields: set[Analysis
             raise AnalysisUpdateError("Сумма кальцита и доломита не может превышать 100%")
 
     if changed_fields & _LBA_FIELDS:
-        if sample.lba_group is not None and not 1 <= sample.lba_group <= 5:
+        if sample.lba_group is not None and (
+            isinstance(sample.lba_group, bool) or not 1 <= sample.lba_group <= 5
+        ):
             raise AnalysisUpdateError("Группа ЛБА должна быть от 1 до 5")
-        if sample.lba_intensity is not None and not 1 <= sample.lba_intensity <= 5:
+        if sample.lba_intensity is not None and (
+            isinstance(sample.lba_intensity, bool) or not 1 <= sample.lba_intensity <= 5
+        ):
             raise AnalysisUpdateError("Интенсивность ЛБА должна быть от 1 до 5")
         if sample.lba_type_id and lba_standard_type(sample.lba_type_id) is None:
             raise AnalysisUpdateError("Сохранённый тип ЛБА не поддерживается стандартом")
@@ -499,16 +518,16 @@ def _validate_staged_sample(sample: CuttingsSample, changed_fields: set[Analysis
         )
         if assessment is not None and assessment.conflicts:
             raise AnalysisUpdateError(
-                "Late-analysis создаёт несогласованный ЛБА: " + "; ".join(assessment.conflicts)
+                "Late-analysis создаёт несогласованный ЛБА: "
+                + "; ".join(assessment.conflicts)
             )
 
 
 def _values_equal(field: AnalysisField, current: object, incoming: AnalysisScalar) -> bool:
     try:
-        normalized = _normalize_value(field, _audit_scalar(current))
+        return _normalize_value(field, _audit_scalar(current)) == incoming
     except AnalysisUpdateError:
         return False
-    return normalized == incoming
 
 
 def _audit_scalar(value: object) -> AnalysisScalar | None:
