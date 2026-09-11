@@ -1,1743 +1,179 @@
+"""Project codec v28 compatibility layer for WELL-02 late-analysis audit.
+
+The v27 decoder is frozen in ``project_codec_v27``. Version 28 adds one well-level
+ledger and delegates every pre-existing project structure to that proven decoder.
+"""
 from __future__ import annotations
 
-from geoworkbench.domain.geology_update import GeologyUpdateRecord
-from geoworkbench.services.rock_code_dictionary import RockCodeDictionary
-from geoworkbench.domain.numerical_update import NumericalCellChange, NumericalUpdateKind, NumericalUpdateRecord
-
 import json
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import numpy as np
-
-from geoworkbench.domain.acquisition import (
-    AcquisitionCheckpoint,
-    AcquisitionCurveSchema,
-    AcquisitionDataRowPayload,
-    AcquisitionDatasetSchema,
-    AcquisitionEventDeletePayload,
-    AcquisitionEventUpsertPayload,
-    AcquisitionIndexSchema,
-    AcquisitionRecord,
-    AcquisitionRecordKind,
-    AcquisitionRecordPayload,
-    AcquisitionSession,
-    AcquisitionSessionState,
+from geoworkbench.domain.analysis_update import (
+    AnalysisCellChange,
+    AnalysisField,
+    AnalysisUpdateRecord,
 )
-
-from geoworkbench.domain.lag_correction import (
-    AnnularVolumeFlowLagParameters,
-    ConstantTimeLagParameters,
-    ControlPointLagParameters,
-    LagCorrectionMethod,
-    LagCorrectionProfile,
-    LagCorrectionRevision,
-    LagCorrectionTarget,
-    LagDepthControlPoint,
-    PumpStrokeLagParameters,
-)
-
-from geoworkbench.domain.gas_conditioning_qc import (
-    GasComponentConditioningQc,
-    GasConditioningQcInterval,
-    GasConditioningQcSummary,
-)
-
-from geoworkbench.domain.operational_events import (
-    CasingEventPayload,
-    ConnectionEventPayload,
-    DrillingEventPayload,
-    FormationTopEventPayload,
-    GasEventPayload,
-    OperationalEvent,
-    OperationalEventKind,
-    OperationalEventQcFlag,
-    SampleEventPayload,
-    ShowEventPayload,
-)
-
-from geoworkbench.domain.models import (
-    CalculationState,
-    CanvasObject,
-    CurveData,
-    CurveMetadata,
-    CustomFormulaDefinition,
-    CuttingsComponent,
-    CuttingsSample,
-    Dataset,
-    DatasetAppendRecord,
-    DatasetSourceRevision,
-    DatasetIndex,
-    DatasetKind,
-    DepthDomain,
-    IndexRole,
-    IndexType,
-    TimeDepthAggregationPolicy,
-    TimeDepthMappingProfile,
-    LithologyInterval,
-    LogoCatalogEntry,
-    InterpretationInterval,
-    WellInterpretation,
-    MasterlogColumnTemplate,
-    MasterlogCurveStyle,
-    MasterlogHeaderElement,
-    MasterlogTemplate,
-    Project,
-    ProjectLithotype,
-    ProjectStratigraphyUnit,
-    StratigraphyInterval,
-    Well,
-    ExportProfile,
-)
-from geoworkbench.domain.localized_content import validate_localized_texts
-from geoworkbench.domain.well_passport import WellPassport, validate_passport
-from geoworkbench.tablet.layout_codec import TabletLayoutFormatError, layout_from_dict
-from geoworkbench.tablet.models import TabletLayout
-from geoworkbench.catalogs.sensors import normalize_sensor_key
+from geoworkbench.domain.models import Project
+from geoworkbench.storage import project_codec_v27 as _v27
+from geoworkbench.storage.project_codec_v27 import ProjectDocument, ProjectFormatError
 from geoworkbench.storage.project_migrations import (
     ProjectMigrationError,
     migrate_project_payload,
 )
-from geoworkbench.data.lossless_las import LosslessLasDocument
-from geoworkbench.data.las_import_report import (
-    LasImportIssue,
-    LasImportReport,
-    LasIssueSeverity,
-    LasSourceSnapshot,
-    validate_import_report,
-)
-from geoworkbench.services.acquisition import AcquisitionController, AcquisitionError
-from geoworkbench.services.lag_correction import (
-    LagCorrectionConflictError,
-    LagCorrectionController,
-)
-from geoworkbench.services.depth_axis import DepthAxisReport, DepthDirection
-from geoworkbench.services.las_parameter_resolver import infer_canonical_mnemonic
-from geoworkbench.services.operational_event_controller import OperationalEventConflictError
-from geoworkbench.services.semantic_channels import (
-    SemanticChannelBinding,
-    default_semantic_channel_dictionary,
-)
-from geoworkbench.services.uom_dictionary import QuantityClass
-from geoworkbench.services.text_normalization import clean_display_text, clean_mnemonic
-from geoworkbench.printing.image_assets import ImageAsset, ImageAssetError, load_image_assets
-from geoworkbench.storage.source_artifacts import (
-    SourceArtifactError,
-    load_source_documents,
-    validate_artifact_manifest,
-)
 
 
-PROJECT_FORMAT_VERSION = 27
-
-
-@dataclass(slots=True)
-class ProjectDocument:
-    project: Project
-    tablet_layouts: dict[str, TabletLayout] = field(default_factory=dict)
-    tablet_presets: dict[str, TabletLayout] = field(default_factory=dict)
-    source_documents: dict[str, LosslessLasDocument] = field(default_factory=dict)
-    import_reports: dict[str, LasImportReport] = field(default_factory=dict)
-    image_assets: dict[str, ImageAsset] = field(default_factory=dict)
-
-
-class ProjectFormatError(RuntimeError):
-    """Raised when a project JSON file cannot be safely reconstructed."""
-
-
-def _required(data: dict[str, Any], key: str, expected: type) -> Any:
-    value = data.get(key)
-    if not isinstance(value, expected):
-        raise ProjectFormatError(f"Поле '{key}' отсутствует или имеет неверный тип")
-    return value
-
-
-def _required_int(data: dict[str, Any], key: str) -> int:
-    value = data.get(key)
-    if not isinstance(value, int) or isinstance(value, bool):
-        raise ProjectFormatError(f"Поле '{key}' отсутствует или не является целым числом")
-    return value
-
-
-def _semantic_binding_from_dict(data: dict[str, Any]) -> SemanticChannelBinding:
-    raw_aliases = data.get("aliases", [])
-    raw_evidence = data.get("evidence", [])
-    if not isinstance(raw_aliases, list) or not all(
-        isinstance(item, str) for item in raw_aliases
-    ):
-        raise ProjectFormatError("Semantic aliases must be a list of strings")
-    if not isinstance(raw_evidence, list) or not all(
-        isinstance(item, str) for item in raw_evidence
-    ):
-        raise ProjectFormatError("Semantic evidence must be a list of strings")
-    try:
-        return SemanticChannelBinding(
-            canonical_kind=str(_required(data, "canonical_kind", str)),
-            canonical_mnemonic=clean_mnemonic(_required(data, "canonical_mnemonic", str)),
-            quantity_class=QuantityClass(str(_required(data, "quantity_class", str))),
-            canonical_uom=clean_display_text(data.get("canonical_uom")) or None,
-            source_uom=clean_display_text(data.get("source_uom")) or None,
-            aliases=tuple(raw_aliases),
-            sensor_id=(str(data["sensor_id"]) if data.get("sensor_id") is not None else None),
-            source=(str(data["source"]) if data.get("source") is not None else None),
-            family=str(data.get("family", "other")),
-            category=str(data.get("category", "unknown")),
-            source_mnemonic=clean_display_text(_required(data, "source_mnemonic", str)),
-            confidence=float(data.get("confidence", 0.0)),
-            matched_by=str(data.get("matched_by", "unresolved")),
-            evidence=tuple(raw_evidence),
-        )
-    except (TypeError, ValueError) as exc:
-        raise ProjectFormatError("Invalid semantic channel binding") from exc
-
-
-def _curve_from_dict(data: dict[str, Any]) -> CurveData:
-    metadata_data = _required(data, "metadata", dict)
-    original_mnemonic = clean_mnemonic(_required(metadata_data, "original_mnemonic", str))
-    stored_canonical = (
-        clean_mnemonic(metadata_data.get("canonical_mnemonic"))
-        if metadata_data.get("canonical_mnemonic")
-        else None
-    )
-    unit = clean_display_text(metadata_data.get("unit")) or None
-    description = clean_display_text(metadata_data.get("description")) or None
-    inferred_canonical = infer_canonical_mnemonic(
-        original_mnemonic,
-        description=description or "",
-        unit=unit or "",
-    )
-    # Old project versions often stored original.upper() as the canonical value. Upgrade
-    # only that placeholder. A canonical name explicitly different from the original is a
-    # user/catalog decision and must remain authoritative.
-    canonical_mnemonic = stored_canonical
-    if not stored_canonical or normalize_sensor_key(stored_canonical) == normalize_sensor_key(
-        original_mnemonic
-    ):
-        canonical_mnemonic = inferred_canonical or stored_canonical
-    raw_semantic = metadata_data.get("semantic")
-    if raw_semantic is not None and not isinstance(raw_semantic, dict):
-        raise ProjectFormatError("Curve semantic binding must be an object")
-    semantic = (
-        _semantic_binding_from_dict(raw_semantic)
-        if isinstance(raw_semantic, dict)
-        else default_semantic_channel_dictionary().resolve(
-            original_mnemonic,
-            description=description or "",
-            unit=unit or "",
-            canonical_mnemonic=canonical_mnemonic,
-        )
-    )
-    metadata = CurveMetadata(
-        curve_id=str(_required(metadata_data, "curve_id", str)),
-        original_mnemonic=original_mnemonic,
-        canonical_mnemonic=semantic.canonical_mnemonic,
-        unit=unit,
-        description=description,
-        source_dataset_id=str(_required(metadata_data, "source_dataset_id", str)),
-        provenance=str(metadata_data.get("provenance", "source")),
-        semantic=semantic,
-    )
-    values = np.asarray(_required(data, "values", list), dtype=np.float64)
-    try:
-        state = CalculationState(str(data.get("state", CalculationState.CURRENT.value)))
-    except ValueError as exc:
-        raise ProjectFormatError(f"Неизвестное состояние кривой: {data.get('state')}") from exc
-    return CurveData(
-        metadata=metadata,
-        values=values,
-        version=int(data.get("version", 1)),
-        state=state,
-    )
-
-
-def _index_from_dict(data: dict[str, Any]) -> DatasetIndex:
-    try:
-        index_type = IndexType(str(_required(data, "index_type", str)))
-        role = IndexRole(str(_required(data, "role", str)))
-    except ValueError as exc:
-        raise ProjectFormatError("Неизвестный тип или роль индекса") from exc
-    raw_values = _required(data, "values", list)
-    values = (
-        np.asarray(raw_values, dtype=np.int64).astype("datetime64[ns]")
-        if index_type is IndexType.DATETIME
-        else np.asarray(raw_values, dtype=np.float64)
-    )
-    evidence = data.get("evidence", [])
-    if not isinstance(evidence, list) or not all(isinstance(item, str) for item in evidence):
-        raise ProjectFormatError("Evidence индекса должен быть списком строк")
-    try:
-        return DatasetIndex(
-            index_id=str(_required(data, "index_id", str)),
-            mnemonic=clean_mnemonic(_required(data, "mnemonic", str)),
-            index_type=index_type,
-            role=role,
-            unit=clean_display_text(data.get("unit")) or None,
-            values=values,
-            confidence=float(data.get("confidence", 1.0)),
-            evidence=tuple(evidence),
-            datetime_format=data.get("datetime_format"),
-            timezone=data.get("timezone"),
-        )
-    except (TypeError, ValueError) as exc:
-        raise ProjectFormatError("Некорректные данные индекса") from exc
-
-
-def _import_report_from_dict(data: dict[str, Any]) -> LasImportReport:
-    source_data = _required(data, "source", dict)
-    depth_data = _required(data, "depth_axis", dict)
-    raw_sections = _required(source_data, "section_names", list)
-    if not all(isinstance(item, str) for item in raw_sections):
-        raise ProjectFormatError("section_names отчёта должен быть списком строк")
-    try:
-        source = LasSourceSnapshot(
-            path=Path(_required(source_data, "path", str)),
-            size_bytes=_required_int(source_data, "size_bytes"),
-            sha256=str(_required(source_data, "sha256", str)),
-            encoding=str(_required(source_data, "encoding", str)),
-            newline_style=str(_required(source_data, "newline_style", str)),
-            section_names=tuple(raw_sections),
-            las_version=source_data.get("las_version"),
-            wrap=source_data.get("wrap"),
-            null_value=_optional_float_field(source_data, "null_value"),
-        )
-        depth_axis = DepthAxisReport(
-            direction=DepthDirection(str(_required(depth_data, "direction", str))),
-            start=_optional_float_field(depth_data, "start"),
-            stop=_optional_float_field(depth_data, "stop"),
-            nominal_step=_optional_float_field(depth_data, "nominal_step"),
-            is_uniform=bool(_required(depth_data, "is_uniform", bool)),
-            duplicate_count=_required_int(depth_data, "duplicate_count"),
-            missing_count=_required_int(depth_data, "missing_count"),
-            gap_count=_required_int(depth_data, "gap_count"),
-        )
-    except (TypeError, ValueError) as exc:
-        raise ProjectFormatError("Некорректный source/depth provenance") from exc
-    raw_issues = _required(data, "issues", list)
-    issues: list[LasImportIssue] = []
-    try:
-        for item in raw_issues:
-            if not isinstance(item, dict):
-                raise TypeError("issue должен быть объектом")
-            issues.append(
-                LasImportIssue(
-                    code=str(_required(item, "code", str)),
-                    severity=LasIssueSeverity(str(_required(item, "severity", str))),
-                    message=str(_required(item, "message", str)),
-                )
-            )
-    except (TypeError, ValueError) as exc:
-        raise ProjectFormatError("Некорректный список import issues") from exc
-    report = LasImportReport(source, depth_axis, tuple(issues))
-    try:
-        validate_import_report(report)
-    except ValueError as exc:
-        raise ProjectFormatError(str(exc)) from exc
-    return report
-
-
-def _optional_float_field(data: dict[str, Any], key: str) -> float | None:
-    value = data.get(key)
-    if isinstance(value, bool):
-        raise ProjectFormatError(f"Поле '{key}' не может быть логическим")
-    return float(value) if value is not None else None
-
-
-def _optional_bool_field(data: dict[str, Any], key: str, *, default: bool) -> bool:
-    value = data.get(key, default)
-    if not isinstance(value, bool):
-        raise ProjectFormatError(f"Поле '{key}' должно быть логическим значением")
-    return value
-
-
-def _geology_update_record_from_dict(data: object) -> GeologyUpdateRecord:
-    if not isinstance(data, dict):
-        raise ProjectFormatError("Запись геологического обновления должна быть объектом")
-    try:
-        for key in ("lithology_ids", "cuttings_ids"):
-            if not isinstance(data.get(key), list) or len(data[key]) > 10_000:
-                raise ValueError("Некорректный список интервалов")
-        record = GeologyUpdateRecord(**{**data, "lithology_ids": tuple(data["lithology_ids"]),
-                                       "cuttings_ids": tuple(data["cuttings_ids"])})
-        RockCodeDictionary.from_json(record.profile_json)
-        return record
-    except (KeyError, TypeError, ValueError) as exc:
-        raise ProjectFormatError("Некорректная история геологических обновлений") from exc
-
-
-def _numerical_update_record_from_dict(data: object) -> NumericalUpdateRecord:
-    if not isinstance(data, dict):
-        raise ProjectFormatError("Запись числового обновления должна быть объектом")
-    raw = data.get("changes")
-    if not isinstance(raw, list) or len(raw) > 10_000:
-        raise ProjectFormatError("Некорректный список числовых изменений")
-    try:
-        changes = []
-        for item in raw:
-            if not isinstance(item, dict):
-                raise ValueError("Ячейка должна быть объектом")
-            changes.append(NumericalCellChange(**{**item, "kind": NumericalUpdateKind(item["kind"])}))
-        return NumericalUpdateRecord(**{**data, "changes": tuple(changes)})
-    except (KeyError, TypeError, ValueError) as exc:
-        raise ProjectFormatError("Некорректная история числовых обновлений") from exc
-
-
-def _dataset_append_record_from_dict(data: object) -> DatasetAppendRecord:
-    if not isinstance(data, dict):
-        raise ProjectFormatError("Запись истории наращивания должна быть объектом")
-    raw_curves = data.get("curve_mnemonics", [])
-    if not isinstance(raw_curves, list) or not all(isinstance(item, str) for item in raw_curves):
-        raise ProjectFormatError("curve_mnemonics истории наращивания должен быть списком строк")
-    try:
-        return DatasetAppendRecord(
-            import_id=str(_required(data, "import_id", str)),
-            source_name=str(_required(data, "source_name", str)),
-            source_sha256=str(_required(data, "source_sha256", str)),
-            imported_at=str(_required(data, "imported_at", str)),
-            index_role=IndexRole(str(_required(data, "index_role", str))),
-            index_type=IndexType(str(_required(data, "index_type", str))),
-            index_unit=(str(data["index_unit"]) if data.get("index_unit") is not None else None),
-            start_value=str(_required(data, "start_value", str)),
-            stop_value=str(_required(data, "stop_value", str)),
-            rows_added=_required_int(data, "rows_added"),
-            rows_skipped=_required_int(data, "rows_skipped"),
-            curve_mnemonics=tuple(raw_curves),
-            source_artifact_id=(
-                str(data["source_artifact_id"])
-                if data.get("source_artifact_id") is not None
-                else None
-            ),
-            provider_kind=str(data.get("provider_kind", "manual_file")),
-            provider_location=(
-                str(data["provider_location"])
-                if data.get("provider_location") is not None
-                else None
-            ),
-            dataset_sha256_before=(
-                str(data["dataset_sha256_before"])
-                if data.get("dataset_sha256_before") is not None
-                else None
-            ),
-            dataset_sha256_after=(
-                str(data["dataset_sha256_after"])
-                if data.get("dataset_sha256_after") is not None
-                else None
-            ),
-        )
-    except (TypeError, ValueError) as exc:
-        raise ProjectFormatError("Некорректная запись истории наращивания LAS") from exc
-
-
-def _dataset_source_revision_from_dict(data: object) -> DatasetSourceRevision:
-    if not isinstance(data, dict):
-        raise ProjectFormatError("Запись ревизии LAS-источника должна быть объектом")
-    try:
-        return DatasetSourceRevision(
-            source_revision_id=str(_required(data, "source_revision_id", str)),
-            artifact_id=str(_required(data, "artifact_id", str)),
-            source_name=str(_required(data, "source_name", str)),
-            source_sha256=str(_required(data, "source_sha256", str)),
-            size_bytes=_required_int(data, "size_bytes"),
-            imported_at=str(_required(data, "imported_at", str)),
-            provider_kind=str(data.get("provider_kind", "manual_file")),
-            provider_location=(
-                str(data["provider_location"])
-                if data.get("provider_location") is not None
-                else None
-            ),
-            start_value=str(data.get("start_value", "")),
-            stop_value=str(data.get("stop_value", "")),
-            rows_added=int(data.get("rows_added", 0)),
-            rows_skipped=int(data.get("rows_skipped", 0)),
-        )
-    except (TypeError, ValueError) as exc:
-        raise ProjectFormatError("Некорректная ревизия LAS-источника") from exc
-
-
-
-def _required_qc_float(data: dict[str, Any], key: str) -> float:
-    value = data.get(key)
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise ProjectFormatError(f"Поле QC '{key}' должно быть числом")
-    return float(value)
-
-
-def _gas_conditioning_qc_interval_from_dict(data: object) -> GasConditioningQcInterval:
-    if not isinstance(data, dict):
-        raise ProjectFormatError("QC-интервал кондиционирования должен быть объектом")
-    _require_exact_keys(
-        data,
-        {"minimum_depth", "maximum_depth", "sample_count"},
-        "gas conditioning QC interval",
-    )
-    try:
-        return GasConditioningQcInterval(
-            minimum_depth=_required_qc_float(data, "minimum_depth"),
-            maximum_depth=_required_qc_float(data, "maximum_depth"),
-            sample_count=_required_int(data, "sample_count"),
-        )
-    except (TypeError, ValueError) as exc:
-        raise ProjectFormatError("Некорректный QC-интервал кондиционирования") from exc
-
-
-def _gas_component_conditioning_qc_from_dict(
-    data: object,
-) -> GasComponentConditioningQc:
-    if not isinstance(data, dict):
-        raise ProjectFormatError("QC газового компонента должен быть объектом")
-    _require_exact_keys(
-        data,
-        {
-            "mnemonic",
-            "interpolated_sample_count",
-            "interpolated_intervals",
-            "max_gap",
-        },
-        "gas component conditioning QC",
-    )
-    raw_intervals = _required(data, "interpolated_intervals", list)
-    max_gap = data.get("max_gap")
-    if max_gap is not None and (
-        isinstance(max_gap, bool) or not isinstance(max_gap, (int, float))
-    ):
-        raise ProjectFormatError("max_gap QC должен быть числом или null")
-    try:
-        return GasComponentConditioningQc(
-            mnemonic=str(_required(data, "mnemonic", str)),
-            interpolated_sample_count=_required_int(data, "interpolated_sample_count"),
-            interpolated_intervals=tuple(
-                _gas_conditioning_qc_interval_from_dict(item) for item in raw_intervals
-            ),
-            max_gap=float(max_gap) if max_gap is not None else None,
-        )
-    except (TypeError, ValueError) as exc:
-        raise ProjectFormatError("Некорректный QC газового компонента") from exc
-
-
-def _gas_conditioning_qc_from_dict(data: object) -> GasConditioningQcSummary | None:
-    if data is None:
-        return None
-    if not isinstance(data, dict):
-        raise ProjectFormatError("gas_conditioning_qc должен быть объектом или null")
-    _require_exact_keys(
-        data,
-        {
-            "nominal_depth_step",
-            "affected_depth_row_count",
-            "interpolated_component_sample_count",
-            "components",
-        },
-        "gas conditioning QC summary",
-    )
-    raw_components = _required(data, "components", list)
-    try:
-        return GasConditioningQcSummary(
-            nominal_depth_step=_required_qc_float(data, "nominal_depth_step"),
-            affected_depth_row_count=_required_int(data, "affected_depth_row_count"),
-            interpolated_component_sample_count=_required_int(
-                data, "interpolated_component_sample_count"
-            ),
-            components=tuple(
-                _gas_component_conditioning_qc_from_dict(item) for item in raw_components
-            ),
-        )
-    except (TypeError, ValueError) as exc:
-        raise ProjectFormatError("Некорректный gas conditioning QC summary") from exc
-
-
-def _dataset_from_dict(data: dict[str, Any]) -> Dataset:
-    try:
-        kind = DatasetKind(str(_required(data, "kind", str)))
-        depth_domain = DepthDomain(str(_required(data, "depth_domain", str)))
-    except ValueError as exc:
-        raise ProjectFormatError("Неизвестный тип набора данных или шкалы глубины") from exc
-
-    raw_indexes = data.get("indexes", {})
-    if not isinstance(raw_indexes, dict):
-        raise ProjectFormatError("Поле indexes должно быть объектом")
-    indexes = {
-        str(index_id): _index_from_dict(item)
-        for index_id, item in raw_indexes.items()
-        if isinstance(item, dict)
-    }
-    if len(indexes) != len(raw_indexes):
-        raise ProjectFormatError("Запись индекса должна быть объектом")
-    raw_append_history = data.get("append_history", [])
-    if not isinstance(raw_append_history, list):
-        raise ProjectFormatError("Поле append_history должно быть списком")
-    raw_geology_history = data.get("geology_update_history", [])
-    if not isinstance(raw_geology_history, list):
-        raise ProjectFormatError("geology_update_history должен быть списком")
-    raw_numerical_history = data.get("numerical_update_history", [])
-    if not isinstance(raw_numerical_history, list):
-        raise ProjectFormatError("numerical_update_history должен быть списком")
-    raw_source_revisions = data.get("source_revisions", [])
-    if not isinstance(raw_source_revisions, list):
-        raise ProjectFormatError("Поле source_revisions должно быть списком")
-    try:
-        dataset = Dataset(
-            dataset_id=str(_required(data, "dataset_id", str)),
-            name=clean_display_text(_required(data, "name", str)),
-            kind=kind,
-            depth_domain=depth_domain,
-            depth=np.asarray(_required(data, "depth", list), dtype=np.float64),
-            source_path=Path(data["source_path"]) if data.get("source_path") else None,
-            version_headers={
-                clean_mnemonic(k): clean_display_text(v)
-                for k, v in dict(data.get("version_headers", {})).items()
-            },
-            headers={
-                clean_mnemonic(k): clean_display_text(v)
-                for k, v in dict(data.get("headers", {})).items()
-            },
-            parameters={
-                clean_mnemonic(k): clean_display_text(v)
-                for k, v in dict(data.get("parameters", {})).items()
-            },
-            indexes=indexes,
-            active_index_id=data.get("active_index_id"),
-            append_history=[
-                _dataset_append_record_from_dict(item)
-                for item in raw_append_history
-            ],
-            source_revisions=[
-                _dataset_source_revision_from_dict(item)
-                for item in raw_source_revisions
-            ],
-            numerical_update_history=[_numerical_update_record_from_dict(item) for item in raw_numerical_history],
-            geology_update_history=[_geology_update_record_from_dict(item) for item in raw_geology_history],
-            gas_conditioning_qc=_gas_conditioning_qc_from_dict(
-                data.get("gas_conditioning_qc")
-            ),
-        )
-    except (TypeError, ValueError) as exc:
-        raise ProjectFormatError("Файл содержит некорректные данные dataset") from exc
-    curve_map = _required(data, "curves", dict)
-    dataset.curves = {
-        str(curve_id): _curve_from_dict(curve) for curve_id, curve in curve_map.items()
-    }
-    for curve in dataset.curves.values():
-        if curve.values.shape != dataset.depth.shape:
-            raise ProjectFormatError(
-                f"Кривая {curve.metadata.original_mnemonic} имеет длину {len(curve.values)}, "
-                f"а шкала глубины — {len(dataset.depth)}"
-            )
-    return dataset
-
-
-_ACQUISITION_INDEX_SCHEMA_KEYS = {
-    "index_id",
-    "mnemonic",
-    "index_type",
-    "role",
-    "unit",
-    "confidence",
-    "evidence",
-    "datetime_format",
-    "timezone",
-}
-_ACQUISITION_DATASET_SCHEMA_KEYS = {
-    "dataset_id",
-    "name",
-    "kind",
-    "depth_domain",
-    "indexes",
-    "active_index_id",
-    "curves",
-    "schema_version",
-}
-_ACQUISITION_RECORD_KEYS = {
-    "record_id",
-    "sequence",
-    "kind",
-    "payload",
-    "received_at",
-    "source",
-}
-_ACQUISITION_CHECKPOINT_KEYS = {
-    "checkpoint_id",
-    "sequence",
-    "row_count",
-    "dataset_digest",
-    "events_digest",
-    "audit_digest",
-    "created_at",
-}
-_ACQUISITION_SESSION_KEYS = {
-    "session_id",
-    "well_id",
-    "dataset_schema",
-    "records",
-    "checkpoints",
-    "state",
-    "closed_at",
-    "final_audit_digest",
-    "schema_version",
-}
-
-
-def _acquisition_index_schema_from_dict(data: dict[str, Any]) -> AcquisitionIndexSchema:
-    _require_exact_keys(data, _ACQUISITION_INDEX_SCHEMA_KEYS, "acquisition index schema")
-    raw_evidence = data.get("evidence", [])
-    if not isinstance(raw_evidence, list) or not all(
-        isinstance(item, str) for item in raw_evidence
-    ):
-        raise ProjectFormatError("Acquisition index evidence должен быть списком строк")
-    try:
-        return AcquisitionIndexSchema(
-            index_id=str(_required(data, "index_id", str)),
-            mnemonic=str(_required(data, "mnemonic", str)),
-            index_type=IndexType(str(_required(data, "index_type", str))),
-            role=IndexRole(str(_required(data, "role", str))),
-            unit=data.get("unit"),
-            confidence=float(data.get("confidence", 1.0)),
-            evidence=tuple(raw_evidence),
-            datetime_format=data.get("datetime_format"),
-            timezone=data.get("timezone"),
-        )
-    except (TypeError, ValueError) as exc:
-        raise ProjectFormatError("Некорректная acquisition index schema") from exc
-
-
-def _acquisition_curve_schema_from_dict(data: dict[str, Any]) -> AcquisitionCurveSchema:
-    _require_exact_keys(data, {"metadata"}, "acquisition curve schema")
-    metadata_data = _required(data, "metadata", dict)
-    allowed = {
-        "curve_id",
-        "original_mnemonic",
-        "canonical_mnemonic",
-        "unit",
-        "description",
-        "source_dataset_id",
-        "provenance",
-        "semantic",
-    }
-    _require_exact_keys(metadata_data, allowed, "acquisition curve metadata")
-    original_mnemonic = clean_mnemonic(_required(metadata_data, "original_mnemonic", str))
-    stored_canonical = (
-        clean_mnemonic(metadata_data.get("canonical_mnemonic"))
-        if metadata_data.get("canonical_mnemonic")
-        else None
-    )
-    unit = clean_display_text(metadata_data.get("unit")) or None
-    description = clean_display_text(metadata_data.get("description")) or None
-    inferred_canonical = infer_canonical_mnemonic(
-        original_mnemonic,
-        description=description or "",
-        unit=unit or "",
-    )
-    canonical_mnemonic = stored_canonical
-    if not stored_canonical or normalize_sensor_key(stored_canonical) == normalize_sensor_key(
-        original_mnemonic
-    ):
-        canonical_mnemonic = inferred_canonical or stored_canonical
-    raw_semantic = metadata_data.get("semantic")
-    if raw_semantic is not None and not isinstance(raw_semantic, dict):
-        raise ProjectFormatError("Acquisition curve semantic должен быть объектом")
-    semantic = (
-        _semantic_binding_from_dict(raw_semantic)
-        if isinstance(raw_semantic, dict)
-        else default_semantic_channel_dictionary().resolve(
-            original_mnemonic,
-            description=description or "",
-            unit=unit or "",
-            canonical_mnemonic=canonical_mnemonic,
-        )
-    )
-    try:
-        metadata = CurveMetadata(
-            curve_id=str(_required(metadata_data, "curve_id", str)),
-            original_mnemonic=original_mnemonic,
-            canonical_mnemonic=semantic.canonical_mnemonic,
-            unit=unit,
-            description=description,
-            source_dataset_id=str(_required(metadata_data, "source_dataset_id", str)),
-            provenance=str(metadata_data.get("provenance", "source")),
-            semantic=semantic,
-        )
-        return AcquisitionCurveSchema(metadata)
-    except (TypeError, ValueError) as exc:
-        raise ProjectFormatError("Некорректная acquisition curve schema") from exc
-
-
-def _acquisition_dataset_schema_from_dict(data: dict[str, Any]) -> AcquisitionDatasetSchema:
-    _require_exact_keys(data, _ACQUISITION_DATASET_SCHEMA_KEYS, "acquisition dataset schema")
-    raw_indexes = _required(data, "indexes", list)
-    raw_curves = _required(data, "curves", list)
-    if not all(isinstance(item, dict) for item in raw_indexes):
-        raise ProjectFormatError("Acquisition indexes должны быть списком объектов")
-    if not all(isinstance(item, dict) for item in raw_curves):
-        raise ProjectFormatError("Acquisition curves должны быть списком объектов")
-    try:
-        return AcquisitionDatasetSchema(
-            dataset_id=str(_required(data, "dataset_id", str)),
-            name=str(_required(data, "name", str)),
-            kind=DatasetKind(str(_required(data, "kind", str))),
-            depth_domain=DepthDomain(str(_required(data, "depth_domain", str))),
-            indexes=tuple(_acquisition_index_schema_from_dict(item) for item in raw_indexes),
-            active_index_id=str(_required(data, "active_index_id", str)),
-            curves=tuple(_acquisition_curve_schema_from_dict(item) for item in raw_curves),
-            schema_version=_required_int(data, "schema_version"),
-        )
-    except (TypeError, ValueError) as exc:
-        raise ProjectFormatError("Некорректная acquisition dataset schema") from exc
-
-
-def _acquisition_pairs_from_list(
-    data: dict[str, Any],
-    key: str,
-    *,
-    allow_none: bool,
-) -> tuple[tuple[str, float | int | None], ...]:
-    raw = _required(data, key, list)
-    result: list[tuple[str, float | int | None]] = []
-    for item in raw:
-        if not isinstance(item, list) or len(item) != 2 or not isinstance(item[0], str):
-            raise ProjectFormatError(f"{key} должен содержать пары [id, value]")
-        value = item[1]
-        if value is None and allow_none:
-            result.append((item[0], None))
-            continue
-        if isinstance(value, bool) or not isinstance(value, (int, float)):
-            raise ProjectFormatError(f"{key} value должен быть числом")
-        result.append((item[0], value))
-    return tuple(result)
-
-
-def _acquisition_record_from_dict(data: dict[str, Any]) -> AcquisitionRecord:
-    _require_exact_keys(data, _ACQUISITION_RECORD_KEYS, "acquisition record")
-    try:
-        kind = AcquisitionRecordKind(str(_required(data, "kind", str)))
-    except ValueError as exc:
-        raise ProjectFormatError("Неизвестный acquisition record kind") from exc
-    payload_data = _required(data, "payload", dict)
-    try:
-        payload: AcquisitionRecordPayload
-        if kind is AcquisitionRecordKind.DATA_ROW:
-            _require_exact_keys(
-                payload_data,
-                {"index_values", "curve_values"},
-                "acquisition data row payload",
-            )
-            payload = AcquisitionDataRowPayload(
-                index_values=tuple(
-                    (key, value)
-                    for key, value in _acquisition_pairs_from_list(
-                        payload_data, "index_values", allow_none=False
-                    )
-                    if value is not None
-                ),
-                curve_values=tuple(
-                    (key, value)
-                    for key, value in _acquisition_pairs_from_list(
-                        payload_data, "curve_values", allow_none=True
-                    )
-                ),
-            )
-        elif kind is AcquisitionRecordKind.EVENT_UPSERT:
-            _require_exact_keys(
-                payload_data,
-                {"event", "expected_revision"},
-                "acquisition event upsert payload",
-            )
-            expected_revision = payload_data.get("expected_revision")
-            if expected_revision is not None and (
-                not isinstance(expected_revision, int) or isinstance(expected_revision, bool)
-            ):
-                raise ProjectFormatError("expected_revision должен быть целым числом")
-            payload = AcquisitionEventUpsertPayload(
-                event=_operational_event_from_dict(_required(payload_data, "event", dict)),
-                expected_revision=expected_revision,
-            )
-        else:
-            _require_exact_keys(
-                payload_data,
-                {"event_id", "expected_revision"},
-                "acquisition event delete payload",
-            )
-            payload = AcquisitionEventDeletePayload(
-                event_id=str(_required(payload_data, "event_id", str)),
-                expected_revision=_required_int(payload_data, "expected_revision"),
-            )
-        return AcquisitionRecord(
-            record_id=str(_required(data, "record_id", str)),
-            sequence=_required_int(data, "sequence"),
-            kind=kind,
-            payload=payload,
-            received_at=str(_required(data, "received_at", str)),
-            source=str(_required(data, "source", str)),
-        )
-    except ProjectFormatError:
-        raise
-    except (TypeError, ValueError) as exc:
-        raise ProjectFormatError("Некорректный acquisition record") from exc
-
-
-def _acquisition_checkpoint_from_dict(data: dict[str, Any]) -> AcquisitionCheckpoint:
-    _require_exact_keys(data, _ACQUISITION_CHECKPOINT_KEYS, "acquisition checkpoint")
-    try:
-        return AcquisitionCheckpoint(
-            checkpoint_id=str(_required(data, "checkpoint_id", str)),
-            sequence=_required_int(data, "sequence"),
-            row_count=_required_int(data, "row_count"),
-            dataset_digest=str(_required(data, "dataset_digest", str)),
-            events_digest=str(_required(data, "events_digest", str)),
-            audit_digest=str(_required(data, "audit_digest", str)),
-            created_at=str(_required(data, "created_at", str)),
-        )
-    except (TypeError, ValueError) as exc:
-        raise ProjectFormatError("Некорректный acquisition checkpoint") from exc
-
-
-def _acquisition_session_from_dict(data: dict[str, Any]) -> AcquisitionSession:
-    _require_exact_keys(data, _ACQUISITION_SESSION_KEYS, "acquisition session")
-    raw_records = _required(data, "records", list)
-    raw_checkpoints = _required(data, "checkpoints", list)
-    if not all(isinstance(item, dict) for item in raw_records):
-        raise ProjectFormatError("Acquisition records должны быть списком объектов")
-    if not all(isinstance(item, dict) for item in raw_checkpoints):
-        raise ProjectFormatError("Acquisition checkpoints должны быть списком объектов")
-    try:
-        return AcquisitionSession(
-            session_id=str(_required(data, "session_id", str)),
-            well_id=str(_required(data, "well_id", str)),
-            dataset_schema=_acquisition_dataset_schema_from_dict(
-                _required(data, "dataset_schema", dict)
-            ),
-            records=[_acquisition_record_from_dict(item) for item in raw_records],
-            checkpoints=[
-                _acquisition_checkpoint_from_dict(item) for item in raw_checkpoints
-            ],
-            state=AcquisitionSessionState(str(_required(data, "state", str))),
-            closed_at=data.get("closed_at"),
-            final_audit_digest=data.get("final_audit_digest"),
-            schema_version=_required_int(data, "schema_version"),
-        )
-    except (TypeError, ValueError) as exc:
-        raise ProjectFormatError("Некорректная acquisition session") from exc
-
-_OPERATIONAL_EVENT_KEYS = {
-    "event_id",
-    "well_id",
-    "kind",
-    "payload",
-    "depth_m",
-    "elapsed_time_s",
-    "measured_at",
-    "received_at",
-    "source",
-    "revision",
-    "calibration_id",
-    "calibrated_at",
-    "qc_flags",
-}
-
-
-def _operational_event_from_dict(data: dict[str, Any]) -> OperationalEvent:
-    unknown_keys = set(data) - _OPERATIONAL_EVENT_KEYS
-    if unknown_keys:
-        unknown = ", ".join(sorted(unknown_keys))
-        raise ProjectFormatError(f"Operational event содержит неизвестные поля: {unknown}")
-    try:
-        kind = OperationalEventKind(str(_required(data, "kind", str)))
-    except ValueError as exc:
-        raise ProjectFormatError(f"Неизвестный operational event kind: {data.get('kind')}") from exc
-    payload_data = _required(data, "payload", dict)
-    payload = _operational_payload_from_dict(kind, payload_data)
-    raw_flags = data.get("qc_flags", [])
-    if not isinstance(raw_flags, list) or not all(isinstance(item, str) for item in raw_flags):
-        raise ProjectFormatError("qc_flags operational event должен быть списком строк")
-    try:
-        flags = tuple(OperationalEventQcFlag(item) for item in raw_flags)
-        return OperationalEvent(
-            event_id=str(_required(data, "event_id", str)),
-            well_id=str(_required(data, "well_id", str)),
-            kind=kind,
-            payload=payload,
-            depth_m=_optional_float_field(data, "depth_m"),
-            elapsed_time_s=_optional_float_field(data, "elapsed_time_s"),
-            measured_at=data.get("measured_at"),
-            received_at=data.get("received_at"),
-            source=str(_required(data, "source", str)),
-            revision=_required_int(data, "revision"),
-            calibration_id=data.get("calibration_id"),
-            calibrated_at=data.get("calibrated_at"),
-            qc_flags=flags,
-        )
-    except (TypeError, ValueError) as exc:
-        raise ProjectFormatError("Некорректный operational event") from exc
-
-
-def _operational_payload_from_dict(
-    kind: OperationalEventKind,
-    data: dict[str, Any],
-) -> (
-    DrillingEventPayload
-    | GasEventPayload
-    | ShowEventPayload
-    | SampleEventPayload
-    | CasingEventPayload
-    | FormationTopEventPayload
-    | ConnectionEventPayload
-):
-    try:
-        if kind is OperationalEventKind.DRILLING:
-            _require_exact_keys(
-                data,
-                {"activity", "rop_m_per_h", "rpm", "wob_kn", "hookload_kn"},
-                "drilling payload",
-            )
-            return DrillingEventPayload(
-                activity=data.get("activity"),
-                rop_m_per_h=_optional_float_field(data, "rop_m_per_h"),
-                rpm=_optional_float_field(data, "rpm"),
-                wob_kn=_optional_float_field(data, "wob_kn"),
-                hookload_kn=_optional_float_field(data, "hookload_kn"),
-            )
-        if kind is OperationalEventKind.GAS:
-            _require_exact_keys(
-                data,
-                {
-                    "total_gas_percent",
-                    "methane_percent",
-                    "ethane_percent",
-                    "propane_percent",
-                    "connection_gas_percent",
-                },
-                "gas payload",
-            )
-            return GasEventPayload(
-                total_gas_percent=_optional_float_field(data, "total_gas_percent"),
-                methane_percent=_optional_float_field(data, "methane_percent"),
-                ethane_percent=_optional_float_field(data, "ethane_percent"),
-                propane_percent=_optional_float_field(data, "propane_percent"),
-                connection_gas_percent=_optional_float_field(data, "connection_gas_percent"),
-            )
-        if kind is OperationalEventKind.SHOW:
-            _require_exact_keys(
-                data,
-                {"show_type", "intensity", "fluorescence_color", "description"},
-                "show payload",
-            )
-            intensity = data.get("intensity")
-            if intensity is not None and (
-                not isinstance(intensity, int) or isinstance(intensity, bool)
-            ):
-                raise TypeError("intensity должен быть целым числом")
-            return ShowEventPayload(
-                show_type=str(_required(data, "show_type", str)),
-                intensity=intensity,
-                fluorescence_color=data.get("fluorescence_color"),
-                description=data.get("description"),
-            )
-        if kind is OperationalEventKind.SAMPLE:
-            _require_exact_keys(
-                data,
-                {"sample_code", "sample_kind", "bottom_depth_m", "description"},
-                "sample payload",
-            )
-            return SampleEventPayload(
-                sample_code=str(_required(data, "sample_code", str)),
-                sample_kind=data.get("sample_kind"),
-                bottom_depth_m=_optional_float_field(data, "bottom_depth_m"),
-                description=data.get("description"),
-            )
-        if kind is OperationalEventKind.CASING:
-            _require_exact_keys(
-                data,
-                {"casing_type", "outer_diameter_mm", "shoe_depth_m", "status"},
-                "casing payload",
-            )
-            outer_diameter = data.get("outer_diameter_mm")
-            if isinstance(outer_diameter, bool) or not isinstance(outer_diameter, (int, float)):
-                raise TypeError("outer_diameter_mm должен быть числом")
-            return CasingEventPayload(
-                casing_type=str(_required(data, "casing_type", str)),
-                outer_diameter_mm=float(outer_diameter),
-                shoe_depth_m=_optional_float_field(data, "shoe_depth_m"),
-                status=data.get("status"),
-            )
-        if kind is OperationalEventKind.CONNECTION:
-            _require_exact_keys(
-                data,
-                {
-                    "state",
-                    "connection_id",
-                    "peer",
-                    "reason",
-                    "raw_file",
-                    "bytes_received",
-                    "frames_received",
-                },
-                "connection payload",
-            )
-            return ConnectionEventPayload(
-                state=str(_required(data, "state", str)),
-                connection_id=str(_required(data, "connection_id", str)),
-                peer=data.get("peer"),
-                reason=data.get("reason"),
-                raw_file=data.get("raw_file"),
-                bytes_received=_required_int(data, "bytes_received"),
-                frames_received=_required_int(data, "frames_received"),
-            )
-        _require_exact_keys(
-            data,
-            {"formation_code", "formation_name", "confidence", "description"},
-            "formation top payload",
-        )
-        return FormationTopEventPayload(
-            formation_code=str(_required(data, "formation_code", str)),
-            formation_name=data.get("formation_name"),
-            confidence=_optional_float_field(data, "confidence"),
-            description=data.get("description"),
-        )
-    except ProjectFormatError as exc:
-        raise ProjectFormatError(
-            f"Некорректный payload события {kind.value}: {exc}"
-        ) from exc
-    except (TypeError, ValueError) as exc:
-        raise ProjectFormatError(f"Некорректный payload события {kind.value}") from exc
+PROJECT_FORMAT_VERSION = 28
+_MAX_ANALYSIS_HISTORY_RECORDS = 10_000
+_MAX_ANALYSIS_CHANGES = 10_000
 
 
 def _require_exact_keys(data: dict[str, Any], allowed: set[str], label: str) -> None:
-    unknown_keys = set(data) - allowed
-    if unknown_keys:
-        unknown = ", ".join(sorted(unknown_keys))
-        raise ProjectFormatError(f"{label} содержит неизвестные поля: {unknown}")
+    unknown = set(data) - allowed
+    if unknown:
+        names = ", ".join(sorted(unknown))
+        raise ProjectFormatError(f"{label} содержит неизвестные поля: {names}")
 
 
-_LAG_REVISION_KEYS = {
-    "revision",
-    "method",
-    "parameters",
-    "source_time_index_id",
-    "source_depth_index_id",
-    "target_curve_ids",
-    "aggregation_policy",
-    "output_dataset_id",
-    "output_source_index_id",
-    "output_index_id",
-    "source_row_count",
-    "source_fingerprint",
-    "output_dataset_digest",
-    "source_sequence",
-    "source_audit_digest",
-    "formula_id",
-    "formula_version",
-    "created_at",
-    "created_by",
-    "comment",
-    "schema_version",
-}
-
-_LAG_PROFILE_KEYS = {
-    "profile_id",
-    "well_id",
-    "name",
-    "target",
-    "source_dataset_id",
-    "revisions",
-    "active_revision",
-    "schema_version",
-}
-
-
-def _lag_parameters_from_dict(
-    method: LagCorrectionMethod,
-    data: dict[str, Any],
-):
-    try:
-        if method is LagCorrectionMethod.CONSTANT_TIME:
-            _require_exact_keys(data, {"lag_seconds"}, "constant lag parameters")
-            return ConstantTimeLagParameters(float(data["lag_seconds"]))
-        if method is LagCorrectionMethod.ANNULAR_VOLUME_FLOW:
-            _require_exact_keys(
-                data,
-                {"annular_volume_m3", "flow_rate_m3_per_s"},
-                "annular volume/flow lag parameters",
-            )
-            return AnnularVolumeFlowLagParameters(
-                float(data["annular_volume_m3"]),
-                float(data["flow_rate_m3_per_s"]),
-            )
-        if method is LagCorrectionMethod.PUMP_STROKES:
-            _require_exact_keys(
-                data,
-                {
-                    "annular_volume_m3",
-                    "pump_output_m3_per_stroke",
-                    "strokes_per_minute",
-                },
-                "pump-stroke lag parameters",
-            )
-            return PumpStrokeLagParameters(
-                float(data["annular_volume_m3"]),
-                float(data["pump_output_m3_per_stroke"]),
-                float(data["strokes_per_minute"]),
-            )
-        _require_exact_keys(data, {"points"}, "control-point lag parameters")
-        raw_points = data.get("points")
-        if not isinstance(raw_points, list):
-            raise TypeError("points должен быть массивом")
-        points = []
-        for item in raw_points:
-            if not isinstance(item, dict):
-                raise TypeError("Контрольная точка должна быть объектом")
-            _require_exact_keys(item, {"row", "corrected_depth_m"}, "lag control point")
-            points.append(
-                LagDepthControlPoint(
-                    row=_required_int(item, "row"),
-                    corrected_depth_m=float(item["corrected_depth_m"]),
-                )
-            )
-        return ControlPointLagParameters(tuple(points))
-    except (KeyError, TypeError, ValueError) as exc:
-        raise ProjectFormatError("Некорректные параметры lag correction") from exc
-
-
-def _lag_revision_from_dict(data: dict[str, Any]) -> LagCorrectionRevision:
-    _require_exact_keys(data, _LAG_REVISION_KEYS, "lag correction revision")
-    raw_parameters = data.get("parameters")
-    raw_curve_ids = data.get("target_curve_ids")
-    if not isinstance(raw_parameters, dict):
-        raise ProjectFormatError("parameters lag correction revision должны быть объектом")
-    if not isinstance(raw_curve_ids, list) or not all(
-        isinstance(item, str) for item in raw_curve_ids
-    ):
-        raise ProjectFormatError("target_curve_ids lag correction должны быть массивом строк")
-    try:
-        method = LagCorrectionMethod(str(_required(data, "method", str)))
-        source_sequence = data.get("source_sequence")
-        if source_sequence is not None and (
-            not isinstance(source_sequence, int) or isinstance(source_sequence, bool)
-        ):
-            raise TypeError("source_sequence должен быть целым числом или null")
-        return LagCorrectionRevision(
-            revision=_required_int(data, "revision"),
-            method=method,
-            parameters=_lag_parameters_from_dict(method, raw_parameters),
-            source_time_index_id=(
-                str(data["source_time_index_id"])
-                if data.get("source_time_index_id") is not None
-                else None
-            ),
-            source_depth_index_id=str(_required(data, "source_depth_index_id", str)),
-            target_curve_ids=tuple(raw_curve_ids),
-            aggregation_policy=TimeDepthAggregationPolicy(
-                str(_required(data, "aggregation_policy", str))
-            ),
-            output_dataset_id=str(_required(data, "output_dataset_id", str)),
-            output_source_index_id=str(_required(data, "output_source_index_id", str)),
-            output_index_id=str(_required(data, "output_index_id", str)),
-            source_row_count=_required_int(data, "source_row_count"),
-            source_fingerprint=str(_required(data, "source_fingerprint", str)),
-            output_dataset_digest=str(_required(data, "output_dataset_digest", str)),
-            source_sequence=source_sequence,
-            source_audit_digest=(
-                str(data["source_audit_digest"])
-                if data.get("source_audit_digest") is not None
-                else None
-            ),
-            formula_id=str(_required(data, "formula_id", str)),
-            formula_version=_required_int(data, "formula_version"),
-            created_at=str(_required(data, "created_at", str)),
-            created_by=str(_required(data, "created_by", str)),
-            comment=str(data.get("comment", "")),
-            schema_version=_required_int(data, "schema_version"),
-        )
-    except (TypeError, ValueError) as exc:
-        raise ProjectFormatError("Некорректная lag correction revision") from exc
-
-
-def _lag_profile_from_dict(data: dict[str, Any]) -> LagCorrectionProfile:
-    _require_exact_keys(data, _LAG_PROFILE_KEYS, "lag correction profile")
-    raw_revisions = data.get("revisions")
-    if not isinstance(raw_revisions, list) or not all(
-        isinstance(item, dict) for item in raw_revisions
-    ):
-        raise ProjectFormatError("revisions lag correction должны быть массивом объектов")
-    try:
-        return LagCorrectionProfile(
-            profile_id=str(_required(data, "profile_id", str)),
-            well_id=str(_required(data, "well_id", str)),
-            name=str(_required(data, "name", str)),
-            target=LagCorrectionTarget(str(_required(data, "target", str))),
-            source_dataset_id=str(_required(data, "source_dataset_id", str)),
-            revisions=tuple(_lag_revision_from_dict(item) for item in raw_revisions),
-            active_revision=_required_int(data, "active_revision"),
-            schema_version=_required_int(data, "schema_version"),
-        )
-    except (TypeError, ValueError) as exc:
-        raise ProjectFormatError("Некорректный lag correction profile") from exc
-
-
-def _passport_from_dict(data: object) -> WellPassport | None:
-    if data is None:
-        return None
-    if not isinstance(data, dict) or set(data) - {"values", "texts_i18n", "logo_refs"}:
-        raise ProjectFormatError("Некорректный паспорт скважины")
-    try:
-        return validate_passport(WellPassport(**data))
-    except (TypeError, ValueError) as exc:
-        raise ProjectFormatError("Некорректный паспорт скважины") from exc
-
-
-def _well_from_dict(data: dict[str, Any]) -> Well:
-    well = Well(
-        well_id=str(_required(data, "well_id", str)),
-        name=str(_required(data, "name", str)),
-        content_revision=int(data.get("content_revision", 1)),
-        language_revisions={
-            str(language): int(revision)
-            for language, revision in dict(data.get("language_revisions", {})).items()
-        },
-        passport=_passport_from_dict(data.get("passport")),
+def _analysis_cell_change_from_dict(data: object) -> AnalysisCellChange:
+    if not isinstance(data, dict):
+        raise ProjectFormatError("Изменение отдельного анализа должно быть объектом")
+    _require_exact_keys(
+        data,
+        {"sample_id", "top_depth", "bottom_depth", "field", "old_value", "new_value"},
+        "analysis cell change",
     )
-    datasets = _required(data, "datasets", dict)
-    well.datasets = {
-        str(dataset_id): _dataset_from_dict(item) for dataset_id, item in datasets.items()
-    }
-    well.lithology = [
-        LithologyInterval(
-            interval_id=str(_required(item, "interval_id", str)),
-            top_depth=float(item["top_depth"]),
-            bottom_depth=float(item["bottom_depth"]),
-            lithotype_id=str(_required(item, "lithotype_id", str)),
-            description=item.get("description"),
-            description_i18n=validate_localized_texts(
-                item.get("description_i18n", {}), maximum=20_000
-            ),
-        )
-        for item in data.get("lithology", [])
-    ]
-    well.cuttings = [
-        CuttingsSample(
-            sample_id=item["sample_id"],
-            top_depth=float(item["top_depth"]),
-            bottom_depth=float(item["bottom_depth"]),
-            components=[CuttingsComponent(**component) for component in item.get("components", [])],
-            lba_group=(int(item["lba_group"]) if item.get("lba_group") is not None else None),
-            lba_type_id=item.get("lba_type_id"),
-            lba_intensity=item.get("lba_intensity"),
-            lba_color=item.get("lba_color"),
-            lba_distribution=item.get("lba_distribution"),
-            lba_cut=item.get("lba_cut"),
-            lba_cut_speed=item.get("lba_cut_speed"),
-            lba_cut_color=item.get("lba_cut_color"),
-            lba_residue_type=item.get("lba_residue_type"),
-            lba_residue_color=item.get("lba_residue_color"),
-            lba_odour=item.get("lba_odour"),
-            lba_stain=item.get("lba_stain"),
-            lba_description=item.get("lba_description"),
-            calcite_percent=(
-                float(item["calcite_percent"]) if item.get("calcite_percent") is not None else None
-            ),
-            dolomite_percent=(
-                float(item["dolomite_percent"])
-                if item.get("dolomite_percent") is not None
-                else None
-            ),
-            description=item.get("description"),
-            analysis_interpretation=item.get("analysis_interpretation"),
-            description_word_wrap=_optional_bool_field(
-                item, "description_word_wrap", default=True
-            ),
-            description_i18n=validate_localized_texts(
-                item.get("description_i18n", {}), maximum=2_000_000
-            ),
-            lba_description_i18n=validate_localized_texts(
-                item.get("lba_description_i18n", {}), maximum=2_000
-            ),
-            analysis_interpretation_i18n=validate_localized_texts(
-                item.get("analysis_interpretation_i18n", {}), maximum=20_000
-            ),
-        )
-        for item in data.get("cuttings", [])
-    ]
-    well.stratigraphy = [
-        StratigraphyInterval(
-            interval_id=str(_required(item, "interval_id", str)),
-            top_depth=float(item["top_depth"]),
-            bottom_depth=float(item["bottom_depth"]),
-            code=str(_required(item, "code", str)),
-            name=item.get("name"),
-            rank=item.get("rank"),
-            color=str(item.get("color", "#dbeafe")),
-            description=item.get("description"),
-            text_orientation=str(item.get("text_orientation", "horizontal")),
-            text_position=str(item.get("text_position", "center")),
-            name_i18n=validate_localized_texts(
-                item.get("name_i18n", {}), maximum=2_000
-            ),
-            description_i18n=validate_localized_texts(
-                item.get("description_i18n", {}), maximum=20_000
-            ),
-        )
-        for item in data.get("stratigraphy", [])
-    ]
-    raw_interpretations = data.get("interpretations", {})
-    if not isinstance(raw_interpretations, dict):
-        raise ProjectFormatError("Поле interpretations скважины должно быть объектом")
-    for interpretation_id, item in raw_interpretations.items():
-        if not isinstance(interpretation_id, str) or not isinstance(item, dict):
-            raise ProjectFormatError("Запись интерпретации имеет неверный формат")
-        raw_intervals = item.get("intervals", [])
-        if not isinstance(raw_intervals, list) or not all(
-            isinstance(interval, dict) for interval in raw_intervals
-        ):
-            raise ProjectFormatError("Интервалы интерпретации должны быть списком объектов")
-        try:
-            interpretation = WellInterpretation(
-                interpretation_id=str(_required(item, "interpretation_id", str)),
-                name=str(_required(item, "name", str)),
-                description=item.get("description"),
-                intervals=[InterpretationInterval(**interval) for interval in raw_intervals],
-            )
-        except (TypeError, ValueError) as exc:
-            raise ProjectFormatError(f"Некорректная интерпретация '{interpretation_id}'") from exc
-        if interpretation.interpretation_id != interpretation_id:
-            raise ProjectFormatError(
-                f"ID интерпретации '{interpretation_id}' не совпадает с содержимым"
-            )
-        well.interpretations[interpretation_id] = interpretation
-    well.canvas_objects = [CanvasObject(**item) for item in data.get("canvas_objects", [])]
-    raw_events = data.get("operational_events", {})
-    if not isinstance(raw_events, dict):
-        raise ProjectFormatError("Поле operational_events скважины должно быть объектом")
-    for event_id, item in raw_events.items():
-        if not isinstance(event_id, str) or not isinstance(item, dict):
-            raise ProjectFormatError("Запись operational event имеет неверный формат")
-        event = _operational_event_from_dict(item)
-        if event.event_id != event_id:
-            raise ProjectFormatError(
-                f"ID operational event '{event_id}' не совпадает с содержимым"
-            )
-        if event.well_id != well.well_id:
-            raise ProjectFormatError(
-                f"Operational event '{event_id}' относится к другой скважине"
-            )
-        well.operational_events[event_id] = event
-    raw_sessions = data.get("acquisition_sessions", {})
-    if not isinstance(raw_sessions, dict):
-        raise ProjectFormatError("Поле acquisition_sessions скважины должно быть объектом")
-    if len(raw_sessions) > 1:
-        raise ProjectFormatError(
-            "Скважина не может содержать несколько acquisition source sessions"
-        )
-    for session_id, item in raw_sessions.items():
-        if not isinstance(session_id, str) or not isinstance(item, dict):
-            raise ProjectFormatError("Запись acquisition session имеет неверный формат")
-        session = _acquisition_session_from_dict(item)
-        if session.session_id != session_id:
-            raise ProjectFormatError(
-                f"ID acquisition session '{session_id}' не совпадает с содержимым"
-            )
-        if session.well_id != well.well_id:
-            raise ProjectFormatError(
-                f"Acquisition session '{session_id}' относится к другой скважине"
-            )
-        if session.dataset_schema.dataset_id not in well.datasets:
-            raise ProjectFormatError(
-                f"Acquisition session '{session_id}' ссылается на неизвестный dataset"
-            )
-        try:
-            AcquisitionController(well, session)
-        except (
-            AcquisitionError,
-            OperationalEventConflictError,
-            KeyError,
-            TypeError,
-            ValueError,
-        ) as exc:
-            raise ProjectFormatError(
-                f"Acquisition session '{session_id}' не совпадает с persisted projection"
-            ) from exc
-    raw_lag_profiles = data.get("lag_correction_profiles", {})
-    if not isinstance(raw_lag_profiles, dict):
-        raise ProjectFormatError("Поле lag_correction_profiles скважины должно быть объектом")
-    for profile_id, item in raw_lag_profiles.items():
-        if not isinstance(profile_id, str) or not isinstance(item, dict):
-            raise ProjectFormatError("Запись lag correction профиля имеет неверный формат")
-        profile = _lag_profile_from_dict(item)
-        if profile.profile_id != profile_id:
-            raise ProjectFormatError(
-                f"ID lag correction профиля '{profile_id}' не совпадает с содержимым"
-            )
-        if profile.well_id != well.well_id:
-            raise ProjectFormatError(
-                f"Lag correction профиль '{profile_id}' относится к другой скважине"
-            )
-        well.lag_correction_profiles[profile_id] = profile
+    field = data.get("field")
+    if not isinstance(field, str):
+        raise ProjectFormatError("Поле изменения анализа должно быть строкой")
     try:
-        LagCorrectionController(well)
-    except (LagCorrectionConflictError, KeyError, TypeError, ValueError) as exc:
-        raise ProjectFormatError(
-            "Lag correction profiles не совпадают с persisted projection"
-        ) from exc
-    return well
+        return AnalysisCellChange(**{**data, "field": AnalysisField(field)})
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ProjectFormatError("Некорректное изменение отдельного анализа") from exc
+
+
+def _analysis_update_record_from_dict(data: object) -> AnalysisUpdateRecord:
+    if not isinstance(data, dict):
+        raise ProjectFormatError("Запись истории отдельного анализа должна быть объектом")
+    _require_exact_keys(
+        data,
+        {
+            "update_id",
+            "well_id",
+            "source_name",
+            "source_sha256",
+            "imported_at",
+            "selected_fields",
+            "changes",
+            "well_sha256_before",
+            "well_sha256_after",
+        },
+        "analysis update record",
+    )
+    raw_fields = data.get("selected_fields")
+    raw_changes = data.get("changes")
+    if (
+        not isinstance(raw_fields, list)
+        or not raw_fields
+        or len(raw_fields) > len(AnalysisField)
+        or not all(isinstance(item, str) for item in raw_fields)
+    ):
+        raise ProjectFormatError("Некорректный selected_fields истории анализа")
+    if (
+        not isinstance(raw_changes, list)
+        or not raw_changes
+        or len(raw_changes) > _MAX_ANALYSIS_CHANGES
+    ):
+        raise ProjectFormatError("Некорректный changes истории анализа")
+    try:
+        return AnalysisUpdateRecord(
+            **{
+                **data,
+                "selected_fields": tuple(AnalysisField(item) for item in raw_fields),
+                "changes": tuple(_analysis_cell_change_from_dict(item) for item in raw_changes),
+            }
+        )
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ProjectFormatError("Некорректная история отдельных анализов") from exc
+
+
+def _analysis_history_from_dict(data: object) -> list[AnalysisUpdateRecord]:
+    if not isinstance(data, list) or len(data) > _MAX_ANALYSIS_HISTORY_RECORDS:
+        raise ProjectFormatError("История отдельных анализов должна быть списком")
+    return [_analysis_update_record_from_dict(item) for item in data]
+
+
+def _analysis_histories(project_data: dict[str, Any]) -> dict[str, list[AnalysisUpdateRecord]]:
+    wells = project_data.get("wells")
+    if not isinstance(wells, dict):
+        return {}
+    histories: dict[str, list[AnalysisUpdateRecord]] = {}
+    for well_key, raw_well in wells.items():
+        if not isinstance(well_key, str) or not isinstance(raw_well, dict):
+            continue
+        histories[well_key] = _analysis_history_from_dict(
+            raw_well.get("analysis_update_history", [])
+        )
+    return histories
+
+
+def _without_analysis_histories(project_data: dict[str, Any]) -> dict[str, Any]:
+    stripped = dict(project_data)
+    wells = project_data.get("wells")
+    if not isinstance(wells, dict):
+        return stripped
+    stripped_wells: dict[object, object] = {}
+    for well_key, raw_well in wells.items():
+        if isinstance(raw_well, dict):
+            well_copy = dict(raw_well)
+            well_copy.pop("analysis_update_history", None)
+            stripped_wells[well_key] = well_copy
+        else:
+            stripped_wells[well_key] = raw_well
+    stripped["wells"] = stripped_wells
+    return stripped
+
+
+def _attach_analysis_histories(
+    project: Project,
+    histories: dict[str, list[AnalysisUpdateRecord]],
+) -> None:
+    for well_key, records in histories.items():
+        well = project.wells.get(well_key)
+        if well is None:
+            raise ProjectFormatError(
+                f"История отдельных анализов ссылается на неизвестную скважину: {well_key}"
+            )
+        if any(record.well_id != well.well_id for record in records):
+            raise ProjectFormatError(
+                f"История отдельных анализов не соответствует скважине: {well_key}"
+            )
+        well.analysis_update_history = records
 
 
 def project_from_dict(data: dict[str, Any]) -> Project:
-    project = Project(
-        project_id=str(_required(data, "project_id", str)),
-        name=str(_required(data, "name", str)),
-        save_revision=int(data.get("save_revision", 1)),
-    )
-    wells = _required(data, "wells", dict)
-    project.wells = {str(well_id): _well_from_dict(item) for well_id, item in wells.items()}
-    raw_lithotypes = data.get("lithotypes", {})
-    if not isinstance(raw_lithotypes, dict):
-        raise ProjectFormatError("Поле 'lithotypes' должно быть объектом")
-    for lithotype_id, item in raw_lithotypes.items():
-        if not isinstance(lithotype_id, str) or not isinstance(item, dict):
-            raise ProjectFormatError("Запись справочника литотипов имеет неверный формат")
-        try:
-            lithotype_record = ProjectLithotype(**item)
-        except TypeError as exc:
-            raise ProjectFormatError(f"Некорректная запись литотипа '{lithotype_id}'") from exc
-        if lithotype_record.lithotype_id != lithotype_id:
-            raise ProjectFormatError(
-                f"ID записи литотипа '{lithotype_id}' не совпадает с содержимым"
-            )
-        project.lithotypes[lithotype_id] = lithotype_record
-    raw_stratigraphy_units = data.get("stratigraphy_units", {})
-    if not isinstance(raw_stratigraphy_units, dict):
-        raise ProjectFormatError("Поле 'stratigraphy_units' должно быть объектом")
-    for unit_id, item in raw_stratigraphy_units.items():
-        if not isinstance(unit_id, str) or not isinstance(item, dict):
-            raise ProjectFormatError("Запись стратиграфического справочника имеет неверный формат")
-        try:
-            stratigraphy_record = ProjectStratigraphyUnit(**item)
-        except TypeError as exc:
-            raise ProjectFormatError(
-                f"Некорректная стратиграфическая запись '{unit_id}'"
-            ) from exc
-        if stratigraphy_record.unit_id != unit_id:
-            raise ProjectFormatError(
-                f"ID стратиграфической записи '{unit_id}' не совпадает с содержимым"
-            )
-        project.stratigraphy_units[unit_id] = stratigraphy_record
-    raw_templates = data.get("description_templates", {})
-    if not isinstance(raw_templates, dict) or not all(
-        isinstance(name, str) and isinstance(text, str) for name, text in raw_templates.items()
-    ):
-        raise ProjectFormatError("Поле 'description_templates' должно быть строковым объектом")
-    project.description_templates = dict(raw_templates)
-    raw_masterlog_templates = data.get("masterlog_templates", {})
-    if not isinstance(raw_masterlog_templates, dict):
-        raise ProjectFormatError("Поле 'masterlog_templates' должно быть объектом")
-    for template_id, item in raw_masterlog_templates.items():
-        if not isinstance(template_id, str) or not isinstance(item, dict):
-            raise ProjectFormatError("Запись шаблона мастерлога имеет неверный формат")
-        try:
-            header_elements = [
-                MasterlogHeaderElement(**element) for element in item.get("header_elements", [])
-            ]
-            columns = []
-            for column in item.get("columns", []):
-                column_data = dict(column)
-                raw_curve_styles = column_data.get("curve_styles", {})
-                if not isinstance(raw_curve_styles, dict):
-                    raise TypeError("Стили кривых Masterlog должны быть объектом")
-                column_data["curve_styles"] = {
-                    str(mnemonic): MasterlogCurveStyle(**style)
-                    for mnemonic, style in raw_curve_styles.items()
-                    if isinstance(style, dict)
-                }
-                if len(column_data["curve_styles"]) != len(raw_curve_styles):
-                    raise TypeError("Запись стиля кривой Masterlog имеет неверный формат")
-                columns.append(MasterlogColumnTemplate(**column_data))
-            template = MasterlogTemplate(
-                template_id=str(_required(item, "template_id", str)),
-                name=str(_required(item, "name", str)),
-                page_format=str(item.get("page_format", "roll")),
-                depth_scale=int(item.get("depth_scale", 500)),
-                header_height_mm=float(item.get("header_height_mm", 45.0)),
-                header_elements=header_elements,
-                columns=columns,
-                properties=dict(item.get("properties", {})),
-                version=int(item.get("version", 1)),
-            )
-        except (TypeError, ValueError) as exc:
-            raise ProjectFormatError(f"Некорректный шаблон мастерлога '{template_id}'") from exc
-        if template.template_id != template_id:
-            raise ProjectFormatError(
-                f"ID шаблона мастерлога '{template_id}' не совпадает с содержимым"
-            )
-        project.masterlog_templates[template_id] = template
-    raw_logo_catalog = data.get("logo_catalog", {})
-    if not isinstance(raw_logo_catalog, dict):
-        raise ProjectFormatError("Поле 'logo_catalog' должно быть объектом")
-    for logo_id, item in raw_logo_catalog.items():
-        if not isinstance(logo_id, str) or not isinstance(item, dict):
-            raise ProjectFormatError("Запись каталога логотипов имеет неверный формат")
-        try:
-            entry = LogoCatalogEntry(
-                logo_id=str(_required(item, "logo_id", str)),
-                name=str(_required(item, "name", str)),
-                asset_id=str(_required(item, "asset_id", str)),
-                category=str(item.get("category", "")),
-                notes=str(item.get("notes", "")),
-                version=int(item.get("version", 1)),
-            )
-        except (TypeError, ValueError) as exc:
-            raise ProjectFormatError(f"Некорректная запись логотипа '{logo_id}'") from exc
-        if entry.logo_id != logo_id:
-            raise ProjectFormatError(
-                f"ID записи логотипа '{logo_id}' не совпадает с содержимым"
-            )
-        project.logo_catalog[logo_id] = entry
-    raw_formulas = data.get("custom_formulas", {})
-    if not isinstance(raw_formulas, dict):
-        raise ProjectFormatError("Поле 'custom_formulas' должно быть объектом")
-    for formula_id, item in raw_formulas.items():
-        if not isinstance(formula_id, str) or not isinstance(item, dict):
-            raise ProjectFormatError("Запись пользовательской формулы имеет неверный формат")
-        try:
-            formula = CustomFormulaDefinition(**item)
-        except TypeError as exc:
-            raise ProjectFormatError(f"Некорректная формула '{formula_id}'") from exc
-        if formula.formula_id != formula_id:
-            raise ProjectFormatError(f"ID формулы '{formula_id}' не совпадает с содержимым")
-        project.custom_formulas[formula_id] = formula
-    raw_export_profiles = data.get("export_profiles", {})
-    if not isinstance(raw_export_profiles, dict):
-        raise ProjectFormatError("Поле 'export_profiles' должно быть объектом")
-    for profile_id, item in raw_export_profiles.items():
-        if not isinstance(profile_id, str) or not isinstance(item, dict):
-            raise ProjectFormatError("Запись профиля экспорта имеет неверный формат")
-        raw_mnemonics = item.get("curve_mnemonics")
-        if not isinstance(raw_mnemonics, list) or not all(
-            isinstance(value, str) for value in raw_mnemonics
-        ):
-            raise ProjectFormatError("Кривые профиля экспорта должны быть списком строк")
-        try:
-            profile = ExportProfile(
-                profile_id=str(_required(item, "profile_id", str)),
-                name=str(_required(item, "name", str)),
-                curve_mnemonics=tuple(raw_mnemonics),
-            )
-        except ValueError as exc:
-            raise ProjectFormatError(f"Некорректный профиль экспорта '{profile_id}'") from exc
-        if profile.profile_id != profile_id:
-            raise ProjectFormatError(
-                f"ID профиля экспорта '{profile_id}' не совпадает с содержимым"
-            )
-        project.export_profiles[profile_id] = profile
-    raw_mapping_profiles = data.get("time_depth_mapping_profiles", {})
-    if not isinstance(raw_mapping_profiles, dict):
-        raise ProjectFormatError("Поле 'time_depth_mapping_profiles' должно быть объектом")
-    for profile_id, item in raw_mapping_profiles.items():
-        if not isinstance(profile_id, str) or not isinstance(item, dict):
-            raise ProjectFormatError("Запись TIME↔DEPTH профиля имеет неверный формат")
-        try:
-            mapping_profile = TimeDepthMappingProfile(
-                profile_id=str(_required(item, "profile_id", str)),
-                name=str(_required(item, "name", str)),
-                dataset_id=str(_required(item, "dataset_id", str)),
-                time_index_id=str(_required(item, "time_index_id", str)),
-                depth_index_id=str(_required(item, "depth_index_id", str)),
-                aggregation_policy=TimeDepthAggregationPolicy(
-                    str(_required(item, "aggregation_policy", str))
-                ),
-                version=int(item.get("version", 1)),
-            )
-        except (TypeError, ValueError) as exc:
-            raise ProjectFormatError(f"Некорректный TIME↔DEPTH профиль '{profile_id}'") from exc
-        if mapping_profile.profile_id != profile_id:
-            raise ProjectFormatError(
-                f"ID TIME↔DEPTH профиля '{profile_id}' не совпадает с содержимым"
-            )
-        project.time_depth_mapping_profiles[profile_id] = mapping_profile
-    datasets = {
-        dataset.dataset_id: dataset
-        for well in project.wells.values()
-        for dataset in well.datasets.values()
-    }
-    for mapping_profile in project.time_depth_mapping_profiles.values():
-        dataset = datasets.get(mapping_profile.dataset_id)
-        if dataset is None:
-            raise ProjectFormatError(
-                f"TIME↔DEPTH профиль '{mapping_profile.profile_id}' ссылается на неизвестный набор"
-            )
-        for index_id, role in (
-            (mapping_profile.time_index_id, IndexRole.TIME),
-            (mapping_profile.depth_index_id, IndexRole.DEPTH),
-        ):
-            index = dataset.indexes.get(index_id)
-            if index is None or index.role is not role:
-                raise ProjectFormatError(
-                    f"TIME↔DEPTH профиль '{mapping_profile.profile_id}' "
-                    f"ссылается на индекс без роли {role.value}"
-                )
+    histories = _analysis_histories(data)
+    project = _v27.project_from_dict(_without_analysis_histories(data))
+    _attach_analysis_histories(project, histories)
     return project
 
 
 def project_document_from_dict(data: dict[str, Any]) -> ProjectDocument:
-    """Migrate and reconstruct a project document using the current schema."""
+    """Migrate to v28 and decode the new ledger without changing v27 semantics."""
     try:
-        data = migrate_project_payload(data, PROJECT_FORMAT_VERSION)
+        migrated = migrate_project_payload(data, PROJECT_FORMAT_VERSION)
     except ProjectMigrationError as exc:
         raise ProjectFormatError(str(exc)) from exc
-
-    project = project_from_dict(_required(data, "project", dict))
-    raw_layouts = _required(data, "tablet_layouts", dict)
-    layouts: dict[str, TabletLayout] = {}
-    for dataset_id, raw_layout in raw_layouts.items():
-        if not isinstance(dataset_id, str) or not dataset_id:
-            raise ProjectFormatError("Идентификатор набора для компоновки должен быть строкой")
-        try:
-            layouts[dataset_id] = layout_from_dict(raw_layout)
-        except TabletLayoutFormatError as exc:
-            raise ProjectFormatError(
-                f"Некорректная компоновка планшета для набора '{dataset_id}'"
-            ) from exc
-
-    known_dataset_ids = {
-        dataset_id for well in project.wells.values() for dataset_id in well.datasets
-    }
-    unknown_dataset_ids = set(layouts) - known_dataset_ids
-    if unknown_dataset_ids:
-        unknown = ", ".join(sorted(unknown_dataset_ids))
-        raise ProjectFormatError(f"Компоновка ссылается на неизвестный набор: {unknown}")
-    raw_presets = _required(data, "tablet_presets", dict)
-    presets: dict[str, TabletLayout] = {}
-    for name, raw_layout in raw_presets.items():
-        if not isinstance(name, str) or not name.strip():
-            raise ProjectFormatError("Имя шаблона планшета должно быть непустой строкой")
-        try:
-            presets[name] = layout_from_dict(raw_layout)
-        except TabletLayoutFormatError as exc:
-            raise ProjectFormatError(f"Некорректный шаблон планшета '{name}'") from exc
-    try:
-        artifact_manifest = validate_artifact_manifest(data.get("source_artifacts", {}))
-    except SourceArtifactError as exc:
-        raise ProjectFormatError(str(exc)) from exc
-    known_source_artifact_ids = {
-        revision.artifact_id
-        for well in project.wells.values()
-        for dataset in well.datasets.values()
-        for revision in dataset.source_revisions
-    }
-    unknown_artifact_ids = set(artifact_manifest) - known_dataset_ids - known_source_artifact_ids
-    if unknown_artifact_ids:
-        unknown = ", ".join(sorted(unknown_artifact_ids))
-        raise ProjectFormatError(f"Source artifact ссылается на неизвестный набор: {unknown}")
-    raw_reports = data.get("import_reports", {})
-    if not isinstance(raw_reports, dict):
-        raise ProjectFormatError("Поле import_reports должно быть объектом")
-    reports = {
-        str(dataset_id): _import_report_from_dict(item)
-        for dataset_id, item in raw_reports.items()
-        if isinstance(item, dict)
-    }
-    if len(reports) != len(raw_reports):
-        raise ProjectFormatError("Запись import report должна быть объектом")
-    unknown_report_ids = set(reports) - known_dataset_ids
-    if unknown_report_ids:
-        unknown = ", ".join(sorted(unknown_report_ids))
-        raise ProjectFormatError(f"Import report ссылается на неизвестный набор: {unknown}")
-    return ProjectDocument(project, layouts, presets, import_reports=reports)
+    raw_project = migrated.get("project")
+    if not isinstance(raw_project, dict):
+        raise ProjectFormatError("Поле 'project' отсутствует или имеет неверный тип")
+    histories = _analysis_histories(raw_project)
+    legacy_payload = dict(migrated)
+    legacy_payload["format_version"] = 27
+    legacy_payload["project"] = _without_analysis_histories(raw_project)
+    document = _v27.project_document_from_dict(legacy_payload)
+    _attach_analysis_histories(document.project, histories)
+    return document
 
 
 def load_project_document(path: str | Path, *, max_size_mb: int = 512) -> ProjectDocument:
@@ -1755,14 +191,14 @@ def load_project_document(path: str | Path, *, max_size_mb: int = 512) -> Projec
     try:
         document = project_document_from_dict(raw)
         try:
-            document.source_documents = load_source_documents(
+            document.source_documents = _v27.load_source_documents(
                 source, dict(raw.get("source_artifacts", {}))
             )
-            _validate_report_artifact_consistency(document)
-        except SourceArtifactError as exc:
+            _v27._validate_report_artifact_consistency(document)
+        except _v27.SourceArtifactError as exc:
             raise ProjectFormatError(str(exc)) from exc
         try:
-            document.image_assets = load_image_assets(source, raw.get("image_assets", {}))
+            document.image_assets = _v27.load_image_assets(source, raw.get("image_assets", {}))
             missing_logo_assets = sorted(
                 {entry.asset_id for entry in document.project.logo_catalog.values()}
                 - set(document.image_assets)
@@ -1783,7 +219,7 @@ def load_project_document(path: str | Path, *, max_size_mb: int = 512) -> Projec
                 raise ProjectFormatError(
                     "Паспорт скважины ссылается на отсутствующие image assets"
                 )
-        except ImageAssetError as exc:
+        except _v27.ImageAssetError as exc:
             raise ProjectFormatError(str(exc)) from exc
         return document
     except ProjectFormatError:
@@ -1796,11 +232,6 @@ def load_project(path: str | Path, *, max_size_mb: int = 512) -> Project:
     return load_project_document(path, max_size_mb=max_size_mb).project
 
 
-def _validate_report_artifact_consistency(document: ProjectDocument) -> None:
-    for dataset_id in set(document.source_documents) & set(document.import_reports):
-        source = document.source_documents[dataset_id]
-        report_source = document.import_reports[dataset_id].source
-        if source.size_bytes != report_source.size_bytes or source.sha256 != report_source.sha256:
-            raise ProjectFormatError(
-                f"Import report не соответствует source artifact dataset {dataset_id}"
-            )
+def __getattr__(name: str) -> Any:
+    """Keep compatibility for public helpers that remain unchanged from v27."""
+    return getattr(_v27, name)
