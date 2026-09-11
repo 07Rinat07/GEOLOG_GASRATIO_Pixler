@@ -248,20 +248,18 @@ def prepare_well_analysis_update(
 
     selected = set(selected_changes)
     ordered_changes = tuple(item for item in plan.changes if item in selected)
-    changes_by_sample: dict[str, dict[str, AnalysisScalar]] = {}
-    changed_fields_by_sample: dict[str, set[AnalysisField]] = {}
+    changes_by_sample: dict[str, list[AnalysisCellChange]] = {}
     for change in ordered_changes:
-        changes_by_sample.setdefault(change.sample_id, {})[change.field.value] = change.new_value
-        changed_fields_by_sample.setdefault(change.sample_id, set()).add(change.field)
+        changes_by_sample.setdefault(change.sample_id, []).append(change)
 
     staged: list[CuttingsSample] = []
     for sample in well.cuttings:
-        values = changes_by_sample.get(sample.sample_id)
-        if values is None:
+        sample_changes = changes_by_sample.get(sample.sample_id)
+        if sample_changes is None:
             staged.append(sample)
             continue
-        updated = replace(sample, **values)
-        _validate_staged_sample(updated, changed_fields_by_sample[sample.sample_id])
+        updated = _apply_analysis_changes(sample, sample_changes)
+        _validate_staged_sample(updated, {change.field for change in sample_changes})
         staged.append(updated)
 
     staged_well = replace(
@@ -478,8 +476,77 @@ def _validate_proposed_patch(
 ) -> None:
     if not changes:
         return
-    updated = replace(target, **{item.field.value: item.new_value for item in changes})
+    updated = _apply_analysis_changes(target, changes)
     _validate_staged_sample(updated, {item.field for item in changes})
+
+
+def _apply_analysis_changes(
+    sample: CuttingsSample,
+    changes: list[AnalysisCellChange],
+) -> CuttingsSample:
+    updated = sample
+    for change in changes:
+        updated = _replace_analysis_value(updated, change.field, change.new_value)
+    return updated
+
+
+def _replace_analysis_value(
+    sample: CuttingsSample,
+    field: AnalysisField,
+    value: AnalysisScalar,
+) -> CuttingsSample:
+    if field is AnalysisField.CALCITE_PERCENT:
+        return replace(sample, calcite_percent=_percent_value(field, value))
+    if field is AnalysisField.DOLOMITE_PERCENT:
+        return replace(sample, dolomite_percent=_percent_value(field, value))
+    if field is AnalysisField.LBA_GROUP:
+        return replace(sample, lba_group=_integer_value(field, value))
+    if field is AnalysisField.LBA_INTENSITY:
+        return replace(sample, lba_intensity=_integer_value(field, value))
+    text = _text_value(field, value)
+    if field is AnalysisField.LBA_TYPE_ID:
+        return replace(sample, lba_type_id=text)
+    if field is AnalysisField.LBA_COLOR:
+        return replace(sample, lba_color=text)
+    if field is AnalysisField.LBA_DISTRIBUTION:
+        return replace(sample, lba_distribution=text)
+    if field is AnalysisField.LBA_CUT:
+        return replace(sample, lba_cut=text)
+    if field is AnalysisField.LBA_CUT_SPEED:
+        return replace(sample, lba_cut_speed=text)
+    if field is AnalysisField.LBA_CUT_COLOR:
+        return replace(sample, lba_cut_color=text)
+    if field is AnalysisField.LBA_RESIDUE_TYPE:
+        return replace(sample, lba_residue_type=text)
+    if field is AnalysisField.LBA_RESIDUE_COLOR:
+        return replace(sample, lba_residue_color=text)
+    if field is AnalysisField.LBA_ODOUR:
+        return replace(sample, lba_odour=text)
+    if field is AnalysisField.LBA_STAIN:
+        return replace(sample, lba_stain=text)
+    if field is AnalysisField.LBA_DESCRIPTION:
+        return replace(sample, lba_description=text)
+    if field is AnalysisField.ANALYSIS_INTERPRETATION:
+        return replace(sample, analysis_interpretation=text)
+    raise AnalysisUpdateError(f"Поле {field.value} не поддерживается для применения")
+
+
+def _percent_value(field: AnalysisField, value: AnalysisScalar) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise AnalysisUpdateError(f"Поле {field.value} должно быть числом")
+    return float(value)
+
+
+def _integer_value(field: AnalysisField, value: AnalysisScalar) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise AnalysisUpdateError(f"Поле {field.value} должно быть целым числом")
+    return value
+
+
+def _text_value(field: AnalysisField, value: AnalysisScalar) -> str:
+    if not isinstance(value, str):
+        raise AnalysisUpdateError(f"Поле {field.value} должно быть строкой")
+    return value
 
 
 def _validate_staged_sample(sample: CuttingsSample, changed_fields: set[AnalysisField]) -> None:
