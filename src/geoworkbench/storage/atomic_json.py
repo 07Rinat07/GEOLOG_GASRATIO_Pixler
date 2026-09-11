@@ -9,13 +9,17 @@ from typing import Any
 
 import numpy as np
 
-from geoworkbench.domain.models import Project
-from geoworkbench.domain.well_passport import validate_passport
-from geoworkbench.data.lossless_las import LosslessLasDocument
 from geoworkbench.data.las_import_report import LasImportReport, validate_import_report
-from geoworkbench.storage.source_artifacts import save_source_documents
-from geoworkbench.storage.project_codec import PROJECT_FORMAT_VERSION
+from geoworkbench.data.lossless_las import LosslessLasDocument
+from geoworkbench.domain.models import Project
+from geoworkbench.domain.rock_code_profiles import (
+    RockCodeProfileRecord,
+    RockCodeSourceBindingRecord,
+)
+from geoworkbench.domain.well_passport import validate_passport
 from geoworkbench.printing.image_assets import ImageAsset, save_image_assets
+from geoworkbench.storage.project_codec import PROJECT_FORMAT_VERSION
+from geoworkbench.storage.source_artifacts import save_source_documents
 from geoworkbench.tablet.layout_codec import layout_to_dict
 from geoworkbench.tablet.models import TabletLayout
 
@@ -30,6 +34,25 @@ def _default(value: Any) -> Any:
     raise TypeError(f"Неподдерживаемый тип: {type(value)!r}")
 
 
+def _validate_rock_profile_ledgers(
+    profiles: dict[str, RockCodeProfileRecord],
+    bindings: dict[str, RockCodeSourceBindingRecord],
+) -> None:
+    for digest, profile_record in profiles.items():
+        if digest != profile_record.profile_sha256:
+            raise ValueError("Ключ профиля не совпадает с profile_sha256")
+    for source_digest, binding in bindings.items():
+        if source_digest != binding.source_sha256:
+            raise ValueError("Ключ источника не совпадает с source_sha256")
+        bound_profile = profiles.get(binding.profile_sha256)
+        if bound_profile is None:
+            raise ValueError("Привязка источника ссылается на отсутствующий профиль")
+        if bound_profile.supplier_name != binding.supplier_name:
+            raise ValueError(
+                "Поставщик привязки не совпадает с поставщиком ревизии профиля"
+            )
+
+
 def save_project(
     project: Project,
     target: Path,
@@ -39,6 +62,8 @@ def save_project(
     source_documents: dict[str, LosslessLasDocument] | None = None,
     import_reports: dict[str, LasImportReport] | None = None,
     image_assets: dict[str, ImageAsset] | None = None,
+    rock_code_profiles: dict[str, RockCodeProfileRecord] | None = None,
+    rock_code_source_bindings: dict[str, RockCodeSourceBindingRecord] | None = None,
 ) -> None:
     for well in project.wells.values():
         if well.passport is not None:
@@ -73,6 +98,9 @@ def save_project(
             or document_source.sha256 != report_source.sha256
         ):
             raise ValueError(f"Import report не соответствует source document: {dataset_id}")
+    profiles = rock_code_profiles or {}
+    bindings = rock_code_source_bindings or {}
+    _validate_rock_profile_ledgers(profiles, bindings)
     source_artifacts = save_source_documents(target, documents)
     image_asset_manifest = save_image_assets(target, image_assets or {})
     document = {
@@ -88,6 +116,12 @@ def save_project(
         "source_artifacts": source_artifacts,
         "image_assets": image_asset_manifest,
         "import_reports": {dataset_id: asdict(report) for dataset_id, report in reports.items()},
+        "rock_code_profiles": {
+            digest: asdict(profile) for digest, profile in profiles.items()
+        },
+        "rock_code_source_bindings": {
+            digest: asdict(binding) for digest, binding in bindings.items()
+        },
     }
     payload = json.dumps(document, ensure_ascii=False, indent=2, default=_default)
     fd, temp_name = tempfile.mkstemp(prefix=f".{target.name}.", suffix=".tmp", dir=target.parent)

@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import os
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from geoworkbench.domain.models import Dataset
 from geoworkbench.project.repository import ProjectRepository
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.storage.project_codec import ProjectDocument
 from geoworkbench.storage.project_file_safety import (
-    ProjectChangedExternallyError,
     ProjectBackupRecord,
+    ProjectChangedExternallyError,
     ProjectDiskState,
     ProjectFileSafetyError,
     ProjectFileSafetyService,
@@ -17,7 +18,6 @@ from geoworkbench.storage.project_file_safety import (
     SaveMode,
 )
 from geoworkbench.storage.project_repository_router import ProjectRepositoryRouter
-from geoworkbench.storage.project_codec import ProjectDocument
 
 
 @dataclass(slots=True)
@@ -54,6 +54,8 @@ class ProjectController:
             source_documents=document.source_documents,
             import_reports=document.import_reports,
             image_assets=document.image_assets,
+            rock_code_profiles=document.rock_code_profiles,
+            rock_code_source_bindings=document.rock_code_source_bindings,
         )
         self._select_first_dataset(session)
         session.dirty = False
@@ -109,6 +111,8 @@ class ProjectController:
             source_documents=self.session.source_documents,
             import_reports=self.session.import_reports,
             image_assets=self.session.image_assets,
+            rock_code_profiles=self.session.rock_code_profiles,
+            rock_code_source_bindings=self.session.rock_code_source_bindings,
         )
         previous_revision = self.session.project.save_revision
         self.session.project.save_revision = previous_revision + 1

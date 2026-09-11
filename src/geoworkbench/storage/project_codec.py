@@ -1,31 +1,44 @@
-"""Project codec v28 compatibility layer for WELL-02 late-analysis audit.
+"""Project codec v29 for supplier rock-profile revisions and source bindings.
 
-The v27 decoder is frozen in ``project_codec_v27``. Version 28 adds one well-level
-ledger and delegates every pre-existing project structure to that proven decoder.
+The v28 decoder is frozen in ``project_codec_v28``. Version 29 adds two
+project-document-level provenance ledgers while delegating all geological,
+well, dataset and legacy migration semantics to the proven v28 layer.
 """
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from geoworkbench.domain.analysis_update import (
-    AnalysisCellChange,
-    AnalysisField,
-    AnalysisUpdateRecord,
-)
 from geoworkbench.domain.models import Project
-from geoworkbench.storage import project_codec_v27 as _v27
-from geoworkbench.storage.project_codec_v27 import ProjectDocument, ProjectFormatError
-from geoworkbench.storage.project_migrations import (
-    ProjectMigrationError,
-    migrate_project_payload,
+from geoworkbench.domain.rock_code_profiles import (
+    RockCodeProfileRecord,
+    RockCodeSourceBindingRecord,
 )
+from geoworkbench.services.rock_code_dictionary import (
+    RockCodeDictionary,
+    RockCodeDictionaryError,
+)
+from geoworkbench.storage import project_codec_v28 as _v28
+from geoworkbench.storage.project_codec_v28 import ProjectFormatError
 
 
-PROJECT_FORMAT_VERSION = 28
-_MAX_ANALYSIS_HISTORY_RECORDS = 10_000
-_MAX_ANALYSIS_CHANGES = 10_000
+PROJECT_FORMAT_VERSION = 29
+_MAX_PROFILE_REVISIONS = 10_000
+_MAX_SOURCE_BINDINGS = 100_000
+_PROFILE_KEYS = {"supplier_name", "profile_json", "profile_sha256"}
+_BINDING_KEYS = {"source_sha256", "supplier_name", "profile_sha256"}
+
+
+@dataclass(slots=True)
+class ProjectDocument(_v28.ProjectDocument):
+    """Current project document plus reproducible supplier-profile provenance."""
+
+    rock_code_profiles: dict[str, RockCodeProfileRecord] = field(default_factory=dict)
+    rock_code_source_bindings: dict[str, RockCodeSourceBindingRecord] = field(
+        default_factory=dict
+    )
 
 
 def _require_exact_keys(data: dict[str, Any], allowed: set[str], label: str) -> None:
@@ -35,145 +48,117 @@ def _require_exact_keys(data: dict[str, Any], allowed: set[str], label: str) -> 
         raise ProjectFormatError(f"{label} содержит неизвестные поля: {names}")
 
 
-def _analysis_cell_change_from_dict(data: object) -> AnalysisCellChange:
+def _profile_record_from_dict(data: object) -> RockCodeProfileRecord:
     if not isinstance(data, dict):
-        raise ProjectFormatError("Изменение отдельного анализа должно быть объектом")
-    _require_exact_keys(
-        data,
-        {"sample_id", "top_depth", "bottom_depth", "field", "old_value", "new_value"},
-        "analysis cell change",
-    )
-    field = data.get("field")
-    if not isinstance(field, str):
-        raise ProjectFormatError("Поле изменения анализа должно быть строкой")
+        raise ProjectFormatError("Ревизия профиля кодов пород должна быть объектом")
+    _require_exact_keys(data, _PROFILE_KEYS, "rock-code profile")
     try:
-        return AnalysisCellChange(**{**data, "field": AnalysisField(field)})
-    except (KeyError, TypeError, ValueError) as exc:
-        raise ProjectFormatError("Некорректное изменение отдельного анализа") from exc
+        record = RockCodeProfileRecord(**data)
+        dictionary = RockCodeDictionary.from_json(record.profile_json)
+    except (TypeError, ValueError, RockCodeDictionaryError) as exc:
+        raise ProjectFormatError("Некорректная ревизия профиля кодов пород") from exc
+    if dictionary.to_json() != record.profile_json:
+        raise ProjectFormatError("profile_json должен использовать канонический формат")
+    return record
 
 
-def _analysis_update_record_from_dict(data: object) -> AnalysisUpdateRecord:
+def _binding_record_from_dict(data: object) -> RockCodeSourceBindingRecord:
     if not isinstance(data, dict):
-        raise ProjectFormatError("Запись истории отдельного анализа должна быть объектом")
-    _require_exact_keys(
-        data,
-        {
-            "update_id",
-            "well_id",
-            "source_name",
-            "source_sha256",
-            "imported_at",
-            "selected_fields",
-            "changes",
-            "well_sha256_before",
-            "well_sha256_after",
-        },
-        "analysis update record",
-    )
-    raw_fields = data.get("selected_fields")
-    raw_changes = data.get("changes")
-    if (
-        not isinstance(raw_fields, list)
-        or not raw_fields
-        or len(raw_fields) > len(AnalysisField)
-        or not all(isinstance(item, str) for item in raw_fields)
-    ):
-        raise ProjectFormatError("Некорректный selected_fields истории анализа")
-    if (
-        not isinstance(raw_changes, list)
-        or not raw_changes
-        or len(raw_changes) > _MAX_ANALYSIS_CHANGES
-    ):
-        raise ProjectFormatError("Некорректный changes истории анализа")
+        raise ProjectFormatError("Привязка источника к профилю должна быть объектом")
+    _require_exact_keys(data, _BINDING_KEYS, "rock-code source binding")
     try:
-        return AnalysisUpdateRecord(
-            **{
-                **data,
-                "selected_fields": tuple(AnalysisField(item) for item in raw_fields),
-                "changes": tuple(_analysis_cell_change_from_dict(item) for item in raw_changes),
-            }
-        )
-    except (KeyError, TypeError, ValueError) as exc:
-        raise ProjectFormatError("Некорректная история отдельных анализов") from exc
+        return RockCodeSourceBindingRecord(**data)
+    except (TypeError, ValueError) as exc:
+        raise ProjectFormatError("Некорректная привязка источника к профилю") from exc
 
 
-def _analysis_history_from_dict(data: object) -> list[AnalysisUpdateRecord]:
-    if not isinstance(data, list) or len(data) > _MAX_ANALYSIS_HISTORY_RECORDS:
-        raise ProjectFormatError("История отдельных анализов должна быть списком")
-    return [_analysis_update_record_from_dict(item) for item in data]
+def _profile_records(data: object) -> dict[str, RockCodeProfileRecord]:
+    if not isinstance(data, dict) or len(data) > _MAX_PROFILE_REVISIONS:
+        raise ProjectFormatError("rock_code_profiles должен быть ограниченным объектом")
+    records: dict[str, RockCodeProfileRecord] = {}
+    for digest, raw in data.items():
+        if not isinstance(digest, str):
+            raise ProjectFormatError("Ключ ревизии профиля должен быть строкой")
+        record = _profile_record_from_dict(raw)
+        if digest != record.profile_sha256:
+            raise ProjectFormatError("Ключ профиля не совпадает с profile_sha256")
+        records[digest] = record
+    return records
 
 
-def _analysis_histories(project_data: dict[str, Any]) -> dict[str, list[AnalysisUpdateRecord]]:
-    wells = project_data.get("wells")
-    if not isinstance(wells, dict):
-        return {}
-    histories: dict[str, list[AnalysisUpdateRecord]] = {}
-    for well_key, raw_well in wells.items():
-        if not isinstance(well_key, str) or not isinstance(raw_well, dict):
-            continue
-        histories[well_key] = _analysis_history_from_dict(
-            raw_well.get("analysis_update_history", [])
-        )
-    return histories
-
-
-def _without_analysis_histories(project_data: dict[str, Any]) -> dict[str, Any]:
-    stripped = dict(project_data)
-    wells = project_data.get("wells")
-    if not isinstance(wells, dict):
-        return stripped
-    stripped_wells: dict[object, object] = {}
-    for well_key, raw_well in wells.items():
-        if isinstance(raw_well, dict):
-            well_copy = dict(raw_well)
-            well_copy.pop("analysis_update_history", None)
-            stripped_wells[well_key] = well_copy
-        else:
-            stripped_wells[well_key] = raw_well
-    stripped["wells"] = stripped_wells
-    return stripped
-
-
-def _attach_analysis_histories(
-    project: Project,
-    histories: dict[str, list[AnalysisUpdateRecord]],
-) -> None:
-    for well_key, records in histories.items():
-        well = project.wells.get(well_key)
-        if well is None:
+def _source_bindings(
+    data: object,
+    profiles: dict[str, RockCodeProfileRecord],
+) -> dict[str, RockCodeSourceBindingRecord]:
+    if not isinstance(data, dict) or len(data) > _MAX_SOURCE_BINDINGS:
+        raise ProjectFormatError("rock_code_source_bindings должен быть ограниченным объектом")
+    records: dict[str, RockCodeSourceBindingRecord] = {}
+    for digest, raw in data.items():
+        if not isinstance(digest, str):
+            raise ProjectFormatError("Ключ привязки источника должен быть строкой")
+        record = _binding_record_from_dict(raw)
+        if digest != record.source_sha256:
+            raise ProjectFormatError("Ключ источника не совпадает с source_sha256")
+        profile = profiles.get(record.profile_sha256)
+        if profile is None:
+            raise ProjectFormatError("Привязка источника ссылается на отсутствующий профиль")
+        if profile.supplier_name != record.supplier_name:
             raise ProjectFormatError(
-                f"История отдельных анализов ссылается на неизвестную скважину: {well_key}"
+                "Поставщик привязки не совпадает с поставщиком ревизии профиля"
             )
-        if any(record.well_id != well.well_id for record in records):
-            raise ProjectFormatError(
-                f"История отдельных анализов не соответствует скважине: {well_key}"
-            )
-        well.analysis_update_history = records
+        records[digest] = record
+    return records
+
+
+def _format_version(data: dict[str, Any]) -> int:
+    version = data.get("format_version", 1)
+    if isinstance(version, bool) or not isinstance(version, int) or version < 1:
+        raise ProjectFormatError("Некорректная версия формата проекта")
+    if version > PROJECT_FORMAT_VERSION:
+        raise ProjectFormatError(
+            f"Версия проекта {version} новее поддерживаемой {PROJECT_FORMAT_VERSION}"
+        )
+    return version
+
+
+def _legacy_payload(data: dict[str, Any], version: int) -> dict[str, Any]:
+    if version < PROJECT_FORMAT_VERSION:
+        return data
+    legacy = dict(data)
+    legacy.pop("rock_code_profiles", None)
+    legacy.pop("rock_code_source_bindings", None)
+    legacy["format_version"] = _v28.PROJECT_FORMAT_VERSION
+    return legacy
 
 
 def project_from_dict(data: dict[str, Any]) -> Project:
-    histories = _analysis_histories(data)
-    project = _v27.project_from_dict(_without_analysis_histories(data))
-    _attach_analysis_histories(project, histories)
-    return project
+    """Decode project-owned entities; profile ledgers belong to ProjectDocument."""
+
+    return _v28.project_from_dict(data)
 
 
 def project_document_from_dict(data: dict[str, Any]) -> ProjectDocument:
-    """Migrate to v28 and decode the new ledger without changing v27 semantics."""
-    try:
-        migrated = migrate_project_payload(data, PROJECT_FORMAT_VERSION)
-    except ProjectMigrationError as exc:
-        raise ProjectFormatError(str(exc)) from exc
-    raw_project = migrated.get("project")
-    if not isinstance(raw_project, dict):
-        raise ProjectFormatError("Поле 'project' отсутствует или имеет неверный тип")
-    histories = _analysis_histories(raw_project)
-    legacy_payload = dict(migrated)
-    legacy_payload["format_version"] = 27
-    legacy_payload["project"] = _without_analysis_histories(raw_project)
-    document = _v27.project_document_from_dict(legacy_payload)
-    _attach_analysis_histories(document.project, histories)
-    return document
+    """Decode v1…v29 without guessing suppliers for pre-v29 projects."""
+
+    version = _format_version(data)
+    if version == PROJECT_FORMAT_VERSION:
+        profiles = _profile_records(data.get("rock_code_profiles", {}))
+        bindings = _source_bindings(data.get("rock_code_source_bindings", {}), profiles)
+    else:
+        profiles = {}
+        bindings = {}
+
+    legacy_document = _v28.project_document_from_dict(_legacy_payload(data, version))
+    return ProjectDocument(
+        project=legacy_document.project,
+        tablet_layouts=legacy_document.tablet_layouts,
+        tablet_presets=legacy_document.tablet_presets,
+        source_documents=legacy_document.source_documents,
+        import_reports=legacy_document.import_reports,
+        image_assets=legacy_document.image_assets,
+        rock_code_profiles=profiles,
+        rock_code_source_bindings=bindings,
+    )
 
 
 def load_project_document(path: str | Path, *, max_size_mb: int = 512) -> ProjectDocument:
@@ -191,14 +176,14 @@ def load_project_document(path: str | Path, *, max_size_mb: int = 512) -> Projec
     try:
         document = project_document_from_dict(raw)
         try:
-            document.source_documents = _v27.load_source_documents(
+            document.source_documents = _v28.load_source_documents(
                 source, dict(raw.get("source_artifacts", {}))
             )
-            _v27._validate_report_artifact_consistency(document)
-        except _v27.SourceArtifactError as exc:
+            _v28._validate_report_artifact_consistency(document)
+        except _v28.SourceArtifactError as exc:
             raise ProjectFormatError(str(exc)) from exc
         try:
-            document.image_assets = _v27.load_image_assets(source, raw.get("image_assets", {}))
+            document.image_assets = _v28.load_image_assets(source, raw.get("image_assets", {}))
             missing_logo_assets = sorted(
                 {entry.asset_id for entry in document.project.logo_catalog.values()}
                 - set(document.image_assets)
@@ -219,7 +204,7 @@ def load_project_document(path: str | Path, *, max_size_mb: int = 512) -> Projec
                 raise ProjectFormatError(
                     "Паспорт скважины ссылается на отсутствующие image assets"
                 )
-        except _v27.ImageAssetError as exc:
+        except _v28.ImageAssetError as exc:
             raise ProjectFormatError(str(exc)) from exc
         return document
     except ProjectFormatError:
@@ -233,5 +218,6 @@ def load_project(path: str | Path, *, max_size_mb: int = 512) -> Project:
 
 
 def __getattr__(name: str) -> Any:
-    """Keep compatibility for public helpers that remain unchanged from v27."""
-    return getattr(_v27, name)
+    """Keep compatibility for public helpers that remain unchanged from v28."""
+
+    return getattr(_v28, name)

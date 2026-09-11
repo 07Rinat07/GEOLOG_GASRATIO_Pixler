@@ -28,6 +28,9 @@ from geoworkbench.storage.project_codec import (
     load_project_document,
     project_document_from_dict,
 )
+from geoworkbench.storage.project_codec_v28 import (
+    PROJECT_FORMAT_VERSION as LEGACY_PROJECT_FORMAT_VERSION,
+)
 from geoworkbench.storage.project_migrations import migrate_project_payload
 
 
@@ -172,10 +175,10 @@ def test_v24_migration_preserves_conflicting_headers_and_source_payload() -> Non
     raw = {"format_version": 24, "project": project, "tablet_layouts": {}, "tablet_presets": {}}
     original = deepcopy(raw)
 
-    migrated = migrate_project_payload(raw, PROJECT_FORMAT_VERSION)
+    migrated = migrate_project_payload(raw, LEGACY_PROJECT_FORMAT_VERSION)
     restored = project_document_from_dict(migrated)
 
-    assert migrated["format_version"] == 28
+    assert migrated["format_version"] == LEGACY_PROJECT_FORMAT_VERSION == 28
     assert raw == original
     assert migrated["project"]["masterlog_templates"] == project["masterlog_templates"]
     assert all(well.passport is None for well in restored.project.wells.values())
@@ -310,4 +313,4 @@ def test_v24_migration_rejects_malformed_header_structure(templates) -> None:
 
     raw = {"format_version": 24, "project": {"wells": {}, "masterlog_templates": templates}}
     with pytest.raises(ProjectMigrationError):
-        migrate_project_payload(raw, PROJECT_FORMAT_VERSION)
+        migrate_project_payload(raw, LEGACY_PROJECT_FORMAT_VERSION)
