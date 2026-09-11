@@ -21,4 +21,6 @@ class JsonProjectRepository:
             source_documents=document.source_documents,
             import_reports=document.import_reports,
             image_assets=document.image_assets,
+            rock_code_profiles=document.rock_code_profiles,
+            rock_code_source_bindings=document.rock_code_source_bindings,
         )

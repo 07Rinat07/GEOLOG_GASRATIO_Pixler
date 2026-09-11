@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from hashlib import sha256
 import json
 import os
-from pathlib import Path, PurePosixPath
 import stat
 import tempfile
+from dataclasses import dataclass
+from hashlib import sha256
+from pathlib import Path, PurePosixPath
 from zipfile import ZIP_DEFLATED, BadZipFile, ZipFile, ZipInfo
 
 from geoworkbench.storage.atomic_json import save_project
@@ -68,6 +68,8 @@ class PackageProjectRepository:
                 source_documents=document.source_documents,
                 import_reports=document.import_reports,
                 image_assets=document.image_assets,
+                rock_code_profiles=document.rock_code_profiles,
+                rock_code_source_bindings=document.rock_code_source_bindings,
             )
             storage = self.chunk_codec.encode(project_path, root)
             entries = self._collect_entries(root)

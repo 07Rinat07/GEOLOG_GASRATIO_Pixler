@@ -7,11 +7,15 @@ from geoworkbench.calculations.gas_ratio import (
     CONDITIONED_GAS_PROVENANCE,
     calculate_conditioned_ratios,
 )
-from geoworkbench.domain.models import Dataset, Project, Well, new_id
-from geoworkbench.data.lossless_las import LosslessLasDocument
 from geoworkbench.data.las_import_report import LasImportReport
-from geoworkbench.tablet.models import TabletLayout
+from geoworkbench.data.lossless_las import LosslessLasDocument
+from geoworkbench.domain.models import Dataset, Project, Well, new_id
+from geoworkbench.domain.rock_code_profiles import (
+    RockCodeProfileRecord,
+    RockCodeSourceBindingRecord,
+)
 from geoworkbench.services.las_parameter_resolver import resolve_gas_ratio_inputs
+from geoworkbench.tablet.models import TabletLayout
 
 
 if TYPE_CHECKING:
@@ -30,6 +34,10 @@ class ProjectSession:
     source_documents: dict[str, LosslessLasDocument] = field(default_factory=dict)
     import_reports: dict[str, LasImportReport] = field(default_factory=dict)
     image_assets: dict[str, ImageAsset] = field(default_factory=dict)
+    rock_code_profiles: dict[str, RockCodeProfileRecord] = field(default_factory=dict)
+    rock_code_source_bindings: dict[str, RockCodeSourceBindingRecord] = field(
+        default_factory=dict
+    )
     dirty: bool = False
 
     def add_dataset(
