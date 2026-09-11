@@ -3942,6 +3942,7 @@ class MainWindow(QMainWindow):
                 outcome = self.daily_las_growth_controller.apply_numerical(
                     dialog.plan, append_rows=dialog.append_rows.isChecked(),
                     selected_changes=dialog.selected_numerical_changes(),
+                    geology_plan=getattr(dialog, "geology_plan", None),
                 )
             else:
                 outcome = self.daily_las_growth_controller.apply(dialog.plan)
@@ -3949,7 +3950,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, self._t("daily_las_growth.action"), str(exc))
             return
         self.project_controller.select_existing_dataset(dialog.plan.target_dataset_id)
-        if outcome.record is None:
+        if outcome.record is None and not (isinstance(outcome, WellNumericalUpdateOutcome) and outcome.geology_record is not None):
             message = self._t("daily_las_growth.numerical_no_changes" if isinstance(outcome.plan, WellNumericalUpdatePlan) else "daily_las_growth.no_changes")
             self._refresh_after_daily_las_growth()
             self.statusBar().showMessage(message)
@@ -3981,9 +3982,15 @@ class MainWindow(QMainWindow):
         backup_path = getattr(backup, "backup_path", None)
         if isinstance(outcome, WellNumericalUpdateOutcome):
             message = self._t(
-                "daily_las_growth.numerical_success", added=outcome.record.rows_added,
-                changed=len(outcome.record.changes), project=saved_path, backup=backup_path or "—",
+                "daily_las_growth.numerical_success", added=outcome.record.rows_added if outcome.record else 0,
+                changed=len(outcome.record.changes) if outcome.record else 0, project=saved_path, backup=backup_path or "—",
             )
+            if outcome.geology_record is not None:
+                message += " " + self._t(
+                    "daily_las_growth.geology_success",
+                    lithology=len(outcome.geology_record.lithology_ids),
+                    cuttings=len(outcome.geology_record.cuttings_ids),
+                )
         else:
             message = self._t(
                 "daily_las_growth.success",

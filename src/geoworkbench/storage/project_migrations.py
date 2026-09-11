@@ -569,6 +569,22 @@ def _migrate_v25_to_v26(payload: ProjectPayload) -> ProjectPayload:
     return migrated
 
 
+def _migrate_v26_to_v27(payload: ProjectPayload) -> ProjectPayload:
+    migrated = deepcopy(payload)
+    project = migrated.get("project")
+    if not isinstance(project, dict) or not isinstance(project.get("wells", {}), dict):
+        raise ProjectMigrationError("Некорректный проект версии 26")
+    for well in project.get("wells", {}).values():
+        if not isinstance(well, dict) or not isinstance(well.get("datasets", {}), dict):
+            raise ProjectMigrationError("Некорректная скважина версии 26")
+        for dataset in well.get("datasets", {}).values():
+            if not isinstance(dataset, dict):
+                raise ProjectMigrationError("Некорректный dataset версии 26")
+            dataset.setdefault("geology_update_history", [])
+    migrated["format_version"] = 27
+    return migrated
+
+
 DEFAULT_PROJECT_MIGRATIONS = ProjectMigrationRegistry()
 DEFAULT_PROJECT_MIGRATIONS.register(0, _migrate_legacy_to_v1)
 DEFAULT_PROJECT_MIGRATIONS.register(1, _migrate_v1_to_v2)
@@ -596,6 +612,7 @@ DEFAULT_PROJECT_MIGRATIONS.register(22, _migrate_v22_to_v23)
 DEFAULT_PROJECT_MIGRATIONS.register(23, _migrate_v23_to_v24)
 DEFAULT_PROJECT_MIGRATIONS.register(24, _migrate_v24_to_v25)
 DEFAULT_PROJECT_MIGRATIONS.register(25, _migrate_v25_to_v26)
+DEFAULT_PROJECT_MIGRATIONS.register(26, _migrate_v26_to_v27)
 
 
 def migrate_project_payload(payload: ProjectPayload, target_version: int) -> ProjectPayload:

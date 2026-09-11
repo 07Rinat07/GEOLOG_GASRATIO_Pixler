@@ -352,7 +352,8 @@ def _ascii_field(value: str) -> str:
 
 def load_dictionary(path: str | Path) -> RockCodeDictionary:
     target = Path(path)
-    raw = target.read_bytes()
+    with target.open("rb") as stream:
+        raw = stream.read(_MAX_DICTIONARY_BYTES + 1)
     if len(raw) > _MAX_DICTIONARY_BYTES:
         raise RockCodeDictionaryError("Файл справочника слишком большой")
     return RockCodeDictionary.from_json(raw.decode("utf-8-sig"))

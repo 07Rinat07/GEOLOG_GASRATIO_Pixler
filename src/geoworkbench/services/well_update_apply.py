@@ -13,6 +13,7 @@ from uuid import uuid4
 import numpy as np
 
 from geoworkbench.domain.models import CalculationState, Dataset
+from geoworkbench.domain.geology_update import GeologyUpdateRecord
 from geoworkbench.domain.numerical_update import (
     NumericalCellChange, NumericalUpdateKind, NumericalUpdateRecord,
 )
@@ -29,6 +30,7 @@ from geoworkbench.services.well_update_plan import (
 class WellNumericalUpdateOutcome:
     plan: WellNumericalUpdatePlan
     record: NumericalUpdateRecord | None
+    geology_record: GeologyUpdateRecord | None = None
 
 
 def apply_well_numerical_update(

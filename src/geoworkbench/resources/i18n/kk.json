@@ -2365,5 +2365,6 @@
   "tablet.rename_curve_prompt": "{mnemonic} үшін түсінікті атау енгізіңіз:",
   "daily_las_growth.numerical_success": "Сандық жаңарту сақталды: жаңа жолдар — {added}, таңдалған ұяшықтар — {changed}. Жоба: {project}. Сақтық көшірме: {backup}.",
   "daily_las_growth.numerical_no_changes": "Таңдалған өзгерістер жоқ. Жоба өзгерген жоқ.",
-  "daily_las_growth.numerical_persist_failed": "LAS өзгерістері жадта қолданылды, бірақ жоба файлына жазылмады.\n\n{reason}"
+  "daily_las_growth.numerical_persist_failed": "LAS өзгерістері жадта қолданылды, бірақ жоба файлына жазылмады.\n\n{reason}",
+  "daily_las_growth.geology_success": "Геологиялық аралықтар қосылды: литология — {lithology}, шлам — {cuttings}."
 }

@@ -2365,5 +2365,6 @@
   "tablet.rename_curve_prompt": "Введите понятное название для {mnemonic}:",
   "daily_las_growth.numerical_success": "Числовое обновление сохранено: новых строк — {added}, выбранных ячеек — {changed}. Проект: {project}. Резервная копия: {backup}.",
   "daily_las_growth.numerical_no_changes": "Выбранных изменений нет. Проект не изменён.",
-  "daily_las_growth.numerical_persist_failed": "Изменения LAS применены в памяти, но не записаны в файл проекта.\n\n{reason}"
+  "daily_las_growth.numerical_persist_failed": "Изменения LAS применены в памяти, но не записаны в файл проекта.\n\n{reason}",
+  "daily_las_growth.geology_success": "Добавлено геологических интервалов: литология — {lithology}, шлам — {cuttings}."
 }

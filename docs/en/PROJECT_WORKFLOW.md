@@ -282,3 +282,16 @@ The v26 history stores source identity, selected changes, and before/after hashe
 migrate on opening. If saving fails, the complete result stays unsaved in memory: resolve the
 cause and save the project. No successful-save message is shown on failure. This mode does not
 update geology, authored descriptions, or translations.
+
+### Geological additions using a supplier profile
+
+In the daily LAS numerical update, enable additions to free geological intervals and
+explicitly select a rock-code JSON profile. Review its name and source, proposed intervals,
+and remapped export codes. All proposed free intervals are applied; existing lithology,
+cuttings composition, manual descriptions and translations are retained. Enable new rows
+as well when proposed geology extends beyond the current depth. Only MD in metres is
+supported. Unknown codes, invalid compositions and large depth gaps remain unfilled.
+Changing the LAS disables geology selection. A profile changed after analysis requires
+another preview. Original LAS bytes and the profile snapshot are retained in the v27
+package; older projects receive an empty history without inferring a supplier. Import of
+separate geological analyses and custom drawings is outside this increment.

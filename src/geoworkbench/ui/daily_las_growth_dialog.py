@@ -21,6 +21,8 @@ from PySide6.QtWidgets import (
 
 from geoworkbench.project.daily_las_growth_controller import DailyLasGrowthController
 from geoworkbench.services.daily_las_growth import DailyLasGrowthPlan
+from geoworkbench.services.well_geology_update import WellGeologyUpdatePlan
+from geoworkbench.services.rock_code_dictionary import RockCodeDictionary
 from geoworkbench.services.well_update_plan import WellNumericalUpdatePlan, NumericalUpdateKind
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.local_las_folder import (
@@ -45,6 +47,7 @@ class DailyLasGrowthDialog(QDialog):
         self.controller = controller
         self.language = language.value if isinstance(language, AppLanguage) else str(language)
         self.plan: DailyLasGrowthPlan | WellNumericalUpdatePlan | None = None
+        self.geology_plan: WellGeologyUpdatePlan | None = None
         self._folder_candidates: tuple[LocalLasCandidate, ...] = ()
         self.setWindowTitle(self._text("Ежедневное наращивание LAS", "LAS күнделікті өсіру", "Daily LAS growth"))
         self.resize(720, 470)
@@ -168,6 +171,25 @@ class DailyLasGrowthDialog(QDialog):
             "Numerical update: new rows, gaps and corrections",
         ))
         root.addWidget(self.numerical_mode)
+        self.geology_enabled = QCheckBox(self._text(
+            "Дополнить все свободные геологические интервалы по профилю",
+            "Профиль бойынша барлық бос геологиялық аралықтарды толықтыру",
+            "Fill all uncovered geological intervals using a profile",
+        ))
+        self.geology_enabled.setVisible(False)
+        root.addWidget(self.geology_enabled)
+        self.profile_input = QLineEdit()
+        self.profile_input.setPlaceholderText(self._text(
+            "JSON-профиль кодов поставщика (выберите явно)",
+            "Жеткізуші кодтарының JSON профилі (нақты таңдаңыз)",
+            "Supplier rock-code JSON profile (explicit selection required)",
+        ))
+        self.profile_input.setVisible(False)
+        root.addWidget(self.profile_input)
+        self.profile_browse = QPushButton(self._text("Профиль…", "Профиль…", "Profile…"))
+        self.profile_browse.setVisible(False)
+        self.profile_browse.clicked.connect(self._browse_profile)
+        root.addWidget(self.profile_browse)
         self.append_rows = QCheckBox(self._text(
             "Добавить все новые строки", "Барлық жаңа жолдарды қосу", "Append all new rows",
         ))
@@ -227,9 +249,11 @@ class DailyLasGrowthDialog(QDialog):
         self.buttons.accepted.connect(self._accept)
         self.buttons.rejected.connect(self.reject)
         root.addWidget(self.buttons)
-        self.file_input.textChanged.connect(self._invalidate)
+        self.file_input.textChanged.connect(self._source_changed)
         self.target_combo.currentIndexChanged.connect(self._invalidate)
         self.numerical_mode.toggled.connect(self._switch_mode)
+        self.geology_enabled.toggled.connect(self._invalidate)
+        self.profile_input.textChanged.connect(self._invalidate)
 
     def _text(self, ru: str, kk: str, en: str) -> str:
         return {"ru": ru, "kk": kk, "en": en}.get(self.language, ru)
@@ -288,8 +312,13 @@ class DailyLasGrowthDialog(QDialog):
         if 0 <= index < len(self._folder_candidates):
             self.file_input.setText(str(self._folder_candidates[index].path))
 
+    def _source_changed(self) -> None:
+        self.geology_enabled.setChecked(False)
+        self._invalidate()
+
     def _invalidate(self) -> None:
         self.plan = None
+        self.geology_plan = None
         self.append_rows.setChecked(False)
         self.change_table.setRowCount(0)
         self.controller.reset_state()
@@ -307,6 +336,9 @@ class DailyLasGrowthDialog(QDialog):
             )
             return
         analyze = self.controller.analyze_numerical if self.numerical_mode.isChecked() else self.controller.analyze
+        options = {}
+        if self.numerical_mode.isChecked() and self.geology_enabled.isChecked():
+            options["geology_profile_path"] = self.profile_input.text().strip()
         try:
             candidate = next(
                 (item for item in self._folder_candidates if item.path == source.resolve()),
@@ -317,19 +349,21 @@ class DailyLasGrowthDialog(QDialog):
                 plan = analyze(
                     source,
                     dataset_id,
+                    **options,
                     provider_kind=LocalLasFolderProvider.provider_kind,
                     provider_location=(
                         f"{self.folder_input.text().strip()}::{candidate.relative_path}"
                     ),
                 )
             else:
-                plan = analyze(source, dataset_id)
+                plan = analyze(source, dataset_id, **options)
         except (OSError, RuntimeError, ValueError) as exc:
             self.preview.setPlainText(str(exc))
             QMessageBox.warning(self, self.windowTitle(), str(exc))
             return
         self.plan = plan
         if isinstance(plan, WellNumericalUpdatePlan):
+            self.geology_plan = self.controller.geology_plan
             self._show_numerical_preview(plan)
             return
         role = plan.index_role.value.upper()
@@ -362,6 +396,9 @@ class DailyLasGrowthDialog(QDialog):
         if enabled:
             self.resize(max(self.width(), 900), max(self.height(), 700))
         self.append_rows.setVisible(enabled)
+        self.geology_enabled.setVisible(enabled)
+        self.profile_input.setVisible(enabled)
+        self.profile_browse.setVisible(enabled)
         self.change_table.setVisible(enabled)
         self.buttons.button(QDialogButtonBox.StandardButton.Ok).setText(
             self._text("Применить выбранное", "Таңдалғанын қолдану", "Apply selected") if enabled
@@ -402,6 +439,7 @@ class DailyLasGrowthDialog(QDialog):
                 "Өзгерістердің бір бөлігі ғана көрсетілген. Тек таңдалған ұяшықтар қолданылады; қалғандары үшін талдауды қайталаңыз.",
                 "Only part of the diff is shown. Only selected cells will change; analyze again for the remaining cells.",
             ))
+        self._add_geology_summary(lines)
         self.preview.setPlainText("\n".join(lines))
         changes = [c for c in plan.changes if c.kind is not NumericalUpdateKind.APPEND]
         self.change_table.setRowCount(len(changes))
@@ -420,6 +458,47 @@ class DailyLasGrowthDialog(QDialog):
                 self.change_table.setItem(row, col, item)
         self.change_table.resizeColumnsToContents()
         self.buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(True)
+
+    def _browse_profile(self) -> None:
+        filename, _ = QFileDialog.getOpenFileName(self, self.profile_browse.text(), "", "JSON (*.json)")
+        if filename:
+            self.profile_input.setText(filename)
+
+    def _add_geology_summary(self, lines: list[str]) -> None:
+        plan = self.geology_plan
+        if plan is None:
+            return
+        profile = RockCodeDictionary.from_json(plan.profile_json)
+        lines.append(f"{profile.name} / {profile.source}")
+        for ru, kk, en, count in (
+            ("Новая литология", "Жаңа литология", "New lithology", plan.lithology_count),
+            ("Новые интервалы шлама", "Жаңа шлам аралықтары", "New cuttings intervals", plan.cuttings_count),
+            ("Сохранённые пересечения", "Сақталған қабаттасулар", "Preserved overlaps", plan.occupied_pieces),
+            ("Неверные коды литологии", "Литологияның қате кодтары", "Invalid lithology codes", plan.invalid_primary_rows),
+            ("Неверные составы (пропущены)", "Қате құрамдар (өткізілді)", "Invalid compositions (skipped)", plan.invalid_composition_rows),
+        ):
+            lines.append(f"{self._text(ru, kk, en)}: {count}")
+        if plan.unknown_codes:
+            lines.append(self._text("Неизвестные коды (пропущены)", "Белгісіз кодтар (өткізілді)", "Unknown codes (skipped)")
+                         + ": " + ", ".join(map(str, plan.unknown_codes[:200])))
+        if plan.code_remaps:
+            lines.append(self._text("Коды источника → коды экспорта", "Дереккөз кодтары → экспорт кодтары", "Source codes → export codes")
+                         + ": " + ", ".join(f"{code} → {export}" for code, export in plan.code_remaps[:200]))
+        mapping = dict(plan.lithotypes)
+        for item in plan.additions[:200]:
+            layer = self._text("Литология", "Литология", "Lithology") if item.layer == "lithology" else self._text("Шлам", "Шлам", "Cuttings")
+            names = []
+            for code, amount in item.components:
+                record = mapping[code]
+                name = self._text(record.name_ru, record.name_kk, record.name_en)
+                names.append(f"{code}: {name} ({amount:g}%)")
+            lines.append(f"{layer}: {item.top:g} … {item.bottom:g} m — " + ", ".join(names))
+        if len(plan.additions) > 200:
+            lines.append(self._text(
+                "Показаны первые 200 интервалов; будут добавлены все интервалы из сводки.",
+                "Алғашқы 200 аралық көрсетілген; жиынтықтағы барлық аралықтар қосылады.",
+                "The first 200 intervals are shown; all intervals counted above will be added.",
+            ))
 
     def selected_numerical_changes(self):
         return tuple(

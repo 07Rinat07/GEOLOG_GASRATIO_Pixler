@@ -2365,5 +2365,6 @@
   "tablet.rename_curve_prompt": "Enter a readable name for {mnemonic}:",
   "daily_las_growth.numerical_success": "Numerical update saved: {added} new rows, {changed} selected cells. Project: {project}. Backup: {backup}.",
   "daily_las_growth.numerical_no_changes": "No selected changes. The project is unchanged.",
-  "daily_las_growth.numerical_persist_failed": "The LAS changes were applied in memory but were not written to the project file.\n\n{reason}"
+  "daily_las_growth.numerical_persist_failed": "The LAS changes were applied in memory but were not written to the project file.\n\n{reason}",
+  "daily_las_growth.geology_success": "Geological intervals added: {lithology} lithology, {cuttings} cuttings."
 }
