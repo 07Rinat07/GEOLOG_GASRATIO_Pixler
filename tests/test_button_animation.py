@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QGraphicsOpacityEffect,
     QPushButton,
     QToolButton,
+    QWidget,
 )
 
 from geoworkbench.services.localization import AppLanguage
@@ -18,6 +19,34 @@ from geoworkbench.ui.main_window import MainWindow
 def _finish_deferred_setup(qapp) -> None:
     for _ in range(4):
         qapp.processEvents()
+
+
+def _wait_for_opacity(
+    effect: QGraphicsOpacityEffect,
+    target: float,
+    *,
+    tolerance: float = 0.03,
+    timeout_ms: int = 1_000,
+) -> None:
+    """Wait on the Qt event loop instead of assuming a loaded runner meets wall timing."""
+
+    attempts = max(1, timeout_ms // 10)
+    for _ in range(attempts):
+        QApplication.processEvents()
+        if abs(float(effect.opacity()) - target) <= tolerance:
+            return
+        QTest.qWait(10)
+    assert effect.opacity() == pytest.approx(target, abs=tolerance)
+
+
+def _wait_for_effect_detached(button: QWidget, *, timeout_ms: int = 1_000) -> None:
+    attempts = max(1, timeout_ms // 10)
+    for _ in range(attempts):
+        QApplication.processEvents()
+        if button.graphicsEffect() is None:
+            return
+        QTest.qWait(10)
+    assert button.graphicsEffect() is None
 
 
 def test_shared_controller_animates_buttons_created_after_startup(qapp) -> None:
@@ -43,12 +72,10 @@ def test_shared_controller_animates_buttons_created_after_startup(qapp) -> None:
         qapp.processEvents()
         effect = button.graphicsEffect()
         assert isinstance(effect, QGraphicsOpacityEffect)
-        QTest.qWait(controller.HOVER_DURATION_MS + 40)
-        assert effect.opacity() == pytest.approx(controller.HOVER_OPACITY, abs=0.03)
+        _wait_for_opacity(effect, controller.HOVER_OPACITY)
 
         QApplication.sendEvent(button, QEvent(QEvent.Type.Leave))
-        QTest.qWait(controller.LEAVE_DURATION_MS + 60)
-        assert button.graphicsEffect() is None
+        _wait_for_effect_detached(button)
 
     window.close()
 
@@ -66,22 +93,21 @@ def test_press_animation_is_stronger_than_hover_without_geometry_changes(qapp) -
     original_geometry = button.geometry()
 
     controller.eventFilter(button, QEvent(QEvent.Type.Enter))
-    QTest.qWait(controller.HOVER_DURATION_MS + 30)
     hover_effect = button.graphicsEffect()
     assert isinstance(hover_effect, QGraphicsOpacityEffect)
+    _wait_for_opacity(hover_effect, controller.HOVER_OPACITY)
     hover_opacity = hover_effect.opacity()
 
     controller.eventFilter(button, QEvent(QEvent.Type.MouseButtonPress))
-    QTest.qWait(controller.PRESS_DURATION_MS + 30)
     pressed_effect = button.graphicsEffect()
     assert isinstance(pressed_effect, QGraphicsOpacityEffect)
+    _wait_for_opacity(pressed_effect, controller.PRESSED_OPACITY)
     assert pressed_effect.opacity() < hover_opacity
     assert pressed_effect.opacity() == pytest.approx(controller.PRESSED_OPACITY, abs=0.03)
     assert button.geometry() == original_geometry
 
     controller.eventFilter(button, QEvent(QEvent.Type.Leave))
-    QTest.qWait(controller.LEAVE_DURATION_MS + 60)
-    assert button.graphicsEffect() is None
+    _wait_for_effect_detached(button)
     assert button.geometry() == original_geometry
     window.close()
 
