@@ -96,7 +96,7 @@ def _update_array_digest(digest, values: np.ndarray) -> None:
     # including for strided arrays. A float64 buffer is at most 1 MiB.
     with np.nditer(
         values, flags=["external_loop", "buffered", "zerosize_ok"],
-        op_flags=["readonly"], order="C", buffersize=131_072,
+        op_flags=[["readonly"]], order="C", buffersize=131_072,
     ) as chunks:
         for chunk in chunks:
             digest.update(cast(np.ndarray, chunk).tobytes())
