@@ -7,6 +7,10 @@ from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QDialog, QFileDialog, QMenu, QMessageBox
 
 from geoworkbench.app.context import ApplicationContext
+from geoworkbench.data.late_analysis_adapter import (
+    LateAnalysisImportError,
+    load_late_analysis_source,
+)
 from geoworkbench.importers.gs2 import Gs2ContainerError, extract_gs2_table
 from geoworkbench.importers.gs2.metadata import channel_dictionary_for_table
 from geoworkbench.importers.gs2.multipart import read_gs2_multipart
@@ -17,9 +21,16 @@ from geoworkbench.project.gs2_import_coordinator import Gs2ImportCoordinator
 from geoworkbench.project.interpretation_feature_coordinator import (
     InterpretationFeatureCoordinator,
 )
+from geoworkbench.project.well_analysis_update_controller import (
+    WellAnalysisUpdateController,
+)
+from geoworkbench.project.well_analysis_update_workflow import (
+    WellAnalysisUpdateWorkflow,
+)
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.drilling_calculation_dialog import DrillingCalculationDialog
 from geoworkbench.ui.gs2_import_dialog import Gs2ImportDialog
+from geoworkbench.ui.late_analysis_review_dialog import LateAnalysisReviewDialog
 from geoworkbench.ui.main_window import MainWindow as _LegacyMainWindow
 from geoworkbench.ui.paradox_import_dialog import ParadoxImportDialog
 
@@ -49,6 +60,7 @@ class MainWindow(_LegacyMainWindow):
             self.tablet_controller,
         )
         self._install_drilling_calculation_action()
+        self._install_late_analysis_action()
 
     def _install_drilling_calculation_action(self) -> None:
         calculations_menu = self._calculations_menu()
@@ -66,15 +78,148 @@ class MainWindow(_LegacyMainWindow):
         else:
             calculations_menu.addAction(self.drilling_calculation_action)
 
-    def _calculations_menu(self) -> QMenu | None:
+    def _install_late_analysis_action(self) -> None:
+        file_menu = self._menu_by_i18n_key("menu.file")
+        if file_menu is None:
+            raise RuntimeError("Не найдено меню файла")
+        self.late_analysis_import_action = QAction(self)
+        self.late_analysis_import_action.setObjectName("lateAnalysisImportAction")
+        self.late_analysis_import_action.triggered.connect(
+            lambda _checked=False: self.show_late_analysis_import()
+        )
+        self._retranslate_late_analysis_action()
+        before = getattr(self, "open_data_action", None)
+        if isinstance(before, QAction):
+            file_menu.insertAction(before, self.late_analysis_import_action)
+        else:
+            file_menu.addAction(self.late_analysis_import_action)
+
+    def _menu_by_i18n_key(self, key: str) -> QMenu | None:
         for action in self.menuBar().actions():
             menu = action.menu()
-            if (
-                isinstance(menu, QMenu)
-                and action.property("i18n_key") == "menu.calculations"
-            ):
+            if isinstance(menu, QMenu) and action.property("i18n_key") == key:
                 return menu
         return None
+
+    def _calculations_menu(self) -> QMenu | None:
+        return self._menu_by_i18n_key("menu.calculations")
+
+    def show_late_analysis_import(self, source: str | Path | None = None) -> None:
+        well = self.session.current_well
+        if well is None:
+            QMessageBox.information(
+                self,
+                self._late_analysis_text(
+                    "Поздние анализы",
+                    "Кейінгі талдаулар",
+                    "Late analyses",
+                ),
+                self._late_analysis_text(
+                    "Сначала выберите скважину.",
+                    "Алдымен ұңғыманы таңдаңыз.",
+                    "Select a well first.",
+                ),
+            )
+            return
+        if self.project_path is None:
+            QMessageBox.information(
+                self,
+                self._late_analysis_text(
+                    "Поздние анализы",
+                    "Кейінгі талдаулар",
+                    "Late analyses",
+                ),
+                self._late_analysis_text(
+                    "Сначала сохраните проект: подтверждённые анализы должны быть "
+                    "сразу записаны в файл проекта.",
+                    "Алдымен жобаны сақтаңыз: расталған талдаулар жоба файлына "
+                    "бірден жазылуы тиіс.",
+                    "Save the project first: confirmed analyses must be persisted "
+                    "to the project file immediately.",
+                ),
+            )
+            return
+
+        if source is None:
+            filename, _ = QFileDialog.getOpenFileName(
+                self,
+                self._late_analysis_text(
+                    "Импорт поздних анализов",
+                    "Кейінгі талдауларды импорттау",
+                    "Import late analyses",
+                ),
+                "",
+                self._late_analysis_text(
+                    "Поздние анализы (*.csv *.txt *.xlsx *.xlsm);;Все файлы (*)",
+                    "Кейінгі талдаулар (*.csv *.txt *.xlsx *.xlsm);;Барлық файлдар (*)",
+                    "Late analyses (*.csv *.txt *.xlsx *.xlsm);;All files (*)",
+                ),
+            )
+            if not filename:
+                return
+            selected = Path(filename)
+        else:
+            selected = Path(source)
+
+        try:
+            imported = load_late_analysis_source(selected)
+        except (LateAnalysisImportError, OSError) as exc:
+            QMessageBox.warning(
+                self,
+                self._late_analysis_text(
+                    "Импорт поздних анализов",
+                    "Кейінгі талдауларды импорттау",
+                    "Import late analyses",
+                ),
+                str(exc),
+            )
+            return
+
+        revision_before = well.content_revision
+        history_count_before = len(well.analysis_update_history)
+        controller = WellAnalysisUpdateController(self.session)
+        workflow = WellAnalysisUpdateWorkflow(
+            self.session,
+            controller,
+            self.project_controller,
+        )
+        dialog = LateAnalysisReviewDialog(
+            workflow,
+            imported.source_samples,
+            source_name=imported.source_name,
+            source_sha256=imported.source_sha256,
+            language=self.language,
+            parent=self,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        current_well = self.session.current_well
+        changed = (
+            current_well is well
+            and well.content_revision > revision_before
+            and len(well.analysis_update_history) > history_count_before
+        )
+        if not changed:
+            self.statusBar().showMessage(
+                self._late_analysis_text(
+                    "Поздние анализы: изменения не выбраны.",
+                    "Кейінгі талдаулар: өзгерістер таңдалмады.",
+                    "Late analyses: no changes selected.",
+                )
+            )
+            return
+
+        applied_count = len(well.analysis_update_history[-1].changes)
+        self._acknowledge_background_project_save()
+        self._refresh_cuttings_after_edit()
+        self.statusBar().showMessage(
+            self._late_analysis_text(
+                f"Поздние анализы сохранены: применено изменений — {applied_count}.",
+                f"Кейінгі талдаулар сақталды: қолданылған өзгерістер — {applied_count}.",
+                f"Late analyses saved: {applied_count} change(s) applied.",
+            )
+        )
 
     def show_drilling_calculation_dialog(self) -> None:
         if self.session.current_dataset is None:
@@ -294,6 +439,26 @@ class MainWindow(_LegacyMainWindow):
         super().change_language(language)
         if hasattr(self, "drilling_calculation_action"):
             self._retranslate_drilling_calculation_action()
+        if hasattr(self, "late_analysis_import_action"):
+            self._retranslate_late_analysis_action()
+
+    def _retranslate_late_analysis_action(self) -> None:
+        text = self._late_analysis_text(
+            "Импорт поздних анализов…",
+            "Кейінгі талдауларды импорттау…",
+            "Import late analyses…",
+        )
+        tooltip = self._late_analysis_text(
+            "Сопоставить поздние лабораторные анализы с существующими интервалами "
+            "шлама без перезаписи заполненных значений.",
+            "Кейінгі зертханалық талдауларды бар шлам аралықтарымен сәйкестендіріп, "
+            "толтырылған мәндерді қайта жазбау.",
+            "Match late laboratory analyses to existing cuttings intervals without "
+            "overwriting populated values.",
+        )
+        self.late_analysis_import_action.setText(text)
+        self.late_analysis_import_action.setToolTip(tooltip)
+        self.late_analysis_import_action.setStatusTip(tooltip)
 
     def _retranslate_drilling_calculation_action(self) -> None:
         text = self._drilling_text(
@@ -312,6 +477,11 @@ class MainWindow(_LegacyMainWindow):
         self.drilling_calculation_action.setText(text)
         self.drilling_calculation_action.setToolTip(tooltip)
         self.drilling_calculation_action.setStatusTip(tooltip)
+
+    def _late_analysis_text(self, ru: str, kk: str, en: str) -> str:
+        return {AppLanguage.RU: ru, AppLanguage.KK: kk, AppLanguage.EN: en}[
+            self.language
+        ]
 
     def _drilling_text(self, ru: str, kk: str, en: str) -> str:
         return {AppLanguage.RU: ru, AppLanguage.KK: kk, AppLanguage.EN: en}[
