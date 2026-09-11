@@ -9,7 +9,11 @@ from geoworkbench.domain.models import (
     DatasetKind,
     DepthDomain,
 )
-from geoworkbench.services.import_review import build_import_review
+from geoworkbench.services.import_review import (
+    ImportReviewController,
+    ImportReviewSeverity,
+    build_import_review,
+)
 from geoworkbench.services.semantic_channels import SemanticChannelDictionary
 
 
@@ -100,7 +104,7 @@ def test_import_review_is_read_only_when_legacy_curve_has_no_binding() -> None:
     assert curve.metadata.semantic is None
 
 
-def test_import_review_marks_semantic_uom_quantity_conflict_as_error() -> None:
+def test_import_review_keeps_semantic_uom_quantity_conflict_as_warning() -> None:
     dataset = Dataset(
         "dataset-conflict",
         "Conflict",
@@ -124,8 +128,14 @@ def test_import_review_marks_semantic_uom_quantity_conflict_as_error() -> None:
     dataset.curves[curve.metadata.curve_id] = curve
 
     review = build_import_review(dataset)
+    issues = review.channels[0].issues
 
-    assert review.error_count == 1
-    assert {issue.code for issue in review.channels[0].issues} == {
-        "channel-uom-conflict"
-    }
+    assert review.error_count == 0
+    assert review.warning_count == 1
+    assert len(issues) == 1
+    assert issues[0].code == "channel-uom-conflict"
+    assert issues[0].severity is ImportReviewSeverity.WARNING
+
+    controller = ImportReviewController()
+    commit = controller.commit(dataset, controller.initial_plan(dataset))
+    assert commit.dataset.parameters["IMPORT_REVIEW_ACCEPTED"] == "true"

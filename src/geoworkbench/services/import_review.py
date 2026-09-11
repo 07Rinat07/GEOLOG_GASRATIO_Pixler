@@ -702,8 +702,11 @@ def _channel_issues(
                 ImportReviewIssue("unknown-channel-uom", ImportReviewSeverity.WARNING, evidence)
             )
         elif evidence.startswith("source UOM quantity conflicts"):
+            # The source values and UOM are preserved verbatim by Import Review. A
+            # semantic/UOM mismatch therefore needs operator attention, but it is
+            # recoverable metadata and must not prevent the LAS from opening.
             issues.append(
-                ImportReviewIssue("channel-uom-conflict", ImportReviewSeverity.ERROR, evidence)
+                ImportReviewIssue("channel-uom-conflict", ImportReviewSeverity.WARNING, evidence)
             )
     if total_count == 0 or valid_count == 0:
         issues.append(
