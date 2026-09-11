@@ -4,13 +4,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from geoworkbench.domain.analysis_update import AnalysisCellChange, AnalysisField, AnalysisUpdateRecord
+from geoworkbench.domain.analysis_update import (
+    AnalysisCellChange,
+    AnalysisField,
+    AnalysisUpdateRecord,
+)
 from geoworkbench.domain.models import CuttingsSample, Well
 from geoworkbench.project.session import ProjectSession
-from geoworkbench.project.well_analysis_update_controller import (
-    WellAnalysisUpdateController,
-    WellAnalysisUpdateOutcome,
-)
+from geoworkbench.project.well_analysis_update_controller import WellAnalysisUpdateOutcome
 from geoworkbench.services.well_analysis_update import (
     AnalysisSourceSample,
     AnalysisUpdateError,
@@ -97,7 +98,7 @@ class WellAnalysisUpdateWorkflow:
     def __init__(
         self,
         session: ProjectSession,
-        controller: WellAnalysisUpdateController,
+        controller: WellAnalysisUpdateApplication,
         project_saver: MaterialProjectSaver,
     ) -> None:
         self._session = session
