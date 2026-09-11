@@ -239,7 +239,7 @@ class LateAnalysisReviewDialog(QDialog):
                 choice.setFlags(Qt.ItemFlag.ItemIsEnabled)
                 self.table.setItem(row, 0, choice)
                 values = (
-                    f"{conflict.top_depth:g} … {conflict.bottom_depth:g}",
+                    "—",
                     self._field_label(conflict.field),
                     self._value_text(conflict.existing_value),
                     self._value_text(conflict.incoming_value),
