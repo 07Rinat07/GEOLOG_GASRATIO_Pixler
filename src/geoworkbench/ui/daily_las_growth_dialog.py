@@ -345,6 +345,7 @@ class DailyLasGrowthDialog(QDialog):
         )
         provider_kind = "manual_file"
         provider_location = None
+        plan: DailyLasGrowthPlan | WellNumericalUpdatePlan
         try:
             if candidate is not None:
                 provider = LocalLasFolderProvider(self.folder_input.text().strip())
