@@ -2,6 +2,7 @@ from hashlib import sha256
 
 import pytest
 
+from geoworkbench.domain.rock_code_profiles import RockCodeProfileRecord
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.persisted_rock_code_profile_assignment import (
     assign_persisted_rock_code_profile,
@@ -132,4 +133,35 @@ def test_invalid_source_sha_fails_without_mutating_session() -> None:
 
     assert session.rock_code_profiles == {}
     assert session.rock_code_source_bindings == {}
+    assert session.dirty is False
+
+
+def test_malformed_existing_profile_ledger_is_rejected_before_mutation() -> None:
+    session = ProjectSession()
+    dictionary = _dictionary(name="Profile v1", source="Supplier A")
+    first = assign_persisted_rock_code_profile(
+        session,
+        source_sha256="f" * 64,
+        supplier_name="Supplier A",
+        dictionary=dictionary,
+    )
+    session.rock_code_profiles["0" * 64] = RockCodeProfileRecord(
+        supplier_name=first.profile.supplier_name,
+        profile_json=first.profile.profile_json,
+        profile_sha256=first.profile.profile_sha256,
+    )
+    session.dirty = False
+    profiles_before = dict(session.rock_code_profiles)
+    bindings_before = dict(session.rock_code_source_bindings)
+
+    with pytest.raises(RockCodeSourceBindingError, match="Ключ persisted profile"):
+        assign_persisted_rock_code_profile(
+            session,
+            source_sha256="1" * 64,
+            supplier_name="Supplier A",
+            dictionary=_dictionary(name="Profile v2", source="Supplier A"),
+        )
+
+    assert session.rock_code_profiles == profiles_before
+    assert session.rock_code_source_bindings == bindings_before
     assert session.dirty is False
