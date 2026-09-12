@@ -21,6 +21,9 @@ from PySide6.QtWidgets import (
 
 from geoworkbench.project.daily_las_growth_controller import DailyLasGrowthController
 from geoworkbench.services.daily_las_growth import DailyLasGrowthPlan
+from geoworkbench.services.persisted_rock_code_profile_assignment import (
+    RockCodeProfileReassignmentRequired,
+)
 from geoworkbench.services.well_geology_update import WellGeologyUpdatePlan
 from geoworkbench.services.rock_code_dictionary import RockCodeDictionary
 from geoworkbench.services.well_update_plan import WellNumericalUpdatePlan, NumericalUpdateKind
@@ -335,28 +338,62 @@ class DailyLasGrowthDialog(QDialog):
                 self._text("Выберите существующий LAS и целевой dataset", "LAS және мақсатты dataset таңдаңыз", "Choose an existing LAS and target dataset"),
             )
             return
-        analyze = self.controller.analyze_numerical if self.numerical_mode.isChecked() else self.controller.analyze
-        options = {}
-        if self.numerical_mode.isChecked() and self.geology_enabled.isChecked():
-            options["geology_profile_path"] = self.profile_input.text().strip()
+
+        candidate = next(
+            (item for item in self._folder_candidates if item.path == source.resolve()),
+            None,
+        )
+        provider_kind = "manual_file"
+        provider_location = None
         try:
-            candidate = next(
-                (item for item in self._folder_candidates if item.path == source.resolve()),
-                None,
-            )
             if candidate is not None:
-                LocalLasFolderProvider(self.folder_input.text().strip()).verify(candidate)
-                plan = analyze(
+                provider = LocalLasFolderProvider(self.folder_input.text().strip())
+                provider.verify(candidate)
+                provider_kind = provider.provider_kind
+                provider_location = (
+                    f"{self.folder_input.text().strip()}::{candidate.relative_path}"
+                )
+
+            if self.numerical_mode.isChecked():
+                geology_profile_path = (
+                    self.profile_input.text().strip()
+                    if self.geology_enabled.isChecked()
+                    else None
+                )
+                try:
+                    plan = self.controller.analyze_numerical(
+                        source,
+                        dataset_id,
+                        provider_kind=provider_kind,
+                        provider_location=provider_location,
+                        geology_profile_path=geology_profile_path,
+                    )
+                except RockCodeProfileReassignmentRequired as conflict:
+                    if not self._confirm_profile_reassignment(conflict):
+                        self.controller.reset_state()
+                        self.preview.setPlainText(
+                            self._text(
+                                "Перепривязка профиля отменена. Проект не изменён.",
+                                "Профильді қайта байланыстырудан бас тартылды. Жоба өзгертілмеді.",
+                                "Profile reassignment was cancelled. The project was not changed.",
+                            )
+                        )
+                        return
+                    plan = self.controller.analyze_numerical(
+                        source,
+                        dataset_id,
+                        provider_kind=provider_kind,
+                        provider_location=provider_location,
+                        geology_profile_path=geology_profile_path,
+                        allow_profile_reassignment=True,
+                    )
+            else:
+                plan = self.controller.analyze(
                     source,
                     dataset_id,
-                    **options,
-                    provider_kind=LocalLasFolderProvider.provider_kind,
-                    provider_location=(
-                        f"{self.folder_input.text().strip()}::{candidate.relative_path}"
-                    ),
+                    provider_kind=provider_kind,
+                    provider_location=provider_location,
                 )
-            else:
-                plan = analyze(source, dataset_id, **options)
         except (OSError, RuntimeError, ValueError) as exc:
             self.preview.setPlainText(str(exc))
             QMessageBox.warning(self, self.windowTitle(), str(exc))
@@ -389,6 +426,42 @@ class DailyLasGrowthDialog(QDialog):
             )
         )
         self.buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(True)
+
+    def _confirm_profile_reassignment(
+        self,
+        conflict: RockCodeProfileReassignmentRequired,
+    ) -> bool:
+        current = conflict.current_binding
+        requested = conflict.requested_binding
+        message = self._text(
+            "Этот LAS уже привязан к другой ревизии профиля кодов пород.\n\n"
+            f"Источник SHA-256:\n{conflict.source_sha256}\n\n"
+            f"Текущий профиль: {current.supplier_name}\n{current.profile_sha256}\n\n"
+            f"Новый профиль: {requested.supplier_name}\n{requested.profile_sha256}\n\n"
+            "Перепривязать этот точный источник к новой ревизии? Старый профиль останется в истории проекта.",
+            "Бұл LAS тау жыныстары кодтары профилінің басқа ревизиясына байланыстырылған.\n\n"
+            f"Дереккөз SHA-256:\n{conflict.source_sha256}\n\n"
+            f"Ағымдағы профиль: {current.supplier_name}\n{current.profile_sha256}\n\n"
+            f"Жаңа профиль: {requested.supplier_name}\n{requested.profile_sha256}\n\n"
+            "Осы нақты дереккөзді жаңа ревизияға қайта байланыстыру керек пе? Ескі профиль жоба тарихында қалады.",
+            "This LAS is already bound to another rock-code profile revision.\n\n"
+            f"Source SHA-256:\n{conflict.source_sha256}\n\n"
+            f"Current profile: {current.supplier_name}\n{current.profile_sha256}\n\n"
+            f"New profile: {requested.supplier_name}\n{requested.profile_sha256}\n\n"
+            "Reassign this exact source to the new revision? The previous profile remains in project history.",
+        )
+        answer = QMessageBox.question(
+            self,
+            self._text(
+                "Перепривязка профиля кодов пород",
+                "Тау жыныстары кодтары профилін қайта байланыстыру",
+                "Rock-code profile reassignment",
+            ),
+            message,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        return answer == QMessageBox.StandardButton.Yes
 
     def _switch_mode(self) -> None:
         self._invalidate()
