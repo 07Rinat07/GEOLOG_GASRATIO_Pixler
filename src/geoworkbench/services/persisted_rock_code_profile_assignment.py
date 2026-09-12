@@ -20,6 +20,23 @@ if TYPE_CHECKING:
     from geoworkbench.project.session import ProjectSession
 
 
+class RockCodeProfileReassignmentRequired(RockCodeSourceBindingError):
+    """Raised when replacing an existing source/profile binding needs consent."""
+
+    def __init__(
+        self,
+        current_binding: RockCodeSourceBindingRecord,
+        requested_binding: RockCodeSourceBindingRecord,
+    ) -> None:
+        self.source_sha256 = requested_binding.source_sha256
+        self.current_binding = current_binding
+        self.requested_binding = requested_binding
+        super().__init__(
+            "Источник уже привязан к другой ревизии профиля кодов пород; "
+            "для перепривязки требуется явное подтверждение"
+        )
+
+
 @dataclass(frozen=True, slots=True)
 class PersistedRockCodeProfileAssignment:
     """Result of assigning one immutable source to one immutable profile revision."""
@@ -36,12 +53,14 @@ def assign_persisted_rock_code_profile(
     source_sha256: str,
     supplier_name: str,
     dictionary: RockCodeDictionary,
+    allow_reassignment: bool = False,
 ) -> PersistedRockCodeProfileAssignment:
     """Persist one exact source/profile assignment without silent replacement.
 
     Profile revisions are content-addressed by canonical dictionary JSON. Repeating
-    the same assignment is idempotent. Reassigning a source updates only its binding;
-    historical profile revisions remain available for audit/reproducibility.
+    the same assignment is idempotent. Reassigning an already-bound source requires
+    explicit ``allow_reassignment=True``; historical profile revisions remain
+    available for audit and reproducibility.
 
     Existing persisted ledgers are validated before any mutation so new provenance
     can never be written on top of malformed project state.
@@ -73,6 +92,13 @@ def assign_persisted_rock_code_profile(
         )
 
     existing_binding = session.rock_code_source_bindings.get(source_sha256)
+    if (
+        existing_binding is not None
+        and existing_binding != binding
+        and not allow_reassignment
+    ):
+        raise RockCodeProfileReassignmentRequired(existing_binding, binding)
+
     profile_created = existing_profile is None
     binding_changed = existing_binding != binding
     if not profile_created and not binding_changed:
