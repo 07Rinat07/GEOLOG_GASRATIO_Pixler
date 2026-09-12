@@ -179,6 +179,7 @@ class DailyLasGrowthController:
         self._profile_dictionary: RockCodeDictionary | None = None
         self._profile_binding_before_preview: RockCodeSourceBindingRecord | None = None
         self._profile_record_before_preview: RockCodeProfileRecord | None = None
+        self._profile_reassignment_authorized = False
         self._provider_kind = "manual_file"
         self._provider_location: str | None = None
 
@@ -286,6 +287,7 @@ class DailyLasGrowthController:
         provider_kind: str = "manual_file",
         provider_location: str | None = None,
         geology_profile_path: str | Path | None = None,
+        allow_profile_reassignment: bool = False,
     ) -> WellNumericalUpdatePlan:
         self.reset_state()
         target = self._target(target_dataset_id)
@@ -306,6 +308,7 @@ class DailyLasGrowthController:
         profile_dictionary = None
         binding_before_preview = None
         record_before_preview = None
+        reassignment_authorized = False
         if profile_path is not None:
             profile_hash = self._stable_source_sha256(
                 profile_path,
@@ -331,6 +334,12 @@ class DailyLasGrowthController:
                     source_sha256=digest,
                     supplier_name=profile.source,
                     dictionary=profile,
+                    allow_reassignment=allow_profile_reassignment,
+                )
+                reassignment_authorized = (
+                    allow_profile_reassignment
+                    and binding_before_preview is not None
+                    and binding_before_preview != assignment.binding
                 )
                 record_before_preview = profiles_before.get(
                     assignment.profile.profile_sha256
@@ -359,6 +368,7 @@ class DailyLasGrowthController:
         self._profile_dictionary = profile_dictionary
         self._profile_binding_before_preview = binding_before_preview
         self._profile_record_before_preview = record_before_preview
+        self._profile_reassignment_authorized = reassignment_authorized
         self._provider_kind = provider_kind
         self._provider_location = provider_location or str(path)
         return plan
@@ -424,6 +434,7 @@ class DailyLasGrowthController:
                         source_sha256=digest,
                         supplier_name=self._profile_dictionary.source,
                         dictionary=self._profile_dictionary,
+                        allow_reassignment=self._profile_reassignment_authorized,
                     )
                     prepared = prepare_persisted_well_geology_update(
                         self.session,
@@ -510,6 +521,7 @@ class DailyLasGrowthController:
         self._profile_dictionary = None
         self._profile_binding_before_preview = None
         self._profile_record_before_preview = None
+        self._profile_reassignment_authorized = False
         self._provider_kind = "manual_file"
         self._provider_location = None
 
