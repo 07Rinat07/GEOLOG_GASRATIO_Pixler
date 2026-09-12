@@ -5,6 +5,7 @@ import pytest
 from geoworkbench.domain.rock_code_profiles import RockCodeProfileRecord
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.persisted_rock_code_profile_assignment import (
+    RockCodeProfileReassignmentRequired,
     assign_persisted_rock_code_profile,
 )
 from geoworkbench.services.rock_code_dictionary import RockCodeDictionary
@@ -67,9 +68,40 @@ def test_repeated_assignment_is_idempotent_and_does_not_dirty_session() -> None:
     assert len(session.rock_code_source_bindings) == 1
 
 
-def test_reassignment_preserves_old_profile_revision() -> None:
+def test_reassignment_requires_explicit_consent_without_mutating_session() -> None:
     session = ProjectSession()
     source_sha256 = "c" * 64
+    first = assign_persisted_rock_code_profile(
+        session,
+        source_sha256=source_sha256,
+        supplier_name="Supplier A",
+        dictionary=_dictionary(name="Profile v1", source="Supplier A"),
+    )
+    session.dirty = False
+    profiles_before = dict(session.rock_code_profiles)
+    bindings_before = dict(session.rock_code_source_bindings)
+
+    with pytest.raises(RockCodeProfileReassignmentRequired) as exc_info:
+        assign_persisted_rock_code_profile(
+            session,
+            source_sha256=source_sha256,
+            supplier_name="Supplier A",
+            dictionary=_dictionary(name="Profile v2", source="Supplier A"),
+        )
+
+    error = exc_info.value
+    assert error.source_sha256 == source_sha256
+    assert error.current_binding == first.binding
+    assert error.requested_binding.source_sha256 == source_sha256
+    assert error.requested_binding.profile_sha256 != first.binding.profile_sha256
+    assert session.rock_code_profiles == profiles_before
+    assert session.rock_code_source_bindings == bindings_before
+    assert session.dirty is False
+
+
+def test_explicit_reassignment_preserves_old_profile_revision() -> None:
+    session = ProjectSession()
+    source_sha256 = "d" * 64
     first = assign_persisted_rock_code_profile(
         session,
         source_sha256=source_sha256,
@@ -83,6 +115,7 @@ def test_reassignment_preserves_old_profile_revision() -> None:
         source_sha256=source_sha256,
         supplier_name="Supplier A",
         dictionary=_dictionary(name="Profile v2", source="Supplier A"),
+        allow_reassignment=True,
     )
 
     assert second.profile_created is True
@@ -99,7 +132,7 @@ def test_same_profile_hash_cannot_be_relabelled_to_another_supplier() -> None:
     dictionary = _dictionary(name="Shared profile", source="Vendor profile")
     assign_persisted_rock_code_profile(
         session,
-        source_sha256="d" * 64,
+        source_sha256="e" * 64,
         supplier_name="Supplier A",
         dictionary=dictionary,
     )
@@ -110,7 +143,7 @@ def test_same_profile_hash_cannot_be_relabelled_to_another_supplier() -> None:
     with pytest.raises(RockCodeSourceBindingError, match="тем же SHA-256"):
         assign_persisted_rock_code_profile(
             session,
-            source_sha256="e" * 64,
+            source_sha256="f" * 64,
             supplier_name="Supplier B",
             dictionary=dictionary,
         )
@@ -141,11 +174,11 @@ def test_malformed_existing_profile_ledger_is_rejected_before_mutation() -> None
     dictionary = _dictionary(name="Profile v1", source="Supplier A")
     first = assign_persisted_rock_code_profile(
         session,
-        source_sha256="f" * 64,
+        source_sha256="0" * 64,
         supplier_name="Supplier A",
         dictionary=dictionary,
     )
-    session.rock_code_profiles["0" * 64] = RockCodeProfileRecord(
+    session.rock_code_profiles["1" * 64] = RockCodeProfileRecord(
         supplier_name=first.profile.supplier_name,
         profile_json=first.profile.profile_json,
         profile_sha256=first.profile.profile_sha256,
@@ -157,7 +190,7 @@ def test_malformed_existing_profile_ledger_is_rejected_before_mutation() -> None
     with pytest.raises(RockCodeSourceBindingError, match="Ключ persisted profile"):
         assign_persisted_rock_code_profile(
             session,
-            source_sha256="1" * 64,
+            source_sha256="2" * 64,
             supplier_name="Supplier A",
             dictionary=_dictionary(name="Profile v2", source="Supplier A"),
         )

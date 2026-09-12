@@ -27,6 +27,7 @@ def test_project_restart_retains_exact_profile_binding_and_history(tmp_path):
         source_sha256=source_sha256,
         supplier_name=second_dictionary.source,
         dictionary=second_dictionary,
+        allow_reassignment=True,
     )
 
     assert first.profile.profile_sha256 != second.profile.profile_sha256
