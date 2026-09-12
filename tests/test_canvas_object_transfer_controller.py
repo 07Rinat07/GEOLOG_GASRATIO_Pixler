@@ -91,6 +91,8 @@ def test_preview_is_non_mutating_and_apply_deep_copies_selected_objects() -> Non
     assert source.canvas_objects[1].properties["style"]["color"] == "#112233"
     assert target.content_revision == target_revision + 1
     assert session.dirty is True
+    with pytest.raises(CanvasObjectTransferError, match="повторно просмотрите"):
+        controller.apply(plan)
 
 
 def test_collision_fails_closed_without_preview_or_mutation() -> None:
@@ -106,14 +108,6 @@ def test_collision_fails_closed_without_preview_or_mutation() -> None:
 
     assert target.canvas_objects == target_before
     assert session.dirty is False
-    with pytest.raises(CanvasObjectTransferError, match="повторно просмотрите"):
-        controller.apply(
-            controller.analyze(
-                source.well_id,
-                target.well_id,
-                collision_policy=CanvasObjectCollisionPolicy.SKIP,
-            )
-        )
 
 
 def test_skip_policy_preserves_existing_object_and_does_not_dirty_noop() -> None:
@@ -155,9 +149,7 @@ def test_rename_policy_uses_deterministic_free_id_without_overwrite() -> None:
     )
     outcome = controller.apply(plan)
 
-    assert plan.items == (
-        plan.items[0],
-    )
+    assert len(plan.items) == 1
     assert plan.items[0].action is CanvasObjectTransferAction.RENAME
     assert plan.items[0].target_object_id == "drawing-copy-2"
     assert outcome.copied_object_ids == ("drawing-copy-2",)
