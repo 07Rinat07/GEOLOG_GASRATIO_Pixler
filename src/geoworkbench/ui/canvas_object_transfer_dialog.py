@@ -132,6 +132,7 @@ class CanvasObjectTransferDialog(QDialog):
                 self._text("Параметр", "Параметр", "Parameter"),
             ]
         )
+        self.source_table.itemChanged.connect(self._source_item_changed)
         root.addWidget(self.source_table, 1)
 
         self.preview_button = QPushButton(
@@ -188,6 +189,10 @@ class CanvasObjectTransferDialog(QDialog):
             if isinstance(object_id, str):
                 selected.append(object_id)
         return tuple(selected)
+
+    def _source_item_changed(self, item: QTableWidgetItem) -> None:
+        if item.column() == 0:
+            self._invalidate()
 
     def _source_changed(self, _index: int = -1) -> None:
         self._invalidate()
