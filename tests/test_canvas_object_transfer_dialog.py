@@ -91,6 +91,28 @@ def test_dialog_requires_explicit_selection_and_applies_reviewed_transfer(
     dialog.close()
 
 
+def test_selection_change_invalidates_reviewed_plan(qapp) -> None:
+    controller, _source, target = _controller()
+    dialog = CanvasObjectTransferDialog(controller, target.well_id)
+    ok = dialog.buttons.button(QDialogButtonBox.StandardButton.Ok)
+    dialog.source_table.item(0, 0).setCheckState(Qt.CheckState.Checked)
+    dialog._analyze()
+    reviewed_plan = dialog.plan
+
+    assert reviewed_plan is not None
+    assert ok.isEnabled() is True
+    assert dialog.preview_table.rowCount() == 1
+
+    dialog.source_table.item(1, 0).setCheckState(Qt.CheckState.Checked)
+
+    assert dialog.plan is None
+    assert dialog.preview_table.rowCount() == 0
+    assert ok.isEnabled() is False
+    with pytest.raises(CanvasObjectTransferError, match="повторно просмотрите"):
+        controller.apply(reviewed_plan)
+    dialog.close()
+
+
 def test_dialog_exposes_explicit_rename_policy_for_id_collision(qapp) -> None:
     controller, _source, target = _controller(collision=True)
     dialog = CanvasObjectTransferDialog(
