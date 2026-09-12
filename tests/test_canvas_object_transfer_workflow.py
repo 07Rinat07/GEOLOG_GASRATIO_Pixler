@@ -22,10 +22,10 @@ def _canvas(object_id: str) -> CanvasObject:
         object_id=object_id,
         object_type="annotation",
         anchor_type="depth",
-        x=8.0,
+        x=0.0,
         y=1000.0,
-        width=20.0,
-        height=10.0,
+        width=100.0,
+        height=50.0,
         properties={"text": object_id},
     )
 
@@ -46,8 +46,14 @@ def _session(*, collision: bool = False) -> tuple[ProjectSession, Well, Well]:
 
 
 class _Saver:
-    def __init__(self, *, fail: bool = False) -> None:
+    def __init__(
+        self,
+        *,
+        fail: bool = False,
+        project_path: Path | None = None,
+    ) -> None:
         self.fail = fail
+        self.project_path = project_path
         self.modes: list[SaveMode] = []
 
     def save_project(
@@ -140,6 +146,29 @@ def test_skip_only_plan_does_not_trigger_material_autosave() -> None:
     assert outcome.skipped_object_ids == ("drawing",)
     assert target.canvas_objects == [existing]
     assert target.canvas_objects[0] is existing
+    assert target.content_revision == original_revision
+    assert session.dirty is False
+    assert saver.modes == []
+
+
+def test_legacy_project_path_is_rejected_before_preview() -> None:
+    session, source, target = _session()
+    original_revision = target.content_revision
+    saver = _Saver(project_path=Path("legacy.geolog.json"))
+    workflow = CanvasObjectTransferWorkflow(
+        session,
+        CanvasObjectTransferController(session),
+        saver,
+    )
+
+    with pytest.raises(CanvasObjectTransferPersistenceError, match=r"\.geologpkg"):
+        workflow.analyze(
+            source.well_id,
+            target.well_id,
+            object_ids=("drawing",),
+        )
+
+    assert target.canvas_objects == []
     assert target.content_revision == original_revision
     assert session.dirty is False
     assert saver.modes == []
