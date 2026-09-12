@@ -14,6 +14,12 @@ from geoworkbench.data.late_analysis_adapter import (
 from geoworkbench.importers.gs2 import Gs2ContainerError, extract_gs2_table
 from geoworkbench.importers.gs2.metadata import channel_dictionary_for_table
 from geoworkbench.importers.gs2.multipart import read_gs2_multipart
+from geoworkbench.project.annotation_schema import (
+    annotation_from_canvas,
+    annotation_matches_scope,
+    annotation_scope_id_for_session,
+    is_annotation_object,
+)
 from geoworkbench.project.canvas_object_transfer_controller import (
     CanvasObjectTransferController,
 )
@@ -306,7 +312,7 @@ class MainWindow(_LegacyMainWindow):
 
         copied_count = len(outcome.copied_object_ids)
         self._acknowledge_background_project_save()
-        self._refresh_annotation_layer()
+        self._refresh_transferred_canvas_layer(well.well_id)
         self.statusBar().showMessage(
             self._canvas_object_transfer_text(
                 f"Рисунки перенесены и сохранены: {copied_count}.",
@@ -314,6 +320,22 @@ class MainWindow(_LegacyMainWindow):
                 f"Drawings transferred and saved: {copied_count}.",
             )
         )
+
+    def _refresh_transferred_canvas_layer(self, target_well_id: str) -> None:
+        """Render transferred objects without mutating the just-saved project."""
+
+        well = self.session.current_well
+        if well is None or well.well_id != target_well_id:
+            return
+        scope_id = annotation_scope_id_for_session(self.session)
+        visible_objects = [
+            item
+            for item in well.canvas_objects
+            if is_annotation_object(item)
+            and annotation_matches_scope(annotation_from_canvas(item), scope_id)
+        ]
+        self.tablet_view.set_image_assets(self.session.image_assets)
+        self.tablet_view.set_canvas_objects(visible_objects)
 
     def show_drilling_calculation_dialog(self) -> None:
         if self.session.current_dataset is None:
