@@ -104,6 +104,7 @@ class CanvasObjectTransferWorkflow:
         object_ids: tuple[str, ...] | None = None,
         collision_policy: CanvasObjectCollisionPolicy = CanvasObjectCollisionPolicy.ERROR,
     ) -> CanvasObjectTransferPlan:
+        self._assert_material_autosave_target()
         return self._controller.analyze(
             source_well_id,
             target_well_id,
@@ -133,3 +134,15 @@ class CanvasObjectTransferWorkflow:
 
     def reset_state(self) -> None:
         self._controller.reset_state()
+
+    def _assert_material_autosave_target(self) -> None:
+        """Reject known legacy destinations before creating a reviewable plan."""
+
+        project_path = getattr(self._project_saver, "project_path", None)
+        if project_path is None:
+            return
+        if not isinstance(project_path, Path) or project_path.suffix.lower() != ".geologpkg":
+            raise CanvasObjectTransferPersistenceError(
+                "Перенос рисунков требует проекта в формате .geologpkg. "
+                "Сначала сохраните проект как пакет .geologpkg."
+            )
