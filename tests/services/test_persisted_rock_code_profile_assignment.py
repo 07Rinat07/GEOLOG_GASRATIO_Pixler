@@ -106,7 +106,7 @@ def test_same_profile_hash_cannot_be_relabelled_to_another_supplier() -> None:
     profiles_before = dict(session.rock_code_profiles)
     bindings_before = dict(session.rock_code_source_bindings)
 
-    with pytest.raises(RockCodeSourceBindingError, match="той же SHA-256"):
+    with pytest.raises(RockCodeSourceBindingError, match="тем же SHA-256"):
         assign_persisted_rock_code_profile(
             session,
             source_sha256="e" * 64,
