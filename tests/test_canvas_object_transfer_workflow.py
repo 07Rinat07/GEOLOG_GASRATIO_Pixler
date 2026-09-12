@@ -22,7 +22,10 @@ def _canvas(object_id: str) -> CanvasObject:
         object_id=object_id,
         object_type="annotation",
         anchor_type="depth",
+        x=8.0,
         y=1000.0,
+        width=20.0,
+        height=10.0,
         properties={"text": object_id},
     )
 
