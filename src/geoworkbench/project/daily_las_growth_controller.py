@@ -12,6 +12,7 @@ from numpy.typing import NDArray
 from geoworkbench.data.las_adapter import LasImportResult, import_las_with_report
 from geoworkbench.data.las_import_report import LasImportReport
 from geoworkbench.data.lossless_las import LosslessLasDocument
+from geoworkbench.domain.geology_update import GeologyUpdateRecord
 from geoworkbench.domain.models import (
     CalculationState,
     CurveData,
@@ -22,12 +23,9 @@ from geoworkbench.domain.models import (
     DepthDomain,
 )
 from geoworkbench.domain.numerical_update import NumericalCellChange, NumericalUpdateRecord
-from geoworkbench.services.well_update_plan import WellNumericalUpdatePlan, analyze_well_numerical_update
-from geoworkbench.services.well_update_apply import WellNumericalUpdateOutcome, apply_well_numerical_update
-from geoworkbench.domain.geology_update import GeologyUpdateRecord
-from geoworkbench.services.rock_code_dictionary import load_dictionary
-from geoworkbench.services.well_geology_update import (
-    WellGeologyUpdatePlan, analyze_well_geology_update, prepare_well_geology_update,
+from geoworkbench.domain.rock_code_profiles import (
+    RockCodeProfileRecord,
+    RockCodeSourceBindingRecord,
 )
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.daily_las_growth import (
@@ -37,6 +35,23 @@ from geoworkbench.services.daily_las_growth import (
     analyze_daily_las_growth,
     apply_daily_las_growth,
     file_sha256,
+)
+from geoworkbench.services.persisted_rock_code_profile_assignment import (
+    assign_persisted_rock_code_profile,
+)
+from geoworkbench.services.persisted_well_geology_update import (
+    analyze_persisted_well_geology_update,
+    prepare_persisted_well_geology_update,
+)
+from geoworkbench.services.rock_code_dictionary import RockCodeDictionary, load_dictionary
+from geoworkbench.services.well_geology_update import WellGeologyUpdatePlan
+from geoworkbench.services.well_update_apply import (
+    WellNumericalUpdateOutcome,
+    apply_well_numerical_update,
+)
+from geoworkbench.services.well_update_plan import (
+    WellNumericalUpdatePlan,
+    analyze_well_numerical_update,
 )
 
 
@@ -68,6 +83,8 @@ class _DailyAppendRollbackState:
     source_revisions: tuple[DatasetSourceRevision, ...]
     source_documents: dict[str, LosslessLasDocument]
     import_reports: dict[str, LasImportReport]
+    rock_code_profiles: dict[str, RockCodeProfileRecord]
+    rock_code_source_bindings: dict[str, RockCodeSourceBindingRecord]
     dirty: bool
     numerical_update_history: tuple[NumericalUpdateRecord, ...]
     gas_conditioning_qc: Any
@@ -101,6 +118,8 @@ class _DailyAppendRollbackState:
             source_revisions=tuple(target.source_revisions),
             source_documents=dict(session.source_documents),
             import_reports=dict(session.import_reports),
+            rock_code_profiles=dict(session.rock_code_profiles),
+            rock_code_source_bindings=dict(session.rock_code_source_bindings),
             dirty=session.dirty,
             numerical_update_history=tuple(target.numerical_update_history),
             gas_conditioning_qc=target.gas_conditioning_qc,
@@ -138,6 +157,10 @@ class _DailyAppendRollbackState:
         session.source_documents.update(self.source_documents)
         session.import_reports.clear()
         session.import_reports.update(self.import_reports)
+        session.rock_code_profiles.clear()
+        session.rock_code_profiles.update(self.rock_code_profiles)
+        session.rock_code_source_bindings.clear()
+        session.rock_code_source_bindings.update(self.rock_code_source_bindings)
         session.dirty = self.dirty
 
 
@@ -153,6 +176,9 @@ class DailyLasGrowthController:
         self.geology_plan: WellGeologyUpdatePlan | None = None
         self._profile_path: Path | None = None
         self._profile_sha256: str | None = None
+        self._profile_dictionary: RockCodeDictionary | None = None
+        self._profile_binding_before_preview: RockCodeSourceBindingRecord | None = None
+        self._profile_record_before_preview: RockCodeProfileRecord | None = None
         self._provider_kind = "manual_file"
         self._provider_location: str | None = None
 
@@ -171,7 +197,7 @@ class DailyLasGrowthController:
         provider_location: str | None = None,
     ) -> DailyLasGrowthPlan:
         # A failed second preview must never leave the first file eligible for
-        # confirmation.  Start every analysis from a clean transient state.
+        # confirmation. Start every analysis from a clean transient state.
         self.reset_state()
         target = self._target(target_dataset_id)
         path = Path(source_path)
@@ -253,8 +279,12 @@ class DailyLasGrowthController:
             self.reset_state()
 
     def analyze_numerical(
-        self, source_path: str | Path, target_dataset_id: str, *,
-        provider_kind: str = "manual_file", provider_location: str | None = None,
+        self,
+        source_path: str | Path,
+        target_dataset_id: str,
+        *,
+        provider_kind: str = "manual_file",
+        provider_location: str | None = None,
         geology_profile_path: str | Path | None = None,
     ) -> WellNumericalUpdatePlan:
         self.reset_state()
@@ -265,27 +295,79 @@ class DailyLasGrowthController:
         if digest != imported.report.source.sha256:
             raise DailyLasGrowthError("LAS изменился во время анализа")
         plan = analyze_well_numerical_update(
-            target, imported.dataset, source_name=path.name, source_sha256=digest,
+            target,
+            imported.dataset,
+            source_name=path.name,
+            source_sha256=digest,
         )
         profile_path = Path(geology_profile_path) if geology_profile_path is not None else None
         geology_plan = None
         profile_hash = None
+        profile_dictionary = None
+        binding_before_preview = None
+        record_before_preview = None
         if profile_path is not None:
-            profile_hash = self._stable_source_sha256(profile_path, max_bytes=4 * 1024 * 1024)
-            profile = load_dictionary(profile_path)
-            if self._stable_source_sha256(profile_path, max_bytes=4 * 1024 * 1024) != profile_hash:
-                raise DailyLasGrowthError("Профиль изменился во время анализа")
-            geology_plan = analyze_well_geology_update(
-                self.session, target, imported.dataset, profile,
-                source_name=path.name, source_sha256=digest,
+            profile_hash = self._stable_source_sha256(
+                profile_path,
+                max_bytes=4 * 1024 * 1024,
             )
-        self._source, self._source_path, self._numerical_plan = imported, path, plan
-        self.geology_plan, self._profile_path, self._profile_sha256 = geology_plan, profile_path, profile_hash
-        self._provider_kind, self._provider_location = provider_kind, provider_location or str(path)
+            profile = load_dictionary(profile_path)
+            if (
+                self._stable_source_sha256(
+                    profile_path,
+                    max_bytes=4 * 1024 * 1024,
+                )
+                != profile_hash
+            ):
+                raise DailyLasGrowthError("Профиль изменился во время анализа")
+
+            profiles_before = dict(self.session.rock_code_profiles)
+            bindings_before = dict(self.session.rock_code_source_bindings)
+            dirty_before = self.session.dirty
+            binding_before_preview = bindings_before.get(digest)
+            try:
+                assignment = assign_persisted_rock_code_profile(
+                    self.session,
+                    source_sha256=digest,
+                    supplier_name=profile.source,
+                    dictionary=profile,
+                )
+                record_before_preview = profiles_before.get(
+                    assignment.profile.profile_sha256
+                )
+                geology_plan = analyze_persisted_well_geology_update(
+                    self.session,
+                    target,
+                    imported.dataset,
+                    source_name=path.name,
+                    source_sha256=digest,
+                )
+            finally:
+                self.session.rock_code_profiles.clear()
+                self.session.rock_code_profiles.update(profiles_before)
+                self.session.rock_code_source_bindings.clear()
+                self.session.rock_code_source_bindings.update(bindings_before)
+                self.session.dirty = dirty_before
+            profile_dictionary = profile
+
+        self._source = imported
+        self._source_path = path
+        self._numerical_plan = plan
+        self.geology_plan = geology_plan
+        self._profile_path = profile_path
+        self._profile_sha256 = profile_hash
+        self._profile_dictionary = profile_dictionary
+        self._profile_binding_before_preview = binding_before_preview
+        self._profile_record_before_preview = record_before_preview
+        self._provider_kind = provider_kind
+        self._provider_location = provider_location or str(path)
         return plan
 
     def apply_numerical(
-        self, plan: WellNumericalUpdatePlan, *, append_rows: bool = False,
+        self,
+        plan: WellNumericalUpdatePlan,
+        *,
+        append_rows: bool = False,
         selected_changes: tuple[NumericalCellChange, ...] = (),
         geology_plan: WellGeologyUpdatePlan | None = None,
     ) -> WellNumericalUpdateOutcome:
@@ -298,30 +380,81 @@ class DailyLasGrowthController:
             target = self._target(plan.target_dataset_id)
             well = self.session.current_well
             assert well is not None
-            prepared = None
+
             if geology_plan is not None:
-                if self._profile_path is None or self._stable_source_sha256(self._profile_path, max_bytes=4 * 1024 * 1024) != self._profile_sha256:
-                    raise DailyLasGrowthError("Профиль поставщика изменился; повторите анализ")
-                prepared = prepare_well_geology_update(
-                    self.session, target, self._source.dataset, geology_plan,
-                    source_name=self._source_path.name, source_sha256=digest, append_rows=append_rows,
-                )
+                if (
+                    self._profile_path is None
+                    or self._profile_dictionary is None
+                    or self._stable_source_sha256(
+                        self._profile_path,
+                        max_bytes=4 * 1024 * 1024,
+                    )
+                    != self._profile_sha256
+                ):
+                    raise DailyLasGrowthError(
+                        "Профиль поставщика изменился; повторите анализ"
+                    )
+                if (
+                    self.session.rock_code_source_bindings.get(digest)
+                    != self._profile_binding_before_preview
+                ):
+                    raise DailyLasGrowthError(
+                        "Привязка источника к профилю пород изменилась; повторите анализ"
+                    )
+                if (
+                    self.session.rock_code_profiles.get(geology_plan.profile_sha256)
+                    != self._profile_record_before_preview
+                ):
+                    raise DailyLasGrowthError(
+                        "Ревизия профиля пород изменилась; повторите анализ"
+                    )
+
             original_rows = len(target.active_index.values)
             rollback = _DailyAppendRollbackState.capture(target, self.session)
-            original_lithology, original_cuttings = well.lithology, well.cuttings
-            original_catalog, original_revision = self.session.project.lithotypes, well.content_revision
+            original_lithology = well.lithology
+            original_cuttings = well.cuttings
+            original_catalog = self.session.project.lithotypes
+            original_revision = well.content_revision
             try:
+                prepared = None
+                if geology_plan is not None:
+                    assert self._profile_dictionary is not None
+                    assign_persisted_rock_code_profile(
+                        self.session,
+                        source_sha256=digest,
+                        supplier_name=self._profile_dictionary.source,
+                        dictionary=self._profile_dictionary,
+                    )
+                    prepared = prepare_persisted_well_geology_update(
+                        self.session,
+                        target,
+                        self._source.dataset,
+                        geology_plan,
+                        source_name=self._source_path.name,
+                        source_sha256=digest,
+                        append_rows=append_rows,
+                    )
+
                 outcome = apply_well_numerical_update(
-                    target, self._source.dataset, plan, source_name=self._source_path.name,
-                    source_sha256=digest, append_rows=append_rows, selected_changes=selected_changes,
+                    target,
+                    self._source.dataset,
+                    plan,
+                    source_name=self._source_path.name,
+                    source_sha256=digest,
+                    append_rows=append_rows,
+                    selected_changes=selected_changes,
                 )
                 if prepared is not None:
                     record = prepared.record
                     if outcome.record is not None:
-                        record = replace(record, update_id=outcome.record.update_id,
-                                         imported_at=outcome.record.imported_at)
+                        record = replace(
+                            record,
+                            update_id=outcome.record.update_id,
+                            imported_at=outcome.record.imported_at,
+                        )
                     history = [*target.geology_update_history, record]
-                    well.lithology, well.cuttings = prepared.lithology, prepared.cuttings
+                    well.lithology = prepared.lithology
+                    well.cuttings = prepared.cuttings
                     well.content_revision = prepared.revision
                     self.session.project.lithotypes = prepared.catalog
                     target.geology_update_history = history
@@ -329,24 +462,35 @@ class DailyLasGrowthController:
                 source_record = outcome.record or outcome.geology_record
                 if source_record is not None:
                     self._preserve_initial_source(target, original_rows=original_rows)
-                    self.session.source_documents[source_record.update_id] = self._source.source_document
+                    self.session.source_documents[source_record.update_id] = (
+                        self._source.source_document
+                    )
                     rows_added = outcome.record.rows_added if outcome.record is not None else 0
-                    target.source_revisions.append(DatasetSourceRevision(
-                        source_revision_id=source_record.update_id, artifact_id=source_record.update_id,
-                        source_name=source_record.source_name, source_sha256=source_record.source_sha256,
-                        size_bytes=self._source.source_document.size_bytes,
-                        imported_at=source_record.imported_at, provider_kind=self._provider_kind,
-                        provider_location=self._provider_location,
-                        start_value=plan.start_value, stop_value=plan.stop_value,
-                        rows_added=rows_added,
-                        rows_skipped=len(self._source.dataset.active_index.values) - rows_added,
-                    ))
+                    target.source_revisions.append(
+                        DatasetSourceRevision(
+                            source_revision_id=source_record.update_id,
+                            artifact_id=source_record.update_id,
+                            source_name=source_record.source_name,
+                            source_sha256=source_record.source_sha256,
+                            size_bytes=self._source.source_document.size_bytes,
+                            imported_at=source_record.imported_at,
+                            provider_kind=self._provider_kind,
+                            provider_location=self._provider_location,
+                            start_value=plan.start_value,
+                            stop_value=plan.stop_value,
+                            rows_added=rows_added,
+                            rows_skipped=(
+                                len(self._source.dataset.active_index.values) - rows_added
+                            ),
+                        )
+                    )
                     self.session.import_reports.pop(target.dataset_id, None)
                     self.session.dirty = True
                 return outcome
             except Exception:
                 rollback.restore(target, self.session)
-                well.lithology, well.cuttings = original_lithology, original_cuttings
+                well.lithology = original_lithology
+                well.cuttings = original_cuttings
                 well.content_revision = original_revision
                 self.session.project.lithotypes = original_catalog
                 raise
@@ -363,6 +507,9 @@ class DailyLasGrowthController:
         self.geology_plan = None
         self._profile_path = None
         self._profile_sha256 = None
+        self._profile_dictionary = None
+        self._profile_binding_before_preview = None
+        self._profile_record_before_preview = None
         self._provider_kind = "manual_file"
         self._provider_location = None
 
@@ -371,7 +518,7 @@ class DailyLasGrowthController:
         """Hash one stable on-disk revision before committing an append.
 
         A server synchronization client may replace a LAS between preview and
-        confirmation.  Compare file identity around the hash read so that the
+        confirmation. Compare file identity around the hash read so that the
         audit record can never point at a different revision than the bytes
         already parsed into the append plan.
         """
@@ -388,7 +535,9 @@ class DailyLasGrowthController:
                 digest = sha256(payload).hexdigest()
             after = path.stat()
         except OSError as exc:
-            raise DailyLasGrowthError(f"Не удалось повторно проверить LAS: {path.name}") from exc
+            raise DailyLasGrowthError(
+                f"Не удалось повторно проверить LAS: {path.name}"
+            ) from exc
         before_identity = (before.st_size, before.st_mtime_ns, before.st_ino)
         after_identity = (after.st_size, after.st_mtime_ns, after.st_ino)
         if before_identity != after_identity:
@@ -397,7 +546,12 @@ class DailyLasGrowthController:
             )
         return digest
 
-    def _preserve_initial_source(self, target: Dataset, *, original_rows: int | None = None) -> None:
+    def _preserve_initial_source(
+        self,
+        target: Dataset,
+        *,
+        original_rows: int | None = None,
+    ) -> None:
         document = self.session.source_documents.pop(target.dataset_id, None)
         if document is None:
             return
@@ -407,7 +561,10 @@ class DailyLasGrowthController:
             return
         index = target.active_index
         if original_rows is None:
-            original_rows = max(0, len(index.values) - (target.append_history[-1].rows_added or 0))
+            original_rows = max(
+                0,
+                len(index.values) - (target.append_history[-1].rows_added or 0),
+            )
         start = str(index.values[0]) if original_rows else ""
         stop = str(index.values[original_rows - 1]) if original_rows else ""
         target.source_revisions.insert(
@@ -415,7 +572,11 @@ class DailyLasGrowthController:
             DatasetSourceRevision(
                 source_revision_id=f"initial:{target.dataset_id}",
                 artifact_id=artifact_id,
-                source_name=(target.source_path.name if target.source_path is not None else target.name),
+                source_name=(
+                    target.source_path.name
+                    if target.source_path is not None
+                    else target.name
+                ),
                 source_sha256=document.sha256,
                 size_bytes=document.size_bytes,
                 imported_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
@@ -435,4 +596,6 @@ class DailyLasGrowthController:
         try:
             return well.datasets[dataset_id]
         except KeyError as exc:
-            raise KeyError(f"Dataset отсутствует в текущей скважине: {dataset_id}") from exc
+            raise KeyError(
+                f"Dataset отсутствует в текущей скважине: {dataset_id}"
+            ) from exc
