@@ -14,6 +14,7 @@ _LANGUAGES = ("ru", "kk", "en")
 @dataclass(frozen=True, slots=True)
 class RockDescriptionTemplate:
     template_id: str
+    version: int
     name_ru: str
     name_kk: str
     name_en: str
@@ -44,9 +45,7 @@ def load_rock_description_templates(
     path: str | Path | None = None,
 ) -> RockDescriptionTemplateCatalog:
     if path is None:
-        resource = files("geoworkbench").joinpath(
-            "resources/rock_description_templates.json"
-        )
+        resource = files("geoworkbench").joinpath("resources/rock_description_templates.json")
         raw = json.loads(resource.read_text(encoding="utf-8"))
     else:
         raw = json.loads(Path(path).read_text(encoding="utf-8"))
@@ -71,9 +70,13 @@ def load_rock_description_templates(
             raise ValueError(f"Повторяющийся ID шаблона описания: {template_id}")
         names = _localized_mapping(entry.get("name"), field_name=f"{template_id}.name")
         texts = _localized_mapping(entry.get("text"), field_name=f"{template_id}.text")
+        version = entry.get("version", 1)
+        if isinstance(version, bool) or not isinstance(version, int) or version < 1:
+            raise ValueError(f"Некорректная версия шаблона описания: {template_id!r}")
         templates.append(
             RockDescriptionTemplate(
                 template_id=template_id,
+                version=version,
                 name_ru=names["ru"],
                 name_kk=names["kk"],
                 name_en=names["en"],

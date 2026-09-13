@@ -245,7 +245,11 @@ class DatasetSourceRevision:
                 raise ValueError(f"{label} должен быть непустой строкой")
         if not re.fullmatch(r"[0-9a-f]{64}", self.source_sha256):
             raise ValueError("source_sha256 должен быть SHA-256")
-        if isinstance(self.size_bytes, bool) or not isinstance(self.size_bytes, int) or self.size_bytes < 0:
+        if (
+            isinstance(self.size_bytes, bool)
+            or not isinstance(self.size_bytes, int)
+            or self.size_bytes < 0
+        ):
             raise ValueError("size_bytes должен быть неотрицательным целым")
         if self.provider_location is not None and not isinstance(self.provider_location, str):
             raise ValueError("provider_location должен быть строкой или null")
@@ -430,6 +434,16 @@ class CuttingsComponent:
     percentage: float
 
 
+@dataclass(frozen=True, slots=True)
+class DescriptionTemplateBlock:
+    """Immutable provenance snapshot for one inserted description template."""
+
+    block_id: str
+    template_id: str
+    template_version: int
+    text_i18n: dict[str, str]
+
+
 @dataclass(slots=True)
 class CuttingsSample:
     sample_id: str
@@ -455,6 +469,7 @@ class CuttingsSample:
     analysis_interpretation: str | None = None
     description_word_wrap: bool = True
     description_i18n: dict[str, str] = field(default_factory=dict)
+    description_template_blocks: list[DescriptionTemplateBlock] = field(default_factory=list)
     lba_description_i18n: dict[str, str] = field(default_factory=dict)
     analysis_interpretation_i18n: dict[str, str] = field(default_factory=dict)
 
