@@ -14,6 +14,18 @@ from geoworkbench.data.late_analysis_adapter import (
 from geoworkbench.importers.gs2 import Gs2ContainerError, extract_gs2_table
 from geoworkbench.importers.gs2.metadata import channel_dictionary_for_table
 from geoworkbench.importers.gs2.multipart import read_gs2_multipart
+from geoworkbench.project.annotation_schema import (
+    annotation_from_canvas,
+    annotation_matches_scope,
+    annotation_scope_id_for_session,
+    is_annotation_object,
+)
+from geoworkbench.project.canvas_object_transfer_controller import (
+    CanvasObjectTransferController,
+)
+from geoworkbench.project.canvas_object_transfer_workflow import (
+    CanvasObjectTransferWorkflow,
+)
 from geoworkbench.project.drilling_calculation_coordinator import (
     DrillingCalculationCoordinator,
 )
@@ -28,6 +40,7 @@ from geoworkbench.project.well_analysis_update_workflow import (
     WellAnalysisUpdateWorkflow,
 )
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.ui.canvas_object_transfer_dialog import CanvasObjectTransferDialog
 from geoworkbench.ui.drilling_calculation_dialog import DrillingCalculationDialog
 from geoworkbench.ui.gs2_import_dialog import Gs2ImportDialog
 from geoworkbench.ui.late_analysis_review_dialog import LateAnalysisReviewDialog
@@ -61,6 +74,7 @@ class MainWindow(_LegacyMainWindow):
         )
         self._install_drilling_calculation_action()
         self._install_late_analysis_action()
+        self._install_canvas_object_transfer_action()
 
     def _install_drilling_calculation_action(self) -> None:
         calculations_menu = self._calculations_menu()
@@ -93,6 +107,22 @@ class MainWindow(_LegacyMainWindow):
             file_menu.insertAction(before, self.late_analysis_import_action)
         else:
             file_menu.addAction(self.late_analysis_import_action)
+
+    def _install_canvas_object_transfer_action(self) -> None:
+        file_menu = self._menu_by_i18n_key("menu.file")
+        if file_menu is None:
+            raise RuntimeError("Не найдено меню файла")
+        self.canvas_object_transfer_action = QAction(self)
+        self.canvas_object_transfer_action.setObjectName("canvasObjectTransferAction")
+        self.canvas_object_transfer_action.triggered.connect(
+            lambda _checked=False: self.show_canvas_object_transfer()
+        )
+        self._retranslate_canvas_object_transfer_action()
+        before = getattr(self, "open_data_action", None)
+        if isinstance(before, QAction):
+            file_menu.insertAction(before, self.canvas_object_transfer_action)
+        else:
+            file_menu.addAction(self.canvas_object_transfer_action)
 
     def _menu_by_i18n_key(self, key: str) -> QMenu | None:
         for action in self.menuBar().actions():
@@ -220,6 +250,92 @@ class MainWindow(_LegacyMainWindow):
                 f"Late analyses saved: {applied_count} change(s) applied.",
             )
         )
+
+    def show_canvas_object_transfer(self) -> None:
+        well = self.session.current_well
+        title = self._canvas_object_transfer_text(
+            "Перенос пользовательских рисунков",
+            "Пайдаланушы суреттерін көшіру",
+            "Transfer authored drawings",
+        )
+        if well is None:
+            QMessageBox.information(
+                self,
+                title,
+                self._canvas_object_transfer_text(
+                    "Сначала выберите скважину.",
+                    "Алдымен ұңғыманы таңдаңыз.",
+                    "Select a well first.",
+                ),
+            )
+            return
+        if self.project_path is None:
+            QMessageBox.information(
+                self,
+                title,
+                self._canvas_object_transfer_text(
+                    "Сначала сохраните проект: подтверждённый перенос должен быть "
+                    "сразу записан в файл проекта.",
+                    "Алдымен жобаны сақтаңыз: расталған көшіру жоба файлына бірден "
+                    "жазылуы тиіс.",
+                    "Save the project first: a confirmed transfer must be persisted "
+                    "to the project file immediately.",
+                ),
+            )
+            return
+
+        controller = CanvasObjectTransferController(self.session)
+        workflow = CanvasObjectTransferWorkflow(
+            self.session,
+            controller,
+            self.project_controller,
+        )
+        dialog = CanvasObjectTransferDialog(
+            workflow,
+            well.well_id,
+            language=self.language,
+            parent=self,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        outcome = dialog.outcome
+        if outcome is None or not outcome.copied_object_ids:
+            self.statusBar().showMessage(
+                self._canvas_object_transfer_text(
+                    "Перенос рисунков: изменений нет.",
+                    "Суреттерді көшіру: өзгерістер жоқ.",
+                    "Drawing transfer: no changes.",
+                )
+            )
+            return
+
+        copied_count = len(outcome.copied_object_ids)
+        self._acknowledge_background_project_save()
+        self._refresh_transferred_canvas_layer(well.well_id)
+        self.statusBar().showMessage(
+            self._canvas_object_transfer_text(
+                f"Рисунки перенесены и сохранены: {copied_count}.",
+                f"Суреттер көшіріліп, сақталды: {copied_count}.",
+                f"Drawings transferred and saved: {copied_count}.",
+            )
+        )
+
+    def _refresh_transferred_canvas_layer(self, target_well_id: str) -> None:
+        """Render transferred objects without mutating the just-saved project."""
+
+        well = self.session.current_well
+        if well is None or well.well_id != target_well_id:
+            return
+        scope_id = annotation_scope_id_for_session(self.session)
+        visible_objects = [
+            item
+            for item in well.canvas_objects
+            if is_annotation_object(item)
+            and annotation_matches_scope(annotation_from_canvas(item), scope_id)
+        ]
+        self.tablet_view.set_image_assets(self.session.image_assets)
+        self.tablet_view.set_canvas_objects(visible_objects)
 
     def show_drilling_calculation_dialog(self) -> None:
         if self.session.current_dataset is None:
@@ -441,6 +557,8 @@ class MainWindow(_LegacyMainWindow):
             self._retranslate_drilling_calculation_action()
         if hasattr(self, "late_analysis_import_action"):
             self._retranslate_late_analysis_action()
+        if hasattr(self, "canvas_object_transfer_action"):
+            self._retranslate_canvas_object_transfer_action()
 
     def _retranslate_late_analysis_action(self) -> None:
         text = self._late_analysis_text(
@@ -459,6 +577,24 @@ class MainWindow(_LegacyMainWindow):
         self.late_analysis_import_action.setText(text)
         self.late_analysis_import_action.setToolTip(tooltip)
         self.late_analysis_import_action.setStatusTip(tooltip)
+
+    def _retranslate_canvas_object_transfer_action(self) -> None:
+        text = self._canvas_object_transfer_text(
+            "Перенести пользовательские рисунки из другой скважины…",
+            "Басқа ұңғымадан пайдаланушы суреттерін көшіру…",
+            "Transfer authored drawings from another well…",
+        )
+        tooltip = self._canvas_object_transfer_text(
+            "Просмотреть и явно перенести выбранные пользовательские рисунки из другой "
+            "скважины без перезаписи существующих объектов.",
+            "Басқа ұңғымадан таңдалған пайдаланушы суреттерін қарап, бар объектілерді "
+            "қайта жазбай нақты көшіру.",
+            "Review and explicitly transfer selected authored drawings from another well "
+            "without overwriting existing objects.",
+        )
+        self.canvas_object_transfer_action.setText(text)
+        self.canvas_object_transfer_action.setToolTip(tooltip)
+        self.canvas_object_transfer_action.setStatusTip(tooltip)
 
     def _retranslate_drilling_calculation_action(self) -> None:
         text = self._drilling_text(
@@ -479,6 +615,11 @@ class MainWindow(_LegacyMainWindow):
         self.drilling_calculation_action.setStatusTip(tooltip)
 
     def _late_analysis_text(self, ru: str, kk: str, en: str) -> str:
+        return {AppLanguage.RU: ru, AppLanguage.KK: kk, AppLanguage.EN: en}[
+            self.language
+        ]
+
+    def _canvas_object_transfer_text(self, ru: str, kk: str, en: str) -> str:
         return {AppLanguage.RU: ru, AppLanguage.KK: kk, AppLanguage.EN: en}[
             self.language
         ]

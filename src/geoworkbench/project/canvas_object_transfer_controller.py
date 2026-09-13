@@ -8,8 +8,31 @@ from geoworkbench.domain.models import CanvasObject, Well
 from geoworkbench.project.session import ProjectSession
 
 
+class CanvasObjectTransferErrorReason(StrEnum):
+    """Stable UI-facing reason for a canvas-transfer failure."""
+
+    GENERAL = "general"
+    ID_COLLISION = "id_collision"
+    REVIEW_REQUIRED = "review_required"
+    SOURCE_CHANGED = "source_changed"
+    TARGET_CHANGED = "target_changed"
+    PACKAGE_REQUIRED = "package_required"
+    PERSISTENCE_FAILED = "persistence_failed"
+
+
 class CanvasObjectTransferError(ValueError):
     """Raised when an authored canvas transfer cannot be reviewed or applied safely."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        reason: CanvasObjectTransferErrorReason = CanvasObjectTransferErrorReason.GENERAL,
+        object_id: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.reason = reason
+        self.object_id = object_id
 
 
 class CanvasObjectCollisionPolicy(StrEnum):
@@ -127,7 +150,9 @@ class CanvasObjectTransferController:
             if target_id in occupied:
                 if collision_policy is CanvasObjectCollisionPolicy.ERROR:
                     raise CanvasObjectTransferError(
-                        f"Рисунок с ID уже существует в скважине-приёмнике: {target_id}"
+                        f"Рисунок с ID уже существует в скважине-приёмнике: {target_id}",
+                        reason=CanvasObjectTransferErrorReason.ID_COLLISION,
+                        object_id=target_id,
                     )
                 if collision_policy is CanvasObjectCollisionPolicy.SKIP:
                     action = CanvasObjectTransferAction.SKIP
@@ -169,7 +194,10 @@ class CanvasObjectTransferController:
                 or self._target_snapshot is None
                 or self._selected_snapshot is None
             ):
-                raise CanvasObjectTransferError("Сначала повторно просмотрите перенос рисунков")
+                raise CanvasObjectTransferError(
+                    "Сначала повторно просмотрите перенос рисунков",
+                    reason=CanvasObjectTransferErrorReason.REVIEW_REQUIRED,
+                )
 
             source = self._well(plan.source_well_id)
             target = self._well(plan.target_well_id)
@@ -178,14 +206,16 @@ class CanvasObjectTransferController:
                 or _snapshot(source.canvas_objects) != self._source_snapshot
             ):
                 raise CanvasObjectTransferError(
-                    "Рисунки или ревизия скважины-источника изменились; повторите просмотр"
+                    "Рисунки или ревизия скважины-источника изменились; повторите просмотр",
+                    reason=CanvasObjectTransferErrorReason.SOURCE_CHANGED,
                 )
             if (
                 target.content_revision != plan.target_well_revision
                 or _snapshot(target.canvas_objects) != self._target_snapshot
             ):
                 raise CanvasObjectTransferError(
-                    "Рисунки или ревизия скважины-приёмника изменились; повторите просмотр"
+                    "Рисунки или ревизия скважины-приёмника изменились; повторите просмотр",
+                    reason=CanvasObjectTransferErrorReason.TARGET_CHANGED,
                 )
 
             selected_by_id = {item.object_id: item for item in self._selected_snapshot}
