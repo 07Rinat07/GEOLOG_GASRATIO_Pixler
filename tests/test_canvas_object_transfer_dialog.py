@@ -9,6 +9,7 @@ from geoworkbench.project.canvas_object_transfer_controller import (
     CanvasObjectCollisionPolicy,
     CanvasObjectTransferController,
     CanvasObjectTransferError,
+    CanvasObjectTransferErrorReason,
 )
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage
@@ -133,6 +134,83 @@ def test_dialog_exposes_explicit_rename_policy_for_id_collision(qapp) -> None:
     assert dialog.plan.items[0].target_object_id == "drawing-a-copy"
     assert "Copy with new ID" == dialog.preview_table.item(0, 3).text()
     dialog.reject()
+
+
+def test_dialog_localizes_collision_error_in_english(qapp, monkeypatch) -> None:
+    controller, _source, target = _controller(collision=True)
+    warnings: list[str] = []
+    monkeypatch.setattr(
+        QMessageBox,
+        "warning",
+        lambda _parent, _title, text: warnings.append(text),
+    )
+    dialog = CanvasObjectTransferDialog(
+        controller,
+        target.well_id,
+        language=AppLanguage.EN,
+    )
+    dialog.source_table.item(0, 0).setCheckState(Qt.CheckState.Checked)
+
+    dialog._analyze()
+
+    assert dialog.plan is None
+    assert warnings
+    assert "already exists in the target well" in warnings[-1]
+    assert "drawing-a" in warnings[-1]
+    assert "Рисунок" not in warnings[-1]
+    dialog.close()
+
+
+def test_dialog_localizes_stale_target_error_in_kazakh(qapp, monkeypatch) -> None:
+    controller, _source, target = _controller()
+    warnings: list[str] = []
+    monkeypatch.setattr(
+        QMessageBox,
+        "warning",
+        lambda _parent, _title, text: warnings.append(text),
+    )
+    dialog = CanvasObjectTransferDialog(
+        controller,
+        target.well_id,
+        language=AppLanguage.KK,
+    )
+    dialog.source_table.item(0, 0).setCheckState(Qt.CheckState.Checked)
+    dialog._analyze()
+    assert dialog.plan is not None
+    target.content_revision += 1
+
+    dialog._accept()
+
+    assert dialog.plan is None
+    assert warnings
+    assert "Мақсатты ұңғымадағы" in warnings[-1]
+    assert "Рисунки" not in warnings[-1]
+    dialog.close()
+
+
+def test_dialog_never_leaks_raw_russian_for_structured_english_errors(qapp) -> None:
+    controller, _source, target = _controller()
+    dialog = CanvasObjectTransferDialog(
+        controller,
+        target.well_id,
+        language=AppLanguage.EN,
+    )
+    reasons = (
+        CanvasObjectTransferErrorReason.REVIEW_REQUIRED,
+        CanvasObjectTransferErrorReason.SOURCE_CHANGED,
+        CanvasObjectTransferErrorReason.TARGET_CHANGED,
+        CanvasObjectTransferErrorReason.PACKAGE_REQUIRED,
+        CanvasObjectTransferErrorReason.PERSISTENCE_FAILED,
+        CanvasObjectTransferErrorReason.GENERAL,
+    )
+
+    for reason in reasons:
+        message = dialog._error_text(
+            CanvasObjectTransferError("Русский внутренний текст", reason=reason)
+        )
+        assert "Русский" not in message
+        assert message
+    dialog.close()
 
 
 def test_dialog_reject_consumes_preview_authorization(qapp) -> None:
