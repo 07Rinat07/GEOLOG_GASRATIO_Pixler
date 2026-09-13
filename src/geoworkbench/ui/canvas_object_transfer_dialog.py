@@ -96,7 +96,7 @@ class CanvasObjectTransferDialog(QDialog):
                 "ID қақтығысында тоқтату",
                 "Stop on ID conflict",
             ),
-            CanvasObjectCollisionPolicy.ERROR,
+            CanvasObjectCollisionPolicy.ERROR.value,
         )
         self.collision_combo.addItem(
             self._text(
@@ -104,7 +104,7 @@ class CanvasObjectTransferDialog(QDialog):
                 "Бар ID-лерді өткізіп жіберу",
                 "Skip existing IDs",
             ),
-            CanvasObjectCollisionPolicy.SKIP,
+            CanvasObjectCollisionPolicy.SKIP.value,
         )
         self.collision_combo.addItem(
             self._text(
@@ -112,7 +112,7 @@ class CanvasObjectTransferDialog(QDialog):
                 "Жаңа ID-мен көшірме жасау",
                 "Create a copy with a new ID",
             ),
-            CanvasObjectCollisionPolicy.RENAME,
+            CanvasObjectCollisionPolicy.RENAME.value,
         )
         self.collision_combo.currentIndexChanged.connect(self._policy_changed)
         form.addRow(
@@ -243,8 +243,11 @@ class CanvasObjectTransferDialog(QDialog):
                 ),
             )
             return
-        policy = self.collision_combo.currentData()
-        if not isinstance(policy, CanvasObjectCollisionPolicy):
+        # Qt stores StrEnum user data as a string; restore the domain type
+        # at the UI boundary while rejecting missing or unknown values.
+        try:
+            policy = CanvasObjectCollisionPolicy(self.collision_combo.currentData())
+        except (TypeError, ValueError):
             QMessageBox.warning(
                 self,
                 self.windowTitle(),

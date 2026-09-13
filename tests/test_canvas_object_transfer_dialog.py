@@ -16,6 +16,16 @@ from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.canvas_object_transfer_dialog import CanvasObjectTransferDialog
 
 
+@pytest.fixture(autouse=True)
+def fail_on_unexpected_message_box(monkeypatch) -> None:
+    """Report unexpected modal dialogs instead of blocking a headless CI job."""
+    def unexpected_message(_parent, _title, text):
+        pytest.fail(f"Unexpected message box: {text}")
+
+    for method in ("information", "warning", "critical"):
+        monkeypatch.setattr(QMessageBox, method, unexpected_message)
+
+
 def _canvas(object_id: str) -> CanvasObject:
     return CanvasObject(
         object_id=object_id,
@@ -112,6 +122,48 @@ def test_selection_change_invalidates_reviewed_plan(qapp) -> None:
     with pytest.raises(CanvasObjectTransferError, match="повторно просмотрите"):
         controller.apply(reviewed_plan)
     dialog.close()
+
+
+@pytest.mark.parametrize("policy", list(CanvasObjectCollisionPolicy))
+def test_dialog_decodes_string_policy_from_qt(qapp, policy) -> None:
+    controller, _source, target = _controller()
+    dialog = CanvasObjectTransferDialog(controller, target.well_id)
+    dialog.source_table.item(0, 0).setCheckState(Qt.CheckState.Checked)
+    index = dialog.collision_combo.findData(policy.value)
+    assert index >= 0
+    dialog.collision_combo.setCurrentIndex(index)
+
+    dialog._analyze()
+
+    assert dialog.plan is not None
+    assert dialog.plan.collision_policy is policy
+    dialog.reject()
+
+
+@pytest.mark.parametrize("invalid_policy", [None, "unknown-policy", 42])
+def test_dialog_rejects_invalid_policy_without_transfer(qapp, monkeypatch, invalid_policy) -> None:
+    controller, _source, target = _controller()
+    dialog = CanvasObjectTransferDialog(controller, target.well_id)
+    dialog.source_table.item(0, 0).setCheckState(Qt.CheckState.Checked)
+    dialog._analyze()
+    reviewed_plan = dialog.plan
+    assert reviewed_plan is not None
+    warnings: list[str] = []
+    monkeypatch.setattr(
+        QMessageBox, "warning", lambda _parent, _title, text: warnings.append(text)
+    )
+    dialog.collision_combo.setItemData(dialog.collision_combo.currentIndex(), invalid_policy)
+
+    dialog._analyze()
+    dialog._accept()
+
+    assert warnings == ["Не выбрана политика конфликтов ID."]
+    assert dialog.plan is None
+    assert not dialog.buttons.button(QDialogButtonBox.StandardButton.Ok).isEnabled()
+    assert target.canvas_objects == []
+    with pytest.raises(CanvasObjectTransferError, match="повторно просмотрите"):
+        controller.apply(reviewed_plan)
+    dialog.reject()
 
 
 def test_dialog_exposes_explicit_rename_policy_for_id_collision(qapp) -> None:
