@@ -77,3 +77,50 @@ def test_stratigraphy_rejects_unknown_text_presentation() -> None:
         controller.add(100.0, 120.0, "K1", text_orientation="diagonal")
     with pytest.raises(ValueError, match="положение текста"):
         controller.add(120.0, 140.0, "K2", text_position="outside")
+
+
+def test_stratigraphy_saves_all_localized_texts_atomically() -> None:
+    controller = _controller()
+    interval = controller.add(
+        100.0,
+        180.0,
+        "K1",
+        rank="Series / Epoch",
+        name_i18n={"ru": "Нижний мел", "kk": "Төменгі бор", "en": "Lower Cretaceous"},
+        description_i18n={"ru": "Коллектор", "kk": "Коллектор", "en": "Reservoir"},
+    )
+
+    assert interval.name_i18n["kk"] == "Төменгі бор"
+    assert interval.name == "Нижний мел"
+    controller.update(
+        interval.interval_id,
+        top_depth=110.0,
+        bottom_depth=190.0,
+        code="K1 updated",
+        rank="Series / Epoch",
+        name_i18n={"kk": "Төменгі бор", "en": "Lower Cretaceous"},
+        description_i18n={"en": "Updated reservoir"},
+    )
+
+    assert interval.name is None
+    assert interval.description is None
+    assert interval.name_i18n == {"kk": "Төменгі бор", "en": "Lower Cretaceous"}
+
+
+def test_invalid_localized_stratigraphy_update_does_not_mutate_interval() -> None:
+    controller = _controller()
+    interval = controller.add(100.0, 180.0, "K1", name="Legacy")
+
+    with pytest.raises(ValueError, match="язык"):
+        controller.update(
+            interval.interval_id,
+            top_depth=120.0,
+            bottom_depth=200.0,
+            code="changed",
+            name_i18n={"invalid": "Broken"},
+        )
+
+    assert interval.top_depth == 100.0
+    assert interval.bottom_depth == 180.0
+    assert interval.code == "K1"
+    assert interval.name == "Legacy"

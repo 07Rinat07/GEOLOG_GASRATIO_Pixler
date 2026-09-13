@@ -104,9 +104,10 @@ def test_factory_header_text_uses_requested_language_with_safe_fallback() -> Non
 
 
 def test_print_interpretation_converts_saved_rich_rock_description_to_text() -> None:
-    assert _rich_text_to_plain(
-        "<p><b>Песчаник</b>, мелкозернистый.<br/>Кварцевый.</p>"
-    ) == "Песчаник, мелкозернистый.\nКварцевый."
+    assert (
+        _rich_text_to_plain("<p><b>Песчаник</b>, мелкозернистый.<br/>Кварцевый.</p>")
+        == "Песчаник, мелкозернистый.\nКварцевый."
+    )
 
 
 def test_print_interpretation_preserves_alignment_and_clips_long_text(qapp) -> None:
@@ -137,9 +138,10 @@ def test_print_interpretation_preserves_alignment_and_clips_long_text(qapp) -> N
     )
     painter.end()
 
-    assert _rich_text_alignment(
-        '<p style="text-align:right">Описание</p>'
-    ) == Qt.AlignmentFlag.AlignRight
+    assert (
+        _rich_text_alignment('<p style="text-align:right">Описание</p>')
+        == Qt.AlignmentFlag.AlignRight
+    )
     assert all(
         image.pixelColor(x, y).name() == "#ffffff"
         for y in range(50, image.height())
@@ -270,10 +272,7 @@ def test_masterlog_column_grid_draws_configured_major_and_minor_lines(qapp) -> N
 def test_masterlog_depth_grid_uses_round_five_metre_major_values() -> None:
     values = _aligned_depth_grid_values((47.0, 97.0), 1)
 
-    assert values == tuple(
-        (float(depth), True)
-        for depth in range(50, 100, 5)
-    )
+    assert values == tuple((float(depth), True) for depth in range(50, 100, 5))
 
 
 def test_masterlog_depth_grid_adds_minor_subdivisions_between_major_values() -> None:
@@ -906,12 +905,11 @@ def test_masterlog_direct_renderer_paints_professional_annotation(qapp) -> None:
     )
     painter.end()
 
-    color = image.pixelColor(15, 55)
-    assert color.red() > 220
-    # The sampled pixel may lie on an antialiased white glyph after a Unicode
-    # print font is registered earlier in the same Qt process. It must still be
-    # decisively red instead of depending on one platform font rasterizer.
-    assert color.red() - max(color.green(), color.blue()) > 150
+    # A fixed pixel can land on an antialiased white glyph depending on the Qt
+    # font rasterizer. The nearby fill must nevertheless contain saturated red.
+    colors = [image.pixelColor(x, y) for x in range(12, 19) for y in range(52, 59)]
+    assert max(color.red() for color in colors) > 220
+    assert max(color.red() - max(color.green(), color.blue()) for color in colors) > 150
 
 
 def test_masterlog_direct_renderer_skips_screen_only_annotation(qapp) -> None:
