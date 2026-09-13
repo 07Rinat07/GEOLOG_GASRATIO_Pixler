@@ -8,6 +8,7 @@ from geoworkbench.domain.models import CanvasObject, Well
 from geoworkbench.project.canvas_object_transfer_controller import (
     CanvasObjectCollisionPolicy,
     CanvasObjectTransferError,
+    CanvasObjectTransferErrorReason,
     CanvasObjectTransferOutcome,
     CanvasObjectTransferPlan,
 )
@@ -128,7 +129,8 @@ class CanvasObjectTransferWorkflow:
         except Exception as exc:
             snapshot.restore(self._session)
             raise CanvasObjectTransferPersistenceError(
-                "Перенос рисунков не сохранён; изменения полностью отменены"
+                "Перенос рисунков не сохранён; изменения полностью отменены",
+                reason=CanvasObjectTransferErrorReason.PERSISTENCE_FAILED,
             ) from exc
         return outcome
 
@@ -144,5 +146,6 @@ class CanvasObjectTransferWorkflow:
         if not isinstance(project_path, Path) or project_path.suffix.lower() != ".geologpkg":
             raise CanvasObjectTransferPersistenceError(
                 "Перенос рисунков требует проекта в формате .geologpkg. "
-                "Сначала сохраните проект как пакет .geologpkg."
+                "Сначала сохраните проект как пакет .geologpkg.",
+                reason=CanvasObjectTransferErrorReason.PACKAGE_REQUIRED,
             )
