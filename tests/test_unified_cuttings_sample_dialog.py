@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from geoworkbench.domain.models import CuttingsComponent, CuttingsSample
+from geoworkbench.domain.models import CuttingsComponent, CuttingsSample, Project, Well
+from geoworkbench.project.cuttings_controller import CuttingsController
+from geoworkbench.project.session import ProjectSession
 from geoworkbench.project.lithotype_catalog_models import CatalogLithotype
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.unified_cuttings_sample_dialog import UnifiedCuttingsSampleDialog
@@ -56,7 +58,12 @@ def test_shared_sample_description_appends_multiple_ready_templates(qapp) -> Non
         language=AppLanguage.RU,
     )
 
-    dialog.description_template_input.setCurrentIndex(1)
+    sandstone_template_index = next(
+        index
+        for index in range(1, dialog.description_template_input.count())
+        if dialog.description_template_input.itemData(index, 257) == "sandstone"
+    )
+    dialog.description_template_input.setCurrentIndex(sandstone_template_index)
     first = dialog.rich_description.editor.toPlainText().strip()
     dialog.description_template_input.setCurrentIndex(2)
     combined = dialog.rich_description.editor.toPlainText().strip()
@@ -65,4 +72,100 @@ def test_shared_sample_description_appends_multiple_ready_templates(qapp) -> Non
     assert first in combined
     assert len(combined) > len(first)
     assert dialog.description_template_input.currentIndex() == 0
+    dialog.close()
+
+
+def test_multilingual_description_tabs_preserve_drafts_and_insert_one_template_in_all_languages(
+    qapp,
+) -> None:
+    lithotype = CatalogLithotype(
+        lithotype_id="sandstone",
+        code="SS",
+        name_ru="Песчаник",
+        name_en="Sandstone",
+        category="sedimentary",
+        color="#d6b36a",
+        pattern_key="sandstone",
+        system=True,
+        name_kk="Құмтас",
+    )
+    dialog = UnifiedCuttingsSampleDialog(
+        1980.0,
+        1981.0,
+        (lithotype,),
+        language=AppLanguage.RU,
+    )
+
+    assert dialog.description_language_tabs.count() == 3
+    sandstone_template_index = next(
+        index
+        for index in range(1, dialog.description_template_input.count())
+        if dialog.description_template_input.itemData(index, 257) == "sandstone"
+    )
+    dialog.description_template_input.setCurrentIndex(sandstone_template_index)
+    texts = {
+        language: editor.editor.toPlainText()
+        for language, editor in dialog.description_editors.items()
+    }
+    assert "Песчан" in texts["ru"]
+    assert "Құмтас" in texts["kk"]
+    assert "Sandstone" in texts["en"]
+
+    dialog.description_editors["kk"].editor.append("Қолмен толықтыру")
+    dialog.description_language_tabs.setCurrentIndex(2)
+    dialog.description_language_tabs.setCurrentIndex(1)
+    values = dialog.values()
+
+    assert "Қолмен толықтыру" in values["description_i18n"]["kk"]
+    assert set(values["description_i18n"]) == {"ru", "kk", "en"}
+    dialog.close()
+
+
+def test_controller_saves_all_description_languages_in_one_sample_update() -> None:
+    well = Well("well", "Well")
+    session = ProjectSession(Project("project", "Project", wells={well.well_id: well}))
+    session.current_well_id = well.well_id
+    controller = CuttingsController(session)
+
+    sample = controller.create_full_sample(
+        1980.0,
+        1981.0,
+        {"sandstone": 100.0},
+        description_i18n={
+            "ru": "Аргиллит",
+            "kk": "Аргиллит",
+            "en": "Claystone",
+        },
+    )
+
+    assert sample.description_i18n == {
+        "ru": "Аргиллит",
+        "kk": "Аргиллит",
+        "en": "Claystone",
+    }
+    assert sample.description == "Аргиллит"
+    assert session.dirty is True
+
+
+def test_unedited_legacy_fallback_is_not_promoted_to_russian_translation(qapp) -> None:
+    sample = CuttingsSample(
+        "sample-legacy",
+        1980.0,
+        1981.0,
+        [CuttingsComponent("sandstone", 100.0)],
+        description="Legacy description",
+        description_i18n={"und": "Unclassified authored text"},
+    )
+    dialog = UnifiedCuttingsSampleDialog(
+        sample.top_depth,
+        sample.bottom_depth,
+        (),
+        language=AppLanguage.RU,
+        sample=sample,
+    )
+
+    values = dialog.values()
+
+    assert values["description_i18n"] == {"und": "Unclassified authored text"}
+    assert "ru" not in values["description_i18n"]
     dialog.close()

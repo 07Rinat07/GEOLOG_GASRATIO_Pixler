@@ -28,7 +28,7 @@ from PySide6.QtWidgets import (
 
 from geoworkbench.catalogs.description_templates import load_rock_description_templates
 from geoworkbench.domain.models import CuttingsSample
-from geoworkbench.domain.localized_content import localized_text
+from geoworkbench.domain.localized_content import SUPPORTED_CONTENT_LANGUAGES, localized_text
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.services.lba_standard import (
     LBA_STANDARD_GROUPS,
@@ -73,6 +73,7 @@ _TEXT = {
         "lba_color": "Цвет свечения",
         "lba_details": "Дополнительное описание ЛБА",
         "description": "Описание шлама",
+        "description_languages_hint": "Введите описание на каждом языке. Переключение вкладок сохраняет незавершённый текст.",
         "description_template_language": "Язык готового описания",
         "description_template": "Готовое описание породы",
         "description_template_select": "Выберите шаблон",
@@ -125,6 +126,7 @@ _TEXT = {
         "lba_color": "Жарқырау түсі",
         "lba_details": "ЛБА қосымша сипаттамасы",
         "description": "Шлам сипаттамасы",
+        "description_languages_hint": "Әр тілдегі сипаттаманы енгізіңіз. Қойындыларды ауыстырғанда аяқталмаған мәтін сақталады.",
         "description_template_language": "Дайын сипаттаманың тілі",
         "description_template": "Тау жынысының дайын сипаттамасы",
         "description_template_select": "Үлгіні таңдаңыз",
@@ -177,6 +179,7 @@ _TEXT = {
         "lba_color": "Fluorescence color",
         "lba_details": "Additional LBA description",
         "description": "Cuttings description",
+        "description_languages_hint": "Enter the description in each language. Switching tabs preserves unfinished text.",
         "description_template_language": "Ready-description language",
         "description_template": "Ready rock description",
         "description_template_select": "Select a template",
@@ -240,6 +243,8 @@ class UnifiedCuttingsSampleDialog(QDialog):
         self._catalog = tuple(catalog)
         self._description_template_catalog = load_rock_description_templates()
         self._description_from_template = False
+        self._initial_description_i18n = dict(sample.description_i18n) if sample is not None else {}
+        self._description_dirty_languages: set[str] = set()
         self.delete_requested = False
         self.setWindowTitle(self._text["edit"] if sample is not None else self._text["create"])
         self.setMinimumSize(560, 460)
@@ -332,6 +337,11 @@ class UnifiedCuttingsSampleDialog(QDialog):
         )
         root.addLayout(template_form)
 
+        language_hint = QLabel(self._text["description_languages_hint"])
+        language_hint.setWordWrap(True)
+        language_hint.setObjectName("cuttings-description-languages-hint")
+        root.addWidget(language_hint)
+
         self.description_template_formula = QLabel()
         self.description_template_formula.setObjectName(
             "cuttings-description-template-formula"
@@ -350,24 +360,35 @@ class UnifiedCuttingsSampleDialog(QDialog):
         )
         root.addWidget(self.description_template_warning)
 
-        self.rich_description = RichIntervalTextEditor(language=self._language)
-        self.rich_description.set_html(
-            localized_text(
-                sample.description_i18n,
-                self._language,
-                legacy=sample.description,
+        self.description_language_tabs = QTabWidget()
+        self.description_language_tabs.setObjectName("cuttings-description-language-tabs")
+        self.description_editors: dict[str, RichIntervalTextEditor] = {}
+        for content_language in AppLanguage:
+            language_code = content_language.value
+            editor = RichIntervalTextEditor(language=content_language)
+            initial_html = None
+            if sample is not None:
+                initial_html = sample.description_i18n.get(language_code)
+                if language_code == "ru" and not initial_html:
+                    initial_html = sample.description
+            editor.set_html(initial_html)
+            editor.set_word_wrap(sample.description_word_wrap if sample is not None else True)
+            editor.editor.textChanged.connect(
+                lambda language_code=language_code: self._mark_description_as_user_edited(
+                    language_code
+                )
             )
-            if sample is not None
-            else None
-        )
-        self.rich_description.set_word_wrap(
-            sample.description_word_wrap if sample is not None else True
-        )
-        self.rich_description.editor.textChanged.connect(
-            self._mark_description_as_user_edited
-        )
-        root.addWidget(self.rich_description, 1)
+            self.description_editors[language_code] = editor
+            self.description_language_tabs.addTab(editor, LANGUAGE_NAMES[content_language])
+        active_index = tuple(AppLanguage).index(self._language)
+        self.description_language_tabs.setCurrentIndex(active_index)
+        # Compatibility alias for integrations that address the active editor.
+        self.rich_description = self.description_editors[self._language.value]
+        root.addWidget(self.description_language_tabs, 1)
 
+        self.description_template_language_input.currentIndexChanged.connect(
+            self._description_language_changed
+        )
         self.description_template_language_input.currentIndexChanged.connect(
             self._refresh_description_templates
         )
@@ -376,6 +397,13 @@ class UnifiedCuttingsSampleDialog(QDialog):
         )
         self._refresh_description_templates()
         return widget
+
+    def _description_language_changed(self, _index: int = -1) -> None:
+        language = self._description_template_language()
+        requested_editor = self.description_editors[language.value]
+        if requested_editor.html() is not None or self.rich_description.html() is None:
+            self.rich_description = requested_editor
+            self.description_language_tabs.setCurrentIndex(tuple(AppLanguage).index(language))
 
     def _description_template_language(self) -> AppLanguage:
         try:
@@ -413,15 +441,26 @@ class UnifiedCuttingsSampleDialog(QDialog):
         self._suggest_description_template()
 
     def _insert_description_template(self, index: int) -> None:
-        description = self.description_template_input.itemData(index)
-        if isinstance(description, str):
-            self.rich_description.append_html(description)
+        template_id = self.description_template_input.itemData(index, _TEMPLATE_ID_ROLE)
+        template = next(
+            (
+                item
+                for item in self._description_template_catalog.templates
+                if item.template_id == template_id
+            ),
+            None,
+        )
+        if template is not None:
+            for language_code in SUPPORTED_CONTENT_LANGUAGES:
+                _name, description = template.localized(language_code)
+                self.description_editors[language_code].append_html(description)
             self._description_from_template = True
             self.description_template_input.blockSignals(True)
             self.description_template_input.setCurrentIndex(0)
             self.description_template_input.blockSignals(False)
 
-    def _mark_description_as_user_edited(self) -> None:
+    def _mark_description_as_user_edited(self, language_code: str) -> None:
+        self._description_dirty_languages.add(language_code)
         self._description_from_template = False
 
     def _suggest_description_template(self) -> None:
@@ -434,7 +473,7 @@ class UnifiedCuttingsSampleDialog(QDialog):
         for index in range(1, self.description_template_input.count()):
             if self.description_template_input.itemData(index, _TEMPLATE_ID_ROLE) == template_id:
                 preserve_existing = (
-                    self.rich_description.html() is not None
+                    any(editor.html() is not None for editor in self.description_editors.values())
                     and not self._description_from_template
                 )
                 if preserve_existing:
@@ -715,8 +754,16 @@ class UnifiedCuttingsSampleDialog(QDialog):
             self.intensity_group.id(intensity_button) if intensity_button is not None else -1
         )
         normalized_intensity = intensity if intensity > 0 else None
+        descriptions = dict(self._initial_description_i18n)
+        for language_code in self._description_dirty_languages:
+            description = self.description_editors[language_code].html()
+            if description is None:
+                descriptions.pop(language_code, None)
+            else:
+                descriptions[language_code] = description
         return {
             "description": self.rich_description.html(),
+            "description_i18n": descriptions,
             "description_word_wrap": self.rich_description.word_wrap,
             "calcite_percent": self.calcite_input.value()
             if self.calcite_input.value() >= 0
