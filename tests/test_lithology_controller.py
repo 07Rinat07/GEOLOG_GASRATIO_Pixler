@@ -44,3 +44,39 @@ def test_lithology_controller_rejects_overlap_and_out_of_range() -> None:
         controller.add(90.0, 110.0, "claystone")
     with pytest.raises(ValueError, match="меньше"):
         controller.add(180.0, 170.0, "claystone")
+
+
+def test_lithology_controller_saves_all_languages_atomically() -> None:
+    controller = make_controller()
+
+    interval = controller.add(
+        100.0,
+        150.0,
+        "sandstone",
+        description_i18n={"ru": "Песчаник", "kk": "Құмтас", "en": "Sandstone"},
+    )
+
+    assert interval.description_i18n == {
+        "ru": "Песчаник",
+        "kk": "Құмтас",
+        "en": "Sandstone",
+    }
+    assert interval.description == "Песчаник"
+
+
+def test_invalid_multilingual_update_does_not_partially_change_interval() -> None:
+    controller = make_controller()
+    interval = controller.add(100.0, 150.0, "sandstone", description="Песчаник")
+
+    with pytest.raises(ValueError, match="Неподдерживаемый язык"):
+        controller.update(
+            interval.interval_id,
+            top_depth=110.0,
+            bottom_depth=140.0,
+            lithotype_id="claystone",
+            description_i18n={"de": "Sandstein"},
+        )
+
+    assert (interval.top_depth, interval.bottom_depth) == (100.0, 150.0)
+    assert interval.lithotype_id == "sandstone"
+    assert interval.description == "Песчаник"
