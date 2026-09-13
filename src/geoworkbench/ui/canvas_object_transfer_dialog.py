@@ -20,6 +20,7 @@ from geoworkbench.project.canvas_object_transfer_controller import (
     CanvasObjectCollisionPolicy,
     CanvasObjectTransferAction,
     CanvasObjectTransferError,
+    CanvasObjectTransferErrorReason,
     CanvasObjectTransferOutcome,
     CanvasObjectTransferPlan,
 )
@@ -262,7 +263,7 @@ class CanvasObjectTransferDialog(QDialog):
                 collision_policy=policy,
             )
         except CanvasObjectTransferError as exc:
-            QMessageBox.warning(self, self.windowTitle(), str(exc))
+            QMessageBox.warning(self, self.windowTitle(), self._error_text(exc))
             return
         self.plan = plan
         self._render_plan(plan)
@@ -312,7 +313,7 @@ class CanvasObjectTransferDialog(QDialog):
             self.outcome = self.application.apply(self.plan)
         except CanvasObjectTransferError as exc:
             self._invalidate(reset_application=False)
-            QMessageBox.warning(self, self.windowTitle(), str(exc))
+            QMessageBox.warning(self, self.windowTitle(), self._error_text(exc))
             return
         self.accept()
 
@@ -328,6 +329,58 @@ class CanvasObjectTransferDialog(QDialog):
         self.buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
         if reset_application:
             self.application.reset_state()
+
+    def _error_text(self, exc: CanvasObjectTransferError) -> str:
+        if self.language is AppLanguage.RU:
+            return str(exc)
+
+        reason = exc.reason
+        if reason is CanvasObjectTransferErrorReason.ID_COLLISION:
+            object_suffix = f": {exc.object_id}" if exc.object_id else ""
+            return self._text(
+                str(exc),
+                "Мақсатты ұңғымада осындай ID бар сурет бұрыннан бар"
+                f"{object_suffix}. ID қақтығысы саясатын өзгертіңіз.",
+                "A drawing with this ID already exists in the target well"
+                f"{object_suffix}. Choose a different ID-conflict policy.",
+            )
+        if reason is CanvasObjectTransferErrorReason.REVIEW_REQUIRED:
+            return self._text(
+                str(exc),
+                "Көшіруді қолданбас бұрын алдын ала қарауды қайта орындаңыз.",
+                "Preview the transfer again before applying it.",
+            )
+        if reason is CanvasObjectTransferErrorReason.SOURCE_CHANGED:
+            return self._text(
+                str(exc),
+                "Бастапқы ұңғымадағы суреттер немесе ревизия өзгерді. Алдын ала қарауды қайталаңыз.",
+                "The source-well drawings or revision changed. Preview the transfer again.",
+            )
+        if reason is CanvasObjectTransferErrorReason.TARGET_CHANGED:
+            return self._text(
+                str(exc),
+                "Мақсатты ұңғымадағы суреттер немесе ревизия өзгерді. Алдын ала қарауды қайталаңыз.",
+                "The target-well drawings or revision changed. Preview the transfer again.",
+            )
+        if reason is CanvasObjectTransferErrorReason.PACKAGE_REQUIRED:
+            return self._text(
+                str(exc),
+                "Суреттерді көшіру үшін жоба .geologpkg форматында болуы керек. "
+                "Алдымен жобаны .geologpkg пакеті ретінде сақтаңыз.",
+                "Drawing transfer requires a .geologpkg project. "
+                "Save the project as a .geologpkg package first.",
+            )
+        if reason is CanvasObjectTransferErrorReason.PERSISTENCE_FAILED:
+            return self._text(
+                str(exc),
+                "Суреттерді көшіру сақталмады. Барлық өзгерістер толық қайтарылды.",
+                "The drawing transfer could not be saved. All changes were rolled back.",
+            )
+        return self._text(
+            str(exc),
+            "Көшіруді қауіпсіз орындау мүмкін болмады. Параметрлерді тексеріп, қайталап көріңіз.",
+            "The transfer could not be completed safely. Review the settings and try again.",
+        )
 
     def _text(self, ru: str, kk: str, en: str) -> str:
         if self.language is AppLanguage.KK:
