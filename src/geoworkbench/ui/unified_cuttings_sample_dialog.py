@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
     QGroupBox,
+    QHBoxLayout,
     QLabel,
     QLineEdit,
     QPlainTextEdit,
@@ -79,6 +80,9 @@ _TEXT = {
         "description_template_select": "Выберите шаблон",
         "description_template_formula": "Схема описания: {formula}",
         "description_template_warning": "Важно: {warning}",
+        "description_template_blocks": "Вставленные блоки",
+        "description_template_remove": "Удалить блок",
+        "description_template_remove_error": "Блок нельзя удалить автоматически: его граница отсутствует или была изменена.",
         "interpretation": "Заключение",
         "delete": "Удалить пробу",
         "interval_error": "Начальная глубина должна быть меньше конечной.",
@@ -132,6 +136,9 @@ _TEXT = {
         "description_template_select": "Үлгіні таңдаңыз",
         "description_template_formula": "Сипаттама сызбасы: {formula}",
         "description_template_warning": "Маңызды: {warning}",
+        "description_template_blocks": "Енгізілген блоктар",
+        "description_template_remove": "Блокты жою",
+        "description_template_remove_error": "Блокты автоматты түрде жою мүмкін емес: оның шекарасы жоқ немесе өзгертілген.",
         "interpretation": "Қорытынды",
         "delete": "Үлгіні жою",
         "interval_error": "Бастапқы тереңдік соңғы тереңдіктен кіші болуы керек.",
@@ -185,6 +192,9 @@ _TEXT = {
         "description_template_select": "Select a template",
         "description_template_formula": "Description scheme: {formula}",
         "description_template_warning": "Important: {warning}",
+        "description_template_blocks": "Inserted blocks",
+        "description_template_remove": "Remove block",
+        "description_template_remove_error": "The block cannot be removed automatically because its boundary is missing or changed.",
         "interpretation": "Conclusion",
         "delete": "Delete sample",
         "interval_error": "The start depth must be less than the end depth.",
@@ -336,7 +346,27 @@ class UnifiedCuttingsSampleDialog(QDialog):
             self.description_template_language_input,
         )
         template_form.addRow(self._text["description_template"], self.description_template_input)
+        block_controls = QWidget()
+        block_controls_layout = QHBoxLayout(block_controls)
+        block_controls_layout.setContentsMargins(0, 0, 0, 0)
+        self.description_template_blocks_input = QComboBox()
+        self.description_template_blocks_input.setObjectName("cuttings-description-template-blocks")
+        self.description_template_remove_button = QPushButton(
+            self._text["description_template_remove"]
+        )
+        self.description_template_remove_button.setObjectName(
+            "cuttings-description-template-remove"
+        )
+        block_controls_layout.addWidget(self.description_template_blocks_input, 1)
+        block_controls_layout.addWidget(self.description_template_remove_button)
+        template_form.addRow(self._text["description_template_blocks"], block_controls)
         root.addLayout(template_form)
+
+        self.description_template_status = QLabel()
+        self.description_template_status.setObjectName("cuttings-description-template-status")
+        self.description_template_status.setWordWrap(True)
+        self.description_template_status.setStyleSheet("color:#b91c1c;")
+        root.addWidget(self.description_template_status)
 
         language_hint = QLabel(self._text["description_languages_hint"])
         language_hint.setWordWrap(True)
@@ -392,7 +422,11 @@ class UnifiedCuttingsSampleDialog(QDialog):
         self.description_template_input.currentIndexChanged.connect(
             self._insert_description_template
         )
+        self.description_template_remove_button.clicked.connect(
+            self._remove_selected_description_template
+        )
         self._refresh_description_templates()
+        self._refresh_description_template_blocks()
         return widget
 
     def _description_language_changed(self, _index: int = -1) -> None:
@@ -444,14 +478,15 @@ class UnifiedCuttingsSampleDialog(QDialog):
             None,
         )
         if template is not None:
+            block_id = new_id()
             text_i18n: dict[str, str] = {}
             for language_code in SUPPORTED_CONTENT_LANGUAGES:
                 _name, description = template.localized(language_code)
                 text_i18n[language_code] = description
-                self.description_editors[language_code].append_html(description)
+                self.description_editors[language_code].append_template_block(block_id, description)
             self._description_template_blocks.append(
                 DescriptionTemplateBlock(
-                    block_id=new_id(),
+                    block_id=block_id,
                     template_id=template.template_id,
                     template_version=template.version,
                     text_i18n=text_i18n,
@@ -461,6 +496,44 @@ class UnifiedCuttingsSampleDialog(QDialog):
             self.description_template_input.blockSignals(True)
             self.description_template_input.setCurrentIndex(0)
             self.description_template_input.blockSignals(False)
+            self._refresh_description_template_blocks(selected_block_id=block_id)
+
+    def _refresh_description_template_blocks(self, *, selected_block_id: str | None = None) -> None:
+        self.description_template_blocks_input.clear()
+        for position, block in enumerate(self._description_template_blocks, start=1):
+            self.description_template_blocks_input.addItem(
+                f"{position}. {block.template_id} · v{block.template_version}",
+                block.block_id,
+            )
+        if selected_block_id is not None:
+            index = self.description_template_blocks_input.findData(selected_block_id)
+            self.description_template_blocks_input.setCurrentIndex(index)
+        has_blocks = bool(self._description_template_blocks)
+        self.description_template_blocks_input.setEnabled(has_blocks)
+        self.description_template_remove_button.setEnabled(has_blocks)
+
+    def _remove_selected_description_template(self) -> None:
+        block_id = str(self.description_template_blocks_input.currentData() or "")
+        block = next(
+            (item for item in self._description_template_blocks if item.block_id == block_id),
+            None,
+        )
+        if block is None:
+            return
+        if not all(
+            editor.has_template_block(block.block_id)
+            for editor in self.description_editors.values()
+        ):
+            self.description_template_status.setText(
+                self._text["description_template_remove_error"]
+            )
+            return
+        for language_code, editor in self.description_editors.items():
+            editor.remove_template_block(block.block_id)
+            self._description_dirty_languages.add(language_code)
+        self._description_template_blocks.remove(block)
+        self.description_template_status.clear()
+        self._refresh_description_template_blocks()
 
     def _mark_description_as_user_edited(self, language_code: str) -> None:
         self._description_dirty_languages.add(language_code)

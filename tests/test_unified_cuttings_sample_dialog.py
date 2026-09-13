@@ -1,6 +1,12 @@
 from __future__ import annotations
 
-from geoworkbench.domain.models import CuttingsComponent, CuttingsSample, Project, Well
+from geoworkbench.domain.models import (
+    CuttingsComponent,
+    CuttingsSample,
+    DescriptionTemplateBlock,
+    Project,
+    Well,
+)
 from geoworkbench.project.cuttings_controller import CuttingsController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.project.lithotype_catalog_models import CatalogLithotype
@@ -173,4 +179,66 @@ def test_unedited_legacy_fallback_is_not_promoted_to_russian_translation(qapp) -
 
     assert values["description_i18n"] == {"und": "Unclassified authored text"}
     assert "ru" not in values["description_i18n"]
+    dialog.close()
+
+
+def test_selected_template_block_is_removed_from_all_languages(qapp) -> None:
+    dialog = UnifiedCuttingsSampleDialog(
+        1980.0,
+        1981.0,
+        (),
+        language=AppLanguage.RU,
+    )
+    first_index = 1
+    second_index = 2
+    dialog.description_template_input.setCurrentIndex(first_index)
+    first_block = dialog.values()["description_template_blocks"][0]
+    dialog.description_template_input.setCurrentIndex(second_index)
+    second_block = dialog.values()["description_template_blocks"][1]
+    before = {
+        language: editor.editor.toPlainText()
+        for language, editor in dialog.description_editors.items()
+    }
+
+    dialog.description_template_blocks_input.setCurrentIndex(0)
+    dialog.description_template_remove_button.click()
+    values = dialog.values()
+
+    assert [block.block_id for block in values["description_template_blocks"]] == [
+        second_block.block_id
+    ]
+    for language, editor in dialog.description_editors.items():
+        assert first_block.text_i18n[language] not in editor.editor.toPlainText()
+        assert len(editor.editor.toPlainText()) < len(before[language])
+    dialog.close()
+
+
+def test_unmarked_saved_block_is_not_removed_ambiguously(qapp) -> None:
+    block = DescriptionTemplateBlock(
+        "legacy-block",
+        "sandstone",
+        1,
+        {"ru": "Песчаник", "kk": "Құмтас", "en": "Sandstone"},
+    )
+    sample = CuttingsSample(
+        "sample",
+        1980.0,
+        1981.0,
+        description_i18n=block.text_i18n,
+        description_template_blocks=[block],
+    )
+    dialog = UnifiedCuttingsSampleDialog(
+        sample.top_depth,
+        sample.bottom_depth,
+        (),
+        language=AppLanguage.RU,
+        sample=sample,
+    )
+
+    dialog.description_template_remove_button.click()
+    values = dialog.values()
+
+    assert values["description_template_blocks"] == [block]
+    assert dialog.description_template_status.text()
+    assert dialog.description_editors["ru"].editor.toPlainText() == "Песчаник"
     dialog.close()

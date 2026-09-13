@@ -184,18 +184,10 @@ class RichIntervalTextEditor(QWidget):
         self.alignment_input = QComboBox()
         self.alignment_input.setObjectName("rich-text-document-alignment")
         self.alignment_input.setToolTip(self._text["alignment"])
-        self.alignment_input.addItem(
-            self._text["align_left"], int(Qt.AlignmentFlag.AlignLeft)
-        )
-        self.alignment_input.addItem(
-            self._text["align_center"], int(Qt.AlignmentFlag.AlignHCenter)
-        )
-        self.alignment_input.addItem(
-            self._text["align_right"], int(Qt.AlignmentFlag.AlignRight)
-        )
-        self.alignment_input.currentIndexChanged.connect(
-            self._set_document_alignment
-        )
+        self.alignment_input.addItem(self._text["align_left"], int(Qt.AlignmentFlag.AlignLeft))
+        self.alignment_input.addItem(self._text["align_center"], int(Qt.AlignmentFlag.AlignHCenter))
+        self.alignment_input.addItem(self._text["align_right"], int(Qt.AlignmentFlag.AlignRight))
+        self.alignment_input.currentIndexChanged.connect(self._set_document_alignment)
         toolbar.addWidget(self.alignment_input)
 
         self.word_wrap_input = QCheckBox(self._text["word_wrap"])
@@ -341,11 +333,7 @@ class RichIntervalTextEditor(QWidget):
         self.editor.setFocus()
 
     def _apply_word_wrap(self, enabled: bool) -> None:
-        mode = (
-            QTextEdit.LineWrapMode.WidgetWidth
-            if enabled
-            else QTextEdit.LineWrapMode.NoWrap
-        )
+        mode = QTextEdit.LineWrapMode.WidgetWidth if enabled else QTextEdit.LineWrapMode.NoWrap
         self.editor.setLineWrapMode(mode)
 
     def set_word_wrap(self, enabled: bool) -> None:
@@ -402,6 +390,70 @@ class RichIntervalTextEditor(QWidget):
             cursor.insertText(text)
         self.editor.setTextCursor(cursor)
         self.editor.ensureCursorVisible()
+
+    @staticmethod
+    def _template_anchor(block_id: str) -> str:
+        return f"geolog-template:{block_id}"
+
+    def append_template_block(self, block_id: str, value: str) -> None:
+        """Append rich text carrying a persistent, non-visual provenance anchor."""
+        text = value.strip()
+        if not block_id.strip() or not text:
+            raise ValueError("Template block ID and text must not be empty")
+        cursor = self.editor.textCursor()
+        cursor.clearSelection()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        if self.editor.toPlainText().strip() or "<img" in self.editor.toHtml().casefold():
+            cursor.insertHtml("<p></p>")
+        anchor = self._template_anchor(block_id)
+        cursor.insertHtml(
+            f'<a href="{anchor}" style="color:inherit;text-decoration:none">{text}</a>'
+        )
+        trailing_format = cursor.charFormat()
+        trailing_format.setAnchor(False)
+        trailing_format.setAnchorHref("")
+        trailing_format.setFontUnderline(False)
+        # QTextCursor otherwise lets the following user input inherit the
+        # anchor. A zero-width word joiner terminates the formatted run.
+        cursor.insertText("\u2060", trailing_format)
+        self.editor.setTextCursor(cursor)
+        self.editor.ensureCursorVisible()
+
+    def _template_block_range(self, block_id: str) -> tuple[int, int] | None:
+        anchor = self._template_anchor(block_id)
+        start: int | None = None
+        end: int | None = None
+        block = self.editor.document().begin()
+        while block.isValid():
+            iterator = block.begin()
+            while not iterator.atEnd():
+                fragment = iterator.fragment()
+                if fragment.isValid() and fragment.charFormat().anchorHref() == anchor:
+                    start = (
+                        fragment.position() if start is None else min(start, fragment.position())
+                    )
+                    end = max(end or 0, fragment.position() + fragment.length())
+                iterator += 1
+            block = block.next()
+        if start is None or end is None:
+            return None
+        return start, end
+
+    def has_template_block(self, block_id: str) -> bool:
+        return self._template_block_range(block_id) is not None
+
+    def remove_template_block(self, block_id: str) -> bool:
+        block_range = self._template_block_range(block_id)
+        if block_range is None:
+            return False
+        cursor = QTextCursor(self.editor.document())
+        cursor.setPosition(block_range[0])
+        end = block_range[1]
+        if self.editor.document().characterAt(end) == "\u2060":
+            end += 1
+        cursor.setPosition(end, QTextCursor.MoveMode.KeepAnchor)
+        cursor.removeSelectedText()
+        return True
 
     def html(self) -> str | None:
         html = self.editor.toHtml()
