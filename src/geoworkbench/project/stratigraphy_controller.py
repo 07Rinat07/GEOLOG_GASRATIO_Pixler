@@ -10,6 +10,7 @@ from geoworkbench.domain.localized_content import (
     bump_language_revision,
     normalize_content_language,
     set_localized_text,
+    validate_localized_texts,
 )
 from geoworkbench.domain.stratigraphy_presentation import (
     STRATIGRAPHY_TEXT_ORIENTATIONS,
@@ -21,8 +22,6 @@ from geoworkbench.domain.stratigraphy_presentation import (
     stratigraphy_text_position_fraction,
 )
 from geoworkbench.project.session import ProjectSession
-
-
 
 
 __all__ = [
@@ -48,6 +47,7 @@ STRATIGRAPHY_RANKS = (
     "Member",
     "Bed",
 )
+
 
 def stratigraphy_rank_order(rank: str | None) -> tuple[int, str]:
     normalized = (rank or "").strip()
@@ -92,6 +92,8 @@ class StratigraphyController:
         text_orientation: str = "horizontal",
         text_position: str = "center",
         content_language: object | None = None,
+        name_i18n: object | None = None,
+        description_i18n: object | None = None,
     ) -> StratigraphyInterval:
         values = self._validate(
             top_depth,
@@ -104,18 +106,29 @@ class StratigraphyController:
             text_orientation,
             text_position,
         )
+        localized_names = self._validate_localized(name_i18n, 300)
+        localized_descriptions = self._validate_localized(description_i18n, 4_000)
         self._ensure_no_overlap(values[0], values[1], values[4])
         interval = StratigraphyInterval(new_id(), *values)
         if content_language is not None:
             language = normalize_content_language(content_language)
             set_localized_text(interval.name_i18n, language, values[3], maximum=300)
-            set_localized_text(
-                interval.description_i18n, language, values[6], maximum=4_000
-            )
+            set_localized_text(interval.description_i18n, language, values[6], maximum=4_000)
             if language != "ru":
                 interval.name = None
                 interval.description = None
             self._bump_content(language)
+        if localized_names is not None:
+            interval.name_i18n.update(localized_names)
+            if "ru" in localized_names:
+                interval.name = localized_names["ru"]
+        if localized_descriptions is not None:
+            interval.description_i18n.update(localized_descriptions)
+            if "ru" in localized_descriptions:
+                interval.description = localized_descriptions["ru"]
+        for language in set(localized_names or ()) | set(localized_descriptions or ()):
+            if language != "und":
+                self._bump_content(language)
         self._require_well().stratigraphy.append(interval)
         self.session.dirty = True
         return interval
@@ -134,6 +147,8 @@ class StratigraphyController:
         text_orientation: str = "horizontal",
         text_position: str = "center",
         content_language: object | None = None,
+        name_i18n: object | None = None,
+        description_i18n: object | None = None,
     ) -> StratigraphyInterval:
         interval = self._require_interval(interval_id)
         values = self._validate(
@@ -147,6 +162,8 @@ class StratigraphyController:
             text_orientation,
             text_position,
         )
+        localized_names = self._validate_localized(name_i18n, 300)
+        localized_descriptions = self._validate_localized(description_i18n, 4_000)
         self._ensure_no_overlap(values[0], values[1], values[4], excluded_id=interval_id)
         interval.top_depth = values[0]
         interval.bottom_depth = values[1]
@@ -155,19 +172,40 @@ class StratigraphyController:
         interval.color = values[5]
         interval.text_orientation = values[7]
         interval.text_position = values[8]
-        if content_language is None:
+        if content_language is None and name_i18n is None:
             interval.name = values[3]
+        if content_language is None and description_i18n is None:
             interval.description = values[6]
-        else:
+        if content_language is not None:
             language = normalize_content_language(content_language)
             set_localized_text(interval.name_i18n, language, values[3], maximum=300)
-            set_localized_text(
-                interval.description_i18n, language, values[6], maximum=4_000
-            )
+            set_localized_text(interval.description_i18n, language, values[6], maximum=4_000)
             if language == "ru":
                 interval.name = values[3]
                 interval.description = values[6]
             self._bump_content(language)
+        changed_languages: set[str] = set()
+        if localized_names is not None:
+            previous_languages = set(interval.name_i18n)
+            interval.name_i18n.clear()
+            interval.name_i18n.update(localized_names)
+            if "ru" in localized_names:
+                interval.name = localized_names["ru"]
+            elif "ru" in previous_languages:
+                interval.name = None
+            changed_languages |= previous_languages | set(localized_names)
+        if localized_descriptions is not None:
+            previous_languages = set(interval.description_i18n)
+            interval.description_i18n.clear()
+            interval.description_i18n.update(localized_descriptions)
+            if "ru" in localized_descriptions:
+                interval.description = localized_descriptions["ru"]
+            elif "ru" in previous_languages:
+                interval.description = None
+            changed_languages |= previous_languages | set(localized_descriptions)
+        for language in changed_languages:
+            if language != "und":
+                self._bump_content(language)
         self.session.dirty = True
         return interval
 
@@ -176,6 +214,16 @@ class StratigraphyController:
         self._require_well().stratigraphy.remove(interval)
         self.session.dirty = True
         return interval
+
+    @staticmethod
+    def _validate_localized(value: object | None, maximum: int) -> dict[str, str] | None:
+        if value is None:
+            return None
+        return validate_localized_texts(
+            value,  # type: ignore[arg-type]
+            maximum=maximum,
+            allow_undetermined=True,
+        )
 
     def _validate(
         self,

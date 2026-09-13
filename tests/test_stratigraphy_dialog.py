@@ -1,5 +1,5 @@
 import numpy as np
-from PySide6.QtWidgets import QDialogButtonBox, QPushButton, QTableWidget
+from PySide6.QtWidgets import QDialogButtonBox, QPushButton, QTableWidget, QTabWidget
 
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
 from geoworkbench.project.session import ProjectSession
@@ -57,4 +57,42 @@ def test_interval_dialog_returns_mouse_selected_depths(qapp) -> None:
     assert values["code"] == "K1a"
     assert values["text_orientation"] == "vertical_bottom_to_top"
     assert values["text_position"] == "bottom"
+    dialog.close()
+
+
+def test_stratigraphy_dialog_edits_all_languages_and_catalog_fills_names(qapp) -> None:
+    controller = _controller()
+    dialog = StratigraphyDialog(controller, language=AppLanguage.EN)
+    dialog.top_input.setValue(100.0)
+    dialog.bottom_input.setValue(200.0)
+    dialog.catalog_input.setCurrentIndex(1)
+
+    tabs = dialog.findChild(QTabWidget, "stratigraphy-language-tabs")
+    assert tabs is not None and tabs.count() == 3
+    assert all(dialog.name_inputs[language].text() for language in ("ru", "kk", "en"))
+    dialog.description_inputs["ru"].setText("Описание")
+    dialog.description_inputs["kk"].setText("Сипаттама")
+    dialog.description_inputs["en"].setText("Description")
+    dialog._add()
+
+    interval = controller.available()[0]
+    assert set(interval.name_i18n) == {"ru", "kk", "en"}
+    assert interval.description_i18n == {
+        "ru": "Описание",
+        "kk": "Сипаттама",
+        "en": "Description",
+    }
+    dialog.close()
+
+
+def test_stratigraphy_dialog_does_not_promote_legacy_fallback(qapp) -> None:
+    controller = _controller()
+    interval = controller.add(100.0, 180.0, "K1", name="Legacy name")
+    dialog = StratigraphyDialog(controller, language=AppLanguage.RU)
+    dialog.table.selectRow(0)
+    dialog.code_input.setText("K1-updated")
+    dialog._update()
+
+    assert interval.name == "Legacy name"
+    assert interval.name_i18n == {}
     dialog.close()

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -34,7 +35,7 @@ from geoworkbench.project.stratigraphy_controller import (
     STRATIGRAPHY_TEXT_POSITIONS,
     StratigraphyController,
 )
-from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.services.localization import AppLanguage, LANGUAGE_NAMES, Localizer
 
 
 class StratigraphyValues(TypedDict):
@@ -47,7 +48,9 @@ class StratigraphyValues(TypedDict):
     description: str
     text_orientation: str
     text_position: str
-    content_language: str
+    content_language: NotRequired[str]
+    name_i18n: NotRequired[dict[str, str]]
+    description_i18n: NotRequired[dict[str, str]]
 
 
 _TEXT_ORIENTATION_LABELS = {
@@ -153,13 +156,24 @@ class _CatalogMixin:
             return
         self.rank_input.setCurrentText(item.rank)
         self.code_input.setText(item.code)
-        self.name_input.setText(item.localized_name(self._language_code()))
+        name_inputs = getattr(self, "name_inputs", None)
+        if isinstance(name_inputs, dict):
+            for language, text in (
+                ("ru", item.name_ru),
+                ("kk", item.name_kk),
+                ("en", item.name_en),
+            ):
+                if text:
+                    name_inputs[language].setText(text)
+        else:
+            self.name_input.setText(item.localized_name(self._language_code()))
         self.color_input.setText(item.color)
 
     def _choose_color(self) -> None:
         initial = QColor(self.color_input.text())
         color = QColorDialog.getColor(
-            initial if initial.isValid() else QColor("#dbeafe"), self  # type: ignore[arg-type]
+            initial if initial.isValid() else QColor("#dbeafe"),
+            self,  # type: ignore[arg-type]
         )
         if color.isValid():
             self.color_input.setText(color.name())
@@ -189,7 +203,13 @@ class StratigraphyCatalogDialog(QDialog):
         self.controller = controller
         self.language = language
         self.localizer = Localizer.create(language)
-        self.setWindowTitle(self._text("Стратиграфический справочник", "Стратиграфиялық анықтамалық", "Stratigraphy catalog"))
+        self.setWindowTitle(
+            self._text(
+                "Стратиграфический справочник",
+                "Стратиграфиялық анықтамалық",
+                "Stratigraphy catalog",
+            )
+        )
         self.resize(1120, 650)
         root = QVBoxLayout(self)
         info = QLabel(
@@ -255,8 +275,14 @@ class StratigraphyCatalogDialog(QDialog):
         for caption, handler in (
             (self._text("Новая запись", "Жаңа жазба", "New record"), self._new),
             (self._text("Сохранить изменения", "Өзгерістерді сақтау", "Save changes"), self._save),
-            (self._text("Сбросить заводскую", "Зауыттықты қалпына келтіру", "Reset factory"), self._reset),
-            (self._text("Удалить пользовательскую", "Пайдаланушыны жою", "Delete custom"), self._remove),
+            (
+                self._text("Сбросить заводскую", "Зауыттықты қалпына келтіру", "Reset factory"),
+                self._reset,
+            ),
+            (
+                self._text("Удалить пользовательскую", "Пайдаланушыны жою", "Delete custom"),
+                self._remove,
+            ),
         ):
             button = QPushButton(caption)
             button.clicked.connect(handler)
@@ -269,9 +295,7 @@ class StratigraphyCatalogDialog(QDialog):
         self._refresh()
 
     def _text(self, ru: str, kk: str, en: str) -> str:
-        return {AppLanguage.RU: ru, AppLanguage.KK: kk, AppLanguage.EN: en}.get(
-            self.language, ru
-        )
+        return {AppLanguage.RU: ru, AppLanguage.KK: kk, AppLanguage.EN: en}.get(self.language, ru)
 
     def _refresh(self, selected_id: str | None = None) -> None:
         units = self.controller.available()
@@ -421,7 +445,11 @@ class StratigraphyIntervalDialog(QDialog, _CatalogMixin):
         catalog_row = QHBoxLayout()
         catalog_row.addWidget(self.catalog_input, 1)
         catalog_button = QPushButton(
-            {AppLanguage.RU: "Справочник…", AppLanguage.KK: "Анықтамалық…", AppLanguage.EN: "Catalog…"}.get(language, "Справочник…")
+            {
+                AppLanguage.RU: "Справочник…",
+                AppLanguage.KK: "Анықтамалық…",
+                AppLanguage.EN: "Catalog…",
+            }.get(language, "Справочник…")
         )
         catalog_button.clicked.connect(self._open_catalog)
         catalog_row.addWidget(catalog_button)
@@ -457,7 +485,9 @@ class StratigraphyIntervalDialog(QDialog, _CatalogMixin):
         layout.addRow(self.localizer.text("stratigraphy.top"), self.top_input)
         layout.addRow(self.localizer.text("stratigraphy.bottom"), self.bottom_input)
         layout.addRow(
-            {AppLanguage.RU: "Шаблон", AppLanguage.KK: "Үлгі", AppLanguage.EN: "Template"}.get(language, "Шаблон"),
+            {AppLanguage.RU: "Шаблон", AppLanguage.KK: "Үлгі", AppLanguage.EN: "Template"}.get(
+                language, "Шаблон"
+            ),
             catalog_row,
         )
         for key, control in (
@@ -517,9 +547,7 @@ class StratigraphyIntervalDialog(QDialog, _CatalogMixin):
             "name": self.name_input.text(),
             "color": self.color_input.text(),
             "description": self.description_input.text(),
-            "text_orientation": _combo_value(
-                self.text_orientation_input, "horizontal"
-            ),
+            "text_orientation": _combo_value(self.text_orientation_input, "horizontal"),
             "text_position": _combo_value(self.text_position_input, "center"),
             "content_language": self.language.value,
         }
@@ -580,7 +608,11 @@ class StratigraphyDialog(QDialog, _CatalogMixin):
         catalog_row = QHBoxLayout()
         catalog_row.addWidget(self.catalog_input, 1)
         catalog_button = QPushButton(
-            {AppLanguage.RU: "Редактировать справочник…", AppLanguage.KK: "Анықтамалықты өңдеу…", AppLanguage.EN: "Edit catalog…"}.get(language, "Редактировать справочник…")
+            {
+                AppLanguage.RU: "Редактировать справочник…",
+                AppLanguage.KK: "Анықтамалықты өңдеу…",
+                AppLanguage.EN: "Edit catalog…",
+            }.get(language, "Редактировать справочник…")
         )
         catalog_button.clicked.connect(self._open_catalog)
         catalog_row.addWidget(catalog_button)
@@ -588,14 +620,42 @@ class StratigraphyDialog(QDialog, _CatalogMixin):
         self.rank_input.setEditable(True)
         self.rank_input.addItems(["", *STRATIGRAPHY_RANKS])
         self.code_input = QLineEdit()
-        self.name_input = QLineEdit()
+        self.language_tabs = QTabWidget()
+        self.language_tabs.setObjectName("stratigraphy-language-tabs")
+        self.name_inputs: dict[str, QLineEdit] = {}
+        self.description_inputs: dict[str, QLineEdit] = {}
+        self._initial_name_i18n: dict[str, str] = {}
+        self._initial_description_i18n: dict[str, str] = {}
+        self._name_dirty_languages: set[str] = set()
+        self._description_dirty_languages: set[str] = set()
+        for content_language in AppLanguage:
+            language_code = content_language.value
+            page = QWidget()
+            page_form = QFormLayout(page)
+            name_editor = QLineEdit()
+            name_editor.setObjectName(f"stratigraphy-name-{language_code}")
+            name_editor.textChanged.connect(
+                lambda _text, code=language_code: self._name_dirty_languages.add(code)
+            )
+            description_editor = QLineEdit()
+            description_editor.setObjectName(f"stratigraphy-description-{language_code}")
+            description_editor.textChanged.connect(
+                lambda _text, code=language_code: self._description_dirty_languages.add(code)
+            )
+            self.name_inputs[language_code] = name_editor
+            self.description_inputs[language_code] = description_editor
+            page_form.addRow(self._t("stratigraphy.name"), name_editor)
+            page_form.addRow(self._t("stratigraphy.description"), description_editor)
+            self.language_tabs.addTab(page, LANGUAGE_NAMES[content_language])
+        self.language_tabs.setCurrentIndex(tuple(AppLanguage).index(language))
+        self.name_input = self.name_inputs[language.value]
+        self.description_input = self.description_inputs[language.value]
         self.color_input = QLineEdit("#dbeafe")
         color_row = QHBoxLayout()
         color_row.addWidget(self.color_input)
         color_button = QPushButton("…")
         color_button.clicked.connect(self._choose_color)
         color_row.addWidget(color_button)
-        self.description_input = QLineEdit()
         self.text_orientation_input = QComboBox()
         _populate_presentation_combo(
             self.text_orientation_input,
@@ -613,7 +673,11 @@ class StratigraphyDialog(QDialog, _CatalogMixin):
             "center",
         )
         form.addRow(
-            {AppLanguage.RU: "Справочник", AppLanguage.KK: "Анықтамалық", AppLanguage.EN: "Catalog"}.get(language, "Справочник"),
+            {
+                AppLanguage.RU: "Справочник",
+                AppLanguage.KK: "Анықтамалық",
+                AppLanguage.EN: "Catalog",
+            }.get(language, "Справочник"),
             catalog_row,
         )
         for label, control in (
@@ -621,14 +685,11 @@ class StratigraphyDialog(QDialog, _CatalogMixin):
             (self._t("stratigraphy.bottom"), self.bottom_input),
             (self._t("stratigraphy.rank"), self.rank_input),
             (self._t("stratigraphy.code"), self.code_input),
-            (self._t("stratigraphy.name"), self.name_input),
         ):
             form.addRow(label, control)
+        form.addRow(self._t("stratigraphy.name"), self.language_tabs)
         form.addRow(self._t("stratigraphy.color"), color_row)
-        form.addRow(self._t("stratigraphy.description"), self.description_input)
-        form.addRow(
-            self._t("stratigraphy.text_orientation"), self.text_orientation_input
-        )
+        form.addRow(self._t("stratigraphy.text_orientation"), self.text_orientation_input)
         form.addRow(self._t("stratigraphy.text_position"), self.text_position_input)
         root.addLayout(form)
 
@@ -670,9 +731,7 @@ class StratigraphyDialog(QDialog, _CatalogMixin):
                 f"{interval.bottom_depth:g}",
                 interval.rank or "",
                 interval.code,
-                localized_text(
-                    interval.name_i18n, self.language, legacy=interval.name
-                ),
+                localized_text(interval.name_i18n, self.language, legacy=interval.name),
                 interval.color,
                 localized_text(
                     interval.description_i18n,
@@ -711,17 +770,25 @@ class StratigraphyDialog(QDialog, _CatalogMixin):
         self.bottom_input.setValue(interval.bottom_depth)
         self.rank_input.setCurrentText(interval.rank or "")
         self.code_input.setText(interval.code)
-        self.name_input.setText(
-            localized_text(interval.name_i18n, self.language, legacy=interval.name)
-        )
+        self._initial_name_i18n = dict(interval.name_i18n)
+        self._initial_description_i18n = dict(interval.description_i18n)
+        self._name_dirty_languages.clear()
+        self._description_dirty_languages.clear()
+        for language_code, editor in self.name_inputs.items():
+            text = interval.name_i18n.get(language_code, "")
+            if language_code == "ru" and not text:
+                text = interval.name or ""
+            editor.blockSignals(True)
+            editor.setText(text)
+            editor.blockSignals(False)
         self.color_input.setText(interval.color)
-        self.description_input.setText(
-            localized_text(
-                interval.description_i18n,
-                self.language,
-                legacy=interval.description,
-            )
-        )
+        for language_code, editor in self.description_inputs.items():
+            text = interval.description_i18n.get(language_code, "")
+            if language_code == "ru" and not text:
+                text = interval.description or ""
+            editor.blockSignals(True)
+            editor.setText(text)
+            editor.blockSignals(False)
         orientation_index = self.text_orientation_input.findData(interval.text_orientation)
         if orientation_index >= 0:
             self.text_orientation_input.setCurrentIndex(orientation_index)
@@ -736,20 +803,46 @@ class StratigraphyDialog(QDialog, _CatalogMixin):
             "rank": self.rank_input.currentText(),
             "code": self.code_input.text(),
             "name": self.name_input.text(),
+            "name_i18n": self._localized_values(
+                self._initial_name_i18n,
+                self.name_inputs,
+                self._name_dirty_languages,
+            ),
             "color": self.color_input.text(),
             "description": self.description_input.text(),
-            "text_orientation": _combo_value(
-                self.text_orientation_input, "horizontal"
+            "description_i18n": self._localized_values(
+                self._initial_description_i18n,
+                self.description_inputs,
+                self._description_dirty_languages,
             ),
+            "text_orientation": _combo_value(self.text_orientation_input, "horizontal"),
             "text_position": _combo_value(self.text_position_input, "center"),
-            "content_language": self.language.value,
         }
+
+    @staticmethod
+    def _localized_values(
+        initial: dict[str, str],
+        editors: dict[str, QLineEdit],
+        dirty_languages: set[str],
+    ) -> dict[str, str]:
+        values = dict(initial)
+        for language in dirty_languages:
+            text = editors[language].text().strip()
+            if text:
+                values[language] = text
+            else:
+                values.pop(language, None)
+        return values
 
     def _add(self) -> None:
         if self._run(lambda: self.controller.add(**self._values())):
             self.code_input.clear()
-            self.name_input.clear()
-            self.description_input.clear()
+            for editor in (*self.name_inputs.values(), *self.description_inputs.values()):
+                editor.clear()
+            self._initial_name_i18n.clear()
+            self._initial_description_i18n.clear()
+            self._name_dirty_languages.clear()
+            self._description_dirty_languages.clear()
 
     def _update(self) -> None:
         interval_id = self._selected_id()
