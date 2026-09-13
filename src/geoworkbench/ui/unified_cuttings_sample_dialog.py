@@ -27,7 +27,7 @@ from PySide6.QtWidgets import (
 )
 
 from geoworkbench.catalogs.description_templates import load_rock_description_templates
-from geoworkbench.domain.models import CuttingsSample
+from geoworkbench.domain.models import CuttingsSample, DescriptionTemplateBlock, new_id
 from geoworkbench.domain.localized_content import SUPPORTED_CONTENT_LANGUAGES, localized_text
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.services.lba_standard import (
@@ -244,6 +244,9 @@ class UnifiedCuttingsSampleDialog(QDialog):
         self._description_template_catalog = load_rock_description_templates()
         self._description_from_template = False
         self._initial_description_i18n = dict(sample.description_i18n) if sample is not None else {}
+        self._description_template_blocks = (
+            list(sample.description_template_blocks) if sample is not None else []
+        )
         self._description_dirty_languages: set[str] = set()
         self.delete_requested = False
         self.setWindowTitle(self._text["edit"] if sample is not None else self._text["create"])
@@ -332,9 +335,7 @@ class UnifiedCuttingsSampleDialog(QDialog):
             self._text["description_template_language"],
             self.description_template_language_input,
         )
-        template_form.addRow(
-            self._text["description_template"], self.description_template_input
-        )
+        template_form.addRow(self._text["description_template"], self.description_template_input)
         root.addLayout(template_form)
 
         language_hint = QLabel(self._text["description_languages_hint"])
@@ -343,16 +344,12 @@ class UnifiedCuttingsSampleDialog(QDialog):
         root.addWidget(language_hint)
 
         self.description_template_formula = QLabel()
-        self.description_template_formula.setObjectName(
-            "cuttings-description-template-formula"
-        )
+        self.description_template_formula.setObjectName("cuttings-description-template-formula")
         self.description_template_formula.setWordWrap(True)
         self.description_template_formula.setStyleSheet("color:#475569; font-size:11px;")
         root.addWidget(self.description_template_formula)
         self.description_template_warning = QLabel()
-        self.description_template_warning.setObjectName(
-            "cuttings-description-template-warning"
-        )
+        self.description_template_warning.setObjectName("cuttings-description-template-warning")
         self.description_template_warning.setWordWrap(True)
         self.description_template_warning.setStyleSheet(
             "background:#fff7ed; color:#9a3412; border:1px solid #fdba74; "
@@ -415,9 +412,7 @@ class UnifiedCuttingsSampleDialog(QDialog):
         language = self._description_template_language()
         self.description_template_input.blockSignals(True)
         self.description_template_input.clear()
-        self.description_template_input.addItem(
-            self._text["description_template_select"], None
-        )
+        self.description_template_input.addItem(self._text["description_template_select"], None)
         for template in self._description_template_catalog.templates:
             name, description = template.localized(language.value)
             self.description_template_input.addItem(name, description)
@@ -429,9 +424,7 @@ class UnifiedCuttingsSampleDialog(QDialog):
         self.description_template_input.setCurrentIndex(0)
         self.description_template_input.blockSignals(False)
 
-        formula, warning = self._description_template_catalog.localized_guidance(
-            language.value
-        )
+        formula, warning = self._description_template_catalog.localized_guidance(language.value)
         self.description_template_formula.setText(
             self._text["description_template_formula"].format(formula=formula)
         )
@@ -451,9 +444,19 @@ class UnifiedCuttingsSampleDialog(QDialog):
             None,
         )
         if template is not None:
+            text_i18n: dict[str, str] = {}
             for language_code in SUPPORTED_CONTENT_LANGUAGES:
                 _name, description = template.localized(language_code)
+                text_i18n[language_code] = description
                 self.description_editors[language_code].append_html(description)
+            self._description_template_blocks.append(
+                DescriptionTemplateBlock(
+                    block_id=new_id(),
+                    template_id=template.template_id,
+                    template_version=template.version,
+                    text_i18n=text_i18n,
+                )
+            )
             self._description_from_template = True
             self.description_template_input.blockSignals(True)
             self.description_template_input.setCurrentIndex(0)
@@ -700,8 +703,7 @@ class UnifiedCuttingsSampleDialog(QDialog):
                 type_button.setChecked(True)
             intensity = (
                 sample.lba_intensity
-                if isinstance(sample.lba_intensity, int)
-                and sample.lba_intensity in range(1, 6)
+                if isinstance(sample.lba_intensity, int) and sample.lba_intensity in range(1, 6)
                 else -1
             )
             intensity_button = self.intensity_group.button(intensity)
@@ -764,6 +766,7 @@ class UnifiedCuttingsSampleDialog(QDialog):
         return {
             "description": self.rich_description.html(),
             "description_i18n": descriptions,
+            "description_template_blocks": list(self._description_template_blocks),
             "description_word_wrap": self.rich_description.word_wrap,
             "calcite_percent": self.calcite_input.value()
             if self.calcite_input.value() >= 0
@@ -840,11 +843,7 @@ class UnifiedCuttingsSampleDialog(QDialog):
         self.total_label.setText(f"{total:g} % — {suffix}")
         self.total_label.setStyleSheet(f"font-weight:700; color:{color};")
         if hasattr(self, "composition_status_label"):
-            selected = [
-                str(rock.currentData())
-                for rock in self.rock_inputs
-                if rock.currentData()
-            ]
+            selected = [str(rock.currentData()) for rock in self.rock_inputs if rock.currentData()]
             duplicates = len(selected) != len(set(selected))
             if duplicates:
                 self.composition_status_label.setText(self._text["duplicate_error"])
@@ -888,9 +887,7 @@ class UnifiedCuttingsSampleDialog(QDialog):
             first = next(
                 (
                     control
-                    for rock, control in zip(
-                        self.rock_inputs, self.percent_inputs, strict=True
-                    )
+                    for rock, control in zip(self.rock_inputs, self.percent_inputs, strict=True)
                     if rock.currentData()
                 ),
                 self.rock_inputs[0],

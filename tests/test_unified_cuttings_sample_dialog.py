@@ -118,6 +118,11 @@ def test_multilingual_description_tabs_preserve_drafts_and_insert_one_template_i
 
     assert "Қолмен толықтыру" in values["description_i18n"]["kk"]
     assert set(values["description_i18n"]) == {"ru", "kk", "en"}
+    blocks = values["description_template_blocks"]
+    assert len(blocks) == 1
+    assert blocks[0].template_id == "sandstone"
+    assert blocks[0].template_version == 1
+    assert set(blocks[0].text_i18n) == {"ru", "kk", "en"}
     dialog.close()
 
 

@@ -4,7 +4,13 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from geoworkbench.domain.models import CuttingsComponent, CuttingsSample, Well, new_id
+from geoworkbench.domain.models import (
+    CuttingsComponent,
+    CuttingsSample,
+    DescriptionTemplateBlock,
+    Well,
+    new_id,
+)
 from geoworkbench.domain.localized_content import (
     bump_language_revision,
     localized_text,
@@ -131,9 +137,7 @@ class CuttingsController:
         )
         # Rich HTML may contain embedded image data, therefore its safe storage
         # limit is intentionally much larger than a plain LAS comment field.
-        description = self._normalize_text(
-            values.get("description"), 2_000_000, "Описание шлама"
-        )
+        description = self._normalize_text(values.get("description"), 2_000_000, "Описание шлама")
         if content_language is None:
             sample.lba_description = lba_description
             sample.analysis_interpretation = interpretation
@@ -149,9 +153,7 @@ class CuttingsController:
                 interpretation,
                 maximum=20_000,
             )
-            set_localized_text(
-                sample.description_i18n, language, description, maximum=2_000_000
-            )
+            set_localized_text(sample.description_i18n, language, description, maximum=2_000_000)
             if language == "ru":
                 sample.lba_description = lba_description
                 sample.analysis_interpretation = interpretation
@@ -170,10 +172,18 @@ class CuttingsController:
             sample.description = description_i18n.get("ru")
             for language in previous_languages | set(description_i18n):
                 self._bump_content(language)
+        description_blocks = values.get("description_template_blocks")
+        if description_blocks is not None:
+            if not isinstance(description_blocks, list) or not all(
+                isinstance(block, DescriptionTemplateBlock) for block in description_blocks
+            ):
+                raise ValueError("История шаблонов описания должна содержать блоки")
+            block_ids = [block.block_id for block in description_blocks]
+            if len(block_ids) != len(set(block_ids)):
+                raise ValueError("ID блоков шаблонов описания не должны повторяться")
+            sample.description_template_blocks = list(description_blocks)
         if "description_word_wrap" in values:
-            sample.description_word_wrap = self._validate_word_wrap(
-                values["description_word_wrap"]
-            )
+            sample.description_word_wrap = self._validate_word_wrap(values["description_word_wrap"])
 
     def update_description(
         self,
@@ -203,16 +213,12 @@ class CuttingsController:
             sample.description = normalized
         else:
             code = normalize_content_language(language)
-            set_localized_text(
-                sample.description_i18n, code, normalized, maximum=2_000_000
-            )
+            set_localized_text(sample.description_i18n, code, normalized, maximum=2_000_000)
             if code == "ru":
                 sample.description = normalized
             self._bump_content(code)
         if description_word_wrap is not None:
-            sample.description_word_wrap = self._validate_word_wrap(
-                description_word_wrap
-            )
+            sample.description_word_wrap = self._validate_word_wrap(description_word_wrap)
         self.session.dirty = True
         return sample
 
@@ -348,9 +354,7 @@ class CuttingsController:
             )
             if language is not None:
                 code = normalize_content_language(language)
-                set_localized_text(
-                    sample.description_i18n, code, normalized, maximum=2_000_000
-                )
+                set_localized_text(sample.description_i18n, code, normalized, maximum=2_000_000)
                 if code != "ru":
                     sample.description = None
                 self._bump_content(code)
@@ -360,16 +364,12 @@ class CuttingsController:
                 sample.description = normalized
             else:
                 code = normalize_content_language(language)
-                set_localized_text(
-                    sample.description_i18n, code, normalized, maximum=2_000_000
-                )
+                set_localized_text(sample.description_i18n, code, normalized, maximum=2_000_000)
                 if code == "ru":
                     sample.description = normalized
                 self._bump_content(code)
             if description_word_wrap is not None:
-                sample.description_word_wrap = self._validate_word_wrap(
-                    description_word_wrap
-                )
+                sample.description_word_wrap = self._validate_word_wrap(description_word_wrap)
         self.session.dirty = True
         return sample
 
@@ -488,20 +488,14 @@ class CuttingsController:
 
     @staticmethod
     def localized_description(sample: CuttingsSample, language: object) -> str:
-        return localized_text(
-            sample.description_i18n, language, legacy=sample.description
-        )
+        return localized_text(sample.description_i18n, language, legacy=sample.description)
 
     @staticmethod
     def localized_lba_description(sample: CuttingsSample, language: object) -> str:
-        return localized_text(
-            sample.lba_description_i18n, language, legacy=sample.lba_description
-        )
+        return localized_text(sample.lba_description_i18n, language, legacy=sample.lba_description)
 
     @staticmethod
-    def localized_analysis_interpretation(
-        sample: CuttingsSample, language: object
-    ) -> str:
+    def localized_analysis_interpretation(sample: CuttingsSample, language: object) -> str:
         return localized_text(
             sample.analysis_interpretation_i18n,
             language,
