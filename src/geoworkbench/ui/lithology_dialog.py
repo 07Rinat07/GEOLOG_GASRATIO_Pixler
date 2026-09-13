@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -22,7 +23,10 @@ from PySide6.QtWidgets import (
 from geoworkbench.catalogs.description_templates import load_rock_description_templates
 from geoworkbench.catalogs.lithotypes import load_lithotype_catalog
 from geoworkbench.project.lithology_controller import LithologyController
-from geoworkbench.domain.localized_content import localized_text
+from geoworkbench.domain.localized_content import (
+    SUPPORTED_CONTENT_LANGUAGES,
+    localized_text,
+)
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.services.localization import AppLanguage, LANGUAGE_NAMES, Localizer
 
@@ -80,7 +84,24 @@ class LithologyDialog(QDialog):
             else:
                 name = item.name_ru
             self.lithotype_input.addItem(f"{name} ({item.lithotype_id})", item.lithotype_id)
-        self.description_input = QLineEdit()
+        self.description_language_tabs = QTabWidget()
+        self.description_language_tabs.setObjectName("lithology-description-language-tabs")
+        self.description_inputs: dict[str, QLineEdit] = {}
+        for content_language in AppLanguage:
+            language_code = content_language.value
+            editor = QLineEdit()
+            editor.setObjectName(f"lithology-description-{language_code}")
+            editor.textEdited.connect(
+                lambda _text, language_code=language_code: self._description_dirty_languages.add(
+                    language_code
+                )
+            )
+            self.description_inputs[language_code] = editor
+            self.description_language_tabs.addTab(editor, LANGUAGE_NAMES[content_language])
+        self.description_language_tabs.setCurrentIndex(tuple(AppLanguage).index(language))
+        self.description_input = self.description_inputs[language.value]
+        self._initial_description_i18n: dict[str, str] = {}
+        self._description_dirty_languages: set[str] = set()
         self.template_language_input = QComboBox()
         self.template_language_input.setObjectName("description-template-language")
         for template_language in AppLanguage:
@@ -103,16 +124,14 @@ class LithologyDialog(QDialog):
             "background:#fff7ed; color:#9a3412; border:1px solid #fdba74; "
             "border-radius:4px; padding:4px 6px;"
         )
-        self.template_language_input.currentIndexChanged.connect(
-            self._refresh_description_templates
-        )
+        self.template_language_input.currentIndexChanged.connect(self._template_language_changed)
         self.template_input.currentIndexChanged.connect(self._insert_template)
         self.lithotype_input.currentIndexChanged.connect(self._suggest_description_template)
         self._refresh_description_templates()
         form.addRow(self._t("lithology.top"), self.top_input)
         form.addRow(self._t("lithology.bottom"), self.bottom_input)
         form.addRow(self._t("lithology.lithotype_id"), self.lithotype_input)
-        form.addRow(self._t("lithology.description"), self.description_input)
+        form.addRow(self._t("lithology.description"), self.description_language_tabs)
         form.addRow(self._t("lithology.template_language"), self.template_language_input)
         form.addRow(self._t("lithology.description_template"), self.template_input)
         form.addRow("", self.template_formula)
@@ -190,7 +209,17 @@ class LithologyDialog(QDialog):
             self.lithotype_input.setCurrentIndex(index)
         else:
             self.lithotype_input.setEditText(lithotype_item.text())
-        self.description_input.setText(description_item.text())
+        interval_id = self._selected_id()
+        if interval_id is None:
+            return
+        interval = self.controller.get(interval_id)
+        self._initial_description_i18n = dict(interval.description_i18n)
+        self._description_dirty_languages.clear()
+        for language_code, editor in self.description_inputs.items():
+            text = interval.description_i18n.get(language_code, "")
+            if language_code == "ru" and not text:
+                text = interval.description or ""
+            editor.setText(text)
 
     def _add(self) -> None:
         if self._run(
@@ -198,11 +227,13 @@ class LithologyDialog(QDialog):
                 self.top_input.value(),
                 self.bottom_input.value(),
                 self._lithotype_id(),
-                description=self.description_input.text(),
-                content_language=self.language.value,
+                description_i18n=self._description_values(),
             )
         ):
-            self.description_input.clear()
+            for editor in self.description_inputs.values():
+                editor.clear()
+            self._initial_description_i18n.clear()
+            self._description_dirty_languages.clear()
 
     def _update(self) -> None:
         interval_id = self._selected_id()
@@ -217,8 +248,7 @@ class LithologyDialog(QDialog):
                 top_depth=self.top_input.value(),
                 bottom_depth=self.bottom_input.value(),
                 lithotype_id=self._lithotype_id(),
-                description=self.description_input.text(),
-                content_language=self.language.value,
+                description_i18n=self._description_values(),
             )
         )
 
@@ -245,9 +275,42 @@ class LithologyDialog(QDialog):
         return str(data) if data is not None else self.lithotype_input.currentText().strip()
 
     def _insert_template(self, index: int) -> None:
+        template_id = self.template_input.itemData(index, _TEMPLATE_ID_ROLE)
+        template = next(
+            (
+                item
+                for item in self._description_template_catalog.templates
+                if item.template_id == template_id
+            ),
+            None,
+        )
+        if template is not None:
+            for language_code in SUPPORTED_CONTENT_LANGUAGES:
+                _name, text = template.localized(language_code)
+                self.description_inputs[language_code].setText(text)
+                self._description_dirty_languages.add(language_code)
+            return
         text = self.template_input.itemData(index)
         if isinstance(text, str):
-            self.description_input.setText(text)
+            language_code = self._template_language().value
+            self.description_inputs[language_code].setText(text)
+            self._description_dirty_languages.add(language_code)
+
+    def _template_language_changed(self, _index: int) -> None:
+        language = self._template_language()
+        self.description_input = self.description_inputs[language.value]
+        self.description_language_tabs.setCurrentIndex(tuple(AppLanguage).index(language))
+        self._refresh_description_templates()
+
+    def _description_values(self) -> dict[str, str]:
+        descriptions = dict(self._initial_description_i18n)
+        for language_code in self._description_dirty_languages:
+            text = self.description_inputs[language_code].text().strip()
+            if text:
+                descriptions[language_code] = text
+            else:
+                descriptions.pop(language_code, None)
+        return descriptions
 
     def _refresh_description_templates(self) -> None:
         language = self._template_language()
@@ -269,15 +332,9 @@ class LithologyDialog(QDialog):
         self.template_input.setCurrentIndex(0)
         self.template_input.blockSignals(False)
 
-        formula, warning = self._description_template_catalog.localized_guidance(
-            language.value
-        )
-        self.template_formula.setText(
-            self._t("lithology.template_formula", formula=formula)
-        )
-        self.template_warning.setText(
-            self._t("lithology.template_warning", warning=warning)
-        )
+        formula, warning = self._description_template_catalog.localized_guidance(language.value)
+        self.template_formula.setText(self._t("lithology.template_formula", formula=formula))
+        self.template_warning.setText(self._t("lithology.template_warning", warning=warning))
         self._suggest_description_template(self.lithotype_input.currentIndex())
 
     def _template_language(self) -> AppLanguage:

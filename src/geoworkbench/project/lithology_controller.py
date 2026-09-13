@@ -9,6 +9,7 @@ from geoworkbench.domain.localized_content import (
     bump_language_revision,
     normalize_content_language,
     set_localized_text,
+    validate_localized_texts,
 )
 from geoworkbench.project.session import ProjectSession
 
@@ -36,6 +37,7 @@ class LithologyController:
         *,
         description: str | None = None,
         content_language: object | None = None,
+        description_i18n: object | None = None,
     ) -> LithologyInterval:
         top, bottom, lithotype, normalized_description = self._validate(
             top_depth,
@@ -43,6 +45,7 @@ class LithologyController:
             lithotype_id,
             description,
         )
+        localized_descriptions = self._validate_descriptions(description_i18n)
         self._ensure_no_overlap(top, bottom)
         interval = LithologyInterval(
             interval_id=new_id(),
@@ -62,6 +65,13 @@ class LithologyController:
             if language != "ru":
                 interval.description = None
             self._bump_content(language)
+        if localized_descriptions is not None:
+            interval.description_i18n.update(localized_descriptions)
+            if "ru" in localized_descriptions:
+                interval.description = localized_descriptions["ru"]
+            for language in localized_descriptions:
+                if language != "und":
+                    self._bump_content(language)
         self._require_well().lithology.append(interval)
         self.session.dirty = True
         return interval
@@ -75,6 +85,7 @@ class LithologyController:
         lithotype_id: str,
         description: str | None = None,
         content_language: object | None = None,
+        description_i18n: object | None = None,
     ) -> LithologyInterval:
         interval = self._require_interval(interval_id)
         top, bottom, lithotype, normalized_description = self._validate(
@@ -83,13 +94,14 @@ class LithologyController:
             lithotype_id,
             description,
         )
+        localized_descriptions = self._validate_descriptions(description_i18n)
         self._ensure_no_overlap(top, bottom, excluded_id=interval_id)
         interval.top_depth = top
         interval.bottom_depth = bottom
         interval.lithotype_id = lithotype
-        if content_language is None:
+        if content_language is None and description_i18n is None:
             interval.description = normalized_description
-        else:
+        elif content_language is not None:
             language = normalize_content_language(content_language)
             set_localized_text(
                 interval.description_i18n,
@@ -100,6 +112,17 @@ class LithologyController:
             if language == "ru":
                 interval.description = normalized_description
             self._bump_content(language)
+        if localized_descriptions is not None:
+            previous_languages = set(interval.description_i18n)
+            interval.description_i18n.clear()
+            interval.description_i18n.update(localized_descriptions)
+            if "ru" in localized_descriptions:
+                interval.description = localized_descriptions["ru"]
+            elif "ru" in previous_languages:
+                interval.description = None
+            for language in previous_languages | set(localized_descriptions):
+                if language != "und":
+                    self._bump_content(language)
         self.session.dirty = True
         return interval
 
@@ -139,6 +162,16 @@ class LithologyController:
             ):
                 raise ValueError("Литологический интервал выходит за диапазон dataset")
         return top, bottom, lithotype, normalized_description
+
+    @staticmethod
+    def _validate_descriptions(value: object | None) -> dict[str, str] | None:
+        if value is None:
+            return None
+        return validate_localized_texts(
+            value,  # type: ignore[arg-type]
+            maximum=4_000,
+            allow_undetermined=True,
+        )
 
     def _ensure_no_overlap(
         self,
