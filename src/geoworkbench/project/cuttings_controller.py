@@ -10,6 +10,7 @@ from geoworkbench.domain.localized_content import (
     localized_text,
     normalize_content_language,
     set_localized_text,
+    validate_localized_texts,
 )
 from geoworkbench.project.session import ProjectSession
 
@@ -156,6 +157,19 @@ class CuttingsController:
                 sample.analysis_interpretation = interpretation
                 sample.description = description
             self._bump_content(language)
+        description_i18n_value = values.get("description_i18n")
+        if description_i18n_value is not None:
+            description_i18n = validate_localized_texts(
+                description_i18n_value,  # type: ignore[arg-type]
+                maximum=2_000_000,
+                allow_undetermined=True,
+            )
+            previous_languages = set(sample.description_i18n)
+            sample.description_i18n.clear()
+            sample.description_i18n.update(description_i18n)
+            sample.description = description_i18n.get("ru")
+            for language in previous_languages | set(description_i18n):
+                self._bump_content(language)
         if "description_word_wrap" in values:
             sample.description_word_wrap = self._validate_word_wrap(
                 values["description_word_wrap"]
