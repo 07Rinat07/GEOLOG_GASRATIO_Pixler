@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass, field
 
@@ -10,6 +10,11 @@ from geoworkbench.domain.translation_status import (
     TranslationStatus,
     TranslationStatusRegistry,
     TranslationStatusWorkflow,
+)
+from geoworkbench.domain.translation_readiness import (
+    TranslatableField,
+    TranslationReadinessQuery,
+    TranslationReadinessSummary,
 )
 from geoworkbench.project.session import ProjectSession
 
@@ -57,6 +62,28 @@ class TranslationStatusController:
     def authored_field_revision(self, field_id: str) -> int:
         normalized_field_id = self._field_id(field_id)
         return self._require_well().authored_field_revisions.get(normalized_field_id, 0)
+
+    def readiness(
+        self,
+        fields: Iterable[TranslatableField],
+        *,
+        target_languages: Sequence[object],
+        depth_range: tuple[float, float] | None = None,
+        dependency_revisions: Mapping[str, int] | None = None,
+        include_reviewed: bool = False,
+    ) -> TranslationReadinessSummary:
+        """Project the current well's readiness without mutating session state."""
+
+        well = self._require_well()
+        return TranslationReadinessQuery.summarize(
+            fields,
+            well.translation_statuses,
+            target_languages=target_languages,
+            depth_range=depth_range,
+            source_revisions=well.authored_field_revisions,
+            dependency_revisions=dependency_revisions,
+            include_reviewed=include_reviewed,
+        )
 
     def record_authored_field_change(self, field_id: str) -> int:
         """Bump one source field and stale only translations based on its old revision."""

@@ -5,6 +5,7 @@ import pytest
 
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
 from geoworkbench.domain.translation_status import TranslationState, TranslationStatusError
+from geoworkbench.domain.translation_readiness import TranslatableField
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.project.translation_status_controller import TranslationStatusController
 
@@ -167,3 +168,32 @@ def test_authored_field_change_stales_only_linked_translation_and_is_undoable() 
     controller.redo()
     assert controller.status(FIELD_ID, "kk").state is TranslationState.STALE
     assert controller.authored_field_revision(FIELD_ID) == 2
+
+
+def test_controller_readiness_is_range_aware_and_read_only() -> None:
+    controller = _controller()
+    controller.begin_draft(
+        field_id=FIELD_ID,
+        language="kk",
+        source_language="ru",
+        source_revision=0,
+    )
+    well = controller.session.current_well
+    assert well is not None
+    revision = well.content_revision
+    dirty = controller.session.dirty
+
+    summary = controller.readiness(
+        [
+            TranslatableField(FIELD_ID, "Описание", 100.0, 110.0),
+            TranslatableField("lithology/interval-2/description", "Вне диапазона", 120.0, 130.0),
+        ],
+        target_languages=["kk", "en"],
+        depth_range=(100.0, 115.0),
+    )
+
+    assert summary.total_required == 2
+    assert summary.draft_count == 1
+    assert summary.missing_count == 1
+    assert well.content_revision == revision
+    assert controller.session.dirty is dirty
