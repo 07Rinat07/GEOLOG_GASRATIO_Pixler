@@ -22,6 +22,18 @@ def test_wits0_capture_ui_keeps_socket_work_outside_qt_thread() -> None:
     assert ".accept(" not in source
 
 
+def test_wits0_capture_ui_is_resizable_and_keeps_actions_outside_scroll_area() -> None:
+    source = SOURCE.read_text(encoding="utf-8")
+
+    assert "QScrollArea" in source
+    assert "self.setMinimumSize(640, 480)" in source
+    assert "root.addWidget(self.scroll_area, 1)" in source
+    assert "actions = QGridLayout()" in source
+    assert source.index("root.addWidget(self.scroll_area, 1)") < source.index(
+        "root.addLayout(actions)"
+    )
+
+
 def test_main_window_exposes_modeless_wits0_capture_action() -> None:
     source = MAIN_WINDOW.read_text(encoding="utf-8")
 
@@ -114,6 +126,12 @@ def test_wits0_capture_dialog_constructs_offscreen(monkeypatch) -> None:  # type
         assert dialog.windowTitle()
         assert dialog.start_button.isEnabled()
         assert not dialog.stop_button.isEnabled()
+        dialog.field_preset_button.click()
+        assert dialog.mode_combo.currentData() == "tcp_client"
+        assert dialog.host_edit.text() == "192.168.0.100"
+        assert dialog.port_spin.value() == 2041
+        assert not dialog.allowed_networks_edit.text()
+        assert not dialog.allow_wildcard_bind_check.isChecked()
     finally:
         dialog.close()
         app.processEvents()

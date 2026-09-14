@@ -11,6 +11,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 DIALOG_SOURCE = ROOT / "src" / "geoworkbench" / "ui" / "witsml_import_dialog.py"
 MAIN_SOURCE = ROOT / "src" / "geoworkbench" / "ui" / "main_window.py"
+SOAP_DIALOG_SOURCE = ROOT / "src" / "geoworkbench" / "ui" / "witsml1411_dialog.py"
 
 
 def test_main_window_registers_exact_witsml_review_commit_atomically() -> None:
@@ -34,6 +35,15 @@ def test_import_dialog_keeps_preview_and_commit_separate() -> None:
     assert "self.controller.commit(" in source
     assert "self.accepted_commit" in source
     assert "ProjectSession" not in source
+
+
+def test_witsml_soap_dialog_contains_geoscape_field_preset_and_confirmation() -> None:
+    source = SOAP_DIALOG_SOURCE.read_text(encoding="utf-8")
+
+    assert "http://192.168.0.100:8080/soap/IGSW/WITSMLProxy/Inf" in source
+    assert "allow_private_http.setChecked(True)" in source
+    assert "profile.uses_insecure_private_http" in source
+    assert '_field_text("warning", endpoint=profile.endpoint)' in source
 
 
 @pytest.mark.skipif(

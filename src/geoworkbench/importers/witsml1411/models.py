@@ -48,6 +48,7 @@ class Witsml1411ConnectionProfile:
     credential_id: str | None = None
     timeout_seconds: float = 20.0
     verify_tls: bool = True
+    allow_insecure_private_network: bool = False
     retry: Witsml1411RetryPolicy = field(default_factory=Witsml1411RetryPolicy)
     data_version: str = "1.4.1.1"
 
@@ -71,8 +72,17 @@ class Witsml1411ConnectionProfile:
         if parts.fragment:
             raise ValueError("WITSML endpoint must not contain a URL fragment")
         local = _is_loopback_host(parts.hostname)
-        if scheme == "http" and not local:
-            raise ValueError("Remote WITSML endpoints must use HTTPS")
+        private_http = (
+            scheme == "http"
+            and not local
+            and self.allow_insecure_private_network
+            and _is_private_ipv4_literal(parts.hostname)
+        )
+        if scheme == "http" and not local and not private_http:
+            raise ValueError(
+                "Remote WITSML endpoints must use HTTPS; private IPv4 HTTP "
+                "requires explicit field-network acknowledgement"
+            )
         if scheme == "https" and not self.verify_tls and not local:
             raise ValueError("TLS verification can be disabled only for localhost")
         if self.timeout_seconds <= 0:
@@ -100,6 +110,7 @@ class Witsml1411ConnectionProfile:
             "credential_id": self.credential_id,
             "timeout_seconds": self.timeout_seconds,
             "verify_tls": self.verify_tls,
+            "allow_insecure_private_network": self.allow_insecure_private_network,
             "data_version": self.data_version,
             "retry": {
                 "max_attempts": self.retry.max_attempts,
@@ -108,6 +119,15 @@ class Witsml1411ConnectionProfile:
                 "retry_http_statuses": list(self.retry.retry_http_statuses),
             },
         }
+
+    @property
+    def uses_insecure_private_http(self) -> bool:
+        parts = urlsplit(self.endpoint)
+        return (
+            parts.scheme.casefold() == "http"
+            and parts.hostname is not None
+            and _is_private_ipv4_literal(parts.hostname)
+        )
 
     @classmethod
     def from_public_dict(cls, data: Mapping[str, object]) -> "Witsml1411ConnectionProfile":
@@ -124,6 +144,9 @@ class Witsml1411ConnectionProfile:
             credential_id=(str(data["credential_id"]) if data.get("credential_id") else None),
             timeout_seconds=_coerce_float(data.get("timeout_seconds", 20.0)),
             verify_tls=bool(data.get("verify_tls", True)),
+            allow_insecure_private_network=bool(
+                data.get("allow_insecure_private_network", False)
+            ),
             data_version=str(data.get("data_version", "1.4.1.1")),
             retry=Witsml1411RetryPolicy(
                 max_attempts=int(retry_data.get("max_attempts", 3)),
@@ -142,6 +165,20 @@ def _is_loopback_host(host: str) -> bool:
         return ip_address(normalized).is_loopback
     except ValueError:
         return False
+
+
+def _is_private_ipv4_literal(host: str) -> bool:
+    try:
+        address = ip_address(host)
+    except ValueError:
+        return False
+    return (
+        address.version == 4
+        and address.is_private
+        and not address.is_loopback
+        and not address.is_unspecified
+        and not address.is_multicast
+    )
 
 
 def _coerce_float(value: object) -> float:

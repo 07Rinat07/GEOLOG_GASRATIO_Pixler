@@ -5,7 +5,7 @@ import re
 from typing import Callable, TYPE_CHECKING
 from uuid import uuid4
 
-from PySide6.QtCore import QSettings, QStandardPaths, QTimer
+from PySide6.QtCore import QSettings, QStandardPaths, QTimer, Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
+    QScrollArea,
     QSpinBox,
     QTabWidget,
     QVBoxLayout,
@@ -104,11 +105,17 @@ class Wits0CaptureDialog(QDialog):
 
         self.setWindowTitle(self._t("wits0.title"))
         self.resize(980, 720)
+        self.setMinimumSize(640, 480)
         root = QVBoxLayout(self)
-        root.addWidget(self._build_connection_group())
-        root.addWidget(self._build_status_group())
 
-        self.tabs = QTabWidget(self)
+        scroll_content = QWidget(self)
+        scroll_layout = QVBoxLayout(scroll_content)
+        scroll_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_layout.addWidget(self._build_connection_group())
+        scroll_layout.addWidget(self._build_status_group())
+
+        self.tabs = QTabWidget(scroll_content)
+        self.tabs.setMinimumHeight(220)
         self.raw_text = QPlainTextEdit(self)
         self.raw_text.setReadOnly(True)
         self.raw_text.document().setMaximumBlockCount(4_000)
@@ -123,16 +130,27 @@ class Wits0CaptureDialog(QDialog):
         self.tabs.addTab(self.parsed_text, self._t("wits0.parsed_tab"))
         self.tabs.addTab(self.live_view, self._t("wits0.live_tab"))
         self.tabs.addTab(self.event_text, self._t("wits0.events_tab"))
-        root.addWidget(self.tabs, 1)
+        scroll_layout.addWidget(self.tabs, 1)
 
-        actions = QHBoxLayout()
+        self.scroll_area = QScrollArea(self)
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        self.scroll_area.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        self.scroll_area.setWidget(scroll_content)
+        root.addWidget(self.scroll_area, 1)
+
+        actions = QGridLayout()
         self.start_button = QPushButton(self._t("wits0.start"), self)
         self.stop_button = QPushButton(self._t("wits0.stop"), self)
         self.stop_button.setEnabled(False)
         self.start_button.clicked.connect(self._start_capture)
         self.stop_button.clicked.connect(self._stop_capture)
-        actions.addWidget(self.start_button)
-        actions.addWidget(self.stop_button)
+        actions.addWidget(self.start_button, 0, 0)
+        actions.addWidget(self.stop_button, 0, 1)
         self.review_button = QPushButton(self._t("wits0.review_action"), self)
         self.review_button.clicked.connect(self._open_import_review)
         self.reset_discovery_button = QPushButton(
@@ -140,8 +158,8 @@ class Wits0CaptureDialog(QDialog):
             self,
         )
         self.reset_discovery_button.clicked.connect(self._reset_discovery)
-        actions.addWidget(self.review_button)
-        actions.addWidget(self.reset_discovery_button)
+        actions.addWidget(self.review_button, 0, 2)
+        actions.addWidget(self.reset_discovery_button, 0, 3)
         self.start_acquisition_button = QPushButton(
             self._t("wits0.acquisition_start"), self
         )
@@ -154,13 +172,14 @@ class Wits0CaptureDialog(QDialog):
         self.start_acquisition_button.clicked.connect(self._start_acquisition)
         self.flush_acquisition_button.clicked.connect(self._flush_acquisition)
         self.close_acquisition_button.clicked.connect(self._close_acquisition)
-        actions.addWidget(self.start_acquisition_button)
-        actions.addWidget(self.flush_acquisition_button)
-        actions.addWidget(self.close_acquisition_button)
-        actions.addStretch(1)
+        actions.addWidget(self.start_acquisition_button, 1, 0)
+        actions.addWidget(self.flush_acquisition_button, 1, 1)
+        actions.addWidget(self.close_acquisition_button, 1, 2)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, self)
         buttons.rejected.connect(self.close)
-        actions.addWidget(buttons)
+        actions.addWidget(buttons, 1, 3)
+        for column in range(4):
+            actions.setColumnStretch(column, 1)
         root.addLayout(actions)
 
         self.poll_timer = QTimer(self)
@@ -174,6 +193,12 @@ class Wits0CaptureDialog(QDialog):
     def _build_connection_group(self) -> QGroupBox:
         group = QGroupBox(self._t("wits0.connection_group"), self)
         form = QFormLayout(group)
+
+        self.field_preset_button = QPushButton(
+            self._field_preset_text("button"), group
+        )
+        self.field_preset_button.clicked.connect(self._apply_geoscape_field_preset)
+        form.addRow(self._field_preset_text("label"), self.field_preset_button)
 
         self.mode_combo = QComboBox(group)
         self.mode_combo.addItem(
@@ -303,6 +328,34 @@ class Wits0CaptureDialog(QDialog):
         warning.setWordWrap(True)
         form.addRow("", warning)
         return group
+
+    def _apply_geoscape_field_preset(self) -> None:
+        """Connect to the GeoScape TCP server shown in the field setup."""
+
+        index = self.mode_combo.findData(Wits0ConnectionMode.TCP_CLIENT.value)
+        self.mode_combo.setCurrentIndex(max(0, index))
+        self.host_edit.setText("192.168.0.100")
+        self.port_spin.setValue(2041)
+        self.allowed_networks_edit.clear()
+        self.allow_wildcard_bind_check.setChecked(False)
+        self.source_edit.setText("GeoScape-GSWITS-Halliburton")
+
+    def _field_preset_text(self, role: str) -> str:
+        translations = {
+            AppLanguage.RU: {
+                "label": "Быстрая настройка",
+                "button": "GeoScape / Halliburton — 192.168.0.100:2041",
+            },
+            AppLanguage.KK: {
+                "label": "Жылдам баптау",
+                "button": "GeoScape / Halliburton — 192.168.0.100:2041",
+            },
+            AppLanguage.EN: {
+                "label": "Quick setup",
+                "button": "GeoScape / Halliburton — 192.168.0.100:2041",
+            },
+        }
+        return translations[self.language][role]
 
     def _build_status_group(self) -> QGroupBox:
         group = QGroupBox(self._t("wits0.status_group"), self)
