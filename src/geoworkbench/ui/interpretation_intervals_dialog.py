@@ -19,13 +19,15 @@ from PySide6.QtWidgets import (
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
 
 from geoworkbench.data.interpretation_export import InterpretationExportError
+from geoworkbench.domain.localized_content import localized_text
 from geoworkbench.project.interpretation_controller import InterpretationController
-from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.services.localization import AppLanguage, LANGUAGE_NAMES, Localizer
 
 
 class InterpretationIntervalValues(TypedDict):
@@ -35,6 +37,8 @@ class InterpretationIntervalValues(TypedDict):
     label: str
     color: str
     comment: str
+    label_i18n: dict[str, str]
+    comment_i18n: dict[str, str]
 
 
 class InterpretationIntervalsDialog(QDialog):
@@ -51,6 +55,7 @@ class InterpretationIntervalsDialog(QDialog):
     ) -> None:
         super().__init__(parent)
         self.controller = controller
+        self.language = language
         self.localizer = Localizer.create(language)
         self._selection_guard = False
         self.setWindowTitle(self._t("interpretations.window_title"))
@@ -81,10 +86,35 @@ class InterpretationIntervalsDialog(QDialog):
             interpretation_row.addWidget(button)
         root.addLayout(interpretation_row)
 
-        self.description_input = QLineEdit()
-        self.description_input.setPlaceholderText(self._t("interpretations.description"))
-        self.description_input.editingFinished.connect(self._save_description)
-        root.addWidget(self.description_input)
+        self.interpretation_language_tabs = QTabWidget()
+        self.interpretation_language_tabs.setObjectName("interpretation-language-tabs")
+        self.name_inputs: dict[str, QLineEdit] = {}
+        self.description_inputs: dict[str, QLineEdit] = {}
+        self._initial_name_i18n: dict[str, str] = {}
+        self._initial_description_i18n: dict[str, str] = {}
+        self._name_dirty: set[str] = set()
+        self._description_dirty: set[str] = set()
+        for content_language in AppLanguage:
+            code = content_language.value
+            page = QWidget()
+            page_form = QFormLayout(page)
+            name_editor = QLineEdit()
+            description_editor = QLineEdit()
+            name_editor.textChanged.connect(lambda _text, code=code: self._name_dirty.add(code))
+            description_editor.textChanged.connect(
+                lambda _text, code=code: self._description_dirty.add(code)
+            )
+            name_editor.editingFinished.connect(self._save_description)
+            description_editor.editingFinished.connect(self._save_description)
+            self.name_inputs[code] = name_editor
+            self.description_inputs[code] = description_editor
+            page_form.addRow(self._t("interpretations.name"), name_editor)
+            page_form.addRow(self._t("interpretations.description"), description_editor)
+            self.interpretation_language_tabs.addTab(page, LANGUAGE_NAMES[content_language])
+        self.interpretation_language_tabs.setCurrentIndex(tuple(AppLanguage).index(language))
+        self.name_input = self.name_inputs[language.value]
+        self.description_input = self.description_inputs[language.value]
+        root.addWidget(self.interpretation_language_tabs)
 
         self.table = QTableWidget(0, 6)
         self.table.setObjectName("interpretation-intervals-table")
@@ -115,18 +145,41 @@ class InterpretationIntervalsDialog(QDialog):
                 self._t("interpretations.type_note"),
             ]
         )
-        self.label_input = QLineEdit()
+        self.interval_language_tabs = QTabWidget()
+        self.interval_language_tabs.setObjectName("interpretation-interval-language-tabs")
+        self.label_inputs: dict[str, QLineEdit] = {}
+        self.comment_inputs: dict[str, QLineEdit] = {}
+        self._initial_label_i18n: dict[str, str] = {}
+        self._initial_comment_i18n: dict[str, str] = {}
+        self._label_dirty: set[str] = set()
+        self._comment_dirty: set[str] = set()
+        for content_language in AppLanguage:
+            code = content_language.value
+            page = QWidget()
+            page_form = QFormLayout(page)
+            label_editor = QLineEdit()
+            comment_editor = QLineEdit()
+            label_editor.textChanged.connect(lambda _text, code=code: self._label_dirty.add(code))
+            comment_editor.textChanged.connect(
+                lambda _text, code=code: self._comment_dirty.add(code)
+            )
+            self.label_inputs[code] = label_editor
+            self.comment_inputs[code] = comment_editor
+            page_form.addRow(self._t("interpretations.label"), label_editor)
+            page_form.addRow(self._t("interpretations.comment"), comment_editor)
+            self.interval_language_tabs.addTab(page, LANGUAGE_NAMES[content_language])
+        self.interval_language_tabs.setCurrentIndex(tuple(AppLanguage).index(language))
+        self.label_input = self.label_inputs[language.value]
+        self.comment_input = self.comment_inputs[language.value]
         self.color_input = QLineEdit("#fde68a")
-        self.comment_input = QLineEdit()
         for label, control in (
             (self._t("interpretations.top"), self.top_input),
             (self._t("interpretations.bottom"), self.bottom_input),
             (self._t("interpretations.type"), self.type_input),
-            (self._t("interpretations.label"), self.label_input),
             (self._t("interpretations.color"), self.color_input),
-            (self._t("interpretations.comment"), self.comment_input),
         ):
             form.addRow(label, control)
+        form.addRow(self._t("interpretations.label"), self.interval_language_tabs)
         root.addLayout(form)
 
         interval_actions = QHBoxLayout()
@@ -190,7 +243,11 @@ class InterpretationIntervalsDialog(QDialog):
             interpretations = ()
         for interpretation in interpretations:
             self.interpretation_combo.addItem(
-                interpretation.name,
+                localized_text(
+                    interpretation.name_i18n,
+                    self.language,
+                    legacy=interpretation.name,
+                ),
                 interpretation.interpretation_id,
             )
         index = self.interpretation_combo.findData(selected)
@@ -209,7 +266,18 @@ class InterpretationIntervalsDialog(QDialog):
             self.description_input.clear()
             self.table.setRowCount(0)
             return
-        self.description_input.setText(interpretation.description or "")
+        self._initial_name_i18n = dict(interpretation.name_i18n)
+        self._initial_description_i18n = dict(interpretation.description_i18n)
+        self._name_dirty.clear()
+        self._description_dirty.clear()
+        self._load_localized_editors(
+            self.name_inputs, interpretation.name_i18n, interpretation.name
+        )
+        self._load_localized_editors(
+            self.description_inputs,
+            interpretation.description_i18n,
+            interpretation.description,
+        )
         intervals = self.controller.available_intervals()
         selected_interval_id = self.controller.selected_interval_id
         selected_row = -1
@@ -223,9 +291,13 @@ class InterpretationIntervalsDialog(QDialog):
                     f"{interval.top_depth:g}",
                     f"{interval.bottom_depth:g}",
                     interval.interval_type,
-                    interval.label,
+                    localized_text(interval.label_i18n, self.language, legacy=interval.label),
                     interval.color,
-                    interval.comment or "",
+                    localized_text(
+                        interval.comment_i18n,
+                        self.language,
+                        legacy=interval.comment,
+                    ),
                 )
                 for column, value in enumerate(values):
                     item = QTableWidgetItem(value)
@@ -312,7 +384,15 @@ class InterpretationIntervalsDialog(QDialog):
             lambda: self.controller.update_interpretation(
                 current.interpretation_id,
                 name=name,
-                description=self.description_input.text(),
+                description=current.description,
+                name_i18n=self._localized_values(
+                    self._initial_name_i18n, self.name_inputs, self._name_dirty
+                ),
+                description_i18n=self._localized_values(
+                    self._initial_description_i18n,
+                    self.description_inputs,
+                    self._description_dirty,
+                ),
             )
         ):
             self._refresh_interpretations()
@@ -346,7 +426,15 @@ class InterpretationIntervalsDialog(QDialog):
             lambda: self.controller.update_interpretation(
                 current.interpretation_id,
                 name=current.name,
-                description=self.description_input.text(),
+                description=current.description,
+                name_i18n=self._localized_values(
+                    self._initial_name_i18n, self.name_inputs, self._name_dirty
+                ),
+                description_i18n=self._localized_values(
+                    self._initial_description_i18n,
+                    self.description_inputs,
+                    self._description_dirty,
+                ),
             )
         )
 
@@ -358,12 +446,22 @@ class InterpretationIntervalsDialog(QDialog):
             "label": self.label_input.text(),
             "color": self.color_input.text(),
             "comment": self.comment_input.text(),
+            "label_i18n": self._localized_values(
+                self._initial_label_i18n, self.label_inputs, self._label_dirty
+            ),
+            "comment_i18n": self._localized_values(
+                self._initial_comment_i18n, self.comment_inputs, self._comment_dirty
+            ),
         }
 
     def _add_interval(self) -> None:
         if self._run(lambda: self.controller.add_interval(**self._interval_values())):
-            self.label_input.clear()
-            self.comment_input.clear()
+            for editor in (*self.label_inputs.values(), *self.comment_inputs.values()):
+                editor.clear()
+            self._initial_label_i18n.clear()
+            self._initial_comment_i18n.clear()
+            self._label_dirty.clear()
+            self._comment_dirty.clear()
             self._refresh_interpretation_details()
             self.intervals_changed.emit()
 
@@ -412,15 +510,50 @@ class InterpretationIntervalsDialog(QDialog):
         self.top_input.setValue(float(values[0]))
         self.bottom_input.setValue(float(values[1]))
         self.type_input.setCurrentText(values[2])
-        self.label_input.setText(values[3])
         self.color_input.setText(values[4])
-        self.comment_input.setText(values[5])
         interval_id = self._selected_interval_id()
         interpretation_id = self.controller.selected_interpretation_id
         if interval_id is not None and interpretation_id is not None:
             self.controller.select_interval(interpretation_id, interval_id)
+            interval = self.controller.selected_interval()
+            if interval is not None:
+                self._initial_label_i18n = dict(interval.label_i18n)
+                self._initial_comment_i18n = dict(interval.comment_i18n)
+                self._label_dirty.clear()
+                self._comment_dirty.clear()
+                self._load_localized_editors(self.label_inputs, interval.label_i18n, interval.label)
+                self._load_localized_editors(
+                    self.comment_inputs, interval.comment_i18n, interval.comment
+                )
             if not self._selection_guard:
                 self.interval_selected.emit(interpretation_id, interval_id)
+
+    @staticmethod
+    def _load_localized_editors(
+        editors: dict[str, QLineEdit], values: dict[str, str], legacy: str | None
+    ) -> None:
+        for language, editor in editors.items():
+            text = values.get(language, "")
+            if language == "ru" and not text:
+                text = legacy or ""
+            editor.blockSignals(True)
+            editor.setText(text)
+            editor.blockSignals(False)
+
+    @staticmethod
+    def _localized_values(
+        initial: dict[str, str],
+        editors: dict[str, QLineEdit],
+        dirty: set[str],
+    ) -> dict[str, str]:
+        values = dict(initial)
+        for language in dirty:
+            text = editors[language].text().strip()
+            if text:
+                values[language] = text
+            else:
+                values.pop(language, None)
+        return values
 
     def _undo(self) -> None:
         if self._run(self.controller.undo):

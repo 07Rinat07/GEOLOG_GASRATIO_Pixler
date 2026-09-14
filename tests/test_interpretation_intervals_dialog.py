@@ -1,5 +1,5 @@
 import numpy as np
-from PySide6.QtWidgets import QPushButton, QTableWidget
+from PySide6.QtWidgets import QPushButton, QTableWidget, QTabWidget
 
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
 from geoworkbench.project.interpretation_controller import InterpretationController
@@ -60,4 +60,54 @@ def test_interpretation_dialog_accepts_external_interval_selection(qapp) -> None
     assert controller.selected_interval_id == interval.interval_id
     assert dialog.table.currentRow() == 0
     assert emitted == []
+    dialog.close()
+
+
+def test_interpretation_dialog_saves_all_interval_languages(qapp) -> None:
+    controller = _controller()
+    dialog = InterpretationIntervalsDialog(controller, language=AppLanguage.EN)
+    dialog.name_inputs["ru"].setText("Основная")
+    dialog.name_inputs["kk"].setText("Негізгі")
+    dialog.name_inputs["en"].setText("Primary")
+    dialog.description_inputs["ru"].setText("Описание")
+    dialog.description_inputs["kk"].setText("Сипаттама")
+    dialog.description_inputs["en"].setText("Description")
+    dialog._save_description()
+    dialog.top_input.setValue(100.0)
+    dialog.bottom_input.setValue(150.0)
+    dialog.type_input.setCurrentText("Reservoir")
+    dialog.color_input.setText("#fde68a")
+    for language, label, comment in (
+        ("ru", "Пласт А", "Газ"),
+        ("kk", "А қабаты", "Газ белгісі"),
+        ("en", "Sand A", "Gas show"),
+    ):
+        dialog.label_inputs[language].setText(label)
+        dialog.comment_inputs[language].setText(comment)
+
+    dialog._add_interval()
+
+    interval = controller.available_intervals()[0]
+    interpretation = controller.current_interpretation()
+    assert dialog.findChild(QTabWidget, "interpretation-language-tabs").count() == 3
+    assert dialog.findChild(QTabWidget, "interpretation-interval-language-tabs").count() == 3
+    assert interval.label_i18n == {
+        "ru": "Пласт А",
+        "kk": "А қабаты",
+        "en": "Sand A",
+    }
+    assert interval.comment_i18n["kk"] == "Газ белгісі"
+    assert interpretation.name_i18n["kk"] == "Негізгі"
+    assert interpretation.description_i18n["en"] == "Description"
+    dialog.close()
+
+
+def test_interpretation_dialog_preserves_legacy_fallback(qapp) -> None:
+    controller = _controller()
+    interval = controller.add_interval(100.0, 150.0, "Reservoir", "Legacy label")
+    dialog = InterpretationIntervalsDialog(controller, language=AppLanguage.RU)
+    dialog.table.selectRow(0)
+
+    assert dialog.label_input.text() == "Legacy label"
+    assert interval.label_i18n == {}
     dialog.close()
