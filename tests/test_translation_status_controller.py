@@ -137,3 +137,33 @@ def test_undo_is_blocked_after_external_status_change() -> None:
 
     with pytest.raises(RuntimeError, match="вне истории"):
         controller.undo()
+
+
+def test_authored_field_change_stales_only_linked_translation_and_is_undoable() -> None:
+    controller = _controller()
+    assert controller.record_authored_field_change(FIELD_ID) == 1
+    controller.begin_draft(
+        field_id=FIELD_ID,
+        language="kk",
+        source_language="ru",
+        source_revision=1,
+    )
+    other_field = "lithology/interval-2/description"
+    controller.begin_draft(
+        field_id=other_field,
+        language="kk",
+        source_language="ru",
+        source_revision=1,
+    )
+
+    assert controller.record_authored_field_change(FIELD_ID) == 2
+    assert controller.status(FIELD_ID, "kk").state is TranslationState.STALE
+    assert controller.status(other_field, "kk").state is TranslationState.DRAFT
+    assert controller.authored_field_revision(FIELD_ID) == 2
+
+    controller.undo()
+    assert controller.status(FIELD_ID, "kk").state is TranslationState.DRAFT
+    assert controller.authored_field_revision(FIELD_ID) == 1
+    controller.redo()
+    assert controller.status(FIELD_ID, "kk").state is TranslationState.STALE
+    assert controller.authored_field_revision(FIELD_ID) == 2

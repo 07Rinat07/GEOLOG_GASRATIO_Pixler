@@ -756,6 +756,7 @@ class Well:
     lag_correction_profiles: dict[str, LagCorrectionProfile] = field(default_factory=dict)
     content_revision: int = 1
     language_revisions: dict[str, int] = field(default_factory=dict)
+    authored_field_revisions: dict[str, int] = field(default_factory=dict)
     translation_statuses: dict[str, dict[str, TranslationStatus]] = field(default_factory=dict)
     passport: WellPassport | None = None
     analysis_update_history: list[AnalysisUpdateRecord] = field(default_factory=list)
