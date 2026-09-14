@@ -46,22 +46,39 @@ def _context_text(context: dict[str, object]) -> str:
     )
 
 
+def _diagnostic_code(message: str) -> str:
+    code, separator, _details = message.partition(":")
+    normalized = code.strip()
+    if separator and normalized:
+        return normalized
+    return "parser_diagnostic"
+
+
 def _log_capture_event(config: Wits0CaptureConfig, event: Wits0CaptureEvent) -> None:
     if event.kind not in _LOGGED_EVENT_KINDS:
         return
 
+    parsed = event.parsed_frame
+    is_parser_diagnostic = event.kind is Wits0CaptureEventKind.DIAGNOSTIC
     context: dict[str, object] = {
         "bytes_received": event.bytes_received or None,
         "connection_id": event.connection_id,
+        "diagnostic_code": _diagnostic_code(event.message) if is_parser_diagnostic else None,
         "disk_free_bytes": event.disk_free_bytes,
         "endpoint": f"{config.host}:{config.port}",
         "frames_received": event.frames_received or None,
-        "message": event.message or None,
+        "message": None if is_parser_diagnostic else event.message or None,
         "mode": config.mode.value,
+        "parser_errors": parsed.error_count if parsed is not None else None,
+        "parser_warnings": parsed.warning_count if parsed is not None else None,
         "peer": event.peer,
         "reason": event.reason,
+        "record_no": parsed.record_no if parsed is not None else None,
+        "sequence_no": parsed.sequence_no if parsed is not None else None,
         "source": config.source_name,
         "state": event.state.value if event.state is not None else None,
+        "unknown_fields": parsed.unknown_field_count if parsed is not None else None,
+        "unknown_records": parsed.unknown_record_count if parsed is not None else None,
     }
     level = _LEVEL_BY_KIND.get(event.kind, logging.INFO)
     _LOGGER.log(
