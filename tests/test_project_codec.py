@@ -91,6 +91,7 @@ def test_translation_statuses_round_trip_and_legacy_defaults_empty(tmp_path: Pat
             )
         }
     }
+    project.wells["well-1"].authored_field_revisions = {"lithology/interval-1/description": 4}
     target = tmp_path / "translation-status.geologpkg"
 
     save_project(project, target)
@@ -102,11 +103,30 @@ def test_translation_statuses_round_trip_and_legacy_defaults_empty(tmp_path: Pat
     assert status.source_revision == 4
     assert status.translation_revision == 2
     assert status.dependency_revisions == {"lithology/interval-1/depth": 3}
+    assert loaded.wells["well-1"].authored_field_revisions == {
+        "lithology/interval-1/description": 4
+    }
 
     payload = json.loads(target.read_text(encoding="utf-8"))
     payload["format_version"] = 31
     payload["project"]["wells"]["well-1"].pop("translation_statuses")
     assert project_document_from_dict(payload).project.wells["well-1"].translation_statuses == {}
+
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    payload["format_version"] = 32
+    payload["project"]["wells"]["well-1"].pop("authored_field_revisions")
+    migrated = project_document_from_dict(payload).project.wells["well-1"]
+    assert migrated.authored_field_revisions == {}
+
+
+def test_authored_field_revision_rejects_invalid_value(tmp_path: Path) -> None:
+    target = tmp_path / "invalid-field-revision.geologpkg"
+    save_project(make_project(), target)
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    payload["project"]["wells"]["well-1"]["authored_field_revisions"] = {"field": -1}
+
+    with pytest.raises(ProjectFormatError, match="Ревизия авторского поля"):
+        project_document_from_dict(payload)
 
 
 def test_translation_status_rejects_invalid_language(tmp_path: Path) -> None:

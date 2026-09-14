@@ -19,6 +19,8 @@ class _TranslationStatusCommand:
     well_id: str
     before: TranslationStatusRegistry
     after: TranslationStatusRegistry
+    before_field_revisions: dict[str, int]
+    after_field_revisions: dict[str, int]
     before_revision: int
     after_revision: int
 
@@ -51,6 +53,26 @@ class TranslationStatusController:
     def status(self, field_id: str, language: object) -> TranslationStatus | None:
         well = self._require_well()
         return well.translation_statuses.get(field_id, {}).get(normalize_content_language(language))
+
+    def authored_field_revision(self, field_id: str) -> int:
+        normalized_field_id = self._field_id(field_id)
+        return self._require_well().authored_field_revisions.get(normalized_field_id, 0)
+
+    def record_authored_field_change(self, field_id: str) -> int:
+        """Bump one source field and stale only translations based on its old revision."""
+
+        well = self._require_well()
+        normalized_field_id = self._field_id(field_id)
+        after_revisions = deepcopy(well.authored_field_revisions)
+        revision = after_revisions.get(normalized_field_id, 0) + 1
+        after_revisions[normalized_field_id] = revision
+        after_statuses = TranslationStatusWorkflow.invalidate_changed_revisions(
+            well.translation_statuses,
+            source_revisions={normalized_field_id: revision},
+            dependency_revisions={},
+        )
+        self._apply(well, after_statuses, after_field_revisions=after_revisions)
+        return revision
 
     def begin_draft(
         self,
@@ -148,10 +170,12 @@ class TranslationStatusController:
         well = self._command_well(command)
         if (
             well.translation_statuses != command.after
+            or well.authored_field_revisions != command.after_field_revisions
             or well.content_revision != command.after_revision
         ):
             raise RuntimeError("Статусы переводов изменены вне истории команд")
         well.translation_statuses = deepcopy(command.before)
+        well.authored_field_revisions = deepcopy(command.before_field_revisions)
         well.content_revision = command.before_revision
         self._undo_stack.pop()
         self._redo_stack.append(command)
@@ -164,10 +188,12 @@ class TranslationStatusController:
         well = self._command_well(command)
         if (
             well.translation_statuses != command.before
+            or well.authored_field_revisions != command.before_field_revisions
             or well.content_revision != command.before_revision
         ):
             raise RuntimeError("Статусы переводов изменены вне истории команд")
         well.translation_statuses = deepcopy(command.after)
+        well.authored_field_revisions = deepcopy(command.after_field_revisions)
         well.content_revision = command.after_revision
         self._redo_stack.pop()
         self._undo_stack.append(command)
@@ -177,16 +203,30 @@ class TranslationStatusController:
         self._undo_stack.clear()
         self._redo_stack.clear()
 
-    def _apply(self, well: Well, after: TranslationStatusRegistry) -> None:
+    def _apply(
+        self,
+        well: Well,
+        after: TranslationStatusRegistry,
+        *,
+        after_field_revisions: dict[str, int] | None = None,
+    ) -> None:
         before = deepcopy(well.translation_statuses)
+        before_field_revisions = deepcopy(well.authored_field_revisions)
         before_revision = well.content_revision
         well.translation_statuses = after
+        well.authored_field_revisions = (
+            deepcopy(after_field_revisions)
+            if after_field_revisions is not None
+            else deepcopy(before_field_revisions)
+        )
         well.content_revision += 1
         self._undo_stack.append(
             _TranslationStatusCommand(
                 well_id=well.well_id,
                 before=before,
                 after=deepcopy(after),
+                before_field_revisions=before_field_revisions,
+                after_field_revisions=deepcopy(well.authored_field_revisions),
                 before_revision=before_revision,
                 after_revision=well.content_revision,
             )
@@ -195,6 +235,12 @@ class TranslationStatusController:
             del self._undo_stack[0]
         self._redo_stack.clear()
         self.session.dirty = True
+
+    @staticmethod
+    def _field_id(field_id: str) -> str:
+        if not isinstance(field_id, str) or not field_id.strip():
+            raise ValueError("ID авторского поля не может быть пустым")
+        return field_id.strip()
 
     def _command_well(self, command: _TranslationStatusCommand) -> Well:
         well = self._require_well()
