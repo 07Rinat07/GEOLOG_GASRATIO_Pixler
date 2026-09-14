@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from collections.abc import Mapping
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from geoworkbench.domain.localized_content import validate_localized_texts
 from geoworkbench.domain.models import DescriptionTemplateBlock, Project
@@ -19,9 +20,13 @@ _BLOCK_KEYS = {"block_id", "template_id", "template_version", "text_i18n"}
 
 
 def _validated_i18n(value: object, *, maximum: int) -> dict[str, str]:
+    if not isinstance(value, Mapping):
+        raise ProjectFormatError("Некорректное локализованное поле интерпретации")
     try:
-        return validate_localized_texts(  # type: ignore[arg-type]
-            value, maximum=maximum, allow_undetermined=True
+        return validate_localized_texts(
+            cast("Mapping[str, str]", value),
+            maximum=maximum,
+            allow_undetermined=True,
         )
     except (TypeError, ValueError) as exc:
         raise ProjectFormatError("Некорректное локализованное поле интерпретации") from exc
