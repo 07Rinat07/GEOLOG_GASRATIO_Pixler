@@ -3,6 +3,7 @@ from __future__ import annotations
 from geoworkbench.domain.analysis_update import AnalysisUpdateRecord
 from geoworkbench.domain.numerical_update import NumericalUpdateRecord
 from geoworkbench.domain.geology_update import GeologyUpdateRecord
+from geoworkbench.domain.translation_status import TranslationStatus
 
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -755,6 +756,7 @@ class Well:
     lag_correction_profiles: dict[str, LagCorrectionProfile] = field(default_factory=dict)
     content_revision: int = 1
     language_revisions: dict[str, int] = field(default_factory=dict)
+    translation_statuses: dict[str, dict[str, TranslationStatus]] = field(default_factory=dict)
     passport: WellPassport | None = None
     analysis_update_history: list[AnalysisUpdateRecord] = field(default_factory=list)
 

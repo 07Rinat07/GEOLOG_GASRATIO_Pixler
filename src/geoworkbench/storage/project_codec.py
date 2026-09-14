@@ -1,4 +1,4 @@
-"""Project codec v31 for multilingual interpretation content."""
+"""Project codec v32 for per-field translation readiness metadata."""
 
 from __future__ import annotations
 
@@ -8,13 +8,17 @@ import json
 from pathlib import Path
 from typing import Any, cast
 
-from geoworkbench.domain.localized_content import validate_localized_texts
+from geoworkbench.domain.localized_content import (
+    normalize_content_language,
+    validate_localized_texts,
+)
 from geoworkbench.domain.models import DescriptionTemplateBlock, Project
+from geoworkbench.domain.translation_status import TranslationState, TranslationStatus
 from geoworkbench.storage import project_codec_v29 as _v29
 from geoworkbench.storage.project_codec_v29 import ProjectDocument, ProjectFormatError
 
 
-PROJECT_FORMAT_VERSION = 31
+PROJECT_FORMAT_VERSION = 32
 _MAX_TEMPLATE_BLOCKS_PER_SAMPLE = 10_000
 _BLOCK_KEYS = {"block_id", "template_id", "template_version", "text_i18n"}
 
@@ -70,11 +74,13 @@ def _legacy_payload_and_blocks(
     dict[tuple[str, str], list[DescriptionTemplateBlock]],
     dict[tuple[str, str], tuple[dict[str, str], dict[str, str]]],
     dict[tuple[str, str, str], tuple[dict[str, str], dict[str, str]]],
+    dict[str, dict[str, dict[str, TranslationStatus]]],
 ]:
     legacy = deepcopy(data)
     found: dict[tuple[str, str], list[DescriptionTemplateBlock]] = {}
     interpretation_texts: dict[tuple[str, str], tuple[dict[str, str], dict[str, str]]] = {}
     interval_texts: dict[tuple[str, str, str], tuple[dict[str, str], dict[str, str]]] = {}
+    translation_statuses: dict[str, dict[str, dict[str, TranslationStatus]]] = {}
     root = legacy.get("project", legacy)
     wells = root.get("wells", {}) if isinstance(root, dict) else {}
     if not isinstance(wells, dict):
@@ -82,6 +88,35 @@ def _legacy_payload_and_blocks(
     for well_id, well in wells.items():
         if not isinstance(well, dict):
             continue
+        raw_statuses = well.pop("translation_statuses", {})
+        if version >= 32:
+            if not isinstance(raw_statuses, dict):
+                raise ProjectFormatError("translation_statuses должен быть объектом")
+            parsed_fields: dict[str, dict[str, TranslationStatus]] = {}
+            for field_id, languages in raw_statuses.items():
+                if (
+                    not isinstance(field_id, str)
+                    or not field_id.strip()
+                    or not isinstance(languages, dict)
+                ):
+                    raise ProjectFormatError("Некорректное состояние переводимого поля")
+                parsed_languages: dict[str, TranslationStatus] = {}
+                for language, raw_status in languages.items():
+                    if not isinstance(raw_status, dict):
+                        raise ProjectFormatError("Некорректное состояние перевода")
+                    try:
+                        language_code = normalize_content_language(language)
+                        parsed_languages[language_code] = TranslationStatus(
+                            state=TranslationState(raw_status["state"]),
+                            source_language=raw_status["source_language"],
+                            source_revision=raw_status["source_revision"],
+                            translation_revision=raw_status.get("translation_revision", 0),
+                            dependency_revisions=dict(raw_status.get("dependency_revisions", {})),
+                        )
+                    except (KeyError, TypeError, ValueError) as exc:
+                        raise ProjectFormatError("Некорректное состояние перевода") from exc
+                parsed_fields[field_id] = parsed_languages
+            translation_statuses[str(well_id)] = parsed_fields
         cuttings = well.get("cuttings", [])
         if not isinstance(cuttings, list):
             continue
@@ -131,7 +166,7 @@ def _legacy_payload_and_blocks(
                         )
     if version >= 30 and "format_version" in legacy:
         legacy["format_version"] = _v29.PROJECT_FORMAT_VERSION
-    return legacy, found, interpretation_texts, interval_texts
+    return legacy, found, interpretation_texts, interval_texts, translation_statuses
 
 
 def _attach_blocks(
@@ -139,8 +174,10 @@ def _attach_blocks(
     blocks: dict[tuple[str, str], list[DescriptionTemplateBlock]],
     interpretation_texts: dict[tuple[str, str], tuple[dict[str, str], dict[str, str]]],
     interval_texts: dict[tuple[str, str, str], tuple[dict[str, str], dict[str, str]]],
+    translation_statuses: dict[str, dict[str, dict[str, TranslationStatus]]],
 ) -> None:
     for well_id, well in project.wells.items():
+        well.translation_statuses = translation_statuses.get(well_id, {})
         for sample in well.cuttings:
             sample.description_template_blocks = blocks.get((well_id, sample.sample_id), [])
         for interpretation_id, interpretation in well.interpretations.items():
@@ -157,18 +194,20 @@ def project_from_dict(data: dict[str, Any]) -> Project:
     # A bare project object has no document-level version marker and therefore
     # follows the current schema. Versioned documents are handled below.
     version = _format_version(data) if "format_version" in data else PROJECT_FORMAT_VERSION
-    legacy, blocks, interpretation_texts, interval_texts = _legacy_payload_and_blocks(data, version)
+    legacy, blocks, interpretation_texts, interval_texts, statuses = _legacy_payload_and_blocks(
+        data, version
+    )
     project = _v29.project_from_dict(legacy)
-    _attach_blocks(project, blocks, interpretation_texts, interval_texts)
+    _attach_blocks(project, blocks, interpretation_texts, interval_texts, statuses)
     return project
 
 
 def project_document_from_dict(data: dict[str, Any]) -> ProjectDocument:
-    legacy, blocks, interpretation_texts, interval_texts = _legacy_payload_and_blocks(
+    legacy, blocks, interpretation_texts, interval_texts, statuses = _legacy_payload_and_blocks(
         data, _format_version(data)
     )
     document = _v29.project_document_from_dict(legacy)
-    _attach_blocks(document.project, blocks, interpretation_texts, interval_texts)
+    _attach_blocks(document.project, blocks, interpretation_texts, interval_texts, statuses)
     return document
 
 
