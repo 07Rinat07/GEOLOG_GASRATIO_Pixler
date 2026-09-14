@@ -18,6 +18,10 @@ from geoworkbench.domain.models import (
     WellInterpretation,
     new_id,
 )
+from geoworkbench.domain.localized_content import (
+    bump_language_revision,
+    validate_localized_texts,
+)
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.interpretation_history import InterpretationHistory
 
@@ -96,8 +100,16 @@ class InterpretationController:
         name: str,
         *,
         description: str | None = None,
+        name_i18n: object | None = None,
+        description_i18n: object | None = None,
     ) -> WellInterpretation:
         normalized_name, normalized_description = self._validate_interpretation(name, description)
+        localized_names = self._validate_localized(name_i18n, maximum=200)
+        localized_descriptions = self._validate_localized(description_i18n, maximum=4_000)
+        if localized_names and "ru" in localized_names:
+            normalized_name = localized_names["ru"]
+        if localized_descriptions and "ru" in localized_descriptions:
+            normalized_description = localized_descriptions["ru"]
         well = self._require_well()
         if any(
             item.name.casefold() == normalized_name.casefold()
@@ -109,11 +121,14 @@ class InterpretationController:
             interpretation_id=new_id(),
             name=normalized_name,
             description=normalized_description,
+            name_i18n=localized_names or {},
+            description_i18n=localized_descriptions or {},
         )
         well.interpretations[interpretation.interpretation_id] = interpretation
         self.selected_interpretation_id = interpretation.interpretation_id
         self.selected_interval_id = None
         self._record(well, before, "Добавление интерпретации")
+        self._bump_languages(set(localized_names or ()) | set(localized_descriptions or ()))
         return interpretation
 
     def update_interpretation(
@@ -122,8 +137,16 @@ class InterpretationController:
         *,
         name: str,
         description: str | None = None,
+        name_i18n: object | None = None,
+        description_i18n: object | None = None,
     ) -> WellInterpretation:
         normalized_name, normalized_description = self._validate_interpretation(name, description)
+        localized_names = self._validate_localized(name_i18n, maximum=200)
+        localized_descriptions = self._validate_localized(description_i18n, maximum=4_000)
+        if localized_names and "ru" in localized_names:
+            normalized_name = localized_names["ru"]
+        if localized_descriptions and "ru" in localized_descriptions:
+            normalized_description = localized_descriptions["ru"]
         well = self._require_well()
         interpretation = self._require_interpretation(interpretation_id)
         if any(
@@ -135,7 +158,15 @@ class InterpretationController:
         before = deepcopy(well.interpretations)
         interpretation.name = normalized_name
         interpretation.description = normalized_description
+        changed_languages: set[str] = set()
+        if localized_names is not None:
+            changed_languages |= set(interpretation.name_i18n) | set(localized_names)
+            interpretation.name_i18n = localized_names
+        if localized_descriptions is not None:
+            changed_languages |= set(interpretation.description_i18n) | set(localized_descriptions)
+            interpretation.description_i18n = localized_descriptions
         self._record(well, before, "Изменение интерпретации")
+        self._bump_languages(changed_languages)
         return interpretation
 
     def remove_interpretation(self, interpretation_id: str) -> WellInterpretation:
@@ -170,18 +201,29 @@ class InterpretationController:
         *,
         color: str = "#fde68a",
         comment: str | None = None,
+        label_i18n: object | None = None,
+        comment_i18n: object | None = None,
     ) -> InterpretationInterval:
         values = self._validate_interval(
             top_depth, bottom_depth, interval_type, label, color, comment
         )
+        localized_labels = self._validate_localized(label_i18n, maximum=300)
+        localized_comments = self._validate_localized(comment_i18n, maximum=4_000)
         well = self._require_well()
         interpretation = self.current_interpretation()
         self._ensure_no_overlap(interpretation, values[0], values[1], values[2])
         before = deepcopy(well.interpretations)
         interval = InterpretationInterval(new_id(), *values)
+        interval.label_i18n.update(localized_labels or {})
+        interval.comment_i18n.update(localized_comments or {})
+        if localized_labels and "ru" in localized_labels:
+            interval.label = localized_labels["ru"]
+        if localized_comments and "ru" in localized_comments:
+            interval.comment = localized_comments["ru"]
         interpretation.intervals.append(interval)
         self.selected_interval_id = interval.interval_id
         self._record(well, before, "Добавление интервала интерпретации")
+        self._bump_languages(set(localized_labels or ()) | set(localized_comments or ()))
         return interval
 
     def update_interval(
@@ -194,10 +236,14 @@ class InterpretationController:
         label: str,
         color: str = "#fde68a",
         comment: str | None = None,
+        label_i18n: object | None = None,
+        comment_i18n: object | None = None,
     ) -> InterpretationInterval:
         values = self._validate_interval(
             top_depth, bottom_depth, interval_type, label, color, comment
         )
+        localized_labels = self._validate_localized(label_i18n, maximum=300)
+        localized_comments = self._validate_localized(comment_i18n, maximum=4_000)
         well = self._require_well()
         interpretation = self.current_interpretation()
         interval = self._require_interval(interval_id)
@@ -217,9 +263,39 @@ class InterpretationController:
             interval.color,
             interval.comment,
         ) = values
+        changed_languages: set[str] = set()
+        if localized_labels is not None:
+            changed_languages |= set(interval.label_i18n) | set(localized_labels)
+            interval.label_i18n = localized_labels
+            if "ru" in localized_labels:
+                interval.label = localized_labels["ru"]
+        if localized_comments is not None:
+            changed_languages |= set(interval.comment_i18n) | set(localized_comments)
+            interval.comment_i18n = localized_comments
+            if "ru" in localized_comments:
+                interval.comment = localized_comments["ru"]
         self.selected_interval_id = interval.interval_id
         self._record(well, before, "Изменение интервала интерпретации")
+        self._bump_languages(changed_languages)
         return interval
+
+    @staticmethod
+    def _validate_localized(value: object | None, *, maximum: int) -> dict[str, str] | None:
+        if value is None:
+            return None
+        return validate_localized_texts(
+            value,  # type: ignore[arg-type]
+            maximum=maximum,
+            allow_undetermined=True,
+        )
+
+    def _bump_languages(self, languages: set[str]) -> None:
+        well = self._require_well()
+        for language in languages:
+            if language == "und":
+                continue
+            well.content_revision += 1
+            bump_language_revision(well.language_revisions, language)
 
     def remove_interval(self, interval_id: str) -> InterpretationInterval:
         well = self._require_well()

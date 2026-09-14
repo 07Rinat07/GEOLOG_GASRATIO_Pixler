@@ -1,4 +1,4 @@
-"""Project codec v30 for versioned cuttings-description template blocks."""
+"""Project codec v31 for multilingual interpretation content."""
 
 from __future__ import annotations
 
@@ -13,9 +13,18 @@ from geoworkbench.storage import project_codec_v29 as _v29
 from geoworkbench.storage.project_codec_v29 import ProjectDocument, ProjectFormatError
 
 
-PROJECT_FORMAT_VERSION = 30
+PROJECT_FORMAT_VERSION = 31
 _MAX_TEMPLATE_BLOCKS_PER_SAMPLE = 10_000
 _BLOCK_KEYS = {"block_id", "template_id", "template_version", "text_i18n"}
+
+
+def _validated_i18n(value: object, *, maximum: int) -> dict[str, str]:
+    try:
+        return validate_localized_texts(  # type: ignore[arg-type]
+            value, maximum=maximum, allow_undetermined=True
+        )
+    except (TypeError, ValueError) as exc:
+        raise ProjectFormatError("Некорректное локализованное поле интерпретации") from exc
 
 
 def _format_version(data: dict[str, Any]) -> int:
@@ -51,9 +60,16 @@ def _template_block_from_dict(data: object) -> DescriptionTemplateBlock:
 
 def _legacy_payload_and_blocks(
     data: dict[str, Any], version: int
-) -> tuple[dict[str, Any], dict[tuple[str, str], list[DescriptionTemplateBlock]]]:
+) -> tuple[
+    dict[str, Any],
+    dict[tuple[str, str], list[DescriptionTemplateBlock]],
+    dict[tuple[str, str], tuple[dict[str, str], dict[str, str]]],
+    dict[tuple[str, str, str], tuple[dict[str, str], dict[str, str]]],
+]:
     legacy = deepcopy(data)
     found: dict[tuple[str, str], list[DescriptionTemplateBlock]] = {}
+    interpretation_texts: dict[tuple[str, str], tuple[dict[str, str], dict[str, str]]] = {}
+    interval_texts: dict[tuple[str, str, str], tuple[dict[str, str], dict[str, str]]] = {}
     root = legacy.get("project", legacy)
     wells = root.get("wells", {}) if isinstance(root, dict) else {}
     if not isinstance(wells, dict):
@@ -68,7 +84,7 @@ def _legacy_payload_and_blocks(
             if not isinstance(sample, dict):
                 continue
             raw = sample.pop("description_template_blocks", [])
-            if version < PROJECT_FORMAT_VERSION:
+            if version < 30:
                 continue
             if not isinstance(raw, list) or len(raw) > _MAX_TEMPLATE_BLOCKS_PER_SAMPLE:
                 raise ProjectFormatError("История шаблонов описания слишком велика")
@@ -77,34 +93,77 @@ def _legacy_payload_and_blocks(
             if len(ids) != len(set(ids)):
                 raise ProjectFormatError("ID блоков шаблонов описания не должны повторяться")
             found[(str(well_id), str(sample.get("sample_id", "")))] = blocks
-    if version == PROJECT_FORMAT_VERSION and "format_version" in legacy:
+        interpretations = well.get("interpretations", {})
+        if isinstance(interpretations, dict):
+            for interpretation_id, interpretation in interpretations.items():
+                if not isinstance(interpretation, dict):
+                    continue
+                name_i18n = interpretation.pop("name_i18n", {})
+                description_i18n = interpretation.pop("description_i18n", {})
+                if version >= 31:
+                    interpretation_texts[(str(well_id), str(interpretation_id))] = (
+                        _validated_i18n(name_i18n, maximum=200),
+                        _validated_i18n(description_i18n, maximum=4_000),
+                    )
+                intervals = interpretation.get("intervals", [])
+                if not isinstance(intervals, list):
+                    continue
+                for interval in intervals:
+                    if not isinstance(interval, dict):
+                        continue
+                    label_i18n = interval.pop("label_i18n", {})
+                    comment_i18n = interval.pop("comment_i18n", {})
+                    if version >= 31:
+                        interval_texts[
+                            (
+                                str(well_id),
+                                str(interpretation_id),
+                                str(interval.get("interval_id", "")),
+                            )
+                        ] = (
+                            _validated_i18n(label_i18n, maximum=300),
+                            _validated_i18n(comment_i18n, maximum=4_000),
+                        )
+    if version >= 30 and "format_version" in legacy:
         legacy["format_version"] = _v29.PROJECT_FORMAT_VERSION
-    return legacy, found
+    return legacy, found, interpretation_texts, interval_texts
 
 
 def _attach_blocks(
     project: Project,
     blocks: dict[tuple[str, str], list[DescriptionTemplateBlock]],
+    interpretation_texts: dict[tuple[str, str], tuple[dict[str, str], dict[str, str]]],
+    interval_texts: dict[tuple[str, str, str], tuple[dict[str, str], dict[str, str]]],
 ) -> None:
     for well_id, well in project.wells.items():
         for sample in well.cuttings:
             sample.description_template_blocks = blocks.get((well_id, sample.sample_id), [])
+        for interpretation_id, interpretation in well.interpretations.items():
+            interpretation.name_i18n, interpretation.description_i18n = interpretation_texts.get(
+                (well_id, interpretation_id), ({}, {})
+            )
+            for interval in interpretation.intervals:
+                interval.label_i18n, interval.comment_i18n = interval_texts.get(
+                    (well_id, interpretation_id, interval.interval_id), ({}, {})
+                )
 
 
 def project_from_dict(data: dict[str, Any]) -> Project:
     # A bare project object has no document-level version marker and therefore
     # follows the current schema. Versioned documents are handled below.
     version = _format_version(data) if "format_version" in data else PROJECT_FORMAT_VERSION
-    legacy, blocks = _legacy_payload_and_blocks(data, version)
+    legacy, blocks, interpretation_texts, interval_texts = _legacy_payload_and_blocks(data, version)
     project = _v29.project_from_dict(legacy)
-    _attach_blocks(project, blocks)
+    _attach_blocks(project, blocks, interpretation_texts, interval_texts)
     return project
 
 
 def project_document_from_dict(data: dict[str, Any]) -> ProjectDocument:
-    legacy, blocks = _legacy_payload_and_blocks(data, _format_version(data))
+    legacy, blocks, interpretation_texts, interval_texts = _legacy_payload_and_blocks(
+        data, _format_version(data)
+    )
     document = _v29.project_document_from_dict(legacy)
-    _attach_blocks(document.project, blocks)
+    _attach_blocks(document.project, blocks, interpretation_texts, interval_texts)
     return document
 
 
