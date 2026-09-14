@@ -457,14 +457,32 @@ class StratigraphyIntervalDialog(QDialog, _CatalogMixin):
         self.rank_input.setEditable(True)
         self.rank_input.addItems(["", *STRATIGRAPHY_RANKS])
         self.code_input = QLineEdit()
-        self.name_input = QLineEdit()
+        self.language_tabs = QTabWidget()
+        self.language_tabs.setObjectName("stratigraphy-quick-language-tabs")
+        self.name_inputs: dict[str, QLineEdit] = {}
+        self.description_inputs: dict[str, QLineEdit] = {}
+        for content_language in AppLanguage:
+            language_code = content_language.value
+            page = QWidget()
+            page_form = QFormLayout(page)
+            name_editor = QLineEdit()
+            name_editor.setObjectName(f"stratigraphy-quick-name-{language_code}")
+            description_editor = QLineEdit()
+            description_editor.setObjectName(f"stratigraphy-quick-description-{language_code}")
+            self.name_inputs[language_code] = name_editor
+            self.description_inputs[language_code] = description_editor
+            page_form.addRow(self.localizer.text("stratigraphy.name"), name_editor)
+            page_form.addRow(self.localizer.text("stratigraphy.description"), description_editor)
+            self.language_tabs.addTab(page, LANGUAGE_NAMES[content_language])
+        self.language_tabs.setCurrentIndex(tuple(AppLanguage).index(language))
+        self.name_input = self.name_inputs[language.value]
+        self.description_input = self.description_inputs[language.value]
         self.color_input = QLineEdit("#dbeafe")
         color_row = QHBoxLayout()
         color_row.addWidget(self.color_input)
         color_button = QPushButton("…")
         color_button.clicked.connect(self._choose_color)
         color_row.addWidget(color_button)
-        self.description_input = QLineEdit()
         self.text_orientation_input = QComboBox()
         _populate_presentation_combo(
             self.text_orientation_input,
@@ -493,11 +511,10 @@ class StratigraphyIntervalDialog(QDialog, _CatalogMixin):
         for key, control in (
             ("stratigraphy.rank", self.rank_input),
             ("stratigraphy.code", self.code_input),
-            ("stratigraphy.name", self.name_input),
         ):
             layout.addRow(self.localizer.text(key), control)
+        layout.addRow(self.localizer.text("stratigraphy.name"), self.language_tabs)
         layout.addRow(self.localizer.text("stratigraphy.color"), color_row)
-        layout.addRow(self.localizer.text("stratigraphy.description"), self.description_input)
         layout.addRow(
             self.localizer.text("stratigraphy.text_orientation"),
             self.text_orientation_input,
@@ -545,11 +562,20 @@ class StratigraphyIntervalDialog(QDialog, _CatalogMixin):
             "rank": self.rank_input.currentText(),
             "code": self.code_input.text(),
             "name": self.name_input.text(),
+            "name_i18n": self._localized_values(self.name_inputs),
             "color": self.color_input.text(),
             "description": self.description_input.text(),
+            "description_i18n": self._localized_values(self.description_inputs),
             "text_orientation": _combo_value(self.text_orientation_input, "horizontal"),
             "text_position": _combo_value(self.text_position_input, "center"),
-            "content_language": self.language.value,
+        }
+
+    @staticmethod
+    def _localized_values(editors: dict[str, QLineEdit]) -> dict[str, str]:
+        return {
+            language: text
+            for language, editor in editors.items()
+            if (text := editor.text().strip())
         }
 
 

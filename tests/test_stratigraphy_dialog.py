@@ -60,6 +60,26 @@ def test_interval_dialog_returns_mouse_selected_depths(qapp) -> None:
     dialog.close()
 
 
+def test_interval_dialog_returns_all_languages_from_catalog(qapp) -> None:
+    dialog = StratigraphyIntervalDialog(150.0, 175.0, language=AppLanguage.EN)
+    dialog.catalog_input.setCurrentIndex(1)
+    dialog.description_inputs["ru"].setText("Описание")
+    dialog.description_inputs["kk"].setText("Сипаттама")
+    dialog.description_inputs["en"].setText("Description")
+
+    values = dialog.values()
+
+    tabs = dialog.findChild(QTabWidget, "stratigraphy-quick-language-tabs")
+    assert tabs is not None and tabs.count() == 3
+    assert set(values["name_i18n"]) == {"ru", "kk", "en"}
+    assert values["description_i18n"] == {
+        "ru": "Описание",
+        "kk": "Сипаттама",
+        "en": "Description",
+    }
+    dialog.close()
+
+
 def test_stratigraphy_dialog_edits_all_languages_and_catalog_fills_names(qapp) -> None:
     controller = _controller()
     dialog = StratigraphyDialog(controller, language=AppLanguage.EN)
