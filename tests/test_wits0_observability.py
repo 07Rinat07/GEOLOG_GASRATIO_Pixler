@@ -52,16 +52,18 @@ def test_transport_error_is_mirrored_to_application_log(
     assert 'source="geoscape-halliburton"' in rendered
 
 
-def test_parser_diagnostic_is_logged_without_raw_frame_payload(
+def test_parser_diagnostic_is_logged_without_raw_payload_values(
     tmp_path: Path,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    raw_frame = b"&&0108SECRET-WITS-PAYLOAD!!"
     event = Wits0CaptureEvent(
         kind=Wits0CaptureEventKind.DIAGNOSTIC,
         occurred_at="2026-09-15T00:00:00.000Z",
-        message="unknown_record: unsupported WITS0 record",
-        frame=raw_frame,
+        message=(
+            "value_parse_error: invalid literal for int() with base 10: "
+            "'SECRET-WITS-VALUE'"
+        ),
+        frame=b"&&0108SECRET-WITS-FRAME!!",
     )
 
     with caplog.at_level(logging.INFO, logger="geoworkbench"):
@@ -71,8 +73,9 @@ def test_parser_diagnostic_is_logged_without_raw_frame_payload(
     rendered = record.getMessage()
     assert record.levelno == logging.WARNING
     assert rendered.startswith("event=wits0.capture.diagnostic | ")
-    assert "unsupported WITS0 record" in rendered
-    assert "SECRET-WITS-PAYLOAD" not in rendered
+    assert 'diagnostic_code="value_parse_error"' in rendered
+    assert "SECRET-WITS-VALUE" not in rendered
+    assert "SECRET-WITS-FRAME" not in rendered
 
 
 def test_frame_events_are_not_written_to_shared_application_log(
