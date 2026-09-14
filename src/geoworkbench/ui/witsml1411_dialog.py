@@ -100,6 +100,10 @@ class Witsml1411Dialog(QDialog):
         layout = QVBoxLayout(self)
 
         form = QFormLayout()
+        self.geoscape_preset_button = QPushButton(
+            self._t("witsml1411.geoscape_preset"), self
+        )
+        self.geoscape_preset_button.clicked.connect(self._apply_geoscape_preset)
         self.profile_combo = QComboBox(self)
         self.endpoint = QLineEdit(self)
         self.username = QLineEdit(self)
@@ -108,18 +112,23 @@ class Witsml1411Dialog(QDialog):
         self.remember = QCheckBox(self._t("witsml1411.remember"), self)
         self.verify_tls = QCheckBox(self._t("witsml1411.verify_tls"), self)
         self.verify_tls.setChecked(True)
+        self.allow_private_http = QCheckBox(
+            self._t("witsml1411.allow_private_http"), self
+        )
         self.timeout = QSpinBox(self)
         self.timeout.setRange(1, 600)
         self.timeout.setValue(20)
         self.attempts = QSpinBox(self)
         self.attempts.setRange(1, 10)
         self.attempts.setValue(3)
+        form.addRow(self._t("witsml1411.quick_setup"), self.geoscape_preset_button)
         form.addRow(self._t("witsml1411.profile"), self.profile_combo)
         form.addRow(self._t("witsml1411.endpoint"), self.endpoint)
         form.addRow(self._t("witsml1411.username"), self.username)
         form.addRow(self._t("witsml1411.password"), self.password)
         form.addRow("", self.remember)
         form.addRow("", self.verify_tls)
+        form.addRow("", self.allow_private_http)
         form.addRow(self._t("witsml1411.timeout"), self.timeout)
         form.addRow(self._t("witsml1411.attempts"), self.attempts)
         layout.addLayout(form)
@@ -164,6 +173,16 @@ class Witsml1411Dialog(QDialog):
         self.tree.currentItemChanged.connect(self._selection_changed)
         self._load_profiles()
 
+    def _apply_geoscape_preset(self) -> None:
+        self.endpoint.setText(
+            "http://192.168.0.100:8080/soap/IGSW/WITSMLProxy/Inf"
+        )
+        self.username.clear()
+        self.password.clear()
+        self.remember.setChecked(False)
+        self.verify_tls.setChecked(True)
+        self.allow_private_http.setChecked(True)
+
     def _t(self, key: str, **kwargs: object) -> str:
         return self.localizer.text(key, **kwargs)
 
@@ -191,6 +210,7 @@ class Witsml1411Dialog(QDialog):
         self.timeout.setValue(round(profile.timeout_seconds))
         self.attempts.setValue(profile.retry.max_attempts)
         self.password.clear()
+        self.allow_private_http.setChecked(profile.allow_insecure_private_network)
         if profile.credential_id:
             try:
                 credentials = self.credential_store.load(profile.credential_id)
@@ -219,6 +239,7 @@ class Witsml1411Dialog(QDialog):
             credential_id=credential_id,
             timeout_seconds=float(self.timeout.value()),
             verify_tls=self.verify_tls.isChecked(),
+            allow_insecure_private_network=self.allow_private_http.isChecked(),
             retry=Witsml1411RetryPolicy(max_attempts=self.attempts.value()),
         )
         return profile, Witsml1411Credentials(self.username.text(), self.password.text())
@@ -229,6 +250,16 @@ class Witsml1411Dialog(QDialog):
         except Exception as exc:  # noqa: BLE001
             QMessageBox.critical(self, self._t("witsml1411.title"), str(exc))
             return
+        if profile.uses_insecure_private_http:
+            response = QMessageBox.warning(
+                self,
+                self._t("witsml1411.title"),
+                self._t("witsml1411.private_http_warning", endpoint=profile.endpoint),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if response != QMessageBox.StandardButton.Yes:
+                return
         if self.remember.isChecked():
             try:
                 self.profile_store.upsert(profile)

@@ -114,6 +114,12 @@ def test_wits0_capture_dialog_constructs_offscreen(monkeypatch) -> None:  # type
         assert dialog.windowTitle()
         assert dialog.start_button.isEnabled()
         assert not dialog.stop_button.isEnabled()
+        dialog.field_preset_button.click()
+        assert dialog.mode_combo.currentData() == "tcp_client"
+        assert dialog.host_edit.text() == "192.168.0.100"
+        assert dialog.port_spin.value() == 2041
+        assert not dialog.allowed_networks_edit.text()
+        assert not dialog.allow_wildcard_bind_check.isChecked()
     finally:
         dialog.close()
         app.processEvents()

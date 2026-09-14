@@ -175,6 +175,12 @@ class Wits0CaptureDialog(QDialog):
         group = QGroupBox(self._t("wits0.connection_group"), self)
         form = QFormLayout(group)
 
+        self.field_preset_button = QPushButton(
+            self._t("wits0.geoscape_field_preset"), group
+        )
+        self.field_preset_button.clicked.connect(self._apply_geoscape_field_preset)
+        form.addRow(self._t("wits0.quick_setup"), self.field_preset_button)
+
         self.mode_combo = QComboBox(group)
         self.mode_combo.addItem(
             self._t("wits0.mode_server"), Wits0ConnectionMode.TCP_SERVER.value
@@ -303,6 +309,17 @@ class Wits0CaptureDialog(QDialog):
         warning.setWordWrap(True)
         form.addRow("", warning)
         return group
+
+    def _apply_geoscape_field_preset(self) -> None:
+        """Connect to the GeoScape TCP server shown in the field setup."""
+
+        index = self.mode_combo.findData(Wits0ConnectionMode.TCP_CLIENT.value)
+        self.mode_combo.setCurrentIndex(max(0, index))
+        self.host_edit.setText("192.168.0.100")
+        self.port_spin.setValue(2041)
+        self.allowed_networks_edit.clear()
+        self.allow_wildcard_bind_check.setChecked(False)
+        self.source_edit.setText("GeoScape-GSWITS-Halliburton")
 
     def _build_status_group(self) -> QGroupBox:
         group = QGroupBox(self._t("wits0.status_group"), self)

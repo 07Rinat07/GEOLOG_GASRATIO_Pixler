@@ -106,6 +106,39 @@ def test_remote_profiles_require_verified_https() -> None:
     )
     assert local.endpoint.startswith("http://127.0.0.1")
 
+    field_lan = Witsml1411ConnectionProfile(
+        "geoscape-field",
+        "GeoScape field proxy",
+        "http://192.168.0.100:8080/soap/IGSW/WITSMLProxy/Inf",
+        allow_insecure_private_network=True,
+    )
+    assert field_lan.allow_insecure_private_network
+
+    with pytest.raises(ValueError, match="private IPv4"):
+        Witsml1411ConnectionProfile(
+            "unsafe-hostname",
+            "Unresolved field hostname",
+            "http://witsml.example.test/store",
+            allow_insecure_private_network=True,
+        )
+
+
+def test_private_http_acknowledgement_is_persisted_without_credentials(tmp_path: Path) -> None:
+    store = Witsml1411ProfileStore(tmp_path / "profiles.json")
+    profile = Witsml1411ConnectionProfile(
+        "geoscape-field",
+        "GeoScape field proxy",
+        "http://192.168.0.100:8080/soap/IGSW/WITSMLProxy/Inf",
+        allow_insecure_private_network=True,
+    )
+
+    store.upsert(profile)
+
+    assert store.load_all() == (profile,)
+    assert "allow_insecure_private_network" in (tmp_path / "profiles.json").read_text(
+        encoding="utf-8"
+    )
+
 
 def test_profile_endpoint_rejects_embedded_credentials_and_fragments() -> None:
     with pytest.raises(ValueError, match="Credentials must not be embedded"):
