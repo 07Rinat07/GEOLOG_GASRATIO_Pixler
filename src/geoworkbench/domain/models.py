@@ -505,6 +505,8 @@ class InterpretationInterval:
     label: str
     color: str = "#fde68a"
     comment: str | None = None
+    label_i18n: dict[str, str] = field(default_factory=dict)
+    comment_i18n: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -513,6 +515,8 @@ class WellInterpretation:
     name: str
     description: str | None = None
     intervals: list[InterpretationInterval] = field(default_factory=list)
+    name_i18n: dict[str, str] = field(default_factory=dict)
+    description_i18n: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(slots=True)

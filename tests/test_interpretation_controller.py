@@ -85,6 +85,41 @@ def test_interpretation_controller_crud_and_history() -> None:
     assert controller.session.dirty is True
 
 
+def test_interpretation_controller_saves_localized_texts_atomically() -> None:
+    controller = make_controller()
+    interpretation = controller.add_interpretation(
+        "Primary",
+        name_i18n={"ru": "Основная", "kk": "Негізгі", "en": "Primary"},
+        description_i18n={"ru": "Описание", "en": "Description"},
+    )
+    interval = controller.add_interval(
+        100.0,
+        140.0,
+        "Reservoir",
+        "Sand A",
+        label_i18n={"ru": "Пласт А", "kk": "А қабаты", "en": "Sand A"},
+        comment_i18n={"ru": "Газ", "en": "Gas"},
+    )
+
+    assert interpretation.name == "Основная"
+    assert interpretation.name_i18n["kk"] == "Негізгі"
+    assert interval.label == "Пласт А"
+    assert interval.comment_i18n["en"] == "Gas"
+
+    with pytest.raises(ValueError, match="язык"):
+        controller.update_interval(
+            interval.interval_id,
+            top_depth=110.0,
+            bottom_depth=150.0,
+            interval_type="Reservoir",
+            label="Changed",
+            label_i18n={"invalid": "Broken"},
+        )
+
+    assert interval.top_depth == 100.0
+    assert interval.label == "Пласт А"
+
+
 def test_interpretation_controller_rejects_invalid_and_same_type_overlap() -> None:
     controller = make_controller()
     controller.add_interpretation("Primary")
