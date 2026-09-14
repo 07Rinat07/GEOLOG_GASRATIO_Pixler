@@ -67,7 +67,6 @@ from geoworkbench.acquisition.wits0_reliability import (
 )
 from geoworkbench.acquisition.wits0_capture import (
     Wits0CaptureConfig,
-    Wits0CaptureEngine,
     Wits0CaptureEvent,
     Wits0CaptureEventKind,
     Wits0CaptureSnapshot,
@@ -78,6 +77,7 @@ from geoworkbench.acquisition.wits0_capture import (
     is_wits0_loopback_host,
     wits0_remote_bind_required,
 )
+from geoworkbench.acquisition.wits0_observability import Wits0CaptureEngine
 
 __all__ = [
     "WITS0_PROFILE_SCHEMA_VERSION",
