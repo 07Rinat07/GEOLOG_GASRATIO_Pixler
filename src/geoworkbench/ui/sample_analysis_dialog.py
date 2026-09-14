@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 from PySide6.QtWidgets import (
@@ -17,13 +18,12 @@ from PySide6.QtWidgets import (
 )
 
 from geoworkbench.domain.models import CuttingsSample
-from geoworkbench.domain.localized_content import localized_text
 from geoworkbench.services.lba_standard import (
     LBA_STANDARD_GROUPS,
     all_lba_color_labels,
     lba_intensity_name,
 )
-from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.localization import AppLanguage, LANGUAGE_NAMES
 
 
 _TEXT = {
@@ -95,6 +95,7 @@ _TEXT = {
     ),
 }
 
+
 def _editable_combo(items: list[str]) -> QComboBox:
     control = QComboBox()
     control.setEditable(True)
@@ -140,13 +141,10 @@ class SampleAnalysisDialog(QDialog):
         self.lba_group_input.addItem("—", None)
         for standard in LBA_STANDARD_GROUPS:
             self.lba_group_input.addItem(
-                f"{standard.group} — {standard.code}: "
-                f"{standard.localized_type_name(language)}",
+                f"{standard.group} — {standard.code}: {standard.localized_type_name(language)}",
                 standard.group,
             )
-        self.lba_type_input = _editable_combo(
-            [standard.code for standard in LBA_STANDARD_GROUPS]
-        )
+        self.lba_type_input = _editable_combo([standard.code for standard in LBA_STANDARD_GROUPS])
         self.lba_group_input.currentIndexChanged.connect(self._on_lba_group_changed)
         self.lba_intensity_input = QComboBox()
         self.lba_intensity_input.addItem("—", None)
@@ -170,7 +168,24 @@ class SampleAnalysisDialog(QDialog):
         )
         self.lba_odour_input = _editable_combo(["None", "Faint", "Moderate", "Strong"])
         self.lba_stain_input = _editable_combo(["Pinpoint", "Spotty", "Patchy", "Even"])
-        self.lba_description_input = QLineEdit()
+        self._initial_lba_description_i18n: dict[str, str] = {}
+        self._initial_interpretation_i18n: dict[str, str] = {}
+        self._lba_description_dirty_languages: set[str] = set()
+        self._interpretation_dirty_languages: set[str] = set()
+        self.lba_description_tabs = QTabWidget()
+        self.lba_description_tabs.setObjectName("lba-description-language-tabs")
+        self.lba_description_inputs: dict[str, QLineEdit] = {}
+        for content_language in AppLanguage:
+            language_code = content_language.value
+            lba_editor = QLineEdit()
+            lba_editor.setObjectName(f"lba-description-{language_code}")
+            lba_editor.textChanged.connect(
+                lambda _text, code=language_code: self._lba_description_dirty_languages.add(code)
+            )
+            self.lba_description_inputs[language_code] = lba_editor
+            self.lba_description_tabs.addTab(lba_editor, LANGUAGE_NAMES[content_language])
+        self.lba_description_tabs.setCurrentIndex(tuple(AppLanguage).index(language))
+        self.lba_description_input = self.lba_description_inputs[language.value]
         lba = QWidget()
         lba_form = QFormLayout(lba)
         analysis_rows: tuple[tuple[str, QWidget], ...] = (
@@ -186,7 +201,7 @@ class SampleAnalysisDialog(QDialog):
             (text[14], self.lba_residue_color_input),
             (text[15], self.lba_odour_input),
             (text[16], self.lba_stain_input),
-            (text[17], self.lba_description_input),
+            (text[17], self.lba_description_tabs),
         )
         for label, analysis_control in analysis_rows:
             lba_form.addRow(label, analysis_control)
@@ -199,9 +214,24 @@ class SampleAnalysisDialog(QDialog):
         tabs.addTab(lba_scroll, text[2])
         interpretation = QWidget()
         interpretation_layout = QVBoxLayout(interpretation)
-        self.interpretation_input = QPlainTextEdit()
-        self.interpretation_input.setPlaceholderText(text[19])
-        interpretation_layout.addWidget(self.interpretation_input)
+        self.interpretation_language_tabs = QTabWidget()
+        self.interpretation_language_tabs.setObjectName("analysis-interpretation-language-tabs")
+        self.interpretation_inputs: dict[str, QPlainTextEdit] = {}
+        for content_language in AppLanguage:
+            language_code = content_language.value
+            interpretation_editor = QPlainTextEdit()
+            interpretation_editor.setObjectName(f"analysis-interpretation-{language_code}")
+            interpretation_editor.setPlaceholderText(_TEXT[content_language][19])
+            interpretation_editor.textChanged.connect(
+                lambda code=language_code: self._interpretation_dirty_languages.add(code)
+            )
+            self.interpretation_inputs[language_code] = interpretation_editor
+            self.interpretation_language_tabs.addTab(
+                interpretation_editor, LANGUAGE_NAMES[content_language]
+            )
+        self.interpretation_language_tabs.setCurrentIndex(tuple(AppLanguage).index(language))
+        self.interpretation_input = self.interpretation_inputs[language.value]
+        interpretation_layout.addWidget(self.interpretation_language_tabs)
         tabs.addTab(interpretation, text[18])
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
@@ -257,20 +287,24 @@ class SampleAnalysisDialog(QDialog):
         self.lba_residue_color_input.setCurrentText(sample.lba_residue_color or "")
         self.lba_odour_input.setCurrentText(sample.lba_odour or "")
         self.lba_stain_input.setCurrentText(sample.lba_stain or "")
-        self.lba_description_input.setText(
-            localized_text(
-                sample.lba_description_i18n,
-                self.language,
-                legacy=sample.lba_description,
-            )
-        )
-        self.interpretation_input.setPlainText(
-            localized_text(
-                sample.analysis_interpretation_i18n,
-                self.language,
-                legacy=sample.analysis_interpretation,
-            )
-        )
+        self._initial_lba_description_i18n = dict(sample.lba_description_i18n)
+        self._initial_interpretation_i18n = dict(sample.analysis_interpretation_i18n)
+        self._lba_description_dirty_languages.clear()
+        self._interpretation_dirty_languages.clear()
+        for language_code, lba_editor in self.lba_description_inputs.items():
+            value = sample.lba_description_i18n.get(language_code, "")
+            if language_code == "ru" and not value:
+                value = sample.lba_description or ""
+            lba_editor.blockSignals(True)
+            lba_editor.setText(value)
+            lba_editor.blockSignals(False)
+        for language_code, interpretation_editor in self.interpretation_inputs.items():
+            value = sample.analysis_interpretation_i18n.get(language_code, "")
+            if language_code == "ru" and not value:
+                value = sample.analysis_interpretation or ""
+            interpretation_editor.blockSignals(True)
+            interpretation_editor.setPlainText(value)
+            interpretation_editor.blockSignals(False)
 
     def values(self) -> dict[str, Any]:
         return {
@@ -293,5 +327,33 @@ class SampleAnalysisDialog(QDialog):
             "lba_odour": self.lba_odour_input.currentText(),
             "lba_stain": self.lba_stain_input.currentText(),
             "lba_description": self.lba_description_input.text(),
+            "lba_description_i18n": self._localized_values(
+                self._initial_lba_description_i18n,
+                self.lba_description_inputs,
+                self._lba_description_dirty_languages,
+            ),
             "analysis_interpretation": self.interpretation_input.toPlainText(),
+            "analysis_interpretation_i18n": self._localized_values(
+                self._initial_interpretation_i18n,
+                self.interpretation_inputs,
+                self._interpretation_dirty_languages,
+            ),
         }
+
+    @staticmethod
+    def _localized_values(
+        initial: dict[str, str],
+        editors: Mapping[str, QLineEdit | QPlainTextEdit],
+        dirty_languages: set[str],
+    ) -> dict[str, str]:
+        values = dict(initial)
+        for language in dirty_languages:
+            editor = editors[language]
+            text = (
+                editor.text() if isinstance(editor, QLineEdit) else editor.toPlainText()
+            ).strip()
+            if text:
+                values[language] = text
+            else:
+                values.pop(language, None)
+        return values

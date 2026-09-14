@@ -27,6 +27,33 @@ def test_cuttings_interval_stores_percent_composition() -> None:
     assert controller.session.dirty is True
 
 
+def test_sample_analysis_saves_all_author_text_languages_atomically() -> None:
+    controller = _controller()
+    sample = controller.set_analysis(
+        500,
+        510,
+        calcite_percent=62.5,
+        lba_description_i18n={"ru": "Свечение", "kk": "Жарқырау", "en": "Fluorescence"},
+        analysis_interpretation_i18n={"ru": "Нефть", "kk": "Мұнай", "en": "Oil show"},
+    )
+
+    assert sample.lba_description_i18n["en"] == "Fluorescence"
+    assert sample.analysis_interpretation_i18n["kk"] == "Мұнай"
+    assert sample.lba_description == "Свечение"
+    assert sample.analysis_interpretation == "Нефть"
+
+    with pytest.raises(ValueError, match="язык"):
+        controller.set_analysis(
+            500,
+            510,
+            calcite_percent=10.0,
+            lba_description_i18n={"invalid": "broken"},
+        )
+
+    assert sample.calcite_percent == 62.5
+    assert sample.lba_description_i18n["en"] == "Fluorescence"
+
+
 def test_cuttings_requires_hundred_percent_and_non_overlapping_interval() -> None:
     controller = _controller()
 
@@ -219,9 +246,7 @@ def test_existing_cuttings_sample_can_change_interval_and_rocks_without_losing_a
 
     assert updated is sample
     assert (sample.top_depth, sample.bottom_depth) == (502.0, 512.0)
-    assert [(item.lithotype_id, item.percentage) for item in sample.components] == [
-        ("clay", 100.0)
-    ]
+    assert [(item.lithotype_id, item.percentage) for item in sample.components] == [("clay", 100.0)]
     assert sample.description == "Saved text"
     assert sample.calcite_percent == 55.0
     assert sample.dolomite_percent == 20.0

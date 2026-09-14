@@ -412,6 +412,8 @@ class CuttingsController:
         lba_description: str | None = None,
         analysis_interpretation: str | None = None,
         content_language: object | None = None,
+        lba_description_i18n: object | None = None,
+        analysis_interpretation_i18n: object | None = None,
     ) -> CuttingsSample:
         top, bottom = self._validate_interval(top_depth, bottom_depth)
         calcite, dolomite = self._validate_calcimetry(calcite_percent, dolomite_percent)
@@ -433,12 +435,18 @@ class CuttingsController:
                 analysis_interpretation, 4000, "Текст интерпретации"
             ),
         }
+        localized_lba = self._validate_localized_texts(lba_description_i18n, maximum=2_000)
+        localized_interpretation = self._validate_localized_texts(
+            analysis_interpretation_i18n, maximum=20_000
+        )
         if (
             calcite is None
             and dolomite is None
             and group is None
             and intensity is None
             and not any(strings.values())
+            and not localized_lba
+            and not localized_interpretation
         ):
             raise ValueError("Укажите хотя бы один результат кальциметрии или ЛБА")
         sample = self._find_exact_sample(top, bottom)
@@ -462,10 +470,18 @@ class CuttingsController:
         sample.lba_residue_color = strings["residue_color"]
         sample.lba_odour = strings["odour"]
         sample.lba_stain = strings["stain"]
-        if content_language is None:
+        if (
+            content_language is None
+            and lba_description_i18n is None
+            and analysis_interpretation_i18n is None
+        ):
             sample.lba_description = strings["description"]
             sample.analysis_interpretation = strings["interpretation"]
-        else:
+        elif (
+            content_language is not None
+            and lba_description_i18n is None
+            and analysis_interpretation_i18n is None
+        ):
             language = normalize_content_language(content_language)
             set_localized_text(
                 sample.lba_description_i18n,
@@ -483,8 +499,40 @@ class CuttingsController:
                 sample.lba_description = strings["description"]
                 sample.analysis_interpretation = strings["interpretation"]
             self._bump_content(language)
+        changed_languages: set[str] = set()
+        if localized_lba is not None:
+            previous_languages = set(sample.lba_description_i18n)
+            sample.lba_description_i18n.clear()
+            sample.lba_description_i18n.update(localized_lba)
+            if "ru" in localized_lba:
+                sample.lba_description = localized_lba["ru"]
+            elif "ru" in previous_languages:
+                sample.lba_description = None
+            changed_languages |= previous_languages | set(localized_lba)
+        if localized_interpretation is not None:
+            previous_languages = set(sample.analysis_interpretation_i18n)
+            sample.analysis_interpretation_i18n.clear()
+            sample.analysis_interpretation_i18n.update(localized_interpretation)
+            if "ru" in localized_interpretation:
+                sample.analysis_interpretation = localized_interpretation["ru"]
+            elif "ru" in previous_languages:
+                sample.analysis_interpretation = None
+            changed_languages |= previous_languages | set(localized_interpretation)
+        for language in changed_languages:
+            if language != "und":
+                self._bump_content(language)
         self.session.dirty = True
         return sample
+
+    @staticmethod
+    def _validate_localized_texts(value: object | None, *, maximum: int) -> dict[str, str] | None:
+        if value is None:
+            return None
+        return validate_localized_texts(
+            value,  # type: ignore[arg-type]
+            maximum=maximum,
+            allow_undetermined=True,
+        )
 
     @staticmethod
     def localized_description(sample: CuttingsSample, language: object) -> str:
