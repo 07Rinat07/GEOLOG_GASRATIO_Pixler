@@ -101,7 +101,7 @@ class Witsml1411Dialog(QDialog):
 
         form = QFormLayout()
         self.geoscape_preset_button = QPushButton(
-            self._t("witsml1411.geoscape_preset"), self
+            self._field_text("preset"), self
         )
         self.geoscape_preset_button.clicked.connect(self._apply_geoscape_preset)
         self.profile_combo = QComboBox(self)
@@ -113,7 +113,7 @@ class Witsml1411Dialog(QDialog):
         self.verify_tls = QCheckBox(self._t("witsml1411.verify_tls"), self)
         self.verify_tls.setChecked(True)
         self.allow_private_http = QCheckBox(
-            self._t("witsml1411.allow_private_http"), self
+            self._field_text("allow_private_http"), self
         )
         self.timeout = QSpinBox(self)
         self.timeout.setRange(1, 600)
@@ -121,7 +121,7 @@ class Witsml1411Dialog(QDialog):
         self.attempts = QSpinBox(self)
         self.attempts.setRange(1, 10)
         self.attempts.setValue(3)
-        form.addRow(self._t("witsml1411.quick_setup"), self.geoscape_preset_button)
+        form.addRow(self._field_text("quick_setup"), self.geoscape_preset_button)
         form.addRow(self._t("witsml1411.profile"), self.profile_combo)
         form.addRow(self._t("witsml1411.endpoint"), self.endpoint)
         form.addRow(self._t("witsml1411.username"), self.username)
@@ -185,6 +185,44 @@ class Witsml1411Dialog(QDialog):
 
     def _t(self, key: str, **kwargs: object) -> str:
         return self.localizer.text(key, **kwargs)
+
+    def _field_text(self, key: str, **kwargs: object) -> str:
+        translations = {
+            AppLanguage.RU: {
+                "quick_setup": "Быстрая настройка",
+                "preset": "GeoScape — 192.168.0.100:8080 (WITSML Proxy)",
+                "allow_private_http": (
+                    "Разрешить HTTP только для частного IPv4-адреса полевой сети"
+                ),
+                "warning": (
+                    "Соединение {endpoint} не шифруется. Продолжайте только в "
+                    "изолированной доверенной полевой сети. Подключиться?"
+                ),
+            },
+            AppLanguage.KK: {
+                "quick_setup": "Жылдам баптау",
+                "preset": "GeoScape — 192.168.0.100:8080 (WITSML Proxy)",
+                "allow_private_http": (
+                    "HTTP-ті тек далалық желінің жеке IPv4 мекенжайына рұқсат ету"
+                ),
+                "warning": (
+                    "{endpoint} қосылымы шифрланбайды. Тек оқшауланған сенімді "
+                    "далалық желіде жалғастырыңыз. Қосылу керек пе?"
+                ),
+            },
+            AppLanguage.EN: {
+                "quick_setup": "Quick setup",
+                "preset": "GeoScape — 192.168.0.100:8080 (WITSML Proxy)",
+                "allow_private_http": (
+                    "Allow HTTP only for a private field-network IPv4 address"
+                ),
+                "warning": (
+                    "The {endpoint} connection is not encrypted. Continue only on an "
+                    "isolated trusted field network. Connect?"
+                ),
+            },
+        }
+        return translations[self.localizer.language][key].format(**kwargs)
 
     def _load_profiles(self) -> None:
         self.profile_combo.blockSignals(True)
@@ -254,7 +292,7 @@ class Witsml1411Dialog(QDialog):
             response = QMessageBox.warning(
                 self,
                 self._t("witsml1411.title"),
-                self._t("witsml1411.private_http_warning", endpoint=profile.endpoint),
+                self._field_text("warning", endpoint=profile.endpoint),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No,
             )

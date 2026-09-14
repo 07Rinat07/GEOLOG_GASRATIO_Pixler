@@ -43,7 +43,7 @@ def test_witsml_soap_dialog_contains_geoscape_field_preset_and_confirmation() ->
     assert "http://192.168.0.100:8080/soap/IGSW/WITSMLProxy/Inf" in source
     assert "allow_private_http.setChecked(True)" in source
     assert "profile.uses_insecure_private_http" in source
-    assert "witsml1411.private_http_warning" in source
+    assert '_field_text("warning", endpoint=profile.endpoint)' in source
 
 
 @pytest.mark.skipif(

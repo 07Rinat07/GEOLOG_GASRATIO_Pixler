@@ -176,10 +176,10 @@ class Wits0CaptureDialog(QDialog):
         form = QFormLayout(group)
 
         self.field_preset_button = QPushButton(
-            self._t("wits0.geoscape_field_preset"), group
+            self._field_preset_text("button"), group
         )
         self.field_preset_button.clicked.connect(self._apply_geoscape_field_preset)
-        form.addRow(self._t("wits0.quick_setup"), self.field_preset_button)
+        form.addRow(self._field_preset_text("label"), self.field_preset_button)
 
         self.mode_combo = QComboBox(group)
         self.mode_combo.addItem(
@@ -320,6 +320,23 @@ class Wits0CaptureDialog(QDialog):
         self.allowed_networks_edit.clear()
         self.allow_wildcard_bind_check.setChecked(False)
         self.source_edit.setText("GeoScape-GSWITS-Halliburton")
+
+    def _field_preset_text(self, role: str) -> str:
+        translations = {
+            AppLanguage.RU: {
+                "label": "Быстрая настройка",
+                "button": "GeoScape / Halliburton — 192.168.0.100:2041",
+            },
+            AppLanguage.KK: {
+                "label": "Жылдам баптау",
+                "button": "GeoScape / Halliburton — 192.168.0.100:2041",
+            },
+            AppLanguage.EN: {
+                "label": "Quick setup",
+                "button": "GeoScape / Halliburton — 192.168.0.100:2041",
+            },
+        }
+        return translations[self.language][role]
 
     def _build_status_group(self) -> QGroupBox:
         group = QGroupBox(self._t("wits0.status_group"), self)
