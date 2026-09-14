@@ -17,6 +17,7 @@ _LOGGED_EVENT_KINDS = frozenset(
         Wits0CaptureEventKind.STATE,
         Wits0CaptureEventKind.CONNECTION,
         Wits0CaptureEventKind.DISCONNECTION,
+        Wits0CaptureEventKind.DIAGNOSTIC,
         Wits0CaptureEventKind.WARNING,
         Wits0CaptureEventKind.ERROR,
         Wits0CaptureEventKind.DISK,
@@ -25,6 +26,7 @@ _LOGGED_EVENT_KINDS = frozenset(
     }
 )
 _LEVEL_BY_KIND = {
+    Wits0CaptureEventKind.DIAGNOSTIC: logging.WARNING,
     Wits0CaptureEventKind.WARNING: logging.WARNING,
     Wits0CaptureEventKind.ERROR: logging.ERROR,
     Wits0CaptureEventKind.DISK: logging.WARNING,
@@ -74,8 +76,9 @@ class Wits0CaptureEngine(_BaseWits0CaptureEngine):
     """WITS0 capture engine with application-level transport diagnostics.
 
     Raw WITS frames and parsed values are deliberately excluded from the shared
-    application log. Only connection, state, warning/error, disk, retention and
-    recovery events are mirrored. Logging failures never interrupt acquisition.
+    application log. Only connection, state, parser-diagnostic, warning/error,
+    disk, retention and recovery events are mirrored. Logging failures never
+    interrupt acquisition.
     """
 
     def _emit(self, event: Wits0CaptureEvent) -> None:
