@@ -29,6 +29,7 @@ from geoworkbench.domain.models import (
     StratigraphyInterval,
     Well,
 )
+from geoworkbench.domain.translation_status import TranslationState, TranslationStatus
 from geoworkbench.data.lossless_las import parse_lossless_las
 from geoworkbench.data.las_import_report import (
     LasImportIssue,
@@ -75,6 +76,56 @@ def make_project() -> Project:
     )
     well = Well("well-1", "Well 1", datasets={dataset.dataset_id: dataset})
     return Project("project-1", "Test project", wells={well.well_id: well})
+
+
+def test_translation_statuses_round_trip_and_legacy_defaults_empty(tmp_path: Path) -> None:
+    project = make_project()
+    project.wells["well-1"].translation_statuses = {
+        "lithology/interval-1/description": {
+            "kk": TranslationStatus(
+                state=TranslationState.REVIEWED,
+                source_language="ru",
+                source_revision=4,
+                translation_revision=2,
+                dependency_revisions={"lithology/interval-1/depth": 3},
+            )
+        }
+    }
+    target = tmp_path / "translation-status.geologpkg"
+
+    save_project(project, target)
+    loaded = load_project(target)
+
+    status = loaded.wells["well-1"].translation_statuses["lithology/interval-1/description"]["kk"]
+    assert status.state is TranslationState.REVIEWED
+    assert status.source_language == "ru"
+    assert status.source_revision == 4
+    assert status.translation_revision == 2
+    assert status.dependency_revisions == {"lithology/interval-1/depth": 3}
+
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    payload["format_version"] = 31
+    payload["project"]["wells"]["well-1"].pop("translation_statuses")
+    assert project_document_from_dict(payload).project.wells["well-1"].translation_statuses == {}
+
+
+def test_translation_status_rejects_invalid_language(tmp_path: Path) -> None:
+    target = tmp_path / "invalid-translation-status.geologpkg"
+    save_project(make_project(), target)
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    payload["project"]["wells"]["well-1"]["translation_statuses"] = {
+        "field": {
+            "de": {
+                "state": "draft",
+                "source_language": "ru",
+                "source_revision": 1,
+                "translation_revision": 1,
+                "dependency_revisions": {},
+            }
+        }
+    }
+    with pytest.raises(ProjectFormatError, match="состояние перевода"):
+        project_document_from_dict(payload)
 
 
 def make_import_report(raw: bytes) -> LasImportReport:
@@ -775,9 +826,9 @@ def test_project_round_trip_preserves_semantic_channel_binding(tmp_path) -> None
     assert restored.semantic.sensor_id == binding.sensor_id
     raw = json.loads(target.read_text(encoding="utf-8"))
     assert raw["format_version"] == PROJECT_FORMAT_VERSION
-    semantic = raw["project"]["wells"]["well-1"]["datasets"]["dataset-1"]["curves"][
-        "curve-1"
-    ]["metadata"]["semantic"]
+    semantic = raw["project"]["wells"]["well-1"]["datasets"]["dataset-1"]["curves"]["curve-1"][
+        "metadata"
+    ]["semantic"]
     assert semantic["quantity_class"] == "volume_fraction"
 
 
@@ -827,9 +878,7 @@ def test_project_roundtrip_preserves_two_pixel_catalog_symbol(tmp_path: Path) ->
 
     save_project(project, target)
     restored = load_project(target)
-    record = annotation_from_canvas(
-        next(iter(restored.wells.values())).canvas_objects[-1]
-    )
+    record = annotation_from_canvas(next(iter(restored.wells.values())).canvas_objects[-1])
 
     assert record.width == 2.0
     assert record.height == 5.0
