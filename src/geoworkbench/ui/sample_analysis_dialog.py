@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 from PySide6.QtWidgets import (
@@ -176,13 +177,13 @@ class SampleAnalysisDialog(QDialog):
         self.lba_description_inputs: dict[str, QLineEdit] = {}
         for content_language in AppLanguage:
             language_code = content_language.value
-            editor = QLineEdit()
-            editor.setObjectName(f"lba-description-{language_code}")
-            editor.textChanged.connect(
+            lba_editor = QLineEdit()
+            lba_editor.setObjectName(f"lba-description-{language_code}")
+            lba_editor.textChanged.connect(
                 lambda _text, code=language_code: self._lba_description_dirty_languages.add(code)
             )
-            self.lba_description_inputs[language_code] = editor
-            self.lba_description_tabs.addTab(editor, LANGUAGE_NAMES[content_language])
+            self.lba_description_inputs[language_code] = lba_editor
+            self.lba_description_tabs.addTab(lba_editor, LANGUAGE_NAMES[content_language])
         self.lba_description_tabs.setCurrentIndex(tuple(AppLanguage).index(language))
         self.lba_description_input = self.lba_description_inputs[language.value]
         lba = QWidget()
@@ -218,14 +219,16 @@ class SampleAnalysisDialog(QDialog):
         self.interpretation_inputs: dict[str, QPlainTextEdit] = {}
         for content_language in AppLanguage:
             language_code = content_language.value
-            editor = QPlainTextEdit()
-            editor.setObjectName(f"analysis-interpretation-{language_code}")
-            editor.setPlaceholderText(_TEXT[content_language][19])
-            editor.textChanged.connect(
+            interpretation_editor = QPlainTextEdit()
+            interpretation_editor.setObjectName(f"analysis-interpretation-{language_code}")
+            interpretation_editor.setPlaceholderText(_TEXT[content_language][19])
+            interpretation_editor.textChanged.connect(
                 lambda code=language_code: self._interpretation_dirty_languages.add(code)
             )
-            self.interpretation_inputs[language_code] = editor
-            self.interpretation_language_tabs.addTab(editor, LANGUAGE_NAMES[content_language])
+            self.interpretation_inputs[language_code] = interpretation_editor
+            self.interpretation_language_tabs.addTab(
+                interpretation_editor, LANGUAGE_NAMES[content_language]
+            )
         self.interpretation_language_tabs.setCurrentIndex(tuple(AppLanguage).index(language))
         self.interpretation_input = self.interpretation_inputs[language.value]
         interpretation_layout.addWidget(self.interpretation_language_tabs)
@@ -288,20 +291,20 @@ class SampleAnalysisDialog(QDialog):
         self._initial_interpretation_i18n = dict(sample.analysis_interpretation_i18n)
         self._lba_description_dirty_languages.clear()
         self._interpretation_dirty_languages.clear()
-        for language_code, editor in self.lba_description_inputs.items():
+        for language_code, lba_editor in self.lba_description_inputs.items():
             value = sample.lba_description_i18n.get(language_code, "")
             if language_code == "ru" and not value:
                 value = sample.lba_description or ""
-            editor.blockSignals(True)
-            editor.setText(value)
-            editor.blockSignals(False)
-        for language_code, editor in self.interpretation_inputs.items():
+            lba_editor.blockSignals(True)
+            lba_editor.setText(value)
+            lba_editor.blockSignals(False)
+        for language_code, interpretation_editor in self.interpretation_inputs.items():
             value = sample.analysis_interpretation_i18n.get(language_code, "")
             if language_code == "ru" and not value:
                 value = sample.analysis_interpretation or ""
-            editor.blockSignals(True)
-            editor.setPlainText(value)
-            editor.blockSignals(False)
+            interpretation_editor.blockSignals(True)
+            interpretation_editor.setPlainText(value)
+            interpretation_editor.blockSignals(False)
 
     def values(self) -> dict[str, Any]:
         return {
@@ -340,7 +343,7 @@ class SampleAnalysisDialog(QDialog):
     @staticmethod
     def _localized_values(
         initial: dict[str, str],
-        editors: dict[str, QLineEdit | QPlainTextEdit],
+        editors: Mapping[str, QLineEdit | QPlainTextEdit],
         dirty_languages: set[str],
     ) -> dict[str, str]:
         values = dict(initial)
