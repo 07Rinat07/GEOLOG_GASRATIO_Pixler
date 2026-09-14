@@ -5,7 +5,7 @@ import re
 from typing import Callable, TYPE_CHECKING
 from uuid import uuid4
 
-from PySide6.QtCore import QSettings, QStandardPaths, QTimer
+from PySide6.QtCore import QSettings, QStandardPaths, QTimer, Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
+    QScrollArea,
     QSpinBox,
     QTabWidget,
     QVBoxLayout,
@@ -104,11 +105,17 @@ class Wits0CaptureDialog(QDialog):
 
         self.setWindowTitle(self._t("wits0.title"))
         self.resize(980, 720)
+        self.setMinimumSize(640, 480)
         root = QVBoxLayout(self)
-        root.addWidget(self._build_connection_group())
-        root.addWidget(self._build_status_group())
 
-        self.tabs = QTabWidget(self)
+        scroll_content = QWidget(self)
+        scroll_layout = QVBoxLayout(scroll_content)
+        scroll_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_layout.addWidget(self._build_connection_group())
+        scroll_layout.addWidget(self._build_status_group())
+
+        self.tabs = QTabWidget(scroll_content)
+        self.tabs.setMinimumHeight(220)
         self.raw_text = QPlainTextEdit(self)
         self.raw_text.setReadOnly(True)
         self.raw_text.document().setMaximumBlockCount(4_000)
@@ -123,16 +130,27 @@ class Wits0CaptureDialog(QDialog):
         self.tabs.addTab(self.parsed_text, self._t("wits0.parsed_tab"))
         self.tabs.addTab(self.live_view, self._t("wits0.live_tab"))
         self.tabs.addTab(self.event_text, self._t("wits0.events_tab"))
-        root.addWidget(self.tabs, 1)
+        scroll_layout.addWidget(self.tabs, 1)
 
-        actions = QHBoxLayout()
+        self.scroll_area = QScrollArea(self)
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        self.scroll_area.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        self.scroll_area.setWidget(scroll_content)
+        root.addWidget(self.scroll_area, 1)
+
+        actions = QGridLayout()
         self.start_button = QPushButton(self._t("wits0.start"), self)
         self.stop_button = QPushButton(self._t("wits0.stop"), self)
         self.stop_button.setEnabled(False)
         self.start_button.clicked.connect(self._start_capture)
         self.stop_button.clicked.connect(self._stop_capture)
-        actions.addWidget(self.start_button)
-        actions.addWidget(self.stop_button)
+        actions.addWidget(self.start_button, 0, 0)
+        actions.addWidget(self.stop_button, 0, 1)
         self.review_button = QPushButton(self._t("wits0.review_action"), self)
         self.review_button.clicked.connect(self._open_import_review)
         self.reset_discovery_button = QPushButton(
@@ -140,8 +158,8 @@ class Wits0CaptureDialog(QDialog):
             self,
         )
         self.reset_discovery_button.clicked.connect(self._reset_discovery)
-        actions.addWidget(self.review_button)
-        actions.addWidget(self.reset_discovery_button)
+        actions.addWidget(self.review_button, 0, 2)
+        actions.addWidget(self.reset_discovery_button, 0, 3)
         self.start_acquisition_button = QPushButton(
             self._t("wits0.acquisition_start"), self
         )
@@ -154,13 +172,14 @@ class Wits0CaptureDialog(QDialog):
         self.start_acquisition_button.clicked.connect(self._start_acquisition)
         self.flush_acquisition_button.clicked.connect(self._flush_acquisition)
         self.close_acquisition_button.clicked.connect(self._close_acquisition)
-        actions.addWidget(self.start_acquisition_button)
-        actions.addWidget(self.flush_acquisition_button)
-        actions.addWidget(self.close_acquisition_button)
-        actions.addStretch(1)
+        actions.addWidget(self.start_acquisition_button, 1, 0)
+        actions.addWidget(self.flush_acquisition_button, 1, 1)
+        actions.addWidget(self.close_acquisition_button, 1, 2)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, self)
         buttons.rejected.connect(self.close)
-        actions.addWidget(buttons)
+        actions.addWidget(buttons, 1, 3)
+        for column in range(4):
+            actions.setColumnStretch(column, 1)
         root.addLayout(actions)
 
         self.poll_timer = QTimer(self)
