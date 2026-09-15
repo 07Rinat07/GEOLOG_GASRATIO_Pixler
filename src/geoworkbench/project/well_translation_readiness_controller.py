@@ -41,6 +41,7 @@ class WellTranslationReadinessController:
             # and dependency IDs occupy separate namespaces in field identity,
             # so one persisted mapping remains sufficient and version-compatible.
             dependency_revisions=revisions,
+            source_languages=well.authored_field_source_languages,
             include_reviewed=include_reviewed,
         )
 
