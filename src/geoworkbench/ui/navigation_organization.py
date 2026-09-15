@@ -7,10 +7,14 @@ from PySide6.QtCore import QObject, QTimer, Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QDialog, QMainWindow, QMenu, QStyle, QVBoxLayout, QWidget
 
+from geoworkbench.project.well_translation_readiness_controller import (
+    WellTranslationReadinessController,
+)
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.button_animation import install_button_animations
 from geoworkbench.ui.help_center_dialog import HelpCenterDialog
 from geoworkbench.ui.help_content import help_action_text, normalized_language
+from geoworkbench.ui.translation_readiness_dialog import TranslationReadinessDialog
 
 
 _TEXTS = {
@@ -20,6 +24,7 @@ _TEXTS = {
         "reports_menu": "Отчёты по интерпретации",
         "gas_report": "Интерпретация газового каротажа...",
         "gas_window": "Отчёты по интерпретации газового каротажа",
+        "translation_readiness": "Готовность переводов...",
         "wits_accessible": "Центр WITS",
         "wits_tooltip": "WITS, WITSML и ETP: файлы, подключения и потоковые данные",
         "wits_files": "Файлы WITSML 2.x",
@@ -32,6 +37,7 @@ _TEXTS = {
         "reports_menu": "Интерпретация есептері",
         "gas_report": "Газ каротажын интерпретациялау...",
         "gas_window": "Газ каротажын интерпретациялау есептері",
+        "translation_readiness": "Аудармалардың дайындығы...",
         "wits_accessible": "WITS орталығы",
         "wits_tooltip": "WITS, WITSML және ETP: файлдар, қосылымдар және ағындық деректер",
         "wits_files": "WITSML 2.x файлдары",
@@ -44,6 +50,7 @@ _TEXTS = {
         "reports_menu": "Interpretation reports",
         "gas_report": "Mud-gas interpretation...",
         "gas_window": "Mud-gas interpretation reports",
+        "translation_readiness": "Translation readiness...",
         "wits_accessible": "WITS centre",
         "wits_tooltip": "WITS, WITSML, and ETP: files, connections, and streaming data",
         "wits_files": "WITSML 2.x files",
@@ -105,9 +112,11 @@ class NavigationOrganizationController(QObject):
         self.window: Any = window
         self.file_dialog: _WorkspaceDialog | None = None
         self.interpretation_dialog: _WorkspaceDialog | None = None
+        self.translation_readiness_dialog: TranslationReadinessDialog | None = None
         self.help_dialog: HelpCenterDialog | None = None
         self.interpretation_reports_menu: QMenu | None = None
         self.gas_interpretation_action: QAction | None = None
+        self.translation_readiness_action: QAction | None = None
         self.help_center_action: QAction | None = None
         self.wits_menu: QMenu | None = None
         self.wits_files_section: QAction | None = None
@@ -169,6 +178,14 @@ class NavigationOrganizationController(QObject):
         tools_menu.addSeparator()
         tools_menu.addAction(file_action)
         _replace_trigger(file_action, self.open_file_workspace)
+
+        self.translation_readiness_action = QAction(self.window)
+        self.translation_readiness_action.setObjectName("translationReadinessAction")
+        self.translation_readiness_action.triggered.connect(
+            lambda _checked=False: self.open_translation_readiness()
+        )
+        tools_menu.addAction(self.translation_readiness_action)
+        self.window.translation_readiness_action = self.translation_readiness_action
 
         existing_interpretation_action = self.window.interpretation_report_action
         print_menu.removeAction(existing_interpretation_action)
@@ -279,6 +296,10 @@ class NavigationOrganizationController(QObject):
             self.gas_interpretation_action.setText(texts["gas_report"])
         if self.interpretation_dialog is not None:
             self.interpretation_dialog.setWindowTitle(texts["gas_window"])
+        if self.translation_readiness_action is not None:
+            self.translation_readiness_action.setText(texts["translation_readiness"])
+        if self.translation_readiness_dialog is not None:
+            self.translation_readiness_dialog.set_language(language)
         if self.help_center_action is not None:
             self.help_center_action.setText(help_action_text(language))
         if self.help_dialog is not None:
@@ -312,6 +333,33 @@ class NavigationOrganizationController(QObject):
         self.refresh_language()
         if self.interpretation_dialog is not None:
             _show_dialog(self.interpretation_dialog)
+
+    def open_translation_readiness(self) -> None:
+        project_controller = getattr(self.window, "project_controller", None)
+        session = getattr(project_controller, "session", None)
+        if session is None:
+            return
+
+        language = normalized_language(getattr(self.window, "language", AppLanguage.RU))
+        dialog = self.translation_readiness_dialog
+        if dialog is not None and dialog.controller.session is not session:
+            dialog.close()
+            dialog.deleteLater()
+            dialog = None
+
+        if dialog is None:
+            dialog = TranslationReadinessDialog(
+                WellTranslationReadinessController(session),
+                self.window,
+                language=language,
+            )
+            self.translation_readiness_dialog = dialog
+            self.window.translation_readiness_dialog = dialog
+        else:
+            dialog.set_language(language)
+            dialog.refresh()
+
+        _show_dialog(dialog)
 
     def open_help(self, section: str = "overview") -> None:
         language = normalized_language(getattr(self.window, "language", AppLanguage.RU))
