@@ -1,4 +1,4 @@
-<!-- runtime-contract: package=0.7.95; project=v33; form=v17; layout=v25 -->
+<!-- runtime-contract: package=0.7.96; project=v33; form=v17; layout=v25 -->
 # Единый план проекта
 
 Решения и приоритеты обновлены 9 сентября 2026 года. Это единственный канонический план проекта. Завершённые
