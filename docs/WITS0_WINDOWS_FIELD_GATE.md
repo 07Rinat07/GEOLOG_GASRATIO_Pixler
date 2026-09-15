@@ -2,9 +2,10 @@
 
 ## Status
 
-This gate runs in parallel with WITSML development on the target Windows workstation connected to
-real GeoScape/GSWITS traffic. Release 0.7.79 supplies the software and checklist but does not claim
-that the physical field gate has passed.
+This gate runs on the target Windows workstation connected to real GeoScape/GSWITS traffic.
+Release 0.7.96 includes application-level WITS0 transport diagnostics and serialized recovery
+manifest updates, but the physical field gate is not considered passed until the checks below are
+completed on the real network and sustained traffic.
 
 ## Required setup
 
@@ -12,6 +13,31 @@ Record the workstation, Windows build, application build and SHA-256, GSWITS con
 actual IP/port, enabled records and intervals, raw-storage volume, free-space thresholds, retention
 policy, NTP source and test operator. Ports shown in vendor screenshots are examples and must not be
 assumed.
+
+## Network preflight
+
+Before changing WITS0 framing, parser profiles or channel mapping, verify that the target TCP
+listener is reachable from the GEOLOG workstation. From the repository root on Windows PowerShell:
+
+```powershell
+.\scripts\wits0_network_preflight.ps1
+```
+
+The default target is the current field preset `192.168.0.100:2041`. Another endpoint can be checked
+without editing the script:
+
+```powershell
+.\scripts\wits0_network_preflight.ps1 -TargetHost 192.168.0.100 -TargetPort 2041
+```
+
+The report is written under `build/field-evidence` unless `-OutputPath` is supplied. Keep that report
+with the field evidence. `Status=PASS` means the TCP handshake succeeded from the exact workstation
+and selected Windows interface. `Status=FAIL` means routing, interface selection, listener state or
+firewall must be resolved before parser-level diagnosis. ICMP ping is recorded for context only: a
+failed ping does not fail the gate when TCP succeeds.
+
+For the current GeoScape arrangement, verify that the report shows the intended `SourceAddress`,
+`InterfaceAlias`, target `RemotePort=2041` and `TcpTestSucceeded=True` before starting WITS0 capture.
 
 ## Minimum run
 
@@ -21,8 +47,9 @@ rotation, project save/reopen, live-monitor pause/resume and history navigation.
 
 ## Acceptance evidence
 
-Collect the raw `.wits` segments, chunk indexes, connection journal, recovery manifest, project
-file, application log, soak JSON report and screenshots of connection/live-monitor state. Verify:
+Collect the network preflight report, raw `.wits` segments, chunk indexes, connection journal,
+recovery manifest, project file, application log, soak JSON report and screenshots of
+connection/live-monitor state. Verify:
 
 - no accepted TCP bytes exist without a raw reference;
 - connection IDs and disconnect reasons are complete;
