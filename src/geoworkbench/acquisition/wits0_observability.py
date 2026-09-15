@@ -2,13 +2,17 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
+from typing import Unpack
 
+from geoworkbench.acquisition.wits0 import Wits0Profile
 from geoworkbench.acquisition.wits0_capture import (
     Wits0CaptureConfig,
     Wits0CaptureEngine as _BaseWits0CaptureEngine,
     Wits0CaptureEvent,
     Wits0CaptureEventKind,
 )
+from geoworkbench.acquisition.wits0_reliability import Wits0RecoveryChanges
 
 
 _LOGGER = logging.getLogger("geoworkbench")
@@ -90,13 +94,28 @@ def _log_capture_event(config: Wits0CaptureConfig, event: Wits0CaptureEvent) -> 
 
 
 class Wits0CaptureEngine(_BaseWits0CaptureEngine):
-    """WITS0 capture engine with application-level transport diagnostics.
+    """Application-facing WITS0 capture engine with transport diagnostics.
 
     Raw WITS frames and parsed values are deliberately excluded from the shared
     application log. Only connection, state, parser-diagnostic, warning/error,
-    disk, retention and recovery events are mirrored. Logging failures never
-    interrupt acquisition.
+    disk, retention and recovery events are mirrored. Recovery-manifest updates
+    are serialized because both the Qt thread and the capture worker may update
+    the same atomic manifest on Windows. Logging failures never interrupt
+    acquisition.
     """
+
+    def __init__(
+        self,
+        config: Wits0CaptureConfig,
+        *,
+        profile: Wits0Profile | None = None,
+    ) -> None:
+        self._manifest_update_lock = threading.Lock()
+        super().__init__(config, profile=profile)
+
+    def _update_manifest(self, **changes: Unpack[Wits0RecoveryChanges]) -> None:
+        with self._manifest_update_lock:
+            super()._update_manifest(**changes)
 
     def _emit(self, event: Wits0CaptureEvent) -> None:
         super()._emit(event)
