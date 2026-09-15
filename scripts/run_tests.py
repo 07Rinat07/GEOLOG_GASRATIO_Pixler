@@ -33,6 +33,7 @@ _FORCED_NATIVE_BATCH_FILES = frozenset(
         "tests/test_canvas_object_transfer_dialog.py",
         "tests/test_canvas_object_transfer_mainwindow.py",
         "tests/test_curve_view_editing.py",
+        "tests/test_main_window_normalized_gas_tablet.py",
         "tests/test_masterlog_curve_mapping_dialog.py",
     }
 )
