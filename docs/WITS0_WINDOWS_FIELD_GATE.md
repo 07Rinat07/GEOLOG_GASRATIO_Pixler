@@ -39,6 +39,18 @@ failed ping does not fail the gate when TCP succeeds.
 For the current GeoScape arrangement, verify that the report shows the intended `SourceAddress`,
 `InterfaceAlias`, target `RemotePort=2041` and `TcpTestSucceeded=True` before starting WITS0 capture.
 
+## Diagnostic support bundle
+
+The normal application diagnostics ZIP automatically includes recent WITS0 `connections.jsonl`
+lifecycle journals from the default application raw directory. The attachment is generated through
+an allowlist: connection timestamps, IDs, peer/reason and counters are retained, while unknown
+fields are discarded and `raw_file` is reduced to its filename. Each journal attachment is bounded
+to the recent 512 KiB and at most eight journals are included.
+
+Raw `.wits` frame files and channel values are never auto-attached to the support ZIP. If full raw
+capture is required for the field acceptance evidence, transfer it separately under the site's data
+handling rules.
+
 ## Minimum run
 
 Run at least 8 hours; 24 hours is preferred. Include normal traffic, one controlled GSWITS restart,

@@ -21,6 +21,20 @@ _LOGGER_NAME = "geoworkbench"
 _CURRENT: "ApplicationLogManager | None" = None
 _PREVIOUS_SYS_EXCEPTOOK: Callable[..., Any] | None = None
 _PREVIOUS_THREAD_EXCEPTOOK: Callable[..., Any] | None = None
+_WITS0_DIAGNOSTIC_MAX_JOURNALS = 8
+_WITS0_DIAGNOSTIC_MAX_JOURNAL_BYTES = 512 * 1024
+_WITS0_JOURNAL_FIELDS = (
+    "event",
+    "at",
+    "run_id",
+    "connection_id",
+    "peer",
+    "reason",
+    "bytes_received",
+    "frames_received",
+    "parse_error_count",
+    "raw_file",
+)
 
 
 def _utc_now() -> datetime:
@@ -40,6 +54,64 @@ def _context_text(context: dict[str, object]) -> str:
         for key, value in sorted(context.items())
         if value is not None
     )
+
+
+def _file_tail(path: Path, *, max_bytes: int) -> bytes:
+    """Read a bounded tail of a file without retaining a partial first line."""
+
+    try:
+        size = path.stat().st_size
+        with path.open("rb") as stream:
+            if size <= max_bytes:
+                return stream.read()
+            stream.seek(-max_bytes, os.SEEK_END)
+            chunk = stream.read(max_bytes)
+    except OSError:
+        return b""
+    first_newline = chunk.find(b"\n")
+    return chunk[first_newline + 1 :] if first_newline >= 0 else b""
+
+
+def _safe_raw_filename(value: object) -> str | None:
+    if value is None:
+        return None
+    normalized = str(value).replace("\\", "/").rstrip("/")
+    if not normalized:
+        return None
+    return normalized.rsplit("/", 1)[-1]
+
+
+def _sanitized_wits0_journal(path: Path) -> bytes:
+    """Return bounded allowlisted WITS0 lifecycle JSONL for support diagnostics."""
+
+    payload = _file_tail(path, max_bytes=_WITS0_DIAGNOSTIC_MAX_JOURNAL_BYTES)
+    if not payload:
+        return b""
+    sanitized_lines: list[str] = []
+    for raw_line in payload.decode("utf-8", errors="replace").splitlines():
+        try:
+            record = json.loads(raw_line)
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(record, dict):
+            continue
+        sanitized: dict[str, object] = {}
+        for field in _WITS0_JOURNAL_FIELDS:
+            if field not in record or record[field] is None:
+                continue
+            if field == "raw_file":
+                filename = _safe_raw_filename(record[field])
+                if filename is not None:
+                    sanitized[field] = filename
+            else:
+                sanitized[field] = record[field]
+        if sanitized:
+            sanitized_lines.append(
+                json.dumps(sanitized, ensure_ascii=False, separators=(",", ":"))
+            )
+    if not sanitized_lines:
+        return b""
+    return ("\n".join(sanitized_lines) + "\n").encode("utf-8")
 
 
 @dataclass(frozen=True, slots=True)
@@ -278,6 +350,24 @@ class ApplicationLogManager:
         ]
         return tuple(sorted(candidates, key=lambda item: item.stat().st_mtime, reverse=True))
 
+    def _wits0_connection_journals(self) -> tuple[Path, ...]:
+        """Find recent default-location WITS0 lifecycle journals only."""
+
+        root = self.log_directory.parent / "raw" / "wits0"
+        if not root.is_dir():
+            return ()
+        candidates: list[tuple[float, Path]] = []
+        for path in root.glob("*/connections.jsonl"):
+            try:
+                if path.is_file() and path.stat().st_size > 0:
+                    candidates.append((path.stat().st_mtime, path))
+            except OSError:
+                continue
+        candidates.sort(key=lambda item: item[0], reverse=True)
+        return tuple(
+            path for _, path in candidates[:_WITS0_DIAGNOSTIC_MAX_JOURNALS]
+        )
+
     def build_diagnostic_bundle(
         self,
         destination: str | Path,
@@ -315,6 +405,13 @@ class ApplicationLogManager:
                 arcname = f"logs/{source.name}"
                 archive.write(source, arcname)
                 included.append(arcname)
+            for index, source in enumerate(self._wits0_connection_journals(), start=1):
+                payload = _sanitized_wits0_journal(source)
+                if not payload:
+                    continue
+                arcname = f"attachments/wits0/connections-{index:02d}.jsonl"
+                archive.writestr(arcname, payload)
+                included.append(arcname)
             for source in extra_files:
                 source = Path(source)
                 if not source.is_file():
@@ -325,8 +422,10 @@ class ApplicationLogManager:
             archive.writestr(
                 "README.txt",
                 "GEOLOG GASRATIO@Pixler diagnostics bundle.\n"
-                "It contains runtime logs and system metadata only.\n"
-                "Project datasets, LAS values, forms and user files are not included.\n",
+                "It contains runtime logs, system metadata and sanitized WITS0 connection "
+                "lifecycle metadata when available.\n"
+                "Project datasets, LAS values, forms, raw WITS frames and user files are not "
+                "included automatically.\n",
             )
             included.append("README.txt")
         os.replace(temporary, target)
