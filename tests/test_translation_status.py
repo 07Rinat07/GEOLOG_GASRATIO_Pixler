@@ -79,15 +79,25 @@ def test_editing_translation_starts_new_draft_revision() -> None:
     assert second[FIELD_ID]["kk"].source_revision == 2
 
 
-def test_review_rejects_changed_source_or_dependencies() -> None:
+def test_review_rejects_changed_source_language_revision_or_dependencies() -> None:
     draft = _draft(source_revision=2)
 
+    with pytest.raises(TranslationStatusError, match="Язык исходного текста изменился"):
+        TranslationStatusWorkflow.review(
+            draft,
+            field_id=FIELD_ID,
+            language="kk",
+            current_source_revision=2,
+            current_source_language="en",
+            current_dependency_revisions={"interval-1/depth": 2},
+        )
     with pytest.raises(TranslationStatusError, match="Исходный текст изменился"):
         TranslationStatusWorkflow.review(
             draft,
             field_id=FIELD_ID,
             language="kk",
             current_source_revision=3,
+            current_source_language="ru",
             current_dependency_revisions={"interval-1/depth": 2},
         )
     with pytest.raises(TranslationStatusError, match="Зависимые данные изменились"):
@@ -96,6 +106,7 @@ def test_review_rejects_changed_source_or_dependencies() -> None:
             field_id=FIELD_ID,
             language="kk",
             current_source_revision=2,
+            current_source_language="ru",
             current_dependency_revisions={"interval-1/depth": 5},
         )
 

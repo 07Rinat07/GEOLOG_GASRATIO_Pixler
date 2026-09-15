@@ -157,15 +157,17 @@ class TranslationStatusController:
         current_dependency_revisions: Mapping[str, int] | None = None,
     ) -> TranslationStatus:
         well = self._require_well()
+        normalized_field_id = self._field_id(field_id)
         after = TranslationStatusWorkflow.review(
             well.translation_statuses,
-            field_id=field_id,
+            field_id=normalized_field_id,
             language=language,
             current_source_revision=current_source_revision,
+            current_source_language=well.authored_field_source_languages.get(normalized_field_id),
             current_dependency_revisions=current_dependency_revisions,
         )
         self._apply(well, after)
-        status = self.status(field_id, language)
+        status = self.status(normalized_field_id, language)
         assert status is not None
         return status
 

@@ -114,6 +114,7 @@ class TranslationStatusWorkflow:
         field_id: str,
         language: object,
         current_source_revision: int,
+        current_source_language: object | None = None,
         current_dependency_revisions: Mapping[str, int] | None = None,
     ) -> TranslationStatusRegistry:
         normalized_field_id = TranslationStatusWorkflow._field_id(field_id)
@@ -121,6 +122,15 @@ class TranslationStatusWorkflow:
         current = registry.get(normalized_field_id, {}).get(language_code)
         if current is None or current.state is TranslationState.MISSING:
             raise TranslationStatusError("Нельзя проверить отсутствующий перевод")
+        if current_source_language is not None:
+            normalized_source_language = normalize_content_language(
+                current_source_language,
+                allow_undetermined=True,
+            )
+            if current.source_language != normalized_source_language:
+                raise TranslationStatusError(
+                    "Язык исходного текста изменился; перевод требует обновления"
+                )
         dependencies = TranslationStatusWorkflow._dependencies(current_dependency_revisions)
         validated_source_revision = TranslationStatusWorkflow._revision(
             current_source_revision, "исходного текста"

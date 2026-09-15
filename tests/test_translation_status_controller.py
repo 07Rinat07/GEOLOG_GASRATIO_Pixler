@@ -6,6 +6,9 @@ import pytest
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
 from geoworkbench.domain.translation_status import TranslationState, TranslationStatusError
 from geoworkbench.domain.translation_readiness import TranslatableField
+from geoworkbench.project.authored_field_source_language_controller import (
+    AuthoredFieldSourceLanguageController,
+)
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.project.translation_status_controller import TranslationStatusController
 
@@ -90,6 +93,34 @@ def test_failed_review_is_atomic_and_does_not_enter_history() -> None:
     assert well.content_revision == revision
     controller.undo()
     assert controller.can_undo is False
+
+
+def test_review_rejects_changed_source_language_from_well_metadata() -> None:
+    controller = _controller()
+    source_languages = AuthoredFieldSourceLanguageController(controller.session)
+    source_languages.set_source_language(FIELD_ID, "ru")
+    controller.begin_draft(
+        field_id=FIELD_ID,
+        language="kk",
+        source_language="ru",
+        source_revision=0,
+    )
+    well = controller.session.current_well
+    assert well is not None
+    source_languages.set_source_language(FIELD_ID, "en")
+    before = dict(well.translation_statuses)
+    revision = well.content_revision
+
+    with pytest.raises(TranslationStatusError, match="Язык исходного текста изменился"):
+        controller.review(
+            field_id=FIELD_ID,
+            language="kk",
+            current_source_revision=0,
+        )
+
+    assert well.translation_statuses == before
+    assert controller.status(FIELD_ID, "kk").state is TranslationState.DRAFT
+    assert well.content_revision == revision
 
 
 def test_invalidation_is_noop_for_unrelated_change_and_records_related_change() -> None:
