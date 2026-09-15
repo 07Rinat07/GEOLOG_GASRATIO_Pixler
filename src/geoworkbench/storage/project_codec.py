@@ -1,4 +1,4 @@
-"""Project codec v33 for per-field authored-content revisions."""
+"""Project codec v34 for explicit authored-field source languages."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from geoworkbench.storage import project_codec_v29 as _v29
 from geoworkbench.storage.project_codec_v29 import ProjectDocument, ProjectFormatError
 
 
-PROJECT_FORMAT_VERSION = 33
+PROJECT_FORMAT_VERSION = 34
 _MAX_TEMPLATE_BLOCKS_PER_SAMPLE = 10_000
 _BLOCK_KEYS = {"block_id", "template_id", "template_version", "text_i18n"}
 
@@ -47,6 +47,25 @@ def _validated_revisions(value: object) -> dict[str, int]:
             raise ProjectFormatError("Ревизия авторского поля должна быть неотрицательной")
         revisions[field_id] = revision
     return revisions
+
+
+def _validated_source_languages(value: object) -> dict[str, str]:
+    if not isinstance(value, Mapping):
+        raise ProjectFormatError("authored_field_source_languages должен быть объектом")
+    source_languages: dict[str, str] = {}
+    for field_id, language in value.items():
+        if not isinstance(field_id, str) or not field_id.strip():
+            raise ProjectFormatError("ID авторского поля не может быть пустым")
+        normalized_field_id = field_id.strip()
+        if normalized_field_id in source_languages:
+            raise ProjectFormatError("ID языков оригинала авторских полей не должны повторяться")
+        if not isinstance(language, str):
+            raise ProjectFormatError("Язык оригинала авторского поля должен быть строкой")
+        try:
+            source_languages[normalized_field_id] = normalize_content_language(language)
+        except ValueError as exc:
+            raise ProjectFormatError("Некорректный язык оригинала авторского поля") from exc
+    return source_languages
 
 
 def _format_version(data: dict[str, Any]) -> int:
@@ -89,6 +108,7 @@ def _legacy_payload_and_blocks(
     dict[tuple[str, str, str], tuple[dict[str, str], dict[str, str]]],
     dict[str, dict[str, dict[str, TranslationStatus]]],
     dict[str, dict[str, int]],
+    dict[str, dict[str, str]],
 ]:
     legacy = deepcopy(data)
     found: dict[tuple[str, str], list[DescriptionTemplateBlock]] = {}
@@ -96,6 +116,7 @@ def _legacy_payload_and_blocks(
     interval_texts: dict[tuple[str, str, str], tuple[dict[str, str], dict[str, str]]] = {}
     translation_statuses: dict[str, dict[str, dict[str, TranslationStatus]]] = {}
     authored_field_revisions: dict[str, dict[str, int]] = {}
+    authored_field_source_languages: dict[str, dict[str, str]] = {}
     root = legacy.get("project", legacy)
     wells = root.get("wells", {}) if isinstance(root, dict) else {}
     if not isinstance(wells, dict):
@@ -103,6 +124,11 @@ def _legacy_payload_and_blocks(
     for well_id, well in wells.items():
         if not isinstance(well, dict):
             continue
+        raw_source_languages = well.pop("authored_field_source_languages", {})
+        if version >= 34:
+            authored_field_source_languages[str(well_id)] = _validated_source_languages(
+                raw_source_languages
+            )
         raw_field_revisions = well.pop("authored_field_revisions", {})
         if version >= 33:
             authored_field_revisions[str(well_id)] = _validated_revisions(raw_field_revisions)
@@ -191,6 +217,7 @@ def _legacy_payload_and_blocks(
         interval_texts,
         translation_statuses,
         authored_field_revisions,
+        authored_field_source_languages,
     )
 
 
@@ -201,10 +228,12 @@ def _attach_blocks(
     interval_texts: dict[tuple[str, str, str], tuple[dict[str, str], dict[str, str]]],
     translation_statuses: dict[str, dict[str, dict[str, TranslationStatus]]],
     authored_field_revisions: dict[str, dict[str, int]],
+    authored_field_source_languages: dict[str, dict[str, str]],
 ) -> None:
     for well_id, well in project.wells.items():
         well.translation_statuses = translation_statuses.get(well_id, {})
         well.authored_field_revisions = authored_field_revisions.get(well_id, {})
+        well.authored_field_source_languages = authored_field_source_languages.get(well_id, {})
         for sample in well.cuttings:
             sample.description_template_blocks = blocks.get((well_id, sample.sample_id), [])
         for interpretation_id, interpretation in well.interpretations.items():
@@ -221,18 +250,38 @@ def project_from_dict(data: dict[str, Any]) -> Project:
     # A bare project object has no document-level version marker and therefore
     # follows the current schema. Versioned documents are handled below.
     version = _format_version(data) if "format_version" in data else PROJECT_FORMAT_VERSION
-    legacy, blocks, interpretation_texts, interval_texts, statuses, revisions = (
-        _legacy_payload_and_blocks(data, version)
-    )
+    (
+        legacy,
+        blocks,
+        interpretation_texts,
+        interval_texts,
+        statuses,
+        revisions,
+        source_languages,
+    ) = _legacy_payload_and_blocks(data, version)
     project = _v29.project_from_dict(legacy)
-    _attach_blocks(project, blocks, interpretation_texts, interval_texts, statuses, revisions)
+    _attach_blocks(
+        project,
+        blocks,
+        interpretation_texts,
+        interval_texts,
+        statuses,
+        revisions,
+        source_languages,
+    )
     return project
 
 
 def project_document_from_dict(data: dict[str, Any]) -> ProjectDocument:
-    legacy, blocks, interpretation_texts, interval_texts, statuses, revisions = (
-        _legacy_payload_and_blocks(data, _format_version(data))
-    )
+    (
+        legacy,
+        blocks,
+        interpretation_texts,
+        interval_texts,
+        statuses,
+        revisions,
+        source_languages,
+    ) = _legacy_payload_and_blocks(data, _format_version(data))
     document = _v29.project_document_from_dict(legacy)
     _attach_blocks(
         document.project,
@@ -241,6 +290,7 @@ def project_document_from_dict(data: dict[str, Any]) -> ProjectDocument:
         interval_texts,
         statuses,
         revisions,
+        source_languages,
     )
     return document
 

@@ -757,6 +757,7 @@ class Well:
     content_revision: int = 1
     language_revisions: dict[str, int] = field(default_factory=dict)
     authored_field_revisions: dict[str, int] = field(default_factory=dict)
+    authored_field_source_languages: dict[str, str] = field(default_factory=dict)
     translation_statuses: dict[str, dict[str, TranslationStatus]] = field(default_factory=dict)
     passport: WellPassport | None = None
     analysis_update_history: list[AnalysisUpdateRecord] = field(default_factory=list)
