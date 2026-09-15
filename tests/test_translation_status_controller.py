@@ -197,3 +197,31 @@ def test_controller_readiness_is_range_aware_and_read_only() -> None:
     assert summary.missing_count == 1
     assert well.content_revision == revision
     assert controller.session.dirty is dirty
+
+
+def test_controller_readiness_uses_current_source_language_without_mutation() -> None:
+    controller = _controller()
+    controller.begin_draft(
+        field_id=FIELD_ID,
+        language="kk",
+        source_language="ru",
+        source_revision=0,
+    )
+    well = controller.session.current_well
+    assert well is not None
+    well.authored_field_source_languages[FIELD_ID] = "en"
+    revision = well.content_revision
+    dirty = controller.session.dirty
+    saved_status = controller.status(FIELD_ID, "kk")
+
+    summary = controller.readiness(
+        [TranslatableField(FIELD_ID, "Описание", 100.0, 110.0)],
+        target_languages=["kk"],
+    )
+
+    assert summary.total_required == 1
+    assert summary.stale_count == 1
+    assert summary.items[0].state is TranslationState.STALE
+    assert controller.status(FIELD_ID, "kk") == saved_status
+    assert well.content_revision == revision
+    assert controller.session.dirty is dirty
