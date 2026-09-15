@@ -50,4 +50,4 @@ class AuthoredFieldSourceLanguageController:
 
     def _mark_changed(self, well: Well) -> None:
         well.content_revision += 1
-        self.session.mark_dirty()
+        self.session.dirty = True
