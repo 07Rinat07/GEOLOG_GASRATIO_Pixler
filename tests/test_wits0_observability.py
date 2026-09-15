@@ -118,4 +118,4 @@ def test_logging_failure_never_drops_capture_event(
 
     engine._emit(event)
 
-    assert engine.drain_events(max_events=10) == [event]
+    assert engine.drain_events(max_events=10) == (event,)
