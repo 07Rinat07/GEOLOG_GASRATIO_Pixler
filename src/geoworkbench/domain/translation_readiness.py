@@ -80,6 +80,7 @@ class TranslationReadinessQuery:
         depth_range: tuple[float, float] | None = None,
         source_revisions: Mapping[str, int] | None = None,
         dependency_revisions: Mapping[str, int] | None = None,
+        source_languages: Mapping[str, object] | None = None,
         include_reviewed: bool = False,
     ) -> TranslationReadinessSummary:
         normalized_languages = _languages(target_languages)
@@ -88,6 +89,7 @@ class TranslationReadinessQuery:
         _ensure_unique_fields(normalized_fields)
         current_sources = _revisions(source_revisions, "исходного поля")
         current_dependencies = _revisions(dependency_revisions, "зависимости")
+        current_source_languages = _source_languages(source_languages)
 
         all_items: list[TranslationReadinessItem] = []
         for field in normalized_fields:
@@ -101,6 +103,7 @@ class TranslationReadinessQuery:
                     status,
                     source_revisions=current_sources,
                     dependency_revisions=current_dependencies,
+                    source_languages=current_source_languages,
                 )
                 all_items.append(
                     TranslationReadinessItem(
@@ -169,6 +172,18 @@ def _revisions(values: Mapping[str, int] | None, label: str) -> dict[str, int]:
     return result
 
 
+def _source_languages(values: Mapping[str, object] | None) -> dict[str, str]:
+    result: dict[str, str] = {}
+    for field_id, language in (values or {}).items():
+        if not isinstance(field_id, str) or not field_id.strip():
+            raise TranslationReadinessError("ID исходного поля не может быть пустым")
+        try:
+            result[field_id.strip()] = normalize_content_language(language)
+        except ValueError as exc:
+            raise TranslationReadinessError(str(exc)) from exc
+    return result
+
+
 def _ensure_unique_fields(fields: tuple[TranslatableField, ...]) -> None:
     seen: set[str] = set()
     for field in fields:
@@ -193,17 +208,21 @@ def _effective_state(
     *,
     source_revisions: Mapping[str, int],
     dependency_revisions: Mapping[str, int],
+    source_languages: Mapping[str, str],
 ) -> TranslationState:
     if status is None:
         return TranslationState.MISSING
     source_changed = (
         field_id in source_revisions and source_revisions[field_id] != status.source_revision
     )
+    source_language_changed = (
+        field_id in source_languages and source_languages[field_id] != status.source_language
+    )
     dependency_changed = any(
         dependency in dependency_revisions and dependency_revisions[dependency] != revision
         for dependency, revision in status.dependency_revisions.items()
     )
-    if (source_changed or dependency_changed) and status.state in {
+    if (source_changed or source_language_changed or dependency_changed) and status.state in {
         TranslationState.DRAFT,
         TranslationState.REVIEWED,
     }:
