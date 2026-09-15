@@ -9,7 +9,7 @@ from geoworkbench.domain.translation_readiness import TranslatableField
 class WellTranslationFieldCatalog:
     """Project real multilingual well fields into stable WELL-04 field identities.
 
-    The catalog is intentionally read-only.  It does not infer translation state
+    The catalog is intentionally read-only. It does not infer translation state
     from text presence and it does not mutate the persisted status registry.
     Optional fields become translation requirements only after at least one
     authored text variant exists.
@@ -19,17 +19,20 @@ class WellTranslationFieldCatalog:
     def fields(well: Well) -> tuple[TranslatableField, ...]:
         result: list[TranslatableField] = []
 
-        for interval in sorted(
+        for lithology_interval in sorted(
             well.lithology,
             key=lambda item: (item.top_depth, item.bottom_depth, item.interval_id),
         ):
-            if _has_authored_text(interval.description_i18n, interval.description):
+            if _has_authored_text(
+                lithology_interval.description_i18n,
+                lithology_interval.description,
+            ):
                 result.append(
                     _interval_field(
-                        f"lithology/{interval.interval_id}/description",
+                        f"lithology/{lithology_interval.interval_id}/description",
                         "lithology.description",
-                        interval.top_depth,
-                        interval.bottom_depth,
+                        lithology_interval.top_depth,
+                        lithology_interval.bottom_depth,
                     )
                 )
 
@@ -67,26 +70,32 @@ class WellTranslationFieldCatalog:
                         )
                     )
 
-        for interval in sorted(
+        for stratigraphy_interval in sorted(
             well.stratigraphy,
             key=lambda item: (item.top_depth, item.bottom_depth, item.interval_id),
         ):
-            if _has_authored_text(interval.name_i18n, interval.name):
+            if _has_authored_text(
+                stratigraphy_interval.name_i18n,
+                stratigraphy_interval.name,
+            ):
                 result.append(
                     _interval_field(
-                        f"stratigraphy/{interval.interval_id}/name",
+                        f"stratigraphy/{stratigraphy_interval.interval_id}/name",
                         "stratigraphy.name",
-                        interval.top_depth,
-                        interval.bottom_depth,
+                        stratigraphy_interval.top_depth,
+                        stratigraphy_interval.bottom_depth,
                     )
                 )
-            if _has_authored_text(interval.description_i18n, interval.description):
+            if _has_authored_text(
+                stratigraphy_interval.description_i18n,
+                stratigraphy_interval.description,
+            ):
                 result.append(
                     _interval_field(
-                        f"stratigraphy/{interval.interval_id}/description",
+                        f"stratigraphy/{stratigraphy_interval.interval_id}/description",
                         "stratigraphy.description",
-                        interval.top_depth,
-                        interval.bottom_depth,
+                        stratigraphy_interval.top_depth,
+                        stratigraphy_interval.bottom_depth,
                     )
                 )
 
@@ -95,7 +104,7 @@ class WellTranslationFieldCatalog:
             key=lambda item: (item.name.casefold(), item.interpretation_id),
         ):
             # Interpretation name is required by the model, therefore it is
-            # always part of readiness.  Description remains optional.
+            # always part of readiness. Description remains optional.
             result.append(
                 TranslatableField(
                     f"interpretation/{interpretation.interpretation_id}/name",
@@ -113,7 +122,7 @@ class WellTranslationFieldCatalog:
                     )
                 )
 
-            for interval in sorted(
+            for interpretation_interval in sorted(
                 interpretation.intervals,
                 key=lambda item: (item.top_depth, item.bottom_depth, item.interval_id),
             ):
@@ -122,23 +131,26 @@ class WellTranslationFieldCatalog:
                     _interval_field(
                         (
                             f"interpretation/{interpretation.interpretation_id}/"
-                            f"interval/{interval.interval_id}/label"
+                            f"interval/{interpretation_interval.interval_id}/label"
                         ),
                         "interpretation.interval_label",
-                        interval.top_depth,
-                        interval.bottom_depth,
+                        interpretation_interval.top_depth,
+                        interpretation_interval.bottom_depth,
                     )
                 )
-                if _has_authored_text(interval.comment_i18n, interval.comment):
+                if _has_authored_text(
+                    interpretation_interval.comment_i18n,
+                    interpretation_interval.comment,
+                ):
                     result.append(
                         _interval_field(
                             (
                                 f"interpretation/{interpretation.interpretation_id}/"
-                                f"interval/{interval.interval_id}/comment"
+                                f"interval/{interpretation_interval.interval_id}/comment"
                             ),
                             "interpretation.interval_comment",
-                            interval.top_depth,
-                            interval.bottom_depth,
+                            interpretation_interval.top_depth,
+                            interpretation_interval.bottom_depth,
                         )
                     )
 
