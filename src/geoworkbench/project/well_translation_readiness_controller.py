@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from geoworkbench.domain.models import Well
 from geoworkbench.domain.translation_readiness import (
     TranslatableField,
     TranslationReadinessQuery,
@@ -36,14 +37,14 @@ class WellTranslationReadinessController:
             target_languages=target_languages,
             depth_range=depth_range,
             source_revisions=revisions,
-            # Dependency revisions use the same stable revision ledger.  Source
+            # Dependency revisions use the same stable revision ledger. Source
             # and dependency IDs occupy separate namespaces in field identity,
             # so one persisted mapping remains sufficient and version-compatible.
             dependency_revisions=revisions,
             include_reviewed=include_reviewed,
         )
 
-    def _require_well(self):
+    def _require_well(self) -> Well:
         well = self.session.current_well
         if well is None:
             raise RuntimeError("Сначала выберите скважину")
