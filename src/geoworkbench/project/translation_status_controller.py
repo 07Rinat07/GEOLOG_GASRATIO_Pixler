@@ -82,6 +82,7 @@ class TranslationStatusController:
             depth_range=depth_range,
             source_revisions=well.authored_field_revisions,
             dependency_revisions=dependency_revisions,
+            source_languages=well.authored_field_source_languages,
             include_reviewed=include_reviewed,
         )
 
