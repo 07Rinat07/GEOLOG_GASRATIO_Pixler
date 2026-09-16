@@ -62,3 +62,46 @@ def test_programmatic_selection_rejects_unknown_language() -> None:
 
     with pytest.raises(ValueError, match="Unsupported authored source language"):
         selector.set_language_code("de")
+
+
+def test_selector_can_reload_multiple_existing_tracked_fields_safely() -> None:
+    _app()
+    selector = AuthoredSourceLanguageSelector(language=AppLanguage.RU)
+
+    selector.load_existing("kk")
+    assert selector.current_language_code() == "kk"
+    assert selector.submitted_language() is None
+
+    selector.load_existing("en")
+    assert selector.current_language_code() == "en"
+    assert selector.submitted_language() is None
+
+    selector.set_language_code("ru")
+    assert selector.submitted_language() == "ru"
+
+
+def test_existing_legacy_field_preserves_absent_provenance_until_explicit_choice() -> None:
+    _app()
+    selector = AuthoredSourceLanguageSelector(language=AppLanguage.EN)
+
+    selector.load_existing(None)
+
+    assert selector.selected_language_code() is None
+    assert selector.submitted_language() is None
+    with pytest.raises(RuntimeError, match="has no source language"):
+        selector.current_language_code()
+
+    selector.set_language_code("kk")
+    assert selector.selected_language_code() == "kk"
+    assert selector.submitted_language() == "kk"
+
+
+def test_reset_for_new_restores_ui_language_after_existing_field() -> None:
+    _app()
+    selector = AuthoredSourceLanguageSelector(language=AppLanguage.EN)
+    selector.load_existing("ru")
+
+    selector.reset_for_new()
+
+    assert selector.current_language_code() == "en"
+    assert selector.submitted_language() == "en"
