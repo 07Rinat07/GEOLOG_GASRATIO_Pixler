@@ -28,6 +28,19 @@ def test_explicit_source_language_is_ready_without_translation_status() -> None:
     assert summary.items[0].status is None
 
 
+def test_source_metadata_without_authored_revision_remains_missing_fail_safe() -> None:
+    summary = TranslationReadinessQuery.summarize(
+        [TranslatableField(FIELD_ID, "Описание A", 100.0, 110.0)],
+        {},
+        target_languages=["ru"],
+        source_languages={FIELD_ID: "ru"},
+    )
+
+    assert summary.reviewed_count == 0
+    assert summary.missing_count == 1
+    assert summary.items[0].state is TranslationState.MISSING
+
+
 def test_legacy_field_without_source_metadata_remains_missing_fail_safe() -> None:
     summary = TranslationReadinessQuery.summarize(
         [TranslatableField(FIELD_ID, "Описание A", 100.0, 110.0)],

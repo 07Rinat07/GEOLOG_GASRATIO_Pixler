@@ -213,7 +213,8 @@ def _effective_state(
     source_languages: Mapping[str, str],
 ) -> TranslationState:
     current_source_language = source_languages.get(field_id)
-    if current_source_language == language:
+    current_source_revision = source_revisions.get(field_id, 0)
+    if current_source_language == language and current_source_revision > 0:
         return TranslationState.REVIEWED
     if status is None:
         return TranslationState.MISSING
