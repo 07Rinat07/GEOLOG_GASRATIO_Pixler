@@ -76,6 +76,55 @@ def test_readiness_derives_stale_without_mutating_persisted_status() -> None:
     assert registry["lithology/a/description"]["kk"].state is TranslationState.REVIEWED
 
 
+def test_readiness_derives_stale_when_explicit_source_language_changes() -> None:
+    registry = _registry()
+
+    summary = TranslationReadinessQuery.summarize(
+        [TranslatableField("lithology/a/description", "Описание A", 100.0, 110.0)],
+        registry,
+        target_languages=["kk"],
+        source_revisions={"lithology/a/description": 2},
+        dependency_revisions={"lithology/a/depth": 1},
+        source_languages={"lithology/a/description": "en"},
+    )
+
+    assert summary.stale_count == 1
+    assert summary.items[0].state is TranslationState.STALE
+    assert registry["lithology/a/description"]["kk"].state is TranslationState.REVIEWED
+
+
+def test_readiness_keeps_reviewed_when_source_language_matches() -> None:
+    summary = TranslationReadinessQuery.summarize(
+        [TranslatableField("lithology/a/description", "Описание A", 100.0, 110.0)],
+        _registry(),
+        target_languages=["kk"],
+        source_revisions={"lithology/a/description": 2},
+        dependency_revisions={"lithology/a/depth": 1},
+        source_languages={"lithology/a/description": "ru"},
+        include_reviewed=True,
+    )
+
+    assert summary.reviewed_count == 1
+    assert summary.stale_count == 0
+    assert summary.items[0].state is TranslationState.REVIEWED
+
+
+def test_readiness_preserves_legacy_status_without_source_language_metadata() -> None:
+    summary = TranslationReadinessQuery.summarize(
+        [TranslatableField("lithology/a/description", "Описание A", 100.0, 110.0)],
+        _registry(),
+        target_languages=["kk"],
+        source_revisions={"lithology/a/description": 2},
+        dependency_revisions={"lithology/a/depth": 1},
+        source_languages={},
+        include_reviewed=True,
+    )
+
+    assert summary.reviewed_count == 1
+    assert summary.stale_count == 0
+    assert summary.items[0].state is TranslationState.REVIEWED
+
+
 def test_half_open_depth_filter_does_not_include_touching_interval() -> None:
     summary = TranslationReadinessQuery.summarize(
         [TranslatableField("lithology/a/description", "Описание A", 100.0, 110.0)],
@@ -101,4 +150,11 @@ def test_invalid_field_and_query_inputs_are_rejected() -> None:
             [TranslatableField("same", "Один"), TranslatableField("same", "Два")],
             {},
             target_languages=["en"],
+        )
+    with pytest.raises(TranslationReadinessError, match="Неподдерживаемый язык"):
+        TranslationReadinessQuery.summarize(
+            [TranslatableField("field", "Поле")],
+            {},
+            target_languages=["en"],
+            source_languages={"field": "de"},
         )

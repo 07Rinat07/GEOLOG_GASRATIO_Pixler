@@ -192,6 +192,49 @@ def test_current_well_readiness_is_range_aware_and_does_not_mutate_project() -> 
     assert session.dirty is dirty_before
 
 
+def test_current_well_readiness_detects_source_language_change_without_mutation() -> None:
+    session = _session()
+    well = session.current_well
+    assert well is not None
+    well.lithology.append(
+        LithologyInterval(
+            "inside",
+            100.0,
+            110.0,
+            "sandstone",
+            description_i18n={"ru": "Песчаник"},
+        )
+    )
+
+    field_id = "lithology/inside/description"
+    well.translation_statuses[field_id] = {
+        "kk": TranslationStatus(
+            state=TranslationState.REVIEWED,
+            source_language="ru",
+            source_revision=3,
+            translation_revision=2,
+        )
+    }
+    well.authored_field_revisions[field_id] = 3
+    well.authored_field_source_languages[field_id] = "en"
+
+    controller = WellTranslationReadinessController(session)
+    statuses_before = deepcopy(well.translation_statuses)
+    source_languages_before = dict(well.authored_field_source_languages)
+    content_revision_before = well.content_revision
+    dirty_before = session.dirty
+
+    summary = controller.summarize(target_languages=["kk"])
+
+    assert summary.total_required == 1
+    assert summary.stale_count == 1
+    assert summary.items[0].state is TranslationState.STALE
+    assert well.translation_statuses == statuses_before
+    assert well.authored_field_source_languages == source_languages_before
+    assert well.content_revision == content_revision_before
+    assert session.dirty is dirty_before
+
+
 def test_readiness_requires_current_well() -> None:
     controller = WellTranslationReadinessController(ProjectSession())
 
