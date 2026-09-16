@@ -23,6 +23,13 @@ def test_new_sample_defaults_source_language_to_ui_language(qapp) -> None:
     dialog = _dialog(language=AppLanguage.KK)
 
     assert dialog.description_source_language_input.currentData() == "kk"
+    assert dialog.values()["description_source_language"] is None
+
+
+def test_new_sample_submits_default_source_after_authored_text(qapp) -> None:
+    dialog = _dialog(language=AppLanguage.KK)
+    dialog.description_editors["kk"].editor.setPlainText("Авторлық сипаттама")
+
     assert dialog.values()["description_source_language"] == "kk"
 
 
