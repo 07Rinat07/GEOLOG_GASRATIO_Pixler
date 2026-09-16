@@ -52,9 +52,13 @@ def test_tracked_lithology_add_creates_field_and_dependency_revisions() -> None:
     assert well.authored_field_revisions[field_id] == 1
     assert well.authored_field_revisions[depth_id] == 1
     assert well.authored_field_revisions[lithotype_id] == 1
+    source = well.translation_statuses[field_id]["ru"]
+    assert source.state is TranslationState.REVIEWED
+    assert source.source_language == "ru"
+    assert source.source_revision == 1
+    assert source.translation_revision == 0
     assert well.translation_statuses[field_id]["kk"].state is TranslationState.DRAFT
     assert well.translation_statuses[field_id]["en"].state is TranslationState.DRAFT
-    assert "ru" not in well.translation_statuses[field_id]
     assert well.content_revision == revision_before + 1
 
 
@@ -87,6 +91,7 @@ def test_translation_edit_keeps_source_revision_and_advances_target_draft() -> N
 
     second_status = well.translation_statuses[field_id]["kk"]
     assert well.authored_field_revisions[field_id] == 1
+    assert well.translation_statuses[field_id]["ru"].state is TranslationState.REVIEWED
     assert second_status.state is TranslationState.DRAFT
     assert second_status.translation_revision == first_status.translation_revision + 1
     assert well.translation_statuses[field_id]["en"].translation_revision == 1
@@ -119,6 +124,10 @@ def test_source_edit_stales_only_unchanged_target_translations() -> None:
     )
 
     assert well.authored_field_revisions[field_id] == 2
+    source = well.translation_statuses[field_id]["ru"]
+    assert source.state is TranslationState.REVIEWED
+    assert source.source_revision == 2
+    assert source.translation_revision == 0
     assert well.translation_statuses[field_id]["kk"].state is TranslationState.STALE
     assert well.translation_statuses[field_id]["en"].state is TranslationState.STALE
 
@@ -155,6 +164,7 @@ def test_depth_change_stales_only_translations_for_that_interval() -> None:
     )
 
     assert well.authored_field_revisions[first_depth] == 2
+    assert well.translation_statuses[first_field]["ru"].state is TranslationState.REVIEWED
     assert well.translation_statuses[first_field]["kk"].state is TranslationState.STALE
     assert well.translation_statuses[second_field]["kk"].state is TranslationState.DRAFT
 
@@ -183,6 +193,7 @@ def test_tracked_geometry_update_inherits_source_and_current_texts() -> None:
     assert well.authored_field_source_languages[field_id] == "ru"
     assert interval.description_i18n == {"ru": "Песчаник", "kk": "Құмтас"}
     assert well.authored_field_revisions[depth_id] == 2
+    assert well.translation_statuses[field_id]["ru"].state is TranslationState.REVIEWED
     assert well.translation_statuses[field_id]["kk"].state is TranslationState.STALE
 
 
@@ -211,6 +222,7 @@ def test_tracked_non_source_edit_via_content_language_keeps_tracking() -> None:
 
     assert interval.description_i18n["en"] == "Grey sandstone"
     assert well.authored_field_revisions[field_id] == source_revision
+    assert well.translation_statuses[field_id]["ru"].state is TranslationState.REVIEWED
     assert well.translation_statuses[field_id]["en"].state is TranslationState.DRAFT
     assert well.translation_statuses[field_id]["en"].translation_revision == 2
 
