@@ -140,16 +140,26 @@ class LithologyController:
         localized_descriptions = self._validate_descriptions(description_i18n)
         self._ensure_no_overlap(top, bottom, excluded_id=interval_id)
 
-        if source_language is not None:
-            if localized_descriptions is None:
-                raise ValueError("Для языка оригинала требуется многоязычное описание")
-            well = self._require_well()
+        well = self._require_well()
+        field_id = self._description_field_id(interval.interval_id)
+        persisted_source_language = well.authored_field_source_languages.get(field_id)
+        effective_source_language = (
+            source_language if source_language is not None else persisted_source_language
+        )
+        if effective_source_language is not None:
             previous_descriptions = dict(interval.description_i18n)
+            current_descriptions = self._tracked_descriptions(
+                interval,
+                localized_descriptions=localized_descriptions,
+                normalized_description=normalized_description,
+                content_language=content_language,
+                source_language=effective_source_language,
+            )
             tracking_plan = self._translation_plan(
                 interval.interval_id,
                 previous_texts=previous_descriptions,
-                current_texts=localized_descriptions,
-                source_language=source_language,
+                current_texts=current_descriptions,
+                source_language=effective_source_language,
                 top_depth=top,
                 bottom_depth=bottom,
                 lithotype_id=lithotype,
@@ -157,13 +167,13 @@ class LithologyController:
             )
             after_language_revisions = self._language_revisions_after(
                 previous_descriptions,
-                localized_descriptions,
+                current_descriptions,
             )
             changed = (
                 interval.top_depth != top
                 or interval.bottom_depth != bottom
                 or interval.lithotype_id != lithotype
-                or previous_descriptions != localized_descriptions
+                or previous_descriptions != current_descriptions
                 or well.translation_statuses != tracking_plan.translation_statuses
                 or well.authored_field_revisions != tracking_plan.authored_field_revisions
                 or well.authored_field_source_languages
@@ -176,9 +186,9 @@ class LithologyController:
             interval.bottom_depth = bottom
             interval.lithotype_id = lithotype
             interval.description_i18n.clear()
-            interval.description_i18n.update(localized_descriptions)
-            if "ru" in localized_descriptions:
-                interval.description = localized_descriptions["ru"]
+            interval.description_i18n.update(current_descriptions)
+            if "ru" in current_descriptions:
+                interval.description = current_descriptions["ru"]
             elif "ru" in previous_descriptions:
                 interval.description = None
             self._apply_translation_plan(
@@ -234,6 +244,42 @@ class LithologyController:
             well.authored_field_revisions.pop(revision_id, None)
         self.session.dirty = True
         return interval
+
+    def _tracked_descriptions(
+        self,
+        interval: LithologyInterval,
+        *,
+        localized_descriptions: dict[str, str] | None,
+        normalized_description: str | None,
+        content_language: object | None,
+        source_language: object,
+    ) -> dict[str, str]:
+        if localized_descriptions is not None:
+            return dict(localized_descriptions)
+        descriptions = dict(interval.description_i18n)
+        if content_language is not None:
+            set_localized_text(
+                descriptions,
+                content_language,
+                normalized_description,
+                maximum=4_000,
+            )
+            return descriptions
+        if normalized_description is None:
+            return descriptions
+        normalized_source_language = normalize_content_language(source_language)
+        if normalized_source_language != "ru":
+            raise ValueError(
+                "Для отслеживаемого поля с нерусским оригиналом укажите content_language "
+                "или description_i18n"
+            )
+        set_localized_text(
+            descriptions,
+            "ru",
+            normalized_description,
+            maximum=4_000,
+        )
+        return descriptions
 
     def _translation_plan(
         self,

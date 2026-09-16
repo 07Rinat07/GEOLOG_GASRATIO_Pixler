@@ -159,6 +159,89 @@ def test_depth_change_stales_only_translations_for_that_interval() -> None:
     assert well.translation_statuses[second_field]["kk"].state is TranslationState.DRAFT
 
 
+def test_tracked_geometry_update_inherits_source_and_current_texts() -> None:
+    controller = _controller()
+    interval = controller.add(
+        100.0,
+        150.0,
+        "sandstone",
+        description_i18n={"ru": "Песчаник", "kk": "Құмтас"},
+        source_language="ru",
+    )
+    well = controller.session.current_well
+    assert well is not None
+    field_id = FIELD.format(interval_id=interval.interval_id)
+    depth_id = DEPTH.format(interval_id=interval.interval_id)
+
+    controller.update(
+        interval.interval_id,
+        top_depth=100.0,
+        bottom_depth=155.0,
+        lithotype_id="sandstone",
+    )
+
+    assert well.authored_field_source_languages[field_id] == "ru"
+    assert interval.description_i18n == {"ru": "Песчаник", "kk": "Құмтас"}
+    assert well.authored_field_revisions[depth_id] == 2
+    assert well.translation_statuses[field_id]["kk"].state is TranslationState.STALE
+
+
+def test_tracked_non_source_edit_via_content_language_keeps_tracking() -> None:
+    controller = _controller()
+    interval = controller.add(
+        100.0,
+        150.0,
+        "sandstone",
+        description_i18n={"ru": "Песчаник", "en": "Sandstone"},
+        source_language="ru",
+    )
+    well = controller.session.current_well
+    assert well is not None
+    field_id = FIELD.format(interval_id=interval.interval_id)
+    source_revision = well.authored_field_revisions[field_id]
+
+    controller.update(
+        interval.interval_id,
+        top_depth=100.0,
+        bottom_depth=150.0,
+        lithotype_id="sandstone",
+        description="Grey sandstone",
+        content_language="en",
+    )
+
+    assert interval.description_i18n["en"] == "Grey sandstone"
+    assert well.authored_field_revisions[field_id] == source_revision
+    assert well.translation_statuses[field_id]["en"].state is TranslationState.DRAFT
+    assert well.translation_statuses[field_id]["en"].translation_revision == 2
+
+
+def test_ambiguous_plain_description_is_rejected_for_non_russian_tracked_source() -> None:
+    controller = _controller()
+    interval = controller.add(
+        100.0,
+        150.0,
+        "sandstone",
+        description_i18n={"kk": "Құмтас", "en": "Sandstone"},
+        source_language="kk",
+    )
+    well = controller.session.current_well
+    assert well is not None
+    before = deepcopy(interval)
+    revision_before = well.content_revision
+
+    with pytest.raises(ValueError, match="content_language"):
+        controller.update(
+            interval.interval_id,
+            top_depth=100.0,
+            bottom_depth=155.0,
+            lithotype_id="sandstone",
+            description="Ambiguous text",
+        )
+
+    assert interval == before
+    assert well.content_revision == revision_before
+
+
 def test_invalid_source_language_save_is_atomic() -> None:
     controller = _controller()
     interval = controller.add(
