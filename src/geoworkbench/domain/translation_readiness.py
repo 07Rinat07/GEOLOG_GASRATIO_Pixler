@@ -100,7 +100,6 @@ class TranslationReadinessQuery:
                 status = statuses.get(language)
                 state = _effective_state(
                     field.field_id,
-                    language,
                     status,
                     source_revisions=current_sources,
                     dependency_revisions=current_dependencies,
@@ -205,24 +204,19 @@ def _intersects(
 
 def _effective_state(
     field_id: str,
-    language: str,
     status: TranslationStatus | None,
     *,
     source_revisions: Mapping[str, int],
     dependency_revisions: Mapping[str, int],
     source_languages: Mapping[str, str],
 ) -> TranslationState:
-    current_source_language = source_languages.get(field_id)
-    current_source_revision = source_revisions.get(field_id, 0)
-    if current_source_language == language and current_source_revision > 0:
-        return TranslationState.REVIEWED
     if status is None:
         return TranslationState.MISSING
     source_changed = (
         field_id in source_revisions and source_revisions[field_id] != status.source_revision
     )
     source_language_changed = (
-        current_source_language is not None and current_source_language != status.source_language
+        field_id in source_languages and source_languages[field_id] != status.source_language
     )
     dependency_changed = any(
         dependency in dependency_revisions and dependency_revisions[dependency] != revision
