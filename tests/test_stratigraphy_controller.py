@@ -1,7 +1,13 @@
+from copy import deepcopy
+
 import numpy as np
 import pytest
 
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
+from geoworkbench.domain.stratigraphy_description_tracking import (
+    StratigraphyDescriptionTrackingWorkflow,
+)
+from geoworkbench.domain.translation_status import TranslationState
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.project.stratigraphy_controller import StratigraphyController
 
@@ -124,3 +130,138 @@ def test_invalid_localized_stratigraphy_update_does_not_mutate_interval() -> Non
     assert interval.bottom_depth == 180.0
     assert interval.code == "K1"
     assert interval.name == "Legacy"
+
+
+def test_tracked_stratigraphy_add_commits_provenance_once() -> None:
+    controller = _controller()
+    well = controller.session.current_well
+    assert well is not None
+    before_content_revision = well.content_revision
+    before_language_revisions = dict(well.language_revisions)
+
+    interval = controller.add(
+        100.0,
+        180.0,
+        "K1",
+        rank="Series / Epoch",
+        description_i18n={"ru": "Коллектор", "kk": "Коллектор"},
+        description_source_language="ru",
+    )
+
+    field_id = StratigraphyDescriptionTrackingWorkflow.field_id(interval.interval_id)
+    depth_id = StratigraphyDescriptionTrackingWorkflow.depth_dependency_id(interval.interval_id)
+    classification_id = StratigraphyDescriptionTrackingWorkflow.classification_dependency_id(
+        interval.interval_id
+    )
+    assert controller.description_source_language(interval.interval_id) == "ru"
+    assert well.content_revision == before_content_revision + 1
+    assert well.language_revisions.get("ru", 0) == before_language_revisions.get("ru", 0) + 1
+    assert well.language_revisions.get("kk", 0) == before_language_revisions.get("kk", 0) + 1
+    assert well.authored_field_revisions[field_id] == 1
+    assert well.authored_field_revisions[depth_id] == 1
+    assert well.authored_field_revisions[classification_id] == 1
+    assert well.authored_field_source_languages[field_id] == "ru"
+    assert well.translation_statuses[field_id]["ru"].state is TranslationState.REVIEWED
+    assert well.translation_statuses[field_id]["kk"].state is TranslationState.DRAFT
+    assert well.translation_statuses[field_id]["en"].state is TranslationState.MISSING
+
+
+def test_tracked_stratigraphy_context_change_stales_target_once() -> None:
+    controller = _controller()
+    well = controller.session.current_well
+    assert well is not None
+    interval = controller.add(
+        100.0,
+        180.0,
+        "K1",
+        rank="Series / Epoch",
+        description_i18n={"ru": "Коллектор", "kk": "Коллектор"},
+        description_source_language="ru",
+    )
+    field_id = StratigraphyDescriptionTrackingWorkflow.field_id(interval.interval_id)
+    depth_id = StratigraphyDescriptionTrackingWorkflow.depth_dependency_id(interval.interval_id)
+    classification_id = StratigraphyDescriptionTrackingWorkflow.classification_dependency_id(
+        interval.interval_id
+    )
+    source_revision = well.authored_field_revisions[field_id]
+    depth_revision = well.authored_field_revisions[depth_id]
+    classification_revision = well.authored_field_revisions[classification_id]
+    before_content_revision = well.content_revision
+
+    controller.update(
+        interval.interval_id,
+        top_depth=110.0,
+        bottom_depth=190.0,
+        code="K1-updated",
+        rank="Series / Epoch",
+        description_i18n={"ru": "Коллектор", "kk": "Коллектор"},
+    )
+
+    assert well.content_revision == before_content_revision + 1
+    assert well.authored_field_revisions[field_id] == source_revision
+    assert well.authored_field_revisions[depth_id] == depth_revision + 1
+    assert well.authored_field_revisions[classification_id] == classification_revision + 1
+    assert well.translation_statuses[field_id]["ru"].state is TranslationState.REVIEWED
+    assert well.translation_statuses[field_id]["kk"].state is TranslationState.STALE
+
+
+def test_tracked_stratigraphy_source_change_failure_is_atomic() -> None:
+    controller = _controller()
+    well = controller.session.current_well
+    assert well is not None
+    interval = controller.add(
+        100.0,
+        180.0,
+        "K1",
+        rank="Series / Epoch",
+        description_i18n={"ru": "Коллектор", "kk": "Коллектор"},
+        description_source_language="ru",
+    )
+    before_interval = deepcopy(interval)
+    before_statuses = deepcopy(well.translation_statuses)
+    before_revisions = dict(well.authored_field_revisions)
+    before_sources = dict(well.authored_field_source_languages)
+    before_language_revisions = dict(well.language_revisions)
+    before_content_revision = well.content_revision
+
+    with pytest.raises(ValueError, match="язык оригинала"):
+        controller.update(
+            interval.interval_id,
+            top_depth=120.0,
+            bottom_depth=200.0,
+            code="K1-changed",
+            rank="Stage / Age",
+            description_i18n={"ru": "Коллектор", "kk": "Коллектор"},
+            description_source_language="en",
+        )
+
+    assert interval == before_interval
+    assert well.translation_statuses == before_statuses
+    assert well.authored_field_revisions == before_revisions
+    assert well.authored_field_source_languages == before_sources
+    assert well.language_revisions == before_language_revisions
+    assert well.content_revision == before_content_revision
+
+
+def test_remove_tracked_stratigraphy_cleans_description_metadata() -> None:
+    controller = _controller()
+    well = controller.session.current_well
+    assert well is not None
+    interval = controller.add(
+        100.0,
+        180.0,
+        "K1",
+        description_i18n={"ru": "Коллектор"},
+        description_source_language="ru",
+    )
+    revision_ids = {
+        StratigraphyDescriptionTrackingWorkflow.field_id(interval.interval_id),
+        StratigraphyDescriptionTrackingWorkflow.depth_dependency_id(interval.interval_id),
+        StratigraphyDescriptionTrackingWorkflow.classification_dependency_id(interval.interval_id),
+    }
+
+    controller.remove(interval.interval_id)
+
+    assert all(revision_id not in well.authored_field_revisions for revision_id in revision_ids)
+    assert all(revision_id not in well.authored_field_source_languages for revision_id in revision_ids)
+    assert all(revision_id not in well.translation_statuses for revision_id in revision_ids)
