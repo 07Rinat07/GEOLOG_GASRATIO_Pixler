@@ -46,6 +46,12 @@ class PersistedRockCodeProfileAssignment:
     profile_created: bool
     binding_changed: bool
 
+    @property
+    def changed(self) -> bool:
+        """Return whether the assignment mutated either persisted ledger."""
+
+        return self.profile_created or self.binding_changed
+
 
 def assign_persisted_rock_code_profile(
     session: ProjectSession,
