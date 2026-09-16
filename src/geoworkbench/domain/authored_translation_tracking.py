@@ -68,13 +68,12 @@ class AuthoredTranslationWorkflow:
             ),
             dependency_revisions=dependency_revisions or {},
         )
-        AuthoredTranslationWorkflow._remove_source_status(
-            statuses,
-            normalized_field_id,
-            normalized_source_language,
+        dependencies = dict(dependency_revisions or {})
+        source_language_changed = (
+            previous_source_language is not None
+            and previous_source_language != normalized_source_language
         )
 
-        dependencies = dict(dependency_revisions or {})
         for language in SUPPORTED_CONTENT_LANGUAGES:
             if language == normalized_source_language:
                 continue
@@ -86,6 +85,7 @@ class AuthoredTranslationWorkflow:
                     current_status is None
                     or current_status.state is TranslationState.MISSING
                     or text != previous_text
+                    or (source_language_changed and language == previous_source_language)
                 ):
                     statuses = TranslationStatusWorkflow.begin_draft(
                         statuses,
@@ -112,6 +112,12 @@ class AuthoredTranslationWorkflow:
                         dependency_revisions=dependencies,
                     )
 
+        AuthoredTranslationWorkflow._set_source_marker(
+            statuses,
+            normalized_field_id,
+            normalized_source_language,
+            source_revision,
+        )
         return AuthoredTranslationPlan(
             translation_statuses=statuses,
             authored_field_revisions=revisions,
@@ -156,14 +162,18 @@ class AuthoredTranslationWorkflow:
         return result
 
     @staticmethod
-    def _remove_source_status(
+    def _set_source_marker(
         registry: TranslationStatusRegistry,
         field_id: str,
         source_language: str,
+        source_revision: int,
     ) -> None:
-        languages = registry.get(field_id)
-        if not languages:
-            return
-        languages.pop(source_language, None)
-        if not languages:
-            registry.pop(field_id, None)
+        """Persist explicit proof that this language is the authored source, not a translation."""
+
+        registry.setdefault(field_id, {})[source_language] = TranslationStatus(
+            state=TranslationState.REVIEWED,
+            source_language=source_language,
+            source_revision=source_revision,
+            translation_revision=0,
+            dependency_revisions={},
+        )
