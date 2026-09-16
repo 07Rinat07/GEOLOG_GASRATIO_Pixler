@@ -27,9 +27,14 @@ def test_new_authored_field_creates_provenance_draft_and_missing_states() -> Non
     assert plan.source_revision == 1
     assert plan.authored_field_revisions[FIELD_ID] == 1
     assert plan.authored_field_source_languages[FIELD_ID] == "ru"
-    assert "ru" not in plan.translation_statuses[FIELD_ID]
+    source = plan.translation_statuses[FIELD_ID]["ru"]
     kk = plan.translation_statuses[FIELD_ID]["kk"]
     en = plan.translation_statuses[FIELD_ID]["en"]
+    assert source.state is TranslationState.REVIEWED
+    assert source.source_language == "ru"
+    assert source.source_revision == 1
+    assert source.translation_revision == 0
+    assert source.dependency_revisions == {}
     assert kk.state is TranslationState.DRAFT
     assert en.state is TranslationState.MISSING
     assert kk.source_language == "ru"
@@ -61,6 +66,8 @@ def test_source_change_keeps_translation_text_but_stales_existing_target() -> No
     )
 
     assert second.source_revision == 2
+    assert second.translation_statuses[FIELD_ID]["ru"].state is TranslationState.REVIEWED
+    assert second.translation_statuses[FIELD_ID]["ru"].source_revision == 2
     assert second.translation_statuses[FIELD_ID]["kk"].state is TranslationState.STALE
     assert second.translation_statuses[FIELD_ID]["kk"].translation_revision == 1
 
@@ -94,7 +101,7 @@ def test_target_edit_restarts_draft_against_current_source_revision() -> None:
     assert status.source_revision == 1
 
 
-def test_source_language_switch_removes_status_for_new_source() -> None:
+def test_source_language_switch_promotes_new_source_and_drafts_old_source() -> None:
     first = AuthoredTranslationWorkflow.plan(
         {},
         {DEPTH_ID: 1, LITHOTYPE_ID: 1},
@@ -119,8 +126,16 @@ def test_source_language_switch_removes_status_for_new_source() -> None:
 
     assert second.source_revision == 2
     assert second.authored_field_source_languages[FIELD_ID] == "en"
-    assert "en" not in second.translation_statuses[FIELD_ID]
-    assert second.translation_statuses[FIELD_ID]["ru"].state is TranslationState.DRAFT
+    new_source = second.translation_statuses[FIELD_ID]["en"]
+    old_source = second.translation_statuses[FIELD_ID]["ru"]
+    assert new_source.state is TranslationState.REVIEWED
+    assert new_source.source_language == "en"
+    assert new_source.source_revision == 2
+    assert new_source.translation_revision == 0
+    assert old_source.state is TranslationState.DRAFT
+    assert old_source.source_language == "en"
+    assert old_source.source_revision == 2
+    assert old_source.translation_revision == 1
 
 
 def test_source_language_requires_real_authored_text() -> None:
