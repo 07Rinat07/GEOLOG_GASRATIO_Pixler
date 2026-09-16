@@ -1,22 +1,27 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from copy import deepcopy
+from dataclasses import dataclass, fields
 
 import numpy as np
 
+from geoworkbench.domain.cuttings_description_tracking import (
+    CuttingsDescriptionTrackingWorkflow,
+)
+from geoworkbench.domain.localized_content import (
+    SUPPORTED_CONTENT_LANGUAGES,
+    bump_language_revision,
+    localized_text,
+    normalize_content_language,
+    set_localized_text,
+    validate_localized_texts,
+)
 from geoworkbench.domain.models import (
     CuttingsComponent,
     CuttingsSample,
     DescriptionTemplateBlock,
     Well,
     new_id,
-)
-from geoworkbench.domain.localized_content import (
-    bump_language_revision,
-    localized_text,
-    normalize_content_language,
-    set_localized_text,
-    validate_localized_texts,
 )
 from geoworkbench.project.session import ProjectSession
 
@@ -37,6 +42,11 @@ class CuttingsController:
     def get(self, sample_id: str) -> CuttingsSample:
         return self._require_sample(sample_id)
 
+    def description_source_language(self, sample_id: str) -> str | None:
+        sample = self._require_sample(sample_id)
+        field_id = CuttingsDescriptionTrackingWorkflow.field_id(sample.sample_id)
+        return self._require_well().authored_field_source_languages.get(field_id)
+
     def update_composition(
         self,
         sample_id: str,
@@ -45,21 +55,31 @@ class CuttingsController:
         bottom_depth: float,
         components: dict[str, float],
     ) -> CuttingsSample:
-        """Edit an existing cuttings interval without losing analysis or description.
-
-        LBA, calcimetry, rich description and interpretation belong to the same
-        sample object.  Changing the interval or rock percentages must therefore
-        update that object in place rather than create a second sample.
-        """
+        """Edit an existing interval without losing analysis, description or provenance."""
         sample = self._require_sample(sample_id)
         top, bottom = self._validate_interval(top_depth, bottom_depth)
         normalized = self._validate_components(components)
         self._ensure_no_overlap(top, bottom, excluded_id=sample_id)
+        source_language = self.description_source_language(sample_id)
+        if source_language is not None:
+            plan = self._description_tracking_plan(
+                sample,
+                top_depth=top,
+                bottom_depth=bottom,
+                components=normalized,
+                current_texts=dict(sample.description_i18n),
+                source_language=source_language,
+            )
+            sample.top_depth = top
+            sample.bottom_depth = bottom
+            sample.components = self._component_list(normalized)
+            self._apply_tracking_plan(plan, previous_sample=None, current_sample=sample)
+            self.session.dirty = True
+            return sample
+
         sample.top_depth = top
         sample.bottom_depth = bottom
-        sample.components = [
-            CuttingsComponent(name, percentage) for name, percentage in normalized.items()
-        ]
+        sample.components = self._component_list(normalized)
         self.session.dirty = True
         return sample
 
@@ -71,18 +91,31 @@ class CuttingsController:
         **values: object,
     ) -> CuttingsSample:
         """Create one complete geological sample shared by all related tracks."""
-
         top, bottom = self._validate_interval(top_depth, bottom_depth)
         normalized = self._validate_components(components)
         self._ensure_no_overlap(top, bottom)
-        sample = CuttingsSample(
-            new_id(),
-            top,
-            bottom,
-            [CuttingsComponent(name, percentage) for name, percentage in normalized.items()],
-        )
-        self._apply_full_values(sample, values)
-        self._require_well().cuttings.append(sample)
+        sample = CuttingsSample(new_id(), top, bottom, self._component_list(normalized))
+        self._apply_full_values(sample, values, bump_revisions=False)
+
+        source_language = values.get("description_source_language")
+        if source_language is not None:
+            plan = self._description_tracking_plan(
+                None,
+                sample_id=sample.sample_id,
+                top_depth=top,
+                bottom_depth=bottom,
+                components=normalized,
+                current_texts=dict(sample.description_i18n),
+                source_language=source_language,
+            )
+            well = self._require_well()
+            well.cuttings.append(sample)
+            self._apply_tracking_plan(plan, previous_sample=None, current_sample=sample)
+        else:
+            # Staging above guarantees that this second pass cannot expose a
+            # validation failure after project metadata has started changing.
+            self._apply_full_values(sample, values, bump_revisions=True)
+            self._require_well().cuttings.append(sample)
         self.session.dirty = True
         return sample
 
@@ -96,21 +129,53 @@ class CuttingsController:
         **values: object,
     ) -> CuttingsSample:
         """Atomically edit interval, rocks, LBA, calcimetry and rich description."""
-
         sample = self._require_sample(sample_id)
         top, bottom = self._validate_interval(top_depth, bottom_depth)
         normalized = self._validate_components(components)
         self._ensure_no_overlap(top, bottom, excluded_id=sample_id)
-        sample.top_depth = top
-        sample.bottom_depth = bottom
-        sample.components = [
-            CuttingsComponent(name, percentage) for name, percentage in normalized.items()
-        ]
-        self._apply_full_values(sample, values)
+
+        previous = deepcopy(sample)
+        staged = deepcopy(sample)
+        staged.top_depth = top
+        staged.bottom_depth = bottom
+        staged.components = self._component_list(normalized)
+        self._apply_full_values(staged, values, bump_revisions=False)
+
+        explicit_source = values.get("description_source_language")
+        source_language = (
+            explicit_source
+            if explicit_source is not None
+            else self.description_source_language(sample_id)
+        )
+        if source_language is not None:
+            self._guard_tracked_plain_description(values, source_language)
+            plan = self._description_tracking_plan(
+                previous,
+                top_depth=top,
+                bottom_depth=bottom,
+                components=normalized,
+                current_texts=dict(staged.description_i18n),
+                source_language=source_language,
+            )
+            self._commit_sample(sample, staged)
+            self._apply_tracking_plan(plan, previous_sample=previous, current_sample=sample)
+        else:
+            # All validation has already succeeded on ``staged``. Preserve the
+            # legacy revision semantics while committing only after that gate.
+            sample.top_depth = top
+            sample.bottom_depth = bottom
+            sample.components = self._component_list(normalized)
+            self._apply_full_values(sample, values, bump_revisions=True)
         self.session.dirty = True
         return sample
 
-    def _apply_full_values(self, sample: CuttingsSample, values: dict[str, object]) -> None:
+    def _apply_full_values(
+        self,
+        sample: CuttingsSample,
+        values: dict[str, object],
+        *,
+        bump_revisions: bool,
+    ) -> None:
         content_language = values.get("content_language")
         calcite, dolomite = self._validate_calcimetry(
             values.get("calcite_percent"), values.get("dolomite_percent")
@@ -135,9 +200,9 @@ class CuttingsController:
         interpretation = self._normalize_text(
             values.get("analysis_interpretation"), 20_000, "Текст интерпретации"
         )
-        # Rich HTML may contain embedded image data, therefore its safe storage
-        # limit is intentionally much larger than a plain LAS comment field.
-        description = self._normalize_text(values.get("description"), 2_000_000, "Описание шлама")
+        description = self._normalize_text(
+            values.get("description"), 2_000_000, "Описание шлама"
+        )
         if content_language is None:
             sample.lba_description = lba_description
             sample.analysis_interpretation = interpretation
@@ -158,7 +223,9 @@ class CuttingsController:
                 sample.lba_description = lba_description
                 sample.analysis_interpretation = interpretation
                 sample.description = description
-            self._bump_content(language)
+            if bump_revisions:
+                self._bump_content(language)
+
         description_i18n_value = values.get("description_i18n")
         if description_i18n_value is not None:
             description_i18n = validate_localized_texts(
@@ -170,8 +237,11 @@ class CuttingsController:
             sample.description_i18n.clear()
             sample.description_i18n.update(description_i18n)
             sample.description = description_i18n.get("ru")
-            for language in previous_languages | set(description_i18n):
-                self._bump_content(language)
+            if bump_revisions:
+                for language in previous_languages | set(description_i18n):
+                    if language != "und":
+                        self._bump_content(language)
+
         description_blocks = values.get("description_template_blocks")
         if description_blocks is not None:
             if not isinstance(description_blocks, list) or not all(
@@ -194,19 +264,52 @@ class CuttingsController:
         description: str | None,
         description_word_wrap: bool | None = None,
         language: object | None = None,
+        source_language: object | None = None,
     ) -> CuttingsSample:
-        """Edit one rich-text description without losing sample analysis.
-
-        The interval may be corrected in the same dialog.  Composition, LBA and
-        calcimetry remain attached to the same sample ID.  Clearing text is
-        allowed for an existing laboratory/sample record.
-        """
-
+        """Edit one rich-text description without losing sample analysis."""
         sample = self._require_sample(sample_id)
         top, bottom = self._validate_interval(top_depth, bottom_depth)
         normalized = self._normalize_text(description, 2_000_000, "Описание шлама")
         if self._has_non_description_data(sample):
             self._ensure_no_overlap(top, bottom, excluded_id=sample_id)
+
+        previous = deepcopy(sample)
+        effective_source = (
+            source_language
+            if source_language is not None
+            else self.description_source_language(sample_id)
+        )
+        if effective_source is not None:
+            effective_language = (
+                normalize_content_language(language)
+                if language is not None
+                else normalize_content_language(effective_source)
+            )
+            staged = deepcopy(sample)
+            staged.top_depth = top
+            staged.bottom_depth = bottom
+            set_localized_text(
+                staged.description_i18n,
+                effective_language,
+                normalized,
+                maximum=2_000_000,
+            )
+            staged.description = staged.description_i18n.get("ru")
+            if description_word_wrap is not None:
+                staged.description_word_wrap = self._validate_word_wrap(description_word_wrap)
+            plan = self._description_tracking_plan(
+                previous,
+                top_depth=top,
+                bottom_depth=bottom,
+                components=self._components_map(staged),
+                current_texts=dict(staged.description_i18n),
+                source_language=effective_source,
+            )
+            self._commit_sample(sample, staged)
+            self._apply_tracking_plan(plan, previous_sample=previous, current_sample=sample)
+            self.session.dirty = True
+            return sample
+
         sample.top_depth = top
         sample.bottom_depth = bottom
         if language is None:
@@ -225,14 +328,43 @@ class CuttingsController:
     def delete_description(
         self, sample_id: str, *, language: object | None = None
     ) -> CuttingsSample:
-        """Delete only the description and preserve any analysis on the sample.
-
-        A description-only interval is removed completely so it cannot remain
-        as an invisible record that blocks a future overlapping interval.
-        """
-
+        """Delete description content while preserving unrelated sample analysis."""
         well = self._require_well()
         sample = self._require_sample(sample_id)
+        source_language = self.description_source_language(sample_id)
+        if source_language is not None:
+            previous = deepcopy(sample)
+            if language is None:
+                sample.description = None
+                sample.description_i18n.clear()
+                self._clear_description_tracking(sample.sample_id)
+                self._bump_changed_localized_languages(previous, sample)
+                well.content_revision += 1
+            else:
+                code = normalize_content_language(language)
+                if code == source_language:
+                    raise ValueError(
+                        "Нельзя удалить язык оригинала без выбора нового языка оригинала"
+                    )
+                staged = deepcopy(sample)
+                staged.description_i18n.pop(code, None)
+                if code == "ru":
+                    staged.description = None
+                plan = self._description_tracking_plan(
+                    previous,
+                    top_depth=staged.top_depth,
+                    bottom_depth=staged.bottom_depth,
+                    components=self._components_map(staged),
+                    current_texts=dict(staged.description_i18n),
+                    source_language=source_language,
+                )
+                self._commit_sample(sample, staged)
+                self._apply_tracking_plan(plan, previous_sample=previous, current_sample=sample)
+            if not self._has_non_description_data(sample) and not self._has_description_data(sample):
+                well.cuttings.remove(sample)
+            self.session.dirty = True
+            return sample
+
         if language is None:
             sample.description = None
             sample.description_i18n.clear()
@@ -281,6 +413,7 @@ class CuttingsController:
         well = self._require_well()
         sample = self._require_sample(sample_id)
         well.cuttings.remove(sample)
+        self._clear_description_tracking(sample.sample_id)
         self.session.dirty = True
         return sample
 
@@ -300,9 +433,19 @@ class CuttingsController:
         if existing is not None:
             if existing.components:
                 raise ValueError(f"Проба {top:g}–{bottom:g} м уже заполнена")
-            existing.components = [
-                CuttingsComponent(name, percentage) for name, percentage in normalized.items()
-            ]
+            source_language = self.description_source_language(existing.sample_id)
+            if source_language is not None and description is not None:
+                raise ValueError(
+                    "Для tracked-описания изменяйте текст через языковой редактор"
+                )
+            if source_language is not None:
+                return self.update_composition(
+                    existing.sample_id,
+                    top_depth=top,
+                    bottom_depth=bottom,
+                    components=normalized,
+                )
+            existing.components = self._component_list(normalized)
             if description is not None:
                 existing.description = normalized_description
             self.session.dirty = True
@@ -312,7 +455,7 @@ class CuttingsController:
             new_id(),
             top,
             bottom,
-            [CuttingsComponent(name, percentage) for name, percentage in normalized.items()],
+            self._component_list(normalized),
             description=normalized_description,
             description_word_wrap=self._validate_word_wrap(description_word_wrap),
         )
@@ -328,30 +471,55 @@ class CuttingsController:
         *,
         description_word_wrap: bool | None = None,
         language: object | None = None,
+        source_language: object | None = None,
     ) -> CuttingsSample:
         """Create or update free-text cuttings description for an exact sample interval."""
         top, bottom = self._validate_interval(top_depth, bottom_depth)
         normalized = self._normalize_text(description, 2_000_000, "Описание шлама")
         sample = self._find_exact_sample(top, bottom)
-        if sample is None:
-            if normalized is None:
-                raise ValueError("Введите описание шлама")
-            # A description is an independent interpretation track.  LAS files
-            # commonly contain cuttings intervals already, so a manually
-            # entered description may legitimately cover part of one of them.
-            # Composition-bearing samples still use the strict overlap guard.
-            word_wrap = (
-                True
-                if description_word_wrap is None
-                else self._validate_word_wrap(description_word_wrap)
-            )
-            sample = CuttingsSample(
-                new_id(),
-                top,
-                bottom,
+        if sample is not None:
+            return self.update_description(
+                sample.sample_id,
+                top_depth=top,
+                bottom_depth=bottom,
                 description=normalized,
-                description_word_wrap=word_wrap,
+                description_word_wrap=description_word_wrap,
+                language=language,
+                source_language=source_language,
             )
+        if normalized is None:
+            raise ValueError("Введите описание шлама")
+
+        word_wrap = (
+            True
+            if description_word_wrap is None
+            else self._validate_word_wrap(description_word_wrap)
+        )
+        sample = CuttingsSample(
+            new_id(),
+            top,
+            bottom,
+            description=normalized,
+            description_word_wrap=word_wrap,
+        )
+        if source_language is not None:
+            code = normalize_content_language(
+                language if language is not None else source_language
+            )
+            set_localized_text(sample.description_i18n, code, normalized, maximum=2_000_000)
+            sample.description = sample.description_i18n.get("ru")
+            plan = self._description_tracking_plan(
+                None,
+                sample_id=sample.sample_id,
+                top_depth=top,
+                bottom_depth=bottom,
+                components={},
+                current_texts=dict(sample.description_i18n),
+                source_language=source_language,
+            )
+            self._require_well().cuttings.append(sample)
+            self._apply_tracking_plan(plan, previous_sample=None, current_sample=sample)
+        else:
             if language is not None:
                 code = normalize_content_language(language)
                 set_localized_text(sample.description_i18n, code, normalized, maximum=2_000_000)
@@ -359,17 +527,6 @@ class CuttingsController:
                     sample.description = None
                 self._bump_content(code)
             self._require_well().cuttings.append(sample)
-        else:
-            if language is None:
-                sample.description = normalized
-            else:
-                code = normalize_content_language(language)
-                set_localized_text(sample.description_i18n, code, normalized, maximum=2_000_000)
-                if code == "ru":
-                    sample.description = normalized
-                self._bump_content(code)
-            if description_word_wrap is not None:
-                sample.description_word_wrap = self._validate_word_wrap(description_word_wrap)
         self.session.dirty = True
         return sample
 
@@ -451,9 +608,6 @@ class CuttingsController:
             raise ValueError("Укажите хотя бы один результат кальциметрии или ЛБА")
         sample = self._find_exact_sample(top, bottom)
         if sample is None:
-            # Calcimetry/LBA are independent laboratory tracks.  Keep their
-            # interval separate from imported cuttings so an analyst can fill
-            # a missing range without rewriting the LAS lithology.
             sample = CuttingsSample(new_id(), top, bottom)
             self._require_well().cuttings.append(sample)
         sample.calcite_percent = calcite
@@ -549,6 +703,126 @@ class CuttingsController:
             language,
             legacy=sample.analysis_interpretation,
         )
+
+    def _description_tracking_plan(
+        self,
+        previous_sample: CuttingsSample | None,
+        *,
+        sample_id: str | None = None,
+        top_depth: float,
+        bottom_depth: float,
+        components: dict[str, float],
+        current_texts: dict[str, str],
+        source_language: object,
+    ):
+        well = self._require_well()
+        resolved_sample_id = previous_sample.sample_id if previous_sample is not None else sample_id
+        if resolved_sample_id is None:
+            raise ValueError("ID пробы шлама не может быть пустым")
+        return CuttingsDescriptionTrackingWorkflow.plan(
+            well.translation_statuses,
+            well.authored_field_revisions,
+            well.authored_field_source_languages,
+            sample_id=resolved_sample_id,
+            previous_depth=(
+                (previous_sample.top_depth, previous_sample.bottom_depth)
+                if previous_sample is not None
+                else None
+            ),
+            current_depth=(top_depth, bottom_depth),
+            previous_components=(
+                self._components_map(previous_sample) if previous_sample is not None else None
+            ),
+            current_components=components,
+            previous_texts=(
+                dict(previous_sample.description_i18n) if previous_sample is not None else {}
+            ),
+            current_texts=current_texts,
+            source_language=source_language,
+        )
+
+    def _apply_tracking_plan(
+        self,
+        plan,
+        *,
+        previous_sample: CuttingsSample | None,
+        current_sample: CuttingsSample,
+    ) -> None:
+        well = self._require_well()
+        well.translation_statuses = plan.translation_statuses
+        well.authored_field_revisions = plan.authored_field_revisions
+        well.authored_field_source_languages = plan.authored_field_source_languages
+        self._bump_changed_localized_languages(previous_sample, current_sample)
+        well.content_revision += 1
+
+    def _bump_changed_localized_languages(
+        self,
+        previous_sample: CuttingsSample | None,
+        current_sample: CuttingsSample,
+    ) -> None:
+        well = self._require_well()
+        previous_maps = (
+            ({}, {}, {})
+            if previous_sample is None
+            else (
+                previous_sample.description_i18n,
+                previous_sample.lba_description_i18n,
+                previous_sample.analysis_interpretation_i18n,
+            )
+        )
+        current_maps = (
+            current_sample.description_i18n,
+            current_sample.lba_description_i18n,
+            current_sample.analysis_interpretation_i18n,
+        )
+        for language in SUPPORTED_CONTENT_LANGUAGES:
+            if any(
+                previous.get(language) != current.get(language)
+                for previous, current in zip(previous_maps, current_maps, strict=True)
+            ):
+                bump_language_revision(well.language_revisions, language)
+
+    @staticmethod
+    def _commit_sample(target: CuttingsSample, source: CuttingsSample) -> None:
+        for model_field in fields(CuttingsSample):
+            setattr(target, model_field.name, deepcopy(getattr(source, model_field.name)))
+
+    @staticmethod
+    def _component_list(components: dict[str, float]) -> list[CuttingsComponent]:
+        return [
+            CuttingsComponent(name, percentage) for name, percentage in components.items()
+        ]
+
+    @staticmethod
+    def _components_map(sample: CuttingsSample) -> dict[str, float]:
+        return {item.lithotype_id: item.percentage for item in sample.components}
+
+    @staticmethod
+    def _guard_tracked_plain_description(
+        values: dict[str, object], source_language: object
+    ) -> None:
+        if (
+            "description" in values
+            and values.get("description_i18n") is None
+            and values.get("content_language") is None
+            and values.get("description") is not None
+        ):
+            raise ValueError(
+                "Для tracked-описания передайте description_i18n или content_language"
+            )
+        normalize_content_language(source_language)
+
+    def _clear_description_tracking(self, sample_id: str) -> None:
+        well = self._require_well()
+        field_id = CuttingsDescriptionTrackingWorkflow.field_id(sample_id)
+        well.translation_statuses.pop(field_id, None)
+        well.authored_field_source_languages.pop(field_id, None)
+        for revision_id in (
+            field_id,
+            CuttingsDescriptionTrackingWorkflow.depth_dependency_id(sample_id),
+            CuttingsDescriptionTrackingWorkflow.composition_dependency_id(sample_id),
+        ):
+            well.authored_field_revisions.pop(revision_id, None)
 
     def _bump_content(self, language: object) -> None:
         well = self._require_well()
