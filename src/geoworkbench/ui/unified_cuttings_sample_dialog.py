@@ -75,6 +75,8 @@ _TEXT = {
         "lba_details": "Дополнительное описание ЛБА",
         "description": "Описание шлама",
         "description_languages_hint": "Введите описание на каждом языке. Переключение вкладок сохраняет незавершённый текст.",
+        "description_source_language": "Язык оригинала описания",
+        "description_source_language_keep_current": "Сохранить текущий язык оригинала",
         "description_template_language": "Язык готового описания",
         "description_template": "Готовое описание породы",
         "description_template_select": "Выберите шаблон",
@@ -131,6 +133,8 @@ _TEXT = {
         "lba_details": "ЛБА қосымша сипаттамасы",
         "description": "Шлам сипаттамасы",
         "description_languages_hint": "Әр тілдегі сипаттаманы енгізіңіз. Қойындыларды ауыстырғанда аяқталмаған мәтін сақталады.",
+        "description_source_language": "Сипаттаманың түпнұсқа тілі",
+        "description_source_language_keep_current": "Ағымдағы түпнұсқа тілін сақтау",
         "description_template_language": "Дайын сипаттаманың тілі",
         "description_template": "Тау жынысының дайын сипаттамасы",
         "description_template_select": "Үлгіні таңдаңыз",
@@ -187,6 +191,8 @@ _TEXT = {
         "lba_details": "Additional LBA description",
         "description": "Cuttings description",
         "description_languages_hint": "Enter the description in each language. Switching tabs preserves unfinished text.",
+        "description_source_language": "Description source language",
+        "description_source_language_keep_current": "Keep current source language",
         "description_template_language": "Ready-description language",
         "description_template": "Ready rock description",
         "description_template_select": "Select a template",
@@ -328,6 +334,29 @@ class UnifiedCuttingsSampleDialog(QDialog):
         root = QVBoxLayout(widget)
 
         template_form = QFormLayout()
+        self.description_source_language_input = QComboBox()
+        self.description_source_language_input.setObjectName(
+            "cuttings-description-source-language"
+        )
+        if sample is not None:
+            self.description_source_language_input.addItem(
+                self._text["description_source_language_keep_current"], None
+            )
+        for source_language in AppLanguage:
+            self.description_source_language_input.addItem(
+                LANGUAGE_NAMES[source_language], source_language.value
+            )
+        if sample is None:
+            source_language_index = self.description_source_language_input.findData(
+                self._language.value
+            )
+            if source_language_index >= 0:
+                self.description_source_language_input.setCurrentIndex(source_language_index)
+        template_form.addRow(
+            self._text["description_source_language"],
+            self.description_source_language_input,
+        )
+
         self.description_template_language_input = QComboBox()
         self.description_template_language_input.setObjectName(
             "cuttings-description-template-language"
@@ -838,6 +867,7 @@ class UnifiedCuttingsSampleDialog(QDialog):
                 descriptions[language_code] = description
         return {
             "description": self.rich_description.html(),
+            "description_source_language": self.description_source_language_input.currentData(),
             "description_i18n": descriptions,
             "description_template_blocks": list(self._description_template_blocks),
             "description_word_wrap": self.rich_description.word_wrap,
