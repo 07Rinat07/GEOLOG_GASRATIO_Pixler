@@ -5,6 +5,7 @@ from dataclasses import dataclass, fields
 
 import numpy as np
 
+from geoworkbench.domain.authored_translation_tracking import AuthoredTranslationPlan
 from geoworkbench.domain.cuttings_description_tracking import (
     CuttingsDescriptionTrackingWorkflow,
 )
@@ -62,18 +63,19 @@ class CuttingsController:
         self._ensure_no_overlap(top, bottom, excluded_id=sample_id)
         source_language = self.description_source_language(sample_id)
         if source_language is not None:
+            previous = deepcopy(sample)
             plan = self._description_tracking_plan(
-                sample,
+                previous,
                 top_depth=top,
                 bottom_depth=bottom,
                 components=normalized,
-                current_texts=dict(sample.description_i18n),
+                current_texts=dict(previous.description_i18n),
                 source_language=source_language,
             )
             sample.top_depth = top
             sample.bottom_depth = bottom
             sample.components = self._component_list(normalized)
-            self._apply_tracking_plan(plan, previous_sample=None, current_sample=sample)
+            self._apply_tracking_plan(plan, previous_sample=previous, current_sample=sample)
             self.session.dirty = True
             return sample
 
@@ -112,8 +114,6 @@ class CuttingsController:
             well.cuttings.append(sample)
             self._apply_tracking_plan(plan, previous_sample=None, current_sample=sample)
         else:
-            # Staging above guarantees that this second pass cannot expose a
-            # validation failure after project metadata has started changing.
             self._apply_full_values(sample, values, bump_revisions=True)
             self._require_well().cuttings.append(sample)
         self.session.dirty = True
@@ -160,8 +160,6 @@ class CuttingsController:
             self._commit_sample(sample, staged)
             self._apply_tracking_plan(plan, previous_sample=previous, current_sample=sample)
         else:
-            # All validation has already succeeded on ``staged``. Preserve the
-            # legacy revision semantics while committing only after that gate.
             sample.top_depth = top
             sample.bottom_depth = bottom
             sample.components = self._component_list(normalized)
@@ -714,7 +712,7 @@ class CuttingsController:
         components: dict[str, float],
         current_texts: dict[str, str],
         source_language: object,
-    ):
+    ) -> AuthoredTranslationPlan:
         well = self._require_well()
         resolved_sample_id = previous_sample.sample_id if previous_sample is not None else sample_id
         if resolved_sample_id is None:
@@ -743,7 +741,7 @@ class CuttingsController:
 
     def _apply_tracking_plan(
         self,
-        plan,
+        plan: AuthoredTranslationPlan,
         *,
         previous_sample: CuttingsSample | None,
         current_sample: CuttingsSample,
