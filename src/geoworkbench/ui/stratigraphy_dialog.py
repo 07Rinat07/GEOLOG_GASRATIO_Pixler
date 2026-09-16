@@ -24,8 +24,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from geoworkbench.project.session import ProjectSession
 from geoworkbench.domain.localized_content import localized_text
+from geoworkbench.project.session import ProjectSession
 from geoworkbench.project.stratigraphy_catalog_controller import (
     StratigraphyCatalogController,
 )
@@ -36,6 +36,7 @@ from geoworkbench.project.stratigraphy_controller import (
     StratigraphyController,
 )
 from geoworkbench.services.localization import AppLanguage, LANGUAGE_NAMES, Localizer
+from geoworkbench.ui.authored_source_language_selector import AuthoredSourceLanguageSelector
 
 
 class StratigraphyValues(TypedDict):
@@ -51,6 +52,7 @@ class StratigraphyValues(TypedDict):
     content_language: NotRequired[str]
     name_i18n: NotRequired[dict[str, str]]
     description_i18n: NotRequired[dict[str, str]]
+    description_source_language: NotRequired[str | None]
 
 
 _TEXT_ORIENTATION_LABELS = {
@@ -87,6 +89,12 @@ _TEXT_POSITION_LABELS = {
         AppLanguage.KK: "Қабат табанына жақын",
         AppLanguage.EN: "Near interval bottom",
     },
+}
+
+_DESCRIPTION_SOURCE_LANGUAGE_LABELS = {
+    AppLanguage.RU: "Язык оригинала описания",
+    AppLanguage.KK: "Сипаттаманың түпнұсқа тілі",
+    AppLanguage.EN: "Description source language",
 }
 
 
@@ -676,6 +684,13 @@ class StratigraphyDialog(QDialog, _CatalogMixin):
         self.language_tabs.setCurrentIndex(tuple(AppLanguage).index(language))
         self.name_input = self.name_inputs[language.value]
         self.description_input = self.description_inputs[language.value]
+        self.description_source_language_input = AuthoredSourceLanguageSelector(
+            self,
+            language=language,
+        )
+        self.description_source_language_input.setObjectName(
+            "stratigraphy-description-source-language"
+        )
         self.color_input = QLineEdit("#dbeafe")
         color_row = QHBoxLayout()
         color_row.addWidget(self.color_input)
@@ -714,6 +729,13 @@ class StratigraphyDialog(QDialog, _CatalogMixin):
         ):
             form.addRow(label, control)
         form.addRow(self._t("stratigraphy.name"), self.language_tabs)
+        form.addRow(
+            _DESCRIPTION_SOURCE_LANGUAGE_LABELS.get(
+                language,
+                _DESCRIPTION_SOURCE_LANGUAGE_LABELS[AppLanguage.RU],
+            ),
+            self.description_source_language_input,
+        )
         form.addRow(self._t("stratigraphy.color"), color_row)
         form.addRow(self._t("stratigraphy.text_orientation"), self.text_orientation_input)
         form.addRow(self._t("stratigraphy.text_position"), self.text_position_input)
@@ -790,6 +812,7 @@ class StratigraphyDialog(QDialog, _CatalogMixin):
             return
         try:
             interval = self.controller.get(interval_id)
+            source_language = self.controller.description_source_language(interval_id)
         except (KeyError, RuntimeError):
             return
         self.top_input.setValue(interval.top_depth)
@@ -815,6 +838,7 @@ class StratigraphyDialog(QDialog, _CatalogMixin):
             editor.blockSignals(True)
             editor.setText(text)
             editor.blockSignals(False)
+        self.description_source_language_input.load_existing(source_language)
         orientation_index = self.text_orientation_input.findData(interval.text_orientation)
         if orientation_index >= 0:
             self.text_orientation_input.setCurrentIndex(orientation_index)
@@ -823,6 +847,18 @@ class StratigraphyDialog(QDialog, _CatalogMixin):
             self.text_position_input.setCurrentIndex(position_index)
 
     def _values(self) -> StratigraphyValues:
+        descriptions = self._localized_values(
+            self._initial_description_i18n,
+            self.description_inputs,
+            self._description_dirty_languages,
+        )
+        source_language = self.description_source_language_input.submitted_language()
+        if source_language is not None and source_language not in descriptions:
+            source_text = self.description_inputs[source_language].text().strip()
+            if source_text:
+                descriptions[source_language] = source_text
+            elif not descriptions:
+                source_language = None
         return {
             "top_depth": self.top_input.value(),
             "bottom_depth": self.bottom_input.value(),
@@ -836,11 +872,8 @@ class StratigraphyDialog(QDialog, _CatalogMixin):
             ),
             "color": self.color_input.text(),
             "description": self.description_input.text(),
-            "description_i18n": self._localized_values(
-                self._initial_description_i18n,
-                self.description_inputs,
-                self._description_dirty_languages,
-            ),
+            "description_i18n": descriptions,
+            "description_source_language": source_language,
             "text_orientation": _combo_value(self.text_orientation_input, "horizontal"),
             "text_position": _combo_value(self.text_position_input, "center"),
         }
@@ -869,6 +902,7 @@ class StratigraphyDialog(QDialog, _CatalogMixin):
             self._initial_description_i18n.clear()
             self._name_dirty_languages.clear()
             self._description_dirty_languages.clear()
+            self.description_source_language_input.reset_for_new()
 
     def _update(self) -> None:
         interval_id = self._selected_id()
