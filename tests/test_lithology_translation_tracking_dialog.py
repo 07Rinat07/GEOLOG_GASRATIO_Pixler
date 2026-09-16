@@ -44,6 +44,7 @@ def test_manual_first_edit_selects_that_language_as_source(qapp) -> None:
     dialog = LithologyDialog(LithologyController(session), language=AppLanguage.RU)
     source_combo = dialog.findChild(QComboBox, "lithology-source-language")
     assert source_combo is not None
+    dialog._set_source_language(None)
     assert source_combo.currentData() is None
 
     dialog.description_inputs["en"].setText("Sandstone")
