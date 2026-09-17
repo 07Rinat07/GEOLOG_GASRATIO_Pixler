@@ -9,6 +9,10 @@ from geoworkbench.domain.authored_translation_tracking import AuthoredTranslatio
 from geoworkbench.domain.cuttings_description_tracking import (
     CuttingsDescriptionTrackingWorkflow,
 )
+from geoworkbench.domain.cuttings_lba_description_tracking import (
+    CuttingsLbaContext,
+    CuttingsLbaDescriptionTrackingWorkflow,
+)
 from geoworkbench.domain.localized_content import (
     SUPPORTED_CONTENT_LANGUAGES,
     bump_language_revision,
@@ -46,6 +50,11 @@ class CuttingsController:
     def description_source_language(self, sample_id: str) -> str | None:
         sample = self._require_sample(sample_id)
         field_id = CuttingsDescriptionTrackingWorkflow.field_id(sample.sample_id)
+        return self._require_well().authored_field_source_languages.get(field_id)
+
+    def lba_description_source_language(self, sample_id: str) -> str | None:
+        sample = self._require_sample(sample_id)
+        field_id = CuttingsLbaDescriptionTrackingWorkflow.field_id(sample.sample_id)
         return self._require_well().authored_field_source_languages.get(field_id)
 
     def update_composition(
@@ -412,6 +421,7 @@ class CuttingsController:
         sample = self._require_sample(sample_id)
         well.cuttings.remove(sample)
         self._clear_description_tracking(sample.sample_id)
+        self._clear_lba_description_tracking(sample.sample_id)
         self.session.dirty = True
         return sample
 
@@ -569,6 +579,7 @@ class CuttingsController:
         content_language: object | None = None,
         lba_description_i18n: object | None = None,
         analysis_interpretation_i18n: object | None = None,
+        lba_description_source_language: object | None = None,
     ) -> CuttingsSample:
         top, bottom = self._validate_interval(top_depth, bottom_depth)
         calcite, dolomite = self._validate_calcimetry(calcite_percent, dolomite_percent)
@@ -604,7 +615,108 @@ class CuttingsController:
             and not localized_interpretation
         ):
             raise ValueError("Укажите хотя бы один результат кальциметрии или ЛБА")
-        sample = self._find_exact_sample(top, bottom)
+
+        existing_sample = self._find_exact_sample(top, bottom)
+        persisted_source_language = (
+            self.lba_description_source_language(existing_sample.sample_id)
+            if existing_sample is not None
+            else None
+        )
+        effective_source_language = (
+            lba_description_source_language
+            if lba_description_source_language is not None
+            else persisted_source_language
+        )
+        if effective_source_language is not None:
+            previous = deepcopy(existing_sample) if existing_sample is not None else None
+            staged = (
+                deepcopy(existing_sample)
+                if existing_sample is not None
+                else CuttingsSample(new_id(), top, bottom)
+            )
+            staged.calcite_percent = calcite
+            staged.dolomite_percent = dolomite
+            staged.lba_group = group
+            staged.lba_type_id = strings["type"]
+            staged.lba_intensity = intensity
+            staged.lba_color = strings["color"]
+            staged.lba_distribution = strings["distribution"]
+            staged.lba_cut = strings["cut"]
+            staged.lba_cut_speed = strings["cut_speed"]
+            staged.lba_cut_color = strings["cut_color"]
+            staged.lba_residue_type = strings["residue_type"]
+            staged.lba_residue_color = strings["residue_color"]
+            staged.lba_odour = strings["odour"]
+            staged.lba_stain = strings["stain"]
+            if (
+                content_language is None
+                and lba_description_i18n is None
+                and analysis_interpretation_i18n is None
+            ):
+                if strings["description"] is not None:
+                    raise ValueError(
+                        "Для tracked-описания ЛБА передайте lba_description_i18n или content_language"
+                    )
+                staged.analysis_interpretation = strings["interpretation"]
+            elif (
+                content_language is not None
+                and lba_description_i18n is None
+                and analysis_interpretation_i18n is None
+            ):
+                language = normalize_content_language(content_language)
+                set_localized_text(
+                    staged.lba_description_i18n,
+                    language,
+                    strings["description"],
+                    maximum=2_000,
+                )
+                set_localized_text(
+                    staged.analysis_interpretation_i18n,
+                    language,
+                    strings["interpretation"],
+                    maximum=20_000,
+                )
+                if language == "ru":
+                    staged.lba_description = strings["description"]
+                    staged.analysis_interpretation = strings["interpretation"]
+            if localized_lba is not None:
+                previous_languages = set(staged.lba_description_i18n)
+                staged.lba_description_i18n.clear()
+                staged.lba_description_i18n.update(localized_lba)
+                if "ru" in localized_lba:
+                    staged.lba_description = localized_lba["ru"]
+                elif "ru" in previous_languages:
+                    staged.lba_description = None
+            if localized_interpretation is not None:
+                previous_languages = set(staged.analysis_interpretation_i18n)
+                staged.analysis_interpretation_i18n.clear()
+                staged.analysis_interpretation_i18n.update(localized_interpretation)
+                if "ru" in localized_interpretation:
+                    staged.analysis_interpretation = localized_interpretation["ru"]
+                elif "ru" in previous_languages:
+                    staged.analysis_interpretation = None
+
+            plan = self._lba_description_tracking_plan(
+                previous,
+                current_sample=staged,
+                source_language=effective_source_language,
+            )
+            well = self._require_well()
+            if existing_sample is None:
+                well.cuttings.append(staged)
+                current_sample = staged
+            else:
+                self._commit_sample(existing_sample, staged)
+                current_sample = existing_sample
+            self._apply_tracking_plan(
+                plan,
+                previous_sample=previous,
+                current_sample=current_sample,
+            )
+            self.session.dirty = True
+            return current_sample
+
+        sample = existing_sample
         if sample is None:
             sample = CuttingsSample(new_id(), top, bottom)
             self._require_well().cuttings.append(sample)
@@ -739,6 +851,38 @@ class CuttingsController:
             source_language=source_language,
         )
 
+    def _lba_description_tracking_plan(
+        self,
+        previous_sample: CuttingsSample | None,
+        *,
+        current_sample: CuttingsSample,
+        source_language: object,
+    ) -> AuthoredTranslationPlan:
+        well = self._require_well()
+        return CuttingsLbaDescriptionTrackingWorkflow.plan(
+            well.translation_statuses,
+            well.authored_field_revisions,
+            well.authored_field_source_languages,
+            sample_id=current_sample.sample_id,
+            previous_depth=(
+                (previous_sample.top_depth, previous_sample.bottom_depth)
+                if previous_sample is not None
+                else None
+            ),
+            current_depth=(current_sample.top_depth, current_sample.bottom_depth),
+            previous_context=(
+                self._lba_context(previous_sample) if previous_sample is not None else None
+            ),
+            current_context=self._lba_context(current_sample),
+            previous_texts=(
+                dict(previous_sample.lba_description_i18n)
+                if previous_sample is not None
+                else {}
+            ),
+            current_texts=dict(current_sample.lba_description_i18n),
+            source_language=source_language,
+        )
+
     def _apply_tracking_plan(
         self,
         plan: AuthoredTranslationPlan,
@@ -796,6 +940,23 @@ class CuttingsController:
         return {item.lithotype_id: item.percentage for item in sample.components}
 
     @staticmethod
+    def _lba_context(sample: CuttingsSample) -> CuttingsLbaContext:
+        return CuttingsLbaContext(
+            group=sample.lba_group,
+            intensity=sample.lba_intensity,
+            type_id=sample.lba_type_id,
+            color=sample.lba_color,
+            distribution=sample.lba_distribution,
+            cut=sample.lba_cut,
+            cut_speed=sample.lba_cut_speed,
+            cut_color=sample.lba_cut_color,
+            residue_type=sample.lba_residue_type,
+            residue_color=sample.lba_residue_color,
+            odour=sample.lba_odour,
+            stain=sample.lba_stain,
+        )
+
+    @staticmethod
     def _guard_tracked_plain_description(
         values: dict[str, object], source_language: object
     ) -> None:
@@ -819,6 +980,18 @@ class CuttingsController:
             field_id,
             CuttingsDescriptionTrackingWorkflow.depth_dependency_id(sample_id),
             CuttingsDescriptionTrackingWorkflow.composition_dependency_id(sample_id),
+        ):
+            well.authored_field_revisions.pop(revision_id, None)
+
+    def _clear_lba_description_tracking(self, sample_id: str) -> None:
+        well = self._require_well()
+        field_id = CuttingsLbaDescriptionTrackingWorkflow.field_id(sample_id)
+        well.translation_statuses.pop(field_id, None)
+        well.authored_field_source_languages.pop(field_id, None)
+        for revision_id in (
+            field_id,
+            CuttingsLbaDescriptionTrackingWorkflow.depth_dependency_id(sample_id),
+            CuttingsLbaDescriptionTrackingWorkflow.context_dependency_id(sample_id),
         ):
             well.authored_field_revisions.pop(revision_id, None)
 
