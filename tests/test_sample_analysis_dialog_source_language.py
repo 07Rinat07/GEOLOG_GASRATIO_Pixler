@@ -16,7 +16,9 @@ class _CuttingsControllerStub:
         self.source_language = source_language
         self.requested_sample_ids: list[str] = []
 
-    def analysis_interpretation_source_language(self, sample_id: str) -> str | None:
+    def analysis_interpretation_source_language(
+        self, sample_id: str
+    ) -> str | None:
         self.requested_sample_ids.append(sample_id)
         return self.source_language
 
@@ -94,7 +96,10 @@ def test_existing_legacy_analysis_keeps_absent_provenance_until_user_selects_lan
         parent=parent,
     )
 
-    assert dialog.interpretation_source_language_input.selected_language_code() is None
+    assert (
+        dialog.interpretation_source_language_input.selected_language_code()
+        is None
+    )
     assert dialog.values()["analysis_interpretation_source_language"] is None
 
     dialog.interpretation_source_language_input.set_language_code("en")
