@@ -260,10 +260,18 @@ class UnifiedCuttingsSampleDialog(QDialog):
         self._description_template_catalog = load_rock_description_templates()
         self._description_from_template = False
         self._initial_description_i18n = dict(sample.description_i18n) if sample is not None else {}
+        self._initial_lba_description_i18n = (
+            dict(sample.lba_description_i18n) if sample is not None else {}
+        )
+        self._initial_interpretation_i18n = (
+            dict(sample.analysis_interpretation_i18n) if sample is not None else {}
+        )
         self._description_template_blocks = (
             list(sample.description_template_blocks) if sample is not None else []
         )
         self._description_dirty_languages: set[str] = set()
+        self._lba_description_dirty_languages: set[str] = set()
+        self._interpretation_dirty_languages: set[str] = set()
         self.delete_requested = False
         self.setWindowTitle(self._text["edit"] if sample is not None else self._text["create"])
         self.setMinimumSize(560, 460)
@@ -282,17 +290,7 @@ class UnifiedCuttingsSampleDialog(QDialog):
         self.tabs.addTab(self._composition_widget(sample), self._text["composition"])
         self.tabs.addTab(self._analysis_widget(sample), self._text["analysis"])
         self.tabs.addTab(self._description_widget(sample), self._text["description"])
-        self.interpretation_input = QPlainTextEdit()
-        self.interpretation_input.setObjectName("cuttings-analysis-interpretation")
-        if sample is not None:
-            self.interpretation_input.setPlainText(
-                localized_text(
-                    sample.analysis_interpretation_i18n,
-                    language,
-                    legacy=sample.analysis_interpretation,
-                )
-            )
-        self.tabs.addTab(self.interpretation_input, self._text["interpretation"])
+        self.tabs.addTab(self._interpretation_widget(sample), self._text["interpretation"])
         content_layout.addWidget(self.tabs, 1)
 
         self.validation_label = QLabel()
@@ -781,10 +779,28 @@ class UnifiedCuttingsSampleDialog(QDialog):
         self.lba_color_input.setObjectName("lba-fluorescence-color")
         self.lba_color_input.setEditable(True)
         self.lba_color_input.addItems(["", *all_lba_color_labels(self._language)])
-        self.lba_details_input = QLineEdit()
-        self.lba_details_input.setObjectName("lba-description")
+        self.lba_description_tabs = QTabWidget()
+        self.lba_description_tabs.setObjectName("lba-description-language-tabs")
+        self.lba_description_inputs: dict[str, QLineEdit] = {}
+        for content_language in AppLanguage:
+            language_code = content_language.value
+            editor = QLineEdit()
+            editor.setObjectName(f"lba-description-{language_code}")
+            initial_text = ""
+            if sample is not None:
+                initial_text = sample.lba_description_i18n.get(language_code, "")
+                if language_code == "ru" and not initial_text:
+                    initial_text = sample.lba_description or ""
+            editor.setText(initial_text)
+            editor.textChanged.connect(
+                lambda _text, code=language_code: self._lba_description_dirty_languages.add(code)
+            )
+            self.lba_description_inputs[language_code] = editor
+            self.lba_description_tabs.addTab(editor, LANGUAGE_NAMES[content_language])
+        self.lba_description_tabs.setCurrentIndex(tuple(AppLanguage).index(self._language))
+        self.lba_details_input = self.lba_description_inputs[self._language.value]
         details.addRow(self._text["lba_color"], self.lba_color_input)
-        details.addRow(self._text["lba_details"], self.lba_details_input)
+        details.addRow(self._text["lba_details"], self.lba_description_tabs)
         lba_layout.addLayout(details)
         layout.addWidget(lba_group)
         layout.addStretch(1)
@@ -812,9 +828,40 @@ class UnifiedCuttingsSampleDialog(QDialog):
             if intensity_button is not None:
                 intensity_button.setChecked(True)
             self.lba_color_input.setCurrentText(sample.lba_color or "")
-            self.lba_details_input.setText(sample.lba_description or "")
+        self._lba_description_dirty_languages.clear()
         self._update_residue()
         return outer
+
+    def _interpretation_widget(self, sample: CuttingsSample | None) -> QWidget:
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        self.interpretation_language_tabs = QTabWidget()
+        self.interpretation_language_tabs.setObjectName(
+            "cuttings-analysis-interpretation-language-tabs"
+        )
+        self.interpretation_inputs: dict[str, QPlainTextEdit] = {}
+        for content_language in AppLanguage:
+            language_code = content_language.value
+            editor = QPlainTextEdit()
+            editor.setObjectName(f"cuttings-analysis-interpretation-{language_code}")
+            initial_text = ""
+            if sample is not None:
+                initial_text = sample.analysis_interpretation_i18n.get(language_code, "")
+                if language_code == "ru" and not initial_text:
+                    initial_text = sample.analysis_interpretation or ""
+            editor.setPlainText(initial_text)
+            editor.textChanged.connect(
+                lambda code=language_code: self._interpretation_dirty_languages.add(code)
+            )
+            self.interpretation_inputs[language_code] = editor
+            self.interpretation_language_tabs.addTab(
+                editor, LANGUAGE_NAMES[content_language]
+            )
+        self.interpretation_language_tabs.setCurrentIndex(tuple(AppLanguage).index(self._language))
+        self.interpretation_input = self.interpretation_inputs[self._language.value]
+        self._interpretation_dirty_languages.clear()
+        layout.addWidget(self.interpretation_language_tabs)
+        return widget
 
     @staticmethod
     def _optional_percent(object_name: str) -> QDoubleSpinBox:
@@ -865,6 +912,16 @@ class UnifiedCuttingsSampleDialog(QDialog):
                 descriptions.pop(language_code, None)
             else:
                 descriptions[language_code] = description
+        lba_descriptions = self._plain_localized_values(
+            self._initial_lba_description_i18n,
+            self.lba_description_inputs,
+            self._lba_description_dirty_languages,
+        )
+        interpretations = self._plain_localized_values(
+            self._initial_interpretation_i18n,
+            self.interpretation_inputs,
+            self._interpretation_dirty_languages,
+        )
         return {
             "description": self.rich_description.html(),
             "description_source_language": self.description_source_language_input.currentData(),
@@ -882,8 +939,30 @@ class UnifiedCuttingsSampleDialog(QDialog):
             "lba_group": type_id if type_id > 0 else None,
             "lba_color": self.lba_color_input.currentText().strip() or None,
             "lba_description": self.lba_details_input.text().strip() or None,
+            "lba_description_i18n": lba_descriptions,
             "analysis_interpretation": self.interpretation_input.toPlainText().strip() or None,
+            "analysis_interpretation_i18n": interpretations,
         }
+
+    @staticmethod
+    def _plain_localized_values(
+        initial: dict[str, str],
+        editors: dict[str, QLineEdit | QPlainTextEdit],
+        dirty_languages: set[str],
+    ) -> dict[str, str]:
+        values = dict(initial)
+        for language in dirty_languages:
+            editor = editors[language]
+            text = (
+                editor.text()
+                if isinstance(editor, QLineEdit)
+                else editor.toPlainText()
+            ).strip()
+            if text:
+                values[language] = text
+            else:
+                values.pop(language, None)
+        return values
 
     def _rock_changed(self, row: int) -> None:
         """Keep an empty row empty and make the first selected rock immediately usable."""
