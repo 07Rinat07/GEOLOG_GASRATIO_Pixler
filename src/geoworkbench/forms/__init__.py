@@ -22,6 +22,7 @@ from geoworkbench.forms.models import (
 )
 from geoworkbench.forms.apply import BindingResolution, FormApplyEngine, FormApplyResult
 from geoworkbench.forms.repository import FormRepository
+from geoworkbench.forms.catalog import resolve_form_family_member
 from geoworkbench.forms.from_tablet import form_from_tablet_layout
 from geoworkbench.forms.templates import factory_templates, localized_factory_label
 from geoworkbench.forms.draft import DraftFormController
@@ -50,6 +51,7 @@ __all__ = [
     "FormDocument",
     "FormFormatError",
     "FormRepository",
+    "resolve_form_family_member",
     "form_from_tablet_layout",
     "FormTemplateOrigin",
     "FormTrack",
