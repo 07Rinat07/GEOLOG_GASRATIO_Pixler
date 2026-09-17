@@ -96,13 +96,14 @@ class CuttingsLbaDescriptionTrackingWorkflow:
 
     @staticmethod
     def depth_dependency_id(sample_id: str) -> str:
-        return f"cuttings/{CuttingsLbaDescriptionTrackingWorkflow._sample_id(sample_id)}/depth"
+        return (
+            f"{CuttingsLbaDescriptionTrackingWorkflow.field_id(sample_id)}/depth"
+        )
 
     @staticmethod
     def context_dependency_id(sample_id: str) -> str:
         return (
-            f"cuttings/{CuttingsLbaDescriptionTrackingWorkflow._sample_id(sample_id)}"
-            "/lba_context"
+            f"{CuttingsLbaDescriptionTrackingWorkflow.field_id(sample_id)}/context"
         )
 
     @staticmethod
