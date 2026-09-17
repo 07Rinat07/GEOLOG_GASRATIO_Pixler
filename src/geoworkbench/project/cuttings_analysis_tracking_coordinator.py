@@ -65,14 +65,16 @@ class CuttingsAnalysisTrackingCoordinator:
         *,
         lba_description_source_language: object | None,
         interpretation_source_language: object | None,
+        base_plan: AuthoredTranslationPlan | None = None,
     ) -> AuthoredTranslationPlan | None:
         """Build one immutable metadata plan for all tracked analysis authored fields."""
-        plan: AuthoredTranslationPlan | None = None
+        plan = base_plan
         if lba_description_source_language is not None:
             plan = self._lba_plan(
                 previous_sample,
                 current_sample,
                 source_language=lba_description_source_language,
+                base_plan=plan,
             )
         if interpretation_source_language is not None:
             plan = self._interpretation_service().plan(
@@ -118,12 +120,28 @@ class CuttingsAnalysisTrackingCoordinator:
         current_sample: CuttingsSample,
         *,
         source_language: object,
+        base_plan: AuthoredTranslationPlan | None = None,
     ) -> AuthoredTranslationPlan:
         well = self._require_well()
+        registry = (
+            base_plan.translation_statuses
+            if base_plan is not None
+            else well.translation_statuses
+        )
+        revisions = (
+            base_plan.authored_field_revisions
+            if base_plan is not None
+            else well.authored_field_revisions
+        )
+        source_languages = (
+            base_plan.authored_field_source_languages
+            if base_plan is not None
+            else well.authored_field_source_languages
+        )
         return CuttingsLbaDescriptionTrackingWorkflow.plan(
-            well.translation_statuses,
-            well.authored_field_revisions,
-            well.authored_field_source_languages,
+            registry,
+            revisions,
+            source_languages,
             sample_id=current_sample.sample_id,
             previous_depth=(
                 (previous_sample.top_depth, previous_sample.bottom_depth)

@@ -119,19 +119,9 @@ class CuttingsController:
         sample = CuttingsSample(new_id(), top, bottom, self._component_list(normalized))
         self._apply_full_values(sample, values, bump_revisions=False)
 
-        source_language = values.get("description_source_language")
-        if source_language is not None:
-            plan = self._description_tracking_plan(
-                None,
-                sample_id=sample.sample_id,
-                top_depth=top,
-                bottom_depth=bottom,
-                components=normalized,
-                current_texts=dict(sample.description_i18n),
-                source_language=source_language,
-            )
-            well = self._require_well()
-            well.cuttings.append(sample)
+        plan = self._full_sample_tracking_plan(None, sample, values)
+        if plan is not None:
+            self._require_well().cuttings.append(sample)
             self._apply_tracking_plan(plan, previous_sample=None, current_sample=sample)
         else:
             self._apply_full_values(sample, values, bump_revisions=True)
@@ -161,22 +151,10 @@ class CuttingsController:
         staged.components = self._component_list(normalized)
         self._apply_full_values(staged, values, bump_revisions=False)
 
-        explicit_source = values.get("description_source_language")
-        source_language = (
-            explicit_source
-            if explicit_source is not None
-            else self.description_source_language(sample_id)
-        )
-        if source_language is not None:
-            self._guard_tracked_plain_description(values, source_language)
-            plan = self._description_tracking_plan(
-                previous,
-                top_depth=top,
-                bottom_depth=bottom,
-                components=normalized,
-                current_texts=dict(staged.description_i18n),
-                source_language=source_language,
-            )
+        plan = self._full_sample_tracking_plan(previous, staged, values)
+        if plan is not None:
+            if previous == staged and not self._tracking_metadata_changed(plan):
+                return sample
             self._commit_sample(sample, staged)
             self._apply_tracking_plan(plan, previous_sample=previous, current_sample=sample)
         else:
@@ -244,19 +222,41 @@ class CuttingsController:
             if bump_revisions:
                 self._bump_content(language)
 
-        description_i18n_value = values.get("description_i18n")
-        if description_i18n_value is not None:
-            description_i18n = validate_localized_texts(
-                description_i18n_value,  # type: ignore[arg-type]
-                maximum=2_000_000,
+        localized_fields = (
+            (
+                "lba_description_i18n",
+                sample.lba_description_i18n,
+                2_000,
+                "lba_description",
+            ),
+            (
+                "analysis_interpretation_i18n",
+                sample.analysis_interpretation_i18n,
+                20_000,
+                "analysis_interpretation",
+            ),
+            (
+                "description_i18n",
+                sample.description_i18n,
+                2_000_000,
+                "description",
+            ),
+        )
+        for value_key, target, maximum, legacy_attribute in localized_fields:
+            localized_value = values.get(value_key)
+            if localized_value is None:
+                continue
+            localized = validate_localized_texts(
+                localized_value,  # type: ignore[arg-type]
+                maximum=maximum,
                 allow_undetermined=True,
             )
-            previous_languages = set(sample.description_i18n)
-            sample.description_i18n.clear()
-            sample.description_i18n.update(description_i18n)
-            sample.description = description_i18n.get("ru")
+            previous_languages = set(target)
+            target.clear()
+            target.update(localized)
+            setattr(sample, legacy_attribute, localized.get("ru"))
             if bump_revisions:
-                for language in previous_languages | set(description_i18n):
+                for language in previous_languages | set(localized):
                     if language != "und":
                         self._bump_content(language)
 
@@ -813,6 +813,96 @@ class CuttingsController:
             language,
             legacy=sample.analysis_interpretation,
         )
+
+    def _full_sample_tracking_plan(
+        self,
+        previous_sample: CuttingsSample | None,
+        current_sample: CuttingsSample,
+        values: dict[str, object],
+    ) -> AuthoredTranslationPlan | None:
+        """Compose all authored-field provenance before mutating the live sample."""
+        explicit_description_source = values.get("description_source_language")
+        description_source = explicit_description_source
+        if description_source is None and previous_sample is not None:
+            description_source = self.description_source_language(previous_sample.sample_id)
+
+        coordinator = CuttingsAnalysisTrackingCoordinator(self.session)
+        analysis_sources = coordinator.resolve_sources(
+            previous_sample.sample_id if previous_sample is not None else None,
+            lba_description_source_language=values.get(
+                "lba_description_source_language"
+            ),
+            interpretation_source_language=values.get(
+                "analysis_interpretation_source_language"
+            ),
+        )
+
+        plan: AuthoredTranslationPlan | None = None
+        if description_source is not None:
+            self._guard_tracked_plain_description(values, description_source)
+            plan = self._description_tracking_plan(
+                previous_sample,
+                sample_id=current_sample.sample_id,
+                top_depth=current_sample.top_depth,
+                bottom_depth=current_sample.bottom_depth,
+                components=self._components_map(current_sample),
+                current_texts=dict(current_sample.description_i18n),
+                source_language=description_source,
+            )
+
+        if analysis_sources.tracked:
+            self._guard_tracked_plain_analysis(
+                values,
+                lba_description_source_language=analysis_sources.lba_description,
+                interpretation_source_language=analysis_sources.interpretation,
+            )
+            plan = coordinator.plan(
+                previous_sample,
+                current_sample,
+                lba_description_source_language=analysis_sources.lba_description,
+                interpretation_source_language=analysis_sources.interpretation,
+                base_plan=plan,
+            )
+        return plan
+
+    def _tracking_metadata_changed(self, plan: AuthoredTranslationPlan) -> bool:
+        well = self._require_well()
+        return (
+            plan.translation_statuses != well.translation_statuses
+            or plan.authored_field_revisions != well.authored_field_revisions
+            or plan.authored_field_source_languages
+            != well.authored_field_source_languages
+        )
+
+    @staticmethod
+    def _guard_tracked_plain_analysis(
+        values: dict[str, object],
+        *,
+        lba_description_source_language: object | None,
+        interpretation_source_language: object | None,
+    ) -> None:
+        if lba_description_source_language is not None:
+            normalize_content_language(lba_description_source_language)
+            if (
+                values.get("lba_description") is not None
+                and values.get("lba_description_i18n") is None
+                and values.get("content_language") is None
+            ):
+                raise ValueError(
+                    "Для tracked-описания ЛБА передайте lba_description_i18n "
+                    "или content_language"
+                )
+        if interpretation_source_language is not None:
+            normalize_content_language(interpretation_source_language)
+            if (
+                values.get("analysis_interpretation") is not None
+                and values.get("analysis_interpretation_i18n") is None
+                and values.get("content_language") is None
+            ):
+                raise ValueError(
+                    "Для tracked-интерпретации передайте "
+                    "analysis_interpretation_i18n или content_language"
+                )
 
     def _description_tracking_plan(
         self,
