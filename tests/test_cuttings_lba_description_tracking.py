@@ -6,13 +6,13 @@ from geoworkbench.domain.cuttings_lba_description_tracking import (
     CuttingsLbaContext,
     CuttingsLbaDescriptionTrackingWorkflow,
 )
-from geoworkbench.domain.translation_status import TranslationState
+from geoworkbench.domain.translation_status import TranslationState, TranslationStatus
 
 
 SAMPLE_ID = "sample-1"
 FIELD_ID = f"cuttings/{SAMPLE_ID}/lba_description"
-DEPTH_ID = f"cuttings/{SAMPLE_ID}/depth"
-CONTEXT_ID = f"cuttings/{SAMPLE_ID}/lba_context"
+DEPTH_ID = f"{FIELD_ID}/depth"
+CONTEXT_ID = f"{FIELD_ID}/context"
 BASE_CONTEXT = CuttingsLbaContext(
     group=2,
     intensity=3,
@@ -53,6 +53,35 @@ def test_new_lba_description_tracks_source_and_relevant_dependencies() -> None:
     assert target.state is TranslationState.DRAFT
     assert target.dependency_revisions == {DEPTH_ID: 1, CONTEXT_ID: 1}
     assert missing.state is TranslationState.MISSING
+
+
+def test_initial_lba_tracking_does_not_touch_description_depth_dependency() -> None:
+    description_field = f"cuttings/{SAMPLE_ID}/description"
+    description_depth = f"cuttings/{SAMPLE_ID}/depth"
+    description_status = TranslationStatus(
+        state=TranslationState.REVIEWED,
+        source_language="ru",
+        source_revision=3,
+        translation_revision=2,
+        dependency_revisions={description_depth: 7},
+    )
+
+    plan = CuttingsLbaDescriptionTrackingWorkflow.plan(
+        {description_field: {"kk": description_status}},
+        {description_field: 3, description_depth: 7},
+        {description_field: "ru"},
+        sample_id=SAMPLE_ID,
+        previous_depth=None,
+        current_depth=(100.0, 110.0),
+        previous_context=None,
+        current_context=BASE_CONTEXT,
+        previous_texts={},
+        current_texts={"ru": "Равномерное свечение"},
+        source_language="ru",
+    )
+
+    assert plan.authored_field_revisions[description_depth] == 7
+    assert plan.translation_statuses[description_field]["kk"] == description_status
 
 
 def test_lba_context_change_stales_target_without_bumping_source_revision() -> None:
