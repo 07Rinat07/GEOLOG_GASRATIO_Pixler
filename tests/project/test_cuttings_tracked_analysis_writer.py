@@ -169,3 +169,60 @@ def test_resolve_and_commit_inherits_persisted_sources() -> None:
     interpretation_field = f"cuttings/{saved.sample_id}/analysis_interpretation"
     assert well.authored_field_source_languages[lba_field] == "ru"
     assert well.authored_field_source_languages[interpretation_field] == "ru"
+
+
+def test_repeated_identical_save_is_a_true_noop() -> None:
+    controller, writer = _writer()
+    saved = writer.commit(
+        None,
+        _staged(),
+        sources=CuttingsAnalysisTrackingSources("ru", "ru"),
+    )
+    well = controller.session.current_well
+    assert well is not None
+    controller.session.dirty = False
+    before_content_revision = well.content_revision
+    before_language_revisions = dict(well.language_revisions)
+    before_statuses = deepcopy(well.translation_statuses)
+    before_field_revisions = dict(well.authored_field_revisions)
+
+    repeated = writer.resolve_and_commit(
+        saved,
+        deepcopy(saved),
+        lba_description_source_language=None,
+        interpretation_source_language=None,
+    )
+
+    assert repeated is saved
+    assert well.content_revision == before_content_revision
+    assert well.language_revisions == before_language_revisions
+    assert well.translation_statuses == before_statuses
+    assert well.authored_field_revisions == before_field_revisions
+    assert controller.session.dirty is False
+
+
+def test_source_language_change_is_metadata_only_but_still_material() -> None:
+    controller, writer = _writer()
+    saved = writer.commit(
+        None,
+        _staged(),
+        sources=CuttingsAnalysisTrackingSources("ru", "ru"),
+    )
+    well = controller.session.current_well
+    assert well is not None
+    controller.session.dirty = False
+    before_content_revision = well.content_revision
+    before_language_revisions = dict(well.language_revisions)
+
+    updated = writer.commit(
+        saved,
+        deepcopy(saved),
+        sources=CuttingsAnalysisTrackingSources("kk", "ru"),
+    )
+
+    assert updated is saved
+    lba_field = f"cuttings/{saved.sample_id}/lba_description"
+    assert well.authored_field_source_languages[lba_field] == "kk"
+    assert well.content_revision == before_content_revision + 1
+    assert well.language_revisions == before_language_revisions
+    assert controller.session.dirty is True
