@@ -653,60 +653,16 @@ class CuttingsController:
             staged.lba_residue_color = strings["residue_color"]
             staged.lba_odour = strings["odour"]
             staged.lba_stain = strings["stain"]
-            if (
-                content_language is None
-                and lba_description_i18n is None
-                and analysis_interpretation_i18n is None
-            ):
-                if sources.lba_description is not None and strings["description"] is not None:
-                    raise ValueError(
-                        "Для tracked-описания ЛБА передайте lba_description_i18n или content_language"
-                    )
-                if sources.interpretation is not None and strings["interpretation"] is not None:
-                    raise ValueError(
-                        "Для tracked-заключения передайте analysis_interpretation_i18n или content_language"
-                    )
-                if sources.lba_description is None:
-                    staged.lba_description = strings["description"]
-                if sources.interpretation is None:
-                    staged.analysis_interpretation = strings["interpretation"]
-            elif (
-                content_language is not None
-                and lba_description_i18n is None
-                and analysis_interpretation_i18n is None
-            ):
-                language = normalize_content_language(content_language)
-                set_localized_text(
-                    staged.lba_description_i18n,
-                    language,
-                    strings["description"],
-                    maximum=2_000,
-                )
-                set_localized_text(
-                    staged.analysis_interpretation_i18n,
-                    language,
-                    strings["interpretation"],
-                    maximum=20_000,
-                )
-                if language == "ru":
-                    staged.lba_description = strings["description"]
-                    staged.analysis_interpretation = strings["interpretation"]
-            if localized_lba is not None:
-                previous_languages = set(staged.lba_description_i18n)
-                staged.lba_description_i18n.clear()
-                staged.lba_description_i18n.update(localized_lba)
-                if "ru" in localized_lba:
-                    staged.lba_description = localized_lba["ru"]
-                elif "ru" in previous_languages:
-                    staged.lba_description = None
-            if localized_interpretation is not None:
-                previous_languages = set(staged.analysis_interpretation_i18n)
-                staged.analysis_interpretation_i18n.clear()
-                staged.analysis_interpretation_i18n.update(localized_interpretation)
-                if "ru" in localized_interpretation:
-                    staged.analysis_interpretation = localized_interpretation["ru"]
-                elif "ru" in previous_languages:
-                    staged.analysis_interpretation = None
+            self._stage_analysis_authored_texts(
+                staged,
+                lba_description=strings["description"],
+                interpretation=strings["interpretation"],
+                content_language=content_language,
+                localized_lba=localized_lba,
+                localized_interpretation=localized_interpretation,
+                lba_source_language=sources.lba_description,
+                interpretation_source_language=sources.interpretation,
+            )
 
             plan = coordinator.plan(
                 previous,
@@ -802,6 +758,74 @@ class CuttingsController:
                 self._bump_content(language)
         self.session.dirty = True
         return sample
+
+    @staticmethod
+    def _stage_analysis_authored_texts(
+        sample: CuttingsSample,
+        *,
+        lba_description: str | None,
+        interpretation: str | None,
+        content_language: object | None,
+        localized_lba: dict[str, str] | None,
+        localized_interpretation: dict[str, str] | None,
+        lba_source_language: object | None,
+        interpretation_source_language: object | None,
+    ) -> None:
+        language = (
+            normalize_content_language(content_language)
+            if content_language is not None
+            else None
+        )
+
+        if localized_lba is not None:
+            previous_languages = set(sample.lba_description_i18n)
+            sample.lba_description_i18n.clear()
+            sample.lba_description_i18n.update(localized_lba)
+            if "ru" in localized_lba:
+                sample.lba_description = localized_lba["ru"]
+            elif "ru" in previous_languages:
+                sample.lba_description = None
+        elif language is not None:
+            set_localized_text(
+                sample.lba_description_i18n,
+                language,
+                lba_description,
+                maximum=2_000,
+            )
+            if language == "ru":
+                sample.lba_description = lba_description
+        elif lba_source_language is not None:
+            if lba_description is not None:
+                raise ValueError(
+                    "Для tracked-описания ЛБА передайте lba_description_i18n или content_language"
+                )
+        else:
+            sample.lba_description = lba_description
+
+        if localized_interpretation is not None:
+            previous_languages = set(sample.analysis_interpretation_i18n)
+            sample.analysis_interpretation_i18n.clear()
+            sample.analysis_interpretation_i18n.update(localized_interpretation)
+            if "ru" in localized_interpretation:
+                sample.analysis_interpretation = localized_interpretation["ru"]
+            elif "ru" in previous_languages:
+                sample.analysis_interpretation = None
+        elif language is not None:
+            set_localized_text(
+                sample.analysis_interpretation_i18n,
+                language,
+                interpretation,
+                maximum=20_000,
+            )
+            if language == "ru":
+                sample.analysis_interpretation = interpretation
+        elif interpretation_source_language is not None:
+            if interpretation is not None:
+                raise ValueError(
+                    "Для tracked-заключения передайте analysis_interpretation_i18n или content_language"
+                )
+        else:
+            sample.analysis_interpretation = interpretation
 
     @staticmethod
     def _validate_localized_texts(value: object | None, *, maximum: int) -> dict[str, str] | None:
