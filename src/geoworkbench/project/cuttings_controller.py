@@ -28,6 +28,9 @@ from geoworkbench.domain.models import (
     Well,
     new_id,
 )
+from geoworkbench.project.cuttings_analysis_tracking_coordinator import (
+    CuttingsAnalysisTrackingCoordinator,
+)
 from geoworkbench.project.session import ProjectSession
 
 
@@ -56,6 +59,11 @@ class CuttingsController:
         sample = self._require_sample(sample_id)
         field_id = CuttingsLbaDescriptionTrackingWorkflow.field_id(sample.sample_id)
         return self._require_well().authored_field_source_languages.get(field_id)
+
+    def analysis_interpretation_source_language(self, sample_id: str) -> str | None:
+        return CuttingsAnalysisTrackingCoordinator(self.session).interpretation_source_language(
+            sample_id
+        )
 
     def update_composition(
         self,
@@ -419,9 +427,9 @@ class CuttingsController:
     def remove(self, sample_id: str) -> CuttingsSample:
         well = self._require_well()
         sample = self._require_sample(sample_id)
-        well.cuttings.remove(sample)
         self._clear_description_tracking(sample.sample_id)
-        self._clear_lba_description_tracking(sample.sample_id)
+        CuttingsAnalysisTrackingCoordinator(self.session).clear(sample.sample_id)
+        well.cuttings.remove(sample)
         self.session.dirty = True
         return sample
 
@@ -580,6 +588,7 @@ class CuttingsController:
         lba_description_i18n: object | None = None,
         analysis_interpretation_i18n: object | None = None,
         lba_description_source_language: object | None = None,
+        analysis_interpretation_source_language: object | None = None,
     ) -> CuttingsSample:
         top, bottom = self._validate_interval(top_depth, bottom_depth)
         calcite, dolomite = self._validate_calcimetry(calcite_percent, dolomite_percent)
@@ -598,7 +607,7 @@ class CuttingsController:
             "stain": self._normalize_text(lba_stain, 100),
             "description": self._normalize_text(lba_description, 2000),
             "interpretation": self._normalize_text(
-                analysis_interpretation, 4000, "Текст интерпретации"
+                analysis_interpretation, 20_000, "Текст интерпретации"
             ),
         }
         localized_lba = self._validate_localized_texts(lba_description_i18n, maximum=2_000)
@@ -617,17 +626,13 @@ class CuttingsController:
             raise ValueError("Укажите хотя бы один результат кальциметрии или ЛБА")
 
         existing_sample = self._find_exact_sample(top, bottom)
-        persisted_source_language = (
-            self.lba_description_source_language(existing_sample.sample_id)
-            if existing_sample is not None
-            else None
+        coordinator = CuttingsAnalysisTrackingCoordinator(self.session)
+        sources = coordinator.resolve_sources(
+            existing_sample.sample_id if existing_sample is not None else None,
+            lba_description_source_language=lba_description_source_language,
+            interpretation_source_language=analysis_interpretation_source_language,
         )
-        effective_source_language = (
-            lba_description_source_language
-            if lba_description_source_language is not None
-            else persisted_source_language
-        )
-        if effective_source_language is not None:
+        if sources.tracked:
             previous = deepcopy(existing_sample) if existing_sample is not None else None
             staged = (
                 deepcopy(existing_sample)
@@ -653,11 +658,18 @@ class CuttingsController:
                 and lba_description_i18n is None
                 and analysis_interpretation_i18n is None
             ):
-                if strings["description"] is not None:
+                if sources.lba_description is not None and strings["description"] is not None:
                     raise ValueError(
                         "Для tracked-описания ЛБА передайте lba_description_i18n или content_language"
                     )
-                staged.analysis_interpretation = strings["interpretation"]
+                if sources.interpretation is not None and strings["interpretation"] is not None:
+                    raise ValueError(
+                        "Для tracked-заключения передайте analysis_interpretation_i18n или content_language"
+                    )
+                if sources.lba_description is None:
+                    staged.lba_description = strings["description"]
+                if sources.interpretation is None:
+                    staged.analysis_interpretation = strings["interpretation"]
             elif (
                 content_language is not None
                 and lba_description_i18n is None
@@ -696,11 +708,14 @@ class CuttingsController:
                 elif "ru" in previous_languages:
                     staged.analysis_interpretation = None
 
-            plan = self._lba_description_tracking_plan(
+            plan = coordinator.plan(
                 previous,
-                current_sample=staged,
-                source_language=effective_source_language,
+                staged,
+                lba_description_source_language=sources.lba_description,
+                interpretation_source_language=sources.interpretation,
             )
+            if plan is None:
+                raise RuntimeError("Не удалось сформировать tracking-plan анализа шлама")
             well = self._require_well()
             if existing_sample is None:
                 well.cuttings.append(staged)
