@@ -55,11 +55,12 @@ def _create_tracked_sample(controller: CuttingsController):
 
 def test_create_full_sample_commits_all_provenance_in_one_revision() -> None:
     controller = _controller()
+    well = controller.session.current_well
+    assert well is not None
+    baseline_content_revision = well.content_revision
 
     sample = _create_tracked_sample(controller)
 
-    well = controller.session.current_well
-    assert well is not None
     description_field = f"cuttings/{sample.sample_id}/description"
     lba_field = f"cuttings/{sample.sample_id}/lba_description"
     interpretation_field = f"cuttings/{sample.sample_id}/analysis_interpretation"
@@ -73,7 +74,7 @@ def test_create_full_sample_commits_all_provenance_in_one_revision() -> None:
         well.translation_statuses[interpretation_field]["kk"].state
         is TranslationState.DRAFT
     )
-    assert well.content_revision == 1
+    assert well.content_revision == baseline_content_revision + 1
     assert well.language_revisions["ru"] == 1
     assert well.language_revisions["kk"] == 1
     assert controller.session.dirty is True
