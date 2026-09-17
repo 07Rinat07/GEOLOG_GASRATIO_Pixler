@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 from PySide6.QtWidgets import QFormLayout, QLineEdit, QPlainTextEdit, QVBoxLayout, QWidget
@@ -199,7 +200,7 @@ class UnifiedCuttingsSampleDialog(_UnifiedCuttingsSampleDialogImpl):
     def _analysis_source_payload(
         self,
         selector: AuthoredSourceLanguageSelector,
-        editors: dict[str, QLineEdit | QPlainTextEdit],
+        editors: Mapping[str, QLineEdit | QPlainTextEdit],
         values: dict[str, Any],
         *,
         localized_key: str,
