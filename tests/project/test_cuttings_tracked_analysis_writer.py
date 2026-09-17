@@ -61,6 +61,7 @@ def test_commit_new_sample_applies_model_and_composite_provenance_once() -> None
     well = controller.session.current_well
     assert well is not None
     staged = _staged()
+    baseline_content_revision = well.content_revision
 
     saved = writer.commit(
         None,
@@ -80,7 +81,7 @@ def test_commit_new_sample_applies_model_and_composite_provenance_once() -> None
         well.translation_statuses[interpretation_field]["kk"].state
         is TranslationState.DRAFT
     )
-    assert well.content_revision == 1
+    assert well.content_revision == baseline_content_revision + 1
     assert well.language_revisions["ru"] == 1
     assert well.language_revisions["kk"] == 1
     assert controller.session.dirty is True
