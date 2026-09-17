@@ -144,3 +144,64 @@ def test_clear_removes_analysis_fields_without_touching_cuttings_description() -
     assert interpretation_field not in well.authored_field_source_languages
     assert well.authored_field_revisions[description_field] == 8
     assert well.authored_field_source_languages[description_field] == "ru"
+
+
+def test_resolve_source_languages_inherits_persisted_provenance() -> None:
+    controller, coordinator = _controller()
+    sample = _sample(controller)
+    plan = coordinator.plan(
+        None,
+        sample,
+        lba_description_source_language="ru",
+        interpretation_source_language="kk",
+    )
+    coordinator.apply(plan)
+
+    resolved = coordinator.resolve_source_languages(
+        sample.sample_id,
+        lba_description_source_language=None,
+        interpretation_source_language=None,
+    )
+
+    assert resolved.lba_description == "ru"
+    assert resolved.interpretation == "kk"
+
+
+def test_resolve_source_languages_prefers_explicit_intent_per_field() -> None:
+    controller, coordinator = _controller()
+    sample = _sample(controller)
+    plan = coordinator.plan(
+        None,
+        sample,
+        lba_description_source_language="ru",
+        interpretation_source_language="ru",
+    )
+    coordinator.apply(plan)
+    well = controller.session.current_well
+    assert well is not None
+    revisions_before = dict(well.authored_field_revisions)
+    statuses_before = deepcopy(well.translation_statuses)
+
+    resolved = coordinator.resolve_source_languages(
+        sample.sample_id,
+        lba_description_source_language="en",
+        interpretation_source_language=None,
+    )
+
+    assert resolved.lba_description == "en"
+    assert resolved.interpretation == "ru"
+    assert well.authored_field_revisions == revisions_before
+    assert well.translation_statuses == statuses_before
+
+
+def test_resolve_source_languages_for_new_sample_uses_only_explicit_values() -> None:
+    _, coordinator = _controller()
+
+    resolved = coordinator.resolve_source_languages(
+        None,
+        lba_description_source_language="kk",
+        interpretation_source_language=None,
+    )
+
+    assert resolved.lba_description == "kk"
+    assert resolved.interpretation is None
