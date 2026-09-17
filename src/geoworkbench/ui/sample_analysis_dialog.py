@@ -24,6 +24,7 @@ from geoworkbench.services.lba_standard import (
     lba_intensity_name,
 )
 from geoworkbench.services.localization import AppLanguage, LANGUAGE_NAMES
+from geoworkbench.ui.authored_source_language_selector import AuthoredSourceLanguageSelector
 
 
 _TEXT = {
@@ -48,6 +49,7 @@ _TEXT = {
         "Описание",
         "Интерпретация",
         "Заключение геолога по результатам кальциметрии и ЛБА",
+        "Язык оригинала заключения",
     ),
     AppLanguage.KK: (
         "Үлгіні талдау",
@@ -70,6 +72,7 @@ _TEXT = {
         "Сипаттама",
         "Интерпретация",
         "Кальциметрия және ЛБА нәтижелері бойынша геолог қорытындысы",
+        "Қорытындының түпнұсқа тілі",
     ),
     AppLanguage.EN: (
         "Sample analysis",
@@ -92,6 +95,7 @@ _TEXT = {
         "Description",
         "Interpretation",
         "Geologist conclusion based on calcimetry and LBA results",
+        "Conclusion source language",
     ),
 }
 
@@ -115,6 +119,7 @@ class SampleAnalysisDialog(QDialog):
     ) -> None:
         super().__init__(parent)
         self.language = language
+        self._sample = sample
         text = _TEXT[language]
         self.top_input = QDoubleSpinBox()
         self.bottom_input = QDoubleSpinBox()
@@ -214,6 +219,22 @@ class SampleAnalysisDialog(QDialog):
         tabs.addTab(lba_scroll, text[2])
         interpretation = QWidget()
         interpretation_layout = QVBoxLayout(interpretation)
+        interpretation_source_form = QFormLayout()
+        self.interpretation_source_language_input = AuthoredSourceLanguageSelector(
+            interpretation,
+            language=language,
+        )
+        self.interpretation_source_language_input.setObjectName(
+            "analysis-interpretation-source-language"
+        )
+        if sample is not None:
+            self.interpretation_source_language_input.load_existing(
+                self._persisted_interpretation_source_language(sample)
+            )
+        interpretation_source_form.addRow(
+            text[20], self.interpretation_source_language_input
+        )
+        interpretation_layout.addLayout(interpretation_source_form)
         self.interpretation_language_tabs = QTabWidget()
         self.interpretation_language_tabs.setObjectName("analysis-interpretation-language-tabs")
         self.interpretation_inputs: dict[str, QPlainTextEdit] = {}
@@ -266,6 +287,25 @@ class SampleAnalysisDialog(QDialog):
         if standard is not None:
             self.lba_type_input.setCurrentText(standard.code)
 
+    def _persisted_interpretation_source_language(
+        self, sample: CuttingsSample
+    ) -> str | None:
+        parent = self.parentWidget()
+        controller = getattr(parent, "cuttings_controller", None)
+        getter = getattr(controller, "analysis_interpretation_source_language", None)
+        if not callable(getter):
+            return None
+        try:
+            value = getter(sample.sample_id)
+        except (KeyError, RuntimeError):
+            return None
+        if value is None:
+            return None
+        try:
+            return AppLanguage(str(value)).value
+        except ValueError:
+            return None
+
     def _load_sample(self, sample: CuttingsSample) -> None:
         if sample.calcite_percent is not None:
             self.calcite_input.setValue(sample.calcite_percent)
@@ -307,6 +347,17 @@ class SampleAnalysisDialog(QDialog):
             interpretation_editor.blockSignals(False)
 
     def values(self) -> dict[str, Any]:
+        interpretation_source_language = (
+            self.interpretation_source_language_input.submitted_language()
+        )
+        if (
+            self._sample is None
+            and interpretation_source_language is not None
+            and not self.interpretation_inputs[
+                interpretation_source_language
+            ].toPlainText().strip()
+        ):
+            interpretation_source_language = None
         return {
             "calcite_percent": self.calcite_input.value()
             if self.calcite_input.value() >= 0
@@ -338,6 +389,7 @@ class SampleAnalysisDialog(QDialog):
                 self.interpretation_inputs,
                 self._interpretation_dirty_languages,
             ),
+            "analysis_interpretation_source_language": interpretation_source_language,
         }
 
     @staticmethod
