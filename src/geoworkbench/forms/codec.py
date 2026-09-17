@@ -29,7 +29,7 @@ from geoworkbench.tablet.vertical_ruler import (
 )
 
 
-FORM_SCHEMA_VERSION = 17
+FORM_SCHEMA_VERSION = 18
 
 
 class FormFormatError(ValueError):
@@ -41,6 +41,7 @@ def form_to_dict(form: FormDocument) -> dict[str, Any]:
     return {
         "schema_version": FORM_SCHEMA_VERSION,
         "form_id": form.form_id,
+        "family_id": form.family_id,
         "name": form.name,
         "description": form.description,
         "axis_kind": form.axis_kind.value,
@@ -110,6 +111,7 @@ def form_from_dict(data: object) -> FormDocument:
         columns = [_column_from_dict(item) for item in _list(migrated, "columns")]
         return FormDocument(
             form_id=_string(migrated, "form_id"),
+            family_id=_string(migrated, "family_id"),
             name=_string(migrated, "name"),
             description=_string(migrated, "description", allow_empty=True, default=""),
             axis_kind=FormAxisKind(_string(migrated, "axis_kind")),
@@ -287,7 +289,7 @@ def _migrate_form(data: dict[str, Any]) -> dict[str, Any]:
     version = data.get("schema_version", 0)
     if version == FORM_SCHEMA_VERSION:
         return data
-    if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16):
+    if version not in (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17):
         raise FormFormatError("Неподдерживаемая версия схемы формы")
     migrated = deepcopy(data)
     if version == 0:
@@ -410,6 +412,7 @@ def _migrate_form(data: dict[str, Any]) -> dict[str, Any]:
                 column["title_orientation"] = desired_orientations[0]
                 column.setdefault("title_position", desired_positions[0])
 
+    migrated.setdefault("family_id", migrated.get("form_id"))
     migrated.setdefault("source_dataset_id", None)
     migrated.setdefault("source_index_id", None)
     migrated.setdefault("print_header_template_ids", {})
