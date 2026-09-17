@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 from PySide6.QtCore import Qt
@@ -947,7 +948,7 @@ class UnifiedCuttingsSampleDialog(QDialog):
     @staticmethod
     def _plain_localized_values(
         initial: dict[str, str],
-        editors: dict[str, QLineEdit | QPlainTextEdit],
+        editors: Mapping[str, QLineEdit | QPlainTextEdit],
         dirty_languages: set[str],
     ) -> dict[str, str]:
         values = dict(initial)
