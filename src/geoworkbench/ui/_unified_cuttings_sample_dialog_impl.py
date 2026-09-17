@@ -29,7 +29,7 @@ from PySide6.QtWidgets import (
 
 from geoworkbench.catalogs.description_templates import load_rock_description_templates
 from geoworkbench.domain.models import CuttingsSample, DescriptionTemplateBlock, new_id
-from geoworkbench.domain.localized_content import SUPPORTED_CONTENT_LANGUAGES, localized_text
+from geoworkbench.domain.localized_content import SUPPORTED_CONTENT_LANGUAGES
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.services.lba_standard import (
     LBA_STANDARD_GROUPS,
