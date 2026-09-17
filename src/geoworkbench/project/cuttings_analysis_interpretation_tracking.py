@@ -28,12 +28,29 @@ class CuttingsAnalysisInterpretationTrackingService:
         current_sample: CuttingsSample,
         *,
         source_language: object,
+        base_plan: AuthoredTranslationPlan | None = None,
     ) -> AuthoredTranslationPlan:
+        """Build a plan, optionally on top of another field-scoped provenance plan."""
         well = self._require_well()
+        registry = (
+            base_plan.translation_statuses
+            if base_plan is not None
+            else well.translation_statuses
+        )
+        revisions = (
+            base_plan.authored_field_revisions
+            if base_plan is not None
+            else well.authored_field_revisions
+        )
+        source_languages = (
+            base_plan.authored_field_source_languages
+            if base_plan is not None
+            else well.authored_field_source_languages
+        )
         return CuttingsAnalysisInterpretationTrackingWorkflow.plan(
-            well.translation_statuses,
-            well.authored_field_revisions,
-            well.authored_field_source_languages,
+            registry,
+            revisions,
+            source_languages,
             sample_id=current_sample.sample_id,
             previous_depth=(
                 (previous_sample.top_depth, previous_sample.bottom_depth)
