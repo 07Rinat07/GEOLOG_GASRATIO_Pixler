@@ -3,6 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 from dataclasses import dataclass, fields
 
+from geoworkbench.domain.authored_translation_tracking import AuthoredTranslationPlan
 from geoworkbench.domain.localized_content import (
     SUPPORTED_CONTENT_LANGUAGES,
     bump_language_revision,
@@ -37,8 +38,15 @@ class CuttingsTrackedAnalysisWriter:
             lba_description_source_language=sources.lba_description,
             interpretation_source_language=sources.interpretation,
         )
+        if plan is None:
+            raise ValueError("Для tracked-сохранения анализа укажите язык оригинала")
 
         well = self._require_well()
+        model_changed = previous_sample is None or previous_sample != staged_sample
+        metadata_changed = self._metadata_changed(well, plan)
+        if previous_sample is not None and not model_changed and not metadata_changed:
+            return previous_sample
+
         before = deepcopy(previous_sample) if previous_sample is not None else None
         if previous_sample is None:
             current_sample = deepcopy(staged_sample)
@@ -92,6 +100,14 @@ class CuttingsTrackedAnalysisWriter:
             item.sample_id == sample_id for item in self._require_well().cuttings
         ):
             raise ValueError(f"Проба шлама с ID {sample_id} уже существует")
+
+    @staticmethod
+    def _metadata_changed(well: Well, plan: AuthoredTranslationPlan) -> bool:
+        return (
+            plan.translation_statuses != well.translation_statuses
+            or plan.authored_field_revisions != well.authored_field_revisions
+            or plan.authored_field_source_languages != well.authored_field_source_languages
+        )
 
     @staticmethod
     def _copy_sample(target: CuttingsSample, source: CuttingsSample) -> None:
