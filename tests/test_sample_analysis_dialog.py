@@ -68,6 +68,7 @@ def test_sample_analysis_dialog_loads_existing_interval(qapp) -> None:
         "lba_description_i18n": {},
         "analysis_interpretation": "Manual geologist conclusion",
         "analysis_interpretation_i18n": {},
+        "analysis_interpretation_source_language": None,
     }
     dialog.close()
 
