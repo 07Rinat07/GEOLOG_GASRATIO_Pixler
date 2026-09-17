@@ -14,11 +14,49 @@ from geoworkbench.project.cuttings_analysis_interpretation_tracking import (
 from geoworkbench.project.session import ProjectSession
 
 
+@dataclass(frozen=True, slots=True)
+class CuttingsAnalysisTrackingSources:
+    """Resolved source-language provenance for one analysis save."""
+
+    lba_description: object | None
+    interpretation: object | None
+
+    @property
+    def tracked(self) -> bool:
+        return self.lba_description is not None or self.interpretation is not None
+
+
 @dataclass(slots=True)
 class CuttingsAnalysisTrackingCoordinator:
     """Compose field-scoped WELL-04 provenance for one cuttings analysis save."""
 
     session: ProjectSession
+
+    def resolve_sources(
+        self,
+        sample_id: str | None,
+        *,
+        lba_description_source_language: object | None,
+        interpretation_source_language: object | None,
+    ) -> CuttingsAnalysisTrackingSources:
+        """Resolve explicit source languages over persisted provenance for an existing sample."""
+        persisted_lba: object | None = None
+        persisted_interpretation: object | None = None
+        if sample_id is not None:
+            persisted_lba = self.lba_source_language(sample_id)
+            persisted_interpretation = self.interpretation_source_language(sample_id)
+        return CuttingsAnalysisTrackingSources(
+            lba_description=(
+                lba_description_source_language
+                if lba_description_source_language is not None
+                else persisted_lba
+            ),
+            interpretation=(
+                interpretation_source_language
+                if interpretation_source_language is not None
+                else persisted_interpretation
+            ),
+        )
 
     def plan(
         self,
