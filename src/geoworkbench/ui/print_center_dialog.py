@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from typing import Callable
 
@@ -113,6 +114,17 @@ class PrintCenterDialog(QDialog):
         self.validate_printer_callback = validate_printer_callback
         self.track_print_options = tuple(track_print_options)
         page = initial_page or PrintPageSettings()
+        if (
+            isinstance(initial_header_template_id, str)
+            and initial_header_template_id.strip()
+            and page.orientation.value not in self.paired_header_template_ids
+        ):
+            header_orientation = self.header_orientation_by_id.get(
+                initial_header_template_id.strip(),
+                "both",
+            )
+            if header_orientation in {"portrait", "landscape"}:
+                page = replace(page, orientation=PrintOrientation(header_orientation))
         preferences = initial_preferences or PrintExportPreferences()
         self.source_name = _safe_file_stem(source_name)
         self.setWindowTitle(self._t("print_center.title"))
@@ -916,11 +928,39 @@ class PrintCenterDialog(QDialog):
         paired_id = self.paired_header_template_ids.get(orientation)
         if paired_id is None:
             paired_id = self._orientation_header_candidate(current, orientation)
-        if paired_id is None:
+        if paired_id is not None:
+            index = self.header_combo.findData(paired_id)
+            if index >= 0:
+                self.header_combo.setCurrentIndex(index)
+                return
+
+        current_orientation = self.header_orientation_by_id.get(current.strip(), "both")
+        if current_orientation not in {"portrait", "landscape"}:
             return
-        index = self.header_combo.findData(paired_id)
-        if index >= 0:
-            self.header_combo.setCurrentIndex(index)
+        restore_index = self.orientation_combo.findData(current_orientation)
+        if restore_index >= 0:
+            self.orientation_combo.blockSignals(True)
+            self.orientation_combo.setCurrentIndex(restore_index)
+            self.orientation_combo.blockSignals(False)
+            self._refresh_action_summary()
+        QMessageBox.information(
+            self,
+            self.windowTitle(),
+            {
+                AppLanguage.RU: (
+                    "Для выбранной шапки нет явно связанной пары этой ориентации. "
+                    "Текущая ориентация сохранена. Настройте парную шапку в каталоге."
+                ),
+                AppLanguage.KK: (
+                    "Таңдалған тақырып үшін осы бағытта нақты байланыстырылған жұп жоқ. "
+                    "Ағымдағы бағыт сақталды. Жұп тақырыпты каталогта баптаңыз."
+                ),
+                AppLanguage.EN: (
+                    "The selected header has no explicitly paired layout for this orientation. "
+                    "The current orientation was kept. Configure the paired header in the catalog."
+                ),
+            }[self.localizer.language],
+        )
 
     def _sync_orientation_to_header(self, _index: int = -1) -> None:
         """Keep the A4 sheet and a fixed-orientation header on one contract."""
@@ -942,30 +982,23 @@ class PrintCenterDialog(QDialog):
         selected_id: str | None,
         orientation: str,
     ) -> str | None:
+        """Return the current header only when its orientation contract permits it.
+
+        Header pairing is explicit. Runtime code never infers siblings from IDs
+        and never substitutes an unrelated header merely because its orientation
+        happens to match the requested page.
+        """
+
         if not isinstance(selected_id, str) or not selected_id.strip():
             return selected_id
         normalized_orientation = str(orientation).strip().casefold()
         if normalized_orientation not in {"portrait", "landscape"}:
-            return selected_id
+            return None
         normalized_id = selected_id.strip()
-        desired_suffix = f"_{normalized_orientation}"
-        opposite = "landscape" if normalized_orientation == "portrait" else "portrait"
-        opposite_suffix = f"_{opposite}"
-        if normalized_id.casefold().endswith(desired_suffix):
-            return normalized_id
-        available_ids = {catalog_id for catalog_id, _label in self.header_choices}
-        if normalized_id.casefold().endswith(opposite_suffix):
-            candidate = normalized_id[: -len(opposite_suffix)] + desired_suffix
-            if candidate in available_ids:
-                return candidate
         current_orientation = self.header_orientation_by_id.get(normalized_id, "both")
         if current_orientation in {normalized_orientation, "both", ""}:
             return normalized_id
-        for catalog_id, _label in self.header_choices:
-            item_orientation = self.header_orientation_by_id.get(catalog_id, "both")
-            if item_orientation in {normalized_orientation, "both", ""}:
-                return catalog_id
-        return normalized_id
+        return None
 
     def _manage_headers(self) -> None:
         if self.manage_headers_callback is None:
