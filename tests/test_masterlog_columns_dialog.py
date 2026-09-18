@@ -145,3 +145,46 @@ def test_curve_styles_dialog_preserves_individual_settings(qapp) -> None:
     assert styles["C2"] == MasterlogCurveStyle("#00ff00", 2.5, "dash", 1.0, 100.0)
     assert "X 1–100" in dialog.list.item(1).text()
     dialog.close()
+
+
+
+def test_masterlog_column_dialogs_fit_current_work_area(qapp) -> None:
+    controller = MasterlogTemplateController(ProjectSession())
+    template = controller.create("Adaptive")
+    controller.add_column(
+        template.template_id,
+        title="Gas",
+        column_type="curves",
+        width_mm=35.0,
+        curve_mnemonics=["C1"],
+    )
+
+    dialogs = [
+        ColumnPropertiesDialog(language=AppLanguage.EN),
+        CurveStylesDialog(
+            ["C1"],
+            {"C1": MasterlogCurveStyle("#2563eb", 1.5, "solid")},
+            language=AppLanguage.EN,
+        ),
+        DatasetCurveSelectionDialog([], ["C1", "C2"], language=AppLanguage.EN),
+        MasterlogColumnsDialog(
+            controller,
+            template.template_id,
+            language=AppLanguage.EN,
+        ),
+    ]
+    try:
+        for dialog in dialogs:
+            screen = dialog.screen()
+            assert screen is not None
+            available = screen.availableGeometry()
+            assert dialog.minimumWidth() <= dialog.width() <= available.width()
+            assert dialog.minimumHeight() <= dialog.height() <= available.height()
+
+        columns_dialog = dialogs[-1]
+        assert isinstance(columns_dialog, MasterlogColumnsDialog)
+        assert columns_dialog.actions_toolbar.objectName() == "masterlog-columns-actions"
+        assert len(columns_dialog.actions_toolbar.actions()) == 5
+    finally:
+        for dialog in dialogs:
+            dialog.close()

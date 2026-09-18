@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QComboBox,
     QCheckBox,
@@ -38,7 +38,9 @@ from geoworkbench.tablet.grid_geometry import (
     DEFAULT_GRID_MAJOR_DIVISIONS,
     DEFAULT_GRID_MINOR_DIVISIONS,
 )
+from geoworkbench.ui.adaptive_toolbar import AdaptiveActionToolBar
 from geoworkbench.ui.grid_settings_widget import GridSettingsWidget
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class ColumnPropertiesDialog(QDialog):
@@ -197,7 +199,6 @@ class ColumnPropertiesDialog(QDialog):
         self.grid_alpha_input = self.grid_editor.grid_alpha_input
         self.grid_print_input = self.grid_editor.grid_print_input
         self.auto_range_input.toggled.connect(self._update_range_enabled)
-        self.setMinimumSize(640, 560)
         root = QVBoxLayout(self)
         self.settings_tabs = QTabWidget()
         root.addWidget(self.settings_tabs, 1)
@@ -247,6 +248,11 @@ class ColumnPropertiesDialog(QDialog):
         root.addWidget(buttons)
         self._update_range_enabled(self.auto_range_input.isChecked())
         self._update_curve_styles_enabled()
+        fit_window_to_screen(
+            self,
+            preferred=QSize(720, 600),
+            minimum=QSize(520, 360),
+        )
 
     def values(
         self,
@@ -485,7 +491,11 @@ class CurveStylesDialog(QDialog):
         layout.addWidget(edit_button)
         layout.addWidget(buttons)
         self._refresh()
-        self.resize(520, 380)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(520, 380),
+            minimum=QSize(420, 300),
+        )
 
     def styles(self) -> dict[str, MasterlogCurveStyle]:
         return dict(self._styles)
@@ -558,7 +568,11 @@ class DatasetCurveSelectionDialog(QDialog):
         layout = QVBoxLayout(self)
         layout.addWidget(self.list)
         layout.addWidget(buttons)
-        self.resize(360, 440)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(360, 440),
+            minimum=QSize(320, 300),
+        )
 
     def selected_mnemonics(self) -> list[str]:
         return [
@@ -582,9 +596,9 @@ class MasterlogColumnsDialog(QDialog):
         self.template_id = template_id
         self.localizer = Localizer.create(language)
         self.setWindowTitle(self.localizer.text("masterlog_columns.title"))
-        self.resize(680, 420)
         self.list = QListWidget()
-        buttons = QHBoxLayout()
+        self.actions_toolbar = AdaptiveActionToolBar(parent=self)
+        self.actions_toolbar.setObjectName("masterlog-columns-actions")
         for text, handler in (
             (self.localizer.text("common.create"), self._add),
             (self.localizer.text("common.edit"), self._edit),
@@ -592,13 +606,16 @@ class MasterlogColumnsDialog(QDialog):
             ("→", lambda: self._move(1)),
             (self.localizer.text("common.delete"), self._remove),
         ):
-            button = QPushButton(text)
-            button.clicked.connect(handler)
-            buttons.addWidget(button)
+            self.actions_toolbar.add_standard_action(text, handler)
         layout = QVBoxLayout(self)
         layout.addWidget(self.list)
-        layout.addLayout(buttons)
+        layout.addWidget(self.actions_toolbar)
         self.refresh()
+        fit_window_to_screen(
+            self,
+            preferred=QSize(680, 420),
+            minimum=QSize(480, 320),
+        )
 
     @property
     def template(self) -> MasterlogTemplate:
