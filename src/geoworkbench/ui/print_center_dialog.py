@@ -113,19 +113,25 @@ class PrintCenterDialog(QDialog):
         self.refresh_printers_callback = refresh_printers_callback
         self.validate_printer_callback = validate_printer_callback
         self.track_print_options = tuple(track_print_options)
+        preferences = initial_preferences or PrintExportPreferences()
+        self._header_selection_explicit = preferences.header_selection_explicit
+        effective_initial_header = (
+            preferences.header_template_id
+            if preferences.header_selection_explicit
+            else initial_header_template_id
+        )
         page = initial_page or PrintPageSettings()
         if (
-            isinstance(initial_header_template_id, str)
-            and initial_header_template_id.strip()
+            isinstance(effective_initial_header, str)
+            and effective_initial_header.strip()
             and page.orientation.value not in self.paired_header_template_ids
         ):
             header_orientation = self.header_orientation_by_id.get(
-                initial_header_template_id.strip(),
+                effective_initial_header.strip(),
                 "both",
             )
             if header_orientation in {"portrait", "landscape"}:
                 page = replace(page, orientation=PrintOrientation(header_orientation))
-        preferences = initial_preferences or PrintExportPreferences()
         self.source_name = _safe_file_stem(source_name)
         self.setWindowTitle(self._t("print_center.title"))
         self.setMinimumSize(600, 480)
@@ -154,6 +160,9 @@ class PrintCenterDialog(QDialog):
         header_form = QFormLayout()
         self.header_combo = QComboBox()
         self.header_combo.setObjectName("print-header-template-combo")
+        self.header_combo.currentIndexChanged.connect(
+            self._mark_header_selection_explicit
+        )
         self.header_combo.currentIndexChanged.connect(self._refresh_header_preview)
         self.header_combo.currentIndexChanged.connect(self._sync_orientation_to_header)
         header_form.addRow(self._t("print_center.document_header"), self.header_combo)
@@ -235,13 +244,16 @@ class PrintCenterDialog(QDialog):
         )
         self.header_preview.setVisible(False)
         header_layout.addWidget(self.header_preview)
-        paired_initial = self.paired_header_template_ids.get(page.orientation.value)
-        if paired_initial is None:
-            paired_initial = self._orientation_header_candidate(
-                initial_header_template_id,
-                page.orientation.value,
-            )
-        self._set_header_choices(self.header_choices, paired_initial)
+        if preferences.header_selection_explicit:
+            selected_header = preferences.header_template_id
+        else:
+            selected_header = self.paired_header_template_ids.get(page.orientation.value)
+            if selected_header is None:
+                selected_header = self._orientation_header_candidate(
+                    initial_header_template_id,
+                    page.orientation.value,
+                )
+        self._set_header_choices(self.header_choices, selected_header)
         self._refresh_header_preview()
 
         output_group = QGroupBox(self._t("print_center.destination_group"))
@@ -722,6 +734,12 @@ class PrintCenterDialog(QDialog):
                 str(self.header_placement_combo.currentData())
             ),
             repeat_column_header_at_bottom=(self.repeat_column_header_check.isChecked()),
+            header_template_id=(
+                self._selected_header_template_id()
+                if self._header_selection_explicit
+                else None
+            ),
+            header_selection_explicit=self._header_selection_explicit,
             printer_name=self.selected_printer_name(),
             copy_count=self.copy_count_input.value(),
         )
@@ -747,12 +765,7 @@ class PrintCenterDialog(QDialog):
             target=target,
             pagination=self.pagination_settings(),
             strict_unicode=True,
-            header_template_id=(
-                str(self.header_combo.currentData())
-                if isinstance(self.header_combo.currentData(), str)
-                and str(self.header_combo.currentData()).strip()
-                else None
-            ),
+            header_template_id=self._selected_header_template_id(),
             header_placement=PrintHeaderPlacement(
                 str(self.header_placement_combo.currentData())
             ),
@@ -919,6 +932,13 @@ class PrintCenterDialog(QDialog):
         index = self.header_combo.findData(current) if current else 0
         self.header_combo.setCurrentIndex(max(0, index))
         self.header_combo.blockSignals(False)
+
+    def _selected_header_template_id(self) -> str | None:
+        raw = self.header_combo.currentData()
+        return str(raw).strip() if isinstance(raw, str) and raw.strip() else None
+
+    def _mark_header_selection_explicit(self, _index: int = -1) -> None:
+        self._header_selection_explicit = True
 
     def _sync_paired_header_to_orientation(self, _index: int = -1) -> None:
         orientation = str(self.orientation_combo.currentData()).strip().casefold()
