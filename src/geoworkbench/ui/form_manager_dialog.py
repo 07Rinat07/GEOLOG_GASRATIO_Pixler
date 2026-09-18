@@ -60,6 +60,7 @@ class FormManagerDialog(QDialog):
         print_page_settings: PrintPageSettings | None = None,
         print_page_settings_changed: Callable[[PrintPageSettings], None] | None = None,
         print_form_callback: Callable[[FormDocument], None] | None = None,
+        initial_form_id: str | None = None,
         masterlog_sync_callback: Callable[[FormDocument], FormDocument | None] | None = None,
         skf_import_callback: Callable[[Path], tuple[FormDocument, str]] | None = None,
     ) -> None:
@@ -71,6 +72,7 @@ class FormManagerDialog(QDialog):
         self.print_page_settings = print_page_settings or PrintPageSettings()
         self.print_page_settings_changed = print_page_settings_changed
         self.print_form_callback = print_form_callback
+        self.initial_form_id = initial_form_id.strip() if isinstance(initial_form_id, str) else None
         self.masterlog_sync_callback = masterlog_sync_callback
         self.skf_import_callback = skf_import_callback
         self.apply_engine = FormApplyEngine()
@@ -326,7 +328,7 @@ class FormManagerDialog(QDialog):
         right.addWidget(close_button)
         splitter.addWidget(right_panel)
         splitter.setSizes([390, 760])
-        self.reload()
+        self.reload(self.initial_form_id)
         for button in self.findChildren(QPushButton):
             if not button.toolTip().strip():
                 button.setToolTip(button.text().replace("&", ""))
