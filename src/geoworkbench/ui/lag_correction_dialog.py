@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import TypedDict, cast
 
 import numpy as np
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QComboBox,
@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QTableWidget,
     QTableWidgetItem,
     QTextEdit,
@@ -42,6 +43,7 @@ from geoworkbench.domain.lag_correction import (
 from geoworkbench.domain.models import Dataset, IndexRole, TimeDepthAggregationPolicy
 from geoworkbench.project.lag_correction_controller import LagCorrectionProjectController
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class _LagCorrectionRequestValues(TypedDict):
@@ -229,9 +231,13 @@ class LagCorrectionDialog(QDialog):
         self.controller = controller
         self.text = _TEXT[language]
         self.setWindowTitle(self.text["title"])
-        self.resize(920, 760)
 
         root = QVBoxLayout(self)
+        body_scroll = QScrollArea(self)
+        body_scroll.setObjectName("lag-correction-body-scroll")
+        body_scroll.setWidgetResizable(True)
+        body = QWidget(body_scroll)
+        body_layout = QVBoxLayout(body)
         form = QFormLayout()
 
         self.profile_selector = QComboBox()
@@ -281,7 +287,7 @@ class LagCorrectionDialog(QDialog):
         form.addRow(self.text["author"], self.author_edit)
         self.comment_edit = QLineEdit()
         form.addRow(self.text["comment"], self.comment_edit)
-        root.addLayout(form)
+        body_layout.addLayout(form)
 
         curves_group = QGroupBox(self.text["curves"])
         curves_layout = QVBoxLayout(curves_group)
@@ -301,7 +307,7 @@ class LagCorrectionDialog(QDialog):
             item.setCheckState(Qt.CheckState.Unchecked)
             self.curve_list.addItem(item)
         curves_layout.addWidget(self.curve_list)
-        root.addWidget(curves_group)
+        body_layout.addWidget(curves_group)
 
         method_group = QGroupBox(self.text["method"])
         method_form = QFormLayout(method_group)
@@ -321,7 +327,7 @@ class LagCorrectionDialog(QDialog):
         method_form.addRow(self.text["strokes"], self.strokes_spin)
         method_form.addRow(self.text["control_points"], self.control_points_edit)
         method_form.addRow("", self.control_hint)
-        root.addWidget(method_group)
+        body_layout.addWidget(method_group)
 
         revision_row = QHBoxLayout()
         self.revision_selector = QComboBox()
@@ -335,7 +341,7 @@ class LagCorrectionDialog(QDialog):
         revision_row.addWidget(self.save_button)
         revision_row.addWidget(self.activate_button)
         revision_row.addWidget(self.delete_button)
-        root.addLayout(revision_row)
+        body_layout.addLayout(revision_row)
 
         projection_row = QHBoxLayout()
         self.preview_button = QPushButton(self.text["preview"])
@@ -345,11 +351,11 @@ class LagCorrectionDialog(QDialog):
         projection_row.addWidget(self.source_axis_button)
         projection_row.addWidget(self.corrected_axis_button)
         projection_row.addStretch(1)
-        root.addLayout(projection_row)
+        body_layout.addLayout(projection_row)
 
         self.summary_label = QLabel()
         self.summary_label.setObjectName("lag-correction-preview-summary")
-        root.addWidget(self.summary_label)
+        body_layout.addWidget(self.summary_label)
         self.preview_table = QTableWidget(0, 4)
         self.preview_table.setObjectName("lag-correction-preview")
         self.preview_table.setHorizontalHeaderLabels(
@@ -363,7 +369,10 @@ class LagCorrectionDialog(QDialog):
         self.preview_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.preview_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.preview_table.verticalHeader().setVisible(False)
-        root.addWidget(self.preview_table, 1)
+        body_layout.addWidget(self.preview_table, 1)
+
+        body_scroll.setWidget(body)
+        root.addWidget(body_scroll, 1)
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.button(QDialogButtonBox.StandardButton.Close).setText(self.text["close"])
@@ -385,6 +394,11 @@ class LagCorrectionDialog(QDialog):
         )
         self._refresh_profiles()
         self._update_method_controls()
+        fit_window_to_screen(
+            self,
+            preferred=QSize(920, 760),
+            minimum=QSize(640, 440),
+        )
 
     @staticmethod
     def _positive_spin(*, maximum: float, decimals: int) -> QDoubleSpinBox:
