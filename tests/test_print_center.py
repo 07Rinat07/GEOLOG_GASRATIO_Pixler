@@ -245,6 +245,8 @@ def test_print_center_does_not_guess_an_unrelated_fixed_header_pair(qapp) -> Non
             unrelated_landscape: "landscape",
         },
     )
+    dialog.show()
+    qapp.processEvents()
 
     dialog.orientation_combo.setCurrentIndex(
         dialog.orientation_combo.findData(PrintOrientation.LANDSCAPE.value)
