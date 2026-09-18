@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from PySide6.QtWidgets import QDialogButtonBox
+
 from geoworkbench.domain.models import (
     CuttingsComponent,
     CuttingsSample,
@@ -242,3 +244,29 @@ def test_unmarked_saved_block_is_not_removed_ambiguously(qapp) -> None:
     assert dialog.description_template_status.text()
     assert dialog.description_editors["ru"].editor.toPlainText() == "Песчаник"
     dialog.close()
+
+
+
+def test_unified_cuttings_dialog_fits_work_area_with_sticky_actions(qapp) -> None:
+    dialog = UnifiedCuttingsSampleDialog(
+        1980.0,
+        1981.0,
+        (),
+        language=AppLanguage.EN,
+    )
+    try:
+        screen = dialog.screen()
+        assert screen is not None
+        available = screen.availableGeometry()
+        assert dialog.minimumWidth() <= dialog.width() <= available.width()
+        assert dialog.minimumHeight() <= dialog.height() <= available.height()
+        assert dialog.content_scroll.objectName() == "unified-cuttings-scroll"
+
+        buttons = dialog.findChild(
+            QDialogButtonBox,
+            "cuttings-dialog-buttons",
+        )
+        assert buttons is not None
+        assert not dialog.content_scroll.isAncestorOf(buttons)
+    finally:
+        dialog.close()
