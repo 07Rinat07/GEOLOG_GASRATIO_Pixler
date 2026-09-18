@@ -34,6 +34,7 @@ from geoworkbench.printing.masterlog_preflight import analyze_masterlog_output
 from geoworkbench.printing.masterlog_renderer import masterlog_depth_range
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 from geoworkbench.ui.masterlog_assets_dialog import MasterlogAssetsDialog
 from geoworkbench.ui.masterlog_columns_dialog import MasterlogColumnsDialog
 from geoworkbench.ui.masterlog_curve_mapping_dialog import MasterlogCurveMappingDialog
@@ -209,8 +210,6 @@ class UniversalConstructorDialog(QDialog):
         self._visible_assets: tuple[AssetDefinition, ...] = ()
         self.setWindowTitle(_TEXT[language]["title"])
         self.setObjectName("universal-constructor")
-        self.setMinimumSize(1020, 680)
-        self.resize(1320, 840)
         # The application normally uses a dark palette.  This dialog deliberately
         # uses a paper-light workspace, therefore every foreground and interaction
         # state is specified explicitly.  Relying on inherited palette colours made
@@ -325,6 +324,11 @@ class UniversalConstructorDialog(QDialog):
         layout.addWidget(workflow)
         layout.addWidget(splitter, 1)
         layout.addWidget(buttons)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(1320, 840),
+            minimum=QSize(760, 500),
+        )
         self._populate_preset_gallery()
         self.refresh_templates()
         self._filter_assets()

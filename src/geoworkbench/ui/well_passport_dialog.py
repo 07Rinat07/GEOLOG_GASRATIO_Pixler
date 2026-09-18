@@ -3,6 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 import re
 
+from PySide6.QtCore import QSize
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -33,6 +34,7 @@ from geoworkbench.printing.header_fields import (
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.project.well_passport_controller import WellPassportController
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 _TEXT = {
@@ -178,7 +180,6 @@ class WellPassportDialog(QDialog):
         self.source_combos: dict[tuple[str, str], QComboBox] = {}
         self.logo_inputs: dict[str, QComboBox] = {}
         self.setWindowTitle(self._text["title"])
-        self.resize(800, 720)
 
         layout = QVBoxLayout(self)
         hint = QLabel(self._text["hint"])
@@ -199,6 +200,11 @@ class WellPassportDialog(QDialog):
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(800, 720),
+            minimum=QSize(520, 400),
+        )
 
     def _add_tab(self, title: str) -> QFormLayout:
         content = QWidget()

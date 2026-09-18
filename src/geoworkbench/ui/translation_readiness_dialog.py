@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
@@ -24,6 +24,7 @@ from geoworkbench.project.well_translation_readiness_controller import (
     WellTranslationReadinessController,
 )
 from geoworkbench.services.localization import AppLanguage, LANGUAGE_NAMES
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 _TEXTS: dict[AppLanguage, dict[str, str]] = {
@@ -169,7 +170,11 @@ class TranslationReadinessDialog(QDialog):
         self.setObjectName("translationReadinessDialog")
         self.setModal(False)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, False)
-        self.resize(940, 620)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(940, 620),
+            minimum=QSize(620, 420),
+        )
 
         self.target_language_label = QLabel(self)
         self.target_language_combo = QComboBox(self)

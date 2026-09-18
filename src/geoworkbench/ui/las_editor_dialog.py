@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from enum import StrEnum
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 from geoworkbench.domain.models import Dataset
 from geoworkbench.services.depth_axis import analyze_depth_axis
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class LasEditorOperation(StrEnum):
@@ -45,7 +46,11 @@ class LasEditorDialog(QDialog):
         self.dataset = dataset
         self.operation: LasEditorOperation | None = None
         self.setWindowTitle(self._t("las_editor.title"))
-        self.resize(760, 520)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(760, 520),
+            minimum=QSize(520, 380),
+        )
 
         root = QVBoxLayout(self)
         title = QLabel(self._t("las_editor.heading"))

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QPoint, QPointF, QRect, QRectF, Qt, Signal
+from PySide6.QtCore import QPoint, QPointF, QRect, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import QMouseEvent, QPainter, QPaintEvent
 from PySide6.QtWidgets import (
     QDialog,
@@ -34,6 +34,7 @@ from geoworkbench.printing.masterlog_inspection import (
     masterlog_column_header_at_point,
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 from geoworkbench.ui.masterlog_interval_fill_dialog import CuttingsCompositionDialog
 from geoworkbench.ui.masterlog_columns_dialog import edit_masterlog_column
 from geoworkbench.ui.masterlog_callouts_dialog import MasterlogCalloutsDialog
@@ -255,7 +256,11 @@ class MasterlogPreviewDialog(QDialog):
         layout.addWidget(hint)
         layout.addWidget(self.preview)
         layout.addWidget(buttons)
-        self.resize(980, 650)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(980, 650),
+            minimum=QSize(620, 420),
+        )
 
     def _set_mode(self, mode: str | None) -> None:
         self.preview.selection_mode = mode
