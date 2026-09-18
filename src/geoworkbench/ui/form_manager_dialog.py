@@ -29,7 +29,11 @@ from geoworkbench.domain.models import Dataset, IndexRole
 from geoworkbench.forms.models import FormAxisKind, FormDocument
 from geoworkbench.forms.repository import FormRepository
 from geoworkbench.forms.apply import FormApplyEngine
-from geoworkbench.forms.catalog import complete_form_catalog, visible_factory_forms
+from geoworkbench.forms.catalog import (
+    complete_form_catalog,
+    resolve_form_family_member,
+    visible_factory_forms,
+)
 from geoworkbench.forms.preview import PreviewCallback
 from geoworkbench.form_constructor.preview_revision import PreviewRevisionGate
 from geoworkbench.printing.page_settings import (
@@ -71,6 +75,7 @@ class FormManagerDialog(QDialog):
         self.skf_import_callback = skf_import_callback
         self.apply_engine = FormApplyEngine()
         self.selected_form: FormDocument | None = None
+        self._family_pair_message: str | None = None
         self.setWindowTitle(self._text("Библиотека форм", "Пішіндер кітапханасы", "Form library"))
         self.setMinimumSize(980, 620)
         self.resize(1180, 720)
@@ -391,6 +396,7 @@ class FormManagerDialog(QDialog):
             )
             selected_item: QTreeWidgetItem | None = None
             first_form_item: QTreeWidgetItem | None = None
+            preferred_form_item: QTreeWidgetItem | None = None
             for category_id, title, forms, expanded in categories:
                 group = QTreeWidgetItem([f"{title}  ({len(forms)})"])
                 group.setData(0, Qt.ItemDataRole.UserRole, None)
@@ -432,6 +438,12 @@ class FormManagerDialog(QDialog):
                     group.addChild(item)
                     if first_form_item is None:
                         first_form_item = item
+                    if (
+                        preferred_form_item is None
+                        and form.preferred_page_orientation.value
+                        == self.print_page_settings.orientation.value
+                    ):
+                        preferred_form_item = item
                     if selected_id and form.form_id == selected_id:
                         selected_item = item
                         group.setExpanded(True)
@@ -453,6 +465,8 @@ class FormManagerDialog(QDialog):
                 self.tree_widget.expandItem(group_to_expand)
             if selected_item is not None:
                 self.tree_widget.setCurrentItem(selected_item)
+            elif preferred_form_item is not None:
+                self.tree_widget.setCurrentItem(preferred_form_item)
             elif first_form_item is not None:
                 self.tree_widget.setCurrentItem(first_form_item)
         finally:
@@ -509,6 +523,10 @@ class FormManagerDialog(QDialog):
         several large forms. Only the latest settled selection is rendered.
         """
 
+        self._family_pair_message = None
+        value = current.data(0, Qt.ItemDataRole.UserRole) if current is not None else None
+        if isinstance(value, FormDocument):
+            self._sync_print_orientation_to_form(value)
         self._pending_selection_revision = self._selection_gate.request()
         self._selection_timer.start()
 
@@ -628,6 +646,13 @@ class FormManagerDialog(QDialog):
         self.details.setPlainText(details)
 
     def _update_print_layout_hint(self) -> None:
+        if self._family_pair_message is not None:
+            self.print_layout_hint.setStyleSheet(
+                "padding:6px 8px; border:1px solid #b45309; border-radius:5px; "
+                "background:#fef3c7; color:#92400e;"
+            )
+            self.print_layout_hint.setText(self._family_pair_message)
+            return
         form = self._current()
         if form is None:
             self.print_layout_hint.setStyleSheet(
@@ -729,9 +754,10 @@ class FormManagerDialog(QDialog):
         )
         self.print_layout_hint.setText(text)
 
-    def _print_layout_changed(self, _value=None) -> None:
-        orientation = PrintOrientation(str(self.print_orientation_combo.currentData()))
-        self.print_page_settings = PrintPageSettings(
+    def _page_settings_for_orientation(
+        self, orientation: PrintOrientation
+    ) -> PrintPageSettings:
+        return PrintPageSettings(
             page_format=PrintPageFormat.A4,
             orientation=orientation,
             custom_width_mm=self.print_page_settings.custom_width_mm,
@@ -748,9 +774,81 @@ class FormManagerDialog(QDialog):
             ),
             continuation_overlap_mm=self.print_page_settings.continuation_overlap_mm,
         )
-        self._update_print_layout_hint()
+
+    def _persist_print_page_settings(self) -> None:
         if self.print_page_settings_changed is not None:
             self.print_page_settings_changed(self.print_page_settings)
+
+    def _sync_print_orientation_to_form(self, form: FormDocument) -> None:
+        orientation = PrintOrientation(form.preferred_page_orientation.value)
+        index = self.print_orientation_combo.findData(orientation.value)
+        if index < 0:
+            raise RuntimeError(f"Unsupported print orientation: {orientation.value}")
+        self.print_orientation_combo.blockSignals(True)
+        self.print_orientation_combo.setCurrentIndex(index)
+        self.print_orientation_combo.blockSignals(False)
+        self.print_page_settings = self._page_settings_for_orientation(orientation)
+
+    def _pair_configuration_message(self, *, ambiguous: bool) -> str:
+        if ambiguous:
+            return self._text(
+                "Семейство формы содержит несколько макетов одной ориентации. "
+                "Исправьте настройку семейства перед сменой листа.",
+                "Пішін тобында бір бағытқа арналған бірнеше макет бар. "
+                "Парақ бағытын ауыстырмас бұрын топ баптауын түзетіңіз.",
+                "The form family has multiple layouts for one orientation. "
+                "Fix the family configuration before changing the page.",
+            )
+        return self._text(
+            "Для этой формы нет связанного макета выбранной ориентации. "
+            "Создайте или настройте парный макет в том же семействе; "
+            "текущая ориентация сохранена.",
+            "Бұл пішін үшін таңдалған бағыттағы байланыстырылған макет жоқ. "
+            "Сол топта жұп макетті жасаңыз немесе баптаңыз; ағымдағы бағыт сақталды.",
+            "This form has no paired layout for the selected orientation. "
+            "Create or configure the paired layout in the same family; "
+            "the current orientation was kept.",
+        )
+
+    def _print_layout_changed(self, _value=None) -> None:
+        requested = PrintOrientation(str(self.print_orientation_combo.currentData()))
+        form = self._current()
+        if (
+            form is not None
+            and form.preferred_page_orientation.value != requested.value
+        ):
+            try:
+                paired = resolve_form_family_member(
+                    self._available_forms(),
+                    family_id=form.family_id,
+                    orientation=requested.value,
+                )
+            except ValueError:
+                paired = None
+                self._family_pair_message = self._pair_configuration_message(
+                    ambiguous=True
+                )
+            else:
+                self._family_pair_message = (
+                    self._pair_configuration_message(ambiguous=False)
+                    if paired is None
+                    else None
+                )
+            if paired is None:
+                self._sync_print_orientation_to_form(form)
+                self._update_print_layout_hint()
+                self._render_selected_details()
+                return
+
+            self.print_page_settings = self._page_settings_for_orientation(requested)
+            self._persist_print_page_settings()
+            self.reload(paired.form_id)
+            return
+
+        self._family_pair_message = None
+        self.print_page_settings = self._page_settings_for_orientation(requested)
+        self._update_print_layout_hint()
+        self._persist_print_page_settings()
         self._show_selected(self.tree_widget.currentItem(), None)
 
     def _create(self) -> None:
@@ -922,6 +1020,7 @@ class FormManagerDialog(QDialog):
         form = self._current()
         if form is None or not self._is_compatible(form) or self.print_form_callback is None:
             return
+        self._persist_print_page_settings()
         self.print_form_callback(form)
 
     def _sync_masterlog(self) -> None:
@@ -954,5 +1053,6 @@ class FormManagerDialog(QDialog):
         form = self._current()
         if form is None or not self._is_compatible(form):
             return
+        self._persist_print_page_settings()
         self.selected_form = form
         self.accept()
