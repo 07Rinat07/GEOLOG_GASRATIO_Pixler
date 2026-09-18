@@ -25,11 +25,11 @@ from geoworkbench.printing.header_catalog import (
     resolve_catalog_header,
 )
 from geoworkbench.services.localization import AppLanguage
-from geoworkbench.ui.window_geometry import fit_window_to_screen
 from geoworkbench.ui.header_preview_widget import (
     HeaderPreviewDialog,
     HeaderPreviewWidget,
 )
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class HeaderCatalogDialog(QDialog):
