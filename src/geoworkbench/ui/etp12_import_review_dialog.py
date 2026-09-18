@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -29,6 +29,7 @@ from geoworkbench.services.etp12_import_review import (
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.uom_dictionary import QuantityClass
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class Etp12ImportReviewDialog(QDialog):
@@ -50,7 +51,6 @@ class Etp12ImportReviewDialog(QDialog):
         self.plan = initial_plan or self.controller.initial_plan(snapshot)
         self.commit_result: Etp12ImportReviewCommit | None = None
         self.setWindowTitle(self._t("etp12.review_title"))
-        self.resize(1100, 720)
 
         root = QVBoxLayout(self)
         form = QFormLayout()
@@ -138,6 +138,11 @@ class Etp12ImportReviewDialog(QDialog):
         buttons.rejected.connect(self.reject)
         actions.addWidget(buttons)
         root.addLayout(actions)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(1100, 720),
+            minimum=QSize(620, 420),
+        )
         self._preview()
 
     def _t(self, key: str, **kwargs: object) -> str:

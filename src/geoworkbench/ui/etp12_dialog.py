@@ -7,7 +7,7 @@ from queue import Queue
 from typing import Callable, Mapping, TYPE_CHECKING
 from uuid import uuid4
 
-from PySide6.QtCore import QStandardPaths, QThread, Qt, Signal
+from PySide6.QtCore import QSize, QStandardPaths, QThread, Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
+    QScrollArea,
     QSpinBox,
     QSplitter,
     QTableWidget,
@@ -67,6 +68,7 @@ from geoworkbench.services.etp12_acquisition import (
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.ui.etp12_import_review_dialog import Etp12ImportReviewDialog
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 if TYPE_CHECKING:
     from geoworkbench.domain.models import Well
@@ -259,8 +261,14 @@ class Etp12Dialog(QDialog):
         self.acquisition_runtime: Etp12AcquisitionRuntime | None = None
 
         self.setWindowTitle(self._t("etp12.title"))
-        self.resize(1180, 820)
         root_layout = QVBoxLayout(self)
+        self.content_scroll = QScrollArea(self)
+        self.content_scroll.setObjectName("etp12-content-scroll")
+        self.content_scroll.setWidgetResizable(True)
+        content = QWidget(self.content_scroll)
+        content_layout = QVBoxLayout(content)
+        self.content_scroll.setWidget(content)
+        root_layout.addWidget(self.content_scroll, 1)
 
         connection_box = QGroupBox(self._t("etp12.connection"), self)
         connection_form = QFormLayout(connection_box)
@@ -304,7 +312,7 @@ class Etp12Dialog(QDialog):
         connection_form.addRow(self._t("etp12.max_multipart"), self.max_multipart_mb)
         connection_form.addRow(self._t("etp12.max_multipart_parts"), self.max_multipart_parts)
         connection_form.addRow(self._t("etp12.multipart_timeout"), self.multipart_timeout)
-        root_layout.addWidget(connection_box)
+        content_layout.addWidget(connection_box)
 
         connection_buttons = QHBoxLayout()
         self.connect_button = QPushButton(self._t("etp12.connect"), self)
@@ -316,11 +324,11 @@ class Etp12Dialog(QDialog):
         connection_buttons.addWidget(self.reconnect_button)
         connection_buttons.addWidget(self.disconnect_button)
         connection_buttons.addStretch(1)
-        root_layout.addLayout(connection_buttons)
+        content_layout.addLayout(connection_buttons)
 
         self.status = QLabel(self._t("etp12.disconnected"), self)
         self.status.setWordWrap(True)
-        root_layout.addWidget(self.status)
+        content_layout.addWidget(self.status)
 
         splitter = QSplitter(Qt.Orientation.Horizontal, self)
         left = QWidget(splitter)
@@ -406,11 +414,17 @@ class Etp12Dialog(QDialog):
         splitter.addWidget(left)
         splitter.addWidget(right)
         splitter.setSizes([560, 620])
-        root_layout.addWidget(splitter, 1)
+        content_layout.addWidget(splitter, 1)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, self)
-        buttons.rejected.connect(self.close)
-        root_layout.addWidget(buttons)
+        self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, self)
+        self.buttons.setObjectName("etp12-actions")
+        self.buttons.rejected.connect(self.close)
+        root_layout.addWidget(self.buttons)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(1180, 820),
+            minimum=QSize(640, 420),
+        )
 
         self.connect_button.clicked.connect(self._connect)
         self.reconnect_button.clicked.connect(lambda: self.worker.submit("reconnect"))
