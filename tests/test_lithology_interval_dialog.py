@@ -1,4 +1,5 @@
-from geoworkbench.catalogs.lithotypes import load_lithotype_catalog
+from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
+from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.lithology_interval_dialog import LithologyIntervalDialog
 
@@ -7,7 +8,7 @@ def test_lithology_interval_dialog_fits_current_work_area(qapp) -> None:
     dialog = LithologyIntervalDialog(
         100.0,
         101.0,
-        load_lithotype_catalog(),
+        LithotypeCatalogController(ProjectSession()).available(),
         language=AppLanguage.EN,
     )
     try:
