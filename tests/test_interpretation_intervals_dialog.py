@@ -1,5 +1,5 @@
 import numpy as np
-from PySide6.QtWidgets import QPushButton, QTableWidget, QTabWidget
+from PySide6.QtWidgets import QDialogButtonBox, QPushButton, QScrollArea, QTableWidget, QTabWidget
 
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
 from geoworkbench.project.interpretation_controller import InterpretationController
@@ -111,3 +111,27 @@ def test_interpretation_dialog_preserves_legacy_fallback(qapp) -> None:
     assert dialog.label_input.text() == "Legacy label"
     assert interval.label_i18n == {}
     dialog.close()
+
+
+
+def test_interpretation_dialog_fits_work_area_with_sticky_close(qapp) -> None:
+    dialog = InterpretationIntervalsDialog(_controller(), language=AppLanguage.EN)
+    try:
+        screen = dialog.screen()
+        assert screen is not None
+        available = screen.availableGeometry()
+        assert dialog.minimumWidth() <= dialog.width() <= available.width()
+        assert dialog.minimumHeight() <= dialog.height() <= available.height()
+
+        scroll = dialog.findChild(QScrollArea, "interpretation-intervals-body-scroll")
+        buttons = dialog.findChild(QDialogButtonBox)
+        table = dialog.findChild(QTableWidget, "interpretation-intervals-table")
+        assert scroll is not None
+        assert buttons is not None
+        assert table is not None
+        assert scroll.widget() is not None
+        assert scroll.widget().isAncestorOf(table)
+        assert not scroll.isAncestorOf(buttons)
+        assert buttons.button(QDialogButtonBox.StandardButton.Close).text() == "Close"
+    finally:
+        dialog.close()
