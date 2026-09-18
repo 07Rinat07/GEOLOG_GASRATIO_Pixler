@@ -229,3 +229,38 @@ def test_physical_printer_preference_is_persisted() -> None:
     settings.save_print_export_preferences(expected)
 
     assert settings.print_export_preferences() == expected
+
+
+
+def test_selected_form_id_persists_per_active_profile() -> None:
+    storage = MemorySettings()
+    settings = UserProfileSettings(storage)
+
+    settings.save_selected_form_id("factory-masterlog-a4-portrait")
+    assert settings.selected_form_id() == "factory-masterlog-a4-portrait"
+
+    first = settings.create("First")
+    assert settings.selected_form_id() is None
+    settings.save_selected_form_id("customer-form-1")
+
+    second = settings.create("Second")
+    assert settings.selected_form_id() is None
+    settings.save_selected_form_id("customer-form-2")
+
+    settings.select(first.profile_id)
+    assert settings.selected_form_id() == "customer-form-1"
+    settings.select(second.profile_id)
+    assert settings.selected_form_id() == "customer-form-2"
+
+
+def test_selected_form_id_rejects_invalid_and_can_be_cleared() -> None:
+    storage = MemorySettings()
+    settings = UserProfileSettings(storage)
+
+    with pytest.raises(ValueError, match="ID выбранной формы"):
+        settings.save_selected_form_id("   ")
+
+    settings.save_selected_form_id("customer-form")
+    settings.save_selected_form_id(None)
+
+    assert settings.selected_form_id() is None
