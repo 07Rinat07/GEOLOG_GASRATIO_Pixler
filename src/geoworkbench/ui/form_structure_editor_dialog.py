@@ -568,7 +568,7 @@ class FormStructureEditorDialog(QDialog):
         splitter.setStretchFactor(1, 2)
         # Prefer enough room for long structure labels on desktop while still
         # allowing both panes to shrink on laptop work areas.
-        splitter.setSizes([520, 560])
+        splitter.setSizes([760, 320])
 
         actions = QHBoxLayout()
         self.live_preview_check = QCheckBox(
