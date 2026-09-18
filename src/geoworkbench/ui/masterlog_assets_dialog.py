@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QIcon
 from pathlib import Path
 
@@ -26,6 +26,7 @@ from geoworkbench.printing.image_assets import (
 )
 from geoworkbench.printing.masterlog_symbols import BUILTIN_MASTERLOG_SYMBOLS
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class MasterlogAssetsDialog(QDialog):
@@ -74,8 +75,12 @@ class MasterlogAssetsDialog(QDialog):
         layout.addLayout(symbol_row)
         layout.addWidget(self.list)
         layout.addLayout(buttons)
-        self.resize(520, 300)
         self.refresh()
+        fit_window_to_screen(
+            self,
+            preferred=QSize(520, 300),
+            minimum=QSize(420, 280),
+        )
 
     def refresh(self) -> None:
         self.list.clear()
