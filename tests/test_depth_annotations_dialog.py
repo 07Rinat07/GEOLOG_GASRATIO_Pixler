@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from PySide6.QtWidgets import QDialogButtonBox, QPushButton, QTableWidget
+from PySide6.QtWidgets import QDialogButtonBox, QPushButton, QScrollArea, QTableWidget
 
 from geoworkbench.domain.models import (
     Dataset,
@@ -132,3 +132,63 @@ def test_symbol_editor_preserves_subpixel_geometry(qapp) -> None:
     assert dialog.width_input.value() == 0.01
     assert dialog.height_input.value() == 0.01
     dialog.close()
+
+
+
+def test_depth_annotations_manager_fits_work_area_and_scrolls_editor_tabs(qapp) -> None:
+    dialog = DepthAnnotationsDialog(make_controller(), language=AppLanguage.EN)
+    try:
+        screen = dialog.screen()
+        assert screen is not None
+        available = screen.availableGeometry()
+        assert dialog.minimumWidth() <= dialog.width() <= available.width()
+        assert dialog.minimumHeight() <= dialog.height() <= available.height()
+
+        assert dialog.editor_tabs.count() == 3
+        scroll_names = {
+            "depth-annotations-content-scroll",
+            "depth-annotations-style-scroll",
+            "depth-annotations-geometry-scroll",
+        }
+        scrolls = {
+            dialog.editor_tabs.widget(index)
+            for index in range(dialog.editor_tabs.count())
+        }
+        assert all(isinstance(widget, QScrollArea) for widget in scrolls)
+        assert {widget.objectName() for widget in scrolls} == scroll_names
+
+        buttons = dialog.findChild(QDialogButtonBox)
+        assert buttons is not None
+        assert all(not widget.isAncestorOf(buttons) for widget in scrolls)
+    finally:
+        dialog.close()
+
+
+def test_direct_annotation_editor_keeps_save_cancel_outside_scroll_area(qapp) -> None:
+    dialog = DepthAnnotationsDialog(
+        make_controller(),
+        language=AppLanguage.EN,
+        initial_values={
+            "kind": "comment",
+            "anchor": "depth",
+            "depth": 150.0,
+            "x_fraction": 0.5,
+        },
+    )
+    try:
+        screen = dialog.screen()
+        assert screen is not None
+        available = screen.availableGeometry()
+        assert dialog.minimumWidth() <= dialog.width() <= available.width()
+        assert dialog.minimumHeight() <= dialog.height() <= available.height()
+
+        buttons = dialog.findChild(QDialogButtonBox)
+        assert buttons is not None
+        assert buttons.button(QDialogButtonBox.StandardButton.Save) is not None
+        assert buttons.button(QDialogButtonBox.StandardButton.Cancel) is not None
+        for index in range(dialog.editor_tabs.count()):
+            scroll = dialog.editor_tabs.widget(index)
+            assert isinstance(scroll, QScrollArea)
+            assert not scroll.isAncestorOf(buttons)
+    finally:
+        dialog.close()
