@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -60,7 +61,8 @@ class CanvasObjectTransferDialog(QDialog):
                 "Transfer authored drawings",
             )
         )
-        root = QVBoxLayout(self)
+        body = QWidget(self)
+        body_layout = QVBoxLayout(body)
 
         summary = QLabel(
             self._text(
@@ -74,7 +76,7 @@ class CanvasObjectTransferDialog(QDialog):
         )
         summary.setWordWrap(True)
         summary.setObjectName("canvas-transfer-safety-summary")
-        root.addWidget(summary)
+        body_layout.addWidget(summary)
 
         form = QFormLayout()
         self.source_combo = QComboBox()
@@ -119,7 +121,7 @@ class CanvasObjectTransferDialog(QDialog):
             self._text("Конфликты ID", "ID қақтығыстары", "ID conflicts"),
             self.collision_combo,
         )
-        root.addLayout(form)
+        body_layout.addLayout(form)
 
         self.source_table = QTableWidget(0, 6)
         self.source_table.setObjectName("canvas-transfer-source-table")
@@ -134,17 +136,17 @@ class CanvasObjectTransferDialog(QDialog):
             ]
         )
         self.source_table.itemChanged.connect(self._source_item_changed)
-        root.addWidget(self.source_table, 1)
+        body_layout.addWidget(self.source_table, 1)
 
         self.preview_button = QPushButton(
             self._text("Проверить перенос", "Көшіруді тексеру", "Preview transfer")
         )
         self.preview_button.clicked.connect(self._analyze)
-        root.addWidget(self.preview_button)
+        body_layout.addWidget(self.preview_button)
 
         self.counts_label = QLabel()
         self.counts_label.setObjectName("canvas-transfer-counts")
-        root.addWidget(self.counts_label)
+        body_layout.addWidget(self.counts_label)
 
         self.preview_table = QTableWidget(0, 4)
         self.preview_table.setObjectName("canvas-transfer-preview-table")
@@ -156,7 +158,7 @@ class CanvasObjectTransferDialog(QDialog):
                 self._text("Действие", "Әрекет", "Action"),
             ]
         )
-        root.addWidget(self.preview_table, 1)
+        body_layout.addWidget(self.preview_table, 1)
 
         self.buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
@@ -167,6 +169,13 @@ class CanvasObjectTransferDialog(QDialog):
         self.buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
         self.buttons.accepted.connect(self._accept)
         self.buttons.rejected.connect(self.reject)
+
+        self.body_scroll = QScrollArea(self)
+        self.body_scroll.setObjectName("canvas-transfer-scroll")
+        self.body_scroll.setWidgetResizable(True)
+        self.body_scroll.setWidget(body)
+        root = QVBoxLayout(self)
+        root.addWidget(self.body_scroll, 1)
         root.addWidget(self.buttons)
 
         self._reload_source_objects()
@@ -179,11 +188,10 @@ class CanvasObjectTransferDialog(QDialog):
                     "No other wells contain authored drawings.",
                 )
             )
-
         fit_window_to_screen(
             self,
             preferred=QSize(900, 650),
-            minimum=QSize(620, 420),
+            minimum=QSize(560, 360),
         )
 
     def selected_object_ids(self) -> tuple[str, ...]:

@@ -68,7 +68,7 @@ class CurveTransferDialog(QDialog):
         fit_window_to_screen(
             self,
             preferred=QSize(760, 480),
-            minimum=QSize(520, 340),
+            minimum=QSize(500, 320),
         )
 
     @property
