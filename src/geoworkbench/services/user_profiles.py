@@ -326,10 +326,33 @@ class UserProfileSettings:
         profile_id = active.profile_id if active is not None else "default"
         return f"users/print_export/{profile_id}"
 
+    def selected_form_id(self) -> str | None:
+        raw = self.settings.value(self._selected_form_key(), "")
+        value = str(raw).strip()
+        if not value or len(value) > 256:
+            return None
+        return value
+
+    def save_selected_form_id(self, form_id: str | None) -> None:
+        if form_id is None:
+            self.settings.remove(self._selected_form_key())
+            self.settings.sync()
+            return
+        normalized = str(form_id).strip()
+        if not normalized or len(normalized) > 256:
+            raise ValueError("Некорректный ID выбранной формы")
+        self.settings.setValue(self._selected_form_key(), normalized)
+        self.settings.sync()
+
     def _cursor_settings_key(self) -> str:
         active = self.active()
         profile_id = active.profile_id if active is not None else "default"
         return f"users/cursor_line/{profile_id}"
+
+    def _selected_form_key(self) -> str:
+        active = self.active()
+        profile_id = active.profile_id if active is not None else "default"
+        return f"users/selected_form/{profile_id}"
 
     def _table_number_formats_key(self) -> str:
         active = self.active()
