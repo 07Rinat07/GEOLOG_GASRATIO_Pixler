@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QCheckBox, QTableWidget, QTableWidgetItem,
     QComboBox,
@@ -15,8 +15,10 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QTextEdit,
     QVBoxLayout,
+    QWidget,
 )
 
 from geoworkbench.project.daily_las_growth_controller import DailyLasGrowthController
@@ -34,6 +36,7 @@ from geoworkbench.services.local_las_folder import (
     LocalLasFolderProvider,
 )
 from geoworkbench.ui.navigation_organization import open_help_for_widget
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class DailyLasGrowthDialog(QDialog):
@@ -53,8 +56,14 @@ class DailyLasGrowthDialog(QDialog):
         self.geology_plan: WellGeologyUpdatePlan | None = None
         self._folder_candidates: tuple[LocalLasCandidate, ...] = ()
         self.setWindowTitle(self._text("Ежедневное наращивание LAS", "LAS күнделікті өсіру", "Daily LAS growth"))
-        self.resize(720, 470)
-        root = QVBoxLayout(self)
+        outer = QVBoxLayout(self)
+        self.content_scroll = QScrollArea(self)
+        self.content_scroll.setObjectName("daily-las-growth-content-scroll")
+        self.content_scroll.setWidgetResizable(True)
+        content = QWidget(self.content_scroll)
+        root = QVBoxLayout(content)
+        self.content_scroll.setWidget(content)
+        outer.addWidget(self.content_scroll, 1)
         self.info_label = QLabel(
             self._text(
                 "Откройте рабочий .geologpkg и добавляйте только новые строки в явно выбранный dataset. Формы, геология, значки и комментарии не заменяются.",
@@ -251,12 +260,17 @@ class DailyLasGrowthDialog(QDialog):
         )
         self.buttons.accepted.connect(self._accept)
         self.buttons.rejected.connect(self.reject)
-        root.addWidget(self.buttons)
+        outer.addWidget(self.buttons)
         self.file_input.textChanged.connect(self._source_changed)
         self.target_combo.currentIndexChanged.connect(self._invalidate)
         self.numerical_mode.toggled.connect(self._switch_mode)
         self.geology_enabled.toggled.connect(self._invalidate)
         self.profile_input.textChanged.connect(self._invalidate)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(720, 470),
+            minimum=QSize(520, 340),
+        )
 
     def _text(self, ru: str, kk: str, en: str) -> str:
         return {"ru": ru, "kk": kk, "en": en}.get(self.language, ru)
