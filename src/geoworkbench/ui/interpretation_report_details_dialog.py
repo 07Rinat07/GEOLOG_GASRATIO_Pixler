@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from PySide6.QtCore import QSize
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -18,6 +19,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
     InterpretationReportIdentity,
 )
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class InterpretationReportDetailsDialog(QDialog):
@@ -35,8 +37,6 @@ class InterpretationReportDetailsDialog(QDialog):
         self.language = language
         self.defaults = defaults.cleaned()
         self.setModal(True)
-        self.resize(760, 720)
-        self.setMinimumSize(640, 560)
         self.setWindowTitle(
             self._text(
                 "Реквизиты и титульный лист отчёта",
@@ -214,6 +214,11 @@ class InterpretationReportDetailsDialog(QDialog):
         root.addWidget(buttons)
 
         self._apply((initial or defaults).cleaned())
+        fit_window_to_screen(
+            self,
+            preferred=QSize(760, 720),
+            minimum=QSize(560, 420),
+        )
 
     def selected_identity(self) -> InterpretationReportIdentity:
         return InterpretationReportIdentity(
