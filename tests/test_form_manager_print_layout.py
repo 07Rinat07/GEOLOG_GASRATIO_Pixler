@@ -172,3 +172,45 @@ def test_explicit_form_selection_synchronizes_page_before_print(qapp, tmp_path) 
     assert printed and printed[-1].form_id == form.form_id
     assert received and received[-1].orientation is PrintOrientation.LANDSCAPE
     dialog.close()
+
+
+
+def test_form_manager_restores_explicit_initial_form_id(qapp, tmp_path) -> None:
+    repository = FormRepository(tmp_path / "forms")
+    selected = FormDocument.create(
+        "Persisted landscape",
+        FormAxisKind.DEPTH,
+        preferred_page_orientation=FormPageOrientation.LANDSCAPE,
+    )
+    repository.save(selected)
+
+    dialog = FormManagerDialog(
+        repository,
+        language="en",
+        print_page_settings=PrintPageSettings(orientation=PrintOrientation.PORTRAIT),
+        initial_form_id=selected.form_id,
+    )
+
+    current = dialog._current()
+    assert current is not None
+    assert current.form_id == selected.form_id
+    assert dialog.print_page_settings.orientation is PrintOrientation.LANDSCAPE
+    dialog.close()
+
+
+def test_form_manager_stale_initial_form_id_falls_back_to_page_orientation(
+    qapp, tmp_path
+) -> None:
+    dialog = FormManagerDialog(
+        FormRepository(tmp_path / "forms"),
+        language="en",
+        print_page_settings=PrintPageSettings(orientation=PrintOrientation.LANDSCAPE),
+        initial_form_id="deleted-form-id",
+    )
+
+    current = dialog._current()
+    assert current is not None
+    assert current.form_id != "deleted-form-id"
+    assert current.preferred_page_orientation is FormPageOrientation.LANDSCAPE
+    assert dialog.print_page_settings.orientation is PrintOrientation.LANDSCAPE
+    dialog.close()
