@@ -28,6 +28,7 @@ class InterpretationReportWorkspace(_CompatibleInterpretationReportWorkspace):
     """Responsive interpretation workspace with separated controls and report preview."""
 
     _TWO_COLUMN_BREAKPOINT = 1_280
+    _COMPACT_HEIGHT_BREAKPOINT = 720
 
     def __init__(
         self,
@@ -318,9 +319,13 @@ class InterpretationReportWorkspace(_CompatibleInterpretationReportWorkspace):
 
     def _relayout_configuration(self, *, force: bool = False) -> None:
         columns = 2 if self.width() >= self._TWO_COLUMN_BREAKPOINT else 1
-        if not force and columns == self._configuration_columns:
+        compact_height = self.height() < self._COMPACT_HEIGHT_BREAKPOINT
+        layout_signature = (columns, compact_height)
+        if not force and layout_signature == getattr(self, "_layout_signature", None):
             return
+        self._layout_signature = layout_signature
         self._configuration_columns = columns
+        self.preview.setMinimumHeight(150 if compact_height else 260)
         while self._configuration_grid.count():
             self._configuration_grid.takeAt(0)
 
@@ -337,6 +342,11 @@ class InterpretationReportWorkspace(_CompatibleInterpretationReportWorkspace):
             self._configuration_grid.addWidget(self.dexp_quality_panel, 1, 0)
             self._configuration_grid.addWidget(self.settings_panel, 2, 0)
             self._configuration_grid.setColumnStretch(0, 1)
+
+        if compact_height:
+            self.main_splitter.setSizes([180, 320])
+        else:
+            self.main_splitter.setSizes([430, 520])
 
     def resizeEvent(self, event: QResizeEvent) -> None:  # noqa: N802 - Qt API
         super().resizeEvent(event)
