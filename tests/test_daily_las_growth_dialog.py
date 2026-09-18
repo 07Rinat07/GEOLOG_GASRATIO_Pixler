@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from PySide6.QtWidgets import QDialogButtonBox, QScrollArea
+from PySide6.QtWidgets import QDialogButtonBox
 
 from geoworkbench.data.las_adapter import import_las_with_report
 from geoworkbench.domain.models import Project
@@ -156,8 +156,13 @@ def test_daily_las_dialog_fits_work_area_with_sticky_actions(qapp) -> None:
         available = screen.availableGeometry()
         assert dialog.minimumWidth() <= dialog.width() <= available.width()
         assert dialog.minimumHeight() <= dialog.height() <= available.height()
-        scroll = dialog.findChild(QScrollArea, "daily-las-growth-content-scroll")
-        assert scroll is dialog.content_scroll
-        assert not scroll.isAncestorOf(dialog.buttons)
+        assert dialog.body_scroll.objectName() == "daily-las-growth-scroll"
+        assert not dialog.body_scroll.isAncestorOf(dialog.buttons)
+
+        dialog.numerical_mode.setChecked(True)
+        qapp.processEvents()
+        assert dialog.width() <= available.width()
+        assert dialog.height() <= available.height()
+        assert not dialog.change_table.isHidden()
     finally:
         dialog.close()
