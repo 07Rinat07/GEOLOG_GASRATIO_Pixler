@@ -77,3 +77,15 @@ def test_wits0_import_review_dialog_constructs_and_commits_offscreen(
     finally:
         dialog.close()
         app.processEvents()
+
+
+
+def test_wits0_review_keeps_actions_visible_on_laptop_work_area() -> None:
+    source = DIALOG_SOURCE.read_text(encoding="utf-8")
+
+    assert "fit_window_to_screen(" in source
+    assert "QScrollArea" in source
+    assert "self.resize(1280, 820)" not in source
+    assert source.index("root.addWidget(scroll, 1)") < source.index(
+        "root.addWidget(self.buttons)"
+    )
