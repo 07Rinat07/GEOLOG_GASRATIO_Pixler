@@ -399,11 +399,22 @@ def _apply_compact_geology_widths(form: FormDocument) -> None:
     form.validate()
 
 
+def _a4_print_header_catalog_id(profile_id: str, orientation: str) -> str:
+    if orientation not in {"portrait", "landscape"}:
+        raise ValueError("A4 header orientation must be portrait or landscape")
+    preset_id = (
+        f"masterlog_header_a4_{orientation}"
+        if profile_id == "masterlog"
+        else f"a4_{profile_id}_{orientation}"
+    )
+    return f"factory-header:{preset_id}"
+
+
 def _with_a4_print_headers(form: FormDocument, profile_id: str) -> FormDocument:
     """Pair one logical form with its two orientation-specific A4 headers."""
 
     form.print_header_template_ids = {
-        orientation: f"factory-header:a4_{profile_id}_{orientation}"
+        orientation: _a4_print_header_catalog_id(profile_id, orientation)
         for orientation in ("portrait", "landscape")
     }
     form.print_header_template_id = form.print_header_template_ids["portrait"]
