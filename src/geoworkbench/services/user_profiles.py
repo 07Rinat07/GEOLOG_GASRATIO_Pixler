@@ -328,6 +328,8 @@ class UserProfileSettings:
 
     def selected_form_id(self) -> str | None:
         raw = self.settings.value(self._selected_form_key(), "")
+        if raw is None:
+            return None
         value = str(raw).strip()
         if not value or len(value) > 256:
             return None
