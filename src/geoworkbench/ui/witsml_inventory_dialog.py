@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QHeaderView,
     QLabel,
     QPlainTextEdit,
+    QScrollArea,
     QTabWidget,
     QTreeWidget,
     QTreeWidgetItem,
@@ -21,6 +23,7 @@ from geoworkbench.importers.witsml import (
     inspect_witsml,
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class WitsmlInventoryDialog(QDialog):
@@ -40,12 +43,17 @@ class WitsmlInventoryDialog(QDialog):
         self.error: str | None = None
 
         self.setWindowTitle(self._t("witsml.title"))
-        self.resize(1180, 720)
         root = QVBoxLayout(self)
+        scroll = QScrollArea(self)
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        content = QWidget(scroll)
+        content_layout = QVBoxLayout(content)
 
         self.summary = QLabel(self._t("witsml.inspecting", file=self.source.name))
         self.summary.setWordWrap(True)
-        root.addWidget(self.summary)
+        content_layout.addWidget(self.summary)
 
         self.tabs = QTabWidget(self)
         self.objects_tree = self._create_objects_tree()
@@ -55,11 +63,20 @@ class WitsmlInventoryDialog(QDialog):
         self.tabs.addTab(self.objects_tree, self._t("witsml.objects_tab"))
         self.tabs.addTab(self.channels_tree, self._t("witsml.channels_tab"))
         self.tabs.addTab(self.diagnostics_text, self._t("witsml.diagnostics_tab"))
-        root.addWidget(self.tabs, 1)
+        content_layout.addWidget(self.tabs, 1)
+
+        scroll.setWidget(content)
+        root.addWidget(scroll, 1)
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, self)
         buttons.rejected.connect(self.reject)
         root.addWidget(buttons)
+
+        fit_window_to_screen(
+            self,
+            preferred=QSize(1180, 720),
+            minimum=QSize(520, 340),
+        )
 
         self._load_inventory()
 
