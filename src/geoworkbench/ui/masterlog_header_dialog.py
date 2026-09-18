@@ -637,8 +637,6 @@ class HeaderElementDialog(QDialog):
             body_layout.addWidget(preview_panel, 4)
             self._connect_live_preview()
             QTimer.singleShot(0, self._refresh_live_preview)
-        else:
-            pass
 
         root = QVBoxLayout(self)
         root.addWidget(body, 1)
