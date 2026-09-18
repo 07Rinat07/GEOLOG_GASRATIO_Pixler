@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+from PySide6.QtCore import QSize
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -19,6 +20,7 @@ from geoworkbench.services.time_to_depth_conversion import (
     DepthAggregationMethod,
     TimeToDepthPlan,
 )
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class TimeToDepthDialog(QDialog):
@@ -34,7 +36,6 @@ class TimeToDepthDialog(QDialog):
         self.localizer = Localizer.create(language)
         self.plan: TimeToDepthPlan | None = None
         self.setWindowTitle(self._t("time_to_depth.title"))
-        self.resize(560, 360)
         root = QVBoxLayout(self)
         info = QLabel(self._t("time_to_depth.description"))
         info.setWordWrap(True)
@@ -95,6 +96,11 @@ class TimeToDepthDialog(QDialog):
         buttons.accepted.connect(self._accept)
         buttons.rejected.connect(self.reject)
         root.addWidget(buttons)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(560, 360),
+            minimum=QSize(440, 320),
+        )
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)
