@@ -46,7 +46,6 @@ from geoworkbench.acquisition import (
     wits0_remote_bind_required,
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
-from geoworkbench.ui.window_geometry import fit_window_to_screen
 from geoworkbench.services.wits0_acquisition import (
     Wits0AcquisitionBackpressureError,
     Wits0AcquisitionConfig,
@@ -67,6 +66,7 @@ from geoworkbench.services.wits0_import_review import (
 )
 from geoworkbench.ui.wits0_import_review_dialog import Wits0ImportReviewDialog
 from geoworkbench.ui.wits0_live_view import Wits0LiveViewWidget
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 if TYPE_CHECKING:
     from geoworkbench.domain.models import Well
