@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -25,6 +25,7 @@ from geoworkbench.printing.header_catalog import (
     resolve_catalog_header,
 )
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 from geoworkbench.ui.header_preview_widget import (
     HeaderPreviewDialog,
     HeaderPreviewWidget,
@@ -120,8 +121,11 @@ class HeaderCatalogDialog(QDialog):
         root = QHBoxLayout(self)
         root.addLayout(left, 1)
         root.addLayout(right, 2)
-        self.setMinimumSize(1050, 650)
-        self.resize(1500, 900)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(1500, 900),
+            minimum=QSize(760, 500),
+        )
         self.refresh()
 
     def refresh(self, selected_id: str | None = None) -> None:
