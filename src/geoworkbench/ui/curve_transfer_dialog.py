@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 from geoworkbench.project.curve_transfer_controller import CurveTransferController
 from geoworkbench.services.curve_transfer import CurveTransferAnalysis
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class CurveTransferDialog(QDialog):
@@ -31,7 +32,6 @@ class CurveTransferDialog(QDialog):
         self.localizer = Localizer.create(language)
         self.analysis: CurveTransferAnalysis | None = None
         self.setWindowTitle(self._t("transfer.title"))
-        self.resize(760, 480)
         root = QVBoxLayout(self)
         form = QFormLayout()
         self.source_combo = QComboBox()
@@ -65,6 +65,11 @@ class CurveTransferDialog(QDialog):
         root.addWidget(self.buttons)
         self.source_combo.currentIndexChanged.connect(self._refresh_analysis)
         self._refresh_analysis()
+        fit_window_to_screen(
+            self,
+            preferred=QSize(760, 480),
+            minimum=QSize(520, 340),
+        )
 
     @property
     def source_dataset_id(self) -> str | None:
