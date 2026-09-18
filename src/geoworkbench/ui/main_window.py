@@ -245,6 +245,7 @@ from geoworkbench.ui.workspace_controller import (
     WorkspaceSurface,
 )
 from geoworkbench.ui.window_geometry import (
+    adaptive_minimum_size,
     adaptive_window_geometry,
     constrain_window_geometry,
     fit_window_to_screen,
@@ -670,10 +671,10 @@ class MainWindow(QMainWindow):
         self._main_toolbar_overflow_signature: tuple[str, ...] = ()
         self._form_toolbar_overflow_signature: tuple[str, ...] = ()
         self._apply_adaptive_initial_geometry()
-        # Explicitly override child-layout minimum-width propagation.  The
-        # workspace is scrollable; a command row or dock must never enlarge the
-        # native window beyond the monitor after a click or DPI transition.
-        self.setMinimumSize(640, 480)
+        # Explicitly override child-layout minimum propagation.  The workspace
+        # is scrollable; a desktop-only 640×480 minimum must never exceed the
+        # logical work area at Windows HiDPI scaling.
+        self._apply_adaptive_minimum_size()
 
         self.tabs = QTabWidget()
         self.file_workspace = FileWorkspaceWidget(language=self.language.value)
@@ -832,24 +833,27 @@ class MainWindow(QMainWindow):
         self._update_title()
 
     def minimumSizeHint(self) -> QSize:  # noqa: N802 - Qt API
-        """Never advertise a width larger than the active monitor work area.
-
-        This is a final Windows safety boundary. Child views remain scrollable,
-        while a transient toolbar or dock size hint cannot make a maximized
-        window extend past the external monitor.
-        """
+        """Never advertise a size larger than the active monitor work area."""
 
         hint = super().minimumSizeHint()
         screen = self.screen() or QApplication.primaryScreen()
         if screen is None:
-            return QSize(min(max(640, hint.width()), 1280), max(480, hint.height()))
+            return QSize(min(max(1, hint.width()), 640), min(max(1, hint.height()), 480))
         available = screen.availableGeometry()
-        width_cap = max(640, int(available.width()) - 24)
-        height_cap = max(480, int(available.height()) - 24)
-        return QSize(
-            min(max(640, hint.width()), width_cap),
-            min(max(480, hint.height()), height_cap),
+        requested = QSize(max(640, hint.width()), max(480, hint.height()))
+        return adaptive_minimum_size(available, requested=requested, margin=12)
+
+    def _apply_adaptive_minimum_size(self) -> None:
+        screen = self.screen() or QApplication.screenAt(QCursor.pos()) or QApplication.primaryScreen()
+        if screen is None:
+            self.setMinimumSize(640, 480)
+            return
+        minimum = adaptive_minimum_size(
+            screen.availableGeometry(),
+            requested=QSize(640, 480),
+            margin=12,
         )
+        self.setMinimumSize(minimum)
 
     def resizeEvent(self, event) -> None:  # noqa: N802 - Qt API
         super().resizeEvent(event)
