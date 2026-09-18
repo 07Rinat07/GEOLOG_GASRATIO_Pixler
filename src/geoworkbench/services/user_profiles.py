@@ -23,7 +23,7 @@ from geoworkbench.printing.print_job import (
 
 
 _PRINT_LAYOUT_DEFAULTS_VERSION = 2
-_PRINT_EXPORT_DEFAULTS_VERSION = 2
+_PRINT_EXPORT_DEFAULTS_VERSION = 3
 
 
 @dataclass(frozen=True, slots=True)
@@ -189,9 +189,27 @@ class UserProfileSettings:
                 str(raw_printer_name).strip() if raw_printer_name is not None else None
             )
             defaults_version = int(payload.get("defaults_version", 1))
+            raw_header_selection_explicit = payload.get(
+                "header_selection_explicit", False
+            )
+            if not isinstance(raw_header_selection_explicit, bool):
+                return PrintExportPreferences()
+            header_selection_explicit = (
+                raw_header_selection_explicit
+                if defaults_version >= _PRINT_EXPORT_DEFAULTS_VERSION
+                else False
+            )
+            raw_header_template_id = payload.get("header_template_id")
+            header_template_id = (
+                str(raw_header_template_id).strip()
+                if raw_header_template_id is not None
+                else None
+            )
+            if not header_selection_explicit:
+                header_template_id = None
             header_placement = (
                 PrintHeaderPlacement.FIRST_PAGE
-                if defaults_version < _PRINT_EXPORT_DEFAULTS_VERSION
+                if defaults_version < 2
                 else PrintHeaderPlacement(
                     str(payload.get("header_placement", "first_page"))
                 )
@@ -212,6 +230,8 @@ class UserProfileSettings:
                 repeat_column_header_at_bottom=bool(
                     payload.get("repeat_column_header_at_bottom", True)
                 ),
+                header_template_id=header_template_id or None,
+                header_selection_explicit=header_selection_explicit,
                 printer_name=printer_name or None,
                 copy_count=int(payload.get("copy_count", 1)),
             )
@@ -239,6 +259,8 @@ class UserProfileSettings:
                     "show_page_range": value.show_page_range,
                     "header_placement": value.header_placement.value,
                     "repeat_column_header_at_bottom": (value.repeat_column_header_at_bottom),
+                    "header_template_id": value.header_template_id,
+                    "header_selection_explicit": value.header_selection_explicit,
                     "printer_name": value.printer_name,
                     "copy_count": value.copy_count,
                 },
