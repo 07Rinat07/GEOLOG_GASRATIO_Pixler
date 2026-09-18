@@ -1,6 +1,6 @@
-from geoworkbench.catalogs.sensors import default_sensor_catalog
 from PySide6.QtWidgets import QDialogButtonBox, QScrollArea
 
+from geoworkbench.catalogs.sensors import default_sensor_catalog
 from geoworkbench.ui.sensor_catalog_dialog import MnemonicRuleDialog, SensorCatalogDialog
 
 
@@ -17,7 +17,6 @@ def test_sensor_catalog_dialog_filters_reference_entries(qapp) -> None:
     assert "C1" in rows
     assert len(rows) < 20
     dialog.close()
-
 
 
 def test_sensor_catalog_uses_adaptive_toolbar_and_fits_work_area(qapp) -> None:
