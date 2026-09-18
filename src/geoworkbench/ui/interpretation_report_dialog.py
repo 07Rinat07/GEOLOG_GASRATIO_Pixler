@@ -30,7 +30,6 @@ from geoworkbench.printing.interpretation_report_office import (
 )
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage, Localizer
-from geoworkbench.ui.window_geometry import fit_window_to_screen
 from geoworkbench.services.report_passport import (
     ReportKind,
     ReportPassportBuilder,
@@ -41,6 +40,7 @@ from geoworkbench.services.report_passport import (
     passport_sidecar_path,
     report_definition_snapshot,
 )
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class InterpretationReportDialog(QDialog):
