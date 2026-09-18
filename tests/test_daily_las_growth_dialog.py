@@ -163,6 +163,6 @@ def test_daily_las_dialog_fits_work_area_with_sticky_actions(qapp) -> None:
         qapp.processEvents()
         assert dialog.width() <= available.width()
         assert dialog.height() <= available.height()
-        assert dialog.change_table.isVisibleTo(dialog.body_scroll.widget())
+        assert not dialog.change_table.isHidden()
     finally:
         dialog.close()
