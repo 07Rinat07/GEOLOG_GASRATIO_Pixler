@@ -54,3 +54,16 @@ def test_masterlog_assets_dialog_installs_builtin_symbol_once(qapp) -> None:
     assert len(session.image_assets) == 1
     assert not session.dirty
     dialog.close()
+
+
+
+def test_masterlog_assets_dialog_fits_current_work_area(qapp) -> None:
+    dialog = MasterlogAssetsDialog(MasterlogTemplateController(ProjectSession()), language=AppLanguage.EN)
+    try:
+        screen = dialog.screen()
+        assert screen is not None
+        available = screen.availableGeometry()
+        assert dialog.minimumWidth() <= dialog.width() <= available.width()
+        assert dialog.minimumHeight() <= dialog.height() <= available.height()
+    finally:
+        dialog.close()

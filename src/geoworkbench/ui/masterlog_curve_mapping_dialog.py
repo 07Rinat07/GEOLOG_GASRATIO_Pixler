@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from PySide6.QtCore import QSize
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -7,12 +8,15 @@ from PySide6.QtWidgets import (
     QFormLayout,
     QLabel,
     QMessageBox,
+    QScrollArea,
     QVBoxLayout,
+    QWidget,
 )
 
 from geoworkbench.domain.models import Dataset
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 _TEXT = {
@@ -39,7 +43,11 @@ class MasterlogCurveMappingDialog(QDialog):
         self.selectors: dict[str, QComboBox] = {}
         root = QVBoxLayout(self)
         root.addWidget(QLabel(f"{dataset.name} · {parameters}"))
-        form = QFormLayout()
+        scroll = QScrollArea(self)
+        scroll.setObjectName("masterlog-curve-mapping-scroll")
+        scroll.setWidgetResizable(True)
+        form_widget = QWidget(scroll)
+        form = QFormLayout(form_widget)
         saved = controller.curve_bindings(template_id, dataset)
         curves = sorted(
             dataset.curves.values(), key=lambda item: item.metadata.original_mnemonic.casefold()
@@ -64,7 +72,8 @@ class MasterlogCurveMappingDialog(QDialog):
                 selector.setCurrentIndex(selector.findData(selected))
             self.selectors[mnemonic] = selector
             form.addRow(mnemonic, selector)
-        root.addLayout(form)
+        scroll.setWidget(form_widget)
+        root.addWidget(scroll, 1)
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
         )
@@ -73,6 +82,11 @@ class MasterlogCurveMappingDialog(QDialog):
         buttons.accepted.connect(self._save)
         buttons.rejected.connect(self.reject)
         root.addWidget(buttons)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(620, 520),
+            minimum=QSize(460, 320),
+        )
 
     def _save(self) -> None:
         bindings = {

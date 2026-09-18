@@ -2,25 +2,27 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
     QDoubleSpinBox,
     QFormLayout,
-    QHBoxLayout,
     QLineEdit,
     QLabel,
     QMessageBox,
-    QPushButton,
+    QScrollArea,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
+    QWidget,
 )
 
 from geoworkbench.project.masterlog_symbol_controller import MasterlogSymbolController
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.ui.adaptive_toolbar import AdaptiveActionToolBar
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class MasterlogSymbolsDialog(QDialog):
@@ -37,7 +39,6 @@ class MasterlogSymbolsDialog(QDialog):
         self.template_id = template_id
         self.localizer = Localizer.create(language)
         self.setWindowTitle(self._t("masterlog_symbols.title"))
-        self.resize(760, 480)
         root = QVBoxLayout(self)
         self.table = QTableWidget(0, 6)
         self.table.setObjectName("masterlog-symbols-table")
@@ -55,7 +56,11 @@ class MasterlogSymbolsDialog(QDialog):
         root.addWidget(self.table)
 
         template = controller.session.project.masterlog_templates[template_id]
-        form = QFormLayout()
+        self.properties_scroll = QScrollArea(self)
+        self.properties_scroll.setObjectName("masterlog-symbols-properties-scroll")
+        self.properties_scroll.setWidgetResizable(True)
+        properties_widget = QWidget(self.properties_scroll)
+        form = QFormLayout(properties_widget)
         self.depth_input = QDoubleSpinBox()
         self.depth_input.setRange(-100_000.0, 100_000.0)
         self.depth_input.setDecimals(3)
@@ -109,37 +114,37 @@ class MasterlogSymbolsDialog(QDialog):
         form.addRow(self._t("masterlog_symbols.offset_x"), self.offset_x_input)
         form.addRow(self._t("masterlog_symbols.offset_y"), self.offset_y_input)
         form.addRow(self._t("masterlog_symbols.label"), self.label_input)
-        root.addLayout(form)
+        self.properties_scroll.setWidget(properties_widget)
+        root.addWidget(self.properties_scroll, 1)
         self.anchor_input.currentIndexChanged.connect(self._update_anchor_inputs)
         self.column_input.currentIndexChanged.connect(self._refresh_parameter_input)
         self._refresh_parameter_input()
         self._update_anchor_inputs()
 
-        actions = QHBoxLayout()
-        add_button = QPushButton(self._t("common.add"))
-        update_button = QPushButton(self._t("common.update"))
-        remove_button = QPushButton(self._t("common.remove"))
-        self.undo_button = QPushButton(self._t("common.undo"))
-        self.redo_button = QPushButton(self._t("common.redo"))
-        add_button.clicked.connect(self._add)
-        update_button.clicked.connect(self._update)
-        remove_button.clicked.connect(self._remove)
-        self.undo_button.clicked.connect(self._undo)
-        self.redo_button.clicked.connect(self._redo)
-        for button in (
-            add_button,
-            update_button,
-            remove_button,
-            self.undo_button,
-            self.redo_button,
-        ):
-            actions.addWidget(button)
-        root.addLayout(actions)
+        self.actions_toolbar = AdaptiveActionToolBar(parent=self)
+        self.actions_toolbar.setObjectName("masterlog-symbols-actions")
+        self.actions_toolbar.add_standard_action(self._t("common.add"), self._add)
+        self.actions_toolbar.add_standard_action(self._t("common.update"), self._update)
+        self.actions_toolbar.add_standard_action(self._t("common.remove"), self._remove)
+        self.undo_button = self.actions_toolbar.add_standard_action(
+            self._t("common.undo"),
+            self._undo,
+        )
+        self.redo_button = self.actions_toolbar.add_standard_action(
+            self._t("common.redo"),
+            self._redo,
+        )
+        root.addWidget(self.actions_toolbar)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.button(QDialogButtonBox.StandardButton.Close).setText(self._t("common.close"))
         buttons.rejected.connect(self.reject)
         root.addWidget(buttons)
         self._refresh()
+        fit_window_to_screen(
+            self,
+            preferred=QSize(760, 480),
+            minimum=QSize(560, 360),
+        )
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)
