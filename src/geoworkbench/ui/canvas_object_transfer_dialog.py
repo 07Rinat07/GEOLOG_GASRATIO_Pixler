@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -28,6 +28,7 @@ from geoworkbench.project.canvas_object_transfer_workflow import (
     CanvasObjectTransferApplication,
 )
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class CanvasObjectTransferDialog(QDialog):
@@ -59,7 +60,6 @@ class CanvasObjectTransferDialog(QDialog):
                 "Transfer authored drawings",
             )
         )
-        self.resize(900, 650)
         root = QVBoxLayout(self)
 
         summary = QLabel(
@@ -179,6 +179,12 @@ class CanvasObjectTransferDialog(QDialog):
                     "No other wells contain authored drawings.",
                 )
             )
+
+        fit_window_to_screen(
+            self,
+            preferred=QSize(900, 650),
+            minimum=QSize(620, 420),
+        )
 
     def selected_object_ids(self) -> tuple[str, ...]:
         selected: list[str] = []
