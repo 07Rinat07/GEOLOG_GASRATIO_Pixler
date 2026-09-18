@@ -1,5 +1,5 @@
 import numpy as np
-from PySide6.QtWidgets import QDialog, QTableWidget
+from PySide6.QtWidgets import QDialog, QDialogButtonBox, QTableWidget
 
 from geoworkbench.domain.models import (
     CurveData,
@@ -91,3 +91,46 @@ def test_custom_formula_passport_dialog_shows_missing_and_provenance(qapp) -> No
     assert table.item(1, 0).text() == "DOUBLE"
     assert table.item(1, 1).text() == "missing"
     dialog.close()
+
+
+
+def test_custom_formula_dialog_uses_adaptive_toolbar_and_sticky_close(qapp) -> None:
+    dialog = CustomFormulaDialog(make_controller(), language=AppLanguage.EN)
+    try:
+        screen = dialog.screen()
+        assert screen is not None
+        available = screen.availableGeometry()
+        assert dialog.minimumWidth() <= dialog.width() <= available.width()
+        assert dialog.minimumHeight() <= dialog.height() <= available.height()
+
+        assert dialog.actions_toolbar.objectName() == "custom-formula-actions"
+        assert len(dialog.actions_toolbar.actions()) == 8
+        buttons = dialog.findChild(QDialogButtonBox)
+        assert buttons is not None
+        close_button = buttons.button(QDialogButtonBox.StandardButton.Close)
+        assert close_button is not None
+        assert close_button.text() == "Close"
+    finally:
+        dialog.close()
+
+
+def test_custom_formula_passport_and_batch_preview_fit_current_work_area(qapp) -> None:
+    controller = make_controller()
+    passport_dialog = CustomFormulaPassportDialog(
+        controller.calculation_passport("double"),
+        language=AppLanguage.EN,
+    )
+    batch_dialog = FormulaBatchPreviewDialog(
+        controller.analyze_batch(),
+        language=AppLanguage.EN,
+    )
+    try:
+        for dialog in (passport_dialog, batch_dialog):
+            screen = dialog.screen()
+            assert screen is not None
+            available = screen.availableGeometry()
+            assert dialog.minimumWidth() <= dialog.width() <= available.width()
+            assert dialog.minimumHeight() <= dialog.height() <= available.height()
+    finally:
+        passport_dialog.close()
+        batch_dialog.close()
