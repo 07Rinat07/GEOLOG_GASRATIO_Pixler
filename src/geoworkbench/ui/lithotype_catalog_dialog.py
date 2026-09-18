@@ -4,7 +4,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import cast
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QColor, QPaintEvent, QPainter, QPen
 from PySide6.QtWidgets import (
     QColorDialog,
@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 
 from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 from geoworkbench.tablet.lithology_patterns import lithology_brush, supported_pattern_keys
 from geoworkbench.ui.dunham_reference_widget import DunhamClassificationReference
 from geoworkbench.ui.lithotype_visuals import lithotype_icon, pattern_icon
@@ -68,7 +69,11 @@ class LithotypeCatalogDialog(QDialog):
         self.language = language
         self.controller = controller
         self.setWindowTitle(self._t("catalog.window_title"))
-        self.resize(1100, 620)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(1100, 620),
+            minimum=QSize(680, 420),
+        )
 
         root = QVBoxLayout(self)
         self.sections = QTabWidget(self)
