@@ -207,7 +207,7 @@ class UserProfileSettings:
                 header_template_id = None
             header_placement = (
                 PrintHeaderPlacement.FIRST_PAGE
-                if defaults_version < _PRINT_EXPORT_DEFAULTS_VERSION
+                if defaults_version < 2
                 else PrintHeaderPlacement(
                     str(payload.get("header_placement", "first_page"))
                 )
