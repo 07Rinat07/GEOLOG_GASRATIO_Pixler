@@ -44,3 +44,18 @@ def test_lithology_legend_dialog_localizes_empty_state(qapp) -> None:
     assert empty is not None
     assert empty.text() == "Ағымдағы ұңғымада литологиялық аралықтар жоқ"
     dialog.close()
+
+
+def test_lithology_legend_dialog_fits_current_work_area(qapp) -> None:
+    dialog = LithologyLegendDialog(
+        (LithologyLegendEntry("sandstone", "SS", "Sandstone", "#e7cf8b", "dots"),),
+        language=AppLanguage.EN,
+    )
+    try:
+        screen = dialog.screen()
+        assert screen is not None
+        available = screen.availableGeometry()
+        assert dialog.minimumWidth() <= dialog.width() <= available.width()
+        assert dialog.minimumHeight() <= dialog.height() <= available.height()
+    finally:
+        dialog.close()
