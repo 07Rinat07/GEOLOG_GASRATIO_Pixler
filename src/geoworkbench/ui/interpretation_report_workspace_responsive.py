@@ -171,14 +171,20 @@ class InterpretationReportWorkspace(_CompatibleInterpretationReportWorkspace):
         log_panel_layout.addWidget(self.log_scroll)
         report_layout.addWidget(self.log_panel)
 
-        self.preview.setMinimumHeight(260)
+        # The preview is the flexible part of the report surface.  It must be
+        # allowed to collapse before the export/print actions disappear below
+        # a short laptop work area.
+        self.preview.setMinimumHeight(0)
         self.preview.setSizePolicy(
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Expanding,
         )
         report_layout.addWidget(self.preview, 1)
 
-        export_row = QHBoxLayout()
+        self.export_footer = QFrame()
+        self.export_footer.setObjectName("interpretation-export-footer")
+        export_row = QHBoxLayout(self.export_footer)
+        export_row.setContentsMargins(0, 4, 0, 0)
         export_row.setSpacing(8)
         self.export_label = QLabel()
         self.export_label.setObjectName("interpretation-export-label")
@@ -191,7 +197,7 @@ class InterpretationReportWorkspace(_CompatibleInterpretationReportWorkspace):
             self.print_button,
         ):
             export_row.addWidget(button)
-        report_layout.addLayout(export_row)
+        report_layout.addWidget(self.export_footer)
 
         self.main_splitter.addWidget(self.report_panel)
         self.main_splitter.setStretchFactor(0, 1)
@@ -325,7 +331,8 @@ class InterpretationReportWorkspace(_CompatibleInterpretationReportWorkspace):
             return
         self._layout_signature = layout_signature
         self._configuration_columns = columns
-        self.preview.setMinimumHeight(150 if compact_height else 260)
+        self.preview.setMinimumHeight(0)
+        self.log_scroll.setMaximumHeight(90 if compact_height else 150)
         while self._configuration_grid.count():
             self._configuration_grid.takeAt(0)
 
