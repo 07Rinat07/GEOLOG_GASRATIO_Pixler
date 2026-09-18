@@ -351,8 +351,8 @@ class NavigationOrganizationController(QObject):
         if dialog is None:
             dialog = TranslationReadinessDialog(
                 WellTranslationReadinessController(session),
-                TranslationStatusController(session),
                 self.window,
+                status_controller=TranslationStatusController(session),
                 language=language,
             )
             self.translation_readiness_dialog = dialog
