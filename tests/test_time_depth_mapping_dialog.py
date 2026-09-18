@@ -76,3 +76,16 @@ def test_mapping_dialog_filters_profiles_and_localizes_english(qapp) -> None:
     assert dialog.profile_selector.count() == 2
     assert dialog.save_button.text() == "Save"
     dialog.close()
+
+
+
+def test_mapping_dialog_fits_current_work_area(qapp) -> None:
+    dialog, _session = make_dialog(AppLanguage.EN)
+    try:
+        screen = dialog.screen()
+        assert screen is not None
+        available = screen.availableGeometry()
+        assert dialog.minimumWidth() <= dialog.width() <= available.width()
+        assert dialog.minimumHeight() <= dialog.height() <= available.height()
+    finally:
+        dialog.close()
