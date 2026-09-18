@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QDialog,
@@ -27,6 +27,7 @@ from geoworkbench.project.header_editing_controller import (
     HeaderSection,
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class DataInspectorDialog(QDialog):
@@ -47,7 +48,11 @@ class DataInspectorDialog(QDialog):
             controller.session
         )
         self.setWindowTitle(self._t("data.window_title"))
-        self.resize(980, 620)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(980, 620),
+            minimum=QSize(620, 420),
+        )
         root = QVBoxLayout(self)
         self.tabs = QTabWidget()
         root.addWidget(self.tabs)
