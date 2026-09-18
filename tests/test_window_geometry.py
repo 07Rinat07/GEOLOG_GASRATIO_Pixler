@@ -1,6 +1,7 @@
 from PySide6.QtCore import QRect, QSize
 
 from geoworkbench.ui.window_geometry import (
+    adaptive_minimum_size,
     adaptive_window_geometry,
     constrain_window_geometry,
     fit_window_to_screen,
@@ -90,3 +91,19 @@ def test_fit_window_clamps_desktop_minimum_to_small_laptop_work_area() -> None:
     assert window.minimum.width() <= result.width()
     assert window.minimum.height() <= result.height()
     assert result.height() < available.height()
+
+
+
+def test_adaptive_minimum_can_shrink_below_480_logical_pixels() -> None:
+    available = QRect(0, 0, 900, 430)
+
+    minimum = adaptive_minimum_size(
+        available,
+        requested=QSize(640, 480),
+        margin=12,
+    )
+
+    assert minimum.width() == 640
+    assert minimum.height() == 406
+    assert minimum.width() <= available.width()
+    assert minimum.height() < 480
