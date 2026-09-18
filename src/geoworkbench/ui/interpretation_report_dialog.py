@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -30,6 +30,7 @@ from geoworkbench.printing.interpretation_report_office import (
 )
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 from geoworkbench.services.report_passport import (
     ReportKind,
     ReportPassportBuilder,
@@ -56,7 +57,6 @@ class InterpretationReportDialog(QDialog):
         self.localizer = Localizer.create(language)
         self.report = build_interpretation_report(session, language=language)
         self.setWindowTitle(self._t("interpretation_report.title"))
-        self.resize(1000, 700)
         layout = QVBoxLayout(self)
         self.preview = QTextBrowser()
         self.preview.setObjectName("interpretation-report-preview")
@@ -116,6 +116,11 @@ class InterpretationReportDialog(QDialog):
         )
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(1000, 700),
+            minimum=QSize(560, 420),
+        )
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)
