@@ -919,6 +919,7 @@ class MainWindow(QMainWindow):
         screen.availableGeometryChanged.connect(self._on_toolbar_metrics_changed)
 
     def _on_toolbar_metrics_changed(self, *_args: object) -> None:
+        self._apply_adaptive_minimum_size()
         QTimer.singleShot(0, self, self._update_toolbar_adaptation)
         QTimer.singleShot(120, self, self._update_toolbar_adaptation)
 
