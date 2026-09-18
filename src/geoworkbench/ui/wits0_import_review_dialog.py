@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QListWidget,
     QMessageBox,
+    QScrollArea,
     QSplitter,
     QTableWidget,
     QTableWidgetItem,
@@ -28,6 +29,7 @@ from geoworkbench.acquisition.wits0 import Wits0Profile
 from geoworkbench.domain.models import IndexType
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.uom_dictionary import QuantityClass
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 from geoworkbench.services.wits0_import_review import (
     Wits0ChannelKey,
     Wits0CustomProfile,
@@ -70,18 +72,25 @@ class Wits0ImportReviewDialog(QDialog):
         self._updating = False
 
         self.setWindowTitle(self._t("wits0_review.title"))
-        self.resize(1280, 820)
         root = QVBoxLayout(self)
-        root.addWidget(self._build_summary_group())
-        root.addWidget(self._build_index_group())
+        scroll = QScrollArea(self)
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        content = QWidget(scroll)
+        content_layout = QVBoxLayout(content)
+        content_layout.addWidget(self._build_summary_group())
+        content_layout.addWidget(self._build_index_group())
 
         splitter = QSplitter(Qt.Orientation.Horizontal, self)
         splitter.addWidget(self._build_channel_table())
         splitter.addWidget(self._build_channel_editor())
         splitter.setStretchFactor(0, 3)
         splitter.setStretchFactor(1, 2)
-        root.addWidget(splitter, 1)
-        root.addWidget(self._build_qc_group())
+        content_layout.addWidget(splitter, 1)
+        content_layout.addWidget(self._build_qc_group())
+        scroll.setWidget(content)
+        root.addWidget(scroll, 1)
 
         self.buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
@@ -90,6 +99,12 @@ class Wits0ImportReviewDialog(QDialog):
         self.buttons.accepted.connect(self._accept_review)
         self.buttons.rejected.connect(self.reject)
         root.addWidget(self.buttons)
+
+        fit_window_to_screen(
+            self,
+            preferred=QSize(1280, 820),
+            minimum=QSize(560, 380),
+        )
 
         self._load_plan()
         self._refresh_review()
