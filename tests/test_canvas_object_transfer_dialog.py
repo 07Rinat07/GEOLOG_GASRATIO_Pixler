@@ -299,3 +299,23 @@ def test_dialog_disables_preview_when_no_source_well_has_drawings(qapp) -> None:
     assert dialog.preview_button.isEnabled() is False
     assert "Нет других скважин" in dialog.counts_label.text()
     dialog.close()
+
+
+
+def test_canvas_transfer_dialog_fits_work_area_with_sticky_actions(qapp) -> None:
+    controller, _source, target = _controller()
+    dialog = CanvasObjectTransferDialog(
+        controller,
+        target.well_id,
+        language=AppLanguage.EN,
+    )
+    try:
+        screen = dialog.screen()
+        assert screen is not None
+        available = screen.availableGeometry()
+        assert dialog.minimumWidth() <= dialog.width() <= available.width()
+        assert dialog.minimumHeight() <= dialog.height() <= available.height()
+        assert dialog.body_scroll.objectName() == "canvas-transfer-scroll"
+        assert not dialog.body_scroll.isAncestorOf(dialog.buttons)
+    finally:
+        dialog.close()
