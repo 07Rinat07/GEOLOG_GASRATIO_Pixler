@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QPushButton,
     QMessageBox,
+    QScrollArea,
     QSplitter,
     QVBoxLayout,
     QWidget,
@@ -81,7 +82,10 @@ class CurveSettingsDialog(QDialog):
             self.curves.addItem(item)
         splitter.addWidget(self.curves)
 
-        editor = QWidget()
+        editor_scroll = QScrollArea()
+        editor_scroll.setObjectName("curve-settings-editor-scroll")
+        editor_scroll.setWidgetResizable(True)
+        editor = QWidget(editor_scroll)
         form = QFormLayout(editor)
         form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
 
@@ -169,7 +173,8 @@ class CurveSettingsDialog(QDialog):
             self._t("curve_settings.style.dash_dot"), CurveLineStyle.DASH_DOT.value
         )
         form.addRow(self._t("curve_settings.line_style"), self.line_style)
-        splitter.addWidget(editor)
+        editor_scroll.setWidget(editor)
+        splitter.addWidget(editor_scroll)
         splitter.setStretchFactor(1, 1)
 
         buttons = QDialogButtonBox(
