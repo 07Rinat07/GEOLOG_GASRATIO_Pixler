@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
 from geoworkbench.tablet.lithology_legend import LithologyLegendEntry
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.ui.lithotype_catalog_dialog import LithologyPatternPreview
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class LithologyLegendDialog(QDialog):
@@ -27,7 +28,7 @@ class LithologyLegendDialog(QDialog):
         super().__init__(parent)
         self.localizer = Localizer.create(language)
         self.setWindowTitle(self._t("legend.window_title"))
-        self.resize(620, 420)
+
         root = QVBoxLayout(self)
         if not entries:
             empty = QLabel(self._t("legend.empty"))
@@ -60,6 +61,11 @@ class LithologyLegendDialog(QDialog):
         buttons.button(QDialogButtonBox.StandardButton.Close).setText(self._t("common.close"))
         buttons.rejected.connect(self.reject)
         root.addWidget(buttons)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(620, 420),
+            minimum=QSize(420, 300),
+        )
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)
