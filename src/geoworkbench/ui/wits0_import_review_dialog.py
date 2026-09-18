@@ -29,7 +29,6 @@ from geoworkbench.acquisition.wits0 import Wits0Profile
 from geoworkbench.domain.models import IndexType
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.uom_dictionary import QuantityClass
-from geoworkbench.ui.window_geometry import fit_window_to_screen
 from geoworkbench.services.wits0_import_review import (
     Wits0ChannelKey,
     Wits0CustomProfile,
@@ -40,6 +39,7 @@ from geoworkbench.services.wits0_import_review import (
     Wits0ImportReviewValidationError,
     next_wits0_custom_profile_revision,
 )
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class Wits0ImportReviewDialog(QDialog):
