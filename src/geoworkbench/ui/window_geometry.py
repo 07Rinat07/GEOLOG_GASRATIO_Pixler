@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QRect, QSize
+from PySide6.QtWidgets import QApplication, QWidget
 
 
 def adaptive_window_geometry(
@@ -36,3 +37,40 @@ def constrain_window_geometry(rect: QRect, available: QRect, *, margin: int = 8)
     x = min(max(rect.x(), safe.left()), safe.right() - width + 1)
     y = min(max(rect.y(), safe.top()), safe.bottom() - height + 1)
     return QRect(x, y, width, height)
+
+
+def fit_window_to_screen(
+    window: QWidget,
+    *,
+    preferred: QSize,
+    minimum: QSize = QSize(480, 320),
+    margin: int = 12,
+) -> QRect:
+    """Fit a top-level widget inside the current monitor work area.
+
+    availableGeometry() excludes task bars and docks and is already expressed
+    in Qt logical pixels, so this remains correct under Windows HiDPI scaling.
+    The requested minimum is clamped too, so a desktop-only minimum cannot
+    push action buttons below a laptop work area.
+    """
+
+    screen = window.screen()
+    if screen is None and window.parentWidget() is not None:
+        screen = window.parentWidget().screen()
+    if screen is None:
+        screen = QApplication.primaryScreen()
+    if screen is None:
+        window.resize(preferred)
+        return QRect(window.geometry())
+
+    target = adaptive_window_geometry(
+        screen.availableGeometry(),
+        preferred=preferred,
+        margin=margin,
+    )
+    window.setMinimumSize(
+        min(max(1, minimum.width()), target.width()),
+        min(max(1, minimum.height()), target.height()),
+    )
+    window.setGeometry(target)
+    return target
