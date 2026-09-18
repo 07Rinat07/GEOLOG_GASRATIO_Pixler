@@ -558,13 +558,14 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
 - [ ] **UI-ADAPT-01:** единый laptop/HiDPI-контракт для top-level окон и рабочих областей:
   минимальный размер не превышает `availableGeometry()` текущего монитора; длинное содержимое
   прокручивается отдельно от закреплённой панели действий; основные кнопки OK/Cancel/Print/Export
-  остаются доступными при малой логической высоте Windows 125–175%. Первый инкремент перевёл
-  WITS0/WITSML-диалоги на общий `fit_window_to_screen`; второй убирает desktop-only минимум
-  главного окна и защищает footer отчётов; третий переводит CSV import, объединение наборов
-  данных и каталог шаблонов описания на тот же screen-fit контракт; четвёртый охватывает
-  настройки кривых, создание LAS и каталог датчиков, включая toolbar overflow и прокручиваемую
-  форму правила мнемоники с закреплёнными OK/Cancel. Далее пройти остальные редакторы и настройки,
-  с regression-проверками малых work-area и Windows HiDPI matrix.
+  остаются доступными при малой логической высоте Windows 125–175%. На общий
+  `fit_window_to_screen` уже переведены WITS0/WITSML, главное окно и отчёты, CSV/merge/templates,
+  настройки кривых и LAS, каталоги датчиков, track content, annotations, TIME↔DEPTH/statistics,
+  formula/interpretation/lag/help, form structure, Masterlog columns/header и Print Center;
+  широкие action rows по мере необходимости используют `AdaptiveActionToolBar`, длинные формы —
+  отдельные scroll-area со sticky footer. Очередной инкремент адаптирует Tablet Track Editor
+  вместе с его live preview. Далее пройти оставшиеся transfer/daily/import/editor окна и закрепить
+  итоговую regression-матрицу малых work-area и Windows HiDPI.
 
 - [ ] **ARCH-01:** `ApplicationContext`/composition root для storage, semantic, import, report,
   credentials и audit services.
