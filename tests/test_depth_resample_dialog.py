@@ -37,3 +37,16 @@ def test_dialog_previews_target_grid_and_disables_invalid_plan(qapp) -> None:
     assert "invalid" in dialog.preview.text().lower()
     assert not ok_button.isEnabled()
     dialog.close()
+
+
+
+def test_depth_resample_dialog_fits_current_work_area(qapp) -> None:
+    dialog = DepthResampleDialog(make_controller(), language=AppLanguage.EN)
+    try:
+        screen = dialog.screen()
+        assert screen is not None
+        available = screen.availableGeometry()
+        assert dialog.minimumWidth() <= dialog.width() <= available.width()
+        assert dialog.minimumHeight() <= dialog.height() <= available.height()
+    finally:
+        dialog.close()

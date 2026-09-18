@@ -52,3 +52,16 @@ def test_dialog_disables_apply_without_other_dataset(qapp) -> None:
     assert dialog.analysis is None
     assert not dialog.buttons.button(QDialogButtonBox.StandardButton.Ok).isEnabled()
     dialog.close()
+
+
+
+def test_curve_transfer_dialog_fits_current_work_area(qapp) -> None:
+    dialog = CurveTransferDialog(make_controller(), language=AppLanguage.EN)
+    try:
+        screen = dialog.screen()
+        assert screen is not None
+        available = screen.availableGeometry()
+        assert dialog.minimumWidth() <= dialog.width() <= available.width()
+        assert dialog.minimumHeight() <= dialog.height() <= available.height()
+    finally:
+        dialog.close()

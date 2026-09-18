@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from PySide6.QtCore import QSize
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -13,6 +14,7 @@ from PySide6.QtWidgets import (
 from geoworkbench.project.depth_axis_controller import DepthAxisController
 from geoworkbench.services.depth_axis import DepthResamplePlan
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class DepthResampleDialog(QDialog):
@@ -57,6 +59,11 @@ class DepthResampleDialog(QDialog):
         for field in (self.start_input, self.stop_input, self.step_input):
             field.valueChanged.connect(self._update_preview)
         self._update_preview()
+        fit_window_to_screen(
+            self,
+            preferred=QSize(520, 360),
+            minimum=QSize(400, 280),
+        )
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)
