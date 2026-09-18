@@ -1,5 +1,5 @@
 import numpy as np
-from PySide6.QtWidgets import QDialogButtonBox, QPushButton, QTableWidget
+from PySide6.QtWidgets import QDialogButtonBox, QPushButton, QScrollArea, QTableWidget
 
 from geoworkbench.domain.models import (
     Dataset,
@@ -178,3 +178,27 @@ def test_editing_legacy_lithology_without_ru_does_not_promote_fallback(qapp) -> 
     assert interval.description == "Legacy authored description"
     assert interval.description_i18n == {"und": "Unclassified authored description"}
     dialog.close()
+
+
+def test_lithology_dialog_scrolls_content_above_sticky_actions(qapp) -> None:
+    session = ProjectSession()
+    session.project.wells["well"] = Well("well", "Well")
+    session.current_well_id = "well"
+    dialog = LithologyDialog(LithologyController(session), language=AppLanguage.EN)
+    try:
+        screen = dialog.screen()
+        assert screen is not None
+        available = screen.availableGeometry()
+        assert dialog.minimumWidth() <= dialog.width() <= available.width()
+        assert dialog.minimumHeight() <= dialog.height() <= available.height()
+
+        scroll = dialog.findChild(QScrollArea, "lithology-content-scroll")
+        add_button = dialog.findChild(QPushButton, "lithology-add-button")
+        buttons = dialog.findChild(QDialogButtonBox)
+        assert scroll is not None
+        assert add_button is not None
+        assert buttons is not None
+        assert not scroll.isAncestorOf(add_button)
+        assert not scroll.isAncestorOf(buttons)
+    finally:
+        dialog.close()
