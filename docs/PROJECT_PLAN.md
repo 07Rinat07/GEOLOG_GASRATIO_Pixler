@@ -560,8 +560,9 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
   прокручивается отдельно от закреплённой панели действий; основные кнопки OK/Cancel/Print/Export
   остаются доступными при малой логической высоте Windows 125–175%. Первый инкремент перевёл
   WITS0/WITSML-диалоги на общий `fit_window_to_screen`; второй убирает desktop-only минимум
-  главного окна и защищает footer отчётов. Далее тем же контрактом пройти импорт/редакторы,
-  каталоги и настройки, с regression-проверками малых work-area и Windows HiDPI matrix.
+  главного окна и защищает footer отчётов; третий переводит CSV import, объединение наборов
+  данных и каталог шаблонов описания на тот же screen-fit контракт. Далее пройти остальные
+  редакторы, каталоги и настройки, с regression-проверками малых work-area и Windows HiDPI matrix.
 
 - [ ] **ARCH-01:** `ApplicationContext`/composition root для storage, semantic, import, report,
   credentials и audit services.
