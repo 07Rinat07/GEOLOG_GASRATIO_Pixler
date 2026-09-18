@@ -24,6 +24,32 @@ def adaptive_window_geometry(
     return QRect(x, y, width, height)
 
 
+def adaptive_minimum_size(
+    available: QRect,
+    *,
+    requested: QSize = QSize(640, 480),
+    margin: int = 12,
+) -> QSize:
+    """Clamp a requested top-level minimum to the monitor work area.
+
+    Qt screen geometry is expressed in logical pixels.  At 150–175% Windows
+    scaling a laptop can expose fewer than 480 logical vertical pixels, so a
+    desktop-only minimum must never exceed the available work area.
+    """
+
+    if available.width() <= 0 or available.height() <= 0:
+        return QSize(max(1, requested.width()), max(1, requested.height()))
+
+    horizontal_margin = max(0, min(margin, (available.width() - 1) // 2))
+    vertical_margin = max(0, min(margin, (available.height() - 1) // 2))
+    width_cap = max(1, available.width() - 2 * horizontal_margin)
+    height_cap = max(1, available.height() - 2 * vertical_margin)
+    return QSize(
+        min(max(1, requested.width()), width_cap),
+        min(max(1, requested.height()), height_cap),
+    )
+
+
 def constrain_window_geometry(rect: QRect, available: QRect, *, margin: int = 8) -> QRect:
     """Clamp an existing window rectangle to a monitor, including negative coordinates."""
 

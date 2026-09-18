@@ -115,3 +115,23 @@ def test_chart_geometry_keeps_both_depth_scales_and_tracks_inside_page() -> None
     assert geometry.panel_rects[-1].right() < geometry.right_axis_rect.left()
     assert geometry.left_axis_rect.height() == geometry.right_axis_rect.height()
     assert all(rect.height() == geometry.left_axis_rect.height() for rect in geometry.panel_rects)
+
+
+
+def test_print_layout_dialog_uses_work_area_aware_geometry(qapp) -> None:
+    from geoworkbench.services.localization import AppLanguage
+    from geoworkbench.ui.interpretation_print_layout_dialog import (
+        InterpretationPrintLayoutDialog,
+    )
+
+    dialog = InterpretationPrintLayoutDialog(language=AppLanguage.RU)
+    try:
+        screen = dialog.screen()
+        assert screen is not None
+        available = screen.availableGeometry()
+        assert dialog.minimumWidth() <= dialog.width()
+        assert dialog.minimumHeight() <= dialog.height()
+        assert dialog.width() <= available.width()
+        assert dialog.height() <= available.height()
+    finally:
+        dialog.close()

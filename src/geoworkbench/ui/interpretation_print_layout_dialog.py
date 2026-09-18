@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
+from PySide6.QtCore import QSize
 from PySide6.QtGui import QPageLayout
 from PySide6.QtWidgets import (
     QComboBox,
@@ -15,6 +16,7 @@ from PySide6.QtWidgets import (
 )
 
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class InterpretationPrintOrder(str, Enum):
@@ -40,7 +42,6 @@ class InterpretationPrintLayoutDialog(QDialog):
         self.language = language
         self.include_order = include_order
         self.setModal(True)
-        self.setMinimumWidth(480)
         self.setWindowTitle(
             self._text(
                 "Макет печати отчёта" if include_order else "Макет PDF-отчёта",
@@ -114,6 +115,12 @@ class InterpretationPrintLayoutDialog(QDialog):
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         root.addWidget(buttons)
+
+        fit_window_to_screen(
+            self,
+            preferred=QSize(620, 360),
+            minimum=QSize(340, 240),
+        )
 
     def selected_layout(self) -> InterpretationPrintLayout:
         orientation = self.orientation_combo.currentData()
