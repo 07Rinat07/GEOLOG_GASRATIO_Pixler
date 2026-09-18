@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import pytest
-
-from geoworkbench.importers.etp12.models import Etp12ChannelMetadata
-from geoworkbench.importers.etp12.models import Etp12Credentials
+from geoworkbench.importers.etp12.models import Etp12ChannelMetadata, Etp12Credentials
 from geoworkbench.services.etp12_import_review import Etp12DiscoveryAccumulator
 from geoworkbench.services.etp12_profiles import Etp12ProfileStore
 from geoworkbench.ui.etp12_dialog import Etp12Dialog, _channel_uri_payload
