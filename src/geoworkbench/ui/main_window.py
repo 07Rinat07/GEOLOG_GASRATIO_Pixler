@@ -244,7 +244,11 @@ from geoworkbench.ui.workspace_controller import (
     WorkspaceController,
     WorkspaceSurface,
 )
-from geoworkbench.ui.window_geometry import adaptive_window_geometry, constrain_window_geometry
+from geoworkbench.ui.window_geometry import (
+    adaptive_window_geometry,
+    constrain_window_geometry,
+    fit_window_to_screen,
+)
 from geoworkbench.ui.csv_import_dialog import CsvImportDialog
 from geoworkbench.ui.curve_transfer_dialog import CurveTransferDialog
 from geoworkbench.ui.external_las_insert_dialog import ExternalLasInsertDialog
@@ -6587,7 +6591,11 @@ class MainWindow(QMainWindow):
             return []
         dialog = QDialog(self)
         dialog.setWindowTitle(self._t("tablet.select_curves_title"))
-        dialog.resize(720, 640)
+        fit_window_to_screen(
+            dialog,
+            preferred=QSize(720, 640),
+            minimum=QSize(520, 400),
+        )
         layout = QVBoxLayout(dialog)
         layout.addWidget(QLabel(self._t("tablet.select_curves_prompt")))
         curve_list = QListWidget()
@@ -9671,8 +9679,11 @@ class MainWindow(QMainWindow):
         dialog.setWindowTitle("GEOLOG GASRATIO@Pixler")
         dialog.setWindowIcon(application_icon())
         dialog.setModal(True)
-        dialog.setMinimumSize(960, 580)
-        dialog.resize(1020, 610)
+        target_geometry = fit_window_to_screen(
+            dialog,
+            preferred=QSize(1020, 610),
+            minimum=QSize(680, 460),
+        )
 
         root_layout = QVBoxLayout(dialog)
         root_layout.setContentsMargins(28, 28, 28, 20)
@@ -9684,15 +9695,20 @@ class MainWindow(QMainWindow):
         image_label = QLabel(dialog)
         image_label.setObjectName("aboutProgramLogo")
         image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        image_label.setFixedSize(430, 430)
-        image_label.setPixmap(about_program_logo_pixmap(430, 430))
+        logo_side = min(
+            430,
+            max(220, int(target_geometry.height() * 0.68)),
+            max(220, int(target_geometry.width() * 0.40)),
+        )
+        image_label.setFixedSize(logo_side, logo_side)
+        image_label.setPixmap(about_program_logo_pixmap(logo_side, logo_side))
         content_layout.addWidget(image_label, 1, Qt.AlignmentFlag.AlignCenter)
 
         # The information column deliberately has no forced background.  It follows
         # the active Qt palette, so dark and light themes remain readable.
         info_panel = QWidget(dialog)
         info_panel.setObjectName("aboutInfoPanel")
-        info_panel.setMinimumWidth(390)
+        info_panel.setMinimumWidth(min(390, max(260, int(target_geometry.width() * 0.36))))
         info_layout = QVBoxLayout(info_panel)
         info_layout.setContentsMargins(0, 12, 0, 12)
         info_layout.setSpacing(7)
