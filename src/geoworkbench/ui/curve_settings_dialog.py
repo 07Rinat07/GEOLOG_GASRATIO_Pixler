@@ -28,7 +28,6 @@ from PySide6.QtWidgets import (
 from geoworkbench.domain.models import Dataset
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.parameter_labels import localized_curve_name
-from geoworkbench.ui.window_geometry import fit_window_to_screen
 from geoworkbench.tablet.models import (
     CurveDisplaySettings,
     CurveLineStyle,
@@ -36,6 +35,7 @@ from geoworkbench.tablet.models import (
     TrackDefinition,
     XScale,
 )
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class CurveSettingsDialog(QDialog):
