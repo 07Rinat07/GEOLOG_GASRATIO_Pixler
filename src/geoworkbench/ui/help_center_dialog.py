@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from PySide6.QtCore import QSize
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -16,6 +17,7 @@ from geoworkbench.ui.help_content import (
     normalized_language,
 )
 from geoworkbench.ui.help_pdf_layout_content import append_pdf_layout_help
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class HelpCenterDialog(QDialog):
@@ -33,7 +35,6 @@ class HelpCenterDialog(QDialog):
         self._requested_section = section
         self.setObjectName("helpCenterDialog")
         self.setModal(False)
-        self.resize(1_020, 760)
 
         layout = QVBoxLayout(self)
         self.sections = QTabWidget(self)
@@ -46,6 +47,11 @@ class HelpCenterDialog(QDialog):
         self.buttons.rejected.connect(self.reject)
         layout.addWidget(self.buttons)
         self._rebuild()
+        fit_window_to_screen(
+            self,
+            preferred=QSize(1_020, 760),
+            minimum=QSize(620, 420),
+        )
 
     def set_language(self, language: AppLanguage | str) -> None:
         selected = normalized_language(language)

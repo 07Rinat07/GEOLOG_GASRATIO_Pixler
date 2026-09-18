@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from PySide6.QtWidgets import QTextBrowser
+from PySide6.QtWidgets import QDialogButtonBox, QTextBrowser
 
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.help_center_dialog import HelpCenterDialog
@@ -195,3 +195,25 @@ def test_help_dialog_builds_all_sections(
     assert details_text in help_text
 
     dialog.close()
+
+
+
+def test_help_dialog_fits_current_work_area_with_sticky_close(qapp) -> None:
+    dialog = HelpCenterDialog(language=AppLanguage.EN, section="overview")
+    try:
+        dialog.show()
+        qapp.processEvents()
+        screen = dialog.screen()
+        assert screen is not None
+        available = screen.availableGeometry()
+        assert dialog.minimumWidth() <= dialog.width() <= available.width()
+        assert dialog.minimumHeight() <= dialog.height() <= available.height()
+
+        buttons = dialog.findChild(QDialogButtonBox)
+        assert buttons is not None
+        close_button = buttons.button(QDialogButtonBox.StandardButton.Close)
+        assert close_button is not None
+        assert close_button.text() == "Close"
+        assert dialog.sections.count() == 6
+    finally:
+        dialog.close()
