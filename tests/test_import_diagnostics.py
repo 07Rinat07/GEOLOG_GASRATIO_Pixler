@@ -117,3 +117,19 @@ def test_persisted_diagnostic_reports_are_pruned_to_retention_limit(
         )
 
     assert len(list(root.glob("las_import_*.txt"))) == 3
+
+
+def test_import_diagnostics_dialog_fits_current_work_area(qapp, tmp_path: Path) -> None:
+    from geoworkbench.services.localization import AppLanguage
+    from geoworkbench.ui.import_diagnostics_dialog import ImportDiagnosticsDialog
+
+    dialog = ImportDiagnosticsDialog(_report(tmp_path), language=AppLanguage.EN)
+    try:
+        screen = dialog.screen()
+        assert screen is not None
+        available = screen.availableGeometry()
+        assert dialog.minimumWidth() <= dialog.width() <= available.width()
+        assert dialog.minimumHeight() <= dialog.height() <= available.height()
+        assert "bad row" in dialog.report_text.toPlainText()
+    finally:
+        dialog.close()
