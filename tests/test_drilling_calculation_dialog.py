@@ -58,3 +58,15 @@ def test_interpretation_workspace_exposes_shared_drilling_dialog(qapp) -> None:
     assert "BIT" in workspace.configure_drilling_inputs_button.text()
     assert "общие входы" in workspace.drilling_input_status.text().casefold()
     workspace.close()
+
+
+def test_drilling_calculation_dialog_fits_current_work_area(qapp) -> None:
+    dialog = DrillingCalculationDialog(_controller(), language=AppLanguage.EN)
+    try:
+        screen = dialog.screen()
+        assert screen is not None
+        available = screen.availableGeometry()
+        assert dialog.minimumWidth() <= dialog.width() <= available.width()
+        assert dialog.minimumHeight() <= dialog.height() <= available.height()
+    finally:
+        dialog.close()
