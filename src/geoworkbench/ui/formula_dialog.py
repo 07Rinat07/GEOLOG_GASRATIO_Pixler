@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from PySide6.QtCore import QSize
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -8,6 +9,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QDoubleSpinBox,
     QMessageBox,
+    QScrollArea,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -21,6 +23,7 @@ from geoworkbench.calculations.controller import (
 from geoworkbench.calculations.pixler import FormulaProfileRegistry
 from geoworkbench.domain.models import Dataset
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 _MAPPING_HEADERS = {
@@ -84,7 +87,6 @@ class FormulaExecutionDialog(QDialog):
         self.input_selectors: dict[str, QComboBox] = {}
         self.parameter_editors: dict[str, QDoubleSpinBox] = {}
         self.setWindowTitle(self._t("formula.profiles_title"))
-        self.resize(680, 480)
 
         root = QVBoxLayout(self)
         self.profile_selector = QComboBox()
@@ -103,7 +105,11 @@ class FormulaExecutionDialog(QDialog):
 
         self.mapping_widget = QWidget()
         self.mapping_form = QFormLayout(self.mapping_widget)
-        root.addWidget(self.mapping_widget)
+        self.mapping_scroll = QScrollArea(self)
+        self.mapping_scroll.setObjectName("formula-mapping-scroll")
+        self.mapping_scroll.setWidgetResizable(True)
+        self.mapping_scroll.setWidget(self.mapping_widget)
+        root.addWidget(self.mapping_scroll, 1)
 
         self.mapping_details = QTableWidget(0, 6)
         self.mapping_details.setObjectName("formula-mapping-passport")
@@ -124,6 +130,11 @@ class FormulaExecutionDialog(QDialog):
         root.addWidget(self.buttons)
         self.profile_selector.currentIndexChanged.connect(self._refresh_profile)
         self._refresh_profile()
+        fit_window_to_screen(
+            self,
+            preferred=QSize(680, 480),
+            minimum=QSize(520, 360),
+        )
 
     def _t(self, key: str) -> str:
         return self.localizer.text(key)
