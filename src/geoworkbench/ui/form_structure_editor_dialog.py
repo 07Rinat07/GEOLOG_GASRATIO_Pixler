@@ -559,6 +559,7 @@ class FormStructureEditorDialog(QDialog):
         settings_layout.insertWidget(1, self.vertical_ruler_group)
         settings_layout.addStretch(1)
         settings_scroll = QScrollArea()
+        settings_scroll.setObjectName("form-editor-settings-scroll")
         settings_scroll.setWidgetResizable(True)
         settings_scroll.setWidget(settings_widget)
         right_layout.addWidget(settings_scroll, 1)
