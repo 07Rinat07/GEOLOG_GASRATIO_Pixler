@@ -208,6 +208,8 @@ class PrintExportPreferences:
     show_page_range: bool = True
     header_placement: PrintHeaderPlacement = PrintHeaderPlacement.FIRST_PAGE
     repeat_column_header_at_bottom: bool = True
+    header_template_id: str | None = None
+    header_selection_explicit: bool = False
     printer_name: str | None = None
     copy_count: int = 1
 
