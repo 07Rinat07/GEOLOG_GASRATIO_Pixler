@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QRectF, Qt
+from PySide6.QtCore import QRectF, QSize, Qt
 from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -46,11 +46,13 @@ from geoworkbench.tablet.vertical_ruler import (
     VerticalRulerMode,
     supports_inner_vertical_ruler,
 )
+from geoworkbench.ui.adaptive_toolbar import AdaptiveActionToolBar
 from geoworkbench.ui.grid_settings_widget import GridSettingsWidget
 from geoworkbench.ui.track_content_editor_dialog import TrackContentEditorDialog
 from geoworkbench.ui.vertical_ruler_settings_widget import (
     VerticalRulerSettingsWidget,
 )
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 _ITEM_KIND_ROLE = Qt.ItemDataRole.UserRole
 _ITEM_ID_ROLE = Qt.ItemDataRole.UserRole + 1
@@ -221,7 +223,6 @@ class FormStructureEditorDialog(QDialog):
             "Редактор структуры формы", "Пішін құрылымының редакторы", "Form structure editor"
         )
         self.setWindowTitle(self._base_title)
-        self.resize(1080, 680)
 
         root = QVBoxLayout(self)
         form_properties = QFormLayout()
@@ -287,24 +288,35 @@ class FormStructureEditorDialog(QDialog):
         self.tree.currentItemChanged.connect(self._selection_changed)
         left_layout.addWidget(self.tree, 1)
 
-        column_buttons = QHBoxLayout()
-        self._button(
-            column_buttons, self._text("+ Колонка", "+ Баған", "+ Column"), self._add_column
+        self.column_actions_toolbar = AdaptiveActionToolBar(parent=self)
+        self.column_actions_toolbar.setObjectName("form-column-actions")
+        self.column_actions_toolbar.add_standard_action(
+            self._text("+ Колонка", "+ Баған", "+ Column"),
+            self._add_column,
         )
-        self._button(
-            column_buttons, self._text("− Колонка", "− Баған", "− Column"), self._remove_column
+        self.column_actions_toolbar.add_standard_action(
+            self._text("− Колонка", "− Баған", "− Column"),
+            self._remove_column,
         )
-        self._button(column_buttons, "↑", self._move_up)
-        self._button(column_buttons, "↓", self._move_down)
-        left_layout.addLayout(column_buttons)
+        self.column_actions_toolbar.add_standard_action("↑", self._move_up)
+        self.column_actions_toolbar.add_standard_action("↓", self._move_down)
+        left_layout.addWidget(self.column_actions_toolbar)
 
-        track_buttons = QHBoxLayout()
-        self._button(track_buttons, self._text("+ Дорожка", "+ Жол", "+ Track"), self._add_track)
-        self._button(track_buttons, self._text("− Дорожка", "− Жол", "− Track"), self._remove_track)
-        self._button(
-            track_buttons, self._text("Содержимое", "Мазмұны", "Content"), self._edit_track_content
+        self.track_actions_toolbar = AdaptiveActionToolBar(parent=self)
+        self.track_actions_toolbar.setObjectName("form-track-actions")
+        self.track_actions_toolbar.add_standard_action(
+            self._text("+ Дорожка", "+ Жол", "+ Track"),
+            self._add_track,
         )
-        left_layout.addLayout(track_buttons)
+        self.track_actions_toolbar.add_standard_action(
+            self._text("− Дорожка", "− Жол", "− Track"),
+            self._remove_track,
+        )
+        self.track_actions_toolbar.add_standard_action(
+            self._text("Содержимое", "Мазмұны", "Content"),
+            self._edit_track_content,
+        )
+        left_layout.addWidget(self.track_actions_toolbar)
         splitter.addWidget(left)
 
         right = QWidget()
@@ -562,14 +574,17 @@ class FormStructureEditorDialog(QDialog):
         self.live_preview_check.toggled.connect(self._toggle_live_preview)
         actions.addWidget(self.live_preview_check)
         actions.addStretch(1)
-        self.apply_button = self._button(
-            actions, self._text("Применить", "Қолдану", "Apply"), self._apply_preview
+        self.editor_actions_toolbar = AdaptiveActionToolBar(parent=self)
+        self.editor_actions_toolbar.setObjectName("form-editor-secondary-actions")
+        self.apply_button = self.editor_actions_toolbar.add_standard_action(
+            self._text("Применить", "Қолдану", "Apply"),
+            self._apply_preview,
         )
-        self.revert_button = self._button(
-            actions,
+        self.revert_button = self.editor_actions_toolbar.add_standard_action(
             self._text("Отменить изменения", "Өзгерістерден бас тарту", "Revert"),
             self._revert,
         )
+        actions.addWidget(self.editor_actions_toolbar)
         self.save_button = self._button(
             actions, self._text("Сохранить", "Сақтау", "Save"), self._save
         )
@@ -580,6 +595,11 @@ class FormStructureEditorDialog(QDialog):
         self._reload_tree()
         self._update_width_advice()
         self._update_dirty_state()
+        fit_window_to_screen(
+            self,
+            preferred=QSize(1080, 680),
+            minimum=QSize(680, 440),
+        )
 
     def _text(self, ru: str, kk: str, en: str) -> str:
         return {"ru": ru, "kk": kk, "en": en}.get(self.language, ru)
