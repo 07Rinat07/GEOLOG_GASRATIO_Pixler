@@ -7,7 +7,6 @@ from typing import Callable
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
-    QApplication,
     QCheckBox,
     QComboBox,
     QDialog,
@@ -50,6 +49,7 @@ from geoworkbench.printing.print_job import (
     available_output_formats,
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 PreviewCallback = Callable[[PrintJobSettings], None]
@@ -134,7 +134,6 @@ class PrintCenterDialog(QDialog):
                 page = replace(page, orientation=PrintOrientation(header_orientation))
         self.source_name = _safe_file_stem(source_name)
         self.setWindowTitle(self._t("print_center.title"))
-        self.setMinimumSize(600, 480)
 
         root = QVBoxLayout(self)
         root.setContentsMargins(12, 12, 12, 12)
@@ -1224,14 +1223,19 @@ class PrintCenterDialog(QDialog):
             self.path_input.setText(str(current))
 
     def _apply_adaptive_size(self) -> None:
-        screen = self.screen() or QApplication.primaryScreen()
+        screen = self.screen()
         if screen is None:
-            self.resize(900, 760)
-            return
-        available = screen.availableGeometry()
-        self.resize(
-            min(960, max(600, int(available.width() * 0.72))),
-            min(860, max(480, int(available.height() * 0.82))),
+            preferred = QSize(900, 760)
+        else:
+            available = screen.availableGeometry()
+            preferred = QSize(
+                min(960, max(600, int(available.width() * 0.72))),
+                min(860, max(480, int(available.height() * 0.82))),
+            )
+        fit_window_to_screen(
+            self,
+            preferred=preferred,
+            minimum=QSize(600, 480),
         )
 
     def _update_enabled(self, _index: int | None = None) -> None:
