@@ -70,6 +70,6 @@ def test_form_manager_uses_one_model_rollback_not_two_widget_restores() -> None:
     manager_block = source[source.index("    def show_form_manager") : source.index(
         "    def _choose_and_import_skf"
     )]
-    final_apply = "        self.apply_form_to_tablet(\n            dialog.selected_form"
+    final_apply = "self.apply_form_to_tablet(\n            dialog.selected_form"
     accepted_block = manager_block[manager_block.index(final_apply) :]
     assert "_restore_tablet_form_snapshot" not in accepted_block
