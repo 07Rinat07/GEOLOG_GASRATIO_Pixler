@@ -54,9 +54,8 @@ def fit_window_to_screen(
     push action buttons below a laptop work area.
     """
 
-    screen = window.screen()
-    if screen is None and window.parentWidget() is not None:
-        screen = window.parentWidget().screen()
+    parent = window.parentWidget()
+    screen = parent.screen() if parent is not None else window.screen()
     if screen is None:
         screen = QApplication.primaryScreen()
     if screen is None:
