@@ -30,7 +30,6 @@ from geoworkbench.importers.witsml import (
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.uom_dictionary import QuantityClass
-from geoworkbench.ui.window_geometry import fit_window_to_screen
 from geoworkbench.services.witsml_import_review import (
     WitsmlChannelOverride,
     WitsmlImportCommit,
@@ -38,6 +37,7 @@ from geoworkbench.services.witsml_import_review import (
     WitsmlImportReviewPlan,
     WitsmlImportValidationError,
 )
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class WitsmlImportDialog(QDialog):
