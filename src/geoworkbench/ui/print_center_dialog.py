@@ -246,7 +246,6 @@ class PrintCenterDialog(QDialog):
                 selected_header = initial_header_template_id
         self._set_header_choices(self.header_choices, selected_header)
         self._refresh_header_preview()
-        self._sync_orientation_to_header()
 
         output_group = QGroupBox(self._t("print_center.destination_group"))
         output_group.setSizePolicy(
@@ -656,6 +655,11 @@ class PrintCenterDialog(QDialog):
         action_layout.addWidget(self.buttons)
         root.addWidget(self.action_bar)
 
+        # Fixed-orientation headers can synchronize the initial page only after
+        # the page controls and action summary exist. Header choice population
+        # above deliberately blocks signals so legacy/unconfigured state remains
+        # implicit until the user actually changes the selection.
+        self._sync_orientation_to_header()
         self._output_changed()
         self._update_enabled()
         self._update_pagination_enabled()
