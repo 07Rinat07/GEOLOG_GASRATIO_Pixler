@@ -4,7 +4,7 @@ from collections.abc import Callable
 from typing import TypedDict
 from pathlib import Path
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import QSize, Signal
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QTableWidget,
     QTableWidgetItem,
     QTabWidget,
@@ -28,6 +29,7 @@ from geoworkbench.data.interpretation_export import InterpretationExportError
 from geoworkbench.domain.localized_content import localized_text
 from geoworkbench.project.interpretation_controller import InterpretationController
 from geoworkbench.services.localization import AppLanguage, LANGUAGE_NAMES, Localizer
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class InterpretationIntervalValues(TypedDict):
@@ -59,9 +61,13 @@ class InterpretationIntervalsDialog(QDialog):
         self.localizer = Localizer.create(language)
         self._selection_guard = False
         self.setWindowTitle(self._t("interpretations.window_title"))
-        self.resize(1120, 680)
 
         root = QVBoxLayout(self)
+        body_scroll = QScrollArea(self)
+        body_scroll.setObjectName("interpretation-intervals-body-scroll")
+        body_scroll.setWidgetResizable(True)
+        body = QWidget(body_scroll)
+        body_layout = QVBoxLayout(body)
         interpretation_row = QHBoxLayout()
         self.interpretation_combo = QComboBox()
         self.interpretation_combo.setObjectName("interpretations-combo")
@@ -84,7 +90,7 @@ class InterpretationIntervalsDialog(QDialog):
             button.setObjectName(object_name)
             button.clicked.connect(handler)
             interpretation_row.addWidget(button)
-        root.addLayout(interpretation_row)
+        body_layout.addLayout(interpretation_row)
 
         self.interpretation_language_tabs = QTabWidget()
         self.interpretation_language_tabs.setObjectName("interpretation-language-tabs")
@@ -114,7 +120,7 @@ class InterpretationIntervalsDialog(QDialog):
         self.interpretation_language_tabs.setCurrentIndex(tuple(AppLanguage).index(language))
         self.name_input = self.name_inputs[language.value]
         self.description_input = self.description_inputs[language.value]
-        root.addWidget(self.interpretation_language_tabs)
+        body_layout.addWidget(self.interpretation_language_tabs)
 
         self.table = QTableWidget(0, 6)
         self.table.setObjectName("interpretation-intervals-table")
@@ -129,7 +135,7 @@ class InterpretationIntervalsDialog(QDialog):
             ]
         )
         self.table.itemSelectionChanged.connect(self._load_selected_interval)
-        root.addWidget(self.table, 1)
+        body_layout.addWidget(self.table, 1)
 
         form = QFormLayout()
         self.top_input = self._depth_input()
@@ -180,7 +186,7 @@ class InterpretationIntervalsDialog(QDialog):
         ):
             form.addRow(label, control)
         form.addRow(self._t("interpretations.label"), self.interval_language_tabs)
-        root.addLayout(form)
+        body_layout.addLayout(form)
 
         interval_actions = QHBoxLayout()
         for object_name, key, handler in (
@@ -202,7 +208,7 @@ class InterpretationIntervalsDialog(QDialog):
             button.setObjectName(object_name)
             button.clicked.connect(handler)
             interval_actions.addWidget(button)
-        root.addLayout(interval_actions)
+        body_layout.addLayout(interval_actions)
 
         export_actions = QHBoxLayout()
         export_actions.addStretch(1)
@@ -214,7 +220,10 @@ class InterpretationIntervalsDialog(QDialog):
             button = QPushButton(self._t(key))
             button.clicked.connect(lambda checked=False, value=export_format: self._export(value))
             export_actions.addWidget(button)
-        root.addLayout(export_actions)
+        body_layout.addLayout(export_actions)
+
+        body_scroll.setWidget(body)
+        root.addWidget(body_scroll, 1)
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.button(QDialogButtonBox.StandardButton.Close).setText(self._t("common.close"))
@@ -222,6 +231,11 @@ class InterpretationIntervalsDialog(QDialog):
         root.addWidget(buttons)
 
         self._refresh_interpretations()
+        fit_window_to_screen(
+            self,
+            preferred=QSize(1120, 680),
+            minimum=QSize(680, 420),
+        )
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)
