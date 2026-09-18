@@ -6,7 +6,7 @@ from typing import Any, TypedDict, cast
 
 import numpy as np
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QSplitter,
     QTabWidget,
     QTableWidget,
@@ -47,6 +48,7 @@ from geoworkbench.project.annotation_schema import (
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.time_display import format_elapsed_time, format_unix_seconds
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class _AnnotationValues(TypedDict):
@@ -149,7 +151,6 @@ class DepthAnnotationsDialog(QDialog):
             else "annotations.window_title"
         )
         self.setWindowTitle(self._t(window_key))
-        self.resize(760 if self._single_item_mode else 1180, 720)
 
         root = QVBoxLayout(self)
         root.setContentsMargins(10, 10, 10, 10)
@@ -209,6 +210,12 @@ class DepthAnnotationsDialog(QDialog):
             self._select_annotation(annotation_id)
         elif self._single_item_mode:
             self.text_input.setFocus(Qt.FocusReason.OtherFocusReason)
+
+        fit_window_to_screen(
+            self,
+            preferred=QSize(760 if self._single_item_mode else 1180, 720),
+            minimum=QSize(520 if self._single_item_mode else 680, 420),
+        )
 
     @staticmethod
     def _numeric_index_values(index) -> np.ndarray:
@@ -298,12 +305,39 @@ class DepthAnnotationsDialog(QDialog):
         panel = QWidget()
         layout = QVBoxLayout(panel)
         layout.setContentsMargins(0, 0, 0, 0)
-        tabs = QTabWidget()
-        tabs.addTab(self._build_content_tab(), self._t("annotations.content_tab"))
-        tabs.addTab(self._build_style_tab(), self._t("annotations.style_tab"))
-        tabs.addTab(self._build_geometry_tab(), self._t("annotations.geometry_tab"))
-        layout.addWidget(tabs)
+        self.editor_tabs = QTabWidget()
+        self.editor_tabs.setObjectName("depth-annotations-editor-tabs")
+        self.editor_tabs.addTab(
+            self._scrollable_editor_page(
+                self._build_content_tab(),
+                "depth-annotations-content-scroll",
+            ),
+            self._t("annotations.content_tab"),
+        )
+        self.editor_tabs.addTab(
+            self._scrollable_editor_page(
+                self._build_style_tab(),
+                "depth-annotations-style-scroll",
+            ),
+            self._t("annotations.style_tab"),
+        )
+        self.editor_tabs.addTab(
+            self._scrollable_editor_page(
+                self._build_geometry_tab(),
+                "depth-annotations-geometry-scroll",
+            ),
+            self._t("annotations.geometry_tab"),
+        )
+        layout.addWidget(self.editor_tabs)
         return panel
+
+    @staticmethod
+    def _scrollable_editor_page(page: QWidget, object_name: str) -> QScrollArea:
+        scroll = QScrollArea()
+        scroll.setObjectName(object_name)
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(page)
+        return scroll
 
     def _build_content_tab(self) -> QWidget:
         page = QWidget()
