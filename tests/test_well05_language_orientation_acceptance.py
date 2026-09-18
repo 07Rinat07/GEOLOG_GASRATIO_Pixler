@@ -44,7 +44,7 @@ def test_well05_curated_a4_header_labels_are_complete_and_wrappable(
     language: AppLanguage,
     orientation: str,
 ) -> None:
-    form = a4_factory_templates(language.value)[f"factory-masterlog-a4-{orientation}"]
+    form = a4_factory_templates(language.value)[f"factory-technology-a4-{orientation}"]
     preset = factory_header_preset(form.print_header_template_ids[orientation])
 
     localized_key = {
