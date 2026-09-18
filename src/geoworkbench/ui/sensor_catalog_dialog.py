@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from uuid import uuid4
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -11,12 +11,11 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QFileDialog,
     QFormLayout,
-    QHBoxLayout,
     QHeaderView,
     QLabel,
     QLineEdit,
     QMessageBox,
-    QPushButton,
+    QScrollArea,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
@@ -26,6 +25,8 @@ from PySide6.QtWidgets import (
 from geoworkbench.catalogs.sensors import SensorCatalog, default_sensor_catalog
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.mnemonic_registry import UserMnemonicRegistry, UserMnemonicRule
+from geoworkbench.ui.adaptive_toolbar import AdaptiveActionToolBar
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 _CATEGORIES = ("gas", "drilling", "mud", "petrophysics", "dexp", "other")
@@ -62,7 +63,11 @@ class MnemonicRuleDialog(QDialog):
         super().__init__(parent)
         self._rule_id = rule.rule_id if rule else str(uuid4())
         self.setWindowTitle("Правило мнемоники")
-        form = QFormLayout(self)
+        root = QVBoxLayout(self)
+        scroll = QScrollArea(self)
+        scroll.setWidgetResizable(True)
+        editor = QWidget(scroll)
+        form = QFormLayout(editor)
         self.foreign = QLineEdit(rule.foreign_mnemonic if rule else "")
         self.canonical = QLineEdit(rule.canonical_mnemonic if rule else "")
         self.name = QLineEdit(rule.name_ru if rule else "")
@@ -107,7 +112,14 @@ class MnemonicRuleDialog(QDialog):
         )
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
-        form.addRow(buttons)
+        scroll.setWidget(editor)
+        root.addWidget(scroll, 1)
+        root.addWidget(buttons)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(620, 520),
+            minimum=QSize(460, 320),
+        )
 
     def rule(self) -> UserMnemonicRule:
         aliases = tuple(x.strip() for x in self.aliases.text().split(",") if x.strip())
@@ -152,16 +164,17 @@ class SensorCatalogDialog(QDialog):
         self._base_catalog = default_sensor_catalog()
         self._catalog = self.registry.catalog(self._base_catalog)
         self.setWindowTitle(self._t("sensors.title"))
-        self.resize(1240, 760)
         root = QVBoxLayout(self)
         self.info = QLabel()
         self.info.setWordWrap(True)
         root.addWidget(self.info)
-        controls = QHBoxLayout()
         self.search = QLineEdit()
         self.search.setPlaceholderText(self._t("sensors.search"))
         self.search.textChanged.connect(self._refresh)
-        controls.addWidget(self.search, 1)
+        root.addWidget(self.search)
+
+        self.actions_toolbar = AdaptiveActionToolBar(parent=self)
+        self.actions_toolbar.setObjectName("sensor-catalog-actions")
         for text, slot in (
             ("Добавить правило", self._add_rule),
             ("Изменить", self._edit_rule),
@@ -170,10 +183,8 @@ class SensorCatalogDialog(QDialog):
             ("Экспорт словаря", self._export_rules),
             (self._t("sensors.open_json"), self._open_external_catalog),
         ):
-            button = QPushButton(text)
-            button.clicked.connect(slot)
-            controls.addWidget(button)
-        root.addLayout(controls)
+            self.actions_toolbar.add_standard_action(text, slot)
+        root.addWidget(self.actions_toolbar)
         self.tree = QTreeWidget()
         self.tree.setRootIsDecorated(False)
         self.tree.setAlternatingRowColors(True)
@@ -202,6 +213,11 @@ class SensorCatalogDialog(QDialog):
         buttons.rejected.connect(self.reject)
         root.addWidget(buttons)
         self._refresh()
+        fit_window_to_screen(
+            self,
+            preferred=QSize(1240, 760),
+            minimum=QSize(680, 420),
+        )
 
     @property
     def catalog(self) -> SensorCatalog:

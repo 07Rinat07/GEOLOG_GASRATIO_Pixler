@@ -3,7 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 
 import numpy as np
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QPushButton,
     QMessageBox,
+    QScrollArea,
     QSplitter,
     QVBoxLayout,
     QWidget,
@@ -35,6 +36,7 @@ from geoworkbench.tablet.models import (
     TrackDefinition,
     XScale,
 )
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class CurveSettingsDialog(QDialog):
@@ -58,7 +60,6 @@ class CurveSettingsDialog(QDialog):
         self._loading = False
 
         self.setWindowTitle(self._t("curve_settings.title"))
-        self.resize(760, 500)
         root = QVBoxLayout(self)
         splitter = QSplitter(Qt.Orientation.Horizontal)
         root.addWidget(splitter, 1)
@@ -81,7 +82,10 @@ class CurveSettingsDialog(QDialog):
             self.curves.addItem(item)
         splitter.addWidget(self.curves)
 
-        editor = QWidget()
+        editor_scroll = QScrollArea()
+        editor_scroll.setObjectName("curve-settings-editor-scroll")
+        editor_scroll.setWidgetResizable(True)
+        editor = QWidget(editor_scroll)
         form = QFormLayout(editor)
         form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
 
@@ -169,7 +173,8 @@ class CurveSettingsDialog(QDialog):
             self._t("curve_settings.style.dash_dot"), CurveLineStyle.DASH_DOT.value
         )
         form.addRow(self._t("curve_settings.line_style"), self.line_style)
-        splitter.addWidget(editor)
+        editor_scroll.setWidget(editor)
+        splitter.addWidget(editor_scroll)
         splitter.setStretchFactor(1, 1)
 
         buttons = QDialogButtonBox(
@@ -185,6 +190,11 @@ class CurveSettingsDialog(QDialog):
         self.auto_range.toggled.connect(self._range_mode_changed)
         if self.curves.count():
             self.curves.setCurrentRow(0)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(760, 500),
+            minimum=QSize(560, 360),
+        )
 
     def _t(self, key: str, **values: object) -> str:
         return self._localizer.text(key, **values)

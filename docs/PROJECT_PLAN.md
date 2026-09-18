@@ -561,8 +561,10 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
   остаются доступными при малой логической высоте Windows 125–175%. Первый инкремент перевёл
   WITS0/WITSML-диалоги на общий `fit_window_to_screen`; второй убирает desktop-only минимум
   главного окна и защищает footer отчётов; третий переводит CSV import, объединение наборов
-  данных и каталог шаблонов описания на тот же screen-fit контракт. Далее пройти остальные
-  редакторы, каталоги и настройки, с regression-проверками малых work-area и Windows HiDPI matrix.
+  данных и каталог шаблонов описания на тот же screen-fit контракт; четвёртый охватывает
+  настройки кривых, создание LAS и каталог датчиков, включая toolbar overflow и прокручиваемую
+  форму правила мнемоники с закреплёнными OK/Cancel. Далее пройти остальные редакторы и настройки,
+  с regression-проверками малых work-area и Windows HiDPI matrix.
 
 - [ ] **ARCH-01:** `ApplicationContext`/composition root для storage, semantic, import, report,
   credentials и audit services.

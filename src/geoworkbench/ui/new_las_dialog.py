@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from PySide6.QtCore import QSize
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -16,6 +17,7 @@ from geoworkbench.data.las_export_plan import LasExportVersion
 from geoworkbench.domain.models import IndexType
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.new_las import NewLasPlan
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class NewLasDialog(QDialog):
@@ -67,6 +69,11 @@ class NewLasDialog(QDialog):
         for field in (self.start_input, self.stop_input, self.step_input, self.null_input):
             field.valueChanged.connect(self._update_preview)
         self._update_preview()
+        fit_window_to_screen(
+            self,
+            preferred=QSize(560, 420),
+            minimum=QSize(420, 300),
+        )
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)
