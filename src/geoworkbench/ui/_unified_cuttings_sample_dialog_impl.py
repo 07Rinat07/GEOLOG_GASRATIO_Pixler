@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QApplication,
     QButtonGroup,
@@ -39,6 +39,7 @@ from geoworkbench.services.lba_standard import (
 from geoworkbench.services.localization import AppLanguage, LANGUAGE_NAMES
 from geoworkbench.ui.lithotype_visuals import configure_lithotype_combo, lithotype_icon
 from geoworkbench.ui.rich_interval_text_editor import RichIntervalTextEditor
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 _TEXT = {
@@ -275,7 +276,6 @@ class UnifiedCuttingsSampleDialog(QDialog):
         self._interpretation_dirty_languages: set[str] = set()
         self.delete_requested = False
         self.setWindowTitle(self._text["edit"] if sample is not None else self._text["create"])
-        self.setMinimumSize(560, 460)
 
         content = QWidget()
         content.setMinimumWidth(0)
@@ -300,14 +300,17 @@ class UnifiedCuttingsSampleDialog(QDialog):
         self.validation_label.setWordWrap(True)
         content_layout.addWidget(self.validation_label)
 
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.content_scroll = QScrollArea()
+        self.content_scroll.setObjectName("unified-cuttings-scroll")
+        self.content_scroll.setWidgetResizable(True)
+        self.content_scroll.setFrameShape(QFrame.Shape.NoFrame)
         # The rich-text toolbar can be wider than a notebook display.  It must
         # not force the whole dialog into a horizontally scrolling canvas where
         # the percentage controls disappear off-screen.
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        scroll.setWidget(content)
+        self.content_scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self.content_scroll.setWidget(content)
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
@@ -324,7 +327,7 @@ class UnifiedCuttingsSampleDialog(QDialog):
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
-        layout.addWidget(scroll, 1)
+        layout.addWidget(self.content_scroll, 1)
         layout.addWidget(buttons)
         self._apply_adaptive_size()
 
@@ -600,13 +603,18 @@ class UnifiedCuttingsSampleDialog(QDialog):
 
     def _apply_adaptive_size(self) -> None:
         screen = self.screen() or QApplication.primaryScreen()
-        if screen is None:
-            self.resize(860, 720)
-            return
-        available = screen.availableGeometry()
-        width = min(920, max(560, int(available.width() * 0.76)))
-        height = min(800, max(460, int(available.height() * 0.84)))
-        self.resize(width, height)
+        preferred = QSize(860, 720)
+        if screen is not None:
+            available = screen.availableGeometry()
+            preferred = QSize(
+                min(920, max(560, int(available.width() * 0.76))),
+                min(800, max(460, int(available.height() * 0.84))),
+            )
+        fit_window_to_screen(
+            self,
+            preferred=preferred,
+            minimum=QSize(520, 340),
+        )
 
     @staticmethod
     def _depth_input(value: float) -> QDoubleSpinBox:
