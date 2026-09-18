@@ -62,3 +62,18 @@ def test_dialog_loads_candidates_and_returns_edited_selection(qapp, tmp_path: Pa
     assert dialog.selections[0].display_name == "Азимут ствола"
     assert dialog.buttons.button(dialog.buttons.StandardButton.Ok).isEnabled()
     assert dialog.issues.count() == 2
+
+
+
+def test_external_las_dialog_fits_current_work_area(qapp, tmp_path: Path) -> None:
+    path = tmp_path / "adaptive.las"
+    path.write_text("fake", encoding="utf-8")
+    dialog = ExternalLasInsertDialog(FakeController(), initial_path=path)
+    try:
+        screen = dialog.screen()
+        assert screen is not None
+        available = screen.availableGeometry()
+        assert dialog.minimumWidth() <= dialog.width() <= available.width()
+        assert dialog.minimumHeight() <= dialog.height() <= available.height()
+    finally:
+        dialog.close()

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -25,6 +25,7 @@ from geoworkbench.services.external_las_insert import (
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.ui.las_output_paths import available_las_output_path
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class ExternalLasInsertDialog(QDialog):
@@ -41,7 +42,6 @@ class ExternalLasInsertDialog(QDialog):
         self.localizer = Localizer.create(language)
         self.analysis: ExternalLasInsertAnalysis | None = None
         self.setWindowTitle(self._t("external_las.title"))
-        self.resize(980, 620)
 
         root = QVBoxLayout(self)
         file_row = QHBoxLayout()
@@ -109,6 +109,11 @@ class ExternalLasInsertDialog(QDialog):
             self.load_path(initial_path)
         else:
             self._update_accept_state()
+        fit_window_to_screen(
+            self,
+            preferred=QSize(980, 620),
+            minimum=QSize(560, 360),
+        )
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from PySide6.QtCore import QSize
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -25,6 +26,7 @@ from geoworkbench.data.excel_adapter import (
     probe_excel,
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class ExcelImportDialog(QDialog):
@@ -78,6 +80,11 @@ class ExcelImportDialog(QDialog):
         self.header_row.valueChanged.connect(self._refresh)
         self._load_sheets()
         self._update_composite_controls(False)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(760, 520),
+            minimum=QSize(520, 340),
+        )
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)

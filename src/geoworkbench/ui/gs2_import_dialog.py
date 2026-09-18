@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from PySide6.QtCore import QSize
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -18,6 +19,7 @@ from geoworkbench.importers.gs2.metadata import (
     read_gs2_container_metadata,
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class Gs2ImportDialog(QDialog):
@@ -36,7 +38,6 @@ class Gs2ImportDialog(QDialog):
         self.manifest: Gs2ContainerManifest | None = None
         self.metadata: Gs2Metadata | None = None
         self.setWindowTitle(self._t("gs2.title"))
-        self.resize(680, 480)
 
         layout = QVBoxLayout(self)
         heading = QLabel(self._t("gs2.inspecting", file=self.source.name))
@@ -62,6 +63,11 @@ class Gs2ImportDialog(QDialog):
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(680, 480),
+            minimum=QSize(480, 320),
+        )
 
         try:
             self.manifest = inspect_gs2(self.source)
