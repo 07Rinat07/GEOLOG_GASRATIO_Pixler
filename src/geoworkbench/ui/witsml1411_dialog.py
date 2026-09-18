@@ -5,7 +5,7 @@ from functools import partial
 from pathlib import Path
 from uuid import uuid4
 
-from PySide6.QtCore import QObject, QStandardPaths, QThread, Qt, Signal
+from PySide6.QtCore import QObject, QSize, QStandardPaths, QThread, Qt, Signal
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QApplication,
@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QSpinBox,
     QTreeWidget,
     QTreeWidgetItem,
@@ -48,6 +49,7 @@ from geoworkbench.services.witsml_credentials import (
 )
 from geoworkbench.services.witsml_import_review import WitsmlImportCommit
 from geoworkbench.ui.witsml_import_dialog import WitsmlImportDialog
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class _TaskThread(QThread):
@@ -96,8 +98,14 @@ class Witsml1411Dialog(QDialog):
         self._closing = False
 
         self.setWindowTitle(self._t("witsml1411.title"))
-        self.resize(1050, 720)
         layout = QVBoxLayout(self)
+
+        scroll = QScrollArea(self)
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        content = QWidget(scroll)
+        content_layout = QVBoxLayout(content)
 
         form = QFormLayout()
         self.geoscape_preset_button = QPushButton(
@@ -131,7 +139,7 @@ class Witsml1411Dialog(QDialog):
         form.addRow("", self.allow_private_http)
         form.addRow(self._t("witsml1411.timeout"), self.timeout)
         form.addRow(self._t("witsml1411.attempts"), self.attempts)
-        layout.addLayout(form)
+        content_layout.addLayout(form)
 
         controls = QHBoxLayout()
         self.connect_button = QPushButton(self._t("witsml1411.connect"), self)
@@ -143,11 +151,11 @@ class Witsml1411Dialog(QDialog):
         controls.addWidget(self.refresh_button)
         controls.addWidget(self.import_button)
         controls.addStretch(1)
-        layout.addLayout(controls)
+        content_layout.addLayout(controls)
 
         self.status = QLabel(self._t("witsml1411.disconnected"), self)
         self.status.setWordWrap(True)
-        layout.addWidget(self.status)
+        content_layout.addWidget(self.status)
 
         self.tree = QTreeWidget(self)
         self.tree.setHeaderLabels(
@@ -159,11 +167,20 @@ class Witsml1411Dialog(QDialog):
             ]
         )
         self.tree.setAlternatingRowColors(True)
-        layout.addWidget(self.tree, 1)
+        content_layout.addWidget(self.tree, 1)
+
+        scroll.setWidget(content)
+        layout.addWidget(scroll, 1)
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, self)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+
+        fit_window_to_screen(
+            self,
+            preferred=QSize(1050, 720),
+            minimum=QSize(520, 360),
+        )
 
         self.profile_combo.currentIndexChanged.connect(self._profile_selected)
         self.connect_button.clicked.connect(self._connect)
