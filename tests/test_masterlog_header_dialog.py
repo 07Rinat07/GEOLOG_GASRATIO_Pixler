@@ -6,7 +6,13 @@ from geoworkbench.project.session import ProjectSession
 from geoworkbench.printing.image_asset_rendering import image_asset_pixmap
 from geoworkbench.printing.image_assets import ImageAsset
 from geoworkbench.services.localization import AppLanguage
-from geoworkbench.ui.masterlog_header_dialog import HeaderElementDialog, MasterlogHeaderDialog
+from PySide6.QtWidgets import QDialogButtonBox, QScrollArea
+
+from geoworkbench.ui.masterlog_header_dialog import (
+    HeaderDataDialog,
+    HeaderElementDialog,
+    MasterlogHeaderDialog,
+)
 
 
 PNG = base64.b64decode(
@@ -365,3 +371,65 @@ def test_optional_logo_placeholder_can_remain_empty_and_preserves_metadata(qapp)
     assert properties["placeholder_text_ru"] == "Загрузить логотип заказчика"
     assert "asset_ref" not in properties
     dialog.close()
+
+
+
+def test_masterlog_header_dialogs_fit_work_area_with_sticky_actions(qapp) -> None:
+    controller = MasterlogTemplateController(ProjectSession())
+    template = controller.create("Adaptive")
+
+    element_dialog = HeaderElementDialog(language=AppLanguage.EN)
+    preview_element_dialog = HeaderElementDialog(
+        language=AppLanguage.EN,
+        preview_template=template,
+        preview_session=controller.session,
+    )
+    data_dialog = HeaderDataDialog(
+        controller,
+        template.template_id,
+        language=AppLanguage.EN,
+    )
+    header_dialog = MasterlogHeaderDialog(
+        controller,
+        template.template_id,
+        language=AppLanguage.EN,
+    )
+    dialogs = [
+        element_dialog,
+        preview_element_dialog,
+        data_dialog,
+        header_dialog,
+    ]
+    try:
+        for dialog in dialogs:
+            screen = dialog.screen()
+            assert screen is not None
+            available = screen.availableGeometry()
+            assert dialog.minimumWidth() <= dialog.width() <= available.width()
+            assert dialog.minimumHeight() <= dialog.height() <= available.height()
+
+        for dialog in (element_dialog, preview_element_dialog):
+            scroll = dialog.findChild(QScrollArea, "masterlog-header-element-scroll")
+            buttons = dialog.findChild(QDialogButtonBox)
+            assert scroll is not None
+            assert buttons is not None
+            assert not scroll.isAncestorOf(buttons)
+
+        data_scroll = data_dialog.findChild(QScrollArea, "masterlog-header-data-scroll")
+        data_buttons = data_dialog.findChild(QDialogButtonBox)
+        assert data_scroll is not None
+        assert data_buttons is not None
+        assert not data_scroll.isAncestorOf(data_buttons)
+
+        inspector_scroll = header_dialog.findChild(
+            QScrollArea,
+            "masterlog-header-inspector-scroll",
+        )
+        close_buttons = header_dialog.findChild(QDialogButtonBox)
+        assert inspector_scroll is not None
+        assert close_buttons is not None
+        assert not inspector_scroll.isAncestorOf(close_buttons)
+        assert preview_element_dialog.live_preview is not None
+    finally:
+        for dialog in dialogs:
+            dialog.close()
