@@ -1,7 +1,7 @@
 from hashlib import sha256
 
 import numpy as np
-from PySide6.QtWidgets import QTableWidget
+from PySide6.QtWidgets import QDialogButtonBox, QScrollArea, QTableWidget
 
 from geoworkbench.domain.models import (
     Dataset,
@@ -114,3 +114,23 @@ def test_masterlog_symbols_dialog_adds_time_anchor(qapp) -> None:
     assert symbol.top_depth == 200.0
     assert dialog.time_input.isVisibleTo(dialog) is True
     dialog.close()
+
+
+
+def test_masterlog_symbols_dialog_keeps_actions_reachable_on_small_work_area(qapp) -> None:
+    dialog = MasterlogSymbolsDialog(make_controller(), "standard", language=AppLanguage.EN)
+    try:
+        screen = dialog.screen()
+        assert screen is not None
+        available = screen.availableGeometry()
+        assert dialog.minimumWidth() <= dialog.width() <= available.width()
+        assert dialog.minimumHeight() <= dialog.height() <= available.height()
+        assert dialog.actions_toolbar.objectName() == "masterlog-symbols-actions"
+        assert len(dialog.actions_toolbar.actions()) == 5
+        scroll = dialog.findChild(QScrollArea, "masterlog-symbols-properties-scroll")
+        buttons = dialog.findChild(QDialogButtonBox)
+        assert scroll is dialog.properties_scroll
+        assert buttons is not None
+        assert not scroll.isAncestorOf(buttons)
+    finally:
+        dialog.close()
