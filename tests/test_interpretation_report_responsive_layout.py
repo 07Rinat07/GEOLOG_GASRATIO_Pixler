@@ -106,14 +106,16 @@ def test_interpretation_workspace_keeps_export_actions_visible_at_laptop_height(
         InterpretationCalculationController(ProjectSession()),
         language=AppLanguage.EN,
     )
-    workspace.resize(1_050, 640)
+    workspace.resize(900, 430)
     workspace.show()
     qapp.processEvents()
 
     workspace.preview_toggle.setChecked(True)
     qapp.processEvents()
 
-    assert workspace.preview.minimumHeight() == 150
+    assert workspace.preview.minimumHeight() == 0
+    assert workspace.log_scroll.maximumHeight() == 90
+    assert workspace.report_panel.isAncestorOf(workspace.export_footer)
     assert workspace.report_panel.isVisible()
     assert workspace.pdf_button.isVisible()
     assert workspace.print_button.isVisible()
