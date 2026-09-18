@@ -22,7 +22,6 @@ def test_new_las_dialog_previews_grid_and_blocks_invalid_range(qapp) -> None:
     dialog.close()
 
 
-
 def test_new_las_dialog_fits_current_work_area(qapp) -> None:
     dialog = NewLasDialog(language=AppLanguage.EN)
     try:
