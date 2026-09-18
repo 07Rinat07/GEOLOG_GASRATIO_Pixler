@@ -3,6 +3,7 @@ from PySide6.QtCore import QRect, QSize
 from geoworkbench.ui.window_geometry import (
     adaptive_window_geometry,
     constrain_window_geometry,
+    fit_window_to_screen,
 )
 
 
@@ -38,3 +39,54 @@ def test_constrain_geometry_moves_and_shrinks_window_into_work_area() -> None:
     assert result.top() >= available.top() + 12
     assert result.right() <= available.right() - 12
     assert result.bottom() <= available.bottom() - 12
+
+
+
+class _FakeScreen:
+    def __init__(self, available: QRect) -> None:
+        self._available = QRect(available)
+
+    def availableGeometry(self) -> QRect:
+        return QRect(self._available)
+
+
+class _FakeWindow:
+    def __init__(self, available: QRect) -> None:
+        self._screen = _FakeScreen(available)
+        self._geometry = QRect()
+        self.minimum = QSize()
+
+    def screen(self):
+        return self._screen
+
+    def parentWidget(self):
+        return None
+
+    def setMinimumSize(self, width: int, height: int) -> None:
+        self.minimum = QSize(width, height)
+
+    def setGeometry(self, rect: QRect) -> None:
+        self._geometry = QRect(rect)
+
+    def geometry(self) -> QRect:
+        return QRect(self._geometry)
+
+    def resize(self, size: QSize) -> None:
+        self._geometry.setSize(size)
+
+
+def test_fit_window_clamps_desktop_minimum_to_small_laptop_work_area() -> None:
+    available = QRect(0, 0, 1280, 680)
+    window = _FakeWindow(available)
+
+    result = fit_window_to_screen(
+        window,  # type: ignore[arg-type]
+        preferred=QSize(1500, 900),
+        minimum=QSize(1050, 650),
+    )
+
+    assert available.contains(result)
+    assert window.geometry() == result
+    assert window.minimum.width() <= result.width()
+    assert window.minimum.height() <= result.height()
+    assert result.height() < available.height()
