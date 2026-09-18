@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from PySide6.QtCore import QSize
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -12,6 +13,7 @@ from PySide6.QtWidgets import (
 
 from geoworkbench.calculations.interval_statistics import CurveIntervalStatistics
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class IntervalStatisticsDialog(QDialog):
@@ -27,7 +29,6 @@ class IntervalStatisticsDialog(QDialog):
         super().__init__(parent)
         self.localizer = Localizer.create(language)
         self.setWindowTitle(self._t("statistics.interval_title"))
-        self.resize(720, 440)
         layout = QVBoxLayout(self)
         layout.addWidget(
             QLabel(
@@ -77,6 +78,11 @@ class IntervalStatisticsDialog(QDialog):
         buttons.button(QDialogButtonBox.StandardButton.Close).setText(self._t("common.close"))
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(720, 440),
+            minimum=QSize(520, 320),
+        )
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)

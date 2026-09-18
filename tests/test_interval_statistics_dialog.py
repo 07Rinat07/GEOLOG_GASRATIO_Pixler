@@ -38,3 +38,21 @@ def test_interval_statistics_dialog_uses_selected_language(qapp) -> None:
     assert buttons is not None
     assert buttons.button(QDialogButtonBox.StandardButton.Close).text() == "Close"
     dialog.close()
+
+
+
+def test_interval_statistics_dialog_fits_current_work_area(qapp) -> None:
+    dialog = IntervalStatisticsDialog(
+        100.0,
+        200.0,
+        (CurveIntervalStatistics("ROP", "m/h", 5, 1.0, 4.0, 2.5),),
+        language=AppLanguage.EN,
+    )
+    try:
+        screen = dialog.screen()
+        assert screen is not None
+        available = screen.availableGeometry()
+        assert dialog.minimumWidth() <= dialog.width() <= available.width()
+        assert dialog.minimumHeight() <= dialog.height() <= available.height()
+    finally:
+        dialog.close()

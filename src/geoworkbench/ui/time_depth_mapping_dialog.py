@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from PySide6.QtCore import QSize
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -21,6 +22,7 @@ from geoworkbench.domain.models import (
 )
 from geoworkbench.project.time_depth_mapping_controller import TimeDepthMappingController
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 _TEXT = {
@@ -89,7 +91,6 @@ class TimeDepthMappingDialog(QDialog):
         self.controller = controller
         self.text = _TEXT[language]
         self.setWindowTitle(self.text["title"])
-        self.resize(560, 360)
 
         root = QVBoxLayout(self)
         form = QFormLayout()
@@ -142,6 +143,11 @@ class TimeDepthMappingDialog(QDialog):
         self.delete_button.clicked.connect(self._delete)
         self.resolve_button.clicked.connect(self._resolve)
         self._refresh_profiles()
+        fit_window_to_screen(
+            self,
+            preferred=QSize(560, 360),
+            minimum=QSize(420, 300),
+        )
 
     def _refresh_profiles(self, selected_id: str | None = None) -> None:
         self.profile_selector.blockSignals(True)
