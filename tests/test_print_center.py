@@ -195,25 +195,36 @@ def test_print_center_switches_paired_header_with_a4_orientation(qapp) -> None:
     dialog.close()
 
 
-def test_print_center_infers_factory_header_orientation_and_preserves_no_header(
+def test_print_center_fixed_header_controls_initial_orientation_without_guessing(
     qapp,
 ) -> None:
-    portrait = "factory-header:a4_technology_portrait"
-    landscape = "factory-header:a4_technology_landscape"
+    portrait = "customer-header-portrait"
+    unrelated_landscape = "unrelated-landscape"
     dialog = PrintCenterDialog(
         language=AppLanguage.RU,
         initial_page=PrintPageSettings(orientation=PrintOrientation.LANDSCAPE),
-        header_choices=((portrait, "Portrait"), (landscape, "Landscape")),
+        header_choices=(
+            (portrait, "Customer portrait"),
+            (unrelated_landscape, "Unrelated landscape"),
+        ),
         initial_header_template_id=portrait,
+        header_orientation_by_id={
+            portrait: "portrait",
+            unrelated_landscape: "landscape",
+        },
     )
 
-    assert dialog.header_combo.currentData() == landscape
+    assert dialog.header_combo.currentData() == portrait
+    assert dialog.orientation_combo.currentData() == PrintOrientation.PORTRAIT.value
+    assert dialog.header_combo.currentData() != unrelated_landscape
+
     dialog.header_combo.setCurrentIndex(0)
     dialog.orientation_combo.setCurrentIndex(
-        dialog.orientation_combo.findData(PrintOrientation.PORTRAIT.value)
+        dialog.orientation_combo.findData(PrintOrientation.LANDSCAPE.value)
     )
 
     assert dialog.header_combo.currentData() is None
+    assert dialog.orientation_combo.currentData() == PrintOrientation.LANDSCAPE.value
     dialog.close()
 
 
@@ -383,4 +394,60 @@ def test_print_center_auto_interval_disables_manual_span_and_overlap(qapp) -> No
     assert pagination.units_per_page == 50.0
     assert pagination.overlap == 0.0
     assert dialog.preferences().auto_units_per_page is True
+    dialog.close()
+
+
+
+def test_print_center_missing_fixed_header_pair_reverts_orientation_and_informs(
+    qapp, monkeypatch
+) -> None:
+    portrait = "customer-header-portrait"
+    unrelated_landscape = "unrelated-landscape"
+    messages: list[str] = []
+    monkeypatch.setattr(
+        "geoworkbench.ui.print_center_dialog.QMessageBox.information",
+        lambda _parent, _title, message: messages.append(message),
+    )
+    dialog = PrintCenterDialog(
+        language=AppLanguage.EN,
+        initial_page=PrintPageSettings(orientation=PrintOrientation.PORTRAIT),
+        header_choices=(
+            (portrait, "Customer portrait"),
+            (unrelated_landscape, "Unrelated landscape"),
+        ),
+        initial_header_template_id=portrait,
+        header_orientation_by_id={
+            portrait: "portrait",
+            unrelated_landscape: "landscape",
+        },
+    )
+
+    dialog.orientation_combo.setCurrentIndex(
+        dialog.orientation_combo.findData(PrintOrientation.LANDSCAPE.value)
+    )
+
+    assert dialog.orientation_combo.currentData() == PrintOrientation.PORTRAIT.value
+    assert dialog.header_combo.currentData() == portrait
+    assert dialog.header_combo.currentData() != unrelated_landscape
+    assert messages
+    assert "explicitly paired" in messages[-1]
+    dialog.close()
+
+
+def test_print_center_universal_header_survives_orientation_change(qapp) -> None:
+    universal = "customer-header-universal"
+    dialog = PrintCenterDialog(
+        language=AppLanguage.EN,
+        initial_page=PrintPageSettings(orientation=PrintOrientation.PORTRAIT),
+        header_choices=((universal, "Universal"),),
+        initial_header_template_id=universal,
+        header_orientation_by_id={universal: "both"},
+    )
+
+    dialog.orientation_combo.setCurrentIndex(
+        dialog.orientation_combo.findData(PrintOrientation.LANDSCAPE.value)
+    )
+
+    assert dialog.orientation_combo.currentData() == PrintOrientation.LANDSCAPE.value
+    assert dialog.header_combo.currentData() == universal
     dialog.close()
