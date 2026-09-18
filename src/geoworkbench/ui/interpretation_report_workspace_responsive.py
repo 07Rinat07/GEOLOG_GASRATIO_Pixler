@@ -343,10 +343,6 @@ class InterpretationReportWorkspace(_CompatibleInterpretationReportWorkspace):
             self._configuration_grid.addWidget(self.settings_panel, 2, 0)
             self._configuration_grid.setColumnStretch(0, 1)
 
-        if compact_height:
-            self.main_splitter.setSizes([180, 320])
-        else:
-            self.main_splitter.setSizes([430, 520])
 
     def resizeEvent(self, event: QResizeEvent) -> None:  # noqa: N802 - Qt API
         super().resizeEvent(event)
