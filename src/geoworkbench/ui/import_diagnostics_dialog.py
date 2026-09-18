@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QStandardPaths
+from PySide6.QtCore import QSize, QStandardPaths
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 
 from geoworkbench.services.import_diagnostics import ImportDiagnosticReport
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class ImportDiagnosticsDialog(QDialog):
@@ -34,7 +35,6 @@ class ImportDiagnosticsDialog(QDialog):
         self.report = report
         self.localizer = Localizer.create(language)
         self.setWindowTitle(self._t("import_diagnostics.title"))
-        self.resize(920, 620)
 
         layout = QVBoxLayout(self)
         summary = QLabel(
@@ -61,6 +61,11 @@ class ImportDiagnosticsDialog(QDialog):
         copy_button.clicked.connect(self._copy_report)
         save_button.clicked.connect(self._save_report)
         layout.addWidget(buttons)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(920, 620),
+            minimum=QSize(520, 340),
+        )
 
     def _format_report(self) -> str:
         lines: list[str] = []
