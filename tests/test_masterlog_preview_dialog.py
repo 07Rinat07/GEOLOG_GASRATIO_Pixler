@@ -1,7 +1,10 @@
 from geoworkbench.domain.models import MasterlogTemplate
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
+from PySide6.QtWidgets import QDialogButtonBox
+
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.ui.adaptive_toolbar import AdaptiveActionToolBar
 from geoworkbench.ui.masterlog_preview_dialog import MasterlogPreviewDialog
 
 
@@ -38,3 +41,38 @@ def test_masterlog_preview_dialog_uses_selected_template(qapp) -> None:
     assert dialog.preview.selection_mode == "stratigraphy"
     assert dialog.stratigraphy_button.isChecked()
     dialog.close()
+
+
+def test_masterlog_preview_dialog_fits_work_area_and_uses_overflow_toolbar(qapp) -> None:
+    dialog = MasterlogPreviewDialog(
+        MasterlogTemplate("standard", "Adaptive"),
+        ProjectSession(),
+        language=AppLanguage.EN,
+    )
+    try:
+        screen = dialog.screen()
+        assert screen is not None
+        available = screen.availableGeometry()
+        assert dialog.minimumWidth() <= dialog.width() <= available.width()
+        assert dialog.minimumHeight() <= dialog.height() <= available.height()
+
+        toolbar = dialog.findChild(AdaptiveActionToolBar, "masterlog-preview-actions")
+        assert toolbar is not None
+        assert [action.text() for action in toolbar.actions() if action.text()] == [
+            "Inspect",
+            "Fill lithology",
+            "Fill cuttings",
+            "Cuttings description",
+            "Calcimetry / LBA",
+            "Stratigraphy",
+            "Pin for PDF",
+            "Callouts...",
+        ]
+        assert dialog.preview.minimumWidth() <= 320
+        assert dialog.preview.minimumHeight() <= 240
+
+        buttons = dialog.findChild(QDialogButtonBox)
+        assert buttons is not None
+        assert not toolbar.isAncestorOf(buttons)
+    finally:
+        dialog.close()

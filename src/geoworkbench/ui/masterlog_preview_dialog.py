@@ -5,11 +5,9 @@ from PySide6.QtGui import QMouseEvent, QPainter, QPaintEvent
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
-    QHBoxLayout,
     QInputDialog,
     QLabel,
     QMessageBox,
-    QPushButton,
     QRubberBand,
     QToolTip,
     QVBoxLayout,
@@ -34,6 +32,7 @@ from geoworkbench.printing.masterlog_inspection import (
     masterlog_column_header_at_point,
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.ui.adaptive_toolbar import AdaptiveActionToolBar
 from geoworkbench.ui.window_geometry import fit_window_to_screen
 from geoworkbench.ui.masterlog_interval_fill_dialog import CuttingsCompositionDialog
 from geoworkbench.ui.masterlog_columns_dialog import edit_masterlog_column
@@ -62,7 +61,7 @@ class MasterlogPreviewWidget(QWidget):
         self.selection_mode: str | None = None
         self._selection_origin: QPoint | None = None
         self._rubber_band = QRubberBand(QRubberBand.Shape.Rectangle, self)
-        self.setMinimumSize(640, 480)
+        self.setMinimumSize(320, 240)
 
     def paintEvent(self, event: QPaintEvent) -> None:
         del event
@@ -167,80 +166,81 @@ class MasterlogPreviewDialog(QDialog):
         self.preview = MasterlogPreviewWidget(template, session, settings, self)
         self.preview.interval_selected.connect(self._fill_interval)
         self.preview.column_edit_requested.connect(self._edit_column)
-        tools = QHBoxLayout()
-        self.inspect_button = QPushButton(
+        self.tools = AdaptiveActionToolBar(parent=self)
+        self.tools.setObjectName("masterlog-preview-actions")
+        self.inspect_button = self.tools.add_standard_action(
             {AppLanguage.RU: "Просмотр", AppLanguage.KK: "Қарау", AppLanguage.EN: "Inspect"}[
                 language
-            ]
+            ],
+            lambda: self._set_mode(None),
+            checkable=True,
         )
-        self.lithology_button = QPushButton(
+        self.lithology_button = self.tools.add_standard_action(
             {
                 AppLanguage.RU: "Заполнить литологию",
                 AppLanguage.KK: "Литологияны толтыру",
                 AppLanguage.EN: "Fill lithology",
-            }[language]
+            }[language],
+            lambda: self._set_mode("lithology"),
+            checkable=True,
         )
-        self.cuttings_button = QPushButton(
+        self.cuttings_button = self.tools.add_standard_action(
             {
                 AppLanguage.RU: "Заполнить шламограмму",
                 AppLanguage.KK: "Шламограмманы толтыру",
                 AppLanguage.EN: "Fill cuttings",
-            }[language]
+            }[language],
+            lambda: self._set_mode("cuttings"),
+            checkable=True,
         )
-        self.description_button = QPushButton(
+        self.description_button = self.tools.add_standard_action(
             {
                 AppLanguage.RU: "Описание шлама",
                 AppLanguage.KK: "Шлам сипаттамасы",
                 AppLanguage.EN: "Cuttings description",
-            }[language]
+            }[language],
+            lambda: self._set_mode("cuttings_description"),
+            checkable=True,
         )
-        self.analysis_button = QPushButton(
+        self.analysis_button = self.tools.add_standard_action(
             {
                 AppLanguage.RU: "Кальциметрия / ЛБА",
                 AppLanguage.KK: "Кальциметрия / ЛБА",
                 AppLanguage.EN: "Calcimetry / LBA",
-            }[language]
+            }[language],
+            lambda: self._set_mode("analysis"),
+            checkable=True,
         )
-        self.stratigraphy_button = QPushButton(
+        self.stratigraphy_button = self.tools.add_standard_action(
             {
                 AppLanguage.RU: "Стратиграфия",
                 AppLanguage.KK: "Стратиграфия",
                 AppLanguage.EN: "Stratigraphy",
-            }[language]
+            }[language],
+            lambda: self._set_mode("stratigraphy"),
+            checkable=True,
         )
-        self.pin_button = QPushButton(
+        self.tools.addSeparator()
+        self.pin_button = self.tools.add_standard_action(
             {
                 AppLanguage.RU: "Закрепить для PDF",
                 AppLanguage.KK: "PDF үшін бекіту",
                 AppLanguage.EN: "Pin for PDF",
-            }[language]
+            }[language],
+            self._pin_inspection,
         )
         self.pin_button.setEnabled(False)
-        self.pin_button.clicked.connect(self._pin_inspection)
         self.preview.inspection_selected.connect(
             lambda inspection: self.pin_button.setEnabled(inspection is not None)
         )
-        self.callouts_button = QPushButton(
+        self.callouts_button = self.tools.add_standard_action(
             {
                 AppLanguage.RU: "Выноски...",
                 AppLanguage.KK: "Белгілер...",
                 AppLanguage.EN: "Callouts...",
-            }[language]
+            }[language],
+            self._manage_callouts,
         )
-        self.callouts_button.clicked.connect(self._manage_callouts)
-        for button, mode in (
-            (self.inspect_button, None),
-            (self.lithology_button, "lithology"),
-            (self.cuttings_button, "cuttings"),
-            (self.description_button, "cuttings_description"),
-            (self.analysis_button, "analysis"),
-            (self.stratigraphy_button, "stratigraphy"),
-        ):
-            button.setCheckable(True)
-            button.clicked.connect(lambda checked=False, value=mode: self._set_mode(value))
-            tools.addWidget(button)
-        tools.addWidget(self.pin_button)
-        tools.addWidget(self.callouts_button)
         self.inspect_button.setChecked(True)
         hint = QLabel(
             {
@@ -252,14 +252,14 @@ class MasterlogPreviewDialog(QDialog):
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.rejected.connect(self.reject)
         layout = QVBoxLayout(self)
-        layout.addLayout(tools)
+        layout.addWidget(self.tools)
         layout.addWidget(hint)
         layout.addWidget(self.preview)
         layout.addWidget(buttons)
         fit_window_to_screen(
             self,
             preferred=QSize(980, 650),
-            minimum=QSize(620, 420),
+            minimum=QSize(520, 360),
         )
 
     def _set_mode(self, mode: str | None) -> None:
