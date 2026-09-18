@@ -1,5 +1,5 @@
 import numpy as np
-from PySide6.QtWidgets import QComboBox, QDialog, QDialogButtonBox, QTableWidget
+from PySide6.QtWidgets import QComboBox, QDialog, QDialogButtonBox, QScrollArea, QTableWidget
 
 from geoworkbench.calculations.controller import FormulaExecutionController
 from geoworkbench.calculations.pixler import build_all_sourced_formula_registry
@@ -98,3 +98,27 @@ def test_formula_dialog_uses_english_catalog(qapp) -> None:
         "GAS_SYSTEM_EFFICIENCY",
     }
     dialog.close()
+
+
+
+def test_formula_dialog_fits_work_area_and_keeps_actions_outside_mapping_scroll(qapp) -> None:
+    dialog, _ = make_dialog(AppLanguage.EN)
+    try:
+        dialog.profile_selector.setCurrentIndex(
+            dialog.profile_selector.findData("gas.normalized_total_reference_us20150060054")
+        )
+        screen = dialog.screen()
+        assert screen is not None
+        available = screen.availableGeometry()
+        assert dialog.minimumWidth() <= dialog.width() <= available.width()
+        assert dialog.minimumHeight() <= dialog.height() <= available.height()
+
+        scroll = dialog.findChild(QScrollArea, "formula-mapping-scroll")
+        buttons = dialog.findChild(QDialogButtonBox)
+        assert scroll is not None
+        assert buttons is not None
+        assert scroll.widget() is dialog.mapping_widget
+        assert not scroll.isAncestorOf(buttons)
+        assert len(dialog.parameter_editors) == 4
+    finally:
+        dialog.close()

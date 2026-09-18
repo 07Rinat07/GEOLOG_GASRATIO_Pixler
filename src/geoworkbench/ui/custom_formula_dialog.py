@@ -1,15 +1,14 @@
 from __future__ import annotations
 
+from PySide6.QtCore import QSize
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
     QFormLayout,
-    QHBoxLayout,
     QLabel,
     QLineEdit,
     QMessageBox,
-    QPushButton,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -24,6 +23,8 @@ from geoworkbench.project.custom_formula_controller import (
     FormulaBatchPlan,
 )
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.ui.adaptive_toolbar import AdaptiveActionToolBar
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 _TEXT = {
@@ -200,7 +201,6 @@ class CustomFormulaPassportDialog(QDialog):
         super().__init__(parent)
         text = _PASSPORT_TEXT[language]
         self.setWindowTitle(text[0])
-        self.resize(820, 420)
         root = QVBoxLayout(self)
         summary = QLabel(
             f"<b>{passport.name}</b> · {text[1]} {passport.version}<br>"
@@ -235,6 +235,11 @@ class CustomFormulaPassportDialog(QDialog):
         buttons.button(QDialogButtonBox.StandardButton.Close).setText(text[10])
         buttons.rejected.connect(self.reject)
         root.addWidget(buttons)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(820, 420),
+            minimum=QSize(560, 320),
+        )
 
 
 class FormulaBatchPreviewDialog(QDialog):
@@ -248,7 +253,6 @@ class FormulaBatchPreviewDialog(QDialog):
         super().__init__(parent)
         text = _BATCH_TEXT[language]
         self.setWindowTitle(text[1])
-        self.resize(760, 360)
         root = QVBoxLayout(self)
         table = QTableWidget(len(plan.previews), 6)
         table.setObjectName("formula-batch-preview")
@@ -273,6 +277,11 @@ class FormulaBatchPreviewDialog(QDialog):
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         root.addWidget(buttons)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(760, 360),
+            minimum=QSize(520, 300),
+        )
 
 
 class CustomFormulaDialog(QDialog):
@@ -290,7 +299,6 @@ class CustomFormulaDialog(QDialog):
         self.calculated_mnemonic: str | None = None
         self.dataset_changed = False
         self.setWindowTitle(self.text[0])
-        self.resize(720, 360)
         root = QVBoxLayout(self)
         self.selector = QComboBox()
         self.selector.currentIndexChanged.connect(self._load_selected)
@@ -312,7 +320,8 @@ class CustomFormulaDialog(QDialog):
         form.addRow(self.text[6], self.description)
         form.addRow(self.text[7], self.inputs)
         root.addLayout(form)
-        buttons = QHBoxLayout()
+        self.actions_toolbar = AdaptiveActionToolBar(parent=self)
+        self.actions_toolbar.setObjectName("custom-formula-actions")
         for text, handler in (
             (self.text[8], self._new),
             (self.text[9], self._save),
@@ -321,21 +330,29 @@ class CustomFormulaDialog(QDialog):
             (self.text[14], self._show_calculation),
             (_BATCH_TEXT[language][0], self._calculate_all),
         ):
-            button = QPushButton(text)
-            button.clicked.connect(handler)
-            buttons.addWidget(button)
-        self.undo_batch_button = QPushButton(_BATCH_TEXT[language][9])
-        self.undo_batch_button.clicked.connect(self._undo_batch)
-        buttons.addWidget(self.undo_batch_button)
-        self.redo_batch_button = QPushButton(_BATCH_TEXT[language][10])
-        self.redo_batch_button.clicked.connect(self._redo_batch)
-        buttons.addWidget(self.redo_batch_button)
-        close_button = QPushButton(self.text[12])
-        close_button.clicked.connect(self.accept)
-        buttons.addWidget(close_button)
-        root.addLayout(buttons)
+            self.actions_toolbar.add_standard_action(text, handler)
+        self.undo_batch_button = self.actions_toolbar.add_standard_action(
+            _BATCH_TEXT[language][9],
+            self._undo_batch,
+        )
+        self.redo_batch_button = self.actions_toolbar.add_standard_action(
+            _BATCH_TEXT[language][10],
+            self._redo_batch,
+        )
+        root.addWidget(self.actions_toolbar)
+
+        close_buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        close_buttons.button(QDialogButtonBox.StandardButton.Close).setText(self.text[12])
+        close_buttons.rejected.connect(self.accept)
+        root.addWidget(close_buttons)
+
         self._refresh()
         self._update_batch_actions()
+        fit_window_to_screen(
+            self,
+            preferred=QSize(720, 360),
+            minimum=QSize(520, 320),
+        )
 
     def _refresh(self, selected_id: str | None = None) -> None:
         self.selector.blockSignals(True)
