@@ -13,6 +13,7 @@ from geoworkbench.domain.models import (
 )
 from geoworkbench.domain.translation_status import TranslationState, TranslationStatus
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.project.translation_status_controller import TranslationStatusController
 from geoworkbench.project.well_translation_readiness_controller import (
     WellTranslationReadinessController,
 )
@@ -93,6 +94,7 @@ def test_dialog_filters_real_readiness_without_mutating_project(qapp) -> None:
 
     dialog = TranslationReadinessDialog(
         WellTranslationReadinessController(session),
+        TranslationStatusController(session),
         language=AppLanguage.RU,
     )
     kk_index = dialog.target_language_combo.findData("kk")
@@ -148,6 +150,7 @@ def test_dialog_rejects_inverted_depth_range_without_querying_invalid_state(qapp
 
     dialog = TranslationReadinessDialog(
         WellTranslationReadinessController(session),
+        TranslationStatusController(session),
         language=AppLanguage.EN,
     )
     dialog.depth_filter_checkbox.setChecked(True)
@@ -189,3 +192,98 @@ def test_navigation_exposes_localized_translation_readiness_action(qapp) -> None
 
     window.translation_readiness_dialog.close()
     window.close()
+
+
+def test_dialog_reviews_selected_current_draft(qapp) -> None:
+    session = _session()
+    well = session.current_well
+    assert well is not None
+    field_id = "lithology/interval/description"
+    well.lithology.append(
+        LithologyInterval(
+            "interval",
+            100.0,
+            110.0,
+            "sandstone",
+            description_i18n={"ru": "Песчаник", "kk": "Құмтас"},
+        )
+    )
+    well.authored_field_revisions[field_id] = 1
+    well.authored_field_source_languages[field_id] = "ru"
+    well.translation_statuses[field_id] = {
+        "kk": TranslationStatus(
+            state=TranslationState.DRAFT,
+            source_language="ru",
+            source_revision=1,
+            translation_revision=1,
+        )
+    }
+    session.dirty = False
+    status_controller = TranslationStatusController(session)
+    dialog = TranslationReadinessDialog(
+        WellTranslationReadinessController(session),
+        status_controller,
+        language=AppLanguage.RU,
+    )
+    kk_index = dialog.target_language_combo.findData("kk")
+    assert kk_index >= 0
+    dialog.target_language_combo.setCurrentIndex(kk_index)
+    dialog.refresh()
+
+    assert dialog.table.rowCount() == 1
+    assert dialog.review_button.isEnabled() is False
+    dialog.table.selectRow(0)
+    assert dialog.review_button.isEnabled() is True
+
+    dialog.review_button.click()
+
+    reviewed = status_controller.status(field_id, "kk")
+    assert reviewed is not None
+    assert reviewed.state is TranslationState.REVIEWED
+    assert session.dirty is True
+    assert dialog.last_summary is not None
+    assert dialog.last_summary.reviewed_count == 1
+    assert dialog.table.rowCount() == 0
+    dialog.close()
+
+
+def test_dialog_does_not_offer_review_for_stale_translation(qapp) -> None:
+    session = _session()
+    well = session.current_well
+    assert well is not None
+    field_id = "lithology/interval/description"
+    well.lithology.append(
+        LithologyInterval(
+            "interval",
+            100.0,
+            110.0,
+            "sandstone",
+            description_i18n={"ru": "Песчаник", "en": "Sandstone"},
+        )
+    )
+    well.authored_field_revisions[field_id] = 2
+    well.authored_field_source_languages[field_id] = "ru"
+    well.translation_statuses[field_id] = {
+        "en": TranslationStatus(
+            state=TranslationState.DRAFT,
+            source_language="ru",
+            source_revision=1,
+            translation_revision=1,
+        )
+    }
+    dialog = TranslationReadinessDialog(
+        WellTranslationReadinessController(session),
+        TranslationStatusController(session),
+        language=AppLanguage.EN,
+    )
+    en_index = dialog.target_language_combo.findData("en")
+    assert en_index >= 0
+    dialog.target_language_combo.setCurrentIndex(en_index)
+    dialog.refresh()
+
+    assert dialog.table.rowCount() == 1
+    assert dialog.table.item(0, 0).text() == "Stale"
+    dialog.table.selectRow(0)
+    assert dialog.review_button.isEnabled() is False
+    dialog.close()
+
