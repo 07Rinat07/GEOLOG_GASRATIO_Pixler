@@ -18,7 +18,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from geoworkbench.domain.translation_readiness import TranslationReadinessSummary
+from geoworkbench.domain.translation_readiness import (
+    TranslationReadinessItem,
+    TranslationReadinessSummary,
+)
 from geoworkbench.domain.translation_status import TranslationState
 from geoworkbench.project.translation_status_controller import TranslationStatusController
 from geoworkbench.project.well_translation_readiness_controller import (
@@ -162,15 +165,17 @@ class TranslationReadinessDialog(QDialog):
     def __init__(
         self,
         controller: WellTranslationReadinessController,
-        status_controller: TranslationStatusController,
         parent: QWidget | None = None,
         *,
+        status_controller: TranslationStatusController | None = None,
         language: AppLanguage = AppLanguage.RU,
     ) -> None:
         super().__init__(parent)
         self.controller = controller
-        self.status_controller = status_controller
-        if status_controller.session is not controller.session:
+        self.status_controller = status_controller or TranslationStatusController(
+            controller.session
+        )
+        if self.status_controller.session is not controller.session:
             raise ValueError("Контроллеры готовности и статусов должны использовать одну сессию")
         self.language = language
         self._last_summary: TranslationReadinessSummary | None = None
@@ -385,7 +390,7 @@ class TranslationReadinessDialog(QDialog):
             return
         self.refresh()
 
-    def _selected_item(self):
+    def _selected_item(self) -> TranslationReadinessItem | None:
         summary = self._last_summary
         row = self.table.currentRow()
         if summary is None or row < 0 or row >= len(summary.items):
