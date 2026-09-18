@@ -122,6 +122,8 @@ class PrintJobSettings:
     header_template_id: str | None = None
     header_placement: PrintHeaderPlacement = PrintHeaderPlacement.FIRST_PAGE
     repeat_column_header_at_bottom: bool = True
+    header_template_id: str | None = None
+    header_selection_explicit: bool = False
     printer_name: str | None = None
     copy_count: int = 1
     included_track_ids: tuple[str, ...] | None = None
@@ -222,6 +224,18 @@ class PrintExportPreferences:
             raise ValueError("Повтор шапки колонок должен быть логическим значением")
         if not isinstance(self.header_placement, PrintHeaderPlacement):
             raise ValueError("Размещение печатной шапки задано некорректно")
+        if not isinstance(self.header_selection_explicit, bool):
+            raise ValueError("Явный выбор печатной шапки должен быть логическим значением")
+        if self.header_template_id is not None:
+            if (
+                not isinstance(self.header_template_id, str)
+                or not self.header_template_id.strip()
+            ):
+                raise ValueError("ID печатной шапки должен быть непустой строкой")
+            if not self.header_selection_explicit:
+                raise ValueError(
+                    "ID печатной шапки требует явного состояния выбора"
+                )
         if self.printer_name is not None:
             if not isinstance(self.printer_name, str) or not self.printer_name.strip():
                 raise ValueError("Имя принтера должно быть непустой строкой")
