@@ -21,6 +21,8 @@
   длинные локализованные labels curated A4-шапок теперь переносятся вместо принудительного clip.
 - WELL-05: шесть language/orientation режимов прогоняются через общий preview/PDF renderer с explicit
   paired header и Unicode rich text; preview и PDF обязаны сохранять одну конфигурацию и page count.
+- WELL-05: выбор печатной шапки сохраняется per engineer profile как tri-state: legacy не настроено,
+  конкретный template ID или явное «без шапки»; v1/v2 настройки не получают ложный explicit state.
 
 - WELL-04: project v32 сохраняет по полю и языку состояния `missing`, `draft`, `reviewed`,
   `stale`, язык и ревизию исходника, ревизию перевода и ревизии зависимостей; проекты v31

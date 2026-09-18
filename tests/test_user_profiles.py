@@ -189,6 +189,8 @@ def test_print_export_preferences_roundtrip() -> None:
         image_quality=84,
         auto_units_per_page=True,
         header_placement=PrintHeaderPlacement.FIRST_PAGE,
+        header_template_id="factory-header:a4_technology_landscape",
+        header_selection_explicit=True,
         printer_name="Engineering Plotter",
         copy_count=4,
     )
@@ -264,3 +266,38 @@ def test_selected_form_id_rejects_invalid_and_can_be_cleared() -> None:
     settings.save_selected_form_id(None)
 
     assert settings.selected_form_id() is None
+
+
+
+def test_explicit_no_header_roundtrips_without_becoming_implicit() -> None:
+    from geoworkbench.printing.print_job import PrintExportPreferences
+
+    storage = MemorySettings()
+    settings = UserProfileSettings(storage)
+    expected = PrintExportPreferences(header_selection_explicit=True)
+
+    settings.save_print_export_preferences(expected)
+
+    restored = settings.print_export_preferences()
+    assert restored.header_selection_explicit is True
+    assert restored.header_template_id is None
+
+
+def test_v2_print_preferences_keep_header_placement_but_header_choice_is_implicit() -> None:
+    from geoworkbench.printing.print_job import PrintHeaderPlacement
+
+    storage = MemorySettings()
+    storage.values["users/print_export/default"] = json.dumps(
+        {
+            "defaults_version": 2,
+            "header_placement": "every_page",
+            "header_template_id": "legacy-header",
+            "header_selection_explicit": True,
+        }
+    )
+
+    restored = UserProfileSettings(storage).print_export_preferences()
+
+    assert restored.header_placement is PrintHeaderPlacement.EVERY_PAGE
+    assert restored.header_selection_explicit is False
+    assert restored.header_template_id is None
