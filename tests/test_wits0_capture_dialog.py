@@ -26,7 +26,8 @@ def test_wits0_capture_ui_is_resizable_and_keeps_actions_outside_scroll_area() -
     source = SOURCE.read_text(encoding="utf-8")
 
     assert "QScrollArea" in source
-    assert "self.setMinimumSize(640, 480)" in source
+    assert "fit_window_to_screen(" in source
+    assert "self.setMinimumSize(640, 480)" not in source
     assert "root.addWidget(self.scroll_area, 1)" in source
     assert "actions = QGridLayout()" in source
     assert source.index("root.addWidget(self.scroll_area, 1)") < source.index(
