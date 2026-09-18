@@ -36,13 +36,13 @@ from geoworkbench.forms.catalog import (
 )
 from geoworkbench.forms.preview import PreviewCallback
 from geoworkbench.form_constructor.preview_revision import PreviewRevisionGate
-from geoworkbench.ui.window_geometry import fit_window_to_screen
 from geoworkbench.printing.page_settings import (
     PrintOrientation,
     PrintPageFormat,
     PrintPageSettings,
 )
 from geoworkbench.printing.print_layout import PrintScaleMode
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 from geoworkbench.printing.form_width_advisor import FormWidthLevel, audit_form_width
 from geoworkbench.ui.form_structure_editor_dialog import FormStructureEditorDialog
 from geoworkbench.ui.form_create_dialog import FormCreateDialog
