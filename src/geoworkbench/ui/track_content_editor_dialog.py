@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -20,9 +20,11 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
+    QWidget,
 )
 
 from geoworkbench.catalogs.sensors import SensorCatalog, active_sensor_catalog
@@ -32,6 +34,8 @@ from geoworkbench.forms.editor import FormStructureEditor
 from geoworkbench.forms.models import ParameterBinding
 from geoworkbench.services.text_normalization import clean_display_text, clean_mnemonic
 from geoworkbench.tablet.models import CurveLineStyle, XScale
+from geoworkbench.ui.adaptive_toolbar import AdaptiveActionToolBar
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,7 +57,6 @@ class _CurveSelectionDialog(QDialog):
         self.setWindowTitle(
             self._text("Выбор кривых LAS", "LAS қисықтарын таңдау", "Select LAS curves")
         )
-        self.resize(720, 520)
 
         root = QVBoxLayout(self)
         self.search = QLineEdit()
@@ -89,6 +92,11 @@ class _CurveSelectionDialog(QDialog):
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         root.addWidget(buttons)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(720, 520),
+            minimum=QSize(480, 320),
+        )
 
     def _text(self, ru: str, kk: str, en: str) -> str:
         return {"ru": ru, "kk": kk, "en": en}.get(self.language, ru)
@@ -127,7 +135,6 @@ class TrackContentEditorDialog(QDialog):
         self._loading = False
         self._color = "#2563eb"
         self.setWindowTitle(self._text("Содержимое дорожки", "Жол мазмұны", "Track content"))
-        self.resize(1050, 650)
 
         root = QVBoxLayout(self)
         root.addWidget(QLabel(self.editor.track.title))
@@ -153,21 +160,29 @@ class TrackContentEditorDialog(QDialog):
         self.table.cellClicked.connect(lambda row, _column: self.table.selectRow(row))
         root.addWidget(self.table, 1)
 
-        toolbar = QHBoxLayout()
-        self._button(
-            toolbar, self._text("+ Параметр", "+ Параметр", "+ Parameter"), self._add_parameter
+        self.actions_toolbar = AdaptiveActionToolBar(parent=self)
+        self.actions_toolbar.setObjectName("track-content-actions")
+        self.actions_toolbar.add_standard_action(
+            self._text("+ Параметр", "+ Параметр", "+ Parameter"),
+            self._add_parameter,
         )
-        self._button(
-            toolbar,
+        self.actions_toolbar.add_standard_action(
             self._text("+ Кривые LAS", "+ LAS қисықтары", "+ LAS curves"),
             self._add_las_curve,
         )
-        self._button(toolbar, self._text("Удалить", "Жою", "Remove"), self._remove)
-        self._button(toolbar, "↑", lambda: self._move(-1))
-        self._button(toolbar, "↓", lambda: self._move(1))
-        root.addLayout(toolbar)
+        self.actions_toolbar.add_standard_action(
+            self._text("Удалить", "Жою", "Remove"),
+            self._remove,
+        )
+        self.actions_toolbar.add_standard_action("↑", lambda: self._move(-1))
+        self.actions_toolbar.add_standard_action("↓", lambda: self._move(1))
+        root.addWidget(self.actions_toolbar)
 
-        properties = QFormLayout()
+        self.properties_scroll = QScrollArea(self)
+        self.properties_scroll.setObjectName("track-content-properties-scroll")
+        self.properties_scroll.setWidgetResizable(True)
+        properties_widget = QWidget(self.properties_scroll)
+        properties = QFormLayout(properties_widget)
         self.name_edit = QLineEdit()
         properties.addRow(
             self._text("Отображаемое имя", "Көрсетілетін атау", "Display name"), self.name_edit
@@ -250,7 +265,8 @@ class TrackContentEditorDialog(QDialog):
         range_row.addWidget(QLabel("…"))
         range_row.addWidget(self.max_spin)
         properties.addRow(self._text("Диапазон", "Диапазон", "Range"), range_row)
-        root.addLayout(properties)
+        self.properties_scroll.setWidget(properties_widget)
+        root.addWidget(self.properties_scroll, 1)
 
         apply_row = QHBoxLayout()
         apply_button = QPushButton(
@@ -274,6 +290,11 @@ class TrackContentEditorDialog(QDialog):
         buttons.rejected.connect(self.reject)
         root.addWidget(buttons)
         self._reload()
+        fit_window_to_screen(
+            self,
+            preferred=QSize(1050, 650),
+            minimum=QSize(620, 400),
+        )
 
     def _text(self, ru: str, kk: str, en: str) -> str:
         return {"ru": ru, "kk": kk, "en": en}.get(self.language, ru)
@@ -296,12 +317,6 @@ class TrackContentEditorDialog(QDialog):
         if scale is XScale.LOGARITHMIC:
             return self._text("Логарифмическая", "Логарифмдік", "Logarithmic")
         return self._text("Линейная", "Сызықтық", "Linear")
-
-    def _button(self, layout: QHBoxLayout, caption: str, callback) -> QPushButton:
-        button = QPushButton(caption)
-        button.clicked.connect(callback)
-        layout.addWidget(button)
-        return button
 
     def _selected_binding(self) -> ParameterBinding | None:
         row = self.table.currentRow()
