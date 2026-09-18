@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QPoint, Qt
 
 from geoworkbench.project.interpretation_calculation_controller import (
     InterpretationCalculationController,
@@ -97,4 +97,30 @@ def test_interpretation_workspace_replaces_controls_with_preview_on_narrow_windo
     qapp.processEvents()
     assert not workspace.report_panel.isVisible()
     assert workspace.configuration_scroll.isVisible()
+    workspace.close()
+
+
+
+def test_interpretation_workspace_keeps_export_actions_visible_at_laptop_height(qapp) -> None:
+    workspace = InterpretationReportWorkspace(
+        InterpretationCalculationController(ProjectSession()),
+        language=AppLanguage.EN,
+    )
+    workspace.resize(1_050, 640)
+    workspace.show()
+    qapp.processEvents()
+
+    workspace.preview_toggle.setChecked(True)
+    qapp.processEvents()
+
+    assert workspace.preview.minimumHeight() == 150
+    assert workspace.report_panel.isVisible()
+    assert workspace.pdf_button.isVisible()
+    assert workspace.print_button.isVisible()
+
+    for button in (workspace.xlsx_button, workspace.docx_button, workspace.pdf_button, workspace.print_button):
+        top_left = button.mapTo(workspace, QPoint(0, 0))
+        assert top_left.y() >= 0
+        assert top_left.y() + button.height() <= workspace.height()
+
     workspace.close()
