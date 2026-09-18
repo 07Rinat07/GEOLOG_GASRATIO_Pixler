@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from PySide6.QtCore import QSize
 from PySide6.QtWidgets import (
     QComboBox,
     QCheckBox,
@@ -19,6 +20,7 @@ from PySide6.QtWidgets import (
 
 from geoworkbench.data.csv_adapter import CsvImportError, CsvImportPlan, probe_csv
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class CsvImportDialog(QDialog):
@@ -33,7 +35,6 @@ class CsvImportDialog(QDialog):
         self.localizer = Localizer.create(language)
         self.source = source
         self.setWindowTitle(self._t("csv.title", name=source.name))
-        self.resize(760, 440)
         root = QVBoxLayout(self)
         form = QFormLayout()
         self.encoding = QComboBox()
@@ -83,6 +84,11 @@ class CsvImportDialog(QDialog):
         root.addWidget(buttons)
         self._refresh_probe()
         self._update_composite_controls(False)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(760, 440),
+            minimum=QSize(520, 320),
+        )
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)
