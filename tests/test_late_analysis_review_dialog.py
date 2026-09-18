@@ -154,3 +154,21 @@ def test_review_dialog_uses_selected_language(qapp) -> None:
     assert dialog.analyze_button.text() == "Preview changes"
     assert dialog.buttons.button(QDialogButtonBox.StandardButton.Ok).text() == "Apply selected"
     dialog.close()
+
+
+def test_review_dialog_fits_current_work_area(qapp) -> None:
+    dialog = LateAnalysisReviewDialog(
+        _controller(),
+        _source(),
+        source_name="late.csv",
+        source_sha256=_SOURCE_SHA,
+        language=AppLanguage.EN,
+    )
+    try:
+        screen = dialog.screen()
+        assert screen is not None
+        available = screen.availableGeometry()
+        assert dialog.minimumWidth() <= dialog.width() <= available.width()
+        assert dialog.minimumHeight() <= dialog.height() <= available.height()
+    finally:
+        dialog.close()
