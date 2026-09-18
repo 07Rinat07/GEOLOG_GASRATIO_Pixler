@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -24,6 +24,7 @@ from geoworkbench.forms.models import (
     FormPageOrientation,
 )
 from geoworkbench.forms.naming import clean_form_name, normalized_form_name
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class FormCreateDialog(QDialog):
@@ -70,8 +71,6 @@ class FormCreateDialog(QDialog):
                 "Save user form" if mode == "save" else "Create form",
             )
         )
-        self.setMinimumSize(920, 610)
-        self.resize(1120, 720)
         self.setStyleSheet(
             "QDialog { background: #f1f5f9; color: #0f172a; }"
             "QLabel { color: #334155; }"
@@ -294,6 +293,11 @@ class FormCreateDialog(QDialog):
         self._validate()
         self.name_input.selectAll()
         self.name_input.setFocus()
+        fit_window_to_screen(
+            self,
+            preferred=QSize(1120, 720),
+            minimum=QSize(640, 420),
+        )
 
     @property
     def form_name(self) -> str:
