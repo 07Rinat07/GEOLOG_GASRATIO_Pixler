@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QDialog,
@@ -28,6 +28,7 @@ from geoworkbench.services.well_analysis_update import (
     AnalysisUpdateError,
     WellAnalysisUpdatePlan,
 )
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 _FIELD_LABELS: dict[AnalysisField, tuple[str, str, str]] = {
@@ -106,7 +107,7 @@ class LateAnalysisReviewDialog(QDialog):
         self.setWindowTitle(
             self._text("Поздние анализы", "Кейінгі талдаулар", "Late analyses")
         )
-        self.resize(980, 680)
+
         root = QVBoxLayout(self)
 
         summary = QLabel(
@@ -183,6 +184,11 @@ class LateAnalysisReviewDialog(QDialog):
         self.buttons.accepted.connect(self._accept)
         self.buttons.rejected.connect(self.reject)
         root.addWidget(self.buttons)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(980, 680),
+            minimum=QSize(620, 420),
+        )
 
     def selected_changes(self) -> tuple[AnalysisCellChange, ...]:
         selected: list[AnalysisCellChange] = []
