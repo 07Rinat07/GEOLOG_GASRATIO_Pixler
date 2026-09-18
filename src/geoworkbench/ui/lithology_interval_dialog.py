@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from PySide6.QtCore import QSize
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -14,6 +15,7 @@ from PySide6.QtWidgets import (
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.ui.lithotype_visuals import configure_lithotype_combo, lithotype_icon
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class LithologyIntervalDialog(QDialog):
@@ -45,7 +47,7 @@ class LithologyIntervalDialog(QDialog):
             else self._t("lithology.quick_title")
         )
         self.setModal(True)
-        self.resize(460, 210)
+
 
         root = QVBoxLayout(self)
         hint = QLabel(self._t("lithology.quick_hint"))
@@ -94,6 +96,11 @@ class LithologyIntervalDialog(QDialog):
             delete_button.setObjectName("lithology-delete-button")
             delete_button.clicked.connect(self._delete)
         root.addWidget(self.buttons)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(460, 210),
+            minimum=QSize(360, 210),
+        )
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)
