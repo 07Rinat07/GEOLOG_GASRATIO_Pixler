@@ -94,7 +94,7 @@ def test_dialog_filters_real_readiness_without_mutating_project(qapp) -> None:
 
     dialog = TranslationReadinessDialog(
         WellTranslationReadinessController(session),
-        TranslationStatusController(session),
+        status_controller=TranslationStatusController(session),
         language=AppLanguage.RU,
     )
     kk_index = dialog.target_language_combo.findData("kk")
@@ -150,7 +150,7 @@ def test_dialog_rejects_inverted_depth_range_without_querying_invalid_state(qapp
 
     dialog = TranslationReadinessDialog(
         WellTranslationReadinessController(session),
-        TranslationStatusController(session),
+        status_controller=TranslationStatusController(session),
         language=AppLanguage.EN,
     )
     dialog.depth_filter_checkbox.setChecked(True)
@@ -222,7 +222,7 @@ def test_dialog_reviews_selected_current_draft(qapp) -> None:
     status_controller = TranslationStatusController(session)
     dialog = TranslationReadinessDialog(
         WellTranslationReadinessController(session),
-        status_controller,
+        status_controller=status_controller,
         language=AppLanguage.RU,
     )
     kk_index = dialog.target_language_combo.findData("kk")
@@ -273,7 +273,7 @@ def test_dialog_does_not_offer_review_for_stale_translation(qapp) -> None:
     }
     dialog = TranslationReadinessDialog(
         WellTranslationReadinessController(session),
-        TranslationStatusController(session),
+        status_controller=TranslationStatusController(session),
         language=AppLanguage.EN,
     )
     en_index = dialog.target_language_combo.findData("en")
