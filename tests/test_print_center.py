@@ -166,6 +166,11 @@ def test_print_center_keeps_primary_action_visible_in_short_window(qapp) -> None
     assert "1 экз." in dialog.action_summary.text()
     assert dialog.ok_button.text() == "Печатать"
     assert dialog.header_preview.maximumHeight() == 68
+    screen = dialog.screen()
+    assert screen is not None
+    available = screen.availableGeometry()
+    assert dialog.minimumWidth() <= dialog.width() <= available.width()
+    assert dialog.minimumHeight() <= dialog.height() <= available.height()
     dialog.close()
 
 
