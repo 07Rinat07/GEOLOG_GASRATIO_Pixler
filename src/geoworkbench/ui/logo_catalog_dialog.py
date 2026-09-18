@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QDialog,
@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 from geoworkbench.project.logo_catalog_controller import LogoCatalogController, LogoCatalogItem
 from geoworkbench.printing.image_asset_rendering import image_asset_pixmap
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class _LogoMetadataDialog(QDialog):
@@ -138,7 +139,11 @@ class LogoCatalogDialog(QDialog):
         root = QHBoxLayout(self)
         root.addLayout(left, 2)
         root.addLayout(right, 1)
-        self.resize(940, 520)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(940, 520),
+            minimum=QSize(620, 380),
+        )
         self.refresh()
 
     def refresh(self, selected_logo_id: str | None = None) -> None:
