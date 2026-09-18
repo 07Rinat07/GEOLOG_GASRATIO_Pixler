@@ -555,6 +555,14 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
 - [x] **RULER-03:** screen, preview, PDF и printer используют один resolved ruler; печатный snapshot сохраняет общий layout и фактические ticks колонок, а regression tests проверяют общий page-boundary и восстановление экранного состояния.
 - [x] **RULER-04:** после стабилизации шкал внедрён единый gas continuity/segment mask для C1–C5, relative gas, Haworth и Pixler с сохранением длинных остановок и реальных нулей.
 
+- [ ] **UI-ADAPT-01:** единый laptop/HiDPI-контракт для top-level окон и рабочих областей:
+  минимальный размер не превышает `availableGeometry()` текущего монитора; длинное содержимое
+  прокручивается отдельно от закреплённой панели действий; основные кнопки OK/Cancel/Print/Export
+  остаются доступными при малой логической высоте Windows 125–175%. Первый инкремент перевёл
+  WITS0/WITSML-диалоги на общий `fit_window_to_screen`; второй убирает desktop-only минимум
+  главного окна и защищает footer отчётов. Далее тем же контрактом пройти импорт/редакторы,
+  каталоги и настройки, с regression-проверками малых work-area и Windows HiDPI matrix.
+
 - [ ] **ARCH-01:** `ApplicationContext`/composition root для storage, semantic, import, report,
   credentials и audit services.
 - [ ] **ARCH-02:** разделить `MainWindow` на feature coordinators; запретить UI прямые записи в
