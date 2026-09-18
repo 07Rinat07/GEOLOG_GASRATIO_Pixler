@@ -14,6 +14,8 @@ def test_masterlog_curve_mapping_dialog_uses_its_own_native_process() -> None:
     assert nodes == (
         "tests/test_masterlog_curve_mapping_dialog.py::"
         "test_masterlog_curve_mapping_dialog_maps_foreign_las_curves",
+        "tests/test_masterlog_curve_mapping_dialog.py::"
+        "test_masterlog_curve_mapping_dialog_scrolls_fields_above_actions",
     )
     assert runner["_requires_native_batch"](path, nodes) is True
     assert path.as_posix() in runner["_SINGLE_TEST_PROCESS_FILES"]
@@ -33,6 +35,13 @@ def test_native_isolation_keeps_masterlog_mapping_out_of_regular_shards() -> Non
             (
                 "tests/test_masterlog_curve_mapping_dialog.py::"
                 "test_masterlog_curve_mapping_dialog_maps_foreign_las_curves",
+            ),
+        ),
+        (
+            path.as_posix(),
+            (
+                "tests/test_masterlog_curve_mapping_dialog.py::"
+                "test_masterlog_curve_mapping_dialog_scrolls_fields_above_actions",
             ),
         ),
     )
