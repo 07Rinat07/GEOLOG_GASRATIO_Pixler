@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Callable
 
-from PySide6.QtCore import QTimer, Qt
+from PySide6.QtCore import QSize, QTimer, Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -36,6 +36,7 @@ from geoworkbench.forms.catalog import (
 )
 from geoworkbench.forms.preview import PreviewCallback
 from geoworkbench.form_constructor.preview_revision import PreviewRevisionGate
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 from geoworkbench.printing.page_settings import (
     PrintOrientation,
     PrintPageFormat,
@@ -79,8 +80,6 @@ class FormManagerDialog(QDialog):
         self.selected_form: FormDocument | None = None
         self._family_pair_message: str | None = None
         self.setWindowTitle(self._text("Библиотека форм", "Пішіндер кітапханасы", "Form library"))
-        self.setMinimumSize(980, 620)
-        self.resize(1180, 720)
         # The application uses a dark global palette. Every light surface in this
         # dialog must therefore set its foreground explicitly; otherwise Qt keeps
         # the global white text and the form names become invisible on white.
@@ -328,6 +327,11 @@ class FormManagerDialog(QDialog):
         right.addWidget(close_button)
         splitter.addWidget(right_panel)
         splitter.setSizes([390, 760])
+        fit_window_to_screen(
+            self,
+            preferred=QSize(1180, 720),
+            minimum=QSize(760, 460),
+        )
         self.reload(self.initial_form_id)
         for button in self.findChildren(QPushButton):
             if not button.toolTip().strip():
