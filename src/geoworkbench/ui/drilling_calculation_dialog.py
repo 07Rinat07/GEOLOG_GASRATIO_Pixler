@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
+from PySide6.QtCore import QSize
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -35,6 +36,7 @@ from geoworkbench.services.drilling_input_plan import (
     candidate_curves,
 )
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,7 +99,7 @@ class DrillingCalculationDialog(QDialog):
                 "Normalized gas and DEXP",
             )
         )
-        self.resize(1_050, 760)
+
 
         root = QVBoxLayout(self)
         intro = QLabel(
@@ -152,6 +154,11 @@ class DrillingCalculationDialog(QDialog):
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         root.addWidget(buttons)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(1_050, 760),
+            minimum=QSize(620, 420),
+        )
 
     def _build_sources_tab(self) -> QWidget:
         page = QWidget()
@@ -196,7 +203,6 @@ class DrillingCalculationDialog(QDialog):
             unit.setCurrentText(default_unit)
             status = QLabel()
             status.setWordWrap(True)
-            status.setMinimumWidth(230)
             grid.addWidget(combo, row_index, 1)
             grid.addWidget(value, row_index, 2)
             grid.addWidget(unit, row_index, 3)
@@ -218,7 +224,6 @@ class DrillingCalculationDialog(QDialog):
 
     def _source_combo(self, canonical: str) -> QComboBox:
         combo = QComboBox()
-        combo.setMinimumWidth(330)
         combo.addItem(self._text("Автоматически", "Автоматты", "Automatic"), "auto")
         candidate_keys: tuple[str, ...] = (canonical,)
         if canonical == "FLOW_IN":
