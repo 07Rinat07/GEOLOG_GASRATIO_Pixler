@@ -1,4 +1,4 @@
-<!-- runtime-contract: package=0.7.96; project=v34; form=v17; layout=v25 -->
+<!-- runtime-contract: package=0.7.96; project=v34; form=v18; layout=v25 -->
 # Архитектура
 
 Архитектурные решения обновлены 9 сентября 2026 года. Целевые контракты отмечены отдельно

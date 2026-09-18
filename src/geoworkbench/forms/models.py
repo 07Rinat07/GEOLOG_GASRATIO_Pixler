@@ -306,9 +306,13 @@ class FormDocument:
     visible_axis_top: float | None = None
     visible_axis_bottom: float | None = None
     revision: int = 1
+    family_id: str = ""
 
     def __post_init__(self) -> None:
         _require_id(self.form_id, "form_id")
+        if not self.family_id:
+            self.family_id = self.form_id
+        _require_id(self.family_id, "family_id")
         _require_text(self.name, "name", max_length=160)
         _require_text(self.description, "description", max_length=2000, allow_empty=True)
         _require_id(self.style_id, "style_id")
@@ -359,8 +363,10 @@ class FormDocument:
         description: str = "",
         preferred_page_orientation: FormPageOrientation = FormPageOrientation.PORTRAIT,
     ) -> FormDocument:
+        form_id = str(uuid4())
         return cls(
-            form_id=str(uuid4()),
+            form_id=form_id,
+            family_id=form_id,
             name=name,
             axis_kind=axis_kind,
             description=description,
@@ -418,6 +424,7 @@ class FormDocument:
 
         clone = deepcopy(self)
         clone.form_id = str(uuid4())
+        clone.family_id = clone.form_id
         clone.name = name or f"{self.name} — копия"
         clone.origin = FormTemplateOrigin.USER
         clone.read_only = False

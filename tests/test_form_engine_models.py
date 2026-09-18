@@ -131,7 +131,7 @@ def test_repository_saves_utf8_atomically(tmp_path) -> None:
     assert target.exists()
     assert restored.name == "Глубинная форма"
     raw = json.loads(target.read_text(encoding="utf-8"))
-    assert raw["schema_version"] == 17
+    assert raw["schema_version"] == 18
 
 
 def test_form_v13_migrates_to_visible_automatic_inner_ruler() -> None:
@@ -149,7 +149,7 @@ def test_form_v13_migrates_to_visible_automatic_inner_ruler() -> None:
     restored = form_from_dict(payload)
 
     assert restored.columns[0].tracks[0].vertical_ruler == VerticalRulerTrackSettings()
-    assert form_to_dict(restored)["schema_version"] == 17
+    assert form_to_dict(restored)["schema_version"] == 18
 
 
 def test_form_v16_migrates_x_scale_visibility_to_visible_default() -> None:
@@ -170,7 +170,7 @@ def test_form_v16_migrates_x_scale_visibility_to_visible_default() -> None:
 
     assert track.grid_x is False
     assert track.show_x_scale is True
-    assert encoded["schema_version"] == 17
+    assert encoded["schema_version"] == 18
     assert encoded["columns"][0]["tracks"][0]["show_x_scale"] is True
     assert "show_x_scale" not in payload["columns"][0]["tracks"][0]
 
@@ -596,7 +596,7 @@ def test_v8_form_migrates_logarithmic_bindings_to_linear_defaults() -> None:
     assert binding.x_scale.value == "linear"
     assert binding.x_min == 0.0
     assert binding.x_max == 100.0
-    assert form_to_dict(restored)["schema_version"] == 17
+    assert form_to_dict(restored)["schema_version"] == 18
 
 
 def test_every_factory_form_binding_is_linear_by_default() -> None:

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 from geoworkbench.domain.models import Dataset
 from geoworkbench.forms.a4_factory_templates import (
     A4_FACTORY_TEMPLATE_IDS,
@@ -111,3 +113,42 @@ def complete_form_catalog(
     """Return the one authoritative catalog for browse/create/save workflows."""
 
     return (*visible_factory_forms(dataset, language), *repository.list_forms())
+
+
+def resolve_form_family_member(
+    forms: Iterable[FormDocument],
+    *,
+    family_id: str,
+    orientation: FormPageOrientation | str,
+) -> FormDocument | None:
+    """Resolve exactly one explicit family member for the requested orientation.
+
+    The resolver never guesses from a form name or ID suffix. Missing family
+    members return None so UI can ask the user to configure a pair instead of
+    silently substituting another form. Duplicate members are rejected because
+    an ambiguous family is unsafe for persisted print selection.
+    """
+
+    normalized_family_id = family_id.strip() if isinstance(family_id, str) else ""
+    if not normalized_family_id:
+        raise ValueError("family_id должен быть непустой строкой")
+    try:
+        normalized_orientation = FormPageOrientation(
+            str(getattr(orientation, "value", orientation))
+        )
+    except ValueError as exc:
+        raise ValueError(
+            "orientation поддерживает только portrait и landscape"
+        ) from exc
+
+    matches = [
+        form
+        for form in forms
+        if form.family_id == normalized_family_id
+        and form.preferred_page_orientation is normalized_orientation
+    ]
+    if len(matches) > 1:
+        raise ValueError(
+            "Семейство формы содержит несколько макетов одной ориентации"
+        )
+    return matches[0] if matches else None

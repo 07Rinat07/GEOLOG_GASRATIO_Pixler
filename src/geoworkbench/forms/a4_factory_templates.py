@@ -193,6 +193,10 @@ def _name(base: str, language: TemplateLanguage, orientation: str) -> str:
 
 def _finalize(form: FormDocument, profile: str, orientation: str) -> FormDocument:
     _with_a4_print_headers(form, profile)
+    suffix = f"-{orientation}"
+    form.family_id = (
+        form.form_id[: -len(suffix)] if form.form_id.endswith(suffix) else form.form_id
+    )
     form.preferred_page_orientation = FormPageOrientation(orientation)
     form.print_header_template_id = form.print_header_template_ids[orientation]
     form.validate()
