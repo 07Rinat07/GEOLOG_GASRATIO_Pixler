@@ -56,14 +56,8 @@ class DailyLasGrowthDialog(QDialog):
         self.geology_plan: WellGeologyUpdatePlan | None = None
         self._folder_candidates: tuple[LocalLasCandidate, ...] = ()
         self.setWindowTitle(self._text("Ежедневное наращивание LAS", "LAS күнделікті өсіру", "Daily LAS growth"))
-        outer = QVBoxLayout(self)
-        self.content_scroll = QScrollArea(self)
-        self.content_scroll.setObjectName("daily-las-growth-content-scroll")
-        self.content_scroll.setWidgetResizable(True)
-        content = QWidget(self.content_scroll)
-        root = QVBoxLayout(content)
-        self.content_scroll.setWidget(content)
-        outer.addWidget(self.content_scroll, 1)
+        body = QWidget(self)
+        body_layout = QVBoxLayout(body)
         self.info_label = QLabel(
             self._text(
                 "Откройте рабочий .geologpkg и добавляйте только новые строки в явно выбранный dataset. Формы, геология, значки и комментарии не заменяются.",
@@ -95,7 +89,7 @@ class DailyLasGrowthDialog(QDialog):
             lambda: open_help_for_widget(self, "project")
         )
         assistant_row.addWidget(self.workflow_help_button)
-        root.addLayout(assistant_row)
+        body_layout.addLayout(assistant_row)
 
         form = QFormLayout()
         self.target_combo = QComboBox()
@@ -176,20 +170,20 @@ class DailyLasGrowthDialog(QDialog):
             self.folder_files,
         )
         form.addRow(self._text("Новый LAS", "Жаңа LAS", "New LAS"), file_row)
-        root.addLayout(form)
+        body_layout.addLayout(form)
         self.numerical_mode = QCheckBox(self._text(
             "Числовое обновление: новые строки, пропуски и исправления",
             "Сандық жаңарту: жаңа жолдар, бос мәндер және түзетулер",
             "Numerical update: new rows, gaps and corrections",
         ))
-        root.addWidget(self.numerical_mode)
+        body_layout.addWidget(self.numerical_mode)
         self.geology_enabled = QCheckBox(self._text(
             "Дополнить все свободные геологические интервалы по профилю",
             "Профиль бойынша барлық бос геологиялық аралықтарды толықтыру",
             "Fill all uncovered geological intervals using a profile",
         ))
         self.geology_enabled.setVisible(False)
-        root.addWidget(self.geology_enabled)
+        body_layout.addWidget(self.geology_enabled)
         self.profile_input = QLineEdit()
         self.profile_input.setPlaceholderText(self._text(
             "JSON-профиль кодов поставщика (выберите явно)",
@@ -197,16 +191,16 @@ class DailyLasGrowthDialog(QDialog):
             "Supplier rock-code JSON profile (explicit selection required)",
         ))
         self.profile_input.setVisible(False)
-        root.addWidget(self.profile_input)
+        body_layout.addWidget(self.profile_input)
         self.profile_browse = QPushButton(self._text("Профиль…", "Профиль…", "Profile…"))
         self.profile_browse.setVisible(False)
         self.profile_browse.clicked.connect(self._browse_profile)
-        root.addWidget(self.profile_browse)
+        body_layout.addWidget(self.profile_browse)
         self.append_rows = QCheckBox(self._text(
             "Добавить все новые строки", "Барлық жаңа жолдарды қосу", "Append all new rows",
         ))
         self.append_rows.setVisible(False)
-        root.addWidget(self.append_rows)
+        body_layout.addWidget(self.append_rows)
         self.change_table = QTableWidget(0, 6)
         self.change_table.setHorizontalHeaderLabels([
             self._text("Выбрать", "Таңдау", "Select"),
@@ -217,7 +211,7 @@ class DailyLasGrowthDialog(QDialog):
             self._text("Стало", "Кейін", "After"),
         ])
         self.change_table.setVisible(False)
-        root.addWidget(self.change_table)
+        body_layout.addWidget(self.change_table)
 
         self.analyze_button = QPushButton(
             self._text("Проверить прирост", "Өсімді тексеру", "Analyze growth")
@@ -230,7 +224,7 @@ class DailyLasGrowthDialog(QDialog):
             )
         )
         self.analyze_button.clicked.connect(self._analyze)
-        root.addWidget(self.analyze_button)
+        body_layout.addWidget(self.analyze_button)
         self.preview = QTextEdit()
         self.preview.setObjectName("daily-las-growth-preview")
         self.preview.setReadOnly(True)
@@ -241,7 +235,7 @@ class DailyLasGrowthDialog(QDialog):
                 "1. Select the main dataset.\n2. Select the LAS.\n3. Press Analyze growth.\n4. Append only after checking the range and row counts.",
             )
         )
-        root.addWidget(self.preview, 1)
+        body_layout.addWidget(self.preview, 1)
 
         self.buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
@@ -260,7 +254,14 @@ class DailyLasGrowthDialog(QDialog):
         )
         self.buttons.accepted.connect(self._accept)
         self.buttons.rejected.connect(self.reject)
-        outer.addWidget(self.buttons)
+        self.body_scroll = QScrollArea(self)
+        self.body_scroll.setObjectName("daily-las-growth-scroll")
+        self.body_scroll.setWidgetResizable(True)
+        self.body_scroll.setWidget(body)
+        root = QVBoxLayout(self)
+        root.addWidget(self.body_scroll, 1)
+        root.addWidget(self.buttons)
+
         self.file_input.textChanged.connect(self._source_changed)
         self.target_combo.currentIndexChanged.connect(self._invalidate)
         self.numerical_mode.toggled.connect(self._switch_mode)
@@ -482,7 +483,11 @@ class DailyLasGrowthDialog(QDialog):
         self._invalidate()
         enabled = self.numerical_mode.isChecked()
         if enabled:
-            self.resize(max(self.width(), 900), max(self.height(), 700))
+            fit_window_to_screen(
+                self,
+                preferred=QSize(max(self.width(), 900), max(self.height(), 700)),
+                minimum=QSize(560, 360),
+            )
         self.append_rows.setVisible(enabled)
         self.geology_enabled.setVisible(enabled)
         self.profile_input.setVisible(enabled)
