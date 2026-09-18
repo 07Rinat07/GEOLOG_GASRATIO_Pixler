@@ -195,7 +195,7 @@ def test_print_center_switches_paired_header_with_a4_orientation(qapp) -> None:
     dialog.close()
 
 
-def test_print_center_infers_factory_header_orientation_and_preserves_no_header(
+def test_print_center_preserves_explicit_no_header_across_orientation_changes(
     qapp,
 ) -> None:
     portrait = "factory-header:a4_technology_portrait"
@@ -203,17 +203,75 @@ def test_print_center_infers_factory_header_orientation_and_preserves_no_header(
     dialog = PrintCenterDialog(
         language=AppLanguage.RU,
         initial_page=PrintPageSettings(orientation=PrintOrientation.LANDSCAPE),
+        initial_preferences=PrintExportPreferences(
+            header_selection_explicit=True,
+        ),
         header_choices=((portrait, "Portrait"), (landscape, "Landscape")),
         initial_header_template_id=portrait,
+        paired_header_template_ids={
+            "portrait": portrait,
+            "landscape": landscape,
+        },
     )
 
-    assert dialog.header_combo.currentData() == landscape
-    dialog.header_combo.setCurrentIndex(0)
+    assert dialog.header_combo.currentData() is None
     dialog.orientation_combo.setCurrentIndex(
         dialog.orientation_combo.findData(PrintOrientation.PORTRAIT.value)
     )
 
     assert dialog.header_combo.currentData() is None
+    preferences = dialog.preferences()
+    assert preferences.header_selection_explicit is True
+    assert preferences.header_template_id is None
+    dialog.close()
+
+
+def test_print_center_does_not_guess_an_unrelated_fixed_header_pair(qapp) -> None:
+    custom_portrait = "customer-header"
+    unrelated_landscape = "other-landscape-header"
+    dialog = PrintCenterDialog(
+        language=AppLanguage.EN,
+        initial_page=PrintPageSettings(orientation=PrintOrientation.PORTRAIT),
+        initial_preferences=PrintExportPreferences(
+            header_template_id=custom_portrait,
+            header_selection_explicit=True,
+        ),
+        header_choices=(
+            (custom_portrait, "Customer portrait"),
+            (unrelated_landscape, "Other landscape"),
+        ),
+        header_orientation_by_id={
+            custom_portrait: "portrait",
+            unrelated_landscape: "landscape",
+        },
+    )
+
+    dialog.orientation_combo.setCurrentIndex(
+        dialog.orientation_combo.findData(PrintOrientation.LANDSCAPE.value)
+    )
+
+    assert dialog.header_combo.currentData() == custom_portrait
+    assert dialog.orientation_combo.currentData() == PrintOrientation.PORTRAIT.value
+    assert dialog.header_pair_status.isVisible()
+    assert "no explicit pair" in dialog.header_pair_status.text()
+    dialog.close()
+
+
+def test_print_center_manual_no_header_choice_becomes_explicit(qapp) -> None:
+    header = "factory-header:a4_technology_portrait"
+    dialog = PrintCenterDialog(
+        language=AppLanguage.EN,
+        initial_page=PrintPageSettings(orientation=PrintOrientation.PORTRAIT),
+        header_choices=((header, "Portrait"),),
+        initial_header_template_id=header,
+    )
+
+    assert dialog.preferences().header_selection_explicit is False
+    dialog.header_combo.setCurrentIndex(0)
+
+    preferences = dialog.preferences()
+    assert preferences.header_selection_explicit is True
+    assert preferences.header_template_id is None
     dialog.close()
 
 
