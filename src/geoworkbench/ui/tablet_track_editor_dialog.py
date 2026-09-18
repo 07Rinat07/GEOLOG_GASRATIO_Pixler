@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 
-from PySide6.QtCore import QSettings, Qt
+from PySide6.QtCore import QSettings, QSize, Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -48,6 +48,7 @@ from geoworkbench.ui.tablet_track_preview_widget import TabletTrackPreviewWidget
 from geoworkbench.ui.vertical_ruler_settings_widget import (
     VerticalRulerSettingsWidget,
 )
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class TabletTrackEditorDialog(QDialog):
@@ -63,8 +64,6 @@ class TabletTrackEditorDialog(QDialog):
         self.setWindowTitle(
             self._text("Редактор колонки/дорожки", "Баған/жол редакторы", "Column/track editor")
         )
-        self.setMinimumSize(900, 620)
-        self.resize(1480, 860)
 
         root = QVBoxLayout(self)
         self.toolbar = AdaptiveActionToolBar(parent=self)
@@ -391,10 +390,11 @@ class TabletTrackEditorDialog(QDialog):
         editor_layout.addWidget(curves_group)
         editor_layout.addStretch(1)
 
-        editor_scroll = QScrollArea()
-        editor_scroll.setWidgetResizable(True)
-        editor_scroll.setWidget(editor_widget)
-        editor_scroll.setMinimumWidth(480)
+        self.editor_scroll = QScrollArea()
+        self.editor_scroll.setObjectName("tablet-track-editor-scroll")
+        self.editor_scroll.setWidgetResizable(True)
+        self.editor_scroll.setWidget(editor_widget)
+        self.editor_scroll.setMinimumWidth(340)
 
         preview_group = QGroupBox(
             self._text("Живой предпросмотр печати", "Баспаға тірі алдын ала қарау", "Live print preview")
@@ -416,11 +416,12 @@ class TabletTrackEditorDialog(QDialog):
         )
         preview_layout.addWidget(self.preview_assistant)
         self.preview = TabletTrackPreviewWidget(self.track, preview_group)
+        self.preview.setMinimumSize(220, 220)
         preview_layout.addWidget(self.preview, 1)
 
         self.splitter = QSplitter(Qt.Orientation.Horizontal)
         self.splitter.setChildrenCollapsible(False)
-        self.splitter.addWidget(editor_scroll)
+        self.splitter.addWidget(self.editor_scroll)
         self.splitter.addWidget(preview_group)
         self.splitter.setStretchFactor(0, 1)
         self.splitter.setStretchFactor(1, 1)
@@ -442,6 +443,11 @@ class TabletTrackEditorDialog(QDialog):
         self._vertical_ruler_state()
         self._reload()
         self._refresh_preview()
+        fit_window_to_screen(
+            self,
+            preferred=QSize(1480, 860),
+            minimum=QSize(620, 360),
+        )
 
     def _toggle_fullscreen(self) -> None:
         if self.isMaximized():
