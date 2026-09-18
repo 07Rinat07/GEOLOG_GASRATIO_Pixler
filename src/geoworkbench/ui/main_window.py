@@ -4899,6 +4899,7 @@ class MainWindow(QMainWindow):
     def _print_form_from_manager(self, form) -> None:
         if not self.apply_form_to_tablet(form, mark_dirty=False, notify=False):
             return
+        self.user_profile_settings.save_selected_form_id(form.form_id)
         self.open_print_center(
             widget=self.tablet_view,
             source_name=form.name,
@@ -5870,6 +5871,7 @@ class MainWindow(QMainWindow):
             print_page_settings=self.print_page_settings,
             print_page_settings_changed=self._set_form_print_page_settings,
             print_form_callback=self._print_form_from_manager,
+            initial_form_id=self.user_profile_settings.selected_form_id(),
             skf_import_callback=self._import_skf_form_and_header,
         )
         accepted = dialog.exec() == QDialog.DialogCode.Accepted
@@ -5893,9 +5895,11 @@ class MainWindow(QMainWindow):
                 preview_applied=preview_applied,
             )
             return
-        self.apply_form_to_tablet(
+        applied = self.apply_form_to_tablet(
             dialog.selected_form, rollback_snapshot=snapshot
         )
+        if applied:
+            self.user_profile_settings.save_selected_form_id(dialog.selected_form.form_id)
         log_event(
             "forms.manager.closed",
             accepted=True,
