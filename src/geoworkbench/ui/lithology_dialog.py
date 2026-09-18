@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from PySide6.QtCore import QSize
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -13,6 +14,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QTableWidget,
     QTableWidgetItem,
     QTabWidget,
@@ -29,6 +31,7 @@ from geoworkbench.domain.localized_content import (
 from geoworkbench.project.lithology_controller import LithologyController
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.services.localization import AppLanguage, LANGUAGE_NAMES, Localizer
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 _LITHOTYPE_TEMPLATE_ALIASES = {
@@ -66,8 +69,15 @@ class LithologyDialog(QDialog):
         self._custom_description_templates = tuple(description_templates)
         self._description_template_catalog = load_rock_description_templates()
         self.setWindowTitle(self._t("lithology.window_title"))
-        self.resize(820, 520)
         root = QVBoxLayout(self)
+        self.content_scroll = QScrollArea(self)
+        self.content_scroll.setObjectName("lithology-content-scroll")
+        self.content_scroll.setWidgetResizable(True)
+        content = QWidget(self.content_scroll)
+        content_layout = QVBoxLayout(content)
+        self.content_scroll.setWidget(content)
+        root.addWidget(self.content_scroll, 1)
+
         self.table = QTableWidget(0, 4)
         self.table.setObjectName("lithology-intervals-table")
         self.table.setHorizontalHeaderLabels(
@@ -79,7 +89,7 @@ class LithologyDialog(QDialog):
             ]
         )
         self.table.itemSelectionChanged.connect(self._load_selected)
-        root.addWidget(self.table)
+        content_layout.addWidget(self.table)
 
         form = QFormLayout()
         self.top_input = self._depth_input()
@@ -154,7 +164,7 @@ class LithologyDialog(QDialog):
         form.addRow(self._t("lithology.description_template"), self.template_input)
         form.addRow("", self.template_formula)
         form.addRow("", self.template_warning)
-        root.addLayout(form)
+        content_layout.addLayout(form)
 
         actions = QHBoxLayout()
         for object_name, title, handler in (
@@ -171,6 +181,11 @@ class LithologyDialog(QDialog):
         buttons.button(QDialogButtonBox.StandardButton.Close).setText(self._t("common.close"))
         buttons.rejected.connect(self.reject)
         root.addWidget(buttons)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(820, 520),
+            minimum=QSize(520, 360),
+        )
         self._refresh()
 
     def _t(self, key: str, **values: object) -> str:
