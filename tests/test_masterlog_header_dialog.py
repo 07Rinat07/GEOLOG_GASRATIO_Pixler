@@ -1,13 +1,13 @@
 import base64
 from hashlib import sha256
 
+from PySide6.QtWidgets import QDialogButtonBox, QScrollArea
+
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.printing.image_asset_rendering import image_asset_pixmap
 from geoworkbench.printing.image_assets import ImageAsset
 from geoworkbench.services.localization import AppLanguage
-from PySide6.QtWidgets import QDialogButtonBox, QScrollArea
-
 from geoworkbench.ui.masterlog_header_dialog import (
     HeaderDataDialog,
     HeaderElementDialog,
