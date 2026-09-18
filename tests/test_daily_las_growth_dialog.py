@@ -145,3 +145,24 @@ def test_invalid_or_cancelled_preview_cannot_reuse_previous_confirmation(
     assert (target.depth == before).all()
     assert not target.append_history
     dialog.close()
+
+
+
+def test_daily_las_dialog_fits_work_area_with_sticky_actions(qapp) -> None:
+    dialog = DailyLasGrowthDialog(_controller(), language=AppLanguage.EN)
+    try:
+        screen = dialog.screen()
+        assert screen is not None
+        available = screen.availableGeometry()
+        assert dialog.minimumWidth() <= dialog.width() <= available.width()
+        assert dialog.minimumHeight() <= dialog.height() <= available.height()
+        assert dialog.body_scroll.objectName() == "daily-las-growth-scroll"
+        assert not dialog.body_scroll.isAncestorOf(dialog.buttons)
+
+        dialog.numerical_mode.setChecked(True)
+        qapp.processEvents()
+        assert dialog.width() <= available.width()
+        assert dialog.height() <= available.height()
+        assert dialog.change_table.isVisibleTo(dialog.body_scroll.widget())
+    finally:
+        dialog.close()
