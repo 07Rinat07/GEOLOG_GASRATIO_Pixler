@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from PySide6.QtWidgets import QDialogButtonBox
+
 from geoworkbench.forms.models import FormAxisKind, FormDocument
 from geoworkbench.ui.form_create_dialog import FormCreateDialog
 
@@ -67,3 +69,19 @@ def test_save_dialog_replaces_editable_form_but_protects_ready_template(qapp) ->
     assert dialog.create_button.isEnabled() is False
     assert dialog.existing_form is None
     assert "защищённым шаблоном" in dialog.validation_label.text()
+
+
+
+def test_form_create_dialog_fits_current_work_area_and_keeps_actions_reachable(qapp) -> None:
+    dialog = FormCreateDialog([], language="en")
+    try:
+        screen = dialog.screen()
+        assert screen is not None
+        available = screen.availableGeometry()
+        assert dialog.minimumWidth() <= dialog.width() <= available.width()
+        assert dialog.minimumHeight() <= dialog.height() <= available.height()
+        buttons = dialog.findChild(QDialogButtonBox)
+        assert buttons is dialog.button_box
+        assert dialog.create_button is buttons.button(QDialogButtonBox.StandardButton.Ok)
+    finally:
+        dialog.close()

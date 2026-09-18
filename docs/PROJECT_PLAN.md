@@ -563,8 +563,10 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
   главного окна и защищает footer отчётов; третий переводит CSV import, объединение наборов
   данных и каталог шаблонов описания на тот же screen-fit контракт; четвёртый охватывает
   настройки кривых, создание LAS и каталог датчиков, включая toolbar overflow и прокручиваемую
-  форму правила мнемоники с закреплёнными OK/Cancel. Далее пройти остальные редакторы и настройки,
-  с regression-проверками малых work-area и Windows HiDPI matrix.
+  форму правила мнемоники с закреплёнными OK/Cancel; пятый охватывает редактор содержимого дорожки
+  и выбор LAS-кривых; шестой закрепляет adaptive-вкладки редактора аннотаций и переводит окно
+  создания/сохранения формы с desktop-only минимума на общий screen-fit контракт. Далее пройти
+  остальные редакторы и настройки с regression-проверками малых work-area и Windows HiDPI matrix.
 
 - [ ] **ARCH-01:** `ApplicationContext`/composition root для storage, semantic, import, report,
   credentials и audit services.
