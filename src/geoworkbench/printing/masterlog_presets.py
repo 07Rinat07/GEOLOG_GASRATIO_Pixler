@@ -2129,7 +2129,7 @@ def _a4_profile_header(
                         font_size_mm=1.8,
                         bold=False,
                         alignment="center",
-                        word_wrap=False,
+                        word_wrap=True,
                         frame=True,
                         background="#f8fafc",
                         color="#334155",
