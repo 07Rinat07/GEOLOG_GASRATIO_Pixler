@@ -114,6 +114,7 @@ class PrintCenterDialog(QDialog):
         self.track_print_options = tuple(track_print_options)
         page = initial_page or PrintPageSettings()
         preferences = initial_preferences or PrintExportPreferences()
+        self._header_selection_explicit = preferences.header_selection_explicit
         self.source_name = _safe_file_stem(source_name)
         self.setWindowTitle(self._t("print_center.title"))
         self.setMinimumSize(600, 480)
@@ -142,6 +143,9 @@ class PrintCenterDialog(QDialog):
         header_form = QFormLayout()
         self.header_combo = QComboBox()
         self.header_combo.setObjectName("print-header-template-combo")
+        self.header_combo.currentIndexChanged.connect(
+            self._mark_header_selection_explicit
+        )
         self.header_combo.currentIndexChanged.connect(self._refresh_header_preview)
         self.header_combo.currentIndexChanged.connect(self._sync_orientation_to_header)
         header_form.addRow(self._t("print_center.document_header"), self.header_combo)
@@ -163,6 +167,15 @@ class PrintCenterDialog(QDialog):
             self._t("print_center.header_pages"), self.header_placement_combo
         )
         header_layout.addLayout(header_form)
+        self.header_pair_status = QLabel()
+        self.header_pair_status.setObjectName("print-center-header-pair-status")
+        self.header_pair_status.setWordWrap(True)
+        self.header_pair_status.setStyleSheet(
+            "color:#92400e; background:#fef3c7; border:1px solid #f59e0b; "
+            "border-radius:5px; padding:5px 7px;"
+        )
+        self.header_pair_status.setVisible(False)
+        header_layout.addWidget(self.header_pair_status)
 
         header_separator = QFrame()
         header_separator.setFrameShape(QFrame.Shape.HLine)
@@ -223,14 +236,17 @@ class PrintCenterDialog(QDialog):
         )
         self.header_preview.setVisible(False)
         header_layout.addWidget(self.header_preview)
-        paired_initial = self.paired_header_template_ids.get(page.orientation.value)
-        if paired_initial is None:
-            paired_initial = self._orientation_header_candidate(
-                initial_header_template_id,
-                page.orientation.value,
+        if preferences.header_selection_explicit:
+            selected_header = preferences.header_template_id
+        else:
+            selected_header = self.paired_header_template_ids.get(
+                page.orientation.value
             )
-        self._set_header_choices(self.header_choices, paired_initial)
+            if selected_header is None:
+                selected_header = initial_header_template_id
+        self._set_header_choices(self.header_choices, selected_header)
         self._refresh_header_preview()
+        self._sync_orientation_to_header()
 
         output_group = QGroupBox(self._t("print_center.destination_group"))
         output_group.setSizePolicy(
@@ -710,6 +726,12 @@ class PrintCenterDialog(QDialog):
                 str(self.header_placement_combo.currentData())
             ),
             repeat_column_header_at_bottom=(self.repeat_column_header_check.isChecked()),
+            header_template_id=(
+                self._selected_header_template_id()
+                if self._header_selection_explicit
+                else None
+            ),
+            header_selection_explicit=self._header_selection_explicit,
             printer_name=self.selected_printer_name(),
             copy_count=self.copy_count_input.value(),
         )
@@ -908,64 +930,94 @@ class PrintCenterDialog(QDialog):
         self.header_combo.setCurrentIndex(max(0, index))
         self.header_combo.blockSignals(False)
 
+    def _selected_header_template_id(self) -> str | None:
+        raw = self.header_combo.currentData()
+        return str(raw).strip() if isinstance(raw, str) and raw.strip() else None
+
+    def _mark_header_selection_explicit(self, _index: int = -1) -> None:
+        self._header_selection_explicit = True
+
+    def _set_header_pair_status(self, message: str | None) -> None:
+        self.header_pair_status.setText(message or "")
+        self.header_pair_status.setVisible(bool(message))
+
+    def _missing_header_pair_message(self) -> str:
+        return {
+            AppLanguage.RU: (
+                "Для выбранной фиксированной шапки нет явной пары этой ориентации. "
+                "Лист оставлен в ориентации шапки; настройте пару в форме или выберите "
+                "универсальную шапку."
+            ),
+            AppLanguage.KK: (
+                "Таңдалған бекітілген тақырып үшін бұл бағыттағы айқын жұп жоқ. "
+                "Парақ тақырып бағытымен қалдырылды; пішіндегі жұпты баптаңыз немесе "
+                "әмбебап тақырыпты таңдаңыз."
+            ),
+            AppLanguage.EN: (
+                "The selected fixed-orientation header has no explicit pair for this "
+                "orientation. The page kept the header orientation; configure the pair "
+                "on the form or choose a universal header."
+            ),
+        }[self.localizer.language]
+
+    def _paired_header_for_orientation(
+        self,
+        current_id: str,
+        orientation: str,
+    ) -> str | None:
+        paired_ids = set(self.paired_header_template_ids.values())
+        if current_id not in paired_ids:
+            return None
+        return self.paired_header_template_ids.get(orientation)
+
     def _sync_paired_header_to_orientation(self, _index: int = -1) -> None:
         orientation = str(self.orientation_combo.currentData()).strip().casefold()
-        current = self.header_combo.currentData()
-        if not isinstance(current, str) or not current.strip():
+        current_id = self._selected_header_template_id()
+        if current_id is None:
+            self._set_header_pair_status(None)
             return
-        paired_id = self.paired_header_template_ids.get(orientation)
-        if paired_id is None:
-            paired_id = self._orientation_header_candidate(current, orientation)
-        if paired_id is None:
+
+        paired_id = self._paired_header_for_orientation(current_id, orientation)
+        if paired_id is not None:
+            index = self.header_combo.findData(paired_id)
+            if index >= 0:
+                self._set_header_pair_status(None)
+                self.header_combo.setCurrentIndex(index)
+                return
+
+        current_orientation = self.header_orientation_by_id.get(current_id, "both")
+        if current_orientation in {orientation, "both", ""}:
+            self._set_header_pair_status(None)
             return
-        index = self.header_combo.findData(paired_id)
+        if current_orientation not in {"portrait", "landscape"}:
+            self._set_header_pair_status(None)
+            return
+
+        index = self.orientation_combo.findData(current_orientation)
         if index >= 0:
-            self.header_combo.setCurrentIndex(index)
+            self.orientation_combo.blockSignals(True)
+            self.orientation_combo.setCurrentIndex(index)
+            self.orientation_combo.blockSignals(False)
+        self._set_header_pair_status(self._missing_header_pair_message())
+        self._refresh_action_summary()
 
     def _sync_orientation_to_header(self, _index: int = -1) -> None:
         """Keep the A4 sheet and a fixed-orientation header on one contract."""
 
-        catalog_id = self.header_combo.currentData()
-        if not isinstance(catalog_id, str) or not catalog_id.strip():
+        catalog_id = self._selected_header_template_id()
+        if catalog_id is None:
+            self._set_header_pair_status(None)
             return
-        orientation = self.header_orientation_by_id.get(catalog_id.strip(), "both")
+        orientation = self.header_orientation_by_id.get(catalog_id, "both")
         if orientation not in {"portrait", "landscape"}:
+            self._set_header_pair_status(None)
             return
+        self._set_header_pair_status(None)
         if self.orientation_combo.currentData() == orientation:
             return
         index = self.orientation_combo.findData(orientation)
         if index >= 0:
             self.orientation_combo.setCurrentIndex(index)
-
-    def _orientation_header_candidate(
-        self,
-        selected_id: str | None,
-        orientation: str,
-    ) -> str | None:
-        if not isinstance(selected_id, str) or not selected_id.strip():
-            return selected_id
-        normalized_orientation = str(orientation).strip().casefold()
-        if normalized_orientation not in {"portrait", "landscape"}:
-            return selected_id
-        normalized_id = selected_id.strip()
-        desired_suffix = f"_{normalized_orientation}"
-        opposite = "landscape" if normalized_orientation == "portrait" else "portrait"
-        opposite_suffix = f"_{opposite}"
-        if normalized_id.casefold().endswith(desired_suffix):
-            return normalized_id
-        available_ids = {catalog_id for catalog_id, _label in self.header_choices}
-        if normalized_id.casefold().endswith(opposite_suffix):
-            candidate = normalized_id[: -len(opposite_suffix)] + desired_suffix
-            if candidate in available_ids:
-                return candidate
-        current_orientation = self.header_orientation_by_id.get(normalized_id, "both")
-        if current_orientation in {normalized_orientation, "both", ""}:
-            return normalized_id
-        for catalog_id, _label in self.header_choices:
-            item_orientation = self.header_orientation_by_id.get(catalog_id, "both")
-            if item_orientation in {normalized_orientation, "both", ""}:
-                return catalog_id
-        return normalized_id
 
     def _manage_headers(self) -> None:
         if self.manage_headers_callback is None:
