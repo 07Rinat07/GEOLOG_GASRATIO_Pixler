@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from PySide6.QtCore import QSize
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -24,6 +25,7 @@ from geoworkbench.services.dataset_merge import (
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.ui.las_output_paths import available_las_output_path
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class DatasetMergeDialog(QDialog):
@@ -39,7 +41,6 @@ class DatasetMergeDialog(QDialog):
         self.localizer = Localizer.create(language)
         self.analysis: DatasetMergeAnalysis | None = None
         self.setWindowTitle(self._t("merge.title"))
-        self.resize(680, 430)
         root = QVBoxLayout(self)
         form = QFormLayout()
         self.source_combo = QComboBox()
@@ -88,6 +89,11 @@ class DatasetMergeDialog(QDialog):
         self.source_combo.currentIndexChanged.connect(self._refresh_analysis)
         self.policy_combo.currentIndexChanged.connect(self._refresh_analysis)
         self._refresh_analysis()
+        fit_window_to_screen(
+            self,
+            preferred=QSize(680, 430),
+            minimum=QSize(500, 320),
+        )
 
     @property
     def source_dataset_id(self) -> str | None:

@@ -59,3 +59,16 @@ def test_description_templates_dialog_switches_factory_language(qapp) -> None:
     assert dialog.remove_button.isEnabled() is False
     assert dialog.add_button.isEnabled() is True
     dialog.close()
+
+
+
+def test_description_templates_dialog_fits_current_work_area(qapp) -> None:
+    dialog = DescriptionTemplatesDialog(DescriptionTemplateController(ProjectSession()))
+    try:
+        screen = dialog.screen()
+        assert screen is not None
+        available = screen.availableGeometry()
+        assert dialog.minimumWidth() <= dialog.width() <= available.width()
+        assert dialog.minimumHeight() <= dialog.height() <= available.height()
+    finally:
+        dialog.close()

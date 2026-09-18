@@ -65,3 +65,18 @@ def test_csv_import_dialog_uses_english_catalog(qapp, tmp_path) -> None:
     assert dialog.timezone.placeholderText().startswith("for example")
     assert buttons.button(QDialogButtonBox.StandardButton.Cancel).text() == "Cancel"
     dialog.close()
+
+
+
+def test_csv_import_dialog_fits_current_work_area(qapp, tmp_path) -> None:
+    source = tmp_path / "adaptive.csv"
+    source.write_text("DEPT,C1\n100,1\n", encoding="utf-8")
+    dialog = CsvImportDialog(source)
+    try:
+        screen = dialog.screen()
+        assert screen is not None
+        available = screen.availableGeometry()
+        assert dialog.minimumWidth() <= dialog.width() <= available.width()
+        assert dialog.minimumHeight() <= dialog.height() <= available.height()
+    finally:
+        dialog.close()

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from PySide6.QtCore import QSize
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -23,6 +24,7 @@ from PySide6.QtWidgets import (
 from geoworkbench.catalogs.description_templates import load_rock_description_templates
 from geoworkbench.project.description_template_controller import DescriptionTemplateController
 from geoworkbench.services.localization import AppLanguage, LANGUAGE_NAMES, Localizer
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 _TEMPLATE_SOURCE_ROLE = 256
@@ -42,7 +44,6 @@ class DescriptionTemplatesDialog(QDialog):
         self.controller = controller
         self._factory_catalog = load_rock_description_templates()
         self.setWindowTitle(self._t("templates.window_title"))
-        self.resize(900, 620)
         root = QVBoxLayout(self)
         language_row = QHBoxLayout()
         language_row.addWidget(QLabel(self._t("templates.language")))
@@ -113,6 +114,11 @@ class DescriptionTemplatesDialog(QDialog):
         buttons.rejected.connect(self.reject)
         root.addWidget(buttons)
         self._refresh()
+        fit_window_to_screen(
+            self,
+            preferred=QSize(900, 620),
+            minimum=QSize(560, 360),
+        )
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)
