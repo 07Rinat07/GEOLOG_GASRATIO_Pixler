@@ -5,7 +5,7 @@ import re
 from typing import Callable, TYPE_CHECKING
 from uuid import uuid4
 
-from PySide6.QtCore import QSettings, QStandardPaths, QTimer, Qt
+from PySide6.QtCore import QSize, QSettings, QStandardPaths, QTimer, Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -66,6 +66,7 @@ from geoworkbench.services.wits0_import_review import (
 )
 from geoworkbench.ui.wits0_import_review_dialog import Wits0ImportReviewDialog
 from geoworkbench.ui.wits0_live_view import Wits0LiveViewWidget
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 if TYPE_CHECKING:
     from geoworkbench.domain.models import Well
@@ -104,8 +105,6 @@ class Wits0CaptureDialog(QDialog):
         self.previous_custom_profile = self._load_previous_custom_profile()
 
         self.setWindowTitle(self._t("wits0.title"))
-        self.resize(980, 720)
-        self.setMinimumSize(640, 480)
         root = QVBoxLayout(self)
 
         scroll_content = QWidget(self)
@@ -189,6 +188,11 @@ class Wits0CaptureDialog(QDialog):
         self._restore_open_acquisition_session()
         self._refresh_controls()
         self._refresh_snapshot()
+        fit_window_to_screen(
+            self,
+            preferred=QSize(980, 720),
+            minimum=QSize(520, 360),
+        )
 
     def _build_connection_group(self) -> QGroupBox:
         group = QGroupBox(self._t("wits0.connection_group"), self)

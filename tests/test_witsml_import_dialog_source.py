@@ -137,3 +137,30 @@ def test_witsml_import_dialog_constructs_offscreen(monkeypatch) -> None:  # type
     finally:
         dialog.close()
         app.processEvents()
+
+
+
+def test_witsml_dialogs_keep_actions_visible_on_laptop_work_areas() -> None:
+    import_source = DIALOG_SOURCE.read_text(encoding="utf-8")
+    soap_source = SOAP_DIALOG_SOURCE.read_text(encoding="utf-8")
+    inventory_source = (
+        ROOT / "src" / "geoworkbench" / "ui" / "witsml_inventory_dialog.py"
+    ).read_text(encoding="utf-8")
+
+    for source in (import_source, soap_source, inventory_source):
+        assert "fit_window_to_screen(" in source
+        assert "QScrollArea" in source
+
+    assert "self.resize(1280, 820)" not in import_source
+    assert "self.resize(1050, 720)" not in soap_source
+    assert "self.resize(1180, 720)" not in inventory_source
+
+    assert import_source.index("root.addWidget(scroll, 1)") < import_source.index(
+        "root.addWidget(self.buttons)"
+    )
+    assert soap_source.index("layout.addWidget(scroll, 1)") < soap_source.index(
+        "layout.addWidget(buttons)"
+    )
+    assert inventory_source.index("root.addWidget(scroll, 1)") < inventory_source.index(
+        "root.addWidget(buttons)"
+    )

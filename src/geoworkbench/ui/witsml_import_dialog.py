@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMessageBox,
     QPlainTextEdit,
+    QScrollArea,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -36,6 +37,7 @@ from geoworkbench.services.witsml_import_review import (
     WitsmlImportReviewPlan,
     WitsmlImportValidationError,
 )
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class WitsmlImportDialog(QDialog):
@@ -66,12 +68,17 @@ class WitsmlImportDialog(QDialog):
         self._updating = False
 
         self.setWindowTitle(self._t("witsml_import.title"))
-        self.resize(1280, 820)
         root = QVBoxLayout(self)
+        scroll = QScrollArea(self)
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        content = QWidget(scroll)
+        content_layout = QVBoxLayout(content)
 
         self.summary = QLabel(self._t("witsml_import.loading", file=self.source.name), self)
         self.summary.setWordWrap(True)
-        root.addWidget(self.summary)
+        content_layout.addWidget(self.summary)
 
         form = QFormLayout()
         self.channel_set_combo = QComboBox(self)
@@ -85,7 +92,7 @@ class WitsmlImportDialog(QDialog):
         form.addRow(self._t("witsml_import.active_index"), self.index_combo)
         form.addRow("", self.sort_index)
         form.addRow("", self.drop_invalid)
-        root.addLayout(form)
+        content_layout.addLayout(form)
 
         self.table = QTableWidget(self)
         self.table.setColumnCount(9)
@@ -109,12 +116,15 @@ class WitsmlImportDialog(QDialog):
             header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
         for column in (4, 5, 6, 8):
             header.setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
-        root.addWidget(self.table, 1)
+        content_layout.addWidget(self.table, 1)
 
         self.diagnostics = QPlainTextEdit(self)
         self.diagnostics.setReadOnly(True)
         self.diagnostics.setMaximumBlockCount(5_000)
-        root.addWidget(self.diagnostics, 0)
+        content_layout.addWidget(self.diagnostics, 0)
+
+        scroll.setWidget(content)
+        root.addWidget(scroll, 1)
 
         self.buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
@@ -123,6 +133,12 @@ class WitsmlImportDialog(QDialog):
         self.buttons.accepted.connect(self._accept_import)
         self.buttons.rejected.connect(self.reject)
         root.addWidget(self.buttons)
+
+        fit_window_to_screen(
+            self,
+            preferred=QSize(1280, 820),
+            minimum=QSize(560, 380),
+        )
 
         self.channel_set_combo.currentIndexChanged.connect(self._channel_set_changed)
         self.index_combo.currentIndexChanged.connect(self._index_changed)
