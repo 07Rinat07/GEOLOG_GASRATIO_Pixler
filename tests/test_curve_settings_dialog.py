@@ -1,4 +1,5 @@
 import numpy as np
+from PySide6.QtWidgets import QDialogButtonBox, QScrollArea
 
 from geoworkbench.domain.models import CurveData, CurveMetadata, Dataset, DatasetKind, DepthDomain
 from geoworkbench.services.localization import AppLanguage
@@ -41,5 +42,10 @@ def test_curve_settings_dialog_fits_current_work_area(qapp) -> None:
         assert dialog.minimumHeight() <= dialog.height() <= available.height()
         assert dialog.curves.currentRow() == 0
         assert dialog.mnemonic_label.text() == "ROP"
+        scroll = dialog.findChild(QScrollArea, "curve-settings-editor-scroll")
+        buttons = dialog.findChild(QDialogButtonBox)
+        assert scroll is not None
+        assert buttons is not None
+        assert not scroll.isAncestorOf(buttons)
     finally:
         dialog.close()
