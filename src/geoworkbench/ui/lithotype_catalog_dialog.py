@@ -28,10 +28,10 @@ from PySide6.QtWidgets import (
 
 from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
 from geoworkbench.services.localization import AppLanguage, Localizer
-from geoworkbench.ui.window_geometry import fit_window_to_screen
 from geoworkbench.tablet.lithology_patterns import lithology_brush, supported_pattern_keys
 from geoworkbench.ui.dunham_reference_widget import DunhamClassificationReference
 from geoworkbench.ui.lithotype_visuals import lithotype_icon, pattern_icon
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class LithologyPatternPreview(QWidget):
