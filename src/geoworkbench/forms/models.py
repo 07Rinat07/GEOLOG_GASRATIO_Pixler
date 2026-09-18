@@ -294,7 +294,6 @@ class FormDocument:
     name: str
     axis_kind: FormAxisKind
     columns: list[FormColumn] = field(default_factory=list)
-    family_id: str = ""
     description: str = ""
     origin: FormTemplateOrigin = FormTemplateOrigin.USER
     read_only: bool = False
@@ -307,6 +306,7 @@ class FormDocument:
     visible_axis_top: float | None = None
     visible_axis_bottom: float | None = None
     revision: int = 1
+    family_id: str = ""
 
     def __post_init__(self) -> None:
         _require_id(self.form_id, "form_id")
