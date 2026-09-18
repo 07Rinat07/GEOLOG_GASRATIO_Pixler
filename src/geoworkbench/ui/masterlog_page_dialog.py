@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from PySide6.QtCore import QSize
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -12,6 +13,7 @@ from PySide6.QtWidgets import (
 
 from geoworkbench.domain.models import MasterlogTemplate
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class MasterlogPageDialog(QDialog):
@@ -76,6 +78,11 @@ class MasterlogPageDialog(QDialog):
         layout.addRow(buttons)
         self.format_input.currentIndexChanged.connect(self._update_custom_visibility)
         self._update_custom_visibility()
+        fit_window_to_screen(
+            self,
+            preferred=QSize(520, 360),
+            minimum=QSize(360, 260),
+        )
 
     def _update_custom_visibility(self) -> None:
         selected = self.format_input.currentData()

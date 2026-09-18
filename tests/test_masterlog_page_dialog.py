@@ -33,3 +33,18 @@ def test_masterlog_page_dialog_resets_landscape_when_switching_to_roll(qapp) -> 
     assert dialog.values()[:2] == ("roll", "portrait")
     assert not dialog.orientation_input.isEnabled()
     dialog.close()
+
+
+def test_masterlog_page_dialog_fits_current_work_area(qapp) -> None:
+    dialog = MasterlogPageDialog(
+        MasterlogTemplate("standard", "Standard", page_format="A4"),
+        language=AppLanguage.EN,
+    )
+    try:
+        screen = dialog.screen()
+        assert screen is not None
+        available = screen.availableGeometry()
+        assert dialog.minimumWidth() <= dialog.width() <= available.width()
+        assert dialog.minimumHeight() <= dialog.height() <= available.height()
+    finally:
+        dialog.close()
