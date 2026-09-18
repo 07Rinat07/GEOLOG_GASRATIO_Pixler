@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 from PySide6.QtGui import QImage
-from PySide6.QtWidgets import QApplication, QHeaderView
+from PySide6.QtWidgets import QApplication, QHeaderView, QPushButton, QScrollArea
 
 from geoworkbench.forms.editor import FormStructureEditor
 from geoworkbench.forms.models import FormAxisKind, FormDocument
@@ -346,3 +346,37 @@ def test_structure_editor_dialog_edits_lba_label_direction(
     _column, edited = dialog.editor.track(track.track_id)
     assert edited.lba_label_orientation == "vertical_bottom_to_top"
     dialog.close()
+
+
+
+def test_structure_editor_dialog_fits_work_area_and_preserves_primary_actions(
+    qapp: QApplication,
+    tmp_path: Path,
+) -> None:
+    repository = FormRepository(tmp_path / "forms")
+    form = FormDocument.create("Adaptive", FormAxisKind.DEPTH)
+    dialog = FormStructureEditorDialog(form, repository, language="en")
+    try:
+        screen = dialog.screen()
+        assert screen is not None
+        available = screen.availableGeometry()
+        assert dialog.minimumWidth() <= dialog.width() <= available.width()
+        assert dialog.minimumHeight() <= dialog.height() <= available.height()
+
+        assert dialog.column_actions_toolbar.objectName() == "form-column-actions"
+        assert len(dialog.column_actions_toolbar.actions()) == 4
+        assert dialog.track_actions_toolbar.objectName() == "form-track-actions"
+        assert len(dialog.track_actions_toolbar.actions()) == 3
+        assert dialog.editor_actions_toolbar.objectName() == "form-editor-secondary-actions"
+        assert len(dialog.editor_actions_toolbar.actions()) == 2
+
+        settings_scroll = dialog.findChild(QScrollArea, "form-editor-settings-scroll")
+        assert settings_scroll is not None
+        assert isinstance(dialog.save_button, QPushButton)
+        assert isinstance(dialog.close_button, QPushButton)
+        assert not settings_scroll.isAncestorOf(dialog.save_button)
+        assert not settings_scroll.isAncestorOf(dialog.close_button)
+        assert dialog.save_button.text() == "Save"
+        assert dialog.close_button.text() == "Close"
+    finally:
+        dialog.close()
