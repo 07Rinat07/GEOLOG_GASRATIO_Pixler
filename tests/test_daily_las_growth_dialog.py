@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from PySide6.QtWidgets import QDialogButtonBox
+from PySide6.QtWidgets import QDialogButtonBox, QScrollArea
 
 from geoworkbench.data.las_adapter import import_las_with_report
 from geoworkbench.domain.models import Project
@@ -145,3 +145,19 @@ def test_invalid_or_cancelled_preview_cannot_reuse_previous_confirmation(
     assert (target.depth == before).all()
     assert not target.append_history
     dialog.close()
+
+
+
+def test_daily_las_dialog_fits_work_area_with_sticky_actions(qapp) -> None:
+    dialog = DailyLasGrowthDialog(_controller(), language=AppLanguage.EN)
+    try:
+        screen = dialog.screen()
+        assert screen is not None
+        available = screen.availableGeometry()
+        assert dialog.minimumWidth() <= dialog.width() <= available.width()
+        assert dialog.minimumHeight() <= dialog.height() <= available.height()
+        scroll = dialog.findChild(QScrollArea, "daily-las-growth-content-scroll")
+        assert scroll is dialog.content_scroll
+        assert not scroll.isAncestorOf(dialog.buttons)
+    finally:
+        dialog.close()
