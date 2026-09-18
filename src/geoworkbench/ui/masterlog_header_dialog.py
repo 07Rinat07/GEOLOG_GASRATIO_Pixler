@@ -5,7 +5,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Callable
 
-from PySide6.QtCore import QRectF, QSettings, Qt, QTimer
+from PySide6.QtCore import QRectF, QSize, QSettings, Qt, QTimer
 from PySide6.QtGui import QColor, QBrush, QPen, QTransform, QWheelEvent
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -75,6 +75,7 @@ from geoworkbench.ui.logo_catalog_dialog import LogoCatalogDialog
 from geoworkbench.ui.header_preview_widget import HeaderPreviewWidget
 from geoworkbench.ui.adaptive_toolbar import AdaptiveActionToolBar
 from geoworkbench.ui.header_visual_assistant import HeaderVisualAssistant
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 _TEXT = {
@@ -223,7 +224,6 @@ class HeaderElementDialog(QDialog):
         self.preview_element_id = preview_element_id
         self.live_preview: HeaderPreviewWidget | None = None
         self.setWindowTitle(self.localizer.text("masterlog_header.properties"))
-        self.setMinimumWidth(480)
 
         self.type_input = _DataComboBox()
         for element_type in (
@@ -595,7 +595,6 @@ class HeaderElementDialog(QDialog):
         )
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
-        layout.addRow(buttons)
         self.type_input.currentIndexChanged.connect(
             lambda _index: self._update_property_inputs(
                 str(self.type_input.currentData() or "text")
@@ -605,10 +604,13 @@ class HeaderElementDialog(QDialog):
         self._update_property_inputs(str(self.type_input.currentData() or "text"))
 
         form_scroll = QScrollArea()
+        form_scroll.setObjectName("masterlog-header-element-scroll")
         form_scroll.setWidgetResizable(True)
         form_scroll.setWidget(form_widget)
-        root = QHBoxLayout(self)
-        root.addWidget(form_scroll, 3)
+        body = QWidget(self)
+        body_layout = QHBoxLayout(body)
+        body_layout.setContentsMargins(0, 0, 0, 0)
+        body_layout.addWidget(form_scroll, 3)
         if self.preview_template is not None and self.preview_session is not None:
             preview_panel = QGroupBox(
                 {
@@ -630,15 +632,28 @@ class HeaderElementDialog(QDialog):
             self.live_preview = HeaderPreviewWidget(
                 self.preview_session, preview_panel, language=language
             )
-            self.live_preview.setMinimumSize(460, 420)
+            self.live_preview.setMinimumSize(320, 260)
             preview_layout.addWidget(self.live_preview, 1)
-            root.addWidget(preview_panel, 4)
-            self.setMinimumSize(980, 650)
-            self.resize(1320, 780)
+            body_layout.addWidget(preview_panel, 4)
             self._connect_live_preview()
             QTimer.singleShot(0, self._refresh_live_preview)
         else:
-            self.setMinimumSize(560, 600)
+            pass
+
+        root = QVBoxLayout(self)
+        root.addWidget(body, 1)
+        root.addWidget(buttons)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(
+                1320 if self.live_preview is not None else 620,
+                780 if self.live_preview is not None else 600,
+            ),
+            minimum=QSize(
+                680 if self.live_preview is not None else 480,
+                440 if self.live_preview is not None else 360,
+            ),
+        )
 
     def _connect_live_preview(self) -> None:
         controls = (
@@ -957,8 +972,6 @@ class HeaderDataDialog(QDialog):
         self.template_id = template_id
         self.language = language
         self.setWindowTitle(_TEXT[language]["data_title"])
-        self.setMinimumSize(600, 480)
-        self.resize(760, 680)
         self.inputs: dict[str, QLineEdit | QTextEdit] = {}
         template = controller.session.project.masterlog_templates[template_id]
         saved = controller.header_fields(template_id)
@@ -985,6 +998,7 @@ class HeaderDataDialog(QDialog):
             form.addRow(definition.label(language), control)
 
         scroll = QScrollArea()
+        scroll.setObjectName("masterlog-header-data-scroll")
         scroll.setWidgetResizable(True)
         scroll.setWidget(form_widget)
         clear_button = QPushButton(_TEXT[language]["clear"])
@@ -1001,6 +1015,11 @@ class HeaderDataDialog(QDialog):
         layout = QVBoxLayout(self)
         layout.addWidget(scroll, 1)
         layout.addLayout(footer)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(760, 680),
+            minimum=QSize(520, 360),
+        )
 
     def _clear(self) -> None:
         for control in self.inputs.values():
@@ -1109,24 +1128,22 @@ class MasterlogHeaderDialog(QDialog):
         self._selected_element_id: str | None = None
         self._fit_on_refresh = True
         self.setWindowTitle(self.localizer.text("masterlog_header.title"))
-        self.setMinimumSize(900, 600)
-        self.resize(1500, 900)
 
         self.list = QListWidget()
-        self.list.setMinimumWidth(260)
+        self.list.setMinimumWidth(160)
         self.list.itemDoubleClicked.connect(lambda _item: self._edit())
         self.list.currentItemChanged.connect(self._list_selection_changed)
 
         self.preview_scene = QGraphicsScene(self)
         self.preview = HeaderGraphicsView(self.preview_scene)
         self.preview.setObjectName("masterlog-header-preview")
-        self.preview.setMinimumWidth(420)
+        self.preview.setMinimumWidth(260)
         self.preview.setRenderHints(self.preview.renderHints())
         self.preview.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
         self.preview.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         self.overview = HeaderPreviewWidget(controller.session, self, language=language)
         self.overview.setObjectName("masterlog-header-overview")
-        self.overview.setMinimumHeight(230)
+        self.overview.setMinimumHeight(120)
 
         self.height_input = QDoubleSpinBox()
         self.height_input.setRange(10.0, 500.0)
@@ -1303,9 +1320,10 @@ class MasterlogHeaderDialog(QDialog):
         inspector_layout.addWidget(autosave)
 
         inspector_scroll = QScrollArea()
+        inspector_scroll.setObjectName("masterlog-header-inspector-scroll")
         inspector_scroll.setWidgetResizable(True)
         inspector_scroll.setWidget(inspector)
-        inspector_scroll.setMinimumWidth(250)
+        inspector_scroll.setMinimumWidth(180)
         self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.main_splitter.setChildrenCollapsible(False)
         self.main_splitter.addWidget(left)
@@ -1343,6 +1361,11 @@ class MasterlogHeaderDialog(QDialog):
         layout.addWidget(self.main_splitter, 1)
         layout.addWidget(close_buttons)
         self.refresh()
+        fit_window_to_screen(
+            self,
+            preferred=QSize(1500, 900),
+            minimum=QSize(720, 420),
+        )
 
     def _save_ui_state(self) -> None:
         settings = QSettings()
