@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- WELL-06: добавлен единый application service `request → verified snapshot → exporter factory → orchestrator`; retry не recapture-ит проект и продолжает ту же ревизию.
 - WELL-06: Masterlog PDF artifacts теперь выпускаются через штатный Report Passport transaction; sidecar фиксирует bundle snapshot/save/content revisions, project SHA-256, artifact ID, язык/ориентацию и fingerprints финальных файлов.
 - WELL-06: добавлен первый concrete adapter — Masterlog PDF из verified persisted snapshot; он переиспользует существующий renderer, строго связывает template/dataset/scope/language/orientation и не читает mutable live-session.
 - WELL-06: logical outputs детерминированно разворачиваются в RU/KK/EN × portrait/landscape artifact matrix с уникальными artifact IDs и безопасными variant-именами.
