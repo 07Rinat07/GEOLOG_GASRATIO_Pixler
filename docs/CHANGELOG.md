@@ -4,6 +4,9 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- WELL-06: добавлен Qt-независимый command-controller: current well/dataset/options/depth-range, clean verified saved-project guard и безопасный output-directory guard собраны перед вызовом production runtime без зависимости application слоя от UI.
+- WELL-06: добавлен адаптивный RU/KK/EN диалог «Подготовить комплект документов» с выбором saved outputs, scope, языков, orientation и draft policy; roll-формы блокируют landscape до запуска, а окно проходит laptop/HiDPI containment.
+- WELL-06: добавлен production Composition Root, который собирает selection → snapshot → shared verified reader → preflight → exporter factory → application service → signed manifest поверх одного ProjectFileSafetyService.
 - WELL-06: добавлен Qt-независимый selection controller команды комплекта: каталог сохранённых Masterlog-форм, safe stable target names, dataset binding, допустимые orientation и сборка immutable request для whole/new-section/interval.
 - WELL-06: application service теперь fail-closed запускает persisted preflight до exporter factory; draft Masterlog получает отдельную видимую RU/KK/EN полосу о непроверенном переводе и соответствующую отметку Report Passport без мутации сохранённого шаблона.
 - WELL-06: добавлен persisted preflight: Masterlog проверяет dataset/template/depth/scope/curve dependencies и calculation state, а WELL-04 translation readiness блокирует missing/draft/stale final translations; draft policy ослабляет только translation issues и требует явной отметки.

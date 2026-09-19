@@ -567,6 +567,22 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
   safe target names и поддерживаемые orientation, а затем формирует immutable request из выбранных
   outputs, RU/KK/EN, scope и draft policy. Roll-форма не позволяет выбрать landscape уже на
   уровне selection; чужой dataset и пустой набор outputs отклоняются до snapshot capture.
+  Пятнадцатый инкремент добавляет production Composition Root: selection, snapshot capture,
+  verified snapshot reader, Masterlog/translation preflight, exporter factory, application service
+  и manifest recording собираются поверх одного ProjectFileSafetyService. Проверка и фактический
+  export поэтому читают один verified storage boundary; controller без файловой safety-семантики
+  fail-closed не получает production bundle runtime.
+  Шестнадцатый инкремент добавляет адаптивный RU/KK/EN Qt-диалог команды «Подготовить комплект
+  документов»: пользователь выбирает сохранённые формы, whole/new-section/custom scope, языки,
+  portrait/landscape и явную draft policy. Диалог использует output options selection-controller,
+  динамически запрещает landscape для roll-форм, валидирует интервал до accept и помещается в
+  текущую availableGeometry при Windows HiDPI. Сам диалог не выполняет export и возвращает только
+  типизированный selection для application boundary.
+  Семнадцатый инкремент добавляет Qt-независимый command-controller между MainWindow и runtime:
+  он разрешает текущие well/dataset/options и printable depth range, требует clean verified saved
+  project и существующий non-symlink output directory, затем передаёт typed selection в production
+  runtime. Project/application слой не импортирует UI-типы; MainWindow остаётся адаптером ввода/
+  отображения, а snapshot/preflight/export/manifest правила сохраняются в нижележащих boundaries.
 
 Отдельные будущие возможности — подготовка машинного перевода с проверкой геологом и совместное
 редактирование — не входят в первый цикл WELL-01…06 и не являются его скрытыми зависимостями.
