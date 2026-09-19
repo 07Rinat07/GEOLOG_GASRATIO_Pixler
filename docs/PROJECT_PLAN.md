@@ -529,6 +529,11 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
   дублирования renderer. Whole-well диапазон берётся из bound dataset, interval/new-section —
   из immutable scope; incompatible kind/format, отсутствующие IDs и roll+landscape отклоняются
   fail-closed до рендера.
+  Восьмой инкремент привязывает каждый Masterlog artifact к существующему Report Passport:
+  паспорт строится из того же persisted session/template/interval и фиксирует bundle snapshot ID,
+  project save revision, well content revision, project bundle SHA-256, logical output/artifact ID,
+  язык, ориентацию и render settings. Штатный masterlog output transaction атомарно финализирует
+  PDF и sidecar с fingerprints; оба файла считаются результатом artifact export.
 
 Отдельные будущие возможности — подготовка машинного перевода с проверкой геологом и совместное
 редактирование — не входят в первый цикл WELL-01…06 и не являются его скрытыми зависимостями.
