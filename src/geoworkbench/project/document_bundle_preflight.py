@@ -105,8 +105,8 @@ class DocumentBundlePreflightService:
                 continue
             issues.extend(validator.validate(snapshot, output))
 
-        for validator in self.cross_validators:
-            issues.extend(validator.validate(snapshot))
+        for cross_validator in self.cross_validators:
+            issues.extend(cross_validator.validate(snapshot))
 
         draft_mark_required = False
         if snapshot.request.allow_drafts:
