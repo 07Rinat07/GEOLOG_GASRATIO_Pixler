@@ -73,7 +73,6 @@ class DocumentBundleSelectionDialog(QDialog):
                 f"{option.file_format.value.upper()} · {option.dataset_id}"
             )
             self.output_list.addItem(item)
-        self.output_list.itemChanged.connect(self._selection_changed)
         outputs_layout.addWidget(self.output_list)
         root.addWidget(outputs_group, 1)
 
@@ -92,7 +91,6 @@ class DocumentBundleSelectionDialog(QDialog):
             self._text("document_bundle.scope_interval"),
             DocumentBundleScopeKind.INTERVAL,
         )
-        self.scope_combo.currentIndexChanged.connect(self._scope_changed)
         scope_form.addRow(self._text("document_bundle.scope_mode"), self.scope_combo)
 
         self.top_depth = self._depth_spin()
@@ -149,6 +147,11 @@ class DocumentBundleSelectionDialog(QDialog):
         self.buttons.rejected.connect(self.reject)
         root.addWidget(self.buttons)
 
+        self.output_list.itemChanged.connect(self._selection_changed)
+        self.scope_combo.currentIndexChanged.connect(self._scope_changed)
+        self.top_depth.valueChanged.connect(self._selection_changed)
+        self.bottom_depth.valueChanged.connect(self._selection_changed)
+
         self._scope_changed()
         self._selection_changed()
         fit_window_to_screen(
@@ -158,9 +161,7 @@ class DocumentBundleSelectionDialog(QDialog):
         )
 
     def selection(self) -> DocumentBundleDialogSelection:
-        scope_kind = self.scope_combo.currentData()
-        if not isinstance(scope_kind, DocumentBundleScopeKind):
-            raise RuntimeError("Document bundle scope selection is invalid")
+        scope_kind = self._scope_kind()
         explicit_range = scope_kind is not DocumentBundleScopeKind.WHOLE_WELL
         return DocumentBundleDialogSelection(
             outputs=self.selected_outputs(),
@@ -201,11 +202,10 @@ class DocumentBundleSelectionDialog(QDialog):
         spin.setDecimals(3)
         spin.setRange(-1_000_000_000.0, 1_000_000_000.0)
         spin.setSingleStep(1.0)
-        spin.valueChanged.connect(self._selection_changed)
         return spin
 
     def _scope_changed(self) -> None:
-        scope_kind = self.scope_combo.currentData()
+        scope_kind = self._scope_kind()
         explicit = scope_kind is not DocumentBundleScopeKind.WHOLE_WELL
         self.top_depth.setEnabled(explicit)
         self.bottom_depth.setEnabled(explicit)
@@ -225,7 +225,7 @@ class DocumentBundleSelectionDialog(QDialog):
         has_orientation = (
             self.portrait_check.isChecked() or self.landscape_check.isChecked()
         )
-        scope_kind = self.scope_combo.currentData()
+        scope_kind = self._scope_kind()
         range_valid = (
             scope_kind is DocumentBundleScopeKind.WHOLE_WELL
             or self.bottom_depth.value() > self.top_depth.value()
@@ -246,6 +246,15 @@ class DocumentBundleSelectionDialog(QDialog):
         else:
             status = self._text("document_bundle.ready")
         self.status_label.setText(status)
+
+    def _scope_kind(self) -> DocumentBundleScopeKind:
+        value = self.scope_combo.currentData()
+        if isinstance(value, DocumentBundleScopeKind):
+            return value
+        try:
+            return DocumentBundleScopeKind(str(value))
+        except ValueError as exc:
+            raise RuntimeError("Document bundle scope selection is invalid") from exc
 
     def _text(self, key: str) -> str:
         return self.localizer.text(key)
