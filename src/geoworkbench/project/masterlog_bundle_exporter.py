@@ -9,7 +9,7 @@ from geoworkbench.domain.document_bundle import (
     DocumentBundleOutputFormat,
     DocumentBundleScopeKind,
 )
-from geoworkbench.domain.models import MasterlogTemplate
+from geoworkbench.domain.models import MasterlogHeaderElement, MasterlogTemplate
 from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
 from geoworkbench.project.document_bundle_snapshot import (
     DocumentBundleSnapshotBinding,
@@ -161,6 +161,9 @@ class MasterlogPdfBundleExporter:
         else:
             template.properties["orientation"] = artifact.orientation
 
+        if snapshot.request.allow_drafts:
+            self._add_visible_draft_mark(template, artifact.language)
+
         settings = self._settings(snapshot, session, artifact.language)
         passport = self._passport(
             snapshot=snapshot,
@@ -234,6 +237,10 @@ class MasterlogPdfBundleExporter:
                 ("project_bundle_sha256", snapshot.bundle_sha256),
                 ("output_id", artifact.output_id),
                 ("artifact_id", artifact.artifact_id),
+                (
+                    "draft_translation_mark",
+                    "required" if snapshot.request.allow_drafts else "none",
+                ),
             ),
         )
         request = ReportPassportRequest(
@@ -246,6 +253,63 @@ class MasterlogPdfBundleExporter:
             form=masterlog_template_snapshot(template),
         )
         return ReportPassportBuilder().build(session, request)
+
+    @staticmethod
+    def _add_visible_draft_mark(
+        template: MasterlogTemplate,
+        language: str,
+    ) -> None:
+        labels = {
+            "ru": "ЧЕРНОВИК — ПЕРЕВОД НЕ ПРОВЕРЕН",
+            "kk": "ЖҰМЫС НҰСҚАСЫ — АУДАРМА ТЕКСЕРІЛМЕГЕН",
+            "en": "DRAFT — TRANSLATION NOT REVIEWED",
+        }
+        label = labels.get(language, labels["en"])
+        previous_height = float(template.header_height_mm)
+        template.header_height_mm = previous_height + 7.0
+        page_width = MasterlogPdfBundleExporter._page_width_mm(template)
+        template.header_elements.append(
+            MasterlogHeaderElement(
+                "well-06-draft-translation-mark",
+                "text",
+                5.0,
+                previous_height + 0.5,
+                max(15.0, page_width - 10.0),
+                5.5,
+                {
+                    "text": label,
+                    "font_size_mm": 3.5,
+                    "bold": True,
+                    "color": "#b91c1c",
+                    "alignment": "center",
+                    "word_wrap": False,
+                },
+            )
+        )
+
+    @staticmethod
+    def _page_width_mm(template: MasterlogTemplate) -> float:
+        fixed = {
+            "A0": (841.0, 1189.0),
+            "A1": (594.0, 841.0),
+            "A2": (420.0, 594.0),
+            "A3": (297.0, 420.0),
+            "A4": (210.0, 297.0),
+            "LETTER": (215.9, 279.4),
+            "LEGAL": (215.9, 355.6),
+        }
+        page_format = template.page_format.upper()
+        if page_format in fixed:
+            width, height = fixed[page_format]
+            if template.properties.get("orientation") == "landscape":
+                return height
+            return width
+        if template.page_format.casefold() == "custom":
+            value = template.properties.get("custom_width_mm", 210.0)
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                return max(25.0, min(float(value), 5000.0))
+            return 210.0
+        return max(25.0, sum(float(column.width_mm) for column in template.columns))
 
     @staticmethod
     def _settings(

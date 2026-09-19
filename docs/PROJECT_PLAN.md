@@ -549,6 +549,19 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
   перезаписывает тот же snapshot manifest атомарно и без нового capture. Snapshot ID, save/content
   revisions и project bundle SHA-256 обязаны оставаться неизменными между partial и complete;
   смена snapshot при retry отклоняется fail-closed.
+  Двенадцатый инкремент вводит preflight boundary на той же persisted snapshot-ревизии.
+  Masterlog validator проверяет dataset/template, печатный depth range, границы scope, допустимую
+  orientation, обязательные curve dependencies и их calculation state; разрешение кривых
+  повторяет безопасную политику explicit bindings → direct mnemonic → semantic resolver >= 0.65.
+  Cross-cutting translation validator использует WELL-04 persisted readiness/revision ledger:
+  missing/draft/stale перевод блокирует final output, а allow_drafts понижает только translation
+  issues до warning и требует явной draft-отметки; data/dependency ошибки остаются blocking.
+  Тринадцатый инкремент встраивает preflight в application service между snapshot capture и
+  exporter factory: blocking report завершает команду до создания файлов и повторно проверяется
+  при retry той же ревизии. Для allow_drafts Masterlog adapter добавляет в detached template
+  отдельную видимую локализованную полосу «черновик / перевод не проверен», расширяя шапку без
+  перекрытия исходных элементов; Report Passport фиксирует требование draft-mark. Persisted
+  Masterlog template при этом не изменяется.
 
 Отдельные будущие возможности — подготовка машинного перевода с проверкой геологом и совместное
 редактирование — не входят в первый цикл WELL-01…06 и не являются его скрытыми зависимостями.
