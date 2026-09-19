@@ -508,6 +508,11 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
   failed result и не объявляет весь комплект готовым; retry запускает только неудачные outputs,
   повторно используя тот же snapshot ID/revision. Неизвестный exporter или несовпадающий
   registration contract отклоняется до создания файлов.
+  Четвёртый инкремент запрещает exporter-адаптерам читать mutable live-session после capture:
+  verified snapshot reader заново открывает сохранённый проект через штатный storage safety
+  boundary и сверяет path/storage identity, project/save revision, bundle SHA-256 и well content
+  revision. Только после этой проверки persisted ProjectDocument может быть передан адаптеру;
+  TOCTOU/external-change и несовпадающая скважина отклоняются до рендера.
 
 Отдельные будущие возможности — подготовка машинного перевода с проверкой геологом и совместное
 редактирование — не входят в первый цикл WELL-01…06 и не являются его скрытыми зависимостями.
