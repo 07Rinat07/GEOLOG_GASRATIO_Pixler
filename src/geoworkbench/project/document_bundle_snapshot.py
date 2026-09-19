@@ -109,3 +109,37 @@ class DocumentBundleSnapshotController:
             path_id=disk_state.path_id,
             bundle_sha256=disk_state.bundle_sha256,
         )
+
+    def assert_source_current(self, snapshot: DocumentBundleSnapshotBinding) -> None:
+        """Verify that the persisted source bound to *snapshot* is still byte-identical."""
+
+        file_safety = self.project_controller.file_safety
+        if file_safety is None:
+            raise DocumentBundleSnapshotError(
+                "Verified project storage is unavailable for snapshot validation"
+            )
+        try:
+            current = file_safety.inspect(snapshot.project_path)
+        except Exception as exc:
+            raise DocumentBundleSnapshotError(
+                "The saved snapshot source cannot be verified"
+            ) from exc
+
+        expected = (
+            snapshot.path_id,
+            snapshot.storage_kind,
+            snapshot.project_id,
+            snapshot.save_revision,
+            snapshot.bundle_sha256,
+        )
+        actual = (
+            current.path_id,
+            current.storage_kind,
+            current.project_id,
+            current.save_revision,
+            current.bundle_sha256,
+        )
+        if actual != expected:
+            raise DocumentBundleSnapshotError(
+                "The saved snapshot source changed after the bundle was prepared"
+            )
