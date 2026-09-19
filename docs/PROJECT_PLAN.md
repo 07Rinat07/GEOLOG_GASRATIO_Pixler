@@ -534,6 +534,11 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
   project save revision, well content revision, project bundle SHA-256, logical output/artifact ID,
   язык, ориентацию и render settings. Штатный masterlog output transaction атомарно финализирует
   PDF и sidecar с fingerprints; оба файла считаются результатом artifact export.
+  Девятый инкремент добавляет единый application service: validated request один раз захватывает
+  verified snapshot, factory строит только поддерживаемые exporter strategies, orchestrator
+  выполняет outputs, а retry использует тот же snapshot без повторного capture. Unsupported kind
+  и неподдерживаемый формат отклоняются factory до запуска output; это становится стабильной
+  точкой входа для последующего UI/API слоя.
 
 Отдельные будущие возможности — подготовка машинного перевода с проверкой геологом и совместное
 редактирование — не входят в первый цикл WELL-01…06 и не являются его скрытыми зависимостями.
