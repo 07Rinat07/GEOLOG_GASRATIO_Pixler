@@ -110,7 +110,7 @@ def test_translation_preflight_skips_explicit_source_language_and_accepts_review
     snapshot, loaded = _fixture(tmp_path, state=TranslationState.REVIEWED)
 
     issues = DocumentBundleTranslationPreflightValidator(
-        StaticReader(loaded)  # type: ignore[arg-type]
+        StaticReader(loaded)
     ).validate(snapshot)
 
     assert issues == ()
@@ -120,7 +120,7 @@ def test_translation_preflight_reports_missing_target_translation(tmp_path: Path
     snapshot, loaded = _fixture(tmp_path, state=None)
 
     issues = DocumentBundleTranslationPreflightValidator(
-        StaticReader(loaded)  # type: ignore[arg-type]
+        StaticReader(loaded)
     ).validate(snapshot)
 
     assert len(issues) == 1
@@ -136,7 +136,7 @@ def test_translation_preflight_detects_stale_reviewed_translation(tmp_path: Path
     )
 
     issues = DocumentBundleTranslationPreflightValidator(
-        StaticReader(loaded)  # type: ignore[arg-type]
+        StaticReader(loaded)
     ).validate(snapshot)
 
     assert len(issues) == 1
