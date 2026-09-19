@@ -4,6 +4,9 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- WELL-06 завершён: команда подготовки комплекта документов прошла полный PR Release gate
+  #1362, слита в `main` через PR #228 и подтверждена зелёным main Release gate #1363
+  после повторного запуска нестабильного Windows quality job.
 - WELL-06: команда «Подготовить комплект документов» подключена к MainWindow через тонкий UI-
   адаптер: пункт меню открывает RU/KK/EN selection dialog, выбирает существующую папку выдачи,
   запускает command-controller и показывает complete/partial manifest summary без прямой
