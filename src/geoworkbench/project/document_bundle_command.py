@@ -15,9 +15,6 @@ from geoworkbench.project.document_bundle_runtime import build_document_bundle_r
 from geoworkbench.project.document_bundle_selection import (
     DocumentBundleOutputOption,
 )
-from geoworkbench.ui.document_bundle_selection_dialog import (
-    DocumentBundleDialogSelection,
-)
 
 
 class DocumentBundleCommandError(RuntimeError):
@@ -81,11 +78,17 @@ class DocumentBundleCommandController:
 
     def execute(
         self,
-        selection: DocumentBundleDialogSelection,
         *,
+        selected_outputs: tuple[DocumentBundleOutputOption, ...],
+        languages: tuple[str, ...],
+        orientations: tuple[str, ...],
+        scope_kind: DocumentBundleScopeKind,
+        top_depth: float | None,
+        bottom_depth: float | None,
+        allow_drafts: bool,
         output_directory: Path,
     ) -> RecordedDocumentBundleExecution:
-        if not selection.outputs:
+        if not selected_outputs:
             raise DocumentBundleCommandError(
                 "outputs_required",
                 "Select at least one document output",
@@ -105,7 +108,11 @@ class DocumentBundleCommandController:
             )
 
         output_root = Path(output_directory)
-        if not output_root.exists() or not output_root.is_dir():
+        if (
+            not output_root.exists()
+            or not output_root.is_dir()
+            or output_root.is_symlink()
+        ):
             raise DocumentBundleCommandError(
                 "output_directory",
                 "Select an existing output directory",
@@ -118,13 +125,13 @@ class DocumentBundleCommandController:
         context = self.context()
         request = runtime.selection.build_request(
             well_id=context.well_id,
-            selected_outputs=selection.outputs,
-            languages=selection.languages,
-            orientations=selection.orientations,
-            scope_kind=selection.scope_kind,
-            top_depth=selection.top_depth,
-            bottom_depth=selection.bottom_depth,
-            allow_drafts=selection.allow_drafts,
+            selected_outputs=selected_outputs,
+            languages=languages,
+            orientations=orientations,
+            scope_kind=scope_kind,
+            top_depth=top_depth,
+            bottom_depth=bottom_depth,
+            allow_drafts=allow_drafts,
         )
         return runtime.service.execute(request)
 
