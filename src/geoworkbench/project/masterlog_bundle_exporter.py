@@ -23,6 +23,15 @@ from geoworkbench.services.document_bundle_artifacts import (
     expand_document_bundle_artifacts,
 )
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.report_passport import (
+    ReportKind,
+    ReportPassport,
+    ReportPassportBuilder,
+    ReportPassportRequest,
+    ReportRenderSettings,
+    masterlog_template_snapshot,
+    passport_sidecar_path,
+)
 
 
 class MasterlogBundleExportError(RuntimeError):
@@ -46,7 +55,8 @@ class MasterlogPdfRenderer(Protocol):
         *,
         overwrite: bool,
         settings: MasterlogOutputSettings,
-    ) -> Path:
+        passport: ReportPassport,
+    ) -> tuple[Path, Path]:
         """Render one Masterlog PDF using the existing renderer boundary."""
 
 
@@ -57,6 +67,7 @@ def _render_masterlog_pdf(
     *,
     overwrite: bool,
     settings: MasterlogOutputSettings,
+    passport: ReportPassport,
 ) -> Path:
     from geoworkbench.printing.masterlog_renderer import export_masterlog_pdf
 
@@ -66,6 +77,7 @@ def _render_masterlog_pdf(
         target,
         overwrite=overwrite,
         settings=settings,
+        passport=passport,
     )
 
 
@@ -96,7 +108,7 @@ class MasterlogPdfBundleExporter:
 
         paths: list[Path] = []
         for artifact in artifacts:
-            paths.append(
+            paths.extend(
                 self._export_artifact(
                     snapshot=snapshot,
                     session=session,
@@ -150,14 +162,28 @@ class MasterlogPdfBundleExporter:
             template.properties["orientation"] = artifact.orientation
 
         settings = self._settings(snapshot, session, artifact.language)
+        passport = self._passport(
+            snapshot=snapshot,
+            session=session,
+            artifact=artifact,
+            template=template,
+            settings=settings,
+        )
         target = self.output_directory / artifact.target_name
-        return self.renderer(
+        rendered = self.renderer(
             template,
             session,
             target,
             overwrite=False,
             settings=settings,
+            passport=passport,
         )
+        sidecar = passport_sidecar_path(rendered)
+        if not sidecar.is_file() or sidecar.stat().st_size <= 0:
+            raise MasterlogBundleExportError(
+                f"Masterlog passport sidecar was not created: {sidecar}"
+            )
+        return rendered, sidecar
 
     @staticmethod
     def _session_from_snapshot(
@@ -176,6 +202,50 @@ class MasterlogPdfBundleExporter:
             rock_code_source_bindings=document.rock_code_source_bindings,
             dirty=False,
         )
+
+    @staticmethod
+    def _passport(
+        *,
+        snapshot: DocumentBundleSnapshotBinding,
+        session: ProjectSession,
+        artifact: DocumentBundleArtifactSpec,
+        template: MasterlogTemplate,
+        settings: MasterlogOutputSettings,
+    ) -> ReportPassport:
+        curve_mnemonics = tuple(
+            dict.fromkeys(
+                mnemonic
+                for column in template.columns
+                if column.column_type == "curves"
+                for mnemonic in column.curve_mnemonics
+            )
+        )
+        render = ReportRenderSettings(
+            renderer="masterlog",
+            output_format="pdf",
+            page_format=template.page_format,
+            orientation=artifact.orientation,
+            dpi=300,
+            range_mode=snapshot.request.scope.kind.value,
+            options=(
+                ("bundle_snapshot_id", snapshot.snapshot_id),
+                ("project_save_revision", str(snapshot.save_revision)),
+                ("well_content_revision", str(snapshot.well_content_revision)),
+                ("project_bundle_sha256", snapshot.bundle_sha256),
+                ("output_id", artifact.output_id),
+                ("artifact_id", artifact.artifact_id),
+            ),
+        )
+        request = ReportPassportRequest(
+            report_kind=ReportKind.MASTERLOG,
+            report_name=template.name,
+            language=artifact.language,
+            render=render,
+            interval=settings.depth_range,
+            curve_mnemonics=curve_mnemonics or None,
+            form=masterlog_template_snapshot(template),
+        )
+        return ReportPassportBuilder().build(session, request)
 
     @staticmethod
     def _settings(
