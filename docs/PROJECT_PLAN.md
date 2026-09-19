@@ -523,6 +523,12 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
   стабильные __<lang>_<orientation> суффиксы; artifact IDs и target names обязаны быть уникальны
   без учёта регистра. Expansion не выполняет I/O и становится единым входом для конкретных
   exporter-адаптеров.
+  Седьмой инкремент подключает первый реальный exporter adapter для Masterlog PDF. Adapter
+  загружает только verified persisted snapshot, разрешает сохранённые template_id/dataset_id,
+  клонирует форму для выбранной ориентации и вызывает штатный export_masterlog_pdf вместо
+  дублирования renderer. Whole-well диапазон берётся из bound dataset, interval/new-section —
+  из immutable scope; incompatible kind/format, отсутствующие IDs и roll+landscape отклоняются
+  fail-closed до рендера.
 
 Отдельные будущие возможности — подготовка машинного перевода с проверкой геологом и совместное
 редактирование — не входят в первый цикл WELL-01…06 и не являются его скрытыми зависимостями.
