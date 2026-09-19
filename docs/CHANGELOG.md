@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- WELL-06: logical outputs детерминированно разворачиваются в RU/KK/EN × portrait/landscape artifact matrix с уникальными artifact IDs и безопасными variant-именами.
 - WELL-06: immutable bundle request теперь может хранить per-output exporter/source/dataset/format/target specs; unsafe paths, неверное расширение и несовпадение порядка output IDs отклоняются до экспорта.
 - WELL-06: exporter-адаптеры получили verified snapshot reader: persisted ProjectDocument повторно открывается через storage safety boundary и сверяется по SHA-256/save/content revisions, поэтому live-session после capture не используется как источник выдачи.
 - WELL-06: добавлен Strategy-based orchestrator комплекта: все outputs используют один snapshot binding, частичные ошибки фиксируются отдельно, а retry повторяет только failed outputs той же ревизии.
