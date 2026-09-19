@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- WELL-06: application service теперь fail-closed запускает persisted preflight до exporter factory; draft Masterlog получает отдельную видимую RU/KK/EN полосу о непроверенном переводе и соответствующую отметку Report Passport без мутации сохранённого шаблона.
 - WELL-06: добавлен persisted preflight: Masterlog проверяет dataset/template/depth/scope/curve dependencies и calculation state, а WELL-04 translation readiness блокирует missing/draft/stale final translations; draft policy ослабляет только translation issues и требует явной отметки.
 - WELL-06: application service получил recording Decorator: каждый run атомарно записывает signed bundle manifest, а retry обновляет тот же snapshot manifest без recapture и смены save/content revisions.
 - WELL-06: добавлен signed bundle manifest с complete/partial status, snapshot/save/content revisions и SHA-256 всех output artifacts; symlink/outside-root/duplicate paths отклоняются fail-closed.
