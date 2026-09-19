@@ -4,6 +4,8 @@ import pytest
 
 from geoworkbench.domain.document_bundle import (
     DocumentBundleContractError,
+    DocumentBundleOutputFormat,
+    DocumentBundleOutputSpec,
     DocumentBundleRequest,
     DocumentBundleScope,
     DocumentBundleScopeKind,
@@ -97,3 +99,71 @@ def test_document_bundle_request_preserves_explicit_draft_policy() -> None:
     )
 
     assert request.allow_drafts is True
+
+def test_document_bundle_request_binds_output_specs_in_request_order() -> None:
+    specs = (
+        DocumentBundleOutputSpec(
+            output_id="masterlog",
+            exporter_kind="masterlog",
+            source_id="template-1",
+            dataset_id="dataset-1",
+            file_format=DocumentBundleOutputFormat.PDF,
+            target_name="masterlog.pdf",
+        ),
+        DocumentBundleOutputSpec(
+            output_id="gas-report",
+            exporter_kind="report",
+            source_id="report-1",
+            dataset_id="dataset-1",
+            file_format=DocumentBundleOutputFormat.DOCX,
+            target_name="gas-report.docx",
+        ),
+    )
+
+    request = DocumentBundleRequest(
+        well_id="well-1",
+        output_ids=("masterlog", "gas-report"),
+        languages=("ru",),
+        orientations=("portrait",),
+        scope=DocumentBundleScope(DocumentBundleScopeKind.WHOLE_WELL),
+        output_specs=specs,
+    )
+
+    assert request.output_specs == specs
+
+
+@pytest.mark.parametrize(
+    "target_name",
+    ("../masterlog.pdf", "nested/masterlog.pdf", "masterlog.docx", ""),
+)
+def test_output_spec_rejects_unsafe_or_mismatched_target_name(
+    target_name: str,
+) -> None:
+    with pytest.raises(DocumentBundleContractError):
+        DocumentBundleOutputSpec(
+            output_id="masterlog",
+            exporter_kind="masterlog",
+            source_id="template-1",
+            file_format=DocumentBundleOutputFormat.PDF,
+            target_name=target_name,
+        )
+
+
+def test_document_bundle_request_rejects_output_specs_that_do_not_match_ids() -> None:
+    spec = DocumentBundleOutputSpec(
+        output_id="other",
+        exporter_kind="masterlog",
+        source_id="template-1",
+        file_format=DocumentBundleOutputFormat.PDF,
+        target_name="masterlog.pdf",
+    )
+
+    with pytest.raises(DocumentBundleContractError, match="match output_ids"):
+        DocumentBundleRequest(
+            well_id="well-1",
+            output_ids=("masterlog",),
+            languages=("ru",),
+            orientations=("portrait",),
+            scope=DocumentBundleScope(DocumentBundleScopeKind.WHOLE_WELL),
+            output_specs=(spec,),
+        )
