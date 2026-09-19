@@ -7,6 +7,7 @@ from PySide6.QtCore import QObject, QTimer, Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QDialog, QMainWindow, QMenu, QStyle, QVBoxLayout, QWidget
 
+from geoworkbench.project.translation_status_controller import TranslationStatusController
 from geoworkbench.project.well_translation_readiness_controller import (
     WellTranslationReadinessController,
 )
@@ -351,6 +352,7 @@ class NavigationOrganizationController(QObject):
             dialog = TranslationReadinessDialog(
                 WellTranslationReadinessController(session),
                 self.window,
+                status_controller=TranslationStatusController(session),
                 language=language,
             )
             self.translation_readiness_dialog = dialog

@@ -18,8 +18,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from geoworkbench.domain.translation_readiness import TranslationReadinessSummary
+from geoworkbench.domain.translation_readiness import (
+    TranslationReadinessItem,
+    TranslationReadinessSummary,
+)
 from geoworkbench.domain.translation_status import TranslationState
+from geoworkbench.project.translation_status_controller import TranslationStatusController
 from geoworkbench.project.well_translation_readiness_controller import (
     WellTranslationReadinessController,
 )
@@ -36,6 +40,7 @@ _TEXTS: dict[AppLanguage, dict[str, str]] = {
         "bottom_depth": "До, м",
         "include_reviewed": "Показывать проверенные",
         "refresh": "Обновить",
+        "review_selected": "Подтвердить выбранный перевод",
         "close": "Закрыть",
         "status": "Статус",
         "language": "Язык",
@@ -74,6 +79,7 @@ _TEXTS: dict[AppLanguage, dict[str, str]] = {
         "bottom_depth": "Дейін, м",
         "include_reviewed": "Тексерілгендерді көрсету",
         "refresh": "Жаңарту",
+        "review_selected": "Таңдалған аударманы тексерілген деп белгілеу",
         "close": "Жабу",
         "status": "Күй",
         "language": "Тіл",
@@ -112,6 +118,7 @@ _TEXTS: dict[AppLanguage, dict[str, str]] = {
         "bottom_depth": "To, m",
         "include_reviewed": "Show reviewed",
         "refresh": "Refresh",
+        "review_selected": "Mark selected translation reviewed",
         "close": "Close",
         "status": "Status",
         "language": "Language",
@@ -153,17 +160,23 @@ _STATE_KEYS = {
 
 
 class TranslationReadinessDialog(QDialog):
-    """Read-only WELL-04 projection for one current well."""
+    """WELL-04 readiness projection with an explicit review command."""
 
     def __init__(
         self,
         controller: WellTranslationReadinessController,
         parent: QWidget | None = None,
         *,
+        status_controller: TranslationStatusController | None = None,
         language: AppLanguage = AppLanguage.RU,
     ) -> None:
         super().__init__(parent)
         self.controller = controller
+        self.status_controller = status_controller or TranslationStatusController(
+            controller.session
+        )
+        if self.status_controller.session is not controller.session:
+            raise ValueError("Контроллеры готовности и статусов должны использовать одну сессию")
         self.language = language
         self._last_summary: TranslationReadinessSummary | None = None
 
@@ -193,6 +206,8 @@ class TranslationReadinessDialog(QDialog):
 
         self.include_reviewed_checkbox = QCheckBox(self)
         self.refresh_button = QPushButton(self)
+        self.review_button = QPushButton(self)
+        self.review_button.setEnabled(False)
         self.readiness_label = QLabel(self)
         self.summary_label = QLabel(self)
         self.message_label = QLabel(self)
@@ -233,12 +248,18 @@ class TranslationReadinessDialog(QDialog):
         layout.addWidget(self.summary_label)
         layout.addWidget(self.message_label)
         layout.addWidget(self.table, 1)
-        layout.addWidget(buttons)
+        footer = QHBoxLayout()
+        footer.addWidget(self.review_button)
+        footer.addStretch(1)
+        footer.addWidget(buttons)
+        layout.addLayout(footer)
 
         self.depth_filter_checkbox.toggled.connect(self._sync_depth_controls)
         self.target_language_combo.currentIndexChanged.connect(self.refresh)
         self.include_reviewed_checkbox.toggled.connect(self.refresh)
         self.refresh_button.clicked.connect(self.refresh)
+        self.review_button.clicked.connect(self.review_selected)
+        self.table.itemSelectionChanged.connect(self._sync_review_action)
         self.top_depth_spin.editingFinished.connect(self._refresh_if_depth_enabled)
         self.bottom_depth_spin.editingFinished.connect(self._refresh_if_depth_enabled)
 
@@ -269,6 +290,7 @@ class TranslationReadinessDialog(QDialog):
         self.bottom_depth_label.setText(texts["bottom_depth"])
         self.include_reviewed_checkbox.setText(texts["include_reviewed"])
         self.refresh_button.setText(texts["refresh"])
+        self.review_button.setText(texts["review_selected"])
         self.close_button.setText(texts["close"])
         self.table.setHorizontalHeaderLabels(
             [
@@ -313,6 +335,7 @@ class TranslationReadinessDialog(QDialog):
             return
         self._last_summary = summary
         self._populate(summary)
+        self._sync_review_action()
 
     def _populate(self, summary: TranslationReadinessSummary) -> None:
         texts = _TEXTS[self.language]
@@ -347,6 +370,38 @@ class TranslationReadinessDialog(QDialog):
         self.table.resizeColumnsToContents()
         header = self.table.horizontalHeader()
         header.setStretchLastSection(True)
+        self.table.clearSelection()
+
+    def review_selected(self) -> None:
+        item = self._selected_item()
+        if item is None or item.state is not TranslationState.DRAFT:
+            self._sync_review_action()
+            return
+        self._clear_message()
+        try:
+            self.status_controller.review_current(
+                field_id=item.field.field_id,
+                language=item.language,
+            )
+        except (RuntimeError, ValueError) as exc:
+            self.message_label.setText(str(exc))
+            self.message_label.setVisible(True)
+            self._sync_review_action()
+            return
+        self.refresh()
+
+    def _selected_item(self) -> TranslationReadinessItem | None:
+        summary = self._last_summary
+        row = self.table.currentRow()
+        if summary is None or row < 0 or row >= len(summary.items):
+            return None
+        return summary.items[row]
+
+    def _sync_review_action(self) -> None:
+        item = self._selected_item()
+        self.review_button.setEnabled(
+            item is not None and item.state is TranslationState.DRAFT
+        )
 
     @staticmethod
     def _interval_text(field: object, texts: dict[str, str]) -> str:
@@ -369,6 +424,7 @@ class TranslationReadinessDialog(QDialog):
     def _show_error(self, text: str) -> None:
         self._last_summary = None
         self.table.setRowCount(0)
+        self.review_button.setEnabled(False)
         self.readiness_label.clear()
         self.summary_label.clear()
         self.message_label.setText(text)

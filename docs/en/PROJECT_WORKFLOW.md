@@ -244,7 +244,9 @@ an already implemented feature.
 **Translation readiness (WELL-04).** Each language field has missing, draft, reviewed, or stale
 status. A translation retains its dependency on the original text revision. Editing the original
 marks dependent translations for review without deleting them. New depths do not invalidate
-translations in unrelated existing intervals.
+translations in unrelated existing intervals. In **Translation readiness**, select a current draft
+and explicitly mark it reviewed. Missing or stale translations cannot be approved: correct the
+text or its dependencies first, then refresh the readiness check.
 
 **Linked forms (WELL-05).** One form has portrait and landscape layouts. The header, paper, and
 tablet share one orientation; language controls captions and prepared text. Custom captions are

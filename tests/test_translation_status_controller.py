@@ -256,3 +256,50 @@ def test_controller_readiness_uses_current_source_language_without_mutation() ->
     assert controller.status(FIELD_ID, "kk") == saved_status
     assert well.content_revision == revision
     assert controller.session.dirty is dirty
+
+
+def test_review_current_uses_only_relevant_current_revisions() -> None:
+    controller = _controller()
+    well = controller.session.current_well
+    assert well is not None
+    well.authored_field_revisions[FIELD_ID] = 4
+    well.authored_field_revisions["interval-1/depth"] = 2
+    well.authored_field_revisions["unrelated/revision"] = 99
+    well.authored_field_source_languages[FIELD_ID] = "ru"
+    controller.begin_draft(
+        field_id=FIELD_ID,
+        language="kk",
+        source_language="ru",
+        source_revision=4,
+        dependency_revisions={"interval-1/depth": 2},
+    )
+
+    reviewed = controller.review_current(field_id=FIELD_ID, language="kk")
+
+    assert reviewed.state is TranslationState.REVIEWED
+    assert reviewed.dependency_revisions == {"interval-1/depth": 2}
+
+
+def test_review_current_rejects_changed_dependency_without_mutation() -> None:
+    controller = _controller()
+    well = controller.session.current_well
+    assert well is not None
+    well.authored_field_revisions[FIELD_ID] = 4
+    well.authored_field_revisions["interval-1/depth"] = 2
+    well.authored_field_source_languages[FIELD_ID] = "ru"
+    draft = controller.begin_draft(
+        field_id=FIELD_ID,
+        language="en",
+        source_language="ru",
+        source_revision=4,
+        dependency_revisions={"interval-1/depth": 2},
+    )
+    well.authored_field_revisions["interval-1/depth"] = 3
+    revision = well.content_revision
+
+    with pytest.raises(TranslationStatusError, match="Зависимые данные изменились"):
+        controller.review_current(field_id=FIELD_ID, language="en")
+
+    assert controller.status(FIELD_ID, "en") == draft
+    assert well.content_revision == revision
+

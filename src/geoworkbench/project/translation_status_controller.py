@@ -171,6 +171,35 @@ class TranslationStatusController:
         assert status is not None
         return status
 
+    def review_current(
+        self,
+        *,
+        field_id: str,
+        language: object,
+    ) -> TranslationStatus:
+        """Review one translation against the current well revision snapshot."""
+
+        well = self._require_well()
+        normalized_field_id = self._field_id(field_id)
+        language_code = normalize_content_language(language)
+        current = well.translation_statuses.get(normalized_field_id, {}).get(language_code)
+        dependency_revisions = (
+            {
+                dependency: well.authored_field_revisions.get(dependency, 0)
+                for dependency in current.dependency_revisions
+            }
+            if current is not None
+            else {}
+        )
+        return self.review(
+            field_id=normalized_field_id,
+            language=language_code,
+            current_source_revision=well.authored_field_revisions.get(
+                normalized_field_id, 0
+            ),
+            current_dependency_revisions=dependency_revisions,
+        )
+
     def invalidate_changed_revisions(
         self,
         *,
