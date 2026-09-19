@@ -131,3 +131,23 @@ def test_snapshot_binding_rejects_mismatched_save_revision() -> None:
 
     with pytest.raises(DocumentBundleSnapshotError, match="does not match"):
         DocumentBundleSnapshotController(controller).capture(_request())
+
+def test_snapshot_binding_revalidates_same_persisted_source() -> None:
+    controller = _controller()
+    service = DocumentBundleSnapshotController(controller)
+    snapshot = service.capture(_request())
+
+    service.assert_source_current(snapshot)
+
+
+def test_snapshot_binding_rejects_changed_source_on_reuse() -> None:
+    controller = _controller()
+    service = DocumentBundleSnapshotController(controller)
+    snapshot = service.capture(_request())
+    assert controller.disk_state is not None
+    controller.file_safety = StaticProjectFileSafety(
+        replace(controller.disk_state, bundle_sha256="e" * 64)
+    )  # type: ignore[assignment]
+
+    with pytest.raises(DocumentBundleSnapshotError, match="changed after"):
+        service.assert_source_current(snapshot)
