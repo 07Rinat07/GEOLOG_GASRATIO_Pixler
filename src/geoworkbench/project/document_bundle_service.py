@@ -13,6 +13,9 @@ from geoworkbench.project.document_bundle_orchestrator import (
     DocumentBundleOrchestrator,
     DocumentBundleRun,
 )
+from geoworkbench.project.document_bundle_preflight import (
+    DocumentBundlePreflightReport,
+)
 from geoworkbench.project.document_bundle_snapshot import (
     DocumentBundleSnapshotBinding,
 )
@@ -26,6 +29,23 @@ from geoworkbench.project.masterlog_bundle_exporter import (
 
 class DocumentBundleServiceError(RuntimeError):
     """Raised when a bundle request cannot be wired to supported exporters."""
+
+
+class DocumentBundlePreflightFailed(DocumentBundleServiceError):
+    """Raised before output execution when persisted preflight is not ready."""
+
+    def __init__(self, report: DocumentBundlePreflightReport) -> None:
+        self.report = report
+        codes = ", ".join(issue.code for issue in report.blocking_issues)
+        super().__init__(f"Document bundle preflight failed: {codes}")
+
+
+class DocumentBundlePreflightGate(Protocol):
+    def evaluate(
+        self,
+        snapshot: DocumentBundleSnapshotBinding,
+    ) -> DocumentBundlePreflightReport:
+        """Validate the persisted snapshot before any exporter is invoked."""
 
 
 class DocumentBundleSnapshotGateway(Protocol):
@@ -91,12 +111,16 @@ class DocumentBundleApplicationService:
 
     snapshot_gateway: DocumentBundleSnapshotGateway
     exporter_factory: DocumentBundleExporterFactory
+    preflight: DocumentBundlePreflightGate
 
     def execute(
         self,
         request: DocumentBundleRequest,
     ) -> DocumentBundleRun:
         snapshot = self.snapshot_gateway.capture(request)
+        report = self.preflight.evaluate(snapshot)
+        if not report.is_ready:
+            raise DocumentBundlePreflightFailed(report)
         exporters = self.exporter_factory.build(snapshot)
         orchestrator = DocumentBundleOrchestrator(
             exporters=exporters,
@@ -108,6 +132,9 @@ class DocumentBundleApplicationService:
         self,
         previous: DocumentBundleRun,
     ) -> DocumentBundleRun:
+        report = self.preflight.evaluate(previous.snapshot)
+        if not report.is_ready:
+            raise DocumentBundlePreflightFailed(report)
         exporters = self.exporter_factory.build(previous.snapshot)
         orchestrator = DocumentBundleOrchestrator(
             exporters=exporters,
