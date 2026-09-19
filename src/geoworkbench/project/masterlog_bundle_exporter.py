@@ -56,7 +56,7 @@ class MasterlogPdfRenderer(Protocol):
         overwrite: bool,
         settings: MasterlogOutputSettings,
         passport: ReportPassport,
-    ) -> tuple[Path, Path]:
+    ) -> Path:
         """Render one Masterlog PDF using the existing renderer boundary."""
 
 
@@ -123,7 +123,7 @@ class MasterlogPdfBundleExporter:
         snapshot: DocumentBundleSnapshotBinding,
         session: ProjectSession,
         artifact: DocumentBundleArtifactSpec,
-    ) -> Path:
+    ) -> tuple[Path, Path]:
         if artifact.exporter_kind != "masterlog":
             raise MasterlogBundleExportError(
                 f"Artifact {artifact.artifact_id} is not a Masterlog output"
