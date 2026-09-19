@@ -578,6 +578,11 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
   динамически запрещает landscape для roll-форм, валидирует интервал до accept и помещается в
   текущую availableGeometry при Windows HiDPI. Сам диалог не выполняет export и возвращает только
   типизированный selection для application boundary.
+  Семнадцатый инкремент добавляет Qt-независимый command-controller между MainWindow и runtime:
+  он разрешает текущие well/dataset/options и printable depth range, требует clean verified saved
+  project и существующий non-symlink output directory, затем передаёт typed selection в production
+  runtime. Project/application слой не импортирует UI-типы; MainWindow остаётся адаптером ввода/
+  отображения, а snapshot/preflight/export/manifest правила сохраняются в нижележащих boundaries.
 
 Отдельные будущие возможности — подготовка машинного перевода с проверкой геологом и совместное
 редактирование — не входят в первый цикл WELL-01…06 и не являются его скрытыми зависимостями.
