@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- WELL-06: добавлен Strategy-based orchestrator комплекта: все outputs используют один snapshot binding, частичные ошибки фиксируются отдельно, а retry повторяет только failed outputs той же ревизии.
 - WELL-06: запрос комплекта теперь может быть привязан только к проверенной сохранённой ревизии; binding фиксирует save/content revisions и SHA-256 persisted проекта и fail-closed отклоняет dirty/external-change/mismatched state.
 - WELL-06: добавлен чистый immutable-контракт запроса комплекта документов с fail-closed валидацией скважины, результатов, диапазона, RU/KK/EN, portrait/landscape и явной политики черновиков.
 
