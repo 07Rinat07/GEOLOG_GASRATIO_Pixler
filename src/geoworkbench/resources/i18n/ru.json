@@ -2367,6 +2367,8 @@
   "daily_las_growth.numerical_no_changes": "Выбранных изменений нет. Проект не изменён.",
   "daily_las_growth.numerical_persist_failed": "Изменения LAS применены в памяти, но не записаны в файл проекта.\n\n{reason}",
   "daily_las_growth.geology_success": "Добавлено геологических интервалов: литология — {lithology}, шлам — {cuttings}.",
+  "document_bundle.action": "Подготовить комплект документов...",
+  "document_bundle.retry_failed": "Повторить неудачные документы",
   "document_bundle.title": "Подготовить комплект документов",
   "document_bundle.description": "Выберите формы, диапазон, языки и ориентации. Выпуск выполняется из одной сохранённой ревизии проекта.",
   "document_bundle.outputs": "Документы",
@@ -2389,5 +2391,12 @@
   "document_bundle.select_orientation": "Выберите хотя бы одну ориентацию.",
   "document_bundle.invalid_interval": "Нижняя глубина должна быть больше верхней.",
   "document_bundle.roll_portrait_only": "Выбранная рулонная форма поддерживает только книжную ориентацию.",
-  "document_bundle.ready": "Параметры готовы к проверке и выпуску."
+  "document_bundle.ready": "Параметры готовы к проверке и выпуску.",
+  "document_bundle.output_directory_title": "Выберите папку для комплекта документов",
+  "document_bundle.failed": "Не удалось подготовить комплект документов:\n{error}",
+  "document_bundle.complete": "Комплект документов подготовлен.\n\nФайлов: {files}\nМанифест: {manifest}",
+  "document_bundle.partial": "Комплект подготовлен частично.\n\nФайлов: {files}\nНе выполнены результаты: {failed}\nМанифест: {manifest}",
+  "document_bundle.status_complete": "Комплект документов подготовлен: файлов — {files}.",
+  "document_bundle.status_partial": "Комплект документов подготовлен частично: не выполнено — {failed}.",
+  "document_bundle.retry_not_required": "Нет неудачных результатов для повторного выпуска."
 }

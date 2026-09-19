@@ -150,6 +150,13 @@ from geoworkbench.project.las_range_editor import LasRangeEditingController
 from geoworkbench.project.dataset_export_controller import DatasetExportController
 from geoworkbench.project.dataset_merge_controller import DatasetMergeController
 from geoworkbench.project.derived_dataset_controller import DerivedDatasetController
+from geoworkbench.project.document_bundle_command import (
+    DocumentBundleCommandController,
+    DocumentBundleCommandError,
+)
+from geoworkbench.project.document_bundle_recording_service import (
+    RecordedDocumentBundleExecution,
+)
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
 from geoworkbench.project.logo_catalog_controller import LogoCatalogController
 from geoworkbench.project.session import ProjectSession
@@ -308,6 +315,7 @@ from geoworkbench.ui.las_editor_dialog import LasEditorDialog, LasEditorOperatio
 from geoworkbench.ui.las_curve_browser import LasCurveBrowser
 from geoworkbench.ui.print_center_dialog import PrintCenterDialog
 from geoworkbench.ui.print_page_dialog import PrintPageDialog
+from geoworkbench.ui.document_bundle_selection_dialog import DocumentBundleSelectionDialog
 from geoworkbench.ui.masterlog_templates_dialog import MasterlogTemplatesDialog
 from geoworkbench.ui.header_catalog_dialog import HeaderCatalogDialog
 from geoworkbench.ui.logo_catalog_dialog import LogoCatalogDialog
@@ -660,6 +668,7 @@ class MainWindow(QMainWindow):
         self.print_page_settings = self.user_profile_settings.print_page_settings()
         self.print_export_preferences = self.user_profile_settings.print_export_preferences()
         self._active_print_status_dialog: PrintJobStatusDialog | None = None
+        self._last_document_bundle_execution: RecordedDocumentBundleExecution | None = None
         self.cursor_line_settings = self.user_profile_settings.cursor_line_settings()
         self.setWindowIcon(application_icon())
         self.setWindowTitle(f"GEOLOG GASRATIO@Pixler {__version__}")
@@ -1505,6 +1514,22 @@ class MainWindow(QMainWindow):
         templates_action = self._localized_action("masterlog_templates.action")
         templates_action.triggered.connect(self.show_masterlog_templates)
         print_menu.addAction(templates_action)
+        self.document_bundle_action = self._localized_action("document_bundle.action")
+        self.document_bundle_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)
+        )
+        self.document_bundle_action.triggered.connect(self.prepare_document_bundle)
+        file_menu.addAction(self.document_bundle_action)
+        print_menu.addAction(self.document_bundle_action)
+        self.retry_document_bundle_action = self._localized_action(
+            "document_bundle.retry_failed"
+        )
+        self.retry_document_bundle_action.setEnabled(False)
+        self.retry_document_bundle_action.triggered.connect(
+            self.retry_document_bundle_failed_outputs
+        )
+        file_menu.addAction(self.retry_document_bundle_action)
+        print_menu.addAction(self.retry_document_bundle_action)
         passport_action = QAction(
             {
                 AppLanguage.RU: "Паспорт скважины…",
@@ -3769,6 +3794,7 @@ class MainWindow(QMainWindow):
             return
 
         self._bind_project_session()
+        self._remember_document_bundle_execution(None)
         well = self.session.current_well
         saved_layout = self.session.current_tablet_layout
         annotation_scope_migration_required = bool(
@@ -5097,6 +5123,147 @@ class MainWindow(QMainWindow):
         self.tablet_view.set_cuttings(well.cuttings if well is not None else [])
         self.tablet_view.set_stratigraphy(well.stratigraphy if well is not None else [])
         self._update_title()
+
+    def prepare_document_bundle(self) -> None:
+        command = DocumentBundleCommandController(self.project_controller)
+        try:
+            context = command.context()
+        except DocumentBundleCommandError as exc:
+            QMessageBox.information(self, self._t("document_bundle.title"), str(exc))
+            return
+
+        dialog = DocumentBundleSelectionDialog(
+            context.options,
+            language=self.language,
+            available_depth_range=context.available_depth_range,
+            parent=self,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        selection = dialog.selection()
+
+        default_directory = self._document_bundle_default_directory()
+        directory = QFileDialog.getExistingDirectory(
+            self,
+            self._t("document_bundle.output_directory_title"),
+            str(default_directory),
+            QFileDialog.Option.ShowDirsOnly,
+        )
+        if not directory:
+            return
+
+        try:
+            execution = command.execute(
+                selected_outputs=selection.outputs,
+                languages=selection.languages,
+                orientations=selection.orientations,
+                scope_kind=selection.scope_kind,
+                top_depth=selection.top_depth,
+                bottom_depth=selection.bottom_depth,
+                allow_drafts=selection.allow_drafts,
+                output_directory=Path(directory),
+            )
+        except DocumentBundleCommandError as exc:
+            QMessageBox.warning(
+                self,
+                self._t("document_bundle.title"),
+                self._t("document_bundle.failed", error=str(exc)),
+            )
+            return
+        except Exception as exc:
+            log_exception("document_bundle.failed", exc, destination=directory)
+            QMessageBox.critical(
+                self,
+                self._t("document_bundle.title"),
+                self._t("document_bundle.failed", error=str(exc)),
+            )
+            return
+
+        self._present_document_bundle_execution(execution)
+
+    def retry_document_bundle_failed_outputs(self) -> None:
+        previous = self._last_document_bundle_execution
+        if previous is None or previous.run.is_complete:
+            self._remember_document_bundle_execution(None)
+            QMessageBox.information(
+                self,
+                self._t("document_bundle.title"),
+                self._t("document_bundle.retry_not_required"),
+            )
+            return
+
+        command = DocumentBundleCommandController(self.project_controller)
+        try:
+            execution = command.retry_failed(previous)
+        except DocumentBundleCommandError as exc:
+            QMessageBox.warning(
+                self,
+                self._t("document_bundle.title"),
+                self._t("document_bundle.failed", error=str(exc)),
+            )
+            return
+        except Exception as exc:
+            log_exception(
+                "document_bundle.retry_failed",
+                exc,
+                manifest=previous.manifest_path,
+            )
+            QMessageBox.critical(
+                self,
+                self._t("document_bundle.title"),
+                self._t("document_bundle.failed", error=str(exc)),
+            )
+            return
+
+        self._present_document_bundle_execution(execution)
+
+    def _present_document_bundle_execution(
+        self,
+        execution: RecordedDocumentBundleExecution,
+    ) -> None:
+        produced_files = sum(len(result.paths) for result in execution.run.results)
+        failed_outputs = execution.run.failed_output_ids
+        if failed_outputs:
+            message = self._t(
+                "document_bundle.partial",
+                files=produced_files,
+                failed=", ".join(failed_outputs),
+                manifest=execution.manifest_path,
+            )
+            status_message = self._t(
+                "document_bundle.status_partial",
+                failed=len(failed_outputs),
+            )
+        else:
+            message = self._t(
+                "document_bundle.complete",
+                files=produced_files,
+                manifest=execution.manifest_path,
+            )
+            status_message = self._t(
+                "document_bundle.status_complete",
+                files=produced_files,
+            )
+        QMessageBox.information(self, self._t("document_bundle.title"), message)
+        self.statusBar().showMessage(status_message, 7000)
+        self._remember_document_bundle_execution(execution)
+
+    def _remember_document_bundle_execution(
+        self,
+        execution: RecordedDocumentBundleExecution | None,
+    ) -> None:
+        self._last_document_bundle_execution = (
+            execution if execution is not None and not execution.run.is_complete else None
+        )
+        self.retry_document_bundle_action.setEnabled(
+            self._last_document_bundle_execution is not None
+        )
+
+    def _document_bundle_default_directory(self) -> Path:
+        if self.project_controller.project_path is not None:
+            return self.project_controller.project_path.parent
+        desktop = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DesktopLocation)
+        return Path(desktop or Path.home())
 
     def show_well_passport(self) -> None:
         from geoworkbench.ui.well_passport_dialog import WellPassportDialog
@@ -8678,6 +8845,7 @@ class MainWindow(QMainWindow):
             )
             return None
         self.tablet_view.clear_curve_pencil_unsaved()
+        self._remember_document_bundle_execution(None)
         self._update_title()
         self._log(f"Проект сохранён: {saved_path}")
         self._show_project_recovery_warnings()
@@ -8714,6 +8882,7 @@ class MainWindow(QMainWindow):
             )
             return None
         self.tablet_view.clear_curve_pencil_unsaved()
+        self._remember_document_bundle_execution(None)
         self._update_title()
         self._log(f"Проект сохранён: {saved_path}")
         self._show_project_recovery_warnings()

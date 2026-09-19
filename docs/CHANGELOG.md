@@ -4,6 +4,13 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- WELL-06: команда «Подготовить комплект документов» подключена к MainWindow через тонкий UI-
+  адаптер: пункт меню открывает RU/KK/EN selection dialog, выбирает существующую папку выдачи,
+  запускает command-controller и показывает complete/partial manifest summary без прямой
+  зависимости окна от snapshot/exporter/runtime слоёв.
+- WELL-06: MainWindow получил отдельную команду повтора неудачных документов; она активируется
+  только после partial run и через command-controller повторяет failed outputs той же snapshot-
+  ревизии, перезаписывая тот же manifest без нового capture проекта.
 - WELL-06: добавлен Qt-независимый command-controller: current well/dataset/options/depth-range, clean verified saved-project guard и безопасный output-directory guard собраны перед вызовом production runtime без зависимости application слоя от UI.
 - WELL-06: добавлен адаптивный RU/KK/EN диалог «Подготовить комплект документов» с выбором saved outputs, scope, языков, orientation и draft policy; roll-формы блокируют landscape до запуска, а окно проходит laptop/HiDPI containment.
 - WELL-06: добавлен production Composition Root, который собирает selection → snapshot → shared verified reader → preflight → exporter factory → application service → signed manifest поверх одного ProjectFileSafetyService.

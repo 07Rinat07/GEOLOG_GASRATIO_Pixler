@@ -2367,6 +2367,8 @@
   "daily_las_growth.numerical_no_changes": "Таңдалған өзгерістер жоқ. Жоба өзгерген жоқ.",
   "daily_las_growth.numerical_persist_failed": "LAS өзгерістері жадта қолданылды, бірақ жоба файлына жазылмады.\n\n{reason}",
   "daily_las_growth.geology_success": "Геологиялық аралықтар қосылды: литология — {lithology}, шлам — {cuttings}.",
+  "document_bundle.action": "Құжаттар жинағын дайындау...",
+  "document_bundle.retry_failed": "Орындалмаған құжаттарды қайталау",
   "document_bundle.title": "Құжаттар жинағын дайындау",
   "document_bundle.description": "Пішіндерді, аралықты, тілдерді және бағдарларды таңдаңыз. Шығару жобаның бір сақталған ревизиясынан орындалады.",
   "document_bundle.outputs": "Құжаттар",
@@ -2389,5 +2391,12 @@
   "document_bundle.select_orientation": "Кемінде бір бағдарды таңдаңыз.",
   "document_bundle.invalid_interval": "Төменгі тереңдік жоғарғы тереңдіктен үлкен болуы керек.",
   "document_bundle.roll_portrait_only": "Таңдалған рулондық пішін тек кітаптық бағдарды қолдайды.",
-  "document_bundle.ready": "Параметрлер тексеруге және шығаруға дайын."
+  "document_bundle.ready": "Параметрлер тексеруге және шығаруға дайын.",
+  "document_bundle.output_directory_title": "Құжаттар жинағы сақталатын буманы таңдаңыз",
+  "document_bundle.failed": "Құжаттар жинағын дайындау мүмкін болмады:\n{error}",
+  "document_bundle.complete": "Құжаттар жинағы дайындалды.\n\nФайлдар: {files}\nМанифест: {manifest}",
+  "document_bundle.partial": "Құжаттар жинағы ішінара дайындалды.\n\nФайлдар: {files}\nОрындалмаған нәтижелер: {failed}\nМанифест: {manifest}",
+  "document_bundle.status_complete": "Құжаттар жинағы дайындалды: файлдар — {files}.",
+  "document_bundle.status_partial": "Құжаттар жинағы ішінара дайындалды: орындалмағаны — {failed}.",
+  "document_bundle.retry_not_required": "Қайталап шығарылатын орындалмаған нәтижелер жоқ."
 }
