@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- WELL-06: application service получил recording Decorator: каждый run атомарно записывает signed bundle manifest, а retry обновляет тот же snapshot manifest без recapture и смены save/content revisions.
 - WELL-06: добавлен signed bundle manifest с complete/partial status, snapshot/save/content revisions и SHA-256 всех output artifacts; symlink/outside-root/duplicate paths отклоняются fail-closed.
 - WELL-06: добавлен единый application service `request → verified snapshot → exporter factory → orchestrator`; retry не recapture-ит проект и продолжает ту же ревизию.
 - WELL-06: Masterlog PDF artifacts теперь выпускаются через штатный Report Passport transaction; sidecar фиксирует bundle snapshot/save/content revisions, project SHA-256, artifact ID, язык/ориентацию и fingerprints финальных файлов.
