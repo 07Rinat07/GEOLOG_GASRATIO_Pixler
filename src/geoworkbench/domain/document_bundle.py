@@ -16,6 +16,16 @@ class DocumentBundleScopeKind(StrEnum):
     INTERVAL = "interval"
 
 
+class DocumentBundleOutputFormat(StrEnum):
+    PDF = "pdf"
+    DOCX = "docx"
+    XLSX = "xlsx"
+    HTML = "html"
+    CSV = "csv"
+    TXT = "txt"
+    PNG = "png"
+
+
 _SUPPORTED_LANGUAGES = frozenset({"ru", "kk", "en"})
 _SUPPORTED_ORIENTATIONS = frozenset({"portrait", "landscape"})
 
@@ -33,6 +43,49 @@ def _normalized_unique_values(
     if len(set(normalized)) != len(normalized):
         raise DocumentBundleContractError(f"{field_name} must not contain duplicates")
     return normalized
+
+
+@dataclass(frozen=True, slots=True)
+class DocumentBundleOutputSpec:
+    """Immutable renderer/source/file selection for one logical bundle output."""
+
+    output_id: str
+    exporter_kind: str
+    source_id: str
+    file_format: DocumentBundleOutputFormat
+    target_name: str
+    dataset_id: str | None = None
+
+    def __post_init__(self) -> None:
+        for value, field_name in (
+            (self.output_id, "output_id"),
+            (self.exporter_kind, "exporter_kind"),
+            (self.source_id, "source_id"),
+            (self.target_name, "target_name"),
+        ):
+            if not value.strip():
+                raise DocumentBundleContractError(f"{field_name} must not be blank")
+
+        if self.dataset_id is not None and not self.dataset_id.strip():
+            raise DocumentBundleContractError("dataset_id must be null or non-blank")
+
+        target = self.target_name.strip()
+        if target in {".", ".."} or "/" in target or "\\" in target:
+            raise DocumentBundleContractError(
+                "target_name must be a single safe file name"
+            )
+        expected_suffix = f".{self.file_format.value}"
+        if not target.casefold().endswith(expected_suffix):
+            raise DocumentBundleContractError(
+                f"target_name must end with {expected_suffix}"
+            )
+
+        object.__setattr__(self, "output_id", self.output_id.strip())
+        object.__setattr__(self, "exporter_kind", self.exporter_kind.strip())
+        object.__setattr__(self, "source_id", self.source_id.strip())
+        object.__setattr__(self, "target_name", target)
+        if self.dataset_id is not None:
+            object.__setattr__(self, "dataset_id", self.dataset_id.strip())
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,6 +124,7 @@ class DocumentBundleRequest:
     orientations: tuple[str, ...]
     scope: DocumentBundleScope
     allow_drafts: bool = False
+    output_specs: tuple[DocumentBundleOutputSpec, ...] = ()
 
     def __post_init__(self) -> None:
         well_id = self.well_id.strip()
@@ -108,3 +162,17 @@ class DocumentBundleRequest:
         object.__setattr__(self, "output_ids", output_ids)
         object.__setattr__(self, "languages", languages)
         object.__setattr__(self, "orientations", orientations)
+
+        if self.output_specs:
+            if not all(
+                isinstance(spec, DocumentBundleOutputSpec)
+                for spec in self.output_specs
+            ):
+                raise DocumentBundleContractError(
+                    "output_specs must contain DocumentBundleOutputSpec values"
+                )
+            spec_ids = tuple(spec.output_id for spec in self.output_specs)
+            if spec_ids != output_ids:
+                raise DocumentBundleContractError(
+                    "output_specs must match output_ids exactly and in order"
+                )
