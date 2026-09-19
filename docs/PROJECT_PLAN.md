@@ -567,6 +567,11 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
   safe target names и поддерживаемые orientation, а затем формирует immutable request из выбранных
   outputs, RU/KK/EN, scope и draft policy. Roll-форма не позволяет выбрать landscape уже на
   уровне selection; чужой dataset и пустой набор outputs отклоняются до snapshot capture.
+  Пятнадцатый инкремент добавляет production Composition Root: selection, snapshot capture,
+  verified snapshot reader, Masterlog/translation preflight, exporter factory, application service
+  и manifest recording собираются поверх одного ProjectFileSafetyService. Проверка и фактический
+  export поэтому читают один verified storage boundary; controller без файловой safety-семантики
+  fail-closed не получает production bundle runtime.
 
 Отдельные будущие возможности — подготовка машинного перевода с проверкой геологом и совместное
 редактирование — не входят в первый цикл WELL-01…06 и не являются его скрытыми зависимостями.
