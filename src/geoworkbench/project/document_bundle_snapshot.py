@@ -29,29 +29,29 @@ class DocumentBundleSnapshotBinding:
     bundle_sha256: str
 
     def __post_init__(self) -> None:
-        for value, field_name in (
+        for text_value, field_name in (
             (self.snapshot_id, "snapshot_id"),
             (self.project_id, "project_id"),
             (self.storage_kind, "storage_kind"),
         ):
-            if not isinstance(value, str) or not value.strip():
+            if not text_value.strip():
                 raise DocumentBundleSnapshotError(f"{field_name} must not be blank")
 
         if not isinstance(self.project_path, Path):
             raise DocumentBundleSnapshotError("project_path must be a pathlib.Path")
 
-        for value, field_name in (
+        for revision_value, field_name in (
             (self.save_revision, "save_revision"),
             (self.well_content_revision, "well_content_revision"),
         ):
-            if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+            if isinstance(revision_value, bool) or revision_value < 1:
                 raise DocumentBundleSnapshotError(f"{field_name} must be a positive integer")
 
-        for value, field_name in (
+        for digest_value, field_name in (
             (self.path_id, "path_id"),
             (self.bundle_sha256, "bundle_sha256"),
         ):
-            if not re.fullmatch(r"[0-9a-f]{64}", value):
+            if not re.fullmatch(r"[0-9a-f]{64}", digest_value):
                 raise DocumentBundleSnapshotError(
                     f"{field_name} must be a lowercase SHA-256 digest"
                 )
