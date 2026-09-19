@@ -572,6 +572,12 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
   и manifest recording собираются поверх одного ProjectFileSafetyService. Проверка и фактический
   export поэтому читают один verified storage boundary; controller без файловой safety-семантики
   fail-closed не получает production bundle runtime.
+  Шестнадцатый инкремент добавляет адаптивный RU/KK/EN Qt-диалог команды «Подготовить комплект
+  документов»: пользователь выбирает сохранённые формы, whole/new-section/custom scope, языки,
+  portrait/landscape и явную draft policy. Диалог использует output options selection-controller,
+  динамически запрещает landscape для roll-форм, валидирует интервал до accept и помещается в
+  текущую availableGeometry при Windows HiDPI. Сам диалог не выполняет export и возвращает только
+  типизированный selection для application boundary.
 
 Отдельные будущие возможности — подготовка машинного перевода с проверкой геологом и совместное
 редактирование — не входят в первый цикл WELL-01…06 и не являются его скрытыми зависимостями.
