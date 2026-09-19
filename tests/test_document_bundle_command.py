@@ -22,9 +22,6 @@ from geoworkbench.project.document_bundle_command import (
     DocumentBundleCommandError,
 )
 from geoworkbench.project.session import ProjectSession
-from geoworkbench.ui.document_bundle_selection_dialog import (
-    DocumentBundleDialogSelection,
-)
 
 
 def _project_controller(tmp_path: Path) -> ProjectController:
@@ -104,18 +101,17 @@ def test_execute_rejects_dirty_project_before_runtime_creation(tmp_path: Path) -
     command = DocumentBundleCommandController(controller)
     context = command.context()
     controller.session.dirty = True
-    selection = DocumentBundleDialogSelection(
-        outputs=(context.options[0],),
-        languages=("ru",),
-        orientations=("portrait",),
-        scope_kind=DocumentBundleScopeKind.WHOLE_WELL,
-        top_depth=None,
-        bottom_depth=None,
-        allow_drafts=False,
-    )
-
     with pytest.raises(DocumentBundleCommandError) as error:
-        command.execute(selection, output_directory=tmp_path)
+        command.execute(
+            selected_outputs=(context.options[0],),
+            languages=("ru",),
+            orientations=("portrait",),
+            scope_kind=DocumentBundleScopeKind.WHOLE_WELL,
+            top_depth=None,
+            bottom_depth=None,
+            allow_drafts=False,
+            output_directory=tmp_path,
+        )
 
     assert error.value.code == "save_required"
 
@@ -124,17 +120,16 @@ def test_execute_rejects_unverified_unsaved_project(tmp_path: Path) -> None:
     controller = _project_controller(tmp_path)
     command = DocumentBundleCommandController(controller)
     context = command.context()
-    selection = DocumentBundleDialogSelection(
-        outputs=(context.options[0],),
-        languages=("ru",),
-        orientations=("portrait",),
-        scope_kind=DocumentBundleScopeKind.WHOLE_WELL,
-        top_depth=None,
-        bottom_depth=None,
-        allow_drafts=False,
-    )
-
     with pytest.raises(DocumentBundleCommandError) as error:
-        command.execute(selection, output_directory=tmp_path)
+        command.execute(
+            selected_outputs=(context.options[0],),
+            languages=("ru",),
+            orientations=("portrait",),
+            scope_kind=DocumentBundleScopeKind.WHOLE_WELL,
+            top_depth=None,
+            bottom_depth=None,
+            allow_drafts=False,
+            output_directory=tmp_path,
+        )
 
     assert error.value.code == "save_required"
