@@ -544,6 +544,11 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
   artifact внутри output root получает relative path, размер и SHA-256. Manifest фиксирует
   snapshot/save/content revisions, project bundle SHA-256, scope, language/orientation и bound
   output specs, имеет собственный SHA-256 и не позволяет partial run считаться complete.
+  Одиннадцатый инкремент связывает manifest с application service через Decorator:
+  каждый новый run после export автоматически получает signed manifest, а retry failed outputs
+  перезаписывает тот же snapshot manifest атомарно и без нового capture. Snapshot ID, save/content
+  revisions и project bundle SHA-256 обязаны оставаться неизменными между partial и complete;
+  смена snapshot при retry отклоняется fail-closed.
 
 Отдельные будущие возможности — подготовка машинного перевода с проверкой геологом и совместное
 редактирование — не входят в первый цикл WELL-01…06 и не являются его скрытыми зависимостями.
