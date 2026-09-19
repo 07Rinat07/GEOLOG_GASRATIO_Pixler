@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Protocol
 
 from geoworkbench.domain.translation_readiness import TranslationReadinessQuery
 from geoworkbench.domain.translation_status import TranslationState
@@ -12,14 +13,22 @@ from geoworkbench.project.document_bundle_snapshot import (
     DocumentBundleSnapshotBinding,
 )
 from geoworkbench.project.document_bundle_snapshot_reader import (
-    DocumentBundleSnapshotReader,
+    LoadedDocumentBundleSnapshot,
 )
 from geoworkbench.project.translation_field_catalog import WellTranslationFieldCatalog
 
 
+class BundleSnapshotLoader(Protocol):
+    def load(
+        self,
+        binding: DocumentBundleSnapshotBinding,
+    ) -> LoadedDocumentBundleSnapshot:
+        """Load the verified persisted project revision."""
+
+
 @dataclass(slots=True)
 class DocumentBundleTranslationPreflightValidator:
-    snapshot_reader: DocumentBundleSnapshotReader
+    snapshot_reader: BundleSnapshotLoader
 
     def validate(
         self,
