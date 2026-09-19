@@ -31,6 +31,10 @@ from geoworkbench.project.masterlog_bundle_exporter import (
     MasterlogBundleExportError,
     MasterlogPdfBundleExporter,
 )
+from geoworkbench.services.report_passport import (
+    ReportPassport,
+    passport_sidecar_path,
+)
 from geoworkbench.storage.project_codec import ProjectDocument
 
 
@@ -49,7 +53,7 @@ class StaticSnapshotLoader:
 
 @dataclass
 class RecordingRenderer:
-    calls: list[tuple[MasterlogTemplate, Path, float, float, str]]
+    calls: list[tuple[MasterlogTemplate, Path, float, float, str, ReportPassport]]
 
     def __call__(
         self,
@@ -59,10 +63,13 @@ class RecordingRenderer:
         *,
         overwrite: bool,
         settings,
+        passport: ReportPassport,
     ) -> Path:
         assert overwrite is False
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(b"%PDF-test")
+        sidecar = passport_sidecar_path(target)
+        sidecar.write_text(passport.canonical_json(), encoding="utf-8")
         self.calls.append(
             (
                 template,
@@ -70,6 +77,7 @@ class RecordingRenderer:
                 settings.depth_top,
                 settings.depth_bottom,
                 settings.language.value,
+                passport,
             )
         )
         return target
@@ -164,12 +172,25 @@ def test_masterlog_bundle_exporter_reuses_existing_renderer_on_saved_snapshot(
     paths = exporter.export(binding)
 
     assert loader.calls == 1
-    assert paths == (tmp_path / "bundle" / "masterlog.pdf",)
-    assert paths[0].read_bytes() == b"%PDF-test"
+    pdf = tmp_path / "bundle" / "masterlog.pdf"
+    sidecar = passport_sidecar_path(pdf)
+    assert paths == (pdf, sidecar)
+    assert pdf.read_bytes() == b"%PDF-test"
+    assert sidecar.is_file()
     assert len(renderer.calls) == 1
-    template, target, top, bottom, language = renderer.calls[0]
-    assert target == paths[0]
+    template, target, top, bottom, language, passport = renderer.calls[0]
+    assert target == pdf
     assert (top, bottom, language) == (1000.0, 1100.0, "ru")
+    assert passport.verify() is True
+    assert passport.project_id == "project-1"
+    assert passport.well_id == "well-1"
+    assert passport.dataset_id == "dataset-1"
+    options = dict(passport.render.options)
+    assert options["bundle_snapshot_id"] == binding.snapshot_id
+    assert options["project_save_revision"] == "4"
+    assert options["well_content_revision"] == "9"
+    assert options["project_bundle_sha256"] == "b" * 64
+    assert options["artifact_id"] == "masterlog:ru:portrait"
     assert template.properties["orientation"] == "portrait"
     assert loaded.document.project.masterlog_templates["template-1"].properties == {}
 
@@ -196,7 +217,7 @@ def test_masterlog_bundle_exporter_uses_bound_interval_and_orientation(
 
     exporter.export(binding)
 
-    template, _target, top, bottom, _language = renderer.calls[0]
+    template, _target, top, bottom, _language, _passport = renderer.calls[0]
     assert (top, bottom) == (1020.0, 1080.0)
     assert template.properties["orientation"] == "landscape"
 
