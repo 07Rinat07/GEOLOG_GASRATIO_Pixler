@@ -102,6 +102,7 @@ def _snapshot(
     file_format: DocumentBundleOutputFormat = DocumentBundleOutputFormat.PDF,
     dataset_id: str | None = "dataset-1",
     template_page_format: str = "A4",
+    allow_drafts: bool = False,
 ) -> tuple[DocumentBundleSnapshotBinding, LoadedDocumentBundleSnapshot]:
     output = DocumentBundleOutputSpec(
         output_id="masterlog",
@@ -117,6 +118,7 @@ def _snapshot(
         languages=("ru",),
         orientations=(orientation,),
         scope=scope or DocumentBundleScope(DocumentBundleScopeKind.WHOLE_WELL),
+        allow_drafts=allow_drafts,
         output_specs=(output,),
     )
     binding = DocumentBundleSnapshotBinding(
@@ -272,3 +274,34 @@ def test_masterlog_bundle_exporter_rejects_incompatible_bound_spec(
 
     with pytest.raises(MasterlogBundleExportError, match=message):
         exporter.export(binding)
+
+def test_masterlog_bundle_exporter_adds_visible_localized_draft_mark(
+    tmp_path: Path,
+) -> None:
+    binding, loaded = _snapshot(
+        tmp_path,
+        allow_drafts=True,
+    )
+    renderer = RecordingRenderer([])
+    exporter = MasterlogPdfBundleExporter(
+        output_id="masterlog",
+        output_directory=tmp_path,
+        snapshot_loader=StaticSnapshotLoader(loaded),
+        renderer=renderer,
+    )
+
+    exporter.export(binding)
+
+    template, _target, _top, _bottom, _language, passport = renderer.calls[0]
+    marks = [
+        element
+        for element in template.header_elements
+        if element.element_id == "well-06-draft-translation-mark"
+    ]
+    assert len(marks) == 1
+    assert marks[0].properties["text"] == "ЧЕРНОВИК — ПЕРЕВОД НЕ ПРОВЕРЕН"
+    assert template.header_height_mm == 52.0
+    assert loaded.document.project.masterlog_templates["template-1"].header_elements == []
+    assert loaded.document.project.masterlog_templates["template-1"].header_height_mm == 45.0
+    options = dict(passport.render.options)
+    assert options["draft_translation_mark"] == "required"
