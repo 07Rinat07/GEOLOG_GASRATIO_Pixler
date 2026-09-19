@@ -539,6 +539,11 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
   выполняет outputs, а retry использует тот же snapshot без повторного capture. Unsupported kind
   и неподдерживаемый формат отклоняются factory до запуска output; это становится стабильной
   точкой входа для последующего UI/API слоя.
+  Десятый инкремент добавляет детерминированный bundle manifest без wall-clock timestamp:
+  complete/partial status строится из результата orchestrator, а каждый созданный regular-file
+  artifact внутри output root получает relative path, размер и SHA-256. Manifest фиксирует
+  snapshot/save/content revisions, project bundle SHA-256, scope, language/orientation и bound
+  output specs, имеет собственный SHA-256 и не позволяет partial run считаться complete.
 
 Отдельные будущие возможности — подготовка машинного перевода с проверкой геологом и совместное
 редактирование — не входят в первый цикл WELL-01…06 и не являются его скрытыми зависимостями.
