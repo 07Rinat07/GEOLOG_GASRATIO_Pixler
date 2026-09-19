@@ -107,16 +107,7 @@ class DocumentBundleCommandController:
                 "A verified saved project is required before preparing a document bundle",
             )
 
-        output_root = Path(output_directory)
-        if (
-            not output_root.exists()
-            or not output_root.is_dir()
-            or output_root.is_symlink()
-        ):
-            raise DocumentBundleCommandError(
-                "output_directory",
-                "Select an existing output directory",
-            )
+        output_root = self._require_output_root(output_directory)
 
         runtime = build_document_bundle_runtime(
             self.project_controller,
@@ -134,6 +125,36 @@ class DocumentBundleCommandController:
             allow_drafts=allow_drafts,
         )
         return runtime.service.execute(request)
+
+    def retry_failed(
+        self,
+        previous: RecordedDocumentBundleExecution,
+    ) -> RecordedDocumentBundleExecution:
+        if previous.run.is_complete:
+            raise DocumentBundleCommandError(
+                "retry_not_required",
+                "The document bundle is already complete",
+            )
+        output_root = self._require_output_root(previous.manifest_path.parent)
+        runtime = build_document_bundle_runtime(
+            self.project_controller,
+            output_directory=output_root,
+        )
+        return runtime.service.retry_failed(previous)
+
+    @staticmethod
+    def _require_output_root(output_directory: Path) -> Path:
+        output_root = Path(output_directory)
+        if (
+            not output_root.exists()
+            or not output_root.is_dir()
+            or output_root.is_symlink()
+        ):
+            raise DocumentBundleCommandError(
+                "output_directory",
+                "Select an existing output directory",
+            )
+        return output_root
 
 
 def _dataset_depth_range(values: object) -> tuple[float, float] | None:

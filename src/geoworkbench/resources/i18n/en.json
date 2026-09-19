@@ -2367,6 +2367,8 @@
   "daily_las_growth.numerical_no_changes": "No selected changes. The project is unchanged.",
   "daily_las_growth.numerical_persist_failed": "The LAS changes were applied in memory but were not written to the project file.\n\n{reason}",
   "daily_las_growth.geology_success": "Geological intervals added: {lithology} lithology, {cuttings} cuttings.",
+  "document_bundle.action": "Prepare document bundle...",
+  "document_bundle.retry_failed": "Retry failed documents",
   "document_bundle.title": "Prepare document bundle",
   "document_bundle.description": "Select forms, range, languages, and orientations. The bundle is produced from one saved project revision.",
   "document_bundle.outputs": "Documents",
@@ -2389,5 +2391,12 @@
   "document_bundle.select_orientation": "Select at least one orientation.",
   "document_bundle.invalid_interval": "Bottom depth must be greater than top depth.",
   "document_bundle.roll_portrait_only": "The selected roll form supports portrait orientation only.",
-  "document_bundle.ready": "Parameters are ready for validation and export."
+  "document_bundle.ready": "Parameters are ready for validation and export.",
+  "document_bundle.output_directory_title": "Select document bundle output folder",
+  "document_bundle.failed": "Could not prepare the document bundle:\n{error}",
+  "document_bundle.complete": "Document bundle prepared.\n\nFiles: {files}\nManifest: {manifest}",
+  "document_bundle.partial": "Document bundle prepared partially.\n\nFiles: {files}\nFailed outputs: {failed}\nManifest: {manifest}",
+  "document_bundle.status_complete": "Document bundle prepared: {files} files.",
+  "document_bundle.status_partial": "Document bundle prepared partially: {failed} failed.",
+  "document_bundle.retry_not_required": "There are no failed outputs to retry."
 }

@@ -583,6 +583,12 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
   project и существующий non-symlink output directory, затем передаёт typed selection в production
   runtime. Project/application слой не импортирует UI-типы; MainWindow остаётся адаптером ввода/
   отображения, а snapshot/preflight/export/manifest правила сохраняются в нижележащих boundaries.
+  Семнадцатый инкремент подключён к MainWindow: пункт меню открывает адаптивный selection dialog,
+  выбирает существующую папку выдачи, запускает command-controller и показывает complete/partial
+  manifest summary без прямого импорта snapshot/exporter/runtime деталей в оконный слой.
+  Частичный выпуск оставляет в MainWindow ссылку на последнюю recorded execution и включает
+  отдельную команду повтора: она повторяет только failed outputs той же snapshot-ревизии через
+  command-controller, а complete/no-op состояние отключает retry и не создаёт новый capture.
 
 Отдельные будущие возможности — подготовка машинного перевода с проверкой геологом и совместное
 редактирование — не входят в первый цикл WELL-01…06 и не являются его скрытыми зависимостями.
