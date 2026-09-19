@@ -14,9 +14,15 @@ from geoworkbench.domain.document_bundle import (
     DocumentBundleScopeKind,
 )
 from geoworkbench.project.document_bundle_orchestrator import DocumentBundleExporter
+from geoworkbench.project.document_bundle_preflight import (
+    DocumentBundlePreflightIssue,
+    DocumentBundlePreflightReport,
+    DocumentBundlePreflightCategory,
+)
 from geoworkbench.project.document_bundle_service import (
     DocumentBundleApplicationService,
     DocumentBundleExporterFactory,
+    DocumentBundlePreflightFailed,
     DocumentBundleServiceError,
 )
 from geoworkbench.project.document_bundle_snapshot import (
@@ -25,6 +31,26 @@ from geoworkbench.project.document_bundle_snapshot import (
 
 
 @dataclass
+@dataclass
+class StaticPreflight:
+    report: DocumentBundlePreflightReport
+    calls: int = 0
+
+    def evaluate(
+        self,
+        snapshot: DocumentBundleSnapshotBinding,
+    ) -> DocumentBundlePreflightReport:
+        assert self.report.snapshot_id == snapshot.snapshot_id
+        self.calls += 1
+        return self.report
+
+
+def _ready_preflight(snapshot: DocumentBundleSnapshotBinding) -> StaticPreflight:
+    return StaticPreflight(
+        DocumentBundlePreflightReport(snapshot_id=snapshot.snapshot_id, issues=())
+    )
+
+
 class RecordingSnapshotGateway:
     snapshot: DocumentBundleSnapshotBinding
     captures: int = 0
@@ -118,7 +144,8 @@ def test_application_service_captures_once_and_executes_exporters(
     gateway = RecordingSnapshotGateway(snapshot)
     exporter = FakeExporter("masterlog", tmp_path)
     factory = StaticFactory({"masterlog": exporter})
-    service = DocumentBundleApplicationService(gateway, factory)
+    preflight = _ready_preflight(snapshot)
+    service = DocumentBundleApplicationService(gateway, factory, preflight)
 
     run = service.execute(snapshot.request)
 
@@ -128,6 +155,7 @@ def test_application_service_captures_once_and_executes_exporters(
     assert gateway.validations == 1
     assert factory.builds == 1
     assert exporter.calls == 1
+    assert preflight.calls == 1
 
 
 def test_application_service_retry_reuses_snapshot_without_recapture(
@@ -150,6 +178,7 @@ def test_application_service_retry_reuses_snapshot_without_recapture(
     assert gateway.validations == 2
     assert factory.builds == 2
     assert exporter.calls == 2
+    assert preflight.calls == 2
 
 
 def test_retry_complete_run_is_idempotent(tmp_path: Path) -> None:
@@ -181,10 +210,41 @@ def test_application_service_uses_factory_validation_before_output_execution(
         ) -> Mapping[str, DocumentBundleExporter]:
             raise DocumentBundleServiceError("unsupported")
 
-    service = DocumentBundleApplicationService(gateway, RejectingFactory())
+    preflight = _ready_preflight(snapshot)
+    service = DocumentBundleApplicationService(gateway, RejectingFactory(), preflight)
 
     with pytest.raises(DocumentBundleServiceError, match="unsupported"):
         service.execute(snapshot.request)
 
     assert gateway.captures == 1
     assert gateway.validations == 0
+
+def test_application_service_blocks_before_factory_when_preflight_fails(
+    tmp_path: Path,
+) -> None:
+    snapshot = _snapshot(tmp_path)
+    gateway = RecordingSnapshotGateway(snapshot)
+    exporter = FakeExporter("masterlog", tmp_path)
+    factory = StaticFactory({"masterlog": exporter})
+    issue = DocumentBundlePreflightIssue(
+        code="masterlog.dependencies_missing",
+        message="Required curve is missing",
+        category=DocumentBundlePreflightCategory.DEPENDENCY,
+        output_id="masterlog",
+    )
+    preflight = StaticPreflight(
+        DocumentBundlePreflightReport(
+            snapshot_id=snapshot.snapshot_id,
+            issues=(issue,),
+        )
+    )
+    service = DocumentBundleApplicationService(gateway, factory, preflight)
+
+    with pytest.raises(DocumentBundlePreflightFailed) as error:
+        service.execute(snapshot.request)
+
+    assert error.value.report.blocking_issues == (issue,)
+    assert gateway.captures == 1
+    assert preflight.calls == 1
+    assert factory.builds == 0
+    assert exporter.calls == 0
