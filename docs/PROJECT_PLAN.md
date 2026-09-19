@@ -518,6 +518,32 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
   Спецификации обязаны точно соответствовать output_ids и их порядку; path traversal и
   несовпадающее расширение отклоняются до запуска. Это делает retry воспроизводимым и не даёт
   сменившейся конфигурации адаптера незаметно изменить параметры той же snapshot-ревизии.
+  Шестой инкремент детерминированно разворачивает каждый logical output в artifact matrix
+  language × orientation. Для единственного режима сохраняется явное имя, для матрицы добавляются
+  стабильные __<lang>_<orientation> суффиксы; artifact IDs и target names обязаны быть уникальны
+  без учёта регистра. Expansion не выполняет I/O и становится единым входом для конкретных
+  exporter-адаптеров.
+  Седьмой инкремент подключает первый реальный exporter adapter для Masterlog PDF. Adapter
+  загружает только verified persisted snapshot, разрешает сохранённые template_id/dataset_id,
+  клонирует форму для выбранной ориентации и вызывает штатный export_masterlog_pdf вместо
+  дублирования renderer. Whole-well диапазон берётся из bound dataset, interval/new-section —
+  из immutable scope; incompatible kind/format, отсутствующие IDs и roll+landscape отклоняются
+  fail-closed до рендера.
+  Восьмой инкремент привязывает каждый Masterlog artifact к существующему Report Passport:
+  паспорт строится из того же persisted session/template/interval и фиксирует bundle snapshot ID,
+  project save revision, well content revision, project bundle SHA-256, logical output/artifact ID,
+  язык, ориентацию и render settings. Штатный masterlog output transaction атомарно финализирует
+  PDF и sidecar с fingerprints; оба файла считаются результатом artifact export.
+  Девятый инкремент добавляет единый application service: validated request один раз захватывает
+  verified snapshot, factory строит только поддерживаемые exporter strategies, orchestrator
+  выполняет outputs, а retry использует тот же snapshot без повторного capture. Unsupported kind
+  и неподдерживаемый формат отклоняются factory до запуска output; это становится стабильной
+  точкой входа для последующего UI/API слоя.
+  Десятый инкремент добавляет детерминированный bundle manifest без wall-clock timestamp:
+  complete/partial status строится из результата orchestrator, а каждый созданный regular-file
+  artifact внутри output root получает relative path, размер и SHA-256. Manifest фиксирует
+  snapshot/save/content revisions, project bundle SHA-256, scope, language/orientation и bound
+  output specs, имеет собственный SHA-256 и не позволяет partial run считаться complete.
 
 Отдельные будущие возможности — подготовка машинного перевода с проверкой геологом и совместное
 редактирование — не входят в первый цикл WELL-01…06 и не являются его скрытыми зависимостями.
