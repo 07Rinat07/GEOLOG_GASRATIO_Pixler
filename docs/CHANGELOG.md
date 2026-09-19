@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- WELL-06: добавлен адаптивный RU/KK/EN диалог «Подготовить комплект документов» с выбором saved outputs, scope, языков, orientation и draft policy; roll-формы блокируют landscape до запуска, а окно проходит laptop/HiDPI containment.
 - WELL-06: добавлен production Composition Root, который собирает selection → snapshot → shared verified reader → preflight → exporter factory → application service → signed manifest поверх одного ProjectFileSafetyService.
 - WELL-06: добавлен Qt-независимый selection controller команды комплекта: каталог сохранённых Masterlog-форм, safe stable target names, dataset binding, допустимые orientation и сборка immutable request для whole/new-section/interval.
 - WELL-06: application service теперь fail-closed запускает persisted preflight до exporter factory; draft Masterlog получает отдельную видимую RU/KK/EN полосу о непроверенном переводе и соответствующую отметку Report Passport без мутации сохранённого шаблона.
