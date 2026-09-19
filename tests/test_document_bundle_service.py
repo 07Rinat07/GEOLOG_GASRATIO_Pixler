@@ -31,7 +31,6 @@ from geoworkbench.project.document_bundle_snapshot import (
 
 
 @dataclass
-@dataclass
 class StaticPreflight:
     report: DocumentBundlePreflightReport
     calls: int = 0
@@ -51,6 +50,7 @@ def _ready_preflight(snapshot: DocumentBundleSnapshotBinding) -> StaticPreflight
     )
 
 
+@dataclass
 class RecordingSnapshotGateway:
     snapshot: DocumentBundleSnapshotBinding
     captures: int = 0
@@ -165,7 +165,8 @@ def test_application_service_retry_reuses_snapshot_without_recapture(
     gateway = RecordingSnapshotGateway(snapshot)
     exporter = FakeExporter("masterlog", tmp_path, fail=True)
     factory = StaticFactory({"masterlog": exporter})
-    service = DocumentBundleApplicationService(gateway, factory)
+    preflight = _ready_preflight(snapshot)
+    service = DocumentBundleApplicationService(gateway, factory, preflight)
 
     first = service.execute(snapshot.request)
     exporter.fail = False
@@ -186,7 +187,8 @@ def test_retry_complete_run_is_idempotent(tmp_path: Path) -> None:
     gateway = RecordingSnapshotGateway(snapshot)
     exporter = FakeExporter("masterlog", tmp_path)
     factory = StaticFactory({"masterlog": exporter})
-    service = DocumentBundleApplicationService(gateway, factory)
+    preflight = _ready_preflight(snapshot)
+    service = DocumentBundleApplicationService(gateway, factory, preflight)
     complete = service.execute(snapshot.request)
 
     retried = service.retry_failed(complete)
@@ -194,6 +196,7 @@ def test_retry_complete_run_is_idempotent(tmp_path: Path) -> None:
     assert retried is complete
     assert exporter.calls == 1
     assert gateway.captures == 1
+    assert preflight.calls == 2
 
 
 def test_application_service_uses_factory_validation_before_output_execution(
@@ -218,6 +221,8 @@ def test_application_service_uses_factory_validation_before_output_execution(
 
     assert gateway.captures == 1
     assert gateway.validations == 0
+    assert preflight.calls == 1
+
 
 def test_application_service_blocks_before_factory_when_preflight_fails(
     tmp_path: Path,
