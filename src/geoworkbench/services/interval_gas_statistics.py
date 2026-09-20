@@ -13,6 +13,7 @@ from geoworkbench.services.hydrocarbon_interpretation_modes import (
     HydrocarbonInterpretationReport,
 )
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.parameter_labels import localized_curve_name
 from geoworkbench.services.las_parameter_resolver import concentration_scale_to_percent
 
 
@@ -212,16 +213,20 @@ def interval_gas_summary(
     labels = _labels(language)
     parts: list[str] = []
     if statistics.raw_total is not None:
-        parts.append(_curve_summary(statistics.raw_total, labels["raw"], labels))
+        parts.append(
+            _curve_summary(statistics.raw_total, labels["raw"], labels, language)
+        )
     if statistics.primary is not None:
-        parts.append(_curve_summary(statistics.primary, labels["normalized"], labels))
+        parts.append(
+            _curve_summary(statistics.primary, labels["normalized"], labels, language)
+        )
     if statistics.components:
         parts.append(
             f"{labels['absolute']}: "
             + absolute_gas_components_summary(statistics.components, language)
         )
     if statistics.dexp is not None and statistics.dexp.has_values:
-        parts.append(_stat_triplet(statistics.dexp, labels))
+        parts.append(_stat_triplet(statistics.dexp, labels, language))
     return ". ".join(parts) + ("." if parts else "")
 
 
@@ -233,7 +238,7 @@ def absolute_gas_components_summary(
     if not items:
         return labels["no_data"]
     ordered = sorted(items, key=lambda item: _component_sort_key(_component_name(item.mnemonic)))
-    return "; ".join(_stat_triplet(item, labels) for item in ordered)
+    return "; ".join(_stat_triplet(item, labels, language) for item in ordered)
 
 
 def interval_gas_table_html(
@@ -247,8 +252,8 @@ def interval_gas_table_html(
     rows = "".join(
         "<tr>"
         f"<td>{candidate.top_depth:.2f}-{candidate.bottom_depth:.2f} {escape(report.depth_unit)}</td>"
-        f"<td>{_curve_html(item.raw_total, labels)}</td>"
-        f"<td>{_curve_html(item.primary, labels)}</td>"
+        f"<td>{_curve_html(item.raw_total, labels, language)}</td>"
+        f"<td>{_curve_html(item.primary, labels, language)}</td>"
         f"<td>{escape(absolute_gas_components_summary(item.components, language))}</td>"
         f"<td>{escape(_dexp_text(item.dexp, labels))}</td>"
         "</tr>"
@@ -277,7 +282,7 @@ def _curve_stats(
     if curve is None:
         return None
     return _stats_from_values(
-        curve.metadata.original_mnemonic,
+        curve.metadata.canonical_mnemonic or curve.metadata.original_mnemonic,
         curve.metadata.unit or "",
         np.asarray(curve.values, dtype=np.float64),
         depth,
@@ -345,19 +350,26 @@ def _curve_summary(
     item: IntervalCurveStatistics,
     label: str,
     labels: dict[str, str],
+    language: AppLanguage,
 ) -> str:
     unit = f" [{item.unit}]" if item.unit else ""
+    name = _display_parameter_name(item.mnemonic, language)
     if not item.has_values:
-        return f"{label} {item.mnemonic}{unit}: {labels['no_data']}"
-    return f"{label} {item.mnemonic}{unit}: {_statistics_text(item, labels)}"
+        return f"{label} {name}{unit}: {labels['no_data']}"
+    return f"{label} {name}{unit}: {_statistics_text(item, labels)}"
 
 
-def _curve_html(item: IntervalCurveStatistics | None, labels: dict[str, str]) -> str:
+def _curve_html(
+    item: IntervalCurveStatistics | None,
+    labels: dict[str, str],
+    language: AppLanguage,
+) -> str:
     if item is None or not item.has_values:
         return "-"
     unit = f" {escape(item.unit)}" if item.unit else ""
+    name = _display_parameter_name(item.mnemonic, language)
     return (
-        f"<b>{escape(item.mnemonic)}</b>{unit}<br>"
+        f"<b>{escape(name)}</b>{unit}<br>"
         f"{escape(_statistics_text(item, labels))}"
     )
 
@@ -386,9 +398,21 @@ def _statistics_text(item: IntervalCurveStatistics, labels: dict[str, str]) -> s
     )
 
 
-def _stat_triplet(item: IntervalCurveStatistics, labels: dict[str, str]) -> str:
+def _stat_triplet(
+    item: IntervalCurveStatistics,
+    labels: dict[str, str],
+    language: AppLanguage,
+) -> str:
     unit = f" [{item.unit}]" if item.unit else ""
-    return f"{_component_name(item.mnemonic)}{unit}: {_statistics_text(item, labels)}"
+    name = _display_parameter_name(_component_name(item.mnemonic), language)
+    return f"{name}{unit}: {_statistics_text(item, labels)}"
+
+
+def _display_parameter_name(mnemonic: str, language: AppLanguage) -> str:
+    readable = localized_curve_name(mnemonic, language=language)
+    if not readable or readable.casefold() == mnemonic.casefold():
+        return mnemonic
+    return f"{readable} ({mnemonic})"
 
 
 def _component_name(mnemonic: str) -> str:
