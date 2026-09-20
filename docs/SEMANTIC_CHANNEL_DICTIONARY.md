@@ -28,7 +28,9 @@ CSV/TXT — номера и исходного header столбца; GeoScape/P
 и mapped mnemonic, а raw numeric time дополнительно получает явный projection marker. WITS0
 Import Review фиксирует record/item/source-id и automatic/reviewed mapping state. Общий WITSML
 Import Review фиксирует channel position/key/uuid и automatic/reviewed/commit mapping state.
-Эти признаки сохраняются в binding evidence.
+Общий post-import Import Review фиксирует curve id и inspection/reviewed state; manual override
+объединяет исходное importer evidence с новым review evidence вместо его потери. Эти признаки
+сохраняются в binding evidence.
 
 ## Снимок привязки кривой
 

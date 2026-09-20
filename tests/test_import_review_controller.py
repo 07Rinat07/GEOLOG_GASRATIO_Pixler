@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -34,6 +35,7 @@ def _dataset() -> Dataset:
     )
     dictionary = SemanticChannelDictionary()
     rop = dictionary.resolve("ROP", unit="m/h")
+    rop = replace(rop, evidence=(*rop.evidence, "fixture_source=unit-test"))
     pressure = dictionary.resolve("SPP", unit="psi")
     dataset.curves = {
         "rop": CurveData(
@@ -115,11 +117,32 @@ def test_commit_applies_overrides_to_copy_and_keeps_source_untouched() -> None:
     assert curve.metadata.semantic is not None
     assert curve.metadata.semantic.canonical_kind == "drilling.rop_manual"
     assert curve.metadata.semantic.matched_by == "manual_import_review"
+    assert "fixture_source=unit-test" in curve.metadata.semantic.evidence
+    assert "import_review_curve_id=rop" in curve.metadata.semantic.evidence
+    assert "import_review_mapping=reviewed" in curve.metadata.semantic.evidence
+    assert any(
+        item.startswith("catalog_version=sensors-v1:")
+        for item in curve.metadata.semantic.evidence
+    )
     assert committed.dataset.parameters["IMPORT_REVIEW_ACCEPTED"] == "true"
     assert dataset.active_index.mnemonic == "DEPT"
     assert dataset.curves["rop"].values[1] == -999.25
     assert set(dataset.curves) == {"rop", "spp"}
     assert dataset.parameters == {}
+
+
+def test_import_review_uses_semantic_context_boundary() -> None:
+    source = Path("src/geoworkbench/services/import_review.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert "dictionary.context(" in source
+    assert source.count("resolve_context(") >= 2
+    assert "self.dictionary.resolve(" not in source
+    assert "resolver.resolve(" not in source
+    assert 'f"import_review_mapping={mapping_state}"' in source
+    assert 'mapping_state="inspection"' in source
+    assert 'mapping_state="reviewed"' in source
 
 
 def test_preview_reports_index_qc_without_mutating_dataset() -> None:

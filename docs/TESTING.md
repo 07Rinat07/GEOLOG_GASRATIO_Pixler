@@ -694,6 +694,16 @@ python -m pytest -q tests/test_witsml_data_arrays.py tests/test_semantic_channel
 Набор проверяет WITSML channel position/key/uuid evidence, automatic/reviewed/commit mapping state,
 catalog version provenance и отсутствие legacy resolver path в общем WITSML Import Review.
 
+Шестой ARCH-04 generic Import Review semantic-context slice:
+
+```bash
+python -m pytest -q tests/test_import_review.py tests/test_import_review_controller.py \
+  tests/test_semantic_channels.py
+```
+
+Набор проверяет read-only inspection, reviewed remapping, сохранение исходного importer evidence
+при manual override, catalog version provenance и отсутствие production legacy resolver path.
+
 ## 15. Каталоги печатных шапок и логотипов
 
 Минимальная доменная и SKF-проверка:
