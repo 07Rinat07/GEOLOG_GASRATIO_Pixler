@@ -60,7 +60,7 @@ def test_unresolved_vendor_channel_is_presented_without_duplicate_technical_text
     assert localized_curve_name("S811") == "Неопределённый канал"
 
 def test_legacy_gas_vendor_codes_use_physical_parameter_names() -> None:
-    assert localized_curve_name("S1601", unit="%") == "Метан"
+    assert localized_curve_name("S1601", unit="%") == "Содержание метана"
     assert localized_curve_name("S1602", unit="%") == "Этан"
     assert localized_curve_name("S1603", unit="%") == "Пропан"
     assert localized_curve_name("S1604", unit="%") == "Бутан"
