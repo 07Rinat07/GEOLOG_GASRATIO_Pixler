@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- ARCH-04: ETP 1.2 Import Review переведён на `SemanticContext`; binding фиксирует channel URI/id и automatic/reviewed/commit mapping state.
 - ARCH-04: общий post-import Import Review переведён на `SemanticContext`; manual override сохраняет исходное semantic provenance и добавляет curve/review evidence.
 - ARCH-04: общий WITSML Import Review переведён на `SemanticContext`; binding фиксирует channel position/key/uuid и automatic/reviewed/commit mapping state.
 - ARCH-04: WITS0 Import Review переведён на `SemanticContext`; binding фиксирует record/item/source-id, automatic/reviewed mapping state и catalog version.
