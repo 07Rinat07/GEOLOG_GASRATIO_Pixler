@@ -108,7 +108,9 @@ automatic/reviewed/commit mapping state и catalog version evidence. Шесто�
 общий post-import `ImportReviewController`: legacy inspection и reviewed remapping используют
 тот же context boundary, а manual override сохраняет исходное importer evidence. Седьмой slice
 переводит ETP 1.2 Import Review: channel URI/id и automatic/reviewed/commit mapping state
-становятся version-pinned semantic evidence.
+становятся version-pinned semantic evidence. Финальный production-wide AST/source-contract
+запрещает legacy `SemanticChannelDictionary.resolve()` у production consumers; метод остаётся
+только compatibility shim внутри semantic dictionary.
 
 ## Источник, рабочая модель и экспорт
 
