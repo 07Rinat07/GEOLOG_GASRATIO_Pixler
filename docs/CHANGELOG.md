@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- ARCH-05: recursive AST/import-contract закрепляет `domain` и `calculations` как Qt-независимые слои и запрещает зависимости на PySide/PyQt, PyQtGraph/qtpy, UI и printing.
 - ARCH-04: финальный production-wide AST/source-contract запрещает legacy `SemanticChannelDictionary.resolve()` у production consumers; compatibility shim сохранён только внутри semantic dictionary.
 - ARCH-04: ETP 1.2 Import Review переведён на `SemanticContext`; binding фиксирует channel URI/id и automatic/reviewed/commit mapping state.
 - ARCH-04: общий post-import Import Review переведён на `SemanticContext`; manual override сохраняет исходное semantic provenance и добавляет curve/review evidence.
