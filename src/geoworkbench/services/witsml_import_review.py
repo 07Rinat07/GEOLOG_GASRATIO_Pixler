@@ -5,7 +5,7 @@ from enum import StrEnum
 from hashlib import sha256
 import json
 from math import isfinite
-from typing import TypeGuard
+from typing import Literal, TypeGuard
 
 import numpy as np
 
@@ -661,7 +661,7 @@ def _semantic_context(
     channel: WitsmlChannelSpec,
     *,
     canonical_mnemonic: str | None = None,
-    mapping_state: str,
+    mapping_state: Literal["automatic", "reviewed", "commit"],
 ) -> SemanticContext:
     evidence = [
         f"witsml_channel_position={channel.position}",
