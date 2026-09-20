@@ -25,9 +25,62 @@ from geoworkbench.services.lag_correction import (
 )
 
 
+class LagCorrectionSourceDatasetMissingError(LookupError):
+    """Raised when a derived lag-correction dataset lost its source dataset."""
+
+    def __init__(self, source_dataset_id: str) -> None:
+        self.source_dataset_id = source_dataset_id
+        super().__init__(f"Lag-correction source dataset is missing: {source_dataset_id}")
+
+
+@dataclass(frozen=True, slots=True)
+class LagCorrectionDialogSelection:
+    """Selection state required while the lag-correction dialog is open."""
+
+    dataset: Dataset
+    restore_dataset_id: str | None = None
+
+
 @dataclass(slots=True)
 class LagCorrectionProjectController:
     session: ProjectSession
+
+    def prepare_dialog_selection(self) -> LagCorrectionDialogSelection:
+        """Select the source dataset when the dialog is opened from a projection."""
+
+        well = self._well()
+        dataset = self.session.current_dataset
+        if dataset is None:
+            raise RuntimeError("Сначала выберите source dataset")
+
+        source_dataset_id = dataset.headers.get("LAG_SOURCE_DATASET_ID")
+        if not source_dataset_id:
+            return LagCorrectionDialogSelection(dataset=dataset)
+
+        source = well.datasets.get(source_dataset_id)
+        if source is None:
+            raise LagCorrectionSourceDatasetMissingError(source_dataset_id)
+
+        self.session.current_dataset_id = source.dataset_id
+        return LagCorrectionDialogSelection(
+            dataset=source,
+            restore_dataset_id=dataset.dataset_id,
+        )
+
+    def restore_dialog_selection(self, selection: LagCorrectionDialogSelection) -> None:
+        """Restore the projection only if the dialog did not select another dataset."""
+
+        restore_dataset_id = selection.restore_dataset_id
+        if restore_dataset_id is None:
+            return
+        well = self.session.current_well
+        if well is None:
+            return
+        if (
+            self.session.current_dataset_id == selection.dataset.dataset_id
+            and restore_dataset_id in well.datasets
+        ):
+            self.session.current_dataset_id = restore_dataset_id
 
     def create_profile(
         self,

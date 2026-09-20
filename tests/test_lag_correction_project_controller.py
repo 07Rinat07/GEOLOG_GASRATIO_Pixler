@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from geoworkbench.domain.lag_correction import (
     ConstantTimeLagParameters,
@@ -19,7 +20,10 @@ from geoworkbench.domain.models import (
     TimeDepthAggregationPolicy,
     Well,
 )
-from geoworkbench.project.lag_correction_controller import LagCorrectionProjectController
+from geoworkbench.project.lag_correction_controller import (
+    LagCorrectionProjectController,
+    LagCorrectionSourceDatasetMissingError,
+)
 from geoworkbench.project.session import ProjectSession
 
 
@@ -92,3 +96,75 @@ def test_project_controller_marks_dirty_and_selects_projection() -> None:
 
     controller.activate_revision(profile.profile_id, 1, expected_active_revision=2)
     assert session.current_well.lag_correction_profiles[profile.profile_id].active_revision == 1
+
+
+def _projection_dataset(
+    dataset_id: str,
+    *,
+    source_dataset_id: str,
+) -> Dataset:
+    dataset = Dataset(
+        dataset_id,
+        dataset_id.title(),
+        DatasetKind.DERIVED,
+        DepthDomain.MD,
+        np.array([10.0, 20.0, 30.0]),
+    )
+    dataset.headers["LAG_SOURCE_DATASET_ID"] = source_dataset_id
+    return dataset
+
+
+def test_dialog_selection_uses_source_and_restores_projection() -> None:
+    session = make_session()
+    well = session.current_well
+    assert well is not None
+    projection = _projection_dataset("projection", source_dataset_id="source")
+    well.datasets[projection.dataset_id] = projection
+    session.current_dataset_id = projection.dataset_id
+    controller = LagCorrectionProjectController(session)
+
+    selection = controller.prepare_dialog_selection()
+
+    assert selection.dataset.dataset_id == "source"
+    assert selection.restore_dataset_id == projection.dataset_id
+    assert session.current_dataset_id == "source"
+
+    controller.restore_dialog_selection(selection)
+
+    assert session.current_dataset_id == projection.dataset_id
+
+
+def test_dialog_selection_does_not_override_a_new_selection() -> None:
+    session = make_session()
+    well = session.current_well
+    assert well is not None
+    projection = _projection_dataset("projection", source_dataset_id="source")
+    other = Dataset(
+        "other",
+        "Other",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([10.0, 20.0, 30.0]),
+    )
+    well.datasets[projection.dataset_id] = projection
+    well.datasets[other.dataset_id] = other
+    session.current_dataset_id = projection.dataset_id
+    controller = LagCorrectionProjectController(session)
+
+    selection = controller.prepare_dialog_selection()
+    session.current_dataset_id = other.dataset_id
+    controller.restore_dialog_selection(selection)
+
+    assert session.current_dataset_id == other.dataset_id
+
+
+def test_dialog_selection_rejects_missing_projection_source() -> None:
+    session = make_session()
+    well = session.current_well
+    assert well is not None
+    projection = _projection_dataset("projection", source_dataset_id="missing-source")
+    well.datasets[projection.dataset_id] = projection
+    session.current_dataset_id = projection.dataset_id
+
+    with pytest.raises(LagCorrectionSourceDatasetMissingError, match="missing-source"):
+        LagCorrectionProjectController(session).prepare_dialog_selection()

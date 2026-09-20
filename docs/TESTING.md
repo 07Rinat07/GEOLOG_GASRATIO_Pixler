@@ -529,6 +529,17 @@ python -m pytest -q tests/test_witsml_import_coordinator.py \
 Набор фиксирует автоматический выбор target well, атомарную регистрацию уже проверенного commit
 и source-contract, запрещающий MainWindow напрямую создавать WITSML project-mutation controller.
 
+Для второго ARCH-02 инкремента:
+
+```bash
+python -m pytest -q tests/test_lag_correction_project_controller.py \
+  tests/test_lag_correction_ui_source.py
+```
+
+Набор проверяет source/projection selection, восстановление исходной projection только при
+неизменённом выборе, typed missing-source failure и отсутствие прямой записи
+`current_dataset_id` из MainWindow.
+
 ## 15. Каталоги печатных шапок и логотипов
 
 Минимальная доменная и SKF-проверка:

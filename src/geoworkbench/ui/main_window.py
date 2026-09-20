@@ -162,7 +162,10 @@ from geoworkbench.project.masterlog_template_controller import MasterlogTemplate
 from geoworkbench.project.logo_catalog_controller import LogoCatalogController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.form_constructor.asset_install import install_symbol_into_project
-from geoworkbench.project.lag_correction_controller import LagCorrectionProjectController
+from geoworkbench.project.lag_correction_controller import (
+    LagCorrectionProjectController,
+    LagCorrectionSourceDatasetMissingError,
+)
 from geoworkbench.project.time_depth_mapping_controller import TimeDepthMappingController
 from geoworkbench.project.time_to_depth_controller import TimeToDepthController
 from geoworkbench.project.witsml_import_coordinator import WitsmlImportCoordinator
@@ -7085,33 +7088,23 @@ class MainWindow(QMainWindow):
                 self, self._t("lag_correction.action"), self._t("formula.select_dataset")
             )
             return
-        original_dataset_id = dataset.dataset_id
-        source_dataset_id = dataset.headers.get("LAG_SOURCE_DATASET_ID")
-        opened_from_projection = bool(source_dataset_id)
-        if source_dataset_id:
-            source = well.datasets.get(source_dataset_id)
-            if source is None:
-                QMessageBox.warning(
-                    self,
-                    self._t("lag_correction.action"),
-                    self._t("lag_correction.source_missing"),
-                )
-                return
-            self.session.current_dataset_id = source.dataset_id
-            dataset = source
+        try:
+            selection = self.lag_correction_controller.prepare_dialog_selection()
+        except LagCorrectionSourceDatasetMissingError:
+            QMessageBox.warning(
+                self,
+                self._t("lag_correction.action"),
+                self._t("lag_correction.source_missing"),
+            )
+            return
         dialog = LagCorrectionDialog(
-            dataset,
+            selection.dataset,
             self.lag_correction_controller,
             self,
             language=self.language,
         )
         dialog.exec()
-        if (
-            opened_from_projection
-            and self.session.current_dataset_id == dataset.dataset_id
-            and original_dataset_id in well.datasets
-        ):
-            self.session.current_dataset_id = original_dataset_id
+        self.lag_correction_controller.restore_dialog_selection(selection)
         self._refresh_tree()
         self._show_current_dataset()
         self._update_title()
