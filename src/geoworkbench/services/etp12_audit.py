@@ -5,9 +5,14 @@ import json
 import os
 from pathlib import Path
 from threading import RLock
+from typing import Protocol
 from urllib.parse import urlsplit, urlunsplit
 
 from geoworkbench.importers.etp12.models import Etp12AuditEvent
+
+
+class Etp12AuditSink(Protocol):
+    def record(self, event: Etp12AuditEvent) -> None: ...
 
 
 class JsonlEtp12AuditSink:
