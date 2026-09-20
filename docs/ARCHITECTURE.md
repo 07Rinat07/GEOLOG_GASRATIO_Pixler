@@ -99,7 +99,9 @@ ARCH-04 начинается с immutable `SemanticContext`: importer перед
 mapped mnemonic, source UOM, canonical hint и mapping evidence вместе с deterministic Sensors
 catalog version. `SemanticChannelDictionary.resolve_context()` проверяет version pin; legacy
 `resolve()` остаётся compatibility shim. Первый production consumer нового boundary — LAS;
-второй slice переводит CSV/TXT import и фиксирует column/header mapping evidence.
+второй slice переводит CSV/TXT import и фиксирует column/header mapping evidence. Третий slice
+переводит GeoScape/Paradox и фиксирует field ordinal/name/type и mapped mnemonic evidence;
+далее boundary распространяется на WITS family.
 
 ## Источник, рабочая модель и экспорт
 
