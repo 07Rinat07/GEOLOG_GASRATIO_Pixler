@@ -1,12 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from geoworkbench.calculations.gas_ratio import (
-    CONDITIONED_GAS_PROVENANCE,
-    calculate_conditioned_ratios,
-)
 from geoworkbench.data.las_import_report import LasImportReport
 from geoworkbench.data.lossless_las import LosslessLasDocument
 from geoworkbench.domain.models import Dataset, Project, Well, new_id
@@ -14,7 +10,6 @@ from geoworkbench.domain.rock_code_profiles import (
     RockCodeProfileRecord,
     RockCodeSourceBindingRecord,
 )
-from geoworkbench.services.las_parameter_resolver import resolve_gas_ratio_inputs
 from geoworkbench.tablet.models import TabletLayout
 
 
@@ -117,40 +112,10 @@ class ProjectSession:
         self.tablet_layouts[self.current_dataset_id] = layout
 
     def calculate_basic_gas_ratios(self) -> list[str]:
-        dataset = self.current_dataset
-        if dataset is None:
-            raise RuntimeError("Сначала откройте LAS-файл")
+        """Compatibility shim for the project-controller calculation boundary."""
 
-        # Resolve by semantic meaning instead of relying on column order or a small
-        # hard-coded list of exact LAS mnemonics. The resolver uses the Sensors catalog,
-        # multilingual descriptions, chemical formulas, units and controlled aliases.
-        inputs = resolve_gas_ratio_inputs(dataset)
-        calculation = calculate_conditioned_ratios(dataset.depth, inputs)
-        created: list[str] = []
-        for result in calculation.curves.values():
-            curve = dataset.upsert_curve(
-                result.mnemonic,
-                result.values,
-                unit=result.unit,
-                description=result.description,
-                provenance=CONDITIONED_GAS_PROVENANCE,
-            )
-            # Dataset.upsert_curve intentionally preserves metadata for generic
-            # edits. A versioned recalculation is different: unit, description
-            # and provenance must follow the active calculation profile even
-            # when the derived curve already existed in an older project.
-            curve.metadata = replace(
-                curve.metadata,
-                unit=result.unit,
-                description=result.description,
-                provenance=CONDITIONED_GAS_PROVENANCE,
-            )
-            created.append(result.mnemonic)
+        from geoworkbench.project.gas_ratio_controller import GasRatioProjectController
 
-        # QC provenance is committed only after every derived curve has been
-        # written successfully. If calculation or curve persistence raises, an
-        # earlier persisted QC summary remains intact instead of describing a
-        # partial/failed recalculation.
-        dataset.gas_conditioning_qc = calculation.conditioned_components.qc_summary
-        self.dirty = True
-        return created
+        outcome = GasRatioProjectController(self).calculate_basic_ratios()
+        return list(outcome.created_mnemonics)
+
