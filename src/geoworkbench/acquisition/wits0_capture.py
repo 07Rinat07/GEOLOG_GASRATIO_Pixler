@@ -12,6 +12,7 @@ import os
 import re
 import socket
 import threading
+import time
 import uuid
 from collections import deque
 from dataclasses import dataclass, field, replace
@@ -581,7 +582,15 @@ class Wits0CaptureEngine:
                 except OSError:
                     pass
         assert self._thread is not None
-        self._thread.join(timeout=max(0.0, timeout))
+        self._wake_server_listener()
+        deadline = time.monotonic() + max(0.0, timeout)
+        while self._thread.is_alive():
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            self._thread.join(timeout=min(0.1, remaining))
+            if self._thread.is_alive():
+                self._wake_server_listener()
         return not self._thread.is_alive()
 
     def snapshot(self) -> Wits0CaptureSnapshot:
@@ -691,6 +700,12 @@ class Wits0CaptureEngine:
                     if self._stop.is_set():
                         break
                     raise
+                if self._stop.is_set():
+                    try:
+                        connection.close()
+                    except OSError:
+                        pass
+                    break
                 peer = f"{address[0]}:{address[1]}"
                 policy = self.config.remote_bind_policy
                 if policy is not None and not policy.allows_peer(address[0]):
@@ -1047,6 +1062,23 @@ class Wits0CaptureEngine:
     def _replace_active_socket(self, value: socket.socket | None) -> None:
         with self._socket_lock:
             self._active_socket = value
+
+    def _wake_server_listener(self) -> None:
+        if self.config.mode is not Wits0ConnectionMode.TCP_SERVER:
+            return
+        host = self.config.host.strip()
+        try:
+            connect_host = "127.0.0.1" if ip_address(host).is_unspecified else host
+        except ValueError:
+            connect_host = host
+        try:
+            with socket.create_connection(
+                (connect_host, self.config.port),
+                timeout=min(max(self.config.socket_timeout_s, 0.05), 0.2),
+            ):
+                pass
+        except OSError:
+            pass
 
     def _check_disk_space(
         self,
