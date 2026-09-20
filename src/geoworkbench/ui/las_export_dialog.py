@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from PySide6.QtCore import QSize
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -12,6 +13,7 @@ from PySide6.QtWidgets import (
 
 from geoworkbench.data.las_export_plan import LasExportPlan, LasExportVersion
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class LasExportPlanDialog(QDialog):
@@ -60,6 +62,12 @@ class LasExportPlanDialog(QDialog):
         buttons.button(QDialogButtonBox.StandardButton.Ok).setText(self._t("common.ok"))
         buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(self._t("common.cancel"))
         layout.addRow(buttons)
+
+        fit_window_to_screen(
+            self,
+            preferred=QSize(560, 360),
+            minimum=QSize(380, 260),
+        )
 
     def _t(self, key: str) -> str:
         return self.localizer.text(key)
