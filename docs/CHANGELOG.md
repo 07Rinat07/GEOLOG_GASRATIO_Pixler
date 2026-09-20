@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- ARCH-04: CSV/TXT import переведён на `SemanticContext`; binding сохраняет column/header mapping evidence.
 - ARCH-04 начат: введён immutable `SemanticContext` с source/mapped mnemonic, source UOM,
   canonical hint, mapping evidence и deterministic Sensors catalog version; LAS переведён на новый boundary.
 - ARCH-03 завершён: final AST/source-contract закрепляет state ownership за

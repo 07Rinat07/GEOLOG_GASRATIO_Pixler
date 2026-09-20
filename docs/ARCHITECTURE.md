@@ -98,7 +98,8 @@ track topology lifecycle — за `TrackLifecycleCoordinator`.
 ARCH-04 начинается с immutable `SemanticContext`: importer передаёт exact source mnemonic,
 mapped mnemonic, source UOM, canonical hint и mapping evidence вместе с deterministic Sensors
 catalog version. `SemanticChannelDictionary.resolve_context()` проверяет version pin; legacy
-`resolve()` остаётся compatibility shim. Первый production consumer нового boundary — LAS.
+`resolve()` остаётся compatibility shim. Первый production consumer нового boundary — LAS;
+второй slice переводит CSV/TXT import и фиксирует column/header mapping evidence.
 
 ## Источник, рабочая модель и экспорт
 

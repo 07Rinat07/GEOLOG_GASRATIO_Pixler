@@ -23,7 +23,8 @@ GeoScape/Paradox. Он не переименовывает исходные да
 `mapped_mnemonic`, исходный UOM, description/canonical hint, importer `mapping_evidence` и
 `catalog_version`. Версия каталога — deterministic fingerprint содержимого Sensors; context от
 другой версии отклоняется вместо скрытого повторного сопоставления. `resolve()` временно остаётся
-совместимым shim и внутри строит тот же `SemanticContext`.
+совместимым shim и внутри строит тот же `SemanticContext`. LAS добавляет evidence позиции curve,
+CSV/TXT — номера и исходного header столбца; эти признаки сохраняются в binding evidence.
 
 ## Снимок привязки кривой
 
