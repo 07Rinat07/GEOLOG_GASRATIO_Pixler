@@ -51,6 +51,20 @@ def test_coordinator_registers_next_commit_into_current_well() -> None:
     }
 
 
+
+def test_coordinator_uses_rebound_project_session() -> None:
+    first_session = ProjectSession()
+    second_session = ProjectSession()
+    coordinator = WitsmlImportCoordinator(first_session)
+    coordinator.session = second_session
+
+    commit = _commit(dataset_id="rebound-dataset")
+    coordinator.register_reviewed_commit(commit)
+
+    assert first_session.project.wells == {}
+    assert second_session.current_dataset is commit.dataset
+    assert second_session.dirty
+
 def test_main_window_does_not_construct_witsml_project_controller_directly() -> None:
     source = Path("src/geoworkbench/ui/main_window.py").read_text(encoding="utf-8")
 
@@ -59,3 +73,4 @@ def test_main_window_does_not_construct_witsml_project_controller_directly() -> 
         "self.witsml_import_coordinator.register_reviewed_commit(commit)"
     ) == 2
     assert "WitsmlProjectImportController(self.session)" not in source
+    assert 'bindings.register(self.witsml_import_coordinator, name="witsml_import")' in source
