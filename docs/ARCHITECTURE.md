@@ -111,6 +111,12 @@ automatic/reviewed/commit mapping state и catalog version evidence. Шесто�
 становятся version-pinned semantic evidence. Финальный production-wide AST/source-contract
 запрещает legacy `SemanticChannelDictionary.resolve()` у production consumers; метод остаётся
 только compatibility shim внутри semantic dictionary.
+ARCH-05 закрепляет нижние вычислительные слои как Qt-независимые: recursive AST/import-contract
+проходит каждый Python-модуль `domain` и `calculations`, нормализует absolute и relative
+imports и запрещает зависимости на PySide/PyQt, PyQtGraph/qtpy, `geoworkbench.ui` и
+`geoworkbench.printing`. Запрет действует независимо от того, находится import на верхнем
+уровне, внутри функции или под `TYPE_CHECKING`; UI/printing остаются внешними adapter/composition
+слоями и могут зависеть от domain/calculations, но не наоборот.
 
 ## Источник, рабочая модель и экспорт
 
