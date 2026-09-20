@@ -468,8 +468,11 @@ class Wits0CaptureDialog(QDialog):
         engine = Wits0CaptureEngine(config, profile=self.profile)
         try:
             engine.start()
-        except RuntimeError as exc:
+        except (OSError, RuntimeError, ValueError) as exc:
             QMessageBox.critical(self, self._t("wits0.title"), str(exc))
+            self.event_text.appendPlainText(
+                self._t("wits0.start_failed_event", error=str(exc))
+            )
             return
         self.engine = engine
         runtime = self.acquisition_runtime
