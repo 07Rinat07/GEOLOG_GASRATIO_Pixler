@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- ARCH-04: WITS0 Import Review переведён на `SemanticContext`; binding фиксирует record/item/source-id, automatic/reviewed mapping state и catalog version.
 - ARCH-04: GeoScape/Paradox import переведён на `SemanticContext`; binding сохраняет field ordinal/name/type и mapped mnemonic evidence, включая raw-time projection.
 - Отчёты: служебная errata исходной книги ОПУС Газомер больше не выводится пользователю в HTML/PDF, DOCX и XLSX; расчётный audit snapshot сохраняется.
 - UI отчётов: на странице интерпретационного отчёта добавлена кнопка «Назад» для возврата к главному экрану и выбора другого отчёта для печати.
