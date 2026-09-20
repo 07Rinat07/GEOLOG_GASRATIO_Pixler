@@ -678,8 +678,11 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
 - [ ] **ARCH-02:** разделить `MainWindow` на feature coordinators; запретить UI прямые записи в
   project collections, Dataset, layout и dirty-state. Первый инкремент переносит WITSML
   registration policy в `WitsmlImportCoordinator`: Qt-shell только выбирает источник,
-  показывает review/status и не создаёт project-mutation controller напрямую. Следующие
-  инкременты должны таким же образом вынести оставшиеся import/edit orchestration paths.
+  показывает review/status и не создаёт project-mutation controller напрямую. Второй инкремент
+  переносит временный source/projection selection lag correction в
+  `LagCorrectionProjectController`; MainWindow больше не пишет `current_dataset_id` в этом
+  workflow. Следующие инкременты должны таким же образом вынести оставшиеся import/edit
+  orchestration paths.
 - [ ] **ARCH-03:** вынести оставшиеся sampling/cache/navigation/track lifecycle/editing state из
   `TabletView` в Qt-независимые компоненты с transition tests.
 - [ ] **ARCH-04:** один immutable `SemanticContext` для всех importers с source mnemonic, UOM,
