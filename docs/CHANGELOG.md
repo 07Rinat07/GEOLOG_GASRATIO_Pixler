@@ -4,6 +4,8 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- ARCH-03 завершён: final AST/source-contract закрепляет state ownership за
+  Qt-независимыми Curve Pencil/navigation/interval/selection/render/lifecycle components.
 - ARCH-03: geometry/static caches, dirty registry и overlay manager объединены под
   Qt-независимым `TabletRenderState`; `TabletView` больше не владеет этими mutable state напрямую.
 - ARCH-03: interpretation/interval selection boundary консолидирован: выбранный interval теперь

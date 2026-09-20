@@ -690,16 +690,15 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
   import на `LateAnalysisCoordinator`, включая source load, reviewed transaction и completion.
   Финальный AST/source-contract проверяет оба MainWindow-слоя и запрещает прямые mutation paths;
   дальнейшая архитектурная работа продолжается с ARCH-03.
-- [ ] **ARCH-03:** вынести оставшиеся sampling/cache/navigation/track lifecycle/editing state из
+- [x] **ARCH-03:** вынести оставшиеся sampling/cache/navigation/track lifecycle/editing state из
   `TabletView` в Qt-независимые компоненты с transition tests. Первый инкремент выносит
-  Curve Pencil editing-session state в `CurvePencilState`, сохраняя Qt hover/preview/rendering
-  в widget. Второй инкремент переносит scrollbar/control projection вертикальной навигации в
-  `TabletNavigationCoordinator`. Третий инкремент выносит interpretation interval
-  editing-session state (mode/default type/gesture) в `IntervalEditingState`. Четвёртый
-  инкремент устраняет duplicate interpretation/interval selection: interval принадлежит
-  `SelectionManager`, active interpretation — `InterpretationSelectionState`. Пятый
-  инкремент консолидирует geometry/static caches, dirty registry и overlay manager в
-  `TabletRenderState`; следующие инкременты продолжают track lifecycle/sampling extraction.
+  Curve Pencil editing-session state в `CurvePencilState`, второй — navigation control projection
+  в `TabletNavigationCoordinator`, третий — interval editing-session state в
+  `IntervalEditingState`, четвёртый — interpretation/interval selection ownership в
+  `InterpretationSelectionState` + `SelectionManager`, пятый — geometry/static caches, dirty
+  registry и overlay manager в `TabletRenderState`. Sampling остаётся stateless/headless, track
+  topology lifecycle уже принадлежит `TrackLifecycleCoordinator`. Финальный AST/source-contract
+  запрещает возврат legacy mutable state в `TabletView.__init__` и top-level Qt imports в state modules.
 - [ ] **ARCH-04:** один immutable `SemanticContext` для всех importers с source mnemonic, UOM,
   mapping evidence и версией каталога.
 - [ ] **ARCH-05:** закрепить границы слоёв AST/import-contract тестами и запретить зависимости

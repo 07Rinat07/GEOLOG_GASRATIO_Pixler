@@ -639,6 +639,16 @@ python -m pytest -q tests/test_tablet_render_state.py \
 Набор проверяет ownership geometry/static caches, dirty invalidation и отсутствие прямого
 mutable render-state ownership в `TabletView`.
 
+Финальный ARCH-03 tablet-state boundary:
+
+```bash
+python -m pytest -q tests/test_arch03_tablet_state_boundary.py
+```
+
+AST/source-contract проверяет отсутствие legacy mutable state в `TabletView.__init__`, наличие
+утверждённых headless state/coordinator components, stateless sampling boundary и отсутствие
+PySide6/pyqtgraph top-level imports в ARCH-03 state modules.
+
 ## 15. Каталоги печатных шапок и логотипов
 
 Минимальная доменная и SKF-проверка:
