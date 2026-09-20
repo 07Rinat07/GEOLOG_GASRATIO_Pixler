@@ -16,11 +16,8 @@ from geoworkbench.project.annotation_schema import (
     annotation_scope_id_for_session,
     is_annotation_object,
 )
-from geoworkbench.project.canvas_object_transfer_controller import (
-    CanvasObjectTransferController,
-)
-from geoworkbench.project.canvas_object_transfer_workflow import (
-    CanvasObjectTransferWorkflow,
+from geoworkbench.project.canvas_object_transfer_coordinator import (
+    CanvasObjectTransferCoordinator,
 )
 from geoworkbench.project.drilling_calculation_coordinator import (
     DrillingCalculationCoordinator,
@@ -61,6 +58,14 @@ class MainWindow(_LegacyMainWindow):
         )
         self.drilling_calculation_coordinator = DrillingCalculationCoordinator(
             self.interpretation_calculation_controller
+        )
+        self.canvas_object_transfer_coordinator = CanvasObjectTransferCoordinator(
+            self.session,
+            self.project_controller,
+        )
+        self._session_bindings.register(
+            self.canvas_object_transfer_coordinator,
+            name="canvas_object_transfer",
         )
         self.interpretation_feature_coordinator = InterpretationFeatureCoordinator(
             self.session,
@@ -279,14 +284,8 @@ class MainWindow(_LegacyMainWindow):
             )
             return
 
-        controller = CanvasObjectTransferController(self.session)
-        workflow = CanvasObjectTransferWorkflow(
-            self.session,
-            controller,
-            self.project_controller,
-        )
         dialog = CanvasObjectTransferDialog(
-            workflow,
+            self.canvas_object_transfer_coordinator,
             well.well_id,
             language=self.language,
             parent=self,
