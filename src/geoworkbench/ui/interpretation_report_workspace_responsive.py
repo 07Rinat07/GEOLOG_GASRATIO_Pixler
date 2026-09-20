@@ -31,6 +31,8 @@ class InterpretationReportWorkspace(_CompatibleInterpretationReportWorkspace):
 
     _TWO_COLUMN_BREAKPOINT = 1_280
     _COMPACT_HEIGHT_BREAKPOINT = 720
+    _VERY_COMPACT_HEIGHT_BREAKPOINT = 560
+    _EXPORT_COMPACT_BREAKPOINT = 760
 
     def __init__(
         self,
@@ -196,21 +198,34 @@ class InterpretationReportWorkspace(_CompatibleInterpretationReportWorkspace):
 
         self.export_footer = QFrame()
         self.export_footer.setObjectName("interpretation-export-footer")
-        export_row = QHBoxLayout(self.export_footer)
-        export_row.setContentsMargins(0, 4, 0, 0)
-        export_row.setSpacing(8)
+        self.export_footer.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Fixed,
+        )
+        self._export_grid = QGridLayout(self.export_footer)
+        self._export_grid.setContentsMargins(0, 4, 0, 4)
+        self._export_grid.setHorizontalSpacing(8)
+        self._export_grid.setVerticalSpacing(6)
         self.export_label = QLabel()
         self.export_label.setObjectName("interpretation-export-label")
-        export_row.addWidget(self.export_label)
-        export_row.addStretch(1)
         for button in (
             self.xlsx_button,
             self.docx_button,
             self.pdf_button,
             self.print_button,
         ):
-            export_row.addWidget(button)
-        report_layout.addWidget(self.export_footer)
+            button.setMinimumWidth(0)
+            button.setMinimumHeight(34)
+            button.setSizePolicy(
+                QSizePolicy.Policy.Expanding,
+                QSizePolicy.Policy.Fixed,
+            )
+        self._export_layout_signature: bool | None = None
+        self._relayout_export_actions(force=True)
+        # Keep export/print actions above the scrollable report preview.  The
+        # preview itself owns document scrolling, while output actions remain
+        # reachable at all window heights.
+        report_layout.insertWidget(1, self.export_footer)
 
         self.main_splitter.addWidget(self.report_panel)
         self.main_splitter.setStretchFactor(0, 1)
@@ -346,6 +361,10 @@ class InterpretationReportWorkspace(_CompatibleInterpretationReportWorkspace):
         self._configuration_columns = columns
         self.preview.setMinimumHeight(0)
         self.log_scroll.setMaximumHeight(90 if compact_height else 150)
+        self.explanation.setVisible(
+            self.height() >= self._VERY_COMPACT_HEIGHT_BREAKPOINT
+        )
+        self._relayout_export_actions()
         while self._configuration_grid.count():
             self._configuration_grid.takeAt(0)
 
@@ -363,6 +382,74 @@ class InterpretationReportWorkspace(_CompatibleInterpretationReportWorkspace):
             self._configuration_grid.addWidget(self.settings_panel, 2, 0)
             self._configuration_grid.setColumnStretch(0, 1)
 
+
+    def _relayout_export_actions(self, *, force: bool = False) -> None:
+        panel_width = max(0, self.report_panel.width())
+        compact = panel_width < self._EXPORT_COMPACT_BREAKPOINT
+        if not force and compact == self._export_layout_signature:
+            return
+        self._export_layout_signature = compact
+
+        while self._export_grid.count():
+            self._export_grid.takeAt(0)
+
+        buttons = (
+            self.xlsx_button,
+            self.docx_button,
+            self.pdf_button,
+            self.print_button,
+        )
+        self.export_label.setVisible(not compact)
+
+        if compact:
+            for index, button in enumerate(buttons):
+                row, column = divmod(index, 2)
+                self._export_grid.addWidget(button, row, column)
+            self._export_grid.setColumnStretch(0, 1)
+            self._export_grid.setColumnStretch(1, 1)
+        else:
+            self._export_grid.addWidget(self.export_label, 0, 0)
+            self._export_grid.setColumnStretch(1, 1)
+            for column, button in enumerate(buttons, start=2):
+                self._export_grid.addWidget(button, 0, column)
+
+        self._apply_compact_export_labels()
+
+    def _apply_compact_export_labels(self) -> None:
+        self.xlsx_button.setText("Excel (.xlsx)")
+        self.docx_button.setText("Word (.docx)")
+        self.pdf_button.setText("PDF")
+        self.print_button.setText(
+            self._text("Печать", "Басып шығару", "Print")
+        )
+        self.xlsx_button.setAccessibleName(
+            self._text(
+                "Экспорт отчёта в Excel",
+                "Есепті Excel форматына экспорттау",
+                "Export report to Excel",
+            )
+        )
+        self.docx_button.setAccessibleName(
+            self._text(
+                "Экспорт отчёта в Word",
+                "Есепті Word форматына экспорттау",
+                "Export report to Word",
+            )
+        )
+        self.pdf_button.setAccessibleName(
+            self._text(
+                "Экспорт отчёта в PDF",
+                "Есепті PDF форматына экспорттау",
+                "Export report to PDF",
+            )
+        )
+        self.print_button.setAccessibleName(
+            self._text(
+                "Печать отчёта",
+                "Есепті басып шығару",
+                "Print report",
+            )
+        )
 
     def resizeEvent(self, event: QResizeEvent) -> None:  # noqa: N802 - Qt API
         super().resizeEvent(event)
@@ -453,6 +540,7 @@ class InterpretationReportWorkspace(_CompatibleInterpretationReportWorkspace):
         self.export_label.setText(
             self._text("Экспорт:", "Экспорт:", "Export:")
         )
+        self._apply_compact_export_labels()
         self.recalculate_all_button.setText(
             self._text(
                 "Пересчитать всё и открыть планшет",
