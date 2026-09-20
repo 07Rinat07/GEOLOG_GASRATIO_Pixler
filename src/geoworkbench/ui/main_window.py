@@ -71,12 +71,7 @@ from geoworkbench.importers.gs2 import (
     extract_gs2_table,
 )
 from geoworkbench.importers.gs2.multipart import read_gs2_multipart
-from geoworkbench.importers.gs2.metadata import (
-    annotate_gs2_dataset,
-    channel_dictionary_for_table,
-    metadata_dataset_parameters,
-    metadata_well_headers,
-)
+from geoworkbench.importers.gs2.metadata import channel_dictionary_for_table
 from geoworkbench.importers.skf_importer import import_skf_file
 from geoworkbench.domain.models import CurveData, Dataset, IndexRole, IndexType
 from geoworkbench.domain.localized_content import localized_text
@@ -116,6 +111,7 @@ from geoworkbench.project.curve_metadata_controller import CurveMetadataControll
 from geoworkbench.project.curve_transfer_controller import CurveTransferController
 from geoworkbench.project.external_las_insert_controller import ExternalLasInsertController
 from geoworkbench.project.gas_ratio_controller import GasRatioProjectController
+from geoworkbench.project.gs2_import_coordinator import Gs2ImportCoordinator
 from geoworkbench.project.custom_formula_controller import CustomFormulaController
 from geoworkbench.project.header_editing_controller import HeaderEditingController
 from geoworkbench.project.description_template_controller import DescriptionTemplateController
@@ -861,6 +857,7 @@ class MainWindow(QMainWindow):
             else ImportJobController(import_port)
         )
         self._dataset_import_jobs = DatasetImportJobExecutor(_MainWindowDatasetImportPort(self))
+        self.gs2_import_coordinator = Gs2ImportCoordinator(self._dataset_import_jobs)
         self._print_jobs = PrintJobExecutor()
         self._workspace_controller.set_dataset(None)
         self._set_tablet_edit_mode(False)
@@ -3490,33 +3487,14 @@ class MainWindow(QMainWindow):
 
         if result is None:
             return
-        result.dataset.name = f"{selected.stem} — {table_label}"
-        result.dataset.source_path = selected.resolve()
-        annotated_metadata_curves = 0
-        if metadata is not None:
-            annotated_metadata_curves = annotate_gs2_dataset(
-                result.dataset,
-                metadata,
-                member_names[0],
-            )
-            result.dataset.parameters.update(metadata_dataset_parameters(metadata))
-            result.dataset.headers.update(metadata_well_headers(metadata))
-        result.dataset.parameters.update(
-            {
-                "SOURCE_FORMAT": "GeoScape II GS2",
-                "SOURCE_FILE": str(selected.resolve()),
-                "SOURCE_BUNDLE": selected.name,
-                "GS2_TABLE": member_names[0],
-                "GS2_TABLES": "; ".join(member_names),
-                "GS2_MULTIPART": str(len(member_names) > 1).lower(),
-                "GS2_METADATA_MATCHED_CHANNELS": str(matched_metadata_channels),
-                "GS2_METADATA_ANNOTATED_CURVES": str(annotated_metadata_curves),
-                "GS2_SENSORS_MATCHED_CHANNELS": str(matched_sensor_channels),
-            }
-        )
-        registration = self._dataset_import_jobs.register_gs2(
+        registration = self.gs2_import_coordinator.enrich_and_register(
             selected,
             result,
+            member_names=member_names,
+            table_label=table_label,
+            metadata=metadata,
+            matched_metadata_channels=matched_metadata_channels,
+            matched_sensor_channels=matched_sensor_channels,
             review_dataset=self._review_imported_dataset,
         )
         if registration.review_skipped:
