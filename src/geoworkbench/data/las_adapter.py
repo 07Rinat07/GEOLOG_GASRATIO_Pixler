@@ -180,13 +180,15 @@ def import_las_with_report(
                 description=description,
                 unit=unit,
             )
-            semantic = semantic_dictionary.resolve(
-                mnemonic,
-                description=description,
-                unit=unit,
+            semantic_context = semantic_dictionary.context(
                 source_mnemonic=raw_mnemonic,
+                mapped_mnemonic=mnemonic,
+                source_uom=unit,
+                description=description,
                 canonical_mnemonic=canonical,
+                mapping_evidence=(f"las_curve_index={curve_index}",),
             )
+            semantic = semantic_dictionary.resolve_context(semantic_context)
             dataset.curves[curve_id] = CurveData(
                 metadata=CurveMetadata(
                     curve_id=curve_id,
