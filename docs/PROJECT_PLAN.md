@@ -694,7 +694,9 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
   `TabletView` в Qt-независимые компоненты с transition tests. Первый инкремент выносит
   Curve Pencil editing-session state в `CurvePencilState`, сохраняя Qt hover/preview/rendering
   в widget. Второй инкремент переносит scrollbar/control projection вертикальной навигации в
-  `TabletNavigationCoordinator`; следующие инкременты продолжают cache/track lifecycle extraction.
+  `TabletNavigationCoordinator`. Третий инкремент выносит interpretation interval
+  editing-session state (mode/default type/gesture) в `IntervalEditingState`; следующие
+  инкременты продолжают cache/track lifecycle и selection-state extraction.
 - [ ] **ARCH-04:** один immutable `SemanticContext` для всех importers с source mnemonic, UOM,
   mapping evidence и версией каталога.
 - [ ] **ARCH-05:** закрепить границы слоёв AST/import-contract тестами и запретить зависимости
