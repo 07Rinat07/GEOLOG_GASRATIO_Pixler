@@ -3553,8 +3553,7 @@ class TabletView(QWidget):
         )
 
     def set_curve_pencil_history_state(self, can_undo: bool, can_redo: bool) -> None:
-        self._curve_pencil_can_undo = bool(can_undo)
-        self._curve_pencil_can_redo = bool(can_redo)
+        self._curve_pencil_state.set_history(can_undo=can_undo, can_redo=can_redo)
         self._curve_pencil_undo_button.setEnabled(self._curve_pencil_can_undo)
         self._curve_pencil_redo_button.setEnabled(self._curve_pencil_can_redo)
 
@@ -3575,8 +3574,7 @@ class TabletView(QWidget):
         preview and selected points visible instead of silently discarding them.
         """
 
-        self._curve_pencil_commit_ack = bool(accepted)
-        self._curve_pencil_commit_error = error.strip()
+        self._curve_pencil_state.acknowledge_commit(accepted, error)
         self._update_curve_pencil_status()
 
     def _tablet_pencil_button_toggled(self, enabled: bool) -> None:
@@ -3693,9 +3691,7 @@ class TabletView(QWidget):
             or is_relative_gas_track(rendered.definition.curve_mnemonics)
         ):
             return False
-        self._curve_pencil_track_id = track_id
-        self._curve_pencil_mnemonic = mnemonic
-        self._curve_pencil_curve_id = curve.metadata.curve_id
+        self._curve_pencil_state.select_target(track_id, mnemonic, curve.metadata.curve_id)
         rendered.widget.set_selected_curve(mnemonic)
         return True
 
@@ -3870,14 +3866,14 @@ class TabletView(QWidget):
         self._update_curve_pencil_mode_controls()
 
     def mark_curve_pencil_unsaved(self) -> None:
-        self._curve_pencil_unsaved = True
+        self._curve_pencil_state.mark_unsaved()
         self._update_curve_pencil_status()
 
     def clear_curve_pencil_unsaved(self) -> None:
         # Saving clears only the dirty indicator.  Undo/redo history remains
         # available, matching standard editor behaviour; an undo after Save
         # marks the project dirty again through the controller.
-        self._curve_pencil_unsaved = False
+        self._curve_pencil_state.clear_unsaved()
         self._update_curve_pencil_status()
 
     def _curve_pencil_display_label(self) -> str:
@@ -4167,9 +4163,7 @@ class TabletView(QWidget):
             rendered.curve_pencil_preview = None
 
     def cancel_curve_pencil_gesture(self) -> None:
-        self._curve_pencil_points.clear()
-        self._curve_pencil_commit_ack = None
-        self._curve_pencil_commit_error = ""
+        self._curve_pencil_state.cancel_gesture()
         self._clear_curve_pencil_preview()
         self._update_curve_pencil_mode_controls()
         self._update_curve_pencil_status()
