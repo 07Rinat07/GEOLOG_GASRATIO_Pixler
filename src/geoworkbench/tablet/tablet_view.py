@@ -9358,7 +9358,7 @@ class TabletView(QWidget):
             return None
         return resize_interval_range(
             interval,
-            gesture.edge,  # type: ignore[arg-type]
+            gesture.edge,
             gesture.current_depth,
             minimum_span=minimum_span,
         )
