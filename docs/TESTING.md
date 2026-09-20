@@ -714,6 +714,17 @@ python -m pytest -q tests/test_etp12_acquisition.py tests/test_etp12_source_cont
 Набор проверяет ETP channel URI/id evidence, automatic/reviewed/commit mapping state,
 catalog version provenance, сохранение UOM conversion plan и отсутствие legacy semantic resolver.
 
+Финальный ARCH-04 production-wide semantic boundary audit:
+
+```bash
+python -m pytest -q tests/test_arch04_semantic_context_boundary.py tests/test_semantic_channels.py
+```
+
+AST/source-contract проходит весь `src/geoworkbench`, отслеживает production-объекты
+`SemanticChannelDictionary` по типам, factory и присваиваниям и запрещает legacy
+`.resolve()` вне compatibility shim. Одноимённые resolver-методы UOM и других сервисов
+не считаются нарушением.
+
 ## 15. Каталоги печатных шапок и логотипов
 
 Минимальная доменная и SKF-проверка:
