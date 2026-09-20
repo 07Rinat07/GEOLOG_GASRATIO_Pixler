@@ -71,6 +71,9 @@ lag-correction source/projection selection внутри `LagCorrectionProjectCon
 mutating gas-ratio API сессии напрямую. Четвёртый slice консолидирует GS2 import: один
 `MainWindow.open_gs2()` собирает только UI-выбор, а `Gs2ImportCoordinator` владеет Dataset
 enrichment и регистрацией; production subclass больше не содержит второй GS2 workflow.
+Пятый slice собирает перенос пользовательских canvas-объектов через
+`CanvasObjectTransferCoordinator`: controller, transactional workflow и material autosave
+остаются за application boundary и вместе rebind-ятся на новую ProjectSession.
 
 ## Источник, рабочая модель и экспорт
 
