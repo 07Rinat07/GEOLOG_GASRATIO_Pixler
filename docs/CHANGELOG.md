@@ -4,6 +4,8 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- ARCH-03: interpretation/interval selection boundary консолидирован: выбранный interval теперь
+  хранится только в `SelectionManager`, а `InterpretationSelectionState` владеет active interpretation.
 - ARCH-03: interval editing-session state вынесено из `TabletView` в Qt-независимый
   `IntervalEditingState`; mode/default type/gesture lifecycle покрыты transition tests.
 - ARCH-03: scrollbar/control projection вертикальной навигации вынесена из `TabletView` в
