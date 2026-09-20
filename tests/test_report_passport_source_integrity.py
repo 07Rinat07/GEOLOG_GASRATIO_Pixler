@@ -14,7 +14,8 @@ def test_print_center_builds_and_writes_report_passport() -> None:
     window = _source("src/geoworkbench/ui/main_window.py")
     jobs = _source("src/geoworkbench/services/print_jobs.py")
 
-    assert "ReportPassportBuilder().build(self.session, request)" in window
+    assert "self.report_passport_builder.build(self.session, request)" in window
+    assert "ReportPassportBuilder().build(self.session, request)" not in window
     assert "report_render_settings(job)" in window
     assert "passport=passport" in window
     assert "passport_sidecar_path(target)" in window
