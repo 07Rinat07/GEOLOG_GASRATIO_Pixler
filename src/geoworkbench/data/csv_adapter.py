@@ -192,12 +192,17 @@ def import_csv(
             continue
         mnemonic, unit = _split_header(header)
         curve_id = new_id()
-        semantic = semantic_dictionary.resolve(
-            mnemonic,
-            description=header,
-            unit=unit or "",
+        semantic_context = semantic_dictionary.context(
             source_mnemonic=mnemonic,
+            mapped_mnemonic=mnemonic,
+            source_uom=unit or "",
+            description=header,
+            mapping_evidence=(
+                f"csv_column={position}",
+                f"csv_header={header}",
+            ),
         )
+        semantic = semantic_dictionary.resolve_context(semantic_context)
         dataset.curves[curve_id] = CurveData(
             CurveMetadata(
                 curve_id,
