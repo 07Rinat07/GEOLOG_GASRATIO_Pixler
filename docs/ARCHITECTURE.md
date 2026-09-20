@@ -80,7 +80,9 @@ transaction и baseline/completion state больше не собираются 
 ProjectSession/project/Dataset/Well state или возвращать ad-hoc mutation workflows.
 ARCH-03 начинается с Curve Pencil: renderer/UI остаются в `TabletView`, а editing session state
 (target, mode, gesture points, commit/history/unsaved flags) принадлежит Qt-независимому
-`CurvePencilState`.
+`CurvePencilState`. Второй slice ARCH-03 переносит проекцию visible range на scrollbar
+и обратное преобразование в `TabletNavigationCoordinator`; Qt-view только применяет готовый
+`NavigationControlState` к widgets и передаёт пользовательское значение обратно coordinator.
 
 ## Источник, рабочая модель и экспорт
 

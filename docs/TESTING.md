@@ -602,6 +602,15 @@ python -m pytest -q tests/test_curve_pencil_state.py tests/test_tablet_edit_pipe
 Набор проверяет Qt-независимые transitions Curve Pencil и совместимость существующего TabletView
 edit pipeline. Полный Release gate остаётся обязательным перед merge.
 
+Второй ARCH-03 navigation extraction:
+
+```bash
+python -m pytest -q tests/test_tablet_navigation_coordinator.py
+```
+
+Набор проверяет projection visible range → scrollbar state, full-range collapse, обратное
+scrollbar → visible range преобразование и существующие pan/zoom/keyboard transitions.
+
 ## 15. Каталоги печатных шапок и логотипов
 
 Минимальная доменная и SKF-проверка:

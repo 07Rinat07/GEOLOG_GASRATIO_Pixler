@@ -61,3 +61,66 @@ def test_invalid_navigation_commands_fail_at_headless_boundary(operation, messag
 
     with pytest.raises(ValueError, match=message):
         operation(navigation)
+
+def test_navigation_control_state_projects_partial_viewport_to_scrollbar() -> None:
+    navigation = TabletNavigationCoordinator()
+
+    state = navigation.control_state((0.0, 1000.0), (100.0, 300.0))
+
+    assert state.enabled
+    assert state.visible_span == pytest.approx(200.0)
+    assert state.data_span == pytest.approx(1000.0)
+    assert state.scrollbar_maximum == 1_000_000
+    assert state.scrollbar_value == 125_000
+    assert state.scrollbar_page_step == 200_000
+    assert state.scrollbar_single_step == 20_000
+
+
+def test_navigation_control_state_collapses_scrollbar_for_full_domain() -> None:
+    navigation = TabletNavigationCoordinator()
+
+    state = navigation.control_state((0.0, 1000.0), (0.0, 1000.0))
+
+    assert state.enabled
+    assert state.scrollbar_maximum == 0
+    assert state.scrollbar_value == 0
+    assert state.scrollbar_page_step == 1
+    assert state.scrollbar_single_step == 1
+
+
+def test_navigation_control_state_is_disabled_without_a_resolved_range() -> None:
+    navigation = TabletNavigationCoordinator()
+
+    assert not navigation.control_state(None, (0.0, 1.0)).enabled
+    assert not navigation.control_state((0.0, 1.0), None).enabled
+
+
+def test_scrollbar_projection_round_trips_visible_range_and_clamps_value() -> None:
+    navigation = TabletNavigationCoordinator()
+    bounds = (0.0, 1000.0)
+    current = (100.0, 300.0)
+    state = navigation.control_state(bounds, current)
+
+    restored = navigation.range_from_scrollbar(
+        bounds,
+        current,
+        state.scrollbar_value,
+        state.scrollbar_maximum,
+    )
+    clamped = navigation.range_from_scrollbar(
+        bounds,
+        current,
+        state.scrollbar_maximum + 500,
+        state.scrollbar_maximum,
+    )
+
+    assert restored == pytest.approx(current)
+    assert clamped == pytest.approx((800.0, 1000.0))
+
+
+def test_scrollbar_projection_rejects_non_positive_maximum() -> None:
+    navigation = TabletNavigationCoordinator()
+
+    with pytest.raises(ValueError, match="maximum"):
+        navigation.range_from_scrollbar((0.0, 100.0), (10.0, 20.0), 5, 0)
+
