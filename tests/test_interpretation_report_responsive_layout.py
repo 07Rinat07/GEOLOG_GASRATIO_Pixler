@@ -144,6 +144,7 @@ def test_interpretation_workspace_back_button_is_visible_localized_and_emits(qap
     assert workspace.back_button.text() == "Назад"
     assert workspace.back_button.arrowType() == Qt.ArrowType.LeftArrow
     assert "другой отчёт" in workspace.back_button.toolTip()
+    assert workspace.back_button.accessibleName() == "Назад к выбору отчёта"
 
     workspace.back_button.click()
     qapp.processEvents()
@@ -152,6 +153,7 @@ def test_interpretation_workspace_back_button_is_visible_localized_and_emits(qap
     workspace.set_language(AppLanguage.EN)
     assert workspace.back_button.text() == "Back"
     assert "another report" in workspace.back_button.toolTip()
+    assert workspace.back_button.accessibleName() == "Back to report selection"
     workspace.close()
 
 
