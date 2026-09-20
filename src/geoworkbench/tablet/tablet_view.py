@@ -197,6 +197,10 @@ from geoworkbench.tablet.interval_interaction import (
     resize_interval_range,
     snap_depth_to_samples,
 )
+from geoworkbench.tablet.interval_editing_state import (
+    IntervalEditingState,
+    IntervalGesture,
+)
 from geoworkbench.tablet.lithology_graphics import DeviceTiledRectItem
 from geoworkbench.tablet.lithology_patterns import lithology_brush
 from geoworkbench.tablet.lithology_labels import lithology_label_is_visible
@@ -508,20 +512,7 @@ class _AnalysisIntervalGesture:
     current_value: float
 
 
-@dataclass(slots=True)
-class _IntervalGesture:
-    track_id: str
-    interpretation_id: str
-    mode: IntervalEditMode
-    lane: int
-    interval_type: str
-    start_depth: float
-    current_depth: float
-    interval_id: str | None = None
-    edge: str | None = None
-    original_top: float | None = None
-    original_bottom: float | None = None
-
+_IntervalGesture = IntervalGesture
 
 def curve_legend_label(curve: CurveData) -> str:
     mnemonic = curve.metadata.original_mnemonic
@@ -2118,9 +2109,9 @@ class TabletView(QWidget):
         self._depth_viewports: dict[QObject, pg.PlotWidget] = {}
         self._wheel_targets: dict[QObject, pg.PlotWidget] = {}
         self._interpretation_viewports: dict[QObject, RenderedTrack] = {}
-        self._interval_edit_mode = IntervalEditMode.SELECT
-        self._interval_creation_type = self._localizer.text("interpretations.default_type")
-        self._interval_gesture: _IntervalGesture | None = None
+        self._interval_editing = IntervalEditingState(
+            creation_type=self._localizer.text("interpretations.default_type")
+        )
         self._lithology_gesture: _LithologyGesture | None = None
         self._sample_gesture: _SampleGesture | None = None
         self._stratigraphy_gesture: _StratigraphyGesture | None = None
@@ -2791,6 +2782,30 @@ class TabletView(QWidget):
         return tuple(interval_id for interval_id, item in items.items() if item.isVisible())
 
     @property
+    def _interval_edit_mode(self) -> IntervalEditMode:
+        return self._interval_editing.mode
+
+    @_interval_edit_mode.setter
+    def _interval_edit_mode(self, value: IntervalEditMode) -> None:
+        self._interval_editing.mode = value
+
+    @property
+    def _interval_creation_type(self) -> str:
+        return self._interval_editing.creation_type
+
+    @_interval_creation_type.setter
+    def _interval_creation_type(self, value: str) -> None:
+        self._interval_editing.creation_type = value
+
+    @property
+    def _interval_gesture(self) -> _IntervalGesture | None:
+        return self._interval_editing.gesture
+
+    @_interval_gesture.setter
+    def _interval_gesture(self, value: _IntervalGesture | None) -> None:
+        self._interval_editing.gesture = value
+
+    @property
     def interval_edit_mode(self) -> IntervalEditMode:
         return self._interval_edit_mode
 
@@ -2827,7 +2842,7 @@ class TabletView(QWidget):
         if requested is self._interval_edit_mode:
             return
         self.cancel_interval_interaction()
-        self._interval_edit_mode = requested
+        self._interval_editing.set_mode(requested)
         for rendered in self._rendered.values():
             if rendered.definition.kind is TrackKind.INTERPRETATION and rendered.plot is not None:
                 cursor = (
@@ -2840,9 +2855,7 @@ class TabletView(QWidget):
                 rendered.plot.viewport().setCursor(cursor)
 
     def set_interval_creation_type(self, interval_type: str) -> None:
-        normalized = interval_type.strip()
-        if normalized:
-            self._interval_creation_type = normalized
+        self._interval_editing.set_creation_type(interval_type)
 
     @property
     def selected_interpretation_id(self) -> str | None:
