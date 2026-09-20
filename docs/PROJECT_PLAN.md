@@ -38,7 +38,7 @@ release plan и временные планы в `docs` не создаются.
    из одной сохранённой ревизии после готовности данных и переводов.
 5. **SEC-01 / SEC-05** — решение по опубликованной Git history и provenance/license review
    встроенных lithology/symbol assets.
-6. **PERF-05 / ARCH-01…06** — versioned storage performance и архитектурные границы.
+6. **PERF-05 / ARCH-02…06** — versioned storage performance и архитектурные границы.
 7. **FIELD-01…05** — полевые soak/interoperability gates; затем P2-расширения.
 
 WELL-01…06 — утверждённый пользователем порядок продуктовой разработки. WELL-01 и WELL-06
@@ -670,8 +670,11 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
   Contract-test теперь проходит все top-level `*_dialog.py` и отдельно проверяет адаптивную
   реализацию unified cuttings adapter, предотвращая возврат desktop-only размеров.
 
-- [ ] **ARCH-01:** `ApplicationContext`/composition root для storage, semantic, import, report,
-  credentials и audit services.
+- [x] **ARCH-01:** `ApplicationContext` является production composition root: через него
+  создаётся независимый project scope/repository для окна, поставляются semantic mnemonic registry,
+  import-job controller, общий ReportPassportBuilder, WITSML/ETP credential stores и audit sinks.
+  Production MainWindow больше не создаёт вторые экземпляры этих infrastructure services; fallback
+  остаётся только для изолированных UI-тестов и совместимых embedding-сценариев.
 - [ ] **ARCH-02:** разделить `MainWindow` на feature coordinators; запретить UI прямые записи в
   project collections, Dataset, layout и dirty-state.
 - [ ] **ARCH-03:** вынести оставшиеся sampling/cache/navigation/track lifecycle/editing state из

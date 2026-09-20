@@ -509,6 +509,16 @@ false negative. До этого автоматический результат 
 показывать реально выполненные проверки. После интеграции удаляются временные ветки, patch
 workflow, trigger-файлы и artifacts.
 
+Для composition-root контракта ARCH-01 минимальный regression-набор:
+
+```bash
+python -m pytest -q tests/test_application_context.py tests/test_application_context_ui_wiring.py \
+  tests/test_etp12_dialog_typing.py tests/test_witsml1411_soap.py
+```
+
+Он проверяет отдельный project scope, process-wide registry/report services, DI credentials/audit
+для WITSML/ETP и production MainWindow wiring. Полный Release gate остаётся обязательным.
+
 ## 15. Каталоги печатных шапок и логотипов
 
 Минимальная доменная и SKF-проверка:

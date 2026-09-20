@@ -48,7 +48,7 @@ from geoworkbench.importers.etp12 import (
     Etp12SubscriptionDefinition,
     Etp12SubscriptionSnapshot,
 )
-from geoworkbench.services.etp12_audit import JsonlEtp12AuditSink
+from geoworkbench.services.etp12_audit import Etp12AuditSink, JsonlEtp12AuditSink
 from geoworkbench.services.etp12_credentials import (
     Etp12CredentialStore,
     default_etp12_credential_store,
@@ -112,9 +112,13 @@ class _Etp12Worker(QThread):
     failed = Signal(str)
     stopped = Signal()
 
-    def __init__(self, audit_path: Path, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        audit_sink: Etp12AuditSink,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
-        self.audit_path = audit_path
+        self.audit_sink = audit_sink
         self.commands: Queue[tuple[str, object]] = Queue()
         self._service: Etp12ClientService | None = None
         self._running = True
@@ -134,11 +138,10 @@ class _Etp12Worker(QThread):
                         raise TypeError("ETP connect command requires a typed request")
                     if self._service is not None:
                         await self._service.close()
-                    audit = JsonlEtp12AuditSink(self.audit_path)
                     service = Etp12ClientService(
                         payload.profile,
                         payload.credentials,
-                        audit=audit.record,
+                        audit=self.audit_sink.record,
                     )
                     service.add_channel_callback(self._on_channel_batch)
                     negotiated = await service.connect()
@@ -242,6 +245,7 @@ class Etp12Dialog(QDialog):
         language: AppLanguage = AppLanguage.RU,
         profile_store: Etp12ProfileStore | None = None,
         credential_store: Etp12CredentialStore | None = None,
+        audit_sink: Etp12AuditSink | None = None,
         well_provider: Callable[[], "Well | None"] | None = None,
         on_dataset_changed: Callable[[str], None] | None = None,
     ) -> None:
@@ -250,7 +254,8 @@ class Etp12Dialog(QDialog):
         root = Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppConfigLocation))
         self.profile_store = profile_store or Etp12ProfileStore(root / "etp12" / "profiles.json")
         self.credential_store = credential_store or default_etp12_credential_store()
-        self.worker = _Etp12Worker(root / "etp12" / "audit.jsonl", self)
+        self.audit_sink = audit_sink or JsonlEtp12AuditSink(root / "etp12" / "audit.jsonl")
+        self.worker = _Etp12Worker(self.audit_sink, self)
         self._connected = False
         self._latest_channel_values: dict[int, tuple[object, object]] = {}
         self.well_provider = well_provider

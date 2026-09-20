@@ -57,12 +57,15 @@ class MainWindow(_LegacyMainWindow):
         application_context: ApplicationContext | None = None,
         **kwargs,
     ) -> None:
-        self.application_context = application_context
         # Base initialization wires Qt signals that resolve methods dynamically.
         # Keep a sentinel so an unlikely initialization-time callback can fall back
         # to the legacy implementation until all project controllers exist.
         self.interpretation_feature_coordinator: InterpretationFeatureCoordinator | None = None
-        super().__init__(*args, **kwargs)
+        super().__init__(
+            *args,
+            application_context=application_context,
+            **kwargs,
+        )
         self.drilling_calculation_coordinator = DrillingCalculationCoordinator(
             self.interpretation_calculation_controller
         )

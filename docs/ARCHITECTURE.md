@@ -34,7 +34,7 @@ printing / reports consume resolved read models and never own source data
 
 ```text
 src/geoworkbench/
-├── app/               запуск и будущий composition root
+├── app/               запуск и production composition root
 ├── calculations/      Qt-независимые формулы и conditioning
 ├── catalogs/          семантика параметров и справочники
 ├── data/              LAS-oriented структуры и lossless source
@@ -52,10 +52,15 @@ src/geoworkbench/
 └── visualization/     renderer-neutral модели визуализации
 ```
 
-Целевая сборка приложения — один `ApplicationContext`, создаваемый в `app`. Он владеет storage,
-semantic/UOM catalogs, import/report factories, credentials и audit services. Feature coordinators
-получают только нужные ports. `MainWindow` постепенно остаётся shell/composition UI, а не местом
-бизнес-логики.
+Production-сборка приложения использует один `ApplicationContext`, создаваемый в `app`.
+Он владеет factory project storage scope, semantic mnemonic registry, import/report services,
+WITSML/ETP credentials и audit sinks. Каждый MainWindow получает отдельный `ProjectScope`,
+поэтому mutable `ProjectSession` и repository не разделяются между окнами, а process-wide
+registry/report/security services переиспользуются явно. UI-диалоги WITSML/ETP получают
+credential/audit ports из composition root вместо скрытого создания вторых infrastructure
+экземпляров. Изолированный fallback без context сохранён только для unit/UI tests и embedding.
+`MainWindow` остаётся shell/composition UI; дальнейшее дробление feature orchestration относится
+к ARCH-02.
 
 ## Источник, рабочая модель и экспорт
 
