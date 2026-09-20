@@ -33,6 +33,11 @@ Import Review фиксирует channel position/key/uuid и automatic/reviewed
 Import Review фиксирует channel URI/id и automatic/reviewed/commit mapping state. Эти признаки
 сохраняются в binding evidence.
 
+ARCH-04 закрывается production-wide AST/source-contract: production consumers не могут вызывать
+legacy `SemanticChannelDictionary.resolve()`. Метод сохраняется как compatibility shim только
+в `services/semantic_channels.py`; новый и мигрированный production-код обязан формировать
+immutable `SemanticContext` и вызывать `resolve_context()`.
+
 ## Снимок привязки кривой
 
 `SemanticChannelBinding` содержит:
