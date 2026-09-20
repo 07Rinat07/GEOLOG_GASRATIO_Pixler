@@ -66,6 +66,9 @@ credential/audit ports из composition root вместо скрытого со�
 делегирует атомарную регистрацию application controller. Следующий ARCH-02 slice оставляет
 lag-correction source/projection selection внутри `LagCorrectionProjectController`: MainWindow
 только открывает диалог и отображает ошибки, не меняя `ProjectSession.current_dataset_id`.
+Третий slice переносит conditioned Gas Ratio/Haworth/Pixler persistence в
+`GasRatioProjectController`; Qt получает immutable calculation outcome и больше не вызывает
+mutating gas-ratio API сессии напрямую.
 
 ## Источник, рабочая модель и экспорт
 
