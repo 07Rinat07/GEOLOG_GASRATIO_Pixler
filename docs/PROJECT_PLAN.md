@@ -677,8 +677,10 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
   панели действий. Восьмой инкремент охватывает состав шлама, библиотеку Masterlog, пакетный
   Paradox-конвертер и Import Review: desktop-only размеры удалены, вторичные длинные панели
   действий прокручиваются, а основные подтверждения/запуск/закрытие остаются закреплёнными.
-  Далее пройти остальные редакторы и настройки с regression-проверками малых work-area и
-  Windows HiDPI matrix.
+  Девятый инкремент переводит вставку условных обозначений, расширенный предпросмотр шапки,
+  статус печати/экспорта, SKF import options и печатные выноски на тот же work-area контракт,
+  устраняя оставшиеся жёсткие desktop-only размеры этих окон. Далее пройти остальные редакторы
+  и настройки с regression-проверками малых work-area и Windows HiDPI matrix.
 
 - [ ] **ARCH-01:** `ApplicationContext`/composition root для storage, semantic, import, report,
   credentials и audit services.

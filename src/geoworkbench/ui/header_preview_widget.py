@@ -28,6 +28,7 @@ from geoworkbench.printing.masterlog_renderer import (
 )
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 def _page_size_mm(template: MasterlogTemplate) -> tuple[float, float]:
@@ -289,8 +290,6 @@ class HeaderPreviewDialog(QDialog):
                 AppLanguage.EN: f"Header preview and inspection — {template.name}",
             }[language]
         )
-        self.setMinimumSize(1100, 680)
-        self.resize(1700, 980)
 
         hint = QLabel(
             {
@@ -360,6 +359,11 @@ class HeaderPreviewDialog(QDialog):
         layout.addWidget(hint)
         layout.addWidget(splitter, 1)
         layout.addLayout(footer)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(1700, 980),
+            minimum=QSize(760, 480),
+        )
 
     def _toggle_fullscreen(self) -> None:
         if self.isMaximized():

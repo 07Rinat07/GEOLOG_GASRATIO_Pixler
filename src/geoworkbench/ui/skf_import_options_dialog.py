@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from enum import Enum
 
+from PySide6.QtCore import QSize
 from PySide6.QtWidgets import (
     QButtonGroup,
     QDialog,
@@ -12,6 +13,7 @@ from PySide6.QtWidgets import (
 )
 
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class SkfImportMode(str, Enum):
@@ -33,7 +35,6 @@ class SkfImportOptionsDialog(QDialog):
                 AppLanguage.EN: "How to import SKF",
             }[language]
         )
-        self.setMinimumWidth(560)
 
         intro = QLabel(
             {
@@ -116,6 +117,12 @@ class SkfImportOptionsDialog(QDialog):
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+
+        fit_window_to_screen(
+            self,
+            preferred=QSize(620, 440),
+            minimum=QSize(400, 300),
+        )
 
     @property
     def mode(self) -> SkfImportMode:
