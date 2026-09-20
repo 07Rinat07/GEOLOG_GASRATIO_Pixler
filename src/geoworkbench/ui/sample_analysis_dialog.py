@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from PySide6.QtCore import QSize
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -25,6 +26,7 @@ from geoworkbench.services.lba_standard import (
 )
 from geoworkbench.services.localization import AppLanguage, LANGUAGE_NAMES
 from geoworkbench.ui.authored_source_language_selector import AuthoredSourceLanguageSelector
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 _TEXT = {
@@ -264,9 +266,13 @@ class SampleAnalysisDialog(QDialog):
         interval.addRow("От, м", self.top_input)
         interval.addRow("До, м", self.bottom_input)
         layout.addLayout(interval)
-        layout.addWidget(tabs)
+        layout.addWidget(tabs, 1)
         layout.addWidget(buttons)
-        self.resize(620, 650)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(620, 650),
+            minimum=QSize(460, 340),
+        )
         if sample is not None:
             self._load_sample(sample)
 
