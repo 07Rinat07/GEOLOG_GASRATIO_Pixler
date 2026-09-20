@@ -63,7 +63,9 @@ credential/audit ports из composition root вместо скрытого со�
 к ARCH-02. Первый ARCH-02 slice выносит WITSML project registration в
 `WitsmlImportCoordinator`: оба UI-входа (WITSML 2.x file review и WITSML 1.4.1.1 Store)
 передают уже проверенный `WitsmlImportCommit`, а coordinator определяет target well policy и
-делегирует атомарную регистрацию application controller.
+делегирует атомарную регистрацию application controller. Следующий ARCH-02 slice оставляет
+lag-correction source/projection selection внутри `LagCorrectionProjectController`: MainWindow
+только открывает диалог и отображает ошибки, не меняя `ProjectSession.current_dataset_id`.
 
 ## Источник, рабочая модель и экспорт
 
