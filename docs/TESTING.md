@@ -620,6 +620,15 @@ python -m pytest -q tests/test_interval_editing_state.py tests/test_tablet_edit_
 Набор проверяет mode/default-type transitions, lifecycle CREATE/RESIZE gesture и source-contract,
 что `TabletView` делегирует editing-session state Qt-независимому компоненту.
 
+Четвёртый ARCH-03 selection-state extraction:
+
+```bash
+python -m pytest -q tests/test_selection_interaction.py
+```
+
+Набор проверяет единый interval-selection source of truth в `SelectionManager`, active
+interpretation context и source-contract на отсутствие параллельных selected-id полей в `TabletView`.
+
 ## 15. Каталоги печатных шапок и логотипов
 
 Минимальная доменная и SKF-проверка:
