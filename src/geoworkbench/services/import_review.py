@@ -4,6 +4,7 @@ from copy import deepcopy
 from dataclasses import dataclass, replace
 from enum import StrEnum
 from math import isfinite
+from typing import Literal
 
 import numpy as np
 
@@ -17,6 +18,7 @@ from geoworkbench.services.depth_axis import DepthDirection, analyze_depth_axis
 from geoworkbench.services.semantic_channels import (
     SemanticChannelBinding,
     SemanticChannelDictionary,
+    SemanticContext,
     default_semantic_channel_dictionary,
 )
 from geoworkbench.services.uom_dictionary import QuantityClass
@@ -327,16 +329,14 @@ class ImportReviewController:
             if override is None or override.canonical_mnemonic is None
             else override.canonical_mnemonic
         )
-        automatic = self.dictionary.resolve(
-            metadata.original_mnemonic,
-            description=metadata.description or "",
-            unit=unit or "",
-            source_mnemonic=(
-                metadata.semantic.source_mnemonic
-                if metadata.semantic is not None
-                else metadata.original_mnemonic
-            ),
-            canonical_mnemonic=canonical_hint,
+        automatic = self.dictionary.resolve_context(
+            _semantic_context(
+                self.dictionary,
+                metadata,
+                unit=unit,
+                canonical_mnemonic=canonical_hint,
+                mapping_state="reviewed",
+            )
         )
         current = metadata.semantic or automatic
         if override is None or _override_matches(current, metadata, override):
@@ -349,6 +349,32 @@ class ImportReviewController:
             unit=unit,
             semantic=binding,
         )
+
+
+def _semantic_context(
+    dictionary: SemanticChannelDictionary,
+    metadata: CurveMetadata,
+    *,
+    unit: str | None,
+    canonical_mnemonic: str | None,
+    mapping_state: Literal["inspection", "reviewed"],
+) -> SemanticContext:
+    source_mnemonic = (
+        metadata.semantic.source_mnemonic
+        if metadata.semantic is not None
+        else metadata.original_mnemonic
+    )
+    return dictionary.context(
+        source_mnemonic=source_mnemonic,
+        mapped_mnemonic=metadata.original_mnemonic,
+        source_uom=unit or "",
+        description=metadata.description or "",
+        canonical_mnemonic=canonical_mnemonic,
+        mapping_evidence=(
+            f"import_review_curve_id={metadata.curve_id}",
+            f"import_review_mapping={mapping_state}",
+        ),
+    )
 
 
 def _index_requires_sort(values: np.ndarray) -> bool:
@@ -502,11 +528,14 @@ def build_import_review(
     canonical_kinds: dict[str, int] = {}
     for curve in dataset.curves.values():
         metadata = curve.metadata
-        binding = metadata.semantic or resolver.resolve(
-            metadata.original_mnemonic,
-            description=metadata.description or "",
-            unit=metadata.unit or "",
-            canonical_mnemonic=metadata.canonical_mnemonic,
+        binding = metadata.semantic or resolver.resolve_context(
+            _semantic_context(
+                resolver,
+                metadata,
+                unit=metadata.unit,
+                canonical_mnemonic=metadata.canonical_mnemonic,
+                mapping_state="inspection",
+            )
         )
         values = np.asarray(curve.values, dtype=np.float64)
         valid_count = int(np.count_nonzero(np.isfinite(values)))
@@ -602,6 +631,8 @@ def _manual_binding(
         quantity = QuantityClass(quantity)
     uom = dictionary.uoms.resolve(unit)
     evidence = [
+        *(metadata.semantic.evidence if metadata.semantic is not None else ()),
+        *automatic.evidence,
         "manual import review override",
         f"automatic match={automatic.matched_by}",
     ]
