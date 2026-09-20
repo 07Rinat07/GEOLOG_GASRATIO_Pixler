@@ -681,8 +681,9 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
   показывает review/status и не создаёт project-mutation controller напрямую. Второй инкремент
   переносит временный source/projection selection lag correction в
   `LagCorrectionProjectController`; MainWindow больше не пишет `current_dataset_id` в этом
-  workflow. Следующие инкременты должны таким же образом вынести оставшиеся import/edit
-  orchestration paths.
+  workflow. Третий инкремент переводит conditioned Gas Ratio/Haworth/Pixler persistence на
+  `GasRatioProjectController`, сохраняя старый session API только как compatibility shim.
+  Следующие инкременты должны таким же образом вынести оставшиеся import/edit orchestration paths.
 - [ ] **ARCH-03:** вынести оставшиеся sampling/cache/navigation/track lifecycle/editing state из
   `TabletView` в Qt-независимые компоненты с transition tests.
 - [ ] **ARCH-04:** один immutable `SemanticContext` для всех importers с source mnemonic, UOM,

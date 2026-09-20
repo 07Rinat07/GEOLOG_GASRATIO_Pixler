@@ -4,6 +4,10 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- ARCH-02: базовый conditioned Gas Ratio/Haworth/Pixler workflow теперь проходит через
+  `GasRatioProjectController`; MainWindow не вызывает mutating-метод ProjectSession напрямую,
+  а получает immutable outcome с dataset и созданными мнемониками. Старый session API сохранён
+  как совместимый shim.
 - ARCH-02: lag-correction dialog selection теперь проходит через
   `LagCorrectionProjectController`: Qt-shell не переключает `current_dataset_id` напрямую,
   source/projection restore policy и typed missing-source error находятся в project layer.

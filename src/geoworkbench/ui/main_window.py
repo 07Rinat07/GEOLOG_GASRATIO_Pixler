@@ -115,6 +115,7 @@ from geoworkbench.project.data_inspector_controller import DataInspectorControll
 from geoworkbench.project.curve_metadata_controller import CurveMetadataController
 from geoworkbench.project.curve_transfer_controller import CurveTransferController
 from geoworkbench.project.external_las_insert_controller import ExternalLasInsertController
+from geoworkbench.project.gas_ratio_controller import GasRatioProjectController
 from geoworkbench.project.custom_formula_controller import CustomFormulaController
 from geoworkbench.project.header_editing_controller import HeaderEditingController
 from geoworkbench.project.description_template_controller import DescriptionTemplateController
@@ -650,6 +651,7 @@ class MainWindow(QMainWindow):
         self.curve_metadata_controller = CurveMetadataController(self.session)
         self.curve_transfer_controller = CurveTransferController(self.session)
         self.external_las_insert_controller = ExternalLasInsertController(self.session)
+        self.gas_ratio_project_controller = GasRatioProjectController(self.session)
         self.formula_registry = build_all_sourced_formula_registry()
         self.external_las_insert_controller.formula_registry = self.formula_registry
         self.formula_execution_controller = FormulaExecutionController(
@@ -5621,6 +5623,7 @@ class MainWindow(QMainWindow):
             reset_hooks=(self.external_las_insert_controller.clear_history,),
             name="external_las_insert",
         )
+        bindings.register(self.gas_ratio_project_controller, name="gas_ratio")
         bindings.register(self.formula_execution_controller, name="formula_execution")
         bindings.register(
             self.custom_formula_controller,
@@ -6953,7 +6956,7 @@ class MainWindow(QMainWindow):
 
     def calculate_ratios(self) -> None:
         try:
-            created = self.session.calculate_basic_gas_ratios()
+            outcome = self.gas_ratio_project_controller.calculate_basic_ratios()
         except ParameterResolutionError as exc:
             key = f"ratio.parameter_{exc.code}"
             error = self._t(key, **exc.values) if key in self.localizer.catalog else str(exc)
@@ -6965,11 +6968,11 @@ class MainWindow(QMainWindow):
             self._log(self._t("ratio.failed", error=str(exc)))
             return
 
-        dataset = self.session.current_dataset
-        assert dataset is not None
-        self.curve_view.show_dataset(dataset, created)
-        self.tablet_view.set_dataset(dataset)
-        self._log(self._t("ratio.curves_updated", curves=", ".join(created)))
+        self.curve_view.show_dataset(outcome.dataset, list(outcome.created_mnemonics))
+        self.tablet_view.set_dataset(outcome.dataset)
+        self._log(
+            self._t("ratio.curves_updated", curves=", ".join(outcome.created_mnemonics))
+        )
         self._refresh_tree()
         self._update_title()
         self.statusBar().showMessage(self._t("ratio.completed"))

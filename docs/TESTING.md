@@ -540,6 +540,17 @@ python -m pytest -q tests/test_lag_correction_project_controller.py \
 неизменённом выборе, typed missing-source failure и отсутствие прямой записи
 `current_dataset_id` из MainWindow.
 
+Для третьего ARCH-02 инкремента:
+
+```bash
+python -m pytest -q tests/test_gas_ratio_project_controller.py \
+  tests/test_project_session_gas_ratios.py
+```
+
+Набор проверяет conditioned Gas Ratio/Haworth/Pixler persistence, controller rebinding,
+совместимый session shim и source-contract, запрещающий MainWindow напрямую вызывать mutating
+`ProjectSession.calculate_basic_gas_ratios()`.
+
 ## 15. Каталоги печатных шапок и логотипов
 
 Минимальная доменная и SKF-проверка:
