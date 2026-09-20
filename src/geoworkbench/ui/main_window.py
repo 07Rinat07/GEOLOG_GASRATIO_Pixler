@@ -60,6 +60,7 @@ from PySide6.QtWidgets import (
 )
 
 from geoworkbench import __version__
+from geoworkbench.app.context import ApplicationContext
 from geoworkbench.calculations.controller import FormulaExecutionController
 from geoworkbench.catalogs.sensors import SensorCatalog, set_active_sensor_catalog
 from geoworkbench.calculations.custom_formula import formula_inputs
@@ -606,13 +607,19 @@ class MainWindow(QMainWindow):
         language: AppLanguage = AppLanguage.RU,
         language_settings: LanguageSettings | None = None,
         user_profile_settings: UserProfileSettings | None = None,
+        application_context: ApplicationContext | None = None,
     ) -> None:
         super().__init__()
+        self.application_context = application_context
         self.language = language
         self.localizer = Localizer.create(language)
         self.language_settings = language_settings or LanguageSettings.system()
         self.user_profile_settings = user_profile_settings or UserProfileSettings.system()
-        self.mnemonic_registry = UserMnemonicRegistry()
+        self.mnemonic_registry = (
+            application_context.mnemonic_registry
+            if application_context is not None
+            else UserMnemonicRegistry()
+        )
         forms_root = (
             Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation))
             / "forms"
@@ -620,7 +627,16 @@ class MainWindow(QMainWindow):
         self.form_repository = FormRepository(forms_root)
         self.form_apply_engine = FormApplyEngine()
         set_active_sensor_catalog(self.mnemonic_registry.catalog())
-        self.project_controller = ProjectController()
+        self.project_controller = (
+            application_context.create_project_scope().project_controller
+            if application_context is not None
+            else ProjectController()
+        )
+        self.report_passport_builder = (
+            application_context.report_passport_builder
+            if application_context is not None
+            else ReportPassportBuilder()
+        )
         self.tablet_controller = TabletController(self.session)
         self.curve_editing_controller = CurveEditingController(self.session)
         self.dataset_export_controller = DatasetExportController(self.session)
@@ -832,7 +848,12 @@ class MainWindow(QMainWindow):
             self.session, _MainWindowWorkspaceCommandPort(self)
         )
         self._session_bindings.register(self._workspace_commands, name="workspace_commands")
-        self._import_job_controller = ImportJobController(_MainWindowImportJobPort(self))
+        import_port = _MainWindowImportJobPort(self)
+        self._import_job_controller = (
+            application_context.create_import_job_controller(import_port)
+            if application_context is not None
+            else ImportJobController(import_port)
+        )
         self._dataset_import_jobs = DatasetImportJobExecutor(_MainWindowDatasetImportPort(self))
         self._print_jobs = PrintJobExecutor()
         self._workspace_controller.set_dataset(None)
@@ -3652,7 +3673,20 @@ class MainWindow(QMainWindow):
     def open_witsml1411_store(self) -> None:
         """Browse a WITSML 1.4.1.1 SOAP store in read-only mode and import one log."""
 
-        dialog = Witsml1411Dialog(self, language=self.language)
+        dialog = Witsml1411Dialog(
+            self,
+            language=self.language,
+            credential_store=(
+                self.application_context.witsml_credentials
+                if self.application_context is not None
+                else None
+            ),
+            audit_sink=(
+                self.application_context.witsml_audit
+                if self.application_context is not None
+                else None
+            ),
+        )
         result = dialog.exec()
         if result != QDialog.DialogCode.Accepted or dialog.accepted_commit is None:
             return
@@ -3699,6 +3733,16 @@ class MainWindow(QMainWindow):
         dialog = Etp12Dialog(
             self,
             language=self.language,
+            credential_store=(
+                self.application_context.etp12_credentials
+                if self.application_context is not None
+                else None
+            ),
+            audit_sink=(
+                self.application_context.etp12_audit
+                if self.application_context is not None
+                else None
+            ),
             well_provider=lambda: self.session.current_well,
             on_dataset_changed=self._on_etp12_dataset_changed,
         )
@@ -4444,7 +4488,7 @@ class MainWindow(QMainWindow):
                 schema_version=definition.schema_version,
             ),
         )
-        return ReportPassportBuilder().build(self.session, request)
+        return self.report_passport_builder.build(self.session, request)
 
     def _confirm_export_overwrite(
         self, target: Path, *, include_report_passport: bool = False
@@ -4915,7 +4959,7 @@ class MainWindow(QMainWindow):
                 schema_version=definition.schema_version,
             ),
         )
-        return ReportPassportBuilder().build(self.session, request)
+        return self.report_passport_builder.build(self.session, request)
 
     def _confirm_print_overwrite(self, target: Path) -> bool | None:
         sidecar = passport_sidecar_path(target)
@@ -5062,7 +5106,7 @@ class MainWindow(QMainWindow):
             interval=interval,
             curve_mnemonics=curve_mnemonics,
         )
-        return ReportPassportBuilder().build(self.session, request)
+        return self.report_passport_builder.build(self.session, request)
 
     def preview_active_visualization(self) -> None:
         current = self.tabs.currentWidget()
