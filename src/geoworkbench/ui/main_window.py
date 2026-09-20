@@ -5663,6 +5663,7 @@ class MainWindow(QMainWindow):
             reset_hooks=(self.daily_las_growth_controller.reset_state,),
             name="daily_las_growth",
         )
+        bindings.register(self.witsml_import_coordinator, name="witsml_import")
         bindings.register(
             self.las_range_editing_controller,
             reset_hooks=(self.las_range_editing_controller.clear_history,),
