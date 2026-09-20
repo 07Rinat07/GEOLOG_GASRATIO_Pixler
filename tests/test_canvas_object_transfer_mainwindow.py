@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any, cast
 
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QDialog, QMenu, QWidget
 
 from geoworkbench.domain.models import CanvasObject, Project, Well
-from geoworkbench.project.canvas_object_transfer_workflow import (
-    CanvasObjectTransferWorkflow,
+from geoworkbench.project.canvas_object_transfer_coordinator import (
+    CanvasObjectTransferCoordinator,
 )
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage
@@ -28,6 +29,10 @@ class _WindowProbe:
         self.session = session
         self.project_path = Path("project.geologpkg")
         self.project_controller = object()
+        self.canvas_object_transfer_coordinator = CanvasObjectTransferCoordinator(
+            self.session,
+            cast(Any, self.project_controller),
+        )
         self.language = AppLanguage.EN
         self.status = _StatusBar()
         self.background_save_acknowledged = 0
@@ -96,7 +101,8 @@ def test_main_window_canvas_transfer_acknowledges_save_and_refreshes_only_annota
 
     main_window_drilling.MainWindow.show_canvas_object_transfer(probe)
 
-    assert isinstance(captured["application"], CanvasObjectTransferWorkflow)
+    assert isinstance(captured["application"], CanvasObjectTransferCoordinator)
+    assert captured["application"] is probe.canvas_object_transfer_coordinator
     assert captured["target_well_id"] == "target"
     assert captured["language"] is AppLanguage.EN
     assert captured["parent"] is probe
@@ -222,3 +228,13 @@ def test_canvas_transfer_action_is_inserted_before_open_data_and_localized(qapp)
         "Перенести пользовательские рисунки из другой скважины…"
     )
     host.close()
+
+
+def test_main_window_canvas_transfer_uses_session_bound_coordinator_source_contract() -> None:
+    source = Path("src/geoworkbench/ui/main_window_drilling.py").read_text(encoding="utf-8")
+
+    assert "CanvasObjectTransferCoordinator(" in source
+    assert 'name="canvas_object_transfer"' in source
+    assert "self.canvas_object_transfer_coordinator" in source
+    assert "CanvasObjectTransferController(self.session)" not in source
+    assert "CanvasObjectTransferWorkflow(" not in source
