@@ -39,13 +39,18 @@ def test_gas_calculations_are_qt_and_renderer_independent() -> None:
         assert violations == [], f"{path} imports forbidden upper layers: {violations}"
 
 
-def test_project_session_uses_versioned_conditioned_calculation_boundary() -> None:
-    source = Path("src/geoworkbench/project/session.py").read_text(encoding="utf-8")
+def test_project_controller_uses_versioned_conditioned_calculation_boundary() -> None:
+    controller = Path("src/geoworkbench/project/gas_ratio_controller.py").read_text(
+        encoding="utf-8"
+    )
+    session = Path("src/geoworkbench/project/session.py").read_text(encoding="utf-8")
 
-    assert "calculate_conditioned_ratios(dataset.depth, inputs)" in source
-    assert "CONDITIONED_GAS_PROVENANCE" in source
-    assert "calculate_basic_ratios(inputs)" not in source
-    assert "curve.metadata = replace(" in source
+    assert "calculate_conditioned_ratios(dataset.depth, inputs)" in controller
+    assert "CONDITIONED_GAS_PROVENANCE" in controller
+    assert "calculate_basic_ratios(inputs)" not in controller
+    assert "curve.metadata = replace(" in controller
+    assert "GasRatioProjectController(self).calculate_basic_ratios()" in session
+    assert "calculate_conditioned_ratios(dataset.depth, inputs)" not in session
 
 
 def test_canonical_docs_track_gas_architecture_and_testing() -> None:
