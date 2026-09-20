@@ -76,6 +76,10 @@ def test_normalized_gas_calculation_curve_has_readable_report_name() -> None:
     )
     assert (
         localized_curve_name("TG_NORM_CALC", language=AppLanguage.EN)
-        == "TG_NORM_CALC"
+        == "Calculated Normalized Total Gas"
+    )
+    assert (
+        localized_curve_name("TG_NORM_CALC", language=AppLanguage.KK)
+        == "Есептелген нормаланған жалпы газ"
     )
 
