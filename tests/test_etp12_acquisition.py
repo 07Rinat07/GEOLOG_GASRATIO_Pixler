@@ -122,6 +122,24 @@ def test_import_review_builds_immutable_schema_and_uom_conversion_plan() -> None
     assert by_name["ROP"].canonical_uom == "m/h"
     assert by_name["ROP"].conversion_required
 
+    rop_metadata = next(
+        item.metadata
+        for item in commit.schema.curves
+        if item.metadata.canonical_mnemonic == "ROP"
+    )
+    assert rop_metadata.semantic is not None
+    assert rop_metadata.semantic.source_mnemonic == "ROP"
+    assert (
+        "etp12_channel_uri=eml:///witsml21.Channel(rop)"
+        in rop_metadata.semantic.evidence
+    )
+    assert "etp12_channel_id=10" in rop_metadata.semantic.evidence
+    assert "etp12_mapping=commit" in rop_metadata.semantic.evidence
+    assert any(
+        item.startswith("catalog_version=sensors-v1:")
+        for item in rop_metadata.semantic.evidence
+    )
+
 
 def test_import_review_accepts_equal_unknown_uom_with_explicit_quantity() -> None:
     _metadata_map, snapshot, _commit_result = _commit()
