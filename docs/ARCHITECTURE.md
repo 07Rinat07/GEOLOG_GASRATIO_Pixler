@@ -91,7 +91,10 @@ ARCH-03 начинается с Curve Pencil: renderer/UI остаются в `T
 `InterpretationSelectionState` хранит active interpretation и синхронизирует контекст.
 Пятый slice ARCH-03 объединяет geometry/static caches, dirty registry и overlay layer manager
 под `TabletRenderState`; view использует совместимые delegates, а invalidation policy живёт в
-Qt-независимом owner-компоненте.
+Qt-независимом owner-компоненте. Финальный ARCH-03 contract запрещает возвращать legacy
+mutable state в `TabletView.__init__`, подтверждает композицию headless state-компонентов и
+отсутствие top-level Qt dependency у state modules; sampling остаётся stateless/headless, а
+track topology lifecycle — за `TrackLifecycleCoordinator`.
 
 ## Источник, рабочая модель и экспорт
 
