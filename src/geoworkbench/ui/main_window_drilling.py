@@ -6,10 +6,7 @@ from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QDialog, QFileDialog, QMenu, QMessageBox
 
 from geoworkbench.app.context import ApplicationContext
-from geoworkbench.data.late_analysis_adapter import (
-    LateAnalysisImportError,
-    load_late_analysis_source,
-)
+from geoworkbench.data.late_analysis_adapter import LateAnalysisImportError
 from geoworkbench.project.annotation_schema import (
     annotation_from_canvas,
     annotation_matches_scope,
@@ -25,12 +22,7 @@ from geoworkbench.project.drilling_calculation_coordinator import (
 from geoworkbench.project.interpretation_feature_coordinator import (
     InterpretationFeatureCoordinator,
 )
-from geoworkbench.project.well_analysis_update_controller import (
-    WellAnalysisUpdateController,
-)
-from geoworkbench.project.well_analysis_update_workflow import (
-    WellAnalysisUpdateWorkflow,
-)
+from geoworkbench.project.late_analysis_coordinator import LateAnalysisCoordinator
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.canvas_object_transfer_dialog import CanvasObjectTransferDialog
 from geoworkbench.ui.drilling_calculation_dialog import DrillingCalculationDialog
@@ -66,6 +58,14 @@ class MainWindow(_LegacyMainWindow):
         self._session_bindings.register(
             self.canvas_object_transfer_coordinator,
             name="canvas_object_transfer",
+        )
+        self.late_analysis_coordinator = LateAnalysisCoordinator(
+            self.session,
+            self.project_controller,
+        )
+        self._session_bindings.register(
+            self.late_analysis_coordinator,
+            name="late_analysis",
         )
         self.interpretation_feature_coordinator = InterpretationFeatureCoordinator(
             self.session,
@@ -192,7 +192,7 @@ class MainWindow(_LegacyMainWindow):
             selected = Path(source)
 
         try:
-            imported = load_late_analysis_source(selected)
+            review = self.late_analysis_coordinator.prepare_review(selected)
         except (LateAnalysisImportError, OSError) as exc:
             QMessageBox.warning(
                 self,
@@ -205,32 +205,19 @@ class MainWindow(_LegacyMainWindow):
             )
             return
 
-        revision_before = well.content_revision
-        history_count_before = len(well.analysis_update_history)
-        controller = WellAnalysisUpdateController(self.session)
-        workflow = WellAnalysisUpdateWorkflow(
-            self.session,
-            controller,
-            self.project_controller,
-        )
         dialog = LateAnalysisReviewDialog(
-            workflow,
-            imported.source_samples,
-            source_name=imported.source_name,
-            source_sha256=imported.source_sha256,
+            self.late_analysis_coordinator,
+            review.source_samples,
+            source_name=review.source_name,
+            source_sha256=review.source_sha256,
             language=self.language,
             parent=self,
         )
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
 
-        current_well = self.session.current_well
-        changed = (
-            current_well is well
-            and well.content_revision > revision_before
-            and len(well.analysis_update_history) > history_count_before
-        )
-        if not changed:
+        completion = self.late_analysis_coordinator.complete_review(review)
+        if not completion.changed:
             self.statusBar().showMessage(
                 self._late_analysis_text(
                     "Поздние анализы: изменения не выбраны.",
@@ -240,7 +227,7 @@ class MainWindow(_LegacyMainWindow):
             )
             return
 
-        applied_count = len(well.analysis_update_history[-1].changes)
+        applied_count = completion.applied_count
         self._acknowledge_background_project_save()
         self._refresh_cuttings_after_edit()
         self.statusBar().showMessage(

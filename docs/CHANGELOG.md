@@ -4,6 +4,9 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- ARCH-02: WELL-02 late-analysis import теперь проходит через session-bound
+  `LateAnalysisCoordinator`; загрузка source, controller/workflow, baseline review и completion
+  находятся вне Qt-shell, а старый reviewed plan инвалидируется при project rebinding.
 - ARCH-02: перенос пользовательских canvas-объектов теперь собирается через session-bound
   `CanvasObjectTransferCoordinator`; production UI больше не создаёт controller/workflow
   внутри обработчика диалога, а project rebinding централизован через `SessionBindingController`.
