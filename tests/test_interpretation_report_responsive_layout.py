@@ -157,8 +157,11 @@ def test_interpretation_workspace_back_button_is_visible_localized_and_emits(qap
     workspace.close()
 
 
-def test_main_window_connects_report_back_button_to_home() -> None:
+def test_main_window_connects_report_back_button_to_detached_dialog_safe_home() -> None:
     source = Path("src/geoworkbench/ui/main_window.py").read_text(encoding="utf-8")
 
-    assert "self.interpretation_report_workspace.back_requested.connect(self._show_home)" in source
+    assert "self._show_home_from_interpretation_report" in source
+    assert "report_dialog = getattr(self, \"interpretation_report_dialog\", None)" in source
+    assert "report_dialog.hide()" in source
+    assert "self._show_home()" in source
 
