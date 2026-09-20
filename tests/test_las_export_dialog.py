@@ -29,3 +29,15 @@ def test_las_export_dialog_uses_english_catalog(qapp) -> None:
     assert dialog.preserve_check.text() == "Preserve custom sections and comments"
     assert buttons.button(QDialogButtonBox.StandardButton.Cancel).text() == "Cancel"
     dialog.close()
+
+
+def test_las_export_dialog_stays_inside_work_area(qapp) -> None:
+    dialog = LasExportPlanDialog()
+    dialog.show()
+    qapp.processEvents()
+
+    screen = dialog.screen()
+    assert screen is not None
+    assert screen.availableGeometry().contains(dialog.frameGeometry())
+
+    dialog.close()
