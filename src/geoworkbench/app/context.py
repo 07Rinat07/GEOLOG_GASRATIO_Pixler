@@ -7,7 +7,7 @@ from pathlib import Path
 from geoworkbench.project.controller import ProjectController
 from geoworkbench.project.repository import ProjectRepository
 from geoworkbench.project.session import ProjectSession
-from geoworkbench.services.etp12_audit import JsonlEtp12AuditSink
+from geoworkbench.services.etp12_audit import Etp12AuditSink, JsonlEtp12AuditSink
 from geoworkbench.services.etp12_credentials import (
     Etp12CredentialStore,
     default_etp12_credential_store,
@@ -54,7 +54,7 @@ class ApplicationContext:
     witsml_credentials: WitsmlCredentialStore
     etp12_credentials: Etp12CredentialStore
     witsml_audit: Witsml1411AuditSink
-    etp12_audit: JsonlEtp12AuditSink
+    etp12_audit: Etp12AuditSink
     project_repository_factory: ProjectRepositoryFactory
 
     def create_project_scope(self) -> ProjectScope:
@@ -74,7 +74,7 @@ def build_application_context(
     witsml_credentials: WitsmlCredentialStore | None = None,
     etp12_credentials: Etp12CredentialStore | None = None,
     witsml_audit: Witsml1411AuditSink | None = None,
-    etp12_audit: JsonlEtp12AuditSink | None = None,
+    etp12_audit: Etp12AuditSink | None = None,
     project_repository_factory: ProjectRepositoryFactory = ProjectRepositoryRouter,
 ) -> ApplicationContext:
     """Build production infrastructure once at the application boundary."""
