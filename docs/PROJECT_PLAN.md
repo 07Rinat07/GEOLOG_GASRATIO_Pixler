@@ -700,7 +700,8 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
   topology lifecycle уже принадлежит `TrackLifecycleCoordinator`. Финальный AST/source-contract
   запрещает возврат legacy mutable state в `TabletView.__init__` и top-level Qt imports в state modules.
 - [ ] **ARCH-04:** один immutable `SemanticContext` для всех importers с source mnemonic, UOM,
-  mapping evidence и версией каталога.
+  mapping evidence и версией каталога. Первый инкремент вводит DTO + `resolve_context()` и
+  переводит LAS import; `resolve()` остаётся compatibility shim до миграции CSV/Paradox/WITS.
 - [ ] **ARCH-05:** закрепить границы слоёв AST/import-contract тестами и запретить зависимости
   domain/calculations от Qt/UI/printing.
 - [ ] **ARCH-06:** calculation profiles и conditioning policies сделать версионированными
