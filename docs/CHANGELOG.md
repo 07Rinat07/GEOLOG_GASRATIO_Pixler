@@ -4,6 +4,10 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- ARCH-02 завершён: общий AST/source-contract запрещает Qt-shell напрямую изменять
+  `ProjectSession`, project collections, `Dataset` и `Well`, а ключевые WITSML/GS2,
+  Gas Ratio, lag correction, canvas transfer и late-analysis workflows закреплены за
+  application coordinators/controllers.
 - ARCH-02: WELL-02 late-analysis import теперь проходит через session-bound
   `LateAnalysisCoordinator`; загрузка source, controller/workflow, baseline review и completion
   находятся вне Qt-shell, а старый reviewed plan инвалидируется при project rebinding.

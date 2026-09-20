@@ -583,6 +583,16 @@ python -m pytest -q tests/test_late_analysis_coordinator.py \
 Набор проверяет source load, WELL-02 apply/material autosave, completion count, project rebinding,
 инвалидацию старого review и отсутствие ad-hoc controller/workflow в production MainWindow.
 
+Финальный ARCH-02 mutation boundary:
+
+```bash
+python -m pytest -q tests/test_arch02_ui_mutation_boundary.py
+```
+
+AST/source-contract запрещает прямые assignments и mutating calls к ProjectSession/project
+collections/Dataset/Well из обоих MainWindow-слоёв и проверяет наличие утверждённых feature
+coordinators. Полный Release gate остаётся обязательным перед merge.
+
 ## 15. Каталоги печатных шапок и логотипов
 
 Минимальная доменная и SKF-проверка:
