@@ -95,6 +95,10 @@ Qt-независимом owner-компоненте. Финальный ARCH-03
 mutable state в `TabletView.__init__`, подтверждает композицию headless state-компонентов и
 отсутствие top-level Qt dependency у state modules; sampling остаётся stateless/headless, а
 track topology lifecycle — за `TrackLifecycleCoordinator`.
+ARCH-04 начинается с immutable `SemanticContext`: importer передаёт exact source mnemonic,
+mapped mnemonic, source UOM, canonical hint и mapping evidence вместе с deterministic Sensors
+catalog version. `SemanticChannelDictionary.resolve_context()` проверяет version pin; legacy
+`resolve()` остаётся compatibility shim. Первый production consumer нового boundary — LAS.
 
 ## Источник, рабочая модель и экспорт
 

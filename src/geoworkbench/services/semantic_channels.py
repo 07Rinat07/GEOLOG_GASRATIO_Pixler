@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from hashlib import sha256
 import re
 from typing import Iterable
 
@@ -17,6 +18,31 @@ from geoworkbench.services.uom_dictionary import (
 
 
 _KIND_TOKEN = re.compile(r"[^a-z0-9]+")
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticContext:
+    """Immutable evidence supplied to semantic resolution by any importer."""
+
+    source_mnemonic: str
+    mapped_mnemonic: str
+    source_uom: str | None
+    description: str = ""
+    canonical_mnemonic: str | None = None
+    mapping_evidence: tuple[str, ...] = ()
+    catalog_version: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.source_mnemonic.strip():
+            raise ValueError("Semantic context requires source_mnemonic")
+        if not self.mapped_mnemonic.strip():
+            raise ValueError("Semantic context requires mapped_mnemonic")
+        if self.source_uom is not None and self.source_uom != self.source_uom.strip():
+            raise ValueError("Semantic context source_uom must be normalized")
+        if any(not item.strip() for item in self.mapping_evidence):
+            raise ValueError("Semantic context evidence must be non-empty strings")
+        if not self.catalog_version.strip():
+            raise ValueError("Semantic context requires catalog_version")
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,6 +146,40 @@ class SemanticChannelDictionary:
     ) -> None:
         self.catalog = catalog or default_sensor_catalog()
         self.uoms = uoms or default_uom_dictionary()
+        self.catalog_version = _semantic_catalog_version(self.catalog)
+
+    def context(
+        self,
+        *,
+        source_mnemonic: str,
+        mapped_mnemonic: str | None = None,
+        source_uom: str = "",
+        description: str = "",
+        canonical_mnemonic: str | None = None,
+        mapping_evidence: Iterable[str] = (),
+    ) -> SemanticContext:
+        source = source_mnemonic.strip()
+        mapped = (mapped_mnemonic or source).strip()
+        evidence = tuple(
+            dict.fromkeys(
+                text
+                for item in mapping_evidence
+                if (text := str(item).strip())
+            )
+        )
+        return SemanticContext(
+            source_mnemonic=source,
+            mapped_mnemonic=mapped,
+            source_uom=source_uom.strip() or None,
+            description=description.strip(),
+            canonical_mnemonic=(
+                canonical_mnemonic.strip().upper()
+                if canonical_mnemonic is not None and canonical_mnemonic.strip()
+                else None
+            ),
+            mapping_evidence=evidence,
+            catalog_version=self.catalog_version,
+        )
 
     def definition(self, sensor: SensorDefinition) -> SemanticChannelDefinition:
         reference_uom = self.uoms.resolve(sensor.unit)
@@ -158,11 +218,31 @@ class SemanticChannelDictionary:
         source_mnemonic: str | None = None,
         canonical_mnemonic: str | None = None,
     ) -> SemanticChannelBinding:
-        original = (source_mnemonic or mnemonic).strip() or mnemonic.strip()
-        source_unit = unit.strip()
+        """Compatibility shim that builds one immutable SemanticContext."""
+
+        context = self.context(
+            source_mnemonic=source_mnemonic or mnemonic,
+            mapped_mnemonic=mnemonic,
+            source_uom=unit,
+            description=description,
+            canonical_mnemonic=canonical_mnemonic,
+        )
+        return self.resolve_context(context)
+
+    def resolve_context(self, context: SemanticContext) -> SemanticChannelBinding:
+        if context.catalog_version != self.catalog_version:
+            raise ValueError(
+                "Semantic context catalog_version does not match the active semantic dictionary"
+            )
+        mnemonic = context.mapped_mnemonic
+        description = context.description
+        canonical_mnemonic = context.canonical_mnemonic
+        original = context.source_mnemonic
+        source_unit = context.source_uom or ""
         source_uom = self.uoms.resolve(source_unit)
         match = self.catalog.match(mnemonic, description=description, unit=source_unit)
-        evidence: list[str] = []
+        evidence: list[str] = list(context.mapping_evidence)
+        evidence.append(f"catalog_version={context.catalog_version}")
 
         if match is None:
             canonical = (canonical_mnemonic or mnemonic).strip().upper()
@@ -251,6 +331,34 @@ class SemanticChannelDictionary:
 
     def search(self, text: str) -> tuple[SemanticChannelDefinition, ...]:
         return tuple(self.definition(sensor) for sensor in self.catalog.search(text))
+
+
+def _semantic_catalog_version(catalog: SensorCatalog) -> str:
+    """Return a deterministic version token for the exact semantic catalog content."""
+
+    rows = [
+        "|".join(
+            (
+                sensor.sensor_id,
+                sensor.canonical_mnemonic,
+                sensor.unit,
+                sensor.family,
+                sensor.category,
+                ",".join(sensor.aliases),
+            )
+        )
+        for sensor in catalog.sensors
+    ]
+    payload = "\n".join(
+        (
+            "semantic-sensors-schema=1",
+            catalog.catalog_name,
+            *catalog.sources,
+            *sorted(rows),
+        )
+    )
+    digest = sha256(payload.encode("utf-8")).hexdigest()[:16]
+    return f"sensors-v1:{digest}"
 
 
 def _canonical_kind(category: str, mnemonic: str) -> str:
