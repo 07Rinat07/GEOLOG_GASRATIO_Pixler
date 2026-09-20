@@ -545,9 +545,6 @@ def _write_opus_gasomer_sheet(
     sheet.append(protect_spreadsheet_row(("Происхождение формул",)))
     for provenance_item in section.provenance:
         sheet.append(protect_spreadsheet_row((provenance_item,)))
-    sheet.append(protect_spreadsheet_row(("Исправления исходной книги",)))
-    for erratum in section.errata:
-        sheet.append(protect_spreadsheet_row((erratum,)))
     _format_auxiliary_sheet(
         sheet,
         widths=(34, 22, 34, 34, 24, 24, 52, 68, 20, 20),
