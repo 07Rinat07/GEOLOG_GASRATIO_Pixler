@@ -816,6 +816,7 @@ class MainWindow(QMainWindow):
         self.interpretation_report_workspace.calculation_completed.connect(
             self._after_interpretation_calculation
         )
+        self.interpretation_report_workspace.back_requested.connect(self._show_home)
         self.tabs.addTab(self.curve_view, self._t("tab.curves"))
         self.tabs.addTab(self.las_table_editor, self._t("tab.table"))
         self.tabs.addTab(self.tablet_view, self._t("tab.tablet"))
