@@ -675,7 +675,7 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
   import-job controller, общий ReportPassportBuilder, WITSML/ETP credential stores и audit sinks.
   Production MainWindow больше не создаёт вторые экземпляры этих infrastructure services; fallback
   остаётся только для изолированных UI-тестов и совместимых embedding-сценариев.
-- [ ] **ARCH-02:** разделить `MainWindow` на feature coordinators; запретить UI прямые записи в
+- [x] **ARCH-02:** разделить `MainWindow` на feature coordinators; запретить UI прямые записи в
   project collections, Dataset, layout и dirty-state. Первый инкремент переносит WITSML
   registration policy в `WitsmlImportCoordinator`: Qt-shell только выбирает источник,
   показывает review/status и не создаёт project-mutation controller напрямую. Второй инкремент
@@ -688,7 +688,8 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
   переводит canvas-object transfer на session-bound `CanvasObjectTransferCoordinator`, чтобы
   Qt не создавал controller/workflow вручную. Шестой инкремент переводит WELL-02 late-analysis
   import на `LateAnalysisCoordinator`, включая source load, reviewed transaction и completion.
-  Следующие инкременты должны таким же образом вынести оставшиеся import/edit orchestration paths.
+  Финальный AST/source-contract проверяет оба MainWindow-слоя и запрещает прямые mutation paths;
+  дальнейшая архитектурная работа продолжается с ARCH-03.
 - [ ] **ARCH-03:** вынести оставшиеся sampling/cache/navigation/track lifecycle/editing state из
   `TabletView` в Qt-независимые компоненты с transition tests.
 - [ ] **ARCH-04:** один immutable `SemanticContext` для всех importers с source mnemonic, UOM,
