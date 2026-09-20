@@ -33,6 +33,7 @@ from geoworkbench.project.annotation_schema import CATALOG_SYMBOL_MINIMUM_DIMENS
 from geoworkbench.project.symbol_insertion import SymbolInsertionSelection
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.tablet.models import TrackKind
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class SymbolInsertionDialog(QDialog):
@@ -56,7 +57,6 @@ class SymbolInsertionDialog(QDialog):
 
         self.setObjectName("symbol-insertion-dialog")
         self.setWindowTitle(self._t("symbol_insert.title"))
-        self.resize(980, 680)
 
         root = QVBoxLayout(self)
         hint = QLabel(self._t("symbol_insert.hint"))
@@ -90,6 +90,11 @@ class SymbolInsertionDialog(QDialog):
         self._populate_tracks()
         self._apply_initial_values()
         self._refresh_catalog()
+        fit_window_to_screen(
+            self,
+            preferred=QSize(980, 680),
+            minimum=QSize(640, 420),
+        )
 
     def _build_catalog_panel(self) -> QWidget:
         panel = QWidget()
