@@ -313,13 +313,21 @@ def import_paradox(
             raw_description = _raw_time_description(
                 selected.language, field.name, time_representation
             )
-            raw_semantic = semantic_dictionary.resolve(
-                raw_mnemonic,
-                description=raw_description,
-                unit=raw_unit,
+            raw_semantic_context = semantic_dictionary.context(
                 source_mnemonic=field.name,
+                mapped_mnemonic=raw_mnemonic,
+                source_uom=raw_unit,
+                description=raw_description,
                 canonical_mnemonic=raw_mnemonic,
+                mapping_evidence=(
+                    f"paradox_field_ordinal={field.ordinal}",
+                    f"paradox_field={field.name}",
+                    f"paradox_field_type={field.type_name}",
+                    f"paradox_mapping={mapping.mnemonic or field.name}",
+                    "paradox_projection=raw_time",
+                ),
             )
+            raw_semantic = semantic_dictionary.resolve_context(raw_semantic_context)
             curves[raw_curve_id] = CurveData(
                 CurveMetadata(
                     raw_curve_id,
@@ -374,13 +382,20 @@ def import_paradox(
         resolved_description = description or _source_channel_description(
             selected.language, field.name
         )
-        semantic = semantic_dictionary.resolve(
-            requested_mnemonic,
-            description=resolved_description,
-            unit=unit,
+        semantic_context = semantic_dictionary.context(
             source_mnemonic=field.name,
+            mapped_mnemonic=requested_mnemonic,
+            source_uom=unit,
+            description=resolved_description,
             canonical_mnemonic=requested_mnemonic,
+            mapping_evidence=(
+                f"paradox_field_ordinal={field.ordinal}",
+                f"paradox_field={field.name}",
+                f"paradox_field_type={field.type_name}",
+                f"paradox_mapping={mapping.mnemonic or field.name}",
+            ),
         )
+        semantic = semantic_dictionary.resolve_context(semantic_context)
         curves[curve_id] = CurveData(
             CurveMetadata(
                 curve_id,
