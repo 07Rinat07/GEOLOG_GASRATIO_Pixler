@@ -684,8 +684,10 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
   workflow. Третий инкремент переводит conditioned Gas Ratio/Haworth/Pixler persistence на
   `GasRatioProjectController`, сохраняя старый session API только как compatibility shim.
   Четвёртый инкремент консолидирует GS2 import вокруг одного `Gs2ImportCoordinator`: legacy
-  base и production subclass больше не содержат разные mutation paths. Следующие инкременты
-  должны таким же образом вынести оставшиеся import/edit orchestration paths.
+  base и production subclass больше не содержат разные mutation paths. Пятый инкремент
+  переводит canvas-object transfer на session-bound `CanvasObjectTransferCoordinator`, чтобы
+  Qt не создавал controller/workflow вручную. Следующие инкременты должны таким же образом
+  вынести оставшиеся import/edit orchestration paths.
 - [ ] **ARCH-03:** вынести оставшиеся sampling/cache/navigation/track lifecycle/editing state из
   `TabletView` в Qt-независимые компоненты с transition tests.
 - [ ] **ARCH-04:** один immutable `SemanticContext` для всех importers с source mnemonic, UOM,

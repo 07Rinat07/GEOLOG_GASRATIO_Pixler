@@ -4,6 +4,9 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- ARCH-02: перенос пользовательских canvas-объектов теперь собирается через session-bound
+  `CanvasObjectTransferCoordinator`; production UI больше не создаёт controller/workflow
+  внутри обработчика диалога, а project rebinding централизован через `SessionBindingController`.
 - ARCH-02: GS2 import теперь имеет один UI-flow: базовый `MainWindow` использует
   `Gs2ImportCoordinator` для Dataset enrichment/registration, а production subclass больше
   не дублирует `open_gs2()`. Прямые GS2-записи в Dataset запрещены source-contract тестом.
