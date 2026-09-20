@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import StrEnum
 from math import isclose, isfinite
+from sys import float_info
 
 from geoworkbench.tablet.camera import TabletCamera, recommended_initial_span
 
@@ -16,6 +17,19 @@ class NavigationCommand(StrEnum):
     PAGE_DOWN = "page_down"
     LINE_UP = "line_up"
     LINE_DOWN = "line_down"
+
+
+@dataclass(frozen=True, slots=True)
+class NavigationControlState:
+    """Qt-independent projection of a visible range onto navigation controls."""
+
+    enabled: bool
+    visible_span: float = 0.0
+    data_span: float = 0.0
+    scrollbar_maximum: int = 0
+    scrollbar_value: int = 0
+    scrollbar_page_step: int = 1
+    scrollbar_single_step: int = 1
 
 
 @dataclass(slots=True)
@@ -90,6 +104,59 @@ class TabletNavigationCoordinator:
         self._synchronize(bounds, current)
         return self.camera.pan(float(delta))
 
+    def control_state(
+        self,
+        bounds: tuple[float, float] | None,
+        current: tuple[float, float] | None,
+        *,
+        scrollbar_maximum: int = 1_000_000,
+    ) -> NavigationControlState:
+        """Project the current viewport onto scrollbar/page-step state."""
+
+        if bounds is None or current is None:
+            return NavigationControlState(enabled=False)
+        if scrollbar_maximum <= 0:
+            raise ValueError("scrollbar_maximum must be positive")
+        domain, visible = self._normalized_ranges(bounds, current)
+        data_span = domain[1] - domain[0]
+        visible_span = visible[1] - visible[0]
+        if visible_span >= data_span * 0.999999:
+            return NavigationControlState(
+                enabled=True,
+                visible_span=visible_span,
+                data_span=data_span,
+            )
+        travel = max(data_span - visible_span, float_info.epsilon)
+        value = int(round((visible[0] - domain[0]) / travel * scrollbar_maximum))
+        page = max(1, int(round(visible_span / data_span * scrollbar_maximum)))
+        return NavigationControlState(
+            enabled=True,
+            visible_span=visible_span,
+            data_span=data_span,
+            scrollbar_maximum=scrollbar_maximum,
+            scrollbar_value=max(0, min(scrollbar_maximum, value)),
+            scrollbar_page_step=page,
+            scrollbar_single_step=max(1, page // 10),
+        )
+
+    def range_from_scrollbar(
+        self,
+        bounds: tuple[float, float],
+        current: tuple[float, float],
+        value: int,
+        maximum: int,
+    ) -> tuple[float, float]:
+        """Resolve a scrollbar position back to a visible range."""
+
+        if maximum <= 0:
+            raise ValueError("Scrollbar maximum must be positive")
+        domain, visible = self._normalized_ranges(bounds, current)
+        span = visible[1] - visible[0]
+        travel = max((domain[1] - domain[0]) - span, 0.0)
+        normalized_value = max(0, min(int(maximum), int(value)))
+        top = domain[0] + travel * float(normalized_value) / float(maximum)
+        return top, top + span
+
     def navigate(
         self,
         bounds: tuple[float, float],
@@ -114,8 +181,8 @@ class TabletNavigationCoordinator:
         }[normalized]
         return self.camera.pan_fraction(fraction)
 
-    def _synchronize(
-        self,
+    @staticmethod
+    def _normalized_ranges(
         bounds: tuple[float, float],
         current: tuple[float, float],
     ) -> tuple[tuple[float, float], tuple[float, float]]:
@@ -127,6 +194,14 @@ class TabletNavigationCoordinator:
         visible = (visible_values[0], visible_values[1])
         if domain[0] == domain[1] or visible[0] == visible[1]:
             raise ValueError("Navigation ranges must have a positive span")
+        return domain, visible
+
+    def _synchronize(
+        self,
+        bounds: tuple[float, float],
+        current: tuple[float, float],
+    ) -> tuple[tuple[float, float], tuple[float, float]]:
+        domain, visible = self._normalized_ranges(bounds, current)
         self.camera.set_domain(*domain, preserve_window=False)
         self.camera.set_visible_range(*visible)
         return domain, self.camera.range
