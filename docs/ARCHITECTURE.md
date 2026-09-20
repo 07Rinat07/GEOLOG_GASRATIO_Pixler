@@ -106,7 +106,9 @@ mapping state и catalog version evidence. Пятый slice переводит �
 (2.x ChannelSet и нормализованный WITSML 1.4.1.1 flow) и фиксирует channel position/key/uuid,
 automatic/reviewed/commit mapping state и catalog version evidence. Шестой slice переводит
 общий post-import `ImportReviewController`: legacy inspection и reviewed remapping используют
-тот же context boundary, а manual override сохраняет исходное importer evidence.
+тот же context boundary, а manual override сохраняет исходное importer evidence. Седьмой slice
+переводит ETP 1.2 Import Review: channel URI/id и automatic/reviewed/commit mapping state
+становятся version-pinned semantic evidence.
 
 ## Источник, рабочая модель и экспорт
 
