@@ -116,6 +116,11 @@ from geoworkbench.tablet.camera import (
     DEPTH_VIEW_SPAN_PRESETS,
     recommended_initial_range,
 )
+from geoworkbench.tablet.curve_pencil_state import (
+    CurvePencilMode,
+    CurvePencilPoint,
+    CurvePencilState,
+)
 from geoworkbench.tablet.layout_mutations import TabletLayoutMutationController
 from geoworkbench.tablet.navigation_coordinator import (
     NavigationCommand,
@@ -425,13 +430,6 @@ class GeologicalInputMode(StrEnum):
     EDIT = "edit"
 
 
-class CurvePencilMode(StrEnum):
-    """How the user defines a replacement segment for the selected curve."""
-
-    FREEHAND = "freehand"
-    CONNECT_POINTS = "connect_points"
-
-
 @dataclass(frozen=True, slots=True)
 class CurveRenderKey:
     """Raw viewport geometry plus the display transform applied to it."""
@@ -480,12 +478,7 @@ class _QtPointerPayload:
     event: QMouseEvent | QKeyEvent
 
 
-@dataclass(frozen=True, slots=True)
-class _CurvePencilPoint:
-    axis_value: float
-    source_value: float
-    display_x: float
-
+_CurvePencilPoint = CurvePencilPoint
 
 @dataclass(slots=True)
 class _LithologyGesture:
@@ -2115,17 +2108,7 @@ class TabletView(QWidget):
         self._shared_vertical_ruler_layout: VerticalRulerLayout | None = None
         self._cursor_enabled = False
         self._selected_track_id: str | None = None
-        self._curve_pencil_enabled = False
-        self._curve_pencil_track_id: str | None = None
-        self._curve_pencil_mnemonic: str | None = None
-        self._curve_pencil_curve_id: str | None = None
-        self._curve_pencil_points: list[_CurvePencilPoint] = []
-        self._curve_pencil_mode = CurvePencilMode.FREEHAND
-        self._curve_pencil_commit_ack: bool | None = None
-        self._curve_pencil_commit_error = ""
-        self._curve_pencil_unsaved = False
-        self._curve_pencil_can_undo = False
-        self._curve_pencil_can_redo = False
+        self._curve_pencil_state = CurvePencilState()
         self._curve_pencil_last_hover: tuple[str, _CurvePencilPoint, QPoint] | None = None
         self._pencil_cursor = self._build_pencil_cursor()
         self._cursor_depth: float | None = None
@@ -3428,6 +3411,94 @@ class TabletView(QWidget):
                 return item.track_id, item.object_id
         return None
 
+    @property
+    def _curve_pencil_enabled(self) -> bool:
+        return self._curve_pencil_state.enabled
+
+    @_curve_pencil_enabled.setter
+    def _curve_pencil_enabled(self, value: bool) -> None:
+        self._curve_pencil_state.enabled = bool(value)
+
+    @property
+    def _curve_pencil_track_id(self) -> str | None:
+        return self._curve_pencil_state.track_id
+
+    @_curve_pencil_track_id.setter
+    def _curve_pencil_track_id(self, value: str | None) -> None:
+        self._curve_pencil_state.track_id = value
+
+    @property
+    def _curve_pencil_mnemonic(self) -> str | None:
+        return self._curve_pencil_state.mnemonic
+
+    @_curve_pencil_mnemonic.setter
+    def _curve_pencil_mnemonic(self, value: str | None) -> None:
+        self._curve_pencil_state.mnemonic = value
+
+    @property
+    def _curve_pencil_curve_id(self) -> str | None:
+        return self._curve_pencil_state.curve_id
+
+    @_curve_pencil_curve_id.setter
+    def _curve_pencil_curve_id(self, value: str | None) -> None:
+        self._curve_pencil_state.curve_id = value
+
+    @property
+    def _curve_pencil_points(self) -> list[_CurvePencilPoint]:
+        return self._curve_pencil_state.points
+
+    @_curve_pencil_points.setter
+    def _curve_pencil_points(self, value: list[_CurvePencilPoint]) -> None:
+        self._curve_pencil_state.points = value
+
+    @property
+    def _curve_pencil_mode(self) -> CurvePencilMode:
+        return self._curve_pencil_state.mode
+
+    @_curve_pencil_mode.setter
+    def _curve_pencil_mode(self, value: CurvePencilMode) -> None:
+        self._curve_pencil_state.mode = value
+
+    @property
+    def _curve_pencil_commit_ack(self) -> bool | None:
+        return self._curve_pencil_state.commit_ack
+
+    @_curve_pencil_commit_ack.setter
+    def _curve_pencil_commit_ack(self, value: bool | None) -> None:
+        self._curve_pencil_state.commit_ack = value
+
+    @property
+    def _curve_pencil_commit_error(self) -> str:
+        return self._curve_pencil_state.commit_error
+
+    @_curve_pencil_commit_error.setter
+    def _curve_pencil_commit_error(self, value: str) -> None:
+        self._curve_pencil_state.commit_error = value
+
+    @property
+    def _curve_pencil_unsaved(self) -> bool:
+        return self._curve_pencil_state.unsaved
+
+    @_curve_pencil_unsaved.setter
+    def _curve_pencil_unsaved(self, value: bool) -> None:
+        self._curve_pencil_state.unsaved = bool(value)
+
+    @property
+    def _curve_pencil_can_undo(self) -> bool:
+        return self._curve_pencil_state.can_undo
+
+    @_curve_pencil_can_undo.setter
+    def _curve_pencil_can_undo(self, value: bool) -> None:
+        self._curve_pencil_state.can_undo = bool(value)
+
+    @property
+    def _curve_pencil_can_redo(self) -> bool:
+        return self._curve_pencil_state.can_redo
+
+    @_curve_pencil_can_redo.setter
+    def _curve_pencil_can_redo(self, value: bool) -> None:
+        self._curve_pencil_state.can_redo = bool(value)
+
     def _select_curve_pencil_mode(self, mode: CurvePencilMode) -> None:
         row = self._curve_pencil_mode_selector.findData(mode.value)
         if row >= 0:
@@ -3482,8 +3553,7 @@ class TabletView(QWidget):
         )
 
     def set_curve_pencil_history_state(self, can_undo: bool, can_redo: bool) -> None:
-        self._curve_pencil_can_undo = bool(can_undo)
-        self._curve_pencil_can_redo = bool(can_redo)
+        self._curve_pencil_state.set_history(can_undo=can_undo, can_redo=can_redo)
         self._curve_pencil_undo_button.setEnabled(self._curve_pencil_can_undo)
         self._curve_pencil_redo_button.setEnabled(self._curve_pencil_can_redo)
 
@@ -3504,8 +3574,7 @@ class TabletView(QWidget):
         preview and selected points visible instead of silently discarding them.
         """
 
-        self._curve_pencil_commit_ack = bool(accepted)
-        self._curve_pencil_commit_error = error.strip()
+        self._curve_pencil_state.acknowledge_commit(accepted, error)
         self._update_curve_pencil_status()
 
     def _tablet_pencil_button_toggled(self, enabled: bool) -> None:
@@ -3622,9 +3691,7 @@ class TabletView(QWidget):
             or is_relative_gas_track(rendered.definition.curve_mnemonics)
         ):
             return False
-        self._curve_pencil_track_id = track_id
-        self._curve_pencil_mnemonic = mnemonic
-        self._curve_pencil_curve_id = curve.metadata.curve_id
+        self._curve_pencil_state.select_target(track_id, mnemonic, curve.metadata.curve_id)
         rendered.widget.set_selected_curve(mnemonic)
         return True
 
@@ -3799,14 +3866,14 @@ class TabletView(QWidget):
         self._update_curve_pencil_mode_controls()
 
     def mark_curve_pencil_unsaved(self) -> None:
-        self._curve_pencil_unsaved = True
+        self._curve_pencil_state.mark_unsaved()
         self._update_curve_pencil_status()
 
     def clear_curve_pencil_unsaved(self) -> None:
         # Saving clears only the dirty indicator.  Undo/redo history remains
         # available, matching standard editor behaviour; an undo after Save
         # marks the project dirty again through the controller.
-        self._curve_pencil_unsaved = False
+        self._curve_pencil_state.clear_unsaved()
         self._update_curve_pencil_status()
 
     def _curve_pencil_display_label(self) -> str:
@@ -4096,9 +4163,7 @@ class TabletView(QWidget):
             rendered.curve_pencil_preview = None
 
     def cancel_curve_pencil_gesture(self) -> None:
-        self._curve_pencil_points.clear()
-        self._curve_pencil_commit_ack = None
-        self._curve_pencil_commit_error = ""
+        self._curve_pencil_state.cancel_gesture()
         self._clear_curve_pencil_preview()
         self._update_curve_pencil_mode_controls()
         self._update_curve_pencil_status()
