@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from PySide6.QtCore import QPoint, Qt
 
 from geoworkbench.project.interpretation_calculation_controller import (
@@ -126,3 +127,36 @@ def test_interpretation_workspace_keeps_export_actions_visible_at_laptop_height(
         assert top_left.y() + button.height() <= workspace.height()
 
     workspace.close()
+
+def test_interpretation_workspace_back_button_is_visible_localized_and_emits(qapp) -> None:
+    workspace = InterpretationReportWorkspace(
+        InterpretationCalculationController(ProjectSession()),
+        language=AppLanguage.RU,
+    )
+    workspace.resize(1_200, 800)
+    workspace.show()
+    qapp.processEvents()
+
+    requested: list[bool] = []
+    workspace.back_requested.connect(lambda: requested.append(True))
+
+    assert workspace.back_button.isVisible()
+    assert workspace.back_button.text() == "Назад"
+    assert workspace.back_button.arrowType() == Qt.ArrowType.LeftArrow
+    assert "другой отчёт" in workspace.back_button.toolTip()
+
+    workspace.back_button.click()
+    qapp.processEvents()
+    assert requested == [True]
+
+    workspace.set_language(AppLanguage.EN)
+    assert workspace.back_button.text() == "Back"
+    assert "another report" in workspace.back_button.toolTip()
+    workspace.close()
+
+
+def test_main_window_connects_report_back_button_to_home() -> None:
+    source = Path("src/geoworkbench/ui/main_window.py").read_text(encoding="utf-8")
+
+    assert "self.interpretation_report_workspace.back_requested.connect(self._show_home)" in source
+
