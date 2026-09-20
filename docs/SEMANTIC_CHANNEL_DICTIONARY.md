@@ -29,7 +29,8 @@ CSV/TXT — номера и исходного header столбца; GeoScape/P
 Import Review фиксирует record/item/source-id и automatic/reviewed mapping state. Общий WITSML
 Import Review фиксирует channel position/key/uuid и automatic/reviewed/commit mapping state.
 Общий post-import Import Review фиксирует curve id и inspection/reviewed state; manual override
-объединяет исходное importer evidence с новым review evidence вместо его потери. Эти признаки
+объединяет исходное importer evidence с новым review evidence вместо его потери. ETP 1.2
+Import Review фиксирует channel URI/id и automatic/reviewed/commit mapping state. Эти признаки
 сохраняются в binding evidence.
 
 ## Снимок привязки кривой
