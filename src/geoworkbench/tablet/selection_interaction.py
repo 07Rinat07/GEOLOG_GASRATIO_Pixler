@@ -140,6 +140,81 @@ class SelectionManager:
         return changed
 
 
+@dataclass(frozen=True, slots=True)
+class InterpretationSelectionChange:
+    interpretation_changed: bool
+    interval_changed: bool
+    selection_changed: bool
+
+    @property
+    def changed(self) -> bool:
+        return self.interpretation_changed or self.interval_changed
+
+
+@dataclass(slots=True)
+class InterpretationSelectionState:
+    """Headless interpretation/interval selection boundary.
+
+    The active interpretation is context, not a generic selectable object. The
+    selected interval, however, is owned exclusively by SelectionManager so
+    TabletView cannot drift from the shared selection snapshot.
+    """
+
+    selection: SelectionManager
+    interpretation_id: str | None = None
+
+    @property
+    def interval_id(self) -> str | None:
+        snapshot = self.selection.snapshot()
+        if snapshot.primary is not None and snapshot.primary.kind is SelectableKind.INTERVAL:
+            return snapshot.primary.object_id
+        intervals = tuple(
+            item.object_id
+            for item in snapshot.items
+            if item.kind is SelectableKind.INTERVAL
+        )
+        return intervals[-1] if intervals else None
+
+    def set_interpretation(self, interpretation_id: str | None) -> bool:
+        if interpretation_id is not None:
+            interpretation_id = interpretation_id.strip()
+            if not interpretation_id:
+                raise ValueError("interpretation_id must be non-empty or None")
+        changed = self.interpretation_id != interpretation_id
+        self.interpretation_id = interpretation_id
+        return changed
+
+    def select_interval(
+        self,
+        interpretation_id: str,
+        interval_id: str,
+    ) -> InterpretationSelectionChange:
+        normalized_interpretation = interpretation_id.strip()
+        normalized_interval = interval_id.strip()
+        if not normalized_interpretation or not normalized_interval:
+            raise ValueError("interpretation and interval ids must be non-empty")
+        previous_interval = self.interval_id
+        interpretation_changed = self.set_interpretation(normalized_interpretation)
+        selection_changed = self.selection.select(
+            SelectionRef(SelectableKind.INTERVAL, normalized_interval),
+            additive=False,
+        )
+        return InterpretationSelectionChange(
+            interpretation_changed=interpretation_changed,
+            interval_changed=previous_interval != normalized_interval,
+            selection_changed=selection_changed,
+        )
+
+    def clear_interval(self) -> bool:
+        return self.selection.clear(kind=SelectableKind.INTERVAL)
+
+    def retain_interval(self, valid_interval_ids: set[str] | frozenset[str]) -> bool:
+        interval_id = self.interval_id
+        if interval_id is None or interval_id in valid_interval_ids:
+            return False
+        return self.clear_interval()
+
+
 class UndoableCommand(Protocol):
     description: str
 
