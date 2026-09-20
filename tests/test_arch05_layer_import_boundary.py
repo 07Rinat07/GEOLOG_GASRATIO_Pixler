@@ -10,12 +10,12 @@ LAYER_ROOTS = (
     SOURCE_ROOT / "geoworkbench/calculations",
 )
 FORBIDDEN_PREFIXES = (
-    "PySide",
-    "PyQt",
     "pyqtgraph",
+    "qtpy",
     "geoworkbench.ui",
     "geoworkbench.printing",
 )
+QT_BINDING_PREFIXES = ("PySide", "PyQt")
 
 
 def _module_name(path: Path) -> str:
@@ -59,6 +59,8 @@ def _imported_names(path: Path, node: ast.Import | ast.ImportFrom) -> tuple[str,
 
 
 def _is_forbidden(module: str) -> bool:
+    if module.startswith(QT_BINDING_PREFIXES):
+        return True
     return any(
         module == prefix or module.startswith(f"{prefix}.")
         for prefix in FORBIDDEN_PREFIXES
