@@ -143,6 +143,45 @@ def test_report_detects_relative_anomaly_and_keeps_manual_intervals_separate() -
     assert "Check DST" in html
 
 
+def test_report_replaces_legacy_gas_vendor_codes_with_readable_names() -> None:
+    session = _session()
+    dataset = session.current_dataset
+    assert dataset is not None
+
+    vendor_codes = {
+        "C1": "S1601",
+        "C2": "S1602",
+        "C3": "S1603",
+        "IC4": "S1626",
+        "IC5": "S1627",
+    }
+    for canonical, vendor_code in vendor_codes.items():
+        curve = dataset.curve_by_mnemonic(canonical)
+        assert curve is not None
+        metadata = curve.metadata
+        curve.metadata = CurveMetadata(
+            curve_id=metadata.curve_id,
+            original_mnemonic=vendor_code,
+            canonical_mnemonic=canonical,
+            unit=metadata.unit,
+            description=metadata.description,
+            source_dataset_id=metadata.source_dataset_id,
+            provenance=metadata.provenance,
+            semantic=metadata.semantic,
+        )
+
+    report = build_hydrocarbon_interpretation_report(session)
+    html = hydrocarbon_interpretation_html(report, AppLanguage.RU)
+
+    assert "Метан (C1)" in html
+    assert "Этан (C2)" in html
+    assert "Пропан (C3)" in html
+    assert "Изобутан (IC4)" in html
+    assert "Изопентан (IC5)" in html
+    for vendor_code in vendor_codes.values():
+        assert vendor_code not in html
+
+
 def test_report_exports_openable_xlsx_and_docx(tmp_path) -> None:
     session = _session()
     dataset = session.current_dataset
