@@ -352,7 +352,7 @@ def test_open_etp_session_roundtrips_and_restores_overlap_window(tmp_path) -> No
 
 
 def test_import_review_commit_can_be_restored_from_persisted_schema() -> None:
-    metadata, snapshot, commit = _commit()
+    metadata, _snapshot, commit = _commit()
     well = Well("well-1", "Well 1")
     runtime = Etp12AcquisitionRuntime(
         well, commit, session_id="etp-session-1", metadata=metadata
@@ -360,6 +360,10 @@ def test_import_review_commit_can_be_restored_from_persisted_schema() -> None:
     runtime.submit_channel_batch(_batch())
     runtime.flush()
 
+    reconnected = Etp12DiscoveryAccumulator("sub-main")
+    reconnected.update_metadata(_metadata(110), generation=2)
+    reconnected.observe(_batch(generation=2, first_id=110, message_id=202))
+    snapshot = reconnected.snapshot()
     restored = restore_etp12_import_review_commit(runtime.session, snapshot)
 
     assert restored.schema == commit.schema
@@ -367,3 +371,11 @@ def test_import_review_commit_can_be_restored_from_persisted_schema() -> None:
     assert [item.channel_uri for item in restored.plan.channels] == [
         item.channel_uri for item in commit.plan.channels
     ]
+    rop = next(
+        item.metadata
+        for item in restored.schema.curves
+        if item.metadata.canonical_mnemonic == "ROP"
+    )
+    assert rop.semantic is not None
+    assert "etp12_channel_id=10" in rop.semantic.evidence
+    assert "etp12_channel_id=110" not in rop.semantic.evidence
