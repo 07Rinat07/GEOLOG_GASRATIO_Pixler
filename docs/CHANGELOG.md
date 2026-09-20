@@ -4,6 +4,8 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- ARCH-04 начат: введён immutable `SemanticContext` с source/mapped mnemonic, source UOM,
+  canonical hint, mapping evidence и deterministic Sensors catalog version; LAS переведён на новый boundary.
 - ARCH-03 завершён: final AST/source-contract закрепляет state ownership за
   Qt-независимыми Curve Pencil/navigation/interval/selection/render/lifecycle components.
 - ARCH-03: geometry/static caches, dirty registry и overlay manager объединены под
