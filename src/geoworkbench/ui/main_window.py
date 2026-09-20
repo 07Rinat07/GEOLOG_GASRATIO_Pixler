@@ -816,7 +816,9 @@ class MainWindow(QMainWindow):
         self.interpretation_report_workspace.calculation_completed.connect(
             self._after_interpretation_calculation
         )
-        self.interpretation_report_workspace.back_requested.connect(self._show_home)
+        self.interpretation_report_workspace.back_requested.connect(
+            self._show_home_from_interpretation_report
+        )
         self.tabs.addTab(self.curve_view, self._t("tab.curves"))
         self.tabs.addTab(self.las_table_editor, self._t("tab.table"))
         self.tabs.addTab(self.tablet_view, self._t("tab.tablet"))
@@ -2230,6 +2232,12 @@ class MainWindow(QMainWindow):
 
     def _show_home(self) -> None:
         self._workspace_controller.show_home()
+
+    def _show_home_from_interpretation_report(self) -> None:
+        report_dialog = getattr(self, "interpretation_report_dialog", None)
+        if report_dialog is not None and report_dialog.isVisible():
+            report_dialog.hide()
+        self._show_home()
 
     def _show_workspace(self, widget: QWidget | None = None) -> None:
         self._workspace_controller.show_workspace(widget)
