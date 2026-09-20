@@ -561,6 +561,17 @@ python -m pytest -q tests/test_gs2_import_coordinator.py \
 Набор проверяет GS2 enrichment/registration, provenance source registry, отсутствие прямых
 Dataset-записей в обоих слоях MainWindow и отсутствие второго production `open_gs2()`.
 
+Для пятого ARCH-02 инкремента:
+
+```bash
+python -m pytest -q tests/test_canvas_object_transfer_coordinator.py \
+  tests/test_canvas_object_transfer_mainwindow.py \
+  tests/test_canvas_object_transfer_workflow.py
+```
+
+Набор проверяет transactional material autosave, session rebinding, invalidation старого review
+и source-contract, запрещающий production UI создавать canvas controller/workflow вручную.
+
 ## 15. Каталоги печатных шапок и логотипов
 
 Минимальная доменная и SKF-проверка:
