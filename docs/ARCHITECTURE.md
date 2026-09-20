@@ -83,6 +83,9 @@ ARCH-03 начинается с Curve Pencil: renderer/UI остаются в `T
 `CurvePencilState`. Второй slice ARCH-03 переносит проекцию visible range на scrollbar
 и обратное преобразование в `TabletNavigationCoordinator`; Qt-view только применяет готовый
 `NavigationControlState` к widgets и передаёт пользовательское значение обратно coordinator.
+Третий slice ARCH-03 переносит interpretation interval editing-session state в
+`IntervalEditingState`: active mode, default interval type и in-progress gesture больше не
+принадлежат QWidget; Qt-view сохраняет preview graphics, cursors и signal emission.
 
 ## Источник, рабочая модель и экспорт
 
