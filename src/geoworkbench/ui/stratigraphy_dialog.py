@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import NotRequired, TypedDict
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QComboBox,
@@ -12,11 +12,13 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QDoubleSpinBox,
     QFormLayout,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QTableWidget,
     QTableWidgetItem,
     QTabWidget,
@@ -37,6 +39,7 @@ from geoworkbench.project.stratigraphy_controller import (
 )
 from geoworkbench.services.localization import AppLanguage, LANGUAGE_NAMES, Localizer
 from geoworkbench.ui.authored_source_language_selector import AuthoredSourceLanguageSelector
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class StratigraphyValues(TypedDict):
@@ -218,8 +221,10 @@ class StratigraphyCatalogDialog(QDialog):
                 "Stratigraphy catalog",
             )
         )
-        self.resize(1120, 650)
         root = QVBoxLayout(self)
+        body = QWidget()
+        body_layout = QVBoxLayout(body)
+        body_layout.setContentsMargins(0, 0, 0, 0)
         info = QLabel(
             self._text(
                 "Заводские обозначения и цвета можно переопределить в проекте и позднее сбросить. Местные свиты, пачки и горизонты добавляются как пользовательские записи.",
@@ -228,7 +233,7 @@ class StratigraphyCatalogDialog(QDialog):
             )
         )
         info.setWordWrap(True)
-        root.addWidget(info)
+        body_layout.addWidget(info)
         self.table = QTableWidget(0, 8)
         self.table.setObjectName("stratigraphy-catalog-table")
         self.table.setHorizontalHeaderLabels(
@@ -246,7 +251,7 @@ class StratigraphyCatalogDialog(QDialog):
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         self.table.itemSelectionChanged.connect(self._load_selected)
-        root.addWidget(self.table, 1)
+        body_layout.addWidget(self.table, 1)
 
         form = QFormLayout()
         self.id_input = QLineEdit()
@@ -277,7 +282,7 @@ class StratigraphyCatalogDialog(QDialog):
             form.addRow(label, control)
         form.addRow(self._text("Цвет", "Түс", "Colour"), color_row)
         form.addRow(self._text("Описание", "Сипаттама", "Description"), self.description_input)
-        root.addLayout(form)
+        body_layout.addLayout(form)
 
         actions = QHBoxLayout()
         for caption, handler in (
@@ -296,11 +301,22 @@ class StratigraphyCatalogDialog(QDialog):
             button.clicked.connect(handler)
             actions.addWidget(button)
         actions.addStretch(1)
-        root.addLayout(actions)
+        body_layout.addLayout(actions)
+        body_scroll = QScrollArea(self)
+        body_scroll.setWidgetResizable(True)
+        body_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        body_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        body_scroll.setWidget(body)
+        root.addWidget(body_scroll, 1)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.rejected.connect(self.reject)
         root.addWidget(buttons)
         self._refresh()
+        fit_window_to_screen(
+            self,
+            preferred=QSize(1120, 650),
+            minimum=QSize(640, 420),
+        )
 
     def _text(self, ru: str, kk: str, en: str) -> str:
         return {AppLanguage.RU: ru, AppLanguage.KK: kk, AppLanguage.EN: en}.get(self.language, ru)
@@ -538,6 +554,11 @@ class StratigraphyIntervalDialog(QDialog, _CatalogMixin):
         buttons.rejected.connect(self.reject)
         layout.addRow(buttons)
         self._populate_catalog()
+        fit_window_to_screen(
+            self,
+            preferred=QSize(680, 620),
+            minimum=QSize(480, 360),
+        )
 
     @staticmethod
     def _depth_input(value: float) -> QDoubleSpinBox:
@@ -604,8 +625,10 @@ class StratigraphyDialog(QDialog, _CatalogMixin):
         self.language = language
         self.localizer = Localizer.create(language)
         self.setWindowTitle(self._t("stratigraphy.window_title"))
-        self.resize(1100, 660)
         root = QVBoxLayout(self)
+        body = QWidget()
+        body_layout = QVBoxLayout(body)
+        body_layout.setContentsMargins(0, 0, 0, 0)
         info = QLabel(
             {
                 AppLanguage.RU: "Выберите заводскую или пользовательскую единицу из справочника, затем задайте фактический интервал по скважине. Код, название и цвет можно изменить для требований месторождения.",
@@ -614,7 +637,7 @@ class StratigraphyDialog(QDialog, _CatalogMixin):
             }.get(language, "")
         )
         info.setWordWrap(True)
-        root.addWidget(info)
+        body_layout.addWidget(info)
         self.table = QTableWidget(0, 9)
         self.table.setObjectName("stratigraphy-intervals-table")
         self.table.setHorizontalHeaderLabels(
@@ -631,7 +654,7 @@ class StratigraphyDialog(QDialog, _CatalogMixin):
             ]
         )
         self.table.itemSelectionChanged.connect(self._load_selected)
-        root.addWidget(self.table, 1)
+        body_layout.addWidget(self.table, 1)
 
         form = QFormLayout()
         self.top_input = self._depth_input()
@@ -739,7 +762,7 @@ class StratigraphyDialog(QDialog, _CatalogMixin):
         form.addRow(self._t("stratigraphy.color"), color_row)
         form.addRow(self._t("stratigraphy.text_orientation"), self.text_orientation_input)
         form.addRow(self._t("stratigraphy.text_position"), self.text_position_input)
-        root.addLayout(form)
+        body_layout.addLayout(form)
 
         actions = QHBoxLayout()
         for object_name, title, handler in (
@@ -752,13 +775,25 @@ class StratigraphyDialog(QDialog, _CatalogMixin):
             button.clicked.connect(handler)
             actions.addWidget(button)
         actions.addStretch(1)
-        root.addLayout(actions)
+        body_layout.addLayout(actions)
+        body_scroll = QScrollArea(self)
+        body_scroll.setObjectName("stratigraphy-editor-scroll")
+        body_scroll.setWidgetResizable(True)
+        body_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        body_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        body_scroll.setWidget(body)
+        root.addWidget(body_scroll, 1)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.button(QDialogButtonBox.StandardButton.Close).setText(self._t("common.close"))
         buttons.rejected.connect(self.reject)
         root.addWidget(buttons)
         self._populate_catalog()
         self._refresh()
+        fit_window_to_screen(
+            self,
+            preferred=QSize(1100, 660),
+            minimum=QSize(640, 420),
+        )
 
     def _t(self, key: str) -> str:
         return self.localizer.text(key)

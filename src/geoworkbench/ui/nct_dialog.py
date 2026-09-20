@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from PySide6.QtCore import QSize
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -14,6 +15,7 @@ from PySide6.QtWidgets import (
 from geoworkbench.calculations.normal_compaction import NormalCompactionResult
 from geoworkbench.project.nct_controller import NctCalculationController
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class NctCalculationDialog(QDialog):
@@ -58,6 +60,11 @@ class NctCalculationDialog(QDialog):
         self.buttons.accepted.connect(self._calculate)
         self.buttons.rejected.connect(self.reject)
         root.addWidget(self.buttons)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(520, 320),
+            minimum=QSize(420, 260),
+        )
 
     @staticmethod
     def _depth_input(minimum: float, maximum: float, value: float) -> QDoubleSpinBox:

@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
-    QApplication,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -22,6 +21,7 @@ from geoworkbench.domain.models import CuttingsSample
 from geoworkbench.domain.localized_content import localized_text
 from geoworkbench.services.localization import AppLanguage, LANGUAGE_NAMES
 from geoworkbench.ui.rich_interval_text_editor import RichIntervalTextEditor
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 _TEXT = {
@@ -109,7 +109,6 @@ class RockDescriptionDialog(QDialog):
         self._template_catalog = load_rock_description_templates()
         self.delete_requested = False
         self.setWindowTitle(self._text["edit"] if sample is not None else self._text["create"])
-        self.setMinimumSize(560, 430)
 
         content = QWidget()
         content.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
@@ -210,7 +209,11 @@ class RockDescriptionDialog(QDialog):
         layout = QVBoxLayout(self)
         layout.addWidget(scroll, 1)
         layout.addWidget(buttons)
-        self._apply_adaptive_size()
+        fit_window_to_screen(
+            self,
+            preferred=QSize(820, 650),
+            minimum=QSize(560, 430),
+        )
 
     @staticmethod
     def _depth_input(value: float) -> QDoubleSpinBox:
@@ -220,17 +223,6 @@ class RockDescriptionDialog(QDialog):
         control.setSuffix(" m")
         control.setValue(float(value))
         return control
-
-    def _apply_adaptive_size(self) -> None:
-        screen = self.screen() or QApplication.primaryScreen()
-        if screen is None:
-            self.resize(820, 650)
-            return
-        available = screen.availableGeometry()
-        self.resize(
-            min(920, max(560, int(available.width() * 0.72))),
-            min(780, max(430, int(available.height() * 0.78))),
-        )
 
     def _template_language(self) -> AppLanguage:
         try:
