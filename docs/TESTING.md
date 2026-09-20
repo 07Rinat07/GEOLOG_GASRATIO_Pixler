@@ -725,6 +725,18 @@ AST/source-contract проходит весь `src/geoworkbench`, отслежи
 `.resolve()` вне compatibility shim. Одноимённые resolver-методы UOM и других сервисов
 не считаются нарушением.
 
+ARCH-05 layer import boundary:
+
+```bash
+python -m pytest -q tests/test_arch05_layer_import_boundary.py
+```
+
+Recursive AST-contract проходит все Python-файлы `src/geoworkbench/domain` и
+`src/geoworkbench/calculations`. Проверяются absolute/relative `Import` и `ImportFrom`
+в любом AST scope; запрещены PySide/PyQt, PyQtGraph/qtpy, `geoworkbench.ui` и
+`geoworkbench.printing`. Таким образом нижние domain/calculation слои остаются headless и
+не получают обратную зависимость на UI/printing adapters.
+
 ## 15. Каталоги печатных шапок и логотипов
 
 Минимальная доменная и SKF-проверка:
