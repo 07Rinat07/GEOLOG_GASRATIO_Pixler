@@ -25,6 +25,7 @@ from geoworkbench.services.lba_standard import (
     describe_lba_assessment,
 )
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.parameter_labels import localized_curve_name
 
 
 @dataclass(frozen=True, slots=True)
@@ -1314,7 +1315,7 @@ def hydrocarbon_interpretation_html(
         f"<td>{escape(labels[candidate.anomaly_strength])}</td>"
         f"<td>{escape(fluid_hypothesis_label(candidate, language))}</td>"
         f"<td data-absolute-gas='{index}'>—</td>"
-        f"<td>{escape(candidate_evidence_summary(candidate))}</td>"
+        f"<td>{escape(candidate_evidence_summary(candidate, language))}</td>"
         "</tr>"
         for index, candidate in enumerate(report.candidates)
     )
@@ -1514,16 +1515,90 @@ def fluid_hypothesis_basis(
     return " ".join(parts)
 
 
-def candidate_evidence_summary(candidate: HydrocarbonCandidateInterval) -> str:
-    """Keep the printable evidence column compact; detailed evidence stays in XLSX."""
+def candidate_evidence_summary(
+    candidate: HydrocarbonCandidateInterval,
+    language: AppLanguage = AppLanguage.RU,
+) -> str:
+    """Keep printable evidence compact and replace technical channel codes with names."""
 
     return "; ".join(
-        item
+        _readable_evidence_item(item, language)
         for item in candidate.evidence
         if not item.startswith(
             ("LBA standard:", "Pixler standard:", "gas/LBA correlation", "flagged samples =")
         )
     )
+
+
+def _readable_evidence_item(item: str, language: AppLanguage) -> str:
+    marker_prefix = "normalized-gas source="
+    if item.startswith(marker_prefix) and "; curve=" in item:
+        source, mnemonic = item[len(marker_prefix) :].split("; curve=", 1)
+        source_name = {
+            AppLanguage.RU: {
+                "local-calculation": "локальный расчёт",
+                "server": "сервер/файл",
+            },
+            AppLanguage.KK: {
+                "local-calculation": "жергілікті есеп",
+                "server": "сервер/файл",
+            },
+            AppLanguage.EN: {
+                "local-calculation": "local calculation",
+                "server": "server/file",
+            },
+        }[language].get(source, source)
+        prefix = {
+            AppLanguage.RU: "Нормализованный газ: источник",
+            AppLanguage.KK: "Нормаланған газ: дереккөз",
+            AppLanguage.EN: "Normalized gas: source",
+        }[language]
+        curve_word = {
+            AppLanguage.RU: "кривая",
+            AppLanguage.KK: "қисық",
+            AppLanguage.EN: "curve",
+        }[language]
+        return (
+            f"{prefix} — {source_name}; {curve_word} — "
+            f"{_readable_evidence_mnemonic(mnemonic, language)}"
+        )
+
+    context_prefix = "context means: "
+    if item.startswith(context_prefix):
+        values: list[str] = []
+        for part in item[len(context_prefix) :].split(", "):
+            if "=" not in part:
+                values.append(part)
+                continue
+            mnemonic, value = part.split("=", 1)
+            values.append(
+                f"{_readable_evidence_mnemonic(mnemonic, language)}={value}"
+            )
+        context_name = {
+            AppLanguage.RU: "Средние значения контекста",
+            AppLanguage.KK: "Контекстің орташа мәндері",
+            AppLanguage.EN: "Context means",
+        }[language]
+        return f"{context_name}: " + ", ".join(values)
+
+    prefix, separator, suffix = item.partition(": ")
+    if separator and prefix and all(
+        character.isalnum() or character in "_-"
+        for character in prefix
+    ):
+        return (
+            f"{_readable_evidence_mnemonic(prefix, language)}"
+            f"{separator}{suffix}"
+        )
+    return item
+
+
+def _readable_evidence_mnemonic(mnemonic: str, language: AppLanguage) -> str:
+    technical = mnemonic.strip()
+    readable = localized_curve_name(technical, language=language)
+    if not readable or readable.casefold() == technical.casefold():
+        return technical
+    return f"{readable} ({technical})"
 
 
 def _format_optional(value: float | None) -> str:

@@ -58,3 +58,43 @@ def test_unresolved_vendor_channel_is_presented_without_duplicate_technical_text
         == "Неопределённый канал"
     )
     assert localized_curve_name("S811") == "Неопределённый канал"
+
+def test_legacy_gas_vendor_codes_use_physical_parameter_names() -> None:
+    assert localized_curve_name("S1601", unit="%") == "Содержание метана"
+    assert localized_curve_name("S1602", unit="%") == "Этан"
+    assert localized_curve_name("S1603", unit="%") == "Пропан"
+    assert localized_curve_name("S1604", unit="%") == "Бутан"
+    assert localized_curve_name("S1605", unit="%") == "Пентан"
+    assert localized_curve_name("S1626", unit="%") == "Изобутан"
+    assert localized_curve_name("S1627", unit="%") == "Изопентан"
+
+
+def test_normalized_gas_calculation_curve_has_readable_report_name() -> None:
+    assert (
+        localized_curve_name("TG_NORM_CALC", language=AppLanguage.RU)
+        == "Расчётный нормализованный общий газ"
+    )
+    assert (
+        localized_curve_name("TG_NORM_CALC", language=AppLanguage.EN)
+        == "Calculated Normalized Total Gas"
+    )
+    assert (
+        localized_curve_name("TG_NORM_CALC", language=AppLanguage.KK)
+        == "Есептелген нормаланған жалпы газ"
+    )
+
+
+def test_reference_normalized_methane_has_readable_report_name() -> None:
+    assert (
+        localized_curve_name("C1_NORM_REF", language=AppLanguage.RU)
+        == "Нормализованный метан по опорной кривой"
+    )
+    assert (
+        localized_curve_name("C1_NORM_REF", language=AppLanguage.EN)
+        == "Reference-normalized Methane"
+    )
+    assert (
+        localized_curve_name("C1_NORM_REF", language=AppLanguage.KK)
+        == "Тірек қисығы бойынша нормаланған метан"
+    )
+

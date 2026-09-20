@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import zipfile
 
 import numpy as np
@@ -22,7 +23,11 @@ from geoworkbench.project.interpretation_controller import InterpretationControl
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.hydrocarbon_interpretation import (
     build_hydrocarbon_interpretation_report,
+    candidate_evidence_summary,
     hydrocarbon_interpretation_html,
+)
+from geoworkbench.services.hydrocarbon_interpretation_gas_html import (
+    inject_interval_gas_statistics_html,
 )
 from geoworkbench.services.localization import AppLanguage
 
@@ -141,6 +146,71 @@ def test_report_detects_relative_anomaly_and_keeps_manual_intervals_separate() -
     assert "page-break-before: always" in html
     assert "тяжёлая или остаточная нефть" in html
     assert "Check DST" in html
+
+
+def test_report_replaces_legacy_gas_vendor_codes_with_readable_names() -> None:
+    session = _session()
+    dataset = session.current_dataset
+    assert dataset is not None
+
+    vendor_codes = {
+        "C1": "S1601",
+        "C2": "S1602",
+        "C3": "S1603",
+        "IC4": "S1626",
+        "IC5": "S1627",
+    }
+    for canonical, vendor_code in vendor_codes.items():
+        curve = dataset.curve_by_mnemonic(canonical)
+        assert curve is not None
+        metadata = curve.metadata
+        curve.metadata = CurveMetadata(
+            curve_id=metadata.curve_id,
+            original_mnemonic=vendor_code,
+            canonical_mnemonic=canonical,
+            unit=metadata.unit,
+            description=metadata.description,
+            source_dataset_id=metadata.source_dataset_id,
+            provenance=metadata.provenance,
+            semantic=metadata.semantic,
+        )
+
+    report = build_hydrocarbon_interpretation_report(session)
+    html = hydrocarbon_interpretation_html(report, AppLanguage.RU)
+    html = inject_interval_gas_statistics_html(
+        html,
+        report,
+        dataset,
+        AppLanguage.RU,
+    )
+
+    assert "Содержание метана (C1)" in html
+    assert "Этан (C2)" in html
+    assert "Пропан (C3)" in html
+    assert "Изобутан (IC4)" in html
+    assert "Изопентан (IC5)" in html
+    for vendor_code in vendor_codes.values():
+        assert vendor_code not in html
+
+
+def test_printable_evidence_humanizes_normalized_gas_curve_name() -> None:
+    report = build_hydrocarbon_interpretation_report(_session())
+    candidate = report.candidates[0]
+    readable = candidate_evidence_summary(
+        replace(
+            candidate,
+            evidence=(
+                "normalized-gas source=local-calculation; curve=TG_NORM_CALC",
+                "TG_NORM_CALC: max robust z = 4.02 (threshold 3.00)",
+            ),
+        ),
+        AppLanguage.RU,
+    )
+
+    assert "Нормализованный газ: источник — локальный расчёт" in readable
+    assert "Расчётный нормализованный общий газ (TG_NORM_CALC)" in readable
+    assert "source=local-calculation" not in readable
+    assert "curve=TG_NORM_CALC" not in readable
 
 
 def test_report_exports_openable_xlsx_and_docx(tmp_path) -> None:

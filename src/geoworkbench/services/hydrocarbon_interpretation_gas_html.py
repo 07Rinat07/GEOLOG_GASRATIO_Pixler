@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from html import escape
-import re
 
 from geoworkbench.domain.models import Dataset
 from geoworkbench.services.hydrocarbon_interpretation import (
@@ -45,10 +44,9 @@ def inject_interval_gas_statistics_html(
             statistics.components,
             language,
         )
-        component_html = re.sub(
-            r"; (?=(?:I|N)?C[1-5](?: \[|:))",
-            "<br>",
-            escape(component_text),
+        component_html = "<br>".join(
+            escape(component)
+            for component in component_text.split("; ")
         )
         enriched = enriched.replace(
             f"<td data-absolute-gas='{index}'>—</td>",

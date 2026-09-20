@@ -14,9 +14,43 @@ _GENERIC_SOURCE_CHANNEL_RE = re.compile(
     re.IGNORECASE,
 )
 
+_RUSSIAN_NAMES: dict[str, str] = {
+    "TOTAL_GAS": "Общий газ",
+    "TG": "Общий газ",
+    "TG_NORM": "Нормализованный общий газ",
+    "TG_NORM_CALC": "Расчётный нормализованный общий газ",
+    "C1": "Содержание метана",
+    "C2": "Этан",
+    "C3": "Пропан",
+    "C4": "Бутан",
+    "C5": "Пентан",
+    "IC4": "Изобутан",
+    "NC4": "н-Бутан",
+    "IC5": "Изопентан",
+    "NC5": "н-Пентан",
+    "C1_NORM": "Нормализованный метан",
+    "C1_NORM_REF": "Нормализованный метан по опорной кривой",
+    "C2_NORM": "Нормализованный этан",
+    "C3_NORM": "Нормализованный пропан",
+    "IC4_NORM": "Нормализованный изобутан",
+    "NC4_NORM": "Нормализованный н-бутан",
+    "IC5_NORM": "Нормализованный изопентан",
+    "NC5_NORM": "Нормализованный н-пентан",
+}
+
 _ENGLISH_NAMES: dict[str, str] = {
     "TOTAL_GAS": "Total Gas",
     "TG": "Total Gas",
+    "TG_NORM": "Normalized Total Gas",
+    "TG_NORM_CALC": "Calculated Normalized Total Gas",
+    "C1_NORM": "Normalized Methane",
+    "C1_NORM_REF": "Reference-normalized Methane",
+    "C2_NORM": "Normalized Ethane",
+    "C3_NORM": "Normalized Propane",
+    "IC4_NORM": "Normalized Isobutane",
+    "NC4_NORM": "Normalized n-Butane",
+    "IC5_NORM": "Normalized Isopentane",
+    "NC5_NORM": "Normalized n-Pentane",
     "C1": "Methane",
     "C2": "Ethane",
     "C3": "Propane",
@@ -50,6 +84,16 @@ _ENGLISH_NAMES: dict[str, str] = {
 _KAZAKH_NAMES: dict[str, str] = {
     "TOTAL_GAS": "Жалпы газ",
     "TG": "Жалпы газ",
+    "TG_NORM": "Нормаланған жалпы газ",
+    "TG_NORM_CALC": "Есептелген нормаланған жалпы газ",
+    "C1_NORM": "Нормаланған метан",
+    "C1_NORM_REF": "Тірек қисығы бойынша нормаланған метан",
+    "C2_NORM": "Нормаланған этан",
+    "C3_NORM": "Нормаланған пропан",
+    "IC4_NORM": "Нормаланған изобутан",
+    "NC4_NORM": "Нормаланған н-бутан",
+    "IC5_NORM": "Нормаланған изопентан",
+    "NC5_NORM": "Нормаланған н-пентан",
     "C1": "Метан",
     "C2": "Этан",
     "C3": "Пропан",
@@ -144,10 +188,28 @@ def localized_curve_name(
         definition = match.definition
         canonical = definition.canonical_mnemonic.strip().upper()
         if language is AppLanguage.RU:
-            return (definition.name_ru or definition.short_name_ru or mnemonic).strip()
+            # Legacy Sensors.DB gas rows often use a technical code (C1, C2, ...)
+            # as both the long and short Russian caption.  Reports should show
+            # the physical parameter name while retaining the mnemonic separately
+            # where traceability is needed.
+            return _RUSSIAN_NAMES.get(
+                canonical,
+                (definition.name_ru or definition.short_name_ru or mnemonic).strip(),
+            )
         if language is AppLanguage.KK:
             return _KAZAKH_NAMES.get(canonical, _canonical_title(canonical))
         return _ENGLISH_NAMES.get(canonical, _canonical_title(canonical))
+
+    canonical = mnemonic.strip().upper()
+    known_names = (
+        _RUSSIAN_NAMES
+        if language is AppLanguage.RU
+        else _KAZAKH_NAMES
+        if language is AppLanguage.KK
+        else _ENGLISH_NAMES
+    )
+    if canonical in known_names:
+        return known_names[canonical]
 
     clean_description = description.strip()
     is_vendor_code = bool(_VENDOR_SENSOR_CODE_RE.fullmatch(mnemonic))

@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any, cast
 
-from PySide6.QtCore import QObject, QTimer, Qt
+from PySide6.QtCore import QObject, QSize, QTimer, Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QDialog, QMainWindow, QMenu, QStyle, QVBoxLayout, QWidget
 
@@ -15,6 +15,11 @@ from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.button_animation import install_button_animations
 from geoworkbench.ui.help_center_dialog import HelpCenterDialog
 from geoworkbench.ui.help_content import help_action_text, normalized_language
+from geoworkbench.ui.window_geometry import (
+    adaptive_minimum_size,
+    constrain_window_geometry,
+    fit_window_to_screen,
+)
 from geoworkbench.ui.translation_readiness_dialog import TranslationReadinessDialog
 
 
@@ -85,11 +90,23 @@ class _WorkspaceDialog(QDialog):
         self.setObjectName(object_name)
         self.setModal(False)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, False)
-        self.resize(*minimum_size)
+        self._preferred_size = QSize(*minimum_size)
+        self._requested_minimum_size = QSize(640, 480)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         workspace.setParent(self)
         layout.addWidget(workspace, 1)
+        # These workspaces used to be resized to a desktop-only 1300x850 /
+        # 1420x900 rectangle.  On Windows laptops that can extend below the
+        # available work area and hide the export/print controls behind the
+        # taskbar.  Fit the initial geometry to availableGeometry(), which is
+        # already HiDPI-aware and excludes taskbars/docks.
+        fit_window_to_screen(
+            self,
+            preferred=self._preferred_size,
+            minimum=self._requested_minimum_size,
+            margin=8,
+        )
 
     def ensure_workspace_visible(self) -> None:
         """Restore visibility lost when QTabWidget removes an inactive page."""
@@ -103,6 +120,34 @@ class _WorkspaceDialog(QDialog):
         layout = self.layout()
         if layout is not None:
             layout.activate()
+
+    def fit_to_work_area(self) -> None:
+        """Keep the reusable workspace shell inside the current monitor work area."""
+
+        screen = self.screen()
+        if screen is None:
+            parent = self.parentWidget()
+            screen = parent.screen() if parent is not None else None
+        if screen is None:
+            return
+
+        available = screen.availableGeometry()
+        self.setMinimumSize(
+            adaptive_minimum_size(
+                available,
+                requested=self._requested_minimum_size,
+                margin=8,
+            )
+        )
+        if self.isMaximized() or self.isFullScreen():
+            return
+        self.setGeometry(
+            constrain_window_geometry(
+                self.geometry(),
+                available,
+                margin=8,
+            )
+        )
 
 
 class NavigationOrganizationController(QObject):
@@ -461,6 +506,10 @@ def _insert_top_level_menu_after(
 
 
 def _show_dialog(dialog: QDialog) -> None:
+    if isinstance(dialog, _WorkspaceDialog):
+        # Re-check every time because the dialog may have moved to another
+        # monitor or the Windows taskbar/work-area geometry may have changed.
+        dialog.fit_to_work_area()
     if dialog.isMinimized():
         dialog.showNormal()
     else:

@@ -30,6 +30,15 @@ def _assert_workspace_is_renderable(workspace, dialog) -> None:
     assert workspace.width() > 0
     assert workspace.height() > 0
 
+    screen = dialog.screen()
+    assert screen is not None
+    available = screen.availableGeometry()
+    geometry = dialog.geometry()
+    assert geometry.left() >= available.left()
+    assert geometry.top() >= available.top()
+    assert geometry.right() <= available.right()
+    assert geometry.bottom() <= available.bottom()
+
 
 def _wits_command_actions(window: MainWindow) -> tuple[QAction, ...]:
     return tuple(
