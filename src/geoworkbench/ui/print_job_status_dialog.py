@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from typing import Callable
 
-from PySide6.QtCore import QProcess, QUrl, Qt
+from PySide6.QtCore import QProcess, QSize, QUrl, Qt
 from PySide6.QtGui import QCloseEvent, QDesktopServices
 from PySide6.QtWidgets import (
     QDialog,
@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 
 from geoworkbench.printing.print_job import PrintOutputFormat
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 OpenPathCallback = Callable[[Path], bool]
@@ -58,7 +59,6 @@ class PrintJobStatusDialog(QDialog):
 
         self.setWindowTitle(self._t("print_center.status_title"))
         self.setWindowModality(Qt.WindowModality.WindowModal)
-        self.setMinimumWidth(480)
 
         root = QVBoxLayout(self)
         root.setContentsMargins(20, 18, 20, 18)
@@ -101,6 +101,12 @@ class PrintJobStatusDialog(QDialog):
         actions.addWidget(self.folder_button)
         actions.addWidget(self.close_button)
         root.addLayout(actions)
+
+        fit_window_to_screen(
+            self,
+            preferred=QSize(620, 300),
+            minimum=QSize(380, 240),
+        )
 
     @property
     def working(self) -> bool:
