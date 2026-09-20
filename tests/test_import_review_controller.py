@@ -140,8 +140,9 @@ def test_import_review_uses_semantic_context_boundary() -> None:
     assert source.count("resolve_context(") >= 2
     assert "self.dictionary.resolve(" not in source
     assert "resolver.resolve(" not in source
-    assert '"import_review_mapping=inspection"' in source
-    assert '"import_review_mapping=reviewed"' in source
+    assert 'f"import_review_mapping={mapping_state}"' in source
+    assert 'mapping_state="inspection"' in source
+    assert 'mapping_state="reviewed"' in source
 
 
 def test_preview_reports_index_qc_without_mutating_dataset() -> None:
