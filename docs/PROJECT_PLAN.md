@@ -704,8 +704,10 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
   переводит LAS import; `resolve()` остаётся compatibility shim. Второй инкремент переводит
   CSV/TXT import и фиксирует column/header mapping evidence. Третий инкремент переводит
   GeoScape/Paradox и фиксирует field ordinal/name/type и mapped mnemonic evidence. Четвёртый
-  инкремент переводит WITS0 Import Review и фиксирует record/item/source-id и mapping state;
-  далее — WITSML family.
+  инкремент переводит WITS0 Import Review и фиксирует record/item/source-id и mapping state.
+  Пятый инкремент переводит общий WITSML Import Review (2.x и нормализованный 1.4.1.1 flow)
+  и фиксирует channel position/key/uuid и mapping state; после него остаётся final source-contract
+  audit legacy `resolve()` consumers перед закрытием ARCH-04.
 - [ ] **ARCH-05:** закрепить границы слоёв AST/import-contract тестами и запретить зависимости
   domain/calculations от Qt/UI/printing.
 - [ ] **ARCH-06:** calculation profiles и conditioning policies сделать версионированными

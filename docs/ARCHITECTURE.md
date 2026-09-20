@@ -102,7 +102,9 @@ catalog version. `SemanticChannelDictionary.resolve_context()` проверяе�
 второй slice переводит CSV/TXT import и фиксирует column/header mapping evidence. Третий slice
 переводит GeoScape/Paradox и фиксирует field ordinal/name/type и mapped mnemonic evidence.
 Четвёртый slice переводит WITS0 Import Review и фиксирует record/item/source-id, automatic/reviewed
-mapping state и catalog version evidence; далее boundary распространяется на WITSML family.
+mapping state и catalog version evidence. Пятый slice переводит общий WITSML Import Review
+(2.x ChannelSet и нормализованный WITSML 1.4.1.1 flow) и фиксирует channel position/key/uuid,
+automatic/reviewed/commit mapping state и catalog version evidence.
 
 ## Источник, рабочая модель и экспорт
 

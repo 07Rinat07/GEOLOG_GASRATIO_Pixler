@@ -26,8 +26,9 @@ GeoScape/Paradox. Он не переименовывает исходные да
 совместимым shim и внутри строит тот же `SemanticContext`. LAS добавляет evidence позиции curve,
 CSV/TXT — номера и исходного header столбца; GeoScape/Paradox — ordinal/name/type исходного поля
 и mapped mnemonic, а raw numeric time дополнительно получает явный projection marker. WITS0
-Import Review фиксирует record/item/source-id и automatic/reviewed mapping state. Эти признаки
-сохраняются в binding evidence.
+Import Review фиксирует record/item/source-id и automatic/reviewed mapping state. Общий WITSML
+Import Review фиксирует channel position/key/uuid и automatic/reviewed/commit mapping state.
+Эти признаки сохраняются в binding evidence.
 
 ## Снимок привязки кривой
 

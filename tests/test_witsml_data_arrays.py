@@ -56,9 +56,43 @@ def test_import_review_selects_numeric_channels_and_normalizes_uom() -> None:
     np.testing.assert_allclose(rop.values[:2], [10.0, 12.0], rtol=1e-8)
     assert np.isnan(rop.values[2])
     assert rop.metadata.unit == "m/h"
+    assert rop.metadata.semantic is not None
+    assert rop.metadata.semantic.source_mnemonic == "ROP"
+    assert any(
+        item.startswith("witsml_channel_position=")
+        for item in rop.metadata.semantic.evidence
+    )
+    assert any(
+        item.startswith("witsml_channel_key=")
+        for item in rop.metadata.semantic.evidence
+    )
+    assert (
+        "witsml_channel_uuid=3d415dbb-41d4-4a52-a9fc-c37d7b4b895a"
+        in rop.metadata.semantic.evidence
+    )
+    assert "witsml_mapping=commit" in rop.metadata.semantic.evidence
+    assert any(
+        item.startswith("catalog_version=sensors-v1:")
+        for item in rop.metadata.semantic.evidence
+    )
     np.testing.assert_allclose(dataset.curve_by_mnemonic("WOB").values, [75.0, 76.0, 77.0])
     assert dataset.parameters["WITSML_DATA_LAYOUT"] == "[[indexes],[channels]]"
     assert dataset.parameters["WITSML_DATASET_DIGEST"] == commit.dataset_digest
+
+
+def test_witsml_import_review_uses_semantic_context_boundary() -> None:
+    source = Path("src/geoworkbench/services/witsml_import_review.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert source.count("self.dictionary.resolve_context(") >= 2
+    assert source.count("dictionary.resolve_context(") >= 3
+    assert "self.dictionary.resolve(" not in source
+    assert "dictionary.resolve(" not in source
+    assert 'f"witsml_mapping={mapping_state}"' in source
+    assert 'mapping_state="automatic"' in source
+    assert 'mapping_state="reviewed"' in source
+    assert 'mapping_state="commit"' in source
 
 
 def test_commit_is_deterministic_for_same_plan() -> None:
