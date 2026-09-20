@@ -89,6 +89,9 @@ ARCH-03 начинается с Curve Pencil: renderer/UI остаются в `T
 Четвёртый slice ARCH-03 устраняет параллельное хранение interval selection в `TabletView`:
 `SelectionManager` становится единственным владельцем выбранного interval, а
 `InterpretationSelectionState` хранит active interpretation и синхронизирует контекст.
+Пятый slice ARCH-03 объединяет geometry/static caches, dirty registry и overlay layer manager
+под `TabletRenderState`; view использует совместимые delegates, а invalidation policy живёт в
+Qt-независимом owner-компоненте.
 
 ## Источник, рабочая модель и экспорт
 
