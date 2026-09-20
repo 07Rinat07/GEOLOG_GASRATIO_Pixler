@@ -4,6 +4,10 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- UI-ADAPT-01 завершён: расширенный GeoScape/Paradox Import переведён на общий
+  `fit_window_to_screen`; profile/dictionary-действия прокручиваются отдельно от закреплённых
+  Cancel/Save/Open. Новый contract-test контролирует все top-level dialog modules и адаптивную
+  реализацию unified cuttings, чтобы desktop-only размеры не возвращались.
 - UI-ADAPT-01: вставка условных обозначений, расширенный предпросмотр печатной шапки,
   статус печати/экспорта, SKF import options и печатные выноски переведены на единый work-area
   контракт; жёсткие desktop-only размеры больше не могут увести нижние действия под taskbar.
