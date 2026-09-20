@@ -184,7 +184,7 @@ def test_report_replaces_legacy_gas_vendor_codes_with_readable_names() -> None:
         AppLanguage.RU,
     )
 
-    assert "Метан (C1)" in html
+    assert "Содержание метана (C1)" in html
     assert "Этан (C2)" in html
     assert "Пропан (C3)" in html
     assert "Изобутан (IC4)" in html
