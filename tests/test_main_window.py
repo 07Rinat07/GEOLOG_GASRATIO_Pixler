@@ -1107,6 +1107,9 @@ def test_tablet_interval_handlers_create_resize_and_undo(qapp) -> None:
     bind_session(window, session)
     window.interpretation_controller.session = session
     window._show_current_dataset()
+    # Match the real UI cadence: the tablet is rendered before a user can switch
+    # into interval editing, so native PlotWidget setup has one event turn to settle.
+    qapp.processEvents()
 
     window.set_interval_interaction_mode(IntervalEditMode.CREATE)
     interpretation_id = window.interpretation_controller.selected_interpretation_id
