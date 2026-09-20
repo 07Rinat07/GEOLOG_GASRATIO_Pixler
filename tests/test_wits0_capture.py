@@ -167,6 +167,7 @@ def test_tcp_server_capture_writes_raw_stream_and_emits_complete_frames(
         client.sendall(b"!&&0208100!!")
 
     _wait_until(lambda: engine.snapshot().frames_received == 2)
+    _wait_until(lambda: engine.snapshot().disconnects == 1)
     assert engine.stop(timeout=2.0)
     _wait_until(lambda: engine.snapshot().state is Wits0CaptureState.STOPPED)
 
