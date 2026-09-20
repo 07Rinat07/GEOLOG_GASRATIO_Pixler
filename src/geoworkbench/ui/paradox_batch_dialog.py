@@ -351,6 +351,11 @@ class ParadoxBatchDialog(QDialog):
         secondary_layout.addWidget(self.retry_failed_button)
 
         secondary_panel.adjustSize()
+        secondary_panel.setMinimumWidth(
+            secondary_panel.sizeHint().width()
+            + self.retry_failed_button.sizeHint().width()
+            + secondary_layout.spacing()
+        )
         self.secondary_actions_scroll = QScrollArea()
         self.secondary_actions_scroll.setObjectName("paradox-batch-secondary-actions-scroll")
         self.secondary_actions_scroll.setFrameShape(QFrame.Shape.NoFrame)
