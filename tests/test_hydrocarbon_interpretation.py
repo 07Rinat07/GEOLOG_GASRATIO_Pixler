@@ -26,6 +26,9 @@ from geoworkbench.services.hydrocarbon_interpretation import (
     candidate_evidence_summary,
     hydrocarbon_interpretation_html,
 )
+from geoworkbench.services.hydrocarbon_interpretation_gas_html import (
+    inject_interval_gas_statistics_html,
+)
 from geoworkbench.services.localization import AppLanguage
 
 
@@ -174,6 +177,12 @@ def test_report_replaces_legacy_gas_vendor_codes_with_readable_names() -> None:
 
     report = build_hydrocarbon_interpretation_report(session)
     html = hydrocarbon_interpretation_html(report, AppLanguage.RU)
+    html = inject_interval_gas_statistics_html(
+        html,
+        report,
+        dataset,
+        AppLanguage.RU,
+    )
 
     assert "Метан (C1)" in html
     assert "Этан (C2)" in html
