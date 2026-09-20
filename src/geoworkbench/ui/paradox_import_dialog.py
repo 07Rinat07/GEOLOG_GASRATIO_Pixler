@@ -7,16 +7,16 @@ from time import monotonic
 from typing import Any
 
 import numpy as np
-from PySide6.QtCore import QObject, QThread, Qt, Signal, Slot, QTimer
+from PySide6.QtCore import QObject, QSize, QThread, Qt, Signal, Slot, QTimer
 from PySide6.QtWidgets import (
     QAbstractItemView,
-    QApplication,
     QCheckBox,
     QComboBox,
     QDialog,
     QDoubleSpinBox,
     QFileDialog,
     QFormLayout,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QHeaderView,
@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QProgressBar,
     QPushButton,
+    QScrollArea,
     QTableWidget,
     QTableWidgetItem,
     QTabWidget,
@@ -61,6 +62,7 @@ from geoworkbench.importers.paradox.progress import paradox_progress_state
 from geoworkbench.services.depth_axis import DepthDirection, analyze_depth_axis
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.time_display import format_datetime_value, format_elapsed_time
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 ParadoxTableLoader = Callable[..., ParadoxTable]
@@ -203,15 +205,6 @@ class ParadoxImportDialog(QDialog):
             | Qt.WindowType.WindowMinMaxButtonsHint
         )
         self.setSizeGripEnabled(True)
-        screen = self.screen() or QApplication.primaryScreen()
-        available = screen.availableGeometry() if screen is not None else None
-        if available is None:
-            self.resize(1100, 720)
-        else:
-            self.resize(
-                max(820, min(1180, int(available.width() * 0.94))),
-                max(580, min(760, int(available.height() * 0.90))),
-            )
 
         root = QVBoxLayout(self)
         root.setContentsMargins(10, 10, 10, 10)
@@ -259,7 +252,9 @@ class ParadoxImportDialog(QDialog):
         self._build_preview_tab()
         self._build_issues_tab()
 
-        secondary_actions = QHBoxLayout()
+        secondary_panel = QWidget()
+        secondary_actions = QHBoxLayout(secondary_panel)
+        secondary_actions.setContentsMargins(0, 0, 0, 0)
         self.load_profile_button = QPushButton(self._t("paradox.load_profile"))
         self.load_profile_button.clicked.connect(self._load_profile)
         self.load_profile_button.setEnabled(False)
@@ -280,8 +275,24 @@ class ParadoxImportDialog(QDialog):
         self.save_dictionary_button.setEnabled(False)
         self.save_dictionary_button.setToolTip(self._t("paradox.save_dictionary_hint"))
         secondary_actions.addWidget(self.save_dictionary_button)
-        secondary_actions.addStretch(1)
-        root.addLayout(secondary_actions)
+        secondary_panel.adjustSize()
+
+        self.secondary_actions_scroll = QScrollArea()
+        self.secondary_actions_scroll.setObjectName(
+            "paradox-import-secondary-actions-scroll"
+        )
+        self.secondary_actions_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.secondary_actions_scroll.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self.secondary_actions_scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        self.secondary_actions_scroll.setWidgetResizable(False)
+        self.secondary_actions_scroll.setWidget(secondary_panel)
+        self.secondary_actions_scroll.setMinimumHeight(48)
+        self.secondary_actions_scroll.setMaximumHeight(76)
+        root.addWidget(self.secondary_actions_scroll)
 
         primary_actions = QHBoxLayout()
         self.cancel_button = QPushButton(self._t("common.cancel"))
@@ -305,6 +316,12 @@ class ParadoxImportDialog(QDialog):
             self.open_button.setToolTip(self._t("paradox.apply_batch_settings_hint"))
         primary_actions.addWidget(self.open_button)
         root.addLayout(primary_actions)
+
+        fit_window_to_screen(
+            self,
+            preferred=QSize(1180, 760),
+            minimum=QSize(680, 460),
+        )
 
         self._population_timer = QTimer(self)
         self._population_timer.setSingleShot(True)
