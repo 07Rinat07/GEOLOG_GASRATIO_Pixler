@@ -676,6 +676,15 @@ python -m pytest -q tests/test_paradox_import.py tests/test_semantic_channels.py
 Набор проверяет Paradox field/mapping evidence, raw-time projection, catalog version provenance
 и source-contract на `context() → resolve_context()` без legacy resolver path.
 
+Четвёртый ARCH-04 WITS0 semantic-context slice:
+
+```bash
+python -m pytest -q tests/test_wits0_import_review.py tests/test_semantic_channels.py
+```
+
+Набор проверяет WITS0 record/item/source-id evidence, automatic/reviewed mapping state,
+catalog version provenance и source-contract без legacy `SemanticChannelDictionary.resolve()`.
+
 ## 15. Каталоги печатных шапок и логотипов
 
 Минимальная доменная и SKF-проверка:

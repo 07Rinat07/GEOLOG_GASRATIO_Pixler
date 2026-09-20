@@ -703,8 +703,9 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
   mapping evidence и версией каталога. Первый инкремент вводит DTO + `resolve_context()` и
   переводит LAS import; `resolve()` остаётся compatibility shim. Второй инкремент переводит
   CSV/TXT import и фиксирует column/header mapping evidence. Третий инкремент переводит
-  GeoScape/Paradox и фиксирует field ordinal/name/type и mapped mnemonic evidence; далее —
-  WITS family.
+  GeoScape/Paradox и фиксирует field ordinal/name/type и mapped mnemonic evidence. Четвёртый
+  инкремент переводит WITS0 Import Review и фиксирует record/item/source-id и mapping state;
+  далее — WITSML family.
 - [ ] **ARCH-05:** закрепить границы слоёв AST/import-contract тестами и запретить зависимости
   domain/calculations от Qt/UI/printing.
 - [ ] **ARCH-06:** calculation profiles и conditioning policies сделать версионированными

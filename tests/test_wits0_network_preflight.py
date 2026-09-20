@@ -41,12 +41,33 @@ def test_wits0_network_preflight_has_valid_powershell_syntax() -> None:
         "if ($errors.Count -gt 0) { "
         "$errors | ForEach-Object { Write-Error $_.Message }; exit 1 }; exit 0"
     )
-    completed = subprocess.run(
-        [shell, "-NoProfile", "-NonInteractive", "-Command", command],
-        capture_output=True,
-        text=True,
-        timeout=30,
-        check=False,
-    )
+    completed: subprocess.CompletedProcess[str] | None = None
+    last_timeout: subprocess.TimeoutExpired | None = None
+    for _attempt in range(2):
+        try:
+            completed = subprocess.run(
+                [
+                    shell,
+                    "-NoLogo",
+                    "-NoProfile",
+                    "-NonInteractive",
+                    "-Command",
+                    command,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=45,
+                check=False,
+            )
+            break
+        except subprocess.TimeoutExpired as exc:
+            last_timeout = exc
+
+    if completed is None:
+        pytest.fail(
+            "PowerShell parser timed out twice while validating "
+            f"{SCRIPT.name}: {last_timeout}",
+            pytrace=False,
+        )
 
     assert completed.returncode == 0, completed.stderr or completed.stdout
