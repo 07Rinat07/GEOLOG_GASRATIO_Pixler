@@ -4,6 +4,10 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- ARCH-01 завершён: production `ApplicationContext` теперь реально собирает MainWindow —
+  отдельный project storage scope, semantic mnemonic registry, import jobs, общий report passport
+  builder, WITSML/ETP credential stores и audit sinks. WITSML/ETP dialogs принимают эти ports
+  через DI; добавлены regression tests на identity/wiring и отсутствие скрытых вторых экземпляров.
 - UI-ADAPT-01 завершён: расширенный GeoScape/Paradox Import переведён на общий
   `fit_window_to_screen`; profile/dictionary-действия прокручиваются отдельно от закреплённых
   Cancel/Save/Open. Новый contract-test контролирует все top-level dialog modules и адаптивную
