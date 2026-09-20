@@ -245,6 +245,7 @@ from geoworkbench.tablet.selection_interaction import (
     CallbackCommand,
     CommandStack,
     HitResult,
+    InterpretationSelectionState,
     SelectableKind,
     SelectionManager,
     SelectionRef,
@@ -2086,8 +2087,8 @@ class TabletView(QWidget):
         self._cuttings: tuple[CuttingsSample, ...] = ()
         self._stratigraphy: tuple[StratigraphyInterval, ...] = ()
         self._interpretations: tuple[WellInterpretation, ...] = ()
-        self._selected_interpretation_id: str | None = None
-        self._selected_interval_id: str | None = None
+        self._selection = SelectionManager()
+        self._interpretation_selection = InterpretationSelectionState(self._selection)
         self._lithotype_catalog: dict[str, CatalogLithotype] = {}
         self._layout_model = TabletLayout()
         self._layout_mutations = TabletLayoutMutationController(self._layout_model)
@@ -2129,7 +2130,6 @@ class TabletView(QWidget):
         self._static_layer_cache = StaticLayerCache(max_entries=512)
         self._dirty_registry = TrackDirtyRegistry()
         self._overlay_layers = OverlayLayerManager()
-        self._selection = SelectionManager()
         self._interaction_history = CommandStack()
         self._header_drag: TrackHeaderDrag | None = None
         self._tooltip_items: dict[str, pg.TextItem] = {}
@@ -2858,12 +2858,24 @@ class TabletView(QWidget):
         self._interval_editing.set_creation_type(interval_type)
 
     @property
+    def _selected_interpretation_id(self) -> str | None:
+        return self._interpretation_selection.interpretation_id
+
+    @_selected_interpretation_id.setter
+    def _selected_interpretation_id(self, value: str | None) -> None:
+        self._interpretation_selection.set_interpretation(value)
+
+    @property
+    def _selected_interval_id(self) -> str | None:
+        return self._interpretation_selection.interval_id
+
+    @property
     def selected_interpretation_id(self) -> str | None:
-        return self._selected_interpretation_id
+        return self._interpretation_selection.interpretation_id
 
     @property
     def selected_interval_id(self) -> str | None:
-        return self._selected_interval_id
+        return self._interpretation_selection.interval_id
 
     def rendered_interpretation_ids(self, track_id: str) -> tuple[str, ...]:
         rendered = self._rendered.get(track_id)
