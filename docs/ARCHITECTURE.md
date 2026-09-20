@@ -73,7 +73,9 @@ mutating gas-ratio API сессии напрямую. Четвёртый slice �
 enrichment и регистрацией; production subclass больше не содержит второй GS2 workflow.
 Пятый slice собирает перенос пользовательских canvas-объектов через
 `CanvasObjectTransferCoordinator`: controller, transactional workflow и material autosave
-остаются за application boundary и вместе rebind-ятся на новую ProjectSession.
+остаются за application boundary и вместе rebind-ятся на новую ProjectSession. Шестой slice
+переводит WELL-02 late-analysis import на `LateAnalysisCoordinator`: source adapter, reviewed
+transaction и baseline/completion state больше не собираются вручную в Qt-shell.
 
 ## Источник, рабочая модель и экспорт
 
