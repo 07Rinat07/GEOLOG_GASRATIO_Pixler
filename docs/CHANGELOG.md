@@ -4,6 +4,12 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- WITS0: параметры теперь появляются в bounded LIVE PREVIEW сразу после получения кадров, ещё до
+  создания постоянной сессии; после Import Review накопленные кадры переносятся в Dataset.
+- WITS0: профиль GeoScape GSWITS переведён на CP1251, поэтому кириллический идентификатор скважины
+  больше не помечает каждый принятый кадр ошибкой декодирования.
+- UI: устранено дублирование верхнего меню WITS; его единственным владельцем остаётся navigation
+  controller.
 - UI: устранён Qt use-after-free при сохранении элемента печатной шапки после двойного щелчка; обработчик больше не обращается к graphics item после rebuild сцены.
 - WITS: восстановлено отдельное меню WITS для WITS0/WITSML/ETP и добавлена явная обработка ошибок запуска WITS0 capture.
 - ARCH-05: recursive AST/import-contract закрепляет `domain` и `calculations` как Qt-независимые слои и запрещает зависимости на PySide/PyQt, PyQtGraph/qtpy, UI и printing.

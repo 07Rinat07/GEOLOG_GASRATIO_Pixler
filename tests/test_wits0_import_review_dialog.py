@@ -34,7 +34,8 @@ def test_capture_dialog_integrates_immutable_import_review_boundary() -> None:
     capture = CAPTURE_SOURCE.read_text(encoding="utf-8")
     review = DIALOG_SOURCE.read_text(encoding="utf-8")
 
-    assert "Wits0DiscoveryAccumulator" in capture
+    assert "Wits0LivePreview" in capture
+    assert "self.discovery = self.live_preview.discovery" in capture
     assert "Wits0ImportReviewDialog" in capture
     assert "save_wits0_custom_profile" in capture
     assert "review_commit" in capture

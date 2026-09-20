@@ -147,7 +147,7 @@ class Wits0CaptureConfig:
     port: int
     raw_directory: Path
     source_name: str = "geoscape"
-    encoding: str = "ascii"
+    encoding: str = "cp1251"
     connect_timeout_s: float = 5.0
     socket_timeout_s: float = 0.5
     reconnect_initial_s: float = 1.0

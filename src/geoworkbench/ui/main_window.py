@@ -1,10010 +1,3635 @@
-from __future__ import annotations
-
-from copy import deepcopy
-from dataclasses import dataclass, replace
-from datetime import datetime
-from functools import partial
-from pathlib import Path
-from typing import TypedDict, cast
-from weakref import ref
-
-import numpy as np
-from PySide6.QtCore import QEvent, QTimer, QUrl, QSize, QStandardPaths, Qt, Signal
-from PySide6.QtGui import (
-    QAction,
-    QActionGroup,
-    QCursor,
-    QDesktopServices,
-    QDragEnterEvent,
-    QDropEvent,
-    QColor,
-    QFont,
-    QIcon,
-    QPainter,
-    QPalette,
-    QPen,
-    QPixmap,
-    QShowEvent,
-)
-from PySide6.QtPrintSupport import QPrintPreviewDialog
-from PySide6.QtWidgets import (
-    QAbstractItemView,
-    QApplication,
-    QDialog,
-    QDialogButtonBox,
-    QColorDialog,
-    QDockWidget,
-    QFrame,
-    QFileDialog,
-    QHBoxLayout,
-    QInputDialog,
-    QLabel,
-    QListWidget,
-    QListWidgetItem,
-    QMainWindow,
-    QMenu,
-    QMessageBox,
-    QPushButton,
-    QStatusBar,
-    QStyle,
-    QSizePolicy,
-    QStackedWidget,
-    QTabWidget,
-    QTextEdit,
-    QToolBar,
-    QToolButton,
-    QTreeWidget,
-    QTreeWidgetItem,
-    QVBoxLayout,
-    QWidget,
-)
-
-from geoworkbench import __version__
-from geoworkbench.app.context import ApplicationContext
-from geoworkbench.calculations.controller import FormulaExecutionController
-from geoworkbench.catalogs.sensors import SensorCatalog, set_active_sensor_catalog
-from geoworkbench.calculations.custom_formula import formula_inputs
-from geoworkbench.calculations.interval_statistics import calculate_interval_statistics
-from geoworkbench.calculations.pixler import build_all_sourced_formula_registry
-from geoworkbench.importers.gs2 import (
-    Gs2ContainerError,
-    extract_gs2_table,
-)
-from geoworkbench.importers.gs2.multipart import read_gs2_multipart
-from geoworkbench.importers.gs2.metadata import channel_dictionary_for_table
-from geoworkbench.importers.skf_importer import import_skf_file
-from geoworkbench.domain.models import CurveData, Dataset, IndexRole, IndexType
-from geoworkbench.domain.localized_content import localized_text
-from geoworkbench.data.las_adapter import LasExportError
-from geoworkbench.data.las_import_policy import LasImportMode
-from geoworkbench.data.las_import_report import LasImportIssue, LasImportReport
-from geoworkbench.data.lossless_las import LosslessLasDocument
-from geoworkbench.data.las_export_plan import ExportIssueSeverity
-from geoworkbench.data.selection_export import SelectionExportError
-from geoworkbench.data.report_document_export import ReportDocumentExportError
-from geoworkbench.data.visualization_export import (
-    VisualizationExportError,
-    export_widget_pdf,
-    export_widget_png,
-    export_widget_svg,
-)
-from geoworkbench.data.dataset_json_export import DatasetJsonExportError
-from geoworkbench.data.dataset_parquet_export import DatasetParquetExportError
-from geoworkbench.data.interval_statistics_export import (
-    export_interval_statistics_csv,
-    export_interval_statistics_xlsx,
-)
-from geoworkbench.forms import (
-    FormApplyEngine,
-    FormAxisKind,
-    FormRepository,
-    form_from_tablet_layout,
-)
-from geoworkbench.forms.catalog import complete_form_catalog
-from geoworkbench.forms.layout_transaction import (
-    ReversibleApplyError,
-    apply_reversibly,
-)
-from geoworkbench.project.controller import ProjectController
-from geoworkbench.project.data_inspector_controller import DataInspectorController
-from geoworkbench.project.curve_metadata_controller import CurveMetadataController
-from geoworkbench.project.curve_transfer_controller import CurveTransferController
-from geoworkbench.project.external_las_insert_controller import ExternalLasInsertController
-from geoworkbench.project.gas_ratio_controller import GasRatioProjectController
-from geoworkbench.project.gs2_import_coordinator import Gs2ImportCoordinator
-from geoworkbench.project.custom_formula_controller import CustomFormulaController
-from geoworkbench.project.header_editing_controller import HeaderEditingController
-from geoworkbench.project.description_template_controller import DescriptionTemplateController
-from geoworkbench.project.depth_axis_controller import DepthAxisController
-from geoworkbench.project.curve_editing_controller import (
-    CurveEditingController,
-    CurveEditOutcome,
-)
-from geoworkbench.project.annotation_controller import DepthAnnotationController
-from geoworkbench.project.annotation_schema import (
-    AnnotationAnchor,
-    AnnotationKind,
-    AnnotationStyle,
-    annotation_from_canvas,
-    is_annotation_object,
-)
-from geoworkbench.project.lithology_controller import LithologyController
-from geoworkbench.project.cuttings_controller import CuttingsController
-from geoworkbench.project.interpretation_controller import InterpretationController
-from geoworkbench.project.interpretation_calculation_controller import (
-    InterpretationCalculationController,
-    InterpretationCalculationResult,
-)
-from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
-from geoworkbench.project.stratigraphy_controller import StratigraphyController
-from geoworkbench.project.stratigraphy_catalog_controller import StratigraphyCatalogController
-from geoworkbench.project.nct_controller import NctCalculationController
-from geoworkbench.project.new_las_controller import NewLasController
-from geoworkbench.services.well_update_plan import WellNumericalUpdatePlan
-from geoworkbench.services.well_update_apply import WellNumericalUpdateOutcome
-from geoworkbench.services.daily_las_growth import DailyLasGrowthOutcome
-from geoworkbench.project.daily_las_growth_controller import DailyLasGrowthController
-from geoworkbench.project.las_range_editor import LasRangeEditingController
-from geoworkbench.project.dataset_export_controller import DatasetExportController
-from geoworkbench.project.dataset_merge_controller import DatasetMergeController
-from geoworkbench.project.derived_dataset_controller import DerivedDatasetController
-from geoworkbench.project.document_bundle_command import (
-    DocumentBundleCommandController,
-    DocumentBundleCommandError,
-)
-from geoworkbench.project.document_bundle_recording_service import (
-    RecordedDocumentBundleExecution,
-)
-from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
-from geoworkbench.project.logo_catalog_controller import LogoCatalogController
-from geoworkbench.project.session import ProjectSession
-from geoworkbench.form_constructor.asset_install import install_symbol_into_project
-from geoworkbench.project.lag_correction_controller import (
-    LagCorrectionProjectController,
-    LagCorrectionSourceDatasetMissingError,
-)
-from geoworkbench.project.time_depth_mapping_controller import TimeDepthMappingController
-from geoworkbench.project.time_to_depth_controller import TimeToDepthController
-from geoworkbench.project.witsml_import_coordinator import WitsmlImportCoordinator
-from geoworkbench.printing.print_job import (
-    PrintJobSettings,
-    PrintOutputFormat,
-    PrintTrackOption,
-)
-from geoworkbench.printing.header_catalog import catalog_items, resolve_catalog_header
-from geoworkbench.ui.header_preview_widget import render_header_preview_pixmap
-from geoworkbench.ui.print_job_status_dialog import PrintJobStatusDialog
-from geoworkbench.ui.file_workspace_widget import FileWorkspaceWidget
-from geoworkbench.printing.pagination import PrintRangeMode
-from geoworkbench.printing.form_width_advisor import FormWidthLevel, audit_form_width
-from geoworkbench.storage.project_codec import ProjectFormatError
-from geoworkbench.storage.project_file_safety import (
-    ProjectChangedExternallyError,
-    ProjectFileSafetyError,
-    SaveMode,
-)
-from geoworkbench.tablet import TabletLayout, TrackDefinition, TrackKind, XScale
-from geoworkbench.tablet.render_invalidation import DirtyReason
-from geoworkbench.tablet.models import (
-    CurveLineStyle,
-    CurveStyle,
-)
-from geoworkbench.tablet.controller import TabletController
-from geoworkbench.tablet.interval_interaction import IntervalEditMode
-from geoworkbench.tablet.lithology_legend import build_lithology_legend
-from geoworkbench.tablet.tablet_view import GeologicalInputMode, TabletView
-from geoworkbench.ui.track_inspector import TrackInspector
-from geoworkbench.ui.lag_correction_dialog import LagCorrectionDialog
-from geoworkbench.ui.time_depth_mapping_dialog import TimeDepthMappingDialog
-from geoworkbench.ui.time_to_depth_dialog import TimeToDepthDialog
-from geoworkbench.ui.toolbar_adaptation import (
-    choose_toolbar_adaptation,
-    overflow_item_count,
-)
-from geoworkbench.ui.branding import application_icon, about_program_logo_pixmap
-from geoworkbench.ui.home_page import HomeAction, HomePage
-from geoworkbench.services.import_jobs import (
-    DatasetImportJobExecutor,
-    ImportJobController,
-    ImportSourceKind,
-)
-from geoworkbench.services.application_logging import (
-    current_application_log_manager,
-    log_event,
-    log_exception,
-)
-from geoworkbench.services.import_diagnostics import (
-    ImportDiagnostic,
-    ImportDiagnosticReport,
-    persist_import_diagnostic_report,
-    presentation_diagnostic,
-)
-from geoworkbench.services.session_binding import SessionBindingController
-from geoworkbench.services.print_jobs import PrintJobExecutor, report_render_settings
-from geoworkbench.services.workspace_commands import WorkspaceCommandController
-from geoworkbench.services.datetime_boundary import datetime_boundary_unix_seconds
-from geoworkbench.services.report_definition import (
-    ReportDefinition,
-    ReportDefinitionError,
-    ReportIntervalContext,
-    ReportIntervalMode,
-    ReportIntervalSelection,
-    ReportProfile,
-    ReportSectionDefinition,
-    ReportSectionKind,
-    ResolvedReportDefinition,
-)
-from geoworkbench.services.report_passport import (
-    ReportKind,
-    ReportPassportBuilder,
-    ReportPassportError,
-    ReportPassportRequest,
-    ReportRenderSettings,
-    form_document_snapshot,
-    passport_sidecar_path,
-    report_definition_snapshot,
-    tablet_layout_form_snapshot,
-)
-from geoworkbench.services.report_output_transaction import (
-    execute_report_output_transaction,
-)
-from geoworkbench.ui.workspace_controller import (
-    WorkspaceController,
-    WorkspaceSurface,
-)
-from geoworkbench.ui.window_geometry import (
-    adaptive_minimum_size,
-    adaptive_window_geometry,
-    constrain_window_geometry,
-    fit_window_to_screen,
-)
-from geoworkbench.ui.csv_import_dialog import CsvImportDialog
-from geoworkbench.ui.curve_transfer_dialog import CurveTransferDialog
-from geoworkbench.ui.external_las_insert_dialog import ExternalLasInsertDialog
-from geoworkbench.ui.curve_settings_dialog import CurveSettingsDialog
-from geoworkbench.ui.excel_import_dialog import ExcelImportDialog
-from geoworkbench.ui.import_review_dialog import ImportReviewDialog
-from geoworkbench.ui.import_diagnostics_dialog import ImportDiagnosticsDialog
-from geoworkbench.ui.paradox_import_dialog import ParadoxImportDialog
-from geoworkbench.ui.paradox_batch_dialog import ParadoxBatchDialog
-from geoworkbench.ui.gs2_import_dialog import Gs2ImportDialog
-from geoworkbench.ui.witsml_inventory_dialog import WitsmlInventoryDialog
-from geoworkbench.ui.witsml_import_dialog import WitsmlImportDialog
-from geoworkbench.ui.witsml1411_dialog import Witsml1411Dialog
-from geoworkbench.ui.etp12_dialog import Etp12Dialog
-from geoworkbench.ui.wits0_capture_dialog import Wits0CaptureDialog
-from geoworkbench.ui.form_manager_dialog import FormManagerDialog
-from geoworkbench.ui.form_create_dialog import FormCreateDialog
-from geoworkbench.ui.constructor_dialog import UniversalConstructorDialog
-from geoworkbench.ui.formula_dialog import FormulaExecutionDialog
-from geoworkbench.ui.custom_formula_dialog import CustomFormulaDialog
-from geoworkbench.ui.depth_annotations_dialog import DepthAnnotationsDialog
-from geoworkbench.ui.symbol_insertion_dialog import SymbolInsertionDialog
-from geoworkbench.ui.depth_resample_dialog import DepthResampleDialog
-from geoworkbench.ui.description_templates_dialog import DescriptionTemplatesDialog
-from geoworkbench.ui.data_inspector_dialog import DataInspectorDialog
-from geoworkbench.ui.dataset_merge_dialog import DatasetMergeDialog
-from geoworkbench.ui.interval_statistics_dialog import IntervalStatisticsDialog
-from geoworkbench.ui.interval_statistics_panel import IntervalStatisticsPanel
-from geoworkbench.ui.interval_statistics_overlay import IntervalStatisticsOverlay
-from geoworkbench.ui.interpretation_report_dialog import InterpretationReportDialog
-from geoworkbench.ui.interpretation_report_workspace import (
-    InterpretationReportWorkspace,
-)
-from geoworkbench.ui.interpretation_intervals_dialog import InterpretationIntervalsDialog
-from geoworkbench.ui.interpretation_properties import InterpretationPropertiesPanel
-from geoworkbench.ui.lithology_dialog import LithologyDialog
-from geoworkbench.ui.lithology_interval_dialog import LithologyIntervalDialog
-from geoworkbench.ui.unified_cuttings_sample_dialog import UnifiedCuttingsSampleDialog
-from geoworkbench.ui.sample_analysis_dialog import SampleAnalysisDialog
-from geoworkbench.ui.rock_description_dialog import RockDescriptionDialog
-from geoworkbench.ui.lithology_legend_dialog import LithologyLegendDialog
-from geoworkbench.ui.lithotype_catalog_dialog import LithotypeCatalogDialog
-from geoworkbench.ui.sensor_catalog_dialog import SensorCatalogDialog
-from geoworkbench.ui.stratigraphy_dialog import (
-    StratigraphyCatalogDialog,
-    StratigraphyDialog,
-    StratigraphyIntervalDialog,
-)
-from geoworkbench.ui.tablet_track_editor_dialog import TabletTrackEditorDialog
-from geoworkbench.ui.nct_dialog import NctCalculationDialog
-from geoworkbench.ui.new_las_dialog import NewLasDialog
-from geoworkbench.ui.daily_las_growth_dialog import DailyLasGrowthDialog
-from geoworkbench.ui.las_table_editor import LasTableEditor
-from geoworkbench.ui.las_export_dialog import LasExportPlanDialog
-from geoworkbench.ui.las_editor_dialog import LasEditorDialog, LasEditorOperation
-from geoworkbench.ui.las_curve_browser import LasCurveBrowser
-from geoworkbench.ui.print_center_dialog import PrintCenterDialog
-from geoworkbench.ui.print_page_dialog import PrintPageDialog
-from geoworkbench.ui.document_bundle_selection_dialog import DocumentBundleSelectionDialog
-from geoworkbench.ui.masterlog_templates_dialog import MasterlogTemplatesDialog
-from geoworkbench.ui.header_catalog_dialog import HeaderCatalogDialog
-from geoworkbench.ui.logo_catalog_dialog import LogoCatalogDialog
-from geoworkbench.ui.skf_import_options_dialog import (
-    SkfImportMode,
-    SkfImportOptionsDialog,
-)
-from geoworkbench.visualization.curve_view import CurveView
-from geoworkbench.services.depth_axis import DepthDirection
-from geoworkbench.services.las_parameter_resolver import ParameterResolutionError
-from geoworkbench.services.localization import (
-    LANGUAGE_NAMES,
-    AppLanguage,
-    LanguageSettings,
-    Localizer,
-)
-from geoworkbench.services.parameter_labels import localized_curve_name
-from geoworkbench.services.text_normalization import clean_display_text, clean_mnemonic
-from geoworkbench.services.dataset_selection import DatasetIntervalSelection
-from geoworkbench.services.user_profiles import CursorLineSettings, UserProfileSettings
-from geoworkbench.services.mnemonic_registry import UserMnemonicRegistry
-from geoworkbench.services.time_display import format_elapsed_time, format_unix_seconds
-
-
-class _MainWindowPort:
-    def __init__(self, window: MainWindow) -> None:
-        self._window_ref = ref(window)
-
-    @property
-    def _window(self) -> MainWindow:
-        window = self._window_ref()
-        if window is None:
-            raise RuntimeError("Main window is no longer available")
-        return window
-
-
-class _MainWindowWorkspacePort(_MainWindowPort):
-    """Thin Qt adapter for headless workspace navigation rules."""
-
-    def set_workspace_available(
-        self,
-        available: bool,
-        dataset_name: str | None,
-    ) -> None:
-        self._window.workspace_action.setEnabled(available)
-        self._window.home_page.set_workspace_dataset(dataset_name)
-
-    def show_home(self) -> None:
-        self._window.central_stack.setCurrentWidget(self._window.home_page)
-
-    def show_workspace(self, target: object | None) -> None:
-        if isinstance(target, QWidget):
-            self._window.tabs.setCurrentWidget(target)
-        self._window.central_stack.setCurrentWidget(self._window.tabs)
-
-    def show_navigation_status(self, surface: WorkspaceSurface) -> None:
-        key = "home.status" if surface is WorkspaceSurface.HOME else "home.workspace_status"
-        self._window.statusBar().showMessage(self._window._t(key))
-
-
-class _MainWindowWorkspaceCommandPort(_MainWindowPort):
-    """Render workspace commands after the headless controller selects context."""
-
-    def show_dataset(self, dataset: Dataset) -> None:
-        self._window._selected_track_id = None
-        self._window._show_current_dataset()
-
-    def show_curve(self, dataset: Dataset, curve: CurveData) -> None:
-        mnemonic = curve.metadata.original_mnemonic
-        self._window.curve_view.show_dataset(dataset, [mnemonic])
-        self._window._show_workspace(self._window.curve_view)
-        if self._window.pencil_action.isChecked():
-            self._window.curve_view.set_edit_mode(True)
-            self._window.statusBar().showMessage(
-                self._window._t("shell.curve_pencil_active_status", mnemonic=mnemonic)
-            )
-        self._window.inspector.setPlainText(
-            f"{self._window._t('inspector.curve')}: {mnemonic}\n"
-            f"{self._window._t('inspector.unit')}: "
-            f"{curve.metadata.unit or self._window._t('common.unset')}\n"
-            f"{self._window._t('inspector.description')}: "
-            f"{curve.metadata.description or self._window._t('common.none')}\n"
-            f"{self._window._t('inspector.version')}: {curve.version}\n"
-            f"{self._window._t('inspector.provenance')}: {curve.metadata.provenance}"
-        )
-
-    def show_track(self, track_id: str) -> None:
-        self._window._show_current_dataset()
-        self._window._show_track_in_inspector(track_id)
-        self._window._show_workspace(self._window.tablet_view)
-
-    def show_lithology(self) -> None:
-        self._window.show_lithology_editor()
-
-    def show_stratigraphy(self) -> None:
-        self._window.show_stratigraphy_editor()
-
-    def show_interpretations(self, interpretation_id: str | None) -> None:
-        if interpretation_id is not None:
-            self._window.interpretation_controller.select_interpretation(interpretation_id)
-            self._window.tablet_view.set_selected_interpretation(interpretation_id)
-        self._window.show_interpretation_intervals()
-
-    def show_interpretation_interval(
-        self,
-        interpretation_id: str,
-        interval_id: str,
-    ) -> None:
-        self._window._show_current_dataset()
-        self._window._select_interpretation_interval(interpretation_id, interval_id)
-        self._window._show_workspace(self._window.tablet_view)
-
-    def show_annotations(self) -> None:
-        self._window.show_depth_annotations()
-
-    def show_description_templates(self) -> None:
-        self._window.show_description_templates()
-
-
-class _MainWindowImportJobPort(_MainWindowPort):
-    """Map stable import kinds to the existing format-specific UI jobs."""
-
-    def execute_import(
-        self, kind: ImportSourceKind, source: Path | None = None
-    ) -> None:
-        if kind is ImportSourceKind.LAS:
-            self._window.open_las(source)
-        elif kind is ImportSourceKind.CSV:
-            self._window.open_csv(source)
-        elif kind is ImportSourceKind.EXCEL:
-            self._window.open_excel(source)
-        elif kind is ImportSourceKind.PARADOX:
-            self._window.open_paradox(source)
-        elif kind is ImportSourceKind.GS2:
-            self._window.open_gs2(source)
-        else:
-            raise ValueError(f"Unsupported import source kind: {kind}")
-
-    def report_unknown_source(self, selected_label: str) -> None:
-        QMessageBox.warning(
-            self._window,
-            self._window._t("import.title"),
-            self._window._t("import.unknown_source", source=selected_label),
-        )
-
-
-class _MainWindowDatasetImportPort(_MainWindowPort):
-    """Commit imported datasets through the project-session boundary."""
-
-    def add_imported_dataset(
-        self,
-        dataset: Dataset,
-        *,
-        source_document: LosslessLasDocument | None = None,
-        import_report: LasImportReport | None = None,
-        create_new_well: bool = False,
-    ) -> str:
-        well = self._window.session.add_dataset(
-            dataset,
-            source_document=source_document,
-            import_report=import_report,
-            create_new_well=create_new_well,
-        )
-        return well.name
-
-
-class _ResponsiveCommandBar(QFrame):
-    """Application-owned command bar with no native toolbar overflow.
-
-    This widget deliberately does not inherit ``QToolBar``.  Even when a
-    QToolBar is inserted into the central widget, its private extension action
-    can be recalculated after a click, F4 toggle or DPI transition and feed a
-    desktop-wide minimum width back into the layout.  A plain frame has no
-    extension button and no docking geometry, so only our explicit ``â‹¯`` menu
-    controls overflow.
-    """
-
-    visibilityChanged = Signal(bool)
-
-    def __init__(
-        self,
-        parent: QWidget | None = None,
-        *,
-        margins: tuple[int, int, int, int] = (0, 0, 0, 0),
-    ) -> None:
-        super().__init__(parent)
-        self.setFrameShape(QFrame.Shape.NoFrame)
-        self.setMinimumWidth(0)
-        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
-        self._content_layout = QVBoxLayout(self)
-        self._content_layout.setContentsMargins(*margins)
-        self._content_layout.setSpacing(0)
-
-    def set_content_widget(self, widget: QWidget) -> None:
-        self._content_layout.addWidget(widget)
-
-    def minimumSizeHint(self) -> QSize:  # noqa: N802 - Qt API
-        hint = super().minimumSizeHint()
-        return QSize(0, max(1, hint.height()))
-
-    def sizeHint(self) -> QSize:  # noqa: N802 - Qt API
-        hint = super().sizeHint()
-        return QSize(0, max(1, hint.height()))
-
-    def showEvent(self, event: QShowEvent) -> None:  # noqa: N802 - Qt API
-        super().showEvent(event)
-        self.visibilityChanged.emit(True)
-
-    def hideEvent(self, event) -> None:  # noqa: N802 - Qt API
-        super().hideEvent(event)
-        self.visibilityChanged.emit(False)
-
-
-class _ResponsiveToolbarRow(QWidget):
-    """Single toolbar item whose width is always constrained by the window.
-
-    QToolBar normally creates a private extension button when several native
-    actions do not fit. On Windows that extension button can be inserted after
-    our own adaptation pass and push the pinned right-side command outside the
-    viewport. Keeping the complete row inside one expanding QWidget removes
-    that native overflow path; visibility is controlled only by our explicit
-    ``â‹¯`` menu.
-    """
-
-    def minimumSizeHint(self) -> QSize:  # noqa: N802 - Qt API
-        hint = super().minimumSizeHint()
-        return QSize(0, max(1, hint.height()))
-
-    def sizeHint(self) -> QSize:  # noqa: N802 - Qt API
-        hint = super().sizeHint()
-        return QSize(0, max(1, hint.height()))
-
-
-class _SymbolAnnotationValues(TypedDict):
-    kind: AnnotationKind
-    anchor: AnnotationAnchor
-    text: str
-    track_id: str
-    depth: float
-    parameter_mnemonic: str | None
-    x_fraction: float
-    offset_x: float
-    offset_y: float
-    width: float
-    height: float
-    style: AnnotationStyle
-    asset_ref: str
-    symbol_id: str
-    transparent_background: bool
-    visible: bool
-    locked: bool
-    print_enabled: bool
-
-
-class _ResponsiveToolbarHost(QWidget):
-    """Central-widget host for application-owned command rows.
-
-    The rows intentionally live outside ``QMainWindow``'s native toolbar area.
-    On Windows a docked ``QToolBar`` may raise the top-level minimum width after
-    a checked action, DPI transition or second toolbar visibility change.  The
-    window can then become wider than the monitor even while maximized.  A
-    central host clips and adapts its children instead of changing the native
-    window constraints.
-    """
-
-    def minimumSizeHint(self) -> QSize:  # noqa: N802 - Qt API
-        hint = super().minimumSizeHint()
-        return QSize(0, max(1, hint.height()))
-
-    def sizeHint(self) -> QSize:  # noqa: N802 - Qt API
-        hint = super().sizeHint()
-        return QSize(0, max(1, hint.height()))
-
-
-@dataclass(frozen=True, slots=True)
-class _TabletFormSnapshot:
-    """Last known-good tablet state used for form preview/apply rollback."""
-
-    layout: TabletLayout
-    session_dirty: bool
-    selected_track_id: str | None
-
-
-class MainWindow(QMainWindow):
-    def __init__(
-        self,
-        *,
-        language: AppLanguage = AppLanguage.RU,
-        language_settings: LanguageSettings | None = None,
-        user_profile_settings: UserProfileSettings | None = None,
-        application_context: ApplicationContext | None = None,
-    ) -> None:
-        super().__init__()
-        self.application_context = application_context
-        self.language = language
-        self.localizer = Localizer.create(language)
-        self.language_settings = language_settings or LanguageSettings.system()
-        self.user_profile_settings = user_profile_settings or UserProfileSettings.system()
-        self.mnemonic_registry = (
-            application_context.mnemonic_registry
-            if application_context is not None
-            else UserMnemonicRegistry()
-        )
-        forms_root = (
-            Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation))
-            / "forms"
-        )
-        self.form_repository = FormRepository(forms_root)
-        self.form_apply_engine = FormApplyEngine()
-        set_active_sensor_catalog(self.mnemonic_registry.catalog())
-        self.project_controller = (
-            application_context.create_project_scope().project_controller
-            if application_context is not None
-            else ProjectController()
-        )
-        self.report_passport_builder = (
-            application_context.report_passport_builder
-            if application_context is not None
-            else ReportPassportBuilder()
-        )
-        self.tablet_controller = TabletController(self.session)
-        self.curve_editing_controller = CurveEditingController(self.session)
-        self.dataset_export_controller = DatasetExportController(self.session)
-        self.dataset_merge_controller = DatasetMergeController(self.session)
-        self.derived_dataset_controller = DerivedDatasetController(self.session)
-        self.data_inspector_controller = DataInspectorController(self.session)
-        self.header_editing_controller = HeaderEditingController(self.session)
-        self.curve_metadata_controller = CurveMetadataController(self.session)
-        self.curve_transfer_controller = CurveTransferController(self.session)
-        self.external_las_insert_controller = ExternalLasInsertController(self.session)
-        self.gas_ratio_project_controller = GasRatioProjectController(self.session)
-        self.formula_registry = build_all_sourced_formula_registry()
-        self.external_las_insert_controller.formula_registry = self.formula_registry
-        self.formula_execution_controller = FormulaExecutionController(
-            self.session, self.formula_registry
-        )
-        self.custom_formula_controller = CustomFormulaController(self.session)
-        self.lag_correction_controller = LagCorrectionProjectController(self.session)
-        self.time_depth_mapping_controller = TimeDepthMappingController(self.session)
-        self.time_to_depth_controller = TimeToDepthController(self.session)
-        self.depth_annotation_controller = DepthAnnotationController(self.session)
-        self._selected_annotation_id: str | None = None
-        self.lithology_controller = LithologyController(self.session)
-        self.cuttings_controller = CuttingsController(self.session)
-        self.interpretation_controller = InterpretationController(self.session)
-        self.interpretation_calculation_controller = InterpretationCalculationController(
-            self.session
-        )
-        self.stratigraphy_controller = StratigraphyController(self.session)
-        self.stratigraphy_catalog_controller = StratigraphyCatalogController(self.session)
-        self.lithotype_catalog_controller = LithotypeCatalogController(self.session)
-        self.description_template_controller = DescriptionTemplateController(self.session)
-        self.depth_axis_controller = DepthAxisController(self.session)
-        self.nct_calculation_controller = NctCalculationController(self.session)
-        self.new_las_controller = NewLasController(self.session)
-        self.daily_las_growth_controller = DailyLasGrowthController(self.session)
-        self.witsml_import_coordinator = WitsmlImportCoordinator(self.session)
-        self.las_range_editing_controller = LasRangeEditingController(self.session)
-        self._configure_edit_dependencies()
-        self.masterlog_template_controller = MasterlogTemplateController(self.session)
-        self.logo_catalog_controller = LogoCatalogController(self.session)
-        self._session_bindings = self._create_session_binding_controller()
-        self.dataset_selection = DatasetIntervalSelection()
-        self._selected_track_id: str | None = None
-        self._form_layout_transaction_active = False
-        self._interpretation_dialog: InterpretationIntervalsDialog | None = None
-        self.print_page_settings = self.user_profile_settings.print_page_settings()
-        self.print_export_preferences = self.user_profile_settings.print_export_preferences()
-        self._active_print_status_dialog: PrintJobStatusDialog | None = None
-        self._last_document_bundle_execution: RecordedDocumentBundleExecution | None = None
-        self.cursor_line_settings = self.user_profile_settings.cursor_line_settings()
-        self.setWindowIcon(application_icon())
-        self.setWindowTitle(f"GEOLOG GASRATIO@Pixler {__version__}")
-        self.setAcceptDrops(True)
-        self._initial_geometry_checked = False
-        self._toolbar_screen_signal_connected = False
-        self._toolbar_observed_screens: list[object] = []
-        self._toolbar_adaptation_in_progress = False
-        self._main_toolbar_overflow_signature: tuple[str, ...] = ()
-        self._form_toolbar_overflow_signature: tuple[str, ...] = ()
-        self._apply_adaptive_initial_geometry()
-        # Explicitly override child-layout minimum propagation.  The workspace
-        # is scrollable; a desktop-only 640Ã—480 minimum must never exceed the
-        # logical work area at Windows HiDPI scaling.
-        self._apply_adaptive_minimum_size()
-
-        self.tabs = QTabWidget()
-        self.file_workspace = FileWorkspaceWidget(language=self.language.value)
-        self.curve_view = CurveView(self.dataset_selection, language=self.language)
-        self.curve_view.edit_requested.connect(self._apply_curve_draw_edit)
-        self.curve_view.interval_analysis_requested.connect(
-            self._show_interval_analysis_from_gesture
-        )
-        self.tablet_view = TabletView(language=self.language)
-        self.tablet_view.set_cursor_style(
-            self.cursor_line_settings.color, self.cursor_line_settings.width
-        )
-        self.tablet_view.track_selected.connect(self._show_track_in_inspector)
-        self.tablet_view.curve_selected.connect(self._show_tablet_curve_in_inspector)
-        self.tablet_view.track_hide_requested.connect(self._hide_track_from_context)
-        self.tablet_view.track_remove_requested.connect(self._remove_track_from_context)
-        self.tablet_view.track_add_curves_requested.connect(self._add_curves_to_track_from_context)
-        self.tablet_view.track_replace_curves_requested.connect(
-            self._replace_track_curves_from_context
-        )
-        self.tablet_view.track_properties_requested.connect(
-            self._show_track_properties_from_context
-        )
-        self.tablet_view.track_full_edit_requested.connect(self._edit_live_track)
-        self.tablet_view.curve_pencil_requested.connect(self._start_curve_pencil_from_tablet)
-        self.tablet_view.curve_edit_requested.connect(self._apply_curve_draw_edit)
-        self.tablet_view.curve_pencil_mode_changed.connect(self._sync_pencil_action_from_tablet)
-        self.tablet_view.curve_pencil_undo_requested.connect(self.undo_curve_edit)
-        self.tablet_view.curve_pencil_redo_requested.connect(self.redo_curve_edit)
-        self.tablet_view.track_rename_requested.connect(self._rename_live_track)
-        self.tablet_view.track_group_rename_requested.connect(self._rename_live_track_group)
-        self.tablet_view.track_curve_settings_requested.connect(
-            self._show_curve_settings_from_context
-        )
-        self.tablet_view.track_curve_range_requested.connect(self._set_curve_range_from_header)
-        self.tablet_view.track_curve_auto_range_requested.connect(
-            self._set_curve_auto_range_from_header
-        )
-        self.tablet_view.track_curve_unit_requested.connect(self._set_curve_unit_from_header)
-        self.tablet_view.track_curve_scale_requested.connect(self._set_curve_scale_from_header)
-        self.tablet_view.save_layout_requested.connect(self.save_tablet_preset)
-        self.tablet_view.track_width_change_requested.connect(self._change_track_width_from_drag)
-        self.tablet_view.track_order_change_requested.connect(self._track_order_changed_from_drag)
-        self.tablet_view.visible_depth_changed.connect(self._show_visible_depth)
-        self.tablet_view.vertical_index_changed.connect(self._change_vertical_index_from_tablet)
-        self.tablet_view.cursor_changed.connect(self._show_cursor_values)
-        self.tablet_view.interpretation_selected.connect(self._select_interpretation_from_tablet)
-        self.tablet_view.interval_selected.connect(self._select_interpretation_interval)
-        self.tablet_view.interval_selection_cleared.connect(
-            self._clear_interpretation_interval_selection
-        )
-        self.tablet_view.interval_create_requested.connect(self._create_interval_from_tablet)
-        self.tablet_view.interval_resize_requested.connect(self._resize_interval_from_tablet)
-        self.tablet_view.lithology_interval_requested.connect(
-            self._create_lithology_interval_from_tablet
-        )
-        self.tablet_view.lithology_interval_edit_requested.connect(
-            self._edit_lithology_interval_from_tablet
-        )
-        self.tablet_view.cuttings_interval_requested.connect(
-            self._create_cuttings_sample_from_tablet
-        )
-        self.tablet_view.analysis_interval_requested.connect(
-            self._create_analysis_interval_from_tablet
-        )
-        self.tablet_view.cuttings_sample_edit_requested.connect(
-            self._edit_cuttings_sample_from_tablet
-        )
-        self.tablet_view.description_interval_requested.connect(
-            self._create_rock_description_from_tablet
-        )
-        self.tablet_view.description_edit_requested.connect(
-            self._edit_rock_description_from_tablet
-        )
-        self.tablet_view.stratigraphy_interval_requested.connect(
-            self._create_stratigraphy_interval_from_tablet
-        )
-        self.tablet_view.stratigraphy_interval_edit_requested.connect(
-            self._edit_stratigraphy_interval_from_tablet
-        )
-        self.tablet_view.annotation_add_requested.connect(self._create_annotation_from_tablet)
-        self.tablet_view.annotation_edit_requested.connect(self._edit_annotation_from_tablet)
-        self.tablet_view.annotation_delete_requested.connect(self._delete_annotation_from_tablet)
-        self.tablet_view.annotation_duplicate_requested.connect(
-            self._duplicate_annotation_from_tablet
-        )
-        self.tablet_view.annotation_geometry_changed.connect(
-            self._update_annotation_geometry_from_tablet
-        )
-        self.tablet_view.annotation_selection_changed.connect(self._annotation_selection_changed)
-        self.tablet_view.annotation_tool_changed.connect(self._sync_annotation_tool_actions)
-        self.tablet_view.curve_value_save_requested.connect(self._save_curve_value_annotation)
-        self.tablet_view.interval_analysis_requested.connect(
-            self._show_interval_analysis_from_gesture
-        )
-        self.tablet_view.interval_analysis_cleared.connect(self._clear_interval_statistics_panel)
-        self.las_table_editor = LasTableEditor(
-            self.las_range_editing_controller,
-            language=self.language,
-            selection=self.dataset_selection,
-            number_formats=self.user_profile_settings.table_number_formats(),
-        )
-        self.las_table_editor.dataset_edited.connect(self._after_table_edit)
-        self.las_table_editor.number_formats_changed.connect(self._save_table_number_formats)
-        self.las_table_editor.edit_failed.connect(
-            lambda message: QMessageBox.warning(self, "LAS Editor", message)
-        )
-        self.interpretation_report_workspace = InterpretationReportWorkspace(
-            self.interpretation_calculation_controller,
-            language=self.language,
-        )
-        self.interpretation_report_workspace.calculation_completed.connect(
-            self._after_interpretation_calculation
-        )
-        self.interpretation_report_workspace.back_requested.connect(
-            self._show_home_from_interpretation_report
-        )
-        self.tabs.addTab(self.curve_view, self._t("tab.curves"))
-        self.tabs.addTab(self.las_table_editor, self._t("tab.table"))
-        self.tabs.addTab(self.tablet_view, self._t("tab.tablet"))
-        self.tabs.addTab(
-            self.file_workspace,
-            FileWorkspaceWidget.tab_title(self.language.value),
-        )
-        self.tabs.addTab(
-            self.interpretation_report_workspace,
-            InterpretationReportWorkspace.tab_title(self.language),
-        )
-
-        self._create_project_explorer()
-        self._create_curve_browser()
-        self._create_inspector()
-        self._create_interpretation_properties_panel()
-        self._create_interval_statistics_panel()
-        self._create_issues_panel()
-        self._create_cursor_panel()
-        self._create_panel_rails()
-        self._create_actions()
-        self._create_home_page()
-        self._create_toolbar()
-        self.setStatusBar(QStatusBar())
-        self.form_width_indicator = QLabel()
-        self.form_width_indicator.setObjectName("formWidthIndicator")
-        self.form_width_indicator.setMinimumWidth(180)
-        self.form_width_indicator.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.statusBar().addPermanentWidget(self.form_width_indicator)
-        self._workspace_controller = WorkspaceController(_MainWindowWorkspacePort(self))
-        self._workspace_commands = WorkspaceCommandController(
-            self.session, _MainWindowWorkspaceCommandPort(self)
-        )
-        self._session_bindings.register(self._workspace_commands, name="workspace_commands")
-        import_port = _MainWindowImportJobPort(self)
-        self._import_job_controller = (
-            application_context.create_import_job_controller(import_port)
-            if application_context is not None
-            else ImportJobController(import_port)
-        )
-        self._dataset_import_jobs = DatasetImportJobExecutor(_MainWindowDatasetImportPort(self))
-        self.gs2_import_coordinator = Gs2ImportCoordinator(self._dataset_import_jobs)
-        self._print_jobs = PrintJobExecutor()
-        self._workspace_controller.set_dataset(None)
-        self._set_tablet_edit_mode(False)
-        self.cursor_line_action.setChecked(self.cursor_line_settings.enabled)
-        self.statusBar().showMessage(self._t("app.ready"))
-        self._update_title()
-
-    def minimumSizeHint(self) -> QSize:  # noqa: N802 - Qt API
-        """Never advertise a size larger than the active monitor work area."""
-
-        hint = super().minimumSizeHint()
-        screen = self.screen() or QApplication.primaryScreen()
-        if screen is None:
-            return QSize(min(max(1, hint.width()), 640), min(max(1, hint.height()), 480))
-        available = screen.availableGeometry()
-        requested = QSize(max(640, hint.width()), max(480, hint.height()))
-        return adaptive_minimum_size(available, requested=requested, margin=12)
-
-    def _apply_adaptive_minimum_size(self) -> None:
-        screen = self.screen() or QApplication.screenAt(QCursor.pos()) or QApplication.primaryScreen()
-        if screen is None:
-            self.setMinimumSize(640, 480)
-            return
-        minimum = adaptive_minimum_size(
-            screen.availableGeometry(),
-            requested=QSize(640, 480),
-            margin=12,
-        )
-        self.setMinimumSize(minimum)
-
-    def resizeEvent(self, event) -> None:  # noqa: N802 - Qt API
-        super().resizeEvent(event)
-        if hasattr(self, "main_toolbar"):
-            self._schedule_toolbar_adaptation()
-        if hasattr(self, "interval_statistics_dock") and self.interval_statistics_dock.isVisible():
-            QTimer.singleShot(0, self, self._adapt_interval_statistics_dock)
-
-    def changeEvent(self, event) -> None:  # noqa: N802 - Qt API
-        """Recalculate responsive chrome after font, style or DPI changes."""
-
-        super().changeEvent(event)
-        if event.type() in {
-            QEvent.Type.FontChange,
-            QEvent.Type.ApplicationFontChange,
-            QEvent.Type.StyleChange,
-            QEvent.Type.ScreenChangeInternal,
-        } and hasattr(self, "main_toolbar"):
-            QTimer.singleShot(0, self, self._update_toolbar_adaptation)
-            QTimer.singleShot(120, self, self._update_toolbar_adaptation)
-
-    def _apply_adaptive_initial_geometry(self) -> None:
-        """Fit the first window inside the active laptop/desktop work area."""
-
-        screen = QApplication.screenAt(QCursor.pos()) or QApplication.primaryScreen()
-        if screen is None:
-            self.resize(1280, 800)
-            return
-        self.setGeometry(adaptive_window_geometry(screen.availableGeometry()))
-
-    def showEvent(self, event: QShowEvent) -> None:  # noqa: N802
-        super().showEvent(event)
-        handle = self.windowHandle()
-        if handle is not None and not self._toolbar_screen_signal_connected:
-            handle.screenChanged.connect(self._on_window_screen_changed)
-            self._toolbar_screen_signal_connected = True
-        self._observe_toolbar_screen(self.screen())
-        # The first pass sees the final native toolbar geometry.  The delayed
-        # pass covers a Windows DPI/font-metric update that can arrive just
-        # after a window is moved to another monitor.
-        QTimer.singleShot(0, self, self._update_toolbar_adaptation)
-        QTimer.singleShot(120, self, self._update_toolbar_adaptation)
-        if self._initial_geometry_checked or self.isMaximized() or self.isFullScreen():
-            return
-        self._initial_geometry_checked = True
-        screen = (
-            self.screen() or QApplication.screenAt(QCursor.pos()) or QApplication.primaryScreen()
-        )
-        if screen is not None:
-            self.setGeometry(
-                constrain_window_geometry(self.geometry(), screen.availableGeometry(), margin=12)
-            )
-
-    def _observe_toolbar_screen(self, screen) -> None:
-        """Watch one QScreen for same-monitor DPI and work-area changes."""
-
-        if screen is None or any(item is screen for item in self._toolbar_observed_screens):
-            return
-        self._toolbar_observed_screens.append(screen)
-
-        screen.logicalDotsPerInchChanged.connect(self._on_toolbar_metrics_changed)
-        screen.geometryChanged.connect(self._on_toolbar_metrics_changed)
-        screen.availableGeometryChanged.connect(self._on_toolbar_metrics_changed)
-
-    def _on_toolbar_metrics_changed(self, *_args: object) -> None:
-        self._apply_adaptive_minimum_size()
-        QTimer.singleShot(0, self, self._update_toolbar_adaptation)
-        QTimer.singleShot(120, self, self._update_toolbar_adaptation)
-
-    def _on_window_screen_changed(self, screen=None) -> None:
-        """Recalculate toolbars after moving between monitors or DPI scales."""
-
-        self._observe_toolbar_screen(screen)
-        self._on_toolbar_metrics_changed()
-
-    def _t(self, key: str, **values: object) -> str:
-        return self.localizer.text(key, **values)
-
-    def _localized_action(self, key: str, *, checkable: bool = False) -> QAction:
-        action = QAction(self._t(key), self)
-        action.setCheckable(checkable)
-        action.setProperty("i18n_key", key)
-        return action
-
-    def _set_action_help(self, action: QAction, tooltip_key: str) -> QAction:
-        """Attach one localized tooltip/status message to an action."""
-
-        action.setProperty("i18n_tooltip_key", tooltip_key)
-        text = self._t(tooltip_key)
-        action.setToolTip(text)
-        action.setStatusTip(text)
-        return action
-
-    def _localized_menu(self, key: str) -> QMenu:
-        menu = QMenu(self._t(key), self)
-        menu.menuAction().setProperty("i18n_key", key)
-        return menu
-
-    def _add_localized_menu(self, key: str) -> QMenu:
-        menu = self._localized_menu(key)
-        self.menuBar().addMenu(menu)
-        return menu
-
-    def _retranslate_registered_actions(self) -> None:
-        for action in self.findChildren(QAction):
-            text_key = action.property("i18n_key")
-            if isinstance(text_key, str) and text_key:
-                action.setText(self._t(text_key))
-            tooltip_key = action.property("i18n_tooltip_key")
-            if isinstance(tooltip_key, str) and tooltip_key:
-                translated = self._t(tooltip_key)
-                action.setToolTip(translated)
-                action.setStatusTip(translated)
-            elif not action.isSeparator() and action.text().strip():
-                shortcut = action.shortcut().toString()
-                translated = action.text().replace("&", "")
-                if shortcut:
-                    translated = f"{translated} ({shortcut})"
-                action.setToolTip(translated)
-                action.setStatusTip(translated)
-
-    def _save_table_number_formats(self, formats: object) -> None:
-        if not isinstance(formats, dict):
-            return
-        self.user_profile_settings.save_table_number_formats(formats)
-
-    @property
-    def session(self) -> ProjectSession:
-        return self.project_controller.session
-
-    @property
-    def project_path(self) -> Path | None:
-        return self.project_controller.project_path
-
-    def _create_project_explorer(self) -> None:
-        self.project_dock = QDockWidget(self._t("dock.project"), self)
-        self.project_dock.setObjectName("projectDock")
-        self.tree = QTreeWidget()
-        self.tree.setHeaderLabel(self._t("explorer.title"))
-        self.tree.itemDoubleClicked.connect(self._activate_tree_item)
-        self.project_dock.setWidget(self.tree)
-        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.project_dock)
-        self.project_dock.hide()
-        self._refresh_tree()
-
-    def _create_curve_browser(self) -> None:
-        self.curve_browser_dock = QDockWidget(self._t("curve_browser.title"), self)
-        self.curve_browser_dock.setObjectName("curveBrowserDock")
-        self.curve_browser = LasCurveBrowser(language=self.language)
-        self.curve_browser.set_sensor_catalog(self.mnemonic_registry.catalog())
-        self.curve_browser.setMinimumWidth(320)
-        self.curve_browser.build_requested.connect(self._build_tablet_from_curve_selection)
-        self.curve_browser.add_requested.connect(self._add_curves_from_browser)
-        self.curve_browser.replace_requested.connect(self._replace_selected_track_curves)
-        self.curve_browser_dock.setWidget(self.curve_browser)
-        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.curve_browser_dock)
-        self.tabifyDockWidget(self.project_dock, self.curve_browser_dock)
-        self.curve_browser_dock.hide()
-
-    def _create_inspector(self) -> None:
-        self.inspector_dock = QDockWidget(self._t("dock.inspector"), self)
-        self.inspector_dock.setObjectName("inspectorDock")
-        self.inspector = TrackInspector(language=self.language)
-        self.inspector.collapse_requested.connect(self.inspector_dock.hide)
-        self.inspector.settings_requested.connect(self._apply_inspector_track_settings)
-        self.inspector.curve_style_requested.connect(self._apply_inspector_curve_style)
-        self.inspector.grid_requested.connect(self._apply_inspector_grid)
-        self.inspector.x_scale_visibility_requested.connect(
-            self._apply_inspector_x_scale_visibility
-        )
-        self.inspector.x_axis_label_requested.connect(self._apply_inspector_x_axis_label)
-        self.inspector_dock.setWidget(self.inspector)
-        self.inspector_dock.setMinimumWidth(260)
-        self.inspector_dock.setMaximumWidth(420)
-        self.inspector_dock.setFeatures(
-            QDockWidget.DockWidgetFeature.DockWidgetClosable
-            | QDockWidget.DockWidgetFeature.DockWidgetMovable
-            | QDockWidget.DockWidgetFeature.DockWidgetFloatable
-        )
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.inspector_dock)
-        self.inspector_dock.hide()
-
-    def _create_interpretation_properties_panel(self) -> None:
-        self.interpretation_properties_dock = QDockWidget(
-            self._t("interpretations.properties_title"), self
-        )
-        self.interpretation_properties_dock.setObjectName("interpretationPropertiesDock")
-        self.interpretation_properties = InterpretationPropertiesPanel(language=self.language)
-        self.interpretation_properties.update_requested.connect(
-            self._update_interval_from_properties
-        )
-        self.interpretation_properties.manager_requested.connect(self.show_interpretation_intervals)
-        self.interpretation_properties_dock.setWidget(self.interpretation_properties)
-        self.addDockWidget(
-            Qt.DockWidgetArea.RightDockWidgetArea, self.interpretation_properties_dock
-        )
-        self.interpretation_properties_dock.hide()
-
-    def _create_interval_statistics_panel(self) -> None:
-        self.interval_statistics_panel = IntervalStatisticsPanel(language=self.language)
-        self.interval_statistics_panel.export_requested.connect(self._export_interval_statistics)
-        self.interval_statistics_panel.clear_requested.connect(self._clear_interval_analysis)
-        # Keep statistics inside the tab workspace.  A child overlay may cover
-        # the right edge of a wide form, but it cannot enlarge the QMainWindow,
-        # cross a monitor boundary, or snap back after the user drags it.
-        self.interval_statistics_dock = IntervalStatisticsOverlay(
-            self._t("statistics.panel_title"),
-            self.interval_statistics_panel,
-            self.tablet_view,
-        )
-        self.interval_statistics_dock.closeRequested.connect(self._clear_interval_analysis)
-        self.interval_statistics_dock.movedByUser.connect(
-            lambda: log_event(
-                "statistics.overlay.moved",
-                x=self.interval_statistics_dock.x(),
-                y=self.interval_statistics_dock.y(),
-                width=self.interval_statistics_dock.width(),
-                height=self.interval_statistics_dock.height(),
-            )
-        )
-        self.interval_statistics_dock.setMinimumSize(260, 220)
-        self.interval_statistics_dock.setMaximumSize(430, 16777215)
-        self.interval_statistics_dock.hide()
-
-    def _adapt_interval_statistics_dock(self, *, force: bool = False) -> None:
-        """Clamp the in-window statistics overlay without overriding a drag."""
-
-        overlay = getattr(self, "interval_statistics_dock", None)
-        if overlay is None:
-            return
-        if not force and not overlay.isVisible():
-            return
-        overlay.constrain_to_parent(anchor_right=False)
-        overlay.raise_()
-
-    def _create_issues_panel(self) -> None:
-        self.issues_dock = QDockWidget(self._t("dock.log"), self)
-        self.issues_dock.setObjectName("issuesDock")
-        self.issues = QTextEdit()
-        self.issues.setReadOnly(True)
-        self.issues_dock.setWidget(self.issues)
-        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.issues_dock)
-        self.issues_dock.hide()
-
-    def _create_cursor_panel(self) -> None:
-        self.cursor_dock = QDockWidget(self._t("cursor.panel_title"), self)
-        self.cursor_dock.setObjectName("cursorDock")
-        self.cursor_values = QTextEdit()
-        self.cursor_values.setReadOnly(True)
-        self.cursor_dock.setWidget(self.cursor_values)
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.cursor_dock)
-        self.cursor_dock.hide()
-
-    def _create_panel_rails(self) -> None:
-        self.tabifyDockWidget(self.project_dock, self.curve_browser_dock)
-        self.tabifyDockWidget(self.inspector_dock, self.interpretation_properties_dock)
-        self.tabifyDockWidget(self.inspector_dock, self.cursor_dock)
-
-        self.left_panel_rail = QToolBar(self._t("panel.left_rail"), self)
-        self.left_panel_rail.setObjectName("leftPanelRail")
-        self.left_panel_rail.setMovable(False)
-        self.left_panel_rail.setFloatable(False)
-        self.left_panel_rail.setIconSize(QSize(20, 20))
-        self.left_panel_rail.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
-        self.left_panel_rail.setMinimumWidth(34)
-        self.left_panel_rail.setMaximumWidth(38)
-        self.left_panel_rail.setStyleSheet(
-            "QToolBar { spacing: 3px; padding: 3px; border: 0; } "
-            "QToolButton { min-width: 28px; min-height: 28px; border-radius: 4px; } "
-            "QToolButton:hover { background: palette(midlight); } "
-            "QToolButton:checked { background: palette(highlight); color: palette(highlighted-text); }"
-        )
-        self.addToolBar(Qt.ToolBarArea.LeftToolBarArea, self.left_panel_rail)
-
-        self.right_panel_rail = QToolBar(self._t("panel.right_rail"), self)
-        self.right_panel_rail.setObjectName("rightPanelRail")
-        self.right_panel_rail.setMovable(False)
-        self.right_panel_rail.setFloatable(False)
-        self.right_panel_rail.setIconSize(QSize(20, 20))
-        self.right_panel_rail.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
-        self.right_panel_rail.setMinimumWidth(34)
-        self.right_panel_rail.setMaximumWidth(38)
-        self.right_panel_rail.setStyleSheet(self.left_panel_rail.styleSheet())
-        self.addToolBar(Qt.ToolBarArea.RightToolBarArea, self.right_panel_rail)
-
-        self.project_panel_action = self._panel_toggle_action(
-            self.project_dock,
-            "panel.project",
-            "panel.project_tooltip",
-            QStyle.StandardPixmap.SP_DirHomeIcon,
-            "Ctrl+Alt+P",
-        )
-        self.curve_browser_action = self._panel_toggle_action(
-            self.curve_browser_dock,
-            "panel.curves",
-            "panel.curves_tooltip",
-            QStyle.StandardPixmap.SP_FileDialogListView,
-            "Ctrl+Alt+C",
-        )
-        self.inspector_panel_action = self._panel_toggle_action(
-            self.inspector_dock,
-            "panel.inspector",
-            "panel.inspector_tooltip",
-            QStyle.StandardPixmap.SP_FileDialogDetailedView,
-            "Ctrl+Alt+I",
-        )
-        self.interpretation_panel_action = self._panel_toggle_action(
-            self.interpretation_properties_dock,
-            "panel.interpretation",
-            "panel.interpretation_tooltip",
-            QStyle.StandardPixmap.SP_MessageBoxInformation,
-            "Ctrl+Alt+N",
-        )
-        self.cursor_panel_action = self._panel_toggle_action(
-            self.cursor_dock,
-            "panel.cursor",
-            "panel.cursor_tooltip",
-            QStyle.StandardPixmap.SP_ArrowRight,
-            "Ctrl+Alt+V",
-        )
-        self.interval_statistics_panel_action = self._panel_toggle_action(
-            self.interval_statistics_dock,
-            "panel.interval_statistics",
-            "panel.interval_statistics_tooltip",
-            QStyle.StandardPixmap.SP_FileDialogContentsView,
-            "Ctrl+Alt+M",
-        )
-
-        self.left_panel_rail.addAction(self.project_panel_action)
-        self.left_panel_rail.addAction(self.curve_browser_action)
-        self.right_panel_rail.addAction(self.inspector_panel_action)
-        self.right_panel_rail.addAction(self.interpretation_panel_action)
-        self.right_panel_rail.addAction(self.cursor_panel_action)
-        self.right_panel_rail.addAction(self.interval_statistics_panel_action)
-
-        self.project_dock.visibilityChanged.connect(
-            lambda visible: self._enforce_single_side_panel(
-                visible, self.project_dock, (self.curve_browser_dock,)
-            )
-        )
-        self.curve_browser_dock.visibilityChanged.connect(
-            lambda visible: self._enforce_single_side_panel(
-                visible, self.curve_browser_dock, (self.project_dock,)
-            )
-        )
-        self.inspector_dock.visibilityChanged.connect(
-            lambda visible: self._enforce_single_side_panel(
-                visible,
-                self.inspector_dock,
-                (
-                    self.interpretation_properties_dock,
-                    self.cursor_dock,
-                    self.interval_statistics_dock,
-                ),
-            )
-        )
-        self.interpretation_properties_dock.visibilityChanged.connect(
-            lambda visible: self._enforce_single_side_panel(
-                visible,
-                self.interpretation_properties_dock,
-                (self.inspector_dock, self.cursor_dock, self.interval_statistics_dock),
-            )
-        )
-        self.cursor_dock.visibilityChanged.connect(
-            lambda visible: self._enforce_single_side_panel(
-                visible,
-                self.cursor_dock,
-                (
-                    self.inspector_dock,
-                    self.interpretation_properties_dock,
-                    self.interval_statistics_dock,
-                ),
-            )
-        )
-        self.interval_statistics_dock.visibilityChanged.connect(
-            lambda visible: self._enforce_single_side_panel(
-                visible,
-                self.interval_statistics_dock,
-                (self.inspector_dock, self.interpretation_properties_dock, self.cursor_dock),
-            )
-        )
-
-    def _panel_toggle_action(
-        self,
-        dock: QDockWidget | IntervalStatisticsOverlay,
-        text_key: str,
-        tooltip_key: str,
-        icon: QStyle.StandardPixmap,
-        shortcut: str,
-    ) -> QAction:
-        action = dock.toggleViewAction()
-        action.setProperty("i18n_key", text_key)
-        action.setProperty("i18n_tooltip_key", tooltip_key)
-        action.setText(self._t(text_key))
-        action.setToolTip(self._t(tooltip_key))
-        action.setStatusTip(self._t(tooltip_key))
-        action.setIcon(self.style().standardIcon(icon))
-        action.setShortcut(shortcut)
-        return action
-
-    @staticmethod
-    def _enforce_single_side_panel(
-        visible: bool,
-        active: QDockWidget | IntervalStatisticsOverlay,
-        siblings: tuple[QDockWidget | IntervalStatisticsOverlay, ...],
-    ) -> None:
-        if not visible or active.isFloating():
-            return
-        for sibling in siblings:
-            if sibling.isVisible() and not sibling.isFloating():
-                sibling.hide()
-
-    def _hide_side_panels(self) -> None:
-        for dock in (
-            self.project_dock,
-            self.curve_browser_dock,
-            self.inspector_dock,
-            self.interpretation_properties_dock,
-            self.cursor_dock,
-            self.interval_statistics_dock,
-        ):
-            dock.hide()
-
-    def _create_actions(self) -> None:
-        file_menu = self._add_localized_menu("menu.file")
-        edit_menu = self._add_localized_menu("menu.edit")
-        tools_menu = self._add_localized_menu("menu.tools")
-        wits_menu = self._add_localized_menu("menu.wits")
-        las_editor_menu = self._add_localized_menu("menu.las_editor")
-        calc_menu = self._add_localized_menu("menu.calculations")
-        tablet_menu = self._add_localized_menu("menu.tablet")
-        view_menu = self._add_localized_menu("menu.view")
-        forms_menu = self._add_localized_menu("forms.menu")
-        constructor_menu = self._add_localized_menu("menu.constructor")
-        print_menu = self._add_localized_menu("menu.print")
-        language_menu = self._add_localized_menu("menu.language")
-        help_menu = self._add_localized_menu("menu.help")
-
-        self.home_action = self._localized_action("home.action")
-        self.home_action.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DirHomeIcon))
-        self.home_action.setShortcut("Ctrl+Home")
-        self._set_action_help(self.home_action, "home.action_tooltip")
-        self.home_action.triggered.connect(self._show_home)
-        view_menu.addAction(self.home_action)
-
-        self.workspace_action = self._localized_action("home.workspace_action")
-        self.workspace_action.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogDetailedView)
-        )
-        self.workspace_action.setShortcut("Ctrl+Shift+Home")
-        self._set_action_help(self.workspace_action, "home.workspace_action_tooltip")
-        self.workspace_action.triggered.connect(lambda: self._show_workspace())
-        self.workspace_action.setEnabled(False)
-        view_menu.addAction(self.workspace_action)
-
-        self.file_workspace_action = QAction(
-            FileWorkspaceWidget.tab_title(self.language.value), self
-        )
-        self.file_workspace_action.setObjectName("fileWorkspaceAction")
-        self.file_workspace_action.setShortcut("Ctrl+Alt+F")
-        self.file_workspace_action.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogListView)
-        )
-        self.file_workspace_action.triggered.connect(self.show_file_workspace)
-        file_menu.addAction(self.file_workspace_action)
-        view_menu.addAction(self.file_workspace_action)
-        view_menu.addSeparator()
-
-        self.las_editor_action = self._localized_action("las_editor.action")
-        self.las_editor_action.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogDetailedView)
-        )
-        self.las_editor_action.setShortcut("Ctrl+Alt+E")
-        self._set_action_help(self.las_editor_action, "ui.help.las_editor")
-        self.las_editor_action.triggered.connect(self.show_las_editor)
-        las_editor_menu.addAction(self.las_editor_action)
-        las_editor_menu.addSeparator()
-
-        self.open_project_action = self._localized_action("shell.open_project")
-        self.open_project_action.setShortcut("Ctrl+O")
-        self.open_project_action.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_DirOpenIcon)
-        )
-        self._set_action_help(self.open_project_action, "ui.help.open_project")
-        self.open_project_action.triggered.connect(self.open_project)
-        file_menu.addAction(self.open_project_action)
-
-        self.new_las_action = self._localized_action("new_las.action")
-        self.new_las_action.setShortcut("Ctrl+N")
-        self.new_las_action.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_FileIcon))
-        self._set_action_help(self.new_las_action, "home.new_las_description")
-        self.new_las_action.triggered.connect(self.create_new_las)
-        file_menu.addAction(self.new_las_action)
-        las_editor_menu.addAction(self.new_las_action)
-
-        self.daily_las_growth_action = self._localized_action("daily_las_growth.action")
-        self.daily_las_growth_action.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_ArrowDown)
-        )
-        self.daily_las_growth_action.triggered.connect(self.show_daily_las_growth)
-        file_menu.addAction(self.daily_las_growth_action)
-        las_editor_menu.addAction(self.daily_las_growth_action)
-
-        self.open_data_action = self._localized_action("import.universal")
-        self.open_data_action.setShortcut("Ctrl+I")
-        self.open_data_action.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton)
-        )
-        self._set_action_help(self.open_data_action, "ui.help.import_data")
-        self.open_data_action.triggered.connect(self.open_data)
-        file_menu.addAction(self.open_data_action)
-        file_menu.addSeparator()
-
-        self.open_action = self._localized_action("shell.import_las")
-        self.open_action.setShortcut("Ctrl+L")
-        self.open_action.triggered.connect(lambda _checked=False: self.open_las())
-        file_menu.addAction(self.open_action)
-        las_editor_menu.addAction(self.open_action)
-
-        self.open_las_advanced_action = self._localized_action(
-            "import.las_advanced"
-        )
-        self.open_las_advanced_action.triggered.connect(
-            lambda _checked=False: self.open_las_advanced()
-        )
-        file_menu.addAction(self.open_las_advanced_action)
-        las_editor_menu.addAction(self.open_las_advanced_action)
-
-        self.open_csv_action = self._localized_action("shell.import_csv")
-        self.open_csv_action.triggered.connect(lambda _checked=False: self.open_csv())
-        file_menu.addAction(self.open_csv_action)
-
-        self.open_excel_action = self._localized_action("shell.import_excel")
-        self.open_excel_action.triggered.connect(
-            lambda _checked=False: self.open_excel()
-        )
-        file_menu.addAction(self.open_excel_action)
-
-        self.open_paradox_action = self._localized_action("shell.import_paradox")
-        self.open_paradox_action.triggered.connect(lambda: self.open_paradox())
-        file_menu.addAction(self.open_paradox_action)
-
-        self.open_gs2_action = self._localized_action("shell.import_gs2")
-        self.open_gs2_action.triggered.connect(lambda: self.open_gs2())
-        file_menu.addAction(self.open_gs2_action)
-
-        self.inspect_witsml_action = self._localized_action("shell.inspect_witsml")
-        self.inspect_witsml_action.triggered.connect(lambda: self.open_witsml_inventory())
-        wits_menu.addAction(self.inspect_witsml_action)
-
-        self.import_witsml_data_action = self._localized_action("shell.import_witsml_data")
-        self.import_witsml_data_action.triggered.connect(lambda: self.open_witsml_data_import())
-        wits_menu.addAction(self.import_witsml_data_action)
-
-        self.open_witsml1411_action = self._localized_action("shell.open_witsml1411")
-        self.open_witsml1411_action.triggered.connect(self.open_witsml1411_store)
-        wits_menu.addAction(self.open_witsml1411_action)
-
-        self.open_etp12_action = self._localized_action("shell.open_etp12")
-        self.open_etp12_action.triggered.connect(self.open_etp12_session)
-        wits_menu.addAction(self.open_etp12_action)
-
-        self.capture_wits0_action = self._localized_action("shell.capture_wits0")
-        self.capture_wits0_action.triggered.connect(self.open_wits0_capture)
-        wits_menu.addAction(self.capture_wits0_action)
-
-        self.paradox_batch_action = self._localized_action("paradox.batch_action")
-        self.paradox_batch_action.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogListView)
-        )
-        self._set_action_help(self.paradox_batch_action, "home.batch_description")
-        self.paradox_batch_action.triggered.connect(self.open_paradox_batch)
-        tools_menu.addAction(self.paradox_batch_action)
-
-        self.language_group = QActionGroup(self)
-        self.language_group.setExclusive(True)
-        self.language_actions: dict[AppLanguage, QAction] = {}
-        for language, name in LANGUAGE_NAMES.items():
-            action = QAction(name, self)
-            action.setCheckable(True)
-            action.setChecked(language is self.language)
-            action.triggered.connect(
-                lambda checked=False, value=language: self.change_language(value)
-            )
-            self.language_group.addAction(action)
-            self.language_actions[language] = action
-            language_menu.addAction(action)
-        language_menu.addSeparator()
-        self.user_profile_action = self._localized_action("profile.action")
-        self.user_profile_action.triggered.connect(self.select_user_profile)
-        language_menu.addAction(self.user_profile_action)
-
-        self.save_action = self._localized_action("shell.save_project")
-        self.save_action.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)
-        )
-        self.save_action.setShortcut("Ctrl+S")
-        self._set_action_help(self.save_action, "ui.help.save_project")
-        self.save_action.triggered.connect(self.save_project)
-        file_menu.addAction(self.save_action)
-
-        self.save_as_action = self._localized_action("shell.save_project_as")
-        self.save_as_action.setShortcut("Ctrl+Shift+S")
-        self.save_as_action.triggered.connect(self.save_project_as)
-        file_menu.addAction(self.save_as_action)
-
-        self.restore_project_backup_action = self._localized_action(
-            "shell.restore_project_backup"
-        )
-        self.restore_project_backup_action.triggered.connect(self.restore_project_backup)
-        file_menu.addAction(self.restore_project_backup_action)
-
-        self.export_las_action = self._localized_action("shell.export_las")
-        self.export_las_action.triggered.connect(self.export_current_las)
-        file_menu.addAction(self.export_las_action)
-        las_editor_menu.addAction(self.export_las_action)
-
-        export_csv_action = self._localized_action("selection_export.csv_action")
-        export_csv_action.triggered.connect(self.export_selected_csv)
-        file_menu.addAction(export_csv_action)
-        export_excel_action = self._localized_action("selection_export.excel_action")
-        export_excel_action.triggered.connect(self.export_selected_excel)
-        file_menu.addAction(export_excel_action)
-        export_docx_action = self._localized_action("selection_export.docx_action")
-        export_docx_action.triggered.connect(self.export_selected_docx)
-        file_menu.addAction(export_docx_action)
-        export_html_action = self._localized_action("selection_export.html_action")
-        export_html_action.triggered.connect(self.export_selected_html)
-        file_menu.addAction(export_html_action)
-        self.print_center_action = self._localized_action("print_center.action")
-        self.print_center_action.setShortcut("Ctrl+P")
-        self.print_center_action.triggered.connect(self.open_print_center)
-        file_menu.addAction(self.print_center_action)
-        print_menu.addAction(self.print_center_action)
-        export_png_action = self._localized_action("visual_export.png_action")
-        export_png_action.triggered.connect(lambda: self.export_active_visualization("png"))
-        file_menu.addAction(export_png_action)
-        export_svg_action = self._localized_action("visual_export.svg_action")
-        export_svg_action.triggered.connect(lambda: self.export_active_visualization("svg"))
-        file_menu.addAction(export_svg_action)
-        export_pdf_action = self._localized_action("visual_export.pdf_action")
-        export_pdf_action.triggered.connect(lambda: self.export_active_visualization("pdf"))
-        file_menu.addAction(export_pdf_action)
-        print_preview_action = self._localized_action("print.preview_action")
-        print_preview_action.triggered.connect(self.preview_active_visualization)
-        file_menu.addAction(print_preview_action)
-        page_setup_action = self._localized_action("print.page_setup_action")
-        page_setup_action.triggered.connect(self.configure_print_page)
-        file_menu.addAction(page_setup_action)
-        templates_action = self._localized_action("masterlog_templates.action")
-        templates_action.triggered.connect(self.show_masterlog_templates)
-        print_menu.addAction(templates_action)
-        self.document_bundle_action = self._localized_action("document_bundle.action")
-        self.document_bundle_action.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)
-        )
-        self.document_bundle_action.triggered.connect(self.prepare_document_bundle)
-        file_menu.addAction(self.document_bundle_action)
-        print_menu.addAction(self.document_bundle_action)
-        self.retry_document_bundle_action = self._localized_action(
-            "document_bundle.retry_failed"
-        )
-        self.retry_document_bundle_action.setEnabled(False)
-        self.retry_document_bundle_action.triggered.connect(
-            self.retry_document_bundle_failed_outputs
-        )
-        file_menu.addAction(self.retry_document_bundle_action)
-        print_menu.addAction(self.retry_document_bundle_action)
-        passport_action = QAction(
-            {
-                AppLanguage.RU: "ÐŸÐ°ÑÐ¿Ð¾Ñ€Ñ‚ ÑÐºÐ²Ð°Ð¶Ð¸Ð½Ñ‹â€¦",
-                AppLanguage.KK: "Ò°Ò£Ò“Ñ‹Ð¼Ð° Ð¿Ð°ÑÐ¿Ð¾Ñ€Ñ‚Ñ‹â€¦",
-                AppLanguage.EN: "Well passportâ€¦",
-            }[self.language], self,
-        )
-        passport_action.triggered.connect(self.show_well_passport)
-        file_menu.addAction(passport_action)
-        print_menu.addAction(passport_action)
-        header_catalog_action = QAction(
-            {
-                AppLanguage.RU: "ÐšÐ°Ñ‚Ð°Ð»Ð¾Ð³ Ð¿ÐµÑ‡Ð°Ñ‚Ð½Ñ‹Ñ… ÑˆÐ°Ð¿Ð¾Ðº...",
-                AppLanguage.KK: "Ð‘Ð°ÑÐ¿Ð° Ñ‚Ð°Ò›Ñ‹Ñ€Ñ‹Ð¿Ñ‚Ð°Ñ€Ñ‹Ð½Ñ‹Ò£ ÐºÐ°Ñ‚Ð°Ð»Ð¾Ð³Ñ‹...",
-                AppLanguage.EN: "Print header catalog...",
-            }[self.language],
-            self,
-        )
-        header_catalog_action.triggered.connect(self.show_header_catalog)
-        print_menu.addAction(header_catalog_action)
-        logo_catalog_action = QAction(
-            {
-                AppLanguage.RU: "ÐšÐ°Ñ‚Ð°Ð»Ð¾Ð³ Ð»Ð¾Ð³Ð¾Ñ‚Ð¸Ð¿Ð¾Ð²...",
-                AppLanguage.KK: "Ð›Ð¾Ð³Ð¾Ñ‚Ð¸Ð¿Ñ‚Ð°Ñ€ ÐºÐ°Ñ‚Ð°Ð»Ð¾Ð³Ñ‹...",
-                AppLanguage.EN: "Logo catalog...",
-            }[self.language],
-            self,
-        )
-        logo_catalog_action.triggered.connect(self.show_logo_catalog)
-        print_menu.addAction(logo_catalog_action)
-        self.interpretation_report_action = self._localized_action("interpretation_report.action")
-        self.interpretation_report_action.triggered.connect(self.show_interpretation_report)
-        print_menu.addAction(self.interpretation_report_action)
-        file_menu.addSeparator()
-        save_export_profile_action = self._localized_action("export_profile.save")
-        save_export_profile_action.triggered.connect(self.save_export_profile)
-        file_menu.addAction(save_export_profile_action)
-        apply_export_profile_action = self._localized_action("export_profile.apply")
-        apply_export_profile_action.triggered.connect(self.apply_export_profile)
-        file_menu.addAction(apply_export_profile_action)
-        delete_export_profile_action = self._localized_action("export_profile.delete")
-        delete_export_profile_action.triggered.connect(self.delete_export_profile)
-        file_menu.addAction(delete_export_profile_action)
-        export_json_action = self._localized_action("json_export.action")
-        export_json_action.triggered.connect(self.export_current_json)
-        file_menu.addAction(export_json_action)
-        export_parquet_action = self._localized_action("parquet_export.action")
-        export_parquet_action.triggered.connect(self.export_current_parquet)
-        file_menu.addAction(export_parquet_action)
-
-        self.data_inspector_action = self._localized_action("data.action")
-        self.data_inspector_action.triggered.connect(self.show_data_inspector)
-        file_menu.addAction(self.data_inspector_action)
-
-        self.pencil_action = self._localized_action("shell.curve_pencil")
-        pencil_pixmap = QPixmap(24, 24)
-        pencil_pixmap.fill(Qt.GlobalColor.transparent)
-        pencil_painter = QPainter(pencil_pixmap)
-        pencil_painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        pencil_painter.setPen(
-            QPen(
-                Qt.GlobalColor.darkGray,
-                3,
-                Qt.PenStyle.SolidLine,
-                Qt.PenCapStyle.RoundCap,
-            )
-        )
-        pencil_painter.drawLine(4, 20, 19, 5)
-        pencil_painter.setPen(
-            QPen(
-                Qt.GlobalColor.darkYellow,
-                5,
-                Qt.PenStyle.SolidLine,
-                Qt.PenCapStyle.RoundCap,
-            )
-        )
-        pencil_painter.drawLine(7, 18, 18, 7)
-        pencil_painter.end()
-        self.pencil_action.setIcon(QIcon(pencil_pixmap))
-        self.pencil_action.setCheckable(True)
-        self.pencil_action.setShortcut("E")
-        self.pencil_action.setToolTip(self._t("shell.curve_pencil_tooltip"))
-        self.pencil_action.setStatusTip(self._t("shell.curve_pencil_tooltip"))
-        self.pencil_action.toggled.connect(self.toggle_curve_edit_mode)
-        edit_menu.addAction(self.pencil_action)
-
-        self.cursor_line_action = self._localized_action("cursor.line_action")
-        cursor_icon = QPixmap(24, 24)
-        cursor_icon.fill(Qt.GlobalColor.transparent)
-        icon_painter = QPainter(cursor_icon)
-        icon_painter.setPen(QPen(Qt.GlobalColor.red, 3))
-        icon_painter.drawLine(2, 12, 22, 12)
-        icon_painter.end()
-        self.cursor_line_action.setIcon(QIcon(cursor_icon))
-        self.cursor_line_action.setCheckable(True)
-        self.cursor_line_action.setShortcut("V")
-        self.cursor_line_action.toggled.connect(self.toggle_cursor_line)
-        edit_menu.addAction(self.cursor_line_action)
-        self.cursor_style_action = self._localized_action("cursor.configure_action")
-        self.cursor_style_action.triggered.connect(self.configure_cursor_line)
-        edit_menu.addAction(self.cursor_style_action)
-
-        self.undo_action = self._localized_action("shell.undo_curve_edit")
-        self.undo_action.setShortcut("Ctrl+Z")
-        self.undo_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
-        self.undo_action.triggered.connect(self.undo_curve_edit)
-        self.undo_action.setEnabled(False)
-        edit_menu.addAction(self.undo_action)
-
-        self.redo_action = self._localized_action("shell.redo_curve_edit")
-        self.redo_action.setShortcut("Ctrl+Shift+Z")
-        self.redo_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
-        self.redo_action.triggered.connect(self.redo_curve_edit)
-        self.redo_action.setEnabled(False)
-        edit_menu.addAction(self.redo_action)
-
-        self.annotations_action = self._localized_action("annotations.action")
-        self.annotations_action.triggered.connect(self.show_depth_annotations)
-        edit_menu.addAction(self.annotations_action)
-        self.annotation_manager_toolbar_action = self._localized_action(
-            "annotations.toolbar_manage"
-        )
-        self._set_action_help(self.annotation_manager_toolbar_action, "annotations.action")
-        self.annotation_manager_toolbar_action.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogDetailedView)
-        )
-        self.annotation_manager_toolbar_action.triggered.connect(self.show_depth_annotations)
-        self.annotation_edit_selected_action = self._localized_action(
-            "annotations.toolbar_edit_selected"
-        )
-        self._set_action_help(
-            self.annotation_edit_selected_action, "annotations.edit_selected_hint"
-        )
-        self.annotation_edit_selected_action.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogContentsView)
-        )
-        self.annotation_edit_selected_action.setEnabled(False)
-        self.annotation_edit_selected_action.triggered.connect(self._edit_selected_annotation)
-        self.annotation_delete_selected_action = self._localized_action(
-            "annotations.toolbar_delete_selected"
-        )
-        self._set_action_help(
-            self.annotation_delete_selected_action, "annotations.delete_selected_hint"
-        )
-        self.annotation_delete_selected_action.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_TrashIcon)
-        )
-        self.annotation_delete_selected_action.setEnabled(False)
-        self.annotation_delete_selected_action.triggered.connect(self._delete_selected_annotation)
-        self.annotation_callout_action = self._localized_action("annotations.toolbar_callout")
-        self._set_action_help(self.annotation_callout_action, "annotations.tool_callout_hint")
-        self.annotation_callout_action.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxInformation)
-        )
-        self.annotation_callout_action.setEnabled(False)
-        self.annotation_callout_action.setCheckable(True)
-        self.annotation_callout_action.toggled.connect(
-            lambda checked: self._toggle_annotation_tool(AnnotationKind.CALLOUT, checked)
-        )
-        edit_menu.addAction(self.annotation_callout_action)
-        self.annotation_comment_action = self._localized_action("annotations.toolbar_comment")
-        self._set_action_help(self.annotation_comment_action, "annotations.tool_comment_hint")
-        self.annotation_comment_action.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogContentsView)
-        )
-        self.annotation_comment_action.setEnabled(False)
-        self.annotation_comment_action.setCheckable(True)
-        self.annotation_comment_action.toggled.connect(
-            lambda checked: self._toggle_annotation_tool(AnnotationKind.COMMENT, checked)
-        )
-        edit_menu.addAction(self.annotation_comment_action)
-        self.annotation_image_action = self._localized_action("annotations.toolbar_image")
-        self._set_action_help(self.annotation_image_action, "annotations.tool_image_hint")
-        self.annotation_image_action.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_FileIcon)
-        )
-        self.annotation_image_action.setEnabled(False)
-        self.annotation_image_action.setCheckable(True)
-        self.annotation_image_action.toggled.connect(
-            lambda checked: self._toggle_annotation_tool(AnnotationKind.IMAGE, checked)
-        )
-        edit_menu.addAction(self.annotation_image_action)
-        self.annotation_symbol_action = self._localized_action("annotations.toolbar_symbol")
-        self._set_action_help(self.annotation_symbol_action, "annotations.tool_symbol_hint")
-        self.annotation_symbol_action.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_DialogApplyButton)
-        )
-        self.annotation_symbol_action.setEnabled(False)
-        self.annotation_symbol_action.triggered.connect(
-            lambda: self._create_annotation_at_view_center(AnnotationKind.SYMBOL)
-        )
-        edit_menu.addAction(self.annotation_symbol_action)
-
-        self.lithology_action = self._localized_action("lithology.action")
-        self.lithology_action.triggered.connect(self.show_lithology_editor)
-        edit_menu.addAction(self.lithology_action)
-
-        self.stratigraphy_action = self._localized_action("stratigraphy.action")
-        self.stratigraphy_action.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogListView)
-        )
-        self.stratigraphy_action.triggered.connect(self.show_stratigraphy_editor)
-        edit_menu.addAction(self.stratigraphy_action)
-        self.stratigraphy_catalog_action = self._localized_action("stratigraphy.catalog_action")
-        self.stratigraphy_catalog_action.triggered.connect(self.show_stratigraphy_catalog)
-        edit_menu.addAction(self.stratigraphy_catalog_action)
-        self.stratigraphy_mode_action = self._localized_action("stratigraphy.mode")
-        self.stratigraphy_mode_action.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_ArrowDown)
-        )
-        self.stratigraphy_mode_action.setCheckable(True)
-        self.stratigraphy_mode_action.toggled.connect(self.toggle_stratigraphy_input_mode)
-        edit_menu.addAction(self.stratigraphy_mode_action)
-        self.edit_selected_track_action = self._localized_action("tablet.edit_current_track")
-        self.edit_selected_track_action.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogDetailedView)
-        )
-        self._set_action_help(self.edit_selected_track_action, "ui.help.edit_track")
-        self.edit_selected_track_action.triggered.connect(self.edit_selected_track)
-        edit_menu.addAction(self.edit_selected_track_action)
-
-        self.interpretation_intervals_action = self._localized_action("interpretations.action")
-        self.interpretation_intervals_action.triggered.connect(self.show_interpretation_intervals)
-        edit_menu.addAction(self.interpretation_intervals_action)
-
-        self.lithotype_catalog_action = self._localized_action("catalog.action")
-        self.lithotype_catalog_action.triggered.connect(self.show_lithotype_catalog)
-        edit_menu.addAction(self.lithotype_catalog_action)
-
-        self.sensor_catalog_action = self._localized_action("sensors.action")
-        self.sensor_catalog_action.triggered.connect(self.show_sensor_catalog)
-        edit_menu.addAction(self.sensor_catalog_action)
-
-        self.description_templates_action = self._localized_action("templates.action")
-        self.description_templates_action.triggered.connect(self.show_description_templates)
-        edit_menu.addAction(self.description_templates_action)
-
-        self.normalize_depth_action = self._localized_action("depth.create_copy_action")
-        self.normalize_depth_action.triggered.connect(self.create_ascending_depth_copy)
-        edit_menu.addAction(self.normalize_depth_action)
-        las_editor_menu.addAction(self.normalize_depth_action)
-        self.undo_normalize_depth_action = self._localized_action("depth.undo")
-        self.undo_normalize_depth_action.triggered.connect(self.undo_ascending_depth_copy)
-        self.undo_normalize_depth_action.setEnabled(False)
-        edit_menu.addAction(self.undo_normalize_depth_action)
-        self.redo_normalize_depth_action = self._localized_action("depth.redo")
-        self.redo_normalize_depth_action.triggered.connect(self.redo_ascending_depth_copy)
-        self.redo_normalize_depth_action.setEnabled(False)
-        edit_menu.addAction(self.redo_normalize_depth_action)
-
-        self.resample_depth_action = self._localized_action("resample.action")
-        self.resample_depth_action.triggered.connect(self.create_resampled_depth_copy)
-        edit_menu.addAction(self.resample_depth_action)
-        las_editor_menu.addAction(self.resample_depth_action)
-        self.undo_resample_action = self._localized_action("resample.undo")
-        self.undo_resample_action.triggered.connect(self.undo_depth_resample)
-        self.undo_resample_action.setEnabled(False)
-        edit_menu.addAction(self.undo_resample_action)
-        self.redo_resample_action = self._localized_action("resample.redo")
-        self.redo_resample_action.triggered.connect(self.redo_depth_resample)
-        self.redo_resample_action.setEnabled(False)
-        edit_menu.addAction(self.redo_resample_action)
-
-        self.transfer_curves_action = self._localized_action("transfer.action")
-        self.transfer_curves_action.triggered.connect(self.show_curve_transfer)
-        edit_menu.addAction(self.transfer_curves_action)
-        self.undo_transfer_action = self._localized_action("transfer.undo")
-        self.undo_transfer_action.triggered.connect(self.undo_curve_transfer)
-        self.undo_transfer_action.setEnabled(False)
-        edit_menu.addAction(self.undo_transfer_action)
-        self.redo_transfer_action = self._localized_action("transfer.redo")
-        self.redo_transfer_action.triggered.connect(self.redo_curve_transfer)
-        self.redo_transfer_action.setEnabled(False)
-        edit_menu.addAction(self.redo_transfer_action)
-
-        self.external_las_insert_action = self._localized_action("external_las.action")
-        self.external_las_insert_action.triggered.connect(self.show_external_las_insert)
-        edit_menu.addAction(self.external_las_insert_action)
-        las_editor_menu.addAction(self.external_las_insert_action)
-        self.undo_external_las_insert_action = self._localized_action("external_las.undo")
-        self.undo_external_las_insert_action.triggered.connect(self.undo_external_las_insert)
-        self.undo_external_las_insert_action.setEnabled(False)
-        edit_menu.addAction(self.undo_external_las_insert_action)
-        self.redo_external_las_insert_action = self._localized_action("external_las.redo")
-        self.redo_external_las_insert_action.triggered.connect(self.redo_external_las_insert)
-        self.redo_external_las_insert_action.setEnabled(False)
-        edit_menu.addAction(self.redo_external_las_insert_action)
-
-        self.merge_datasets_action = self._localized_action("merge.action")
-        self.merge_datasets_action.triggered.connect(self.show_dataset_merge)
-        edit_menu.addAction(self.merge_datasets_action)
-        las_editor_menu.addAction(self.merge_datasets_action)
-        self.undo_merge_action = self._localized_action("merge.undo")
-        self.undo_merge_action.triggered.connect(self.undo_dataset_merge)
-        self.undo_merge_action.setEnabled(False)
-        edit_menu.addAction(self.undo_merge_action)
-        self.redo_merge_action = self._localized_action("merge.redo")
-        self.redo_merge_action.triggered.connect(self.redo_dataset_merge)
-        self.redo_merge_action.setEnabled(False)
-        edit_menu.addAction(self.redo_merge_action)
-
-        self.ratio_action = self._localized_action("ratio.action")
-        self.ratio_action.triggered.connect(self.calculate_ratios)
-        calc_menu.addAction(self.ratio_action)
-
-        self.formula_action = self._localized_action("formula.action")
-        self.formula_action.triggered.connect(self.show_formula_profiles)
-        calc_menu.addAction(self.formula_action)
-
-        self.custom_formula_action = self._localized_action("shell.custom_formulas")
-        self.custom_formula_action.triggered.connect(self.show_custom_formulas)
-        calc_menu.addAction(self.custom_formula_action)
-
-        self.lag_correction_action = self._localized_action("lag_correction.action")
-        self.lag_correction_action.triggered.connect(self.show_lag_correction)
-        calc_menu.addAction(self.lag_correction_action)
-
-        self.time_depth_mapping_action = self._localized_action("time_depth.action")
-        self.time_depth_mapping_action.triggered.connect(self.show_time_depth_mapping)
-        calc_menu.addAction(self.time_depth_mapping_action)
-
-        self.time_to_depth_action = self._localized_action("time_to_depth.action")
-        self.time_to_depth_action.triggered.connect(self.show_time_to_depth_conversion)
-        calc_menu.addAction(self.time_to_depth_action)
-        self.undo_time_to_depth_action = self._localized_action("time_to_depth.undo")
-        self.undo_time_to_depth_action.triggered.connect(self.undo_time_to_depth_conversion)
-        self.undo_time_to_depth_action.setEnabled(False)
-        edit_menu.addAction(self.undo_time_to_depth_action)
-        self.redo_time_to_depth_action = self._localized_action("time_to_depth.redo")
-        self.redo_time_to_depth_action.triggered.connect(self.redo_time_to_depth_conversion)
-        self.redo_time_to_depth_action.setEnabled(False)
-        edit_menu.addAction(self.redo_time_to_depth_action)
-
-        self.nct_action = self._localized_action("nct.action")
-        self.nct_action.triggered.connect(self.calculate_nct)
-        calc_menu.addAction(self.nct_action)
-
-        self.interval_statistics_action = self._localized_action("statistics.action")
-        self.interval_statistics_action.triggered.connect(self.show_interval_statistics)
-        calc_menu.addAction(self.interval_statistics_action)
-
-        view_menu.addAction(self.project_panel_action)
-        view_menu.addAction(self.curve_browser_action)
-        view_menu.addAction(self.inspector_panel_action)
-        view_menu.addAction(self.interpretation_panel_action)
-        view_menu.addAction(self.cursor_panel_action)
-        view_menu.addAction(self.interval_statistics_panel_action)
-        view_menu.addSeparator()
-        self.hide_side_panels_action = QAction(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_DialogCloseButton),
-            self._t("panel.hide_all"),
-            self,
-        )
-        self.hide_side_panels_action.setProperty("i18n_key", "panel.hide_all")
-        self.hide_side_panels_action.setProperty("i18n_tooltip_key", "panel.hide_all_tooltip")
-        self.hide_side_panels_action.setToolTip(self._t("panel.hide_all_tooltip"))
-        self.hide_side_panels_action.setStatusTip(self._t("panel.hide_all_tooltip"))
-        self.hide_side_panels_action.setShortcut("Ctrl+Alt+0")
-        self.hide_side_panels_action.triggered.connect(self._hide_side_panels)
-        view_menu.addAction(self.hide_side_panels_action)
-
-        self.default_tablet_action = self._localized_action("tablet.build_default")
-        self.default_tablet_action.triggered.connect(self.build_default_tablet)
-        tablet_menu.addAction(self.default_tablet_action)
-
-        tablet_menu.addAction(self.curve_browser_action)
-
-        tablet_menu.addSeparator()
-        self.interval_mode_group = QActionGroup(self)
-        self.interval_mode_group.setExclusive(True)
-        self.interval_select_action = self._localized_action(
-            "interpretations.mode_select", checkable=True
-        )
-        self.interval_select_action.setChecked(True)
-        self.interval_select_action.setShortcut("Alt+1")
-        self.interval_select_action.triggered.connect(
-            lambda: self.set_interval_interaction_mode(IntervalEditMode.SELECT)
-        )
-        self.interval_mode_group.addAction(self.interval_select_action)
-        tablet_menu.addAction(self.interval_select_action)
-
-        self.interval_create_action = self._localized_action(
-            "interpretations.mode_create", checkable=True
-        )
-        self.interval_create_action.setShortcut("Alt+2")
-        self.interval_create_action.triggered.connect(
-            lambda: self.set_interval_interaction_mode(IntervalEditMode.CREATE)
-        )
-        self.interval_mode_group.addAction(self.interval_create_action)
-        tablet_menu.addAction(self.interval_create_action)
-
-        self.interval_resize_action = self._localized_action(
-            "interpretations.mode_resize", checkable=True
-        )
-        self.interval_resize_action.setShortcut("Alt+3")
-        self.interval_resize_action.triggered.connect(
-            lambda: self.set_interval_interaction_mode(IntervalEditMode.RESIZE)
-        )
-        self.interval_mode_group.addAction(self.interval_resize_action)
-        tablet_menu.addAction(self.interval_resize_action)
-
-        self.undo_interpretation_action = self._localized_action("interpretations.undo")
-        self.undo_interpretation_action.setShortcut("Ctrl+Alt+Z")
-        self.undo_interpretation_action.triggered.connect(self.undo_interpretation_edit)
-        tablet_menu.addAction(self.undo_interpretation_action)
-        self.redo_interpretation_action = self._localized_action("interpretations.redo")
-        self.redo_interpretation_action.setShortcut("Ctrl+Alt+Shift+Z")
-        self.redo_interpretation_action.triggered.connect(self.redo_interpretation_edit)
-        tablet_menu.addAction(self.redo_interpretation_action)
-        self._update_interpretation_history_actions()
-
-        self.tablet_edit_mode_action = self._localized_action("ui.tablet_edit_mode", checkable=True)
-        self.tablet_edit_mode_action.setShortcut("F4")
-        self.tablet_edit_mode_action.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogDetailedView)
-        )
-        self._set_action_help(self.tablet_edit_mode_action, "ui.help.tablet_edit_mode")
-        self.tablet_edit_mode_action.toggled.connect(self._set_tablet_edit_mode)
-        tablet_menu.addAction(self.tablet_edit_mode_action)
-        tablet_menu.addSeparator()
-
-        self.save_user_form_action = self._localized_action("ui.save_user_form")
-        self.save_user_form_action.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)
-        )
-        self._set_action_help(self.save_user_form_action, "ui.help.save_user_form")
-        self.save_user_form_action.triggered.connect(self.save_current_tablet_as_user_form)
-        tablet_menu.addAction(self.save_user_form_action)
-
-        self.save_preset_action = self._localized_action("tablet.preset_save")
-        self.save_preset_action.triggered.connect(self.save_tablet_preset)
-        tablet_menu.addAction(self.save_preset_action)
-        self.apply_preset_action = self._localized_action("tablet.preset_apply")
-        self.apply_preset_action.triggered.connect(self.apply_tablet_preset)
-        tablet_menu.addAction(self.apply_preset_action)
-        self.delete_preset_action = self._localized_action("tablet.preset_delete")
-        self.delete_preset_action.triggered.connect(self.delete_tablet_preset)
-        tablet_menu.addAction(self.delete_preset_action)
-
-        self.form_manager_action = self._localized_action("forms.manager_action")
-        self.form_manager_action.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogListView)
-        )
-        self._set_action_help(self.form_manager_action, "ui.help.form_manager")
-        self.form_manager_action.triggered.connect(self.show_form_manager)
-        forms_menu.addAction(self.form_manager_action)
-
-        self.constructor_action = self._localized_action("constructor.open")
-        self.constructor_action.setShortcut("Ctrl+Shift+K")
-        self.constructor_action.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
-        )
-        self._set_action_help(self.constructor_action, "ui.help.constructor")
-        self.constructor_action.triggered.connect(self.show_constructor)
-        constructor_menu.addAction(self.constructor_action)
-        constructor_menu.addAction(self.form_manager_action)
-        constructor_templates_action = self._localized_action("masterlog_templates.action")
-        constructor_templates_action.triggered.connect(self.show_masterlog_templates)
-        constructor_menu.addAction(constructor_templates_action)
-        constructor_header_catalog_action = QAction(
-            {
-                AppLanguage.RU: "ÐšÐ°Ñ‚Ð°Ð»Ð¾Ð³ Ð¿ÐµÑ‡Ð°Ñ‚Ð½Ñ‹Ñ… ÑˆÐ°Ð¿Ð¾Ðº...",
-                AppLanguage.KK: "Ð‘Ð°ÑÐ¿Ð° Ñ‚Ð°Ò›Ñ‹Ñ€Ñ‹Ð¿Ñ‚Ð°Ñ€Ñ‹Ð½Ñ‹Ò£ ÐºÐ°Ñ‚Ð°Ð»Ð¾Ð³Ñ‹...",
-                AppLanguage.EN: "Print header catalog...",
-            }[self.language],
-            self,
-        )
-        constructor_header_catalog_action.triggered.connect(self.show_header_catalog)
-        constructor_menu.addAction(constructor_header_catalog_action)
-        constructor_logo_catalog_action = QAction(
-            {
-                AppLanguage.RU: "ÐšÐ°Ñ‚Ð°Ð»Ð¾Ð³ Ð»Ð¾Ð³Ð¾Ñ‚Ð¸Ð¿Ð¾Ð²...",
-                AppLanguage.KK: "Ð›Ð¾Ð³Ð¾Ñ‚Ð¸Ð¿Ñ‚Ð°Ñ€ ÐºÐ°Ñ‚Ð°Ð»Ð¾Ð³Ñ‹...",
-                AppLanguage.EN: "Logo catalog...",
-            }[self.language],
-            self,
-        )
-        constructor_logo_catalog_action.triggered.connect(self.show_logo_catalog)
-        constructor_menu.addAction(constructor_logo_catalog_action)
-
-        self.lithology_legend_action = self._localized_action("legend.action")
-        self.lithology_legend_action.triggered.connect(self.show_lithology_legend)
-        tablet_menu.addAction(self.lithology_legend_action)
-
-        add_track_menu = self._localized_menu("tablet.add_track")
-        tablet_menu.addMenu(add_track_menu)
-        for title_key, kind in (
-            ("tablet.track.depth", TrackKind.DEPTH),
-            ("tablet.track.gas", TrackKind.GAS),
-            ("tablet.track.dexp_nct", TrackKind.DEXP),
-            ("tablet.track.lithology", TrackKind.LITHOLOGY),
-            ("tablet.track.stratigraphy", TrackKind.STRATIGRAPHY),
-            ("tablet.track.interpretation", TrackKind.INTERPRETATION),
-            ("tablet.track.cuttings", TrackKind.CUTTINGS),
-            ("tablet.track.calcimetry", TrackKind.CALCIMETRY),
-            ("tablet.track.lba", TrackKind.LBA),
-            ("tablet.track.description", TrackKind.TEXT),
-            ("tablet.track.curve", TrackKind.CURVE),
-        ):
-            action = self._localized_action(title_key)
-            action.triggered.connect(lambda _checked=False, value=kind: self.add_track(value))
-            add_track_menu.addAction(action)
-            if kind is TrackKind.CURVE:
-                self.add_curve_track_action = action
-                action.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_FileIcon))
-                self._set_action_help(action, "ui.help.add_curve_track")
-
-        tablet_menu.addSeparator()
-        width_action = self._localized_action("tablet.change_width")
-        width_action.triggered.connect(self.change_selected_track_width)
-        tablet_menu.addAction(width_action)
-
-        linear_scale_action = self._localized_action("tablet.linear_scale")
-        linear_scale_action.triggered.connect(
-            lambda: self.set_selected_track_x_scale(XScale.LINEAR)
-        )
-        tablet_menu.addAction(linear_scale_action)
-
-        log_scale_action = self._localized_action("tablet.log_scale")
-        log_scale_action.triggered.connect(
-            lambda: self.set_selected_track_x_scale(XScale.LOGARITHMIC)
-        )
-        tablet_menu.addAction(log_scale_action)
-
-        range_action = self._localized_action("tablet.set_range")
-        range_action.triggered.connect(self.change_selected_track_x_range)
-        tablet_menu.addAction(range_action)
-
-        auto_range_action = self._localized_action("tablet.auto_range")
-        auto_range_action.triggered.connect(self.reset_selected_track_x_range)
-        tablet_menu.addAction(auto_range_action)
-
-        depth_range_action = self._localized_action("tablet.set_depth_range")
-        depth_range_action.triggered.connect(self.change_visible_depth_range)
-        tablet_menu.addAction(depth_range_action)
-
-        full_depth_action = self._localized_action("tablet.full_depth_range")
-        full_depth_action.triggered.connect(self.reset_visible_depth_range)
-        tablet_menu.addAction(full_depth_action)
-
-        self.move_left_action = self._localized_action("tablet.move_left")
-        self.move_left_action.triggered.connect(lambda: self.move_selected_track(-1))
-        self._set_action_help(self.move_left_action, "ui.help.move_left")
-        tablet_menu.addAction(self.move_left_action)
-
-        self.move_right_action = self._localized_action("tablet.move_right")
-        self.move_right_action.triggered.connect(lambda: self.move_selected_track(1))
-        self._set_action_help(self.move_right_action, "ui.help.move_right")
-        tablet_menu.addAction(self.move_right_action)
-
-        hide_action = self._localized_action("tablet.hide")
-        hide_action.triggered.connect(self.hide_selected_track)
-        tablet_menu.addAction(hide_action)
-
-        show_all_action = self._localized_action("tablet.show_all")
-        show_all_action.triggered.connect(self.show_all_tracks)
-        tablet_menu.addAction(show_all_action)
-
-        self.remove_track_action = self._localized_action("tablet.remove")
-        self.remove_track_action.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_TrashIcon)
-        )
-        self._set_action_help(self.remove_track_action, "ui.help.remove_track")
-        self.remove_track_action.triggered.connect(self.remove_selected_track)
-        tablet_menu.addAction(self.remove_track_action)
-
-        self.open_logs_action = self._localized_action("diagnostics.open_logs")
-        self.open_logs_action.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_DirOpenIcon)
-        )
-        self.open_logs_action.triggered.connect(self.open_log_folder)
-        help_menu.addAction(self.open_logs_action)
-
-        self.copy_log_path_action = self._localized_action("diagnostics.copy_log_path")
-        self.copy_log_path_action.triggered.connect(self.copy_current_log_path)
-        help_menu.addAction(self.copy_log_path_action)
-
-        self.build_diagnostics_action = self._localized_action("diagnostics.build_bundle")
-        self.build_diagnostics_action.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton)
-        )
-        self.build_diagnostics_action.triggered.connect(self.build_diagnostic_bundle)
-        help_menu.addAction(self.build_diagnostics_action)
-
-        self.clear_diagnostics_action = self._localized_action("diagnostics.clear_data")
-        self.clear_diagnostics_action.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_TrashIcon)
-        )
-        self.clear_diagnostics_action.triggered.connect(self.clear_diagnostic_data)
-        help_menu.addAction(self.clear_diagnostics_action)
-        help_menu.addSeparator()
-
-        about_action = self._localized_action("shell.about")
-        about_action.triggered.connect(self.show_about)
-        help_menu.addAction(about_action)
-
-    def _toolbar_button(
-        self,
-        toolbar: QWidget,
-        action: QAction,
-        *,
-        text_beside_icon: bool = True,
-        icon_size: int = 22,
-    ) -> QToolButton:
-        button = QToolButton(toolbar)
-        button.setDefaultAction(action)
-        button.setIconSize(QSize(icon_size, icon_size))
-        button.setPopupMode(QToolButton.ToolButtonPopupMode.DelayedPopup)
-        button.setToolButtonStyle(
-            Qt.ToolButtonStyle.ToolButtonTextBesideIcon
-            if text_beside_icon
-            else Qt.ToolButtonStyle.ToolButtonIconOnly
-        )
-        button.setAutoRaise(False)
-        button.setMinimumWidth(0)
-        return button
-
-    @staticmethod
-    def _toolbar_separator_widget(parent: QWidget) -> QFrame:
-        separator = QFrame(parent)
-        separator.setObjectName("toolbarSeparator")
-        separator.setFrameShape(QFrame.Shape.VLine)
-        separator.setFrameShadow(QFrame.Shadow.Sunken)
-        separator.setFixedWidth(8)
-        separator.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
-        return separator
-
-    def _create_home_page(self) -> None:
-        self.home_page = HomePage(
-            (
-                HomeAction(
-                    self.open_data_action,
-                    "home.import_description",
-                    "homeImportButton",
-                    primary=True,
-                ),
-                HomeAction(
-                    self.open_project_action,
-                    "home.open_project_description",
-                    "homeOpenProjectButton",
-                    primary=True,
-                ),
-                HomeAction(
-                    self.new_las_action,
-                    "home.new_las_description",
-                    "homeNewLasButton",
-                ),
-                HomeAction(
-                    self.paradox_batch_action,
-                    "home.batch_description",
-                    "homeBatchButton",
-                ),
-                HomeAction(
-                    self.form_manager_action,
-                    "home.forms_description",
-                    "homeFormsButton",
-                ),
-                HomeAction(
-                    self.constructor_action,
-                    "home.constructor_description",
-                    "homeConstructorButton",
-                ),
-            ),
-            self.workspace_action,
-            language=self.language,
-        )
-        self.central_stack = QStackedWidget(self)
-        self.central_stack.setObjectName("centralWorkspaceStack")
-        self.central_stack.addWidget(self.home_page)
-        self.central_stack.addWidget(self.tabs)
-        self.central_stack.setCurrentWidget(self.home_page)
-        self.setCentralWidget(self.central_stack)
-
-    def _show_home(self) -> None:
-        self._workspace_controller.show_home()
-
-    def _show_home_from_interpretation_report(self) -> None:
-        report_dialog = getattr(self, "interpretation_report_dialog", None)
-        if report_dialog is not None and report_dialog.isVisible():
-            report_dialog.hide()
-        self._show_home()
-
-    def _show_workspace(self, widget: QWidget | None = None) -> None:
-        self._workspace_controller.show_workspace(widget)
-
-    def show_file_workspace(self) -> None:
-        self.tabs.setCurrentWidget(self.file_workspace)
-        self.central_stack.setCurrentWidget(self.tabs)
-        self.statusBar().showMessage(FileWorkspaceWidget.tab_title(self.language.value))
-
-    def _create_toolbar(self) -> None:
-        self.main_toolbar = _ResponsiveCommandBar(self, margins=(8, 6, 8, 6))
-        self.main_toolbar.setObjectName("mainToolbar")
-        self.main_toolbar.setStyleSheet(
-            "QFrame#mainToolbar { "
-            "border-bottom: 1px solid #cbd5e1; background: #ffffff; }"
-            "QFrame#mainToolbar QToolButton { min-height: 32px; padding: 4px 9px; "
-            "border: 1px solid #d8e0ea; border-radius: 7px; color: #1e293b; "
-            "font-weight: 600; background: #f8fafc; }"
-            "QFrame#mainToolbar QToolButton:hover { background: #eff6ff; "
-            "border-color: #60a5fa; color: #1d4ed8; }"
-            "QFrame#mainToolbar QToolButton:pressed { background: #dbeafe; }"
-            "QFrame#mainToolbar QToolButton:checked { background: #dbeafe; "
-            "border-color: #3b82f6; color: #1e3a8a; }"
-        )
-
-        # Keep the complete main row inside one QWidget. This deliberately
-        # bypasses QToolBar's private extension button, which may be inserted
-        # asynchronously by the Windows style after a DPI or monitor change.
-        self.main_toolbar_row = _ResponsiveToolbarRow(self.main_toolbar)
-        self.main_toolbar_row.setObjectName("mainToolbarRow")
-        self.main_toolbar_row.setMinimumWidth(0)
-        self.main_toolbar_row.setSizePolicy(
-            QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred
-        )
-        self.main_toolbar_layout = QHBoxLayout(self.main_toolbar_row)
-        self.main_toolbar_layout.setContentsMargins(0, 0, 0, 0)
-        self.main_toolbar_layout.setSpacing(6)
-
-        self.home_button = self._toolbar_button(self.main_toolbar_row, self.home_action)
-        self.las_editor_button = self._toolbar_button(self.main_toolbar_row, self.las_editor_action)
-        self.form_manager_button = self._toolbar_button(
-            self.main_toolbar_row, self.form_manager_action
-        )
-        self.constructor_button = self._toolbar_button(
-            self.main_toolbar_row, self.constructor_action
-        )
-        self.open_project_button = self._toolbar_button(
-            self.main_toolbar_row, self.open_project_action
-        )
-        self.open_data_button = self._toolbar_button(self.main_toolbar_row, self.open_data_action)
-        self.save_button = self._toolbar_button(self.main_toolbar_row, self.save_action)
-        self.pencil_button = self._toolbar_button(self.main_toolbar_row, self.pencil_action)
-        self.cursor_line_button = self._toolbar_button(
-            self.main_toolbar_row, self.cursor_line_action
-        )
-
-        self._main_toolbar_separator_home = self._toolbar_separator_widget(self.main_toolbar_row)
-        self._main_toolbar_separator_files = self._toolbar_separator_widget(self.main_toolbar_row)
-        self._main_toolbar_separator_tools = self._toolbar_separator_widget(self.main_toolbar_row)
-
-        self.main_toolbar_layout.addWidget(self.home_button)
-        self.main_toolbar_layout.addWidget(self._main_toolbar_separator_home)
-        self.main_toolbar_layout.addWidget(self.las_editor_button)
-        self.main_toolbar_layout.addWidget(self.form_manager_button)
-        self.main_toolbar_layout.addWidget(self.constructor_button)
-        self.main_toolbar_layout.addWidget(self._main_toolbar_separator_files)
-        self.main_toolbar_layout.addWidget(self.open_project_button)
-        self.main_toolbar_layout.addWidget(self.open_data_button)
-        self.main_toolbar_layout.addWidget(self.save_button)
-        self.main_toolbar_layout.addWidget(self._main_toolbar_separator_tools)
-        self.main_toolbar_layout.addWidget(self.pencil_button)
-        self.main_toolbar_layout.addWidget(self.cursor_line_button)
-
-        self.main_toolbar_overflow_menu = QMenu(self.main_toolbar_row)
-        for action in (
-            self.home_action,
-            self.las_editor_action,
-            self.form_manager_action,
-            self.constructor_action,
-            self.open_project_action,
-            self.open_data_action,
-            self.save_action,
-            self.pencil_action,
-            self.cursor_line_action,
-        ):
-            self.main_toolbar_overflow_menu.addAction(action)
-        self.main_toolbar_overflow_button = QToolButton(self.main_toolbar_row)
-        self.main_toolbar_overflow_button.setObjectName("mainToolbarOverflowButton")
-        self.main_toolbar_overflow_button.setText("â‹¯")
-        self.main_toolbar_overflow_button.setToolTip(self._t("toolbar.more_actions"))
-        self.main_toolbar_overflow_button.setMenu(self.main_toolbar_overflow_menu)
-        self.main_toolbar_overflow_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-        self.main_toolbar_overflow_button.setAutoRaise(False)
-        self.main_toolbar_overflow_button.setFixedWidth(38)
-        self.main_toolbar_layout.addWidget(self.main_toolbar_overflow_button)
-        self.main_toolbar_overflow_button.hide()
-
-        self.main_toolbar_spacer = QWidget(self.main_toolbar_row)
-        self.main_toolbar_spacer.setMinimumWidth(0)
-        self.main_toolbar_spacer.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
-        )
-        self.main_toolbar_layout.addWidget(self.main_toolbar_spacer, 1)
-        self.edit_mode_button = self._toolbar_button(
-            self.main_toolbar_row, self.tablet_edit_mode_action
-        )
-        self.edit_mode_button.setObjectName("tabletEditModeToolbarButton")
-        self.edit_mode_button.setMinimumWidth(34)
-        self.edit_mode_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
-        self.main_toolbar_layout.addWidget(self.edit_mode_button)
-
-        self.main_toolbar.set_content_widget(self.main_toolbar_row)
-
-        self.form_edit_toolbar = _ResponsiveCommandBar(self, margins=(7, 4, 7, 4))
-        self.form_edit_toolbar.setObjectName("formEditToolbar")
-        self.form_edit_toolbar.setStyleSheet(
-            "QFrame#formEditToolbar { "
-            "background: #eff6ff; border-bottom: 1px solid #93c5fd; }"
-            "QFrame#formEditToolbar QToolButton { min-height: 28px; padding: 3px 7px; "
-            "border-radius: 5px; }"
-            "QFrame#formEditToolbar QToolButton:hover { background: #dbeafe; }"
-        )
-        self.form_edit_row = _ResponsiveToolbarRow(self.form_edit_toolbar)
-        self.form_edit_row.setObjectName("formEditToolbarRow")
-        self.form_edit_row.setMinimumWidth(0)
-        self.form_edit_row.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
-        self.form_edit_layout = QHBoxLayout(self.form_edit_row)
-        self.form_edit_layout.setContentsMargins(0, 0, 0, 0)
-        self.form_edit_layout.setSpacing(4)
-
-        self.form_edit_caption = QLabel(self._t("ui.form_edit_toolbar"), self.form_edit_row)
-        self.form_edit_caption.setStyleSheet(
-            "background:transparent; font-weight:700; color:#1e3a8a; padding-right:8px;"
-        )
-        self.form_edit_caption.setToolTip(self._t("ui.help.tablet_edit_mode"))
-        self.form_edit_layout.addWidget(self.form_edit_caption)
-
-        form_actions = (
-            self.annotation_callout_action,
-            self.annotation_comment_action,
-            self.annotation_image_action,
-            self.annotation_symbol_action,
-            self.annotation_manager_toolbar_action,
-            self.annotation_edit_selected_action,
-            self.annotation_delete_selected_action,
-            self.add_curve_track_action,
-            self.edit_selected_track_action,
-            self.move_left_action,
-            self.move_right_action,
-            self.remove_track_action,
-            self.save_user_form_action,
-        )
-        self._form_toolbar_buttons = {
-            action: self._toolbar_button(self.form_edit_row, action, icon_size=18)
-            for action in form_actions
-        }
-        for action in form_actions[:7]:
-            self.form_edit_layout.addWidget(self._form_toolbar_buttons[action])
-        self._form_toolbar_separator_annotations = self._toolbar_separator_widget(
-            self.form_edit_row
-        )
-        self.form_edit_layout.addWidget(self._form_toolbar_separator_annotations)
-        for action in form_actions[7:12]:
-            self.form_edit_layout.addWidget(self._form_toolbar_buttons[action])
-        self._form_toolbar_separator_tracks = self._toolbar_separator_widget(self.form_edit_row)
-        self.form_edit_layout.addWidget(self._form_toolbar_separator_tracks)
-        self.form_edit_layout.addWidget(self._form_toolbar_buttons[self.save_user_form_action])
-
-        self.form_edit_overflow_menu = QMenu(self.form_edit_row)
-        for action in form_actions:
-            self.form_edit_overflow_menu.addAction(action)
-        self.form_edit_overflow_button = QToolButton(self.form_edit_row)
-        self.form_edit_overflow_button.setObjectName("formEditToolbarOverflowButton")
-        self.form_edit_overflow_button.setText("â‹¯")
-        self.form_edit_overflow_button.setToolTip(self._t("toolbar.more_actions"))
-        self.form_edit_overflow_button.setMenu(self.form_edit_overflow_menu)
-        self.form_edit_overflow_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-        self.form_edit_overflow_button.setAutoRaise(False)
-        self.form_edit_overflow_button.setFixedWidth(34)
-        self.form_edit_layout.addWidget(self.form_edit_overflow_button)
-        self.form_edit_overflow_button.hide()
-        self.form_edit_layout.addStretch(1)
-
-        self.form_edit_toolbar.set_content_widget(self.form_edit_row)
-        self.form_edit_toolbar.hide()
-
-        # The two command rows are regular central widgets, not native docked
-        # QMainWindow toolbars.  This prevents Windows/Qt from increasing the
-        # native minimum width after F4, action state or monitor/DPI changes.
-        workspace = self.takeCentralWidget()
-        if workspace is None:
-            raise RuntimeError("Central workspace must exist before toolbars")
-        self.toolbar_host = _ResponsiveToolbarHost(self)
-        self.toolbar_host.setObjectName("responsiveToolbarHost")
-        self.toolbar_host.setMinimumWidth(0)
-        self.toolbar_host.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
-        self.toolbar_host_layout = QVBoxLayout(self.toolbar_host)
-        self.toolbar_host_layout.setContentsMargins(0, 0, 0, 0)
-        self.toolbar_host_layout.setSpacing(0)
-        self.toolbar_host_layout.addWidget(self.main_toolbar)
-        self.toolbar_host_layout.addWidget(self.form_edit_toolbar)
-
-        self.workspace_shell = QWidget(self)
-        self.workspace_shell.setObjectName("workspaceShell")
-        self.workspace_shell.setMinimumWidth(0)
-        self.workspace_shell.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding)
-        self.workspace_shell_layout = QVBoxLayout(self.workspace_shell)
-        self.workspace_shell_layout.setContentsMargins(0, 0, 0, 0)
-        self.workspace_shell_layout.setSpacing(0)
-        self.workspace_shell_layout.addWidget(self.toolbar_host)
-        self.workspace_shell_layout.addWidget(workspace, 1)
-        self.setCentralWidget(self.workspace_shell)
-
-        # Toolbars must never impose a desktop-sized minimum width on the main
-        # window.  Their labels are reduced adaptively when the available width
-        # is insufficient; full commands remain available through tooltips and
-        # the application menus.
-        self.main_toolbar.setMinimumWidth(0)
-        self.form_edit_toolbar.setMinimumWidth(0)
-        self.main_toolbar.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.form_edit_toolbar.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self._main_toolbar_compact_buttons = (
-            self.home_button,
-            self.las_editor_button,
-            self.form_manager_button,
-            self.constructor_button,
-            self.open_project_button,
-            self.open_data_button,
-            self.save_button,
-            self.pencil_button,
-            self.cursor_line_button,
-        )
-        self._main_toolbar_compact_actions: tuple[QAction, ...] = ()
-        self._main_toolbar_overflow_candidates = (
-            ("home", self.home_button),
-            ("constructor", self.constructor_button),
-            ("pencil", self.pencil_button),
-            ("cursor", self.cursor_line_button),
-            ("las_editor", self.las_editor_button),
-            ("forms", self.form_manager_button),
-            ("open_project", self.open_project_button),
-            ("open_data", self.open_data_button),
-            ("save", self.save_button),
-        )
-        self._main_toolbar_separators = (
-            self._main_toolbar_separator_home,
-            self._main_toolbar_separator_files,
-            self._main_toolbar_separator_tools,
-        )
-        self._form_toolbar_overflow_candidates = (
-            ("move_right", self._form_toolbar_buttons[self.move_right_action]),
-            ("move_left", self._form_toolbar_buttons[self.move_left_action]),
-            ("remove_track", self._form_toolbar_buttons[self.remove_track_action]),
-            ("edit_track", self._form_toolbar_buttons[self.edit_selected_track_action]),
-            ("add_track", self._form_toolbar_buttons[self.add_curve_track_action]),
-            (
-                "delete_annotation",
-                self._form_toolbar_buttons[self.annotation_delete_selected_action],
-            ),
-            ("edit_annotation", self._form_toolbar_buttons[self.annotation_edit_selected_action]),
-            (
-                "manage_annotations",
-                self._form_toolbar_buttons[self.annotation_manager_toolbar_action],
-            ),
-            ("image", self._form_toolbar_buttons[self.annotation_image_action]),
-            ("comment", self._form_toolbar_buttons[self.annotation_comment_action]),
-            ("callout", self._form_toolbar_buttons[self.annotation_callout_action]),
-            ("symbol", self._form_toolbar_buttons[self.annotation_symbol_action]),
-            ("save_form", self._form_toolbar_buttons[self.save_user_form_action]),
-        )
-        self._form_toolbar_separators = (
-            self._form_toolbar_separator_annotations,
-            self._form_toolbar_separator_tracks,
-        )
-        self._main_toolbar_is_compact = False
-        self._main_toolbar_is_ultra_compact = False
-        self._form_toolbar_is_compact = False
-        self._form_toolbar_is_ultra_compact = False
-
-        # Every action receives at least a localized caption/shortcut tooltip;
-        # high-value actions keep their more detailed help text above.
-        self._retranslate_registered_actions()
-        self.form_edit_toolbar.visibilityChanged.connect(
-            lambda _visible: self._schedule_toolbar_adaptation()
-        )
-        for action in (
-            self.home_action,
-            self.las_editor_action,
-            self.form_manager_action,
-            self.constructor_action,
-            self.open_project_action,
-            self.open_data_action,
-            self.save_action,
-            self.pencil_action,
-            self.cursor_line_action,
-            self.tablet_edit_mode_action,
-            *form_actions,
-        ):
-            action.changed.connect(self._schedule_toolbar_adaptation)
-        self._schedule_toolbar_adaptation()
-
-    @staticmethod
-    def _set_toolbar_action_style(
-        toolbar: QWidget, action: QAction, style: Qt.ToolButtonStyle
-    ) -> None:
-        widget_for_action = getattr(toolbar, "widgetForAction", None)
-        button = widget_for_action(action) if callable(widget_for_action) else None
-        if isinstance(button, QToolButton):
-            button.setToolButtonStyle(style)
-
-    def _set_main_toolbar_visual_mode(self, compact: bool, ultra_compact: bool) -> None:
-        style = (
-            Qt.ToolButtonStyle.ToolButtonIconOnly
-            if compact
-            else Qt.ToolButtonStyle.ToolButtonTextBesideIcon
-        )
-        for button in self._main_toolbar_compact_buttons:
-            button.setToolButtonStyle(style)
-        for action in self._main_toolbar_compact_actions:
-            self._set_toolbar_action_style(self.main_toolbar, action, style)
-        self.edit_mode_button.setToolButtonStyle(
-            Qt.ToolButtonStyle.ToolButtonIconOnly
-            if ultra_compact
-            else Qt.ToolButtonStyle.ToolButtonTextBesideIcon
-        )
-
-    def _set_form_toolbar_visual_mode(self, compact: bool, ultra_compact: bool) -> None:
-        style = (
-            Qt.ToolButtonStyle.ToolButtonIconOnly
-            if compact
-            else Qt.ToolButtonStyle.ToolButtonTextBesideIcon
-        )
-        for button in self._form_toolbar_buttons.values():
-            button.setToolButtonStyle(style)
-        self.form_edit_caption.setText("F4" if ultra_compact else self._t("ui.form_edit_toolbar"))
-        self.form_edit_caption.setMinimumWidth(0)
-        self.form_edit_caption.setMaximumWidth(32 if ultra_compact else 240)
-
-    @staticmethod
-    def _responsive_row_required_width(
-        layout: QHBoxLayout,
-        *,
-        expanding_widget: QWidget | None = None,
-        hidden_widget_ids: set[int] | None = None,
-        chrome_width: int = 24,
-    ) -> int:
-        """Measure one custom toolbar row without native QToolBar state.
-
-        The row contains every visible button inside one constrained QWidget,
-        so the private Qt extension button is never part of this calculation.
-        Explicit overflow membership is used instead of QWidget visibility,
-        which can lag behind a Windows DPI/monitor transition.
-        """
-
-        from geoworkbench.ui.toolbar_adaptation import required_toolbar_width
-
-        hidden = hidden_widget_ids or set()
-        widths: list[int] = []
-        for index in range(layout.count()):
-            item = layout.itemAt(index)
-            if item is None:
-                continue
-            widget = item.widget()
-            if widget is None or widget is expanding_widget or id(widget) in hidden:
-                continue
-            widget.ensurePolished()
-            widths.append(
-                max(
-                    1,
-                    widget.sizeHint().width(),
-                    widget.minimumSizeHint().width(),
-                    widget.minimumWidth(),
-                )
-            )
-        margins = layout.contentsMargins()
-        chrome = max(0, int(chrome_width)) + margins.left() + margins.right()
-        return required_toolbar_width(widths, spacing=max(0, layout.spacing()), chrome_width=chrome)
-
-    def _toolbar_required_width(
-        self, toolbar: QWidget, *, expanding_widget: QWidget | None = None
-    ) -> int:
-        if toolbar is self.main_toolbar:
-            hidden_keys = set(self._main_toolbar_overflow_signature)
-            hidden_ids = {
-                id(widget)
-                for key, widget in self._main_toolbar_overflow_candidates
-                if key in hidden_keys
-            }
-            if not hidden_keys:
-                hidden_ids.add(id(self.main_toolbar_overflow_button))
-            else:
-                hidden_ids.update(id(item) for item in self._main_toolbar_separators)
-            return self._responsive_row_required_width(
-                self.main_toolbar_layout,
-                expanding_widget=self.main_toolbar_spacer,
-                hidden_widget_ids=hidden_ids,
-                chrome_width=28,
-            )
-
-        if toolbar is self.form_edit_toolbar:
-            hidden_keys = set(self._form_toolbar_overflow_signature)
-            hidden_ids = {
-                id(widget)
-                for key, widget in self._form_toolbar_overflow_candidates
-                if key in hidden_keys
-            }
-            if not hidden_keys:
-                hidden_ids.add(id(self.form_edit_overflow_button))
-            else:
-                hidden_ids.update(id(item) for item in self._form_toolbar_separators)
-            return self._responsive_row_required_width(
-                self.form_edit_layout,
-                hidden_widget_ids=hidden_ids,
-                chrome_width=24,
-            )
-
-        return max(1, toolbar.sizeHint().width())
-
-    def _measure_main_toolbar_mode(self, compact: bool, ultra_compact: bool) -> int:
-        self._set_main_toolbar_visual_mode(compact, ultra_compact)
-        return self._toolbar_required_width(
-            self.main_toolbar, expanding_widget=self.main_toolbar_spacer
-        )
-
-    def _measure_form_toolbar_mode(self, compact: bool, ultra_compact: bool) -> int:
-        self._set_form_toolbar_visual_mode(compact, ultra_compact)
-        return self._toolbar_required_width(self.form_edit_toolbar)
-
-    def _set_main_toolbar_overflow(self, hidden_keys: tuple[str, ...]) -> None:
-        """Move low-priority commands to our menu inside the fixed row."""
-
-        normalized = tuple(hidden_keys)
-        if normalized == self._main_toolbar_overflow_signature:
-            return
-        self._main_toolbar_overflow_signature = normalized
-        hidden = set(normalized)
-        for key, widget in self._main_toolbar_overflow_candidates:
-            widget.setVisible(key not in hidden)
-        self.main_toolbar_overflow_button.setVisible(bool(hidden))
-        for separator in self._main_toolbar_separators:
-            separator.setVisible(not bool(hidden))
-        self.main_toolbar_layout.activate()
-        self.main_toolbar_row.updateGeometry()
-
-    def _set_form_toolbar_overflow(self, hidden_keys: tuple[str, ...]) -> None:
-        normalized = tuple(hidden_keys)
-        if normalized == self._form_toolbar_overflow_signature:
-            return
-        self._form_toolbar_overflow_signature = normalized
-        hidden = set(normalized)
-        for key, widget in self._form_toolbar_overflow_candidates:
-            widget.setVisible(key not in hidden)
-        self.form_edit_overflow_button.setVisible(bool(hidden))
-        for separator in self._form_toolbar_separators:
-            separator.setVisible(not bool(hidden))
-        self.form_edit_layout.activate()
-        self.form_edit_row.updateGeometry()
-
-    @staticmethod
-    def _overflow_candidate_widths(
-        candidates: tuple[tuple[str, QWidget], ...], spacing: int
-    ) -> list[int]:
-        widths: list[int] = []
-        for _key, widget in candidates:
-            widget.ensurePolished()
-            widths.append(
-                max(1, widget.sizeHint().width(), widget.minimumSizeHint().width())
-                + max(0, int(spacing))
-            )
-        return widths
-
-    def _fit_main_toolbar_overflow(self, available: int) -> None:
-        """Guarantee that the pinned edit button remains inside the row."""
-
-        self._set_main_toolbar_overflow(())
-        required = self._toolbar_required_width(
-            self.main_toolbar, expanding_widget=self.main_toolbar_spacer
-        )
-        candidate_widths = self._overflow_candidate_widths(
-            self._main_toolbar_overflow_candidates, self.main_toolbar_layout.spacing()
-        )
-        count = overflow_item_count(
-            available,
-            required,
-            candidate_widths,
-            overflow_button_width=max(38, self.main_toolbar_overflow_button.sizeHint().width()),
-            safety_margin=28,
-        )
-        hidden = [key for key, _widget in self._main_toolbar_overflow_candidates[:count]]
-        self._set_main_toolbar_overflow(tuple(hidden))
-        for key, _widget in self._main_toolbar_overflow_candidates[count:]:
-            required = self._toolbar_required_width(
-                self.main_toolbar, expanding_widget=self.main_toolbar_spacer
-            )
-            if required <= max(0, available - 28):
-                break
-            hidden.append(key)
-            self._set_main_toolbar_overflow(tuple(hidden))
-
-    def _fit_form_toolbar_overflow(self, available: int) -> None:
-        self._set_form_toolbar_overflow(())
-        required = self._toolbar_required_width(self.form_edit_toolbar)
-        candidate_widths = self._overflow_candidate_widths(
-            self._form_toolbar_overflow_candidates, self.form_edit_layout.spacing()
-        )
-        count = overflow_item_count(
-            available,
-            required,
-            candidate_widths,
-            overflow_button_width=max(34, self.form_edit_overflow_button.sizeHint().width()),
-            safety_margin=24,
-        )
-        hidden = [key for key, _widget in self._form_toolbar_overflow_candidates[:count]]
-        self._set_form_toolbar_overflow(tuple(hidden))
-        for key, _widget in self._form_toolbar_overflow_candidates[count:]:
-            required = self._toolbar_required_width(self.form_edit_toolbar)
-            if required <= max(0, available - 24):
-                break
-            hidden.append(key)
-            self._set_form_toolbar_overflow(tuple(hidden))
-
-    def _cap_toolbar_rows_to_window(self) -> int:
-        """Hard-limit custom rows to the current logical window width.
-
-        This is intentionally independent of QToolBar.sizeHint().  The native
-        toolbar can briefly keep an obsolete DPI-dependent width after F4 is
-        toggled or the window is moved between screens.  A fixed row cap makes
-        it geometrically impossible for either row to enlarge the main window
-        or place the pinned right-side command outside the viewport.
-        """
-
-        window_width = max(1, int(self.contentsRect().width() or self.width()))
-        toolbar_host = getattr(self, "toolbar_host", None)
-        host_widget = toolbar_host if isinstance(toolbar_host, QWidget) else self
-        host_width = int(host_widget.contentsRect().width())
-        if host_width <= 0:
-            host_width = window_width
-        available_width = max(1, min(window_width, host_width))
-
-        # As ordinary central widgets the toolbar shells fill the host.  Cap
-        # both command bars and their single custom rows, leaving space for the
-        # QToolBar frame/padding.  The cap is derived only from current geometry
-        # and can never feed a wider minimum back to the native window.
-        self.main_toolbar.setMaximumWidth(available_width)
-        self.form_edit_toolbar.setMaximumWidth(available_width)
-        # Use the host width directly. The command frame's current geometry may
-        # still contain the previous narrow maximum during the first layout
-        # pass after a window expansion.
-        main_cap = max(80, available_width - 18)
-        self.main_toolbar_row.setFixedWidth(main_cap)
-
-        form_cap = max(80, available_width - 16)
-        self.form_edit_row.setFixedWidth(form_cap)
-        return main_cap
-
-    def _schedule_toolbar_adaptation(self) -> None:
-        """Run immediate and delayed passes after action/visibility changes."""
-
-        if not hasattr(self, "main_toolbar"):
-            return
-        QTimer.singleShot(0, self, self._update_toolbar_adaptation)
-        QTimer.singleShot(60, self, self._update_toolbar_adaptation)
-        QTimer.singleShot(180, self, self._update_toolbar_adaptation)
-
-    def _update_toolbar_adaptation(self) -> None:
-        """Keep both top toolbars inside the actual logical window width."""
-
-        if not hasattr(self, "main_toolbar") or self._toolbar_adaptation_in_progress:
-            return
-        self._toolbar_adaptation_in_progress = True
-        try:
-            row_cap = self._cap_toolbar_rows_to_window()
-            available = max(120, row_cap - 4)
-            self._set_main_toolbar_overflow(())
-            self._set_form_toolbar_overflow(())
-
-            main_expanded = self._measure_main_toolbar_mode(False, False)
-            main_compact = self._measure_main_toolbar_mode(True, False)
-            main_ultra = self._measure_main_toolbar_mode(True, True)
-            main_mode = choose_toolbar_adaptation(
-                available,
-                main_expanded,
-                main_compact,
-                main_ultra,
-                currently_compact=self._main_toolbar_is_compact,
-                currently_ultra_compact=self._main_toolbar_is_ultra_compact,
-            )
-
-            form_expanded = self._measure_form_toolbar_mode(False, False)
-            form_compact = self._measure_form_toolbar_mode(True, False)
-            form_ultra = self._measure_form_toolbar_mode(True, True)
-            form_mode = choose_toolbar_adaptation(
-                available,
-                form_expanded,
-                form_compact,
-                form_ultra,
-                currently_compact=self._form_toolbar_is_compact,
-                currently_ultra_compact=self._form_toolbar_is_ultra_compact,
-            )
-
-            self._apply_main_toolbar_mode(main_mode.compact, main_mode.ultra_compact)
-            self._fit_main_toolbar_overflow(available)
-            self._apply_form_toolbar_mode(form_mode.compact, form_mode.ultra_compact)
-            self._fit_form_toolbar_overflow(available)
-        finally:
-            self._toolbar_adaptation_in_progress = False
-
-    def _apply_main_toolbar_mode(self, compact: bool, ultra_compact: bool) -> None:
-        self._set_main_toolbar_visual_mode(compact, ultra_compact)
-        self._main_toolbar_is_compact = compact
-        self._main_toolbar_is_ultra_compact = ultra_compact
-
-    def _apply_form_toolbar_mode(self, compact: bool, ultra_compact: bool) -> None:
-        self._set_form_toolbar_visual_mode(compact, ultra_compact)
-        self._form_toolbar_is_compact = compact
-        self._form_toolbar_is_ultra_compact = ultra_compact
-
-    def toggle_cursor_line(self, enabled: bool) -> None:
-        self.tablet_view.set_cursor_enabled(enabled)
-        self.cursor_dock.setVisible(enabled)
-        self.cursor_line_settings = CursorLineSettings(
-            self.cursor_line_settings.color, self.cursor_line_settings.width, enabled
-        )
-        self.user_profile_settings.save_cursor_line_settings(self.cursor_line_settings)
-        if enabled:
-            self._show_workspace(self.tablet_view)
-        else:
-            self.statusBar().clearMessage()
-
-    def _show_cursor_values(self, depth: float, summary: str) -> None:
-        if self.session.current_tablet_layout is not None:
-            self.tablet_controller.set_cursor_depth(depth)
-        if self.cursor_line_action.isChecked():
-            self.statusBar().showMessage(summary)
-            self.cursor_values.setPlainText(summary.replace(" | ", "\n"))
-
-    def configure_cursor_line(self) -> None:
-        color = QColorDialog.getColor(parent=self, title=self._t("cursor.color_title"))
-        if not color.isValid():
-            return
-        width, accepted = QInputDialog.getDouble(
-            self,
-            self._t("cursor.width_title"),
-            self._t("cursor.width_prompt"),
-            2.0,
-            0.5,
-            10.0,
-            1,
-        )
-        if accepted:
-            self.tablet_view.set_cursor_style(color.name(), width)
-            self.cursor_line_settings = CursorLineSettings(
-                color.name(), width, self.cursor_line_action.isChecked()
-            )
-            self.user_profile_settings.save_cursor_line_settings(self.cursor_line_settings)
-
-    def open_data(self) -> None:
-        filename, _selected_filter = QFileDialog.getOpenFileName(
-            self,
-            self._t("import.select_file"),
-            "",
-            self._t("import.supported_filter"),
-        )
-        if filename:
-            self._import_job_controller.dispatch_path(Path(filename))
-
-    def change_language(self, language: AppLanguage) -> None:
-        if language is self.language:
-            action = self.language_actions.get(language)
-            if action is not None:
-                action.setChecked(True)
-            return
-
-        self.language = language
-        self.localizer = Localizer.create(language)
-        self.language_settings.save(language)
-        self._retranslate_ui()
-        self.statusBar().showMessage(
-            self._t(
-                "language.changed.message",
-                language=LANGUAGE_NAMES[language],
-            ),
-            5000,
-        )
-
-    def _retranslate_ui(self) -> None:
-        self.tabs.setTabText(0, self._t("tab.curves"))
-        self.tabs.setTabText(1, self._t("tab.table"))
-        self.tabs.setTabText(2, self._t("tab.tablet"))
-        self.tabs.setTabText(3, FileWorkspaceWidget.tab_title(self.language.value))
-        self.tabs.setTabText(4, InterpretationReportWorkspace.tab_title(self.language))
-        self.file_workspace_action.setText(FileWorkspaceWidget.tab_title(self.language.value))
-
-        self.project_dock.setWindowTitle(self._t("dock.project"))
-        self.curve_browser_dock.setWindowTitle(self._t("curve_browser.title"))
-        self.inspector_dock.setWindowTitle(self._t("dock.inspector"))
-        self.interpretation_properties_dock.setWindowTitle(
-            self._t("interpretations.properties_title")
-        )
-        self.issues_dock.setWindowTitle(self._t("dock.log"))
-        self.cursor_dock.setWindowTitle(self._t("cursor.panel_title"))
-        self.interval_statistics_dock.setWindowTitle(self._t("statistics.panel_title"))
-        self.tree.setHeaderLabel(self._t("explorer.title"))
-        self.left_panel_rail.setWindowTitle(self._t("panel.left_rail"))
-        self.right_panel_rail.setWindowTitle(self._t("panel.right_rail"))
-        self.main_toolbar.setWindowTitle(self._t("toolbar.main"))
-        self.form_edit_toolbar.setWindowTitle(self._t("ui.form_edit_toolbar"))
-        self.form_edit_caption.setText(self._t("ui.form_edit_toolbar"))
-        self.form_edit_caption.setToolTip(self._t("ui.help.tablet_edit_mode"))
-        if hasattr(self, "main_toolbar_overflow_button"):
-            self.main_toolbar_overflow_button.setToolTip(self._t("toolbar.more_actions"))
-        self.home_page.retranslate(self.language)
-
-        self._retranslate_registered_actions()
-        for current_language, action in self.language_actions.items():
-            action.setChecked(current_language is self.language)
-
-        for widget in (
-            self.curve_view,
-            self.las_table_editor,
-            self.tablet_view,
-            self.curve_browser,
-            self.inspector,
-            self.interpretation_properties,
-            self.interval_statistics_panel,
-            self.interpretation_report_workspace,
-        ):
-            setter = getattr(widget, "set_language", None)
-            if callable(setter):
-                setter(self.language)
-
-        if self._interpretation_dialog is not None:
-            setter = getattr(self._interpretation_dialog, "set_language", None)
-            if callable(setter):
-                setter(self.language)
-
-        self._refresh_tree()
-        self._update_title()
-        QTimer.singleShot(0, self, self._update_toolbar_adaptation)
-
-    def select_user_profile(self) -> None:
-        profiles = self.user_profile_settings.profiles()
-        create_label = self._t("profile.create")
-        labels = [f"{item.display_name} â€” {item.organization}" for item in profiles]
-        selected, accepted = QInputDialog.getItem(
-            self,
-            self._t("profile.title"),
-            self._t("profile.select"),
-            [*labels, create_label],
-            0,
-            False,
-        )
-        if not accepted:
-            return
-        if selected == create_label:
-            name, accepted = QInputDialog.getText(
-                self, self._t("profile.title"), self._t("profile.name")
-            )
-            if not accepted:
-                return
-            organization, accepted = QInputDialog.getText(
-                self, self._t("profile.title"), self._t("profile.organization")
-            )
-            if not accepted:
-                return
-            try:
-                profile = self.user_profile_settings.create(name, organization)
-            except ValueError as exc:
-                QMessageBox.warning(self, self._t("profile.title"), str(exc))
-                return
-        else:
-            index = labels.index(selected)
-            profile = self.user_profile_settings.select(profiles[index].profile_id)
-        self.statusBar().showMessage(self._t("profile.active", name=profile.display_name))
-        self.print_page_settings = self.user_profile_settings.print_page_settings()
-        self.print_export_preferences = self.user_profile_settings.print_export_preferences()
-        self.las_table_editor.set_number_formats(self.user_profile_settings.table_number_formats())
-
-    def _select_las_import_mode(self) -> LasImportMode | None:
-        mode_labels = {
-            self._t("import.las_mode.compatible"): LasImportMode.COMPATIBLE,
-            self._t("import.las_mode.strict"): LasImportMode.STRICT,
-            self._t("import.las_mode.manual"): LasImportMode.MANUAL,
-        }
-        selected_mode, accepted = QInputDialog.getItem(
-            self,
-            self._t("import.las_mode.title"),
-            self._t("import.las_mode.prompt"),
-            list(mode_labels),
-            0,
-            False,
-        )
-        if not accepted:
-            return None
-        return mode_labels[selected_mode]
-
-    def open_las_advanced(self) -> None:
-        import_mode = self._select_las_import_mode()
-        if import_mode is not None:
-            self.open_las(import_mode=import_mode)
-
-    def open_las(
-        self,
-        source: str | Path | None = None,
-        *,
-        import_mode: LasImportMode = LasImportMode.COMPATIBLE,
-    ) -> None:
-        if source is None:
-            filenames, _ = QFileDialog.getOpenFileNames(
-                self,
-                self._t("import.select_las"),
-                "",
-                "LAS (*.las)",
-            )
-        else:
-            filenames = [str(source)]
-        if not filenames:
-            return
-        self._open_las_files(tuple(Path(filename) for filename in filenames), import_mode)
-
-    def _open_generated_las(self, payload: object) -> None:
-        paths = tuple(
-            Path(item).expanduser().resolve()
-            for item in (payload if isinstance(payload, (tuple, list)) else (payload,))
-            if item
-        )
-        if paths:
-            self._open_las_files(paths, LasImportMode.COMPATIBLE)
-
-    def _confirm_las_review(
-        self,
-        source: Path,
-        issues: tuple[LasImportIssue, ...],
-    ) -> bool:
-        messages = "\n".join(f"â€¢ {issue.message}" for issue in issues)
-        answer = QMessageBox.question(
-            self,
-            f"Ð ÑƒÑ‡Ð½Ð°Ñ Ð¿Ñ€Ð¾Ð²ÐµÑ€ÐºÐ°: {source.name}",
-            messages + "\n\nÐžÑ‚ÐºÑ€Ñ‹Ñ‚ÑŒ Ñ„Ð°Ð¹Ð» Ð±ÐµÐ· Ð°Ð²Ñ‚Ð¾Ð¼Ð°Ñ‚Ð¸Ñ‡ÐµÑÐºÐ¾Ð³Ð¾ Ð¸ÑÐ¿Ñ€Ð°Ð²Ð»ÐµÐ½Ð¸Ñ?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
-        )
-        return answer == QMessageBox.StandardButton.Yes
-
-    def _review_imported_dataset(
-        self,
-        dataset: Dataset,
-        source_kind: ImportSourceKind,
-        source: Path,
-    ) -> Dataset | None:
-        dialog = ImportReviewDialog(
-            dataset,
-            source,
-            source_kind,
-            self,
-            language=self.language,
-        )
-        result = dialog.exec()
-        if dialog.failure is not None:
-            raise dialog.failure
-        if result != QDialog.DialogCode.Accepted:
-            self._log(
-                self._t(
-                    "import_review.cancelled_log",
-                    file=source.name,
-                )
-            )
-            return None
-        return dialog.accepted_dataset
-
-    def _open_las_files(
-        self,
-        filenames: tuple[Path, ...],
-        import_mode: LasImportMode,
-    ) -> None:
-        outcome = self._dataset_import_jobs.execute_las(
-            filenames,
-            import_mode,
-            confirm_review=self._confirm_las_review,
-            review_dataset=self._review_imported_dataset,
-        )
-        for item in outcome.files:
-            filename = str(item.source)
-            if item.succeeded:
-                self._log(f"Ð—Ð°Ð³Ñ€ÑƒÐ¶ÐµÐ½ LAS: {filename}")
-            elif item.review_skipped:
-                self._log(f"LAS Ð¿Ñ€Ð¾Ð¿ÑƒÑ‰ÐµÐ½ Ð¿Ð¾ÑÐ»Ðµ Ñ€ÑƒÑ‡Ð½Ð¾Ð¹ Ð¿Ñ€Ð¾Ð²ÐµÑ€ÐºÐ¸: {filename}")
-            elif item.error:
-                self._log(f"ÐžÐ¨Ð˜Ð‘ÐšÐ: {filename}: {item.error}")
-
-        last = outcome.last_successful
-        errors = [f"{item.source.name}: {item.error}" for item in outcome.failed]
-        if last is None or last.result is None or last.well_name is None:
-            if outcome.skipped and not errors:
-                self.statusBar().showMessage(self._t("import_review.batch_cancelled_status"))
-                return
-            QMessageBox.critical(
-                self,
-                "ÐžÑˆÐ¸Ð±ÐºÐ° LAS",
-                "\n".join(errors) or "Ð¤Ð°Ð¹Ð»Ñ‹ Ð½Ðµ Ð·Ð°Ð³Ñ€ÑƒÐ¶ÐµÐ½Ñ‹",
-            )
-            diagnostics = outcome.diagnostic_report
-            if diagnostics.has_items:
-                self._persist_import_diagnostics(diagnostics)
-                ImportDiagnosticsDialog(diagnostics, self, language=self.language).exec()
-            return
-
-        last_dataset = last.result.dataset
-        presentation_items = self._present_imported_dataset_safely(last_dataset, last.source)
-        self.inspector.setPlainText(
-            f"{self._t('inspector.well')}: {last.well_name}\n"
-            f"{self._t('inspector.dataset')}: {last_dataset.name}\n"
-            f"{self._t('inspector.curves')}: {len(last_dataset.curves)}\n"
-            f"{self._t('inspector.samples')}: {len(last_dataset.depth)}\n"
-            f"{self._t('inspector.range')}: "
-            f"{last_dataset.depth[0]:.2f}â€“{last_dataset.depth[-1]:.2f}"
-        )
-        diagnostics = outcome.diagnostic_report.extend(*presentation_items)
-        if errors:
-            QMessageBox.warning(self, "Ð§Ð°ÑÑ‚ÑŒ LAS Ð½Ðµ Ð·Ð°Ð³Ñ€ÑƒÐ¶ÐµÐ½Ð°", "\n".join(errors))
-
-        if diagnostics.error_count:
-            self._persist_import_diagnostics(diagnostics)
-            ImportDiagnosticsDialog(diagnostics, self, language=self.language).exec()
-
-        import_warnings = [
-            f"{item.source.name}:\n  " + "\n  ".join(item.warning_messages)
-            for item in outcome.successful
-            if item.warning_messages
-        ]
-        if import_warnings:
-            QMessageBox.warning(
-                self,
-                "Ð”Ð¸Ð°Ð³Ð½Ð¾ÑÑ‚Ð¸ÐºÐ° LAS",
-                "\n\n".join(import_warnings),
-            )
-
-        descending_files = [
-            item.source.name for item in outcome.successful if item.descending_depth
-        ]
-        if descending_files:
-            QMessageBox.warning(
-                self,
-                "ÐžÐ±Ñ€Ð°Ñ‚Ð½Ñ‹Ð¹ Ð¿Ð¾Ñ€ÑÐ´Ð¾Ðº Ð³Ð»ÑƒÐ±Ð¸Ð½Ñ‹",
-                "Ð“Ð»ÑƒÐ±Ð¸Ð½Ð° Ð·Ð°Ð¿Ð¸ÑÐ°Ð½Ð° Ð¿Ð¾ ÑƒÐ±Ñ‹Ð²Ð°Ð½Ð¸ÑŽ:\n"
-                + "\n".join(descending_files)
-                + "\n\nÐžÑ€Ð¸Ð³Ð¸Ð½Ð°Ð» Ð½Ðµ Ð¸Ð·Ð¼ÐµÐ½Ñ‘Ð½. Ð”Ð»Ñ Ð¸ÑÐ¿Ñ€Ð°Ð²Ð»ÐµÐ½Ð¸Ñ Ð¸ÑÐ¿Ð¾Ð»ÑŒÐ·ÑƒÐ¹Ñ‚Ðµ: "
-                "ÐŸÑ€Ð°Ð²ÐºÐ° â†’ Ð¡Ð¾Ð·Ð´Ð°Ñ‚ÑŒ ÐºÐ¾Ð¿Ð¸ÑŽ Ñ Ð³Ð»ÑƒÐ±Ð¸Ð½Ð¾Ð¹ Ð¿Ð¾ Ð²Ð¾Ð·Ñ€Ð°ÑÑ‚Ð°Ð½Ð¸ÑŽ.",
-            )
-        self._refresh_tree()
-        self._update_title()
-        self._show_workspace(self.las_table_editor if presentation_items else self.tablet_view)
-        self.statusBar().showMessage(f"Ð—Ð°Ð³Ñ€ÑƒÐ¶ÐµÐ½Ð¾ LAS-Ñ„Ð°Ð¹Ð»Ð¾Ð²: {len(outcome.successful)}")
-
-    def _persist_import_diagnostics(self, report: ImportDiagnosticReport) -> Path | None:
-        root = (
-            Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation))
-            / "diagnostics"
-        )
-        try:
-            target = persist_import_diagnostic_report(report, root, prefix="las_import")
-        except OSError as exc:
-            self._log(f"ÐžÐ¨Ð˜Ð‘ÐšÐ Ð¡ÐžÐ¥Ð ÐÐÐ•ÐÐ˜Ð¯ Ð”Ð˜ÐÐ“ÐÐžÐ¡Ð¢Ð˜ÐšÐ˜: {exc}")
-            return None
-        self._log(f"Ð”Ð¸Ð°Ð³Ð½Ð¾ÑÑ‚Ð¸Ñ‡ÐµÑÐºÐ¸Ð¹ Ð¾Ñ‚Ñ‡Ñ‘Ñ‚ ÑÐ¾Ñ…Ñ€Ð°Ð½Ñ‘Ð½: {target}")
-        return target
-
-    def _present_imported_dataset_safely(
-        self, dataset: Dataset, source: Path
-    ) -> tuple[ImportDiagnostic, ...]:
-        """Render an imported dataset without allowing a Qt presentation bug to lose it.
-
-        Registration is already complete when this method runs.  If a plot/grid/form
-        widget raises, the table editor becomes the recovery workspace and a complete
-        diagnostic is returned to the caller.
-        """
-
-        try:
-            self._show_current_dataset()
-            return ()
-        except Exception as exc:  # noqa: BLE001 - keep imported data accessible
-            diagnostic = presentation_diagnostic(
-                source,
-                exc,
-                dataset_id=dataset.dataset_id,
-                dataset_name=dataset.name,
-            )
-            self._log(
-                f"ÐžÐ¨Ð˜Ð‘ÐšÐ ÐžÐ¢ÐžÐ‘Ð ÐÐ–Ð•ÐÐ˜Ð¯: {source.name}: "
-                f"{diagnostic.exception_type}: {diagnostic.details}"
-            )
-            recovery_diagnostics = self._show_import_recovery_workspace(dataset, source)
-            return (diagnostic, *recovery_diagnostics)
-
-    def _show_import_recovery_workspace(
-        self, dataset: Dataset, source: Path
-    ) -> tuple[ImportDiagnostic, ...]:
-        """Expose at least the LAS table when optional graphical rendering fails."""
-
-        diagnostics: list[ImportDiagnostic] = []
-        self._workspace_controller.set_dataset(dataset.name)
-        try:
-            self.las_table_editor.set_dataset(dataset)
-        except Exception as exc:  # noqa: BLE001 - secondary UI fallback
-            self._log(f"ÐžÐ¨Ð˜Ð‘ÐšÐ Ð¢ÐÐ‘Ð›Ð˜Ð¦Ð« LAS: {type(exc).__name__}: {exc}")
-            diagnostics.append(
-                self._recovery_component_diagnostic(source, dataset, exc, component="las_table")
-            )
-        try:
-            self.curve_browser.set_dataset(dataset)
-            self.curve_browser.select_recommended()
-        except Exception as exc:  # noqa: BLE001 - secondary UI fallback
-            self._log(f"ÐžÐ¨Ð˜Ð‘ÐšÐ Ð¡ÐŸÐ˜Ð¡ÐšÐ ÐšÐ Ð˜Ð’Ð«Ð¥: {type(exc).__name__}: {exc}")
-            diagnostics.append(
-                self._recovery_component_diagnostic(source, dataset, exc, component="curve_browser")
-            )
-        try:
-            self.tablet_view.set_layout_model(TabletLayout())
-            self.tablet_view.set_dataset(None)
-        except Exception as exc:  # noqa: BLE001 - broken tablet must stay isolated
-            self._log(f"ÐžÐ¨Ð˜Ð‘ÐšÐ Ð¡Ð‘Ð ÐžÐ¡Ð ÐŸÐ›ÐÐÐ¨Ð•Ð¢Ð: {type(exc).__name__}: {exc}")
-            diagnostics.append(
-                self._recovery_component_diagnostic(source, dataset, exc, component="tablet_reset")
-            )
-        self._show_workspace(self.las_table_editor)
-        self.statusBar().showMessage(
-            self._t("import_diagnostics.recovery_table", dataset=dataset.name)
-        )
-        return tuple(diagnostics)
-
-    @staticmethod
-    def _recovery_component_diagnostic(
-        source: Path,
-        dataset: Dataset,
-        exc: BaseException,
-        *,
-        component: str,
-    ) -> ImportDiagnostic:
-        diagnostic = presentation_diagnostic(
-            source,
-            exc,
-            dataset_id=dataset.dataset_id,
-            dataset_name=dataset.name,
-        )
-        return replace(
-            diagnostic,
-            code=f"{component}-presentation-failed",
-            context=(*diagnostic.context, ("component", component)),
-        )
-
-    def open_csv(self, source: str | Path | None = None) -> None:
-        if source is None:
-            filename, _ = QFileDialog.getOpenFileName(
-                self,
-                "Ð˜Ð¼Ð¿Ð¾Ñ€Ñ‚Ð¸Ñ€Ð¾Ð²Ð°Ñ‚ÑŒ CSV/TXT",
-                "",
-                "Ð¢Ð°Ð±Ð»Ð¸Ñ‡Ð½Ñ‹Ðµ Ð´Ð°Ð½Ð½Ñ‹Ðµ (*.csv *.txt);;CSV (*.csv);;TXT (*.txt)",
-            )
-        else:
-            filename = str(source)
-        if not filename:
-            return
-        dialog = CsvImportDialog(Path(filename), self, language=self.language)
-        if dialog.exec() != QDialog.DialogCode.Accepted:
-            return
-        outcome = self._dataset_import_jobs.execute_csv(
-            Path(filename),
-            dialog.import_plan,
-            review_dataset=self._review_imported_dataset,
-        )
-        if outcome.review_skipped:
-            self.statusBar().showMessage(
-                self._t("import_review.cancelled_status", file=Path(filename).name)
-            )
-            return
-        if outcome.result is None:
-            QMessageBox.critical(self, "Ð˜Ð¼Ð¿Ð¾Ñ€Ñ‚ CSV", outcome.error)
-            self._log(f"CSV Ð½Ðµ Ð¸Ð¼Ð¿Ð¾Ñ€Ñ‚Ð¸Ñ€Ð¾Ð²Ð°Ð½: {outcome.error}")
-            return
-        result = outcome.result
-        self._refresh_tree()
-        self._show_current_dataset()
-        self._update_title()
-        self._log(
-            f"Ð˜Ð¼Ð¿Ð¾Ñ€Ñ‚Ð¸Ñ€Ð¾Ð²Ð°Ð½ CSV: {filename}; ÑÑ‚Ñ€Ð¾Ðº: {result.row_count}; "
-            f"Ñ€Ð°Ð·Ð´ÐµÐ»Ð¸Ñ‚ÐµÐ»ÑŒ: {result.delimiter!r}; ÐºÐ¾Ð´Ð¸Ñ€Ð¾Ð²ÐºÐ°: {result.encoding}"
-        )
-        self.statusBar().showMessage(f"CSV Ð¸Ð¼Ð¿Ð¾Ñ€Ñ‚Ð¸Ñ€Ð¾Ð²Ð°Ð½: {Path(filename).name}")
-
-    def open_excel(self, source: str | Path | None = None) -> None:
-        if source is None:
-            filename, _ = QFileDialog.getOpenFileName(
-                self,
-                "Ð˜Ð¼Ð¿Ð¾Ñ€Ñ‚Ð¸Ñ€Ð¾Ð²Ð°Ñ‚ÑŒ Excel",
-                "",
-                "Excel (*.xls *.xlsx *.xlsm)",
-            )
-        else:
-            filename = str(source)
-        if not filename:
-            return
-        dialog = ExcelImportDialog(Path(filename), self, language=self.language)
-        if dialog.exec() != QDialog.DialogCode.Accepted:
-            return
-        outcome = self._dataset_import_jobs.execute_excel(
-            Path(filename),
-            dialog.import_plan,
-            review_dataset=self._review_imported_dataset,
-        )
-        if outcome.review_skipped:
-            self.statusBar().showMessage(
-                self._t("import_review.cancelled_status", file=Path(filename).name)
-            )
-            return
-        if outcome.result is None:
-            QMessageBox.critical(self, "Ð˜Ð¼Ð¿Ð¾Ñ€Ñ‚ Excel", outcome.error)
-            self._log(f"Excel Ð½Ðµ Ð¸Ð¼Ð¿Ð¾Ñ€Ñ‚Ð¸Ñ€Ð¾Ð²Ð°Ð½: {outcome.error}")
-            return
-        result = outcome.result
-        self._refresh_tree()
-        self._show_current_dataset()
-        self._update_title()
-        self._log(f"Ð˜Ð¼Ð¿Ð¾Ñ€Ñ‚Ð¸Ñ€Ð¾Ð²Ð°Ð½ Excel: {filename}; ÑÑ‚Ñ€Ð¾Ðº: {result.row_count}")
-        self.statusBar().showMessage(f"Excel Ð¸Ð¼Ð¿Ð¾Ñ€Ñ‚Ð¸Ñ€Ð¾Ð²Ð°Ð½: {Path(filename).name}")
-
-    def open_paradox(self, source: str | Path | None = None) -> None:
-        if source is None:
-            filename, _ = QFileDialog.getOpenFileName(
-                self,
-                self._t("paradox.title"),
-                "",
-                "Paradox DB (*.db *.DB);;All files (*)",
-            )
-            if not filename:
-                return
-            selected = Path(filename)
-        else:
-            selected = Path(source)
-        dialog = ParadoxImportDialog(selected, self, language=self.language)
-        if dialog.exec() != QDialog.DialogCode.Accepted or dialog.import_result is None:
-            return
-        registration = self._dataset_import_jobs.register_paradox(
-            selected,
-            dialog.import_result,
-            review_dataset=self._review_imported_dataset,
-        )
-        if registration.review_skipped:
-            self.statusBar().showMessage(
-                self._t("import_review.cancelled_status", file=selected.name)
-            )
-            return
-        if registration.result is None:
-            QMessageBox.critical(self, self._t("paradox.title"), registration.error)
-            self._log(f"Paradox Ð½Ðµ Ð¸Ð¼Ð¿Ð¾Ñ€Ñ‚Ð¸Ñ€Ð¾Ð²Ð°Ð½: {selected}: {registration.error}")
-            return
-        result = registration.result
-        self._refresh_tree()
-        self._show_current_dataset()
-        self._update_title()
-        self._log(
-            self._t(
-                "paradox.import_log",
-                file=selected.name,
-                rows=result.table.rows_read,
-                channels=result.imported_channels,
-                warnings=len(result.quality.issues),
-            )
-        )
-        self.statusBar().showMessage(
-            self._t("paradox.imported", file=selected.name, rows=result.table.rows_read)
-        )
-        self._dispatch_registered_import_action(dialog.requested_action)
-
-    def open_gs2(self, source: str | Path | None = None) -> None:
-        if source is None:
-            filename, _ = QFileDialog.getOpenFileName(
-                self,
-                self._t("gs2.title"),
-                "",
-                "GeoScape II (*.gs2 *.GS2);;All files (*)",
-            )
-            if not filename:
-                return
-            selected = Path(filename)
-        else:
-            selected = Path(source)
-        container_dialog = Gs2ImportDialog(selected, self, language=self.language)
-        if container_dialog.exec() != QDialog.DialogCode.Accepted:
-            return
-        member_names = container_dialog.selected_table_members
-        if not member_names:
-            return
-        manifest = container_dialog.manifest
-        metadata = container_dialog.metadata
-        selected_summary = (
-            next(
-                (
-                    table
-                    for table in manifest.tables
-                    if table.member_name.casefold() == member_names[0].casefold()
-                ),
-                None,
-            )
-            if manifest is not None
-            else None
-        )
-        channel_dictionary = None
-        matched_metadata_channels = 0
-        matched_sensor_channels = 0
-        if metadata is not None and selected_summary is not None:
-            (
-                channel_dictionary,
-                matched_metadata_channels,
-                matched_sensor_channels,
-            ) = channel_dictionary_for_table(
-                metadata,
-                selected_summary.field_names,
-                member_names[0],
-            )
-        result = None
-        requested_action = "open"
-        if len(member_names) == 1:
-            member_name = member_names[0]
-            try:
-                with extract_gs2_table(selected, member_name) as (table_path, _manifest):
-                    dialog = ParadoxImportDialog(
-                        table_path,
-                        self,
-                        language=self.language,
-                        channel_dictionary=channel_dictionary,
-                    )
-                    if dialog.exec() != QDialog.DialogCode.Accepted or dialog.import_result is None:
-                        return
-                    result = dialog.import_result
-                    requested_action = dialog.requested_action
-            except Gs2ContainerError as exc:
-                QMessageBox.critical(self, self._t("gs2.title"), str(exc))
-                return
-            table_label = Path(member_name).stem
-        else:
-            dialog = ParadoxImportDialog(
-                selected,
-                self,
-                language=self.language,
-                table_loader=partial(
-                    read_gs2_multipart,
-                    member_names=member_names,
-                ),
-                channel_dictionary=channel_dictionary,
-            )
-            if dialog.exec() != QDialog.DialogCode.Accepted or dialog.import_result is None:
-                return
-            result = dialog.import_result
-            requested_action = dialog.requested_action
-            table_label = f"{Path(member_names[0]).stem} ({len(member_names)} parts)"
-
-        if result is None:
-            return
-        registration = self.gs2_import_coordinator.enrich_and_register(
-            selected,
-            result,
-            member_names=member_names,
-            table_label=table_label,
-            metadata=metadata,
-            matched_metadata_channels=matched_metadata_channels,
-            matched_sensor_channels=matched_sensor_channels,
-            review_dataset=self._review_imported_dataset,
-        )
-        if registration.review_skipped:
-            self.statusBar().showMessage(
-                self._t("import_review.cancelled_status", file=selected.name)
-            )
-            return
-        if registration.result is None:
-            QMessageBox.critical(self, self._t("gs2.title"), registration.error)
-            return
-        self._refresh_tree()
-        self._show_current_dataset()
-        self._update_title()
-        self.statusBar().showMessage(
-            self._t(
-                "gs2.imported",
-                file=selected.name,
-                table=table_label,
-                rows=registration.result.table.rows_read,
-            )
-        )
-        self._dispatch_registered_import_action(requested_action)
-
-    def _dispatch_registered_import_action(self, requested_action: str) -> None:
-        """Run post-registration actions through the normal application workflow."""
-
-        if requested_action == "save_las":
-            self.export_current_las()
-
-    def open_paradox_batch(self) -> None:
-        filenames, _ = QFileDialog.getOpenFileNames(
-            self,
-            self._t("paradox.batch_title"),
-            "",
-            "Paradox DB (*.db *.DB)",
-        )
-        if not filenames:
-            return
-        dialog = ParadoxBatchDialog(
-            tuple(Path(filename) for filename in filenames),
-            self,
-            language=self.language,
-        )
-        dialog.open_las_requested.connect(self._open_generated_las)
-        dialog.exec()
-
-    def open_wits0_capture(self) -> None:
-        """Open the modeless WITS0 TCP raw-capture monitor."""
-
-        existing = getattr(self, "_wits0_capture_dialog", None)
-        if existing is not None and existing.isVisible():
-            existing.raise_()
-            existing.activateWindow()
-            return
-        try:
-            dialog = Wits0CaptureDialog(
-                self,
-                language=self.language,
-                well_provider=lambda: self.session.current_well,
-                on_dataset_changed=self._on_wits0_dataset_changed,
-            )
-        except Exception as exc:
-            log_exception("wits0.capture.open_failed", exc)
-            QMessageBox.critical(
-                self,
-                self._t("wits0.title"),
-                self._t("wits0.open_error", error=str(exc)),
-            )
-            return
-        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
-        dialog.destroyed.connect(lambda: setattr(self, "_wits0_capture_dialog", None))
-        self._wits0_capture_dialog = dialog
-        dialog.show()
-
-    def _on_wits0_dataset_changed(self, dataset_id: str) -> None:
-        well = self.session.current_well
-        if well is None or dataset_id not in well.datasets:
-            return
-        self.project_controller.select_existing_dataset(dataset_id, mark_dirty=True)
-        self._refresh_tree()
-        self._show_current_dataset()
-        self._update_title()
-
-    def open_witsml_inventory(self, source: str | Path | None = None) -> None:
-        """Inspect WITSML 2.x metadata without importing or changing the project."""
-
-        if source is None:
-            filename, _ = QFileDialog.getOpenFileName(
-                self,
-                self._t("witsml.title"),
-                "",
-                self._t("witsml.file_filter"),
-            )
-            if not filename:
-                return
-            selected = Path(filename)
-        else:
-            selected = Path(source)
-
-        dialog = WitsmlInventoryDialog(selected, self, language=self.language)
-        dialog.exec()
-
-    def open_witsml_data_import(self, source: str | Path | None = None) -> None:
-        """Review and atomically import one WITSML 2.x ChannelSet Dataset."""
-
-        if source is None:
-            filename, _ = QFileDialog.getOpenFileName(
-                self,
-                self._t("witsml_import.title"),
-                "",
-                self._t("witsml.file_filter"),
-            )
-            if not filename:
-                return
-            selected = Path(filename)
-        else:
-            selected = Path(source)
-
-        dialog = WitsmlImportDialog(selected, self, language=self.language)
-        dialog_result = dialog.exec()
-        if dialog_result != QDialog.DialogCode.Accepted or dialog.accepted_commit is None:
-            if dialog.failure is not None:
-                self._log(f"WITSML IMPORT ERROR: {selected.name}: {dialog.failure}")
-            return
-        commit = dialog.accepted_commit
-        # The exact immutable Dataset reviewed by the operator is registered once.
-        # No parsing or mapping is repeated after the dialog is accepted.
-        try:
-            import_result = self.witsml_import_coordinator.register_reviewed_commit(commit)
-        except Exception as exc:  # noqa: BLE001 - controller has already rolled project state back
-            self._log(f"WITSML PROJECT IMPORT ERROR: {selected.name}: {exc}")
-            QMessageBox.critical(
-                self,
-                self._t("witsml_import.title"),
-                self._t("witsml_import.failed", error=str(exc)),
-            )
-            return
-        commit = import_result.commit
-        dataset = commit.dataset
-        self._refresh_tree()
-        self._update_title()
-        self._show_current_dataset()
-        self.statusBar().showMessage(
-            self._t(
-                "witsml_import.imported",
-                dataset=dataset.name,
-                rows=len(dataset.active_index.values),
-                channels=len(dataset.curves),
-            )
-        )
-        self._log(
-            f"WITSML IMPORTED: {selected.name}: dataset={dataset.dataset_id}; "
-            f"rows={len(dataset.active_index.values)}; curves={len(dataset.curves)}; "
-            f"digest={commit.dataset_digest}"
-        )
-
-    def open_witsml1411_store(self) -> None:
-        """Browse a WITSML 1.4.1.1 SOAP store in read-only mode and import one log."""
-
-        dialog = Witsml1411Dialog(
-            self,
-            language=self.language,
-            credential_store=(
-                self.application_context.witsml_credentials
-                if self.application_context is not None
-                else None
-            ),
-            audit_sink=(
-                self.application_context.witsml_audit
-                if self.application_context is not None
-                else None
-            ),
-        )
-        result = dialog.exec()
-        if result != QDialog.DialogCode.Accepted or dialog.accepted_commit is None:
-            return
-        commit = dialog.accepted_commit
-        try:
-            registration = self.witsml_import_coordinator.register_reviewed_commit(commit)
-        except Exception as exc:  # noqa: BLE001 - controller rolls back project state
-            self._log(f"WITSML 1.4.1.1 PROJECT IMPORT ERROR: {exc}")
-            QMessageBox.critical(
-                self,
-                self._t("witsml1411.title"),
-                self._t("witsml_import.failed", error=str(exc)),
-            )
-            return
-        dataset = registration.commit.dataset
-        self._refresh_tree()
-        self._update_title()
-        self._show_current_dataset()
-        self.statusBar().showMessage(
-            self._t(
-                "witsml_import.imported",
-                dataset=dataset.name,
-                rows=len(dataset.active_index.values),
-                channels=len(dataset.curves),
-            )
-        )
-        self._log(
-            f"WITSML 1.4.1.1 IMPORTED: dataset={dataset.dataset_id}; "
-            f"rows={len(dataset.active_index.values)}; curves={len(dataset.curves)}; "
-            f"digest={registration.commit.dataset_digest}"
-        )
-
-    def open_etp12_session(self) -> None:
-        """Open a secure WITSML 2.x / ETP 1.2 browser and channel subscriber."""
-
-        existing = getattr(self, "_etp12_dialog", None)
-        if existing is not None and existing.isVisible():
-            existing.raise_()
-            existing.activateWindow()
-            return
-        dialog = Etp12Dialog(
-            self,
-            language=self.language,
-            credential_store=(
-                self.application_context.etp12_credentials
-                if self.application_context is not None
-                else None
-            ),
-            audit_sink=(
-                self.application_context.etp12_audit
-                if self.application_context is not None
-                else None
-            ),
-            well_provider=lambda: self.session.current_well,
-            on_dataset_changed=self._on_etp12_dataset_changed,
-        )
-        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
-        dialog.destroyed.connect(lambda: setattr(self, "_etp12_dialog", None))
-        self._etp12_dialog = dialog
-        dialog.show()
-
-    def _on_etp12_dataset_changed(self, dataset_id: str) -> None:
-        well = self.session.current_well
-        if well is None or dataset_id not in well.datasets:
-            return
-        self.project_controller.select_existing_dataset(dataset_id, mark_dirty=True)
-        self._refresh_tree()
-        self._show_current_dataset()
-        self._update_title()
-
-    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
-        urls = event.mimeData().urls() if event.mimeData().hasUrls() else []
-        supported_suffixes = {".db", ".gs2", ".xml", ".witsml", ".epc", ".zip"}
-        if any(Path(url.toLocalFile()).suffix.casefold() in supported_suffixes for url in urls):
-            event.acceptProposedAction()
-            return
-        super().dragEnterEvent(event)
-
-    def dropEvent(self, event: QDropEvent) -> None:
-        gs2_paths = [
-            Path(url.toLocalFile())
-            for url in event.mimeData().urls()
-            if Path(url.toLocalFile()).suffix.casefold() == ".gs2"
-        ]
-        if gs2_paths:
-            event.acceptProposedAction()
-            for path in gs2_paths:
-                self.open_gs2(path)
-            return
-
-        witsml_suffixes = {".xml", ".witsml", ".epc", ".zip"}
-        witsml_paths = [
-            Path(url.toLocalFile())
-            for url in event.mimeData().urls()
-            if Path(url.toLocalFile()).suffix.casefold() in witsml_suffixes
-        ]
-        if witsml_paths:
-            event.acceptProposedAction()
-            for path in witsml_paths:
-                self.open_witsml_inventory(path)
-            return
-
-        paths = [
-            Path(url.toLocalFile())
-            for url in event.mimeData().urls()
-            if Path(url.toLocalFile()).suffix.casefold() == ".db"
-        ]
-        if not paths:
-            super().dropEvent(event)
-            return
-        event.acceptProposedAction()
-        if len(paths) == 1:
-            self.open_paradox(paths[0])
-        else:
-            dialog = ParadoxBatchDialog(tuple(paths), self, language=self.language)
-            dialog.open_las_requested.connect(self._open_generated_las)
-            dialog.exec()
-
-    def open_project(self) -> None:
-        if self.session.dirty:
-            answer = QMessageBox.question(
-                self,
-                "ÐžÑ‚ÐºÑ€Ñ‹Ñ‚Ð¸Ðµ Ð¿Ñ€Ð¾ÐµÐºÑ‚Ð°",
-                "ÐÐµÑÐ¾Ñ…Ñ€Ð°Ð½Ñ‘Ð½Ð½Ñ‹Ðµ Ð¸Ð·Ð¼ÐµÐ½ÐµÐ½Ð¸Ñ Ð±ÑƒÐ´ÑƒÑ‚ Ð¿Ð¾Ñ‚ÐµÑ€ÑÐ½Ñ‹. ÐŸÑ€Ð¾Ð´Ð¾Ð»Ð¶Ð¸Ñ‚ÑŒ?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No,
-            )
-            if answer != QMessageBox.StandardButton.Yes:
-                return
-
-        filename, _ = QFileDialog.getOpenFileName(
-            self,
-            "ÐžÑ‚ÐºÑ€Ñ‹Ñ‚ÑŒ Ð¿Ñ€Ð¾ÐµÐºÑ‚",
-            str(self.project_path or Path.cwd()),
-            "GeoLog Package (*.geologpkg);;GeoLog Project (*.geolog.json);;JSON (*.json)",
-        )
-        if not filename:
-            return
-
-        source = Path(filename)
-        try:
-            self.project_controller.open_project(source)
-        except (OSError, ProjectFormatError) as exc:
-            QMessageBox.critical(self, "ÐžÑ‚ÐºÑ€Ñ‹Ñ‚Ð¸Ðµ Ð¿Ñ€Ð¾ÐµÐºÑ‚Ð°", str(exc))
-            self._log(f"ÐŸÑ€Ð¾ÐµÐºÑ‚ Ð½Ðµ Ð¾Ñ‚ÐºÑ€Ñ‹Ñ‚: {source.name}: {exc}")
-            return
-
-        self._bind_project_session()
-        self._remember_document_bundle_execution(None)
-        well = self.session.current_well
-        saved_layout = self.session.current_tablet_layout
-        annotation_scope_migration_required = bool(
-            well is not None
-            and any(
-                is_annotation_object(item) and annotation_from_canvas(item).scope_id is None
-                for item in well.canvas_objects
-            )
-        ) or bool(
-            saved_layout is not None
-            and saved_layout.annotation_scope_id is None
-            and well is not None
-            and any(is_annotation_object(item) for item in well.canvas_objects)
-        )
-        self._refresh_tree()
-        self._show_current_dataset()
-        # A legacy annotation-scope migration must be saved. Normal project
-        # opening remains clean when no migration was necessary.
-        self.project_controller.mark_open_migration_required(annotation_scope_migration_required)
-        self._update_title()
-        self._log(f"ÐŸÑ€Ð¾ÐµÐºÑ‚ Ð¾Ñ‚ÐºÑ€Ñ‹Ñ‚: {source}")
-        self.statusBar().showMessage(f"ÐŸÑ€Ð¾ÐµÐºÑ‚ Ð¾Ñ‚ÐºÑ€Ñ‹Ñ‚: {source.name}")
-
-    def _show_current_dataset(self) -> None:
-        if hasattr(self, "pencil_action"):
-            self.pencil_action.setChecked(False)
-        if hasattr(self, "interval_statistics_panel"):
-            self._clear_interval_analysis()
-        dataset = self.session.current_dataset
-        self._update_external_las_insert_actions()
-        if dataset is None:
-            self.curve_view.clear()
-            self.las_table_editor.set_dataset(None)
-            self.tablet_view.set_lithology(
-                [], self.lithotype_catalog_controller.available(), refresh=False
-            )
-            self.tablet_view.set_cuttings([], refresh=False)
-            self.tablet_view.set_stratigraphy([], refresh=False)
-            self.tablet_view.set_interpretations([], refresh=False)
-            self.tablet_view.set_layout_and_dataset(
-                TabletLayout(), None, preserve_current_range=False
-            )
-            self.tablet_view.set_image_assets(self.session.image_assets)
-            self.tablet_view.set_canvas_objects([])
-            self.curve_browser.set_dataset(None)
-            self.curve_browser_dock.hide()
-            self.interpretation_properties.clear()
-            self.interpretation_properties_dock.hide()
-            self._workspace_controller.set_dataset(None)
-            self.interpretation_report_workspace.refresh()
-            return
-        self._workspace_controller.set_dataset(dataset.name)
-        self.curve_view.show_dataset(dataset)
-        self.las_table_editor.set_dataset(dataset)
-        self.tablet_view.set_image_assets(self.session.image_assets)
-        self.curve_browser.set_dataset(dataset)
-        self.curve_browser.select_recommended()
-        self.curve_browser_dock.hide()
-        well = self.session.current_well
-        # Do not expose well-global annotation objects before the saved form is
-        # restored. The scoped layer is populated after the layout is known.
-        self.tablet_view.set_canvas_objects([])
-        self.tablet_view.set_lithology(
-            well.lithology if well is not None else [],
-            self.lithotype_catalog_controller.available(),
-            refresh=False,
-        )
-        self.tablet_view.set_cuttings(well.cuttings if well is not None else [], refresh=False)
-        self.tablet_view.set_stratigraphy(
-            well.stratigraphy if well is not None else [], refresh=False
-        )
-        self.interpretation_controller.normalize_selection()
-        self.tablet_view.set_interpretations(
-            list(well.interpretations.values()) if well is not None else [],
-            self.interpretation_controller.selected_interpretation_id,
-            refresh=False,
-        )
-        saved_layout = self.session.current_tablet_layout
-        layout = saved_layout or self.tablet_controller.build_default_layout()
-        # Install the GS2 dataset, its final form and all geological overlays in
-        # one render pass.  Rendering the previous dataset's compact depth form
-        # first left several deleteLater() widget trees alive in the same event
-        # loop turn, producing clipped headers and stale grey plot fragments.
-        self.tablet_view.set_layout_and_dataset(layout, dataset)
-        selected_interpretation_id = self.interpretation_controller.selected_interpretation_id
-        selected_interval_id = self.interpretation_controller.selected_interval_id
-        if selected_interpretation_id and selected_interval_id:
-            self._select_interpretation_interval(selected_interpretation_id, selected_interval_id)
-        else:
-            self._clear_interpretation_interval_selection()
-        self._refresh_annotation_layer()
-        self.interpretation_report_workspace.refresh()
-        self._show_workspace(self.tablet_view)
-
-    def show_las_editor(self) -> None:
-        dialog = LasEditorDialog(
-            self.session.current_dataset,
-            self,
-            language=self.language,
-        )
-        if dialog.exec() != QDialog.DialogCode.Accepted or dialog.operation is None:
-            return
-        operation = dialog.operation
-        if operation is LasEditorOperation.CREATE:
-            self.create_new_las()
-        elif operation is LasEditorOperation.OPEN:
-            self.open_las()
-        elif operation is LasEditorOperation.TABLE:
-            self._show_workspace(self.las_table_editor)
-        elif operation is LasEditorOperation.REVERSE_DEPTH:
-            self.create_ascending_depth_copy(save_as_las=True)
-        elif operation is LasEditorOperation.RESAMPLE:
-            self.create_resampled_depth_copy(save_as_las=True)
-        elif operation is LasEditorOperation.INSERT_CURVES:
-            self.show_external_las_insert()
-        elif operation is LasEditorOperation.MERGE:
-            self.show_dataset_merge()
-        elif operation is LasEditorOperation.EXPORT_COPY:
-            self.export_current_las()
-
-    def create_new_las(self) -> None:
-        dialog = NewLasDialog(self, language=self.language)
-        if dialog.exec() != QDialog.DialogCode.Accepted or dialog.plan is None:
-            return
-        try:
-            dataset = self.new_las_controller.create(dialog.plan)
-        except ValueError as exc:
-            QMessageBox.warning(self, self._t("new_las.title"), str(exc))
-            return
-        self._show_current_dataset()
-        self._refresh_tree()
-        self._update_title()
-        self._log(self._t("new_las.created", name=dataset.name))
-
-    def show_daily_las_growth(self) -> None:
-        if self.session.current_well is None:
-            QMessageBox.information(
-                self, self._t("daily_las_growth.action"), self._t("export.select_dataset")
-            )
-            return
-        dialog = DailyLasGrowthDialog(
-            self.daily_las_growth_controller, self, language=self.language
-        )
-        if dialog.exec() != QDialog.DialogCode.Accepted or dialog.plan is None:
-            return
-        if not self._ensure_daily_las_project_target():
-            self.daily_las_growth_controller.reset_state()
-            return
-        try:
-            self.project_controller.assert_project_storage_current()
-        except ProjectChangedExternallyError as exc:
-            self.daily_las_growth_controller.reset_state()
-            log_exception(
-                "daily_las_growth.project_changed_before_append",
-                exc,
-                project_path=self.project_path,
-            )
-            QMessageBox.critical(
-                self,
-                self._t("daily_las_growth.action"),
-                self._t("project.external_change"),
-            )
-            return
-        except (OSError, ProjectFileSafetyError, RuntimeError, ValueError) as exc:
-            self.daily_las_growth_controller.reset_state()
-            log_exception(
-                "daily_las_growth.project_preflight_failed",
-                exc,
-                project_path=self.project_path,
-            )
-            QMessageBox.critical(
-                self,
-                self._t("daily_las_growth.action"),
-                self._t("project.save_failed"),
-            )
-            return
-        outcome: WellNumericalUpdateOutcome | DailyLasGrowthOutcome
-        try:
-            if isinstance(dialog.plan, WellNumericalUpdatePlan):
-                outcome = self.daily_las_growth_controller.apply_numerical(
-                    dialog.plan, append_rows=dialog.append_rows.isChecked(),
-                    selected_changes=dialog.selected_numerical_changes(),
-                    geology_plan=getattr(dialog, "geology_plan", None),
-                )
-            else:
-                outcome = self.daily_las_growth_controller.apply(dialog.plan)
-        except (OSError, RuntimeError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("daily_las_growth.action"), str(exc))
-            return
-        self.project_controller.select_existing_dataset(dialog.plan.target_dataset_id)
-        if outcome.record is None and not (isinstance(outcome, WellNumericalUpdateOutcome) and outcome.geology_record is not None):
-            message = self._t("daily_las_growth.numerical_no_changes" if isinstance(outcome.plan, WellNumericalUpdatePlan) else "daily_las_growth.no_changes")
-            self._refresh_after_daily_las_growth()
-            self.statusBar().showMessage(message)
-            self._log(message)
-            return
-        try:
-            saved_path = self.project_controller.save_project(
-                mode=SaveMode.MATERIAL_AUTOSAVE,
-            )
-        except ProjectChangedExternallyError as exc:
-            self._handle_daily_las_persist_failure(
-                exc,
-                reason_key="project.external_change",
-                numerical=isinstance(outcome.plan, WellNumericalUpdatePlan),
-            )
-            return
-        except (OSError, ProjectFileSafetyError, RuntimeError, ValueError) as exc:
-            self._handle_daily_las_persist_failure(
-                exc,
-                reason_key="project.save_failed",
-                numerical=isinstance(outcome.plan, WellNumericalUpdatePlan),
-            )
-            return
-
-        self._acknowledge_background_project_save()
-        self._refresh_after_daily_las_growth()
-        save_result = self.project_controller.last_save_result
-        backup = getattr(save_result, "backup", None)
-        backup_path = getattr(backup, "backup_path", None)
-        if isinstance(outcome, WellNumericalUpdateOutcome):
-            message = self._t(
-                "daily_las_growth.numerical_success", added=outcome.record.rows_added if outcome.record else 0,
-                changed=len(outcome.record.changes) if outcome.record else 0, project=saved_path, backup=backup_path or "â€”",
-            )
-            if outcome.geology_record is not None:
-                message += " " + self._t(
-                    "daily_las_growth.geology_success",
-                    lithology=len(outcome.geology_record.lithology_ids),
-                    cuttings=len(outcome.geology_record.cuttings_ids),
-                )
-        else:
-            message = self._t(
-                "daily_las_growth.success",
-                added=outcome.plan.rows_added,
-                skipped=outcome.plan.rows_skipped,
-                project=saved_path,
-                backup=backup_path or "â€”",
-            )
-        self.statusBar().showMessage(message)
-        self._log(message)
-
-        warnings = tuple(getattr(save_result, "warnings", ()))
-        if warnings:
-            log_event(
-                "daily_las_growth.recovery_warning",
-                project_path=saved_path,
-                warning_count=len(warnings),
-            )
-            QMessageBox.warning(
-                self,
-                self._t("daily_las_growth.action"),
-                self._t("project.recovery_warning"),
-            )
-
-    def _ensure_daily_las_project_target(self) -> bool:
-        current = self.project_path
-        if current is not None and current.suffix.casefold() == ".geologpkg":
-            return True
-
-        QMessageBox.information(
-            self,
-            self._t("daily_las_growth.project_target_title"),
-            self._t("daily_las_growth.project_target_required"),
-        )
-        initial = self._daily_las_project_target_hint(current)
-        filename, _ = QFileDialog.getSaveFileName(
-            self,
-            self._t("daily_las_growth.project_target_title"),
-            str(initial),
-            "GeoLog Package (*.geologpkg)",
-        )
-        if not filename:
-            return False
-
-        target = self._daily_las_package_path(Path(filename))
-        try:
-            self.project_controller.save_project(
-                target,
-                mode=SaveMode.EXPLICIT,
-                allow_existing_target=True,
-            )
-        except ProjectChangedExternallyError as exc:
-            log_exception(
-                "daily_las_growth.project_target_changed",
-                exc,
-                project_path=target,
-            )
-            QMessageBox.critical(
-                self,
-                self._t("daily_las_growth.action"),
-                self._t("project.external_change"),
-            )
-            return False
-        except (OSError, ProjectFileSafetyError, RuntimeError, ValueError) as exc:
-            log_exception(
-                "daily_las_growth.project_target_save_failed",
-                exc,
-                project_path=target,
-            )
-            QMessageBox.critical(
-                self,
-                self._t("daily_las_growth.action"),
-                self._t("project.save_failed"),
-            )
-            return False
-        self._acknowledge_background_project_save()
-        self._update_title()
-        return True
-
-    @staticmethod
-    def _daily_las_package_path(path: Path) -> Path:
-        if path.suffix.casefold() == ".geologpkg":
-            return path
-        if path.name.casefold().endswith(".geolog.json"):
-            return path.with_name(path.name[: -len(".geolog.json")] + ".geologpkg")
-        return path.with_suffix(".geologpkg")
-
-    def _daily_las_project_target_hint(self, current: Path | None) -> Path:
-        if current is not None:
-            return self._daily_las_package_path(current)
-        return Path.cwd() / "project.geologpkg"
-
-    def _handle_daily_las_persist_failure(
-        self,
-        exc: BaseException,
-        *,
-        reason_key: str,
-        numerical: bool = False,
-    ) -> None:
-        self._refresh_after_daily_las_growth()
-        message = self._t(
-            "daily_las_growth.numerical_persist_failed" if numerical else "daily_las_growth.persist_failed",
-            reason=self._t(reason_key),
-        )
-        log_exception(
-            "daily_las_growth.project_save_failed",
-            exc,
-            project_path=self.project_path,
-        )
-        self.statusBar().showMessage(message)
-        self._log(message)
-        QMessageBox.critical(
-            self,
-            self._t("daily_las_growth.action"),
-            message,
-        )
-
-    def _refresh_after_daily_las_growth(self) -> None:
-        self._show_current_dataset()
-        self._refresh_tree()
-        self._update_title()
-
-    def _acknowledge_background_project_save(self) -> None:
-        safety = getattr(self, "_session_safety_controller", None)
-        if safety is None:
-            return
-        refresh = getattr(safety, "refresh", None)
-        if not callable(refresh):
-            return
-        prompt_enabled = bool(getattr(safety, "prompt_enabled", False))
-        try:
-            safety.prompt_enabled = False
-            refresh()
-        finally:
-            safety.prompt_enabled = prompt_enabled
-
-    def export_current_las(self) -> None:
-        dataset = self.session.current_dataset
-        if dataset is None:
-            QMessageBox.information(self, self._t("export.title"), self._t("export.select_dataset"))
-            return
-        plan_dialog = LasExportPlanDialog(
-            self,
-            initial=self.dataset_export_controller.default_las_plan(),
-            language=self.language,
-        )
-        if plan_dialog.exec() != QDialog.DialogCode.Accepted:
-            return
-        plan = plan_dialog.export_plan()
-        analysis = self.dataset_export_controller.analyze_current_las_export(plan)
-        errors = [
-            issue.message
-            for issue in analysis.issues
-            if issue.severity is ExportIssueSeverity.ERROR
-        ]
-        if errors:
-            QMessageBox.critical(self, self._t("export.blocked"), "\n".join(errors))
-            return
-        warnings = [
-            issue.message
-            for issue in analysis.issues
-            if issue.severity is ExportIssueSeverity.WARNING
-        ]
-        if warnings:
-            answer = QMessageBox.question(
-                self,
-                self._t("export.warnings"),
-                "\n".join(warnings) + "\n\n" + self._t("export.continue_question"),
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No,
-            )
-            if answer is not QMessageBox.StandardButton.Yes:
-                return
-        initial = Path.cwd() / f"{dataset.name}_edited.las"
-        filename, _ = QFileDialog.getSaveFileName(
-            self,
-            self._t("export.save_title"),
-            str(initial),
-            "LAS (*.las)",
-        )
-        if not filename:
-            return
-        target = Path(filename)
-        overwrite = False
-        if target.exists():
-            answer = QMessageBox.question(
-                self,
-                self._t("export.title"),
-                self._t("export.overwrite_question", name=target.name),
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No,
-            )
-            if answer != QMessageBox.StandardButton.Yes:
-                return
-            overwrite = True
-        try:
-            exported = self.dataset_export_controller.export_current_las(
-                target,
-                overwrite=overwrite,
-                plan=plan,
-            )
-        except (FileExistsError, LasExportError, OSError, RuntimeError) as exc:
-            QMessageBox.critical(self, self._t("export.title"), str(exc))
-            self._log(f"LAS Ð½Ðµ ÑÐºÑÐ¿Ð¾Ñ€Ñ‚Ð¸Ñ€Ð¾Ð²Ð°Ð½: {exc}")
-            return
-        self._log(f"LAS ÑÐºÑÐ¿Ð¾Ñ€Ñ‚Ð¸Ñ€Ð¾Ð²Ð°Ð½: {exported}")
-        self.statusBar().showMessage(self._t("export.success", name=exported.name))
-
-    def _export_current_dataset_to_path(self, target: Path) -> Path:
-        destination = target if target.suffix.casefold() == ".las" else target.with_suffix(".las")
-        overwrite = False
-        if destination.exists():
-            answer = QMessageBox.question(
-                self,
-                self._t("export.title"),
-                self._t("export.overwrite_question", name=destination.name),
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No,
-            )
-            if answer is not QMessageBox.StandardButton.Yes:
-                raise RuntimeError(self._t("las_editor.save_cancelled"))
-            overwrite = True
-        plan = self.dataset_export_controller.default_las_plan()
-        return self.dataset_export_controller.export_current_las(
-            destination,
-            overwrite=overwrite,
-            plan=plan,
-        )
-
-    def export_selected_csv(self) -> None:
-        self._export_selected_table("csv")
-
-    def export_selected_excel(self) -> None:
-        self._export_selected_table("xlsx")
-
-    def export_selected_docx(self) -> None:
-        self._export_selected_table("docx")
-
-    def export_selected_html(self) -> None:
-        self._export_selected_table("html")
-
-    def _export_selected_table(self, export_format: str) -> None:
-        dataset = self.session.current_dataset
-        selection = self.dataset_selection
-        if dataset is None:
-            QMessageBox.information(
-                self, self._t("selection_export.title"), self._t("export.select_dataset")
-            )
-            return
-        if selection.dataset_id != dataset.dataset_id or selection.interval is None:
-            QMessageBox.information(
-                self,
-                self._t("selection_export.title"),
-                self._t("selection_export.select_interval"),
-            )
-            return
-        if not selection.curve_ids:
-            QMessageBox.information(
-                self,
-                self._t("selection_export.title"),
-                self._t("selection_export.select_curves"),
-            )
-            return
-
-        report_definition = ReportDefinition(
-            definition_id=f"selection:{dataset.dataset_id}",
-            name=f"{dataset.name} selection",
-            profile=ReportProfile.COMBINED,
-            dataset_id=dataset.dataset_id,
-            index_id=dataset.active_index_id or "",
-            interval=ReportIntervalSelection(ReportIntervalMode.SELECTION),
-            language=self.language.value,
-            curve_ids=tuple(selection.curve_ids),
-            channel_mnemonics=tuple(
-                dataset.curves[curve_id].metadata.original_mnemonic
-                for curve_id in selection.curve_ids
-                if curve_id in dataset.curves
-            ),
-            sections=(ReportSectionDefinition(ReportSectionKind.CURVES),),
-            form_kind="dataset-selection",
-            form_id=dataset.dataset_id,
-            form_revision="schema:1",
-        )
-        try:
-            resolved_report = self.dataset_export_controller.resolve_report(
-                report_definition,
-                context=ReportIntervalContext(selection_range=selection.interval),
-                require_curves=True,
-            )
-        except (ReportDefinitionError, RuntimeError, ValueError) as exc:
-            QMessageBox.critical(self, self._t("selection_export.title"), str(exc))
-            return
-
-        formats = {
-            "csv": (".csv", "CSV (*.csv)"),
-            "xlsx": (".xlsx", "Excel (*.xlsx)"),
-            "docx": (".docx", "Word (*.docx)"),
-            "html": (".html", "HTML (*.html)"),
-        }
-        try:
-            suffix, file_filter = formats[export_format]
-        except KeyError:
-            QMessageBox.critical(
-                self,
-                self._t("selection_export.title"),
-                self._t("selection_export.unsupported_format", format=export_format),
-            )
-            return
-        initial = Path.cwd() / f"{dataset.name}_selection{suffix}"
-        filename, _ = QFileDialog.getSaveFileName(
-            self,
-            self._t("selection_export.save_title"),
-            str(initial),
-            file_filter,
-        )
-        if not filename:
-            return
-        target = Path(filename)
-        if target.suffix.casefold() != suffix:
-            target = target.with_suffix(suffix)
-        overwrite = self._confirm_export_overwrite(target, include_report_passport=True)
-        if overwrite is None:
-            return
-        try:
-            passport = self._build_tabular_report_passport(
-                resolved_report, output_format=export_format
-            )
-
-            def produce(staged_target: Path) -> Path:
-                if export_format == "xlsx":
-                    return self.dataset_export_controller.export_resolved_report_excel(
-                        staged_target,
-                        resolved_report,
-                        overwrite=False,
-                        language=self.language,
-                    )
-                if export_format == "docx":
-                    return self.dataset_export_controller.export_resolved_report_docx(
-                        staged_target,
-                        resolved_report,
-                        overwrite=False,
-                        language=self.language,
-                    )
-                if export_format == "html":
-                    return self.dataset_export_controller.export_resolved_report_html(
-                        staged_target,
-                        resolved_report,
-                        overwrite=False,
-                        language=self.language,
-                    )
-                return self.dataset_export_controller.export_resolved_report_text(
-                    staged_target,
-                    resolved_report,
-                    delimiter=",",
-                    overwrite=False,
-                )
-
-            transaction = execute_report_output_transaction(
-                target, produce, passport, overwrite=overwrite
-            )
-            exported = transaction.primary_path
-            passport_path = transaction.passport_path
-        except (
-            FileExistsError,
-            KeyError,
-            OSError,
-            RuntimeError,
-            ValueError,
-            SelectionExportError,
-            ReportDocumentExportError,
-            ReportDefinitionError,
-            ReportPassportError,
-        ) as exc:
-            QMessageBox.critical(self, self._t("selection_export.title"), str(exc))
-            self._log(self._t("selection_export.failed", error=str(exc)))
-            return
-        message = self._t("selection_export.success", name=exported.name)
-        message += " Â· " + self._t("report_passport.saved", name=passport_path.name)
-        self._log(message)
-        self.statusBar().showMessage(message)
-
-    def _build_tabular_report_passport(
-        self,
-        report: ResolvedReportDefinition,
-        *,
-        output_format: str,
-    ):
-        dataset = self.session.current_dataset
-        if dataset is None:
-            raise ReportDefinitionError("Ð¡Ð½Ð°Ñ‡Ð°Ð»Ð° Ð²Ñ‹Ð±ÐµÑ€Ð¸Ñ‚Ðµ dataset")
-        curve_mnemonics = report.requested_channel_mnemonics or tuple(
-            dataset.curves[curve_id].metadata.original_mnemonic for curve_id in report.curve_ids
-        )
-        definition = report.definition
-        request = ReportPassportRequest(
-            report_kind=ReportKind.INTERVAL,
-            report_name=definition.name,
-            language=definition.language,
-            render=ReportRenderSettings(
-                renderer=(
-                    "report-document-export:1"
-                    if output_format in {"docx", "html"}
-                    else "report-table-export:2"
-                ),
-                output_format=output_format,
-                range_mode="custom",
-                strict_unicode=True,
-                options=(("index_id", report.interval.index_id),),
-            ),
-            interval=report.interval.bounds,
-            curve_mnemonics=curve_mnemonics,
-            form=report_definition_snapshot(
-                definition.definition_id,
-                definition.name,
-                definition.payload(),
-                schema_version=definition.schema_version,
-            ),
-        )
-        return self.report_passport_builder.build(self.session, request)
-
-    def _confirm_export_overwrite(
-        self, target: Path, *, include_report_passport: bool = False
-    ) -> bool | None:
-        sidecar = passport_sidecar_path(target) if include_report_passport else None
-        existing = (
-            target
-            if target.exists()
-            else sidecar
-            if sidecar is not None and sidecar.exists()
-            else None
-        )
-        if existing is None:
-            return False
-        answer = QMessageBox.question(
-            self,
-            self._t("selection_export.title"),
-            self._t("export.overwrite_question", name=existing.name),
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
-        )
-        return True if answer == QMessageBox.StandardButton.Yes else None
-
-    def open_print_center(
-        self,
-        _checked: bool = False,
-        *,
-        widget=None,
-        source_name: str | None = None,
-        report_form=None,
-    ) -> None:
-        current = widget or self.tabs.currentWidget()
-        if current not in (self.curve_view, self.tablet_view):
-            QMessageBox.information(
-                self,
-                self._t("print_center.title"),
-                self._t("visual_export.select_view"),
-            )
-            return
-        resolved_name = source_name or (
-            self._t("print_center.tablet_source")
-            if current is self.tablet_view
-            else self._t("print_center.curves_source")
-        )
-        paged_tablet = current if isinstance(current, TabletView) else None
-        current_range = paged_tablet.visible_depth_range if paged_tablet is not None else None
-        full_range = paged_tablet.printable_vertical_range() if paged_tablet is not None else None
-        selected_range = (
-            self.dataset_selection.interval
-            if self.session.current_dataset is not None
-            and self.dataset_selection.dataset_id == self.session.current_dataset.dataset_id
-            and (
-                paged_tablet is None
-                or paged_tablet.vertical_index_id == self.session.current_dataset.active_index_id
-            )
-            else None
-        )
-        report_context = ReportIntervalContext(
-            current_range=current_range,
-            full_range=full_range,
-            selection_range=selected_range,
-        )
-        dialog = PrintCenterDialog(
-            self,
-            initial_page=self.print_page_settings,
-            initial_preferences=self.print_export_preferences,
-            language=self.language,
-            source_name=resolved_name,
-            preview_callback=lambda job: self._preview_print_job(
-                current,
-                job,
-                resolved_name,
-                report_context=report_context,
-                report_form=report_form,
-            ),
-            supports_pagination=paged_tablet is not None,
-            current_vertical_range=current_range,
-            full_vertical_range=full_range,
-            selected_vertical_range=selected_range,
-            vertical_unit=(
-                paged_tablet.printable_vertical_unit if paged_tablet is not None else ""
-            ),
-            header_choices=self._print_header_choices(),
-            initial_header_template_id=(
-                report_form.print_header_for_orientation(self.print_page_settings.orientation.value)
-                if report_form is not None and hasattr(report_form, "print_header_for_orientation")
-                else getattr(report_form, "print_header_template_id", None)
-            ),
-            paired_header_template_ids=(
-                dict(getattr(report_form, "print_header_template_ids", {}))
-                if report_form is not None
-                else {}
-            ),
-            header_orientation_by_id=self._print_header_orientation_by_id(),
-            manage_headers_callback=self._manage_print_headers,
-            header_preview_callback=self._print_header_preview_pixmap,
-            edit_header_callback=self._open_print_header_from_center,
-            printer_choices=self._print_jobs.available_printers(),
-            refresh_printers_callback=self._print_jobs.available_printers,
-            validate_printer_callback=lambda job: self._validate_print_center_printer(
-                current, job
-            ),
-            track_print_options=(
-                tuple(
-                    PrintTrackOption(
-                        item.definition.track_id,
-                        item.definition.title,
-                        grid_print=item.definition.grid_print,
-                        grid_x=item.definition.grid_x,
-                        grid_y=item.definition.grid_y,
-                    )
-                    for item in paged_tablet.printable_tracks()
-                )
-                if paged_tablet is not None
-                else ()
-            ),
-        )
-        if dialog.exec() != QDialog.DialogCode.Accepted:
-            return
-        job = dialog.job_settings()
-        self.print_page_settings = job.page
-        self.print_export_preferences = dialog.preferences()
-        self.user_profile_settings.save_print_page_settings(job.page)
-        self.user_profile_settings.save_print_export_preferences(self.print_export_preferences)
-        self._execute_print_job(
-            current,
-            job,
-            resolved_name,
-            report_form=report_form,
-            report_context=report_context,
-        )
-
-    def _validate_print_center_printer(
-        self,
-        widget,
-        job: PrintJobSettings,
-    ) -> None:
-        printer = self._print_jobs.create_printer(widget, job)
-        gate = self._print_jobs.physical_printer_gate(printer, widget, job)
-        if gate.ok:
-            return
-        details = "\n".join(
-            self._t("print_center.gate_" + issue.code.replace("-", "_"))
-            for issue in gate.errors
-        )
-        raise ValueError(details)
-
-    def _preview_print_job(
-        self,
-        widget,
-        job: PrintJobSettings,
-        source_name: str,
-        *,
-        report_context: ReportIntervalContext,
-        report_form=None,
-    ) -> None:
-        try:
-            report, normalized_job = self._resolve_print_report(
-                widget,
-                job,
-                source_name,
-                report_context=report_context,
-                report_form=report_form,
-            )
-            del report
-            header_template = self._resolve_print_header(normalized_job)
-            printer = self._print_jobs.create_printer(widget, normalized_job)
-        except (ReportDefinitionError, RuntimeError, ValueError) as exc:
-            QMessageBox.critical(self, self._t("print_center.title"), str(exc))
-            return
-        preview = QPrintPreviewDialog(printer, self)
-        preview.setWindowTitle(self._t("print.preview_title"))
-        preview.paintRequested.connect(
-            lambda requested: self._print_jobs.render_preview(
-                widget,
-                requested,
-                normalized_job,
-                source_name=source_name,
-                language=self.language,
-                header_template=header_template,
-                session=self.session,
-            )
-        )
-        preview.exec()
-
-    def _execute_print_job(
-        self,
-        widget,
-        job: PrintJobSettings,
-        source_name: str,
-        *,
-        report_form=None,
-        report_context: ReportIntervalContext,
-    ) -> None:
-        status_dialog: PrintJobStatusDialog | None = None
-        try:
-            report, normalized_job = self._resolve_print_report(
-                widget,
-                job,
-                source_name,
-                report_context=report_context,
-                report_form=report_form,
-            )
-            passport = self._build_print_passport(report, normalized_job, source_name)
-            header_template = self._resolve_print_header(normalized_job)
-            target = normalized_job.normalized_target()
-            overwrite = False
-            if normalized_job.output_format is not PrintOutputFormat.PRINTER:
-                if target is None:
-                    raise ValueError(self._t("print_center.choose_file_error"))
-                overwrite_choice = self._confirm_print_overwrite(target)
-                if overwrite_choice is None:
-                    return
-                overwrite = overwrite_choice
-
-            status_dialog = PrintJobStatusDialog(
-                self,
-                language=self.language,
-                output_format=normalized_job.output_format,
-                target=target,
-            )
-            self._active_print_status_dialog = status_dialog
-            status_dialog.finished.connect(
-                lambda _result, dialog=status_dialog: self._release_print_status_dialog(
-                    dialog
-                )
-            )
-            status_dialog.open()
-            QApplication.processEvents()
-            if normalized_job.output_format is PrintOutputFormat.PRINTER:
-                status_dialog.show_sending()
-                QApplication.processEvents()
-                printer = self._print_jobs.create_printer(widget, normalized_job)
-                result = self._print_jobs.render_to_printer(
-                    widget,
-                    printer,
-                    normalized_job,
-                    source_name=source_name,
-                    language=self.language,
-                    passport=passport,
-                    require_physical_gate=True,
-                    header_template=header_template,
-                    session=self.session,
-                )
-                message = self._t("print_center.print_success_pages", count=result.page_count)
-                if result.passport_sha256:
-                    message += " Â· " + self._t(
-                        "report_passport.id", digest=result.passport_sha256[:12]
-                    )
-                if result.printer_gate is not None and result.printer_gate.warnings:
-                    message += " Â· " + self._t(
-                        "print_center.gate_warnings",
-                        count=len(result.printer_gate.warnings),
-                    )
-                    for issue in result.printer_gate.warnings:
-                        self._log(self._t("print_center.gate_" + issue.code.replace("-", "_")))
-            else:
-                assert target is not None
-                status_dialog.show_rendering()
-                QApplication.processEvents()
-                result = self._print_jobs.execute_file(
-                    widget,
-                    normalized_job,
-                    source_name=source_name,
-                    language=self.language,
-                    overwrite=overwrite,
-                    passport=passport,
-                    header_template=header_template,
-                    session=self.session,
-                )
-                primary = result.primary_path
-                name = primary.name if primary is not None else target.name
-                message = self._t(
-                    "print_center.export_success_pages",
-                    name=name,
-                    count=result.page_count,
-                )
-                if result.passport_path is not None:
-                    message += " Â· " + self._t(
-                        "report_passport.saved", name=result.passport_path.name
-                    )
-        except (
-            FileExistsError,
-            OSError,
-            ReportDefinitionError,
-            ReportPassportError,
-            RuntimeError,
-            ValueError,
-        ) as exc:
-            if status_dialog is None:
-                QMessageBox.critical(self, self._t("print_center.title"), str(exc))
-            else:
-                status_dialog.mark_failed(str(exc))
-            self._log(self._t("print_center.failed", error=str(exc)))
-            return
-        status_dialog.mark_ready(page_count=result.page_count, paths=result.paths)
-        self._log(message)
-        self.statusBar().showMessage(message)
-
-    def _release_print_status_dialog(self, dialog: PrintJobStatusDialog) -> None:
-        if self._active_print_status_dialog is dialog:
-            self._active_print_status_dialog = None
-        dialog.deleteLater()
-
-    def _resolve_print_report(
-        self,
-        widget,
-        job: PrintJobSettings,
-        source_name: str,
-        *,
-        report_context: ReportIntervalContext,
-        report_form=None,
-    ) -> tuple[ResolvedReportDefinition, PrintJobSettings]:
-        dataset = self.session.current_dataset
-        if dataset is None:
-            raise ReportDefinitionError("Ð¡Ð½Ð°Ñ‡Ð°Ð»Ð° Ð²Ñ‹Ð±ÐµÑ€Ð¸Ñ‚Ðµ dataset")
-        pagination = job.pagination
-        if pagination.range_mode is PrintRangeMode.CUSTOM:
-            interval = ReportIntervalSelection(
-                ReportIntervalMode.CUSTOM,
-                pagination.custom_start,
-                pagination.custom_end,
-            )
-        elif pagination.range_mode is PrintRangeMode.FULL:
-            interval = ReportIntervalSelection(ReportIntervalMode.FULL)
-        elif pagination.range_mode is PrintRangeMode.SELECTION:
-            interval = ReportIntervalSelection(ReportIntervalMode.SELECTION)
-        else:
-            interval = ReportIntervalSelection(ReportIntervalMode.CURRENT)
-
-        curve_ids = self._print_report_curve_ids(widget, dataset, job)
-        underlying_form = (
-            form_document_snapshot(report_form)
-            if report_form is not None
-            else tablet_layout_form_snapshot(
-                self.session.current_tablet_layout if isinstance(widget, TabletView) else None,
-                dataset_id=dataset.dataset_id,
-                name=source_name,
-            )
-        )
-        index_id = (
-            widget.vertical_index_id
-            if isinstance(widget, TabletView) and widget.vertical_index_id is not None
-            else dataset.active_index_id
-        )
-        definition = ReportDefinition(
-            definition_id=(
-                f"view:{dataset.dataset_id}:{underlying_form.form_kind}:{underlying_form.form_id}"
-            ),
-            name=source_name,
-            profile=ReportProfile.VIEW,
-            dataset_id=dataset.dataset_id,
-            index_id=index_id or "",
-            interval=interval,
-            language=self.language.value,
-            curve_ids=curve_ids,
-            channel_mnemonics=self._print_report_channel_mnemonics(
-                widget, dataset, job
-            ),
-            sections=(ReportSectionDefinition(ReportSectionKind.CURVES),),
-            form_kind=underlying_form.form_kind,
-            form_id=underlying_form.form_id,
-            form_revision=underlying_form.revision,
-        )
-        resolved = self.dataset_export_controller.resolve_report(definition, context=report_context)
-        resolved_index = dataset.indexes.get(resolved.interval.index_id)
-        if resolved_index is None:
-            raise ReportDefinitionError(
-                f"Ð˜Ð½Ð´ÐµÐºÑ Ð¿ÐµÑ‡Ð°Ñ‚Ð½Ð¾Ð³Ð¾ Ð¸Ð½Ñ‚ÐµÑ€Ð²Ð°Ð»Ð° Ð½Ðµ Ð½Ð°Ð¹Ð´ÐµÐ½: {resolved.interval.index_id}"
-            )
-        try:
-            if resolved_index.index_type is IndexType.DATETIME:
-                start = datetime_boundary_unix_seconds(resolved.interval.start)
-                end = datetime_boundary_unix_seconds(resolved.interval.end)
-            else:
-                start = float(resolved.interval.start)
-                end = float(resolved.interval.end)
-        except (TypeError, ValueError) as exc:
-            raise ReportDefinitionError(
-                "Ð“Ñ€Ð°Ð½Ð¸Ñ†Ñ‹ Ð²ÐµÑ€Ñ‚Ð¸ÐºÐ°Ð»ÑŒÐ½Ð¾Ð³Ð¾ Ð¸Ð½Ñ‚ÐµÑ€Ð²Ð°Ð»Ð° Ð¿ÐµÑ‡Ð°Ñ‚Ð¸ Ð¸Ð¼ÐµÑŽÑ‚ Ð½ÐµÐ²ÐµÑ€Ð½Ñ‹Ð¹ Ñ„Ð¾Ñ€Ð¼Ð°Ñ‚"
-            ) from exc
-        normalized_pagination = replace(
-            pagination,
-            range_mode=PrintRangeMode.CUSTOM,
-            custom_start=start,
-            custom_end=end,
-        )
-        return resolved, replace(job, pagination=normalized_pagination)
-
-    def _print_report_curve_ids(
-        self,
-        widget,
-        dataset: Dataset,
-        job: PrintJobSettings,
-    ) -> tuple[str, ...]:
-        if isinstance(widget, TabletView):
-            layout = self.session.current_tablet_layout
-            included = (
-                None
-                if job.included_track_ids is None
-                else frozenset(job.included_track_ids)
-            )
-            resolved: list[str] = []
-            tracks = layout.tracks if layout is not None else ()
-            for track in tracks:
-                if not track.visible:
-                    continue
-                if included is not None and track.track_id not in included:
-                    continue
-                for mnemonic in track.curve_mnemonics:
-                    curve = dataset.curve_by_mnemonic(mnemonic)
-                    if curve is not None:
-                        resolved.append(curve.metadata.curve_id)
-            if resolved or included is not None:
-                return tuple(dict.fromkeys(resolved))
-        return tuple(sorted(dataset.curves))
-
-    def _print_report_channel_mnemonics(
-        self,
-        widget,
-        dataset: Dataset,
-        job: PrintJobSettings,
-    ) -> tuple[str, ...]:
-        if isinstance(widget, TabletView):
-            layout = self.session.current_tablet_layout
-            included = (
-                None
-                if job.included_track_ids is None
-                else frozenset(job.included_track_ids)
-            )
-            values = [
-                mnemonic
-                for track in (layout.tracks if layout is not None else ())
-                if track.visible and (included is None or track.track_id in included)
-                for mnemonic in track.curve_mnemonics
-            ]
-            if values or included is not None:
-                return tuple(dict.fromkeys(values))
-        return tuple(
-            dataset.curves[curve_id].metadata.original_mnemonic
-            for curve_id in sorted(dataset.curves)
-        )
-
-    def _build_print_passport(
-        self,
-        report: ResolvedReportDefinition,
-        job: PrintJobSettings,
-        source_name: str,
-    ):
-        dataset = self.session.current_dataset
-        if dataset is None:
-            raise ReportDefinitionError("Ð¡Ð½Ð°Ñ‡Ð°Ð»Ð° Ð²Ñ‹Ð±ÐµÑ€Ð¸Ñ‚Ðµ dataset")
-        curve_mnemonics = report.requested_channel_mnemonics or tuple(
-            dataset.curves[curve_id].metadata.original_mnemonic for curve_id in report.curve_ids
-        )
-        definition = report.definition
-        request = ReportPassportRequest(
-            report_kind=ReportKind.VIEW,
-            report_name=source_name,
-            language=definition.language,
-            render=report_render_settings(job),
-            interval=report.interval.bounds,
-            curve_mnemonics=curve_mnemonics,
-            form=report_definition_snapshot(
-                definition.definition_id,
-                definition.name,
-                definition.payload(),
-                schema_version=definition.schema_version,
-            ),
-        )
-        return self.report_passport_builder.build(self.session, request)
-
-    def _confirm_print_overwrite(self, target: Path) -> bool | None:
-        sidecar = passport_sidecar_path(target)
-        existing = target if target.exists() else sidecar if sidecar.exists() else None
-        if existing is None:
-            return False
-        answer = QMessageBox.question(
-            self,
-            self._t("print_center.title"),
-            self._t("export.overwrite_question", name=existing.name),
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
-        )
-        return True if answer == QMessageBox.StandardButton.Yes else None
-
-    def _print_form_from_manager(self, form) -> None:
-        if not self.apply_form_to_tablet(form, mark_dirty=False, notify=False):
-            return
-        self.user_profile_settings.save_selected_form_id(form.form_id)
-        self.open_print_center(
-            widget=self.tablet_view,
-            source_name=form.name,
-            report_form=form,
-        )
-
-    def export_active_visualization(self, export_format: str) -> None:
-        current = self.tabs.currentWidget()
-        if current not in (self.curve_view, self.tablet_view):
-            QMessageBox.information(
-                self,
-                self._t("visual_export.title"),
-                self._t("visual_export.select_view"),
-            )
-            return
-        formats = {
-            "png": (".png", "PNG (*.png)"),
-            "svg": (".svg", "SVG (*.svg)"),
-            "pdf": (".pdf", "PDF (*.pdf)"),
-        }
-        try:
-            suffix, file_filter = formats[export_format]
-        except KeyError as exc:
-            raise ValueError(f"ÐÐµÐ¿Ð¾Ð´Ð´ÐµÑ€Ð¶Ð¸Ð²Ð°ÐµÐ¼Ñ‹Ð¹ Ñ„Ð¾Ñ€Ð¼Ð°Ñ‚ Ð²Ð¸Ð·ÑƒÐ°Ð»Ð¸Ð·Ð°Ñ†Ð¸Ð¸: {export_format}") from exc
-        view_name = "tablet" if current is self.tablet_view else "curves"
-        target_name = f"{view_name}{suffix}"
-        filename, _ = QFileDialog.getSaveFileName(
-            self,
-            self._t("visual_export.save_title"),
-            str(Path.cwd() / target_name),
-            file_filter,
-        )
-        if not filename:
-            return
-        target = Path(filename)
-        if target.suffix.casefold() != suffix:
-            target = target.with_suffix(suffix)
-        overwrite = self._confirm_export_overwrite(target, include_report_passport=True)
-        if overwrite is None:
-            return
-        try:
-            passport = self._build_visualization_passport(current, export_format, view_name)
-
-            def produce(staged_target: Path) -> Path:
-                if export_format == "pdf":
-                    return export_widget_pdf(
-                        current,
-                        staged_target,
-                        overwrite=False,
-                        page_settings=self.print_page_settings,
-                    )
-                if export_format == "png":
-                    return export_widget_png(current, staged_target, overwrite=False)
-                if export_format == "svg":
-                    return export_widget_svg(current, staged_target, overwrite=False)
-                raise ValueError(f"ÐÐµÐ¿Ð¾Ð´Ð´ÐµÑ€Ð¶Ð¸Ð²Ð°ÐµÐ¼Ñ‹Ð¹ Ñ„Ð¾Ñ€Ð¼Ð°Ñ‚ Ð²Ð¸Ð·ÑƒÐ°Ð»Ð¸Ð·Ð°Ñ†Ð¸Ð¸: {export_format}")
-
-            transaction = execute_report_output_transaction(
-                target, produce, passport, overwrite=overwrite
-            )
-            exported = transaction.primary_path
-            passport_path = transaction.passport_path
-        except (
-            FileExistsError,
-            OSError,
-            ReportPassportError,
-            RuntimeError,
-            VisualizationExportError,
-            ValueError,
-        ) as exc:
-            QMessageBox.critical(self, self._t("visual_export.title"), str(exc))
-            self._log(self._t("visual_export.failed", error=str(exc)))
-            return
-        message = self._t("visual_export.success", name=exported.name)
-        message += " Â· " + self._t("report_passport.saved", name=passport_path.name)
-        self._log(message)
-        self.statusBar().showMessage(message)
-
-    def _build_visualization_passport(self, widget, export_format: str, view_name: str):
-        interval = None
-        curve_mnemonics = None
-        range_mode = "full"
-        if isinstance(widget, TabletView):
-            interval = widget.visible_depth_range or widget.printable_vertical_range()
-            range_mode = "current"
-            layout = self.session.current_tablet_layout
-            if layout is not None:
-                curve_mnemonics = tuple(
-                    mnemonic
-                    for track in layout.tracks
-                    if track.visible
-                    for mnemonic in track.curve_mnemonics
-                )
-        page = self.print_page_settings
-        is_pdf = export_format == "pdf"
-        render = ReportRenderSettings(
-            renderer="visualization-export:1",
-            output_format=export_format,
-            page_format=page.page_format.value if is_pdf else "screen",
-            orientation=page.orientation.value if is_pdf else None,
-            dpi=300 if is_pdf else 96,
-            fit_form_columns=page.effective_fit_form_columns if is_pdf else False,
-            scale_mode=page.scale_mode.value if is_pdf else None,
-            continuation_overlap_mm=(page.continuation_overlap_mm if is_pdf else None),
-            margins_mm=(
-                page.margin_left_mm,
-                page.margin_top_mm,
-                page.margin_right_mm,
-                page.margin_bottom_mm,
-            )
-            if is_pdf
-            else None,
-            range_mode=range_mode,
-            options=(
-                ("view", view_name),
-                ("width_px", str(widget.width())),
-                ("height_px", str(widget.height())),
-            ),
-        )
-        request = ReportPassportRequest(
-            report_kind=ReportKind.VIEW,
-            report_name=view_name,
-            language=self.language,
-            render=render,
-            interval=interval,
-            curve_mnemonics=curve_mnemonics,
-        )
-        return self.report_passport_builder.build(self.session, request)
-
-    def preview_active_visualization(self) -> None:
-        current = self.tabs.currentWidget()
-        if current not in (self.curve_view, self.tablet_view):
-            QMessageBox.information(
-                self,
-                self._t("print.preview_title"),
-                self._t("visual_export.select_view"),
-            )
-            return
-        self._preview_print_job(
-            current,
-            PrintJobSettings(
-                output_format=PrintOutputFormat.PRINTER,
-                page=self.print_page_settings,
-                dpi=self.print_export_preferences.dpi,
-                image_quality=self.print_export_preferences.image_quality,
-                printer_name=self.print_export_preferences.printer_name,
-                copy_count=self.print_export_preferences.copy_count,
-            ),
-            self.tabs.tabText(self.tabs.currentIndex()),
-            report_context=ReportIntervalContext(
-                current_range=(
-                    current.visible_depth_range if isinstance(current, TabletView) else None
-                )
-            ),
-        )
-
-    def configure_print_page(self) -> None:
-        dialog = PrintPageDialog(
-            self,
-            initial=self.print_page_settings,
-            language=self.language,
-        )
-        if dialog.exec() != QDialog.DialogCode.Accepted:
-            return
-        self.print_page_settings = dialog.page_settings()
-        self.user_profile_settings.save_print_page_settings(self.print_page_settings)
-        self.statusBar().showMessage(
-            self._t(
-                "print.page_updated",
-                format=self.print_page_settings.page_format.value.upper(),
-                orientation=self._t(f"print.{self.print_page_settings.orientation.value}"),
-            )
-        )
-
-    def show_masterlog_templates(self) -> None:
-        MasterlogTemplatesDialog(
-            self.masterlog_template_controller,
-            self,
-            language=self.language,
-        ).exec()
-        well = self.session.current_well
-        self.tablet_view.set_lithology(
-            well.lithology if well is not None else [],
-            self.lithotype_catalog_controller.available(),
-        )
-        self.tablet_view.set_cuttings(well.cuttings if well is not None else [])
-        self.tablet_view.set_stratigraphy(well.stratigraphy if well is not None else [])
-        self._update_title()
-
-    def prepare_document_bundle(self) -> None:
-        command = DocumentBundleCommandController(self.project_controller)
-        try:
-            context = command.context()
-        except DocumentBundleCommandError as exc:
-            QMessageBox.information(self, self._t("document_bundle.title"), str(exc))
-            return
-
-        dialog = DocumentBundleSelectionDialog(
-            context.options,
-            language=self.language,
-            available_depth_range=context.available_depth_range,
-            parent=self,
-        )
-        if dialog.exec() != QDialog.DialogCode.Accepted:
-            return
-        selection = dialog.selection()
-
-        default_directory = self._document_bundle_default_directory()
-        directory = QFileDialog.getExistingDirectory(
-            self,
-            self._t("document_bundle.output_directory_title"),
-            str(default_directory),
-            QFileDialog.Option.ShowDirsOnly,
-        )
-        if not directory:
-            return
-
-        try:
-            execution = command.execute(
-                selected_outputs=selection.outputs,
-                languages=selection.languages,
-                orientations=selection.orientations,
-                scope_kind=selection.scope_kind,
-                top_depth=selection.top_depth,
-                bottom_depth=selection.bottom_depth,
-                allow_drafts=selection.allow_drafts,
-                output_directory=Path(directory),
-            )
-        except DocumentBundleCommandError as exc:
-            QMessageBox.warning(
-                self,
-                self._t("document_bundle.title"),
-                self._t("document_bundle.failed", error=str(exc)),
-            )
-            return
-        except Exception as exc:
-            log_exception("document_bundle.failed", exc, destination=directory)
-            QMessageBox.critical(
-                self,
-                self._t("document_bundle.title"),
-                self._t("document_bundle.failed", error=str(exc)),
-            )
-            return
-
-        self._present_document_bundle_execution(execution)
-
-    def retry_document_bundle_failed_outputs(self) -> None:
-        previous = self._last_document_bundle_execution
-        if previous is None or previous.run.is_complete:
-            self._remember_document_bundle_execution(None)
-            QMessageBox.information(
-                self,
-                self._t("document_bundle.title"),
-                self._t("document_bundle.retry_not_required"),
-            )
-            return
-
-        command = DocumentBundleCommandController(self.project_controller)
-        try:
-            execution = command.retry_failed(previous)
-        except DocumentBundleCommandError as exc:
-            QMessageBox.warning(
-                self,
-                self._t("document_bundle.title"),
-                self._t("document_bundle.failed", error=str(exc)),
-            )
-            return
-        except Exception as exc:
-            log_exception(
-                "document_bundle.retry_failed",
-                exc,
-                manifest=previous.manifest_path,
-            )
-            QMessageBox.critical(
-                self,
-                self._t("document_bundle.title"),
-                self._t("document_bundle.failed", error=str(exc)),
-            )
-            return
-
-        self._present_document_bundle_execution(execution)
-
-    def _present_document_bundle_execution(
-        self,
-        execution: RecordedDocumentBundleExecution,
-    ) -> None:
-        produced_files = sum(len(result.paths) for result in execution.run.results)
-        failed_outputs = execution.run.failed_output_ids
-        if failed_outputs:
-            message = self._t(
-                "document_bundle.partial",
-                files=produced_files,
-                failed=", ".join(failed_outputs),
-                manifest=execution.manifest_path,
-            )
-            status_message = self._t(
-                "document_bundle.status_partial",
-                failed=len(failed_outputs),
-            )
-        else:
-            message = self._t(
-                "document_bundle.complete",
-                files=produced_files,
-                manifest=execution.manifest_path,
-            )
-            status_message = self._t(
-                "document_bundle.status_complete",
-                files=produced_files,
-            )
-        QMessageBox.information(self, self._t("document_bundle.title"), message)
-        self.statusBar().showMessage(status_message, 7000)
-        self._remember_document_bundle_execution(execution)
-
-    def _remember_document_bundle_execution(
-        self,
-        execution: RecordedDocumentBundleExecution | None,
-    ) -> None:
-        self._last_document_bundle_execution = (
-            execution if execution is not None and not execution.run.is_complete else None
-        )
-        self.retry_document_bundle_action.setEnabled(
-            self._last_document_bundle_execution is not None
-        )
-
-    def _document_bundle_default_directory(self) -> Path:
-        if self.project_controller.project_path is not None:
-            return self.project_controller.project_path.parent
-        desktop = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DesktopLocation)
-        return Path(desktop or Path.home())
-
-    def show_well_passport(self) -> None:
-        from geoworkbench.ui.well_passport_dialog import WellPassportDialog
-
-        if self.session.current_well is None:
-            QMessageBox.information(self, self.windowTitle(), {
-                AppLanguage.RU: "Ð¡Ð½Ð°Ñ‡Ð°Ð»Ð° Ð²Ñ‹Ð±ÐµÑ€Ð¸Ñ‚Ðµ ÑÐºÐ²Ð°Ð¶Ð¸Ð½Ñƒ Ð² Ð¿Ñ€Ð¾ÐµÐºÑ‚Ðµ.",
-                AppLanguage.KK: "ÐÐ»Ð´Ñ‹Ð¼ÐµÐ½ Ð¶Ð¾Ð±Ð°Ð´Ð°Ð½ Ò±Ò£Ò“Ñ‹Ð¼Ð°Ð½Ñ‹ Ñ‚Ð°Ò£Ð´Ð°Ò£Ñ‹Ð·.",
-                AppLanguage.EN: "Select a well in the project first.",
-            }[self.language])
-            return
-        if WellPassportDialog(self.session, self, language=self.language).exec() == QDialog.DialogCode.Accepted:
-            self._update_title()
-
-    def show_header_catalog(self) -> None:
-        HeaderCatalogDialog(
-            self.masterlog_template_controller,
-            self,
-            language=self.language,
-        ).exec()
-        self._update_title()
-
-    def show_logo_catalog(self) -> None:
-        LogoCatalogDialog(
-            self.logo_catalog_controller,
-            self,
-            language=self.language,
-        ).exec()
-        self._update_title()
-
-    def _print_header_choices(self) -> tuple[tuple[str, str], ...]:
-        choices: list[tuple[str, str]] = []
-        known: set[str] = set()
-        for item in catalog_items(self.session.project.masterlog_templates, self.language):
-            label = item.name
-            orientation_label = {
-                "portrait": self._t("print.portrait"),
-                "landscape": self._t("print.landscape"),
-            }.get(item.preferred_orientation)
-            if orientation_label:
-                label += f" Â· {orientation_label}"
-            if item.factory:
-                label += " â€” Ð·Ð°Ð²Ð¾Ð´ÑÐºÐ°Ñ"
-            choices.append((item.catalog_id, label))
-            known.add(item.catalog_id)
-        for template in sorted(
-            self.session.project.masterlog_templates.values(),
-            key=lambda value: value.name.casefold(),
-        ):
-            if template.template_id in known or not template.header_elements:
-                continue
-            choices.append((template.template_id, f"{template.name} â€” Ð¸Ð· Masterlog"))
-        return tuple(choices)
-
-    def _print_header_orientation_by_id(self) -> dict[str, str]:
-        """Return the persisted orientation contract for every print header."""
-
-        result = {
-            item.catalog_id: item.preferred_orientation
-            for item in catalog_items(self.session.project.masterlog_templates, self.language)
-        }
-        for template in self.session.project.masterlog_templates.values():
-            if template.header_elements:
-                result.setdefault(
-                    template.template_id,
-                    str(template.properties.get("preferred_orientation", "both")),
-                )
-        return result
-
-    def _manage_print_headers(self) -> tuple[tuple[str, str], ...]:
-        self.show_header_catalog()
-        return self._print_header_choices()
-
-    def _print_header_preview_pixmap(self, catalog_id: str) -> QPixmap | None:
-        try:
-            template = resolve_catalog_header(self.session.project.masterlog_templates, catalog_id)
-        except KeyError:
-            return None
-        return render_header_preview_pixmap(
-            template, self.session, QSize(1200, 320), language=self.language, mode="header"
-        )
-
-    def _open_print_header_from_center(self, catalog_id: str) -> None:
-        dialog = HeaderCatalogDialog(
-            self.masterlog_template_controller, self, language=self.language
-        )
-        dialog.refresh(catalog_id)
-        dialog.exec()
-        self._update_title()
-
-    def _resolve_print_header(self, job: PrintJobSettings):
-        catalog_id = job.header_template_id
-        if catalog_id is None:
-            return None
-        try:
-            return resolve_catalog_header(self.session.project.masterlog_templates, catalog_id)
-        except KeyError as exc:
-            raise ValueError(f"ÐŸÐµÑ‡Ð°Ñ‚Ð½Ð°Ñ ÑˆÐ°Ð¿ÐºÐ° Ð½Ðµ Ð½Ð°Ð¹Ð´ÐµÐ½Ð°: {catalog_id}") from exc
-
-    def save_export_profile(self) -> None:
-        dataset = self.session.current_dataset
-        selection = self.dataset_selection
-        if dataset is None or selection.dataset_id != dataset.dataset_id:
-            QMessageBox.information(
-                self, self._t("export_profile.title"), self._t("export_profile.select_curves")
-            )
-            return
-        if not selection.curve_ids:
-            QMessageBox.information(
-                self, self._t("export_profile.title"), self._t("export_profile.select_curves")
-            )
-            return
-        name, accepted = QInputDialog.getText(
-            self, self._t("export_profile.save"), self._t("export_profile.name")
-        )
-        if not accepted:
-            return
-        try:
-            profile = self.dataset_export_controller.save_selection_profile(
-                name, list(selection.curve_ids)
-            )
-        except (KeyError, RuntimeError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("export_profile.title"), str(exc))
-            return
-        self._update_title()
-        self._log(self._t("export_profile.saved", name=profile.name))
-
-    def apply_export_profile(self) -> None:
-        profile_id = self._select_export_profile(self._t("export_profile.apply"))
-        if profile_id is None:
-            return
-        dataset = self.session.current_dataset
-        if dataset is None:
-            return
-        try:
-            curve_ids = self.dataset_export_controller.resolve_profile_curve_ids(profile_id)
-            interval = (
-                self.dataset_selection.interval
-                if self.dataset_selection.dataset_id == dataset.dataset_id
-                else None
-            )
-            if interval is None:
-                finite_depth = dataset.depth[np.isfinite(dataset.depth)]
-                if finite_depth.size == 0:
-                    raise ValueError("Ð’ Ð½Ð°Ð±Ð¾Ñ€Ðµ Ð½ÐµÑ‚ ÐºÐ¾Ð½ÐµÑ‡Ð½Ñ‹Ñ… Ð·Ð½Ð°Ñ‡ÐµÐ½Ð¸Ð¹ Ð³Ð»ÑƒÐ±Ð¸Ð½Ñ‹")
-                interval = (float(np.min(finite_depth)), float(np.max(finite_depth)))
-            self.dataset_selection.select(dataset, *interval, curve_ids)
-        except (KeyError, RuntimeError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("export_profile.title"), str(exc))
-            return
-        profile = self.session.project.export_profiles[profile_id]
-        self._log(self._t("export_profile.applied", name=profile.name))
-
-    def delete_export_profile(self) -> None:
-        profile_id = self._select_export_profile(self._t("export_profile.delete"))
-        if profile_id is None:
-            return
-        profile = self.session.project.export_profiles[profile_id]
-        try:
-            self.dataset_export_controller.delete_selection_profile(profile_id)
-        except KeyError as exc:
-            QMessageBox.warning(self, self._t("export_profile.title"), str(exc))
-            return
-        self._update_title()
-        self._log(self._t("export_profile.deleted", name=profile.name))
-
-    def _select_export_profile(self, title: str) -> str | None:
-        profiles = sorted(
-            self.session.project.export_profiles.values(),
-            key=lambda profile: profile.name.casefold(),
-        )
-        if not profiles:
-            QMessageBox.information(
-                self, self._t("export_profile.title"), self._t("export_profile.empty")
-            )
-            return None
-        labels = [profile.name for profile in profiles]
-        selected, accepted = QInputDialog.getItem(
-            self, title, self._t("export_profile.name"), labels, 0, False
-        )
-        if not accepted:
-            return None
-        return next(profile.profile_id for profile in profiles if profile.name == selected)
-
-    def export_current_json(self) -> None:
-        dataset = self.session.current_dataset
-        if dataset is None:
-            QMessageBox.information(
-                self, self._t("json_export.title"), self._t("export.select_dataset")
-            )
-            return
-        filename, _ = QFileDialog.getSaveFileName(
-            self,
-            self._t("json_export.save_title"),
-            str(Path.cwd() / f"{dataset.name}.json"),
-            "JSON (*.json)",
-        )
-        if not filename:
-            return
-        target = Path(filename)
-        if target.suffix.casefold() != ".json":
-            target = target.with_suffix(".json")
-        overwrite = self._confirm_export_overwrite(target)
-        if overwrite is None:
-            return
-        try:
-            exported = self.dataset_export_controller.export_current_json(
-                target, overwrite=overwrite
-            )
-        except (DatasetJsonExportError, FileExistsError, OSError, RuntimeError) as exc:
-            QMessageBox.critical(self, self._t("json_export.title"), str(exc))
-            self._log(self._t("json_export.failed", error=str(exc)))
-            return
-        message = self._t("json_export.success", name=exported.name)
-        self._log(message)
-        self.statusBar().showMessage(message)
-
-    def export_current_parquet(self) -> None:
-        dataset = self.session.current_dataset
-        if dataset is None:
-            QMessageBox.information(
-                self, self._t("parquet_export.title"), self._t("export.select_dataset")
-            )
-            return
-        filename, _ = QFileDialog.getSaveFileName(
-            self,
-            self._t("parquet_export.save_title"),
-            str(Path.cwd() / f"{dataset.name}.parquet"),
-            "Parquet (*.parquet)",
-        )
-        if not filename:
-            return
-        target = Path(filename)
-        if target.suffix.casefold() != ".parquet":
-            target = target.with_suffix(".parquet")
-        overwrite = self._confirm_export_overwrite(target)
-        if overwrite is None:
-            return
-        try:
-            exported = self.dataset_export_controller.export_current_parquet(
-                target, overwrite=overwrite
-            )
-        except (DatasetParquetExportError, FileExistsError, OSError, RuntimeError) as exc:
-            QMessageBox.critical(self, self._t("parquet_export.title"), str(exc))
-            self._log(self._t("parquet_export.failed", error=str(exc)))
-            return
-        message = self._t("parquet_export.success", name=exported.name)
-        self._log(message)
-        self.statusBar().showMessage(message)
-
-    def show_interpretation_report(self) -> None:
-        if self.session.current_well is None:
-            QMessageBox.information(
-                self,
-                self._t("interpretation_report.title"),
-                self._t("interpretation_report.select_well"),
-            )
-            return
-        InterpretationReportDialog(
-            self.session,
-            self,
-            language=self.language,
-        ).exec()
-
-    def show_data_inspector(self) -> None:
-        if self.session.current_dataset is None:
-            QMessageBox.information(self, self._t("data.title"), self._t("data.select_dataset"))
-            return
-        DataInspectorDialog(
-            self.data_inspector_controller,
-            self.header_editing_controller,
-            self.curve_metadata_controller,
-            self,
-            language=self.language,
-        ).exec()
-        self._show_current_dataset()
-        self._refresh_tree()
-        self._update_title()
-
-    def _create_session_binding_controller(self) -> SessionBindingController:
-        bindings = SessionBindingController()
-        bindings.register(self.tablet_controller, name="tablet")
-        bindings.register(
-            self.curve_editing_controller,
-            reset_hooks=(self.curve_editing_controller.clear_history,),
-            name="curve_editing",
-        )
-        bindings.register(self.dataset_export_controller, name="dataset_export")
-        bindings.register(
-            self.dataset_merge_controller,
-            reset_hooks=(self.dataset_merge_controller.clear_history,),
-            name="dataset_merge",
-        )
-        bindings.register(self.derived_dataset_controller, name="derived_dataset")
-        bindings.register(self.data_inspector_controller, name="data_inspector")
-        bindings.register(
-            self.header_editing_controller,
-            reset_hooks=(self.header_editing_controller.clear_history,),
-            name="header_editing",
-        )
-        bindings.register(
-            self.curve_metadata_controller,
-            reset_hooks=(self.curve_metadata_controller.clear_history,),
-            name="curve_metadata",
-        )
-        bindings.register(
-            self.curve_transfer_controller,
-            reset_hooks=(self.curve_transfer_controller.clear_history,),
-            name="curve_transfer",
-        )
-        bindings.register(
-            self.external_las_insert_controller,
-            reset_hooks=(self.external_las_insert_controller.clear_history,),
-            name="external_las_insert",
-        )
-        bindings.register(self.gas_ratio_project_controller, name="gas_ratio")
-        bindings.register(self.formula_execution_controller, name="formula_execution")
-        bindings.register(
-            self.custom_formula_controller,
-            reset_hooks=(self.custom_formula_controller.clear_history,),
-            name="custom_formula",
-        )
-        bindings.register(self.lag_correction_controller, name="lag_correction")
-        bindings.register(self.time_depth_mapping_controller, name="time_depth_mapping")
-        bindings.register(
-            self.time_to_depth_controller,
-            reset_hooks=(self.time_to_depth_controller.clear_history,),
-            name="time_to_depth",
-        )
-        bindings.register(
-            self.depth_annotation_controller,
-            reset_hooks=(self.depth_annotation_controller.clear_history,),
-            name="depth_annotation",
-        )
-        bindings.register(self.lithology_controller, name="lithology")
-        bindings.register(self.cuttings_controller, name="cuttings")
-        bindings.register(
-            self.interpretation_controller,
-            reset_hooks=(self.interpretation_controller.reset_state,),
-            name="interpretation",
-        )
-        bindings.register(
-            self.interpretation_calculation_controller,
-            name="interpretation_calculation",
-        )
-        bindings.register(self.stratigraphy_controller, name="stratigraphy")
-        bindings.register(self.stratigraphy_catalog_controller, name="stratigraphy_catalog")
-        bindings.register(self.lithotype_catalog_controller, name="lithotype_catalog")
-        bindings.register(self.description_template_controller, name="description_template")
-        bindings.register(
-            self.depth_axis_controller,
-            reset_hooks=(self.depth_axis_controller.clear_history,),
-            name="depth_axis",
-        )
-        bindings.register(self.nct_calculation_controller, name="nct_calculation")
-        bindings.register(self.new_las_controller, name="new_las")
-        bindings.register(
-            self.daily_las_growth_controller,
-            reset_hooks=(self.daily_las_growth_controller.reset_state,),
-            name="daily_las_growth",
-        )
-        bindings.register(self.witsml_import_coordinator, name="witsml_import")
-        bindings.register(
-            self.las_range_editing_controller,
-            reset_hooks=(self.las_range_editing_controller.clear_history,),
-            name="las_range_editing",
-        )
-        bindings.register(self.masterlog_template_controller, name="masterlog_template")
-        return bindings
-
-    def _bind_project_session(self) -> None:
-        self._session_bindings.bind(self.session)
-        self._selected_track_id = None
-        self._selected_annotation_id = None
-        self.external_las_insert_controller.formula_registry = self.formula_registry
-        self._configure_edit_dependencies()
-        self._update_merge_actions()
-        self._update_transfer_actions()
-        self._update_external_las_insert_actions()
-        self._update_depth_axis_actions()
-        self._update_curve_edit_actions()
-
-    def _configure_edit_dependencies(self) -> None:
-        graph = self.formula_registry.build_dependency_graph()
-        basic_inputs = ("C1", "C2", "C3", "IC4", "NC4", "C4", "IC5", "NC5", "C5")
-        basic_outputs = (
-            "C1_C2",
-            "C1_C3",
-            "C2_C3",
-            "C1_C2C3",
-            "TG_CALC",
-            "C1_REL",
-            "C2_REL",
-            "C3_REL",
-            "IC4_REL",
-            "NC4_REL",
-            "C4_REL",
-            "IC5_REL",
-            "NC5_REL",
-            "C5_REL",
-        )
-        for source in basic_inputs:
-            for target in basic_outputs:
-                try:
-                    graph.add_dependency(source, target)
-                except ValueError:
-                    pass
-        self.curve_editing_controller.dependency_graph = graph
-        self.curve_editing_controller.formula_registry = self.formula_registry
-        self.las_range_editing_controller.formula_registry = self.formula_registry
-
-    def _editable_curve_choices(self) -> list[tuple[str, str]]:
-        dataset = self.session.current_dataset
-        if dataset is None:
-            return []
-        choices: list[tuple[str, str]] = []
-        for curve in sorted(
-            dataset.curves.values(),
-            key=lambda item: item.metadata.original_mnemonic.casefold(),
-        ):
-            provenance = (curve.metadata.provenance or "").strip().casefold()
-            if (
-                provenance.startswith(("calculation:", "custom-formula:"))
-                or provenance == "derived"
-            ):
-                continue
-            mnemonic = curve.metadata.original_mnemonic
-            unit = (curve.metadata.unit or "").strip()
-            description = (curve.metadata.description or "").strip()
-            label = mnemonic
-            if unit:
-                label += f" [{unit}]"
-            if description and description.casefold() != mnemonic.casefold():
-                label += f" â€” {description}"
-            choices.append((label, mnemonic))
-        return choices
-
-    def _choose_curve_for_pencil(self, preferred: str = "") -> str | None:
-        choices = self._editable_curve_choices()
-        if not choices:
-            QMessageBox.information(
-                self,
-                self._t("shell.curve_pencil"),
-                self._t("shell.curve_pencil_no_curves"),
-            )
-            return None
-        labels = [label for label, _ in choices]
-        initial = 0
-        for index, (_, mnemonic) in enumerate(choices):
-            if mnemonic.casefold() == preferred.casefold():
-                initial = index
-                break
-        selected, accepted = QInputDialog.getItem(
-            self,
-            self._t("shell.curve_pencil_choose_title"),
-            self._t("shell.curve_pencil_choose_prompt"),
-            labels,
-            initial,
-            False,
-        )
-        if not accepted:
-            return None
-        for label, mnemonic in choices:
-            if label == selected:
-                return mnemonic
-        return None
-
-    def _activate_curve_pencil(self, mnemonic: str) -> bool:
-        dataset = self.session.current_dataset
-        if dataset is None:
-            return False
-        self.tablet_view.set_curve_pencil_mode(False)
-        self.curve_view.show_dataset(dataset, [mnemonic])
-        self._show_workspace(self.curve_view)
-        if not self.curve_view.set_edit_mode(True):
-            return False
-        self.statusBar().showMessage(self._t("shell.curve_pencil_active_status", mnemonic=mnemonic))
-        return True
-
-    def _activate_tablet_curve_pencil(
-        self, mnemonic: str = "", *, track_id: str | None = None
-    ) -> bool:
-        self.curve_view.set_edit_mode(False)
-        activated = (
-            self.tablet_view.set_curve_pencil_mode(True, track_id=track_id, mnemonic=mnemonic)
-            if track_id and mnemonic
-            else self.tablet_view.activate_curve_pencil_for_mnemonic(mnemonic)
-            if mnemonic
-            else self.tablet_view.set_curve_pencil_mode(True)
-        )
-        if not activated:
-            return False
-        target = self.tablet_view.curve_pencil_target
-        active_mnemonic = target[1] if target is not None else mnemonic
-        self._show_workspace(self.tablet_view)
-        self.statusBar().showMessage(
-            self._t("shell.curve_pencil_active_status", mnemonic=active_mnemonic)
-        )
-        return True
-
-    def _sync_pencil_action_from_tablet(self, enabled: bool, mnemonic: str) -> None:
-        self.pencil_action.blockSignals(True)
-        self.pencil_action.setChecked(enabled)
-        self.pencil_action.blockSignals(False)
-        if enabled:
-            self.statusBar().showMessage(
-                self._t("shell.curve_pencil_active_status", mnemonic=mnemonic)
-            )
-        else:
-            self.statusBar().showMessage(self._t("shell.curve_pencil_inactive_status"), 3000)
-
-    def _deactivate_curve_pencil_for_layout_change(self, reason: str) -> None:
-        """End curve editing before a form replaces the Qt widget tree."""
-
-        target = self.tablet_view.curve_pencil_target
-        was_active = self.tablet_view.curve_pencil_enabled or self.pencil_action.isChecked()
-        self.curve_view.set_edit_mode(False)
-        self.tablet_view.set_curve_pencil_mode(False)
-        self.pencil_action.blockSignals(True)
-        self.pencil_action.setChecked(False)
-        self.pencil_action.blockSignals(False)
-        if was_active:
-            log_event(
-                "forms.pencil.deactivated_for_layout_change",
-                reason=reason,
-                track_id=target[0] if target is not None else "",
-                mnemonic=target[1] if target is not None else "",
-            )
-
-    def _start_curve_pencil_from_tablet(self, track_id: str, mnemonic: str) -> None:
-        editable = {item_mnemonic for _, item_mnemonic in self._editable_curve_choices()}
-        target = mnemonic if mnemonic in editable else self._choose_curve_for_pencil(mnemonic)
-        if not target:
-            return
-        if self._activate_tablet_curve_pencil(target, track_id=track_id):
-            self.pencil_action.blockSignals(True)
-            self.pencil_action.setChecked(True)
-            self.pencil_action.blockSignals(False)
-
-    def toggle_curve_edit_mode(self, enabled: bool) -> None:
-        if enabled:
-            if self.session.current_dataset is None:
-                self.pencil_action.setChecked(False)
-                QMessageBox.information(
-                    self,
-                    self._t("shell.curve_pencil"),
-                    self._t("shell.curve_pencil_no_dataset"),
-                )
-                return
-            if self.tabs.currentWidget() is self.tablet_view:
-                selected_target = self.tablet_view.selected_curve_pencil_target()
-                activated = (
-                    self._activate_tablet_curve_pencil(
-                        selected_target[1], track_id=selected_target[0]
-                    )
-                    if selected_target is not None
-                    else self._activate_tablet_curve_pencil()
-                )
-                if not activated:
-                    self.pencil_action.blockSignals(True)
-                    self.pencil_action.setChecked(False)
-                    self.pencil_action.blockSignals(False)
-                    QMessageBox.information(
-                        self,
-                        self._t("shell.curve_pencil"),
-                        self._t("tablet.curve_pencil_no_curves"),
-                    )
-                return
-            if self.curve_view.can_edit:
-                mnemonic = self.curve_view.editable_mnemonic
-            else:
-                mnemonic = self._choose_curve_for_pencil()
-            if not mnemonic or not self._activate_curve_pencil(mnemonic):
-                self.pencil_action.blockSignals(True)
-                self.pencil_action.setChecked(False)
-                self.pencil_action.blockSignals(False)
-                return
-        else:
-            self.curve_view.set_edit_mode(False)
-            self.tablet_view.set_curve_pencil_mode(False)
-            self.statusBar().showMessage(self._t("shell.curve_pencil_inactive_status"), 3000)
-
-    def _apply_curve_draw_edit(
-        self,
-        curve_id: str,
-        indices: object,
-        new_values: object,
-    ) -> None:
-        sample_count = int(np.asarray(indices).size)
-        log_event(
-            "curve_edit.requested",
-            curve_id=curve_id,
-            samples=sample_count,
-            tablet_pencil=self.tablet_view.curve_pencil_enabled,
-        )
-        try:
-            outcome = self.curve_editing_controller.edit_curve(
-                curve_id,
-                np.asarray(indices, dtype=np.int64),
-                np.asarray(new_values, dtype=np.float64),
-                description="ÐšÐ°Ñ€Ð°Ð½Ð´Ð°Ñˆ",
-            )
-        except (IndexError, KeyError, RuntimeError, ValueError) as exc:
-            log_exception(
-                "curve_edit.failed",
-                exc,
-                curve_id=curve_id,
-                samples=sample_count,
-            )
-            self.tablet_view.acknowledge_curve_pencil_commit(False, str(exc))
-            QMessageBox.warning(self, "Ð ÐµÐ´Ð°ÐºÑ‚Ð¾Ñ€ ÐºÑ€Ð¸Ð²Ð¾Ð¹", str(exc))
-            return
-        self.tablet_view.acknowledge_curve_pencil_commit(True)
-        self._after_curve_edit(outcome)
-
-    def undo_curve_edit(self) -> None:
-        try:
-            outcome = self.curve_editing_controller.undo()
-        except RuntimeError as exc:
-            QMessageBox.warning(self, "ÐžÑ‚Ð¼ÐµÐ½Ð° Ñ€ÐµÐ´Ð°ÐºÑ‚Ð¸Ñ€Ð¾Ð²Ð°Ð½Ð¸Ñ", str(exc))
-            return
-        self._after_curve_edit(outcome)
-
-    def redo_curve_edit(self) -> None:
-        try:
-            outcome = self.curve_editing_controller.redo()
-        except RuntimeError as exc:
-            QMessageBox.warning(self, "ÐŸÐ¾Ð²Ñ‚Ð¾Ñ€ Ñ€ÐµÐ´Ð°ÐºÑ‚Ð¸Ñ€Ð¾Ð²Ð°Ð½Ð¸Ñ", str(exc))
-            return
-        self._after_curve_edit(outcome)
-
-    def _after_curve_edit(self, outcome: CurveEditOutcome) -> None:
-        dataset = self.session.current_dataset
-        if dataset is not None and dataset.dataset_id == outcome.dataset_id:
-            tablet_pencil_active = self.tablet_view.curve_pencil_enabled
-            self.curve_view.show_dataset(dataset, [outcome.mnemonic])
-            self.curve_view.set_edit_mode(
-                self.pencil_action.isChecked() and not tablet_pencil_active
-            )
-            changed_mnemonics = tuple(
-                dict.fromkeys(
-                    (
-                        outcome.mnemonic,
-                        *outcome.affected_mnemonics,
-                        *outcome.recalculated_mnemonics,
-                    )
-                )
-            )
-            self.tablet_view.refresh_dataset_curves(dataset, changed_mnemonics)
-            self.las_table_editor.set_dataset(dataset)
-        self._update_curve_edit_actions()
-        self._update_title()
-        self.tablet_view.mark_curve_pencil_unsaved()
-        recalculated_status = ", ".join(outcome.recalculated_mnemonics) or "â€”"
-        self.statusBar().showMessage(
-            self._t(
-                "curve_edit.unsaved_status",
-                mnemonic=outcome.mnemonic,
-                recalculated=recalculated_status,
-            )
-        )
-        affected = ", ".join(outcome.affected_mnemonics) or "Ð½ÐµÑ‚"
-        recalculated = ", ".join(outcome.recalculated_mnemonics) or "Ð½ÐµÑ‚"
-        failed = ", ".join(outcome.failed_mnemonics) or "Ð½ÐµÑ‚"
-        self._log(
-            f"{outcome.operation}: {outcome.mnemonic}; Ð·Ð°Ð²Ð¸ÑÐ¸Ð¼Ñ‹Ðµ: {affected}; "
-            f"Ð¿ÐµÑ€ÐµÑÑ‡Ð¸Ñ‚Ð°Ð½Ð¾: {recalculated}; Ð¾ÑˆÐ¸Ð±ÐºÐ¸: {failed}"
-        )
-        log_event(
-            "curve_edit.completed",
-            operation=outcome.operation,
-            dataset_id=outcome.dataset_id,
-            mnemonic=outcome.mnemonic,
-            affected=",".join(outcome.affected_mnemonics),
-            recalculated=",".join(outcome.recalculated_mnemonics),
-            failed=",".join(outcome.failed_mnemonics),
-            incremental_tablet_refresh=True,
-        )
-
-    def _after_table_edit(self) -> None:
-        dataset = self.session.current_dataset
-        if dataset is None:
-            return
-        self.curve_view.show_dataset(dataset)
-        self.tablet_view.set_dataset(dataset)
-        self._refresh_tree()
-        self._update_title()
-        self.statusBar().showMessage("Ð—Ð½Ð°Ñ‡ÐµÐ½Ð¸Ðµ Ð¸Ð·Ð¼ÐµÐ½ÐµÐ½Ð¾; Ð³Ð°Ð·Ð¾Ð²Ñ‹Ðµ Ð¿Ñ€Ð¾Ð¸Ð·Ð²Ð¾Ð´Ð½Ñ‹Ðµ Ð¿ÐµÑ€ÐµÑÑ‡Ð¸Ñ‚Ð°Ð½Ñ‹")
-
-    def _update_curve_edit_actions(self) -> None:
-        can_undo = self.curve_editing_controller.history.can_undo
-        can_redo = self.curve_editing_controller.history.can_redo
-        self.undo_action.setEnabled(can_undo)
-        self.redo_action.setEnabled(can_redo)
-        self.tablet_view.set_curve_pencil_history_state(can_undo, can_redo)
-
-    def _build_tablet_from_curve_selection(self, mnemonics: object) -> None:
-        selected = [str(item) for item in mnemonics] if isinstance(mnemonics, list) else []
-        if not selected:
-            return
-        try:
-            layout = self.tablet_controller.build_layout_for_curves(selected)
-        except (RuntimeError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("curve_browser.title"), str(exc))
-            return
-        self._selected_track_id = None
-        self.curve_browser.set_replace_enabled(False)
-        self.tablet_view.set_layout_model(layout)
-        self.tablet_view.set_dataset(self.session.current_dataset)
-        self._show_workspace(self.tablet_view)
-        self.curve_browser_dock.hide()
-        self._refresh_tree()
-        self._update_title()
-        self.statusBar().showMessage(self._t("curve_browser.built_status", count=len(selected)))
-
-    def _add_curves_from_browser(self, mnemonics: object) -> None:
-        selected = [str(item) for item in mnemonics] if isinstance(mnemonics, list) else []
-        if not selected:
-            return
-        try:
-            track = self.tablet_controller.add_track(TrackKind.CURVE, selected)
-        except (RuntimeError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("curve_browser.title"), str(exc))
-            return
-        self.tablet_view.refresh_view()
-        self._show_track_in_inspector(track.track_id)
-        self._show_workspace(self.tablet_view)
-        self._refresh_tree()
-        self._update_title()
-
-    def _replace_selected_track_curves(self, mnemonics: object) -> None:
-        selected = [str(item) for item in mnemonics] if isinstance(mnemonics, list) else []
-        if not selected or self._selected_track_id is None:
-            return
-        try:
-            track = self.tablet_controller.replace_track_curves(self._selected_track_id, selected)
-        except (KeyError, RuntimeError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("curve_browser.title"), str(exc))
-            return
-        self.tablet_view.refresh_view()
-        self.inspector.show_track(track, suggested_range=self._track_data_range(track))
-        self._refresh_tree()
-        self._update_title()
-
-    def show_constructor(self) -> None:
-        dialog = UniversalConstructorDialog(
-            self.masterlog_template_controller,
-            self,
-            language=self.language,
-            open_form_manager=self.show_form_manager,
-            open_template_manager=self.show_masterlog_templates,
-            import_skf=self._choose_and_import_skf,
-        )
-        dialog.exec()
-        self._refresh_tree()
-        self._update_title()
-
-    def show_form_manager(self) -> None:
-        snapshot = self._capture_tablet_form_snapshot()
-        preview_applied = False
-        log_event(
-            "forms.manager.opened",
-            dataset_id=(
-                self.session.current_dataset.dataset_id
-                if self.session.current_dataset is not None
-                else ""
-            ),
-            pencil_active=self.tablet_view.curve_pencil_enabled,
-        )
-
-        def preview(form) -> None:
-            nonlocal preview_applied
-            preview_applied = (
-                self.apply_form_to_tablet(form, mark_dirty=False, notify=False) or preview_applied
-            )
-
-        dialog = FormManagerDialog(
-            self.form_repository,
-            self,
-            language=self.language.value,
-            dataset=self.session.current_dataset,
-            preview_callback=preview,
-            print_page_settings=self.print_page_settings,
-            print_page_settings_changed=self._set_form_print_page_settings,
-            print_form_callback=self._print_form_from_manager,
-            initial_form_id=self.user_profile_settings.selected_form_id(),
-            skf_import_callback=self._import_skf_form_and_header,
-        )
-        accepted = dialog.exec() == QDialog.DialogCode.Accepted
-        if not accepted or dialog.selected_form is None:
-            if preview_applied and snapshot is not None:
-                try:
-                    self._restore_tablet_form_snapshot(snapshot)
-                except Exception as exc:
-                    log_exception(
-                        "forms.manager.cancel_restore_failed",
-                        exc,
-                    )
-                    QMessageBox.warning(
-                        self,
-                        self._t("forms.title"),
-                        self._t("forms.rollback_failed", error=str(exc)),
-                    )
-            log_event(
-                "forms.manager.closed",
-                accepted=False,
-                preview_applied=preview_applied,
-            )
-            return
-        applied = self.apply_form_to_tablet(
-            dialog.selected_form, rollback_snapshot=snapshot
-        )
-        if applied:
-            self.user_profile_settings.save_selected_form_id(dialog.selected_form.form_id)
-        log_event(
-            "forms.manager.closed",
-            accepted=True,
-            form_id=getattr(dialog.selected_form, "form_id", ""),
-            form_name=getattr(dialog.selected_form, "name", ""),
-        )
-
-    def _choose_and_import_skf(self) -> bool:
-        title = {
-            AppLanguage.RU: "Ð˜Ð¼Ð¿Ð¾Ñ€Ñ‚ Ñ„Ð¾Ñ€Ð¼Ñ‹ SKF",
-            AppLanguage.KK: "SKF Ð¿Ñ–ÑˆÑ–Ð½Ñ–Ð½ Ð¸Ð¼Ð¿Ð¾Ñ€Ñ‚Ñ‚Ð°Ñƒ",
-            AppLanguage.EN: "Import SKF form",
-        }.get(self.language, "Ð˜Ð¼Ð¿Ð¾Ñ€Ñ‚ Ñ„Ð¾Ñ€Ð¼Ñ‹ SKF")
-        filename, _ = QFileDialog.getOpenFileName(
-            self,
-            title,
-            "",
-            "Delphi SKF (*.skf);;All files (*)",
-        )
-        if not filename:
-            return False
-        options = SkfImportOptionsDialog(self, language=self.language)
-        if options.exec() != QDialog.DialogCode.Accepted:
-            return False
-        try:
-            _form, summary = self._import_skf_form_and_header(Path(filename), mode=options.mode)
-        except (OSError, RuntimeError, ValueError) as exc:
-            QMessageBox.warning(self, title, str(exc))
-            return False
-        QMessageBox.information(self, title, summary)
-        self._refresh_tree()
-        self._update_title()
-        return True
-
-    def _import_skf_form_and_header(
-        self,
-        source: Path,
-        *,
-        mode: SkfImportMode = SkfImportMode.FORM_AND_HEADER,
-    ):
-        result = import_skf_file(source)
-        form = None
-        template = None
-        header_template = None
-
-        existing_template_names = {
-            item.name.casefold() for item in self.session.project.masterlog_templates.values()
-        }
-        template_name = result.header_template.name
-        suffix = 2
-        while template_name.casefold() in existing_template_names:
-            template_name = f"{result.header_template.name} ({suffix})"
-            suffix += 1
-
-        if mode is SkfImportMode.FORM_AND_HEADER:
-            template = self.masterlog_template_controller.import_template(
-                result.header_template, result.image_assets, template_name
-            )
-            header_name = f"{template.name} â€” Ð¿ÐµÑ‡Ð°Ñ‚Ð½Ð°Ñ ÑˆÐ°Ð¿ÐºÐ°"
-            header_template = self.masterlog_template_controller.save_header_to_catalog(
-                template.template_id, header_name
-            )
-        elif mode is SkfImportMode.HEADER_ONLY:
-            header_template = self.masterlog_template_controller.import_header_template(
-                result.header_template,
-                result.image_assets,
-                f"{template_name} â€” Ð¿ÐµÑ‡Ð°Ñ‚Ð½Ð°Ñ ÑˆÐ°Ð¿ÐºÐ°",
-            )
-
-        if mode in {SkfImportMode.FORM_AND_HEADER, SkfImportMode.FORM_ONLY}:
-            form = result.form
-            if header_template is not None:
-                form.print_header_template_id = header_template.template_id
-            existing_form_names = {
-                item.name.casefold() for item in self.form_repository.list_forms()
-            }
-            original_name = form.name
-            suffix = 2
-            while form.name.casefold() in existing_form_names:
-                form.name = f"{original_name} ({suffix})"
-                suffix += 1
-            self.form_repository.save(form)
-
-        warning_text = ""
-        if result.report.warnings:
-            warning_text = "\n\nÐŸÑ€ÐµÐ´ÑƒÐ¿Ñ€ÐµÐ¶Ð´ÐµÐ½Ð¸Ñ:\n- " + "\n- ".join(result.report.warnings)
-        lines = [
-            f"SKF Ð¸Ð¼Ð¿Ð¾Ñ€Ñ‚Ð¸Ñ€Ð¾Ð²Ð°Ð½: {result.report.source_name}",
-            f"ÐšÐ¾Ð¼Ð¿Ð¾Ð½ÐµÐ½Ñ‚Ð¾Ð² Delphi: {result.report.component_count}",
-            f"ÐšÐ¾Ð»Ð¾Ð½Ð¾Ðº Ñ„Ð¾Ñ€Ð¼Ñ‹: {result.report.column_count}",
-            f"Ð­Ð»ÐµÐ¼ÐµÐ½Ñ‚Ð¾Ð² ÑˆÐ°Ð¿ÐºÐ¸: {result.report.header_element_count}",
-            f"Ð˜Ð·Ð¾Ð±Ñ€Ð°Ð¶ÐµÐ½Ð¸Ð¹: {result.report.image_asset_count}",
-        ]
-        if form is not None:
-            lines.append(f"Ð¤Ð¾Ñ€Ð¼Ð° ÑÐ¾Ñ…Ñ€Ð°Ð½ÐµÐ½Ð°: {form.name}")
-        if template is not None:
-            lines.append(f"Ð¨Ð°Ð±Ð»Ð¾Ð½ Masterlog ÑÐ¾Ñ…Ñ€Ð°Ð½Ñ‘Ð½: {template.name}")
-        if header_template is not None:
-            lines.append(f"ÐŸÐµÑ‡Ð°Ñ‚Ð½Ð°Ñ ÑˆÐ°Ð¿ÐºÐ° ÑÐ¾Ñ…Ñ€Ð°Ð½ÐµÐ½Ð° Ð² ÐºÐ°Ñ‚Ð°Ð»Ð¾Ð³: {header_template.name}")
-        summary = "\n".join(lines) + warning_text
-        return form, summary
-
-    def _set_form_print_page_settings(self, settings) -> None:
-        self.print_page_settings = settings
-        self.user_profile_settings.save_print_page_settings(settings)
-        self.statusBar().showMessage(
-            self._t(
-                "print.page_updated",
-                format=settings.page_format.value.upper(),
-                orientation=self._t(f"print.{settings.orientation.value}"),
-            )
-        )
-
-    def _capture_tablet_form_snapshot(self) -> _TabletFormSnapshot | None:
-        if self.session.current_dataset is None:
-            return None
-        return _TabletFormSnapshot(
-            layout=deepcopy(self.tablet_view.layout_model),
-            session_dirty=bool(self.session.dirty),
-            selected_track_id=self._selected_track_id,
-        )
-
-    def _restore_tablet_form_snapshot(self, snapshot: _TabletFormSnapshot) -> None:
-        dataset = self.session.current_dataset
-        if dataset is None:
-            raise RuntimeError(self._t("forms.rollback_dataset_missing"))
-        restored = deepcopy(snapshot.layout)
-        # Session and TabletView must share the same fresh model object.  Qt
-        # widgets from the failed candidate are never reused: the view disposes
-        # them and rebuilds the previous form solely from this serialized model.
-        previous_transaction_state = self._form_layout_transaction_active
-        self._form_layout_transaction_active = True
-        log_event(
-            "forms.rollback.started",
-            tracks=len(restored.tracks),
-            selected_track=snapshot.selected_track_id or "",
-        )
-        try:
-            self.tablet_controller.restore_layout(restored, dirty=snapshot.session_dirty)
-            self.tablet_view.set_layout_and_dataset(restored, dataset, preserve_current_range=False)
-            self._selected_track_id = snapshot.selected_track_id
-            self._refresh_annotation_layer()
-            self._refresh_tree()
-            self._update_title()
-            log_event(
-                "forms.rollback.finished",
-                tracks=len(restored.tracks),
-            )
-        except BaseException as exc:
-            log_exception(
-                "forms.rollback.failed",
-                exc,
-                tracks=len(restored.tracks),
-            )
-            raise
-        finally:
-            self._form_layout_transaction_active = previous_transaction_state
-
-    def apply_form_to_tablet(
-        self,
-        form,
-        *,
-        mark_dirty: bool = True,
-        notify: bool = True,
-        rollback_snapshot: _TabletFormSnapshot | None = None,
-    ) -> bool:
-        dataset = self.session.current_dataset
-        if dataset is None:
-            QMessageBox.information(self, self._t("forms.title"), self._t("forms.open_first"))
-            return False
-        log_event(
-            "forms.apply.requested",
-            form_id=getattr(form, "form_id", ""),
-            form_name=getattr(form, "name", ""),
-            dataset_id=dataset.dataset_id,
-            preview=not mark_dirty,
-            pencil_active=self.tablet_view.curve_pencil_enabled,
-        )
-        try:
-            result = self.form_apply_engine.build_layout(form, dataset)
-        except (KeyError, RuntimeError, TypeError, ValueError) as exc:
-            log_exception(
-                "forms.apply.build_failed",
-                exc,
-                form_id=getattr(form, "form_id", ""),
-                form_name=getattr(form, "name", ""),
-                dataset_id=dataset.dataset_id,
-            )
-            if notify:
-                QMessageBox.warning(self, self._t("forms.title"), str(exc))
-            else:
-                self.statusBar().showMessage(str(exc), 5000)
-                self._log(str(exc))
-            return False
-
-        # Interval selection belongs to the previous visual form.  Keeping it
-        # after a form switch leaves stale shading and an orphan statistics
-        # panel, so clear it before replacing the track/header widget tree.
-        self._clear_interval_analysis()
-
-        # A form replaces the whole track/header widget tree.  The active pencil
-        # must be ended only after the candidate model is known to be valid, and
-        # before any existing Qt object is disposed.
-        self._deactivate_curve_pencil_for_layout_change("form-apply")
-        snapshot = rollback_snapshot or self._capture_tablet_form_snapshot()
-        assert snapshot is not None
-
-        def render_candidate(layout: TabletLayout) -> None:
-            log_event(
-                "forms.apply.render_started",
-                tracks=len(layout.tracks),
-                form_id=getattr(form, "form_id", ""),
-            )
-            self.tablet_view.set_layout_and_dataset(layout, dataset, preserve_current_range=True)
-            log_event(
-                "forms.apply.render_finished",
-                tracks=len(layout.tracks),
-                form_id=getattr(form, "form_id", ""),
-            )
-
-        def commit_candidate(layout: TabletLayout) -> None:
-            self.tablet_controller.install_layout(layout, mark_dirty=mark_dirty)
-            self._refresh_annotation_layer()
-            self._show_workspace(self.tablet_view)
-
-        try:
-            self._form_layout_transaction_active = True
-            apply_reversibly(
-                candidate=result.layout,
-                snapshot=snapshot,
-                render_candidate=render_candidate,
-                commit_candidate=commit_candidate,
-                restore_snapshot=self._restore_tablet_form_snapshot,
-            )
-        except ReversibleApplyError as exc:
-            log_exception(
-                "forms.apply.failed",
-                exc.operation_error,
-                form_id=getattr(form, "form_id", ""),
-                form_name=getattr(form, "name", ""),
-                rollback_failed=exc.rollback_error is not None,
-            )
-            if exc.rollback_error is not None:
-                log_exception(
-                    "forms.apply.rollback_failed",
-                    exc.rollback_error,
-                    form_id=getattr(form, "form_id", ""),
-                )
-            message = self._t("forms.apply_failed_restored", error=str(exc.operation_error))
-            if exc.rollback_error is not None:
-                message += "\n" + self._t("forms.rollback_failed", error=str(exc.rollback_error))
-            if notify:
-                QMessageBox.warning(self, self._t("forms.title"), message)
-            else:
-                self.statusBar().showMessage(message, 7000)
-            self._log(message)
-            return False
-        finally:
-            self._form_layout_transaction_active = False
-
-        self._selected_track_id = None
-        self._refresh_tree()
-        self._update_title()
-        missing_names = ", ".join(item.canonical_parameter_id for item in result.missing)
-        message = self._t(
-            "forms.applied_status",
-            name=form.name,
-            resolved=result.resolved_count,
-            total=len(result.resolutions),
-        )
-        if missing_names:
-            message += " " + self._t("forms.missing_status", names=missing_names)
-        if notify:
-            self.statusBar().showMessage(message)
-            self._log(message)
-        width_audit = audit_form_width(track.width for track in result.layout.visible_tracks())
-        log_event(
-            "forms.apply.completed",
-            form_id=getattr(form, "form_id", ""),
-            form_name=getattr(form, "name", ""),
-            tracks=len(result.layout.tracks),
-            missing=len(result.missing),
-            mark_dirty=mark_dirty,
-            form_width_px=width_audit.total_width_px,
-            a4_portrait_percent=f"{width_audit.portrait_scale_percent:.1f}",
-            a4_landscape_percent=f"{width_audit.landscape_scale_percent:.1f}",
-            a4_width_level=width_audit.level.value,
-        )
-        return True
-
-    def build_default_tablet(self) -> None:
-        dataset = self.session.current_dataset
-        if dataset is None:
-            QMessageBox.information(self, self._t("tablet.title"), self._t("tablet.open_first"))
-            return
-
-        layout = self.tablet_controller.build_default_layout()
-        self.tablet_view.set_layout_and_dataset(layout, dataset)
-        self._refresh_annotation_layer()
-        self._refresh_tree()
-        self._update_title()
-        self._log(self._t("tablet.default_built", count=len(layout.tracks)))
-
-    def _set_tablet_edit_mode(self, enabled: bool) -> None:
-        """Show or hide form-structure tools without affecting data navigation."""
-
-        enabled = bool(enabled)
-        self.form_edit_toolbar.setVisible(enabled)
-        self.tablet_view.set_form_edit_mode(enabled)
-        self.save_user_form_action.setEnabled(enabled)
-        self.add_curve_track_action.setEnabled(enabled)
-        self.edit_selected_track_action.setEnabled(enabled)
-        self.move_left_action.setEnabled(enabled)
-        self.move_right_action.setEnabled(enabled)
-        self.remove_track_action.setEnabled(enabled)
-        self.annotation_callout_action.setEnabled(enabled)
-        self.annotation_comment_action.setEnabled(enabled)
-        self.annotation_image_action.setEnabled(enabled)
-        self.annotation_symbol_action.setEnabled(enabled)
-        if not enabled:
-            self.tablet_view.set_annotation_tool(None)
-        selected_enabled = enabled and self._selected_annotation_id is not None
-        self.annotation_edit_selected_action.setEnabled(selected_enabled)
-        self.annotation_delete_selected_action.setEnabled(selected_enabled)
-        if not enabled:
-            self._selected_annotation_id = None
-        self.statusBar().showMessage(
-            self._t("ui.form_edit_enabled") if enabled else self._t("ui.form_edit_disabled")
-        )
-        self._schedule_toolbar_adaptation()
-
-    def save_current_tablet_as_user_form(self) -> None:
-        layout = self.session.current_tablet_layout
-        dataset = self.session.current_dataset
-        if layout is None or dataset is None:
-            QMessageBox.information(self, self._t("forms.title"), self._t("tablet.build_first"))
-            return
-        index = (
-            dataset.indexes.get(layout.vertical_index_id)
-            if layout.vertical_index_id is not None
-            else dataset.active_index
-        )
-        axis_word = self._t(
-            "ui.axis_time"
-            if index is not None and index.role is IndexRole.TIME
-            else "ui.axis_depth"
-        )
-        suggested = f"{dataset.name} â€” {axis_word}"
-        catalog = complete_form_catalog(self.form_repository, dataset, str(self.language))
-        dialog = FormCreateDialog(
-            catalog,
-            self,
-            language=str(self.language),
-            mode="save",
-            initial_name=suggested,
-            initial_axis_kind=(
-                FormAxisKind.TIME
-                if index is not None and index.role is IndexRole.TIME
-                else FormAxisKind.DEPTH
-            ),
-            axis_editable=False,
-        )
-        if dialog.exec() != QDialog.DialogCode.Accepted:
-            return
-        normalized = dialog.form_name
-        existing = dialog.existing_form
-        try:
-            form = form_from_tablet_layout(
-                layout,
-                dataset,
-                normalized,
-                description=self._t("ui.saved_from_tablet_description"),
-                language=self.language,
-            )
-            if existing is not None:
-                form.form_id = existing.form_id
-                form.style_id = existing.style_id
-                form.print_header_template_id = existing.print_header_template_id
-                form.print_header_template_ids = dict(existing.print_header_template_ids)
-                form.revision = existing.revision + 1
-                form.validate()
-            target = self.form_repository.save(form)
-            self.depth_annotation_controller.rebind_current_scope(
-                f"dataset:{dataset.dataset_id}:form:{form.form_id}"
-            )
-        except (OSError, RuntimeError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("ui.save_user_form"), str(exc))
-            return
-        self._refresh_annotation_layer()
-        folder_name = self._t(
-            "ui.user_time_forms" if form.axis_kind is FormAxisKind.TIME else "ui.user_depth_forms"
-        )
-        message = self._t(
-            "ui.user_form_saved",
-            name=form.name,
-            folder=folder_name,
-            path=str(target),
-        )
-        self.statusBar().showMessage(message)
-        self._log(message)
-
-    def save_tablet_preset(self) -> None:
-        if self.session.current_tablet_layout is None:
-            QMessageBox.information(self, self._t("tablet.title"), self._t("tablet.build_first"))
-            return
-        name, accepted = QInputDialog.getText(
-            self, self._t("tablet.preset_save"), self._t("tablet.preset_name")
-        )
-        if not accepted:
-            return
-        try:
-            self.tablet_controller.save_preset(name)
-        except (RuntimeError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("tablet.title"), str(exc))
-            return
-        normalized = name.strip()
-        self._update_title()
-        self._log(self._t("tablet.preset_saved", name=normalized))
-
-    def apply_tablet_preset(self) -> None:
-        name = self._select_tablet_preset(self._t("tablet.preset_apply"))
-        if name is None:
-            return
-        try:
-            layout = self.tablet_controller.apply_preset(name)
-        except (KeyError, RuntimeError) as exc:
-            QMessageBox.warning(self, self._t("tablet.title"), str(exc))
-            return
-        self._selected_track_id = None
-        self.tablet_view.set_layout_model(layout)
-        self.tablet_view.set_dataset(self.session.current_dataset)
-        self._refresh_tree()
-        self._update_title()
-        self._log(self._t("tablet.preset_applied", name=name))
-
-    def delete_tablet_preset(self) -> None:
-        name = self._select_tablet_preset(self._t("tablet.preset_delete"))
-        if name is None:
-            return
-        try:
-            self.tablet_controller.delete_preset(name)
-        except KeyError as exc:
-            QMessageBox.warning(self, self._t("tablet.title"), str(exc))
-            return
-        self._update_title()
-        self._log(self._t("tablet.preset_deleted", name=name))
-
-    def _select_tablet_preset(self, title: str) -> str | None:
-        names = sorted(self.session.tablet_presets, key=str.casefold)
-        if not names:
-            QMessageBox.information(self, self._t("tablet.title"), self._t("tablet.preset_empty"))
-            return None
-        name, accepted = QInputDialog.getItem(
-            self, title, self._t("tablet.preset_name"), names, 0, False
-        )
-        return name if accepted else None
-
-    def add_track(self, kind: TrackKind) -> None:
-        dataset = self.session.current_dataset
-        if dataset is None:
-            QMessageBox.information(self, self._t("tablet.title"), self._t("tablet.open_first"))
-            return
-
-        mnemonics = self._select_curve_mnemonics() if kind is TrackKind.CURVE else []
-        if kind is TrackKind.CURVE and not mnemonics:
-            return
-
-        try:
-            track = self.tablet_controller.add_track(kind, mnemonics)
-        except (RuntimeError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("tablet.title"), str(exc))
-            return
-        self.tablet_view.refresh_view()
-        self._refresh_tree()
-        self._show_workspace(self.tablet_view)
-        self._log(self._t("tablet.track_added", title=track.title))
-        self._update_title()
-
-    def change_selected_track_width(self) -> None:
-        track = self._selected_track()
-        if track is None:
-            return
-        width, accepted = QInputDialog.getInt(
-            self,
-            self._t("tablet.width_title"),
-            self._t("tablet.width_prompt"),
-            track.width,
-            80,
-            2000,
-            10,
-        )
-        if accepted:
-            self.tablet_controller.set_track_width(track.track_id, width)
-            self._layout_changed(self._t("tablet.width_changed", title=track.title, width=width))
-
-    def _change_track_width_from_drag(self, track_id: str, width: int) -> None:
-        try:
-            track = self.tablet_view.layout_model.track_by_id(track_id)
-            self.tablet_controller.set_track_width(track_id, width)
-            self.tablet_view.refresh_track(track_id, DirtyReason.STATIC)
-        except (KeyError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("tablet.width_title"), str(exc))
-            self.tablet_view.refresh_view()
-            return
-        self._refresh_tree()
-        self._update_title()
-        self._log(self._t("tablet.width_changed", title=track.title, width=width))
-
-    def _track_order_changed_from_drag(self, track_id: str, target_index: int) -> None:
-        try:
-            track = self.tablet_view.layout_model.track_by_id(track_id)
-            self.tablet_controller.move_track_to_index(track_id, target_index)
-        except (KeyError, ValueError):
-            return
-        self._refresh_tree()
-        self._update_title()
-        self._log(self._t("tablet.track_moved", title=track.title))
-
-    def move_selected_track(self, offset: int) -> None:
-        track = self._selected_track()
-        if track is None:
-            return
-        if self.tablet_controller.move_track(track.track_id, offset):
-            self._layout_changed(self._t("tablet.track_moved", title=track.title))
-
-    def set_selected_track_x_scale(self, scale: XScale) -> None:
-        track = self._selected_track()
-        if track is None:
-            return
-        try:
-            self.tablet_controller.set_track_x_scale(track.track_id, scale)
-        except ValueError as exc:
-            QMessageBox.warning(self, self._t("tablet.scale_title"), str(exc))
-            return
-        scale_name = (
-            self._t("inspector.logarithmic")
-            if scale is XScale.LOGARITHMIC
-            else self._t("inspector.linear")
-        )
-        self._layout_changed(self._t("tablet.scale_changed", title=track.title, scale=scale_name))
-
-    def change_selected_track_x_range(self) -> None:
-        track = self._selected_track()
-        if track is None:
-            return
-        default_minimum = track.x_min if track.x_min is not None else 0.1
-        default_maximum = track.x_max if track.x_max is not None else 100.0
-        minimum, accepted = QInputDialog.getDouble(
-            self,
-            self._t("tablet.range_title"),
-            self._t("tablet.minimum"),
-            default_minimum,
-            -1e300,
-            1e300,
-            6,
-        )
-        if not accepted:
-            return
-        maximum, accepted = QInputDialog.getDouble(
-            self,
-            self._t("tablet.range_title"),
-            self._t("tablet.maximum"),
-            default_maximum,
-            -1e300,
-            1e300,
-            6,
-        )
-        if not accepted:
-            return
-        try:
-            self.tablet_controller.set_track_x_range(track.track_id, minimum, maximum)
-        except ValueError as exc:
-            QMessageBox.warning(self, self._t("tablet.range_error_title"), str(exc))
-            return
-        self._layout_changed(
-            self._t(
-                "tablet.range_changed",
-                title=track.title,
-                minimum=f"{minimum:g}",
-                maximum=f"{maximum:g}",
-            )
-        )
-
-    def reset_selected_track_x_range(self) -> None:
-        track = self._selected_track()
-        if track is None:
-            return
-        self.tablet_controller.set_track_x_range(track.track_id, None, None)
-        self._layout_changed(self._t("tablet.auto_range_set", title=track.title))
-
-    def change_visible_depth_range(self) -> None:
-        dataset = self.session.current_dataset
-        if dataset is None:
-            QMessageBox.information(self, self._t("tablet.title"), self._t("tablet.open_first"))
-            return
-        finite_depth = dataset.depth[np.isfinite(dataset.depth)]
-        if finite_depth.size < 2:
-            QMessageBox.information(self, self._t("tablet.title"), self._t("statistics.no_depth"))
-            return
-        current = self.tablet_view.visible_depth_range
-        default_top = current[0] if current is not None else float(np.min(finite_depth))
-        default_bottom = current[1] if current is not None else float(np.max(finite_depth))
-        top, accepted = QInputDialog.getDouble(
-            self,
-            self._t("tablet.depth_range_title"),
-            self._t("tablet.depth_top"),
-            default_top,
-            float(np.min(finite_depth)),
-            float(np.max(finite_depth)),
-            3,
-        )
-        if not accepted:
-            return
-        bottom, accepted = QInputDialog.getDouble(
-            self,
-            self._t("tablet.depth_range_title"),
-            self._t("tablet.depth_bottom"),
-            default_bottom,
-            float(np.min(finite_depth)),
-            float(np.max(finite_depth)),
-            3,
-        )
-        if not accepted:
-            return
-        try:
-            self.tablet_controller.set_visible_depth(top, bottom)
-        except ValueError as exc:
-            QMessageBox.warning(self, self._t("tablet.depth_range_title"), str(exc))
-            return
-        self.tablet_view.set_visible_depth(top, bottom)
-        self._layout_changed(
-            self._t("tablet.depth_range_changed", top=f"{top:g}", bottom=f"{bottom:g}")
-        )
-
-    def reset_visible_depth_range(self) -> None:
-        if self.session.current_tablet_layout is None:
-            QMessageBox.information(self, self._t("tablet.title"), self._t("tablet.build_first"))
-            return
-        self.tablet_controller.reset_visible_depth()
-        self.tablet_view.refresh_view()
-        self._layout_changed(self._t("tablet.full_depth_restored"))
-
-    def hide_selected_track(self) -> None:
-        track = self._selected_track()
-        if track is None:
-            return
-        self.tablet_controller.hide_track(track.track_id)
-        self._selected_track_id = None
-        self._layout_changed(self._t("tablet.track_hidden", title=track.title))
-
-    def show_all_tracks(self) -> None:
-        restored_count = self.tablet_controller.show_all_tracks()
-        if restored_count == 0:
-            self.statusBar().showMessage(self._t("tablet.no_hidden"))
-            return
-        self._layout_changed(self._t("tablet.hidden_shown", count=restored_count))
-
-    def remove_selected_track(self) -> None:
-        track = self._selected_track()
-        if track is None:
-            return
-        self.tablet_controller.remove_track(track.track_id)
-        self._selected_track_id = None
-        self._layout_changed(self._t("tablet.track_removed", title=track.title))
-
-    def _selected_track(self) -> TrackDefinition | None:
-        if self._selected_track_id is None:
-            QMessageBox.information(self, self._t("tablet.title"), self._t("tablet.select_track"))
-            return None
-        try:
-            return self.tablet_view.layout_model.track_by_id(self._selected_track_id)
-        except KeyError:
-            self._selected_track_id = None
-            return None
-
-    def _layout_changed(self, message: str) -> None:
-        self.tablet_view.refresh_view()
-        self._refresh_tree()
-        self._update_title()
-        self._log(message)
-
-    def _select_curve_mnemonics(self, *, preselected: tuple[str, ...] = ()) -> list[str]:
-        dataset = self.session.current_dataset
-        if dataset is None:
-            return []
-        dialog = QDialog(self)
-        dialog.setWindowTitle(self._t("tablet.select_curves_title"))
-        fit_window_to_screen(
-            dialog,
-            preferred=QSize(720, 640),
-            minimum=QSize(520, 400),
-        )
-        layout = QVBoxLayout(dialog)
-        layout.addWidget(QLabel(self._t("tablet.select_curves_prompt")))
-        curve_list = QListWidget()
-        # Check boxes are the source of truth. A normal click anywhere on a row
-        # toggles it, so users do not need Ctrl and do not have to hit the tiny box.
-        curve_list.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
-        curve_list.setAlternatingRowColors(True)
-        selected_set = set(preselected)
-        curve_by_id = {curve.metadata.curve_id: curve for curve in dataset.curves.values()}
-
-        def refresh_item(item: QListWidgetItem) -> None:
-            curve_id = str(item.data(int(Qt.ItemDataRole.UserRole) + 1))
-            curve = curve_by_id[curve_id]
-            mnemonic = clean_mnemonic(curve.metadata.original_mnemonic)
-            unit = clean_display_text(curve.metadata.unit)
-            description = clean_display_text(curve.metadata.description)
-            readable = localized_curve_name(
-                mnemonic,
-                description=description,
-                unit=unit,
-                language=self.language,
-            )
-            details = f"{readable}  [{mnemonic}]"
-            if unit:
-                details += f"  Â·  {unit}"
-            item.setText(details)
-            item.setData(Qt.ItemDataRole.UserRole, mnemonic)
-            item.setToolTip(
-                "\n".join(
-                    value
-                    for value in (
-                        readable,
-                        f"{mnemonic}{f' [{unit}]' if unit else ''}",
-                        description,
-                    )
-                    if value
-                )
-            )
-
-        for curve in dataset.curves.values():
-            mnemonic = clean_mnemonic(curve.metadata.original_mnemonic)
-            item = QListWidgetItem()
-            item.setData(int(Qt.ItemDataRole.UserRole) + 1, curve.metadata.curve_id)
-            item.setFlags(
-                item.flags() | Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled
-            )
-            item.setCheckState(
-                Qt.CheckState.Checked if mnemonic in selected_set else Qt.CheckState.Unchecked
-            )
-            refresh_item(item)
-            curve_list.addItem(item)
-
-        pressed_state: dict[int, Qt.CheckState] = {}
-        active_item: list[QListWidgetItem | None] = [None]
-
-        rename_button = QPushButton(self._t("tablet.rename_curve"))
-        rename_button.setEnabled(False)
-
-        def remember_state(item: QListWidgetItem) -> None:
-            active_item[0] = item
-            rename_button.setEnabled(True)
-            pressed_state[id(item)] = item.checkState()
-
-        def toggle_full_row(item: QListWidgetItem) -> None:
-            before = pressed_state.pop(id(item), item.checkState())
-            # Qt already toggles the checkbox when its indicator was clicked.
-            # When the text area was clicked, toggle it here as well.
-            if item.checkState() == before:
-                item.setCheckState(
-                    Qt.CheckState.Unchecked
-                    if before is Qt.CheckState.Checked
-                    else Qt.CheckState.Checked
-                )
-
-        def rename_curve(item: QListWidgetItem | None = None) -> None:
-            target = item or active_item[0]
-            if target is None:
-                return
-            curve_id = str(target.data(int(Qt.ItemDataRole.UserRole) + 1))
-            curve = curve_by_id[curve_id]
-            mnemonic = clean_mnemonic(curve.metadata.original_mnemonic)
-            unit = clean_display_text(curve.metadata.unit)
-            description = clean_display_text(curve.metadata.description)
-            current_name = localized_curve_name(
-                mnemonic,
-                description=description,
-                unit=unit,
-                language=self.language,
-            )
-            name, accepted = QInputDialog.getText(
-                dialog,
-                self._t("tablet.rename_curve_title"),
-                self._t("tablet.rename_curve_prompt", mnemonic=mnemonic),
-                text=(description or current_name),
-            )
-            name = clean_display_text(name)
-            if not accepted or not name:
-                return
-            try:
-                self.curve_metadata_controller.update(
-                    curve_id,
-                    mnemonic=mnemonic,
-                    unit=unit,
-                    description=name,
-                )
-            except (RuntimeError, ValueError) as exc:
-                QMessageBox.warning(dialog, self._t("tablet.rename_curve_title"), str(exc))
-                return
-            refresh_item(target)
-            self._refresh_tree()
-            self._update_title()
-
-        curve_list.itemPressed.connect(remember_state)
-        curve_list.itemClicked.connect(toggle_full_row)
-        curve_list.itemDoubleClicked.connect(lambda item, _row: rename_curve(item))
-        rename_button.clicked.connect(lambda: rename_curve())
-        layout.addWidget(curve_list)
-
-        action_row = QHBoxLayout()
-        action_row.addWidget(rename_button)
-        action_row.addStretch(1)
-        layout.addLayout(action_row)
-
-        buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        )
-        buttons.button(QDialogButtonBox.StandardButton.Ok).setText(self._t("common.ok"))
-        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(self._t("common.cancel"))
-        buttons.accepted.connect(dialog.accept)
-        buttons.rejected.connect(dialog.reject)
-        layout.addWidget(buttons)
-        if dialog.exec() != QDialog.DialogCode.Accepted:
-            return []
-        result: list[str] = []
-        for index in range(curve_list.count()):
-            item = curve_list.item(index)
-            if item is not None and item.checkState() is Qt.CheckState.Checked:
-                result.append(str(item.data(Qt.ItemDataRole.UserRole)))
-        return result
-
-    def calculate_ratios(self) -> None:
-        try:
-            outcome = self.gas_ratio_project_controller.calculate_basic_ratios()
-        except ParameterResolutionError as exc:
-            key = f"ratio.parameter_{exc.code}"
-            error = self._t(key, **exc.values) if key in self.localizer.catalog else str(exc)
-            QMessageBox.warning(self, self._t("ratio.title"), error)
-            self._log(self._t("ratio.failed", error=error))
-            return
-        except (RuntimeError, KeyError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("ratio.title"), str(exc))
-            self._log(self._t("ratio.failed", error=str(exc)))
-            return
-
-        self.curve_view.show_dataset(outcome.dataset, list(outcome.created_mnemonics))
-        self.tablet_view.set_dataset(outcome.dataset)
-        self._log(
-            self._t("ratio.curves_updated", curves=", ".join(outcome.created_mnemonics))
-        )
-        self._refresh_tree()
-        self._update_title()
-        self.statusBar().showMessage(self._t("ratio.completed"))
-
-    def _after_interpretation_calculation(
-        self,
-        result: InterpretationCalculationResult,
-    ) -> None:
-        dataset = self.session.current_dataset
-        if dataset is None:
-            return
-        layout = self.session.current_tablet_layout
-        if layout is None:
-            layout = self.tablet_controller.build_default_layout()
-
-        track_specs = (
-            (
-                "gas_ratio_pixler",
-                "Gas Ratio / Pixler",
-                TrackKind.CURVE,
-            ),
-            (
-                "normalized_gas",
-                "Normalized gas",
-                TrackKind.CURVE,
-            ),
-            (
-                "dexp",
-                "DEXP / NCT",
-                TrackKind.DEXP,
-            ),
-        )
-        for group_name, title, kind in track_specs:
-            mnemonics = list(result.track_curves.get(group_name, ()))
-            if not mnemonics:
-                continue
-            track = next(
-                (
-                    item
-                    for item in layout.tracks
-                    if item.kind in {TrackKind.CURVE, TrackKind.GAS, TrackKind.DEXP}
-                    and item.title.casefold() == title.casefold()
-                ),
-                None,
-            )
-            if track is not None:
-                self.tablet_controller.replace_track_curves(track.track_id, mnemonics)
-                continue
-            # A user may have renamed a previously created track. If its curve
-            # composition already intersects this method, keep that custom track
-            # and avoid silently adding a duplicate.
-            if any(
-                item.kind in {TrackKind.CURVE, TrackKind.GAS, TrackKind.DEXP}
-                and set(item.curve_mnemonics).intersection(mnemonics)
-                for item in layout.tracks
-            ):
-                continue
-            track = self.tablet_controller.add_track(kind, mnemonics)
-            self.tablet_controller.rename_track(track.track_id, title)
-
-        visible = list(
-            dict.fromkeys(
-                (
-                    *result.track_curves.get("gas_ratio_pixler", ()),
-                    *result.track_curves.get("normalized_gas", ()),
-                    *result.track_curves.get("dexp", ()),
-                )
-            )
-        )
-        self.curve_view.show_dataset(dataset, visible or None)
-        self.las_table_editor.set_dataset(dataset)
-        self.tablet_view.set_layout_and_dataset(layout, dataset)
-        self._refresh_tree()
-        self._update_title()
-        changed = ", ".join(result.changed) or "â€”"
-        self._log(f"Ð˜Ð½Ñ‚ÐµÑ€Ð¿Ñ€ÐµÑ‚Ð°Ñ†Ð¸Ð¾Ð½Ð½Ñ‹Ðµ ÐºÑ€Ð¸Ð²Ñ‹Ðµ Ñ€Ð°ÑÑÑ‡Ð¸Ñ‚Ð°Ð½Ñ‹: {changed}")
-        self.statusBar().showMessage(f"Ð˜Ð½Ñ‚ÐµÑ€Ð¿Ñ€ÐµÑ‚Ð°Ñ†Ð¸Ð¾Ð½Ð½Ñ‹Ðµ ÐºÑ€Ð¸Ð²Ñ‹Ðµ ÑÐ¾Ð·Ð´Ð°Ð½Ñ‹/Ð¾Ð±Ð½Ð¾Ð²Ð»ÐµÐ½Ñ‹: {changed}")
-
-    def show_formula_profiles(self) -> None:
-        dataset = self.session.current_dataset
-        if dataset is None:
-            QMessageBox.information(
-                self, self._t("formula.calculation"), self._t("formula.select_dataset")
-            )
-            return
-        dialog = FormulaExecutionDialog(
-            dataset,
-            self.formula_registry,
-            self.formula_execution_controller,
-            self,
-            language=self.language,
-        )
-        if dialog.exec() != QDialog.DialogCode.Accepted or dialog.execution_result is None:
-            return
-        result = dialog.execution_result
-        passport = self.formula_registry.passport(result.profile_id)
-        mapping = dialog.selected_mapping()
-        gas_inputs = [
-            mapping[name]
-            for name in passport.required_inputs
-            if passport.input_units[name] == "same concentration unit"
-        ]
-        visible_curves = list(dict.fromkeys([*gas_inputs, result.output_mnemonic]))
-        self.curve_view.show_dataset(dataset, visible_curves)
-        self.tablet_view.set_dataset(dataset)
-        self._refresh_tree()
-        self._update_title()
-        self._log(f"Ð Ð°ÑÑÑ‡Ð¸Ñ‚Ð°Ð½Ð° ÐºÑ€Ð¸Ð²Ð°Ñ {result.output_mnemonic}: {result.profile_id}")
-        self.statusBar().showMessage(f"Ð Ð°ÑÑÑ‡Ð¸Ñ‚Ð°Ð½Ð° ÐºÑ€Ð¸Ð²Ð°Ñ {result.output_mnemonic}")
-
-    def show_lag_correction(self) -> None:
-        dataset = self.session.current_dataset
-        well = self.session.current_well
-        if dataset is None or well is None:
-            QMessageBox.information(
-                self, self._t("lag_correction.action"), self._t("formula.select_dataset")
-            )
-            return
-        try:
-            selection = self.lag_correction_controller.prepare_dialog_selection()
-        except LagCorrectionSourceDatasetMissingError:
-            QMessageBox.warning(
-                self,
-                self._t("lag_correction.action"),
-                self._t("lag_correction.source_missing"),
-            )
-            return
-        dialog = LagCorrectionDialog(
-            selection.dataset,
-            self.lag_correction_controller,
-            self,
-            language=self.language,
-        )
-        dialog.exec()
-        self.lag_correction_controller.restore_dialog_selection(selection)
-        self._refresh_tree()
-        self._show_current_dataset()
-        self._update_title()
-
-    def show_time_depth_mapping(self) -> None:
-        dataset = self.session.current_dataset
-        if dataset is None:
-            QMessageBox.information(
-                self, self._t("time_depth.action"), self._t("formula.select_dataset")
-            )
-            return
-        TimeDepthMappingDialog(
-            dataset,
-            self.time_depth_mapping_controller,
-            self,
-            language=self.language,
-        ).exec()
-        self._update_title()
-
-    def show_time_to_depth_conversion(self) -> None:
-        dataset = self.session.current_dataset
-        if dataset is None:
-            QMessageBox.information(
-                self, self._t("time_to_depth.action"), self._t("formula.select_dataset")
-            )
-            return
-        has_depth = any(index.role is IndexRole.DEPTH for index in dataset.indexes.values())
-        has_time = any(index.role is IndexRole.TIME for index in dataset.indexes.values())
-        if not has_depth or not has_time:
-            QMessageBox.warning(
-                self,
-                self._t("time_to_depth.action"),
-                self._t("time_to_depth.requires_indexes"),
-            )
-            return
-        dialog = TimeToDepthDialog(dataset, self, language=self.language)
-        if dialog.exec() != QDialog.DialogCode.Accepted or dialog.plan is None:
-            return
-        try:
-            result = self.time_to_depth_controller.create_copy(dialog.plan)
-        except (RuntimeError, ValueError) as exc:
-            QMessageBox.critical(self, self._t("time_to_depth.action"), str(exc))
-            return
-        self.undo_time_to_depth_action.setEnabled(True)
-        self.redo_time_to_depth_action.setEnabled(False)
-        self._refresh_tree()
-        self._show_current_dataset()
-        self._update_title()
-        self._log(
-            self._t(
-                "time_to_depth.created_log",
-                rows=len(result.dataset.depth),
-                empty=result.empty_bin_count,
-            )
-        )
-        self.statusBar().showMessage(
-            self._t("time_to_depth.created", rows=len(result.dataset.depth))
-        )
-
-    def undo_time_to_depth_conversion(self) -> None:
-        try:
-            self.time_to_depth_controller.undo()
-        except RuntimeError as exc:
-            QMessageBox.warning(self, self._t("time_to_depth.action"), str(exc))
-            return
-        self.undo_time_to_depth_action.setEnabled(False)
-        self.redo_time_to_depth_action.setEnabled(True)
-        self._refresh_tree()
-        self._show_current_dataset()
-        self._update_title()
-
-    def redo_time_to_depth_conversion(self) -> None:
-        try:
-            self.time_to_depth_controller.redo()
-        except RuntimeError as exc:
-            QMessageBox.warning(self, self._t("time_to_depth.action"), str(exc))
-            return
-        self.undo_time_to_depth_action.setEnabled(True)
-        self.redo_time_to_depth_action.setEnabled(False)
-        self._refresh_tree()
-        self._show_current_dataset()
-        self._update_title()
-
-    def show_custom_formulas(self) -> None:
-        dialog = CustomFormulaDialog(self.custom_formula_controller, self, language=self.language)
-        dialog.exec()
-        if not dialog.dataset_changed or self.session.current_dataset is None:
-            return
-        definition = next(
-            (
-                item
-                for item in self.session.project.custom_formulas.values()
-                if item.output_mnemonic == dialog.calculated_mnemonic
-            ),
-            None,
-        )
-        inputs = formula_inputs(definition.expression) if definition else ()
-        self.curve_view.show_dataset(
-            self.session.current_dataset,
-            [*inputs, dialog.calculated_mnemonic]
-            if dialog.calculated_mnemonic is not None
-            else None,
-        )
-        self.tablet_view.set_dataset(self.session.current_dataset)
-        self._refresh_tree()
-        self._update_title()
-
-    def _show_interval_analysis_from_gesture(self, payload: object) -> None:
-        dataset = self.session.current_dataset
-        if dataset is None or not isinstance(payload, dict):
-            return
-        raw_top = payload.get("top")
-        raw_bottom = payload.get("bottom")
-        if raw_top is None or raw_bottom is None:
-            return
-        try:
-            top = float(raw_top)
-            bottom = float(raw_bottom)
-        except (TypeError, ValueError):
-            return
-        if not np.isfinite(top) or not np.isfinite(bottom) or top >= bottom:
-            return
-        axis_id = str(payload.get("axis_id") or dataset.active_index_id or "")
-        index = dataset.indexes.get(axis_id)
-        if index is None:
-            return
-        raw_axis = np.asarray(index.values)
-        if np.issubdtype(raw_axis.dtype, np.datetime64):
-            dates = raw_axis.astype("datetime64[ns]")
-            axis_values = dates.astype(np.int64).astype(np.float64) / 1_000_000_000.0
-            axis_values[np.isnat(dates)] = np.nan
-        else:
-            try:
-                axis_values = raw_axis.astype(np.float64)
-            except (TypeError, ValueError):
-                return
-        raw_mnemonics = payload.get("mnemonics", ())
-        mnemonics = (
-            tuple(str(value) for value in raw_mnemonics if isinstance(value, str) and value.strip())
-            if isinstance(raw_mnemonics, (tuple, list))
-            else ()
-        )
-        try:
-            statistics = calculate_interval_statistics(
-                dataset,
-                top,
-                bottom,
-                mnemonics,
-                axis_values=axis_values,
-            )
-        except ValueError as exc:
-            QMessageBox.warning(self, self._t("statistics.title"), str(exc))
-            return
-        if not statistics:
-            QMessageBox.information(
-                self, self._t("statistics.title"), self._t("statistics.no_curves")
-            )
-            return
-
-        display_names: dict[str, str] = {}
-        curve_ids: list[str] = []
-        for item in statistics:
-            curve = dataset.curve_by_mnemonic(item.mnemonic)
-            if curve is None:
-                continue
-            curve_ids.append(curve.metadata.curve_id)
-            configured = ""
-            for definition in self.tablet_view.layout_model.tracks:
-                matching_mnemonic = next(
-                    (
-                        mnemonic
-                        for mnemonic in definition.curve_mnemonics
-                        if mnemonic.casefold() == item.mnemonic.casefold()
-                    ),
-                    None,
-                )
-                if matching_mnemonic is not None:
-                    configured = definition.curve_display_settings(matching_mnemonic).display_name
-                    break
-            display_names[item.mnemonic] = localized_curve_name(
-                curve.metadata.original_mnemonic,
-                description=curve.metadata.description or "",
-                unit=curve.metadata.unit or "",
-                language=self.language,
-                configured=configured,
-            )
-        if index.role is IndexRole.DEPTH and curve_ids:
-            try:
-                self.dataset_selection.select(dataset, top, bottom, tuple(curve_ids))
-            except (KeyError, ValueError):
-                pass
-        axis_label = str(payload.get("axis_label") or index.mnemonic)
-        unit = str(payload.get("axis_unit") or index.unit or "")
-        is_datetime = bool(payload.get("axis_is_datetime"))
-        if is_datetime:
-            rendered_top = format_unix_seconds(top)
-            rendered_bottom = format_unix_seconds(bottom)
-        elif index.role is IndexRole.TIME:
-            rendered_top = format_elapsed_time(top, unit)
-            rendered_bottom = format_elapsed_time(bottom, unit)
-        else:
-            suffix = f" {unit}" if unit else ""
-            rendered_top = f"{top:g}{suffix}"
-            rendered_bottom = f"{bottom:g}{suffix}"
-        interval_label = f"{axis_label}: {rendered_top} â€“ {rendered_bottom}"
-        self.interval_statistics_panel.set_report(
-            dataset_name=dataset.name,
-            interval_label=interval_label,
-            statistics=statistics,
-            display_names=display_names,
-        )
-        self.interval_statistics_dock.show_preserving_position()
-
-    def _export_interval_statistics(self, export_format: str) -> None:
-        statistics = self.interval_statistics_panel.statistics
-        if not statistics:
-            return
-        is_excel = export_format == "xlsx"
-        suffix = ".xlsx" if is_excel else ".csv"
-        file_filter = "Excel (*.xlsx)" if is_excel else "CSV (*.csv)"
-        safe_name = self.interval_statistics_panel.dataset_name or "dataset"
-        filename, _ = QFileDialog.getSaveFileName(
-            self,
-            self._t("statistics.export_title"),
-            str(Path.cwd() / f"{safe_name}_interval_statistics{suffix}"),
-            file_filter,
-        )
-        if not filename:
-            return
-        target = Path(filename)
-        if target.suffix.casefold() != suffix:
-            target = target.with_suffix(suffix)
-        overwrite = self._confirm_export_overwrite(target)
-        if overwrite is None:
-            return
-        try:
-            if is_excel:
-                exported = export_interval_statistics_xlsx(
-                    target,
-                    statistics,
-                    interval_label=self.interval_statistics_panel.interval_label,
-                    dataset_name=self.interval_statistics_panel.dataset_name,
-                    display_names=self.interval_statistics_panel.display_names,
-                    language=self.language,
-                )
-            else:
-                exported = export_interval_statistics_csv(
-                    target,
-                    statistics,
-                    interval_label=self.interval_statistics_panel.interval_label,
-                    dataset_name=self.interval_statistics_panel.dataset_name,
-                    display_names=self.interval_statistics_panel.display_names,
-                    language=self.language,
-                )
-        except OSError as exc:
-            QMessageBox.critical(self, self._t("statistics.title"), str(exc))
-            return
-        self.statusBar().showMessage(self._t("statistics.export_success", name=exported.name), 5000)
-
-    def _clear_interval_statistics_panel(self) -> None:
-        self.interval_statistics_panel.clear_report()
-        self.interval_statistics_dock.hide()
-
-    def _clear_interval_analysis(self) -> None:
-        self.tablet_view.clear_interval_analysis(emit_signal=False)
-        self.dataset_selection.clear()
-        self._clear_interval_statistics_panel()
-
-    def show_interval_statistics(self) -> None:
-        dataset = self.session.current_dataset
-        if dataset is None:
-            QMessageBox.information(
-                self, self._t("statistics.title"), self._t("statistics.select_dataset")
-            )
-            return
-        visible_range = self.tablet_view.visible_depth_range
-        if visible_range is None:
-            finite_depth = dataset.depth[np.isfinite(dataset.depth)]
-            if finite_depth.size == 0:
-                QMessageBox.warning(
-                    self, self._t("statistics.title"), self._t("statistics.no_depth")
-                )
-                return
-            depth_top, depth_bottom = float(np.min(finite_depth)), float(np.max(finite_depth))
-        else:
-            depth_top, depth_bottom = visible_range
-        try:
-            statistics = calculate_interval_statistics(dataset, depth_top, depth_bottom)
-        except ValueError as exc:
-            QMessageBox.warning(self, self._t("statistics.title"), str(exc))
-            return
-        if not statistics:
-            QMessageBox.information(
-                self, self._t("statistics.title"), self._t("statistics.no_curves")
-            )
-            return
-        IntervalStatisticsDialog(
-            depth_top, depth_bottom, statistics, self, language=self.language
-        ).exec()
-
-    def calculate_nct(self) -> None:
-        dataset = self.session.current_dataset
-        if dataset is None:
-            QMessageBox.information(self, self._t("nct.title"), self._t("formula.select_dataset"))
-            return
-        finite_depth = dataset.depth[np.isfinite(dataset.depth)]
-        if finite_depth.size < 2:
-            QMessageBox.information(self, self._t("nct.title"), self._t("statistics.no_depth"))
-            return
-        dialog = NctCalculationDialog(
-            self.nct_calculation_controller,
-            float(np.min(finite_depth)),
-            float(np.max(finite_depth)),
-            self,
-            language=self.language,
-        )
-        if dialog.exec() != QDialog.DialogCode.Accepted or dialog.calculation_result is None:
-            return
-        self.curve_view.show_dataset(dataset, ["DEXPC", "NCT", "DEXPC_NCT"])
-        self.tablet_view.set_dataset(dataset)
-        self._refresh_tree()
-        self._update_title()
-        self.statusBar().showMessage(
-            self._t("nct.completed", points=dialog.calculation_result.calibration_points)
-        )
-
-    def show_depth_annotations(self) -> None:
-        if self.session.current_well is None:
-            QMessageBox.information(
-                self, self._t("annotations.title"), self._t("annotations.select_well")
-            )
-            return
-        self._open_annotation_dialog()
-
-    def _open_annotation_dialog(
-        self,
-        *,
-        initial_values: dict[str, object] | None = None,
-        annotation_id: str | None = None,
-    ) -> bool:
-        """Open the annotation UI and never leave an F4 action silently dead.
-
-        Qt signal callbacks can otherwise print a constructor exception only to
-        the console.  The user then sees a toolbar button that appears to do
-        nothing.  This UI boundary reports the failure visibly while preserving
-        the project and source data.
-        """
-
-        try:
-            dialog = DepthAnnotationsDialog(
-                self.depth_annotation_controller,
-                self,
-                language=self.language,
-                initial_values=initial_values,
-                annotation_id=annotation_id,
-            )
-            dialog.annotations_changed.connect(self._refresh_annotation_layer)
-            dialog.exec()
-        except Exception as exc:  # UI boundary: show unexpected plugin/Qt failures.
-            QMessageBox.critical(
-                self,
-                self._t("annotations.title"),
-                self._t("annotations.open_failed", error=str(exc)),
-            )
-            return False
-        self._refresh_annotation_layer()
-        return True
-
-    def _open_symbol_insertion_dialog(
-        self,
-        *,
-        initial_values: dict[str, object] | None = None,
-    ) -> bool:
-        if self.session.current_well is None:
-            return False
-        try:
-            dialog = SymbolInsertionDialog(
-                self.depth_annotation_controller,
-                self,
-                language=self.language,
-                initial_values=initial_values,
-            )
-            if dialog.exec() != QDialog.DialogCode.Accepted or dialog.selection is None:
-                return False
-            selection = dialog.selection
-            image_asset = install_symbol_into_project(
-                self.session,
-                selection.symbol,
-                transparent_background=selection.transparent_background,
-                language=self.language.value,
-            )
-            annotation_values = cast(
-                _SymbolAnnotationValues,
-                selection.annotation_values(asset_ref=image_asset.asset_id),
-            )
-            record = self.depth_annotation_controller.add_annotation(**annotation_values)
-        except (KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("symbol_insert.title"), str(exc))
-            return False
-        self._refresh_annotation_layer()
-        self.tablet_view.select_annotation(record.annotation_id)
-        self._annotation_selection_changed(record.annotation_id)
-        self.statusBar().showMessage(self._t("symbol_insert.inserted_status"))
-        return True
-
-    def _refresh_annotation_layer(self) -> None:
-        """Refresh annotations only, preserving the rendered tablet.
-
-        Annotations intentionally do not live in the project/tree column. There
-        is therefore no reason to rebuild the tree or every graph track after an
-        annotation CRUD operation. The lightweight TabletView setters reuse the
-        existing overlay helpers and selection.
-        """
-
-        well = self.session.current_well
-        self.tablet_view.set_image_assets(self.session.image_assets)
-        if well is None:
-            visible_objects = []
-        else:
-            self.depth_annotation_controller.adopt_unscoped_annotations()
-            visible_objects = self.depth_annotation_controller.canvas_objects_for_current_scope()
-        self.tablet_view.set_canvas_objects(visible_objects)
-        if self._selected_annotation_id is not None and all(
-            item.object_id != self._selected_annotation_id for item in visible_objects
-        ):
-            self._selected_annotation_id = None
-            self.tablet_view.select_annotation(None)
-            self._annotation_selection_changed(None)
-        self._update_title()
-
-    def _toggle_annotation_tool(self, kind: AnnotationKind, checked: bool) -> None:
-        if checked:
-            actions = {
-                AnnotationKind.CALLOUT: self.annotation_callout_action,
-                AnnotationKind.COMMENT: self.annotation_comment_action,
-                AnnotationKind.IMAGE: self.annotation_image_action,
-            }
-            for other_kind, action in actions.items():
-                if other_kind is not kind and action.isChecked():
-                    action.blockSignals(True)
-                    action.setChecked(False)
-                    action.blockSignals(False)
-            self.tablet_view.set_annotation_tool(kind)
-            self.statusBar().showMessage(self._t("annotations.tool_click_hint"))
-        elif self.tablet_view.annotation_tool is kind:
-            self.tablet_view.set_annotation_tool(None)
-
-    def _sync_annotation_tool_actions(self, value: object) -> None:
-        active = str(value) if value is not None else ""
-        mapping = {
-            AnnotationKind.CALLOUT.value: self.annotation_callout_action,
-            AnnotationKind.COMMENT.value: self.annotation_comment_action,
-            AnnotationKind.IMAGE.value: self.annotation_image_action,
-        }
-        for kind_value, action in mapping.items():
-            should_check = kind_value == active
-            if action.isChecked() != should_check:
-                action.blockSignals(True)
-                action.setChecked(should_check)
-                action.blockSignals(False)
-
-    def _create_annotation_at_view_center(self, kind: AnnotationKind) -> None:
-        payload = self.tablet_view.annotation_request_at_view_center(
-            kind,
-            track_id=self._selected_track_id,
-        )
-        if payload is None:
-            QMessageBox.information(
-                self, self._t("annotations.title"), self._t("tablet.build_first")
-            )
-            return
-        self._create_annotation_from_tablet(payload)
-
-    def _create_annotation_from_tablet(self, payload: object) -> None:
-        if self.session.current_well is None or not isinstance(payload, dict):
-            return
-        values = dict(payload)
-        direct_create = bool(values.pop("direct_create", False))
-        if str(values.get("kind", "")) == AnnotationKind.SYMBOL.value:
-            self._open_symbol_insertion_dialog(initial_values=values)
-            return
-        if not direct_create:
-            self._open_annotation_dialog(initial_values=values)
-            return
-        try:
-            record = self.depth_annotation_controller.add_annotation(**values)
-        except (KeyError, RuntimeError, TypeError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("annotations.title"), str(exc))
-            return
-        self._refresh_annotation_layer()
-        self.tablet_view.select_annotation(record.annotation_id)
-        self._annotation_selection_changed(record.annotation_id)
-        self.statusBar().showMessage(self._t("annotations.direct_created_status"))
-
-    def _edit_annotation_from_tablet(self, annotation_id: str) -> None:
-        if self.session.current_well is None:
-            return
-        self._open_annotation_dialog(annotation_id=annotation_id)
-
-    def _delete_annotation_from_tablet(self, annotation_id: str) -> None:
-        answer = QMessageBox.question(
-            self,
-            self._t("annotations.title"),
-            self._t("annotations.delete_confirm"),
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
-        )
-        if answer != QMessageBox.StandardButton.Yes:
-            return
-        try:
-            self.depth_annotation_controller.remove(annotation_id)
-        except (KeyError, RuntimeError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("annotations.title"), str(exc))
-            return
-        if self._selected_annotation_id == annotation_id:
-            self._selected_annotation_id = None
-            self.tablet_view.select_annotation(None)
-            self._annotation_selection_changed(None)
-        self._refresh_annotation_layer()
-        self.statusBar().showMessage(self._t("annotations.deleted_status"))
-
-    def _duplicate_annotation_from_tablet(self, annotation_id: str) -> None:
-        try:
-            self.depth_annotation_controller.duplicate(annotation_id)
-        except (KeyError, RuntimeError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("annotations.title"), str(exc))
-            return
-        self._refresh_annotation_layer()
-
-    def _update_annotation_geometry_from_tablet(
-        self,
-        annotation_id: str,
-        offset_x: float,
-        offset_y: float,
-        width: float,
-        height: float,
-    ) -> None:
-        try:
-            self.depth_annotation_controller.set_geometry(
-                annotation_id,
-                offset_x=offset_x,
-                offset_y=offset_y,
-                width=width,
-                height=height,
-            )
-        except (KeyError, RuntimeError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("annotations.title"), str(exc))
-            self._refresh_annotation_layer()
-            return
-        # The overlay already contains the final drag/resize geometry. Commit
-        # one history entry and dirty marker on release, but do not rebuild the
-        # tablet or replace the overlay item. This removes the release flash and
-        # keeps selection/focus stable.
-        self._update_title()
-
-    def _annotation_selection_changed(self, annotation_id: object) -> None:
-        selected = annotation_id if isinstance(annotation_id, str) else None
-        self._selected_annotation_id = selected
-        enabled = selected is not None and self.tablet_view.form_edit_mode
-        self.annotation_edit_selected_action.setEnabled(enabled)
-        self.annotation_delete_selected_action.setEnabled(enabled)
-        if selected is not None:
-            self.statusBar().showMessage(self._t("annotations.selected_status"))
-
-    def _edit_selected_annotation(self) -> None:
-        annotation_id = self._selected_annotation_id
-        if annotation_id is None:
-            QMessageBox.information(
-                self,
-                self._t("annotations.title"),
-                self._t("annotations.select_existing"),
-            )
-            return
-        self._edit_annotation_from_tablet(annotation_id)
-
-    def _delete_selected_annotation(self) -> None:
-        annotation_id = self._selected_annotation_id
-        if annotation_id is None:
-            QMessageBox.information(
-                self,
-                self._t("annotations.title"),
-                self._t("annotations.select_existing"),
-            )
-            return
-        self._delete_annotation_from_tablet(annotation_id)
-
-    def _save_curve_value_annotation(self, payload: object) -> None:
-        if not isinstance(payload, dict):
-            return
-        try:
-            self.depth_annotation_controller.add_curve_value(
-                track_id=str(payload["track_id"]),
-                depth=float(payload["depth"]),
-                axis_value=float(payload["axis_value"]),
-                axis_id=str(payload["axis_id"]) if payload.get("axis_id") else None,
-                mnemonic=str(payload["mnemonic"]),
-                value=float(payload["value"]),
-                unit=str(payload.get("unit", "")),
-                x_fraction=float(payload.get("x_fraction", 0.5)),
-                display_text=(
-                    str(payload.get("display_value")) if payload.get("display_value") else None
-                ),
-            )
-        except (KeyError, RuntimeError, TypeError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("annotations.title"), str(exc))
-            return
-        self._refresh_annotation_layer()
-        self.statusBar().showMessage(self._t("annotations.value_saved"))
-
-    def show_lithology_editor(self) -> None:
-        if self.session.current_well is None:
-            QMessageBox.information(
-                self, self._t("lithology.title"), self._t("lithology.select_well")
-            )
-            return
-        LithologyDialog(
-            self.lithology_controller,
-            self,
-            catalog=self.lithotype_catalog_controller.available(),
-            description_templates=self.description_template_controller.available(),
-            language=self.language,
-        ).exec()
-        well = self.session.current_well
-        self.tablet_view.set_lithology(
-            well.lithology if well is not None else [],
-            self.lithotype_catalog_controller.available(),
-        )
-        self._refresh_tree()
-        self._update_title()
-
-    def _create_lithology_interval_from_tablet(self, top_depth: float, bottom_depth: float) -> None:
-        if self.session.current_well is None or self.session.current_dataset is None:
-            QMessageBox.information(
-                self, self._t("lithology.title"), self._t("lithology.select_well")
-            )
-            return
-        catalog = self.lithotype_catalog_controller.available()
-        if not catalog:
-            QMessageBox.warning(
-                self, self._t("lithology.title"), self._t("lithology.quick_no_catalog")
-            )
-            return
-        dialog = LithologyIntervalDialog(
-            top_depth,
-            bottom_depth,
-            catalog,
-            language=self.language,
-            parent=self,
-        )
-        while dialog.exec() == QDialog.DialogCode.Accepted:
-            try:
-                interval = self.lithology_controller.add(
-                    dialog.top_depth,
-                    dialog.bottom_depth,
-                    dialog.lithotype_id,
-                )
-            except (RuntimeError, ValueError) as exc:
-                QMessageBox.warning(self, self._t("lithology.title"), str(exc))
-                continue
-            well = self.session.current_well
-            self.tablet_view.set_lithology(
-                well.lithology if well is not None else [],
-                catalog,
-            )
-            self._refresh_tree()
-            self._update_title()
-            self.statusBar().showMessage(
-                self._t(
-                    "lithology.quick_created",
-                    top=f"{interval.top_depth:g}",
-                    bottom=f"{interval.bottom_depth:g}",
-                )
-            )
-            break
-
-    def _edit_lithology_interval_from_tablet(self, interval_id: str) -> None:
-        if self.session.current_well is None:
-            return
-        try:
-            interval = self.lithology_controller.get(interval_id)
-        except (KeyError, RuntimeError) as exc:
-            QMessageBox.warning(self, self._t("lithology.title"), str(exc))
-            return
-        catalog = self.lithotype_catalog_controller.available()
-        if not catalog:
-            QMessageBox.warning(
-                self, self._t("lithology.title"), self._t("lithology.quick_no_catalog")
-            )
-            return
-        dialog = LithologyIntervalDialog(
-            interval.top_depth,
-            interval.bottom_depth,
-            catalog,
-            language=self.language,
-            lithotype_id=interval.lithotype_id,
-            parent=self,
-        )
-        while dialog.exec() == QDialog.DialogCode.Accepted:
-            if dialog.delete_requested:
-                try:
-                    deleted = self.lithology_controller.remove(interval_id)
-                except (KeyError, RuntimeError, ValueError) as exc:
-                    QMessageBox.warning(self, self._t("lithology.title"), str(exc))
-                    continue
-                well = self.session.current_well
-                self.tablet_view.set_lithology(
-                    well.lithology if well is not None else [],
-                    catalog,
-                )
-                self._refresh_tree()
-                self._update_title()
-                self.statusBar().showMessage(
-                    self._t(
-                        "lithology.quick_deleted",
-                        top=f"{deleted.top_depth:g}",
-                        bottom=f"{deleted.bottom_depth:g}",
-                    )
-                )
-                break
-            try:
-                updated = self.lithology_controller.update(
-                    interval_id,
-                    top_depth=dialog.top_depth,
-                    bottom_depth=dialog.bottom_depth,
-                    lithotype_id=dialog.lithotype_id,
-                    description=interval.description,
-                )
-            except (KeyError, RuntimeError, ValueError) as exc:
-                QMessageBox.warning(self, self._t("lithology.title"), str(exc))
-                continue
-            well = self.session.current_well
-            self.tablet_view.set_lithology(
-                well.lithology if well is not None else [],
-                catalog,
-            )
-            self._refresh_tree()
-            self._update_title()
-            self.statusBar().showMessage(
-                self._t(
-                    "lithology.quick_updated",
-                    top=f"{updated.top_depth:g}",
-                    bottom=f"{updated.bottom_depth:g}",
-                )
-            )
-            break
-
-    def _create_cuttings_sample_from_tablet(self, top_depth: float, bottom_depth: float) -> None:
-        """Create one shared sample from a Shift+drag interval.
-
-        The same object feeds cuttings, LBA, calcimetry and rich description
-        tracks.  This prevents the four columns from drifting into unrelated
-        intervals.
-        """
-        if self.session.current_well is None:
-            return
-        catalog = self.lithotype_catalog_controller.available()
-        if not catalog:
-            QMessageBox.warning(
-                self, self._t("cuttings.create_title"), self._t("lithology.quick_no_catalog")
-            )
-            return
-        dialog = UnifiedCuttingsSampleDialog(
-            top_depth,
-            bottom_depth,
-            catalog,
-            language=self.language,
-            parent=self,
-        )
-        while dialog.exec() == QDialog.DialogCode.Accepted:
-            try:
-                created = self.cuttings_controller.create_full_sample(
-                    dialog.top_depth,
-                    dialog.bottom_depth,
-                    dialog.components(),
-                    **dialog.values(),
-                    content_language=self.language.value,
-                )
-            except (RuntimeError, ValueError) as exc:
-                QMessageBox.warning(self, self._t("cuttings.create_title"), str(exc))
-                continue
-            self._refresh_cuttings_after_edit()
-            self.statusBar().showMessage(
-                self._t(
-                    "cuttings.created",
-                    top=f"{created.top_depth:g}",
-                    bottom=f"{created.bottom_depth:g}",
-                )
-            )
-            break
-
-    def _create_analysis_interval_from_tablet(
-        self, top_depth: float, bottom_depth: float
-    ) -> None:
-        """Enter calcimetry/LBA for an interval independent of LAS cuttings."""
-        if self.session.current_well is None:
-            return
-        sample = next(
-            (
-                item
-                for item in self.session.current_well.cuttings
-                if abs(item.top_depth - top_depth) <= 1e-6
-                and abs(item.bottom_depth - bottom_depth) <= 1e-6
-            ),
-            None,
-        )
-        dialog = SampleAnalysisDialog(
-            top_depth,
-            bottom_depth,
-            language=self.language,
-            sample=sample,
-            parent=self,
-        )
-        while dialog.exec() == QDialog.DialogCode.Accepted:
-            try:
-                saved = self.cuttings_controller.set_analysis(
-                    dialog.top_depth if hasattr(dialog, "top_depth") else top_depth,
-                    dialog.bottom_depth if hasattr(dialog, "bottom_depth") else bottom_depth,
-                    **dialog.values(),
-                    content_language=self.language.value,
-                )
-            except (RuntimeError, ValueError) as exc:
-                QMessageBox.warning(self, self._t("cuttings.create_title"), str(exc))
-                continue
-            self._refresh_cuttings_after_edit()
-            self.statusBar().showMessage(
-                self._t(
-                    "analysis.created",
-                    top=f"{saved.top_depth:g}",
-                    bottom=f"{saved.bottom_depth:g}",
-                )
-            )
-            break
-
-    def _edit_cuttings_sample_from_tablet(self, sample_id: str) -> None:
-        """Reopen and atomically edit one existing geological sample."""
-        if self.session.current_well is None:
-            return
-        try:
-            sample = self.cuttings_controller.get(sample_id)
-        except (KeyError, RuntimeError) as exc:
-            QMessageBox.warning(self, self._t("cuttings.edit_title"), str(exc))
-            return
-        catalog = self.lithotype_catalog_controller.available()
-        if not catalog:
-            QMessageBox.warning(
-                self, self._t("cuttings.edit_title"), self._t("lithology.quick_no_catalog")
-            )
-            return
-        dialog = UnifiedCuttingsSampleDialog(
-            sample.top_depth,
-            sample.bottom_depth,
-            catalog,
-            language=self.language,
-            sample=sample,
-            parent=self,
-        )
-        while dialog.exec() == QDialog.DialogCode.Accepted:
-            try:
-                if dialog.delete_requested:
-                    deleted = self.cuttings_controller.remove(sample_id)
-                    self._refresh_cuttings_after_edit()
-                    self.statusBar().showMessage(
-                        self._t(
-                            "cuttings.deleted",
-                            top=f"{deleted.top_depth:g}",
-                            bottom=f"{deleted.bottom_depth:g}",
-                        )
-                    )
-                    break
-                updated = self.cuttings_controller.update_full_sample(
-                    sample_id,
-                    top_depth=dialog.top_depth,
-                    bottom_depth=dialog.bottom_depth,
-                    components=dialog.components(),
-                    **dialog.values(),
-                    content_language=self.language.value,
-                )
-            except (KeyError, RuntimeError, ValueError) as exc:
-                QMessageBox.warning(self, self._t("cuttings.edit_title"), str(exc))
-                continue
-            self._refresh_cuttings_after_edit()
-            self.statusBar().showMessage(
-                self._t(
-                    "cuttings.edit_updated",
-                    top=f"{updated.top_depth:g}",
-                    bottom=f"{updated.bottom_depth:g}",
-                )
-            )
-            break
-
-    def _create_rock_description_from_tablet(
-        self, top_depth: float, bottom_depth: float
-    ) -> None:
-        """Create free text for a Shift+dragged Interpretation interval."""
-        if self.session.current_well is None:
-            return
-        dialog = RockDescriptionDialog(
-            top_depth,
-            bottom_depth,
-            language=self.language,
-            parent=self,
-        )
-        while dialog.exec() == QDialog.DialogCode.Accepted:
-            try:
-                created = self.cuttings_controller.set_description(
-                    dialog.top_depth,
-                    dialog.bottom_depth,
-                    dialog.description_html,
-                    description_word_wrap=dialog.description_word_wrap,
-                    language=self.language,
-                )
-            except (RuntimeError, ValueError) as exc:
-                QMessageBox.warning(self, self._t("description.create_title"), str(exc))
-                continue
-            self._refresh_cuttings_after_edit()
-            self.statusBar().showMessage(
-                self._t(
-                    "description.created",
-                    top=f"{created.top_depth:g}",
-                    bottom=f"{created.bottom_depth:g}",
-                )
-            )
-            break
-
-    def _edit_rock_description_from_tablet(self, sample_id: str) -> None:
-        """Edit description text or its exact interval without changing analyses."""
-        if self.session.current_well is None:
-            return
-        try:
-            sample = self.cuttings_controller.get(sample_id)
-        except (KeyError, RuntimeError) as exc:
-            QMessageBox.warning(self, self._t("description.edit_title"), str(exc))
-            return
-        dialog = RockDescriptionDialog(
-            sample.top_depth,
-            sample.bottom_depth,
-            language=self.language,
-            sample=sample,
-            parent=self,
-        )
-        while dialog.exec() == QDialog.DialogCode.Accepted:
-            try:
-                if dialog.delete_requested:
-                    deleted = self.cuttings_controller.delete_description(
-                        sample_id, language=self.language
-                    )
-                    self._refresh_cuttings_after_edit()
-                    self.statusBar().showMessage(
-                        self._t(
-                            "description.deleted",
-                            top=f"{deleted.top_depth:g}",
-                            bottom=f"{deleted.bottom_depth:g}",
-                        )
-                    )
-                    break
-                updated = self.cuttings_controller.update_description(
-                    sample_id,
-                    top_depth=dialog.top_depth,
-                    bottom_depth=dialog.bottom_depth,
-                    description=dialog.description_html,
-                    description_word_wrap=dialog.description_word_wrap,
-                    language=self.language,
-                )
-            except (KeyError, RuntimeError, ValueError) as exc:
-                QMessageBox.warning(self, self._t("description.edit_title"), str(exc))
-                continue
-            self._refresh_cuttings_after_edit()
-            self.statusBar().showMessage(
-                self._t(
-                    "description.updated",
-                    top=f"{updated.top_depth:g}",
-                    bottom=f"{updated.bottom_depth:g}",
-                )
-            )
-            break
-
-    def _refresh_cuttings_after_edit(self) -> None:
-        well = self.session.current_well
-        self.tablet_view.set_cuttings(well.cuttings if well is not None else [])
-        self._refresh_tree()
-        self._update_title()
-
-    def show_lithotype_catalog(self) -> None:
-        LithotypeCatalogDialog(
-            self.lithotype_catalog_controller, self, language=self.language
-        ).exec()
-        well = self.session.current_well
-        self.tablet_view.set_lithology(
-            well.lithology if well is not None else [],
-            self.lithotype_catalog_controller.available(),
-        )
-        self.tablet_view.set_cuttings(well.cuttings if well is not None else [])
-        self._update_title()
-
-    def show_stratigraphy_editor(self) -> None:
-        if self.session.current_well is None:
-            QMessageBox.information(
-                self, self._t("stratigraphy.title"), self._t("stratigraphy.select_well")
-            )
-            return
-        StratigraphyDialog(
-            self.stratigraphy_controller,
-            self,
-            language=self.language,
-            catalog_controller=self.stratigraphy_catalog_controller,
-        ).exec()
-        well = self.session.current_well
-        self.tablet_view.set_stratigraphy(well.stratigraphy if well is not None else [])
-        self._refresh_tree()
-        self._update_title()
-
-    def show_stratigraphy_catalog(self) -> None:
-        StratigraphyCatalogDialog(
-            self.stratigraphy_catalog_controller, self, language=self.language
-        ).exec()
-        self._update_title()
-
-    def toggle_stratigraphy_input_mode(self, enabled: bool) -> None:
-        mode = GeologicalInputMode.STRATIGRAPHY if enabled else GeologicalInputMode.SELECT
-        self.tablet_view.set_geological_input_mode(mode)
-        if enabled:
-            self._show_workspace(self.tablet_view)
-            self.statusBar().showMessage(self._t("stratigraphy.mode_hint"))
-
-    def _create_stratigraphy_interval_from_tablet(self, top: float, bottom: float) -> None:
-        if self.session.current_well is None:
-            return
-        while True:
-            dialog = StratigraphyIntervalDialog(
-                top,
-                bottom,
-                self,
-                language=self.language,
-                catalog_controller=self.stratigraphy_catalog_controller,
-            )
-            if dialog.exec() != QDialog.DialogCode.Accepted:
-                return
-            try:
-                self.stratigraphy_controller.add(**dialog.values())
-            except (RuntimeError, ValueError) as exc:
-                QMessageBox.warning(self, self._t("stratigraphy.title"), str(exc))
-                top, bottom = dialog.top_depth, dialog.bottom_depth
-                continue
-            self._refresh_stratigraphy_after_edit()
-            return
-
-    def _edit_stratigraphy_interval_from_tablet(self, interval_id: str) -> None:
-        try:
-            interval = self.stratigraphy_controller.get(interval_id)
-        except (KeyError, RuntimeError) as exc:
-            QMessageBox.warning(self, self._t("stratigraphy.title"), str(exc))
-            return
-        edit_top = interval.top_depth
-        edit_bottom = interval.bottom_depth
-        while True:
-            dialog = StratigraphyIntervalDialog(
-                edit_top,
-                edit_bottom,
-                self,
-                language=self.language,
-                catalog_controller=self.stratigraphy_catalog_controller,
-            )
-            dialog.rank_input.setCurrentText(interval.rank or "")
-            dialog.code_input.setText(interval.code)
-            dialog.name_input.setText(
-                localized_text(
-                    interval.name_i18n, self.language, legacy=interval.name
-                )
-            )
-            dialog.color_input.setText(interval.color)
-            dialog.description_input.setText(
-                localized_text(
-                    interval.description_i18n,
-                    self.language,
-                    legacy=interval.description,
-                )
-            )
-            dialog.set_text_presentation(interval.text_orientation, interval.text_position)
-            if dialog.exec() != QDialog.DialogCode.Accepted:
-                return
-            try:
-                self.stratigraphy_controller.update(interval_id, **dialog.values())
-            except (KeyError, RuntimeError, ValueError) as exc:
-                QMessageBox.warning(self, self._t("stratigraphy.title"), str(exc))
-                edit_top = dialog.top_depth
-                edit_bottom = dialog.bottom_depth
-                continue
-            self._refresh_stratigraphy_after_edit()
-            return
-
-    def _refresh_stratigraphy_after_edit(self) -> None:
-        well = self.session.current_well
-        self.tablet_view.set_stratigraphy(well.stratigraphy if well is not None else [])
-        self._refresh_tree()
-        self._update_title()
-
-    def set_interval_interaction_mode(self, mode: IntervalEditMode) -> None:
-        if mode is not IntervalEditMode.SELECT and not self._ensure_interpretation_for_drawing():
-            self.interval_select_action.setChecked(True)
-            self.tablet_view.set_interval_edit_mode(IntervalEditMode.SELECT)
-            return
-        selected = self.interpretation_controller.selected_interval()
-        if selected is not None:
-            self.tablet_view.set_interval_creation_type(selected.interval_type)
-        self.tablet_view.set_interval_edit_mode(mode)
-        self._show_workspace(self.tablet_view)
-        action_by_mode = {
-            IntervalEditMode.SELECT: self.interval_select_action,
-            IntervalEditMode.CREATE: self.interval_create_action,
-            IntervalEditMode.RESIZE: self.interval_resize_action,
-        }
-        action_by_mode[mode].setChecked(True)
-        self.statusBar().showMessage(self._t(f"interpretations.mode_{mode.value}_hint"))
-
-    def _ensure_interpretation_for_drawing(self) -> bool:
-        if self.session.current_well is None or self.session.current_dataset is None:
-            QMessageBox.information(
-                self,
-                self._t("interpretations.title"),
-                self._t("interpretations.drawing_requires_data"),
-            )
-            return False
-        well = self.session.current_well
-        if not well.interpretations:
-            try:
-                self.interpretation_controller.add_interpretation(
-                    self._t("interpretations.default_name")
-                )
-            except (RuntimeError, ValueError) as exc:
-                QMessageBox.warning(self, self._t("interpretations.title"), str(exc))
-                return False
-            self._after_interpretation_change()
-        else:
-            self.interpretation_controller.normalize_selection()
-            self._after_interpretation_change()
-        return True
-
-    def _create_interval_from_tablet(
-        self, interpretation_id: str, top_depth: float, bottom_depth: float, interval_type: str
-    ) -> None:
-        try:
-            interpretation = self.interpretation_controller.select_interpretation(interpretation_id)
-            interval_number = len(interpretation.intervals) + 1
-            interval = self.interpretation_controller.add_interval(
-                top_depth,
-                bottom_depth,
-                interval_type or self._t("interpretations.default_type"),
-                self._t("interpretations.default_label", number=interval_number),
-                color=self._interval_default_color(interval_number),
-            )
-        except (KeyError, RuntimeError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("interpretations.title"), str(exc))
-            self._after_interpretation_change()
-            return
-        self._after_interpretation_change()
-        self._select_interpretation_interval(interpretation_id, interval.interval_id)
-        self._update_interpretation_history_actions()
-        self.statusBar().showMessage(
-            self._t(
-                "interpretations.created_from_tablet",
-                top=f"{interval.top_depth:g}",
-                bottom=f"{interval.bottom_depth:g}",
-            )
-        )
-
-    def _resize_interval_from_tablet(
-        self,
-        interpretation_id: str,
-        interval_id: str,
-        top_depth: float,
-        bottom_depth: float,
-    ) -> None:
-        try:
-            interval = self.interpretation_controller.select_interval(
-                interpretation_id, interval_id
-            )
-            updated = self.interpretation_controller.update_interval(
-                interval_id,
-                top_depth=top_depth,
-                bottom_depth=bottom_depth,
-                interval_type=interval.interval_type,
-                label=interval.label,
-                color=interval.color,
-                comment=interval.comment,
-            )
-        except (KeyError, RuntimeError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("interpretations.title"), str(exc))
-            self._after_interpretation_change()
-            return
-        self._after_interpretation_change()
-        self._select_interpretation_interval(interpretation_id, updated.interval_id)
-        self._update_interpretation_history_actions()
-        self.statusBar().showMessage(
-            self._t(
-                "interpretations.resized_from_tablet",
-                top=f"{updated.top_depth:g}",
-                bottom=f"{updated.bottom_depth:g}",
-            )
-        )
-
-    @staticmethod
-    def _interval_default_color(index: int) -> str:
-        palette = ("#fde68a", "#bfdbfe", "#bbf7d0", "#fecaca", "#ddd6fe", "#fed7aa")
-        return palette[(max(1, index) - 1) % len(palette)]
-
-    def undo_interpretation_edit(self) -> None:
-        if not self.interpretation_controller.can_undo:
-            return
-        try:
-            description = self.interpretation_controller.undo()
-        except (IndexError, RuntimeError) as exc:
-            QMessageBox.warning(self, self._t("interpretations.title"), str(exc))
-            return
-        self._after_interpretation_change()
-        self._update_interpretation_history_actions()
-        self.statusBar().showMessage(self._t("interpretations.undo_done", description=description))
-
-    def redo_interpretation_edit(self) -> None:
-        if not self.interpretation_controller.can_redo:
-            return
-        try:
-            description = self.interpretation_controller.redo()
-        except (IndexError, RuntimeError) as exc:
-            QMessageBox.warning(self, self._t("interpretations.title"), str(exc))
-            return
-        self._after_interpretation_change()
-        self._update_interpretation_history_actions()
-        self.statusBar().showMessage(self._t("interpretations.redo_done", description=description))
-
-    def _update_interpretation_history_actions(self) -> None:
-        if not hasattr(self, "undo_interpretation_action"):
-            return
-        self.undo_interpretation_action.setEnabled(self.interpretation_controller.can_undo)
-        self.redo_interpretation_action.setEnabled(self.interpretation_controller.can_redo)
-
-    def show_interpretation_intervals(self) -> None:
-        if self.session.current_well is None:
-            QMessageBox.information(
-                self,
-                self._t("interpretations.title"),
-                self._t("interpretations.select_well"),
-            )
-            return
-        dialog = InterpretationIntervalsDialog(
-            self.interpretation_controller,
-            self,
-            language=self.language,
-        )
-        self._interpretation_dialog = dialog
-        dialog.interpretation_selected.connect(self._select_interpretation_from_manager)
-        dialog.interval_selected.connect(self._select_interpretation_interval)
-        dialog.intervals_changed.connect(self._after_interpretation_change)
-        selected_interpretation_id = self.interpretation_controller.selected_interpretation_id
-        selected_interval_id = self.interpretation_controller.selected_interval_id
-        if selected_interpretation_id and selected_interval_id:
-            dialog.select_interval(selected_interpretation_id, selected_interval_id)
-        elif selected_interpretation_id:
-            dialog.select_interpretation(selected_interpretation_id)
-        try:
-            dialog.exec()
-        finally:
-            self._interpretation_dialog = None
-        self._after_interpretation_change()
-
-    def _select_interpretation_from_manager(self, interpretation_id: str) -> None:
-        try:
-            self.interpretation_controller.select_interpretation(interpretation_id)
-        except (KeyError, RuntimeError):
-            return
-        self.tablet_view.set_selected_interpretation(interpretation_id)
-        self.interpretation_properties.clear()
-        self.interpretation_properties_dock.hide()
-
-    def _select_interpretation_from_tablet(self, interpretation_id: str) -> None:
-        self._select_interpretation_from_manager(interpretation_id)
-        if self._interpretation_dialog is not None:
-            self._interpretation_dialog.select_interpretation(interpretation_id)
-
-    def _select_interpretation_interval(self, interpretation_id: str, interval_id: str) -> None:
-        try:
-            interval = self.interpretation_controller.select_interval(
-                interpretation_id, interval_id
-            )
-            interpretation = self.interpretation_controller.current_interpretation()
-        except (KeyError, RuntimeError):
-            self._clear_interpretation_interval_selection()
-            return
-        self.tablet_view.set_selected_interval(interpretation_id, interval_id)
-        self.interpretation_properties.show_interval(interpretation, interval)
-        self.interpretation_properties_dock.show()
-        self.interpretation_properties_dock.raise_()
-        if self._interpretation_dialog is not None:
-            self._interpretation_dialog.select_interval(interpretation_id, interval_id)
-
-    def _clear_interpretation_interval_selection(self) -> None:
-        self.interpretation_controller.selected_interval_id = None
-        self.tablet_view.clear_interval_selection()
-        self.interpretation_properties.clear()
-        self.interpretation_properties_dock.hide()
-
-    def _update_interval_from_properties(
-        self, interpretation_id: str, interval_id: str, values: object
-    ) -> None:
-        if not isinstance(values, dict):
-            return
-        try:
-            self.interpretation_controller.select_interpretation(interpretation_id)
-            interval = self.interpretation_controller.update_interval(
-                interval_id,
-                top_depth=float(values["top_depth"]),
-                bottom_depth=float(values["bottom_depth"]),
-                interval_type=str(values["interval_type"]),
-                label=str(values["label"]),
-                color=str(values["color"]),
-                comment=str(values["comment"]),
-            )
-        except (KeyError, RuntimeError, TypeError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("interpretations.title"), str(exc))
-            return
-        self._after_interpretation_change()
-        self._select_interpretation_interval(interpretation_id, interval.interval_id)
-        self.statusBar().showMessage(self._t("interpretations.properties_updated"))
-
-    def _after_interpretation_change(self) -> None:
-        well = self.session.current_well
-        self.interpretation_controller.normalize_selection()
-        layout = self.session.current_tablet_layout
-        if (
-            well is not None
-            and well.interpretations
-            and layout is not None
-            and not any(track.kind is TrackKind.INTERPRETATION for track in layout.tracks)
-        ):
-            try:
-                self.tablet_controller.add_track(TrackKind.INTERPRETATION)
-            except (RuntimeError, ValueError):
-                pass
-        self.tablet_view.set_interpretations(
-            list(well.interpretations.values()) if well is not None else [],
-            self.interpretation_controller.selected_interpretation_id,
-        )
-        selected_interpretation_id = self.interpretation_controller.selected_interpretation_id
-        selected_interval_id = self.interpretation_controller.selected_interval_id
-        if selected_interpretation_id and selected_interval_id:
-            self._select_interpretation_interval(selected_interpretation_id, selected_interval_id)
-        else:
-            self._clear_interpretation_interval_selection()
-        self._refresh_tree()
-        self._update_title()
-        self._update_interpretation_history_actions()
-
-    def show_sensor_catalog(self) -> None:
-        dialog = SensorCatalogDialog(
-            self.curve_browser.sensor_catalog,
-            self,
-            language=self.language,
-            registry=self.mnemonic_registry,
-        )
-        dialog.catalog_changed.connect(self._apply_sensor_catalog)
-        dialog.exec()
-
-    def _apply_sensor_catalog(self, catalog: object) -> None:
-        if not isinstance(catalog, SensorCatalog):
-            return
-        set_active_sensor_catalog(catalog)
-        self.curve_browser.set_sensor_catalog(catalog)
-        self.statusBar().showMessage(self._t("sensors.applied", count=len(catalog.sensors)))
-
-    def show_description_templates(self) -> None:
-        DescriptionTemplatesDialog(
-            self.description_template_controller, self, language=self.language
-        ).exec()
-        self._refresh_tree()
-        self._update_title()
-
-    def create_ascending_depth_copy(self, *, save_as_las: bool = False) -> None:
-        try:
-            report = self.depth_axis_controller.analyze_current()
-        except RuntimeError as exc:
-            QMessageBox.information(self, self._t("depth.title"), str(exc))
-            return
-        if report.direction is not DepthDirection.DESCENDING:
-            QMessageBox.information(
-                self,
-                self._t("depth.title"),
-                self._t(
-                    "depth.no_reversal",
-                    direction=self._t(f"depth.direction.{report.direction.value}"),
-                ),
-            )
-            return
-        answer = QMessageBox.question(
-            self,
-            self._t("depth.confirm_title"),
-            self._t("depth.confirm_message"),
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.Yes,
-        )
-        if answer is not QMessageBox.StandardButton.Yes:
-            return
-        try:
-            result = self.depth_axis_controller.create_ascending_copy()
-        except (RuntimeError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("depth.title"), str(exc))
-            return
-        self._show_current_dataset()
-        self._refresh_tree()
-        self._update_title()
-        self._update_depth_axis_actions()
-        self._log(self._t("depth.copy_created", name=result.name))
-        if save_as_las:
-            self._save_derived_dataset_copy(result, suffix="_ascending")
-
-    def undo_ascending_depth_copy(self) -> None:
-        answer = QMessageBox.question(
-            self,
-            self._t("depth.undo_title"),
-            self._t("depth.undo_confirm"),
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
-        )
-        if answer is not QMessageBox.StandardButton.Yes:
-            return
-        try:
-            self.depth_axis_controller.undo_ascending_copy()
-        except RuntimeError as exc:
-            QMessageBox.warning(self, self._t("depth.title"), str(exc))
-            return
-        self._after_depth_axis_history(self._t("depth.undone"))
-
-    def redo_ascending_depth_copy(self) -> None:
-        try:
-            result = self.depth_axis_controller.redo_ascending_copy()
-        except RuntimeError as exc:
-            QMessageBox.warning(self, self._t("depth.title"), str(exc))
-            return
-        self._after_depth_axis_history(self._t("depth.redone", name=result.name))
-
-    def create_resampled_depth_copy(self, *, save_as_las: bool = False) -> None:
-        try:
-            dialog = DepthResampleDialog(self.depth_axis_controller, self, language=self.language)
-        except (RuntimeError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("resample.title"), str(exc))
-            return
-        if dialog.exec() != QDialog.DialogCode.Accepted or dialog.plan is None:
-            return
-        try:
-            result = self.depth_axis_controller.create_resampled_copy(dialog.plan)
-        except (RuntimeError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("resample.title"), str(exc))
-            return
-        self._show_current_dataset()
-        self._refresh_tree()
-        self._update_title()
-        self._update_depth_axis_actions()
-        self._log(self._t("resample.created", name=result.name))
-        if save_as_las:
-            self._save_derived_dataset_copy(result, suffix=f"_step_{dialog.plan.step:g}")
-
-    def _save_derived_dataset_copy(self, dataset: object, *, suffix: str) -> None:
-        current = self.session.current_dataset
-        if current is None or current is not dataset:
-            return
-        initial = Path.cwd() / f"{current.name}{suffix}.las"
-        filename, _ = QFileDialog.getSaveFileName(
-            self,
-            self._t("las_editor.choose_output_title"),
-            str(initial),
-            "LAS (*.las)",
-        )
-        if not filename:
-            return
-        try:
-            exported = self._export_current_dataset_to_path(Path(filename))
-        except (OSError, RuntimeError, LasExportError) as exc:
-            QMessageBox.warning(self, self._t("las_editor.title"), str(exc))
-            return
-        self.statusBar().showMessage(self._t("las_editor.saved_copy", name=exported.name))
-
-    def show_curve_transfer(self) -> None:
-        if self.session.current_dataset is None:
-            QMessageBox.information(self, self._t("transfer.title"), self._t("data.select_dataset"))
-            return
-        dialog = CurveTransferDialog(self.curve_transfer_controller, self, language=self.language)
-        if (
-            dialog.exec() != QDialog.DialogCode.Accepted
-            or dialog.analysis is None
-            or dialog.source_dataset_id is None
-        ):
-            return
-        try:
-            curves = self.curve_transfer_controller.apply(
-                dialog.source_dataset_id,
-                dialog.selected_curve_ids,
-                dialog.analysis,
-            )
-        except (KeyError, RuntimeError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("transfer.title"), str(exc))
-            return
-        self._after_curve_transfer(
-            self._t("transfer.completed", count=len(curves)),
-            curves,
-        )
-
-    def show_external_las_insert(self) -> None:
-        target = self.session.current_dataset
-        if target is None:
-            QMessageBox.information(
-                self, self._t("external_las.title"), self._t("data.select_dataset")
-            )
-            return
-        dialog = ExternalLasInsertDialog(
-            self.external_las_insert_controller,
-            self,
-            language=self.language,
-        )
-        if (
-            dialog.exec() != QDialog.DialogCode.Accepted
-            or dialog.analysis is None
-            or dialog.output_path is None
-        ):
-            return
-        checkpoint = self.derived_dataset_controller.checkpoint()
-        try:
-            outcome = self.external_las_insert_controller.create_copy(
-                dialog.analysis,
-                dialog.selections,
-                name=dialog.output_path.stem,
-            )
-            exported = self._export_current_dataset_to_path(dialog.output_path)
-        except (KeyError, OSError, RuntimeError, ValueError, LasExportError) as exc:
-            self.derived_dataset_controller.rollback(checkpoint)
-            QMessageBox.warning(self, self._t("external_las.title"), str(exc))
-            return
-        self._after_external_las_insert(
-            self._t(
-                "external_las.copy_completed",
-                count=len(outcome.inserted_mnemonics),
-                name=exported.name,
-            ),
-            outcome.inserted_mnemonics,
-        )
-
-    def undo_external_las_insert(self) -> None:
-        try:
-            outcome = self.external_las_insert_controller.undo()
-        except RuntimeError as exc:
-            QMessageBox.warning(self, self._t("external_las.title"), str(exc))
-            return
-        self._after_external_las_insert(self._t("external_las.undone"), outcome.inserted_mnemonics)
-
-    def redo_external_las_insert(self) -> None:
-        try:
-            outcome = self.external_las_insert_controller.redo()
-        except RuntimeError as exc:
-            QMessageBox.warning(self, self._t("external_las.title"), str(exc))
-            return
-        self._after_external_las_insert(self._t("external_las.redone"), outcome.inserted_mnemonics)
-
-    def _after_external_las_insert(self, message: str, mnemonics: tuple[str, ...]) -> None:
-        dataset = self.session.current_dataset
-        if dataset is not None:
-            existing = [
-                mnemonic
-                for mnemonic in mnemonics
-                if dataset.curve_by_mnemonic(mnemonic) is not None
-            ]
-            self.curve_view.show_dataset(dataset, existing or None)
-            self.tablet_view.set_dataset(dataset)
-            self.las_table_editor.set_dataset(dataset)
-        self._refresh_tree()
-        self._update_title()
-        self._update_external_las_insert_actions()
-        self._log(message)
-        self.statusBar().showMessage(message)
-
-    def _update_external_las_insert_actions(self) -> None:
-        if hasattr(self, "undo_external_las_insert_action"):
-            self.undo_external_las_insert_action.setEnabled(
-                self.external_las_insert_controller.can_undo
-            )
-            self.redo_external_las_insert_action.setEnabled(
-                self.external_las_insert_controller.can_redo
-            )
-
-    def show_dataset_merge(self) -> None:
-        target = self.session.current_dataset
-        if target is None:
-            QMessageBox.information(self, self._t("merge.title"), self._t("data.select_dataset"))
-            return
-        dialog = DatasetMergeDialog(self.dataset_merge_controller, self, language=self.language)
-        if (
-            dialog.exec() != QDialog.DialogCode.Accepted
-            or dialog.analysis is None
-            or dialog.source_dataset_id is None
-            or dialog.output_path is None
-        ):
-            return
-        checkpoint = self.derived_dataset_controller.checkpoint()
-        try:
-            self.dataset_merge_controller.create(
-                dialog.source_dataset_id,
-                dialog.analysis,
-                overlap_policy=dialog.overlap_policy,
-                name=dialog.output_path.stem,
-            )
-            exported = self._export_current_dataset_to_path(dialog.output_path)
-        except (KeyError, RuntimeError, ValueError, OSError, LasExportError) as exc:
-            self.derived_dataset_controller.rollback(checkpoint)
-            QMessageBox.warning(self, self._t("merge.title"), str(exc))
-            return
-        self._after_dataset_merge(self._t("merge.copy_completed", name=exported.name))
-
-    def undo_dataset_merge(self) -> None:
-        try:
-            self.dataset_merge_controller.undo()
-        except RuntimeError as exc:
-            QMessageBox.warning(self, self._t("merge.title"), str(exc))
-            return
-        self._after_dataset_merge(self._t("merge.undone"))
-
-    def redo_dataset_merge(self) -> None:
-        try:
-            result = self.dataset_merge_controller.redo()
-        except RuntimeError as exc:
-            QMessageBox.warning(self, self._t("merge.title"), str(exc))
-            return
-        self._after_dataset_merge(self._t("merge.redone", name=result.name))
-
-    def _after_dataset_merge(self, message: str) -> None:
-        self._show_current_dataset()
-        self._refresh_tree()
-        self._update_title()
-        self._update_merge_actions()
-        self._log(message)
-
-    def _update_merge_actions(self) -> None:
-        if hasattr(self, "undo_merge_action"):
-            self.undo_merge_action.setEnabled(self.dataset_merge_controller.can_undo)
-            self.redo_merge_action.setEnabled(self.dataset_merge_controller.can_redo)
-
-    def undo_curve_transfer(self) -> None:
-        try:
-            curves = self.curve_transfer_controller.undo()
-        except RuntimeError as exc:
-            QMessageBox.warning(self, self._t("transfer.title"), str(exc))
-            return
-        self._after_curve_transfer(self._t("transfer.undone"), curves)
-
-    def redo_curve_transfer(self) -> None:
-        try:
-            curves = self.curve_transfer_controller.redo()
-        except RuntimeError as exc:
-            QMessageBox.warning(self, self._t("transfer.title"), str(exc))
-            return
-        self._after_curve_transfer(self._t("transfer.redone"), curves)
-
-    def _after_curve_transfer(
-        self,
-        message: str,
-        curves: tuple[CurveData, ...],
-    ) -> None:
-        dataset = self.session.current_dataset
-        if dataset is not None:
-            mnemonics = tuple(
-                dict.fromkeys(
-                    mnemonic
-                    for curve in curves
-                    for mnemonic in (
-                        curve.metadata.original_mnemonic,
-                        curve.metadata.canonical_mnemonic,
-                    )
-                    if mnemonic
-                )
-            )
-            self.curve_view.show_dataset(dataset)
-            self.las_table_editor.set_dataset(dataset)
-            self.curve_browser.set_dataset(dataset)
-            self.tablet_view.refresh_dataset_curves(dataset, mnemonics)
-        self._refresh_tree()
-        self._update_title()
-        self._update_transfer_actions()
-        self._log(message)
-
-    def _update_transfer_actions(self) -> None:
-        if hasattr(self, "undo_transfer_action"):
-            self.undo_transfer_action.setEnabled(self.curve_transfer_controller.can_undo)
-            self.redo_transfer_action.setEnabled(self.curve_transfer_controller.can_redo)
-
-    def undo_depth_resample(self) -> None:
-        answer = QMessageBox.question(
-            self,
-            self._t("resample.undo_title"),
-            self._t("resample.undo_confirm"),
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
-        )
-        if answer is not QMessageBox.StandardButton.Yes:
-            return
-        try:
-            self.depth_axis_controller.undo_resample()
-        except RuntimeError as exc:
-            QMessageBox.warning(self, self._t("resample.title"), str(exc))
-            return
-        self._after_resample_history(self._t("resample.undone"))
-
-    def redo_depth_resample(self) -> None:
-        try:
-            result = self.depth_axis_controller.redo_resample()
-        except RuntimeError as exc:
-            QMessageBox.warning(self, self._t("resample.title"), str(exc))
-            return
-        self._after_resample_history(self._t("resample.redone", name=result.name))
-
-    def _after_resample_history(self, message: str) -> None:
-        self._show_current_dataset()
-        self._refresh_tree()
-        self._update_title()
-        self._update_depth_axis_actions()
-        self._log(message)
-
-    def _after_depth_axis_history(self, message: str) -> None:
-        self._show_current_dataset()
-        self._refresh_tree()
-        self._update_title()
-        self._update_depth_axis_actions()
-        self._log(message)
-
-    def _update_depth_axis_actions(self) -> None:
-        if hasattr(self, "undo_normalize_depth_action"):
-            self.undo_normalize_depth_action.setEnabled(
-                self.depth_axis_controller.can_undo_ascending_copy
-            )
-            self.redo_normalize_depth_action.setEnabled(
-                self.depth_axis_controller.can_redo_ascending_copy
-            )
-        if hasattr(self, "undo_resample_action"):
-            self.undo_resample_action.setEnabled(self.depth_axis_controller.can_undo_resample)
-            self.redo_resample_action.setEnabled(self.depth_axis_controller.can_redo_resample)
-
-    def show_lithology_legend(self) -> None:
-        well = self.session.current_well
-        intervals = well.lithology if well is not None else []
-        entries = build_lithology_legend(
-            intervals,
-            self.lithotype_catalog_controller.available(),
-            name_resolver=lambda item: item.localized_name(self.language.value),
-            unknown_name=self._t("legend.unknown"),
-        )
-        LithologyLegendDialog(entries, self, language=self.language).exec()
-
-    def save_project(self) -> Path | None:
-        if self.project_path is None:
-            return self.save_project_as()
-        try:
-            saved_path = self.project_controller.save_project()
-        except ProjectChangedExternallyError as exc:
-            log_exception("project.save.external_change", exc, project_path=self.project_path)
-            QMessageBox.critical(
-                self,
-                self._t("shell.save_project"),
-                self._t("project.external_change"),
-            )
-            return None
-        except (OSError, RuntimeError, ValueError) as exc:
-            log_exception("project.save.failed", exc, project_path=self.project_path)
-            QMessageBox.critical(
-                self,
-                self._t("shell.save_project"),
-                self._t("project.save_failed"),
-            )
-            return None
-        self.tablet_view.clear_curve_pencil_unsaved()
-        self._remember_document_bundle_execution(None)
-        self._update_title()
-        self._log(f"ÐŸÑ€Ð¾ÐµÐºÑ‚ ÑÐ¾Ñ…Ñ€Ð°Ð½Ñ‘Ð½: {saved_path}")
-        self._show_project_recovery_warnings()
-        return saved_path
-
-    def save_project_as(self) -> Path | None:
-        filename, _ = QFileDialog.getSaveFileName(
-            self,
-            self._t("shell.save_project_as"),
-            str(self.project_path or Path("project.geologpkg")),
-            "GeoLog Package (*.geologpkg);;GeoLog Project (*.geolog.json);;JSON (*.json)",
-        )
-        if not filename:
-            return None
-        try:
-            saved_path = self.project_controller.save_project(
-                Path(filename),
-                allow_existing_target=True,
-            )
-        except ProjectChangedExternallyError as exc:
-            log_exception("project.save_as.external_change", exc, project_path=filename)
-            QMessageBox.critical(
-                self,
-                self._t("shell.save_project_as"),
-                self._t("project.external_change"),
-            )
-            return None
-        except (OSError, RuntimeError, ValueError) as exc:
-            log_exception("project.save_as.failed", exc, project_path=filename)
-            QMessageBox.critical(
-                self,
-                self._t("shell.save_project_as"),
-                self._t("project.save_failed"),
-            )
-            return None
-        self.tablet_view.clear_curve_pencil_unsaved()
-        self._remember_document_bundle_execution(None)
-        self._update_title()
-        self._log(f"ÐŸÑ€Ð¾ÐµÐºÑ‚ ÑÐ¾Ñ…Ñ€Ð°Ð½Ñ‘Ð½: {saved_path}")
-        self._show_project_recovery_warnings()
-        return saved_path
-
-    def _show_project_recovery_warnings(self) -> None:
-        result = self.project_controller.last_save_result
-        warnings = tuple(getattr(result, "warnings", ()))
-        if not warnings:
-            return
-        log_event(
-            "project.save.recovery_warning",
-            project_path=self.project_path,
-            warning_count=len(warnings),
-        )
-        QMessageBox.warning(
-            self,
-            self._t("shell.save_project"),
-            self._t("project.recovery_warning"),
-        )
-
-    def restore_project_backup(self) -> None:
-        source = self.project_path
-        if source is None:
-            QMessageBox.information(
-                self,
-                self._t("project.recovery_title"),
-                self._t("project.recovery_open_first"),
-            )
-            return
-        try:
-            candidates = self.project_controller.recovery_candidates()
-        except (OSError, RuntimeError, ValueError) as exc:
-            log_exception("project.recovery.list_failed", exc, project_path=source)
-            QMessageBox.critical(
-                self,
-                self._t("project.recovery_title"),
-                self._t("project.recovery_failed"),
-            )
-            return
-        if not candidates:
-            QMessageBox.information(
-                self,
-                self._t("project.recovery_title"),
-                self._t("project.recovery_empty"),
-            )
-            return
-        labels = [
-            self._t(
-                "project.recovery_item",
-                revision=record.save_revision,
-                created=record.created_at,
-                filename=record.backup_path.name,
-            )
-            for record in candidates
-        ]
-        selected, accepted = QInputDialog.getItem(
-            self,
-            self._t("project.recovery_title"),
-            self._t("project.recovery_choose"),
-            labels,
-            0,
-            False,
-        )
-        if not accepted:
-            return
-        record = candidates[labels.index(selected)]
-        default_name = source.with_name(
-            f"{source.stem}_recovered_r{record.save_revision}.geologpkg"
-        )
-        filename, _ = QFileDialog.getSaveFileName(
-            self,
-            self._t("project.recovery_target_title"),
-            str(default_name),
-            "GeoLog Package (*.geologpkg)",
-        )
-        if not filename:
-            return
-        target = self._daily_las_package_path(Path(filename))
-        try:
-            self.project_controller.restore_backup_as_copy(record, target)
-        except (OSError, RuntimeError, ValueError) as exc:
-            log_exception(
-                "project.recovery.restore_failed",
-                exc,
-                project_path=source,
-                target=target,
-            )
-            QMessageBox.critical(
-                self,
-                self._t("project.recovery_title"),
-                self._t("project.recovery_failed"),
-            )
-            return
-        QMessageBox.information(
-            self,
-            self._t("project.recovery_title"),
-            self._t("project.recovery_done", path=target),
-        )
-        self._log(self._t("project.recovery_done", path=target))
-
-    def _refresh_tree(self) -> None:
-        self.tree.clear()
-        root = QTreeWidgetItem([self.session.project.name])
-        root.setData(0, Qt.ItemDataRole.UserRole, ("project", self.session.project.project_id))
-        self.tree.addTopLevelItem(root)
-        if self.session.project.description_templates:
-            templates_item = QTreeWidgetItem(
-                [
-                    self._t(
-                        "templates.tree",
-                        count=len(self.session.project.description_templates),
-                    )
-                ]
-            )
-            templates_item.setData(0, Qt.ItemDataRole.UserRole, ("description_templates",))
-            root.addChild(templates_item)
-            for name in sorted(self.session.project.description_templates, key=str.casefold):
-                templates_item.addChild(QTreeWidgetItem([name]))
-        for well in self.session.project.wells.values():
-            well_item = QTreeWidgetItem([well.name])
-            well_item.setData(0, Qt.ItemDataRole.UserRole, ("well", well.well_id))
-            root.addChild(well_item)
-            for dataset in well.datasets.values():
-                dataset_item = QTreeWidgetItem([f"{dataset.name} ({dataset.kind.value})"])
-                dataset_item.setData(
-                    0, Qt.ItemDataRole.UserRole, ("dataset", well.well_id, dataset.dataset_id)
-                )
-                well_item.addChild(dataset_item)
-                for curve in dataset.curves.values():
-                    curve_item = QTreeWidgetItem([curve.metadata.original_mnemonic])
-                    curve_item.setData(
-                        0,
-                        Qt.ItemDataRole.UserRole,
-                        ("curve", well.well_id, dataset.dataset_id, curve.metadata.curve_id),
-                    )
-                    dataset_item.addChild(curve_item)
-                layout = self.session.tablet_layouts.get(dataset.dataset_id)
-                if layout is not None and layout.tracks:
-                    tracks_item = QTreeWidgetItem([f"Ð¡Ð»Ð¾Ð¸ Ð¿Ð»Ð°Ð½ÑˆÐµÑ‚Ð° ({len(layout.tracks)})"])
-                    dataset_item.addChild(tracks_item)
-                    for position, track in enumerate(layout.tracks, start=1):
-                        state = "" if track.visible else " [ÑÐºÑ€Ñ‹Ñ‚]"
-                        track_item = QTreeWidgetItem([f"{position}. {track.title}{state}"])
-                        track_item.setData(
-                            0,
-                            Qt.ItemDataRole.UserRole,
-                            ("track", well.well_id, dataset.dataset_id, track.track_id),
-                        )
-                        tracks_item.addChild(track_item)
-            if well.lithology:
-                lithology_item = QTreeWidgetItem(
-                    [self._t("lithology.tree", count=len(well.lithology))]
-                )
-                lithology_item.setData(0, Qt.ItemDataRole.UserRole, ("lithology", well.well_id))
-                well_item.addChild(lithology_item)
-                for interval in well.lithology:
-                    child = QTreeWidgetItem(
-                        [
-                            f"{interval.top_depth:g}â€“{interval.bottom_depth:g} Ð¼: "
-                            f"{interval.lithotype_id}"
-                        ]
-                    )
-                    child.setData(
-                        0,
-                        Qt.ItemDataRole.UserRole,
-                        ("lithology_interval", well.well_id, interval.interval_id),
-                    )
-                    lithology_item.addChild(child)
-            if well.interpretations:
-                interpretations_item = QTreeWidgetItem(
-                    [self._t("interpretations.tree", count=len(well.interpretations))]
-                )
-                interpretations_item.setData(
-                    0, Qt.ItemDataRole.UserRole, ("interpretations", well.well_id)
-                )
-                well_item.addChild(interpretations_item)
-                for interpretation in sorted(
-                    well.interpretations.values(), key=lambda item: item.name.casefold()
-                ):
-                    child = QTreeWidgetItem(
-                        [
-                            self._t(
-                                "interpretations.tree_item",
-                                name=interpretation.name,
-                                count=len(interpretation.intervals),
-                            )
-                        ]
-                    )
-                    child.setData(
-                        0,
-                        Qt.ItemDataRole.UserRole,
-                        (
-                            "interpretation",
-                            well.well_id,
-                            interpretation.interpretation_id,
-                        ),
-                    )
-                    interpretations_item.addChild(child)
-                    for interpretation_interval in sorted(
-                        interpretation.intervals,
-                        key=lambda item: (
-                            item.top_depth,
-                            item.bottom_depth,
-                            item.label.casefold(),
-                        ),
-                    ):
-                        interval_child = QTreeWidgetItem(
-                            [
-                                self._t(
-                                    "interpretations.tree_interval",
-                                    top=f"{interpretation_interval.top_depth:g}",
-                                    bottom=f"{interpretation_interval.bottom_depth:g}",
-                                    type=interpretation_interval.interval_type,
-                                    label=interpretation_interval.label,
-                                )
-                            ]
-                        )
-                        interval_child.setData(
-                            0,
-                            Qt.ItemDataRole.UserRole,
-                            (
-                                "interpretation_interval",
-                                well.well_id,
-                                interpretation.interpretation_id,
-                                interpretation_interval.interval_id,
-                            ),
-                        )
-                        child.addChild(interval_child)
-            if well.stratigraphy:
-                stratigraphy_item = QTreeWidgetItem(
-                    [self._t("stratigraphy.tree", count=len(well.stratigraphy))]
-                )
-                stratigraphy_item.setData(
-                    0, Qt.ItemDataRole.UserRole, ("stratigraphy", well.well_id)
-                )
-                well_item.addChild(stratigraphy_item)
-                for stratigraphy_interval in sorted(
-                    well.stratigraphy,
-                    key=lambda item: ((item.rank or "").casefold(), item.top_depth),
-                ):
-                    child = QTreeWidgetItem(
-                        [
-                            f"{stratigraphy_interval.top_depth:g}â€“"
-                            f"{stratigraphy_interval.bottom_depth:g} Ð¼: "
-                            f"{stratigraphy_interval.code}"
-                        ]
-                    )
-                    child.setData(
-                        0,
-                        Qt.ItemDataRole.UserRole,
-                        (
-                            "stratigraphy_interval",
-                            well.well_id,
-                            stratigraphy_interval.interval_id,
-                        ),
-                    )
-                    stratigraphy_item.addChild(child)
-            # Annotations are managed by the dedicated F4 layer and the
-            # â€œAllâ€¦â€ manager. They are deliberately omitted from the project
-            # navigation tree so dozens of comments do not clutter the settings
-            # column.
-        root.setExpanded(True)
-
-    def _activate_tree_item(self, item: QTreeWidgetItem) -> None:
-        payload = item.data(0, Qt.ItemDataRole.UserRole)
-        self._workspace_commands.activate(payload)
-
-    def _show_tablet_curve_in_inspector(self, track_id: str, mnemonic: str) -> None:
-        dataset = self.session.current_dataset
-        if dataset is None:
-            return
-        curve = dataset.curves.get(mnemonic)
-        if curve is None:
-            curve = next(
-                (
-                    item
-                    for item in dataset.curves.values()
-                    if item.metadata.original_mnemonic == mnemonic
-                ),
-                None,
-            )
-        if curve is None:
-            self._show_track_in_inspector(track_id)
-            return
-        self._selected_track_id = track_id
-        try:
-            definition = self.tablet_view.layout_model.track_by_id(track_id)
-            configured = definition.curve_display_settings(mnemonic).display_name
-        except KeyError:
-            configured = ""
-        readable_name = localized_curve_name(
-            curve.metadata.original_mnemonic,
-            description=curve.metadata.description or "",
-            unit=curve.metadata.unit or "",
-            language=self.language,
-            configured=configured,
-        )
-        self.inspector.setPlainText(
-            f"{self._t('inspector.curve')}: {readable_name} [{curve.metadata.original_mnemonic}]\n"
-            f"{self._t('inspector.unit')}: {curve.metadata.unit or self._t('common.unset')}\n"
-            f"{self._t('inspector.description')}: "
-            f"{curve.metadata.description or self._t('common.none')}\n"
-            f"{self._t('inspector.version')}: {curve.version}\n"
-            f"{self._t('inspector.provenance')}: {curve.metadata.provenance}"
-        )
-
-    def _graphical_track(self, track_id: str) -> TrackDefinition | None:
-        try:
-            track = self.tablet_view.layout_model.track_by_id(track_id)
-        except KeyError:
-            return None
-        if track.kind not in {TrackKind.CURVE, TrackKind.GAS, TrackKind.DEXP}:
-            return None
-        return track
-
-    def _apply_context_curve_selection(self, track_id: str, mnemonics: list[str]) -> None:
-        if not mnemonics:
-            return
-        self._selected_track_id = track_id
-        try:
-            track = self.tablet_controller.replace_track_curves(track_id, mnemonics)
-        except (KeyError, RuntimeError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("curve_browser.title"), str(exc))
-            return
-        self.tablet_view.refresh_view()
-        self.tablet_view.select_track(track_id, emit_signal=False)
-        self.inspector.show_track(track, suggested_range=self._track_data_range(track))
-        self._refresh_tree()
-        self._update_title()
-
-    def _add_curves_to_track_from_context(self, track_id: str) -> None:
-        track = self._graphical_track(track_id)
-        if track is None:
-            return
-        selected = self._select_curve_mnemonics()
-        if not selected:
-            return
-        combined = list(dict.fromkeys([*track.curve_mnemonics, *selected]))
-        self._apply_context_curve_selection(track_id, combined)
-
-    def _replace_track_curves_from_context(self, track_id: str) -> None:
-        track = self._graphical_track(track_id)
-        if track is None:
-            return
-        selected = self._select_curve_mnemonics(preselected=tuple(track.curve_mnemonics))
-        self._apply_context_curve_selection(track_id, selected)
-
-    def _show_curve_settings_from_context(self, track_id: str, mnemonic: str) -> None:
-        dataset = self.session.current_dataset
-        if dataset is None:
-            return
-        try:
-            track = self.tablet_view.layout_model.track_by_id(track_id)
-        except KeyError:
-            return
-        dialog = CurveSettingsDialog(track, dataset, self, language=self.language)
-        if mnemonic:
-            for row in range(dialog.curves.count()):
-                item = dialog.curves.item(row)
-                if item is not None and item.data(Qt.ItemDataRole.UserRole) == mnemonic:
-                    dialog.curves.setCurrentRow(row)
-                    break
-        if dialog.exec() != QDialog.DialogCode.Accepted:
-            return
-        try:
-            for curve_mnemonic, style in dialog.curve_styles.items():
-                self.tablet_controller.set_curve_style(track_id, curve_mnemonic, style)
-            for curve_mnemonic, settings in dialog.curve_display.items():
-                self.tablet_controller.set_curve_display_settings(
-                    track_id, curve_mnemonic, settings
-                )
-        except (KeyError, TypeError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("curve_settings.title"), str(exc))
-            return
-        self.tablet_view.refresh_track(
-            track_id, DirtyReason.STYLE | DirtyReason.DATA | DirtyReason.STATIC
-        )
-        self._refresh_tree()
-        self._update_title()
-
-    def _set_curve_range_from_header(
-        self, track_id: str, mnemonic: str, minimum: float, maximum: float
-    ) -> None:
-        if self._form_layout_transaction_active or self.tablet_view.is_rebuilding_layout:
-            return
-        try:
-            track = self.tablet_view.layout_model.track_by_id(track_id)
-            current = track.curve_display_settings(mnemonic)
-            if current.x_scale is XScale.LOGARITHMIC and minimum <= 0:
-                raise ValueError(self._t("curve_settings.log_range_positive"))
-            updated = replace(current, x_min=float(minimum), x_max=float(maximum))
-            self.tablet_controller.set_curve_display_settings(track_id, mnemonic, updated)
-        except (KeyError, TypeError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("curve_settings.title"), str(exc))
-            self.tablet_view.refresh_track(
-                track_id, DirtyReason.STYLE | DirtyReason.DATA | DirtyReason.STATIC
-            )
-            return
-        self.tablet_view.refresh_track(
-            track_id, DirtyReason.STYLE | DirtyReason.DATA | DirtyReason.STATIC
-        )
-        self.statusBar().showMessage(
-            self._t(
-                "curve_settings.header_range_saved",
-                curve=mnemonic,
-                minimum=f"{minimum:g}",
-                maximum=f"{maximum:g}",
-            ),
-            4000,
-        )
-        self._update_title()
-
-    def _set_curve_auto_range_from_header(self, track_id: str, mnemonic: str) -> None:
-        if self._form_layout_transaction_active or self.tablet_view.is_rebuilding_layout:
-            return
-        try:
-            track = self.tablet_view.layout_model.track_by_id(track_id)
-            current = track.curve_display_settings(mnemonic)
-            updated = replace(current, x_min=None, x_max=None)
-            self.tablet_controller.set_curve_display_settings(track_id, mnemonic, updated)
-        except (KeyError, TypeError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("curve_settings.title"), str(exc))
-            return
-        self.tablet_view.refresh_track(
-            track_id, DirtyReason.STYLE | DirtyReason.DATA | DirtyReason.STATIC
-        )
-        self.statusBar().showMessage(
-            self._t("curve_settings.header_auto_saved", curve=mnemonic), 4000
-        )
-        self._update_title()
-
-    def _set_curve_unit_from_header(self, track_id: str, mnemonic: str, unit: str) -> None:
-        if self._form_layout_transaction_active or self.tablet_view.is_rebuilding_layout:
-            return
-        try:
-            track = self.tablet_view.layout_model.track_by_id(track_id)
-            current = track.curve_display_settings(mnemonic)
-            updated = replace(current, unit_override=unit.strip())
-            self.tablet_controller.set_curve_display_settings(track_id, mnemonic, updated)
-        except (KeyError, TypeError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("curve_settings.title"), str(exc))
-            return
-        self.statusBar().showMessage(
-            self._t("curve_settings.header_unit_saved", curve=mnemonic, unit=unit.strip() or "â€”"),
-            4000,
-        )
-        self._update_title()
-
-    def _set_curve_scale_from_header(self, track_id: str, mnemonic: str, scale_value: str) -> None:
-        if self._form_layout_transaction_active or self.tablet_view.is_rebuilding_layout:
-            return
-        try:
-            scale = XScale(scale_value)
-            track = self.tablet_view.layout_model.track_by_id(track_id)
-            current = track.curve_display_settings(mnemonic)
-            minimum, maximum = current.x_min, current.x_max
-            if scale is XScale.LOGARITHMIC and minimum is not None and minimum <= 0:
-                minimum = maximum = None
-            updated = replace(current, x_scale=scale, x_min=minimum, x_max=maximum)
-            self.tablet_controller.set_curve_display_settings(track_id, mnemonic, updated)
-        except (KeyError, TypeError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("curve_settings.title"), str(exc))
-            self.tablet_view.refresh_track(
-                track_id, DirtyReason.STYLE | DirtyReason.DATA | DirtyReason.STATIC
-            )
-            return
-        self.tablet_view.refresh_track(
-            track_id, DirtyReason.STYLE | DirtyReason.DATA | DirtyReason.STATIC
-        )
-        self.statusBar().showMessage(
-            self._t(
-                "curve_settings.header_scale_saved",
-                curve=mnemonic,
-                scale=self._t(
-                    "curve_settings.logarithmic"
-                    if scale is XScale.LOGARITHMIC
-                    else "curve_settings.linear"
-                ),
-            ),
-            4000,
-        )
-        self._update_title()
-
-    def edit_selected_track(self) -> None:
-        if not self._selected_track_id:
-            QMessageBox.information(
-                self, self._t("tablet.edit_current_track"), self._t("tablet.select_track_first")
-            )
-            return
-        self._edit_live_track(self._selected_track_id)
-
-    def _edit_live_track(self, track_id: str) -> None:
-        try:
-            track = self.tablet_view.layout_model.track_by_id(track_id)
-        except KeyError:
-            return
-        dialog = TabletTrackEditorDialog(track, self, language=self.language.value)
-        if dialog.exec() != QDialog.DialogCode.Accepted:
-            return
-        try:
-            updated = self.tablet_controller.update_track_definition(track_id, dialog.track)
-        except (KeyError, PermissionError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("tablet.edit_current_track"), str(exc))
-            return
-        self.tablet_view.refresh_view()
-        self.tablet_view.select_track(track_id, emit_signal=False)
-        self.inspector.show_track(updated, suggested_range=self._track_data_range(updated))
-        self._refresh_tree()
-        self._update_title()
-
-    def _rename_live_track(self, track_id: str) -> None:
-        try:
-            track = self.tablet_view.layout_model.track_by_id(track_id)
-        except KeyError:
-            return
-        title, accepted = QInputDialog.getText(
-            self,
-            self._t("tablet.rename_track"),
-            self._t("tablet.track_title_prompt"),
-            text=track.title,
-        )
-        if not accepted:
-            return
-        try:
-            self.tablet_controller.rename_track(track_id, title)
-        except (KeyError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("tablet.rename_track"), str(exc))
-            return
-        self.tablet_view.refresh_view()
-        self._refresh_tree()
-        self._update_title()
-
-    def _rename_live_track_group(self, track_id: str) -> None:
-        try:
-            track = self.tablet_view.layout_model.track_by_id(track_id)
-        except KeyError:
-            return
-        title, accepted = QInputDialog.getText(
-            self,
-            self._t("tablet.rename_group"),
-            self._t("tablet.group_title_prompt"),
-            text=track.group_title,
-        )
-        if not accepted:
-            return
-        try:
-            self.tablet_controller.rename_track_group(track_id, title)
-        except (KeyError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("tablet.rename_group"), str(exc))
-            return
-        self.tablet_view.refresh_view()
-        self._refresh_tree()
-        self._update_title()
-
-    def _show_track_properties_from_context(self, track_id: str) -> None:
-        self._show_track_in_inspector(track_id)
-        self.inspector_dock.show()
-        self.inspector_dock.raise_()
-
-    def _hide_track_from_context(self, track_id: str) -> None:
-        self._selected_track_id = track_id
-        self.hide_selected_track()
-
-    def _remove_track_from_context(self, track_id: str) -> None:
-        self._selected_track_id = track_id
-        self.remove_selected_track()
-
-    def _show_track_in_inspector(self, track_id: str) -> None:
-        self._selected_track_id = track_id
-        track = next(
-            (item for item in self.tablet_view.layout_model.tracks if item.track_id == track_id),
-            None,
-        )
-        if track is None:
-            self.curve_browser.set_replace_enabled(False)
-            return
-        self.curve_browser.set_replace_enabled(
-            track.kind in {TrackKind.CURVE, TrackKind.GAS, TrackKind.DEXP}
-        )
-        self.inspector.show_track(track, suggested_range=self._track_data_range(track))
-
-    def _track_data_range(self, track: TrackDefinition) -> tuple[float, float] | None:
-        dataset = self.session.current_dataset
-        if dataset is None:
-            return None
-        finite_parts = []
-        for mnemonic in track.curve_mnemonics:
-            curve = dataset.curve_by_mnemonic(mnemonic)
-            if curve is None:
-                continue
-            values = curve.values[np.isfinite(curve.values)]
-            if track.x_scale is XScale.LOGARITHMIC:
-                values = values[values > 0.0]
-            if values.size:
-                finite_parts.append(values)
-        if not finite_parts:
-            return None
-        values = np.concatenate(finite_parts)
-        minimum, maximum = float(np.min(values)), float(np.max(values))
-        if minimum == maximum:
-            if track.x_scale is XScale.LOGARITHMIC:
-                return minimum / 1.05, maximum * 1.05
-            padding = max(abs(minimum) * 0.05, 1.0)
-            return minimum - padding, maximum + padding
-        return minimum, maximum
-
-    def _apply_inspector_track_settings(
-        self,
-        track_id: str,
-        width: int,
-        scale: str,
-        minimum: float | None,
-        maximum: float | None,
-    ) -> None:
-        try:
-            self.tablet_controller.update_track_view_settings(
-                track_id,
-                width=width,
-                x_scale=XScale(scale),
-                x_min=minimum,
-                x_max=maximum,
-            )
-            track = self.tablet_view.layout_model.track_by_id(track_id)
-        except (KeyError, TypeError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("inspector.title"), str(exc))
-            return
-        self._layout_changed(f"ÐžÐ±Ð½Ð¾Ð²Ð»ÐµÐ½Ñ‹ ÑÐ²Ð¾Ð¹ÑÑ‚Ð²Ð° Ñ‚Ñ€ÐµÐºÐ°: {track.title}")
-        self.inspector.show_track(track, suggested_range=self._track_data_range(track))
-
-    def _change_vertical_index_from_tablet(self, index_id: str) -> None:
-        try:
-            changed = self.tablet_controller.set_vertical_index(index_id)
-        except (KeyError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("tablet.title"), str(exc))
-            return
-        if changed:
-            layout = self.session.current_tablet_layout
-            if layout is not None:
-                self.tablet_view.set_layout_model(layout)
-            self._update_title()
-
-    def _show_visible_depth(self, top: float, bottom: float) -> None:
-        if self.tablet_controller.set_visible_depth(top, bottom):
-            self._update_title()
-        top_text = self.tablet_view.format_vertical_value(top)
-        bottom_text = self.tablet_view.format_vertical_value(bottom)
-        self.statusBar().showMessage(
-            self._t("tablet.visible_interval_status", top=top_text, bottom=bottom_text)
-        )
-
-    def _apply_inspector_curve_style(
-        self,
-        track_id: str,
-        mnemonic: str,
-        color: str,
-        width: float,
-        line_style: str,
-    ) -> None:
-        try:
-            style = CurveStyle(
-                color=color,
-                width=width,
-                line_style=CurveLineStyle(line_style),
-            )
-            self.tablet_controller.set_curve_style(track_id, mnemonic, style)
-            track = self.tablet_view.layout_model.track_by_id(track_id)
-        except (KeyError, TypeError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("inspector.title"), str(exc))
-            return
-        self.tablet_view.refresh_track(
-            track_id, DirtyReason.STYLE | DirtyReason.DATA | DirtyReason.STATIC
-        )
-        self._refresh_tree()
-        self._update_title()
-        self._log(self._t("inspector.style_updated", mnemonic=mnemonic))
-        self.inspector.show_track(track, suggested_range=self._track_data_range(track))
-
-    def _apply_inspector_grid(
-        self,
-        track_id: str,
-        show_x: bool,
-        show_y: bool,
-        alpha: float,
-        major_divisions: int = 5,
-        minor_divisions: int = 5,
-        print_grid: bool = True,
-    ) -> None:
-        try:
-            self.tablet_controller.set_track_grid(
-                track_id,
-                show_x,
-                show_y,
-                alpha,
-                major_divisions,
-                minor_divisions,
-                print_grid,
-            )
-            track = self.tablet_view.layout_model.track_by_id(track_id)
-        except (KeyError, TypeError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("inspector.title"), str(exc))
-            return
-        self.tablet_view.refresh_track(track_id, DirtyReason.STATIC | DirtyReason.STYLE)
-        self._refresh_tree()
-        self._update_title()
-        self._log(self._t("inspector.grid_updated"))
-        self.inspector.show_track(track, suggested_range=self._track_data_range(track))
-
-    def _apply_inspector_x_scale_visibility(
-        self, track_id: str, visible: bool
-    ) -> None:
-        try:
-            self.tablet_controller.set_track_x_scale_visible(track_id, visible)
-            track = self.tablet_view.layout_model.track_by_id(track_id)
-        except (KeyError, TypeError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("inspector.title"), str(exc))
-            return
-        self.tablet_view.refresh_track(track_id, DirtyReason.STYLE)
-        self._refresh_tree()
-        self._update_title()
-        self._log(self._t("inspector.x_scale_visibility_updated"))
-        self.inspector.show_track(track, suggested_range=self._track_data_range(track))
-
-    def _apply_inspector_x_axis_label(self, track_id: str, label: str) -> None:
-        try:
-            self.tablet_controller.set_track_x_axis_label(track_id, label)
-            track = self.tablet_view.layout_model.track_by_id(track_id)
-        except (KeyError, TypeError, ValueError) as exc:
-            QMessageBox.warning(self, self._t("inspector.title"), str(exc))
-            return
-        self.tablet_view.refresh_track(track_id, DirtyReason.STATIC)
-        self._refresh_tree()
-        self._update_title()
-        self._log(self._t("inspector.axis_label_updated"))
-        self.inspector.show_track(track, suggested_range=self._track_data_range(track))
-
-    def _update_title(self) -> None:
-        marker = " *" if self.session.dirty else ""
-        self.setWindowTitle(
-            f"GEOLOG GASRATIO@Pixler {__version__} â€” {self.session.project.name}{marker}"
-        )
-        self._update_form_width_indicator()
-
-    def _update_form_width_indicator(self) -> None:
-        indicator = getattr(self, "form_width_indicator", None)
-        if indicator is None:
-            return
-        visible = self.tablet_view.layout_model.visible_tracks()
-        if not visible:
-            indicator.setText(self._t("forms.width_no_form"))
-            indicator.setToolTip(self._t("forms.width_no_form_tooltip"))
-            indicator.setStyleSheet(
-                "QLabel#formWidthIndicator {padding:2px 8px; border-radius:4px; "
-                "background:#e2e8f0; color:#475569;}"
-            )
-            return
-        audit = audit_form_width(track.width for track in visible)
-        if audit.level is FormWidthLevel.FITS_PORTRAIT:
-            caption = self._t("forms.width_portrait", percent=f"{audit.portrait_scale_percent:.0f}")
-            color, background = "#166534", "#dcfce7"
-        elif audit.level is FormWidthLevel.FITS_LANDSCAPE:
-            caption = self._t(
-                "forms.width_landscape", percent=f"{audit.portrait_scale_percent:.0f}"
-            )
-            color, background = "#92400e", "#fef3c7"
-        elif audit.level is FormWidthLevel.NEEDS_FIT:
-            caption = self._t("forms.width_fit", percent=f"{audit.landscape_scale_percent:.0f}")
-            color, background = "#9a3412", "#ffedd5"
-        else:
-            caption = self._t("forms.width_split", pages=audit.portrait_pages_at_actual_size)
-            color, background = "#991b1b", "#fee2e2"
-        indicator.setText(caption)
-        indicator.setStyleSheet(
-            f"QLabel#formWidthIndicator {{padding:2px 8px; border:1px solid {color}; "
-            f"border-radius:4px; background:{background}; color:{color}; font-weight:600;}}"
-        )
-        indicator.setToolTip(
-            self._t(
-                "forms.width_tooltip",
-                columns=audit.visible_columns,
-                width=audit.total_width_px,
-                width_mm=f"{audit.total_width_mm:.0f}",
-                portrait=f"{audit.portrait_scale_percent:.0f}",
-                landscape=f"{audit.landscape_scale_percent:.0f}",
-            )
-        )
-
-    def _log(self, text: str) -> None:
-        self.issues.append(text)
-        log_event("ui.issue", text=text)
-        normalized = text.casefold()
-        if "Ð¾ÑˆÐ¸Ð±ÐºÐ°" in normalized or "error" in normalized or "failed" in normalized:
-            self.issues_dock.show()
-
-    def _diagnostic_runtime_context(self) -> dict[str, object]:
-        dataset = self.session.current_dataset
-        target = self.tablet_view.curve_pencil_target
-        width_audit = audit_form_width(
-            track.width for track in self.tablet_view.layout_model.visible_tracks()
-        )
-        return {
-            "language": self.language.value,
-            "project_name": self.session.project.name,
-            "project_dirty": self.session.dirty,
-            "dataset_id": dataset.dataset_id if dataset is not None else "",
-            "dataset_name": dataset.name if dataset is not None else "",
-            "tablet_track_count": len(self.tablet_view.layout_model.tracks),
-            "tablet_visible_track_count": len(self.tablet_view.layout_model.visible_tracks()),
-            "tablet_form_width_px": width_audit.total_width_px,
-            "tablet_a4_portrait_percent": round(width_audit.portrait_scale_percent, 1),
-            "tablet_a4_landscape_percent": round(width_audit.landscape_scale_percent, 1),
-            "tablet_a4_width_level": width_audit.level.value,
-            "selected_track_id": self._selected_track_id or "",
-            "pencil_active": self.tablet_view.curve_pencil_enabled,
-            "pencil_track_id": target[0] if target is not None else "",
-            "pencil_mnemonic": target[1] if target is not None else "",
-            "form_transaction_active": self._form_layout_transaction_active,
-        }
-
-    def open_log_folder(self) -> None:
-        manager = current_application_log_manager()
-        if manager is None:
-            QMessageBox.warning(
-                self, self._t("diagnostics.title"), self._t("diagnostics.unavailable")
-            )
-            return
-        manager.flush()
-        opened = QDesktopServices.openUrl(QUrl.fromLocalFile(str(manager.log_directory)))
-        log_event(
-            "diagnostics.log_folder.opened",
-            path=manager.log_directory,
-            opened=opened,
-        )
-        if not opened:
-            QMessageBox.information(
-                self,
-                self._t("diagnostics.title"),
-                self._t("diagnostics.log_folder_path", path=manager.log_directory),
-            )
-
-    def copy_current_log_path(self) -> None:
-        manager = current_application_log_manager()
-        if manager is None:
-            QMessageBox.warning(
-                self, self._t("diagnostics.title"), self._t("diagnostics.unavailable")
-            )
-            return
-        manager.flush()
-        QApplication.clipboard().setText(str(manager.current_log_path))
-        self.statusBar().showMessage(
-            self._t("diagnostics.path_copied", path=manager.current_log_path), 5000
-        )
-        log_event(
-            "diagnostics.log_path.copied",
-            path=manager.current_log_path,
-        )
-
-    def build_diagnostic_bundle(self) -> None:
-        manager = current_application_log_manager()
-        if manager is None:
-            QMessageBox.warning(
-                self, self._t("diagnostics.title"), self._t("diagnostics.unavailable")
-            )
-            return
-        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        default_directory = Path(
-            QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DesktopLocation)
-        )
-        default_path = default_directory / f"GEOLOG_diagnostics_{timestamp}.zip"
-        filename, _ = QFileDialog.getSaveFileName(
-            self,
-            self._t("diagnostics.save_title"),
-            str(default_path),
-            "ZIP (*.zip)",
-        )
-        if not filename:
-            return
-        target = Path(filename)
-        if target.suffix.lower() != ".zip":
-            target = target.with_suffix(".zip")
-        try:
-            result = manager.build_diagnostic_bundle(
-                target, runtime_context=self._diagnostic_runtime_context()
-            )
-        except (OSError, RuntimeError, ValueError) as exc:
-            log_exception("diagnostics.bundle.failed", exc, destination=target)
-            QMessageBox.critical(
-                self,
-                self._t("diagnostics.title"),
-                self._t("diagnostics.save_failed", error=str(exc)),
-            )
-            return
-        QMessageBox.information(
-            self,
-            self._t("diagnostics.title"),
-            self._t(
-                "diagnostics.bundle_saved",
-                path=result.path,
-                count=len(result.included_files),
-            ),
-        )
-
-    def clear_diagnostic_data(self) -> None:
-        manager = current_application_log_manager()
-        if manager is None:
-            QMessageBox.warning(
-                self, self._t("diagnostics.title"), self._t("diagnostics.unavailable")
-            )
-            return
-        answer = QMessageBox.question(
-            self,
-            self._t("diagnostics.clear_title"),
-            self._t("diagnostics.clear_confirm"),
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
-        )
-        if answer != QMessageBox.StandardButton.Yes:
-            return
-        app_data_root = Path(
-            QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation)
-        )
-        try:
-            result = manager.clear_diagnostic_data(
-                extra_directories=(app_data_root / "diagnostics",)
-            )
-        except (OSError, RuntimeError, ValueError) as exc:
-            log_exception("diagnostics.data.reset_failed", exc)
-            QMessageBox.critical(
-                self,
-                self._t("diagnostics.clear_title"),
-                self._t("diagnostics.clear_failed", error=str(exc)),
-            )
-            return
-        freed = self._format_diagnostic_size(result.freed_bytes)
-        if result.failed_paths:
-            QMessageBox.warning(
-                self,
-                self._t("diagnostics.clear_title"),
-                self._t(
-                    "diagnostics.clear_partial",
-                    count=result.deleted_files,
-                    size=freed,
-                    failed=len(result.failed_paths),
-                ),
-            )
-        else:
-            QMessageBox.information(
-                self,
-                self._t("diagnostics.clear_title"),
-                self._t(
-                    "diagnostics.clear_done",
-                    count=result.deleted_files,
-                    size=freed,
-                ),
-            )
-
-    @staticmethod
-    def _format_diagnostic_size(size_bytes: int) -> str:
-        size = max(0, int(size_bytes))
-        if size < 1024:
-            return f"{size} B"
-        if size < 1024 * 1024:
-            return f"{size / 1024:.1f} KB"
-        return f"{size / (1024 * 1024):.1f} MB"
-
-    def show_about(self) -> None:
-        dialog = QDialog(self)
-        dialog.setWindowTitle("GEOLOG GASRATIO@Pixler")
-        dialog.setWindowIcon(application_icon())
-        dialog.setModal(True)
-        target_geometry = fit_window_to_screen(
-            dialog,
-            preferred=QSize(1020, 610),
-            minimum=QSize(680, 460),
-        )
-
-        root_layout = QVBoxLayout(dialog)
-        root_layout.setContentsMargins(28, 28, 28, 20)
-        root_layout.setSpacing(18)
-
-        content_layout = QHBoxLayout()
-        content_layout.setSpacing(34)
-
-        image_label = QLabel(dialog)
-        image_label.setObjectName("aboutProgramLogo")
-        image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        logo_side = min(
-            430,
-            max(220, int(target_geometry.height() * 0.68)),
-            max(220, int(target_geometry.width() * 0.40)),
-        )
-        image_label.setFixedSize(logo_side, logo_side)
-        image_label.setPixmap(about_program_logo_pixmap(logo_side, logo_side))
-        content_layout.addWidget(image_label, 1, Qt.AlignmentFlag.AlignCenter)
-
-        # The information column deliberately has no forced background.  It follows
-        # the active Qt palette, so dark and light themes remain readable.
-        info_panel = QWidget(dialog)
-        info_panel.setObjectName("aboutInfoPanel")
-        info_panel.setMinimumWidth(min(390, max(260, int(target_geometry.width() * 0.36))))
-        info_layout = QVBoxLayout(info_panel)
-        info_layout.setContentsMargins(0, 12, 0, 12)
-        info_layout.setSpacing(7)
-        info_layout.addStretch(1)
-
-        palette = dialog.palette()
-        window_color = palette.color(QPalette.ColorRole.Window)
-        text_color = palette.color(QPalette.ColorRole.WindowText)
-        dark_theme = window_color.lightness() < 128
-        muted_color = QColor("#B8C0CC" if dark_theme else "#5B6470")
-        separator_color = QColor("#4B5563" if dark_theme else "#C4CAD2")
-
-        def configure_label(
-            label: QLabel,
-            *,
-            point_size: int,
-            weight: QFont.Weight = QFont.Weight.Normal,
-            color: QColor = text_color,
-        ) -> None:
-            font = label.font()
-            font.setPointSize(point_size)
-            font.setWeight(weight)
-            label.setFont(font)
-            label_palette = label.palette()
-            label_palette.setColor(QPalette.ColorRole.WindowText, color)
-            label.setPalette(label_palette)
-            label.setStyleSheet(f"color: {color.name()}; background: transparent; border: none;")
-
-        title_label = QLabel("GEOLOG GASRATIO@Pixler", info_panel)
-        title_label.setWordWrap(True)
-        configure_label(
-            title_label,
-            point_size=18,
-            weight=QFont.Weight.Bold,
-        )
-        info_layout.addWidget(title_label)
-
-        tagline_label = QLabel(self._t("shell.about_tagline"), info_panel)
-        tagline_label.setWordWrap(True)
-        configure_label(
-            tagline_label,
-            point_size=11,
-            weight=QFont.Weight.DemiBold,
-            color=QColor("#E28A00" if dark_theme else "#A85F00"),
-        )
-        info_layout.addWidget(tagline_label)
-
-        version_label = QLabel(self._t("shell.about_version", version=__version__), info_panel)
-        configure_label(version_label, point_size=10, color=muted_color)
-        info_layout.addWidget(version_label)
-
-        overview_label = QLabel(self._t("shell.about_overview"), info_panel)
-        overview_label.setObjectName("aboutOverview")
-        overview_label.setWordWrap(True)
-        overview_label.setTextFormat(Qt.TextFormat.PlainText)
-        configure_label(overview_label, point_size=10)
-        info_layout.addSpacing(7)
-        info_layout.addWidget(overview_label)
-
-        separator = QFrame(info_panel)
-        separator.setObjectName("aboutSeparator")
-        separator.setFixedHeight(1)
-        separator.setStyleSheet(
-            f"QFrame#aboutSeparator {{ background-color: {separator_color.name()}; border: none; }}"
-        )
-        info_layout.addSpacing(12)
-        info_layout.addWidget(separator)
-        info_layout.addSpacing(12)
-
-        author_caption = QLabel(self._t("shell.about_author"), info_panel)
-        configure_label(author_caption, point_size=10, color=muted_color)
-        info_layout.addWidget(author_caption)
-
-        author_name = QLabel("Rinat Sarmuldin", info_panel)
-        configure_label(
-            author_name,
-            point_size=14,
-            weight=QFont.Weight.DemiBold,
-        )
-        info_layout.addWidget(author_name)
-
-        email_caption = QLabel(self._t("shell.about_email"), info_panel)
-        configure_label(email_caption, point_size=10, color=muted_color)
-        info_layout.addSpacing(9)
-        info_layout.addWidget(email_caption)
-
-        email_label = QLabel("ura07srr@gmail.com", info_panel)
-        email_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        email_label.setOpenExternalLinks(False)
-        configure_label(email_label, point_size=11)
-        info_layout.addWidget(email_label)
-        info_layout.addStretch(1)
-
-        content_layout.addWidget(info_panel, 0, Qt.AlignmentFlag.AlignVCenter)
-        root_layout.addLayout(content_layout, 1)
-
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok, parent=dialog)
-        buttons.accepted.connect(dialog.accept)
-        root_layout.addWidget(buttons)
-
-        dialog.exec()
+YªçŠx-®éÜj×¢ëiºÚ+Š§j[h‘éÜ¢éí×Žt×Dèµ©hºÚn¶X§zÍYœ›ÛH×Ù]\™W×È[\Ü[››Ý][ÛœÂ‚™œ›ÛHÛÜH[\ÜY\ÛÜB™œ›ÛH]XÛ\ÜÙ\È[\Ü]XÛ\ÜË™\XÙB™œ›ÛH]][YH[\Ü]][YB™œ›ÛH[˜ÝÛÛÈ[\Ü\X[™œ›ÛH]Xˆ[\Ü]™œ›ÛH\[™È[\Ü\YXÝØ\Ý™œ›ÛHÙXZÜ™Yˆ[\Ü™Y‚‚š[\Ü[\H\Èœ™œ›ÛHTÚYM‹”]ÛÜ™H[\ÜQ]™[U[Y\‹U\›TÚ^™KTÝ[™\™]Ë]ÚYÛ˜[™œ›ÛHTÚYM‹”]ÝZH[\Ü
+ˆPXÝ[Û‹ˆPXÝ[Û‘Ü›Ý\ˆPÝ\œÛÜ‹ˆQ\ÚÝÜÙ\šXÙ\ËˆQ˜YÑ[\‘]™[ˆQ›Ü]™[ˆPÛÛÜ‹ˆQ›ÛˆRXÛÛ‹ˆTZ[\‹ˆT[]KˆT[‹ˆT^X\ˆTÚÝÑ]™[ŠB™œ›ÛHTÚYM‹”]š[Ý\Ü[\ÜTš[™]šY]ÑX[ÙÂ™œ›ÛHTÚYM‹”]ÚYÙ]È[\Ü
+ˆPXœÝ˜XÝ][UšY]ËˆP\XØ][Û‹ˆQX[ÙËˆQX[ÙÐ]Û›ÞˆPÛÛÜ‘X[ÙËˆQØÚÕÚYÙ]ˆQœ˜[YKˆQš[QX[ÙËˆR›Þ^[Ý]ˆR[œ]X[ÙËˆSX™[ˆS\ÝÚYÙ]ˆS\ÝÚYÙ]][KˆSXZ[•Ú[™ÝËˆSY[KˆSY\ÜØYÙP›ÞˆT\Ú]Û‹ˆTÝ]\Ð˜\‹ˆTÝ[KˆTÚ^™TÛXÞKˆTÝXÚÙYÚYÙ]ˆUX•ÚYÙ]ˆU^Y]ˆUÛÛ˜\‹ˆUÛÛ]Û‹ˆU™YUÚYÙ]ˆU™YUÚYÙ]][KˆU›Þ^[Ý]ˆUÚYÙ]ŠB‚™œ›ÛHÙ[ÝÛÜšØ™[˜Ú[\Ü×Ý™\œÚ[Û—×Â™œ›ÛHÙ[ÝÛÜšØ™[˜Ú˜\˜ÛÛ^[\Ü\XØ][ÛÛÛ^™œ›ÛHÙ[ÝÛÜšØ™[˜Ú˜Ø[Ý[][ÛœË˜ÛÛ›Û\ˆ[\Ü›Ü›][Q^XÝ][ÛÛÛ›Û\‚™œ›ÛHÙ[ÝÛÜšØ™[˜Ú˜Ø][ÙÜËœÙ[œÛÜœÈ[\ÜÙ[œÛÜØ][ÙËÙ]ØXÝ]™WÜÙ[œÛÜ—ØØ][ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜Ú˜Ø[Ý[][ÛœË˜Ý\ÝÛWÙ›Ü›][H[\Ü›Ü›][WÚ[œ]Â™œ›ÛHÙ[ÝÛÜšØ™[˜Ú˜Ø[Ý[][ÛœËš[\˜[ÜÝ]\ÝXÜÈ[\ÜØ[Ý[]WÚ[\˜[ÜÝ]\ÝXÜÂ™œ›ÛHÙ[ÝÛÜšØ™[˜Ú˜Ø[Ý[][ÛœËœ^\ˆ[\ÜZ[Ø[ÜÛÝ\˜ÙYÙ›Ü›][WÜ™YÚ\ÝžB™œ›ÛHÙ[ÝÛÜšØ™[˜Úš[\Ü\œË™ÜÌˆ[\Ü
+ˆÜÌÛÛZ[™\‘\œ›Ü‹ˆ^˜XÝÙÜÌ—ÝX›KŠB™œ›ÛHÙ[ÝÛÜšØ™[˜Úš[\Ü\œË™ÜÌ‹›][\\[\Ü™XYÙÜÌ—Û][\\™œ›ÛHÙ[ÝÛÜšØ™[˜Úš[\Ü\œË™ÜÌ‹›Y]Y]H[\ÜÚ[›™[ÙXÝ[Û˜\žWÙ›Ü—ÝX›B™œ›ÛHÙ[ÝÛÜšØ™[˜Úš[\Ü\œËœÚÙ—Ú[\Ü\ˆ[\Ü[\ÜÜÚÙ—Ùš[B™œ›ÛHÙ[ÝÛÜšØ™[˜Ú™ÛXZ[‹›[Ù[È[\ÜÝ\™Q]K]\Ù][™^›ÛK[™^\B™œ›ÛHÙ[ÝÛÜšØ™[˜Ú™ÛXZ[‹›ØØ[^™YØÛÛ[[\ÜØØ[^™YÝ^™œ›ÛHÙ[ÝÛÜšØ™[˜Ú™]K›\×ØY\\ˆ[\Ü\Ñ^Ü\œ›Ü‚™œ›ÛHÙ[ÝÛÜšØ™[˜Ú™]K›\×Ú[\ÜÜÛXÞH[\Ü\Ò[\Ü[ÙB™œ›ÛHÙ[ÝÛÜšØ™[˜Ú™]K›\×Ú[\ÜÜ™\Ü[\Ü\Ò[\Ü\ÜÝYK\Ò[\Ü™\Ü™œ›ÛHÙ[ÝÛÜšØ™[˜Ú™]K›ÜÜÛ\Ü×Û\È[\ÜÜÜÛ\ÜÓ\ÑØÝ[Y[™œ›ÛHÙ[ÝÛÜšØ™[˜Ú™]K›\×Ù^ÜÜ[ˆ[\Ü^Ü\ÜÝYTÙ]™\š]B™œ›ÛHÙ[ÝÛÜšØ™[˜Ú™]KœÙ[XÝ[Û—Ù^Ü[\ÜÙ[XÝ[Û‘^Ü\œ›Ü‚™œ›ÛHÙ[ÝÛÜšØ™[˜Ú™]Kœ™\ÜÙØÝ[Y[Ù^Ü[\Ü™\ÜØÝ[Y[^Ü\œ›Ü‚™œ›ÛHÙ[ÝÛÜšØ™[˜Ú™]Kš\ÝX[^˜][Û—Ù^Ü[\Ü
+ˆš\ÝX[^˜][Û‘^Ü\œ›Ü‹ˆ^ÜÝÚYÙ]Ü‹ˆ^ÜÝÚYÙ]Ü™Ëˆ^ÜÝÚYÙ]ÜÝ™ËŠB™œ›ÛHÙ[ÝÛÜšØ™[˜Ú™]K™]\Ù]ÚœÛÛ—Ù^Ü[\Ü]\Ù]œÛÛ‘^Ü\œ›Ü‚™œ›ÛHÙ[ÝÛÜšØ™[˜Ú™]K™]\Ù]Ü\œ]Y]Ù^Ü[\Ü]\Ù]\œ]Y]^Ü\œ›Ü‚™œ›ÛHÙ[ÝÛÜšØ™[˜Ú™]Kš[\˜[ÜÝ]\ÝXÜ×Ù^Ü[\Ü
+ˆ^ÜÚ[\˜[ÜÝ]\ÝXÜ×ØÜÝ‹ˆ^ÜÚ[\˜[ÜÝ]\ÝXÜ×ÞÞŠB™œ›ÛHÙ[ÝÛÜšØ™[˜Ú™›Ü›\È[\Ü
+ˆ›Ü›P\Q[™Ú[™Kˆ›Ü›P^\ÒÚ[™ˆ›Ü›T™\ÜÚ]ÜžKˆ›Ü›WÙœ›ÛWÝX›]Û^[Ý]ŠB™œ›ÛHÙ[ÝÛÜšØ™[˜Ú™›Ü›\Ë˜Ø][ÙÈ[\ÜÛÛ\]WÙ›Ü›WØØ][ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜Ú™›Ü›\Ë›^[Ý]Ý˜[œØXÝ[Ûˆ[\Ü
+ˆ™]™\œÚX›P\Q\œ›Ü‹ˆ\WÜ™]™\œÚX›KŠB™œ›ÛHÙ[ÝÛÜšØ™[˜Úœ›Ú™XÝ˜ÛÛ›Û\ˆ[\Ü›Ú™XÝÛÛ›Û\‚™œ›ÛHÙ[ÝÛÜšØ™[˜Úœ›Ú™XÝ™]WÚ[œÜXÝÜ—ØÛÛ›Û\ˆ[\Ü]R[œÜXÝÜÛÛ›Û\‚™œ›ÛHÙ[ÝÛÜšØ™[˜Úœ›Ú™XÝ˜Ý\™WÛY]Y]WØÛÛ›Û\ˆ[\ÜÝ\™SY]Y]PÛÛ›Û\‚™œ›ÛHÙ[ÝÛÜšØ™[˜Úœ›Ú™XÝ˜Ý\™WÝ˜[œÙ™\—ØÛÛ›Û\ˆ[\ÜÝ\™U˜[œÙ™\ÛÛ›Û\‚™œ›ÛHÙ[ÝÛÜšØ™[˜Úœ›Ú™XÝ™^\›˜[Û\×Ú[œÙ\ØÛÛ›Û\ˆ[\Ü^\›˜[\Ò[œÙ\ÛÛ›Û\‚™œ›ÛHÙ[ÝÛÜšØ™[˜Úœ›Ú™XÝ™Ø\×Ü˜][×ØÛÛ›Û\ˆ[\ÜØ\Ô˜][Ô›Ú™XÝÛÛ›Û\‚™œ›ÛHÙ[ÝÛÜšØ™[˜Úœ›Ú™XÝ™ÜÌ—Ú[\ÜØÛÛÜ™[˜]Üˆ[\ÜÜÌ’[\ÜÛÛÜ™[˜]Ü‚™œ›ÛHÙ[ÝÛÜšØ™[˜Úœ›Ú™XÝ˜Ý\ÝÛWÙ›Ü›][WØÛÛ›Û\ˆ[\ÜÝ\ÝÛQ›Ü›][PÛÛ›Û\‚™œ›ÛHÙ[ÝÛÜšØ™[˜Úœ›Ú™XÝšXY\—ÙY][™×ØÛÛ›Û\ˆ[\ÜXY\‘Y][™ÐÛÛ›Û\‚™œ›ÛHÙ[ÝÛÜšØ™[˜Úœ›Ú™XÝ™\ØÜš\[Û—Ý[\]WØÛÛ›Û\ˆ[\Ü\ØÜš\[Û•[\]PÛÛ›Û\‚™œ›ÛHÙ[ÝÛÜšØ™[˜Úœ›Ú™XÝ™\Ø^\×ØÛÛ›Û\ˆ[\Ü\^\ÐÛÛ›Û\‚™œ›ÛHÙ[ÝÛÜšØ™[˜Úœ›Ú™XÝ˜Ý\™WÙY][™×ØÛÛ›Û\ˆ[\Ü
+ˆÝ\™QY][™ÐÛÛ›Û\‹ˆÝ\™QY]Ý]ÛÛYKŠB™œ›ÛHÙ[ÝÛÜšØ™[˜Úœ›Ú™XÝ˜[››Ý][Û—ØÛÛ›Û\ˆ[\Ü\[››Ý][ÛÛÛ›Û\‚™œ›ÛHÙ[ÝÛÜšØ™[˜Úœ›Ú™XÝ˜[››Ý][Û—ÜØÚ[XH[\Ü
+ˆ[››Ý][Û[˜ÚÜ‹ˆ[››Ý][Û’Ú[™ˆ[››Ý][Û”Ý[Kˆ[››Ý][Û—Ùœ›ÛWØØ[˜\Ëˆ\×Ø[››Ý][Û—ÛØš™XÝŠB™œ›ÛHÙ[ÝÛÜšØ™[˜Úœ›Ú™XÝ›]ÛÙÞWØÛÛ›Û\ˆ[\Ü]ÛÙÞPÛÛ›Û\‚™œ›ÛHÙ[ÝÛÜšØ™[˜Úœ›Ú™XÝ˜Ý][™Ü×ØÛÛ›Û\ˆ[\ÜÝ][™ÜÐÛÛ›Û\‚™œ›ÛHÙ[ÝÛÜšØ™[˜Úœ›Ú™XÝš[\œ™]][Û—ØÛÛ›Û\ˆ[\Ü[\œ™]][ÛÛÛ›Û\‚™œ›ÛHÙ[ÝÛÜšØ™[˜Úœ›Ú™XÝš[\œ™]][Û—ØØ[Ý[][Û—ØÛÛ›Û\ˆ[\Ü
+ˆ[\œ™]][ÛØ[Ý[][ÛÛÛ›Û\‹ˆ[\œ™]][ÛØ[Ý[][Û”™\Ý[ŠB™œ›ÛHÙ[ÝÛÜšØ™[˜Úœ›Ú™XÝ›]Ý\WØØ][Ù×ØÛÛ›Û\ˆ[\Ü]Ý\PØ][ÙÐÛÛ›Û\‚™œ›ÛHÙ[ÝÛÜšØ™[˜Úœ›Ú™XÝœÝ˜]YÜ˜\WØÛÛ›Û\ˆ[\ÜÝ˜]YÜ˜\PÛÛ›Û\‚™œ›ÛHÙ[ÝÛÜšØ™[˜Úœ›Ú™XÝœÝ˜]YÜ˜\WØØ][Ù×ØÛÛ›Û\ˆ[\ÜÝ˜]YÜ˜\PØ][ÙÐÛÛ›Û\‚™œ›ÛHÙ[ÝÛÜšØ™[˜Úœ›Ú™XÝ›˜ÝØÛÛ›Û\ˆ[\Ü˜ÝØ[Ý[][ÛÛÛ›Û\‚™œ›ÛHÙ[ÝÛÜšØ™[˜Úœ›Ú™XÝ›™]×Û\×ØÛÛ›Û\ˆ[\Ü™]Ó\ÐÛÛ›Û\‚™œ›ÛHÙ[ÝÛÜšØ™[˜ÚœÙ\šXÙ\ËÙ[Ý\]WÜ[ˆ[\ÜÙ[[Y\šXØ[\]T[‚™œ›ÛHÙ[ÝÛÜšØ™[˜ÚœÙ\šXÙ\ËÙ[Ý\]WØ\H[\ÜÙ[[Y\šXØ[\]SÝ]ÛÛYB™œ›ÛHÙ[ÝÛÜšØ™[˜ÚœÙ\šXÙ\Ë™Z[WÛ\×ÙÜ›ÝÝ[\ÜZ[S\ÑÜ›ÝÝÝ]ÛÛYB™œ›ÛHÙ[ÝÛÜšØ™[˜Úœ›Ú™XÝ™Z[WÛ\×ÙÜ›ÝÝØÛÛ›Û\ˆ[\ÜZ[S\ÑÜ›ÝÝÛÛ›Û\‚™œ›ÛHÙ[ÝÛÜšØ™[˜Úœ›Ú™XÝ›\×Ü˜[™ÙWÙY]Üˆ[\Ü\Ô˜[™ÙQY][™ÐÛÛ›Û\‚™œ›ÛHÙ[ÝÛÜšØ™[˜Úœ›Ú™XÝ™]\Ù]Ù^ÜØÛÛ›Û\ˆ[\Ü]\Ù]^ÜÛÛ›Û\‚™œ›ÛHÙ[ÝÛÜšØ™[˜Úœ›Ú™XÝ™]\Ù]ÛY\™ÙWØÛÛ›Û\ˆ[\Ü]\Ù]Y\™ÙPÛÛ›Û\‚™œ›ÛHÙ[ÝÛÜšØ™[˜Úœ›Ú™XÝ™\š]™YÙ]\Ù]ØÛÛ›Û\ˆ[\Ü\š]™Y]\Ù]ÛÛ›Û\‚™œ›ÛHÙ[ÝÛÜšØ™[˜Úœ›Ú™XÝ™ØÝ[Y[Ø[™WØÛÛ[X[™[\Ü
+ˆØÝ[Y[[™PÛÛ[X[™ÛÛ›Û\‹ˆØÝ[Y[[™PÛÛ[X[™\œ›Ü‹ŠB™œ›ÛHÙ[ÝÛÜšØ™[˜Úœ›Ú™XÝ™ØÝ[Y[Ø[™WÜ™XÛÜ™[™×ÜÙ\šXÙH[\Ü
+ˆ™XÛÜ™YØÝ[Y[[™Q^XÝ][Û‹ŠB™œ›ÛHÙ[ÝÛÜšØ™[˜Úœ›Ú™XÝ›X\Ý\›Ù×Ý[\]WØÛÛ›Û\ˆ[\ÜX\Ý\›ÙÕ[\]PÛÛ›Û\‚™œ›ÛHÙ[ÝÛÜšØ™[˜Úœ›Ú™XÝ›ÙÛ×ØØ][Ù×ØÛÛ›Û\ˆ[\ÜÙÛÐØ][ÙÐÛÛ›Û\‚™œ›ÛHÙ[ÝÛÜšØ™[˜Úœ›Ú™XÝœÙ\ÜÚ[Ûˆ[\Ü›Ú™XÝÙ\ÜÚ[Û‚™œ›ÛHÙ[ÝÛÜšØ™[˜Ú™›Ü›WØÛÛœÝXÝÜ‹˜\ÜÙ]Ú[œÝ[[\Ü[œÝ[ÜÞ[X›ÛÚ[×Ü›Ú™XÝ™œ›ÛHÙ[ÝÛÜšØ™[˜Úœ›Ú™XÝ›Y×ØÛÜœ™XÝ[Û—ØÛÛ›Û\ˆ[\Ü
+ˆYÐÛÜœ™XÝ[Û”›Ú™XÝÛÛ›Û\‹ˆYÐÛÜœ™XÝ[Û”ÛÝ\˜ÙQ]\Ù]Z\ÜÚ[™Ñ\œ›Ü‹ŠB™œ›ÛHÙ[ÝÛÜšØ™[˜Úœ›Ú™XÝ[YWÙ\ÛX\[™×ØÛÛ›Û\ˆ[\Ü[YQ\X\[™ÐÛÛ›Û\‚™œ›ÛHÙ[ÝÛÜšØ™[˜Úœ›Ú™XÝ[YWÝ×Ù\ØÛÛ›Û\ˆ[\Ü[YUÑ\ÛÛ›Û\‚™œ›ÛHÙ[ÝÛÜšØ™[˜Úœ›Ú™XÝÚ]Û[Ú[\ÜØÛÛÜ™[˜]Üˆ[\ÜÚ]Û[[\ÜÛÛÜ™[˜]Ü‚™œ›ÛHÙ[ÝÛÜšØ™[˜Úœš[[™Ëœš[Ú›Øˆ[\Ü
+ˆš[›Ø”Ù][™ÜËˆš[Ý]]›Ü›X]ˆš[˜XÚÓÜ[Û‹ŠB™œ›ÛHÙ[ÝÛÜšØ™[˜Úœš[[™ËšXY\—ØØ][ÙÈ[\ÜØ][Ù×Ú][\Ë™\ÛÛ™WØØ][Ù×ÚXY\‚™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZKšXY\—Ü™]šY]×ÝÚYÙ][\Ü™[™\—ÚXY\—Ü™]šY]×Ü^X\™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZKœš[Ú›Ø—ÜÝ]\×ÙX[ÙÈ[\Üš[›Ø”Ý]\ÑX[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZK™š[WÝÛÜšÜÜXÙWÝÚYÙ][\Üš[UÛÜšÜÜXÙUÚYÙ]™œ›ÛHÙ[ÝÛÜšØ™[˜Úœš[[™ËœYÚ[˜][Ûˆ[\Üš[˜[™ÙS[ÙB™œ›ÛHÙ[ÝÛÜšØ™[˜Úœš[[™Ë™›Ü›WÝÚYØYš\ÛÜˆ[\Ü›Ü›UÚY]™[]Y]Ù›Ü›WÝÚY™œ›ÛHÙ[ÝÛÜšØ™[˜ÚœÝÜ˜YÙKœ›Ú™XÝØÛÙXÈ[\Ü›Ú™XÝ›Ü›X]\œ›Ü‚™œ›ÛHÙ[ÝÛÜšØ™[˜ÚœÝÜ˜YÙKœ›Ú™XÝÙš[WÜØY™]H[\Ü
+ˆ›Ú™XÝÚ[™ÙY^\›˜[Q\œ›Ü‹ˆ›Ú™XÝš[TØY™]Q\œ›Ü‹ˆØ]™S[ÙKŠB™œ›ÛHÙ[ÝÛÜšØ™[˜ÚX›][\ÜX›]^[Ý]˜XÚÑYš[š][Û‹˜XÚÒÚ[™ØØ[B™œ›ÛHÙ[ÝÛÜšØ™[˜ÚX›]œ™[™\—Ú[˜[Y][Ûˆ[\Ü\T™X\ÛÛ‚™œ›ÛHÙ[ÝÛÜšØ™[˜ÚX›]›[Ù[È[\Ü
+ˆÝ\™S[™TÝ[KˆÝ\™TÝ[KŠB™œ›ÛHÙ[ÝÛÜšØ™[˜ÚX›]˜ÛÛ›Û\ˆ[\ÜX›]ÛÛ›Û\‚™œ›ÛHÙ[ÝÛÜšØ™[˜ÚX›]š[\˜[Ú[\˜XÝ[Ûˆ[\Ü[\˜[Y][ÙB™œ›ÛHÙ[ÝÛÜšØ™[˜ÚX›]›]ÛÙÞWÛYÙ[™[\ÜZ[Û]ÛÙÞWÛYÙ[™™œ›ÛHÙ[ÝÛÜšØ™[˜ÚX›]X›]ÝšY]È[\ÜÙ[ÛÙÚXØ[[œ][ÙKX›]šY]Â™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZK˜XÚ×Ú[œÜXÝÜˆ[\Ü˜XÚÒ[œÜXÝÜ‚™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZK›Y×ØÛÜœ™XÝ[Û—ÙX[ÙÈ[\ÜYÐÛÜœ™XÝ[Û‘X[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZK[YWÙ\ÛX\[™×ÙX[ÙÈ[\Ü[YQ\X\[™ÑX[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZK[YWÝ×Ù\ÙX[ÙÈ[\Ü[YUÑ\X[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZKÛÛ˜\—ØY\][Ûˆ[\Ü
+ˆÚÛÜÙWÝÛÛ˜\—ØY\][Û‹ˆÝ™\™›Ý×Ú][WØÛÝ[ŠB™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZK˜œ˜[™[™È[\Ü\XØ][Û—ÚXÛÛ‹X›Ý]Ü›ÙÜ˜[WÛÙÛ×Ü^X\™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZKšÛYWÜYÙH[\ÜÛYPXÝ[Û‹ÛYTYÙB™œ›ÛHÙ[ÝÛÜšØ™[˜ÚœÙ\šXÙ\Ëš[\ÜÚ›ØœÈ[\Ü
+ˆ]\Ù][\Ü›Ø‘^XÝ]Ü‹ˆ[\Ü›ØÛÛ›Û\‹ˆ[\ÜÛÝ\˜ÙRÚ[™ŠB™œ›ÛHÙ[ÝÛÜšØ™[˜ÚœÙ\šXÙ\Ë˜\XØ][Û—ÛÙÙÚ[™È[\Ü
+ˆÝ\œ™[Ø\XØ][Û—ÛÙ×ÛX[˜YÙ\‹ˆÙ×Ù]™[ˆÙ×Ù^Ù\[Û‹ŠB™œ›ÛHÙ[ÝÛÜšØ™[˜ÚœÙ\šXÙ\Ëš[\ÜÙXYÛ›ÜÝXÜÈ[\Ü
+ˆ[\ÜXYÛ›ÜÝXËˆ[\ÜXYÛ›ÜÝXÔ™\Üˆ\œÚ\ÝÚ[\ÜÙXYÛ›ÜÝX×Ü™\Üˆ™\Ù[][Û—ÙXYÛ›ÜÝXËŠB™œ›ÛHÙ[ÝÛÜšØ™[˜ÚœÙ\šXÙ\ËœÙ\ÜÚ[Û—Øš[™[™È[\ÜÙ\ÜÚ[Ûš[™[™ÐÛÛ›Û\‚™œ›ÛHÙ[ÝÛÜšØ™[˜ÚœÙ\šXÙ\Ëœš[Ú›ØœÈ[\Üš[›Ø‘^XÝ]Ü‹™\ÜÜ™[™\—ÜÙ][™ÜÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚœÙ\šXÙ\ËÛÜšÜÜXÙWØÛÛ[X[™È[\ÜÛÜšÜÜXÙPÛÛ[X[™ÛÛ›Û\‚™œ›ÛHÙ[ÝÛÜšØ™[˜ÚœÙ\šXÙ\Ë™]][YWØ›Ý[™\žH[\Ü]][YWØ›Ý[™\žWÝ[š^ÜÙXÛÛ™Â™œ›ÛHÙ[ÝÛÜšØ™[˜ÚœÙ\šXÙ\Ëœ™\ÜÙYš[š][Ûˆ[\Ü
+ˆ™\ÜYš[š][Û‹ˆ™\ÜYš[š][Û‘\œ›Ü‹ˆ™\Ü[\˜[ÛÛ^ˆ™\Ü[\˜[[ÙKˆ™\Ü[\˜[Ù[XÝ[Û‹ˆ™\Ü›Ùš[Kˆ™\ÜÙXÝ[Û‘Yš[š][Û‹ˆ™\ÜÙXÝ[Û’Ú[™ˆ™\ÛÛ™Y™\ÜYš[š][Û‹ŠB™œ›ÛHÙ[ÝÛÜšØ™[˜ÚœÙ\šXÙ\Ëœ™\ÜÜ\ÜÜÜ[\Ü
+ˆ™\ÜÚ[™ˆ™\Ü\ÜÜÜZ[\‹ˆ™\Ü\ÜÜÜ\œ›Ü‹ˆ™\Ü\ÜÜÜ™\]Y\Ýˆ™\Ü™[™\”Ù][™ÜËˆ›Ü›WÙØÝ[Y[ÜÛ˜\ÚÝˆ\ÜÜÜÜÚYXØ\—Ü]ˆ™\ÜÙYš[š][Û—ÜÛ˜\ÚÝˆX›]Û^[Ý]Ù›Ü›WÜÛ˜\ÚÝŠB™œ›ÛHÙ[ÝÛÜšØ™[˜ÚœÙ\šXÙ\Ëœ™\ÜÛÝ]]Ý˜[œØXÝ[Ûˆ[\Ü
+ˆ^XÝ]WÜ™\ÜÛÝ]]Ý˜[œØXÝ[Û‹ŠB™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZKÛÜšÜÜXÙWØÛÛ›Û\ˆ[\Ü
+ˆÛÜšÜÜXÙPÛÛ›Û\‹ˆÛÜšÜÜXÙTÝ\™˜XÙKŠB™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZKÚ[™Ý×ÙÙ[ÛY]žH[\Ü
+ˆY\]™WÛZ[š[][WÜÚ^™KˆY\]™WÝÚ[™Ý×ÙÙ[ÛY]žKˆÛÛœÝ˜Z[—ÝÚ[™Ý×ÙÙ[ÛY]žKˆš]ÝÚ[™Ý×Ý×ÜØÜ™Y[‹ŠB™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZK˜ÜÝ—Ú[\ÜÙX[ÙÈ[\ÜÜÝ’[\ÜX[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZK˜Ý\™WÝ˜[œÙ™\—ÙX[ÙÈ[\ÜÝ\™U˜[œÙ™\‘X[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZK™^\›˜[Û\×Ú[œÙ\ÙX[ÙÈ[\Ü^\›˜[\Ò[œÙ\X[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZK˜Ý\™WÜÙ][™Ü×ÙX[ÙÈ[\ÜÝ\™TÙ][™ÜÑX[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZK™^Ù[Ú[\ÜÙX[ÙÈ[\Ü^Ù[[\ÜX[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZKš[\ÜÜ™]šY]×ÙX[ÙÈ[\Ü[\Ü™]šY]ÑX[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZKš[\ÜÙXYÛ›ÜÝXÜ×ÙX[ÙÈ[\Ü[\ÜXYÛ›ÜÝXÜÑX[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZKœ\˜YÞÚ[\ÜÙX[ÙÈ[\Ü\˜YÞ[\ÜX[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZKœ\˜YÞØ˜]ÚÙX[ÙÈ[\Ü\˜YÞ˜]ÚX[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZK™ÜÌ—Ú[\ÜÙX[ÙÈ[\ÜÜÌ’[\ÜX[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZKÚ]Û[Ú[™[ÜžWÙX[ÙÈ[\ÜÚ]Û[[™[ÜžQX[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZKÚ]Û[Ú[\ÜÙX[ÙÈ[\ÜÚ]Û[[\ÜX[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZKÚ]Û[MLWÙX[ÙÈ[\ÜÚ]Û[MLQX[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZK™]L—ÙX[ÙÈ[\Ü]L‘X[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZKÚ]ÌØØ\\™WÙX[ÙÈ[\ÜÚ]ÌØ\\™QX[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZK™›Ü›WÛX[˜YÙ\—ÙX[ÙÈ[\Ü›Ü›SX[˜YÙ\‘X[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZK™›Ü›WØÜ™X]WÙX[ÙÈ[\Ü›Ü›PÜ™X]QX[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZK˜ÛÛœÝXÝÜ—ÙX[ÙÈ[\Ü[š]™\œØ[ÛÛœÝXÝÜ‘X[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZK™›Ü›][WÙX[ÙÈ[\Ü›Ü›][Q^XÝ][Û‘X[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZK˜Ý\ÝÛWÙ›Ü›][WÙX[ÙÈ[\ÜÝ\ÝÛQ›Ü›][QX[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZK™\Ø[››Ý][Ûœ×ÙX[ÙÈ[\Ü\[››Ý][ÛœÑX[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZKœÞ[X›ÛÚ[œÙ\[Û—ÙX[ÙÈ[\ÜÞ[X›Û[œÙ\[Û‘X[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZK™\Ü™\Ø[\WÙX[ÙÈ[\Ü\™\Ø[\QX[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZK™\ØÜš\[Û—Ý[\]\×ÙX[ÙÈ[\Ü\ØÜš\[Û•[\]\ÑX[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZK™]WÚ[œÜXÝÜ—ÙX[ÙÈ[\Ü]R[œÜXÝÜ‘X[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZK™]\Ù]ÛY\™ÙWÙX[ÙÈ[\Ü]\Ù]Y\™ÙQX[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZKš[\˜[ÜÝ]\ÝXÜ×ÙX[ÙÈ[\Ü[\˜[Ý]\ÝXÜÑX[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZKš[\˜[ÜÝ]\ÝXÜ×Ü[™[[\Ü[\˜[Ý]\ÝXÜÔ[™[™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZKš[\˜[ÜÝ]\ÝXÜ×ÛÝ™\›^H[\Ü[\˜[Ý]\ÝXÜÓÝ™\›^B™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZKš[\œ™]][Û—Ü™\ÜÙX[ÙÈ[\Ü[\œ™]][Û”™\ÜX[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZKš[\œ™]][Û—Ü™\ÜÝÛÜšÜÜXÙH[\Ü
+ˆ[\œ™]][Û”™\ÜÛÜšÜÜXÙKŠB™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZKš[\œ™]][Û—Ú[\˜[×ÙX[ÙÈ[\Ü[\œ™]][Û’[\˜[ÑX[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZKš[\œ™]][Û—Ü›Ü\Y\È[\Ü[\œ™]][Û”›Ü\Y\Ô[™[™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZK›]ÛÙÞWÙX[ÙÈ[\Ü]ÛÙÞQX[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZK›]ÛÙÞWÚ[\˜[ÙX[ÙÈ[\Ü]ÛÙÞR[\˜[X[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZK[šYšYYØÝ][™Ü×ÜØ[\WÙX[ÙÈ[\Ü[šYšYYÝ][™ÜÔØ[\QX[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZKœØ[\WØ[˜[\Ú\×ÙX[ÙÈ[\ÜØ[\P[˜[\Ú\ÑX[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZKœ›ØÚ×Ù\ØÜš\[Û—ÙX[ÙÈ[\Ü›ØÚÑ\ØÜš\[Û‘X[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZK›]ÛÙÞWÛYÙ[™ÙX[ÙÈ[\Ü]ÛÙÞSYÙ[™X[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZK›]Ý\WØØ][Ù×ÙX[ÙÈ[\Ü]Ý\PØ][ÙÑX[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZKœÙ[œÛÜ—ØØ][Ù×ÙX[ÙÈ[\ÜÙ[œÛÜØ][ÙÑX[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZKœÝ˜]YÜ˜\WÙX[ÙÈ[\Ü
+ˆÝ˜]YÜ˜\PØ][ÙÑX[ÙËˆÝ˜]YÜ˜\QX[ÙËˆÝ˜]YÜ˜\R[\˜[X[ÙËŠB™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZKX›]Ý˜XÚ×ÙY]Ü—ÙX[ÙÈ[\ÜX›]˜XÚÑY]Ü‘X[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZK›˜ÝÙX[ÙÈ[\Ü˜ÝØ[Ý[][Û‘X[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZK›™]×Û\×ÙX[ÙÈ[\Ü™]Ó\ÑX[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZK™Z[WÛ\×ÙÜ›ÝÝÙX[ÙÈ[\ÜZ[S\ÑÜ›ÝÝX[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZK›\×ÝX›WÙY]Üˆ[\Ü\ÕX›QY]Ü‚™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZK›\×Ù^ÜÙX[ÙÈ[\Ü\Ñ^Ü[‘X[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZK›\×ÙY]Ü—ÙX[ÙÈ[\Ü\ÑY]Ü‘X[ÙË\ÑY]Ü“Ü\˜][Û‚™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZK›\×ØÝ\™WØœ›ÝÜÙ\ˆ[\Ü\ÐÝ\™Pœ›ÝÜÙ\‚™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZKœš[ØÙ[\—ÙX[ÙÈ[\Üš[Ù[\‘X[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZKœš[ÜYÙWÙX[ÙÈ[\Üš[YÙQX[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZK™ØÝ[Y[Ø[™WÜÙ[XÝ[Û—ÙX[ÙÈ[\ÜØÝ[Y[[™TÙ[XÝ[Û‘X[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZK›X\Ý\›Ù×Ý[\]\×ÙX[ÙÈ[\ÜX\Ý\›ÙÕ[\]\ÑX[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZKšXY\—ØØ][Ù×ÙX[ÙÈ[\ÜXY\Ø][ÙÑX[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZK›ÙÛ×ØØ][Ù×ÙX[ÙÈ[\ÜÙÛÐØ][ÙÑX[ÙÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚZKœÚÙ—Ú[\ÜÛÜ[Ûœ×ÙX[ÙÈ[\Ü
+ˆÚÙ’[\Ü[ÙKˆÚÙ’[\ÜÜ[ÛœÑX[ÙËŠB™œ›ÛHÙ[ÝÛÜšØ™[˜Úš\ÝX[^˜][Û‹˜Ý\™WÝšY]È[\ÜÝ\™UšY]Â™œ›ÛHÙ[ÝÛÜšØ™[˜ÚœÙ\šXÙ\Ë™\Ø^\È[\Ü\\™XÝ[Û‚™œ›ÛHÙ[ÝÛÜšØ™[˜ÚœÙ\šXÙ\Ë›\×Ü\˜[Y]\—Ü™\ÛÛ™\ˆ[\Ü\˜[Y]\”™\ÛÛ][Û‘\œ›Ü‚™œ›ÛHÙ[ÝÛÜšØ™[˜ÚœÙ\šXÙ\Ë›ØØ[^˜][Ûˆ[\Ü
+ˆS‘ÕPQÑWÓSQTËˆ\[™ÝXYÙKˆ[™ÝXYÙTÙ][™ÜËˆØØ[^™\‹ŠB™œ›ÛHÙ[ÝÛÜšØ™[˜ÚœÙ\šXÙ\Ëœ\˜[Y]\—ÛX™[È[\ÜØØ[^™YØÝ\™WÛ˜[YB™œ›ÛHÙ[ÝÛÜšØ™[˜ÚœÙ\šXÙ\Ë^Û›Ü›X[^˜][Ûˆ[\ÜÛX[—Ù\Ü^WÝ^ÛX[—Û[™[[ÛšXÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚœÙ\šXÙ\Ë™]\Ù]ÜÙ[XÝ[Ûˆ[\Ü]\Ù][\˜[Ù[XÝ[Û‚™œ›ÛHÙ[ÝÛÜšØ™[˜ÚœÙ\šXÙ\Ë\Ù\—Ü›Ùš[\È[\ÜÝ\œÛÜ“[™TÙ][™ÜË\Ù\”›Ùš[TÙ][™ÜÂ™œ›ÛHÙ[ÝÛÜšØ™[˜ÚœÙ\šXÙ\Ë›[™[[ÛšX×Ü™YÚ\ÝžH[\Ü\Ù\“[™[[ÛšXÔ™YÚ\ÝžB™œ›ÛHÙ[ÝÛÜšØ™[˜ÚœÙ\šXÙ\Ë[YWÙ\Ü^H[\Ü›Ü›X]Ù[\ÙYÝ[YK›Ü›X]Ý[š^ÜÙXÛÛ™Â‚‚˜Û\ÜÈÓXZ[•Ú[™ÝÔÜ‚ˆYˆ×Ú[š]×ÊÙ[‹Ú[™ÝÎˆXZ[•Ú[™ÝÊHOˆ›Û™N‚ˆÙ[‹—ÝÚ[™Ý×Ü™YˆH™YŠÚ[™ÝÊB‚ˆ›Ü\BˆYˆÝÚ[™ÝÊÙ[ŠHOˆXZ[•Ú[™ÝÎ‚ˆÚ[™ÝÈHÙ[‹—ÝÚ[™Ý×Ü™YŠ
+BˆYˆÚ[™ÝÈ\È›Û™N‚ˆ˜Z\ÙH[[YQ\œ›ÜŠ“XZ[ˆÚ[™ÝÈ\È›ÈÛ™Ù\ˆ]˜Z[X›HŠBˆ™]\›ˆÚ[™ÝÂ‚‚˜Û\ÜÈÓXZ[•Ú[™ÝÕÛÜšÜÜXÙTÜ
+ÓXZ[•Ú[™ÝÔÜ
+N‚ˆˆˆ•[ˆ]Y\\ˆ›ÜˆXY\ÜÈÛÜšÜÜXÙH˜]šYØ][Ûˆ[\Ëˆˆˆ‚‚ˆYˆÙ]ÝÛÜšÜÜXÙWØ]˜Z[X›JˆÙ[‹ˆ]˜Z[X›Nˆ›ÛÛˆ]\Ù]Û˜[YNˆÝˆ›Û™Kˆ
+HOˆ›Û™N‚ˆÙ[‹—ÝÚ[™ÝËÛÜšÜÜXÙWØXÝ[Û‹œÙ][˜X›Y
+]˜Z[X›JBˆÙ[‹—ÝÚ[™ÝËšÛYWÜYÙKœÙ]ÝÛÜšÜÜXÙWÙ]\Ù]
+]\Ù]Û˜[YJB‚ˆYˆÚÝ×ÚÛYJÙ[ŠHOˆ›Û™N‚ˆÙ[‹—ÝÚ[™ÝË˜Ù[˜[ÜÝXÚËœÙ]Ý\œ™[ÚYÙ]
+Ù[‹—ÝÚ[™ÝËšÛYWÜYÙJB‚ˆYˆÚÝ×ÝÛÜšÜÜXÙJÙ[‹\™Ù]ˆØš™XÝ›Û™JHOˆ›Û™N‚ˆYˆ\Ú[œÝ[˜ÙJ\™Ù]UÚYÙ]
+N‚ˆÙ[‹—ÝÚ[™ÝËXœËœÙ]Ý\œ™[ÚYÙ]
+\™Ù]
+BˆÙ[‹—ÝÚ[™ÝË˜Ù[˜[ÜÝXÚËœÙ]Ý\œ™[ÚYÙ]
+Ù[‹—ÝÚ[™ÝËXœÊB‚ˆYˆÚÝ×Û˜]šYØ][Û—ÜÝ]\ÊÙ[‹Ý\™˜XÙNˆÛÜšÜÜXÙTÝ\™˜XÙJHOˆ›Û™N‚ˆÙ^HHšÛYKœÝ]\ÈˆYˆÝ\™˜XÙH\ÈÛÜšÜÜXÙTÝ\™˜XÙK’ÓQH[ÙHšÛYKÛÜšÜÜXÙWÜÝ]\È‚ˆÙ[‹—ÝÚ[™ÝËœÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJÙ[‹—ÝÚ[™ÝË—Ý
+Ù^JJB‚‚˜Û\ÜÈÓXZ[•Ú[™ÝÕÛÜšÜÜXÙPÛÛ[X[™Ü
+ÓXZ[•Ú[™ÝÔÜ
+N‚ˆˆˆ”™[™\ˆÛÜšÜÜXÙHÛÛ[X[™ÈY\ˆHXY\ÜÈÛÛ›Û\ˆÙ[XÝÈÛÛ^ˆˆˆ‚‚ˆYˆÚÝ×Ù]\Ù]
+Ù[‹]\Ù]ˆ]\Ù]
+HOˆ›Û™N‚ˆÙ[‹—ÝÚ[™ÝË—ÜÙ[XÝYÝ˜XÚ×ÚYH›Û™BˆÙ[‹—ÝÚ[™ÝË—ÜÚÝ×ØÝ\œ™[Ù]\Ù]
+
+B‚ˆYˆÚÝ×ØÝ\™JÙ[‹]\Ù]ˆ]\Ù]Ý\™NˆÝ\™Q]JHOˆ›Û™N‚ˆ[™[[ÛšXÈHÝ\™K›Y]Y]K›ÜšYÚ[˜[Û[™[[ÛšXÂˆÙ[‹—ÝÚ[™ÝË˜Ý\™WÝšY]ËœÚÝ×Ù]\Ù]
+]\Ù]Û[™[[ÛšX×JBˆÙ[‹—ÝÚ[™ÝË—ÜÚÝ×ÝÛÜšÜÜXÙJÙ[‹—ÝÚ[™ÝË˜Ý\™WÝšY]ÊBˆYˆÙ[‹—ÝÚ[™ÝËœ[˜Ú[ØXÝ[Û‹š\ÐÚXÚÙY
+
+N‚ˆÙ[‹—ÝÚ[™ÝË˜Ý\™WÝšY]ËœÙ]ÙY]Û[ÙJYJBˆÙ[‹—ÝÚ[™ÝËœÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJˆÙ[‹—ÝÚ[™ÝË—Ý
+œÚ[˜Ý\™WÜ[˜Ú[ØXÝ]™WÜÝ]\È‹[™[[ÛšXÏ[[™[[ÛšXÊBˆ
+BˆÙ[‹—ÝÚ[™ÝËš[œÜXÝÜ‹œÙ]Z[•^
+ˆˆžÜÙ[‹—ÝÚ[™ÝË—Ý
+	Ú[œÜXÝÜ‹˜Ý\™IÊ_NˆÛ[™[[ÛšXßWˆ‚ˆˆžÜÙ[‹—ÝÚ[™ÝË—Ý
+	Ú[œÜXÝÜ‹[š]	Ê_Nˆ‚ˆˆžØÝ\™K›Y]Y]K[š]ÜˆÙ[‹—ÝÚ[™ÝË—Ý
+	ØÛÛ[[Û‹[œÙ]	Ê_Wˆ‚ˆˆžÜÙ[‹—ÝÚ[™ÝË—Ý
+	Ú[œÜXÝÜ‹™\ØÜš\[Û‰Ê_Nˆ‚ˆˆžØÝ\™K›Y]Y]K™\ØÜš\[ÛˆÜˆÙ[‹—ÝÚ[™ÝË—Ý
+	ØÛÛ[[Û‹››Û™IÊ_Wˆ‚ˆˆžÜÙ[‹—ÝÚ[™ÝË—Ý
+	Ú[œÜXÝÜ‹™\œÚ[Û‰Ê_NˆØÝ\™K™\œÚ[ÛŸWˆ‚ˆˆžÜÙ[‹—ÝÚ[™ÝË—Ý
+	Ú[œÜXÝÜ‹œ›Ý™[˜[˜ÙIÊ_NˆØÝ\™K›Y]Y]Kœ›Ý™[˜[˜Ù_H‚ˆ
+B‚ˆYˆÚÝ×Ý˜XÚÊÙ[‹˜XÚ×ÚYˆÝŠHOˆ›Û™N‚ˆÙ[‹—ÝÚ[™ÝË—ÜÚÝ×ØÝ\œ™[Ù]\Ù]
+
+BˆÙ[‹—ÝÚ[™ÝË—ÜÚÝ×Ý˜XÚ×Ú[—Ú[œÜXÝÜŠ˜XÚ×ÚY
+BˆÙ[‹—ÝÚ[™ÝË—ÜÚÝ×ÝÛÜšÜÜXÙJÙ[‹—ÝÚ[™ÝËX›]ÝšY]ÊB‚ˆYˆÚÝ×Û]ÛÙÞJÙ[ŠHOˆ›Û™N‚ˆÙ[‹—ÝÚ[™ÝËœÚÝ×Û]ÛÙÞWÙY]ÜŠ
+B‚ˆYˆÚÝ×ÜÝ˜]YÜ˜\JÙ[ŠHOˆ›Û™N‚ˆÙ[‹—ÝÚ[™ÝËœÚÝ×ÜÝ˜]YÜ˜\WÙY]ÜŠ
+B‚ˆYˆÚÝ×Ú[\œ™]][ÛœÊÙ[‹[\œ™]][Û—ÚYˆÝˆ›Û™JHOˆ›Û™N‚ˆYˆ[\œ™]][Û—ÚY\È›Ý›Û™N‚ˆÙ[‹—ÝÚ[™ÝËš[\œ™]][Û—ØÛÛ›Û\‹œÙ[XÝÚ[\œ™]][ÛŠ[\œ™]][Û—ÚY
+BˆÙ[‹—ÝÚ[™ÝËX›]ÝšY]ËœÙ]ÜÙ[XÝYÚ[\œ™]][ÛŠ[\œ™]][Û—ÚY
+BˆÙ[‹—ÝÚ[™ÝËœÚÝ×Ú[\œ™]][Û—Ú[\˜[Ê
+B‚ˆYˆÚÝ×Ú[\œ™]][Û—Ú[\˜[
+ˆÙ[‹ˆ[\œ™]][Û—ÚYˆÝ‹ˆ[\˜[ÚYˆÝ‹ˆ
+HOˆ›Û™N‚ˆÙ[‹—ÝÚ[™ÝË—ÜÚÝ×ØÝ\œ™[Ù]\Ù]
+
+BˆÙ[‹—ÝÚ[™ÝË—ÜÙ[XÝÚ[\œ™]][Û—Ú[\˜[
+[\œ™]][Û—ÚY[\˜[ÚY
+BˆÙ[‹—ÝÚ[™ÝË—ÜÚÝ×ÝÛÜšÜÜXÙJÙ[‹—ÝÚ[™ÝËX›]ÝšY]ÊB‚ˆYˆÚÝ×Ø[››Ý][ÛœÊÙ[ŠHOˆ›Û™N‚ˆÙ[‹—ÝÚ[™ÝËœÚÝ×Ù\Ø[››Ý][ÛœÊ
+B‚ˆYˆÚÝ×Ù\ØÜš\[Û—Ý[\]\ÊÙ[ŠHOˆ›Û™N‚ˆÙ[‹—ÝÚ[™ÝËœÚÝ×Ù\ØÜš\[Û—Ý[\]\Ê
+B‚‚˜Û\ÜÈÓXZ[•Ú[™ÝÒ[\Ü›Ø”Ü
+ÓXZ[•Ú[™ÝÔÜ
+N‚ˆˆˆ“X\ÝX›H[\ÜÚ[™ÈÈH^\Ý[™È›Ü›X]\ÜXÚYšXÈRH›ØœËˆˆˆ‚‚ˆYˆ^XÝ]WÚ[\Ü
+ˆÙ[‹Ú[™ˆ[\ÜÛÝ\˜ÙRÚ[™ÛÝ\˜ÙNˆ]›Û™HH›Û™Bˆ
+HOˆ›Û™N‚ˆYˆÚ[™\È[\ÜÛÝ\˜ÙRÚ[™“TÎ‚ˆÙ[‹—ÝÚ[™ÝË›Ü[—Û\ÊÛÝ\˜ÙJBˆ[YˆÚ[™\È[\ÜÛÝ\˜ÙRÚ[™ÔÕŽ‚ˆÙ[‹—ÝÚ[™ÝË›Ü[—ØÜÝŠÛÝ\˜ÙJBˆ[YˆÚ[™\È[\ÜÛÝ\˜ÙRÚ[™‘VÑS‚ˆÙ[‹—ÝÚ[™ÝË›Ü[—Ù^Ù[
+ÛÝ\˜ÙJBˆ[YˆÚ[™\È[\ÜÛÝ\˜ÙRÚ[™”TQÖ‚ˆÙ[‹—ÝÚ[™ÝË›Ü[—Ü\˜YÞ
+ÛÝ\˜ÙJBˆ[YˆÚ[™\È[\ÜÛÝ\˜ÙRÚ[™‘ÔÌŽ‚ˆÙ[‹—ÝÚ[™ÝË›Ü[—ÙÜÌŠÛÝ\˜ÙJBˆ[ÙN‚ˆ˜Z\ÙH˜[YQ\œ›ÜŠˆ•[œÝ\ÜY[\ÜÛÝ\˜ÙHÚ[™ˆÚÚ[™HŠB‚ˆYˆ™\ÜÝ[šÛ›ÝÛ—ÜÛÝ\˜ÙJÙ[‹Ù[XÝYÛX™[ˆÝŠHOˆ›Û™N‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊˆÙ[‹—ÝÚ[™ÝËˆÙ[‹—ÝÚ[™ÝË—Ý
+š[\Ü]HŠKˆÙ[‹—ÝÚ[™ÝË—Ý
+š[\Ü[šÛ›ÝÛ—ÜÛÝ\˜ÙH‹ÛÝ\˜ÙO\Ù[XÝYÛX™[
+Kˆ
+B‚‚˜Û\ÜÈÓXZ[•Ú[™ÝÑ]\Ù][\ÜÜ
+ÓXZ[•Ú[™ÝÔÜ
+N‚ˆˆˆÛÛ[Z][\ÜY]\Ù]È›ÝYÚH›Ú™XÝ\Ù\ÜÚ[Ûˆ›Ý[™\žKˆˆˆ‚‚ˆYˆYÚ[\ÜYÙ]\Ù]
+ˆÙ[‹ˆ]\Ù]ˆ]\Ù]ˆ
+‹ˆÛÝ\˜ÙWÙØÝ[Y[ˆÜÜÛ\ÜÓ\ÑØÝ[Y[›Û™HH›Û™Kˆ[\ÜÜ™\Üˆ\Ò[\Ü™\Ü›Û™HH›Û™KˆÜ™X]WÛ™]×ÝÙ[ˆ›ÛÛH˜[ÙKˆ
+HOˆÝŽ‚ˆÙ[HÙ[‹—ÝÚ[™ÝËœÙ\ÜÚ[Û‹˜YÙ]\Ù]
+ˆ]\Ù]ˆÛÝ\˜ÙWÙØÝ[Y[\ÛÝ\˜ÙWÙØÝ[Y[ˆ[\ÜÜ™\ÜZ[\ÜÜ™\ÜˆÜ™X]WÛ™]×ÝÙ[XÜ™X]WÛ™]×ÝÙ[ˆ
+Bˆ™]\›ˆÙ[›˜[YB‚‚˜Û\ÜÈÔ™\ÜÛœÚ]™PÛÛ[X[™˜\ŠQœ˜[YJN‚ˆˆˆ\XØ][Û‹[ÝÛ™YÛÛ[X[™˜\ˆÚ]›È˜]]™HÛÛ˜\ˆÝ™\™›ÝË‚‚ˆ\ÈÚYÙ][X™\˜][HÙ\È›Ý[š\š]UÛÛ˜\˜ˆ]™[ˆÚ[ˆBˆUÛÛ˜\ˆ\È[œÙ\Y[ÈHÙ[˜[ÚYÙ]]Èš]˜]H^[œÚ[ÛˆXÝ[Û‚ˆØ[ˆ™H™XØ[Ý[]YY\ˆHÛXÚËÙÙÛHÜˆH˜[œÚ][Ûˆ[™™YYBˆ\ÚÝÜ]ÚYHZ[š[][HÚY˜XÚÈ[ÈH^[Ý]ˆHZ[ˆœ˜[YH\È›Âˆ^[œÚ[Ûˆ]Ûˆ[™›ÈØÚÚ[™ÈÙ[ÛY]žKÛÈÛ›HÝ\ˆ^XÚ]8¢ëØY[BˆÛÛ›ÛÈÝ™\™›ÝË‚ˆˆˆ‚‚ˆš\ÚXš[]PÚ[™ÙYHÚYÛ˜[
+›ÛÛ
+B‚ˆYˆ×Ú[š]×ÊˆÙ[‹ˆ\™[ˆUÚYÙ]›Û™HH›Û™Kˆ
+‹ˆX\™Ú[œÎˆ\VÚ[[[[HH
+
+Kˆ
+HOˆ›Û™N‚ˆÝ\\Š
+K—×Ú[š]×Ê\™[
+BˆÙ[‹œÙ]œ˜[YTÚ\JQœ˜[YK”Ú\K“›Ñœ˜[YJBˆÙ[‹œÙ]Z[š[][UÚY
+
+BˆÙ[‹œÙ]Ú^™TÛXÞJTÚ^™TÛXÞK”ÛXÞK’YÛ›Ü™YTÚ^™TÛXÞK”ÛXÞK‘š^Y
+BˆÙ[‹—ØÛÛ[Û^[Ý]HU›Þ^[Ý]
+Ù[ŠBˆÙ[‹—ØÛÛ[Û^[Ý]œÙ]ÛÛ[ÓX\™Ú[œÊ
+›X\™Ú[œÊBˆÙ[‹—ØÛÛ[Û^[Ý]œÙ]ÜXÚ[™Ê
+B‚ˆYˆÙ]ØÛÛ[ÝÚYÙ]
+Ù[‹ÚYÙ]ˆUÚYÙ]
+HOˆ›Û™N‚ˆÙ[‹—ØÛÛ[Û^[Ý]˜YÚYÙ]
+ÚYÙ]
+B‚ˆYˆZ[š[][TÚ^™R[
+Ù[ŠHOˆTÚ^™NˆÈ›ÜXNˆŽˆH]TBˆ[HÝ\\Š
+K›Z[š[][TÚ^™R[
+
+Bˆ™]\›ˆTÚ^™JX^
+K[šZYÚ
+
+JJB‚ˆYˆÚ^™R[
+Ù[ŠHOˆTÚ^™NˆÈ›ÜXNˆŽˆH]TBˆ[HÝ\\Š
+KœÚ^™R[
+
+Bˆ™]\›ˆTÚ^™JX^
+K[šZYÚ
+
+JJB‚ˆYˆÚÝÑ]™[
+Ù[‹]™[ˆTÚÝÑ]™[
+HOˆ›Û™NˆÈ›ÜXNˆŽˆH]TBˆÝ\\Š
+KœÚÝÑ]™[
+]™[
+BˆÙ[‹š\ÚXš[]PÚ[™ÙY™[Z]
+YJB‚ˆYˆYQ]™[
+Ù[‹]™[
+HOˆ›Û™NˆÈ›ÜXNˆŽˆH]TBˆÝ\\Š
+KšYQ]™[
+]™[
+BˆÙ[‹š\ÚXš[]PÚ[™ÙY™[Z]
+˜[ÙJB‚‚˜Û\ÜÈÔ™\ÜÛœÚ]™UÛÛ˜\”›ÝÊUÚYÙ]
+N‚ˆˆˆ”Ú[™ÛHÛÛ˜\ˆ][HÚÜÙHÚY\È[Ø^\ÈÛÛœÝ˜Z[™YžHHÚ[™ÝË‚‚ˆUÛÛ˜\ˆ›Ü›X[HÜ™X]\ÈHš]˜]H^[œÚ[Ûˆ]ÛˆÚ[ˆÙ]™\˜[˜]]™BˆXÝ[ÛœÈÈ›Ýš]ˆÛˆÚ[™ÝÜÈ]^[œÚ[Ûˆ]ÛˆØ[ˆ™H[œÙ\YY\‚ˆÝ\ˆÝÛˆY\][Ûˆ\ÜÈ[™\ÚH[›™YšYÚ\ÚYHÛÛ[X[™Ý]ÚYHBˆšY]ÜÜˆÙY\[™ÈHÛÛ\]H›ÝÈ[œÚYHÛ™H^[™[™ÈUÚYÙ]™[[Ý™\Âˆ]˜]]™HÝ™\™›ÝÈ]Èš\ÚXš[]H\ÈÛÛ›ÛYÛ›HžHÝ\ˆ^XÚ]ˆ8¢ëØY[K‚ˆˆˆ‚‚ˆYˆZ[š[][TÚ^™R[
+Ù[ŠHOˆTÚ^™NˆÈ›ÜXNˆŽˆH]TBˆ[HÝ\\Š
+K›Z[š[][TÚ^™R[
+
+Bˆ™]\›ˆTÚ^™JX^
+K[šZYÚ
+
+JJB‚ˆYˆÚ^™R[
+Ù[ŠHOˆTÚ^™NˆÈ›ÜXNˆŽˆH]TBˆ[HÝ\\Š
+KœÚ^™R[
+
+Bˆ™]\›ˆTÚ^™JX^
+K[šZYÚ
+
+JJB‚‚˜Û\ÜÈÔÞ[X›Û[››Ý][Û•˜[Y\Ê\YXÝ
+N‚ˆÚ[™ˆ[››Ý][Û’Ú[™ˆ[˜ÚÜŽˆ[››Ý][Û[˜ÚÜ‚ˆ^ˆÝ‚ˆ˜XÚ×ÚYˆÝ‚ˆ\ˆ›Ø]ˆ\˜[Y]\—Û[™[[ÛšXÎˆÝˆ›Û™BˆÙœ˜XÝ[ÛŽˆ›Ø]ˆÙ™œÙ]Þˆ›Ø]ˆÙ™œÙ]ÞNˆ›Ø]ˆÚYˆ›Ø]ˆZYÚˆ›Ø]ˆÝ[Nˆ[››Ý][Û”Ý[Bˆ\ÜÙ]Ü™YŽˆÝ‚ˆÞ[X›ÛÚYˆÝ‚ˆ˜[œÜ\™[Ø˜XÚÙÜ›Ý[™ˆ›ÛÛˆš\ÚX›Nˆ›ÛÛˆØÚÙYˆ›ÛÛˆš[Ù[˜X›Yˆ›ÛÛ‚‚˜Û\ÜÈÔ™\ÜÛœÚ]™UÛÛ˜\’ÜÝ
+UÚYÙ]
+N‚ˆˆˆÙ[˜[]ÚYÙ]ÜÝ›Üˆ\XØ][Û‹[ÝÛ™YÛÛ[X[™›ÝÜË‚‚ˆH›ÝÜÈ[[[Û˜[H]™HÝ]ÚYHSXZ[•Ú[™ÝØ	ÜÈ˜]]™HÛÛ˜\ˆ\™XK‚ˆÛˆÚ[™ÝÜÈHØÚÙYUÛÛ˜\˜X^H˜Z\ÙHHÜ[]™[Z[š[][HÚYY\‚ˆHÚXÚÙYXÝ[Û‹H˜[œÚ][ÛˆÜˆÙXÛÛ™ÛÛ˜\ˆš\ÚXš[]HÚ[™ÙKˆBˆÚ[™ÝÈØ[ˆ[ˆ™XÛÛYHÚY\ˆ[ˆH[Ûš]Üˆ]™[ˆÚ[HX^[Z^™YˆBˆÙ[˜[ÜÝÛ\È[™Y\È]ÈÚ[™[ˆ[œÝXYÙˆÚ[™Ú[™ÈH˜]]™BˆÚ[™ÝÈÛÛœÝ˜Z[Ë‚ˆˆˆ‚‚ˆYˆZ[š[][TÚ^™R[
+Ù[ŠHOˆTÚ^™NˆÈ›ÜXNˆŽˆH]TBˆ[HÝ\\Š
+K›Z[š[][TÚ^™R[
+
+Bˆ™]\›ˆTÚ^™JX^
+K[šZYÚ
+
+JJB‚ˆYˆÚ^™R[
+Ù[ŠHOˆTÚ^™NˆÈ›ÜXNˆŽˆH]TBˆ[HÝ\\Š
+KœÚ^™R[
+
+Bˆ™]\›ˆTÚ^™JX^
+K[šZYÚ
+
+JJB‚‚]XÛ\ÜÊœ›Þ™[UYKÛÝÏUYJB˜Û\ÜÈÕX›]›Ü›TÛ˜\ÚÝ‚ˆˆˆ“\ÝÛ›ÝÛ‹YÛÛÙX›]Ý]H\ÙY›Üˆ›Ü›H™]šY]ËØ\H›Û˜XÚËˆˆˆ‚‚ˆ^[Ý]ˆX›]^[Ý]ˆÙ\ÜÚ[Û—Ù\Nˆ›ÛÛˆÙ[XÝYÝ˜XÚ×ÚYˆÝˆ›Û™B‚‚˜Û\ÜÈXZ[•Ú[™ÝÊSXZ[•Ú[™ÝÊN‚ˆYˆ×Ú[š]×ÊˆÙ[‹ˆ
+‹ˆ[™ÝXYÙNˆ\[™ÝXYÙHH\[™ÝXYÙK”•Kˆ[™ÝXYÙWÜÙ][™ÜÎˆ[™ÝXYÙTÙ][™ÜÈ›Û™HH›Û™Kˆ\Ù\—Ü›Ùš[WÜÙ][™ÜÎˆ\Ù\”›Ùš[TÙ][™ÜÈ›Û™HH›Û™Kˆ\XØ][Û—ØÛÛ^ˆ\XØ][ÛÛÛ^›Û™HH›Û™Kˆ
+HOˆ›Û™N‚ˆÝ\\Š
+K—×Ú[š]×Ê
+BˆÙ[‹˜\XØ][Û—ØÛÛ^H\XØ][Û—ØÛÛ^ˆÙ[‹›[™ÝXYÙHH[™ÝXYÙBˆÙ[‹›ØØ[^™\ˆHØØ[^™\‹˜Ü™X]J[™ÝXYÙJBˆÙ[‹›[™ÝXYÙWÜÙ][™ÜÈH[™ÝXYÙWÜÙ][™ÜÈÜˆ[™ÝXYÙTÙ][™ÜËœÞ\Ý[J
+BˆÙ[‹\Ù\—Ü›Ùš[WÜÙ][™ÜÈH\Ù\—Ü›Ùš[WÜÙ][™ÜÈÜˆ\Ù\”›Ùš[TÙ][™ÜËœÞ\Ý[J
+BˆÙ[‹›[™[[ÛšX×Ü™YÚ\ÝžHH
+ˆ\XØ][Û—ØÛÛ^›[™[[ÛšX×Ü™YÚ\ÝžBˆYˆ\XØ][Û—ØÛÛ^\È›Ý›Û™Bˆ[ÙH\Ù\“[™[[ÛšXÔ™YÚ\ÝžJ
+Bˆ
+Bˆ›Ü›\×Ü›ÛÝH
+ˆ]
+TÝ[™\™]ËÜš]X›SØØ][ÛŠTÝ[™\™]Ë”Ý[™\™ØØ][Û‹\]SØØ][ÛŠJBˆÈ™›Ü›\È‚ˆ
+BˆÙ[‹™›Ü›WÜ™\ÜÚ]ÜžHH›Ü›T™\ÜÚ]ÜžJ›Ü›\×Ü›ÛÝ
+BˆÙ[‹™›Ü›WØ\WÙ[™Ú[™HH›Ü›P\Q[™Ú[™J
+BˆÙ]ØXÝ]™WÜÙ[œÛÜ—ØØ][ÙÊÙ[‹›[™[[ÛšX×Ü™YÚ\ÝžK˜Ø][ÙÊ
+JBˆÙ[‹œ›Ú™XÝØÛÛ›Û\ˆH
+ˆ\XØ][Û—ØÛÛ^˜Ü™X]WÜ›Ú™XÝÜØÛÜJ
+Kœ›Ú™XÝØÛÛ›Û\‚ˆYˆ\XØ][Û—ØÛÛ^\È›Ý›Û™Bˆ[ÙH›Ú™XÝÛÛ›Û\Š
+Bˆ
+BˆÙ[‹œ™\ÜÜ\ÜÜÜØZ[\ˆH
+ˆ\XØ][Û—ØÛÛ^œ™\ÜÜ\ÜÜÜØZ[\‚ˆYˆ\XØ][Û—ØÛÛ^\È›Ý›Û™Bˆ[ÙH™\Ü\ÜÜÜZ[\Š
+Bˆ
+BˆÙ[‹X›]ØÛÛ›Û\ˆHX›]ÛÛ›Û\ŠÙ[‹œÙ\ÜÚ[ÛŠBˆÙ[‹˜Ý\™WÙY][™×ØÛÛ›Û\ˆHÝ\™QY][™ÐÛÛ›Û\ŠÙ[‹œÙ\ÜÚ[ÛŠBˆÙ[‹™]\Ù]Ù^ÜØÛÛ›Û\ˆH]\Ù]^ÜÛÛ›Û\ŠÙ[‹œÙ\ÜÚ[ÛŠBˆÙ[‹™]\Ù]ÛY\™ÙWØÛÛ›Û\ˆH]\Ù]Y\™ÙPÛÛ›Û\ŠÙ[‹œÙ\ÜÚ[ÛŠBˆÙ[‹™\š]™YÙ]\Ù]ØÛÛ›Û\ˆH\š]™Y]\Ù]ÛÛ›Û\ŠÙ[‹œÙ\ÜÚ[ÛŠBˆÙ[‹™]WÚ[œÜXÝÜ—ØÛÛ›Û\ˆH]R[œÜXÝÜÛÛ›Û\ŠÙ[‹œÙ\ÜÚ[ÛŠBˆÙ[‹šXY\—ÙY][™×ØÛÛ›Û\ˆHXY\‘Y][™ÐÛÛ›Û\ŠÙ[‹œÙ\ÜÚ[ÛŠBˆÙ[‹˜Ý\™WÛY]Y]WØÛÛ›Û\ˆHÝ\™SY]Y]PÛÛ›Û\ŠÙ[‹œÙ\ÜÚ[ÛŠBˆÙ[‹˜Ý\™WÝ˜[œÙ™\—ØÛÛ›Û\ˆHÝ\™U˜[œÙ™\ÛÛ›Û\ŠÙ[‹œÙ\ÜÚ[ÛŠBˆÙ[‹™^\›˜[Û\×Ú[œÙ\ØÛÛ›Û\ˆH^\›˜[\Ò[œÙ\ÛÛ›Û\ŠÙ[‹œÙ\ÜÚ[ÛŠBˆÙ[‹™Ø\×Ü˜][×Ü›Ú™XÝØÛÛ›Û\ˆHØ\Ô˜][Ô›Ú™XÝÛÛ›Û\ŠÙ[‹œÙ\ÜÚ[ÛŠBˆÙ[‹™›Ü›][WÜ™YÚ\ÝžHHZ[Ø[ÜÛÝ\˜ÙYÙ›Ü›][WÜ™YÚ\ÝžJ
+BˆÙ[‹™^\›˜[Û\×Ú[œÙ\ØÛÛ›Û\‹™›Ü›][WÜ™YÚ\ÝžHHÙ[‹™›Ü›][WÜ™YÚ\ÝžBˆÙ[‹™›Ü›][WÙ^XÝ][Û—ØÛÛ›Û\ˆH›Ü›][Q^XÝ][ÛÛÛ›Û\ŠˆÙ[‹œÙ\ÜÚ[Û‹Ù[‹™›Ü›][WÜ™YÚ\ÝžBˆ
+BˆÙ[‹˜Ý\ÝÛWÙ›Ü›][WØÛÛ›Û\ˆHÝ\ÝÛQ›Ü›][PÛÛ›Û\ŠÙ[‹œÙ\ÜÚ[ÛŠBˆÙ[‹›Y×ØÛÜœ™XÝ[Û—ØÛÛ›Û\ˆHYÐÛÜœ™XÝ[Û”›Ú™XÝÛÛ›Û\ŠÙ[‹œÙ\ÜÚ[ÛŠBˆÙ[‹[YWÙ\ÛX\[™×ØÛÛ›Û\ˆH[YQ\X\[™ÐÛÛ›Û\ŠÙ[‹œÙ\ÜÚ[ÛŠBˆÙ[‹[YWÝ×Ù\ØÛÛ›Û\ˆH[YUÑ\ÛÛ›Û\ŠÙ[‹œÙ\ÜÚ[ÛŠBˆÙ[‹™\Ø[››Ý][Û—ØÛÛ›Û\ˆH\[››Ý][ÛÛÛ›Û\ŠÙ[‹œÙ\ÜÚ[ÛŠBˆÙ[‹—ÜÙ[XÝYØ[››Ý][Û—ÚYˆÝˆ›Û™HH›Û™BˆÙ[‹›]ÛÙÞWØÛÛ›Û\ˆH]ÛÙÞPÛÛ›Û\ŠÙ[‹œÙ\ÜÚ[ÛŠBˆÙ[‹˜Ý][™Ü×ØÛÛ›Û\ˆHÝ][™ÜÐÛÛ›Û\ŠÙ[‹œÙ\ÜÚ[ÛŠBˆÙ[‹š[\œ™]][Û—ØÛÛ›Û\ˆH[\œ™]][ÛÛÛ›Û\ŠÙ[‹œÙ\ÜÚ[ÛŠBˆÙ[‹š[\œ™]][Û—ØØ[Ý[][Û—ØÛÛ›Û\ˆH[\œ™]][ÛØ[Ý[][ÛÛÛ›Û\ŠˆÙ[‹œÙ\ÜÚ[Û‚ˆ
+BˆÙ[‹œÝ˜]YÜ˜\WØÛÛ›Û\ˆHÝ˜]YÜ˜\PÛÛ›Û\ŠÙ[‹œÙ\ÜÚ[ÛŠBˆÙ[‹œÝ˜]YÜ˜\WØØ][Ù×ØÛÛ›Û\ˆHÝ˜]YÜ˜\PØ][ÙÐÛÛ›Û\ŠÙ[‹œÙ\ÜÚ[ÛŠBˆÙ[‹›]Ý\WØØ][Ù×ØÛÛ›Û\ˆH]Ý\PØ][ÙÐÛÛ›Û\ŠÙ[‹œÙ\ÜÚ[ÛŠBˆÙ[‹™\ØÜš\[Û—Ý[\]WØÛÛ›Û\ˆH\ØÜš\[Û•[\]PÛÛ›Û\ŠÙ[‹œÙ\ÜÚ[ÛŠBˆÙ[‹™\Ø^\×ØÛÛ›Û\ˆH\^\ÐÛÛ›Û\ŠÙ[‹œÙ\ÜÚ[ÛŠBˆÙ[‹›˜ÝØØ[Ý[][Û—ØÛÛ›Û\ˆH˜ÝØ[Ý[][ÛÛÛ›Û\ŠÙ[‹œÙ\ÜÚ[ÛŠBˆÙ[‹›™]×Û\×ØÛÛ›Û\ˆH™]Ó\ÐÛÛ›Û\ŠÙ[‹œÙ\ÜÚ[ÛŠBˆÙ[‹™Z[WÛ\×ÙÜ›ÝÝØÛÛ›Û\ˆHZ[S\ÑÜ›ÝÝÛÛ›Û\ŠÙ[‹œÙ\ÜÚ[ÛŠBˆÙ[‹Ú]Û[Ú[\ÜØÛÛÜ™[˜]ÜˆHÚ]Û[[\ÜÛÛÜ™[˜]ÜŠÙ[‹œÙ\ÜÚ[ÛŠBˆÙ[‹›\×Ü˜[™ÙWÙY][™×ØÛÛ›Û\ˆH\Ô˜[™ÙQY][™ÐÛÛ›Û\ŠÙ[‹œÙ\ÜÚ[ÛŠBˆÙ[‹—ØÛÛ™šYÝ\™WÙY]Ù\[™[˜ÚY\Ê
+BˆÙ[‹›X\Ý\›Ù×Ý[\]WØÛÛ›Û\ˆHX\Ý\›ÙÕ[\]PÛÛ›Û\ŠÙ[‹œÙ\ÜÚ[ÛŠBˆÙ[‹›ÙÛ×ØØ][Ù×ØÛÛ›Û\ˆHÙÛÐØ][ÙÐÛÛ›Û\ŠÙ[‹œÙ\ÜÚ[ÛŠBˆÙ[‹—ÜÙ\ÜÚ[Û—Øš[™[™ÜÈHÙ[‹—ØÜ™X]WÜÙ\ÜÚ[Û—Øš[™[™×ØÛÛ›Û\Š
+BˆÙ[‹™]\Ù]ÜÙ[XÝ[ÛˆH]\Ù][\˜[Ù[XÝ[ÛŠ
+BˆÙ[‹—ÜÙ[XÝYÝ˜XÚ×ÚYˆÝˆ›Û™HH›Û™BˆÙ[‹—Ù›Ü›WÛ^[Ý]Ý˜[œØXÝ[Û—ØXÝ]™HH˜[ÙBˆÙ[‹—Ú[\œ™]][Û—ÙX[ÙÎˆ[\œ™]][Û’[\˜[ÑX[ÙÈ›Û™HH›Û™BˆÙ[‹œš[ÜYÙWÜÙ][™ÜÈHÙ[‹\Ù\—Ü›Ùš[WÜÙ][™ÜËœš[ÜYÙWÜÙ][™ÜÊ
+BˆÙ[‹œš[Ù^ÜÜ™Y™\™[˜Ù\ÈHÙ[‹\Ù\—Ü›Ùš[WÜÙ][™ÜËœš[Ù^ÜÜ™Y™\™[˜Ù\Ê
+BˆÙ[‹—ØXÝ]™WÜš[ÜÝ]\×ÙX[ÙÎˆš[›Ø”Ý]\ÑX[ÙÈ›Û™HH›Û™BˆÙ[‹—Û\ÝÙØÝ[Y[Ø[™WÙ^XÝ][ÛŽˆ™XÛÜ™YØÝ[Y[[™Q^XÝ][Ûˆ›Û™HH›Û™BˆÙ[‹˜Ý\œÛÜ—Û[™WÜÙ][™ÜÈHÙ[‹\Ù\—Ü›Ùš[WÜÙ][™ÜË˜Ý\œÛÜ—Û[™WÜÙ][™ÜÊ
+BˆÙ[‹œÙ]Ú[™ÝÒXÛÛŠ\XØ][Û—ÚXÛÛŠ
+JBˆÙ[‹œÙ]Ú[™ÝÕ]Jˆ‘ÑSÓÑÈÐTÔUSÐ^\ˆ××Ý™\œÚ[Û—×ßHŠBˆÙ[‹œÙ]XØÙ\›ÜÊYJBˆÙ[‹—Ú[š]X[ÙÙ[ÛY]žWØÚXÚÙYH˜[ÙBˆÙ[‹—ÝÛÛ˜\—ÜØÜ™Y[—ÜÚYÛ˜[ØÛÛ›™XÝYH˜[ÙBˆÙ[‹—ÝÛÛ˜\—ÛØœÙ\™YÜØÜ™Y[œÎˆ\ÝÛØš™XÝHH×BˆÙ[‹—ÝÛÛ˜\—ØY\][Û—Ú[—Ü›ÙÜ™\ÜÈH˜[ÙBˆÙ[‹—ÛXZ[—ÝÛÛ˜\—ÛÝ™\™›Ý×ÜÚYÛ˜]\™Nˆ\VÜÝ‹‹‹—HH
+
+BˆÙ[‹—Ù›Ü›WÝÛÛ˜\—ÛÝ™\™›Ý×ÜÚYÛ˜]\™Nˆ\VÜÝ‹‹‹—HH
+
+BˆÙ[‹—Ø\WØY\]™WÚ[š]X[ÙÙ[ÛY]žJ
+BˆÈ^XÚ]HÝ™\œšYHÚ[[^[Ý]Z[š[][H›ÜYØ][Û‹ˆHÛÜšÜÜXÙBˆÈ\ÈØÜ›ÛX›NÈH\ÚÝÜ[Û›H0åÍZ[š[][H]\Ý™]™\ˆ^ÙYYBˆÈÙÚXØ[ÛÜšÈ\™XH]Ú[™ÝÜÈQHØØ[[™Ë‚ˆÙ[‹—Ø\WØY\]™WÛZ[š[][WÜÚ^™J
+B‚ˆÙ[‹XœÈHUX•ÚYÙ]
+
+BˆÙ[‹™š[WÝÛÜšÜÜXÙHHš[UÛÜšÜÜXÙUÚYÙ]
+[™ÝXYÙO\Ù[‹›[™ÝXYÙK˜[YJBˆÙ[‹˜Ý\™WÝšY]ÈHÝ\™UšY]ÊÙ[‹™]\Ù]ÜÙ[XÝ[Û‹[™ÝXYÙO\Ù[‹›[™ÝXYÙJBˆÙ[‹˜Ý\™WÝšY]Ë™Y]Ü™\]Y\ÝY˜ÛÛ›™XÝ
+Ù[‹—Ø\WØÝ\™WÙ˜]×ÙY]
+BˆÙ[‹˜Ý\™WÝšY]Ëš[\˜[Ø[˜[\Ú\×Ü™\]Y\ÝY˜ÛÛ›™XÝ
+ˆÙ[‹—ÜÚÝ×Ú[\˜[Ø[˜[\Ú\×Ùœ›ÛWÙÙ\Ý\™Bˆ
+BˆÙ[‹X›]ÝšY]ÈHX›]šY]Ê[™ÝXYÙO\Ù[‹›[™ÝXYÙJBˆÙ[‹X›]ÝšY]ËœÙ]ØÝ\œÛÜ—ÜÝ[JˆÙ[‹˜Ý\œÛÜ—Û[™WÜÙ][™ÜË˜ÛÛÜ‹Ù[‹˜Ý\œÛÜ—Û[™WÜÙ][™ÜËÚYˆ
+BˆÙ[‹X›]ÝšY]Ë˜XÚ×ÜÙ[XÝY˜ÛÛ›™XÝ
+Ù[‹—ÜÚÝ×Ý˜XÚ×Ú[—Ú[œÜXÝÜŠBˆÙ[‹X›]ÝšY]Ë˜Ý\™WÜÙ[XÝY˜ÛÛ›™XÝ
+Ù[‹—ÜÚÝ×ÝX›]ØÝ\™WÚ[—Ú[œÜXÝÜŠBˆÙ[‹X›]ÝšY]Ë˜XÚ×ÚYWÜ™\]Y\ÝY˜ÛÛ›™XÝ
+Ù[‹—ÚYWÝ˜XÚ×Ùœ›ÛWØÛÛ^
+BˆÙ[‹X›]ÝšY]Ë˜XÚ×Ü™[[Ý™WÜ™\]Y\ÝY˜ÛÛ›™XÝ
+Ù[‹—Ü™[[Ý™WÝ˜XÚ×Ùœ›ÛWØÛÛ^
+BˆÙ[‹X›]ÝšY]Ë˜XÚ×ØYØÝ\™\×Ü™\]Y\ÝY˜ÛÛ›™XÝ
+Ù[‹—ØYØÝ\™\×Ý×Ý˜XÚ×Ùœ›ÛWØÛÛ^
+BˆÙ[‹X›]ÝšY]Ë˜XÚ×Ü™\XÙWØÝ\™\×Ü™\]Y\ÝY˜ÛÛ›™XÝ
+ˆÙ[‹—Ü™\XÙWÝ˜XÚ×ØÝ\™\×Ùœ›ÛWØÛÛ^ˆ
+BˆÙ[‹X›]ÝšY]Ë˜XÚ×Ü›Ü\Y\×Ü™\]Y\ÝY˜ÛÛ›™XÝ
+ˆÙ[‹—ÜÚÝ×Ý˜XÚ×Ü›Ü\Y\×Ùœ›ÛWØÛÛ^ˆ
+BˆÙ[‹X›]ÝšY]Ë˜XÚ×Ù[ÙY]Ü™\]Y\ÝY˜ÛÛ›™XÝ
+Ù[‹—ÙY]Û]™WÝ˜XÚÊBˆÙ[‹X›]ÝšY]Ë˜Ý\™WÜ[˜Ú[Ü™\]Y\ÝY˜ÛÛ›™XÝ
+Ù[‹—ÜÝ\ØÝ\™WÜ[˜Ú[Ùœ›ÛWÝX›]
+BˆÙ[‹X›]ÝšY]Ë˜Ý\™WÙY]Ü™\]Y\ÝY˜ÛÛ›™XÝ
+Ù[‹—Ø\WØÝ\™WÙ˜]×ÙY]
+BˆÙ[‹X›]ÝšY]Ë˜Ý\™WÜ[˜Ú[Û[ÙWØÚ[™ÙY˜ÛÛ›™XÝ
+Ù[‹—ÜÞ[˜×Ü[˜Ú[ØXÝ[Û—Ùœ›ÛWÝX›]
+BˆÙ[‹X›]ÝšY]Ë˜Ý\™WÜ[˜Ú[Ý[™×Ü™\]Y\ÝY˜ÛÛ›™XÝ
+Ù[‹[™×ØÝ\™WÙY]
+BˆÙ[‹X›]ÝšY]Ë˜Ý\™WÜ[˜Ú[Ü™Y×Ü™\]Y\ÝY˜ÛÛ›™XÝ
+Ù[‹œ™Y×ØÝ\™WÙY]
+BˆÙ[‹X›]ÝšY]Ë˜XÚ×Ü™[˜[YWÜ™\]Y\ÝY˜ÛÛ›™XÝ
+Ù[‹—Ü™[˜[YWÛ]™WÝ˜XÚÊBˆÙ[‹X›]ÝšY]Ë˜XÚ×ÙÜ›Ý\Ü™[˜[YWÜ™\]Y\ÝY˜ÛÛ›™XÝ
+Ù[‹—Ü™[˜[YWÛ]™WÝ˜XÚ×ÙÜ›Ý\
+BˆÙ[‹X›]ÝšY]Ë˜XÚ×ØÝ\™WÜÙ][™Ü×Ü™\]Y\ÝY˜ÛÛ›™XÝ
+ˆÙ[‹—ÜÚÝ×ØÝ\™WÜÙ][™Ü×Ùœ›ÛWØÛÛ^ˆ
+BˆÙ[‹X›]ÝšY]Ë˜XÚ×ØÝ\™WÜ˜[™ÙWÜ™\]Y\ÝY˜ÛÛ›™XÝ
+Ù[‹—ÜÙ]ØÝ\™WÜ˜[™ÙWÙœ›ÛWÚXY\ŠBˆÙ[‹X›]ÝšY]Ë˜XÚ×ØÝ\™WØ]]×Ü˜[™ÙWÜ™\]Y\ÝY˜ÛÛ›™XÝ
+ˆÙ[‹—ÜÙ]ØÝ\™WØ]]×Ü˜[™ÙWÙœ›ÛWÚXY\‚ˆ
+BˆÙ[‹X›]ÝšY]Ë˜XÚ×ØÝ\™WÝ[š]Ü™\]Y\ÝY˜ÛÛ›™XÝ
+Ù[‹—ÜÙ]ØÝ\™WÝ[š]Ùœ›ÛWÚXY\ŠBˆÙ[‹X›]ÝšY]Ë˜XÚ×ØÝ\™WÜØØ[WÜ™\]Y\ÝY˜ÛÛ›™XÝ
+Ù[‹—ÜÙ]ØÝ\™WÜØØ[WÙœ›ÛWÚXY\ŠBˆÙ[‹X›]ÝšY]ËœØ]™WÛ^[Ý]Ü™\]Y\ÝY˜ÛÛ›™XÝ
+Ù[‹œØ]™WÝX›]Ü™\Ù]
+BˆÙ[‹X›]ÝšY]Ë˜XÚ×ÝÚYØÚ[™ÙWÜ™\]Y\ÝY˜ÛÛ›™XÝ
+Ù[‹—ØÚ[™ÙWÝ˜XÚ×ÝÚYÙœ›ÛWÙ˜YÊBˆÙ[‹X›]ÝšY]Ë˜XÚ×ÛÜ™\—ØÚ[™ÙWÜ™\]Y\ÝY˜ÛÛ›™XÝ
+Ù[‹—Ý˜XÚ×ÛÜ™\—ØÚ[™ÙYÙœ›ÛWÙ˜YÊBˆÙ[‹X›]ÝšY]Ëš\ÚX›WÙ\ØÚ[™ÙY˜ÛÛ›™XÝ
+Ù[‹—ÜÚÝ×Ýš\ÚX›WÙ\
+BˆÙ[‹X›]ÝšY]Ë™\XØ[Ú[™^ØÚ[™ÙY˜ÛÛ›™XÝ
+Ù[‹—ØÚ[™ÙWÝ™\XØ[Ú[™^Ùœ›ÛWÝX›]
+BˆÙ[‹X›]ÝšY]Ë˜Ý\œÛÜ—ØÚ[™ÙY˜ÛÛ›™XÝ
+Ù[‹—ÜÚÝ×ØÝ\œÛÜ—Ý˜[Y\ÊBˆÙ[‹X›]ÝšY]Ëš[\œ™]][Û—ÜÙ[XÝY˜ÛÛ›™XÝ
+Ù[‹—ÜÙ[XÝÚ[\œ™]][Û—Ùœ›ÛWÝX›]
+BˆÙ[‹X›]ÝšY]Ëš[\˜[ÜÙ[XÝY˜ÛÛ›™XÝ
+Ù[‹—ÜÙ[XÝÚ[\œ™]][Û—Ú[\˜[
+BˆÙ[‹X›]ÝšY]Ëš[\˜[ÜÙ[XÝ[Û—ØÛX\™Y˜ÛÛ›™XÝ
+ˆÙ[‹—ØÛX\—Ú[\œ™]][Û—Ú[\˜[ÜÙ[XÝ[Û‚ˆ
+BˆÙ[‹X›]ÝšY]Ëš[\˜[ØÜ™X]WÜ™\]Y\ÝY˜ÛÛ›™XÝ
+Ù[‹—ØÜ™X]WÚ[\˜[Ùœ›ÛWÝX›]
+BˆÙ[‹X›]ÝšY]Ëš[\˜[Ü™\Ú^™WÜ™\]Y\ÝY˜ÛÛ›™XÝ
+Ù[‹—Ü™\Ú^™WÚ[\˜[Ùœ›ÛWÝX›]
+BˆÙ[‹X›]ÝšY]Ë›]ÛÙÞWÚ[\˜[Ü™\]Y\ÝY˜ÛÛ›™XÝ
+ˆÙ[‹—ØÜ™X]WÛ]ÛÙÞWÚ[\˜[Ùœ›ÛWÝX›]ˆ
+BˆÙ[‹X›]ÝšY]Ë›]ÛÙÞWÚ[\˜[ÙY]Ü™\]Y\ÝY˜ÛÛ›™XÝ
+ˆÙ[‹—ÙY]Û]ÛÙÞWÚ[\˜[Ùœ›ÛWÝX›]ˆ
+BˆÙ[‹X›]ÝšY]Ë˜Ý][™Ü×Ú[\˜[Ü™\]Y\ÝY˜ÛÛ›™XÝ
+ˆÙ[‹—ØÜ™X]WØÝ][™Ü×ÜØ[\WÙœ›ÛWÝX›]ˆ
+BˆÙ[‹X›]ÝšY]Ë˜[˜[\Ú\×Ú[\˜[Ü™\]Y\ÝY˜ÛÛ›™XÝ
+ˆÙ[‹—ØÜ™X]WØ[˜[\Ú\×Ú[\˜[Ùœ›ÛWÝX›]ˆ
+BˆÙ[‹X›]ÝšY]Ë˜Ý][™Ü×ÜØ[\WÙY]Ü™\]Y\ÝY˜ÛÛ›™XÝ
+ˆÙ[‹—ÙY]ØÝ][™Ü×ÜØ[\WÙœ›ÛWÝX›]ˆ
+BˆÙ[‹X›]ÝšY]Ë™\ØÜš\[Û—Ú[\˜[Ü™\]Y\ÝY˜ÛÛ›™XÝ
+ˆÙ[‹—ØÜ™X]WÜ›ØÚ×Ù\ØÜš\[Û—Ùœ›ÛWÝX›]ˆ
+BˆÙ[‹X›]ÝšY]Ë™\ØÜš\[Û—ÙY]Ü™\]Y\ÝY˜ÛÛ›™XÝ
+ˆÙ[‹—ÙY]Ü›ØÚ×Ù\ØÜš\[Û—Ùœ›ÛWÝX›]ˆ
+BˆÙ[‹X›]ÝšY]ËœÝ˜]YÜ˜\WÚ[\˜[Ü™\]Y\ÝY˜ÛÛ›™XÝ
+ˆÙ[‹—ØÜ™X]WÜÝ˜]YÜ˜\WÚ[\˜[Ùœ›ÛWÝX›]ˆ
+BˆÙ[‹X›]ÝšY]ËœÝ˜]YÜ˜\WÚ[\˜[ÙY]Ü™\]Y\ÝY˜ÛÛ›™XÝ
+ˆÙ[‹—ÙY]ÜÝ˜]YÜ˜\WÚ[\˜[Ùœ›ÛWÝX›]ˆ
+BˆÙ[‹X›]ÝšY]Ë˜[››Ý][Û—ØYÜ™\]Y\ÝY˜ÛÛ›™XÝ
+Ù[‹—ØÜ™X]WØ[››Ý][Û—Ùœ›ÛWÝX›]
+BˆÙ[‹X›]ÝšY]Ë˜[››Ý][Û—ÙY]Ü™\]Y\ÝY˜ÛÛ›™XÝ
+Ù[‹—ÙY]Ø[››Ý][Û—Ùœ›ÛWÝX›]
+BˆÙ[‹X›]ÝšY]Ë˜[››Ý][Û—Ù[]WÜ™\]Y\ÝY˜ÛÛ›™XÝ
+Ù[‹—Ù[]WØ[››Ý][Û—Ùœ›ÛWÝX›]
+BˆÙ[‹X›]ÝšY]Ë˜[››Ý][Û—Ù\XØ]WÜ™\]Y\ÝY˜ÛÛ›™XÝ
+ˆÙ[‹—Ù\XØ]WØ[››Ý][Û—Ùœ›ÛWÝX›]ˆ
+BˆÙ[‹X›]ÝšY]Ë˜[››Ý][Û—ÙÙ[ÛY]žWØÚ[™ÙY˜ÛÛ›™XÝ
+ˆÙ[‹—Ý\]WØ[››Ý][Û—ÙÙ[ÛY]žWÙœ›ÛWÝX›]ˆ
+BˆÙ[‹X›]ÝšY]Ë˜[››Ý][Û—ÜÙ[XÝ[Û—ØÚ[™ÙY˜ÛÛ›™XÝ
+Ù[‹—Ø[››Ý][Û—ÜÙ[XÝ[Û—ØÚ[™ÙY
+BˆÙ[‹X›]ÝšY]Ë˜[››Ý][Û—ÝÛÛØÚ[™ÙY˜ÛÛ›™XÝ
+Ù[‹—ÜÞ[˜×Ø[››Ý][Û—ÝÛÛØXÝ[ÛœÊBˆÙ[‹X›]ÝšY]Ë˜Ý\™WÝ˜[YWÜØ]™WÜ™\]Y\ÝY˜ÛÛ›™XÝ
+Ù[‹—ÜØ]™WØÝ\™WÝ˜[YWØ[››Ý][ÛŠBˆÙ[‹X›]ÝšY]Ëš[\˜[Ø[˜[\Ú\×Ü™\]Y\ÝY˜ÛÛ›™XÝ
+ˆÙ[‹—ÜÚÝ×Ú[\˜[Ø[˜[\Ú\×Ùœ›ÛWÙÙ\Ý\™Bˆ
+BˆÙ[‹X›]ÝšY]Ëš[\˜[Ø[˜[\Ú\×ØÛX\™Y˜ÛÛ›™XÝ
+Ù[‹—ØÛX\—Ú[\˜[ÜÝ]\ÝXÜ×Ü[™[
+BˆÙ[‹›\×ÝX›WÙY]ÜˆH\ÕX›QY]ÜŠˆÙ[‹›\×Ü˜[™ÙWÙY][™×ØÛÛ›Û\‹ˆ[™ÝXYÙO\Ù[‹›[™ÝXYÙKˆÙ[XÝ[Û\Ù[‹™]\Ù]ÜÙ[XÝ[Û‹ˆ[X™\—Ù›Ü›X]Ï\Ù[‹\Ù\—Ü›Ùš[WÜÙ][™ÜËX›WÛ[X™\—Ù›Ü›X]Ê
+Kˆ
+BˆÙ[‹›\×ÝX›WÙY]Ü‹™]\Ù]ÙY]Y˜ÛÛ›™XÝ
+Ù[‹—ØY\—ÝX›WÙY]
+BˆÙ[‹›\×ÝX›WÙY]Ü‹›[X™\—Ù›Ü›X]×ØÚ[™ÙY˜ÛÛ›™XÝ
+Ù[‹—ÜØ]™WÝX›WÛ[X™\—Ù›Ü›X]ÊBˆÙ[‹›\×ÝX›WÙY]Ü‹™Y]Ù˜Z[Y˜ÛÛ›™XÝ
+ˆ[X™HY\ÜØYÙNˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹“TÈY]Üˆ‹Y\ÜØYÙJBˆ
+BˆÙ[‹š[\œ™]][Û—Ü™\ÜÝÛÜšÜÜXÙHH[\œ™]][Û”™\ÜÛÜšÜÜXÙJˆÙ[‹š[\œ™]][Û—ØØ[Ý[][Û—ØÛÛ›Û\‹ˆ[™ÝXYÙO\Ù[‹›[™ÝXYÙKˆ
+BˆÙ[‹š[\œ™]][Û—Ü™\ÜÝÛÜšÜÜXÙK˜Ø[Ý[][Û—ØÛÛ\]Y˜ÛÛ›™XÝ
+ˆÙ[‹—ØY\—Ú[\œ™]][Û—ØØ[Ý[][Û‚ˆ
+BˆÙ[‹š[\œ™]][Û—Ü™\ÜÝÛÜšÜÜXÙK˜˜XÚ×Ü™\]Y\ÝY˜ÛÛ›™XÝ
+ˆÙ[‹—ÜÚÝ×ÚÛYWÙœ›ÛWÚ[\œ™]][Û—Ü™\Üˆ
+BˆÙ[‹XœË˜YXŠÙ[‹˜Ý\™WÝšY]ËÙ[‹—Ý
+X‹˜Ý\™\ÈŠJBˆÙ[‹XœË˜YXŠÙ[‹›\×ÝX›WÙY]Ü‹Ù[‹—Ý
+X‹X›HŠJBˆÙ[‹XœË˜YXŠÙ[‹X›]ÝšY]ËÙ[‹—Ý
+X‹X›]ŠJBˆÙ[‹XœË˜YXŠˆÙ[‹™š[WÝÛÜšÜÜXÙKˆš[UÛÜšÜÜXÙUÚYÙ]X—Ý]JÙ[‹›[™ÝXYÙK˜[YJKˆ
+BˆÙ[‹XœË˜YXŠˆÙ[‹š[\œ™]][Û—Ü™\ÜÝÛÜšÜÜXÙKˆ[\œ™]][Û”™\ÜÛÜšÜÜXÙKX—Ý]JÙ[‹›[™ÝXYÙJKˆ
+B‚ˆÙ[‹—ØÜ™X]WÜ›Ú™XÝÙ^Ü™\Š
+BˆÙ[‹—ØÜ™X]WØÝ\™WØœ›ÝÜÙ\Š
+BˆÙ[‹—ØÜ™X]WÚ[œÜXÝÜŠ
+BˆÙ[‹—ØÜ™X]WÚ[\œ™]][Û—Ü›Ü\Y\×Ü[™[
+
+BˆÙ[‹—ØÜ™X]WÚ[\˜[ÜÝ]\ÝXÜ×Ü[™[
+
+BˆÙ[‹—ØÜ™X]WÚ\ÜÝY\×Ü[™[
+
+BˆÙ[‹—ØÜ™X]WØÝ\œÛÜ—Ü[™[
+
+BˆÙ[‹—ØÜ™X]WÜ[™[Ü˜Z[Ê
+BˆÙ[‹—ØÜ™X]WØXÝ[ÛœÊ
+BˆÙ[‹—ØÜ™X]WÚÛYWÜYÙJ
+BˆÙ[‹—ØÜ™X]WÝÛÛ˜\Š
+BˆÙ[‹œÙ]Ý]\Ð˜\ŠTÝ]\Ð˜\Š
+JBˆÙ[‹™›Ü›WÝÚYÚ[™XØ]ÜˆHSX™[
+
+BˆÙ[‹™›Ü›WÝÚYÚ[™XØ]Ü‹œÙ]Øš™XÝ˜[YJ™›Ü›UÚY[™XØ]ÜˆŠBˆÙ[‹™›Ü›WÝÚYÚ[™XØ]Ü‹œÙ]Z[š[][UÚY
+N
+BˆÙ[‹™›Ü›WÝÚYÚ[™XØ]Ü‹œÙ][YÛ›Y[
+][YÛ›Y[›YË[YÛÙ[\ŠBˆÙ[‹œÝ]\Ð˜\Š
+K˜Y\›X[™[ÚYÙ]
+Ù[‹™›Ü›WÝÚYÚ[™XØ]ÜŠBˆÙ[‹—ÝÛÜšÜÜXÙWØÛÛ›Û\ˆHÛÜšÜÜXÙPÛÛ›Û\ŠÓXZ[•Ú[™ÝÕÛÜšÜÜXÙTÜ
+Ù[ŠJBˆÙ[‹—ÝÛÜšÜÜXÙWØÛÛ[X[™ÈHÛÜšÜÜXÙPÛÛ[X[™ÛÛ›Û\ŠˆÙ[‹œÙ\ÜÚ[Û‹ÓXZ[•Ú[™ÝÕÛÜšÜÜXÙPÛÛ[X[™Ü
+Ù[ŠBˆ
+BˆÙ[‹—ÜÙ\ÜÚ[Û—Øš[™[™ÜËœ™YÚ\Ý\ŠÙ[‹—ÝÛÜšÜÜXÙWØÛÛ[X[™Ë˜[YOHÛÜšÜÜXÙWØÛÛ[X[™ÈŠBˆ[\ÜÜÜHÓXZ[•Ú[™ÝÒ[\Ü›Ø”Ü
+Ù[ŠBˆÙ[‹—Ú[\ÜÚ›Ø—ØÛÛ›Û\ˆH
+ˆ\XØ][Û—ØÛÛ^˜Ü™X]WÚ[\ÜÚ›Ø—ØÛÛ›Û\Š[\ÜÜÜ
+BˆYˆ\XØ][Û—ØÛÛ^\È›Ý›Û™Bˆ[ÙH[\Ü›ØÛÛ›Û\Š[\ÜÜÜ
+Bˆ
+BˆÙ[‹—Ù]\Ù]Ú[\ÜÚ›ØœÈH]\Ù][\Ü›Ø‘^XÝ]ÜŠÓXZ[•Ú[™ÝÑ]\Ù][\ÜÜ
+Ù[ŠJBˆÙ[‹™ÜÌ—Ú[\ÜØÛÛÜ™[˜]ÜˆHÜÌ’[\ÜÛÛÜ™[˜]ÜŠÙ[‹—Ù]\Ù]Ú[\ÜÚ›ØœÊBˆÙ[‹—Üš[Ú›ØœÈHš[›Ø‘^XÝ]ÜŠ
+BˆÙ[‹—ÝÛÜšÜÜXÙWØÛÛ›Û\‹œÙ]Ù]\Ù]
+›Û™JBˆÙ[‹—ÜÙ]ÝX›]ÙY]Û[ÙJ˜[ÙJBˆÙ[‹˜Ý\œÛÜ—Û[™WØXÝ[Û‹œÙ]ÚXÚÙY
+Ù[‹˜Ý\œÛÜ—Û[™WÜÙ][™ÜË™[˜X›Y
+BˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJÙ[‹—Ý
+˜\œ™XYHŠJBˆÙ[‹—Ý\]WÝ]J
+B‚ˆYˆZ[š[][TÚ^™R[
+Ù[ŠHOˆTÚ^™NˆÈ›ÜXNˆŽˆH]TBˆˆˆ“™]™\ˆY™\\ÙHHÚ^™H\™Ù\ˆ[ˆHXÝ]™H[Ûš]ÜˆÛÜšÈ\™XKˆˆˆ‚‚ˆ[HÝ\\Š
+K›Z[š[][TÚ^™R[
+
+BˆØÜ™Y[ˆHÙ[‹œØÜ™Y[Š
+HÜˆP\XØ][Û‹œš[X\žTØÜ™Y[Š
+BˆYˆØÜ™Y[ˆ\È›Û™N‚ˆ™]\›ˆTÚ^™JZ[ŠX^
+K[ÚY
+
+JK
+KZ[ŠX^
+K[šZYÚ
+
+JK
+JBˆ]˜Z[X›HHØÜ™Y[‹˜]˜Z[X›QÙ[ÛY]žJ
+Bˆ™\]Y\ÝYHTÚ^™JX^
+[ÚY
+
+JKX^
+[šZYÚ
+
+JJBˆ™]\›ˆY\]™WÛZ[š[][WÜÚ^™J]˜Z[X›K™\]Y\ÝY\™\]Y\ÝYX\™Ú[LLŠB‚ˆYˆØ\WØY\]™WÛZ[š[][WÜÚ^™JÙ[ŠHOˆ›Û™N‚ˆØÜ™Y[ˆHÙ[‹œØÜ™Y[Š
+HÜˆP\XØ][Û‹œØÜ™Y[]
+PÝ\œÛÜ‹œÜÊ
+JHÜˆP\XØ][Û‹œš[X\žTØÜ™Y[Š
+BˆYˆØÜ™Y[ˆ\È›Û™N‚ˆÙ[‹œÙ]Z[š[][TÚ^™J
+Bˆ™]\›‚ˆZ[š[][HHY\]™WÛZ[š[][WÜÚ^™JˆØÜ™Y[‹˜]˜Z[X›QÙ[ÛY]žJ
+Kˆ™\]Y\ÝYTTÚ^™J
+KˆX\™Ú[LL‹ˆ
+BˆÙ[‹œÙ]Z[š[][TÚ^™JZ[š[][JB‚ˆYˆ™\Ú^™Q]™[
+Ù[‹]™[
+HOˆ›Û™NˆÈ›ÜXNˆŽˆH]TBˆÝ\\Š
+Kœ™\Ú^™Q]™[
+]™[
+BˆYˆ\Ø]ŠÙ[‹›XZ[—ÝÛÛ˜\ˆŠN‚ˆÙ[‹—ÜØÚY[WÝÛÛ˜\—ØY\][ÛŠ
+BˆYˆ\Ø]ŠÙ[‹š[\˜[ÜÝ]\ÝXÜ×ÙØÚÈŠH[™Ù[‹š[\˜[ÜÝ]\ÝXÜ×ÙØÚËš\Õš\ÚX›J
+N‚ˆU[Y\‹œÚ[™ÛTÚÝ
+Ù[‹Ù[‹—ØY\Ú[\˜[ÜÝ]\ÝXÜ×ÙØÚÊB‚ˆYˆÚ[™ÙQ]™[
+Ù[‹]™[
+HOˆ›Û™NˆÈ›ÜXNˆŽˆH]TBˆˆˆ”™XØ[Ý[]H™\ÜÛœÚ]™HÚ›ÛYHY\ˆ›ÛÝ[HÜˆHÚ[™Ù\Ëˆˆˆ‚‚ˆÝ\\Š
+K˜Ú[™ÙQ]™[
+]™[
+BˆYˆ]™[\J
+H[ˆÂˆQ]™[•\K‘›ÛÚ[™ÙKˆQ]™[•\K\XØ][Û‘›ÛÚ[™ÙKˆQ]™[•\K”Ý[PÚ[™ÙKˆQ]™[•\K”ØÜ™Y[Ú[™ÙR[\›˜[ˆH[™\Ø]ŠÙ[‹›XZ[—ÝÛÛ˜\ˆŠN‚ˆU[Y\‹œÚ[™ÛTÚÝ
+Ù[‹Ù[‹—Ý\]WÝÛÛ˜\—ØY\][ÛŠBˆU[Y\‹œÚ[™ÛTÚÝ
+LŒÙ[‹Ù[‹—Ý\]WÝÛÛ˜\—ØY\][ÛŠB‚ˆYˆØ\WØY\]™WÚ[š]X[ÙÙ[ÛY]žJÙ[ŠHOˆ›Û™N‚ˆˆˆ‘š]Hš\œÝÚ[™ÝÈ[œÚYHHXÝ]™H\ÜÙ\ÚÝÜÛÜšÈ\™XKˆˆˆ‚‚ˆØÜ™Y[ˆHP\XØ][Û‹œØÜ™Y[]
+PÝ\œÛÜ‹œÜÊ
+JHÜˆP\XØ][Û‹œš[X\žTØÜ™Y[Š
+BˆYˆØÜ™Y[ˆ\È›Û™N‚ˆÙ[‹œ™\Ú^™JLŽ
+Bˆ™]\›‚ˆÙ[‹œÙ]Ù[ÛY]žJY\]™WÝÚ[™Ý×ÙÙ[ÛY]žJØÜ™Y[‹˜]˜Z[X›QÙ[ÛY]žJ
+JJB‚ˆYˆÚÝÑ]™[
+Ù[‹]™[ˆTÚÝÑ]™[
+HOˆ›Û™NˆÈ›ÜXNˆŽ‚ˆÝ\\Š
+KœÚÝÑ]™[
+]™[
+Bˆ[™HHÙ[‹Ú[™ÝÒ[™J
+BˆYˆ[™H\È›Ý›Û™H[™›ÝÙ[‹—ÝÛÛ˜\—ÜØÜ™Y[—ÜÚYÛ˜[ØÛÛ›™XÝY‚ˆ[™KœØÜ™Y[Ú[™ÙY˜ÛÛ›™XÝ
+Ù[‹—ÛÛ—ÝÚ[™Ý×ÜØÜ™Y[—ØÚ[™ÙY
+BˆÙ[‹—ÝÛÛ˜\—ÜØÜ™Y[—ÜÚYÛ˜[ØÛÛ›™XÝYHYBˆÙ[‹—ÛØœÙ\™WÝÛÛ˜\—ÜØÜ™Y[ŠÙ[‹œØÜ™Y[Š
+JBˆÈHš\œÝ\ÜÈÙY\ÈHš[˜[˜]]™HÛÛ˜\ˆÙ[ÛY]žKˆH[^YYˆÈ\ÜÈÛÝ™\œÈHÚ[™ÝÜÈKÙ›Û[Y]šXÈ\]H]Ø[ˆ\œš]™H\ÝˆÈY\ˆHÚ[™ÝÈ\È[Ý™YÈ[›Ý\ˆ[Ûš]Ü‹‚ˆU[Y\‹œÚ[™ÛTÚÝ
+Ù[‹Ù[‹—Ý\]WÝÛÛ˜\—ØY\][ÛŠBˆU[Y\‹œÚ[™ÛTÚÝ
+LŒÙ[‹Ù[‹—Ý\]WÝÛÛ˜\—ØY\][ÛŠBˆYˆÙ[‹—Ú[š]X[ÙÙ[ÛY]žWØÚXÚÙYÜˆÙ[‹š\ÓX^[Z^™Y
+
+HÜˆÙ[‹š\Ñ[ØÜ™Y[Š
+N‚ˆ™]\›‚ˆÙ[‹—Ú[š]X[ÙÙ[ÛY]žWØÚXÚÙYHYBˆØÜ™Y[ˆH
+ˆÙ[‹œØÜ™Y[Š
+HÜˆP\XØ][Û‹œØÜ™Y[]
+PÝ\œÛÜ‹œÜÊ
+JHÜˆP\XØ][Û‹œš[X\žTØÜ™Y[Š
+Bˆ
+BˆYˆØÜ™Y[ˆ\È›Ý›Û™N‚ˆÙ[‹œÙ]Ù[ÛY]žJˆÛÛœÝ˜Z[—ÝÚ[™Ý×ÙÙ[ÛY]žJÙ[‹™Ù[ÛY]žJ
+KØÜ™Y[‹˜]˜Z[X›QÙ[ÛY]žJ
+KX\™Ú[LLŠBˆ
+B‚ˆYˆÛØœÙ\™WÝÛÛ˜\—ÜØÜ™Y[ŠÙ[‹ØÜ™Y[ŠHOˆ›Û™N‚ˆˆˆ•Ø]ÚÛ™HTØÜ™Y[ˆ›ÜˆØ[YK[[Ûš]ÜˆH[™ÛÜšËX\™XHÚ[™Ù\Ëˆˆˆ‚‚ˆYˆØÜ™Y[ˆ\È›Û™HÜˆ[žJ][H\ÈØÜ™Y[ˆ›Üˆ][H[ˆÙ[‹—ÝÛÛ˜\—ÛØœÙ\™YÜØÜ™Y[œÊN‚ˆ™]\›‚ˆÙ[‹—ÝÛÛ˜\—ÛØœÙ\™YÜØÜ™Y[œË˜\[™
+ØÜ™Y[ŠB‚ˆØÜ™Y[‹›ÙÚXØ[ÝÔ\’[˜ÚÚ[™ÙY˜ÛÛ›™XÝ
+Ù[‹—ÛÛ—ÝÛÛ˜\—ÛY]šXÜ×ØÚ[™ÙY
+BˆØÜ™Y[‹™Ù[ÛY]žPÚ[™ÙY˜ÛÛ›™XÝ
+Ù[‹—ÛÛ—ÝÛÛ˜\—ÛY]šXÜ×ØÚ[™ÙY
+BˆØÜ™Y[‹˜]˜Z[X›QÙ[ÛY]žPÚ[™ÙY˜ÛÛ›™XÝ
+Ù[‹—ÛÛ—ÝÛÛ˜\—ÛY]šXÜ×ØÚ[™ÙY
+B‚ˆYˆÛÛ—ÝÛÛ˜\—ÛY]šXÜ×ØÚ[™ÙY
+Ù[‹
+—Ø\™ÜÎˆØš™XÝ
+HOˆ›Û™N‚ˆÙ[‹—Ø\WØY\]™WÛZ[š[][WÜÚ^™J
+BˆU[Y\‹œÚ[™ÛTÚÝ
+Ù[‹Ù[‹—Ý\]WÝÛÛ˜\—ØY\][ÛŠBˆU[Y\‹œÚ[™ÛTÚÝ
+LŒÙ[‹Ù[‹—Ý\]WÝÛÛ˜\—ØY\][ÛŠB‚ˆYˆÛÛ—ÝÚ[™Ý×ÜØÜ™Y[—ØÚ[™ÙY
+Ù[‹ØÜ™Y[S›Û™JHOˆ›Û™N‚ˆˆˆ”™XØ[Ý[]HÛÛ˜\œÈY\ˆ[Ýš[™È™]ÙY[ˆ[Ûš]ÜœÈÜˆHØØ[\Ëˆˆˆ‚‚ˆÙ[‹—ÛØœÙ\™WÝÛÛ˜\—ÜØÜ™Y[ŠØÜ™Y[ŠBˆÙ[‹—ÛÛ—ÝÛÛ˜\—ÛY]šXÜ×ØÚ[™ÙY
+
+B‚ˆYˆÝ
+Ù[‹Ù^NˆÝ‹
+Š˜[Y\ÎˆØš™XÝ
+HOˆÝŽ‚ˆ™]\›ˆÙ[‹›ØØ[^™\‹^
+Ù^K
+Š˜[Y\ÊB‚ˆYˆÛØØ[^™YØXÝ[ÛŠÙ[‹Ù^NˆÝ‹
+‹ÚXÚØX›Nˆ›ÛÛH˜[ÙJHOˆPXÝ[ÛŽ‚ˆXÝ[ÛˆHPXÝ[ÛŠÙ[‹—Ý
+Ù^JKÙ[ŠBˆXÝ[Û‹œÙ]ÚXÚØX›JÚXÚØX›JBˆXÝ[Û‹œÙ]›Ü\JšLN—ÚÙ^H‹Ù^JBˆ™]\›ˆXÝ[Û‚‚ˆYˆÜÙ]ØXÝ[Û—Ú[
+Ù[‹XÝ[ÛŽˆPXÝ[Û‹ÛÛ\ÚÙ^NˆÝŠHOˆPXÝ[ÛŽ‚ˆˆˆ]XÚÛ™HØØ[^™YÛÛ\ÜÝ]\ÈY\ÜØYÙHÈ[ˆXÝ[Û‹ˆˆˆ‚‚ˆXÝ[Û‹œÙ]›Ü\JšLN—ÝÛÛ\ÚÙ^H‹ÛÛ\ÚÙ^JBˆ^HÙ[‹—Ý
+ÛÛ\ÚÙ^JBˆXÝ[Û‹œÙ]ÛÛ\
+^
+BˆXÝ[Û‹œÙ]Ý]\Õ\
+^
+Bˆ™]\›ˆXÝ[Û‚‚ˆYˆÛØØ[^™YÛY[JÙ[‹Ù^NˆÝŠHOˆSY[N‚ˆY[HHSY[JÙ[‹—Ý
+Ù^JKÙ[ŠBˆY[K›Y[PXÝ[ÛŠ
+KœÙ]›Ü\JšLN—ÚÙ^H‹Ù^JBˆ™]\›ˆY[B‚ˆYˆØYÛØØ[^™YÛY[JÙ[‹Ù^NˆÝŠHOˆSY[N‚ˆY[HHÙ[‹—ÛØØ[^™YÛY[JÙ^JBˆÙ[‹›Y[P˜\Š
+K˜YY[JY[JBˆ™]\›ˆY[B‚ˆYˆÜ™]˜[œÛ]WÜ™YÚ\Ý\™YØXÝ[ÛœÊÙ[ŠHOˆ›Û™N‚ˆ›ÜˆXÝ[Ûˆ[ˆÙ[‹™š[™Ú[™[ŠPXÝ[ÛŠN‚ˆ^ÚÙ^HHXÝ[Û‹œ›Ü\JšLN—ÚÙ^HŠBˆYˆ\Ú[œÝ[˜ÙJ^ÚÙ^KÝŠH[™^ÚÙ^N‚ˆXÝ[Û‹œÙ]^
+Ù[‹—Ý
+^ÚÙ^JJBˆÛÛ\ÚÙ^HHXÝ[Û‹œ›Ü\JšLN—ÝÛÛ\ÚÙ^HŠBˆYˆ\Ú[œÝ[˜ÙJÛÛ\ÚÙ^KÝŠH[™ÛÛ\ÚÙ^N‚ˆ˜[œÛ]YHÙ[‹—Ý
+ÛÛ\ÚÙ^JBˆXÝ[Û‹œÙ]ÛÛ\
+˜[œÛ]Y
+BˆXÝ[Û‹œÙ]Ý]\Õ\
+˜[œÛ]Y
+Bˆ[Yˆ›ÝXÝ[Û‹š\ÔÙ\\˜]ÜŠ
+H[™XÝ[Û‹^
+
+KœÝš\
+
+N‚ˆÚÜÝ]HXÝ[Û‹œÚÜÝ]
+
+KÔÝš[™Ê
+Bˆ˜[œÛ]YHXÝ[Û‹^
+
+Kœ™\XÙJ‰ˆ‹ˆŠBˆYˆÚÜÝ]‚ˆ˜[œÛ]YHˆžÝ˜[œÛ]YH
+ÜÚÜÝ]JH‚ˆXÝ[Û‹œÙ]ÛÛ\
+˜[œÛ]Y
+BˆXÝ[Û‹œÙ]Ý]\Õ\
+˜[œÛ]Y
+B‚ˆYˆÜØ]™WÝX›WÛ[X™\—Ù›Ü›X]ÊÙ[‹›Ü›X]ÎˆØš™XÝ
+HOˆ›Û™N‚ˆYˆ›Ý\Ú[œÝ[˜ÙJ›Ü›X]ËXÝ
+N‚ˆ™]\›‚ˆÙ[‹\Ù\—Ü›Ùš[WÜÙ][™ÜËœØ]™WÝX›WÛ[X™\—Ù›Ü›X]Ê›Ü›X]ÊB‚ˆ›Ü\BˆYˆÙ\ÜÚ[ÛŠÙ[ŠHOˆ›Ú™XÝÙ\ÜÚ[ÛŽ‚ˆ™]\›ˆÙ[‹œ›Ú™XÝØÛÛ›Û\‹œÙ\ÜÚ[Û‚‚ˆ›Ü\BˆYˆ›Ú™XÝÜ]
+Ù[ŠHOˆ]›Û™N‚ˆ™]\›ˆÙ[‹œ›Ú™XÝØÛÛ›Û\‹œ›Ú™XÝÜ]‚ˆYˆØÜ™X]WÜ›Ú™XÝÙ^Ü™\ŠÙ[ŠHOˆ›Û™N‚ˆÙ[‹œ›Ú™XÝÙØÚÈHQØÚÕÚYÙ]
+Ù[‹—Ý
+™ØÚËœ›Ú™XÝŠKÙ[ŠBˆÙ[‹œ›Ú™XÝÙØÚËœÙ]Øš™XÝ˜[YJœ›Ú™XÝØÚÈŠBˆÙ[‹™YHHU™YUÚYÙ]
+
+BˆÙ[‹™YKœÙ]XY\“X™[
+Ù[‹—Ý
+™^Ü™\‹]HŠJBˆÙ[‹™YKš][QÝX›PÛXÚÙY˜ÛÛ›™XÝ
+Ù[‹—ØXÝ]˜]WÝ™YWÚ][JBˆÙ[‹œ›Ú™XÝÙØÚËœÙ]ÚYÙ]
+Ù[‹™YJBˆÙ[‹˜YØÚÕÚYÙ]
+]‘ØÚÕÚYÙ]\™XK“YØÚÕÚYÙ]\™XKÙ[‹œ›Ú™XÝÙØÚÊBˆÙ[‹œ›Ú™XÝÙØÚËšYJ
+BˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+B‚ˆYˆØÜ™X]WØÝ\™WØœ›ÝÜÙ\ŠÙ[ŠHOˆ›Û™N‚ˆÙ[‹˜Ý\™WØœ›ÝÜÙ\—ÙØÚÈHQØÚÕÚYÙ]
+Ù[‹—Ý
+˜Ý\™WØœ›ÝÜÙ\‹]HŠKÙ[ŠBˆÙ[‹˜Ý\™WØœ›ÝÜÙ\—ÙØÚËœÙ]Øš™XÝ˜[YJ˜Ý\™Pœ›ÝÜÙ\‘ØÚÈŠBˆÙ[‹˜Ý\™WØœ›ÝÜÙ\ˆH\ÐÝ\™Pœ›ÝÜÙ\Š[™ÝXYÙO\Ù[‹›[™ÝXYÙJBˆÙ[‹˜Ý\™WØœ›ÝÜÙ\‹œÙ]ÜÙ[œÛÜ—ØØ][ÙÊÙ[‹›[™[[ÛšX×Ü™YÚ\ÝžK˜Ø][ÙÊ
+JBˆÙ[‹˜Ý\™WØœ›ÝÜÙ\‹œÙ]Z[š[][UÚY
+ÌŒ
+BˆÙ[‹˜Ý\™WØœ›ÝÜÙ\‹˜Z[Ü™\]Y\ÝY˜ÛÛ›™XÝ
+Ù[‹—ØZ[ÝX›]Ùœ›ÛWØÝ\™WÜÙ[XÝ[ÛŠBˆÙ[‹˜Ý\™WØœ›ÝÜÙ\‹˜YÜ™\]Y\ÝY˜ÛÛ›™XÝ
+Ù[‹—ØYØÝ\™\×Ùœ›ÛWØœ›ÝÜÙ\ŠBˆÙ[‹˜Ý\™WØœ›ÝÜÙ\‹œ™\XÙWÜ™\]Y\ÝY˜ÛÛ›™XÝ
+Ù[‹—Ü™\XÙWÜÙ[XÝYÝ˜XÚ×ØÝ\™\ÊBˆÙ[‹˜Ý\™WØœ›ÝÜÙ\—ÙØÚËœÙ]ÚYÙ]
+Ù[‹˜Ý\™WØœ›ÝÜÙ\ŠBˆÙ[‹˜YØÚÕÚYÙ]
+]‘ØÚÕÚYÙ]\™XK“YØÚÕÚYÙ]\™XKÙ[‹˜Ý\™WØœ›ÝÜÙ\—ÙØÚÊBˆÙ[‹XšYžQØÚÕÚYÙ]
+Ù[‹œ›Ú™XÝÙØÚËÙ[‹˜Ý\™WØœ›ÝÜÙ\—ÙØÚÊBˆÙ[‹˜Ý\™WØœ›ÝÜÙ\—ÙØÚËšYJ
+B‚ˆYˆØÜ™X]WÚ[œÜXÝÜŠÙ[ŠHOˆ›Û™N‚ˆÙ[‹š[œÜXÝÜ—ÙØÚÈHQØÚÕÚYÙ]
+Ù[‹—Ý
+™ØÚËš[œÜXÝÜˆŠKÙ[ŠBˆÙ[‹š[œÜXÝÜ—ÙØÚËœÙ]Øš™XÝ˜[YJš[œÜXÝÜ‘ØÚÈŠBˆÙ[‹š[œÜXÝÜˆH˜XÚÒ[œÜXÝÜŠ[™ÝXYÙO\Ù[‹›[™ÝXYÙJBˆÙ[‹š[œÜXÝÜ‹˜ÛÛ\ÙWÜ™\]Y\ÝY˜ÛÛ›™XÝ
+Ù[‹š[œÜXÝÜ—ÙØÚËšYJBˆÙ[‹š[œÜXÝÜ‹œÙ][™Ü×Ü™\]Y\ÝY˜ÛÛ›™XÝ
+Ù[‹—Ø\WÚ[œÜXÝÜ—Ý˜XÚ×ÜÙ][™ÜÊBˆÙ[‹š[œÜXÝÜ‹˜Ý\™WÜÝ[WÜ™\]Y\ÝY˜ÛÛ›™XÝ
+Ù[‹—Ø\WÚ[œÜXÝÜ—ØÝ\™WÜÝ[JBˆÙ[‹š[œÜXÝÜ‹™ÜšYÜ™\]Y\ÝY˜ÛÛ›™XÝ
+Ù[‹—Ø\WÚ[œÜXÝÜ—ÙÜšY
+BˆÙ[‹š[œÜXÝÜ‹žÜØØ[WÝš\ÚXš[]WÜ™\]Y\ÝY˜ÛÛ›™XÝ
+ˆÙ[‹—Ø\WÚ[œÜXÝÜ—ÞÜØØ[WÝš\ÚXš[]Bˆ
+BˆÙ[‹š[œÜXÝÜ‹žØ^\×ÛX™[Ü™\]Y\ÝY˜ÛÛ›™XÝ
+Ù[‹—Ø\WÚ[œÜXÝÜ—ÞØ^\×ÛX™[
+BˆÙ[‹š[œÜXÝÜ—ÙØÚËœÙ]ÚYÙ]
+Ù[‹š[œÜXÝÜŠBˆÙ[‹š[œÜXÝÜ—ÙØÚËœÙ]Z[š[][UÚY
+Œ
+BˆÙ[‹š[œÜXÝÜ—ÙØÚËœÙ]X^[][UÚY
+Œ
+BˆÙ[‹š[œÜXÝÜ—ÙØÚËœÙ]™X]\™\ÊˆQØÚÕÚYÙ]‘ØÚÕÚYÙ]™X]\™K‘ØÚÕÚYÙ]ÛÜØX›BˆQØÚÕÚYÙ]‘ØÚÕÚYÙ]™X]\™K‘ØÚÕÚYÙ][Ý˜X›BˆQØÚÕÚYÙ]‘ØÚÕÚYÙ]™X]\™K‘ØÚÕÚYÙ]›Ø]X›Bˆ
+BˆÙ[‹˜YØÚÕÚYÙ]
+]‘ØÚÕÚYÙ]\™XK”šYÚØÚÕÚYÙ]\™XKÙ[‹š[œÜXÝÜ—ÙØÚÊBˆÙ[‹š[œÜXÝÜ—ÙØÚËšYJ
+B‚ˆYˆØÜ™X]WÚ[\œ™]][Û—Ü›Ü\Y\×Ü[™[
+Ù[ŠHOˆ›Û™N‚ˆÙ[‹š[\œ™]][Û—Ü›Ü\Y\×ÙØÚÈHQØÚÕÚYÙ]
+ˆÙ[‹—Ý
+š[\œ™]][ÛœËœ›Ü\Y\×Ý]HŠKÙ[‚ˆ
+BˆÙ[‹š[\œ™]][Û—Ü›Ü\Y\×ÙØÚËœÙ]Øš™XÝ˜[YJš[\œ™]][Û”›Ü\Y\ÑØÚÈŠBˆÙ[‹š[\œ™]][Û—Ü›Ü\Y\ÈH[\œ™]][Û”›Ü\Y\Ô[™[
+[™ÝXYÙO\Ù[‹›[™ÝXYÙJBˆÙ[‹š[\œ™]][Û—Ü›Ü\Y\Ë\]WÜ™\]Y\ÝY˜ÛÛ›™XÝ
+ˆÙ[‹—Ý\]WÚ[\˜[Ùœ›ÛWÜ›Ü\Y\Âˆ
+BˆÙ[‹š[\œ™]][Û—Ü›Ü\Y\Ë›X[˜YÙ\—Ü™\]Y\ÝY˜ÛÛ›™XÝ
+Ù[‹œÚÝ×Ú[\œ™]][Û—Ú[\˜[ÊBˆÙ[‹š[\œ™]][Û—Ü›Ü\Y\×ÙØÚËœÙ]ÚYÙ]
+Ù[‹š[\œ™]][Û—Ü›Ü\Y\ÊBˆÙ[‹˜YØÚÕÚYÙ]
+ˆ]‘ØÚÕÚYÙ]\™XK”šYÚØÚÕÚYÙ]\™XKÙ[‹š[\œ™]][Û—Ü›Ü\Y\×ÙØÚÂˆ
+BˆÙ[‹š[\œ™]][Û—Ü›Ü\Y\×ÙØÚËšYJ
+B‚ˆYˆØÜ™X]WÚ[\˜[ÜÝ]\ÝXÜ×Ü[™[
+Ù[ŠHOˆ›Û™N‚ˆÙ[‹š[\˜[ÜÝ]\ÝXÜ×Ü[™[H[\˜[Ý]\ÝXÜÔ[™[
+[™ÝXYÙO\Ù[‹›[™ÝXYÙJBˆÙ[‹š[\˜[ÜÝ]\ÝXÜ×Ü[™[™^ÜÜ™\]Y\ÝY˜ÛÛ›™XÝ
+Ù[‹—Ù^ÜÚ[\˜[ÜÝ]\ÝXÜÊBˆÙ[‹š[\˜[ÜÝ]\ÝXÜ×Ü[™[˜ÛX\—Ü™\]Y\ÝY˜ÛÛ›™XÝ
+Ù[‹—ØÛX\—Ú[\˜[Ø[˜[\Ú\ÊBˆÈÙY\Ý]\ÝXÜÈ[œÚYHHXˆÛÜšÜÜXÙKˆHÚ[Ý™\›^HX^HÛÝ™\‚ˆÈHšYÚYÙHÙˆHÚYH›Ü›K]]Ø[››Ý[›\™ÙHHSXZ[•Ú[™ÝËˆÈÜ›ÜÜÈH[Ûš]Üˆ›Ý[™\žKÜˆÛ˜\˜XÚÈY\ˆH\Ù\ˆ˜YÜÈ]‚ˆÙ[‹š[\˜[ÜÝ]\ÝXÜ×ÙØÚÈH[\˜[Ý]\ÝXÜÓÝ™\›^JˆÙ[‹—Ý
+œÝ]\ÝXÜËœ[™[Ý]HŠKˆÙ[‹š[\˜[ÜÝ]\ÝXÜ×Ü[™[ˆÙ[‹X›]ÝšY]Ëˆ
+BˆÙ[‹š[\˜[ÜÝ]\ÝXÜ×ÙØÚË˜ÛÜÙT™\]Y\ÝY˜ÛÛ›™XÝ
+Ù[‹—ØÛX\—Ú[\˜[Ø[˜[\Ú\ÊBˆÙ[‹š[\˜[ÜÝ]\ÝXÜ×ÙØÚË›[Ý™YžU\Ù\‹˜ÛÛ›™XÝ
+ˆ[X™NˆÙ×Ù]™[
+ˆœÝ]\ÝXÜË›Ý™\›^K›[Ý™Y‹ˆ\Ù[‹š[\˜[ÜÝ]\ÝXÜ×ÙØÚËž
+
+KˆO\Ù[‹š[\˜[ÜÝ]\ÝXÜ×ÙØÚËžJ
+KˆÚY\Ù[‹š[\˜[ÜÝ]\ÝXÜ×ÙØÚËÚY
+
+KˆZYÚ\Ù[‹š[\˜[ÜÝ]\ÝXÜ×ÙØÚËšZYÚ
+
+Kˆ
+Bˆ
+BˆÙ[‹š[\˜[ÜÝ]\ÝXÜ×ÙØÚËœÙ]Z[š[][TÚ^™JŒŒŒ
+BˆÙ[‹š[\˜[ÜÝ]\ÝXÜ×ÙØÚËœÙ]X^[][TÚ^™JÌMÍÍÌŒMJBˆÙ[‹š[\˜[ÜÝ]\ÝXÜ×ÙØÚËšYJ
+B‚ˆYˆØY\Ú[\˜[ÜÝ]\ÝXÜ×ÙØÚÊÙ[‹
+‹›Ü˜ÙNˆ›ÛÛH˜[ÙJHOˆ›Û™N‚ˆˆˆÛ[\H[‹]Ú[™ÝÈÝ]\ÝXÜÈÝ™\›^HÚ]Ý]Ý™\œšY[™ÈH˜YËˆˆˆ‚‚ˆÝ™\›^HHÙ]]ŠÙ[‹š[\˜[ÜÝ]\ÝXÜ×ÙØÚÈ‹›Û™JBˆYˆÝ™\›^H\È›Û™N‚ˆ™]\›‚ˆYˆ›Ý›Ü˜ÙH[™›ÝÝ™\›^Kš\Õš\ÚX›J
+N‚ˆ™]\›‚ˆÝ™\›^K˜ÛÛœÝ˜Z[—Ý×Ü\™[
+[˜ÚÜ—ÜšYÚQ˜[ÙJBˆÝ™\›^Kœ˜Z\ÙWÊ
+B‚ˆYˆØÜ™X]WÚ\ÜÝY\×Ü[™[
+Ù[ŠHOˆ›Û™N‚ˆÙ[‹š\ÜÝY\×ÙØÚÈHQØÚÕÚYÙ]
+Ù[‹—Ý
+™ØÚË›ÙÈŠKÙ[ŠBˆÙ[‹š\ÜÝY\×ÙØÚËœÙ]Øš™XÝ˜[YJš\ÜÝY\ÑØÚÈŠBˆÙ[‹š\ÜÝY\ÈHU^Y]
+
+BˆÙ[‹š\ÜÝY\ËœÙ]™XYÛ›JYJBˆÙ[‹š\ÜÝY\×ÙØÚËœÙ]ÚYÙ]
+Ù[‹š\ÜÝY\ÊBˆÙ[‹˜YØÚÕÚYÙ]
+]‘ØÚÕÚYÙ]\™XK›ÝÛQØÚÕÚYÙ]\™XKÙ[‹š\ÜÝY\×ÙØÚÊBˆÙ[‹š\ÜÝY\×ÙØÚËšYJ
+B‚ˆYˆØÜ™X]WØÝ\œÛÜ—Ü[™[
+Ù[ŠHOˆ›Û™N‚ˆÙ[‹˜Ý\œÛÜ—ÙØÚÈHQØÚÕÚYÙ]
+Ù[‹—Ý
+˜Ý\œÛÜ‹œ[™[Ý]HŠKÙ[ŠBˆÙ[‹˜Ý\œÛÜ—ÙØÚËœÙ]Øš™XÝ˜[YJ˜Ý\œÛÜ‘ØÚÈŠBˆÙ[‹˜Ý\œÛÜ—Ý˜[Y\ÈHU^Y]
+
+BˆÙ[‹˜Ý\œÛÜ—Ý˜[Y\ËœÙ]™XYÛ›JYJBˆÙ[‹˜Ý\œÛÜ—ÙØÚËœÙ]ÚYÙ]
+Ù[‹˜Ý\œÛÜ—Ý˜[Y\ÊBˆÙ[‹˜YØÚÕÚYÙ]
+]‘ØÚÕÚYÙ]\™XK”šYÚØÚÕÚYÙ]\™XKÙ[‹˜Ý\œÛÜ—ÙØÚÊBˆÙ[‹˜Ý\œÛÜ—ÙØÚËšYJ
+B‚ˆYˆØÜ™X]WÜ[™[Ü˜Z[ÊÙ[ŠHOˆ›Û™N‚ˆÙ[‹XšYžQØÚÕÚYÙ]
+Ù[‹œ›Ú™XÝÙØÚËÙ[‹˜Ý\™WØœ›ÝÜÙ\—ÙØÚÊBˆÙ[‹XšYžQØÚÕÚYÙ]
+Ù[‹š[œÜXÝÜ—ÙØÚËÙ[‹š[\œ™]][Û—Ü›Ü\Y\×ÙØÚÊBˆÙ[‹XšYžQØÚÕÚYÙ]
+Ù[‹š[œÜXÝÜ—ÙØÚËÙ[‹˜Ý\œÛÜ—ÙØÚÊB‚ˆÙ[‹›YÜ[™[Ü˜Z[HUÛÛ˜\ŠÙ[‹—Ý
+œ[™[›YÜ˜Z[ŠKÙ[ŠBˆÙ[‹›YÜ[™[Ü˜Z[œÙ]Øš™XÝ˜[YJ›Y[™[˜Z[ŠBˆÙ[‹›YÜ[™[Ü˜Z[œÙ][Ý˜X›J˜[ÙJBˆÙ[‹›YÜ[™[Ü˜Z[œÙ]›Ø]X›J˜[ÙJBˆÙ[‹›YÜ[™[Ü˜Z[œÙ]XÛÛ”Ú^™JTÚ^™JŒŒ
+JBˆÙ[‹›YÜ[™[Ü˜Z[œÙ]ÛÛ]Û”Ý[J]•ÛÛ]Û”Ý[K•ÛÛ]Û’XÛÛ“Û›JBˆÙ[‹›YÜ[™[Ü˜Z[œÙ]Z[š[][UÚY
+Í
+BˆÙ[‹›YÜ[™[Ü˜Z[œÙ]X^[][UÚY
+Î
+BˆÙ[‹›YÜ[™[Ü˜Z[œÙ]Ý[TÚY]
+ˆ”UÛÛ˜\ˆÈÜXÚ[™ÎˆÜÈY[™ÎˆÜÈ›Ü™\ŽˆÈH‚ˆ”UÛÛ]ÛˆÈZ[‹]ÚYˆŽÈZ[‹ZZYÚˆŽÈ›Ü™\‹\˜Y]\ÎˆÈH‚ˆ”UÛÛ]ÛŽšÝ™\ˆÈ˜XÚÙÜ›Ý[™ˆ[]JZYYÚ
+NÈH‚ˆ”UÛÛ]ÛŽ˜ÚXÚÙYÈ˜XÚÙÜ›Ý[™ˆ[]JYÚYÚ
+NÈÛÛÜŽˆ[]JYÚYÚY]^
+NÈH‚ˆ
+BˆÙ[‹˜YÛÛ˜\Š]•ÛÛ˜\\™XK“YÛÛ˜\\™XKÙ[‹›YÜ[™[Ü˜Z[
+B‚ˆÙ[‹œšYÚÜ[™[Ü˜Z[HUÛÛ˜\ŠÙ[‹—Ý
+œ[™[œšYÚÜ˜Z[ŠKÙ[ŠBˆÙ[‹œšYÚÜ[™[Ü˜Z[œÙ]Øš™XÝ˜[YJœšYÚ[™[˜Z[ŠBˆÙ[‹œšYÚÜ[™[Ü˜Z[œÙ][Ý˜X›J˜[ÙJBˆÙ[‹œšYÚÜ[™[Ü˜Z[œÙ]›Ø]X›J˜[ÙJBˆÙ[‹œšYÚÜ[™[Ü˜Z[œÙ]XÛÛ”Ú^™JTÚ^™JŒŒ
+JBˆÙ[‹œšYÚÜ[™[Ü˜Z[œÙ]ÛÛ]Û”Ý[J]•ÛÛ]Û”Ý[K•ÛÛ]Û’XÛÛ“Û›JBˆÙ[‹œšYÚÜ[™[Ü˜Z[œÙ]Z[š[][UÚY
+Í
+BˆÙ[‹œšYÚÜ[™[Ü˜Z[œÙ]X^[][UÚY
+Î
+BˆÙ[‹œšYÚÜ[™[Ü˜Z[œÙ]Ý[TÚY]
+Ù[‹›YÜ[™[Ü˜Z[œÝ[TÚY]
+
+JBˆÙ[‹˜YÛÛ˜\Š]•ÛÛ˜\\™XK”šYÚÛÛ˜\\™XKÙ[‹œšYÚÜ[™[Ü˜Z[
+B‚ˆÙ[‹œ›Ú™XÝÜ[™[ØXÝ[ÛˆHÙ[‹—Ü[™[ÝÙÙÛWØXÝ[ÛŠˆÙ[‹œ›Ú™XÝÙØÚËˆœ[™[œ›Ú™XÝ‹ˆœ[™[œ›Ú™XÝÝÛÛ\‹ˆTÝ[K”Ý[™\™^X\”ÔÑ\’ÛYRXÛÛ‹ˆÝ›
+Ð[
+Ô‹ˆ
+BˆÙ[‹˜Ý\™WØœ›ÝÜÙ\—ØXÝ[ÛˆHÙ[‹—Ü[™[ÝÙÙÛWØXÝ[ÛŠˆÙ[‹˜Ý\™WØœ›ÝÜÙ\—ÙØÚËˆœ[™[˜Ý\™\È‹ˆœ[™[˜Ý\™\×ÝÛÛ\‹ˆTÝ[K”Ý[™\™^X\”ÔÑš[QX[ÙÓ\ÝšY]ËˆÝ›
+Ð[
+ÐÈ‹ˆ
+BˆÙ[‹š[œÜXÝÜ—Ü[™[ØXÝ[ÛˆHÙ[‹—Ü[™[ÝÙÙÛWØXÝ[ÛŠˆÙ[‹š[œÜXÝÜ—ÙØÚËˆœ[™[š[œÜXÝÜˆ‹ˆœ[™[š[œÜXÝÜ—ÝÛÛ\‹ˆTÝ[K”Ý[™\™^X\”ÔÑš[QX[ÙÑ]Z[YšY]ËˆÝ›
+Ð[
+ÒH‹ˆ
+BˆÙ[‹š[\œ™]][Û—Ü[™[ØXÝ[ÛˆHÙ[‹—Ü[™[ÝÙÙÛWØXÝ[ÛŠˆÙ[‹š[\œ™]][Û—Ü›Ü\Y\×ÙØÚËˆœ[™[š[\œ™]][Ûˆ‹ˆœ[™[š[\œ™]][Û—ÝÛÛ\‹ˆTÝ[K”Ý[™\™^X\”ÔÓY\ÜØYÙP›Þ[™›Ü›X][Û‹ˆÝ›
+Ð[
+Óˆ‹ˆ
+BˆÙ[‹˜Ý\œÛÜ—Ü[™[ØXÝ[ÛˆHÙ[‹—Ü[™[ÝÙÙÛWØXÝ[ÛŠˆÙ[‹˜Ý\œÛÜ—ÙØÚËˆœ[™[˜Ý\œÛÜˆ‹ˆœ[™[˜Ý\œÛÜ—ÝÛÛ\‹ˆTÝ[K”Ý[™\™^X\”ÔÐ\œ›ÝÔšYÚˆÝ›
+Ð[
+Õˆ‹ˆ
+BˆÙ[‹š[\˜[ÜÝ]\ÝXÜ×Ü[™[ØXÝ[ÛˆHÙ[‹—Ü[™[ÝÙÙÛWØXÝ[ÛŠˆÙ[‹š[\˜[ÜÝ]\ÝXÜ×ÙØÚËˆœ[™[š[\˜[ÜÝ]\ÝXÜÈ‹ˆœ[™[š[\˜[ÜÝ]\ÝXÜ×ÝÛÛ\‹ˆTÝ[K”Ý[™\™^X\”ÔÑš[QX[ÙÐÛÛ[ÕšY]ËˆÝ›
+Ð[
+ÓH‹ˆ
+B‚ˆÙ[‹›YÜ[™[Ü˜Z[˜YXÝ[ÛŠÙ[‹œ›Ú™XÝÜ[™[ØXÝ[ÛŠBˆÙ[‹›YÜ[™[Ü˜Z[˜YXÝ[ÛŠÙ[‹˜Ý\™WØœ›ÝÜÙ\—ØXÝ[ÛŠBˆÙ[‹œšYÚÜ[™[Ü˜Z[˜YXÝ[ÛŠÙ[‹š[œÜXÝÜ—Ü[™[ØXÝ[ÛŠBˆÙ[‹œšYÚÜ[™[Ü˜Z[˜YXÝ[ÛŠÙ[‹š[\œ™]][Û—Ü[™[ØXÝ[ÛŠBˆÙ[‹œšYÚÜ[™[Ü˜Z[˜YXÝ[ÛŠÙ[‹˜Ý\œÛÜ—Ü[™[ØXÝ[ÛŠBˆÙ[‹œšYÚÜ[™[Ü˜Z[˜YXÝ[ÛŠÙ[‹š[\˜[ÜÝ]\ÝXÜ×Ü[™[ØXÝ[ÛŠB‚ˆÙ[‹œ›Ú™XÝÙØÚËš\ÚXš[]PÚ[™ÙY˜ÛÛ›™XÝ
+ˆ[X™Hš\ÚX›NˆÙ[‹—Ù[™›Ü˜ÙWÜÚ[™ÛWÜÚYWÜ[™[
+ˆš\ÚX›KÙ[‹œ›Ú™XÝÙØÚË
+Ù[‹˜Ý\™WØœ›ÝÜÙ\—ÙØÚË
+Bˆ
+Bˆ
+BˆÙ[‹˜Ý\™WØœ›ÝÜÙ\—ÙØÚËš\ÚXš[]PÚ[™ÙY˜ÛÛ›™XÝ
+ˆ[X™Hš\ÚX›NˆÙ[‹—Ù[™›Ü˜ÙWÜÚ[™ÛWÜÚYWÜ[™[
+ˆš\ÚX›KÙ[‹˜Ý\™WØœ›ÝÜÙ\—ÙØÚË
+Ù[‹œ›Ú™XÝÙØÚË
+Bˆ
+Bˆ
+BˆÙ[‹š[œÜXÝÜ—ÙØÚËš\ÚXš[]PÚ[™ÙY˜ÛÛ›™XÝ
+ˆ[X™Hš\ÚX›NˆÙ[‹—Ù[™›Ü˜ÙWÜÚ[™ÛWÜÚYWÜ[™[
+ˆš\ÚX›KˆÙ[‹š[œÜXÝÜ—ÙØÚËˆ
+ˆÙ[‹š[\œ™]][Û—Ü›Ü\Y\×ÙØÚËˆÙ[‹˜Ý\œÛÜ—ÙØÚËˆÙ[‹š[\˜[ÜÝ]\ÝXÜ×ÙØÚËˆ
+Kˆ
+Bˆ
+BˆÙ[‹š[\œ™]][Û—Ü›Ü\Y\×ÙØÚËš\ÚXš[]PÚ[™ÙY˜ÛÛ›™XÝ
+ˆ[X™Hš\ÚX›NˆÙ[‹—Ù[™›Ü˜ÙWÜÚ[™ÛWÜÚYWÜ[™[
+ˆš\ÚX›KˆÙ[‹š[\œ™]][Û—Ü›Ü\Y\×ÙØÚËˆ
+Ù[‹š[œÜXÝÜ—ÙØÚËÙ[‹˜Ý\œÛÜ—ÙØÚËÙ[‹š[\˜[ÜÝ]\ÝXÜ×ÙØÚÊKˆ
+Bˆ
+BˆÙ[‹˜Ý\œÛÜ—ÙØÚËš\ÚXš[]PÚ[™ÙY˜ÛÛ›™XÝ
+ˆ[X™Hš\ÚX›NˆÙ[‹—Ù[™›Ü˜ÙWÜÚ[™ÛWÜÚYWÜ[™[
+ˆš\ÚX›KˆÙ[‹˜Ý\œÛÜ—ÙØÚËˆ
+ˆÙ[‹š[œÜXÝÜ—ÙØÚËˆÙ[‹š[\œ™]][Û—Ü›Ü\Y\×ÙØÚËˆÙ[‹š[\˜[ÜÝ]\ÝXÜ×ÙØÚËˆ
+Kˆ
+Bˆ
+BˆÙ[‹š[\˜[ÜÝ]\ÝXÜ×ÙØÚËš\ÚXš[]PÚ[™ÙY˜ÛÛ›™XÝ
+ˆ[X™Hš\ÚX›NˆÙ[‹—Ù[™›Ü˜ÙWÜÚ[™ÛWÜÚYWÜ[™[
+ˆš\ÚX›KˆÙ[‹š[\˜[ÜÝ]\ÝXÜ×ÙØÚËˆ
+Ù[‹š[œÜXÝÜ—ÙØÚËÙ[‹š[\œ™]][Û—Ü›Ü\Y\×ÙØÚËÙ[‹˜Ý\œÛÜ—ÙØÚÊKˆ
+Bˆ
+B‚ˆYˆÜ[™[ÝÙÙÛWØXÝ[ÛŠˆÙ[‹ˆØÚÎˆQØÚÕÚYÙ][\˜[Ý]\ÝXÜÓÝ™\›^Kˆ^ÚÙ^NˆÝ‹ˆÛÛ\ÚÙ^NˆÝ‹ˆXÛÛŽˆTÝ[K”Ý[™\™^X\ˆÚÜÝ]ˆÝ‹ˆ
+HOˆPXÝ[ÛŽ‚ˆXÝ[ÛˆHØÚËÙÙÛUšY]ÐXÝ[ÛŠ
+BˆXÝ[Û‹œÙ]›Ü\JšLN—ÚÙ^H‹^ÚÙ^JBˆXÝ[Û‹œÙ]›Ü\JšLN—ÝÛÛ\ÚÙ^H‹ÛÛ\ÚÙ^JBˆXÝ[Û‹œÙ]^
+Ù[‹—Ý
+^ÚÙ^JJBˆXÝ[Û‹œÙ]ÛÛ\
+Ù[‹—Ý
+ÛÛ\ÚÙ^JJBˆXÝ[Û‹œÙ]Ý]\Õ\
+Ù[‹—Ý
+ÛÛ\ÚÙ^JJBˆXÝ[Û‹œÙ]XÛÛŠÙ[‹œÝ[J
+KœÝ[™\™XÛÛŠXÛÛŠJBˆXÝ[Û‹œÙ]ÚÜÝ]
+ÚÜÝ]
+Bˆ™]\›ˆXÝ[Û‚‚ˆÝ]XÛY]ÙˆYˆÙ[™›Ü˜ÙWÜÚ[™ÛWÜÚYWÜ[™[
+ˆš\ÚX›Nˆ›ÛÛˆXÝ]™NˆQØÚÕÚYÙ][\˜[Ý]\ÝXÜÓÝ™\›^KˆÚX›[™ÜÎˆ\VÔQØÚÕÚYÙ][\˜[Ý]\ÝXÜÓÝ™\›^K‹‹—Kˆ
+HOˆ›Û™N‚ˆYˆ›Ýš\ÚX›HÜˆXÝ]™Kš\Ñ›Ø][™Ê
+N‚ˆ™]\›‚ˆ›ÜˆÚX›[™È[ˆÚX›[™ÜÎ‚ˆYˆÚX›[™Ëš\Õš\ÚX›J
+H[™›ÝÚX›[™Ëš\Ñ›Ø][™Ê
+N‚ˆÚX›[™ËšYJ
+B‚ˆYˆÚYWÜÚYWÜ[™[ÊÙ[ŠHOˆ›Û™N‚ˆ›ÜˆØÚÈ[ˆ
+ˆÙ[‹œ›Ú™XÝÙØÚËˆÙ[‹˜Ý\™WØœ›ÝÜÙ\—ÙØÚËˆÙ[‹š[œÜXÝÜ—ÙØÚËˆÙ[‹š[\œ™]][Û—Ü›Ü\Y\×ÙØÚËˆÙ[‹˜Ý\œÛÜ—ÙØÚËˆÙ[‹š[\˜[ÜÝ]\ÝXÜ×ÙØÚËˆ
+N‚ˆØÚËšYJ
+B‚ˆYˆØÜ™X]WØXÝ[ÛœÊÙ[ŠHOˆ›Û™N‚ˆš[WÛY[HHÙ[‹—ØYÛØØ[^™YÛY[J›Y[K™š[HŠBˆY]ÛY[HHÙ[‹—ØYÛØØ[^™YÛY[J›Y[K™Y]ŠBˆÛÛ×ÛY[HHÙ[‹—ØYÛØØ[^™YÛY[J›Y[KÛÛÈŠBˆ\×ÙY]Ü—ÛY[HHÙ[‹—ØYÛØØ[^™YÛY[J›Y[K›\×ÙY]ÜˆŠBˆØ[×ÛY[HHÙ[‹—ØYÛØØ[^™YÛY[J›Y[K˜Ø[Ý[][ÛœÈŠBˆX›]ÛY[HHÙ[‹—ØYÛØØ[^™YÛY[J›Y[KX›]ŠBˆšY]×ÛY[HHÙ[‹—ØYÛØØ[^™YÛY[J›Y[KšY]ÈŠBˆ›Ü›\×ÛY[HHÙ[‹—ØYÛØØ[^™YÛY[J™›Ü›\Ë›Y[HŠBˆÛÛœÝXÝÜ—ÛY[HHÙ[‹—ØYÛØØ[^™YÛY[J›Y[K˜ÛÛœÝXÝÜˆŠBˆš[ÛY[HHÙ[‹—ØYÛØØ[^™YÛY[J›Y[Kœš[ŠBˆ[™ÝXYÙWÛY[HHÙ[‹—ØYÛØØ[^™YÛY[J›Y[K›[™ÝXYÙHŠBˆ[ÛY[HHÙ[‹—ØYÛØØ[^™YÛY[J›Y[Kš[ŠB‚ˆÙ[‹šÛYWØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠšÛYK˜XÝ[ÛˆŠBˆÙ[‹šÛYWØXÝ[Û‹œÙ]XÛÛŠÙ[‹œÝ[J
+KœÝ[™\™XÛÛŠTÝ[K”Ý[™\™^X\”ÔÑ\’ÛYRXÛÛŠJBˆÙ[‹šÛYWØXÝ[Û‹œÙ]ÚÜÝ]
+Ý›
+ÒÛYHŠBˆÙ[‹—ÜÙ]ØXÝ[Û—Ú[
+Ù[‹šÛYWØXÝ[Û‹šÛYK˜XÝ[Û—ÝÛÛ\ŠBˆÙ[‹šÛYWØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹—ÜÚÝ×ÚÛYJBˆšY]×ÛY[K˜YXÝ[ÛŠÙ[‹šÛYWØXÝ[ÛŠB‚ˆÙ[‹ÛÜšÜÜXÙWØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠšÛYKÛÜšÜÜXÙWØXÝ[ÛˆŠBˆÙ[‹ÛÜšÜÜXÙWØXÝ[Û‹œÙ]XÛÛŠˆÙ[‹œÝ[J
+KœÝ[™\™XÛÛŠTÝ[K”Ý[™\™^X\”ÔÑš[QX[ÙÑ]Z[YšY]ÊBˆ
+BˆÙ[‹ÛÜšÜÜXÙWØXÝ[Û‹œÙ]ÚÜÝ]
+Ý›
+ÔÚY
+ÒÛYHŠBˆÙ[‹—ÜÙ]ØXÝ[Û—Ú[
+Ù[‹ÛÜšÜÜXÙWØXÝ[Û‹šÛYKÛÜšÜÜXÙWØXÝ[Û—ÝÛÛ\ŠBˆÙ[‹ÛÜšÜÜXÙWØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+[X™NˆÙ[‹—ÜÚÝ×ÝÛÜšÜÜXÙJ
+JBˆÙ[‹ÛÜšÜÜXÙWØXÝ[Û‹œÙ][˜X›Y
+˜[ÙJBˆšY]×ÛY[K˜YXÝ[ÛŠÙ[‹ÛÜšÜÜXÙWØXÝ[ÛŠB‚ˆÙ[‹™š[WÝÛÜšÜÜXÙWØXÝ[ÛˆHPXÝ[ÛŠˆš[UÛÜšÜÜXÙUÚYÙ]X—Ý]JÙ[‹›[™ÝXYÙK˜[YJKÙ[‚ˆ
+BˆÙ[‹™š[WÝÛÜšÜÜXÙWØXÝ[Û‹œÙ]Øš™XÝ˜[YJ™š[UÛÜšÜÜXÙPXÝ[ÛˆŠBˆÙ[‹™š[WÝÛÜšÜÜXÙWØXÝ[Û‹œÙ]ÚÜÝ]
+Ý›
+Ð[
+ÑˆŠBˆÙ[‹™š[WÝÛÜšÜÜXÙWØXÝ[Û‹œÙ]XÛÛŠˆÙ[‹œÝ[J
+KœÝ[™\™XÛÛŠTÝ[K”Ý[™\™^X\”ÔÑš[QX[ÙÓ\ÝšY]ÊBˆ
+BˆÙ[‹™š[WÝÛÜšÜÜXÙWØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œÚÝ×Ùš[WÝÛÜšÜÜXÙJBˆš[WÛY[K˜YXÝ[ÛŠÙ[‹™š[WÝÛÜšÜÜXÙWØXÝ[ÛŠBˆšY]×ÛY[K˜YXÝ[ÛŠÙ[‹™š[WÝÛÜšÜÜXÙWØXÝ[ÛŠBˆšY]×ÛY[K˜YÙ\\˜]ÜŠ
+B‚ˆÙ[‹›\×ÙY]Ü—ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ›\×ÙY]Ü‹˜XÝ[ÛˆŠBˆÙ[‹›\×ÙY]Ü—ØXÝ[Û‹œÙ]XÛÛŠˆÙ[‹œÝ[J
+KœÝ[™\™XÛÛŠTÝ[K”Ý[™\™^X\”ÔÑš[QX[ÙÑ]Z[YšY]ÊBˆ
+BˆÙ[‹›\×ÙY]Ü—ØXÝ[Û‹œÙ]ÚÜÝ]
+Ý›
+Ð[
+ÑHŠBˆÙ[‹—ÜÙ]ØXÝ[Û—Ú[
+Ù[‹›\×ÙY]Ü—ØXÝ[Û‹ZKš[›\×ÙY]ÜˆŠBˆÙ[‹›\×ÙY]Ü—ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œÚÝ×Û\×ÙY]ÜŠBˆ\×ÙY]Ü—ÛY[K˜YXÝ[ÛŠÙ[‹›\×ÙY]Ü—ØXÝ[ÛŠBˆ\×ÙY]Ü—ÛY[K˜YÙ\\˜]ÜŠ
+B‚ˆÙ[‹›Ü[—Ü›Ú™XÝØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠœÚ[›Ü[—Ü›Ú™XÝŠBˆÙ[‹›Ü[—Ü›Ú™XÝØXÝ[Û‹œÙ]ÚÜÝ]
+Ý›
+ÓÈŠBˆÙ[‹›Ü[—Ü›Ú™XÝØXÝ[Û‹œÙ]XÛÛŠˆÙ[‹œÝ[J
+KœÝ[™\™XÛÛŠTÝ[K”Ý[™\™^X\”ÔÑ\“Ü[’XÛÛŠBˆ
+BˆÙ[‹—ÜÙ]ØXÝ[Û—Ú[
+Ù[‹›Ü[—Ü›Ú™XÝØXÝ[Û‹ZKš[›Ü[—Ü›Ú™XÝŠBˆÙ[‹›Ü[—Ü›Ú™XÝØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹›Ü[—Ü›Ú™XÝ
+Bˆš[WÛY[K˜YXÝ[ÛŠÙ[‹›Ü[—Ü›Ú™XÝØXÝ[ÛŠB‚ˆÙ[‹›™]×Û\×ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ›™]×Û\Ë˜XÝ[ÛˆŠBˆÙ[‹›™]×Û\×ØXÝ[Û‹œÙ]ÚÜÝ]
+Ý›
+ÓˆŠBˆÙ[‹›™]×Û\×ØXÝ[Û‹œÙ]XÛÛŠÙ[‹œÝ[J
+KœÝ[™\™XÛÛŠTÝ[K”Ý[™\™^X\”ÔÑš[RXÛÛŠJBˆÙ[‹—ÜÙ]ØXÝ[Û—Ú[
+Ù[‹›™]×Û\×ØXÝ[Û‹šÛYK›™]×Û\×Ù\ØÜš\[ÛˆŠBˆÙ[‹›™]×Û\×ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹˜Ü™X]WÛ™]×Û\ÊBˆš[WÛY[K˜YXÝ[ÛŠÙ[‹›™]×Û\×ØXÝ[ÛŠBˆ\×ÙY]Ü—ÛY[K˜YXÝ[ÛŠÙ[‹›™]×Û\×ØXÝ[ÛŠB‚ˆÙ[‹™Z[WÛ\×ÙÜ›ÝÝØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ™Z[WÛ\×ÙÜ›ÝÝ˜XÝ[ÛˆŠBˆÙ[‹™Z[WÛ\×ÙÜ›ÝÝØXÝ[Û‹œÙ]XÛÛŠˆÙ[‹œÝ[J
+KœÝ[™\™XÛÛŠTÝ[K”Ý[™\™^X\”ÔÐ\œ›ÝÑÝÛŠBˆ
+BˆÙ[‹™Z[WÛ\×ÙÜ›ÝÝØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œÚÝ×ÙZ[WÛ\×ÙÜ›ÝÝ
+Bˆš[WÛY[K˜YXÝ[ÛŠÙ[‹™Z[WÛ\×ÙÜ›ÝÝØXÝ[ÛŠBˆ\×ÙY]Ü—ÛY[K˜YXÝ[ÛŠÙ[‹™Z[WÛ\×ÙÜ›ÝÝØXÝ[ÛŠB‚ˆÙ[‹›Ü[—Ù]WØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠš[\Ü[š]™\œØ[ŠBˆÙ[‹›Ü[—Ù]WØXÝ[Û‹œÙ]ÚÜÝ]
+Ý›
+ÒHŠBˆÙ[‹›Ü[—Ù]WØXÝ[Û‹œÙ]XÛÛŠˆÙ[‹œÝ[J
+KœÝ[™\™XÛÛŠTÝ[K”Ý[™\™^X\”ÔÑX[ÙÓÜ[]ÛŠBˆ
+BˆÙ[‹—ÜÙ]ØXÝ[Û—Ú[
+Ù[‹›Ü[—Ù]WØXÝ[Û‹ZKš[š[\ÜÙ]HŠBˆÙ[‹›Ü[—Ù]WØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹›Ü[—Ù]JBˆš[WÛY[K˜YXÝ[ÛŠÙ[‹›Ü[—Ù]WØXÝ[ÛŠBˆš[WÛY[K˜YÙ\\˜]ÜŠ
+B‚ˆÙ[‹›Ü[—ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠœÚ[š[\ÜÛ\ÈŠBˆÙ[‹›Ü[—ØXÝ[Û‹œÙ]ÚÜÝ]
+Ý›
+ÓŠBˆÙ[‹›Ü[—ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+[X™HØÚXÚÙYQ˜[ÙNˆÙ[‹›Ü[—Û\Ê
+JBˆš[WÛY[K˜YXÝ[ÛŠÙ[‹›Ü[—ØXÝ[ÛŠBˆ\×ÙY]Ü—ÛY[K˜YXÝ[ÛŠÙ[‹›Ü[—ØXÝ[ÛŠB‚ˆÙ[‹›Ü[—Û\×ØY˜[˜ÙYØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠˆš[\Ü›\×ØY˜[˜ÙY‚ˆ
+BˆÙ[‹›Ü[—Û\×ØY˜[˜ÙYØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+ˆ[X™HØÚXÚÙYQ˜[ÙNˆÙ[‹›Ü[—Û\×ØY˜[˜ÙY
+
+Bˆ
+Bˆš[WÛY[K˜YXÝ[ÛŠÙ[‹›Ü[—Û\×ØY˜[˜ÙYØXÝ[ÛŠBˆ\×ÙY]Ü—ÛY[K˜YXÝ[ÛŠÙ[‹›Ü[—Û\×ØY˜[˜ÙYØXÝ[ÛŠB‚ˆÙ[‹›Ü[—ØÜÝ—ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠœÚ[š[\ÜØÜÝˆŠBˆÙ[‹›Ü[—ØÜÝ—ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+[X™HØÚXÚÙYQ˜[ÙNˆÙ[‹›Ü[—ØÜÝŠ
+JBˆš[WÛY[K˜YXÝ[ÛŠÙ[‹›Ü[—ØÜÝ—ØXÝ[ÛŠB‚ˆÙ[‹›Ü[—Ù^Ù[ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠœÚ[š[\ÜÙ^Ù[ŠBˆÙ[‹›Ü[—Ù^Ù[ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+ˆ[X™HØÚXÚÙYQ˜[ÙNˆÙ[‹›Ü[—Ù^Ù[
+
+Bˆ
+Bˆš[WÛY[K˜YXÝ[ÛŠÙ[‹›Ü[—Ù^Ù[ØXÝ[ÛŠB‚ˆÙ[‹›Ü[—Ü\˜YÞØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠœÚ[š[\ÜÜ\˜YÞŠBˆÙ[‹›Ü[—Ü\˜YÞØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+[X™NˆÙ[‹›Ü[—Ü\˜YÞ
+
+JBˆš[WÛY[K˜YXÝ[ÛŠÙ[‹›Ü[—Ü\˜YÞØXÝ[ÛŠB‚ˆÙ[‹›Ü[—ÙÜÌ—ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠœÚ[š[\ÜÙÜÌˆŠBˆÙ[‹›Ü[—ÙÜÌ—ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+[X™NˆÙ[‹›Ü[—ÙÜÌŠ
+JBˆš[WÛY[K˜YXÝ[ÛŠÙ[‹›Ü[—ÙÜÌ—ØXÝ[ÛŠB‚ˆÙ[‹š[œÜXÝÝÚ]Û[ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠœÚ[š[œÜXÝÝÚ]Û[ŠBˆÙ[‹š[œÜXÝÝÚ]Û[ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+[X™NˆÙ[‹›Ü[—ÝÚ]Û[Ú[™[ÜžJ
+JBˆš[WÛY[K˜YXÝ[ÛŠÙ[‹š[œÜXÝÝÚ]Û[ØXÝ[ÛŠB‚ˆÙ[‹š[\ÜÝÚ]Û[Ù]WØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠœÚ[š[\ÜÝÚ]Û[Ù]HŠBˆÙ[‹š[\ÜÝÚ]Û[Ù]WØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+[X™NˆÙ[‹›Ü[—ÝÚ]Û[Ù]WÚ[\Ü
+
+JBˆš[WÛY[K˜YXÝ[ÛŠÙ[‹š[\ÜÝÚ]Û[Ù]WØXÝ[ÛŠB‚ˆÙ[‹›Ü[—ÝÚ]Û[MLWØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠœÚ[›Ü[—ÝÚ]Û[MLHŠBˆÙ[‹›Ü[—ÝÚ]Û[MLWØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹›Ü[—ÝÚ]Û[MLWÜÝÜ™JBˆš[WÛY[K˜YXÝ[ÛŠÙ[‹›Ü[—ÝÚ]Û[MLWØXÝ[ÛŠB‚ˆÙ[‹›Ü[—Ù]L—ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠœÚ[›Ü[—Ù]LˆŠBˆÙ[‹›Ü[—Ù]L—ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹›Ü[—Ù]L—ÜÙ\ÜÚ[ÛŠBˆš[WÛY[K˜YXÝ[ÛŠÙ[‹›Ü[—Ù]L—ØXÝ[ÛŠB‚ˆÙ[‹˜Ø\\™WÝÚ]ÌØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠœÚ[˜Ø\\™WÝÚ]ÌŠBˆÙ[‹˜Ø\\™WÝÚ]ÌØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹›Ü[—ÝÚ]ÌØØ\\™JBˆš[WÛY[K˜YXÝ[ÛŠÙ[‹˜Ø\\™WÝÚ]ÌØXÝ[ÛŠB‚ˆÙ[‹œ\˜YÞØ˜]ÚØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠœ\˜YÞ˜˜]ÚØXÝ[ÛˆŠBˆÙ[‹œ\˜YÞØ˜]ÚØXÝ[Û‹œÙ]XÛÛŠˆÙ[‹œÝ[J
+KœÝ[™\™XÛÛŠTÝ[K”Ý[™\™^X\”ÔÑš[QX[ÙÓ\ÝšY]ÊBˆ
+BˆÙ[‹—ÜÙ]ØXÝ[Û—Ú[
+Ù[‹œ\˜YÞØ˜]ÚØXÝ[Û‹šÛYK˜˜]ÚÙ\ØÜš\[ÛˆŠBˆÙ[‹œ\˜YÞØ˜]ÚØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹›Ü[—Ü\˜YÞØ˜]Ú
+BˆÛÛ×ÛY[K˜YXÝ[ÛŠÙ[‹œ\˜YÞØ˜]ÚØXÝ[ÛŠB‚ˆÙ[‹›[™ÝXYÙWÙÜ›Ý\HPXÝ[Û‘Ü›Ý\
+Ù[ŠBˆÙ[‹›[™ÝXYÙWÙÜ›Ý\œÙ]^Û\Ú]™JYJBˆÙ[‹›[™ÝXYÙWØXÝ[ÛœÎˆXÝÐ\[™ÝXYÙKPXÝ[Û—HHßBˆ›Üˆ[™ÝXYÙK˜[YH[ˆS‘ÕPQÑWÓSQTËš][\Ê
+N‚ˆXÝ[ÛˆHPXÝ[ÛŠ˜[YKÙ[ŠBˆXÝ[Û‹œÙ]ÚXÚØX›JYJBˆXÝ[Û‹œÙ]ÚXÚÙY
+[™ÝXYÙH\ÈÙ[‹›[™ÝXYÙJBˆXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+ˆ[X™HÚXÚÙYQ˜[ÙK˜[YO[[™ÝXYÙNˆÙ[‹˜Ú[™ÙWÛ[™ÝXYÙJ˜[YJBˆ
+BˆÙ[‹›[™ÝXYÙWÙÜ›Ý\˜YXÝ[ÛŠXÝ[ÛŠBˆÙ[‹›[™ÝXYÙWØXÝ[ÛœÖÛ[™ÝXYÙWHHXÝ[Û‚ˆ[™ÝXYÙWÛY[K˜YXÝ[ÛŠXÝ[ÛŠBˆ[™ÝXYÙWÛY[K˜YÙ\\˜]ÜŠ
+BˆÙ[‹\Ù\—Ü›Ùš[WØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠœ›Ùš[K˜XÝ[ÛˆŠBˆÙ[‹\Ù\—Ü›Ùš[WØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œÙ[XÝÝ\Ù\—Ü›Ùš[JBˆ[™ÝXYÙWÛY[K˜YXÝ[ÛŠÙ[‹\Ù\—Ü›Ùš[WØXÝ[ÛŠB‚ˆÙ[‹œØ]™WØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠœÚ[œØ]™WÜ›Ú™XÝŠBˆÙ[‹œØ]™WØXÝ[Û‹œÙ]XÛÛŠˆÙ[‹œÝ[J
+KœÝ[™\™XÛÛŠTÝ[K”Ý[™\™^X\”ÔÑX[ÙÔØ]™P]ÛŠBˆ
+BˆÙ[‹œØ]™WØXÝ[Û‹œÙ]ÚÜÝ]
+Ý›
+ÔÈŠBˆÙ[‹—ÜÙ]ØXÝ[Û—Ú[
+Ù[‹œØ]™WØXÝ[Û‹ZKš[œØ]™WÜ›Ú™XÝŠBˆÙ[‹œØ]™WØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œØ]™WÜ›Ú™XÝ
+Bˆš[WÛY[K˜YXÝ[ÛŠÙ[‹œØ]™WØXÝ[ÛŠB‚ˆÙ[‹œØ]™WØ\×ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠœÚ[œØ]™WÜ›Ú™XÝØ\ÈŠBˆÙ[‹œØ]™WØ\×ØXÝ[Û‹œÙ]ÚÜÝ]
+Ý›
+ÔÚY
+ÔÈŠBˆÙ[‹œØ]™WØ\×ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œØ]™WÜ›Ú™XÝØ\ÊBˆš[WÛY[K˜YXÝ[ÛŠÙ[‹œØ]™WØ\×ØXÝ[ÛŠB‚ˆÙ[‹œ™\ÝÜ™WÜ›Ú™XÝØ˜XÚÝ\ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠˆœÚ[œ™\ÝÜ™WÜ›Ú™XÝØ˜XÚÝ\‚ˆ
+BˆÙ[‹œ™\ÝÜ™WÜ›Ú™XÝØ˜XÚÝ\ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œ™\ÝÜ™WÜ›Ú™XÝØ˜XÚÝ\
+Bˆš[WÛY[K˜YXÝ[ÛŠÙ[‹œ™\ÝÜ™WÜ›Ú™XÝØ˜XÚÝ\ØXÝ[ÛŠB‚ˆÙ[‹™^ÜÛ\×ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠœÚ[™^ÜÛ\ÈŠBˆÙ[‹™^ÜÛ\×ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹™^ÜØÝ\œ™[Û\ÊBˆš[WÛY[K˜YXÝ[ÛŠÙ[‹™^ÜÛ\×ØXÝ[ÛŠBˆ\×ÙY]Ü—ÛY[K˜YXÝ[ÛŠÙ[‹™^ÜÛ\×ØXÝ[ÛŠB‚ˆ^ÜØÜÝ—ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠœÙ[XÝ[Û—Ù^Ü˜ÜÝ—ØXÝ[ÛˆŠBˆ^ÜØÜÝ—ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹™^ÜÜÙ[XÝYØÜÝŠBˆš[WÛY[K˜YXÝ[ÛŠ^ÜØÜÝ—ØXÝ[ÛŠBˆ^ÜÙ^Ù[ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠœÙ[XÝ[Û—Ù^Ü™^Ù[ØXÝ[ÛˆŠBˆ^ÜÙ^Ù[ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹™^ÜÜÙ[XÝYÙ^Ù[
+Bˆš[WÛY[K˜YXÝ[ÛŠ^ÜÙ^Ù[ØXÝ[ÛŠBˆ^ÜÙØÞØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠœÙ[XÝ[Û—Ù^Ü™ØÞØXÝ[ÛˆŠBˆ^ÜÙØÞØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹™^ÜÜÙ[XÝYÙØÞ
+Bˆš[WÛY[K˜YXÝ[ÛŠ^ÜÙØÞØXÝ[ÛŠBˆ^ÜÚ[ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠœÙ[XÝ[Û—Ù^Üš[ØXÝ[ÛˆŠBˆ^ÜÚ[ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹™^ÜÜÙ[XÝYÚ[
+Bˆš[WÛY[K˜YXÝ[ÛŠ^ÜÚ[ØXÝ[ÛŠBˆÙ[‹œš[ØÙ[\—ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠœš[ØÙ[\‹˜XÝ[ÛˆŠBˆÙ[‹œš[ØÙ[\—ØXÝ[Û‹œÙ]ÚÜÝ]
+Ý›
+ÔŠBˆÙ[‹œš[ØÙ[\—ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹›Ü[—Üš[ØÙ[\ŠBˆš[WÛY[K˜YXÝ[ÛŠÙ[‹œš[ØÙ[\—ØXÝ[ÛŠBˆš[ÛY[K˜YXÝ[ÛŠÙ[‹œš[ØÙ[\—ØXÝ[ÛŠBˆ^ÜÜ™×ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠš\ÝX[Ù^Üœ™×ØXÝ[ÛˆŠBˆ^ÜÜ™×ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+[X™NˆÙ[‹™^ÜØXÝ]™WÝš\ÝX[^˜][ÛŠœ™ÈŠJBˆš[WÛY[K˜YXÝ[ÛŠ^ÜÜ™×ØXÝ[ÛŠBˆ^ÜÜÝ™×ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠš\ÝX[Ù^ÜœÝ™×ØXÝ[ÛˆŠBˆ^ÜÜÝ™×ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+[X™NˆÙ[‹™^ÜØXÝ]™WÝš\ÝX[^˜][ÛŠœÝ™ÈŠJBˆš[WÛY[K˜YXÝ[ÛŠ^ÜÜÝ™×ØXÝ[ÛŠBˆ^ÜÜ—ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠš\ÝX[Ù^Üœ—ØXÝ[ÛˆŠBˆ^ÜÜ—ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+[X™NˆÙ[‹™^ÜØXÝ]™WÝš\ÝX[^˜][ÛŠœˆŠJBˆš[WÛY[K˜YXÝ[ÛŠ^ÜÜ—ØXÝ[ÛŠBˆš[Ü™]šY]×ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠœš[œ™]šY]×ØXÝ[ÛˆŠBˆš[Ü™]šY]×ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œ™]šY]×ØXÝ]™WÝš\ÝX[^˜][ÛŠBˆš[WÛY[K˜YXÝ[ÛŠš[Ü™]šY]×ØXÝ[ÛŠBˆYÙWÜÙ]\ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠœš[œYÙWÜÙ]\ØXÝ[ÛˆŠBˆYÙWÜÙ]\ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹˜ÛÛ™šYÝ\™WÜš[ÜYÙJBˆš[WÛY[K˜YXÝ[ÛŠYÙWÜÙ]\ØXÝ[ÛŠBˆ[\]\×ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ›X\Ý\›Ù×Ý[\]\Ë˜XÝ[ÛˆŠBˆ[\]\×ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œÚÝ×ÛX\Ý\›Ù×Ý[\]\ÊBˆš[ÛY[K˜YXÝ[ÛŠ[\]\×ØXÝ[ÛŠBˆÙ[‹™ØÝ[Y[Ø[™WØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ™ØÝ[Y[Ø[™K˜XÝ[ÛˆŠBˆÙ[‹™ØÝ[Y[Ø[™WØXÝ[Û‹œÙ]XÛÛŠˆÙ[‹œÝ[J
+KœÝ[™\™XÛÛŠTÝ[K”Ý[™\™^X\”ÔÑX[ÙÔØ]™P]ÛŠBˆ
+BˆÙ[‹™ØÝ[Y[Ø[™WØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œ™\\™WÙØÝ[Y[Ø[™JBˆš[WÛY[K˜YXÝ[ÛŠÙ[‹™ØÝ[Y[Ø[™WØXÝ[ÛŠBˆš[ÛY[K˜YXÝ[ÛŠÙ[‹™ØÝ[Y[Ø[™WØXÝ[ÛŠBˆÙ[‹œ™]žWÙØÝ[Y[Ø[™WØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠˆ™ØÝ[Y[Ø[™Kœ™]žWÙ˜Z[Y‚ˆ
+BˆÙ[‹œ™]žWÙØÝ[Y[Ø[™WØXÝ[Û‹œÙ][˜X›Y
+˜[ÙJBˆÙ[‹œ™]žWÙØÝ[Y[Ø[™WØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+ˆÙ[‹œ™]žWÙØÝ[Y[Ø[™WÙ˜Z[YÛÝ]]Âˆ
+Bˆš[WÛY[K˜YXÝ[ÛŠÙ[‹œ™]žWÙØÝ[Y[Ø[™WØXÝ[ÛŠBˆš[ÛY[K˜YXÝ[ÛŠÙ[‹œ™]žWÙØÝ[Y[Ø[™WØXÝ[ÛŠBˆ\ÜÜÜØXÝ[ÛˆHPXÝ[ÛŠˆÂˆ\[™ÝXYÙK”•Nˆ´'ô,4`t/ô/´`4`ˆ4`t.´,´,4-´.4/tbø )ˆ‹ˆ\[™ÝXYÙK’ÒÎˆ´¬4¨ô¤ôbô/4,4/ô,4`t/ô/´`4`´bø )ˆ‹ˆ\[™ÝXYÙK‘SŽˆ•Ù[\ÜÜÜ8 )ˆ‹ˆVÜÙ[‹›[™ÝXYÙWKÙ[‹ˆ
+Bˆ\ÜÜÜØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œÚÝ×ÝÙ[Ü\ÜÜÜ
+Bˆš[WÛY[K˜YXÝ[ÛŠ\ÜÜÜØXÝ[ÛŠBˆš[ÛY[K˜YXÝ[ÛŠ\ÜÜÜØXÝ[ÛŠBˆXY\—ØØ][Ù×ØXÝ[ÛˆHPXÝ[ÛŠˆÂˆ\[™ÝXYÙK”•Nˆ´&´,4`´,4.ô/´,È4/ô-taô,4`´/tbôaH4b4,4/ô/´.‹‹‹ˆ‹ˆ\[™ÝXYÙK’ÒÎˆ´$t,4`t/ô,4`´,4¦ôbô`4bô/ô`´,4`4bô/tbô¨È4.´,4`´,4.ô/´,ôbË‹‹ˆ‹ˆ\[™ÝXYÙK‘SŽˆ”š[XY\ˆØ][ÙË‹‹ˆ‹ˆVÜÙ[‹›[™ÝXYÙWKˆÙ[‹ˆ
+BˆXY\—ØØ][Ù×ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œÚÝ×ÚXY\—ØØ][ÙÊBˆš[ÛY[K˜YXÝ[ÛŠXY\—ØØ][Ù×ØXÝ[ÛŠBˆÙÛ×ØØ][Ù×ØXÝ[ÛˆHPXÝ[ÛŠˆÂˆ\[™ÝXYÙK”•Nˆ´&´,4`´,4.ô/´,È4.ô/´,ô/´`´.4/ô/´,‹‹‹ˆ‹ˆ\[™ÝXYÙK’ÒÎˆ´&ô/´,ô/´`´.4/ô`´,4`4.´,4`´,4.ô/´,ôbË‹‹ˆ‹ˆ\[™ÝXYÙK‘SŽˆ“ÙÛÈØ][ÙË‹‹ˆ‹ˆVÜÙ[‹›[™ÝXYÙWKˆÙ[‹ˆ
+BˆÙÛ×ØØ][Ù×ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œÚÝ×ÛÙÛ×ØØ][ÙÊBˆš[ÛY[K˜YXÝ[ÛŠÙÛ×ØØ][Ù×ØXÝ[ÛŠBˆÙ[‹š[\œ™]][Û—Ü™\ÜØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠš[\œ™]][Û—Ü™\Ü˜XÝ[ÛˆŠBˆÙ[‹š[\œ™]][Û—Ü™\ÜØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œÚÝ×Ú[\œ™]][Û—Ü™\Ü
+Bˆš[ÛY[K˜YXÝ[ÛŠÙ[‹š[\œ™]][Û—Ü™\ÜØXÝ[ÛŠBˆš[WÛY[K˜YÙ\\˜]ÜŠ
+BˆØ]™WÙ^ÜÜ›Ùš[WØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ™^ÜÜ›Ùš[KœØ]™HŠBˆØ]™WÙ^ÜÜ›Ùš[WØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œØ]™WÙ^ÜÜ›Ùš[JBˆš[WÛY[K˜YXÝ[ÛŠØ]™WÙ^ÜÜ›Ùš[WØXÝ[ÛŠBˆ\WÙ^ÜÜ›Ùš[WØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ™^ÜÜ›Ùš[K˜\HŠBˆ\WÙ^ÜÜ›Ùš[WØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹˜\WÙ^ÜÜ›Ùš[JBˆš[WÛY[K˜YXÝ[ÛŠ\WÙ^ÜÜ›Ùš[WØXÝ[ÛŠBˆ[]WÙ^ÜÜ›Ùš[WØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ™^ÜÜ›Ùš[K™[]HŠBˆ[]WÙ^ÜÜ›Ùš[WØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹™[]WÙ^ÜÜ›Ùš[JBˆš[WÛY[K˜YXÝ[ÛŠ[]WÙ^ÜÜ›Ùš[WØXÝ[ÛŠBˆ^ÜÚœÛÛ—ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠšœÛÛ—Ù^Ü˜XÝ[ÛˆŠBˆ^ÜÚœÛÛ—ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹™^ÜØÝ\œ™[ÚœÛÛŠBˆš[WÛY[K˜YXÝ[ÛŠ^ÜÚœÛÛ—ØXÝ[ÛŠBˆ^ÜÜ\œ]Y]ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠœ\œ]Y]Ù^Ü˜XÝ[ÛˆŠBˆ^ÜÜ\œ]Y]ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹™^ÜØÝ\œ™[Ü\œ]Y]
+Bˆš[WÛY[K˜YXÝ[ÛŠ^ÜÜ\œ]Y]ØXÝ[ÛŠB‚ˆÙ[‹™]WÚ[œÜXÝÜ—ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ™]K˜XÝ[ÛˆŠBˆÙ[‹™]WÚ[œÜXÝÜ—ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œÚÝ×Ù]WÚ[œÜXÝÜŠBˆš[WÛY[K˜YXÝ[ÛŠÙ[‹™]WÚ[œÜXÝÜ—ØXÝ[ÛŠB‚ˆÙ[‹œ[˜Ú[ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠœÚ[˜Ý\™WÜ[˜Ú[ŠBˆ[˜Ú[Ü^X\HT^X\
+
+Bˆ[˜Ú[Ü^X\™š[
+]‘ÛØ˜[ÛÛÜ‹˜[œÜ\™[
+Bˆ[˜Ú[ÜZ[\ˆHTZ[\Š[˜Ú[Ü^X\
+Bˆ[˜Ú[ÜZ[\‹œÙ]™[™\’[
+TZ[\‹”™[™\’[[X[X\Ú[™ËYJBˆ[˜Ú[ÜZ[\‹œÙ][ŠˆT[Šˆ]‘ÛØ˜[ÛÛÜ‹™\šÑÜ˜^KˆËˆ]”[”Ý[K”ÛÛY[™Kˆ]”[Ø\Ý[K”›Ý[™Ø\ˆ
+Bˆ
+Bˆ[˜Ú[ÜZ[\‹™˜]Ó[™JŒNKJBˆ[˜Ú[ÜZ[\‹œÙ][ŠˆT[Šˆ]‘ÛØ˜[ÛÛÜ‹™\šÖY[ÝËˆKˆ]”[”Ý[K”ÛÛY[™Kˆ]”[Ø\Ý[K”›Ý[™Ø\ˆ
+Bˆ
+Bˆ[˜Ú[ÜZ[\‹™˜]Ó[™JËNNÊBˆ[˜Ú[ÜZ[\‹™[™
+
+BˆÙ[‹œ[˜Ú[ØXÝ[Û‹œÙ]XÛÛŠRXÛÛŠ[˜Ú[Ü^X\
+JBˆÙ[‹œ[˜Ú[ØXÝ[Û‹œÙ]ÚXÚØX›JYJBˆÙ[‹œ[˜Ú[ØXÝ[Û‹œÙ]ÚÜÝ]
+‘HŠBˆÙ[‹œ[˜Ú[ØXÝ[Û‹œÙ]ÛÛ\
+Ù[‹—Ý
+œÚ[˜Ý\™WÜ[˜Ú[ÝÛÛ\ŠJBˆÙ[‹œ[˜Ú[ØXÝ[Û‹œÙ]Ý]\Õ\
+Ù[‹—Ý
+œÚ[˜Ý\™WÜ[˜Ú[ÝÛÛ\ŠJBˆÙ[‹œ[˜Ú[ØXÝ[Û‹ÙÙÛY˜ÛÛ›™XÝ
+Ù[‹ÙÙÛWØÝ\™WÙY]Û[ÙJBˆY]ÛY[K˜YXÝ[ÛŠÙ[‹œ[˜Ú[ØXÝ[ÛŠB‚ˆÙ[‹˜Ý\œÛÜ—Û[™WØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ˜Ý\œÛÜ‹›[™WØXÝ[ÛˆŠBˆÝ\œÛÜ—ÚXÛÛˆHT^X\
+
+BˆÝ\œÛÜ—ÚXÛÛ‹™š[
+]‘ÛØ˜[ÛÛÜ‹˜[œÜ\™[
+BˆXÛÛ—ÜZ[\ˆHTZ[\ŠÝ\œÛÜ—ÚXÛÛŠBˆXÛÛ—ÜZ[\‹œÙ][ŠT[Š]‘ÛØ˜[ÛÛÜ‹œ™YÊJBˆXÛÛ—ÜZ[\‹™˜]Ó[™J‹L‹Œ‹LŠBˆXÛÛ—ÜZ[\‹™[™
+
+BˆÙ[‹˜Ý\œÛÜ—Û[™WØXÝ[Û‹œÙ]XÛÛŠRXÛÛŠÝ\œÛÜ—ÚXÛÛŠJBˆÙ[‹˜Ý\œÛÜ—Û[™WØXÝ[Û‹œÙ]ÚXÚØX›JYJBˆÙ[‹˜Ý\œÛÜ—Û[™WØXÝ[Û‹œÙ]ÚÜÝ]
+•ˆŠBˆÙ[‹˜Ý\œÛÜ—Û[™WØXÝ[Û‹ÙÙÛY˜ÛÛ›™XÝ
+Ù[‹ÙÙÛWØÝ\œÛÜ—Û[™JBˆY]ÛY[K˜YXÝ[ÛŠÙ[‹˜Ý\œÛÜ—Û[™WØXÝ[ÛŠBˆÙ[‹˜Ý\œÛÜ—ÜÝ[WØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ˜Ý\œÛÜ‹˜ÛÛ™šYÝ\™WØXÝ[ÛˆŠBˆÙ[‹˜Ý\œÛÜ—ÜÝ[WØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹˜ÛÛ™šYÝ\™WØÝ\œÛÜ—Û[™JBˆY]ÛY[K˜YXÝ[ÛŠÙ[‹˜Ý\œÛÜ—ÜÝ[WØXÝ[ÛŠB‚ˆÙ[‹[™×ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠœÚ[[™×ØÝ\™WÙY]ŠBˆÙ[‹[™×ØXÝ[Û‹œÙ]ÚÜÝ]
+Ý›
+ÖˆŠBˆÙ[‹[™×ØXÝ[Û‹œÙ]ÚÜÝ]ÛÛ^
+]”ÚÜÝ]ÛÛ^\XØ][Û”ÚÜÝ]
+BˆÙ[‹[™×ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹[™×ØÝ\™WÙY]
+BˆÙ[‹[™×ØXÝ[Û‹œÙ][˜X›Y
+˜[ÙJBˆY]ÛY[K˜YXÝ[ÛŠÙ[‹[™×ØXÝ[ÛŠB‚ˆÙ[‹œ™Y×ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠœÚ[œ™Y×ØÝ\™WÙY]ŠBˆÙ[‹œ™Y×ØXÝ[Û‹œÙ]ÚÜÝ]
+Ý›
+ÔÚY
+ÖˆŠBˆÙ[‹œ™Y×ØXÝ[Û‹œÙ]ÚÜÝ]ÛÛ^
+]”ÚÜÝ]ÛÛ^\XØ][Û”ÚÜÝ]
+BˆÙ[‹œ™Y×ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œ™Y×ØÝ\™WÙY]
+BˆÙ[‹œ™Y×ØXÝ[Û‹œÙ][˜X›Y
+˜[ÙJBˆY]ÛY[K˜YXÝ[ÛŠÙ[‹œ™Y×ØXÝ[ÛŠB‚ˆÙ[‹˜[››Ý][Ûœ×ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ˜[››Ý][ÛœË˜XÝ[ÛˆŠBˆÙ[‹˜[››Ý][Ûœ×ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œÚÝ×Ù\Ø[››Ý][ÛœÊBˆY]ÛY[K˜YXÝ[ÛŠÙ[‹˜[››Ý][Ûœ×ØXÝ[ÛŠBˆÙ[‹˜[››Ý][Û—ÛX[˜YÙ\—ÝÛÛ˜\—ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠˆ˜[››Ý][ÛœËÛÛ˜\—ÛX[˜YÙH‚ˆ
+BˆÙ[‹—ÜÙ]ØXÝ[Û—Ú[
+Ù[‹˜[››Ý][Û—ÛX[˜YÙ\—ÝÛÛ˜\—ØXÝ[Û‹˜[››Ý][ÛœË˜XÝ[ÛˆŠBˆÙ[‹˜[››Ý][Û—ÛX[˜YÙ\—ÝÛÛ˜\—ØXÝ[Û‹œÙ]XÛÛŠˆÙ[‹œÝ[J
+KœÝ[™\™XÛÛŠTÝ[K”Ý[™\™^X\”ÔÑš[QX[ÙÑ]Z[YšY]ÊBˆ
+BˆÙ[‹˜[››Ý][Û—ÛX[˜YÙ\—ÝÛÛ˜\—ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œÚÝ×Ù\Ø[››Ý][ÛœÊBˆÙ[‹˜[››Ý][Û—ÙY]ÜÙ[XÝYØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠˆ˜[››Ý][ÛœËÛÛ˜\—ÙY]ÜÙ[XÝY‚ˆ
+BˆÙ[‹—ÜÙ]ØXÝ[Û—Ú[
+ˆÙ[‹˜[››Ý][Û—ÙY]ÜÙ[XÝYØXÝ[Û‹˜[››Ý][ÛœË™Y]ÜÙ[XÝYÚ[‚ˆ
+BˆÙ[‹˜[››Ý][Û—ÙY]ÜÙ[XÝYØXÝ[Û‹œÙ]XÛÛŠˆÙ[‹œÝ[J
+KœÝ[™\™XÛÛŠTÝ[K”Ý[™\™^X\”ÔÑš[QX[ÙÐÛÛ[ÕšY]ÊBˆ
+BˆÙ[‹˜[››Ý][Û—ÙY]ÜÙ[XÝYØXÝ[Û‹œÙ][˜X›Y
+˜[ÙJBˆÙ[‹˜[››Ý][Û—ÙY]ÜÙ[XÝYØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹—ÙY]ÜÙ[XÝYØ[››Ý][ÛŠBˆÙ[‹˜[››Ý][Û—Ù[]WÜÙ[XÝYØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠˆ˜[››Ý][ÛœËÛÛ˜\—Ù[]WÜÙ[XÝY‚ˆ
+BˆÙ[‹—ÜÙ]ØXÝ[Û—Ú[
+ˆÙ[‹˜[››Ý][Û—Ù[]WÜÙ[XÝYØXÝ[Û‹˜[››Ý][ÛœË™[]WÜÙ[XÝYÚ[‚ˆ
+BˆÙ[‹˜[››Ý][Û—Ù[]WÜÙ[XÝYØXÝ[Û‹œÙ]XÛÛŠˆÙ[‹œÝ[J
+KœÝ[™\™XÛÛŠTÝ[K”Ý[™\™^X\”ÔÕ˜\ÚXÛÛŠBˆ
+BˆÙ[‹˜[››Ý][Û—Ù[]WÜÙ[XÝYØXÝ[Û‹œÙ][˜X›Y
+˜[ÙJBˆÙ[‹˜[››Ý][Û—Ù[]WÜÙ[XÝYØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹—Ù[]WÜÙ[XÝYØ[››Ý][ÛŠBˆÙ[‹˜[››Ý][Û—ØØ[Ý]ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ˜[››Ý][ÛœËÛÛ˜\—ØØ[Ý]ŠBˆÙ[‹—ÜÙ]ØXÝ[Û—Ú[
+Ù[‹˜[››Ý][Û—ØØ[Ý]ØXÝ[Û‹˜[››Ý][ÛœËÛÛØØ[Ý]Ú[ŠBˆÙ[‹˜[››Ý][Û—ØØ[Ý]ØXÝ[Û‹œÙ]XÛÛŠˆÙ[‹œÝ[J
+KœÝ[™\™XÛÛŠTÝ[K”Ý[™\™^X\”ÔÓY\ÜØYÙP›Þ[™›Ü›X][ÛŠBˆ
+BˆÙ[‹˜[››Ý][Û—ØØ[Ý]ØXÝ[Û‹œÙ][˜X›Y
+˜[ÙJBˆÙ[‹˜[››Ý][Û—ØØ[Ý]ØXÝ[Û‹œÙ]ÚXÚØX›JYJBˆÙ[‹˜[››Ý][Û—ØØ[Ý]ØXÝ[Û‹ÙÙÛY˜ÛÛ›™XÝ
+ˆ[X™HÚXÚÙYˆÙ[‹—ÝÙÙÛWØ[››Ý][Û—ÝÛÛ
+[››Ý][Û’Ú[™ÐSÕUÚXÚÙY
+Bˆ
+BˆY]ÛY[K˜YXÝ[ÛŠÙ[‹˜[››Ý][Û—ØØ[Ý]ØXÝ[ÛŠBˆÙ[‹˜[››Ý][Û—ØÛÛ[Y[ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ˜[››Ý][ÛœËÛÛ˜\—ØÛÛ[Y[ŠBˆÙ[‹—ÜÙ]ØXÝ[Û—Ú[
+Ù[‹˜[››Ý][Û—ØÛÛ[Y[ØXÝ[Û‹˜[››Ý][ÛœËÛÛØÛÛ[Y[Ú[ŠBˆÙ[‹˜[››Ý][Û—ØÛÛ[Y[ØXÝ[Û‹œÙ]XÛÛŠˆÙ[‹œÝ[J
+KœÝ[™\™XÛÛŠTÝ[K”Ý[™\™^X\”ÔÑš[QX[ÙÐÛÛ[ÕšY]ÊBˆ
+BˆÙ[‹˜[››Ý][Û—ØÛÛ[Y[ØXÝ[Û‹œÙ][˜X›Y
+˜[ÙJBˆÙ[‹˜[››Ý][Û—ØÛÛ[Y[ØXÝ[Û‹œÙ]ÚXÚØX›JYJBˆÙ[‹˜[››Ý][Û—ØÛÛ[Y[ØXÝ[Û‹ÙÙÛY˜ÛÛ›™XÝ
+ˆ[X™HÚXÚÙYˆÙ[‹—ÝÙÙÛWØ[››Ý][Û—ÝÛÛ
+[››Ý][Û’Ú[™ÓÓSQS•ÚXÚÙY
+Bˆ
+BˆY]ÛY[K˜YXÝ[ÛŠÙ[‹˜[››Ý][Û—ØÛÛ[Y[ØXÝ[ÛŠBˆÙ[‹˜[››Ý][Û—Ú[XYÙWØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ˜[››Ý][ÛœËÛÛ˜\—Ú[XYÙHŠBˆÙ[‹—ÜÙ]ØXÝ[Û—Ú[
+Ù[‹˜[››Ý][Û—Ú[XYÙWØXÝ[Û‹˜[››Ý][ÛœËÛÛÚ[XYÙWÚ[ŠBˆÙ[‹˜[››Ý][Û—Ú[XYÙWØXÝ[Û‹œÙ]XÛÛŠˆÙ[‹œÝ[J
+KœÝ[™\™XÛÛŠTÝ[K”Ý[™\™^X\”ÔÑš[RXÛÛŠBˆ
+BˆÙ[‹˜[››Ý][Û—Ú[XYÙWØXÝ[Û‹œÙ][˜X›Y
+˜[ÙJBˆÙ[‹˜[››Ý][Û—Ú[XYÙWØXÝ[Û‹œÙ]ÚXÚØX›JYJBˆÙ[‹˜[››Ý][Û—Ú[XYÙWØXÝ[Û‹ÙÙÛY˜ÛÛ›™XÝ
+ˆ[X™HÚXÚÙYˆÙ[‹—ÝÙÙÛWØ[››Ý][Û—ÝÛÛ
+[››Ý][Û’Ú[™’SPQÑKÚXÚÙY
+Bˆ
+BˆY]ÛY[K˜YXÝ[ÛŠÙ[‹˜[››Ý][Û—Ú[XYÙWØXÝ[ÛŠBˆÙ[‹˜[››Ý][Û—ÜÞ[X›ÛØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ˜[››Ý][ÛœËÛÛ˜\—ÜÞ[X›ÛŠBˆÙ[‹—ÜÙ]ØXÝ[Û—Ú[
+Ù[‹˜[››Ý][Û—ÜÞ[X›ÛØXÝ[Û‹˜[››Ý][ÛœËÛÛÜÞ[X›ÛÚ[ŠBˆÙ[‹˜[››Ý][Û—ÜÞ[X›ÛØXÝ[Û‹œÙ]XÛÛŠˆÙ[‹œÝ[J
+KœÝ[™\™XÛÛŠTÝ[K”Ý[™\™^X\”ÔÑX[ÙÐ\P]ÛŠBˆ
+BˆÙ[‹˜[››Ý][Û—ÜÞ[X›ÛØXÝ[Û‹œÙ][˜X›Y
+˜[ÙJBˆÙ[‹˜[››Ý][Û—ÜÞ[X›ÛØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+ˆ[X™NˆÙ[‹—ØÜ™X]WØ[››Ý][Û—Ø]ÝšY]×ØÙ[\Š[››Ý][Û’Ú[™”ÖSP“Ó
+Bˆ
+BˆY]ÛY[K˜YXÝ[ÛŠÙ[‹˜[››Ý][Û—ÜÞ[X›ÛØXÝ[ÛŠB‚ˆÙ[‹›]ÛÙÞWØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ›]ÛÙÞK˜XÝ[ÛˆŠBˆÙ[‹›]ÛÙÞWØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œÚÝ×Û]ÛÙÞWÙY]ÜŠBˆY]ÛY[K˜YXÝ[ÛŠÙ[‹›]ÛÙÞWØXÝ[ÛŠB‚ˆÙ[‹œÝ˜]YÜ˜\WØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠœÝ˜]YÜ˜\K˜XÝ[ÛˆŠBˆÙ[‹œÝ˜]YÜ˜\WØXÝ[Û‹œÙ]XÛÛŠˆÙ[‹œÝ[J
+KœÝ[™\™XÛÛŠTÝ[K”Ý[™\™^X\”ÔÑš[QX[ÙÓ\ÝšY]ÊBˆ
+BˆÙ[‹œÝ˜]YÜ˜\WØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œÚÝ×ÜÝ˜]YÜ˜\WÙY]ÜŠBˆY]ÛY[K˜YXÝ[ÛŠÙ[‹œÝ˜]YÜ˜\WØXÝ[ÛŠBˆÙ[‹œÝ˜]YÜ˜\WØØ][Ù×ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠœÝ˜]YÜ˜\K˜Ø][Ù×ØXÝ[ÛˆŠBˆÙ[‹œÝ˜]YÜ˜\WØØ][Ù×ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œÚÝ×ÜÝ˜]YÜ˜\WØØ][ÙÊBˆY]ÛY[K˜YXÝ[ÛŠÙ[‹œÝ˜]YÜ˜\WØØ][Ù×ØXÝ[ÛŠBˆÙ[‹œÝ˜]YÜ˜\WÛ[ÙWØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠœÝ˜]YÜ˜\K›[ÙHŠBˆÙ[‹œÝ˜]YÜ˜\WÛ[ÙWØXÝ[Û‹œÙ]XÛÛŠˆÙ[‹œÝ[J
+KœÝ[™\™XÛÛŠTÝ[K”Ý[™\™^X\”ÔÐ\œ›ÝÑÝÛŠBˆ
+BˆÙ[‹œÝ˜]YÜ˜\WÛ[ÙWØXÝ[Û‹œÙ]ÚXÚØX›JYJBˆÙ[‹œÝ˜]YÜ˜\WÛ[ÙWØXÝ[Û‹ÙÙÛY˜ÛÛ›™XÝ
+Ù[‹ÙÙÛWÜÝ˜]YÜ˜\WÚ[œ]Û[ÙJBˆY]ÛY[K˜YXÝ[ÛŠÙ[‹œÝ˜]YÜ˜\WÛ[ÙWØXÝ[ÛŠBˆÙ[‹™Y]ÜÙ[XÝYÝ˜XÚ×ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠX›]™Y]ØÝ\œ™[Ý˜XÚÈŠBˆÙ[‹™Y]ÜÙ[XÝYÝ˜XÚ×ØXÝ[Û‹œÙ]XÛÛŠˆÙ[‹œÝ[J
+KœÝ[™\™XÛÛŠTÝ[K”Ý[™\™^X\”ÔÑš[QX[ÙÑ]Z[YšY]ÊBˆ
+BˆÙ[‹—ÜÙ]ØXÝ[Û—Ú[
+Ù[‹™Y]ÜÙ[XÝYÝ˜XÚ×ØXÝ[Û‹ZKš[™Y]Ý˜XÚÈŠBˆÙ[‹™Y]ÜÙ[XÝYÝ˜XÚ×ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹™Y]ÜÙ[XÝYÝ˜XÚÊBˆY]ÛY[K˜YXÝ[ÛŠÙ[‹™Y]ÜÙ[XÝYÝ˜XÚ×ØXÝ[ÛŠB‚ˆÙ[‹š[\œ™]][Û—Ú[\˜[×ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠš[\œ™]][ÛœË˜XÝ[ÛˆŠBˆÙ[‹š[\œ™]][Û—Ú[\˜[×ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œÚÝ×Ú[\œ™]][Û—Ú[\˜[ÊBˆY]ÛY[K˜YXÝ[ÛŠÙ[‹š[\œ™]][Û—Ú[\˜[×ØXÝ[ÛŠB‚ˆÙ[‹›]Ý\WØØ][Ù×ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ˜Ø][ÙË˜XÝ[ÛˆŠBˆÙ[‹›]Ý\WØØ][Ù×ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œÚÝ×Û]Ý\WØØ][ÙÊBˆY]ÛY[K˜YXÝ[ÛŠÙ[‹›]Ý\WØØ][Ù×ØXÝ[ÛŠB‚ˆÙ[‹œÙ[œÛÜ—ØØ][Ù×ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠœÙ[œÛÜœË˜XÝ[ÛˆŠBˆÙ[‹œÙ[œÛÜ—ØØ][Ù×ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œÚÝ×ÜÙ[œÛÜ—ØØ][ÙÊBˆY]ÛY[K˜YXÝ[ÛŠÙ[‹œÙ[œÛÜ—ØØ][Ù×ØXÝ[ÛŠB‚ˆÙ[‹™\ØÜš\[Û—Ý[\]\×ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ[\]\Ë˜XÝ[ÛˆŠBˆÙ[‹™\ØÜš\[Û—Ý[\]\×ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œÚÝ×Ù\ØÜš\[Û—Ý[\]\ÊBˆY]ÛY[K˜YXÝ[ÛŠÙ[‹™\ØÜš\[Û—Ý[\]\×ØXÝ[ÛŠB‚ˆÙ[‹››Ü›X[^™WÙ\ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ™\˜Ü™X]WØÛÜWØXÝ[ÛˆŠBˆÙ[‹››Ü›X[^™WÙ\ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹˜Ü™X]WØ\ØÙ[™[™×Ù\ØÛÜJBˆY]ÛY[K˜YXÝ[ÛŠÙ[‹››Ü›X[^™WÙ\ØXÝ[ÛŠBˆ\×ÙY]Ü—ÛY[K˜YXÝ[ÛŠÙ[‹››Ü›X[^™WÙ\ØXÝ[ÛŠBˆÙ[‹[™×Û›Ü›X[^™WÙ\ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ™\[™ÈŠBˆÙ[‹[™×Û›Ü›X[^™WÙ\ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹[™×Ø\ØÙ[™[™×Ù\ØÛÜJBˆÙ[‹[™×Û›Ü›X[^™WÙ\ØXÝ[Û‹œÙ][˜X›Y
+˜[ÙJBˆY]ÛY[K˜YXÝ[ÛŠÙ[‹[™×Û›Ü›X[^™WÙ\ØXÝ[ÛŠBˆÙ[‹œ™Y×Û›Ü›X[^™WÙ\ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ™\œ™YÈŠBˆÙ[‹œ™Y×Û›Ü›X[^™WÙ\ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œ™Y×Ø\ØÙ[™[™×Ù\ØÛÜJBˆÙ[‹œ™Y×Û›Ü›X[^™WÙ\ØXÝ[Û‹œÙ][˜X›Y
+˜[ÙJBˆY]ÛY[K˜YXÝ[ÛŠÙ[‹œ™Y×Û›Ü›X[^™WÙ\ØXÝ[ÛŠB‚ˆÙ[‹œ™\Ø[\WÙ\ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠœ™\Ø[\K˜XÝ[ÛˆŠBˆÙ[‹œ™\Ø[\WÙ\ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹˜Ü™X]WÜ™\Ø[\YÙ\ØÛÜJBˆY]ÛY[K˜YXÝ[ÛŠÙ[‹œ™\Ø[\WÙ\ØXÝ[ÛŠBˆ\×ÙY]Ü—ÛY[K˜YXÝ[ÛŠÙ[‹œ™\Ø[\WÙ\ØXÝ[ÛŠBˆÙ[‹[™×Ü™\Ø[\WØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠœ™\Ø[\K[™ÈŠBˆÙ[‹[™×Ü™\Ø[\WØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹[™×Ù\Ü™\Ø[\JBˆÙ[‹[™×Ü™\Ø[\WØXÝ[Û‹œÙ][˜X›Y
+˜[ÙJBˆY]ÛY[K˜YXÝ[ÛŠÙ[‹[™×Ü™\Ø[\WØXÝ[ÛŠBˆÙ[‹œ™Y×Ü™\Ø[\WØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠœ™\Ø[\Kœ™YÈŠBˆÙ[‹œ™Y×Ü™\Ø[\WØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œ™Y×Ù\Ü™\Ø[\JBˆÙ[‹œ™Y×Ü™\Ø[\WØXÝ[Û‹œÙ][˜X›Y
+˜[ÙJBˆY]ÛY[K˜YXÝ[ÛŠÙ[‹œ™Y×Ü™\Ø[\WØXÝ[ÛŠB‚ˆÙ[‹˜[œÙ™\—ØÝ\™\×ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ˜[œÙ™\‹˜XÝ[ÛˆŠBˆÙ[‹˜[œÙ™\—ØÝ\™\×ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œÚÝ×ØÝ\™WÝ˜[œÙ™\ŠBˆY]ÛY[K˜YXÝ[ÛŠÙ[‹˜[œÙ™\—ØÝ\™\×ØXÝ[ÛŠBˆÙ[‹[™×Ý˜[œÙ™\—ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ˜[œÙ™\‹[™ÈŠBˆÙ[‹[™×Ý˜[œÙ™\—ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹[™×ØÝ\™WÝ˜[œÙ™\ŠBˆÙ[‹[™×Ý˜[œÙ™\—ØXÝ[Û‹œÙ][˜X›Y
+˜[ÙJBˆY]ÛY[K˜YXÝ[ÛŠÙ[‹[™×Ý˜[œÙ™\—ØXÝ[ÛŠBˆÙ[‹œ™Y×Ý˜[œÙ™\—ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ˜[œÙ™\‹œ™YÈŠBˆÙ[‹œ™Y×Ý˜[œÙ™\—ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œ™Y×ØÝ\™WÝ˜[œÙ™\ŠBˆÙ[‹œ™Y×Ý˜[œÙ™\—ØXÝ[Û‹œÙ][˜X›Y
+˜[ÙJBˆY]ÛY[K˜YXÝ[ÛŠÙ[‹œ™Y×Ý˜[œÙ™\—ØXÝ[ÛŠB‚ˆÙ[‹™^\›˜[Û\×Ú[œÙ\ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ™^\›˜[Û\Ë˜XÝ[ÛˆŠBˆÙ[‹™^\›˜[Û\×Ú[œÙ\ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œÚÝ×Ù^\›˜[Û\×Ú[œÙ\
+BˆY]ÛY[K˜YXÝ[ÛŠÙ[‹™^\›˜[Û\×Ú[œÙ\ØXÝ[ÛŠBˆ\×ÙY]Ü—ÛY[K˜YXÝ[ÛŠÙ[‹™^\›˜[Û\×Ú[œÙ\ØXÝ[ÛŠBˆÙ[‹[™×Ù^\›˜[Û\×Ú[œÙ\ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ™^\›˜[Û\Ë[™ÈŠBˆÙ[‹[™×Ù^\›˜[Û\×Ú[œÙ\ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹[™×Ù^\›˜[Û\×Ú[œÙ\
+BˆÙ[‹[™×Ù^\›˜[Û\×Ú[œÙ\ØXÝ[Û‹œÙ][˜X›Y
+˜[ÙJBˆY]ÛY[K˜YXÝ[ÛŠÙ[‹[™×Ù^\›˜[Û\×Ú[œÙ\ØXÝ[ÛŠBˆÙ[‹œ™Y×Ù^\›˜[Û\×Ú[œÙ\ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ™^\›˜[Û\Ëœ™YÈŠBˆÙ[‹œ™Y×Ù^\›˜[Û\×Ú[œÙ\ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œ™Y×Ù^\›˜[Û\×Ú[œÙ\
+BˆÙ[‹œ™Y×Ù^\›˜[Û\×Ú[œÙ\ØXÝ[Û‹œÙ][˜X›Y
+˜[ÙJBˆY]ÛY[K˜YXÝ[ÛŠÙ[‹œ™Y×Ù^\›˜[Û\×Ú[œÙ\ØXÝ[ÛŠB‚ˆÙ[‹›Y\™ÙWÙ]\Ù]×ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ›Y\™ÙK˜XÝ[ÛˆŠBˆÙ[‹›Y\™ÙWÙ]\Ù]×ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œÚÝ×Ù]\Ù]ÛY\™ÙJBˆY]ÛY[K˜YXÝ[ÛŠÙ[‹›Y\™ÙWÙ]\Ù]×ØXÝ[ÛŠBˆ\×ÙY]Ü—ÛY[K˜YXÝ[ÛŠÙ[‹›Y\™ÙWÙ]\Ù]×ØXÝ[ÛŠBˆÙ[‹[™×ÛY\™ÙWØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ›Y\™ÙK[™ÈŠBˆÙ[‹[™×ÛY\™ÙWØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹[™×Ù]\Ù]ÛY\™ÙJBˆÙ[‹[™×ÛY\™ÙWØXÝ[Û‹œÙ][˜X›Y
+˜[ÙJBˆY]ÛY[K˜YXÝ[ÛŠÙ[‹[™×ÛY\™ÙWØXÝ[ÛŠBˆÙ[‹œ™Y×ÛY\™ÙWØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ›Y\™ÙKœ™YÈŠBˆÙ[‹œ™Y×ÛY\™ÙWØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œ™Y×Ù]\Ù]ÛY\™ÙJBˆÙ[‹œ™Y×ÛY\™ÙWØXÝ[Û‹œÙ][˜X›Y
+˜[ÙJBˆY]ÛY[K˜YXÝ[ÛŠÙ[‹œ™Y×ÛY\™ÙWØXÝ[ÛŠB‚ˆÙ[‹œ˜][×ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠœ˜][Ë˜XÝ[ÛˆŠBˆÙ[‹œ˜][×ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹˜Ø[Ý[]WÜ˜][ÜÊBˆØ[×ÛY[K˜YXÝ[ÛŠÙ[‹œ˜][×ØXÝ[ÛŠB‚ˆÙ[‹™›Ü›][WØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ™›Ü›][K˜XÝ[ÛˆŠBˆÙ[‹™›Ü›][WØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œÚÝ×Ù›Ü›][WÜ›Ùš[\ÊBˆØ[×ÛY[K˜YXÝ[ÛŠÙ[‹™›Ü›][WØXÝ[ÛŠB‚ˆÙ[‹˜Ý\ÝÛWÙ›Ü›][WØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠœÚ[˜Ý\ÝÛWÙ›Ü›][\ÈŠBˆÙ[‹˜Ý\ÝÛWÙ›Ü›][WØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œÚÝ×ØÝ\ÝÛWÙ›Ü›][\ÊBˆØ[×ÛY[K˜YXÝ[ÛŠÙ[‹˜Ý\ÝÛWÙ›Ü›][WØXÝ[ÛŠB‚ˆÙ[‹›Y×ØÛÜœ™XÝ[Û—ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ›Y×ØÛÜœ™XÝ[Û‹˜XÝ[ÛˆŠBˆÙ[‹›Y×ØÛÜœ™XÝ[Û—ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œÚÝ×ÛY×ØÛÜœ™XÝ[ÛŠBˆØ[×ÛY[K˜YXÝ[ÛŠÙ[‹›Y×ØÛÜœ™XÝ[Û—ØXÝ[ÛŠB‚ˆÙ[‹[YWÙ\ÛX\[™×ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ[YWÙ\˜XÝ[ÛˆŠBˆÙ[‹[YWÙ\ÛX\[™×ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œÚÝ×Ý[YWÙ\ÛX\[™ÊBˆØ[×ÛY[K˜YXÝ[ÛŠÙ[‹[YWÙ\ÛX\[™×ØXÝ[ÛŠB‚ˆÙ[‹[YWÝ×Ù\ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ[YWÝ×Ù\˜XÝ[ÛˆŠBˆÙ[‹[YWÝ×Ù\ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œÚÝ×Ý[YWÝ×Ù\ØÛÛ™\œÚ[ÛŠBˆØ[×ÛY[K˜YXÝ[ÛŠÙ[‹[YWÝ×Ù\ØXÝ[ÛŠBˆÙ[‹[™×Ý[YWÝ×Ù\ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ[YWÝ×Ù\[™ÈŠBˆÙ[‹[™×Ý[YWÝ×Ù\ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹[™×Ý[YWÝ×Ù\ØÛÛ™\œÚ[ÛŠBˆÙ[‹[™×Ý[YWÝ×Ù\ØXÝ[Û‹œÙ][˜X›Y
+˜[ÙJBˆY]ÛY[K˜YXÝ[ÛŠÙ[‹[™×Ý[YWÝ×Ù\ØXÝ[ÛŠBˆÙ[‹œ™Y×Ý[YWÝ×Ù\ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ[YWÝ×Ù\œ™YÈŠBˆÙ[‹œ™Y×Ý[YWÝ×Ù\ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œ™Y×Ý[YWÝ×Ù\ØÛÛ™\œÚ[ÛŠBˆÙ[‹œ™Y×Ý[YWÝ×Ù\ØXÝ[Û‹œÙ][˜X›Y
+˜[ÙJBˆY]ÛY[K˜YXÝ[ÛŠÙ[‹œ™Y×Ý[YWÝ×Ù\ØXÝ[ÛŠB‚ˆÙ[‹›˜ÝØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ›˜Ý˜XÝ[ÛˆŠBˆÙ[‹›˜ÝØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹˜Ø[Ý[]WÛ˜Ý
+BˆØ[×ÛY[K˜YXÝ[ÛŠÙ[‹›˜ÝØXÝ[ÛŠB‚ˆÙ[‹š[\˜[ÜÝ]\ÝXÜ×ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠœÝ]\ÝXÜË˜XÝ[ÛˆŠBˆÙ[‹š[\˜[ÜÝ]\ÝXÜ×ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œÚÝ×Ú[\˜[ÜÝ]\ÝXÜÊBˆØ[×ÛY[K˜YXÝ[ÛŠÙ[‹š[\˜[ÜÝ]\ÝXÜ×ØXÝ[ÛŠB‚ˆšY]×ÛY[K˜YXÝ[ÛŠÙ[‹œ›Ú™XÝÜ[™[ØXÝ[ÛŠBˆšY]×ÛY[K˜YXÝ[ÛŠÙ[‹˜Ý\™WØœ›ÝÜÙ\—ØXÝ[ÛŠBˆšY]×ÛY[K˜YXÝ[ÛŠÙ[‹š[œÜXÝÜ—Ü[™[ØXÝ[ÛŠBˆšY]×ÛY[K˜YXÝ[ÛŠÙ[‹š[\œ™]][Û—Ü[™[ØXÝ[ÛŠBˆšY]×ÛY[K˜YXÝ[ÛŠÙ[‹˜Ý\œÛÜ—Ü[™[ØXÝ[ÛŠBˆšY]×ÛY[K˜YXÝ[ÛŠÙ[‹š[\˜[ÜÝ]\ÝXÜ×Ü[™[ØXÝ[ÛŠBˆšY]×ÛY[K˜YÙ\\˜]ÜŠ
+BˆÙ[‹šYWÜÚYWÜ[™[×ØXÝ[ÛˆHPXÝ[ÛŠˆÙ[‹œÝ[J
+KœÝ[™\™XÛÛŠTÝ[K”Ý[™\™^X\”ÔÑX[ÙÐÛÜÙP]ÛŠKˆÙ[‹—Ý
+œ[™[šYWØ[ŠKˆÙ[‹ˆ
+BˆÙ[‹šYWÜÚYWÜ[™[×ØXÝ[Û‹œÙ]›Ü\JšLN—ÚÙ^H‹œ[™[šYWØ[ŠBˆÙ[‹šYWÜÚYWÜ[™[×ØXÝ[Û‹œÙ]›Ü\JšLN—ÝÛÛ\ÚÙ^H‹œ[™[šYWØ[ÝÛÛ\ŠBˆÙ[‹šYWÜÚYWÜ[™[×ØXÝ[Û‹œÙ]ÛÛ\
+Ù[‹—Ý
+œ[™[šYWØ[ÝÛÛ\ŠJBˆÙ[‹šYWÜÚYWÜ[™[×ØXÝ[Û‹œÙ]Ý]\Õ\
+Ù[‹—Ý
+œ[™[šYWØ[ÝÛÛ\ŠJBˆÙ[‹šYWÜÚYWÜ[™[×ØXÝ[Û‹œÙ]ÚÜÝ]
+Ý›
+Ð[
+ÌŠBˆÙ[‹šYWÜÚYWÜ[™[×ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹—ÚYWÜÚYWÜ[™[ÊBˆšY]×ÛY[K˜YXÝ[ÛŠÙ[‹šYWÜÚYWÜ[™[×ØXÝ[ÛŠB‚ˆÙ[‹™Y˜][ÝX›]ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠX›]˜Z[ÙY˜][ŠBˆÙ[‹™Y˜][ÝX›]ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹˜Z[ÙY˜][ÝX›]
+BˆX›]ÛY[K˜YXÝ[ÛŠÙ[‹™Y˜][ÝX›]ØXÝ[ÛŠB‚ˆX›]ÛY[K˜YXÝ[ÛŠÙ[‹˜Ý\™WØœ›ÝÜÙ\—ØXÝ[ÛŠB‚ˆX›]ÛY[K˜YÙ\\˜]ÜŠ
+BˆÙ[‹š[\˜[Û[ÙWÙÜ›Ý\HPXÝ[Û‘Ü›Ý\
+Ù[ŠBˆÙ[‹š[\˜[Û[ÙWÙÜ›Ý\œÙ]^Û\Ú]™JYJBˆÙ[‹š[\˜[ÜÙ[XÝØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠˆš[\œ™]][ÛœË›[ÙWÜÙ[XÝ‹ÚXÚØX›OUYBˆ
+BˆÙ[‹š[\˜[ÜÙ[XÝØXÝ[Û‹œÙ]ÚXÚÙY
+YJBˆÙ[‹š[\˜[ÜÙ[XÝØXÝ[Û‹œÙ]ÚÜÝ]
+[
+ÌHŠBˆÙ[‹š[\˜[ÜÙ[XÝØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+ˆ[X™NˆÙ[‹œÙ]Ú[\˜[Ú[\˜XÝ[Û—Û[ÙJ[\˜[Y][ÙK”ÑSPÕ
+Bˆ
+BˆÙ[‹š[\˜[Û[ÙWÙÜ›Ý\˜YXÝ[ÛŠÙ[‹š[\˜[ÜÙ[XÝØXÝ[ÛŠBˆX›]ÛY[K˜YXÝ[ÛŠÙ[‹š[\˜[ÜÙ[XÝØXÝ[ÛŠB‚ˆÙ[‹š[\˜[ØÜ™X]WØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠˆš[\œ™]][ÛœË›[ÙWØÜ™X]H‹ÚXÚØX›OUYBˆ
+BˆÙ[‹š[\˜[ØÜ™X]WØXÝ[Û‹œÙ]ÚÜÝ]
+[
+ÌˆŠBˆÙ[‹š[\˜[ØÜ™X]WØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+ˆ[X™NˆÙ[‹œÙ]Ú[\˜[Ú[\˜XÝ[Û—Û[ÙJ[\˜[Y][ÙKÔ‘PUJBˆ
+BˆÙ[‹š[\˜[Û[ÙWÙÜ›Ý\˜YXÝ[ÛŠÙ[‹š[\˜[ØÜ™X]WØXÝ[ÛŠBˆX›]ÛY[K˜YXÝ[ÛŠÙ[‹š[\˜[ØÜ™X]WØXÝ[ÛŠB‚ˆÙ[‹š[\˜[Ü™\Ú^™WØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠˆš[\œ™]][ÛœË›[ÙWÜ™\Ú^™H‹ÚXÚØX›OUYBˆ
+BˆÙ[‹š[\˜[Ü™\Ú^™WØXÝ[Û‹œÙ]ÚÜÝ]
+[
+ÌÈŠBˆÙ[‹š[\˜[Ü™\Ú^™WØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+ˆ[X™NˆÙ[‹œÙ]Ú[\˜[Ú[\˜XÝ[Û—Û[ÙJ[\˜[Y][ÙK”‘TÒV‘JBˆ
+BˆÙ[‹š[\˜[Û[ÙWÙÜ›Ý\˜YXÝ[ÛŠÙ[‹š[\˜[Ü™\Ú^™WØXÝ[ÛŠBˆX›]ÛY[K˜YXÝ[ÛŠÙ[‹š[\˜[Ü™\Ú^™WØXÝ[ÛŠB‚ˆÙ[‹[™×Ú[\œ™]][Û—ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠš[\œ™]][ÛœË[™ÈŠBˆÙ[‹[™×Ú[\œ™]][Û—ØXÝ[Û‹œÙ]ÚÜÝ]
+Ý›
+Ð[
+ÖˆŠBˆÙ[‹[™×Ú[\œ™]][Û—ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹[™×Ú[\œ™]][Û—ÙY]
+BˆX›]ÛY[K˜YXÝ[ÛŠÙ[‹[™×Ú[\œ™]][Û—ØXÝ[ÛŠBˆÙ[‹œ™Y×Ú[\œ™]][Û—ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠš[\œ™]][ÛœËœ™YÈŠBˆÙ[‹œ™Y×Ú[\œ™]][Û—ØXÝ[Û‹œÙ]ÚÜÝ]
+Ý›
+Ð[
+ÔÚY
+ÖˆŠBˆÙ[‹œ™Y×Ú[\œ™]][Û—ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œ™Y×Ú[\œ™]][Û—ÙY]
+BˆX›]ÛY[K˜YXÝ[ÛŠÙ[‹œ™Y×Ú[\œ™]][Û—ØXÝ[ÛŠBˆÙ[‹—Ý\]WÚ[\œ™]][Û—Ú\ÝÜžWØXÝ[ÛœÊ
+B‚ˆÙ[‹X›]ÙY]Û[ÙWØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠZKX›]ÙY]Û[ÙH‹ÚXÚØX›OUYJBˆÙ[‹X›]ÙY]Û[ÙWØXÝ[Û‹œÙ]ÚÜÝ]
+‘ŠBˆÙ[‹X›]ÙY]Û[ÙWØXÝ[Û‹œÙ]XÛÛŠˆÙ[‹œÝ[J
+KœÝ[™\™XÛÛŠTÝ[K”Ý[™\™^X\”ÔÑš[QX[ÙÑ]Z[YšY]ÊBˆ
+BˆÙ[‹—ÜÙ]ØXÝ[Û—Ú[
+Ù[‹X›]ÙY]Û[ÙWØXÝ[Û‹ZKš[X›]ÙY]Û[ÙHŠBˆÙ[‹X›]ÙY]Û[ÙWØXÝ[Û‹ÙÙÛY˜ÛÛ›™XÝ
+Ù[‹—ÜÙ]ÝX›]ÙY]Û[ÙJBˆX›]ÛY[K˜YXÝ[ÛŠÙ[‹X›]ÙY]Û[ÙWØXÝ[ÛŠBˆX›]ÛY[K˜YÙ\\˜]ÜŠ
+B‚ˆÙ[‹œØ]™WÝ\Ù\—Ù›Ü›WØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠZKœØ]™WÝ\Ù\—Ù›Ü›HŠBˆÙ[‹œØ]™WÝ\Ù\—Ù›Ü›WØXÝ[Û‹œÙ]XÛÛŠˆÙ[‹œÝ[J
+KœÝ[™\™XÛÛŠTÝ[K”Ý[™\™^X\”ÔÑX[ÙÔØ]™P]ÛŠBˆ
+BˆÙ[‹—ÜÙ]ØXÝ[Û—Ú[
+Ù[‹œØ]™WÝ\Ù\—Ù›Ü›WØXÝ[Û‹ZKš[œØ]™WÝ\Ù\—Ù›Ü›HŠBˆÙ[‹œØ]™WÝ\Ù\—Ù›Ü›WØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œØ]™WØÝ\œ™[ÝX›]Ø\×Ý\Ù\—Ù›Ü›JBˆX›]ÛY[K˜YXÝ[ÛŠÙ[‹œØ]™WÝ\Ù\—Ù›Ü›WØXÝ[ÛŠB‚ˆÙ[‹œØ]™WÜ™\Ù]ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠX›]œ™\Ù]ÜØ]™HŠBˆÙ[‹œØ]™WÜ™\Ù]ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œØ]™WÝX›]Ü™\Ù]
+BˆX›]ÛY[K˜YXÝ[ÛŠÙ[‹œØ]™WÜ™\Ù]ØXÝ[ÛŠBˆÙ[‹˜\WÜ™\Ù]ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠX›]œ™\Ù]Ø\HŠBˆÙ[‹˜\WÜ™\Ù]ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹˜\WÝX›]Ü™\Ù]
+BˆX›]ÛY[K˜YXÝ[ÛŠÙ[‹˜\WÜ™\Ù]ØXÝ[ÛŠBˆÙ[‹™[]WÜ™\Ù]ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠX›]œ™\Ù]Ù[]HŠBˆÙ[‹™[]WÜ™\Ù]ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹™[]WÝX›]Ü™\Ù]
+BˆX›]ÛY[K˜YXÝ[ÛŠÙ[‹™[]WÜ™\Ù]ØXÝ[ÛŠB‚ˆÙ[‹™›Ü›WÛX[˜YÙ\—ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ™›Ü›\Ë›X[˜YÙ\—ØXÝ[ÛˆŠBˆÙ[‹™›Ü›WÛX[˜YÙ\—ØXÝ[Û‹œÙ]XÛÛŠˆÙ[‹œÝ[J
+KœÝ[™\™XÛÛŠTÝ[K”Ý[™\™^X\”ÔÑš[QX[ÙÓ\ÝšY]ÊBˆ
+BˆÙ[‹—ÜÙ]ØXÝ[Û—Ú[
+Ù[‹™›Ü›WÛX[˜YÙ\—ØXÝ[Û‹ZKš[™›Ü›WÛX[˜YÙ\ˆŠBˆÙ[‹™›Ü›WÛX[˜YÙ\—ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œÚÝ×Ù›Ü›WÛX[˜YÙ\ŠBˆ›Ü›\×ÛY[K˜YXÝ[ÛŠÙ[‹™›Ü›WÛX[˜YÙ\—ØXÝ[ÛŠB‚ˆÙ[‹˜ÛÛœÝXÝÜ—ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ˜ÛÛœÝXÝÜ‹›Ü[ˆŠBˆÙ[‹˜ÛÛœÝXÝÜ—ØXÝ[Û‹œÙ]ÚÜÝ]
+Ý›
+ÔÚY
+ÒÈŠBˆÙ[‹˜ÛÛœÝXÝÜ—ØXÝ[Û‹œÙ]XÛÛŠˆÙ[‹œÝ[J
+KœÝ[™\™XÛÛŠTÝ[K”Ý[™\™^X\”ÔÐÛÛ\]\’XÛÛŠBˆ
+BˆÙ[‹—ÜÙ]ØXÝ[Û—Ú[
+Ù[‹˜ÛÛœÝXÝÜ—ØXÝ[Û‹ZKš[˜ÛÛœÝXÝÜˆŠBˆÙ[‹˜ÛÛœÝXÝÜ—ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œÚÝ×ØÛÛœÝXÝÜŠBˆÛÛœÝXÝÜ—ÛY[K˜YXÝ[ÛŠÙ[‹˜ÛÛœÝXÝÜ—ØXÝ[ÛŠBˆÛÛœÝXÝÜ—ÛY[K˜YXÝ[ÛŠÙ[‹™›Ü›WÛX[˜YÙ\—ØXÝ[ÛŠBˆÛÛœÝXÝÜ—Ý[\]\×ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ›X\Ý\›Ù×Ý[\]\Ë˜XÝ[ÛˆŠBˆÛÛœÝXÝÜ—Ý[\]\×ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œÚÝ×ÛX\Ý\›Ù×Ý[\]\ÊBˆÛÛœÝXÝÜ—ÛY[K˜YXÝ[ÛŠÛÛœÝXÝÜ—Ý[\]\×ØXÝ[ÛŠBˆÛÛœÝXÝÜ—ÚXY\—ØØ][Ù×ØXÝ[ÛˆHPXÝ[ÛŠˆÂˆ\[™ÝXYÙK”•Nˆ´&´,4`´,4.ô/´,È4/ô-taô,4`´/tbôaH4b4,4/ô/´.‹‹‹ˆ‹ˆ\[™ÝXYÙK’ÒÎˆ´$t,4`t/ô,4`´,4¦ôbô`4bô/ô`´,4`4bô/tbô¨È4.´,4`´,4.ô/´,ôbË‹‹ˆ‹ˆ\[™ÝXYÙK‘SŽˆ”š[XY\ˆØ][ÙË‹‹ˆ‹ˆVÜÙ[‹›[™ÝXYÙWKˆÙ[‹ˆ
+BˆÛÛœÝXÝÜ—ÚXY\—ØØ][Ù×ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œÚÝ×ÚXY\—ØØ][ÙÊBˆÛÛœÝXÝÜ—ÛY[K˜YXÝ[ÛŠÛÛœÝXÝÜ—ÚXY\—ØØ][Ù×ØXÝ[ÛŠBˆÛÛœÝXÝÜ—ÛÙÛ×ØØ][Ù×ØXÝ[ÛˆHPXÝ[ÛŠˆÂˆ\[™ÝXYÙK”•Nˆ´&´,4`´,4.ô/´,È4.ô/´,ô/´`´.4/ô/´,‹‹‹ˆ‹ˆ\[™ÝXYÙK’ÒÎˆ´&ô/´,ô/´`´.4/ô`´,4`4.´,4`´,4.ô/´,ôbË‹‹ˆ‹ˆ\[™ÝXYÙK‘SŽˆ“ÙÛÈØ][ÙË‹‹ˆ‹ˆVÜÙ[‹›[™ÝXYÙWKˆÙ[‹ˆ
+BˆÛÛœÝXÝÜ—ÛÙÛ×ØØ][Ù×ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œÚÝ×ÛÙÛ×ØØ][ÙÊBˆÛÛœÝXÝÜ—ÛY[K˜YXÝ[ÛŠÛÛœÝXÝÜ—ÛÙÛ×ØØ][Ù×ØXÝ[ÛŠB‚ˆÙ[‹›]ÛÙÞWÛYÙ[™ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ›YÙ[™˜XÝ[ÛˆŠBˆÙ[‹›]ÛÙÞWÛYÙ[™ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œÚÝ×Û]ÛÙÞWÛYÙ[™
+BˆX›]ÛY[K˜YXÝ[ÛŠÙ[‹›]ÛÙÞWÛYÙ[™ØXÝ[ÛŠB‚ˆYÝ˜XÚ×ÛY[HHÙ[‹—ÛØØ[^™YÛY[JX›]˜YÝ˜XÚÈŠBˆX›]ÛY[K˜YY[JYÝ˜XÚ×ÛY[JBˆ›Üˆ]WÚÙ^KÚ[™[ˆ
+ˆ
+X›]˜XÚË™\‹˜XÚÒÚ[™‘T
+Kˆ
+X›]˜XÚË™Ø\È‹˜XÚÒÚ[™‘ÐTÊKˆ
+X›]˜XÚË™^Û˜Ý‹˜XÚÒÚ[™‘V
+Kˆ
+X›]˜XÚË›]ÛÙÞH‹˜XÚÒÚ[™“UÓÑÖJKˆ
+X›]˜XÚËœÝ˜]YÜ˜\H‹˜XÚÒÚ[™”ÕUQÔTJKˆ
+X›]˜XÚËš[\œ™]][Ûˆ‹˜XÚÒÚ[™’S•T”‘UUSÓŠKˆ
+X›]˜XÚË˜Ý][™ÜÈ‹˜XÚÒÚ[™ÕUS‘ÔÊKˆ
+X›]˜XÚË˜Ø[Ú[Y]žH‹˜XÚÒÚ[™ÐSÒSQU–JKˆ
+X›]˜XÚË›˜H‹˜XÚÒÚ[™“JKˆ
+X›]˜XÚË™\ØÜš\[Ûˆ‹˜XÚÒÚ[™•V
+Kˆ
+X›]˜XÚË˜Ý\™H‹˜XÚÒÚ[™ÕT•‘JKˆ
+N‚ˆXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ]WÚÙ^JBˆXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+[X™HØÚXÚÙYQ˜[ÙK˜[YOZÚ[™ˆÙ[‹˜YÝ˜XÚÊ˜[YJJBˆYÝ˜XÚ×ÛY[K˜YXÝ[ÛŠXÝ[ÛŠBˆYˆÚ[™\È˜XÚÒÚ[™ÕT•‘N‚ˆÙ[‹˜YØÝ\™WÝ˜XÚ×ØXÝ[ÛˆHXÝ[Û‚ˆXÝ[Û‹œÙ]XÛÛŠÙ[‹œÝ[J
+KœÝ[™\™XÛÛŠTÝ[K”Ý[™\™^X\”ÔÑš[RXÛÛŠJBˆÙ[‹—ÜÙ]ØXÝ[Û—Ú[
+XÝ[Û‹ZKš[˜YØÝ\™WÝ˜XÚÈŠB‚ˆX›]ÛY[K˜YÙ\\˜]ÜŠ
+BˆÚYØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠX›]˜Ú[™ÙWÝÚYŠBˆÚYØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹˜Ú[™ÙWÜÙ[XÝYÝ˜XÚ×ÝÚY
+BˆX›]ÛY[K˜YXÝ[ÛŠÚYØXÝ[ÛŠB‚ˆ[™X\—ÜØØ[WØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠX›]›[™X\—ÜØØ[HŠBˆ[™X\—ÜØØ[WØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+ˆ[X™NˆÙ[‹œÙ]ÜÙ[XÝYÝ˜XÚ×ÞÜØØ[JØØ[K“S‘PTŠBˆ
+BˆX›]ÛY[K˜YXÝ[ÛŠ[™X\—ÜØØ[WØXÝ[ÛŠB‚ˆÙ×ÜØØ[WØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠX›]›Ù×ÜØØ[HŠBˆÙ×ÜØØ[WØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+ˆ[X™NˆÙ[‹œÙ]ÜÙ[XÝYÝ˜XÚ×ÞÜØØ[JØØ[K“ÑÐT’URPÊBˆ
+BˆX›]ÛY[K˜YXÝ[ÛŠÙ×ÜØØ[WØXÝ[ÛŠB‚ˆ˜[™ÙWØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠX›]œÙ]Ü˜[™ÙHŠBˆ˜[™ÙWØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹˜Ú[™ÙWÜÙ[XÝYÝ˜XÚ×ÞÜ˜[™ÙJBˆX›]ÛY[K˜YXÝ[ÛŠ˜[™ÙWØXÝ[ÛŠB‚ˆ]]×Ü˜[™ÙWØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠX›]˜]]×Ü˜[™ÙHŠBˆ]]×Ü˜[™ÙWØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œ™\Ù]ÜÙ[XÝYÝ˜XÚ×ÞÜ˜[™ÙJBˆX›]ÛY[K˜YXÝ[ÛŠ]]×Ü˜[™ÙWØXÝ[ÛŠB‚ˆ\Ü˜[™ÙWØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠX›]œÙ]Ù\Ü˜[™ÙHŠBˆ\Ü˜[™ÙWØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹˜Ú[™ÙWÝš\ÚX›WÙ\Ü˜[™ÙJBˆX›]ÛY[K˜YXÝ[ÛŠ\Ü˜[™ÙWØXÝ[ÛŠB‚ˆ[Ù\ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠX›]™[Ù\Ü˜[™ÙHŠBˆ[Ù\ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œ™\Ù]Ýš\ÚX›WÙ\Ü˜[™ÙJBˆX›]ÛY[K˜YXÝ[ÛŠ[Ù\ØXÝ[ÛŠB‚ˆÙ[‹›[Ý™WÛYØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠX›]›[Ý™WÛYŠBˆÙ[‹›[Ý™WÛYØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+[X™NˆÙ[‹›[Ý™WÜÙ[XÝYÝ˜XÚÊLJJBˆÙ[‹—ÜÙ]ØXÝ[Û—Ú[
+Ù[‹›[Ý™WÛYØXÝ[Û‹ZKš[›[Ý™WÛYŠBˆX›]ÛY[K˜YXÝ[ÛŠÙ[‹›[Ý™WÛYØXÝ[ÛŠB‚ˆÙ[‹›[Ý™WÜšYÚØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠX›]›[Ý™WÜšYÚŠBˆÙ[‹›[Ý™WÜšYÚØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+[X™NˆÙ[‹›[Ý™WÜÙ[XÝYÝ˜XÚÊJJBˆÙ[‹—ÜÙ]ØXÝ[Û—Ú[
+Ù[‹›[Ý™WÜšYÚØXÝ[Û‹ZKš[›[Ý™WÜšYÚŠBˆX›]ÛY[K˜YXÝ[ÛŠÙ[‹›[Ý™WÜšYÚØXÝ[ÛŠB‚ˆYWØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠX›]šYHŠBˆYWØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹šYWÜÙ[XÝYÝ˜XÚÊBˆX›]ÛY[K˜YXÝ[ÛŠYWØXÝ[ÛŠB‚ˆÚÝ×Ø[ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠX›]œÚÝ×Ø[ŠBˆÚÝ×Ø[ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œÚÝ×Ø[Ý˜XÚÜÊBˆX›]ÛY[K˜YXÝ[ÛŠÚÝ×Ø[ØXÝ[ÛŠB‚ˆÙ[‹œ™[[Ý™WÝ˜XÚ×ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠX›]œ™[[Ý™HŠBˆÙ[‹œ™[[Ý™WÝ˜XÚ×ØXÝ[Û‹œÙ]XÛÛŠˆÙ[‹œÝ[J
+KœÝ[™\™XÛÛŠTÝ[K”Ý[™\™^X\”ÔÕ˜\ÚXÛÛŠBˆ
+BˆÙ[‹—ÜÙ]ØXÝ[Û—Ú[
+Ù[‹œ™[[Ý™WÝ˜XÚ×ØXÝ[Û‹ZKš[œ™[[Ý™WÝ˜XÚÈŠBˆÙ[‹œ™[[Ý™WÝ˜XÚ×ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œ™[[Ý™WÜÙ[XÝYÝ˜XÚÊBˆX›]ÛY[K˜YXÝ[ÛŠÙ[‹œ™[[Ý™WÝ˜XÚ×ØXÝ[ÛŠB‚ˆÙ[‹›Ü[—ÛÙÜ×ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ™XYÛ›ÜÝXÜË›Ü[—ÛÙÜÈŠBˆÙ[‹›Ü[—ÛÙÜ×ØXÝ[Û‹œÙ]XÛÛŠˆÙ[‹œÝ[J
+KœÝ[™\™XÛÛŠTÝ[K”Ý[™\™^X\”ÔÑ\“Ü[’XÛÛŠBˆ
+BˆÙ[‹›Ü[—ÛÙÜ×ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹›Ü[—ÛÙ×Ù›Û\ŠBˆ[ÛY[K˜YXÝ[ÛŠÙ[‹›Ü[—ÛÙÜ×ØXÝ[ÛŠB‚ˆÙ[‹˜ÛÜWÛÙ×Ü]ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ™XYÛ›ÜÝXÜË˜ÛÜWÛÙ×Ü]ŠBˆÙ[‹˜ÛÜWÛÙ×Ü]ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹˜ÛÜWØÝ\œ™[ÛÙ×Ü]
+Bˆ[ÛY[K˜YXÝ[ÛŠÙ[‹˜ÛÜWÛÙ×Ü]ØXÝ[ÛŠB‚ˆÙ[‹˜Z[ÙXYÛ›ÜÝXÜ×ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ™XYÛ›ÜÝXÜË˜Z[Ø[™HŠBˆÙ[‹˜Z[ÙXYÛ›ÜÝXÜ×ØXÝ[Û‹œÙ]XÛÛŠˆÙ[‹œÝ[J
+KœÝ[™\™XÛÛŠTÝ[K”Ý[™\™^X\”ÔÑX[ÙÔØ]™P]ÛŠBˆ
+BˆÙ[‹˜Z[ÙXYÛ›ÜÝXÜ×ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹˜Z[ÙXYÛ›ÜÝX×Ø[™JBˆ[ÛY[K˜YXÝ[ÛŠÙ[‹˜Z[ÙXYÛ›ÜÝXÜ×ØXÝ[ÛŠB‚ˆÙ[‹˜ÛX\—ÙXYÛ›ÜÝXÜ×ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠ™XYÛ›ÜÝXÜË˜ÛX\—Ù]HŠBˆÙ[‹˜ÛX\—ÙXYÛ›ÜÝXÜ×ØXÝ[Û‹œÙ]XÛÛŠˆÙ[‹œÝ[J
+KœÝ[™\™XÛÛŠTÝ[K”Ý[™\™^X\”ÔÕ˜\ÚXÛÛŠBˆ
+BˆÙ[‹˜ÛX\—ÙXYÛ›ÜÝXÜ×ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹˜ÛX\—ÙXYÛ›ÜÝX×Ù]JBˆ[ÛY[K˜YXÝ[ÛŠÙ[‹˜ÛX\—ÙXYÛ›ÜÝXÜ×ØXÝ[ÛŠBˆ[ÛY[K˜YÙ\\˜]ÜŠ
+B‚ˆX›Ý]ØXÝ[ÛˆHÙ[‹—ÛØØ[^™YØXÝ[ÛŠœÚ[˜X›Ý]ŠBˆX›Ý]ØXÝ[Û‹šYÙÙ\™Y˜ÛÛ›™XÝ
+Ù[‹œÚÝ×ØX›Ý]
+Bˆ[ÛY[K˜YXÝ[ÛŠX›Ý]ØXÝ[ÛŠB‚ˆYˆÝÛÛ˜\—Ø]ÛŠˆÙ[‹ˆÛÛ˜\ŽˆUÚYÙ]ˆXÝ[ÛŽˆPXÝ[Û‹ˆ
+‹ˆ^Ø™\ÚYWÚXÛÛŽˆ›ÛÛHYKˆXÛÛ—ÜÚ^™Nˆ[HŒ‹ˆ
+HOˆUÛÛ]ÛŽ‚ˆ]ÛˆHUÛÛ]ÛŠÛÛ˜\ŠBˆ]Û‹œÙ]Y˜][XÝ[ÛŠXÝ[ÛŠBˆ]Û‹œÙ]XÛÛ”Ú^™JTÚ^™JXÛÛ—ÜÚ^™KXÛÛ—ÜÚ^™JJBˆ]Û‹œÙ]Ü\[ÙJUÛÛ]Û‹•ÛÛ]Û”Ü\[ÙK‘[^YYÜ\
+Bˆ]Û‹œÙ]ÛÛ]Û”Ý[Jˆ]•ÛÛ]Û”Ý[K•ÛÛ]Û•^™\ÚYRXÛÛ‚ˆYˆ^Ø™\ÚYWÚXÛÛ‚ˆ[ÙH]•ÛÛ]Û”Ý[K•ÛÛ]Û’XÛÛ“Û›Bˆ
+Bˆ]Û‹œÙ]]]Ô˜Z\ÙJ˜[ÙJBˆ]Û‹œÙ]Z[š[][UÚY
+
+Bˆ™]\›ˆ]Û‚‚ˆÝ]XÛY]ÙˆYˆÝÛÛ˜\—ÜÙ\\˜]Ü—ÝÚYÙ]
+\™[ˆUÚYÙ]
+HOˆQœ˜[YN‚ˆÙ\\˜]ÜˆHQœ˜[YJ\™[
+BˆÙ\\˜]Ü‹œÙ]Øš™XÝ˜[YJÛÛ˜\”Ù\\˜]ÜˆŠBˆÙ\\˜]Ü‹œÙ]œ˜[YTÚ\JQœ˜[YK”Ú\K•“[™JBˆÙ\\˜]Ü‹œÙ]œ˜[YTÚYÝÊQœ˜[YK”ÚYÝË”Ý[šÙ[ŠBˆÙ\\˜]Ü‹œÙ]š^YÚY
+
+BˆÙ\\˜]Ü‹œÙ]Ú^™TÛXÞJTÚ^™TÛXÞK”ÛXÞK‘š^YTÚ^™TÛXÞK”ÛXÞK‘^[™[™ÊBˆ™]\›ˆÙ\\˜]Ü‚‚ˆYˆØÜ™X]WÚÛYWÜYÙJÙ[ŠHOˆ›Û™N‚ˆÙ[‹šÛYWÜYÙHHÛYTYÙJˆ
+ˆÛYPXÝ[ÛŠˆÙ[‹›Ü[—Ù]WØXÝ[Û‹ˆšÛYKš[\ÜÙ\ØÜš\[Ûˆ‹ˆšÛYR[\Ü]Ûˆ‹ˆš[X\žOUYKˆ
+KˆÛYPXÝ[ÛŠˆÙ[‹›Ü[—Ü›Ú™XÝØXÝ[Û‹ˆšÛYK›Ü[—Ü›Ú™XÝÙ\ØÜš\[Ûˆ‹ˆšÛYSÜ[”›Ú™XÝ]Ûˆ‹ˆš[X\žOUYKˆ
+KˆÛYPXÝ[ÛŠˆÙ[‹›™]×Û\×ØXÝ[Û‹ˆšÛYK›™]×Û\×Ù\ØÜš\[Ûˆ‹ˆšÛYS™]Ó\Ð]Ûˆ‹ˆ
+KˆÛYPXÝ[ÛŠˆÙ[‹œ\˜YÞØ˜]ÚØXÝ[Û‹ˆšÛYK˜˜]ÚÙ\ØÜš\[Ûˆ‹ˆšÛYP˜]Ú]Ûˆ‹ˆ
+KˆÛYPXÝ[ÛŠˆÙ[‹™›Ü›WÛX[˜YÙ\—ØXÝ[Û‹ˆšÛYK™›Ü›\×Ù\ØÜš\[Ûˆ‹ˆšÛYQ›Ü›\Ð]Ûˆ‹ˆ
+KˆÛYPXÝ[ÛŠˆÙ[‹˜ÛÛœÝXÝÜ—ØXÝ[Û‹ˆšÛYK˜ÛÛœÝXÝÜ—Ù\ØÜš\[Ûˆ‹ˆšÛYPÛÛœÝXÝÜ]Ûˆ‹ˆ
+Kˆ
+KˆÙ[‹ÛÜšÜÜXÙWØXÝ[Û‹ˆ[™ÝXYÙO\Ù[‹›[™ÝXYÙKˆ
+BˆÙ[‹˜Ù[˜[ÜÝXÚÈHTÝXÚÙYÚYÙ]
+Ù[ŠBˆÙ[‹˜Ù[˜[ÜÝXÚËœÙ]Øš™XÝ˜[YJ˜Ù[˜[ÛÜšÜÜXÙTÝXÚÈŠBˆÙ[‹˜Ù[˜[ÜÝXÚË˜YÚYÙ]
+Ù[‹šÛYWÜYÙJBˆÙ[‹˜Ù[˜[ÜÝXÚË˜YÚYÙ]
+Ù[‹XœÊBˆÙ[‹˜Ù[˜[ÜÝXÚËœÙ]Ý\œ™[ÚYÙ]
+Ù[‹šÛYWÜYÙJBˆÙ[‹œÙ]Ù[˜[ÚYÙ]
+Ù[‹˜Ù[˜[ÜÝXÚÊB‚ˆYˆÜÚÝ×ÚÛYJÙ[ŠHOˆ›Û™N‚ˆÙ[‹—ÝÛÜšÜÜXÙWØÛÛ›Û\‹œÚÝ×ÚÛYJ
+B‚ˆYˆÜÚÝ×ÚÛYWÙœ›ÛWÚ[\œ™]][Û—Ü™\Ü
+Ù[ŠHOˆ›Û™N‚ˆ™\ÜÙX[ÙÈHÙ]]ŠÙ[‹š[\œ™]][Û—Ü™\ÜÙX[ÙÈ‹›Û™JBˆYˆ™\ÜÙX[ÙÈ\È›Ý›Û™H[™™\ÜÙX[ÙËš\Õš\ÚX›J
+N‚ˆ™\ÜÙX[ÙËšYJ
+BˆÙ[‹—ÜÚÝ×ÚÛYJ
+B‚ˆYˆÜÚÝ×ÝÛÜšÜÜXÙJÙ[‹ÚYÙ]ˆUÚYÙ]›Û™HH›Û™JHOˆ›Û™N‚ˆÙ[‹—ÝÛÜšÜÜXÙWØÛÛ›Û\‹œÚÝ×ÝÛÜšÜÜXÙJÚYÙ]
+B‚ˆYˆÚÝ×Ùš[WÝÛÜšÜÜXÙJÙ[ŠHOˆ›Û™N‚ˆÙ[‹XœËœÙ]Ý\œ™[ÚYÙ]
+Ù[‹™š[WÝÛÜšÜÜXÙJBˆÙ[‹˜Ù[˜[ÜÝXÚËœÙ]Ý\œ™[ÚYÙ]
+Ù[‹XœÊBˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJš[UÛÜšÜÜXÙUÚYÙ]X—Ý]JÙ[‹›[™ÝXYÙK˜[YJJB‚ˆYˆØÜ™X]WÝÛÛ˜\ŠÙ[ŠHOˆ›Û™N‚ˆÙ[‹›XZ[—ÝÛÛ˜\ˆHÔ™\ÜÛœÚ]™PÛÛ[X[™˜\ŠÙ[‹X\™Ú[œÏJ‹ŠJBˆÙ[‹›XZ[—ÝÛÛ˜\‹œÙ]Øš™XÝ˜[YJ›XZ[•ÛÛ˜\ˆŠBˆÙ[‹›XZ[—ÝÛÛ˜\‹œÙ]Ý[TÚY]
+ˆ”Qœ˜[YHÛXZ[•ÛÛ˜\ˆÈ‚ˆ˜›Ü™\‹X›ÝÛNˆ\ÛÛYØØ™YLNÈ˜XÚÙÜ›Ý[™ˆÙ™™™™™ŽÈH‚ˆ”Qœ˜[YHÛXZ[•ÛÛ˜\ˆUÛÛ]ÛˆÈZ[‹ZZYÚˆÌœÈY[™Îˆ\È‚ˆ˜›Ü™\Žˆ\ÛÛYÙLXNÈ›Ü™\‹\˜Y]\ÎˆÜÈÛÛÜŽˆÌYLŽLØŽÈ‚ˆ™›Û]ÙZYÚˆŒÈ˜XÚÙÜ›Ý[™ˆÙŽ˜Y˜ÎÈH‚ˆ”Qœ˜[YHÛXZ[•ÛÛ˜\ˆUÛÛ]ÛŽšÝ™\ˆÈ˜XÚÙÜ›Ý[™ˆÙY™™™ŽÈ‚ˆ˜›Ü™\‹XÛÛÜŽˆÍŒMY˜NÈÛÛÜŽˆÌYYÈH‚ˆ”Qœ˜[YHÛXZ[•ÛÛ˜\ˆUÛÛ]ÛŽœ™\ÜÙYÈ˜XÚÙÜ›Ý[™ˆÙ™XY™NÈH‚ˆ”Qœ˜[YHÛXZ[•ÛÛ˜\ˆUÛÛ]ÛŽ˜ÚXÚÙYÈ˜XÚÙÜ›Ý[™ˆÙ™XY™NÈ‚ˆ˜›Ü™\‹XÛÛÜŽˆÌØŽ™ŽÈÛÛÜŽˆÌYLØNNÈH‚ˆ
+B‚ˆÈÙY\HÛÛ\]HXZ[ˆ›ÝÈ[œÚYHÛ™HUÚYÙ]ˆ\È[X™\˜][BˆÈž\\ÜÙ\ÈUÛÛ˜\‰ÜÈš]˜]H^[œÚ[Ûˆ]Û‹ÚXÚX^H™H[œÙ\YˆÈ\Þ[˜Ú›Û›Ý\ÛHžHHÚ[™ÝÜÈÝ[HY\ˆHHÜˆ[Ûš]ÜˆÚ[™ÙK‚ˆÙ[‹›XZ[—ÝÛÛ˜\—Ü›ÝÈHÔ™\ÜÛœÚ]™UÛÛ˜\”›ÝÊÙ[‹›XZ[—ÝÛÛ˜\ŠBˆÙ[‹›XZ[—ÝÛÛ˜\—Ü›ÝËœÙ]Øš™XÝ˜[YJ›XZ[•ÛÛ˜\”›ÝÈŠBˆÙ[‹›XZ[—ÝÛÛ˜\—Ü›ÝËœÙ]Z[š[][UÚY
+
+BˆÙ[‹›XZ[—ÝÛÛ˜\—Ü›ÝËœÙ]Ú^™TÛXÞJˆTÚ^™TÛXÞK”ÛXÞK’YÛ›Ü™YTÚ^™TÛXÞK”ÛXÞK”™Y™\œ™Yˆ
+BˆÙ[‹›XZ[—ÝÛÛ˜\—Û^[Ý]HR›Þ^[Ý]
+Ù[‹›XZ[—ÝÛÛ˜\—Ü›ÝÊBˆÙ[‹›XZ[—ÝÛÛ˜\—Û^[Ý]œÙ]ÛÛ[ÓX\™Ú[œÊ
+BˆÙ[‹›XZ[—ÝÛÛ˜\—Û^[Ý]œÙ]ÜXÚ[™ÊŠB‚ˆÙ[‹šÛYWØ]ÛˆHÙ[‹—ÝÛÛ˜\—Ø]ÛŠÙ[‹›XZ[—ÝÛÛ˜\—Ü›ÝËÙ[‹šÛYWØXÝ[ÛŠBˆÙ[‹›\×ÙY]Ü—Ø]ÛˆHÙ[‹—ÝÛÛ˜\—Ø]ÛŠÙ[‹›XZ[—ÝÛÛ˜\—Ü›ÝËÙ[‹›\×ÙY]Ü—ØXÝ[ÛŠBˆÙ[‹™›Ü›WÛX[˜YÙ\—Ø]ÛˆHÙ[‹—ÝÛÛ˜\—Ø]ÛŠˆÙ[‹›XZ[—ÝÛÛ˜\—Ü›ÝËÙ[‹™›Ü›WÛX[˜YÙ\—ØXÝ[Û‚ˆ
+BˆÙ[‹˜ÛÛœÝXÝÜ—Ø]ÛˆHÙ[‹—ÝÛÛ˜\—Ø]ÛŠˆÙ[‹›XZ[—ÝÛÛ˜\—Ü›ÝËÙ[‹˜ÛÛœÝXÝÜ—ØXÝ[Û‚ˆ
+BˆÙ[‹›Ü[—Ü›Ú™XÝØ]ÛˆHÙ[‹—ÝÛÛ˜\—Ø]ÛŠˆÙ[‹›XZ[—ÝÛÛ˜\—Ü›ÝËÙ[‹›Ü[—Ü›Ú™XÝØXÝ[Û‚ˆ
+BˆÙ[‹›Ü[—Ù]WØ]ÛˆHÙ[‹—ÝÛÛ˜\—Ø]ÛŠÙ[‹›XZ[—ÝÛÛ˜\—Ü›ÝËÙ[‹›Ü[—Ù]WØXÝ[ÛŠBˆÙ[‹œØ]™WØ]ÛˆHÙ[‹—ÝÛÛ˜\—Ø]ÛŠÙ[‹›XZ[—ÝÛÛ˜\—Ü›ÝËÙ[‹œØ]™WØXÝ[ÛŠBˆÙ[‹œ[˜Ú[Ø]ÛˆHÙ[‹—ÝÛÛ˜\—Ø]ÛŠÙ[‹›XZ[—ÝÛÛ˜\—Ü›ÝËÙ[‹œ[˜Ú[ØXÝ[ÛŠBˆÙ[‹˜Ý\œÛÜ—Û[™WØ]ÛˆHÙ[‹—ÝÛÛ˜\—Ø]ÛŠˆÙ[‹›XZ[—ÝÛÛ˜\—Ü›ÝËÙ[‹˜Ý\œÛÜ—Û[™WØXÝ[Û‚ˆ
+B‚ˆÙ[‹—ÛXZ[—ÝÛÛ˜\—ÜÙ\\˜]Ü—ÚÛYHHÙ[‹—ÝÛÛ˜\—ÜÙ\\˜]Ü—ÝÚYÙ]
+Ù[‹›XZ[—ÝÛÛ˜\—Ü›ÝÊBˆÙ[‹—ÛXZ[—ÝÛÛ˜\—ÜÙ\\˜]Ü—Ùš[\ÈHÙ[‹—ÝÛÛ˜\—ÜÙ\\˜]Ü—ÝÚYÙ]
+Ù[‹›XZ[—ÝÛÛ˜\—Ü›ÝÊBˆÙ[‹—ÛXZ[—ÝÛÛ˜\—ÜÙ\\˜]Ü—ÝÛÛÈHÙ[‹—ÝÛÛ˜\—ÜÙ\\˜]Ü—ÝÚYÙ]
+Ù[‹›XZ[—ÝÛÛ˜\—Ü›ÝÊB‚ˆÙ[‹›XZ[—ÝÛÛ˜\—Û^[Ý]˜YÚYÙ]
+Ù[‹šÛYWØ]ÛŠBˆÙ[‹›XZ[—ÝÛÛ˜\—Û^[Ý]˜YÚYÙ]
+Ù[‹—ÛXZ[—ÝÛÛ˜\—ÜÙ\\˜]Ü—ÚÛYJBˆÙ[‹›XZ[—ÝÛÛ˜\—Û^[Ý]˜YÚYÙ]
+Ù[‹›\×ÙY]Ü—Ø]ÛŠBˆÙ[‹›XZ[—ÝÛÛ˜\—Û^[Ý]˜YÚYÙ]
+Ù[‹™›Ü›WÛX[˜YÙ\—Ø]ÛŠBˆÙ[‹›XZ[—ÝÛÛ˜\—Û^[Ý]˜YÚYÙ]
+Ù[‹˜ÛÛœÝXÝÜ—Ø]ÛŠBˆÙ[‹›XZ[—ÝÛÛ˜\—Û^[Ý]˜YÚYÙ]
+Ù[‹—ÛXZ[—ÝÛÛ˜\—ÜÙ\\˜]Ü—Ùš[\ÊBˆÙ[‹›XZ[—ÝÛÛ˜\—Û^[Ý]˜YÚYÙ]
+Ù[‹›Ü[—Ü›Ú™XÝØ]ÛŠBˆÙ[‹›XZ[—ÝÛÛ˜\—Û^[Ý]˜YÚYÙ]
+Ù[‹›Ü[—Ù]WØ]ÛŠBˆÙ[‹›XZ[—ÝÛÛ˜\—Û^[Ý]˜YÚYÙ]
+Ù[‹œØ]™WØ]ÛŠBˆÙ[‹›XZ[—ÝÛÛ˜\—Û^[Ý]˜YÚYÙ]
+Ù[‹—ÛXZ[—ÝÛÛ˜\—ÜÙ\\˜]Ü—ÝÛÛÊBˆÙ[‹›XZ[—ÝÛÛ˜\—Û^[Ý]˜YÚYÙ]
+Ù[‹œ[˜Ú[Ø]ÛŠBˆÙ[‹›XZ[—ÝÛÛ˜\—Û^[Ý]˜YÚYÙ]
+Ù[‹˜Ý\œÛÜ—Û[™WØ]ÛŠB‚ˆÙ[‹›XZ[—ÝÛÛ˜\—ÛÝ™\™›Ý×ÛY[HHSY[JÙ[‹›XZ[—ÝÛÛ˜\—Ü›ÝÊBˆ›ÜˆXÝ[Ûˆ[ˆ
+ˆÙ[‹šÛYWØXÝ[Û‹ˆÙ[‹›\×ÙY]Ü—ØXÝ[Û‹ˆÙ[‹™›Ü›WÛX[˜YÙ\—ØXÝ[Û‹ˆÙ[‹˜ÛÛœÝXÝÜ—ØXÝ[Û‹ˆÙ[‹›Ü[—Ü›Ú™XÝØXÝ[Û‹ˆÙ[‹›Ü[—Ù]WØXÝ[Û‹ˆÙ[‹œØ]™WØXÝ[Û‹ˆÙ[‹œ[˜Ú[ØXÝ[Û‹ˆÙ[‹˜Ý\œÛÜ—Û[™WØXÝ[Û‹ˆ
+N‚ˆÙ[‹›XZ[—ÝÛÛ˜\—ÛÝ™\™›Ý×ÛY[K˜YXÝ[ÛŠXÝ[ÛŠBˆÙ[‹›XZ[—ÝÛÛ˜\—ÛÝ™\™›Ý×Ø]ÛˆHUÛÛ]ÛŠÙ[‹›XZ[—ÝÛÛ˜\—Ü›ÝÊBˆÙ[‹›XZ[—ÝÛÛ˜\—ÛÝ™\™›Ý×Ø]Û‹œÙ]Øš™XÝ˜[YJ›XZ[•ÛÛ˜\“Ý™\™›ÝÐ]ÛˆŠBˆÙ[‹›XZ[—ÝÛÛ˜\—ÛÝ™\™›Ý×Ø]Û‹œÙ]^
+¸¢ëÈŠBˆÙ[‹›XZ[—ÝÛÛ˜\—ÛÝ™\™›Ý×Ø]Û‹œÙ]ÛÛ\
+Ù[‹—Ý
+ÛÛ˜\‹›[Ü™WØXÝ[ÛœÈŠJBˆÙ[‹›XZ[—ÝÛÛ˜\—ÛÝ™\™›Ý×Ø]Û‹œÙ]Y[JÙ[‹›XZ[—ÝÛÛ˜\—ÛÝ™\™›Ý×ÛY[JBˆÙ[‹›XZ[—ÝÛÛ˜\—ÛÝ™\™›Ý×Ø]Û‹œÙ]Ü\[ÙJUÛÛ]Û‹•ÛÛ]Û”Ü\[ÙK’[œÝ[Ü\
+BˆÙ[‹›XZ[—ÝÛÛ˜\—ÛÝ™\™›Ý×Ø]Û‹œÙ]]]Ô˜Z\ÙJ˜[ÙJBˆÙ[‹›XZ[—ÝÛÛ˜\—ÛÝ™\™›Ý×Ø]Û‹œÙ]š^YÚY
+Î
+BˆÙ[‹›XZ[—ÝÛÛ˜\—Û^[Ý]˜YÚYÙ]
+Ù[‹›XZ[—ÝÛÛ˜\—ÛÝ™\™›Ý×Ø]ÛŠBˆÙ[‹›XZ[—ÝÛÛ˜\—ÛÝ™\™›Ý×Ø]Û‹šYJ
+B‚ˆÙ[‹›XZ[—ÝÛÛ˜\—ÜÜXÙ\ˆHUÚYÙ]
+Ù[‹›XZ[—ÝÛÛ˜\—Ü›ÝÊBˆÙ[‹›XZ[—ÝÛÛ˜\—ÜÜXÙ\‹œÙ]Z[š[][UÚY
+
+BˆÙ[‹›XZ[—ÝÛÛ˜\—ÜÜXÙ\‹œÙ]Ú^™TÛXÞJˆTÚ^™TÛXÞK”ÛXÞK‘^[™[™ËTÚ^™TÛXÞK”ÛXÞK”™Y™\œ™Yˆ
+BˆÙ[‹›XZ[—ÝÛÛ˜\—Û^[Ý]˜YÚYÙ]
+Ù[‹›XZ[—ÝÛÛ˜\—ÜÜXÙ\‹JBˆÙ[‹™Y]Û[ÙWØ]ÛˆHÙ[‹—ÝÛÛ˜\—Ø]ÛŠˆÙ[‹›XZ[—ÝÛÛ˜\—Ü›ÝËÙ[‹X›]ÙY]Û[ÙWØXÝ[Û‚ˆ
+BˆÙ[‹™Y]Û[ÙWØ]Û‹œÙ]Øš™XÝ˜[YJX›]Y][ÙUÛÛ˜\]ÛˆŠBˆÙ[‹™Y]Û[ÙWØ]Û‹œÙ]Z[š[][UÚY
+Í
+BˆÙ[‹™Y]Û[ÙWØ]Û‹œÙ]Ú^™TÛXÞJTÚ^™TÛXÞK”ÛXÞK‘š^YTÚ^™TÛXÞK”ÛXÞK”™Y™\œ™Y
+BˆÙ[‹›XZ[—ÝÛÛ˜\—Û^[Ý]˜YÚYÙ]
+Ù[‹™Y]Û[ÙWØ]ÛŠB‚ˆÙ[‹›XZ[—ÝÛÛ˜\‹œÙ]ØÛÛ[ÝÚYÙ]
+Ù[‹›XZ[—ÝÛÛ˜\—Ü›ÝÊB‚ˆÙ[‹™›Ü›WÙY]ÝÛÛ˜\ˆHÔ™\ÜÛœÚ]™PÛÛ[X[™˜\ŠÙ[‹X\™Ú[œÏJËË
+JBˆÙ[‹™›Ü›WÙY]ÝÛÛ˜\‹œÙ]Øš™XÝ˜[YJ™›Ü›QY]ÛÛ˜\ˆŠBˆÙ[‹™›Ü›WÙY]ÝÛÛ˜\‹œÙ]Ý[TÚY]
+ˆ”Qœ˜[YHÙ›Ü›QY]ÛÛ˜\ˆÈ‚ˆ˜˜XÚÙÜ›Ý[™ˆÙY™™™ŽÈ›Ü™\‹X›ÝÛNˆ\ÛÛYÎLØÍY™ÈH‚ˆ”Qœ˜[YHÙ›Ü›QY]ÛÛ˜\ˆUÛÛ]ÛˆÈZ[‹ZZYÚˆŽÈY[™ÎˆÜÜÈ‚ˆ˜›Ü™\‹\˜Y]\Îˆ\ÈH‚ˆ”Qœ˜[YHÙ›Ü›QY]ÛÛ˜\ˆUÛÛ]ÛŽšÝ™\ˆÈ˜XÚÙÜ›Ý[™ˆÙ™XY™NÈH‚ˆ
+BˆÙ[‹™›Ü›WÙY]Ü›ÝÈHÔ™\ÜÛœÚ]™UÛÛ˜\”›ÝÊÙ[‹™›Ü›WÙY]ÝÛÛ˜\ŠBˆÙ[‹™›Ü›WÙY]Ü›ÝËœÙ]Øš™XÝ˜[YJ™›Ü›QY]ÛÛ˜\”›ÝÈŠBˆÙ[‹™›Ü›WÙY]Ü›ÝËœÙ]Z[š[][UÚY
+
+BˆÙ[‹™›Ü›WÙY]Ü›ÝËœÙ]Ú^™TÛXÞJTÚ^™TÛXÞK”ÛXÞK’YÛ›Ü™YTÚ^™TÛXÞK”ÛXÞK”™Y™\œ™Y
+BˆÙ[‹™›Ü›WÙY]Û^[Ý]HR›Þ^[Ý]
+Ù[‹™›Ü›WÙY]Ü›ÝÊBˆÙ[‹™›Ü›WÙY]Û^[Ý]œÙ]ÛÛ[ÓX\™Ú[œÊ
+BˆÙ[‹™›Ü›WÙY]Û^[Ý]œÙ]ÜXÚ[™Ê
+B‚ˆÙ[‹™›Ü›WÙY]ØØ\[ÛˆHSX™[
+Ù[‹—Ý
+ZK™›Ü›WÙY]ÝÛÛ˜\ˆŠKÙ[‹™›Ü›WÙY]Ü›ÝÊBˆÙ[‹™›Ü›WÙY]ØØ\[Û‹œÙ]Ý[TÚY]
+ˆ˜˜XÚÙÜ›Ý[™˜[œÜ\™[È›Û]ÙZYÚÌÈÛÛÜŽˆÌYLØNNÈY[™Ë\šYÚŽÈ‚ˆ
+BˆÙ[‹™›Ü›WÙY]ØØ\[Û‹œÙ]ÛÛ\
+Ù[‹—Ý
+ZKš[X›]ÙY]Û[ÙHŠJBˆÙ[‹™›Ü›WÙY]Û^[Ý]˜YÚYÙ]
+Ù[‹™›Ü›WÙY]ØØ\[ÛŠB‚ˆ›Ü›WØXÝ[ÛœÈH
+ˆÙ[‹˜[››Ý][Û—ØØ[Ý]ØXÝ[Û‹ˆÙ[‹˜[››Ý][Û—ØÛÛ[Y[ØXÝ[Û‹ˆÙ[‹˜[››Ý][Û—Ú[XYÙWØXÝ[Û‹ˆÙ[‹˜[››Ý][Û—ÜÞ[X›ÛØXÝ[Û‹ˆÙ[‹˜[››Ý][Û—ÛX[˜YÙ\—ÝÛÛ˜\—ØXÝ[Û‹ˆÙ[‹˜[››Ý][Û—ÙY]ÜÙ[XÝYØXÝ[Û‹ˆÙ[‹˜[››Ý][Û—Ù[]WÜÙ[XÝYØXÝ[Û‹ˆÙ[‹˜YØÝ\™WÝ˜XÚ×ØXÝ[Û‹ˆÙ[‹™Y]ÜÙ[XÝYÝ˜XÚ×ØXÝ[Û‹ˆÙ[‹›[Ý™WÛYØXÝ[Û‹ˆÙ[‹›[Ý™WÜšYÚØXÝ[Û‹ˆÙ[‹œ™[[Ý™WÝ˜XÚ×ØXÝ[Û‹ˆÙ[‹œØ]™WÝ\Ù\—Ù›Ü›WØXÝ[Û‹ˆ
+BˆÙ[‹—Ù›Ü›WÝÛÛ˜\—Ø]ÛœÈHÂˆXÝ[ÛŽˆÙ[‹—ÝÛÛ˜\—Ø]ÛŠÙ[‹™›Ü›WÙY]Ü›ÝËXÝ[Û‹XÛÛ—ÜÚ^™OLN
+Bˆ›ÜˆXÝ[Ûˆ[ˆ›Ü›WØXÝ[ÛœÂˆBˆ›ÜˆXÝ[Ûˆ[ˆ›Ü›WØXÝ[ÛœÖÎ×N‚ˆÙ[‹™›Ü›WÙY]Û^[Ý]˜YÚYÙ]
+Ù[‹—Ù›Ü›WÝÛÛ˜\—Ø]ÛœÖØXÝ[Û—JBˆÙ[‹—Ù›Ü›WÝÛÛ˜\—ÜÙ\\˜]Ü—Ø[››Ý][ÛœÈHÙ[‹—ÝÛÛ˜\—ÜÙ\\˜]Ü—ÝÚYÙ]
+ˆÙ[‹™›Ü›WÙY]Ü›ÝÂˆ
+BˆÙ[‹™›Ü›WÙY]Û^[Ý]˜YÚYÙ]
+Ù[‹—Ù›Ü›WÝÛÛ˜\—ÜÙ\\˜]Ü—Ø[››Ý][ÛœÊBˆ›ÜˆXÝ[Ûˆ[ˆ›Ü›WØXÝ[ÛœÖÍÎŒL—N‚ˆÙ[‹™›Ü›WÙY]Û^[Ý]˜YÚYÙ]
+Ù[‹—Ù›Ü›WÝÛÛ˜\—Ø]ÛœÖØXÝ[Û—JBˆÙ[‹—Ù›Ü›WÝÛÛ˜\—ÜÙ\\˜]Ü—Ý˜XÚÜÈHÙ[‹—ÝÛÛ˜\—ÜÙ\\˜]Ü—ÝÚYÙ]
+Ù[‹™›Ü›WÙY]Ü›ÝÊBˆÙ[‹™›Ü›WÙY]Û^[Ý]˜YÚYÙ]
+Ù[‹—Ù›Ü›WÝÛÛ˜\—ÜÙ\\˜]Ü—Ý˜XÚÜÊBˆÙ[‹™›Ü›WÙY]Û^[Ý]˜YÚYÙ]
+Ù[‹—Ù›Ü›WÝÛÛ˜\—Ø]ÛœÖÜÙ[‹œØ]™WÝ\Ù\—Ù›Ü›WØXÝ[Û—JB‚ˆÙ[‹™›Ü›WÙY]ÛÝ™\™›Ý×ÛY[HHSY[JÙ[‹™›Ü›WÙY]Ü›ÝÊBˆ›ÜˆXÝ[Ûˆ[ˆ›Ü›WØXÝ[ÛœÎ‚ˆÙ[‹™›Ü›WÙY]ÛÝ™\™›Ý×ÛY[K˜YXÝ[ÛŠXÝ[ÛŠBˆÙ[‹™›Ü›WÙY]ÛÝ™\™›Ý×Ø]ÛˆHUÛÛ]ÛŠÙ[‹™›Ü›WÙY]Ü›ÝÊBˆÙ[‹™›Ü›WÙY]ÛÝ™\™›Ý×Ø]Û‹œÙ]Øš™XÝ˜[YJ™›Ü›QY]ÛÛ˜\“Ý™\™›ÝÐ]ÛˆŠBˆÙ[‹™›Ü›WÙY]ÛÝ™\™›Ý×Ø]Û‹œÙ]^
+¸¢ëÈŠBˆÙ[‹™›Ü›WÙY]ÛÝ™\™›Ý×Ø]Û‹œÙ]ÛÛ\
+Ù[‹—Ý
+ÛÛ˜\‹›[Ü™WØXÝ[ÛœÈŠJBˆÙ[‹™›Ü›WÙY]ÛÝ™\™›Ý×Ø]Û‹œÙ]Y[JÙ[‹™›Ü›WÙY]ÛÝ™\™›Ý×ÛY[JBˆÙ[‹™›Ü›WÙY]ÛÝ™\™›Ý×Ø]Û‹œÙ]Ü\[ÙJUÛÛ]Û‹•ÛÛ]Û”Ü\[ÙK’[œÝ[Ü\
+BˆÙ[‹™›Ü›WÙY]ÛÝ™\™›Ý×Ø]Û‹œÙ]]]Ô˜Z\ÙJ˜[ÙJBˆÙ[‹™›Ü›WÙY]ÛÝ™\™›Ý×Ø]Û‹œÙ]š^YÚY
+Í
+BˆÙ[‹™›Ü›WÙY]Û^[Ý]˜YÚYÙ]
+Ù[‹™›Ü›WÙY]ÛÝ™\™›Ý×Ø]ÛŠBˆÙ[‹™›Ü›WÙY]ÛÝ™\™›Ý×Ø]Û‹šYJ
+BˆÙ[‹™›Ü›WÙY]Û^[Ý]˜YÝ™]Ú
+JB‚ˆÙ[‹™›Ü›WÙY]ÝÛÛ˜\‹œÙ]ØÛÛ[ÝÚYÙ]
+Ù[‹™›Ü›WÙY]Ü›ÝÊBˆÙ[‹™›Ü›WÙY]ÝÛÛ˜\‹šYJ
+B‚ˆÈHÛÈÛÛ[X[™›ÝÜÈ\™H™YÝ[\ˆÙ[˜[ÚYÙ]Ë›Ý˜]]™HØÚÙYˆÈSXZ[•Ú[™ÝÈÛÛ˜\œËˆ\È™]™[ÈÚ[™ÝÜËÔ]œ›ÛH[˜Ü™X\Ú[™ÈBˆÈ˜]]™HZ[š[][HÚYY\ˆXÝ[ÛˆÝ]HÜˆ[Ûš]Ü‹ÑHÚ[™Ù\Ë‚ˆÛÜšÜÜXÙHHÙ[‹ZÙPÙ[˜[ÚYÙ]
+
+BˆYˆÛÜšÜÜXÙH\È›Û™N‚ˆ˜Z\ÙH[[YQ\œ›ÜŠÙ[˜[ÛÜšÜÜXÙH]\Ý^\Ý™Y›Ü™HÛÛ˜\œÈŠBˆÙ[‹ÛÛ˜\—ÚÜÝHÔ™\ÜÛœÚ]™UÛÛ˜\’ÜÝ
+Ù[ŠBˆÙ[‹ÛÛ˜\—ÚÜÝœÙ]Øš™XÝ˜[YJœ™\ÜÛœÚ]™UÛÛ˜\’ÜÝŠBˆÙ[‹ÛÛ˜\—ÚÜÝœÙ]Z[š[][UÚY
+
+BˆÙ[‹ÛÛ˜\—ÚÜÝœÙ]Ú^™TÛXÞJTÚ^™TÛXÞK”ÛXÞK’YÛ›Ü™YTÚ^™TÛXÞK”ÛXÞK‘š^Y
+BˆÙ[‹ÛÛ˜\—ÚÜÝÛ^[Ý]HU›Þ^[Ý]
+Ù[‹ÛÛ˜\—ÚÜÝ
+BˆÙ[‹ÛÛ˜\—ÚÜÝÛ^[Ý]œÙ]ÛÛ[ÓX\™Ú[œÊ
+BˆÙ[‹ÛÛ˜\—ÚÜÝÛ^[Ý]œÙ]ÜXÚ[™Ê
+BˆÙ[‹ÛÛ˜\—ÚÜÝÛ^[Ý]˜YÚYÙ]
+Ù[‹›XZ[—ÝÛÛ˜\ŠBˆÙ[‹ÛÛ˜\—ÚÜÝÛ^[Ý]˜YÚYÙ]
+Ù[‹™›Ü›WÙY]ÝÛÛ˜\ŠB‚ˆÙ[‹ÛÜšÜÜXÙWÜÚ[HUÚYÙ]
+Ù[ŠBˆÙ[‹ÛÜšÜÜXÙWÜÚ[œÙ]Øš™XÝ˜[YJÛÜšÜÜXÙTÚ[ŠBˆÙ[‹ÛÜšÜÜXÙWÜÚ[œÙ]Z[š[][UÚY
+
+BˆÙ[‹ÛÜšÜÜXÙWÜÚ[œÙ]Ú^™TÛXÞJTÚ^™TÛXÞK”ÛXÞK’YÛ›Ü™YTÚ^™TÛXÞK”ÛXÞK‘^[™[™ÊBˆÙ[‹ÛÜšÜÜXÙWÜÚ[Û^[Ý]HU›Þ^[Ý]
+Ù[‹ÛÜšÜÜXÙWÜÚ[
+BˆÙ[‹ÛÜšÜÜXÙWÜÚ[Û^[Ý]œÙ]ÛÛ[ÓX\™Ú[œÊ
+BˆÙ[‹ÛÜšÜÜXÙWÜÚ[Û^[Ý]œÙ]ÜXÚ[™Ê
+BˆÙ[‹ÛÜšÜÜXÙWÜÚ[Û^[Ý]˜YÚYÙ]
+Ù[‹ÛÛ˜\—ÚÜÝ
+BˆÙ[‹ÛÜšÜÜXÙWÜÚ[Û^[Ý]˜YÚYÙ]
+ÛÜšÜÜXÙKJBˆÙ[‹œÙ]Ù[˜[ÚYÙ]
+Ù[‹ÛÜšÜÜXÙWÜÚ[
+B‚ˆÈÛÛ˜\œÈ]\Ý™]™\ˆ[\ÜÙHH\ÚÝÜ\Ú^™YZ[š[][HÚYÛˆHXZ[‚ˆÈÚ[™ÝËˆZ\ˆX™[È\™H™YXÙYY\]™[HÚ[ˆH]˜Z[X›HÚYˆÈ\È[œÝY™šXÚY[È[ÛÛ[X[™È™[XZ[ˆ]˜Z[X›H›ÝYÚÛÛ\È[™ˆÈH\XØ][ÛˆY[\Ë‚ˆÙ[‹›XZ[—ÝÛÛ˜\‹œÙ]Z[š[][UÚY
+
+BˆÙ[‹™›Ü›WÙY]ÝÛÛ˜\‹œÙ]Z[š[][UÚY
+
+BˆÙ[‹›XZ[—ÝÛÛ˜\‹œÙ]Ú^™TÛXÞJTÚ^™TÛXÞK”ÛXÞK‘^[™[™ËTÚ^™TÛXÞK”ÛXÞK‘š^Y
+BˆÙ[‹™›Ü›WÙY]ÝÛÛ˜\‹œÙ]Ú^™TÛXÞJTÚ^™TÛXÞK”ÛXÞK‘^[™[™ËTÚ^™TÛXÞK”ÛXÞK‘š^Y
+BˆÙ[‹—ÛXZ[—ÝÛÛ˜\—ØÛÛ\XÝØ]ÛœÈH
+ˆÙ[‹šÛYWØ]Û‹ˆÙ[‹›\×ÙY]Ü—Ø]Û‹ˆÙ[‹™›Ü›WÛX[˜YÙ\—Ø]Û‹ˆÙ[‹˜ÛÛœÝXÝÜ—Ø]Û‹ˆÙ[‹›Ü[—Ü›Ú™XÝØ]Û‹ˆÙ[‹›Ü[—Ù]WØ]Û‹ˆÙ[‹œØ]™WØ]Û‹ˆÙ[‹œ[˜Ú[Ø]Û‹ˆÙ[‹˜Ý\œÛÜ—Û[™WØ]Û‹ˆ
+BˆÙ[‹—ÛXZ[—ÝÛÛ˜\—ØÛÛ\XÝØXÝ[ÛœÎˆ\VÔPXÝ[Û‹‹‹—HH
+
+BˆÙ[‹—ÛXZ[—ÝÛÛ˜\—ÛÝ™\™›Ý×ØØ[™Y]\ÈH
+ˆ
+šÛYH‹Ù[‹šÛYWØ]ÛŠKˆ
+˜ÛÛœÝXÝÜˆ‹Ù[‹˜ÛÛœÝXÝÜ—Ø]ÛŠKˆ
+œ[˜Ú[‹Ù[‹œ[˜Ú[Ø]ÛŠKˆ
+˜Ý\œÛÜˆ‹Ù[‹˜Ý\œÛÜ—Û[™WØ]ÛŠKˆ
+›\×ÙY]Üˆ‹Ù[‹›\×ÙY]Ü—Ø]ÛŠKˆ
+™›Ü›\È‹Ù[‹™›Ü›WÛX[˜YÙ\—Ø]ÛŠKˆ
+›Ü[—Ü›Ú™XÝ‹Ù[‹›Ü[—Ü›Ú™XÝØ]ÛŠKˆ
+›Ü[—Ù]H‹Ù[‹›Ü[—Ù]WØ]ÛŠKˆ
+œØ]™H‹Ù[‹œØ]™WØ]ÛŠKˆ
+BˆÙ[‹—ÛXZ[—ÝÛÛ˜\—ÜÙ\\˜]ÜœÈH
+ˆÙ[‹—ÛXZ[—ÝÛÛ˜\—ÜÙ\\˜]Ü—ÚÛYKˆÙ[‹—ÛXZ[—ÝÛÛ˜\—ÜÙ\\˜]Ü—Ùš[\ËˆÙ[‹—ÛXZ[—ÝÛÛ˜\—ÜÙ\\˜]Ü—ÝÛÛËˆ
+BˆÙ[‹—Ù›Ü›WÝÛÛ˜\—ÛÝ™\™›Ý×ØØ[™Y]\ÈH
+ˆ
+›[Ý™WÜšYÚ‹Ù[‹—Ù›Ü›WÝÛÛ˜\—Ø]ÛœÖÜÙ[‹›[Ý™WÜšYÚØXÝ[Û—JKˆ
+›[Ý™WÛY‹Ù[‹—Ù›Ü›WÝÛÛ˜\—Ø]ÛœÖÜÙ[‹›[Ý™WÛYØXÝ[Û—JKˆ
+œ™[[Ý™WÝ˜XÚÈ‹Ù[‹—Ù›Ü›WÝÛÛ˜\—Ø]ÛœÖÜÙ[‹œ™[[Ý™WÝ˜XÚ×ØXÝ[Û—JKˆ
+™Y]Ý˜XÚÈ‹Ù[‹—Ù›Ü›WÝÛÛ˜\—Ø]ÛœÖÜÙ[‹™Y]ÜÙ[XÝYÝ˜XÚ×ØXÝ[Û—JKˆ
+˜YÝ˜XÚÈ‹Ù[‹—Ù›Ü›WÝÛÛ˜\—Ø]ÛœÖÜÙ[‹˜YØÝ\™WÝ˜XÚ×ØXÝ[Û—JKˆ
+ˆ™[]WØ[››Ý][Ûˆ‹ˆÙ[‹—Ù›Ü›WÝÛÛ˜\—Ø]ÛœÖÜÙ[‹˜[››Ý][Û—Ù[]WÜÙ[XÝYØXÝ[Û—Kˆ
+Kˆ
+™Y]Ø[››Ý][Ûˆ‹Ù[‹—Ù›Ü›WÝÛÛ˜\—Ø]ÛœÖÜÙ[‹˜[››Ý][Û—ÙY]ÜÙ[XÝYØXÝ[Û—JKˆ
+ˆ›X[˜YÙWØ[››Ý][ÛœÈ‹ˆÙ[‹—Ù›Ü›WÝÛÛ˜\—Ø]ÛœÖÜÙ[‹˜[››Ý][Û—ÛX[˜YÙ\—ÝÛÛ˜\—ØXÝ[Û—Kˆ
+Kˆ
+š[XYÙH‹Ù[‹—Ù›Ü›WÝÛÛ˜\—Ø]ÛœÖÜÙ[‹˜[››Ý][Û—Ú[XYÙWØXÝ[Û—JKˆ
+˜ÛÛ[Y[‹Ù[‹—Ù›Ü›WÝÛÛ˜\—Ø]ÛœÖÜÙ[‹˜[››Ý][Û—ØÛÛ[Y[ØXÝ[Û—JKˆ
+˜Ø[Ý]‹Ù[‹—Ù›Ü›WÝÛÛ˜\—Ø]ÛœÖÜÙ[‹˜[››Ý][Û—ØØ[Ý]ØXÝ[Û—JKˆ
+œÞ[X›Û‹Ù[‹—Ù›Ü›WÝÛÛ˜\—Ø]ÛœÖÜÙ[‹˜[››Ý][Û—ÜÞ[X›ÛØXÝ[Û—JKˆ
+œØ]™WÙ›Ü›H‹Ù[‹—Ù›Ü›WÝÛÛ˜\—Ø]ÛœÖÜÙ[‹œØ]™WÝ\Ù\—Ù›Ü›WØXÝ[Û—JKˆ
+BˆÙ[‹—Ù›Ü›WÝÛÛ˜\—ÜÙ\\˜]ÜœÈH
+ˆÙ[‹—Ù›Ü›WÝÛÛ˜\—ÜÙ\\˜]Ü—Ø[››Ý][ÛœËˆÙ[‹—Ù›Ü›WÝÛÛ˜\—ÜÙ\\˜]Ü—Ý˜XÚÜËˆ
+BˆÙ[‹—ÛXZ[—ÝÛÛ˜\—Ú\×ØÛÛ\XÝH˜[ÙBˆÙ[‹—ÛXZ[—ÝÛÛ˜\—Ú\×Ý[˜WØÛÛ\XÝH˜[ÙBˆÙ[‹—Ù›Ü›WÝÛÛ˜\—Ú\×ØÛÛ\XÝH˜[ÙBˆÙ[‹—Ù›Ü›WÝÛÛ˜\—Ú\×Ý[˜WØÛÛ\XÝH˜[ÙB‚ˆÈ]™\žHXÝ[Ûˆ™XÙZ]™\È]X\ÝHØØ[^™YØ\[Û‹ÜÚÜÝ]ÛÛ\ÂˆÈYÚ]˜[YHXÝ[ÛœÈÙY\Z\ˆ[Ü™H]Z[Y[^X›Ý™K‚ˆÙ[‹—Ü™]˜[œÛ]WÜ™YÚ\Ý\™YØXÝ[ÛœÊ
+BˆÙ[‹™›Ü›WÙY]ÝÛÛ˜\‹š\ÚXš[]PÚ[™ÙY˜ÛÛ›™XÝ
+ˆ[X™HÝš\ÚX›NˆÙ[‹—ÜØÚY[WÝÛÛ˜\—ØY\][ÛŠ
+Bˆ
+Bˆ›ÜˆXÝ[Ûˆ[ˆ
+ˆÙ[‹šÛYWØXÝ[Û‹ˆÙ[‹›\×ÙY]Ü—ØXÝ[Û‹ˆÙ[‹™›Ü›WÛX[˜YÙ\—ØXÝ[Û‹ˆÙ[‹˜ÛÛœÝXÝÜ—ØXÝ[Û‹ˆÙ[‹›Ü[—Ü›Ú™XÝØXÝ[Û‹ˆÙ[‹›Ü[—Ù]WØXÝ[Û‹ˆÙ[‹œØ]™WØXÝ[Û‹ˆÙ[‹œ[˜Ú[ØXÝ[Û‹ˆÙ[‹˜Ý\œÛÜ—Û[™WØXÝ[Û‹ˆÙ[‹X›]ÙY]Û[ÙWØXÝ[Û‹ˆ
+™›Ü›WØXÝ[ÛœËˆ
+N‚ˆXÝ[Û‹˜Ú[™ÙY˜ÛÛ›™XÝ
+Ù[‹—ÜØÚY[WÝÛÛ˜\—ØY\][ÛŠBˆÙ[‹—ÜØÚY[WÝÛÛ˜\—ØY\][ÛŠ
+B‚ˆÝ]XÛY]ÙˆYˆÜÙ]ÝÛÛ˜\—ØXÝ[Û—ÜÝ[JˆÛÛ˜\ŽˆUÚYÙ]XÝ[ÛŽˆPXÝ[Û‹Ý[Nˆ]•ÛÛ]Û”Ý[Bˆ
+HOˆ›Û™N‚ˆÚYÙ]Ù›Ü—ØXÝ[ÛˆHÙ]]ŠÛÛ˜\‹ÚYÙ]›ÜXÝ[Ûˆ‹›Û™JBˆ]ÛˆHÚYÙ]Ù›Ü—ØXÝ[ÛŠXÝ[ÛŠHYˆØ[X›JÚYÙ]Ù›Ü—ØXÝ[ÛŠH[ÙH›Û™BˆYˆ\Ú[œÝ[˜ÙJ]Û‹UÛÛ]ÛŠN‚ˆ]Û‹œÙ]ÛÛ]Û”Ý[JÝ[JB‚ˆYˆÜÙ]ÛXZ[—ÝÛÛ˜\—Ýš\ÝX[Û[ÙJÙ[‹ÛÛ\XÝˆ›ÛÛ[˜WØÛÛ\XÝˆ›ÛÛ
+HOˆ›Û™N‚ˆÝ[HH
+ˆ]•ÛÛ]Û”Ý[K•ÛÛ]Û’XÛÛ“Û›BˆYˆÛÛ\XÝˆ[ÙH]•ÛÛ]Û”Ý[K•ÛÛ]Û•^™\ÚYRXÛÛ‚ˆ
+Bˆ›Üˆ]Ûˆ[ˆÙ[‹—ÛXZ[—ÝÛÛ˜\—ØÛÛ\XÝØ]ÛœÎ‚ˆ]Û‹œÙ]ÛÛ]Û”Ý[JÝ[JBˆ›ÜˆXÝ[Ûˆ[ˆÙ[‹—ÛXZ[—ÝÛÛ˜\—ØÛÛ\XÝØXÝ[ÛœÎ‚ˆÙ[‹—ÜÙ]ÝÛÛ˜\—ØXÝ[Û—ÜÝ[JÙ[‹›XZ[—ÝÛÛ˜\‹XÝ[Û‹Ý[JBˆÙ[‹™Y]Û[ÙWØ]Û‹œÙ]ÛÛ]Û”Ý[Jˆ]•ÛÛ]Û”Ý[K•ÛÛ]Û’XÛÛ“Û›BˆYˆ[˜WØÛÛ\XÝˆ[ÙH]•ÛÛ]Û”Ý[K•ÛÛ]Û•^™\ÚYRXÛÛ‚ˆ
+B‚ˆYˆÜÙ]Ù›Ü›WÝÛÛ˜\—Ýš\ÝX[Û[ÙJÙ[‹ÛÛ\XÝˆ›ÛÛ[˜WØÛÛ\XÝˆ›ÛÛ
+HOˆ›Û™N‚ˆÝ[HH
+ˆ]•ÛÛ]Û”Ý[K•ÛÛ]Û’XÛÛ“Û›BˆYˆÛÛ\XÝˆ[ÙH]•ÛÛ]Û”Ý[K•ÛÛ]Û•^™\ÚYRXÛÛ‚ˆ
+Bˆ›Üˆ]Ûˆ[ˆÙ[‹—Ù›Ü›WÝÛÛ˜\—Ø]ÛœË˜[Y\Ê
+N‚ˆ]Û‹œÙ]ÛÛ]Û”Ý[JÝ[JBˆÙ[‹™›Ü›WÙY]ØØ\[Û‹œÙ]^
+‘ˆYˆ[˜WØÛÛ\XÝ[ÙHÙ[‹—Ý
+ZK™›Ü›WÙY]ÝÛÛ˜\ˆŠJBˆÙ[‹™›Ü›WÙY]ØØ\[Û‹œÙ]Z[š[][UÚY
+
+BˆÙ[‹™›Ü›WÙY]ØØ\[Û‹œÙ]X^[][UÚY
+ÌˆYˆ[˜WØÛÛ\XÝ[ÙH
+B‚ˆÝ]XÛY]ÙˆYˆÜ™\ÜÛœÚ]™WÜ›Ý×Ü™\]Z\™YÝÚY
+ˆ^[Ý]ˆR›Þ^[Ý]ˆ
+‹ˆ^[™[™×ÝÚYÙ]ˆUÚYÙ]›Û™HH›Û™KˆY[—ÝÚYÙ]ÚYÎˆÙ]Ú[H›Û™HH›Û™KˆÚ›ÛYWÝÚYˆ[Hˆ
+HOˆ[‚ˆˆˆ“YX\Ý\™HÛ™HÝ\ÝÛHÛÛ˜\ˆ›ÝÈÚ]Ý]˜]]™HUÛÛ˜\ˆÝ]K‚‚ˆH›ÝÈÛÛZ[œÈ]™\žHš\ÚX›H]Ûˆ[œÚYHÛ™HÛÛœÝ˜Z[™YUÚYÙ]ˆÛÈHš]˜]H]^[œÚ[Ûˆ]Ûˆ\È™]™\ˆ\Ùˆ\ÈØ[Ý[][Û‹‚ˆ^XÚ]Ý™\™›ÝÈY[X™\œÚ\\È\ÙY[œÝXYÙˆUÚYÙ]š\ÚXš[]KˆÚXÚØ[ˆYÈ™Z[™HÚ[™ÝÜÈKÛ[Ûš]Üˆ˜[œÚ][Û‹‚ˆˆˆ‚‚ˆœ›ÛHÙ[ÝÛÜšØ™[˜ÚZKÛÛ˜\—ØY\][Ûˆ[\Ü™\]Z\™YÝÛÛ˜\—ÝÚY‚ˆY[ˆHY[—ÝÚYÙ]ÚYÈÜˆÙ]
+
+BˆÚYÎˆ\ÝÚ[HH×Bˆ›Üˆ[™^[ˆ˜[™ÙJ^[Ý]˜ÛÝ[
+
+JN‚ˆ][HH^[Ý]š][P]
+[™^
+BˆYˆ][H\È›Û™N‚ˆÛÛ[YBˆÚYÙ]H][KÚYÙ]
+
+BˆYˆÚYÙ]\È›Û™HÜˆÚYÙ]\È^[™[™×ÝÚYÙ]ÜˆY
+ÚYÙ]
+H[ˆY[Ž‚ˆÛÛ[YBˆÚYÙ]™[œÝ\™TÛ\ÚY
+
+BˆÚYË˜\[™
+ˆX^
+ˆKˆÚYÙ]œÚ^™R[
+
+KÚY
+
+KˆÚYÙ]›Z[š[][TÚ^™R[
+
+KÚY
+
+KˆÚYÙ]›Z[š[][UÚY
+
+Kˆ
+Bˆ
+BˆX\™Ú[œÈH^[Ý]˜ÛÛ[ÓX\™Ú[œÊ
+BˆÚ›ÛYHHX^
+[
+Ú›ÛYWÝÚY
+JH
+ÈX\™Ú[œË›Y
+
+H
+ÈX\™Ú[œËœšYÚ
+
+Bˆ™]\›ˆ™\]Z\™YÝÛÛ˜\—ÝÚY
+ÚYËÜXÚ[™Ï[X^
+^[Ý]œÜXÚ[™Ê
+JKÚ›ÛYWÝÚYXÚ›ÛYJB‚ˆYˆÝÛÛ˜\—Ü™\]Z\™YÝÚY
+ˆÙ[‹ÛÛ˜\ŽˆUÚYÙ]
+‹^[™[™×ÝÚYÙ]ˆUÚYÙ]›Û™HH›Û™Bˆ
+HOˆ[‚ˆYˆÛÛ˜\ˆ\ÈÙ[‹›XZ[—ÝÛÛ˜\Ž‚ˆY[—ÚÙ^\ÈHÙ]
+Ù[‹—ÛXZ[—ÝÛÛ˜\—ÛÝ™\™›Ý×ÜÚYÛ˜]\™JBˆY[—ÚYÈHÂˆY
+ÚYÙ]
+Bˆ›ÜˆÙ^KÚYÙ][ˆÙ[‹—ÛXZ[—ÝÛÛ˜\—ÛÝ™\™›Ý×ØØ[™Y]\ÂˆYˆÙ^H[ˆY[—ÚÙ^\ÂˆBˆYˆ›ÝY[—ÚÙ^\Î‚ˆY[—ÚYË˜Y
+Y
+Ù[‹›XZ[—ÝÛÛ˜\—ÛÝ™\™›Ý×Ø]ÛŠJBˆ[ÙN‚ˆY[—ÚYË\]JY
+][JH›Üˆ][H[ˆÙ[‹—ÛXZ[—ÝÛÛ˜\—ÜÙ\\˜]ÜœÊBˆ™]\›ˆÙ[‹—Ü™\ÜÛœÚ]™WÜ›Ý×Ü™\]Z\™YÝÚY
+ˆÙ[‹›XZ[—ÝÛÛ˜\—Û^[Ý]ˆ^[™[™×ÝÚYÙ]\Ù[‹›XZ[—ÝÛÛ˜\—ÜÜXÙ\‹ˆY[—ÝÚYÙ]ÚYÏZY[—ÚYËˆÚ›ÛYWÝÚYLŽˆ
+B‚ˆYˆÛÛ˜\ˆ\ÈÙ[‹™›Ü›WÙY]ÝÛÛ˜\Ž‚ˆY[—ÚÙ^\ÈHÙ]
+Ù[‹—Ù›Ü›WÝÛÛ˜\—ÛÝ™\™›Ý×ÜÚYÛ˜]\™JBˆY[—ÚYÈHÂˆY
+ÚYÙ]
+Bˆ›ÜˆÙ^KÚYÙ][ˆÙ[‹—Ù›Ü›WÝÛÛ˜\—ÛÝ™\™›Ý×ØØ[™Y]\ÂˆYˆÙ^H[ˆY[—ÚÙ^\ÂˆBˆYˆ›ÝY[—ÚÙ^\Î‚ˆY[—ÚYË˜Y
+Y
+Ù[‹™›Ü›WÙY]ÛÝ™\™›Ý×Ø]ÛŠJBˆ[ÙN‚ˆY[—ÚYË\]JY
+][JH›Üˆ][H[ˆÙ[‹—Ù›Ü›WÝÛÛ˜\—ÜÙ\\˜]ÜœÊBˆ™]\›ˆÙ[‹—Ü™\ÜÛœÚ]™WÜ›Ý×Ü™\]Z\™YÝÚY
+ˆÙ[‹™›Ü›WÙY]Û^[Ý]ˆY[—ÝÚYÙ]ÚYÏZY[—ÚYËˆÚ›ÛYWÝÚYLˆ
+B‚ˆ™]\›ˆX^
+KÛÛ˜\‹œÚ^™R[
+
+KÚY
+
+JB‚ˆYˆÛYX\Ý\™WÛXZ[—ÝÛÛ˜\—Û[ÙJÙ[‹ÛÛ\XÝˆ›ÛÛ[˜WØÛÛ\XÝˆ›ÛÛ
+HOˆ[‚ˆÙ[‹—ÜÙ]ÛXZ[—ÝÛÛ˜\—Ýš\ÝX[Û[ÙJÛÛ\XÝ[˜WØÛÛ\XÝ
+Bˆ™]\›ˆÙ[‹—ÝÛÛ˜\—Ü™\]Z\™YÝÚY
+ˆÙ[‹›XZ[—ÝÛÛ˜\‹^[™[™×ÝÚYÙ]\Ù[‹›XZ[—ÝÛÛ˜\—ÜÜXÙ\‚ˆ
+B‚ˆYˆÛYX\Ý\™WÙ›Ü›WÝÛÛ˜\—Û[ÙJÙ[‹ÛÛ\XÝˆ›ÛÛ[˜WØÛÛ\XÝˆ›ÛÛ
+HOˆ[‚ˆÙ[‹—ÜÙ]Ù›Ü›WÝÛÛ˜\—Ýš\ÝX[Û[ÙJÛÛ\XÝ[˜WØÛÛ\XÝ
+Bˆ™]\›ˆÙ[‹—ÝÛÛ˜\—Ü™\]Z\™YÝÚY
+Ù[‹™›Ü›WÙY]ÝÛÛ˜\ŠB‚ˆYˆÜÙ]ÛXZ[—ÝÛÛ˜\—ÛÝ™\™›ÝÊÙ[‹Y[—ÚÙ^\Îˆ\VÜÝ‹‹‹—JHOˆ›Û™N‚ˆˆˆ“[Ý™HÝË\š[Üš]HÛÛ[X[™ÈÈÝ\ˆY[H[œÚYHHš^Y›ÝËˆˆˆ‚‚ˆ›Ü›X[^™YH\JY[—ÚÙ^\ÊBˆYˆ›Ü›X[^™YOHÙ[‹—ÛXZ[—ÝÛÛ˜\—ÛÝ™\™›Ý×ÜÚYÛ˜]\™N‚ˆ™]\›‚ˆÙ[‹—ÛXZ[—ÝÛÛ˜\—ÛÝ™\™›Ý×ÜÚYÛ˜]\™HH›Ü›X[^™YˆY[ˆHÙ]
+›Ü›X[^™Y
+Bˆ›ÜˆÙ^KÚYÙ][ˆÙ[‹—ÛXZ[—ÝÛÛ˜\—ÛÝ™\™›Ý×ØØ[™Y]\Î‚ˆÚYÙ]œÙ]š\ÚX›JÙ^H›Ý[ˆY[ŠBˆÙ[‹›XZ[—ÝÛÛ˜\—ÛÝ™\™›Ý×Ø]Û‹œÙ]š\ÚX›J›ÛÛ
+Y[ŠJBˆ›ÜˆÙ\\˜]Üˆ[ˆÙ[‹—ÛXZ[—ÝÛÛ˜\—ÜÙ\\˜]ÜœÎ‚ˆÙ\\˜]Ü‹œÙ]š\ÚX›J›Ý›ÛÛ
+Y[ŠJBˆÙ[‹›XZ[—ÝÛÛ˜\—Û^[Ý]˜XÝ]˜]J
+BˆÙ[‹›XZ[—ÝÛÛ˜\—Ü›ÝË\]QÙ[ÛY]žJ
+B‚ˆYˆÜÙ]Ù›Ü›WÝÛÛ˜\—ÛÝ™\™›ÝÊÙ[‹Y[—ÚÙ^\Îˆ\VÜÝ‹‹‹—JHOˆ›Û™N‚ˆ›Ü›X[^™YH\JY[—ÚÙ^\ÊBˆYˆ›Ü›X[^™YOHÙ[‹—Ù›Ü›WÝÛÛ˜\—ÛÝ™\™›Ý×ÜÚYÛ˜]\™N‚ˆ™]\›‚ˆÙ[‹—Ù›Ü›WÝÛÛ˜\—ÛÝ™\™›Ý×ÜÚYÛ˜]\™HH›Ü›X[^™YˆY[ˆHÙ]
+›Ü›X[^™Y
+Bˆ›ÜˆÙ^KÚYÙ][ˆÙ[‹—Ù›Ü›WÝÛÛ˜\—ÛÝ™\™›Ý×ØØ[™Y]\Î‚ˆÚYÙ]œÙ]š\ÚX›JÙ^H›Ý[ˆY[ŠBˆÙ[‹™›Ü›WÙY]ÛÝ™\™›Ý×Ø]Û‹œÙ]š\ÚX›J›ÛÛ
+Y[ŠJBˆ›ÜˆÙ\\˜]Üˆ[ˆÙ[‹—Ù›Ü›WÝÛÛ˜\—ÜÙ\\˜]ÜœÎ‚ˆÙ\\˜]Ü‹œÙ]š\ÚX›J›Ý›ÛÛ
+Y[ŠJBˆÙ[‹™›Ü›WÙY]Û^[Ý]˜XÝ]˜]J
+BˆÙ[‹™›Ü›WÙY]Ü›ÝË\]QÙ[ÛY]žJ
+B‚ˆÝ]XÛY]ÙˆYˆÛÝ™\™›Ý×ØØ[™Y]WÝÚYÊˆØ[™Y]\Îˆ\VÝ\VÜÝ‹UÚYÙ]K‹‹—KÜXÚ[™Îˆ[ˆ
+HOˆ\ÝÚ[N‚ˆÚYÎˆ\ÝÚ[HH×Bˆ›ÜˆÚÙ^KÚYÙ][ˆØ[™Y]\Î‚ˆÚYÙ]™[œÝ\™TÛ\ÚY
+
+BˆÚYË˜\[™
+ˆX^
+KÚYÙ]œÚ^™R[
+
+KÚY
+
+KÚYÙ]›Z[š[][TÚ^™R[
+
+KÚY
+
+JBˆ
+ÈX^
+[
+ÜXÚ[™ÊJBˆ
+Bˆ™]\›ˆÚYÂ‚ˆYˆÙš]ÛXZ[—ÝÛÛ˜\—ÛÝ™\™›ÝÊÙ[‹]˜Z[X›Nˆ[
+HOˆ›Û™N‚ˆˆˆ‘ÝX\˜[YH]H[›™YY]]Ûˆ™[XZ[œÈ[œÚYHH›ÝËˆˆˆ‚‚ˆÙ[‹—ÜÙ]ÛXZ[—ÝÛÛ˜\—ÛÝ™\™›ÝÊ
+
+JBˆ™\]Z\™YHÙ[‹—ÝÛÛ˜\—Ü™\]Z\™YÝÚY
+ˆÙ[‹›XZ[—ÝÛÛ˜\‹^[™[™×ÝÚYÙ]\Ù[‹›XZ[—ÝÛÛ˜\—ÜÜXÙ\‚ˆ
+BˆØ[™Y]WÝÚYÈHÙ[‹—ÛÝ™\™›Ý×ØØ[™Y]WÝÚYÊˆÙ[‹—ÛXZ[—ÝÛÛ˜\—ÛÝ™\™›Ý×ØØ[™Y]\ËÙ[‹›XZ[—ÝÛÛ˜\—Û^[Ý]œÜXÚ[™Ê
+Bˆ
+BˆÛÝ[HÝ™\™›Ý×Ú][WØÛÝ[
+ˆ]˜Z[X›Kˆ™\]Z\™YˆØ[™Y]WÝÚYËˆÝ™\™›Ý×Ø]Û—ÝÚY[X^
+ÎÙ[‹›XZ[—ÝÛÛ˜\—ÛÝ™\™›Ý×Ø]Û‹œÚ^™R[
+
+KÚY
+
+JKˆØY™]WÛX\™Ú[LŽˆ
+BˆY[ˆHÚÙ^H›ÜˆÙ^KÝÚYÙ][ˆÙ[‹—ÛXZ[—ÝÛÛ˜\—ÛÝ™\™›Ý×ØØ[™Y]\ÖÎ˜ÛÝ[WBˆÙ[‹—ÜÙ]ÛXZ[—ÝÛÛ˜\—ÛÝ™\™›ÝÊ\JY[ŠJBˆ›ÜˆÙ^KÝÚYÙ][ˆÙ[‹—ÛXZ[—ÝÛÛ˜\—ÛÝ™\™›Ý×ØØ[™Y]\ÖØÛÝ[—N‚ˆ™\]Z\™YHÙ[‹—ÝÛÛ˜\—Ü™\]Z\™YÝÚY
+ˆÙ[‹›XZ[—ÝÛÛ˜\‹^[™[™×ÝÚYÙ]\Ù[‹›XZ[—ÝÛÛ˜\—ÜÜXÙ\‚ˆ
+BˆYˆ™\]Z\™YHX^
+]˜Z[X›HHŽ
+N‚ˆœ™XZÂˆY[‹˜\[™
+Ù^JBˆÙ[‹—ÜÙ]ÛXZ[—ÝÛÛ˜\—ÛÝ™\™›ÝÊ\JY[ŠJB‚ˆYˆÙš]Ù›Ü›WÝÛÛ˜\—ÛÝ™\™›ÝÊÙ[‹]˜Z[X›Nˆ[
+HOˆ›Û™N‚ˆÙ[‹—ÜÙ]Ù›Ü›WÝÛÛ˜\—ÛÝ™\™›ÝÊ
+
+JBˆ™\]Z\™YHÙ[‹—ÝÛÛ˜\—Ü™\]Z\™YÝÚY
+Ù[‹™›Ü›WÙY]ÝÛÛ˜\ŠBˆØ[™Y]WÝÚYÈHÙ[‹—ÛÝ™\™›Ý×ØØ[™Y]WÝÚYÊˆÙ[‹—Ù›Ü›WÝÛÛ˜\—ÛÝ™\™›Ý×ØØ[™Y]\ËÙ[‹™›Ü›WÙY]Û^[Ý]œÜXÚ[™Ê
+Bˆ
+BˆÛÝ[HÝ™\™›Ý×Ú][WØÛÝ[
+ˆ]˜Z[X›Kˆ™\]Z\™YˆØ[™Y]WÝÚYËˆÝ™\™›Ý×Ø]Û—ÝÚY[X^
+ÍÙ[‹™›Ü›WÙY]ÛÝ™\™›Ý×Ø]Û‹œÚ^™R[
+
+KÚY
+
+JKˆØY™]WÛX\™Ú[Lˆ
+BˆY[ˆHÚÙ^H›ÜˆÙ^KÝÚYÙ][ˆÙ[‹—Ù›Ü›WÝÛÛ˜\—ÛÝ™\™›Ý×ØØ[™Y]\ÖÎ˜ÛÝ[WBˆÙ[‹—ÜÙ]Ù›Ü›WÝÛÛ˜\—ÛÝ™\™›ÝÊ\JY[ŠJBˆ›ÜˆÙ^KÝÚYÙ][ˆÙ[‹—Ù›Ü›WÝÛÛ˜\—ÛÝ™\™›Ý×ØØ[™Y]\ÖØÛÝ[—N‚ˆ™\]Z\™YHÙ[‹—ÝÛÛ˜\—Ü™\]Z\™YÝÚY
+Ù[‹™›Ü›WÙY]ÝÛÛ˜\ŠBˆYˆ™\]Z\™YHX^
+]˜Z[X›HH
+N‚ˆœ™XZÂˆY[‹˜\[™
+Ù^JBˆÙ[‹—ÜÙ]Ù›Ü›WÝÛÛ˜\—ÛÝ™\™›ÝÊ\JY[ŠJB‚ˆYˆØØ\ÝÛÛ˜\—Ü›ÝÜ×Ý×ÝÚ[™ÝÊÙ[ŠHOˆ[‚ˆˆˆ’\™[[Z]Ý\ÝÛH›ÝÜÈÈHÝ\œ™[ÙÚXØ[Ú[™ÝÈÚY‚‚ˆ\È\È[[[Û˜[H[™\[™[ÙˆUÛÛ˜\‹œÚ^™R[
+
+KˆH˜]]™BˆÛÛ˜\ˆØ[ˆœšYY›HÙY\[ˆØœÛÛ]HKY\[™[ÚYY\ˆ\ÂˆÙÙÛYÜˆHÚ[™ÝÈ\È[Ý™Y™]ÙY[ˆØÜ™Y[œËˆHš^Y›ÝÈØ\XZÙ\Âˆ]Ù[ÛY]šXØ[H[\ÜÜÚX›H›ÜˆZ]\ˆ›ÝÈÈ[›\™ÙHHXZ[ˆÚ[™ÝÂˆÜˆXÙHH[›™YšYÚ\ÚYHÛÛ[X[™Ý]ÚYHHšY]ÜÜ‚ˆˆˆ‚‚ˆÚ[™Ý×ÝÚYHX^
+K[
+Ù[‹˜ÛÛ[Ô™XÝ
+
+KÚY
+
+HÜˆÙ[‹ÚY
+
+JJBˆÛÛ˜\—ÚÜÝHÙ]]ŠÙ[‹ÛÛ˜\—ÚÜÝ‹›Û™JBˆÜÝÝÚYÙ]HÛÛ˜\—ÚÜÝYˆ\Ú[œÝ[˜ÙJÛÛ˜\—ÚÜÝUÚYÙ]
+H[ÙHÙ[‚ˆÜÝÝÚYH[
+ÜÝÝÚYÙ]˜ÛÛ[Ô™XÝ
+
+KÚY
+
+JBˆYˆÜÝÝÚYH‚ˆÜÝÝÚYHÚ[™Ý×ÝÚYˆ]˜Z[X›WÝÚYHX^
+KZ[ŠÚ[™Ý×ÝÚYÜÝÝÚY
+JB‚ˆÈ\ÈÜ™[˜\žHÙ[˜[ÚYÙ]ÈHÛÛ˜\ˆÚ[Èš[HÜÝˆØ\ˆÈ›ÝÛÛ[X[™˜\œÈ[™Z\ˆÚ[™ÛHÝ\ÝÛH›ÝÜËX]š[™ÈÜXÙH›ÜˆBˆÈUÛÛ˜\ˆœ˜[YKÜY[™ËˆHØ\\È\š]™YÛ›Hœ›ÛHÝ\œ™[Ù[ÛY]žBˆÈ[™Ø[ˆ™]™\ˆ™YYHÚY\ˆZ[š[][H˜XÚÈÈH˜]]™HÚ[™ÝË‚ˆÙ[‹›XZ[—ÝÛÛ˜\‹œÙ]X^[][UÚY
+]˜Z[X›WÝÚY
+BˆÙ[‹™›Ü›WÙY]ÝÛÛ˜\‹œÙ]X^[][UÚY
+]˜Z[X›WÝÚY
+BˆÈ\ÙHHÜÝÚY\™XÝKˆHÛÛ[X[™œ˜[YIÜÈÝ\œ™[Ù[ÛY]žHX^BˆÈÝ[ÛÛZ[ˆH™]š[Ý\È˜\œ›ÝÈX^[][H\š[™ÈHš\œÝ^[Ý]ˆÈ\ÜÈY\ˆHÚ[™ÝÈ^[œÚ[Û‹‚ˆXZ[—ØØ\HX^
+]˜Z[X›WÝÚYHN
+BˆÙ[‹›XZ[—ÝÛÛ˜\—Ü›ÝËœÙ]š^YÚY
+XZ[—ØØ\
+B‚ˆ›Ü›WØØ\HX^
+]˜Z[X›WÝÚYHMŠBˆÙ[‹™›Ü›WÙY]Ü›ÝËœÙ]š^YÚY
+›Ü›WØØ\
+Bˆ™]\›ˆXZ[—ØØ\‚ˆYˆÜØÚY[WÝÛÛ˜\—ØY\][ÛŠÙ[ŠHOˆ›Û™N‚ˆˆˆ”[ˆ[[YYX]H[™[^YY\ÜÙ\ÈY\ˆXÝ[Û‹Ýš\ÚXš[]HÚ[™Ù\Ëˆˆˆ‚‚ˆYˆ›Ý\Ø]ŠÙ[‹›XZ[—ÝÛÛ˜\ˆŠN‚ˆ™]\›‚ˆU[Y\‹œÚ[™ÛTÚÝ
+Ù[‹Ù[‹—Ý\]WÝÛÛ˜\—ØY\][ÛŠBˆU[Y\‹œÚ[™ÛTÚÝ
+ŒÙ[‹Ù[‹—Ý\]WÝÛÛ˜\—ØY\][ÛŠBˆU[Y\‹œÚ[™ÛTÚÝ
+NÙ[‹Ù[‹—Ý\]WÝÛÛ˜\—ØY\][ÛŠB‚ˆYˆÝ\]WÝÛÛ˜\—ØY\][ÛŠÙ[ŠHOˆ›Û™N‚ˆˆˆ’ÙY\›ÝÜÛÛ˜\œÈ[œÚYHHXÝX[ÙÚXØ[Ú[™ÝÈÚYˆˆˆ‚‚ˆYˆ›Ý\Ø]ŠÙ[‹›XZ[—ÝÛÛ˜\ˆŠHÜˆÙ[‹—ÝÛÛ˜\—ØY\][Û—Ú[—Ü›ÙÜ™\ÜÎ‚ˆ™]\›‚ˆÙ[‹—ÝÛÛ˜\—ØY\][Û—Ú[—Ü›ÙÜ™\ÜÈHYBˆžN‚ˆ›Ý×ØØ\HÙ[‹—ØØ\ÝÛÛ˜\—Ü›ÝÜ×Ý×ÝÚ[™ÝÊ
+Bˆ]˜Z[X›HHX^
+LŒ›Ý×ØØ\H
+BˆÙ[‹—ÜÙ]ÛXZ[—ÝÛÛ˜\—ÛÝ™\™›ÝÊ
+
+JBˆÙ[‹—ÜÙ]Ù›Ü›WÝÛÛ˜\—ÛÝ™\™›ÝÊ
+
+JB‚ˆXZ[—Ù^[™YHÙ[‹—ÛYX\Ý\™WÛXZ[—ÝÛÛ˜\—Û[ÙJ˜[ÙK˜[ÙJBˆXZ[—ØÛÛ\XÝHÙ[‹—ÛYX\Ý\™WÛXZ[—ÝÛÛ˜\—Û[ÙJYK˜[ÙJBˆXZ[—Ý[˜HHÙ[‹—ÛYX\Ý\™WÛXZ[—ÝÛÛ˜\—Û[ÙJYKYJBˆXZ[—Û[ÙHHÚÛÜÙWÝÛÛ˜\—ØY\][ÛŠˆ]˜Z[X›KˆXZ[—Ù^[™YˆXZ[—ØÛÛ\XÝˆXZ[—Ý[˜KˆÝ\œ™[WØÛÛ\XÝ\Ù[‹—ÛXZ[—ÝÛÛ˜\—Ú\×ØÛÛ\XÝˆÝ\œ™[WÝ[˜WØÛÛ\XÝ\Ù[‹—ÛXZ[—ÝÛÛ˜\—Ú\×Ý[˜WØÛÛ\XÝˆ
+B‚ˆ›Ü›WÙ^[™YHÙ[‹—ÛYX\Ý\™WÙ›Ü›WÝÛÛ˜\—Û[ÙJ˜[ÙK˜[ÙJBˆ›Ü›WØÛÛ\XÝHÙ[‹—ÛYX\Ý\™WÙ›Ü›WÝÛÛ˜\—Û[ÙJYK˜[ÙJBˆ›Ü›WÝ[˜HHÙ[‹—ÛYX\Ý\™WÙ›Ü›WÝÛÛ˜\—Û[ÙJYKYJBˆ›Ü›WÛ[ÙHHÚÛÜÙWÝÛÛ˜\—ØY\][ÛŠˆ]˜Z[X›Kˆ›Ü›WÙ^[™Yˆ›Ü›WØÛÛ\XÝˆ›Ü›WÝ[˜KˆÝ\œ™[WØÛÛ\XÝ\Ù[‹—Ù›Ü›WÝÛÛ˜\—Ú\×ØÛÛ\XÝˆÝ\œ™[WÝ[˜WØÛÛ\XÝ\Ù[‹—Ù›Ü›WÝÛÛ˜\—Ú\×Ý[˜WØÛÛ\XÝˆ
+B‚ˆÙ[‹—Ø\WÛXZ[—ÝÛÛ˜\—Û[ÙJXZ[—Û[ÙK˜ÛÛ\XÝXZ[—Û[ÙK[˜WØÛÛ\XÝ
+BˆÙ[‹—Ùš]ÛXZ[—ÝÛÛ˜\—ÛÝ™\™›ÝÊ]˜Z[X›JBˆÙ[‹—Ø\WÙ›Ü›WÝÛÛ˜\—Û[ÙJ›Ü›WÛ[ÙK˜ÛÛ\XÝ›Ü›WÛ[ÙK[˜WØÛÛ\XÝ
+BˆÙ[‹—Ùš]Ù›Ü›WÝÛÛ˜\—ÛÝ™\™›ÝÊ]˜Z[X›JBˆš[˜[N‚ˆÙ[‹—ÝÛÛ˜\—ØY\][Û—Ú[—Ü›ÙÜ™\ÜÈH˜[ÙB‚ˆYˆØ\WÛXZ[—ÝÛÛ˜\—Û[ÙJÙ[‹ÛÛ\XÝˆ›ÛÛ[˜WØÛÛ\XÝˆ›ÛÛ
+HOˆ›Û™N‚ˆÙ[‹—ÜÙ]ÛXZ[—ÝÛÛ˜\—Ýš\ÝX[Û[ÙJÛÛ\XÝ[˜WØÛÛ\XÝ
+BˆÙ[‹—ÛXZ[—ÝÛÛ˜\—Ú\×ØÛÛ\XÝHÛÛ\XÝˆÙ[‹—ÛXZ[—ÝÛÛ˜\—Ú\×Ý[˜WØÛÛ\XÝH[˜WØÛÛ\XÝ‚ˆYˆØ\WÙ›Ü›WÝÛÛ˜\—Û[ÙJÙ[‹ÛÛ\XÝˆ›ÛÛ[˜WØÛÛ\XÝˆ›ÛÛ
+HOˆ›Û™N‚ˆÙ[‹—ÜÙ]Ù›Ü›WÝÛÛ˜\—Ýš\ÝX[Û[ÙJÛÛ\XÝ[˜WØÛÛ\XÝ
+BˆÙ[‹—Ù›Ü›WÝÛÛ˜\—Ú\×ØÛÛ\XÝHÛÛ\XÝˆÙ[‹—Ù›Ü›WÝÛÛ˜\—Ú\×Ý[˜WØÛÛ\XÝH[˜WØÛÛ\XÝ‚ˆYˆÙÙÛWØÝ\œÛÜ—Û[™JÙ[‹[˜X›Yˆ›ÛÛ
+HOˆ›Û™N‚ˆÙ[‹X›]ÝšY]ËœÙ]ØÝ\œÛÜ—Ù[˜X›Y
+[˜X›Y
+BˆÙ[‹˜Ý\œÛÜ—ÙØÚËœÙ]š\ÚX›J[˜X›Y
+BˆÙ[‹˜Ý\œÛÜ—Û[™WÜÙ][™ÜÈHÝ\œÛÜ“[™TÙ][™ÜÊˆÙ[‹˜Ý\œÛÜ—Û[™WÜÙ][™ÜË˜ÛÛÜ‹Ù[‹˜Ý\œÛÜ—Û[™WÜÙ][™ÜËÚY[˜X›Yˆ
+BˆÙ[‹\Ù\—Ü›Ùš[WÜÙ][™ÜËœØ]™WØÝ\œÛÜ—Û[™WÜÙ][™ÜÊÙ[‹˜Ý\œÛÜ—Û[™WÜÙ][™ÜÊBˆYˆ[˜X›Y‚ˆÙ[‹—ÜÚÝ×ÝÛÜšÜÜXÙJÙ[‹X›]ÝšY]ÊBˆ[ÙN‚ˆÙ[‹œÝ]\Ð˜\Š
+K˜ÛX\“Y\ÜØYÙJ
+B‚ˆYˆÜÚÝ×ØÝ\œÛÜ—Ý˜[Y\ÊÙ[‹\ˆ›Ø]Ý[[X\žNˆÝŠHOˆ›Û™N‚ˆYˆÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[ÝX›]Û^[Ý]\È›Ý›Û™N‚ˆÙ[‹X›]ØÛÛ›Û\‹œÙ]ØÝ\œÛÜ—Ù\
+\
+BˆYˆÙ[‹˜Ý\œÛÜ—Û[™WØXÝ[Û‹š\ÐÚXÚÙY
+
+N‚ˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJÝ[[X\žJBˆÙ[‹˜Ý\œÛÜ—Ý˜[Y\ËœÙ]Z[•^
+Ý[[X\žKœ™\XÙJˆ‹—ˆŠJB‚ˆYˆÛÛ™šYÝ\™WØÝ\œÛÜ—Û[™JÙ[ŠHOˆ›Û™N‚ˆÛÛÜˆHPÛÛÜ‘X[ÙË™Ù]ÛÛÜŠ\™[\Ù[‹]O\Ù[‹—Ý
+˜Ý\œÛÜ‹˜ÛÛÜ—Ý]HŠJBˆYˆ›ÝÛÛÜ‹š\Õ˜[Y
+
+N‚ˆ™]\›‚ˆÚYXØÙ\YHR[œ]X[ÙË™Ù]ÝX›JˆÙ[‹ˆÙ[‹—Ý
+˜Ý\œÛÜ‹ÚYÝ]HŠKˆÙ[‹—Ý
+˜Ý\œÛÜ‹ÚYÜ›Û\ŠKˆ‹ŒˆKˆLŒˆKˆ
+BˆYˆXØÙ\Y‚ˆÙ[‹X›]ÝšY]ËœÙ]ØÝ\œÛÜ—ÜÝ[JÛÛÜ‹›˜[YJ
+KÚY
+BˆÙ[‹˜Ý\œÛÜ—Û[™WÜÙ][™ÜÈHÝ\œÛÜ“[™TÙ][™ÜÊˆÛÛÜ‹›˜[YJ
+KÚYÙ[‹˜Ý\œÛÜ—Û[™WØXÝ[Û‹š\ÐÚXÚÙY
+
+Bˆ
+BˆÙ[‹\Ù\—Ü›Ùš[WÜÙ][™ÜËœØ]™WØÝ\œÛÜ—Û[™WÜÙ][™ÜÊÙ[‹˜Ý\œÛÜ—Û[™WÜÙ][™ÜÊB‚ˆYˆÜ[—Ù]JÙ[ŠHOˆ›Û™N‚ˆš[[˜[YKÜÙ[XÝYÙš[\ˆHQš[QX[ÙË™Ù]Ü[‘š[S˜[YJˆÙ[‹ˆÙ[‹—Ý
+š[\ÜœÙ[XÝÙš[HŠKˆˆ‹ˆÙ[‹—Ý
+š[\ÜœÝ\ÜYÙš[\ˆŠKˆ
+BˆYˆš[[˜[YN‚ˆÙ[‹—Ú[\ÜÚ›Ø—ØÛÛ›Û\‹™\Ü]ÚÜ]
+]
+š[[˜[YJJB‚ˆYˆÚ[™ÙWÛ[™ÝXYÙJÙ[‹[™ÝXYÙNˆ\[™ÝXYÙJHOˆ›Û™N‚ˆYˆ[™ÝXYÙH\ÈÙ[‹›[™ÝXYÙN‚ˆXÝ[ÛˆHÙ[‹›[™ÝXYÙWØXÝ[ÛœË™Ù]
+[™ÝXYÙJBˆYˆXÝ[Ûˆ\È›Ý›Û™N‚ˆXÝ[Û‹œÙ]ÚXÚÙY
+YJBˆ™]\›‚‚ˆÙ[‹›[™ÝXYÙHH[™ÝXYÙBˆÙ[‹›ØØ[^™\ˆHØØ[^™\‹˜Ü™X]J[™ÝXYÙJBˆÙ[‹›[™ÝXYÙWÜÙ][™ÜËœØ]™J[™ÝXYÙJBˆÙ[‹—Ü™]˜[œÛ]WÝZJ
+BˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJˆÙ[‹—Ý
+ˆ›[™ÝXYÙK˜Ú[™ÙY›Y\ÜØYÙH‹ˆ[™ÝXYÙOSS‘ÕPQÑWÓSQTÖÛ[™ÝXYÙWKˆ
+KˆLˆ
+B‚ˆYˆÜ™]˜[œÛ]WÝZJÙ[ŠHOˆ›Û™N‚ˆÙ[‹XœËœÙ]X•^
+Ù[‹—Ý
+X‹˜Ý\™\ÈŠJBˆÙ[‹XœËœÙ]X•^
+KÙ[‹—Ý
+X‹X›HŠJBˆÙ[‹XœËœÙ]X•^
+‹Ù[‹—Ý
+X‹X›]ŠJBˆÙ[‹XœËœÙ]X•^
+Ëš[UÛÜšÜÜXÙUÚYÙ]X—Ý]JÙ[‹›[™ÝXYÙK˜[YJJBˆÙ[‹XœËœÙ]X•^
+[\œ™]][Û”™\ÜÛÜšÜÜXÙKX—Ý]JÙ[‹›[™ÝXYÙJJBˆÙ[‹™š[WÝÛÜšÜÜXÙWØXÝ[Û‹œÙ]^
+š[UÛÜšÜÜXÙUÚYÙ]X—Ý]JÙ[‹›[™ÝXYÙK˜[YJJB‚ˆÙ[‹œ›Ú™XÝÙØÚËœÙ]Ú[™ÝÕ]JÙ[‹—Ý
+™ØÚËœ›Ú™XÝŠJBˆÙ[‹˜Ý\™WØœ›ÝÜÙ\—ÙØÚËœÙ]Ú[™ÝÕ]JÙ[‹—Ý
+˜Ý\™WØœ›ÝÜÙ\‹]HŠJBˆÙ[‹š[œÜXÝÜ—ÙØÚËœÙ]Ú[™ÝÕ]JÙ[‹—Ý
+™ØÚËš[œÜXÝÜˆŠJBˆÙ[‹š[\œ™]][Û—Ü›Ü\Y\×ÙØÚËœÙ]Ú[™ÝÕ]JˆÙ[‹—Ý
+š[\œ™]][ÛœËœ›Ü\Y\×Ý]HŠBˆ
+BˆÙ[‹š\ÜÝY\×ÙØÚËœÙ]Ú[™ÝÕ]JÙ[‹—Ý
+™ØÚË›ÙÈŠJBˆÙ[‹˜Ý\œÛÜ—ÙØÚËœÙ]Ú[™ÝÕ]JÙ[‹—Ý
+˜Ý\œÛÜ‹œ[™[Ý]HŠJBˆÙ[‹š[\˜[ÜÝ]\ÝXÜ×ÙØÚËœÙ]Ú[™ÝÕ]JÙ[‹—Ý
+œÝ]\ÝXÜËœ[™[Ý]HŠJBˆÙ[‹™YKœÙ]XY\“X™[
+Ù[‹—Ý
+™^Ü™\‹]HŠJBˆÙ[‹›YÜ[™[Ü˜Z[œÙ]Ú[™ÝÕ]JÙ[‹—Ý
+œ[™[›YÜ˜Z[ŠJBˆÙ[‹œšYÚÜ[™[Ü˜Z[œÙ]Ú[™ÝÕ]JÙ[‹—Ý
+œ[™[œšYÚÜ˜Z[ŠJBˆÙ[‹›XZ[—ÝÛÛ˜\‹œÙ]Ú[™ÝÕ]JÙ[‹—Ý
+ÛÛ˜\‹›XZ[ˆŠJBˆÙ[‹™›Ü›WÙY]ÝÛÛ˜\‹œÙ]Ú[™ÝÕ]JÙ[‹—Ý
+ZK™›Ü›WÙY]ÝÛÛ˜\ˆŠJBˆÙ[‹™›Ü›WÙY]ØØ\[Û‹œÙ]^
+Ù[‹—Ý
+ZK™›Ü›WÙY]ÝÛÛ˜\ˆŠJBˆÙ[‹™›Ü›WÙY]ØØ\[Û‹œÙ]ÛÛ\
+Ù[‹—Ý
+ZKš[X›]ÙY]Û[ÙHŠJBˆYˆ\Ø]ŠÙ[‹›XZ[—ÝÛÛ˜\—ÛÝ™\™›Ý×Ø]ÛˆŠN‚ˆÙ[‹›XZ[—ÝÛÛ˜\—ÛÝ™\™›Ý×Ø]Û‹œÙ]ÛÛ\
+Ù[‹—Ý
+ÛÛ˜\‹›[Ü™WØXÝ[ÛœÈŠJBˆÙ[‹šÛYWÜYÙKœ™]˜[œÛ]JÙ[‹›[™ÝXYÙJB‚ˆÙ[‹—Ü™]˜[œÛ]WÜ™YÚ\Ý\™YØXÝ[ÛœÊ
+Bˆ›ÜˆÝ\œ™[Û[™ÝXYÙKXÝ[Ûˆ[ˆÙ[‹›[™ÝXYÙWØXÝ[ÛœËš][\Ê
+N‚ˆXÝ[Û‹œÙ]ÚXÚÙY
+Ý\œ™[Û[™ÝXYÙH\ÈÙ[‹›[™ÝXYÙJB‚ˆ›ÜˆÚYÙ][ˆ
+ˆÙ[‹˜Ý\™WÝšY]ËˆÙ[‹›\×ÝX›WÙY]Ü‹ˆÙ[‹X›]ÝšY]ËˆÙ[‹˜Ý\™WØœ›ÝÜÙ\‹ˆÙ[‹š[œÜXÝÜ‹ˆÙ[‹š[\œ™]][Û—Ü›Ü\Y\ËˆÙ[‹š[\˜[ÜÝ]\ÝXÜ×Ü[™[ˆÙ[‹š[\œ™]][Û—Ü™\ÜÝÛÜšÜÜXÙKˆ
+N‚ˆÙ]\ˆHÙ]]ŠÚYÙ]œÙ]Û[™ÝXYÙH‹›Û™JBˆYˆØ[X›JÙ]\ŠN‚ˆÙ]\ŠÙ[‹›[™ÝXYÙJB‚ˆYˆÙ[‹—Ú[\œ™]][Û—ÙX[ÙÈ\È›Ý›Û™N‚ˆÙ]\ˆHÙ]]ŠÙ[‹—Ú[\œ™]][Û—ÙX[ÙËœÙ]Û[™ÝXYÙH‹›Û™JBˆYˆØ[X›JÙ]\ŠN‚ˆÙ]\ŠÙ[‹›[™ÝXYÙJB‚ˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—Ý\]WÝ]J
+BˆU[Y\‹œÚ[™ÛTÚÝ
+Ù[‹Ù[‹—Ý\]WÝÛÛ˜\—ØY\][ÛŠB‚ˆYˆÙ[XÝÝ\Ù\—Ü›Ùš[JÙ[ŠHOˆ›Û™N‚ˆ›Ùš[\ÈHÙ[‹\Ù\—Ü›Ùš[WÜÙ][™ÜËœ›Ùš[\Ê
+BˆÜ™X]WÛX™[HÙ[‹—Ý
+œ›Ùš[K˜Ü™X]HŠBˆX™[ÈHÙˆžÚ][K™\Ü^WÛ˜[Y_H8 %Ú][K›Ü™Ø[š^˜][ÛŸHˆ›Üˆ][H[ˆ›Ùš[\×BˆÙ[XÝYXØÙ\YHR[œ]X[ÙË™Ù]][JˆÙ[‹ˆÙ[‹—Ý
+œ›Ùš[K]HŠKˆÙ[‹—Ý
+œ›Ùš[KœÙ[XÝŠKˆÊ›X™[ËÜ™X]WÛX™[Kˆˆ˜[ÙKˆ
+BˆYˆ›ÝXØÙ\Y‚ˆ™]\›‚ˆYˆÙ[XÝYOHÜ™X]WÛX™[‚ˆ˜[YKXØÙ\YHR[œ]X[ÙË™Ù]^
+ˆÙ[‹Ù[‹—Ý
+œ›Ùš[K]HŠKÙ[‹—Ý
+œ›Ùš[K›˜[YHŠBˆ
+BˆYˆ›ÝXØÙ\Y‚ˆ™]\›‚ˆÜ™Ø[š^˜][Û‹XØÙ\YHR[œ]X[ÙË™Ù]^
+ˆÙ[‹Ù[‹—Ý
+œ›Ùš[K]HŠKÙ[‹—Ý
+œ›Ùš[K›Ü™Ø[š^˜][ÛˆŠBˆ
+BˆYˆ›ÝXØÙ\Y‚ˆ™]\›‚ˆžN‚ˆ›Ùš[HHÙ[‹\Ù\—Ü›Ùš[WÜÙ][™ÜË˜Ü™X]J˜[YKÜ™Ø[š^˜][ÛŠBˆ^Ù\˜[YQ\œ›Üˆ\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+œ›Ùš[K]HŠKÝŠ^ÊJBˆ™]\›‚ˆ[ÙN‚ˆ[™^HX™[Ëš[™^
+Ù[XÝY
+Bˆ›Ùš[HHÙ[‹\Ù\—Ü›Ùš[WÜÙ][™ÜËœÙ[XÝ
+›Ùš[\ÖÚ[™^Kœ›Ùš[WÚY
+BˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJÙ[‹—Ý
+œ›Ùš[K˜XÝ]™H‹˜[YO\›Ùš[K™\Ü^WÛ˜[YJJBˆÙ[‹œš[ÜYÙWÜÙ][™ÜÈHÙ[‹\Ù\—Ü›Ùš[WÜÙ][™ÜËœš[ÜYÙWÜÙ][™ÜÊ
+BˆÙ[‹œš[Ù^ÜÜ™Y™\™[˜Ù\ÈHÙ[‹\Ù\—Ü›Ùš[WÜÙ][™ÜËœš[Ù^ÜÜ™Y™\™[˜Ù\Ê
+BˆÙ[‹›\×ÝX›WÙY]Ü‹œÙ]Û[X™\—Ù›Ü›X]ÊÙ[‹\Ù\—Ü›Ùš[WÜÙ][™ÜËX›WÛ[X™\—Ù›Ü›X]Ê
+JB‚ˆYˆÜÙ[XÝÛ\×Ú[\ÜÛ[ÙJÙ[ŠHOˆ\Ò[\Ü[ÙH›Û™N‚ˆ[ÙWÛX™[ÈHÂˆÙ[‹—Ý
+š[\Ü›\×Û[ÙK˜ÛÛ\]X›HŠNˆ\Ò[\Ü[ÙKÓÓTUP“KˆÙ[‹—Ý
+š[\Ü›\×Û[ÙKœÝšXÝŠNˆ\Ò[\Ü[ÙK”Õ’PÕˆÙ[‹—Ý
+š[\Ü›\×Û[ÙK›X[X[ŠNˆ\Ò[\Ü[ÙK“PS•PSˆBˆÙ[XÝYÛ[ÙKXØÙ\YHR[œ]X[ÙË™Ù]][JˆÙ[‹ˆÙ[‹—Ý
+š[\Ü›\×Û[ÙK]HŠKˆÙ[‹—Ý
+š[\Ü›\×Û[ÙKœ›Û\ŠKˆ\Ý
+[ÙWÛX™[ÊKˆˆ˜[ÙKˆ
+BˆYˆ›ÝXØÙ\Y‚ˆ™]\›ˆ›Û™Bˆ™]\›ˆ[ÙWÛX™[ÖÜÙ[XÝYÛ[ÙWB‚ˆYˆÜ[—Û\×ØY˜[˜ÙY
+Ù[ŠHOˆ›Û™N‚ˆ[\ÜÛ[ÙHHÙ[‹—ÜÙ[XÝÛ\×Ú[\ÜÛ[ÙJ
+BˆYˆ[\ÜÛ[ÙH\È›Ý›Û™N‚ˆÙ[‹›Ü[—Û\Ê[\ÜÛ[ÙOZ[\ÜÛ[ÙJB‚ˆYˆÜ[—Û\ÊˆÙ[‹ˆÛÝ\˜ÙNˆÝˆ]›Û™HH›Û™Kˆ
+‹ˆ[\ÜÛ[ÙNˆ\Ò[\Ü[ÙHH\Ò[\Ü[ÙKÓÓTUP“Kˆ
+HOˆ›Û™N‚ˆYˆÛÝ\˜ÙH\È›Û™N‚ˆš[[˜[Y\ËÈHQš[QX[ÙË™Ù]Ü[‘š[S˜[Y\ÊˆÙ[‹ˆÙ[‹—Ý
+š[\ÜœÙ[XÝÛ\ÈŠKˆˆ‹ˆ“TÈ
+
+‹›\ÊH‹ˆ
+Bˆ[ÙN‚ˆš[[˜[Y\ÈHÜÝŠÛÝ\˜ÙJWBˆYˆ›Ýš[[˜[Y\Î‚ˆ™]\›‚ˆÙ[‹—ÛÜ[—Û\×Ùš[\Ê\J]
+š[[˜[YJH›Üˆš[[˜[YH[ˆš[[˜[Y\ÊK[\ÜÛ[ÙJB‚ˆYˆÛÜ[—ÙÙ[™\˜]YÛ\ÊÙ[‹^[ØYˆØš™XÝ
+HOˆ›Û™N‚ˆ]ÈH\Jˆ]
+][JK™^[™\Ù\Š
+Kœ™\ÛÛ™J
+Bˆ›Üˆ][H[ˆ
+^[ØYYˆ\Ú[œÝ[˜ÙJ^[ØY
+\K\Ý
+JH[ÙH
+^[ØY
+JBˆYˆ][Bˆ
+BˆYˆ]Î‚ˆÙ[‹—ÛÜ[—Û\×Ùš[\Ê]Ë\Ò[\Ü[ÙKÓÓTUP“JB‚ˆYˆØÛÛ™š\›WÛ\×Ü™]šY]ÊˆÙ[‹ˆÛÝ\˜ÙNˆ]ˆ\ÜÝY\Îˆ\VÓ\Ò[\Ü\ÜÝYK‹‹—Kˆ
+HOˆ›ÛÛ‚ˆY\ÜØYÙ\ÈH—ˆ‹š›Ú[Šˆ¸ (ˆÚ\ÜÝYK›Y\ÜØYÙ_Hˆ›Üˆ\ÜÝYH[ˆ\ÜÝY\ÊBˆ[œÝÙ\ˆHSY\ÜØYÙP›Þœ]Y\Ý[ÛŠˆÙ[‹ˆˆ´(4`ôaô/t,4cÈ4/ô`4/´,´-t`4.´,ˆÜÛÝ\˜ÙK›˜[Y_H‹ˆY\ÜØYÙ\È
+È——´'´`´.´`4bô`´c4a4,4.t.È4,t-t-È4,4,´`´/´/4,4`´.4aô-t`t.´/´,ô/ˆ4.4`t/ô`4,4,´.ô-t/t.4cÏÈ‹ˆSY\ÜØYÙP›Þ”Ý[™\™]Û‹–Y\ÈSY\ÜØYÙP›Þ”Ý[™\™]Û‹“›ËˆSY\ÜØYÙP›Þ”Ý[™\™]Û‹“›Ëˆ
+Bˆ™]\›ˆ[œÝÙ\ˆOHSY\ÜØYÙP›Þ”Ý[™\™]Û‹–Y\Â‚ˆYˆÜ™]šY]×Ú[\ÜYÙ]\Ù]
+ˆÙ[‹ˆ]\Ù]ˆ]\Ù]ˆÛÝ\˜ÙWÚÚ[™ˆ[\ÜÛÝ\˜ÙRÚ[™ˆÛÝ\˜ÙNˆ]ˆ
+HOˆ]\Ù]›Û™N‚ˆX[ÙÈH[\Ü™]šY]ÑX[ÙÊˆ]\Ù]ˆÛÝ\˜ÙKˆÛÝ\˜ÙWÚÚ[™ˆÙ[‹ˆ[™ÝXYÙO\Ù[‹›[™ÝXYÙKˆ
+Bˆ™\Ý[HX[ÙË™^XÊ
+BˆYˆX[ÙË™˜Z[\™H\È›Ý›Û™N‚ˆ˜Z\ÙHX[ÙË™˜Z[\™BˆYˆ™\Ý[OHQX[ÙË‘X[ÙÐÛÙKXØÙ\Y‚ˆÙ[‹—ÛÙÊˆÙ[‹—Ý
+ˆš[\ÜÜ™]šY]Ë˜Ø[˜Ù[YÛÙÈ‹ˆš[O\ÛÝ\˜ÙK›˜[YKˆ
+Bˆ
+Bˆ™]\›ˆ›Û™Bˆ™]\›ˆX[ÙË˜XØÙ\YÙ]\Ù]‚ˆYˆÛÜ[—Û\×Ùš[\ÊˆÙ[‹ˆš[[˜[Y\Îˆ\VÔ]‹‹—Kˆ[\ÜÛ[ÙNˆ\Ò[\Ü[ÙKˆ
+HOˆ›Û™N‚ˆÝ]ÛÛYHHÙ[‹—Ù]\Ù]Ú[\ÜÚ›ØœË™^XÝ]WÛ\Êˆš[[˜[Y\Ëˆ[\ÜÛ[ÙKˆÛÛ™š\›WÜ™]šY]Ï\Ù[‹—ØÛÛ™š\›WÛ\×Ü™]šY]Ëˆ™]šY]×Ù]\Ù]\Ù[‹—Ü™]šY]×Ú[\ÜYÙ]\Ù]ˆ
+Bˆ›Üˆ][H[ˆÝ]ÛÛYK™š[\Î‚ˆš[[˜[YHHÝŠ][KœÛÝ\˜ÙJBˆYˆ][KœÝXØÙYYY‚ˆÙ[‹—ÛÙÊˆ´%ô,4,ô`4`ô-´-t/HTÎˆÙš[[˜[Y_HŠBˆ[Yˆ][Kœ™]šY]×ÜÚÚ\Y‚ˆÙ[‹—ÛÙÊˆ“TÈ4/ô`4/´/ô`ôbt-t/H4/ô/´`t.ô-H4`4`ôaô/t/´.H4/ô`4/´,´-t`4.´.ˆÙš[[˜[Y_HŠBˆ[Yˆ][K™\œ›ÜŽ‚ˆÙ[‹—ÛÙÊˆ´'´*4&4$t&´$ˆÙš[[˜[Y_NˆÚ][K™\œ›ÜŸHŠB‚ˆ\ÝHÝ]ÛÛYK›\ÝÜÝXØÙ\ÜÙ[ˆ\œ›ÜœÈHÙˆžÚ][KœÛÝ\˜ÙK›˜[Y_NˆÚ][K™\œ›ÜŸHˆ›Üˆ][H[ˆÝ]ÛÛYK™˜Z[YBˆYˆ\Ý\È›Û™HÜˆ\Ýœ™\Ý[\È›Û¸çMt¶‰žËkºwµçXZ[‹ÛÝ[[[Š^[Ý]˜XÚÜÊJJB‚ˆYˆÜÙ]ÝX›]ÙY]Û[ÙJÙ[‹[˜X›Yˆ›ÛÛ
+HOˆ›Û™N‚ˆˆˆ”ÚÝÈÜˆYH›Ü›K\ÝXÝ\™HÛÛÈÚ]Ý]Y™™XÝ[™È]H˜]šYØ][Û‹ˆˆˆ‚‚ˆ[˜X›YH›ÛÛ
+[˜X›Y
+BˆÙ[‹™›Ü›WÙY]ÝÛÛ˜\‹œÙ]š\ÚX›J[˜X›Y
+BˆÙ[‹X›]ÝšY]ËœÙ]Ù›Ü›WÙY]Û[ÙJ[˜X›Y
+BˆÙ[‹œØ]™WÝ\Ù\—Ù›Ü›WØXÝ[Û‹œÙ][˜X›Y
+[˜X›Y
+BˆÙ[‹˜YØÝ\™WÝ˜XÚ×ØXÝ[Û‹œÙ][˜X›Y
+[˜X›Y
+BˆÙ[‹™Y]ÜÙ[XÝYÝ˜XÚ×ØXÝ[Û‹œÙ][˜X›Y
+[˜X›Y
+BˆÙ[‹›[Ý™WÛYØXÝ[Û‹œÙ][˜X›Y
+[˜X›Y
+BˆÙ[‹›[Ý™WÜšYÚØXÝ[Û‹œÙ][˜X›Y
+[˜X›Y
+BˆÙ[‹œ™[[Ý™WÝ˜XÚ×ØXÝ[Û‹œÙ][˜X›Y
+[˜X›Y
+BˆÙ[‹˜[››Ý][Û—ØØ[Ý]ØXÝ[Û‹œÙ][˜X›Y
+[˜X›Y
+BˆÙ[‹˜[››Ý][Û—ØÛÛ[Y[ØXÝ[Û‹œÙ][˜X›Y
+[˜X›Y
+BˆÙ[‹˜[››Ý][Û—Ú[XYÙWØXÝ[Û‹œÙ][˜X›Y
+[˜X›Y
+BˆÙ[‹˜[››Ý][Û—ÜÞ[X›ÛØXÝ[Û‹œÙ][˜X›Y
+[˜X›Y
+BˆYˆ›Ý[˜X›Y‚ˆÙ[‹X›]ÝšY]ËœÙ]Ø[››Ý][Û—ÝÛÛ
+›Û™JBˆÙ[XÝYÙ[˜X›YH[˜X›Y[™Ù[‹—ÜÙ[XÝYØ[››Ý][Û—ÚY\È›Ý›Û™BˆÙ[‹˜[››Ý][Û—ÙY]ÜÙ[XÝYØXÝ[Û‹œÙ][˜X›Y
+Ù[XÝYÙ[˜X›Y
+BˆÙ[‹˜[››Ý][Û—Ù[]WÜÙ[XÝYØXÝ[Û‹œÙ][˜X›Y
+Ù[XÝYÙ[˜X›Y
+BˆYˆ›Ý[˜X›Y‚ˆÙ[‹—ÜÙ[XÝYØ[››Ý][Û—ÚYH›Û™BˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJˆÙ[‹—Ý
+ZK™›Ü›WÙY]Ù[˜X›YŠHYˆ[˜X›Y[ÙHÙ[‹—Ý
+ZK™›Ü›WÙY]Ù\ØX›YŠBˆ
+BˆÙ[‹—ÜØÚY[WÝÛÛ˜\—ØY\][ÛŠ
+B‚ˆYˆØ]™WØÝ\œ™[ÝX›]Ø\×Ý\Ù\—Ù›Ü›JÙ[ŠHOˆ›Û™N‚ˆ^[Ý]HÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[ÝX›]Û^[Ý]ˆ]\Ù]HÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[Ù]\Ù]ˆYˆ^[Ý]\È›Û™HÜˆ]\Ù]\È›Û™N‚ˆSY\ÜØYÙP›Þš[™›Ü›X][ÛŠÙ[‹Ù[‹—Ý
+™›Ü›\Ë]HŠKÙ[‹—Ý
+X›]˜Z[Ùš\œÝŠJBˆ™]\›‚ˆ[™^H
+ˆ]\Ù]š[™^\Ë™Ù]
+^[Ý]™\XØ[Ú[™^ÚY
+BˆYˆ^[Ý]™\XØ[Ú[™^ÚY\È›Ý›Û™Bˆ[ÙH]\Ù]˜XÝ]™WÚ[™^ˆ
+Bˆ^\×ÝÛÜ™HÙ[‹—Ý
+ˆZK˜^\×Ý[YH‚ˆYˆ[™^\È›Ý›Û™H[™[™^œ›ÛH\È[™^›ÛK•SQBˆ[ÙHZK˜^\×Ù\‚ˆ
+BˆÝYÙÙ\ÝYHˆžÙ]\Ù]›˜[Y_H8 %Ø^\×ÝÛÜ™H‚ˆØ][ÙÈHÛÛ\]WÙ›Ü›WØØ][ÙÊÙ[‹™›Ü›WÜ™\ÜÚ]ÜžK]\Ù]ÝŠÙ[‹›[™ÝXYÙJJBˆX[ÙÈH›Ü›PÜ™X]QX[ÙÊˆØ][ÙËˆÙ[‹ˆ[™ÝXYÙO\ÝŠÙ[‹›[™ÝXYÙJKˆ[ÙOHœØ]™H‹ˆ[š]X[Û˜[YO\ÝYÙÙ\ÝYˆ[š]X[Ø^\×ÚÚ[™Jˆ›Ü›P^\ÒÚ[™•SQBˆYˆ[™^\È›Ý›Û™H[™[™^œ›ÛH\È[™^›ÛK•SQBˆ[ÙH›Ü›P^\ÒÚ[™‘Tˆ
+Kˆ^\×ÙY]X›OQ˜[ÙKˆ
+BˆYˆX[ÙË™^XÊ
+HOHQX[ÙË‘X[ÙÐÛÙKXØÙ\Y‚ˆ™]\›‚ˆ›Ü›X[^™YHX[ÙË™›Ü›WÛ˜[YBˆ^\Ý[™ÈHX[ÙË™^\Ý[™×Ù›Ü›BˆžN‚ˆ›Ü›HH›Ü›WÙœ›ÛWÝX›]Û^[Ý]
+ˆ^[Ý]ˆ]\Ù]ˆ›Ü›X[^™Yˆ\ØÜš\[Û\Ù[‹—Ý
+ZKœØ]™YÙœ›ÛWÝX›]Ù\ØÜš\[ÛˆŠKˆ[™ÝXYÙO\Ù[‹›[™ÝXYÙKˆ
+BˆYˆ^\Ý[™È\È›Ý›Û™N‚ˆ›Ü›K™›Ü›WÚYH^\Ý[™Ë™›Ü›WÚYˆ›Ü›KœÝ[WÚYH^\Ý[™ËœÝ[WÚYˆ›Ü›Kœš[ÚXY\—Ý[\]WÚYH^\Ý[™Ëœš[ÚXY\—Ý[\]WÚYˆ›Ü›Kœš[ÚXY\—Ý[\]WÚYÈHXÝ
+^\Ý[™Ëœš[ÚXY\—Ý[\]WÚYÊBˆ›Ü›Kœ™]š\Ú[ÛˆH^\Ý[™Ëœ™]š\Ú[Ûˆ
+ÈBˆ›Ü›K˜[Y]J
+Bˆ\™Ù]HÙ[‹™›Ü›WÜ™\ÜÚ]ÜžKœØ]™J›Ü›JBˆÙ[‹™\Ø[››Ý][Û—ØÛÛ›Û\‹œ™Xš[™ØÝ\œ™[ÜØÛÜJˆˆ™]\Ù]žÙ]\Ù]™]\Ù]ÚYN™›Ü›NžÙ›Ü›K™›Ü›WÚYH‚ˆ
+Bˆ^Ù\
+ÔÑ\œ›Ü‹[[YQ\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+ZKœØ]™WÝ\Ù\—Ù›Ü›HŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹—Ü™Yœ™\ÚØ[››Ý][Û—Û^Y\Š
+Bˆ›Û\—Û˜[YHHÙ[‹—Ý
+ˆZK\Ù\—Ý[YWÙ›Ü›\ÈˆYˆ›Ü›K˜^\×ÚÚ[™\È›Ü›P^\ÒÚ[™•SQH[ÙHZK\Ù\—Ù\Ù›Ü›\È‚ˆ
+BˆY\ÜØYÙHHÙ[‹—Ý
+ˆZK\Ù\—Ù›Ü›WÜØ]™Y‹ˆ˜[YOY›Ü›K›˜[YKˆ›Û\Y›Û\—Û˜[YKˆ]\ÝŠ\™Ù]
+Kˆ
+BˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJY\ÜØYÙJBˆÙ[‹—ÛÙÊY\ÜØYÙJB‚ˆYˆØ]™WÝX›]Ü™\Ù]
+Ù[ŠHOˆ›Û™N‚ˆYˆÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[ÝX›]Û^[Ý]\È›Û™N‚ˆSY\ÜØYÙP›Þš[™›Ü›X][ÛŠÙ[‹Ù[‹—Ý
+X›]]HŠKÙ[‹—Ý
+X›]˜Z[Ùš\œÝŠJBˆ™]\›‚ˆ˜[YKXØÙ\YHR[œ]X[ÙË™Ù]^
+ˆÙ[‹Ù[‹—Ý
+X›]œ™\Ù]ÜØ]™HŠKÙ[‹—Ý
+X›]œ™\Ù]Û˜[YHŠBˆ
+BˆYˆ›ÝXØÙ\Y‚ˆ™]\›‚ˆžN‚ˆÙ[‹X›]ØÛÛ›Û\‹œØ]™WÜ™\Ù]
+˜[YJBˆ^Ù\
+[[YQ\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+X›]]HŠKÝŠ^ÊJBˆ™]\›‚ˆ›Ü›X[^™YH˜[YKœÝš\
+
+BˆÙ[‹—Ý\]WÝ]J
+BˆÙ[‹—ÛÙÊÙ[‹—Ý
+X›]œ™\Ù]ÜØ]™Y‹˜[YO[›Ü›X[^™Y
+JB‚ˆYˆ\WÝX›]Ü™\Ù]
+Ù[ŠHOˆ›Û™N‚ˆ˜[YHHÙ[‹—ÜÙ[XÝÝX›]Ü™\Ù]
+Ù[‹—Ý
+X›]œ™\Ù]Ø\HŠJBˆYˆ˜[YH\È›Û™N‚ˆ™]\›‚ˆžN‚ˆ^[Ý]HÙ[‹X›]ØÛÛ›Û\‹˜\WÜ™\Ù]
+˜[YJBˆ^Ù\
+Ù^Q\œ›Ü‹[[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+X›]]HŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹—ÜÙ[XÝYÝ˜XÚ×ÚYH›Û™BˆÙ[‹X›]ÝšY]ËœÙ]Û^[Ý]Û[Ù[
+^[Ý]
+BˆÙ[‹X›]ÝšY]ËœÙ]Ù]\Ù]
+Ù[‹œÙ\ÜÚ[Û‹˜Ý\œ™[Ù]\Ù]
+BˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—Ý\]WÝ]J
+BˆÙ[‹—ÛÙÊÙ[‹—Ý
+X›]œ™\Ù]Ø\YY‹˜[YO[˜[YJJB‚ˆYˆ[]WÝX›]Ü™\Ù]
+Ù[ŠHOˆ›Û™N‚ˆ˜[YHHÙ[‹—ÜÙ[XÝÝX›]Ü™\Ù]
+Ù[‹—Ý
+X›]œ™\Ù]Ù[]HŠJBˆYˆ˜[YH\È›Û™N‚ˆ™]\›‚ˆžN‚ˆÙ[‹X›]ØÛÛ›Û\‹™[]WÜ™\Ù]
+˜[YJBˆ^Ù\Ù^Q\œ›Üˆ\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+X›]]HŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹—Ý\]WÝ]J
+BˆÙ[‹—ÛÙÊÙ[‹—Ý
+X›]œ™\Ù]Ù[]Y‹˜[YO[˜[YJJB‚ˆYˆÜÙ[XÝÝX›]Ü™\Ù]
+Ù[‹]NˆÝŠHOˆÝˆ›Û™N‚ˆ˜[Y\ÈHÛÜY
+Ù[‹œÙ\ÜÚ[Û‹X›]Ü™\Ù]ËÙ^O\Ý‹˜Ø\ÙY›Û
+BˆYˆ›Ý˜[Y\Î‚ˆSY\ÜØYÙP›Þš[™›Ü›X][ÛŠÙ[‹Ù[‹—Ý
+X›]]HŠKÙ[‹—Ý
+X›]œ™\Ù]Ù[\HŠJBˆ™]\›ˆ›Û™Bˆ˜[YKXØÙ\YHR[œ]X[ÙË™Ù]][JˆÙ[‹]KÙ[‹—Ý
+X›]œ™\Ù]Û˜[YHŠK˜[Y\Ë˜[ÙBˆ
+Bˆ™]\›ˆ˜[YHYˆXØÙ\Y[ÙH›Û™B‚ˆYˆYÝ˜XÚÊÙ[‹Ú[™ˆ˜XÚÒÚ[™
+HOˆ›Û™N‚ˆ]\Ù]HÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[Ù]\Ù]ˆYˆ]\Ù]\È›Û™N‚ˆSY\ÜØYÙP›Þš[™›Ü›X][ÛŠÙ[‹Ù[‹—Ý
+X›]]HŠKÙ[‹—Ý
+X›]›Ü[—Ùš\œÝŠJBˆ™]\›‚‚ˆ[™[[ÛšXÜÈHÙ[‹—ÜÙ[XÝØÝ\™WÛ[™[[ÛšXÜÊ
+HYˆÚ[™\È˜XÚÒÚ[™ÕT•‘H[ÙH×BˆYˆÚ[™\È˜XÚÒÚ[™ÕT•‘H[™›Ý[™[[ÛšXÜÎ‚ˆ™]\›‚‚ˆžN‚ˆ˜XÚÈHÙ[‹X›]ØÛÛ›Û\‹˜YÝ˜XÚÊÚ[™[™[[ÛšXÜÊBˆ^Ù\
+[[YQ\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+X›]]HŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹X›]ÝšY]Ëœ™Yœ™\ÚÝšY]Ê
+BˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—ÜÚÝ×ÝÛÜšÜÜXÙJÙ[‹X›]ÝšY]ÊBˆÙ[‹—ÛÙÊÙ[‹—Ý
+X›]˜XÚ×ØYY‹]O]˜XÚË]JJBˆÙ[‹—Ý\]WÝ]J
+B‚ˆYˆÚ[™ÙWÜÙ[XÝYÝ˜XÚ×ÝÚY
+Ù[ŠHOˆ›Û™N‚ˆ˜XÚÈHÙ[‹—ÜÙ[XÝYÝ˜XÚÊ
+BˆYˆ˜XÚÈ\È›Û™N‚ˆ™]\›‚ˆÚYXØÙ\YHR[œ]X[ÙË™Ù][
+ˆÙ[‹ˆÙ[‹—Ý
+X›]ÚYÝ]HŠKˆÙ[‹—Ý
+X›]ÚYÜ›Û\ŠKˆ˜XÚËÚYˆˆŒˆLˆ
+BˆYˆXØÙ\Y‚ˆÙ[‹X›]ØÛÛ›Û\‹œÙ]Ý˜XÚ×ÝÚY
+˜XÚË˜XÚ×ÚYÚY
+BˆÙ[‹—Û^[Ý]ØÚ[™ÙY
+Ù[‹—Ý
+X›]ÚYØÚ[™ÙY‹]O]˜XÚË]KÚY]ÚY
+JB‚ˆYˆØÚ[™ÙWÝ˜XÚ×ÝÚYÙœ›ÛWÙ˜YÊÙ[‹˜XÚ×ÚYˆÝ‹ÚYˆ[
+HOˆ›Û™N‚ˆžN‚ˆ˜XÚÈHÙ[‹X›]ÝšY]Ë›^[Ý]Û[Ù[˜XÚ×ØžWÚY
+˜XÚ×ÚY
+BˆÙ[‹X›]ØÛÛ›Û\‹œÙ]Ý˜XÚ×ÝÚY
+˜XÚ×ÚYÚY
+BˆÙ[‹X›]ÝšY]Ëœ™Yœ™\ÚÝ˜XÚÊ˜XÚ×ÚY\T™X\ÛÛ‹”ÕUPÊBˆ^Ù\
+Ù^Q\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+X›]ÚYÝ]HŠKÝŠ^ÊJBˆÙ[‹X›]ÝšY]Ëœ™Yœ™\ÚÝšY]Ê
+Bˆ™]\›‚ˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—Ý\]WÝ]J
+BˆÙ[‹—ÛÙÊÙ[‹—Ý
+X›]ÚYØÚ[™ÙY‹]O]˜XÚË]KÚY]ÚY
+JB‚ˆYˆÝ˜XÚ×ÛÜ™\—ØÚ[™ÙYÙœ›ÛWÙ˜YÊÙ[‹˜XÚ×ÚYˆÝ‹\™Ù]Ú[™^ˆ[
+HOˆ›Û™N‚ˆžN‚ˆ˜XÚÈHÙ[‹X›]ÝšY]Ë›^[Ý]Û[Ù[˜XÚ×ØžWÚY
+˜XÚ×ÚY
+BˆÙ[‹X›]ØÛÛ›Û\‹›[Ý™WÝ˜XÚ×Ý×Ú[™^
+˜XÚ×ÚY\™Ù]Ú[™^
+Bˆ^Ù\
+Ù^Q\œ›Ü‹˜[YQ\œ›ÜŠN‚ˆ™]\›‚ˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—Ý\]WÝ]J
+BˆÙ[‹—ÛÙÊÙ[‹—Ý
+X›]˜XÚ×Û[Ý™Y‹]O]˜XÚË]JJB‚ˆYˆ[Ý™WÜÙ[XÝYÝ˜XÚÊÙ[‹Ù™œÙ]ˆ[
+HOˆ›Û™N‚ˆ˜XÚÈHÙ[‹—ÜÙ[XÝYÝ˜XÚÊ
+BˆYˆ˜XÚÈ\È›Û™N‚ˆ™]\›‚ˆYˆÙ[‹X›]ØÛÛ›Û\‹›[Ý™WÝ˜XÚÊ˜XÚË˜XÚ×ÚYÙ™œÙ]
+N‚ˆÙ[‹—Û^[Ý]ØÚ[™ÙY
+Ù[‹—Ý
+X›]˜XÚ×Û[Ý™Y‹]O]˜XÚË]JJB‚ˆYˆÙ]ÜÙ[XÝYÝ˜XÚ×ÞÜØØ[JÙ[‹ØØ[NˆØØ[JHOˆ›Û™N‚ˆ˜XÚÈHÙ[‹—ÜÙ[XÝYÝ˜XÚÊ
+BˆYˆ˜XÚÈ\È›Û™N‚ˆ™]\›‚ˆžN‚ˆÙ[‹X›]ØÛÛ›Û\‹œÙ]Ý˜XÚ×ÞÜØØ[J˜XÚË˜XÚ×ÚYØØ[JBˆ^Ù\˜[YQ\œ›Üˆ\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+X›]œØØ[WÝ]HŠKÝŠ^ÊJBˆ™]\›‚ˆØØ[WÛ˜[YHH
+ˆÙ[‹—Ý
+š[œÜXÝÜ‹›ÙØ\š]ZXÈŠBˆYˆØØ[H\ÈØØ[K“ÑÐT’URPÂˆ[ÙHÙ[‹—Ý
+š[œÜXÝÜ‹›[™X\ˆŠBˆ
+BˆÙ[‹—Û^[Ý]ØÚ[™ÙY
+Ù[‹—Ý
+X›]œØØ[WØÚ[™ÙY‹]O]˜XÚË]KØØ[O\ØØ[WÛ˜[YJJB‚ˆYˆÚ[™ÙWÜÙ[XÝYÝ˜XÚ×ÞÜ˜[™ÙJÙ[ŠHOˆ›Û™N‚ˆ˜XÚÈHÙ[‹—ÜÙ[XÝYÝ˜XÚÊ
+BˆYˆ˜XÚÈ\È›Û™N‚ˆ™]\›‚ˆY˜][ÛZ[š[][HH˜XÚËžÛZ[ˆYˆ˜XÚËžÛZ[ˆ\È›Ý›Û™H[ÙHŒBˆY˜][ÛX^[][HH˜XÚËžÛX^Yˆ˜XÚËžÛX^\È›Ý›Û™H[ÙHLŒˆZ[š[][KXØÙ\YHR[œ]X[ÙË™Ù]ÝX›JˆÙ[‹ˆÙ[‹—Ý
+X›]œ˜[™ÙWÝ]HŠKˆÙ[‹—Ý
+X›]›Z[š[][HŠKˆY˜][ÛZ[š[][KˆLYLÌˆYLÌˆ‹ˆ
+BˆYˆ›ÝXØÙ\Y‚ˆ™]\›‚ˆX^[][KXØÙ\YHR[œ]X[ÙË™Ù]ÝX›JˆÙ[‹ˆÙ[‹—Ý
+X›]œ˜[™ÙWÝ]HŠKˆÙ[‹—Ý
+X›]›X^[][HŠKˆY˜][ÛX^[][KˆLYLÌˆYLÌˆ‹ˆ
+BˆYˆ›ÝXØÙ\Y‚ˆ™]\›‚ˆžN‚ˆÙ[‹X›]ØÛÛ›Û\‹œÙ]Ý˜XÚ×ÞÜ˜[™ÙJ˜XÚË˜XÚ×ÚYZ[š[][KX^[][JBˆ^Ù\˜[YQ\œ›Üˆ\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+X›]œ˜[™ÙWÙ\œ›Ü—Ý]HŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹—Û^[Ý]ØÚ[™ÙY
+ˆÙ[‹—Ý
+ˆX›]œ˜[™ÙWØÚ[™ÙY‹ˆ]O]˜XÚË]KˆZ[š[][OYˆžÛZ[š[][N™ßH‹ˆX^[][OYˆžÛX^[][N™ßH‹ˆ
+Bˆ
+B‚ˆYˆ™\Ù]ÜÙ[XÝYÝ˜XÚ×ÞÜ˜[™ÙJÙ[ŠHOˆ›Û™N‚ˆ˜XÚÈHÙ[‹—ÜÙ[XÝYÝ˜XÚÊ
+BˆYˆ˜XÚÈ\È›Û™N‚ˆ™]\›‚ˆÙ[‹X›]ØÛÛ›Û\‹œÙ]Ý˜XÚ×ÞÜ˜[™ÙJ˜XÚË˜XÚ×ÚY›Û™K›Û™JBˆÙ[‹—Û^[Ý]ØÚ[™ÙY
+Ù[‹—Ý
+X›]˜]]×Ü˜[™ÙWÜÙ]‹]O]˜XÚË]JJB‚ˆYˆÚ[™ÙWÝš\ÚX›WÙ\Ü˜[™ÙJÙ[ŠHOˆ›Û™N‚ˆ]\Ù]HÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[Ù]\Ù]ˆYˆ]\Ù]\È›Û™N‚ˆSY\ÜØYÙP›Þš[™›Ü›X][ÛŠÙ[‹Ù[‹—Ý
+X›]]HŠKÙ[‹—Ý
+X›]›Ü[—Ùš\œÝŠJBˆ™]\›‚ˆš[š]WÙ\H]\Ù]™\Ûœš\Ùš[š]J]\Ù]™\
+WBˆYˆš[š]WÙ\œÚ^™HŽ‚ˆSY\ÜØYÙP›Þš[™›Ü›X][ÛŠÙ[‹Ù[‹—Ý
+X›]]HŠKÙ[‹—Ý
+œÝ]\ÝXÜË››×Ù\ŠJBˆ™]\›‚ˆÝ\œ™[HÙ[‹X›]ÝšY]Ëš\ÚX›WÙ\Ü˜[™ÙBˆY˜][ÝÜHÝ\œ™[ÌHYˆÝ\œ™[\È›Ý›Û™H[ÙH›Ø]
+œ›Z[Šš[š]WÙ\
+JBˆY˜][Ø›ÝÛHHÝ\œ™[ÌWHYˆÝ\œ™[\È›Ý›Û™H[ÙH›Ø]
+œ›X^
+š[š]WÙ\
+JBˆÜXØÙ\YHR[œ]X[ÙË™Ù]ÝX›JˆÙ[‹ˆÙ[‹—Ý
+X›]™\Ü˜[™ÙWÝ]HŠKˆÙ[‹—Ý
+X›]™\ÝÜŠKˆY˜][ÝÜˆ›Ø]
+œ›Z[Šš[š]WÙ\
+JKˆ›Ø]
+œ›X^
+š[š]WÙ\
+JKˆËˆ
+BˆYˆ›ÝXØÙ\Y‚ˆ™]\›‚ˆ›ÝÛKXØÙ\YHR[œ]X[ÙË™Ù]ÝX›JˆÙ[‹ˆÙ[‹—Ý
+X›]™\Ü˜[™ÙWÝ]HŠKˆÙ[‹—Ý
+X›]™\Ø›ÝÛHŠKˆY˜][Ø›ÝÛKˆ›Ø]
+œ›Z[Šš[š]WÙ\
+JKˆ›Ø]
+œ›X^
+š[š]WÙ\
+JKˆËˆ
+BˆYˆ›ÝXØÙ\Y‚ˆ™]\›‚ˆžN‚ˆÙ[‹X›]ØÛÛ›Û\‹œÙ]Ýš\ÚX›WÙ\
+Ü›ÝÛJBˆ^Ù\˜[YQ\œ›Üˆ\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+X›]™\Ü˜[™ÙWÝ]HŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹X›]ÝšY]ËœÙ]Ýš\ÚX›WÙ\
+Ü›ÝÛJBˆÙ[‹—Û^[Ý]ØÚ[™ÙY
+ˆÙ[‹—Ý
+X›]™\Ü˜[™ÙWØÚ[™ÙY‹ÜYˆžÝÜ™ßH‹›ÝÛOYˆžØ›ÝÛN™ßHŠBˆ
+B‚ˆYˆ™\Ù]Ýš\ÚX›WÙ\Ü˜[™ÙJÙ[ŠHOˆ›Û™N‚ˆYˆÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[ÝX›]Û^[Ý]\È›Û™N‚ˆSY\ÜØYÙP›Þš[™›Ü›X][ÛŠÙ[‹Ù[‹—Ý
+X›]]HŠKÙ[‹—Ý
+X›]˜Z[Ùš\œÝŠJBˆ™]\›‚ˆÙ[‹X›]ØÛÛ›Û\‹œ™\Ù]Ýš\ÚX›WÙ\
+
+BˆÙ[‹X›]ÝšY]Ëœ™Yœ™\ÚÝšY]Ê
+BˆÙ[‹—Û^[Ý]ØÚ[™ÙY
+Ù[‹—Ý
+X›]™[Ù\Ü™\ÝÜ™YŠJB‚ˆYˆYWÜÙ[XÝYÝ˜XÚÊÙ[ŠHOˆ›Û™N‚ˆ˜XÚÈHÙ[‹—ÜÙ[XÝYÝ˜XÚÊ
+BˆYˆ˜XÚÈ\È›Û™N‚ˆ™]\›‚ˆÙ[‹X›]ØÛÛ›Û\‹šYWÝ˜XÚÊ˜XÚË˜XÚ×ÚY
+BˆÙ[‹—ÜÙ[XÝYÝ˜XÚ×ÚYH›Û™BˆÙ[‹—Û^[Ý]ØÚ[™ÙY
+Ù[‹—Ý
+X›]˜XÚ×ÚY[ˆ‹]O]˜XÚË]JJB‚ˆYˆÚÝ×Ø[Ý˜XÚÜÊÙ[ŠHOˆ›Û™N‚ˆ™\ÝÜ™YØÛÝ[HÙ[‹X›]ØÛÛ›Û\‹œÚÝ×Ø[Ý˜XÚÜÊ
+BˆYˆ™\ÝÜ™YØÛÝ[OH‚ˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJÙ[‹—Ý
+X›]››×ÚY[ˆŠJBˆ™]\›‚ˆÙ[‹—Û^[Ý]ØÚ[™ÙY
+Ù[‹—Ý
+X›]šY[—ÜÚÝÛˆ‹ÛÝ[\™\ÝÜ™YØÛÝ[
+JB‚ˆYˆ™[[Ý™WÜÙ[XÝYÝ˜XÚÊÙ[ŠHOˆ›Û™N‚ˆ˜XÚÈHÙ[‹—ÜÙ[XÝYÝ˜XÚÊ
+BˆYˆ˜XÚÈ\È›Û™N‚ˆ™]\›‚ˆÙ[‹X›]ØÛÛ›Û\‹œ™[[Ý™WÝ˜XÚÊ˜XÚË˜XÚ×ÚY
+BˆÙ[‹—ÜÙ[XÝYÝ˜XÚ×ÚYH›Û™BˆÙ[‹—Û^[Ý]ØÚ[™ÙY
+Ù[‹—Ý
+X›]˜XÚ×Ü™[[Ý™Y‹]O]˜XÚË]JJB‚ˆYˆÜÙ[XÝYÝ˜XÚÊÙ[ŠHOˆ˜XÚÑYš[š][Ûˆ›Û™N‚ˆYˆÙ[‹—ÜÙ[XÝYÝ˜XÚ×ÚY\È›Û™N‚ˆSY\ÜØYÙP›Þš[™›Ü›X][ÛŠÙ[‹Ù[‹—Ý
+X›]]HŠKÙ[‹—Ý
+X›]œÙ[XÝÝ˜XÚÈŠJBˆ™]\›ˆ›Û™BˆžN‚ˆ™]\›ˆÙ[‹X›]ÝšY]Ë›^[Ý]Û[Ù[˜XÚ×ØžWÚY
+Ù[‹—ÜÙ[XÝYÝ˜XÚ×ÚY
+Bˆ^Ù\Ù^Q\œ›ÜŽ‚ˆÙ[‹—ÜÙ[XÝYÝ˜XÚ×ÚYH›Û™Bˆ™]\›ˆ›Û™B‚ˆYˆÛ^[Ý]ØÚ[™ÙY
+Ù[‹Y\ÜØYÙNˆÝŠHOˆ›Û™N‚ˆÙ[‹X›]ÝšY]Ëœ™Yœ™\ÚÝšY]Ê
+BˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—Ý\]WÝ]J
+BˆÙ[‹—ÛÙÊY\ÜØYÙJB‚ˆYˆÜÙ[XÝØÝ\™WÛ[™[[ÛšXÜÊÙ[‹
+‹™\Ù[XÝYˆ\VÜÝ‹‹‹—HH
+
+JHOˆ\ÝÜÝ—N‚ˆ]\Ù]HÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[Ù]\Ù]ˆYˆ]\Ù]\È›Û™N‚ˆ™]\›ˆ×BˆX[ÙÈHQX[ÙÊÙ[ŠBˆX[ÙËœÙ]Ú[™ÝÕ]JÙ[‹—Ý
+X›]œÙ[XÝØÝ\™\×Ý]HŠJBˆš]ÝÚ[™Ý×Ý×ÜØÜ™Y[ŠˆX[ÙËˆ™Y™\œ™YTTÚ^™JÌŒ
+KˆZ[š[][OTTÚ^™JLŒ
+Kˆ
+Bˆ^[Ý]HU›Þ^[Ý]
+X[ÙÊBˆ^[Ý]˜YÚYÙ]
+SX™[
+Ù[‹—Ý
+X›]œÙ[XÝØÝ\™\×Ü›Û\ŠJJBˆÝ\™WÛ\ÝHS\ÝÚYÙ]
+
+BˆÈÚXÚÈ›Þ\È\™HHÛÝ\˜ÙHÙˆ]ˆH›Ü›X[ÛXÚÈ[ž]Ú\™HÛˆH›ÝÂˆÈÙÙÛ\È]ÛÈ\Ù\œÈÈ›Ý™YYÝ›[™È›Ý]™HÈ]H[žH›Þ‚ˆÝ\™WÛ\ÝœÙ]Ù[XÝ[Û“[ÙJPXœÝ˜XÝ][UšY]Ë”Ù[XÝ[Û“[ÙK“›ÔÙ[XÝ[ÛŠBˆÝ\™WÛ\ÝœÙ][\›˜][™Ô›ÝÐÛÛÜœÊYJBˆÙ[XÝYÜÙ]HÙ]
+™\Ù[XÝY
+BˆÝ\™WØžWÚYHØÝ\™K›Y]Y]K˜Ý\™WÚYˆÝ\™H›ÜˆÝ\™H[ˆ]\Ù]˜Ý\™\Ë˜[Y\Ê
+_B‚ˆYˆ™Yœ™\ÚÚ][J][NˆS\ÝÚYÙ]][JHOˆ›Û™N‚ˆÝ\™WÚYHÝŠ][K™]J[
+]’][Q]T›ÛK•\Ù\”›ÛJH
+ÈJJBˆÝ\™HHÝ\™WØžWÚYØÝ\™WÚYBˆ[™[[ÛšXÈHÛX[—Û[™[[ÛšXÊÝ\™K›Y]Y]K›ÜšYÚ[˜[Û[™[[ÛšXÊBˆ[š]HÛX[—Ù\Ü^WÝ^
+Ý\™K›Y]Y]K[š]
+Bˆ\ØÜš\[ÛˆHÛX[—Ù\Ü^WÝ^
+Ý\™K›Y]Y]K™\ØÜš\[ÛŠBˆ™XYX›HHØØ[^™YØÝ\™WÛ˜[YJˆ[™[[ÛšXËˆ\ØÜš\[ÛY\ØÜš\[Û‹ˆ[š]][š]ˆ[™ÝXYÙO\Ù[‹›[™ÝXYÙKˆ
+Bˆ]Z[ÈHˆžÜ™XYX›_HÞÛ[™[[ÛšXßWH‚ˆYˆ[š]‚ˆ]Z[È
+ÏHˆˆ0­ÈÝ[š]H‚ˆ][KœÙ]^
+]Z[ÊBˆ][KœÙ]]J]’][Q]T›ÛK•\Ù\”›ÛK[™[[ÛšXÊBˆ][KœÙ]ÛÛ\
+ˆ—ˆ‹š›Ú[Šˆ˜[YBˆ›Üˆ˜[YH[ˆ
+ˆ™XYX›KˆˆžÛ[™[[ÛšXß^Ù‰ÈÞÝ[š]WIÈYˆ[š][ÙH	ÉßH‹ˆ\ØÜš\[Û‹ˆ
+BˆYˆ˜[YBˆ
+Bˆ
+B‚ˆ›ÜˆÝ\™H[ˆ]\Ù]˜Ý\™\Ë˜[Y\Ê
+N‚ˆ[™[[ÛšXÈHÛX[—Û[™[[ÛšXÊÝ\™K›Y]Y]K›ÜšYÚ[˜[Û[™[[ÛšXÊBˆ][HHS\ÝÚYÙ]][J
+Bˆ][KœÙ]]J[
+]’][Q]T›ÛK•\Ù\”›ÛJH
+ÈKÝ\™K›Y]Y]K˜Ý\™WÚY
+Bˆ][KœÙ]›YÜÊˆ][K™›YÜÊ
+H]’][Q›YË’][R\Õ\Ù\ÚXÚØX›H]’][Q›YË’][R\Ñ[˜X›Yˆ
+Bˆ][KœÙ]ÚXÚÔÝ]Jˆ]ÚXÚÔÝ]KÚXÚÙYYˆ[™[[ÛšXÈ[ˆÙ[XÝYÜÙ][ÙH]ÚXÚÔÝ]K•[˜ÚXÚÙYˆ
+Bˆ™Yœ™\ÚÚ][J][JBˆÝ\™WÛ\Ý˜Y][J][JB‚ˆ™\ÜÙYÜÝ]NˆXÝÚ[]ÚXÚÔÝ]WHHßBˆXÝ]™WÚ][Nˆ\ÝÔS\ÝÚYÙ]][H›Û™WHHÓ›Û™WB‚ˆ™[˜[YWØ]ÛˆHT\Ú]ÛŠÙ[‹—Ý
+X›]œ™[˜[YWØÝ\™HŠJBˆ™[˜[YWØ]Û‹œÙ][˜X›Y
+˜[ÙJB‚ˆYˆ™[Y[X™\—ÜÝ]J][NˆS\ÝÚYÙ]][JHOˆ›Û™N‚ˆXÝ]™WÚ][VÌHH][Bˆ™[˜[YWØ]Û‹œÙ][˜X›Y
+YJBˆ™\ÜÙYÜÝ]VÚY
+][JWHH][K˜ÚXÚÔÝ]J
+B‚ˆYˆÙÙÛWÙ[Ü›ÝÊ][NˆS\ÝÚYÙ]][JHOˆ›Û™N‚ˆ™Y›Ü™HH™\ÜÙYÜÝ]KœÜ
+Y
+][JK][K˜ÚXÚÔÝ]J
+JBˆÈ][™XYHÙÙÛ\ÈHÚXÚØ›ÞÚ[ˆ]È[™XØ]ÜˆØ\ÈÛXÚÙY‚ˆÈÚ[ˆH^\™XHØ\ÈÛXÚÙYÙÙÛH]\™H\ÈÙ[‚ˆYˆ][K˜ÚXÚÔÝ]J
+HOH™Y›Ü™N‚ˆ][KœÙ]ÚXÚÔÝ]Jˆ]ÚXÚÔÝ]K•[˜ÚXÚÙYˆYˆ™Y›Ü™H\È]ÚXÚÔÝ]KÚXÚÙYˆ[ÙH]ÚXÚÔÝ]KÚXÚÙYˆ
+B‚ˆYˆ™[˜[YWØÝ\™J][NˆS\ÝÚYÙ]][H›Û™HH›Û™JHOˆ›Û™N‚ˆ\™Ù]H][HÜˆXÝ]™WÚ][VÌBˆYˆ\™Ù]\È›Û™N‚ˆ™]\›‚ˆÝ\™WÚYHÝŠ\™Ù]™]J[
+]’][Q]T›ÛK•\Ù\”›ÛJH
+ÈJJBˆÝ\™HHÝ\™WØžWÚYØÝ\™WÚYBˆ[™[[ÛšXÈHÛX[—Û[™[[ÛšXÊÝ\™K›Y]Y]K›ÜšYÚ[˜[Û[™[[ÛšXÊBˆ[š]HÛX[—Ù\Ü^WÝ^
+Ý\™K›Y]Y]K[š]
+Bˆ\ØÜš\[ÛˆHÛX[—Ù\Ü^WÝ^
+Ý\™K›Y]Y]K™\ØÜš\[ÛŠBˆÝ\œ™[Û˜[YHHØØ[^™YØÝ\™WÛ˜[YJˆ[™[[ÛšXËˆ\ØÜš\[ÛY\ØÜš\[Û‹ˆ[š]][š]ˆ[™ÝXYÙO\Ù[‹›[™ÝXYÙKˆ
+Bˆ˜[YKXØÙ\YHR[œ]X[ÙË™Ù]^
+ˆX[ÙËˆÙ[‹—Ý
+X›]œ™[˜[YWØÝ\™WÝ]HŠKˆÙ[‹—Ý
+X›]œ™[˜[YWØÝ\™WÜ›Û\‹[™[[ÛšXÏ[[™[[ÛšXÊKˆ^J\ØÜš\[ÛˆÜˆÝ\œ™[Û˜[YJKˆ
+Bˆ˜[YHHÛX[—Ù\Ü^WÝ^
+˜[YJBˆYˆ›ÝXØÙ\YÜˆ›Ý˜[YN‚ˆ™]\›‚ˆžN‚ˆÙ[‹˜Ý\™WÛY]Y]WØÛÛ›Û\‹\]JˆÝ\™WÚYˆ[™[[ÛšXÏ[[™[[ÛšXËˆ[š]][š]ˆ\ØÜš\[Û[˜[YKˆ
+Bˆ^Ù\
+[[YQ\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊX[ÙËÙ[‹—Ý
+X›]œ™[˜[YWØÝ\™WÝ]HŠKÝŠ^ÊJBˆ™]\›‚ˆ™Yœ™\ÚÚ][J\™Ù]
+BˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—Ý\]WÝ]J
+B‚ˆÝ\™WÛ\Ýš][T™\ÜÙY˜ÛÛ›™XÝ
+™[Y[X™\—ÜÝ]JBˆÝ\™WÛ\Ýš][PÛXÚÙY˜ÛÛ›™XÝ
+ÙÙÛWÙ[Ü›ÝÊBˆÝ\™WÛ\Ýš][QÝX›PÛXÚÙY˜ÛÛ›™XÝ
+[X™H][KÜ›ÝÎˆ™[˜[YWØÝ\™J][JJBˆ™[˜[YWØ]Û‹˜ÛXÚÙY˜ÛÛ›™XÝ
+[X™Nˆ™[˜[YWØÝ\™J
+JBˆ^[Ý]˜YÚYÙ]
+Ý\™WÛ\Ý
+B‚ˆXÝ[Û—Ü›ÝÈHR›Þ^[Ý]
+
+BˆXÝ[Û—Ü›ÝË˜YÚYÙ]
+™[˜[YWØ]ÛŠBˆXÝ[Û—Ü›ÝË˜YÝ™]Ú
+JBˆ^[Ý]˜Y^[Ý]
+XÝ[Û—Ü›ÝÊB‚ˆ]ÛœÈHQX[ÙÐ]Û›Þ
+ˆQX[ÙÐ]Û›Þ”Ý[™\™]Û‹“ÚÈQX[ÙÐ]Û›Þ”Ý[™\™]Û‹Ø[˜Ù[ˆ
+Bˆ]ÛœË˜]ÛŠQX[ÙÐ]Û›Þ”Ý[™\™]Û‹“ÚÊKœÙ]^
+Ù[‹—Ý
+˜ÛÛ[[Û‹›ÚÈŠJBˆ]ÛœË˜]ÛŠQX[ÙÐ]Û›Þ”Ý[™\™]Û‹Ø[˜Ù[
+KœÙ]^
+Ù[‹—Ý
+˜ÛÛ[[Û‹˜Ø[˜Ù[ŠJBˆ]ÛœË˜XØÙ\Y˜ÛÛ›™XÝ
+X[ÙË˜XØÙ\
+Bˆ]ÛœËœ™Z™XÝY˜ÛÛ›™XÝ
+X[ÙËœ™Z™XÝ
+Bˆ^[Ý]˜YÚYÙ]
+]ÛœÊBˆYˆX[ÙË™^XÊ
+HOHQX[ÙË‘X[ÙÐÛÙKXØÙ\Y‚ˆ™]\›ˆ×Bˆ™\Ý[ˆ\ÝÜÝ—HH×Bˆ›Üˆ[™^[ˆ˜[™ÙJÝ\™WÛ\Ý˜ÛÝ[
+
+JN‚ˆ][HHÝ\™WÛ\Ýš][J[™^
+BˆYˆ][H\È›Ý›Û™H[™][K˜ÚXÚÔÝ]J
+H\È]ÚXÚÔÝ]KÚXÚÙY‚ˆ™\Ý[˜\[™
+ÝŠ][K™]J]’][Q]T›ÛK•\Ù\”›ÛJJJBˆ™]\›ˆ™\Ý[‚ˆYˆØ[Ý[]WÜ˜][ÜÊÙ[ŠHOˆ›Û™N‚ˆžN‚ˆÝ]ÛÛYHHÙ[‹™Ø\×Ü˜][×Ü›Ú™XÝØÛÛ›Û\‹˜Ø[Ý[]WØ˜\ÚX×Ü˜][ÜÊ
+Bˆ^Ù\\˜[Y]\”™\ÛÛ][Û‘\œ›Üˆ\È^Î‚ˆÙ^HHˆœ˜][Ëœ\˜[Y]\—ÞÙ^Ë˜ÛÙ_H‚ˆ\œ›ÜˆHÙ[‹—Ý
+Ù^K
+Š™^Ë˜[Y\ÊHYˆÙ^H[ˆÙ[‹›ØØ[^™\‹˜Ø][ÙÈ[ÙHÝŠ^ÊBˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+œ˜][Ë]HŠK\œ›ÜŠBˆÙ[‹—ÛÙÊÙ[‹—Ý
+œ˜][Ë™˜Z[Y‹\œ›ÜY\œ›ÜŠJBˆ™]\›‚ˆ^Ù\
+[[YQ\œ›Ü‹Ù^Q\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+œ˜][Ë]HŠKÝŠ^ÊJBˆÙ[‹—ÛÙÊÙ[‹—Ý
+œ˜][Ë™˜Z[Y‹\œ›Ü\ÝŠ^ÊJJBˆ™]\›‚‚ˆÙ[‹˜Ý\™WÝšY]ËœÚÝ×Ù]\Ù]
+Ý]ÛÛYK™]\Ù]\Ý
+Ý]ÛÛYK˜Ü™X]YÛ[™[[ÛšXÜÊJBˆÙ[‹X›]ÝšY]ËœÙ]Ù]\Ù]
+Ý]ÛÛYK™]\Ù]
+BˆÙ[‹—ÛÙÊˆÙ[‹—Ý
+œ˜][Ë˜Ý\™\×Ý\]Y‹Ý\™\ÏH‹‹š›Ú[ŠÝ]ÛÛYK˜Ü™X]YÛ[™[[ÛšXÜÊJBˆ
+BˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—Ý\]WÝ]J
+BˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJÙ[‹—Ý
+œ˜][Ë˜ÛÛ\]YŠJB‚ˆYˆØY\—Ú[\œ™]][Û—ØØ[Ý[][ÛŠˆÙ[‹ˆ™\Ý[ˆ[\œ™]][ÛØ[Ý[][Û”™\Ý[ˆ
+HOˆ›Û™N‚ˆ]\Ù]HÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[Ù]\Ù]ˆYˆ]\Ù]\È›Û™N‚ˆ™]\›‚ˆ^[Ý]HÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[ÝX›]Û^[Ý]ˆYˆ^[Ý]\È›Û™N‚ˆ^[Ý]HÙ[‹X›]ØÛÛ›Û\‹˜Z[ÙY˜][Û^[Ý]
+
+B‚ˆ˜XÚ×ÜÜXÜÈH
+ˆ
+ˆ™Ø\×Ü˜][×Ü^\ˆ‹ˆ‘Ø\È˜][ÈÈ^\ˆ‹ˆ˜XÚÒÚ[™ÕT•‘Kˆ
+Kˆ
+ˆ››Ü›X[^™YÙØ\È‹ˆ“›Ü›X[^™YØ\È‹ˆ˜XÚÒÚ[™ÕT•‘Kˆ
+Kˆ
+ˆ™^‹ˆ‘VÈÕ‹ˆ˜XÚÒÚ[™‘Vˆ
+Kˆ
+Bˆ›ÜˆÜ›Ý\Û˜[YK]KÚ[™[ˆ˜XÚ×ÜÜXÜÎ‚ˆ[™[[ÛšXÜÈH\Ý
+™\Ý[˜XÚ×ØÝ\™\Ë™Ù]
+Ü›Ý\Û˜[YK
+
+JJBˆYˆ›Ý[™[[ÛšXÜÎ‚ˆÛÛ[YBˆ˜XÚÈH™^
+ˆ
+ˆ][Bˆ›Üˆ][H[ˆ^[Ý]˜XÚÜÂˆYˆ][KšÚ[™[ˆÕ˜XÚÒÚ[™ÕT•‘K˜XÚÒÚ[™‘ÐTË˜XÚÒÚ[™‘VBˆ[™][K]K˜Ø\ÙY›Û
+
+HOH]K˜Ø\ÙY›Û
+
+Bˆ
+Kˆ›Û™Kˆ
+BˆYˆ˜XÚÈ\È›Ý›Û™N‚ˆÙ[‹X›]ØÛÛ›Û\‹œ™\XÙWÝ˜XÚ×ØÝ\™\Ê˜XÚË˜XÚ×ÚY[™[[ÛšXÜÊBˆÛÛ[YBˆÈH\Ù\ˆX^H]™H™[˜[YYH™]š[Ý\ÛHÜ™X]Y˜XÚËˆYˆ]ÈÝ\™BˆÈÛÛ\ÜÚ][Ûˆ[™XYH[\œÙXÝÈ\ÈY]ÙÙY\]Ý\ÝÛH˜XÚÂˆÈ[™]›ÚYÚ[[HY[™ÈH\XØ]K‚ˆYˆ[žJˆ][KšÚ[™[ˆÕ˜XÚÒÚ[™ÕT•‘K˜XÚÒÚ[™‘ÐTË˜XÚÒÚ[™‘VBˆ[™Ù]
+][K˜Ý\™WÛ[™[[ÛšXÜÊKš[\œÙXÝ[ÛŠ[™[[ÛšXÜÊBˆ›Üˆ][H[ˆ^[Ý]˜XÚÜÂˆ
+N‚ˆÛÛ[YBˆ˜XÚÈHÙ[‹X›]ØÛÛ›Û\‹˜YÝ˜XÚÊÚ[™[™[[ÛšXÜÊBˆÙ[‹X›]ØÛÛ›Û\‹œ™[˜[YWÝ˜XÚÊ˜XÚË˜XÚ×ÚY]JB‚ˆš\ÚX›HH\Ý
+ˆXÝ™œ›ÛZÙ^\Êˆ
+ˆ
+œ™\Ý[˜XÚ×ØÝ\™\Ë™Ù]
+™Ø\×Ü˜][×Ü^\ˆ‹
+
+JKˆ
+œ™\Ý[˜XÚ×ØÝ\™\Ë™Ù]
+››Ü›X[^™YÙØ\È‹
+
+JKˆ
+œ™\Ý[˜XÚ×ØÝ\™\Ë™Ù]
+™^‹
+
+JKˆ
+Bˆ
+Bˆ
+BˆÙ[‹˜Ý\™WÝšY]ËœÚÝ×Ù]\Ù]
+]\Ù]š\ÚX›HÜˆ›Û™JBˆÙ[‹›\×ÝX›WÙY]Ü‹œÙ]Ù]\Ù]
+]\Ù]
+BˆÙ[‹X›]ÝšY]ËœÙ]Û^[Ý]Ø[™Ù]\Ù]
+^[Ý]]\Ù]
+BˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—Ý\]WÝ]J
+BˆÚ[™ÙYH‹‹š›Ú[Š™\Ý[˜Ú[™ÙY
+HÜˆ¸ %‚ˆÙ[‹—ÛÙÊˆ´&4/t`´-t`4/ô`4-t`´,4a´.4/´/t/tbô-H4.´`4.4,´bô-H4`4,4`t`taô.4`´,4/tbÎˆØÚ[™ÙYHŠBˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJˆ´&4/t`´-t`4/ô`4-t`´,4a´.4/´/t/tbô-H4.´`4.4,´bô-H4`t/´-ô-4,4/tbËô/´,t/t/´,´.ô-t/tbÎˆØÚ[™ÙYHŠB‚ˆYˆÚÝ×Ù›Ü›][WÜ›Ùš[\ÊÙ[ŠHOˆ›Û™N‚ˆ]\Ù]HÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[Ù]\Ù]ˆYˆ]\Ù]\È›Û™N‚ˆSY\ÜØYÙP›Þš[™›Ü›X][ÛŠˆÙ[‹Ù[‹—Ý
+™›Ü›][K˜Ø[Ý[][ÛˆŠKÙ[‹—Ý
+™›Ü›][KœÙ[XÝÙ]\Ù]ŠBˆ
+Bˆ™]\›‚ˆX[ÙÈH›Ü›][Q^XÝ][Û‘X[ÙÊˆ]\Ù]ˆÙ[‹™›Ü›][WÜ™YÚ\ÝžKˆÙ[‹™›Ü›][WÙ^XÝ][Û—ØÛÛ›Û\‹ˆÙ[‹ˆ[™ÝXYÙO\Ù[‹›[™ÝXYÙKˆ
+BˆYˆX[ÙË™^XÊ
+HOHQX[ÙË‘X[ÙÐÛÙKXØÙ\YÜˆX[ÙË™^XÝ][Û—Ü™\Ý[\È›Û™N‚ˆ™]\›‚ˆ™\Ý[HX[ÙË™^XÝ][Û—Ü™\Ý[ˆ\ÜÜÜHÙ[‹™›Ü›][WÜ™YÚ\ÝžKœ\ÜÜÜ
+™\Ý[œ›Ùš[WÚY
+BˆX\[™ÈHX[ÙËœÙ[XÝYÛX\[™Ê
+BˆØ\×Ú[œ]ÈHÂˆX\[™ÖÛ˜[YWBˆ›Üˆ˜[YH[ˆ\ÜÜÜœ™\]Z\™YÚ[œ]ÂˆYˆ\ÜÜÜš[œ]Ý[š]ÖÛ˜[YWHOHœØ[YHÛÛ˜Ù[˜][Ûˆ[š]‚ˆBˆš\ÚX›WØÝ\™\ÈH\Ý
+XÝ™œ›ÛZÙ^\ÊÊ™Ø\×Ú[œ]Ë™\Ý[›Ý]]Û[™[[ÛšX×JJBˆÙ[‹˜Ý\™WÝšY]ËœÚÝ×Ù]\Ù]
+]\Ù]š\ÚX›WØÝ\™\ÊBˆÙ[‹X›]ÝšY]ËœÙ]Ù]\Ù]
+]\Ù]
+BˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—Ý\]WÝ]J
+BˆÙ[‹—ÛÙÊˆ´(4,4`t`taô.4`´,4/t,4.´`4.4,´,4cÈÜ™\Ý[›Ý]]Û[™[[ÛšXßNˆÜ™\Ý[œ›Ùš[WÚYHŠBˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJˆ´(4,4`t`taô.4`´,4/t,4.´`4.4,´,4cÈÜ™\Ý[›Ý]]Û[™[[ÛšXßHŠB‚ˆYˆÚÝ×ÛY×ØÛÜœ™XÝ[ÛŠÙ[ŠHOˆ›Û™N‚ˆ]\Ù]HÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[Ù]\Ù]ˆÙ[HÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[ÝÙ[ˆYˆ]\Ù]\È›Û™HÜˆÙ[\È›Û™N‚ˆSY\ÜØYÙP›Þš[™›Ü›X][ÛŠˆÙ[‹Ù[‹—Ý
+›Y×ØÛÜœ™XÝ[Û‹˜XÝ[ÛˆŠKÙ[‹—Ý
+™›Ü›][KœÙ[XÝÙ]\Ù]ŠBˆ
+Bˆ™]\›‚ˆžN‚ˆÙ[XÝ[ÛˆHÙ[‹›Y×ØÛÜœ™XÝ[Û—ØÛÛ›Û\‹œ™\\™WÙX[Ù×ÜÙ[XÝ[ÛŠ
+Bˆ^Ù\YÐÛÜœ™XÝ[Û”ÛÝ\˜ÙQ]\Ù]Z\ÜÚ[™Ñ\œ›ÜŽ‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊˆÙ[‹ˆÙ[‹—Ý
+›Y×ØÛÜœ™XÝ[Û‹˜XÝ[ÛˆŠKˆÙ[‹—Ý
+›Y×ØÛÜœ™XÝ[Û‹œÛÝ\˜ÙWÛZ\ÜÚ[™ÈŠKˆ
+Bˆ™]\›‚ˆX[ÙÈHYÐÛÜœ™XÝ[Û‘X[ÙÊˆÙ[XÝ[Û‹™]\Ù]ˆÙ[‹›Y×ØÛÜœ™XÝ[Û—ØÛÛ›Û\‹ˆÙ[‹ˆ[™ÝXYÙO\Ù[‹›[™ÝXYÙKˆ
+BˆX[ÙË™^XÊ
+BˆÙ[‹›Y×ØÛÜœ™XÝ[Û—ØÛÛ›Û\‹œ™\ÝÜ™WÙX[Ù×ÜÙ[XÝ[ÛŠÙ[XÝ[ÛŠBˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—ÜÚÝ×ØÝ\œ™[Ù]\Ù]
+
+BˆÙ[‹—Ý\]WÝ]J
+B‚ˆYˆÚÝ×Ý[YWÙ\ÛX\[™ÊÙ[ŠHOˆ›Û™N‚ˆ]\Ù]HÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[Ù]\Ù]ˆYˆ]\Ù]\È›Û™N‚ˆSY\ÜØYÙP›Þš[™›Ü›X][ÛŠˆÙ[‹Ù[‹—Ý
+[YWÙ\˜XÝ[ÛˆŠKÙ[‹—Ý
+™›Ü›][KœÙ[XÝÙ]\Ù]ŠBˆ
+Bˆ™]\›‚ˆ[YQ\X\[™ÑX[ÙÊˆ]\Ù]ˆÙ[‹[YWÙ\ÛX\[™×ØÛÛ›Û\‹ˆÙ[‹ˆ[™ÝXYÙO\Ù[‹›[™ÝXYÙKˆ
+K™^XÊ
+BˆÙ[‹—Ý\]WÝ]J
+B‚ˆYˆÚÝ×Ý[YWÝ×Ù\ØÛÛ™\œÚ[ÛŠÙ[ŠHOˆ›Û™N‚ˆ]\Ù]HÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[Ù]\Ù]ˆYˆ]\Ù]\È›Û™N‚ˆSY\ÜØYÙP›Þš[™›Ü›X][ÛŠˆÙ[‹Ù[‹—Ý
+[YWÝ×Ù\˜XÝ[ÛˆŠKÙ[‹—Ý
+™›Ü›][KœÙ[XÝÙ]\Ù]ŠBˆ
+Bˆ™]\›‚ˆ\×Ù\H[žJ[™^œ›ÛH\È[™^›ÛK‘T›Üˆ[™^[ˆ]\Ù]š[™^\Ë˜[Y\Ê
+JBˆ\×Ý[YHH[žJ[™^œ›ÛH\È[™^›ÛK•SQH›Üˆ[™^[ˆ]\Ù]š[™^\Ë˜[Y\Ê
+JBˆYˆ›Ý\×Ù\Üˆ›Ý\×Ý[YN‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊˆÙ[‹ˆÙ[‹—Ý
+[YWÝ×Ù\˜XÝ[ÛˆŠKˆÙ[‹—Ý
+[YWÝ×Ù\œ™\]Z\™\×Ú[™^\ÈŠKˆ
+Bˆ™]\›‚ˆX[ÙÈH[YUÑ\X[ÙÊ]\Ù]Ù[‹[™ÝXYÙO\Ù[‹›[™ÝXYÙJBˆYˆX[ÙË™^XÊ
+HOHQX[ÙË‘X[ÙÐÛÙKXØÙ\YÜˆX[ÙËœ[ˆ\È›Û™N‚ˆ™]\›‚ˆžN‚ˆ™\Ý[HÙ[‹[YWÝ×Ù\ØÛÛ›Û\‹˜Ü™X]WØÛÜJX[ÙËœ[ŠBˆ^Ù\
+[[YQ\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›Þ˜Üš]XØ[
+Ù[‹Ù[‹—Ý
+[YWÝ×Ù\˜XÝ[ÛˆŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹[™×Ý[YWÝ×Ù\ØXÝ[Û‹œÙ][˜X›Y
+YJBˆÙ[‹œ™Y×Ý[YWÝ×Ù\ØXÝ[Û‹œÙ][˜X›Y
+˜[ÙJBˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—ÜÚÝ×ØÝ\œ™[Ù]\Ù]
+
+BˆÙ[‹—Ý\]WÝ]J
+BˆÙ[‹—ÛÙÊˆÙ[‹—Ý
+ˆ[YWÝ×Ù\˜Ü™X]YÛÙÈ‹ˆ›ÝÜÏ[[Š™\Ý[™]\Ù]™\
+Kˆ[\O\™\Ý[™[\WØš[—ØÛÝ[ˆ
+Bˆ
+BˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJˆÙ[‹—Ý
+[YWÝ×Ù\˜Ü™X]Y‹›ÝÜÏ[[Š™\Ý[™]\Ù]™\
+JBˆ
+B‚ˆYˆ[™×Ý[YWÝ×Ù\ØÛÛ™\œÚ[ÛŠÙ[ŠHOˆ›Û™N‚ˆžN‚ˆÙ[‹[YWÝ×Ù\ØÛÛ›Û\‹[™Ê
+Bˆ^Ù\[[YQ\œ›Üˆ\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+[YWÝ×Ù\˜XÝ[ÛˆŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹[™×Ý[YWÝ×Ù\ØXÝ[Û‹œÙ][˜X›Y
+˜[ÙJBˆÙ[‹œ™Y×Ý[YWÝ×Ù\ØXÝ[Û‹œÙ][˜X›Y
+YJBˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—ÜÚÝ×ØÝ\œ™[Ù]\Ù]
+
+BˆÙ[‹—Ý\]WÝ]J
+B‚ˆYˆ™Y×Ý[YWÝ×Ù\ØÛÛ™\œÚ[ÛŠÙ[ŠHOˆ›Û™N‚ˆžN‚ˆÙ[‹[YWÝ×Ù\ØÛÛ›Û\‹œ™YÊ
+Bˆ^Ù\[[YQ\œ›Üˆ\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+[YWÝ×Ù\˜XÝ[ÛˆŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹[™×Ý[YWÝ×Ù\ØXÝ[Û‹œÙ][˜X›Y
+YJBˆÙ[‹œ™Y×Ý[YWÝ×Ù\ØXÝ[Û‹œÙ][˜X›Y
+˜[ÙJBˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—ÜÚÝ×ØÝ\œ™[Ù]\Ù]
+
+BˆÙ[‹—Ý\]WÝ]J
+B‚ˆYˆÚÝ×ØÝ\ÝÛWÙ›Ü›][\ÊÙ[ŠHOˆ›Û™N‚ˆX[ÙÈHÝ\ÝÛQ›Ü›][QX[ÙÊÙ[‹˜Ý\ÝÛWÙ›Ü›][WØÛÛ›Û\‹Ù[‹[™ÝXYÙO\Ù[‹›[™ÝXYÙJBˆX[ÙË™^XÊ
+BˆYˆ›ÝX[ÙË™]\Ù]ØÚ[™ÙYÜˆÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[Ù]\Ù]\È›Û™N‚ˆ™]\›‚ˆYš[š][ÛˆH™^
+ˆ
+ˆ][Bˆ›Üˆ][H[ˆÙ[‹œÙ\ÜÚ[Û‹œ›Ú™XÝ˜Ý\ÝÛWÙ›Ü›][\Ë˜[Y\Ê
+BˆYˆ][K›Ý]]Û[™[[ÛšXÈOHX[ÙË˜Ø[Ý[]YÛ[™[[ÛšXÂˆ
+Kˆ›Û™Kˆ
+Bˆ[œ]ÈH›Ü›][WÚ[œ]ÊYš[š][Û‹™^™\ÜÚ[ÛŠHYˆYš[š][Ûˆ[ÙH
+
+BˆÙ[‹˜Ý\™WÝšY]ËœÚÝ×Ù]\Ù]
+ˆÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[Ù]\Ù]ˆÊš[œ]ËX[ÙË˜Ø[Ý[]YÛ[™[[ÛšX×BˆYˆX[ÙË˜Ø[Ý[]YÛ[™[[ÛšXÈ\È›Ý›Û™Bˆ[ÙH›Û™Kˆ
+BˆÙ[‹X›]ÝšY]ËœÙ]Ù]\Ù]
+Ù[‹œÙ\ÜÚ[Û‹˜Ý\œ™[Ù]\Ù]
+BˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—Ý\]WÝ]J
+B‚ˆYˆÜÚÝ×Ú[\˜[Ø[˜[\Ú\×Ùœ›ÛWÙÙ\Ý\™JÙ[‹^[ØYˆØš™XÝ
+HOˆ›Û™N‚ˆ]\Ù]HÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[Ù]\Ù]ˆYˆ]\Ù]\È›Û™HÜˆ›Ý\Ú[œÝ[˜ÙJ^[ØYXÝ
+N‚ˆ™]\›‚ˆ˜]×ÝÜH^[ØY™Ù]
+ÜŠBˆ˜]×Ø›ÝÛHH^[ØY™Ù]
+˜›ÝÛHŠBˆYˆ˜]×ÝÜ\È›Û™HÜˆ˜]×Ø›ÝÛH\È›Û™N‚ˆ™]\›‚ˆžN‚ˆÜH›Ø]
+˜]×ÝÜ
+Bˆ›ÝÛHH›Ø]
+˜]×Ø›ÝÛJBˆ^Ù\
+\Q\œ›Ü‹˜[YQ\œ›ÜŠN‚ˆ™]\›‚ˆYˆ›Ýœš\Ùš[š]JÜ
+HÜˆ›Ýœš\Ùš[š]J›ÝÛJHÜˆÜH›ÝÛN‚ˆ™]\›‚ˆ^\×ÚYHÝŠ^[ØY™Ù]
+˜^\×ÚYŠHÜˆ]\Ù]˜XÝ]™WÚ[™^ÚYÜˆˆŠBˆ[™^H]\Ù]š[™^\Ë™Ù]
+^\×ÚY
+BˆYˆ[™^\È›Û™N‚ˆ™]\›‚ˆ˜]×Ø^\ÈHœ˜\Ø\œ˜^J[™^˜[Y\ÊBˆYˆœš\ÜÝX™\J˜]×Ø^\Ë™\Kœ™]][YM
+N‚ˆ]\ÈH˜]×Ø^\Ë˜\Ý\J™]][YMÛœ×HŠBˆ^\×Ý˜[Y\ÈH]\Ë˜\Ý\Jœš[
+K˜\Ý\Jœ™›Ø]
+HÈWÌÌÌŒˆ^\×Ý˜[Y\ÖÛœš\Û˜]
+]\ÊWHHœ›˜[‚ˆ[ÙN‚ˆžN‚ˆ^\×Ý˜[Y\ÈH˜]×Ø^\Ë˜\Ý\Jœ™›Ø]
+Bˆ^Ù\
+\Q\œ›Ü‹˜[YQ\œ›ÜŠN‚ˆ™]\›‚ˆ˜]×Û[™[[ÛšXÜÈH^[ØY™Ù]
+›[™[[ÛšXÜÈ‹
+
+JBˆ[™[[ÛšXÜÈH
+ˆ\JÝŠ˜[YJH›Üˆ˜[YH[ˆ˜]×Û[™[[ÛšXÜÈYˆ\Ú[œÝ[˜ÙJ˜[YKÝŠH[™˜[YKœÝš\
+
+JBˆYˆ\Ú[œÝ[˜ÙJ˜]×Û[™[[ÛšXÜË
+\K\Ý
+JBˆ[ÙH
+
+Bˆ
+BˆžN‚ˆÝ]\ÝXÜÈHØ[Ý[]WÚ[\˜[ÜÝ]\ÝXÜÊˆ]\Ù]ˆÜˆ›ÝÛKˆ[™[[ÛšXÜËˆ^\×Ý˜[Y\ÏX^\×Ý˜[Y\Ëˆ
+Bˆ^Ù\˜[YQ\œ›Üˆ\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+œÝ]\ÝXÜË]HŠKÝŠ^ÊJBˆ™]\›‚ˆYˆ›ÝÝ]\ÝXÜÎ‚ˆSY\ÜØYÙP›Þš[™›Ü›X][ÛŠˆÙ[‹Ù[‹—Ý
+œÝ]\ÝXÜË]HŠKÙ[‹—Ý
+œÝ]\ÝXÜË››×ØÝ\™\ÈŠBˆ
+Bˆ™]\›‚‚ˆ\Ü^WÛ˜[Y\ÎˆXÝÜÝ‹Ý—HHßBˆÝ\™WÚYÎˆ\ÝÜÝ—HH×Bˆ›Üˆ][H[ˆÝ]\ÝXÜÎ‚ˆÝ\™HH]\Ù]˜Ý\™WØžWÛ[™[[ÛšXÊ][K›[™[[ÛšXÊBˆYˆÝ\™H\È›Û™N‚ˆÛÛ[YBˆÝ\™WÚYË˜\[™
+Ý\™K›Y]Y]K˜Ý\™WÚY
+BˆÛÛ™šYÝ\™YHˆ‚ˆ›ÜˆYš[š][Ûˆ[ˆÙ[‹X›]ÝšY]Ë›^[Ý]Û[Ù[˜XÚÜÎ‚ˆX]Ú[™×Û[™[[ÛšXÈH™^
+ˆ
+ˆ[™[[ÛšXÂˆ›Üˆ[™[[ÛšXÈ[ˆYš[š][Û‹˜Ý\™WÛ[™[[ÛšXÜÂˆYˆ[™[[ÛšXË˜Ø\ÙY›Û
+
+HOH][K›[™[[ÛšXË˜Ø\ÙY›Û
+
+Bˆ
+Kˆ›Û™Kˆ
+BˆYˆX]Ú[™×Û[™[[ÛšXÈ\È›Ý›Û™N‚ˆÛÛ™šYÝ\™YHYš[š][Û‹˜Ý\™WÙ\Ü^WÜÙ][™ÜÊX]Ú[™×Û[™[[ÛšXÊK™\Ü^WÛ˜[YBˆœ™XZÂˆ\Ü^WÛ˜[Y\ÖÚ][K›[™[[ÛšX×HHØØ[^™YØÝ\™WÛ˜[YJˆÝ\™K›Y]Y]K›ÜšYÚ[˜[Û[™[[ÛšXËˆ\ØÜš\[ÛXÝ\™K›Y]Y]K™\ØÜš\[ÛˆÜˆˆ‹ˆ[š]XÝ\™K›Y]Y]K[š]Üˆˆ‹ˆ[™ÝXYÙO\Ù[‹›[™ÝXYÙKˆÛÛ™šYÝ\™YXÛÛ™šYÝ\™Yˆ
+BˆYˆ[™^œ›ÛH\È[™^›ÛK‘T[™Ý\™WÚYÎ‚ˆžN‚ˆÙ[‹™]\Ù]ÜÙ[XÝ[Û‹œÙ[XÝ
+]\Ù]Ü›ÝÛK\JÝ\™WÚYÊJBˆ^Ù\
+Ù^Q\œ›Ü‹˜[YQ\œ›ÜŠN‚ˆ\ÜÂˆ^\×ÛX™[HÝŠ^[ØY™Ù]
+˜^\×ÛX™[ŠHÜˆ[™^›[™[[ÛšXÊBˆ[š]HÝŠ^[ØY™Ù]
+˜^\×Ý[š]ŠHÜˆ[™^[š]ÜˆˆŠBˆ\×Ù]][YHH›ÛÛ
+^[ØY™Ù]
+˜^\×Ú\×Ù]][YHŠJBˆYˆ\×Ù]][YN‚ˆ™[™\™YÝÜH›Ü›X]Ý[š^ÜÙXÛÛ™ÊÜ
+Bˆ™[™\™YØ›ÝÛHH›Ü›X]Ý[š^ÜÙXÛÛ™Ê›ÝÛJBˆ[Yˆ[™^œ›ÛH\È[™^›ÛK•SQN‚ˆ™[™\™YÝÜH›Ü›X]Ù[\ÙYÝ[YJÜ[š]
+Bˆ™[™\™YØ›ÝÛHH›Ü›X]Ù[\ÙYÝ[YJ›ÝÛK[š]
+Bˆ[ÙN‚ˆÝY™š^HˆˆÝ[š]HˆYˆ[š][ÙHˆ‚ˆ™[™\™YÝÜHˆžÝÜ™ß^ÜÝY™š^H‚ˆ™[™\™YØ›ÝÛHHˆžØ›ÝÛN™ß^ÜÝY™š^H‚ˆ[\˜[ÛX™[HˆžØ^\×ÛX™[NˆÜ™[™\™YÝÜH8 $ÈÜ™[™\™YØ›ÝÛ_H‚ˆÙ[‹š[\˜[ÜÝ]\ÝXÜ×Ü[™[œÙ]Ü™\Ü
+ˆ]\Ù]Û˜[YOY]\Ù]›˜[YKˆ[\˜[ÛX™[Z[\˜[ÛX™[ˆÝ]\ÝXÜÏ\Ý]\ÝXÜËˆ\Ü^WÛ˜[Y\ÏY\Ü^WÛ˜[Y\Ëˆ
+BˆÙ[‹š[\˜[ÜÝ]\ÝXÜ×ÙØÚËœÚÝ×Ü™\Ù\š[™×ÜÜÚ][ÛŠ
+B‚ˆYˆÙ^ÜÚ[\˜[ÜÝ]\ÝXÜÊÙ[‹^ÜÙ›Ü›X]ˆÝŠHOˆ›Û™N‚ˆÝ]\ÝXÜÈHÙ[‹š[\˜[ÜÝ]\ÝXÜ×Ü[™[œÝ]\ÝXÜÂˆYˆ›ÝÝ]\ÝXÜÎ‚ˆ™]\›‚ˆ\×Ù^Ù[H^ÜÙ›Ü›X]OHžÞ‚ˆÝY™š^H‹žÞˆYˆ\×Ù^Ù[[ÙH‹˜ÜÝˆ‚ˆš[WÙš[\ˆH‘^Ù[
+
+‹žÞ
+HˆYˆ\×Ù^Ù[[ÙHÔÕˆ
+
+‹˜ÜÝŠH‚ˆØY™WÛ˜[YHHÙ[‹š[\˜[ÜÝ]\ÝXÜ×Ü[™[™]\Ù]Û˜[YHÜˆ™]\Ù]‚ˆš[[˜[YKÈHQš[QX[ÙË™Ù]Ø]™Qš[S˜[YJˆÙ[‹ˆÙ[‹—Ý
+œÝ]\ÝXÜË™^ÜÝ]HŠKˆÝŠ]˜ÝÙ
+
+HÈˆžÜØY™WÛ˜[Y_WÚ[\˜[ÜÝ]\ÝXÜÞÜÝY™š^HŠKˆš[WÙš[\‹ˆ
+BˆYˆ›Ýš[[˜[YN‚ˆ™]\›‚ˆ\™Ù]H]
+š[[˜[YJBˆYˆ\™Ù]œÝY™š^˜Ø\ÙY›Û
+
+HOHÝY™š^‚ˆ\™Ù]H\™Ù]Ú]ÜÝY™š^
+ÝY™š^
+BˆÝ™\Üš]HHÙ[‹—ØÛÛ™š\›WÙ^ÜÛÝ™\Üš]J\™Ù]
+BˆYˆÝ™\Üš]H\È›Û™N‚ˆ™]\›‚ˆžN‚ˆYˆ\×Ù^Ù[‚ˆ^ÜYH^ÜÚ[\˜[ÜÝ]\ÝXÜ×ÞÞ
+ˆ\™Ù]ˆÝ]\ÝXÜËˆ[\˜[ÛX™[\Ù[‹š[\˜[ÜÝ]\ÝXÜ×Ü[™[š[\˜[ÛX™[ˆ]\Ù]Û˜[YO\Ù[‹š[\˜[ÜÝ]\ÝXÜ×Ü[™[™]\Ù]Û˜[YKˆ\Ü^WÛ˜[Y\Ï\Ù[‹š[\˜[ÜÝ]\ÝXÜ×Ü[™[™\Ü^WÛ˜[Y\Ëˆ[™ÝXYÙO\Ù[‹›[™ÝXYÙKˆ
+Bˆ[ÙN‚ˆ^ÜYH^ÜÚ[\˜[ÜÝ]\ÝXÜ×ØÜÝŠˆ\™Ù]ˆÝ]\ÝXÜËˆ[\˜[ÛX™[\Ù[‹š[\˜[ÜÝ]\ÝXÜ×Ü[™[š[\˜[ÛX™[ˆ]\Ù]Û˜[YO\Ù[‹š[\˜[ÜÝ]\ÝXÜ×Ü[™[™]\Ù]Û˜[YKˆ\Ü^WÛ˜[Y\Ï\Ù[‹š[\˜[ÜÝ]\ÝXÜ×Ü[™[™\Ü^WÛ˜[Y\Ëˆ[™ÝXYÙO\Ù[‹›[™ÝXYÙKˆ
+Bˆ^Ù\ÔÑ\œ›Üˆ\È^Î‚ˆSY\ÜØYÙP›Þ˜Üš]XØ[
+Ù[‹Ù[‹—Ý
+œÝ]\ÝXÜË]HŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJÙ[‹—Ý
+œÝ]\ÝXÜË™^ÜÜÝXØÙ\ÜÈ‹˜[YOY^ÜY›˜[YJKL
+B‚ˆYˆØÛX\—Ú[\˜[ÜÝ]\ÝXÜ×Ü[™[
+Ù[ŠHOˆ›Û™N‚ˆÙ[‹š[\˜[ÜÝ]\ÝXÜ×Ü[™[˜ÛX\—Ü™\Ü
+
+BˆÙ[‹š[\˜[ÜÝ]\ÝXÜ×ÙØÚËšYJ
+B‚ˆYˆØÛX\—Ú[\˜[Ø[˜[\Ú\ÊÙ[ŠHOˆ›Û™N‚ˆÙ[‹X›]ÝšY]Ë˜ÛX\—Ú[\˜[Ø[˜[\Ú\Ê[Z]ÜÚYÛ˜[Q˜[ÙJBˆÙ[‹™]\Ù]ÜÙ[XÝ[Û‹˜ÛX\Š
+BˆÙ[‹—ØÛX\—Ú[\˜[ÜÝ]\ÝXÜ×Ü[™[
+
+B‚ˆYˆÚÝ×Ú[\˜[ÜÝ]\ÝXÜÊÙ[ŠHOˆ›Û™N‚ˆ]\Ù]HÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[Ù]\Ù]ˆYˆ]\Ù]\È›Û™N‚ˆSY\ÜØYÙP›Þš[™›Ü›X][ÛŠˆÙ[‹Ù[‹—Ý
+œÝ]\ÝXÜË]HŠKÙ[‹—Ý
+œÝ]\ÝXÜËœÙ[XÝÙ]\Ù]ŠBˆ
+Bˆ™]\›‚ˆš\ÚX›WÜ˜[™ÙHHÙ[‹X›]ÝšY]Ëš\ÚX›WÙ\Ü˜[™ÙBˆYˆš\ÚX›WÜ˜[™ÙH\È›Û™N‚ˆš[š]WÙ\H]\Ù]™\Ûœš\Ùš[š]J]\Ù]™\
+WBˆYˆš[š]WÙ\œÚ^™HOH‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊˆÙ[‹Ù[‹—Ý
+œÝ]\ÝXÜË]HŠKÙ[‹—Ý
+œÝ]\ÝXÜË››×Ù\ŠBˆ
+Bˆ™]\›‚ˆ\ÝÜ\Ø›ÝÛHH›Ø]
+œ›Z[Šš[š]WÙ\
+JK›Ø]
+œ›X^
+š[š]WÙ\
+JBˆ[ÙN‚ˆ\ÝÜ\Ø›ÝÛHHš\ÚX›WÜ˜[™ÙBˆžN‚ˆÝ]\ÝXÜÈHØ[Ý[]WÚ[\˜[ÜÝ]\ÝXÜÊ]\Ù]\ÝÜ\Ø›ÝÛJBˆ^Ù\˜[YQ\œ›Üˆ\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+œÝ]\ÝXÜË]HŠKÝŠ^ÊJBˆ™]\›‚ˆYˆ›ÝÝ]\ÝXÜÎ‚ˆSY\ÜØYÙP›Þš[™›Ü›X][ÛŠˆÙ[‹Ù[‹—Ý
+œÝ]\ÝXÜË]HŠKÙ[‹—Ý
+œÝ]\ÝXÜË››×ØÝ\™\ÈŠBˆ
+Bˆ™]\›‚ˆ[\˜[Ý]\ÝXÜÑX[ÙÊˆ\ÝÜ\Ø›ÝÛKÝ]\ÝXÜËÙ[‹[™ÝXYÙO\Ù[‹›[™ÝXYÙBˆ
+K™^XÊ
+B‚ˆYˆØ[Ý[]WÛ˜Ý
+Ù[ŠHOˆ›Û™N‚ˆ]\Ù]HÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[Ù]\Ù]ˆYˆ]\Ù]\È›Û™N‚ˆSY\ÜØYÙP›Þš[™›Ü›X][ÛŠÙ[‹Ù[‹—Ý
+›˜Ý]HŠKÙ[‹—Ý
+™›Ü›][KœÙ[XÝÙ]\Ù]ŠJBˆ™]\›‚ˆš[š]WÙ\H]\Ù]™\Ûœš\Ùš[š]J]\Ù]™\
+WBˆYˆš[š]WÙ\œÚ^™HŽ‚ˆSY\ÜØYÙP›Þš[™›Ü›X][ÛŠÙ[‹Ù[‹—Ý
+›˜Ý]HŠKÙ[‹—Ý
+œÝ]\ÝXÜË››×Ù\ŠJBˆ™]\›‚ˆX[ÙÈH˜ÝØ[Ý[][Û‘X[ÙÊˆÙ[‹›˜ÝØØ[Ý[][Û—ØÛÛ›Û\‹ˆ›Ø]
+œ›Z[Šš[š]WÙ\
+JKˆ›Ø]
+œ›X^
+š[š]WÙ\
+JKˆÙ[‹ˆ[™ÝXYÙO\Ù[‹›[™ÝXYÙKˆ
+BˆYˆX[ÙË™^XÊ
+HOHQX[ÙË‘X[ÙÐÛÙKXØÙ\YÜˆX[ÙË˜Ø[Ý[][Û—Ü™\Ý[\È›Û™N‚ˆ™]\›‚ˆÙ[‹˜Ý\™WÝšY]ËœÚÝ×Ù]\Ù]
+]\Ù]È‘VÈ‹“Õ‹‘V×ÓÕ—JBˆÙ[‹X›]ÝšY]ËœÙ]Ù]\Ù]
+]\Ù]
+BˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—Ý\]WÝ]J
+BˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJˆÙ[‹—Ý
+›˜Ý˜ÛÛ\]Y‹Ú[ÏYX[ÙË˜Ø[Ý[][Û—Ü™\Ý[˜Ø[Xœ˜][Û—ÜÚ[ÊBˆ
+B‚ˆYˆÚÝ×Ù\Ø[››Ý][ÛœÊÙ[ŠHOˆ›Û™N‚ˆYˆÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[ÝÙ[\È›Û™N‚ˆSY\ÜØYÙP›Þš[™›Ü›X][ÛŠˆÙ[‹Ù[‹—Ý
+˜[››Ý][ÛœË]HŠKÙ[‹—Ý
+˜[››Ý][ÛœËœÙ[XÝÝÙ[ŠBˆ
+Bˆ™]\›‚ˆÙ[‹—ÛÜ[—Ø[››Ý][Û—ÙX[ÙÊ
+B‚ˆYˆÛÜ[—Ø[››Ý][Û—ÙX[ÙÊˆÙ[‹ˆ
+‹ˆ[š]X[Ý˜[Y\ÎˆXÝÜÝ‹Øš™XÝH›Û™HH›Û™Kˆ[››Ý][Û—ÚYˆÝˆ›Û™HH›Û™Kˆ
+HOˆ›ÛÛ‚ˆˆˆ“Ü[ˆH[››Ý][ÛˆRH[™™]™\ˆX]™H[ˆXÝ[ÛˆÚ[[HXY‚‚ˆ]ÚYÛ˜[Ø[˜XÚÜÈØ[ˆÝ\Ú\ÙHš[HÛÛœÝXÝÜˆ^Ù\[ÛˆÛ›HÂˆHÛÛœÛÛKˆH\Ù\ˆ[ˆÙY\ÈHÛÛ˜\ˆ]Ûˆ]\X\œÈÈÂˆ›Ý[™Ëˆ\ÈRH›Ý[™\žH™\ÜÈH˜Z[\™Hš\ÚX›HÚ[H™\Ù\š[™ÂˆH›Ú™XÝ[™ÛÝ\˜ÙH]K‚ˆˆˆ‚‚ˆžN‚ˆX[ÙÈH\[››Ý][ÛœÑX[ÙÊˆÙ[‹™\Ø[››Ý][Û—ØÛÛ›Û\‹ˆÙ[‹ˆ[™ÝXYÙO\Ù[‹›[™ÝXYÙKˆ[š]X[Ý˜[Y\ÏZ[š]X[Ý˜[Y\Ëˆ[››Ý][Û—ÚYX[››Ý][Û—ÚYˆ
+BˆX[ÙË˜[››Ý][Ûœ×ØÚ[™ÙY˜ÛÛ›™XÝ
+Ù[‹—Ü™Yœ™\ÚØ[››Ý][Û—Û^Y\ŠBˆX[ÙË™^XÊ
+Bˆ^Ù\^Ù\[Ûˆ\È^ÎˆÈRH›Ý[™\žNˆÚÝÈ[™^XÝYYÚ[‹Ô]˜Z[\™\Ë‚ˆSY\ÜØYÙP›Þ˜Üš]XØ[
+ˆÙ[‹ˆÙ[‹—Ý
+˜[››Ý][ÛœË]HŠKˆÙ[‹—Ý
+˜[››Ý][ÛœË›Ü[—Ù˜Z[Y‹\œ›Ü\ÝŠ^ÊJKˆ
+Bˆ™]\›ˆ˜[ÙBˆÙ[‹—Ü™Yœ™\ÚØ[››Ý][Û—Û^Y\Š
+Bˆ™]\›ˆYB‚ˆYˆÛÜ[—ÜÞ[X›ÛÚ[œÙ\[Û—ÙX[ÙÊˆÙ[‹ˆ
+‹ˆ[š]X[Ý˜[Y\ÎˆXÝÜÝ‹Øš™XÝH›Û™HH›Û™Kˆ
+HOˆ›ÛÛ‚ˆYˆÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[ÝÙ[\È›Û™N‚ˆ™]\›ˆ˜[ÙBˆžN‚ˆX[ÙÈHÞ[X›Û[œÙ\[Û‘X[ÙÊˆÙ[‹™\Ø[››Ý][Û—ØÛÛ›Û\‹ˆÙ[‹ˆ[™ÝXYÙO\Ù[‹›[™ÝXYÙKˆ[š]X[Ý˜[Y\ÏZ[š]X[Ý˜[Y\Ëˆ
+BˆYˆX[ÙË™^XÊ
+HOHQX[ÙË‘X[ÙÐÛÙKXØÙ\YÜˆX[ÙËœÙ[XÝ[Ûˆ\È›Û™N‚ˆ™]\›ˆ˜[ÙBˆÙ[XÝ[ÛˆHX[ÙËœÙ[XÝ[Û‚ˆ[XYÙWØ\ÜÙ]H[œÝ[ÜÞ[X›ÛÚ[×Ü›Ú™XÝ
+ˆÙ[‹œÙ\ÜÚ[Û‹ˆÙ[XÝ[Û‹œÞ[X›Ûˆ˜[œÜ\™[Ø˜XÚÙÜ›Ý[™\Ù[XÝ[Û‹˜[œÜ\™[Ø˜XÚÙÜ›Ý[™ˆ[™ÝXYÙO\Ù[‹›[™ÝXYÙK˜[YKˆ
+Bˆ[››Ý][Û—Ý˜[Y\ÈHØ\Ý
+ˆÔÞ[X›Û[››Ý][Û•˜[Y\ËˆÙ[XÝ[Û‹˜[››Ý][Û—Ý˜[Y\Ê\ÜÙ]Ü™YZ[XYÙWØ\ÜÙ]˜\ÜÙ]ÚY
+Kˆ
+Bˆ™XÛÜ™HÙ[‹™\Ø[››Ý][Û—ØÛÛ›Û\‹˜YØ[››Ý][ÛŠ
+Š˜[››Ý][Û—Ý˜[Y\ÊBˆ^Ù\
+Ù^Q\œ›Ü‹ÔÑ\œ›Ü‹[[YQ\œ›Ü‹\Q\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+œÞ[X›ÛÚ[œÙ\]HŠKÝŠ^ÊJBˆ™]\›ˆ˜[ÙBˆÙ[‹—Ü™Yœ™\ÚØ[››Ý][Û—Û^Y\Š
+BˆÙ[‹X›]ÝšY]ËœÙ[XÝØ[››Ý][ÛŠ™XÛÜ™˜[››Ý][Û—ÚY
+BˆÙ[‹—Ø[››Ý][Û—ÜÙ[XÝ[Û—ØÚ[™ÙY
+™XÛÜ™˜[››Ý][Û—ÚY
+BˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJÙ[‹—Ý
+œÞ[X›ÛÚ[œÙ\š[œÙ\YÜÝ]\ÈŠJBˆ™]\›ˆYB‚ˆYˆÜ™Yœ™\ÚØ[››Ý][Û—Û^Y\ŠÙ[ŠHOˆ›Û™N‚ˆˆˆ”™Yœ™\Ú[››Ý][ÛœÈÛ›K™\Ù\š[™ÈH™[™\™YX›]‚‚ˆ[››Ý][ÛœÈ[[[Û˜[HÈ›Ý]™H[ˆH›Ú™XÝÝ™YHÛÛ[[‹ˆ\™Bˆ\È\™Y›Ü™H›È™X\ÛÛˆÈ™XZ[H™YHÜˆ]™\žHÜ˜\˜XÚÈY\ˆ[‚ˆ[››Ý][ÛˆÔ•QÜ\˜][Û‹ˆHYÚÙZYÚX›]šY]ÈÙ]\œÈ™]\ÙHBˆ^\Ý[™ÈÝ™\›^H[\œÈ[™Ù[XÝ[Û‹‚ˆˆˆ‚‚ˆÙ[HÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[ÝÙ[ˆÙ[‹X›]ÝšY]ËœÙ]Ú[XYÙWØ\ÜÙ]ÊÙ[‹œÙ\ÜÚ[Û‹š[XYÙWØ\ÜÙ]ÊBˆYˆÙ[\È›Û™N‚ˆš\ÚX›WÛØš™XÝÈH×Bˆ[ÙN‚ˆÙ[‹™\Ø[››Ý][Û—ØÛÛ›Û\‹˜YÜÝ[œØÛÜYØ[››Ý][ÛœÊ
+Bˆš\ÚX›WÛØš™XÝÈHÙ[‹™\Ø[››Ý][Û—ØÛÛ›Û\‹˜Ø[˜\×ÛØš™XÝ×Ù›Ü—ØÝ\œ™[ÜØÛÜJ
+BˆÙ[‹X›]ÝšY]ËœÙ]ØØ[˜\×ÛØš™XÝÊš\ÚX›WÛØš™XÝÊBˆYˆÙ[‹—ÜÙ[XÝYØ[››Ý][Û—ÚY\È›Ý›Û™H[™[
+ˆ][K›Øš™XÝÚYOHÙ[‹—ÜÙ[XÝYØ[››Ý][Û—ÚY›Üˆ][H[ˆš\ÚX›WÛØš™XÝÂˆ
+N‚ˆÙ[‹—ÜÙ[XÝYØ[››Ý][Û—ÚYH›Û™BˆÙ[‹X›]ÝšY]ËœÙ[XÝØ[››Ý][ÛŠ›Û™JBˆÙ[‹—Ø[››Ý][Û—ÜÙ[XÝ[Û—ØÚ[™ÙY
+›Û™JBˆÙ[‹—Ý\]WÝ]J
+B‚ˆYˆÝÙÙÛWØ[››Ý][Û—ÝÛÛ
+Ù[‹Ú[™ˆ[››Ý][Û’Ú[™ÚXÚÙYˆ›ÛÛ
+HOˆ›Û™N‚ˆYˆÚXÚÙY‚ˆXÝ[ÛœÈHÂˆ[››Ý][Û’Ú[™ÐSÕUˆÙ[‹˜[››Ý][Û—ØØ[Ý]ØXÝ[Û‹ˆ[››Ý][Û’Ú[™ÓÓSQS•ˆÙ[‹˜[››Ý][Û—ØÛÛ[Y[ØXÝ[Û‹ˆ[››Ý][Û’Ú[™’SPQÑNˆÙ[‹˜[››Ý][Û—Ú[XYÙWØXÝ[Û‹ˆBˆ›ÜˆÝ\—ÚÚ[™XÝ[Ûˆ[ˆXÝ[ÛœËš][\Ê
+N‚ˆYˆÝ\—ÚÚ[™\È›ÝÚ[™[™XÝ[Û‹š\ÐÚXÚÙY
+
+N‚ˆXÝ[Û‹˜›ØÚÔÚYÛ˜[ÊYJBˆXÝ[Û‹œÙ]ÚXÚÙY
+˜[ÙJBˆXÝ[Û‹˜›ØÚÔÚYÛ˜[Ê˜[ÙJBˆÙ[‹X›]ÝšY]ËœÙ]Ø[››Ý][Û—ÝÛÛ
+Ú[™
+BˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJÙ[‹—Ý
+˜[››Ý][ÛœËÛÛØÛXÚ×Ú[ŠJBˆ[YˆÙ[‹X›]ÝšY]Ë˜[››Ý][Û—ÝÛÛ\ÈÚ[™‚ˆÙ[‹X›]ÝšY]ËœÙ]Ø[››Ý][Û—ÝÛÛ
+›Û™JB‚ˆYˆÜÞ[˜×Ø[››Ý][Û—ÝÛÛØXÝ[ÛœÊÙ[‹˜[YNˆØš™XÝ
+HOˆ›Û™N‚ˆXÝ]™HHÝŠ˜[YJHYˆ˜[YH\È›Ý›Û™H[ÙHˆ‚ˆX\[™ÈHÂˆ[››Ý][Û’Ú[™ÐSÕU˜[YNˆÙ[‹˜[››Ý][Û—ØØ[Ý]ØXÝ[Û‹ˆ[››Ý][Û’Ú[™ÓÓSQS•˜[YNˆÙ[‹˜[››Ý][Û—ØÛÛ[Y[ØXÝ[Û‹ˆ[››Ý][Û’Ú[™’SPQÑK˜[YNˆÙ[‹˜[››Ý][Û—Ú[XYÙWØXÝ[Û‹ˆBˆ›ÜˆÚ[™Ý˜[YKXÝ[Ûˆ[ˆX\[™Ëš][\Ê
+N‚ˆÚÝ[ØÚXÚÈHÚ[™Ý˜[YHOHXÝ]™BˆYˆXÝ[Û‹š\ÐÚXÚÙY
+
+HOHÚÝ[ØÚXÚÎ‚ˆXÝ[Û‹˜›ØÚÔÚYÛ˜[ÊYJBˆXÝ[Û‹œÙ]ÚXÚÙY
+ÚÝ[ØÚXÚÊBˆXÝ[Û‹˜›ØÚÔÚYÛ˜[Ê˜[ÙJB‚ˆYˆØÜ™X]WØ[››Ý][Û—Ø]ÝšY]×ØÙ[\ŠÙ[‹Ú[™ˆ[››Ý][Û’Ú[™
+HOˆ›Û™N‚ˆ^[ØYHÙ[‹X›]ÝšY]Ë˜[››Ý][Û—Ü™\]Y\ÝØ]ÝšY]×ØÙ[\ŠˆÚ[™ˆ˜XÚ×ÚY\Ù[‹—ÜÙ[XÝYÝ˜XÚ×ÚYˆ
+BˆYˆ^[ØY\È›Û™N‚ˆSY\ÜØYÙP›Þš[™›Ü›X][ÛŠˆÙ[‹Ù[‹—Ý
+˜[››Ý][ÛœË]HŠKÙ[‹—Ý
+X›]˜Z[Ùš\œÝŠBˆ
+Bˆ™]\›‚ˆÙ[‹—ØÜ™X]WØ[››Ý][Û—Ùœ›ÛWÝX›]
+^[ØY
+B‚ˆYˆØÜ™X]WØ[››Ý][Û—Ùœ›ÛWÝX›]
+Ù[‹^[ØYˆØš™XÝ
+HOˆ›Û™N‚ˆYˆÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[ÝÙ[\È›Û™HÜˆ›Ý\Ú[œÝ[˜ÙJ^[ØYXÝ
+N‚ˆ™]\›‚ˆ˜[Y\ÈHXÝ
+^[ØY
+Bˆ\™XÝØÜ™X]HH›ÛÛ
+˜[Y\ËœÜ
+™\™XÝØÜ™X]H‹˜[ÙJJBˆYˆÝŠ˜[Y\Ë™Ù]
+šÚ[™‹ˆŠJHOH[››Ý][Û’Ú[™”ÖSP“Ó˜[YN‚ˆÙ[‹—ÛÜ[—ÜÞ[X›ÛÚ[œÙ\[Û—ÙX[ÙÊ[š]X[Ý˜[Y\Ï]˜[Y\ÊBˆ™]\›‚ˆYˆ›Ý\™XÝØÜ™X]N‚ˆÙ[‹—ÛÜ[—Ø[››Ý][Û—ÙX[ÙÊ[š]X[Ý˜[Y\Ï]˜[Y\ÊBˆ™]\›‚ˆžN‚ˆ™XÛÜ™HÙ[‹™\Ø[››Ý][Û—ØÛÛ›Û\‹˜YØ[››Ý][ÛŠ
+Š˜[Y\ÊBˆ^Ù\
+Ù^Q\œ›Ü‹[[YQ\œ›Ü‹\Q\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+˜[››Ý][ÛœË]HŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹—Ü™Yœ™\ÚØ[››Ý][Û—Û^Y\Š
+BˆÙ[‹X›]ÝšY]ËœÙ[XÝØ[››Ý][ÛŠ™XÛÜ™˜[››Ý][Û—ÚY
+BˆÙ[‹—Ø[››Ý][Û—ÜÙ[XÝ[Û—ØÚ[™ÙY
+™XÛÜ™˜[››Ý][Û—ÚY
+BˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJÙ[‹—Ý
+˜[››Ý][ÛœË™\™XÝØÜ™X]YÜÝ]\ÈŠJB‚ˆYˆÙY]Ø[››Ý][Û—Ùœ›ÛWÝX›]
+Ù[‹[››Ý][Û—ÚYˆÝŠHOˆ›Û™N‚ˆYˆÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[ÝÙ[\È›Û™N‚ˆ™]\›‚ˆÙ[‹—ÛÜ[—Ø[››Ý][Û—ÙX[ÙÊ[››Ý][Û—ÚYX[››Ý][Û—ÚY
+B‚ˆYˆÙ[]WØ[››Ý][Û—Ùœ›ÛWÝX›]
+Ù[‹[››Ý][Û—ÚYˆÝŠHOˆ›Û™N‚ˆ[œÝÙ\ˆHSY\ÜØYÙP›Þœ]Y\Ý[ÛŠˆÙ[‹ˆÙ[‹—Ý
+˜[››Ý][ÛœË]HŠKˆÙ[‹—Ý
+˜[››Ý][ÛœË™[]WØÛÛ™š\›HŠKˆSY\ÜØYÙP›Þ”Ý[™\™]Û‹–Y\ÈSY\ÜØYÙP›Þ”Ý[™\™]Û‹“›ËˆSY\ÜØYÙP›Þ”Ý[™\™]Û‹“›Ëˆ
+BˆYˆ[œÝÙ\ˆOHSY\ÜØYÙP›Þ”Ý[™\™]Û‹–Y\Î‚ˆ™]\›‚ˆžN‚ˆÙ[‹™\Ø[››Ý][Û—ØÛÛ›Û\‹œ™[[Ý™J[››Ý][Û—ÚY
+Bˆ^Ù\
+Ù^Q\œ›Ü‹[[YQ\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+˜[››Ý][ÛœË]HŠKÝŠ^ÊJBˆ™]\›‚ˆYˆÙ[‹—ÜÙ[XÝYØ[››Ý][Û—ÚYOH[››Ý][Û—ÚY‚ˆÙ[‹—ÜÙ[XÝYØ[››Ý][Û—ÚYH›Û™BˆÙ[‹X›]ÝšY]ËœÙ[XÝØ[››Ý][ÛŠ›Û™JBˆÙ[‹—Ø[››Ý][Û—ÜÙ[XÝ[Û—ØÚ[™ÙY
+›Û™JBˆÙ[‹—Ü™Yœ™\ÚØ[››Ý][Û—Û^Y\Š
+BˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJÙ[‹—Ý
+˜[››Ý][ÛœË™[]YÜÝ]\ÈŠJB‚ˆYˆÙ\XØ]WØ[››Ý][Û—Ùœ›ÛWÝX›]
+Ù[‹[››Ý][Û—ÚYˆÝŠHOˆ›Û™N‚ˆžN‚ˆÙ[‹™\Ø[››Ý][Û—ØÛÛ›Û\‹™\XØ]J[››Ý][Û—ÚY
+Bˆ^Ù\
+Ù^Q\œ›Ü‹[[YQ\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+˜[››Ý][ÛœË]HŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹—Ü™Yœ™\ÚØ[››Ý][Û—Û^Y\Š
+B‚ˆYˆÝ\]WØ[››Ý][Û—ÙÙ[ÛY]žWÙœ›ÛWÝX›]
+ˆÙ[‹ˆ[››Ý][Û—ÚYˆÝ‹ˆÙ™œÙ]Þˆ›Ø]ˆÙ™œÙ]ÞNˆ›Ø]ˆÚYˆ›Ø]ˆZYÚˆ›Ø]ˆ
+HOˆ›Û™N‚ˆžN‚ˆÙ[‹™\Ø[››Ý][Û—ØÛÛ›Û\‹œÙ]ÙÙ[ÛY]žJˆ[››Ý][Û—ÚYˆÙ™œÙ]Þ[Ù™œÙ]ÞˆÙ™œÙ]ÞO[Ù™œÙ]ÞKˆÚY]ÚYˆZYÚZZYÚˆ
+Bˆ^Ù\
+Ù^Q\œ›Ü‹[[YQ\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+˜[››Ý][ÛœË]HŠKÝŠ^ÊJBˆÙ[‹—Ü™Yœ™\ÚØ[››Ý][Û—Û^Y\Š
+Bˆ™]\›‚ˆÈHÝ™\›^H[™XYHÛÛZ[œÈHš[˜[˜YËÜ™\Ú^™HÙ[ÛY]žKˆÛÛ[Z]ˆÈÛ™H\ÝÜžH[žH[™\HX\šÙ\ˆÛˆ™[X\ÙK]È›Ý™XZ[BˆÈX›]Üˆ™\XÙHHÝ™\›^H][Kˆ\È™[[Ý™\ÈH™[X\ÙH›\Ú[™ˆÈÙY\ÈÙ[XÝ[Û‹Ù›ØÝ\ÈÝX›K‚ˆÙ[‹—Ý\]WÝ]J
+B‚ˆYˆØ[››Ý][Û—ÜÙ[XÝ[Û—ØÚ[™ÙY
+Ù[‹[››Ý][Û—ÚYˆØš™XÝ
+HOˆ›Û™N‚ˆÙ[XÝYH[››Ý][Û—ÚYYˆ\Ú[œÝ[˜ÙJ[››Ý][Û—ÚYÝŠH[ÙH›Û™BˆÙ[‹—ÜÙ[XÝYØ[››Ý][Û—ÚYHÙ[XÝYˆ[˜X›YHÙ[XÝY\È›Ý›Û™H[™Ù[‹X›]ÝšY]Ë™›Ü›WÙY]Û[ÙBˆÙ[‹˜[››Ý][Û—ÙY]ÜÙ[XÝYØXÝ[Û‹œÙ][˜X›Y
+[˜X›Y
+BˆÙ[‹˜[››Ý][Û—Ù[]WÜÙ[XÝYØXÝ[Û‹œÙ][˜X›Y
+[˜X›Y
+BˆYˆÙ[XÝY\È›Ý›Û™N‚ˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJÙ[‹—Ý
+˜[››Ý][ÛœËœÙ[XÝYÜÝ]\ÈŠJB‚ˆYˆÙY]ÜÙ[XÝYØ[››Ý][ÛŠÙ[ŠHOˆ›Û™N‚ˆ[››Ý][Û—ÚYHÙ[‹—ÜÙ[XÝYØ[››Ý][Û—ÚYˆYˆ[››Ý][Û—ÚY\È›Û™N‚ˆSY\ÜØYÙP›Þš[™›Ü›X][ÛŠˆÙ[‹ˆÙ[‹—Ý
+˜[››Ý][ÛœË]HŠKˆÙ[‹—Ý
+˜[››Ý][ÛœËœÙ[XÝÙ^\Ý[™ÈŠKˆ
+Bˆ™]\›‚ˆÙ[‹—ÙY]Ø[››Ý][Û—Ùœ›ÛWÝX›]
+[››Ý][Û—ÚY
+B‚ˆYˆÙ[]WÜÙ[XÝYØ[››Ý][ÛŠÙ[ŠHOˆ›Û™N‚ˆ[››Ý][Û—ÚYHÙ[‹—ÜÙ[XÝYØ[››Ý][Û—ÚYˆYˆ[››Ý][Û—ÚY\È›Û™N‚ˆSY\ÜØYÙP›Þš[™›Ü›X][ÛŠˆÙ[‹ˆÙ[‹—Ý
+˜[››Ý][ÛœË]HŠKˆÙ[‹—Ý
+˜[››Ý][ÛœËœÙ[XÝÙ^\Ý[™ÈŠKˆ
+Bˆ™]\›‚ˆÙ[‹—Ù[]WØ[››Ý][Û—Ùœ›ÛWÝX›]
+[››Ý][Û—ÚY
+B‚ˆYˆÜØ]™WØÝ\™WÝ˜[YWØ[››Ý][ÛŠÙ[‹^[ØYˆØš™XÝ
+HOˆ›Û™N‚ˆYˆ›Ý\Ú[œÝ[˜ÙJ^[ØYXÝ
+N‚ˆ™]\›‚ˆžN‚ˆÙ[‹™\Ø[››Ý][Û—ØÛÛ›Û\‹˜YØÝ\™WÝ˜[YJˆ˜XÚ×ÚY\ÝŠ^[ØYÈ˜XÚ×ÚY—JKˆ\Y›Ø]
+^[ØYÈ™\—JKˆ^\×Ý˜[YOY›Ø]
+^[ØYÈ˜^\×Ý˜[YH—JKˆ^\×ÚY\ÝŠ^[ØYÈ˜^\×ÚY—JHYˆ^[ØY™Ù]
+˜^\×ÚYŠH[ÙH›Û™Kˆ[™[[ÛšXÏ\ÝŠ^[ØYÈ›[™[[ÛšXÈ—JKˆ˜[YOY›Ø]
+^[ØYÈ˜[YH—JKˆ[š]\ÝŠ^[ØY™Ù]
+[š]‹ˆŠJKˆÙœ˜XÝ[ÛY›Ø]
+^[ØY™Ù]
+žÙœ˜XÝ[Ûˆ‹JJKˆ\Ü^WÝ^JˆÝŠ^[ØY™Ù]
+™\Ü^WÝ˜[YHŠJHYˆ^[ØY™Ù]
+™\Ü^WÝ˜[YHŠH[ÙH›Û™Bˆ
+Kˆ
+Bˆ^Ù\
+Ù^Q\œ›Ü‹[[YQ\œ›Ü‹\Q\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+˜[››Ý][ÛœË]HŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹—Ü™Yœ™\ÚØ[››Ý][Û—Û^Y\Š
+BˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJÙ[‹—Ý
+˜[››Ý][ÛœË˜[YWÜØ]™YŠJB‚ˆYˆÚÝ×Û]ÛÙÞWÙY]ÜŠÙ[ŠHOˆ›Û™N‚ˆYˆÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[ÝÙ[\È›Û™N‚ˆSY\ÜØYÙP›Þš[™›Ü›X][ÛŠˆÙ[‹Ù[‹—Ý
+›]ÛÙÞK]HŠKÙ[‹—Ý
+›]ÛÙÞKœÙ[XÝÝÙ[ŠBˆ
+Bˆ™]\›‚ˆ]ÛÙÞQX[ÙÊˆÙ[‹›]ÛÙÞWØÛÛ›Û\‹ˆÙ[‹ˆØ][ÙÏ\Ù[‹›]Ý\WØØ][Ù×ØÛÛ›Û\‹˜]˜Z[X›J
+Kˆ\ØÜš\[Û—Ý[\]\Ï\Ù[‹™\ØÜš\[Û—Ý[\]WØÛÛ›Û\‹˜]˜Z[X›J
+Kˆ[™ÝXYÙO\Ù[‹›[™ÝXYÙKˆ
+K™^XÊ
+BˆÙ[HÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[ÝÙ[ˆÙ[‹X›]ÝšY]ËœÙ]Û]ÛÙÞJˆÙ[›]ÛÙÞHYˆÙ[\È›Ý›Û™H[ÙH×KˆÙ[‹›]Ý\WØØ][Ù×ØÛÛ›Û\‹˜]˜Z[X›J
+Kˆ
+BˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—Ý\]WÝ]J
+B‚ˆYˆØÜ™X]WÛ]ÛÙÞWÚ[\˜[Ùœ›ÛWÝX›]
+Ù[‹ÜÙ\ˆ›Ø]›ÝÛWÙ\ˆ›Ø]
+HOˆ›Û™N‚ˆYˆÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[ÝÙ[\È›Û™HÜˆÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[Ù]\Ù]\È›Û™N‚ˆSY\ÜØYÙP›Þš[™›Ü›X][ÛŠˆÙ[‹Ù[‹—Ý
+›]ÛÙÞK]HŠKÙ[‹—Ý
+›]ÛÙÞKœÙ[XÝÝÙ[ŠBˆ
+Bˆ™]\›‚ˆØ][ÙÈHÙ[‹›]Ý\WØØ][Ù×ØÛÛ›Û\‹˜]˜Z[X›J
+BˆYˆ›ÝØ][ÙÎ‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊˆÙ[‹Ù[‹—Ý
+›]ÛÙÞK]HŠKÙ[‹—Ý
+›]ÛÙÞKœ]ZXÚ×Û›×ØØ][ÙÈŠBˆ
+Bˆ™]\›‚ˆX[ÙÈH]ÛÙÞR[\˜[X[ÙÊˆÜÙ\ˆ›ÝÛWÙ\ˆØ][ÙËˆ[™ÝXYÙO\Ù[‹›[™ÝXYÙKˆ\™[\Ù[‹ˆ
+BˆÚ[HX[ÙË™^XÊ
+HOHQX[ÙË‘X[ÙÐÛÙKXØÙ\Y‚ˆžN‚ˆ[\˜[HÙ[‹›]ÛÙÞWØÛÛ›Û\‹˜Y
+ˆX[ÙËÜÙ\ˆX[ÙË˜›ÝÛWÙ\ˆX[ÙË›]Ý\WÚYˆ
+Bˆ^Ù\
+[[YQ\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+›]ÛÙÞK]HŠKÝŠ^ÊJBˆÛÛ[YBˆÙ[HÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[ÝÙ[ˆÙ[‹X›]ÝšY]ËœÙ]Û]ÛÙÞJˆÙ[›]ÛÙÞHYˆÙ[\È›Ý›Û™H[ÙH×KˆØ][ÙËˆ
+BˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—Ý\]WÝ]J
+BˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJˆÙ[‹—Ý
+ˆ›]ÛÙÞKœ]ZXÚ×ØÜ™X]Y‹ˆÜYˆžÚ[\˜[ÜÙ\™ßH‹ˆ›ÝÛOYˆžÚ[\˜[˜›ÝÛWÙ\™ßH‹ˆ
+Bˆ
+Bˆœ™XZÂ‚ˆYˆÙY]Û]ÛÙÞWÚ[\˜[Ùœ›ÛWÝX›]
+Ù[‹[\˜[ÚYˆÝŠHOˆ›Û™N‚ˆYˆÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[ÝÙ[\È›Û™N‚ˆ™]\›‚ˆžN‚ˆ[\˜[HÙ[‹›]ÛÙÞWØÛÛ›Û\‹™Ù]
+[\˜[ÚY
+Bˆ^Ù\
+Ù^Q\œ›Ü‹[[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+›]ÛÙÞK]HŠKÝŠ^ÊJBˆ™]\›‚ˆØ][ÙÈHÙ[‹›]Ý\WØØ][Ù×ØÛÛ›Û\‹˜]˜Z[X›J
+BˆYˆ›ÝØ][ÙÎ‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊˆÙ[‹Ù[‹—Ý
+›]ÛÙÞK]HŠKÙ[‹—Ý
+›]ÛÙÞKœ]ZXÚ×Û›×ØØ][ÙÈŠBˆ
+Bˆ™]\›‚ˆX[ÙÈH]ÛÙÞR[\˜[X[ÙÊˆ[\˜[ÜÙ\ˆ[\˜[˜›ÝÛWÙ\ˆØ][ÙËˆ[™ÝXYÙO\Ù[‹›[™ÝXYÙKˆ]Ý\WÚYZ[\˜[›]Ý\WÚYˆ\™[\Ù[‹ˆ
+BˆÚ[HX[ÙË™^XÊ
+HOHQX[ÙË‘X[ÙÐÛÙKXØÙ\Y‚ˆYˆX[ÙË™[]WÜ™\]Y\ÝY‚ˆžN‚ˆ[]YHÙ[‹›]ÛÙÞWØÛÛ›Û\‹œ™[[Ý™J[\˜[ÚY
+Bˆ^Ù\
+Ù^Q\œ›Ü‹[[YQ\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+›]ÛÙÞK]HŠKÝŠ^ÊJBˆÛÛ[YBˆÙ[HÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[ÝÙ[ˆÙ[‹X›]ÝšY]ËœÙ]Û]ÛÙÞJˆÙ[›]ÛÙÞHYˆÙ[\È›Ý›Û™H[ÙH×KˆØ][ÙËˆ
+BˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—Ý\]WÝ]J
+BˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJˆÙ[‹—Ý
+ˆ›]ÛÙÞKœ]ZXÚ×Ù[]Y‹ˆÜYˆžÙ[]YÜÙ\™ßH‹ˆ›ÝÛOYˆžÙ[]Y˜›ÝÛWÙ\™ßH‹ˆ
+Bˆ
+Bˆœ™XZÂˆžN‚ˆ\]YHÙ[‹›]ÛÙÞWØÛÛ›Û\‹\]Jˆ[\˜[ÚYˆÜÙ\YX[ÙËÜÙ\ˆ›ÝÛWÙ\YX[ÙË˜›ÝÛWÙ\ˆ]Ý\WÚYYX[ÙË›]Ý\WÚYˆ\ØÜš\[ÛZ[\˜[™\ØÜš\[Û‹ˆ
+Bˆ^Ù\
+Ù^Q\œ›Ü‹[[YQ\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+›]ÛÙÞK]HŠKÝŠ^ÊJBˆÛÛ[YBˆÙ[HÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[ÝÙ[ˆÙ[‹X›]ÝšY]ËœÙ]Û]ÛÙÞJˆÙ[›]ÛÙÞHYˆÙ[\È›Ý›Û™H[ÙH×KˆØ][ÙËˆ
+BˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—Ý\]WÝ]J
+BˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJˆÙ[‹—Ý
+ˆ›]ÛÙÞKœ]ZXÚ×Ý\]Y‹ˆÜYˆžÝ\]YÜÙ\™ßH‹ˆ›ÝÛOYˆžÝ\]Y˜›ÝÛWÙ\™ßH‹ˆ
+Bˆ
+Bˆœ™XZÂ‚ˆYˆØÜ™X]WØÝ][™Ü×ÜØ[\WÙœ›ÛWÝX›]
+Ù[‹ÜÙ\ˆ›Ø]›ÝÛWÙ\ˆ›Ø]
+HOˆ›Û™N‚ˆˆˆÜ™X]HÛ™HÚ\™YØ[\Hœ›ÛHHÚY
+Ù˜YÈ[\˜[‚‚ˆHØ[YHØš™XÝ™YYÈÝ][™ÜËKØ[Ú[Y]žH[™šXÚ\ØÜš\[Û‚ˆ˜XÚÜËˆ\È™]™[ÈH›Ý\ˆÛÛ[[œÈœ›ÛHšY[™È[È[œ™[]Yˆ[\˜[Ë‚ˆˆˆ‚ˆYˆÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[ÝÙ[\È›Û™N‚ˆ™]\›‚ˆØ][ÙÈHÙ[‹›]Ý\WØØ][Ù×ØÛÛ›Û\‹˜]˜Z[X›J
+BˆYˆ›ÝØ][ÙÎ‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊˆÙ[‹Ù[‹—Ý
+˜Ý][™ÜË˜Ü™X]WÝ]HŠKÙ[‹—Ý
+›]ÛÙÞKœ]ZXÚ×Û›×ØØ][ÙÈŠBˆ
+Bˆ™]\›‚ˆX[ÙÈH[šYšYYÝ][™ÜÔØ[\QX[ÙÊˆÜÙ\ˆ›ÝÛWÙ\ˆØ][ÙËˆ[™ÝXYÙO\Ù[‹›[™ÝXYÙKˆ\™[\Ù[‹ˆ
+BˆÚ[HX[ÙË™^XÊ
+HOHQX[ÙË‘X[ÙÐÛÙKXØÙ\Y‚ˆžN‚ˆÜ™X]YHÙ[‹˜Ý][™Ü×ØÛÛ›Û\‹˜Ü™X]WÙ[ÜØ[\JˆX[ÙËÜÙ\ˆX[ÙË˜›ÝÛWÙ\ˆX[ÙË˜ÛÛ\Û™[Ê
+Kˆ
+Š™X[ÙË˜[Y\Ê
+KˆÛÛ[Û[™ÝXYÙO\Ù[‹›[™ÝXYÙK˜[YKˆ
+Bˆ^Ù\
+[[YQ\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+˜Ý][™ÜË˜Ü™X]WÝ]HŠKÝŠ^ÊJBˆÛÛ[YBˆÙ[‹—Ü™Yœ™\ÚØÝ][™Ü×ØY\—ÙY]
+
+BˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJˆÙ[‹—Ý
+ˆ˜Ý][™ÜË˜Ü™X]Y‹ˆÜYˆžØÜ™X]YÜÙ\™ßH‹ˆ›ÝÛOYˆžØÜ™X]Y˜›ÝÛWÙ\™ßH‹ˆ
+Bˆ
+Bˆœ™XZÂ‚ˆYˆØÜ™X]WØ[˜[\Ú\×Ú[\˜[Ùœ›ÛWÝX›]
+ˆÙ[‹ÜÙ\ˆ›Ø]›ÝÛWÙ\ˆ›Ø]ˆ
+HOˆ›Û™N‚ˆˆˆ‘[\ˆØ[Ú[Y]žKÓH›Üˆ[ˆ[\˜[[™\[™[ÙˆTÈÝ][™ÜËˆˆˆ‚ˆYˆÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[ÝÙ[\È›Û™N‚ˆ™]\›‚ˆØ[\HH™^
+ˆ
+ˆ][Bˆ›Üˆ][H[ˆÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[ÝÙ[˜Ý][™ÜÂˆYˆXœÊ][KÜÙ\HÜÙ\
+HHYKM‚ˆ[™XœÊ][K˜›ÝÛWÙ\H›ÝÛWÙ\
+HHYKM‚ˆ
+Kˆ›Û™Kˆ
+BˆX[ÙÈHØ[\P[˜[\Ú\ÑX[ÙÊˆÜÙ\ˆ›ÝÛWÙ\ˆ[™ÝXYÙO\Ù[‹›[™ÝXYÙKˆØ[\O\Ø[\Kˆ\™[\Ù[‹ˆ
+BˆÚ[HX[ÙË™^XÊ
+HOHQX[ÙË‘X[ÙÐÛÙKXØÙ\Y‚ˆžN‚ˆØ]™YHÙ[‹˜Ý][™Ü×ØÛÛ›Û\‹œÙ]Ø[˜[\Ú\ÊˆX[ÙËÜÙ\Yˆ\Ø]ŠX[ÙËÜÙ\ŠH[ÙHÜÙ\ˆX[ÙË˜›ÝÛWÙ\Yˆ\Ø]ŠX[ÙË˜›ÝÛWÙ\ŠH[ÙH›ÝÛWÙ\ˆ
+Š™X[ÙË˜[Y\Ê
+KˆÛÛ[Û[™ÝXYÙO\Ù[‹›[™ÝXYÙK˜[YKˆ
+Bˆ^Ù\
+[[YQ\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+˜Ý][™ÜË˜Ü™X]WÝ]HŠKÝŠ^ÊJBˆÛÛ[YBˆÙ[‹—Ü™Yœ™\ÚØÝ][™Ü×ØY\—ÙY]
+
+BˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJˆÙ[‹—Ý
+ˆ˜[˜[\Ú\Ë˜Ü™X]Y‹ˆÜYˆžÜØ]™YÜÙ\™ßH‹ˆ›ÝÛOYˆžÜØ]™Y˜›ÝÛWÙ\™ßH‹ˆ
+Bˆ
+Bˆœ™XZÂ‚ˆYˆÙY]ØÝ][™Ü×ÜØ[\WÙœ›ÛWÝX›]
+Ù[‹Ø[\WÚYˆÝŠHOˆ›Û™N‚ˆˆˆ”™[Ü[ˆ[™]ÛZXØ[HY]Û™H^\Ý[™ÈÙ[ÛÙÚXØ[Ø[\Kˆˆˆ‚ˆYˆÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[ÝÙ[\È›Û™N‚ˆ™]\›‚ˆžN‚ˆØ[\HHÙ[‹˜Ý][™Ü×ØÛÛ›Û\‹™Ù]
+Ø[\WÚY
+Bˆ^Ù\
+Ù^Q\œ›Ü‹[[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+˜Ý][™ÜË™Y]Ý]HŠKÝŠ^ÊJBˆ™]\›‚ˆØ][ÙÈHÙ[‹›]Ý\WØØ][Ù×ØÛÛ›Û\‹˜]˜Z[X›J
+BˆYˆ›ÝØ][ÙÎ‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊˆÙ[‹Ù[‹—Ý
+˜Ý][™ÜË™Y]Ý]HŠKÙ[‹—Ý
+›]ÛÙÞKœ]ZXÚ×Û›×ØØ][ÙÈŠBˆ
+Bˆ™]\›‚ˆX[ÙÈH[šYšYYÝ][™ÜÔØ[\QX[ÙÊˆØ[\KÜÙ\ˆØ[\K˜›ÝÛWÙ\ˆØ][ÙËˆ[™ÝXYÙO\Ù[‹›[™ÝXYÙKˆØ[\O\Ø[\Kˆ\™[\Ù[‹ˆ
+BˆÚ[HX[ÙË™^XÊ
+HOHQX[ÙË‘X[ÙÐÛÙKXØÙ\Y‚ˆžN‚ˆYˆX[ÙË™[]WÜ™\]Y\ÝY‚ˆ[]YHÙ[‹˜Ý][™Ü×ØÛÛ›Û\‹œ™[[Ý™JØ[\WÚY
+BˆÙ[‹—Ü™Yœ™\ÚØÝ][™Ü×ØY\—ÙY]
+
+BˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJˆÙ[‹—Ý
+ˆ˜Ý][™ÜË™[]Y‹ˆÜYˆžÙ[]YÜÙ\™ßH‹ˆ›ÝÛOYˆžÙ[]Y˜›ÝÛWÙ\™ßH‹ˆ
+Bˆ
+Bˆœ™XZÂˆ\]YHÙ[‹˜Ý][™Ü×ØÛÛ›Û\‹\]WÙ[ÜØ[\JˆØ[\WÚYˆÜÙ\YX[ÙËÜÙ\ˆ›ÝÛWÙ\YX[ÙË˜›ÝÛWÙ\ˆÛÛ\Û™[ÏYX[ÙË˜ÛÛ\Û™[Ê
+Kˆ
+Š™X[ÙË˜[Y\Ê
+KˆÛÛ[Û[™ÝXYÙO\Ù[‹›[™ÝXYÙK˜[YKˆ
+Bˆ^Ù\
+Ù^Q\œ›Ü‹[[YQ\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+˜Ý][™ÜË™Y]Ý]HŠKÝŠ^ÊJBˆÛÛ[YBˆÙ[‹—Ü™Yœ™\ÚØÝ][™Ü×ØY\—ÙY]
+
+BˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJˆÙ[‹—Ý
+ˆ˜Ý][™ÜË™Y]Ý\]Y‹ˆÜYˆžÝ\]YÜÙ\™ßH‹ˆ›ÝÛOYˆžÝ\]Y˜›ÝÛWÙ\™ßH‹ˆ
+Bˆ
+Bˆœ™XZÂ‚ˆYˆØÜ™X]WÜ›ØÚ×Ù\ØÜš\[Û—Ùœ›ÛWÝX›]
+ˆÙ[‹ÜÙ\ˆ›Ø]›ÝÛWÙ\ˆ›Ø]ˆ
+HOˆ›Û™N‚ˆˆˆÜ™X]Hœ™YH^›ÜˆHÚY
+Ù˜YÙÙY[\œ™]][Ûˆ[\˜[ˆˆˆ‚ˆYˆÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[ÝÙ[\È›Û™N‚ˆ™]\›‚ˆX[ÙÈH›ØÚÑ\ØÜš\[Û‘X[ÙÊˆÜÙ\ˆ›ÝÛWÙ\ˆ[™ÝXYÙO\Ù[‹›[™ÝXYÙKˆ\™[\Ù[‹ˆ
+BˆÚ[HX[ÙË™^XÊ
+HOHQX[ÙË‘X[ÙÐÛÙKXØÙ\Y‚ˆžN‚ˆÜ™X]YHÙ[‹˜Ý][™Ü×ØÛÛ›Û\‹œÙ]Ù\ØÜš\[ÛŠˆX[ÙËÜÙ\ˆX[ÙË˜›ÝÛWÙ\ˆX[ÙË™\ØÜš\[Û—Ú[ˆ\ØÜš\[Û—ÝÛÜ™ÝÜ˜\YX[ÙË™\ØÜš\[Û—ÝÛÜ™ÝÜ˜\ˆ[™ÝXYÙO\Ù[‹›[™ÝXYÙKˆ
+Bˆ^Ù\
+[[YQ\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+™\ØÜš\[Û‹˜Ü™X]WÝ]HŠKÝŠ^ÊJBˆÛÛ[YBˆÙ[‹—Ü™Yœ™\ÚØÝ][™Ü×ØY\—ÙY]
+
+BˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJˆÙ[‹—Ý
+ˆ™\ØÜš\[Û‹˜Ü™X]Y‹ˆÜYˆžØÜ™X]YÜÙ\™ßH‹ˆ›ÝÛOYˆžØÜ™X]Y˜›ÝÛWÙ\™ßH‹ˆ
+Bˆ
+Bˆœ™XZÂ‚ˆYˆÙY]Ü›ØÚ×Ù\ØÜš\[Û—Ùœ›ÛWÝX›]
+Ù[‹Ø[\WÚYˆÝŠHOˆ›Û™N‚ˆˆˆ‘Y]\ØÜš\[Ûˆ^Üˆ]È^XÝ[\˜[Ú]Ý]Ú[™Ú[™È[˜[\Ù\Ëˆˆˆ‚ˆYˆÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[ÝÙ[\È›Û™N‚ˆ™]\›‚ˆžN‚ˆØ[\HHÙ[‹˜Ý][™Ü×ØÛÛ›Û\‹™Ù]
+Ø[\WÚY
+Bˆ^Ù\
+Ù^Q\œ›Ü‹[[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+™\ØÜš\[Û‹™Y]Ý]HŠKÝŠ^ÊJBˆ™]\›‚ˆX[ÙÈH›ØÚÑ\ØÜš\[Û‘X[ÙÊˆØ[\KÜÙ\ˆØ[\K˜›ÝÛWÙ\ˆ[™ÝXYÙO\Ù[‹›[™ÝXYÙKˆØ[\O\Ø[\Kˆ\™[\Ù[‹ˆ
+BˆÚ[HX[ÙË™^XÊ
+HOHQX[ÙË‘X[ÙÐÛÙKXØÙ\Y‚ˆžN‚ˆYˆX[ÙË™[]WÜ™\]Y\ÝY‚ˆ[]YHÙ[‹˜Ý][™Ü×ØÛÛ›Û\‹™[]WÙ\ØÜš\[ÛŠˆØ[\WÚY[™ÝXYÙO\Ù[‹›[™ÝXYÙBˆ
+BˆÙ[‹—Ü™Yœ™\ÚØÝ][™Ü×ØY\—ÙY]
+
+BˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJˆÙ[‹—Ý
+ˆ™\ØÜš\[Û‹™[]Y‹ˆÜYˆžÙ[]YÜÙ\™ßH‹ˆ›ÝÛOYˆžÙ[]Y˜›ÝÛWÙ\™ßH‹ˆ
+Bˆ
+Bˆœ™XZÂˆ\]YHÙ[‹˜Ý][™Ü×ØÛÛ›Û\‹\]WÙ\ØÜš\[ÛŠˆØ[\WÚYˆÜÙ\YX[ÙËÜÙ\ˆ›ÝÛWÙ\YX[ÙË˜›ÝÛWÙ\ˆ\ØÜš\[ÛYX[ÙË™\ØÜš\[Û—Ú[ˆ\ØÜš\[Û—ÝÛÜ™ÝÜ˜\YX[ÙË™\ØÜš\[Û—ÝÛÜ™ÝÜ˜\ˆ[™ÝXYÙO\Ù[‹›[™ÝXYÙKˆ
+Bˆ^Ù\
+Ù^Q\œ›Ü‹[[YQ\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+™\ØÜš\[Û‹™Y]Ý]HŠKÝŠ^ÊJBˆÛÛ[YBˆÙ[‹—Ü™Yœ™\ÚØÝ][™Ü×ØY\—ÙY]
+
+BˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJˆÙ[‹—Ý
+ˆ™\ØÜš\[Û‹\]Y‹ˆÜYˆžÝ\]YÜÙ\™ßH‹ˆ›ÝÛOYˆžÝ\]Y˜›ÝÛWÙ\™ßH‹ˆ
+Bˆ
+Bˆœ™XZÂ‚ˆYˆÜ™Yœ™\ÚØÝ][™Ü×ØY\—ÙY]
+Ù[ŠHOˆ›Û™N‚ˆÙ[HÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[ÝÙ[ˆÙ[‹X›]ÝšY]ËœÙ]ØÝ][™ÜÊÙ[˜Ý][™ÜÈYˆÙ[\È›Ý›Û™H[ÙH×JBˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—Ý\]WÝ]J
+B‚ˆYˆÚÝ×Û]Ý\WØØ][ÙÊÙ[ŠHOˆ›Û™N‚ˆ]Ý\PØ][ÙÑX[ÙÊˆÙ[‹›]Ý\WØØ][Ù×ØÛÛ›Û\‹Ù[‹[™ÝXYÙO\Ù[‹›[™ÝXYÙBˆ
+K™^XÊ
+BˆÙ[HÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[ÝÙ[ˆÙ[‹X›]ÝšY]ËœÙ]Û]ÛÙÞJˆÙ[›]ÛÙÞHYˆÙ[\È›Ý›Û™H[ÙH×KˆÙ[‹›]Ý\WØØ][Ù×ØÛÛ›Û\‹˜]˜Z[X›J
+Kˆ
+BˆÙ[‹X›]ÝšY]ËœÙ]ØÝ][™ÜÊÙ[˜Ý][™ÜÈYˆÙ[\È›Ý›Û™H[ÙH×JBˆÙ[‹—Ý\]WÝ]J
+B‚ˆYˆÚÝ×ÜÝ˜]YÜ˜\WÙY]ÜŠÙ[ŠHOˆ›Û™N‚ˆYˆÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[ÝÙ[\È›Û™N‚ˆSY\ÜØYÙP›Þš[™›Ü›X][ÛŠˆÙ[‹Ù[‹—Ý
+œÝ˜]YÜ˜\K]HŠKÙ[‹—Ý
+œÝ˜]YÜ˜\KœÙ[XÝÝÙ[ŠBˆ
+Bˆ™]\›‚ˆÝ˜]YÜ˜\QX[ÙÊˆÙ[‹œÝ˜]YÜ˜\WØÛÛ›Û\‹ˆÙ[‹ˆ[™ÝXYÙO\Ù[‹›[™ÝXYÙKˆØ][Ù×ØÛÛ›Û\\Ù[‹œÝ˜]YÜ˜\WØØ][Ù×ØÛÛ›Û\‹ˆ
+K™^XÊ
+BˆÙ[HÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[ÝÙ[ˆÙ[‹X›]ÝšY]ËœÙ]ÜÝ˜]YÜ˜\JÙ[œÝ˜]YÜ˜\HYˆÙ[\È›Ý›Û™H[ÙH×JBˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—Ý\]WÝ]J
+B‚ˆYˆÚÝ×ÜÝ˜]YÜ˜\WØØ][ÙÊÙ[ŠHOˆ›Û™N‚ˆÝ˜]YÜ˜\PØ][ÙÑX[ÙÊˆÙ[‹œÝ˜]YÜ˜\WØØ][Ù×ØÛÛ›Û\‹Ù[‹[™ÝXYÙO\Ù[‹›[™ÝXYÙBˆ
+K™^XÊ
+BˆÙ[‹—Ý\]WÝ]J
+B‚ˆYˆÙÙÛWÜÝ˜]YÜ˜\WÚ[œ]Û[ÙJÙ[‹[˜X›Yˆ›ÛÛ
+HOˆ›Û™N‚ˆ[ÙHHÙ[ÛÙÚXØ[[œ][ÙK”ÕUQÔTHYˆ[˜X›Y[ÙHÙ[ÛÙÚXØ[[œ][ÙK”ÑSPÕˆÙ[‹X›]ÝšY]ËœÙ]ÙÙ[ÛÙÚXØ[Ú[œ]Û[ÙJ[ÙJBˆYˆ[˜X›Y‚ˆÙ[‹—ÜÚÝ×ÝÛÜšÜÜXÙJÙ[‹X›]ÝšY]ÊBˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJÙ[‹—Ý
+œÝ˜]YÜ˜\K›[ÙWÚ[ŠJB‚ˆYˆØÜ™X]WÜÝ˜]YÜ˜\WÚ[\˜[Ùœ›ÛWÝX›]
+Ù[‹Üˆ›Ø]›ÝÛNˆ›Ø]
+HOˆ›Û™N‚ˆYˆÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[ÝÙ[\È›Û™N‚ˆ™]\›‚ˆÚ[HYN‚ˆX[ÙÈHÝ˜]YÜ˜\R[\˜[X[ÙÊˆÜˆ›ÝÛKˆÙ[‹ˆ[™ÝXYÙO\Ù[‹›[™ÝXYÙKˆØ][Ù×ØÛÛ›Û\\Ù[‹œÝ˜]YÜ˜\WØØ][Ù×ØÛÛ›Û\‹ˆ
+BˆYˆX[ÙË™^XÊ
+HOHQX[ÙË‘X[ÙÐÛÙKXØÙ\Y‚ˆ™]\›‚ˆžN‚ˆÙ[‹œÝ˜]YÜ˜\WØÛÛ›Û\‹˜Y
+
+Š™X[ÙË˜[Y\Ê
+JBˆ^Ù\
+[[YQ\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+œÝ˜]YÜ˜\K]HŠKÝŠ^ÊJBˆÜ›ÝÛHHX[ÙËÜÙ\X[ÙË˜›ÝÛWÙ\ˆÛÛ[YBˆÙ[‹—Ü™Yœ™\ÚÜÝ˜]YÜ˜\WØY\—ÙY]
+
+Bˆ™]\›‚‚ˆYˆÙY]ÜÝ˜]YÜ˜\WÚ[\˜[Ùœ›ÛWÝX›]
+Ù[‹[\˜[ÚYˆÝŠHOˆ›Û™N‚ˆžN‚ˆ[\˜[HÙ[‹œÝ˜]YÜ˜\WØÛÛ›Û\‹™Ù]
+[\˜[ÚY
+Bˆ^Ù\
+Ù^Q\œ›Ü‹[[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+œÝ˜]YÜ˜\K]HŠKÝŠ^ÊJBˆ™]\›‚ˆY]ÝÜH[\˜[ÜÙ\ˆY]Ø›ÝÛHH[\˜[˜›ÝÛWÙ\ˆÚ[HYN‚ˆX[ÙÈHÝ˜]YÜ˜\R[\˜[X[ÙÊˆY]ÝÜˆY]Ø›ÝÛKˆÙ[‹ˆ[™ÝXYÙO\Ù[‹›[™ÝXYÙKˆØ][Ù×ØÛÛ›Û\\Ù[‹œÝ˜]YÜ˜\WØØ][Ù×ØÛÛ›Û\‹ˆ
+BˆX[ÙËœ˜[š×Ú[œ]œÙ]Ý\œ™[^
+[\˜[œ˜[šÈÜˆˆŠBˆX[ÙË˜ÛÙWÚ[œ]œÙ]^
+[\˜[˜ÛÙJBˆX[ÙË›˜[YWÚ[œ]œÙ]^
+ˆØØ[^™YÝ^
+ˆ[\˜[›˜[YWÚLN‹Ù[‹›[™ÝXYÙKYØXÞOZ[\˜[›˜[YBˆ
+Bˆ
+BˆX[ÙË˜ÛÛÜ—Ú[œ]œÙ]^
+[\˜[˜ÛÛÜŠBˆX[ÙË™\ØÜš\[Û—Ú[œ]œÙ]^
+ˆØØ[^™YÝ^
+ˆ[\˜[™\ØÜš\[Û—ÚLN‹ˆÙ[‹›[™ÝXYÙKˆYØXÞOZ[\˜[™\ØÜš\[Û‹ˆ
+Bˆ
+BˆX[ÙËœÙ]Ý^Ü™\Ù[][ÛŠ[\˜[^ÛÜšY[][Û‹[\˜[^ÜÜÚ][ÛŠBˆYˆX[ÙË™^XÊ
+HOHQX[ÙË‘X[ÙÐÛÙKXØÙ\Y‚ˆ™]\›‚ˆžN‚ˆÙ[‹œÝ˜]YÜ˜\WØÛÛ›Û\‹\]J[\˜[ÚY
+Š™X[ÙË˜[Y\Ê
+JBˆ^Ù\
+Ù^Q\œ›Ü‹[[YQ\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+œÝ˜]YÜ˜\K]HŠKÝŠ^ÊJBˆY]ÝÜHX[ÙËÜÙ\ˆY]Ø›ÝÛHHX[ÙË˜›ÝÛWÙ\ˆÛÛ[YBˆÙ[‹—Ü™Yœ™\ÚÜÝ˜]YÜ˜\WØY\—ÙY]
+
+Bˆ™]\›‚‚ˆYˆÜ™Yœ™\ÚÜÝ˜]YÜ˜\WØY\—ÙY]
+Ù[ŠHOˆ›Û™N‚ˆÙ[HÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[ÝÙ[ˆÙ[‹X›]ÝšY]ËœÙ]ÜÝ˜]YÜ˜\JÙ[œÝ˜]YÜ˜\HYˆÙ[\È›Ý›Û™H[ÙH×JBˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—Ý\]WÝ]J
+B‚ˆYˆÙ]Ú[\˜[Ú[\˜XÝ[Û—Û[ÙJÙ[‹[ÙNˆ[\˜[Y][ÙJHOˆ›Û™N‚ˆYˆ[ÙH\È›Ý[\˜[Y][ÙK”ÑSPÕ[™›ÝÙ[‹—Ù[œÝ\™WÚ[\œ™]][Û—Ù›Ü—Ù˜]Ú[™Ê
+N‚ˆÙ[‹š[\˜[ÜÙ[XÝØXÝ[Û‹œÙ]ÚXÚÙY
+YJBˆÙ[‹X›]ÝšY]ËœÙ]Ú[\˜[ÙY]Û[ÙJ[\˜[Y][ÙK”ÑSPÕ
+Bˆ™]\›‚ˆÙ[XÝYHÙ[‹š[\œ™]][Û—ØÛÛ›Û\‹œÙ[XÝYÚ[\˜[
+
+BˆYˆÙ[XÝY\È›Ý›Û™N‚ˆÙ[‹X›]ÝšY]ËœÙ]Ú[\˜[ØÜ™X][Û—Ý\JÙ[XÝYš[\˜[Ý\JBˆÙ[‹X›]ÝšY]ËœÙ]Ú[\˜[ÙY]Û[ÙJ[ÙJBˆÙ[‹—ÜÚÝ×ÝÛÜšÜÜXÙJÙ[‹X›]ÝšY]ÊBˆXÝ[Û—ØžWÛ[ÙHHÂˆ[\˜[Y][ÙK”ÑSPÕˆÙ[‹š[\˜[ÜÙ[XÝØXÝ[Û‹ˆ[\˜[Y][ÙKÔ‘PUNˆÙ[‹š[\˜[ØÜ™X]WØXÝ[Û‹ˆ[\˜[Y][ÙK”‘TÒV‘NˆÙ[‹š[\˜[Ü™\Ú^™WØXÝ[Û‹ˆBˆXÝ[Û—ØžWÛ[ÙVÛ[ÙWKœÙ]ÚXÚÙY
+YJBˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJÙ[‹—Ý
+ˆš[\œ™]][ÛœË›[ÙWÞÛ[ÙK˜[Y_WÚ[ŠJB‚ˆYˆÙ[œÝ\™WÚ[\œ™]][Û—Ù›Ü—Ù˜]Ú[™ÊÙ[ŠHOˆ›ÛÛ‚ˆYˆÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[ÝÙ[\È›Û™HÜˆÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[Ù]\Ù]\È›Û™N‚ˆSY\ÜØYÙP›Þš[™›Ü›X][ÛŠˆÙ[‹ˆÙ[‹—Ý
+š[\œ™]][ÛœË]HŠKˆÙ[‹—Ý
+š[\œ™]][ÛœË™˜]Ú[™×Ü™\]Z\™\×Ù]HŠKˆ
+Bˆ™]\›ˆ˜[ÙBˆÙ[HÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[ÝÙ[ˆYˆ›ÝÙ[š[\œ™]][ÛœÎ‚ˆžN‚ˆÙ[‹š[\œ™]][Û—ØÛÛ›Û\‹˜YÚ[\œ™]][ÛŠˆÙ[‹—Ý
+š[\œ™]][ÛœË™Y˜][Û˜[YHŠBˆ
+Bˆ^Ù\
+[[YQ\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+š[\œ™]][ÛœË]HŠKÝŠ^ÊJBˆ™]\›ˆ˜[ÙBˆÙ[‹—ØY\—Ú[\œ™]][Û—ØÚ[™ÙJ
+Bˆ[ÙN‚ˆÙ[‹š[\œ™]][Û—ØÛÛ›Û\‹››Ü›X[^™WÜÙ[XÝ[ÛŠ
+BˆÙ[‹—ØY\—Ú[\œ™]][Û—ØÚ[™ÙJ
+Bˆ™]\›ˆYB‚ˆYˆØÜ™X]WÚ[\˜[Ùœ›ÛWÝX›]
+ˆÙ[‹[\œ™]][Û—ÚYˆÝ‹ÜÙ\ˆ›Ø]›ÝÛWÙ\ˆ›Ø][\˜[Ý\NˆÝ‚ˆ
+HOˆ›Û™N‚ˆžN‚ˆ[\œ™]][ÛˆHÙ[‹š[\œ™]][Û—ØÛÛ›Û\‹œÙ[XÝÚ[\œ™]][ÛŠ[\œ™]][Û—ÚY
+Bˆ[\˜[Û[X™\ˆH[Š[\œ™]][Û‹š[\˜[ÊH
+ÈBˆ[\˜[HÙ[‹š[\œ™]][Û—ØÛÛ›Û\‹˜YÚ[\˜[
+ˆÜÙ\ˆ›ÝÛWÙ\ˆ[\˜[Ý\HÜˆÙ[‹—Ý
+š[\œ™]][ÛœË™Y˜][Ý\HŠKˆÙ[‹—Ý
+š[\œ™]][ÛœË™Y˜][ÛX™[‹[X™\Z[\˜[Û[X™\ŠKˆÛÛÜ\Ù[‹—Ú[\˜[ÙY˜][ØÛÛÜŠ[\˜[Û[X™\ŠKˆ
+Bˆ^Ù\
+Ù^Q\œ›Ü‹[[YQ\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+š[\œ™]][ÛœË]HŠKÝŠ^ÊJBˆÙ[‹—ØY\—Ú[\œ™]][Û—ØÚ[™ÙJ
+Bˆ™]\›‚ˆÙ[‹—ØY\—Ú[\œ™]][Û—ØÚ[™ÙJ
+BˆÙ[‹—ÜÙ[XÝÚ[\œ™]][Û—Ú[\˜[
+[\œ™]][Û—ÚY[\˜[š[\˜[ÚY
+BˆÙ[‹—Ý\]WÚ[\œ™]][Û—Ú\ÝÜžWØXÝ[ÛœÊ
+BˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJˆÙ[‹—Ý
+ˆš[\œ™]][ÛœË˜Ü™X]YÙœ›ÛWÝX›]‹ˆÜYˆžÚ[\˜[ÜÙ\™ßH‹ˆ›ÝÛOYˆžÚ[\˜[˜›ÝÛWÙ\™ßH‹ˆ
+Bˆ
+B‚ˆYˆÜ™\Ú^™WÚ[\˜[Ùœ›ÛWÝX›]
+ˆÙ[‹ˆ[\œ™]][Û—ÚYˆÝ‹ˆ[\˜[ÚYˆÝ‹ˆÜÙ\ˆ›Ø]ˆ›ÝÛWÙ\ˆ›Ø]ˆ
+HOˆ›Û™N‚ˆžN‚ˆ[\˜[HÙ[‹š[\œ™]][Û—ØÛÛ›Û\‹œÙ[XÝÚ[\˜[
+ˆ[\œ™]][Û—ÚY[\˜[ÚYˆ
+Bˆ\]YHÙ[‹š[\œ™]][Û—ØÛÛ›Û\‹\]WÚ[\˜[
+ˆ[\˜[ÚYˆÜÙ\]ÜÙ\ˆ›ÝÛWÙ\X›ÝÛWÙ\ˆ[\˜[Ý\OZ[\˜[š[\˜[Ý\KˆX™[Z[\˜[›X™[ˆÛÛÜZ[\˜[˜ÛÛÜ‹ˆÛÛ[Y[Z[\˜[˜ÛÛ[Y[ˆ
+Bˆ^Ù\
+Ù^Q\œ›Ü‹[[YQ\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+š[\œ™]][ÛœË]HŠKÝŠ^ÊJBˆÙ[‹—ØY\—Ú[\œ™]][Û—ØÚ[™ÙJ
+Bˆ™]\›‚ˆÙ[‹—ØY\—Ú[\œ™]][Û—ØÚ[™ÙJ
+BˆÙ[‹—ÜÙ[XÝÚ[\œ™]][Û—Ú[\˜[
+[\œ™]][Û—ÚY\]Yš[\˜[ÚY
+BˆÙ[‹—Ý\]WÚ[\œ™]][Û—Ú\ÝÜžWØXÝ[ÛœÊ
+BˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJˆÙ[‹—Ý
+ˆš[\œ™]][ÛœËœ™\Ú^™YÙœ›ÛWÝX›]‹ˆÜYˆžÝ\]YÜÙ\™ßH‹ˆ›ÝÛOYˆžÝ\]Y˜›ÝÛWÙ\™ßH‹ˆ
+Bˆ
+B‚ˆÝ]XÛY]ÙˆYˆÚ[\˜[ÙY˜][ØÛÛÜŠ[™^ˆ[
+HOˆÝŽ‚ˆ[]HH
+ˆÙ™MŽH‹ˆØ™™™™H‹ˆØ˜™Ù‹ˆÙ™XØXØH‹ˆÙ™™H‹ˆÙ™YØXHŠBˆ™]\›ˆ[]VÊX^
+K[™^
+HHJH	H[Š[]JWB‚ˆYˆ[™×Ú[\œ™]][Û—ÙY]
+Ù[ŠHOˆ›Û™N‚ˆYˆ›ÝÙ[‹š[\œ™]][Û—ØÛÛ›Û\‹˜Ø[—Ý[™Î‚ˆ™]\›‚ˆžN‚ˆ\ØÜš\[ÛˆHÙ[‹š[\œ™]][Û—ØÛÛ›Û\‹[™Ê
+Bˆ^Ù\
+[™^\œ›Ü‹[[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+š[\œ™]][ÛœË]HŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹—ØY\—Ú[\œ™]][Û—ØÚ[™ÙJ
+BˆÙ[‹—Ý\]WÚ[\œ™]][Û—Ú\ÝÜžWØXÝ[ÛœÊ
+BˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJÙ[‹—Ý
+š[\œ™]][ÛœË[™×ÙÛ™H‹\ØÜš\[ÛY\ØÜš\[ÛŠJB‚ˆYˆ™Y×Ú[\œ™]][Û—ÙY]
+Ù[ŠHOˆ›Û™N‚ˆYˆ›ÝÙ[‹š[\œ™]][Û—ØÛÛ›Û\‹˜Ø[—Ü™YÎ‚ˆ™]\›‚ˆžN‚ˆ\ØÜš\[ÛˆHÙ[‹š[\œ™]][Û—ØÛÛ›Û\‹œ™YÊ
+Bˆ^Ù\
+[™^\œ›Ü‹[[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+š[\œ™]][ÛœË]HŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹—ØY\—Ú[\œ™]][Û—ØÚ[™ÙJ
+BˆÙ[‹—Ý\]WÚ[\œ™]][Û—Ú\ÝÜžWØXÝ[ÛœÊ
+BˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJÙ[‹—Ý
+š[\œ™]][ÛœËœ™Y×ÙÛ™H‹\ØÜš\[ÛY\ØÜš\[ÛŠJB‚ˆYˆÝ\]WÚ[\œ™]][Û—Ú\ÝÜžWØXÝ[ÛœÊÙ[ŠHOˆ›Û™N‚ˆYˆ›Ý\Ø]ŠÙ[‹[™×Ú[\œ™]][Û—ØXÝ[ÛˆŠN‚ˆ™]\›‚ˆÙ[‹[™×Ú[\œ™]][Û—ØXÝ[Û‹œÙ][˜X›Y
+Ù[‹š[\œ™]][Û—ØÛÛ›Û\‹˜Ø[—Ý[™ÊBˆÙ[‹œ™Y×Ú[\œ™]][Û—ØXÝ[Û‹œÙ][˜X›Y
+Ù[‹š[\œ™]][Û—ØÛÛ›Û\‹˜Ø[—Ü™YÊB‚ˆYˆÚÝ×Ú[\œ™]][Û—Ú[\˜[ÊÙ[ŠHOˆ›Û™N‚ˆYˆÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[ÝÙ[\È›Û™N‚ˆSY\ÜØYÙP›Þš[™›Ü›X][ÛŠˆÙ[‹ˆÙ[‹—Ý
+š[\œ™]][ÛœË]HŠKˆÙ[‹—Ý
+š[\œ™]][ÛœËœÙ[XÝÝÙ[ŠKˆ
+Bˆ™]\›‚ˆX[ÙÈH[\œ™]][Û’[\˜[ÑX[ÙÊˆÙ[‹š[\œ™]][Û—ØÛÛ›Û\‹ˆÙ[‹ˆ[™ÝXYÙO\Ù[‹›[™ÝXYÙKˆ
+BˆÙ[‹—Ú[\œ™]][Û—ÙX[ÙÈHX[ÙÂˆX[ÙËš[\œ™]][Û—ÜÙ[XÝY˜ÛÛ›™XÝ
+Ù[‹—ÜÙ[XÝÚ[\œ™]][Û—Ùœ›ÛWÛX[˜YÙ\ŠBˆX[ÙËš[\˜[ÜÙ[XÝY˜ÛÛ›™XÝ
+Ù[‹—ÜÙ[XÝÚ[\œ™]][Û—Ú[\˜[
+BˆX[ÙËš[\˜[×ØÚ[™ÙY˜ÛÛ›™XÝ
+Ù[‹—ØY\—Ú[\œ™]][Û—ØÚ[™ÙJBˆÙ[XÝYÚ[\œ™]][Û—ÚYHÙ[‹š[\œ™]][Û—ØÛÛ›Û\‹œÙ[XÝYÚ[\œ™]][Û—ÚYˆÙ[XÝYÚ[\˜[ÚYHÙ[‹š[\œ™]][Û—ØÛÛ›Û\‹œÙ[XÝYÚ[\˜[ÚYˆYˆÙ[XÝYÚ[\œ™]][Û—ÚY[™Ù[XÝYÚ[\˜[ÚY‚ˆX[ÙËœÙ[XÝÚ[\˜[
+Ù[XÝYÚ[\œ™]][Û—ÚYÙ[XÝYÚ[\˜[ÚY
+Bˆ[YˆÙ[XÝYÚ[\œ™]][Û—ÚY‚ˆX[ÙËœÙ[XÝÚ[\œ™]][ÛŠÙ[XÝYÚ[\œ™]][Û—ÚY
+BˆžN‚ˆX[ÙË™^XÊ
+Bˆš[˜[N‚ˆÙ[‹—Ú[\œ™]][Û—ÙX[ÙÈH›Û™BˆÙ[‹—ØY\—Ú[\œ™]][Û—ØÚ[™ÙJ
+B‚ˆYˆÜÙ[XÝÚ[\œ™]][Û—Ùœ›ÛWÛX[˜YÙ\ŠÙ[‹[\œ™]][Û—ÚYˆÝŠHOˆ›Û™N‚ˆžN‚ˆÙ[‹š[\œ™]][Û—ØÛÛ›Û\‹œÙ[XÝÚ[\œ™]][ÛŠ[\œ™]][Û—ÚY
+Bˆ^Ù\
+Ù^Q\œ›Ü‹[[YQ\œ›ÜŠN‚ˆ™]\›‚ˆÙ[‹X›]ÝšY]ËœÙ]ÜÙ[XÝYÚ[\œ™]][ÛŠ[\œ™]][Û—ÚY
+BˆÙ[‹š[\œ™]][Û—Ü›Ü\Y\Ë˜ÛX\Š
+BˆÙ[‹š[\œ™]][Û—Ü›Ü\Y\×ÙØÚËšYJ
+B‚ˆYˆÜÙ[XÝÚ[\œ™]][Û—Ùœ›ÛWÝX›]
+Ù[‹[\œ™]][Û—ÚYˆÝŠHOˆ›Û™N‚ˆÙ[‹—ÜÙ[XÝÚ[\œ™]][Û—Ùœ›ÛWÛX[˜YÙ\Š[\œ™]][Û—ÚY
+BˆYˆÙ[‹—Ú[\œ™]][Û—ÙX[ÙÈ\È›Ý›Û™N‚ˆÙ[‹—Ú[\œ™]][Û—ÙX[ÙËœÙ[XÝÚ[\œ™]][ÛŠ[\œ™]][Û—ÚY
+B‚ˆYˆÜÙ[XÝÚ[\œ™]][Û—Ú[\˜[
+Ù[‹[\œ™]][Û—ÚYˆÝ‹[\˜[ÚYˆÝŠHOˆ›Û™N‚ˆžN‚ˆ[\˜[HÙ[‹š[\œ™]][Û—ØÛÛ›Û\‹œÙ[XÝÚ[\˜[
+ˆ[\œ™]][Û—ÚY[\˜[ÚYˆ
+Bˆ[\œ™]][ÛˆHÙ[‹š[\œ™]][Û—ØÛÛ›Û\‹˜Ý\œ™[Ú[\œ™]][ÛŠ
+Bˆ^Ù\
+Ù^Q\œ›Ü‹[[YQ\œ›ÜŠN‚ˆÙ[‹—ØÛX\—Ú[\œ™]][Û—Ú[\˜[ÜÙ[XÝ[ÛŠ
+Bˆ™]\›‚ˆÙ[‹X›]ÝšY]ËœÙ]ÜÙ[XÝYÚ[\˜[
+[\œ™]][Û—ÚY[\˜[ÚY
+BˆÙ[‹š[\œ™]][Û—Ü›Ü\Y\ËœÚÝ×Ú[\˜[
+[\œ™]][Û‹[\˜[
+BˆÙ[‹š[\œ™]][Û—Ü›Ü\Y\×ÙØÚËœÚÝÊ
+BˆÙ[‹š[\œ™]][Û—Ü›Ü\Y\×ÙØÚËœ˜Z\ÙWÊ
+BˆYˆÙ[‹—Ú[\œ™]][Û—ÙX[ÙÈ\È›Ý›Û™N‚ˆÙ[‹—Ú[\œ™]][Û—ÙX[ÙËœÙ[XÝÚ[\˜[
+[\œ™]][Û—ÚY[\˜[ÚY
+B‚ˆYˆØÛX\—Ú[\œ™]][Û—Ú[\˜[ÜÙ[XÝ[ÛŠÙ[ŠHOˆ›Û™N‚ˆÙ[‹š[\œ™]][Û—ØÛÛ›Û\‹œÙ[XÝYÚ[\˜[ÚYH›Û™BˆÙ[‹X›]ÝšY]Ë˜ÛX\—Ú[\˜[ÜÙ[XÝ[ÛŠ
+BˆÙ[‹š[\œ™]][Û—Ü›Ü\Y\Ë˜ÛX\Š
+BˆÙ[‹š[\œ™]][Û—Ü›Ü\Y\×ÙØÚËšYJ
+B‚ˆYˆÝ\]WÚ[\˜[Ùœ›ÛWÜ›Ü\Y\ÊˆÙ[‹[\œ™]][Û—ÚYˆÝ‹[\˜[ÚYˆÝ‹˜[Y\ÎˆØš™XÝˆ
+HOˆ›Û™N‚ˆYˆ›Ý\Ú[œÝ[˜ÙJ˜[Y\ËXÝ
+N‚ˆ™]\›‚ˆžN‚ˆÙ[‹š[\œ™]][Û—ØÛÛ›Û\‹œÙ[XÝÚ[\œ™]][ÛŠ[\œ™]][Û—ÚY
+Bˆ[\˜[HÙ[‹š[\œ™]][Û—ØÛÛ›Û\‹\]WÚ[\˜[
+ˆ[\˜[ÚYˆÜÙ\Y›Ø]
+˜[Y\ÖÈÜÙ\—JKˆ›ÝÛWÙ\Y›Ø]
+˜[Y\ÖÈ˜›ÝÛWÙ\—JKˆ[\˜[Ý\O\ÝŠ˜[Y\ÖÈš[\˜[Ý\H—JKˆX™[\ÝŠ˜[Y\ÖÈ›X™[—JKˆÛÛÜ\ÝŠ˜[Y\ÖÈ˜ÛÛÜˆ—JKˆÛÛ[Y[\ÝŠ˜[Y\ÖÈ˜ÛÛ[Y[—JKˆ
+Bˆ^Ù\
+Ù^Q\œ›Ü‹[[YQ\œ›Ü‹\Q\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+š[\œ™]][ÛœË]HŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹—ØY\—Ú[\œ™]][Û—ØÚ[™ÙJ
+BˆÙ[‹—ÜÙ[XÝÚ[\œ™]][Û—Ú[\˜[
+[\œ™]][Û—ÚY[\˜[š[\˜[ÚY
+BˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJÙ[‹—Ý
+š[\œ™]][ÛœËœ›Ü\Y\×Ý\]YŠJB‚ˆYˆØY\—Ú[\œ™]][Û—ØÚ[™ÙJÙ[ŠHOˆ›Û™N‚ˆÙ[HÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[ÝÙ[ˆÙ[‹š[\œ™]][Û—ØÛÛ›Û\‹››Ü›X[^™WÜÙ[XÝ[ÛŠ
+Bˆ^[Ý]HÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[ÝX›]Û^[Ý]ˆYˆ
+ˆÙ[\È›Ý›Û™Bˆ[™Ù[š[\œ™]][ÛœÂˆ[™^[Ý]\È›Ý›Û™Bˆ[™›Ý[žJ˜XÚËšÚ[™\È˜XÚÒÚ[™’S•T”‘UUSÓˆ›Üˆ˜XÚÈ[ˆ^[Ý]˜XÚÜÊBˆ
+N‚ˆžN‚ˆÙ[‹X›]ØÛÛ›Û\‹˜YÝ˜XÚÊ˜XÚÒÚ[™’S•T”‘UUSÓŠBˆ^Ù\
+[[YQ\œ›Ü‹˜[YQ\œ›ÜŠN‚ˆ\ÜÂˆÙ[‹X›]ÝšY]ËœÙ]Ú[\œ™]][ÛœÊˆ\Ý
+Ù[š[\œ™]][ÛœË˜[Y\Ê
+JHYˆÙ[\È›Ý›Û™H[ÙH×KˆÙ[‹š[\œ™]][Û—ØÛÛ›Û\‹œÙ[XÝYÚ[\œ™]][Û—ÚYˆ
+BˆÙ[XÝYÚ[\œ™]][Û—ÚYHÙ[‹š[\œ™]][Û—ØÛÛ›Û\‹œÙ[XÝYÚ[\œ™]][Û—ÚYˆÙ[XÝYÚ[\˜[ÚYHÙ[‹š[\œ™]][Û—ØÛÛ›Û\‹œÙ[XÝYÚ[\˜[ÚYˆYˆÙ[XÝYÚ[\œ™]][Û—ÚY[™Ù[XÝYÚ[\˜[ÚY‚ˆÙ[‹—ÜÙ[XÝÚ[\œ™]][Û—Ú[\˜[
+Ù[XÝYÚ[\œ™]][Û—ÚYÙ[XÝYÚ[\˜[ÚY
+Bˆ[ÙN‚ˆÙ[‹—ØÛX\—Ú[\œ™]][Û—Ú[\˜[ÜÙ[XÝ[ÛŠ
+BˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—Ý\]WÝ]J
+BˆÙ[‹—Ý\]WÚ[\œ™]][Û—Ú\ÝÜžWØXÝ[ÛœÊ
+B‚ˆYˆÚÝ×ÜÙ[œÛÜ—ØØ][ÙÊÙ[ŠHOˆ›Û™N‚ˆX[ÙÈHÙ[œÛÜØ][ÙÑX[ÙÊˆÙ[‹˜Ý\™WØœ›ÝÜÙ\‹œÙ[œÛÜ—ØØ][ÙËˆÙ[‹ˆ[™ÝXYÙO\Ù[‹›[™ÝXYÙKˆ™YÚ\ÝžO\Ù[‹›[™[[ÛšX×Ü™YÚ\ÝžKˆ
+BˆX[ÙË˜Ø][Ù×ØÚ[™ÙY˜ÛÛ›™XÝ
+Ù[‹—Ø\WÜÙ[œÛÜ—ØØ][ÙÊBˆX[ÙË™^XÊ
+B‚ˆYˆØ\WÜÙ[œÛÜ—ØØ][ÙÊÙ[‹Ø][ÙÎˆØš™XÝ
+HOˆ›Û™N‚ˆYˆ›Ý\Ú[œÝ[˜ÙJØ][ÙËÙ[œÛÜØ][ÙÊN‚ˆ™]\›‚ˆÙ]ØXÝ]™WÜÙ[œÛÜ—ØØ][ÙÊØ][ÙÊBˆÙ[‹˜Ý\™WØœ›ÝÜÙ\‹œÙ]ÜÙ[œÛÜ—ØØ][ÙÊØ][ÙÊBˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJÙ[‹—Ý
+œÙ[œÛÜœË˜\YY‹ÛÝ[[[ŠØ][ÙËœÙ[œÛÜœÊJJB‚ˆYˆÚÝ×Ù\ØÜš\[Û—Ý[\]\ÊÙ[ŠHOˆ›Û™N‚ˆ\ØÜš\[Û•[\]\ÑX[ÙÊˆÙ[‹™\ØÜš\[Û—Ý[\]WØÛÛ›Û\‹Ù[‹[™ÝXYÙO\Ù[‹›[™ÝXYÙBˆ
+K™^XÊ
+BˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—Ý\]WÝ]J
+B‚ˆYˆÜ™X]WØ\ØÙ[™[™×Ù\ØÛÜJÙ[‹
+‹Ø]™WØ\×Û\Îˆ›ÛÛH˜[ÙJHOˆ›Û™N‚ˆžN‚ˆ™\ÜHÙ[‹™\Ø^\×ØÛÛ›Û\‹˜[˜[^™WØÝ\œ™[
+
+Bˆ^Ù\[[YQ\œ›Üˆ\È^Î‚ˆSY\ÜØYÙP›Þš[™›Ü›X][ÛŠÙ[‹Ù[‹—Ý
+™\]HŠKÝŠ^ÊJBˆ™]\›‚ˆYˆ™\Ü™\™XÝ[Ûˆ\È›Ý\\™XÝ[Û‹‘TÐÑS‘S‘Î‚ˆSY\ÜØYÙP›Þš[™›Ü›X][ÛŠˆÙ[‹ˆÙ[‹—Ý
+™\]HŠKˆÙ[‹—Ý
+ˆ™\››×Ü™]™\œØ[‹ˆ\™XÝ[Û\Ù[‹—Ý
+ˆ™\™\™XÝ[Û‹žÜ™\Ü™\™XÝ[Û‹˜[Y_HŠKˆ
+Kˆ
+Bˆ™]\›‚ˆ[œÝÙ\ˆHSY\ÜØYÙP›Þœ]Y\Ý[ÛŠˆÙ[‹ˆÙ[‹—Ý
+™\˜ÛÛ™š\›WÝ]HŠKˆÙ[‹—Ý
+™\˜ÛÛ™š\›WÛY\ÜØYÙHŠKˆSY\ÜØYÙP›Þ”Ý[™\™]Û‹–Y\ÈSY\ÜØYÙP›Þ”Ý[™\™]Û‹“›ËˆSY\ÜØYÙP›Þ”Ý[™\™]Û‹–Y\Ëˆ
+BˆYˆ[œÝÙ\ˆ\È›ÝSY\ÜØYÙP›Þ”Ý[™\™]Û‹–Y\Î‚ˆ™]\›‚ˆžN‚ˆ™\Ý[HÙ[‹™\Ø^\×ØÛÛ›Û\‹˜Ü™X]WØ\ØÙ[™[™×ØÛÜJ
+Bˆ^Ù\
+[[YQ\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+™\]HŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹—ÜÚÝ×ØÝ\œ™[Ù]\Ù]
+
+BˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—Ý\]WÝ]J
+BˆÙ[‹—Ý\]WÙ\Ø^\×ØXÝ[ÛœÊ
+BˆÙ[‹—ÛÙÊÙ[‹—Ý
+™\˜ÛÜWØÜ™X]Y‹˜[YO\™\Ý[›˜[YJJBˆYˆØ]™WØ\×Û\Î‚ˆÙ[‹—ÜØ]™WÙ\š]™YÙ]\Ù]ØÛÜJ™\Ý[ÝY™š^H—Ø\ØÙ[™[™ÈŠB‚ˆYˆ[™×Ø\ØÙ[™[™×Ù\ØÛÜJÙ[ŠHOˆ›Û™N‚ˆ[œÝÙ\ˆHSY\ÜØYÙP›Þœ]Y\Ý[ÛŠˆÙ[‹ˆÙ[‹—Ý
+™\[™×Ý]HŠKˆÙ[‹—Ý
+™\[™×ØÛÛ™š\›HŠKˆSY\ÜØYÙP›Þ”Ý[™\™]Û‹–Y\ÈSY\ÜØYÙP›Þ”Ý[™\™]Û‹“›ËˆSY\ÜØYÙP›Þ”Ý[™\™]Û‹“›Ëˆ
+BˆYˆ[œÝÙ\ˆ\È›ÝSY\ÜØYÙP›Þ”Ý[™\™]Û‹–Y\Î‚ˆ™]\›‚ˆžN‚ˆÙ[‹™\Ø^\×ØÛÛ›Û\‹[™×Ø\ØÙ[™[™×ØÛÜJ
+Bˆ^Ù\[[YQ\œ›Üˆ\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+™\]HŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹—ØY\—Ù\Ø^\×Ú\ÝÜžJÙ[‹—Ý
+™\[™Û™HŠJB‚ˆYˆ™Y×Ø\ØÙ[™[™×Ù\ØÛÜJÙ[ŠHOˆ›Û™N‚ˆžN‚ˆ™\Ý[HÙ[‹™\Ø^\×ØÛÛ›Û\‹œ™Y×Ø\ØÙ[™[™×ØÛÜJ
+Bˆ^Ù\[[YQ\œ›Üˆ\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+™\]HŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹—ØY\—Ù\Ø^\×Ú\ÝÜžJÙ[‹—Ý
+™\œ™YÛ™H‹˜[YO\™\Ý[›˜[YJJB‚ˆYˆÜ™X]WÜ™\Ø[\YÙ\ØÛÜJÙ[‹
+‹Ø]™WØ\×Û\Îˆ›ÛÛH˜[ÙJHOˆ›Û™N‚ˆžN‚ˆX[ÙÈH\™\Ø[\QX[ÙÊÙ[‹™\Ø^\×ØÛÛ›Û\‹Ù[‹[™ÝXYÙO\Ù[‹›[™ÝXYÙJBˆ^Ù\
+[[YQ\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+œ™\Ø[\K]HŠKÝŠ^ÊJBˆ™]\›‚ˆYˆX[ÙË™^XÊ
+HOHQX[ÙË‘X[ÙÐÛÙKXØÙ\YÜˆX[ÙËœ[ˆ\È›Û™N‚ˆ™]\›‚ˆžN‚ˆ™\Ý[HÙ[‹™\Ø^\×ØÛÛ›Û\‹˜Ü™X]WÜ™\Ø[\YØÛÜJX[ÙËœ[ŠBˆ^Ù\
+[[YQ\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+œ™\Ø[\K]HŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹—ÜÚÝ×ØÝ\œ™[Ù]\Ù]
+
+BˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—Ý\]WÝ]J
+BˆÙ[‹—Ý\]WÙ\Ø^\×ØXÝ[ÛœÊ
+BˆÙ[‹—ÛÙÊÙ[‹—Ý
+œ™\Ø[\K˜Ü™X]Y‹˜[YO\™\Ý[›˜[YJJBˆYˆØ]™WØ\×Û\Î‚ˆÙ[‹—ÜØ]™WÙ\š]™YÙ]\Ù]ØÛÜJ™\Ý[ÝY™š^Yˆ—ÜÝ\ÞÙX[ÙËœ[‹œÝ\™ßHŠB‚ˆYˆÜØ]™WÙ\š]™YÙ]\Ù]ØÛÜJÙ[‹]\Ù]ˆØš™XÝ
+‹ÝY™š^ˆÝŠHOˆ›Û™N‚ˆÝ\œ™[HÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[Ù]\Ù]ˆYˆÝ\œ™[\È›Û™HÜˆÝ\œ™[\È›Ý]\Ù]‚ˆ™]\›‚ˆ[š]X[H]˜ÝÙ
+
+HÈˆžØÝ\œ™[›˜[Y_^ÜÝY™š^K›\È‚ˆš[[˜[YKÈHQš[QX[ÙË™Ù]Ø]™Qš[S˜[YJˆÙ[‹ˆÙ[‹—Ý
+›\×ÙY]Ü‹˜ÚÛÜÙWÛÝ]]Ý]HŠKˆÝŠ[š]X[
+Kˆ“TÈ
+
+‹›\ÊH‹ˆ
+BˆYˆ›Ýš[[˜[YN‚ˆ™]\›‚ˆžN‚ˆ^ÜYHÙ[‹—Ù^ÜØÝ\œ™[Ù]\Ù]Ý×Ü]
+]
+š[[˜[YJJBˆ^Ù\
+ÔÑ\œ›Ü‹[[YQ\œ›Ü‹\Ñ^Ü\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+›\×ÙY]Ü‹]HŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJÙ[‹—Ý
+›\×ÙY]Ü‹œØ]™YØÛÜH‹˜[YOY^ÜY›˜[YJJB‚ˆYˆÚÝ×ØÝ\™WÝ˜[œÙ™\ŠÙ[ŠHOˆ›Û™N‚ˆYˆÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[Ù]\Ù]\È›Û™N‚ˆSY\ÜØYÙP›Þš[™›Ü›X][ÛŠÙ[‹Ù[‹—Ý
+˜[œÙ™\‹]HŠKÙ[‹—Ý
+™]KœÙ[XÝÙ]\Ù]ŠJBˆ™]\›‚ˆX[ÙÈHÝ\™U˜[œÙ™\‘X[ÙÊÙ[‹˜Ý\™WÝ˜[œÙ™\—ØÛÛ›Û\‹Ù[‹[™ÝXYÙO\Ù[‹›[™ÝXYÙJBˆYˆ
+ˆX[ÙË™^XÊ
+HOHQX[ÙË‘X[ÙÐÛÙKXØÙ\YˆÜˆX[ÙË˜[˜[\Ú\È\È›Û™BˆÜˆX[ÙËœÛÝ\˜ÙWÙ]\Ù]ÚY\È›Û™Bˆ
+N‚ˆ™]\›‚ˆžN‚ˆÝ\™\ÈHÙ[‹˜Ý\™WÝ˜[œÙ™\—ØÛÛ›Û\‹˜\JˆX[ÙËœÛÝ\˜ÙWÙ]\Ù]ÚYˆX[ÙËœÙ[XÝYØÝ\™WÚYËˆX[ÙË˜[˜[\Ú\Ëˆ
+Bˆ^Ù\
+Ù^Q\œ›Ü‹[[YQ\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+˜[œÙ™\‹]HŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹—ØY\—ØÝ\™WÝ˜[œÙ™\ŠˆÙ[‹—Ý
+˜[œÙ™\‹˜ÛÛ\]Y‹ÛÝ[[[ŠÝ\™\ÊJKˆÝ\™\Ëˆ
+B‚ˆYˆÚÝ×Ù^\›˜[Û\×Ú[œÙ\
+Ù[ŠHOˆ›Û™N‚ˆ\™Ù]HÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[Ù]\Ù]ˆYˆ\™Ù]\È›Û™N‚ˆSY\ÜØYÙP›Þš[™›Ü›X][ÛŠˆÙ[‹Ù[‹—Ý
+™^\›˜[Û\Ë]HŠKÙ[‹—Ý
+™]KœÙ[XÝÙ]\Ù]ŠBˆ
+Bˆ™]\›‚ˆX[ÙÈH^\›˜[\Ò[œÙ\X[ÙÊˆÙ[‹™^\›˜[Û\×Ú[œÙ\ØÛÛ›Û\‹ˆÙ[‹ˆ[™ÝXYÙO\Ù[‹›[™ÝXYÙKˆ
+BˆYˆ
+ˆX[ÙË™^XÊ
+HOHQX[ÙË‘X[ÙÐÛÙKXØÙ\YˆÜˆX[ÙË˜[˜[\Ú\È\È›Û™BˆÜˆX[ÙË›Ý]]Ü]\È›Û™Bˆ
+N‚ˆ™]\›‚ˆÚXÚÜÚ[HÙ[‹™\š]™YÙ]\Ù]ØÛÛ›Û\‹˜ÚXÚÜÚ[
+
+BˆžN‚ˆÝ]ÛÛYHHÙ[‹™^\›˜[Û\×Ú[œÙ\ØÛÛ›Û\‹˜Ü™X]WØÛÜJˆX[ÙË˜[˜[\Ú\ËˆX[ÙËœÙ[XÝ[ÛœËˆ˜[YOYX[ÙË›Ý]]Ü]œÝ[Kˆ
+Bˆ^ÜYHÙ[‹—Ù^ÜØÝ\œ™[Ù]\Ù]Ý×Ü]
+X[ÙË›Ý]]Ü]
+Bˆ^Ù\
+Ù^Q\œ›Ü‹ÔÑ\œ›Ü‹[[YQ\œ›Ü‹˜[YQ\œ›Ü‹\Ñ^Ü\œ›ÜŠH\È^Î‚ˆÙ[‹™\š]™YÙ]\Ù]ØÛÛ›Û\‹œ›Û˜XÚÊÚXÚÜÚ[
+BˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+™^\›˜[Û\Ë]HŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹—ØY\—Ù^\›˜[Û\×Ú[œÙ\
+ˆÙ[‹—Ý
+ˆ™^\›˜[Û\Ë˜ÛÜWØÛÛ\]Y‹ˆÛÝ[[[ŠÝ]ÛÛYKš[œÙ\YÛ[™[[ÛšXÜÊKˆ˜[YOY^ÜY›˜[YKˆ
+KˆÝ]ÛÛYKš[œÙ\YÛ[™[[ÛšXÜËˆ
+B‚ˆYˆ[™×Ù^\›˜[Û\×Ú[œÙ\
+Ù[ŠHOˆ›Û™N‚ˆžN‚ˆÝ]ÛÛYHHÙ[‹™^\›˜[Û\×Ú[œÙ\ØÛÛ›Û\‹[™Ê
+Bˆ^Ù\[[YQ\œ›Üˆ\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+™^\›˜[Û\Ë]HŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹—ØY\—Ù^\›˜[Û\×Ú[œÙ\
+Ù[‹—Ý
+™^\›˜[Û\Ë[™Û™HŠKÝ]ÛÛYKš[œÙ\YÛ[™[[ÛšXÜÊB‚ˆYˆ™Y×Ù^\›˜[Û\×Ú[œÙ\
+Ù[ŠHOˆ›Û™N‚ˆžN‚ˆÝ]ÛÛYHHÙ[‹™^\›˜[Û\×Ú[œÙ\ØÛÛ›Û\‹œ™YÊ
+Bˆ^Ù\[[YQ\œ›Üˆ\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+™^\›˜[Û\Ë]HŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹—ØY\—Ù^\›˜[Û\×Ú[œÙ\
+Ù[‹—Ý
+™^\›˜[Û\Ëœ™YÛ™HŠKÝ]ÛÛYKš[œÙ\YÛ[™[[ÛšXÜÊB‚ˆYˆØY\—Ù^\›˜[Û\×Ú[œÙ\
+Ù[‹Y\ÜØYÙNˆÝ‹[™[[ÛšXÜÎˆ\VÜÝ‹‹‹—JHOˆ›Û™N‚ˆ]\Ù]HÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[Ù]\Ù]ˆYˆ]\Ù]\È›Ý›Û™N‚ˆ^\Ý[™ÈHÂˆ[™[[ÛšXÂˆ›Üˆ[™[[ÛšXÈ[ˆ[™[[ÛšXÜÂˆYˆ]\Ù]˜Ý\™WØžWÛ[™[[ÛšXÊ[™[[ÛšXÊH\È›Ý›Û™BˆBˆÙ[‹˜Ý\™WÝšY]ËœÚÝ×Ù]\Ù]
+]\Ù]^\Ý[™ÈÜˆ›Û™JBˆÙ[‹X›]ÝšY]ËœÙ]Ù]\Ù]
+]\Ù]
+BˆÙ[‹›\×ÝX›WÙY]Ü‹œÙ]Ù]\Ù]
+]\Ù]
+BˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—Ý\]WÝ]J
+BˆÙ[‹—Ý\]WÙ^\›˜[Û\×Ú[œÙ\ØXÝ[ÛœÊ
+BˆÙ[‹—ÛÙÊY\ÜØYÙJBˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJY\ÜØYÙJB‚ˆYˆÝ\]WÙ^\›˜[Û\×Ú[œÙ\ØXÝ[ÛœÊÙ[ŠHOˆ›Û™N‚ˆYˆ\Ø]ŠÙ[‹[™×Ù^\›˜[Û\×Ú[œÙ\ØXÝ[ÛˆŠN‚ˆÙ[‹[™×Ù^\›˜[Û\×Ú[œÙ\ØXÝ[Û‹œÙ][˜X›Y
+ˆÙ[‹™^\›˜[Û\×Ú[œÙ\ØÛÛ›Û\‹˜Ø[—Ý[™Âˆ
+BˆÙ[‹œ™Y×Ù^\›˜[Û\×Ú[œÙ\ØXÝ[Û‹œÙ][˜X›Y
+ˆÙ[‹™^\›˜[Û\×Ú[œÙ\ØÛÛ›Û\‹˜Ø[—Ü™YÂˆ
+B‚ˆYˆÚÝ×Ù]\Ù]ÛY\™ÙJÙ[ŠHOˆ›Û™N‚ˆ\™Ù]HÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[Ù]\Ù]ˆYˆ\™Ù]\È›Û™N‚ˆSY\ÜØYÙP›Þš[™›Ü›X][ÛŠÙ[‹Ù[‹—Ý
+›Y\™ÙK]HŠKÙ[‹—Ý
+™]KœÙ[XÝÙ]\Ù]ŠJBˆ™]\›‚ˆX[ÙÈH]\Ù]Y\™ÙQX[ÙÊÙ[‹™]\Ù]ÛY\™ÙWØÛÛ›Û\‹Ù[‹[™ÝXYÙO\Ù[‹›[™ÝXYÙJBˆYˆ
+ˆX[ÙË™^XÊ
+HOHQX[ÙË‘X[ÙÐÛÙKXØÙ\YˆÜˆX[ÙË˜[˜[\Ú\È\È›Û™BˆÜˆX[ÙËœÛÝ\˜ÙWÙ]\Ù]ÚY\È›Û™BˆÜˆX[ÙË›Ý]]Ü]\È›Û™Bˆ
+N‚ˆ™]\›‚ˆÚXÚÜÚ[HÙ[‹™\š]™YÙ]\Ù]ØÛÛ›Û\‹˜ÚXÚÜÚ[
+
+BˆžN‚ˆÙ[‹™]\Ù]ÛY\™ÙWØÛÛ›Û\‹˜Ü™X]JˆX[ÙËœÛÝ\˜ÙWÙ]\Ù]ÚYˆX[ÙË˜[˜[\Ú\ËˆÝ™\›\ÜÛXÞOYX[ÙË›Ý™\›\ÜÛXÞKˆ˜[YOYX[ÙË›Ý]]Ü]œÝ[Kˆ
+Bˆ^ÜYHÙ[‹—Ù^ÜØÝ\œ™[Ù]\Ù]Ý×Ü]
+X[ÙË›Ý]]Ü]
+Bˆ^Ù\
+Ù^Q\œ›Ü‹[[YQ\œ›Ü‹˜[YQ\œ›Ü‹ÔÑ\œ›Ü‹\Ñ^Ü\œ›ÜŠH\È^Î‚ˆÙ[‹™\š]™YÙ]\Ù]ØÛÛ›Û\‹œ›Û˜XÚÊÚXÚÜÚ[
+BˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+›Y\™ÙK]HŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹—ØY\—Ù]\Ù]ÛY\™ÙJÙ[‹—Ý
+›Y\™ÙK˜ÛÜWØÛÛ\]Y‹˜[YOY^ÜY›˜[YJJB‚ˆYˆ[™×Ù]\Ù]ÛY\™ÙJÙ[ŠHOˆ›Û™N‚ˆžN‚ˆÙ[‹™]\Ù]ÛY\™ÙWØÛÛ›Û\‹[™Ê
+Bˆ^Ù\[[YQ\œ›Üˆ\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+›Y\™ÙK]HŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹—ØY\—Ù]\Ù]ÛY\™ÙJÙ[‹—Ý
+›Y\™ÙK[™Û™HŠJB‚ˆYˆ™Y×Ù]\Ù]ÛY\™ÙJÙ[ŠHOˆ›Û™N‚ˆžN‚ˆ™\Ý[HÙ[‹™]\Ù]ÛY\™ÙWØÛÛ›Û\‹œ™YÊ
+Bˆ^Ù\[[YQ\œ›Üˆ\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+›Y\™ÙK]HŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹—ØY\—Ù]\Ù]ÛY\™ÙJÙ[‹—Ý
+›Y\™ÙKœ™YÛ™H‹˜[YO\™\Ý[›˜[YJJB‚ˆYˆØY\—Ù]\Ù]ÛY\™ÙJÙ[‹Y\ÜØYÙNˆÝŠHOˆ›Û™N‚ˆÙ[‹—ÜÚÝ×ØÝ\œ™[Ù]\Ù]
+
+BˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—Ý\]WÝ]J
+BˆÙ[‹—Ý\]WÛY\™ÙWØXÝ[ÛœÊ
+BˆÙ[‹—ÛÙÊY\ÜØYÙJB‚ˆYˆÝ\]WÛY\™ÙWØXÝ[ÛœÊÙ[ŠHOˆ›Û™N‚ˆYˆ\Ø]ŠÙ[‹[™×ÛY\™ÙWØXÝ[ÛˆŠN‚ˆÙ[‹[™×ÛY\™ÙWØXÝ[Û‹œÙ][˜X›Y
+Ù[‹™]\Ù]ÛY\™ÙWØÛÛ›Û\‹˜Ø[—Ý[™ÊBˆÙ[‹œ™Y×ÛY\™ÙWØXÝ[Û‹œÙ][˜X›Y
+Ù[‹™]\Ù]ÛY\™ÙWØÛÛ›Û\‹˜Ø[—Ü™YÊB‚ˆYˆ[™×ØÝ\™WÝ˜[œÙ™\ŠÙ[ŠHOˆ›Û™N‚ˆžN‚ˆÝ\™\ÈHÙ[‹˜Ý\™WÝ˜[œÙ™\—ØÛÛ›Û\‹[™Ê
+Bˆ^Ù\[[YQ\œ›Üˆ\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+˜[œÙ™\‹]HŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹—ØY\—ØÝ\™WÝ˜[œÙ™\ŠÙ[‹—Ý
+˜[œÙ™\‹[™Û™HŠKÝ\™\ÊB‚ˆYˆ™Y×ØÝ\™WÝ˜[œÙ™\ŠÙ[ŠHOˆ›Û™N‚ˆžN‚ˆÝ\™\ÈHÙ[‹˜Ý\™WÝ˜[œÙ™\—ØÛÛ›Û\‹œ™YÊ
+Bˆ^Ù\[[YQ\œ›Üˆ\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+˜[œÙ™\‹]HŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹—ØY\—ØÝ\™WÝ˜[œÙ™\ŠÙ[‹—Ý
+˜[œÙ™\‹œ™YÛ™HŠKÝ\™\ÊB‚ˆYˆØY\—ØÝ\™WÝ˜[œÙ™\ŠˆÙ[‹ˆY\ÜØYÙNˆÝ‹ˆÝ\™\Îˆ\VÐÝ\™Q]K‹‹—Kˆ
+HOˆ›Û™N‚ˆ]\Ù]HÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[Ù]\Ù]ˆYˆ]\Ù]\È›Ý›Û™N‚ˆ[™[[ÛšXÜÈH\JˆXÝ™œ›ÛZÙ^\Êˆ[™[[ÛšXÂˆ›ÜˆÝ\™H[ˆÝ\™\Âˆ›Üˆ[™[[ÛšXÈ[ˆ
+ˆÝ\™K›Y]Y]K›ÜšYÚ[˜[Û[™[[ÛšXËˆÝ\™K›Y]Y]K˜Ø[›ÛšXØ[Û[™[[ÛšXËˆ
+BˆYˆ[™[[ÛšXÂˆ
+Bˆ
+BˆÙ[‹˜Ý\™WÝšY]ËœÚÝ×Ù]\Ù]
+]\Ù]
+BˆÙ[‹›\×ÝX›WÙY]Ü‹œÙ]Ù]\Ù]
+]\Ù]
+BˆÙ[‹˜Ý\™WØœ›ÝÜÙ\‹œÙ]Ù]\Ù]
+]\Ù]
+BˆÙ[‹X›]ÝšY]Ëœ™Yœ™\ÚÙ]\Ù]ØÝ\™\Ê]\Ù][™[[ÛšXÜÊBˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—Ý\]WÝ]J
+BˆÙ[‹—Ý\]WÝ˜[œÙ™\—ØXÝ[ÛœÊ
+BˆÙ[‹—ÛÙÊY\ÜØYÙJB‚ˆYˆÝ\]WÝ˜[œÙ™\—ØXÝ[ÛœÊÙ[ŠHOˆ›Û™N‚ˆYˆ\Ø]ŠÙ[‹[™×Ý˜[œÙ™\—ØXÝ[ÛˆŠN‚ˆÙ[‹[™×Ý˜[œÙ™\—ØXÝ[Û‹œÙ][˜X›Y
+Ù[‹˜Ý\™WÝ˜[œÙ™\—ØÛÛ›Û\‹˜Ø[—Ý[™ÊBˆÙ[‹œ™Y×Ý˜[œÙ™\—ØXÝ[Û‹œÙ][˜X›Y
+Ù[‹˜Ý\™WÝ˜[œÙ™\—ØÛÛ›Û\‹˜Ø[—Ü™YÊB‚ˆYˆ[™×Ù\Ü™\Ø[\JÙ[ŠHOˆ›Û™N‚ˆ[œÝÙ\ˆHSY\ÜØYÙP›Þœ]Y\Ý[ÛŠˆÙ[‹ˆÙ[‹—Ý
+œ™\Ø[\K[™×Ý]HŠKˆÙ[‹—Ý
+œ™\Ø[\K[™×ØÛÛ™š\›HŠKˆSY\ÜØYÙP›Þ”Ý[™\™]Û‹–Y\ÈSY\ÜØYÙP›Þ”Ý[™\™]Û‹“›ËˆSY\ÜØYÙP›Þ”Ý[™\™]Û‹“›Ëˆ
+BˆYˆ[œÝÙ\ˆ\È›ÝSY\ÜØYÙP›Þ”Ý[™\™]Û‹–Y\Î‚ˆ™]\›‚ˆžN‚ˆÙ[‹™\Ø^\×ØÛÛ›Û\‹[™×Ü™\Ø[\J
+Bˆ^Ù\[[YQ\œ›Üˆ\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+œ™\Ø[\K]HŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹—ØY\—Ü™\Ø[\WÚ\ÝÜžJÙ[‹—Ý
+œ™\Ø[\K[™Û™HŠJB‚ˆYˆ™Y×Ù\Ü™\Ø[\JÙ[ŠHOˆ›Û™N‚ˆžN‚ˆ™\Ý[HÙ[‹™\Ø^\×ØÛÛ›Û\‹œ™Y×Ü™\Ø[\J
+Bˆ^Ù\[[YQ\œ›Üˆ\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+œ™\Ø[\K]HŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹—ØY\—Ü™\Ø[\WÚ\ÝÜžJÙ[‹—Ý
+œ™\Ø[\Kœ™YÛ™H‹˜[YO\™\Ý[›˜[YJJB‚ˆYˆØY\—Ü™\Ø[\WÚ\ÝÜžJÙ[‹Y\ÜØYÙNˆÝŠHOˆ›Û™N‚ˆÙ[‹—ÜÚÝ×ØÝ\œ™[Ù]\Ù]
+
+BˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—Ý\]WÝ]J
+BˆÙ[‹—Ý\]WÙ\Ø^\×ØXÝ[ÛœÊ
+BˆÙ[‹—ÛÙÊY\ÜØYÙJB‚ˆYˆØY\—Ù\Ø^\×Ú\ÝÜžJÙ[‹Y\ÜØYÙNˆÝŠHOˆ›Û™N‚ˆÙ[‹—ÜÚÝ×ØÝ\œ™[Ù]\Ù]
+
+BˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—Ý\]WÝ]J
+BˆÙ[‹—Ý\]WÙ\Ø^\×ØXÝ[ÛœÊ
+BˆÙ[‹—ÛÙÊY\ÜØYÙJB‚ˆYˆÝ\]WÙ\Ø^\×ØXÝ[ÛœÊÙ[ŠHOˆ›Û™N‚ˆYˆ\Ø]ŠÙ[‹[™×Û›Ü›X[^™WÙ\ØXÝ[ÛˆŠN‚ˆÙ[‹[™×Û›Ü›X[^™WÙ\ØXÝ[Û‹œÙ][˜X›Y
+ˆÙ[‹™\Ø^\×ØÛÛ›Û\‹˜Ø[—Ý[™×Ø\ØÙ[™[™×ØÛÜBˆ
+BˆÙ[‹œ™Y×Û›Ü›X[^™WÙ\ØXÝ[Û‹œÙ][˜X›Y
+ˆÙ[‹™\Ø^\×ØÛÛ›Û\‹˜Ø[—Ü™Y×Ø\ØÙ[™[™×ØÛÜBˆ
+BˆYˆ\Ø]ŠÙ[‹[™×Ü™\Ø[\WØXÝ[ÛˆŠN‚ˆÙ[‹[™×Ü™\Ø[\WØXÝ[Û‹œÙ][˜X›Y
+Ù[‹™\Ø^\×ØÛÛ›Û\‹˜Ø[—Ý[™×Ü™\Ø[\JBˆÙ[‹œ™Y×Ü™\Ø[\WØXÝ[Û‹œÙ][˜X›Y
+Ù[‹™\Ø^\×ØÛÛ›Û\‹˜Ø[—Ü™Y×Ü™\Ø[\JB‚ˆYˆÚÝ×Û]ÛÙÞWÛYÙ[™
+Ù[ŠHOˆ›Û™N‚ˆÙ[HÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[ÝÙ[ˆ[\˜[ÈHÙ[›]ÛÙÞHYˆÙ[\È›Ý›Û™H[ÙH×Bˆ[šY\ÈHZ[Û]ÛÙÞWÛYÙ[™
+ˆ[\˜[ËˆÙ[‹›]Ý\WØØ][Ù×ØÛÛ›Û\‹˜]˜Z[X›J
+Kˆ˜[YWÜ™\ÛÛ™\[[X™H][Nˆ][K›ØØ[^™YÛ˜[YJÙ[‹›[™ÝXYÙK˜[YJKˆ[šÛ›ÝÛ—Û˜[YO\Ù[‹—Ý
+›YÙ[™[šÛ›ÝÛˆŠKˆ
+Bˆ]ÛÙÞSYÙ[™X[ÙÊ[šY\ËÙ[‹[™ÝXYÙO\Ù[‹›[™ÝXYÙJK™^XÊ
+B‚ˆYˆØ]™WÜ›Ú™XÝ
+Ù[ŠHOˆ]›Û™N‚ˆYˆÙ[‹œ›Ú™XÝÜ]\È›Û™N‚ˆ™]\›ˆÙ[‹œØ]™WÜ›Ú™XÝØ\Ê
+BˆžN‚ˆØ]™YÜ]HÙ[‹œ›Ú™XÝØÛÛ›Û\‹œØ]™WÜ›Ú™XÝ
+
+Bˆ^Ù\›Ú™XÝÚ[™ÙY^\›˜[Q\œ›Üˆ\È^Î‚ˆÙ×Ù^Ù\[ÛŠœ›Ú™XÝœØ]™K™^\›˜[ØÚ[™ÙH‹^Ë›Ú™XÝÜ]\Ù[‹œ›Ú™XÝÜ]
+BˆSY\ÜØYÙP›Þ˜Üš]XØ[
+ˆÙ[‹ˆÙ[‹—Ý
+œÚ[œØ]™WÜ›Ú™XÝŠKˆÙ[‹—Ý
+œ›Ú™XÝ™^\›˜[ØÚ[™ÙHŠKˆ
+Bˆ™]\›ˆ›Û™Bˆ^Ù\
+ÔÑ\œ›Ü‹[[YQ\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆÙ×Ù^Ù\[ÛŠœ›Ú™XÝœØ]™K™˜Z[Y‹^Ë›Ú™XÝÜ]\Ù[‹œ›Ú™XÝÜ]
+BˆSY\ÜØYÙP›Þ˜Üš]XØ[
+ˆÙ[‹ˆÙ[‹—Ý
+œÚ[œØ]™WÜ›Ú™XÝŠKˆÙ[‹—Ý
+œ›Ú™XÝœØ]™WÙ˜Z[YŠKˆ
+Bˆ™]\›ˆ›Û™BˆÙ[‹X›]ÝšY]Ë˜ÛX\—ØÝ\™WÜ[˜Ú[Ý[œØ]™Y
+
+BˆÙ[‹—Ü™[Y[X™\—ÙØÝ[Y[Ø[™WÙ^XÝ][ÛŠ›Û™JBˆÙ[‹—Ý\]WÝ]J
+BˆÙ[‹—ÛÙÊˆ´'ô`4/´-t.´`ˆ4`t/´at`4,4/tdt/NˆÜØ]™YÜ]HŠBˆÙ[‹—ÜÚÝ×Ü›Ú™XÝÜ™XÛÝ™\žWÝØ\›š[™ÜÊ
+Bˆ™]\›ˆØ]™YÜ]‚ˆYˆØ]™WÜ›Ú™XÝØ\ÊÙ[ŠHOˆ]›Û™N‚ˆš[[˜[YKÈHQš[QX[ÙË™Ù]Ø]™Qš[S˜[YJˆÙ[‹ˆÙ[‹—Ý
+œÚ[œØ]™WÜ›Ú™XÝØ\ÈŠKˆÝŠÙ[‹œ›Ú™XÝÜ]Üˆ]
+œ›Ú™XÝ™Ù[ÛÙÜÙÈŠJKˆ‘Ù[ÓÙÈXÚØYÙH
+
+‹™Ù[ÛÙÜÙÊNÎÑÙ[ÓÙÈ›Ú™XÝ
+
+‹™Ù[ÛÙËšœÛÛŠNÎÒ”ÓÓˆ
+
+‹šœÛÛŠH‹ˆ
+BˆYˆ›Ýš[[˜[YN‚ˆ™]\›ˆ›Û™BˆžN‚ˆØ]™YÜ]HÙ[‹œ›Ú™XÝØÛÛ›Û\‹œØ]™WÜ›Ú™XÝ
+ˆ]
+š[[˜[YJKˆ[Ý×Ù^\Ý[™×Ý\™Ù]UYKˆ
+Bˆ^Ù\›Ú™XÝÚ[™ÙY^\›˜[Q\œ›Üˆ\È^Î‚ˆÙ×Ù^Ù\[ÛŠœ›Ú™XÝœØ]™WØ\Ë™^\›˜[ØÚ[™ÙH‹^Ë›Ú™XÝÜ]Yš[[˜[YJBˆSY\ÜØYÙP›Þ˜Üš]XØ[
+ˆÙ[‹ˆÙ[‹—Ý
+œÚ[œØ]™WÜ›Ú™XÝØ\ÈŠKˆÙ[‹—Ý
+œ›Ú™XÝ™^\›˜[ØÚ[™ÙHŠKˆ
+Bˆ™]\›ˆ›Û™Bˆ^Ù\
+ÔÑ\œ›Ü‹[[YQ\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆÙ×Ù^Ù\[ÛŠœ›Ú™XÝœØ]™WØ\Ë™˜Z[Y‹^Ë›Ú™XÝÜ]Yš[[˜[YJBˆSY\ÜØYÙP›Þ˜Üš]XØ[
+ˆÙ[‹ˆÙ[‹—Ý
+œÚ[œØ]™WÜ›Ú™XÝØ\ÈŠKˆÙ[‹—Ý
+œ›Ú™XÝœØ]™WÙ˜Z[YŠKˆ
+Bˆ™]\›ˆ›Û™BˆÙ[‹X›]ÝšY]Ë˜ÛX\—ØÝ\™WÜ[˜Ú[Ý[œØ]™Y
+
+BˆÙ[‹—Ü™[Y[X™\—ÙØÝ[Y[Ø[™WÙ^XÝ][ÛŠ›Û™JBˆÙ[‹—Ý\]WÝ]J
+BˆÙ[‹—ÛÙÊˆ´'ô`4/´-t.´`ˆ4`t/´at`4,4/tdt/NˆÜØ]™YÜ]HŠBˆÙ[‹—ÜÚÝ×Ü›Ú™XÝÜ™XÛÝ™\žWÝØ\›š[™ÜÊ
+Bˆ™]\›ˆØ]™YÜ]‚ˆYˆÜÚÝ×Ü›Ú™XÝÜ™XÛÝ™\žWÝØ\›š[™ÜÊÙ[ŠHOˆ›Û™N‚ˆ™\Ý[HÙ[‹œ›Ú™XÝØÛÛ›Û\‹›\ÝÜØ]™WÜ™\Ý[ˆØ\›š[™ÜÈH\JÙ]]Š™\Ý[Ø\›š[™ÜÈ‹
+
+JJBˆYˆ›ÝØ\›š[™ÜÎ‚ˆ™]\›‚ˆÙ×Ù]™[
+ˆœ›Ú™XÝœØ]™Kœ™XÛÝ™\žWÝØ\›š[™È‹ˆ›Ú™XÝÜ]\Ù[‹œ›Ú™XÝÜ]ˆØ\›š[™×ØÛÝ[[[ŠØ\›š[™ÜÊKˆ
+BˆSY\ÜØYÙP›ÞØ\›š[™ÊˆÙ[‹ˆÙ[‹—Ý
+œÚ[œØ]™WÜ›Ú™XÝŠKˆÙ[‹—Ý
+œ›Ú™XÝœ™XÛÝ™\žWÝØ\›š[™ÈŠKˆ
+B‚ˆYˆ™\ÝÜ™WÜ›Ú™XÝØ˜XÚÝ\
+Ù[ŠHOˆ›Û™N‚ˆÛÝ\˜ÙHHÙ[‹œ›Ú™XÝÜ]ˆYˆÛÝ\˜ÙH\È›Û™N‚ˆSY\ÜØYÙP›Þš[™›Ü›X][ÛŠˆÙ[‹ˆÙ[‹—Ý
+œ›Ú™XÝœ™XÛÝ™\žWÝ]HŠKˆÙ[‹—Ý
+œ›Ú™XÝœ™XÛÝ™\žWÛÜ[—Ùš\œÝŠKˆ
+Bˆ™]\›‚ˆžN‚ˆØ[™Y]\ÈHÙ[‹œ›Ú™XÝØÛÛ›Û\‹œ™XÛÝ™\žWØØ[™Y]\Ê
+Bˆ^Ù\
+ÔÑ\œ›Ü‹[[YQ\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆÙ×Ù^Ù\[ÛŠœ›Ú™XÝœ™XÛÝ™\žK›\ÝÙ˜Z[Y‹^Ë›Ú™XÝÜ]\ÛÝ\˜ÙJBˆSY\ÜØYÙP›Þ˜Üš]XØ[
+ˆÙ[‹ˆÙ[‹—Ý
+œ›Ú™XÝœ™XÛÝ™\žWÝ]HŠKˆÙ[‹—Ý
+œ›Ú™XÝœ™XÛÝ™\žWÙ˜Z[YŠKˆ
+Bˆ™]\›‚ˆYˆ›ÝØ[™Y]\Î‚ˆSY\ÜØYÙP›Þš[™›Ü›X][ÛŠˆÙ[‹ˆÙ[‹—Ý
+œ›Ú™XÝœ™XÛÝ™\žWÝ]HŠKˆÙ[‹—Ý
+œ›Ú™XÝœ™XÛÝ™\žWÙ[\HŠKˆ
+Bˆ™]\›‚ˆX™[ÈHÂˆÙ[‹—Ý
+ˆœ›Ú™XÝœ™XÛÝ™\žWÚ][H‹ˆ™]š\Ú[Û\™XÛÜ™œØ]™WÜ™]š\Ú[Û‹ˆÜ™X]Y\™XÛÜ™˜Ü™X]YØ]ˆš[[˜[YO\™XÛÜ™˜˜XÚÝ\Ü]›˜[YKˆ
+Bˆ›Üˆ™XÛÜ™[ˆØ[™Y]\ÂˆBˆÙ[XÝYXØÙ\YHR[œ]X[ÙË™Ù]][JˆÙ[‹ˆÙ[‹—Ý
+œ›Ú™XÝœ™XÛÝ™\žWÝ]HŠKˆÙ[‹—Ý
+œ›Ú™XÝœ™XÛÝ™\žWØÚÛÜÙHŠKˆX™[Ëˆˆ˜[ÙKˆ
+BˆYˆ›ÝXØÙ\Y‚ˆ™]\›‚ˆ™XÛÜ™HØ[™Y]\ÖÛX™[Ëš[™^
+Ù[XÝY
+WBˆY˜][Û˜[YHHÛÝ\˜ÙKÚ]Û˜[YJˆˆžÜÛÝ\˜ÙKœÝ[_WÜ™XÛÝ™\™YÜžÜ™XÛÜ™œØ]™WÜ™]š\Ú[ÛŸK™Ù[ÛÙÜÙÈ‚ˆ
+Bˆš[[˜[YKÈHQš[QX[ÙË™Ù]Ø]™Qš[S˜[YJˆÙ[‹ˆÙ[‹—Ý
+œ›Ú™XÝœ™XÛÝ™\žWÝ\™Ù]Ý]HŠKˆÝŠY˜][Û˜[YJKˆ‘Ù[ÓÙÈXÚØYÙH
+
+‹™Ù[ÛÙÜÙÊH‹ˆ
+BˆYˆ›Ýš[[˜[YN‚ˆ™]\›‚ˆ\™Ù]HÙ[‹—ÙZ[WÛ\×ÜXÚØYÙWÜ]
+]
+š[[˜[YJJBˆžN‚ˆÙ[‹œ›Ú™XÝØÛÛ›Û\‹œ™\ÝÜ™WØ˜XÚÝ\Ø\×ØÛÜJ™XÛÜ™\™Ù]
+Bˆ^Ù\
+ÔÑ\œ›Ü‹[[YQ\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆÙ×Ù^Ù\[ÛŠˆœ›Ú™XÝœ™XÛÝ™\žKœ™\ÝÜ™WÙ˜Z[Y‹ˆ^Ëˆ›Ú™XÝÜ]\ÛÝ\˜ÙKˆ\™Ù]]\™Ù]ˆ
+BˆSY\ÜØYÙP›Þ˜Üš]XØ[
+ˆÙ[‹ˆÙ[‹—Ý
+œ›Ú™XÝœ™XÛÝ™\žWÝ]HŠKˆÙ[‹—Ý
+œ›Ú™XÝœ™XÛÝ™\žWÙ˜Z[YŠKˆ
+Bˆ™]\›‚ˆSY\ÜØYÙP›Þš[™›Ü›X][ÛŠˆÙ[‹ˆÙ[‹—Ý
+œ›Ú™XÝœ™XÛÝ™\žWÝ]HŠKˆÙ[‹—Ý
+œ›Ú™XÝœ™XÛÝ™\žWÙÛ™H‹]]\™Ù]
+Kˆ
+BˆÙ[‹—ÛÙÊÙ[‹—Ý
+œ›Ú™XÝœ™XÛÝ™\žWÙÛ™H‹]]\™Ù]
+JB‚ˆYˆÜ™Yœ™\ÚÝ™YJÙ[ŠHOˆ›Û™N‚ˆÙ[‹™YK˜ÛX\Š
+Bˆ›ÛÝHU™YUÚYÙ]][JÜÙ[‹œÙ\ÜÚ[Û‹œ›Ú™XÝ›˜[YWJBˆ›ÛÝœÙ]]J]’][Q]T›ÛK•\Ù\”›ÛK
+œ›Ú™XÝ‹Ù[‹œÙ\ÜÚ[Û‹œ›Ú™XÝœ›Ú™XÝÚY
+JBˆÙ[‹™YK˜YÜ]™[][J›ÛÝ
+BˆYˆÙ[‹œÙ\ÜÚ[Û‹œ›Ú™XÝ™\ØÜš\[Û—Ý[\]\Î‚ˆ[\]\×Ú][HHU™YUÚYÙ]][JˆÂˆÙ[‹—Ý
+ˆ[\]\Ë™YH‹ˆÛÝ[[[ŠÙ[‹œÙ\ÜÚ[Û‹œ›Ú™XÝ™\ØÜš\[Û—Ý[\]\ÊKˆ
+BˆBˆ
+Bˆ[\]\×Ú][KœÙ]]J]’][Q]T›ÛK•\Ù\”›ÛK
+™\ØÜš\[Û—Ý[\]\È‹
+JBˆ›ÛÝ˜YÚ[
+[\]\×Ú][JBˆ›Üˆ˜[YH[ˆÛÜY
+Ù[‹œÙ\ÜÚ[Û‹œ›Ú™XÝ™\ØÜš\[Û—Ý[\]\ËÙ^O\Ý‹˜Ø\ÙY›Û
+N‚ˆ[\]\×Ú][K˜YÚ[
+U™YUÚYÙ]][JÛ˜[YWJJBˆ›ÜˆÙ[[ˆÙ[‹œÙ\ÜÚ[Û‹œ›Ú™XÝÙ[Ë˜[Y\Ê
+N‚ˆÙ[Ú][HHU™YUÚYÙ]][JÝÙ[›˜[YWJBˆÙ[Ú][KœÙ]]J]’][Q]T›ÛK•\Ù\”›ÛK
+Ù[‹Ù[Ù[ÚY
+JBˆ›ÛÝ˜YÚ[
+Ù[Ú][JBˆ›Üˆ]\Ù][ˆÙ[™]\Ù]Ë˜[Y\Ê
+N‚ˆ]\Ù]Ú][HHU™YUÚYÙ]][JÙˆžÙ]\Ù]›˜[Y_H
+Ù]\Ù]šÚ[™˜[Y_JH—JBˆ]\Ù]Ú][KœÙ]]Jˆ]’][Q]T›ÛK•\Ù\”›ÛK
+™]\Ù]‹Ù[Ù[ÚY]\Ù]™]\Ù]ÚY
+Bˆ
+BˆÙ[Ú][K˜YÚ[
+]\Ù]Ú][JBˆ›ÜˆÝ\™H[ˆ]\Ù]˜Ý\™\Ë˜[Y\Ê
+N‚ˆÝ\™WÚ][HHU™YUÚYÙ]][JØÝ\™K›Y]Y]K›ÜšYÚ[˜[Û[™[[ÛšX×JBˆÝ\™WÚ][KœÙ]]Jˆˆ]’][Q]T›ÛK•\Ù\”›ÛKˆ
+˜Ý\™H‹Ù[Ù[ÚY]\Ù]™]\Ù]ÚYÝ\™K›Y]Y]K˜Ý\™WÚY
+Kˆ
+Bˆ]\Ù]Ú][K˜YÚ[
+Ý\™WÚ][JBˆ^[Ý]HÙ[‹œÙ\ÜÚ[Û‹X›]Û^[Ý]Ë™Ù]
+]\Ù]™]\Ù]ÚY
+BˆYˆ^[Ý]\È›Ý›Û™H[™^[Ý]˜XÚÜÎ‚ˆ˜XÚÜ×Ú][HHU™YUÚYÙ]][JÙˆ´(t.ô/´.4/ô.ô,4/tb4-t`´,
+Û[Š^[Ý]˜XÚÜÊ_JH—JBˆ]\Ù]Ú][K˜YÚ[
+˜XÚÜ×Ú][JBˆ›ÜˆÜÚ][Û‹˜XÚÈ[ˆ[[Y\˜]J^[Ý]˜XÚÜËÝ\LJN‚ˆÝ]HHˆˆYˆ˜XÚËš\ÚX›H[ÙHˆô`t.´`4bô`—H‚ˆ˜XÚ×Ú][HHU™YUÚYÙ]][JÙˆžÜÜÚ][ÛŸKˆÝ˜XÚË]_^ÜÝ]_H—JBˆ˜XÚ×Ú][KœÙ]]Jˆˆ]’][Q]T›ÛK•\Ù\”›ÛKˆ
+˜XÚÈ‹Ù[Ù[ÚY]\Ù]™]\Ù]ÚY˜XÚË˜XÚ×ÚY
+Kˆ
+Bˆ˜XÚÜ×Ú][K˜YÚ[
+˜XÚ×Ú][JBˆYˆÙ[›]ÛÙÞN‚ˆ]ÛÙÞWÚ][HHU™YUÚYÙ]][JˆÜÙ[‹—Ý
+›]ÛÙÞK™YH‹ÛÝ[[[ŠÙ[›]ÛÙÞJJWBˆ
+Bˆ]ÛÙÞWÚ][KœÙ]]J]’][Q]T›ÛK•\Ù\”›ÛK
+›]ÛÙÞH‹Ù[Ù[ÚY
+JBˆÙ[Ú][K˜YÚ[
+]ÛÙÞWÚ][JBˆ›Üˆ[\˜[[ˆÙ[›]ÛÙÞN‚ˆÚ[HU™YUÚYÙ]][JˆÂˆˆžÚ[\˜[ÜÙ\™ßx $ÞÚ[\˜[˜›ÝÛWÙ\™ßH4/ˆ‚ˆˆžÚ[\˜[›]Ý\WÚYH‚ˆBˆ
+BˆÚ[œÙ]]Jˆˆ]’][Q]T›ÛK•\Ù\”›ÛKˆ
+›]ÛÙÞWÚ[\˜[‹Ù[Ù[ÚY[\˜[š[\˜[ÚY
+Kˆ
+Bˆ]ÛÙÞWÚ][K˜YÚ[
+Ú[
+BˆYˆÙ[š[\œ™]][ÛœÎ‚ˆ[\œ™]][Ûœ×Ú][HHU™YUÚYÙ]][JˆÜÙ[‹—Ý
+š[\œ™]][ÛœË™YH‹ÛÝ[[[ŠÙ[š[\œ™]][ÛœÊJWBˆ
+Bˆ[\œ™]][Ûœ×Ú][KœÙ]]Jˆ]’][Q]T›ÛK•\Ù\”›ÛK
+š[\œ™]][ÛœÈ‹Ù[Ù[ÚY
+Bˆ
+BˆÙ[Ú][K˜YÚ[
+[\œ™]][Ûœ×Ú][JBˆ›Üˆ[\œ™]][Ûˆ[ˆÛÜY
+ˆÙ[š[\œ™]][ÛœË˜[Y\Ê
+KÙ^O[[X™H][Nˆ][K›˜[YK˜Ø\ÙY›Û
+
+Bˆ
+N‚ˆÚ[HU™YUÚYÙ]][JˆÂˆÙ[‹—Ý
+ˆš[\œ™]][ÛœË™YWÚ][H‹ˆ˜[YOZ[\œ™]][Û‹›˜[YKˆÛÝ[[[Š[\œ™]][Û‹š[\˜[ÊKˆ
+BˆBˆ
+BˆÚ[œÙ]]Jˆˆ]’][Q]T›ÛK•\Ù\”›ÛKˆ
+ˆš[\œ™]][Ûˆ‹ˆÙ[Ù[ÚYˆ[\œ™]][Û‹š[\œ™]][Û—ÚYˆ
+Kˆ
+Bˆ[\œ™]][Ûœ×Ú][K˜YÚ[
+Ú[
+Bˆ›Üˆ[\œ™]][Û—Ú[\˜[[ˆÛÜY
+ˆ[\œ™]][Û‹š[\˜[ËˆÙ^O[[X™H][Nˆ
+ˆ][KÜÙ\ˆ][K˜›ÝÛWÙ\ˆ][K›X™[˜Ø\ÙY›Û
+
+Kˆ
+Kˆ
+N‚ˆ[\˜[ØÚ[HU™YUÚYÙ]][JˆÂˆÙ[‹—Ý
+ˆš[\œ™]][ÛœË™YWÚ[\˜[‹ˆÜYˆžÚ[\œ™]][Û—Ú[\˜[ÜÙ\™ßH‹ˆ›ÝÛOYˆžÚ[\œ™]][Û—Ú[\˜[˜›ÝÛWÙ\™ßH‹ˆ\OZ[\œ™]][Û—Ú[\˜[š[\˜[Ý\KˆX™[Z[\œ™]][Û—Ú[\˜[›X™[ˆ
+BˆBˆ
+Bˆ[\˜[ØÚ[œÙ]]Jˆˆ]’][Q]T›ÛK•\Ù\”›ÛKˆ
+ˆš[\œ™]][Û—Ú[\˜[‹ˆÙ[Ù[ÚYˆ[\œ™]][Û‹š[\œ™]][Û—ÚYˆ[\œ™]][Û—Ú[\˜[š[\˜[ÚYˆ
+Kˆ
+BˆÚ[˜YÚ[
+[\˜[ØÚ[
+BˆYˆÙ[œÝ˜]YÜ˜\N‚ˆÝ˜]YÜ˜\WÚ][HHU™YUÚYÙ]][JˆÜÙ[‹—Ý
+œÝ˜]YÜ˜\K™YH‹ÛÝ[[[ŠÙ[œÝ˜]YÜ˜\JJWBˆ
+BˆÝ˜]YÜ˜\WÚ][KœÙ]]Jˆ]’][Q]T›ÛK•\Ù\”›ÛK
+œÝ˜]YÜ˜\H‹Ù[Ù[ÚY
+Bˆ
+BˆÙ[Ú][K˜YÚ[
+Ý˜]YÜ˜\WÚ][JBˆ›ÜˆÝ˜]YÜ˜\WÚ[\˜[[ˆÛÜY
+ˆÙ[œÝ˜]YÜ˜\KˆÙ^O[[X™H][Nˆ
+
+][Kœ˜[šÈÜˆˆŠK˜Ø\ÙY›Û
+
+K][KÜÙ\
+Kˆ
+N‚ˆÚ[HU™YUÚYÙ]][JˆÂˆˆžÜÝ˜]YÜ˜\WÚ[\˜[ÜÙ\™ßx $È‚ˆˆžÜÝ˜]YÜ˜\WÚ[\˜[˜›ÝÛWÙ\™ßH4/ˆ‚ˆˆžÜÝ˜]YÜ˜\WÚ[\˜[˜ÛÙ_H‚ˆBˆ
+BˆÚ[œÙ]]Jˆˆ]’][Q]T›ÛK•\Ù\”›ÛKˆ
+ˆœÝ˜]YÜ˜\WÚ[\˜[‹ˆÙ[Ù[ÚYˆÝ˜]YÜ˜\WÚ[\˜[š[\˜[ÚYˆ
+Kˆ
+BˆÝ˜]YÜ˜\WÚ][K˜YÚ[
+Ú[
+BˆÈ[››Ý][ÛœÈ\™HX[˜YÙYžHHYXØ]Y^Y\ˆ[™BˆÈ8 '[8 )¸ 'HX[˜YÙ\‹ˆ^H\™H[X™\˜][HÛZ]Yœ›ÛHH›Ú™XÝˆÈ˜]šYØ][Ûˆ™YHÛÈÞ™[œÈÙˆÛÛ[Y[ÈÈ›ÝÛ]\ˆHÙ][™ÜÂˆÈÛÛ[[‹‚ˆ›ÛÝœÙ]^[™Y
+YJB‚ˆYˆØXÝ]˜]WÝ™YWÚ][JÙ[‹][NˆU™YUÚYÙ]][JHOˆ›Û™N‚ˆ^[ØYH][K™]J]’][Q]T›ÛK•\Ù\”›ÛJBˆÙ[‹—ÝÛÜšÜÜXÙWØÛÛ[X[™Ë˜XÝ]˜]J^[ØY
+B‚ˆYˆÜÚÝ×ÝX›]ØÝ\™WÚ[—Ú[œÜXÝÜŠÙ[‹˜XÚ×ÚYˆÝ‹[™[[ÛšXÎˆÝŠHOˆ›Û™N‚ˆ]\Ù]HÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[Ù]\Ù]ˆYˆ]\Ù]\È›Û™N‚ˆ™]\›‚ˆÝ\™HH]\Ù]˜Ý\™\Ë™Ù]
+[™[[ÛšXÊBˆYˆÝ\™H\È›Û™N‚ˆÝ\™HH™^
+ˆ
+ˆ][Bˆ›Üˆ][H[ˆ]\Ù]˜Ý\™\Ë˜[Y\Ê
+BˆYˆ][K›Y]Y]K›ÜšYÚ[˜[Û[™[[ÛšXÈOH[™[[ÛšXÂˆ
+Kˆ›Û™Kˆ
+BˆYˆÝ\™H\È›Û™N‚ˆÙ[‹—ÜÚÝ×Ý˜XÚ×Ú[—Ú[œÜXÝÜŠ˜XÚ×ÚY
+Bˆ™]\›‚ˆÙ[‹—ÜÙ[XÝYÝ˜XÚ×ÚYH˜XÚ×ÚYˆžN‚ˆYš[š][ÛˆHÙ[‹X›]ÝšY]Ë›^[Ý]Û[Ù[˜XÚ×ØžWÚY
+˜XÚ×ÚY
+BˆÛÛ™šYÝ\™YHYš[š][Û‹˜Ý\™WÙ\Ü^WÜÙ][™ÜÊ[™[[ÛšXÊK™\Ü^WÛ˜[YBˆ^Ù\Ù^Q\œ›ÜŽ‚ˆÛÛ™šYÝ\™YHˆ‚ˆ™XYX›WÛ˜[YHHØØ[^™YØÝ\™WÛ˜[YJˆÝ\™K›Y]Y]K›ÜšYÚ[˜[Û[™[[ÛšXËˆ\ØÜš\[ÛXÝ\™K›Y]Y]K™\ØÜš\[ÛˆÜˆˆ‹ˆ[š]XÝ\™K›Y]Y]K[š]Üˆˆ‹ˆ[™ÝXYÙO\Ù[‹›[™ÝXYÙKˆÛÛ™šYÝ\™YXÛÛ™šYÝ\™Yˆ
+BˆÙ[‹š[œÜXÝÜ‹œÙ]Z[•^
+ˆˆžÜÙ[‹—Ý
+	Ú[œÜXÝÜ‹˜Ý\™IÊ_NˆÜ™XYX›WÛ˜[Y_HÞØÝ\™K›Y]Y]K›ÜšYÚ[˜[Û[™[[ÛšXßWWˆ‚ˆˆžÜÙ[‹—Ý
+	Ú[œÜXÝÜ‹[š]	Ê_NˆØÝ\™K›Y]Y]K[š]ÜˆÙ[‹—Ý
+	ØÛÛ[[Û‹[œÙ]	Ê_Wˆ‚ˆˆžÜÙ[‹—Ý
+	Ú[œÜXÝÜ‹™\ØÜš\[Û‰Ê_Nˆ‚ˆˆžØÝ\™K›Y]Y]K™\ØÜš\[ÛˆÜˆÙ[‹—Ý
+	ØÛÛ[[Û‹››Û™IÊ_Wˆ‚ˆˆžÜÙ[‹—Ý
+	Ú[œÜXÝÜ‹™\œÚ[Û‰Ê_NˆØÝ\™K™\œÚ[ÛŸWˆ‚ˆˆžÜÙ[‹—Ý
+	Ú[œÜXÝÜ‹œ›Ý™[˜[˜ÙIÊ_NˆØÝ\™K›Y]Y]Kœ›Ý™[˜[˜Ù_H‚ˆ
+B‚ˆYˆÙÜ˜\XØ[Ý˜XÚÊÙ[‹˜XÚ×ÚYˆÝŠHOˆ˜XÚÑYš[š][Ûˆ›Û™N‚ˆžN‚ˆ˜XÚÈHÙ[‹X›]ÝšY]Ë›^[Ý]Û[Ù[˜XÚ×ØžWÚY
+˜XÚ×ÚY
+Bˆ^Ù\Ù^Q\œ›ÜŽ‚ˆ™]\›ˆ›Û™BˆYˆ˜XÚËšÚ[™›Ý[ˆÕ˜XÚÒÚ[™ÕT•‘K˜XÚÒÚ[™‘ÐTË˜XÚÒÚ[™‘VN‚ˆ™]\›ˆ›Û™Bˆ™]\›ˆ˜XÚÂ‚ˆYˆØ\WØÛÛ^ØÝ\™WÜÙ[XÝ[ÛŠÙ[‹˜XÚ×ÚYˆÝ‹[™[[ÛšXÜÎˆ\ÝÜÝ—JHOˆ›Û™N‚ˆYˆ›Ý[™[[ÛšXÜÎ‚ˆ™]\›‚ˆÙ[‹—ÜÙ[XÝYÝ˜XÚ×ÚYH˜XÚ×ÚYˆžN‚ˆ˜XÚÈHÙ[‹X›]ØÛÛ›Û\‹œ™\XÙWÝ˜XÚ×ØÝ\™\Ê˜XÚ×ÚY[™[[ÛšXÜÊBˆ^Ù\
+Ù^Q\œ›Ü‹[[YQ\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+˜Ý\™WØœ›ÝÜÙ\‹]HŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹X›]ÝšY]Ëœ™Yœ™\ÚÝšY]Ê
+BˆÙ[‹X›]ÝšY]ËœÙ[XÝÝ˜XÚÊ˜XÚ×ÚY[Z]ÜÚYÛ˜[Q˜[ÙJBˆÙ[‹š[œÜXÝÜ‹œÚÝ×Ý˜XÚÊ˜XÚËÝYÙÙ\ÝYÜ˜[™ÙO\Ù[‹—Ý˜XÚ×Ù]WÜ˜[™ÙJ˜XÚÊJBˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—Ý\]WÝ]J
+B‚ˆYˆØYØÝ\™\×Ý×Ý˜XÚ×Ùœ›ÛWØÛÛ^
+Ù[‹˜XÚ×ÚYˆÝŠHOˆ›Û™N‚ˆ˜XÚÈHÙ[‹—ÙÜ˜\XØ[Ý˜XÚÊ˜XÚ×ÚY
+BˆYˆ˜XÚÈ\È›Û™N‚ˆ™]\›‚ˆÙ[XÝYHÙ[‹—ÜÙ[XÝØÝ\™WÛ[™[[ÛšXÜÊ
+BˆYˆ›ÝÙ[XÝY‚ˆ™]\›‚ˆÛÛXš[™YH\Ý
+XÝ™œ›ÛZÙ^\ÊÊ˜XÚË˜Ý\™WÛ[™[[ÛšXÜË
+œÙ[XÝYJJBˆÙ[‹—Ø\WØÛÛ^ØÝ\™WÜÙ[XÝ[ÛŠ˜XÚ×ÚYÛÛXš[™Y
+B‚ˆYˆÜ™\XÙWÝ˜XÚ×ØÝ\™\×Ùœ›ÛWØÛÛ^
+Ù[‹˜XÚ×ÚYˆÝŠHOˆ›Û™N‚ˆ˜XÚÈHÙ[‹—ÙÜ˜\XØ[Ý˜XÚÊ˜XÚ×ÚY
+BˆYˆ˜XÚÈ\È›Û™N‚ˆ™]\›‚ˆÙ[XÝYHÙ[‹—ÜÙ[XÝØÝ\™WÛ[™[[ÛšXÜÊ™\Ù[XÝY]\J˜XÚË˜Ý\™WÛ[™[[ÛšXÜÊJBˆÙ[‹—Ø\WØÛÛ^ØÝ\™WÜÙ[XÝ[ÛŠ˜XÚ×ÚYÙ[XÝY
+B‚ˆYˆÜÚÝ×ØÝ\™WÜÙ][™Ü×Ùœ›ÛWØÛÛ^
+Ù[‹˜XÚ×ÚYˆÝ‹[™[[ÛšXÎˆÝŠHOˆ›Û™N‚ˆ]\Ù]HÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[Ù]\Ù]ˆYˆ]\Ù]\È›Û™N‚ˆ™]\›‚ˆžN‚ˆ˜XÚÈHÙ[‹X›]ÝšY]Ë›^[Ý]Û[Ù[˜XÚ×ØžWÚY
+˜XÚ×ÚY
+Bˆ^Ù\Ù^Q\œ›ÜŽ‚ˆ™]\›‚ˆX[ÙÈHÝ\™TÙ][™ÜÑX[ÙÊ˜XÚË]\Ù]Ù[‹[™ÝXYÙO\Ù[‹›[™ÝXYÙJBˆYˆ[™[[ÛšXÎ‚ˆ›Üˆ›ÝÈ[ˆ˜[™ÙJX[ÙË˜Ý\™\Ë˜ÛÝ[
+
+JN‚ˆ][HHX[ÙË˜Ý\™\Ëš][J›ÝÊBˆYˆ][H\È›Ý›Û™H[™][K™]J]’][Q]T›ÛK•\Ù\”›ÛJHOH[™[[ÛšXÎ‚ˆX[ÙË˜Ý\™\ËœÙ]Ý\œ™[›ÝÊ›ÝÊBˆœ™XZÂˆYˆX[ÙË™^XÊ
+HOHQX[ÙË‘X[ÙÐÛÙKXØÙ\Y‚ˆ™]\›‚ˆžN‚ˆ›ÜˆÝ\™WÛ[™[[ÛšXËÝ[H[ˆX[ÙË˜Ý\™WÜÝ[\Ëš][\Ê
+N‚ˆÙ[‹X›]ØÛÛ›Û\‹œÙ]ØÝ\™WÜÝ[J˜XÚ×ÚYÝ\™WÛ[™[[ÛšXËÝ[JBˆ›ÜˆÝ\™WÛ[™[[ÛšXËÙ][™ÜÈ[ˆX[ÙË˜Ý\™WÙ\Ü^Kš][\Ê
+N‚ˆÙ[‹X›]ØÛÛ›Û\‹œÙ]ØÝ\™WÙ\Ü^WÜÙ][™ÜÊˆ˜XÚ×ÚYÝ\™WÛ[™[[ÛšXËÙ][™ÜÂˆ
+Bˆ^Ù\
+Ù^Q\œ›Ü‹\Q\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+˜Ý\™WÜÙ][™ÜË]HŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹X›]ÝšY]Ëœ™Yœ™\ÚÝ˜XÚÊˆ˜XÚ×ÚY\T™X\ÛÛ‹”ÕSH\T™X\ÛÛ‹‘UH\T™X\ÛÛ‹”ÕUPÂˆ
+BˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—Ý\]WÝ]J
+B‚ˆYˆÜÙ]ØÝ\™WÜ˜[™ÙWÙœ›ÛWÚXY\ŠˆÙ[‹˜XÚ×ÚYˆÝ‹[™[[ÛšXÎˆÝ‹Z[š[][Nˆ›Ø]X^[][Nˆ›Ø]ˆ
+HOˆ›Û™N‚ˆYˆÙ[‹—Ù›Ü›WÛ^[Ý]Ý˜[œØXÝ[Û—ØXÝ]™HÜˆÙ[‹X›]ÝšY]Ëš\×Ü™XZ[[™×Û^[Ý]‚ˆ™]\›‚ˆžN‚ˆ˜XÚÈHÙ[‹X›]ÝšY]Ë›^[Ý]Û[Ù[˜XÚ×ØžWÚY
+˜XÚ×ÚY
+BˆÝ\œ™[H˜XÚË˜Ý\™WÙ\Ü^WÜÙ][™ÜÊ[™[[ÛšXÊBˆYˆÝ\œ™[žÜØØ[H\ÈØØ[K“ÑÐT’URPÈ[™Z[š[][HH‚ˆ˜Z\ÙH˜[YQ\œ›ÜŠÙ[‹—Ý
+˜Ý\™WÜÙ][™ÜË›Ù×Ü˜[™ÙWÜÜÚ]]™HŠJBˆ\]YH™\XÙJÝ\œ™[ÛZ[Y›Ø]
+Z[š[][JKÛX^Y›Ø]
+X^[][JJBˆÙ[‹X›]ØÛÛ›Û\‹œÙ]ØÝ\™WÙ\Ü^WÜÙ][™ÜÊ˜XÚ×ÚY[™[[ÛšXË\]Y
+Bˆ^Ù\
+Ù^Q\œ›Ü‹\Q\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+˜Ý\™WÜÙ][™ÜË]HŠKÝŠ^ÊJBˆÙ[‹X›]ÝšY]Ëœ™Yœ™\ÚÝ˜XÚÊˆ˜XÚ×ÚY\T™X\ÛÛ‹”ÕSH\T™X\ÛÛ‹‘UH\T™X\ÛÛ‹”ÕUPÂˆ
+Bˆ™]\›‚ˆÙ[‹X›]ÝšY]Ëœ™Yœ™\ÚÝ˜XÚÊˆ˜XÚ×ÚY\T™X\ÛÛ‹”ÕSH\T™X\ÛÛ‹‘UH\T™X\ÛÛ‹”ÕUPÂˆ
+BˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJˆÙ[‹—Ý
+ˆ˜Ý\™WÜÙ][™ÜËšXY\—Ü˜[™ÙWÜØ]™Y‹ˆÝ\™O[[™[[ÛšXËˆZ[š[][OYˆžÛZ[š[][N™ßH‹ˆX^[][OYˆžÛX^[][N™ßH‹ˆ
+Kˆˆ
+BˆÙ[‹—Ý\]WÝ]J
+B‚ˆYˆÜÙ]ØÝ\™WØ]]×Ü˜[™ÙWÙœ›ÛWÚXY\ŠÙ[‹˜XÚ×ÚYˆÝ‹[™[[ÛšXÎˆÝŠHOˆ›Û™N‚ˆYˆÙ[‹—Ù›Ü›WÛ^[Ý]Ý˜[œØXÝ[Û—ØXÝ]™HÜˆÙ[‹X›]ÝšY]Ëš\×Ü™XZ[[™×Û^[Ý]‚ˆ™]\›‚ˆžN‚ˆ˜XÚÈHÙ[‹X›]ÝšY]Ë›^[Ý]Û[Ù[˜XÚ×ØžWÚY
+˜XÚ×ÚY
+BˆÝ\œ™[H˜XÚË˜Ý\™WÙ\Ü^WÜÙ][™ÜÊ[™[[ÛšXÊBˆ\]YH™\XÙJÝ\œ™[ÛZ[S›Û™KÛX^S›Û™JBˆÙ[‹X›]ØÛÛ›Û\‹œÙ]ØÝ\™WÙ\Ü^WÜÙ][™ÜÊ˜XÚ×ÚY[™[[ÛšXË\]Y
+Bˆ^Ù\
+Ù^Q\œ›Ü‹\Q\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+˜Ý\™WÜÙ][™ÜË]HŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹X›]ÝšY]Ëœ™Yœ™\ÚÝ˜XÚÊˆ˜XÚ×ÚY\T™X\ÛÛ‹”ÕSH\T™X\ÛÛ‹‘UH\T™X\ÛÛ‹”ÕUPÂˆ
+BˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJˆÙ[‹—Ý
+˜Ý\™WÜÙ][™ÜËšXY\—Ø]]×ÜØ]™Y‹Ý\™O[[™[[ÛšXÊKˆ
+BˆÙ[‹—Ý\]WÝ]J
+B‚ˆYˆÜÙ]ØÝ\™WÝ[š]Ùœ›ÛWÚXY\ŠÙ[‹˜XÚ×ÚYˆÝ‹[™[[ÛšXÎˆÝ‹[š]ˆÝŠHOˆ›Û™N‚ˆYˆÙ[‹—Ù›Ü›WÛ^[Ý]Ý˜[œØXÝ[Û—ØXÝ]™HÜˆÙ[‹X›]ÝšY]Ëš\×Ü™XZ[[™×Û^[Ý]‚ˆ™]\›‚ˆžN‚ˆ˜XÚÈHÙ[‹X›]ÝšY]Ë›^[Ý]Û[Ù[˜XÚ×ØžWÚY
+˜XÚ×ÚY
+BˆÝ\œ™[H˜XÚË˜Ý\™WÙ\Ü^WÜÙ][™ÜÊ[™[[ÛšXÊBˆ\]YH™\XÙJÝ\œ™[[š]ÛÝ™\œšYO][š]œÝš\
+
+JBˆÙ[‹X›]ØÛÛ›Û\‹œÙ]ØÝ\™WÙ\Ü^WÜÙ][™ÜÊ˜XÚ×ÚY[™[[ÛšXË\]Y
+Bˆ^Ù\
+Ù^Q\œ›Ü‹\Q\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+˜Ý\™WÜÙ][™ÜË]HŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJˆÙ[‹—Ý
+˜Ý\™WÜÙ][™ÜËšXY\—Ý[š]ÜØ]™Y‹Ý\™O[[™[[ÛšXË[š]][š]œÝš\
+
+HÜˆ¸ %ŠKˆˆ
+BˆÙ[‹—Ý\]WÝ]J
+B‚ˆYˆÜÙ]ØÝ\™WÜØØ[WÙœ›ÛWÚXY\ŠÙ[‹˜XÚ×ÚYˆÝ‹[™[[ÛšXÎˆÝ‹ØØ[WÝ˜[YNˆÝŠHOˆ›Û™N‚ˆYˆÙ[‹—Ù›Ü›WÛ^[Ý]Ý˜[œØXÝ[Û—ØXÝ]™HÜˆÙ[‹X›]ÝšY]Ëš\×Ü™XZ[[™×Û^[Ý]‚ˆ™]\›‚ˆžN‚ˆØØ[HHØØ[JØØ[WÝ˜[YJBˆ˜XÚÈHÙ[‹X›]ÝšY]Ë›^[Ý]Û[Ù[˜XÚ×ØžWÚY
+˜XÚ×ÚY
+BˆÝ\œ™[H˜XÚË˜Ý\™WÙ\Ü^WÜÙ][™ÜÊ[™[[ÛšXÊBˆZ[š[][KX^[][HHÝ\œ™[žÛZ[‹Ý\œ™[žÛX^ˆYˆØØ[H\ÈØØ[K“ÑÐT’URPÈ[™Z[š[][H\È›Ý›Û™H[™Z[š[][HH‚ˆZ[š[][HHX^[][HH›Û™Bˆ\]YH™\XÙJÝ\œ™[ÜØØ[O\ØØ[KÛZ[[Z[š[][KÛX^[X^[][JBˆÙ[‹X›]ØÛÛ›Û\‹œÙ]ØÝ\™WÙ\Ü^WÜÙ][™ÜÊ˜XÚ×ÚY[™[[ÛšXË\]Y
+Bˆ^Ù\
+Ù^Q\œ›Ü‹\Q\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+˜Ý\™WÜÙ][™ÜË]HŠKÝŠ^ÊJBˆÙ[‹X›]ÝšY]Ëœ™Yœ™\ÚÝ˜XÚÊˆ˜XÚ×ÚY\T™X\ÛÛ‹”ÕSH\T™X\ÛÛ‹‘UH\T™X\ÛÛ‹”ÕUPÂˆ
+Bˆ™]\›‚ˆÙ[‹X›]ÝšY]Ëœ™Yœ™\ÚÝ˜XÚÊˆ˜XÚ×ÚY\T™X\ÛÛ‹”ÕSH\T™X\ÛÛ‹‘UH\T™X\ÛÛ‹”ÕUPÂˆ
+BˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJˆÙ[‹—Ý
+ˆ˜Ý\™WÜÙ][™ÜËšXY\—ÜØØ[WÜØ]™Y‹ˆÝ\™O[[™[[ÛšXËˆØØ[O\Ù[‹—Ý
+ˆ˜Ý\™WÜÙ][™ÜË›ÙØ\š]ZXÈ‚ˆYˆØØ[H\ÈØØ[K“ÑÐT’URPÂˆ[ÙH˜Ý\™WÜÙ][™ÜË›[™X\ˆ‚ˆ
+Kˆ
+Kˆˆ
+BˆÙ[‹—Ý\]WÝ]J
+B‚ˆYˆY]ÜÙ[XÝYÝ˜XÚÊÙ[ŠHOˆ›Û™N‚ˆYˆ›ÝÙ[‹—ÜÙ[XÝYÝ˜XÚ×ÚY‚ˆSY\ÜØYÙP›Þš[™›Ü›X][ÛŠˆÙ[‹Ù[‹—Ý
+X›]™Y]ØÝ\œ™[Ý˜XÚÈŠKÙ[‹—Ý
+X›]œÙ[XÝÝ˜XÚ×Ùš\œÝŠBˆ
+Bˆ™]\›‚ˆÙ[‹—ÙY]Û]™WÝ˜XÚÊÙ[‹—ÜÙ[XÝYÝ˜XÚ×ÚY
+B‚ˆYˆÙY]Û]™WÝ˜XÚÊÙ[‹˜XÚ×ÚYˆÝŠHOˆ›Û™N‚ˆžN‚ˆ˜XÚÈHÙ[‹X›]ÝšY]Ë›^[Ý]Û[Ù[˜XÚ×ØžWÚY
+˜XÚ×ÚY
+Bˆ^Ù\Ù^Q\œ›ÜŽ‚ˆ™]\›‚ˆX[ÙÈHX›]˜XÚÑY]Ü‘X[ÙÊ˜XÚËÙ[‹[™ÝXYÙO\Ù[‹›[™ÝXYÙK˜[YJBˆYˆX[ÙË™^XÊ
+HOHQX[ÙË‘X[ÙÐÛÙKXØÙ\Y‚ˆ™]\›‚ˆžN‚ˆ\]YHÙ[‹X›]ØÛÛ›Û\‹\]WÝ˜XÚ×ÙYš[š][ÛŠ˜XÚ×ÚYX[ÙË˜XÚÊBˆ^Ù\
+Ù^Q\œ›Ü‹\›Z\ÜÚ[Û‘\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+X›]™Y]ØÝ\œ™[Ý˜XÚÈŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹X›]ÝšY]Ëœ™Yœ™\ÚÝšY]Ê
+BˆÙ[‹X›]ÝšY]ËœÙ[XÝÝ˜XÚÊ˜XÚ×ÚY[Z]ÜÚYÛ˜[Q˜[ÙJBˆÙ[‹š[œÜXÝÜ‹œÚÝ×Ý˜XÚÊ\]YÝYÙÙ\ÝYÜ˜[™ÙO\Ù[‹—Ý˜XÚ×Ù]WÜ˜[™ÙJ\]Y
+JBˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—Ý\]WÝ]J
+B‚ˆYˆÜ™[˜[YWÛ]™WÝ˜XÚÊÙ[‹˜XÚ×ÚYˆÝŠHOˆ›Û™N‚ˆžN‚ˆ˜XÚÈHÙ[‹X›]ÝšY]Ë›^[Ý]Û[Ù[˜XÚ×ØžWÚY
+˜XÚ×ÚY
+Bˆ^Ù\Ù^Q\œ›ÜŽ‚ˆ™]\›‚ˆ]KXØÙ\YHR[œ]X[ÙË™Ù]^
+ˆÙ[‹ˆÙ[‹—Ý
+X›]œ™[˜[YWÝ˜XÚÈŠKˆÙ[‹—Ý
+X›]˜XÚ×Ý]WÜ›Û\ŠKˆ^]˜XÚË]Kˆ
+BˆYˆ›ÝXØÙ\Y‚ˆ™]\›‚ˆžN‚ˆÙ[‹X›]ØÛÛ›Û\‹œ™[˜[YWÝ˜XÚÊ˜XÚ×ÚY]JBˆ^Ù\
+Ù^Q\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+X›]œ™[˜[YWÝ˜XÚÈŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹X›]ÝšY]Ëœ™Yœ™\ÚÝšY]Ê
+BˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—Ý\]WÝ]J
+B‚ˆYˆÜ™[˜[YWÛ]™WÝ˜XÚ×ÙÜ›Ý\
+Ù[‹˜XÚ×ÚYˆÝŠHOˆ›Û™N‚ˆžN‚ˆ˜XÚÈHÙ[‹X›]ÝšY]Ë›^[Ý]Û[Ù[˜XÚ×ØžWÚY
+˜XÚ×ÚY
+Bˆ^Ù\Ù^Q\œ›ÜŽ‚ˆ™]\›‚ˆ]KXØÙ\YHR[œ]X[ÙË™Ù]^
+ˆÙ[‹ˆÙ[‹—Ý
+X›]œ™[˜[YWÙÜ›Ý\ŠKˆÙ[‹—Ý
+X›]™Ü›Ý\Ý]WÜ›Û\ŠKˆ^]˜XÚË™Ü›Ý\Ý]Kˆ
+BˆYˆ›ÝXØÙ\Y‚ˆ™]\›‚ˆžN‚ˆÙ[‹X›]ØÛÛ›Û\‹œ™[˜[YWÝ˜XÚ×ÙÜ›Ý\
+˜XÚ×ÚY]JBˆ^Ù\
+Ù^Q\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+X›]œ™[˜[YWÙÜ›Ý\ŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹X›]ÝšY]Ëœ™Yœ™\ÚÝšY]Ê
+BˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—Ý\]WÝ]J
+B‚ˆYˆÜÚÝ×Ý˜XÚ×Ü›Ü\Y\×Ùœ›ÛWØÛÛ^
+Ù[‹˜XÚ×ÚYˆÝŠHOˆ›Û™N‚ˆÙ[‹—ÜÚÝ×Ý˜XÚ×Ú[—Ú[œÜXÝÜŠ˜XÚ×ÚY
+BˆÙ[‹š[œÜXÝÜ—ÙØÚËœÚÝÊ
+BˆÙ[‹š[œÜXÝÜ—ÙØÚËœ˜Z\ÙWÊ
+B‚ˆYˆÚYWÝ˜XÚ×Ùœ›ÛWØÛÛ^
+Ù[‹˜XÚ×ÚYˆÝŠHOˆ›Û™N‚ˆÙ[‹—ÜÙ[XÝYÝ˜XÚ×ÚYH˜XÚ×ÚYˆÙ[‹šYWÜÙ[XÝYÝ˜XÚÊ
+B‚ˆYˆÜ™[[Ý™WÝ˜XÚ×Ùœ›ÛWØÛÛ^
+Ù[‹˜XÚ×ÚYˆÝŠHOˆ›Û™N‚ˆÙ[‹—ÜÙ[XÝYÝ˜XÚ×ÚYH˜XÚ×ÚYˆÙ[‹œ™[[Ý™WÜÙ[XÝYÝ˜XÚÊ
+B‚ˆYˆÜÚÝ×Ý˜XÚ×Ú[—Ú[œÜXÝÜŠÙ[‹˜XÚ×ÚYˆÝŠHOˆ›Û™N‚ˆÙ[‹—ÜÙ[XÝYÝ˜XÚ×ÚYH˜XÚ×ÚYˆ˜XÚÈH™^
+ˆ
+][H›Üˆ][H[ˆÙ[‹X›]ÝšY]Ë›^[Ý]Û[Ù[˜XÚÜÈYˆ][K˜XÚ×ÚYOH˜XÚ×ÚY
+Kˆ›Û™Kˆ
+BˆYˆ˜XÚÈ\È›Û™N‚ˆÙ[‹˜Ý\™WØœ›ÝÜÙ\‹œÙ]Ü™\XÙWÙ[˜X›Y
+˜[ÙJBˆ™]\›‚ˆÙ[‹˜Ý\™WØœ›ÝÜÙ\‹œÙ]Ü™\XÙWÙ[˜X›Y
+ˆ˜XÚËšÚ[™[ˆÕ˜XÚÒÚ[™ÕT•‘K˜XÚÒÚ[™‘ÐTË˜XÚÒÚ[™‘VBˆ
+BˆÙ[‹š[œÜXÝÜ‹œÚÝ×Ý˜XÚÊ˜XÚËÝYÙÙ\ÝYÜ˜[™ÙO\Ù[‹—Ý˜XÚ×Ù]WÜ˜[™ÙJ˜XÚÊJB‚ˆYˆÝ˜XÚ×Ù]WÜ˜[™ÙJÙ[‹˜XÚÎˆ˜XÚÑYš[š][ÛŠHOˆ\VÙ›Ø]›Ø]H›Û™N‚ˆ]\Ù]HÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[Ù]\Ù]ˆYˆ]\Ù]\È›Û™N‚ˆ™]\›ˆ›Û™Bˆš[š]WÜ\ÈH×Bˆ›Üˆ[™[[ÛšXÈ[ˆ˜XÚË˜Ý\™WÛ[™[[ÛšXÜÎ‚ˆÝ\™HH]\Ù]˜Ý\™WØžWÛ[™[[ÛšXÊ[™[[ÛšXÊBˆYˆÝ\™H\È›Û™N‚ˆÛÛ[YBˆ˜[Y\ÈHÝ\™K˜[Y\ÖÛœš\Ùš[š]JÝ\™K˜[Y\ÊWBˆYˆ˜XÚËžÜØØ[H\ÈØØ[K“ÑÐT’URPÎ‚ˆ˜[Y\ÈH˜[Y\ÖÝ˜[Y\ÈˆŒBˆYˆ˜[Y\ËœÚ^™N‚ˆš[š]WÜ\Ë˜\[™
+˜[Y\ÊBˆYˆ›Ýš[š]WÜ\Î‚ˆ™]\›ˆ›Û™Bˆ˜[Y\ÈHœ˜ÛÛ˜Ø][˜]Jš[š]WÜ\ÊBˆZ[š[][KX^[][HH›Ø]
+œ›Z[Š˜[Y\ÊJK›Ø]
+œ›X^
+˜[Y\ÊJBˆYˆZ[š[][HOHX^[][N‚ˆYˆ˜XÚËžÜØØ[H\ÈØØ[K“ÑÐT’URPÎ‚ˆ™]\›ˆZ[š[][HÈKŒKX^[][H
+ˆKŒBˆY[™ÈHX^
+XœÊZ[š[][JH
+ˆŒKKŒ
+Bˆ™]\›ˆZ[š[][HHY[™ËX^[][H
+ÈY[™Âˆ™]\›ˆZ[š[][KX^[][B‚ˆYˆØ\WÚ[œÜXÝÜ—Ý˜XÚ×ÜÙ][™ÜÊˆÙ[‹ˆ˜XÚ×ÚYˆÝ‹ˆÚYˆ[ˆØØ[NˆÝ‹ˆZ[š[][Nˆ›Ø]›Û™KˆX^[][Nˆ›Ø]›Û™Kˆ
+HOˆ›Û™N‚ˆžN‚ˆÙ[‹X›]ØÛÛ›Û\‹\]WÝ˜XÚ×ÝšY]×ÜÙ][™ÜÊˆ˜XÚ×ÚYˆÚY]ÚYˆÜØØ[OVØØ[JØØ[JKˆÛZ[[Z[š[][KˆÛX^[X^[][Kˆ
+Bˆ˜XÚÈHÙ[‹X›]ÝšY]Ë›^[Ý]Û[Ù[˜XÚ×ØžWÚY
+˜XÚ×ÚY
+Bˆ^Ù\
+Ù^Q\œ›Ü‹\Q\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+š[œÜXÝÜ‹]HŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹—Û^[Ý]ØÚ[™ÙY
+ˆ´'´,t/t/´,´.ô-t/tbÈ4`t,´/´.t`t`´,´,4`´`4-t.´,ˆÝ˜XÚË]_HŠBˆÙ[‹š[œÜXÝÜ‹œÚÝ×Ý˜XÚÊ˜XÚËÝYÙÙ\ÝYÜ˜[™ÙO\Ù[‹—Ý˜XÚ×Ù]WÜ˜[™ÙJ˜XÚÊJB‚ˆYˆØÚ[™ÙWÝ™\XØ[Ú[™^Ùœ›ÛWÝX›]
+Ù[‹[™^ÚYˆÝŠHOˆ›Û™N‚ˆžN‚ˆÚ[™ÙYHÙ[‹X›]ØÛÛ›Û\‹œÙ]Ý™\XØ[Ú[™^
+[™^ÚY
+Bˆ^Ù\
+Ù^Q\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+X›]]HŠKÝŠ^ÊJBˆ™]\›‚ˆYˆÚ[™ÙY‚ˆ^[Ý]HÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[ÝX›]Û^[Ý]ˆYˆ^[Ý]\È›Ý›Û™N‚ˆÙ[‹X›]ÝšY]ËœÙ]Û^[Ý]Û[Ù[
+^[Ý]
+BˆÙ[‹—Ý\]WÝ]J
+B‚ˆYˆÜÚÝ×Ýš\ÚX›WÙ\
+Ù[‹Üˆ›Ø]›ÝÛNˆ›Ø]
+HOˆ›Û™N‚ˆYˆÙ[‹X›]ØÛÛ›Û\‹œÙ]Ýš\ÚX›WÙ\
+Ü›ÝÛJN‚ˆÙ[‹—Ý\]WÝ]J
+BˆÜÝ^HÙ[‹X›]ÝšY]Ë™›Ü›X]Ý™\XØ[Ý˜[YJÜ
+Bˆ›ÝÛWÝ^HÙ[‹X›]ÝšY]Ë™›Ü›X]Ý™\XØ[Ý˜[YJ›ÝÛJBˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJˆÙ[‹—Ý
+X›]š\ÚX›WÚ[\˜[ÜÝ]\È‹Ü]ÜÝ^›ÝÛOX›ÝÛWÝ^
+Bˆ
+B‚ˆYˆØ\WÚ[œÜXÝÜ—ØÝ\™WÜÝ[JˆÙ[‹ˆ˜XÚ×ÚYˆÝ‹ˆ[™[[ÛšXÎˆÝ‹ˆÛÛÜŽˆÝ‹ˆÚYˆ›Ø]ˆ[™WÜÝ[NˆÝ‹ˆ
+HOˆ›Û™N‚ˆžN‚ˆÝ[HHÝ\™TÝ[JˆÛÛÜXÛÛÜ‹ˆÚY]ÚYˆ[™WÜÝ[OPÝ\™S[™TÝ[J[™WÜÝ[JKˆ
+BˆÙ[‹X›]ØÛÛ›Û\‹œÙ]ØÝ\™WÜÝ[J˜XÚ×ÚY[™[[ÛšXËÝ[JBˆ˜XÚÈHÙ[‹X›]ÝšY]Ë›^[Ý]Û[Ù[˜XÚ×ØžWÚY
+˜XÚ×ÚY
+Bˆ^Ù\
+Ù^Q\œ›Ü‹\Q\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+š[œÜXÝÜ‹]HŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹X›]ÝšY]Ëœ™Yœ™\ÚÝ˜XÚÊˆ˜XÚ×ÚY\T™X\ÛÛ‹”ÕSH\T™X\ÛÛ‹‘UH\T™X\ÛÛ‹”ÕUPÂˆ
+BˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—Ý\]WÝ]J
+BˆÙ[‹—ÛÙÊÙ[‹—Ý
+š[œÜXÝÜ‹œÝ[WÝ\]Y‹[™[[ÛšXÏ[[™[[ÛšXÊJBˆÙ[‹š[œÜXÝÜ‹œÚÝ×Ý˜XÚÊ˜XÚËÝYÙÙ\ÝYÜ˜[™ÙO\Ù[‹—Ý˜XÚ×Ù]WÜ˜[™ÙJ˜XÚÊJB‚ˆYˆØ\WÚ[œÜXÝÜ—ÙÜšY
+ˆÙ[‹ˆ˜XÚ×ÚYˆÝ‹ˆÚÝ×Þˆ›ÛÛˆÚÝ×ÞNˆ›ÛÛˆ[Nˆ›Ø]ˆXZ›Ü—Ù]š\Ú[ÛœÎˆ[HKˆZ[›Ü—Ù]š\Ú[ÛœÎˆ[HKˆš[ÙÜšYˆ›ÛÛHYKˆ
+HOˆ›Û™N‚ˆžN‚ˆÙ[‹X›]ØÛÛ›Û\‹œÙ]Ý˜XÚ×ÙÜšY
+ˆ˜XÚ×ÚYˆÚÝ×ÞˆÚÝ×ÞKˆ[KˆXZ›Ü—Ù]š\Ú[ÛœËˆZ[›Ü—Ù]š\Ú[ÛœËˆš[ÙÜšYˆ
+Bˆ˜XÚÈHÙ[‹X›]ÝšY]Ë›^[Ý]Û[Ù[˜XÚ×ØžWÚY
+˜XÚ×ÚY
+Bˆ^Ù\
+Ù^Q\œ›Ü‹\Q\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+š[œÜXÝÜ‹]HŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹X›]ÝšY]Ëœ™Yœ™\ÚÝ˜XÚÊ˜XÚ×ÚY\T™X\ÛÛ‹”ÕUPÈ\T™X\ÛÛ‹”ÕSJBˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—Ý\]WÝ]J
+BˆÙ[‹—ÛÙÊÙ[‹—Ý
+š[œÜXÝÜ‹™ÜšYÝ\]YŠJBˆÙ[‹š[œÜXÝÜ‹œÚÝ×Ý˜XÚÊ˜XÚËÝYÙÙ\ÝYÜ˜[™ÙO\Ù[‹—Ý˜XÚ×Ù]WÜ˜[™ÙJ˜XÚÊJB‚ˆYˆØ\WÚ[œÜXÝÜ—ÞÜØØ[WÝš\ÚXš[]JˆÙ[‹˜XÚ×ÚYˆÝ‹š\ÚX›Nˆ›ÛÛˆ
+HOˆ›Û™N‚ˆžN‚ˆÙ[‹X›]ØÛÛ›Û\‹œÙ]Ý˜XÚ×ÞÜØØ[WÝš\ÚX›J˜XÚ×ÚYš\ÚX›JBˆ˜XÚÈHÙ[‹X›]ÝšY]Ë›^[Ý]Û[Ù[˜XÚ×ØžWÚY
+˜XÚ×ÚY
+Bˆ^Ù\
+Ù^Q\œ›Ü‹\Q\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+š[œÜXÝÜ‹]HŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹X›]ÝšY]Ëœ™Yœ™\ÚÝ˜XÚÊ˜XÚ×ÚY\T™X\ÛÛ‹”ÕSJBˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—Ý\]WÝ]J
+BˆÙ[‹—ÛÙÊÙ[‹—Ý
+š[œÜXÝÜ‹žÜØØ[WÝš\ÚXš[]WÝ\]YŠJBˆÙ[‹š[œÜXÝÜ‹œÚÝ×Ý˜XÚÊ˜XÚËÝYÙÙ\ÝYÜ˜[™ÙO\Ù[‹—Ý˜XÚ×Ù]WÜ˜[™ÙJ˜XÚÊJB‚ˆYˆØ\WÚ[œÜXÝÜ—ÞØ^\×ÛX™[
+Ù[‹˜XÚ×ÚYˆÝ‹X™[ˆÝŠHOˆ›Û™N‚ˆžN‚ˆÙ[‹X›]ØÛÛ›Û\‹œÙ]Ý˜XÚ×ÞØ^\×ÛX™[
+˜XÚ×ÚYX™[
+Bˆ˜XÚÈHÙ[‹X›]ÝšY]Ë›^[Ý]Û[Ù[˜XÚ×ØžWÚY
+˜XÚ×ÚY
+Bˆ^Ù\
+Ù^Q\œ›Ü‹\Q\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊÙ[‹Ù[‹—Ý
+š[œÜXÝÜ‹]HŠKÝŠ^ÊJBˆ™]\›‚ˆÙ[‹X›]ÝšY]Ëœ™Yœ™\ÚÝ˜XÚÊ˜XÚ×ÚY\T™X\ÛÛ‹”ÕUPÊBˆÙ[‹—Ü™Yœ™\ÚÝ™YJ
+BˆÙ[‹—Ý\]WÝ]J
+BˆÙ[‹—ÛÙÊÙ[‹—Ý
+š[œÜXÝÜ‹˜^\×ÛX™[Ý\]YŠJBˆÙ[‹š[œÜXÝÜ‹œÚÝ×Ý˜XÚÊ˜XÚËÝYÙÙ\ÝYÜ˜[™ÙO\Ù[‹—Ý˜XÚ×Ù]WÜ˜[™ÙJ˜XÚÊJB‚ˆYˆÝ\]WÝ]JÙ[ŠHOˆ›Û™N‚ˆX\šÙ\ˆHˆ
+ˆˆYˆÙ[‹œÙ\ÜÚ[Û‹™\H[ÙHˆ‚ˆÙ[‹œÙ]Ú[™ÝÕ]Jˆˆ‘ÑSÓÑÈÐTÔUSÐ^\ˆ××Ý™\œÚ[Û—×ßH8 %ÜÙ[‹œÙ\ÜÚ[Û‹œ›Ú™XÝ›˜[Y_^ÛX\šÙ\ŸH‚ˆ
+BˆÙ[‹—Ý\]WÙ›Ü›WÝÚYÚ[™XØ]ÜŠ
+B‚ˆYˆÝ\]WÙ›Ü›WÝÚYÚ[™XØ]ÜŠÙ[ŠHOˆ›Û™N‚ˆ[™XØ]ÜˆHÙ]]ŠÙ[‹™›Ü›WÝÚYÚ[™XØ]Üˆ‹›Û™JBˆYˆ[™XØ]Üˆ\È›Û™N‚ˆ™]\›‚ˆš\ÚX›HHÙ[‹X›]ÝšY]Ë›^[Ý]Û[Ù[š\ÚX›WÝ˜XÚÜÊ
+BˆYˆ›Ýš\ÚX›N‚ˆ[™XØ]Ü‹œÙ]^
+Ù[‹—Ý
+™›Ü›\ËÚYÛ›×Ù›Ü›HŠJBˆ[™XØ]Ü‹œÙ]ÛÛ\
+Ù[‹—Ý
+™›Ü›\ËÚYÛ›×Ù›Ü›WÝÛÛ\ŠJBˆ[™XØ]Ü‹œÙ]Ý[TÚY]
+ˆ”SX™[Ù›Ü›UÚY[™XØ]ÜˆÜY[™ÎŒœÈ›Ü™\‹\˜Y]\ÎÈ‚ˆ˜˜XÚÙÜ›Ý[™ˆÙL™NŒÈÛÛÜŽˆÍÍMMŽNßH‚ˆ
+Bˆ™]\›‚ˆ]Y]H]Y]Ù›Ü›WÝÚY
+˜XÚËÚY›Üˆ˜XÚÈ[ˆš\ÚX›JBˆYˆ]Y]›]™[\È›Ü›UÚY]™[‘’U×ÔÔ•RU‚ˆØ\[ÛˆHÙ[‹—Ý
+™›Ü›\ËÚYÜÜ˜Z]‹\˜Ù[YˆžØ]Y]œÜ˜Z]ÜØØ[WÜ\˜Ù[‹ŒŸHŠBˆÛÛÜ‹˜XÚÙÜ›Ý[™HˆÌMLÍ‹ˆÙÙ˜ÙMÈ‚ˆ[Yˆ]Y]›]™[\È›Ü›UÚY]™[‘’U×ÓS‘ÐÐTN‚ˆØ\[ÛˆHÙ[‹—Ý
+ˆ™›Ü›\ËÚYÛ[™ØØ\H‹\˜Ù[YˆžØ]Y]œÜ˜Z]ÜØØ[WÜ\˜Ù[‹ŒŸH‚ˆ
+BˆÛÛÜ‹˜XÚÙÜ›Ý[™HˆÎLH‹ˆÙ™YŒØÍÈ‚ˆ[Yˆ]Y]›]™[\È›Ü›UÚY]™[“‘QQ×Ñ’U‚ˆØ\[ÛˆHÙ[‹—Ý
+™›Ü›\ËÚYÙš]‹\˜Ù[YˆžØ]Y]›[™ØØ\WÜØØ[WÜ\˜Ù[‹ŒŸHŠBˆÛÛÜ‹˜XÚÙÜ›Ý[™HˆÎXLÍLˆ‹ˆÙ™™YH‚ˆ[ÙN‚ˆØ\[ÛˆHÙ[‹—Ý
+™›Ü›\ËÚYÜÜ]‹YÙ\ÏX]Y]œÜ˜Z]ÜYÙ\×Ø]ØXÝX[ÜÚ^™JBˆÛÛÜ‹˜XÚÙÜ›Ý[™HˆÎNLXŒXˆ‹ˆÙ™YL™Lˆ‚ˆ[™XØ]Ü‹œÙ]^
+Ø\[ÛŠBˆ[™XØ]Ü‹œÙ]Ý[TÚY]
+ˆˆ”SX™[Ù›Ü›UÚY[™XØ]ÜˆÞÜY[™ÎŒœÈ›Ü™\ŽŒ\ÛÛYØÛÛÜŸNÈ‚ˆˆ˜›Ü™\‹\˜Y]\ÎÈ˜XÚÙÜ›Ý[™žØ˜XÚÙÜ›Ý[™NÈÛÛÜŽžØÛÛÜŸNÈ›Û]ÙZYÚŒß_H‚ˆ
+Bˆ[™XØ]Ü‹œÙ]ÛÛ\
+ˆÙ[‹—Ý
+ˆ™›Ü›\ËÚYÝÛÛ\‹ˆÛÛ[[œÏX]Y]š\ÚX›WØÛÛ[[œËˆÚYX]Y]Ý[ÝÚYÜˆÚYÛ[OYˆžØ]Y]Ý[ÝÚYÛ[N‹ŒŸH‹ˆÜ˜Z]YˆžØ]Y]œÜ˜Z]ÜØØ[WÜ\˜Ù[‹ŒŸH‹ˆ[™ØØ\OYˆžØ]Y]›[™ØØ\WÜØØ[WÜ\˜Ù[‹ŒŸH‹ˆ
+Bˆ
+B‚ˆYˆÛÙÊÙ[‹^ˆÝŠHOˆ›Û™N‚ˆÙ[‹š\ÜÝY\Ë˜\[™
+^
+BˆÙ×Ù]™[
+ZKš\ÜÝYH‹^]^
+Bˆ›Ü›X[^™YH^˜Ø\ÙY›Û
+
+BˆYˆ´/´b4.4,t.´,ˆ[ˆ›Ü›X[^™YÜˆ™\œ›Üˆˆ[ˆ›Ü›X[^™YÜˆ™˜Z[Yˆ[ˆ›Ü›X[^™Y‚ˆÙ[‹š\ÜÝY\×ÙØÚËœÚÝÊ
+B‚ˆYˆÙXYÛ›ÜÝX×Ü[[YWØÛÛ^
+Ù[ŠHOˆXÝÜÝ‹Øš™XÝN‚ˆ]\Ù]HÙ[‹œÙ\ÜÚ[Û‹˜Ý\œ™[Ù]\Ù]ˆ\™Ù]HÙ[‹X›]ÝšY]Ë˜Ý\™WÜ[˜Ú[Ý\™Ù]ˆÚYØ]Y]H]Y]Ù›Ü›WÝÚY
+ˆ˜XÚËÚY›Üˆ˜XÚÈ[ˆÙ[‹X›]ÝšY]Ë›^[Ý]Û[Ù[š\ÚX›WÝ˜XÚÜÊ
+Bˆ
+Bˆ™]\›ˆÂˆ›[™ÝXYÙHŽˆÙ[‹›[™ÝXYÙK˜[YKˆœ›Ú™XÝÛ˜[YHŽˆÙ[‹œÙ\ÜÚ[Û‹œ›Ú™XÝ›˜[YKˆœ›Ú™XÝÙ\HŽˆÙ[‹œÙ\ÜÚ[Û‹™\Kˆ™]\Ù]ÚYŽˆ]\Ù]™]\Ù]ÚYYˆ]\Ù]\È›Ý›Û™H[ÙHˆ‹ˆ™]\Ù]Û˜[YHŽˆ]\Ù]›˜[YHYˆ]\Ù]\È›Ý›Û™H[ÙHˆ‹ˆX›]Ý˜XÚ×ØÛÝ[Žˆ[ŠÙ[‹X›]ÝšY]Ë›^[Ý]Û[Ù[˜XÚÜÊKˆX›]Ýš\ÚX›WÝ˜XÚ×ØÛÝ[Žˆ[ŠÙ[‹X›]ÝšY]Ë›^[Ý]Û[Ù[š\ÚX›WÝ˜XÚÜÊ
+JKˆX›]Ù›Ü›WÝÚYÜŽˆÚYØ]Y]Ý[ÝÚYÜˆX›]ØMÜÜ˜Z]Ü\˜Ù[Žˆ›Ý[™
+ÚYØ]Y]œÜ˜Z]ÜØØ[WÜ\˜Ù[JKˆX›]ØMÛ[™ØØ\WÜ\˜Ù[Žˆ›Ý[™
+ÚYØ]Y]›[™ØØ\WÜØØ[WÜ\˜Ù[JKˆX›]ØMÝÚYÛ]™[ŽˆÚYØ]Y]›]™[˜[YKˆœÙ[XÝYÝ˜XÚ×ÚYŽˆÙ[‹—ÜÙ[XÝYÝ˜XÚ×ÚYÜˆˆ‹ˆœ[˜Ú[ØXÝ]™HŽˆÙ[‹X›]ÝšY]Ë˜Ý\™WÜ[˜Ú[Ù[˜X›Yˆœ[˜Ú[Ý˜XÚ×ÚYŽˆ\™Ù]ÌHYˆ\™Ù]\È›Ý›Û™H[ÙHˆ‹ˆœ[˜Ú[Û[™[[ÛšXÈŽˆ\™Ù]ÌWHYˆ\™Ù]\È›Ý›Û™H[ÙHˆ‹ˆ™›Ü›WÝ˜[œØXÝ[Û—ØXÝ]™HŽˆÙ[‹—Ù›Ü›WÛ^[Ý]Ý˜[œØXÝ[Û—ØXÝ]™KˆB‚ˆYˆÜ[—ÛÙ×Ù›Û\ŠÙ[ŠHOˆ›Û™N‚ˆX[˜YÙ\ˆHÝ\œ™[Ø\XØ][Û—ÛÙ×ÛX[˜YÙ\Š
+BˆYˆX[˜YÙ\ˆ\È›Û™N‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊˆÙ[‹Ù[‹—Ý
+™XYÛ›ÜÝXÜË]HŠKÙ[‹—Ý
+™XYÛ›ÜÝXÜË[˜]˜Z[X›HŠBˆ
+Bˆ™]\›‚ˆX[˜YÙ\‹™›\Ú
+
+BˆÜ[™YHQ\ÚÝÜÙ\šXÙ\Ë›Ü[•\›
+U\›™œ›ÛSØØ[š[JÝŠX[˜YÙ\‹›Ù×Ù\™XÝÜžJJJBˆÙ×Ù]™[
+ˆ™XYÛ›ÜÝXÜË›Ù×Ù›Û\‹›Ü[™Y‹ˆ][X[˜YÙ\‹›Ù×Ù\™XÝÜžKˆÜ[™Y[Ü[™Yˆ
+BˆYˆ›ÝÜ[™Y‚ˆSY\ÜØYÙP›Þš[™›Ü›X][ÛŠˆÙ[‹ˆÙ[‹—Ý
+™XYÛ›ÜÝXÜË]HŠKˆÙ[‹—Ý
+™XYÛ›ÜÝXÜË›Ù×Ù›Û\—Ü]‹][X[˜YÙ\‹›Ù×Ù\™XÝÜžJKˆ
+B‚ˆYˆÛÜWØÝ\œ™[ÛÙ×Ü]
+Ù[ŠHOˆ›Û™N‚ˆX[˜YÙ\ˆHÝ\œ™[Ø\XØ][Û—ÛÙ×ÛX[˜YÙ\Š
+BˆYˆX[˜YÙ\ˆ\È›Û™N‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊˆÙ[‹Ù[‹—Ý
+™XYÛ›ÜÝXÜË]HŠKÙ[‹—Ý
+™XYÛ›ÜÝXÜË[˜]˜Z[X›HŠBˆ
+Bˆ™]\›‚ˆX[˜YÙ\‹™›\Ú
+
+BˆP\XØ][Û‹˜Û\›Ø\™
+
+KœÙ]^
+ÝŠX[˜YÙ\‹˜Ý\œ™[ÛÙ×Ü]
+JBˆÙ[‹œÝ]\Ð˜\Š
+KœÚÝÓY\ÜØYÙJˆÙ[‹—Ý
+™XYÛ›ÜÝXÜËœ]ØÛÜYY‹][X[˜YÙ\‹˜Ý\œ™[ÛÙ×Ü]
+KLˆ
+BˆÙ×Ù]™[
+ˆ™XYÛ›ÜÝXÜË›Ù×Ü]˜ÛÜYY‹ˆ][X[˜YÙ\‹˜Ý\œ™[ÛÙ×Ü]ˆ
+B‚ˆYˆZ[ÙXYÛ›ÜÝX×Ø[™JÙ[ŠHOˆ›Û™N‚ˆX[˜YÙ\ˆHÝ\œ™[Ø\XØ][Û—ÛÙ×ÛX[˜YÙ\Š
+BˆYˆX[˜YÙ\ˆ\È›Û™N‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊˆÙ[‹Ù[‹—Ý
+™XYÛ›ÜÝXÜË]HŠKÙ[‹—Ý
+™XYÛ›ÜÝXÜË[˜]˜Z[X›HŠBˆ
+Bˆ™]\›‚ˆ[Y\Ý[\H]][YK››ÝÊ
+KœÝ™[YJ‰VI[IYIR	SITÈŠBˆY˜][Ù\™XÝÜžHH]
+ˆTÝ[™\™]ËÜš]X›SØØ][ÛŠTÝ[™\™]Ë”Ý[™\™ØØ][Û‹‘\ÚÝÜØØ][ÛŠBˆ
+BˆY˜][Ü]HY˜][Ù\™XÝÜžHÈˆ‘ÑSÓÑ×ÙXYÛ›ÜÝXÜ×ÞÝ[Y\Ý[\Kžš\‚ˆš[[˜[YKÈHQš[QX[ÙË™Ù]Ø]™Qš[S˜[YJˆÙ[‹ˆÙ[‹—Ý
+™XYÛ›ÜÝXÜËœØ]™WÝ]HŠKˆÝŠY˜][Ü]
+Kˆ–’T
+
+‹žš\
+H‹ˆ
+BˆYˆ›Ýš[[˜[YN‚ˆ™]\›‚ˆ\™Ù]H]
+š[[˜[YJBˆYˆ\™Ù]œÝY™š^›ÝÙ\Š
+HOH‹žš\Ž‚ˆ\™Ù]H\™Ù]Ú]ÜÝY™š^
+‹žš\ŠBˆžN‚ˆ™\Ý[HX[˜YÙ\‹˜Z[ÙXYÛ›ÜÝX×Ø[™Jˆ\™Ù][[YWØÛÛ^\Ù[‹—ÙXYÛ›ÜÝX×Ü[[YWØÛÛ^
+
+Bˆ
+Bˆ^Ù\
+ÔÑ\œ›Ü‹[[YQ\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆÙ×Ù^Ù\[ÛŠ™XYÛ›ÜÝXÜË˜[™K™˜Z[Y‹^Ë\Ý[˜][Û]\™Ù]
+BˆSY\ÜØYÙP›Þ˜Üš]XØ[
+ˆÙ[‹ˆÙ[‹—Ý
+™XYÛ›ÜÝXÜË]HŠKˆÙ[‹—Ý
+™XYÛ›ÜÝXÜËœØ]™WÙ˜Z[Y‹\œ›Ü\ÝŠ^ÊJKˆ
+Bˆ™]\›‚ˆSY\ÜØYÙP›Þš[™›Ü›X][ÛŠˆÙ[‹ˆÙ[‹—Ý
+™XYÛ›ÜÝXÜË]HŠKˆÙ[‹—Ý
+ˆ™XYÛ›ÜÝXÜË˜[™WÜØ]™Y‹ˆ]\™\Ý[œ]ˆÛÝ[[[Š™\Ý[š[˜ÛYYÙš[\ÊKˆ
+Kˆ
+B‚ˆYˆÛX\—ÙXYÛ›ÜÝX×Ù]JÙ[ŠHOˆ›Û™N‚ˆX[˜YÙ\ˆHÝ\œ™[Ø\XØ][Û—ÛÙ×ÛX[˜YÙ\Š
+BˆYˆX[˜YÙ\ˆ\È›Û™N‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊˆÙ[‹Ù[‹—Ý
+™XYÛ›ÜÝXÜË]HŠKÙ[‹—Ý
+™XYÛ›ÜÝXÜË[˜]˜Z[X›HŠBˆ
+Bˆ™]\›‚ˆ[œÝÙ\ˆHSY\ÜØYÙP›Þœ]Y\Ý[ÛŠˆÙ[‹ˆÙ[‹—Ý
+™XYÛ›ÜÝXÜË˜ÛX\—Ý]HŠKˆÙ[‹—Ý
+™XYÛ›ÜÝXÜË˜ÛX\—ØÛÛ™š\›HŠKˆSY\ÜØYÙP›Þ”Ý[™\™]Û‹–Y\ÈSY\ÜØYÙP›Þ”Ý[™\™]Û‹“›ËˆSY\ÜØYÙP›Þ”Ý[™\™]Û‹“›Ëˆ
+BˆYˆ[œÝÙ\ˆOHSY\ÜØYÙP›Þ”Ý[™\™]Û‹–Y\Î‚ˆ™]\›‚ˆ\Ù]WÜ›ÛÝH]
+ˆTÝ[™\™]ËÜš]X›SØØ][ÛŠTÝ[™\™]Ë”Ý[™\™ØØ][Û‹\]SØØ][ÛŠBˆ
+BˆžN‚ˆ™\Ý[HX[˜YÙ\‹˜ÛX\—ÙXYÛ›ÜÝX×Ù]Jˆ^˜WÙ\™XÝÜšY\ÏJ\Ù]WÜ›ÛÝÈ™XYÛ›ÜÝXÜÈ‹
+Bˆ
+Bˆ^Ù\
+ÔÑ\œ›Ü‹[[YQ\œ›Ü‹˜[YQ\œ›ÜŠH\È^Î‚ˆÙ×Ù^Ù\[ÛŠ™XYÛ›ÜÝXÜË™]Kœ™\Ù]Ù˜Z[Y‹^ÊBˆSY\ÜØYÙP›Þ˜Üš]XØ[
+ˆÙ[‹ˆÙ[‹—Ý
+™XYÛ›ÜÝXÜË˜ÛX\—Ý]HŠKˆÙ[‹—Ý
+™XYÛ›ÜÝXÜË˜ÛX\—Ù˜Z[Y‹\œ›Ü\ÝŠ^ÊJKˆ
+Bˆ™]\›‚ˆœ™YYHÙ[‹—Ù›Ü›X]ÙXYÛ›ÜÝX×ÜÚ^™J™\Ý[™œ™YYØž]\ÊBˆYˆ™\Ý[™˜Z[YÜ]Î‚ˆSY\ÜØYÙP›ÞØ\›š[™ÊˆÙ[‹ˆÙ[‹—Ý
+™XYÛ›ÜÝXÜË˜ÛX\—Ý]HŠKˆÙ[‹—Ý
+ˆ™XYÛ›ÜÝXÜË˜ÛX\—Ü\X[‹ˆÛÝ[\™\Ý[™[]YÙš[\ËˆÚ^™OYœ™YYˆ˜Z[Y[[Š™\Ý[™˜Z[YÜ]ÊKˆ
+Kˆ
+Bˆ[ÙN‚ˆSY\ÜØYÙP›Þš[™›Ü›X][ÛŠˆÙ[‹ˆÙ[‹—Ý
+™XYÛ›ÜÝXÜË˜ÛX\—Ý]HŠKˆÙ[‹—Ý
+ˆ™XYÛ›ÜÝXÜË˜ÛX\—ÙÛ™H‹ˆÛÝ[\™\Ý[™[]YÙš[\ËˆÚ^™OYœ™YYˆ
+Kˆ
+B‚ˆÝ]XÛY]ÙˆYˆÙ›Ü›X]ÙXYÛ›ÜÝX×ÜÚ^™JÚ^™WØž]\Îˆ[
+HOˆÝŽ‚ˆÚ^™HHX^
+[
+Ú^™WØž]\ÊJBˆYˆÚ^™HL‚ˆ™]\›ˆˆžÜÚ^™_Hˆ‚ˆYˆÚ^™HL
+ˆL‚ˆ™]\›ˆˆžÜÚ^™HÈL‹ŒYŸHÐˆ‚ˆ™]\›ˆˆžÜÚ^™HÈ
+L
+ˆL
+N‹ŒYŸHPˆ‚‚ˆYˆÚÝ×ØX›Ý]
+Ù[ŠHOˆ›Û™N‚ˆX[ÙÈHQX[ÙÊÙ[ŠBˆX[ÙËœÙ]Ú[™ÝÕ]J‘ÑSÓÑÈÐTÔUSÐ^\ˆŠBˆX[ÙËœÙ]Ú[™ÝÒXÛÛŠ\XØ][Û—ÚXÛÛŠ
+JBˆX[ÙËœÙ][Ù[
+YJBˆ\™Ù]ÙÙ[ÛY]žHHš]ÝÚ[™Ý×Ý×ÜØÜ™Y[ŠˆX[ÙËˆ™Y™\œ™YTTÚ^™JLŒŒL
+KˆZ[š[][OTTÚ^™JŽŒ
+Kˆ
+B‚ˆ›ÛÝÛ^[Ý]HU›Þ^[Ý]
+X[ÙÊBˆ›ÛÝÛ^[Ý]œÙ]ÛÛ[ÓX\™Ú[œÊŽŽŽŒ
+Bˆ›ÛÝÛ^[Ý]œÙ]ÜXÚ[™ÊN
+B‚ˆÛÛ[Û^[Ý]HR›Þ^[Ý]
+
+BˆÛÛ[Û^[Ý]œÙ]ÜXÚ[™ÊÍ
+B‚ˆ[XYÙWÛX™[HSX™[
+X[ÙÊBˆ[XYÙWÛX™[œÙ]Øš™XÝ˜[YJ˜X›Ý]›ÙÜ˜[SÙÛÈŠBˆ[XYÙWÛX™[œÙ][YÛ›Y[
+][YÛ›Y[›YË[YÛÙ[\ŠBˆÙÛ×ÜÚYHHZ[ŠˆÌˆX^
+ŒŒ[
+\™Ù]ÙÙ[ÛY]žKšZYÚ
+
+H
+ˆŽ
+JKˆX^
+ŒŒ[
+\™Ù]ÙÙ[ÛY]žKÚY
+
+H
+ˆ
+JKˆ
+Bˆ[XYÙWÛX™[œÙ]š^YÚ^™JÙÛ×ÜÚYKÙÛ×ÜÚYJBˆ[XYÙWÛX™[œÙ]^X\
+X›Ý]Ü›ÙÜ˜[WÛÙÛ×Ü^X\
+ÙÛ×ÜÚYKÙÛ×ÜÚYJJBˆÛÛ[Û^[Ý]˜YÚYÙ]
+[XYÙWÛX™[K][YÛ›Y[›YË[YÛÙ[\ŠB‚ˆÈH[™›Ü›X][ÛˆÛÛ[[ˆ[X™\˜][H\È›È›Ü˜ÙY˜XÚÙÜ›Ý[™ˆ]›ÛÝÜÂˆÈHXÝ]™H][]KÛÈ\šÈ[™YÚ[Y\È™[XZ[ˆ™XYX›K‚ˆ[™›×Ü[™[HUÚYÙ]
+X[ÙÊBˆ[™›×Ü[™[œÙ]Øš™XÝ˜[YJ˜X›Ý][™›Ô[™[ŠBˆ[™›×Ü[™[œÙ]Z[š[][UÚY
+Z[ŠÎLX^
+Œ[
+\™Ù]ÙÙ[ÛY]žKÚY
+
+H
+ˆŒÍŠJJJBˆ[™›×Û^[Ý]HU›Þ^[Ý]
+[™›×Ü[™[
+Bˆ[™›×Û^[Ý]œÙ]ÛÛ[ÓX\™Ú[œÊL‹LŠBˆ[™›×Û^[Ý]œÙ]ÜXÚ[™ÊÊBˆ[™›×Û^[Ý]˜YÝ™]Ú
+JB‚ˆ[]HHX[ÙËœ[]J
+BˆÚ[™Ý×ØÛÛÜˆH[]K˜ÛÛÜŠT[]KÛÛÜ”›ÛK•Ú[™ÝÊBˆ^ØÛÛÜˆH[]K˜ÛÛÜŠT[]KÛÛÜ”›ÛK•Ú[™ÝÕ^
+Bˆ\š×Ý[YHHÚ[™Ý×ØÛÛÜ‹›YÚ™\ÜÊ
+HLŽˆ]]YØÛÛÜˆHPÛÛÜŠˆÐŽÌÐÈˆYˆ\š×Ý[YH[ÙHˆÍPÌŠBˆÙ\\˜]Ü—ØÛÛÜˆHPÛÛÜŠˆÍMMŒÈˆYˆ\š×Ý[YH[ÙHˆÐÍÐQˆŠB‚ˆYˆÛÛ™šYÝ\™WÛX™[
+ˆX™[ˆSX™[ˆ
+‹ˆÚ[ÜÚ^™Nˆ[ˆÙZYÚˆQ›Û•ÙZYÚHQ›Û•ÙZYÚ“›Ü›X[ˆÛÛÜŽˆPÛÛÜˆH^ØÛÛÜ‹ˆ
+HOˆ›Û™N‚ˆ›ÛHX™[™›Û
+
+Bˆ›ÛœÙ]Ú[Ú^™JÚ[ÜÚ^™JBˆ›ÛœÙ]ÙZYÚ
+ÙZYÚ
+BˆX™[œÙ]›Û
+›Û
+BˆX™[Ü[]HHX™[œ[]J
+BˆX™[Ü[]KœÙ]ÛÛÜŠT[]KÛÛÜ”›ÛK•Ú[™ÝÕ^ÛÛÜŠBˆX™[œÙ][]JX™[Ü[]JBˆX™[œÙ]Ý[TÚY]
+ˆ˜ÛÛÜŽˆØÛÛÜ‹›˜[YJ
+_NÈ˜XÚÙÜ›Ý[™ˆ˜[œÜ\™[È›Ü™\Žˆ›Û™NÈŠB‚ˆ]WÛX™[HSX™[
+‘ÑSÓÑÈÐTÔUSÐ^\ˆ‹[™›×Ü[™[
+Bˆ]WÛX™[œÙ]ÛÜ™Ü˜\
+YJBˆÛÛ™šYÝ\™WÛX™[
+ˆ]WÛX™[ˆÚ[ÜÚ^™OLNˆÙZYÚTQ›Û•ÙZYÚ›Ûˆ
+Bˆ[™›×Û^[Ý]˜YÚYÙ]
+]WÛX™[
+B‚ˆYÛ[™WÛX™[HSX™[
+Ù[‹—Ý
+œÚ[˜X›Ý]ÝYÛ[™HŠK[™›×Ü[™[
+BˆYÛ[™WÛX™[œÙ]ÛÜ™Ü˜\
+YJBˆÛÛ™šYÝ\™WÛX™[
+ˆYÛ[™WÛX™[ˆÚ[ÜÚ^™OLLKˆÙZYÚTQ›Û•ÙZYÚ‘[ZP›ÛˆÛÛÜTPÛÛÜŠˆÑLŽLˆYˆ\š×Ý[YH[ÙHˆÐNQŒŠKˆ
+Bˆ[™›×Û^[Ý]˜YÚYÙ]
+YÛ[™WÛX™[
+B‚ˆ™\œÚ[Û—ÛX™[HSX™[
+Ù[‹—Ý
+œÚ[˜X›Ý]Ý™\œÚ[Ûˆ‹™\œÚ[ÛW×Ý™\œÚ[Û—×ÊK[™›×Ü[™[
+BˆÛÛ™šYÝ\™WÛX™[
+™\œÚ[Û—ÛX™[Ú[ÜÚ^™OLLÛÛÜ[]]YØÛÛÜŠBˆ[™›×Û^[Ý]˜YÚYÙ]
+™\œÚ[Û—ÛX™[
+B‚ˆÝ™\šY]×ÛX™[HSX™[
+Ù[‹—Ý
+œÚ[˜X›Ý]ÛÝ™\šY]ÈŠK[™›×Ü[™[
+BˆÝ™\šY]×ÛX™[œÙ]Øš™XÝ˜[YJ˜X›Ý]Ý™\šY]ÈŠBˆÝ™\šY]×ÛX™[œÙ]ÛÜ™Ü˜\
+YJBˆÝ™\šY]×ÛX™[œÙ]^›Ü›X]
+]•^›Ü›X]”Z[•^
+BˆÛÛ™šYÝ\™WÛX™[
+Ý™\šY]×ÛX™[Ú[ÜÚ^™OLL
+Bˆ[™›×Û^[Ý]˜YÜXÚ[™ÊÊBˆ[™›×Û^[Ý]˜YÚYÙ]
+Ý™\šY]×ÛX™[
+B‚ˆÙ\\˜]ÜˆHQœ˜[YJ[™›×Ü[™[
+BˆÙ\\˜]Ü‹œÙ]Øš™XÝ˜[YJ˜X›Ý]Ù\\˜]ÜˆŠBˆÙ\\˜]Ü‹œÙ]š^YZYÚ
+JBˆÙ\\˜]Ü‹œÙ]Ý[TÚY]
+ˆˆ”Qœ˜[YHØX›Ý]Ù\\˜]ÜˆÞÈ˜XÚÙÜ›Ý[™XÛÛÜŽˆÜÙ\\˜]Ü—ØÛÛÜ‹›˜[YJ
+_NÈ›Ü™\Žˆ›Û™NÈ_H‚ˆ
+Bˆ[™›×Û^[Ý]˜YÜXÚ[™ÊLŠBˆ[™›×Û^[Ý]˜YÚYÙ]
+Ù\\˜]ÜŠBˆ[™›×Û^[Ý]˜YÜXÚ[™ÊLŠB‚ˆ]]Ü—ØØ\[ÛˆHSX™[
+Ù[‹—Ý
+œÚ[˜X›Ý]Ø]]ÜˆŠK[™›×Ü[™[
+BˆÛÛ™šYÝ\™WÛX™[
+]]Ü—ØØ\[Û‹Ú[ÜÚ^™OLLÛÛÜ[]]YØÛÛÜŠBˆ[™›×Û^[Ý]˜YÚYÙ]
+]]Ü—ØØ\[ÛŠB‚ˆ]]Ü—Û˜[YHHSX™[
+”š[˜]Ø\›][[ˆ‹[™›×Ü[™[
+BˆÛÛ™šYÝ\™WÛX™[
+ˆ]]Ü—Û˜[YKˆÚ[ÜÚ^™OLMˆÙZYÚTQ›Û•ÙZYÚ‘[ZP›Ûˆ
+Bˆ[™›×Û^[Ý]˜YÚYÙ]
+]]Ü—Û˜[YJB‚ˆ[XZ[ØØ\[ÛˆHSX™[
+Ù[‹—Ý
+œÚ[˜X›Ý]Ù[XZ[ŠK[™›×Ü[™[
+BˆÛÛ™šYÝ\™WÛX™[
+[XZ[ØØ\[Û‹Ú[ÜÚ^™OLLÛÛÜ[]]YØÛÛÜŠBˆ[™›×Û^[Ý]˜YÜXÚ[™ÊJBˆ[™›×Û^[Ý]˜YÚYÙ]
+[XZ[ØØ\[ÛŠB‚ˆ[XZ[ÛX™[HSX™[
+\˜LÜÜœÛXZ[˜ÛÛH‹[™›×Ü[™[
+Bˆ[XZ[ÛX™[œÙ]^[\˜XÝ[Û‘›YÜÊ]•^[\˜XÝ[Û‘›YË•^Ù[XÝX›PžS[Ý\ÙJBˆ[XZ[ÛX™[œÙ]Ü[‘^\›˜[[šÜÊ˜[ÙJBˆÛÛ™šYÝ\™WÛX™[
+[XZ[ÛX™[Ú[ÜÚ^™OLLJBˆ[™›×Û^[Ý]˜YÚYÙ]
+[XZ[ÛX™[
+Bˆ[™›×Û^[Ý]˜YÝ™]Ú
+JB‚ˆÛÛ[Û^[Ý]˜YÚYÙ]
+[™›×Ü[™[][YÛ›Y[›YË[YÛ•Ù[\ŠBˆ›ÛÝÛ^[Ý]˜Y^[Ý]
+ÛÛ[Û^[Ý]JB‚ˆ]ÛœÈHQX[ÙÐ]Û›Þ
+QX[ÙÐ]Û›Þ”Ý[™\™]Û‹“ÚË\™[YX[ÙÊBˆ]ÛœË˜XØÙ\Y˜ÛÛ›™XÝ
+X[ÙË˜XØÙ\
+Bˆ›ÛÝÛ^[Ý]˜YÚYÙ]
+]ÛœÊB‚ˆX[ÙË™^XÊ
+B

@@ -119,6 +119,7 @@ class Wits0LiveViewWidget(QWidget):
         self.localizer = Localizer.create(language)
         self._runtime: Wits0AcquisitionRuntime | None = None
         self._view: AcquisitionLiveView | None = None
+        self._preview_mode = False
         self._last_revision: tuple[int, int, bool, bool, str] | None = None
         self._updating_controls = False
         self._updating_plot_range = False
@@ -237,10 +238,16 @@ class Wits0LiveViewWidget(QWidget):
         layout.addWidget(self.summary_label)
         return panel
 
-    def bind_runtime(self, runtime: Wits0AcquisitionRuntime | None) -> None:
+    def bind_runtime(
+        self,
+        runtime: Wits0AcquisitionRuntime | None,
+        *,
+        preview: bool = False,
+    ) -> None:
         if runtime is None:
             self.clear_runtime()
             return
+        self._preview_mode = preview
         if self._runtime is runtime and self._view is not None:
             self.refresh()
             return
@@ -290,7 +297,9 @@ class Wits0LiveViewWidget(QWidget):
             history_start=history[0] if history is not None else None,
             history_end=history[1] if history is not None else None,
             acquisition_session_id=(
-                self._runtime.session.session_id if self._runtime is not None else None
+                self._runtime.session.session_id
+                if self._runtime is not None and not self._preview_mode
+                else None
             ),
         )
 
@@ -342,6 +351,7 @@ class Wits0LiveViewWidget(QWidget):
     def clear_runtime(self) -> None:
         self._runtime = None
         self._view = None
+        self._preview_mode = False
         self._last_revision = None
         self.curve_list.clear()
         self.values_table.setRowCount(0)
@@ -594,11 +604,12 @@ class Wits0LiveViewWidget(QWidget):
         )
         self.pause_button.blockSignals(False)
 
-        state = (
-            self._t("wits0_live.state_paused")
-            if snapshot.paused
-            else self._t("wits0_live.state_live")
-        )
+        if snapshot.paused:
+            state = self._t("wits0_live.state_paused")
+        elif self._preview_mode:
+            state = self._t("wits0_live.state_preview")
+        else:
+            state = self._t("wits0_live.state_live")
         self.state_label.setText(
             self._t(
                 "wits0_live.state_summary",

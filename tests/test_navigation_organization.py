@@ -162,6 +162,7 @@ def test_wits_commands_are_collected_in_top_level_menu_after_tools(qapp) -> None
     menu_bar_actions = window.menuBar().actions()
     tools_index = menu_bar_actions.index(tools_menu.menuAction())
     assert menu_bar_actions[tools_index + 1] is window.wits_protocol_action
+    assert sum(action.text() == "WITS" for action in menu_bar_actions) == 1
 
     assert _wits_command_actions(window) == expected_actions
     assert _wits_section_titles(window) == (

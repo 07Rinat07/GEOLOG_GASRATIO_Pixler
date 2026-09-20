@@ -47,13 +47,28 @@ def test_builtin_profile_references_catalog_and_correct_header_contract() -> Non
         b"&&\n0101SG-8\n010201\n010301\n010442\n0105260727\n0106021545\n01070\n!!"
     )
 
-    assert profile.version == 2
+    assert profile.version == 3
+    assert profile.encoding == "cp1251"
     assert profile.field_catalog_id == "geosensor-wits-level0"
     assert frame.field(1, 1).canonical_mnemonic == "WELL_IDENTIFIER"  # type: ignore[union-attr]
     assert frame.field(1, 2).canonical_mnemonic == "SIDETRACK_HOLE_SECTION"  # type: ignore[union-attr]
     assert frame.field(1, 3).canonical_mnemonic == "WITS_RECORD_IDENTIFIER"  # type: ignore[union-attr]
     assert frame.field(1, 4).canonical_mnemonic == "WITS_SEQUENCE"  # type: ignore[union-attr]
     assert frame.sequence_no == 42
+
+
+def test_builtin_profile_decodes_geoscape_cyrillic_headers_without_errors() -> None:
+    profile = load_builtin_wits0_profile()
+    frame = Wits0Parser(profile).parse(
+        "&&\n0101СКВАЖИНА-8\n010201\n010301\n010442\n0105260727\n0106021545\n01070\n0108123.4\n!!".encode(
+            "cp1251"
+        )
+    )
+
+    assert frame.field(1, 1).value == "СКВАЖИНА-8"  # type: ignore[union-attr]
+    assert not any(
+        item.code is Wits0DiagnosticCode.DECODE_ERROR for item in frame.diagnostics
+    )
 
 
 def test_manual_geoscape_record_uses_item_04_as_sequence() -> None:

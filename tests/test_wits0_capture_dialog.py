@@ -138,10 +138,10 @@ def test_wits0_capture_dialog_constructs_offscreen(monkeypatch) -> None:  # type
         app.processEvents()
 
 
-def test_main_window_restores_dedicated_wits_menu() -> None:
+def test_navigation_controller_remains_single_owner_of_dedicated_wits_menu() -> None:
     source = MAIN_WINDOW.read_text(encoding="utf-8")
 
-    assert 'wits_menu = self._add_localized_menu("menu.wits")' in source
+    assert 'wits_menu = self._add_localized_menu("menu.wits")' not in source
     for action in (
         "inspect_witsml_action",
         "import_witsml_data_action",
@@ -149,7 +149,7 @@ def test_main_window_restores_dedicated_wits_menu() -> None:
         "open_etp12_action",
         "capture_wits0_action",
     ):
-        assert f"wits_menu.addAction(self.{action})" in source
+        assert f"file_menu.addAction(self.{action})" in source
 
 
 def test_wits0_capture_reports_synchronous_startup_failures() -> None:
