@@ -4,6 +4,10 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- ARCH-02: WITSML 2.x file import и WITSML 1.4.1.1 Store теперь используют общий
+  `WitsmlImportCoordinator`; решение о создании новой скважины и атомарная project registration
+  находятся вне Qt-shell. Source-contract не допускает возврат прямого
+  `WitsmlProjectImportController(self.session)` в MainWindow.
 - ARCH-01 завершён: production `ApplicationContext` теперь реально собирает MainWindow —
   отдельный project storage scope, semantic mnemonic registry, import jobs, общий report passport
   builder, WITSML/ETP credential stores и audit sinks. WITSML/ETP dialogs принимают эти ports
