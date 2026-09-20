@@ -89,9 +89,10 @@ def test_witsml_import_review_uses_semantic_context_boundary() -> None:
     assert source.count("dictionary.resolve_context(") >= 3
     assert "self.dictionary.resolve(" not in source
     assert "dictionary.resolve(" not in source
-    assert '"witsml_mapping=automatic"' in source
-    assert '"witsml_mapping=reviewed"' in source
-    assert '"witsml_mapping=commit"' in source
+    assert 'f"witsml_mapping={mapping_state}"' in source
+    assert 'mapping_state="automatic"' in source
+    assert 'mapping_state="reviewed"' in source
+    assert 'mapping_state="commit"' in source
 
 
 def test_commit_is_deterministic_for_same_plan() -> None:
