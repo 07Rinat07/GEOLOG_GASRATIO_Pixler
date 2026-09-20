@@ -658,6 +658,15 @@ python -m pytest -q tests/test_semantic_channels.py tests/test_semantic_binding_
 Набор проверяет immutable context, deterministic catalog version, mapping evidence, stale-context
 rejection, compatibility `resolve()` и переход LAS на `context() → resolve_context()`.
 
+Второй ARCH-04 CSV semantic-context slice:
+
+```bash
+python -m pytest -q tests/test_semantic_csv_import.py tests/test_semantic_channels.py
+```
+
+Набор проверяет CSV/TXT column/header evidence, catalog version provenance и source-contract на
+`context() → resolve_context()` без отдельного semantic resolver path.
+
 ## 15. Каталоги печатных шапок и логотипов
 
 Минимальная доменная и SKF-проверка:
