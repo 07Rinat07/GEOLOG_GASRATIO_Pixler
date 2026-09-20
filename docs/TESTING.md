@@ -629,6 +629,16 @@ python -m pytest -q tests/test_selection_interaction.py
 Набор проверяет единый interval-selection source of truth в `SelectionManager`, active
 interpretation context и source-contract на отсутствие параллельных selected-id полей в `TabletView`.
 
+Пятый ARCH-03 render-state extraction:
+
+```bash
+python -m pytest -q tests/test_tablet_render_state.py \
+  tests/test_tablet_geometry_cache.py tests/test_tablet_overlay_layers.py
+```
+
+Набор проверяет ownership geometry/static caches, dirty invalidation и отсутствие прямого
+mutable render-state ownership в `TabletView`.
+
 ## 15. Каталоги печатных шапок и логотипов
 
 Минимальная доменная и SKF-проверка:
