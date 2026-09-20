@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from PySide6.QtCore import QSize
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -15,6 +16,7 @@ from PySide6.QtWidgets import (
 from geoworkbench.domain.models import CuttingsSample
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 _TEXT = {
@@ -129,7 +131,11 @@ class CuttingsCompositionDialog(QDialog):
         self.buttons.accepted.connect(self._accept_if_valid)
         self.buttons.rejected.connect(self.reject)
         layout.addWidget(self.buttons)
-        self.resize(560, 680)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(560, 680),
+            minimum=QSize(420, 360),
+        )
 
     @staticmethod
     def _depth_input(value: float) -> QDoubleSpinBox:

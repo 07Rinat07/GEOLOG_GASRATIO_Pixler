@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
@@ -37,6 +37,7 @@ from geoworkbench.services.import_review import (
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.uom_dictionary import QuantityClass
 from geoworkbench.ui.collapsible_section import CollapsibleSection
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class ImportReviewDialog(QDialog):
@@ -66,7 +67,6 @@ class ImportReviewDialog(QDialog):
         self.accepted_dataset: Dataset | None = None
         self.failure: Exception | None = None
         self.setWindowTitle(self._t("import_review.title", file=source.name))
-        self.resize(1040, 700)
 
         root = QVBoxLayout(self)
         root.addWidget(self._build_source_header())
@@ -122,6 +122,11 @@ class ImportReviewDialog(QDialog):
 
         self._load_initial_state()
         self._refresh_review()
+        fit_window_to_screen(
+            self,
+            preferred=QSize(1040, 700),
+            minimum=QSize(640, 420),
+        )
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)

@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtPrintSupport import QPrinter, QPrintPreviewDialog
 from PySide6.QtWidgets import (
     QDialog,
@@ -14,7 +14,10 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QMessageBox,
     QPushButton,
+    QScrollArea,
+    QFrame,
     QVBoxLayout,
+    QWidget,
 )
 
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
@@ -67,6 +70,7 @@ from geoworkbench.printing.masterlog_presets import CURATED_MASTERLOG_FORM_PRESE
 from geoworkbench.ui.masterlog_output_dialog import MasterlogOutputDialog
 from geoworkbench.ui.masterlog_page_dialog import MasterlogPageDialog
 from geoworkbench.ui.masterlog_symbols_dialog import MasterlogSymbolsDialog
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 _MAPPING_ACTION = {
@@ -88,7 +92,6 @@ class MasterlogTemplatesDialog(QDialog):
         self.controller = controller
         self.localizer = Localizer.create(language)
         self.setWindowTitle(self._t("masterlog_templates.title"))
-        self.resize(560, 380)
         self.list = QListWidget()
         self.list.setObjectName("masterlog-template-list")
         self.create_button = QPushButton(self._t("common.create"))
@@ -131,7 +134,10 @@ class MasterlogTemplatesDialog(QDialog):
         self.package_export_button.clicked.connect(self._export_package)
         self.delete_button.clicked.connect(self._delete)
         close_button.clicked.connect(self.accept)
-        buttons = QHBoxLayout()
+        action_panel = QWidget()
+        action_panel.setObjectName("masterlog-template-actions")
+        action_layout = QHBoxLayout(action_panel)
+        action_layout.setContentsMargins(0, 0, 0, 0)
         for button in (
             self.create_button,
             self.preset_button,
@@ -150,13 +156,32 @@ class MasterlogTemplatesDialog(QDialog):
             self.package_export_button,
             self.delete_button,
         ):
-            buttons.addWidget(button)
-        buttons.addStretch(1)
-        buttons.addWidget(close_button)
+            action_layout.addWidget(button)
+
+        action_panel.adjustSize()
+        self.actions_scroll = QScrollArea()
+        self.actions_scroll.setObjectName("masterlog-template-actions-scroll")
+        self.actions_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.actions_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.actions_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.actions_scroll.setWidgetResizable(False)
+        self.actions_scroll.setWidget(action_panel)
+        self.actions_scroll.setMinimumHeight(48)
+        self.actions_scroll.setMaximumHeight(76)
+
+        footer = QHBoxLayout()
+        footer.addWidget(self.actions_scroll, 1)
+        footer.addWidget(close_button)
+
         layout = QVBoxLayout(self)
-        layout.addWidget(self.list)
-        layout.addLayout(buttons)
+        layout.addWidget(self.list, 1)
+        layout.addLayout(footer)
         self.refresh()
+        fit_window_to_screen(
+            self,
+            preferred=QSize(980, 520),
+            minimum=QSize(520, 360),
+        )
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)
