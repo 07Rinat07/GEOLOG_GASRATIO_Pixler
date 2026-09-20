@@ -6475,7 +6475,7 @@ class TabletView(QWidget):
     def _update_navigation_controls(self) -> None:
         current = self.visible_depth_range
         bounds = self._axis_bounds()
-        enabled = current is not None and bounds is not None
+        control_state = self._navigation.control_state(bounds, current)
         for widget in (
             self._goto_value,
             self._goto_button,
@@ -6485,20 +6485,18 @@ class TabletView(QWidget):
             self._span_combo,
             self._vertical_scrollbar,
         ):
-            widget.setEnabled(enabled)
-        if not enabled or current is None or bounds is None:
+            widget.setEnabled(control_state.enabled)
+        if not control_state.enabled or current is None or bounds is None:
             self._range_label.setText("—")
             self._vertical_scrollbar.setRange(0, 0)
             return
         top, bottom = current
-        data_top, data_bottom = bounds
-        visible_span = bottom - top
         self._range_label.setText(
             self._localizer.text(
                 "tablet.visible_range",
                 top=self._format_axis_value(top),
                 bottom=self._format_axis_value(bottom),
-                span=self._format_vertical_span(visible_span),
+                span=self._format_vertical_span(control_state.visible_span),
             )
         )
         descriptor = self._axis_descriptor()
@@ -6509,23 +6507,13 @@ class TabletView(QWidget):
                 else "tablet.goto_value_placeholder"
             )
         )
-        data_span = data_bottom - data_top
-        self._sync_depth_span_control(visible_span)
+        self._sync_depth_span_control(control_state.visible_span)
         self._scrollbar_guard = True
         try:
-            if visible_span >= data_span * 0.999999:
-                self._vertical_scrollbar.setRange(0, 0)
-                self._vertical_scrollbar.setPageStep(1)
-                self._vertical_scrollbar.setValue(0)
-            else:
-                maximum = 1_000_000
-                travel = max(data_span - visible_span, np.finfo(float).eps)
-                value = int(round((top - data_top) / travel * maximum))
-                page = max(1, int(round(visible_span / data_span * maximum)))
-                self._vertical_scrollbar.setRange(0, maximum)
-                self._vertical_scrollbar.setPageStep(page)
-                self._vertical_scrollbar.setSingleStep(max(1, page // 10))
-                self._vertical_scrollbar.setValue(max(0, min(maximum, value)))
+            self._vertical_scrollbar.setRange(0, control_state.scrollbar_maximum)
+            self._vertical_scrollbar.setPageStep(control_state.scrollbar_page_step)
+            self._vertical_scrollbar.setSingleStep(control_state.scrollbar_single_step)
+            self._vertical_scrollbar.setValue(control_state.scrollbar_value)
         finally:
             self._scrollbar_guard = False
 
@@ -6537,11 +6525,10 @@ class TabletView(QWidget):
         maximum = self._vertical_scrollbar.maximum()
         if current is None or bounds is None or maximum <= 0:
             return
-        span = current[1] - current[0]
-        data_top, data_bottom = bounds
-        travel = max((data_bottom - data_top) - span, 0.0)
-        top = data_top + travel * float(value) / float(maximum)
-        self._apply_visible_depth(top, top + span, emit_change=True)
+        top, bottom = self._navigation.range_from_scrollbar(
+            bounds, current, value, maximum
+        )
+        self._apply_visible_depth(top, bottom, emit_change=True)
 
     def _go_to_axis_value(self) -> None:
         text = self._goto_value.text().strip()
