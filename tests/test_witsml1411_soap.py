@@ -442,7 +442,9 @@ def test_witsml1411_ui_and_project_contract_are_wired() -> None:
     assert "Windows Credential Manager" in dialog or "witsml1411.remember" in dialog
     assert "package: WitsmlDataPackage | None = None" in import_dialog
     assert "open_witsml1411_store" in main
-    assert "WitsmlProjectImportController" in main
+    assert "WitsmlImportCoordinator" in main
+    assert "self.witsml_import_coordinator.register_reviewed_commit(commit)" in main
+    assert "WitsmlProjectImportController(self.session)" not in main
 
 
 def test_audit_hash_chain_detects_tampering(tmp_path: Path) -> None:

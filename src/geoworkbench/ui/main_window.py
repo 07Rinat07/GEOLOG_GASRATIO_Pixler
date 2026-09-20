@@ -165,7 +165,7 @@ from geoworkbench.form_constructor.asset_install import install_symbol_into_proj
 from geoworkbench.project.lag_correction_controller import LagCorrectionProjectController
 from geoworkbench.project.time_depth_mapping_controller import TimeDepthMappingController
 from geoworkbench.project.time_to_depth_controller import TimeToDepthController
-from geoworkbench.project.witsml_import_controller import WitsmlProjectImportController
+from geoworkbench.project.witsml_import_coordinator import WitsmlImportCoordinator
 from geoworkbench.printing.print_job import (
     PrintJobSettings,
     PrintOutputFormat,
@@ -672,6 +672,7 @@ class MainWindow(QMainWindow):
         self.nct_calculation_controller = NctCalculationController(self.session)
         self.new_las_controller = NewLasController(self.session)
         self.daily_las_growth_controller = DailyLasGrowthController(self.session)
+        self.witsml_import_coordinator = WitsmlImportCoordinator(self.session)
         self.las_range_editing_controller = LasRangeEditingController(self.session)
         self._configure_edit_dependencies()
         self.masterlog_template_controller = MasterlogTemplateController(self.session)
@@ -3639,10 +3640,7 @@ class MainWindow(QMainWindow):
         # The exact immutable Dataset reviewed by the operator is registered once.
         # No parsing or mapping is repeated after the dialog is accepted.
         try:
-            import_result = WitsmlProjectImportController(self.session).register(
-                commit,
-                create_new_well=self.session.current_well is None,
-            )
+            import_result = self.witsml_import_coordinator.register_reviewed_commit(commit)
         except Exception as exc:  # noqa: BLE001 - controller has already rolled project state back
             self._log(f"WITSML PROJECT IMPORT ERROR: {selected.name}: {exc}")
             QMessageBox.critical(
@@ -3692,10 +3690,7 @@ class MainWindow(QMainWindow):
             return
         commit = dialog.accepted_commit
         try:
-            registration = WitsmlProjectImportController(self.session).register(
-                commit,
-                create_new_well=self.session.current_well is None,
-            )
+            registration = self.witsml_import_coordinator.register_reviewed_commit(commit)
         except Exception as exc:  # noqa: BLE001 - controller rolls back project state
             self._log(f"WITSML 1.4.1.1 PROJECT IMPORT ERROR: {exc}")
             QMessageBox.critical(
@@ -5668,6 +5663,7 @@ class MainWindow(QMainWindow):
             reset_hooks=(self.daily_las_growth_controller.reset_state,),
             name="daily_las_growth",
         )
+        bindings.register(self.witsml_import_coordinator, name="witsml_import")
         bindings.register(
             self.las_range_editing_controller,
             reset_hooks=(self.las_range_editing_controller.clear_history,),

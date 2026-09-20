@@ -60,7 +60,10 @@ registry/report/security services переиспользуются явно. UI-
 credential/audit ports из composition root вместо скрытого создания вторых infrastructure
 экземпляров. Изолированный fallback без context сохранён только для unit/UI tests и embedding.
 `MainWindow` остаётся shell/composition UI; дальнейшее дробление feature orchestration относится
-к ARCH-02.
+к ARCH-02. Первый ARCH-02 slice выносит WITSML project registration в
+`WitsmlImportCoordinator`: оба UI-входа (WITSML 2.x file review и WITSML 1.4.1.1 Store)
+передают уже проверенный `WitsmlImportCommit`, а coordinator определяет target well policy и
+делегирует атомарную регистрацию application controller.
 
 ## Источник, рабочая модель и экспорт
 

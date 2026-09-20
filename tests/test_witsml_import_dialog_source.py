@@ -20,7 +20,8 @@ def test_main_window_registers_exact_witsml_review_commit_atomically() -> None:
     block = source[start : source.index("def dragEnterEvent", start)]
 
     assert 'self._localized_action("shell.import_witsml_data")' in source
-    assert "WitsmlProjectImportController(self.session).register(" in block
+    assert "self.witsml_import_coordinator.register_reviewed_commit(commit)" in block
+    assert "WitsmlProjectImportController(self.session)" not in block
     assert "dialog.accepted_commit" in block
     assert ").commit(" not in block
     assert "session.add_dataset" not in block

@@ -676,7 +676,10 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
   Production MainWindow больше не создаёт вторые экземпляры этих infrastructure services; fallback
   остаётся только для изолированных UI-тестов и совместимых embedding-сценариев.
 - [ ] **ARCH-02:** разделить `MainWindow` на feature coordinators; запретить UI прямые записи в
-  project collections, Dataset, layout и dirty-state.
+  project collections, Dataset, layout и dirty-state. Первый инкремент переносит WITSML
+  registration policy в `WitsmlImportCoordinator`: Qt-shell только выбирает источник,
+  показывает review/status и не создаёт project-mutation controller напрямую. Следующие
+  инкременты должны таким же образом вынести оставшиеся import/edit orchestration paths.
 - [ ] **ARCH-03:** вынести оставшиеся sampling/cache/navigation/track lifecycle/editing state из
   `TabletView` в Qt-независимые компоненты с transition tests.
 - [ ] **ARCH-04:** один immutable `SemanticContext` для всех importers с source mnemonic, UOM,
