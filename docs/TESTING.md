@@ -519,6 +519,16 @@ python -m pytest -q tests/test_application_context.py tests/test_application_con
 Он проверяет отдельный project scope, process-wide registry/report services, DI credentials/audit
 для WITSML/ETP и production MainWindow wiring. Полный Release gate остаётся обязательным.
 
+Для первого feature-coordinator инкремента ARCH-02:
+
+```bash
+python -m pytest -q tests/test_witsml_import_coordinator.py \
+  tests/test_witsml_project_import_controller.py tests/test_witsml_import_dialog_source.py
+```
+
+Набор фиксирует автоматический выбор target well, атомарную регистрацию уже проверенного commit
+и source-contract, запрещающий MainWindow напрямую создавать WITSML project-mutation controller.
+
 ## 15. Каталоги печатных шапок и логотипов
 
 Минимальная доменная и SKF-проверка:
