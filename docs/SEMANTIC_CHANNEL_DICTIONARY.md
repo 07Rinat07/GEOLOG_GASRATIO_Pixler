@@ -17,6 +17,14 @@ GeoScape/Paradox. Он не переименовывает исходные да
 Каталог датчиков остаётся единственным источником vendor-алиасов. Семантический слой не
 создаёт второй несогласованный список мнемоник.
 
+## Контекст сопоставления
+
+`SemanticContext` — immutable DTO для любого importer. Он фиксирует exact `source_mnemonic`,
+`mapped_mnemonic`, исходный UOM, description/canonical hint, importer `mapping_evidence` и
+`catalog_version`. Версия каталога — deterministic fingerprint содержимого Sensors; context от
+другой версии отклоняется вместо скрытого повторного сопоставления. `resolve()` временно остаётся
+совместимым shim и внутри строит тот же `SemanticContext`.
+
 ## Снимок привязки кривой
 
 `SemanticChannelBinding` содержит:
