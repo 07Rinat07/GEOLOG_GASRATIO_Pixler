@@ -168,8 +168,9 @@ def test_gasomer_report_stores_detector_votes_qc_and_provenance(qapp) -> None:
     assert "ОПУС Газомер — пять показателей и голоса" in readable_html
     assert "GM_5=(p2×p3×p4×p5/p1)" in readable_html
     assert "20.000" in readable_html
-    assert "AB2>AB5=250000" in readable_html
-    assert "AB2>=250000" in readable_html
+    assert "Исправления исходной книги" not in readable_html
+    assert "AB2>AB5=250000" not in readable_html
+    assert "AB2>=250000" not in readable_html
     dataset = session.current_dataset
     assert dataset is not None
     print_html = hydrocarbon_interpretation_html_with_front_chart(
@@ -205,8 +206,9 @@ def test_gasomer_snapshot_is_exported_without_recalculation(tmp_path, qapp) -> N
         assert any("((p2 * p3 * p4 * p5) / p1)" in value for value in values)
         assert any("Нефть" == value for value in values)
         assert any("available:" in value for value in values)
-        assert any("AB2>AB5=250000" in value for value in values)
-        assert any("AB2>=250000" in value for value in values)
+        assert not any("Исправления исходной книги" in value for value in values)
+        assert not any("AB2>AB5=250000" in value for value in values)
+        assert not any("AB2>=250000" in value for value in values)
     finally:
         workbook.close()
 
@@ -221,8 +223,9 @@ def test_gasomer_snapshot_is_exported_without_recalculation(tmp_path, qapp) -> N
     assert "opus-gasomer-total-gas-workbook" in document
     assert "класс 2 — Нефть" in document
     assert "SHA-256 книги" in document
-    assert "AB2>AB5=250000" in document
-    assert "AB2>=250000" in document
+    assert "Исправления исходной книги" not in document
+    assert "AB2>AB5=250000" not in document
+    assert "AB2>=250000" not in document
 
     pdf = export_hydrocarbon_interpretation_pdf(
         report,
@@ -234,7 +237,9 @@ def test_gasomer_snapshot_is_exported_without_recalculation(tmp_path, qapp) -> N
     assert "ОПУС Газомер" in pdf_text
     assert "opus-gasomer-total-gas-workbook" in pdf_text
     assert "Нефть" in pdf_text
-    assert "AB2>=250000" in pdf_text
+    assert "Исправления исходной книги" not in pdf_text
+    assert "AB2>AB5=250000" not in pdf_text
+    assert "AB2>=250000" not in pdf_text
 
 
 def test_missing_lod_is_explicit_and_does_not_run_gasomer_detector() -> None:
