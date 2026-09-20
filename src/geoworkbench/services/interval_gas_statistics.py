@@ -377,11 +377,12 @@ def _curve_html(
 def _components_text(
     items: tuple[IntervalCurveStatistics, ...],
     labels: dict[str, str],
+    language: AppLanguage = AppLanguage.RU,
 ) -> str:
     if not items:
         return labels["no_data"]
     ordered = sorted(items, key=lambda item: _component_sort_key(_component_name(item.mnemonic)))
-    return "; ".join(_stat_triplet(item, labels) for item in ordered)
+    return "; ".join(_stat_triplet(item, labels, language) for item in ordered)
 
 
 def _dexp_text(item: IntervalCurveStatistics | None, labels: dict[str, str]) -> str:
