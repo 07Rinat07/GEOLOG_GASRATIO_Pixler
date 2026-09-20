@@ -30,6 +30,7 @@ from geoworkbench.importers.witsml import (
 from geoworkbench.services.semantic_channels import (
     SemanticChannelBinding,
     SemanticChannelDictionary,
+    SemanticContext,
     default_semantic_channel_dictionary,
 )
 from geoworkbench.services.uom_dictionary import QuantityClass, UomDictionary, default_uom_dictionary
@@ -198,10 +199,12 @@ class WitsmlImportReviewController:
         index_uom = None if index_type is IndexType.DATETIME else _canonical_or_source(self.uoms, index.uom)
         channel_overrides: list[WitsmlChannelOverride] = []
         for channel in channel_set.channels:
-            binding = self.dictionary.resolve(
-                channel.mnemonic,
-                description=" ".join(filter(None, (channel.title, channel.description, channel.channel_class))),
-                unit=channel.uom or "",
+            binding = self.dictionary.resolve_context(
+                _semantic_context(
+                    self.dictionary,
+                    channel,
+                    mapping_state="automatic",
+                )
             )
             source_uom = _canonical_or_source(self.uoms, channel.uom)
             target_uom = binding.canonical_uom or source_uom
@@ -316,11 +319,13 @@ class WitsmlImportReviewController:
         canonical_kinds: dict[str, str] = {}
         for channel in channel_set.channels:
             override = override_by_key.get(channel.key) or WitsmlChannelOverride(channel.key, import_enabled=False)
-            binding = self.dictionary.resolve(
-                channel.mnemonic,
-                description=" ".join(filter(None, (channel.title, channel.description, channel.channel_class))),
-                unit=channel.uom or "",
-                canonical_mnemonic=override.canonical_mnemonic,
+            binding = self.dictionary.resolve_context(
+                _semantic_context(
+                    self.dictionary,
+                    channel,
+                    canonical_mnemonic=override.canonical_mnemonic,
+                    mapping_state="reviewed",
+                )
             )
             canonical_mnemonic = (override.canonical_mnemonic or binding.canonical_mnemonic).strip().upper()
             canonical_kind = (override.canonical_kind or binding.canonical_kind).strip().casefold()
@@ -651,16 +656,44 @@ def _canonical_or_source(uoms: UomDictionary, value: str | None) -> str | None:
     return resolution.canonical if resolution.recognized else ((value or "").strip() or None)
 
 
+def _semantic_context(
+    dictionary: SemanticChannelDictionary,
+    channel: WitsmlChannelSpec,
+    *,
+    canonical_mnemonic: str | None = None,
+    mapping_state: str,
+) -> SemanticContext:
+    evidence = [
+        f"witsml_channel_position={channel.position}",
+        f"witsml_channel_key={channel.key}",
+    ]
+    if channel.uuid:
+        evidence.append(f"witsml_channel_uuid={channel.uuid}")
+    evidence.append(f"witsml_mapping={mapping_state}")
+    return dictionary.context(
+        source_mnemonic=channel.mnemonic,
+        mapped_mnemonic=channel.mnemonic,
+        source_uom=channel.uom or "",
+        description=" ".join(
+            filter(None, (channel.title, channel.description, channel.channel_class))
+        ),
+        canonical_mnemonic=canonical_mnemonic,
+        mapping_evidence=tuple(evidence),
+    )
+
+
 def _semantic_binding(
     dictionary: SemanticChannelDictionary,
     channel: WitsmlChannelSpec,
     review: WitsmlChannelReview,
 ) -> SemanticChannelBinding:
-    automatic = dictionary.resolve(
-        channel.mnemonic,
-        description=" ".join(filter(None, (channel.title, channel.description, channel.channel_class))),
-        unit=channel.uom or "",
-        canonical_mnemonic=review.canonical_mnemonic,
+    automatic = dictionary.resolve_context(
+        _semantic_context(
+            dictionary,
+            channel,
+            canonical_mnemonic=review.canonical_mnemonic,
+            mapping_state="commit",
+        )
     )
     evidence = tuple(
         dict.fromkeys(
