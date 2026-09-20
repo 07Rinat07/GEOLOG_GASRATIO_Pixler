@@ -712,8 +712,11 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
   Финальный production-wide AST/source-contract запрещает legacy `SemanticChannelDictionary.resolve()`
   у production consumers; compatibility shim остаётся только внутри semantic dictionary для
   обратной совместимости и прямых compatibility tests.
-- [ ] **ARCH-05:** закрепить границы слоёв AST/import-contract тестами и запретить зависимости
-  domain/calculations от Qt/UI/printing.
+- [x] **ARCH-05:** закрепить границы слоёв AST/import-contract тестами и запретить зависимости
+  domain/calculations от Qt/UI/printing. Production-wide recursive contract проходит все Python-
+  модули `domain` и `calculations`, нормализует absolute/relative `Import`/`ImportFrom`
+  и запрещает PySide/PyQt, PyQtGraph/qtpy, `geoworkbench.ui` и `geoworkbench.printing`,
+  включая импорты внутри функций и `TYPE_CHECKING`.
 - [ ] **ARCH-06:** calculation profiles и conditioning policies сделать версионированными
   immutable DTO; UI выбирает профиль, но не реализует формулы или interpolation.
 
