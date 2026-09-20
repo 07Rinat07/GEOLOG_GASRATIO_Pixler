@@ -697,8 +697,9 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
   `TabletNavigationCoordinator`. Третий инкремент выносит interpretation interval
   editing-session state (mode/default type/gesture) в `IntervalEditingState`. Четвёртый
   инкремент устраняет duplicate interpretation/interval selection: interval принадлежит
-  `SelectionManager`, active interpretation — `InterpretationSelectionState`; следующие
-  инкременты продолжают cache/track lifecycle extraction.
+  `SelectionManager`, active interpretation — `InterpretationSelectionState`. Пятый
+  инкремент консолидирует geometry/static caches, dirty registry и overlay manager в
+  `TabletRenderState`; следующие инкременты продолжают track lifecycle/sampling extraction.
 - [ ] **ARCH-04:** один immutable `SemanticContext` для всех importers с source mnemonic, UOM,
   mapping evidence и версией каталога.
 - [ ] **ARCH-05:** закрепить границы слоёв AST/import-contract тестами и запретить зависимости
