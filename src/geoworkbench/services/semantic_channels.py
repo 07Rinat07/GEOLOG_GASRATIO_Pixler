@@ -160,7 +160,13 @@ class SemanticChannelDictionary:
     ) -> SemanticContext:
         source = source_mnemonic.strip()
         mapped = (mapped_mnemonic or source).strip()
-        evidence = tuple(dict.fromkeys(str(item).strip() for item in mapping_evidence if str(item).strip()))
+        evidence = tuple(
+            dict.fromkeys(
+                text
+                for item in mapping_evidence
+                if (text := str(item).strip())
+            )
+        )
         return SemanticContext(
             source_mnemonic=source,
             mapped_mnemonic=mapped,
