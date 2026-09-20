@@ -140,6 +140,21 @@ def test_atomic_commit_builds_immutable_time_schema_and_versioned_profile(
     assert commit.schema_digest == acquisition_schema_digest(commit.schema)
     assert len(commit.schema_digest) == 64
     assert commit.custom_profile.revision == 1
+    rop_curve = next(
+        curve.metadata
+        for curve in commit.schema.curves
+        if curve.metadata.canonical_mnemonic == "ROP"
+    )
+    assert rop_curve.semantic is not None
+    assert rop_curve.semantic.source_mnemonic == "ROP"
+    assert "wits0_record=2" in rop_curve.semantic.evidence
+    assert "wits0_item=10" in rop_curve.semantic.evidence
+    assert "wits0_source_id=0210" in rop_curve.semantic.evidence
+    assert "wits0_mapping=reviewed" in rop_curve.semantic.evidence
+    assert any(
+        item.startswith("catalog_version=sensors-v1:")
+        for item in rop_curve.semantic.evidence
+    )
 
     saved = save_wits0_custom_profile(commit.custom_profile, tmp_path)
     loaded = load_wits0_custom_profile(saved)
@@ -219,6 +234,25 @@ def test_manual_rename_and_semantic_override_are_frozen_in_schema() -> None:
     assert curve.semantic.canonical_kind == "manual.custom_sensor"
     assert curve.semantic.quantity_class is QuantityClass.DIMENSIONLESS
     assert curve.semantic.matched_by == "manual_wits0_import_review"
+    assert "wits0_source_id=0299" in curve.semantic.evidence
+    assert "wits0_mapping=reviewed" in curve.semantic.evidence
+    assert any(
+        item.startswith("catalog_version=sensors-v1:")
+        for item in curve.semantic.evidence
+    )
+
+
+def test_wits0_import_review_uses_semantic_context_boundary() -> None:
+    source = Path("src/geoworkbench/services/wits0_import_review.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert source.count("self.dictionary.context(") >= 2
+    assert source.count("self.dictionary.resolve_context(") >= 2
+    assert "self.dictionary.resolve(" not in source
+    assert 'f"wits0_source_id={channel.key.source_id}"' in source
+    assert '"wits0_mapping=automatic"' in source
+    assert '"wits0_mapping=reviewed"' in source
 
 
 def test_review_rejects_stale_discovery_and_required_numeric_conversion() -> None:
