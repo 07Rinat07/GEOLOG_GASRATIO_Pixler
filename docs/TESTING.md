@@ -593,6 +593,15 @@ AST/source-contract запрещает прямые assignments и mutating call
 collections/Dataset/Well из обоих MainWindow-слоёв и проверяет наличие утверждённых feature
 coordinators. Полный Release gate остаётся обязательным перед merge.
 
+Первый ARCH-03 state extraction:
+
+```bash
+python -m pytest -q tests/test_curve_pencil_state.py tests/test_tablet_edit_pipeline.py
+```
+
+Набор проверяет Qt-независимые transitions Curve Pencil и совместимость существующего TabletView
+edit pipeline. Полный Release gate остаётся обязательным перед merge.
+
 ## 15. Каталоги печатных шапок и логотипов
 
 Минимальная доменная и SKF-проверка:
