@@ -6968,7 +6968,7 @@ class MainWindow(QMainWindow):
             self._log(self._t("ratio.failed", error=str(exc)))
             return
 
-        self.curve_view.show_dataset(outcome.dataset, outcome.created_mnemonics)
+        self.curve_view.show_dataset(outcome.dataset, list(outcome.created_mnemonics))
         self.tablet_view.set_dataset(outcome.dataset)
         self._log(
             self._t("ratio.curves_updated", curves=", ".join(outcome.created_mnemonics))
