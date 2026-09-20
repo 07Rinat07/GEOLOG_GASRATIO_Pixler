@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QPalette, QResizeEvent
 from PySide6.QtWidgets import (
     QFrame,
@@ -26,6 +26,8 @@ from geoworkbench.ui.interpretation_report_workspace_compat import (
 
 class InterpretationReportWorkspace(_CompatibleInterpretationReportWorkspace):
     """Responsive interpretation workspace with separated controls and report preview."""
+
+    back_requested = Signal()
 
     _TWO_COLUMN_BREAKPOINT = 1_280
     _COMPACT_HEIGHT_BREAKPOINT = 720
@@ -66,6 +68,17 @@ class InterpretationReportWorkspace(_CompatibleInterpretationReportWorkspace):
         header_layout = QHBoxLayout(self.page_header)
         header_layout.setContentsMargins(16, 12, 16, 12)
         header_layout.setSpacing(14)
+
+        self.back_button = QToolButton()
+        self.back_button.setObjectName("interpretation-back-button")
+        self.back_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.back_button.setArrowType(Qt.ArrowType.LeftArrow)
+        self.back_button.clicked.connect(self.back_requested.emit)
+        header_layout.addWidget(
+            self.back_button,
+            0,
+            Qt.AlignmentFlag.AlignTop,
+        )
 
         header_text = QVBoxLayout()
         header_text.setSpacing(3)
@@ -389,6 +402,16 @@ class InterpretationReportWorkspace(_CompatibleInterpretationReportWorkspace):
             self.log_toggle.setChecked(False)
 
     def _retranslate_responsive_controls(self) -> None:
+        self.back_button.setText(
+            self._text("Назад", "Артқа", "Back")
+        )
+        self.back_button.setToolTip(
+            self._text(
+                "Вернуться назад и выбрать другой отчёт для печати.",
+                "Артқа оралып, басып шығару үшін басқа есепті таңдаңыз.",
+                "Go back and choose another report to print.",
+            )
+        )
         self.page_title.setText(
             self._text(
                 "Интерпретация газового каротажа",
@@ -526,6 +549,7 @@ class InterpretationReportWorkspace(_CompatibleInterpretationReportWorkspace):
                 font-size: 15px;
                 font-weight: 700;
             }}
+            QToolButton#interpretation-back-button,
             QToolButton#methodology-toggle,
             QToolButton#interpretation-log-toggle {{
                 min-height: 30px;
@@ -536,6 +560,7 @@ class InterpretationReportWorkspace(_CompatibleInterpretationReportWorkspace):
                 padding: 3px 9px;
                 font-weight: 600;
             }}
+            QToolButton#interpretation-back-button:hover,
             QToolButton#methodology-toggle:hover,
             QToolButton#interpretation-log-toggle:hover {{
                 color: {text};
