@@ -1317,6 +1317,7 @@ class MainWindow(QMainWindow):
         file_menu = self._add_localized_menu("menu.file")
         edit_menu = self._add_localized_menu("menu.edit")
         tools_menu = self._add_localized_menu("menu.tools")
+        wits_menu = self._add_localized_menu("menu.wits")
         las_editor_menu = self._add_localized_menu("menu.las_editor")
         calc_menu = self._add_localized_menu("menu.calculations")
         tablet_menu = self._add_localized_menu("menu.tablet")
@@ -1437,23 +1438,23 @@ class MainWindow(QMainWindow):
 
         self.inspect_witsml_action = self._localized_action("shell.inspect_witsml")
         self.inspect_witsml_action.triggered.connect(lambda: self.open_witsml_inventory())
-        file_menu.addAction(self.inspect_witsml_action)
+        wits_menu.addAction(self.inspect_witsml_action)
 
         self.import_witsml_data_action = self._localized_action("shell.import_witsml_data")
         self.import_witsml_data_action.triggered.connect(lambda: self.open_witsml_data_import())
-        file_menu.addAction(self.import_witsml_data_action)
+        wits_menu.addAction(self.import_witsml_data_action)
 
         self.open_witsml1411_action = self._localized_action("shell.open_witsml1411")
         self.open_witsml1411_action.triggered.connect(self.open_witsml1411_store)
-        file_menu.addAction(self.open_witsml1411_action)
+        wits_menu.addAction(self.open_witsml1411_action)
 
         self.open_etp12_action = self._localized_action("shell.open_etp12")
         self.open_etp12_action.triggered.connect(self.open_etp12_session)
-        file_menu.addAction(self.open_etp12_action)
+        wits_menu.addAction(self.open_etp12_action)
 
         self.capture_wits0_action = self._localized_action("shell.capture_wits0")
         self.capture_wits0_action.triggered.connect(self.open_wits0_capture)
-        file_menu.addAction(self.capture_wits0_action)
+        wits_menu.addAction(self.capture_wits0_action)
 
         self.paradox_batch_action = self._localized_action("paradox.batch_action")
         self.paradox_batch_action.setIcon(
