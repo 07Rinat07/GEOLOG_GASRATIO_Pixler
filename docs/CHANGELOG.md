@@ -4,6 +4,8 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- Отчёты: служебная errata исходной книги ОПУС Газомер больше не выводится пользователю в HTML/PDF, DOCX и XLSX; расчётный audit snapshot сохраняется.
+- UI отчётов: на странице интерпретационного отчёта добавлена кнопка «Назад» для возврата к главному экрану и выбора другого отчёта для печати.
 - ARCH-04: CSV/TXT import переведён на `SemanticContext`; binding сохраняет column/header mapping evidence.
 - ARCH-04 начат: введён immutable `SemanticContext` с source/mapped mnemonic, source UOM,
   canonical hint, mapping evidence и deterministic Sensors catalog version; LAS переведён на новый boundary.
