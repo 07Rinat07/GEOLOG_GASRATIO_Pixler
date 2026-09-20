@@ -1069,8 +1069,10 @@ class _MovableHeaderRect(QGraphicsRectItem):
 
     def mouseDoubleClickEvent(self, event) -> None:  # noqa: N802 - Qt API
         self._activated(self.element_id)
-        self._edited()
+        # Let Qt finish dispatching the event before the edit callback can rebuild
+        # the scene and delete this C++ graphics item.
         super().mouseDoubleClickEvent(event)
+        self._edited()
 
     def mouseReleaseEvent(self, event) -> None:  # noqa: N802 - Qt API
         super().mouseReleaseEvent(event)
@@ -1103,8 +1105,10 @@ class _MovableHeaderLine(QGraphicsLineItem):
 
     def mouseDoubleClickEvent(self, event) -> None:  # noqa: N802 - Qt API
         self._activated(self.element_id)
-        self._edited()
+        # Let Qt finish dispatching the event before the edit callback can rebuild
+        # the scene and delete this C++ graphics item.
         super().mouseDoubleClickEvent(event)
+        self._edited()
 
     def mouseReleaseEvent(self, event) -> None:  # noqa: N802 - Qt API
         super().mouseReleaseEvent(event)
