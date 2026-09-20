@@ -9157,14 +9157,16 @@ class TabletView(QWidget):
             interval_type = self._interval_creation_type
 
         if self._interval_edit_mode is IntervalEditMode.CREATE:
-            self._interval_gesture = _IntervalGesture(
-                track_id=track_id,
-                interpretation_id=interpretation.interpretation_id,
-                mode=IntervalEditMode.CREATE,
-                lane=lane,
-                interval_type=interval_type,
-                start_depth=snapped,
-                current_depth=snapped,
+            self._interval_editing.begin_gesture(
+                _IntervalGesture(
+                    track_id=track_id,
+                    interpretation_id=interpretation.interpretation_id,
+                    mode=IntervalEditMode.CREATE,
+                    lane=lane,
+                    interval_type=interval_type,
+                    start_depth=snapped,
+                    current_depth=snapped,
+                )
             )
             self._update_interval_preview()
             return True
@@ -9184,18 +9186,20 @@ class TabletView(QWidget):
         self.set_selected_interval(
             interpretation.interpretation_id, interval.interval_id, emit_signal=True
         )
-        self._interval_gesture = _IntervalGesture(
-            track_id=track_id,
-            interpretation_id=interpretation.interpretation_id,
-            mode=IntervalEditMode.RESIZE,
-            lane=lane,
-            interval_type=interval.interval_type,
-            start_depth=snapped,
-            current_depth=snapped,
-            interval_id=interval.interval_id,
-            edge=edge,
-            original_top=interval.top_depth,
-            original_bottom=interval.bottom_depth,
+        self._interval_editing.begin_gesture(
+            _IntervalGesture(
+                track_id=track_id,
+                interpretation_id=interpretation.interpretation_id,
+                mode=IntervalEditMode.RESIZE,
+                lane=lane,
+                interval_type=interval.interval_type,
+                start_depth=snapped,
+                current_depth=snapped,
+                interval_id=interval.interval_id,
+                edge=edge,
+                original_top=interval.top_depth,
+                original_bottom=interval.bottom_depth,
+            )
         )
         self._update_interval_preview()
         return True
@@ -9203,7 +9207,9 @@ class TabletView(QWidget):
     def update_interval_drag(self, depth: float) -> bool:
         if self._interval_gesture is None:
             return False
-        self._interval_gesture.current_depth = self._snap_depth(self._axis_to_depth_value(depth))
+        self._interval_editing.update_current_depth(
+            self._snap_depth(self._axis_to_depth_value(depth))
+        )
         self._update_interval_preview()
         return True
 
@@ -9211,7 +9217,9 @@ class TabletView(QWidget):
         gesture = self._interval_gesture
         if gesture is None:
             return False
-        gesture.current_depth = self._snap_depth(self._axis_to_depth_value(depth))
+        self._interval_editing.update_current_depth(
+            self._snap_depth(self._axis_to_depth_value(depth))
+        )
         result = self._gesture_result()
         self.cancel_interval_interaction(emit_signal=False)
         if result is None:
@@ -9246,7 +9254,7 @@ class TabletView(QWidget):
                     )
                     rendered.plot.removeItem(preview)
                 rendered.interpretation_preview = None
-        self._interval_gesture = None
+        self._interval_editing.cancel_gesture()
         if gesture is not None and emit_signal:
             self.interval_interaction_cancelled.emit()
 
