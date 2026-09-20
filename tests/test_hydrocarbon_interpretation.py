@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import zipfile
 
 import numpy as np
@@ -22,6 +23,7 @@ from geoworkbench.project.interpretation_controller import InterpretationControl
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.hydrocarbon_interpretation import (
     build_hydrocarbon_interpretation_report,
+    candidate_evidence_summary,
     hydrocarbon_interpretation_html,
 )
 from geoworkbench.services.localization import AppLanguage
@@ -180,6 +182,26 @@ def test_report_replaces_legacy_gas_vendor_codes_with_readable_names() -> None:
     assert "Изопентан (IC5)" in html
     for vendor_code in vendor_codes.values():
         assert vendor_code not in html
+
+
+def test_printable_evidence_humanizes_normalized_gas_curve_name() -> None:
+    report = build_hydrocarbon_interpretation_report(_session())
+    candidate = report.candidates[0]
+    readable = candidate_evidence_summary(
+        replace(
+            candidate,
+            evidence=(
+                "normalized-gas source=local-calculation; curve=TG_NORM_CALC",
+                "TG_NORM_CALC: max robust z = 4.02 (threshold 3.00)",
+            ),
+        ),
+        AppLanguage.RU,
+    )
+
+    assert "Нормализованный газ: источник — локальный расчёт" in readable
+    assert "Расчётный нормализованный общий газ (TG_NORM_CALC)" in readable
+    assert "source=local-calculation" not in readable
+    assert "curve=TG_NORM_CALC" not in readable
 
 
 def test_report_exports_openable_xlsx_and_docx(tmp_path) -> None:
