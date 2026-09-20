@@ -55,5 +55,7 @@ def test_main_window_does_not_construct_witsml_project_controller_directly() -> 
     source = Path("src/geoworkbench/ui/main_window.py").read_text(encoding="utf-8")
 
     assert "WitsmlImportCoordinator" in source
-    assert "self.witsml_import_coordinator.register_reviewed_commit(" in source
+    assert source.count(
+        "self.witsml_import_coordinator.register_reviewed_commit(commit)"
+    ) == 2
     assert "WitsmlProjectImportController(self.session)" not in source
