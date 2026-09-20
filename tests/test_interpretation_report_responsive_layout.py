@@ -20,6 +20,15 @@ def _grid_position(workspace, widget) -> tuple[int, int, int, int]:
     raise AssertionError(f"Widget {widget.objectName()} is absent from configuration grid")
 
 
+def _export_grid_position(workspace, widget) -> tuple[int, int, int, int]:
+    layout = workspace._export_grid
+    for index in range(layout.count()):
+        item = layout.itemAt(index)
+        if item.widget() is widget:
+            return layout.getItemPosition(index)
+    raise AssertionError(f"Widget {widget.objectName()} is absent from export grid")
+
+
 def test_interpretation_workspace_uses_collapsible_left_preview_sidebar(qapp) -> None:
     workspace = InterpretationReportWorkspace(
         InterpretationCalculationController(ProjectSession()),
@@ -120,6 +129,18 @@ def test_interpretation_workspace_keeps_export_actions_visible_at_laptop_height(
     assert workspace.report_panel.isVisible()
     assert workspace.pdf_button.isVisible()
     assert workspace.print_button.isVisible()
+    assert workspace.export_footer.mapTo(workspace, QPoint(0, 0)).y() < workspace.preview.mapTo(
+        workspace, QPoint(0, 0)
+    ).y()
+    assert workspace.xlsx_button.text() == "Excel (.xlsx)"
+    assert workspace.docx_button.text() == "Word (.docx)"
+    assert workspace.pdf_button.text() == "PDF"
+    assert workspace.print_button.text() == "Print"
+    assert not workspace.export_label.isVisible()
+    assert _export_grid_position(workspace, workspace.xlsx_button) == (0, 0, 1, 1)
+    assert _export_grid_position(workspace, workspace.docx_button) == (0, 1, 1, 1)
+    assert _export_grid_position(workspace, workspace.pdf_button) == (1, 0, 1, 1)
+    assert _export_grid_position(workspace, workspace.print_button) == (1, 1, 1, 1)
 
     for button in (workspace.xlsx_button, workspace.docx_button, workspace.pdf_button, workspace.print_button):
         top_left = button.mapTo(workspace, QPoint(0, 0))
