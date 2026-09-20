@@ -78,6 +78,9 @@ enrichment и регистрацией; production subclass больше не с
 transaction и baseline/completion state больше не собираются вручную в Qt-shell. ARCH-02
 закрывается общим AST/source-contract: оба MainWindow-слоя не могут напрямую присваивать
 ProjectSession/project/Dataset/Well state или возвращать ad-hoc mutation workflows.
+ARCH-03 начинается с Curve Pencil: renderer/UI остаются в `TabletView`, а editing session state
+(target, mode, gesture points, commit/history/unsaved flags) принадлежит Qt-независимому
+`CurvePencilState`.
 
 ## Источник, рабочая модель и экспорт
 
