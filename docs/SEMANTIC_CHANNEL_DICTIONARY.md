@@ -25,8 +25,9 @@ GeoScape/Paradox. Он не переименовывает исходные да
 другой версии отклоняется вместо скрытого повторного сопоставления. `resolve()` временно остаётся
 совместимым shim и внутри строит тот же `SemanticContext`. LAS добавляет evidence позиции curve,
 CSV/TXT — номера и исходного header столбца; GeoScape/Paradox — ordinal/name/type исходного поля
-и mapped mnemonic, а raw numeric time дополнительно получает явный projection marker. Эти
-признаки сохраняются в binding evidence.
+и mapped mnemonic, а raw numeric time дополнительно получает явный projection marker. WITS0
+Import Review фиксирует record/item/source-id и automatic/reviewed mapping state. Эти признаки
+сохраняются в binding evidence.
 
 ## Снимок привязки кривой
 
