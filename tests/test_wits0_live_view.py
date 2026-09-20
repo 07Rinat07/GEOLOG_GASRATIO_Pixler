@@ -26,6 +26,8 @@ def test_live_view_uses_read_only_projection_and_shared_downsampling() -> None:
     assert "AcquisitionLiveMarkerKind" in widget
     assert "Wits0LiveViewWidget" in capture
     assert "self.live_view.bind_runtime(runtime)" in capture
+    assert "self.live_view.bind_runtime(preview_runtime, preview=True)" in capture
+    assert "wits0_live.state_preview" in widget
     assert "def workspace_state(" in widget
     assert "def apply_workspace_state(" in widget
     pause_body = widget[

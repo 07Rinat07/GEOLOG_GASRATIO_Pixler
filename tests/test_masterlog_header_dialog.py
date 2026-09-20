@@ -1,5 +1,6 @@
 import base64
 from hashlib import sha256
+from pathlib import Path
 
 from PySide6.QtWidgets import QDialogButtonBox, QScrollArea
 
@@ -433,3 +434,15 @@ def test_masterlog_header_dialogs_fit_work_area_with_sticky_actions(qapp) -> Non
     finally:
         for dialog in dialogs:
             dialog.close()
+
+
+def test_header_graphics_double_click_finishes_qt_dispatch_before_scene_rebuild() -> None:
+    source = Path("src/geoworkbench/ui/masterlog_header_dialog.py").read_text(encoding="utf-8")
+
+    for class_name in ("_MovableHeaderRect", "_MovableHeaderLine"):
+        section = source.split(f"class {class_name}", 1)[1].split("\n\nclass ", 1)[0]
+        handler = section.split("def mouseDoubleClickEvent", 1)[1].split("\n    def ", 1)[0]
+        assert handler.index("super().mouseDoubleClickEvent(event)") < handler.index(
+            "self._edited()"
+        )
+        assert handler.strip().endswith("self._edited()")

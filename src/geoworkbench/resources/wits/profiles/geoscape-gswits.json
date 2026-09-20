@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "profileId": "geoscape-gswits",
   "title": "GeoScape GSWITS WITS Level 0",
-  "version": 2,
-  "encoding": "ascii",
+  "version": 3,
+  "encoding": "cp1251",
   "frame": {
     "start": "&&",
     "end": "!!"

@@ -59,11 +59,11 @@ from geoworkbench.services.wits0_recovery import (
 )
 from geoworkbench.services.wits0_import_review import (
     Wits0CustomProfile,
-    Wits0DiscoveryAccumulator,
     Wits0ImportReviewCommit,
     load_wits0_custom_profile,
     save_wits0_custom_profile,
 )
+from geoworkbench.services.wits0_live_preview import Wits0LivePreview
 from geoworkbench.ui.wits0_import_review_dialog import Wits0ImportReviewDialog
 from geoworkbench.ui.wits0_live_view import Wits0LiveViewWidget
 from geoworkbench.ui.window_geometry import fit_window_to_screen
@@ -99,7 +99,8 @@ class Wits0CaptureDialog(QDialog):
         self.engine: Wits0CaptureEngine | None = None
         self.acquisition_runtime: Wits0AcquisitionRuntime | None = None
         self.profile = load_builtin_wits0_profile()
-        self.discovery = Wits0DiscoveryAccumulator(self.profile)
+        self.live_preview = Wits0LivePreview(self.profile)
+        self.discovery = self.live_preview.discovery
         self.review_commit: Wits0ImportReviewCommit | None = None
         self.review_profile_path: Path | None = None
         self.previous_custom_profile = self._load_previous_custom_profile()
@@ -468,8 +469,11 @@ class Wits0CaptureDialog(QDialog):
         engine = Wits0CaptureEngine(config, profile=self.profile)
         try:
             engine.start()
-        except RuntimeError as exc:
+        except (OSError, RuntimeError, ValueError) as exc:
             QMessageBox.critical(self, self._t("wits0.title"), str(exc))
+            self.event_text.appendPlainText(
+                self._t("wits0.start_failed_event", error=str(exc))
+            )
             return
         self.engine = engine
         runtime = self.acquisition_runtime
@@ -640,18 +644,24 @@ class Wits0CaptureDialog(QDialog):
                 text = event.frame.decode(engine.config.encoding, errors="replace")
                 self.raw_text.appendPlainText(text)
                 if event.parsed_frame is not None:
-                    self.discovery.observe(event.parsed_frame)
                     self.parsed_text.appendPlainText(
                         self._format_parsed_frame(event.parsed_frame)
                     )
                     runtime = self.acquisition_runtime
                     if runtime is not None and runtime.state is Wits0AcquisitionState.OPEN:
+                        self.live_preview.observe_discovery_only(event.parsed_frame)
                         try:
                             runtime.submit_frame(event.parsed_frame)
                         except Wits0AcquisitionBackpressureError as exc:
                             self.event_text.appendPlainText(
                                 self._t("wits0.acquisition_backpressure_event", error=str(exc))
                             )
+                    elif runtime is None:
+                        preview_runtime = self.live_preview.observe(event.parsed_frame)
+                        if preview_runtime is not None:
+                            self.live_view.bind_runtime(preview_runtime, preview=True)
+                    else:
+                        self.live_preview.observe_discovery_only(event.parsed_frame)
                 continue
             detail = event.message
             if event.peer:
@@ -852,6 +862,14 @@ class Wits0CaptureDialog(QDialog):
             QMessageBox.critical(self, self._t("wits0.title"), str(exc))
             return
         self.acquisition_runtime = runtime
+        backfilled = 0
+        try:
+            backfilled = self.live_preview.backfill(runtime)
+        except (ValueError, RuntimeError) as exc:
+            self.event_text.appendPlainText(
+                self._t("wits0.acquisition_error_event", error=str(exc))
+            )
+            QMessageBox.warning(self, self._t("wits0.title"), str(exc))
         engine = self.engine
         if engine is not None:
             engine.set_recovery_context(
@@ -896,6 +914,10 @@ class Wits0CaptureDialog(QDialog):
                 dataset=runtime.session.dataset_schema.name,
             )
         )
+        if backfilled:
+            self.event_text.appendPlainText(
+                self._t("wits0.acquisition_backfilled_event", count=backfilled)
+            )
         self._refresh_acquisition_status()
         self._refresh_controls()
 
@@ -1068,7 +1090,8 @@ class Wits0CaptureDialog(QDialog):
             )
             if answer is not QMessageBox.StandardButton.Yes:
                 return
-        self.discovery.reset()
+        self.live_preview.reset()
+        self.live_view.clear_runtime()
         self.review_commit = None
         self.review_profile_path = None
         self._refresh_discovery_status()

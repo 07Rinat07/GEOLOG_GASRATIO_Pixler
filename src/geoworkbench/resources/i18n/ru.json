@@ -2113,6 +2113,7 @@
   "wits0.acquisition_applied": "Записано строк",
   "wits0.acquisition_backpressure": "Срабатываний backpressure",
   "wits0.acquisition_backpressure_event": "Backpressure WITS0: {error}",
+  "wits0.acquisition_backfilled_event": "Из live-preview перенесено кадров: {count}.",
   "wits0.acquisition_checkpoints": "Контрольных точек",
   "wits0.acquisition_close": "Закрыть сессию",
   "wits0.acquisition_close_before_reset": "Перед сбросом обнаружения необходимо закрыть активную acquisition-сессию.",
@@ -2242,6 +2243,7 @@
   "wits0_live.seconds_suffix": " с",
   "wits0_live.state_live": "LIVE",
   "wits0_live.state_paused": "ПАУЗА ПРОСМОТРА",
+  "wits0_live.state_preview": "LIVE PREVIEW · без записи в проект",
   "wits0_live.state_summary": "{state} · Dataset {dataset} · строк: {rows}, отображено: {visible}",
   "wits0_live.time_utc": "Время UTC",
   "wits0_live.unit": "Ед.",
@@ -2398,5 +2400,7 @@
   "document_bundle.partial": "Комплект подготовлен частично.\n\nФайлов: {files}\nНе выполнены результаты: {failed}\nМанифест: {manifest}",
   "document_bundle.status_complete": "Комплект документов подготовлен: файлов — {files}.",
   "document_bundle.status_partial": "Комплект документов подготовлен частично: не выполнено — {failed}.",
-  "document_bundle.retry_not_required": "Нет неудачных результатов для повторного выпуска."
+  "document_bundle.retry_not_required": "Нет неудачных результатов для повторного выпуска.",
+  "menu.wits": "WITS",
+  "wits0.start_failed_event": "Не удалось запустить WITS0: {error}"
 }
