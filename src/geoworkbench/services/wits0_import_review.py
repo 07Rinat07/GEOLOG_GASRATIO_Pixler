@@ -1060,26 +1060,40 @@ class Wits0ImportReviewController:
         )
 
     def _automatic_binding(self, channel: Wits0DiscoveredChannel) -> SemanticChannelBinding:
-        return self.dictionary.resolve(
-            channel.source_mnemonic,
-            description=channel.name,
-            unit=channel.source_uom or "",
+        semantic_context = self.dictionary.context(
             source_mnemonic=channel.source_mnemonic,
+            mapped_mnemonic=channel.source_mnemonic,
+            source_uom=channel.source_uom or "",
+            description=channel.name,
             canonical_mnemonic=channel.source_mnemonic,
+            mapping_evidence=(
+                f"wits0_record={channel.key.record_no}",
+                f"wits0_item={channel.key.item_no}",
+                f"wits0_source_id={channel.key.source_id}",
+                "wits0_mapping=automatic",
+            ),
         )
+        return self.dictionary.resolve_context(semantic_context)
 
     def _reviewed_binding(
         self,
         channel: Wits0DiscoveredChannel,
         override: Wits0ChannelOverride,
     ) -> tuple[SemanticChannelBinding, list[Wits0ReviewIssue]]:
-        automatic = self.dictionary.resolve(
-            channel.source_mnemonic,
-            description=channel.name,
-            unit=override.source_uom or "",
+        semantic_context = self.dictionary.context(
             source_mnemonic=channel.source_mnemonic,
+            mapped_mnemonic=channel.source_mnemonic,
+            source_uom=override.source_uom or "",
+            description=channel.name,
             canonical_mnemonic=override.canonical_mnemonic,
+            mapping_evidence=(
+                f"wits0_record={channel.key.record_no}",
+                f"wits0_item={channel.key.item_no}",
+                f"wits0_source_id={channel.key.source_id}",
+                "wits0_mapping=reviewed",
+            ),
         )
+        automatic = self.dictionary.resolve_context(semantic_context)
         issues: list[Wits0ReviewIssue] = []
         source_resolution = self.dictionary.uoms.resolve(override.source_uom)
         canonical_resolution = self.dictionary.uoms.resolve(override.canonical_uom)
