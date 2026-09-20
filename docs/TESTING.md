@@ -649,6 +649,15 @@ AST/source-contract проверяет отсутствие legacy mutable state
 утверждённых headless state/coordinator components, stateless sampling boundary и отсутствие
 PySide6/pyqtgraph top-level imports в ARCH-03 state modules.
 
+Первый ARCH-04 semantic-context boundary:
+
+```bash
+python -m pytest -q tests/test_semantic_channels.py tests/test_semantic_binding_propagation.py
+```
+
+Набор проверяет immutable context, deterministic catalog version, mapping evidence, stale-context
+rejection, compatibility `resolve()` и переход LAS на `context() → resolve_context()`.
+
 ## 15. Каталоги печатных шапок и логотипов
 
 Минимальная доменная и SKF-проверка:
