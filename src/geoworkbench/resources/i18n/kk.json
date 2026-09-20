@@ -2398,5 +2398,6 @@
   "document_bundle.partial": "Құжаттар жинағы ішінара дайындалды.\n\nФайлдар: {files}\nОрындалмаған нәтижелер: {failed}\nМанифест: {manifest}",
   "document_bundle.status_complete": "Құжаттар жинағы дайындалды: файлдар — {files}.",
   "document_bundle.status_partial": "Құжаттар жинағы ішінара дайындалды: орындалмағаны — {failed}.",
-  "document_bundle.retry_not_required": "Қайталап шығарылатын орындалмаған нәтижелер жоқ."
+  "document_bundle.retry_not_required": "Қайталап шығарылатын орындалмаған нәтижелер жоқ.",
+  "menu.wits": "WITS"
 }
