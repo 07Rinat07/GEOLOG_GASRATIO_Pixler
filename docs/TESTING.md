@@ -704,6 +704,16 @@ python -m pytest -q tests/test_import_review.py tests/test_import_review_control
 Набор проверяет read-only inspection, reviewed remapping, сохранение исходного importer evidence
 при manual override, catalog version provenance и отсутствие production legacy resolver path.
 
+Седьмой ARCH-04 ETP 1.2 semantic-context slice:
+
+```bash
+python -m pytest -q tests/test_etp12_acquisition.py tests/test_etp12_source_contracts.py \
+  tests/test_semantic_channels.py
+```
+
+Набор проверяет ETP channel URI/id evidence, automatic/reviewed/commit mapping state,
+catalog version provenance, сохранение UOM conversion plan и отсутствие legacy semantic resolver.
+
 ## 15. Каталоги печатных шапок и логотипов
 
 Минимальная доменная и SKF-проверка:

@@ -5,7 +5,7 @@ from enum import StrEnum
 from hashlib import sha256
 import json
 from math import isfinite
-from typing import Iterable, Mapping
+from typing import Iterable, Literal, Mapping
 
 from geoworkbench.domain.acquisition import (
     AcquisitionCurveSchema,
@@ -28,6 +28,7 @@ from geoworkbench.importers.etp12.models import (
 from geoworkbench.services.semantic_channels import (
     SemanticChannelBinding,
     SemanticChannelDictionary,
+    SemanticContext,
     default_semantic_channel_dictionary,
 )
 from geoworkbench.services.uom_dictionary import (
@@ -424,11 +425,13 @@ class Etp12ImportReviewController:
         )
         overrides: list[Etp12ChannelOverride] = []
         for channel in snapshot.channels:
-            binding = self.dictionary.resolve(
-                channel.channel_name,
-                description=channel.description or channel.channel_uri,
-                unit=channel.source_uom or "",
-                source_mnemonic=channel.channel_name,
+            binding = self.dictionary.resolve_context(
+                _semantic_context(
+                    self.dictionary,
+                    channel,
+                    source_uom=channel.source_uom,
+                    mapping_state="automatic",
+                )
             )
             source_uom = _canonical_or_source(self.uoms, channel.source_uom)
             canonical_uom = binding.canonical_uom or source_uom
@@ -513,12 +516,14 @@ class Etp12ImportReviewController:
                 continue
             channel_issues: list[Etp12ReviewIssue] = []
             canonical_mnemonic = (override.canonical_mnemonic or channel.channel_name).strip().upper()
-            automatic = self.dictionary.resolve(
-                channel.channel_name,
-                description=channel.description or channel.channel_uri,
-                unit=override.source_uom or "",
-                source_mnemonic=channel.channel_name,
-                canonical_mnemonic=canonical_mnemonic,
+            automatic = self.dictionary.resolve_context(
+                _semantic_context(
+                    self.dictionary,
+                    channel,
+                    source_uom=override.source_uom,
+                    canonical_mnemonic=canonical_mnemonic,
+                    mapping_state="reviewed",
+                )
             )
             quantity = _quantity_class(
                 override.quantity_class,
@@ -685,12 +690,14 @@ class Etp12ImportReviewController:
                 continue
             override = override_by_uri[row.channel_uri]
             discovered = discovered_by_uri[row.channel_uri]
-            automatic = self.dictionary.resolve(
-                discovered.channel_name,
-                description=discovered.description or discovered.channel_uri,
-                unit=row.source_uom or "",
-                source_mnemonic=discovered.channel_name,
-                canonical_mnemonic=row.canonical_mnemonic,
+            automatic = self.dictionary.resolve_context(
+                _semantic_context(
+                    self.dictionary,
+                    discovered,
+                    source_uom=row.source_uom,
+                    canonical_mnemonic=row.canonical_mnemonic,
+                    mapping_state="commit",
+                )
             )
             binding = SemanticChannelBinding(
                 canonical_kind=row.canonical_kind,
@@ -822,6 +829,28 @@ def _index_contract(
         return IndexType.MD, IndexRole.DEPTH, source_uom or canonical, canonical, "MD", None
     canonical = _canonical_or_source(default_uom_dictionary(), source_uom)
     return IndexType.GENERIC, IndexRole.GENERIC, source_uom, canonical, "INDEX", None
+
+
+def _semantic_context(
+    dictionary: SemanticChannelDictionary,
+    channel: Etp12DiscoveredChannel,
+    *,
+    source_uom: str | None,
+    canonical_mnemonic: str | None = None,
+    mapping_state: Literal["automatic", "reviewed", "commit"],
+) -> SemanticContext:
+    return dictionary.context(
+        source_mnemonic=channel.channel_name,
+        mapped_mnemonic=channel.channel_name,
+        source_uom=source_uom or "",
+        description=channel.description or channel.channel_uri,
+        canonical_mnemonic=canonical_mnemonic,
+        mapping_evidence=(
+            f"etp12_channel_uri={channel.channel_uri}",
+            f"etp12_channel_id={channel.channel_id}",
+            f"etp12_mapping={mapping_state}",
+        ),
+    )
 
 
 def _canonical_or_source(uoms: UomDictionary, value: str | None) -> str | None:

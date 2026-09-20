@@ -65,6 +65,22 @@ def test_packaging_and_ui_hooks_are_present() -> None:
     assert "multipart_timeout_seconds=" in dialog
 
 
+def test_etp12_import_review_uses_semantic_context_boundary() -> None:
+    source = (
+        ROOT / "src/geoworkbench/services/etp12_import_review.py"
+    ).read_text(encoding="utf-8")
+
+    assert "dictionary.context(" in source
+    assert source.count("self.dictionary.resolve_context(") >= 3
+    assert "self.dictionary.resolve(" not in source
+    assert 'f"etp12_channel_uri={channel.channel_uri}"' in source
+    assert 'f"etp12_channel_id={channel.channel_id}"' in source
+    assert 'f"etp12_mapping={mapping_state}"' in source
+    assert 'mapping_state="automatic"' in source
+    assert 'mapping_state="reviewed"' in source
+    assert 'mapping_state="commit"' in source
+
+
 def test_open_session_parser_accepts_enum_role_and_string_compression() -> None:
     from enum import Enum
     from types import SimpleNamespace
