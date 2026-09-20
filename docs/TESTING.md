@@ -611,6 +611,15 @@ python -m pytest -q tests/test_tablet_navigation_coordinator.py
 Набор проверяет projection visible range → scrollbar state, full-range collapse, обратное
 scrollbar → visible range преобразование и существующие pan/zoom/keyboard transitions.
 
+Третий ARCH-03 interval editing extraction:
+
+```bash
+python -m pytest -q tests/test_interval_editing_state.py tests/test_tablet_edit_pipeline.py
+```
+
+Набор проверяет mode/default-type transitions, lifecycle CREATE/RESIZE gesture и source-contract,
+что `TabletView` делегирует editing-session state Qt-независимому компоненту.
+
 ## 15. Каталоги печатных шапок и логотипов
 
 Минимальная доменная и SKF-проверка:

@@ -4,6 +4,8 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- ARCH-03: interval editing-session state вынесено из `TabletView` в Qt-независимый
+  `IntervalEditingState`; mode/default type/gesture lifecycle покрыты transition tests.
 - ARCH-03: scrollbar/control projection вертикальной навигации вынесена из `TabletView` в
   `TabletNavigationCoordinator`; диапазон, page/single step и обратное преобразование покрыты headless tests.
 - ARCH-03 начат: состояние Curve Pencil вынесено из `TabletView` в Qt-независимый
