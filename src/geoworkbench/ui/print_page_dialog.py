@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from PySide6.QtCore import QSize
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -7,9 +8,13 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QDoubleSpinBox,
     QFormLayout,
+    QFrame,
     QGridLayout,
     QGroupBox,
     QLabel,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
 )
 
 from geoworkbench.printing.page_settings import (
@@ -19,6 +24,7 @@ from geoworkbench.printing.page_settings import (
 )
 from geoworkbench.printing.print_layout import PrintScaleMode
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class PrintPageDialog(QDialog):
@@ -47,17 +53,25 @@ class PrintPageDialog(QDialog):
             (self._t("print.roll"), PrintPageFormat.ROLL.value),
         ):
             self.format_combo.addItem(label, value)
-        self.format_combo.setCurrentIndex(self.format_combo.findData(settings.page_format.value))
+        self.format_combo.setCurrentIndex(
+            self.format_combo.findData(settings.page_format.value)
+        )
         self.orientation_combo = QComboBox()
-        self.orientation_combo.addItem(self._t("print.portrait"), PrintOrientation.PORTRAIT.value)
-        self.orientation_combo.addItem(self._t("print.landscape"), PrintOrientation.LANDSCAPE.value)
+        self.orientation_combo.addItem(
+            self._t("print.portrait"), PrintOrientation.PORTRAIT.value
+        )
+        self.orientation_combo.addItem(
+            self._t("print.landscape"), PrintOrientation.LANDSCAPE.value
+        )
         self.orientation_combo.setCurrentIndex(
             self.orientation_combo.findData(settings.orientation.value)
         )
         self.width_input = self._dimension_input(settings.custom_width_mm)
         self.height_input = self._dimension_input(settings.custom_height_mm)
         self.scale_combo = QComboBox()
-        self.scale_combo.addItem(self._t("print_center.scale_fit"), PrintScaleMode.FIT.value)
+        self.scale_combo.addItem(
+            self._t("print_center.scale_fit"), PrintScaleMode.FIT.value
+        )
         self.scale_combo.addItem(
             self._t("print_center.scale_actual"), PrintScaleMode.ACTUAL_SIZE.value
         )
@@ -67,7 +81,9 @@ class PrintPageDialog(QDialog):
         self.scale_combo.currentIndexChanged.connect(self._update_custom_enabled)
         self.fit_columns_check = QCheckBox(self._t("print.fit_form_columns"))
         self.fit_columns_check.setChecked(settings.fit_form_columns)
-        self.fit_columns_check.setToolTip(self._t("print.fit_form_columns_tooltip"))
+        self.fit_columns_check.setToolTip(
+            self._t("print.fit_form_columns_tooltip")
+        )
         self.continuation_overlap_input = self._continuation_input(
             settings.continuation_overlap_mm
         )
@@ -80,7 +96,11 @@ class PrintPageDialog(QDialog):
         self.margin_bottom_input = self._margin_input(settings.margin_bottom_mm)
         self.format_combo.currentIndexChanged.connect(self._update_custom_enabled)
 
-        layout = QFormLayout(self)
+        root = QVBoxLayout(self)
+
+        content = QWidget()
+        content.setObjectName("print-page-scroll-content")
+        layout = QFormLayout(content)
         layout.addRow(self._t("print.page_format"), self.format_combo)
         layout.addRow(self._t("print.orientation"), self.orientation_combo)
         layout.addRow(self._t("print.width_mm"), self.width_input)
@@ -104,15 +124,32 @@ class PrintPageDialog(QDialog):
             margins_layout.addWidget(control, row, column + 1)
         layout.addRow(margins_group)
 
-        buttons = QDialogButtonBox(
+        self.settings_scroll = QScrollArea()
+        self.settings_scroll.setObjectName("print-page-settings-scroll")
+        self.settings_scroll.setWidgetResizable(True)
+        self.settings_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.settings_scroll.setWidget(content)
+        root.addWidget(self.settings_scroll, 1)
+
+        self.buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
-        buttons.button(QDialogButtonBox.StandardButton.Ok).setText(self._t("common.ok"))
-        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(self._t("common.cancel"))
-        layout.addRow(buttons)
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+        self.buttons.button(QDialogButtonBox.StandardButton.Ok).setText(
+            self._t("common.ok")
+        )
+        self.buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(
+            self._t("common.cancel")
+        )
+        root.addWidget(self.buttons)
+
         self._update_custom_enabled()
+        fit_window_to_screen(
+            self,
+            preferred=QSize(680, 620),
+            minimum=QSize(440, 320),
+        )
 
     def _t(self, key: str) -> str:
         return self.localizer.text(key)

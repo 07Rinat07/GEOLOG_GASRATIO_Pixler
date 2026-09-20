@@ -22,3 +22,15 @@ def test_masterlog_output_dialog_returns_selected_interval_and_language(qapp) ->
     assert dialog.windowTitle() == "Masterlog output settings"
     assert dialog.settings() == MasterlogOutputSettings(125.0, 250.0, AppLanguage.KK)
     dialog.close()
+
+
+def test_masterlog_output_dialog_stays_inside_work_area(qapp) -> None:
+    dialog = MasterlogOutputDialog((100.0, 300.0))
+    dialog.show()
+    qapp.processEvents()
+
+    screen = dialog.screen()
+    assert screen is not None
+    assert screen.availableGeometry().contains(dialog.frameGeometry())
+
+    dialog.close()

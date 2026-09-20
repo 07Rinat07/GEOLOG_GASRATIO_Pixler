@@ -1,9 +1,17 @@
 from __future__ import annotations
 
-from PySide6.QtWidgets import QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFormLayout
+from PySide6.QtCore import QSize
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QDoubleSpinBox,
+    QFormLayout,
+)
 
 from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
 from geoworkbench.services.localization import AppLanguage, LANGUAGE_NAMES, Localizer
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class MasterlogOutputDialog(QDialog):
@@ -39,6 +47,12 @@ class MasterlogOutputDialog(QDialog):
         layout.addRow(self.localizer.text("masterlog_output.bottom"), self.bottom_input)
         layout.addRow(self.localizer.text("masterlog_output.language"), self.language_input)
         layout.addRow(buttons)
+
+        fit_window_to_screen(
+            self,
+            preferred=QSize(520, 300),
+            minimum=QSize(360, 220),
+        )
 
     def settings(self) -> MasterlogOutputSettings:
         return MasterlogOutputSettings(

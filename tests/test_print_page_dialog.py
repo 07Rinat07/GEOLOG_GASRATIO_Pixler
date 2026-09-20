@@ -1,4 +1,5 @@
 from PySide6.QtGui import QPageLayout, QPageSize
+from PySide6.QtWidgets import QDialogButtonBox, QScrollArea
 import pytest
 
 from geoworkbench.printing.page_settings import (
@@ -61,3 +62,21 @@ def test_roll_dialog_enables_width_but_not_manual_height(qapp) -> None:
 def test_print_page_settings_reject_invalid_custom_width(width: object) -> None:
     with pytest.raises(ValueError, match="ширина"):
         PrintPageSettings(custom_width_mm=width)  # type: ignore[arg-type]
+
+
+def test_print_page_dialog_keeps_actions_visible_in_adaptive_shell(qapp) -> None:
+    dialog = PrintPageDialog(language=AppLanguage.RU)
+    dialog.show()
+    qapp.processEvents()
+
+    screen = dialog.screen()
+    assert screen is not None
+    assert screen.availableGeometry().contains(dialog.frameGeometry())
+    assert dialog.findChild(QScrollArea, "print-page-settings-scroll") is dialog.settings_scroll
+
+    buttons = dialog.findChild(QDialogButtonBox)
+    assert buttons is dialog.buttons
+    assert buttons.isVisible()
+    assert buttons.geometry().bottom() <= dialog.contentsRect().bottom()
+
+    dialog.close()
