@@ -572,6 +572,17 @@ python -m pytest -q tests/test_canvas_object_transfer_coordinator.py \
 Набор проверяет transactional material autosave, session rebinding, invalidation старого review
 и source-contract, запрещающий production UI создавать canvas controller/workflow вручную.
 
+Для шестого ARCH-02 инкремента:
+
+```bash
+python -m pytest -q tests/test_late_analysis_coordinator.py \
+  tests/test_late_analysis_review_dialog.py \
+  tests/test_well_analysis_update_workflow.py
+```
+
+Набор проверяет source load, WELL-02 apply/material autosave, completion count, project rebinding,
+инвалидацию старого review и отсутствие ad-hoc controller/workflow в production MainWindow.
+
 ## 15. Каталоги печатных шапок и логотипов
 
 Минимальная доменная и SKF-проверка:
