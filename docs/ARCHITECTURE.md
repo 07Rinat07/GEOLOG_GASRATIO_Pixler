@@ -86,6 +86,9 @@ ARCH-03 начинается с Curve Pencil: renderer/UI остаются в `T
 Третий slice ARCH-03 переносит interpretation interval editing-session state в
 `IntervalEditingState`: active mode, default interval type и in-progress gesture больше не
 принадлежат QWidget; Qt-view сохраняет preview graphics, cursors и signal emission.
+Четвёртый slice ARCH-03 устраняет параллельное хранение interval selection в `TabletView`:
+`SelectionManager` становится единственным владельцем выбранного interval, а
+`InterpretationSelectionState` хранит active interpretation и синхронизирует контекст.
 
 ## Источник, рабочая модель и экспорт
 

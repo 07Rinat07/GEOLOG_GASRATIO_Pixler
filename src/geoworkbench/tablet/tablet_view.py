@@ -245,6 +245,7 @@ from geoworkbench.tablet.selection_interaction import (
     CallbackCommand,
     CommandStack,
     HitResult,
+    InterpretationSelectionState,
     SelectableKind,
     SelectionManager,
     SelectionRef,
@@ -2086,8 +2087,8 @@ class TabletView(QWidget):
         self._cuttings: tuple[CuttingsSample, ...] = ()
         self._stratigraphy: tuple[StratigraphyInterval, ...] = ()
         self._interpretations: tuple[WellInterpretation, ...] = ()
-        self._selected_interpretation_id: str | None = None
-        self._selected_interval_id: str | None = None
+        self._selection = SelectionManager()
+        self._interpretation_selection = InterpretationSelectionState(self._selection)
         self._lithotype_catalog: dict[str, CatalogLithotype] = {}
         self._layout_model = TabletLayout()
         self._layout_mutations = TabletLayoutMutationController(self._layout_model)
@@ -2129,7 +2130,6 @@ class TabletView(QWidget):
         self._static_layer_cache = StaticLayerCache(max_entries=512)
         self._dirty_registry = TrackDirtyRegistry()
         self._overlay_layers = OverlayLayerManager()
-        self._selection = SelectionManager()
         self._interaction_history = CommandStack()
         self._header_drag: TrackHeaderDrag | None = None
         self._tooltip_items: dict[str, pg.TextItem] = {}
@@ -2858,12 +2858,24 @@ class TabletView(QWidget):
         self._interval_editing.set_creation_type(interval_type)
 
     @property
+    def _selected_interpretation_id(self) -> str | None:
+        return self._interpretation_selection.interpretation_id
+
+    @_selected_interpretation_id.setter
+    def _selected_interpretation_id(self, value: str | None) -> None:
+        self._interpretation_selection.set_interpretation(value)
+
+    @property
+    def _selected_interval_id(self) -> str | None:
+        return self._interpretation_selection.interval_id
+
+    @property
     def selected_interpretation_id(self) -> str | None:
-        return self._selected_interpretation_id
+        return self._interpretation_selection.interpretation_id
 
     @property
     def selected_interval_id(self) -> str | None:
-        return self._selected_interval_id
+        return self._interpretation_selection.interval_id
 
     def rendered_interpretation_ids(self, track_id: str) -> tuple[str, ...]:
         rendered = self._rendered.get(track_id)
@@ -2885,12 +2897,16 @@ class TabletView(QWidget):
             requested = (
                 self._interpretations[0].interpretation_id if self._interpretations else None
             )
-        self._selected_interpretation_id = requested
+        self._interpretation_selection.set_interpretation(requested)
         current = self._current_interpretation()
-        if current is None or not any(
-            item.interval_id == self._selected_interval_id for item in current.intervals
-        ):
-            self._selected_interval_id = None
+        valid_interval_ids = (
+            {item.interval_id for item in current.intervals}
+            if current is not None
+            else set()
+        )
+        if self._interpretation_selection.retain_interval(valid_interval_ids):
+            self._overlay_layers.mark_dirty(OverlayLayerKind.SELECTION)
+            self.selection_changed.emit(self._selection.snapshot())
         if refresh:
             self.refresh_view()
 
@@ -2901,13 +2917,16 @@ class TabletView(QWidget):
             item.interpretation_id == interpretation_id for item in self._interpretations
         ):
             return False
-        changed = self._selected_interpretation_id != interpretation_id
-        self._selected_interpretation_id = interpretation_id
+        changed = self._interpretation_selection.set_interpretation(interpretation_id)
         current = self._current_interpretation()
-        if current is None or not any(
-            item.interval_id == self._selected_interval_id for item in current.intervals
-        ):
-            self._selected_interval_id = None
+        valid_interval_ids = (
+            {item.interval_id for item in current.intervals}
+            if current is not None
+            else set()
+        )
+        if self._interpretation_selection.retain_interval(valid_interval_ids):
+            self._overlay_layers.mark_dirty(OverlayLayerKind.SELECTION)
+            self.selection_changed.emit(self._selection.snapshot())
         if changed:
             self.refresh_view()
             if emit_signal and interpretation_id is not None:
@@ -2929,30 +2948,24 @@ class TabletView(QWidget):
             item.interval_id == interval_id for item in interpretation.intervals
         ):
             return False
-        interpretation_changed = self._selected_interpretation_id != interpretation_id
-        interval_changed = self._selected_interval_id != interval_id
-        self._selected_interpretation_id = interpretation_id
-        self._selected_interval_id = interval_id
-        generic_changed = self._selection.select(
-            SelectionRef(SelectableKind.INTERVAL, interval_id),
-            additive=False,
+        change = self._interpretation_selection.select_interval(
+            interpretation_id,
+            interval_id,
         )
-        if generic_changed:
+        if change.selection_changed:
             self._overlay_layers.mark_dirty(OverlayLayerKind.SELECTION)
             self.selection_changed.emit(self._selection.snapshot())
-        if interpretation_changed:
+        if change.interpretation_changed:
             self.refresh_view()
         else:
             self._apply_interpretation_selection_style()
-        if emit_signal and (interpretation_changed or interval_changed):
+        if emit_signal and change.changed:
             self.interval_selected.emit(interpretation_id, interval_id)
-        return interpretation_changed or interval_changed
+        return change.changed
 
     def clear_interval_selection(self, *, emit_signal: bool = False) -> bool:
-        if self._selected_interval_id is None:
+        if not self._interpretation_selection.clear_interval():
             return False
-        self._selected_interval_id = None
-        self._selection.clear(kind=SelectableKind.INTERVAL)
         self._overlay_layers.mark_dirty(OverlayLayerKind.SELECTION)
         self.selection_changed.emit(self._selection.snapshot())
         self._apply_interpretation_selection_style()
@@ -3028,16 +3041,14 @@ class TabletView(QWidget):
 
     def clear_selection(self, *, emit_signal: bool = True) -> bool:
         changed = self._selection.clear()
-        interval_changed = self._selected_interval_id is not None
-        self._selected_interval_id = None
-        if changed or interval_changed:
+        if changed:
             self._overlay_layers.mark_dirty(OverlayLayerKind.SELECTION)
             self._apply_track_selection_style()
             self._apply_curve_selection_style()
             self._apply_interpretation_selection_style()
             if emit_signal:
                 self.selection_changed.emit(self._selection.snapshot())
-        return changed or interval_changed
+        return changed
 
     def _track_selected_from_widget(self, track_id: str) -> None:
         self._selected_track_id = track_id
@@ -5224,7 +5235,14 @@ class TabletView(QWidget):
             self._selected_interpretation_id,
             refresh=False,
         )
-        clone._selected_interval_id = self._selected_interval_id
+        if (
+            self._selected_interpretation_id is not None
+            and self._selected_interval_id is not None
+        ):
+            clone._interpretation_selection.select_interval(
+                self._selected_interpretation_id,
+                self._selected_interval_id,
+            )
         clone.set_layout_and_dataset(
             deepcopy(self._layout_model),
             self._dataset,
