@@ -701,7 +701,8 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
   запрещает возврат legacy mutable state в `TabletView.__init__` и top-level Qt imports в state modules.
 - [ ] **ARCH-04:** один immutable `SemanticContext` для всех importers с source mnemonic, UOM,
   mapping evidence и версией каталога. Первый инкремент вводит DTO + `resolve_context()` и
-  переводит LAS import; `resolve()` остаётся compatibility shim до миграции CSV/Paradox/WITS.
+  переводит LAS import; `resolve()` остаётся compatibility shim. Второй инкремент переводит
+  CSV/TXT import и фиксирует column/header mapping evidence; далее — Paradox и WITS family.
 - [ ] **ARCH-05:** закрепить границы слоёв AST/import-contract тестами и запретить зависимости
   domain/calculations от Qt/UI/printing.
 - [ ] **ARCH-06:** calculation profiles и conditioning policies сделать версионированными
