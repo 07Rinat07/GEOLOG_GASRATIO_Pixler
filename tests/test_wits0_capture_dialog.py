@@ -136,3 +136,27 @@ def test_wits0_capture_dialog_constructs_offscreen(monkeypatch) -> None:  # type
     finally:
         dialog.close()
         app.processEvents()
+
+
+def test_main_window_restores_dedicated_wits_menu() -> None:
+    source = MAIN_WINDOW.read_text(encoding="utf-8")
+
+    assert 'wits_menu = self._add_localized_menu("menu.wits")' in source
+    for action in (
+        "inspect_witsml_action",
+        "import_witsml_data_action",
+        "open_witsml1411_action",
+        "open_etp12_action",
+        "capture_wits0_action",
+    ):
+        assert f"wits_menu.addAction(self.{action})" in source
+
+
+def test_wits0_capture_reports_synchronous_startup_failures() -> None:
+    source = SOURCE.read_text(encoding="utf-8")
+    start = source[source.index("def _start_capture") : source.index("def _prepare_raw_directory")]
+
+    assert "except (OSError, RuntimeError, ValueError) as exc:" in start
+    assert '"wits0.start_failed_event"' in start
+    assert "self.engine = engine" in start
+    assert start.index("engine.start()") < start.index("self.engine = engine")
