@@ -117,7 +117,7 @@ def test_methods_sheet_omits_methodology_limitations_and_internal_warnings() -> 
     assert "published source" in values
 
 
-def test_opus_docx_keeps_provenance_and_errata_without_client_warnings() -> None:
+def test_opus_docx_keeps_provenance_but_omits_errata_and_client_warnings() -> None:
     section = _minimal_opus_section()
     report = _minimal_report(report_profile="opus", opus_gasomer=section)
     text = "\n".join(_opus_gasomer_docx(report))
@@ -125,11 +125,11 @@ def test_opus_docx_keeps_provenance_and_errata_without_client_warnings() -> None
     assert "Происхождение формул" in text
     assert "Происхождение формул и ограничения" not in text
     assert "published formula source" in text
-    assert "source workbook correction" in text
+    assert "source workbook correction" not in text
     assert "internal opus warning must stay out of client export" not in text
 
 
-def test_opus_xlsx_keeps_provenance_and_errata_without_client_warnings() -> None:
+def test_opus_xlsx_keeps_provenance_but_omits_errata_and_client_warnings() -> None:
     section = _minimal_opus_section()
     report = _minimal_report(report_profile="opus", opus_gasomer=section)
     workbook = Workbook()
@@ -139,5 +139,5 @@ def test_opus_xlsx_keeps_provenance_and_errata_without_client_warnings() -> None
     assert "Происхождение формул" in values
     assert "QC и ограничения" not in values
     assert "published formula source" in values
-    assert "source workbook correction" in values
+    assert "source workbook correction" not in values
     assert "internal opus warning must stay out of client export" not in values
