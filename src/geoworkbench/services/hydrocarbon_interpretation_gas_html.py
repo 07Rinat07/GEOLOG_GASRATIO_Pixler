@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from html import escape
-import re
-
 from geoworkbench.domain.models import Dataset
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
