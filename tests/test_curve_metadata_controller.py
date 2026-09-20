@@ -56,6 +56,12 @@ def test_updates_metadata_preserves_canonical_identity_and_supports_history() ->
     assert curve.metadata.original_mnemonic == "METHANE"
     assert curve.metadata.canonical_mnemonic == "C1"
     assert curve.metadata.unit == "ppm"
+    assert curve.metadata.semantic is not None
+    assert "curve_metadata=update" in curve.metadata.semantic.evidence
+    assert any(
+        item.startswith("catalog_version=")
+        for item in curve.metadata.semantic.evidence
+    )
     assert controller.session.dirty
 
     controller.undo()
@@ -113,6 +119,12 @@ def test_create_curve_initializes_missing_values_and_supports_undo_redo() -> Non
     assert dataset.curves[curve.metadata.curve_id] is curve
     assert curve.metadata.original_mnemonic == "ROP"
     assert curve.metadata.provenance == "user"
+    assert curve.metadata.semantic is not None
+    assert "curve_metadata=create" in curve.metadata.semantic.evidence
+    assert any(
+        item.startswith("catalog_version=")
+        for item in curve.metadata.semantic.evidence
+    )
     assert np.isnan(curve.values).all()
     controller.undo()
     assert curve.metadata.curve_id not in dataset.curves
@@ -179,3 +191,4 @@ def test_metadata_edit_preserves_imported_source_mnemonic_in_semantic_binding() 
     assert curve.metadata.semantic is not None
     assert curve.metadata.semantic.source_mnemonic == "VENDOR_CH4_RAW"
     assert curve.metadata.semantic.canonical_kind == "gas.c1"
+    assert "curve_metadata=update" in curve.metadata.semantic.evidence

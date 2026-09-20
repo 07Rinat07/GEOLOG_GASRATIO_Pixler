@@ -87,9 +87,57 @@ def _target_paths(node: ast.AST) -> tuple[str, ...]:
     return ()
 
 
+def _parent_map(tree: ast.Module) -> dict[ast.AST, ast.AST]:
+    parents: dict[ast.AST, ast.AST] = {}
+    for parent in ast.walk(tree):
+        for child in ast.iter_child_nodes(parent):
+            parents[child] = parent
+    return parents
+
+
+_SCOPE_TYPES = (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+
+
+def _containing_scope(
+    node: ast.AST,
+    parents: dict[ast.AST, ast.AST],
+    tree: ast.Module,
+) -> ast.AST:
+    current = parents.get(node)
+    while current is not None and not isinstance(current, _SCOPE_TYPES):
+        current = parents.get(current)
+    return current or tree
+
+
+def _scope_chain(
+    scope: ast.AST,
+    parents: dict[ast.AST, ast.AST],
+    tree: ast.Module,
+):
+    current = scope
+    while True:
+        yield current
+        if current is tree:
+            return
+        current = _containing_scope(current, parents, tree)
+
+
+def _path_is_tracked(
+    path: str,
+    scope: ast.AST,
+    tracked: dict[ast.AST, set[str]],
+    parents: dict[ast.AST, ast.AST],
+    tree: ast.Module,
+) -> bool:
+    return any(path in tracked.get(candidate, set()) for candidate in _scope_chain(scope, parents, tree))
+
+
 def _expression_references_semantic_dictionary(
     node: ast.AST,
-    tracked: set[str],
+    scope: ast.AST,
+    tracked: dict[ast.AST, set[str]],
+    parents: dict[ast.AST, ast.AST],
+    tree: ast.Module,
     dictionary_aliases: set[str],
     factory_aliases: set[str],
     module_aliases: set[str],
@@ -103,7 +151,13 @@ def _expression_references_semantic_dictionary(
         ):
             return True
         path = _attribute_path(child)
-        if path in tracked:
+        if path is not None and _path_is_tracked(
+            path,
+            scope,
+            tracked,
+            parents,
+            tree,
+        ):
             return True
     return False
 
@@ -113,8 +167,14 @@ def _semantic_dictionary_paths(
     dictionary_aliases: set[str],
     factory_aliases: set[str],
     module_aliases: set[str],
-) -> set[str]:
-    tracked: set[str] = set()
+) -> tuple[dict[ast.AST, set[str]], dict[ast.AST, ast.AST]]:
+    parents = _parent_map(tree)
+    tracked: dict[ast.AST, set[str]] = {
+        node: set()
+        for node in ast.walk(tree)
+        if isinstance(node, _SCOPE_TYPES)
+    }
+    tracked.setdefault(tree, set())
 
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -133,41 +193,137 @@ def _semantic_dictionary_paths(
                     dictionary_aliases,
                     module_aliases,
                 ):
-                    tracked.add(arg.arg)
+                    tracked[node].add(arg.arg)
         elif isinstance(node, ast.AnnAssign) and _annotation_mentions_dictionary(
             node.annotation,
             dictionary_aliases,
             module_aliases,
         ):
-            tracked.update(_target_paths(node.target))
+            scope = _containing_scope(node, parents, tree)
+            targets = _target_paths(node.target)
+            tracked.setdefault(scope, set()).update(targets)
+            if (
+                isinstance(scope, ast.ClassDef)
+                and parents.get(node) is scope
+            ):
+                tracked[scope].update(
+                    f"self.{path}" for path in targets if "." not in path
+                )
 
-    assignments: list[tuple[tuple[str, ...], ast.AST]] = []
+    assignments: list[tuple[ast.AST, tuple[str, ...], ast.AST]] = []
     for node in ast.walk(tree):
+        scope = _containing_scope(node, parents, tree)
         if isinstance(node, ast.Assign):
-            targets = tuple(path for target in node.targets for path in _target_paths(target))
-            assignments.append((targets, node.value))
+            targets = tuple(
+                path
+                for target in node.targets
+                for path in _target_paths(target)
+            )
+            assignments.append((scope, targets, node.value))
         elif isinstance(node, ast.AnnAssign) and node.value is not None:
-            assignments.append((_target_paths(node.target), node.value))
+            assignments.append((scope, _target_paths(node.target), node.value))
         elif isinstance(node, ast.NamedExpr):
-            assignments.append((_target_paths(node.target), node.value))
+            assignments.append((scope, _target_paths(node.target), node.value))
 
     changed = True
     while changed:
         changed = False
-        for targets, value in assignments:
+        for scope, targets, value in assignments:
             if not targets or not _expression_references_semantic_dictionary(
                 value,
+                scope,
                 tracked,
+                parents,
+                tree,
                 dictionary_aliases,
                 factory_aliases,
                 module_aliases,
             ):
                 continue
-            before = len(tracked)
-            tracked.update(targets)
-            changed = changed or len(tracked) != before
+            before = len(tracked.setdefault(scope, set()))
+            tracked[scope].update(targets)
+            changed = changed or len(tracked[scope]) != before
 
-    return tracked
+    return tracked, parents
+
+
+def _legacy_semantic_resolve_lines(tree: ast.Module) -> list[int]:
+    dictionary_aliases, factory_aliases, module_aliases = _imported_semantic_symbols(tree)
+    if not (dictionary_aliases or factory_aliases or module_aliases):
+        return []
+
+    tracked, parents = _semantic_dictionary_paths(
+        tree,
+        dictionary_aliases,
+        factory_aliases,
+        module_aliases,
+    )
+    violations: list[int] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+            continue
+        if node.func.attr != "resolve":
+            continue
+        owner = node.func.value
+        owner_path = _attribute_path(owner)
+        scope = _containing_scope(node, parents, tree)
+        direct_factory = _is_semantic_factory_call(
+            owner,
+            dictionary_aliases,
+            factory_aliases,
+            module_aliases,
+        )
+        if direct_factory or (
+            owner_path is not None
+            and _path_is_tracked(owner_path, scope, tracked, parents, tree)
+        ):
+            violations.append(node.lineno)
+    return violations
+
+
+def test_semantic_audit_scopes_instance_fields_to_declaring_class() -> None:
+    tree = ast.parse(
+        """
+from geoworkbench.services.semantic_channels import SemanticChannelDictionary
+
+class SemanticConsumer:
+    resolver: SemanticChannelDictionary
+
+    def resolve_curve(self):
+        return self.resolver.resolve("ROP")
+
+class OtherResolver:
+    def resolve(self, value):
+        return value
+
+class UnrelatedConsumer:
+    resolver: OtherResolver
+
+    def resolve_curve(self):
+        return self.resolver.resolve("ROP")
+"""
+    )
+
+    assert len(_legacy_semantic_resolve_lines(tree)) == 1
+
+
+def test_semantic_audit_tracks_nested_annotated_instance_fields() -> None:
+    tree = ast.parse(
+        """
+from geoworkbench.services.semantic_channels import SemanticChannelDictionary
+
+def build_consumer():
+    class NestedConsumer:
+        semantic_dictionary: SemanticChannelDictionary
+
+        def resolve_curve(self):
+            return self.semantic_dictionary.resolve("ROP")
+
+    return NestedConsumer()
+"""
+    )
+
+    assert len(_legacy_semantic_resolve_lines(tree)) == 1
 
 
 def test_production_semantic_consumers_do_not_call_legacy_resolve() -> None:
@@ -184,33 +340,19 @@ def test_production_semantic_consumers_do_not_call_legacy_resolve() -> None:
         if not (dictionary_aliases or factory_aliases or module_aliases):
             continue
 
-        tracked = _semantic_dictionary_paths(
+        tracked, _parents = _semantic_dictionary_paths(
             tree,
             dictionary_aliases,
             factory_aliases,
             module_aliases,
         )
-        if tracked:
+        if any(tracked.values()):
             audited_consumers.add(path)
 
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
-                continue
-            if node.func.attr != "resolve":
-                continue
-
-            owner = node.func.value
-            owner_path = _attribute_path(owner)
-            direct_factory = _is_semantic_factory_call(
-                owner,
-                dictionary_aliases,
-                factory_aliases,
-                module_aliases,
-            )
-            if owner_path in tracked or direct_factory:
-                violations.append(
-                    f"{path}:{node.lineno}: legacy SemanticChannelDictionary.resolve()"
-                )
+        violations.extend(
+            f"{path}:{line}: legacy SemanticChannelDictionary.resolve()"
+            for line in _legacy_semantic_resolve_lines(tree)
+        )
 
     assert audited_consumers, "No production SemanticChannelDictionary consumers were audited"
     assert violations == []

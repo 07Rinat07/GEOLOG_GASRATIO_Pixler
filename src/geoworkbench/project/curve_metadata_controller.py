@@ -79,16 +79,18 @@ class CurveMetadataController:
         normalized_description = description.strip() or None
         self._validate(dataset, curve, normalized_mnemonic, normalized_unit, normalized_description)
         before = curve.metadata
-        semantic = self.semantic_dictionary.resolve(
-            normalized_mnemonic,
-            description=normalized_description or "",
-            unit=normalized_unit or "",
+        semantic_context = self.semantic_dictionary.context(
             source_mnemonic=(
                 before.semantic.source_mnemonic
                 if before.semantic is not None
                 else normalized_mnemonic
             ),
+            mapped_mnemonic=normalized_mnemonic,
+            source_uom=normalized_unit or "",
+            description=normalized_description or "",
+            mapping_evidence=("curve_metadata=update",),
         )
+        semantic = self.semantic_dictionary.resolve_context(semantic_context)
         after = replace(
             before,
             original_mnemonic=normalized_mnemonic,
@@ -127,12 +129,14 @@ class CurveMetadataController:
             normalized_description,
         )
         curve_id = new_id()
-        semantic = self.semantic_dictionary.resolve(
-            normalized_mnemonic,
-            description=normalized_description or "",
-            unit=normalized_unit or "",
+        semantic_context = self.semantic_dictionary.context(
             source_mnemonic=normalized_mnemonic,
+            mapped_mnemonic=normalized_mnemonic,
+            source_uom=normalized_unit or "",
+            description=normalized_description or "",
+            mapping_evidence=("curve_metadata=create",),
         )
+        semantic = self.semantic_dictionary.resolve_context(semantic_context)
         curve = CurveData(
             CurveMetadata(
                 curve_id=curve_id,
