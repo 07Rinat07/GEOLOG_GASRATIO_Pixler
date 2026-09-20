@@ -686,8 +686,9 @@ Gas Ratio, Haworth и Pixler сохраняются без изменения; �
   Четвёртый инкремент консолидирует GS2 import вокруг одного `Gs2ImportCoordinator`: legacy
   base и production subclass больше не содержат разные mutation paths. Пятый инкремент
   переводит canvas-object transfer на session-bound `CanvasObjectTransferCoordinator`, чтобы
-  Qt не создавал controller/workflow вручную. Следующие инкременты должны таким же образом
-  вынести оставшиеся import/edit orchestration paths.
+  Qt не создавал controller/workflow вручную. Шестой инкремент переводит WELL-02 late-analysis
+  import на `LateAnalysisCoordinator`, включая source load, reviewed transaction и completion.
+  Следующие инкременты должны таким же образом вынести оставшиеся import/edit orchestration paths.
 - [ ] **ARCH-03:** вынести оставшиеся sampling/cache/navigation/track lifecycle/editing state из
   `TabletView` в Qt-независимые компоненты с transition tests.
 - [ ] **ARCH-04:** один immutable `SemanticContext` для всех importers с source mnemonic, UOM,
