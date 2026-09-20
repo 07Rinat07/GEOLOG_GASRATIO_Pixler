@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from pathlib import Path
 
 import pytest
 
@@ -113,10 +114,7 @@ def test_interval_editing_state_rejects_non_finite_depth_updates() -> None:
 
 
 def test_tablet_view_delegates_interval_editing_state() -> None:
-    source = open(
-        "src/geoworkbench/tablet/tablet_view.py",
-        encoding="utf-8",
-    ).read()
+    source = Path("src/geoworkbench/tablet/tablet_view.py").read_text(encoding="utf-8")
 
     assert "IntervalEditingState(" in source
     assert "self._interval_editing.set_mode(requested)" in source
