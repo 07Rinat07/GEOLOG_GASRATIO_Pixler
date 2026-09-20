@@ -667,6 +667,15 @@ python -m pytest -q tests/test_semantic_csv_import.py tests/test_semantic_channe
 Набор проверяет CSV/TXT column/header evidence, catalog version provenance и source-contract на
 `context() → resolve_context()` без отдельного semantic resolver path.
 
+Третий ARCH-04 Paradox semantic-context slice:
+
+```bash
+python -m pytest -q tests/test_paradox_import.py tests/test_semantic_channels.py
+```
+
+Набор проверяет Paradox field/mapping evidence, raw-time projection, catalog version provenance
+и source-contract на `context() → resolve_context()` без legacy resolver path.
+
 ## 15. Каталоги печатных шапок и логотипов
 
 Минимальная доменная и SKF-проверка:
