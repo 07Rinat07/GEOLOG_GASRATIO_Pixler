@@ -75,7 +75,9 @@ enrichment и регистрацией; production subclass больше не с
 `CanvasObjectTransferCoordinator`: controller, transactional workflow и material autosave
 остаются за application boundary и вместе rebind-ятся на новую ProjectSession. Шестой slice
 переводит WELL-02 late-analysis import на `LateAnalysisCoordinator`: source adapter, reviewed
-transaction и baseline/completion state больше не собираются вручную в Qt-shell.
+transaction и baseline/completion state больше не собираются вручную в Qt-shell. ARCH-02
+закрывается общим AST/source-contract: оба MainWindow-слоя не могут напрямую присваивать
+ProjectSession/project/Dataset/Well state или возвращать ad-hoc mutation workflows.
 
 ## Источник, рабочая модель и экспорт
 
