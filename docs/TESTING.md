@@ -685,6 +685,15 @@ python -m pytest -q tests/test_wits0_import_review.py tests/test_semantic_channe
 Набор проверяет WITS0 record/item/source-id evidence, automatic/reviewed mapping state,
 catalog version provenance и source-contract без legacy `SemanticChannelDictionary.resolve()`.
 
+Пятый ARCH-04 WITSML semantic-context slice:
+
+```bash
+python -m pytest -q tests/test_witsml_data_arrays.py tests/test_semantic_channels.py
+```
+
+Набор проверяет WITSML channel position/key/uuid evidence, automatic/reviewed/commit mapping state,
+catalog version provenance и отсутствие legacy resolver path в общем WITSML Import Review.
+
 ## 15. Каталоги печатных шапок и логотипов
 
 Минимальная доменная и SKF-проверка:
