@@ -192,6 +192,24 @@ def _semantic_binding_from_dict(data: dict[str, Any]) -> SemanticChannelBinding:
         raise ProjectFormatError("Invalid semantic channel binding") from exc
 
 
+def _resolve_legacy_semantic_binding(
+    original_mnemonic: str,
+    *,
+    description: str,
+    unit: str,
+    canonical_mnemonic: str | None,
+) -> SemanticChannelBinding:
+    dictionary = default_semantic_channel_dictionary()
+    context = dictionary.context(
+        source_mnemonic=original_mnemonic,
+        mapped_mnemonic=original_mnemonic,
+        source_uom=unit,
+        description=description,
+        canonical_mnemonic=canonical_mnemonic,
+    )
+    return dictionary.resolve_context(context)
+
+
 def _curve_from_dict(data: dict[str, Any]) -> CurveData:
     metadata_data = _required(data, "metadata", dict)
     original_mnemonic = clean_mnemonic(_required(metadata_data, "original_mnemonic", str))
@@ -221,7 +239,7 @@ def _curve_from_dict(data: dict[str, Any]) -> CurveData:
     semantic = (
         _semantic_binding_from_dict(raw_semantic)
         if isinstance(raw_semantic, dict)
-        else default_semantic_channel_dictionary().resolve(
+        else _resolve_legacy_semantic_binding(
             original_mnemonic,
             description=description or "",
             unit=unit or "",
@@ -737,7 +755,7 @@ def _acquisition_curve_schema_from_dict(data: dict[str, Any]) -> AcquisitionCurv
     semantic = (
         _semantic_binding_from_dict(raw_semantic)
         if isinstance(raw_semantic, dict)
-        else default_semantic_channel_dictionary().resolve(
+        else _resolve_legacy_semantic_binding(
             original_mnemonic,
             description=description or "",
             unit=unit or "",

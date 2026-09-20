@@ -1046,12 +1046,17 @@ def canonical_curve_metadata(metadata: CurveMetadata) -> CurveMetadata:
         original_mnemonic
     ):
         canonical_mnemonic = inferred_canonical or stored_canonical
-    semantic = metadata.semantic or default_semantic_channel_dictionary().resolve(
-        original_mnemonic,
-        description=description or "",
-        unit=unit or "",
-        canonical_mnemonic=canonical_mnemonic,
-    )
+    semantic = metadata.semantic
+    if semantic is None:
+        dictionary = default_semantic_channel_dictionary()
+        semantic_context = dictionary.context(
+            source_mnemonic=original_mnemonic,
+            mapped_mnemonic=original_mnemonic,
+            source_uom=unit or "",
+            description=description or "",
+            canonical_mnemonic=canonical_mnemonic,
+        )
+        semantic = dictionary.resolve_context(semantic_context)
     return replace(
         metadata,
         original_mnemonic=original_mnemonic,
