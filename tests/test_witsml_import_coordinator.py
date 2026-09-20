@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 from geoworkbench.importers.witsml import read_witsml_channel_sets
@@ -11,10 +12,13 @@ from geoworkbench.services.witsml_import_review import WitsmlImportReviewControl
 SAMPLE = Path("resources/samples/witsml/log_channel_set_2_1.xml")
 
 
-def _commit():
+def _commit(*, dataset_id: str | None = None):
     channel_set = read_witsml_channel_sets(SAMPLE).channel_sets[0]
     review = WitsmlImportReviewController()
-    return review.commit(channel_set, review.initial_plan(channel_set))
+    plan = review.initial_plan(channel_set)
+    if dataset_id is not None:
+        plan = replace(plan, dataset_id=dataset_id)
+    return review.commit(channel_set, plan)
 
 
 def test_coordinator_registers_first_commit_into_new_well() -> None:
@@ -36,8 +40,7 @@ def test_coordinator_registers_next_commit_into_current_well() -> None:
     first = _commit()
     coordinator.register_reviewed_commit(first)
 
-    second = _commit()
-    second.dataset.dataset_id = "second-dataset"
+    second = _commit(dataset_id="second-dataset")
     result = coordinator.register_reviewed_commit(second)
 
     assert result.commit is second
