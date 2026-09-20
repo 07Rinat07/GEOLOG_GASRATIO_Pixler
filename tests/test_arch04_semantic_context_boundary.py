@@ -214,3 +214,56 @@ def test_production_semantic_consumers_do_not_call_legacy_resolve() -> None:
 
     assert audited_consumers, "No production SemanticChannelDictionary consumers were audited"
     assert violations == []
+
+
+def test_legacy_resolve_is_only_a_context_delegation_shim() -> None:
+    source = SHIM_PATH.read_text(encoding="utf-8")
+    tree = ast.parse(source, filename=str(SHIM_PATH))
+    dictionary_class = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.ClassDef) and node.name == "SemanticChannelDictionary"
+    )
+    resolve = next(
+        node
+        for node in dictionary_class.body
+        if isinstance(node, ast.FunctionDef) and node.name == "resolve"
+    )
+
+    context_assignment = next(
+        (
+            node
+            for node in resolve.body
+            if isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+            and node.targets[0].id == "context"
+            and isinstance(node.value, ast.Call)
+            and _attribute_path(node.value.func) == "self.context"
+        ),
+        None,
+    )
+    assert context_assignment is not None
+
+    delegated_return = next(
+        (
+            node
+            for node in resolve.body
+            if isinstance(node, ast.Return)
+            and isinstance(node.value, ast.Call)
+            and _attribute_path(node.value.func) == "self.resolve_context"
+            and len(node.value.args) == 1
+            and isinstance(node.value.args[0], ast.Name)
+            and node.value.args[0].id == "context"
+            and not node.value.keywords
+        ),
+        None,
+    )
+    assert delegated_return is not None
+
+    forbidden_logic = [
+        node
+        for node in ast.walk(resolve)
+        if isinstance(node, (ast.If, ast.For, ast.AsyncFor, ast.While, ast.Try, ast.Match))
+    ]
+    assert forbidden_logic == []
