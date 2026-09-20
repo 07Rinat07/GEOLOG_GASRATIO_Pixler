@@ -4,6 +4,8 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- Отчёты: служебная errata исходной книги ОПУС Газомер больше не выводится пользователю в HTML/PDF, DOCX и XLSX; расчётный audit snapshot сохраняется.
+- UI отчётов: на странице интерпретационного отчёта добавлена кнопка «Назад» для возврата к главному экрану и выбора другого отчёта для печати.
 - ARCH-03: interval editing-session state вынесено из `TabletView` в Qt-независимый
   `IntervalEditingState`; mode/default type/gesture lifecycle покрыты transition tests.
 - ARCH-03: scrollbar/control projection вертикальной навигации вынесена из `TabletView` в
