@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.project.witsml_import_controller import (
@@ -19,16 +19,13 @@ class WitsmlImportCoordinator:
     """
 
     session: ProjectSession
-    controller: WitsmlProjectImportController = field(init=False)
-
-    def __post_init__(self) -> None:
-        self.controller = WitsmlProjectImportController(self.session)
 
     def register_reviewed_commit(
         self,
         commit: WitsmlImportCommit,
     ) -> WitsmlProjectImportResult:
-        return self.controller.register(
+        controller = WitsmlProjectImportController(self.session)
+        return controller.register(
             commit,
             create_new_well=self.session.current_well is None,
         )
