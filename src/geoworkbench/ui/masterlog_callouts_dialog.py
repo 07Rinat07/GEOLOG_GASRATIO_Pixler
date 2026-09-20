@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -16,6 +16,7 @@ from geoworkbench.project.masterlog_inspection_controller import (
     MasterlogInspectionController,
 )
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class MasterlogCalloutsDialog(QDialog):
@@ -65,8 +66,12 @@ class MasterlogCalloutsDialog(QDialog):
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
-        self.resize(720, 420)
         self.refresh()
+        fit_window_to_screen(
+            self,
+            preferred=QSize(720, 420),
+            minimum=QSize(480, 300),
+        )
 
     def refresh(self) -> None:
         callouts = self.controller.available(self.template_id)
