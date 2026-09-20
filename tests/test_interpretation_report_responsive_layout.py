@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from PySide6.QtCore import QPoint, Qt
 
 from geoworkbench.project.interpretation_calculation_controller import (
@@ -17,6 +18,15 @@ def _grid_position(workspace, widget) -> tuple[int, int, int, int]:
         if item.widget() is widget:
             return layout.getItemPosition(index)
     raise AssertionError(f"Widget {widget.objectName()} is absent from configuration grid")
+
+
+def _export_grid_position(workspace, widget) -> tuple[int, int, int, int]:
+    layout = workspace._export_grid
+    for index in range(layout.count()):
+        item = layout.itemAt(index)
+        if item.widget() is widget:
+            return layout.getItemPosition(index)
+    raise AssertionError(f"Widget {widget.objectName()} is absent from export grid")
 
 
 def test_interpretation_workspace_uses_collapsible_left_preview_sidebar(qapp) -> None:
@@ -119,6 +129,18 @@ def test_interpretation_workspace_keeps_export_actions_visible_at_laptop_height(
     assert workspace.report_panel.isVisible()
     assert workspace.pdf_button.isVisible()
     assert workspace.print_button.isVisible()
+    assert workspace.export_footer.mapTo(workspace, QPoint(0, 0)).y() < workspace.preview.mapTo(
+        workspace, QPoint(0, 0)
+    ).y()
+    assert workspace.xlsx_button.text() == "Excel (.xlsx)"
+    assert workspace.docx_button.text() == "Word (.docx)"
+    assert workspace.pdf_button.text() == "PDF"
+    assert workspace.print_button.text() == "Print"
+    assert not workspace.export_label.isVisible()
+    assert _export_grid_position(workspace, workspace.xlsx_button) == (0, 0, 1, 1)
+    assert _export_grid_position(workspace, workspace.docx_button) == (0, 1, 1, 1)
+    assert _export_grid_position(workspace, workspace.pdf_button) == (1, 0, 1, 1)
+    assert _export_grid_position(workspace, workspace.print_button) == (1, 1, 1, 1)
 
     for button in (workspace.xlsx_button, workspace.docx_button, workspace.pdf_button, workspace.print_button):
         top_left = button.mapTo(workspace, QPoint(0, 0))
@@ -126,3 +148,41 @@ def test_interpretation_workspace_keeps_export_actions_visible_at_laptop_height(
         assert top_left.y() + button.height() <= workspace.height()
 
     workspace.close()
+
+def test_interpretation_workspace_back_button_is_visible_localized_and_emits(qapp) -> None:
+    workspace = InterpretationReportWorkspace(
+        InterpretationCalculationController(ProjectSession()),
+        language=AppLanguage.RU,
+    )
+    workspace.resize(1_200, 800)
+    workspace.show()
+    qapp.processEvents()
+
+    requested: list[bool] = []
+    workspace.back_requested.connect(lambda: requested.append(True))
+
+    assert workspace.back_button.isVisible()
+    assert workspace.back_button.text() == "Назад"
+    assert workspace.back_button.arrowType() == Qt.ArrowType.LeftArrow
+    assert "другой отчёт" in workspace.back_button.toolTip()
+    assert workspace.back_button.accessibleName() == "Назад к выбору отчёта"
+
+    workspace.back_button.click()
+    qapp.processEvents()
+    assert requested == [True]
+
+    workspace.set_language(AppLanguage.EN)
+    assert workspace.back_button.text() == "Back"
+    assert "another report" in workspace.back_button.toolTip()
+    assert workspace.back_button.accessibleName() == "Back to report selection"
+    workspace.close()
+
+
+def test_main_window_connects_report_back_button_to_detached_dialog_safe_home() -> None:
+    source = Path("src/geoworkbench/ui/main_window.py").read_text(encoding="utf-8")
+
+    assert "self._show_home_from_interpretation_report" in source
+    assert "report_dialog = getattr(self, \"interpretation_report_dialog\", None)" in source
+    assert "report_dialog.hide()" in source
+    assert "self._show_home()" in source
+

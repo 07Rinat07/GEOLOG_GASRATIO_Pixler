@@ -309,7 +309,6 @@ def _opus_gasomer_html(
         f"<li>{_source_reference_html(item, language)}</li>"
         for item in section.provenance
     )
-    errata = "".join(f"<li>{escape(item)}</li>" for item in section.errata)
     intervals_html = "".join(interval_blocks) or f"<p>{label('empty')}</p>"
     return (
         "<h2 class='opus-gasomer-section'>"
@@ -325,9 +324,6 @@ def _opus_gasomer_html(
         + intervals_html
         + f"<h3>{label('provenance')}</h3><ul>"
         + provenance
-        + "</ul>"
-        + f"<h3>{label('errata')}</h3><ul>"
-        + errata
         + "</ul>"
     )
 

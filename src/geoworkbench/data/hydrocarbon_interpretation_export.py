@@ -329,8 +329,6 @@ def _opus_gasomer_docx(report: HydrocarbonInterpretationReport) -> list[str]:
     body.append(_paragraph("Происхождение формул"))
     body.extend(_paragraph(f"• {item}") for item in section.provenance)
     body.append(_paragraph(f"• SHA-256 книги: {section.source_workbook_sha256}"))
-    body.append(_paragraph("Исправления исходной книги"))
-    body.extend(_paragraph(f"• {item}") for item in section.errata)
     return body
 
 

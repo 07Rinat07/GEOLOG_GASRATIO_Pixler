@@ -125,6 +125,7 @@ class InterpretationReportWorkspace(_ResponsiveInterpretationReportWorkspace):
             self.configuration_scroll.setVisible(True)
             self.report_panel.setVisible(False)
             self.main_splitter.setSizes([1, 0])
+            self._relayout_export_actions(force=True)
             return
 
         self.report_panel.setVisible(True)
@@ -133,6 +134,7 @@ class InterpretationReportWorkspace(_ResponsiveInterpretationReportWorkspace):
             # of squeezing both panes into unreadable columns.
             self.configuration_scroll.setVisible(False)
             self.main_splitter.setSizes([0, max(1, self.width())])
+            self._relayout_export_actions(force=True)
             return
 
         self.configuration_scroll.setVisible(True)
@@ -140,6 +142,7 @@ class InterpretationReportWorkspace(_ResponsiveInterpretationReportWorkspace):
         controls_width = max(520, int(available * 0.56))
         preview_width = max(420, available - controls_width)
         self.main_splitter.setSizes([controls_width, preview_width])
+        self._relayout_export_actions(force=True)
 
     def resizeEvent(self, event: QResizeEvent) -> None:  # noqa: N802 - Qt API
         super().resizeEvent(event)
