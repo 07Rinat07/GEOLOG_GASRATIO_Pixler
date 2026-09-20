@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- ARCH-04: финальный production-wide AST/source-contract запрещает legacy `SemanticChannelDictionary.resolve()` у production consumers; compatibility shim сохранён только внутри semantic dictionary.
 - ARCH-04: ETP 1.2 Import Review переведён на `SemanticContext`; binding фиксирует channel URI/id и automatic/reviewed/commit mapping state.
 - ARCH-04: общий post-import Import Review переведён на `SemanticContext`; manual override сохраняет исходное semantic provenance и добавляет curve/review evidence.
 - ARCH-04: общий WITSML Import Review переведён на `SemanticContext`; binding фиксирует channel position/key/uuid и automatic/reviewed/commit mapping state.
