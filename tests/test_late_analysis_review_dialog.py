@@ -66,7 +66,8 @@ def test_review_dialog_shows_fill_and_protected_conflict(qapp) -> None:
     assert dialog.plan.conflict_count == 1
     assert dialog.table.rowCount() == 3
     assert "Заполнений: 2" in dialog.counts_label.text()
-    assert dialog.buttons.button(QDialogButtonBox.StandardButton.Ok).isEnabled()
+    apply_button = dialog.buttons.button(QDialogButtonBox.StandardButton.Ok)
+    assert not apply_button.isEnabled()
 
     conflict_rows = [
         row
@@ -76,6 +77,14 @@ def test_review_dialog_shows_fill_and_protected_conflict(qapp) -> None:
     assert len(conflict_rows) == 1
     conflict_choice = dialog.table.item(conflict_rows[0], 0)
     assert not (conflict_choice.flags() & Qt.ItemFlag.ItemIsUserCheckable)
+    conflict_choice.setCheckState(Qt.CheckState.Checked)
+    assert not apply_button.isEnabled()
+
+    first_fill = dialog.table.item(0, 0)
+    first_fill.setCheckState(Qt.CheckState.Checked)
+    assert apply_button.isEnabled()
+    first_fill.setCheckState(Qt.CheckState.Unchecked)
+    assert not apply_button.isEnabled()
     dialog.close()
 
 
@@ -89,8 +98,10 @@ def test_review_dialog_applies_only_checked_fill(qapp) -> None:
     )
     dialog._analyze()
     assert dialog.plan is not None
+    assert not dialog.buttons.button(QDialogButtonBox.StandardButton.Ok).isEnabled()
     first = dialog.table.item(0, 0)
     first.setCheckState(Qt.CheckState.Checked)
+    assert dialog.buttons.button(QDialogButtonBox.StandardButton.Ok).isEnabled()
 
     dialog._accept()
 
@@ -102,6 +113,29 @@ def test_review_dialog_applies_only_checked_fill(qapp) -> None:
     assert well.cuttings[1].calcite_percent == 10.0
     assert len(well.analysis_update_history) == 1
     assert len(well.analysis_update_history[0].changes) == 1
+
+
+def test_review_dialog_direct_accept_without_selection_does_not_commit(qapp) -> None:
+    controller = _controller()
+    dialog = LateAnalysisReviewDialog(
+        controller,
+        _source(),
+        source_name="late.csv",
+        source_sha256=_SOURCE_SHA,
+    )
+    dialog._analyze()
+    assert dialog.plan is not None
+
+    dialog._accept()
+
+    well = controller.session.current_well
+    assert well is not None
+    assert dialog.result() == dialog.DialogCode.Rejected
+    assert dialog.plan is not None
+    assert not dialog.buttons.button(QDialogButtonBox.StandardButton.Ok).isEnabled()
+    assert not well.analysis_update_history
+    assert not controller.session.dirty
+    dialog.close()
 
 
 def test_review_dialog_field_toggle_invalidates_preview(qapp) -> None:

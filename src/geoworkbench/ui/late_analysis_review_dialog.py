@@ -156,6 +156,7 @@ class LateAnalysisReviewDialog(QDialog):
 
         self.table = QTableWidget(0, 7)
         self.table.setObjectName("late-analysis-review-table")
+        self.table.itemChanged.connect(self._sync_apply_state)
         self.table.setHorizontalHeaderLabels(
             [
                 self._text("Выбрать", "Таңдау", "Select"),
@@ -217,7 +218,6 @@ class LateAnalysisReviewDialog(QDialog):
             return
         self.plan = plan
         self._render_plan(plan)
-        self.buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(True)
 
     def _render_plan(self, plan: WellAnalysisUpdatePlan) -> None:
         rows: list[tuple[AnalysisCellChange | None, AnalysisConflict | None]] = [
@@ -272,12 +272,17 @@ class LateAnalysisReviewDialog(QDialog):
                 f"unmatched intervals: {plan.missing_source_intervals}",
             )
         )
+        self._sync_apply_state()
 
     def _accept(self) -> None:
         if self.plan is None:
             return
+        selected = self.selected_changes()
+        if not selected:
+            self._sync_apply_state()
+            return
         try:
-            self.controller.apply(self.plan, selected_changes=self.selected_changes())
+            self.controller.apply(self.plan, selected_changes=selected)
         except AnalysisUpdateError as exc:
             self.plan = None
             self.buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
@@ -296,6 +301,11 @@ class LateAnalysisReviewDialog(QDialog):
         self.buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
         if reset_controller:
             self.controller.reset_state()
+
+    def _sync_apply_state(self, *_args: object) -> None:
+        self.buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(
+            self.plan is not None and bool(self.selected_changes())
+        )
 
     def _field_label(self, field: AnalysisField) -> str:
         return self._text(*_FIELD_LABELS[field])
