@@ -19,6 +19,7 @@ from geoworkbench.importers.paradox import (
 )
 from geoworkbench.importers.paradox.importer import default_mappings
 from geoworkbench.importers.paradox.models import (
+    ChannelMapping,
     ParadoxBundle,
     ParadoxColumn,
     ParadoxField,
@@ -258,6 +259,36 @@ def test_analysis_and_import_use_existing_dataset_model(tmp_path: Path) -> None:
     assert len(result.dataset.parameters["PARADOX_SCHEMA_SIGNATURE"]) == 64
 
 
+def test_paradox_import_attaches_semantic_context_evidence(tmp_path: Path) -> None:
+    source = tmp_path / "semantic.db"
+    write_synthetic_paradox(source)
+    table = read_paradox(source)
+    plan = ParadoxImportPlan(
+        classification=DatasetClassification.DEPTH,
+        depth_field="DEPT",
+        active_role="depth",
+        mappings=(
+            ChannelMapping("DEPT", "DEPT", "m", "Measured depth"),
+            ChannelMapping("VALUE", "ROP", "м/ч", "Rate of penetration"),
+        ),
+    )
+
+    result = import_paradox(source, plan, table=table)
+
+    curve = result.dataset.curve_by_mnemonic("ROP")
+    assert curve is not None
+    semantic = curve.metadata.semantic
+    assert semantic is not None
+    assert semantic.canonical_kind == "drilling.rop"
+    assert semantic.source_mnemonic == "VALUE"
+    assert semantic.source_uom == "м/ч"
+    assert "paradox_field_ordinal=2" in semantic.evidence
+    assert "paradox_field=VALUE" in semantic.evidence
+    assert "paradox_field_type=NUMBER" in semantic.evidence
+    assert "paradox_mapping=ROP" in semantic.evidence
+    assert any(item.startswith("catalog_version=sensors-v1:") for item in semantic.evidence)
+
+
 def test_numeric_time_preserves_raw_source_values(tmp_path: Path) -> None:
     source = tmp_path / "time.db"
     write_synthetic_paradox(source)
@@ -277,6 +308,25 @@ def test_numeric_time_preserves_raw_source_values(tmp_path: Path) -> None:
     assert raw_curve is not None
     np.testing.assert_allclose(raw_curve.values, [1.5, np.nan, 3.5], equal_nan=True)
     assert result.dataset.active_index.mnemonic == "TIME"
+    semantic = raw_curve.metadata.semantic
+    assert semantic is not None
+    assert semantic.source_mnemonic == "VALUE"
+    assert "paradox_field_ordinal=2" in semantic.evidence
+    assert "paradox_field=VALUE" in semantic.evidence
+    assert "paradox_projection=raw_time" in semantic.evidence
+    assert any(item.startswith("catalog_version=sensors-v1:") for item in semantic.evidence)
+
+
+def test_paradox_import_uses_semantic_context_boundary() -> None:
+    source = Path("src/geoworkbench/importers/paradox/importer.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert source.count("semantic_dictionary.context(") >= 2
+    assert source.count("semantic_dictionary.resolve_context(") >= 2
+    assert "semantic_dictionary.resolve(" not in source
+    assert 'f"paradox_field_ordinal={field.ordinal}"' in source
+    assert '"paradox_projection=raw_time"' in source
 
 
 def test_absolute_geoscape_time_prefers_datetime_axis(tmp_path: Path) -> None:
