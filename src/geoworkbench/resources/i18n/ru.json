@@ -2398,5 +2398,6 @@
   "document_bundle.partial": "Комплект подготовлен частично.\n\nФайлов: {files}\nНе выполнены результаты: {failed}\nМанифест: {manifest}",
   "document_bundle.status_complete": "Комплект документов подготовлен: файлов — {files}.",
   "document_bundle.status_partial": "Комплект документов подготовлен частично: не выполнено — {failed}.",
-  "document_bundle.retry_not_required": "Нет неудачных результатов для повторного выпуска."
+  "document_bundle.retry_not_required": "Нет неудачных результатов для повторного выпуска.",
+  "menu.wits": "WITS"
 }
