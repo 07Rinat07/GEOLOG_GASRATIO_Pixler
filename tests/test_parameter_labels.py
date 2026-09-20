@@ -83,3 +83,18 @@ def test_normalized_gas_calculation_curve_has_readable_report_name() -> None:
         == "Есептелген нормаланған жалпы газ"
     )
 
+
+def test_reference_normalized_methane_has_readable_report_name() -> None:
+    assert (
+        localized_curve_name("C1_NORM_REF", language=AppLanguage.RU)
+        == "Нормализованный метан по опорной кривой"
+    )
+    assert (
+        localized_curve_name("C1_NORM_REF", language=AppLanguage.EN)
+        == "Reference-normalized Methane"
+    )
+    assert (
+        localized_curve_name("C1_NORM_REF", language=AppLanguage.KK)
+        == "Тірек қисығы бойынша нормаланған метан"
+    )
+
