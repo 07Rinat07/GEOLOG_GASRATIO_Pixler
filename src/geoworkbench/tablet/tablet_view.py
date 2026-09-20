@@ -179,6 +179,7 @@ from geoworkbench.tablet.render_invalidation import (
     DirtyRenderStats,
     TrackDirtyRegistry,
 )
+from geoworkbench.tablet.render_state import TabletRenderState
 from geoworkbench.tablet.static_layer_cache import (
     StaticLayerCache,
     StaticLayerCacheStats,
@@ -2126,10 +2127,7 @@ class TabletView(QWidget):
         self._pan_viewport: QObject | None = None
         self._pan_last_position: QPointF | None = None
         self._space_pressed = False
-        self._geometry_cache = CurveGeometryCache(max_entries=512)
-        self._static_layer_cache = StaticLayerCache(max_entries=512)
-        self._dirty_registry = TrackDirtyRegistry()
-        self._overlay_layers = OverlayLayerManager()
+        self._render_state = TabletRenderState()
         self._interaction_history = CommandStack()
         self._header_drag: TrackHeaderDrag | None = None
         self._tooltip_items: dict[str, pg.TextItem] = {}
@@ -2597,17 +2595,33 @@ class TabletView(QWidget):
         descriptor = self._axis_descriptor()
         return descriptor.label if descriptor is not None else self._localizer.text("print.depth")
 
+    @property
+    def _geometry_cache(self) -> CurveGeometryCache:
+        return self._render_state.geometry_cache
+
+    @property
+    def _static_layer_cache(self) -> StaticLayerCache:
+        return self._render_state.static_layer_cache
+
+    @property
+    def _dirty_registry(self) -> TrackDirtyRegistry:
+        return self._render_state.dirty_registry
+
+    @property
+    def _overlay_layers(self) -> OverlayLayerManager:
+        return self._render_state.overlay_layers
+
     def geometry_cache_stats(self) -> GeometryCacheStats:
-        return self._geometry_cache.stats()
+        return self._render_state.geometry_stats()
 
     def static_layer_cache_stats(self) -> StaticLayerCacheStats:
-        return self._static_layer_cache.stats()
+        return self._render_state.static_layer_stats()
 
     def dirty_render_stats(self) -> DirtyRenderStats:
-        return self._dirty_registry.stats()
+        return self._render_state.dirty_stats()
 
     def overlay_layer_stats(self) -> OverlayLayerStats:
-        return self._overlay_layers.stats()
+        return self._render_state.overlay_stats()
 
     def overlay_dirty_layers(self) -> tuple[OverlayLayerKind, ...]:
         return self._overlay_layers.dirty_layers()
@@ -2622,15 +2636,14 @@ class TabletView(QWidget):
         return self._overlay_layers.set_z_value(kind, z_value)
 
     def invalidate_track(self, track_id: str, reason: DirtyReason) -> None:
-        if track_id not in self._rendered:
+        rendered = self._rendered.get(track_id)
+        if rendered is None:
             return
-        self._dirty_registry.mark(track_id, reason)
-        if reason & (DirtyReason.DATA | DirtyReason.LAYOUT):
-            rendered = self._rendered[track_id]
-            for mnemonic in rendered.curve_items or {}:
-                self._geometry_cache.invalidate_curve(mnemonic)
-        if reason & (DirtyReason.STATIC | DirtyReason.LAYOUT):
-            self._static_layer_cache.invalidate_track(track_id)
+        self._render_state.invalidate_track(
+            track_id,
+            reason,
+            curve_ids=tuple(rendered.curve_items or ()),
+        )
 
     def refresh_dirty_tracks(self) -> int:
         dirty = self._dirty_registry.consume()
