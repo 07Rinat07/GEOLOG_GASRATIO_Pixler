@@ -4,6 +4,8 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- UI: устранён Qt use-after-free при сохранении элемента печатной шапки после двойного щелчка; обработчик больше не обращается к graphics item после rebuild сцены.
+- WITS: восстановлено отдельное меню WITS для WITS0/WITSML/ETP и добавлена явная обработка ошибок запуска WITS0 capture.
 - ARCH-05: recursive AST/import-contract закрепляет `domain` и `calculations` как Qt-независимые слои и запрещает зависимости на PySide/PyQt, PyQtGraph/qtpy, UI и printing.
 - ARCH-04: финальный production-wide AST/source-contract запрещает legacy `SemanticChannelDictionary.resolve()` у production consumers; compatibility shim сохранён только внутри semantic dictionary.
 - ARCH-04: ETP 1.2 Import Review переведён на `SemanticContext`; binding фиксирует channel URI/id и automatic/reviewed/commit mapping state.
