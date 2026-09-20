@@ -4,6 +4,9 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- ARCH-02: GS2 import теперь имеет один UI-flow: базовый `MainWindow` использует
+  `Gs2ImportCoordinator` для Dataset enrichment/registration, а production subclass больше
+  не дублирует `open_gs2()`. Прямые GS2-записи в Dataset запрещены source-contract тестом.
 - ARCH-02: базовый conditioned Gas Ratio/Haworth/Pixler workflow теперь проходит через
   `GasRatioProjectController`; MainWindow не вызывает mutating-метод ProjectSession напрямую,
   а получает immutable outcome с dataset и созданными мнемониками. Старый session API сохранён

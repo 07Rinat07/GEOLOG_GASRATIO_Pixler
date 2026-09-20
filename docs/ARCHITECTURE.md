@@ -68,7 +68,9 @@ lag-correction source/projection selection внутри `LagCorrectionProjectCon
 только открывает диалог и отображает ошибки, не меняя `ProjectSession.current_dataset_id`.
 Третий slice переносит conditioned Gas Ratio/Haworth/Pixler persistence в
 `GasRatioProjectController`; Qt получает immutable calculation outcome и больше не вызывает
-mutating gas-ratio API сессии напрямую.
+mutating gas-ratio API сессии напрямую. Четвёртый slice консолидирует GS2 import: один
+`MainWindow.open_gs2()` собирает только UI-выбор, а `Gs2ImportCoordinator` владеет Dataset
+enrichment и регистрацией; production subclass больше не содержит второй GS2 workflow.
 
 ## Источник, рабочая модель и экспорт
 

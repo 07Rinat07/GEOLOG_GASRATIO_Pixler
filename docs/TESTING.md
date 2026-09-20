@@ -551,6 +551,16 @@ python -m pytest -q tests/test_gas_ratio_project_controller.py \
 совместимый session shim и source-contract, запрещающий MainWindow напрямую вызывать mutating
 `ProjectSession.calculate_basic_gas_ratios()`.
 
+Для четвёртого ARCH-02 инкремента:
+
+```bash
+python -m pytest -q tests/test_gs2_import_coordinator.py \
+  tests/test_dataset_import_jobs.py tests/test_proj04_gs2_source_registry.py
+```
+
+Набор проверяет GS2 enrichment/registration, provenance source registry, отсутствие прямых
+Dataset-записей в обоих слоях MainWindow и отсутствие второго production `open_gs2()`.
+
 ## 15. Каталоги печатных шапок и логотипов
 
 Минимальная доменная и SKF-проверка:

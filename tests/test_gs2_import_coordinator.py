@@ -103,8 +103,11 @@ def test_gs2_coordinator_owns_dataset_enrichment_and_registration(tmp_path: Path
     assert dataset.parameters["GS2_WELL_ID"] == "well-42"
 
 
-def test_gs2_main_window_has_no_direct_dataset_writes() -> None:
-    source = Path("src/geoworkbench/ui/main_window_drilling.py").read_text(encoding="utf-8")
+def test_all_main_window_layers_delegate_gs2_dataset_mutation() -> None:
+    base_source = Path("src/geoworkbench/ui/main_window.py").read_text(encoding="utf-8")
+    production_source = Path("src/geoworkbench/ui/main_window_drilling.py").read_text(
+        encoding="utf-8"
+    )
 
     forbidden = (
         ".dataset.name =",
@@ -112,4 +115,8 @@ def test_gs2_main_window_has_no_direct_dataset_writes() -> None:
         ".dataset.parameters.update(",
         ".dataset.headers.update(",
     )
-    assert all(token not in source for token in forbidden)
+    assert all(token not in base_source for token in forbidden)
+    assert all(token not in production_source for token in forbidden)
+    assert "Gs2ImportCoordinator(self._dataset_import_jobs)" in base_source
+    assert "self.gs2_import_coordinator.enrich_and_register(" in base_source
+    assert "def open_gs2(" not in production_source
