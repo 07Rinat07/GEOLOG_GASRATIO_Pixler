@@ -412,6 +412,9 @@ class InterpretationReportWorkspace(_CompatibleInterpretationReportWorkspace):
                 "Go back and choose another report to print.",
             )
         )
+        self.back_button.setAccessibleName(
+            self._text("Назад к выбору отчёта", "Есепті таңдауға артқа", "Back to report selection")
+        )
         self.page_title.setText(
             self._text(
                 "Интерпретация газового каротажа",
