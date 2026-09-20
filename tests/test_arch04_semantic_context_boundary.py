@@ -116,6 +116,24 @@ def _semantic_dictionary_paths(
 ) -> set[str]:
     tracked: set[str] = set()
 
+    # Class-level annotations describe instance attributes for dataclasses and
+    # ordinary classes, while call sites access them as self.<field>. Track both
+    # forms so the audit cannot miss legacy resolver calls behind an annotated field.
+    for class_node in (node for node in tree.body if isinstance(node, ast.ClassDef)):
+        for member in class_node.body:
+            if not isinstance(member, ast.AnnAssign):
+                continue
+            if not _annotation_mentions_dictionary(
+                member.annotation,
+                dictionary_aliases,
+                module_aliases,
+            ):
+                continue
+            for path in _target_paths(member.target):
+                tracked.add(path)
+                if "." not in path:
+                    tracked.add(f"self.{path}")
+
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             args = (
@@ -168,6 +186,40 @@ def _semantic_dictionary_paths(
             changed = changed or len(tracked) != before
 
     return tracked
+
+
+
+def test_semantic_audit_tracks_annotated_instance_fields() -> None:
+    tree = ast.parse(
+        """
+from geoworkbench.services.semantic_channels import SemanticChannelDictionary
+
+class Consumer:
+    semantic_dictionary: SemanticChannelDictionary
+
+    def resolve_curve(self):
+        return self.semantic_dictionary.resolve("ROP")
+"""
+    )
+    dictionary_aliases, factory_aliases, module_aliases = _imported_semantic_symbols(tree)
+    tracked = _semantic_dictionary_paths(
+        tree,
+        dictionary_aliases,
+        factory_aliases,
+        module_aliases,
+    )
+
+    assert "semantic_dictionary" in tracked
+    assert "self.semantic_dictionary" in tracked
+    legacy_calls = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "resolve"
+        and _attribute_path(node.func.value) in tracked
+    ]
+    assert len(legacy_calls) == 1
 
 
 def test_production_semantic_consumers_do_not_call_legacy_resolve() -> None:
