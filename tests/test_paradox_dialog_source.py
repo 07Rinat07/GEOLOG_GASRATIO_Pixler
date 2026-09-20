@@ -9,7 +9,9 @@ def test_import_dialog_has_adaptive_size_close_and_safe_cancel() -> None:
         encoding="utf-8"
     )
     assert "WindowCloseButtonHint" in source
-    assert "availableGeometry" in source
+    assert "fit_window_to_screen" in source
+    assert "paradox-import-secondary-actions-scroll" in source
+    assert "self.resize(1100, 720)" not in source
     assert "self.cancel_button" in source
     assert "def closeEvent" in source
     assert "request_cancel()" in source
