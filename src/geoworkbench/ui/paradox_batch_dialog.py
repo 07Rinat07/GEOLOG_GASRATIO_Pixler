@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QObject, QThread, QUrl, Qt, Signal, Slot
+from PySide6.QtCore import QObject, QSize, QThread, QUrl, Qt, Signal, Slot
 from PySide6.QtGui import QCloseEvent, QDesktopServices
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QProgressBar,
     QPushButton,
+    QScrollArea,
     QStyle,
     QTableWidget,
     QTableWidgetItem,
@@ -36,6 +37,7 @@ from geoworkbench.importers.paradox.models import ParadoxImportPlan
 from geoworkbench.importers.paradox.profiles import load_profile, schema_signature
 from geoworkbench.ui.paradox_import_dialog import ParadoxImportDialog
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class _BatchWorker(QObject):
@@ -176,8 +178,6 @@ class ParadoxBatchDialog(QDialog):
         self._manual_plans: dict[Path, ParadoxImportPlan] = {}
 
         self.setWindowTitle(self._t("paradox.batch_title"))
-        self.resize(1100, 720)
-        self.setMinimumSize(860, 580)
 
         root = QVBoxLayout(self)
 
@@ -326,7 +326,9 @@ class ParadoxBatchDialog(QDialog):
         self.finish_hint.hide()
         root.addWidget(self.finish_hint)
 
-        actions = QHBoxLayout()
+        secondary_panel = QWidget()
+        secondary_layout = QHBoxLayout(secondary_panel)
+        secondary_layout.setContentsMargins(0, 0, 0, 0)
         self.open_folder_button = QPushButton(self._t("paradox.open_result_folder"))
         self.open_folder_button.clicked.connect(self._open_result_folder)
         self.open_las_button = QPushButton(self._t("paradox.open_selected_las"))
@@ -343,12 +345,29 @@ class ParadoxBatchDialog(QDialog):
         self.retry_failed_button = QPushButton(self._t("paradox.retry_failed"))
         self.retry_failed_button.clicked.connect(self._retry_failed)
         self.retry_failed_button.hide()
-        actions.addWidget(self.open_folder_button)
-        actions.addWidget(self.open_las_button)
-        actions.addWidget(self.configure_source_button)
-        actions.addWidget(self.retry_failed_button)
-        actions.addStretch(1)
+        secondary_layout.addWidget(self.open_folder_button)
+        secondary_layout.addWidget(self.open_las_button)
+        secondary_layout.addWidget(self.configure_source_button)
+        secondary_layout.addWidget(self.retry_failed_button)
 
+        secondary_panel.adjustSize()
+        self.secondary_actions_scroll = QScrollArea()
+        self.secondary_actions_scroll.setObjectName("paradox-batch-secondary-actions-scroll")
+        self.secondary_actions_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.secondary_actions_scroll.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self.secondary_actions_scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        self.secondary_actions_scroll.setWidgetResizable(False)
+        self.secondary_actions_scroll.setWidget(secondary_panel)
+        self.secondary_actions_scroll.setMinimumHeight(48)
+        self.secondary_actions_scroll.setMaximumHeight(76)
+        root.addWidget(self.secondary_actions_scroll)
+
+        primary_actions = QHBoxLayout()
+        primary_actions.addStretch(1)
         self.start = QPushButton(self._t("paradox.convert_and_save"))
         self.start.setDefault(True)
         self.start.clicked.connect(self._start)
@@ -359,10 +378,10 @@ class ParadoxBatchDialog(QDialog):
         self.cancel_operation_button.hide()
         self.close_button = QPushButton(self._t("common.close"))
         self.close_button.clicked.connect(self.reject)
-        actions.addWidget(self.start)
-        actions.addWidget(self.cancel_operation_button)
-        actions.addWidget(self.close_button)
-        root.addLayout(actions)
+        primary_actions.addWidget(self.start)
+        primary_actions.addWidget(self.cancel_operation_button)
+        primary_actions.addWidget(self.close_button)
+        root.addLayout(primary_actions)
 
         self._configuration_widgets = (
             self.output,
@@ -392,6 +411,11 @@ class ParadoxBatchDialog(QDialog):
         self.profile.textChanged.connect(self._configuration_changed)
 
         self._refresh_plan_preview()
+        fit_window_to_screen(
+            self,
+            preferred=QSize(1100, 720),
+            minimum=QSize(680, 480),
+        )
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)
