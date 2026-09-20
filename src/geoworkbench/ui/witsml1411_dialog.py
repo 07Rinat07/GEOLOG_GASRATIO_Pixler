@@ -41,7 +41,10 @@ from geoworkbench.importers.witsml1411 import (
 )
 from geoworkbench.importers.witsml import WitsmlDataPackage
 from geoworkbench.services.localization import AppLanguage, Localizer
-from geoworkbench.services.witsml1411_audit import JsonlWitsml1411AuditSink
+from geoworkbench.services.witsml1411_audit import (
+    JsonlWitsml1411AuditSink,
+    Witsml1411AuditSink,
+)
 from geoworkbench.services.witsml1411_profiles import Witsml1411ProfileStore
 from geoworkbench.services.witsml_credentials import (
     WitsmlCredentialStore,
@@ -81,6 +84,7 @@ class Witsml1411Dialog(QDialog):
         language: AppLanguage = AppLanguage.RU,
         profile_store: Witsml1411ProfileStore | None = None,
         credential_store: WitsmlCredentialStore | None = None,
+        audit_sink: Witsml1411AuditSink | None = None,
     ) -> None:
         super().__init__(parent)
         self.localizer = Localizer.create(language)
@@ -92,6 +96,7 @@ class Witsml1411Dialog(QDialog):
         )
         self.credential_store = credential_store or default_witsml_credential_store()
         self.audit_path = root_path / "witsml1411" / "soap-audit.jsonl"
+        self.audit_sink = audit_sink or JsonlWitsml1411AuditSink(self.audit_path)
         self.service: Witsml1411ReadOnlyService | None = None
         self.accepted_commit: WitsmlImportCommit | None = None
         self._task: _TaskThread | None = None
@@ -321,11 +326,9 @@ class Witsml1411Dialog(QDialog):
                 self.credential_store.save(profile.credential_id or profile.profile_id, credentials)
             except Exception as exc:  # noqa: BLE001
                 QMessageBox.warning(self, self._t("witsml1411.title"), str(exc))
-        audit = JsonlWitsml1411AuditSink(self.audit_path)
-
         def task() -> object:
             service = Witsml1411ReadOnlyService(
-                Witsml1411SoapClient(profile, credentials, audit=audit)
+                Witsml1411SoapClient(profile, credentials, audit=self.audit_sink)
             )
             handshake = service.handshake()
             wells = service.list_wells()
