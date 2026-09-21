@@ -7,6 +7,11 @@ import re
 from typing import TYPE_CHECKING, Any, cast
 from uuid import uuid4
 
+from geoworkbench.catalogs.sensors import (
+    SensorCatalog,
+    SensorDefinition,
+    default_sensor_catalog,
+)
 from geoworkbench.domain.models import (
     MasterlogColumnTemplate,
     MasterlogCurveStyle,
@@ -84,6 +89,8 @@ class _Geometry:
 class _ImportContext:
     source_name: str
     root: DelphiComponent
+    source_format: str = "skf-delphi-component-stream"
+    sensor_catalog: SensorCatalog = field(default_factory=default_sensor_catalog)
     dpi: float = 96.0
     coordinate_to_mm: float | None = None
     warnings: list[str] = field(default_factory=list)
@@ -111,19 +118,50 @@ def import_skf_file(source: str | Path) -> SkfImportResult:
     return import_skf_payload(payload, source_name=path.name)
 
 
-def import_skf_payload(payload: bytes, *, source_name: str = "imported.skf") -> SkfImportResult:
+def import_skf_payload(
+    payload: bytes,
+    *,
+    source_name: str = "imported.skf",
+) -> SkfImportResult:
     try:
         stream = parse_delphi_component_stream(payload)
     except DelphiStreamError as exc:
         raise SkfImportError(str(exc)) from exc
-    context = _ImportContext(source_name, stream.root)
+    return import_delphi_component_stream(
+        stream,
+        source_payload=payload,
+        source_name=source_name,
+        source_format="skf-delphi-component-stream",
+    )
+
+
+def import_delphi_component_stream(
+    stream: DelphiComponentStream,
+    *,
+    source_payload: bytes,
+    source_name: str,
+    source_format: str,
+) -> SkfImportResult:
+    """Convert a neutral Delphi component tree into application form models."""
+
+    if not isinstance(stream, DelphiComponentStream):
+        raise TypeError("stream must use DelphiComponentStream")
+    if not source_name.strip():
+        raise ValueError("source_name must not be empty")
+    if not source_format.strip():
+        raise ValueError("source_format must not be empty")
+    context = _ImportContext(
+        source_name,
+        stream.root,
+        source_format=source_format,
+    )
     form = _build_form(context)
     template = _build_masterlog_template(context, form)
     form.print_header_template_id = template.template_id
     report = SkfImportReport(
         source_name=source_name,
-        source_size_bytes=len(payload),
-        source_sha256=sha256(payload).hexdigest(),
+        source_size_bytes=len(source_payload),
+        source_sha256=sha256(source_payload).hexdigest(),
         root_class=stream.root.class_name,
         component_count=len(stream.root.walk()),
         column_count=len(form.columns),
@@ -142,10 +180,10 @@ def import_skf_payload(payload: bytes, *, source_name: str = "imported.skf") -> 
         "header_element_count": report.header_element_count,
         "image_asset_count": report.image_asset_count,
         "signature_offset": report.signature_offset,
+        "source_format": source_format,
         "warnings": list(report.warnings),
     }
     return SkfImportResult(form, template, dict(context.image_assets), report, stream)
-
 
 def _build_form(context: _ImportContext) -> FormDocument:
     axis = _detect_axis(context.root)
@@ -293,7 +331,7 @@ def _build_masterlog_template(context: _ImportContext, form: FormDocument) -> Ma
         header_elements=header_elements,
         columns=columns,
         properties={
-            "source_format": "skf-delphi-component-stream",
+            "source_format": context.source_format,
             "source_file": context.source_name,
             "orientation": "landscape" if root_geometry.width >= root_geometry.height else "portrait",
             "custom_width_mm": page_width_mm,
@@ -349,6 +387,9 @@ def _is_column_candidate(component: DelphiComponent) -> bool:
             "curve",
             "graph",
             "chart",
+            "gauge",
+            "digital",
+            "sensor",
             "scale",
             "depth",
             "глуб",
@@ -361,8 +402,15 @@ def _is_column_candidate(component: DelphiComponent) -> bool:
             "лба",
         )
     )
-    has_curve_child = any(_curve_mnemonic(child) for child in component.walk()[1:])
-    panel_like = any(value in class_token for value in ("panel", "frame", "track", "chart"))
+    has_curve_child = any(
+        _curve_mnemonic(child)
+        or _number_property(child, "GID", "GSSensorID", "SensorID")
+        for child in component.walk()[1:]
+    )
+    panel_like = any(
+        value in class_token
+        for value in ("panel", "frame", "track", "chart", "gauge", "digital")
+    )
     return keyword or has_curve_child or (panel_like and len(component.children) >= 2)
 
 
@@ -578,13 +626,29 @@ def _bindings(component: DelphiComponent, context: _ImportContext) -> list[Param
 def _binding_from_component(
     component: DelphiComponent, context: _ImportContext
 ) -> ParameterBinding | None:
+    sensor = _sensor_definition(component, context)
     mnemonic = _curve_mnemonic(component)
+    if not mnemonic and sensor is not None:
+        mnemonic = sensor.canonical_mnemonic
     if not mnemonic:
         return None
-    display = _display_text(component) or _text_property(
-        component, "Description", "ParameterName", "LongName"
-    ) or mnemonic
-    unit = _text_property(component, "Unit", "Units", "Measure", "UOM")
+    display = (
+        _display_text(component)
+        or _text_property(
+            component,
+            "SensorName",
+            "ShortSensorName",
+            "Description",
+            "ParameterName",
+            "LongName",
+        )
+        or (sensor.short_name_ru if sensor is not None else "")
+        or mnemonic
+    )
+    unit = (
+        _text_property(component, "Unit", "Units", "Measure", "UOM")
+        or (sensor.unit if sensor is not None else "")
+    )
     source_was_logarithmic = _is_log_scale(component)
     # Imported forms follow the application-wide linear default.  The source
     # flag is used only to widen a former positive-only range to zero; users can
@@ -641,6 +705,31 @@ def _curve_mnemonic(component: DelphiComponent) -> str:
     return re.sub(r"\s+", "_", value)[:80]
 
 
+
+
+def _sensor_definition(
+    component: DelphiComponent,
+    context: _ImportContext,
+) -> SensorDefinition | None:
+    gid = _number_property(component, "GID", "GSSensorID", "SensorID")
+    if gid is None or gid <= 0 or not float(gid).is_integer():
+        return None
+    description = _text_property(
+        component,
+        "SensorName",
+        "ShortSensorName",
+        "Name",
+        "Caption",
+        "Description",
+    )
+    unit = _text_property(component, "Unit", "Units", "Measure", "UOM")
+    match = context.sensor_catalog.match(
+        f"S{int(gid)}",
+        description=description,
+        unit=unit,
+    )
+    return match.definition if match is not None else None
+
 def _track_kind(component: DelphiComponent, title: str) -> TrackKind:
     token = f"{_tokens(component)} {title.casefold()}"
     mapping = (
@@ -662,6 +751,16 @@ def _track_kind(component: DelphiComponent, title: str) -> TrackKind:
 
 
 def _detect_axis(root: DelphiComponent) -> FormAxisKind:
+    stream_ids = tuple(
+        _text_property(component, "StreamID", "GSStreamID")
+        .strip()
+        .casefold()
+        for component in root.walk()
+    )
+    if any("time" in stream_id or "врем" in stream_id for stream_id in stream_ids):
+        return FormAxisKind.TIME
+    if any("depth" in stream_id or "глуб" in stream_id for stream_id in stream_ids):
+        return FormAxisKind.DEPTH
     token = " ".join(_tokens(component) for component in root.walk()).casefold()
     if any(value in token for value in ("time", "datetime", "время", "временн")) and not any(
         value in token for value in ("depth", "глубин", "глубина")
@@ -991,7 +1090,17 @@ def _clean_component_name(value: str) -> str:
 
 def _tokens(component: DelphiComponent) -> str:
     pieces = [component.class_name, component.name, _display_text(component)]
-    for key in ("Kind", "Type", "Role", "DataField", "Mnemonic", "Parameter"):
+    for key in (
+        "Kind",
+        "Type",
+        "Role",
+        "DataField",
+        "Mnemonic",
+        "Parameter",
+        "StreamID",
+        "GSStreamID",
+        "SensorName",
+    ):
         value = get_property(component, key)
         if isinstance(value, str):
             pieces.append(value)
