@@ -248,10 +248,33 @@ def _decode_pascal_caption(value: str) -> str:
 
 
 def _looks_like_gsf_descriptor(text: str) -> bool:
-    return bool(
-        re.search(r"(?mi)^\s*\[Form\]\s*$", text)
-        and re.search(r"(?mi)^\s*Class\s*=\s*[^\r\n]+$", text)
-    )
+    """Recognize the small INI-like GeoSight form descriptor.
+
+    splitlines() normalizes CRLF/LF/CR inputs before matching. This avoids
+    platform-specific regular-expression behavior and keeps detection scoped
+    to a real [Form] section with a non-empty Class value.
+    """
+
+    section = ""
+    found_form_section = False
+    found_form_class = False
+
+    for raw_line in text.splitlines():
+        line = raw_line.strip().lstrip("\ufeff")
+        if not line or line.startswith((";", "#")):
+            continue
+        if line.startswith("[") and line.endswith("]"):
+            section = line[1:-1].strip().casefold()
+            if section == "form":
+                found_form_section = True
+            continue
+        if section != "form" or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        if key.strip().casefold() == "class" and value.strip():
+            found_form_class = True
+
+    return found_form_section and found_form_class
 
 
 def _resolve_descriptor_companion(source: Path) -> Path:
