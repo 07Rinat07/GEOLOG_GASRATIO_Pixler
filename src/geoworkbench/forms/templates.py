@@ -1502,6 +1502,13 @@ def _masterlog_geological_geochemical(language: TemplateLanguage) -> FormDocumen
 
 
 def _engineering_control_time(language: TemplateLanguage) -> FormDocument:
+    """Build the universal operational WITS workspace.
+
+    The channel set is based on the legacy GeoSight operational forms and uses
+    canonical Sensors mnemonics so the same form can resolve legacy GID, WITS0
+    aliases, LAS aliases and reviewed mappings through FormApplyEngine.
+    """
+
     return _with_a4_print_headers(
         _factory(
             "factory-engineering-control-time",
@@ -1510,55 +1517,99 @@ def _engineering_control_time(language: TemplateLanguage) -> FormDocument:
             [
                 _axis_column(FormAxisKind.TIME, language),
                 _curve_column(
-                    "column-time-drilling-control",
+                    "column-time-depth-motion",
                     _t("drilling", language),
                     [
-                        _binding("WOB", _t("wob", language), "t", "#2563eb"),
-                        _binding("HKLD", "Hook load", "t", "#0f766e"),
-                        _binding("ROP", _t("rop", language), "m/h", "#dc2626"),
-                        _binding("RPM", _t("rpm", language), "rpm", "#16a34a"),
-                        _binding("TQ", "Torque", "kN·m", "#9333ea"),
+                        _binding("HOLE_DEPTH", "Hole depth", "m", "#111827", width=2.0),
+                        _binding("BIT_DEPTH", "Bit depth", "m", "#2563eb", width=1.8),
+                        _binding(
+                            "BIT_DISTANCE_TO_BOTTOM",
+                            "Bit above bottom",
+                            "m",
+                            "#0ea5e9",
+                        ),
+                        _binding("BLOCK_POSITION", "Block position", "m", "#16a34a"),
+                        _binding("BLOCK_SPEED", "Block speed", "m/s", "#22c55e"),
+                        _binding("ROP", _t("rop", language), "m/h", "#dc2626", width=1.8),
+                        _binding("LAG_TIME", "Lag time", "min", "#a855f7"),
                     ],
-                    360,
+                    430,
+                ),
+                _curve_column(
+                    "column-time-drilling-control",
+                    _t("technology", language),
+                    [
+                        _binding("HKLD", _t("hook_load", language), "t", "#0f766e"),
+                        _binding("STRING_WEIGHT", "String weight", "t", "#475569"),
+                        _binding("WOB", _t("wob", language), "t", "#2563eb"),
+                        _binding("RPM", _t("rpm", language), "rpm", "#16a34a"),
+                        _binding("TQ", _t("torque", language), "kN·m", "#9333ea"),
+                    ],
+                    380,
                 ),
                 _curve_column(
                     "column-time-pumps-flow",
                     _t("pumps", language),
                     [
                         _binding("SPP", _t("spp", language), "atm", "#dc2626"),
-                        _binding("SPM1", "Pump 1 SPM", "min⁻¹", "#2563eb"),
-                        _binding("SPM2", "Pump 2 SPM", "min⁻¹", "#9333ea"),
+                        _binding("SENSOR_50", "Pump 1 SPM", "min⁻¹", "#2563eb"),
+                        _binding("SENSOR_51", "Pump 2 SPM", "min⁻¹", "#9333ea"),
+                        _binding("SENSOR_52", "Pump 3 SPM", "min⁻¹", "#c026d3"),
                         _binding("FLOW_IN", _t("flow_in", language), "L/s", "#0891b2"),
                         _binding("FLOW_OUT", _t("flow_out", language), "L/s", "#0f766e"),
                     ],
-                    360,
+                    400,
                 ),
                 _curve_column(
-                    "column-time-mud-gas",
-                    _t("mud_gas_monitoring", language),
+                    "column-time-mud-state",
+                    _t("mud", language),
                     [
-                        _binding("HOLE_DEPTH", "Hole depth", "m", "#2563eb"),
-                        _binding("BIT_DEPTH", "Bit depth", "m", "#111827"),
-                        _binding("TEMP_IN", "Mud temperature in", "°C", "#16a34a"),
+                        _binding(
+                            "MW_IN",
+                            _t("mud_density_in", language),
+                            "g/cm³",
+                            "#16a34a",
+                        ),
+                        _binding("MW_OUT", "Mud density out", "g/cm³", "#dc2626"),
+                        _binding("TEMP_IN", "Mud temperature in", "°C", "#0284c7"),
                         _binding("TEMP_OUT", "Mud temperature out", "°C", "#d946ef"),
-                        _binding("TOTAL_GAS", _t("total_gas", language), "%", "#dc2626"),
-                        _binding("C1", _t("methane", language), "%", "#2563eb"),
                     ],
-                    380,
+                    340,
                 ),
                 _curve_column(
                     "column-time-pit-volumes",
                     _t("pit_volumes", language),
                     [
-                        _binding("PIT_VOL", "Total pit volume", "m³", "#111827"),
-                        _binding("PIT1", "Pit 1", "m³", "#fb923c"),
-                        _binding("PIT2", "Pit 2", "m³", "#facc15"),
-                        _binding("PIT3", "Pit 3", "m³", "#84cc16"),
-                        _binding("PIT4", "Pit 4", "m³", "#38bdf8"),
-                        _binding("MW_IN", "Mud density in", "g/cm³", "#16a34a"),
-                        _binding("MW_OUT", "Mud density out", "g/cm³", "#dc2626"),
+                        _binding("PIT_VOL", "Total pit volume", "m³", "#111827", width=2.0),
+                        _binding("SENSOR_711", "Pit 1", "m³", "#fb923c"),
+                        _binding("SENSOR_712", "Pit 2", "m³", "#facc15"),
+                        _binding("SENSOR_713", "Pit 3", "m³", "#84cc16"),
+                        _binding("SENSOR_716", "Pit 4", "m³", "#38bdf8"),
+                        _binding("SENSOR_717", "Pit 5", "m³", "#6366f1"),
+                        _binding("SENSOR_718", "Pit 6", "m³", "#8b5cf6"),
+                        _binding("SENSOR_723", "Pit 7", "m³", "#ec4899"),
+                        _binding("SENSOR_724", "Pit 8", "m³", "#f43f5e"),
                     ],
-                    380,
+                    430,
+                ),
+                _curve_column(
+                    "column-time-gas-universal",
+                    _t("gas_c1_c5", language),
+                    [
+                        _binding("TOTAL_GAS", _t("total_gas", language), "%", "#b91c1c", width=2.0),
+                        _binding("C1", _t("methane", language), "%", "#2563eb"),
+                        _binding("C2", _t("ethane", language), "%", "#16a34a"),
+                        _binding("C3", _t("propane", language), "%", "#ea580c"),
+                        _binding("C4", _t("butane", language), "%", "#7c3aed"),
+                        _binding("C5", _t("pentane", language), "%", "#be123c"),
+                        _binding("IC4", _t("isobutane", language), "%", "#9333ea"),
+                        _binding("NC4", _t("nbutane", language), "%", "#6d28d9"),
+                        _binding("IC5", _t("isopentane", language), "%", "#db2777"),
+                        _binding("NC5", _t("npentane", language), "%", "#9f1239"),
+                        _binding("CO2", "CO₂", "%", "#64748b"),
+                        _binding("MS_H2S", "H₂S", "%", "#ca8a04"),
+                    ],
+                    500,
                 ),
                 _special_column(
                     "column-time-technology-comments",
