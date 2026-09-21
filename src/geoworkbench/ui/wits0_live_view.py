@@ -36,6 +36,13 @@ from geoworkbench.services.acquisition_live_view import (
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.acquisition.wits0_reliability import Wits0WorkspaceState
+from geoworkbench.acquisition.wits0_live_forms import (
+    CUSTOM_LIVE_FORM_ID,
+    UNIVERSAL_LIVE_FORM_ID,
+    live_curve_priority,
+    live_form_definitions,
+    select_live_curve_ids,
+)
 from geoworkbench.tablet.grid_geometry import DEFAULT_GRID_ALPHA
 
 if TYPE_CHECKING:
@@ -86,29 +93,6 @@ class Wits0LiveViewWidget(QWidget):
     to append records in the background.
     """
 
-    _DEFAULT_CURVE_PRIORITY = (
-        "HOLE_DEPTH",
-        "BIT_DEPTH",
-        "ROP",
-        "WOB",
-        "RPM",
-        "TORQUE",
-        "SPP",
-        "FLOW_IN",
-        "FLOW_OUT",
-        "PIT_VOLUME",
-        "TOTAL_GAS",
-        "C1",
-        "C2",
-        "C3",
-        "IC4",
-        "NC4",
-        "IC5",
-        "NC5",
-        "CO2",
-        "H2S",
-    )
-
     def __init__(
         self,
         parent: QWidget | None = None,
@@ -117,6 +101,7 @@ class Wits0LiveViewWidget(QWidget):
     ) -> None:
         super().__init__(parent)
         self.localizer = Localizer.create(language)
+        self._language = language
         self._runtime: Wits0AcquisitionRuntime | None = None
         self._view: AcquisitionLiveView | None = None
         self._preview_mode = False
@@ -141,6 +126,19 @@ class Wits0LiveViewWidget(QWidget):
     def _build_toolbar(self) -> QHBoxLayout:
         layout = QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
+
+        layout.addWidget(QLabel(_live_form_selector_label(self._language), self))
+        self.form_combo = QComboBox(self)
+        for definition in live_form_definitions():
+            self.form_combo.addItem(
+                definition.title(self._language),
+                definition.form_id,
+            )
+        universal_index = self.form_combo.findData(UNIVERSAL_LIVE_FORM_ID)
+        if universal_index >= 0:
+            self.form_combo.setCurrentIndex(universal_index)
+        self.form_combo.currentIndexChanged.connect(self._form_changed)
+        layout.addWidget(self.form_combo)
 
         layout.addWidget(QLabel(self._t("wits0_live.axis"), self))
         self.axis_combo = QComboBox(self)
@@ -265,7 +263,11 @@ class Wits0LiveViewWidget(QWidget):
             ),
         )
         self._last_revision = None
+        universal_index = self.form_combo.findData(UNIVERSAL_LIVE_FORM_ID)
+        if universal_index >= 0:
+            self.form_combo.setCurrentIndex(universal_index)
         for widget in (
+            self.form_combo,
             self.axis_combo,
             self.auto_follow_check,
             self.pause_button,
@@ -317,6 +319,9 @@ class Wits0LiveViewWidget(QWidget):
             self.window_spin.setValue(state.follow_span)
             selected = set(state.selected_curve_ids)
             if selected:
+                custom_index = self.form_combo.findData(CUSTOM_LIVE_FORM_ID)
+                if custom_index >= 0:
+                    self.form_combo.setCurrentIndex(custom_index)
                 for row in range(self.curve_list.count()):
                     item = self.curve_list.item(row)
                     curve_id = item.data(Qt.ItemDataRole.UserRole)
@@ -411,18 +416,11 @@ class Wits0LiveViewWidget(QWidget):
         if view is None:
             return
         curves = list(view.dataset.curves.values())
-        priority = {
-            mnemonic: index
-            for index, mnemonic in enumerate(self._DEFAULT_CURVE_PRIORITY)
-        }
         curves.sort(
             key=lambda curve: (
-                priority.get(
-                    (
-                        curve.metadata.canonical_mnemonic
-                        or curve.metadata.original_mnemonic
-                    ).upper(),
-                    len(priority),
+                live_curve_priority(
+                    curve.metadata.canonical_mnemonic,
+                    curve.metadata.original_mnemonic,
                 ),
                 (
                     curve.metadata.canonical_mnemonic
@@ -433,7 +431,7 @@ class Wits0LiveViewWidget(QWidget):
         self._updating_controls = True
         try:
             self.curve_list.clear()
-            for index, curve in enumerate(curves):
+            for curve in curves:
                 metadata = curve.metadata
                 mnemonic = metadata.canonical_mnemonic or metadata.original_mnemonic
                 unit = (metadata.unit or "").strip()
@@ -441,12 +439,43 @@ class Wits0LiveViewWidget(QWidget):
                 item = QListWidgetItem(label, self.curve_list)
                 item.setData(Qt.ItemDataRole.UserRole, metadata.curve_id)
                 item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+                item.setCheckState(Qt.CheckState.Unchecked)
+                item.setToolTip(metadata.description or metadata.provenance or "")
+        finally:
+            self._updating_controls = False
+        self._apply_live_form_selection()
+
+    def _apply_live_form_selection(self) -> None:
+        view = self._view
+        if view is None:
+            return
+        form_id = str(self.form_combo.currentData() or UNIVERSAL_LIVE_FORM_ID)
+        if form_id == CUSTOM_LIVE_FORM_ID:
+            return
+        curves = tuple(
+            (
+                curve.metadata.curve_id,
+                curve.metadata.canonical_mnemonic,
+                curve.metadata.original_mnemonic,
+            )
+            for curve in view.dataset.curves.values()
+        )
+        selected = set(select_live_curve_ids(form_id, curves))
+        if not selected and form_id == UNIVERSAL_LIVE_FORM_ID:
+            selected = {
+                self.curve_list.item(row).data(Qt.ItemDataRole.UserRole)
+                for row in range(min(6, self.curve_list.count()))
+            }
+        self._updating_controls = True
+        try:
+            for row in range(self.curve_list.count()):
+                item = self.curve_list.item(row)
+                curve_id = item.data(Qt.ItemDataRole.UserRole)
                 item.setCheckState(
                     Qt.CheckState.Checked
-                    if index < min(6, len(curves))
+                    if curve_id in selected
                     else Qt.CheckState.Unchecked
                 )
-                item.setToolTip(metadata.description or metadata.provenance or "")
         finally:
             self._updating_controls = False
 
@@ -459,6 +488,13 @@ class Wits0LiveViewWidget(QWidget):
                 if isinstance(curve_id, str):
                     selected.append(curve_id)
         return tuple(selected)
+
+    def _form_changed(self, _index: int) -> None:
+        if self._updating_controls or self._view is None:
+            return
+        self._apply_live_form_selection()
+        self._last_revision = None
+        self.refresh(force=True)
 
     def _axis_changed(self, _index: int) -> None:
         if self._updating_controls or self._view is None:
@@ -528,6 +564,11 @@ class Wits0LiveViewWidget(QWidget):
     def _curve_selection_changed(self, _item: QListWidgetItem) -> None:
         if self._updating_controls:
             return
+        custom_index = self.form_combo.findData(CUSTOM_LIVE_FORM_ID)
+        if custom_index >= 0 and self.form_combo.currentIndex() != custom_index:
+            self.form_combo.blockSignals(True)
+            self.form_combo.setCurrentIndex(custom_index)
+            self.form_combo.blockSignals(False)
         self._last_revision = None
         self.refresh(force=True)
 
@@ -678,6 +719,7 @@ class Wits0LiveViewWidget(QWidget):
         self.state_label.setText(self._t("wits0_live.no_session"))
         self.summary_label.setText(self._t("wits0_live.no_data"))
         for widget in (
+            self.form_combo,
             self.axis_combo,
             self.auto_follow_check,
             self.pause_button,
@@ -690,6 +732,15 @@ class Wits0LiveViewWidget(QWidget):
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)
+
+
+def _live_form_selector_label(language: AppLanguage) -> str:
+    return {
+        AppLanguage.RU: "Форма",
+        AppLanguage.KK: "Пішін",
+        AppLanguage.EN: "Form",
+    }.get(language, "Form")
+
 
 
 def _quality_color(quality: AcquisitionLiveQuality) -> QColor | None:
