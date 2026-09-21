@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
+import zipfile
 
 from geoworkbench.data.csv_adapter import (
     CsvImportError,
@@ -30,6 +31,10 @@ from geoworkbench.data.las_import_report import (
 from geoworkbench.data.lossless_las import LosslessLasDocument, read_lossless_las
 from geoworkbench.domain.models import Dataset, DatasetSourceRevision
 from geoworkbench.importers.paradox.models import ParadoxImportResult
+from geoworkbench.importers.legacy_geosight_forms import (
+    LegacyGeoSightSourceKind,
+    detect_geosight_source,
+)
 from geoworkbench.services.depth_axis import DepthDirection, analyze_depth_axis
 from geoworkbench.services.import_diagnostics import (
     ImportDiagnostic,
@@ -57,6 +62,7 @@ class ImportSourceKind(StrEnum):
     CSV = "csv"
     EXCEL = "excel"
     PARADOX = "paradox"
+    GEOSIGHT_FORM = "geosight_form"
     GS2 = "gs2"
 
 
@@ -79,6 +85,7 @@ _SOURCE_LABEL_KEYS = (
     (ImportSourceKind.CSV, "import.source_csv"),
     (ImportSourceKind.EXCEL, "import.source_excel"),
     (ImportSourceKind.PARADOX, "import.source_paradox"),
+    (ImportSourceKind.GEOSIGHT_FORM, "import.source_geosight_form"),
     (ImportSourceKind.GS2, "import.source_gs2"),
 )
 
@@ -90,6 +97,10 @@ _SOURCE_KIND_BY_SUFFIX = {
     ".xlsx": ImportSourceKind.EXCEL,
     ".xlsm": ImportSourceKind.EXCEL,
     ".db": ImportSourceKind.PARADOX,
+    ".sd2": ImportSourceKind.GEOSIGHT_FORM,
+    ".sf2": ImportSourceKind.GEOSIGHT_FORM,
+    ".gsf": ImportSourceKind.GEOSIGHT_FORM,
+    ".grc": ImportSourceKind.GEOSIGHT_FORM,
     ".gs2": ImportSourceKind.GS2,
 }
 
@@ -125,7 +136,31 @@ class ImportJobController:
 
     @staticmethod
     def kind_for_path(source: str | Path) -> ImportSourceKind | None:
-        return _SOURCE_KIND_BY_SUFFIX.get(Path(source).suffix.casefold())
+        selected = Path(source)
+        suffix = selected.suffix.casefold()
+        kind = _SOURCE_KIND_BY_SUFFIX.get(suffix)
+        if suffix != ".gs2" or kind is None or not selected.is_file():
+            return kind
+
+        # The .gs2 extension is shared by two unrelated legacy formats:
+        # GeoScape II ZIP data containers and textual Delphi GeoSight desktops.
+        # Preserve the fast container path and inspect only non-ZIP files.
+        try:
+            if zipfile.is_zipfile(selected):
+                return ImportSourceKind.GS2
+            if selected.stat().st_size > 64 * 1024 * 1024:
+                return ImportSourceKind.GS2
+            source_kind = detect_geosight_source(selected.read_bytes())
+        except OSError:
+            return ImportSourceKind.GS2
+
+        if source_kind in {
+            LegacyGeoSightSourceKind.TEXT_FORM,
+            LegacyGeoSightSourceKind.BINARY_FORM,
+            LegacyGeoSightSourceKind.GSF_DESCRIPTOR,
+        }:
+            return ImportSourceKind.GEOSIGHT_FORM
+        return ImportSourceKind.GS2
 
     def dispatch_path(self, source: str | Path) -> bool:
         selected = Path(source)
