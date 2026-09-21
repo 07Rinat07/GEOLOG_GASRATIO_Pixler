@@ -31,7 +31,7 @@
 |---|---|---|
 | Жобалар және тіл | іске қосу, жобаны жасау/ашу, RU/KK/EN, қауіпсіз сақтау | [Жобамен жұмыс](PROJECT_WORKFLOW.md), [Пайдаланушы нұсқаулығы](README.md) |
 | WITS0 деректері | TCP server/client, raw capture, frames, reconnect, replay-ready файлдар | [WITS0 қабылдау](WITS0_CAPTURE.md), [Acquisition replay](ACQUISITION_REPLAY.md) |
-| Деректер импорты | LAS, CSV, Excel, TXT, GeoScape/Paradox, SKF, алдын ала қарау және сәйкестікті тексеру | [Import Review](IMPORT_REVIEW.md), [LAS Editor](LAS_EDITOR.md), [Paradox](PARADOX_IMPORT.md), [SKF](SKF_IMPORT.md) |
+| Деректер импорты | LAS, CSV, Excel, TXT, GeoScape/Paradox, SKF және мазмұны бойынша танылатын legacy GeoSight/GeoScape SD2/SF2/GSF/GS2/GRC пішіндері | [Import Review](IMPORT_REVIEW.md), [LAS Editor](LAS_EDITOR.md), [Paradox](PARADOX_IMPORT.md), [SKF](SKF_IMPORT.md) |
 | Импорт диагностикасы | NULL, қайталанулар, тереңдік/уақыт, өлшем бірліктері, бос аралықтар, қате журналы | [Import Review](IMPORT_REVIEW.md), [Қолданба диагностикасы](APPLICATION_DIAGNOSTICS.md) |
 | Деректер жиындары | бірнеше ұңғыма және dataset, біріктіру, күнделікті толықтыру, replay | [Жобамен жұмыс](PROJECT_WORKFLOW.md), [Жұмыс аймағы](UI_WORKSPACE.md), [Acquisition replay](ACQUISITION_REPLAY.md) |
 | LAS кестелік редакторы | қисықтарды қарау және өңдеу, диапазондар, жаңа LAS, экспорт | [LAS Editor](LAS_EDITOR.md), [LAS Editor 2](LAS_EDITOR_2.md) |
