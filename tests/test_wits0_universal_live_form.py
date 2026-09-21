@@ -129,7 +129,7 @@ def test_engineering_control_template_is_full_universal_wits_form() -> None:
         "PIT_VOL",
         "SENSOR_711",
         "SENSOR_724",
-        "TG",
+        "TOTAL_GAS",
         "C1",
         "C2",
         "C3",
