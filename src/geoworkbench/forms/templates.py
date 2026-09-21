@@ -1596,7 +1596,7 @@ def _engineering_control_time(language: TemplateLanguage) -> FormDocument:
                     "column-time-gas-universal",
                     _t("gas_c1_c5", language),
                     [
-                        _binding("TG", _t("total_gas", language), "%", "#b91c1c", width=2.0),
+                        _binding("TOTAL_GAS", _t("total_gas", language), "%", "#b91c1c", width=2.0),
                         _binding("C1", _t("methane", language), "%", "#2563eb"),
                         _binding("C2", _t("ethane", language), "%", "#16a34a"),
                         _binding("C3", _t("propane", language), "%", "#ea580c"),
