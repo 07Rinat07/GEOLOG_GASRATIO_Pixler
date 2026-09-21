@@ -665,8 +665,13 @@ def _binding_from_component(
     ):
         minimum = 0.0
     x_min, x_max = _safe_range(scale, minimum, maximum)
+    canonical_parameter_id = (
+        sensor.canonical_mnemonic
+        if sensor is not None
+        else _safe_identifier(mnemonic, prefix="parameter")
+    )
     return ParameterBinding.create(
-        canonical_parameter_id=_safe_identifier(mnemonic, prefix="parameter"),
+        canonical_parameter_id=canonical_parameter_id,
         display_name=display[:120],
         source_mnemonic=mnemonic[:80],
         unit=unit[:40],
