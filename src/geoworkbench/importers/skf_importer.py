@@ -627,9 +627,11 @@ def _binding_from_component(
     component: DelphiComponent, context: _ImportContext
 ) -> ParameterBinding | None:
     sensor = _sensor_definition(component, context)
-    mnemonic = _curve_mnemonic(component)
+    mnemonic = _explicit_curve_mnemonic(component)
     if not mnemonic and sensor is not None:
         mnemonic = sensor.canonical_mnemonic
+    if not mnemonic:
+        mnemonic = _curve_mnemonic(component)
     if not mnemonic:
         return None
     display = (
@@ -686,7 +688,7 @@ def _binding_from_component(
     )
 
 
-def _curve_mnemonic(component: DelphiComponent) -> str:
+def _explicit_curve_mnemonic(component: DelphiComponent) -> str:
     value = _text_property(
         component,
         "Mnemonic",
@@ -700,16 +702,19 @@ def _curve_mnemonic(component: DelphiComponent) -> str:
         "FieldName",
         "Code",
     )
-    value = value.strip()
-    if not value:
-        name = component.name.strip()
-        if re.fullmatch(r"[A-Za-zА-Яа-я][A-Za-zА-Яа-я0-9_:\-/]{0,79}", name):
-            token = component.class_name.casefold()
-            if any(part in token for part in ("curve", "series", "graph", "channel")):
-                value = name
-    return re.sub(r"\s+", "_", value)[:80]
+    return re.sub(r"\s+", "_", value.strip())[:80]
 
 
+def _curve_mnemonic(component: DelphiComponent) -> str:
+    value = _explicit_curve_mnemonic(component)
+    if value:
+        return value
+    name = component.name.strip()
+    if re.fullmatch(r"[A-Za-zА-Яа-я][A-Za-zА-Яа-я0-9_:\-/]{0,79}", name):
+        token = component.class_name.casefold()
+        if any(part in token for part in ("curve", "series", "graph", "channel")):
+            return re.sub(r"\s+", "_", name)[:80]
+    return ""
 
 
 def _sensor_definition(
