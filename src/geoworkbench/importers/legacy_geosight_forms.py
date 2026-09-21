@@ -9,7 +9,6 @@ import zipfile
 
 from geoworkbench.importers.delphi_stream import (
     DelphiBinaryReader,
-    DelphiComponentStream,
     DelphiStreamError,
     parse_delphi_component_stream,
 )
