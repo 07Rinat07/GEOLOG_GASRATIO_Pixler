@@ -31,7 +31,7 @@
 |---|---|---|
 | Проекты и язык | запуск, создание/открытие проекта, RU/KK/EN, безопасное сохранение | [Рабочий проект](PROJECT_WORKFLOW.md), [Руководство пользователя](README.md) |
 | WITS0-данные | TCP server/client, raw capture, frames, reconnect, replay-ready файлы | [Захват WITS0](WITS0_CAPTURE.md), [Acquisition replay](ACQUISITION_REPLAY.md) |
-| Импорт данных | LAS, CSV, Excel, TXT, GeoScape/Paradox, SKF, предпросмотр и проверка соответствий | [Import Review](IMPORT_REVIEW.md), [LAS Editor](LAS_EDITOR.md), [Paradox](PARADOX_IMPORT.md), [SKF](SKF_IMPORT.md) |
+| Импорт данных | LAS, CSV, Excel, TXT, GeoScape/Paradox, SKF и legacy GeoSight/GeoScape формы SD2/SF2/GSF/GS2/GRC с распознаванием по содержимому | [Import Review](IMPORT_REVIEW.md), [LAS Editor](LAS_EDITOR.md), [Paradox](PARADOX_IMPORT.md), [SKF](SKF_IMPORT.md) |
 | Диагностика импорта | NULL, дубликаты, глубина/время, единицы, пропуски, журнал ошибки | [Import Review](IMPORT_REVIEW.md), [Диагностика приложения](APPLICATION_DIAGNOSTICS.md) |
 | Наборы данных | несколько скважин и datasets, объединение, ежедневное наращивание, replay | [Рабочий проект](PROJECT_WORKFLOW.md), [Рабочая область](UI_WORKSPACE.md), [Acquisition replay](ACQUISITION_REPLAY.md) |
 | Табличный LAS-редактор | просмотр и редактирование кривых, диапазоны, новый LAS, экспорт | [LAS Editor](LAS_EDITOR.md), [LAS Editor 2](LAS_EDITOR_2.md) |
