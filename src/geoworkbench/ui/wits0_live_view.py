@@ -265,7 +265,9 @@ class Wits0LiveViewWidget(QWidget):
         self._last_revision = None
         universal_index = self.form_combo.findData(UNIVERSAL_LIVE_FORM_ID)
         if universal_index >= 0:
+            self.form_combo.blockSignals(True)
             self.form_combo.setCurrentIndex(universal_index)
+            self.form_combo.blockSignals(False)
         for widget in (
             self.form_combo,
             self.axis_combo,
