@@ -27,6 +27,21 @@ def _frame(record: int, sequence: int, *lines: str) -> bytes:
     ).encode("cp1251")
 
 
+def _frame_without_datetime(record: int, sequence: int, *lines: str) -> bytes:
+    return "\r\n".join(
+        (
+            "&&",
+            f"{record:02d}01СКВАЖИНА-8",
+            f"{record:02d}0201",
+            f"{record:02d}03{record}",
+            f"{record:02d}04{sequence}",
+            f"{record:02d}070",
+            *lines,
+            "!!",
+        )
+    ).encode("cp1251")
+
+
 def _parsed_frames(*raw_frames: bytes):  # type: ignore[no-untyped-def]
     processor = Wits0StreamProcessor(load_builtin_wits0_profile())
     frames = []
@@ -58,6 +73,34 @@ def test_preview_renders_frames_without_project_well_or_review_commit() -> None:
     assert preview.last_error is None
     assert second_runtime.controller.dataset.active_index.values.shape == (2,)
     assert second_runtime.controller.dataset.curves
+
+
+def test_preview_uses_received_at_when_later_frame_omits_wits_datetime() -> None:
+    profile = load_builtin_wits0_profile()
+    processor = Wits0StreamProcessor(profile)
+    first = processor.append(
+        _frame(2, 1, "0208123.4", "021011.2"),
+        received_at="2026-07-27T03:15:45Z",
+        source_ref="live-preview.wits",
+    )[0]
+    second = processor.append(
+        _frame_without_datetime(2, 2, "0208123.6", "021012.0"),
+        received_at="2026-07-27T03:15:46Z",
+        source_ref="live-preview.wits",
+    )[0]
+    preview = Wits0LivePreview(profile)
+
+    first_runtime = preview.observe(first)
+    second_runtime = preview.observe(second)
+
+    assert first_runtime is not None
+    assert second_runtime is first_runtime
+    assert preview.last_error is None
+    assert preview.buffered_frame_count == 2
+    assert second_runtime.snapshot().frames_skipped == 0
+    active = second_runtime.controller.dataset.active_index.values
+    assert active.shape == (2,)
+    assert active[1] > active[0]
 
 
 def test_preview_rebuilds_when_new_channels_arrive_and_preserves_buffer() -> None:
