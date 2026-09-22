@@ -12,6 +12,7 @@ from geoworkbench.services.wits0_acquisition import (
     Wits0AcquisitionConfig,
     Wits0AcquisitionRuntime,
     Wits0BackpressurePolicy,
+    Wits0FrameNormalizerPolicy,
 )
 from geoworkbench.services.wits0_import_review import (
     Wits0DiscoveryAccumulator,
@@ -154,6 +155,9 @@ class Wits0LivePreview:
                     checkpoint_every_records=self.config.max_buffered_frames + 1,
                     checkpoint_interval_seconds=86_400.0,
                     backpressure_policy=Wits0BackpressurePolicy.DRAIN_THEN_RETRY,
+                ),
+                normalizer_policy=Wits0FrameNormalizerPolicy(
+                    fallback_header_datetime_to_received_at=True,
                 ),
             )
             runtime.submit_frames(self._frames)
