@@ -119,8 +119,12 @@ def test_operator_dashboard_renders_indicators_and_independent_panels(
         assert not dashboard.panels["depth"].box.isHidden()
         assert not dashboard.panels["gas_total"].box.isHidden()
         assert dashboard.panels["load"].box.isHidden()
-        assert len(dashboard.panels["depth"].plot.listDataItems()) == 1
-        assert len(dashboard.panels["gas_total"].plot.listDataItems()) == 1
+        assert len(
+            dashboard.panels["depth"].plot.getPlotItem().listDataItems()
+        ) == 1
+        assert len(
+            dashboard.panels["gas_total"].plot.getPlotItem().listDataItems()
+        ) == 1
         depth_range = dashboard.panels["depth"].plot.viewRange()[1]
         gas_range = dashboard.panels["gas_total"].plot.viewRange()[1]
         assert depth_range != gas_range
