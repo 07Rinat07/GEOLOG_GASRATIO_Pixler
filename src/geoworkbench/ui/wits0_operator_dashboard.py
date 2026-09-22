@@ -231,7 +231,7 @@ class Wits0OperatorDashboard(QWidget):
 
     def render_snapshot(self, snapshot: AcquisitionLiveSnapshot) -> None:
         self.render_current_values(snapshot.current_values)
-        grouped = {
+        grouped: dict[str, list[AcquisitionLiveSeries]] = {
             panel_id: []
             for panel_id in self.panels
         }
