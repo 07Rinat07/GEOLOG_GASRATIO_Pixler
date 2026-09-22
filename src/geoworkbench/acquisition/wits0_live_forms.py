@@ -30,6 +30,27 @@ class Wits0LiveFormDefinition:
         return self.title_ru
 
 
+
+
+@dataclass(frozen=True, slots=True)
+class Wits0LivePanelDefinition:
+    """One operator-dashboard panel with engineering-compatible channels."""
+
+    panel_id: str
+    title_ru: str
+    title_kk: str
+    title_en: str
+    channel_keys: tuple[str, ...]
+
+    def title(self, language: object) -> str:
+        code = str(getattr(language, "value", language)).strip().casefold()
+        if code == "kk":
+            return self.title_kk
+        if code == "en":
+            return self.title_en
+        return self.title_ru
+
+
 _CHANNEL_ALIASES: dict[str, tuple[str, ...]] = {
     "hole_depth": ("HOLE_DEPTH", "DEPTMEAS", "DEPTH", "MD"),
     "bit_depth": ("BIT_DEPTH", "DEPTBITM", "BDEP"),
@@ -126,6 +147,128 @@ _GAS = (
 )
 
 
+
+
+_LIVE_PANELS: tuple[Wits0LivePanelDefinition, ...] = (
+    Wits0LivePanelDefinition(
+        "depth",
+        "Глубины и положение",
+        "Тереңдік және орын",
+        "Depth and position",
+        ("hole_depth", "bit_depth", "bit_distance", "block_position"),
+    ),
+    Wits0LivePanelDefinition(
+        "rate",
+        "Скорость и проходка",
+        "Жылдамдық және өту",
+        "Rate and ROP",
+        ("block_speed", "rop"),
+    ),
+    Wits0LivePanelDefinition(
+        "lag",
+        "Отставание",
+        "Кешігу",
+        "Lag",
+        ("lag_time",),
+    ),
+    Wits0LivePanelDefinition(
+        "load",
+        "Нагрузки",
+        "Жүктемелер",
+        "Loads",
+        ("hook_load", "string_weight", "wob"),
+    ),
+    Wits0LivePanelDefinition(
+        "rotation",
+        "Обороты",
+        "Айналым",
+        "Rotation",
+        ("rpm",),
+    ),
+    Wits0LivePanelDefinition(
+        "torque",
+        "Крутящий момент",
+        "Айналу моменті",
+        "Torque",
+        ("torque",),
+    ),
+    Wits0LivePanelDefinition(
+        "pressure",
+        "Давление",
+        "Қысым",
+        "Pressure",
+        ("spp",),
+    ),
+    Wits0LivePanelDefinition(
+        "pumps",
+        "Насосы",
+        "Сорғылар",
+        "Pumps",
+        ("pump_1", "pump_2", "pump_3"),
+    ),
+    Wits0LivePanelDefinition(
+        "flow",
+        "Расход",
+        "Шығын",
+        "Flow",
+        ("flow_in", "flow_out"),
+    ),
+    Wits0LivePanelDefinition(
+        "mud_density",
+        "Плотность раствора",
+        "Ерітінді тығыздығы",
+        "Mud density",
+        ("mud_density_in", "mud_density_out"),
+    ),
+    Wits0LivePanelDefinition(
+        "mud_temperature",
+        "Температура раствора",
+        "Ерітінді температурасы",
+        "Mud temperature",
+        ("mud_temp_in", "mud_temp_out"),
+    ),
+    Wits0LivePanelDefinition(
+        "pits",
+        "Ёмкости",
+        "Ыдыстар",
+        "Pits",
+        _PITS,
+    ),
+    Wits0LivePanelDefinition(
+        "gas_total",
+        "Общий газ",
+        "Жалпы газ",
+        "Total gas",
+        ("total_gas",),
+    ),
+    Wits0LivePanelDefinition(
+        "gas_components",
+        "Газовые компоненты",
+        "Газ компоненттері",
+        "Gas components",
+        (
+            "c1",
+            "c2",
+            "c3",
+            "c4",
+            "c5",
+            "ic4",
+            "nc4",
+            "ic5",
+            "nc5",
+            "co2",
+            "h2s",
+        ),
+    ),
+)
+
+_CHANNEL_TO_PANEL = {
+    channel_key: panel.panel_id
+    for panel in _LIVE_PANELS
+    for channel_key in panel.channel_keys
+}
+
+
 _LIVE_FORMS: tuple[Wits0LiveFormDefinition, ...] = (
     Wits0LiveFormDefinition(
         UNIVERSAL_LIVE_FORM_ID,
@@ -220,6 +363,26 @@ def live_curve_priority(*mnemonics: str | None) -> int:
     if channel_key is None:
         return len(_UNIVERSAL_PRIORITY) + 1
     return _UNIVERSAL_PRIORITY[channel_key]
+
+
+
+
+def live_panel_definitions() -> tuple[Wits0LivePanelDefinition, ...]:
+    return _LIVE_PANELS
+
+
+def live_panel(panel_id: str) -> Wits0LivePanelDefinition:
+    for definition in _LIVE_PANELS:
+        if definition.panel_id == panel_id:
+            return definition
+    raise KeyError(f"Unknown WITS0 live panel: {panel_id}")
+
+
+def live_panel_key(*mnemonics: str | None) -> str | None:
+    channel_key = live_channel_key(*mnemonics)
+    if channel_key is None:
+        return None
+    return _CHANNEL_TO_PANEL.get(channel_key)
 
 
 def select_live_curve_ids(
