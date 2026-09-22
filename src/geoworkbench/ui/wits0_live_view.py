@@ -1,10 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
-import numpy as np
-import pyqtgraph as pg
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QBrush, QColor
 from PySide6.QtWidgets import (
@@ -28,7 +25,6 @@ from PySide6.QtWidgets import (
 
 from geoworkbench.services.acquisition_live_view import (
     AcquisitionLiveAxisMode,
-    AcquisitionLiveMarkerKind,
     AcquisitionLiveQuality,
     AcquisitionLiveSnapshot,
     AcquisitionLiveView,
@@ -43,47 +39,10 @@ from geoworkbench.acquisition.wits0_live_forms import (
     live_form_definitions,
     select_live_curve_ids,
 )
-from geoworkbench.tablet.grid_geometry import DEFAULT_GRID_ALPHA
 from geoworkbench.ui.wits0_operator_dashboard import Wits0OperatorDashboard
 
 if TYPE_CHECKING:
     from geoworkbench.services.wits0_acquisition import Wits0AcquisitionRuntime
-
-
-class _LiveAxisItem(pg.AxisItem):
-    """Bottom axis that can switch between UTC timestamps and numeric depth."""
-
-    def __init__(self) -> None:
-        super().__init__(orientation="bottom")
-        self._datetime_mode = False
-
-    def set_datetime_mode(self, enabled: bool) -> None:
-        self._datetime_mode = bool(enabled)
-        self.picture = None
-        self.update()
-
-    def tickStrings(  # noqa: N802 - pyqtgraph virtual method
-        self,
-        values: list[float],
-        scale: float,
-        spacing: float,
-    ) -> list[str]:
-        if not self._datetime_mode:
-            return [f"{value:g}" for value in values]
-        labels: list[str] = []
-        for value in values:
-            try:
-                timestamp = datetime.fromtimestamp(float(value), tz=timezone.utc)
-            except (OverflowError, OSError, ValueError):
-                labels.append("")
-                continue
-            if spacing >= 86_400:
-                labels.append(timestamp.strftime("%d.%m.%Y"))
-            elif spacing >= 60:
-                labels.append(timestamp.strftime("%H:%M"))
-            else:
-                labels.append(timestamp.strftime("%H:%M:%S"))
-        return labels
 
 
 class Wits0LiveViewWidget(QWidget):
@@ -687,16 +646,3 @@ def _quality_color(quality: AcquisitionLiveQuality) -> QColor | None:
         AcquisitionLiveQuality.SOURCE_GAP: QColor("#d97706"),
         AcquisitionLiveQuality.STALE: QColor("#7c3aed"),
     }.get(quality)
-
-
-def _marker_pen(kind: AcquisitionLiveMarkerKind) -> pg.QtGui.QPen:
-    color, style = {
-        AcquisitionLiveMarkerKind.SOURCE_SEQUENCE_GAP: (
-            "#f59e0b",
-            Qt.PenStyle.DashLine,
-        ),
-        AcquisitionLiveMarkerKind.AXIS_GAP: ("#ef4444", Qt.PenStyle.DashDotLine),
-        AcquisitionLiveMarkerKind.INVALID_VALUE: ("#dc2626", Qt.PenStyle.DotLine),
-        AcquisitionLiveMarkerKind.MISSING_SPAN: ("#94a3b8", Qt.PenStyle.DotLine),
-    }[kind]
-    return pg.mkPen(color, width=1.4, style=style)
