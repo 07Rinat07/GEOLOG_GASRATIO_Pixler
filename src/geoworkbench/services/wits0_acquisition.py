@@ -206,6 +206,7 @@ class Wits0FrameNormalizerPolicy:
     skip_invalid_sequences: bool = True
     require_received_at: bool = True
     skip_empty_rows: bool = True
+    fallback_header_datetime_to_received_at: bool = False
 
 
 class Wits0FrameNormalizer:
@@ -251,7 +252,7 @@ class Wits0FrameNormalizer:
         received_at = self._received_at(frame, diagnostics)
         if received_at is None:
             return Wits0NormalizationResult(None, tuple(diagnostics))
-        index_value = self._index_value(frame, diagnostics)
+        index_value = self._index_value(frame, diagnostics, received_at=received_at)
         if index_value is None:
             return Wits0NormalizationResult(None, tuple(diagnostics))
 
@@ -404,12 +405,16 @@ class Wits0FrameNormalizer:
         self,
         frame: Wits0ParsedFrame,
         diagnostics: list[Wits0NormalizationDiagnostic],
+        *,
+        received_at: str,
     ) -> float | int | None:
         selected = self._selected_index
         if selected.source_kind == "header_datetime":
             parsed = self._header_datetime(frame, diagnostics)
             if parsed is None:
-                return None
+                if not self.policy.fallback_header_datetime_to_received_at:
+                    return None
+                return acquisition_timestamp_to_ns(received_at)
             timestamp = parsed.astimezone(timezone.utc).isoformat(
                 timespec="microseconds"
             ).replace("+00:00", "Z")
