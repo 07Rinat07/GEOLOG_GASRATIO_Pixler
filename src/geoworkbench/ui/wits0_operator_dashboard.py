@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 import numpy as np
 import pyqtgraph as pg
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
     QFrame,
@@ -26,6 +26,7 @@ from geoworkbench.services.acquisition_live_view import (
     AcquisitionCurrentValue,
     AcquisitionLiveMarkerKind,
     AcquisitionLiveQuality,
+    AcquisitionLiveSeries,
     AcquisitionLiveSnapshot,
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
@@ -161,7 +162,10 @@ class Wits0OperatorDashboard(QWidget):
         self.indicator_scroll = QScrollArea(self)
         self.indicator_scroll.setWidgetResizable(True)
         self.indicator_scroll.setHorizontalScrollBarPolicy(
-            self.indicator_scroll.horizontalScrollBarPolicy()
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        self.indicator_scroll.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
         self.indicator_host = QWidget(self.indicator_scroll)
         self.indicator_layout = QHBoxLayout(self.indicator_host)
@@ -362,12 +366,12 @@ class Wits0OperatorDashboard(QWidget):
             plot.addItem(line)
 
 
-def _panel_axis_label(series_list: list[object]) -> str:
+def _panel_axis_label(series_list: list[AcquisitionLiveSeries]) -> str:
     units = sorted(
         {
-            str(getattr(series, "unit", "") or "").strip()
+            (series.unit or "").strip()
             for series in series_list
-            if str(getattr(series, "unit", "") or "").strip()
+            if (series.unit or "").strip()
         }
     )
     if not units:
@@ -391,19 +395,19 @@ def _marker_pen(kind: AcquisitionLiveMarkerKind) -> pg.QtGui.QPen:
     color, style = {
         AcquisitionLiveMarkerKind.SOURCE_SEQUENCE_GAP: (
             "#f59e0b",
-            pg.QtCore.Qt.PenStyle.DashLine,
+            Qt.PenStyle.DashLine,
         ),
         AcquisitionLiveMarkerKind.AXIS_GAP: (
             "#ef4444",
-            pg.QtCore.Qt.PenStyle.DashDotLine,
+            Qt.PenStyle.DashDotLine,
         ),
         AcquisitionLiveMarkerKind.INVALID_VALUE: (
             "#dc2626",
-            pg.QtCore.Qt.PenStyle.DotLine,
+            Qt.PenStyle.DotLine,
         ),
         AcquisitionLiveMarkerKind.MISSING_SPAN: (
             "#94a3b8",
-            pg.QtCore.Qt.PenStyle.DotLine,
+            Qt.PenStyle.DotLine,
         ),
     }[kind]
     return pg.mkPen(color, width=1.4, style=style)
