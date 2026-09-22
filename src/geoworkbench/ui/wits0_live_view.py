@@ -44,6 +44,7 @@ from geoworkbench.acquisition.wits0_live_forms import (
     select_live_curve_ids,
 )
 from geoworkbench.tablet.grid_geometry import DEFAULT_GRID_ALPHA
+from geoworkbench.ui.wits0_operator_dashboard import Wits0OperatorDashboard
 
 if TYPE_CHECKING:
     from geoworkbench.services.wits0_acquisition import Wits0AcquisitionRuntime
@@ -222,14 +223,14 @@ class Wits0LiveViewWidget(QWidget):
         self.state_label.setWordWrap(True)
         layout.addWidget(self.state_label)
 
-        self.axis_item = _LiveAxisItem()
-        self.plot = pg.PlotWidget(axisItems={"bottom": self.axis_item}, parent=panel)
-        self.plot.showGrid(x=True, y=True, alpha=DEFAULT_GRID_ALPHA)
-        self.plot.setLabel("left", self._t("wits0_live.measured_value"))
-        self.plot.setLabel("bottom", self._t("wits0_live.index"))
-        self.legend = self.plot.addLegend(offset=(8, 8))
-        self.plot.getPlotItem().sigXRangeChanged.connect(self._plot_range_changed)
-        layout.addWidget(self.plot, 1)
+        self.dashboard = Wits0OperatorDashboard(
+            panel,
+            language=self._language,
+        )
+        self.dashboard.historyRangeChanged.connect(
+            self._dashboard_range_changed
+        )
+        layout.addWidget(self.dashboard, 1)
 
         self.summary_label = QLabel("", panel)
         self.summary_label.setWordWrap(True)
@@ -362,8 +363,7 @@ class Wits0LiveViewWidget(QWidget):
         self._last_revision = None
         self.curve_list.clear()
         self.values_table.setRowCount(0)
-        self.plot.clear()
-        self.legend.clear()
+        self.dashboard.clear()
         self._set_empty_state()
 
     def refresh(self, _value: object = None, *, force: bool = False) -> None:
@@ -574,65 +574,23 @@ class Wits0LiveViewWidget(QWidget):
         self._last_revision = None
         self.refresh(force=True)
 
-    def _plot_range_changed(
-        self,
-        _plot_item: object,
-        ranges: tuple[tuple[float, float], tuple[float, float]],
-    ) -> None:
+    def _dashboard_range_changed(self, start: float, end: float) -> None:
         view = self._view
-        if (
-            view is None
-            or view.auto_follow
-            or self._updating_plot_range
-            or not ranges
-        ):
-            return
-        x_range = ranges[0]
-        if len(x_range) != 2:
+        if view is None or view.auto_follow or self._updating_plot_range:
             return
         try:
-            view.set_history_window(float(x_range[0]), float(x_range[1]))
+            view.set_history_window(float(start), float(end))
         except ValueError:
             return
         self._last_revision = None
         self.refresh(force=True)
 
     def _render_snapshot(self, snapshot: AcquisitionLiveSnapshot) -> None:
-        self.axis_item.set_datetime_mode(snapshot.axis_is_datetime)
-        axis_unit = snapshot.index_unit or ""
-        bottom_label = snapshot.index_mnemonic
-        if snapshot.axis_is_datetime:
-            bottom_label = self._t("wits0_live.time_utc")
-        self.plot.setLabel("bottom", bottom_label, units=axis_unit or None)
-
-        self.plot.clear()
-        self.legend.clear()
-        for index, series in enumerate(snapshot.series):
-            x = np.asarray(series.axis_values, dtype=np.float64)
-            y = np.asarray(series.values, dtype=np.float64)
-            unit = f" [{series.unit}]" if series.unit else ""
-            self.plot.plot(
-                x,
-                y,
-                pen=pg.mkPen(pg.intColor(index, hues=max(1, len(snapshot.series))), width=1.7),
-                name=f"{series.mnemonic}{unit}",
-                connect="finite",
-                skipFiniteCheck=False,
-            )
-        self._render_markers(snapshot)
-
-        if snapshot.window_start is not None and snapshot.window_end is not None:
-            self._updating_plot_range = True
-            try:
-                self.plot.setXRange(
-                    snapshot.window_start,
-                    snapshot.window_end,
-                    padding=0.01,
-                )
-            finally:
-                self._updating_plot_range = False
-        if snapshot.series:
-            self.plot.enableAutoRange(axis="y", enable=True)
+        self._updating_plot_range = True
+        try:
+            self.dashboard.render_snapshot(snapshot)
+        finally:
+            self._updating_plot_range = False
 
         self._render_current_values(snapshot)
         self.auto_follow_check.blockSignals(True)
@@ -673,6 +631,7 @@ class Wits0LiveViewWidget(QWidget):
 
     def _render_current_values(self, snapshot: AcquisitionLiveSnapshot) -> None:
         values = snapshot.current_values
+        self.dashboard.render_current_values(values)
         self.values_table.setRowCount(len(values))
         for row, item in enumerate(values):
             display_value = "—" if item.value is None else f"{item.value:.8g}"
@@ -691,31 +650,6 @@ class Wits0LiveViewWidget(QWidget):
                     cell.setForeground(QBrush(foreground))
                 self.values_table.setItem(row, column, cell)
         self.values_table.resizeColumnsToContents()
-
-    def _render_markers(self, snapshot: AcquisitionLiveSnapshot) -> None:
-        for marker in snapshot.markers:
-            if marker.kind is AcquisitionLiveMarkerKind.MISSING_SPAN:
-                end = marker.axis_end if marker.axis_end is not None else marker.axis_start
-                if end > marker.axis_start:
-                    region = pg.LinearRegionItem(
-                        values=(marker.axis_start, end),
-                        movable=False,
-                        brush=pg.mkBrush(148, 163, 184, 35),
-                        pen=pg.mkPen(148, 163, 184, 90),
-                    )
-                    region.setZValue(-10)
-                    self.plot.addItem(region)
-                    continue
-            pen = _marker_pen(marker.kind)
-            line = pg.InfiniteLine(
-                pos=marker.axis_start,
-                angle=90,
-                movable=False,
-                pen=pen,
-            )
-            line.setToolTip(marker.label)
-            line.setZValue(20)
-            self.plot.addItem(line)
 
     def _set_empty_state(self) -> None:
         self.state_label.setText(self._t("wits0_live.no_session"))
