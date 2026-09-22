@@ -30,7 +30,7 @@ details remain in Git.
 |---|---|---|
 | Projects and language | startup, create/open project, RU/KK/EN, safe saving | [Project workflow](PROJECT_WORKFLOW.md), [User guide](README.md) |
 | WITS0 data | TCP server/client, raw capture, frames, reconnect, replay-ready files | [WITS0 capture](WITS0_CAPTURE.md), [Acquisition replay](ACQUISITION_REPLAY.md) |
-| Data import | LAS, CSV, Excel, TXT, GeoScape/Paradox, SKF, preview and mapping review | [Import Review](IMPORT_REVIEW.md), [LAS Editor](LAS_EDITOR.md), [Paradox](PARADOX_IMPORT.md), [SKF](SKF_IMPORT.md) |
+| Data import | LAS, CSV, Excel, TXT, GeoScape/Paradox, SKF, and legacy GeoSight/GeoScape SD2/SF2/GSF/GS2/GRC forms detected by content | [Import Review](IMPORT_REVIEW.md), [LAS Editor](LAS_EDITOR.md), [Paradox](PARADOX_IMPORT.md), [SKF](SKF_IMPORT.md) |
 | Import diagnostics | NULL, duplicates, depth/time, units, gaps, error log | [Import Review](IMPORT_REVIEW.md), [Application diagnostics](APPLICATION_DIAGNOSTICS.md) |
 | Datasets | multiple wells and datasets, merge, daily append, replay | [Project workflow](PROJECT_WORKFLOW.md), [Workspace](UI_WORKSPACE.md), [Acquisition replay](ACQUISITION_REPLAY.md) |
 | LAS table editor | inspect and edit curves, ranges, new LAS, export | [LAS Editor](LAS_EDITOR.md), [LAS Editor 2](LAS_EDITOR_2.md) |

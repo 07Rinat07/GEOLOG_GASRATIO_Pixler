@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+import zipfile
 
 import pytest
 
@@ -31,6 +32,7 @@ def localize(key: str) -> str:
         "import.source_csv": "CSV",
         "import.source_excel": "Excel",
         "import.source_paradox": "Paradox",
+        "import.source_geosight_form": "GeoSight",
         "import.source_gs2": "GS2",
     }[key]
 
@@ -43,6 +45,7 @@ def test_choices_have_stable_kinds_and_localized_labels() -> None:
         (ImportSourceKind.CSV, "CSV"),
         (ImportSourceKind.EXCEL, "Excel"),
         (ImportSourceKind.PARADOX, "Paradox"),
+        (ImportSourceKind.GEOSIGHT_FORM, "GeoSight"),
         (ImportSourceKind.GS2, "GS2"),
     ]
 
@@ -54,6 +57,7 @@ def test_choices_have_stable_kinds_and_localized_labels() -> None:
         ("CSV", ImportSourceKind.CSV),
         ("Excel", ImportSourceKind.EXCEL),
         ("Paradox", ImportSourceKind.PARADOX),
+        ("GeoSight", ImportSourceKind.GEOSIGHT_FORM),
         ("GS2", ImportSourceKind.GS2),
     ],
 )
@@ -89,6 +93,10 @@ def test_cancel_and_unknown_source_do_not_start_import() -> None:
         ("legacy.xls", ImportSourceKind.EXCEL),
         ("macro.xlsm", ImportSourceKind.EXCEL),
         ("geoscape.db", ImportSourceKind.PARADOX),
+        ("legacy.sd2", ImportSourceKind.GEOSIGHT_FORM),
+        ("legacy.SF2", ImportSourceKind.GEOSIGHT_FORM),
+        ("legacy.gsf", ImportSourceKind.GEOSIGHT_FORM),
+        ("legacy.grc", ImportSourceKind.GEOSIGHT_FORM),
         ("container.gs2", ImportSourceKind.GS2),
     ],
 )
@@ -101,6 +109,35 @@ def test_dispatch_path_detects_format_from_extension(
 
     assert controller.dispatch_path(filename) is True
     assert port.executed == [(expected, Path(filename))]
+
+
+def test_dispatch_path_sniffs_textual_legacy_gs2_before_data_container(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "legacy.gs2"
+    source.write_text(
+        "object MainForm: TfmGSComplexForm\n"
+        "  Caption = 'Legacy form'\n"
+        "end\n",
+        encoding="cp1251",
+    )
+    port = FakeImportJobPort()
+    controller = ImportJobController(port)
+
+    assert controller.dispatch_path(source) is True
+    assert port.executed == [(ImportSourceKind.GEOSIGHT_FORM, source)]
+
+
+def test_dispatch_path_keeps_zip_gs2_on_data_import_path(tmp_path: Path) -> None:
+    source = tmp_path / "container.gs2"
+    with zipfile.ZipFile(source, "w") as archive:
+        archive.writestr("GS2.mdb", b"metadata")
+        archive.writestr("GS2#1.db", b"table")
+    port = FakeImportJobPort()
+    controller = ImportJobController(port)
+
+    assert controller.dispatch_path(source) is True
+    assert port.executed == [(ImportSourceKind.GS2, source)]
 
 
 def test_dispatch_path_reports_unknown_extension() -> None:

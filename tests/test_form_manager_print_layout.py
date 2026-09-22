@@ -1,4 +1,5 @@
 import numpy as np
+from PySide6.QtWidgets import QPushButton
 
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
 from geoworkbench.forms.models import FormAxisKind, FormDocument, FormPageOrientation
@@ -214,3 +215,47 @@ def test_form_manager_stale_initial_form_id_falls_back_to_page_orientation(
     assert current.preferred_page_orientation is FormPageOrientation.LANDSCAPE
     assert dialog.print_page_settings.orientation is PrintOrientation.LANDSCAPE
     dialog.close()
+
+def test_form_manager_imports_geosight_form_through_callback(
+    qapp, tmp_path, monkeypatch
+) -> None:
+    repository = FormRepository(tmp_path / "forms")
+    imported = FormDocument.create("Legacy GeoSight", FormAxisKind.TIME)
+    selected_file = tmp_path / "legacy.sf2"
+    selected_file.write_text("object MainForm: TForm\nend\n", encoding="cp1251")
+    received = []
+
+    def import_geosight(source):
+        received.append(source)
+        repository.save(imported)
+        return imported, "GeoSight imported"
+
+    monkeypatch.setattr(
+        "geoworkbench.ui.form_manager_dialog.QFileDialog.getOpenFileName",
+        lambda *args, **kwargs: (str(selected_file), ""),
+    )
+    messages = []
+    monkeypatch.setattr(
+        "geoworkbench.ui.form_manager_dialog.QMessageBox.information",
+        lambda _parent, _title, message: messages.append(message),
+    )
+    dialog = FormManagerDialog(
+        repository,
+        language="en",
+        geosight_import_callback=import_geosight,
+    )
+    button = next(
+        item
+        for item in dialog.findChildren(QPushButton)
+        if item.text() == "Import GeoSight"
+    )
+
+    button.click()
+
+    assert received == [selected_file]
+    current = dialog._current()
+    assert current is not None
+    assert current.form_id == imported.form_id
+    assert messages[-1] == "GeoSight imported"
+    dialog.close()
+

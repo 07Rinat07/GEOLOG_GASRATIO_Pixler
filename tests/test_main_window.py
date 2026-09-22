@@ -18,6 +18,7 @@ from geoworkbench.domain.models import (
     Project,
     Well,
 )
+from geoworkbench.forms.repository import FormRepository
 from geoworkbench.project.curve_transfer_controller import CurveTransferController
 from geoworkbench.project.dataset_merge_controller import DatasetMergeController
 from geoworkbench.project.session import ProjectSession
@@ -341,6 +342,95 @@ def test_universal_import_dispatches_selected_format(qapp, monkeypatch) -> None:
     window.open_data()
 
     assert called == [Path("sample.xlsx")]
+    window.close()
+
+
+def test_universal_import_routes_textual_gs2_to_geosight_form(
+    qapp, tmp_path, monkeypatch
+) -> None:
+    source = tmp_path / "legacy.gs2"
+    source.write_text(
+        "object MainForm: TfmGSComplexForm\n"
+        "  Caption = 'Legacy'\n"
+        "end\n",
+        encoding="cp1251",
+    )
+    window = MainWindow()
+    form_calls = []
+    data_calls = []
+    window.open_legacy_geosight_form = (  # type: ignore[method-assign]
+        lambda selected=None: form_calls.append(Path(selected))
+    )
+    window.open_gs2 = (  # type: ignore[method-assign]
+        lambda selected=None: data_calls.append(Path(selected))
+    )
+    monkeypatch.setattr(
+        "geoworkbench.ui.main_window.QFileDialog.getOpenFileName",
+        lambda *args, **kwargs: (str(source), ""),
+    )
+
+    window.open_data()
+
+    assert form_calls == [source]
+    assert data_calls == []
+    window.close()
+
+
+def test_geosight_desktop_import_saves_all_pages_and_selects_active_page(
+    qapp, tmp_path
+) -> None:
+    source = tmp_path / "desktop.gs2"
+    source.write_text(
+        "[Desktop]\n"
+        "Count=2\n"
+        "ActivePage=1\n"
+        "Name0='Drilling'\n"
+        "Name1='Gas'\n"
+        "[0]\n"
+        "object Form0: TfmGSComplexForm\n"
+        "  Caption = 'Drilling'\n"
+        "  ClientWidth = 800\n"
+        "  ClientHeight = 600\n"
+        "  object Chart0: TGSChart\n"
+        "    Left = 10\n"
+        "    Top = 20\n"
+        "    Width = 300\n"
+        "    Height = 500\n"
+        "    object HookSeries: TGSChartSeries\n"
+        "      GID = 200\n"
+        "      StreamID = 'Time1s'\n"
+        "    end\n"
+        "  end\n"
+        "end\n"
+        "[1]\n"
+        "object Form1: TfmGSComplexForm\n"
+        "  Caption = 'Gas'\n"
+        "  ClientWidth = 800\n"
+        "  ClientHeight = 600\n"
+        "  object Chart1: TGSChart\n"
+        "    Left = 10\n"
+        "    Top = 20\n"
+        "    Width = 300\n"
+        "    Height = 500\n"
+        "    object MethaneSeries: TGSChartSeries\n"
+        "      GID = 1601\n"
+        "      StreamID = 'Time1s'\n"
+        "    end\n"
+        "  end\n"
+        "end\n",
+        encoding="cp1251",
+    )
+    window = MainWindow(language=AppLanguage.EN)
+    window.form_repository = FormRepository(tmp_path / "forms")
+
+    active, summary = window._import_legacy_geosight_forms(source)
+    saved = window.form_repository.list_forms()
+
+    assert len(saved) == 2
+    assert {form.name for form in saved} == {"Drilling", "Gas"}
+    assert active.name == "Gas"
+    assert active.axis_kind.value == "time"
+    assert "Forms saved: 2" in summary
     window.close()
 
 

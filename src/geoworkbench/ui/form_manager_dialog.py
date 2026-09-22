@@ -64,6 +64,7 @@ class FormManagerDialog(QDialog):
         initial_form_id: str | None = None,
         masterlog_sync_callback: Callable[[FormDocument], FormDocument | None] | None = None,
         skf_import_callback: Callable[[Path], tuple[FormDocument, str]] | None = None,
+        geosight_import_callback: Callable[[Path], tuple[FormDocument, str]] | None = None,
     ) -> None:
         super().__init__(parent)
         self.repository = repository
@@ -76,6 +77,7 @@ class FormManagerDialog(QDialog):
         self.initial_form_id = initial_form_id.strip() if isinstance(initial_form_id, str) else None
         self.masterlog_sync_callback = masterlog_sync_callback
         self.skf_import_callback = skf_import_callback
+        self.geosight_import_callback = geosight_import_callback
         self.apply_engine = FormApplyEngine()
         self.selected_form: FormDocument | None = None
         self._family_pair_message: str | None = None
@@ -234,6 +236,7 @@ class FormManagerDialog(QDialog):
         exchange_row.setContentsMargins(6, 4, 6, 4)
         for caption, callback, tooltip in (
             (self._text("Импорт SKF", "SKF импорттау", "Import SKF"), self._import_skf, self._text("Преобразовать Delphi SKF-поток в редактируемую форму и шапку Masterlog.", "Delphi SKF ағынын өңделетін пішінге және Masterlog тақырыбына түрлендіру.", "Convert a Delphi SKF stream into an editable form and Masterlog header.")),
+            (self._text("Импорт GeoSight", "GeoSight импорттау", "Import GeoSight"), self._import_geosight, self._text("Импортировать legacy GeoSight/GeoScape формы SD2, SF2, GSF, GS2 или GRC по содержимому файла.", "Legacy GeoSight/GeoScape SD2, SF2, GSF, GS2 немесе GRC пішіндерін файл мазмұны бойынша импорттау.", "Import legacy GeoSight/GeoScape SD2, SF2, GSF, GS2 or GRC forms by file content.")),
             (self._text("Импорт JSON", "JSON импорттау", "Import JSON"), self._import_json, self._text("Добавить форму из внешнего JSON-файла.", "Сыртқы JSON файлынан пішін қосу.", "Import a form from JSON.")),
             (self._text("Экспорт JSON", "JSON экспорттау", "Export JSON"), self._export_json, self._text("Сохранить выбранную форму отдельным JSON-файлом.", "Таңдалған пішінді жеке JSON файлына сақтау.", "Export the selected form to JSON.")),
         ):
@@ -986,6 +989,38 @@ class FormManagerDialog(QDialog):
             return
         try:
             form, summary = self.skf_import_callback(Path(filename))
+            self.reload(form.form_id)
+        except (OSError, RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, self.windowTitle(), str(exc))
+            return
+        QMessageBox.information(self, self.windowTitle(), summary)
+
+    def _import_geosight(self) -> None:
+        if self.geosight_import_callback is None:
+            QMessageBox.information(
+                self,
+                self.windowTitle(),
+                self._text(
+                    "Импорт GeoSight недоступен в этом режиме.",
+                    "Бұл режимде GeoSight импорты қолжетімсіз.",
+                    "GeoSight import is unavailable in this mode.",
+                ),
+            )
+            return
+        filename, _ = QFileDialog.getOpenFileName(
+            self,
+            self._text(
+                "Импорт формы GeoSight",
+                "GeoSight пішінін импорттау",
+                "Import GeoSight form",
+            ),
+            "",
+            "GeoSight / GeoScape (*.sd2 *.sf2 *.gsf *.gs2 *.grc);;Все файлы (*)",
+        )
+        if not filename:
+            return
+        try:
+            form, summary = self.geosight_import_callback(Path(filename))
             self.reload(form.form_id)
         except (OSError, RuntimeError, ValueError) as exc:
             QMessageBox.warning(self, self.windowTitle(), str(exc))

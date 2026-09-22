@@ -72,6 +72,7 @@ from geoworkbench.importers.gs2 import (
 )
 from geoworkbench.importers.gs2.multipart import read_gs2_multipart
 from geoworkbench.importers.gs2.metadata import channel_dictionary_for_table
+from geoworkbench.importers.legacy_geosight_forms import import_legacy_geosight_file
 from geoworkbench.importers.skf_importer import import_skf_file
 from geoworkbench.domain.models import CurveData, Dataset, IndexRole, IndexType
 from geoworkbench.domain.localized_content import localized_text
@@ -450,6 +451,8 @@ class _MainWindowImportJobPort(_MainWindowPort):
             self._window.open_excel(source)
         elif kind is ImportSourceKind.PARADOX:
             self._window.open_paradox(source)
+        elif kind is ImportSourceKind.GEOSIGHT_FORM:
+            self._window.open_legacy_geosight_form(source)
         elif kind is ImportSourceKind.GS2:
             self._window.open_gs2(source)
         else:
@@ -6082,6 +6085,7 @@ class MainWindow(QMainWindow):
             print_form_callback=self._print_form_from_manager,
             initial_form_id=self.user_profile_settings.selected_form_id(),
             skf_import_callback=self._import_skf_form_and_header,
+            geosight_import_callback=self._import_legacy_geosight_forms,
         )
         accepted = dialog.exec() == QDialog.DialogCode.Accepted
         if not accepted or dialog.selected_form is None:
@@ -6115,6 +6119,101 @@ class MainWindow(QMainWindow):
             form_id=getattr(dialog.selected_form, "form_id", ""),
             form_name=getattr(dialog.selected_form, "name", ""),
         )
+
+    def open_legacy_geosight_form(
+        self,
+        source: str | Path | None = None,
+    ) -> None:
+        title = {
+            AppLanguage.RU: "Импорт формы GeoSight",
+            AppLanguage.KK: "GeoSight пішінін импорттау",
+            AppLanguage.EN: "Import GeoSight form",
+        }.get(self.language, "Импорт формы GeoSight")
+        if source is None:
+            filename, _ = QFileDialog.getOpenFileName(
+                self,
+                title,
+                "",
+                "GeoSight / GeoScape (*.sd2 *.sf2 *.gsf *.gs2 *.grc);;All files (*)",
+            )
+            if not filename:
+                return
+            selected = Path(filename)
+        else:
+            selected = Path(source)
+
+        try:
+            _form, summary = self._import_legacy_geosight_forms(selected)
+        except (OSError, RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, title, str(exc))
+            return
+
+        QMessageBox.information(self, title, summary)
+        self._refresh_tree()
+        self._update_title()
+        self.show_form_manager()
+
+    def _import_legacy_geosight_forms(self, source: Path):
+        bundle = import_legacy_geosight_file(source)
+        existing_names = {
+            item.name.casefold() for item in self.form_repository.list_forms()
+        }
+        saved_forms = []
+        active_form = None
+        warnings: list[str] = []
+
+        for result in bundle.results:
+            form = result.form
+            original_name = form.name
+            candidate = original_name
+            suffix = 2
+            while candidate.casefold() in existing_names:
+                candidate = f"{original_name} ({suffix})"
+                suffix += 1
+            form.name = candidate
+            existing_names.add(candidate.casefold())
+            form.description = (
+                "Imported from legacy GeoSight/GeoScape Delphi form "
+                f"({result.report.root_class}); source: {source.name}."
+            )[:2000]
+            form.style_id = "imported-geosight"
+            form.validate()
+            self.form_repository.save(form)
+            saved_forms.append(form)
+            warnings.extend(result.report.warnings)
+            if result is bundle.active_result:
+                active_form = form
+
+        if not saved_forms:
+            raise ValueError("GeoSight import did not produce any editable forms")
+        if active_form is None:
+            active_form = saved_forms[0]
+
+        if self.language is AppLanguage.EN:
+            lines = [
+                f"GeoSight imported: {source.name}",
+                f"Forms saved: {len(saved_forms)}",
+                f"Active form: {active_form.name}",
+            ]
+            warning_title = "Warnings"
+        elif self.language is AppLanguage.KK:
+            lines = [
+                f"GeoSight импортталды: {source.name}",
+                f"Сақталған пішіндер: {len(saved_forms)}",
+                f"Белсенді пішін: {active_form.name}",
+            ]
+            warning_title = "Ескертулер"
+        else:
+            lines = [
+                f"GeoSight импортирован: {source.name}",
+                f"Сохранено форм: {len(saved_forms)}",
+                f"Активная форма: {active_form.name}",
+            ]
+            warning_title = "Предупреждения"
+
+        if warnings:
+            lines.extend(("", f"{warning_title}:", *[f"- {item}" for item in warnings]))
+        return active_form, "\n".join(lines)
 
     def _choose_and_import_skf(self) -> bool:
         title = {
