@@ -137,8 +137,9 @@ def test_readable_xlsx_keeps_interpretation_and_gas_statistics_on_main_sheet(
         assert "Candidate intervals" not in workbook.sheetnames
         assert workbook["Данные по глубине"].sheet_state == "hidden"
         sheet = workbook["Интерпретация УВ"]
-        assert str(sheet["A1"].value).startswith(REPORT_BRAND_WORDMARK)
-        assert "GEOLOG GASRATIO@Pixler" not in str(sheet["A1"].value)
+        assert str(sheet["A1"].value).startswith("Сводная интерпретация")
+        assert sheet.oddHeader.left.text == REPORT_BRAND_WORDMARK
+        assert sheet.oddFooter.left.text == REPORT_BRAND_WORDMARK
         headers = [sheet.cell(9, column).value for column in range(1, 24)]
         assert "Предварительная интерпретация" in headers
         assert "Мин исходного газа" in headers
