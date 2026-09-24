@@ -39,6 +39,41 @@ The plot displays source-sequence gaps, large axis intervals, invalid values, an
 Marker provenance comes from append-only records. Markers are diagnostic support and do not replace
 mud-logging specialist decisions.
 
+## Operator forms and full-screen mode
+
+A form can be selected **before connection**. Factory forms remain defaults, while every working
+form is editable: channels and plots can be added or removed, the axis/history window/point limit
+can be changed, and the result can be saved. **Save form** persists overrides by canonical
+mnemonic instead of session-specific curve IDs; **Reset** restores the factory template.
+
+The monitor is adaptive. The parameter sidebar can collapse and the live view can detach into
+full-screen mode and return without stopping intake or rebuilding the acquisition runtime. The
+selected form must survive the LIVE PREVIEW → persistent-runtime handoff.
+
+## Live derived curves and engineering events
+
+WITS-CALC-01 adds WH/BH/CH, Pixler C1/C2–C1/C5 and DEXP/DEXPC as virtual read-only channels.
+The same versioned formula registry used by batch calculations is reused; Qt/UI does not contain
+a second formula implementation. DEXP is available only with valid ROP/RPM/WOB/BIT and verified
+unit conversion; DEXPC also requires actual and normal mud density.
+
+The UI keeps three concepts separate:
+
+- **fluid screening** from Haworth/Pixler;
+- **gas origin/context**: background, formation show, connection gas, trip gas, circulated gas,
+  or elevated-unclassified;
+- **threshold alarm** for a configured channel limit.
+
+A colored line or band remains anchored to the true event depth/time. Its text is rendered as a
+compact horizontal badge near the plot edge. Nearby badges are staggered visually without moving
+the actual event coordinate.
+
+## Min/max alarms
+
+WITS-ALARM-01 defines optional per-channel min/max, visual/audio enable flags, hysteresis,
+debounce/minimum-duration, acknowledgement and global mute. An alarm is parameter supervision,
+not a geological conclusion. Sound is emitted on state transition rather than on every sample.
+
 ## Limitations and acceptance
 
 The operator dashboard groups compatible channels into engineering panels and automatically splits
