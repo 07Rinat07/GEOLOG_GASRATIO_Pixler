@@ -4,6 +4,8 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- WITS0 operator workspace: текущий инкремент добавляет основу адаптивного/fullscreen live monitor, редактируемые формы с Save/Reset по canonical mnemonic, presentation metadata для интерпретационных/threshold markers и отдельный headless classifier происхождения газа (background/formation/connection/trip/circulated/elevated-unclassified).
+- WITS0 plan/docs: Gas Ratio/Pixler/DEXP real-time, fluid-screening badges, gas-origin markers и min/max visual/audio alarms выделены в независимые контракты WITS-CALC/GASCTX/INTERP/ALARM; происхождение газового пика больше не смешивается с предварительным типом флюида.
 - WITS0: persistent backfill теперь fail-closed при усечённом LIVE PREVIEW — если RAM-окно уже вытеснило кадры, AcquisitionSession не создаётся, оператор видит evicted/retained counters и доступный временной диапазон; raw replay остаётся следующим WITS-MEM-01 инкрементом.
 - WITS0: transient LIVE PREVIEW теперь ограничивает не только frame deque, но и производный Dataset/session runtime; при верхнем пороге projection пересобирается из retained-окна со стабильными curve IDs, а настройки live monitor сохраняются при rebind. Полный raw/backfill boundary для вытесненной истории остаётся открытым WITS-MEM-01 scope.
 - ARCH-06: conditioned Gas Ratio получил immutable versioned calculation profile и conditioning policy; UI выбирает DTO, controller сохраняет profile/policy identity, а формулы/interpolation остаются в calculations.
