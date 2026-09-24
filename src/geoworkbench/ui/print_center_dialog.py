@@ -140,7 +140,6 @@ class PrintCenterDialog(QDialog):
         root.setSpacing(8)
         source_label = QLabel(self._t("print_center.source", name=source_name))
         source_label.setObjectName("print-center-source")
-        source_label.setStyleSheet("font-weight: 600;")
         source_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         root.addWidget(source_label)
 
@@ -189,7 +188,7 @@ class PrintCenterDialog(QDialog):
         header_separator.setFrameShadow(QFrame.Shadow.Sunken)
         header_layout.addWidget(header_separator)
         column_header_title = QLabel(self._t("print_center.column_header_title"))
-        column_header_title.setStyleSheet("font-weight: 600;")
+        column_header_title.setObjectName("print-center-column-header-title")
         header_layout.addWidget(column_header_title)
         self.repeat_column_header_check = QCheckBox(
             self._t("print_center.repeat_column_header_bottom")
@@ -238,9 +237,6 @@ class PrintCenterDialog(QDialog):
         self.header_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.header_preview.setMinimumHeight(68)
         self.header_preview.setMaximumHeight(180)
-        self.header_preview.setStyleSheet(
-            "QLabel { background: #e5e7eb; border: 1px solid #94a3b8; }"
-        )
         self.header_preview.setVisible(False)
         header_layout.addWidget(self.header_preview)
         if preferences.header_selection_explicit:
@@ -544,8 +540,8 @@ class PrintCenterDialog(QDialog):
         composition_actions.addStretch(1)
         composition_layout.addLayout(composition_actions)
         depth_standard = QLabel(self._t("print_center.composition_depth_standard"))
+        depth_standard.setObjectName("print-center-depth-standard")
         depth_standard.setWordWrap(True)
-        depth_standard.setStyleSheet("color:#64748b;")
         composition_layout.addWidget(depth_standard)
         self._populate_track_composition()
         self.composition_group.setVisible(bool(self.track_print_options))
@@ -637,21 +633,12 @@ class PrintCenterDialog(QDialog):
         for button in (self.preview_button, self.ok_button, self.cancel_button):
             button.setMinimumHeight(36)
         self.ok_button.setObjectName("print-center-primary-action")
+        self.ok_button.setProperty("uiRole", "primary")
         self.ok_button.setMinimumWidth(160)
         self.ok_button.setDefault(True)
-        self.ok_button.setStyleSheet(
-            "QPushButton#print-center-primary-action {"
-            "background:#155e75; color:#ffffff; border:1px solid #22d3ee; "
-            "border-radius:5px; padding:7px 18px; font-weight:700;}"
-            "QPushButton#print-center-primary-action:hover {background:#0e7490;}"
-            "QPushButton#print-center-primary-action:pressed {background:#164e63;}"
-            "QPushButton#print-center-primary-action:disabled {"
-            "background:#475569; color:#cbd5e1; border-color:#64748b;}"
-        )
 
         self.action_summary = QLabel()
         self.action_summary.setObjectName("print-center-action-summary")
-        self.action_summary.setStyleSheet("font-weight: 600;")
         self.action_summary.setWordWrap(True)
 
         self.action_bar = QFrame()

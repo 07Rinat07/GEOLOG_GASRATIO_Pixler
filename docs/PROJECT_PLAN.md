@@ -78,7 +78,9 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
   использует только Qt palette roles для tooltip/read-only состояний, а offscreen dark-palette
   smoke фиксирует неизменность системной палитры. Main/form-edit toolbar presentation также
   вынесен из MainWindow в общий palette-aware stylesheet без изменения overflow/DPI geometry.
-  Следующий slice — semantic роли и локальные presentation-QSS в Print Center/соседних диалогах.
+  Print Center больше не задаёт локальные light-only presentation-QSS: primary action использует
+  semantic `uiRole`, а подписи/preview получают palette-aware оформление из общего stylesheet.
+  Следующий slice — semantic status roles и оставшиеся локальные presentation-QSS в диалогах.
 - [ ] Primary/secondary/destructive/quiet роли задавать semantic property, а не цветом по месту.
 - [ ] Диалоги продолжают использовать `fit_window_to_screen`; длинные RU/KK/EN подписи
   переносятся/уходят в overflow, primary action остаётся видимым.
