@@ -176,6 +176,7 @@ def test_preview_backfill_fails_closed_after_history_eviction() -> None:
     boundary = preview.backfill_boundary
     assert boundary.truncated is True
     assert boundary.evicted_frames == 1
+    assert boundary.first_observed_received_at == "2026-07-27T03:18:01Z"
     assert boundary.buffered_frames == 2
     assert boundary.earliest_received_at == "2026-07-27T03:18:02Z"
     assert boundary.latest_received_at == "2026-07-27T03:18:03Z"
@@ -311,3 +312,4 @@ def test_preview_reset_clears_retention_counters() -> None:
     assert preview.evicted_frame_count == 0
     assert preview.compaction_count == 0
     assert preview.history_is_truncated is False
+    assert preview.backfill_boundary.first_observed_received_at is None
