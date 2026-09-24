@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- WITS0: transient LIVE PREVIEW теперь ограничивает не только frame deque, но и производный Dataset/session runtime; при верхнем пороге projection пересобирается из retained-окна со стабильными curve IDs, а настройки live monitor сохраняются при rebind. Полный raw/backfill boundary для вытесненной истории остаётся открытым WITS-MEM-01 scope.
 - ARCH-06: conditioned Gas Ratio получил immutable versioned calculation profile и conditioning policy; UI выбирает DTO, controller сохраняет profile/policy identity, а формулы/interpolation остаются в calculations.
 - Формы GeoSight/GeoScape: legacy SD2/SF2/GSF/GRC и текстовые GS2 теперь импортируются в
   библиотеку форм через безопасный Delphi-parser; конфликт расширения .gs2 разрешается по
