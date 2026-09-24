@@ -155,6 +155,7 @@ class Wits0OperatorDashboard(QWidget):
         self._localizer = Localizer.create(language)
         self._updating_range = False
         self._indicator_cards: dict[str, _IndicatorCard] = {}
+        self._unit_panels: dict[tuple[str, str], _PlotPanel] = {}
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -226,6 +227,7 @@ class Wits0OperatorDashboard(QWidget):
 
     def clear(self) -> None:
         self._clear_indicator_cards()
+        self._clear_unit_panels()
         for panel in self.panels.values():
             panel.plot.clear()
             panel.legend.clear()
@@ -241,19 +243,36 @@ class Wits0OperatorDashboard(QWidget):
             panel_id = live_panel_key(series.mnemonic) or "other"
             grouped.setdefault(panel_id, []).append(series)
 
+        unit_groups = {
+            panel_id: _group_series_by_unit(series_list)
+            for panel_id, series_list in grouped.items()
+            if series_list
+        }
+        self._sync_unit_panels(unit_groups)
+
         history_label = snapshot.index_mnemonic
         history_unit = snapshot.index_unit or ""
         if snapshot.axis_is_datetime:
             history_label = self._localizer.text("wits0_live.time_utc")
 
+        render_targets: list[tuple[_PlotPanel, list[AcquisitionLiveSeries]]] = []
         for panel_id, panel in self.panels.items():
-            series_list = grouped.get(panel_id, [])
-            panel.plot.clear()
-            panel.legend.clear()
-            if not series_list:
+            groups = unit_groups.get(panel_id, [])
+            if not groups:
+                panel.plot.clear()
+                panel.legend.clear()
                 panel.box.hide()
                 continue
+            primary_unit, primary_series = groups[0]
+            panel.box.setTitle(_panel_title(panel.definition, self._language, primary_unit, len(groups)))
+            render_targets.append((panel, primary_series))
+            for unit_key, series_list in groups[1:]:
+                extra = self._unit_panels[(panel_id, unit_key)]
+                render_targets.append((extra, series_list))
 
+        for panel, series_list in render_targets:
+            panel.plot.clear()
+            panel.legend.clear()
             panel.box.show()
             panel.axis_item.set_datetime_mode(snapshot.axis_is_datetime)
             panel.plot.setLabel(
@@ -293,6 +312,65 @@ class Wits0OperatorDashboard(QWidget):
                 finally:
                     self._updating_range = False
             panel.plot.enableAutoRange(axis="x", enable=True)
+
+    def _sync_unit_panels(
+        self,
+        unit_groups: dict[str, list[tuple[str, list[AcquisitionLiveSeries]]]],
+    ) -> None:
+        wanted = {
+            (panel_id, unit_key)
+            for panel_id, groups in unit_groups.items()
+            for unit_key, _series in groups[1:]
+        }
+        for key in tuple(self._unit_panels):
+            if key in wanted:
+                continue
+            removed_panel = self._unit_panels.pop(key)
+            self.plot_layout.removeWidget(removed_panel.box)
+            removed_panel.box.deleteLater()
+
+        for panel_id, groups in unit_groups.items():
+            if len(groups) <= 1:
+                continue
+            base_panel = self.panels[panel_id]
+            base_index = self.plot_layout.indexOf(base_panel.box)
+            insert_offset = 1
+            for unit_key, _series in groups[1:]:
+                key = (panel_id, unit_key)
+                extra_panel = self._unit_panels.get(key)
+                if extra_panel is None:
+                    definition = Wits0LivePanelDefinition(
+                        f"{panel_id}:{unit_key or 'unitless'}",
+                        base_panel.definition.title_ru,
+                        base_panel.definition.title_kk,
+                        base_panel.definition.title_en,
+                        base_panel.definition.channel_keys,
+                    )
+                    extra_panel = _PlotPanel(
+                        definition,
+                        language=self._language,
+                        parent=self.plot_host,
+                    )
+                    extra_panel.plot.getPlotItem().sigYRangeChanged.connect(
+                        self._plot_range_changed
+                    )
+                    self._unit_panels[key] = extra_panel
+                extra_panel.box.setTitle(
+                    _panel_title(base_panel.definition, self._language, unit_key, len(groups))
+                )
+                current_index = self.plot_layout.indexOf(extra_panel.box)
+                target_index = base_index + insert_offset
+                if current_index != target_index:
+                    if current_index >= 0:
+                        self.plot_layout.removeWidget(extra_panel.box)
+                    self.plot_layout.insertWidget(target_index, extra_panel.box)
+                insert_offset += 1
+
+    def _clear_unit_panels(self) -> None:
+        for panel in self._unit_panels.values():
+            self.plot_layout.removeWidget(panel.box)
+            panel.box.deleteLater()
+        self._unit_panels.clear()
 
     def render_current_values(
         self,
@@ -375,6 +453,38 @@ class Wits0OperatorDashboard(QWidget):
             line.setToolTip(marker.label)
             line.setZValue(20)
             plot.addItem(line)
+
+
+def _normalized_unit(unit: str | None) -> str:
+    return (unit or "").strip().casefold()
+
+
+def _group_series_by_unit(
+    series_list: list[AcquisitionLiveSeries],
+) -> list[tuple[str, list[AcquisitionLiveSeries]]]:
+    grouped: dict[str, list[AcquisitionLiveSeries]] = {}
+    display_units: dict[str, str] = {}
+    for series in series_list:
+        key = _normalized_unit(series.unit)
+        grouped.setdefault(key, []).append(series)
+        if key not in display_units:
+            display_units[key] = (series.unit or "").strip()
+    return [
+        (display_units[key], grouped[key])
+        for key in grouped
+    ]
+
+
+def _panel_title(
+    definition: Wits0LivePanelDefinition,
+    language: AppLanguage,
+    unit: str,
+    group_count: int,
+) -> str:
+    title = definition.title(language)
+    if group_count <= 1 or not unit:
+        return title
+    return f"{title} [{unit}]"
 
 
 def _panel_axis_label(series_list: list[AcquisitionLiveSeries]) -> str:
