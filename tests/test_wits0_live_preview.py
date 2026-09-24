@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from geoworkbench.acquisition import Wits0StreamProcessor, load_builtin_wits0_profile
 from geoworkbench.domain.models import Well
 from geoworkbench.services.wits0_acquisition import Wits0AcquisitionRuntime
@@ -7,6 +9,7 @@ from geoworkbench.services.wits0_import_review import Wits0ImportReviewControlle
 from geoworkbench.services.wits0_live_preview import (
     Wits0LivePreview,
     Wits0LivePreviewConfig,
+    Wits0PreviewHistoryTruncatedError,
 )
 
 
@@ -149,6 +152,45 @@ def test_preview_backfills_buffer_through_confirmed_persistent_schema() -> None:
     assert runtime.session.last_sequence == 2
     assert well.datasets[commit.schema.dataset_id] is runtime.controller.dataset
 
+
+
+def test_preview_backfill_fails_closed_after_history_eviction() -> None:
+    profile = load_builtin_wits0_profile()
+    processor = Wits0StreamProcessor(profile)
+    preview = Wits0LivePreview(
+        profile,
+        config=Wits0LivePreviewConfig(
+            max_buffered_frames=2,
+            runtime_compaction_factor=2,
+        ),
+    )
+
+    for sequence in range(1, 4):
+        frame = processor.append(
+            _frame(2, sequence, f"0208{123.0 + sequence / 10:.1f}"),
+            received_at=f"2026-07-27T03:18:{sequence:02d}Z",
+            source_ref="truncated-preview.wits",
+        )[0]
+        preview.observe(frame)
+
+    boundary = preview.backfill_boundary
+    assert boundary.truncated is True
+    assert boundary.evicted_frames == 1
+    assert boundary.buffered_frames == 2
+    assert boundary.earliest_received_at == "2026-07-27T03:18:02Z"
+    assert boundary.latest_received_at == "2026-07-27T03:18:03Z"
+
+    snapshot = preview.discovery.snapshot()
+    reviewer = Wits0ImportReviewController()
+    commit = reviewer.commit(snapshot, profile, reviewer.initial_plan(snapshot))
+    well = Well("well-guard", "Well guard")
+    runtime = Wits0AcquisitionRuntime(well, commit, session_id="session-guard")
+
+    with pytest.raises(Wits0PreviewHistoryTruncatedError, match="evicted=1"):
+        preview.backfill(runtime)
+
+    assert runtime.session.last_sequence == 0
+    assert len(runtime.controller.dataset.active_index.values) == 0
 
 
 def test_preview_runtime_history_is_bounded_beyond_ten_times_frame_limit() -> None:
