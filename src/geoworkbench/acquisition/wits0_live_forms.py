@@ -343,9 +343,6 @@ _LIVE_PANELS: tuple[Wits0LivePanelDefinition, ...] = (
         "Ыдыстар",
         "Pits",
         _PITS,
-        description_ru="Контроль суммарного и отдельных объёмов ёмкостей.",
-        description_kk="Жалпы және жеке ыдыс көлемдерін бақылау.",
-        description_en="Monitor total and individual pit volumes.",
     ),
     Wits0LivePanelDefinition(
         "gas_total",
@@ -419,6 +416,9 @@ _LIVE_FORMS: tuple[Wits0LiveFormDefinition, ...] = (
         "Ыдыстар және көлемдер",
         "Pits and volumes",
         _PITS,
+        description_ru="Контроль суммарного и отдельных объёмов ёмкостей.",
+        description_kk="Жалпы және жеке ыдыс көлемдерін бақылау.",
+        description_en="Monitor total and individual pit volumes.",
     ),
     Wits0LiveFormDefinition(
         "gas",
