@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
 
+from geoworkbench.calculations.calculation_profiles import default_gas_ratio_profile
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
 from geoworkbench.project.gas_ratio_controller import GasRatioProjectController
 from geoworkbench.project.session import ProjectSession
@@ -55,8 +57,40 @@ def test_controller_commits_conditioned_ratios_and_returns_dataset() -> None:
     total = dataset.curve_by_mnemonic("TG_CALC")
     assert total is not None
     assert total.metadata.provenance == "calculation:conditioned-gas-ratio:2.0"
+    assert outcome.profile is default_gas_ratio_profile()
+    assert dataset.parameters["GAS_RATIO_PROFILE_ID"] == "conditioned-gas-ratio"
+    assert dataset.parameters["GAS_RATIO_PROFILE_VERSION"] == "2.0"
+    assert dataset.parameters["GAS_CONDITIONING_POLICY_ID"] == "bounded-gap-continuity"
+    assert dataset.parameters["GAS_CONDITIONING_POLICY_VERSION"] == "1.0"
     assert dataset.gas_conditioning_qc is not None
     assert session.dirty
+
+
+def test_controller_persists_selected_profile_and_policy_versions() -> None:
+    session = _session("versioned-profile")
+    base = default_gas_ratio_profile()
+    selected = replace(
+        base,
+        profile_id="conditioned-gas-ratio-audit",
+        version="2.1",
+        conditioning_policy=replace(
+            base.conditioning_policy,
+            policy_id="bounded-gap-audit",
+            version="1.1",
+        ),
+    )
+
+    outcome = GasRatioProjectController(session).calculate_basic_ratios(selected)
+
+    dataset = outcome.dataset
+    total = dataset.curve_by_mnemonic("TG_CALC")
+    assert total is not None
+    assert outcome.profile is selected
+    assert total.metadata.provenance == "calculation:conditioned-gas-ratio-audit:2.1"
+    assert dataset.parameters["GAS_RATIO_PROFILE_ID"] == selected.profile_id
+    assert dataset.parameters["GAS_RATIO_PROFILE_VERSION"] == selected.version
+    assert dataset.parameters["GAS_CONDITIONING_POLICY_ID"] == "bounded-gap-audit"
+    assert dataset.parameters["GAS_CONDITIONING_POLICY_VERSION"] == "1.1"
 
 
 def test_controller_uses_rebound_session() -> None:
@@ -85,7 +119,13 @@ def test_main_window_uses_gas_ratio_project_controller_boundary() -> None:
 
     assert "GasRatioProjectController(self.session)" in source
     assert 'bindings.register(self.gas_ratio_project_controller, name="gas_ratio")' in source
-    assert "self.gas_ratio_project_controller.calculate_basic_ratios()" in block
+    assert "def _select_gas_ratio_profile(" in source
+    assert "available_gas_ratio_profiles()" in source
+    assert "profile = self._select_gas_ratio_profile()" in block
+    assert "self.gas_ratio_project_controller.calculate_basic_ratios(profile)" in block
+    assert "GasConditioningPolicy" not in block
+    assert "condition_gas_components" not in block
+    assert "calculate_conditioned_ratios" not in block
     assert "self.session.calculate_basic_gas_ratios()" not in block
 
 
