@@ -42,6 +42,17 @@ Marker provenance append-only records ішінен алынады. Маркер�
 
 ## Шектеулер және қабылдау
 
-Физикалық бірліктері әртүрлі арналар әзірге бір value scale қолданады; жеке tracks келесі
-жетілдіру болып қалады. Таңдалған арналар мен history-window settings workspace ішінде әлі
-сақталмайды. Windows Qt smoke test және нақты anonymized GSWITS raw ағынымен тексеру міндетті.
+Оператор dashboard үйлесімді арналарды технологиялық панельдерге біріктіреді, ал бірліктері
+үйлеспейтін арналарды тәуелсіз X-autoscale бар көршілес тректерге автоматты түрде бөледі.
+Арна таңдауы, ось, auto-follow, pause-view және history-window параметрлері workspace ішінде
+сақталады.
+
+Transient LIVE PREVIEW ең соңғы 2000 кадрды ғана сақтайды. Оның туынды Dataset, curve arrays,
+preview-session records және record-id index құрылымдары да bounded: жоғарғы шекке жеткенде
+preview runtime сақталған кадрлар терезесінен қайта құрылады және curve ID тұрақты қалады.
+Тұрақты reviewed acquisition бұл механизммен қысқартылмайды.
+
+Егер ескі preview кадрлары жадтан шығарылған болса, ағымдағы backfill тек retained терезені
+көшіреді. Ертеректегі қолжетімді raw аралығын анық таңдау/replay жасау WITS-MEM-01 келесі
+бөлігі болып қалады; қысқартылған backfill толық ретінде көрсетілмеуі тиіс. Windows Qt smoke test
+және нақты anonymized GSWITS raw ағынымен тексеру міндетті.
