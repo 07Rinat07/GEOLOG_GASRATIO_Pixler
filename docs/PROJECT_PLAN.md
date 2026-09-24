@@ -90,6 +90,10 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
   high-contrast текст, light technical fills, line-weight hierarchy и monochrome-safe semantics.
 - [ ] Обязательная document-control зона: well/project, interval, generated/report date,
   document number, revision, status, prepared/checked/approved при доступности данных.
+- [ ] Единый печатный wordmark: **Geolog GASRATIO&Pixler**. Написание хранится в одном
+  shared constant и одинаково используется в PDF, Masterlog, DOCX/XLSX и печатных формах.
+  Wordmark присутствует аккуратно в обложке/шапке и компактном подвале, но не дублируется
+  навязчиво внутри содержательных блоков.
 - [ ] Header/footer contract: логотип проекта/заказчика только из каталога assets, номер страницы,
   confidentiality/status, document/revision; длинный текст не должен попадать поверх графиков.
 - [ ] Таблицы: компактные заголовки, alternating/background hierarchy без декоративной перегрузки,
