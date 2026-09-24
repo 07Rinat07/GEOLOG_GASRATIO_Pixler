@@ -47,7 +47,10 @@ from geoworkbench.acquisition import (
     load_builtin_wits0_profile,
     wits0_remote_bind_required,
 )
-from geoworkbench.domain.acquisition import acquisition_timestamp_to_ns
+from geoworkbench.domain.acquisition import (
+    AcquisitionSession,
+    acquisition_timestamp_to_ns,
+)
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.wits0_acquisition import (
     Wits0AcquisitionBackpressureError,
@@ -991,6 +994,46 @@ class Wits0CaptureDialog(QDialog):
         self._raw_replay_through_at = None
         return False
 
+    @staticmethod
+    def _boundary_source_tags(
+        boundary: Wits0PreviewBackfillBoundary,
+        choice: _Wits0PreviewBoundaryChoice | None,
+    ) -> tuple[str, ...]:
+        mode = choice.value if choice is not None else "complete_preview"
+        start_at = (
+            boundary.earliest_received_at
+            if choice is _Wits0PreviewBoundaryChoice.RETAINED_TAIL
+            else boundary.first_observed_received_at
+        )
+        tags = [f"acquisition-boundary={mode}"]
+        if start_at is not None:
+            tags.append(f"boundary-start={start_at}")
+        if boundary.latest_received_at is not None:
+            tags.append(f"boundary-end={boundary.latest_received_at}")
+        if boundary.evicted_frames:
+            tags.append(f"preview-evicted={boundary.evicted_frames}")
+        return tuple(tags)
+
+    @staticmethod
+    def _restored_boundary_source_tags(
+        session: AcquisitionSession,
+    ) -> tuple[str, ...]:
+        prefixes = (
+            "acquisition-boundary=",
+            "boundary-start=",
+            "boundary-end=",
+            "preview-evicted=",
+        )
+        for record in session.records:
+            tags = tuple(
+                token
+                for token in record.source.split(";")
+                if token.startswith(prefixes)
+            )
+            if any(tag.startswith("acquisition-boundary=") for tag in tags):
+                return tags
+        return ()
+
     def _rollback_failed_acquisition_start(
         self,
         runtime: Wits0AcquisitionRuntime,
@@ -1066,6 +1109,10 @@ class Wits0CaptureDialog(QDialog):
                     checkpoint_every_records=500,
                     checkpoint_interval_seconds=60.0,
                     backpressure_policy=Wits0BackpressurePolicy.DRAIN_THEN_RETRY,
+                    record_source_tags=self._boundary_source_tags(
+                        boundary,
+                        boundary_choice,
+                    ),
                 ),
             )
         except (ValueError, RuntimeError) as exc:
@@ -1470,6 +1517,7 @@ class Wits0CaptureDialog(QDialog):
                     checkpoint_every_records=500,
                     checkpoint_interval_seconds=60.0,
                     backpressure_policy=Wits0BackpressurePolicy.DRAIN_THEN_RETRY,
+                    record_source_tags=self._restored_boundary_source_tags(session),
                 ),
             )
         except (ValueError, RuntimeError) as exc:
