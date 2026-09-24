@@ -235,6 +235,11 @@ QTableWidget {
     selection-color: palette(highlighted-text);
 }
 
+QDialog#form-create-dialog QTreeWidget::item {
+    min-height: 25px;
+    padding: 2px 4px;
+}
+
 QTabWidget::pane {
     border: 1px solid palette(mid);
     border-radius: 4px;

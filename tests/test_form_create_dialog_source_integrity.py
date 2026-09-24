@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 
@@ -28,8 +29,11 @@ def test_create_and_tablet_save_use_library_reference_dialog() -> None:
     assert "Детали выбранной формы" in dialog
     assert "Готовые формы" in dialog
     assert "self.create_button.setEnabled(False)" in dialog
-    assert "validation_label.setStyleSheet" not in dialog
+    assert ".setStyleSheet(" not in dialog
+    assert re.search(r"#[0-9a-fA-F]{3,8}\b", dialog) is None
+    assert 'setObjectName("form-create-dialog")' in dialog
     assert 'setObjectName("form-validation")' in dialog
+    assert 'self.create_button.setProperty("uiRole", "primary")' in dialog
 
 
 def test_create_dialog_contains_ru_kk_en_user_guidance() -> None:

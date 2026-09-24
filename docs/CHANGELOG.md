@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- UI: Form Create освобождён от локальной light-only темы: controls используют общий palette-aware application style, tree-item metrics централизованы, а Create/Save action помечен semantic `uiRole="primary"`.
 - UI: состояния валидации создания/сохранения формы переведены с локальных warning/error/success hex-QSS на semantic `validationRole` и общий palette-aware contract без изменения duplicate/protected/revision логики.
 - UI: сообщение валидации состава шлама переведено с локального красного QSS на semantic `validationRole="error"` и общий palette-aware presentation; правила интервала/≤4 пород/100% не менялись.
 - UI: Print Job Status переведён с локальных success/error hex-QSS на semantic `statusRole` и общий palette-aware presentation; состояние остаётся явно подписанным текстом и не кодируется только цветом.
