@@ -7,6 +7,7 @@ Each fixture runs in a fresh subprocess so peak RSS is comparable.
 from __future__ import annotations
 
 import argparse
+import ctypes
 import json
 import os
 import subprocess
@@ -30,6 +31,7 @@ class PreviewMemoryResult:
     buffer_frames: int
     baseline_rss_mib: float
     peak_rss_mib: float
+    workload_peak_rss_mib: float
     elapsed_seconds: float
     retained_frames: int
     retained_rows: int
@@ -50,6 +52,46 @@ def _frame(sequence: int) -> bytes:
     ))).encode("ascii")
 
 
+def _current_rss_bytes() -> int:
+    """Measure live resident memory, excluding a prior import-time high-water mark."""
+    if sys.platform == "win32":
+        from ctypes import wintypes
+
+        class ProcessMemoryCounters(ctypes.Structure):
+            _fields_ = [
+                ("cb", wintypes.DWORD),
+                ("PageFaultCount", wintypes.DWORD),
+                ("PeakWorkingSetSize", ctypes.c_size_t),
+                ("WorkingSetSize", ctypes.c_size_t),
+                ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
+                ("QuotaPagedPoolUsage", ctypes.c_size_t),
+                ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+                ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+                ("PagefileUsage", ctypes.c_size_t),
+                ("PeakPagefileUsage", ctypes.c_size_t),
+            ]
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        psapi = ctypes.WinDLL("psapi", use_last_error=True)
+        kernel32.GetCurrentProcess.restype = wintypes.HANDLE
+        psapi.GetProcessMemoryInfo.argtypes = [
+            wintypes.HANDLE, ctypes.POINTER(ProcessMemoryCounters), wintypes.DWORD,
+        ]
+        psapi.GetProcessMemoryInfo.restype = wintypes.BOOL
+        counters = ProcessMemoryCounters()
+        counters.cb = ctypes.sizeof(counters)
+        if not psapi.GetProcessMemoryInfo(
+            kernel32.GetCurrentProcess(), ctypes.byref(counters), counters.cb,
+        ):
+            raise ctypes.WinError(ctypes.get_last_error())
+        return int(counters.WorkingSetSize)
+    if sys.platform.startswith("linux"):
+        with open("/proc/self/statm", encoding="ascii") as status:
+            resident_pages = int(status.read().split()[1])
+        return resident_pages * os.sysconf("SC_PAGE_SIZE")
+    raise RuntimeError("current RSS benchmark requires Windows or Linux")
+
+
 def measure_preview(*, frames: int, buffer_frames: int) -> PreviewMemoryResult:
     if frames < 1 or buffer_frames < 1:
         raise ValueError("frames and buffer_frames must be positive")
@@ -58,7 +100,8 @@ def measure_preview(*, frames: int, buffer_frames: int) -> PreviewMemoryResult:
     preview = Wits0LivePreview(profile, config=Wits0LivePreviewConfig(
         max_buffered_frames=buffer_frames,
     ))
-    baseline = _peak_rss_bytes() / MIB
+    baseline = _current_rss_bytes() / MIB
+    workload_peak = baseline
     started = perf_counter()
     origin = datetime(2026, 9, 24, 15, tzinfo=timezone.utc)
     for sequence in range(1, frames + 1):
@@ -69,6 +112,7 @@ def measure_preview(*, frames: int, buffer_frames: int) -> PreviewMemoryResult:
         if len(parsed) != 1:
             raise AssertionError(f"expected one parsed frame at sequence {sequence}")
         preview.observe(parsed[0])
+        workload_peak = max(workload_peak, _current_rss_bytes() / MIB)
         if preview.last_error is not None:
             raise RuntimeError(f"preview failed at sequence {sequence}: {preview.last_error}")
     runtime = preview.runtime
@@ -79,6 +123,7 @@ def measure_preview(*, frames: int, buffer_frames: int) -> PreviewMemoryResult:
         buffer_frames=buffer_frames,
         baseline_rss_mib=baseline,
         peak_rss_mib=_peak_rss_bytes() / MIB,
+        workload_peak_rss_mib=workload_peak,
         elapsed_seconds=perf_counter() - started,
         retained_frames=preview.buffered_frame_count,
         retained_rows=preview.retained_row_count,
@@ -106,11 +151,16 @@ def evaluate_results(
             violations.append(f"{result.frames} frames: eviction count differs from window")
         if result.retained_rows > result.buffer_frames * 2:
             violations.append(f"{result.frames} frames: Dataset rows exceed bounded runtime")
+        if result.retained_rows < min(result.frames, result.buffer_frames):
+            violations.append(f"{result.frames} frames: Dataset lost retained rows")
         if result.retained_records > result.buffer_frames * 2:
             violations.append(f"{result.frames} frames: session records exceed bounded runtime")
+        if result.retained_records < min(result.frames, result.buffer_frames):
+            violations.append(f"{result.frames} frames: session lost retained records")
     if long.compactions < 1:
         violations.append("long stream did not exercise preview compaction")
-    growth = long.peak_rss_mib - short.peak_rss_mib
+    growth = ((long.workload_peak_rss_mib - long.baseline_rss_mib)
+              - (short.workload_peak_rss_mib - short.baseline_rss_mib))
     if growth > max_growth_mib:
         violations.append(f"peak RSS growth {growth:.1f} MiB exceeds {max_growth_mib:.1f} MiB")
     return tuple(violations)
