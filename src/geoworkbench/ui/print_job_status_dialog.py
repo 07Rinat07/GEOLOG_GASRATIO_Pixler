@@ -66,7 +66,7 @@ class PrintJobStatusDialog(QDialog):
 
         self.status_label = QLabel(self._t("print_center.status_preparing"))
         self.status_label.setObjectName("print-job-status-title")
-        self.status_label.setStyleSheet("font-size: 14px; font-weight: 700;")
+        self.status_label.setProperty("statusRole", "working")
         root.addWidget(self.status_label)
 
         self.detail_label = QLabel(self._working_detail())
@@ -132,9 +132,7 @@ class PrintJobStatusDialog(QDialog):
         self.progress.setRange(0, 1)
         self.progress.setValue(1)
         self.progress.setFormat("100%")
-        self.status_label.setStyleSheet(
-            "font-size: 14px; font-weight: 700; color: #15803d;"
-        )
+        self._set_status_role("success")
         normalized_paths = tuple(Path(path) for path in paths)
         existing_paths = tuple(path for path in normalized_paths if path.is_file())
 
@@ -170,9 +168,7 @@ class PrintJobStatusDialog(QDialog):
         self.progress.setRange(0, 1)
         self.progress.setValue(0)
         self.status_label.setText(self._t("print_center.status_failed"))
-        self.status_label.setStyleSheet(
-            "font-size: 14px; font-weight: 700; color: #b91c1c;"
-        )
+        self._set_status_role("error")
         self.detail_label.setText(
             self._t("print_center.status_failed_detail", error=message)
         )
@@ -197,7 +193,15 @@ class PrintJobStatusDialog(QDialog):
         if not self._working:
             return
         self.status_label.setText(self._t(key))
+        self._set_status_role("working")
         self.detail_label.setText(self._working_detail())
+
+    def _set_status_role(self, role: str) -> None:
+        self.status_label.setProperty("statusRole", role)
+        style = self.status_label.style()
+        style.unpolish(self.status_label)
+        style.polish(self.status_label)
+        self.status_label.update()
 
     def _working_detail(self) -> str:
         if self.output_format is PrintOutputFormat.PRINTER:
