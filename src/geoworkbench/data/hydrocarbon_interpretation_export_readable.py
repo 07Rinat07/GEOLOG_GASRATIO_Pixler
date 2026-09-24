@@ -395,7 +395,7 @@ def _manual_row(
 def _write_methods_sheet(
     workbook: Workbook,
     report: HydrocarbonInterpretationReport,
-    language: AppLanguage,
+    language: AppLanguage = AppLanguage.RU,
 ) -> None:
     labels = hydrocarbon_report_labels(language)
     sheet = workbook.create_sheet(labels.sheet_methods)
@@ -429,7 +429,7 @@ def _write_methods_sheet(
 def _write_opus_gasomer_sheet(
     workbook: Workbook,
     report: HydrocarbonInterpretationReport,
-    language: AppLanguage,
+    language: AppLanguage = AppLanguage.RU,
 ) -> None:
     labels = hydrocarbon_report_labels(language)
     section = report.opus_gasomer
