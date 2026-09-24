@@ -41,7 +41,7 @@ release plan и временные планы в `docs` не создаются.
 
 | Порядок | Задачи | Результат и зависимость | Ответственный по роли / статус |
 |---|---|---|---|
-| 1 | WITS-MEM-01 | Закрыть raw replay/явную acquisition boundary и RSS baseline; prerequisite для полной полевой приёмки | Разработчик / в работе |
+| 1 | WITS-MEM-01 | Автоматические raw replay/acquisition-boundary/RSS gates закрыты; остался длительный реальный raw/field прогон перед FIELD-01 | Оператор + разработчик / блокировано внешним условием |
 | 2 | UI-SYS-01 | Единый адаптивный UI foundation: кнопки, поля, toolbar, focus/hover/disabled states, размеры касания, small-screen/HiDPI правила; без локальных desktop-only стилей | Разработчик / в работе |
 | 3 | PRINT-STYLE-01 | Единый Report Visual System уровня профессиональных нефтесервисных отчётов: PDF/Masterlog/DOCX/XLSX, A4/A3/roll, colour + grayscale | Разработчик / в работе |
 | 4 | WITS-UX-01 | Довести operator workspace после foundation PR #282: no-data states, help, persistence/reconnect и полевой UX acceptance | Разработчик / в работе |
@@ -74,6 +74,9 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
   hover/pressed/checked/disabled states, toolbar icon metrics и compact mode.
 - [ ] Сохранять системную светлую/тёмную палитру и accessibility contrast; не фиксировать
   desktop-only ширины и не переопределять семантику platform controls без необходимости.
+  Текущий palette-contract удаляет отдельную tooltip-палитру из entrypoint: shared stylesheet
+  использует только Qt palette roles для tooltip/read-only состояний, а offscreen dark-palette
+  smoke фиксирует неизменность системной палитры. Остался аудит локальных setStyleSheet.
 - [ ] Primary/secondary/destructive/quiet роли задавать semantic property, а не цветом по месту.
 - [ ] Диалоги продолжают использовать `fit_window_to_screen`; длинные RU/KK/EN подписи
   переносятся/уходят в overflow, primary action остаётся видимым.
@@ -179,7 +182,7 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
   разных результата; успешный TCP без данных не закрывает передачу WITS. Изменять IP или
   firewall только после проверки фактической топологии; приложение не меняет их автоматически.
 
-- [ ] **WITS-MEM-01 (P0, в работе):** ограничить не только `_frames`, но и производный
+- [ ] **WITS-MEM-01 (P0, блокировано внешним условием):** ограничить не только `_frames`, но и производный
   Dataset, acquisition records/provenance, discovery и связанные caches временного preview.
   Текущий инкремент воспроизводит рост на потоке 10× лимита и ограничивает transient Dataset,
   curve arrays, preview-session records и record-id index через периодическую compaction из
@@ -195,8 +198,10 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
   Добавлен regression-сценарий 10× preview window со сравнением digest числовых рядов
   live↔indexed raw replay после compaction; его gate требует запуска с зависимостями проекта.
   Добавлен изолированный RSS gate (1×/10× окно, допустимый прирост 96 MiB) с подсчётом
-  retained Dataset/session. Оставшийся scope — измеренный baseline на Windows runner,
-  подтверждённый зелёный RSS gate и полевой длительный raw-поток.
+  retained Dataset/session. Windows release-gate #1557 прошёл: baseline/workload peak
+  36.09/37.20 MiB для 1× и 35.85/44.06 MiB для 10×; скорректированный прирост около 7.1 MiB,
+  violations отсутствуют. Автоматический scope закрыт; оставшийся scope — полевой длительный
+  raw-поток в составе FIELD-01.
   Приёмка: на потоке не менее 10× установленного лимита с постоянной схемой размер retained
   structures ограничен; baseline RSS и допустимый запас зафиксированы до реализации и не
   растут линейно с длительностью потока. При появлении нового канала сохраняются последние
