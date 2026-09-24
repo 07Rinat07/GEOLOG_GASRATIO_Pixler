@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 from numpy.typing import NDArray
 
+from geoworkbench.calculations.calculation_profiles import (
+    GasRatioCalculationProfile,
+    default_gas_ratio_profile,
+)
 from geoworkbench.calculations.gas_conditioning import (
     ConditionedGasComponents,
     GasConditioningPolicy,
@@ -14,10 +18,9 @@ from geoworkbench.calculations.gas_conditioning import (
 
 
 Array = NDArray[np.float64]
-CONDITIONED_GAS_PROFILE_VERSION = "2.0"
-CONDITIONED_GAS_PROVENANCE = (
-    f"calculation:conditioned-gas-ratio:{CONDITIONED_GAS_PROFILE_VERSION}"
-)
+_DEFAULT_CONDITIONED_GAS_PROFILE = default_gas_ratio_profile()
+CONDITIONED_GAS_PROFILE_VERSION = _DEFAULT_CONDITIONED_GAS_PROFILE.version
+CONDITIONED_GAS_PROVENANCE = _DEFAULT_CONDITIONED_GAS_PROFILE.provenance
 OPUS_SCREENING_PROFILE_VERSION = "1.0"
 OPUS_SCREENING_PROFILE_ID = "opus-lukyanov-c1-c5-relative-1987-1997"
 
@@ -32,8 +35,9 @@ class GasRatioResult:
 
 @dataclass(frozen=True, slots=True)
 class ConditionedGasRatioResult:
-    """Derived gas curves together with conditioning provenance."""
+    """Derived gas curves together with the exact versioned calculation profile."""
 
+    profile: GasRatioCalculationProfile
     conditioned_components: ConditionedGasComponents
     curves: dict[str, GasRatioResult]
 
@@ -372,17 +376,31 @@ def calculate_conditioned_ratios(
     depth: Array,
     curves: Mapping[str, Array],
     *,
+    profile: GasRatioCalculationProfile | None = None,
     policy: GasConditioningPolicy | None = None,
 ) -> ConditionedGasRatioResult:
     """Condition source gas channels before deriving totals and ratios.
 
-    The returned provenance identifies every interpolated source row. Consumers
-    may therefore display a QC marker or exclude conditioned rows from a strict
-    audit without changing the derived-curve implementation.
+    Production callers select one immutable versioned calculation profile. The
+    optional policy argument remains a low-level compatibility override for
+    focused calculation/tests and is reflected in the returned profile snapshot.
     """
 
-    conditioned = condition_gas_components(depth, curves, policy=policy)
+    if profile is not None and policy is not None:
+        raise ValueError("Передайте calculation profile или policy override, но не оба")
+    resolved_profile = profile or default_gas_ratio_profile()
+    if policy is not None:
+        resolved_profile = replace(
+            resolved_profile,
+            conditioning_policy=policy,
+        )
+    conditioned = condition_gas_components(
+        depth,
+        curves,
+        policy=resolved_profile.conditioning_policy,
+    )
     return ConditionedGasRatioResult(
+        profile=resolved_profile,
         conditioned_components=conditioned,
         curves=calculate_basic_ratios(conditioned.components),
     )
