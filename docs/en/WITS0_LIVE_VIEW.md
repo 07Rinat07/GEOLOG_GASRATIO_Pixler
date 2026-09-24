@@ -41,7 +41,16 @@ mud-logging specialist decisions.
 
 ## Limitations and acceptance
 
-Channels with different physical units currently share one value scale; separate tracks remain a
-future improvement. Selected-channel and history-window settings are not yet persisted in the
-workspace. A Windows Qt smoke test and validation with real anonymized GSWITS raw traffic remain
-mandatory.
+The operator dashboard groups compatible channels into engineering panels and automatically splits
+incompatible units into adjacent tracks with independent X autoscaling. Channel selection, axis,
+auto-follow, pause-view, and history-window settings persist in the workspace.
+
+The transient LIVE PREVIEW keeps at most the latest 2000 frames. Its derived Dataset, curve arrays,
+preview-session records, and record-id index are bounded as well: when the upper threshold is
+reached, the preview runtime is rebuilt from the retained frame window while keeping stable curve
+IDs. Persistent reviewed acquisition is not pruned by this mechanism.
+
+If older preview frames have already been evicted, the current backfill transfers only the retained
+window. Explicit selection/replay of an earlier available raw interval remains a follow-up part of
+WITS-MEM-01; a truncated backfill must not be presented as complete. A Windows Qt smoke test and
+validation with real anonymized GSWITS raw traffic remain mandatory.

@@ -148,3 +148,77 @@ def test_preview_backfills_buffer_through_confirmed_persistent_schema() -> None:
     assert runtime.controller.dataset.active_index.values.shape == (2,)
     assert runtime.session.last_sequence == 2
     assert well.datasets[commit.schema.dataset_id] is runtime.controller.dataset
+
+
+
+def test_preview_runtime_history_is_bounded_beyond_ten_times_frame_limit() -> None:
+    profile = load_builtin_wits0_profile()
+    processor = Wits0StreamProcessor(profile)
+    config = Wits0LivePreviewConfig(
+        max_buffered_frames=3,
+        max_pending_records=16,
+        drain_batch_size=4,
+        runtime_compaction_factor=2,
+    )
+    preview = Wits0LivePreview(profile, config=config)
+    first_curve_ids: set[str] | None = None
+
+    for sequence in range(1, 31):
+        parsed = processor.append(
+            _frame(2, sequence, f"0208{123.0 + sequence / 10:.1f}", f"0210{sequence:.1f}"),
+            received_at=f"2026-07-27T03:16:{sequence % 60:02d}Z",
+            source_ref="bounded-preview.wits",
+        )
+        assert len(parsed) == 1
+        runtime = preview.observe(parsed[0])
+        assert runtime is not None
+        if first_curve_ids is None:
+            first_curve_ids = set(runtime.controller.dataset.curves)
+        assert preview.buffered_frame_count <= config.max_buffered_frames
+        assert preview.retained_row_count <= config.max_runtime_rows
+        assert len(runtime.session.records) <= config.max_runtime_rows
+        assert len(runtime.controller.dataset.active_index.values) <= config.max_runtime_rows
+        assert all(
+            len(curve.values) <= config.max_runtime_rows
+            for curve in runtime.controller.dataset.curves.values()
+        )
+
+    runtime = preview.runtime
+    assert runtime is not None
+    assert preview.buffered_frame_count == config.max_buffered_frames
+    assert preview.evicted_frame_count == 27
+    assert preview.compaction_count > 0
+    assert preview.history_is_truncated is True
+    assert first_curve_ids == set(runtime.controller.dataset.curves)
+    assert len(runtime.controller._known_record_ids) <= config.max_runtime_rows
+
+
+def test_preview_reset_clears_retention_counters() -> None:
+    profile = load_builtin_wits0_profile()
+    processor = Wits0StreamProcessor(profile)
+    preview = Wits0LivePreview(
+        profile,
+        config=Wits0LivePreviewConfig(
+            max_buffered_frames=2,
+            runtime_compaction_factor=2,
+        ),
+    )
+
+    for sequence in range(1, 7):
+        frame = processor.append(
+            _frame(2, sequence, f"0208{123.0 + sequence / 10:.1f}"),
+            received_at=f"2026-07-27T03:17:{sequence:02d}Z",
+            source_ref="bounded-preview.wits",
+        )[0]
+        preview.observe(frame)
+
+    assert preview.evicted_frame_count > 0
+    assert preview.history_is_truncated is True
+
+    preview.reset()
+
+    assert preview.buffered_frame_count == 0
+    assert preview.retained_row_count == 0
+    assert preview.evicted_frame_count == 0
+    assert preview.compaction_count == 0
+    assert preview.history_is_truncated is False
