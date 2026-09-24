@@ -769,7 +769,7 @@ class Wits0AcquisitionRuntime:
             received_at=timestamp,
             source=";".join(
                 (
-                    f"wits0:connection",
+                    "wits0:connection",
                     f"state={state}",
                     f"connection-id={connection_id}",
                     f"peer={peer or ''}",
