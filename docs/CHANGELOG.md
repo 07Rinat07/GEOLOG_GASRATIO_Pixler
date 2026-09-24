@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- ARCH-06: conditioned Gas Ratio получил immutable versioned calculation profile и conditioning policy; UI выбирает DTO, controller сохраняет profile/policy identity, а формулы/interpolation остаются в calculations.
 - Формы GeoSight/GeoScape: legacy SD2/SF2/GSF/GRC и текстовые GS2 теперь импортируются в
   библиотеку форм через безопасный Delphi-parser; конфликт расширения .gs2 разрешается по
   содержимому, поэтому ZIP-контейнер GeoScape II остаётся в штатном импорте данных.
