@@ -848,8 +848,13 @@ WELL-04 уже имеет field-level статусы и readiness; WELL-05 — f
   модули `domain` и `calculations`, нормализует absolute/relative `Import`/`ImportFrom`
   и запрещает PySide/PyQt, PyQtGraph/qtpy, `geoworkbench.ui` и `geoworkbench.printing`,
   включая импорты внутри функций и `TYPE_CHECKING`.
-- [ ] **ARCH-06:** calculation profiles и conditioning policies сделать версионированными
-  immutable DTO; UI выбирает профиль, но не реализует формулы или interpolation.
+- [x] **ARCH-06:** calculation profiles и conditioning policies сделать версионированными
+  immutable DTO; UI выбирает профиль, но не реализует формулы или interpolation. Sourced
+  `FormulaProfile` уже использовал versioned immutable contract; финальный инкремент добавляет
+  `GasRatioCalculationProfile` и version/id к `CurveContinuityPolicy`, передаёт выбранный
+  profile через UI → `GasRatioProjectController` → calculations и сохраняет profile/policy
+  identity в project dataset parameters. Формулы и bounded interpolation остаются только в
+  `calculations`.
 
 ## P1 — полевая совместимость
 

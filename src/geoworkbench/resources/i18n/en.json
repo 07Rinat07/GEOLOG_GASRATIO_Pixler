@@ -1606,6 +1606,8 @@
   "ratio.parameter_missing": "Required parameter {parameter} could not be identified. Check the curve mnemonic, description, and unit.",
   "ratio.parameter_unit_conversion": "Gas components cannot be converted safely to one unit: {details}.",
   "ratio.parameter_unknown_units": "Gas components use incompatible unknown units: {units}.",
+  "ratio.no_profiles": "No Gas Ratio calculation profiles are available.",
+  "ratio.profile_prompt": "Select calculation profile:",
   "ratio.title": "Gas Ratio",
   "report_passport.id": "Report passport: {digest}",
   "report_passport.saved": "Report passport: {name}",
