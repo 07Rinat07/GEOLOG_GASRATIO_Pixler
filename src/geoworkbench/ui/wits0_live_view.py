@@ -205,6 +205,16 @@ class Wits0LiveViewWidget(QWidget):
         if runtime is None:
             self.clear_runtime()
             return
+        previous_state = (
+            self.workspace_state()
+            if preview and self._preview_mode and self._view is not None
+            else None
+        )
+        previous_form_id = (
+            str(self.form_combo.currentData() or UNIVERSAL_LIVE_FORM_ID)
+            if previous_state is not None
+            else UNIVERSAL_LIVE_FORM_ID
+        )
         self._preview_mode = preview
         if self._runtime is runtime and self._view is not None:
             self.refresh()
@@ -223,10 +233,13 @@ class Wits0LiveViewWidget(QWidget):
             ),
         )
         self._last_revision = None
-        universal_index = self.form_combo.findData(UNIVERSAL_LIVE_FORM_ID)
-        if universal_index >= 0:
+        target_form_id = previous_form_id or UNIVERSAL_LIVE_FORM_ID
+        target_form_index = self.form_combo.findData(target_form_id)
+        if target_form_index < 0:
+            target_form_index = self.form_combo.findData(UNIVERSAL_LIVE_FORM_ID)
+        if target_form_index >= 0:
             self.form_combo.blockSignals(True)
-            self.form_combo.setCurrentIndex(universal_index)
+            self.form_combo.setCurrentIndex(target_form_index)
             self.form_combo.blockSignals(False)
         for widget in (
             self.form_combo,
@@ -241,7 +254,20 @@ class Wits0LiveViewWidget(QWidget):
             widget.setEnabled(True)
         self._populate_axes()
         self._populate_curves()
-        self.refresh(force=True)
+        if previous_state is not None:
+            self.apply_workspace_state(previous_state)
+            if previous_form_id != CUSTOM_LIVE_FORM_ID:
+                form_index = self.form_combo.findData(previous_form_id)
+                if form_index >= 0:
+                    self.form_combo.blockSignals(True)
+                    self.form_combo.setCurrentIndex(form_index)
+                    self.form_combo.blockSignals(False)
+                    self._apply_live_form_selection()
+                    self._view.set_selected_curves(self._selected_curve_ids())
+                    self._last_revision = None
+                    self.refresh(force=True)
+        else:
+            self.refresh(force=True)
 
     def workspace_state(self) -> Wits0WorkspaceState:
         view = self._view
