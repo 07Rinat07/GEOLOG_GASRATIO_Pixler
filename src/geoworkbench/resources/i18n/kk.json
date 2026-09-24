@@ -2136,6 +2136,8 @@
   "wits0.acquisition_state_none": "Іске қосылмаған",
   "wits0.acquisition_state_open": "Ашық",
   "wits0.acquisition_well_required": "Алдымен жобада ұңғыманы жасаңыз немесе таңдаңыз.",
+  "wits0.acquisition_preview_truncated": "LIVE PREVIEW тарихы қысқартылған: {evicted} кадр жадтан шығарылды, {retained} кадр қалды ({earliest} — {latest}). Қолжетімді raw аралығы replay жасалмайынша немесе жазудың кейінгі айқын шекарасы таңдалмайынша тұрақты сессия басталмайды.",
+  "wits0.acquisition_preview_truncated_event": "AcquisitionSession іске қосылуы бұғатталды: preview қысқартылған, шығарылғаны {evicted}, retained {retained}, аралық {earliest} — {latest}.",
   "wits0.allow_wildcard_bind": "0.0.0.0 bind-ін айқын рұқсат ету",
   "wits0.allowed_peer_networks": "Рұқсат етілген дереккөз желілері (CIDR)",
   "wits0.allowed_peer_networks_placeholder": "192.168.10.0/24, 10.0.0.5/32",
