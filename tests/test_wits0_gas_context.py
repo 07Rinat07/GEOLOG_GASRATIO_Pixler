@@ -120,3 +120,35 @@ def test_connection_peak_outside_lag_window_is_not_forced_to_connection_gas() ->
     )
 
     assert result.kind is Wits0GasOriginKind.ELEVATED_UNCLASSIFIED
+
+
+
+def test_chromatograph_test_gas_has_priority_and_never_trains_background() -> None:
+    classifier = _classifier()
+    _prime_background(classifier)
+    before = classifier.baseline_sample_count
+
+    result = classifier.assess(
+        Wits0GasContextObservation(
+            total_gas=80.0,
+            operation=Wits0GasOperation.CHROMATOGRAPH_TEST,
+        )
+    )
+
+    assert result.kind is Wits0GasOriginKind.CHROMATOGRAPH_TEST_GAS
+    assert "exclude_from_formation_interpretation" in result.reason_codes
+    assert classifier.baseline_sample_count == before
+
+
+def test_line_test_is_classified_even_without_total_gas_value() -> None:
+    classifier = _classifier()
+
+    result = classifier.assess(
+        Wits0GasContextObservation(
+            total_gas=None,
+            operation=Wits0GasOperation.GAS_LINE_TEST,
+        )
+    )
+
+    assert result.kind is Wits0GasOriginKind.GAS_LINE_TEST_GAS
+    assert result.confidence == 1.0
