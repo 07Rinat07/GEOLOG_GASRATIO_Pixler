@@ -1,3 +1,4 @@
+import fitz
 import numpy as np
 import pytest
 from unittest.mock import MagicMock
@@ -49,6 +50,7 @@ from geoworkbench.printing.masterlog_renderer import (
     masterlog_curve_style,
 )
 from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
+from geoworkbench.printing.report_visual_system import REPORT_BRAND_WORDMARK
 from geoworkbench.printing.masterlog_presets import BUILTIN_MASTERLOG_FORM_PRESETS
 from geoworkbench.services.localization import AppLanguage
 
@@ -157,6 +159,9 @@ def test_masterlog_pdf_export_is_independent_and_atomic(qapp, tmp_path) -> None:
     assert result == target
     assert target.read_bytes().startswith(b"%PDF")
     assert target.stat().st_size > 500
+    with fitz.open(target) as document:
+        text = "\n".join(page.get_text() for page in document)
+    assert REPORT_BRAND_WORDMARK in text
 
 
 def make_session_with_curves() -> ProjectSession:
