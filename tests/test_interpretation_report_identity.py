@@ -167,6 +167,8 @@ def test_word_cover_is_separate_and_not_bunched_at_top(tmp_path) -> None:
     assert "АО Заказчик" in document_text
     assert "ТОО Сервис ГТИ" in document_text
     assert "Инженер ГТИ И.И." in document_text
+    assert REPORT_BRAND_WORDMARK in document_text
+    assert "GEOLOG GASRATIO@Pixler" not in document_text
     assert "Техническое_имя_загруженного_файла.las" not in document_text
 
     children = list(body)
