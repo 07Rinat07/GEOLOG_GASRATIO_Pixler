@@ -76,3 +76,17 @@ Codec строго отклоняет неизвестные поля, неве�
 - lag/depth correction реализована в 0.7.44 как отдельная версионированная derived projection и не изменяет
   append-only source;
 - UI adapters должны вызывать controller и не менять `Dataset`, events или session напрямую.
+
+## WITS0 raw replay boundary
+
+Для усечённого transient preview добавлен отдельный Qt-независимый replay-контракт по
+append-only raw capture. Он читает только индексированные chunk-диапазоны из
+`.chunks.jsonl`, проверяет непрерывность offset, временной порядок и connection ID и
+fail-closed прекращает replay при повреждённом provenance.
+
+Replay потоковый: raw payload не материализуется целиком в памяти. Для каждого TCP
+connection создаётся тот же `Wits0StreamProcessor`, что используется live capture. Chunk-и
+до явно выбранного начала интервала могут быть прочитаны только для decoder/sequence warm-up,
+но в persistent `AcquisitionSession` передаются лишь frames внутри принятой границы
+`start_at..end_at`. Каждый сохранённый record продолжает фиксировать raw SHA-256 и
+`source_ref` исходного сегмента.

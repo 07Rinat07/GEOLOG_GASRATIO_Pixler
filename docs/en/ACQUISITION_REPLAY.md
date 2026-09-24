@@ -29,3 +29,16 @@ logical row count, curve versions, events and incremental record/dataset/events 
 copying the full projection. `AcquisitionApplyResult` uses `digest_mode=incremental_chain` during
 streaming. Full compatible dataset/events fingerprints remain checkpoint and `current_result()`
 operations. Replay uses the same batch boundary and ends batches at persisted checkpoints.
+
+## WITS0 raw replay and persistent acquisition boundary
+
+When the bounded LIVE PREVIEW has already evicted early frames, the complete history must not
+be reconstructed from the retained RAM tail. Indexed raw capture (`.wits` plus
+`.chunks.jsonl`) is used instead. Replay validates contiguous offsets, timestamp ordering, and
+connection IDs and fails closed when provenance is corrupt.
+
+Replay is streaming and never materializes the complete raw payload in memory. Each TCP
+connection uses the same `Wits0StreamProcessor` as live capture. With an explicitly selected
+later boundary, earlier chunks may be consumed only as parser warm-up while the persistent
+session receives frames inside the accepted `start_at..end_at` interval. Each stored record
+retains the raw SHA-256 and source-segment reference.
