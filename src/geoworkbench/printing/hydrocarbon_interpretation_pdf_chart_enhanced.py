@@ -24,6 +24,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_report_range import (
 )
 from geoworkbench.printing.unicode_support import print_font
 from geoworkbench.services.hydrocarbon_interpretation import (
+    HydrocarbonCandidateInterval,
     HydrocarbonInterpretationReport,
 )
 from geoworkbench.services.localization import AppLanguage
@@ -186,10 +187,7 @@ def _draw_chart_page(
         side="right",
         language=language,
     )
-    intervals = tuple(
-        (candidate.top_depth, candidate.bottom_depth)
-        for candidate in report.candidates
-    )
+    candidates = tuple(report.candidates)
     for panel_index, ((panel_name, curves), rect) in enumerate(
         zip(panels, geometry.panel_rects, strict=True)
     ):
@@ -201,7 +199,7 @@ def _draw_chart_page(
             panel_name,
             curves,
             ranges,
-            intervals,
+            candidates,
             language,
         )
         base_chart._draw_legend(
@@ -212,6 +210,15 @@ def _draw_chart_page(
             curves,
             ranges,
         )
+
+    _draw_fluid_callouts(
+        painter,
+        geometry,
+        page,
+        candidates,
+        report.depth_unit,
+        language,
+    )
 
     painter.setPen(QColor("#475569"))
     painter.setFont(print_font(6.8, text=labels["note"]))
@@ -303,7 +310,7 @@ def _draw_panel(
     panel_name: str,
     curves: tuple[CurveData, ...],
     ranges: dict[str, tuple[float, float]],
-    intervals: tuple[tuple[float, float], ...],
+    candidates: tuple[HydrocarbonCandidateInterval, ...],
     language: AppLanguage,
 ) -> None:
     painter.fillRect(rect, QColor("#ffffff"))
@@ -333,7 +340,7 @@ def _draw_panel(
             str(index * 25),
         )
 
-    base_chart._draw_interval_bands(painter, rect, page, intervals)
+    _draw_candidate_bands(painter, rect, page, candidates, language)
     heading = base_chart._labels(language)[panel_name]
     heading_font = print_font(7.5, text=heading)
     heading_font.setBold(True)
@@ -347,6 +354,302 @@ def _draw_panel(
     base_chart._draw_curves(painter, rect, page, dataset, curves, ranges)
     painter.setPen(QPen(QColor("#263746"), 1.1))
     painter.drawRect(rect)
+
+
+
+def _draw_candidate_bands(
+    painter: QPainter,
+    rect: QRectF,
+    page: DepthPage,
+    candidates: tuple[HydrocarbonCandidateInterval, ...],
+    language: AppLanguage,
+) -> None:
+    for candidate in candidates:
+        overlap_top = max(
+            page.top_depth,
+            min(candidate.top_depth, candidate.bottom_depth),
+        )
+        overlap_bottom = min(
+            page.bottom_depth,
+            max(candidate.top_depth, candidate.bottom_depth),
+        )
+        if overlap_bottom <= overlap_top:
+            continue
+        _label, color = _fluid_callout_spec(candidate, language)
+        band_color = QColor(color)
+        band_color.setAlpha(34)
+        y1 = base_chart._depth_y(overlap_top, page, rect)
+        y2 = base_chart._depth_y(overlap_bottom, page, rect)
+        painter.fillRect(
+            QRectF(
+                rect.left(),
+                min(y1, y2),
+                rect.width(),
+                max(1.0, abs(y2 - y1)),
+            ),
+            band_color,
+        )
+        painter.setPen(QPen(QColor(color), 0.65))
+        painter.drawLine(QLineF(rect.left(), y1, rect.right(), y1))
+        painter.drawLine(QLineF(rect.left(), y2, rect.right(), y2))
+
+
+def _draw_fluid_callouts(
+    painter: QPainter,
+    geometry: ChartGeometry,
+    page: DepthPage,
+    candidates: tuple[HydrocarbonCandidateInterval, ...],
+    depth_unit: str,
+    language: AppLanguage,
+) -> None:
+    if not geometry.panel_rects:
+        return
+    visible = tuple(
+        candidate
+        for candidate in candidates
+        if min(candidate.top_depth, candidate.bottom_depth) < page.bottom_depth
+        and max(candidate.top_depth, candidate.bottom_depth) > page.top_depth
+    )
+    if not visible:
+        return
+
+    target = geometry.panel_rects[-1]
+    box_width = min(122.0, max(82.0, target.width() * 0.52))
+    box_height = 31.0
+    box_left = target.right() - box_width - 4.0
+    min_center = target.top() + box_height / 2.0 + 3.0
+    max_center = target.bottom() - box_height / 2.0 - 3.0
+    preferred = tuple(
+        base_chart._depth_y(
+            (max(page.top_depth, min(item.top_depth, item.bottom_depth))
+             + min(page.bottom_depth, max(item.top_depth, item.bottom_depth)))
+            / 2.0,
+            page,
+            target,
+        )
+        for item in visible
+    )
+    centers = _stagger_callout_centers(
+        preferred,
+        min_center=min_center,
+        max_center=max_center,
+        minimum_gap=box_height + 3.0,
+    )
+
+    for candidate, actual_y, center_y in zip(
+        visible,
+        preferred,
+        centers,
+        strict=True,
+    ):
+        label, color = _fluid_callout_spec(candidate, language)
+        box = QRectF(
+            box_left,
+            center_y - box_height / 2.0,
+            box_width,
+            box_height,
+        )
+        marker_x = box.left() - 7.0
+
+        painter.setPen(QPen(QColor(color), 0.9))
+        painter.drawLine(QLineF(marker_x, actual_y, box.left(), center_y))
+        painter.setBrush(QColor(color))
+        painter.drawEllipse(QRectF(marker_x - 2.2, actual_y - 2.2, 4.4, 4.4))
+
+        fill = QColor("#ffffff")
+        fill.setAlpha(236)
+        painter.fillRect(box, fill)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.setPen(QPen(QColor(color), 1.0))
+        painter.drawRoundedRect(box, 3.0, 3.0)
+
+        heading_font = print_font(6.6, text=label)
+        heading_font.setBold(True)
+        painter.setFont(heading_font)
+        painter.setPen(QColor("#172033"))
+        painter.drawText(
+            box.adjusted(5.0, 2.0, -5.0, -13.0),
+            Qt.AlignmentFlag.AlignLeft
+            | Qt.AlignmentFlag.AlignVCenter
+            | Qt.TextFlag.TextWordWrap,
+            label,
+        )
+
+        interval_text = _fluid_callout_interval_text(
+            candidate,
+            depth_unit,
+            language,
+        )
+        painter.setFont(print_font(5.5, text=interval_text))
+        painter.setPen(QColor("#526579"))
+        painter.drawText(
+            QRectF(
+                box.left() + 5.0,
+                box.bottom() - 12.0,
+                box.width() - 10.0,
+                9.0,
+            ),
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            interval_text,
+        )
+
+
+def _fluid_callout_spec(
+    candidate: HydrocarbonCandidateInterval,
+    language: AppLanguage,
+) -> tuple[str, str]:
+    key = candidate.fluid_hypothesis.casefold()
+    if key.startswith("opus_fallback__"):
+        key = key[len("opus_fallback__") :]
+
+    category = "indeterminate"
+    if "gas_condensate_or_gassy_oil" in key:
+        category = "gas_condensate_or_gassy_oil"
+    elif "gas_condensate_or_high_api_oil" in key:
+        category = "gas_condensate_or_light_oil"
+    elif "water_dissolved_gas" in key:
+        category = "dissolved_gas"
+    elif "gas_condensate" in key or "wet_gas" in key:
+        category = "gas_condensate"
+    elif "gassy_oil" in key:
+        category = "gassy_oil"
+    elif "light_oil" in key:
+        category = "light_oil"
+    elif any(token in key for token in ("heavy", "residual", "oxidized", "low_gravity_oil")):
+        category = "heavy_oil"
+    elif "liquid_hydrocarbons" in key:
+        category = "liquid_hydrocarbons"
+    elif "oil" in key:
+        category = "oil"
+    elif (
+        "gas" in key
+        and not any(
+            token in key
+            for token in ("insufficient", "indeterminate", "no_consensus", "ambiguous")
+        )
+    ):
+        category = "gas"
+
+    labels = {
+        AppLanguage.RU: {
+            "gas": "ГАЗ",
+            "gas_condensate": "ГАЗ-КОНДЕНСАТ",
+            "gas_condensate_or_light_oil": "ГК / ЛЁГКАЯ НЕФТЬ",
+            "gas_condensate_or_gassy_oil": "ГК / ГАЗИРОВАННАЯ НЕФТЬ",
+            "dissolved_gas": "ГАЗ В ВОДЕ",
+            "gassy_oil": "ГАЗИРОВАННАЯ НЕФТЬ",
+            "light_oil": "ЛЁГКАЯ НЕФТЬ",
+            "oil": "НЕФТЬ",
+            "heavy_oil": "ТЯЖЁЛАЯ / ОСТАТОЧНАЯ НЕФТЬ",
+            "liquid_hydrocarbons": "ЖИДКИЕ УВ",
+            "indeterminate": "СМЕШАННЫЙ / НЕОПРЕДЕЛЁННЫЙ ТИП",
+        },
+        AppLanguage.KK: {
+            "gas": "ГАЗ",
+            "gas_condensate": "ГАЗ-КОНДЕНСАТ",
+            "gas_condensate_or_light_oil": "ГК / ЖЕҢІЛ МҰНАЙ",
+            "gas_condensate_or_gassy_oil": "ГК / ГАЗДАЛҒАН МҰНАЙ",
+            "dissolved_gas": "СУДАҒЫ ГАЗ",
+            "gassy_oil": "ГАЗДАЛҒАН МҰНАЙ",
+            "light_oil": "ЖЕҢІЛ МҰНАЙ",
+            "oil": "МҰНАЙ",
+            "heavy_oil": "АУЫР / ҚАЛДЫҚ МҰНАЙ",
+            "liquid_hydrocarbons": "СҰЙЫҚ КС",
+            "indeterminate": "АРАЛАС / АНЫҚТАЛМАҒАН ТҮР",
+        },
+        AppLanguage.EN: {
+            "gas": "GAS",
+            "gas_condensate": "GAS CONDENSATE",
+            "gas_condensate_or_light_oil": "GC / LIGHT OIL",
+            "gas_condensate_or_gassy_oil": "GC / GASSY OIL",
+            "dissolved_gas": "DISSOLVED GAS",
+            "gassy_oil": "GASSY OIL",
+            "light_oil": "LIGHT OIL",
+            "oil": "OIL",
+            "heavy_oil": "HEAVY / RESIDUAL OIL",
+            "liquid_hydrocarbons": "LIQUID HC",
+            "indeterminate": "MIXED / INDETERMINATE",
+        },
+    }
+    colors = {
+        "gas": "#2563eb",
+        "gas_condensate": "#0f766e",
+        "gas_condensate_or_light_oil": "#0f766e",
+        "gas_condensate_or_gassy_oil": "#0f766e",
+        "dissolved_gas": "#0891b2",
+        "gassy_oil": "#b45309",
+        "light_oil": "#d97706",
+        "oil": "#a16207",
+        "heavy_oil": "#78350f",
+        "liquid_hydrocarbons": "#c47f00",
+        "indeterminate": "#64748b",
+    }
+    return labels[language][category], colors[category]
+
+
+def _fluid_callout_interval_text(
+    candidate: HydrocarbonCandidateInterval,
+    depth_unit: str,
+    language: AppLanguage,
+) -> str:
+    prefix = {
+        AppLanguage.RU: "предв.",
+        AppLanguage.KK: "алдын ала",
+        AppLanguage.EN: "prelim.",
+    }[language]
+    unit = f" {depth_unit}" if depth_unit else ""
+    return (
+        f"{prefix} · {candidate.top_depth:.1f}–"
+        f"{candidate.bottom_depth:.1f}{unit}"
+    )
+
+
+def _stagger_callout_centers(
+    preferred: tuple[float, ...],
+    *,
+    min_center: float,
+    max_center: float,
+    minimum_gap: float,
+) -> tuple[float, ...]:
+    if not preferred:
+        return ()
+    if max_center <= min_center:
+        midpoint = (min_center + max_center) / 2.0
+        return tuple(midpoint for _ in preferred)
+
+    indexed = sorted(enumerate(preferred), key=lambda item: item[1])
+    effective_gap = minimum_gap
+    if len(indexed) > 1:
+        effective_gap = min(
+            minimum_gap,
+            max(0.0, (max_center - min_center) / (len(indexed) - 1)),
+        )
+    placed: list[tuple[int, float]] = []
+    previous = min_center - effective_gap
+    for index, value in indexed:
+        center = min(max(float(value), min_center), max_center)
+        center = max(center, previous + effective_gap)
+        placed.append((index, center))
+        previous = center
+
+    overflow = placed[-1][1] - max_center
+    if overflow > 0.0:
+        placed = [(index, center - overflow) for index, center in placed]
+        for position in range(len(placed) - 2, -1, -1):
+            next_center = placed[position + 1][1]
+            index, center = placed[position]
+            placed[position] = (
+                index,
+                min(center, next_center - effective_gap),
+            )
+        underflow = min_center - placed[0][1]
+        if underflow > 0.0:
+            placed = [(index, center + underflow) for index, center in placed]
+
+    result = [0.0] * len(preferred)
+    for index, center in placed:
+        result[index] = min(max(center, min_center), max_center)
+    return tuple(result)
 
 
 __all__ = [

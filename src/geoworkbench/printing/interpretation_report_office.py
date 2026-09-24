@@ -15,6 +15,7 @@ from geoworkbench.data.hydrocarbon_interpretation_export import (
     _table,
 )
 from geoworkbench.data.spreadsheet_safety import protect_spreadsheet_row
+from geoworkbench.printing.report_visual_system import REPORT_BRAND_WORDMARK
 from geoworkbench.printing.interpretation_report import (
     LBA_FIELDS,
     AnalysisInterpretationEntry,
@@ -121,7 +122,7 @@ def _write_xlsx(
     _append_rows(
         summary,
         (
-            (labels["title"], ""),
+            (f"{REPORT_BRAND_WORDMARK} — {labels['title']}", ""),
             (labels["project"], report.project_name),
             (labels["well"], report.well_name),
             (labels["dataset"], report.dataset_name or "—"),
@@ -283,7 +284,8 @@ def _write_docx(
 ) -> None:
     labels = _LABELS[language]
     body = [
-        _paragraph(labels["title"], style="Title"),
+        _paragraph(REPORT_BRAND_WORDMARK, style="Title"),
+        _paragraph(labels["title"], style="Heading1"),
         _paragraph(f"{labels['project']}: {report.project_name}"),
         _paragraph(f"{labels['well']}: {report.well_name}"),
         _paragraph(f"{labels['dataset']}: {report.dataset_name or '—'}"),

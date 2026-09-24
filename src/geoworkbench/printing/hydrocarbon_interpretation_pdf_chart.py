@@ -612,9 +612,10 @@ def _labels(language: AppLanguage) -> dict[str, str]:
             "ratios": "Haworth и Pixler",
             "drilling": "Буровой контекст и DEXP",
             "note": (
-                "Кривые нормированы внутри дорожек по p1–p99. Оранжевые полосы — "
-                "перспективные интервалы. Каждый лист сохраняет физический масштаб "
-                "глубины; шкалы и внешние границы повторяются слева и справа."
+                "Кривые нормированы внутри дорожек по p1–p99. Цветные полосы и "
+                "текстовые выноски отмечают перспективные интервалы и предварительный "
+                "тип флюида; текст имеет приоритет над цветом. Каждый лист сохраняет "
+                "физический масштаб глубины; шкалы и границы повторяются с обеих сторон."
             ),
         },
         AppLanguage.KK: {
@@ -629,8 +630,9 @@ def _labels(language: AppLanguage) -> dict[str, str]:
             "ratios": "Haworth және Pixler",
             "drilling": "Бұрғылау контексті және DEXP",
             "note": (
-                "Қисықтар жол ішінде p1–p99 бойынша нормаланады. Қызғылт сары "
-                "жолақтар — перспективалы аралықтар. Әр бет тереңдіктің физикалық "
+                "Қисықтар жол ішінде p1–p99 бойынша нормаланады. Түсті жолақтар мен "
+                "мәтіндік белгілер перспективалы аралықты және алдын ала флюид түрін "
+                "көрсетеді; мәтін түсінен маңызды. Әр бет тереңдіктің физикалық "
                 "масштабын сақтайды; шкалалар мен шекаралар екі жақта қайталанады."
             ),
         },
@@ -646,9 +648,10 @@ def _labels(language: AppLanguage) -> dict[str, str]:
             "ratios": "Haworth and Pixler",
             "drilling": "Drilling context and DEXP",
             "note": (
-                "Curves are normalized within tracks to p1–p99. Orange bands mark "
-                "prospective intervals. Every sheet preserves a physical depth scale; "
-                "scales and outer borders repeat on both sides."
+                "Curves are normalized within tracks to p1–p99. Colored bands and text "
+                "callouts mark prospective intervals and preliminary fluid type; text "
+                "takes precedence over color. Every sheet preserves a physical depth "
+                "scale; scales and outer borders repeat on both sides."
             ),
         },
     }[language]

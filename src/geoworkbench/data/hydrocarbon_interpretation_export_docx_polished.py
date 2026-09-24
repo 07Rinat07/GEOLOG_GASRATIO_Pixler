@@ -16,6 +16,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
     InterpretationReportIdentity,
     default_interpretation_report_identity,
 )
+from geoworkbench.printing.report_visual_system import REPORT_BRAND_WORDMARK
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
 )
@@ -133,7 +134,7 @@ def _cover_elements(
     details = identity.cleaned()
     elements: list[ET.Element] = [
         _paragraph(
-            "GEOLOG GASRATIO@Pixler",
+            REPORT_BRAND_WORDMARK,
             alignment="center",
             after=220,
             size=22,

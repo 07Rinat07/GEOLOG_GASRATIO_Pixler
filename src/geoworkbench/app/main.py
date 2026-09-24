@@ -25,6 +25,7 @@ from geoworkbench.services.localization import (
     LanguageSettings,
     Localizer,
 )
+from geoworkbench.ui.application_style import apply_adaptive_application_style
 
 
 class DiagnosticApplication(QApplication):
@@ -114,6 +115,7 @@ def _configure_readable_tooltips(app: QApplication) -> None:
 def main() -> int:
     app = DiagnosticApplication(sys.argv)
     _configure_readable_tooltips(app)
+    apply_adaptive_application_style(app)
     app.setApplicationName("GEOLOG GASRATIO@Pixler")
     app.setOrganizationName("GeoLog")
 

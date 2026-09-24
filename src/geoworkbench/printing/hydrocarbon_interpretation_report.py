@@ -21,6 +21,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_report_range import (
     resolve_report_depth_range,
     scope_report_to_depth_range,
 )
+from geoworkbench.printing.report_visual_system import REPORT_BRAND_WORDMARK
 from geoworkbench.printing.unicode_support import preflight_texts
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
@@ -90,7 +91,7 @@ def export_hydrocarbon_interpretation_pdf(
         # the same physical scale without an additional DPI transform.
         writer.setResolution(72)
         writer.setTitle(details.report_title)
-        writer.setCreator("GEOLOG GASRATIO@Pixler")
+        writer.setCreator(REPORT_BRAND_WORDMARK)
 
         html = hydrocarbon_interpretation_html(effective_report, language)
         if dataset is not None:

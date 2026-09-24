@@ -8,6 +8,10 @@ from PySide6.QtGui import QColor, QPageLayout, QPainter
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import (
     PAGE_FOOTER_HEIGHT,
 )
+from geoworkbench.printing.report_visual_system import (
+    REPORT_BRAND_WORDMARK,
+    modern_oilfield_report_profile,
+)
 from geoworkbench.printing.unicode_support import print_font
 from geoworkbench.services.localization import AppLanguage
 
@@ -47,7 +51,10 @@ class PageCanvas:
         self.started = True
         self.page_number += 1
         self.y = self.content_rect.top()
-        self.painter.fillRect(self.page_rect, QColor("#ffffff"))
+        self.painter.fillRect(
+            self.page_rect,
+            QColor(modern_oilfield_report_profile().palette.page),
+        )
         self._draw_page_number()
 
     def reserve(self, height: float, *, force_new_page: bool = False) -> None:
@@ -65,16 +72,35 @@ class PageCanvas:
             AppLanguage.KK: "Бет",
             AppLanguage.EN: "Page",
         }[self.language]
-        footer = QRectF(
-            self.page_rect.left(),
-            self.content_rect.bottom() + 2.0,
-            self.page_rect.width() - 2.0,
-            PAGE_FOOTER_HEIGHT - 2.0,
+        visual = modern_oilfield_report_profile()
+        footer_top = self.content_rect.bottom() + 2.0
+        footer_height = PAGE_FOOTER_HEIGHT - 2.0
+        left_footer = QRectF(
+            self.page_rect.left() + 2.0,
+            footer_top,
+            max(1.0, self.page_rect.width() * 0.62 - 4.0),
+            footer_height,
         )
-        self.painter.setPen(QColor("#64748b"))
-        self.painter.setFont(print_font(7.5, text=f"{label} {self.page_number}"))
+        right_footer = QRectF(
+            self.page_rect.left() + self.page_rect.width() * 0.62,
+            footer_top,
+            max(1.0, self.page_rect.width() * 0.38 - 2.0),
+            footer_height,
+        )
+        self.painter.setPen(QColor(visual.palette.text_muted))
+        self.painter.setFont(
+            print_font(
+                visual.typography.footer_pt,
+                text=f"{REPORT_BRAND_WORDMARK} {label} {self.page_number}",
+            )
+        )
         self.painter.drawText(
-            footer,
+            left_footer,
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            REPORT_BRAND_WORDMARK,
+        )
+        self.painter.drawText(
+            right_footer,
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
             f"{label} {self.page_number}",
         )

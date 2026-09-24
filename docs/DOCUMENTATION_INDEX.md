@@ -70,6 +70,8 @@ artifacts workflow `.github/workflows/release-gate.yml`.
   [сводная памятка](FILES_WORKSPACE_GUIDE.md) · [инженерное описание](FILE_WORKSPACE.md)
 - WITS0: [RU](ru/WITS0_CAPTURE.md) · [KK](kk/WITS0_CAPTURE.md) ·
   [EN](en/WITS0_CAPTURE.md)
+- Контекст газовых событий WITS/ГТИ: [RU](ru/WITS_GAS_CONTEXT.md) ·
+  [KK](kk/WITS_GAS_CONTEXT.md) · [EN](en/WITS_GAS_CONTEXT.md)
 - WITSML SOAP: [RU](ru/WITSML_1411_SOAP.md) · [KK](kk/WITSML_1411_SOAP.md) ·
   [EN](en/WITSML_1411_SOAP.md)
 
@@ -103,6 +105,7 @@ artifacts workflow `.github/workflows/release-gate.yml`.
   [LAG_DEPTH_CORRECTION.md](LAG_DEPTH_CORRECTION.md).
 - Расчёты и события: [DEXP_FORMULAS.md](DEXP_FORMULAS.md),
   [MUD_GAS_FORMULAS.md](MUD_GAS_FORMULAS.md),
+  [FORMULA_METHOD_AUDIT.md](FORMULA_METHOD_AUDIT.md),
   [OPUS_GASOMER_IMPLEMENTATION.md](OPUS_GASOMER_IMPLEMENTATION.md),
   [GAS_CONDITIONING_QC.md](GAS_CONDITIONING_QC.md),
   [NORMALIZED_GAS.md](NORMALIZED_GAS.md),

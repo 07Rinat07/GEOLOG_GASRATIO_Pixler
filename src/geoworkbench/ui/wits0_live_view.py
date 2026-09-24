@@ -121,6 +121,7 @@ class Wits0LiveViewWidget(QWidget):
             _operator_text(self._language, "save_form"),
             self,
         )
+        self.save_form_button.setProperty("uiRole", "primary")
         self.save_form_button.clicked.connect(self._save_current_form)
         layout.addWidget(self.save_form_button)
 
@@ -128,6 +129,7 @@ class Wits0LiveViewWidget(QWidget):
             _operator_text(self._language, "reset_form"),
             self,
         )
+        self.reset_form_button.setProperty("uiRole", "quiet")
         self.reset_form_button.clicked.connect(self._reset_current_form)
         layout.addWidget(self.reset_form_button)
 

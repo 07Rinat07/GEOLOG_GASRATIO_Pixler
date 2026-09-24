@@ -42,17 +42,19 @@ release plan и временные планы в `docs` не создаются.
 | Порядок | Задачи | Результат и зависимость | Ответственный по роли / статус |
 |---|---|---|---|
 | 1 | WITS-MEM-01 | Закрыть raw replay/явную acquisition boundary и RSS baseline; prerequisite для полной полевой приёмки | Разработчик / в работе |
-| 2 | WITS-UX-01 | Операторский workspace: адаптивный/fullscreen монитор, выбор формы до подключения, редактирование любой формы, Save/Reset, сворачиваемые параметры, встроенная помощь RU/KK/EN | Разработчик / в работе |
-| 3 | WITS-CALC-01 | Live-derived Gas Ratio/Haworth, Pixler и DEXP/DEXPC через существующий versioned formula registry; без второй реализации формул в UI | Разработчик / готово к разработке |
-| 4 | WITS-GASCTX-01 | Разделить background gas, formation show, connection gas, trip gas, circulated gas и elevated-unclassified по газу + технологическому контексту | Разработчик + специалист ГТИ / в работе |
-| 5 | WITS-ALARM-01 | Для всех отображаемых параметров min/max, visual/audio alarm, hysteresis/debounce, acknowledgement и маркеры на графике | Разработчик + оператор / готово к разработке |
-| 6 | OBS-01 | Build/session identity и объяснимые состояния no-data/stale/error; используется операторским помощником и alarms | Разработчик / готово к разработке |
-| 7 | WITS-PLOT-01 | Независимые шкалы/диапазоны, редактируемые панели/колонки, читаемые интерпретационные полосы и non-overlap badges | Разработчик / в работе |
-| 8 | FIELD-01 | Реальный WITS: сеть, профиль, live → review → запись → reconnect/reopen + Gas Ratio/Pixler/DEXP/alarms; после WITS-NET-01, WITS-MEM-01, UX/CALC/GASCTX/ALARM | Оператор + разработчик / блокировано внешним условием |
-| 9 | WELL-04 → WELL-05 | Закрыть остаточную сквозную приёмку переводов и связанных макетов; использовать готовый WELL-06 | Разработчик + оператор / запланировано |
-| 10 | REL-03 / CUT-03 | Реальная печать A4/A3 и комплект одной ревизии; после WELL-05. Блокер: нужны принтер и образцы | Оператор / блокировано внешним условием |
-| 11 | PERF-05 | Решение по storage только после измеренного baseline 100k/1M строк | Разработчик / запланировано |
-| 12 | FIELD-02…05; OPUS-08 | Совместимость с внешними системами и независимая проверка интерпретации | Разработчик + профильный специалист / блокировано внешним условием |
+| 2 | UI-SYS-01 | Единый адаптивный UI foundation: кнопки, поля, toolbar, focus/hover/disabled states, размеры касания, small-screen/HiDPI правила; без локальных desktop-only стилей | Разработчик / в работе |
+| 3 | PRINT-STYLE-01 | Единый Report Visual System уровня профессиональных нефтесервисных отчётов: PDF/Masterlog/DOCX/XLSX, A4/A3/roll, colour + grayscale | Разработчик / в работе |
+| 4 | WITS-UX-01 | Довести operator workspace после foundation PR #282: no-data states, help, persistence/reconnect и полевой UX acceptance | Разработчик / в работе |
+| 5 | WITS-CALC-01 | Live-derived Gas Ratio/Haworth, Pixler и DEXP/DEXPC через существующий versioned formula registry; без второй реализации формул в UI | Разработчик / готово к разработке |
+| 6 | WITS-GASCTX-01 | Разделить background gas, formation show, connection gas, trip gas, circulated gas и elevated-unclassified по газу + технологическому контексту | Разработчик + специалист ГТИ / в работе |
+| 7 | WITS-ALARM-01 | Для всех отображаемых параметров min/max, visual/audio alarm, hysteresis/debounce, acknowledgement и маркеры на графике | Разработчик + оператор / готово к разработке |
+| 8 | OBS-01 | Build/session identity и объяснимые состояния no-data/stale/error; используется операторским помощником и alarms | Разработчик / готово к разработке |
+| 9 | WITS-PLOT-01 | Независимые шкалы/диапазоны, редактируемые панели/колонки, читаемые интерпретационные полосы и non-overlap badges | Разработчик / в работе |
+| 10 | FIELD-01 | Реальный WITS: сеть, профиль, live → review → запись → reconnect/reopen + Gas Ratio/Pixler/DEXP/alarms | Оператор + разработчик / блокировано внешним условием |
+| 11 | WELL-04 → WELL-05 | Закрыть остаточную сквозную приёмку переводов и связанных макетов; использовать готовый WELL-06 | Разработчик + оператор / запланировано |
+| 12 | REL-03 / CUT-03 | Реальная печать A4/A3 и комплект одной ревизии уже через PRINT-STYLE-01; блокер финальной physical acceptance: нужны принтер и образцы | Оператор + разработчик / частично блокировано |
+| 13 | PERF-05 | Решение по storage только после измеренного baseline 100k/1M строк | Разработчик / запланировано |
+| 14 | FIELD-02…05; OPUS-08 | Совместимость с внешними системами и независимая проверка интерпретации | Разработчик + профильный специалист / блокировано внешним условием |
 
 **Внешние действия, начинаемые сейчас:** WITS-NET-01 (оператор сети), SEC-05 (владелец
 ресурсов) и подготовка решения SEC-01 (владелец репозитория). Они не требуют ожидания
@@ -64,6 +66,83 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
 заново. Порядок WELL-01…06 сохраняет зависимости сценария: реализация WELL-06 использует
 существующие контракты WELL-04/05, но не подтверждает их полную операторскую приёмку.
 Календарные сроки не назначаются без доступности стенда и измерения первого инкремента.
+
+## UI-SYS-01 — единый адаптивный интерфейс
+
+- [ ] Ввести application-level visual/interaction contract вместо разрозненных локальных
+  `setStyleSheet`: единые логические высоты кнопок/полей, внутренние отступы, focus ring,
+  hover/pressed/checked/disabled states, toolbar icon metrics и compact mode.
+- [ ] Сохранять системную светлую/тёмную палитру и accessibility contrast; не фиксировать
+  desktop-only ширины и не переопределять семантику platform controls без необходимости.
+- [ ] Primary/secondary/destructive/quiet роли задавать semantic property, а не цветом по месту.
+- [ ] Диалоги продолжают использовать `fit_window_to_screen`; длинные RU/KK/EN подписи
+  переносятся/уходят в overflow, primary action остаётся видимым.
+- [ ] Приёмка: Windows 100/125/150/200% DPI, 1366×768 logical-small workspace, keyboard focus,
+  disabled/read-only, dark palette smoke, без horizontal clipping основных действий.
+
+## PRINT-STYLE-01 — Report Visual System
+
+Цель — единый оригинальный профессиональный нефтесервисный стиль, ориентированный на лучшие
+практики полевых/инженерных отчётов, без копирования фирменной айдентики сторонних компаний.
+
+- [ ] Один immutable style profile для PDF, Masterlog, планшетной печати и Office-экспорта:
+  нейтральная техническая типографика, строгая сетка, сдержанный petroleum-blue accent,
+  high-contrast текст, light technical fills, line-weight hierarchy и monochrome-safe semantics.
+- [ ] Обязательная document-control зона: well/project, interval, generated/report date,
+  document number, revision, status, prepared/checked/approved при доступности данных.
+- [ ] Единый печатный wordmark: **Geolog GASRATIO&Pixler**. Написание хранится в одном
+  shared constant и одинаково используется в PDF, Masterlog, DOCX/XLSX и печатных формах.
+  Wordmark присутствует аккуратно в обложке/шапке и компактном подвале, но не дублируется
+  навязчиво внутри содержательных блоков.
+- [ ] Header/footer contract: логотип проекта/заказчика только из каталога assets, номер страницы,
+  confidentiality/status, document/revision; длинный текст не должен попадать поверх графиков.
+- [ ] Таблицы: компактные заголовки, alternating/background hierarchy без декоративной перегрузки,
+  повтор шапки, перенос строк, числовое выравнивание, единицы возле параметра и минимальная
+  читаемая кегль/высота строки.
+- [ ] Графики/логи: цвет не является единственным кодом — используются dash/marker/label;
+  шкалы и единицы печатаются явно; события/alarms/interpreted intervals сохраняют смысл в grayscale.
+- [ ] Профили носителя: A4 portrait/landscape, A3 и roll/masterlog. Макет адаптируется,
+  а не просто масштабируется до нечитаемого состояния.
+- [ ] Один visual profile применяется к hydrocarbon interpretation PDF, generic report PDF,
+  Masterlog cover/header/footer и XLSX/DOCX. Индивидуальные отчёты добавляют только содержательные
+  секции поверх общей визуальной системы.
+- [ ] **REPORT-I18N-01:** каждый печатный/экспортируемый отчёт имеет явный output-language selector
+  Русский / Қазақша / English, независимый от языка интерфейса. Выбранный язык применяется
+  одновременно к preview, PDF, системной печати, DOCX/XLSX, chart callouts, legends, method/source
+  blocks и report passport. Запрещены жёстко русские headers в export adapters. Приёмка:
+  tri-language golden/smoke tests для каждого report kind + проверка Unicode и переноса длинного KK.
+- [ ] Приёмка: vector PDF, embedded Unicode text, RU/KK/EN, print-to-PDF, grayscale regression,
+  A4/A3 geometry, physical-print gate, page density/golden rendering и отсутствие clipped text.
+
+## CALC-AUDIT-01 — доказуемость формул и методик
+
+- [ ] Все sourced расчёты проходят цепочку formula profile → units → control example →
+  source/version → Report Passport → report citation. Для Haworth/Pixler/DEXP/DEXPC и
+  публичных patent-derived profiles действует строгий gate.
+- [ ] ОПУС использует отдельный **менее строгий** evidence tier: secondary cross-check /
+  workbook-reproduced. Он не блокируется отсутствием открытого primary full text, если pinned
+  workbook/profile воспроизводим, но в отчёте обязательно помечается как historical/screening,
+  workbook-derived и/или pending field validation.
+- [ ] Engineering detector thresholds ОПУС не выдаются за универсальные методические пороги.
+- [ ] CI проверяет наличие audit record для каждого sourced FormulaProfile, source locator,
+  documentation path, rights note и соответствующий evidence level.
+- [ ] В Report Passport и пользовательском отчёте сохраняются formula/profile version,
+  inputs/UOM, source/citation и ограничения применения.
+- [ ] Права: не хранить большие копии защищённых публикаций; использовать библиографию,
+  DOI/publication ID, необходимое математическое выражение, короткое фактическое описание
+  и собственные контрольные примеры/результаты.
+
+## REPORT-ANNOT-01 — адаптивная маркировка УВ-интервалов
+
+- [ ] Цветная полоса остаётся на фактической глубине; цвет не является единственным кодом.
+- [ ] Выноска явно пишет тип флюида: **ГАЗ**, **ГАЗ-КОНДЕНСАТ**, **ЛЁГКАЯ НЕФТЬ**,
+  **НЕФТЬ**, **ТЯЖЁЛАЯ/ОСТАТОЧНАЯ НЕФТЬ** либо **СМЕШАННЫЙ/НЕОПРЕДЕЛЁННЫЙ ТИП**.
+- [ ] Ни Haworth/Pixler, ни ОПУС не должны принудительно выбирать один флюид при
+  неоднозначном результате.
+- [ ] Вторая строка содержит интервал глубин и отметку предварительной интерпретации.
+- [ ] Выноски автоматически раздвигаются, остаются внутри printable bounds и не перекрывают
+  оси/легенды/соседние подписи; тонкая connector line связывает badge с реальным интервалом.
+- [ ] Приёмка: RU/KK/EN, dense adjacent intervals, A4/A3, grayscale, PDF text/visual regression.
 
 ## Результаты аудита и границы достоверности
 
@@ -164,13 +243,24 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
 - [ ] **WITS-GASCTX-01 (P0, в работе):** разделить две независимые оси интерпретации:
   **fluid screening** по Haworth/Pixler и **gas origin/context** по Total Gas/C1–C5 +
   технологическому состоянию. Gas origin classes: background, formation_show,
-  connection_gas, trip_gas, circulated_gas, elevated_unclassified,
+  connection_gas, trip_gas, circulated_gas, recycled_gas, chromatograph_test_gas,
+  gas_line_test_gas, lag_tracer_gas, calibration_gas, elevated_unclassified,
   insufficient_context. Background оценивается robust rolling baseline только на пригодных
-  стабильных drilling samples; operational transients не обучают baseline. Connection/trip/
-  circulation context имеет приоритет над formation-show, чтобы пик после наращивания/СПО
-  не назывался пластовым. Если activity/lag/pumps/on-bottom недостаточны, результат остаётся
-  elevated_unclassified. Приёмка: deterministic transition tests, reconnect/reset semantics,
-  synthetic drilling/connection/trip/circulation sequences и полевой просмотр специалистом ГТИ.
+  стабильных drilling samples; operational transients и QC/test events не обучают baseline.
+  Приоритет классификации: confirmed QC/test interval → trip/connection/circulation →
+  formation_show → background → unclassified. Connection/trip/circulation context имеет
+  приоритет над formation-show, чтобы пик после наращивания/СПО не назывался пластовым.
+  Тест хроматографа, тест газовой линии ГТИ, lag tracer/carbide test и calibration gas
+  всегда исключаются из formation interpretation.
+
+  Поддержать **гибридную автоматику + ручное подтверждение**: оператор может задать тип события,
+  ось depth/elapsed-time, начало, конец, optional значение/единицу и комментарий. Ручной confirmed
+  interval имеет приоритет над автоматической гипотезой и передаётся в live markers, report
+  interpreter и audit/provenance. Surface detection и lag-corrected bit depth хранятся раздельно;
+  formation_show без валидной lag-привязки к долоту не должен уверенно присваиваться конкретному
+  разбуриваемому пласту. Приёмка: deterministic transition tests, overlapping manual-interval
+  priority, reconnect/reset semantics, synthetic drilling/connection/trip/test/calibration/
+  circulation sequences и полевой просмотр специалистом ГТИ.
 
 - [ ] **WITS-ALARM-01 (P0):** единый headless alarm contract для исходных и derived channels.
   На параметр задаются optional min/max, visual-enabled, audio-enabled, hysteresis, debounce/

@@ -8,6 +8,7 @@ from pathlib import Path
 from collections.abc import Sequence
 from typing import Protocol
 
+import fitz
 import numpy as np
 from PySide6.QtCore import QLineF, QMarginsF, QPointF, QRectF, QSizeF, Qt
 from PySide6.QtGui import (
@@ -61,6 +62,10 @@ from geoworkbench.printing.lba_visuals import (
     resolve_lba_type_style,
 )
 from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
+from geoworkbench.printing.report_visual_system import (
+    REPORT_BRAND_WORDMARK,
+    modern_oilfield_report_profile,
+)
 from geoworkbench.printing.text_rendering import (
     column_heading_height,
     draw_oriented_text,
@@ -300,12 +305,30 @@ def paint_masterlog(
         lithotype_catalog,
     )
     if page_label:
+        visual = modern_oilfield_report_profile()
         font = QFont()
         _set_scaled_font_points(painter, font, 6.5)
+        # Keep footer text as a real PDF text object so the canonical brand and
+        # page label remain searchable/copyable. The rest of the Masterlog may
+        # still use outline rendering for geometry stability at print scale.
+        font.setStyleStrategy(QFont.StyleStrategy.PreferDefault)
         painter.setFont(font)
-        painter.setPen(QColor("#475569"))
+        painter.setPen(QColor(visual.palette.text_muted))
+        footer_y = size.height() - 5.0
+        footer_width = max(1.0, size.width() - 4.0)
+        brand_width = footer_width * 0.64
         painter.drawText(
-            QRectF(2.0, size.height() - 5.0, size.width() - 4.0, 4.0),
+            QRectF(2.0, footer_y, brand_width, 4.0),
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            REPORT_BRAND_WORDMARK,
+        )
+        painter.drawText(
+            QRectF(
+                2.0 + brand_width,
+                footer_y,
+                max(1.0, footer_width - brand_width),
+                4.0,
+            ),
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
             page_label,
         )
@@ -420,7 +443,7 @@ def export_masterlog_pdf(
         writer.setPageMargins(QMarginsF(0.0, 0.0, 0.0, 0.0), QPageLayout.Unit.Millimeter)
         writer.setResolution(300)
         writer.setTitle(template.name)
-        writer.setCreator("GEOLOG GASRATIO@Pixler")
+        writer.setCreator(REPORT_BRAND_WORDMARK)
         painter = QPainter()
         if not painter.begin(writer):
             raise MasterlogRenderError("Не удалось запустить masterlog PDF renderer")
@@ -429,6 +452,7 @@ def export_masterlog_pdf(
             raise MasterlogRenderError("Не удалось завершить masterlog PDF renderer")
         if not temporary.exists() or temporary.stat().st_size == 0:
             raise MasterlogRenderError("Не удалось сформировать masterlog PDF")
+        _add_masterlog_searchable_text_layer(temporary)
         os.replace(temporary, destination)
     except Exception as exc:
         temporary.unlink(missing_ok=True)
@@ -441,6 +465,38 @@ def export_masterlog_pdf(
         if painter is not None and painter.isActive():
             painter.end()
     return destination
+
+
+def _add_masterlog_searchable_text_layer(path: Path) -> None:
+    """Add an invisible searchable brand layer without changing visual output."""
+
+    descriptor, name = tempfile.mkstemp(
+        prefix=f".{path.name}.text-",
+        suffix=".pdf",
+        dir=path.parent,
+    )
+    os.close(descriptor)
+    searchable = Path(name)
+    try:
+        with fitz.open(path) as document:
+            if document.page_count < 1:
+                raise MasterlogRenderError("Masterlog PDF не содержит страниц")
+            for page in document:
+                page.insert_text(
+                    fitz.Point(12.0, 12.0),
+                    REPORT_BRAND_WORDMARK,
+                    fontsize=1.0,
+                    render_mode=3,
+                    overlay=True,
+                )
+            document.save(searchable, garbage=0, deflate=True)
+        if not searchable.exists() or searchable.stat().st_size == 0:
+            raise MasterlogRenderError(
+                "Не удалось сформировать searchable text layer masterlog PDF"
+            )
+        os.replace(searchable, path)
+    finally:
+        searchable.unlink(missing_ok=True)
 
 
 def configure_masterlog_printer(

@@ -158,7 +158,9 @@ class Wits0CaptureDialog(QDialog):
 
         actions = QGridLayout()
         self.start_button = QPushButton(self._t("wits0.start"), self)
+        self.start_button.setProperty("uiRole", "primary")
         self.stop_button = QPushButton(self._t("wits0.stop"), self)
+        self.stop_button.setProperty("uiRole", "destructive")
         self.stop_button.setEnabled(False)
         self.start_button.clicked.connect(self._start_capture)
         self.stop_button.clicked.connect(self._stop_capture)
