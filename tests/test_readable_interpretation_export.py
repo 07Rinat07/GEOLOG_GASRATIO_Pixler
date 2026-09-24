@@ -13,6 +13,7 @@ from geoworkbench.project.interpretation_calculation_controller import (
     NormalizedGasCalculationMode,
 )
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.printing.report_visual_system import REPORT_BRAND_WORDMARK
 from geoworkbench.services.hydrocarbon_interpretation import (
     build_hydrocarbon_interpretation_report,
     hydrocarbon_interpretation_html,
@@ -136,6 +137,8 @@ def test_readable_xlsx_keeps_interpretation_and_gas_statistics_on_main_sheet(
         assert "Candidate intervals" not in workbook.sheetnames
         assert workbook["Данные по глубине"].sheet_state == "hidden"
         sheet = workbook["Интерпретация УВ"]
+        assert str(sheet["A1"].value).startswith(REPORT_BRAND_WORDMARK)
+        assert "GEOLOG GASRATIO@Pixler" not in str(sheet["A1"].value)
         headers = [sheet.cell(9, column).value for column in range(1, 24)]
         assert "Предварительная интерпретация" in headers
         assert "Мин исходного газа" in headers
