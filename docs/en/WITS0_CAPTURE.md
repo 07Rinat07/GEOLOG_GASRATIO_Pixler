@@ -13,6 +13,22 @@ unchanged, and passes every complete frame through a typed parser. A confirmed I
 start an append-only `AcquisitionSession`; the raw boundary and parser remain immutable, while
 Dataset mutation occurs only through `AcquisitionController`.
 
+## Operator quick workflow
+
+The target WITS workflow is **choose a form → choose connection mode → start capture → watch live
+rig data → review mapping when needed → start persistent acquisition**. Operators should not have
+to understand every technical field before seeing useful data.
+
+A GeoScape/GSWITS preset is provided for the common path. Context help is required next to mode,
+IP/interface, port, CIDR, raw directory, free-space thresholds and retention. The built-in
+**Help and instructions** tab explains client/server roles, local versus remote addressing,
+CIDR allowlisting, immutable raw capture, LIVE PREVIEW versus AcquisitionSession, pause-view,
+editable/saved forms, full-screen monitoring, derived Gas Ratio/Pixler/DEXP, gas-origin context,
+and alarms.
+
+An empty monitor must report a specific state: no TCP, connected but no bytes, bytes without
+usable frames, missing axis/channel, stale data, preview, or recording.
+
 ## TCP server setup
 
 Use this mode when GSWITS is configured as an **outgoing connection (TCP client)**.
