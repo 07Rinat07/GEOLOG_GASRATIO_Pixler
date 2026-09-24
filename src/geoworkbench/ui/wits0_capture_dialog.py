@@ -97,6 +97,8 @@ class Wits0CaptureDialog(QDialog):
         self.workspace_settings = Wits0WorkspaceSettings(self.settings)
         self._last_workspace_state: Wits0WorkspaceState | None = None
         self._connection_events_recorded: set[tuple[str, bool]] = set()
+        self._live_fullscreen_dialog: QDialog | None = None
+        self._live_tab_index = 2
         self.well_provider = well_provider
         self.on_dataset_changed = on_dataset_changed
         self.engine: Wits0CaptureEngine | None = None
@@ -129,6 +131,7 @@ class Wits0CaptureDialog(QDialog):
         self.event_text.setReadOnly(True)
         self.event_text.document().setMaximumBlockCount(4_000)
         self.live_view = Wits0LiveViewWidget(self, language=language)
+        self.live_view.fullScreenRequested.connect(self._set_live_fullscreen)
         self.tabs.addTab(self.raw_text, self._t("wits0.raw_tab"))
         self.tabs.addTab(self.parsed_text, self._t("wits0.parsed_tab"))
         self.tabs.addTab(self.live_view, self._t("wits0.live_tab"))
@@ -1229,6 +1232,50 @@ class Wits0CaptureDialog(QDialog):
             )
         )
 
+    def _set_live_fullscreen(self, enabled: bool) -> None:
+        if enabled:
+            if self._live_fullscreen_dialog is not None:
+                self._live_fullscreen_dialog.raise_()
+                return
+            live_index = self.tabs.indexOf(self.live_view)
+            if live_index >= 0:
+                self._live_tab_index = live_index
+                self.tabs.removeTab(live_index)
+
+            dialog = QDialog(self)
+            dialog.setWindowTitle(
+                f"{self._t('wits0.title')} — {self._t('wits0.live_tab')}"
+            )
+            dialog.setModal(False)
+            layout = QVBoxLayout(dialog)
+            layout.setContentsMargins(0, 0, 0, 0)
+            layout.addWidget(self.live_view)
+            dialog.finished.connect(self._restore_live_view_from_fullscreen)
+            self._live_fullscreen_dialog = dialog
+            self.live_view.set_fullscreen_state(True)
+            dialog.showFullScreen()
+            self.live_view.setFocus()
+            return
+
+        dialog = self._live_fullscreen_dialog
+        if dialog is not None:
+            dialog.close()
+
+    def _restore_live_view_from_fullscreen(self, _result: int = 0) -> None:
+        dialog = self._live_fullscreen_dialog
+        if dialog is None:
+            return
+        layout = dialog.layout()
+        if layout is not None:
+            layout.removeWidget(self.live_view)
+        self.live_view.setParent(self.tabs)
+        insert_at = min(self._live_tab_index, self.tabs.count())
+        self.tabs.insertTab(insert_at, self.live_view, self._t("wits0.live_tab"))
+        self.tabs.setCurrentWidget(self.live_view)
+        self.live_view.set_fullscreen_state(False)
+        self._live_fullscreen_dialog = None
+        dialog.deleteLater()
+
     @staticmethod
     def _format_bytes(value: int | None) -> str:
         if value is None:
@@ -1245,6 +1292,8 @@ class Wits0CaptureDialog(QDialog):
         return f"{size:.{precision}f} {unit}"
 
     def closeEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        if self._live_fullscreen_dialog is not None:
+            self._live_fullscreen_dialog.close()
         self._persist_workspace_state()
         engine = self.engine
         if engine is not None and engine.is_running:
