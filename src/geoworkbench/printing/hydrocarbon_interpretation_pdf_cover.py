@@ -8,6 +8,10 @@ from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
     InterpretationReportIdentity,
     default_interpretation_report_identity,
 )
+from geoworkbench.printing.report_visual_system import (
+    REPORT_BRAND_WORDMARK,
+    modern_oilfield_report_profile,
+)
 from geoworkbench.printing.unicode_support import print_font
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
@@ -17,7 +21,7 @@ from geoworkbench.services.localization import AppLanguage
 
 _LABELS = {
     AppLanguage.RU: {
-        "brand": "GEOLOG GASRATIO@Pixler",
+        "brand": REPORT_BRAND_WORDMARK,
         "project": "Проект",
         "well": "Скважина",
         "field": "Месторождение / площадь",
@@ -41,7 +45,7 @@ _LABELS = {
         "footer": "Графики, методы и перспективные интервалы приведены на следующих страницах.",
     },
     AppLanguage.KK: {
-        "brand": "GEOLOG GASRATIO@Pixler",
+        "brand": REPORT_BRAND_WORDMARK,
         "project": "Жоба",
         "well": "Ұңғыма",
         "field": "Кен орны / алаң",
@@ -65,7 +69,7 @@ _LABELS = {
         "footer": "Графиктер, әдістер және перспективалы аралықтар келесі беттерде берілген.",
     },
     AppLanguage.EN: {
-        "brand": "GEOLOG GASRATIO@Pixler",
+        "brand": REPORT_BRAND_WORDMARK,
         "project": "Project",
         "well": "Well",
         "field": "Field / area",
@@ -112,20 +116,27 @@ def render_report_cover(
     rect = canvas.content_rect
     compact = rect.width() < 620.0
     short_page = rect.height() < 600.0
-    accent = QColor("#174f78")
-    accent_dark = QColor("#113b59")
-    text_color = QColor("#172033")
-    value_color = QColor("#24384c")
-    muted = QColor("#526579")
-    card_fill = QColor("#f4f8fc")
-    card_border = QColor("#9db1c5")
-    line_color = QColor("#d6e0ea")
+    visual = modern_oilfield_report_profile()
+    palette = visual.palette
+    accent = QColor(palette.accent)
+    accent_dark = QColor(palette.accent_dark)
+    text_color = QColor(palette.text)
+    value_color = QColor(palette.text_secondary)
+    muted = QColor(palette.text_muted)
+    card_fill = QColor(palette.accent_soft)
+    card_border = QColor(palette.border)
+    line_color = QColor(palette.border)
 
     painter.save()
     try:
-        painter.fillRect(rect, QColor("#ffffff"))
+        painter.fillRect(rect, QColor(palette.page))
         painter.fillRect(
-            QRectF(rect.left(), rect.top(), rect.width(), 10.0),
+            QRectF(
+                rect.left(),
+                rect.top(),
+                rect.width(),
+                visual.layout.accent_bar_height_pt,
+            ),
             accent,
         )
 
