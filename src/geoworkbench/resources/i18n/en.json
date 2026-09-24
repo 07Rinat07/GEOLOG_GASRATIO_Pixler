@@ -2136,6 +2136,8 @@
   "wits0.acquisition_state_none": "Not started",
   "wits0.acquisition_state_open": "Open",
   "wits0.acquisition_well_required": "Create or select a well in the project first.",
+  "wits0.acquisition_preview_truncated": "LIVE PREVIEW history is already truncated: {evicted} frame(s) were evicted and {retained} remain in memory ({earliest} — {latest}). The persistent session will not start until the available raw interval is replayed or an explicit later acquisition boundary is chosen.",
+  "wits0.acquisition_preview_truncated_event": "AcquisitionSession start blocked: preview history is truncated; evicted {evicted}, retained {retained}, range {earliest} — {latest}.",
   "wits0.allow_wildcard_bind": "Allow explicit 0.0.0.0 bind",
   "wits0.allowed_peer_networks": "Allowed peer networks (CIDR)",
   "wits0.allowed_peer_networks_placeholder": "192.168.10.0/24, 10.0.0.5/32",
