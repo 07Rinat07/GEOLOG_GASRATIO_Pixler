@@ -133,10 +133,13 @@ def test_operator_dashboard_renders_indicators_and_independent_panels(
         gas_history_range = gas_plot.viewRange()[1]
 
         assert depth_parameter_range != gas_parameter_range
-        assert depth_history_range[0] > depth_history_range[1]
-        assert gas_history_range[0] > gas_history_range[1]
+        assert depth_plot.getViewBox().state["yInverted"] is True
+        assert gas_plot.getViewBox().state["yInverted"] is True
         assert sorted(depth_history_range) == pytest.approx(
             sorted(gas_history_range)
+        )
+        assert sorted(depth_history_range) == pytest.approx(
+            [snapshot.window_start, snapshot.window_end]
         )
 
         depth_item = depth_plot.getPlotItem().listDataItems()[0]
