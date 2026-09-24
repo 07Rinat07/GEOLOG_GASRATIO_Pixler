@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- WITS0: усечённый LIVE PREVIEW теперь разрешается явным операторским выбором: полный indexed raw replay либо accepted retained boundary; выбранная стратегия/start/end сохраняются в record provenance, а live handoff подавляет уже replay-покрытые queued frames без дублей.
 - WITS0: добавлен потоковый raw replay для явной acquisition boundary: `.wits`/`.chunks.jsonl` проверяются fail-closed по offset/timestamp/connection ID, replay использует тот же `Wits0StreamProcessor`, поддерживает parser warm-up до более поздней принятой границы и сохраняет raw SHA-256/source segment provenance в persistent records.
 - Reports/UI: добавлен shared adaptive application style и единый professional Report Visual System; печатный wordmark стандартизирован как **Geolog GASRATIO&Pixler** для PDF, Masterlog и Office-экспорта.
 - Формулы/методики: введён tiered audit manifest с source/version/rights disclosure; Haworth/Pixler/DEXP остаются strict, ОПУС разрешён как secondary/workbook screening, detector thresholds явно pending field calibration.
