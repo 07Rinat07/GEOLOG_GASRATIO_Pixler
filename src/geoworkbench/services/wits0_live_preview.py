@@ -95,7 +95,6 @@ class Wits0LivePreview:
         self._last_error: str | None = None
         self._evicted_frame_count = 0
         self._compaction_count = 0
-        self._first_observed_received_at = None
         self._first_observed_received_at: str | None = None
 
     @property
@@ -233,6 +232,7 @@ class Wits0LivePreview:
         self._last_error = None
         self._evicted_frame_count = 0
         self._compaction_count = 0
+        self._first_observed_received_at = None
 
     def _rebuild(
         self,
