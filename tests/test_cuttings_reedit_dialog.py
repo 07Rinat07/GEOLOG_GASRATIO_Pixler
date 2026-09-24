@@ -31,6 +31,24 @@ def _catalog() -> tuple[CatalogLithotype, ...]:
     )
 
 
+def test_cuttings_validation_uses_shared_semantic_error_role(qapp) -> None:
+    dialog = CuttingsCompositionDialog(
+        100.0,
+        105.0,
+        _catalog(),
+        language=AppLanguage.EN,
+    )
+
+    assert dialog.validation_label.property("validationRole") == "error"
+    assert dialog.validation_label.styleSheet() == ""
+
+    dialog._accept_if_valid()
+
+    assert dialog.result() == 0
+    assert dialog.validation_label.text() == "Rock percentages must total 100%"
+    dialog.close()
+
+
 def test_cuttings_edit_dialog_prefills_interval_and_percentages(qapp) -> None:
     sample = CuttingsSample(
         "sample",

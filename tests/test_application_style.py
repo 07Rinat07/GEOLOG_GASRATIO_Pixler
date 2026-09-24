@@ -25,6 +25,7 @@ def test_adaptive_application_stylesheet_uses_palette_roles_and_no_fixed_widths(
     assert "QLabel#print-center-depth-standard" in stylesheet
     assert 'QLabel#print-job-status-title[statusRole="success"]' in stylesheet
     assert 'QLabel#print-job-status-title[statusRole="error"]' in stylesheet
+    assert 'QLabel[validationRole="error"]' in stylesheet
     assert "palette(highlight)" in stylesheet
     assert "palette(base)" in stylesheet
     assert "min-height: 28px" in stylesheet

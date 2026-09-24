@@ -82,7 +82,10 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
   semantic `uiRole`, а подписи/preview получают palette-aware оформление из общего stylesheet.
   Print Job Status также использует semantic `statusRole` для working/success/error; смысл
   состояния остаётся явным текстом, а presentation берётся из системной palette без hex-цветов.
-  Следующий slice — аудит оставшихся локальных presentation-QSS в диалогах.
+  Cuttings composition validation использует semantic `validationRole="error"`; проверка
+  интервала/лимита пород/100% не меняется, а локальный red-QSS удалён.
+  Следующий slice — поэтапный перенос оставшихся light-only dialog themes без затрагивания
+  пользовательских/document colors (constructor/form create/form manager — отдельными PR).
 - [ ] Primary/secondary/destructive/quiet роли задавать semantic property, а не цветом по месту.
 - [ ] Диалоги продолжают использовать `fit_window_to_screen`; длинные RU/KK/EN подписи
   переносятся/уходят в overflow, primary action остаётся видимым.

@@ -121,7 +121,7 @@ class CuttingsCompositionDialog(QDialog):
 
         self.validation_label = QLabel("")
         self.validation_label.setObjectName("cuttings-validation")
-        self.validation_label.setStyleSheet("color: #dc2626; font-weight: 600;")
+        self.validation_label.setProperty("validationRole", "error")
         self.validation_label.setWordWrap(True)
         layout.addWidget(self.validation_label)
 
