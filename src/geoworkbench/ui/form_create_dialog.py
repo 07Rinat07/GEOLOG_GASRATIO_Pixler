@@ -71,21 +71,7 @@ class FormCreateDialog(QDialog):
                 "Save user form" if mode == "save" else "Create form",
             )
         )
-        self.setStyleSheet(
-            "QDialog { background: #f1f5f9; color: #0f172a; }"
-            "QLabel { color: #334155; }"
-            "QTreeWidget, QTextEdit, QLineEdit, QComboBox { "
-            "background: #ffffff; color: #0f172a; border: 1px solid #cbd5e1; "
-            "border-radius: 7px; selection-background-color: #dbeafe; "
-            "selection-color: #0f172a; }"
-            "QTreeWidget::item { color: #0f172a; min-height: 25px; padding: 2px 4px; }"
-            "QTreeWidget::item:selected { background: #dbeafe; color: #0f172a; }"
-            "QPushButton { min-height: 30px; padding: 4px 12px; "
-            "background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; "
-            "border-radius: 6px; }"
-            "QPushButton:hover { background: #dbeafe; border-color: #93c5fd; }"
-            "QPushButton:disabled { background: #e5e7eb; color: #94a3b8; }"
-        )
+        self.setObjectName("form-create-dialog")
 
         root = QVBoxLayout(self)
         intro = QLabel(

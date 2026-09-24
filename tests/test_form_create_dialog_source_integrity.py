@@ -28,7 +28,8 @@ def test_create_and_tablet_save_use_library_reference_dialog() -> None:
     assert "Детали выбранной формы" in dialog
     assert "Готовые формы" in dialog
     assert "self.create_button.setEnabled(False)" in dialog
-    assert "validation_label.setStyleSheet" not in dialog
+    assert ".setStyleSheet(" not in dialog
+    assert 'setObjectName("form-create-dialog")' in dialog
     assert 'setObjectName("form-validation")' in dialog
 
 

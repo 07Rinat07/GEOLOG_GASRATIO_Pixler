@@ -179,6 +179,31 @@ QLabel[validationRole="success"] {
     padding: 3px 7px;
 }
 
+QDialog#form-create-dialog {
+    background: palette(window);
+    color: palette(window-text);
+}
+QDialog#form-create-dialog QTreeWidget,
+QDialog#form-create-dialog QTextEdit,
+QDialog#form-create-dialog QLineEdit,
+QDialog#form-create-dialog QComboBox {
+    border-radius: 7px;
+}
+QDialog#form-create-dialog QTreeWidget::item {
+    color: palette(text);
+    min-height: 25px;
+    padding: 2px 4px;
+}
+QDialog#form-create-dialog QTreeWidget::item:selected {
+    background: palette(highlight);
+    color: palette(highlighted-text);
+}
+QDialog#form-create-dialog QPushButton {
+    min-height: 30px;
+    padding: 4px 12px;
+    border-radius: 6px;
+}
+
 QLineEdit,
 QComboBox,
 QSpinBox,

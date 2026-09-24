@@ -81,6 +81,8 @@ def test_save_dialog_replaces_editable_form_but_protects_ready_template(qapp) ->
 def test_form_create_dialog_fits_current_work_area_and_keeps_actions_reachable(qapp) -> None:
     dialog = FormCreateDialog([], language="en")
     try:
+        assert dialog.objectName() == "form-create-dialog"
+        assert dialog.styleSheet() == ""
         screen = dialog.screen()
         assert screen is not None
         available = screen.availableGeometry()
