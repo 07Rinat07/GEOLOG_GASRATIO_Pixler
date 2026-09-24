@@ -33,7 +33,6 @@ from geoworkbench.services.acquisition_live_view import (
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.acquisition.wits0_reliability import Wits0WorkspaceState
 from geoworkbench.acquisition.wits0_live_forms import (
-    CUSTOM_LIVE_FORM_ID,
     UNIVERSAL_LIVE_FORM_ID,
     Wits0LiveFormSettings,
     Wits0SavedLiveFormState,
