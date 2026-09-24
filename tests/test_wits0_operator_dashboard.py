@@ -281,3 +281,110 @@ def test_operator_dashboard_splits_semantic_panel_when_units_differ(
     finally:
         dashboard.close()
         app.processEvents()
+
+
+@pytest.mark.skipif(
+    importlib.util.find_spec("PySide6") is None
+    or importlib.util.find_spec("pyqtgraph") is None,
+    reason="PySide6/pyqtgraph are not installed in the headless test environment",
+)
+def test_operator_dashboard_renders_interpretation_band_and_horizontal_badge(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    import pyqtgraph as pg
+    from PySide6.QtWidgets import QApplication
+
+    from geoworkbench.domain.models import IndexRole, IndexType
+    from geoworkbench.services.acquisition_live_view import (
+        AcquisitionCurrentValue,
+        AcquisitionLiveAxisMode,
+        AcquisitionLiveMarker,
+        AcquisitionLiveMarkerKind,
+        AcquisitionLiveQuality,
+        AcquisitionLiveSeries,
+        AcquisitionLiveSnapshot,
+    )
+    from geoworkbench.services.localization import AppLanguage
+    from geoworkbench.ui.wits0_operator_dashboard import Wits0OperatorDashboard
+
+    app = QApplication.instance() or QApplication([])
+    dashboard = Wits0OperatorDashboard(language=AppLanguage.RU)
+    snapshot = AcquisitionLiveSnapshot(
+        dataset_id="dataset-marker",
+        session_id="session-marker",
+        axis_mode=AcquisitionLiveAxisMode.TIME,
+        index_id="time",
+        index_type=IndexType.DATETIME,
+        index_role=IndexRole.TIME,
+        index_mnemonic="DATETIME",
+        index_unit=None,
+        axis_is_datetime=True,
+        window_start=1_700_000_000.0,
+        window_end=1_700_000_003.0,
+        auto_follow=True,
+        paused=False,
+        visible_row_count=4,
+        total_row_count=4,
+        source_point_count=4,
+        rendered_point_count=4,
+        current_values=(
+            AcquisitionCurrentValue(
+                curve_id="gas",
+                mnemonic="TOTAL_GAS",
+                unit="%",
+                value=2.5,
+                quality=AcquisitionLiveQuality.GOOD,
+                quality_codes=(),
+                sample_row_index=3,
+                latest_row_index=3,
+                axis_value=1_700_000_003.0,
+                received_at="2026-09-24T08:00:03Z",
+                source_sequence_no=4,
+                age_rows=0,
+            ),
+        ),
+        series=(
+            AcquisitionLiveSeries(
+                curve_id="gas",
+                mnemonic="TOTAL_GAS",
+                unit="%",
+                axis_values=(
+                    1_700_000_000.0,
+                    1_700_000_001.0,
+                    1_700_000_002.0,
+                    1_700_000_003.0,
+                ),
+                values=(0.2, 0.3, 1.8, 2.5),
+                source_point_count=4,
+                rendered_point_count=4,
+            ),
+        ),
+        markers=(
+            AcquisitionLiveMarker(
+                kind=AcquisitionLiveMarkerKind.INTERPRETATION,
+                axis_start=1_700_000_001.2,
+                axis_end=1_700_000_002.4,
+                row_start=1,
+                row_end=2,
+                record_sequence=3,
+                curve_id="gas",
+                code="fluid_gas_condensate",
+                label="Предварительный индикатор: газ/конденсат",
+                display_color="#2563eb",
+                show_label=True,
+            ),
+        ),
+        revision=(4, 4, False, True, "marker"),
+    )
+
+    try:
+        dashboard.render_snapshot(snapshot)
+        app.processEvents()
+
+        items = dashboard.panels["gas_total"].plot.getPlotItem().items
+        assert any(isinstance(item, pg.LinearRegionItem) for item in items)
+        assert any(isinstance(item, pg.TextItem) for item in items)
+    finally:
+        dashboard.close()
+        app.processEvents()
