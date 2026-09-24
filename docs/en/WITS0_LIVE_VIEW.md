@@ -50,7 +50,9 @@ preview-session records, and record-id index are bounded as well: when the upper
 reached, the preview runtime is rebuilt from the retained frame window while keeping stable curve
 IDs. Persistent reviewed acquisition is not pruned by this mechanism.
 
-If older preview frames have already been evicted, the current backfill transfers only the retained
-window. Explicit selection/replay of an earlier available raw interval remains a follow-up part of
-WITS-MEM-01; a truncated backfill must not be presented as complete. A Windows Qt smoke test and
-validation with real anonymized GSWITS raw traffic remain mandatory.
+If any older preview frame has already been evicted, persistent backfill now fails closed: session
+start reports the evicted/retained counts and the retained time range, and no AcquisitionSession is
+created. The in-memory tail therefore cannot be silently presented as complete history. Replay of
+the available raw interval and explicit selection of a later boundary remain the next WITS-MEM-01
+slice. A Windows Qt smoke test and validation with real anonymized GSWITS raw traffic remain
+mandatory.
