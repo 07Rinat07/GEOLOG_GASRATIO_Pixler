@@ -41,12 +41,14 @@ def test_cuttings_validation_uses_shared_semantic_error_role(qapp) -> None:
         language=AppLanguage.EN,
     )
 
-    assert dialog.validation_label.property("validationRole") == "error"
+    assert dialog.validation_label.property("validationRole") is None
+    assert dialog.validation_label.text() == ""
     assert dialog.validation_label.styleSheet() == ""
 
     dialog._accept_if_valid()
 
     assert dialog.result() == QDialog.DialogCode.Rejected
+    assert dialog.validation_label.property("validationRole") == "error"
     assert dialog.validation_label.text() == "Rock percentages must total 100%"
     dialog.close()
 
