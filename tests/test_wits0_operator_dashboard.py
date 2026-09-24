@@ -125,9 +125,35 @@ def test_operator_dashboard_renders_indicators_and_independent_panels(
         assert len(
             dashboard.panels["gas_total"].plot.getPlotItem().listDataItems()
         ) == 1
-        depth_range = dashboard.panels["depth"].plot.viewRange()[1]
-        gas_range = dashboard.panels["gas_total"].plot.viewRange()[1]
-        assert depth_range != gas_range
+        depth_plot = dashboard.panels["depth"].plot
+        gas_plot = dashboard.panels["gas_total"].plot
+        depth_parameter_range = depth_plot.viewRange()[0]
+        gas_parameter_range = gas_plot.viewRange()[0]
+        depth_history_range = depth_plot.viewRange()[1]
+        gas_history_range = gas_plot.viewRange()[1]
+
+        assert depth_parameter_range != gas_parameter_range
+        assert depth_plot.getViewBox().state["yInverted"] is True
+        assert gas_plot.getViewBox().state["yInverted"] is True
+        assert sorted(depth_history_range) == pytest.approx(
+            sorted(gas_history_range)
+        )
+        assert sorted(depth_history_range) == pytest.approx(
+            [snapshot.window_start, snapshot.window_end]
+        )
+
+        depth_item = depth_plot.getPlotItem().listDataItems()[0]
+        gas_item = gas_plot.getPlotItem().listDataItems()[0]
+        depth_x, depth_y = depth_item.getData()
+        gas_x, gas_y = gas_item.getData()
+        assert tuple(depth_x) == pytest.approx((5550.4, 5550.6, 5550.73))
+        assert tuple(depth_y) == pytest.approx(
+            (1_700_000_000.0, 1_700_000_001.0, 1_700_000_002.0)
+        )
+        assert tuple(gas_x) == pytest.approx((0.01, 0.011, 0.012))
+        assert tuple(gas_y) == pytest.approx(
+            (1_700_000_000.0, 1_700_000_001.0, 1_700_000_002.0)
+        )
     finally:
         dashboard.close()
         app.processEvents()
