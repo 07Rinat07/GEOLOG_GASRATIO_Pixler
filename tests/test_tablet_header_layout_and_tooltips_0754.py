@@ -49,14 +49,20 @@ def test_curve_hover_and_pencil_readout_use_human_readable_identity() -> None:
     assert 'curve=self._curve_pencil_display_label()' in source
 
 
-def test_application_forces_readable_tooltip_palette() -> None:
-    source = (ROOT / "src/geoworkbench/app/main.py").read_text(encoding="utf-8")
+def test_application_uses_palette_aware_shared_tooltip_style() -> None:
+    entrypoint = (ROOT / "src/geoworkbench/app/main.py").read_text(encoding="utf-8")
+    shared_style = (ROOT / "src/geoworkbench/ui/application_style.py").read_text(
+        encoding="utf-8"
+    )
 
-    assert "def _configure_readable_tooltips" in source
-    assert "QPalette.ColorRole.ToolTipBase" in source
-    assert "QPalette.ColorRole.ToolTipText" in source
-    assert "QToolTip { color:#0f172a; background-color:#fffbe6;" in source
-    assert "_configure_readable_tooltips(app)" in source
+    assert "apply_adaptive_application_style(app)" in entrypoint
+    assert "_configure_readable_tooltips" not in entrypoint
+    assert "QPalette.ColorRole.ToolTipBase" not in entrypoint
+    assert "QPalette.ColorRole.ToolTipText" not in entrypoint
+    assert "QToolTip {" in shared_style
+    assert "color: palette(text);" in shared_style
+    assert "background-color: palette(base);" in shared_style
+    assert "border: 1px solid palette(mid);" in shared_style
 
 
 def test_toolbar_help_labels_do_not_inherit_opaque_white_backgrounds() -> None:
