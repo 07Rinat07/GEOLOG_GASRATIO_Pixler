@@ -158,6 +158,14 @@ QLabel#print-job-status-title[statusRole="error"] {
     padding: 3px 6px;
 }
 
+QLabel[validationRole="error"] {
+    color: palette(window-text);
+    background: palette(alternate-base);
+    border-left: 4px solid palette(highlight);
+    padding: 3px 7px;
+    font-weight: 600;
+}
+
 QLineEdit,
 QComboBox,
 QSpinBox,

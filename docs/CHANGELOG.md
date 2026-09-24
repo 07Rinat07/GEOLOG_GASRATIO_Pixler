@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- UI: сообщение валидации состава шлама переведено с локального красного QSS на semantic `validationRole="error"` и общий palette-aware presentation; правила интервала/≤4 пород/100% не менялись.
 - UI: Print Job Status переведён с локальных success/error hex-QSS на semantic `statusRole` и общий palette-aware presentation; состояние остаётся явно подписанным текстом и не кодируется только цветом.
 - UI: Print Center переведён с локальных light-only presentation-QSS на общий palette-aware contract: primary action использует semantic `uiRole`, а preview/подписи используют Qt palette roles без фиксированных hex-цветов.
 - UI: main/form-edit toolbars больше не задают light-only QSS в `MainWindow`; геометрия/overflow остаются локальными, а цвета/hover/checked/caption берутся из общего palette-aware application style.

@@ -1,3 +1,5 @@
+from PySide6.QtWidgets import QDialog
+
 from geoworkbench.domain.models import CuttingsComponent, CuttingsSample
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.services.localization import AppLanguage
@@ -29,6 +31,26 @@ def _catalog() -> tuple[CatalogLithotype, ...]:
             "Саз",
         ),
     )
+
+
+def test_cuttings_validation_uses_shared_semantic_error_role(qapp) -> None:
+    dialog = CuttingsCompositionDialog(
+        100.0,
+        105.0,
+        _catalog(),
+        language=AppLanguage.EN,
+    )
+
+    assert dialog.validation_label.property("validationRole") is None
+    assert dialog.validation_label.text() == ""
+    assert dialog.validation_label.styleSheet() == ""
+
+    dialog._accept_if_valid()
+
+    assert dialog.result() == QDialog.DialogCode.Rejected
+    assert dialog.validation_label.property("validationRole") == "error"
+    assert dialog.validation_label.text() == "Rock percentages must total 100%"
+    dialog.close()
 
 
 def test_cuttings_edit_dialog_prefills_interval_and_percentages(qapp) -> None:
