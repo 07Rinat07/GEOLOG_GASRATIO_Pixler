@@ -1606,6 +1606,8 @@
   "ratio.parameter_missing": "Міндетті {parameter} параметрін анықтау мүмкін болмады. Қисық мнемоникасын, сипаттамасын және өлшем бірлігін тексеріңіз.",
   "ratio.parameter_unit_conversion": "Газ компоненттерін бір өлшем бірлігіне қауіпсіз келтіру мүмкін емес: {details}.",
   "ratio.parameter_unknown_units": "Газ компоненттерінің белгісіз өлшем бірліктері үйлеспейді: {units}.",
+  "ratio.no_profiles": "Gas Ratio есептеу профильдері қолжетімсіз.",
+  "ratio.profile_prompt": "Есептеу профилін таңдаңыз:",
   "ratio.title": "Gas Ratio",
   "report_passport.id": "Есеп паспорты: {digest}",
   "report_passport.saved": "Есеп паспорты: {name}",
