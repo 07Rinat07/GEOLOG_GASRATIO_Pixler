@@ -21,6 +21,7 @@ from geoworkbench.services.interval_gas_statistics import (
     build_candidate_interval_statistics,
     enhanced_fluid_hypothesis_basis,
 )
+from geoworkbench.printing.hydrocarbon_report_i18n import hydrocarbon_report_labels
 from geoworkbench.services.localization import AppLanguage
 
 
@@ -33,6 +34,7 @@ def export_hydrocarbon_interpretation_xlsx(
     dataset: Dataset,
     target: str | Path,
     *,
+    language: AppLanguage = AppLanguage.RU,
     overwrite: bool = False,
     progress: Callable[[str, int, int], None] | None = None,
 ) -> Path:
@@ -46,6 +48,7 @@ def export_hydrocarbon_interpretation_xlsx(
         report,
         dataset,
         target,
+        language=language,
         overwrite=overwrite,
         progress=progress,
     )
@@ -56,6 +59,7 @@ def export_hydrocarbon_interpretation_docx(
     target: str | Path,
     *,
     dataset: Dataset | None = None,
+    language: AppLanguage = AppLanguage.RU,
     overwrite: bool = False,
 ) -> Path:
     if dataset is not None:
@@ -63,7 +67,7 @@ def export_hydrocarbon_interpretation_docx(
     destination = _prepare_target(target, ".docx", overwrite=overwrite)
     temporary = _temporary_path(destination)
     try:
-        _write_docx(temporary, report, dataset)
+        _write_docx(temporary, report, dataset, language)
         os.replace(temporary, destination)
     except Exception as exc:
         temporary.unlink(missing_ok=True)
@@ -79,38 +83,40 @@ def _write_docx(
     path: Path,
     report: HydrocarbonInterpretationReport,
     dataset: Dataset | None,
+    language: AppLanguage,
 ) -> None:
+    labels = hydrocarbon_report_labels(language)
     statistics: tuple[CandidateIntervalGasStatistics | None, ...] = tuple(
         build_candidate_interval_statistics(dataset, candidate) if dataset is not None else None
         for candidate in report.candidates
     )
     report_title = (
-        "Дополнительный отчёт ОПУС по C1-C5"
+        labels.title_opus
         if report.report_profile == "opus"
-        else "Отчёт по интерпретации газового каротажа"
+        else labels.title_standard
     )
     body: list[str] = [
         _paragraph(report_title, style="Title"),
-        _paragraph(f"Проект: {report.project_name}"),
-        _paragraph(f"Скважина: {report.well_name}"),
-        _paragraph(f"Набор данных: {report.dataset_name}"),
-        _paragraph(f"Сформирован: {report.generated_at}"),
-        _paragraph(f"Основная газовая кривая: {report.primary_mnemonic or '—'}"),
-        _paragraph(f"Порог robust z: {report.threshold:.2f}"),
-        _paragraph("Методы и доступность", style="Heading1"),
+        _paragraph(f"{labels.project}: {report.project_name}"),
+        _paragraph(f"{labels.well}: {report.well_name}"),
+        _paragraph(f"{labels.dataset}: {report.dataset_name}"),
+        _paragraph(f"{labels.generated}: {report.generated_at}"),
+        _paragraph(f"{labels.primary_gas_curve}: {report.primary_mnemonic or '—'}"),
+        _paragraph(f"{labels.robust_z_threshold}: {report.threshold:.2f}"),
+        _paragraph(labels.methods_heading, style="Heading1"),
         _table(
             (
-                "Метод",
-                "Статус",
-                "Использованные данные",
-                "Расчёт и правило интерпретации",
-                "Источник и степень подтверждения",
+                labels.method,
+                labels.status,
+                labels.used_data,
+                labels.calculation_rule,
+                labels.source_evidence,
             ),
             tuple(
                 (
                     method.method,
-                    "доступен" if method.available else "нет данных",
-                    ", ".join(method.available_mnemonics) or "нет данных",
+                    labels.available if method.available else labels.no_data,
+                    ", ".join(method.available_mnemonics) or labels.no_data,
                     method.calculation or "—",
                     method.source,
                 )
@@ -120,30 +126,31 @@ def _write_docx(
         ),
     ]
     if report.opus_gasomer is not None:
-        body.extend(_opus_gasomer_docx(report))
-    body.append(_paragraph("Перспективные интервалы УВ-проявлений", style="Heading1"))
+        body.extend(_opus_gasomer_docx(report, language))
+    body.append(_paragraph(labels.prospective_heading, style="Heading1"))
     if report.candidates:
         body.append(
             _table(
                 (
-                    "Интервал",
-                    "Сила аномалии",
-                    "Предварительная интерпретация",
-                    "Абсолютный газ: мин / среднее / макс",
-                    "Основание",
+                    labels.interval,
+                    labels.strength,
+                    labels.preliminary_interpretation,
+                    labels.absolute_gas,
+                    labels.basis,
                 ),
                 tuple(
                     (
                         f"{candidate.top_depth:.2f}–{candidate.bottom_depth:.2f} {report.depth_unit}",
-                        {"low": "низкая", "medium": "средняя", "high": "высокая"}.get(
-                            candidate.anomaly_strength,
-                            candidate.anomaly_strength,
-                        ),
-                        fluid_hypothesis_label(candidate, AppLanguage.RU),
-                        absolute_gas_components_summary(item.components, AppLanguage.RU)
+                        {
+                            "low": labels.strength_low,
+                            "medium": labels.strength_medium,
+                            "high": labels.strength_high,
+                        }.get(candidate.anomaly_strength, candidate.anomaly_strength),
+                        fluid_hypothesis_label(candidate, language),
+                        absolute_gas_components_summary(item.components, language)
                         if item is not None
-                        else "нет данных",
-                        candidate_evidence_summary(candidate),
+                        else labels.no_data,
+                        candidate_evidence_summary(candidate, language),
                     )
                     for candidate, item in zip(report.candidates, statistics, strict=True)
                 ),
@@ -151,34 +158,40 @@ def _write_docx(
             )
         )
     else:
-        body.append(_paragraph("Перспективные интервалы по выбранному порогу не найдены."))
+        body.append(_paragraph(labels.no_intervals))
 
-    body.append(_paragraph("Интерпретация по интервалам", style="Heading1"))
+    body.append(_paragraph(labels.details_heading, style="Heading1"))
     if report.candidates:
         for candidate, item in zip(report.candidates, statistics, strict=True):
-            basis = fluid_hypothesis_basis(candidate, AppLanguage.RU)
+            basis = fluid_hypothesis_basis(candidate, language)
             if item is not None:
                 basis = enhanced_fluid_hypothesis_basis(
                     basis,
                     candidate,
                     item,
-                    AppLanguage.RU,
+                    language,
                 )
             body.append(
                 _paragraph(
                     f"{candidate.top_depth:.2f}–{candidate.bottom_depth:.2f} "
                     f"{report.depth_unit}: "
-                    f"{fluid_hypothesis_label(candidate, AppLanguage.RU)}. {basis}"
+                    f"{fluid_hypothesis_label(candidate, language)}. {basis}"
                 )
             )
     else:
-        body.append(_paragraph("Перспективные интервалы по выбранному порогу не найдены."))
+        body.append(_paragraph(labels.no_intervals))
 
-    body.append(_paragraph("Интервалы, подтверждённые геологом", style="Heading1"))
+    body.append(_paragraph(labels.manual_heading, style="Heading1"))
     if report.manual_intervals:
         body.append(
             _table(
-                ("Интерпретация", "Интервал", "Тип", "Подпись", "Комментарий"),
+                (
+                    labels.interpretation,
+                    labels.interval,
+                    labels.type_label,
+                    labels.label,
+                    labels.comment,
+                ),
                 tuple(
                     (
                         item.interpretation_name,
@@ -193,7 +206,7 @@ def _write_docx(
             )
         )
     else:
-        body.append(_paragraph("Подтверждённые геологом интервалы пока не заполнены."))
+        body.append(_paragraph(labels.no_manual))
     document_xml = (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
@@ -234,27 +247,32 @@ def _write_docx(
         package.writestr("word/styles.xml", _docx_styles())
 
 
-def _opus_gasomer_docx(report: HydrocarbonInterpretationReport) -> list[str]:
+def _opus_gasomer_docx(
+    report: HydrocarbonInterpretationReport,
+    language: AppLanguage,
+) -> list[str]:
     section = report.opus_gasomer
     if section is None:
         return []
+    labels = hydrocarbon_report_labels(language)
     curve_names = dict(section.input_curves)
     curve_units = dict(section.input_units)
     lod_text = (
-        "не задан; detector не запускается без скрытого значения"
+        labels.lod_not_set
         if section.total_gas_lod is None
         else f"{section.total_gas_lod:.6g} {section.working_unit}"
     )
     body = [
-        _paragraph("ОПУС Газомер — пять показателей и голоса", style="Heading1"),
+        _paragraph(labels.opus_heading, style="Heading1"),
         _paragraph(
-            f"Профиль: {section.profile_id} v{section.profile_version}; "
-            f"статус: {section.profile_status}. Режим: {section.calculation_mode}; "
-            f"источник интервалов: {section.interval_source}; "
-            f"рабочая единица: {section.working_unit}; LOD TotalGas: {lod_text}."
+            f"{labels.profile}: {section.profile_id} v{section.profile_version}; "
+            f"{labels.status}: {section.profile_status}. {labels.mode}: {section.calculation_mode}; "
+            f"{labels.interval_source}: {section.interval_source}; "
+            f"{labels.working_unit}: {section.working_unit}; "
+            f"{labels.total_gas_lod}: {lod_text}."
         ),
         _table(
-            ("Вход", "Кривая", "Исходная единица"),
+            (labels.input_label, labels.curve, labels.source_unit),
             tuple(
                 (
                     name,
@@ -266,45 +284,43 @@ def _opus_gasomer_docx(report: HydrocarbonInterpretationReport) -> list[str]:
             widths=(2_600, 6_500, 6_000),
         ),
         _table(
-            ("Показатель", "Точная формула профиля"),
+            (labels.indicator, labels.exact_formula),
             tuple(section.formulas),
             widths=(3_000, 12_100),
         ),
     ]
     if not section.intervals:
-        body.append(
-            _paragraph(
-                "Интервалы ОПУС Газомер не сформированы: проверьте независимый "
-                "TotalGas, C1–C5, единицы и положительный LOD TotalGas."
-            )
-        )
+        body.append(_paragraph(labels.no_intervals))
     for interval in section.intervals:
         detector = (
-            "локальный detector не запускался"
+            labels.detector_not_run
             if interval.background_median is None
             else (
-                f"фон={interval.background_median:.6g}; пик={interval.peak_total_gas:.6g}; "
-                f"ΔTG={interval.delta_peak:.6g}; max robust z={interval.max_robust_z:.3f}; "
-                f"контраст={interval.max_contrast:.3f}"
+                f"{labels.local_background}={interval.background_median:.6g}; "
+                f"{labels.peak_total_gas}={interval.peak_total_gas:.6g}; "
+                f"{labels.delta_tg}={interval.delta_peak:.6g}; "
+                f"{labels.max_robust_z}={interval.max_robust_z:.3f}; "
+                f"{labels.max_contrast}={interval.max_contrast:.3f}"
             )
         )
         body.append(
             _paragraph(
                 f"{interval.top_depth:.2f}–{interval.bottom_depth:.2f} "
-                f"{report.depth_unit}: класс {interval.class_code} — {interval.class_label}; "
-                f"поддержка {interval.support_fraction * 100.0:.1f}%; "
-                f"валидных строк {interval.valid_rows}/{interval.total_rows}; {detector}."
+                f"{report.depth_unit}: {labels.class_label} {interval.class_code} — "
+                f"{interval.class_label}; {labels.class_support} "
+                f"{interval.support_fraction * 100.0:.1f}%; "
+                f"{labels.valid_rows} {interval.valid_rows}/{interval.total_rows}; {detector}."
             )
         )
         body.append(
             _table(
                 (
-                    "Показатель",
-                    "Медиана",
-                    "Голос",
-                    "Поддержка",
-                    "Доступно",
-                    "Голоса 1–7 / QC",
+                    labels.indicator,
+                    labels.median,
+                    labels.vote,
+                    labels.vote_support,
+                    labels.available_rows,
+                    labels.votes_qc,
                 ),
                 tuple(
                     (
@@ -326,9 +342,9 @@ def _opus_gasomer_docx(report: HydrocarbonInterpretationReport) -> list[str]:
                 widths=(2_000, 1_600, 3_100, 1_500, 1_500, 5_400),
             )
         )
-    body.append(_paragraph("Происхождение формул"))
+    body.append(_paragraph(labels.formula_provenance))
     body.extend(_paragraph(f"• {item}") for item in section.provenance)
-    body.append(_paragraph(f"• SHA-256 книги: {section.source_workbook_sha256}"))
+    body.append(_paragraph(f"• {labels.workbook_sha}: {section.source_workbook_sha256}"))
     return body
 
 
