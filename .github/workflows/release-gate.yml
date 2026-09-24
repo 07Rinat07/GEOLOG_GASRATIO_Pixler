@@ -76,6 +76,7 @@ jobs:
           Invoke-Logged "gas-conditioning-benchmark" { .\.venv\Scripts\python.exe benchmarks/benchmark_gas_conditioning.py --json }
           Invoke-Logged "acquisition-benchmark" { .\.venv\Scripts\python.exe benchmarks/benchmark_acquisition.py --json }
           Invoke-Logged "curve-sampling-benchmark" { .\.venv\Scripts\python.exe benchmarks/benchmark_curve_sampling.py --json }
+          Invoke-Logged "wits-preview-memory-benchmark" { .\.venv\Scripts\python.exe -m benchmarks.benchmark_wits_preview --buffer-frames 100 }
 
       - name: Upload quality artifacts
         if: always()
