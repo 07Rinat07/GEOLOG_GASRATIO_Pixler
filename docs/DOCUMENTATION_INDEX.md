@@ -70,6 +70,8 @@ artifacts workflow `.github/workflows/release-gate.yml`.
   [сводная памятка](FILES_WORKSPACE_GUIDE.md) · [инженерное описание](FILE_WORKSPACE.md)
 - WITS0: [RU](ru/WITS0_CAPTURE.md) · [KK](kk/WITS0_CAPTURE.md) ·
   [EN](en/WITS0_CAPTURE.md)
+- Контекст газовых событий WITS/ГТИ: [RU](ru/WITS_GAS_CONTEXT.md) ·
+  [KK](kk/WITS_GAS_CONTEXT.md) · [EN](en/WITS_GAS_CONTEXT.md)
 - WITSML SOAP: [RU](ru/WITSML_1411_SOAP.md) · [KK](kk/WITSML_1411_SOAP.md) ·
   [EN](en/WITSML_1411_SOAP.md)
 
