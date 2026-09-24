@@ -737,6 +737,19 @@ Recursive AST-contract проходит все Python-файлы `src/geoworkben
 `geoworkbench.printing`. Таким образом нижние domain/calculation слои остаются headless и
 не получают обратную зависимость на UI/printing adapters.
 
+ARCH-06 versioned calculation/conditioning profiles:
+
+```bash
+python -m pytest -q tests/test_calculation_profiles.py \
+  tests/test_gas_conditioning.py tests/test_gas_ratio_project_controller.py \
+  tests/test_project_session_gas_ratios.py tests/test_formula_profiles.py
+```
+
+Набор проверяет immutable `GasRatioCalculationProfile`, versioned
+`CurveContinuityPolicy`, exact profile resolution, передачу profile UI → controller →
+calculations, сохранение profile/policy identity в dataset parameters и неизменность формул/
+bounded interpolation в Qt-независимом `calculations` слое.
+
 ## 15. Каталоги печатных шапок и логотипов
 
 Минимальная доменная и SKF-проверка:
