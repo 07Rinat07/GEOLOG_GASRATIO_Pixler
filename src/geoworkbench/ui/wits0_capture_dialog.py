@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from enum import StrEnum
 from pathlib import Path
 import re
@@ -46,6 +47,7 @@ from geoworkbench.acquisition import (
     load_builtin_wits0_profile,
     wits0_remote_bind_required,
 )
+from geoworkbench.domain.acquisition import acquisition_timestamp_to_ns
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.wits0_acquisition import (
     Wits0AcquisitionBackpressureError,
