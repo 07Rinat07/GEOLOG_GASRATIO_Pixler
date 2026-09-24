@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QSettings, Qt, Signal
-from PySide6.QtGui import QBrush, QColor
+from PySide6.QtGui import QBrush, QColor, QResizeEvent
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
@@ -849,7 +849,7 @@ class Wits0LiveViewWidget(QWidget):
             )
         )
 
-    def resizeEvent(self, event: object) -> None:  # type: ignore[override]
+    def resizeEvent(self, event: QResizeEvent) -> None:  # noqa: N802
         super().resizeEvent(event)
         if self._fullscreen or self._sidebar_user_override is not None:
             return
