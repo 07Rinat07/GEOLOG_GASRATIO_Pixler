@@ -31,6 +31,16 @@ def test_live_view_uses_read_only_projection_and_shared_downsampling() -> None:
     assert "wits0_live.state_preview" in widget
     assert "def workspace_state(" in widget
     assert "def apply_workspace_state(" in widget
+    assert "Wits0LiveFormSettings" in widget
+    assert "def _save_current_form(" in widget
+    assert "def _reset_current_form(" in widget
+    assert "fullScreenRequested = Signal(bool)" in widget
+    assert "def resizeEvent(" in widget
+    selection_body = widget[
+        widget.index("def _curve_selection_changed")
+        : widget.index("def _dashboard_range_changed")
+    ]
+    assert "CUSTOM_LIVE_FORM_ID" not in selection_body
     pause_body = widget[
         widget.index("def _pause_changed") : widget.index("def _follow_span_changed")
     ]
@@ -54,6 +64,8 @@ def test_wits0_live_view_constructs_offscreen(monkeypatch: pytest.MonkeyPatch) -
     widget = Wits0LiveViewWidget(language=AppLanguage.RU)
     try:
         assert widget.state_label.text()
+        assert widget.form_combo.isEnabled()
+        assert widget.fullscreen_button.isEnabled()
         assert not widget.pause_button.isEnabled()
         assert widget.values_table.columnCount() == 4
         assert widget.dashboard.panels
