@@ -627,11 +627,6 @@ class AcquisitionLiveView:
                 if sample_row is not None
                 else latest_row
             )
-            quality_record = (
-                visible_records[quality_row]
-                if 0 <= quality_row < len(visible_records)
-                else None
-            )
             quality_metadata = (
                 record_metadata[quality_row]
                 if 0 <= quality_row < len(record_metadata)
