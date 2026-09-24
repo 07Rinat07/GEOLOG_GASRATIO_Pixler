@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import importlib.util
-from pathlib import Path
 import re
+from pathlib import Path
 
 import pytest
 
@@ -20,11 +20,14 @@ def test_adaptive_application_stylesheet_uses_palette_roles_and_no_fixed_widths(
     assert "QFrame#mainToolbar" in stylesheet
     assert "QFrame#formEditToolbar" in stylesheet
     assert "QLabel#formEditToolbarCaption" in stylesheet
+    assert "QPushButton#print-center-primary-action" in stylesheet
+    assert "QLabel#print-center-header-preview" in stylesheet
+    assert "QLabel#print-center-depth-standard" in stylesheet
     assert "palette(highlight)" in stylesheet
     assert "palette(base)" in stylesheet
     assert "min-height: 28px" in stylesheet
     assert "\n    width:" not in stylesheet
-    assert re.search(r"#[0-9a-fA-F]{3,8}\\b", stylesheet) is None
+    assert re.search(r"#[0-9a-fA-F]{3,8}\b", stylesheet) is None
 
 
 def test_entrypoint_does_not_override_global_palette_or_tooltip_style() -> None:

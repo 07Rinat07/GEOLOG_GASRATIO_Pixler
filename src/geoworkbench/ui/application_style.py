@@ -57,6 +57,16 @@ QPushButton[uiRole="destructive"] {
     font-weight: 600;
     border-width: 2px;
 }
+QPushButton[uiRole="primary"]:disabled {
+    color: palette(mid);
+    background: palette(window);
+    border-color: palette(mid);
+}
+
+QPushButton#print-center-primary-action {
+    padding: 7px 18px;
+    font-weight: 700;
+}
 
 QToolButton {
     min-height: 28px;
@@ -118,6 +128,19 @@ QLabel#formEditToolbarCaption {
     font-weight: 700;
     color: palette(window-text);
     padding-right: 8px;
+}
+
+QLabel#print-center-source,
+QLabel#print-center-column-header-title,
+QLabel#print-center-action-summary {
+    font-weight: 600;
+}
+QLabel#print-center-header-preview {
+    background: palette(base);
+    border: 1px solid palette(mid);
+}
+QLabel#print-center-depth-standard {
+    color: palette(mid);
 }
 
 QLineEdit,

@@ -1,3 +1,6 @@
+import re
+from pathlib import Path
+
 from PySide6.QtCore import QPoint, Qt
 from PySide6.QtGui import QImageReader
 from PySide6.QtWidgets import QDialog, QLabel
@@ -15,6 +18,27 @@ from geoworkbench.printing.print_job import (
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.print_center_dialog import PrintCenterDialog
 
+
+
+def test_print_center_uses_shared_palette_aware_presentation_contract(qapp) -> None:
+    source = Path("src/geoworkbench/ui/print_center_dialog.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert ".setStyleSheet(" not in source
+    assert re.search(r"#[0-9a-fA-F]{3,8}\b", source) is None
+    assert 'self.ok_button.setProperty("uiRole", "primary")' in source
+    assert (
+        'column_header_title.setObjectName("print-center-column-header-title")'
+        in source
+    )
+    assert 'depth_standard.setObjectName("print-center-depth-standard")' in source
+
+    dialog = PrintCenterDialog(language=AppLanguage.EN)
+    assert dialog.ok_button.property("uiRole") == "primary"
+    assert dialog.header_preview.objectName() == "print-center-header-preview"
+    assert dialog.action_summary.objectName() == "print-center-action-summary"
+    dialog.close()
 
 def test_universal_output_formats_include_printer_pdf_and_common_images(qapp) -> None:
     formats = set(available_output_formats())
