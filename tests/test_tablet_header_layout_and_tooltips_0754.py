@@ -72,10 +72,15 @@ def test_toolbar_help_labels_do_not_inherit_opaque_white_backgrounds() -> None:
     window = (ROOT / "src/geoworkbench/ui/main_window.py").read_text(
         encoding="utf-8"
     )
+    shared_style = (ROOT / "src/geoworkbench/ui/application_style.py").read_text(
+        encoding="utf-8"
+    )
 
     assert 'background:transparent; color:#64748b; font-size:10px;' in tablet
     assert 'background:transparent; color:#9a3412;' in tablet
-    assert 'background:transparent; font-weight:700; color:#1e3a8a;' in window
+    assert 'self.form_edit_caption.setObjectName("formEditToolbarCaption")' in window
+    assert "QLabel#formEditToolbarCaption" in shared_style
+    assert "color: palette(window-text);" in shared_style
 
 
 def test_localizations_preserve_curve_identity_placeholder() -> None:
