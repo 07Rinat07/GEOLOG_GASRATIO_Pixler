@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from geoworkbench.acquisition import (
@@ -25,6 +27,7 @@ from geoworkbench.services.wits0_raw_replay import (
     inspect_wits0_raw_replay,
     replay_wits0_raw_interval,
 )
+from geoworkbench.services.wits0_live_preview import Wits0LivePreview, Wits0LivePreviewConfig
 
 
 def _frame(record: int, sequence: int, *lines: str) -> bytes:
@@ -145,6 +148,70 @@ def test_raw_replay_streams_through_live_parser_and_reviewed_runtime(
     assert runtime.session.last_sequence == 2
     assert len(runtime.controller.dataset.active_index.values) == 2
     assert all("ref=" in record.source for record in runtime.session.records)
+
+
+def _dataset_digest(runtime: Wits0AcquisitionRuntime) -> str:
+    dataset = runtime.controller.dataset
+    digest = hashlib.sha256()
+    digest.update(np.asarray(dataset.active_index.values, dtype="<f8").tobytes())
+    for curve in sorted(dataset.curves.values(), key=lambda item: item.metadata.provenance):
+        digest.update(curve.metadata.provenance.encode("utf-8"))
+        digest.update(np.asarray(curve.values, dtype="<f8").tobytes())
+    return digest.hexdigest()
+
+
+def test_long_preview_eviction_replays_to_same_dataset_as_live(tmp_path: Path) -> None:
+    """Ten preview windows must not silently lose rows at the raw replay boundary."""
+    profile = load_builtin_wits0_profile()
+    processor = Wits0StreamProcessor(profile)
+    preview = Wits0LivePreview(profile, config=Wits0LivePreviewConfig(max_buffered_frames=20))
+    writer = Wits0RawCaptureWriter(
+        tmp_path, source_name="long-stream", connection_id="connection-1",
+        segment_bytes=10_000,
+    )
+    raw_frames = [
+        _frame(2, sequence, f"0208{123 + sequence / 10:.1f}", "021011.2")
+        for sequence in range(1, 201)
+    ]
+    _, commit = _commit(*raw_frames[:2])
+    live = Wits0AcquisitionRuntime(Well("live", "Live"), commit, session_id="live")
+    for sequence, raw in enumerate(raw_frames, start=1):
+        received_at = f"2026-09-24T15:{sequence // 60:02d}:{sequence % 60:02d}Z"
+        writer.write(raw, received_at=received_at)
+        frame = processor.append(raw, received_at=received_at, source_ref="fixture.wits")[0]
+        preview.observe(frame)
+        live.submit_frame(frame)
+        live.flush()
+    writer.close()
+    assert preview.backfill_boundary.evicted_frames == 180
+    assert preview.retained_row_count <= preview.config.max_runtime_rows
+    assert preview.compaction_count > 0
+
+    replayed = Wits0AcquisitionRuntime(Well("replay", "Replay"), commit, session_id="replay")
+    result = replay_wits0_raw_interval(
+        replayed, profile=profile, raw_directory=tmp_path, source_name="long-stream",
+        start_at="2026-09-24T15:00:01Z", end_at="2026-09-24T15:03:20Z",
+    )
+    assert result.frames_accepted == 200
+    assert replayed.session.last_sequence == live.session.last_sequence == 200
+    assert _dataset_digest(replayed) == _dataset_digest(live)
+    assert preview.runtime is not None
+    preview_dataset = preview.runtime.controller.dataset
+    replay_dataset = replayed.controller.dataset
+    np.testing.assert_array_equal(
+        preview_dataset.active_index.values[-20:], replay_dataset.active_index.values[-20:]
+    )
+    preview_curves = {
+        curve.metadata.provenance: curve.values[-20:]
+        for curve in preview_dataset.curves.values()
+    }
+    replay_curves = {
+        curve.metadata.provenance: curve.values[-20:]
+        for curve in replay_dataset.curves.values()
+    }
+    assert preview_curves.keys() == replay_curves.keys()
+    for provenance, values in preview_curves.items():
+        np.testing.assert_array_equal(values, replay_curves[provenance])
 
 
 def test_later_boundary_warms_parser_but_persists_only_selected_tail(
