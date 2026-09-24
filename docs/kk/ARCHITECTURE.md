@@ -11,3 +11,12 @@ statistics ойдан жасалмайды. `.wits` байттары өзгер�
 алынады. `QSettings` тек presentation state сақтайды.
 
 SEC-04 destructive retention-ды тек қолданбаның жарамды path-bound ownership marker-і болғанда рұқсат етеді. Non-loopback server қауіпсіздік ескертуі расталып, non-global IPv4 CIDR peer allowlist берілгенде ғана жарамды; саясаттан тыс peers sockets raw capture басталмай тұрып жабылып, rejected ретінде journal-ға жазылады.
+
+
+## WITS0 operator workspace — 0.7.96+
+
+Live WITS UI есеп формулаларына иелік етпейді. Gas Ratio/Pixler/DEXP қолданыстағы versioned
+calculation registry және ортақ UOM dictionary арқылы есептеледі; gas-origin classification және
+threshold alarms бөлек headless services ретінде қалады. Qt тек пішіндер, full-screen layout,
+badges, help және audio/visual presentation үшін жауап береді. Сақталған пішіндер curve ID емес,
+canonical mnemonic қолданады. Fluid screening, gas origin және threshold alarm тәуелсіз оқиғалар.
