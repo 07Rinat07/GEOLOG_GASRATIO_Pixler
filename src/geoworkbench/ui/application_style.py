@@ -45,6 +45,10 @@ QPushButton[uiRole="primary"] {
     color: palette(highlighted-text);
     font-weight: 600;
 }
+QPushButton[uiRole="secondary"] {
+    background: palette(button);
+    color: palette(button-text);
+}
 QPushButton[uiRole="quiet"] {
     background: transparent;
     border-color: transparent;
@@ -106,6 +110,12 @@ QDoubleSpinBox:disabled {
     color: palette(mid);
     background: palette(window);
 }
+QLineEdit:read-only,
+QTextEdit:read-only,
+QPlainTextEdit:read-only {
+    color: palette(text);
+    background: palette(window);
+}
 
 QTextEdit,
 QPlainTextEdit,
@@ -157,9 +167,9 @@ QMenu::item:selected {
 }
 
 QToolTip {
-    color: #0f172a;
-    background-color: #fffbe6;
-    border: 1px solid #64748b;
+    color: palette(text);
+    background-color: palette(base);
+    border: 1px solid palette(mid);
     padding: 4px 6px;
     opacity: 255;
 }
