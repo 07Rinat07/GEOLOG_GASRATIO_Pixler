@@ -83,7 +83,7 @@ def _write_docx(
     path: Path,
     report: HydrocarbonInterpretationReport,
     dataset: Dataset | None,
-    language: AppLanguage,
+    language: AppLanguage = AppLanguage.RU,
 ) -> None:
     labels = hydrocarbon_report_labels(language)
     statistics: tuple[CandidateIntervalGasStatistics | None, ...] = tuple(
@@ -249,7 +249,7 @@ def _write_docx(
 
 def _opus_gasomer_docx(
     report: HydrocarbonInterpretationReport,
-    language: AppLanguage,
+    language: AppLanguage = AppLanguage.RU,
 ) -> list[str]:
     section = report.opus_gasomer
     if section is None:
