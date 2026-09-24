@@ -428,6 +428,7 @@ class Wits0OperatorDashboard(QWidget):
         snapshot: AcquisitionLiveSnapshot,
         curve_ids: set[str],
     ) -> None:
+        labelled: list[AcquisitionLiveMarker] = []
         for marker in snapshot.markers:
             if marker.curve_id is not None and marker.curve_id not in curve_ids:
                 continue
@@ -444,15 +445,33 @@ class Wits0OperatorDashboard(QWidget):
                     region.setZValue(-10)
                     plot.addItem(region)
                     continue
-            line = pg.InfiniteLine(
-                pos=marker.axis_start,
-                angle=0,
-                movable=False,
-                pen=_marker_pen(marker.kind),
-            )
-            line.setToolTip(marker.label)
-            line.setZValue(20)
-            plot.addItem(line)
+            color = marker.display_color or _marker_color(marker.kind)
+            if marker.axis_end is not None and marker.axis_end > marker.axis_start:
+                region = pg.LinearRegionItem(
+                    values=(marker.axis_start, marker.axis_end),
+                    orientation="horizontal",
+                    movable=False,
+                    brush=pg.mkBrush(QColor(color).red(), QColor(color).green(), QColor(color).blue(), 26),
+                    pen=pg.mkPen(color, width=1.2),
+                )
+                region.setZValue(12)
+                region.setToolTip(marker.label)
+                plot.addItem(region)
+            else:
+                line = pg.InfiniteLine(
+                    pos=marker.axis_start,
+                    angle=0,
+                    movable=False,
+                    pen=_marker_pen(marker.kind, color=color),
+                )
+                line.setToolTip(marker.label)
+                line.setZValue(20)
+                plot.addItem(line)
+            if marker.show_label:
+                labelled.append(marker)
+
+        if labelled:
+            _render_marker_badges(plot, labelled)
 
 
 def _normalized_unit(unit: str | None) -> str:
@@ -512,23 +531,65 @@ def _quality_color(quality: AcquisitionLiveQuality) -> QColor | None:
     }.get(quality)
 
 
-def _marker_pen(kind: AcquisitionLiveMarkerKind) -> pg.QtGui.QPen:
-    color, style = {
-        AcquisitionLiveMarkerKind.SOURCE_SEQUENCE_GAP: (
-            "#f59e0b",
-            Qt.PenStyle.DashLine,
-        ),
-        AcquisitionLiveMarkerKind.AXIS_GAP: (
-            "#ef4444",
-            Qt.PenStyle.DashDotLine,
-        ),
-        AcquisitionLiveMarkerKind.INVALID_VALUE: (
-            "#dc2626",
-            Qt.PenStyle.DotLine,
-        ),
-        AcquisitionLiveMarkerKind.MISSING_SPAN: (
-            "#94a3b8",
-            Qt.PenStyle.DotLine,
-        ),
+def _marker_color(kind: AcquisitionLiveMarkerKind) -> str:
+    return {
+        AcquisitionLiveMarkerKind.SOURCE_SEQUENCE_GAP: "#f59e0b",
+        AcquisitionLiveMarkerKind.AXIS_GAP: "#ef4444",
+        AcquisitionLiveMarkerKind.INVALID_VALUE: "#dc2626",
+        AcquisitionLiveMarkerKind.MISSING_SPAN: "#94a3b8",
+        AcquisitionLiveMarkerKind.INTERPRETATION: "#2563eb",
+        AcquisitionLiveMarkerKind.THRESHOLD_ALARM: "#dc2626",
     }[kind]
-    return pg.mkPen(color, width=1.4, style=style)
+
+
+def _marker_pen(
+    kind: AcquisitionLiveMarkerKind,
+    *,
+    color: str | None = None,
+) -> pg.QtGui.QPen:
+    style = {
+        AcquisitionLiveMarkerKind.SOURCE_SEQUENCE_GAP: Qt.PenStyle.DashLine,
+        AcquisitionLiveMarkerKind.AXIS_GAP: Qt.PenStyle.DashDotLine,
+        AcquisitionLiveMarkerKind.INVALID_VALUE: Qt.PenStyle.DotLine,
+        AcquisitionLiveMarkerKind.MISSING_SPAN: Qt.PenStyle.DotLine,
+        AcquisitionLiveMarkerKind.INTERPRETATION: Qt.PenStyle.SolidLine,
+        AcquisitionLiveMarkerKind.THRESHOLD_ALARM: Qt.PenStyle.DashLine,
+    }[kind]
+    return pg.mkPen(color or _marker_color(kind), width=1.6, style=style)
+
+
+def _render_marker_badges(
+    plot: pg.PlotWidget,
+    markers: list[AcquisitionLiveMarker],
+) -> None:
+    view = plot.getViewBox()
+    x_range, y_range = view.viewRange()
+    x_span = max(1e-12, float(x_range[1] - x_range[0]))
+    y_span = max(1e-12, float(y_range[1] - y_range[0]))
+    x_position = float(x_range[1] - x_span * 0.015)
+    minimum_gap = y_span * 0.045
+
+    occupied: list[float] = []
+    for marker in sorted(markers, key=lambda item: item.axis_start):
+        label_y = float(marker.axis_start)
+        while any(abs(label_y - existing) < minimum_gap for existing in occupied):
+            label_y += minimum_gap
+            if label_y > y_range[1]:
+                label_y = float(marker.axis_start - minimum_gap)
+                while any(abs(label_y - existing) < minimum_gap for existing in occupied):
+                    label_y -= minimum_gap
+                break
+        occupied.append(label_y)
+
+        color = marker.display_color or _marker_color(marker.kind)
+        badge = pg.TextItem(
+            text=marker.label,
+            color="#111827",
+            anchor=(1.0, 0.5),
+            fill=pg.mkBrush(255, 255, 255, 228),
+            border=pg.mkPen(color, width=1.4),
+        )
+        badge.setPos(x_position, label_y)
+        badge.setToolTip(marker.label)
+        badge.setZValue(40)
+        plot.addItem(badge)
