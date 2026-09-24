@@ -30,3 +30,16 @@ logical row count, curve versions, events и incremental record/dataset/events h
 `digest_mode=incremental_chain`. Совместимые полные dataset/events fingerprints остаются операциями
 checkpoint и `current_result()`. Replay использует ту же batch boundary и завершает batch на каждом
 persisted checkpoint.
+
+## WITS0 raw replay и граница постоянной записи
+
+Если bounded LIVE PREVIEW уже вытеснил ранние кадры, полная история не восстанавливается из
+RAM-хвоста. Для этого используется индексированный raw capture: `.wits` + `.chunks.jsonl`.
+Replay проверяет непрерывность смещений, timestamps и connection ID и завершается fail-closed
+при повреждённом индексе.
+
+Чтение потоковое и не загружает весь raw в память. Для каждого TCP connection используется тот
+же `Wits0StreamProcessor`, что и в live capture. При явно выбранной более поздней границе
+ранние chunk-и могут использоваться как parser warm-up, но в persistent session попадают только
+frames внутри принятого интервала. Provenance каждой строки сохраняет raw SHA-256 и путь
+исходного сегмента.
