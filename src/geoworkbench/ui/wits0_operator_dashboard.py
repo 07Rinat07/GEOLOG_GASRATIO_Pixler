@@ -23,6 +23,7 @@ from geoworkbench.acquisition.wits0_live_forms import (
 )
 from geoworkbench.services.acquisition_live_view import (
     AcquisitionCurrentValue,
+    AcquisitionLiveMarker,
     AcquisitionLiveMarkerKind,
     AcquisitionLiveQuality,
     AcquisitionLiveSeries,
