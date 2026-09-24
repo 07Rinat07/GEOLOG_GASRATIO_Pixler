@@ -4,6 +4,8 @@ from pathlib import Path
 
 from geoworkbench.acquisition.wits0_live_forms import (
     CUSTOM_LIVE_FORM_ID,
+    Wits0LiveFormSettings,
+    Wits0SavedLiveFormState,
     live_channel_key,
     live_form_definitions,
     live_panel_definitions,
@@ -179,3 +181,48 @@ def test_wits_live_view_exposes_form_selector() -> None:
     assert "live_form_definitions()" in source
     assert "select_live_curve_ids" in source
     assert "CUSTOM_LIVE_FORM_ID" in source
+
+
+
+class _MemorySettings:
+    def __init__(self) -> None:
+        self.values: dict[str, object] = {}
+
+    def value(self, key: str, default: object = None) -> object:
+        return self.values.get(key, default)
+
+    def setValue(self, key: str, value: object) -> None:
+        self.values[key] = value
+
+    def remove(self, key: str) -> None:
+        self.values.pop(key, None)
+
+    def sync(self) -> None:
+        return None
+
+
+def test_live_form_settings_roundtrip_operator_overrides_by_mnemonic() -> None:
+    storage = _MemorySettings()
+    settings = Wits0LiveFormSettings(storage)
+    state = Wits0SavedLiveFormState(
+        form_id="drilling",
+        selected_mnemonics=("HOLE_DEPTH", "ROP", "WOB"),
+        axis_mode="depth",
+        auto_follow=False,
+        follow_span=250.0,
+        max_points=4_000,
+        sidebar_visible=False,
+    )
+
+    settings.save(state)
+
+    assert settings.load("drilling") == state
+    settings.reset("drilling")
+    assert settings.load("drilling") is None
+
+
+def test_all_operator_forms_have_context_descriptions() -> None:
+    for definition in live_form_definitions():
+        assert definition.description("ru")
+        assert definition.description("kk")
+        assert definition.description("en")
