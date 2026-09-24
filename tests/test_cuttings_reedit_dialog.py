@@ -1,3 +1,5 @@
+from PySide6.QtWidgets import QDialog
+
 from geoworkbench.domain.models import CuttingsComponent, CuttingsSample
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
 from geoworkbench.services.localization import AppLanguage
@@ -44,7 +46,7 @@ def test_cuttings_validation_uses_shared_semantic_error_role(qapp) -> None:
 
     dialog._accept_if_valid()
 
-    assert dialog.result() == 0
+    assert dialog.result() == QDialog.DialogCode.Rejected
     assert dialog.validation_label.text() == "Rock percentages must total 100%"
     dialog.close()
 
