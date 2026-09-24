@@ -42,17 +42,19 @@ release plan и временные планы в `docs` не создаются.
 | Порядок | Задачи | Результат и зависимость | Ответственный по роли / статус |
 |---|---|---|---|
 | 1 | WITS-MEM-01 | Закрыть raw replay/явную acquisition boundary и RSS baseline; prerequisite для полной полевой приёмки | Разработчик / в работе |
-| 2 | WITS-UX-01 | Операторский workspace: адаптивный/fullscreen монитор, выбор формы до подключения, редактирование любой формы, Save/Reset, сворачиваемые параметры, встроенная помощь RU/KK/EN | Разработчик / в работе |
-| 3 | WITS-CALC-01 | Live-derived Gas Ratio/Haworth, Pixler и DEXP/DEXPC через существующий versioned formula registry; без второй реализации формул в UI | Разработчик / готово к разработке |
-| 4 | WITS-GASCTX-01 | Разделить background gas, formation show, connection gas, trip gas, circulated gas и elevated-unclassified по газу + технологическому контексту | Разработчик + специалист ГТИ / в работе |
-| 5 | WITS-ALARM-01 | Для всех отображаемых параметров min/max, visual/audio alarm, hysteresis/debounce, acknowledgement и маркеры на графике | Разработчик + оператор / готово к разработке |
-| 6 | OBS-01 | Build/session identity и объяснимые состояния no-data/stale/error; используется операторским помощником и alarms | Разработчик / готово к разработке |
-| 7 | WITS-PLOT-01 | Независимые шкалы/диапазоны, редактируемые панели/колонки, читаемые интерпретационные полосы и non-overlap badges | Разработчик / в работе |
-| 8 | FIELD-01 | Реальный WITS: сеть, профиль, live → review → запись → reconnect/reopen + Gas Ratio/Pixler/DEXP/alarms; после WITS-NET-01, WITS-MEM-01, UX/CALC/GASCTX/ALARM | Оператор + разработчик / блокировано внешним условием |
-| 9 | WELL-04 → WELL-05 | Закрыть остаточную сквозную приёмку переводов и связанных макетов; использовать готовый WELL-06 | Разработчик + оператор / запланировано |
-| 10 | REL-03 / CUT-03 | Реальная печать A4/A3 и комплект одной ревизии; после WELL-05. Блокер: нужны принтер и образцы | Оператор / блокировано внешним условием |
-| 11 | PERF-05 | Решение по storage только после измеренного baseline 100k/1M строк | Разработчик / запланировано |
-| 12 | FIELD-02…05; OPUS-08 | Совместимость с внешними системами и независимая проверка интерпретации | Разработчик + профильный специалист / блокировано внешним условием |
+| 2 | UI-SYS-01 | Единый адаптивный UI foundation: кнопки, поля, toolbar, focus/hover/disabled states, размеры касания, small-screen/HiDPI правила; без локальных desktop-only стилей | Разработчик / в работе |
+| 3 | PRINT-STYLE-01 | Единый Report Visual System уровня профессиональных нефтесервисных отчётов: PDF/Masterlog/DOCX/XLSX, A4/A3/roll, colour + grayscale | Разработчик / в работе |
+| 4 | WITS-UX-01 | Довести operator workspace после foundation PR #282: no-data states, help, persistence/reconnect и полевой UX acceptance | Разработчик / в работе |
+| 5 | WITS-CALC-01 | Live-derived Gas Ratio/Haworth, Pixler и DEXP/DEXPC через существующий versioned formula registry; без второй реализации формул в UI | Разработчик / готово к разработке |
+| 6 | WITS-GASCTX-01 | Разделить background gas, formation show, connection gas, trip gas, circulated gas и elevated-unclassified по газу + технологическому контексту | Разработчик + специалист ГТИ / в работе |
+| 7 | WITS-ALARM-01 | Для всех отображаемых параметров min/max, visual/audio alarm, hysteresis/debounce, acknowledgement и маркеры на графике | Разработчик + оператор / готово к разработке |
+| 8 | OBS-01 | Build/session identity и объяснимые состояния no-data/stale/error; используется операторским помощником и alarms | Разработчик / готово к разработке |
+| 9 | WITS-PLOT-01 | Независимые шкалы/диапазоны, редактируемые панели/колонки, читаемые интерпретационные полосы и non-overlap badges | Разработчик / в работе |
+| 10 | FIELD-01 | Реальный WITS: сеть, профиль, live → review → запись → reconnect/reopen + Gas Ratio/Pixler/DEXP/alarms | Оператор + разработчик / блокировано внешним условием |
+| 11 | WELL-04 → WELL-05 | Закрыть остаточную сквозную приёмку переводов и связанных макетов; использовать готовый WELL-06 | Разработчик + оператор / запланировано |
+| 12 | REL-03 / CUT-03 | Реальная печать A4/A3 и комплект одной ревизии уже через PRINT-STYLE-01; блокер финальной physical acceptance: нужны принтер и образцы | Оператор + разработчик / частично блокировано |
+| 13 | PERF-05 | Решение по storage только после измеренного baseline 100k/1M строк | Разработчик / запланировано |
+| 14 | FIELD-02…05; OPUS-08 | Совместимость с внешними системами и независимая проверка интерпретации | Разработчик + профильный специалист / блокировано внешним условием |
 
 **Внешние действия, начинаемые сейчас:** WITS-NET-01 (оператор сети), SEC-05 (владелец
 ресурсов) и подготовка решения SEC-01 (владелец репозитория). Они не требуют ожидания
@@ -64,6 +66,44 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
 заново. Порядок WELL-01…06 сохраняет зависимости сценария: реализация WELL-06 использует
 существующие контракты WELL-04/05, но не подтверждает их полную операторскую приёмку.
 Календарные сроки не назначаются без доступности стенда и измерения первого инкремента.
+
+## UI-SYS-01 — единый адаптивный интерфейс
+
+- [ ] Ввести application-level visual/interaction contract вместо разрозненных локальных
+  `setStyleSheet`: единые логические высоты кнопок/полей, внутренние отступы, focus ring,
+  hover/pressed/checked/disabled states, toolbar icon metrics и compact mode.
+- [ ] Сохранять системную светлую/тёмную палитру и accessibility contrast; не фиксировать
+  desktop-only ширины и не переопределять семантику platform controls без необходимости.
+- [ ] Primary/secondary/destructive/quiet роли задавать semantic property, а не цветом по месту.
+- [ ] Диалоги продолжают использовать `fit_window_to_screen`; длинные RU/KK/EN подписи
+  переносятся/уходят в overflow, primary action остаётся видимым.
+- [ ] Приёмка: Windows 100/125/150/200% DPI, 1366×768 logical-small workspace, keyboard focus,
+  disabled/read-only, dark palette smoke, без horizontal clipping основных действий.
+
+## PRINT-STYLE-01 — Report Visual System
+
+Цель — единый оригинальный профессиональный нефтесервисный стиль, ориентированный на лучшие
+практики полевых/инженерных отчётов, без копирования фирменной айдентики сторонних компаний.
+
+- [ ] Один immutable style profile для PDF, Masterlog, планшетной печати и Office-экспорта:
+  нейтральная техническая типографика, строгая сетка, сдержанный petroleum-blue accent,
+  high-contrast текст, light technical fills, line-weight hierarchy и monochrome-safe semantics.
+- [ ] Обязательная document-control зона: well/project, interval, generated/report date,
+  document number, revision, status, prepared/checked/approved при доступности данных.
+- [ ] Header/footer contract: логотип проекта/заказчика только из каталога assets, номер страницы,
+  confidentiality/status, document/revision; длинный текст не должен попадать поверх графиков.
+- [ ] Таблицы: компактные заголовки, alternating/background hierarchy без декоративной перегрузки,
+  повтор шапки, перенос строк, числовое выравнивание, единицы возле параметра и минимальная
+  читаемая кегль/высота строки.
+- [ ] Графики/логи: цвет не является единственным кодом — используются dash/marker/label;
+  шкалы и единицы печатаются явно; события/alarms/interpreted intervals сохраняют смысл в grayscale.
+- [ ] Профили носителя: A4 portrait/landscape, A3 и roll/masterlog. Макет адаптируется,
+  а не просто масштабируется до нечитаемого состояния.
+- [ ] Один visual profile применяется к hydrocarbon interpretation PDF, generic report PDF,
+  Masterlog cover/header/footer и XLSX/DOCX. Индивидуальные отчёты добавляют только содержательные
+  секции поверх общей визуальной системы.
+- [ ] Приёмка: vector PDF, embedded Unicode text, RU/KK/EN, print-to-PDF, grayscale regression,
+  A4/A3 geometry, physical-print gate, page density/golden rendering и отсутствие clipped text.
 
 ## Результаты аудита и границы достоверности
 
