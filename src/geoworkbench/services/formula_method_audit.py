@@ -72,7 +72,10 @@ class MethodAuditRecord:
 def build_method_audit_manifest() -> tuple[MethodAuditRecord, ...]:
     """Return the canonical auditable method inventory used by QA and reports."""
 
-    records = [_formula_profile_record(profile) for profile in build_all_sourced_formula_registry().available()]
+    records = [
+        _formula_profile_record(profile)
+        for profile in build_all_sourced_formula_registry().available()
+    ]
     records.extend(_opus_records())
     _validate_manifest(records)
     return tuple(records)
@@ -206,7 +209,8 @@ def _opus_records() -> tuple[MethodAuditRecord, ...]:
             source_evidence["historical_primary_reference"]["catalog_url"]
         ),
         calculation_scope=(
-            "Historical C1-C5 relative OPUS screening curves and preliminary overlapping fluid bands."
+            "Historical C1-C5 relative OPUS screening curves and preliminary "
+            "overlapping fluid bands."
         ),
         verification=(
             "Open cross-checks plus repository regression tests; unsupported/proprietary modern "
@@ -250,7 +254,8 @@ def _opus_records() -> tuple[MethodAuditRecord, ...]:
             "docs/FORMULA_METHOD_AUDIT.md",
         ),
         rights_note=(
-            "Project-authored engineering defaults; no third-party proprietary threshold set is claimed."
+            "Project-authored engineering defaults; no third-party proprietary "
+            "threshold set is claimed."
         ),
     )
     return workbook_record, screening_record, detector_record
