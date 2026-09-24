@@ -18,6 +18,8 @@ def test_create_dialog_shows_ready_factory_user_forms_and_blocks_duplicate_name(
     dialog.show()
     qapp.processEvents()
 
+    assert dialog.validation_label.objectName() == "form-validation"
+    assert dialog.validation_label.property("validationRole") == "warning"
     assert dialog.tree.topLevelItemCount() == 3
     assert dialog.tree.topLevelItem(0).childCount() == 1
     assert dialog.tree.topLevelItem(1).childCount() == 1
@@ -26,11 +28,13 @@ def test_create_dialog_shows_ready_factory_user_forms_and_blocks_duplicate_name(
     dialog.name_input.setText("  РАБОЧАЯ   ФОРМА ")
     qapp.processEvents()
     assert dialog.create_button.isEnabled() is False
+    assert dialog.validation_label.property("validationRole") == "error"
     assert "уже существует" in dialog.validation_label.text()
 
     dialog.name_input.setText("Газовый каротаж — скважина 12")
     qapp.processEvents()
     assert dialog.create_button.isEnabled() is True
+    assert dialog.validation_label.property("validationRole") == "success"
 
 
 def test_create_dialog_returns_clean_name_and_selected_axis(qapp) -> None:
@@ -62,12 +66,14 @@ def test_save_dialog_replaces_editable_form_but_protects_ready_template(qapp) ->
     assert dialog.create_button.text() == "Сохранить"
     assert dialog.create_button.isEnabled() is True
     assert dialog.existing_form is user
+    assert dialog.validation_label.property("validationRole") == "warning"
     assert "новая ревизия" in dialog.validation_label.text()
 
     dialog.name_input.setText(ready.name)
     qapp.processEvents()
     assert dialog.create_button.isEnabled() is False
     assert dialog.existing_form is None
+    assert dialog.validation_label.property("validationRole") == "error"
     assert "защищённым шаблоном" in dialog.validation_label.text()
 
 

@@ -264,6 +264,7 @@ class FormCreateDialog(QDialog):
         root.addWidget(input_box)
 
         self.validation_label = QLabel(self)
+        self.validation_label.setObjectName("form-validation")
         self.validation_label.setWordWrap(True)
         self.validation_label.setMinimumHeight(24)
         root.addWidget(self.validation_label)
@@ -473,13 +474,13 @@ class FormCreateDialog(QDialog):
         name = clean_form_name(self.name_input.text())
         self._existing_form = None
         if not name:
-            self.validation_label.setStyleSheet("color:#b45309;")
-            self.validation_label.setText(
+            self._set_validation_message(
+                "warning",
                 self._text(
                     "Введите понятное название формы.",
                     "Пішінге түсінікті атау енгізіңіз.",
                     "Enter a clear form name.",
-                )
+                ),
             )
             self.create_button.setEnabled(False)
             return
@@ -488,49 +489,57 @@ class FormCreateDialog(QDialog):
         protected = tuple(form for form in matches if form.read_only)
         editable = tuple(form for form in matches if not form.read_only)
         if protected:
-            self.validation_label.setStyleSheet("color:#b91c1c; font-weight:600;")
-            self.validation_label.setText(
+            self._set_validation_message(
+                "error",
                 self._text(
                     f"Имя занято защищённым шаблоном «{protected[0].name}». Выберите другое имя.",
                     f"Атау «{protected[0].name}» қорғалған үлгісімен бос емес. Басқа атау таңдаңыз.",
                     f"The protected template “{protected[0].name}” already uses this name. Choose another name.",
-                )
+                ),
             )
             self.create_button.setEnabled(False)
             return
         if editable:
             if self.mode == "create":
-                self.validation_label.setStyleSheet("color:#b91c1c; font-weight:600;")
-                self.validation_label.setText(
+                self._set_validation_message(
+                    "error",
                     self._text(
                         f"Пользовательская форма «{editable[0].name}» уже существует. Выберите другое имя.",
                         f"«{editable[0].name}» пайдаланушы пішіні бұрыннан бар. Басқа атау таңдаңыз.",
                         f"The user form “{editable[0].name}” already exists. Choose another name.",
-                    )
+                    ),
                 )
                 self.create_button.setEnabled(False)
                 return
             self._existing_form = editable[0]
-            self.validation_label.setStyleSheet("color:#92400e; font-weight:600;")
-            self.validation_label.setText(
+            self._set_validation_message(
+                "warning",
                 self._text(
                     f"Будет заменена пользовательская форма «{editable[0].name}» и создана новая ревизия.",
                     f"«{editable[0].name}» пайдаланушы пішіні ауыстырылып, жаңа ревизия жасалады.",
                     f"User form “{editable[0].name}” will be replaced with a new revision.",
-                )
+                ),
             )
             self.create_button.setEnabled(True)
             return
 
-        self.validation_label.setStyleSheet("color:#166534;")
-        self.validation_label.setText(
+        self._set_validation_message(
+            "success",
             self._text(
                 "Название свободно. Форма будет сохранена в пользовательской библиотеке.",
                 "Атау бос. Пішін пайдаланушы кітапханасына сақталады.",
                 "The name is available. The form will be saved to the user library.",
-            )
+            ),
         )
         self.create_button.setEnabled(True)
+
+    def _set_validation_message(self, role: str, message: str) -> None:
+        self.validation_label.setProperty("validationRole", role)
+        self.validation_label.setText(message)
+        style = self.validation_label.style()
+        style.unpolish(self.validation_label)
+        style.polish(self.validation_label)
+        self.validation_label.update()
 
     def _accept(self) -> None:
         self._validate()
