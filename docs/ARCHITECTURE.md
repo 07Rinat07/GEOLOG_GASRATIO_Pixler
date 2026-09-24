@@ -117,6 +117,12 @@ imports и запрещает зависимости на PySide/PyQt, PyQtGraph
 `geoworkbench.printing`. Запрет действует независимо от того, находится import на верхнем
 уровне, внутри функции или под `TYPE_CHECKING`; UI/printing остаются внешними adapter/composition
 слоями и могут зависеть от domain/calculations, но не наоборот.
+ARCH-06 делает выбор расчётного поведения явным versioned contract. Existing sourced
+`FormulaProfile` остаётся immutable и versioned; conditioned Gas Ratio получает отдельный
+`GasRatioCalculationProfile`, а `CurveContinuityPolicy` — immutable `policy_id/version`.
+UI выбирает profile DTO из каталога и передаёт его в `GasRatioProjectController`; controller
+фиксирует profile/policy identity в dataset parameters и передаёт DTO в calculations.
+Формулы Gas Ratio/Haworth/Pixler и bounded interpolation не дублируются в UI.
 
 ## Источник, рабочая модель и экспорт
 
