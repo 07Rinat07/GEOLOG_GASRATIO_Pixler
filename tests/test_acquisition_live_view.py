@@ -198,7 +198,7 @@ def test_live_series_ignores_rows_from_other_wits_records() -> None:
     series = snapshot.series[0]
 
     assert series.source_point_count == 2
-    assert series.values == pytest.approx((5550.0, 5550.5))
+    assert series.values == (5550.0, 5550.5)
     assert len(series.axis_values) == 2
     assert not any(np.isnan(value) for value in series.values)
 
@@ -246,9 +246,9 @@ def test_live_series_preserves_real_missing_value_inside_same_wits_record() -> N
 
     assert series.source_point_count == 3
     assert len(series.values) == 3
-    assert series.values[0] == pytest.approx(5550.0)
+    assert series.values[0] == 5550.0
     assert np.isnan(series.values[1])
-    assert series.values[2] == pytest.approx(5551.0)
+    assert series.values[2] == 5551.0
 
 
 def test_current_value_ignores_newer_rows_from_other_wits_records() -> None:
