@@ -139,6 +139,10 @@ def test_toolbar_uses_one_constrained_row_and_pins_edit_control_after_stretch() 
     assert spacer_position < edit_position
     assert "self.main_toolbar_overflow_button" in create
     assert "self.form_edit_toolbar.set_content_widget(self.form_edit_row)" in create
+    assert "self.main_toolbar.setStyleSheet(" not in create
+    assert "self.form_edit_toolbar.setStyleSheet(" not in create
+    assert "self.form_edit_caption.setStyleSheet(" not in create
+    assert 'self.form_edit_caption.setObjectName("formEditToolbarCaption")' in create
 
 
 def test_composite_toolbar_keeps_pinned_button_inside_at_multiple_widths() -> None:

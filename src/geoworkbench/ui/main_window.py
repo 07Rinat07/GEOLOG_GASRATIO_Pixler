@@ -2257,19 +2257,6 @@ class MainWindow(QMainWindow):
     def _create_toolbar(self) -> None:
         self.main_toolbar = _ResponsiveCommandBar(self, margins=(8, 6, 8, 6))
         self.main_toolbar.setObjectName("mainToolbar")
-        self.main_toolbar.setStyleSheet(
-            "QFrame#mainToolbar { "
-            "border-bottom: 1px solid #cbd5e1; background: #ffffff; }"
-            "QFrame#mainToolbar QToolButton { min-height: 32px; padding: 4px 9px; "
-            "border: 1px solid #d8e0ea; border-radius: 7px; color: #1e293b; "
-            "font-weight: 600; background: #f8fafc; }"
-            "QFrame#mainToolbar QToolButton:hover { background: #eff6ff; "
-            "border-color: #60a5fa; color: #1d4ed8; }"
-            "QFrame#mainToolbar QToolButton:pressed { background: #dbeafe; }"
-            "QFrame#mainToolbar QToolButton:checked { background: #dbeafe; "
-            "border-color: #3b82f6; color: #1e3a8a; }"
-        )
-
         # Keep the complete main row inside one QWidget. This deliberately
         # bypasses QToolBar's private extension button, which may be inserted
         # asynchronously by the Windows style after a DPI or monitor change.
@@ -2360,13 +2347,6 @@ class MainWindow(QMainWindow):
 
         self.form_edit_toolbar = _ResponsiveCommandBar(self, margins=(7, 4, 7, 4))
         self.form_edit_toolbar.setObjectName("formEditToolbar")
-        self.form_edit_toolbar.setStyleSheet(
-            "QFrame#formEditToolbar { "
-            "background: #eff6ff; border-bottom: 1px solid #93c5fd; }"
-            "QFrame#formEditToolbar QToolButton { min-height: 28px; padding: 3px 7px; "
-            "border-radius: 5px; }"
-            "QFrame#formEditToolbar QToolButton:hover { background: #dbeafe; }"
-        )
         self.form_edit_row = _ResponsiveToolbarRow(self.form_edit_toolbar)
         self.form_edit_row.setObjectName("formEditToolbarRow")
         self.form_edit_row.setMinimumWidth(0)
@@ -2376,9 +2356,7 @@ class MainWindow(QMainWindow):
         self.form_edit_layout.setSpacing(4)
 
         self.form_edit_caption = QLabel(self._t("ui.form_edit_toolbar"), self.form_edit_row)
-        self.form_edit_caption.setStyleSheet(
-            "background:transparent; font-weight:700; color:#1e3a8a; padding-right:8px;"
-        )
+        self.form_edit_caption.setObjectName("formEditToolbarCaption")
         self.form_edit_caption.setToolTip(self._t("ui.help.tablet_edit_mode"))
         self.form_edit_layout.addWidget(self.form_edit_caption)
 

@@ -76,7 +76,9 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
   desktop-only ширины и не переопределять семантику platform controls без необходимости.
   Текущий palette-contract удаляет отдельную tooltip-палитру из entrypoint: shared stylesheet
   использует только Qt palette roles для tooltip/read-only состояний, а offscreen dark-palette
-  smoke фиксирует неизменность системной палитры. Остался аудит локальных setStyleSheet.
+  smoke фиксирует неизменность системной палитры. Main/form-edit toolbar presentation также
+  вынесен из MainWindow в общий palette-aware stylesheet без изменения overflow/DPI geometry.
+  Следующий slice — semantic роли и локальные presentation-QSS в Print Center/соседних диалогах.
 - [ ] Primary/secondary/destructive/quiet роли задавать semantic property, а не цветом по месту.
 - [ ] Диалоги продолжают использовать `fit_window_to_screen`; длинные RU/KK/EN подписи
   переносятся/уходят в overflow, primary action остаётся видимым.

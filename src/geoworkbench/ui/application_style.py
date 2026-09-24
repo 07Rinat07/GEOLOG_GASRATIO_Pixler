@@ -77,6 +77,49 @@ QToolButton:focus {
     border: 2px solid palette(highlight);
 }
 
+QFrame#mainToolbar {
+    border-bottom: 1px solid palette(mid);
+    background: palette(window);
+}
+QFrame#mainToolbar QToolButton {
+    min-height: 32px;
+    padding: 4px 9px;
+    border: 1px solid palette(mid);
+    border-radius: 7px;
+    color: palette(button-text);
+    font-weight: 600;
+    background: palette(button);
+}
+QFrame#mainToolbar QToolButton:hover {
+    background: palette(midlight);
+    border-color: palette(highlight);
+}
+QFrame#mainToolbar QToolButton:pressed,
+QFrame#mainToolbar QToolButton:checked {
+    background: palette(highlight);
+    border-color: palette(highlight);
+    color: palette(highlighted-text);
+}
+
+QFrame#formEditToolbar {
+    background: palette(window);
+    border-bottom: 1px solid palette(mid);
+}
+QFrame#formEditToolbar QToolButton {
+    min-height: 28px;
+    padding: 3px 7px;
+    border-radius: 5px;
+}
+QFrame#formEditToolbar QToolButton:hover {
+    background: palette(midlight);
+}
+QLabel#formEditToolbarCaption {
+    background: transparent;
+    font-weight: 700;
+    color: palette(window-text);
+    padding-right: 8px;
+}
+
 QLineEdit,
 QComboBox,
 QSpinBox,
