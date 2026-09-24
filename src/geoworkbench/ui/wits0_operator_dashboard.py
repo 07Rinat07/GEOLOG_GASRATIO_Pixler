@@ -8,7 +8,6 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
     QFrame,
-    QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -35,7 +34,7 @@ from geoworkbench.tablet.grid_geometry import DEFAULT_GRID_ALPHA
 
 class _DashboardAxisItem(pg.AxisItem):
     def __init__(self) -> None:
-        super().__init__(orientation="bottom")
+        super().__init__(orientation="left")
         self._datetime_mode = False
 
     def set_datetime_mode(self, enabled: bool) -> None:
@@ -123,15 +122,17 @@ class _PlotPanel:
     ) -> None:
         self.definition = definition
         self.box = QGroupBox(definition.title(language), parent)
-        self.box.setMinimumHeight(250)
+        self.box.setMinimumWidth(260)
+        self.box.setMinimumHeight(460)
         layout = QVBoxLayout(self.box)
         layout.setContentsMargins(4, 4, 4, 4)
 
         self.axis_item = _DashboardAxisItem()
         self.plot = pg.PlotWidget(
-            axisItems={"bottom": self.axis_item},
+            axisItems={"left": self.axis_item},
             parent=self.box,
         )
+        self.plot.getViewBox().invertY(True)
         self.plot.showGrid(x=True, y=True, alpha=DEFAULT_GRID_ALPHA)
         self.legend = self.plot.addLegend(offset=(6, 6))
         layout.addWidget(self.plot)
@@ -179,23 +180,29 @@ class Wits0OperatorDashboard(QWidget):
 
         self.plot_scroll = QScrollArea(self)
         self.plot_scroll.setWidgetResizable(True)
+        self.plot_scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        self.plot_scroll.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
         self.plot_host = QWidget(self.plot_scroll)
-        self.plot_layout = QGridLayout(self.plot_host)
+        self.plot_layout = QHBoxLayout(self.plot_host)
         self.plot_layout.setContentsMargins(2, 2, 2, 2)
         self.plot_layout.setSpacing(6)
 
         self.panels: dict[str, _PlotPanel] = {}
-        for index, definition in enumerate(live_panel_definitions()):
+        for definition in live_panel_definitions():
             panel = _PlotPanel(
                 definition,
                 language=self._language,
                 parent=self.plot_host,
             )
-            panel.plot.getPlotItem().sigXRangeChanged.connect(
+            panel.plot.getPlotItem().sigYRangeChanged.connect(
                 self._plot_range_changed
             )
             self.panels[definition.panel_id] = panel
-            self.plot_layout.addWidget(panel.box, index // 2, index % 2)
+            self.plot_layout.addWidget(panel.box)
 
         self.other_panel = _PlotPanel(
             Wits0LivePanelDefinition(
@@ -208,15 +215,10 @@ class Wits0OperatorDashboard(QWidget):
             language=self._language,
             parent=self.plot_host,
         )
-        self.other_panel.plot.getPlotItem().sigXRangeChanged.connect(
+        self.other_panel.plot.getPlotItem().sigYRangeChanged.connect(
             self._plot_range_changed
         )
-        other_index = len(self.panels)
-        self.plot_layout.addWidget(
-            self.other_panel.box,
-            other_index // 2,
-            other_index % 2,
-        )
+        self.plot_layout.addWidget(self.other_panel.box)
         self.panels["other"] = self.other_panel
 
         self.plot_scroll.setWidget(self.plot_host)
@@ -239,10 +241,10 @@ class Wits0OperatorDashboard(QWidget):
             panel_id = live_panel_key(series.mnemonic) or "other"
             grouped.setdefault(panel_id, []).append(series)
 
-        axis_unit = snapshot.index_unit or ""
-        bottom_label = snapshot.index_mnemonic
+        history_label = snapshot.index_mnemonic
+        history_unit = snapshot.index_unit or ""
         if snapshot.axis_is_datetime:
-            bottom_label = self._localizer.text("wits0_live.time_utc")
+            history_label = self._localizer.text("wits0_live.time_utc")
 
         for panel_id, panel in self.panels.items():
             series_list = grouped.get(panel_id, [])
@@ -251,14 +253,19 @@ class Wits0OperatorDashboard(QWidget):
             if not series_list:
                 panel.box.hide()
                 continue
+
             panel.box.show()
             panel.axis_item.set_datetime_mode(snapshot.axis_is_datetime)
-            panel.plot.setLabel("bottom", bottom_label, units=axis_unit or None)
-            panel.plot.setLabel("left", _panel_axis_label(series_list))
+            panel.plot.setLabel(
+                "left",
+                history_label,
+                units=history_unit or None,
+            )
+            panel.plot.setLabel("bottom", _panel_axis_label(series_list))
 
             for index, series in enumerate(series_list):
-                x = np.asarray(series.axis_values, dtype=np.float64)
-                y = np.asarray(series.values, dtype=np.float64)
+                x = np.asarray(series.values, dtype=np.float64)
+                y = np.asarray(series.axis_values, dtype=np.float64)
                 unit = f" [{series.unit}]" if series.unit else ""
                 panel.plot.plot(
                     x,
@@ -271,20 +278,21 @@ class Wits0OperatorDashboard(QWidget):
                     connect="finite",
                     skipFiniteCheck=False,
                 )
+
             curve_ids = {series.curve_id for series in series_list}
             self._render_markers(panel.plot, snapshot, curve_ids)
 
             if snapshot.window_start is not None and snapshot.window_end is not None:
                 self._updating_range = True
                 try:
-                    panel.plot.setXRange(
+                    panel.plot.setYRange(
                         snapshot.window_start,
                         snapshot.window_end,
                         padding=0.01,
                     )
                 finally:
                     self._updating_range = False
-            panel.plot.enableAutoRange(axis="y", enable=True)
+            panel.plot.enableAutoRange(axis="x", enable=True)
 
     def render_current_values(
         self,
@@ -328,11 +336,13 @@ class Wits0OperatorDashboard(QWidget):
         _plot_item: object,
         ranges: tuple[tuple[float, float], tuple[float, float]],
     ) -> None:
-        if self._updating_range or not ranges or len(ranges[0]) != 2:
+        if self._updating_range or len(ranges) < 2 or len(ranges[1]) != 2:
             return
-        start, end = ranges[0]
+        first, second = ranges[1]
+        start = min(float(first), float(second))
+        end = max(float(first), float(second))
         if np.isfinite(start) and np.isfinite(end) and end > start:
-            self.historyRangeChanged.emit(float(start), float(end))
+            self.historyRangeChanged.emit(start, end)
 
     @staticmethod
     def _render_markers(
@@ -348,6 +358,7 @@ class Wits0OperatorDashboard(QWidget):
                 if end > marker.axis_start:
                     region = pg.LinearRegionItem(
                         values=(marker.axis_start, end),
+                        orientation="horizontal",
                         movable=False,
                         brush=pg.mkBrush(148, 163, 184, 35),
                         pen=pg.mkPen(148, 163, 184, 90),
@@ -357,7 +368,7 @@ class Wits0OperatorDashboard(QWidget):
                     continue
             line = pg.InfiniteLine(
                 pos=marker.axis_start,
-                angle=90,
+                angle=0,
                 movable=False,
                 pen=_marker_pen(marker.kind),
             )
