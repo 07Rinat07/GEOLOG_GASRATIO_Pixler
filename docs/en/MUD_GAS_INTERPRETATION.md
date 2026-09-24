@@ -192,6 +192,27 @@ quantitative chromatographic certificate. Mole fractions require calibration,
 reference gas, zero checks, and uncertainty assessment under ISO 6974-1. Water is
 not inferred from C1–C5.
 
+## Real-time WITS: fluid screening versus gas origin
+
+The live WITS monitor keeps two different questions separate.
+
+**Fluid screening** uses eligible Haworth/Pixler evidence and is reported only as a preliminary
+indicator: gas, gas/condensate, light oil, oil/heavy oil, or an indeterminate/mixed result.
+
+**Gas origin/context** asks why the gas signal increased. Working classes are background gas,
+formation show, connection gas, trip gas, circulated gas, elevated-unclassified and
+insufficient-context. The rolling background learns only from stable eligible drilling samples.
+Connection, trip and circulation transients do not train that baseline and are not automatically
+reported as formation gas.
+
+Formation-show classification requires both an excursion above the robust background and suitable
+drilling context. Missing activity/lag/pump/on-bottom evidence produces elevated-unclassified
+instead of a guessed origin.
+
+The plot keeps the colored line/band anchored to the actual depth/time. A compact horizontal badge
+contains the label and can be staggered visually to avoid overlap. Fluid and gas-origin markers are
+independent and may be displayed together.
+
 ## Interpretation boundary
 
 The automatic output is a **prospective hydrocarbon-show interval**, and fluid
