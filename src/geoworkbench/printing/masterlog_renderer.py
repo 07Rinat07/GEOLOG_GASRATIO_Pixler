@@ -8,6 +8,7 @@ from pathlib import Path
 from collections.abc import Sequence
 from typing import Protocol
 
+import fitz
 import numpy as np
 from PySide6.QtCore import QLineF, QMarginsF, QPointF, QRectF, QSizeF, Qt
 from PySide6.QtGui import (
@@ -451,6 +452,7 @@ def export_masterlog_pdf(
             raise MasterlogRenderError("Не удалось завершить masterlog PDF renderer")
         if not temporary.exists() or temporary.stat().st_size == 0:
             raise MasterlogRenderError("Не удалось сформировать masterlog PDF")
+        _add_masterlog_searchable_text_layer(temporary)
         os.replace(temporary, destination)
     except Exception as exc:
         temporary.unlink(missing_ok=True)
@@ -463,6 +465,38 @@ def export_masterlog_pdf(
         if painter is not None and painter.isActive():
             painter.end()
     return destination
+
+
+def _add_masterlog_searchable_text_layer(path: Path) -> None:
+    """Add an invisible searchable brand layer without changing visual output."""
+
+    descriptor, name = tempfile.mkstemp(
+        prefix=f".{path.name}.text-",
+        suffix=".pdf",
+        dir=path.parent,
+    )
+    os.close(descriptor)
+    searchable = Path(name)
+    try:
+        with fitz.open(path) as document:
+            if document.page_count < 1:
+                raise MasterlogRenderError("Masterlog PDF не содержит страниц")
+            for page in document:
+                page.insert_text(
+                    fitz.Point(12.0, 12.0),
+                    REPORT_BRAND_WORDMARK,
+                    fontsize=1.0,
+                    render_mode=3,
+                    overlay=True,
+                )
+            document.save(searchable, garbage=0, deflate=True)
+        if not searchable.exists() or searchable.stat().st_size == 0:
+            raise MasterlogRenderError(
+                "Не удалось сформировать searchable text layer masterlog PDF"
+            )
+        os.replace(searchable, path)
+    finally:
+        searchable.unlink(missing_ok=True)
 
 
 def configure_masterlog_printer(
