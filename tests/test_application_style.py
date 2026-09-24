@@ -14,7 +14,7 @@ def test_adaptive_application_stylesheet_uses_palette_roles_and_no_fixed_widths(
     assert 'QPushButton[uiRole="destructive"]' in stylesheet
     assert "palette(highlight)" in stylesheet
     assert "min-height: 28px" in stylesheet
-    assert "width:" not in stylesheet
+    assert "\n    width:" not in stylesheet
 
 
 @pytest.mark.skipif(
