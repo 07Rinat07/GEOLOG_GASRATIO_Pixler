@@ -9,7 +9,6 @@ from geoworkbench.ui import print_job_status_dialog as status_dialog_module
 from geoworkbench.ui.print_job_status_dialog import PrintJobStatusDialog
 
 
-
 def test_print_job_status_uses_semantic_palette_roles(qapp, tmp_path) -> None:
     source = Path("src/geoworkbench/ui/print_job_status_dialog.py").read_text(
         encoding="utf-8"
