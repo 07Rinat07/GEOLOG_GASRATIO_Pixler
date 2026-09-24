@@ -143,6 +143,21 @@ QLabel#print-center-depth-standard {
     color: palette(mid);
 }
 
+QLabel#print-job-status-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: palette(window-text);
+}
+QLabel#print-job-status-title[statusRole="success"] {
+    border-left: 4px solid palette(highlight);
+    padding-left: 7px;
+}
+QLabel#print-job-status-title[statusRole="error"] {
+    border: 2px solid palette(mid);
+    background: palette(alternate-base);
+    padding: 3px 6px;
+}
+
 QLineEdit,
 QComboBox,
 QSpinBox,

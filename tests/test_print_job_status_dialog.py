@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 from PySide6.QtWidgets import QMessageBox
@@ -6,6 +7,32 @@ from geoworkbench.printing.print_job import PrintOutputFormat
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui import print_job_status_dialog as status_dialog_module
 from geoworkbench.ui.print_job_status_dialog import PrintJobStatusDialog
+
+
+
+def test_print_job_status_uses_semantic_palette_roles(qapp, tmp_path) -> None:
+    source = Path("src/geoworkbench/ui/print_job_status_dialog.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert ".setStyleSheet(" not in source
+    assert re.search(r"#[0-9a-fA-F]{3,8}\b", source) is None
+
+    target = tmp_path / "status.pdf"
+    dialog = PrintJobStatusDialog(
+        language=AppLanguage.EN,
+        output_format=PrintOutputFormat.PDF,
+        target=target,
+    )
+    assert dialog.status_label.property("statusRole") == "working"
+
+    target.write_bytes(b"%PDF-1.7\n")
+    dialog.mark_ready(page_count=1, paths=(target,))
+    assert dialog.status_label.property("statusRole") == "success"
+
+    dialog.mark_failed("render failed")
+    assert dialog.status_label.property("statusRole") == "error"
+    dialog.close()
 
 
 def test_file_status_only_enables_open_after_result_exists(qapp, tmp_path) -> None:
