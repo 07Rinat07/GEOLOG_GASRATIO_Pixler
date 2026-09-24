@@ -6,7 +6,7 @@
 ## Unreleased
 - UI: application-level стиль больше не переопределяет глобальную `QPalette` ради tooltip; tooltip и read-only поля используют активные palette roles, а `secondary` закреплён как явная semantic button role.
 - WITS0: добавлен изолированный RSS benchmark для 1×/10× preview window; проверяется прирост памяти и размеры retained Dataset/session, результат выводится в JSON для сравнения на одном runner.
-- WITS0: добавлен regression-сценарий на 10 окон preview (200 кадров): после вытеснения и compaction сравниваются SHA-256 числовых рядов live и indexed raw replay. RSS baseline остаётся открытым до измерения на поддерживаемом окружении.
+- WITS0: добавлен regression-сценарий на 10 окон preview (200 кадров): после вытеснения и compaction сравниваются SHA-256 числовых рядов live и indexed raw replay. RSS масштабирование проверяется отдельным Windows gate с сохранённым baseline.
 - WITS0: усечённый LIVE PREVIEW теперь разрешается явным операторским выбором: полный indexed raw replay либо accepted retained boundary; выбранная стратегия/start/end сохраняются в record provenance, а live handoff подавляет уже replay-покрытые queued frames без дублей.
 - WITS0: добавлен потоковый raw replay для явной acquisition boundary: `.wits`/`.chunks.jsonl` проверяются fail-closed по offset/timestamp/connection ID, replay использует тот же `Wits0StreamProcessor`, поддерживает parser warm-up до более поздней принятой границы и сохраняет raw SHA-256/source segment provenance в persistent records.
 - Reports/UI: добавлен shared adaptive application style и единый professional Report Visual System; печатный wordmark стандартизирован как **Geolog GASRATIO&Pixler** для PDF, Masterlog и Office-экспорта.
