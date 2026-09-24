@@ -307,6 +307,10 @@ def paint_masterlog(
         visual = modern_oilfield_report_profile()
         font = QFont()
         _set_scaled_font_points(painter, font, 6.5)
+        # Keep footer text as a real PDF text object so the canonical brand and
+        # page label remain searchable/copyable. The rest of the Masterlog may
+        # still use outline rendering for geometry stability at print scale.
+        font.setStyleStrategy(QFont.StyleStrategy.PreferDefault)
         painter.setFont(font)
         painter.setPen(QColor(visual.palette.text_muted))
         footer_y = size.height() - 5.0
@@ -438,7 +442,7 @@ def export_masterlog_pdf(
         writer.setPageMargins(QMarginsF(0.0, 0.0, 0.0, 0.0), QPageLayout.Unit.Millimeter)
         writer.setResolution(300)
         writer.setTitle(template.name)
-        writer.setCreator("GEOLOG GASRATIO@Pixler")
+        writer.setCreator(REPORT_BRAND_WORDMARK)
         painter = QPainter()
         if not painter.begin(writer):
             raise MasterlogRenderError("Не удалось запустить masterlog PDF renderer")
