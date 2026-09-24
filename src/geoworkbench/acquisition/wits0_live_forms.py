@@ -20,6 +20,9 @@ class Wits0LiveFormDefinition:
     title_en: str
     channel_keys: tuple[str, ...]
     custom: bool = False
+    description_ru: str = ""
+    description_kk: str = ""
+    description_en: str = ""
 
     def title(self, language: object) -> str:
         code = str(getattr(language, "value", language)).strip().casefold()
@@ -29,7 +32,13 @@ class Wits0LiveFormDefinition:
             return self.title_en
         return self.title_ru
 
-
+    def description(self, language: object) -> str:
+        code = str(getattr(language, "value", language)).strip().casefold()
+        if code == "kk":
+            return self.description_kk
+        if code == "en":
+            return self.description_en
+        return self.description_ru
 
 
 @dataclass(frozen=True, slots=True)
@@ -233,6 +242,9 @@ _LIVE_PANELS: tuple[Wits0LivePanelDefinition, ...] = (
         "Ыдыстар",
         "Pits",
         _PITS,
+        description_ru="Контроль суммарного и отдельных объёмов ёмкостей.",
+        description_kk="Жалпы және жеке ыдыс көлемдерін бақылау.",
+        description_en="Monitor total and individual pit volumes.",
     ),
     Wits0LivePanelDefinition(
         "gas_total",
@@ -276,6 +288,9 @@ _LIVE_FORMS: tuple[Wits0LiveFormDefinition, ...] = (
         "Әмбебап WITS",
         "Universal WITS",
         _DEPTH_MOTION + _MECHANICS + _HYDRAULICS + _PITS + _GAS,
+        description_ru="Общий обзор буровой: глубины, механика, гидравлика, ёмкости и газ.",
+        description_kk="Бұрғылау қондырғысының жалпы көрінісі: тереңдік, механика, гидравлика, ыдыстар және газ.",
+        description_en="Overall rig view: depth, mechanics, hydraulics, pits and gas.",
     ),
     Wits0LiveFormDefinition(
         "drilling",
@@ -283,6 +298,9 @@ _LIVE_FORMS: tuple[Wits0LiveFormDefinition, ...] = (
         "Бұрғылау және механика",
         "Drilling and mechanics",
         _DEPTH_MOTION + _MECHANICS,
+        description_ru="Проходка, положение талевого блока, нагрузки, обороты и крутящий момент.",
+        description_kk="Өту, таль блогының орны, жүктемелер, айналым және айналу моменті.",
+        description_en="ROP, block position, loads, rotary speed and torque.",
     ),
     Wits0LiveFormDefinition(
         "hydraulics",
@@ -290,6 +308,9 @@ _LIVE_FORMS: tuple[Wits0LiveFormDefinition, ...] = (
         "Сорғылар және ерітінді",
         "Pumps and mud",
         _HYDRAULICS,
+        description_ru="Давление, насосы, расходы, плотность и температура бурового раствора.",
+        description_kk="Қысым, сорғылар, шығын, бұрғылау ерітіндісінің тығыздығы мен температурасы.",
+        description_en="Pressure, pumps, flow, mud density and mud temperature.",
     ),
     Wits0LiveFormDefinition(
         "pits",
@@ -304,6 +325,9 @@ _LIVE_FORMS: tuple[Wits0LiveFormDefinition, ...] = (
         "C1–C5 газы",
         "Gas C1–C5",
         _GAS,
+        description_ru="Общий газ и компонентный состав C1–C5, CO2 и H2S при наличии каналов.",
+        description_kk="Арналар бар болса, жалпы газ және C1–C5, CO2, H2S компоненттері.",
+        description_en="Total gas and C1–C5, CO2 and H2S components when available.",
     ),
     Wits0LiveFormDefinition(
         CUSTOM_LIVE_FORM_ID,
@@ -312,6 +336,9 @@ _LIVE_FORMS: tuple[Wits0LiveFormDefinition, ...] = (
         "Custom",
         (),
         custom=True,
+        description_ru="Ручной выбор любых доступных каналов под текущую задачу.",
+        description_kk="Ағымдағы міндет үшін қолжетімді арналарды қолмен таңдау.",
+        description_en="Manually choose any available channels for the current task.",
     ),
 )
 
