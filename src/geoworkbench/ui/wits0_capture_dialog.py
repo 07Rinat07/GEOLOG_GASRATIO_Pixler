@@ -1650,6 +1650,9 @@ def _operator_help_document(language: AppLanguage) -> str:
 3. Нажмите «Запустить захват». Raw-байты сохраняются независимо от parser и Import Review.
 4. Если данные приходят, Monitor показывает LIVE PREVIEW. Пауза просмотра не останавливает приём.
 5. После проверки mapping выполните Import Review и при необходимости начните постоянную сессию.
+   Если LIVE PREVIEW уже усечён, предпочтительно восстановите доступную историю из raw.
+   Более позднюю retained-границу выбирайте только осознанно: ранние кадры не попадут в Dataset,
+   но исходный raw останется на диске.
 6. Форму можно менять: добавлять каналы, менять ось/окно, затем «Сохранить форму» или «Сбросить».
 7. «На весь экран» оставляет монитор операторским экраном; возврат не перезапускает acquisition.
 
@@ -1673,6 +1676,9 @@ def _operator_help_document(language: AppLanguage) -> str:
 3. Қабылдауды іске қосыңыз. Raw байттар parser және Import Review-дан тәуелсіз сақталады.
 4. Дерек келсе Monitor LIVE PREVIEW көрсетеді. Pause-view қабылдауды тоқтатпайды.
 5. Mapping тексерілгеннен кейін Import Review және қажет болса тұрақты сессияны бастаңыз.
+   LIVE PREVIEW қысқартылған болса, қолжетімді тарихты raw арқылы қалпына келтіру ұсынылады.
+   Кейінгі retained шекараны тек саналы түрде таңдаңыз: ерте кадрлар Dataset-ке түспейді,
+   бірақ бастапқы raw дискіде қалады.
 6. Пішінге арналар қосып/алып тастап, ось/терезені өзгертіп, сақтауға немесе reset жасауға болады.
 7. Full-screen режим acquisition-ды қайта іске қоспай операторлық монитор береді.
 
@@ -1692,6 +1698,9 @@ def _operator_help_document(language: AppLanguage) -> str:
 3. Start capture. Raw bytes are preserved independently from parsing and Import Review.
 4. When usable frames arrive, Monitor shows LIVE PREVIEW. Pause-view does not stop intake.
 5. Review mapping, complete Import Review, then start persistent acquisition if required.
+   If LIVE PREVIEW is already truncated, prefer restoring the available history from raw.
+   Accept a later retained boundary only deliberately: earlier frames will stay out of the Dataset,
+   while the original raw remains on disk.
 6. Edit any form by adding/removing channels and changing axis/history; Save form or Reset.
 7. Full screen turns the live view into an operator display without rebuilding acquisition.
 
