@@ -97,6 +97,9 @@ def test_wits0_capture_requires_explicit_strategy_for_truncated_preview() -> Non
     assert poll.index("_frame_is_covered_by_raw_replay") < poll.index(
         "runtime.submit_frame(event.parsed_frame)"
     )
+    assert "record_source_tags=self._boundary_source_tags(" in start
+    assert "def _restored_boundary_source_tags(" in source
+    assert "record_source_tags=self._restored_boundary_source_tags(session)" in source
 
 
 def test_wits0_capture_ui_exposes_reliability_and_restart_recovery_controls() -> None:
