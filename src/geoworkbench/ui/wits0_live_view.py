@@ -299,17 +299,9 @@ class Wits0LiveViewWidget(QWidget):
         self._populate_axes()
         self._populate_curves()
         if previous_state is not None:
+            # Preserve in-session edits while LIVE PREVIEW is rebound to the reviewed
+            # persistent runtime. Explicit "Save form" controls cross-session persistence.
             self.apply_workspace_state(previous_state)
-            if previous_form_id != CUSTOM_LIVE_FORM_ID:
-                form_index = self.form_combo.findData(previous_form_id)
-                if form_index >= 0:
-                    self.form_combo.blockSignals(True)
-                    self.form_combo.setCurrentIndex(form_index)
-                    self.form_combo.blockSignals(False)
-                    self._apply_live_form_selection()
-                    self._view.set_selected_curves(self._selected_curve_ids())
-                    self._last_revision = None
-                    self.refresh(force=True)
         else:
             self._apply_live_form_selection()
             self.refresh(force=True)
