@@ -45,6 +45,29 @@ def _frame(
     return "\r\n".join(lines).encode("ascii")
 
 
+def _record_frame(
+    record: int,
+    sequence: int,
+    *,
+    time_value: str,
+    fields: tuple[str, ...],
+) -> bytes:
+    return "\r\n".join(
+        (
+            "&&",
+            f"{record:02d}01SG-8",
+            f"{record:02d}0201",
+            f"{record:02d}03{record}",
+            f"{record:02d}04{sequence}",
+            f"{record:02d}05260727",
+            f"{record:02d}06{time_value}",
+            f"{record:02d}070",
+            *fields,
+            "!!",
+        )
+    ).encode("ascii")
+
+
 def _runtime_with_frames(
     raw_frames: tuple[bytes, ...],
     *,
@@ -136,6 +159,87 @@ def test_current_values_keep_last_finite_sample_and_mark_missing_latest_row() ->
     assert current.sample_row_index == 0
     assert current.latest_row_index == 1
     assert current.age_rows == 1
+    assert "missing" in current.quality_codes
+
+
+def test_current_value_ignores_newer_rows_from_other_wits_records() -> None:
+    runtime, _frames = _runtime_with_frames(
+        (
+            _record_frame(
+                1,
+                1,
+                time_value="0315450",
+                fields=("01105550.73",),
+            ),
+            _record_frame(
+                11,
+                1,
+                time_value="0315460",
+                fields=("111521.8",),
+            ),
+        )
+    )
+    depth_id = _curve_id(runtime, "0110")
+    view = AcquisitionLiveView(
+        runtime.controller.dataset,
+        runtime.session,
+        config=AcquisitionLiveViewConfig(stale_after_seconds=10.0),
+    )
+
+    snapshot = view.snapshot(
+        curve_ids=(depth_id,),
+        now=datetime(2026, 7, 27, 3, 15, 47, tzinfo=timezone.utc),
+    )
+    current = snapshot.current_values[0]
+
+    assert current.value == 5550.73
+    assert current.quality is AcquisitionLiveQuality.GOOD
+    assert current.sample_row_index == 0
+    assert current.latest_row_index == 1
+    assert current.age_rows == 1
+    assert "missing" not in current.quality_codes
+
+
+def test_current_value_marks_missing_on_newer_row_from_same_wits_record() -> None:
+    runtime, _frames = _runtime_with_frames(
+        (
+            _record_frame(
+                1,
+                1,
+                time_value="0315450",
+                fields=("01105550.73",),
+            ),
+            _record_frame(
+                11,
+                1,
+                time_value="0315460",
+                fields=("111521.8",),
+            ),
+            _record_frame(
+                1,
+                2,
+                time_value="0315470",
+                fields=("011255.0",),
+            ),
+        )
+    )
+    depth_id = _curve_id(runtime, "0110")
+    view = AcquisitionLiveView(
+        runtime.controller.dataset,
+        runtime.session,
+        config=AcquisitionLiveViewConfig(stale_after_seconds=60.0),
+    )
+
+    snapshot = view.snapshot(
+        curve_ids=(depth_id,),
+        now=datetime(2026, 7, 27, 3, 15, 48, tzinfo=timezone.utc),
+    )
+    current = snapshot.current_values[0]
+
+    assert current.value == 5550.73
+    assert current.quality is AcquisitionLiveQuality.MISSING
+    assert current.sample_row_index == 0
+    assert current.latest_row_index == 2
     assert "missing" in current.quality_codes
 
 
