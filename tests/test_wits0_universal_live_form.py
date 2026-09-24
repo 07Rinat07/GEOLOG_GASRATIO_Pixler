@@ -6,6 +6,8 @@ from geoworkbench.acquisition.wits0_live_forms import (
     CUSTOM_LIVE_FORM_ID,
     live_channel_key,
     live_form_definitions,
+    live_panel_definitions,
+    live_panel_key,
     select_live_curve_ids,
 )
 from geoworkbench.catalogs.sensors import default_sensor_catalog
@@ -56,6 +58,31 @@ def test_live_form_catalog_has_operator_presets() -> None:
     assert "hole_depth" in universal.channel_keys
     assert "pit_8" in universal.channel_keys
     assert "nc5" in universal.channel_keys
+
+
+def test_operator_dashboard_separates_incompatible_engineering_scales() -> None:
+    panels = {item.panel_id: item for item in live_panel_definitions()}
+
+    assert live_panel_key("DEPTMEAS") == "depth"
+    assert live_panel_key("ROPA") == "rate"
+    assert live_panel_key("HKLA") == "load"
+    assert live_panel_key("RPMA") == "rotation"
+    assert live_panel_key("TORQA") == "torque"
+    assert live_panel_key("SPPA") == "pressure"
+    assert live_panel_key("SPM1") == "pumps"
+    assert live_panel_key("MFIA") == "flow"
+    assert live_panel_key("MDIA") == "mud_density"
+    assert live_panel_key("MTIA") == "mud_temperature"
+    assert live_panel_key("TVOLACT") == "pits"
+    assert live_panel_key("GASA") == "gas_total"
+    assert live_panel_key("METHA") == "gas_components"
+
+    assert "rpm" not in panels["load"].channel_keys
+    assert "torque" not in panels["rotation"].channel_keys
+    assert "total_gas" not in panels["gas_components"].channel_keys
+    assert len({key for panel in panels.values() for key in panel.channel_keys}) == sum(
+        len(panel.channel_keys) for panel in panels.values()
+    )
 
 
 def test_sensor_catalog_maps_standard_wits_names_to_geosight_semantics() -> None:

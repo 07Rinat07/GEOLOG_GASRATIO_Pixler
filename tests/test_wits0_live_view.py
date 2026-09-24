@@ -23,7 +23,8 @@ def test_live_view_uses_read_only_projection_and_shared_downsampling() -> None:
     assert "def resume(" in service
     assert "def set_history_window(" in service
     assert "class Wits0LiveViewWidget" in widget
-    assert "AcquisitionLiveMarkerKind" in widget
+    assert "Wits0OperatorDashboard" in widget
+    assert "self.dashboard.render_snapshot(snapshot)" in widget
     assert "Wits0LiveViewWidget" in capture
     assert "self.live_view.bind_runtime(runtime)" in capture
     assert "self.live_view.bind_runtime(preview_runtime, preview=True)" in capture
@@ -55,6 +56,7 @@ def test_wits0_live_view_constructs_offscreen(monkeypatch: pytest.MonkeyPatch) -
         assert widget.state_label.text()
         assert not widget.pause_button.isEnabled()
         assert widget.values_table.columnCount() == 4
+        assert widget.dashboard.panels
     finally:
         widget.close()
         app.processEvents()
