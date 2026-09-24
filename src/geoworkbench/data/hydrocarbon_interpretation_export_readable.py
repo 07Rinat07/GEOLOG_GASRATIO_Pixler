@@ -19,6 +19,7 @@ from geoworkbench.data.spreadsheet_safety import (
     protect_spreadsheet_value,
 )
 from geoworkbench.domain.models import Dataset
+from geoworkbench.printing.hydrocarbon_report_i18n import hydrocarbon_report_labels
 from geoworkbench.printing.report_visual_system import REPORT_BRAND_WORDMARK
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonCandidateInterval,
@@ -41,38 +42,13 @@ from geoworkbench.services.localization import AppLanguage
 
 
 _EXCEL_MAX_ROWS = 1_048_576
-_HEADERS = (
-    "№",
-    "Кровля",
-    "Подошва",
-    "Мощность",
-    "Ед.",
-    "Статус УВ-пласта",
-    "Предварительная интерпретация",
-    "Сила аномалии",
-    "Исходный общий газ / единица",
-    "Мин исходного газа",
-    "Среднее исходного газа",
-    "Макс исходного газа",
-    "Нормализованный газ / единица",
-    "Мин нормализованного газа",
-    "Среднее нормализованного газа",
-    "Макс нормализованного газа",
-    "Max robust z",
-    "Абсолютный газ по компонентам: мин / среднее / макс",
-    "Haworth / Pixler",
-    "DEXP: мин / среднее / макс",
-    "ЛБА и сопоставление",
-    "Решение геолога / комментарий",
-    "Основание",
-)
-
 
 def export_readable_hydrocarbon_interpretation_xlsx(
     report: HydrocarbonInterpretationReport,
     dataset: Dataset,
     target: str | Path,
     *,
+    language: AppLanguage = AppLanguage.RU,
     overwrite: bool = False,
     progress: Callable[[str, int, int], None] | None = None,
 ) -> Path:
@@ -102,17 +78,23 @@ def export_readable_hydrocarbon_interpretation_xlsx(
         raise FileExistsError(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
 
-    _notify(progress, "Подготовка структуры Excel", 0, 100)
+    labels = hydrocarbon_report_labels(language)
+    _notify(progress, labels.progress_prepare, 0, 100)
     workbook = Workbook()
     try:
         main = workbook.active
-        main.title = "Интерпретация УВ"
-        _write_main_sheet(main, report, dataset)
-        _notify(progress, "Интервалы и статистика готовы", 15, 100)
-        _write_methods_sheet(workbook, report)
-        _write_opus_gasomer_sheet(workbook, report)
-        _write_whole_well_sheet(workbook, dataset, progress=progress)
-        _notify(progress, "Сохранение Excel-файла", 95, 100)
+        main.title = labels.sheet_interpretation
+        _write_main_sheet(main, report, dataset, language)
+        _notify(progress, labels.progress_intervals, 15, 100)
+        _write_methods_sheet(workbook, report, language)
+        _write_opus_gasomer_sheet(workbook, report, language)
+        _write_whole_well_sheet(
+            workbook,
+            dataset,
+            language=language,
+            progress=progress,
+        )
+        _notify(progress, labels.progress_save, 95, 100)
 
         descriptor, temporary_name = tempfile.mkstemp(
             prefix=f".{destination.stem}-",
@@ -124,7 +106,7 @@ def export_readable_hydrocarbon_interpretation_xlsx(
         try:
             workbook.save(temporary)
             os.replace(temporary, destination)
-            _notify(progress, "Excel-отчёт готов", 100, 100)
+            _notify(progress, labels.progress_ready, 100, 100)
         except Exception as exc:
             temporary.unlink(missing_ok=True)
             if isinstance(exc, (FileExistsError, HydrocarbonInterpretationExportError)):
@@ -137,13 +119,19 @@ def export_readable_hydrocarbon_interpretation_xlsx(
     return destination
 
 
-def _write_main_sheet(sheet, report: HydrocarbonInterpretationReport, dataset: Dataset) -> None:
+def _write_main_sheet(
+    sheet,
+    report: HydrocarbonInterpretationReport,
+    dataset: Dataset,
+    language: AppLanguage,
+) -> None:
+    labels = hydrocarbon_report_labels(language)
     sheet.sheet_view.showGridLines = False
     sheet.merge_cells("A1:W1")
     report_title = (
-        "Дополнительный отчёт ОПУС C1-C5 по всей скважине"
+        labels.title_opus
         if report.report_profile == "opus"
-        else "Сводная интерпретация газового каротажа и УВ-интервалов"
+        else labels.title_standard
     )
     sheet["A1"] = report_title
     sheet.oddHeader.left.text = REPORT_BRAND_WORDMARK
@@ -154,18 +142,18 @@ def _write_main_sheet(sheet, report: HydrocarbonInterpretationReport, dataset: D
     sheet.row_dimensions[1].height = 28
 
     metadata = (
-        ("Проект", report.project_name, "Скважина", report.well_name),
-        ("Набор данных", report.dataset_name, "Сформирован", report.generated_at),
+        (labels.project, report.project_name, labels.well, report.well_name),
+        (labels.dataset, report.dataset_name, labels.generated, report.generated_at),
         (
-            "Основная газовая кривая",
+            labels.primary_gas_curve,
             report.primary_mnemonic or "-",
-            "Порог robust z",
+            labels.robust_z_threshold,
             report.threshold,
         ),
         (
-            "Перспективных УВ-интервалов",
+            labels.prospective_count,
             len(report.candidates),
-            "Подтверждено геологом",
+            labels.confirmed_count,
             len(report.manual_intervals),
         ),
     )
@@ -180,22 +168,18 @@ def _write_main_sheet(sheet, report: HydrocarbonInterpretationReport, dataset: D
         sheet.merge_cells(start_row=row_index, start_column=6, end_row=row_index, end_column=9)
 
     sheet.merge_cells("A7:W7")
-    sheet["A7"] = (
-        "Примечание: 0 — реальное нулевое измерение. Пустая ячейка означает, что "
-        "подходящая кривая или корректные отсчёты отсутствуют. Для каждого интервала "
-        "приведены минимум, среднее и максимум."
-    )
+    sheet["A7"] = labels.note_zero_missing
     sheet["A7"].fill = PatternFill("solid", fgColor="FFF2CC")
     sheet["A7"].font = Font(italic=True, color="7F6000")
     sheet["A7"].alignment = Alignment(wrap_text=True, vertical="center")
     sheet.row_dimensions[7].height = 34
 
     group_specs = (
-        ("A8:H8", "Интервал и интерпретация", "D9EAF7"),
-        ("I8:L8", "Исходный общий газ", "E2F0D9"),
-        ("M8:P8", "Нормализованный газ", "FCE4D6"),
-        ("Q8:Q8", "Аномалия", "E4DFEC"),
-        ("R8:W8", "Абсолютный газ и геологический контроль", "DDEBF7"),
+        ("A8:H8", labels.group_interval, "D9EAF7"),
+        ("I8:L8", labels.group_raw_gas, "E2F0D9"),
+        ("M8:P8", labels.group_normalized_gas, "FCE4D6"),
+        ("Q8:Q8", labels.group_anomaly, "E4DFEC"),
+        ("R8:W8", labels.group_control, "DDEBF7"),
     )
     for range_name, title, color in group_specs:
         if ":" in range_name and range_name.split(":", 1)[0] != range_name.split(":", 1)[1]:
@@ -206,7 +190,7 @@ def _write_main_sheet(sheet, report: HydrocarbonInterpretationReport, dataset: D
         cell.font = Font(bold=True, color="17365D")
         cell.alignment = Alignment(horizontal="center", vertical="center")
 
-    for column, value in enumerate(_HEADERS, start=1):
+    for column, value in enumerate(labels.headers, start=1):
         cell = sheet.cell(9, column, value)
         cell.font = Font(bold=True, color="FFFFFF")
         cell.fill = PatternFill("solid", fgColor="315A7D")
@@ -218,7 +202,16 @@ def _write_main_sheet(sheet, report: HydrocarbonInterpretationReport, dataset: D
     for index, candidate in enumerate(report.candidates, start=1):
         statistics = build_candidate_interval_statistics(dataset, candidate)
         matching_manual = _matching_manual_intervals(report, candidate.top_depth, candidate.bottom_depth)
-        rows.append(_candidate_row(index, report, candidate, statistics, matching_manual))
+        rows.append(
+            _candidate_row(
+                index,
+                report,
+                candidate,
+                statistics,
+                matching_manual,
+                language,
+            )
+        )
         candidate_ranges.append((candidate.top_depth, candidate.bottom_depth))
 
     manual_only = [
@@ -237,7 +230,7 @@ def _write_main_sheet(sheet, report: HydrocarbonInterpretationReport, dataset: D
             item.bottom_depth,
             primary_mnemonic=primary_mnemonic,
         )
-        rows.append(_manual_row(manual_index, report, item, statistics))
+        rows.append(_manual_row(manual_index, report, item, statistics, language))
 
     if not rows:
         rows.append(
@@ -247,10 +240,10 @@ def _write_main_sheet(sheet, report: HydrocarbonInterpretationReport, dataset: D
                 None,
                 None,
                 report.depth_unit,
-                "Перспективные УВ-интервалы не найдены",
-                "Проверьте порог robust z и доступность газовых данных",
+                labels.no_intervals,
+                labels.check_threshold,
                 None,
-                *(None for _ in range(len(_HEADERS) - 8)),
+                *(None for _ in range(len(labels.headers) - 8)),
             )
         )
 
@@ -278,13 +271,13 @@ def _write_main_sheet(sheet, report: HydrocarbonInterpretationReport, dataset: D
     for row_index in range(10, last_row + 1):
         sheet.row_dimensions[row_index].height = 72
         strength = sheet.cell(row_index, 8).value
-        if strength == "высокая":
+        if strength == labels.strength_high:
             sheet.cell(row_index, 8).fill = PatternFill("solid", fgColor="F4CCCC")
-        elif strength == "средняя":
+        elif strength == labels.strength_medium:
             sheet.cell(row_index, 8).fill = PatternFill("solid", fgColor="FCE5CD")
-        elif strength == "низкая":
+        elif strength == labels.strength_low:
             sheet.cell(row_index, 8).fill = PatternFill("solid", fgColor="FFF2CC")
-        if "Подтвержден" in str(sheet.cell(row_index, 6).value or ""):
+        if sheet.cell(row_index, 6).value == labels.status_confirmed:
             sheet.cell(row_index, 6).fill = PatternFill("solid", fgColor="D9EAD3")
 
     for column in (2, 3, 4, 10, 11, 12, 14, 15, 16, 17):
