@@ -37,6 +37,49 @@ def test_entrypoint_does_not_override_global_palette_or_tooltip_style() -> None:
     importlib.util.find_spec("PySide6") is None,
     reason="PySide6 is not installed",
 )
+def test_adaptive_application_style_preserves_dark_application_palette(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtGui import QColor, QPalette
+    from PySide6.QtWidgets import QApplication
+
+    from geoworkbench.ui.application_style import apply_adaptive_application_style
+
+    app = QApplication.instance() or QApplication([])
+    original_style = app.styleSheet()
+    original_palette = app.palette()
+    original_installed = app.property("_geologAdaptiveUiInstalled")
+    dark_palette = QPalette(original_palette)
+    dark_palette.setColor(QPalette.ColorRole.Window, QColor(24, 24, 24))
+    dark_palette.setColor(QPalette.ColorRole.WindowText, QColor(232, 232, 232))
+    dark_palette.setColor(QPalette.ColorRole.Base, QColor(32, 32, 32))
+    dark_palette.setColor(QPalette.ColorRole.Text, QColor(240, 240, 240))
+    app.setPalette(dark_palette)
+    app.setProperty("_geologAdaptiveUiInstalled", False)
+    before = app.palette()
+
+    try:
+        apply_adaptive_application_style(app)
+        after = app.palette()
+
+        for role in (
+            QPalette.ColorRole.Window,
+            QPalette.ColorRole.WindowText,
+            QPalette.ColorRole.Base,
+            QPalette.ColorRole.Text,
+        ):
+            assert after.color(role) == before.color(role)
+    finally:
+        app.setStyleSheet(original_style)
+        app.setPalette(original_palette)
+        app.setProperty("_geologAdaptiveUiInstalled", original_installed)
+
+
+@pytest.mark.skipif(
+    importlib.util.find_spec("PySide6") is None,
+    reason="PySide6 is not installed",
+)
 def test_adaptive_application_style_is_idempotent(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
