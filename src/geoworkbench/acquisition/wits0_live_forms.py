@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+import json
+from typing import Protocol
 
 from geoworkbench.catalogs.sensors import normalize_sensor_key
 
 
 CUSTOM_LIVE_FORM_ID = "custom"
 UNIVERSAL_LIVE_FORM_ID = "universal"
+WITS0_LIVE_FORM_STATE_SCHEMA_VERSION = 1
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,6 +42,104 @@ class Wits0LiveFormDefinition:
         if code == "en":
             return self.description_en
         return self.description_ru
+
+
+@dataclass(frozen=True, slots=True)
+class Wits0SavedLiveFormState:
+    """Persisted operator overrides for one named WITS live form."""
+
+    form_id: str
+    selected_mnemonics: tuple[str, ...] = ()
+    axis_mode: str = "auto"
+    auto_follow: bool = True
+    follow_span: float = 600.0
+    max_points: int = 2_000
+    sidebar_visible: bool = True
+    schema_version: int = WITS0_LIVE_FORM_STATE_SCHEMA_VERSION
+
+    def __post_init__(self) -> None:
+        if not self.form_id.strip():
+            raise ValueError("form_id must not be empty")
+        if self.axis_mode not in {"auto", "time", "depth"}:
+            raise ValueError("Unsupported WITS live-form axis mode")
+        if not isinstance(self.auto_follow, bool) or not isinstance(self.sidebar_visible, bool):
+            raise ValueError("WITS live-form flags must be booleans")
+        if not 0.1 <= float(self.follow_span) <= 100_000.0:
+            raise ValueError("follow_span is outside supported range")
+        if isinstance(self.max_points, bool) or not 100 <= self.max_points <= 20_000:
+            raise ValueError("max_points is outside supported range")
+        if self.schema_version != WITS0_LIVE_FORM_STATE_SCHEMA_VERSION:
+            raise ValueError("Unsupported WITS live-form settings schema")
+        if not all(isinstance(item, str) and item.strip() for item in self.selected_mnemonics):
+            raise ValueError("selected_mnemonics must contain non-empty strings")
+
+
+class _SettingsLike(Protocol):
+    def value(self, key: str, default: object = None) -> object: ...
+    def setValue(self, key: str, value: object) -> None: ...
+    def remove(self, key: str) -> None: ...
+    def sync(self) -> None: ...
+
+
+class Wits0LiveFormSettings:
+    """QSettings-compatible persistence for editable operator forms."""
+
+    def __init__(
+        self,
+        settings: _SettingsLike,
+        *,
+        namespace: str = "wits0/live-forms",
+    ) -> None:
+        self.settings = settings
+        self.namespace = namespace.rstrip("/")
+
+    def load(self, form_id: str) -> Wits0SavedLiveFormState | None:
+        raw = self.settings.value(self._key(form_id), "")
+        if not str(raw).strip():
+            return None
+        try:
+            payload = json.loads(str(raw))
+            if not isinstance(payload, dict):
+                return None
+            selected = payload.get("selected_mnemonics", [])
+            if not isinstance(selected, list) or not all(isinstance(item, str) for item in selected):
+                return None
+            return Wits0SavedLiveFormState(
+                form_id=str(payload.get("form_id", form_id)),
+                selected_mnemonics=tuple(selected),
+                axis_mode=str(payload.get("axis_mode", "auto")),
+                auto_follow=payload.get("auto_follow", True),
+                follow_span=float(payload.get("follow_span", 600.0)),
+                max_points=int(payload.get("max_points", 2_000)),
+                sidebar_visible=payload.get("sidebar_visible", True),
+                schema_version=int(
+                    payload.get(
+                        "schema_version",
+                        WITS0_LIVE_FORM_STATE_SCHEMA_VERSION,
+                    )
+                ),
+            )
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return None
+
+    def save(self, state: Wits0SavedLiveFormState) -> None:
+        self.settings.setValue(
+            self._key(state.form_id),
+            json.dumps(asdict(state), ensure_ascii=False, sort_keys=True),
+        )
+        self.settings.sync()
+
+    def reset(self, form_id: str) -> None:
+        self.settings.remove(self._key(form_id))
+        self.settings.sync()
+
+    def _key(self, form_id: str) -> str:
+        safe = "".join(
+            character if character.isalnum() or character in "-_."
+            else "_"
+            for character in form_id
+        )
+        return f"{self.namespace}/{safe or CUSTOM_LIVE_FORM_ID}"
 
 
 @dataclass(frozen=True, slots=True)
