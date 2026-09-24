@@ -60,6 +60,20 @@ def test_wits0_capture_ui_connects_review_to_bounded_acquisition_runtime() -> No
     assert "def _on_wits0_dataset_changed" in main_source
 
 
+def test_wits0_capture_blocks_persistent_start_before_runtime_when_preview_is_truncated() -> None:
+    source = SOURCE.read_text(encoding="utf-8")
+    start = source[
+        source.index("def _start_acquisition")
+        : source.index("def _flush_acquisition")
+    ]
+
+    assert "self.live_preview.backfill_boundary" in start
+    assert "boundary.truncated" in start
+    assert '"wits0.acquisition_preview_truncated"' in start
+    assert '"wits0.acquisition_preview_truncated_event"' in start
+    assert start.index("boundary.truncated") < start.index("Wits0AcquisitionRuntime(")
+
+
 def test_wits0_capture_ui_exposes_reliability_and_restart_recovery_controls() -> None:
     source = SOURCE.read_text(encoding="utf-8")
 
