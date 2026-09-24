@@ -157,3 +157,127 @@ def test_operator_dashboard_renders_indicators_and_independent_panels(
     finally:
         dashboard.close()
         app.processEvents()
+
+
+
+@pytest.mark.skipif(
+    importlib.util.find_spec("PySide6") is None
+    or importlib.util.find_spec("pyqtgraph") is None,
+    reason="PySide6/pyqtgraph are not installed in the headless test environment",
+)
+def test_operator_dashboard_splits_semantic_panel_when_units_differ(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtWidgets import QApplication
+
+    from geoworkbench.domain.models import IndexRole, IndexType
+    from geoworkbench.services.acquisition_live_view import (
+        AcquisitionCurrentValue,
+        AcquisitionLiveAxisMode,
+        AcquisitionLiveQuality,
+        AcquisitionLiveSeries,
+        AcquisitionLiveSnapshot,
+    )
+    from geoworkbench.services.localization import AppLanguage
+    from geoworkbench.ui.wits0_operator_dashboard import Wits0OperatorDashboard
+
+    app = QApplication.instance() or QApplication([])
+    dashboard = Wits0OperatorDashboard(language=AppLanguage.RU)
+    snapshot = AcquisitionLiveSnapshot(
+        dataset_id="dataset-1",
+        session_id="session-1",
+        axis_mode=AcquisitionLiveAxisMode.TIME,
+        index_id="time",
+        index_type=IndexType.DATETIME,
+        index_role=IndexRole.TIME,
+        index_mnemonic="DATETIME",
+        index_unit=None,
+        axis_is_datetime=True,
+        window_start=1_700_000_000.0,
+        window_end=1_700_000_002.0,
+        auto_follow=True,
+        paused=False,
+        visible_row_count=3,
+        total_row_count=3,
+        source_point_count=6,
+        rendered_point_count=6,
+        current_values=(
+            AcquisitionCurrentValue(
+                curve_id="c1",
+                mnemonic="C1",
+                unit="ppm",
+                value=21.0,
+                quality=AcquisitionLiveQuality.GOOD,
+                quality_codes=(),
+                sample_row_index=2,
+                latest_row_index=2,
+                axis_value=1_700_000_002.0,
+                received_at="2026-09-24T08:00:02Z",
+                source_sequence_no=3,
+                age_rows=0,
+            ),
+            AcquisitionCurrentValue(
+                curve_id="co2",
+                mnemonic="CO2",
+                unit="%",
+                value=0.8,
+                quality=AcquisitionLiveQuality.GOOD,
+                quality_codes=(),
+                sample_row_index=2,
+                latest_row_index=2,
+                axis_value=1_700_000_002.0,
+                received_at="2026-09-24T08:00:02Z",
+                source_sequence_no=3,
+                age_rows=0,
+            ),
+        ),
+        series=(
+            AcquisitionLiveSeries(
+                curve_id="c1",
+                mnemonic="C1",
+                unit="ppm",
+                axis_values=(1_700_000_000.0, 1_700_000_001.0, 1_700_000_002.0),
+                values=(10.0, 15.0, 21.0),
+                source_point_count=3,
+                rendered_point_count=3,
+            ),
+            AcquisitionLiveSeries(
+                curve_id="co2",
+                mnemonic="CO2",
+                unit="%",
+                axis_values=(1_700_000_000.0, 1_700_000_001.0, 1_700_000_002.0),
+                values=(0.5, 0.6, 0.8),
+                source_point_count=3,
+                rendered_point_count=3,
+            ),
+        ),
+        markers=(),
+        revision=(3, 3, False, True, "time"),
+    )
+
+    try:
+        dashboard.render_snapshot(snapshot)
+        app.processEvents()
+
+        base = dashboard.panels["gas_components"]
+        assert not base.box.isHidden()
+        assert len(dashboard._unit_panels) == 1
+        extra = next(iter(dashboard._unit_panels.values()))
+        assert not extra.box.isHidden()
+        assert "[ppm]" in base.box.title()
+        assert "[%]" in extra.box.title()
+
+        base_items = base.plot.getPlotItem().listDataItems()
+        extra_items = extra.plot.getPlotItem().listDataItems()
+        assert len(base_items) == 1
+        assert len(extra_items) == 1
+        assert base_items[0].name().startswith("C1")
+        assert extra_items[0].name().startswith("CO2")
+
+        base_range = base.plot.viewRange()[0]
+        extra_range = extra.plot.viewRange()[0]
+        assert base_range != extra_range
+    finally:
+        dashboard.close()
+        app.processEvents()
