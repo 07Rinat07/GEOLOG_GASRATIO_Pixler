@@ -5,7 +5,6 @@ import json
 from pathlib import Path
 
 import numpy as np
-
 import pytest
 
 from geoworkbench.acquisition import (
@@ -196,6 +195,23 @@ def test_long_preview_eviction_replays_to_same_dataset_as_live(tmp_path: Path) -
     assert result.frames_accepted == 200
     assert replayed.session.last_sequence == live.session.last_sequence == 200
     assert _dataset_digest(replayed) == _dataset_digest(live)
+    assert preview.runtime is not None
+    preview_dataset = preview.runtime.controller.dataset
+    replay_dataset = replayed.controller.dataset
+    np.testing.assert_array_equal(
+        preview_dataset.active_index.values[-20:], replay_dataset.active_index.values[-20:]
+    )
+    preview_curves = {
+        curve.metadata.provenance: curve.values[-20:]
+        for curve in preview_dataset.curves.values()
+    }
+    replay_curves = {
+        curve.metadata.provenance: curve.values[-20:]
+        for curve in replay_dataset.curves.values()
+    }
+    assert preview_curves.keys() == replay_curves.keys()
+    for provenance, values in preview_curves.items():
+        np.testing.assert_array_equal(values, replay_curves[provenance])
 
 
 def test_later_boundary_warms_parser_but_persists_only_selected_tail(
