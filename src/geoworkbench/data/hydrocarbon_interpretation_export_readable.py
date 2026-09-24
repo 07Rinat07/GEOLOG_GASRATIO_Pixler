@@ -19,6 +19,7 @@ from geoworkbench.data.spreadsheet_safety import (
     protect_spreadsheet_value,
 )
 from geoworkbench.domain.models import Dataset
+from geoworkbench.printing.report_visual_system import REPORT_BRAND_WORDMARK
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonCandidateInterval,
     HydrocarbonInterpretationReport,
@@ -139,11 +140,12 @@ def export_readable_hydrocarbon_interpretation_xlsx(
 def _write_main_sheet(sheet, report: HydrocarbonInterpretationReport, dataset: Dataset) -> None:
     sheet.sheet_view.showGridLines = False
     sheet.merge_cells("A1:W1")
-    sheet["A1"] = (
+    report_title = (
         "Дополнительный отчёт ОПУС C1-C5 по всей скважине"
         if report.report_profile == "opus"
         else "Сводная интерпретация газового каротажа и УВ-интервалов"
     )
+    sheet["A1"] = f"{REPORT_BRAND_WORDMARK} — {report_title}"
     sheet["A1"].font = Font(size=16, bold=True, color="FFFFFF")
     sheet["A1"].fill = PatternFill("solid", fgColor="17365D")
     sheet["A1"].alignment = Alignment(horizontal="center", vertical="center")
