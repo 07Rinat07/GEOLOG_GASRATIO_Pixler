@@ -22,6 +22,22 @@ from geoworkbench.services.wits0_import_review import (
 )
 
 
+class Wits0PreviewHistoryTruncatedError(RuntimeError):
+    """Raised when persistent backfill would silently omit evicted preview frames."""
+
+
+@dataclass(frozen=True, slots=True)
+class Wits0PreviewBackfillBoundary:
+    buffered_frames: int
+    evicted_frames: int
+    earliest_received_at: str | None
+    latest_received_at: str | None
+
+    @property
+    def truncated(self) -> bool:
+        return self.evicted_frames > 0
+
+
 @dataclass(frozen=True, slots=True)
 class Wits0LivePreviewConfig:
     """Limits for the non-persistent WITS0 preview projection."""
@@ -109,6 +125,17 @@ class Wits0LivePreview:
     def history_is_truncated(self) -> bool:
         return self._evicted_frame_count > 0
 
+    @property
+    def backfill_boundary(self) -> Wits0PreviewBackfillBoundary:
+        first = self._frames[0] if self._frames else None
+        last = self._frames[-1] if self._frames else None
+        return Wits0PreviewBackfillBoundary(
+            buffered_frames=len(self._frames),
+            evicted_frames=self._evicted_frame_count,
+            earliest_received_at=first.received_at if first is not None else None,
+            latest_received_at=last.received_at if last is not None else None,
+        )
+
     def observe(self, frame: Wits0ParsedFrame) -> Wits0AcquisitionRuntime | None:
         """Observe one frame and return the current renderable preview runtime."""
 
@@ -140,8 +167,23 @@ class Wits0LivePreview:
         self.discovery.observe(frame)
 
     def backfill(self, runtime: Wits0AcquisitionRuntime) -> int:
-        """Submit buffered preview frames through a reviewed persistent runtime."""
+        """Submit the complete retained preview window through a reviewed runtime.
 
+        This method is intentionally fail-closed once any preview frames have been
+        evicted. The caller must replay the raw capture or explicitly establish a
+        later persistent acquisition boundary in a dedicated workflow instead of
+        silently treating the retained in-memory tail as complete history.
+        """
+
+        boundary = self.backfill_boundary
+        if boundary.truncated:
+            raise Wits0PreviewHistoryTruncatedError(
+                "WITS0 preview history is truncated: "
+                f"evicted={boundary.evicted_frames}, "
+                f"retained={boundary.buffered_frames}, "
+                f"earliest={boundary.earliest_received_at or 'unknown'}, "
+                f"latest={boundary.latest_received_at or 'unknown'}"
+            )
         results = runtime.submit_frames(tuple(self._frames))
         runtime.flush()
         return sum(result.accepted for result in results)
@@ -228,3 +270,11 @@ class Wits0LivePreview:
         """Return an immutable iteration boundary for diagnostics and tests."""
 
         return tuple(self._frames)
+
+
+__all__ = [
+    "Wits0LivePreview",
+    "Wits0LivePreviewConfig",
+    "Wits0PreviewBackfillBoundary",
+    "Wits0PreviewHistoryTruncatedError",
+]
