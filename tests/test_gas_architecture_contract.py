@@ -45,12 +45,16 @@ def test_project_controller_uses_versioned_conditioned_calculation_boundary() ->
     )
     session = Path("src/geoworkbench/project/session.py").read_text(encoding="utf-8")
 
-    assert "calculate_conditioned_ratios(dataset.depth, inputs)" in controller
-    assert "CONDITIONED_GAS_PROVENANCE" in controller
+    assert "default_gas_ratio_profile()" in controller
+    assert "profile=selected_profile" in controller
+    assert "calculation.profile.provenance" in controller
+    assert "CONDITIONED_GAS_PROVENANCE" not in controller
     assert "calculate_basic_ratios(inputs)" not in controller
     assert "curve.metadata = replace(" in controller
+    assert "GAS_RATIO_PROFILE_ID" in controller
+    assert "GAS_CONDITIONING_POLICY_VERSION" in controller
     assert "GasRatioProjectController(self).calculate_basic_ratios()" in session
-    assert "calculate_conditioned_ratios(dataset.depth, inputs)" not in session
+    assert "calculate_conditioned_ratios(" not in session
 
 
 def test_canonical_docs_track_gas_architecture_and_testing() -> None:
