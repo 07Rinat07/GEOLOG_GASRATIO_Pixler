@@ -137,7 +137,11 @@ class Wits0GasContextClassifier:
 
         numeric = float(value)
         baseline_ready = background is not None and threshold is not None
-        elevated = bool(baseline_ready and numeric > threshold)
+        elevated = (
+            numeric > threshold
+            if background is not None and threshold is not None
+            else False
+        )
         ratio = (
             numeric / background
             if background is not None and background > np.finfo(np.float64).eps
