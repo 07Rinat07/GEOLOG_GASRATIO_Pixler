@@ -44,6 +44,18 @@ def test_main_window_exposes_modeless_wits0_capture_action() -> None:
     assert "dialog.exec()" not in source[source.index("def open_wits0_capture") : source.index("def open_witsml_inventory")]
 
 
+def test_wits0_capture_exposes_operator_help_and_fullscreen_monitor() -> None:
+    source = SOURCE.read_text(encoding="utf-8")
+
+    assert "self.help_text = QPlainTextEdit(self)" in source
+    assert "_operator_help_document(language)" in source
+    assert "def _apply_connection_tooltips(" in source
+    assert "self.live_view.fullScreenRequested.connect(self._set_live_fullscreen)" in source
+    assert "def _set_live_fullscreen(" in source
+    assert "showFullScreen()" in source
+    assert "def _restore_live_view_from_fullscreen(" in source
+
+
 def test_wits0_capture_ui_connects_review_to_bounded_acquisition_runtime() -> None:
     source = SOURCE.read_text(encoding="utf-8")
     main_source = MAIN_WINDOW.read_text(encoding="utf-8")
@@ -141,6 +153,11 @@ def test_wits0_capture_dialog_constructs_offscreen(monkeypatch) -> None:  # type
         assert dialog.windowTitle()
         assert dialog.start_button.isEnabled()
         assert not dialog.stop_button.isEnabled()
+        assert dialog.help_text.isReadOnly()
+        assert dialog.help_text.toPlainText()
+        assert dialog.host_edit.toolTip()
+        assert dialog.port_spin.toolTip()
+        assert dialog.raw_directory_edit.toolTip()
         dialog.field_preset_button.click()
         assert dialog.mode_combo.currentData() == "tcp_client"
         assert dialog.host_edit.text() == "192.168.0.100"
