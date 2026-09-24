@@ -61,6 +61,10 @@ from PySide6.QtWidgets import (
 
 from geoworkbench import __version__
 from geoworkbench.app.context import ApplicationContext
+from geoworkbench.calculations.calculation_profiles import (
+    GasRatioCalculationProfile,
+    available_gas_ratio_profiles,
+)
 from geoworkbench.calculations.controller import FormulaExecutionController
 from geoworkbench.catalogs.sensors import SensorCatalog, set_active_sensor_catalog
 from geoworkbench.calculations.custom_formula import formula_inputs
@@ -7040,9 +7044,40 @@ class MainWindow(QMainWindow):
                 result.append(str(item.data(Qt.ItemDataRole.UserRole)))
         return result
 
+    def _select_gas_ratio_profile(self) -> GasRatioCalculationProfile | None:
+        profiles = available_gas_ratio_profiles()
+        if not profiles:
+            raise RuntimeError(self._t("ratio.no_profiles"))
+        if len(profiles) == 1:
+            return profiles[0]
+
+        labels = [
+            f"{profile.display_name} ({profile.version})"
+            for profile in profiles
+        ]
+        selected, accepted = QInputDialog.getItem(
+            self,
+            self._t("ratio.title"),
+            self._t("ratio.profile_prompt"),
+            labels,
+            0,
+            False,
+        )
+        if not accepted:
+            return None
+        return profiles[labels.index(selected)]
+
     def calculate_ratios(self) -> None:
         try:
-            outcome = self.gas_ratio_project_controller.calculate_basic_ratios()
+            profile = self._select_gas_ratio_profile()
+        except RuntimeError as exc:
+            QMessageBox.warning(self, self._t("ratio.title"), str(exc))
+            return
+        if profile is None:
+            return
+
+        try:
+            outcome = self.gas_ratio_project_controller.calculate_basic_ratios(profile)
         except ParameterResolutionError as exc:
             key = f"ratio.parameter_{exc.code}"
             error = self._t(key, **exc.values) if key in self.localizer.catalog else str(exc)
