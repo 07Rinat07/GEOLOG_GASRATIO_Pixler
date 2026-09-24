@@ -43,10 +43,10 @@ release plan и временные планы в `docs` не создаются.
 |---|---|---|---|
 | 1 | WITS-MEM-01 | Закрыть raw replay/явную acquisition boundary и RSS baseline; prerequisite для полной полевой приёмки | Разработчик / в работе |
 | 2 | UI-SYS-01 | Единый адаптивный UI foundation: кнопки, поля, toolbar, focus/hover/disabled states, размеры касания, small-screen/HiDPI правила; без локальных desktop-only стилей | Разработчик / в работе |
-| 3 | PRINT-STYLE-01 | Единый Report Visual System уровня профессиональных нефтесервисных отчётов: PDF/Masterlog/DOCX/XLSX, A4/A3/roll, colour + grayscale | Разработчик / в работе |
+| 3 | PRINT-STYLE-01 + PRINT-ANN-01 | Единый Report Visual System и полная переработка УВ-аннотаций: без наложений текста, с компактными символами/легендой для газа, нефти, газоконденсата, лёгкой/тяжёлой нефти и контекста события | Разработчик / в работе |
 | 4 | WITS-UX-01 | Довести operator workspace после foundation PR #282: no-data states, help, persistence/reconnect и полевой UX acceptance | Разработчик / в работе |
 | 5 | WITS-CALC-01 | Live-derived Gas Ratio/Haworth, Pixler и DEXP/DEXPC через существующий versioned formula registry; без второй реализации формул в UI | Разработчик / готово к разработке |
-| 6 | WITS-GASCTX-01 | Разделить background gas, formation show, connection gas, trip gas, circulated gas и elevated-unclassified по газу + технологическому контексту | Разработчик + специалист ГТИ / в работе |
+| 6 | WITS-GASCTX-01 + GASCTX-MANUAL-01 | Авто + ручные интервалы background/formation/connection/trip(СПО)/circulated/recycled/test-line/chromatograph/calibration/lag-tracer с обязательным учётом в интерпретаторе и отчёте | Разработчик + специалист ГТИ / в работе |
 | 7 | WITS-ALARM-01 | Для всех отображаемых параметров min/max, visual/audio alarm, hysteresis/debounce, acknowledgement и маркеры на графике | Разработчик + оператор / готово к разработке |
 | 8 | OBS-01 | Build/session identity и объяснимые состояния no-data/stale/error; используется операторским помощником и alarms | Разработчик / готово к разработке |
 | 9 | WITS-PLOT-01 | Независимые шкалы/диапазоны, редактируемые панели/колонки, читаемые интерпретационные полосы и non-overlap badges | Разработчик / в работе |
@@ -101,6 +101,23 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
   читаемая кегль/высота строки.
 - [ ] Графики/логи: цвет не является единственным кодом — используются dash/marker/label;
   шкалы и единицы печатаются явно; события/alarms/interpreted intervals сохраняют смысл в grayscale.
+- [ ] **PRINT-ANN-01 — аннотации УВ без наложений:** заменить текущие длинные выноски,
+  которые могут наслаиваться на соседний текст/график, на адаптивную систему обозначений.
+  По умолчанию на самом графике показывать компактный символ/marker + короткий код и цвет/штриховку,
+  а полную расшифровку давать в отдельной легенде и/или таблице интервалов. Легенда обязана
+  различать как минимум: газ, газ/конденсат, нефть, лёгкая нефть, тяжёлая/остаточная нефть,
+  жидкие УВ/неопределённый тип; отдельно от типа флюида показывать gas-origin/context
+  (formation/background/connection/trip/circulated/recycled/test/calibration/line-test/lag-tracer).
+  Полный текст типа флюида берётся из существующего `fluid_hypothesis_label(..., language)`,
+  не дублируется новой картой строк.
+- [ ] Layout-аннотаций обязан быть bounded: label/legend не выходят за content rect,
+  не перекрывают оси/легенду/друг друга, соседние интервалы получают stacking/staggering,
+  leader line указывает на фактическую глубину без изменения координаты события. При нехватке
+  места длинная подпись сокращается до marker-кода, а полная формулировка остаётся в легенде/
+  интервал-таблице. Нужны RU/KK/EN и A4/A3/roll + grayscale-safe semantics.
+- [ ] Приёмка PRINT-ANN-01: synthetic dense fixture с множеством близких УВ-интервалов,
+  visual/golden regression, assert отсутствия пересечений bounding boxes, clipped text и выхода
+  за printable content rect; отдельная проверка длинных казахских подписей.
 - [ ] Профили носителя: A4 portrait/landscape, A3 и roll/masterlog. Макет адаптируется,
   а не просто масштабируется до нечитаемого состояния.
 - [ ] Один visual profile применяется к hydrocarbon interpretation PDF, generic report PDF,
@@ -266,6 +283,29 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
   разбуриваемому пласту. Приёмка: deterministic transition tests, overlapping manual-interval
   priority, reconnect/reset semantics, synthetic drilling/connection/trip/test/calibration/
   circulation sequences и полевой просмотр специалистом ГТИ.
+
+- [ ] **GASCTX-MANUAL-01 — ручные интервалы газового контекста:** добавить в UI отдельный
+  редактор интервалов, доступный из WITS/интерпретации и перед формированием отчёта. Обязательные
+  поля: тип события, ось (глубина либо время), начало, конец, confirmed; дополнительные —
+  Total Gas/эталонное значение, единица, комментарий/номер операции, источник отметки.
+  Минимальный список типов: background gas, formation show, connection gas/газ наращивания,
+  trip gas/газ СПО, circulated gas, recycled gas, chromatograph test gas, gas-line test ГТИ,
+  calibration gas, lag-tracer/carbide test и elevated/unclassified.
+- [ ] Редактор поддерживает создать/изменить/удалить/подтвердить интервал, выбор диапазона
+  непосредственно по графику и точный числовой ввод. Пересекающиеся интервалы разрешаются
+  детерминированным приоритетом: QC/test/calibration > trip/connection/circulation >
+  manual formation/background > автоматическая гипотеза. Неподтверждённые draft-интервалы
+  не влияют на геологический результат.
+- [ ] Report interpreter обязан применять confirmed manual gas-context до поиска УВ-пласта:
+  test/calibration/line-test/lag-tracer/connection/trip/circulated/recycled интервалы исключаются
+  из самостоятельного `formation_show`; background может задавать/подтверждать baseline.
+  В отчёте раздельно печатаются **предварительный тип флюида** и **происхождение газового сигнала**,
+  например «газ/конденсат; контекст: connection gas — не использовать как самостоятельное
+  подтверждение УВ-пласта». Ручная отметка, причина исключения и комментарий входят в provenance.
+- [ ] GASCTX-MANUAL-01 хранится в проекте и переживает save/reopen; RU/KK/EN labels/tooltips/help
+  обязательны. Приёмка: overlap priority, edit/delete/reopen, depth/time axes, test-gas поверх
+  сильного C1–C5 пика, СПО/connection поверх предполагаемого formation show и проверка, что
+  отчёт не создаёт ложный УВ-пласт для исключённого технологического интервала.
 
 - [ ] **WITS-ALARM-01 (P0):** единый headless alarm contract для исходных и derived channels.
   На параметр задаются optional min/max, visual-enabled, audio-enabled, hysteresis, debounce/
