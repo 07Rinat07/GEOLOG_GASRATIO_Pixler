@@ -1093,9 +1093,10 @@ class Wits0CaptureDialog(QDialog):
                 return
 
         dataset_id = commit.schema.dataset_id
+        existing_dataset = well.datasets.get(dataset_id)
         previous_dataset = (
-            deepcopy(well.datasets[dataset_id])
-            if dataset_id in well.datasets
+            deepcopy(existing_dataset)
+            if existing_dataset is not None and len(existing_dataset.depth) == 0
             else None
         )
         try:
