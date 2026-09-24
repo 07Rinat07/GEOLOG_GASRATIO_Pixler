@@ -512,6 +512,25 @@ false negative. До этого автоматический результат 
 - **field acceptance:** anonymized real GSWITS, reconnect/reopen, connection/trip events и
   подтверждение специалистом ГТИ, что fluid screening не смешан с gas origin.
 
+## 13D. Формульный аудит, печатный стиль и флюид-выноски
+
+Обязательные regression-gates для CALC-AUDIT-01 / PRINT-STYLE-01 / REPORT-ANNOT-01:
+
+- все профили из `build_all_sourced_formula_registry()` присутствуют в method audit manifest;
+- Haworth/Pixler/DEXP/DEXPC остаются strict primary/publication verified;
+- ОПУС допускает `secondary_crosscheck` / `workbook_reproduced`, а detector defaults —
+  только `engineering_default` pending field calibration;
+- Report Passport для sourced calculation сохраняет formula id/version/provenance,
+  expression hash и source;
+- canonical print wordmark — **Geolog GASRATIO&Pixler** — одинаков в PDF, Masterlog,
+  DOCX/XLSX и PDF creator metadata;
+- fluid callout явно содержит тип флюида, а ambiguous/no-consensus не превращается в
+  искусственно выбранный gas/oil class;
+- dense adjacent callouts остаются внутри track bounds; для A4/A3 выполняются visual/PDF
+  regression и grayscale-проверка;
+- цвет не является единственным признаком: текстовая подпись должна сохранять смысл
+  после grayscale/monochrome печати.
+
 ## 14. Правило обновления тестов и документации
 
 Любое изменение запуска, импорта, формы, миграции, расчётного профиля, формата проекта или
