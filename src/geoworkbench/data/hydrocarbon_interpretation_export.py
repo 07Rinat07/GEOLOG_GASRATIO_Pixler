@@ -262,6 +262,11 @@ def _opus_gasomer_docx(
         if section.total_gas_lod is None
         else f"{section.total_gas_lod:.6g} {section.working_unit}"
     )
+    class_word = {
+        AppLanguage.RU: "класс",
+        AppLanguage.KK: "класс",
+        AppLanguage.EN: "class",
+    }[language]
     body = [
         _paragraph(labels.opus_heading, style="Heading1"),
         _paragraph(
@@ -306,7 +311,7 @@ def _opus_gasomer_docx(
         body.append(
             _paragraph(
                 f"{interval.top_depth:.2f}–{interval.bottom_depth:.2f} "
-                f"{report.depth_unit}: {labels.class_label} {interval.class_code} — "
+                f"{report.depth_unit}: {class_word} {interval.class_code} — "
                 f"{interval.class_label}; {labels.class_support} "
                 f"{interval.support_fraction * 100.0:.1f}%; "
                 f"{labels.valid_rows} {interval.valid_rows}/{interval.total_rows}; {detector}."
