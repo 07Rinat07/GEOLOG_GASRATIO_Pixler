@@ -162,6 +162,95 @@ def test_current_values_keep_last_finite_sample_and_mark_missing_latest_row() ->
     assert "missing" in current.quality_codes
 
 
+def test_live_series_ignores_rows_from_other_wits_records() -> None:
+    runtime, _frames = _runtime_with_frames(
+        (
+            _record_frame(
+                1,
+                1,
+                time_value="0315450",
+                fields=("01105550.0",),
+            ),
+            _record_frame(
+                11,
+                1,
+                time_value="0315460",
+                fields=("111521.8",),
+            ),
+            _record_frame(
+                1,
+                2,
+                time_value="0315470",
+                fields=("01105550.5",),
+            ),
+            _record_frame(
+                11,
+                2,
+                time_value="0315480",
+                fields=("111522.0",),
+            ),
+        )
+    )
+    depth_id = _curve_id(runtime, "0110")
+    view = AcquisitionLiveView(runtime.controller.dataset, runtime.session)
+
+    snapshot = view.snapshot(curve_ids=(depth_id,))
+    series = snapshot.series[0]
+
+    assert series.source_point_count == 2
+    assert series.values == pytest.approx((5550.0, 5550.5))
+    assert len(series.axis_values) == 2
+    assert not any(np.isnan(value) for value in series.values)
+
+
+def test_live_series_preserves_real_missing_value_inside_same_wits_record() -> None:
+    runtime, _frames = _runtime_with_frames(
+        (
+            _record_frame(
+                1,
+                1,
+                time_value="0315450",
+                fields=("01105550.0",),
+            ),
+            _record_frame(
+                11,
+                1,
+                time_value="0315460",
+                fields=("111521.8",),
+            ),
+            _record_frame(
+                1,
+                2,
+                time_value="0315470",
+                fields=("011255.0",),
+            ),
+            _record_frame(
+                11,
+                2,
+                time_value="0315480",
+                fields=("111522.0",),
+            ),
+            _record_frame(
+                1,
+                3,
+                time_value="0315490",
+                fields=("01105551.0",),
+            ),
+        )
+    )
+    depth_id = _curve_id(runtime, "0110")
+    view = AcquisitionLiveView(runtime.controller.dataset, runtime.session)
+
+    snapshot = view.snapshot(curve_ids=(depth_id,))
+    series = snapshot.series[0]
+
+    assert series.source_point_count == 3
+    assert len(series.values) == 3
+    assert series.values[0] == pytest.approx(5550.0)
+    assert np.isnan(series.values[1])
+    assert series.values[2] == pytest.approx(5551.0)
+
+
 def test_current_value_ignores_newer_rows_from_other_wits_records() -> None:
     runtime, _frames = _runtime_with_frames(
         (
