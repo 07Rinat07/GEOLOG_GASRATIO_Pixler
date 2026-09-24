@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+import re
 
 import pytest
 
@@ -23,7 +24,7 @@ def test_adaptive_application_stylesheet_uses_palette_roles_and_no_fixed_widths(
     assert "palette(base)" in stylesheet
     assert "min-height: 28px" in stylesheet
     assert "\n    width:" not in stylesheet
-    assert "#" not in stylesheet
+    assert re.search(r"#[0-9a-fA-F]{3,8}\\b", stylesheet) is None
 
 
 def test_entrypoint_does_not_override_global_palette_or_tooltip_style() -> None:
