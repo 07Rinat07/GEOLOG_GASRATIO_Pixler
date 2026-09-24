@@ -173,14 +173,21 @@ def test_engineering_control_template_is_full_universal_wits_form() -> None:
     assert len(form.columns) >= 8
 
 
-def test_wits_live_view_exposes_form_selector() -> None:
+def test_wits_live_view_exposes_editable_persistent_form_selector() -> None:
     source = (ROOT / "src/geoworkbench/ui/wits0_live_view.py").read_text(
         encoding="utf-8"
     )
     assert "self.form_combo = QComboBox(self)" in source
     assert "live_form_definitions()" in source
     assert "select_live_curve_ids" in source
-    assert "CUSTOM_LIVE_FORM_ID" in source
+    assert "Wits0LiveFormSettings" in source
+    assert "def _save_current_form(" in source
+    assert "def _reset_current_form(" in source
+    selection_body = source[
+        source.index("def _curve_selection_changed")
+        : source.index("def _dashboard_range_changed")
+    ]
+    assert "CUSTOM_LIVE_FORM_ID" not in selection_body
 
 
 
