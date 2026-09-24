@@ -101,7 +101,11 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
   Текущий инкремент воспроизводит рост на потоке 10× лимита и ограничивает transient Dataset,
   curve arrays, preview-session records и record-id index через периодическую compaction из
   последнего frame-окна; постоянная reviewed acquisition сохраняет append-only контракт.
-  Оставшийся scope — RSS baseline и явная raw/backfill-граница для вытесненной истории.
+  Второй инкремент добавляет fail-closed backfill boundary: если preview уже вытеснил кадры,
+  persistent session не создаётся, retained-хвост не считается полной историей, оператору
+  показываются evicted/retained counters и retained временной диапазон.
+  Оставшийся scope — RSS baseline и replay доступного raw-интервала/явный выбор более поздней
+  границы с сохранением provenance.
   Приёмка: на потоке не менее 10× установленного лимита с постоянной схемой размер retained
   structures ограничен; baseline RSS и допустимый запас зафиксированы до реализации и не
   растут линейно с длительностью потока. При появлении нового канала сохраняются последние
