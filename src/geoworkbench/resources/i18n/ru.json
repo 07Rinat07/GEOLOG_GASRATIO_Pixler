@@ -2136,6 +2136,8 @@
   "wits0.acquisition_state_none": "Не запущена",
   "wits0.acquisition_state_open": "Открыта",
   "wits0.acquisition_well_required": "Сначала создайте или выберите скважину в проекте.",
+  "wits0.acquisition_preview_truncated": "История LIVE PREVIEW уже усечена: вытеснено кадров {evicted}, в памяти осталось {retained} ({earliest} — {latest}). Постоянная сессия не будет запущена, пока не выполнен replay доступного raw-интервала или не выбрана явная более поздняя граница записи.",
+  "wits0.acquisition_preview_truncated_event": "Старт AcquisitionSession заблокирован: preview усечён, вытеснено {evicted}, retained {retained}, диапазон {earliest} — {latest}.",
   "wits0.allow_wildcard_bind": "Разрешить явный bind 0.0.0.0",
   "wits0.allowed_peer_networks": "Разрешённые сети источников (CIDR)",
   "wits0.allowed_peer_networks_placeholder": "192.168.10.0/24, 10.0.0.5/32",
