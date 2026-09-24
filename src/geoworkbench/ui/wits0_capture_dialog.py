@@ -63,7 +63,10 @@ from geoworkbench.services.wits0_import_review import (
     load_wits0_custom_profile,
     save_wits0_custom_profile,
 )
-from geoworkbench.services.wits0_live_preview import Wits0LivePreview
+from geoworkbench.services.wits0_live_preview import (
+    Wits0LivePreview,
+    Wits0PreviewHistoryTruncatedError,
+)
 from geoworkbench.ui.wits0_import_review_dialog import Wits0ImportReviewDialog
 from geoworkbench.ui.wits0_live_view import Wits0LiveViewWidget
 from geoworkbench.ui.window_geometry import fit_window_to_screen
@@ -845,6 +848,29 @@ class Wits0CaptureDialog(QDialog):
                 self._t("wits0.acquisition_well_required"),
             )
             return
+        boundary = self.live_preview.backfill_boundary
+        if boundary.truncated:
+            QMessageBox.warning(
+                self,
+                self._t("wits0.title"),
+                self._t(
+                    "wits0.acquisition_preview_truncated",
+                    evicted=boundary.evicted_frames,
+                    retained=boundary.buffered_frames,
+                    earliest=boundary.earliest_received_at or "—",
+                    latest=boundary.latest_received_at or "—",
+                ),
+            )
+            self.event_text.appendPlainText(
+                self._t(
+                    "wits0.acquisition_preview_truncated_event",
+                    evicted=boundary.evicted_frames,
+                    retained=boundary.buffered_frames,
+                    earliest=boundary.earliest_received_at or "—",
+                    latest=boundary.latest_received_at or "—",
+                )
+            )
+            return
         try:
             runtime = Wits0AcquisitionRuntime(
                 well,
@@ -865,7 +891,7 @@ class Wits0CaptureDialog(QDialog):
         backfilled = 0
         try:
             backfilled = self.live_preview.backfill(runtime)
-        except (ValueError, RuntimeError) as exc:
+        except (ValueError, RuntimeError, Wits0PreviewHistoryTruncatedError) as exc:
             self.event_text.appendPlainText(
                 self._t("wits0.acquisition_error_event", error=str(exc))
             )
