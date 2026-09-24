@@ -97,6 +97,8 @@ class Wits0CaptureDialog(QDialog):
         self.workspace_settings = Wits0WorkspaceSettings(self.settings)
         self._last_workspace_state: Wits0WorkspaceState | None = None
         self._connection_events_recorded: set[tuple[str, bool]] = set()
+        self._live_fullscreen_dialog: QDialog | None = None
+        self._live_tab_index = 2
         self.well_provider = well_provider
         self.on_dataset_changed = on_dataset_changed
         self.engine: Wits0CaptureEngine | None = None
@@ -128,11 +130,19 @@ class Wits0CaptureDialog(QDialog):
         self.event_text = QPlainTextEdit(self)
         self.event_text.setReadOnly(True)
         self.event_text.document().setMaximumBlockCount(4_000)
+        self.help_text = QPlainTextEdit(self)
+        self.help_text.setReadOnly(True)
+        self.help_text.setPlainText(_operator_help_document(language))
         self.live_view = Wits0LiveViewWidget(self, language=language)
+        self.live_view.fullScreenRequested.connect(self._set_live_fullscreen)
         self.tabs.addTab(self.raw_text, self._t("wits0.raw_tab"))
         self.tabs.addTab(self.parsed_text, self._t("wits0.parsed_tab"))
         self.tabs.addTab(self.live_view, self._t("wits0.live_tab"))
         self.tabs.addTab(self.event_text, self._t("wits0.events_tab"))
+        self.tabs.addTab(
+            self.help_text,
+            _operator_help_text(language, "help_tab"),
+        )
         scroll_layout.addWidget(self.tabs, 1)
 
         self.scroll_area = QScrollArea(self)
@@ -201,6 +211,13 @@ class Wits0CaptureDialog(QDialog):
     def _build_connection_group(self) -> QGroupBox:
         group = QGroupBox(self._t("wits0.connection_group"), self)
         form = QFormLayout(group)
+
+        startup_hint = QLabel(
+            _operator_help_text(self.language, "startup_hint"),
+            group,
+        )
+        startup_hint.setWordWrap(True)
+        form.addRow("", startup_hint)
 
         self.field_preset_button = QPushButton(
             self._field_preset_text("button"), group
@@ -335,7 +352,28 @@ class Wits0CaptureDialog(QDialog):
         warning = QLabel(self._t("wits0.capture_only_warning"), group)
         warning.setWordWrap(True)
         form.addRow("", warning)
+        self._apply_connection_tooltips()
         return group
+
+    def _apply_connection_tooltips(self) -> None:
+        controls = {
+            self.field_preset_button: "preset",
+            self.mode_combo: "mode",
+            self.host_edit: "host",
+            self.allowed_networks_edit: "cidr",
+            self.allow_wildcard_bind_check: "wildcard",
+            self.port_spin: "port",
+            self.disk_critical_spin: "disk_critical",
+            self.disk_warning_spin: "disk_warning",
+            self.retention_days_spin: "retention_days",
+            self.retention_gb_spin: "retention_size",
+            self.retention_keep_spin: "retention_keep",
+            self.source_edit: "source",
+            self.raw_directory_edit: "raw_directory",
+            self.browse_button: "raw_directory",
+        }
+        for control, key in controls.items():
+            control.setToolTip(_operator_help_text(self.language, key))
 
     def _apply_geoscape_field_preset(self) -> None:
         """Connect to the GeoScape TCP server shown in the field setup."""
@@ -1229,6 +1267,52 @@ class Wits0CaptureDialog(QDialog):
             )
         )
 
+    def _set_live_fullscreen(self, enabled: bool) -> None:
+        if enabled:
+            if self._live_fullscreen_dialog is not None:
+                self._live_fullscreen_dialog.raise_()
+                return
+            live_index = self.tabs.indexOf(self.live_view)
+            if live_index >= 0:
+                self._live_tab_index = live_index
+                self.tabs.removeTab(live_index)
+
+            fullscreen_dialog = QDialog(self)
+            fullscreen_dialog.setWindowTitle(
+                f"{self._t('wits0.title')} — {self._t('wits0.live_tab')}"
+            )
+            fullscreen_dialog.setModal(False)
+            layout = QVBoxLayout(fullscreen_dialog)
+            layout.setContentsMargins(0, 0, 0, 0)
+            layout.addWidget(self.live_view)
+            fullscreen_dialog.finished.connect(
+                self._restore_live_view_from_fullscreen
+            )
+            self._live_fullscreen_dialog = fullscreen_dialog
+            self.live_view.set_fullscreen_state(True)
+            fullscreen_dialog.showFullScreen()
+            self.live_view.setFocus()
+            return
+
+        active_dialog = self._live_fullscreen_dialog
+        if active_dialog is not None:
+            active_dialog.close()
+
+    def _restore_live_view_from_fullscreen(self, _result: int = 0) -> None:
+        dialog = self._live_fullscreen_dialog
+        if dialog is None:
+            return
+        layout = dialog.layout()
+        if layout is not None:
+            layout.removeWidget(self.live_view)
+        self.live_view.setParent(self.tabs)
+        insert_at = min(self._live_tab_index, self.tabs.count())
+        self.tabs.insertTab(insert_at, self.live_view, self._t("wits0.live_tab"))
+        self.tabs.setCurrentWidget(self.live_view)
+        self.live_view.set_fullscreen_state(False)
+        self._live_fullscreen_dialog = None
+        dialog.deleteLater()
+
     @staticmethod
     def _format_bytes(value: int | None) -> str:
         if value is None:
@@ -1245,6 +1329,8 @@ class Wits0CaptureDialog(QDialog):
         return f"{size:.{precision}f} {unit}"
 
     def closeEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        if self._live_fullscreen_dialog is not None:
+            self._live_fullscreen_dialog.close()
         self._persist_workspace_state()
         engine = self.engine
         if engine is not None and engine.is_running:
@@ -1263,6 +1349,139 @@ class Wits0CaptureDialog(QDialog):
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)
+
+
+def _operator_help_text(language: AppLanguage, key: str) -> str:
+    translations = {
+        AppLanguage.RU: {
+            "help_tab": "Помощь и инструкция",
+            "startup_hint": (
+                "Быстрый путь: выберите форму в «Монитор» → примените preset или настройте "
+                "подключение → «Запустить захват». Технические поля можно уточнить по подсказкам."
+            ),
+            "preset": "Заполняет типовую конфигурацию GeoScape TCP client 192.168.0.100:2041.",
+            "mode": "TCP server принимает входящее соединение; TCP client подключается к удалённому WITS-серверу.",
+            "host": "Для server это локальный interface/bind; для client — IP или имя удалённого источника.",
+            "cidr": "Разрешённые сети удалённых peers для server mode. Используйте минимально необходимый доверенный диапазон.",
+            "wildcard": "Разрешает bind 0.0.0.0 только после явного подтверждения; WITS0 не шифруется и не аутентифицируется.",
+            "port": "TCP-порт WITS0. Он должен совпадать с настройкой источника/сервера.",
+            "disk_critical": "При критически малом остатке raw-захват должен остановиться безопасно.",
+            "disk_warning": "Порог предварительного предупреждения о свободном месте.",
+            "retention_days": "Максимальный возраст неактивных raw-сегментов в каталоге приложения.",
+            "retention_size": "Ограничение общего объёма retention для неактивных raw-сегментов.",
+            "retention_keep": "Минимальное число последних raw-сегментов, которые retention не удаляет.",
+            "source": "Читаемое имя источника для provenance и диагностики.",
+            "raw_directory": "Raw WITS сохраняется неизменяемым до parser/review. Выберите отдельный каталог приложения.",
+        },
+        AppLanguage.KK: {
+            "help_tab": "Көмек және нұсқаулық",
+            "startup_hint": (
+                "Жылдам жол: «Монитор» ішінде пішінді таңдаңыз → preset қолданыңыз немесе "
+                "қосылымды баптаңыз → «Қабылдауды бастау». Техникалық өрістерде tooltip бар."
+            ),
+            "preset": "GeoScape TCP client 192.168.0.100:2041 типтік параметрлерін қояды.",
+            "mode": "TCP server кіріс қосылымын қабылдайды; TCP client қашық WITS серверіне қосылады.",
+            "host": "Server үшін бұл local interface/bind; client үшін қашық дереккөздің IP/аты.",
+            "cidr": "Server mode үшін рұқсат етілген peer желілері. Ең аз қажетті сенімді диапазонды қолданыңыз.",
+            "wildcard": "0.0.0.0 bind-ін тек айқын растаумен қосады; WITS0 шифрлау/аутентификация бермейді.",
+            "port": "WITS0 TCP порты; дереккөз/сервер параметрімен бірдей болуы тиіс.",
+            "disk_critical": "Дискіде орын өте аз болса raw capture қауіпсіз тоқтауы тиіс.",
+            "disk_warning": "Бос орын туралы алдын ала ескерту шегі.",
+            "retention_days": "Қолданба raw сегменттерінің ең үлкен сақтау жасы.",
+            "retention_size": "Белсенді емес raw сегменттерінің жалпы retention көлемі.",
+            "retention_keep": "Retention жоймайтын соңғы raw сегменттерінің ең аз саны.",
+            "source": "Provenance және диагностика үшін дереккөздің түсінікті атауы.",
+            "raw_directory": "Raw WITS parser/review алдында өзгеріссіз сақталады; бөлек application каталогын таңдаңыз.",
+        },
+        AppLanguage.EN: {
+            "help_tab": "Help and instructions",
+            "startup_hint": (
+                "Quick path: choose a form in Monitor → apply a preset or configure the "
+                "connection → Start capture. Technical fields include contextual tooltips."
+            ),
+            "preset": "Fills the common GeoScape TCP client setup 192.168.0.100:2041.",
+            "mode": "TCP server accepts an incoming connection; TCP client connects to a remote WITS server.",
+            "host": "For server mode this is the local interface/bind; for client mode it is the remote source address.",
+            "cidr": "Allowed remote peer networks for server mode. Use the smallest trusted range required.",
+            "wildcard": "Allows 0.0.0.0 bind only with explicit acknowledgement; WITS0 has no transport encryption/authentication.",
+            "port": "WITS0 TCP port. It must match the source/server configuration.",
+            "disk_critical": "Raw capture must fail safely when remaining disk space becomes critical.",
+            "disk_warning": "Early warning threshold for remaining disk space.",
+            "retention_days": "Maximum age of inactive application-owned raw segments.",
+            "retention_size": "Maximum retention size for inactive raw segments.",
+            "retention_keep": "Minimum number of newest raw segments retained regardless of limits.",
+            "source": "Readable source name used in provenance and diagnostics.",
+            "raw_directory": "Raw WITS is preserved unchanged before parsing/review. Use a dedicated application directory.",
+        },
+    }
+    return translations.get(language, translations[AppLanguage.EN]).get(key, key)
+
+
+def _operator_help_document(language: AppLanguage) -> str:
+    documents = {
+        AppLanguage.RU: """WITS0 — краткая инструкция оператору
+
+1. Во вкладке «Монитор» заранее выберите форму: Универсальная, Бурение и механика,
+   Насосы и раствор, Ёмкости, Газ C1–C5 или свою сохранённую конфигурацию.
+2. Для типового GeoScape нажмите быстрый preset. В другом случае выберите TCP server/client,
+   IP/interface и port по фактической схеме сети.
+3. Нажмите «Запустить захват». Raw-байты сохраняются независимо от parser и Import Review.
+4. Если данные приходят, Monitor показывает LIVE PREVIEW. Пауза просмотра не останавливает приём.
+5. После проверки mapping выполните Import Review и при необходимости начните постоянную сессию.
+6. Форму можно менять: добавлять каналы, менять ось/окно, затем «Сохранить форму» или «Сбросить».
+7. «На весь экран» оставляет монитор операторским экраном; возврат не перезапускает acquisition.
+
+Расчётные данные:
+• Gas Ratio/Haworth и Pixler — предварительный compositional screening.
+• DEXP/DEXPC — индикаторы буровой механики/давления при корректных входах и единицах.
+• Background/formation/connection/trip gas — отдельная оценка происхождения газового события.
+  Она не равна типу флюида.
+• Цветная линия/полоса остаётся на фактической глубине; подпись выводится компактным badge.
+• Min/max alarm контролирует выбранный параметр и не является геологическим заключением.
+
+Если монитор пуст, сначала различайте: нет TCP → нет байтов → нет пригодных frames →
+нет оси/каналов → stale data. Не меняйте firewall/IP наугад; используйте network preflight.
+""",
+        AppLanguage.KK: """WITS0 — операторға қысқа нұсқаулық
+
+1. «Монитор» ішінде пішінді алдын ала таңдаңыз: әмбебап, бұрғылау, гидравлика,
+   ыдыстар, C1–C5 газ немесе сақталған конфигурация.
+2. GeoScape үшін quick preset қолданыңыз. Басқа жағдайда нақты желі схемасына сай
+   TCP server/client, IP/interface және port таңдаңыз.
+3. Қабылдауды іске қосыңыз. Raw байттар parser және Import Review-дан тәуелсіз сақталады.
+4. Дерек келсе Monitor LIVE PREVIEW көрсетеді. Pause-view қабылдауды тоқтатпайды.
+5. Mapping тексерілгеннен кейін Import Review және қажет болса тұрақты сессияны бастаңыз.
+6. Пішінге арналар қосып/алып тастап, ось/терезені өзгертіп, сақтауға немесе reset жасауға болады.
+7. Full-screen режим acquisition-ды қайта іске қоспай операторлық монитор береді.
+
+Есептік деректер:
+• Gas Ratio/Haworth және Pixler — алдын ала compositional screening.
+• DEXP/DEXPC — дұрыс input/UOM болғандағы drilling/pressure indicators.
+• Background/formation/connection/trip gas — газ оқиғасының шығу контексті; ол fluid type емес.
+• Түсті сызық/жолақ нақты тереңдікте қалады, мәтін compact badge ретінде беріледі.
+• Min/max alarm параметрді бақылайды және геологиялық қорытынды емес.
+""",
+        AppLanguage.EN: """WITS0 — operator quick guide
+
+1. Choose the Monitor form before connection: Universal, Drilling/Mechanics,
+   Pumps/Mud, Pits, C1–C5 Gas, or a saved custom setup.
+2. Use the GeoScape quick preset for the common case. Otherwise choose TCP server/client,
+   IP/interface and port from the actual network topology.
+3. Start capture. Raw bytes are preserved independently from parsing and Import Review.
+4. When usable frames arrive, Monitor shows LIVE PREVIEW. Pause-view does not stop intake.
+5. Review mapping, complete Import Review, then start persistent acquisition if required.
+6. Edit any form by adding/removing channels and changing axis/history; Save form or Reset.
+7. Full screen turns the live view into an operator display without rebuilding acquisition.
+
+Derived information:
+• Gas Ratio/Haworth and Pixler provide preliminary compositional screening.
+• DEXP/DEXPC are drilling/pressure indicators only when required inputs and units are valid.
+• Background/formation/connection/trip gas describes gas-event origin and is separate from fluid type.
+• Colored lines/bands remain at the true event depth; text is shown in compact badges.
+• Min/max alarms supervise parameters and are not geological conclusions.
+""",
+    }
+    return documents.get(language, documents[AppLanguage.EN])
 
 
 def _utc_now() -> str:

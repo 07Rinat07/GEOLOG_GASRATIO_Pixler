@@ -13,6 +13,22 @@ Sequence QC item `04` мәнін қолданады; item `02` sequence number �
 Review-дан кейін append-only `AcquisitionSession` бастауға болады; raw шекарасы мен parser
 өзгермейді, ал Dataset тек `AcquisitionController` арқылы жаңартылады.
 
+## Оператордың жылдам жұмыс реті
+
+Негізгі WITS сценарийі: **пішінді таңдау → қосылым режимін таңдау → қабылдауды іске қосу →
+live бұрғылау деректерін көру → қажет болса Import Review → тұрақты acquisition бастау**.
+Оператор пайдалы мониторды көру үшін барлық техникалық өрістерді алдын ала түсінуге міндетті емес.
+
+GeoScape/GSWITS үшін дайын preset қолданылады. Режим, IP/interface, port, CIDR, raw directory,
+дискідегі бос орын шектері және retention жанында контекстік көмек болуы тиіс. Кірістірілген
+**Көмек және нұсқаулық** қойындысы client/server рөлдерін, жергілікті/қашық мекенжайды, CIDR
+allowlist, raw capture, LIVE PREVIEW және AcquisitionSession айырмасын, pause-view, өңделетін
+пішіндерді, толық экранды мониторды, Gas Ratio/Pixler/DEXP, gas-origin контекстін және alarms
+түсіндіреді.
+
+Бос монитор нақты күйді көрсетуі тиіс: TCP жоқ, TCP бар бірақ байт жоқ, жарамды frame жоқ,
+ось/арна жоқ, stale data, preview немесе recording.
+
 ## TCP серверін баптау
 
 Бұл режимді GSWITS **шығыс қосылым (TCP клиенті)** ретінде бапталған кезде қолданыңыз.

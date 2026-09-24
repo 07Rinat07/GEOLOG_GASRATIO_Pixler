@@ -491,6 +491,27 @@ false negative. До этого автоматический результат 
 Подробные ожидаемые значения и порядок этапов:
 [OPUS_GASOMER_IMPLEMENTATION.md](OPUS_GASOMER_IMPLEMENTATION.md).
 
+## 13C. WITS operator workspace, live calculations and alarms
+
+Для WITS-UX/CALC/GASCTX/ALARM/INTERP обязательны отдельные уровни проверки:
+
+- **headless forms:** roundtrip Save/Reset по canonical mnemonic; новый Dataset/curve ID не ломает
+  выбор; factory template не мутируется;
+- **Qt adaptive:** форма выбирается до runtime, sidebar collapse, fullscreen → back, LIVE PREVIEW →
+  persistent handoff, DPI 100/125/150/200%;
+- **derived parity:** WH/BH/CH, Pixler и DEXP/DEXPC live результат совпадает с batch calculation
+  на одинаковом интервале; проверяются missing inputs, NaN/zero и UOM conversion;
+- **gas context:** background baseline не обучается connection/trip/circulation spikes;
+  formation_show требует stable drilling + excursion; отсутствие контекста даёт
+  elevated_unclassified;
+- **interpretation markers:** line/band остаётся на исходной axis coordinate, badge может
+  визуально смещаться; одинаковые соседние классы объединяются; overlapping labels не перекрываются;
+- **alarms:** min/max boundary, hysteresis, debounce/minimum-duration, acknowledgement, mute,
+  restart persistence и отсутствие repeated audio на каждом sample;
+- **performance:** live-derived + alarms остаются bounded по памяти и не добавляют O(N²) на redraw;
+- **field acceptance:** anonymized real GSWITS, reconnect/reopen, connection/trip events и
+  подтверждение специалистом ГТИ, что fluid screening не смешан с gas origin.
+
 ## 14. Правило обновления тестов и документации
 
 Любое изменение запуска, импорта, формы, миграции, расчётного профиля, формата проекта или

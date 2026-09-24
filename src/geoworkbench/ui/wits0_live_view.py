@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QBrush, QColor
+from PySide6.QtCore import QSettings, Qt, Signal
+from PySide6.QtGui import QBrush, QColor, QResizeEvent
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
@@ -33,9 +33,11 @@ from geoworkbench.services.acquisition_live_view import (
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.acquisition.wits0_reliability import Wits0WorkspaceState
 from geoworkbench.acquisition.wits0_live_forms import (
-    CUSTOM_LIVE_FORM_ID,
     UNIVERSAL_LIVE_FORM_ID,
+    Wits0LiveFormSettings,
+    Wits0SavedLiveFormState,
     live_curve_priority,
+    live_form,
     live_form_definitions,
     select_live_curve_ids,
 )
@@ -53,6 +55,8 @@ class Wits0LiveViewWidget(QWidget):
     to append records in the background.
     """
 
+    fullScreenRequested = Signal(bool)
+
     def __init__(
         self,
         parent: QWidget | None = None,
@@ -62,25 +66,37 @@ class Wits0LiveViewWidget(QWidget):
         super().__init__(parent)
         self.localizer = Localizer.create(language)
         self._language = language
+        self.settings = QSettings()
+        self.form_settings = Wits0LiveFormSettings(self.settings)
         self._runtime: Wits0AcquisitionRuntime | None = None
         self._view: AcquisitionLiveView | None = None
         self._preview_mode = False
         self._last_revision: tuple[int, int, bool, bool, str] | None = None
         self._updating_controls = False
         self._updating_plot_range = False
+        self._fullscreen = False
+        self._sidebar_user_override: bool | None = None
 
         root = QVBoxLayout(self)
         root.setContentsMargins(6, 6, 6, 6)
         root.addLayout(self._build_toolbar())
 
-        splitter = QSplitter(Qt.Orientation.Horizontal, self)
-        splitter.addWidget(self._build_left_panel())
-        splitter.addWidget(self._build_plot_panel())
-        splitter.setStretchFactor(0, 0)
-        splitter.setStretchFactor(1, 1)
-        splitter.setSizes([330, 650])
-        root.addWidget(splitter, 1)
+        self.form_description_label = QLabel("", self)
+        self.form_description_label.setWordWrap(True)
+        root.addWidget(self.form_description_label)
 
+        self.splitter = QSplitter(Qt.Orientation.Horizontal, self)
+        self.left_panel = self._build_left_panel()
+        self.plot_panel = self._build_plot_panel()
+        self.splitter.addWidget(self.left_panel)
+        self.splitter.addWidget(self.plot_panel)
+        self.splitter.setStretchFactor(0, 0)
+        self.splitter.setStretchFactor(1, 1)
+        self.splitter.setSizes([330, 650])
+        root.addWidget(self.splitter, 1)
+
+        self._restore_last_form()
+        self._update_form_description()
         self._set_empty_state()
 
     def _build_toolbar(self) -> QHBoxLayout:
@@ -97,8 +113,23 @@ class Wits0LiveViewWidget(QWidget):
         universal_index = self.form_combo.findData(UNIVERSAL_LIVE_FORM_ID)
         if universal_index >= 0:
             self.form_combo.setCurrentIndex(universal_index)
+        self.form_combo.setMinimumWidth(210)
         self.form_combo.currentIndexChanged.connect(self._form_changed)
         layout.addWidget(self.form_combo)
+
+        self.save_form_button = QPushButton(
+            _operator_text(self._language, "save_form"),
+            self,
+        )
+        self.save_form_button.clicked.connect(self._save_current_form)
+        layout.addWidget(self.save_form_button)
+
+        self.reset_form_button = QPushButton(
+            _operator_text(self._language, "reset_form"),
+            self,
+        )
+        self.reset_form_button.clicked.connect(self._reset_current_form)
+        layout.addWidget(self.reset_form_button)
 
         layout.addWidget(QLabel(self._t("wits0_live.axis"), self))
         self.axis_combo = QComboBox(self)
@@ -135,6 +166,20 @@ class Wits0LiveViewWidget(QWidget):
         self.refresh_button = QPushButton(self._t("wits0_live.refresh"), self)
         self.refresh_button.clicked.connect(self.refresh)
         layout.addWidget(self.refresh_button)
+
+        self.sidebar_button = QPushButton(
+            _operator_text(self._language, "hide_sidebar"),
+            self,
+        )
+        self.sidebar_button.clicked.connect(self._toggle_sidebar)
+        layout.addWidget(self.sidebar_button)
+
+        self.fullscreen_button = QPushButton(
+            _operator_text(self._language, "fullscreen"),
+            self,
+        )
+        self.fullscreen_button.clicked.connect(self._toggle_fullscreen)
+        layout.addWidget(self.fullscreen_button)
         layout.addStretch(1)
         return layout
 
@@ -210,10 +255,8 @@ class Wits0LiveViewWidget(QWidget):
             if preview and self._preview_mode and self._view is not None
             else None
         )
-        previous_form_id = (
-            str(self.form_combo.currentData() or UNIVERSAL_LIVE_FORM_ID)
-            if previous_state is not None
-            else UNIVERSAL_LIVE_FORM_ID
+        previous_form_id = str(
+            self.form_combo.currentData() or UNIVERSAL_LIVE_FORM_ID
         )
         self._preview_mode = preview
         if self._runtime is runtime and self._view is not None:
@@ -255,18 +298,11 @@ class Wits0LiveViewWidget(QWidget):
         self._populate_axes()
         self._populate_curves()
         if previous_state is not None:
+            # Preserve in-session edits while LIVE PREVIEW is rebound to the reviewed
+            # persistent runtime. Explicit "Save form" controls cross-session persistence.
             self.apply_workspace_state(previous_state)
-            if previous_form_id != CUSTOM_LIVE_FORM_ID:
-                form_index = self.form_combo.findData(previous_form_id)
-                if form_index >= 0:
-                    self.form_combo.blockSignals(True)
-                    self.form_combo.setCurrentIndex(form_index)
-                    self.form_combo.blockSignals(False)
-                    self._apply_live_form_selection()
-                    self._view.set_selected_curves(self._selected_curve_ids())
-                    self._last_revision = None
-                    self.refresh(force=True)
         else:
+            self._apply_live_form_selection()
             self.refresh(force=True)
 
     def workspace_state(self) -> Wits0WorkspaceState:
@@ -307,9 +343,6 @@ class Wits0LiveViewWidget(QWidget):
             self.window_spin.setValue(state.follow_span)
             selected = set(state.selected_curve_ids)
             if selected:
-                custom_index = self.form_combo.findData(CUSTOM_LIVE_FORM_ID)
-                if custom_index >= 0:
-                    self.form_combo.setCurrentIndex(custom_index)
                 for row in range(self.curve_list.count()):
                     item = self.curve_list.item(row)
                     curve_id = item.data(Qt.ItemDataRole.UserRole)
@@ -432,13 +465,11 @@ class Wits0LiveViewWidget(QWidget):
             self._updating_controls = False
         self._apply_live_form_selection()
 
-    def _apply_live_form_selection(self) -> None:
+    def _apply_live_form_selection(self, *, factory_only: bool = False) -> None:
         view = self._view
         if view is None:
             return
         form_id = str(self.form_combo.currentData() or UNIVERSAL_LIVE_FORM_ID)
-        if form_id == CUSTOM_LIVE_FORM_ID:
-            return
         curves = tuple(
             (
                 curve.metadata.curve_id,
@@ -447,12 +478,16 @@ class Wits0LiveViewWidget(QWidget):
             )
             for curve in view.dataset.curves.values()
         )
-        selected = set(select_live_curve_ids(form_id, curves))
-        if not selected and form_id == UNIVERSAL_LIVE_FORM_ID:
-            selected = {
-                self.curve_list.item(row).data(Qt.ItemDataRole.UserRole)
-                for row in range(min(6, self.curve_list.count()))
-            }
+        saved = None if factory_only else self.form_settings.load(form_id)
+        if saved is not None:
+            selected = set(self._curve_ids_for_mnemonics(saved.selected_mnemonics))
+        else:
+            selected = set(select_live_curve_ids(form_id, curves))
+            if not selected and form_id == UNIVERSAL_LIVE_FORM_ID:
+                selected = {
+                    self.curve_list.item(row).data(Qt.ItemDataRole.UserRole)
+                    for row in range(min(6, self.curve_list.count()))
+                }
         self._updating_controls = True
         try:
             for row in range(self.curve_list.count()):
@@ -463,8 +498,25 @@ class Wits0LiveViewWidget(QWidget):
                     if curve_id in selected
                     else Qt.CheckState.Unchecked
                 )
+            if saved is not None:
+                self.max_points_spin.setValue(saved.max_points)
+                axis_index = self.axis_combo.findData(saved.axis_mode)
+                if axis_index >= 0:
+                    self.axis_combo.setCurrentIndex(axis_index)
+                self.auto_follow_check.setChecked(saved.auto_follow)
+                self.window_spin.setValue(saved.follow_span)
+                self._sidebar_user_override = saved.sidebar_visible
+                self._set_sidebar_visible(saved.sidebar_visible)
         finally:
             self._updating_controls = False
+        if saved is not None:
+            try:
+                view.set_axis_mode(AcquisitionLiveAxisMode(saved.axis_mode))
+            except ValueError:
+                view.set_axis_mode(AcquisitionLiveAxisMode.AUTO)
+            view.set_auto_follow(saved.auto_follow)
+            view.set_follow_span(saved.follow_span)
+        view.set_selected_curves(self._selected_curve_ids())
 
     def _selected_curve_ids(self) -> tuple[str, ...]:
         selected: list[str] = []
@@ -477,7 +529,13 @@ class Wits0LiveViewWidget(QWidget):
         return tuple(selected)
 
     def _form_changed(self, _index: int) -> None:
-        if self._updating_controls or self._view is None:
+        if self._updating_controls:
+            return
+        form_id = str(self.form_combo.currentData() or UNIVERSAL_LIVE_FORM_ID)
+        self.settings.setValue("wits0/live-form/last-selected", form_id)
+        self.settings.sync()
+        self._update_form_description()
+        if self._view is None:
             return
         self._apply_live_form_selection()
         self._last_revision = None
@@ -551,11 +609,6 @@ class Wits0LiveViewWidget(QWidget):
     def _curve_selection_changed(self, _item: QListWidgetItem) -> None:
         if self._updating_controls:
             return
-        custom_index = self.form_combo.findData(CUSTOM_LIVE_FORM_ID)
-        if custom_index >= 0 and self.form_combo.currentIndex() != custom_index:
-            self.form_combo.blockSignals(True)
-            self.form_combo.setCurrentIndex(custom_index)
-            self.form_combo.blockSignals(False)
         self._last_revision = None
         self.refresh(force=True)
 
@@ -639,8 +692,11 @@ class Wits0LiveViewWidget(QWidget):
     def _set_empty_state(self) -> None:
         self.state_label.setText(self._t("wits0_live.no_session"))
         self.summary_label.setText(self._t("wits0_live.no_data"))
+        self.form_combo.setEnabled(True)
+        self.fullscreen_button.setEnabled(True)
+        self.sidebar_button.setEnabled(True)
+        self.reset_form_button.setEnabled(True)
         for widget in (
-            self.form_combo,
             self.axis_combo,
             self.auto_follow_check,
             self.pause_button,
@@ -648,8 +704,156 @@ class Wits0LiveViewWidget(QWidget):
             self.max_points_spin,
             self.refresh_button,
             self.curve_list,
+            self.save_form_button,
         ):
             widget.setEnabled(self._view is not None)
+
+    def _restore_last_form(self) -> None:
+        form_id = str(
+            self.settings.value(
+                "wits0/live-form/last-selected",
+                UNIVERSAL_LIVE_FORM_ID,
+            )
+        )
+        index = self.form_combo.findData(form_id)
+        if index < 0:
+            index = self.form_combo.findData(UNIVERSAL_LIVE_FORM_ID)
+        if index >= 0:
+            self.form_combo.setCurrentIndex(index)
+
+    def _update_form_description(self) -> None:
+        form_id = str(self.form_combo.currentData() or UNIVERSAL_LIVE_FORM_ID)
+        try:
+            definition = live_form(form_id)
+        except KeyError:
+            self.form_description_label.setText("")
+            return
+        suffix = (
+            _operator_text(self._language, "saved_override")
+            if self.form_settings.load(form_id) is not None
+            else _operator_text(self._language, "factory_template")
+        )
+        description = definition.description(self._language)
+        self.form_description_label.setText(
+            f"{description} · {suffix}" if description else suffix
+        )
+
+    def _selected_mnemonics(self) -> tuple[str, ...]:
+        view = self._view
+        if view is None:
+            return ()
+        selected_ids = set(self._selected_curve_ids())
+        result: list[str] = []
+        for curve in view.dataset.curves.values():
+            if curve.metadata.curve_id not in selected_ids:
+                continue
+            mnemonic = (
+                curve.metadata.canonical_mnemonic
+                or curve.metadata.original_mnemonic
+            ).strip()
+            if mnemonic and mnemonic not in result:
+                result.append(mnemonic)
+        return tuple(result)
+
+    def _curve_ids_for_mnemonics(
+        self,
+        mnemonics: tuple[str, ...],
+    ) -> tuple[str, ...]:
+        view = self._view
+        if view is None:
+            return ()
+        wanted = {item.casefold() for item in mnemonics}
+        selected: list[str] = []
+        for curve in view.dataset.curves.values():
+            metadata = curve.metadata
+            candidates = {
+                metadata.canonical_mnemonic.casefold()
+                if metadata.canonical_mnemonic
+                else "",
+                metadata.original_mnemonic.casefold()
+                if metadata.original_mnemonic
+                else "",
+            }
+            if wanted.intersection(candidates):
+                selected.append(metadata.curve_id)
+        return tuple(selected)
+
+    def _save_current_form(self) -> None:
+        view = self._view
+        if view is None:
+            return
+        form_id = str(self.form_combo.currentData() or UNIVERSAL_LIVE_FORM_ID)
+        state = Wits0SavedLiveFormState(
+            form_id=form_id,
+            selected_mnemonics=self._selected_mnemonics(),
+            axis_mode=str(self.axis_combo.currentData() or "auto"),
+            auto_follow=self.auto_follow_check.isChecked(),
+            follow_span=float(self.window_spin.value()),
+            max_points=int(self.max_points_spin.value()),
+            sidebar_visible=self.left_panel.isVisible(),
+        )
+        self.form_settings.save(state)
+        self._update_form_description()
+        self.state_label.setText(
+            _operator_text(self._language, "form_saved").format(
+                form=self.form_combo.currentText()
+            )
+        )
+
+    def _reset_current_form(self) -> None:
+        form_id = str(self.form_combo.currentData() or UNIVERSAL_LIVE_FORM_ID)
+        self.form_settings.reset(form_id)
+        self._sidebar_user_override = None
+        self._update_form_description()
+        if self._view is not None:
+            self._updating_controls = True
+            try:
+                self.auto_follow_check.setChecked(True)
+                self.max_points_spin.setValue(2_000)
+                axis_index = self.axis_combo.findData("auto")
+                if axis_index >= 0:
+                    self.axis_combo.setCurrentIndex(axis_index)
+            finally:
+                self._updating_controls = False
+            self._view.set_axis_mode(AcquisitionLiveAxisMode.AUTO)
+            self._view.set_auto_follow(True)
+            self._apply_live_form_selection(factory_only=True)
+            self._last_revision = None
+            self.refresh(force=True)
+
+    def _set_sidebar_visible(self, visible: bool) -> None:
+        self.left_panel.setVisible(bool(visible))
+        self.sidebar_button.setText(
+            _operator_text(
+                self._language,
+                "hide_sidebar" if visible else "show_sidebar",
+            )
+        )
+        if visible:
+            self.splitter.setSizes([330, max(650, self.width() - 330)])
+
+    def _toggle_sidebar(self) -> None:
+        visible = not self.left_panel.isVisible()
+        self._sidebar_user_override = visible
+        self._set_sidebar_visible(visible)
+
+    def _toggle_fullscreen(self) -> None:
+        self.fullScreenRequested.emit(not self._fullscreen)
+
+    def set_fullscreen_state(self, enabled: bool) -> None:
+        self._fullscreen = bool(enabled)
+        self.fullscreen_button.setText(
+            _operator_text(
+                self._language,
+                "exit_fullscreen" if enabled else "fullscreen",
+            )
+        )
+
+    def resizeEvent(self, event: QResizeEvent) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        if self._fullscreen or self._sidebar_user_override is not None:
+            return
+        self._set_sidebar_visible(self.width() >= 820)
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)
@@ -662,6 +866,44 @@ def _live_form_selector_label(language: AppLanguage) -> str:
         AppLanguage.EN: "Form",
     }.get(language, "Form")
 
+
+def _operator_text(language: AppLanguage, key: str) -> str:
+    translations = {
+        AppLanguage.RU: {
+            "save_form": "Сохранить форму",
+            "reset_form": "Сбросить",
+            "hide_sidebar": "Скрыть параметры",
+            "show_sidebar": "Показать параметры",
+            "fullscreen": "На весь экран",
+            "exit_fullscreen": "Выйти из полного экрана",
+            "saved_override": "сохранённая настройка",
+            "factory_template": "заводской шаблон",
+            "form_saved": "Форма «{form}» сохранена.",
+        },
+        AppLanguage.KK: {
+            "save_form": "Пішінді сақтау",
+            "reset_form": "Қалпына келтіру",
+            "hide_sidebar": "Параметрлерді жасыру",
+            "show_sidebar": "Параметрлерді көрсету",
+            "fullscreen": "Толық экран",
+            "exit_fullscreen": "Толық экраннан шығу",
+            "saved_override": "сақталған баптау",
+            "factory_template": "зауыттық үлгі",
+            "form_saved": "«{form}» пішіні сақталды.",
+        },
+        AppLanguage.EN: {
+            "save_form": "Save form",
+            "reset_form": "Reset",
+            "hide_sidebar": "Hide parameters",
+            "show_sidebar": "Show parameters",
+            "fullscreen": "Full screen",
+            "exit_fullscreen": "Exit full screen",
+            "saved_override": "saved setup",
+            "factory_template": "factory template",
+            "form_saved": "Form “{form}” saved.",
+        },
+    }
+    return translations.get(language, translations[AppLanguage.EN]).get(key, key)
 
 
 def _quality_color(quality: AcquisitionLiveQuality) -> QColor | None:

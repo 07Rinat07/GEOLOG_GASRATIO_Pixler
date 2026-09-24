@@ -308,6 +308,29 @@ Legacy-расчёт по независимым MAX допускается то�
 Неоднозначное сопоставление не разрешается молча. UI показывает выбор, а application command
 получает уже подтверждённый mapping.
 
+## WITS0 операторский workspace и real-time аналитика
+
+WITS0 разделён на четыре слоя ответственности:
+
+1. **Acquisition/raw boundary** принимает TCP-поток, сохраняет неизменяемый raw и создаёт reviewed
+   append-only Dataset только через application/controller boundary.
+2. **Headless live projection** строит bounded read-only snapshot, ось, current values, quality
+   markers и downsampling. Он не знает о QWidget и не реализует формулы Gas Ratio/Pixler/DEXP.
+3. **Headless analytics** использует существующие versioned calculation profiles и UOM dictionary.
+   Live-derived WH/BH/CH, Pixler и DEXP/DEXPC должны вычисляться теми же функциями, что batch/offline.
+   Gas-origin classifier является отдельным stateful service и не подменяет fluid interpretation.
+   Alarm evaluator также отдельный headless component; threshold alarm не является geological show.
+4. **Qt operator adapter** отвечает только за формы, layout, fullscreen, badges, help/tooltips,
+   audio/visual presentation и команды Save/Reset/Acknowledge/Mute.
+
+Factory live forms являются defaults, а пользовательские overrides сохраняются по canonical mnemonic,
+не по session-specific curve_id. Это позволяет пережить reconnect и новый Dataset без неявного
+переноса stale IDs.
+
+Interpretation marker содержит фактический axis anchor и presentation metadata. UI может сместить
+горизонтальный badge для устранения наложения, но не имеет права менять координату самой линии/
+полосы события. Fluid-screening marker, gas-origin marker и threshold-alarm marker независимы.
+
 ## ProjectSession и команды
 
 `ProjectSession` является application boundary текущего проекта. Он выбирает current well/dataset,

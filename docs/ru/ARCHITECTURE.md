@@ -11,3 +11,12 @@ Restart recovery использует persisted immutable schema и versioned cu
 недостоверный хвост JSONL sidecar. `QSettings` содержит только состояние представления.
 
 SEC-04 разрешает destructive retention только при действительном path-bound marker владения приложения. Non-loopback server допустим только после подтверждённого предупреждения и с non-global IPv4 CIDR allowlist; sockets от peers вне политики закрываются до raw capture и журналируются как rejected.
+
+
+## WITS0 operator workspace — 0.7.96+
+
+Live WITS UI не владеет расчётными формулами. Gas Ratio/Pixler/DEXP используют существующий
+versioned calculation registry и общий UOM dictionary; gas-origin classification и threshold alarms
+реализуются отдельными headless services. Qt отвечает за формы, fullscreen, badges, help и
+audio/visual presentation. Сохранённые формы используют canonical mnemonic вместо curve_id.
+Fluid screening, gas origin и threshold alarm остаются независимыми событиями.

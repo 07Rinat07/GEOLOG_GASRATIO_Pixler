@@ -11,3 +11,12 @@ invented discovery statistics. `.wits` bytes are never rewritten; only an invali
 may be atomically removed. `QSettings` stores presentation state only.
 
 SEC-04 makes destructive retention conditional on a valid path-bound application ownership marker. A non-loopback server is valid only with an acknowledged warning and a non-global IPv4 CIDR peer allowlist; accepted sockets outside the allowlist are closed before raw capture and journaled as rejected.
+
+
+## WITS0 operator workspace — 0.7.96+
+
+The live WITS UI does not own calculation formulas. Gas Ratio/Pixler/DEXP reuse the existing
+versioned calculation registry and shared UOM dictionary; gas-origin classification and threshold
+alarms are separate headless services. Qt owns forms, full-screen layout, badges, help and
+audio/visual presentation only. Saved forms use canonical mnemonics instead of curve IDs.
+Fluid screening, gas origin and threshold alarms remain independent events.

@@ -38,6 +38,8 @@ class AcquisitionLiveMarkerKind(StrEnum):
     AXIS_GAP = "axis_gap"
     INVALID_VALUE = "invalid_value"
     MISSING_SPAN = "missing_span"
+    INTERPRETATION = "interpretation"
+    THRESHOLD_ALARM = "threshold_alarm"
 
 
 @dataclass(frozen=True, slots=True)
@@ -123,6 +125,8 @@ class AcquisitionLiveMarker:
     curve_id: str | None
     code: str
     label: str
+    display_color: str | None = None
+    show_label: bool = False
 
     def __post_init__(self) -> None:
         if not isinstance(self.kind, AcquisitionLiveMarkerKind):
@@ -135,6 +139,16 @@ class AcquisitionLiveMarker:
             raise ValueError("Marker row range is invalid")
         _required_text(self.code, "marker.code")
         _required_text(self.label, "marker.label")
+        if self.display_color is not None:
+            color = self.display_color.strip()
+            if len(color) != 7 or not color.startswith("#"):
+                raise ValueError("Marker display_color must be #RRGGBB")
+            try:
+                int(color[1:], 16)
+            except ValueError as exc:
+                raise ValueError("Marker display_color must be #RRGGBB") from exc
+        if not isinstance(self.show_label, bool):
+            raise ValueError("Marker show_label must be bool")
 
 
 @dataclass(frozen=True, slots=True)
