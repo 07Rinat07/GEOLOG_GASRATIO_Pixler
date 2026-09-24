@@ -4,6 +4,9 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- Reports/UI: добавлен shared adaptive application style и единый professional Report Visual System; печатный wordmark стандартизирован как **Geolog GASRATIO&Pixler** для PDF, Masterlog и Office-экспорта.
+- Формулы/методики: введён tiered audit manifest с source/version/rights disclosure; Haworth/Pixler/DEXP остаются strict, ОПУС разрешён как secondary/workbook screening, detector thresholds явно pending field calibration.
+- Печатные графики УВ: перспективные интервалы получили цветные fluid bands и адаптивные выноски с явным типом флюида (газ, газ-конденсат, нефть и т. п.); ambiguous/no-consensus остаётся неопределённым, а badges не выходят за printable track.
 - WITS0 operator workspace: текущий инкремент добавляет основу адаптивного/fullscreen live monitor, редактируемые формы с Save/Reset по canonical mnemonic, presentation metadata для интерпретационных/threshold markers и отдельный headless classifier происхождения газа (background/formation/connection/trip/circulated/elevated-unclassified).
 - WITS0 plan/docs: Gas Ratio/Pixler/DEXP real-time, fluid-screening badges, gas-origin markers и min/max visual/audio alarms выделены в независимые контракты WITS-CALC/GASCTX/INTERP/ALARM; происхождение газового пика больше не смешивается с предварительным типом флюида.
 - WITS0: persistent backfill теперь fail-closed при усечённом LIVE PREVIEW — если RAM-окно уже вытеснило кадры, AcquisitionSession не создаётся, оператор видит evicted/retained counters и доступный временной диапазон; raw replay остаётся следующим WITS-MEM-01 инкрементом.
