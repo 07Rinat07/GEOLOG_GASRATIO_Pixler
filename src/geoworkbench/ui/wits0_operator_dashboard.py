@@ -325,9 +325,9 @@ class Wits0OperatorDashboard(QWidget):
         for key in tuple(self._unit_panels):
             if key in wanted:
                 continue
-            panel = self._unit_panels.pop(key)
-            self.plot_layout.removeWidget(panel.box)
-            panel.box.deleteLater()
+            removed_panel = self._unit_panels.pop(key)
+            self.plot_layout.removeWidget(removed_panel.box)
+            removed_panel.box.deleteLater()
 
         for panel_id, groups in unit_groups.items():
             if len(groups) <= 1:
@@ -337,8 +337,8 @@ class Wits0OperatorDashboard(QWidget):
             insert_offset = 1
             for unit_key, _series in groups[1:]:
                 key = (panel_id, unit_key)
-                panel = self._unit_panels.get(key)
-                if panel is None:
+                extra_panel = self._unit_panels.get(key)
+                if extra_panel is None:
                     definition = Wits0LivePanelDefinition(
                         f"{panel_id}:{unit_key or 'unitless'}",
                         base_panel.definition.title_ru,
@@ -346,24 +346,24 @@ class Wits0OperatorDashboard(QWidget):
                         base_panel.definition.title_en,
                         base_panel.definition.channel_keys,
                     )
-                    panel = _PlotPanel(
+                    extra_panel = _PlotPanel(
                         definition,
                         language=self._language,
                         parent=self.plot_host,
                     )
-                    panel.plot.getPlotItem().sigYRangeChanged.connect(
+                    extra_panel.plot.getPlotItem().sigYRangeChanged.connect(
                         self._plot_range_changed
                     )
-                    self._unit_panels[key] = panel
-                panel.box.setTitle(
+                    self._unit_panels[key] = extra_panel
+                extra_panel.box.setTitle(
                     _panel_title(base_panel.definition, self._language, unit_key, len(groups))
                 )
-                current_index = self.plot_layout.indexOf(panel.box)
+                current_index = self.plot_layout.indexOf(extra_panel.box)
                 target_index = base_index + insert_offset
                 if current_index != target_index:
                     if current_index >= 0:
-                        self.plot_layout.removeWidget(panel.box)
-                    self.plot_layout.insertWidget(target_index, panel.box)
+                        self.plot_layout.removeWidget(extra_panel.box)
+                    self.plot_layout.insertWidget(target_index, extra_panel.box)
                 insert_offset += 1
 
     def _clear_unit_panels(self) -> None:
