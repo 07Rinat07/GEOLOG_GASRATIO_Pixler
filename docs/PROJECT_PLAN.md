@@ -109,6 +109,36 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
 - [ ] Приёмка: vector PDF, embedded Unicode text, RU/KK/EN, print-to-PDF, grayscale regression,
   A4/A3 geometry, physical-print gate, page density/golden rendering и отсутствие clipped text.
 
+## CALC-AUDIT-01 — доказуемость формул и методик
+
+- [ ] Все sourced расчёты проходят цепочку formula profile → units → control example →
+  source/version → Report Passport → report citation. Для Haworth/Pixler/DEXP/DEXPC и
+  публичных patent-derived profiles действует строгий gate.
+- [ ] ОПУС использует отдельный **менее строгий** evidence tier: secondary cross-check /
+  workbook-reproduced. Он не блокируется отсутствием открытого primary full text, если pinned
+  workbook/profile воспроизводим, но в отчёте обязательно помечается как historical/screening,
+  workbook-derived и/или pending field validation.
+- [ ] Engineering detector thresholds ОПУС не выдаются за универсальные методические пороги.
+- [ ] CI проверяет наличие audit record для каждого sourced FormulaProfile, source locator,
+  documentation path, rights note и соответствующий evidence level.
+- [ ] В Report Passport и пользовательском отчёте сохраняются formula/profile version,
+  inputs/UOM, source/citation и ограничения применения.
+- [ ] Права: не хранить большие копии защищённых публикаций; использовать библиографию,
+  DOI/publication ID, необходимое математическое выражение, короткое фактическое описание
+  и собственные контрольные примеры/результаты.
+
+## REPORT-ANNOT-01 — адаптивная маркировка УВ-интервалов
+
+- [ ] Цветная полоса остаётся на фактической глубине; цвет не является единственным кодом.
+- [ ] Выноска явно пишет тип флюида: **ГАЗ**, **ГАЗ-КОНДЕНСАТ**, **ЛЁГКАЯ НЕФТЬ**,
+  **НЕФТЬ**, **ТЯЖЁЛАЯ/ОСТАТОЧНАЯ НЕФТЬ** либо **СМЕШАННЫЙ/НЕОПРЕДЕЛЁННЫЙ ТИП**.
+- [ ] Ни Haworth/Pixler, ни ОПУС не должны принудительно выбирать один флюид при
+  неоднозначном результате.
+- [ ] Вторая строка содержит интервал глубин и отметку предварительной интерпретации.
+- [ ] Выноски автоматически раздвигаются, остаются внутри printable bounds и не перекрывают
+  оси/легенды/соседние подписи; тонкая connector line связывает badge с реальным интервалом.
+- [ ] Приёмка: RU/KK/EN, dense adjacent intervals, A4/A3, grayscale, PDF text/visual regression.
+
 ## Результаты аудита и границы достоверности
 
 | Наблюдение на 21.09.2026 | Основание | Решение |
