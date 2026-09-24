@@ -22,6 +22,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_report import (
 from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
     InterpretationReportIdentity,
 )
+from geoworkbench.printing.report_visual_system import REPORT_BRAND_WORDMARK
 from geoworkbench.printing.hydrocarbon_interpretation_system_print import (
     configure_interpretation_printer,
     print_pdf_page_selection,
@@ -37,7 +38,7 @@ from geoworkbench.services.localization import AppLanguage
 
 _COVER_TITLE = "Отчёт ГТИ по скважине Северная-12"
 _COVER_MARKERS = (
-    "GEOLOG GASRATIO@Pixler",
+    REPORT_BRAND_WORDMARK,
     "Интерпретация газового каротажа",
     "Проект Северный купол",
     "Северная-12",
