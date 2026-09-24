@@ -23,8 +23,14 @@ class CurveContinuityPolicy:
     cadence_factor: float = 2.5
     minimum_finite_samples: int = 2
     absolute_max_gap: float | None = None
+    policy_id: str = "bounded-gap-continuity"
+    version: str = "1.0"
 
     def __post_init__(self) -> None:
+        if not self.policy_id.strip() or self.policy_id != self.policy_id.strip():
+            raise ValueError("policy_id должен быть непустым нормализованным идентификатором")
+        if not self.version.strip() or self.version != self.version.strip():
+            raise ValueError("version должна быть непустой нормализованной строкой")
         if not np.isfinite(self.max_gap_steps) or self.max_gap_steps <= 0.0:
             raise ValueError("max_gap_steps должен быть положительным конечным числом")
         if not np.isfinite(self.cadence_factor) or self.cadence_factor <= 0.0:
