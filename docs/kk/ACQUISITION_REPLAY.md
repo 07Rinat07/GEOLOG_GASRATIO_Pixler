@@ -30,3 +30,16 @@ record/dataset/events hash chains күйін қайтарады. Streaming ке�
 `digest_mode=incremental_chain` қолданады. Үйлесімді толық dataset/events fingerprints тек checkpoint
 және `current_result()` шекараларында есептеледі. Replay сол batch boundary-ді қолданып, әр persisted
 checkpoint алдында batch-ті аяқтайды.
+
+## WITS0 raw replay және тұрақты жазба шекарасы
+
+Егер bounded LIVE PREVIEW ерте кадрларды жадтан шығарып қойған болса, толық тарих RAM-tail
+арқылы қалпына келтірілмейді. Ол үшін индекстелген raw capture (`.wits` +
+`.chunks.jsonl`) қолданылады. Replay offset үздіксіздігін, timestamp ретін және connection ID
+мәндерін тексереді; provenance бұзылса, fail-closed тоқтайды.
+
+Оқу streaming режимінде орындалады және бүкіл raw payload жадқа жүктелмейді. Әр TCP connection
+үшін live capture қолданатын сол `Wits0StreamProcessor` пайдаланылады. Кейінгі explicit
+boundary таңдалса, ертерек chunk-тар parser warm-up үшін оқылуы мүмкін, бірақ persistent
+session-ға тек қабылданған `start_at..end_at` аралығындағы frames түседі. Әр record raw
+SHA-256 және source segment path provenance-ын сақтайды.
