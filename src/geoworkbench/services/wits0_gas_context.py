@@ -15,6 +15,10 @@ class Wits0GasOperation(StrEnum):
     CONNECTION = "connection"
     TRIP = "trip"
     CIRCULATION = "circulation"
+    CHROMATOGRAPH_TEST = "chromatograph_test"
+    GAS_LINE_TEST = "gas_line_test"
+    LAG_TRACER_TEST = "lag_tracer_test"
+    CALIBRATION = "calibration"
     UNKNOWN = "unknown"
 
 
@@ -26,6 +30,11 @@ class Wits0GasOriginKind(StrEnum):
     CONNECTION_GAS = "connection_gas"
     TRIP_GAS = "trip_gas"
     CIRCULATED_GAS = "circulated_gas"
+    RECYCLED_GAS = "recycled_gas"
+    CHROMATOGRAPH_TEST_GAS = "chromatograph_test_gas"
+    GAS_LINE_TEST_GAS = "gas_line_test_gas"
+    LAG_TRACER_GAS = "lag_tracer_gas"
+    CALIBRATION_GAS = "calibration_gas"
     ELEVATED_UNCLASSIFIED = "elevated_unclassified"
     INSUFFICIENT_CONTEXT = "insufficient_context"
 
@@ -124,6 +133,13 @@ class Wits0GasContextClassifier:
     ) -> Wits0GasContextAssessment:
         value = observation.total_gas
         background, threshold = self._background_and_threshold()
+        explicit_test = self._explicit_test_assessment(
+            observation,
+            background=background,
+            threshold=threshold,
+        )
+        if explicit_test is not None:
+            return explicit_test
         if value is None:
             return Wits0GasContextAssessment(
                 kind=Wits0GasOriginKind.INSUFFICIENT_CONTEXT,
@@ -238,6 +254,57 @@ class Wits0GasContextClassifier:
         if self._eligible_for_background(observation, assessment):
             self._baseline.append(numeric)
         return assessment
+
+    def _explicit_test_assessment(
+        self,
+        observation: Wits0GasContextObservation,
+        *,
+        background: float | None,
+        threshold: float | None,
+    ) -> Wits0GasContextAssessment | None:
+        mapping = {
+            Wits0GasOperation.CHROMATOGRAPH_TEST: (
+                Wits0GasOriginKind.CHROMATOGRAPH_TEST_GAS,
+                "chromatograph_test_context",
+            ),
+            Wits0GasOperation.GAS_LINE_TEST: (
+                Wits0GasOriginKind.GAS_LINE_TEST_GAS,
+                "gas_line_test_context",
+            ),
+            Wits0GasOperation.LAG_TRACER_TEST: (
+                Wits0GasOriginKind.LAG_TRACER_GAS,
+                "lag_tracer_test_context",
+            ),
+            Wits0GasOperation.CALIBRATION: (
+                Wits0GasOriginKind.CALIBRATION_GAS,
+                "calibration_context",
+            ),
+        }
+        resolved = mapping.get(observation.operation)
+        if resolved is None:
+            return None
+        kind, reason = resolved
+        value = (
+            float(observation.total_gas)
+            if observation.total_gas is not None
+            else None
+        )
+        ratio = (
+            value / background
+            if value is not None
+            and background is not None
+            and background > np.finfo(np.float64).eps
+            else None
+        )
+        return Wits0GasContextAssessment(
+            kind=kind,
+            total_gas=value,
+            background=background,
+            threshold=threshold,
+            ratio_to_background=ratio,
+            confidence=1.0,
+            reason_codes=(reason, "exclude_from_formation_interpretation"),
+        )
 
     def _background_and_threshold(self) -> tuple[float | None, float | None]:
         if len(self._baseline) < self.config.baseline_min_samples:
