@@ -22,6 +22,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
     InterpretationReportIdentity,
     default_interpretation_report_identity,
 )
+from geoworkbench.printing.report_visual_system import REPORT_BRAND_WORDMARK
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
 )
@@ -140,6 +141,8 @@ def test_pdf_cover_uses_manual_identity_instead_of_loaded_file_names(qapp, tmp_p
     assert "АО Заказчик" in cover_text
     assert "ТОО Сервис ГТИ" in cover_text
     assert "Инженер ГТИ И.И." in cover_text
+    assert REPORT_BRAND_WORDMARK in cover_text
+    assert "GEOLOG GASRATIO@Pixler" not in cover_text
     assert "Техническое_имя_загруженного_файла.las" not in cover_text
 
 
