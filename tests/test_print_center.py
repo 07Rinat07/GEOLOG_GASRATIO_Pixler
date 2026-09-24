@@ -28,7 +28,10 @@ def test_print_center_uses_shared_palette_aware_presentation_contract(qapp) -> N
     assert ".setStyleSheet(" not in source
     assert re.search(r"#[0-9a-fA-F]{3,8}\b", source) is None
     assert 'self.ok_button.setProperty("uiRole", "primary")' in source
-    assert 'column_header_title.setObjectName("print-center-column-header-title")' in source
+    assert (
+        'column_header_title.setObjectName("print-center-column-header-title")'
+        in source
+    )
     assert 'depth_standard.setObjectName("print-center-depth-standard")' in source
 
     dialog = PrintCenterDialog(language=AppLanguage.EN)
