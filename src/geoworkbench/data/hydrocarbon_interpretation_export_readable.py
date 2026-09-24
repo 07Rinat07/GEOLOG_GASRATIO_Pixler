@@ -145,7 +145,9 @@ def _write_main_sheet(sheet, report: HydrocarbonInterpretationReport, dataset: D
         if report.report_profile == "opus"
         else "Сводная интерпретация газового каротажа и УВ-интервалов"
     )
-    sheet["A1"] = f"{REPORT_BRAND_WORDMARK} — {report_title}"
+    sheet["A1"] = report_title
+    sheet.oddHeader.left.text = REPORT_BRAND_WORDMARK
+    sheet.oddFooter.left.text = REPORT_BRAND_WORDMARK
     sheet["A1"].font = Font(size=16, bold=True, color="FFFFFF")
     sheet["A1"].fill = PatternFill("solid", fgColor="17365D")
     sheet["A1"].alignment = Alignment(horizontal="center", vertical="center")
