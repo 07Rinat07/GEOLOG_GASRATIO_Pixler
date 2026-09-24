@@ -106,6 +106,11 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
 - [ ] Один visual profile применяется к hydrocarbon interpretation PDF, generic report PDF,
   Masterlog cover/header/footer и XLSX/DOCX. Индивидуальные отчёты добавляют только содержательные
   секции поверх общей визуальной системы.
+- [ ] **REPORT-I18N-01:** каждый печатный/экспортируемый отчёт имеет явный output-language selector
+  Русский / Қазақша / English, независимый от языка интерфейса. Выбранный язык применяется
+  одновременно к preview, PDF, системной печати, DOCX/XLSX, chart callouts, legends, method/source
+  blocks и report passport. Запрещены жёстко русские headers в export adapters. Приёмка:
+  tri-language golden/smoke tests для каждого report kind + проверка Unicode и переноса длинного KK.
 - [ ] Приёмка: vector PDF, embedded Unicode text, RU/KK/EN, print-to-PDF, grayscale regression,
   A4/A3 geometry, physical-print gate, page density/golden rendering и отсутствие clipped text.
 
@@ -238,13 +243,24 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
 - [ ] **WITS-GASCTX-01 (P0, в работе):** разделить две независимые оси интерпретации:
   **fluid screening** по Haworth/Pixler и **gas origin/context** по Total Gas/C1–C5 +
   технологическому состоянию. Gas origin classes: background, formation_show,
-  connection_gas, trip_gas, circulated_gas, elevated_unclassified,
+  connection_gas, trip_gas, circulated_gas, recycled_gas, chromatograph_test_gas,
+  gas_line_test_gas, lag_tracer_gas, calibration_gas, elevated_unclassified,
   insufficient_context. Background оценивается robust rolling baseline только на пригодных
-  стабильных drilling samples; operational transients не обучают baseline. Connection/trip/
-  circulation context имеет приоритет над formation-show, чтобы пик после наращивания/СПО
-  не назывался пластовым. Если activity/lag/pumps/on-bottom недостаточны, результат остаётся
-  elevated_unclassified. Приёмка: deterministic transition tests, reconnect/reset semantics,
-  synthetic drilling/connection/trip/circulation sequences и полевой просмотр специалистом ГТИ.
+  стабильных drilling samples; operational transients и QC/test events не обучают baseline.
+  Приоритет классификации: confirmed QC/test interval → trip/connection/circulation →
+  formation_show → background → unclassified. Connection/trip/circulation context имеет
+  приоритет над formation-show, чтобы пик после наращивания/СПО не назывался пластовым.
+  Тест хроматографа, тест газовой линии ГТИ, lag tracer/carbide test и calibration gas
+  всегда исключаются из formation interpretation.
+
+  Поддержать **гибридную автоматику + ручное подтверждение**: оператор может задать тип события,
+  ось depth/elapsed-time, начало, конец, optional значение/единицу и комментарий. Ручной confirmed
+  interval имеет приоритет над автоматической гипотезой и передаётся в live markers, report
+  interpreter и audit/provenance. Surface detection и lag-corrected bit depth хранятся раздельно;
+  formation_show без валидной lag-привязки к долоту не должен уверенно присваиваться конкретному
+  разбуриваемому пласту. Приёмка: deterministic transition tests, overlapping manual-interval
+  priority, reconnect/reset semantics, synthetic drilling/connection/trip/test/calibration/
+  circulation sequences и полевой просмотр специалистом ГТИ.
 
 - [ ] **WITS-ALARM-01 (P0):** единый headless alarm contract для исходных и derived channels.
   На параметр задаются optional min/max, visual-enabled, audio-enabled, hysteresis, debounce/
