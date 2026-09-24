@@ -586,12 +586,19 @@ class AcquisitionLiveView:
                 )
                 for curve_id in curve_ids
             )
+
         reference_now = now or datetime.now(timezone.utc)
         if reference_now.tzinfo is None:
             reference_now = reference_now.replace(tzinfo=timezone.utc)
         else:
             reference_now = reference_now.astimezone(timezone.utc)
+
         latest_row = row_count - 1
+        visible_records = records[:row_count]
+        record_metadata = tuple(
+            _parse_source_metadata(record.source) for record in visible_records
+        )
+
         output: list[AcquisitionCurrentValue] = []
         for curve_id in curve_ids:
             curve = self.dataset.curves[curve_id]
@@ -599,21 +606,62 @@ class AcquisitionLiveView:
             finite_rows = np.flatnonzero(np.isfinite(values))
             sample_row = int(finite_rows[-1]) if finite_rows.size else None
             value = float(values[sample_row]) if sample_row is not None else None
-            row_for_metadata = sample_row if sample_row is not None else latest_row
-            record = records[row_for_metadata] if row_for_metadata < len(records) else None
-            metadata = _parse_source_metadata(record.source if record is not None else "")
+
             source_id = _curve_source_id(curve.metadata.provenance)
-            codes = list(metadata.quality_for(source_id))
+            source_record_no = _source_record_no(source_id)
+            latest_relevant_row: int | None = None
+            if source_record_no is not None:
+                for row_index in range(len(record_metadata) - 1, -1, -1):
+                    if record_metadata[row_index].record_no == source_record_no:
+                        latest_relevant_row = row_index
+                        break
+            elif sample_row is not None:
+                latest_relevant_row = sample_row
+            elif visible_records:
+                latest_relevant_row = latest_row
+
+            quality_row = (
+                latest_relevant_row
+                if latest_relevant_row is not None
+                else sample_row
+                if sample_row is not None
+                else latest_row
+            )
+            quality_metadata = (
+                record_metadata[quality_row]
+                if 0 <= quality_row < len(record_metadata)
+                else _SourceMetadata()
+            )
+            codes = list(quality_metadata.quality_for(source_id))
+
             quality = AcquisitionLiveQuality.GOOD
-            if sample_row is None or sample_row < latest_row:
+            if sample_row is None:
                 quality = AcquisitionLiveQuality.MISSING
                 codes.append(AcquisitionLiveQuality.MISSING.value)
+            elif (
+                latest_relevant_row is not None
+                and sample_row < latest_relevant_row
+            ):
+                quality = AcquisitionLiveQuality.MISSING
+                codes.append(AcquisitionLiveQuality.MISSING.value)
+
             if any("invalid" in code for code in codes):
                 quality = AcquisitionLiveQuality.INVALID
-            elif metadata.sequence_status == "gap":
+            elif quality_metadata.sequence_status == "gap":
                 quality = AcquisitionLiveQuality.SOURCE_GAP
                 codes.append(AcquisitionLiveQuality.SOURCE_GAP.value)
-            received_at = record.received_at if record is not None else None
+
+            sample_record = (
+                visible_records[sample_row]
+                if sample_row is not None and sample_row < len(visible_records)
+                else None
+            )
+            received_at = sample_record.received_at if sample_record is not None else None
+            sample_metadata = (
+                record_metadata[sample_row]
+                if sample_row is not None and sample_row < len(record_metadata)
+                else _SourceMetadata()
+            )
             if received_at is not None:
                 try:
                     parsed = _parse_utc(received_at)
@@ -627,6 +675,7 @@ class AcquisitionLiveView:
                     if quality is AcquisitionLiveQuality.GOOD:
                         quality = AcquisitionLiveQuality.STALE
                     codes.append(AcquisitionLiveQuality.STALE.value)
+
             output.append(
                 AcquisitionCurrentValue(
                     curve_id=curve_id,
@@ -644,7 +693,7 @@ class AcquisitionLiveView:
                         else None
                     ),
                     received_at=received_at,
-                    source_sequence_no=metadata.source_sequence_no,
+                    source_sequence_no=sample_metadata.source_sequence_no,
                     age_rows=(latest_row - sample_row) if sample_row is not None else None,
                 )
             )
@@ -889,6 +938,12 @@ def _curve_source_id(provenance: str | None) -> str | None:
         source_id = candidate.removeprefix("wits0:")
         return source_id if len(source_id) == 4 and source_id.isdigit() else None
     return None
+
+
+def _source_record_no(source_id: str | None) -> int | None:
+    if source_id is None or len(source_id) != 4 or not source_id.isdigit():
+        return None
+    return int(source_id[:2])
 
 
 def _true_segments(mask: NDArray[np.bool_]) -> tuple[tuple[int, int], ...]:
