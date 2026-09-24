@@ -618,11 +618,17 @@ def _stagger_callout_centers(
         return tuple(midpoint for _ in preferred)
 
     indexed = sorted(enumerate(preferred), key=lambda item: item[1])
+    effective_gap = minimum_gap
+    if len(indexed) > 1:
+        effective_gap = min(
+            minimum_gap,
+            max(0.0, (max_center - min_center) / (len(indexed) - 1)),
+        )
     placed: list[tuple[int, float]] = []
-    previous = min_center - minimum_gap
+    previous = min_center - effective_gap
     for index, value in indexed:
         center = min(max(float(value), min_center), max_center)
-        center = max(center, previous + minimum_gap)
+        center = max(center, previous + effective_gap)
         placed.append((index, center))
         previous = center
 
@@ -634,7 +640,7 @@ def _stagger_callout_centers(
             index, center = placed[position]
             placed[position] = (
                 index,
-                min(center, next_center - minimum_gap),
+                min(center, next_center - effective_gap),
             )
         underflow = min_center - placed[0][1]
         if underflow > 0.0:
