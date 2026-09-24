@@ -121,7 +121,6 @@ class CuttingsCompositionDialog(QDialog):
 
         self.validation_label = QLabel("")
         self.validation_label.setObjectName("cuttings-validation")
-        self.validation_label.setProperty("validationRole", "error")
         self.validation_label.setWordWrap(True)
         layout.addWidget(self.validation_label)
 
@@ -167,13 +166,21 @@ class CuttingsCompositionDialog(QDialog):
     def _accept_if_valid(self) -> None:
         self.validation_label.clear()
         if self.top_depth >= self.bottom_depth:
-            self.validation_label.setText(self._text["interval"])
+            self._show_validation_error(self._text["interval"])
             return
         components = self.components()
         if len(components) > 4:
-            self.validation_label.setText(self._text["limit"])
+            self._show_validation_error(self._text["limit"])
             return
         if abs(sum(components.values()) - 100.0) > 0.01:
-            self.validation_label.setText(self._text["total"])
+            self._show_validation_error(self._text["total"])
             return
         self.accept()
+
+    def _show_validation_error(self, message: str) -> None:
+        self.validation_label.setText(message)
+        self.validation_label.setProperty("validationRole", "error")
+        style = self.validation_label.style()
+        style.unpolish(self.validation_label)
+        style.polish(self.validation_label)
+        self.validation_label.update()
