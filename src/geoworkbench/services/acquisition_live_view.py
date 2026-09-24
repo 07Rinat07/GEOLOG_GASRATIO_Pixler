@@ -317,26 +317,45 @@ class AcquisitionLiveView:
         if isinstance(max_points, bool) or not isinstance(max_points, int) or max_points < 2:
             raise ValueError("max_points_per_curve must be an integer >= 2")
 
+        record_metadata = tuple(
+            _parse_source_metadata(record.source) for record in records
+        )
         series: list[AcquisitionLiveSeries] = []
         rendered_total = 0
         source_total = 0
         for curve_id in selected:
             curve = self.dataset.curves[curve_id]
             values = np.asarray(curve.values, dtype=np.float64)[:row_count]
+            curve_axis = axis
+            curve_values = values
+            source_id = _curve_source_id(curve.metadata.provenance)
+            source_record_no = _source_record_no(source_id)
+            if source_record_no is not None and len(record_metadata) == row_count:
+                record_mask = np.fromiter(
+                    (
+                        metadata.record_no == source_record_no
+                        for metadata in record_metadata
+                    ),
+                    dtype=np.bool_,
+                    count=row_count,
+                )
+                curve_axis = axis[record_mask]
+                curve_values = values[record_mask]
+
             if window_start is None or window_end is None:
                 rendered_values = np.asarray([], dtype=np.float64)
                 rendered_axis = np.asarray([], dtype=np.float64)
                 source_count = 0
             else:
                 visible_mask = (
-                    np.isfinite(axis)
-                    & (axis >= window_start)
-                    & (axis <= window_end)
+                    np.isfinite(curve_axis)
+                    & (curve_axis >= window_start)
+                    & (curve_axis <= window_end)
                 )
                 source_count = int(np.count_nonzero(visible_mask))
                 rendered_values, rendered_axis = select_visible_samples(
-                    axis,
-                    values,
+                    curve_axis,
+                    curve_values,
                     window_start,
                     window_end,
                     max_points=max_points,
