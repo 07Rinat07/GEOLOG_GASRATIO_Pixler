@@ -16,6 +16,9 @@ def test_adaptive_application_stylesheet_uses_palette_roles_and_no_fixed_widths(
     assert 'QPushButton[uiRole="destructive"]' in stylesheet
     assert "QLineEdit:read-only" in stylesheet
     assert "QToolTip" in stylesheet
+    assert "QFrame#mainToolbar" in stylesheet
+    assert "QFrame#formEditToolbar" in stylesheet
+    assert "QLabel#formEditToolbarCaption" in stylesheet
     assert "palette(highlight)" in stylesheet
     assert "palette(base)" in stylesheet
     assert "min-height: 28px" in stylesheet
