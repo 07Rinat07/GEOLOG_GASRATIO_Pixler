@@ -74,6 +74,7 @@ from geoworkbench.services.wits0_live_preview import (
 from geoworkbench.services.wits0_raw_replay import (
     Wits0RawReplayAvailability,
     Wits0RawReplayError,
+    Wits0RawReplayResult,
     inspect_wits0_raw_replay,
     replay_wits0_raw_interval,
 )
@@ -82,7 +83,7 @@ from geoworkbench.ui.wits0_live_view import Wits0LiveViewWidget
 from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 if TYPE_CHECKING:
-    from geoworkbench.domain.models import Well
+    from geoworkbench.domain.models import Dataset, Well
 
 
 class _Wits0PreviewBoundaryChoice(StrEnum):
@@ -951,7 +952,7 @@ class Wits0CaptureDialog(QDialog):
             )
         )
 
-        raw_button = None
+        raw_button: QPushButton | None = None
         if availability is not None and availability.covers_requested_interval:
             raw_button = box.addButton(
                 self._t("wits0.acquisition_replay_raw_action"),
@@ -994,7 +995,7 @@ class Wits0CaptureDialog(QDialog):
         self,
         runtime: Wits0AcquisitionRuntime,
         *,
-        previous_dataset: object | None,
+        previous_dataset: Dataset | None,
     ) -> None:
         well = runtime.controller.well
         session_id = runtime.session.session_id
@@ -1004,7 +1005,7 @@ class Wits0CaptureDialog(QDialog):
         if previous_dataset is None:
             well.datasets.pop(dataset_id, None)
         else:
-            well.datasets[dataset_id] = previous_dataset  # type: ignore[assignment]
+            well.datasets[dataset_id] = previous_dataset
 
     def _start_acquisition(self) -> None:
         commit = self.review_commit
@@ -1072,7 +1073,7 @@ class Wits0CaptureDialog(QDialog):
             return
 
         backfilled = 0
-        raw_replay_result = None
+        raw_replay_result: Wits0RawReplayResult | None = None
         try:
             if boundary_choice is _Wits0PreviewBoundaryChoice.RAW_REPLAY:
                 engine = self.engine
