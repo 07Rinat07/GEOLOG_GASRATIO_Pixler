@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from enum import StrEnum
 from pathlib import Path
 import re
 from typing import Callable, TYPE_CHECKING
@@ -65,7 +66,14 @@ from geoworkbench.services.wits0_import_review import (
 )
 from geoworkbench.services.wits0_live_preview import (
     Wits0LivePreview,
+    Wits0PreviewBackfillBoundary,
     Wits0PreviewHistoryTruncatedError,
+)
+from geoworkbench.services.wits0_raw_replay import (
+    Wits0RawReplayAvailability,
+    Wits0RawReplayError,
+    inspect_wits0_raw_replay,
+    replay_wits0_raw_interval,
 )
 from geoworkbench.ui.wits0_import_review_dialog import Wits0ImportReviewDialog
 from geoworkbench.ui.wits0_live_view import Wits0LiveViewWidget
@@ -73,6 +81,11 @@ from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 if TYPE_CHECKING:
     from geoworkbench.domain.models import Well
+
+
+class _Wits0PreviewBoundaryChoice(StrEnum):
+    RAW_REPLAY = "raw_replay"
+    RETAINED_TAIL = "retained_tail"
 
 
 class Wits0CaptureDialog(QDialog):
@@ -99,6 +112,7 @@ class Wits0CaptureDialog(QDialog):
         self._connection_events_recorded: set[tuple[str, bool]] = set()
         self._live_fullscreen_dialog: QDialog | None = None
         self._live_tab_index = 2
+        self._raw_replay_through_at: str | None = None
         self.well_provider = well_provider
         self.on_dataset_changed = on_dataset_changed
         self.engine: Wits0CaptureEngine | None = None
