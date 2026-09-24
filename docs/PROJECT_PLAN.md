@@ -187,8 +187,13 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
   Второй инкремент добавляет fail-closed backfill boundary: если preview уже вытеснил кадры,
   persistent session не создаётся, retained-хвост не считается полной историей, оператору
   показываются evicted/retained counters и retained временной диапазон.
-  Оставшийся scope — RSS baseline и replay доступного raw-интервала/явный выбор более поздней
-  границы с сохранением provenance.
+  Третий инкремент подключает операторский выбор к реальному workflow: если preview усечён,
+  приложение проверяет indexed raw и предлагает либо replay исходной доступной границы, либо
+  явное принятие earliest retained frame как нового начала. Выбор сохраняется в source provenance
+  acquisition-records; после raw replay live handoff подавляет уже воспроизведённые queued frames,
+  чтобы не создавать дубли. Raw replay повторно проверяет coverage fail-closed перед мутацией.
+  Оставшийся scope — измеренный RSS baseline/допустимый запас и финальная live↔replay digest
+  parity acceptance на длинном synthetic потоке.
   Приёмка: на потоке не менее 10× установленного лимита с постоянной схемой размер retained
   structures ограничен; baseline RSS и допустимый запас зафиксированы до реализации и не
   растут линейно с длительностью потока. При появлении нового канала сохраняются последние

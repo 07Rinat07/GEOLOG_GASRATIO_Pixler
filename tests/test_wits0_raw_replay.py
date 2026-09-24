@@ -175,6 +175,32 @@ def test_later_boundary_warms_parser_but_persists_only_selected_tail(
     assert runtime.session.records[0].received_at == "2026-09-24T15:00:03.000000Z"
 
 
+def test_raw_replay_refuses_incomplete_requested_boundary_before_mutation(
+    tmp_path: Path,
+) -> None:
+    first, second = _raw_fixture(tmp_path)
+    profile, commit = _commit(first, second)
+    well = Well("well-incomplete", "Well incomplete")
+    runtime = Wits0AcquisitionRuntime(
+        well,
+        commit,
+        session_id="session-incomplete",
+    )
+
+    with pytest.raises(Wits0RawReplayError, match="does not cover"):
+        replay_wits0_raw_interval(
+            runtime,
+            profile=profile,
+            raw_directory=tmp_path,
+            source_name="GeoScape rig 1",
+            start_at="2026-09-24T15:00:00Z",
+            end_at="2026-09-24T15:00:03Z",
+        )
+
+    assert runtime.session.last_sequence == 0
+    assert len(runtime.controller.dataset.active_index.values) == 0
+
+
 def test_raw_replay_fails_closed_on_non_contiguous_sidecar_offsets(
     tmp_path: Path,
 ) -> None:

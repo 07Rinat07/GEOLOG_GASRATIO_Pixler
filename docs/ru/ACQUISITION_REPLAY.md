@@ -43,3 +43,20 @@ Replay проверяет непрерывность смещений, timestamp
 ранние chunk-и могут использоваться как parser warm-up, но в persistent session попадают только
 frames внутри принятого интервала. Provenance каждой строки сохраняет raw SHA-256 и путь
 исходного сегмента.
+
+## Выбор границы оператором
+
+При усечённом LIVE PREVIEW окно запуска постоянной WITS-сессии больше не просто блокирует
+оператора. Оно показывает retained-диапазон и состояние indexed raw и требует выбрать один из
+двух явных вариантов:
+
+1. **Восстановить из raw и начать** — preferred path. Весь доступный интервал от первого
+   наблюдавшегося preview-frame до последней текущей границы заново проходит через тот же
+   WITS parser и reviewed runtime.
+2. **Начать с retained-границы** — оператор сознательно принимает earliest retained frame
+   как начало persistent Dataset. Более ранние preview-кадры в Dataset не попадают, но raw
+   на диске не удаляется.
+
+Выбранная стратегия, start/end boundary и число вытесненных preview frames сохраняются в
+`AcquisitionRecord.source` как provenance tokens. После raw replay live handoff подавляет
+queued frames, уже покрытые replay-границей, чтобы не создавать дублей.

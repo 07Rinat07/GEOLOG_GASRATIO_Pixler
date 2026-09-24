@@ -30,6 +30,7 @@ class Wits0PreviewHistoryTruncatedError(RuntimeError):
 class Wits0PreviewBackfillBoundary:
     buffered_frames: int
     evicted_frames: int
+    first_observed_received_at: str | None
     earliest_received_at: str | None
     latest_received_at: str | None
 
@@ -94,6 +95,7 @@ class Wits0LivePreview:
         self._last_error: str | None = None
         self._evicted_frame_count = 0
         self._compaction_count = 0
+        self._first_observed_received_at: str | None = None
 
     @property
     def runtime(self) -> Wits0AcquisitionRuntime | None:
@@ -132,6 +134,7 @@ class Wits0LivePreview:
         return Wits0PreviewBackfillBoundary(
             buffered_frames=len(self._frames),
             evicted_frames=self._evicted_frame_count,
+            first_observed_received_at=self._first_observed_received_at,
             earliest_received_at=first.received_at if first is not None else None,
             latest_received_at=last.received_at if last is not None else None,
         )
@@ -139,6 +142,8 @@ class Wits0LivePreview:
     def observe(self, frame: Wits0ParsedFrame) -> Wits0AcquisitionRuntime | None:
         """Observe one frame and return the current renderable preview runtime."""
 
+        if self._first_observed_received_at is None:
+            self._first_observed_received_at = frame.received_at
         if len(self._frames) == self.config.max_buffered_frames:
             self._evicted_frame_count += 1
         self._frames.append(frame)
@@ -188,6 +193,36 @@ class Wits0LivePreview:
         runtime.flush()
         return sum(result.accepted for result in results)
 
+    def backfill_from_explicit_boundary(
+        self,
+        runtime: Wits0AcquisitionRuntime,
+        *,
+        accepted_start_at: str,
+    ) -> int:
+        """Persist the retained tail after an explicit operator boundary choice.
+
+        This is deliberately separate from :meth:`backfill`. A truncated preview
+        may only be used after the caller explicitly accepts the exact earliest
+        retained frame as the new persistent acquisition boundary.
+        """
+
+        boundary = self.backfill_boundary
+        if not boundary.truncated:
+            raise ValueError(
+                "Explicit later boundary is only valid for a truncated WITS0 preview"
+            )
+        if boundary.earliest_received_at is None:
+            raise Wits0PreviewHistoryTruncatedError(
+                "Truncated WITS0 preview has no retained start timestamp"
+            )
+        if accepted_start_at != boundary.earliest_received_at:
+            raise ValueError(
+                "Explicit WITS0 acquisition boundary must match the earliest retained frame"
+            )
+        results = runtime.submit_frames(tuple(self._frames))
+        runtime.flush()
+        return sum(result.accepted for result in results)
+
     def reset(self) -> None:
         self.discovery.reset()
         self._frames.clear()
@@ -197,6 +232,7 @@ class Wits0LivePreview:
         self._last_error = None
         self._evicted_frame_count = 0
         self._compaction_count = 0
+        self._first_observed_received_at = None
 
     def _rebuild(
         self,

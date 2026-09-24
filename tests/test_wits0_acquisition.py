@@ -303,6 +303,49 @@ def test_drain_then_retry_policy_relives_backpressure_without_losing_order() -> 
     assert np.asarray(runtime.controller.dataset.active_index.values).shape == (2,)
 
 
+def test_runtime_persists_boundary_tags_in_data_and_connection_provenance() -> None:
+    _profile, frames, commit = _time_commit(
+        _frame(2, 1, "0208123.4", "021011.2"),
+    )
+    tags = (
+        "acquisition-boundary=raw_replay",
+        "boundary-start=2026-07-27T03:15:45Z",
+        "preview-evicted=12",
+    )
+    well = Well("well-provenance", "Well provenance")
+    runtime = Wits0AcquisitionRuntime(
+        well,
+        commit,
+        session_id="session-provenance",
+        config=Wits0AcquisitionConfig(record_source_tags=tags),
+    )
+
+    runtime.submit_frame(frames[0])
+    runtime.submit_connection_event(
+        connected=True,
+        occurred_at="2026-07-27T03:15:46Z",
+        connection_id="connection-1",
+        reason="session_started_while_connected",
+    )
+    runtime.flush()
+
+    assert runtime.session.last_sequence == 2
+    for record in runtime.session.records:
+        for tag in tags:
+            assert f";{tag}" in record.source
+
+
+def test_runtime_rejects_ambiguous_boundary_source_tags() -> None:
+    with pytest.raises(ValueError, match="single source tokens"):
+        Wits0AcquisitionConfig(
+            record_source_tags=("acquisition-boundary=raw;unsafe=true",)
+        )
+    with pytest.raises(ValueError, match="duplicates"):
+        Wits0AcquisitionConfig(
+            record_source_tags=("acquisition-boundary=raw", "acquisition-boundary=raw")
+        )
+
+
 def test_closed_wits0_session_roundtrips_through_project_codec(tmp_path) -> None:
     from geoworkbench.domain.models import Project
     from geoworkbench.storage.atomic_json import save_project

@@ -167,6 +167,20 @@ def replay_wits0_raw_interval(
     if end_ns < start_ns:
         raise ValueError("end_at must be greater than or equal to start_at")
 
+    availability = inspect_wits0_raw_replay(
+        raw_directory,
+        source_name=source_name,
+        start_at=start,
+        end_at=end,
+    )
+    if not availability.covers_requested_interval:
+        raise Wits0RawReplayError(
+            "Indexed WITS0 raw does not cover the requested replay interval: "
+            f"requested={start}..{end}, "
+            f"available={availability.earliest_received_at or 'none'}.."
+            f"{availability.latest_received_at or 'none'}"
+        )
+
     segments = _segment_indexes(raw_directory, source_name=source_name)
     if not segments:
         raise Wits0RawReplayError("No indexed WITS0 raw segments are available")
@@ -218,6 +232,18 @@ def replay_wits0_raw_interval(
                     result = runtime.submit_frame(frame)
                     if result.accepted:
                         frames_accepted += 1
+
+    if first_selected_at is None or last_selected_at is None:
+        raise Wits0RawReplayError(
+            "Indexed WITS0 raw contained no frames inside the requested replay interval"
+        )
+    if (
+        acquisition_timestamp_to_ns(first_selected_at) > start_ns
+        or acquisition_timestamp_to_ns(last_selected_at) < end_ns
+    ):
+        raise Wits0RawReplayError(
+            "WITS0 raw replay lost an accepted boundary while reading indexed segments"
+        )
 
     runtime.flush()
     return Wits0RawReplayResult(

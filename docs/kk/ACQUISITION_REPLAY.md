@@ -43,3 +43,19 @@ checkpoint алдында batch-ті аяқтайды.
 boundary таңдалса, ертерек chunk-тар parser warm-up үшін оқылуы мүмкін, бірақ persistent
 session-ға тек қабылданған `start_at..end_at` аралығындағы frames түседі. Әр record raw
 SHA-256 және source segment path provenance-ын сақтайды.
+
+## Оператордың acquisition boundary таңдауы
+
+LIVE PREVIEW қысқартылған кезде тұрақты WITS session іске қосу терезесі тек бұғаттап қоймайды.
+Ол retained аралықты және indexed raw күйін көрсетіп, екі анық нұсқаның бірін таңдауды талап етеді:
+
+1. **Raw арқылы қалпына келтіріп бастау** — ұсынылатын жол. Алғаш байқалған preview frame-нен
+   ағымдағы соңғы шекараға дейінгі қолжетімді raw сол WITS parser және reviewed runtime арқылы
+   қайта өтеді.
+2. **Retained шекарасынан бастау** — оператор earliest retained frame-ді persistent Dataset
+   бастауы ретінде саналы түрде қабылдайды. Ертерек preview кадрлары Dataset-ке түспейді,
+   бірақ raw дискіден жойылмайды.
+
+Таңдалған стратегия, start/end boundary және шығарылған preview frames саны
+`AcquisitionRecord.source` provenance tokens ретінде сақталады. Raw replay аяқталғаннан кейін
+live handoff replay шекарасымен жабылған queued frames-ті қайта жазбайды.

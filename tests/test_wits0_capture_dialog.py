@@ -72,18 +72,34 @@ def test_wits0_capture_ui_connects_review_to_bounded_acquisition_runtime() -> No
     assert "def _on_wits0_dataset_changed" in main_source
 
 
-def test_wits0_capture_blocks_persistent_start_before_runtime_when_preview_is_truncated() -> None:
+def test_wits0_capture_requires_explicit_strategy_for_truncated_preview() -> None:
     source = SOURCE.read_text(encoding="utf-8")
     start = source[
         source.index("def _start_acquisition")
         : source.index("def _flush_acquisition")
     ]
+    poll = source[
+        source.index("def _poll_engine")
+        : source.index("def _refresh_snapshot")
+    ]
 
     assert "self.live_preview.backfill_boundary" in start
     assert "boundary.truncated" in start
-    assert '"wits0.acquisition_preview_truncated"' in start
-    assert '"wits0.acquisition_preview_truncated_event"' in start
-    assert start.index("boundary.truncated") < start.index("Wits0AcquisitionRuntime(")
+    assert "_choose_truncated_preview_boundary" in start
+    assert "replay_wits0_raw_interval(" in start
+    assert "backfill_from_explicit_boundary(" in start
+    assert '"wits0.acquisition_replay_raw_action"' in source
+    assert '"wits0.acquisition_accept_later_boundary_action"' in source
+    assert start.index("_choose_truncated_preview_boundary") < start.index(
+        "Wits0AcquisitionRuntime("
+    )
+    assert "_frame_is_covered_by_raw_replay" in poll
+    assert poll.index("_frame_is_covered_by_raw_replay") < poll.index(
+        "runtime.submit_frame(event.parsed_frame)"
+    )
+    assert "record_source_tags=self._boundary_source_tags(" in start
+    assert "def _restored_boundary_source_tags(" in source
+    assert "record_source_tags=self._restored_boundary_source_tags(session)" in source
 
 
 def test_wits0_capture_ui_exposes_reliability_and_restart_recovery_controls() -> None:

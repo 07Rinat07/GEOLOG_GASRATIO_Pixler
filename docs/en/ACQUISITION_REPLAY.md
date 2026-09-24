@@ -42,3 +42,20 @@ connection uses the same `Wits0StreamProcessor` as live capture. With an explici
 later boundary, earlier chunks may be consumed only as parser warm-up while the persistent
 session receives frames inside the accepted `start_at..end_at` interval. Each stored record
 retains the raw SHA-256 and source-segment reference.
+
+## Operator-selected acquisition boundary
+
+When LIVE PREVIEW is truncated, persistent WITS acquisition no longer stops at a generic
+warning. The start workflow shows the retained range and indexed-raw status and requires one
+explicit choice:
+
+1. **Replay raw and start** — the preferred path. The available interval from the first
+   observed preview frame through the current end boundary is processed again through the same
+   WITS parser and reviewed runtime.
+2. **Start at retained boundary** — the operator deliberately accepts the earliest retained
+   frame as the beginning of the persistent Dataset. Earlier preview frames do not enter the
+   Dataset, while the original raw remains on disk.
+
+The selected strategy, start/end boundary, and evicted-preview count are persisted as
+`AcquisitionRecord.source` provenance tokens. After raw replay, the live handoff suppresses
+queued frames already covered by the replay boundary so they cannot be duplicated.

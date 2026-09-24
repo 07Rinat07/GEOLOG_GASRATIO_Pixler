@@ -176,6 +176,7 @@ def test_preview_backfill_fails_closed_after_history_eviction() -> None:
     boundary = preview.backfill_boundary
     assert boundary.truncated is True
     assert boundary.evicted_frames == 1
+    assert boundary.first_observed_received_at == "2026-07-27T03:18:01Z"
     assert boundary.buffered_frames == 2
     assert boundary.earliest_received_at == "2026-07-27T03:18:02Z"
     assert boundary.latest_received_at == "2026-07-27T03:18:03Z"
@@ -191,6 +192,53 @@ def test_preview_backfill_fails_closed_after_history_eviction() -> None:
 
     assert runtime.session.last_sequence == 0
     assert len(runtime.controller.dataset.active_index.values) == 0
+
+
+def test_preview_retained_tail_requires_exact_explicit_boundary() -> None:
+    profile = load_builtin_wits0_profile()
+    processor = Wits0StreamProcessor(profile)
+    preview = Wits0LivePreview(
+        profile,
+        config=Wits0LivePreviewConfig(
+            max_buffered_frames=2,
+            runtime_compaction_factor=2,
+        ),
+    )
+
+    for sequence in range(1, 4):
+        frame = processor.append(
+            _frame(2, sequence, f"0208{123.0 + sequence / 10:.1f}"),
+            received_at=f"2026-07-27T03:19:{sequence:02d}Z",
+            source_ref="truncated-preview.wits",
+        )[0]
+        preview.observe(frame)
+
+    snapshot = preview.discovery.snapshot()
+    reviewer = Wits0ImportReviewController()
+    commit = reviewer.commit(snapshot, profile, reviewer.initial_plan(snapshot))
+    well = Well("well-boundary", "Well boundary")
+    runtime = Wits0AcquisitionRuntime(
+        well,
+        commit,
+        session_id="session-boundary",
+    )
+
+    with pytest.raises(ValueError, match="must match"):
+        preview.backfill_from_explicit_boundary(
+            runtime,
+            accepted_start_at="2026-07-27T03:19:01Z",
+        )
+
+    assert runtime.session.last_sequence == 0
+
+    accepted = preview.backfill_from_explicit_boundary(
+        runtime,
+        accepted_start_at="2026-07-27T03:19:02Z",
+    )
+
+    assert accepted == 2
+    assert runtime.session.last_sequence == 2
+    assert runtime.session.records[0].received_at == "2026-07-27T03:19:02.000000Z"
 
 
 def test_preview_runtime_history_is_bounded_beyond_ten_times_frame_limit() -> None:
@@ -264,3 +312,4 @@ def test_preview_reset_clears_retention_counters() -> None:
     assert preview.evicted_frame_count == 0
     assert preview.compaction_count == 0
     assert preview.history_is_truncated is False
+    assert preview.backfill_boundary.first_observed_received_at is None

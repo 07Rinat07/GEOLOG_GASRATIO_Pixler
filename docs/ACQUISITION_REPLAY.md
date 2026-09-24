@@ -90,3 +90,12 @@ connection создаётся тот же `Wits0StreamProcessor`, что исп�
 но в persistent `AcquisitionSession` передаются лишь frames внутри принятой границы
 `start_at..end_at`. Каждый сохранённый record продолжает фиксировать raw SHA-256 и
 `source_ref` исходного сегмента.
+
+## Operator boundary для усечённого WITS preview
+
+Если transient LIVE PREVIEW уже вытеснил ранние frames, запуск persistent acquisition требует
+явного решения. При полном indexed raw оператор выбирает replay от первого наблюдавшегося
+preview-frame до текущей границы; при сознательно принятом более позднем старте используется
+earliest retained frame. Стратегия и границы сохраняются в source provenance records.
+После raw replay queued live frames до replay boundary подавляются, поэтому handoff не создаёт
+дубли. Если raw coverage неполный или sidecar повреждён/ротирован, replay завершается fail-closed.

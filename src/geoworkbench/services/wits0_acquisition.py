@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime, time, timezone
 from enum import StrEnum
 from hashlib import sha256
@@ -577,6 +577,7 @@ class Wits0AcquisitionConfig:
     checkpoint_every_records: int = 500
     checkpoint_interval_seconds: float = 60.0
     backpressure_policy: Wits0BackpressurePolicy = Wits0BackpressurePolicy.RAISE
+    record_source_tags: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         for value, label in (
@@ -594,6 +595,21 @@ class Wits0AcquisitionConfig:
             raise ValueError("checkpoint_interval_seconds must be positive")
         if not isinstance(self.backpressure_policy, Wits0BackpressurePolicy):
             raise ValueError("backpressure_policy must use Wits0BackpressurePolicy")
+        if not isinstance(self.record_source_tags, tuple):
+            raise ValueError("record_source_tags must be a tuple")
+        for tag in self.record_source_tags:
+            if (
+                not isinstance(tag, str)
+                or not tag.strip()
+                or ";" in tag
+                or "\n" in tag
+                or "\r" in tag
+            ):
+                raise ValueError(
+                    "record_source_tags must contain non-empty single source tokens"
+                )
+        if len(set(self.record_source_tags)) != len(self.record_source_tags):
+            raise ValueError("record_source_tags must not contain duplicates")
 
 
 @dataclass(frozen=True, slots=True)
@@ -751,9 +767,16 @@ class Wits0AcquisitionRuntime:
             kind=AcquisitionRecordKind.EVENT_UPSERT,
             payload=AcquisitionEventUpsertPayload(event),
             received_at=timestamp,
-            source=(
-                f"wits0:connection;state={state};connection-id={connection_id};"
-                f"peer={peer or ''};reason={reason or ''};raw={raw_file or ''}"
+            source=";".join(
+                (
+                    "wits0:connection",
+                    f"state={state}",
+                    f"connection-id={connection_id}",
+                    f"peer={peer or ''}",
+                    f"reason={reason or ''}",
+                    f"raw={raw_file or ''}",
+                    *self.config.record_source_tags,
+                )
             ),
         )
         self._enqueue_records((record,))
@@ -865,9 +888,20 @@ class Wits0AcquisitionRuntime:
         batches: tuple[Wits0MeasurementBatch, ...],
     ) -> tuple[AcquisitionRecord, ...]:
         start = self.session.last_sequence + self.controller.pending_count + 1
-        return tuple(
+        records = tuple(
             batch.to_acquisition_record(start + offset)
             for offset, batch in enumerate(batches)
+        )
+        if not self.config.record_source_tags:
+            return records
+        return tuple(
+            replace(
+                record,
+                source=";".join(
+                    (record.source, *self.config.record_source_tags)
+                ),
+            )
+            for record in records
         )
 
     def _create_checkpoint_if_due(self) -> AcquisitionCheckpoint | None:

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from copy import deepcopy
+from enum import StrEnum
 from pathlib import Path
 import re
 from typing import Callable, TYPE_CHECKING
@@ -45,6 +47,10 @@ from geoworkbench.acquisition import (
     load_builtin_wits0_profile,
     wits0_remote_bind_required,
 )
+from geoworkbench.domain.acquisition import (
+    AcquisitionSession,
+    acquisition_timestamp_to_ns,
+)
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.wits0_acquisition import (
     Wits0AcquisitionBackpressureError,
@@ -65,14 +71,27 @@ from geoworkbench.services.wits0_import_review import (
 )
 from geoworkbench.services.wits0_live_preview import (
     Wits0LivePreview,
+    Wits0PreviewBackfillBoundary,
     Wits0PreviewHistoryTruncatedError,
+)
+from geoworkbench.services.wits0_raw_replay import (
+    Wits0RawReplayAvailability,
+    Wits0RawReplayError,
+    Wits0RawReplayResult,
+    inspect_wits0_raw_replay,
+    replay_wits0_raw_interval,
 )
 from geoworkbench.ui.wits0_import_review_dialog import Wits0ImportReviewDialog
 from geoworkbench.ui.wits0_live_view import Wits0LiveViewWidget
 from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 if TYPE_CHECKING:
-    from geoworkbench.domain.models import Well
+    from geoworkbench.domain.models import Dataset, Well
+
+
+class _Wits0PreviewBoundaryChoice(StrEnum):
+    RAW_REPLAY = "raw_replay"
+    RETAINED_TAIL = "retained_tail"
 
 
 class Wits0CaptureDialog(QDialog):
@@ -99,6 +118,7 @@ class Wits0CaptureDialog(QDialog):
         self._connection_events_recorded: set[tuple[str, bool]] = set()
         self._live_fullscreen_dialog: QDialog | None = None
         self._live_tab_index = 2
+        self._raw_replay_through_at: str | None = None
         self.well_provider = well_provider
         self.on_dataset_changed = on_dataset_changed
         self.engine: Wits0CaptureEngine | None = None
@@ -693,6 +713,8 @@ class Wits0CaptureDialog(QDialog):
                     runtime = self.acquisition_runtime
                     if runtime is not None and runtime.state is Wits0AcquisitionState.OPEN:
                         self.live_preview.observe_discovery_only(event.parsed_frame)
+                        if self._frame_is_covered_by_raw_replay(event.parsed_frame):
+                            continue
                         try:
                             runtime.submit_frame(event.parsed_frame)
                         except Wits0AcquisitionBackpressureError as exc:
@@ -866,6 +888,168 @@ class Wits0CaptureDialog(QDialog):
         self.close_acquisition_button.setEnabled(acquisition_open)
 
 
+    def _inspect_truncated_preview_raw(
+        self,
+        boundary: Wits0PreviewBackfillBoundary,
+    ) -> tuple[Wits0RawReplayAvailability | None, str | None]:
+        engine = self.engine
+        start_at = boundary.first_observed_received_at
+        end_at = boundary.latest_received_at
+        if engine is None or start_at is None or end_at is None:
+            return None, self._t("wits0.acquisition_raw_replay_unavailable")
+        try:
+            availability = inspect_wits0_raw_replay(
+                engine.config.raw_directory,
+                source_name=engine.config.source_name,
+                start_at=start_at,
+                end_at=end_at,
+            )
+        except (OSError, ValueError, Wits0RawReplayError) as exc:
+            return None, str(exc)
+        if not availability.covers_requested_interval:
+            return availability, self._t(
+                "wits0.acquisition_raw_replay_incomplete",
+                first=availability.earliest_received_at or "—",
+                last=availability.latest_received_at or "—",
+            )
+        return availability, None
+
+    def _choose_truncated_preview_boundary(
+        self,
+        boundary: Wits0PreviewBackfillBoundary,
+    ) -> tuple[_Wits0PreviewBoundaryChoice | None, Wits0RawReplayAvailability | None]:
+        availability, raw_error = self._inspect_truncated_preview_raw(boundary)
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Icon.Warning)
+        box.setWindowTitle(self._t("wits0.title"))
+        box.setText(
+            self._t(
+                "wits0.acquisition_preview_truncated",
+                evicted=boundary.evicted_frames,
+                retained=boundary.buffered_frames,
+                earliest=boundary.earliest_received_at or "—",
+                latest=boundary.latest_received_at or "—",
+            )
+        )
+        if availability is not None:
+            raw_summary = self._t(
+                "wits0.acquisition_raw_replay_summary",
+                first=availability.earliest_received_at or "—",
+                last=availability.latest_received_at or "—",
+                chunks=availability.chunk_count,
+                segments=availability.segment_count,
+                bytes=availability.indexed_bytes,
+            )
+        else:
+            raw_summary = self._t(
+                "wits0.acquisition_raw_replay_error",
+                error=raw_error or self._t("wits0.acquisition_raw_replay_unavailable"),
+            )
+        later_start = boundary.earliest_received_at or "—"
+        box.setInformativeText(
+            raw_summary
+            + "\n\n"
+            + self._t(
+                "wits0.acquisition_boundary_choice_help",
+                start=later_start,
+            )
+        )
+
+        raw_button: QPushButton | None = None
+        if availability is not None and availability.covers_requested_interval:
+            raw_button = box.addButton(
+                self._t("wits0.acquisition_replay_raw_action"),
+                QMessageBox.ButtonRole.AcceptRole,
+            )
+        later_button = box.addButton(
+            self._t("wits0.acquisition_accept_later_boundary_action"),
+            QMessageBox.ButtonRole.ActionRole,
+        )
+        cancel_button = box.addButton(QMessageBox.StandardButton.Cancel)
+        if raw_button is not None:
+            box.setDefaultButton(raw_button)
+        else:
+            box.setDefaultButton(cancel_button)
+        box.setEscapeButton(cancel_button)
+        box.exec()
+        clicked = box.clickedButton()
+        if raw_button is not None and clicked is raw_button:
+            return _Wits0PreviewBoundaryChoice.RAW_REPLAY, availability
+        if clicked is later_button:
+            return _Wits0PreviewBoundaryChoice.RETAINED_TAIL, availability
+        return None, availability
+
+    def _frame_is_covered_by_raw_replay(self, frame: Wits0ParsedFrame) -> bool:
+        boundary_at = self._raw_replay_through_at
+        received_at = frame.received_at
+        if boundary_at is None or received_at is None:
+            return False
+        try:
+            frame_ns = acquisition_timestamp_to_ns(received_at)
+            boundary_ns = acquisition_timestamp_to_ns(boundary_at)
+        except ValueError:
+            return False
+        if frame_ns <= boundary_ns:
+            return True
+        self._raw_replay_through_at = None
+        return False
+
+    @staticmethod
+    def _boundary_source_tags(
+        boundary: Wits0PreviewBackfillBoundary,
+        choice: _Wits0PreviewBoundaryChoice | None,
+    ) -> tuple[str, ...]:
+        mode = choice.value if choice is not None else "complete_preview"
+        start_at = (
+            boundary.earliest_received_at
+            if choice is _Wits0PreviewBoundaryChoice.RETAINED_TAIL
+            else boundary.first_observed_received_at
+        )
+        tags = [f"acquisition-boundary={mode}"]
+        if start_at is not None:
+            tags.append(f"boundary-start={start_at}")
+        if boundary.latest_received_at is not None:
+            tags.append(f"boundary-end={boundary.latest_received_at}")
+        if boundary.evicted_frames:
+            tags.append(f"preview-evicted={boundary.evicted_frames}")
+        return tuple(tags)
+
+    @staticmethod
+    def _restored_boundary_source_tags(
+        session: AcquisitionSession,
+    ) -> tuple[str, ...]:
+        prefixes = (
+            "acquisition-boundary=",
+            "boundary-start=",
+            "boundary-end=",
+            "preview-evicted=",
+        )
+        for record in session.records:
+            tags = tuple(
+                token
+                for token in record.source.split(";")
+                if token.startswith(prefixes)
+            )
+            if any(tag.startswith("acquisition-boundary=") for tag in tags):
+                return tags
+        return ()
+
+    def _rollback_failed_acquisition_start(
+        self,
+        runtime: Wits0AcquisitionRuntime,
+        *,
+        previous_dataset: Dataset | None,
+    ) -> None:
+        well = runtime.controller.well
+        session_id = runtime.session.session_id
+        dataset_id = runtime.session.dataset_schema.dataset_id
+        if well.acquisition_sessions.get(session_id) is runtime.session:
+            well.acquisition_sessions.pop(session_id, None)
+        if previous_dataset is None:
+            well.datasets.pop(dataset_id, None)
+        else:
+            well.datasets[dataset_id] = previous_dataset
+
     def _start_acquisition(self) -> None:
         commit = self.review_commit
         well = self.well_provider() if self.well_provider is not None else None
@@ -888,29 +1072,33 @@ class Wits0CaptureDialog(QDialog):
                 self._t("wits0.acquisition_well_required"),
             )
             return
+
         boundary = self.live_preview.backfill_boundary
+        boundary_choice: _Wits0PreviewBoundaryChoice | None = None
+        raw_availability: Wits0RawReplayAvailability | None = None
         if boundary.truncated:
-            QMessageBox.warning(
-                self,
-                self._t("wits0.title"),
-                self._t(
-                    "wits0.acquisition_preview_truncated",
-                    evicted=boundary.evicted_frames,
-                    retained=boundary.buffered_frames,
-                    earliest=boundary.earliest_received_at or "—",
-                    latest=boundary.latest_received_at or "—",
-                ),
+            boundary_choice, raw_availability = self._choose_truncated_preview_boundary(
+                boundary
             )
-            self.event_text.appendPlainText(
-                self._t(
-                    "wits0.acquisition_preview_truncated_event",
-                    evicted=boundary.evicted_frames,
-                    retained=boundary.buffered_frames,
-                    earliest=boundary.earliest_received_at or "—",
-                    latest=boundary.latest_received_at or "—",
+            if boundary_choice is None:
+                self.event_text.appendPlainText(
+                    self._t(
+                        "wits0.acquisition_preview_truncated_event",
+                        evicted=boundary.evicted_frames,
+                        retained=boundary.buffered_frames,
+                        earliest=boundary.earliest_received_at or "—",
+                        latest=boundary.latest_received_at or "—",
+                    )
                 )
-            )
-            return
+                return
+
+        dataset_id = commit.schema.dataset_id
+        existing_dataset = well.datasets.get(dataset_id)
+        previous_dataset = (
+            deepcopy(existing_dataset)
+            if existing_dataset is not None and len(existing_dataset.depth) == 0
+            else None
+        )
         try:
             runtime = Wits0AcquisitionRuntime(
                 well,
@@ -922,20 +1110,74 @@ class Wits0CaptureDialog(QDialog):
                     checkpoint_every_records=500,
                     checkpoint_interval_seconds=60.0,
                     backpressure_policy=Wits0BackpressurePolicy.DRAIN_THEN_RETRY,
+                    record_source_tags=self._boundary_source_tags(
+                        boundary,
+                        boundary_choice,
+                    ),
                 ),
             )
         except (ValueError, RuntimeError) as exc:
             QMessageBox.critical(self, self._t("wits0.title"), str(exc))
             return
-        self.acquisition_runtime = runtime
+
         backfilled = 0
+        raw_replay_result: Wits0RawReplayResult | None = None
         try:
-            backfilled = self.live_preview.backfill(runtime)
-        except (ValueError, RuntimeError, Wits0PreviewHistoryTruncatedError) as exc:
+            if boundary_choice is _Wits0PreviewBoundaryChoice.RAW_REPLAY:
+                engine = self.engine
+                start_at = boundary.first_observed_received_at
+                end_at = boundary.latest_received_at
+                if (
+                    engine is None
+                    or start_at is None
+                    or end_at is None
+                    or raw_availability is None
+                    or not raw_availability.covers_requested_interval
+                ):
+                    raise Wits0RawReplayError(
+                        self._t("wits0.acquisition_raw_replay_unavailable")
+                    )
+                raw_replay_result = replay_wits0_raw_interval(
+                    runtime,
+                    profile=self.profile,
+                    raw_directory=engine.config.raw_directory,
+                    source_name=engine.config.source_name,
+                    start_at=start_at,
+                    end_at=end_at,
+                )
+                backfilled = raw_replay_result.frames_accepted
+                self._raw_replay_through_at = end_at
+            elif boundary_choice is _Wits0PreviewBoundaryChoice.RETAINED_TAIL:
+                accepted_start = boundary.earliest_received_at
+                if accepted_start is None:
+                    raise Wits0PreviewHistoryTruncatedError(
+                        self._t("wits0.acquisition_raw_replay_unavailable")
+                    )
+                backfilled = self.live_preview.backfill_from_explicit_boundary(
+                    runtime,
+                    accepted_start_at=accepted_start,
+                )
+            else:
+                backfilled = self.live_preview.backfill(runtime)
+        except (
+            OSError,
+            ValueError,
+            RuntimeError,
+            Wits0PreviewHistoryTruncatedError,
+            Wits0RawReplayError,
+        ) as exc:
+            self._raw_replay_through_at = None
+            self._rollback_failed_acquisition_start(
+                runtime,
+                previous_dataset=previous_dataset,
+            )
             self.event_text.appendPlainText(
                 self._t("wits0.acquisition_error_event", error=str(exc))
             )
             QMessageBox.warning(self, self._t("wits0.title"), str(exc))
+            return
+
+        self.acquisition_runtime = runtime
         engine = self.engine
         if engine is not None:
             engine.set_recovery_context(
@@ -952,6 +1194,9 @@ class Wits0CaptureDialog(QDialog):
             and capture_snapshot.state is Wits0CaptureState.CONNECTED
             and capture_snapshot.current_connection_id
         ):
+            boundary_reason = (
+                boundary_choice.value if boundary_choice is not None else "complete_preview"
+            )
             try:
                 runtime.submit_connection_event(
                     connected=True,
@@ -963,7 +1208,10 @@ class Wits0CaptureDialog(QDialog):
                     connection_id=capture_snapshot.current_connection_id,
                     peer=capture_snapshot.current_peer,
                     raw_file=capture_snapshot.current_raw_file,
-                    reason="session_started_while_connected",
+                    reason=(
+                        "session_started_while_connected;"
+                        f"acquisition-boundary={boundary_reason}"
+                    ),
                 )
             except Wits0AcquisitionBackpressureError as exc:
                 self.event_text.appendPlainText(
@@ -980,7 +1228,27 @@ class Wits0CaptureDialog(QDialog):
                 dataset=runtime.session.dataset_schema.name,
             )
         )
-        if backfilled:
+        if raw_replay_result is not None:
+            self.event_text.appendPlainText(
+                self._t(
+                    "wits0.acquisition_raw_replayed_event",
+                    accepted=raw_replay_result.frames_accepted,
+                    selected=raw_replay_result.frames_selected,
+                    segments=raw_replay_result.source_segments,
+                    start=raw_replay_result.first_selected_at or "—",
+                    end=raw_replay_result.last_selected_at or "—",
+                )
+            )
+        elif boundary_choice is _Wits0PreviewBoundaryChoice.RETAINED_TAIL:
+            self.event_text.appendPlainText(
+                self._t(
+                    "wits0.acquisition_later_boundary_event",
+                    start=boundary.earliest_received_at or "—",
+                    count=backfilled,
+                    evicted=boundary.evicted_frames,
+                )
+            )
+        elif backfilled:
             self.event_text.appendPlainText(
                 self._t("wits0.acquisition_backfilled_event", count=backfilled)
             )
@@ -1250,6 +1518,7 @@ class Wits0CaptureDialog(QDialog):
                     checkpoint_every_records=500,
                     checkpoint_interval_seconds=60.0,
                     backpressure_policy=Wits0BackpressurePolicy.DRAIN_THEN_RETRY,
+                    record_source_tags=self._restored_boundary_source_tags(session),
                 ),
             )
         except (ValueError, RuntimeError) as exc:
@@ -1430,6 +1699,9 @@ def _operator_help_document(language: AppLanguage) -> str:
 3. Нажмите «Запустить захват». Raw-байты сохраняются независимо от parser и Import Review.
 4. Если данные приходят, Monitor показывает LIVE PREVIEW. Пауза просмотра не останавливает приём.
 5. После проверки mapping выполните Import Review и при необходимости начните постоянную сессию.
+   Если LIVE PREVIEW уже усечён, предпочтительно восстановите доступную историю из raw.
+   Более позднюю retained-границу выбирайте только осознанно: ранние кадры не попадут в Dataset,
+   но исходный raw останется на диске.
 6. Форму можно менять: добавлять каналы, менять ось/окно, затем «Сохранить форму» или «Сбросить».
 7. «На весь экран» оставляет монитор операторским экраном; возврат не перезапускает acquisition.
 
@@ -1453,6 +1725,9 @@ def _operator_help_document(language: AppLanguage) -> str:
 3. Қабылдауды іске қосыңыз. Raw байттар parser және Import Review-дан тәуелсіз сақталады.
 4. Дерек келсе Monitor LIVE PREVIEW көрсетеді. Pause-view қабылдауды тоқтатпайды.
 5. Mapping тексерілгеннен кейін Import Review және қажет болса тұрақты сессияны бастаңыз.
+   LIVE PREVIEW қысқартылған болса, қолжетімді тарихты raw арқылы қалпына келтіру ұсынылады.
+   Кейінгі retained шекараны тек саналы түрде таңдаңыз: ерте кадрлар Dataset-ке түспейді,
+   бірақ бастапқы raw дискіде қалады.
 6. Пішінге арналар қосып/алып тастап, ось/терезені өзгертіп, сақтауға немесе reset жасауға болады.
 7. Full-screen режим acquisition-ды қайта іске қоспай операторлық монитор береді.
 
@@ -1472,6 +1747,9 @@ def _operator_help_document(language: AppLanguage) -> str:
 3. Start capture. Raw bytes are preserved independently from parsing and Import Review.
 4. When usable frames arrive, Monitor shows LIVE PREVIEW. Pause-view does not stop intake.
 5. Review mapping, complete Import Review, then start persistent acquisition if required.
+   If LIVE PREVIEW is already truncated, prefer restoring the available history from raw.
+   Accept a later retained boundary only deliberately: earlier frames will stay out of the Dataset,
+   while the original raw remains on disk.
 6. Edit any form by adding/removing channels and changing axis/history; Save form or Reset.
 7. Full screen turns the live view into an operator display without rebuilding acquisition.
 
