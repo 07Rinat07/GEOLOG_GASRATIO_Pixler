@@ -709,6 +709,8 @@ class Wits0CaptureDialog(QDialog):
                     runtime = self.acquisition_runtime
                     if runtime is not None and runtime.state is Wits0AcquisitionState.OPEN:
                         self.live_preview.observe_discovery_only(event.parsed_frame)
+                        if self._frame_is_covered_by_raw_replay(event.parsed_frame):
+                            continue
                         try:
                             runtime.submit_frame(event.parsed_frame)
                         except Wits0AcquisitionBackpressureError as exc:
