@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- UI: main/form-edit toolbars больше не задают light-only QSS в `MainWindow`; геометрия/overflow остаются локальными, а цвета/hover/checked/caption берутся из общего palette-aware application style.
 - UI: application-level стиль больше не переопределяет глобальную `QPalette` ради tooltip; tooltip и read-only поля используют активные palette roles, а `secondary` закреплён как явная semantic button role.
 - WITS0: добавлен изолированный RSS benchmark для 1×/10× preview window; проверяется прирост памяти и размеры retained Dataset/session, результат выводится в JSON для сравнения на одном runner.
 - WITS0: добавлен regression-сценарий на 10 окон preview (200 кадров): после вытеснения и compaction сравниваются SHA-256 числовых рядов live и indexed raw replay. RSS масштабирование проверяется отдельным Windows gate с сохранённым baseline.
