@@ -61,6 +61,10 @@ from geoworkbench.printing.lba_visuals import (
     resolve_lba_type_style,
 )
 from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
+from geoworkbench.printing.report_visual_system import (
+    REPORT_BRAND_WORDMARK,
+    modern_oilfield_report_profile,
+)
 from geoworkbench.printing.text_rendering import (
     column_heading_height,
     draw_oriented_text,
@@ -300,12 +304,26 @@ def paint_masterlog(
         lithotype_catalog,
     )
     if page_label:
+        visual = modern_oilfield_report_profile()
         font = QFont()
         _set_scaled_font_points(painter, font, 6.5)
         painter.setFont(font)
-        painter.setPen(QColor("#475569"))
+        painter.setPen(QColor(visual.palette.text_muted))
+        footer_y = size.height() - 5.0
+        footer_width = max(1.0, size.width() - 4.0)
+        brand_width = footer_width * 0.64
         painter.drawText(
-            QRectF(2.0, size.height() - 5.0, size.width() - 4.0, 4.0),
+            QRectF(2.0, footer_y, brand_width, 4.0),
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            REPORT_BRAND_WORDMARK,
+        )
+        painter.drawText(
+            QRectF(
+                2.0 + brand_width,
+                footer_y,
+                max(1.0, footer_width - brand_width),
+                4.0,
+            ),
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
             page_label,
         )
