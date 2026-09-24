@@ -305,22 +305,24 @@ def _candidate_row(
     candidate: HydrocarbonCandidateInterval,
     statistics: CandidateIntervalGasStatistics,
     manual_intervals: tuple[ManualInterpretationInterval, ...],
+    language: AppLanguage,
 ) -> tuple[object, ...]:
+    labels = hydrocarbon_report_labels(language)
     raw = statistics.raw_total
     normalized = statistics.primary
-    status = "Перспективный УВ-интервал"
-    geologist = "Требуется подтверждение геологом"
+    status = labels.status_prospective
+    geologist = labels.requires_geologist
     if manual_intervals:
-        status = "Подтвержден геологом"
+        status = labels.status_confirmed
         geologist = " | ".join(
             f"{item.interpretation_name}: {item.label or item.interval_type}; {item.comment}".strip("; ")
             for item in manual_intervals
         )
     readable_basis = enhanced_fluid_hypothesis_basis(
-        fluid_hypothesis_basis(candidate, AppLanguage.RU),
+        fluid_hypothesis_basis(candidate, language),
         candidate,
         statistics,
-        AppLanguage.RU,
+        language,
     )
     return (
         index,
@@ -329,11 +331,12 @@ def _candidate_row(
         candidate.bottom_depth - candidate.top_depth,
         report.depth_unit,
         status,
-        fluid_hypothesis_label(candidate, AppLanguage.RU),
-        {"low": "низкая", "medium": "средняя", "high": "высокая"}.get(
-            candidate.anomaly_strength,
-            candidate.anomaly_strength,
-        ),
+        fluid_hypothesis_label(candidate, language),
+        {
+            "low": labels.strength_low,
+            "medium": labels.strength_medium,
+            "high": labels.strength_high,
+        }.get(candidate.anomaly_strength, candidate.anomaly_strength),
         _curve_identity(raw),
         _stat(raw, "minimum"),
         _stat(raw, "mean"),
@@ -343,12 +346,12 @@ def _candidate_row(
         _stat(normalized, "mean"),
         _stat(normalized, "maximum"),
         candidate.max_robust_z,
-        absolute_gas_components_summary(statistics.components, AppLanguage.RU),
-        _haworth_pixler_text(candidate),
-        _dexp_text(statistics.dexp),
-        _lba_text(candidate),
+        absolute_gas_components_summary(statistics.components, language),
+        _haworth_pixler_text(candidate, language),
+        _dexp_text(statistics.dexp, language),
+        _lba_text(candidate, language),
         geologist,
-        readable_basis or candidate_evidence_summary(candidate),
+        readable_basis or candidate_evidence_summary(candidate, language),
     )
 
 
@@ -357,7 +360,9 @@ def _manual_row(
     report: HydrocarbonInterpretationReport,
     item: ManualInterpretationInterval,
     statistics: CandidateIntervalGasStatistics,
+    language: AppLanguage,
 ) -> tuple[object, ...]:
+    labels = hydrocarbon_report_labels(language)
     raw = statistics.raw_total
     normalized = statistics.primary
     return (
@@ -366,7 +371,7 @@ def _manual_row(
         item.bottom_depth,
         item.bottom_depth - item.top_depth,
         report.depth_unit,
-        "Подтвержден геологом",
+        labels.status_confirmed,
         item.interpretation_name,
         None,
         _curve_identity(raw),
@@ -378,26 +383,31 @@ def _manual_row(
         _stat(normalized, "mean"),
         _stat(normalized, "maximum"),
         None,
-        absolute_gas_components_summary(statistics.components, AppLanguage.RU),
+        absolute_gas_components_summary(statistics.components, language),
         None,
-        _dexp_text(statistics.dexp),
+        _dexp_text(statistics.dexp, language),
         None,
         f"{item.label or item.interval_type}; {item.comment}".strip("; "),
-        "Интервал внесён и подтверждён геологом.",
+        labels.manual_interval_basis,
     )
 
 
-def _write_methods_sheet(workbook: Workbook, report: HydrocarbonInterpretationReport) -> None:
-    sheet = workbook.create_sheet("Методика")
+def _write_methods_sheet(
+    workbook: Workbook,
+    report: HydrocarbonInterpretationReport,
+    language: AppLanguage,
+) -> None:
+    labels = hydrocarbon_report_labels(language)
+    sheet = workbook.create_sheet(labels.sheet_methods)
     sheet.sheet_view.showGridLines = False
     sheet.append(
         protect_spreadsheet_row(
             (
-                "Метод",
-                "Статус",
-                "Использованные данные",
-                "Расчёт и правило интерпретации",
-                "Источник и степень подтверждения",
+                labels.method,
+                labels.status,
+                labels.used_data,
+                labels.calculation_rule,
+                labels.source_evidence,
             )
         )
     )
@@ -406,8 +416,8 @@ def _write_methods_sheet(workbook: Workbook, report: HydrocarbonInterpretationRe
             protect_spreadsheet_row(
                 (
                     method.method,
-                    "доступен" if method.available else "нет данных",
-                    ", ".join(method.available_mnemonics) or "нет данных",
+                    labels.available if method.available else labels.no_data,
+                    ", ".join(method.available_mnemonics) or labels.no_data,
                     method.calculation or "—",
                     method.source,
                 )
@@ -419,19 +429,21 @@ def _write_methods_sheet(workbook: Workbook, report: HydrocarbonInterpretationRe
 def _write_opus_gasomer_sheet(
     workbook: Workbook,
     report: HydrocarbonInterpretationReport,
+    language: AppLanguage,
 ) -> None:
+    labels = hydrocarbon_report_labels(language)
     section = report.opus_gasomer
     if section is None:
         return
-    sheet = workbook.create_sheet("ОПУС Газомер")
+    sheet = workbook.create_sheet(labels.sheet_opus)
     sheet.sheet_view.showGridLines = False
-    sheet.append(protect_spreadsheet_row(("ОПУС Газомер — воспроизводимый профиль",)))
+    sheet.append(protect_spreadsheet_row((labels.opus_heading,)))
     sheet.append(
         protect_spreadsheet_row(
             (
-                "Профиль",
+                labels.profile,
                 f"{section.profile_id} v{section.profile_version}",
-                "Статус",
+                labels.status,
                 section.profile_status,
             )
         )
@@ -439,9 +451,9 @@ def _write_opus_gasomer_sheet(
     sheet.append(
         protect_spreadsheet_row(
             (
-                "Режим",
+                labels.mode,
                 section.calculation_mode,
-                "Источник интервалов",
+                labels.interval_source,
                 section.interval_source,
             )
         )
@@ -449,20 +461,24 @@ def _write_opus_gasomer_sheet(
     sheet.append(
         protect_spreadsheet_row(
             (
-                "Рабочая единица",
+                labels.working_unit,
                 section.working_unit,
-                "LOD TotalGas",
+                labels.total_gas_lod,
                 section.total_gas_lod,
             )
         )
     )
     sheet.append(
         protect_spreadsheet_row(
-            ("SHA-256 книги", section.source_workbook_sha256)
+            (labels.workbook_sha, section.source_workbook_sha256)
         )
     )
     sheet.append(())
-    sheet.append(protect_spreadsheet_row(("Вход", "Кривая", "Исходная единица")))
+    sheet.append(
+        protect_spreadsheet_row(
+            (labels.input_label, labels.curve, labels.source_unit)
+        )
+    )
     curve_names = dict(section.input_curves)
     curve_units = dict(section.input_units)
     for name in ("TOTAL_GAS", "C1", "C2", "C3", "C4", "C5"):
@@ -472,23 +488,25 @@ def _write_opus_gasomer_sheet(
             )
         )
     sheet.append(())
-    sheet.append(protect_spreadsheet_row(("Показатель", "Точная формула профиля")))
+    sheet.append(
+        protect_spreadsheet_row((labels.indicator, labels.exact_formula))
+    )
     for name, formula in section.formulas:
         sheet.append(protect_spreadsheet_row((name, formula)))
     sheet.append(())
     sheet.append(
         protect_spreadsheet_row(
             (
-                "Интервал",
-                "Класс",
-                "Интерпретация",
-                "Поддержка класса, %",
-                "Валидные / все строки",
-                "Локальный фон",
-                "Пик TotalGas",
-                "ΔTG",
-                "Max robust z",
-                "Max контраст",
+                labels.interval,
+                labels.class_label,
+                labels.interpretation,
+                labels.class_support,
+                labels.valid_rows,
+                labels.local_background,
+                labels.peak_total_gas,
+                labels.delta_tg,
+                labels.max_robust_z,
+                labels.max_contrast,
             )
         )
     )
@@ -512,14 +530,14 @@ def _write_opus_gasomer_sheet(
         sheet.append(
             protect_spreadsheet_row(
                 (
-                    "Показатель",
-                    "Медиана",
-                    "Голос",
-                    "Интерпретация голоса",
-                    "Поддержка голоса, %",
-                    "Доступные / все строки",
-                    "Голоса 1–7",
-                    "QC-состояния",
+                    labels.indicator,
+                    labels.median,
+                    labels.vote,
+                    labels.vote_interpretation,
+                    labels.vote_support,
+                    labels.available_rows,
+                    labels.votes_qc,
+                    "QC",
                 )
             )
         )
@@ -539,7 +557,7 @@ def _write_opus_gasomer_sheet(
                 )
             )
     sheet.append(())
-    sheet.append(protect_spreadsheet_row(("Происхождение формул",)))
+    sheet.append(protect_spreadsheet_row((labels.formula_provenance,)))
     for provenance_item in section.provenance:
         sheet.append(protect_spreadsheet_row((provenance_item,)))
     _format_auxiliary_sheet(
@@ -552,9 +570,11 @@ def _write_whole_well_sheet(
     workbook: Workbook,
     dataset: Dataset,
     *,
+    language: AppLanguage,
     progress: Callable[[str, int, int], None] | None = None,
 ) -> None:
-    sheet = workbook.create_sheet("Данные по глубине")
+    labels = hydrocarbon_report_labels(language)
+    sheet = workbook.create_sheet(labels.sheet_depth)
     curves = tuple(dataset.curves.values())
     index_header = (
         f"{dataset.active_index.mnemonic} [{dataset.active_index.unit}]"
@@ -579,7 +599,10 @@ def _write_whole_well_sheet(
             completed = 20 + int(70 * (row_index + 1) / max(1, row_count))
             _notify(
                 progress,
-                f"Запись данных по глубине: {row_index + 1} из {row_count}",
+                labels.progress_depth.format(
+                    current=row_index + 1,
+                    total=row_count,
+                ),
                 completed,
                 100,
             )
@@ -630,7 +653,11 @@ def _stat(item: IntervalCurveStatistics | None, field: str) -> float | None:
     return float(value) if value is not None else None
 
 
-def _haworth_pixler_text(candidate: HydrocarbonCandidateInterval) -> str:
+def _haworth_pixler_text(
+    candidate: HydrocarbonCandidateInterval,
+    language: AppLanguage,
+) -> str:
+    labels = hydrocarbon_report_labels(language)
     parts = [
         f"Wh={_optional(candidate.interval_wetness)}",
         f"Bh={_optional(candidate.interval_balance)}",
@@ -640,33 +667,69 @@ def _haworth_pixler_text(candidate: HydrocarbonCandidateInterval) -> str:
         pixler = candidate.pixler_assessment
         parts.append(
             f"Pixler={pixler.code}; C1/C2={pixler.c1_c2:.6g}; "
-            f"профиль={pixler.profile_shape or 'недостаточно данных'}"
+            f"{labels.profile_word}={pixler.profile_shape or labels.insufficient_data}"
         )
     return "; ".join(parts)
 
 
-def _dexp_text(item: IntervalCurveStatistics | None) -> str | None:
+def _dexp_text(
+    item: IntervalCurveStatistics | None,
+    language: AppLanguage,
+) -> str | None:
     if item is None or not item.has_values:
         return None
+    labels = hydrocarbon_report_labels(language)
     return (
-        f"{item.mnemonic}: мин {_optional(item.minimum)}; "
-        f"среднее {_optional(item.mean)}; макс {_optional(item.maximum)}"
+        f"{item.mnemonic}: {labels.min_word} {_optional(item.minimum)}; "
+        f"{labels.mean_word} {_optional(item.mean)}; "
+        f"{labels.max_word} {_optional(item.maximum)}"
     )
 
 
-def _lba_text(candidate: HydrocarbonCandidateInterval) -> str:
-    descriptions = [describe_lba_assessment(item, AppLanguage.RU) for item in candidate.lba_assessments]
-    correlation = {
-        "gas_only": "только газовые данные",
-        "concordant": "признаки согласуются",
-        "partial": "частичное согласие",
-        "divergent": "признаки расходятся",
-        "mixed": "смешанное сопоставление",
-        "indeterminate": "недостаточно данных",
-    }.get(candidate.gas_lba_correlation, candidate.gas_lba_correlation)
+def _lba_text(
+    candidate: HydrocarbonCandidateInterval,
+    language: AppLanguage,
+) -> str:
+    labels = hydrocarbon_report_labels(language)
+    descriptions = [
+        describe_lba_assessment(item, language)
+        for item in candidate.lba_assessments
+    ]
+    correlation_labels = {
+        AppLanguage.RU: {
+            "gas_only": "только газовые данные",
+            "concordant": "признаки согласуются",
+            "partial": "частичное согласие",
+            "divergent": "признаки расходятся",
+            "mixed": "смешанное сопоставление",
+            "indeterminate": "недостаточно данных",
+        },
+        AppLanguage.KK: {
+            "gas_only": "тек газ деректері",
+            "concordant": "белгілер сәйкес",
+            "partial": "ішінара сәйкестік",
+            "divergent": "белгілер қайшы",
+            "mixed": "аралас сәйкестік",
+            "indeterminate": "дерек жеткіліксіз",
+        },
+        AppLanguage.EN: {
+            "gas_only": "gas data only",
+            "concordant": "evidence concordant",
+            "partial": "partial agreement",
+            "divergent": "evidence divergent",
+            "mixed": "mixed correlation",
+            "indeterminate": "insufficient data",
+        },
+    }[language]
+    correlation = correlation_labels.get(
+        candidate.gas_lba_correlation,
+        candidate.gas_lba_correlation,
+    )
     if descriptions:
-        return "; ".join((*descriptions, f"Сопоставление: {correlation}"))
-    return f"ЛБА отсутствует; сопоставление: {correlation}"
+        return "; ".join(
+            (*descriptions, f"{labels.correlation}: {correlation}")
+        )
+    return f"{labels.lba_absent}; {labels.correlation}: {correlation}"
 
 
 def _optional(value: float | None) -> str:
