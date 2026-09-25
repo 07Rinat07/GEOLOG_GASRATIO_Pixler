@@ -19,6 +19,7 @@ from numpy.typing import NDArray
 if TYPE_CHECKING:
     from geoworkbench.domain.acquisition import AcquisitionSession
     from geoworkbench.domain.gas_conditioning_qc import GasConditioningQcSummary
+    from geoworkbench.domain.gas_context_events import GasContextEvent
     from geoworkbench.domain.lag_correction import LagCorrectionProfile
     from geoworkbench.domain.operational_events import OperationalEvent
     from geoworkbench.domain.well_passport import WellPassport
@@ -761,12 +762,22 @@ class Well:
     translation_statuses: dict[str, dict[str, TranslationStatus]] = field(default_factory=dict)
     passport: WellPassport | None = None
     analysis_update_history: list[AnalysisUpdateRecord] = field(default_factory=list)
+    gas_context_events: list[GasContextEvent] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if not isinstance(self.analysis_update_history, list) or not all(
             isinstance(item, AnalysisUpdateRecord) for item in self.analysis_update_history
         ):
             raise ValueError("Некорректная история отдельных анализов скважины")
+        from geoworkbench.domain.gas_context_events import GasContextEvent
+
+        if not isinstance(self.gas_context_events, list) or not all(
+            isinstance(item, GasContextEvent) for item in self.gas_context_events
+        ):
+            raise ValueError("gas_context_events должен содержать GasContextEvent")
+        event_ids = [item.event_id for item in self.gas_context_events]
+        if len(event_ids) != len(set(event_ids)):
+            raise ValueError("ID gas context events не должны повторяться")
 
 
 @dataclass(slots=True)
