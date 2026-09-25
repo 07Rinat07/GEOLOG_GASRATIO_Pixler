@@ -11,8 +11,8 @@ from PySide6.QtWidgets import QApplication, QHeaderView, QPushButton, QScrollAre
 from geoworkbench.forms.editor import FormStructureEditor
 from geoworkbench.forms.models import FormAxisKind, FormDocument
 from geoworkbench.forms.repository import FormRepository
-from geoworkbench.printing.form_width_advisor import FormWidthLevel
 from geoworkbench.forms.templates import factory_templates
+from geoworkbench.printing.form_width_advisor import FormWidthLevel
 from geoworkbench.tablet.models import TrackKind
 from geoworkbench.tablet.vertical_ruler import (
     VerticalRulerMode,
