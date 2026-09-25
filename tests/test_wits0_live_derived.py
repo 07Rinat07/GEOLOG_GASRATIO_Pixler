@@ -4,8 +4,10 @@ from dataclasses import replace
 
 import numpy as np
 
+from geoworkbench.calculations.controller import FormulaExecutionController
 from geoworkbench.calculations.pixler import build_all_sourced_formula_registry
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
+from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.semantic_channels import default_semantic_channel_dictionary
 from geoworkbench.services.wits0_live_derived import (
     Wits0DexpCorrectionConfig,
@@ -397,3 +399,105 @@ def test_live_derived_service_materializes_ephemeral_curves_for_projection_only(
     assert "ROP_FPH:m/h->ft/h" in dexp.metadata.provenance
     assert dataset.curve_by_mnemonic("WH") is None
     assert dataset.curve_by_mnemonic("DEXP") is None
+
+
+def test_live_and_batch_paths_are_numerically_equal_for_sourced_profiles() -> None:
+    live_dataset = _dataset()
+    _add_drilling_inputs(live_dataset)
+    live_dataset.upsert_curve(
+        "MW_IN",
+        np.full(live_dataset.depth.shape, 1.437917127792, dtype=np.float64),
+        unit="g/cm3",
+        description="Actual mud density",
+        provenance="wits:test",
+    )
+    live_service = Wits0LiveDerivedChannelService(
+        dexp_correction=Wits0DexpCorrectionConfig(
+            normal_mud_density=1078.437845844,
+            unit="kg/m3",
+        )
+    )
+    live = {
+        item.mnemonic: item
+        for item in live_service.snapshot(live_dataset)
+        if item.status is Wits0DerivedChannelStatus.AVAILABLE
+    }
+
+    batch_dataset = Dataset(
+        dataset_id="batch-parity",
+        name="Batch parity",
+        kind=DatasetKind.GTI,
+        depth_domain=DepthDomain.MD,
+        depth=live_dataset.depth.copy(),
+    )
+    for mnemonic, unit, value in (
+        ("C1", "% abs", 80.0),
+        ("C2", "% abs", 10.0),
+        ("C3", "% abs", 5.0),
+        ("IC4", "% abs", 1.0),
+        ("NC4", "% abs", 2.0),
+        ("IC5", "% abs", 1.0),
+        ("NC5", "% abs", 1.0),
+        ("ROP", "ft/h", 60.0),
+        ("RPM", "rpm", 100.0),
+        ("WOB", "lbf", 50_000.0),
+        ("BIT", "in", 10.0),
+        ("RHO_N", "ppg", 9.0),
+        ("RHO_A", "ppg", 12.0),
+    ):
+        batch_dataset.upsert_curve(
+            mnemonic,
+            np.full(batch_dataset.depth.shape, value, dtype=np.float64),
+            unit=unit,
+            description=f"Batch {mnemonic}",
+            provenance="batch:test",
+        )
+
+    session = ProjectSession()
+    session.add_dataset(batch_dataset)
+    session.dirty = False
+    controller = FormulaExecutionController(
+        session,
+        build_all_sourced_formula_registry(),
+    )
+
+    batch_wh = controller.execute(
+        "haworth.wetness",
+        {
+            "C1": "C1",
+            "C2": "C2",
+            "C3": "C3",
+            "IC4": "IC4",
+            "NC4": "NC4",
+            "IC5": "IC5",
+            "NC5": "NC5",
+        },
+    )
+    batch_dexp = controller.execute(
+        "dexp.jorden_shirley",
+        {
+            "ROP_FPH": "ROP",
+            "RPM": "RPM",
+            "WOB_LBF": "WOB",
+            "BIT_IN": "BIT",
+        },
+    )
+    batch_dexpc = controller.execute(
+        "dexp.rehm_mcclendon_corrected",
+        {
+            "DEXP": "DEXP",
+            "RHO_N_PPG": "RHO_N",
+            "RHO_A_PPG": "RHO_A",
+        },
+    )
+
+    np.testing.assert_allclose(live["WH"].values, batch_wh.curve.values)
+    np.testing.assert_allclose(live["DEXP"].values, batch_dexp.curve.values)
+    np.testing.assert_allclose(live["DEXPC"].values, batch_dexpc.curve.values)
+
+    assert live["WH"].profile_id == batch_wh.passport.profile_id
+    assert live["WH"].profile_version == batch_wh.passport.version
+    assert live["DEXP"].profile_id == batch_dexp.passport.profile_id
+    assert live["DEXP"].profile_version == batch_dexp.passport.version
+    assert live["DEXPC"].profile_id == batch_dexpc.passport.profile_id
+    assert live["DEXPC"].profile_version == batch_dexpc.passport.version
