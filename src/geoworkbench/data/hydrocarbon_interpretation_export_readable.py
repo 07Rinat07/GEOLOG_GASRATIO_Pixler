@@ -18,7 +18,7 @@ from geoworkbench.data.spreadsheet_safety import (
     protect_spreadsheet_row,
     protect_spreadsheet_value,
 )
-from geoworkbench.domain.models import Dataset
+from geoworkbench.domain.models import CurveData, Dataset
 from geoworkbench.printing.hydrocarbon_report_i18n import hydrocarbon_report_labels
 from geoworkbench.printing.report_visual_system import REPORT_BRAND_WORDMARK
 from geoworkbench.services.hydrocarbon_interpretation import (
@@ -90,6 +90,7 @@ def export_readable_hydrocarbon_interpretation_xlsx(
         _write_opus_gasomer_sheet(workbook, report, language)
         _write_whole_well_sheet(
             workbook,
+            report,
             dataset,
             language=language,
             progress=progress,
@@ -569,6 +570,7 @@ def _write_opus_gasomer_sheet(
 
 def _write_whole_well_sheet(
     workbook: Workbook,
+    report: HydrocarbonInterpretationReport,
     dataset: Dataset,
     *,
     language: AppLanguage,
@@ -576,7 +578,7 @@ def _write_whole_well_sheet(
 ) -> None:
     labels = hydrocarbon_report_labels(language)
     sheet = workbook.create_sheet(labels.sheet_depth)
-    curves = tuple(dataset.curves.values())
+    curves = _report_source_curves(report, dataset)
     index_header = (
         f"{dataset.active_index.mnemonic} [{dataset.active_index.unit}]"
         if dataset.active_index.unit
@@ -607,8 +609,76 @@ def _write_whole_well_sheet(
                 completed,
                 100,
             )
-    _format_auxiliary_sheet(sheet, widths=(18, *(14 for _curve in curves)), wrap_header=True)
+    _format_hidden_source_sheet(
+        sheet,
+        widths=(18, *(14 for _curve in curves)),
+    )
     sheet.sheet_state = "hidden"
+
+
+def _report_source_curves(
+    report: HydrocarbonInterpretationReport,
+    dataset: Dataset,
+) -> tuple[CurveData, ...]:
+    """Return only curves that can contribute to this interpretation report.
+
+    Exporting every LAS channel to the hidden audit sheet scales as rows × all
+    imported channels and can make openpyxl appear hung on field datasets. The
+    audit sheet only needs source/derived channels that the report actually uses.
+    """
+
+    requested: set[str] = set()
+    if report.primary_mnemonic:
+        requested.update(
+            part.strip().removeprefix("server:").removeprefix("local-calculation:").strip().upper()
+            for part in report.primary_mnemonic.split("|")
+            if part.strip()
+        )
+    for method in report.methods:
+        requested.update(
+            str(name).strip().removeprefix("server:").removeprefix("local-calculation:").strip().upper()
+            for name in method.available_mnemonics
+            if str(name).strip()
+        )
+    requested.update(
+        {
+            "C1", "C2", "C3", "IC4", "NC4", "C4", "IC5", "NC5", "C5",
+            "TOTAL_GAS", "TG", "TG_CALC", "OPUS_TG_PCT",
+            "WH", "BH", "CH", "WETNESS", "BALANCE", "CHARACTER",
+            "C1_C2", "C1_C3", "C1_C4", "C1_C5",
+            "DEXP", "DEXPC",
+            "OPUS3", "OPUS4", "OPUS_K1_3", "OPUS_1_5",
+        }
+    )
+    selected = tuple(
+        curve
+        for curve in dataset.curves.values()
+        if curve.metadata.original_mnemonic.strip().upper() in requested
+        or (curve.metadata.canonical_mnemonic or "").strip().upper() in requested
+    )
+    return selected or tuple(dataset.curves.values())
+
+
+def _format_hidden_source_sheet(sheet, *, widths: tuple[int, ...]) -> None:
+    """Format only the header of the hidden audit sheet.
+
+    Per-cell alignment across the whole well is intentionally avoided: it adds
+    no value to a hidden machine-audit sheet and was a major O(rows × curves)
+    export cost.
+    """
+
+    sheet.freeze_panes = "A2"
+    sheet.auto_filter.ref = sheet.dimensions
+    for cell in sheet[1]:
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = PatternFill("solid", fgColor="315A7D")
+        cell.alignment = Alignment(
+            horizontal="center",
+            vertical="center",
+            wrap_text=True,
+        )
+    for index, width in enumerate(widths, start=1):
+        sheet.column_dimensions[get_column_letter(index)].width = width
 
 
 def _format_auxiliary_sheet(sheet, *, widths: tuple[int, ...], wrap_header: bool = False) -> None:
