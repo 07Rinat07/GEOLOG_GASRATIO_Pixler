@@ -96,3 +96,35 @@ def test_localizations_preserve_curve_identity_placeholder() -> None:
         assert "{old}" in payload["tablet.curve_pencil_live_readout"]
         assert "{value}" in payload["tablet.curve_pencil_live_readout"]
         assert "{delta}" in payload["tablet.curve_pencil_live_readout"]
+
+
+def test_curve_pencil_toolbar_is_palette_aware_and_compact_when_disabled() -> None:
+    tablet = (ROOT / "src/geoworkbench/tablet/tablet_view.py").read_text(
+        encoding="utf-8"
+    )
+    shared_style = (ROOT / "src/geoworkbench/ui/application_style.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'self._curve_pencil_bar.setProperty("pencilActive", self._curve_pencil_enabled)' in tablet
+    assert 'self._curve_pencil_status.setProperty("statusRole", "muted")' in tablet
+    assert 'self._curve_pencil_status.setProperty("statusRole", "active")' in tablet
+    assert 'self._curve_pencil_status.setProperty("statusRole", "error")' in tablet
+    assert 'widget.setVisible(enabled)' in tablet
+    assert 'self._curve_pencil_scroll.horizontalScrollBar().setValue(0)' in tablet
+    assert "background:#fff7ed" not in tablet
+    assert "background:#f8fafc" not in tablet[tablet.index("def _update_curve_pencil_bar_style"):tablet.index("def mark_curve_pencil_unsaved")]
+    assert "QFrame#tabletCurvePencilBar" in shared_style
+    assert 'QFrame#tabletCurvePencilBar[pencilActive="true"]' in shared_style
+    assert 'QLabel[statusRole="muted"]' in shared_style
+
+
+def test_single_curve_track_title_uses_human_readable_curve_identity() -> None:
+    source = (ROOT / "src/geoworkbench/tablet/tablet_view.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert "if len(definition.curve_mnemonics) == 1:" in source
+    assert "curve = self._dataset.curve_by_mnemonic(mnemonic)" in source
+    assert "display = self._curve_display_name(definition, mnemonic, curve).strip()" in source
+    assert 'return f"{display} [{mnemonic}]"' in source
