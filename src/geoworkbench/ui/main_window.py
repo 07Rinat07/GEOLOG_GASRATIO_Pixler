@@ -45,6 +45,7 @@ from PySide6.QtWidgets import (
     QMenu,
     QMessageBox,
     QPushButton,
+    QProgressDialog,
     QStatusBar,
     QStyle,
     QSizePolicy,
@@ -3098,11 +3099,39 @@ class MainWindow(QMainWindow):
         filenames: tuple[Path, ...],
         import_mode: LasImportMode,
     ) -> None:
-        outcome = self._dataset_import_jobs.execute_las(
-            filenames,
-            import_mode,
-            confirm_review=self._confirm_las_review,
-            review_dataset=self._review_imported_dataset,
+        names = ", ".join(path.name for path in filenames[:3])
+        if len(filenames) > 3:
+            names += f" (+{len(filenames) - 3})"
+        progress = QProgressDialog(
+            self._t("import.las_loading").format(files=names),
+            "",
+            0,
+            0,
+            self,
+        )
+        progress.setWindowTitle(self._t("import.select_las"))
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.setCancelButton(None)
+        progress.setMinimumDuration(0)
+        progress.setAutoClose(False)
+        progress.setAutoReset(False)
+        progress.show()
+        self.statusBar().showMessage(self._t("import.las_loading").format(files=names))
+        self._log(f"Начата загрузка LAS: {names}")
+        QApplication.processEvents()
+        try:
+            outcome = self._dataset_import_jobs.execute_las(
+                filenames,
+                import_mode,
+                confirm_review=self._confirm_las_review,
+                review_dataset=self._review_imported_dataset,
+            )
+        finally:
+            progress.close()
+            QApplication.processEvents()
+        self._log(
+            f"Загрузка LAS завершена: успешно {len(outcome.successful)}, "
+            f"ошибок {len(outcome.failed)}, пропущено {len(outcome.skipped)}"
         )
         for item in outcome.files:
             filename = str(item.source)
