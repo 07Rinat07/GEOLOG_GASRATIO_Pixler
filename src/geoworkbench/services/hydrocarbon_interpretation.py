@@ -261,11 +261,13 @@ def _apply_session_gas_context(
     report: HydrocarbonInterpretationReport,
 ) -> HydrocarbonInterpretationReport:
     well = session.current_well
-    if well is None:
+    dataset = session.current_dataset
+    if well is None or dataset is None:
         return report
     return apply_gas_context_to_report(
         report,
         GasContextRegistry(tuple(well.gas_context_events)),
+        depth_domain=dataset.depth_domain,
     )
 
 
@@ -282,6 +284,7 @@ def _gas_context_html(
             "Влияние",
             "TG / QC",
             "Комментарий",
+            "Домен",
             "подтверждено",
         ),
         AppLanguage.KK: (
@@ -292,6 +295,7 @@ def _gas_context_html(
             "Әсер",
             "TG / QC",
             "Түсініктеме",
+            "Домен",
             "расталған",
         ),
         AppLanguage.EN: (
@@ -302,10 +306,11 @@ def _gas_context_html(
             "Impact",
             "TG / QC",
             "Comment",
+            "Domain",
             "confirmed",
         ),
     }[language]
-    title, gas_type, interval, status, impact, tg_qc, comment, confirmed = labels
+    title, gas_type, interval, status, impact, tg_qc, comment, domain, confirmed = labels
     rows = "".join(
         "<tr>"
         f"<td>{escape(event.event_type.value)}</td>"
@@ -315,6 +320,7 @@ def _gas_context_html(
         f"<td>{'—' if event.reported_total_gas is None else f'{event.reported_total_gas:g}'}"
         f"{'' if not event.reported_unit else ' ' + escape(event.reported_unit)}</td>"
         f"<td>{escape(event.comment or '—')}</td>"
+        f"<td>{escape(event.depth_domain.value if event.depth_domain is not None else 'unknown')}</td>"
         "</tr>"
         for event in report.gas_context_events
     )
@@ -322,7 +328,7 @@ def _gas_context_html(
         f"<h2>{title}</h2>"
         "<table><thead><tr>"
         f"<th>{gas_type}</th><th>{interval}</th><th>{status}</th>"
-        f"<th>{impact}</th><th>{tg_qc}</th><th>{comment}</th>"
+        f"<th>{impact}</th><th>{tg_qc}</th><th>{comment}</th><th>{domain}</th>"
         f"</tr></thead><tbody>{rows}</tbody></table>"
     )
 
