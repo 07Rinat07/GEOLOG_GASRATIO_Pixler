@@ -70,7 +70,9 @@ The same versioned formula registry used by batch calculations is reused; Qt/UI 
 a second formula implementation. DEXP is available only with valid ROP/RPM/WOB/BIT and verified
 unit conversion. DEXPC also requires actual mud density from a reviewed MW_IN/MW_OUT channel and
 an explicitly configured normal mud density with a recognized unit; no typical/default density is
-injected when that configuration is absent.
+injected when that configuration is absent. The operator panel exposes this as an explicit
+DEXPC opt-in: the operator enters the normal mud density and selects ppg, kg/m3, or g/cm3.
+With the opt-in disabled, DEXPC is not materialized.
 
 The UI keeps three concepts separate:
 

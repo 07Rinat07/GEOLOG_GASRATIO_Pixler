@@ -33,7 +33,10 @@ from geoworkbench.services.acquisition_live_view import (
 )
 from geoworkbench.domain.models import CurveData, Dataset
 from geoworkbench.services.localization import AppLanguage, Localizer
-from geoworkbench.services.wits0_live_derived import Wits0LiveDerivedChannelService
+from geoworkbench.services.wits0_live_derived import (
+    Wits0DexpCorrectionConfig,
+    Wits0LiveDerivedChannelService,
+)
 from geoworkbench.acquisition.wits0_reliability import Wits0WorkspaceState
 from geoworkbench.acquisition.wits0_live_forms import (
     UNIVERSAL_LIVE_FORM_ID,
@@ -203,6 +206,47 @@ class Wits0LiveViewWidget(QWidget):
         self.curve_list.itemChanged.connect(self._curve_selection_changed)
         curve_layout.addWidget(self.curve_list)
         layout.addWidget(curve_group, 2)
+
+        dexp_group = QGroupBox(
+            _operator_text(self._language, "dexp_correction_group"),
+            panel,
+        )
+        dexp_layout = QVBoxLayout(dexp_group)
+        self.dexp_correction_check = QCheckBox(
+            _operator_text(self._language, "dexp_correction_enable"),
+            dexp_group,
+        )
+        self.dexp_correction_check.setToolTip(
+            _operator_text(self._language, "dexp_correction_help")
+        )
+        dexp_layout.addWidget(self.dexp_correction_check)
+
+        density_row = QHBoxLayout()
+        density_row.addWidget(
+            QLabel(_operator_text(self._language, "normal_mud_density"), dexp_group)
+        )
+        self.normal_mud_density_spin = QDoubleSpinBox(dexp_group)
+        self.normal_mud_density_spin.setDecimals(3)
+        self.normal_mud_density_spin.setRange(0.001, 5_000.0)
+        self.normal_mud_density_spin.setValue(1.0)
+        self.normal_mud_density_spin.setEnabled(False)
+        density_row.addWidget(self.normal_mud_density_spin)
+
+        self.normal_mud_density_unit_combo = QComboBox(dexp_group)
+        for unit in ("ppg", "kg/m3", "g/cm3"):
+            self.normal_mud_density_unit_combo.addItem(unit, unit)
+        self.normal_mud_density_unit_combo.setEnabled(False)
+        density_row.addWidget(self.normal_mud_density_unit_combo)
+        dexp_layout.addLayout(density_row)
+        layout.addWidget(dexp_group)
+
+        self.dexp_correction_check.toggled.connect(self._dexp_correction_changed)
+        self.normal_mud_density_spin.valueChanged.connect(
+            self._dexp_correction_changed
+        )
+        self.normal_mud_density_unit_combo.currentIndexChanged.connect(
+            self._dexp_correction_changed
+        )
 
         values_group = QGroupBox(self._t("wits0_live.current_values"), panel)
         values_layout = QVBoxLayout(values_group)
@@ -576,6 +620,26 @@ class Wits0LiveViewWidget(QWidget):
             view.set_auto_follow(saved.auto_follow)
             view.set_follow_span(saved.follow_span)
         self._set_view_source_selection(self._selected_curve_ids())
+
+    def _dexp_correction_config(self) -> Wits0DexpCorrectionConfig | None:
+        if not self.dexp_correction_check.isChecked():
+            return None
+        unit = str(self.normal_mud_density_unit_combo.currentData() or "").strip()
+        return Wits0DexpCorrectionConfig(
+            normal_mud_density=float(self.normal_mud_density_spin.value()),
+            unit=unit,
+        )
+
+    def _dexp_correction_changed(self, _value: object = None) -> None:
+        enabled = self.dexp_correction_check.isChecked()
+        self.normal_mud_density_spin.setEnabled(enabled)
+        self.normal_mud_density_unit_combo.setEnabled(enabled)
+        self._derived_service = Wits0LiveDerivedChannelService(
+            dexp_correction=self._dexp_correction_config()
+        )
+        self._last_revision = None
+        if self._view is not None:
+            self.refresh(force=True)
 
     def _selected_curve_ids(self) -> tuple[str, ...]:
         selected: list[str] = []
@@ -970,6 +1034,10 @@ def _operator_text(language: AppLanguage, key: str) -> str:
             "saved_override": "сохранённая настройка",
             "factory_template": "заводской шаблон",
             "form_saved": "Форма «{form}» сохранена.",
+            "dexp_correction_group": "Коррекция DEXP",
+            "dexp_correction_enable": "Включить DEXPC",
+            "dexp_correction_help": "DEXPC рассчитывается только после явного задания нормальной плотности бурового раствора.",
+            "normal_mud_density": "Нормальная плотность раствора",
         },
         AppLanguage.KK: {
             "save_form": "Пішінді сақтау",
@@ -981,6 +1049,10 @@ def _operator_text(language: AppLanguage, key: str) -> str:
             "saved_override": "сақталған баптау",
             "factory_template": "зауыттық үлгі",
             "form_saved": "«{form}» пішіні сақталды.",
+            "dexp_correction_group": "DEXP түзетуі",
+            "dexp_correction_enable": "DEXPC қосу",
+            "dexp_correction_help": "DEXPC бұрғылау ерітіндісінің қалыпты тығыздығы анық берілгеннен кейін ғана есептеледі.",
+            "normal_mud_density": "Ерітіндінің қалыпты тығыздығы",
         },
         AppLanguage.EN: {
             "save_form": "Save form",
@@ -992,6 +1064,10 @@ def _operator_text(language: AppLanguage, key: str) -> str:
             "saved_override": "saved setup",
             "factory_template": "factory template",
             "form_saved": "Form “{form}” saved.",
+            "dexp_correction_group": "DEXP correction",
+            "dexp_correction_enable": "Enable DEXPC",
+            "dexp_correction_help": "DEXPC is calculated only after an explicit normal mud density is supplied.",
+            "normal_mud_density": "Normal mud density",
         },
     }
     return translations.get(language, translations[AppLanguage.EN]).get(key, key)
