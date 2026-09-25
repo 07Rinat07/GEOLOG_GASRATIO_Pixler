@@ -36,6 +36,12 @@ Operator UI және есептер бір ортақ presentation boundary қо
 бастапқы automatic assessment, шешім source және confirmed manual interval ID бөлек беріледі.
 Qt/PDF қабаттары gas-origin classification логикасын қайталамайды.
 
+Data-flow `Wits0GasContextProjection` сервисімен біріктірілген: ол rolling baseline күйін
+сақтайды, observation қабылдайды, automatic classification орындайды, кейін manual precedence
+қолданады және automatic assessment, effective context пен localized presentation-ды бір нәтиже
+ретінде қайтарады. Manual intervals жаңарту baseline-ды өшірмейді; reset тек automatic күйді тазартады.
+
+
 
 ## Lag және тереңдікке байлау
 
