@@ -185,9 +185,9 @@ class DepthAnnotationsDialog(QDialog):
                 QDialogButtonBox.StandardButton.Save
                 | QDialogButtonBox.StandardButton.Cancel
             )
-            buttons.button(QDialogButtonBox.StandardButton.Save).setText(
-                self._t("annotations.save_action")
-            )
+            save_button = buttons.button(QDialogButtonBox.StandardButton.Save)
+            save_button.setText(self._t("annotations.save_action"))
+            save_button.setProperty("uiRole", "primary")
             buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(
                 self._t("common.cancel")
             )
@@ -199,6 +199,7 @@ class DepthAnnotationsDialog(QDialog):
                     QDialogButtonBox.ButtonRole.DestructiveRole,
                 )
                 delete_button.setObjectName("annotation-delete-single-button")
+                delete_button.setProperty("uiRole", "destructive")
                 delete_button.clicked.connect(self._delete_single_item)
         root.addWidget(buttons)
 
@@ -553,13 +554,19 @@ class DepthAnnotationsDialog(QDialog):
         actions = QHBoxLayout()
         add_button = QPushButton(self._t("common.add"))
         add_button.setObjectName("annotation-add-button")
+        add_button.setProperty("uiRole", "primary")
         update_button = QPushButton(self._t("common.update"))
         update_button.setObjectName("annotation-update-button")
         duplicate_button = QPushButton(self._t("annotations.duplicate_action"))
         remove_button = QPushButton(self._t("common.remove"))
         remove_button.setObjectName("annotation-remove-button")
+        remove_button.setProperty("uiRole", "destructive")
         self.undo_button = QPushButton(self._t("common.undo"))
+        self.undo_button.setObjectName("annotation-undo-button")
+        self.undo_button.setProperty("uiRole", "quiet")
         self.redo_button = QPushButton(self._t("common.redo"))
+        self.redo_button.setObjectName("annotation-redo-button")
+        self.redo_button.setProperty("uiRole", "quiet")
         add_button.clicked.connect(self._add)
         update_button.clicked.connect(self._update)
         duplicate_button.clicked.connect(self._duplicate)

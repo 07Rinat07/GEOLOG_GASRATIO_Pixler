@@ -99,8 +99,10 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
   Depth Annotations editor/drag hints, layer title и axis display наследуют shared palette-aware
   presentation; info-подсказки используют semantic `guidanceRole="info"`. Локальный
   `_ColorButton` и text/fill/border/leader colors остаются document-data границей.
-  Следующий slice — semantic action roles Depth Annotations (primary/destructive/secondary);
-  paper-light Constructor и пользовательские/document colors требуют отдельной границы.
+  Depth Annotations actions используют semantic `uiRole`: Add/Save — primary,
+  Remove/Delete — destructive, Undo/Redo — quiet; callbacks и undo/redo history не менялись.
+  Следующий slice — repo-wide аудит оставшихся локальных presentation-QSS вне intentional
+  paper-light Constructor и пользовательских/document-color границ.
 - [ ] Primary/secondary/destructive/quiet роли задавать semantic property, а не цветом по месту.
 - [ ] Диалоги продолжают использовать `fit_window_to_screen`; длинные RU/KK/EN подписи
   переносятся/уходят в overflow, primary action остаётся видимым.
