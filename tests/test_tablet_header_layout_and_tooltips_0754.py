@@ -76,11 +76,13 @@ def test_toolbar_help_labels_do_not_inherit_opaque_white_backgrounds() -> None:
         encoding="utf-8"
     )
 
-    assert 'background:transparent; color:#64748b; font-size:10px;' in tablet
-    assert 'background:transparent; color:#9a3412;' in tablet
     assert 'self.form_edit_caption.setObjectName("formEditToolbarCaption")' in window
     assert "QLabel#formEditToolbarCaption" in shared_style
     assert "color: palette(window-text);" in shared_style
+    assert 'self._curve_pencil_status.setProperty("statusRole", "muted")' in tablet
+    assert 'self._curve_pencil_status.setProperty("statusRole", "active")' in tablet
+    assert 'QLabel[statusRole="muted"]' in shared_style
+    assert 'QLabel[statusRole="active"]' in shared_style
 
 
 def test_localizations_preserve_curve_identity_placeholder() -> None:
@@ -112,8 +114,16 @@ def test_curve_pencil_toolbar_is_palette_aware_and_compact_when_disabled() -> No
     assert 'self._curve_pencil_status.setProperty("statusRole", "error")' in tablet
     assert 'widget.setVisible(enabled)' in tablet
     assert 'self._curve_pencil_scroll.horizontalScrollBar().setValue(0)' in tablet
-    assert "background:#fff7ed" not in tablet
-    assert "background:#f8fafc" not in tablet[tablet.index("def _update_curve_pencil_bar_style"):tablet.index("def mark_curve_pencil_unsaved")]
+    pencil_style = tablet[
+        tablet.index("def _update_curve_pencil_bar_style"):
+        tablet.index("def _update_curve_pencil_status")
+    ]
+    pencil_status = tablet[
+        tablet.index("def _update_curve_pencil_status"):
+        tablet.index("def mark_curve_pencil_unsaved")
+    ]
+    assert "setStyleSheet(" not in pencil_style
+    assert "setStyleSheet(" not in pencil_status
     assert "QFrame#tabletCurvePencilBar" in shared_style
     assert 'QFrame#tabletCurvePencilBar[pencilActive="true"]' in shared_style
     assert 'QLabel[statusRole="muted"]' in shared_style
