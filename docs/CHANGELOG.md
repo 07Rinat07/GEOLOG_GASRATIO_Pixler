@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- WITS/Gas context: добавлен stateful `Wits0GasContextProjection`, объединяющий rolling baseline, automatic classification, manual precedence и localized presentation в одном reusable live/report contract; обновление manual intervals не сбрасывает baseline.
 - WITS/Gas context: добавлен единый localized presentation boundary для operator/report слоёв: effective class, исходная automatic assessment, source решения и manual interval ID выводятся без дублирования классификатора в Qt/PDF.
 - WITS/Gas context: confirmed manual QC/operational intervals теперь детерминированно перекрывают automatic gas-origin screening через отдельный effective-context resolver; исходная automatic assessment сохраняется для аудита, draft/unconfirmed интервалы не влияют на итоговый класс.
 - WITS/Calculations: добавлен end-to-end live↔batch parity regression: WH, DEXP и DEXPC из live semantic/UOM projection сравниваются с реальным offline FormulaExecutionController, включая одинаковые sourced profile ID/version и численные результаты.
