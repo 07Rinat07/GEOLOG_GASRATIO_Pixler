@@ -13,6 +13,9 @@ from geoworkbench.data.hydrocarbon_interpretation_export import (
     export_hydrocarbon_interpretation_docx,
     export_hydrocarbon_interpretation_xlsx,
 )
+from geoworkbench.data.hydrocarbon_interpretation_export_readable import (
+    _report_source_curves,
+)
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.project.interpretation_calculation_controller import (
@@ -307,3 +310,44 @@ def test_ambiguous_total_gas_uses_explicit_component_sum_policy() -> None:
         and "синхронной суммой C1–C5" in warning
         for warning in section.warnings
     )
+
+
+def test_excel_audit_sheet_excludes_unrelated_las_channels() -> None:
+    session = _gasomer_session()
+    dataset = session.current_dataset
+    assert dataset is not None
+    dataset.upsert_curve(
+        "UNRELATED_TEMPERATURE",
+        np.linspace(10.0, 20.0, dataset.depth.size),
+        unit="degC",
+        description="Unrelated LAS channel",
+        provenance="source:test",
+    )
+    report = build_opus_interpretation_report(session, total_gas_lod=0.001)
+
+    exported = _report_source_curves(report, dataset)
+    names = {curve.metadata.original_mnemonic for curve in exported}
+
+    assert "UNRELATED_TEMPERATURE" not in names
+    assert {"C1", "C2", "C3", "C4", "C5"} <= names
+
+
+def test_word_export_reports_visible_progress(tmp_path, qapp) -> None:
+    session = _gasomer_session()
+    dataset = session.current_dataset
+    assert dataset is not None
+    report = build_opus_interpretation_report(session, total_gas_lod=0.001)
+    events: list[tuple[str, int, int]] = []
+
+    target = export_hydrocarbon_interpretation_docx(
+        report,
+        tmp_path / "progress.docx",
+        dataset=dataset,
+        progress=lambda stage, current, total: events.append(
+            (stage, current, total)
+        ),
+    )
+
+    assert target.exists()
+    assert [current for _stage, current, _total in events] == [0, 20, 90, 100]
+    assert all(total == 100 for _stage, _current, total in events)
