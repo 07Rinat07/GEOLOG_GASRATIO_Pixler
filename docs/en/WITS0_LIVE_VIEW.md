@@ -58,7 +58,8 @@ mnemonic instead of session-specific curve IDs; **Reset** restores the factory t
 
 The monitor is adaptive. The parameter sidebar can collapse and the live view can detach into
 full-screen mode and return without stopping intake or rebuilding the acquisition runtime. The
-selected form must survive the LIVE PREVIEW → persistent-runtime handoff.
+selected form and current unsaved axis/window/channel edits are carried across the LIVE PREVIEW →
+persistent-runtime handoff instead of being reset to the factory template.
 
 ## Live derived curves and engineering events
 
