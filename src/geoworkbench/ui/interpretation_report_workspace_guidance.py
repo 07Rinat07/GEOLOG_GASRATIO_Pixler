@@ -5,6 +5,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QDialog,
     QLabel,
+    QMessageBox,
     QPushButton,
     QSizePolicy,
     QStyle,
@@ -118,13 +119,9 @@ class InterpretationReportWorkspace(_LayoutWorkspace):
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Fixed,
         )
-        normalized_layout = self.normalized_gas_panel.layout()
-        if isinstance(normalized_layout, QVBoxLayout):
-            action_index = normalized_layout.indexOf(self.normalized_actions_heading)
-            normalized_layout.insertWidget(
-                action_index if action_index >= 0 else normalized_layout.count(),
-                gas_context_button,
-            )
+        # Gas context is required before both standard Gas Ratio/Pixler and OPUS
+        # interpretation, so keep its entry point outside mode-specific panels.
+        sidebar_layout.insertWidget(1, gas_context_button)
         self.gas_context_button = gas_context_button
 
         button.setEnabled(self.print_button.isEnabled())
@@ -307,6 +304,19 @@ class InterpretationReportWorkspace(_LayoutWorkspace):
         try:
             controller = GasContextEventEditorController(self.controller.session)
         except GasContextEventEditorError:
+            QMessageBox.warning(
+                self,
+                self._text(
+                    "Газовые события",
+                    "Газ оқиғалары",
+                    "Gas events",
+                ),
+                self._text(
+                    "Сначала выберите скважину для редактирования газовых событий.",
+                    "Газ оқиғаларын өңдеу үшін алдымен ұңғыманы таңдаңыз.",
+                    "Select a well before editing gas events.",
+                ),
+            )
             return
         dialog = GasContextEventDialog(
             controller,
