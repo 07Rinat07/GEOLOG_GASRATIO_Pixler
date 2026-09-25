@@ -12,9 +12,13 @@ import platform
 import shutil
 import sys
 import threading
+import time
 from types import TracebackType
+import uuid
 from typing import Any, Callable, cast
 from zipfile import ZIP_DEFLATED, ZipFile
+
+from geoworkbench.services.build_identity import BuildIdentity, resolve_build_identity
 
 
 _LOGGER_NAME = "geoworkbench"
@@ -39,6 +43,10 @@ _WITS0_JOURNAL_FIELDS = (
 
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _utc_timestamp() -> str:
+    return _utc_now().isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
 def _safe_value(value: object) -> str:
@@ -143,10 +151,18 @@ class ApplicationLogManager:
         application_version: str,
         max_bytes: int = 5 * 1024 * 1024,
         backup_count: int = 5,
+        build_identity: BuildIdentity | None = None,
+        session_id: str | None = None,
     ) -> None:
         self.log_directory = Path(log_directory).expanduser().resolve()
         self.log_directory.mkdir(parents=True, exist_ok=True)
         self.application_version = str(application_version)
+        self.build_identity = build_identity or resolve_build_identity(self.application_version)
+        if self.build_identity.version != self.application_version:
+            raise ValueError("build identity version must match application_version")
+        self.session_id = str(session_id or uuid.uuid4().hex)
+        if not self.session_id.strip():
+            raise ValueError("session_id must not be empty")
         self.current_log_path = self.log_directory / "geolog.log"
         self.crash_log_path = self.log_directory / "geolog-crash.log"
         self._closed = False
@@ -162,6 +178,10 @@ class ApplicationLogManager:
         self.event(
             "application.logging.started",
             version=self.application_version,
+            build_identity=self.build_identity.display,
+            commit=self.build_identity.commit,
+            commit_source=self.build_identity.source,
+            session_id=self.session_id,
             python=sys.version.split()[0],
             platform=platform.platform(),
             pid=os.getpid(),
@@ -178,21 +198,34 @@ class ApplicationLogManager:
             delay=False,
         )
         handler.setLevel(logging.DEBUG)
-        handler.setFormatter(
-            logging.Formatter(
-                "%(asctime)s.%(msecs)03dZ | %(levelname)s | %(threadName)s | "
-                "%(name)s | %(message)s",
-                datefmt="%Y-%m-%dT%H:%M:%S",
-            )
+        formatter = logging.Formatter(
+            "%(asctime)s.%(msecs)03dZ | %(levelname)s | %(threadName)s | "
+            "%(name)s | %(message)s",
+            datefmt="%Y-%m-%dT%H:%M:%S",
         )
+        formatter.converter = time.gmtime
+        handler.setFormatter(formatter)
         self._logger.addHandler(handler)
         self._handler = handler
         self._crash_handle = self.crash_log_path.open(
             "a", encoding="utf-8", buffering=1
         )
+        self._write_crash_boundary("START")
         try:
             faulthandler.enable(file=self._crash_handle, all_threads=True)
         except (RuntimeError, OSError):
+            pass
+
+    def _write_crash_boundary(self, state: str) -> None:
+        try:
+            self._crash_handle.write(
+                "=== GEOLOG SESSION "
+                f"{state} at={_utc_timestamp()} session_id={self.session_id} "
+                f"build={self.build_identity.display} "
+                f"commit={self.build_identity.commit} ===\n"
+            )
+            self._crash_handle.flush()
+        except (AttributeError, OSError, ValueError):
             pass
 
     def _close_runtime_targets(self) -> None:
@@ -210,6 +243,7 @@ class ApplicationLogManager:
         crash_handle = getattr(self, "_crash_handle", None)
         if crash_handle is not None:
             try:
+                self._write_crash_boundary("STOP")
                 crash_handle.flush()
                 crash_handle.close()
             except Exception:
@@ -263,7 +297,7 @@ class ApplicationLogManager:
         with self._maintenance_lock:
             if self._closed:
                 return
-            self.event("application.logging.stopped")
+            self.event("application.logging.stopped", session_id=self.session_id)
             self.flush()
             self._close_runtime_targets()
             self._closed = True
@@ -387,6 +421,10 @@ class ApplicationLogManager:
         report = {
             "created_at_utc": _utc_now().isoformat(),
             "application_version": self.application_version,
+            "application_commit": self.build_identity.commit,
+            "build_identity": self.build_identity.display,
+            "build_identity_source": self.build_identity.source,
+            "session_id": self.session_id,
             "python": sys.version,
             "platform": platform.platform(),
             "architecture": platform.machine(),
@@ -441,6 +479,8 @@ def configure_application_logging(
     log_directory: str | Path,
     *,
     application_version: str,
+    build_identity: BuildIdentity | None = None,
+    session_id: str | None = None,
 ) -> ApplicationLogManager:
     global _CURRENT
     if _CURRENT is not None:
@@ -448,6 +488,8 @@ def configure_application_logging(
     _CURRENT = ApplicationLogManager(
         log_directory,
         application_version=application_version,
+        build_identity=build_identity,
+        session_id=session_id,
     )
     return _CURRENT
 

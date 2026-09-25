@@ -9,9 +9,16 @@ crash information.
 Use **Help → Build diagnostics bundle…** when reporting a problem. The generated ZIP contains:
 
 - current and recent application logs;
-- Python, operating-system and application-version information;
+- application version, build identity and commit SHA; when the SHA cannot be established
+  deterministically, the value is explicitly `unknown`;
+- the unique session ID for the current startup, plus Python and operating-system information;
 - safe runtime state such as current dataset identifier, track count and pencil/form transaction
   state.
+
+`geolog.log` timestamps are emitted in UTC with a `Z` suffix. Each application run is separated
+inside `geolog-crash.log` by `GEOLOG SESSION START/STOP` boundaries containing the session ID,
+build identity and commit. This distinguishes new runs from legacy crash entries and distinguishes
+two builds with the same package version but different SHAs.
 
 The bundle does not include LAS samples, project assets, saved forms or project files. File paths
 and project/dataset names may still appear in normal log messages, so review the ZIP before sharing
