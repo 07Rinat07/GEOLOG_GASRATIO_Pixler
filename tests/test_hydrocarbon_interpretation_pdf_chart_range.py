@@ -9,9 +9,6 @@ from PySide6.QtCore import QRectF
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
 from geoworkbench.printing import hydrocarbon_interpretation_pdf_chart_enhanced as chart
 from geoworkbench.printing.hydrocarbon_interpretation_report_range import ReportDepthRange
-from geoworkbench.services.hydrocarbon_interpretation import (
-    HydrocarbonCandidateInterval,
-)
 from geoworkbench.services.localization import AppLanguage
 
 
@@ -54,7 +51,6 @@ def test_chart_page_planner_uses_selected_report_depth_range(monkeypatch) -> Non
     assert len(observed) == 1
     assert observed[0][0:2] == (1980.0, 2016.2)
     assert observed[0][2] > 0.0
-
 
 
 def test_enhanced_chart_uses_compact_markers_not_text_callout_stack() -> None:
