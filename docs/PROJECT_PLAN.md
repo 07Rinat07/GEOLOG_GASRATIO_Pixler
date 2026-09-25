@@ -170,6 +170,11 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
 
 ## REPORT-ANNOT-01 — адаптивная маркировка УВ-интервалов
 
+Старый рабочий ID **PRINT-ANN-01** полностью поглощён этой задачей и отдельно не развивается.
+Его marker/code/legend scope реализован текущим shared `hydrocarbon_fluid_markers` contract
+(стандартный Haworth/Pixler + ОПУС, RU/KK/EN, dense horizontal lanes, indeterminate `?`).
+Открыты только перечисленные ниже сквозные print/visual acceptance-критерии; возвращать старые
+длинные callouts из закрытой временной ветки нельзя.
 - [ ] Цветная полоса остаётся на фактической глубине; цвет не является единственным кодом.
 - [ ] Один immutable marker contract используется стандартным Haworth/Pixler и ОПУС:
   physical fluid family → короткий code + shape + distinct color + RU/KK/EN legend label.
@@ -327,9 +332,16 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
   всегда исключаются из formation interpretation.
 
   Поддержать **гибридную автоматику + ручное подтверждение**: оператор может задать тип события,
-  ось depth/elapsed-time, начало, конец, optional значение/единицу и комментарий. Ручной confirmed
-  interval имеет приоритет над автоматической гипотезой и передаётся в live markers, report
-  interpreter и audit/provenance. Surface detection и lag-corrected bit depth хранятся раздельно;
+  ось depth/elapsed-time, начало, конец, optional значение/единицу и комментарий. Старый рабочий
+  ID **GASCTX-MANUAL-01** поглощён этим scope. Headless-контракт уже существует:
+  `Wits0ManualGasContextInterval` хранит kind/axis/start/end/value/unit/comment/source/confirmed,
+  а `resolve_manual_gas_context` детерминированно разрешает overlap и игнорирует draft.
+  Оставшийся manual scope — CRUD/editor и выбор диапазона по графику, project save/reopen,
+  RU/KK/EN UI/help и доказуемая передача confirmed interval в report provenance/исключение
+  технологического/QC-газа из самостоятельного formation result.
+  Ручной confirmed interval имеет приоритет над автоматической гипотезой и передаётся в live
+  markers, report interpreter и audit/provenance. Surface detection и lag-corrected bit depth
+  хранятся раздельно;
   formation_show без валидной lag-привязки к долоту не должен уверенно присваиваться конкретному
   разбуриваемому пласту. Приёмка: deterministic transition tests, overlapping manual-interval
   priority, reconnect/reset semantics, synthetic drilling/connection/trip/test/calibration/
