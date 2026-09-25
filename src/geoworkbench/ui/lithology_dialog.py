@@ -142,15 +142,12 @@ class LithologyDialog(QDialog):
         self.template_input.setObjectName("description-template-selector")
         self.template_formula = QLabel()
         self.template_formula.setObjectName("description-template-formula")
+        self.template_formula.setProperty("guidanceRole", "info")
         self.template_formula.setWordWrap(True)
-        self.template_formula.setStyleSheet("color:#475569; font-size:11px;")
         self.template_warning = QLabel()
         self.template_warning.setObjectName("description-template-warning")
+        self.template_warning.setProperty("guidanceRole", "warning")
         self.template_warning.setWordWrap(True)
-        self.template_warning.setStyleSheet(
-            "background:#fff7ed; color:#9a3412; border:1px solid #fdba74; "
-            "border-radius:4px; padding:4px 6px;"
-        )
         self.template_language_input.currentIndexChanged.connect(self._template_language_changed)
         self.template_input.currentIndexChanged.connect(self._insert_template)
         self.lithotype_input.currentIndexChanged.connect(self._suggest_description_template)

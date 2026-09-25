@@ -104,8 +104,10 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
   Repo-wide аудит presentation-QSS выделил безопасный LAS Editor slice: title/summary/safety note
   теперь используют shared palette-aware object selectors без локального QSS; выбор операции,
   dataset-summary и responsive geometry не менялись.
-  Следующий slice — Lithology description-template formula/warning через существующий
-  semantic `guidanceRole`; preview/painter и пользовательские/document colors остаются вне scope.
+  Lithology description-template formula/warning теперь также используют существующий
+  semantic `guidanceRole="info"|"warning"`; локальные fixed-hex QSS удалены без изменения
+  template selection, RU/KK/EN контента или lithology CRUD. Следующий slice — repo-wide аудит
+  оставшихся локальных presentation-QSS вне preview/painter и пользовательских/document colors.
 - [ ] Primary/secondary/destructive/quiet роли задавать semantic property, а не цветом по месту.
 - [ ] Диалоги продолжают использовать `fit_window_to_screen`; длинные RU/KK/EN подписи
   переносятся/уходят в overflow, primary action остаётся видимым.

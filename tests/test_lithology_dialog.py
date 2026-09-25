@@ -1,5 +1,7 @@
+import inspect
+
 import numpy as np
-from PySide6.QtWidgets import QDialogButtonBox, QPushButton, QScrollArea, QTableWidget
+from PySide6.QtWidgets import QLabel, QDialogButtonBox, QPushButton, QScrollArea, QTableWidget
 
 from geoworkbench.domain.models import (
     Dataset,
@@ -31,6 +33,37 @@ def test_lithology_dialog_adds_interval(qapp) -> None:
     assert table.rowCount() == 1
     assert table.item(0, 2).text() == "sandstone"
     dialog.close()
+
+
+def test_lithology_template_guidance_uses_shared_semantic_roles(qapp) -> None:
+    session = ProjectSession()
+    session.project.wells["well"] = Well("well", "Well")
+    session.current_well_id = "well"
+    dialog = LithologyDialog(LithologyController(session), language=AppLanguage.RU)
+    try:
+        formula = dialog.findChild(QLabel, "description-template-formula")
+        warning = dialog.findChild(QLabel, "description-template-warning")
+
+        assert formula is not None
+        assert warning is not None
+        assert formula.property("guidanceRole") == "info"
+        assert warning.property("guidanceRole") == "warning"
+        assert formula.styleSheet() == ""
+        assert warning.styleSheet() == ""
+    finally:
+        dialog.close()
+
+
+def test_lithology_dialog_source_has_no_local_template_guidance_qss() -> None:
+    source = inspect.getsource(LithologyDialog)
+
+    assert ".setStyleSheet(" not in source
+    assert "#475569" not in source
+    assert "#fff7ed" not in source
+    assert "#9a3412" not in source
+    assert "#fdba74" not in source
+    assert 'setProperty("guidanceRole", "info")' in source
+    assert 'setProperty("guidanceRole", "warning")' in source
 
 
 def test_lithology_dialog_inserts_description_template(qapp) -> None:
