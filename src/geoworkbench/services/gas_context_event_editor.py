@@ -45,10 +45,19 @@ class GasContextEventEditorController:
     def registry(self) -> GasContextRegistry:
         return self._working
 
+    @property
+    def depth_domain(self):
+        return self._depth_domain
+
     def list_events(self) -> tuple[GasContextEvent, ...]:
+        visible = (
+            event
+            for event in self._working.events
+            if event.depth_domain is None or event.depth_domain is self._depth_domain
+        )
         return tuple(
             sorted(
-                self._working.events,
+                visible,
                 key=lambda item: (
                     item.top_depth,
                     item.bottom_depth,
