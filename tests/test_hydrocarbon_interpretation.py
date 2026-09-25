@@ -515,3 +515,35 @@ def test_draft_technological_context_does_not_change_candidate_classification() 
 
     assert len(report.candidates) == 1
     assert report.gas_context_events == ()
+
+
+
+def test_unbound_legacy_context_is_not_applied_across_multiple_depth_domains() -> None:
+    session = _session()
+    well = session.current_well
+    dataset = session.current_dataset
+    assert well is not None
+    assert dataset is not None
+
+    well.datasets["tvd-dataset"] = Dataset(
+        "tvd-dataset",
+        "TVD companion",
+        DatasetKind.GTI,
+        DepthDomain.TVD,
+        np.asarray(dataset.depth, dtype=np.float64),
+    )
+    well.gas_context_events.append(
+        GasContextEvent(
+            event_id="legacy-unbound-trip",
+            event_type=GasContextEventType.TRIP_GAS,
+            top_depth=1_039.0,
+            bottom_depth=1_043.0,
+            confirmed=True,
+        )
+    )
+
+    report = build_hydrocarbon_interpretation_report(session, threshold=3.0)
+
+    assert len(report.candidates) == 1
+    assert report.gas_context_events == ()
+    assert not any("suppressed" in item for item in report.warnings)
