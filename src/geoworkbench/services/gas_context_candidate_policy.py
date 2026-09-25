@@ -62,11 +62,38 @@ def apply_gas_context_to_report(
             f"{suppressed} automatic geological candidate(s); calculated curves and "
             "source gas values were preserved unchanged."
         )
+    opus_gasomer = report.opus_gasomer
+    if opus_gasomer is not None:
+        opus_gasomer = replace(
+            opus_gasomer,
+            intervals=tuple(
+                interval
+                for interval in opus_gasomer.intervals
+                if not _suppresses_geological_candidate(
+                    registry.resolve_for_interval(
+                        interval.top_depth,
+                        interval.bottom_depth,
+                    )
+                )
+            ),
+        )
     return replace(
         report,
         candidates=tuple(kept),
+        opus_gasomer=opus_gasomer,
         gas_context_events=confirmed,
         warnings=tuple(dict.fromkeys(warnings)),
+    )
+
+
+def _suppresses_geological_candidate(event: GasContextEvent | None) -> bool:
+    return (
+        event is not None
+        and event.effective_impact
+        in {
+            InterpretationImpact.EXCLUDE_GEOLOGICAL,
+            InterpretationImpact.TECHNOLOGICAL_GAS,
+        }
     )
 
 
