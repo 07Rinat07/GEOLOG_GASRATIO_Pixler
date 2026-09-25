@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 import re
 
+import pytest
+
 from geoworkbench.acquisition.wits0 import (
     load_builtin_wits0_profile,
     wits0_profile_fingerprint,
@@ -147,5 +149,5 @@ def test_wits0_diagnostic_snapshot_is_allowlisted_and_omits_source_identity(
 def test_wits0_diagnostic_snapshot_rejects_invalid_plot_counter() -> None:
     profile = load_builtin_wits0_profile()
 
-    with __import__("pytest").raises(ValueError, match="plotted_points"):
+    with pytest.raises(ValueError, match="plotted_points"):
         build_wits0_diagnostic_snapshot(profile, plotted_points=-1)
