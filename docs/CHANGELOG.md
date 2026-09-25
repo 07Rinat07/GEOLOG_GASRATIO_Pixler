@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- WITS/Calculations: corrected DEXP (`DEXPC`) теперь требует явную normal mud density конфигурацию с UOM; actual MW_IN/MW_OUT и normal density приводятся к ppg через общий UOM dictionary, а отсутствие конфигурации даёт `missing_configuration` вместо скрытого типового значения.
 - WITS/Calculations: available virtual Haworth/Pixler/DEXP каналы подключены к операторскому channel list и form/workspace selection по canonical mnemonic; source WITS Dataset и source-only selection state остаются неизменяемыми.
 - WITS/Calculations: `AcquisitionLiveView` получил read-only virtual-curve projection boundary; ephemeral derived curves используют тот же window/downsampling/current-value pipeline, не мутируют source Dataset и не создают ложные source-quality markers.
 - WITS/Calculations: sourced DEXP теперь вычисляется read-only через профиль `dexp.jorden_shirley`; ROP/RPM/WOB/BIT проходят semantic resolution и проверенные UOM conversions, provenance фиксирует преобразования, а полностью невалидный интервал возвращает `no_valid_samples` вместо NaN-only канала.
