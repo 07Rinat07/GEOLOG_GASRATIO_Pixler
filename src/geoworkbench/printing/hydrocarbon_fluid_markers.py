@@ -15,6 +15,7 @@ class FluidMarkerShape(StrEnum):
     DIAMOND = "diamond"
     DIAMOND_OUTLINE = "diamond_outline"
     HEXAGON = "hexagon"
+    PENTAGON = "pentagon"
     RING = "ring"
     TRIANGLE_UP = "triangle_up"
     TRIANGLE_DOWN = "triangle_down"
@@ -118,7 +119,7 @@ _SPECS: tuple[FluidMarkerSpec, ...] = (
     FluidMarkerSpec(
         "liquid_hydrocarbons",
         "LHC",
-        FluidMarkerShape.TRIANGLE_UP,
+        FluidMarkerShape.PENTAGON,
         "#ca8a04",
         "жидкие УВ",
         "сұйық КС",
@@ -232,6 +233,27 @@ def marker_lanes(
     return tuple(result)
 
 
+def marker_lane_offsets(
+    lane_count: int,
+    *,
+    zone_width: float,
+    max_spacing: float,
+) -> tuple[float, ...]:
+    """Return right-edge offsets whose centers always remain inside the reserved zone."""
+
+    if lane_count < 0:
+        raise ValueError("lane_count must not be negative")
+    if lane_count == 0:
+        return ()
+    if zone_width <= 0.0:
+        raise ValueError("zone_width must be positive")
+    if max_spacing <= 0.0:
+        raise ValueError("max_spacing must be positive")
+
+    spacing = min(float(max_spacing), float(zone_width) / lane_count)
+    return tuple((index + 0.5) * spacing for index in range(lane_count))
+
+
 def draw_fluid_marker(
     painter: QPainter,
     center: QPointF,
@@ -241,11 +263,11 @@ def draw_fluid_marker(
 ) -> None:
     """Draw one colour + shape encoded marker; callers may add the short code separately."""
 
-    size = max(2.5, float(size))
+    size = max(1.0, float(size))
     half = size / 2.0
     color = QColor(spec.color)
     painter.save()
-    painter.setPen(QPen(color, max(0.8, size * 0.13)))
+    painter.setPen(QPen(color, max(0.4, size * 0.13)))
     painter.setBrush(color)
 
     if spec.shape is FluidMarkerShape.CIRCLE:
@@ -275,6 +297,18 @@ def draw_fluid_marker(
                         center.y() + half * sin(pi / 3.0 * index),
                     )
                     for index in range(6)
+                ]
+            )
+        )
+    elif spec.shape is FluidMarkerShape.PENTAGON:
+        painter.drawPolygon(
+            QPolygonF(
+                [
+                    QPointF(
+                        center.x() + half * cos(-pi / 2.0 + 2.0 * pi * index / 5.0),
+                        center.y() + half * sin(-pi / 2.0 + 2.0 * pi * index / 5.0),
+                    )
+                    for index in range(5)
                 ]
             )
         )
@@ -367,5 +401,6 @@ __all__ = [
     "draw_fluid_marker",
     "fluid_marker_legend_specs",
     "fluid_marker_spec",
+    "marker_lane_offsets",
     "marker_lanes",
 ]
