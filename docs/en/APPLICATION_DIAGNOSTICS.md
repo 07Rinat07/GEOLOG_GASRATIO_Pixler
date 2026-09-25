@@ -20,7 +20,7 @@ inside `geolog-crash.log` by `GEOLOG SESSION START/STOP` boundaries containing t
 build identity and commit. This distinguishes new runs from legacy crash entries and distinguishes
 two builds with the same package version but different SHAs.
 
-When the WITS0 window is open, `system-report.json` also receives an allowlisted diagnostic snapshot only: profile ID/version and SHA-256, encoding, selected mode, discovery fingerprint, and aggregate capture/acquisition counters. Host/port/peer identity, raw paths/files, source name, WITS measurement values, acquisition session ID, and free-form last-error text are not included in this snapshot.
+When the WITS0 window is open, `system-report.json` also receives an allowlisted diagnostic snapshot only: profile ID/version and SHA-256, encoding, selected mode, discovery fingerprint, aggregate capture/acquisition counters, the stable code of the last rejected frame, and the latest aggregate count of points actually submitted to the live plot. Host/port/peer identity, raw paths/files, source name, WITS measurement values, acquisition session ID, and free-form last-error text are not included in this snapshot.
 
 The bundle does not include LAS samples, project assets, saved forms or project files. File paths
 and project/dataset names may still appear in normal log messages, so review the ZIP before sharing
