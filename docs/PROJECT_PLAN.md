@@ -320,14 +320,18 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
   Первый инкремент вводит read-only `Wits0LiveDerivedChannelService`: sourced Haworth/Pixler
   профили вычисляются через существующий `FormulaProfileRegistry`, source Dataset не мутируется,
   provenance фиксирует profile/version, а missing/ambiguous/unsupported-unit входы возвращаются
-  как explicit unavailable state вместо молчаливого NaN-only канала. Оставшийся scope —
+  как explicit unavailable state вместо молчаливого NaN-only канала.
   Второй инкремент добавляет DEXP через sourced `dexp.jorden_shirley`: ROP/RPM/WOB/BIT
   семантически разрешаются и приводятся в ft/h, 1/min, lbf и in через `UomDictionary`;
   provenance сохраняет фактические UOM conversions, а полностью невалидный интервал имеет
   explicit `no_valid_samples`. DEXPC намеренно не вычисляется, пока не задан надёжный
   источник normal mud density; типичное/скрытое значение не подставляется.
-  Оставшийся scope — виртуальное подключение derived channels к live view/form mnemonic
-  selection, явный DEXPC density contract и live↔batch parity acceptance.
+  Третий инкремент добавляет generic virtual-curve boundary в `AcquisitionLiveView`:
+  ephemeral derived curves проходят ту же window/downsampling/current-value projection, но не
+  добавляются в source Dataset и не участвуют в source-quality marker generation. Сервис WITS
+  материализует только available derived results как ephemeral `CurveData` с profile/version/UOM
+  provenance. Оставшийся scope — operator curve-list/form wiring этих virtual curves, явный DEXPC
+  density contract и live↔batch parity acceptance.
 
 - [ ] **WITS-GASCTX-01 (P0, в работе):** разделить две независимые оси интерпретации:
   **fluid screening** по Haworth/Pixler и **gas origin/context** по Total Gas/C1–C5 +
