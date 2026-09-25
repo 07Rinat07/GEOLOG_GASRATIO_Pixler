@@ -180,7 +180,7 @@ QLabel[validationRole="success"] {
 }
 
 QLabel[guidanceRole="info"] {
-    color: palette(mid);
+    color: palette(window-text);
     font-size: 11px;
 }
 QLabel[guidanceRole="warning"] {
