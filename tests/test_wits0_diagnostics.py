@@ -19,6 +19,7 @@ from geoworkbench.domain.models import IndexType
 from geoworkbench.services.wits0_acquisition import (
     Wits0AcquisitionSnapshot,
     Wits0AcquisitionState,
+    Wits0NormalizationCode,
 )
 from geoworkbench.services.wits0_diagnostics import build_wits0_diagnostic_snapshot
 from geoworkbench.services.wits0_import_review import (
@@ -82,6 +83,7 @@ def test_wits0_diagnostic_snapshot_is_allowlisted_and_omits_source_identity(
         checkpoints_created=2,
         last_checkpoint_sequence=10,
         last_applied_sequence=16,
+        last_reject_reason_code=Wits0NormalizationCode.MISSING_INDEX,
         last_error="SECRET-LAST-ERROR",
     )
     discovery = Wits0DiscoveryAccumulator(profile).snapshot()
@@ -108,6 +110,7 @@ def test_wits0_diagnostic_snapshot_is_allowlisted_and_omits_source_identity(
         discovery=discovery,
         custom_profile=custom_profile,
         acquisition=acquisition,
+        plotted_points=23,
     )
     payload = snapshot.as_dict()
     rendered = json.dumps(payload, ensure_ascii=False, sort_keys=True)
@@ -124,6 +127,8 @@ def test_wits0_diagnostic_snapshot_is_allowlisted_and_omits_source_identity(
     assert payload["acquisition_frames_submitted"] == 12
     assert payload["acquisition_frames_skipped"] == 14
     assert payload["acquisition_records_applied"] == 16
+    assert payload["acquisition_last_reject_reason_code"] == "missing_index"
+    assert payload["plot_rendered_points"] == 23
     assert "SECRET" not in rendered
     for forbidden_key in (
         "host",
@@ -137,3 +142,10 @@ def test_wits0_diagnostic_snapshot_is_allowlisted_and_omits_source_identity(
         "custom_profile_id",
     ):
         assert forbidden_key not in payload
+
+
+def test_wits0_diagnostic_snapshot_rejects_invalid_plot_counter() -> None:
+    profile = load_builtin_wits0_profile()
+
+    with __import__("pytest").raises(ValueError, match="plotted_points"):
+        build_wits0_diagnostic_snapshot(profile, plotted_points=-1)
