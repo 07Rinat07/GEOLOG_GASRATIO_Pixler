@@ -1,4 +1,4 @@
-<!-- runtime-contract: package=0.7.96; project=v34; form=v18; layout=v25 -->
+<!-- runtime-contract: package=0.7.96; project=v35; form=v18; layout=v25 -->
 # Единый план проекта
 
 Решения и приоритеты обновлены 24 сентября 2026 года по `main` на `3e29ffaf` (включая PR #281), текущей WITS-UX ветке, исходному коду, тестам и операторским требованиям. Новые требования включают адаптивный полноэкранный монитор, редактируемые и сохраняемые формы, live Gas Ratio/Pixler/DEXP, интерпретационные маркеры, классификацию background/formation/connection/trip gas и универсальные min/max alarm-пороги. Это единственный канонический план проекта. Завершённые
@@ -44,7 +44,7 @@ release plan и временные планы в `docs` не создаются.
 | 1 | WITS-MEM-01 | Автоматические raw replay/acquisition-boundary/RSS gates закрыты; остался длительный реальный raw/field прогон перед FIELD-01 | Оператор + разработчик / блокировано внешним условием |
 | 2 | UI-SYS-01 | Единый адаптивный UI foundation: кнопки, поля, toolbar, focus/hover/disabled states, размеры касания, small-screen/HiDPI правила; без локальных desktop-only стилей | Разработчик / в работе |
 | 3 | PRINT-STYLE-01 | Единый Report Visual System уровня профессиональных нефтесервисных отчётов: PDF/Masterlog/DOCX/XLSX, A4/A3/roll, colour + grayscale | Разработчик / в работе |
-| 4 | GASCTX-RPT-01 | Перед Gas Ratio/Haworth/Pixler/OPUS и всеми газовыми интерпретационными отчётами — редактор повторяющихся технологических газовых интервалов и единый report-first Gas Context Registry; известные gas-test/connection/trip/swab/circulated/recycled/calibration/lag-tracer интервалы не должны автоматически становиться УВ-пластами | Разработчик + специалист ГТИ / готово к разработке |
+| 4 | GASCTX-RPT-01 | Перед Gas Ratio/Haworth/Pixler/OPUS и всеми газовыми интерпретационными отчётами — редактор повторяющихся технологических газовых интервалов и единый report-first Gas Context Registry; известные gas-test/connection/trip/swab/circulated/recycled/calibration/lag-tracer интервалы не должны автоматически становиться УВ-пластами | Разработчик + специалист ГТИ / в работе |
 | 5 | WITS-UX-01 | Довести operator workspace после foundation PR #282: no-data states, help, persistence/reconnect и полевой UX acceptance | Разработчик / в работе |
 | 6 | WITS-CALC-01 | Live-derived Gas Ratio/Haworth, Pixler и DEXP/DEXPC через существующий versioned formula registry; без второй реализации формул в UI | Разработчик / завершено |
 
@@ -75,6 +75,11 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
 Календарные сроки не назначаются без доступности стенда и измерения первого инкремента.
 
 ## GASCTX-RPT-01 — технологический газовый контекст интерпретационных отчётов
+
+Первый инкремент GASCTX-RPT-01 реализует generic `GasContextEvent` / `GasContextRegistry`
+без WITS-зависимости и project-format v35 persistence на уровне `Well.gas_context_events`.
+Следующий инкремент после merge — editor/controller для повторяющихся строк и затем применение
+confirmed context к Gas Ratio/Haworth/Pixler/OPUS candidate classification и export presentation.
 
 Цель — перед расчётом Gas Ratio/Haworth, Pixler, OPUS и любого комбинированного газового
 интерпретационного отчёта дать геологу/оператору явный способ указать интервалы газа известного

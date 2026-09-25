@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- Gas context/Reports: добавлен generic `GasContextEvent`/`GasContextRegistry` для повторяющихся технологических газовых интервалов и project-format v35 persistence на уровне скважины; ручной Total Gas хранится как QC reference и не изменяет source curves.
 - Reports/LAS: interpretation PDF charts no longer connect percentile-clipped outliers across the full track and use lighter overlapping candidate bands; Excel hidden audit data is bounded to report-relevant channels and skips whole-sheet styling; Word export exposes progress; LAS import shows an explicit busy state before synchronous parsing.
 - Tablet/UI: curve-pencil toolbar стал palette-aware и компактным в выключенном состоянии; вторичные mode/apply/clear/Undo/Redo controls скрываются, а single-curve track title использует локализованное имя параметра с mnemonic в скобках вместо сырого технического заголовка.
 - WITS/Gas context: добавлен stateful `Wits0GasContextProjection`, объединяющий rolling baseline, automatic classification, manual precedence и localized presentation в одном reusable live/report contract; обновление manual intervals не сбрасывает baseline.

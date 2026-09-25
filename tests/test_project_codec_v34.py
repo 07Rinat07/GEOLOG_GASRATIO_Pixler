@@ -23,7 +23,7 @@ def _project() -> Project:
     return Project("project-1", "Project", wells={well.well_id: well})
 
 
-def test_v34_round_trip_preserves_authored_field_source_languages(tmp_path: Path) -> None:
+def test_current_round_trip_preserves_authored_field_source_languages(tmp_path: Path) -> None:
     project = _project()
     project.wells["well-1"].authored_field_source_languages = {
         FIELD_ID: "ru",
@@ -35,8 +35,8 @@ def test_v34_round_trip_preserves_authored_field_source_languages(tmp_path: Path
     payload = json.loads(target.read_text(encoding="utf-8"))
     loaded = load_project(target)
 
-    assert PROJECT_FORMAT_VERSION == 34
-    assert payload["format_version"] == 34
+    assert PROJECT_FORMAT_VERSION == 35
+    assert payload["format_version"] == 35
     assert payload["project"]["wells"]["well-1"]["authored_field_source_languages"] == {
         FIELD_ID: "ru",
         "stratigraphy/interval-2/name": "kk",
