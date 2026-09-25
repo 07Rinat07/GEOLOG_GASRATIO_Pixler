@@ -30,6 +30,10 @@ def test_live_view_uses_read_only_projection_and_shared_downsampling() -> None:
     assert "wits0_live.error_view_only" in widget
     assert "def diagnostic_plotted_points(" in widget
     assert "self._last_plot_rendered_points = snapshot.rendered_point_count" in widget
+    assert "Wits0LiveDerivedChannelService" in widget
+    assert "virtual_curves=self._virtual_curves" in widget
+    assert "for curve in self._all_curves()" in widget
+    assert "def _set_view_source_selection(" in widget
     assert "Wits0LiveViewWidget" in capture
     assert "self.live_view.bind_runtime(runtime)" in capture
     assert "self.live_view.bind_runtime(preview_runtime, preview=True)" in capture
@@ -79,6 +83,137 @@ def test_wits0_live_view_constructs_offscreen(monkeypatch: pytest.MonkeyPatch) -
         assert widget.values_table.columnCount() == 4
         assert widget.dashboard.panels
         assert widget.diagnostic_plotted_points() == 0
+    finally:
+        widget.close()
+        app.processEvents()
+
+
+@pytest.mark.skipif(
+    importlib.util.find_spec("PySide6") is None
+    or importlib.util.find_spec("pyqtgraph") is None,
+    reason="PySide6/pyqtgraph are not installed in the headless test environment",
+)
+def test_operator_workspace_exposes_virtual_channels_by_mnemonic(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    from types import SimpleNamespace
+
+    import numpy as np
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QApplication
+
+    from geoworkbench.domain.models import (
+        CurveData,
+        CurveMetadata,
+        Dataset,
+        DatasetKind,
+        DepthDomain,
+    )
+    from geoworkbench.services.acquisition_live_view import AcquisitionLiveAxisMode
+    from geoworkbench.services.localization import AppLanguage
+    import geoworkbench.ui.wits0_live_view as live_module
+
+    dataset = Dataset(
+        dataset_id="operator-derived",
+        name="Operator derived",
+        kind=DatasetKind.GTI,
+        depth_domain=DepthDomain.MD,
+        depth=np.asarray([1000.0, 1000.5], dtype=np.float64),
+    )
+    source = dataset.upsert_curve(
+        "C1",
+        np.asarray([80.0, 81.0], dtype=np.float64),
+        unit="% abs",
+        description="Methane",
+        provenance="wits0:0801",
+    )
+    virtual_id = "wits-derived:haworth.wetness:1.0.0"
+    virtual_curve = CurveData(
+        CurveMetadata(
+            curve_id=virtual_id,
+            original_mnemonic="WH",
+            canonical_mnemonic="WH",
+            unit="%",
+            description="Haworth Wetness",
+            source_dataset_id=dataset.dataset_id,
+            provenance="formula:haworth.wetness:1.0.0;source-records=08",
+        ),
+        np.asarray([20.0, 21.0], dtype=np.float64),
+    )
+
+    class FakeDerivedService:
+        def virtual_curves(self, _dataset: Dataset) -> dict[str, CurveData]:
+            return {virtual_id: virtual_curve}
+
+    class FakeAcquisitionLiveView:
+        def __init__(self, bound_dataset: Dataset, session: object, **_kwargs: object) -> None:
+            self.dataset = bound_dataset
+            self.session = session
+            self.axis_mode = AcquisitionLiveAxisMode.AUTO
+            self.auto_follow = True
+            self.paused = False
+            self.history_window = None
+            self.selected: tuple[str, ...] = ()
+            self.config = SimpleNamespace(
+                time_window_seconds=600.0,
+                depth_window=100.0,
+            )
+
+        def snapshot(
+            self,
+            *,
+            curve_ids: tuple[str, ...] = (),
+            max_points_per_curve: int = 100,
+            **_kwargs: object,
+        ) -> object:
+            del curve_ids, max_points_per_curve
+            return SimpleNamespace(axis_mode=self.axis_mode)
+
+        def available_axis_modes(self) -> tuple[AcquisitionLiveAxisMode, ...]:
+            return (AcquisitionLiveAxisMode.AUTO,)
+
+        def set_selected_curves(self, curve_ids: tuple[str, ...]) -> None:
+            self.selected = tuple(curve_ids)
+
+        def set_axis_mode(self, mode: AcquisitionLiveAxisMode) -> None:
+            self.axis_mode = mode
+
+        def set_auto_follow(self, enabled: bool) -> None:
+            self.auto_follow = bool(enabled)
+
+        def set_follow_span(self, _span: float) -> None:
+            return
+
+    monkeypatch.setattr(live_module, "Wits0LiveDerivedChannelService", FakeDerivedService)
+    monkeypatch.setattr(live_module, "AcquisitionLiveView", FakeAcquisitionLiveView)
+
+    app = QApplication.instance() or QApplication([])
+    widget = live_module.Wits0LiveViewWidget(language=AppLanguage.RU)
+    monkeypatch.setattr(widget, "refresh", lambda *args, **kwargs: None)
+    runtime = SimpleNamespace(
+        controller=SimpleNamespace(dataset=dataset),
+        session=SimpleNamespace(session_id="session-derived"),
+    )
+
+    try:
+        widget.bind_runtime(runtime)
+        item_by_id = {
+            widget.curve_list.item(row).data(Qt.ItemDataRole.UserRole):
+            widget.curve_list.item(row)
+            for row in range(widget.curve_list.count())
+        }
+        assert source.metadata.curve_id in item_by_id
+        assert virtual_id in item_by_id
+        item_by_id[source.metadata.curve_id].setCheckState(Qt.CheckState.Unchecked)
+        item_by_id[virtual_id].setCheckState(Qt.CheckState.Checked)
+
+        assert widget._selected_mnemonics() == ("WH",)
+        assert widget._curve_ids_for_mnemonics(("WH",)) == (virtual_id,)
+        widget._set_view_source_selection(widget._selected_curve_ids())
+        assert widget._view is not None
+        assert widget._view.selected == ()
+        assert widget.workspace_state().selected_mnemonics == ("WH",)
     finally:
         widget.close()
         app.processEvents()

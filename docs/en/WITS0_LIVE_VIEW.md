@@ -55,6 +55,8 @@ A form can be selected **before connection**. Factory forms remain defaults, whi
 form is editable: channels and plots can be added or removed, the axis/history window/point limit
 can be changed, and the result can be saved. **Save form** persists overrides by canonical
 mnemonic instead of session-specific curve IDs; **Reset** restores the factory template.
+Available virtual Haworth/Pixler/DEXP channels appear in the same channel list and can be selected
+and saved by mnemonic while remaining ephemeral; they are not written into the source WITS Dataset.
 
 The monitor is adaptive. The parameter sidebar can collapse and the live view can detach into
 full-screen mode and return without stopping intake or rebuilding the acquisition runtime. The
