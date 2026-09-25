@@ -399,21 +399,34 @@ def _draw_curves(
         low, high = value_range
         painter.setPen(QPen(QColor(_COLORS[curve_index % len(_COLORS)]), 0.8))
         previous: tuple[float, float] | None = None
+        previous_normalized: float | None = None
+        previous_clipped = False
         for row_index in indices:
             value = values[row_index]
             if not np.isfinite(value):
                 previous = None
+                previous_normalized = None
+                previous_clipped = False
                 continue
-            normalized = float(np.clip((value - low) / (high - low), 0.0, 1.0))
+            raw_normalized = float((value - low) / (high - low))
+            normalized = float(np.clip(raw_normalized, 0.0, 1.0))
+            clipped = raw_normalized < 0.0 or raw_normalized > 1.0
             current = (
                 curve_rect.left() + normalized * curve_rect.width(),
                 _depth_y(float(depth[row_index]), page, curve_rect),
             )
-            if previous is not None:
+            break_clipped_spike = (
+                previous_normalized is not None
+                and (clipped or previous_clipped)
+                and abs(normalized - previous_normalized) >= 0.72
+            )
+            if previous is not None and not break_clipped_spike:
                 painter.drawLine(
                     QLineF(previous[0], previous[1], current[0], current[1])
                 )
             previous = current
+            previous_normalized = normalized
+            previous_clipped = clipped
     painter.restore()
 
 
