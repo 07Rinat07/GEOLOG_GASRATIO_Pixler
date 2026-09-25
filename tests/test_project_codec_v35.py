@@ -56,6 +56,18 @@ def test_registry_allows_repeated_event_type_as_independent_rows() -> None:
     assert registry.resolve_at_depth(1201.0) is second
 
 
+def test_registry_freezes_mutable_constructor_input() -> None:
+    first = _event("connection-1", GasContextEventType.CONNECTION_GAS, 1000.0, 1002.0)
+    second = _event("connection-2", GasContextEventType.CONNECTION_GAS, 1200.0, 1203.0)
+    mutable_events = [first]
+
+    registry = GasContextRegistry(mutable_events)  # type: ignore[arg-type]
+    mutable_events.append(second)
+
+    assert registry.events == (first,)
+    assert isinstance(registry.events, tuple)
+
+
 def test_registry_ignores_draft_and_resolves_confirmed_test_over_formation() -> None:
     formation = _event(
         "formation-1",
@@ -164,6 +176,40 @@ def test_v34_project_loads_with_empty_gas_context_registry(tmp_path: Path) -> No
     assert restored.gas_context_events == []
 
 
+def test_v35_normalizes_numeric_string_event_values(tmp_path: Path) -> None:
+    project = Project(
+        "project-1",
+        "Project",
+        wells={"well-1": Well("well-1", "Well 1")},
+    )
+    target = tmp_path / "numeric-strings.geologpkg"
+    save_project(project, target)
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    payload["project"]["wells"]["well-1"]["gas_context_events"] = [
+        {
+            "event_id": "event-1",
+            "event_type": "trip_gas",
+            "top_depth": "1000.0",
+            "bottom_depth": "1001.5",
+            "impact": None,
+            "confirmed": True,
+            "reported_total_gas": "3.25",
+            "reported_unit": "%",
+            "comment": "",
+            "source": "manual",
+        }
+    ]
+
+    restored = project_document_from_dict(payload).project.wells["well-1"].gas_context_events[0]
+
+    assert restored.top_depth == 1000.0
+    assert restored.bottom_depth == 1001.5
+    assert restored.reported_total_gas == 3.25
+    assert isinstance(restored.top_depth, float)
+    assert isinstance(restored.bottom_depth, float)
+    assert isinstance(restored.reported_total_gas, float)
+
+
 def test_v35_rejects_duplicate_event_ids(tmp_path: Path) -> None:
     project = Project(
         "project-1",
@@ -202,6 +248,8 @@ def test_v35_rejects_duplicate_event_ids(tmp_path: Path) -> None:
         ("confirmed", "yes"),
         ("bottom_depth", -1.0),
         ("reported_total_gas", -0.1),
+        ("reported_total_gas", True),
+        ("reported_unit", 123),
     ],
 )
 def test_v35_rejects_invalid_gas_context_event(
