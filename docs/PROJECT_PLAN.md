@@ -50,6 +50,9 @@ release plan и временные планы в `docs` не создаются.
 WITS-CALC-01 закрыт зелёным Release gate и merge в `main`: live virtual Haworth/Pixler/DEXP/DEXPC, explicit operator normal mud density и live↔batch parity покрыты автоматическими regression tests.
 
 | 6 | WITS-GASCTX-01 | Разделить background gas, formation show, connection gas, trip gas, circulated gas и elevated-unclassified по газу + технологическому контексту | Разработчик + специалист ГТИ / в работе |
+
+WITS-GASCTX-01: effective gas context presentation boundary добавлен как общий контракт для operator/report слоёв; следующий шаг — привязать этот DTO к live/report data flow без дублирования классификатора.
+
 | 7 | WITS-ALARM-01 | Для всех отображаемых параметров min/max, visual/audio alarm, hysteresis/debounce, acknowledgement и маркеры на графике | Разработчик + оператор / готово к разработке |
 | 8 | OBS-01 | Build/session identity и объяснимые состояния no-data/stale/error; используется операторским помощником и alarms | Разработчик / готово к разработке |
 | 9 | WITS-PLOT-01 | Независимые шкалы/диапазоны, редактируемые панели/колонки, читаемые интерпретационные полосы и non-overlap badges | Разработчик / в работе |

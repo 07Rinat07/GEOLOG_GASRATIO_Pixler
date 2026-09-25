@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.wits0_gas_context import (
     Wits0GasContextAssessment,
     Wits0GasOriginKind,
 )
+from geoworkbench.services.wits0_gas_context_presentation import present_resolved_gas_context
 from geoworkbench.services.wits0_manual_gas_context import (
     Wits0GasContextAxis,
     Wits0GasContextResolutionSource,
@@ -155,3 +157,50 @@ def test_manual_operational_context_precedence_is_preserved_for_overlap() -> Non
     assert resolved.kind is Wits0GasOriginKind.TRIP_GAS
     assert resolved.manual_interval_id == "manual-trip"
     assert resolved.excludes_formation_interpretation is True
+
+
+def test_resolved_gas_context_presentation_preserves_effective_and_automatic_audit() -> None:
+    automatic = _automatic_formation_show()
+    manual = Wits0ManualGasContextInterval(
+        interval_id="gc-test-42",
+        kind=Wits0GasOriginKind.CHROMATOGRAPH_TEST_GAS,
+        axis=Wits0GasContextAxis.DEPTH,
+        start=2504.0,
+        end=2505.0,
+    )
+    resolved = resolve_effective_gas_context(
+        automatic,
+        (manual,),
+        axis=Wits0GasContextAxis.DEPTH,
+        value=2504.5,
+    )
+
+    ru = present_resolved_gas_context(resolved, AppLanguage.RU)
+    en = present_resolved_gas_context(resolved, AppLanguage.EN)
+
+    assert ru.effective_label == "Тестовый газ хроматографа"
+    assert ru.automatic_label == "Пластовое газопроявление"
+    assert ru.source_label == "Подтверждено оператором"
+    assert "gc-test-42" in ru.audit_text
+    assert ru.excludes_formation_interpretation is True
+
+    assert en.effective_label == "Chromatograph test gas"
+    assert en.automatic_label == "Formation gas show"
+    assert en.source_label == "Operator confirmed"
+    assert "gc-test-42" in en.audit_text
+
+
+def test_automatic_gas_context_presentation_has_no_manual_interval() -> None:
+    automatic = _automatic_formation_show()
+    resolved = resolve_effective_gas_context(
+        automatic,
+        (),
+        axis=Wits0GasContextAxis.DEPTH,
+        value=2504.5,
+    )
+
+    presentation = present_resolved_gas_context(resolved, AppLanguage.KK)
+
+    assert presentation.manual_interval_id is None
+    assert presentation.source_label == "Автоматты"
+    assert presentation.effective_label == presentation.automatic_label
