@@ -38,6 +38,12 @@ Operator UI and reports use one shared presentation boundary. It exposes the eff
 the original automatic assessment, the resolution source, and the confirmed manual interval ID.
 Qt/PDF layers do not reimplement gas-origin classification.
 
+The data flow is unified by `Wits0GasContextProjection`: it owns the rolling baseline,
+accepts an observation, performs automatic classification, applies manual precedence, and returns
+the automatic assessment, effective context, and localized presentation in one result.
+Refreshing manual intervals does not reset the baseline; reset clears only automatic state.
+
+
 
 ## Lag and depth attribution
 
