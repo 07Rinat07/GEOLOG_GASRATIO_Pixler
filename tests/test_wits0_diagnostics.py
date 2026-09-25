@@ -15,12 +15,16 @@ from geoworkbench.acquisition.wits0_capture import (
     Wits0CaptureState,
     Wits0ConnectionMode,
 )
+from geoworkbench.domain.models import IndexType
 from geoworkbench.services.wits0_acquisition import (
     Wits0AcquisitionSnapshot,
     Wits0AcquisitionState,
 )
 from geoworkbench.services.wits0_diagnostics import build_wits0_diagnostic_snapshot
-from geoworkbench.services.wits0_import_review import Wits0DiscoveryAccumulator
+from geoworkbench.services.wits0_import_review import (
+    Wits0CustomProfile,
+    Wits0DiscoveryAccumulator,
+)
 
 
 def test_wits0_profile_fingerprint_is_canonical_and_version_sensitive() -> None:
@@ -81,12 +85,28 @@ def test_wits0_diagnostic_snapshot_is_allowlisted_and_omits_source_identity(
         last_error="SECRET-LAST-ERROR",
     )
     discovery = Wits0DiscoveryAccumulator(profile).snapshot()
+    custom_profile = Wits0CustomProfile(
+        custom_profile_id="SECRET-CUSTOMER-WELL-RIG",
+        revision=3,
+        title="SECRET-CUSTOM-PROFILE-TITLE",
+        base_profile_id=profile.profile_id,
+        base_profile_version=profile.version,
+        discovery_fingerprint=discovery.fingerprint,
+        index_candidate_id="header_datetime",
+        index_mnemonic="DEPT",
+        index_type=IndexType.MD,
+        index_unit="m",
+        timezone=None,
+        channels=(),
+        created_at="2026-09-25T00:00:00Z",
+    )
 
     snapshot = build_wits0_diagnostic_snapshot(
         profile,
         config=config,
         capture=capture,
         discovery=discovery,
+        custom_profile=custom_profile,
         acquisition=acquisition,
     )
     payload = snapshot.as_dict()
@@ -98,6 +118,7 @@ def test_wits0_diagnostic_snapshot_is_allowlisted_and_omits_source_identity(
     assert payload["encoding"] == profile.encoding
     assert payload["mode"] == Wits0ConnectionMode.TCP_CLIENT.value
     assert payload["discovery_fingerprint"] == discovery.fingerprint
+    assert payload["custom_profile_revision"] == 3
     assert payload["capture_frames_received"] == 17
     assert payload["capture_parser_errors"] == 3
     assert payload["acquisition_frames_submitted"] == 12
@@ -113,5 +134,6 @@ def test_wits0_diagnostic_snapshot_is_allowlisted_and_omits_source_identity(
         "source_name",
         "session_id",
         "last_error",
+        "custom_profile_id",
     ):
         assert forbidden_key not in payload
