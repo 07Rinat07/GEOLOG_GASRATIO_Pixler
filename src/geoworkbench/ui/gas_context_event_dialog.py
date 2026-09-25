@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import TypedDict
+
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QDoubleValidator
 from PySide6.QtWidgets import (
@@ -89,6 +91,17 @@ _EVENT_LABELS: dict[GasContextEventType, tuple[str, str, str]] = {
         "Other technological gas",
     ),
 }
+
+class GasContextEventValues(TypedDict):
+    event_type: GasContextEventType
+    top_depth: float
+    bottom_depth: float
+    impact: InterpretationImpact | None
+    confirmed: bool
+    reported_total_gas: float | None
+    reported_unit: str | None
+    comment: str
+
 
 _IMPACT_LABELS: dict[InterpretationImpact, tuple[str, str, str]] = {
     InterpretationImpact.EXCLUDE_GEOLOGICAL: (
@@ -319,9 +332,9 @@ class GasContextEventDialog(QDialog):
                     f"{event.bottom_depth:g}",
                     "" if event.reported_total_gas is None else f"{event.reported_total_gas:g}",
                     event.reported_unit or "",
-                    self._text("confirmed", "confirmed", "confirmed")
+                    self._text("подтверждено", "расталған", "confirmed")
                     if event.confirmed
-                    else self._text("draft", "draft", "draft"),
+                    else self._text("черновик", "жоба", "draft"),
                     self._impact_label(impact),
                     event.comment,
                     event.source,
@@ -378,7 +391,7 @@ class GasContextEventDialog(QDialog):
         if index >= 0:
             combo.setCurrentIndex(index)
 
-    def _values(self) -> dict[str, object]:
+    def _values(self) -> GasContextEventValues:
         event_type = self.type_input.currentData()
         if not isinstance(event_type, GasContextEventType):
             raise ValueError("Не выбран тип газового события")
