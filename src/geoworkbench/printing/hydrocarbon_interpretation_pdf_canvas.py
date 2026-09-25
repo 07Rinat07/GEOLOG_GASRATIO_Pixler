@@ -88,16 +88,22 @@ class PageCanvas:
             footer_height,
         )
         self.painter.setPen(QColor(visual.palette.text_muted))
-        self.painter.setFont(
-            print_font(
-                visual.typography.footer_pt,
-                text=f"{REPORT_BRAND_WORDMARK} {label} {self.page_number}",
-            )
+        brand_font = print_font(
+            visual.typography.footer_pt,
+            text=REPORT_BRAND_WORDMARK,
         )
+        brand_font.setBold(True)
+        self.painter.setFont(brand_font)
         self.painter.drawText(
             left_footer,
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
             REPORT_BRAND_WORDMARK,
+        )
+        self.painter.setFont(
+            print_font(
+                visual.typography.footer_pt,
+                text=f"{label} {self.page_number}",
+            )
         )
         self.painter.drawText(
             right_footer,

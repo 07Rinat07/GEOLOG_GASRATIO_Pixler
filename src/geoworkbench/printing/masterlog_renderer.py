@@ -312,16 +312,19 @@ def paint_masterlog(
         # page label remain searchable/copyable. The rest of the Masterlog may
         # still use outline rendering for geometry stability at print scale.
         font.setStyleStrategy(QFont.StyleStrategy.PreferDefault)
-        painter.setFont(font)
         painter.setPen(QColor(visual.palette.text_muted))
         footer_y = size.height() - 5.0
         footer_width = max(1.0, size.width() - 4.0)
         brand_width = footer_width * 0.64
+        font.setBold(True)
+        painter.setFont(font)
         painter.drawText(
             QRectF(2.0, footer_y, brand_width, 4.0),
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
             REPORT_BRAND_WORDMARK,
         )
+        font.setBold(False)
+        painter.setFont(font)
         painter.drawText(
             QRectF(
                 2.0 + brand_width,
