@@ -66,7 +66,11 @@ def build_wits0_diagnostic_snapshot(
 ) -> Wits0DiagnosticSnapshot:
     """Build diagnostics only from already-sanitized metadata/counter snapshots."""
 
-    if isinstance(plotted_points, bool) or not isinstance(plotted_points, int) or plotted_points < 0:
+    if (
+        isinstance(plotted_points, bool)
+        or not isinstance(plotted_points, int)
+        or plotted_points < 0
+    ):
         raise ValueError("plotted_points must be a non-negative integer")
 
     return Wits0DiagnosticSnapshot(
