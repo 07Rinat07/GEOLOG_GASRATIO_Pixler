@@ -1,4 +1,5 @@
 import numpy as np
+from PySide6.QtCore import QLocale
 from PySide6.QtWidgets import QDialogButtonBox, QPushButton, QTableWidget
 
 from geoworkbench.domain.gas_context_events import GasContextEventType
@@ -77,5 +78,48 @@ def test_gas_context_dialog_exposes_required_repeated_row_actions(qapp) -> None:
         buttons = dialog.findChild(QDialogButtonBox, "gas-context-event-buttons")
         assert buttons is not None
         assert buttons.button(QDialogButtonBox.StandardButton.Save).text() == "Сохранить"
+    finally:
+        dialog.close()
+
+
+
+def test_gas_context_dialog_parses_tg_with_validator_locale(qapp) -> None:
+    controller = GasContextEventEditorController(_session())
+    dialog = GasContextEventDialog(controller, language=AppLanguage.RU)
+    try:
+        validator = dialog.reported_total_input.validator()
+        assert validator is not None
+        validator.setLocale(
+            QLocale(QLocale.Language.Russian, QLocale.Country.Kazakhstan)
+        )
+        dialog.reported_total_input.setText("4,25")
+        dialog.top_input.setValue(120.0)
+        dialog.bottom_input.setValue(121.0)
+
+        dialog._add()
+
+        event = controller.list_events()[0]
+        assert event.reported_total_gas == 4.25
+    finally:
+        dialog.close()
+
+
+def test_gas_context_dialog_preserves_valid_high_precision_depth_on_update(qapp) -> None:
+    controller = GasContextEventEditorController(_session())
+    original = controller.add(
+        event_type=GasContextEventType.CONNECTION_GAS,
+        top_depth=123_456.123456789,
+        bottom_depth=123_457.987654321,
+        comment="before",
+    )
+    dialog = GasContextEventDialog(controller, language=AppLanguage.EN)
+    try:
+        dialog.comment_input.setText("after")
+        dialog._update()
+
+        updated = controller.get(original.event_id)
+        assert updated.top_depth == original.top_depth
+        assert updated.bottom_depth == original.bottom_depth
+        assert updated.comment == "after"
     finally:
         dialog.close()
