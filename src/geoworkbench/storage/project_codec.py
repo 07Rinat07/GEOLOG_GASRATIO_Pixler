@@ -1,4 +1,4 @@
-"""Project codec v34 for explicit authored-field source languages."""
+"""Project codec v35 for well-level gas-context event persistence."""
 
 from __future__ import annotations
 
@@ -183,7 +183,7 @@ def _legacy_payload_and_blocks(
             gas_context_events[str(well_id)] = _gas_context_events_from_dict(
                 raw_gas_context_events
             )
-                raw_source_languages = well.pop("authored_field_source_languages", {})
+        raw_source_languages = well.pop("authored_field_source_languages", {})
         if version >= 34:
             authored_field_source_languages[str(well_id)] = _validated_source_languages(
                 raw_source_languages
