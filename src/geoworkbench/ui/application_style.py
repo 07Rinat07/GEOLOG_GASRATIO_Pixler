@@ -266,28 +266,28 @@ QLabel#form-manager-heading {
     color: palette(window-text);
     padding: 2px 4px;
 }
-QLabel#form-manager-print-layout-hint {
+QLabel[hintRole] {
     color: palette(window-text);
     background: palette(base);
     border: 1px solid palette(mid);
     border-radius: 5px;
     padding: 6px 8px;
 }
-QLabel#form-manager-print-layout-hint[hintRole="success"] {
+QLabel[hintRole="success"] {
     border-left: 4px solid palette(highlight);
 }
-QLabel#form-manager-print-layout-hint[hintRole="warning"] {
+QLabel[hintRole="warning"] {
     background: palette(alternate-base);
     border-left: 4px solid palette(mid);
     font-weight: 600;
 }
-QLabel#form-manager-print-layout-hint[hintRole="error"] {
+QLabel[hintRole="error"] {
     background: palette(alternate-base);
     border: 2px solid palette(mid);
     border-left: 4px solid palette(highlight);
     font-weight: 600;
 }
-QLabel#form-manager-print-layout-hint[hintRole="neutral"] {
+QLabel[hintRole="neutral"] {
     color: palette(window-text);
 }
 
