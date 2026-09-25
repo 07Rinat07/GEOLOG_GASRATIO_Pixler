@@ -1158,3 +1158,8 @@ WELL-04 уже имеет field-level статусы и readiness; WELL-05 — f
 6. обновлены этот план при изменении приоритетов, `ARCHITECTURE.md`, `TESTING.md`, нужные
    инструкции RU/KK/EN и `CHANGELOG.md`;
 7. рабочее дерево чистое, временные ветки/workflow/trigger/artifacts отсутствуют.
+
+
+UI-SYS-01: Curve-pencil toolbar переведён на palette-aware application style: при выключенном
+карандаше скрываются вторичные mode/apply/clear/Undo/Redo controls; одиночные raw-mnemonic
+track titles заменяются на локализованное имя параметра с mnemonic в скобках.

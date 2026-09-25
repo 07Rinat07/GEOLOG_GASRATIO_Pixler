@@ -2411,6 +2411,9 @@ class TabletView(QWidget):
         self._curve_pencil_status.setMinimumWidth(180)
         self._curve_pencil_status.setToolTip(self._localizer.text("tablet.curve_pencil_tooltip"))
         pencil_layout.addWidget(self._curve_pencil_status)
+        self._curve_pencil_status.style().unpolish(self._curve_pencil_status)
+        self._curve_pencil_status.style().polish(self._curve_pencil_status)
+        self._curve_pencil_status.update()
         self._update_curve_pencil_bar_style()
         self._update_curve_pencil_mode_controls()
         self.set_curve_pencil_history_state(False, False)
@@ -3579,15 +3582,27 @@ class TabletView(QWidget):
 
     def _update_curve_pencil_mode_controls(self) -> None:
         self._sync_curve_pencil_mode_buttons()
-        point_mode = self._curve_pencil_mode is CurvePencilMode.CONNECT_POINTS
+        enabled = self._curve_pencil_enabled
+        point_mode = enabled and self._curve_pencil_mode is CurvePencilMode.CONNECT_POINTS
+        for widget in (
+            self._curve_pencil_freehand_button,
+            self._curve_pencil_points_button,
+            self._curve_pencil_apply_button,
+            self._curve_pencil_clear_button,
+            self._curve_pencil_undo_button,
+            self._curve_pencil_redo_button,
+        ):
+            widget.setVisible(enabled)
         self._curve_pencil_apply_button.setVisible(point_mode)
         self._curve_pencil_clear_button.setVisible(point_mode)
         self._curve_pencil_apply_button.setEnabled(
-            point_mode and self._curve_pencil_enabled and len(self._curve_pencil_points) >= 2
+            point_mode and len(self._curve_pencil_points) >= 2
         )
         self._curve_pencil_clear_button.setEnabled(
             point_mode and bool(self._curve_pencil_points)
         )
+        if not enabled and hasattr(self, "_curve_pencil_scroll"):
+            self._curve_pencil_scroll.horizontalScrollBar().setValue(0)
 
     def set_curve_pencil_history_state(self, can_undo: bool, can_redo: bool) -> None:
         self._curve_pencil_state.set_history(can_undo=can_undo, can_redo=can_redo)
@@ -3841,18 +3856,10 @@ class TabletView(QWidget):
             self._scroll.ensureWidgetVisible(rendered.widget, 20, 0)
 
     def _update_curve_pencil_bar_style(self) -> None:
-        if self._curve_pencil_enabled:
-            self._curve_pencil_bar.setStyleSheet(
-                "QFrame#tabletCurvePencilBar { background:#fff7ed; "
-                "border-top:1px solid #fdba74; border-bottom:1px solid #fdba74; } "
-                "QPushButton:checked { background:#f97316; color:white; "
-                "border:1px solid #c2410c; font-weight:700; padding:4px 10px; }"
-            )
-        else:
-            self._curve_pencil_bar.setStyleSheet(
-                "QFrame#tabletCurvePencilBar { background:#f8fafc; "
-                "border-top:1px solid #e2e8f0; border-bottom:1px solid #e2e8f0; }"
-            )
+        self._curve_pencil_bar.setProperty("pencilActive", self._curve_pencil_enabled)
+        self._curve_pencil_bar.style().unpolish(self._curve_pencil_bar)
+        self._curve_pencil_bar.style().polish(self._curve_pencil_bar)
+        self._curve_pencil_bar.update()
 
     def _update_curve_pencil_status(self) -> None:
         if self._curve_pencil_commit_error:
@@ -3862,9 +3869,7 @@ class TabletView(QWidget):
                     error=self._curve_pencil_commit_error,
                 )
             )
-            self._curve_pencil_status.setStyleSheet(
-                "background:transparent; color:#b91c1c; font-weight:700; padding:2px 6px;"
-            )
+            self._curve_pencil_status.setProperty("statusRole", "error")
         elif self._curve_pencil_enabled and self._curve_pencil_mnemonic:
             if (
                 self._curve_pencil_mode is CurvePencilMode.CONNECT_POINTS
@@ -3886,19 +3891,13 @@ class TabletView(QWidget):
                 self._curve_pencil_status.setText(
                     self._localizer.text(key, curve=self._curve_pencil_display_label())
                 )
-            self._curve_pencil_status.setStyleSheet(
-                "background:transparent; color:#9a3412; font-weight:700; padding:2px 6px;"
-            )
+            self._curve_pencil_status.setProperty("statusRole", "active")
         elif self._curve_pencil_selector.count() == 0:
             self._curve_pencil_status.setText(self._localizer.text("tablet.curve_pencil_no_curves"))
-            self._curve_pencil_status.setStyleSheet(
-                "background:transparent; color:#64748b; padding:2px 6px;"
-            )
+            self._curve_pencil_status.setProperty("statusRole", "muted")
         else:
             self._curve_pencil_status.setText(self._localizer.text("tablet.curve_pencil_inactive"))
-            self._curve_pencil_status.setStyleSheet(
-                "background:transparent; color:#475569; padding:2px 6px;"
-            )
+            self._curve_pencil_status.setProperty("statusRole", "muted")
         self._update_curve_pencil_bar_style()
         self._update_curve_pencil_mode_controls()
 
@@ -8925,6 +8924,14 @@ class TabletView(QWidget):
 
         if definition.kind in {TrackKind.CURVE, TrackKind.DEXP} and definition.curve_mnemonics:
             generated = " / ".join(definition.curve_mnemonics)
+            if len(definition.curve_mnemonics) == 1:
+                mnemonic = definition.curve_mnemonics[0]
+                if definition.title.strip().casefold() == mnemonic.casefold() and self._dataset is not None:
+                    curve = self._dataset.curve_by_mnemonic(mnemonic)
+                    if curve is not None:
+                        display = self._curve_display_name(definition, mnemonic, curve).strip()
+                        if display and display.casefold() != mnemonic.casefold():
+                            return f"{display} [{mnemonic}]"
             if definition.title.strip() == generated or len(definition.title.strip()) > 64:
                 return self._localizer.text(
                     "tablet.track.parameters_count", count=len(definition.curve_mnemonics)
