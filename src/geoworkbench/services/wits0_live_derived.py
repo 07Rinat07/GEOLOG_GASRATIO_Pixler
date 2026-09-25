@@ -11,7 +11,7 @@ from geoworkbench.calculations.pixler import (
     FormulaProfileRegistry,
     build_all_sourced_formula_registry,
 )
-from geoworkbench.domain.models import Dataset
+from geoworkbench.domain.models import CurveData, CurveMetadata, Dataset
 from geoworkbench.services.las_parameter_resolver import (
     DatasetParameterResolution,
     LasParameterResolver,
@@ -45,6 +45,7 @@ class Wits0DerivedChannelSnapshot:
     profile_version: str
     category: FormulaCategory
     required_inputs: tuple[str, ...]
+    description: str
     provenance: str
     status: Wits0DerivedChannelStatus
     values: tuple[float, ...] = ()
@@ -101,6 +102,37 @@ class Wits0LiveDerivedChannelService:
         return tuple(
             self._snapshot_profile(profile, resolution)
             for profile in profiles
+        )
+
+    def virtual_curves(self, dataset: Dataset) -> dict[str, CurveData]:
+        """Materialize available results as ephemeral curves for live projection only."""
+
+        output: dict[str, CurveData] = {}
+        for snapshot in self.snapshot(dataset):
+            if snapshot.status is not Wits0DerivedChannelStatus.AVAILABLE:
+                continue
+            curve_id = self.virtual_curve_id(snapshot)
+            provenance = snapshot.provenance
+            if snapshot.input_conversions:
+                provenance += ";uom=" + ",".join(snapshot.input_conversions)
+            output[curve_id] = CurveData(
+                CurveMetadata(
+                    curve_id=curve_id,
+                    original_mnemonic=snapshot.mnemonic,
+                    canonical_mnemonic=snapshot.mnemonic,
+                    unit=snapshot.unit,
+                    description=snapshot.description,
+                    source_dataset_id=dataset.dataset_id,
+                    provenance=provenance,
+                ),
+                np.asarray(snapshot.values, dtype=np.float64),
+            )
+        return output
+
+    @staticmethod
+    def virtual_curve_id(snapshot: Wits0DerivedChannelSnapshot) -> str:
+        return (
+            f"wits-derived:{snapshot.profile_id}:{snapshot.profile_version}"
         )
 
     def _snapshot_profile(
@@ -197,6 +229,7 @@ class Wits0LiveDerivedChannelService:
             profile_version=profile.version,
             category=profile.category,
             required_inputs=required,
+            description=profile.description,
             provenance=self._provenance(profile),
             status=Wits0DerivedChannelStatus.AVAILABLE,
             values=tuple(float(value) for value in values),
@@ -240,6 +273,7 @@ class Wits0LiveDerivedChannelService:
             profile_version=profile.version,
             category=profile.category,
             required_inputs=tuple(name.upper() for name in profile.required_inputs),
+            description=profile.description,
             provenance=Wits0LiveDerivedChannelService._provenance(profile),
             status=Wits0DerivedChannelStatus.UNAVAILABLE,
             unavailable_reason=reason,
