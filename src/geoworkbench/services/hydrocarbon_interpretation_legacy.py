@@ -6,6 +6,7 @@ from html import escape
 
 import numpy as np
 
+from geoworkbench.domain.gas_context_events import GasContextEvent
 from geoworkbench.domain.models import CuttingsSample, Dataset
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.gas_ratio_interpretation import (
@@ -143,6 +144,7 @@ class HydrocarbonInterpretationReport:
     warnings: tuple[str, ...]
     report_profile: str = "standard"
     opus_gasomer: OpusGasomerReportSection | None = None
+    gas_context_events: tuple[GasContextEvent, ...] = ()
 
 
 _GASOMER_AMBIGUOUS_PREFIX = "opus_gasomer_ambiguous__"
