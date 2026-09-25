@@ -321,7 +321,14 @@ def draw_fluid_marker(
 def _infer_category(key: str) -> str:
     if not key:
         return "indeterminate"
-    if any(token in key for token in ("ambiguous", "no_consensus", "indeterminate", "undefined", "insufficient")):
+    indeterminate_tokens = (
+        "ambiguous",
+        "no_consensus",
+        "indeterminate",
+        "undefined",
+        "insufficient",
+    )
+    if any(token in key for token in indeterminate_tokens):
         return "indeterminate"
     if "gas_condensate_or_gassy_oil" in key:
         return "gas_condensate_or_gassy_oil"
@@ -341,7 +348,14 @@ def _infer_category(key: str) -> str:
         return "liquid_hydrocarbons"
     if "oil" in key:
         return "oil"
-    if any(token in key for token in ("probable_gas", "dry_gas", "combustible_gas", "productive_gas", "gas_increasing")):
+    gas_tokens = (
+        "probable_gas",
+        "dry_gas",
+        "combustible_gas",
+        "productive_gas",
+        "gas_increasing",
+    )
+    if any(token in key for token in gas_tokens):
         return "gas"
     return "indeterminate"
 
