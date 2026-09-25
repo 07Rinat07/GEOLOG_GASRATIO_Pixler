@@ -34,6 +34,11 @@ resolver preserves the original automatic assessment for auditability while a co
 interval supplies the effective event kind. Draft or unconfirmed intervals do not override the
 automatic result.
 
+Operator UI and reports use one shared presentation boundary. It exposes the effective class,
+the original automatic assessment, the resolution source, and the confirmed manual interval ID.
+Qt/PDF layers do not reimplement gas-origin classification.
+
+
 ## Lag and depth attribution
 
 Store surface detection and lag-corrected bit depth separately. A report should retain the
