@@ -29,6 +29,11 @@ def test_adaptive_application_stylesheet_uses_palette_roles_and_no_fixed_widths(
     assert 'QLabel[validationRole="warning"]' in stylesheet
     assert 'QLabel[validationRole="success"]' in stylesheet
     assert "QDialog#form-create-dialog QTreeWidget::item" in stylesheet
+    assert "QDialog#form-manager-dialog QTreeWidget::item" in stylesheet
+    assert "QLabel#form-manager-heading" in stylesheet
+    assert 'QLabel#form-manager-print-layout-hint[hintRole="success"]' in stylesheet
+    assert 'QLabel#form-manager-print-layout-hint[hintRole="warning"]' in stylesheet
+    assert 'QLabel#form-manager-print-layout-hint[hintRole="error"]' in stylesheet
     assert "palette(highlight)" in stylesheet
     assert "palette(base)" in stylesheet
     assert "min-height: 28px" in stylesheet

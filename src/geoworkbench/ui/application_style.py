@@ -240,6 +240,43 @@ QDialog#form-create-dialog QTreeWidget::item {
     padding: 2px 4px;
 }
 
+QDialog#form-manager-dialog QTreeWidget::item {
+    min-height: 26px;
+    padding: 2px 4px;
+}
+QDialog#form-manager-dialog QTreeWidget::item:hover {
+    background: palette(midlight);
+}
+QLabel#form-manager-heading {
+    font-size: 13px;
+    color: palette(window-text);
+    padding: 2px 4px;
+}
+QLabel#form-manager-print-layout-hint {
+    color: palette(window-text);
+    background: palette(base);
+    border: 1px solid palette(mid);
+    border-radius: 5px;
+    padding: 6px 8px;
+}
+QLabel#form-manager-print-layout-hint[hintRole="success"] {
+    border-left: 4px solid palette(highlight);
+}
+QLabel#form-manager-print-layout-hint[hintRole="warning"] {
+    background: palette(alternate-base);
+    border-left: 4px solid palette(mid);
+    font-weight: 600;
+}
+QLabel#form-manager-print-layout-hint[hintRole="error"] {
+    background: palette(alternate-base);
+    border: 2px solid palette(mid);
+    border-left: 4px solid palette(highlight);
+    font-weight: 600;
+}
+QLabel#form-manager-print-layout-hint[hintRole="neutral"] {
+    color: palette(window-text);
+}
+
 QTabWidget::pane {
     border: 1px solid palette(mid);
     border-radius: 4px;

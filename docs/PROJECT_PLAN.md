@@ -88,8 +88,11 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
   вместо локальных state-specific hex-QSS; duplicate/protected/save/available логика сохранена.
   Form Create больше не задаёт локальную light-only тему: controls наследуют shared palette-aware
   foundation, tree-item metrics вынесены в application style, primary action использует `uiRole`.
-  Следующий slice — Form Manager presentation; paper-light Constructor и пользовательские/document
-  colors требуют отдельной границы.
+  Form Manager также больше не задаёт локальную light-only тему: tree/heading наследуют shared
+  palette-aware contract, primary actions используют `uiRole`, а A4 width guidance использует
+  semantic `hintRole` neutral/success/warning/error без локальных hex-QSS.
+  Следующий slice — Description Templates semantic info/warning presentation; paper-light
+  Constructor и пользовательские/document colors требуют отдельной границы.
 - [ ] Primary/secondary/destructive/quiet роли задавать semantic property, а не цветом по месту.
 - [ ] Диалоги продолжают использовать `fit_window_to_screen`; длинные RU/KK/EN подписи
   переносятся/уходят в overflow, primary action остаётся видимым.
