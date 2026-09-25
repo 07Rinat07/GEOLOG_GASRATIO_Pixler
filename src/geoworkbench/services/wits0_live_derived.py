@@ -402,6 +402,8 @@ class Wits0LiveDerivedChannelService:
                 Wits0DerivedUnavailableReason.UNSUPPORTED_UNIT,
                 tuple(unsupported),
             )
+        assert actual_conversion is not None
+        assert normal_conversion is not None
 
         dexp_values = np.asarray(base_dexp.values, dtype=np.float64)
         actual_ppg = actual_conversion.convert_array(actual_match.curve.values)
