@@ -3,12 +3,19 @@ from __future__ import annotations
 from html import escape
 
 import numpy as np
-from PySide6.QtCore import QByteArray, QBuffer, QIODevice, QLineF, QRectF, Qt
+from PySide6.QtCore import QByteArray, QBuffer, QIODevice, QLineF, QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QImage, QPainter, QPen
 
 from geoworkbench.domain.models import CurveData, Dataset
+from geoworkbench.printing.hydrocarbon_fluid_markers import (
+    draw_fluid_marker,
+    fluid_marker_legend_specs,
+    fluid_marker_spec,
+    marker_lanes,
+)
 from geoworkbench.printing.unicode_support import print_font
 from geoworkbench.services.hydrocarbon_interpretation import (
+    HydrocarbonCandidateInterval,
     HydrocarbonInterpretationReport,
     hydrocarbon_interpretation_html,
 )
@@ -207,13 +214,17 @@ def hydrocarbon_interpretation_chart_data_uri(
             language=language,
         )
 
-        intervals = tuple(
-            (candidate.top_depth, candidate.bottom_depth)
-            for candidate in report.candidates
+        candidates = tuple(report.candidates)
+        panel_rects = tuple(
+            QRectF(
+                panel_left + panel_index * (panel_width + panel_gap),
+                plot_top,
+                panel_width,
+                plot_height,
+            )
+            for panel_index in range(len(panels))
         )
-        for panel_index, (panel_name, curves) in enumerate(panels):
-            left = panel_left + panel_index * (panel_width + panel_gap)
-            rect = QRectF(left, plot_top, panel_width, plot_height)
+        for (panel_name, curves), rect in zip(panels, panel_rects, strict=True):
             _draw_panel(
                 painter,
                 rect,
@@ -223,7 +234,22 @@ def hydrocarbon_interpretation_chart_data_uri(
                 depth_max,
                 panel_name,
                 curves,
-                intervals,
+                candidates,
+                language,
+            )
+
+        if panel_rects and candidates:
+            _draw_whole_well_fluid_markers(
+                painter,
+                panel_rects[-1],
+                depth_min,
+                depth_max,
+                candidates,
+            )
+            _draw_whole_well_fluid_legend(
+                painter,
+                QRectF(90.0, 1_136.0, 1_820.0, 30.0),
+                candidates,
                 language,
             )
 
@@ -371,7 +397,7 @@ def _draw_panel(
     depth_max: float,
     panel_name: str,
     curves: tuple[CurveData, ...],
-    intervals: tuple[tuple[float, float], ...],
+    candidates: tuple[HydrocarbonCandidateInterval, ...],
     language: AppLanguage,
 ) -> None:
     labels = _labels(language)
@@ -402,10 +428,16 @@ def _draw_panel(
             str(tick * 25),
         )
 
-    for top_depth, bottom_depth in intervals:
-        top = _depth_y(top_depth, depth_min, depth_max, rect.top(), rect.height())
+    for candidate in candidates:
+        top = _depth_y(
+            candidate.top_depth,
+            depth_min,
+            depth_max,
+            rect.top(),
+            rect.height(),
+        )
         bottom = _depth_y(
-            bottom_depth,
+            candidate.bottom_depth,
             depth_min,
             depth_max,
             rect.top(),
@@ -413,12 +445,16 @@ def _draw_panel(
         )
         band_top = min(top, bottom)
         band_height = max(2.0, abs(bottom - top))
-        color = QColor("#f59e0b")
-        color.setAlpha(34)
+        spec = fluid_marker_spec(candidate.fluid_hypothesis)
+        band_color = QColor(spec.color)
+        band_color.setAlpha(34)
         painter.fillRect(
             QRectF(rect.left(), band_top, rect.width(), band_height),
-            color,
+            band_color,
         )
+        painter.setPen(QPen(QColor(spec.color), 0.9))
+        painter.drawLine(QLineF(rect.left(), top, rect.right(), top))
+        painter.drawLine(QLineF(rect.left(), bottom, rect.right(), bottom))
 
     title_font = print_font(11.0, text=labels[panel_name])
     title_font.setBold(True)
@@ -503,6 +539,134 @@ def _draw_panel(
     painter.drawRect(rect)
 
 
+
+def _draw_whole_well_fluid_markers(
+    painter: QPainter,
+    target: QRectF,
+    depth_min: float,
+    depth_max: float,
+    candidates: tuple[HydrocarbonCandidateInterval, ...],
+) -> None:
+    """Draw marker shapes at true whole-well depth; dense collisions use horizontal lanes."""
+
+    y_positions = tuple(
+        _depth_y(
+            (candidate.top_depth + candidate.bottom_depth) / 2.0,
+            depth_min,
+            depth_max,
+            target.top(),
+            target.height(),
+        )
+        for candidate in candidates
+    )
+    lanes = marker_lanes(y_positions, minimum_gap=14.0)
+    lane_count = max(lanes, default=0) + 1
+    zone_width = min(420.0, max(140.0, target.width() * 0.48))
+    badge_width = 58.0
+    badge_gap = 6.0
+    show_codes = (
+        len(candidates) <= 24
+        and lane_count * (badge_width + badge_gap) <= zone_width
+    )
+
+    if show_codes:
+        for candidate, y, lane in zip(candidates, y_positions, lanes, strict=True):
+            spec = fluid_marker_spec(candidate.fluid_hypothesis)
+            box_right = target.right() - 7.0 - lane * (badge_width + badge_gap)
+            box = QRectF(
+                box_right - badge_width,
+                min(max(y - 9.0, target.top() + 2.0), target.bottom() - 20.0),
+                badge_width,
+                18.0,
+            )
+            fill = QColor("#ffffff")
+            fill.setAlpha(238)
+            painter.fillRect(box, fill)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.setPen(QPen(QColor(spec.color), 1.2))
+            painter.drawRoundedRect(box, 3.0, 3.0)
+            draw_fluid_marker(
+                painter,
+                QPointF(box.left() + 10.0, box.center().y()),
+                spec,
+                size=9.0,
+            )
+            font = print_font(7.2, text=spec.code)
+            font.setBold(True)
+            painter.setFont(font)
+            painter.setPen(QColor("#172033"))
+            painter.drawText(
+                QRectF(
+                    box.left() + 18.0,
+                    box.top(),
+                    box.width() - 21.0,
+                    box.height(),
+                ),
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                spec.code,
+            )
+        return
+
+    lane_spacing = max(7.0, min(22.0, zone_width / max(1, lane_count)))
+    marker_size = max(5.0, min(10.0, lane_spacing * 0.58))
+    for candidate, y, lane in zip(candidates, y_positions, lanes, strict=True):
+        spec = fluid_marker_spec(candidate.fluid_hypothesis)
+        x = target.right() - 10.0 - lane * lane_spacing
+        y = min(max(y, target.top() + 6.0), target.bottom() - 6.0)
+        halo = QColor("#ffffff")
+        halo.setAlpha(225)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(halo)
+        painter.drawEllipse(
+            QRectF(
+                x - marker_size / 2.0 - 2.0,
+                y - marker_size / 2.0 - 2.0,
+                marker_size + 4.0,
+                marker_size + 4.0,
+            )
+        )
+        draw_fluid_marker(
+            painter,
+            QPointF(x, y),
+            spec,
+            size=marker_size,
+        )
+
+
+def _draw_whole_well_fluid_legend(
+    painter: QPainter,
+    rect: QRectF,
+    candidates: tuple[HydrocarbonCandidateInterval, ...],
+    language: AppLanguage,
+) -> None:
+    specs = fluid_marker_legend_specs(
+        [item.fluid_hypothesis for item in candidates]
+    )
+    if not specs:
+        return
+    columns = min(6, len(specs))
+    rows = (len(specs) + columns - 1) // columns
+    cell_width = rect.width() / columns
+    row_height = rect.height() / rows
+    painter.setFont(print_font(7.0, text="GC/GO heavy/residual oil"))
+    for index, spec in enumerate(specs):
+        row = index // columns
+        column = index % columns
+        left = rect.left() + column * cell_width
+        center_y = rect.top() + row * row_height + row_height / 2.0
+        draw_fluid_marker(
+            painter,
+            QPointF(left + 7.0, center_y),
+            spec,
+            size=7.0,
+        )
+        painter.setPen(QColor("#172033"))
+        painter.drawText(
+            QRectF(left + 14.0, center_y - 7.0, cell_width - 16.0, 14.0),
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            f"{spec.code} {spec.label(language)}",
+        )
+
 def _depth_y(
     depth: float,
     depth_min: float,
@@ -542,11 +706,10 @@ def _labels(language: AppLanguage) -> dict[str, str]:
             "ratios": "Haworth и Pixler",
             "drilling": "Буровой контекст и DEXP",
             "footer": (
-                "Оранжевые полосы показывают перспективные интервалы выше выбранного "
-                "порога robust z. Шкалы глубины продублированы слева и справа; числа "
-                "0–100 над дорожками показывают положение внутри диапазона p1–p99. "
-                "Отсутствующая дорожка означает, что соответствующие кривые не найдены "
-                "или имеют недостаточно корректных отсчётов."
+                "Цветные полосы и маркеры формы/цвета показывают перспективные интервалы "
+                "и предварительный тип флюида; расшифровка приведена в легенде, а полная "
+                "формулировка — в таблице. Шкалы глубины продублированы слева и справа; "
+                "0–100 над дорожками показывает положение внутри диапазона p1–p99."
             ),
         },
         AppLanguage.KK: {
@@ -561,10 +724,10 @@ def _labels(language: AppLanguage) -> dict[str, str]:
             "ratios": "Haworth және Pixler",
             "drilling": "Бұрғылау контексті және DEXP",
             "footer": (
-                "Қызғылт сары жолақтар таңдалған robust z шегінен жоғары "
-                "перспективалы аралықтарды көрсетеді. Тереңдік шкаласы сол және оң "
-                "жақта қайталанады; жолдардың үстіндегі 0–100 мәндері p1–p99 "
-                "ауқымындағы орынды көрсетеді."
+                "Түсті жолақтар мен пішін/түс маркерлері перспективалы аралықтарды және "
+                "флюидтің алдын ала түрін көрсетеді; түсіндірме легендада, толық мәтін "
+                "кестеде беріледі. Тереңдік шкаласы екі жақта қайталанады; 0–100 мәндері "
+                "p1–p99 ауқымындағы орынды көрсетеді."
             ),
         },
         AppLanguage.EN: {
@@ -580,11 +743,10 @@ def _labels(language: AppLanguage) -> dict[str, str]:
             "ratios": "Haworth and Pixler",
             "drilling": "Drilling context and DEXP",
             "footer": (
-                "Orange bands mark prospective intervals above the selected robust-z "
-                "threshold. Depth scales are shown on both sides; the 0–100 labels "
-                "above each track indicate position within its p1–p99 range. A missing "
-                "track means that the curves are unavailable or contain too few valid "
-                "samples."
+                "Colored bands plus shape/colour markers show prospective intervals and "
+                "preliminary fluid type; the legend decodes markers and the table keeps "
+                "the full wording. Depth scales are shown on both sides; 0–100 labels "
+                "show position within each p1–p99 range."
             ),
         },
     }[language]
