@@ -518,6 +518,11 @@ class AcquisitionLiveView:
                 raise ValueError(
                     f"Virtual curve key does not match metadata curve_id: {curve_id}"
                 )
+            if curve.metadata.source_dataset_id != self.dataset.dataset_id:
+                raise ValueError(
+                    f"Virtual curve {curve_id} belongs to Dataset "
+                    f"{curve.metadata.source_dataset_id!r}, expected {self.dataset.dataset_id!r}"
+                )
             values = np.asarray(curve.values)
             if values.ndim != 1 or len(values) != row_count:
                 raise ValueError(
@@ -724,10 +729,18 @@ class AcquisitionLiveView:
 
             source_id = _curve_source_id(curve.metadata.provenance)
             source_record_no = _source_record_no(source_id)
+            virtual_source_records = _virtual_source_record_numbers(
+                curve.metadata.provenance
+            )
             latest_relevant_row: int | None = None
             if source_record_no is not None:
                 for row_index in range(len(record_metadata) - 1, -1, -1):
                     if record_metadata[row_index].record_no == source_record_no:
+                        latest_relevant_row = row_index
+                        break
+            elif virtual_source_records:
+                for row_index in range(len(record_metadata) - 1, -1, -1):
+                    if record_metadata[row_index].record_no in virtual_source_records:
                         latest_relevant_row = row_index
                         break
             elif sample_row is not None:
@@ -1053,6 +1066,26 @@ def _curve_source_id(provenance: str | None) -> str | None:
         source_id = candidate.removeprefix("wits0:")
         return source_id if len(source_id) == 4 and source_id.isdigit() else None
     return None
+
+
+def _virtual_source_record_numbers(provenance: str) -> frozenset[int]:
+    """Extract allowlisted WITS source record numbers from derived provenance."""
+
+    prefix = "source-records="
+    for token in provenance.split(";"):
+        if not token.startswith(prefix):
+            continue
+        values: set[int] = set()
+        for raw in token[len(prefix) :].split(","):
+            candidate = raw.strip()
+            if not candidate:
+                continue
+            try:
+                values.add(int(candidate))
+            except ValueError:
+                continue
+        return frozenset(values)
+    return frozenset()
 
 
 def _source_record_no(source_id: str | None) -> int | None:
