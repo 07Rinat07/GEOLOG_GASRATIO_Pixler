@@ -32,6 +32,8 @@ class GasContextEventEditorController:
                 "Для редактирования газовых событий сначала выберите скважину"
             )
         self._well_id = well.well_id
+        dataset = session.current_dataset
+        self._depth_domain = dataset.depth_domain if dataset is not None else None
         self._initial = GasContextRegistry(tuple(well.gas_context_events))
         self._working = self._initial
 
@@ -75,11 +77,16 @@ class GasContextEventEditorController:
         comment: str = "",
         source: str = "manual",
     ) -> GasContextEvent:
+        if self._depth_domain is None:
+            raise GasContextEventEditorError(
+                "Для нового газового события сначала выберите набор данных с системой координат"
+            )
         event = GasContextEvent(
             event_id=str(uuid4()),
             event_type=event_type,
             top_depth=top_depth,
             bottom_depth=bottom_depth,
+            depth_domain=self._depth_domain,
             impact=impact,
             confirmed=confirmed,
             reported_total_gas=reported_total_gas,
@@ -109,6 +116,7 @@ class GasContextEventEditorController:
             event_type=event_type,
             top_depth=top_depth,
             bottom_depth=bottom_depth,
+            depth_domain=current.depth_domain or self._depth_domain,
             impact=impact,
             confirmed=confirmed,
             reported_total_gas=reported_total_gas,
