@@ -4,7 +4,9 @@ import json
 from pathlib import Path
 from zipfile import ZipFile
 
+from geoworkbench.services import application_logging
 from geoworkbench.services.application_logging import ApplicationLogManager
+from geoworkbench.services.build_identity import BuildIdentity
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -43,9 +45,16 @@ def test_application_log_records_events_and_tracebacks(tmp_path: Path) -> None:
 
 
 def test_diagnostic_bundle_contains_logs_but_not_project_data(tmp_path: Path) -> None:
+    build_identity = BuildIdentity(
+        "0.7.51-test",
+        "0123456789abcdef0123456789abcdef01234567",
+        "test",
+    )
     manager = ApplicationLogManager(
         tmp_path / "logs",
         application_version="0.7.51-test",
+        build_identity=build_identity,
+        session_id="diagnostic-bundle-session",
     )
     try:
         manager.event("tablet.pencil.commit_finished", accepted=False)
@@ -67,6 +76,10 @@ def test_diagnostic_bundle_contains_logs_but_not_project_data(tmp_path: Path) ->
             assert not any(name.endswith(".las") for name in names)
             report = json.loads(archive.read("system-report.json"))
             assert report["application_version"] == "0.7.51-test"
+            assert report["application_commit"] == build_identity.commit
+            assert report["build_identity"] == build_identity.display
+            assert report["build_identity_source"] == "test"
+            assert report["session_id"] == "diagnostic-bundle-session"
             assert report["runtime_context"]["dataset_id"] == "dataset-1"
     finally:
         manager.close()
@@ -208,3 +221,91 @@ def test_diagnostics_reset_action_and_labels_are_wired() -> None:
             )
         )
         assert required.issubset(data)
+
+def test_application_log_uses_utc_formatter_and_records_build_session(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    def localtime_must_not_be_used(*_args: object, **_kwargs: object) -> object:
+        raise AssertionError("local time formatter was used")
+
+    monkeypatch.setattr(application_logging.time, "localtime", localtime_must_not_be_used)
+    identity = BuildIdentity(
+        "0.7.96-test",
+        "abcdef0123456789abcdef0123456789abcdef01",
+        "test",
+    )
+    manager = ApplicationLogManager(
+        tmp_path / "logs",
+        application_version="0.7.96-test",
+        build_identity=identity,
+        session_id="session-plus-five",
+    )
+    try:
+        manager.event("timezone.contract.checked")
+        manager.flush()
+        text = manager.current_log_path.read_text(encoding="utf-8")
+
+        assert "application.logging.started" in text
+        assert 'build_identity="0.7.96-test+abcdef012345"' in text
+        assert f'commit="{identity.commit}"' in text
+        assert 'session_id="session-plus-five"' in text
+        for line in text.splitlines():
+            if "event=" in line:
+                assert line.split(" | ", 1)[0].endswith("Z")
+    finally:
+        manager.close()
+
+
+def test_crash_log_boundaries_separate_legacy_content_and_consecutive_runs(
+    tmp_path: Path,
+) -> None:
+    log_directory = tmp_path / "logs"
+    log_directory.mkdir(parents=True)
+    crash_path = log_directory / "geolog-crash.log"
+    crash_path.write_text("legacy crash entry without session identity\n", encoding="utf-8")
+    identity = BuildIdentity("0.7.96-test", "1" * 40, "test")
+
+    first = ApplicationLogManager(
+        log_directory,
+        application_version="0.7.96-test",
+        build_identity=identity,
+        session_id="session-one",
+    )
+    first.close()
+
+    second = ApplicationLogManager(
+        log_directory,
+        application_version="0.7.96-test",
+        build_identity=identity,
+        session_id="session-two",
+    )
+    second.close()
+
+    text = crash_path.read_text(encoding="utf-8")
+    legacy = text.index("legacy crash entry without session identity")
+    first_start = text.index("GEOLOG SESSION START", legacy)
+    first_stop = text.index("GEOLOG SESSION STOP", first_start)
+    second_start = text.index("GEOLOG SESSION START", first_stop)
+    second_stop = text.index("GEOLOG SESSION STOP", second_start)
+
+    assert legacy < first_start < first_stop < second_start < second_stop
+    assert "session_id=session-one" in text[first_start:first_stop]
+    assert "session_id=session-two" in text[second_start:second_stop]
+    assert f"commit={identity.commit}" in text
+
+
+def test_application_log_rejects_mismatched_build_version(tmp_path: Path) -> None:
+    identity = BuildIdentity("0.7.95", "2" * 40, "test")
+
+    try:
+        ApplicationLogManager(
+            tmp_path / "logs",
+            application_version="0.7.96",
+            build_identity=identity,
+        )
+    except ValueError as exc:
+        assert "build identity version" in str(exc)
+    else:
+        raise AssertionError("mismatched build identity version must be rejected")
+

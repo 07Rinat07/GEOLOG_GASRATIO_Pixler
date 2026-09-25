@@ -256,7 +256,12 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
 - [ ] **OBS-01 (P0):** диагностика включает build/commit identity (либо явное `unknown`),
   startup/session ID, версию и fingerprint WITS-профиля, кодировку, выбранный режим и
   обезличенные счётчики received/parsed/rejected/plotted/persisted с причиной последнего отказа.
-  Лог использует настоящий UTC либо явный offset; crash-файл получает границы запусков.
+  Первый инкремент добавляет immutable `BuildIdentity` с resolver-цепочкой build environment →
+  package metadata → local Git checkout → explicit `unknown`; session ID создаётся на запуск,
+  пишется в application log и diagnostic bundle. Форматтер `geolog.log` принудительно использует
+  UTC, а `geolog-crash.log` получает START/STOP границы с session/build/commit identity, поэтому
+  старые записи и две сборки одной версии с разными SHA различимы. Оставшийся scope OBS-01 —
+  WITS profile version/fingerprint, encoding/mode и обезличенные runtime counters/reject reason.
   Приёмка: проверка при часовом поясе +05:00, двух последовательных запусках, старом crash log
   и установленном приложении без `.git`; одна версия пакета с разными SHA различима.
   Raw-измерения, credentials и содержимое пользовательского проекта автоматически не включаются.

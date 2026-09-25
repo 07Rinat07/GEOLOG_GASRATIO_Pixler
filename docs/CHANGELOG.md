@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- Diagnostics: добавлены build/commit identity с явным `unknown` fallback, startup session ID, UTC timestamps в application log и START/STOP границы запусков в crash log; diagnostic bundle теперь различает сборки одной версии с разными SHA без автоматического включения raw/project данных.
 - UI: Lithology actions получили semantic `uiRole`: Add — primary, Remove — destructive, Update остаётся default; CRUD callbacks и lithology data semantics не менялись.
 - UI: Lithology description-template formula/warning переведены с локальных fixed-hex QSS на semantic `guidanceRole="info"|"warning"` и общий palette-aware presentation без изменения template selection, RU/KK/EN контента или lithology CRUD.
 - UI: LAS Editor title/summary/safety note переведены с локальных presentation-QSS на shared palette-aware selectors; логика выбора операций, dataset summary и responsive geometry не менялась.
