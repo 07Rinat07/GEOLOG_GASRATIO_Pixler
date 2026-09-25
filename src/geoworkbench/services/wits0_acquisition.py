@@ -198,6 +198,22 @@ class Wits0NormalizationResult:
     def accepted(self) -> bool:
         return self.batch is not None
 
+    @property
+    def reject_reason_code(self) -> Wits0NormalizationCode | None:
+        """Return a stable machine-readable reason for a rejected frame."""
+
+        if self.accepted:
+            return None
+        for severity in (
+            Wits0NormalizationSeverity.ERROR,
+            Wits0NormalizationSeverity.WARNING,
+            Wits0NormalizationSeverity.INFO,
+        ):
+            for diagnostic in reversed(self.diagnostics):
+                if diagnostic.severity is severity:
+                    return diagnostic.code
+        return None
+
 
 @dataclass(frozen=True, slots=True)
 class Wits0FrameNormalizerPolicy:
@@ -628,6 +644,7 @@ class Wits0AcquisitionSnapshot:
     checkpoints_created: int
     last_checkpoint_sequence: int
     last_applied_sequence: int
+    last_reject_reason_code: Wits0NormalizationCode | None
     last_error: str | None
 
 
@@ -680,6 +697,7 @@ class Wits0AcquisitionRuntime:
         self._records_applied = session.last_sequence
         self._backpressure_count = 0
         self._checkpoints_created = len(session.checkpoints)
+        self._last_reject_reason_code: Wits0NormalizationCode | None = None
         self._last_error: str | None = None
 
     def submit_frame(self, frame: Wits0ParsedFrame) -> Wits0NormalizationResult:
@@ -688,6 +706,7 @@ class Wits0AcquisitionRuntime:
         result = self.normalizer.normalize(frame)
         if result.batch is None:
             self._frames_skipped += 1
+            self._last_reject_reason_code = result.reject_reason_code
             return result
         self.submit_batches((result.batch,))
         return result
@@ -863,6 +882,7 @@ class Wits0AcquisitionRuntime:
             checkpoints_created=self._checkpoints_created,
             last_checkpoint_sequence=self.last_checkpoint_sequence,
             last_applied_sequence=self.session.last_sequence,
+            last_reject_reason_code=self._last_reject_reason_code,
             last_error=self._last_error,
         )
 
