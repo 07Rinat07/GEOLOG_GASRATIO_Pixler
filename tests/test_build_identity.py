@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import geoworkbench.services.build_identity as build_identity_module
 from geoworkbench.services.build_identity import BuildIdentity, resolve_build_identity
 
 
@@ -24,6 +25,31 @@ def test_build_identity_prefers_explicit_build_environment(tmp_path: Path) -> No
         source="environment:GEOLOG_BUILD_COMMIT",
     )
     assert identity.display == f"0.7.96-test+{commit[:12].lower()}"
+
+
+def test_build_identity_prefers_stamped_package_artifact(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:  # type: ignore[no-untyped-def]
+    commit = "abcdef1234567890abcdef1234567890abcdef12"
+    (tmp_path / "_build_identity.json").write_text(
+        '{"schema_version":1,"commit":"' + commit + '"}\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(build_identity_module.resources, "files", lambda _package: tmp_path)
+
+    identity = resolve_build_identity(
+        "0.7.96-test",
+        environ={},
+        distribution_name=_MISSING_DISTRIBUTION,
+        checkout_start=tmp_path / "installed" / "module.py",
+    )
+
+    assert identity == BuildIdentity(
+        version="0.7.96-test",
+        commit=commit,
+        source="package-build-info",
+    )
 
 
 def test_build_identity_reads_checkout_head_without_invoking_git(tmp_path: Path) -> None:
