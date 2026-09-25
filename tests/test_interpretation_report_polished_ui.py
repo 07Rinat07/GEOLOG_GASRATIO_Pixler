@@ -77,6 +77,12 @@ def test_polished_workspace_groups_controls_and_marks_primary_action(qapp) -> No
     assert workspace.refresh_chart_report_button.text().startswith("4.")
     assert workspace.gas_context_button is not None
     assert workspace.gas_context_button.text().startswith("1.")
+    opus_index = workspace.report_mode.findData("opus_text")
+    assert opus_index >= 0
+    workspace.report_mode.setCurrentIndex(opus_index)
+    workspace.refresh()
+    qapp.processEvents()
+    assert workspace.gas_context_button.isEnabled()
     assert workspace.workflow_help_button is not None
     assert workspace.workflow_help_button.text() == "5. Печать и экспорт"
     assert "pdf" in workspace.workflow_help_button.toolTip().casefold()
