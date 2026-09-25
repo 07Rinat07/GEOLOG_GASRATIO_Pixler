@@ -12,9 +12,14 @@ from geoworkbench.calculations.pixler import (
     build_all_sourced_formula_registry,
 )
 from geoworkbench.domain.models import CurveData, CurveMetadata, Dataset
+from geoworkbench.services.drilling_mode import (
+    classify_drilling_modes,
+    resolve_bit_rpm_curve,
+)
 from geoworkbench.services.las_parameter_resolver import (
     DatasetParameterResolution,
     LasParameterResolver,
+    ParameterMatch,
     concentration_scale_to_percent,
 )
 from geoworkbench.services.uom_dictionary import (
@@ -52,6 +57,7 @@ class Wits0DerivedChannelSnapshot:
     unavailable_reason: Wits0DerivedUnavailableReason | None = None
     unavailable_inputs: tuple[str, ...] = ()
     input_conversions: tuple[str, ...] = ()
+    source_record_numbers: tuple[int, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,21 +97,24 @@ class Wits0LiveDerivedChannelService:
             for profile in self._registry.available()
             if self._supports_profile(profile)
         )
-        targets = tuple(
+        target_names = list(
             dict.fromkeys(
                 self._binding(input_mnemonic).source_mnemonic
                 for profile in profiles
                 for input_mnemonic in profile.required_inputs
             )
         )
+        if any(profile.profile_id in _SUPPORTED_D_EXPONENT_PROFILE_IDS for profile in profiles):
+            target_names.extend(("FLOW_IN", "FLOW_OUT"))
+        targets = tuple(dict.fromkeys(target_names))
         resolution = self._resolver.resolve_dataset(dataset, targets=targets)
         return tuple(
-            self._snapshot_profile(profile, resolution)
+            self._snapshot_profile(profile, resolution, dataset=dataset)
             for profile in profiles
         )
 
     def virtual_curves(self, dataset: Dataset) -> dict[str, CurveData]:
-        """Materialize available results as ephemeral curves for live projection only."""
+        """Materialize available derived results as ephemeral live-only curves."""
 
         output: dict[str, CurveData] = {}
         for snapshot in self.snapshot(dataset):
@@ -115,6 +124,10 @@ class Wits0LiveDerivedChannelService:
             provenance = snapshot.provenance
             if snapshot.input_conversions:
                 provenance += ";uom=" + ",".join(snapshot.input_conversions)
+            if snapshot.source_record_numbers:
+                provenance += ";source-records=" + ",".join(
+                    f"{record_no:02d}" for record_no in snapshot.source_record_numbers
+                )
             output[curve_id] = CurveData(
                 CurveMetadata(
                     curve_id=curve_id,
@@ -131,14 +144,14 @@ class Wits0LiveDerivedChannelService:
 
     @staticmethod
     def virtual_curve_id(snapshot: Wits0DerivedChannelSnapshot) -> str:
-        return (
-            f"wits-derived:{snapshot.profile_id}:{snapshot.profile_version}"
-        )
+        return f"wits-derived:{snapshot.profile_id}:{snapshot.profile_version}"
 
     def _snapshot_profile(
         self,
         profile: FormulaProfile,
         resolution: DatasetParameterResolution,
+        *,
+        dataset: Dataset,
     ) -> Wits0DerivedChannelSnapshot:
         required = tuple(name.upper() for name in profile.required_inputs)
         bindings = {
@@ -170,21 +183,23 @@ class Wits0LiveDerivedChannelService:
                 missing,
             )
 
+        source_record_numbers = self._source_record_numbers(bindings, resolution)
         inputs: dict[str, np.ndarray] = {}
         conversions: list[str] = []
         unsupported_units: list[str] = []
         for input_name, binding in bindings.items():
             match = resolution.get(binding.source_mnemonic)
             assert match is not None
+            source_unit = self._physical_source_unit(match)
             values = np.asarray(match.curve.values, dtype=np.float64)
             if binding.concentration_percent:
-                scale = concentration_scale_to_percent(match.unit)
+                scale = concentration_scale_to_percent(source_unit)
                 if scale is None:
                     unsupported_units.append(input_name)
                     continue
                 inputs[input_name] = values * scale
                 conversions.append(
-                    f"{input_name}:{match.unit or '<missing>'}->%"
+                    f"{input_name}:{source_unit or '<missing>'}->%"
                 )
                 continue
 
@@ -192,18 +207,21 @@ class Wits0LiveDerivedChannelService:
             if target_unit is None:
                 inputs[input_name] = values
                 conversions.append(
-                    f"{input_name}:{match.unit or '<missing>'}->unchanged"
+                    f"{input_name}:{source_unit or '<missing>'}->unchanged"
                 )
                 continue
 
-            conversion = self._uom_dictionary.conversion(match.unit, target_unit)
-            if conversion is None:
+            converted = self._convert_engineering_match(
+                input_name,
+                match,
+                target_unit,
+            )
+            if converted is None:
                 unsupported_units.append(input_name)
                 continue
-            inputs[input_name] = conversion.convert_array(values)
-            conversions.append(
-                f"{input_name}:{conversion.source_uom}->{conversion.target_uom}"
-            )
+            converted_values, conversion_label = converted
+            inputs[input_name] = converted_values
+            conversions.append(conversion_label)
 
         if unsupported_units:
             return self._unavailable(
@@ -211,6 +229,14 @@ class Wits0LiveDerivedChannelService:
                 Wits0DerivedUnavailableReason.UNSUPPORTED_UNIT,
                 tuple(unsupported_units),
                 input_conversions=tuple(conversions),
+            )
+
+        if profile.profile_id in _SUPPORTED_D_EXPONENT_PROFILE_IDS:
+            self._apply_mode_aware_rpm(
+                dataset,
+                resolution,
+                inputs,
+                conversions,
             )
 
         values = self._registry.calculate(profile.profile_id, inputs)
@@ -234,7 +260,126 @@ class Wits0LiveDerivedChannelService:
             status=Wits0DerivedChannelStatus.AVAILABLE,
             values=tuple(float(value) for value in values),
             input_conversions=tuple(conversions),
+            source_record_numbers=source_record_numbers,
         )
+
+    @staticmethod
+    def _source_record_numbers(
+        bindings: dict[str, _InputBinding],
+        resolution: DatasetParameterResolution,
+    ) -> tuple[int, ...]:
+        records: set[int] = set()
+        for binding in bindings.values():
+            match = resolution.get(binding.source_mnemonic)
+            if match is None:
+                continue
+            record_no = Wits0LiveDerivedChannelService._record_no_from_provenance(
+                match.curve.metadata.provenance
+            )
+            if record_no is not None:
+                records.add(record_no)
+        return tuple(sorted(records))
+
+    @staticmethod
+    def _record_no_from_provenance(provenance: str) -> int | None:
+        if not provenance.startswith("wits0:"):
+            return None
+        source_id = provenance.removeprefix("wits0:").split(";", 1)[0]
+        if len(source_id) < 2 or not source_id[:2].isdigit():
+            return None
+        return int(source_id[:2])
+
+    def _convert_engineering_match(
+        self,
+        input_name: str,
+        match: ParameterMatch,
+        target_unit: str,
+    ) -> tuple[np.ndarray, str] | None:
+        source_unit = self._physical_source_unit(match)
+        conversion = self._uom_dictionary.conversion(source_unit, target_unit)
+        if conversion is not None:
+            return (
+                conversion.convert_array(match.curve.values),
+                f"{input_name}:{conversion.source_uom}->{conversion.target_uom}",
+            )
+
+        if input_name == "WOB_LBF" and target_unit == "lbf":
+            resolved = self._uom_dictionary.resolve(source_unit)
+            if resolved.canonical in {"kg", "t"}:
+                mass_scale = 1_000.0 if resolved.canonical == "t" else 1.0
+                values = (
+                    np.asarray(match.curve.values, dtype=np.float64)
+                    * mass_scale
+                    * 9.80665
+                    / 4.4482216152605
+                )
+                return values, f"{input_name}:{resolved.canonical}->lbf(g0)"
+        return None
+
+    def _apply_mode_aware_rpm(
+        self,
+        dataset: Dataset,
+        resolution: DatasetParameterResolution,
+        inputs: dict[str, np.ndarray],
+        conversions: list[str],
+    ) -> None:
+        flow, flow_label = self._optional_engineering_input(
+            resolution,
+            ("FLOW_IN", "FLOW_OUT"),
+            "gpm",
+        )
+        bit_rpm, bit_rpm_mnemonic = resolve_bit_rpm_curve(
+            dataset,
+            uom=self._uom_dictionary,
+        )
+        modes = classify_drilling_modes(
+            inputs["ROP_FPH"],
+            inputs["RPM"],
+            inputs["WOB_LBF"],
+            flow=flow,
+            bit_rpm=bit_rpm,
+        )
+        inputs["RPM"] = modes.effective_rpm
+        if flow_label is not None:
+            conversions.append(f"MODE_FLOW:{flow_label}")
+        conversions.append(
+            "RPM_MODE:surface+"
+            + (bit_rpm_mnemonic if bit_rpm_mnemonic is not None else "no-bit-rpm")
+        )
+
+    def _optional_engineering_input(
+        self,
+        resolution: DatasetParameterResolution,
+        candidates: tuple[str, ...],
+        target_unit: str,
+    ) -> tuple[np.ndarray | None, str | None]:
+        for canonical in candidates:
+            if canonical in resolution.ambiguities:
+                continue
+            match = resolution.get(canonical)
+            if match is None:
+                continue
+            source_unit = self._physical_source_unit(match)
+            conversion = self._uom_dictionary.conversion(source_unit, target_unit)
+            if conversion is None:
+                continue
+            return (
+                conversion.convert_array(match.curve.values),
+                f"{conversion.source_uom}->{conversion.target_uom}",
+            )
+        return None, None
+
+    @staticmethod
+    def _physical_source_unit(match: ParameterMatch) -> str:
+        metadata = match.curve.metadata
+        semantic = metadata.semantic
+        if (
+            metadata.provenance.startswith("wits0:")
+            and semantic is not None
+            and semantic.source_uom
+        ):
+            return semantic.source_uom
+        return match.unit
 
     @staticmethod
     def _supports_profile(profile: FormulaProfile) -> bool:
