@@ -60,6 +60,9 @@ artifacts workflow `.github/workflows/release-gate.yml`.
 - Интерпретация бурового газа и отчёт по всей скважине:
   [RU](ru/MUD_GAS_INTERPRETATION.md) · [KK](kk/MUD_GAS_INTERPRETATION.md) ·
   [EN](en/MUD_GAS_INTERPRETATION.md)
+- Газовый контекст интерпретационных отчётов:
+  [RU](ru/GAS_CONTEXT_EVENTS.md) · [KK](kk/GAS_CONTEXT_EVENTS.md) ·
+  [EN](en/GAS_CONTEXT_EVENTS.md)
 - Режимы нормализованного газа и сопоставление с ЛБА:
   [RU](ru/NORMALIZED_GAS_INTERPRETATION.md) ·
   [KK](kk/NORMALIZED_GAS_INTERPRETATION.md) ·
