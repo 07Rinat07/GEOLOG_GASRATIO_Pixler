@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- UI: Description Templates formula/catalog warning переведены с локальных fixed-hex QSS на semantic `guidanceRole="info"|"warning"` и общий palette-aware presentation без изменения каталога, локализации или CRUD-логики.
 - UI: Form Manager переведён с локальной light-only темы и динамического hex-QSS на общий palette-aware application style; primary actions используют semantic `uiRole`, а A4 width guidance — `hintRole` neutral/success/warning/error без изменения логики выбора/печати/paired layouts.
 - Reports/OPUS: длинные fluid callouts на графиках заменены единым marker+code+legend contract для стандартного Haworth/Pixler и ОПУС: интервалы сохраняют цветную полосу на фактической глубине, разные типы имеют разные shape/color/code, dense pages переходят в marker-only horizontal lanes, а полные глубины и формулировки остаются в таблицах.
 - UI: Form Create освобождён от локальной light-only темы: controls используют общий palette-aware application style, tree-item metrics централизованы, а Create/Save action помечен semantic `uiRole="primary"`.
