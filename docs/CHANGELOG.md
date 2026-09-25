@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- UI: Depth Annotations editor/drag hints, layer title и axis display переведены с локальных presentation-QSS на shared palette-aware selectors; info-подсказки используют semantic `guidanceRole="info"`, а пользовательские annotation colors и `_ColorButton` сохранены как document-data.
 - UI: Form Structure A4 width advice переведён с локальных neutral/success/warning/error hex-QSS на общий semantic `hintRole`; расчёт ширины, fit-to-A4 и painter/editor colors preview не менялись.
 - UI: Description Templates formula/catalog warning переведены с локальных fixed-hex QSS на semantic `guidanceRole="info"|"warning"` и общий palette-aware presentation без изменения каталога, локализации или CRUD-логики.
 - UI: Form Manager переведён с локальной light-only темы и динамического hex-QSS на общий palette-aware application style; primary actions используют semantic `uiRole`, а A4 width guidance — `hintRole` neutral/success/warning/error без изменения логики выбора/печати/paired layouts.

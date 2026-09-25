@@ -150,17 +150,16 @@ class DepthAnnotationsDialog(QDialog):
             if initial_values is not None
             else "annotations.window_title"
         )
+        self.setObjectName("depth-annotations-dialog")
         self.setWindowTitle(self._t(window_key))
 
         root = QVBoxLayout(self)
         root.setContentsMargins(10, 10, 10, 10)
         root.setSpacing(8)
         hint = QLabel(self._t("annotations.editor_hint"))
+        hint.setObjectName("depth-annotations-editor-hint")
+        hint.setProperty("guidanceRole", "info")
         hint.setWordWrap(True)
-        hint.setStyleSheet(
-            "background:#eff6ff; border:1px solid #93c5fd; border-radius:6px; "
-            "padding:7px 10px; color:#1e3a8a;"
-        )
         root.addWidget(hint)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -279,7 +278,7 @@ class DepthAnnotationsDialog(QDialog):
         layout = QVBoxLayout(panel)
         layout.setContentsMargins(0, 0, 0, 0)
         title = QLabel(self._t("annotations.layer_title"))
-        title.setStyleSheet("font-weight:700; font-size:14px;")
+        title.setObjectName("depth-annotations-layer-title")
         layout.addWidget(title)
         self.table = QTableWidget(0, 6)
         self.table.setObjectName("depth-annotations-table")
@@ -387,8 +386,8 @@ class DepthAnnotationsDialog(QDialog):
         self.axis_input.valueChanged.connect(self._refresh_axis_display)
         form.addRow(self._t("annotations.axis_value"), self.axis_input)
         self.axis_display = QLabel("—")
+        self.axis_display.setObjectName("depth-annotations-axis-display")
         self.axis_display.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        self.axis_display.setStyleSheet("font-weight:600; color:#0f766e;")
         form.addRow(self._t("annotations.axis_display"), self.axis_display)
 
         self.text_input = QTextEdit()
@@ -544,8 +543,9 @@ class DepthAnnotationsDialog(QDialog):
         form.addRow(self._t("annotations.padding"), self.padding_input)
         form.addRow(self._t("annotations.rotation"), self.rotation_input)
         drag_hint = QLabel(self._t("annotations.drag_hint"))
+        drag_hint.setObjectName("depth-annotations-drag-hint")
+        drag_hint.setProperty("guidanceRole", "info")
         drag_hint.setWordWrap(True)
-        drag_hint.setStyleSheet("color:#475569; padding-top:8px;")
         form.addRow("", drag_hint)
         return page
 
