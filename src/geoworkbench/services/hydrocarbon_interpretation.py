@@ -31,7 +31,9 @@ from geoworkbench.services.hydrocarbon_interpretation_legacy import (
     OpusGasomerReportSection,
 )
 from geoworkbench.services.localization import AppLanguage
-from geoworkbench.services.opus_interpretation import build_opus_interpretation_report
+from geoworkbench.services.opus_interpretation import (
+    build_opus_interpretation_report as _build_opus_interpretation_report,
+)
 
 
 _SERVER_TOTAL_NAMES = (
@@ -186,6 +188,20 @@ def build_hydrocarbon_interpretation_report(
         cleaned = " | ".join(dict.fromkeys(name for name in names if name))
         if cleaned != primary:
             report = replace(report, primary_mnemonic=cleaned)
+    return _apply_session_gas_context(session, report)
+
+
+def build_opus_interpretation_report(
+    session: ProjectSession,
+    *,
+    threshold: float = 3.0,
+    total_gas_lod: float | None = None,
+) -> HydrocarbonInterpretationReport:
+    report = _build_opus_interpretation_report(
+        session,
+        threshold=threshold,
+        total_gas_lod=total_gas_lod,
+    )
     return _apply_session_gas_context(session, report)
 
 
