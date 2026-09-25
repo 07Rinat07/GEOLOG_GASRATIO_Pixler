@@ -11,6 +11,16 @@ The user selects channels on the left. Each row shows the latest finite value, u
 If the newest row has no channel value, the previous finite value remains visible with a `missing`
 state. The `stale` state is calculated from the UTC reception timestamp.
 
+## Operator stream state
+
+The monitor header separates presentation mode (LIVE/LIVE PREVIEW/view paused) from the health of
+the current read-only projection: **WAITING FOR DATA**, **DATA FLOWING**, **DATA STALE**, or
+**ERRORS/GAPS PRESENT**. Health is derived from the current snapshot values and quality flags; it
+does not infer that TCP intake or acquisition has stopped. Tooltips direct no-data cases to TCP,
+byte/frame counters and Import Review mapping, stale cases to the source/network, and
+invalid/source-gap cases to events and diagnostics. A live-projection refresh error is likewise
+reported as a display failure rather than an acquisition stop.
+
 ## Time and depth axes
 
 **Automatic** uses the active Dataset index. **Time** and **Depth** use a real index when available.
