@@ -185,3 +185,30 @@ def test_live_derived_service_reports_no_valid_dexp_samples_explicitly() -> None
     assert dexp.unavailable_reason is Wits0DerivedUnavailableReason.NO_VALID_SAMPLES
     assert dexp.unavailable_inputs == ()
     assert dexp.values == ()
+
+
+def test_live_derived_service_materializes_ephemeral_curves_for_projection_only() -> None:
+    dataset = _dataset()
+    _add_drilling_inputs(dataset)
+    source_curve_ids = tuple(dataset.curves)
+
+    virtual = Wits0LiveDerivedChannelService().virtual_curves(dataset)
+
+    assert tuple(dataset.curves) == source_curve_ids
+    assert virtual
+    by_mnemonic = {
+        curve.metadata.canonical_mnemonic: curve
+        for curve in virtual.values()
+    }
+    assert {"WH", "BH", "CH", "C1_C2", "C1_C3", "C1_C4", "C1_C5", "DEXP"} <= set(
+        by_mnemonic
+    )
+    wh = by_mnemonic["WH"]
+    assert wh.metadata.curve_id.startswith("wits-derived:haworth.wetness:")
+    assert wh.metadata.source_dataset_id == dataset.dataset_id
+    assert wh.metadata.provenance.startswith("formula:haworth.wetness:1.0.0;uom=")
+    assert wh.values.shape == dataset.depth.shape
+    dexp = by_mnemonic["DEXP"]
+    assert "ROP_FPH:m/h->ft/h" in dexp.metadata.provenance
+    assert dataset.curve_by_mnemonic("WH") is None
+    assert dataset.curve_by_mnemonic("DEXP") is None
