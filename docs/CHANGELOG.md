@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- WITS/Calculations: добавлен read-only сервис виртуальных Haworth/Pixler каналов на базе существующего sourced FormulaProfileRegistry; source WITS Dataset не мутируется, profile/version попадают в provenance, а missing/ambiguous/unsupported-unit входы имеют явный unavailable reason.
 - WITS0/UI: LIVE PREVIEW → persistent-runtime handoff теперь переносит текущие несохранённые axis/window/channel edits вместе с выбранной формой; переход к reviewed runtime больше не сбрасывает их к factory template.
 - WITS0/UI: workspace selection теперь сохраняется по canonical mnemonic вместо session-local curve ID; schema-v1 читается как migration fallback и переписывается без нестабильных ID, поэтому reconnect/новый Dataset не ломают восстановление выбора каналов.
 - WITS0/UI: live monitor теперь отдельно показывает режим представления и explainable health текущей read-only проекции (waiting/data-flowing/stale/degraded); no-data/stale/gap guidance локализован, а ошибка refresh не выдаётся за остановку TCP/acquisition.

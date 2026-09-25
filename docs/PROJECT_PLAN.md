@@ -317,6 +317,12 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
   NaN-график без объяснения. Derived channels доступны в любой форме и сохраняются как mnemonic
   selection. Приёмка: live и batch результаты совпадают на одинаковом интервале в допуске,
   provenance содержит profile/version/inputs/UOM conversions.
+  Первый инкремент вводит read-only `Wits0LiveDerivedChannelService`: sourced Haworth/Pixler
+  профили вычисляются через существующий `FormulaProfileRegistry`, source Dataset не мутируется,
+  provenance фиксирует profile/version, а missing/ambiguous/unsupported-unit входы возвращаются
+  как explicit unavailable state вместо молчаливого NaN-only канала. Оставшийся scope —
+  виртуальное подключение этих каналов к live view/form mnemonic selection, DEXP/DEXPC с
+  проверенными UOM conversions и live↔batch parity acceptance.
 
 - [ ] **WITS-GASCTX-01 (P0, в работе):** разделить две независимые оси интерпретации:
   **fluid screening** по Haworth/Pixler и **gas origin/context** по Total Gas/C1–C5 +
