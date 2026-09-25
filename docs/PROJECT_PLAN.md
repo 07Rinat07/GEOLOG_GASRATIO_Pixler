@@ -253,20 +253,26 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
   интервала. Тестируется реальное число строк и records,
   а не только длина deque. Обновить описание bounded preview в RU/KK/EN.
 
-- [ ] **OBS-01 (P0):** диагностика включает build/commit identity (либо явное `unknown`),
+- [x] **OBS-01 (P0):** диагностика включает build/commit identity (либо явное `unknown`),
   startup/session ID, версию и fingerprint WITS-профиля, кодировку, выбранный режим и
   обезличенные счётчики received/parsed/rejected/plotted/persisted с причиной последнего отказа.
   Первый инкремент добавляет immutable `BuildIdentity` с resolver-цепочкой build environment →
-  package metadata → local Git checkout → explicit `unknown`; session ID создаётся на запуск,
+  stamped package build-info → package VCS metadata → local Git checkout → explicit `unknown`;
+  session ID создаётся на запуск,
   пишется в application log и diagnostic bundle. Форматтер `geolog.log` принудительно использует
   UTC, а `geolog-crash.log` получает START/STOP границы с session/build/commit identity, поэтому
   старые записи и две сборки одной версии с разными SHA различимы. Второй инкремент добавляет
   отдельный allowlisted WITS diagnostic snapshot: canonical SHA-256 base-profile content,
   profile/schema version, encoding, выбранный connection mode, discovery fingerprint и агрегаты
-  capture/acquisition (received/parsed/errors/skipped/enqueued/applied/backpressure). В snapshot
-  намеренно отсутствуют host/port/peer, raw path/file, source name, acquisition session ID,
-  значения измерений и свободный текст `last_error`. Оставшийся scope OBS-01 — стабильный
-  обезличенный last-reject reason code, plotted counter и сквозная acceptance установленной сборки.
+  capture/acquisition (received/parsed/errors/skipped/enqueued/applied/backpressure). Третий
+  инкремент добавляет стабильный `Wits0NormalizationCode` для последнего rejected frame и
+  фактический `rendered_point_count` последнего live-plot snapshot; свободный текст ошибки
+  для этого не используется. В snapshot намеренно отсутствуют host/port/peer, raw path/file,
+  source name, acquisition session ID, значения измерений и свободный текст `last_error`.
+  Финальный инкремент штампует SHA в `_build_identity.json` перед сборкой wheel, устанавливает
+  этот wheel в отдельный `RUNNER_TEMP` вне Git checkout и без runtime build-environment,
+  подтверждает source=`package-build-info`, затем создаёт диагностический ZIP и проверяет
+  commit/build/session identity в `system-report.json`.
   Приёмка: проверка при часовом поясе +05:00, двух последовательных запусках, старом crash log
   и установленном приложении без `.git`; одна версия пакета с разными SHA различима.
   Raw-измерения, credentials и содержимое пользовательского проекта автоматически не включаются.

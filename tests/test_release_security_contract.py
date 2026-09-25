@@ -103,8 +103,10 @@ def test_workflow_syncs_the_lock_and_uploads_three_artifact_groups() -> None:
         'astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b'
     ) == 3
     assert text.count("runs-on: windows-latest") == 3
-    assert text.count("uv pip sync requirements/release.lock") == 3
-    assert text.count("--require-hashes") == 3
+    # Three job environments plus the isolated installed-wheel acceptance environment
+    # must all consume the same fully hashed runtime lock.
+    assert text.count("uv pip sync requirements/release.lock") == 4
+    assert text.count("--require-hashes") == 4
     assert "pip-audit==2.10.1" in text
     assert "detect-secrets==1.5.0" in text
     gate = _read(ROOT / "tools" / "release_security_gate.py")

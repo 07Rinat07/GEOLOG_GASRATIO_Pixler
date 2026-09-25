@@ -20,7 +20,12 @@
 `GEOLOG SESSION START/STOP` шекараларымен бөлінеді. Осылайша ескі crash жазбалары жаңа
 іске қосудан ажыратылады және пакет нұсқасы бірдей, бірақ SHA-сы әртүрлі екі build шатаспайды.
 
-WITS0 терезесі ашық болса, `system-report.json` файлына тек рұқсат етілген диагностикалық snapshot қосылады: профиль идентификаторы/нұсқасы және SHA-256, кодировка, таңдалған режим, discovery fingerprint және capture/acquisition жиынтық санауыштары. Адрес/порт/peer, raw файл жолдары, source атауы, WITS өлшем мәндері, acquisition session ID және соңғы қатенің еркін мәтіні бұл snapshot құрамына кірмейді.
+Release wheel орнатылған пакет ішінде өзгермейтін commit stamp сақтайды. Build identity мына
+ретпен анықталады: explicit build environment → stamped package identity → package VCS metadata →
+local Git checkout → explicit `unknown`. Windows release gate wheel жинап, оны source checkout-тан
+тыс оқшауланған ортаға орнатады және `.git`-ке сүйенбей diagnostic bundle нәтижесін тексереді.
+
+WITS0 терезесі ашық болса, `system-report.json` файлына тек рұқсат етілген диагностикалық snapshot қосылады: профиль идентификаторы/нұсқасы және SHA-256, кодировка, таңдалған режим, discovery fingerprint, capture/acquisition жиынтық санауыштары, соңғы қабылданбаған кадрдың тұрақты коды және live-графикке нақты жіберілген нүктелердің соңғы жиынтық саны. Адрес/порт/peer, raw файл жолдары, source атауы, WITS өлшем мәндері, acquisition session ID және соңғы қатенің еркін мәтіні бұл snapshot құрамына кірмейді.
 
 LAS мәндері, жоба assets, сақталған пішіндер және жоба файлдары пакетке қосылмайды. Қалыпты
 журнал хабарларында файл жолдары мен жоба/dataset атаулары болуы мүмкін, сондықтан пакетті сыртқа

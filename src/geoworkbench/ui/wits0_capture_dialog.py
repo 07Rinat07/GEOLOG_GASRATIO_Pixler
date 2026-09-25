@@ -1621,6 +1621,7 @@ class Wits0CaptureDialog(QDialog):
                 else None
             ),
             acquisition=runtime.snapshot() if runtime is not None else None,
+            plotted_points=self.live_view.diagnostic_plotted_points(),
         )
         return snapshot.as_dict()
 

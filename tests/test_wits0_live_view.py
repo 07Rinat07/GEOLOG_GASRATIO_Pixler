@@ -25,6 +25,8 @@ def test_live_view_uses_read_only_projection_and_shared_downsampling() -> None:
     assert "class Wits0LiveViewWidget" in widget
     assert "Wits0OperatorDashboard" in widget
     assert "self.dashboard.render_snapshot(snapshot)" in widget
+    assert "def diagnostic_plotted_points(" in widget
+    assert "self._last_plot_rendered_points = snapshot.rendered_point_count" in widget
     assert "Wits0LiveViewWidget" in capture
     assert "self.live_view.bind_runtime(runtime)" in capture
     assert "self.live_view.bind_runtime(preview_runtime, preview=True)" in capture
@@ -69,6 +71,7 @@ def test_wits0_live_view_constructs_offscreen(monkeypatch: pytest.MonkeyPatch) -
         assert not widget.pause_button.isEnabled()
         assert widget.values_table.columnCount() == 4
         assert widget.dashboard.panels
+        assert widget.diagnostic_plotted_points() == 0
     finally:
         widget.close()
         app.processEvents()

@@ -71,6 +71,7 @@ def test_wits0_capture_ui_connects_review_to_bounded_acquisition_runtime() -> No
     assert "well_provider=lambda: self.session.current_well" in main_source
     assert "def _on_wits0_dataset_changed" in main_source
     assert 'context["wits0"] = wits0_dialog.diagnostic_context()' in main_source
+    assert "plotted_points=self.live_view.diagnostic_plotted_points()" in source
 
 
 def test_wits0_capture_requires_explicit_strategy_for_truncated_preview() -> None:

@@ -46,6 +46,8 @@ class Wits0DiagnosticSnapshot:
     acquisition_records_enqueued: int = 0
     acquisition_records_applied: int = 0
     acquisition_backpressure_count: int = 0
+    acquisition_last_reject_reason_code: str | None = None
+    plot_rendered_points: int = 0
 
     def as_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -60,8 +62,16 @@ def build_wits0_diagnostic_snapshot(
     discovery: Wits0DiscoverySnapshot | None = None,
     custom_profile: Wits0CustomProfile | None = None,
     acquisition: Wits0AcquisitionSnapshot | None = None,
+    plotted_points: int = 0,
 ) -> Wits0DiagnosticSnapshot:
     """Build diagnostics only from already-sanitized metadata/counter snapshots."""
+
+    if (
+        isinstance(plotted_points, bool)
+        or not isinstance(plotted_points, int)
+        or plotted_points < 0
+    ):
+        raise ValueError("plotted_points must be a non-negative integer")
 
     return Wits0DiagnosticSnapshot(
         profile_id=profile.profile_id,
@@ -115,6 +125,12 @@ def build_wits0_diagnostic_snapshot(
         acquisition_backpressure_count=(
             acquisition.backpressure_count if acquisition is not None else 0
         ),
+        acquisition_last_reject_reason_code=(
+            acquisition.last_reject_reason_code.value
+            if acquisition is not None and acquisition.last_reject_reason_code is not None
+            else None
+        ),
+        plot_rendered_points=plotted_points,
     )
 
 

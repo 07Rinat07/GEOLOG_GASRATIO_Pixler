@@ -4,8 +4,8 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
-- Diagnostics/WITS0: diagnostic bundle получил allowlisted WITS snapshot с profile SHA-256/version, encoding/mode, discovery fingerprint и агрегированными capture/acquisition counters; network identity, raw paths/values, source/session identifiers и свободный last-error text в snapshot не включаются.
-- Diagnostics: добавлены build/commit identity с явным `unknown` fallback, startup session ID, UTC timestamps в application log и START/STOP границы запусков в crash log; diagnostic bundle теперь различает сборки одной версии с разными SHA без автоматического включения raw/project данных.
+- Diagnostics/WITS0: diagnostic bundle получил allowlisted WITS snapshot с profile SHA-256/version, encoding/mode, discovery fingerprint, агрегированными capture/acquisition counters, стабильным кодом последнего rejected frame и числом реально переданных в live plot точек; network identity, raw paths/values, source/session identifiers и свободный last-error text в snapshot не включаются.
+- Diagnostics: добавлены build/commit identity с явным `unknown` fallback, startup session ID, UTC timestamps в application log и START/STOP границы запусков в crash log; release wheel получает immutable SHA stamp, а Windows gate устанавливает его вне Git checkout и проверяет diagnostic bundle, поэтому сборки одной версии с разными SHA остаются различимы после установки без автоматического включения raw/project данных.
 - UI: Lithology actions получили semantic `uiRole`: Add — primary, Remove — destructive, Update остаётся default; CRUD callbacks и lithology data semantics не менялись.
 - UI: Lithology description-template formula/warning переведены с локальных fixed-hex QSS на semantic `guidanceRole="info"|"warning"` и общий palette-aware presentation без изменения template selection, RU/KK/EN контента или lithology CRUD.
 - UI: LAS Editor title/summary/safety note переведены с локальных presentation-QSS на shared palette-aware selectors; логика выбора операций, dataset summary и responsive geometry не менялась.
