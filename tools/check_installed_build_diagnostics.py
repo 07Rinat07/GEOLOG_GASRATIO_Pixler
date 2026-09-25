@@ -38,28 +38,18 @@ def main() -> int:
         )
 
     expected_commit = str(args.expected_commit).strip().lower()
-    environment_identity = resolve_build_identity(
-        __version__,
-        environ={"GEOLOG_BUILD_COMMIT": expected_commit},
-        checkout_start=package_file,
-    )
-    if environment_identity.commit != expected_commit:
-        raise RuntimeError(
-            "Installed build did not preserve the expected explicit build commit"
-        )
-    if environment_identity.source != "environment:GEOLOG_BUILD_COMMIT":
-        raise RuntimeError(
-            f"Unexpected installed build identity source: {environment_identity.source}"
-        )
-
-    fallback_identity = resolve_build_identity(
+    artifact_identity = resolve_build_identity(
         __version__,
         environ={},
         checkout_start=package_file,
     )
-    if fallback_identity.commit != "unknown" or fallback_identity.source != "unknown":
+    if artifact_identity.commit != expected_commit:
         raise RuntimeError(
-            "Wheel installation without build metadata or .git must fail closed to unknown"
+            "Installed wheel did not preserve the expected stamped build commit"
+        )
+    if artifact_identity.source != "package-build-info":
+        raise RuntimeError(
+            f"Unexpected installed build identity source: {artifact_identity.source}"
         )
 
     log_directory = output_dir / "logs"
@@ -67,7 +57,7 @@ def main() -> int:
     manager = ApplicationLogManager(
         log_directory,
         application_version=__version__,
-        build_identity=environment_identity,
+        build_identity=artifact_identity,
         session_id="installed-build-acceptance",
     )
     try:
@@ -84,8 +74,8 @@ def main() -> int:
     expected_report = {
         "application_version": __version__,
         "application_commit": expected_commit,
-        "build_identity": environment_identity.display,
-        "build_identity_source": "environment:GEOLOG_BUILD_COMMIT",
+        "build_identity": artifact_identity.display,
+        "build_identity_source": "package-build-info",
         "session_id": "installed-build-acceptance",
     }
     for key, expected in expected_report.items():
@@ -100,10 +90,8 @@ def main() -> int:
     summary = {
         "package_file": str(package_file),
         "version": __version__,
-        "commit": environment_identity.commit,
-        "identity_source": environment_identity.source,
-        "fallback_commit": fallback_identity.commit,
-        "fallback_source": fallback_identity.source,
+        "commit": artifact_identity.commit,
+        "identity_source": artifact_identity.source,
         "bundle": str(bundle_path),
     }
     (output_dir / "installed-build-acceptance.json").write_text(
