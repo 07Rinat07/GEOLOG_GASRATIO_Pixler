@@ -78,6 +78,43 @@ jobs:
           Invoke-Logged "curve-sampling-benchmark" { .\.venv\Scripts\python.exe benchmarks/benchmark_curve_sampling.py --json }
           Invoke-Logged "wits-preview-memory-benchmark" { .\.venv\Scripts\python.exe -m benchmarks.benchmark_wits_preview --buffer-frames 100 }
 
+      - name: Verify installed build diagnostics identity
+        shell: pwsh
+        run: |
+          $Output = "build/ci-artifacts/quality/installed-build"
+          $Dist = "build/installed-build-dist"
+          New-Item -ItemType Directory -Force $Output | Out-Null
+          New-Item -ItemType Directory -Force $Dist | Out-Null
+
+          .\.venv\Scripts\python.exe tools/stamp_build_identity.py --commit "${{ github.sha }}"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          .\.venv\Scripts\python.exe -m build --wheel --no-isolation --outdir $Dist
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          $InstallRoot = Join-Path $env:RUNNER_TEMP "geolog-installed-${{ github.run_id }}"
+          if (Test-Path $InstallRoot) {
+            Remove-Item -Recurse -Force $InstallRoot
+          }
+          uv venv $InstallRoot --python 3.11
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          $InstalledPython = Join-Path $InstallRoot "Scripts/python.exe"
+          uv pip sync requirements/release.lock --python $InstalledPython --require-hashes
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          $Wheel = Get-ChildItem -Path $Dist -Filter *.whl | Select-Object -First 1
+          if ($null -eq $Wheel) {
+            throw "Built wheel was not found in $Dist"
+          }
+          uv pip install --python $InstalledPython --no-deps $Wheel.FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          & $InstalledPython tools/check_installed_build_diagnostics.py `
+            --output-dir $Output `
+            --expected-commit "${{ github.sha }}"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Upload quality artifacts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
