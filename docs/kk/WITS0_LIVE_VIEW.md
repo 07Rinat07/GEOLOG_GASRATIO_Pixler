@@ -89,8 +89,11 @@ acknowledgement және global mute береді. Alarm — параметрд�
 
 Оператор dashboard үйлесімді арналарды технологиялық панельдерге біріктіреді, ал бірліктері
 үйлеспейтін арналарды тәуелсіз X-autoscale бар көршілес тректерге автоматты түрде бөледі.
-Арна таңдауы, ось, auto-follow, pause-view және history-window параметрлері workspace ішінде
-сақталады.
+Арна таңдауы workspace ішінде session-local `curve_id` емес, canonical mnemonic бойынша
+сақталады. Сондықтан reconnect немесе жаңа Dataset кезінде ескі ішкі ID-ге тәуелділік жоқ.
+Schema-v1 ішіндегі `selected_curve_ids` тек migration fallback ретінде оқылады және келесі сақтау
+кезінде schema-v2 форматына қайта жазылады. Ось, auto-follow, pause-view және history-window
+параметрлері де workspace ішінде сақталады.
 
 Transient LIVE PREVIEW ең соңғы 2000 кадрды ғана сақтайды. Оның туынды Dataset, curve arrays,
 preview-session records және record-id index құрылымдары да bounded: жоғарғы шекке жеткенде
