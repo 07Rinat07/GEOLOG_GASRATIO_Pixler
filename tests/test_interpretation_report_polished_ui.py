@@ -73,8 +73,10 @@ def test_polished_workspace_groups_controls_and_marks_primary_action(qapp) -> No
         workspace.recalculate_all_button.text()
         == "3. Рассчитать кривые и открыть планшет"
     )
-    assert workspace.configure_drilling_inputs_button.text().startswith("1.")
-    assert workspace.refresh_chart_report_button.text().startswith("3.")
+    assert workspace.configure_drilling_inputs_button.text().startswith("2.")
+    assert workspace.refresh_chart_report_button.text().startswith("4.")
+    assert workspace.gas_context_button is not None
+    assert workspace.gas_context_button.text().startswith("1.")
     assert workspace.workflow_help_button is not None
     assert workspace.workflow_help_button.text() == "5. Печать и экспорт"
     assert "pdf" in workspace.workflow_help_button.toolTip().casefold()
