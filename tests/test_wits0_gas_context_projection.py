@@ -142,8 +142,8 @@ def test_projection_reset_clears_only_automatic_baseline() -> None:
         interval_id="connection-1",
         kind=Wits0GasOriginKind.CONNECTION_GAS,
         axis=Wits0GasContextAxis.DEPTH,
-        start=2500.0,
-        end=2600.0,
+        start=2509.0,
+        end=2511.0,
     )
     projection = _projection(manual_intervals=(interval,))
     _prime_background(projection)
