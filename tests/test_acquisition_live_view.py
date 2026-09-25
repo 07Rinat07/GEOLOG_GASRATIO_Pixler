@@ -601,6 +601,72 @@ def test_snapshot_projects_virtual_curve_without_mutating_source_dataset() -> No
     assert virtual_current.quality is AcquisitionLiveQuality.GOOD
 
 
+def test_virtual_current_marks_missing_when_latest_applicable_wits_row_is_nan() -> None:
+    runtime, _frames = _runtime_with_frames(
+        (
+            _frame(1, time_value="0315450", depth=100.0, rop=10.0),
+            _frame(2, time_value="0315460", depth=100.2, rop=None),
+        )
+    )
+    dataset = runtime.controller.dataset
+    virtual_id = "virtual:derived"
+    virtual_curve = CurveData(
+        CurveMetadata(
+            curve_id=virtual_id,
+            original_mnemonic="DERIVED",
+            canonical_mnemonic="DERIVED",
+            unit="ratio",
+            description="Virtual derived curve",
+            source_dataset_id=dataset.dataset_id,
+            provenance="formula:test:1.0;source-records=02",
+        ),
+        np.asarray([12.5, np.nan], dtype=np.float64),
+    )
+
+    snapshot = AcquisitionLiveView(dataset, runtime.session).snapshot(
+        curve_ids=(virtual_id,),
+        virtual_curves={virtual_id: virtual_curve},
+        now=datetime(2026, 7, 27, 3, 15, 50, tzinfo=timezone.utc),
+    )
+
+    current = snapshot.current_values[0]
+    assert current.value == 12.5
+    assert current.quality is AcquisitionLiveQuality.MISSING
+    assert current.sample_row_index == 0
+    assert current.latest_row_index == 1
+    assert current.age_rows == 1
+    assert "missing" in current.quality_codes
+
+
+def test_snapshot_rejects_virtual_curve_from_another_dataset() -> None:
+    runtime, _frames = _runtime_with_frames(
+        (
+            _frame(1, time_value="0315450", depth=100.0, rop=10.0),
+            _frame(2, time_value="0315460", depth=100.2, rop=11.0),
+        )
+    )
+    dataset = runtime.controller.dataset
+    virtual_id = "virtual:foreign"
+    foreign_curve = CurveData(
+        CurveMetadata(
+            curve_id=virtual_id,
+            original_mnemonic="FOREIGN",
+            canonical_mnemonic="FOREIGN",
+            unit="1",
+            description="Foreign virtual curve",
+            source_dataset_id="another-dataset",
+            provenance="formula:test:1.0",
+        ),
+        np.asarray([1.0, 2.0], dtype=np.float64),
+    )
+
+    with pytest.raises(ValueError, match="belongs to Dataset"):
+        AcquisitionLiveView(dataset, runtime.session).snapshot(
+            curve_ids=(virtual_id,),
+            virtual_curves={virtual_id: foreign_curve},
+        )
+
+
 def test_snapshot_rejects_invalid_virtual_curve_contract() -> None:
     runtime, _frames = _runtime_with_frames(
         (
