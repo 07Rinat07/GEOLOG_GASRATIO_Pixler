@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- UI: Lithology description-template formula/warning переведены с локальных fixed-hex QSS на semantic `guidanceRole="info"|"warning"` и общий palette-aware presentation без изменения template selection, RU/KK/EN контента или lithology CRUD.
 - UI: LAS Editor title/summary/safety note переведены с локальных presentation-QSS на shared palette-aware selectors; логика выбора операций, dataset summary и responsive geometry не менялась.
 - UI: Depth Annotations actions получили semantic `uiRole`: Add/Save — primary, Remove/Delete — destructive, Undo/Redo — quiet; CRUD callbacks и history behavior не менялись.
 - UI: Depth Annotations editor/drag hints, layer title и axis display переведены с локальных presentation-QSS на shared palette-aware selectors; info-подсказки используют semantic `guidanceRole="info"`, а пользовательские annotation colors и `_ColorButton` сохранены как document-data.
