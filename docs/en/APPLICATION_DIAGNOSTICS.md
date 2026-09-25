@@ -20,6 +20,12 @@ inside `geolog-crash.log` by `GEOLOG SESSION START/STOP` boundaries containing t
 build identity and commit. This distinguishes new runs from legacy crash entries and distinguishes
 two builds with the same package version but different SHAs.
 
+Release wheels carry an immutable commit stamp inside the installed package. Build identity resolution
+uses explicit build environment first, then the stamped package identity, package VCS metadata, a
+local Git checkout, and finally explicit `unknown`. The Windows release gate builds and installs
+the wheel in an isolated environment outside the source checkout and verifies the generated
+diagnostics bundle without relying on `.git`.
+
 When the WITS0 window is open, `system-report.json` also receives an allowlisted diagnostic snapshot only: profile ID/version and SHA-256, encoding, selected mode, discovery fingerprint, aggregate capture/acquisition counters, the stable code of the last rejected frame, and the latest aggregate count of points actually submitted to the live plot. Host/port/peer identity, raw paths/files, source name, WITS measurement values, acquisition session ID, and free-form last-error text are not included in this snapshot.
 
 The bundle does not include LAS samples, project assets, saved forms or project files. File paths
