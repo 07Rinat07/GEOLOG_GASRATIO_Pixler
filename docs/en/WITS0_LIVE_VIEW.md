@@ -68,7 +68,9 @@ persistent-runtime handoff instead of being reset to the factory template.
 WITS-CALC-01 adds WH/BH/CH, Pixler C1/C2–C1/C5 and DEXP/DEXPC as virtual read-only channels.
 The same versioned formula registry used by batch calculations is reused; Qt/UI does not contain
 a second formula implementation. DEXP is available only with valid ROP/RPM/WOB/BIT and verified
-unit conversion; DEXPC also requires actual and normal mud density.
+unit conversion. DEXPC also requires actual mud density from a reviewed MW_IN/MW_OUT channel and
+an explicitly configured normal mud density with a recognized unit; no typical/default density is
+injected when that configuration is absent.
 
 The UI keeps three concepts separate:
 
