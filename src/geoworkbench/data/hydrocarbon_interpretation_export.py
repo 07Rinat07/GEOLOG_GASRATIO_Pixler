@@ -61,14 +61,19 @@ def export_hydrocarbon_interpretation_docx(
     dataset: Dataset | None = None,
     language: AppLanguage = AppLanguage.RU,
     overwrite: bool = False,
+    progress: Callable[[str, int, int], None] | None = None,
 ) -> Path:
+    _notify_export_progress(progress, "Подготовка Word-отчёта", 0, 100)
     if dataset is not None:
         _validate_dataset(report, dataset)
+    _notify_export_progress(progress, "Расчёт интервальной статистики", 20, 100)
     destination = _prepare_target(target, ".docx", overwrite=overwrite)
     temporary = _temporary_path(destination)
     try:
         _write_docx(temporary, report, dataset, language)
+        _notify_export_progress(progress, "Сохранение Word-файла", 90, 100)
         os.replace(temporary, destination)
+        _notify_export_progress(progress, "Word-отчёт готов", 100, 100)
     except Exception as exc:
         temporary.unlink(missing_ok=True)
         if isinstance(exc, (FileExistsError, HydrocarbonInterpretationExportError)):
@@ -77,6 +82,16 @@ def export_hydrocarbon_interpretation_docx(
             f"Не удалось экспортировать Word: {destination}"
         ) from exc
     return destination
+
+
+def _notify_export_progress(
+    progress: Callable[[str, int, int], None] | None,
+    stage: str,
+    current: int,
+    total: int,
+) -> None:
+    if progress is not None:
+        progress(stage, current, total)
 
 
 def _write_docx(
