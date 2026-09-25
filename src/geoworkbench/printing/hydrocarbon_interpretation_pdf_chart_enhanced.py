@@ -12,6 +12,7 @@ from geoworkbench.printing.hydrocarbon_fluid_markers import (
     draw_fluid_marker,
     fluid_marker_legend_specs,
     fluid_marker_spec,
+    marker_lane_offsets,
     marker_lanes,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_canvas import PageCanvas
@@ -435,25 +436,40 @@ def _draw_fluid_markers(
         )
         for item in visible
     )
-    lanes = marker_lanes(y_positions, minimum_gap=9.0)
-    lane_count = max(lanes, default=0) + 1
     zone_width = min(126.0, max(50.0, target.width() * 0.50))
     badge_width = 34.0
+    badge_height = 11.0
     badge_gap = 3.0
+    badge_centers = tuple(
+        min(
+            max(y, target.top() + badge_height / 2.0 + 1.0),
+            target.bottom() - badge_height / 2.0 - 1.0,
+        )
+        for y in y_positions
+    )
+    coded_lanes = marker_lanes(
+        badge_centers,
+        minimum_gap=badge_height + 1.0,
+    )
+    coded_lane_count = max(coded_lanes, default=0) + 1
     show_codes = (
-        len(visible) <= 12
-        and lane_count * (badge_width + badge_gap) <= zone_width
+        coded_lane_count * (badge_width + badge_gap) <= zone_width
     )
 
     if show_codes:
-        for candidate, y, lane in zip(visible, y_positions, lanes, strict=True):
+        for candidate, center_y, lane in zip(
+            visible,
+            badge_centers,
+            coded_lanes,
+            strict=True,
+        ):
             spec = fluid_marker_spec(candidate.fluid_hypothesis)
             box_right = target.right() - 4.0 - lane * (badge_width + badge_gap)
             box = QRectF(
                 box_right - badge_width,
-                min(max(y - 5.5, target.top() + 1.0), target.bottom() - 12.0),
+                center_y - badge_height / 2.0,
                 badge_width,
-                11.0,
+                badge_height,
             )
             fill = QColor("#ffffff")
             fill.setAlpha(238)
@@ -483,12 +499,31 @@ def _draw_fluid_markers(
             )
         return
 
-    lane_spacing = max(4.0, min(12.0, zone_width / max(1, lane_count)))
-    marker_size = max(3.0, min(5.5, lane_spacing * 0.62))
-    for candidate, y, lane in zip(visible, y_positions, lanes, strict=True):
+    marker_centers = tuple(
+        min(max(y, target.top() + 3.0), target.bottom() - 3.0)
+        for y in y_positions
+    )
+    marker_lanes_by_y = marker_lanes(marker_centers, minimum_gap=5.5)
+    marker_lane_count = max(marker_lanes_by_y, default=0) + 1
+    offsets = marker_lane_offsets(
+        marker_lane_count,
+        zone_width=zone_width,
+        max_spacing=12.0,
+    )
+    lane_spacing = (
+        offsets[1] - offsets[0]
+        if len(offsets) > 1
+        else min(12.0, zone_width)
+    )
+    marker_size = max(2.5, min(5.5, lane_spacing * 0.62))
+    for candidate, y, lane in zip(
+        visible,
+        marker_centers,
+        marker_lanes_by_y,
+        strict=True,
+    ):
         spec = fluid_marker_spec(candidate.fluid_hypothesis)
-        x = target.right() - 6.0 - lane * lane_spacing
-        y = min(max(y, target.top() + 3.0), target.bottom() - 3.0)
+        x = target.right() - 4.0 - offsets[lane]
         halo = QColor("#ffffff")
         halo.setAlpha(220)
         painter.setPen(Qt.PenStyle.NoPen)
