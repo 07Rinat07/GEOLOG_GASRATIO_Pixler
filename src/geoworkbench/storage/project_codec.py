@@ -128,7 +128,7 @@ def _gas_context_events_from_dict(data: object) -> list[GasContextEvent]:
     for raw in data:
         if (
             not isinstance(raw, dict)
-            or set(raw)
+            or frozenset(raw)
             not in {
                 frozenset(_GAS_CONTEXT_EVENT_KEYS_V35_LEGACY),
                 frozenset(_GAS_CONTEXT_EVENT_KEYS),
