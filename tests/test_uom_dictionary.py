@@ -36,3 +36,17 @@ def test_uom_dictionary_covers_engineering_units_used_by_sensor_catalog() -> Non
     assert dictionary.resolve("мкр/ч").quantity_class is QuantityClass.GAMMA_RAY
     assert dictionary.resolve("b/e").quantity_class is QuantityClass.DIMENSIONLESS
     assert dictionary.resolve("gauss").quantity_class is QuantityClass.MAGNETIC_FLUX_DENSITY
+
+
+def test_uom_dictionary_covers_wits_force_and_rotational_speed_units() -> None:
+    dictionary = UomDictionary()
+
+    kdn_to_lbf = dictionary.conversion("KDN", "lbf")
+    assert kdn_to_lbf is not None
+    assert kdn_to_lbf.quantity_class is QuantityClass.FORCE
+    assert abs(kdn_to_lbf.convert_scalar(1.0) - (10_000.0 / 4.4482216152605)) < 1.0e-9
+
+    for unit in ("RPM", "rev/min", "r/min", "об/мин"):
+        conversion = dictionary.conversion(unit, "1/min")
+        assert conversion is not None
+        assert conversion.convert_scalar(125.0) == 125.0
