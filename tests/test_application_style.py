@@ -30,6 +30,10 @@ def test_adaptive_application_stylesheet_uses_palette_roles_and_no_fixed_widths(
     assert 'QLabel[validationRole="success"]' in stylesheet
     assert 'QLabel[guidanceRole="info"]' in stylesheet
     assert 'QLabel[guidanceRole="warning"]' in stylesheet
+    assert "QLabel#depth-annotations-editor-hint" in stylesheet
+    assert "QLabel#depth-annotations-layer-title" in stylesheet
+    assert "QLabel#depth-annotations-axis-display" in stylesheet
+    assert "QLabel#depth-annotations-drag-hint" in stylesheet
     info_block = stylesheet.split('QLabel[guidanceRole="info"]', 1)[1].split("}", 1)[0]
     assert "color: palette(window-text)" in info_block
     assert "color: palette(mid)" not in info_block

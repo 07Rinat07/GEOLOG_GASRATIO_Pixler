@@ -1,6 +1,14 @@
+import inspect
+
 import numpy as np
 import pytest
-from PySide6.QtWidgets import QDialogButtonBox, QPushButton, QScrollArea, QTableWidget
+from PySide6.QtWidgets import (
+    QDialogButtonBox,
+    QLabel,
+    QPushButton,
+    QScrollArea,
+    QTableWidget,
+)
 
 from geoworkbench.domain.models import (
     Dataset,
@@ -192,3 +200,43 @@ def test_direct_annotation_editor_keeps_save_cancel_outside_scroll_area(qapp) ->
             assert not scroll.isAncestorOf(buttons)
     finally:
         dialog.close()
+
+
+def test_depth_annotations_presentation_uses_shared_palette_aware_styles(qapp) -> None:
+    dialog = DepthAnnotationsDialog(make_controller(), language=AppLanguage.EN)
+    try:
+        assert dialog.objectName() == "depth-annotations-dialog"
+
+        editor_hint = dialog.findChild(QLabel, "depth-annotations-editor-hint")
+        assert editor_hint is not None
+        assert editor_hint.property("guidanceRole") == "info"
+        assert editor_hint.styleSheet() == ""
+
+        layer_title = dialog.findChild(QLabel, "depth-annotations-layer-title")
+        assert layer_title is not None
+        assert layer_title.styleSheet() == ""
+
+        assert dialog.axis_display.objectName() == "depth-annotations-axis-display"
+        assert dialog.axis_display.styleSheet() == ""
+
+        drag_hint = dialog.findChild(QLabel, "depth-annotations-drag-hint")
+        assert drag_hint is not None
+        assert drag_hint.property("guidanceRole") == "info"
+        assert drag_hint.styleSheet() == ""
+
+        # User-selected annotation colors are document data, not application-theme presentation.
+        assert dialog.text_color_input.styleSheet() != ""
+        assert dialog.fill_color_input.styleSheet() != ""
+    finally:
+        dialog.close()
+
+
+def test_depth_annotations_dialog_source_has_no_local_presentation_qss() -> None:
+    source = inspect.getsource(DepthAnnotationsDialog)
+
+    assert ".setStyleSheet(" not in source
+    for color in ("#eff6ff", "#93c5fd", "#1e3a8a", "#0f766e", "#475569"):
+        assert color not in source
+    assert 'setProperty("guidanceRole", "info")' in source
+    assert 'setObjectName("depth-annotations-layer-title")' in source
+    assert 'setObjectName("depth-annotations-axis-display")' in source

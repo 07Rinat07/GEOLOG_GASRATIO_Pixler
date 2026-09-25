@@ -193,6 +193,28 @@ QLabel[guidanceRole="warning"] {
     font-weight: 600;
 }
 
+QLabel#depth-annotations-editor-hint {
+    color: palette(window-text);
+    background: palette(alternate-base);
+    border: 1px solid palette(mid);
+    border-left: 4px solid palette(highlight);
+    border-radius: 6px;
+    padding: 7px 10px;
+}
+QLabel#depth-annotations-layer-title {
+    color: palette(window-text);
+    font-weight: 700;
+    font-size: 14px;
+}
+QLabel#depth-annotations-axis-display {
+    color: palette(window-text);
+    font-weight: 600;
+}
+QLabel#depth-annotations-drag-hint {
+    color: palette(window-text);
+    padding-top: 8px;
+}
+
 QLineEdit,
 QComboBox,
 QSpinBox,
