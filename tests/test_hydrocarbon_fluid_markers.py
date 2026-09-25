@@ -2,6 +2,7 @@ from geoworkbench.printing.hydrocarbon_fluid_markers import (
     all_fluid_marker_specs,
     fluid_marker_legend_specs,
     fluid_marker_spec,
+    marker_lane_offsets,
     marker_lanes,
 )
 from geoworkbench.services.localization import AppLanguage
@@ -13,6 +14,7 @@ def test_fluid_marker_palette_has_unique_category_codes_and_colors() -> None:
     assert len({item.category for item in specs}) == len(specs)
     assert len({item.code for item in specs}) == len(specs)
     assert len({item.color for item in specs}) == len(specs)
+    assert len({item.shape for item in specs}) == len(specs)
 
 
 def test_standard_and_opus_hypotheses_share_physical_fluid_families() -> None:
@@ -82,3 +84,13 @@ def test_dense_markers_use_horizontal_lanes_without_changing_y_positions() -> No
     assert len(set(lanes[:3])) == 3
     assert lanes[3] == 0
     assert y_positions == (100.0, 101.0, 102.0, 130.0)
+
+
+def test_dense_lane_offsets_stay_inside_reserved_zone() -> None:
+    offsets = marker_lane_offsets(64, zone_width=120.0, max_spacing=12.0)
+
+    assert len(offsets) == 64
+    assert offsets == tuple(sorted(offsets))
+    assert offsets[0] > 0.0
+    assert offsets[-1] < 120.0
+    assert len(set(offsets)) == 64
