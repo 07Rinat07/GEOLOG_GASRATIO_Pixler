@@ -35,6 +35,9 @@ def test_live_view_uses_read_only_projection_and_shared_downsampling() -> None:
     assert "self.live_view.bind_runtime(preview_runtime, preview=True)" in capture
     assert "wits0_live.state_preview" in widget
     assert "def workspace_state(" in widget
+    assert "selected_mnemonics=self._selected_mnemonics()" in widget
+    assert "selected_curve_ids=()" in widget
+    assert "state.selected_curve_ids" in widget
     assert "def apply_workspace_state(" in widget
     assert "Wits0LiveFormSettings" in widget
     assert "def _save_current_form(" in widget
