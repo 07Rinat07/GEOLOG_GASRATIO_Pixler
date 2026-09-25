@@ -161,3 +161,12 @@ Each numeric curve ruler is now labelled by the parameter itself instead of the 
 For example, the user sees **Weight on bit · t**, the range, and ticks in one block. The block is
 14 px shorter, while automatic-range and settings controls remain available on the right. The same
 layout is used when any factory, ready, or user form is opened.
+
+
+### Tablet pencil toolbar
+
+The manual curve-editing toolbar follows the Qt system palette so it remains readable in light
+and dark themes. When the pencil is off, secondary mode, apply/clear and Undo/Redo actions are
+hidden, leaving only the controls needed to select and enable editing. Single-curve parameter
+tracks use a localized human-readable title when metadata is available, with the technical
+mnemonic retained in brackets for engineering identification.
