@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from importlib import metadata
+from importlib import metadata, resources
 import json
 import os
 from pathlib import Path
@@ -10,6 +10,8 @@ from typing import Mapping
 
 
 _DISTRIBUTION_NAME = "geolog-gasratio-pixler"
+_PACKAGE_BUILD_INFO_RESOURCE = "_build_identity.json"
+_PACKAGE_BUILD_INFO_SCHEMA_VERSION = 1
 _ENVIRONMENT_COMMIT_KEYS = (
     "GEOLOG_BUILD_COMMIT",
     "GITHUB_SHA",
@@ -61,6 +63,28 @@ def _normalize_commit(value: object) -> str | None:
     if not _COMMIT_PATTERN.fullmatch(candidate):
         return None
     return candidate.lower()
+
+
+def _package_build_commit() -> str | None:
+    """Read the immutable commit stamp embedded into an installed build artifact."""
+
+    try:
+        raw = (
+            resources.files("geoworkbench")
+            .joinpath(_PACKAGE_BUILD_INFO_RESOURCE)
+            .read_text(encoding="utf-8")
+        )
+    except (FileNotFoundError, ModuleNotFoundError, OSError):
+        return None
+    try:
+        payload = json.loads(raw)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    if payload.get("schema_version") != _PACKAGE_BUILD_INFO_SCHEMA_VERSION:
+        return None
+    return _normalize_commit(payload.get("commit"))
 
 
 def _distribution_commit(distribution_name: str) -> str | None:
@@ -161,6 +185,14 @@ def resolve_build_identity(
                 commit=commit,
                 source=f"environment:{key}",
             )
+
+    commit = _package_build_commit()
+    if commit is not None:
+        return BuildIdentity(
+            version=str(application_version),
+            commit=commit,
+            source="package-build-info",
+        )
 
     commit = _distribution_commit(distribution_name)
     if commit is not None:
