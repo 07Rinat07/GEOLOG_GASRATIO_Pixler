@@ -328,7 +328,8 @@ class Wits0LiveViewWidget(QWidget):
             paused=(view.paused if view is not None else self.pause_button.isChecked()),
             follow_span=float(self.window_spin.value()),
             max_points=int(self.max_points_spin.value()),
-            selected_curve_ids=self._selected_curve_ids(),
+            selected_mnemonics=self._selected_mnemonics(),
+            selected_curve_ids=(),
             history_start=history[0] if history is not None else None,
             history_end=history[1] if history is not None else None,
             acquisition_session_id=(
@@ -350,7 +351,17 @@ class Wits0LiveViewWidget(QWidget):
                 self.axis_combo.setCurrentIndex(axis_index)
             self.auto_follow_check.setChecked(state.auto_follow)
             self.window_spin.setValue(state.follow_span)
-            selected = set(state.selected_curve_ids)
+            selected = set(
+                self._curve_ids_for_mnemonics(state.selected_mnemonics)
+            )
+            if not selected and state.selected_curve_ids:
+                available_curve_ids = {
+                    self.curve_list.item(row).data(Qt.ItemDataRole.UserRole)
+                    for row in range(self.curve_list.count())
+                }
+                selected = set(state.selected_curve_ids).intersection(
+                    available_curve_ids
+                )
             if selected:
                 for row in range(self.curve_list.count()):
                     item = self.curve_list.item(row)
