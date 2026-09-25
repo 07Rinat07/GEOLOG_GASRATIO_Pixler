@@ -201,22 +201,25 @@ class InterpretationReportWorkspace(_LayoutWorkspace):
                 "1. Проверьте газовые события\n"
                 "2. Настройте входные данные\n"
                 "3. Рассчитайте кривые\n"
-                "4. Проверьте отчёт и экспортируйте",
+                "4. Проверьте отчёт\n"
+                "5. Напечатайте или экспортируйте",
                 "1. Газ оқиғаларын тексеріңіз\n"
                 "2. Кіріс деректерін баптаңыз\n"
                 "3. Қисықтарды есептеңіз\n"
-                "4. Есепті тексеріп, экспорттаңыз",
+                "4. Есепті тексеріңіз\n"
+                "5. Басып шығарыңыз немесе экспорттаңыз",
                 "1. Review gas events\n"
                 "2. Configure input data\n"
                 "3. Calculate curves\n"
-                "4. Review and export the report",
+                "4. Review the report\n"
+                "5. Print or export",
             )
         )
         button.setText(
             self._text(
-                "4. Печать и экспорт",
-                "4. Басып шығару және экспорт",
-                "4. Print and export",
+                "5. Печать и экспорт",
+                "5. Басып шығару және экспорт",
+                "5. Print and export",
             )
         )
         tooltip = self._text(
@@ -266,37 +269,37 @@ class InterpretationReportWorkspace(_LayoutWorkspace):
         )
         self.configure_drilling_inputs_button.setText(
             self._text(
-                "1. Настроить BIT и входные данные…",
-                "1. BIT және кіріс деректерін баптау…",
-                "1. Configure BIT and inputs…",
+                "2. Настроить BIT и входные данные…",
+                "2. BIT және кіріс деректерін баптау…",
+                "2. Configure BIT and inputs…",
             )
         )
         self.recalculate_all_button.setText(
             self._text(
-                "2. Рассчитать кривые и открыть планшет",
-                "2. Қисықтарды есептеп, планшетті ашу",
-                "2. Calculate curves and open tablet",
+                "3. Рассчитать кривые и открыть планшет",
+                "3. Қисықтарды есептеп, планшетті ашу",
+                "3. Calculate curves and open tablet",
             )
         )
         self.refresh_chart_report_button.setText(
             self._text(
-                "3. Обновить и проверить отчёт",
-                "3. Есепті жаңартып, тексеру",
-                "3. Refresh and review report",
+                "4. Обновить и проверить отчёт",
+                "4. Есепті жаңартып, тексеру",
+                "4. Refresh and review report",
             )
         )
         self.calculate_button.setText(
             self._text(
-                "2. Рассчитать остальные методы",
-                "2. Қалған әдістерді есептеу",
-                "2. Calculate other methods",
+                "3. Рассчитать остальные методы",
+                "3. Қалған әдістерді есептеу",
+                "3. Calculate other methods",
             )
         )
         self.refresh_button.setText(
             self._text(
-                "3. Обновить анализ",
-                "3. Талдауды жаңарту",
-                "3. Refresh analysis",
+                "4. Обновить анализ",
+                "4. Талдауды жаңарту",
+                "4. Refresh analysis",
             )
         )
 
