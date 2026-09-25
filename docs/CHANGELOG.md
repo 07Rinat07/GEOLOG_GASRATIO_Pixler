@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- Tablet/UI: curve-pencil toolbar стал palette-aware и компактным в выключенном состоянии; вторичные mode/apply/clear/Undo/Redo controls скрываются, а single-curve track title использует локализованное имя параметра с mnemonic в скобках вместо сырого технического заголовка.
 - WITS/Gas context: добавлен единый localized presentation boundary для operator/report слоёв: effective class, исходная automatic assessment, source решения и manual interval ID выводятся без дублирования классификатора в Qt/PDF.
 - WITS/Gas context: confirmed manual QC/operational intervals теперь детерминированно перекрывают automatic gas-origin screening через отдельный effective-context resolver; исходная automatic assessment сохраняется для аудита, draft/unconfirmed интервалы не влияют на итоговый класс.
 - WITS/Calculations: добавлен end-to-end live↔batch parity regression: WH, DEXP и DEXPC из live semantic/UOM projection сравниваются с реальным offline FormulaExecutionController, включая одинаковые sourced profile ID/version и численные результаты.
