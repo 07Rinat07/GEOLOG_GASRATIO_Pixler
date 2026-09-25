@@ -43,6 +43,7 @@ class DescriptionTemplatesDialog(QDialog):
         self.language = language
         self.controller = controller
         self._factory_catalog = load_rock_description_templates()
+        self.setObjectName("description-templates-dialog")
         self.setWindowTitle(self._t("templates.window_title"))
         root = QVBoxLayout(self)
         language_row = QHBoxLayout()
@@ -79,15 +80,14 @@ class DescriptionTemplatesDialog(QDialog):
         root.addWidget(self.table)
 
         self.catalog_formula = QLabel()
+        self.catalog_formula.setObjectName("description-templates-formula")
+        self.catalog_formula.setProperty("guidanceRole", "info")
         self.catalog_formula.setWordWrap(True)
-        self.catalog_formula.setStyleSheet("color:#475569; font-size:11px;")
         root.addWidget(self.catalog_formula)
         self.catalog_warning = QLabel()
+        self.catalog_warning.setObjectName("description-templates-warning")
+        self.catalog_warning.setProperty("guidanceRole", "warning")
         self.catalog_warning.setWordWrap(True)
-        self.catalog_warning.setStyleSheet(
-            "background:#fff7ed; color:#9a3412; border:1px solid #fdba74; "
-            "border-radius:4px; padding:4px 6px;"
-        )
         root.addWidget(self.catalog_warning)
         form = QFormLayout()
         self.name_input = QLineEdit()

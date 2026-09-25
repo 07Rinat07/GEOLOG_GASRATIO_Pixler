@@ -179,6 +179,20 @@ QLabel[validationRole="success"] {
     padding: 3px 7px;
 }
 
+QLabel[guidanceRole="info"] {
+    color: palette(mid);
+    font-size: 11px;
+}
+QLabel[guidanceRole="warning"] {
+    color: palette(window-text);
+    background: palette(alternate-base);
+    border: 1px solid palette(mid);
+    border-left: 4px solid palette(highlight);
+    border-radius: 4px;
+    padding: 4px 6px;
+    font-weight: 600;
+}
+
 QLineEdit,
 QComboBox,
 QSpinBox,

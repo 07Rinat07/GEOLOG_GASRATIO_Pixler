@@ -1,3 +1,6 @@
+import re
+from pathlib import Path
+
 from PySide6.QtWidgets import QDialogButtonBox, QPushButton
 
 from geoworkbench.project.description_template_controller import DescriptionTemplateController
@@ -72,3 +75,27 @@ def test_description_templates_dialog_fits_current_work_area(qapp) -> None:
         assert dialog.minimumHeight() <= dialog.height() <= available.height()
     finally:
         dialog.close()
+
+
+def test_description_templates_guidance_uses_shared_semantic_roles(qapp) -> None:
+    dialog = DescriptionTemplatesDialog(DescriptionTemplateController(ProjectSession()))
+
+    assert dialog.objectName() == "description-templates-dialog"
+    assert dialog.catalog_formula.objectName() == "description-templates-formula"
+    assert dialog.catalog_formula.property("guidanceRole") == "info"
+    assert dialog.catalog_formula.styleSheet() == ""
+    assert dialog.catalog_warning.objectName() == "description-templates-warning"
+    assert dialog.catalog_warning.property("guidanceRole") == "warning"
+    assert dialog.catalog_warning.styleSheet() == ""
+    dialog.close()
+
+
+def test_description_templates_source_has_no_local_qss_or_fixed_hex() -> None:
+    source = Path(
+        "src/geoworkbench/ui/description_templates_dialog.py"
+    ).read_text(encoding="utf-8")
+
+    assert ".setStyleSheet(" not in source
+    assert re.search(r"#[0-9a-fA-F]{3,8}\b", source) is None
+    assert 'setProperty("guidanceRole", "info")' in source
+    assert 'setProperty("guidanceRole", "warning")' in source
