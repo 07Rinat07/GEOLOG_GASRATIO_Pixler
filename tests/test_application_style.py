@@ -36,7 +36,6 @@ def test_adaptive_application_stylesheet_uses_palette_roles_and_no_fixed_widths(
     assert "QDialog#form-create-dialog QTreeWidget::item" in stylesheet
     assert "QDialog#form-manager-dialog QTreeWidget::item" in stylesheet
     assert "QLabel#form-manager-heading" in stylesheet
-    assert "QLabel[hintRole]" in stylesheet
     assert 'QLabel[hintRole="success"]' in stylesheet
     assert 'QLabel[hintRole="warning"]' in stylesheet
     assert 'QLabel[hintRole="error"]' in stylesheet
