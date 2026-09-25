@@ -4,6 +4,7 @@ from dataclasses import replace
 from datetime import datetime, timezone
 
 import numpy as np
+import pytest
 
 from geoworkbench.acquisition import Wits0StreamProcessor, load_builtin_wits0_profile
 from geoworkbench.domain.models import CurveData, CurveMetadata, Well
@@ -623,7 +624,7 @@ def test_snapshot_rejects_invalid_virtual_curve_contract() -> None:
         np.asarray([1.0], dtype=np.float64),
     )
 
-    with __import__("pytest").raises(ValueError, match="must match Dataset row count"):
+    with pytest.raises(ValueError, match="must match Dataset row count"):
         view.snapshot(
             curve_ids=(virtual_id,),
             virtual_curves={virtual_id: short_curve},
