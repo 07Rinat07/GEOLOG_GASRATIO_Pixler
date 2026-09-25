@@ -90,7 +90,10 @@ visual/audio alarm, hysteresis, debounce/minimum-duration, acknowledgement и gl
 
 Операторский dashboard группирует совместимые каналы по технологическим панелям и автоматически
 разделяет несовместимые единицы на соседние треки с независимым X-autoscale. Настройки выбранных
-каналов, оси и окна сохраняются в workspace.
+каналов, оси и окна сохраняются в workspace. Выбор каналов сохраняется по canonical mnemonic,
+а не по session-local `curve_id`, поэтому reconnect/новый Dataset не привязывает workspace к
+старым внутренним идентификаторам. Старый schema-v1 workspace читается как migration fallback и
+при следующем сохранении переписывается без `selected_curve_ids`.
 
 Transient LIVE PREVIEW хранит последние 2000 кадров. Его Dataset/session projection также
 ограничивается: при достижении верхнего порога runtime пересобирается из последнего bounded-окна,
