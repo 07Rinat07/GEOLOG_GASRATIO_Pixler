@@ -114,7 +114,10 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
   semantic `guidanceRole="info"|"warning"`; локальные fixed-hex QSS удалены без изменения
   template selection, RU/KK/EN контента или lithology CRUD. Действия Lithology используют
   semantic `uiRole`: Add — primary, Remove — destructive, Update сохраняет default presentation;
-  callbacks и CRUD semantics не меняются. Следующий slice — repo-wide аудит оставшихся локальных
+  callbacks и CRUD semantics не меняются. Curve-pencil toolbar переведён на palette-aware application style: в выключенном состоянии
+скрываются вторичные mode/apply/clear/Undo/Redo controls, horizontal scroll возвращается к началу,
+а одиночные raw-mnemonic track titles заменяются на локализованное имя параметра с mnemonic в
+скобках. Следующий slice — repo-wide аудит оставшихся локальных
   presentation-QSS вне preview/painter и пользовательских/document colors.
 - [ ] Primary/secondary/destructive/quiet роли задавать semantic property, а не цветом по месту.
 - [ ] Диалоги продолжают использовать `fit_window_to_screen`; длинные RU/KK/EN подписи
