@@ -81,31 +81,8 @@ class FormManagerDialog(QDialog):
         self.apply_engine = FormApplyEngine()
         self.selected_form: FormDocument | None = None
         self._family_pair_message: str | None = None
+        self.setObjectName("form-manager-dialog")
         self.setWindowTitle(self._text("Библиотека форм", "Пішіндер кітапханасы", "Form library"))
-        # The application uses a dark global palette. Every light surface in this
-        # dialog must therefore set its foreground explicitly; otherwise Qt keeps
-        # the global white text and the form names become invisible on white.
-        self.setStyleSheet(
-            "QDialog { background: #f1f5f9; color: #0f172a; }"
-            "QLabel { color: #334155; }"
-            "QTreeWidget, QTextEdit, QLineEdit, QComboBox { "
-            "background: #ffffff; color: #0f172a; border: 1px solid #cbd5e1; "
-            "border-radius: 7px; selection-background-color: #dbeafe; "
-            "selection-color: #0f172a; }"
-            "QTreeWidget::item { color: #0f172a; min-height: 26px; padding: 2px 4px; }"
-            "QTreeWidget::item:selected { background: #dbeafe; color: #0f172a; }"
-            "QTreeWidget::item:hover { background: #eff6ff; color: #0f172a; }"
-            "QPushButton { min-height: 30px; padding: 4px 10px; "
-            "background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; "
-            "border-radius: 6px; }"
-            "QPushButton:hover { background: #dbeafe; border-color: #93c5fd; }"
-            "QPushButton:disabled { background: #e5e7eb; color: #94a3b8; "
-            "border-color: #cbd5e1; }"
-            "QPushButton#primary-action { background: #2563eb; color: #ffffff; "
-            "font-weight: 600; border: 0; border-radius: 6px; }"
-            "QPushButton#primary-action:hover { background: #1d4ed8; }"
-            "QPushButton#primary-action:disabled { background: #93c5fd; color: #e2e8f0; }"
-        )
 
         root_layout = QVBoxLayout(self)
         heading = QLabel(
@@ -118,8 +95,8 @@ class FormManagerDialog(QDialog):
                 "user forms remain fully editable.",
             )
         )
+        heading.setObjectName("form-manager-heading")
         heading.setWordWrap(True)
-        heading.setStyleSheet("font-size: 13px; color: #334155; padding: 2px 4px;")
         root_layout.addWidget(heading)
 
         splitter = QSplitter(Qt.Orientation.Horizontal, self)
@@ -203,7 +180,7 @@ class FormManagerDialog(QDialog):
             ),
         ):
             button = QPushButton(caption)
-            button.setObjectName("primary-action")
+            button.setProperty("uiRole", "primary")
             button.setToolTip(tooltip)
             button.setStatusTip(tooltip)
             button.clicked.connect(callback)
@@ -287,6 +264,7 @@ class FormManagerDialog(QDialog):
         print_row.addWidget(self.fit_columns_check)
         print_box.addLayout(print_row)
         self.print_layout_hint = QLabel()
+        self.print_layout_hint.setObjectName("form-manager-print-layout-hint")
         self.print_layout_hint.setWordWrap(True)
         self.print_layout_hint.setTextFormat(Qt.TextFormat.RichText)
         self._update_print_layout_hint()
@@ -304,7 +282,7 @@ class FormManagerDialog(QDialog):
         self.apply_button = QPushButton(
             self._text("Открыть на планшете", "Планшетте ашу", "Open on tablet")
         )
-        self.apply_button.setObjectName("primary-action")
+        self.apply_button.setProperty("uiRole", "primary")
         self.apply_button.setToolTip(self._text("Применить форму к текущему LAS и открыть планшет.", "Пішінді ағымдағы LAS-қа қолданып, планшетті ашу.", "Apply the form to the current LAS and open the tablet."))
         self.apply_button.clicked.connect(self._apply)
         open_row.addWidget(self.apply_button, 1)
@@ -654,20 +632,21 @@ class FormManagerDialog(QDialog):
         )
         self.details.setPlainText(details)
 
+    def _set_print_layout_hint_role(self, role: str) -> None:
+        self.print_layout_hint.setProperty("hintRole", role)
+        style = self.print_layout_hint.style()
+        style.unpolish(self.print_layout_hint)
+        style.polish(self.print_layout_hint)
+        self.print_layout_hint.update()
+
     def _update_print_layout_hint(self) -> None:
         if self._family_pair_message is not None:
-            self.print_layout_hint.setStyleSheet(
-                "padding:6px 8px; border:1px solid #b45309; border-radius:5px; "
-                "background:#fef3c7; color:#92400e;"
-            )
+            self._set_print_layout_hint_role("warning")
             self.print_layout_hint.setText(self._family_pair_message)
             return
         form = self._current()
         if form is None:
-            self.print_layout_hint.setStyleSheet(
-                "padding:6px 8px; border:1px solid #94a3b8; border-radius:5px; "
-                "background:#f1f5f9; color:#475569;"
-            )
+            self._set_print_layout_hint_role("neutral")
             self.print_layout_hint.setText(
                 self._text(
                     "Выберите форму, чтобы проверить её ширину относительно A4.",
@@ -679,10 +658,7 @@ class FormManagerDialog(QDialog):
         widths = [column.width for column in form.columns if column.visible]
         audit = audit_form_width(widths)
         if audit.visible_columns == 0:
-            self.print_layout_hint.setStyleSheet(
-                "padding:6px 8px; border:1px solid #94a3b8; border-radius:5px; "
-                "background:#f1f5f9; color:#475569;"
-            )
+            self._set_print_layout_hint_role("neutral")
             self.print_layout_hint.setText(
                 self._text(
                     "В форме нет видимых колонок. Добавьте или включите колонку.",
@@ -698,32 +674,28 @@ class FormManagerDialog(QDialog):
             else audit.landscape_scale_percent
         )
         if audit.level is FormWidthLevel.FITS_PORTRAIT:
-            color = "#166534"
-            background = "#dcfce7"
+            role = "success"
             recommendation = self._text(
                 "Форма помещается на книжный A4 без уменьшения.",
                 "Пішін кітаптық A4 парағына кішірейтусіз сыяды.",
                 "The form fits portrait A4 without reduction.",
             )
         elif audit.level is FormWidthLevel.FITS_LANDSCAPE:
-            color = "#92400e"
-            background = "#fef3c7"
+            role = "warning"
             recommendation = self._text(
                 "Для читаемой печати выберите альбомный A4 или уменьшите ширину колонок.",
                 "Оқылатын баспа үшін альбомдық A4 таңдаңыз немесе баған енін азайтыңыз.",
                 "Use landscape A4 for readable output or reduce column widths.",
             )
         elif audit.level is FormWidthLevel.NEEDS_FIT:
-            color = "#9a3412"
-            background = "#ffedd5"
+            role = "warning"
             recommendation = self._text(
                 "Форма шире A4. Используйте автоподбор, альбомную ориентацию либо скройте второстепенные колонки.",
                 "Пішін A4-тен кең. Автосыйғызуды, альбомдық бағытты қолданыңыз немесе қосымша бағандарды жасырыңыз.",
                 "The form is wider than A4. Use fit-to-page, landscape, or hide secondary columns.",
             )
         else:
-            color = "#991b1b"
-            background = "#fee2e2"
+            role = "error"
             recommendation = self._text(
                 "Форма слишком широкая для одного A4: разделите её на две формы, используйте A3/рулон или страницы продолжения.",
                 "Пішін бір A4 үшін тым кең: екі пішінге бөліңіз, A3/орам не жалғастыру беттерін пайдаланыңыз.",
@@ -757,10 +729,7 @@ class FormManagerDialog(QDialog):
                 f"Current mode: {mode} ({selected_scale:.0f}%).<br>{recommendation}"
             ),
         )
-        self.print_layout_hint.setStyleSheet(
-            f"padding:6px 8px; border:1px solid {color}; border-radius:5px; "
-            f"background:{background}; color:{color};"
-        )
+        self._set_print_layout_hint_role(role)
         self.print_layout_hint.setText(text)
 
     def _page_settings_for_orientation(

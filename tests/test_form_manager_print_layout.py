@@ -1,9 +1,14 @@
+import re
+from pathlib import Path
+from types import SimpleNamespace
+
 import numpy as np
-from PySide6.QtWidgets import QPushButton
+from PySide6.QtWidgets import QLabel, QPushButton
 
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
 from geoworkbench.forms.models import FormAxisKind, FormDocument, FormPageOrientation
 from geoworkbench.forms.repository import FormRepository
+from geoworkbench.printing.form_width_advisor import FormWidthLevel
 from geoworkbench.printing.page_settings import (
     PrintOrientation,
     PrintPageSettings,
@@ -259,3 +264,64 @@ def test_form_manager_imports_geosight_form_through_callback(
     assert messages[-1] == "GeoSight imported"
     dialog.close()
 
+
+
+def test_form_manager_uses_shared_palette_aware_presentation(qapp, tmp_path) -> None:
+    dialog = FormManagerDialog(FormRepository(tmp_path / "forms"), language="en")
+
+    assert dialog.objectName() == "form-manager-dialog"
+    assert dialog.styleSheet() == ""
+    heading = dialog.findChild(QLabel, "form-manager-heading")
+    assert heading is not None
+    assert heading.styleSheet() == ""
+    assert dialog.print_layout_hint.objectName() == "form-manager-print-layout-hint"
+    assert dialog.print_layout_hint.styleSheet() == ""
+    primary_buttons = [
+        button
+        for button in dialog.findChildren(QPushButton)
+        if button.property("uiRole") == "primary"
+    ]
+    assert len(primary_buttons) >= 4
+    dialog.close()
+
+
+def test_form_manager_print_hint_uses_semantic_roles(qapp, tmp_path, monkeypatch) -> None:
+    dialog = FormManagerDialog(FormRepository(tmp_path / "forms"), language="en")
+    dialog._family_pair_message = "No paired layout is available."
+    dialog._update_print_layout_hint()
+    assert dialog.print_layout_hint.property("hintRole") == "warning"
+
+    dialog._family_pair_message = None
+    for level, expected_role in (
+        (FormWidthLevel.FITS_PORTRAIT, "success"),
+        (FormWidthLevel.FITS_LANDSCAPE, "warning"),
+        (FormWidthLevel.NEEDS_FIT, "warning"),
+        (FormWidthLevel.NEEDS_SPLIT, "error"),
+    ):
+        monkeypatch.setattr(
+            "geoworkbench.ui.form_manager_dialog.audit_form_width",
+            lambda _widths, level=level: SimpleNamespace(
+                visible_columns=3,
+                total_width_px=780,
+                total_width_mm=206.0,
+                portrait_scale_percent=92.0,
+                landscape_scale_percent=100.0,
+                level=level,
+            ),
+        )
+        dialog._update_print_layout_hint()
+        assert dialog.print_layout_hint.property("hintRole") == expected_role
+        assert dialog.print_layout_hint.styleSheet() == ""
+
+    dialog.close()
+
+
+def test_form_manager_source_has_no_local_presentation_qss_or_fixed_hex() -> None:
+    source = Path(
+        "src/geoworkbench/ui/form_manager_dialog.py"
+    ).read_text(encoding="utf-8")
+
+    assert ".setStyleSheet(" not in source
+    assert re.search(r"#[0-9a-fA-F]{3,8}\b", source) is None
+    assert 'setProperty("uiRole", "primary")' in source
+    assert 'setObjectName("form-manager-print-layout-hint")' in source
