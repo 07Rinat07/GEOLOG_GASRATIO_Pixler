@@ -88,6 +88,7 @@ def export_readable_hydrocarbon_interpretation_xlsx(
         _notify(progress, labels.progress_intervals, 15, 100)
         _write_methods_sheet(workbook, report, language)
         _write_opus_gasomer_sheet(workbook, report, language)
+        _write_gas_context_sheet(workbook, report, language)
         _write_whole_well_sheet(
             workbook,
             report,
@@ -118,6 +119,75 @@ def export_readable_hydrocarbon_interpretation_xlsx(
     finally:
         workbook.close()
     return destination
+
+
+
+def _write_gas_context_sheet(
+    workbook: Workbook,
+    report: HydrocarbonInterpretationReport,
+    language: AppLanguage,
+) -> None:
+    if not report.gas_context_events:
+        return
+    title = {
+        AppLanguage.RU: "Газовый контекст",
+        AppLanguage.KK: "Газ контексті",
+        AppLanguage.EN: "Gas context",
+    }[language]
+    headers = {
+        AppLanguage.RU: (
+            "Тип газа", "Кровля", "Подошва", "Статус", "Влияние",
+            "TG / QC", "Единица", "Комментарий", "Источник", "Event ID",
+        ),
+        AppLanguage.KK: (
+            "Газ түрі", "Жоғарғы", "Төменгі", "Күй", "Әсер",
+            "TG / QC", "Бірлік", "Түсініктеме", "Дереккөз", "Event ID",
+        ),
+        AppLanguage.EN: (
+            "Gas type", "Top", "Bottom", "Status", "Impact",
+            "TG / QC", "Unit", "Comment", "Source", "Event ID",
+        ),
+    }[language]
+    confirmed = {
+        AppLanguage.RU: "подтверждено",
+        AppLanguage.KK: "расталған",
+        AppLanguage.EN: "confirmed",
+    }[language]
+    sheet = workbook.create_sheet(title)
+    sheet.append(headers)
+    for event in report.gas_context_events:
+        sheet.append(
+            protect_spreadsheet_row(
+                (
+                    event.event_type.value,
+                    event.top_depth,
+                    event.bottom_depth,
+                    confirmed,
+                    event.effective_impact.value,
+                    event.reported_total_gas,
+                    event.reported_unit or "",
+                    event.comment,
+                    event.source,
+                    event.event_id,
+                )
+            )
+        )
+    last_row = 1 + len(report.gas_context_events)
+    table = Table(displayName="GasContextEvents", ref=f"A1:J{last_row}")
+    table.tableStyleInfo = TableStyleInfo(
+        name="TableStyleMedium2",
+        showFirstColumn=False,
+        showLastColumn=False,
+        showRowStripes=True,
+        showColumnStripes=False,
+    )
+    sheet.add_table(table)
+    sheet.freeze_panes = "A2"
+    for column, width in enumerate((24, 14, 14, 16, 24, 14, 12, 48, 18, 40), start=1):
+        sheet.column_dimensions[get_column_letter(column)].width = width
+    for row in sheet.iter_rows(min_row=1, max_row=last_row, min_col=1, max_col=10):
+        for cell in row:
+            cell.alignment = Alignment(vertical="top", wrap_text=True)
 
 
 def _write_main_sheet(
