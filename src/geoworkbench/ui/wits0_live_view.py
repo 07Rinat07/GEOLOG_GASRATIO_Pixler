@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
 
 from geoworkbench.services.acquisition_live_view import (
     AcquisitionLiveAxisMode,
+    AcquisitionLiveHealth,
     AcquisitionLiveQuality,
     AcquisitionLiveSnapshot,
     AcquisitionLiveView,
@@ -406,6 +407,8 @@ class Wits0LiveViewWidget(QWidget):
             )
         except (KeyError, RuntimeError, ValueError) as exc:
             self.state_label.setText(self._t("wits0_live.error", error=str(exc)))
+            self.state_label.setToolTip(self._t("wits0_live.error_help"))
+            self.summary_label.setText(self._t("wits0_live.error_view_only"))
             return
         if not force and snapshot.revision == self._last_revision:
             self._render_current_values(snapshot)
@@ -659,15 +662,22 @@ class Wits0LiveViewWidget(QWidget):
             state = self._t("wits0_live.state_preview")
         else:
             state = self._t("wits0_live.state_live")
+        health = snapshot.health
+        health_text = self._t(f"wits0_live.health_{health.value}")
         self.state_label.setText(
             self._t(
                 "wits0_live.state_summary",
-                state=state,
+                state=self._t(
+                    "wits0_live.state_with_health",
+                    state=state,
+                    health=health_text,
+                ),
                 dataset=snapshot.dataset_id,
                 rows=snapshot.total_row_count,
                 visible=snapshot.visible_row_count,
             )
         )
+        self.state_label.setToolTip(self._health_tooltip(health))
         self.summary_label.setText(
             self._t(
                 "wits0_live.render_summary",
@@ -701,6 +711,7 @@ class Wits0LiveViewWidget(QWidget):
 
     def _set_empty_state(self) -> None:
         self.state_label.setText(self._t("wits0_live.no_session"))
+        self.state_label.setToolTip(self._t("wits0_live.no_session_help"))
         self.summary_label.setText(self._t("wits0_live.no_data"))
         self.form_combo.setEnabled(True)
         self.fullscreen_button.setEnabled(True)
@@ -864,6 +875,9 @@ class Wits0LiveViewWidget(QWidget):
         if self._fullscreen or self._sidebar_user_override is not None:
             return
         self._set_sidebar_visible(self.width() >= 820)
+
+    def _health_tooltip(self, health: AcquisitionLiveHealth) -> str:
+        return self._t(f"wits0_live.health_{health.value}_help")
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)
