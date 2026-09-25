@@ -63,4 +63,7 @@ def test_enhanced_chart_uses_compact_markers_not_text_callout_stack() -> None:
     assert "_stagger_callout_centers" not in source
     assert "_draw_fluid_markers(" in source
     assert "fluid_marker_legend_specs" in source
+    assert "marker_lane_offsets" in source
+    assert "minimum_gap=badge_height + 1.0" in source
+    assert "len(visible) <= 12" not in source
     assert "marker_lanes" in source
