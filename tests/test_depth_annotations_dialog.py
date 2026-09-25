@@ -240,3 +240,61 @@ def test_depth_annotations_dialog_source_has_no_local_presentation_qss() -> None
     assert 'setProperty("guidanceRole", "info")' in source
     assert 'setObjectName("depth-annotations-layer-title")' in source
     assert 'setObjectName("depth-annotations-axis-display")' in source
+
+
+def test_depth_annotations_manager_actions_use_semantic_roles(qapp) -> None:
+    dialog = DepthAnnotationsDialog(make_controller(), language=AppLanguage.EN)
+    try:
+        add_button = dialog.findChild(QPushButton, "annotation-add-button")
+        remove_button = dialog.findChild(QPushButton, "annotation-remove-button")
+        undo_button = dialog.findChild(QPushButton, "annotation-undo-button")
+        redo_button = dialog.findChild(QPushButton, "annotation-redo-button")
+
+        assert add_button is not None
+        assert add_button.property("uiRole") == "primary"
+        assert remove_button is not None
+        assert remove_button.property("uiRole") == "destructive"
+        assert undo_button is dialog.undo_button
+        assert undo_button.property("uiRole") == "quiet"
+        assert redo_button is dialog.redo_button
+        assert redo_button.property("uiRole") == "quiet"
+    finally:
+        dialog.close()
+
+
+def test_depth_annotations_single_item_actions_use_semantic_roles(qapp) -> None:
+    controller = make_controller()
+    record = controller.add_annotation(
+        kind="comment",
+        anchor="depth",
+        depth=150.0,
+        text="Existing annotation",
+    )
+    dialog = DepthAnnotationsDialog(
+        controller,
+        language=AppLanguage.EN,
+        annotation_id=record.annotation_id,
+    )
+    try:
+        buttons = dialog.findChild(QDialogButtonBox)
+        assert buttons is not None
+        save_button = buttons.button(QDialogButtonBox.StandardButton.Save)
+        assert save_button is not None
+        assert save_button.property("uiRole") == "primary"
+
+        delete_button = dialog.findChild(
+            QPushButton,
+            "annotation-delete-single-button",
+        )
+        assert delete_button is not None
+        assert delete_button.property("uiRole") == "destructive"
+    finally:
+        dialog.close()
+
+
+def test_depth_annotations_action_role_source_contract() -> None:
+    source = inspect.getsource(DepthAnnotationsDialog)
+
+    assert 'setProperty("uiRole", "primary")' in source
+    assert source.count('setProperty("uiRole", "destructive")') >= 2
+    assert source.count('setProperty("uiRole", "quiet")') >= 2
