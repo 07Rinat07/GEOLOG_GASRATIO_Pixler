@@ -130,6 +130,43 @@ QLabel#formEditToolbarCaption {
     padding-right: 8px;
 }
 
+QFrame#tabletCurvePencilBar {
+    background: palette(window);
+    border-top: 1px solid palette(mid);
+    border-bottom: 1px solid palette(mid);
+}
+QFrame#tabletCurvePencilBar[pencilActive="true"] {
+    background: palette(alternate-base);
+    border-top: 2px solid palette(highlight);
+    border-bottom: 2px solid palette(highlight);
+}
+QFrame#tabletCurvePencilBar QPushButton:checked {
+    background: palette(highlight);
+    color: palette(highlighted-text);
+    border-color: palette(highlight);
+    font-weight: 700;
+}
+QLabel[statusRole="muted"] {
+    background: transparent;
+    color: palette(window-text);
+    padding: 2px 6px;
+}
+QLabel[statusRole="active"] {
+    background: transparent;
+    color: palette(window-text);
+    border-left: 4px solid palette(highlight);
+    padding: 2px 6px;
+    font-weight: 700;
+}
+QLabel[statusRole="error"] {
+    color: palette(window-text);
+    background: palette(alternate-base);
+    border: 2px solid palette(mid);
+    border-left: 4px solid palette(highlight);
+    padding: 2px 6px;
+    font-weight: 700;
+}
+
 QLabel#print-center-source,
 QLabel#print-center-column-header-title,
 QLabel#print-center-action-summary {
