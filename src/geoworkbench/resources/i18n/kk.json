@@ -2428,5 +2428,6 @@
   "document_bundle.status_partial": "Құжаттар жинағы ішінара дайындалды: орындалмағаны — {failed}.",
   "document_bundle.retry_not_required": "Қайталап шығарылатын орындалмаған нәтижелер жоқ.",
   "menu.wits": "WITS",
-  "wits0.start_failed_event": "WITS0 іске қосылмады: {error}"
+  "wits0.start_failed_event": "WITS0 іске қосылмады: {error}",
+  "import.las_loading": "LAS жүктеу және талдау: {files}…"
 }
