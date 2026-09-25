@@ -142,7 +142,11 @@ _DEFAULT_UOMS: tuple[UomDefinition, ...] = (
     UomDefinition("m3/h", QuantityClass.VOLUME_FLOW_RATE, ("m3/hr", "м3/ч")),
     UomDefinition("m3/min", QuantityClass.VOLUME_FLOW_RATE, ("м3/мин",)),
     UomDefinition("m3/s", QuantityClass.VOLUME_FLOW_RATE, ("м3/с",)),
-    UomDefinition("L/min", QuantityClass.VOLUME_FLOW_RATE, ("l/min", "л/мин")),
+    UomDefinition(
+        "L/min",
+        QuantityClass.VOLUME_FLOW_RATE,
+        ("l/min", "l/m", "л/мин"),
+    ),
     UomDefinition("L/s", QuantityClass.VOLUME_FLOW_RATE, ("l/s", "л/с", "л/c")),
     UomDefinition("gpm", QuantityClass.VOLUME_FLOW_RATE, ("gal/min", "us gal/min")),
     UomDefinition("kg/m3", QuantityClass.MASS_DENSITY, ("kg/m^3", "кг/м3", "кг/м^3")),
