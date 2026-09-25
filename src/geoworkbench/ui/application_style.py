@@ -266,7 +266,10 @@ QLabel#form-manager-heading {
     color: palette(window-text);
     padding: 2px 4px;
 }
-QLabel[hintRole] {
+QLabel[hintRole="neutral"],
+QLabel[hintRole="success"],
+QLabel[hintRole="warning"],
+QLabel[hintRole="error"] {
     color: palette(window-text);
     background: palette(base);
     border: 1px solid palette(mid);
