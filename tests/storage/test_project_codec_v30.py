@@ -44,7 +44,7 @@ def test_v30_round_trip_preserves_template_snapshot(tmp_path) -> None:
     loaded = load_project(target)
     block = loaded.wells["well-1"].cuttings[0].description_template_blocks[0]
 
-    assert PROJECT_FORMAT_VERSION == 34
+    assert PROJECT_FORMAT_VERSION == 35
     assert block.template_id == "sandstone"
     assert block.template_version == 3
     assert block.text_i18n["en"] == "Sandstone"
