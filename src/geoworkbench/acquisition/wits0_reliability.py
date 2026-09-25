@@ -529,7 +529,7 @@ class Wits0RecoveryStore:
                 acquisition_session_id=_optional_str(payload.get("acquisition_session_id")),
                 custom_profile_path=_optional_str(payload.get("custom_profile_path")),
                 failure=_optional_str(payload.get("failure")),
-                schema_version=WITS0_WORKSPACE_SCHEMA_VERSION,
+                schema_version=int(payload.get("schema_version", 0)),
             )
         except (KeyError, OSError, TypeError, ValueError, json.JSONDecodeError):
             return None
@@ -686,7 +686,7 @@ class Wits0WorkspaceSettings:
                     else None
                 ),
                 acquisition_session_id=_optional_str(payload.get("acquisition_session_id")),
-                schema_version=int(payload.get("schema_version", 0)),
+                schema_version=WITS0_WORKSPACE_SCHEMA_VERSION,
             )
         except (TypeError, ValueError, json.JSONDecodeError):
             return Wits0WorkspaceState()
