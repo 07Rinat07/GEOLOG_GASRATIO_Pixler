@@ -55,6 +55,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 geoworkbench = [
+  "_build_identity.json",
   "resources/*.json", "resources/*.png", "resources/i18n/*.json",
   "resources/reference/*.pdf",
   "resources/constructor_assets/*/*.json",
