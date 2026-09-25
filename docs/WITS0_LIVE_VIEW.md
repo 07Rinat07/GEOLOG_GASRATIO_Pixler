@@ -60,8 +60,8 @@ NaN-разрывы. Исходный Dataset и append-only records не изм�
 reconnect; **Сбросить** возвращает factory template.
 
 Монитор адаптируется к ширине окна: панель параметров можно свернуть, а live view — вынести в
-полноэкранный режим и вернуть обратно без пересоздания acquisition runtime. Выбранная форма и
-несохранённые изменения сохраняются при handoff LIVE PREVIEW → persistent runtime.
+полноэкранный режим и вернуть обратно без пересоздания acquisition runtime. Выбранная форма и несохранённые изменения оси/окна/каналов теперь явно переносятся при handoff
+LIVE PREVIEW → persistent runtime до применения сохранённого cross-session override.
 
 ## Live Gas Ratio, Pixler, DEXP и интерпретационные события
 
