@@ -23,7 +23,6 @@ from PySide6.QtWidgets import (
 )
 
 from geoworkbench.domain.gas_context_events import (
-    GasContextEvent,
     GasContextEventType,
     InterpretationImpact,
 )
