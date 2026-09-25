@@ -8,6 +8,7 @@ from geoworkbench.calculations.pixler import build_all_sourced_formula_registry
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
 from geoworkbench.services.semantic_channels import default_semantic_channel_dictionary
 from geoworkbench.services.wits0_live_derived import (
+    Wits0DexpCorrectionConfig,
     Wits0DerivedChannelStatus,
     Wits0DerivedUnavailableReason,
     Wits0LiveDerivedChannelService,
@@ -281,6 +282,94 @@ def test_live_derived_service_does_not_guess_bit_rpm_during_slide() -> None:
     assert dexp.status is Wits0DerivedChannelStatus.UNAVAILABLE
     assert dexp.unavailable_reason is Wits0DerivedUnavailableReason.NO_VALID_SAMPLES
     assert "RPM_MODE:surface+no-bit-rpm" in dexp.input_conversions
+
+
+def test_live_derived_service_keeps_dexpc_unavailable_without_explicit_normal_density() -> None:
+    dataset = _dataset()
+    _add_drilling_inputs(dataset)
+    dataset.upsert_curve(
+        "MW_IN",
+        np.full(dataset.depth.shape, 1.437917127792, dtype=np.float64),
+        unit="g/cm3",
+        description="Actual mud density",
+        provenance="wits:test",
+    )
+
+    snapshots = Wits0LiveDerivedChannelService().snapshot(dataset)
+
+    dexpc = {item.mnemonic: item for item in snapshots}["DEXPC"]
+    assert dexpc.status is Wits0DerivedChannelStatus.UNAVAILABLE
+    assert dexpc.unavailable_reason is Wits0DerivedUnavailableReason.MISSING_CONFIGURATION
+    assert dexpc.unavailable_inputs == ("RHO_N_PPG",)
+
+
+def test_live_derived_service_calculates_dexpc_only_with_explicit_normal_density() -> None:
+    dataset = _dataset()
+    _add_drilling_inputs(dataset)
+    dataset.upsert_curve(
+        "MW_IN",
+        np.full(dataset.depth.shape, 1.437917127792, dtype=np.float64),
+        unit="g/cm3",
+        description="Actual mud density",
+        provenance="wits:test",
+    )
+    service = Wits0LiveDerivedChannelService(
+        dexp_correction=Wits0DexpCorrectionConfig(
+            normal_mud_density=1078.437845844,
+            unit="kg/m3",
+        )
+    )
+
+    snapshots = service.snapshot(dataset)
+
+    by_mnemonic = {item.mnemonic: item for item in snapshots}
+    dexp = by_mnemonic["DEXP"]
+    dexpc = by_mnemonic["DEXPC"]
+    assert dexp.status is Wits0DerivedChannelStatus.AVAILABLE
+    assert dexpc.status is Wits0DerivedChannelStatus.AVAILABLE
+    expected = build_all_sourced_formula_registry().calculate(
+        "dexp.rehm_mcclendon_corrected",
+        {
+            "DEXP": np.asarray(dexp.values, dtype=np.float64),
+            "RHO_N_PPG": np.full(2, 9.0, dtype=np.float64),
+            "RHO_A_PPG": np.full(2, 12.0, dtype=np.float64),
+        },
+    )
+    np.testing.assert_allclose(dexpc.values, expected)
+    assert dexpc.input_conversions == (
+        "DEXP:dexp.jorden_shirley@1.0.0",
+        "RHO_A_PPG:g/cm3->ppg",
+        "RHO_N_PPG:kg/m3->ppg(explicit)",
+    )
+    assert dexpc.provenance == "formula:dexp.rehm_mcclendon_corrected:1.0.0"
+    assert dataset.curve_by_mnemonic("DEXPC") is None
+
+
+def test_live_derived_service_rejects_unverified_normal_density_unit() -> None:
+    dataset = _dataset()
+    _add_drilling_inputs(dataset)
+    dataset.upsert_curve(
+        "MW_IN",
+        np.full(dataset.depth.shape, 12.0, dtype=np.float64),
+        unit="ppg",
+        description="Actual mud density",
+        provenance="wits:test",
+    )
+    service = Wits0LiveDerivedChannelService(
+        dexp_correction=Wits0DexpCorrectionConfig(
+            normal_mud_density=9.0,
+            unit="vendor-density",
+        )
+    )
+
+    dexpc = {
+        item.mnemonic: item
+        for item in service.snapshot(dataset)
+    }["DEXPC"]
+
+    assert dexpc.status is Wits0DerivedChannelStatus.UNAVAILABLE
+    assert dexpc.unavailable_reason is Wits0DerivedUnavailableReason.UNSUPPORTED_UNIT
+    assert dexpc.unavailable_inputs == ("RHO_N_PPG",)
 
 
 def test_live_derived_service_materializes_ephemeral_curves_for_projection_only() -> None:

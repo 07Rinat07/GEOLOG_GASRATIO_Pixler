@@ -332,8 +332,12 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
   материализует только available derived results как ephemeral `CurveData` с profile/version/UOM
   provenance. Четвёртый инкремент подключает available virtual Haworth/Pixler/DEXP к операторскому
   списку каналов и form/workspace selection; сохранение остаётся mnemonic-based, а source-only
-  selection state не получает virtual curve IDs. Оставшийся scope — явный DEXPC density contract
-  и live↔batch parity acceptance.
+  selection state не получает virtual curve IDs. Пятый инкремент добавляет DEXPC только через
+  explicit `Wits0DexpCorrectionConfig`: normal mud density обязана быть задана явно с единицей,
+  actual mud density берётся из semantic MW_IN/MW_OUT и обе плотности приводятся в ppg через
+  `UomDictionary`; без конфигурации DEXPC возвращает `missing_configuration`, а не скрытый
+  default. Оставшийся scope — live↔batch parity acceptance и операторская настройка explicit
+  normal mud density.
 
 - [ ] **WITS-GASCTX-01 (P0, в работе):** разделить две независимые оси интерпретации:
   **fluid screening** по Haworth/Pixler и **gas origin/context** по Total Gas/C1–C5 +

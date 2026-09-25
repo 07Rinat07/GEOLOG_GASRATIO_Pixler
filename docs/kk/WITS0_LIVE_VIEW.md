@@ -69,7 +69,9 @@ reviewed runtime-ға көшіріліп, factory template-ке түсіп қа�
 WITS-CALC-01 WH/BH/CH, Pixler C1/C2–C1/C5 және DEXP/DEXPC мәндерін virtual read-only арналар
 ретінде қосады. Batch есептеулеріндегі сол versioned formula registry қолданылады; Qt/UI ішінде
 формулалардың екінші көшірмесі болмайды. DEXP тек ROP/RPM/WOB/BIT және бірлік түрлендірулері
-дұрыс болғанда есептеледі; DEXPC үшін нақты және қалыпты ерітінді тығыздығы да қажет.
+дұрыс болғанда есептеледі. DEXPC үшін reviewed MW_IN/MW_OUT арнасынан нақты mud density және
+танылған бірлігі бар explicit normal mud density қажет; баптау болмаса типтік/жасырын density
+қолданылмайды.
 
 Интерфейс үш ұғымды бөлек көрсетеді:
 
