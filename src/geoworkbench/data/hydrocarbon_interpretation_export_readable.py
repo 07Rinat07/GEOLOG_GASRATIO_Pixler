@@ -134,8 +134,9 @@ def _write_main_sheet(
         else labels.title_standard
     )
     sheet["A1"] = report_title
-    sheet.oddHeader.left.text = REPORT_BRAND_WORDMARK
-    sheet.oddFooter.left.text = REPORT_BRAND_WORDMARK
+    print_wordmark = "&B" + REPORT_BRAND_WORDMARK.replace("&", "&&") + "&B"
+    sheet.oddHeader.left.text = print_wordmark
+    sheet.oddFooter.left.text = print_wordmark
     sheet["A1"].font = Font(size=16, bold=True, color="FFFFFF")
     sheet["A1"].fill = PatternFill("solid", fgColor="17365D")
     sheet["A1"].alignment = Alignment(horizontal="center", vertical="center")
