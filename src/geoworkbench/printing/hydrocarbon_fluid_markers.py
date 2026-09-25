@@ -258,35 +258,35 @@ def draw_fluid_marker(
             painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawPolygon(
             QPolygonF(
-                (
+                [
                     QPointF(center.x(), center.y() - half),
                     QPointF(center.x() + half, center.y()),
                     QPointF(center.x(), center.y() + half),
                     QPointF(center.x() - half, center.y()),
-                )
+                ]
             )
         )
     elif spec.shape is FluidMarkerShape.HEXAGON:
         painter.drawPolygon(
             QPolygonF(
-                tuple(
+                [
                     QPointF(
                         center.x() + half * cos(pi / 3.0 * index),
                         center.y() + half * sin(pi / 3.0 * index),
                     )
                     for index in range(6)
-                )
+                ]
             )
         )
     elif spec.shape in {FluidMarkerShape.TRIANGLE_UP, FluidMarkerShape.TRIANGLE_DOWN}:
         direction = -1.0 if spec.shape is FluidMarkerShape.TRIANGLE_UP else 1.0
         painter.drawPolygon(
             QPolygonF(
-                (
+                [
                     QPointF(center.x(), center.y() + direction * half),
                     QPointF(center.x() - half, center.y() - direction * half),
                     QPointF(center.x() + half, center.y() - direction * half),
-                )
+                ]
             )
         )
     elif spec.shape is FluidMarkerShape.SQUARE:
