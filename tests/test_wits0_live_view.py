@@ -82,3 +82,67 @@ def test_wits0_live_view_constructs_offscreen(monkeypatch: pytest.MonkeyPatch) -
     finally:
         widget.close()
         app.processEvents()
+
+
+@pytest.mark.skipif(
+    importlib.util.find_spec("PySide6") is None
+    or importlib.util.find_spec("pyqtgraph") is None,
+    reason="PySide6/pyqtgraph are not installed in the headless test environment",
+)
+def test_preview_to_persistent_handoff_preserves_unsaved_workspace_state(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    from types import SimpleNamespace
+
+    from PySide6.QtWidgets import QApplication
+
+    from geoworkbench.acquisition.wits0_reliability import Wits0WorkspaceState
+    from geoworkbench.services.localization import AppLanguage
+    import geoworkbench.ui.wits0_live_view as live_module
+
+    class FakeAcquisitionLiveView:
+        def __init__(self, dataset: object, session: object, **_kwargs: object) -> None:
+            self.dataset = dataset
+            self.session = session
+
+    app = QApplication.instance() or QApplication([])
+    monkeypatch.setattr(live_module, "AcquisitionLiveView", FakeAcquisitionLiveView)
+    widget = live_module.Wits0LiveViewWidget(language=AppLanguage.RU)
+    expected_state = Wits0WorkspaceState(
+        axis_mode="depth",
+        auto_follow=False,
+        paused=True,
+        follow_span=240.0,
+        max_points=1500,
+        selected_mnemonics=("ROP", "TOTAL_GAS"),
+    )
+    applied: list[Wits0WorkspaceState] = []
+    monkeypatch.setattr(widget, "_populate_axes", lambda: None)
+    monkeypatch.setattr(widget, "_populate_curves", lambda: None)
+    monkeypatch.setattr(widget, "_apply_live_form_selection", lambda: None)
+    monkeypatch.setattr(widget, "refresh", lambda *args, **kwargs: None)
+    monkeypatch.setattr(widget, "workspace_state", lambda: expected_state)
+    monkeypatch.setattr(widget, "apply_workspace_state", applied.append)
+
+    preview_runtime = SimpleNamespace(
+        controller=SimpleNamespace(dataset=object()),
+        session=SimpleNamespace(session_id="preview-session"),
+    )
+    persistent_runtime = SimpleNamespace(
+        controller=SimpleNamespace(dataset=object()),
+        session=SimpleNamespace(session_id="persistent-session"),
+    )
+
+    try:
+        widget.bind_runtime(preview_runtime, preview=True)
+        assert widget._preview_mode is True
+
+        widget.bind_runtime(persistent_runtime, preview=False)
+
+        assert applied == [expected_state]
+        assert widget._preview_mode is False
+        assert widget._runtime is persistent_runtime
+    finally:
+        widget.close()
+        app.processEvents()
