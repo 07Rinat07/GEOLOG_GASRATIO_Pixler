@@ -13,6 +13,7 @@ from geoworkbench.calculations.pixler import (
 )
 from geoworkbench.domain.models import Dataset
 from geoworkbench.services.las_parameter_resolver import (
+    DatasetParameterResolution,
     LasParameterResolver,
     concentration_scale_to_percent,
 )
@@ -80,7 +81,7 @@ class Wits0LiveDerivedChannelService:
     def _snapshot_profile(
         self,
         profile: FormulaProfile,
-        resolution,  # type: ignore[no-untyped-def]
+        resolution: DatasetParameterResolution,
     ) -> Wits0DerivedChannelSnapshot:
         required = tuple(name.upper() for name in profile.required_inputs)
         ambiguous = tuple(name for name in required if name in resolution.ambiguities)
