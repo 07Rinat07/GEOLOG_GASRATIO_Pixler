@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import inspect
+
 import numpy as np
 from PySide6.QtWidgets import QLabel, QPushButton
 
@@ -18,18 +20,24 @@ def test_las_editor_disables_dataset_operations_without_dataset(qapp) -> None:
     assert dialog.operation is None
 
 
-def test_las_editor_summary_uses_palette_aware_colors(qapp) -> None:
+def test_las_editor_uses_shared_palette_aware_presentation(qapp) -> None:
     dialog = LasEditorDialog(None)
-    summary = next(
-        label
-        for label in dialog.findChildren(QLabel)
-        if "Рабочий LAS не выбран" in label.text()
-    )
+    try:
+        assert dialog.objectName() == "las-editor-dialog"
 
-    style = summary.styleSheet()
-    assert "palette(base)" in style
-    assert "palette(text)" in style
-    assert "#f8fafc" not in style
+        title = dialog.findChild(QLabel, "las-editor-title")
+        summary = dialog.findChild(QLabel, "las-editor-summary")
+        note = dialog.findChild(QLabel, "las-editor-safety-note")
+
+        assert title is not None
+        assert summary is not None
+        assert note is not None
+        assert "Рабочий LAS не выбран" in summary.text()
+        assert title.styleSheet() == ""
+        assert summary.styleSheet() == ""
+        assert note.styleSheet() == ""
+    finally:
+        dialog.close()
 
 
 def test_las_editor_records_selected_operation(qapp) -> None:
@@ -45,3 +53,13 @@ def test_las_editor_records_selected_operation(qapp) -> None:
 
     assert dialog.operation is LasEditorOperation.INSERT_CURVES
     assert dialog.result() == dialog.DialogCode.Accepted
+
+
+def test_las_editor_source_has_no_local_presentation_qss() -> None:
+    source = inspect.getsource(LasEditorDialog)
+
+    assert ".setStyleSheet(" not in source
+    assert "#475569" not in source
+    assert 'setObjectName("las-editor-title")' in source
+    assert 'setObjectName("las-editor-summary")' in source
+    assert 'setObjectName("las-editor-safety-note")' in source

@@ -101,8 +101,11 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
   `_ColorButton` и text/fill/border/leader colors остаются document-data границей.
   Depth Annotations actions используют semantic `uiRole`: Add/Save — primary,
   Remove/Delete — destructive, Undo/Redo — quiet; callbacks и undo/redo history не менялись.
-  Следующий slice — repo-wide аудит оставшихся локальных presentation-QSS вне intentional
-  paper-light Constructor и пользовательских/document-color границ.
+  Repo-wide аудит presentation-QSS выделил безопасный LAS Editor slice: title/summary/safety note
+  теперь используют shared palette-aware object selectors без локального QSS; выбор операции,
+  dataset-summary и responsive geometry не менялись.
+  Следующий slice — Lithology description-template formula/warning через существующий
+  semantic `guidanceRole`; preview/painter и пользовательские/document colors остаются вне scope.
 - [ ] Primary/secondary/destructive/quiet роли задавать semantic property, а не цветом по месту.
 - [ ] Диалоги продолжают использовать `fit_window_to_screen`; длинные RU/KK/EN подписи
   переносятся/уходят в overflow, primary action остаётся видимым.

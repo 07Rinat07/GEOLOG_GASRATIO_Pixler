@@ -215,6 +215,22 @@ QLabel#depth-annotations-drag-hint {
     padding-top: 8px;
 }
 
+QLabel#las-editor-title {
+    color: palette(window-text);
+    font-size: 20px;
+    font-weight: 700;
+}
+QLabel#las-editor-summary {
+    color: palette(text);
+    background: palette(base);
+    border: 1px solid palette(mid);
+    border-radius: 6px;
+    padding: 10px;
+}
+QLabel#las-editor-safety-note {
+    color: palette(window-text);
+}
+
 QLineEdit,
 QComboBox,
 QSpinBox,

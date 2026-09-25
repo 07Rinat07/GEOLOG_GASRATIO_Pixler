@@ -45,6 +45,7 @@ class LasEditorDialog(QDialog):
         self.localizer = Localizer.create(language)
         self.dataset = dataset
         self.operation: LasEditorOperation | None = None
+        self.setObjectName("las-editor-dialog")
         self.setWindowTitle(self._t("las_editor.title"))
         fit_window_to_screen(
             self,
@@ -54,19 +55,13 @@ class LasEditorDialog(QDialog):
 
         root = QVBoxLayout(self)
         title = QLabel(self._t("las_editor.heading"))
-        title.setStyleSheet("font-size:20px; font-weight:700;")
+        title.setObjectName("las-editor-title")
         root.addWidget(title)
 
         summary = QLabel(self._summary_text())
+        summary.setObjectName("las-editor-summary")
         summary.setWordWrap(True)
         summary.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        summary.setStyleSheet(
-            "padding:10px; "
-            "border:1px solid palette(mid); "
-            "border-radius:6px; "
-            "background-color:palette(base); "
-            "color:palette(text);"
-        )
         root.addWidget(summary)
 
         group = QGroupBox(self._t("las_editor.operations"))
@@ -111,8 +106,8 @@ class LasEditorDialog(QDialog):
         root.addWidget(group, 1)
 
         note = QLabel(self._t("las_editor.safety_note"))
+        note.setObjectName("las-editor-safety-note")
         note.setWordWrap(True)
-        note.setStyleSheet("color:#475569;")
         root.addWidget(note)
 
         buttons_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
