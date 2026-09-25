@@ -72,6 +72,7 @@ class Wits0LiveViewWidget(QWidget):
         self._view: AcquisitionLiveView | None = None
         self._preview_mode = False
         self._last_revision: tuple[int, int, bool, bool, str] | None = None
+        self._last_plot_rendered_points = 0
         self._updating_controls = False
         self._updating_plot_range = False
         self._fullscreen = False
@@ -307,6 +308,11 @@ class Wits0LiveViewWidget(QWidget):
             self._apply_live_form_selection()
             self.refresh(force=True)
 
+    def diagnostic_plotted_points(self) -> int:
+        """Return the latest aggregate point count submitted to the live plot."""
+
+        return self._last_plot_rendered_points
+
     def workspace_state(self) -> Wits0WorkspaceState:
         view = self._view
         history = view.history_window if view is not None else None
@@ -381,6 +387,7 @@ class Wits0LiveViewWidget(QWidget):
         self._view = None
         self._preview_mode = False
         self._last_revision = None
+        self._last_plot_rendered_points = 0
         self.curve_list.clear()
         self.values_table.setRowCount(0)
         self.dashboard.clear()
@@ -626,6 +633,7 @@ class Wits0LiveViewWidget(QWidget):
         self.refresh(force=True)
 
     def _render_snapshot(self, snapshot: AcquisitionLiveSnapshot) -> None:
+        self._last_plot_rendered_points = snapshot.rendered_point_count
         self._updating_plot_range = True
         try:
             self.dashboard.render_snapshot(snapshot)
