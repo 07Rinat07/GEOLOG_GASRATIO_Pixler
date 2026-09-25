@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from pathlib import Path
 
 import numpy as np
 
@@ -75,6 +76,21 @@ def _session_with_report_curves(
 
 def _pdf_page_count(payload: bytes) -> int:
     return len(re.findall(rb"/Type\s*/Page\b", payload))
+
+
+def test_whole_well_chart_uses_shared_fluid_markers_without_long_callouts() -> None:
+    source = Path(
+        "src/geoworkbench/printing/hydrocarbon_interpretation_chart.py"
+    ).read_text(encoding="utf-8")
+
+    assert "hydrocarbon_fluid_markers" in source
+    assert "_draw_whole_well_fluid_markers(" in source
+    assert "_draw_whole_well_fluid_legend(" in source
+    assert "fluid_marker_spec(candidate.fluid_hypothesis)" in source
+    assert "marker_lane_offsets" in source
+    assert "minimum_gap=badge_height + 2.0" in source
+    assert "len(candidates) <= 24" not in source
+    assert 'QColor("#f59e0b")' not in source
 
 
 def test_whole_well_report_chart_is_embedded_before_tables(qapp) -> None:

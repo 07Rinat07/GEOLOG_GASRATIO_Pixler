@@ -131,6 +131,14 @@ integrated over the interval, so sparse non-zero C2–C5 values are not hidden b
 pointwise median. Interval, background, and robust z are printed with five decimal
 places; the count column is named **Points above threshold**.
 
+PDF and graphical preview tracks do not print long fluid callouts. The interval keeps its
+colored band at the true depth and receives a compact marker with a short code
+(`G`, `GC`, `DG`, `GO`, `LO`, `O`, `HO`, `LHC`, `?`) and a distinct shape.
+The page legend decodes only types present on that page. On dense pages the symbol remains
+without long text; full depths and full preliminary wording stay in the table. Standard
+and OPUS reports use the same physical-fluid dictionary; ambiguous/no-consensus results
+are never forced to oil or gas and use the `?` marker.
+
 The primary palette uses:
 
 ```text

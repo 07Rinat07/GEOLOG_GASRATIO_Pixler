@@ -18,6 +18,7 @@ from geoworkbench.project.session import ProjectSession
 from geoworkbench.project.interpretation_calculation_controller import (
     InterpretationCalculationController,
 )
+from geoworkbench.printing.hydrocarbon_fluid_markers import fluid_marker_spec
 from geoworkbench.printing.hydrocarbon_interpretation_report import (
     export_hydrocarbon_interpretation_pdf,
 )
@@ -99,6 +100,9 @@ def test_gasomer_ambiguous_oil_gas_result_is_reported_as_possible_alternatives()
     assert hypothesis == "opus_gasomer_ambiguous__possible__2-3"
     label = fluid_hypothesis_label(SimpleNamespace(fluid_hypothesis=hypothesis), AppLanguage.RU)
     assert "возможно, нефть или горючий газ" in label
+    marker = fluid_marker_spec(hypothesis)
+    assert marker.category == "indeterminate"
+    assert marker.code == "?"
 
 
 def _gasomer_session() -> ProjectSession:
@@ -266,6 +270,10 @@ def test_gasomer_class_replaces_ambiguous_historical_headline() -> None:
         candidate,
         AppLanguage.RU,
     )
+    marker = fluid_marker_spec(candidate.fluid_hypothesis)
+    assert marker.category == "oil"
+    assert marker.code == "O"
+    assert marker.color == fluid_marker_spec("productive_oil_decreasing_gravity").color
     assert not candidate.fluid_hypothesis.startswith("opus_fallback__")
     assert any(
         "OPUS Gasomer primary result: class=2" in item

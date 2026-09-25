@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- Reports/OPUS: длинные fluid callouts на графиках заменены единым marker+code+legend contract для стандартного Haworth/Pixler и ОПУС: интервалы сохраняют цветную полосу на фактической глубине, разные типы имеют разные shape/color/code, dense pages переходят в marker-only horizontal lanes, а полные глубины и формулировки остаются в таблицах.
 - UI: Form Create освобождён от локальной light-only темы: controls используют общий palette-aware application style, tree-item metrics централизованы, а Create/Save action помечен semantic `uiRole="primary"`.
 - UI: состояния валидации создания/сохранения формы переведены с локальных warning/error/success hex-QSS на semantic `validationRole` и общий palette-aware contract без изменения duplicate/protected/revision логики.
 - UI: сообщение валидации состава шлама переведено с локального красного QSS на semantic `validationRole="error"` и общий palette-aware presentation; правила интервала/≤4 пород/100% не менялись.
@@ -17,7 +18,7 @@
 - WITS0: добавлен потоковый raw replay для явной acquisition boundary: `.wits`/`.chunks.jsonl` проверяются fail-closed по offset/timestamp/connection ID, replay использует тот же `Wits0StreamProcessor`, поддерживает parser warm-up до более поздней принятой границы и сохраняет raw SHA-256/source segment provenance в persistent records.
 - Reports/UI: добавлен shared adaptive application style и единый professional Report Visual System; печатный wordmark стандартизирован как **Geolog GASRATIO&Pixler** для PDF, Masterlog и Office-экспорта.
 - Формулы/методики: введён tiered audit manifest с source/version/rights disclosure; Haworth/Pixler/DEXP остаются strict, ОПУС разрешён как secondary/workbook screening, detector thresholds явно pending field calibration.
-- Печатные графики УВ: перспективные интервалы получили цветные fluid bands и адаптивные выноски с явным типом флюида (газ, газ-конденсат, нефть и т. п.); ambiguous/no-consensus остаётся неопределённым, а badges не выходят за printable track.
+- Печатные графики УВ: перспективные интервалы получили цветные fluid bands; прежние длинные адаптивные выноски заменены компактным marker+legend contract, ambiguous/no-consensus остаётся неопределённым.
 - WITS0 operator workspace: текущий инкремент добавляет основу адаптивного/fullscreen live monitor, редактируемые формы с Save/Reset по canonical mnemonic, presentation metadata для интерпретационных/threshold markers и отдельный headless classifier происхождения газа (background/formation/connection/trip/circulated/elevated-unclassified).
 - WITS0 plan/docs: Gas Ratio/Pixler/DEXP real-time, fluid-screening badges, gas-origin markers и min/max visual/audio alarms выделены в независимые контракты WITS-CALC/GASCTX/INTERP/ALARM; происхождение газового пика больше не смешивается с предварительным типом флюида.
 - WITS0: persistent backfill теперь fail-closed при усечённом LIVE PREVIEW — если RAM-окно уже вытеснило кадры, AcquisitionSession не создаётся, оператор видит evicted/retained counters и доступный временной диапазон; raw replay остаётся следующим WITS-MEM-01 инкрементом.
