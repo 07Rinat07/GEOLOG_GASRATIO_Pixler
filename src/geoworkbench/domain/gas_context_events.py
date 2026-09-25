@@ -171,6 +171,36 @@ class GasContextRegistry:
 
     def resolve_at_depth(self, depth: float) -> GasContextEvent | None:
         matches = self.confirmed_at_depth(depth)
+        return self._resolve(matches)
+
+    def confirmed_overlapping(
+        self,
+        top_depth: float,
+        bottom_depth: float,
+    ) -> tuple[GasContextEvent, ...]:
+        top = float(top_depth)
+        bottom = float(bottom_depth)
+        if bottom < top:
+            raise ValueError("bottom_depth must be >= top_depth")
+        return tuple(
+            event
+            for event in self.events
+            if event.confirmed
+            and event.top_depth <= bottom
+            and event.bottom_depth >= top
+        )
+
+    def resolve_for_interval(
+        self,
+        top_depth: float,
+        bottom_depth: float,
+    ) -> GasContextEvent | None:
+        return self._resolve(self.confirmed_overlapping(top_depth, bottom_depth))
+
+    @staticmethod
+    def _resolve(
+        matches: tuple[GasContextEvent, ...],
+    ) -> GasContextEvent | None:
         if not matches:
             return None
         return max(
