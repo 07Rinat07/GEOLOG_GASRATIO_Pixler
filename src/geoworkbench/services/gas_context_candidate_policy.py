@@ -7,6 +7,7 @@ from geoworkbench.domain.gas_context_events import (
     GasContextRegistry,
     InterpretationImpact,
 )
+from geoworkbench.domain.models import DepthDomain
 from geoworkbench.services.hydrocarbon_interpretation_legacy import (
     HydrocarbonCandidateInterval,
     HydrocarbonInterpretationReport,
@@ -16,6 +17,8 @@ from geoworkbench.services.hydrocarbon_interpretation_legacy import (
 def apply_gas_context_to_report(
     report: HydrocarbonInterpretationReport,
     registry: GasContextRegistry,
+    *,
+    depth_domain: DepthDomain,
 ) -> HydrocarbonInterpretationReport:
     """Apply confirmed operator gas context to automatic interval classification.
 
@@ -27,7 +30,11 @@ def apply_gas_context_to_report(
 
     confirmed = tuple(
         sorted(
-            (event for event in registry.events if event.confirmed),
+            (
+                event
+                for event in registry.events
+                if event.confirmed and event.depth_domain is depth_domain
+            ),
             key=lambda event: (
                 event.top_depth,
                 event.bottom_depth,
@@ -42,6 +49,7 @@ def apply_gas_context_to_report(
         event = registry.resolve_for_interval(
             candidate.top_depth,
             candidate.bottom_depth,
+            depth_domain=depth_domain,
         )
         if event is None:
             kept.append(candidate)
@@ -73,6 +81,7 @@ def apply_gas_context_to_report(
                     registry.resolve_for_interval(
                         interval.top_depth,
                         interval.bottom_depth,
+                        depth_domain=depth_domain,
                     )
                 )
             ),
