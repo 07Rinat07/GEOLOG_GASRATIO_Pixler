@@ -92,9 +92,15 @@ class GasContextEvent:
             (self.top_depth, "top_depth"),
             (self.bottom_depth, "bottom_depth"),
         ):
-            numeric = float(value)
+            if isinstance(value, bool):
+                raise ValueError(f"{name} must be finite and non-negative")
+            try:
+                numeric = float(value)
+            except (TypeError, ValueError, OverflowError) as exc:
+                raise ValueError(f"{name} must be finite and non-negative") from exc
             if not isfinite(numeric) or numeric < 0.0:
                 raise ValueError(f"{name} must be finite and non-negative")
+            object.__setattr__(self, name, numeric)
         if self.bottom_depth < self.top_depth:
             raise ValueError("bottom_depth must be >= top_depth")
         if self.impact is not None and not isinstance(self.impact, InterpretationImpact):
@@ -102,10 +108,20 @@ class GasContextEvent:
         if not isinstance(self.confirmed, bool):
             raise ValueError("confirmed must be bool")
         if self.reported_total_gas is not None:
-            value = float(self.reported_total_gas)
+            if isinstance(self.reported_total_gas, bool):
+                raise ValueError("reported_total_gas must be finite and non-negative")
+            try:
+                value = float(self.reported_total_gas)
+            except (TypeError, ValueError, OverflowError) as exc:
+                raise ValueError(
+                    "reported_total_gas must be finite and non-negative"
+                ) from exc
             if not isfinite(value) or value < 0.0:
                 raise ValueError("reported_total_gas must be finite and non-negative")
+            object.__setattr__(self, "reported_total_gas", value)
         if self.reported_unit is not None:
+            if not isinstance(self.reported_unit, str):
+                raise ValueError("reported_unit must be a string or None")
             if not self.reported_unit.strip():
                 raise ValueError("reported_unit must be non-empty or None")
             if len(self.reported_unit) > 32:
@@ -135,7 +151,14 @@ class GasContextRegistry:
     events: tuple[GasContextEvent, ...] = ()
 
     def __post_init__(self) -> None:
-        ids = [event.event_id for event in self.events]
+        try:
+            events = tuple(self.events)
+        except TypeError as exc:
+            raise ValueError("events must be an iterable of GasContextEvent") from exc
+        if not all(isinstance(event, GasContextEvent) for event in events):
+            raise ValueError("events must contain only GasContextEvent instances")
+        object.__setattr__(self, "events", events)
+        ids = [event.event_id for event in events]
         if len(ids) != len(set(ids)):
             raise ValueError("gas context event IDs must be unique")
 
