@@ -29,7 +29,10 @@ on/off-bottom state, drilling activity, connection/trip events, and the lag mode
 
 The operator may also create a confirmed manual interval with event kind, depth or elapsed-time
 axis, start/end, optional observed/reference value and unit, comment, and confirmed status.
-Manual QC/test intervals override automatic formation-show classification.
+Manual QC/test intervals override automatic formation-show classification. The effective-context
+resolver preserves the original automatic assessment for auditability while a confirmed manual
+interval supplies the effective event kind. Draft or unconfirmed intervals do not override the
+automatic result.
 
 ## Lag and depth attribution
 

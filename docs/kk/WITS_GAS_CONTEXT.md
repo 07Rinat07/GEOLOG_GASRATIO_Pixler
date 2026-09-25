@@ -28,7 +28,9 @@ on/off-bottom, drilling activity, connection/trip events және lag model де
 
 Оператор event kind, axis (depth немесе elapsed time), start/end, optional value/unit, comment және
 confirmed күйі бар қолмен интервал енгізе алады. Қолмен расталған QC/test интервалы automatic
-formation-show шешімінен жоғары басымдықта болады.
+formation-show шешімінен жоғары басымдықта болады. Effective-context resolver аудит үшін бастапқы
+automatic assessment-ті сақтайды, ал confirmed manual interval қорытынды event kind мәнін береді.
+Draft/unconfirmed интервал automatic нәтижені өзгертпейді.
 
 ## Lag және тереңдікке байлау
 

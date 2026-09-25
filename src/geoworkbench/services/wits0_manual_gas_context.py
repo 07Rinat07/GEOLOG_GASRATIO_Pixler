@@ -4,7 +4,15 @@ from dataclasses import dataclass
 from enum import StrEnum
 from math import isfinite
 
-from geoworkbench.services.wits0_gas_context import Wits0GasOriginKind
+from geoworkbench.services.wits0_gas_context import (
+    Wits0GasContextAssessment,
+    Wits0GasOriginKind,
+)
+
+
+class Wits0GasContextResolutionSource(StrEnum):
+    AUTOMATIC = "automatic"
+    MANUAL = "manual"
 
 
 class Wits0GasContextAxis(StrEnum):
@@ -26,6 +34,25 @@ _MANUAL_PRIORITY: dict[Wits0GasOriginKind, int] = {
     Wits0GasOriginKind.ELEVATED_UNCLASSIFIED: 20,
     Wits0GasOriginKind.INSUFFICIENT_CONTEXT: 0,
 }
+
+
+
+@dataclass(frozen=True, slots=True)
+class Wits0ResolvedGasContext:
+    """Effective gas context after deterministic manual-interval precedence."""
+
+    kind: Wits0GasOriginKind
+    source: Wits0GasContextResolutionSource
+    automatic: Wits0GasContextAssessment
+    manual_interval_id: str | None = None
+    excludes_formation_interpretation: bool = False
+
+    def __post_init__(self) -> None:
+        if self.source is Wits0GasContextResolutionSource.MANUAL:
+            if not self.manual_interval_id or not self.manual_interval_id.strip():
+                raise ValueError("manual resolution requires manual_interval_id")
+        elif self.manual_interval_id is not None:
+            raise ValueError("automatic resolution cannot carry manual_interval_id")
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,8 +140,56 @@ def resolve_manual_gas_context(
     )
 
 
+def resolve_effective_gas_context(
+    automatic: Wits0GasContextAssessment,
+    intervals: tuple[Wits0ManualGasContextInterval, ...],
+    *,
+    axis: Wits0GasContextAxis,
+    value: float,
+) -> Wits0ResolvedGasContext:
+    """Resolve automatic screening against confirmed operator context.
+
+    A confirmed manual interval always wins at the requested axis coordinate.
+    Draft/unconfirmed intervals remain invisible. When no confirmed interval
+    matches, the automatic classifier result is preserved unchanged.
+    """
+
+    if not isinstance(automatic, Wits0GasContextAssessment):
+        raise TypeError("automatic must use Wits0GasContextAssessment")
+    manual = resolve_manual_gas_context(intervals, axis=axis, value=value)
+    if manual is None:
+        return Wits0ResolvedGasContext(
+            kind=automatic.kind,
+            source=Wits0GasContextResolutionSource.AUTOMATIC,
+            automatic=automatic,
+            excludes_formation_interpretation=(
+                automatic.kind
+                in {
+                    Wits0GasOriginKind.CHROMATOGRAPH_TEST_GAS,
+                    Wits0GasOriginKind.GAS_LINE_TEST_GAS,
+                    Wits0GasOriginKind.LAG_TRACER_GAS,
+                    Wits0GasOriginKind.CALIBRATION_GAS,
+                    Wits0GasOriginKind.TRIP_GAS,
+                    Wits0GasOriginKind.CONNECTION_GAS,
+                    Wits0GasOriginKind.CIRCULATED_GAS,
+                    Wits0GasOriginKind.RECYCLED_GAS,
+                }
+            ),
+        )
+    return Wits0ResolvedGasContext(
+        kind=manual.kind,
+        source=Wits0GasContextResolutionSource.MANUAL,
+        automatic=automatic,
+        manual_interval_id=manual.interval_id,
+        excludes_formation_interpretation=manual.excludes_formation_interpretation,
+    )
+
+
 __all__ = [
     "Wits0GasContextAxis",
+    "Wits0GasContextResolutionSource",
+    "Wits0ResolvedGasContext",
     "Wits0ManualGasContextInterval",
     "resolve_manual_gas_context",
+    "resolve_effective_gas_context",
 ]

@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- WITS/Gas context: confirmed manual QC/operational intervals теперь детерминированно перекрывают automatic gas-origin screening через отдельный effective-context resolver; исходная automatic assessment сохраняется для аудита, draft/unconfirmed интервалы не влияют на итоговый класс.
 - WITS/Calculations: добавлен end-to-end live↔batch parity regression: WH, DEXP и DEXPC из live semantic/UOM projection сравниваются с реальным offline FormulaExecutionController, включая одинаковые sourced profile ID/version и численные результаты.
 - WITS0/UI: оператор получил явный opt-in для DEXPC normal mud density с выбором ppg/kg/m3/g/cm3; пока настройка не включена, corrected DEXP остаётся недоступен и типовая плотность не подставляется.
 - WITS/Calculations: corrected DEXP (`DEXPC`) теперь требует явную normal mud density конфигурацию с UOM; actual MW_IN/MW_OUT и normal density приводятся к ppg через общий UOM dictionary, а отсутствие конфигурации даёт `missing_configuration` вместо скрытого типового значения.
