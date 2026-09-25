@@ -256,7 +256,7 @@ class Wits0LiveViewWidget(QWidget):
             return
         previous_state = (
             self.workspace_state()
-            if preview and self._preview_mode and self._view is not None
+            if self._preview_mode and self._view is not None
             else None
         )
         previous_form_id = str(
