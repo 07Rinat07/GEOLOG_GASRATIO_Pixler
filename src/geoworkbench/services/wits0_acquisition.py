@@ -644,8 +644,8 @@ class Wits0AcquisitionSnapshot:
     checkpoints_created: int
     last_checkpoint_sequence: int
     last_applied_sequence: int
-    last_reject_reason_code: Wits0NormalizationCode | None
-    last_error: str | None
+    last_reject_reason_code: Wits0NormalizationCode | None = None
+    last_error: str | None = None
 
 
 class Wits0AcquisitionBackpressureError(AcquisitionBackpressureError):
