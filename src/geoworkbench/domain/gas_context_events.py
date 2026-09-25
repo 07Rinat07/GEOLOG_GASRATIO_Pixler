@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from math import isfinite
 
+from geoworkbench.domain.models import DepthDomain
+
 
 class GasContextEventType(StrEnum):
     BACKGROUND = "background"
@@ -74,6 +76,7 @@ class GasContextEvent:
     event_type: GasContextEventType
     top_depth: float
     bottom_depth: float
+    depth_domain: DepthDomain | None = None
     impact: InterpretationImpact | None = None
     confirmed: bool = True
     reported_total_gas: float | None = None
@@ -103,6 +106,8 @@ class GasContextEvent:
             object.__setattr__(self, name, numeric)
         if self.bottom_depth < self.top_depth:
             raise ValueError("bottom_depth must be >= top_depth")
+        if self.depth_domain is not None and not isinstance(self.depth_domain, DepthDomain):
+            raise ValueError("depth_domain must be DepthDomain or None")
         if self.impact is not None and not isinstance(self.impact, InterpretationImpact):
             raise ValueError("impact must be InterpretationImpact or None")
         if not isinstance(self.confirmed, bool):
@@ -177,6 +182,8 @@ class GasContextRegistry:
         self,
         top_depth: float,
         bottom_depth: float,
+        *,
+        depth_domain: DepthDomain | None = None,
     ) -> tuple[GasContextEvent, ...]:
         top = float(top_depth)
         bottom = float(bottom_depth)
@@ -186,6 +193,7 @@ class GasContextRegistry:
             event
             for event in self.events
             if event.confirmed
+            and (depth_domain is None or event.depth_domain is depth_domain)
             and event.top_depth <= bottom
             and event.bottom_depth >= top
         )
@@ -194,8 +202,16 @@ class GasContextRegistry:
         self,
         top_depth: float,
         bottom_depth: float,
+        *,
+        depth_domain: DepthDomain | None = None,
     ) -> GasContextEvent | None:
-        return self._resolve(self.confirmed_overlapping(top_depth, bottom_depth))
+        return self._resolve(
+            self.confirmed_overlapping(
+                top_depth,
+                bottom_depth,
+                depth_domain=depth_domain,
+            )
+        )
 
     @staticmethod
     def _resolve(
