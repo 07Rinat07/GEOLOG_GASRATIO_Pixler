@@ -52,6 +52,7 @@ from geoworkbench.domain.acquisition import (
     acquisition_timestamp_to_ns,
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.services.wits0_diagnostics import build_wits0_diagnostic_snapshot
 from geoworkbench.services.wits0_acquisition import (
     Wits0AcquisitionBackpressureError,
     Wits0AcquisitionConfig,
@@ -1598,6 +1599,30 @@ class Wits0CaptureDialog(QDialog):
             size /= 1024.0
         precision = 0 if unit == "B" else 1
         return f"{size:.{precision}f} {unit}"
+
+    def diagnostic_context(self) -> dict[str, object]:
+        """Return allowlisted WITS state for a support diagnostics bundle."""
+
+        engine = self.engine
+        runtime = self.acquisition_runtime
+        try:
+            selected_mode = Wits0ConnectionMode(str(self.mode_combo.currentData()))
+        except ValueError:
+            selected_mode = None
+        snapshot = build_wits0_diagnostic_snapshot(
+            self.profile,
+            config=engine.config if engine is not None else None,
+            selected_mode=selected_mode,
+            capture=engine.snapshot() if engine is not None else None,
+            discovery=self.discovery.snapshot(),
+            custom_profile=(
+                self.review_commit.custom_profile
+                if self.review_commit is not None
+                else None
+            ),
+            acquisition=runtime.snapshot() if runtime is not None else None,
+        )
+        return snapshot.as_dict()
 
     def closeEvent(self, event) -> None:  # type: ignore[no-untyped-def]
         if self._live_fullscreen_dialog is not None:

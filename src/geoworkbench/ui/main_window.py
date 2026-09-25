@@ -9818,7 +9818,7 @@ class MainWindow(QMainWindow):
         width_audit = audit_form_width(
             track.width for track in self.tablet_view.layout_model.visible_tracks()
         )
-        return {
+        context: dict[str, object] = {
             "language": self.language.value,
             "project_name": self.session.project.name,
             "project_dirty": self.session.dirty,
@@ -9835,7 +9835,16 @@ class MainWindow(QMainWindow):
             "pencil_track_id": target[0] if target is not None else "",
             "pencil_mnemonic": target[1] if target is not None else "",
             "form_transaction_active": self._form_layout_transaction_active,
+            "wits0": None,
         }
+        wits0_dialog = getattr(self, "_wits0_capture_dialog", None)
+        if wits0_dialog is not None:
+            try:
+                context["wits0"] = wits0_dialog.diagnostic_context()
+            except RuntimeError:
+                # A Qt object may be destroyed between action dispatch and context capture.
+                context["wits0"] = None
+        return context
 
     def open_log_folder(self) -> None:
         manager = current_application_log_manager()
