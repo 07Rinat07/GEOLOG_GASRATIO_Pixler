@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import inspect
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from PySide6.QtGui import QImage
@@ -10,6 +12,7 @@ from geoworkbench.forms.editor import FormStructureEditor
 from geoworkbench.forms.models import FormAxisKind, FormDocument
 from geoworkbench.forms.repository import FormRepository
 from geoworkbench.forms.templates import factory_templates
+from geoworkbench.printing.form_width_advisor import FormWidthLevel
 from geoworkbench.tablet.models import TrackKind
 from geoworkbench.tablet.vertical_ruler import (
     VerticalRulerMode,
@@ -380,3 +383,61 @@ def test_structure_editor_dialog_fits_work_area_and_preserves_primary_actions(
         assert dialog.close_button.text() == "Close"
     finally:
         dialog.close()
+
+
+def test_structure_editor_width_advice_uses_shared_semantic_roles(
+    qapp: QApplication,
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repository = FormRepository(tmp_path / "forms")
+    form = FormDocument.create("Adaptive", FormAxisKind.DEPTH)
+    dialog = FormStructureEditorDialog(form, repository, language="en")
+    try:
+        assert dialog.width_advice.objectName() == "form-structure-width-advice"
+        assert dialog.width_advice.property("hintRole") == "neutral"
+        assert dialog.width_advice.styleSheet() == ""
+
+        audit = SimpleNamespace(
+            visible_columns=2,
+            total_width_px=640,
+            total_width_mm=169.0,
+            portrait_scale_percent=92.0,
+            landscape_scale_percent=100.0,
+            level=FormWidthLevel.FITS_PORTRAIT,
+        )
+        monkeypatch.setattr(
+            "geoworkbench.ui.form_structure_editor_dialog.audit_form_width",
+            lambda _widths: audit,
+        )
+        monkeypatch.setattr(
+            "geoworkbench.ui.form_structure_editor_dialog.form_fits_a4",
+            lambda _form, _orientation: True,
+        )
+        dialog._update_width_advice()
+        assert dialog.width_advice.property("hintRole") == "success"
+
+        monkeypatch.setattr(
+            "geoworkbench.ui.form_structure_editor_dialog.form_fits_a4",
+            lambda _form, _orientation: False,
+        )
+        for level, expected_role in (
+            (FormWidthLevel.FITS_LANDSCAPE, "warning"),
+            (FormWidthLevel.NEEDS_FIT, "warning"),
+            (FormWidthLevel.NEEDS_SPLIT, "error"),
+        ):
+            audit.level = level
+            dialog._update_width_advice()
+            assert dialog.width_advice.property("hintRole") == expected_role
+            assert dialog.width_advice.styleSheet() == ""
+    finally:
+        dialog.close()
+
+
+def test_structure_editor_width_advice_source_has_no_local_presentation_qss() -> None:
+    source = inspect.getsource(FormStructureEditorDialog._update_width_advice)
+
+    assert ".setStyleSheet(" not in source
+    assert "color, background =" not in source
+    assert '_set_width_advice_role("neutral")' in source
+    assert '_set_width_advice_role(role)' in source

@@ -331,6 +331,7 @@ class FormStructureEditorDialog(QDialog):
         self.preview = _FormPreview()
         right_layout.addWidget(self.preview)
         self.width_advice = QLabel()
+        self.width_advice.setObjectName("form-structure-width-advice")
         self.width_advice.setWordWrap(True)
         self.width_advice.setTextFormat(Qt.TextFormat.RichText)
         right_layout.addWidget(self.width_advice)
@@ -684,15 +685,19 @@ class FormStructureEditorDialog(QDialog):
         return button
 
 
+    def _set_width_advice_role(self, role: str) -> None:
+        self.width_advice.setProperty("hintRole", role)
+        style = self.width_advice.style()
+        style.unpolish(self.width_advice)
+        style.polish(self.width_advice)
+        self.width_advice.update()
+
     def _update_width_advice(self) -> None:
         audit = audit_form_width(
             column.width if column.visible else 0 for column in self.editor.form.columns
         )
         if audit.visible_columns == 0:
-            self.width_advice.setStyleSheet(
-                "padding:6px 8px; border:1px solid #94a3b8; border-radius:5px; "
-                "background:#f1f5f9; color:#475569;"
-            )
+            self._set_width_advice_role("neutral")
             self.width_advice.setText(
                 self._text(
                     "В форме нет видимых колонок. Добавьте колонку для проверки A4.",
@@ -710,28 +715,28 @@ class FormStructureEditorDialog(QDialog):
         target_fits = form_fits_a4(self.editor.form, target)
         self.fit_a4_button.setEnabled(not target_fits)
         if target_fits:
-            color, background = "#166534", "#dcfce7"
+            role = "success"
             recommendation = self._text(
                 "Форма помещается в выбранный A4 без уменьшения при печати.",
                 "Пішін таңдалған A4 парағына басып шығару кезінде кішірейтусіз сыяды.",
                 "The form fits the selected A4 without print-time reduction.",
             )
         elif audit.level is FormWidthLevel.FITS_LANDSCAPE:
-            color, background = "#92400e", "#fef3c7"
+            role = "warning"
             recommendation = self._text(
                 "Для книжного A4 уменьшите ширину; для альбомного A4 форма подходит.",
                 "Кітаптық A4 үшін енін азайтыңыз; альбомдық A4 үшін пішін жарайды.",
                 "Reduce widths for portrait A4; the form fits landscape A4.",
             )
         elif audit.level is FormWidthLevel.NEEDS_FIT:
-            color, background = "#9a3412", "#ffedd5"
+            role = "warning"
             recommendation = self._text(
                 "Широкая форма: уменьшите самые широкие колонки, скройте второстепенные или включите автоподбор при печати.",
                 "Кең пішін: ең кең бағандарды азайтыңыз, қосымша бағандарды жасырыңыз немесе баспада автосыйғызуды қосыңыз.",
                 "Wide form: reduce the widest columns, hide secondary tracks, or use fit-to-page.",
             )
         else:
-            color, background = "#991b1b", "#fee2e2"
+            role = "error"
             recommendation = self._text(
                 "Слишком широкая форма: разделите её на рабочую и печатную, либо используйте A3/рулон.",
                 "Пішін тым кең: жұмыс және баспа пішіндеріне бөліңіз немесе A3/орам қолданыңыз.",
@@ -745,10 +750,7 @@ class FormStructureEditorDialog(QDialog):
             f"<b>Form width:</b> {audit.visible_columns} columns, {audit.total_width_px} px ≈ {audit.total_width_mm:.0f} mm. "
             f"Portrait A4: {audit.portrait_scale_percent:.0f}%; landscape: {audit.landscape_scale_percent:.0f}%. Target scale: {target_scale:.0f}%.<br>{recommendation}",
         )
-        self.width_advice.setStyleSheet(
-            f"padding:6px 8px; border:1px solid {color}; border-radius:5px; "
-            f"background:{background}; color:{color};"
-        )
+        self._set_width_advice_role(role)
         self.width_advice.setText(text)
 
     def _apply_page_orientation(self, _index: int = -1) -> None:

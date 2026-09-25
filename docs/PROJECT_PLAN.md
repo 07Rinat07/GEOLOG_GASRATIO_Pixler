@@ -93,8 +93,11 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
   semantic `hintRole` neutral/success/warning/error без локальных hex-QSS.
   Description Templates guidance использует semantic `guidanceRole="info"|"warning"`: формула
   и catalog warning больше не задают локальные hex-QSS и наследуют palette-aware presentation.
-  Следующий slice — Form Structure width-advice semantic states; paper-light Constructor и
-  пользовательские/document colors требуют отдельной границы.
+  Form Structure A4 width advice переиспользует общий semantic `hintRole`
+  neutral/success/warning/error; локальные width-advice hex-QSS удалены, а painter/editor
+  colors preview остаются отдельной document-semantics границей.
+  Следующий slice — Depth Annotations presentation hints/title/axis guidance; paper-light
+  Constructor и пользовательские/document colors требуют отдельной границы.
 - [ ] Primary/secondary/destructive/quiet роли задавать semantic property, а не цветом по месту.
 - [ ] Диалоги продолжают использовать `fit_window_to_screen`; длинные RU/KK/EN подписи
   переносятся/уходят в overflow, primary action остаётся видимым.
