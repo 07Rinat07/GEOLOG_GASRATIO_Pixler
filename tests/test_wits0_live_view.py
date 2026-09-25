@@ -155,6 +155,20 @@ def test_operator_workspace_exposes_virtual_channels_by_mnemonic(
             self.paused = False
             self.history_window = None
             self.selected: tuple[str, ...] = ()
+            self.config = SimpleNamespace(
+                time_window_seconds=600.0,
+                depth_window=100.0,
+            )
+
+        def snapshot(
+            self,
+            *,
+            curve_ids: tuple[str, ...] = (),
+            max_points_per_curve: int = 100,
+            **_kwargs: object,
+        ) -> object:
+            del curve_ids, max_points_per_curve
+            return SimpleNamespace(axis_mode=self.axis_mode)
 
         def available_axis_modes(self) -> tuple[AcquisitionLiveAxisMode, ...]:
             return (AcquisitionLiveAxisMode.AUTO,)
