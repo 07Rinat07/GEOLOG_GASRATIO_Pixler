@@ -116,6 +116,26 @@ def test_lithology_dialog_suggests_matching_template_for_lithotype(qapp) -> None
     dialog.close()
 
 
+def test_lithology_actions_use_semantic_roles(qapp) -> None:
+    session = ProjectSession()
+    session.project.wells["well"] = Well("well", "Well")
+    session.current_well_id = "well"
+    dialog = LithologyDialog(LithologyController(session))
+    try:
+        add_button = dialog.findChild(QPushButton, "lithology-add-button")
+        update_button = dialog.findChild(QPushButton, "lithology-update-button")
+        remove_button = dialog.findChild(QPushButton, "lithology-remove-button")
+
+        assert add_button is not None
+        assert update_button is not None
+        assert remove_button is not None
+        assert add_button.property("uiRole") == "primary"
+        assert update_button.property("uiRole") is None
+        assert remove_button.property("uiRole") == "destructive"
+    finally:
+        dialog.close()
+
+
 def test_lithology_dialog_uses_english_catalog_and_labels(qapp) -> None:
     session = ProjectSession()
     session.project.wells["well"] = Well("well", "Well")
