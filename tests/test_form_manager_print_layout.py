@@ -1,6 +1,6 @@
+import re
 from pathlib import Path
 from types import SimpleNamespace
-import re
 
 import numpy as np
 from PySide6.QtWidgets import QLabel, QPushButton
