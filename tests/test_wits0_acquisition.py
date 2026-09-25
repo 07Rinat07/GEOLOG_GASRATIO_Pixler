@@ -156,10 +156,32 @@ def test_duplicate_and_out_of_order_source_sequences_are_skipped() -> None:
     assert first.batch is not None
     assert duplicate.batch is None
     assert duplicate.diagnostics[0].code is Wits0NormalizationCode.DUPLICATE_SEQUENCE_SKIPPED
+    assert duplicate.reject_reason_code is Wits0NormalizationCode.DUPLICATE_SEQUENCE_SKIPPED
     assert out_of_order.batch is None
     assert (
         out_of_order.diagnostics[0].code
         is Wits0NormalizationCode.OUT_OF_ORDER_SEQUENCE_SKIPPED
+    )
+
+
+def test_runtime_snapshot_keeps_stable_last_reject_reason_code() -> None:
+    _profile, frames, commit = _time_commit(
+        _frame(2, 10, "0208123.4", "021011.2"),
+        _frame(2, 10, "0208123.6", "021012.0"),
+    )
+    well = Well("well-reject", "Well reject")
+    runtime = Wits0AcquisitionRuntime(well, commit, session_id="session-reject")
+
+    accepted = runtime.submit_frame(frames[0])
+    rejected = runtime.submit_frame(frames[1])
+
+    assert accepted.accepted
+    assert not rejected.accepted
+    snapshot = runtime.snapshot()
+    assert snapshot.frames_skipped == 1
+    assert (
+        snapshot.last_reject_reason_code
+        is Wits0NormalizationCode.DUPLICATE_SEQUENCE_SKIPPED
     )
 
 
