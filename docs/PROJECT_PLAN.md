@@ -86,8 +86,10 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
   интервала/лимита пород/100% не меняется, а локальный red-QSS удалён.
   Form Create validation использует semantic `validationRole` для warning/error/success
   вместо локальных state-specific hex-QSS; duplicate/protected/save/available логика сохранена.
-  Следующий slice — отдельный перенос light-only presentation темы Form Create, затем Form Manager;
-  paper-light Constructor и пользовательские/document colors требуют отдельной границы.
+  Form Create больше не задаёт локальную light-only тему: controls наследуют shared palette-aware
+  foundation, tree-item metrics вынесены в application style, primary action использует `uiRole`.
+  Следующий slice — Form Manager presentation; paper-light Constructor и пользовательские/document
+  colors требуют отдельной границы.
 - [ ] Primary/secondary/destructive/quiet роли задавать semantic property, а не цветом по месту.
 - [ ] Диалоги продолжают использовать `fit_window_to_screen`; длинные RU/KK/EN подписи
   переносятся/уходят в overflow, primary action остаётся видимым.

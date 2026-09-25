@@ -18,6 +18,9 @@ def test_create_dialog_shows_ready_factory_user_forms_and_blocks_duplicate_name(
     dialog.show()
     qapp.processEvents()
 
+    assert dialog.objectName() == "form-create-dialog"
+    assert dialog.styleSheet() == ""
+    assert dialog.create_button.property("uiRole") == "primary"
     assert dialog.validation_label.objectName() == "form-validation"
     assert dialog.validation_label.property("validationRole") == "warning"
     assert dialog.tree.topLevelItemCount() == 3
