@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- UI: Lithology actions получили semantic `uiRole`: Add — primary, Remove — destructive, Update остаётся default; CRUD callbacks и lithology data semantics не менялись.
 - UI: Lithology description-template formula/warning переведены с локальных fixed-hex QSS на semantic `guidanceRole="info"|"warning"` и общий palette-aware presentation без изменения template selection, RU/KK/EN контента или lithology CRUD.
 - UI: LAS Editor title/summary/safety note переведены с локальных presentation-QSS на shared palette-aware selectors; логика выбора операций, dataset summary и responsive geometry не менялась.
 - UI: Depth Annotations actions получили semantic `uiRole`: Add/Save — primary, Remove/Delete — destructive, Undo/Redo — quiet; CRUD callbacks и history behavior не менялись.

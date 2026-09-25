@@ -164,13 +164,15 @@ class LithologyDialog(QDialog):
         content_layout.addLayout(form)
 
         actions = QHBoxLayout()
-        for object_name, title, handler in (
-            ("lithology-add-button", self._t("common.add"), self._add),
-            ("lithology-update-button", self._t("common.update"), self._update),
-            ("lithology-remove-button", self._t("common.remove"), self._remove),
+        for object_name, title, handler, ui_role in (
+            ("lithology-add-button", self._t("common.add"), self._add, "primary"),
+            ("lithology-update-button", self._t("common.update"), self._update, None),
+            ("lithology-remove-button", self._t("common.remove"), self._remove, "destructive"),
         ):
             button = QPushButton(title)
             button.setObjectName(object_name)
+            if ui_role is not None:
+                button.setProperty("uiRole", ui_role)
             button.clicked.connect(handler)
             actions.addWidget(button)
         root.addLayout(actions)

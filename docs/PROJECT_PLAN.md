@@ -106,8 +106,10 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
   dataset-summary и responsive geometry не менялись.
   Lithology description-template formula/warning теперь также используют существующий
   semantic `guidanceRole="info"|"warning"`; локальные fixed-hex QSS удалены без изменения
-  template selection, RU/KK/EN контента или lithology CRUD. Следующий slice — repo-wide аудит
-  оставшихся локальных presentation-QSS вне preview/painter и пользовательских/document colors.
+  template selection, RU/KK/EN контента или lithology CRUD. Действия Lithology используют
+  semantic `uiRole`: Add — primary, Remove — destructive, Update сохраняет default presentation;
+  callbacks и CRUD semantics не меняются. Следующий slice — repo-wide аудит оставшихся локальных
+  presentation-QSS вне preview/painter и пользовательских/document colors.
 - [ ] Primary/secondary/destructive/quiet роли задавать semantic property, а не цветом по месту.
 - [ ] Диалоги продолжают использовать `fit_window_to_screen`; длинные RU/KK/EN подписи
   переносятся/уходят в overflow, primary action остаётся видимым.
