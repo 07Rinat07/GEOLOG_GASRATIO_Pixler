@@ -511,6 +511,7 @@ class InterpretationReportWorkspace(QWidget):
                     target,
                     dataset=dataset,
                     overwrite=target.exists(),
+                    progress=self._update_report_export_progress,
                 )
         except (OSError, FileExistsError, HydrocarbonInterpretationExportError) as exc:
             self._show_export_error(exc)

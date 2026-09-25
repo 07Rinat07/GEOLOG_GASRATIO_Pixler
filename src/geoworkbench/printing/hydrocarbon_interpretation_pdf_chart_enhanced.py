@@ -379,7 +379,7 @@ def _draw_candidate_bands(
             continue
         spec = fluid_marker_spec(candidate.fluid_hypothesis)
         band_color = QColor(spec.color)
-        band_color.setAlpha(34)
+        band_color.setAlpha(20)
         y1 = base_chart._depth_y(overlap_top, page, rect)
         y2 = base_chart._depth_y(overlap_bottom, page, rect)
         painter.fillRect(

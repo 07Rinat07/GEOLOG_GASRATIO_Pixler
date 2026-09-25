@@ -2428,5 +2428,6 @@
   "document_bundle.status_partial": "Комплект документов подготовлен частично: не выполнено — {failed}.",
   "document_bundle.retry_not_required": "Нет неудачных результатов для повторного выпуска.",
   "menu.wits": "WITS",
-  "wits0.start_failed_event": "Не удалось запустить WITS0: {error}"
+  "wits0.start_failed_event": "Не удалось запустить WITS0: {error}",
+  "import.las_loading": "Загрузка и анализ LAS: {files}…"
 }

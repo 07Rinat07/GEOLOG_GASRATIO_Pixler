@@ -183,3 +183,18 @@ def test_workspace_exposes_primary_recalculation_and_chart_actions(qapp) -> None
     assert report_index >= 0
     assert "с графиками" in workspace.report_mode.itemText(report_index)
     workspace.close()
+
+
+def test_pdf_chart_breaks_clipped_outlier_spikes_and_limits_band_glare() -> None:
+    base = Path(
+        "src/geoworkbench/printing/hydrocarbon_interpretation_pdf_chart.py"
+    ).read_text(encoding="utf-8")
+    enhanced = Path(
+        "src/geoworkbench/printing/hydrocarbon_interpretation_pdf_chart_enhanced.py"
+    ).read_text(encoding="utf-8")
+
+    assert "break_clipped_spike" in base
+    assert "(clipped or previous_clipped)" in base
+    assert "abs(normalized - previous_normalized) >= 0.72" in base
+    assert "if previous is not None and not break_clipped_spike:" in base
+    assert "band_color.setAlpha(20)" in enhanced

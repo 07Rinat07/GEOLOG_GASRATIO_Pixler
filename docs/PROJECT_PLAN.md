@@ -44,23 +44,24 @@ release plan и временные планы в `docs` не создаются.
 | 1 | WITS-MEM-01 | Автоматические raw replay/acquisition-boundary/RSS gates закрыты; остался длительный реальный raw/field прогон перед FIELD-01 | Оператор + разработчик / блокировано внешним условием |
 | 2 | UI-SYS-01 | Единый адаптивный UI foundation: кнопки, поля, toolbar, focus/hover/disabled states, размеры касания, small-screen/HiDPI правила; без локальных desktop-only стилей | Разработчик / в работе |
 | 3 | PRINT-STYLE-01 | Единый Report Visual System уровня профессиональных нефтесервисных отчётов: PDF/Masterlog/DOCX/XLSX, A4/A3/roll, colour + grayscale | Разработчик / в работе |
-| 4 | WITS-UX-01 | Довести operator workspace после foundation PR #282: no-data states, help, persistence/reconnect и полевой UX acceptance | Разработчик / в работе |
-| 5 | WITS-CALC-01 | Live-derived Gas Ratio/Haworth, Pixler и DEXP/DEXPC через существующий versioned formula registry; без второй реализации формул в UI | Разработчик / завершено |
+| 4 | GASCTX-RPT-01 | Перед Gas Ratio/Haworth/Pixler/OPUS и всеми газовыми интерпретационными отчётами — редактор повторяющихся технологических газовых интервалов и единый report-first Gas Context Registry; известные gas-test/connection/trip/swab/circulated/recycled/calibration/lag-tracer интервалы не должны автоматически становиться УВ-пластами | Разработчик + специалист ГТИ / готово к разработке |
+| 5 | WITS-UX-01 | Довести operator workspace после foundation PR #282: no-data states, help, persistence/reconnect и полевой UX acceptance | Разработчик / в работе |
+| 6 | WITS-CALC-01 | Live-derived Gas Ratio/Haworth, Pixler и DEXP/DEXPC через существующий versioned formula registry; без второй реализации формул в UI | Разработчик / завершено |
 
 WITS-CALC-01 закрыт зелёным Release gate и merge в `main`: live virtual Haworth/Pixler/DEXP/DEXPC, explicit operator normal mud density и live↔batch parity покрыты автоматическими regression tests.
 
-| 6 | WITS-GASCTX-01 | Разделить background gas, formation show, connection gas, trip gas, circulated gas и elevated-unclassified по газу + технологическому контексту | Разработчик + специалист ГТИ / в работе |
+| 7 | WITS-GASCTX-01 | Live/WITS-классификация background/formation/connection/trip/circulated/elevated-unclassified остаётся отдельной вторичной интеграцией поверх общего gas-context контракта; WITS не является обязательной зависимостью для report-first редактора | Разработчик + специалист ГТИ / в работе |
 
-WITS-GASCTX-01: effective gas context presentation boundary и общий projection service добавлены как единый контракт observation → automatic assessment → manual precedence → localized presentation. Следующий шаг — подключить projection к конкретным live/report adapters и операторскому отображению.
+WITS-GASCTX-01: effective gas context presentation boundary и общий projection service добавлены как единый контракт observation → automatic assessment → manual precedence → localized presentation. Дальнейшая WITS-интеграция должна переиспользовать общий Gas Context Registry, но не блокирует работу газовых отчётов.
 
-| 7 | WITS-ALARM-01 | Для всех отображаемых параметров min/max, visual/audio alarm, hysteresis/debounce, acknowledgement и маркеры на графике | Разработчик + оператор / готово к разработке |
-| 8 | OBS-01 | Build/session identity и объяснимые состояния no-data/stale/error; используется операторским помощником и alarms | Разработчик / готово к разработке |
-| 9 | WITS-PLOT-01 | Независимые шкалы/диапазоны, редактируемые панели/колонки, читаемые интерпретационные полосы и non-overlap badges | Разработчик / в работе |
-| 10 | FIELD-01 | Реальный WITS: сеть, профиль, live → review → запись → reconnect/reopen + Gas Ratio/Pixler/DEXP/alarms | Оператор + разработчик / блокировано внешним условием |
-| 11 | WELL-04 → WELL-05 | Закрыть остаточную сквозную приёмку переводов и связанных макетов; использовать готовый WELL-06 | Разработчик + оператор / запланировано |
-| 12 | REL-03 / CUT-03 | Реальная печать A4/A3 и комплект одной ревизии уже через PRINT-STYLE-01; блокер финальной physical acceptance: нужны принтер и образцы | Оператор + разработчик / частично блокировано |
-| 13 | PERF-05 | Решение по storage только после измеренного baseline 100k/1M строк | Разработчик / запланировано |
-| 14 | FIELD-02…05; OPUS-08 | Совместимость с внешними системами и независимая проверка интерпретации | Разработчик + профильный специалист / блокировано внешним условием |
+| 8 | WITS-ALARM-01 | Для всех отображаемых параметров min/max, visual/audio alarm, hysteresis/debounce, acknowledgement и маркеры на графике | Разработчик + оператор / готово к разработке |
+| 9 | OBS-01 | Build/session identity и объяснимые состояния no-data/stale/error; используется операторским помощником и alarms | Разработчик / готово к разработке |
+| 10 | WITS-PLOT-01 | Независимые шкалы/диапазоны, редактируемые панели/колонки, читаемые интерпретационные полосы и non-overlap badges | Разработчик / в работе |
+| 11 | FIELD-01 | Реальный WITS: сеть, профиль, live → review → запись → reconnect/reopen + Gas Ratio/Pixler/DEXP/alarms | Оператор + разработчик / блокировано внешним условием |
+| 12 | WELL-04 → WELL-05 | Закрыть остаточную сквозную приёмку переводов и связанных макетов; использовать готовый WELL-06 | Разработчик + оператор / запланировано |
+| 13 | REL-03 / CUT-03 | Реальная печать A4/A3 и комплект одной ревизии уже через PRINT-STYLE-01; блокер финальной physical acceptance: нужны принтер и образцы | Оператор + разработчик / частично блокировано |
+| 14 | PERF-05 | Решение по storage только после измеренного baseline 100k/1M строк | Разработчик / запланировано |
+| 15 | FIELD-02…05; OPUS-08 | Совместимость с внешними системами и независимая проверка интерпретации | Разработчик + профильный специалист / блокировано внешним условием |
 
 **Внешние действия, начинаемые сейчас:** WITS-NET-01 (оператор сети), SEC-05 (владелец
 ресурсов) и подготовка решения SEC-01 (владелец репозитория). Они не требуют ожидания
@@ -72,6 +73,57 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
 заново. Порядок WELL-01…06 сохраняет зависимости сценария: реализация WELL-06 использует
 существующие контракты WELL-04/05, но не подтверждает их полную операторскую приёмку.
 Календарные сроки не назначаются без доступности стенда и измерения первого инкремента.
+
+## GASCTX-RPT-01 — технологический газовый контекст интерпретационных отчётов
+
+Цель — перед расчётом Gas Ratio/Haworth, Pixler, OPUS и любого комбинированного газового
+интерпретационного отчёта дать геологу/оператору явный способ указать интервалы газа известного
+технологического происхождения. Эта функция **report-first** и не зависит от наличия WITS.
+
+- [ ] Ввести generic `GasContextEvent` / `GasContextRegistry`, не привязанный к `Wits0`.
+  Registry хранится по скважине/набору данных и доступен всем газовым интерпретационным отчётам.
+- [ ] События представляются **неограниченной коллекцией строк**. Один тип может повторяться
+  сколько угодно раз: gas build-up/connection, СПО/trip, swab, circulated, recycled,
+  chromatograph test, gas-line test, lag-tracer, calibration, formation show, background,
+  elevated-unclassified и расширяемое «прочее технологическое событие».
+- [ ] Каждая запись имеет собственный immutable ID, тип, ось/интервал глубины, start/end,
+  confirmed/draft, источник, комментарий и режим влияния на интерпретацию. Повторяющиеся
+  события одного типа не объединяются автоматически в один большой интервал.
+- [ ] Редактор перед расчётом отчёта поддерживает Add, «добавить ещё такой же тип», Duplicate,
+  Delete и редактирование строк. Автонумерация вида «Газ наращивания #1/#2» является только
+  display-слоем; identity задаётся event ID.
+- [ ] Ввод Total Gas/% и других ручных величин опционален и хранится как операторский/QC reference,
+  **не заменяя** измеренные LAS/GS2/WITS C1–C5/TG. При наличии исходных кривых min/mean/max/peak
+  вычисляются автоматически; ручное и измеренное значения показываются раздельно с QC-разницей.
+- [ ] Ввести явный `InterpretationImpact` минимум из трёх режимов:
+  **exclude geological interpretation**, **operational/technological gas**, **formation gas**;
+  дополнительно поддержать **auto / requires geologist review** для неоднозначных случаев.
+- [ ] Gas-line/chromatograph/calibration/lag-tracer test интервалы исключаются из автоматического
+  назначения УВ-пласта и из обучения фонового газа. Значения и формулы сохраняются для аудита.
+- [ ] Connection/build-up, trip/СПО, swab, circulated/recycled gas не назначают самостоятельный
+  продуктивный пласт автоматически, но их C1–C5/TG, Gas Ratio, Haworth/Pixler и OPUS результаты
+  сохраняются и подписываются как технологический контекст для решения геолога.
+- [ ] Confirmed manual context имеет приоритет над автоматической formation-show классификацией;
+  draft/unconfirmed не меняет итог. При пересечении нескольких confirmed событий применяется
+  детерминированный приоритет тест/QC → trip/swab/connection/circulation/recycle → formation/background,
+  а исходная automatic assessment сохраняется для аудита.
+- [ ] Отчёт выводит для каждого затронутого интервала: effective gas context, тип события,
+  event ID/номер, глубины, измеренные TG/C1–C5, ручной QC reference при наличии, automatic
+  assessment и пояснение, почему продуктивная классификация подавлена или уточнена.
+- [ ] Один registry обязателен для PDF, XLSX, DOCX и preview; Gas Ratio/Haworth, Pixler, OPUS и
+  комбинированный hydrocarbon report не создают собственных несовместимых списков исключений.
+- [ ] Графики/планшет могут показывать эти интервалы отдельными полосами/метками, но цвет не является
+  единственным носителем смысла; подпись типа события обязательна и должна работать в grayscale.
+- [ ] WITS/live позже может читать тот же registry и projection, но отсутствие WITS не блокирует
+  создание, хранение и использование событий в офлайн-интерпретационных отчётах.
+- [ ] Приёмка: несколько повторяющихся событий одного типа, пересекающиеся интервалы,
+  draft/confirmed, все режимы InterpretationImpact, сохранение/reopen проекта, RU/KK/EN,
+  одинаковый effective context в preview/PDF/XLSX/DOCX и отсутствие изменения source curves.
+
+Критерий завершения: известный технологический газ может быть внесён до расчёта отчёта в любом
+числе повторяющихся интервалов; формулы остаются воспроизводимыми, но подтверждённый контекст
+не позволяет автоматически представить test/СПО/swab/connection/recycled gas как продуктивный
+УВ-пласт без явного решения геолога.
 
 ## UI-SYS-01 — единый адаптивный интерфейс
 
