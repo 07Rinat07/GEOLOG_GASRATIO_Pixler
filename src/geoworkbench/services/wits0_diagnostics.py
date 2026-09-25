@@ -17,7 +17,7 @@ from geoworkbench.services.wits0_import_review import (
 
 @dataclass(frozen=True, slots=True)
 class Wits0DiagnosticSnapshot:
-    """Allowlisted WITS0 support state without raw measurements or network identity."""
+    """Allowlisted WITS0 support state without raw measurements or source identity."""
 
     profile_id: str
     profile_version: int
@@ -26,7 +26,6 @@ class Wits0DiagnosticSnapshot:
     encoding: str
     mode: str | None = None
     discovery_fingerprint: str | None = None
-    custom_profile_id: str | None = None
     custom_profile_revision: int | None = None
     capture_state: str | None = None
     capture_frames_received: int = 0
@@ -76,9 +75,6 @@ def build_wits0_diagnostic_snapshot(
             else selected_mode.value if selected_mode is not None else None
         ),
         discovery_fingerprint=discovery.fingerprint if discovery is not None else None,
-        custom_profile_id=(
-            custom_profile.custom_profile_id if custom_profile is not None else None
-        ),
         custom_profile_revision=(
             custom_profile.revision if custom_profile is not None else None
         ),
