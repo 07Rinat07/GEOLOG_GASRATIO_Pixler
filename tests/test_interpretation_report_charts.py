@@ -87,6 +87,9 @@ def test_whole_well_chart_uses_shared_fluid_markers_without_long_callouts() -> N
     assert "_draw_whole_well_fluid_markers(" in source
     assert "_draw_whole_well_fluid_legend(" in source
     assert "fluid_marker_spec(candidate.fluid_hypothesis)" in source
+    assert "marker_lane_offsets" in source
+    assert "minimum_gap=badge_height + 2.0" in source
+    assert "len(candidates) <= 24" not in source
     assert 'QColor("#f59e0b")' not in source
 
 
