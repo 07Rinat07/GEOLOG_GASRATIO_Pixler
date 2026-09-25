@@ -45,7 +45,10 @@ release plan и временные планы в `docs` не создаются.
 | 2 | UI-SYS-01 | Единый адаптивный UI foundation: кнопки, поля, toolbar, focus/hover/disabled states, размеры касания, small-screen/HiDPI правила; без локальных desktop-only стилей | Разработчик / в работе |
 | 3 | PRINT-STYLE-01 | Единый Report Visual System уровня профессиональных нефтесервисных отчётов: PDF/Masterlog/DOCX/XLSX, A4/A3/roll, colour + grayscale | Разработчик / в работе |
 | 4 | WITS-UX-01 | Довести operator workspace после foundation PR #282: no-data states, help, persistence/reconnect и полевой UX acceptance | Разработчик / в работе |
-| 5 | WITS-CALC-01 | Live-derived Gas Ratio/Haworth, Pixler и DEXP/DEXPC через существующий versioned formula registry; без второй реализации формул в UI | Разработчик / на проверке |
+| 5 | WITS-CALC-01 | Live-derived Gas Ratio/Haworth, Pixler и DEXP/DEXPC через существующий versioned formula registry; без второй реализации формул в UI | Разработчик / завершено |
+
+WITS-CALC-01 закрыт зелёным Release gate и merge в `main`: live virtual Haworth/Pixler/DEXP/DEXPC, explicit operator normal mud density и live↔batch parity покрыты автоматическими regression tests.
+
 | 6 | WITS-GASCTX-01 | Разделить background gas, formation show, connection gas, trip gas, circulated gas и elevated-unclassified по газу + технологическому контексту | Разработчик + специалист ГТИ / в работе |
 | 7 | WITS-ALARM-01 | Для всех отображаемых параметров min/max, visual/audio alarm, hysteresis/debounce, acknowledgement и маркеры на графике | Разработчик + оператор / готово к разработке |
 | 8 | OBS-01 | Build/session identity и объяснимые состояния no-data/stale/error; используется операторским помощником и alarms | Разработчик / готово к разработке |
