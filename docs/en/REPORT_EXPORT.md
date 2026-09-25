@@ -138,3 +138,17 @@ header-only importer excludes the graph body. In an Image element editor, a logo
 a separate catalog supporting add, rename, image replacement, duplicate, and delete operations.
 After selection, the header remains editable or can be saved as a new template. Full guide:
 [PRINT_HEADER_AND_LOGO_CATALOGS.md](../PRINT_HEADER_AND_LOGO_CATALOGS.md).
+
+
+## Excel/Word performance
+
+The hidden Excel source-data sheet contains only channels used by the current interpretation
+report. Unrelated LAS channels are not copied into that audit sheet, and hidden data cells are
+not styled one by one. This reduces time and memory for large LAS exports. Word export reports
+its preparation and save stages.
+
+Gas interpretation reports use a separate technological gas-context layer. Known gas-test,
+gas-line, connection/build-up, trip, swab, circulated/recycled, calibration and lag-tracer
+intervals preserve measured TG/C1–C5 and calculated Gas Ratio/Haworth/Pixler/OPUS values, while
+confirmed context can prevent automatic classification of those intervals as productive
+hydrocarbon formations.
