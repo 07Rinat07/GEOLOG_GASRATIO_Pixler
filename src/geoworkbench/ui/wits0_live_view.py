@@ -386,7 +386,7 @@ class Wits0LiveViewWidget(QWidget):
                 view.set_axis_mode(AcquisitionLiveAxisMode(state.axis_mode))
             except ValueError:
                 view.set_axis_mode(AcquisitionLiveAxisMode.AUTO)
-            view.set_selected_curves(self._selected_curve_ids())
+            self._set_view_source_selection(self._selected_curve_ids())
             view.set_follow_span(state.follow_span)
             view.set_auto_follow(state.auto_follow)
             if not state.auto_follow and state.history_start is not None and state.history_end is not None:
