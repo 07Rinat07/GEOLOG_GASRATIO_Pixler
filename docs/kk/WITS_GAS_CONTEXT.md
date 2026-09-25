@@ -32,6 +32,11 @@ formation-show шешімінен жоғары басымдықта болады
 automatic assessment-ті сақтайды, ал confirmed manual interval қорытынды event kind мәнін береді.
 Draft/unconfirmed интервал automatic нәтижені өзгертпейді.
 
+Operator UI және есептер бір ортақ presentation boundary қолданады: effective class,
+бастапқы automatic assessment, шешім source және confirmed manual interval ID бөлек беріледі.
+Qt/PDF қабаттары gas-origin classification логикасын қайталамайды.
+
+
 ## Lag және тереңдікке байлау
 
 Surface detection және lag-corrected bit depth бөлек сақталады. Есеп surface time/depth,
