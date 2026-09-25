@@ -264,9 +264,21 @@ def _apply_session_gas_context(
     dataset = session.current_dataset
     if well is None or dataset is None:
         return report
+    events = tuple(well.gas_context_events)
+    well_domains = {item.depth_domain for item in well.datasets.values()}
+    if len(well_domains) == 1:
+        # v35 events created before depth-domain persistence were unbound.
+        # They can be migrated safely only when the well has one coordinate domain.
+        sole_domain = next(iter(well_domains))
+        events = tuple(
+            replace(event, depth_domain=sole_domain)
+            if event.depth_domain is None
+            else event
+            for event in events
+        )
     return apply_gas_context_to_report(
         report,
-        GasContextRegistry(tuple(well.gas_context_events)),
+        GasContextRegistry(events),
         depth_domain=dataset.depth_domain,
     )
 
