@@ -156,8 +156,9 @@ class GasContextEventDialog(QDialog):
                 "TG здесь — только операторская/QC-ссылка и не изменяет исходные кривые.",
                 "Расталған жолдар кейін Gas Ratio / Pixler / OPUS жіктеуіне әсер етеді. "
                 "Мұндағы TG — тек оператор/QC анықтамасы және бастапқы қисықтарды өзгертпейді.",
-                "Confirmed rows are consumed by Gas Ratio / Pixler / OPUS classification. "
-                "TG here is an operator/QC reference only and never changes source curves.",
+                "Confirmed rows will be consumed by Gas Ratio / Pixler / OPUS classification "
+                "after the classification integration is enabled. TG here is an operator/QC "
+                "reference only and never changes source curves.",
             )
         )
         intro.setWordWrap(True)
@@ -313,8 +314,8 @@ class GasContextEventDialog(QDialog):
     def _depth_input(object_name: str) -> QDoubleSpinBox:
         control = QDoubleSpinBox()
         control.setObjectName(object_name)
-        control.setRange(0.0, 100_000.0)
-        control.setDecimals(3)
+        control.setRange(0.0, 1.7976931348623157e308)
+        control.setDecimals(15)
         control.setSingleStep(0.1)
         return control
 
@@ -376,9 +377,7 @@ class GasContextEventDialog(QDialog):
         self._select_combo_data(self.type_input, event.event_type)
         self.top_input.setValue(event.top_depth)
         self.bottom_input.setValue(event.bottom_depth)
-        self.reported_total_input.setText(
-            "" if event.reported_total_gas is None else f"{event.reported_total_gas:g}"
-        )
+        self.reported_total_input.setText(self._format_total_gas(event.reported_total_gas))
         self.reported_unit_input.setText(event.reported_unit or "")
         self.confirmed_input.setChecked(event.confirmed)
         self._select_combo_data(self.impact_input, event.impact)
@@ -391,6 +390,14 @@ class GasContextEventDialog(QDialog):
         if index >= 0:
             combo.setCurrentIndex(index)
 
+    def _format_total_gas(self, value: float | None) -> str:
+        if value is None:
+            return ""
+        validator = self.reported_total_input.validator()
+        if isinstance(validator, QDoubleValidator):
+            return validator.locale().toString(value, "g", 15)
+        return f"{value:g}"
+
     def _values(self) -> GasContextEventValues:
         event_type = self.type_input.currentData()
         if not isinstance(event_type, GasContextEventType):
@@ -399,7 +406,20 @@ class GasContextEventDialog(QDialog):
         if impact is not None and not isinstance(impact, InterpretationImpact):
             raise ValueError("Некорректный режим влияния на интерпретацию")
         tg_text = self.reported_total_input.text().strip()
-        total_gas = None if not tg_text else float(tg_text)
+        total_gas: float | None = None
+        if tg_text:
+            validator = self.reported_total_input.validator()
+            if not isinstance(validator, QDoubleValidator):
+                raise ValueError("Некорректный валидатор TG/QC")
+            total_gas, ok = validator.locale().toDouble(tg_text)
+            if not ok:
+                raise ValueError(
+                    self._text(
+                        "Некорректное значение TG/QC",
+                        "TG/QC мәні дұрыс емес",
+                        "Invalid TG/QC value",
+                    )
+                )
         unit_text = self.reported_unit_input.text().strip()
         return {
             "event_type": event_type,
