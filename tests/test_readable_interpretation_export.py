@@ -138,8 +138,9 @@ def test_readable_xlsx_keeps_interpretation_and_gas_statistics_on_main_sheet(
         assert workbook["Данные по глубине"].sheet_state == "hidden"
         sheet = workbook["Интерпретация УВ"]
         assert str(sheet["A1"].value).startswith("Сводная интерпретация")
-        assert sheet.oddHeader.left.text == REPORT_BRAND_WORDMARK
-        assert sheet.oddFooter.left.text == REPORT_BRAND_WORDMARK
+        print_wordmark = "&B" + REPORT_BRAND_WORDMARK.replace("&", "&&") + "&B"
+        assert sheet.oddHeader.left.text == print_wordmark
+        assert sheet.oddFooter.left.text == print_wordmark
         headers = [sheet.cell(9, column).value for column in range(1, 24)]
         assert "Предварительная интерпретация" in headers
         assert "Мин исходного газа" in headers
