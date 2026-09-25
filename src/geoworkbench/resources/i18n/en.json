@@ -2428,5 +2428,6 @@
   "document_bundle.status_partial": "Document bundle prepared partially: {failed} failed.",
   "document_bundle.retry_not_required": "There are no failed outputs to retry.",
   "menu.wits": "WITS",
-  "wits0.start_failed_event": "Failed to start WITS0: {error}"
+  "wits0.start_failed_event": "Failed to start WITS0: {error}",
+  "import.las_loading": "Loading and analysing LAS: {files}…"
 }
