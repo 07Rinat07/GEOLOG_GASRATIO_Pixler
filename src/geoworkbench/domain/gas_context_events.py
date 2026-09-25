@@ -84,6 +84,8 @@ class GasContextEvent:
     def __post_init__(self) -> None:
         if not isinstance(self.event_id, str) or not self.event_id.strip():
             raise ValueError("event_id must be a non-empty string")
+        if len(self.event_id) > 200:
+            raise ValueError("event_id must not exceed 200 characters")
         if not isinstance(self.event_type, GasContextEventType):
             raise ValueError("event_type must be GasContextEventType")
         for value, name in (
@@ -97,16 +99,25 @@ class GasContextEvent:
             raise ValueError("bottom_depth must be >= top_depth")
         if self.impact is not None and not isinstance(self.impact, InterpretationImpact):
             raise ValueError("impact must be InterpretationImpact or None")
+        if not isinstance(self.confirmed, bool):
+            raise ValueError("confirmed must be bool")
         if self.reported_total_gas is not None:
             value = float(self.reported_total_gas)
             if not isfinite(value) or value < 0.0:
                 raise ValueError("reported_total_gas must be finite and non-negative")
-        if self.reported_unit is not None and not self.reported_unit.strip():
-            raise ValueError("reported_unit must be non-empty or None")
+        if self.reported_unit is not None:
+            if not self.reported_unit.strip():
+                raise ValueError("reported_unit must be non-empty or None")
+            if len(self.reported_unit) > 32:
+                raise ValueError("reported_unit must not exceed 32 characters")
         if not isinstance(self.comment, str):
             raise ValueError("comment must be a string")
+        if len(self.comment) > 4_000:
+            raise ValueError("comment must not exceed 4000 characters")
         if not isinstance(self.source, str) or not self.source.strip():
             raise ValueError("source must be a non-empty string")
+        if len(self.source) > 200:
+            raise ValueError("source must not exceed 200 characters")
 
     @property
     def effective_impact(self) -> InterpretationImpact:
