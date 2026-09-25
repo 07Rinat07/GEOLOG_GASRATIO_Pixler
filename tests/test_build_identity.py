@@ -94,3 +94,17 @@ def test_same_package_version_with_different_commits_has_distinct_build_identity
     assert first.display != second.display
     assert first.as_dict()["version"] == second.as_dict()["version"]
     assert first.as_dict()["commit"] != second.as_dict()["commit"]
+
+
+def test_release_gate_verifies_stamped_wheel_outside_source_checkout() -> None:
+    root = Path(__file__).resolve().parents[1]
+    workflow = (root / ".github" / "workflows" / "release-gate.yml").read_text(
+        encoding="utf-8"
+    )
+    pyproject = (root / "pyproject.toml").read_text(encoding="utf-8")
+
+    assert "tools/stamp_build_identity.py" in workflow
+    assert "tools/check_installed_build_diagnostics.py" in workflow
+    assert "build --wheel --no-isolation" in workflow
+    assert "RUNNER_TEMP" in workflow
+    assert "_build_identity.json" in pyproject
