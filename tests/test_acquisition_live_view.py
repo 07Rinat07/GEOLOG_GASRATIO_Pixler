@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 import numpy as np
 
 from geoworkbench.acquisition import Wits0StreamProcessor, load_builtin_wits0_profile
-from geoworkbench.domain.models import Well
+from geoworkbench.domain.models import CurveData, CurveMetadata, Well
 from geoworkbench.services.acquisition_live_view import (
     AcquisitionLiveAxisMode,
     AcquisitionLiveHealth,
@@ -553,3 +553,78 @@ def test_follow_span_updates_only_the_resolved_axis_window() -> None:
 
     assert view.config.time_window_seconds == 30.0
     assert view.config.depth_window == original_depth_window
+
+
+def test_snapshot_projects_virtual_curve_without_mutating_source_dataset() -> None:
+    runtime, _frames = _runtime_with_frames(
+        (
+            _frame(1, time_value="0315450", depth=100.0, rop=10.0),
+            _frame(2, time_value="0315460", depth=100.2, rop=11.0),
+        )
+    )
+    rop_id = _curve_id(runtime, "0210")
+    dataset = runtime.controller.dataset
+    virtual_id = "virtual:haworth-wetness"
+    virtual_curve = CurveData(
+        CurveMetadata(
+            curve_id=virtual_id,
+            original_mnemonic="WH",
+            canonical_mnemonic="WH",
+            unit="%",
+            description="Virtual Haworth wetness",
+            source_dataset_id=dataset.dataset_id,
+            provenance="formula:haworth.wetness:1.0.0",
+        ),
+        np.asarray([12.5, 18.75], dtype=np.float64),
+    )
+    source_curve_ids = tuple(dataset.curves)
+    view = AcquisitionLiveView(dataset, runtime.session)
+
+    snapshot = view.snapshot(
+        curve_ids=(rop_id, virtual_id),
+        virtual_curves={virtual_id: virtual_curve},
+        now=datetime(2026, 7, 27, 3, 15, 47, tzinfo=timezone.utc),
+    )
+
+    assert tuple(dataset.curves) == source_curve_ids
+    assert virtual_id not in dataset.curves
+    assert tuple(series.curve_id for series in snapshot.series) == (rop_id, virtual_id)
+    virtual_series = snapshot.series[1]
+    assert virtual_series.mnemonic == "WH"
+    assert virtual_series.unit == "%"
+    assert virtual_series.values == (12.5, 18.75)
+    virtual_current = snapshot.current_values[1]
+    assert virtual_current.curve_id == virtual_id
+    assert virtual_current.mnemonic == "WH"
+    assert virtual_current.value == 18.75
+    assert virtual_current.quality is AcquisitionLiveQuality.GOOD
+
+
+def test_snapshot_rejects_invalid_virtual_curve_contract() -> None:
+    runtime, _frames = _runtime_with_frames(
+        (
+            _frame(1, time_value="0315450", depth=100.0, rop=10.0),
+            _frame(2, time_value="0315460", depth=100.2, rop=11.0),
+        )
+    )
+    dataset = runtime.controller.dataset
+    view = AcquisitionLiveView(dataset, runtime.session)
+    virtual_id = "virtual:bad"
+    short_curve = CurveData(
+        CurveMetadata(
+            curve_id=virtual_id,
+            original_mnemonic="BAD",
+            canonical_mnemonic="BAD",
+            unit="1",
+            description="Invalid virtual curve",
+            source_dataset_id=dataset.dataset_id,
+            provenance="formula:test:1.0",
+        ),
+        np.asarray([1.0], dtype=np.float64),
+    )
+
+    with __import__("pytest").raises(ValueError, match="must match Dataset row count"):
+        view.snapshot(
+            curve_ids=(virtual_id,),
+            virtual_curves={virtual_id: short_curve},
+        )
