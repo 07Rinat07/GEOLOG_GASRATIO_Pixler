@@ -14,7 +14,7 @@ from typing import Callable, Iterable, Protocol, TypedDict, Unpack
 
 
 WITS0_RECOVERY_SCHEMA_VERSION = 1
-WITS0_WORKSPACE_SCHEMA_VERSION = 1
+WITS0_WORKSPACE_SCHEMA_VERSION = 2
 WITS0_RAW_DIRECTORY_MARKER_SCHEMA_VERSION = 1
 WITS0_RAW_DIRECTORY_MARKER_NAME = ".geoworkbench-wits0-owned.json"
 WITS0_RAW_DIRECTORY_OWNER = "geoworkbench.wits0"
@@ -595,6 +595,7 @@ class Wits0WorkspaceState:
     paused: bool = False
     follow_span: float = 600.0
     max_points: int = 2_000
+    selected_mnemonics: tuple[str, ...] = ()
     selected_curve_ids: tuple[str, ...] = ()
     history_start: float | None = None
     history_end: float | None = None
@@ -612,6 +613,16 @@ class Wits0WorkspaceState:
             raise ValueError("follow_span is outside supported range")
         if isinstance(self.max_points, bool) or not 100 <= self.max_points <= 20_000:
             raise ValueError("max_points is outside supported range")
+        if not all(
+            isinstance(item, str) and item.strip()
+            for item in self.selected_mnemonics
+        ):
+            raise ValueError("selected_mnemonics must contain non-empty strings")
+        if not all(
+            isinstance(item, str) and item.strip()
+            for item in self.selected_curve_ids
+        ):
+            raise ValueError("selected_curve_ids must contain non-empty strings")
         if (self.history_start is None) != (self.history_end is None):
             raise ValueError("History range must contain both start and end")
         if (
@@ -639,8 +650,18 @@ class Wits0WorkspaceSettings:
             payload = json.loads(str(raw))
             if not isinstance(payload, dict):
                 return Wits0WorkspaceState()
+            schema_version = int(payload.get("schema_version", 1))
+            if schema_version not in {1, WITS0_WORKSPACE_SCHEMA_VERSION}:
+                return Wits0WorkspaceState()
             curves = payload.get("selected_curve_ids", [])
-            if not isinstance(curves, list) or not all(isinstance(item, str) for item in curves):
+            mnemonics = payload.get("selected_mnemonics", [])
+            if not isinstance(curves, list) or not all(
+                isinstance(item, str) for item in curves
+            ):
+                return Wits0WorkspaceState()
+            if not isinstance(mnemonics, list) or not all(
+                isinstance(item, str) for item in mnemonics
+            ):
                 return Wits0WorkspaceState()
             return Wits0WorkspaceState(
                 axis_mode=str(payload.get("axis_mode", "auto")),
@@ -648,7 +669,12 @@ class Wits0WorkspaceSettings:
                 paused=payload.get("paused", False),
                 follow_span=float(payload.get("follow_span", 600.0)),
                 max_points=int(payload.get("max_points", 2_000)),
-                selected_curve_ids=tuple(curves),
+                selected_mnemonics=(
+                    tuple(mnemonics)
+                    if schema_version == WITS0_WORKSPACE_SCHEMA_VERSION
+                    else ()
+                ),
+                selected_curve_ids=tuple(curves) if schema_version == 1 else (),
                 history_start=(
                     float(payload["history_start"])
                     if payload.get("history_start") is not None
@@ -660,15 +686,19 @@ class Wits0WorkspaceSettings:
                     else None
                 ),
                 acquisition_session_id=_optional_str(payload.get("acquisition_session_id")),
-                schema_version=int(payload.get("schema_version", 0)),
+                schema_version=WITS0_WORKSPACE_SCHEMA_VERSION,
             )
         except (TypeError, ValueError, json.JSONDecodeError):
             return Wits0WorkspaceState()
 
     def save(self, workspace_id: str, state: Wits0WorkspaceState) -> None:
+        payload = asdict(state)
+        # Curve IDs are session-local implementation details. Keep the field only
+        # for one-time schema-v1 migration and never persist it in schema v2.
+        payload.pop("selected_curve_ids", None)
         self.settings.setValue(
             self._key(workspace_id),
-            json.dumps(asdict(state), ensure_ascii=False, sort_keys=True),
+            json.dumps(payload, ensure_ascii=False, sort_keys=True),
         )
         self.settings.sync()
 

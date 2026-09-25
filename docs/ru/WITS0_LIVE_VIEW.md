@@ -94,9 +94,12 @@ audio alarm, hysteresis, debounce/minimum-duration и acknowledgement. Звук 
 ## Ограничения и приёмка
 
 Операторский dashboard группирует совместимые каналы по технологическим панелям и автоматически
-разделяет несовместимые единицы на соседние треки с независимым X-autoscale. Выбор каналов,
-ось, auto-follow, pause-view и окно истории сохраняются в workspace; временный preview session ID
-не сохраняется.
+разделяет несовместимые единицы на соседние треки с независимым X-autoscale. Выбор каналов
+сохраняется в workspace по canonical mnemonic, а не по session-local `curve_id`, поэтому
+reconnect/новый Dataset не привязывает восстановление к старым внутренним ID. Schema-v1 с
+`selected_curve_ids` читается только как migration fallback и при следующем сохранении
+переписывается в schema-v2. Ось, auto-follow, pause-view и окно истории также сохраняются;
+временный preview session ID не сохраняется.
 
 Preview хранит не более 2000 последних кадров. Производный transient Dataset, curve arrays,
 preview-session records и record-id index также остаются bounded: при достижении верхнего порога

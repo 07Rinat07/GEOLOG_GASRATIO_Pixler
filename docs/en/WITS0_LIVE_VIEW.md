@@ -87,8 +87,11 @@ not a geological conclusion. Sound is emitted on state transition rather than on
 ## Limitations and acceptance
 
 The operator dashboard groups compatible channels into engineering panels and automatically splits
-incompatible units into adjacent tracks with independent X autoscaling. Channel selection, axis,
-auto-follow, pause-view, and history-window settings persist in the workspace.
+incompatible units into adjacent tracks with independent X autoscaling. Workspace channel selection
+is persisted by canonical mnemonic rather than session-local `curve_id`, so reconnect or a new
+Dataset does not depend on stale internal IDs. Schema-v1 `selected_curve_ids` are accepted only as
+a migration fallback and are rewritten as schema-v2 on the next save. Axis, auto-follow,
+pause-view, and history-window settings persist as before.
 
 The transient LIVE PREVIEW keeps at most the latest 2000 frames. Its derived Dataset, curve arrays,
 preview-session records, and record-id index are bounded as well: when the upper threshold is

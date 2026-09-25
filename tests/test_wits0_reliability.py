@@ -330,7 +330,7 @@ def test_workspace_settings_round_trip_and_reject_invalid_payload() -> None:
         paused=True,
         follow_span=250.0,
         max_points=4000,
-        selected_curve_ids=("curve-a", "curve-b"),
+        selected_mnemonics=("ROP", "TOTAL_GAS"),
         history_start=100.0,
         history_end=200.0,
         acquisition_session_id="session-1",
@@ -339,9 +339,41 @@ def test_workspace_settings_round_trip_and_reject_invalid_payload() -> None:
     store.save("well/1", state)
 
     assert store.load("well/1") == state
+    saved_payload = json.loads(settings.values["wits0/workspace/well_1"])
+    assert saved_payload["selected_mnemonics"] == ["ROP", "TOTAL_GAS"]
+    assert "selected_curve_ids" not in saved_payload
     assert settings.sync_count == 1
     settings.values["wits0/workspace/well_1"] = "not-json"
     assert store.load("well/1") == Wits0WorkspaceState()
+
+
+def test_workspace_settings_migrate_v1_curve_ids_without_persisting_them() -> None:
+    settings = _Settings()
+    settings.values["wits0/workspace/well_1"] = json.dumps(
+        {
+            "schema_version": 1,
+            "axis_mode": "time",
+            "auto_follow": False,
+            "paused": False,
+            "follow_span": 120.0,
+            "max_points": 1500,
+            "selected_curve_ids": ["legacy-curve-a", "legacy-curve-b"],
+            "history_start": None,
+            "history_end": None,
+            "acquisition_session_id": "session-old",
+        }
+    )
+    store = Wits0WorkspaceSettings(settings)
+
+    migrated = store.load("well/1")
+
+    assert migrated.schema_version == 2
+    assert migrated.selected_mnemonics == ()
+    assert migrated.selected_curve_ids == ("legacy-curve-a", "legacy-curve-b")
+    store.save("well/1", migrated)
+    rewritten = json.loads(settings.values["wits0/workspace/well_1"])
+    assert rewritten["schema_version"] == 2
+    assert "selected_curve_ids" not in rewritten
 
 
 def test_connection_events_are_append_only_and_survive_project_round_trip(
