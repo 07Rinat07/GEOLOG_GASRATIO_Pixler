@@ -83,6 +83,23 @@ def test_wits0_live_view_constructs_offscreen(monkeypatch: pytest.MonkeyPatch) -
         assert widget.values_table.columnCount() == 4
         assert widget.dashboard.panels
         assert widget.diagnostic_plotted_points() == 0
+        assert not widget.dexp_correction_check.isChecked()
+        assert not widget.normal_mud_density_spin.isEnabled()
+        assert not widget.normal_mud_density_unit_combo.isEnabled()
+        assert widget._dexp_correction_config() is None
+
+        unit_index = widget.normal_mud_density_unit_combo.findData("ppg")
+        assert unit_index >= 0
+        widget.normal_mud_density_unit_combo.setCurrentIndex(unit_index)
+        widget.normal_mud_density_spin.setValue(9.0)
+        widget.dexp_correction_check.setChecked(True)
+
+        config = widget._dexp_correction_config()
+        assert config is not None
+        assert config.normal_mud_density == 9.0
+        assert config.unit == "ppg"
+        assert widget.normal_mud_density_spin.isEnabled()
+        assert widget.normal_mud_density_unit_combo.isEnabled()
     finally:
         widget.close()
         app.processEvents()
