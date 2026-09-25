@@ -51,6 +51,12 @@ effective class, отдельно сохраняет automatic assessment, ис�
 «автоматически / подтверждено оператором» и ID ручного интервала. UI/PDF не содержат собственной
 классификационной логики.
 
+Data-flow объединён сервисом `Wits0GasContextProjection`: он хранит rolling baseline,
+принимает observation, выполняет automatic classification, затем manual precedence и в одном
+результате возвращает automatic assessment, effective context и localized presentation.
+Обновление manual intervals не сбрасывает baseline; reset очищает только состояние автоматики.
+
+
 
 ## Lag / привязка к глубине
 
