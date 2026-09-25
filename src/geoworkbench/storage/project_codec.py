@@ -12,15 +12,33 @@ from geoworkbench.domain.localized_content import (
     normalize_content_language,
     validate_localized_texts,
 )
+from geoworkbench.domain.gas_context_events import (
+    GasContextEvent,
+    GasContextEventType,
+    InterpretationImpact,
+)
 from geoworkbench.domain.models import DescriptionTemplateBlock, Project
 from geoworkbench.domain.translation_status import TranslationState, TranslationStatus
 from geoworkbench.storage import project_codec_v29 as _v29
 from geoworkbench.storage.project_codec_v29 import ProjectDocument, ProjectFormatError
 
 
-PROJECT_FORMAT_VERSION = 34
+PROJECT_FORMAT_VERSION = 35
 _MAX_TEMPLATE_BLOCKS_PER_SAMPLE = 10_000
 _BLOCK_KEYS = {"block_id", "template_id", "template_version", "text_i18n"}
+_GAS_CONTEXT_EVENT_KEYS = {
+    "event_id",
+    "event_type",
+    "top_depth",
+    "bottom_depth",
+    "impact",
+    "confirmed",
+    "reported_total_gas",
+    "reported_unit",
+    "comment",
+    "source",
+}
+_MAX_GAS_CONTEXT_EVENTS_PER_WELL = 100_000
 
 
 def _validated_i18n(value: object, *, maximum: int) -> dict[str, str]:
@@ -99,6 +117,40 @@ def _template_block_from_dict(data: object) -> DescriptionTemplateBlock:
     return DescriptionTemplateBlock(block_id, template_id, version, texts)
 
 
+def _gas_context_events_from_dict(data: object) -> list[GasContextEvent]:
+    if not isinstance(data, list) or len(data) > _MAX_GAS_CONTEXT_EVENTS_PER_WELL:
+        raise ProjectFormatError("gas_context_events должен быть ограниченным списком")
+    events: list[GasContextEvent] = []
+    for raw in data:
+        if not isinstance(raw, dict) or set(raw) != _GAS_CONTEXT_EVENT_KEYS:
+            raise ProjectFormatError("Некорректная запись gas context event")
+        try:
+            impact_raw = raw["impact"]
+            event = GasContextEvent(
+                event_id=raw["event_id"],
+                event_type=GasContextEventType(raw["event_type"]),
+                top_depth=raw["top_depth"],
+                bottom_depth=raw["bottom_depth"],
+                impact=(
+                    InterpretationImpact(impact_raw)
+                    if impact_raw is not None
+                    else None
+                ),
+                confirmed=raw["confirmed"],
+                reported_total_gas=raw["reported_total_gas"],
+                reported_unit=raw["reported_unit"],
+                comment=raw["comment"],
+                source=raw["source"],
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ProjectFormatError("Некорректная запись gas context event") from exc
+        events.append(event)
+    ids = [event.event_id for event in events]
+    if len(ids) != len(set(ids)):
+        raise ProjectFormatError("ID gas context events не должны повторяться")
+    return events
+
+
 def _legacy_payload_and_blocks(
     data: dict[str, Any], version: int
 ) -> tuple[
@@ -109,6 +161,7 @@ def _legacy_payload_and_blocks(
     dict[str, dict[str, dict[str, TranslationStatus]]],
     dict[str, dict[str, int]],
     dict[str, dict[str, str]],
+    dict[str, list[GasContextEvent]],
 ]:
     legacy = deepcopy(data)
     found: dict[tuple[str, str], list[DescriptionTemplateBlock]] = {}
@@ -117,6 +170,7 @@ def _legacy_payload_and_blocks(
     translation_statuses: dict[str, dict[str, dict[str, TranslationStatus]]] = {}
     authored_field_revisions: dict[str, dict[str, int]] = {}
     authored_field_source_languages: dict[str, dict[str, str]] = {}
+    gas_context_events: dict[str, list[GasContextEvent]] = {}
     root = legacy.get("project", legacy)
     wells = root.get("wells", {}) if isinstance(root, dict) else {}
     if not isinstance(wells, dict):
@@ -124,7 +178,12 @@ def _legacy_payload_and_blocks(
     for well_id, well in wells.items():
         if not isinstance(well, dict):
             continue
-        raw_source_languages = well.pop("authored_field_source_languages", {})
+        raw_gas_context_events = well.pop("gas_context_events", [])
+        if version >= 35:
+            gas_context_events[str(well_id)] = _gas_context_events_from_dict(
+                raw_gas_context_events
+            )
+                raw_source_languages = well.pop("authored_field_source_languages", {})
         if version >= 34:
             authored_field_source_languages[str(well_id)] = _validated_source_languages(
                 raw_source_languages
@@ -218,6 +277,7 @@ def _legacy_payload_and_blocks(
         translation_statuses,
         authored_field_revisions,
         authored_field_source_languages,
+        gas_context_events,
     )
 
 
@@ -229,11 +289,13 @@ def _attach_blocks(
     translation_statuses: dict[str, dict[str, dict[str, TranslationStatus]]],
     authored_field_revisions: dict[str, dict[str, int]],
     authored_field_source_languages: dict[str, dict[str, str]],
+    gas_context_events: dict[str, list[GasContextEvent]],
 ) -> None:
     for well_id, well in project.wells.items():
         well.translation_statuses = translation_statuses.get(well_id, {})
         well.authored_field_revisions = authored_field_revisions.get(well_id, {})
         well.authored_field_source_languages = authored_field_source_languages.get(well_id, {})
+        well.gas_context_events = gas_context_events.get(well_id, [])
         for sample in well.cuttings:
             sample.description_template_blocks = blocks.get((well_id, sample.sample_id), [])
         for interpretation_id, interpretation in well.interpretations.items():
@@ -258,6 +320,7 @@ def project_from_dict(data: dict[str, Any]) -> Project:
         statuses,
         revisions,
         source_languages,
+        gas_context_events,
     ) = _legacy_payload_and_blocks(data, version)
     project = _v29.project_from_dict(legacy)
     _attach_blocks(
@@ -268,6 +331,7 @@ def project_from_dict(data: dict[str, Any]) -> Project:
         statuses,
         revisions,
         source_languages,
+        gas_context_events,
     )
     return project
 
@@ -281,6 +345,7 @@ def project_document_from_dict(data: dict[str, Any]) -> ProjectDocument:
         statuses,
         revisions,
         source_languages,
+        gas_context_events,
     ) = _legacy_payload_and_blocks(data, _format_version(data))
     document = _v29.project_document_from_dict(legacy)
     _attach_blocks(
@@ -291,6 +356,7 @@ def project_document_from_dict(data: dict[str, Any]) -> ProjectDocument:
         statuses,
         revisions,
         source_languages,
+        gas_context_events,
     )
     return document
 
