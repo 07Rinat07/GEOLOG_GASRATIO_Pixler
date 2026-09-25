@@ -4,7 +4,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from enum import StrEnum
 from math import isfinite
-from typing import Iterable
+from typing import Iterable, Mapping
 
 import numpy as np
 from numpy.typing import NDArray
@@ -342,10 +342,13 @@ class AcquisitionLiveView:
         self,
         *,
         curve_ids: Iterable[str] | None = None,
+        virtual_curves: Mapping[str, CurveData] | None = None,
         now: datetime | None = None,
         max_points_per_curve: int | None = None,
     ) -> AcquisitionLiveSnapshot:
         self._validate_projection()
+        virtual = dict(virtual_curves or {})
+        self._validate_virtual_curves(virtual)
         index = self._resolve_index(self._axis_mode)
         resolved_mode = (
             AcquisitionLiveAxisMode.TIME
@@ -355,7 +358,7 @@ class AcquisitionLiveView:
         row_count = self._visible_row_count()
         axis = _index_as_plot_values(index)[:row_count]
         records = _data_records(self.session)[:row_count]
-        selected = self._resolve_curve_ids(curve_ids)
+        selected = self._resolve_curve_ids(curve_ids, virtual_curves=virtual)
         window_start, window_end = self._window(axis, resolved_mode)
         max_points = max_points_per_curve or self.config.max_points_per_curve
         if isinstance(max_points, bool) or not isinstance(max_points, int) or max_points < 2:
@@ -368,7 +371,7 @@ class AcquisitionLiveView:
         rendered_total = 0
         source_total = 0
         for curve_id in selected:
-            curve = self.dataset.curves[curve_id]
+            curve = self._curve_for_id(curve_id, virtual)
             values = np.asarray(curve.values, dtype=np.float64)[:row_count]
             curve_axis = axis
             curve_values = values
@@ -426,10 +429,14 @@ class AcquisitionLiveView:
             axis,
             records,
             row_count,
+            virtual_curves=virtual,
             now=now,
         )
+        source_selected = tuple(
+            curve_id for curve_id in selected if curve_id in self.dataset.curves
+        )
         markers = self._markers(
-            selected,
+            source_selected,
             axis,
             records,
             window_start,
@@ -465,17 +472,57 @@ class AcquisitionLiveView:
             ),
         )
 
-    def _resolve_curve_ids(self, curve_ids: Iterable[str] | None) -> tuple[str, ...]:
+    def _resolve_curve_ids(
+        self,
+        curve_ids: Iterable[str] | None,
+        *,
+        virtual_curves: Mapping[str, CurveData],
+    ) -> tuple[str, ...]:
         if curve_ids is not None:
             selected = tuple(dict.fromkeys(curve_ids))
         elif self._selected_curve_ids:
             selected = self._selected_curve_ids
         else:
             selected = tuple(self.dataset.curves)
-        unknown = set(selected) - set(self.dataset.curves)
+        available = set(self.dataset.curves).union(virtual_curves)
+        unknown = set(selected) - available
         if unknown:
             raise KeyError(f"Unknown acquisition curve IDs: {sorted(unknown)}")
         return selected
+
+    def _curve_for_id(
+        self,
+        curve_id: str,
+        virtual_curves: Mapping[str, CurveData],
+    ) -> CurveData:
+        source = self.dataset.curves.get(curve_id)
+        if source is not None:
+            return source
+        try:
+            return virtual_curves[curve_id]
+        except KeyError as exc:
+            raise KeyError(f"Unknown acquisition curve ID: {curve_id}") from exc
+
+    def _validate_virtual_curves(
+        self,
+        virtual_curves: Mapping[str, CurveData],
+    ) -> None:
+        collisions = set(virtual_curves).intersection(self.dataset.curves)
+        if collisions:
+            raise ValueError(
+                f"Virtual curve IDs collide with source Dataset: {sorted(collisions)}"
+            )
+        row_count = len(self.dataset.depth)
+        for curve_id, curve in virtual_curves.items():
+            if curve.metadata.curve_id != curve_id:
+                raise ValueError(
+                    f"Virtual curve key does not match metadata curve_id: {curve_id}"
+                )
+            values = np.asarray(curve.values)
+            if values.ndim != 1 or len(values) != row_count:
+                raise ValueError(
+                    f"Virtual curve {curve_id} must match Dataset row count {row_count}"
+                )
 
     def _visible_row_count(self) -> int:
         if not self._paused:
@@ -628,15 +675,20 @@ class AcquisitionLiveView:
         records: tuple[AcquisitionRecord, ...],
         row_count: int,
         *,
+        virtual_curves: Mapping[str, CurveData],
         now: datetime | None,
     ) -> tuple[AcquisitionCurrentValue, ...]:
         if row_count == 0:
             return tuple(
                 AcquisitionCurrentValue(
                     curve_id=curve_id,
-                    mnemonic=self.dataset.curves[curve_id].metadata.canonical_mnemonic
-                    or self.dataset.curves[curve_id].metadata.original_mnemonic,
-                    unit=self.dataset.curves[curve_id].metadata.unit,
+                    mnemonic=self._curve_for_id(
+                        curve_id, virtual_curves
+                    ).metadata.canonical_mnemonic
+                    or self._curve_for_id(
+                        curve_id, virtual_curves
+                    ).metadata.original_mnemonic,
+                    unit=self._curve_for_id(curve_id, virtual_curves).metadata.unit,
                     value=None,
                     quality=AcquisitionLiveQuality.MISSING,
                     quality_codes=(AcquisitionLiveQuality.MISSING.value,),
@@ -664,7 +716,7 @@ class AcquisitionLiveView:
 
         output: list[AcquisitionCurrentValue] = []
         for curve_id in curve_ids:
-            curve = self.dataset.curves[curve_id]
+            curve = self._curve_for_id(curve_id, virtual_curves)
             values = np.asarray(curve.values, dtype=np.float64)[:row_count]
             finite_rows = np.flatnonzero(np.isfinite(values))
             sample_row = int(finite_rows[-1]) if finite_rows.size else None
