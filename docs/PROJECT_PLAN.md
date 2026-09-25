@@ -78,20 +78,22 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
 
 Первый инкремент GASCTX-RPT-01 реализует generic `GasContextEvent` / `GasContextRegistry`
 без WITS-зависимости и project-format v35 persistence на уровне `Well.gas_context_events`.
-Следующий инкремент после merge — editor/controller для повторяющихся строк и затем применение
-confirmed context к Gas Ratio/Haworth/Pixler/OPUS candidate classification и export presentation.
+Инкремент editor/controller для повторяющихся строк находится **на проверке**: он добавляет
+транзакционный pre-calculation UI без изменения source curves. Следующий инкремент после его
+зелёного merge — применение confirmed context к Gas Ratio/Haworth/Pixler/OPUS candidate
+classification и единое export presentation в preview/PDF/XLSX/DOCX.
 
 Цель — перед расчётом Gas Ratio/Haworth, Pixler, OPUS и любого комбинированного газового
 интерпретационного отчёта дать геологу/оператору явный способ указать интервалы газа известного
 технологического происхождения. Эта функция **report-first** и не зависит от наличия WITS.
 
-- [ ] Ввести generic `GasContextEvent` / `GasContextRegistry`, не привязанный к `Wits0`.
+- [x] Ввести generic `GasContextEvent` / `GasContextRegistry`, не привязанный к `Wits0`.
   Registry хранится по скважине/набору данных и доступен всем газовым интерпретационным отчётам.
-- [ ] События представляются **неограниченной коллекцией строк**. Один тип может повторяться
+- [x] События представляются **неограниченной коллекцией строк**. Один тип может повторяться
   сколько угодно раз: gas build-up/connection, СПО/trip, swab, circulated, recycled,
   chromatograph test, gas-line test, lag-tracer, calibration, formation show, background,
   elevated-unclassified и расширяемое «прочее технологическое событие».
-- [ ] Каждая запись имеет собственный immutable ID, тип, ось/интервал глубины, start/end,
+- [x] Каждая запись имеет собственный immutable ID, тип, ось/интервал глубины, start/end,
   confirmed/draft, источник, комментарий и режим влияния на интерпретацию. Повторяющиеся
   события одного типа не объединяются автоматически в один большой интервал.
 - [ ] Редактор перед расчётом отчёта поддерживает Add, «добавить ещё такой же тип», Duplicate,
@@ -100,7 +102,7 @@ confirmed context к Gas Ratio/Haworth/Pixler/OPUS candidate classification и e
 - [ ] Ввод Total Gas/% и других ручных величин опционален и хранится как операторский/QC reference,
   **не заменяя** измеренные LAS/GS2/WITS C1–C5/TG. При наличии исходных кривых min/mean/max/peak
   вычисляются автоматически; ручное и измеренное значения показываются раздельно с QC-разницей.
-- [ ] Ввести явный `InterpretationImpact` минимум из трёх режимов:
+- [x] Ввести явный `InterpretationImpact` минимум из трёх режимов:
   **exclude geological interpretation**, **operational/technological gas**, **formation gas**;
   дополнительно поддержать **auto / requires geologist review** для неоднозначных случаев.
 - [ ] Gas-line/chromatograph/calibration/lag-tracer test интервалы исключаются из автоматического
