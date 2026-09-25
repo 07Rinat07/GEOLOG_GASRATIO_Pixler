@@ -11,7 +11,7 @@ from geoworkbench.calculations.pixler import (
     FormulaProfileRegistry,
     build_all_sourced_formula_registry,
 )
-from geoworkbench.domain.models import Dataset
+from geoworkbench.domain.models import CurveData, CurveMetadata, Dataset
 from geoworkbench.services.drilling_mode import (
     classify_drilling_modes,
     resolve_bit_rpm_curve,
@@ -50,12 +50,14 @@ class Wits0DerivedChannelSnapshot:
     profile_version: str
     category: FormulaCategory
     required_inputs: tuple[str, ...]
+    description: str
     provenance: str
     status: Wits0DerivedChannelStatus
     values: tuple[float, ...] = ()
     unavailable_reason: Wits0DerivedUnavailableReason | None = None
     unavailable_inputs: tuple[str, ...] = ()
     input_conversions: tuple[str, ...] = ()
+    source_record_numbers: tuple[int, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,6 +113,39 @@ class Wits0LiveDerivedChannelService:
             for profile in profiles
         )
 
+    def virtual_curves(self, dataset: Dataset) -> dict[str, CurveData]:
+        """Materialize available derived results as ephemeral live-only curves."""
+
+        output: dict[str, CurveData] = {}
+        for snapshot in self.snapshot(dataset):
+            if snapshot.status is not Wits0DerivedChannelStatus.AVAILABLE:
+                continue
+            curve_id = self.virtual_curve_id(snapshot)
+            provenance = snapshot.provenance
+            if snapshot.input_conversions:
+                provenance += ";uom=" + ",".join(snapshot.input_conversions)
+            if snapshot.source_record_numbers:
+                provenance += ";source-records=" + ",".join(
+                    f"{record_no:02d}" for record_no in snapshot.source_record_numbers
+                )
+            output[curve_id] = CurveData(
+                CurveMetadata(
+                    curve_id=curve_id,
+                    original_mnemonic=snapshot.mnemonic,
+                    canonical_mnemonic=snapshot.mnemonic,
+                    unit=snapshot.unit,
+                    description=snapshot.description,
+                    source_dataset_id=dataset.dataset_id,
+                    provenance=provenance,
+                ),
+                np.asarray(snapshot.values, dtype=np.float64),
+            )
+        return output
+
+    @staticmethod
+    def virtual_curve_id(snapshot: Wits0DerivedChannelSnapshot) -> str:
+        return f"wits-derived:{snapshot.profile_id}:{snapshot.profile_version}"
+
     def _snapshot_profile(
         self,
         profile: FormulaProfile,
@@ -148,6 +183,7 @@ class Wits0LiveDerivedChannelService:
                 missing,
             )
 
+        source_record_numbers = self._source_record_numbers(bindings, resolution)
         inputs: dict[str, np.ndarray] = {}
         conversions: list[str] = []
         unsupported_units: list[str] = []
@@ -219,11 +255,39 @@ class Wits0LiveDerivedChannelService:
             profile_version=profile.version,
             category=profile.category,
             required_inputs=required,
+            description=profile.description,
             provenance=self._provenance(profile),
             status=Wits0DerivedChannelStatus.AVAILABLE,
             values=tuple(float(value) for value in values),
             input_conversions=tuple(conversions),
+            source_record_numbers=source_record_numbers,
         )
+
+    @staticmethod
+    def _source_record_numbers(
+        bindings: dict[str, _InputBinding],
+        resolution: DatasetParameterResolution,
+    ) -> tuple[int, ...]:
+        records: set[int] = set()
+        for binding in bindings.values():
+            match = resolution.get(binding.source_mnemonic)
+            if match is None:
+                continue
+            record_no = Wits0LiveDerivedChannelService._record_no_from_provenance(
+                match.curve.metadata.provenance
+            )
+            if record_no is not None:
+                records.add(record_no)
+        return tuple(sorted(records))
+
+    @staticmethod
+    def _record_no_from_provenance(provenance: str) -> int | None:
+        if not provenance.startswith("wits0:"):
+            return None
+        source_id = provenance.removeprefix("wits0:").split(";", 1)[0]
+        if len(source_id) < 2 or not source_id[:2].isdigit():
+            return None
+        return int(source_id[:2])
 
     def _convert_engineering_match(
         self,
@@ -354,6 +418,7 @@ class Wits0LiveDerivedChannelService:
             profile_version=profile.version,
             category=profile.category,
             required_inputs=tuple(name.upper() for name in profile.required_inputs),
+            description=profile.description,
             provenance=Wits0LiveDerivedChannelService._provenance(profile),
             status=Wits0DerivedChannelStatus.UNAVAILABLE,
             unavailable_reason=reason,
