@@ -33,6 +33,15 @@ class AcquisitionLiveQuality(StrEnum):
     STALE = "stale"
 
 
+class AcquisitionLiveHealth(StrEnum):
+    """Operator-facing health of the current live projection."""
+
+    NO_DATA = "no_data"
+    HEALTHY = "healthy"
+    STALE = "stale"
+    DEGRADED = "degraded"
+
+
 class AcquisitionLiveMarkerKind(StrEnum):
     SOURCE_SEQUENCE_GAP = "source_sequence_gap"
     AXIS_GAP = "axis_gap"
@@ -178,6 +187,27 @@ class AcquisitionLiveSnapshot:
     @property
     def has_data(self) -> bool:
         return self.visible_row_count > 0
+
+    @property
+    def health(self) -> AcquisitionLiveHealth:
+        """Classify projection health without inferring acquisition/network state."""
+
+        if self.total_row_count <= 0 or not self.current_values:
+            return AcquisitionLiveHealth.NO_DATA
+        if all(item.value is None for item in self.current_values):
+            return AcquisitionLiveHealth.NO_DATA
+
+        qualities = {item.quality for item in self.current_values}
+        if qualities.intersection(
+            {
+                AcquisitionLiveQuality.INVALID,
+                AcquisitionLiveQuality.SOURCE_GAP,
+            }
+        ):
+            return AcquisitionLiveHealth.DEGRADED
+        if AcquisitionLiveQuality.STALE in qualities:
+            return AcquisitionLiveHealth.STALE
+        return AcquisitionLiveHealth.HEALTHY
 
 
 @dataclass(frozen=True, slots=True)

@@ -9,6 +9,7 @@ from geoworkbench.acquisition import Wits0StreamProcessor, load_builtin_wits0_pr
 from geoworkbench.domain.models import Well
 from geoworkbench.services.acquisition_live_view import (
     AcquisitionLiveAxisMode,
+    AcquisitionLiveHealth,
     AcquisitionLiveMarkerKind,
     AcquisitionLiveQuality,
     AcquisitionLiveView,
@@ -160,6 +161,65 @@ def test_current_values_keep_last_finite_sample_and_mark_missing_latest_row() ->
     assert current.latest_row_index == 1
     assert current.age_rows == 1
     assert "missing" in current.quality_codes
+
+
+def test_snapshot_health_is_explainable_and_does_not_treat_sparse_missing_as_stale() -> None:
+    runtime, _frames = _runtime_with_frames(
+        (
+            _frame(1, time_value="0315450", depth=100.0, rop=10.0),
+        )
+    )
+    rop_id = _curve_id(runtime, "0210")
+    view = AcquisitionLiveView(
+        runtime.controller.dataset,
+        runtime.session,
+        config=AcquisitionLiveViewConfig(stale_after_seconds=10.0),
+    )
+
+    healthy = view.snapshot(
+        curve_ids=(rop_id,),
+        now=datetime(2026, 7, 27, 3, 15, 46, tzinfo=timezone.utc),
+    )
+    assert healthy.health is AcquisitionLiveHealth.HEALTHY
+
+    sparse_missing = replace(
+        healthy,
+        current_values=(
+            replace(
+                healthy.current_values[0],
+                quality=AcquisitionLiveQuality.MISSING,
+            ),
+        ),
+    )
+    assert sparse_missing.health is AcquisitionLiveHealth.HEALTHY
+
+    stale = view.snapshot(
+        curve_ids=(rop_id,),
+        now=datetime(2026, 7, 27, 3, 16, 30, tzinfo=timezone.utc),
+    )
+    assert stale.health is AcquisitionLiveHealth.STALE
+
+    degraded = replace(
+        healthy,
+        current_values=(
+            replace(
+                healthy.current_values[0],
+                quality=AcquisitionLiveQuality.SOURCE_GAP,
+            ),
+        ),
+    )
+    assert degraded.health is AcquisitionLiveHealth.DEGRADED
+
+    no_data = replace(
+        healthy,
+        total_row_count=0,
+        visible_row_count=0,
+        source_point_count=0,
+        rendered_point_count=0,
+        current_values=(),
+        series=(),
+    )
+    assert no_data.health is AcquisitionLiveHealth.NO_DATA
 
 
 def test_live_series_ignores_rows_from_other_wits_records() -> None:
