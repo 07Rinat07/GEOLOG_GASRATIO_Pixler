@@ -260,8 +260,13 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
   package metadata → local Git checkout → explicit `unknown`; session ID создаётся на запуск,
   пишется в application log и diagnostic bundle. Форматтер `geolog.log` принудительно использует
   UTC, а `geolog-crash.log` получает START/STOP границы с session/build/commit identity, поэтому
-  старые записи и две сборки одной версии с разными SHA различимы. Оставшийся scope OBS-01 —
-  WITS profile version/fingerprint, encoding/mode и обезличенные runtime counters/reject reason.
+  старые записи и две сборки одной версии с разными SHA различимы. Второй инкремент добавляет
+  отдельный allowlisted WITS diagnostic snapshot: canonical SHA-256 base-profile content,
+  profile/schema version, encoding, выбранный connection mode, discovery fingerprint и агрегаты
+  capture/acquisition (received/parsed/errors/skipped/enqueued/applied/backpressure). В snapshot
+  намеренно отсутствуют host/port/peer, raw path/file, source name, acquisition session ID,
+  значения измерений и свободный текст `last_error`. Оставшийся scope OBS-01 — стабильный
+  обезличенный last-reject reason code, plotted counter и сквозная acceptance установленной сборки.
   Приёмка: проверка при часовом поясе +05:00, двух последовательных запусках, старом crash log
   и установленном приложении без `.git`; одна версия пакета с разными SHA различима.
   Raw-измерения, credentials и содержимое пользовательского проекта автоматически не включаются.

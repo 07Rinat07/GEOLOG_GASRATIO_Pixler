@@ -70,6 +70,7 @@ def test_wits0_capture_ui_connects_review_to_bounded_acquisition_runtime() -> No
     assert "on_dataset_changed" in source
     assert "well_provider=lambda: self.session.current_well" in main_source
     assert "def _on_wits0_dataset_changed" in main_source
+    assert 'context["wits0"] = wits0_dialog.diagnostic_context()' in main_source
 
 
 def test_wits0_capture_requires_explicit_strategy_for_truncated_preview() -> None:
@@ -180,6 +181,18 @@ def test_wits0_capture_dialog_constructs_offscreen(monkeypatch) -> None:  # type
         assert dialog.port_spin.value() == 2041
         assert not dialog.allowed_networks_edit.text()
         assert not dialog.allow_wildcard_bind_check.isChecked()
+
+        dialog.raw_directory_edit.setText("SECRET-RAW-DIRECTORY")
+        dialog.source_edit.setText("SECRET-SOURCE-NAME")
+        diagnostic = dialog.diagnostic_context()
+        assert diagnostic["mode"] == "tcp_client"
+        assert diagnostic["encoding"] == dialog.profile.encoding
+        assert len(str(diagnostic["profile_fingerprint"])) == 64
+        assert diagnostic["capture_state"] is None
+        rendered_diagnostic = str(diagnostic)
+        assert "192.168.0.100" not in rendered_diagnostic
+        assert "SECRET-RAW-DIRECTORY" not in rendered_diagnostic
+        assert "SECRET-SOURCE-NAME" not in rendered_diagnostic
     finally:
         dialog.close()
         app.processEvents()

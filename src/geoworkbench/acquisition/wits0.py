@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+from hashlib import sha256
 from importlib.resources import files
 from pathlib import Path
 from typing import Any, BinaryIO, Iterator
@@ -201,6 +202,20 @@ class Wits0Profile:
 
     def record(self, record_no: int) -> Wits0RecordDefinition | None:
         return next((item for item in self.records if item.record_no == record_no), None)
+
+
+def wits0_profile_fingerprint(profile: Wits0Profile) -> str:
+    """Return a canonical SHA-256 identity for WITS0 profile content."""
+
+    payload = asdict(profile)
+    return sha256(
+        json.dumps(
+            payload,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
 
 
 def load_builtin_wits0_profile(profile_id: str = "geoscape-gswits") -> Wits0Profile:
