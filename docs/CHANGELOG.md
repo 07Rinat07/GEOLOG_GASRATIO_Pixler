@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- WITS0/UI: live monitor теперь отдельно показывает режим представления и explainable health текущей read-only проекции (waiting/data-flowing/stale/degraded); no-data/stale/gap guidance локализован, а ошибка refresh не выдаётся за остановку TCP/acquisition.
 - Diagnostics/WITS0: diagnostic bundle получил allowlisted WITS snapshot с profile SHA-256/version, encoding/mode, discovery fingerprint, агрегированными capture/acquisition counters, стабильным кодом последнего rejected frame и числом реально переданных в live plot точек; network identity, raw paths/values, source/session identifiers и свободный last-error text в snapshot не включаются.
 - Diagnostics: добавлены build/commit identity с явным `unknown` fallback, startup session ID, UTC timestamps в application log и START/STOP границы запусков в crash log; release wheel получает immutable SHA stamp, а Windows gate устанавливает его вне Git checkout и проверяет diagnostic bundle, поэтому сборки одной версии с разными SHA остаются различимы после установки без автоматического включения raw/project данных.
 - UI: Lithology actions получили semantic `uiRole`: Add — primary, Remove — destructive, Update остаётся default; CRUD callbacks и lithology data semantics не менялись.
