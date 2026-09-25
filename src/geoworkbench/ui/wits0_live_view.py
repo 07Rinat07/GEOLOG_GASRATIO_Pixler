@@ -31,7 +31,9 @@ from geoworkbench.services.acquisition_live_view import (
     AcquisitionLiveView,
     AcquisitionLiveViewConfig,
 )
+from geoworkbench.domain.models import CurveData, Dataset
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.services.wits0_live_derived import Wits0LiveDerivedChannelService
 from geoworkbench.acquisition.wits0_reliability import Wits0WorkspaceState
 from geoworkbench.acquisition.wits0_live_forms import (
     UNIVERSAL_LIVE_FORM_ID,
@@ -71,6 +73,8 @@ class Wits0LiveViewWidget(QWidget):
         self.form_settings = Wits0LiveFormSettings(self.settings)
         self._runtime: Wits0AcquisitionRuntime | None = None
         self._view: AcquisitionLiveView | None = None
+        self._derived_service = Wits0LiveDerivedChannelService()
+        self._virtual_curves: dict[str, CurveData] = {}
         self._preview_mode = False
         self._last_revision: tuple[int, int, bool, bool, str] | None = None
         self._last_plot_rendered_points = 0
@@ -279,6 +283,9 @@ class Wits0LiveViewWidget(QWidget):
                 max_markers=500,
             ),
         )
+        self._virtual_curves = self._derived_curves_for_dataset(
+            runtime.controller.dataset
+        )
         self._last_revision = None
         target_form_id = previous_form_id or UNIVERSAL_LIVE_FORM_ID
         target_form_index = self.form_combo.findData(target_form_id)
@@ -397,6 +404,7 @@ class Wits0LiveViewWidget(QWidget):
     def clear_runtime(self) -> None:
         self._runtime = None
         self._view = None
+        self._virtual_curves = {}
         self._preview_mode = False
         self._last_revision = None
         self._last_plot_rendered_points = 0
@@ -410,10 +418,19 @@ class Wits0LiveViewWidget(QWidget):
         if view is None:
             self._set_empty_state()
             return
+        selected_mnemonics = self._selected_mnemonics()
+        refreshed_virtual = self._derived_curves_for_dataset(view.dataset)
+        if set(refreshed_virtual) != set(self._virtual_curves):
+            self._virtual_curves = refreshed_virtual
+            self._populate_curves(preserve_mnemonics=selected_mnemonics)
+        else:
+            self._virtual_curves = refreshed_virtual
         selected = self._selected_curve_ids()
-        view.set_selected_curves(selected)
+        self._set_view_source_selection(selected)
         try:
             snapshot = view.snapshot(
+                curve_ids=selected,
+                virtual_curves=self._virtual_curves,
                 max_points_per_curve=self.max_points_spin.value(),
             )
         except (KeyError, RuntimeError, ValueError) as exc:
@@ -454,11 +471,15 @@ class Wits0LiveViewWidget(QWidget):
             self._updating_controls = False
         self._update_span_controls()
 
-    def _populate_curves(self) -> None:
+    def _populate_curves(
+        self,
+        *,
+        preserve_mnemonics: tuple[str, ...] | None = None,
+    ) -> None:
         view = self._view
         if view is None:
             return
-        curves = list(view.dataset.curves.values())
+        curves = list(self._all_curves())
         curves.sort(
             key=lambda curve: (
                 live_curve_priority(
@@ -486,7 +507,22 @@ class Wits0LiveViewWidget(QWidget):
                 item.setToolTip(metadata.description or metadata.provenance or "")
         finally:
             self._updating_controls = False
-        self._apply_live_form_selection()
+        if preserve_mnemonics is None:
+            self._apply_live_form_selection()
+        else:
+            selected = set(self._curve_ids_for_mnemonics(preserve_mnemonics))
+            self._updating_controls = True
+            try:
+                for row in range(self.curve_list.count()):
+                    item = self.curve_list.item(row)
+                    curve_id = item.data(Qt.ItemDataRole.UserRole)
+                    item.setCheckState(
+                        Qt.CheckState.Checked
+                        if curve_id in selected
+                        else Qt.CheckState.Unchecked
+                    )
+            finally:
+                self._updating_controls = False
 
     def _apply_live_form_selection(self, *, factory_only: bool = False) -> None:
         view = self._view
@@ -499,7 +535,7 @@ class Wits0LiveViewWidget(QWidget):
                 curve.metadata.canonical_mnemonic,
                 curve.metadata.original_mnemonic,
             )
-            for curve in view.dataset.curves.values()
+            for curve in self._all_curves()
         )
         saved = None if factory_only else self.form_settings.load(form_id)
         if saved is not None:
@@ -539,7 +575,7 @@ class Wits0LiveViewWidget(QWidget):
                 view.set_axis_mode(AcquisitionLiveAxisMode.AUTO)
             view.set_auto_follow(saved.auto_follow)
             view.set_follow_span(saved.follow_span)
-        view.set_selected_curves(self._selected_curve_ids())
+        self._set_view_source_selection(self._selected_curve_ids())
 
     def _selected_curve_ids(self) -> tuple[str, ...]:
         selected: list[str] = []
@@ -776,7 +812,7 @@ class Wits0LiveViewWidget(QWidget):
             return ()
         selected_ids = set(self._selected_curve_ids())
         result: list[str] = []
-        for curve in view.dataset.curves.values():
+        for curve in self._all_curves():
             if curve.metadata.curve_id not in selected_ids:
                 continue
             mnemonic = (
@@ -796,7 +832,7 @@ class Wits0LiveViewWidget(QWidget):
             return ()
         wanted = {item.casefold() for item in mnemonics}
         selected: list[str] = []
-        for curve in view.dataset.curves.values():
+        for curve in self._all_curves():
             metadata = curve.metadata
             candidates = {
                 metadata.canonical_mnemonic.casefold()
@@ -809,6 +845,26 @@ class Wits0LiveViewWidget(QWidget):
             if wanted.intersection(candidates):
                 selected.append(metadata.curve_id)
         return tuple(selected)
+
+    def _all_curves(self) -> tuple[CurveData, ...]:
+        view = self._view
+        if view is None:
+            return ()
+        return (*view.dataset.curves.values(), *self._virtual_curves.values())
+
+    def _derived_curves_for_dataset(self, dataset: object) -> dict[str, CurveData]:
+        if not isinstance(dataset, Dataset):
+            return {}
+        return self._derived_service.virtual_curves(dataset)
+
+    def _set_view_source_selection(self, curve_ids: tuple[str, ...]) -> None:
+        view = self._view
+        if view is None:
+            return
+        source_ids = tuple(
+            curve_id for curve_id in curve_ids if curve_id in view.dataset.curves
+        )
+        view.set_selected_curves(source_ids)
 
     def _save_current_form(self) -> None:
         view = self._view
