@@ -273,7 +273,7 @@ def test_depth_annotations_single_item_actions_use_semantic_roles(qapp) -> None:
     dialog = DepthAnnotationsDialog(
         controller,
         language=AppLanguage.EN,
-        annotation_id=record.id,
+        annotation_id=record.annotation_id,
     )
     try:
         buttons = dialog.findChild(QDialogButtonBox)
