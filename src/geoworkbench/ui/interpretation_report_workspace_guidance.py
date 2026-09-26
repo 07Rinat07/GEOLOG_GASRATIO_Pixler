@@ -3,7 +3,10 @@ from __future__ import annotations
 from PySide6.QtCore import QEvent, QPoint, QSize, Qt
 from PySide6.QtWidgets import (
     QFrame,
+    QDialog,
     QLabel,
+    QMessageBox,
+    QPushButton,
     QSizePolicy,
     QStyle,
     QToolButton,
@@ -15,7 +18,12 @@ from PySide6.QtWidgets import (
 from geoworkbench.project.interpretation_calculation_controller import (
     InterpretationCalculationController,
 )
+from geoworkbench.services.gas_context_event_editor import (
+    GasContextEventEditorController,
+    GasContextEventEditorError,
+)
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.ui.gas_context_event_dialog import GasContextEventDialog
 from geoworkbench.ui.help_content import interpretation_guide_html
 from geoworkbench.ui.help_pdf_layout_content import append_pdf_layout_help
 from geoworkbench.ui.interpretation_report_workspace_layout import (
@@ -50,6 +58,7 @@ class InterpretationReportWorkspace(_LayoutWorkspace):
         self.workflow_guide_button: QToolButton | None = None
         self.workflow_title: QLabel | None = None
         self.workflow_steps: QLabel | None = None
+        self.gas_context_button: QPushButton | None = None
         super().__init__(controller, parent, language=language)
         self._build_workflow_controls()
         self._retranslate_workflow_help()
@@ -102,6 +111,18 @@ class InterpretationReportWorkspace(_LayoutWorkspace):
         guide.clicked.connect(self._show_workflow_help)
         sidebar_layout.insertWidget(3, guide)
         self.workflow_guide_button = guide
+
+        gas_context_button = QPushButton()
+        gas_context_button.setObjectName("gas-context-event-editor-button")
+        gas_context_button.clicked.connect(self._edit_gas_context_events)
+        gas_context_button.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Fixed,
+        )
+        # Gas context is required before both standard Gas Ratio/Pixler and OPUS
+        # interpretation, so keep its entry point outside mode-specific panels.
+        sidebar_layout.insertWidget(1, gas_context_button)
+        self.gas_context_button = gas_context_button
 
         button.setEnabled(self.print_button.isEnabled())
         self.setStyleSheet(
@@ -174,25 +195,28 @@ class InterpretationReportWorkspace(_LayoutWorkspace):
         )
         self.workflow_steps.setText(
             self._text(
-                "1. Настройте входные данные\n"
-                "2. Рассчитайте кривые\n"
-                "3. Проверьте отчёт\n"
-                "4. Напечатайте или экспортируйте",
-                "1. Кіріс деректерін баптаңыз\n"
-                "2. Қисықтарды есептеңіз\n"
-                "3. Есепті тексеріңіз\n"
-                "4. Басып шығарыңыз немесе экспорттаңыз",
-                "1. Configure input data\n"
-                "2. Calculate curves\n"
-                "3. Review the report\n"
-                "4. Print or export",
+                "1. Проверьте газовые события\n"
+                "2. Настройте входные данные\n"
+                "3. Рассчитайте кривые\n"
+                "4. Проверьте отчёт\n"
+                "5. Напечатайте или экспортируйте",
+                "1. Газ оқиғаларын тексеріңіз\n"
+                "2. Кіріс деректерін баптаңыз\n"
+                "3. Қисықтарды есептеңіз\n"
+                "4. Есепті тексеріңіз\n"
+                "5. Басып шығарыңыз немесе экспорттаңыз",
+                "1. Review gas events\n"
+                "2. Configure input data\n"
+                "3. Calculate curves\n"
+                "4. Review the report\n"
+                "5. Print or export",
             )
         )
         button.setText(
             self._text(
-                "4. Печать и экспорт",
-                "4. Басып шығару және экспорт",
-                "4. Print and export",
+                "5. Печать и экспорт",
+                "5. Басып шығару және экспорт",
+                "5. Print and export",
             )
         )
         tooltip = self._text(
@@ -217,44 +241,90 @@ class InterpretationReportWorkspace(_LayoutWorkspace):
             guide.setAccessibleName(guide.text())
             guide.setAccessibleDescription(guide_tooltip)
 
+        if self.gas_context_button is not None:
+            self.gas_context_button.setText(
+                self._text(
+                    "1. Газовые события перед расчётом…",
+                    "1. Есептеу алдындағы газ оқиғалары…",
+                    "1. Gas events before calculation…",
+                )
+            )
+            gas_context_tooltip = self._text(
+                "Редактировать повторяющиеся интервалы: тип газа, глубины, TG/QC, "
+                "confirmed/draft и влияние на интерпретацию.",
+                "Қайталанатын аралықтарды өңдеу: газ түрі, тереңдіктер, TG/QC, "
+                "confirmed/draft және интерпретацияға әсері.",
+                "Edit repeated intervals: gas type, depths, TG/QC, confirmed/draft, "
+                "and interpretation impact.",
+            )
+            self.gas_context_button.setToolTip(gas_context_tooltip)
+            self.gas_context_button.setAccessibleName(self.gas_context_button.text())
+            self.gas_context_button.setAccessibleDescription(gas_context_tooltip)
+
         self.normalized_actions_heading.setText(
             self._text("Расчёт и проверка", "Есептеу және тексеру", "Calculate and review")
         )
         self.configure_drilling_inputs_button.setText(
             self._text(
-                "1. Настроить BIT и входные данные…",
-                "1. BIT және кіріс деректерін баптау…",
-                "1. Configure BIT and inputs…",
+                "2. Настроить BIT и входные данные…",
+                "2. BIT және кіріс деректерін баптау…",
+                "2. Configure BIT and inputs…",
             )
         )
         self.recalculate_all_button.setText(
             self._text(
-                "2. Рассчитать кривые и открыть планшет",
-                "2. Қисықтарды есептеп, планшетті ашу",
-                "2. Calculate curves and open tablet",
+                "3. Рассчитать кривые и открыть планшет",
+                "3. Қисықтарды есептеп, планшетті ашу",
+                "3. Calculate curves and open tablet",
             )
         )
         self.refresh_chart_report_button.setText(
             self._text(
-                "3. Обновить и проверить отчёт",
-                "3. Есепті жаңартып, тексеру",
-                "3. Refresh and review report",
+                "4. Обновить и проверить отчёт",
+                "4. Есепті жаңартып, тексеру",
+                "4. Refresh and review report",
             )
         )
         self.calculate_button.setText(
             self._text(
-                "2. Рассчитать остальные методы",
-                "2. Қалған әдістерді есептеу",
-                "2. Calculate other methods",
+                "3. Рассчитать остальные методы",
+                "3. Қалған әдістерді есептеу",
+                "3. Calculate other methods",
             )
         )
         self.refresh_button.setText(
             self._text(
-                "3. Обновить анализ",
-                "3. Талдауды жаңарту",
-                "3. Refresh analysis",
+                "4. Обновить анализ",
+                "4. Талдауды жаңарту",
+                "4. Refresh analysis",
             )
         )
+
+    def _edit_gas_context_events(self) -> None:
+        try:
+            controller = GasContextEventEditorController(self.controller.session)
+        except GasContextEventEditorError:
+            QMessageBox.warning(
+                self,
+                self._text(
+                    "Газовые события",
+                    "Газ оқиғалары",
+                    "Gas events",
+                ),
+                self._text(
+                    "Сначала выберите скважину для редактирования газовых событий.",
+                    "Газ оқиғаларын өңдеу үшін алдымен ұңғыманы таңдаңыз.",
+                    "Select a well before editing gas events.",
+                ),
+            )
+            return
+        dialog = GasContextEventDialog(
+            controller,
+            self,
+            language=self.language,
+        )
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.refresh()
 
     def _open_print_export(self) -> None:
         self.preview_toggle.setChecked(True)

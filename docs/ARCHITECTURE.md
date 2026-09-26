@@ -625,3 +625,17 @@ Project v30 добавляет к пробе шлама упорядоченну
 RU/KK/EN. Текст редактора хранится отдельно: ручные правки не разрушают provenance, а новая
 версия каталога не переписывает ранее сохранённое содержание. Текущий codec делегирует старые
 структуры замороженному v29; миграция v29 добавляет пустую историю без изменения описаний.
+
+## Gas Context editor boundary
+
+`GasContextEvent` and `GasContextRegistry` remain domain objects and contain no Qt dependencies.
+`GasContextEventEditorController` is the transactional application boundary for the pre-calculation
+editor: Add/Update/Duplicate/Delete mutate an immutable working registry, while `commit()` is the
+only operation that replaces `Well.gas_context_events` and marks `ProjectSession.dirty`.
+The Qt `GasContextEventDialog` owns presentation and input collection only; Cancel discards the
+working controller without mutating the project.
+
+This boundary deliberately does not implement Gas Ratio/Haworth/Pixler/OPUS classification rules.
+The next increment consumes the persisted registry from interpretation services and export renderers,
+so UI code never becomes a second source of geological classification logic.
+

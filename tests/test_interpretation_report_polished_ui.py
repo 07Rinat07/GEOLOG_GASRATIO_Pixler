@@ -71,12 +71,20 @@ def test_polished_workspace_groups_controls_and_marks_primary_action(qapp) -> No
     assert "100,0%" in workspace.dexp_quality_summary.text()
     assert (
         workspace.recalculate_all_button.text()
-        == "2. Рассчитать кривые и открыть планшет"
+        == "3. Рассчитать кривые и открыть планшет"
     )
-    assert workspace.configure_drilling_inputs_button.text().startswith("1.")
-    assert workspace.refresh_chart_report_button.text().startswith("3.")
+    assert workspace.configure_drilling_inputs_button.text().startswith("2.")
+    assert workspace.refresh_chart_report_button.text().startswith("4.")
+    assert workspace.gas_context_button is not None
+    assert workspace.gas_context_button.text().startswith("1.")
+    opus_index = workspace.report_mode.findData("opus_text")
+    assert opus_index >= 0
+    workspace.report_mode.setCurrentIndex(opus_index)
+    workspace.refresh()
+    qapp.processEvents()
+    assert workspace.gas_context_button.isEnabled()
     assert workspace.workflow_help_button is not None
-    assert workspace.workflow_help_button.text() == "4. Печать и экспорт"
+    assert workspace.workflow_help_button.text() == "5. Печать и экспорт"
     assert "pdf" in workspace.workflow_help_button.toolTip().casefold()
     assert not workspace.workflow_help_button.icon().isNull()
     assert workspace.workflow_help_button.iconSize().width() == 20
@@ -85,8 +93,9 @@ def test_polished_workspace_groups_controls_and_marks_primary_action(qapp) -> No
     assert workspace.workflow_title is not None
     assert workspace.workflow_title.text() == "Порядок работы"
     assert workspace.workflow_steps is not None
-    assert "1. Настройте" in workspace.workflow_steps.text()
-    assert "4. Напечатайте" in workspace.workflow_steps.text()
+    assert "1. Проверьте газовые события" in workspace.workflow_steps.text()
+    assert "2. Настройте" in workspace.workflow_steps.text()
+    assert "5. Напечатайте" in workspace.workflow_steps.text()
     assert workspace.workflow_guide_button is not None
     assert workspace.workflow_guide_button.text() == "Инструкция"
     workspace.workflow_help_button.click()

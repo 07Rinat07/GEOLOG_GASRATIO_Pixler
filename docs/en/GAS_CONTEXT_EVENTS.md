@@ -38,3 +38,17 @@ replace measured Total Gas and do not mutate source curves.
 
 Events are stored at well level in `Well.gas_context_events`. Project format v35 preserves them
 across Save/Reopen; v34 and older projects load with an empty event list.
+## Pre-calculation editor
+
+The interpretation workspace exposes the editor as a dedicated step **before calculation**.
+Its repeated-row table supports Add/Update/Duplicate/Delete. Each row edits gas type, top/bottom
+depth, optional TG/QC reference and unit, confirmed/draft state, explicit
+`InterpretationImpact`, and a comment.
+
+Editing is transactional: all actions operate on a working `GasContextRegistry`.
+**Save** atomically replaces `Well.gas_context_events` and marks the project session dirty;
+**Cancel** leaves the project unchanged. Source curves are never modified.
+
+This increment creates and persists the operator registry. Applying confirmed events to
+Gas Ratio/Haworth/Pixler/OPUS candidate classification and presenting the same effective
+context in preview/PDF/XLSX/DOCX is the next separate increment.
