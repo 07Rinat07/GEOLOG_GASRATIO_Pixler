@@ -81,7 +81,9 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
 Инкремент editor/controller для повторяющихся строк находится **на проверке**: он добавляет
 транзакционный pre-calculation UI без изменения source curves. Следующий инкремент после его
 зелёного merge — применение confirmed context к Gas Ratio/Haworth/Pixler/OPUS candidate
-classification и единое export presentation в preview/PDF/XLSX/DOCX.
+classification и единое export presentation в preview/PDF/XLSX/DOCX. Текущий stacked
+audit-инкремент также проводит через общий report DTO измеренные TG/C1–C5 min/mean/max,
+ручной TG/QC reference и безопасную QC-разницу без изменения source curves.
 
 Цель — перед расчётом Gas Ratio/Haworth, Pixler, OPUS и любого комбинированного газового
 интерпретационного отчёта дать геологу/оператору явный способ указать интервалы газа известного
