@@ -4,6 +4,12 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from geoworkbench.domain.gas_context_events import (
+    GasContextEvent,
+    GasContextEventType,
+)
+
+
 from geoworkbench.domain.models import (
     CanvasObject,
     CurveData,
@@ -76,6 +82,78 @@ def make_project() -> Project:
     )
     well = Well("well-1", "Well 1", datasets={dataset.dataset_id: dataset})
     return Project("project-1", "Test project", wells={well.well_id: well})
+
+
+def test_gas_context_depth_domain_uses_project_v36_and_round_trips(tmp_path: Path) -> None:
+    project = make_project()
+    project.wells["well-1"].gas_context_events.append(
+        GasContextEvent(
+            event_id="trip-md",
+            event_type=GasContextEventType.TRIP_GAS,
+            top_depth=100.0,
+            bottom_depth=101.0,
+            depth_domain=DepthDomain.MD,
+            confirmed=True,
+        )
+    )
+    target = tmp_path / "gas-context-v36.geologpkg"
+
+    save_project(project, target)
+
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    assert payload["format_version"] == 36
+    raw_event = payload["project"]["wells"]["well-1"]["gas_context_events"][0]
+    assert raw_event["depth_domain"] == "md"
+
+    loaded = load_project(target)
+    restored = loaded.wells["well-1"].gas_context_events[0]
+    assert restored.depth_domain is DepthDomain.MD
+
+
+def test_gas_context_v35_migrates_legacy_event_as_unbound(tmp_path: Path) -> None:
+    project = make_project()
+    project.wells["well-1"].gas_context_events.append(
+        GasContextEvent(
+            event_id="legacy-trip",
+            event_type=GasContextEventType.TRIP_GAS,
+            top_depth=100.0,
+            bottom_depth=101.0,
+            confirmed=True,
+        )
+    )
+    target = tmp_path / "gas-context-v35.geologpkg"
+    save_project(project, target)
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    payload["format_version"] = 35
+    raw_event = payload["project"]["wells"]["well-1"]["gas_context_events"][0]
+    raw_event.pop("depth_domain")
+
+    migrated = project_document_from_dict(payload).project
+    restored = migrated.wells["well-1"].gas_context_events[0]
+
+    assert restored.event_id == "legacy-trip"
+    assert restored.depth_domain is None
+
+
+def test_gas_context_v35_rejects_v36_depth_domain_field(tmp_path: Path) -> None:
+    project = make_project()
+    project.wells["well-1"].gas_context_events.append(
+        GasContextEvent(
+            event_id="wrong-schema",
+            event_type=GasContextEventType.TRIP_GAS,
+            top_depth=100.0,
+            bottom_depth=101.0,
+            depth_domain=DepthDomain.MD,
+            confirmed=True,
+        )
+    )
+    target = tmp_path / "gas-context-invalid-v35.geologpkg"
+    save_project(project, target)
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    payload["format_version"] = 35
+
+    with pytest.raises(ProjectFormatError, match="gas context event"):
+        project_document_from_dict(payload)
 
 
 def test_translation_statuses_round_trip_and_legacy_defaults_empty(tmp_path: Path) -> None:
