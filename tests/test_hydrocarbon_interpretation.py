@@ -538,6 +538,13 @@ def test_confirmed_technological_context_is_excluded_from_robust_background() ->
     assert well is not None
     assert dataset is not None
 
+    primary = dataset.curve_by_mnemonic("C1_NORM")
+    assert primary is not None
+    # Simulate a long technological-gas interval that would materially bias the
+    # robust background if it were learned as formation gas.
+    primary.values[25:75] = 5.0
+    primary.values[40:43] = (80.0, 120.0, 90.0)
+
     baseline_without_context = build_hydrocarbon_interpretation_report(
         session,
         threshold=3.0,
@@ -548,8 +555,8 @@ def test_confirmed_technological_context_is_excluded_from_robust_background() ->
         GasContextEvent(
             event_id="background-exclusion",
             event_type=GasContextEventType.CONNECTION_GAS,
-            top_depth=1_040.0,
-            bottom_depth=1_042.0,
+            top_depth=1_025.0,
+            bottom_depth=1_074.0,
             confirmed=True,
             depth_domain=dataset.depth_domain,
         )
