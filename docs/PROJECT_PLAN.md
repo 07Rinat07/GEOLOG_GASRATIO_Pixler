@@ -107,7 +107,7 @@ audit-инкремент также проводит через общий repor
 - [x] Ввести явный `InterpretationImpact` минимум из трёх режимов:
   **exclude geological interpretation**, **operational/technological gas**, **formation gas**;
   дополнительно поддержать **auto / requires geologist review** для неоднозначных случаев.
-- [ ] Gas-line/chromatograph/calibration/lag-tracer test интервалы исключаются из автоматического
+- [x] Gas-line/chromatograph/calibration/lag-tracer test интервалы исключаются из автоматического
   назначения УВ-пласта и из обучения фонового газа. Значения и формулы сохраняются для аудита.
 - [ ] Connection/build-up, trip/СПО, swab, circulated/recycled gas не назначают самостоятельный
   продуктивный пласт автоматически, но их C1–C5/TG, Gas Ratio, Haworth/Pixler и OPUS результаты
