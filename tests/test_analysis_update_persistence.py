@@ -113,7 +113,7 @@ def test_project_v28_round_trip_preserves_well_analysis_history(tmp_path) -> Non
     payload = json.loads(target.read_text(encoding="utf-8"))
 
     assert PROJECT_FORMAT_VERSION == 35
-    assert payload["format_version"] == 35
+    assert payload["format_version"] == 36
     assert restored.wells["well-1"].analysis_update_history == [record]
 
 
