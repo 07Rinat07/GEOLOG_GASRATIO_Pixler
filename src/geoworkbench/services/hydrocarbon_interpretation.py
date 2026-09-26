@@ -252,6 +252,12 @@ def hydrocarbon_interpretation_html(
             _gas_context_html(report, language) + "</body>",
             1,
         )
+    if report.suppressed_candidates:
+        html = html.replace(
+            "</body>",
+            _suppressed_candidates_html(report, language) + "</body>",
+            1,
+        )
     return _strip_client_limitations(html)
 
 
@@ -341,6 +347,56 @@ def _gas_context_html(
         "<table><thead><tr>"
         f"<th>{gas_type}</th><th>{interval}</th><th>{status}</th>"
         f"<th>{impact}</th><th>{tg_qc}</th><th>{comment}</th><th>{domain}</th>"
+        f"</tr></thead><tbody>{rows}</tbody></table>"
+    )
+
+
+def _suppressed_candidates_html(
+    report: HydrocarbonInterpretationReport,
+    language: AppLanguage,
+) -> str:
+    labels = {
+        AppLanguage.RU: (
+            "Аудит подавленных автоматических кандидатов",
+            "Интервал",
+            "Основная кривая",
+            "max robust z",
+            "Автоматическая гипотеза",
+            "Причина подавления / evidence",
+        ),
+        AppLanguage.KK: (
+            "Басылған автоматты кандидаттар аудиты",
+            "Аралық",
+            "Негізгі қисық",
+            "max robust z",
+            "Автоматты гипотеза",
+            "Басу себебі / evidence",
+        ),
+        AppLanguage.EN: (
+            "Suppressed automatic candidates audit",
+            "Interval",
+            "Primary curve",
+            "max robust z",
+            "Automatic hypothesis",
+            "Suppression reason / evidence",
+        ),
+    }[language]
+    title, interval, primary, robust_z, hypothesis, reason = labels
+    rows = "".join(
+        "<tr>"
+        f"<td>{candidate.top_depth:g}–{candidate.bottom_depth:g} {escape(report.depth_unit)}</td>"
+        f"<td>{escape(candidate.primary_mnemonic)}</td>"
+        f"<td>{candidate.max_robust_z:.3f}</td>"
+        f"<td>{escape(candidate.fluid_hypothesis)}</td>"
+        f"<td>{escape(' | '.join(candidate.evidence))}</td>"
+        "</tr>"
+        for candidate in report.suppressed_candidates
+    )
+    return (
+        f"<h2>{title}</h2>"
+        "<table><thead><tr>"
+        f"<th>{interval}</th><th>{primary}</th><th>{robust_z}</th>"
+        f"<th>{hypothesis}</th><th>{reason}</th>"
         f"</tr></thead><tbody>{rows}</tbody></table>"
     )
 
