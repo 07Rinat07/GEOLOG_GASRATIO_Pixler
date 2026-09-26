@@ -44,7 +44,7 @@ def apply_gas_context_to_report(
         )
     )
     kept: list[HydrocarbonCandidateInterval] = []
-    suppressed = 0
+    suppressed_candidates: list[HydrocarbonCandidateInterval] = []
     for candidate in report.candidates:
         event = registry.resolve_for_interval(
             candidate.top_depth,
@@ -59,16 +59,17 @@ def apply_gas_context_to_report(
             InterpretationImpact.EXCLUDE_GEOLOGICAL,
             InterpretationImpact.TECHNOLOGICAL_GAS,
         }:
-            suppressed += 1
+            suppressed_candidates.append(_annotate_candidate(candidate, event))
             continue
         kept.append(_annotate_candidate(candidate, event))
 
     warnings = list(report.warnings)
-    if suppressed:
+    if suppressed_candidates:
         warnings.append(
             "Gas Context Registry suppressed "
-            f"{suppressed} automatic geological candidate(s); calculated curves and "
-            "source gas values were preserved unchanged."
+            f"{len(suppressed_candidates)} automatic geological candidate(s); calculated curves, "
+            "source gas values and the original automatic candidate evidence were preserved "
+            "for audit."
         )
     opus_gasomer = report.opus_gasomer
     if opus_gasomer is not None:
@@ -91,6 +92,7 @@ def apply_gas_context_to_report(
         candidates=tuple(kept),
         opus_gasomer=opus_gasomer,
         gas_context_events=confirmed,
+        suppressed_candidates=tuple(suppressed_candidates),
         warnings=tuple(dict.fromkeys(warnings)),
     )
 
