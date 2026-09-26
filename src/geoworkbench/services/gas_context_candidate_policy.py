@@ -33,7 +33,7 @@ def apply_gas_context_to_report(
             (
                 event
                 for event in registry.events
-                if event.confirmed and event.depth_domain is depth_domain
+                if event.confirmed and event.depth_domain == depth_domain
             ),
             key=lambda event: (
                 event.top_depth,
