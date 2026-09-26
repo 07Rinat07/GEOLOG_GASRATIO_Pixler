@@ -144,6 +144,8 @@ def _write_docx(
         body.extend(_opus_gasomer_docx(report, language))
     if report.gas_context_events:
         body.extend(_gas_context_docx(report, language))
+    if report.suppressed_candidates:
+        body.extend(_suppressed_candidates_docx(report, language))
     body.append(_paragraph(labels.prospective_heading, style="Heading1"))
     if report.candidates:
         body.append(
@@ -309,6 +311,57 @@ def _gas_context_docx(
             (gas_type, interval, status, impact, tg_qc, comment),
             rows,
             widths=(2_500, 2_300, 1_700, 2_700, 2_000, 3_900),
+        ),
+    ]
+
+
+def _suppressed_candidates_docx(
+    report: HydrocarbonInterpretationReport,
+    language: AppLanguage,
+) -> list[str]:
+    labels = {
+        AppLanguage.RU: (
+            "Аудит подавленных автоматических кандидатов",
+            "Интервал",
+            "Основная кривая",
+            "max robust z",
+            "Автоматическая гипотеза",
+            "Причина подавления / evidence",
+        ),
+        AppLanguage.KK: (
+            "Басылған автоматты кандидаттар аудиты",
+            "Аралық",
+            "Негізгі қисық",
+            "max robust z",
+            "Автоматты гипотеза",
+            "Басу себебі / evidence",
+        ),
+        AppLanguage.EN: (
+            "Suppressed automatic candidates audit",
+            "Interval",
+            "Primary curve",
+            "max robust z",
+            "Automatic hypothesis",
+            "Suppression reason / evidence",
+        ),
+    }[language]
+    title, interval, primary, robust_z, hypothesis, reason = labels
+    rows = tuple(
+        (
+            f"{candidate.top_depth:g}–{candidate.bottom_depth:g} {report.depth_unit}",
+            candidate.primary_mnemonic,
+            f"{candidate.max_robust_z:.3f}",
+            candidate.fluid_hypothesis,
+            " | ".join(candidate.evidence),
+        )
+        for candidate in report.suppressed_candidates
+    )
+    return [
+        _paragraph(title, style="Heading1"),
+        _table(
+            (interval, primary, robust_z, hypothesis, reason),
+            rows,
+            widths=(2_200, 2_200, 1_800, 3_000, 6_100),
         ),
     ]
 
