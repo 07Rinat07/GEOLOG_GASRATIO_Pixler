@@ -8,7 +8,7 @@ import numpy as np
 
 from geoworkbench.domain.gas_context_events import GasContextEvent
 from geoworkbench.domain.gas_context_events import InterpretationImpact
-from geoworkbench.domain.models import CuttingsSample, Dataset
+from geoworkbench.domain.models import CuttingsSample, Dataset, Well
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.gas_ratio_interpretation import (
     PixlerAssessment,
@@ -606,7 +606,7 @@ def _detect_candidates(
 
 
 def _gas_context_background_exclusions(
-    well,
+    well: Well,
     dataset: Dataset,
 ) -> tuple[tuple[float, float], ...]:
     """Return confirmed technological/test intervals excluded from background learning."""
