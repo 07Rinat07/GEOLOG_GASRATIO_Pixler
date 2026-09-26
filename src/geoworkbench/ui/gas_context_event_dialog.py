@@ -140,6 +140,7 @@ class GasContextEventDialog(QDialog):
         super().__init__(parent)
         self.controller = controller
         self.language = language
+        self._error_message_box: QMessageBox | None = None
         self.setObjectName("gas-context-event-dialog")
         self.setWindowTitle(
             self._text(
@@ -507,7 +508,17 @@ class GasContextEventDialog(QDialog):
         self.delete_button.setEnabled(selected)
 
     def _show_error(self, error: Exception) -> None:
-        QMessageBox.warning(self, self.windowTitle(), str(error))
+        message_box = QMessageBox(self)
+        message_box.setIcon(QMessageBox.Icon.Warning)
+        message_box.setWindowTitle(self.windowTitle())
+        message_box.setText(str(error))
+        message_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+        self._error_message_box = message_box
+        message_box.finished.connect(self._clear_error_message_box)
+        message_box.open()
+
+    def _clear_error_message_box(self, _result: int) -> None:
+        self._error_message_box = None
 
 
 __all__ = ["GasContextEventDialog"]
