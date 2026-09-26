@@ -434,6 +434,15 @@ def test_confirmed_technological_gas_suppresses_geological_candidate_and_exports
     report = build_hydrocarbon_interpretation_report(session, threshold=3.0)
 
     assert report.candidates == ()
+    assert len(report.suppressed_candidates) == 1
+    suppressed = report.suppressed_candidates[0]
+    assert suppressed.top_depth <= 1_040.0
+    assert suppressed.bottom_depth >= 1_042.0
+    assert any(
+        "gas-context: event_id=connection-1" in item
+        and "impact=technological_gas" in item
+        for item in suppressed.evidence
+    )
     assert len(report.gas_context_events) == 1
     assert report.gas_context_events[0].event_id == "connection-1"
     assert any("suppressed 1 automatic geological candidate" in item for item in report.warnings)
@@ -545,5 +554,6 @@ def test_unbound_legacy_context_is_not_applied_across_multiple_depth_domains() -
     report = build_hydrocarbon_interpretation_report(session, threshold=3.0)
 
     assert len(report.candidates) == 1
+    assert report.suppressed_candidates == ()
     assert report.gas_context_events == ()
     assert not any("suppressed" in item for item in report.warnings)
