@@ -618,6 +618,7 @@ class MainWindow(QMainWindow):
         application_context: ApplicationContext | None = None,
     ) -> None:
         super().__init__()
+        self.setObjectName("mainWindow")
         self.application_context = application_context
         self.language = language
         self.localizer = Localizer.create(language)
@@ -712,6 +713,8 @@ class MainWindow(QMainWindow):
         self._apply_adaptive_minimum_size()
 
         self.tabs = QTabWidget()
+        self.tabs.setObjectName("workspaceTabs")
+        self.tabs.setDocumentMode(True)
         self.file_workspace = FileWorkspaceWidget(language=self.language.value)
         self.curve_view = CurveView(self.dataset_selection, language=self.language)
         self.curve_view.edit_requested.connect(self._apply_curve_draw_edit)
@@ -850,7 +853,9 @@ class MainWindow(QMainWindow):
         self._create_actions()
         self._create_home_page()
         self._create_toolbar()
-        self.setStatusBar(QStatusBar())
+        status_bar = QStatusBar()
+        status_bar.setObjectName("mainStatusBar")
+        self.setStatusBar(status_bar)
         self.form_width_indicator = QLabel()
         self.form_width_indicator.setObjectName("formWidthIndicator")
         self.form_width_indicator.setMinimumWidth(180)
@@ -1162,14 +1167,8 @@ class MainWindow(QMainWindow):
         self.left_panel_rail.setFloatable(False)
         self.left_panel_rail.setIconSize(QSize(20, 20))
         self.left_panel_rail.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
-        self.left_panel_rail.setMinimumWidth(34)
-        self.left_panel_rail.setMaximumWidth(38)
-        self.left_panel_rail.setStyleSheet(
-            "QToolBar { spacing: 3px; padding: 3px; border: 0; } "
-            "QToolButton { min-width: 28px; min-height: 28px; border-radius: 4px; } "
-            "QToolButton:hover { background: palette(midlight); } "
-            "QToolButton:checked { background: palette(highlight); color: palette(highlighted-text); }"
-        )
+        self.left_panel_rail.setMinimumWidth(40)
+        self.left_panel_rail.setMaximumWidth(44)
         self.addToolBar(Qt.ToolBarArea.LeftToolBarArea, self.left_panel_rail)
 
         self.right_panel_rail = QToolBar(self._t("panel.right_rail"), self)
@@ -1178,9 +1177,8 @@ class MainWindow(QMainWindow):
         self.right_panel_rail.setFloatable(False)
         self.right_panel_rail.setIconSize(QSize(20, 20))
         self.right_panel_rail.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
-        self.right_panel_rail.setMinimumWidth(34)
-        self.right_panel_rail.setMaximumWidth(38)
-        self.right_panel_rail.setStyleSheet(self.left_panel_rail.styleSheet())
+        self.right_panel_rail.setMinimumWidth(40)
+        self.right_panel_rail.setMaximumWidth(44)
         self.addToolBar(Qt.ToolBarArea.RightToolBarArea, self.right_panel_rail)
 
         self.project_panel_action = self._panel_toggle_action(
@@ -2256,7 +2254,7 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(FileWorkspaceWidget.tab_title(self.language.value))
 
     def _create_toolbar(self) -> None:
-        self.main_toolbar = _ResponsiveCommandBar(self, margins=(8, 6, 8, 6))
+        self.main_toolbar = _ResponsiveCommandBar(self, margins=(10, 7, 10, 7))
         self.main_toolbar.setObjectName("mainToolbar")
         # Keep the complete main row inside one QWidget. This deliberately
         # bypasses QToolBar's private extension button, which may be inserted
@@ -2269,7 +2267,7 @@ class MainWindow(QMainWindow):
         )
         self.main_toolbar_layout = QHBoxLayout(self.main_toolbar_row)
         self.main_toolbar_layout.setContentsMargins(0, 0, 0, 0)
-        self.main_toolbar_layout.setSpacing(6)
+        self.main_toolbar_layout.setSpacing(7)
 
         self.home_button = self._toolbar_button(self.main_toolbar_row, self.home_action)
         self.las_editor_button = self._toolbar_button(self.main_toolbar_row, self.las_editor_action)
