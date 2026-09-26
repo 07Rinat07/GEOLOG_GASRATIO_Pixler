@@ -145,6 +145,7 @@ class HydrocarbonInterpretationReport:
     report_profile: str = "standard"
     opus_gasomer: OpusGasomerReportSection | None = None
     gas_context_events: tuple[GasContextEvent, ...] = ()
+    suppressed_candidates: tuple[HydrocarbonCandidateInterval, ...] = ()
 
 
 _GASOMER_AMBIGUOUS_PREFIX = "opus_gasomer_ambiguous__"
