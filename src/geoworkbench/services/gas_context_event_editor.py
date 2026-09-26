@@ -53,7 +53,7 @@ class GasContextEventEditorController:
         visible = (
             event
             for event in self._working.events
-            if event.depth_domain is None or event.depth_domain is self._depth_domain
+            if event.depth_domain is None or event.depth_domain == self._depth_domain
         )
         return tuple(
             sorted(
