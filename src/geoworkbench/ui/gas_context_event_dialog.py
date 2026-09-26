@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TypedDict
 
-from PySide6.QtCore import QSize, Qt
+from PySide6.QtCore import QLocale, QSize, Qt
 from PySide6.QtGui import QDoubleValidator
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -202,6 +202,22 @@ class GasContextEventDialog(QDialog):
         self.reported_total_input.setObjectName("gas-context-event-tg")
         validator = QDoubleValidator(0.0, 1_000_000_000.0, 8, self)
         validator.setNotation(QDoubleValidator.Notation.StandardNotation)
+        validator.setLocale(
+            {
+                AppLanguage.RU: QLocale(
+                    QLocale.Language.Russian,
+                    QLocale.Country.Kazakhstan,
+                ),
+                AppLanguage.KK: QLocale(
+                    QLocale.Language.Kazakh,
+                    QLocale.Country.Kazakhstan,
+                ),
+                AppLanguage.EN: QLocale(
+                    QLocale.Language.English,
+                    QLocale.Country.UnitedStates,
+                ),
+            }[language]
+        )
         self.reported_total_input.setValidator(validator)
         self.reported_total_input.setPlaceholderText(
             self._text("необязательно", "міндетті емес", "optional")
