@@ -282,6 +282,7 @@ def build_hydrocarbon_interpretation_report(
     session: ProjectSession,
     *,
     threshold: float = 3.0,
+    background_exclusion_intervals: tuple[tuple[float, float], ...] = (),
 ) -> HydrocarbonInterpretationReport:
     if not np.isfinite(threshold) or not 2.0 <= threshold <= 10.0:
         raise ValueError("Порог robust z должен находиться в диапазоне 2–10")
@@ -389,6 +390,7 @@ def build_hydrocarbon_interpretation_report(
             primary_name,
             threshold,
             lba_samples=tuple(well.cuttings),
+            background_exclusion_intervals=background_exclusion_intervals,
         )
         if detection_warning:
             warnings.append(detection_warning)
@@ -438,6 +440,7 @@ def _detect_candidates(
     threshold: float,
     *,
     lba_samples: tuple[CuttingsSample, ...] = (),
+    background_exclusion_intervals: tuple[tuple[float, float], ...] = (),
 ) -> tuple[
     tuple[HydrocarbonCandidateInterval, ...],
     float | None,
@@ -452,7 +455,16 @@ def _detect_candidates(
     if values.shape != depth.shape:
         return (), None, None, "Основная газовая кривая имеет неверное число отсчётов."
     valid = np.isfinite(depth) & np.isfinite(values) & (values >= 0.0)
-    if np.count_nonzero(valid) < 20:
+    background_valid = valid.copy()
+    for top_depth, bottom_depth in background_exclusion_intervals:
+        low = min(float(top_depth), float(bottom_depth))
+        high = max(float(top_depth), float(bottom_depth))
+        background_valid &= ~(
+            np.isfinite(depth)
+            & (depth >= low)
+            & (depth <= high)
+        )
+    if np.count_nonzero(background_valid) < 20:
         return (
             (),
             None,
@@ -461,7 +473,7 @@ def _detect_candidates(
         )
     transformed = np.full(values.shape, np.nan, dtype=np.float64)
     transformed[valid] = np.log1p(values[valid])
-    finite_values = transformed[valid]
+    finite_values = transformed[background_valid]
     median, scale = _robust_center_scale(finite_values)
     if scale is None:
         return (
@@ -486,7 +498,7 @@ def _detect_candidates(
     flagged_indices = flagged_indices[np.argsort(depth[flagged_indices], kind="stable")]
     fluid_context = _build_fluid_interpretation_context(
         dataset,
-        valid & ~flagged,
+        background_valid & ~flagged,
     )
     groups: list[list[int]] = []
     for row_index in flagged_indices:
