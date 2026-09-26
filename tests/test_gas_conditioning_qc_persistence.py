@@ -69,7 +69,7 @@ def test_project_round_trip_preserves_gas_conditioning_qc(tmp_path) -> None:
 
     assert dataset.gas_conditioning_qc == _summary()
     payload = json.loads(target.read_text(encoding="utf-8"))
-    assert payload["format_version"] == PROJECT_FORMAT_VERSION == 35
+    assert payload["format_version"] == PROJECT_FORMAT_VERSION == 36
     raw_qc = payload["project"]["wells"]["well"]["datasets"]["gas"][
         "gas_conditioning_qc"
     ]
