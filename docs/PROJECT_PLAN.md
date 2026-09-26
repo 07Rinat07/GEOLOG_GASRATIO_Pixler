@@ -136,6 +136,7 @@ audit-инкремент также проводит через общий repor
 
 ## UI-SYS-01 — единый адаптивный интерфейс
 
+- [ ] Главная оболочка переводится на единый industrial geoscience presentation-contract: command bar, боковые rails, workspace tabs, dock headers, status bar и Home dashboard используют palette-aware состояния и адаптивную геометрию без изменения команд и расчётной логики.
 - [ ] Ввести application-level visual/interaction contract вместо разрозненных локальных
   `setStyleSheet`: единые логические высоты кнопок/полей, внутренние отступы, focus ring,
   hover/pressed/checked/disabled states, toolbar icon metrics и compact mode.
