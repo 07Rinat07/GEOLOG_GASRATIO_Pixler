@@ -531,6 +531,73 @@ def test_confirmed_technological_gas_suppresses_geological_candidate_and_exports
         assert "gas-context: event_id=connection-1" in document
 
 
+def test_confirmed_technological_context_is_excluded_from_robust_background() -> None:
+    session = _session()
+    well = session.current_well
+    dataset = session.current_dataset
+    assert well is not None
+    assert dataset is not None
+
+    primary = dataset.curve_by_mnemonic("C1_NORM")
+    assert primary is not None
+    # Simulate a long technological-gas interval that would materially bias the
+    # robust background if it were learned as formation gas.
+    primary.values[25:75] = 5.0
+    primary.values[40:43] = (80.0, 120.0, 90.0)
+
+    baseline_without_context = build_hydrocarbon_interpretation_report(
+        session,
+        threshold=3.0,
+    ).baseline_median
+    assert baseline_without_context is not None
+
+    well.gas_context_events.append(
+        GasContextEvent(
+            event_id="background-exclusion",
+            event_type=GasContextEventType.CONNECTION_GAS,
+            top_depth=1_025.0,
+            bottom_depth=1_074.0,
+            confirmed=True,
+            depth_domain=dataset.depth_domain,
+        )
+    )
+    report = build_hydrocarbon_interpretation_report(session, threshold=3.0)
+
+    assert report.baseline_median is not None
+    assert report.baseline_median < baseline_without_context
+    assert report.candidates == ()
+    assert len(report.suppressed_candidates) == 1
+
+
+def test_draft_technological_context_remains_in_robust_background() -> None:
+    session = _session()
+    well = session.current_well
+    dataset = session.current_dataset
+    assert well is not None
+    assert dataset is not None
+
+    baseline_without_context = build_hydrocarbon_interpretation_report(
+        session,
+        threshold=3.0,
+    ).baseline_median
+    assert baseline_without_context is not None
+
+    well.gas_context_events.append(
+        GasContextEvent(
+            event_id="draft-background",
+            event_type=GasContextEventType.TRIP_GAS,
+            top_depth=1_040.0,
+            bottom_depth=1_042.0,
+            confirmed=False,
+            depth_domain=dataset.depth_domain,
+        )
+    )
+    report = build_hydrocarbon_interpretation_report(session, threshold=3.0)
+
+    assert report.baseline_median == baseline_without_context
+    assert len(report.candidates) == 1
+
+
 def test_confirmed_formation_context_keeps_candidate_and_adds_audit_evidence() -> None:
     session = _session()
     well = session.current_well
