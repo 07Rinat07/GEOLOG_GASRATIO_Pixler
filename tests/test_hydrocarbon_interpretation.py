@@ -451,6 +451,8 @@ def test_confirmed_technological_gas_suppresses_geological_candidate_and_exports
     assert "Газовый контекст интерпретации" in html
     assert "connection_gas" in html
     assert "Connection gas QC" in html
+    assert "Аудит подавленных автоматических кандидатов" in html
+    assert "gas-context: event_id=connection-1" in html
 
     xlsx_path = export_hydrocarbon_interpretation_xlsx(
         report,
@@ -485,6 +487,8 @@ def test_confirmed_technological_gas_suppresses_geological_candidate_and_exports
         assert "Газовый контекст интерпретации" in document
         assert "connection_gas" in document
         assert "technological_gas" in document
+        assert "Аудит подавленных автоматических кандидатов" in document
+        assert "gas-context: event_id=connection-1" in document
 
 
 def test_confirmed_formation_context_keeps_candidate_and_adds_audit_evidence() -> None:
