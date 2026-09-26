@@ -77,7 +77,7 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
 ## GASCTX-RPT-01 — технологический газовый контекст интерпретационных отчётов
 
 Первый инкремент GASCTX-RPT-01 реализует generic `GasContextEvent` / `GasContextRegistry`
-без WITS-зависимости и project-format v35 persistence на уровне `Well.gas_context_events`.
+без WITS-зависимости и project-format v35 persistence на уровне `Well.gas_context_events`. Depth-domain-aware persistence использует project-format v36, а v35 события мигрируют как unbound и безопасно привязываются только для single-domain well.
 Инкремент editor/controller для повторяющихся строк находится **на проверке**: он добавляет
 транзакционный pre-calculation UI без изменения source curves. Следующий инкремент после его
 зелёного merge — применение confirmed context к Gas Ratio/Haworth/Pixler/OPUS candidate
