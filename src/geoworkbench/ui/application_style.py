@@ -87,17 +87,59 @@ QToolButton:focus {
     border: 2px solid palette(highlight);
 }
 
+QMainWindow#mainWindow {
+    background: palette(window);
+    color: palette(window-text);
+}
+QMainWindow#mainWindow QMenuBar {
+    min-height: 28px;
+    padding: 2px 6px;
+    border-bottom: 1px solid palette(mid);
+    background: palette(window);
+    color: palette(window-text);
+}
+QMainWindow#mainWindow QMenuBar::item {
+    padding: 5px 9px;
+    margin: 1px 2px;
+    border-radius: 5px;
+    background: transparent;
+}
+QMainWindow#mainWindow QMenuBar::item:selected {
+    background: palette(midlight);
+}
+QMainWindow#mainWindow QMenuBar::item:pressed {
+    background: palette(highlight);
+    color: palette(highlighted-text);
+}
+QMainWindow#mainWindow QMenu {
+    padding: 5px;
+    border: 1px solid palette(mid);
+    background: palette(base);
+    color: palette(text);
+}
+QMainWindow#mainWindow QMenu::separator {
+    height: 1px;
+    margin: 5px 8px;
+    background: palette(mid);
+}
+
+QWidget#responsiveToolbarHost {
+    background: palette(window);
+    border-bottom: 1px solid palette(mid);
+}
 QFrame#mainToolbar {
+    min-height: 46px;
+    border: none;
     border-bottom: 1px solid palette(mid);
     background: palette(window);
 }
 QFrame#mainToolbar QToolButton {
-    min-height: 32px;
-    padding: 4px 9px;
+    min-height: 34px;
+    padding: 5px 10px;
     border: 1px solid palette(mid);
-    border-radius: 7px;
+    border-radius: 8px;
     color: palette(button-text);
-    font-weight: 600;
+    font-weight: 650;
     background: palette(button);
 }
 QFrame#mainToolbar QToolButton:hover {
@@ -109,6 +151,135 @@ QFrame#mainToolbar QToolButton:checked {
     background: palette(highlight);
     border-color: palette(highlight);
     color: palette(highlighted-text);
+}
+
+QFrame#mainToolbar QToolButton:focus {
+    border: 2px solid palette(highlight);
+    padding: 4px 9px;
+}
+QFrame#mainToolbar QToolButton:disabled {
+    color: palette(mid);
+    background: palette(window);
+    border-color: palette(mid);
+}
+QFrame#mainToolbar QToolButton#mainToolbarOverflowButton {
+    min-width: 34px;
+    padding-left: 7px;
+    padding-right: 7px;
+    font-size: 17px;
+    font-weight: 700;
+}
+QFrame#toolbarSeparator {
+    background: transparent;
+    border: none;
+    border-left: 1px solid palette(mid);
+    margin: 5px 3px;
+}
+
+QToolBar#leftPanelRail,
+QToolBar#rightPanelRail {
+    spacing: 5px;
+    padding: 5px 4px;
+    border: none;
+    background: palette(window);
+}
+QToolBar#leftPanelRail {
+    border-right: 1px solid palette(mid);
+}
+QToolBar#rightPanelRail {
+    border-left: 1px solid palette(mid);
+}
+QToolBar#leftPanelRail QToolButton,
+QToolBar#rightPanelRail QToolButton {
+    min-width: 32px;
+    min-height: 32px;
+    padding: 3px;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    color: palette(button-text);
+    background: transparent;
+}
+QToolBar#leftPanelRail QToolButton:hover,
+QToolBar#rightPanelRail QToolButton:hover {
+    border-color: palette(mid);
+    background: palette(midlight);
+}
+QToolBar#leftPanelRail QToolButton:checked,
+QToolBar#rightPanelRail QToolButton:checked {
+    border-color: palette(highlight);
+    background: palette(highlight);
+    color: palette(highlighted-text);
+}
+
+QTabWidget#workspaceTabs::pane {
+    border: none;
+    border-top: 1px solid palette(mid);
+    background: palette(base);
+}
+QTabWidget#workspaceTabs QTabBar::tab {
+    min-height: 32px;
+    padding: 6px 13px;
+    margin: 0 1px 0 0;
+    border: 1px solid transparent;
+    border-bottom: 3px solid transparent;
+    background: palette(window);
+    color: palette(window-text);
+}
+QTabWidget#workspaceTabs QTabBar::tab:hover {
+    background: palette(midlight);
+}
+QTabWidget#workspaceTabs QTabBar::tab:selected {
+    border-bottom-color: palette(highlight);
+    background: palette(base);
+    color: palette(text);
+    font-weight: 700;
+}
+QTabWidget#workspaceTabs QTabBar::tab:disabled {
+    color: palette(mid);
+}
+
+QDockWidget {
+    color: palette(window-text);
+}
+QDockWidget::title {
+    min-height: 24px;
+    padding: 5px 8px;
+    border-bottom: 1px solid palette(mid);
+    background: palette(alternate-base);
+    color: palette(window-text);
+    font-weight: 650;
+    text-align: left;
+}
+QDockWidget::close-button,
+QDockWidget::float-button {
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+}
+QDockWidget::close-button:hover,
+QDockWidget::float-button:hover {
+    background: palette(midlight);
+}
+
+QStatusBar#mainStatusBar {
+    min-height: 24px;
+    padding: 1px 6px;
+    border-top: 1px solid palette(mid);
+    background: palette(window);
+    color: palette(window-text);
+}
+QStatusBar#mainStatusBar QLabel {
+    color: palette(window-text);
+}
+QLabel#formWidthIndicator {
+    min-height: 20px;
+    padding: 1px 8px;
+    border-left: 1px solid palette(mid);
+    color: palette(window-text);
+}
+QStackedWidget#centralWorkspaceStack,
+QWidget#workspaceShell {
+    background: palette(base);
 }
 
 QFrame#formEditToolbar {
