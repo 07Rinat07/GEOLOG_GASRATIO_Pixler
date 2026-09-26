@@ -111,6 +111,10 @@ def build_hydrocarbon_interpretation_report(
             curve.metadata.original_mnemonic,
             threshold,
             lba_samples=tuple(well.cuttings),
+            background_exclusion_intervals=_legacy._gas_context_background_exclusions(
+                well,
+                dataset,
+            ),
         )
         marker = (
             f"normalized-gas source={source_kind}; "
