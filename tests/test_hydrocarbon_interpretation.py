@@ -410,6 +410,84 @@ def test_xlsx_export_rejects_mismatched_curve_lengths(tmp_path) -> None:
         )
 
 
+def test_confirmed_test_gas_is_excluded_from_robust_background_learning() -> None:
+    session = _session()
+    well = session.current_well
+    dataset = session.current_dataset
+    assert well is not None
+    assert dataset is not None
+    curve = dataset.curve_by_mnemonic("C1_NORM")
+    assert curve is not None
+
+    background = 1.0 + np.resize(
+        np.asarray([-0.08, -0.04, 0.0, 0.04, 0.08], dtype=np.float64),
+        dataset.depth.shape,
+    )
+    background[:60] = 50.0
+    background[80:83] = 10.0
+    curve.values = background
+    well.gas_context_events.append(
+        GasContextEvent(
+            event_id="line-test-background-exclusion",
+            event_type=GasContextEventType.GAS_LINE_TEST_GAS,
+            top_depth=1_000.0,
+            bottom_depth=1_059.0,
+            depth_domain=DepthDomain.MD,
+            confirmed=True,
+        )
+    )
+
+    report = build_hydrocarbon_interpretation_report(session, threshold=3.0)
+
+    assert report.baseline_median is not None
+    assert report.baseline_median < 1.0
+    assert len(report.candidates) == 1
+    formation = report.candidates[0]
+    assert formation.top_depth <= 1_080.0
+    assert formation.bottom_depth >= 1_082.0
+    assert len(report.suppressed_candidates) == 1
+    suppressed = report.suppressed_candidates[0]
+    assert suppressed.top_depth <= 1_000.0
+    assert suppressed.bottom_depth >= 1_059.0
+
+
+def test_draft_test_gas_does_not_change_robust_background_learning() -> None:
+    session = _session()
+    well = session.current_well
+    dataset = session.current_dataset
+    assert well is not None
+    assert dataset is not None
+    curve = dataset.curve_by_mnemonic("C1_NORM")
+    assert curve is not None
+
+    values = 1.0 + np.resize(
+        np.asarray([-0.08, -0.04, 0.0, 0.04, 0.08], dtype=np.float64),
+        dataset.depth.shape,
+    )
+    values[:60] = 50.0
+    values[80:83] = 10.0
+    curve.values = values
+    well.gas_context_events.append(
+        GasContextEvent(
+            event_id="draft-line-test",
+            event_type=GasContextEventType.GAS_LINE_TEST_GAS,
+            top_depth=1_000.0,
+            bottom_depth=1_059.0,
+            depth_domain=DepthDomain.MD,
+            confirmed=False,
+        )
+    )
+
+    report = build_hydrocarbon_interpretation_report(session, threshold=3.0)
+
+    assert report.gas_context_events == ()
+    assert report.suppressed_candidates == ()
+    assert not any(
+        candidate.top_depth <= 1_080.0 <= candidate.bottom_depth
+        for candidate in report.candidates
+    )
+
+
 def test_confirmed_technological_gas_suppresses_geological_candidate_and_exports_context(
     tmp_path,
 ) -> None:
