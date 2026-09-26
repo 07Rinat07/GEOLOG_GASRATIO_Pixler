@@ -4,6 +4,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from geoworkbench.domain.gas_context_events import (
+    GasContextEvent,
+    GasContextEventType,
+    InterpretationImpact,
+)
 from geoworkbench.domain.models import (
     CanvasObject,
     CurveData,
@@ -76,6 +81,68 @@ def make_project() -> Project:
     )
     well = Well("well-1", "Well 1", datasets={dataset.dataset_id: dataset})
     return Project("project-1", "Test project", wells={well.well_id: well})
+
+
+def test_gas_context_repeated_overlap_save_reopen_preserves_semantics(
+    tmp_path: Path,
+) -> None:
+    project = make_project()
+    well = project.wells["well-1"]
+    well.gas_context_events = [
+        GasContextEvent(
+            event_id="connection-confirmed",
+            event_type=GasContextEventType.CONNECTION_GAS,
+            top_depth=100.2,
+            bottom_depth=100.8,
+            depth_domain=DepthDomain.MD,
+            impact=InterpretationImpact.TECHNOLOGICAL_GAS,
+            confirmed=True,
+            reported_total_gas=4.25,
+            reported_unit="%",
+            comment="Подключение / Қосылу / Connection",
+            source="operator",
+        ),
+        GasContextEvent(
+            event_id="formation-overlap",
+            event_type=GasContextEventType.FORMATION_SHOW,
+            top_depth=100.5,
+            bottom_depth=101.0,
+            depth_domain=DepthDomain.MD,
+            impact=InterpretationImpact.FORMATION_GAS,
+            confirmed=True,
+            comment="Пласт / Қабат / Formation",
+            source="geologist",
+        ),
+        GasContextEvent(
+            event_id="draft-trip",
+            event_type=GasContextEventType.TRIP_GAS,
+            top_depth=100.4,
+            bottom_depth=100.9,
+            depth_domain=DepthDomain.MD,
+            impact=InterpretationImpact.TECHNOLOGICAL_GAS,
+            confirmed=False,
+            comment="Черновик / Жоба / Draft",
+            source="operator",
+        ),
+    ]
+    target = tmp_path / "gas-context-repeated-overlap.geologpkg"
+
+    save_project(project, target)
+    reopened = load_project(target)
+    events = reopened.wells["well-1"].gas_context_events
+
+    assert [event.event_id for event in events] == [
+        "connection-confirmed",
+        "formation-overlap",
+        "draft-trip",
+    ]
+    assert [event.depth_domain for event in events] == [DepthDomain.MD] * 3
+    assert [event.confirmed for event in events] == [True, True, False]
+    assert events[0].reported_total_gas == 4.25
+    assert events[0].reported_unit == "%"
+    assert events[0].comment == "Подключение / Қосылу / Connection"
+    assert events[1].impact is InterpretationImpact.FORMATION_GAS
+    assert events[2].event_type is GasContextEventType.TRIP_GAS
 
 
 def test_translation_statuses_round_trip_and_legacy_defaults_empty(tmp_path: Path) -> None:
