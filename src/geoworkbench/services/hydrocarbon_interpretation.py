@@ -144,15 +144,28 @@ def build_hydrocarbon_interpretation_report(
     effective_events = _effective_session_gas_context_events(session)
     background_exclusions = _background_exclusion_intervals(effective_events)
     if normalized_gas_mode is None and session_id not in _SELECTED_MODES:
-        return _apply_session_gas_context(
+        filtered_report = _legacy.build_hydrocarbon_interpretation_report(
             session,
-            _legacy.build_hydrocarbon_interpretation_report(
-                session,
-                threshold=threshold,
-                background_exclusion_intervals=background_exclusions,
-            ),
+            threshold=threshold,
+            background_exclusion_intervals=background_exclusions,
+        )
+        contextual = _apply_session_gas_context(
+            session,
+            filtered_report,
             events=effective_events,
         )
+        if background_exclusions:
+            audit_source = _legacy.build_hydrocarbon_interpretation_report(
+                session,
+                threshold=threshold,
+            )
+            contextual = _merge_background_suppression_audit(
+                contextual,
+                audit_source,
+                effective_events,
+                session,
+            )
+        return contextual
 
     requested_mode = _coerce_mode(
         normalized_gas_mode
@@ -200,7 +213,24 @@ def build_hydrocarbon_interpretation_report(
         cleaned = " | ".join(dict.fromkeys(name for name in names if name))
         if cleaned != primary:
             report = replace(report, primary_mnemonic=cleaned)
-    return _apply_session_gas_context(session, report, events=effective_events)
+    contextual = _apply_session_gas_context(
+        session,
+        report,
+        events=effective_events,
+    )
+    if background_exclusions:
+        audit_source = _modes.build_hydrocarbon_interpretation_report(
+            session,
+            threshold=threshold,
+            normalized_gas_mode=effective_mode,
+        )
+        contextual = _merge_background_suppression_audit(
+            contextual,
+            audit_source,
+            effective_events,
+            session,
+        )
+    return contextual
 
 
 def build_opus_interpretation_report(
