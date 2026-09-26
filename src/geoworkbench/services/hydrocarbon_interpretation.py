@@ -14,6 +14,9 @@ from geoworkbench.project.interpretation_calculation_controller import (
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services import hydrocarbon_interpretation_legacy as _legacy
 from geoworkbench.services.gas_context_candidate_policy import apply_gas_context_to_report
+from geoworkbench.services.gas_context_interval_audit import (
+    attach_gas_context_measurement_audit,
+)
 from geoworkbench.services import hydrocarbon_interpretation_modes as _modes
 from geoworkbench.services.hydrocarbon_interpretation_modes import (
     HydrocarbonCandidateInterval,
@@ -282,11 +285,12 @@ def _apply_session_gas_context(
             else event
             for event in events
         )
-    return apply_gas_context_to_report(
+    contextual = apply_gas_context_to_report(
         report,
         GasContextRegistry(events),
         depth_domain=dataset.depth_domain,
     )
+    return attach_gas_context_measurement_audit(contextual, dataset)
 
 
 def _gas_context_html(
