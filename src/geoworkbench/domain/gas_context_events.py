@@ -193,7 +193,7 @@ class GasContextRegistry:
             event
             for event in self.events
             if event.confirmed
-            and (depth_domain is None or event.depth_domain is depth_domain)
+            and (depth_domain is None or event.depth_domain == depth_domain)
             and event.top_depth <= bottom
             and event.bottom_depth >= top
         )
