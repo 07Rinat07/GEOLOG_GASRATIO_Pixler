@@ -178,7 +178,7 @@ def test_workspace_exposes_primary_recalculation_and_chart_actions(qapp) -> None
     )
 
     assert workspace.recalculate_all_button.text().startswith("3. Рассчитать кривые")
-    assert workspace.refresh_chart_report_button.text() == "3. Обновить и проверить отчёт"
+    assert workspace.refresh_chart_report_button.text() == "4. Обновить и проверить отчёт"
     report_index = workspace.report_mode.findData("well_text")
     assert report_index >= 0
     assert "с графиками" in workspace.report_mode.itemText(report_index)
