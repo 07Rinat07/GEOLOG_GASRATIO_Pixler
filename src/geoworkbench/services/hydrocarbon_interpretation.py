@@ -327,7 +327,12 @@ def _gas_context_html(
     audit_by_id = {item.event_id: item for item in report.gas_context_audit}
 
     def stats_text(item) -> str:
-        if item is None or item.mean is None:
+        if (
+            item is None
+            or item.minimum is None
+            or item.mean is None
+            or item.maximum is None
+        ):
             return "—"
         unit = f" {item.unit}" if item.unit else ""
         return (
