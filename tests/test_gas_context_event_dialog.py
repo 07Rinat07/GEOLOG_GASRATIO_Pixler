@@ -104,6 +104,20 @@ def test_gas_context_dialog_parses_tg_with_validator_locale(qapp) -> None:
         dialog.close()
 
 
+def test_gas_context_depth_inputs_use_bounded_engineering_range(qapp) -> None:
+    dialog = GasContextEventDialog(
+        GasContextEventEditorController(_session()),
+        language=AppLanguage.EN,
+    )
+    try:
+        assert dialog.top_input.maximum() == 1_000_000_000.0
+        assert dialog.bottom_input.maximum() == 1_000_000_000.0
+        assert dialog.top_input.decimals() == 15
+        assert dialog.bottom_input.decimals() == 15
+    finally:
+        dialog.close()
+
+
 def test_gas_context_dialog_preserves_valid_high_precision_depth_on_update(qapp) -> None:
     controller = GasContextEventEditorController(_session())
     original = controller.add(
