@@ -144,6 +144,8 @@ def _write_docx(
         body.extend(_opus_gasomer_docx(report, language))
     if getattr(report, "gas_context_events", ()):
         body.extend(_gas_context_docx(report, language))
+    if report.suppressed_candidates:
+        body.extend(_suppressed_candidates_docx(report, language))
     body.append(_paragraph(labels.prospective_heading, style="Heading1"))
     if report.candidates:
         body.append(
@@ -272,43 +274,138 @@ def _gas_context_docx(
     labels = {
         AppLanguage.RU: (
             "Газовый контекст интерпретации",
-            "Тип газа", "Интервал", "Статус", "Влияние", "TG / QC",
+            "Тип газа", "Интервал", "Статус", "Влияние",
+            "Измеренный TG", "Измеренные C1–C5",
+            "Ручной TG / QC", "QC Δ к среднему TG",
             "Комментарий", "подтверждено",
         ),
         AppLanguage.KK: (
             "Интерпретацияның газ контексті",
-            "Газ түрі", "Аралық", "Күй", "Әсер", "TG / QC",
+            "Газ түрі", "Аралық", "Күй", "Әсер",
+            "Өлшенген TG", "Өлшенген C1–C5",
+            "Қолмен TG / QC", "Орташа TG-ге QC Δ",
             "Түсініктеме", "расталған",
         ),
         AppLanguage.EN: (
             "Interpretation gas context",
-            "Gas type", "Interval", "Status", "Impact", "TG / QC",
+            "Gas type", "Interval", "Status", "Impact",
+            "Measured TG", "Measured C1–C5",
+            "Manual TG / QC", "QC Δ vs mean TG",
             "Comment", "confirmed",
         ),
     }[language]
-    title, gas_type, interval, status, impact, tg_qc, comment, confirmed = labels
+    (
+        title, gas_type, interval, status, impact, measured_tg, measured_components,
+        manual_qc, qc_delta, comment, confirmed,
+    ) = labels
+    audit_by_id = {item.event_id: item for item in report.gas_context_audit}
+
+    def stats_text(item) -> str:
+        if (
+            item is None
+            or item.minimum is None
+            or item.mean is None
+            or item.maximum is None
+        ):
+            return "—"
+        unit = f" {item.unit}" if item.unit else ""
+        return (
+            f"{item.mnemonic}: min {item.minimum:.6g}; mean {item.mean:.6g}; "
+            f"max {item.maximum:.6g}{unit}"
+        )
+
+    rows: list[tuple[str, ...]] = []
+    for event in report.gas_context_events:
+        audit = audit_by_id.get(event.event_id)
+        measured_total_text = "—"
+        component_text = "—"
+        delta_text = "—"
+        if audit is not None:
+            measured_total_text = stats_text(audit.measured_total_gas)
+            if audit.measured_components:
+                component_text = "; ".join(stats_text(item) for item in audit.measured_components)
+            if audit.qc_delta_vs_measured_mean is not None:
+                delta_text = f"{audit.qc_delta_vs_measured_mean:.6g}"
+                if audit.qc_delta_unit:
+                    delta_text += f" {audit.qc_delta_unit}"
+        manual_text = (
+            "—"
+            if event.reported_total_gas is None
+            else f"{event.reported_total_gas:g}"
+            + (f" {event.reported_unit}" if event.reported_unit else "")
+        )
+        rows.append(
+            (
+                event.event_type.value,
+                f"{event.top_depth:g}–{event.bottom_depth:g} {report.depth_unit}",
+                confirmed,
+                event.effective_impact.value,
+                measured_total_text,
+                component_text,
+                manual_text,
+                delta_text,
+                event.comment or "—",
+            )
+        )
+    return [
+        _paragraph(title, style="Heading1"),
+        _table(
+            (
+                gas_type, interval, status, impact, measured_tg, measured_components,
+                manual_qc, qc_delta, comment,
+            ),
+            tuple(rows),
+            widths=(1_700, 1_700, 1_200, 1_800, 2_100, 3_600, 1_700, 1_700, 2_000),
+        ),
+    ]
+
+def _suppressed_candidates_docx(
+    report: HydrocarbonInterpretationReport,
+    language: AppLanguage,
+) -> list[str]:
+    labels = {
+        AppLanguage.RU: (
+            "Аудит подавленных автоматических кандидатов",
+            "Интервал",
+            "Основная кривая",
+            "max robust z",
+            "Автоматическая гипотеза",
+            "Причина подавления / evidence",
+        ),
+        AppLanguage.KK: (
+            "Басылған автоматты кандидаттар аудиты",
+            "Аралық",
+            "Негізгі қисық",
+            "max robust z",
+            "Автоматты гипотеза",
+            "Басу себебі / evidence",
+        ),
+        AppLanguage.EN: (
+            "Suppressed automatic candidates audit",
+            "Interval",
+            "Primary curve",
+            "max robust z",
+            "Automatic hypothesis",
+            "Suppression reason / evidence",
+        ),
+    }[language]
+    title, interval, primary, robust_z, hypothesis, reason = labels
     rows = tuple(
         (
-            event.event_type.value,
-            f"{event.top_depth:g}–{event.bottom_depth:g} {report.depth_unit}",
-            confirmed,
-            event.effective_impact.value,
-            (
-                "—"
-                if event.reported_total_gas is None
-                else f"{event.reported_total_gas:g}"
-                + (f" {event.reported_unit}" if event.reported_unit else "")
-            ),
-            event.comment or "—",
+            f"{candidate.top_depth:g}–{candidate.bottom_depth:g} {report.depth_unit}",
+            candidate.primary_mnemonic,
+            f"{candidate.max_robust_z:.3f}",
+            candidate.fluid_hypothesis,
+            " | ".join(candidate.evidence),
         )
-        for event in report.gas_context_events
+        for candidate in report.suppressed_candidates
     )
     return [
         _paragraph(title, style="Heading1"),
         _table(
-            (gas_type, interval, status, impact, tg_qc, comment),
+            (interval, primary, robust_z, hypothesis, reason),
             rows,
-            widths=(2_500, 2_300, 1_700, 2_700, 2_000, 3_900),
+            widths=(2_200, 2_200, 1_800, 3_000, 6_100),
         ),
     ]
 
