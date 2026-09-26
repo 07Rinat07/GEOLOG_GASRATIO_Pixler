@@ -142,9 +142,9 @@ def _write_docx(
     ]
     if report.opus_gasomer is not None:
         body.extend(_opus_gasomer_docx(report, language))
-    if report.gas_context_events:
+    if getattr(report, "gas_context_events", ()):
         body.extend(_gas_context_docx(report, language))
-    if report.suppressed_candidates:
+    if getattr(report, "suppressed_candidates", ()):
         body.extend(_suppressed_candidates_docx(report, language))
     body.append(_paragraph(labels.prospective_heading, style="Heading1"))
     if report.candidates:
