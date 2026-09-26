@@ -88,7 +88,7 @@ def test_project_v18_round_trip_preserves_acquisition_source_and_checkpoint(tmp_
     well = restored.wells["well-1"]
     session = well.acquisition_sessions["session-1"]
 
-    assert PROJECT_FORMAT_VERSION == 35
+    assert PROJECT_FORMAT_VERSION == 36
     assert json.loads(target.read_text(encoding="utf-8"))["format_version"] == 35
     assert session.records[0].payload.index_values == (("depth-index", 100.0),)
     assert session.checkpoints[-1].row_count == 1
