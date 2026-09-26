@@ -406,6 +406,8 @@ class GasContextEventDialog(QDialog):
     @staticmethod
     def _select_combo_data(combo: QComboBox, value: object) -> None:
         index = combo.findData(value)
+        if index < 0 and hasattr(value, "value"):
+            index = combo.findData(getattr(value, "value"))
         if index >= 0:
             combo.setCurrentIndex(index)
 
@@ -418,12 +420,30 @@ class GasContextEventDialog(QDialog):
         return f"{value:g}"
 
     def _values(self) -> GasContextEventValues:
-        event_type = self.type_input.currentData()
-        if not isinstance(event_type, GasContextEventType):
-            raise ValueError("Не выбран тип газового события")
-        impact = self.impact_input.currentData()
-        if impact is not None and not isinstance(impact, InterpretationImpact):
-            raise ValueError("Некорректный режим влияния на интерпретацию")
+        raw_event_type = self.type_input.currentData()
+        try:
+            event_type = (
+                raw_event_type
+                if isinstance(raw_event_type, GasContextEventType)
+                else GasContextEventType(raw_event_type)
+            )
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Не выбран тип газового события") from exc
+
+        raw_impact = self.impact_input.currentData()
+        if raw_impact is None:
+            impact = None
+        else:
+            try:
+                impact = (
+                    raw_impact
+                    if isinstance(raw_impact, InterpretationImpact)
+                    else InterpretationImpact(raw_impact)
+                )
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    "Некорректный режим влияния на интерпретацию"
+                ) from exc
         tg_text = self.reported_total_input.text().strip()
         total_gas: float | None = None
         if tg_text:
