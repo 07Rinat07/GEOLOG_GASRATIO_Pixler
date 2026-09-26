@@ -418,6 +418,18 @@ def test_confirmed_technological_gas_suppresses_geological_candidate_and_exports
     dataset = session.current_dataset
     assert well is not None
     assert dataset is not None
+    dataset.curves["TG"] = CurveData(
+        CurveMetadata(
+            "TG",
+            "TG",
+            "TG",
+            "%",
+            "Measured total gas",
+            dataset.dataset_id,
+            "source:test",
+        ),
+        np.full(dataset.depth.shape, 4.0),
+    )
     well.gas_context_events.append(
         GasContextEvent(
             event_id="connection-1",
@@ -434,14 +446,42 @@ def test_confirmed_technological_gas_suppresses_geological_candidate_and_exports
     report = build_hydrocarbon_interpretation_report(session, threshold=3.0)
 
     assert report.candidates == ()
+    assert len(report.suppressed_candidates) == 1
+    suppressed = report.suppressed_candidates[0]
+    assert suppressed.top_depth <= 1_040.0
+    assert suppressed.bottom_depth >= 1_042.0
+    assert any(
+        "gas-context: event_id=connection-1" in item
+        and "impact=technological_gas" in item
+        for item in suppressed.evidence
+    )
     assert len(report.gas_context_events) == 1
     assert report.gas_context_events[0].event_id == "connection-1"
+    assert len(report.gas_context_audit) == 1
+    audit = report.gas_context_audit[0]
+    assert audit.event_id == "connection-1"
+    assert audit.measured_total_gas is not None
+    assert audit.measured_total_gas.mnemonic == "TG"
+    assert audit.measured_total_gas.minimum == 4.0
+    assert audit.measured_total_gas.mean == 4.0
+    assert audit.measured_total_gas.maximum == 4.0
+    assert {item.mnemonic for item in audit.measured_components} >= {"C1", "C2", "C3", "IC4", "NC4", "IC5", "NC5"}
+    assert audit.manual_total_gas == 4.25
+    assert audit.manual_unit == "%"
+    assert audit.qc_delta_vs_measured_mean == 0.25
+    assert audit.qc_delta_unit == "%vol"
     assert any("suppressed 1 automatic geological candidate" in item for item in report.warnings)
 
     html = hydrocarbon_interpretation_html(report, AppLanguage.RU)
     assert "Газовый контекст интерпретации" in html
     assert "connection_gas" in html
     assert "Connection gas QC" in html
+    assert "Измеренный TG" in html
+    assert "TG: min 4; mean 4; max 4 %" in html
+    assert "QC Δ к среднему TG" in html
+    assert "0.25 %vol" in html
+    assert "Аудит подавленных автоматических кандидатов" in html
+    assert "gas-context: event_id=connection-1" in html
 
     xlsx_path = export_hydrocarbon_interpretation_xlsx(
         report,
@@ -454,7 +494,23 @@ def test_confirmed_technological_gas_suppresses_geological_candidate_and_exports
         context_sheet = workbook["Газовый контекст"]
         assert context_sheet["A2"].value == "connection_gas"
         assert context_sheet["E2"].value == "technological_gas"
-        assert context_sheet["F2"].value == 4.25
+        assert context_sheet["F2"].value == "TG [%]"
+        assert context_sheet["G2"].value == 4.0
+        assert context_sheet["H2"].value == 4.0
+        assert context_sheet["I2"].value == 4.0
+        assert "C1:" in context_sheet["J2"].value
+        assert context_sheet["K2"].value == 4.25
+        assert context_sheet["L2"].value == "%"
+        assert context_sheet["M2"].value == 0.25
+        assert context_sheet["N2"].value == "%vol"
+        audit_values = [
+            cell.value
+            for row in context_sheet.iter_rows()
+            for cell in row
+            if cell.value is not None
+        ]
+        assert "Подавленные автоматические кандидаты — аудит" in audit_values
+        assert any("gas-context: event_id=connection-1" in str(value) for value in audit_values)
     finally:
         workbook.close()
 
@@ -468,6 +524,11 @@ def test_confirmed_technological_gas_suppresses_geological_candidate_and_exports
         assert "Газовый контекст интерпретации" in document
         assert "connection_gas" in document
         assert "technological_gas" in document
+        assert "Измеренный TG" in document
+        assert "TG: min 4; mean 4; max 4 %" in document
+        assert "0.25 %vol" in document
+        assert "Аудит подавленных автоматических кандидатов" in document
+        assert "gas-context: event_id=connection-1" in document
 
 
 def test_confirmed_formation_context_keeps_candidate_and_adds_audit_evidence() -> None:
@@ -545,5 +606,6 @@ def test_unbound_legacy_context_is_not_applied_across_multiple_depth_domains() -
     report = build_hydrocarbon_interpretation_report(session, threshold=3.0)
 
     assert len(report.candidates) == 1
+    assert report.suppressed_candidates == ()
     assert report.gas_context_events == ()
     assert not any("suppressed" in item for item in report.warnings)

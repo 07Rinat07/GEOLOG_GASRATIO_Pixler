@@ -65,6 +65,26 @@ class HydrocarbonCandidateInterval:
 
 
 @dataclass(frozen=True, slots=True)
+class GasContextMeasuredCurveStats:
+    mnemonic: str
+    unit: str
+    minimum: float | None
+    mean: float | None
+    maximum: float | None
+
+
+@dataclass(frozen=True, slots=True)
+class GasContextIntervalAudit:
+    event_id: str
+    measured_total_gas: GasContextMeasuredCurveStats | None
+    measured_components: tuple[GasContextMeasuredCurveStats, ...]
+    manual_total_gas: float | None
+    manual_unit: str
+    qc_delta_vs_measured_mean: float | None
+    qc_delta_unit: str
+
+
+@dataclass(frozen=True, slots=True)
 class ManualInterpretationInterval:
     interpretation_name: str
     top_depth: float
@@ -145,6 +165,8 @@ class HydrocarbonInterpretationReport:
     report_profile: str = "standard"
     opus_gasomer: OpusGasomerReportSection | None = None
     gas_context_events: tuple[GasContextEvent, ...] = ()
+    gas_context_audit: tuple[GasContextIntervalAudit, ...] = ()
+    suppressed_candidates: tuple[HydrocarbonCandidateInterval, ...] = ()
 
 
 _GASOMER_AMBIGUOUS_PREFIX = "opus_gasomer_ambiguous__"
