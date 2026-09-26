@@ -464,6 +464,14 @@ def test_confirmed_technological_gas_suppresses_geological_candidate_and_exports
         assert context_sheet["A2"].value == "connection_gas"
         assert context_sheet["E2"].value == "technological_gas"
         assert context_sheet["F2"].value == 4.25
+        audit_values = [
+            cell.value
+            for row in context_sheet.iter_rows()
+            for cell in row
+            if cell.value is not None
+        ]
+        assert "Подавленные автоматические кандидаты — аудит" in audit_values
+        assert any("gas-context: event_id=connection-1" in str(value) for value in audit_values)
     finally:
         workbook.close()
 
