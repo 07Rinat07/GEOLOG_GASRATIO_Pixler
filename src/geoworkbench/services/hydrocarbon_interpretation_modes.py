@@ -48,10 +48,15 @@ def build_hydrocarbon_interpretation_report(
     *,
     threshold: float = 3.0,
     normalized_gas_mode: NormalizedGasCalculationMode | str | None = None,
+    background_exclusion_intervals: tuple[tuple[float, float], ...] = (),
 ) -> HydrocarbonInterpretationReport:
     """Build one report while keeping server and local normalized gas independent."""
 
-    base = _legacy.build_hydrocarbon_interpretation_report(session, threshold=threshold)
+    base = _legacy.build_hydrocarbon_interpretation_report(
+        session,
+        threshold=threshold,
+        background_exclusion_intervals=background_exclusion_intervals,
+    )
     dataset = session.current_dataset
     well = session.current_well
     if dataset is None or well is None:
@@ -111,6 +116,7 @@ def build_hydrocarbon_interpretation_report(
             curve.metadata.original_mnemonic,
             threshold,
             lba_samples=tuple(well.cuttings),
+            background_exclusion_intervals=background_exclusion_intervals,
         )
         marker = (
             f"normalized-gas source={source_kind}; "
