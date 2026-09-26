@@ -300,60 +300,83 @@ def _gas_context_html(
     labels = {
         AppLanguage.RU: (
             "Газовый контекст интерпретации",
-            "Тип газа",
-            "Интервал",
-            "Статус",
-            "Влияние",
-            "TG / QC",
-            "Комментарий",
-            "Домен",
-            "подтверждено",
+            "Тип газа", "Интервал", "Статус", "Влияние",
+            "Измеренный TG", "Измеренные C1–C5",
+            "Ручной TG / QC", "QC Δ к среднему TG",
+            "Комментарий", "Домен", "подтверждено",
         ),
         AppLanguage.KK: (
             "Интерпретацияның газ контексті",
-            "Газ түрі",
-            "Аралық",
-            "Күй",
-            "Әсер",
-            "TG / QC",
-            "Түсініктеме",
-            "Домен",
-            "расталған",
+            "Газ түрі", "Аралық", "Күй", "Әсер",
+            "Өлшенген TG", "Өлшенген C1–C5",
+            "Қолмен TG / QC", "Орташа TG-ге QC Δ",
+            "Түсініктеме", "Домен", "расталған",
         ),
         AppLanguage.EN: (
             "Interpretation gas context",
-            "Gas type",
-            "Interval",
-            "Status",
-            "Impact",
-            "TG / QC",
-            "Comment",
-            "Domain",
-            "confirmed",
+            "Gas type", "Interval", "Status", "Impact",
+            "Measured TG", "Measured C1–C5",
+            "Manual TG / QC", "QC Δ vs mean TG",
+            "Comment", "Domain", "confirmed",
         ),
     }[language]
-    title, gas_type, interval, status, impact, tg_qc, comment, domain, confirmed = labels
-    rows = "".join(
-        "<tr>"
-        f"<td>{escape(event.event_type.value)}</td>"
-        f"<td>{event.top_depth:g}–{event.bottom_depth:g} {escape(report.depth_unit)}</td>"
-        f"<td>{confirmed}</td>"
-        f"<td>{escape(event.effective_impact.value)}</td>"
-        f"<td>{'—' if event.reported_total_gas is None else f'{event.reported_total_gas:g}'}"
-        f"{'' if not event.reported_unit else ' ' + escape(event.reported_unit)}</td>"
-        f"<td>{escape(event.comment or '—')}</td>"
-        f"<td>{escape(event.depth_domain.value if event.depth_domain is not None else 'unknown')}</td>"
-        "</tr>"
-        for event in report.gas_context_events
-    )
+    (
+        title, gas_type, interval, status, impact, measured_tg, measured_components,
+        manual_qc, qc_delta, comment, domain, confirmed,
+    ) = labels
+    audit_by_id = {item.event_id: item for item in report.gas_context_audit}
+
+    def stats_text(item) -> str:
+        if item is None or item.mean is None:
+            return "—"
+        unit = f" {item.unit}" if item.unit else ""
+        return (
+            f"{item.mnemonic}: min {item.minimum:.6g}; mean {item.mean:.6g}; "
+            f"max {item.maximum:.6g}{unit}"
+        )
+
+    rows = []
+    for event in report.gas_context_events:
+        audit = audit_by_id.get(event.event_id)
+        component_text = "—"
+        measured_total_text = "—"
+        delta_text = "—"
+        if audit is not None:
+            measured_total_text = stats_text(audit.measured_total_gas)
+            if audit.measured_components:
+                component_text = "; ".join(stats_text(item) for item in audit.measured_components)
+            if audit.qc_delta_vs_measured_mean is not None:
+                delta_text = f"{audit.qc_delta_vs_measured_mean:.6g}"
+                if audit.qc_delta_unit:
+                    delta_text += f" {audit.qc_delta_unit}"
+        manual_text = (
+            "—"
+            if event.reported_total_gas is None
+            else f"{event.reported_total_gas:g}"
+            + (f" {event.reported_unit}" if event.reported_unit else "")
+        )
+        rows.append(
+            "<tr>"
+            f"<td>{escape(event.event_type.value)}</td>"
+            f"<td>{event.top_depth:g}–{event.bottom_depth:g} {escape(report.depth_unit)}</td>"
+            f"<td>{confirmed}</td>"
+            f"<td>{escape(event.effective_impact.value)}</td>"
+            f"<td>{escape(measured_total_text)}</td>"
+            f"<td>{escape(component_text)}</td>"
+            f"<td>{escape(manual_text)}</td>"
+            f"<td>{escape(delta_text)}</td>"
+            f"<td>{escape(event.comment or '—')}</td>"
+            f"<td>{escape(event.depth_domain.value if event.depth_domain is not None else 'unknown')}</td>"
+            "</tr>"
+        )
     return (
         f"<h2>{title}</h2>"
         "<table><thead><tr>"
         f"<th>{gas_type}</th><th>{interval}</th><th>{status}</th>"
-        f"<th>{impact}</th><th>{tg_qc}</th><th>{comment}</th><th>{domain}</th>"
-        f"</tr></thead><tbody>{rows}</tbody></table>"
+        f"<th>{impact}</th><th>{measured_tg}</th><th>{measured_components}</th>"
+        f"<th>{manual_qc}</th><th>{qc_delta}</th><th>{comment}</th><th>{domain}</th>"
+        f"</tr></thead><tbody>{''.join(rows)}</tbody></table>"
     )
-
 
 def _suppressed_candidates_html(
     report: HydrocarbonInterpretationReport,
