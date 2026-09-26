@@ -17,7 +17,13 @@ def test_adaptive_application_stylesheet_uses_palette_roles_and_no_fixed_widths(
     assert 'QPushButton[uiRole="destructive"]' in stylesheet
     assert "QLineEdit:read-only" in stylesheet
     assert "QToolTip" in stylesheet
+    assert "QMainWindow#mainWindow" in stylesheet
     assert "QFrame#mainToolbar" in stylesheet
+    assert "QToolBar#leftPanelRail" in stylesheet
+    assert "QToolBar#rightPanelRail" in stylesheet
+    assert "QTabWidget#workspaceTabs" in stylesheet
+    assert "QStatusBar#mainStatusBar" in stylesheet
+    assert "QDockWidget::title" in stylesheet
     assert "QFrame#formEditToolbar" in stylesheet
     assert "QLabel#formEditToolbarCaption" in stylesheet
     assert "QPushButton#print-center-primary-action" in stylesheet

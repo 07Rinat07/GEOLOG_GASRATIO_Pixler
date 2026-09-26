@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from PySide6.QtCore import QEvent, QObject, QSize, Qt
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QPalette
 from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
@@ -48,6 +48,7 @@ class _ActionCard(QFrame):
         self.button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.button.setIconSize(QSize(26, 26))
         self.button.setAutoRaise(False)
+        self.button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         layout.addWidget(self.button)
 
@@ -118,7 +119,8 @@ class HomePage(QWidget):
         heading.addWidget(self.title)
         heading.addWidget(self.subtitle)
         header.addLayout(heading, 1)
-        self.drilling_animation = DrillingAnimation(dark=False, parent=content)
+        dark_surface = self.palette().color(QPalette.ColorRole.Window).lightness() < 128
+        self.drilling_animation = DrillingAnimation(dark=dark_surface, parent=content)
         self.drilling_animation.setObjectName("homeDrillingAnimation")
         self.drilling_animation.setFixedSize(250, 124)
         header.addWidget(self.drilling_animation, 0, Qt.AlignmentFlag.AlignRight)
@@ -145,22 +147,21 @@ class HomePage(QWidget):
         self.workspace_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.workspace_button.setIconSize(QSize(22, 22))
         self.workspace_button.setAutoRaise(False)
+        self.workspace_button.setCursor(Qt.CursorShape.PointingHandCursor)
         workspace_layout.addWidget(self.workspace_button)
         content_layout.addWidget(workspace)
 
         self.quick_title = QLabel(content)
         self.quick_title.setObjectName("homeSectionTitle")
         content_layout.addWidget(self.quick_title)
-        cards = QGridLayout()
-        cards.setHorizontalSpacing(14)
-        cards.setVerticalSpacing(14)
-        cards.setColumnStretch(0, 1)
-        cards.setColumnStretch(1, 1)
+        self.cards_layout = QGridLayout()
+        self.cards_layout.setHorizontalSpacing(14)
+        self.cards_layout.setVerticalSpacing(14)
         for index, spec in enumerate(actions):
             card = _ActionCard(spec, self.localizer, content)
-            cards.addWidget(card, index // 2, index % 2)
+            self.cards_layout.addWidget(card, index // 2, index % 2)
             self._cards.append(card)
-        content_layout.addLayout(cards)
+        content_layout.addLayout(self.cards_layout)
 
         self.workflow_title = QLabel(content)
         self.workflow_title.setObjectName("homeSectionTitle")
@@ -194,32 +195,128 @@ class HomePage(QWidget):
         content_layout.addStretch(1)
 
         self.setStyleSheet(
-            "QWidget#homePage, QWidget#homeContent { background: #f4f7fb; }"
-            "QScrollArea#homeScrollArea { background: #f4f7fb; }"
-            "QLabel#homeEyebrow { color: #2563eb; font-size: 11px; font-weight: 800; "
-            "letter-spacing: 1px; }"
-            "QLabel#homeTitle { color: #0f172a; font-size: 28px; font-weight: 800; }"
-            "QLabel#homeSubtitle { color: #475569; font-size: 13px; }"
-            "QFrame#homeWorkspaceCard { background: #eaf2ff; border: 1px solid #bfdbfe; "
-            "border-radius: 10px; }"
-            "QLabel#homeWorkspaceCaption { color: #1d4ed8; font-weight: 700; }"
-            "QLabel#homeWorkspaceValue { color: #334155; }"
-            "QLabel#homeSectionTitle { color: #0f172a; font-size: 17px; font-weight: 750; "
-            "margin-top: 2px; }"
-            "QFrame#homeActionCard, QFrame#homeStep { background: white; border: 1px solid #dbe3ee; "
-            "border-radius: 10px; }"
-            "QFrame#homeActionCard[primary=\"true\"] { border: 1px solid #93c5fd; "
-            "background: #f8fbff; }"
-            "QToolButton { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 7px; "
-            "color: #0f172a; font-weight: 700; min-height: 34px; padding: 5px 11px; "
-            "text-align: left; }"
-            "QToolButton:hover { background: #eff6ff; border-color: #60a5fa; }"
-            "QToolButton:pressed { background: #dbeafe; }"
-            "QToolButton:disabled { color: #94a3b8; background: #f8fafc; }"
-            "QLabel#homeActionDescription, QLabel#homeStepDescription { color: #64748b; }"
-            "QLabel#homeStepNumber { color: white; background: #2563eb; border-radius: 14px; "
-            "font-weight: 800; }"
-            "QLabel#homeStepTitle { color: #1e293b; font-weight: 750; }"
+            """
+            QWidget#homePage,
+            QWidget#homeContent,
+            QScrollArea#homeScrollArea {
+                background: palette(window);
+                color: palette(window-text);
+            }
+            QLabel#homeEyebrow {
+                color: palette(highlight);
+                font-size: 11px;
+                font-weight: 800;
+                letter-spacing: 1px;
+            }
+            QLabel#homeTitle {
+                color: palette(window-text);
+                font-size: 28px;
+                font-weight: 800;
+            }
+            QLabel#homeSubtitle {
+                color: palette(window-text);
+                font-size: 13px;
+            }
+            QFrame#homeWorkspaceCard {
+                background: palette(alternate-base);
+                border: 1px solid palette(mid);
+                border-left: 4px solid palette(highlight);
+                border-radius: 10px;
+            }
+            QLabel#homeWorkspaceCaption {
+                color: palette(window-text);
+                font-weight: 750;
+            }
+            QLabel#homeWorkspaceValue {
+                color: palette(window-text);
+            }
+            QLabel#homeSectionTitle {
+                color: palette(window-text);
+                font-size: 17px;
+                font-weight: 750;
+                margin-top: 2px;
+            }
+            QFrame#homeActionCard,
+            QFrame#homeStep {
+                background: palette(base);
+                border: 1px solid palette(mid);
+                border-radius: 10px;
+            }
+            QFrame#homeActionCard[primary="true"] {
+                background: palette(alternate-base);
+                border: 1px solid palette(highlight);
+            }
+            QFrame#homeActionCard:hover {
+                border-color: palette(highlight);
+            }
+            QWidget#homePage QToolButton {
+                min-height: 36px;
+                padding: 6px 12px;
+                border: 1px solid palette(mid);
+                border-radius: 8px;
+                background: palette(button);
+                color: palette(button-text);
+                font-weight: 700;
+                text-align: left;
+            }
+            QWidget#homePage QToolButton:hover {
+                background: palette(midlight);
+                border-color: palette(highlight);
+            }
+            QWidget#homePage QToolButton:pressed {
+                background: palette(highlight);
+                color: palette(highlighted-text);
+            }
+            QWidget#homePage QToolButton:focus {
+                border: 2px solid palette(highlight);
+                padding: 5px 11px;
+            }
+            QWidget#homePage QToolButton:disabled {
+                color: palette(mid);
+                background: palette(window);
+            }
+            QLabel#homeActionDescription,
+            QLabel#homeStepDescription {
+                color: palette(window-text);
+            }
+            QLabel#homeStepNumber {
+                color: palette(highlighted-text);
+                background: palette(highlight);
+                border-radius: 14px;
+                font-weight: 800;
+            }
+            QLabel#homeStepTitle {
+                color: palette(window-text);
+                font-weight: 750;
+            }
+            QScrollArea#homeScrollArea QScrollBar:vertical {
+                width: 13px;
+                margin: 2px;
+                border: none;
+                background: transparent;
+            }
+            QScrollArea#homeScrollArea QScrollBar::handle:vertical {
+                min-height: 40px;
+                margin: 1px;
+                border: 1px solid palette(mid);
+                border-radius: 6px;
+                background: palette(mid);
+            }
+            QScrollArea#homeScrollArea QScrollBar::handle:vertical:hover {
+                border-color: palette(highlight);
+                background: palette(highlight);
+            }
+            QScrollArea#homeScrollArea QScrollBar::add-line:vertical,
+            QScrollArea#homeScrollArea QScrollBar::sub-line:vertical {
+                height: 0;
+                background: transparent;
+                border: none;
+            }
+            QScrollArea#homeScrollArea QScrollBar::add-page:vertical,
+            QScrollArea#homeScrollArea QScrollBar::sub-page:vertical {
+                background: transparent;
+            }
+            """
         )
         self.retranslate(language)
 
@@ -227,9 +324,17 @@ class HomePage(QWidget):
         if watched is self.scroll_area.viewport() and event.type() is QEvent.Type.Resize:
             viewport_width = self.scroll_area.viewport().width()
             if viewport_width > 0:
-                self.content.setFixedWidth(min(1120, viewport_width))
+                self.content.setFixedWidth(min(1180, viewport_width))
                 self.drilling_animation.setVisible(viewport_width >= 820)
+                self._relayout_cards(viewport_width)
         return super().eventFilter(watched, event)
+
+    def _relayout_cards(self, viewport_width: int) -> None:
+        columns = 3 if viewport_width >= 1080 else 2 if viewport_width >= 720 else 1
+        for column in range(3):
+            self.cards_layout.setColumnStretch(column, 1 if column < columns else 0)
+        for index, card in enumerate(self._cards):
+            self.cards_layout.addWidget(card, index // columns, index % columns)
 
     def set_workspace_dataset(self, dataset_name: str | None) -> None:
         self._dataset_name = dataset_name
