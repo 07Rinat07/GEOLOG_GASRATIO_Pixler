@@ -7,6 +7,7 @@ from html import escape
 import numpy as np
 
 from geoworkbench.domain.gas_context_events import GasContextEvent
+from geoworkbench.domain.gas_context_events import InterpretationImpact
 from geoworkbench.domain.models import CuttingsSample, Dataset
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.gas_ratio_interpretation import (
@@ -389,6 +390,10 @@ def build_hydrocarbon_interpretation_report(
             primary_name,
             threshold,
             lba_samples=tuple(well.cuttings),
+            background_exclusion_intervals=_gas_context_background_exclusions(
+                well,
+                dataset,
+            ),
         )
         if detection_warning:
             warnings.append(detection_warning)
@@ -438,6 +443,7 @@ def _detect_candidates(
     threshold: float,
     *,
     lba_samples: tuple[CuttingsSample, ...] = (),
+    background_exclusion_intervals: tuple[tuple[float, float], ...] = (),
 ) -> tuple[
     tuple[HydrocarbonCandidateInterval, ...],
     float | None,
@@ -452,16 +458,26 @@ def _detect_candidates(
     if values.shape != depth.shape:
         return (), None, None, "Основная газовая кривая имеет неверное число отсчётов."
     valid = np.isfinite(depth) & np.isfinite(values) & (values >= 0.0)
-    if np.count_nonzero(valid) < 20:
+    background_valid = valid.copy()
+    for top_depth, bottom_depth in background_exclusion_intervals:
+        low = min(top_depth, bottom_depth)
+        high = max(top_depth, bottom_depth)
+        background_valid &= ~(
+            np.isfinite(depth)
+            & (depth >= low)
+            & (depth <= high)
+        )
+    if np.count_nonzero(background_valid) < 20:
         return (
             (),
             None,
             None,
-            "Для устойчивого фонового уровня требуется не менее 20 корректных газовых отсчётов.",
+            "Для устойчивого фонового уровня требуется не менее 20 корректных газовых отсчётов "
+            "вне подтверждённых технологических/test интервалов.",
         )
     transformed = np.full(values.shape, np.nan, dtype=np.float64)
     transformed[valid] = np.log1p(values[valid])
-    finite_values = transformed[valid]
+    finite_values = transformed[background_valid]
     median, scale = _robust_center_scale(finite_values)
     if scale is None:
         return (
@@ -486,7 +502,7 @@ def _detect_candidates(
     flagged_indices = flagged_indices[np.argsort(depth[flagged_indices], kind="stable")]
     fluid_context = _build_fluid_interpretation_context(
         dataset,
-        valid & ~flagged,
+        background_valid & ~flagged,
     )
     groups: list[list[int]] = []
     for row_index in flagged_indices:
@@ -587,6 +603,25 @@ def _detect_candidates(
             )
         )
     return tuple(candidates), median, scale, None
+
+
+def _gas_context_background_exclusions(
+    well,
+    dataset: Dataset,
+) -> tuple[tuple[float, float], ...]:
+    """Return confirmed technological/test intervals excluded from background learning."""
+
+    return tuple(
+        (event.top_depth, event.bottom_depth)
+        for event in well.gas_context_events
+        if event.confirmed
+        and event.depth_domain == dataset.depth_domain
+        and event.effective_impact
+        in {
+            InterpretationImpact.EXCLUDE_GEOLOGICAL,
+            InterpretationImpact.TECHNOLOGICAL_GAS,
+        }
+    )
 
 
 def _robust_center_scale(values: np.ndarray) -> tuple[float, float | None]:
