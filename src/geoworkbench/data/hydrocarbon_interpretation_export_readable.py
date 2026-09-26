@@ -182,10 +182,67 @@ def _write_gas_context_sheet(
         showColumnStripes=False,
     )
     sheet.add_table(table)
+
+    audit_last_row = last_row
+    if report.suppressed_candidates:
+        audit_title = {
+            AppLanguage.RU: "Подавленные автоматические кандидаты — аудит",
+            AppLanguage.KK: "Басылған автоматты кандидаттар — аудит",
+            AppLanguage.EN: "Suppressed automatic candidates — audit",
+        }[language]
+        audit_headers = {
+            AppLanguage.RU: (
+                "Кровля", "Подошва", "Основная кривая", "max robust z",
+                "Автоматическая гипотеза", "Аудит / причина подавления",
+            ),
+            AppLanguage.KK: (
+                "Жоғарғы", "Төменгі", "Негізгі қисық", "max robust z",
+                "Автоматты гипотеза", "Аудит / басу себебі",
+            ),
+            AppLanguage.EN: (
+                "Top", "Bottom", "Primary curve", "max robust z",
+                "Automatic hypothesis", "Audit / suppression reason",
+            ),
+        }[language]
+        title_row = last_row + 2
+        header_row = title_row + 1
+        sheet.cell(title_row, 1, audit_title)
+        sheet.merge_cells(start_row=title_row, start_column=1, end_row=title_row, end_column=6)
+        sheet.cell(title_row, 1).font = Font(bold=True, color="17365D")
+        for column, value in enumerate(audit_headers, start=1):
+            sheet.cell(header_row, column, value)
+        for candidate in report.suppressed_candidates:
+            sheet.append(
+                protect_spreadsheet_row(
+                    (
+                        candidate.top_depth,
+                        candidate.bottom_depth,
+                        candidate.primary_mnemonic,
+                        candidate.max_robust_z,
+                        candidate.fluid_hypothesis,
+                        " | ".join(candidate.evidence),
+                    )
+                )
+            )
+        audit_last_row = header_row + len(report.suppressed_candidates)
+        audit_table = Table(
+            displayName="SuppressedGasCandidates",
+            ref=f"A{header_row}:F{audit_last_row}",
+        )
+        audit_table.tableStyleInfo = TableStyleInfo(
+            name="TableStyleMedium4",
+            showFirstColumn=False,
+            showLastColumn=False,
+            showRowStripes=True,
+            showColumnStripes=False,
+        )
+        sheet.add_table(audit_table)
+
     sheet.freeze_panes = "A2"
     for column, width in enumerate((24, 14, 14, 16, 24, 14, 12, 48, 18, 40), start=1):
         sheet.column_dimensions[get_column_letter(column)].width = width
-    for row in sheet.iter_rows(min_row=1, max_row=last_row, min_col=1, max_col=10):
+    sheet.column_dimensions["F"].width = max(sheet.column_dimensions["F"].width or 0, 72)
+    for row in sheet.iter_rows(min_row=1, max_row=audit_last_row, min_col=1, max_col=10):
         for cell in row:
             cell.alignment = Alignment(vertical="top", wrap_text=True)
 
