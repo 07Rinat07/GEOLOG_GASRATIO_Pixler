@@ -137,15 +137,24 @@ def _write_gas_context_sheet(
     headers = {
         AppLanguage.RU: (
             "Тип газа", "Кровля", "Подошва", "Статус", "Влияние",
-            "TG / QC", "Единица", "Комментарий", "Источник", "Event ID",
+            "Измеренный TG", "TG мин", "TG среднее", "TG макс",
+            "Измеренные C1–C5 min/mean/max",
+            "Ручной TG / QC", "Единица QC", "QC Δ к среднему TG", "Единица Δ",
+            "Комментарий", "Источник", "Event ID",
         ),
         AppLanguage.KK: (
             "Газ түрі", "Жоғарғы", "Төменгі", "Күй", "Әсер",
-            "TG / QC", "Бірлік", "Түсініктеме", "Дереккөз", "Event ID",
+            "Өлшенген TG", "TG ең аз", "TG орташа", "TG ең көп",
+            "Өлшенген C1–C5 min/mean/max",
+            "Қолмен TG / QC", "QC бірлігі", "Орташа TG-ге QC Δ", "Δ бірлігі",
+            "Түсініктеме", "Дереккөз", "Event ID",
         ),
         AppLanguage.EN: (
             "Gas type", "Top", "Bottom", "Status", "Impact",
-            "TG / QC", "Unit", "Comment", "Source", "Event ID",
+            "Measured TG", "TG min", "TG mean", "TG max",
+            "Measured C1–C5 min/mean/max",
+            "Manual TG / QC", "QC unit", "QC Δ vs mean TG", "Δ unit",
+            "Comment", "Source", "Event ID",
         ),
     }[language]
     confirmed = {
@@ -153,9 +162,26 @@ def _write_gas_context_sheet(
         AppLanguage.KK: "расталған",
         AppLanguage.EN: "confirmed",
     }[language]
+    audit_by_id = {item.event_id: item for item in report.gas_context_audit}
+
+    def component_summary(audit) -> str:
+        if audit is None or not audit.measured_components:
+            return ""
+        parts: list[str] = []
+        for item in audit.measured_components:
+            if item.minimum is None or item.mean is None or item.maximum is None:
+                continue
+            unit = f" {item.unit}" if item.unit else ""
+            parts.append(
+                f"{item.mnemonic}: {item.minimum:.6g}/{item.mean:.6g}/{item.maximum:.6g}{unit}"
+            )
+        return "; ".join(parts)
+
     sheet = workbook.create_sheet(title)
     sheet.append(headers)
     for event in report.gas_context_events:
+        audit = audit_by_id.get(event.event_id)
+        measured = audit.measured_total_gas if audit is not None else None
         sheet.append(
             protect_spreadsheet_row(
                 (
@@ -164,8 +190,19 @@ def _write_gas_context_sheet(
                     event.bottom_depth,
                     confirmed,
                     event.effective_impact.value,
+                    (
+                        ""
+                        if measured is None
+                        else measured.mnemonic + (f" [{measured.unit}]" if measured.unit else "")
+                    ),
+                    None if measured is None else measured.minimum,
+                    None if measured is None else measured.mean,
+                    None if measured is None else measured.maximum,
+                    component_summary(audit),
                     event.reported_total_gas,
                     event.reported_unit or "",
+                    None if audit is None else audit.qc_delta_vs_measured_mean,
+                    "" if audit is None else audit.qc_delta_unit,
                     event.comment,
                     event.source,
                     event.event_id,
@@ -173,7 +210,7 @@ def _write_gas_context_sheet(
             )
         )
     last_row = 1 + len(report.gas_context_events)
-    table = Table(displayName="GasContextEvents", ref=f"A1:J{last_row}")
+    table = Table(displayName="GasContextEvents", ref=f"A1:Q{last_row}")
     table.tableStyleInfo = TableStyleInfo(
         name="TableStyleMedium2",
         showFirstColumn=False,
@@ -239,10 +276,10 @@ def _write_gas_context_sheet(
         sheet.add_table(audit_table)
 
     sheet.freeze_panes = "A2"
-    for column, width in enumerate((24, 14, 14, 16, 24, 14, 12, 48, 18, 40), start=1):
+    widths = (24, 14, 14, 16, 24, 22, 14, 14, 14, 64, 16, 14, 18, 14, 44, 18, 40)
+    for column, width in enumerate(widths, start=1):
         sheet.column_dimensions[get_column_letter(column)].width = width
-    sheet.column_dimensions["F"].width = max(sheet.column_dimensions["F"].width or 0, 72)
-    for row in sheet.iter_rows(min_row=1, max_row=audit_last_row, min_col=1, max_col=10):
+    for row in sheet.iter_rows(min_row=1, max_row=audit_last_row, min_col=1, max_col=17):
         for cell in row:
             cell.alignment = Alignment(vertical="top", wrap_text=True)
 
