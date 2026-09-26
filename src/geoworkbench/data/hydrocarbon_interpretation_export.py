@@ -142,6 +142,8 @@ def _write_docx(
     ]
     if report.opus_gasomer is not None:
         body.extend(_opus_gasomer_docx(report, language))
+    if getattr(report, "gas_context_events", ()):
+        body.extend(_gas_context_docx(report, language))
     body.append(_paragraph(labels.prospective_heading, style="Heading1"))
     if report.candidates:
         body.append(
@@ -260,6 +262,55 @@ def _write_docx(
             '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"/>',
         )
         package.writestr("word/styles.xml", _docx_styles())
+
+
+
+def _gas_context_docx(
+    report: HydrocarbonInterpretationReport,
+    language: AppLanguage,
+) -> list[str]:
+    labels = {
+        AppLanguage.RU: (
+            "Газовый контекст интерпретации",
+            "Тип газа", "Интервал", "Статус", "Влияние", "TG / QC",
+            "Комментарий", "подтверждено",
+        ),
+        AppLanguage.KK: (
+            "Интерпретацияның газ контексті",
+            "Газ түрі", "Аралық", "Күй", "Әсер", "TG / QC",
+            "Түсініктеме", "расталған",
+        ),
+        AppLanguage.EN: (
+            "Interpretation gas context",
+            "Gas type", "Interval", "Status", "Impact", "TG / QC",
+            "Comment", "confirmed",
+        ),
+    }[language]
+    title, gas_type, interval, status, impact, tg_qc, comment, confirmed = labels
+    rows = tuple(
+        (
+            event.event_type.value,
+            f"{event.top_depth:g}–{event.bottom_depth:g} {report.depth_unit}",
+            confirmed,
+            event.effective_impact.value,
+            (
+                "—"
+                if event.reported_total_gas is None
+                else f"{event.reported_total_gas:g}"
+                + (f" {event.reported_unit}" if event.reported_unit else "")
+            ),
+            event.comment or "—",
+        )
+        for event in report.gas_context_events
+    )
+    return [
+        _paragraph(title, style="Heading1"),
+        _table(
+            (gas_type, interval, status, impact, tg_qc, comment),
+            rows,
+            widths=(2_500, 2_300, 1_700, 2_700, 2_000, 3_900),
+        ),
+    ]
 
 
 def _opus_gasomer_docx(

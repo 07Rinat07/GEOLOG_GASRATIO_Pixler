@@ -32,6 +32,8 @@ class GasContextEventEditorController:
                 "Для редактирования газовых событий сначала выберите скважину"
             )
         self._well_id = well.well_id
+        dataset = session.current_dataset
+        self._depth_domain = dataset.depth_domain if dataset is not None else None
         self._initial = GasContextRegistry(tuple(well.gas_context_events))
         self._working = self._initial
 
@@ -43,10 +45,19 @@ class GasContextEventEditorController:
     def registry(self) -> GasContextRegistry:
         return self._working
 
+    @property
+    def depth_domain(self):
+        return self._depth_domain
+
     def list_events(self) -> tuple[GasContextEvent, ...]:
+        visible = (
+            event
+            for event in self._working.events
+            if event.depth_domain is None or event.depth_domain == self._depth_domain
+        )
         return tuple(
             sorted(
-                self._working.events,
+                visible,
                 key=lambda item: (
                     item.top_depth,
                     item.bottom_depth,
@@ -75,11 +86,16 @@ class GasContextEventEditorController:
         comment: str = "",
         source: str = "manual",
     ) -> GasContextEvent:
+        if self._depth_domain is None:
+            raise GasContextEventEditorError(
+                "Для нового газового события сначала выберите набор данных с системой координат"
+            )
         event = GasContextEvent(
             event_id=str(uuid4()),
             event_type=event_type,
             top_depth=top_depth,
             bottom_depth=bottom_depth,
+            depth_domain=self._depth_domain,
             impact=impact,
             confirmed=confirmed,
             reported_total_gas=reported_total_gas,
@@ -109,6 +125,7 @@ class GasContextEventEditorController:
             event_type=event_type,
             top_depth=top_depth,
             bottom_depth=bottom_depth,
+            depth_domain=current.depth_domain or self._depth_domain,
             impact=impact,
             confirmed=confirmed,
             reported_total_gas=reported_total_gas,

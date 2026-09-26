@@ -1,4 +1,4 @@
-"""Project codec v35 for well-level gas-context event persistence."""
+"""Project codec v36 for depth-domain-aware well-level gas-context persistence."""
 
 from __future__ import annotations
 
@@ -17,16 +17,16 @@ from geoworkbench.domain.gas_context_events import (
     GasContextEventType,
     InterpretationImpact,
 )
-from geoworkbench.domain.models import DescriptionTemplateBlock, Project
+from geoworkbench.domain.models import DepthDomain, DescriptionTemplateBlock, Project
 from geoworkbench.domain.translation_status import TranslationState, TranslationStatus
 from geoworkbench.storage import project_codec_v29 as _v29
 from geoworkbench.storage.project_codec_v29 import ProjectDocument, ProjectFormatError
 
 
-PROJECT_FORMAT_VERSION = 35
+PROJECT_FORMAT_VERSION = 36
 _MAX_TEMPLATE_BLOCKS_PER_SAMPLE = 10_000
 _BLOCK_KEYS = {"block_id", "template_id", "template_version", "text_i18n"}
-_GAS_CONTEXT_EVENT_KEYS = {
+_GAS_CONTEXT_EVENT_KEYS_V35_LEGACY = {
     "event_id",
     "event_type",
     "top_depth",
@@ -37,6 +37,10 @@ _GAS_CONTEXT_EVENT_KEYS = {
     "reported_unit",
     "comment",
     "source",
+}
+_GAS_CONTEXT_EVENT_KEYS = {
+    *_GAS_CONTEXT_EVENT_KEYS_V35_LEGACY,
+    "depth_domain",
 }
 _MAX_GAS_CONTEXT_EVENTS_PER_WELL = 100_000
 
@@ -117,20 +121,35 @@ def _template_block_from_dict(data: object) -> DescriptionTemplateBlock:
     return DescriptionTemplateBlock(block_id, template_id, version, texts)
 
 
-def _gas_context_events_from_dict(data: object) -> list[GasContextEvent]:
+def _gas_context_events_from_dict(
+    data: object,
+    *,
+    version: int,
+) -> list[GasContextEvent]:
     if not isinstance(data, list) or len(data) > _MAX_GAS_CONTEXT_EVENTS_PER_WELL:
         raise ProjectFormatError("gas_context_events должен быть ограниченным списком")
+    expected_keys = (
+        _GAS_CONTEXT_EVENT_KEYS
+        if version >= 36
+        else _GAS_CONTEXT_EVENT_KEYS_V35_LEGACY
+    )
     events: list[GasContextEvent] = []
     for raw in data:
-        if not isinstance(raw, dict) or set(raw) != _GAS_CONTEXT_EVENT_KEYS:
+        if not isinstance(raw, dict) or frozenset(raw) != frozenset(expected_keys):
             raise ProjectFormatError("Некорректная запись gas context event")
         try:
             impact_raw = raw["impact"]
+            depth_domain_raw = raw.get("depth_domain")
             event = GasContextEvent(
                 event_id=raw["event_id"],
                 event_type=GasContextEventType(raw["event_type"]),
                 top_depth=raw["top_depth"],
                 bottom_depth=raw["bottom_depth"],
+                depth_domain=(
+                    DepthDomain(depth_domain_raw)
+                    if depth_domain_raw is not None
+                    else None
+                ),
                 impact=(
                     InterpretationImpact(impact_raw)
                     if impact_raw is not None
@@ -181,7 +200,8 @@ def _legacy_payload_and_blocks(
         raw_gas_context_events = well.pop("gas_context_events", [])
         if version >= 35:
             gas_context_events[str(well_id)] = _gas_context_events_from_dict(
-                raw_gas_context_events
+                raw_gas_context_events,
+                version=version,
             )
         raw_source_languages = well.pop("authored_field_source_languages", {})
         if version >= 34:

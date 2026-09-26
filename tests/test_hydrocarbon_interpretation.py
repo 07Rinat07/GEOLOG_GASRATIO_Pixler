@@ -11,6 +11,11 @@ from geoworkbench.data.hydrocarbon_interpretation_export import (
     export_hydrocarbon_interpretation_docx,
     export_hydrocarbon_interpretation_xlsx,
 )
+from geoworkbench.domain.gas_context_events import (
+    GasContextEvent,
+    GasContextEventType,
+    InterpretationImpact,
+)
 from geoworkbench.domain.models import (
     CurveData,
     CurveMetadata,
@@ -403,3 +408,142 @@ def test_xlsx_export_rejects_mismatched_curve_lengths(tmp_path) -> None:
             dataset,
             tmp_path / "invalid.xlsx",
         )
+
+
+def test_confirmed_technological_gas_suppresses_geological_candidate_and_exports_context(
+    tmp_path,
+) -> None:
+    session = _session()
+    well = session.current_well
+    dataset = session.current_dataset
+    assert well is not None
+    assert dataset is not None
+    well.gas_context_events.append(
+        GasContextEvent(
+            event_id="connection-1",
+            event_type=GasContextEventType.CONNECTION_GAS,
+            top_depth=1_039.0,
+            bottom_depth=1_043.0,
+            confirmed=True,
+            reported_total_gas=4.25,
+            reported_unit="%",
+            comment="Connection gas QC",
+        )
+    )
+
+    report = build_hydrocarbon_interpretation_report(session, threshold=3.0)
+
+    assert report.candidates == ()
+    assert len(report.gas_context_events) == 1
+    assert report.gas_context_events[0].event_id == "connection-1"
+    assert any("suppressed 1 automatic geological candidate" in item for item in report.warnings)
+
+    html = hydrocarbon_interpretation_html(report, AppLanguage.RU)
+    assert "Газовый контекст интерпретации" in html
+    assert "connection_gas" in html
+    assert "Connection gas QC" in html
+
+    xlsx_path = export_hydrocarbon_interpretation_xlsx(
+        report,
+        dataset,
+        tmp_path / "gas-context.xlsx",
+    )
+    workbook = load_workbook(xlsx_path, read_only=True, data_only=False)
+    try:
+        assert "Газовый контекст" in workbook.sheetnames
+        context_sheet = workbook["Газовый контекст"]
+        assert context_sheet["A2"].value == "connection_gas"
+        assert context_sheet["E2"].value == "technological_gas"
+        assert context_sheet["F2"].value == 4.25
+    finally:
+        workbook.close()
+
+    docx_path = export_hydrocarbon_interpretation_docx(
+        report,
+        tmp_path / "gas-context.docx",
+        dataset=dataset,
+    )
+    with zipfile.ZipFile(docx_path) as package:
+        document = package.read("word/document.xml").decode("utf-8")
+        assert "Газовый контекст интерпретации" in document
+        assert "connection_gas" in document
+        assert "technological_gas" in document
+
+
+def test_confirmed_formation_context_keeps_candidate_and_adds_audit_evidence() -> None:
+    session = _session()
+    well = session.current_well
+    assert well is not None
+    well.gas_context_events.append(
+        GasContextEvent(
+            event_id="formation-1",
+            event_type=GasContextEventType.FORMATION_SHOW,
+            top_depth=1_039.0,
+            bottom_depth=1_043.0,
+            impact=InterpretationImpact.FORMATION_GAS,
+            confirmed=True,
+            comment="Geologist confirmed formation gas",
+        )
+    )
+
+    report = build_hydrocarbon_interpretation_report(session, threshold=3.0)
+
+    assert len(report.candidates) == 1
+    assert any(
+        "gas-context: event_id=formation-1" in item
+        and "impact=formation_gas" in item
+        for item in report.candidates[0].evidence
+    )
+    assert not any("suppressed" in item for item in report.warnings)
+
+
+def test_draft_technological_context_does_not_change_candidate_classification() -> None:
+    session = _session()
+    well = session.current_well
+    assert well is not None
+    well.gas_context_events.append(
+        GasContextEvent(
+            event_id="draft-trip",
+            event_type=GasContextEventType.TRIP_GAS,
+            top_depth=1_039.0,
+            bottom_depth=1_043.0,
+            confirmed=False,
+        )
+    )
+
+    report = build_hydrocarbon_interpretation_report(session, threshold=3.0)
+
+    assert len(report.candidates) == 1
+    assert report.gas_context_events == ()
+
+
+
+def test_unbound_legacy_context_is_not_applied_across_multiple_depth_domains() -> None:
+    session = _session()
+    well = session.current_well
+    dataset = session.current_dataset
+    assert well is not None
+    assert dataset is not None
+
+    well.datasets["tvd-dataset"] = Dataset(
+        "tvd-dataset",
+        "TVD companion",
+        DatasetKind.GTI,
+        DepthDomain.TVD,
+        np.asarray(dataset.depth, dtype=np.float64),
+    )
+    well.gas_context_events.append(
+        GasContextEvent(
+            event_id="legacy-unbound-trip",
+            event_type=GasContextEventType.TRIP_GAS,
+            top_depth=1_039.0,
+            bottom_depth=1_043.0,
+            confirmed=True,
+        )
+    )
+
+    report = build_hydrocarbon_interpretation_report(session, threshold=3.0)
+
+    assert len(report.candidates) == 1
+    assert report.gas_context_events == ()
+    assert not any("suppressed" in item for item in report.warnings)

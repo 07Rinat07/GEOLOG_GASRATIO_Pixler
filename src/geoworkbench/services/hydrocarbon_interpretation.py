@@ -6,12 +6,14 @@ import re
 
 import numpy as np
 
+from geoworkbench.domain.gas_context_events import GasContextRegistry
 from geoworkbench.domain.models import Dataset
 from geoworkbench.project.interpretation_calculation_controller import (
     NormalizedGasCalculationMode,
 )
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services import hydrocarbon_interpretation_legacy as _legacy
+from geoworkbench.services.gas_context_candidate_policy import apply_gas_context_to_report
 from geoworkbench.services import hydrocarbon_interpretation_modes as _modes
 from geoworkbench.services.hydrocarbon_interpretation_modes import (
     HydrocarbonCandidateInterval,
@@ -29,7 +31,9 @@ from geoworkbench.services.hydrocarbon_interpretation_legacy import (
     OpusGasomerReportSection,
 )
 from geoworkbench.services.localization import AppLanguage
-from geoworkbench.services.opus_interpretation import build_opus_interpretation_report
+from geoworkbench.services.opus_interpretation import (
+    build_opus_interpretation_report as _build_opus_interpretation_report,
+)
 
 
 _SERVER_TOTAL_NAMES = (
@@ -131,9 +135,12 @@ def build_hydrocarbon_interpretation_report(
 
     session_id = id(session)
     if normalized_gas_mode is None and session_id not in _SELECTED_MODES:
-        return _legacy.build_hydrocarbon_interpretation_report(
+        return _apply_session_gas_context(
             session,
-            threshold=threshold,
+            _legacy.build_hydrocarbon_interpretation_report(
+                session,
+                threshold=threshold,
+            ),
         )
 
     requested_mode = _coerce_mode(
@@ -176,11 +183,26 @@ def build_hydrocarbon_interpretation_report(
         )
 
     primary = report.primary_mnemonic
-    if not primary:
-        return report
-    names = tuple(_strip_source_prefix(part) for part in primary.split(" | "))
-    cleaned = " | ".join(dict.fromkeys(name for name in names if name))
-    return report if cleaned == primary else replace(report, primary_mnemonic=cleaned)
+    if primary:
+        names = tuple(_strip_source_prefix(part) for part in primary.split(" | "))
+        cleaned = " | ".join(dict.fromkeys(name for name in names if name))
+        if cleaned != primary:
+            report = replace(report, primary_mnemonic=cleaned)
+    return _apply_session_gas_context(session, report)
+
+
+def build_opus_interpretation_report(
+    session: ProjectSession,
+    *,
+    threshold: float = 3.0,
+    total_gas_lod: float | None = None,
+) -> HydrocarbonInterpretationReport:
+    report = _build_opus_interpretation_report(
+        session,
+        threshold=threshold,
+        total_gas_lod=total_gas_lod,
+    )
+    return _apply_session_gas_context(session, report)
 
 
 def hydrocarbon_interpretation_html(
@@ -224,7 +246,103 @@ def hydrocarbon_interpretation_html(
 }
 """
     html = html.replace("</style>", pagination_css + "</style>", 1)
+    if report.gas_context_events:
+        html = html.replace(
+            "</body>",
+            _gas_context_html(report, language) + "</body>",
+            1,
+        )
     return _strip_client_limitations(html)
+
+
+
+def _apply_session_gas_context(
+    session: ProjectSession,
+    report: HydrocarbonInterpretationReport,
+) -> HydrocarbonInterpretationReport:
+    well = session.current_well
+    dataset = session.current_dataset
+    if well is None or dataset is None:
+        return report
+    events = tuple(well.gas_context_events)
+    well_domains = {item.depth_domain for item in well.datasets.values()}
+    if len(well_domains) == 1:
+        # v35 events created before depth-domain persistence were unbound.
+        # They can be migrated safely only when the well has one coordinate domain.
+        sole_domain = next(iter(well_domains))
+        events = tuple(
+            replace(event, depth_domain=sole_domain)
+            if event.depth_domain is None
+            else event
+            for event in events
+        )
+    return apply_gas_context_to_report(
+        report,
+        GasContextRegistry(events),
+        depth_domain=dataset.depth_domain,
+    )
+
+
+def _gas_context_html(
+    report: HydrocarbonInterpretationReport,
+    language: AppLanguage,
+) -> str:
+    labels = {
+        AppLanguage.RU: (
+            "Газовый контекст интерпретации",
+            "Тип газа",
+            "Интервал",
+            "Статус",
+            "Влияние",
+            "TG / QC",
+            "Комментарий",
+            "Домен",
+            "подтверждено",
+        ),
+        AppLanguage.KK: (
+            "Интерпретацияның газ контексті",
+            "Газ түрі",
+            "Аралық",
+            "Күй",
+            "Әсер",
+            "TG / QC",
+            "Түсініктеме",
+            "Домен",
+            "расталған",
+        ),
+        AppLanguage.EN: (
+            "Interpretation gas context",
+            "Gas type",
+            "Interval",
+            "Status",
+            "Impact",
+            "TG / QC",
+            "Comment",
+            "Domain",
+            "confirmed",
+        ),
+    }[language]
+    title, gas_type, interval, status, impact, tg_qc, comment, domain, confirmed = labels
+    rows = "".join(
+        "<tr>"
+        f"<td>{escape(event.event_type.value)}</td>"
+        f"<td>{event.top_depth:g}–{event.bottom_depth:g} {escape(report.depth_unit)}</td>"
+        f"<td>{confirmed}</td>"
+        f"<td>{escape(event.effective_impact.value)}</td>"
+        f"<td>{'—' if event.reported_total_gas is None else f'{event.reported_total_gas:g}'}"
+        f"{'' if not event.reported_unit else ' ' + escape(event.reported_unit)}</td>"
+        f"<td>{escape(event.comment or '—')}</td>"
+        f"<td>{escape(event.depth_domain.value if event.depth_domain is not None else 'unknown')}</td>"
+        "</tr>"
+        for event in report.gas_context_events
+    )
+    return (
+        f"<h2>{title}</h2>"
+        "<table><thead><tr>"
+        f"<th>{gas_type}</th><th>{interval}</th><th>{status}</th>"
+        f"<th>{impact}</th><th>{tg_qc}</th><th>{comment}</th><th>{domain}</th>"
+        f"</tr></thead><tbody>{rows}</tbody></table>"
+    )
 
 
 def _strip_client_limitations(html: str) -> str:

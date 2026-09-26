@@ -55,6 +55,7 @@ def test_native_isolation_keeps_masterlog_mapping_out_of_regular_shards() -> Non
         "tests/test_multipage_unicode_print.py",
         "tests/test_well_update_workflow.py",
         "tests/test_wits0_capture.py",
+        "tests/test_wits0_live_view.py",
         "tests/test_wits0_network_preflight.py",
     ),
 )

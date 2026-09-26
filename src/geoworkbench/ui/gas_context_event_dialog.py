@@ -153,13 +153,12 @@ class GasContextEventDialog(QDialog):
         root = QVBoxLayout(self)
         intro = QLabel(
             self._text(
-                "Подтверждённые строки позже влияют на классификацию Gas Ratio / Pixler / OPUS. "
+                "Подтверждённые строки влияют на классификацию Gas Ratio / Pixler / OPUS. "
                 "TG здесь — только операторская/QC-ссылка и не изменяет исходные кривые.",
-                "Расталған жолдар кейін Gas Ratio / Pixler / OPUS жіктеуіне әсер етеді. "
+                "Расталған жолдар Gas Ratio / Pixler / OPUS жіктеуіне әсер етеді. "
                 "Мұндағы TG — тек оператор/QC анықтамасы және бастапқы қисықтарды өзгертпейді.",
-                "Confirmed rows will be consumed by Gas Ratio / Pixler / OPUS classification "
-                "after the classification integration is enabled. TG here is an operator/QC "
-                "reference only and never changes source curves.",
+                "Confirmed rows affect Gas Ratio / Pixler / OPUS classification. "
+                "TG here is an operator/QC reference only and never changes source curves.",
             )
         )
         intro.setWordWrap(True)

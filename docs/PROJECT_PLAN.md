@@ -1,4 +1,4 @@
-<!-- runtime-contract: package=0.7.96; project=v35; form=v18; layout=v25 -->
+<!-- runtime-contract: package=0.7.96; project=v36; form=v18; layout=v25 -->
 # Единый план проекта
 
 Решения и приоритеты обновлены 24 сентября 2026 года по `main` на `3e29ffaf` (включая PR #281), текущей WITS-UX ветке, исходному коду, тестам и операторским требованиям. Новые требования включают адаптивный полноэкранный монитор, редактируемые и сохраняемые формы, live Gas Ratio/Pixler/DEXP, интерпретационные маркеры, классификацию background/formation/connection/trip gas и универсальные min/max alarm-пороги. Это единственный канонический план проекта. Завершённые
@@ -77,7 +77,7 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
 ## GASCTX-RPT-01 — технологический газовый контекст интерпретационных отчётов
 
 Первый инкремент GASCTX-RPT-01 реализует generic `GasContextEvent` / `GasContextRegistry`
-без WITS-зависимости и project-format v35 persistence на уровне `Well.gas_context_events`.
+без WITS-зависимости и project-format v35 persistence на уровне `Well.gas_context_events`. Depth-domain-aware persistence использует project-format v36, а v35 события мигрируют как unbound и безопасно привязываются только для single-domain well.
 Инкремент editor/controller для повторяющихся строк находится **на проверке**: он добавляет
 транзакционный pre-calculation UI без изменения source curves. Следующий инкремент после его
 зелёного merge — применение confirmed context к Gas Ratio/Haworth/Pixler/OPUS candidate

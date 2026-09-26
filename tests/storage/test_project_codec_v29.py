@@ -77,7 +77,7 @@ def test_v29_json_round_trip_preserves_profile_revision_and_binding(tmp_path) ->
     )
     loaded = load_project_document(target)
 
-    assert PROJECT_FORMAT_VERSION == 35
+    assert PROJECT_FORMAT_VERSION == 36
     assert loaded.rock_code_profiles == document.rock_code_profiles
     assert loaded.rock_code_source_bindings == document.rock_code_source_bindings
 
