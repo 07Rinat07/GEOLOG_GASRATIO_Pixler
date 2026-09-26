@@ -304,6 +304,32 @@ def hydrocarbon_interpretation_html(
 
 
 
+def _merge_background_suppression_audit(
+    contextual: HydrocarbonInterpretationReport,
+    audit_source: HydrocarbonInterpretationReport,
+    events: tuple[GasContextEvent, ...],
+    session: ProjectSession,
+) -> HydrocarbonInterpretationReport:
+    """Preserve pre-exclusion automatic candidates as immutable suppression audit."""
+
+    dataset = session.current_dataset
+    if dataset is None:
+        return contextual
+    audited = apply_gas_context_to_report(
+        audit_source,
+        GasContextRegistry(events),
+        depth_domain=dataset.depth_domain,
+    )
+    if not audited.suppressed_candidates:
+        return contextual
+    warnings = tuple(dict.fromkeys((*contextual.warnings, *audited.warnings)))
+    return replace(
+        contextual,
+        suppressed_candidates=audited.suppressed_candidates,
+        warnings=warnings,
+    )
+
+
 def _effective_session_gas_context_events(
     session: ProjectSession,
 ) -> tuple[GasContextEvent, ...]:
