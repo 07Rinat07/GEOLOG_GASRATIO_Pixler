@@ -52,6 +52,40 @@ def test_masterlog_header_dialog_lists_elements(qapp) -> None:
     dialog.close()
 
 
+def test_masterlog_header_inspector_bounds_warning_uses_semantic_role(qapp) -> None:
+    controller = MasterlogTemplateController(ProjectSession())
+    template = controller.create("Bounds warning")
+    controller.add_header_element(
+        template.template_id,
+        element_type="text",
+        x_mm=205.0,
+        y_mm=5.0,
+        width_mm=20.0,
+        height_mm=10.0,
+        properties={"text": "Overflow"},
+    )
+
+    dialog = MasterlogHeaderDialog(
+        controller,
+        template.template_id,
+        language=AppLanguage.EN,
+    )
+    dialog.list.setCurrentRow(0)
+    dialog._refresh_inspector()
+
+    assert dialog.inspector_bounds.objectName() == "masterlog-header-inspector-bounds"
+    assert dialog.inspector_bounds.property("validationRole") == "warning"
+
+    dialog._set_inspector_bounds_warning(False)
+    assert dialog.inspector_bounds.property("validationRole") == ""
+
+    source = Path("src/geoworkbench/ui/masterlog_header_dialog.py").read_text(
+        encoding="utf-8"
+    )
+    assert "style='color:#b91c1c'" not in source
+    dialog.close()
+
+
 def test_header_element_dialog_builds_typed_properties(qapp) -> None:
     dialog = HeaderElementDialog(language=AppLanguage.EN)
     dialog.type_input.setCurrentText("text")

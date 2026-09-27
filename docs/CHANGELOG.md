@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- UI: предупреждение Masterlog Header inspector о выходе элемента за границы переведено с inline fixed-red HTML на shared palette-aware `validationRole="warning"`; геометрия шапки, preview/painter и пользовательские document colors не менялись.
 - Startup/Home: устранено зависание белого окна на широком/разворачиваемом окне: декоративный geology background больше не синхронно SVG-рендерится на каждый Resize; рендер откладывается до стабилизации размера и повторный одинаковый target size переиспользуется без изменения изображения или industrial-blue дизайна.
 - UI: Logo Catalog preview больше не фиксирует белый фон и hex-border локальным QSS; preview использует shared palette-aware selector, сохраняя рендеринг и масштабирование самих logo assets без изменений.
 - Branding/Print: заводской DIGITAL GEOLOG больше не устанавливает embedded-raster SVG в project assets; печатный каталог нормализует отдельный bundled JPEG source в валидированный PNG, поэтому выбор/копирование логотипа и сохранение/reopen Masterlog не конфликтуют со строгой SVG security policy.
