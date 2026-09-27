@@ -1,4 +1,4 @@
-# GEOLOG GASRATIO@Pixler user guide
+# GEOLOG GASRATIO&PIXLER user guide
 
 ## 1. Interface order
 
