@@ -6,6 +6,7 @@ from geoworkbench.product_identity import PRODUCT_NAME
 
 
 LEGACY_PRODUCT_NAMES = (
+    "GEOLOG GASRATIO&PIXLER",
     "GEOLOG GASRATIO@Pixler",
     "Geolog GASRATIO&Pixler",
 )
