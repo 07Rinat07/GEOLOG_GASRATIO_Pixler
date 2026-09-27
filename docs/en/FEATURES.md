@@ -1,6 +1,6 @@
 # Features and instructions
 
-This file is the current map of user-facing GEOLOG GASRATIO@Pixler features. Each area explains
+This file is the current map of user-facing GEOLOG GASRATIO&PIXLER features. Each area explains
 what the feature does, where the command is located, and which document contains the complete
 workflow. Major changes are recorded in the [CHANGELOG](../CHANGELOG.md), while implementation
 details remain in Git.
