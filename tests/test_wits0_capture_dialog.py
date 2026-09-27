@@ -30,9 +30,17 @@ def test_wits0_capture_ui_is_resizable_and_keeps_actions_outside_scroll_area() -
     assert 'self.setObjectName("wits0CaptureDialog")' in source
     assert "WindowMaximizeButtonHint" in source
     assert "self.setSizeGripEnabled(True)" in source
-    assert "QLayout.SizeConstraint.SetMinimumSize" in source
+    assert "QLayout.SizeConstraint.SetDefaultConstraint" in source
     assert "QFormLayout.RowWrapPolicy.WrapLongRows" in source
     assert 'self.scroll_area.setObjectName("wits0ScrollArea")' in source
+    assert "Qt.ScrollBarPolicy.ScrollBarAlwaysOff" in source
+    assert "class _CollapsibleSection(QWidget)" in source
+    assert 'object_name="wits0AdvancedSection"' in source
+    assert 'object_name="wits0DiagnosticsSection"' in source
+    assert source.index("self.tabs.addTab(self.live_view") < source.index(
+        "self.tabs.addTab(self.raw_text"
+    )
+    assert "self.tabs.setCurrentWidget(self.live_view)" in source
     assert "self.setMinimumSize(640, 480)" not in source
     assert "root.addWidget(self.scroll_area, 1)" in source
     assert "actions = QGridLayout()" in source
@@ -183,6 +191,36 @@ def test_wits0_capture_dialog_constructs_offscreen(monkeypatch) -> None:  # type
         dialog.resize(600, 420)
         app.processEvents()
         assert dialog.scroll_area.verticalScrollBar().maximum() > 0
+        assert (
+            dialog.scroll_area.horizontalScrollBarPolicy()
+            is Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        assert dialog.tabs.currentWidget() is dialog.live_view
+        assert dialog.tabs.indexOf(dialog.live_view) == 0
+        assert not dialog.advanced_section.is_expanded()
+        assert not dialog.diagnostics_section.is_expanded()
+        assert dialog.health_summary.text()
+        assert "Остановлен" in dialog.health_summary.text()
+
+        dialog.advanced_section.toggle.click()
+        app.processEvents()
+        assert dialog.advanced_section.is_expanded()
+        dialog.advanced_section.toggle.click()
+        assert not dialog.advanced_section.is_expanded()
+
+        dialog.diagnostics_section.toggle.click()
+        app.processEvents()
+        assert dialog.diagnostics_section.is_expanded()
+        assert dialog.flush_acquisition_button.isVisible()
+        assert dialog.reset_discovery_button.isVisible()
+        dialog.diagnostics_section.toggle.click()
+
+        from PySide6.QtWidgets import QPushButton
+
+        close_button = dialog.findChild(QPushButton, "wits0CloseButton")
+        assert close_button is not None
+        assert close_button.text() == "Закрыть"
+
         assert dialog.start_button.isEnabled()
         assert not dialog.stop_button.isEnabled()
         assert dialog.help_text.isReadOnly()

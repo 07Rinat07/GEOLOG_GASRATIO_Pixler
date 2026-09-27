@@ -177,7 +177,8 @@ def test_wits_live_view_exposes_editable_persistent_form_selector() -> None:
     source = (ROOT / "src/geoworkbench/ui/wits0_live_view.py").read_text(
         encoding="utf-8"
     )
-    assert "self.form_combo = QComboBox(self)" in source
+    assert "self.form_combo = QComboBox(" in source
+    assert 'toolbar.setObjectName("wits0LiveToolbar")' in source
     assert "live_form_definitions()" in source
     assert "select_live_curve_ids" in source
     assert "Wits0LiveFormSettings" in source

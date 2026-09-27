@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
     QSizePolicy,
     QSpinBox,
     QTabWidget,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -97,6 +98,52 @@ class _Wits0PreviewBoundaryChoice(StrEnum):
     RETAINED_TAIL = "retained_tail"
 
 
+class _CollapsibleSection(QWidget):
+    """Compact operator section that keeps secondary WITS controls out of the live path."""
+
+    def __init__(
+        self,
+        title: str,
+        content: QWidget,
+        *,
+        expanded: bool = False,
+        object_name: str,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.setObjectName(object_name)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
+
+        self.toggle = QToolButton(self)
+        self.toggle.setObjectName(f"{object_name}Toggle")
+        self.toggle.setCheckable(True)
+        self.toggle.setChecked(expanded)
+        self.toggle.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.toggle.setText(title)
+        self.toggle.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Preferred,
+        )
+        self.toggle.toggled.connect(self._set_expanded)
+        layout.addWidget(self.toggle)
+
+        content.setParent(self)
+        self.content = content
+        layout.addWidget(content)
+        self._set_expanded(expanded)
+
+    def _set_expanded(self, expanded: bool) -> None:
+        self.content.setVisible(expanded)
+        self.toggle.setArrowType(
+            Qt.ArrowType.DownArrow if expanded else Qt.ArrowType.RightArrow
+        )
+
+    def is_expanded(self) -> bool:
+        return self.toggle.isChecked()
+
+
 class Wits0CaptureDialog(QDialog):
     """Modeless WITS0 TCP raw-capture monitor.
 
@@ -120,7 +167,7 @@ class Wits0CaptureDialog(QDialog):
         self._last_workspace_state: Wits0WorkspaceState | None = None
         self._connection_events_recorded: set[tuple[str, bool]] = set()
         self._live_fullscreen_dialog: QDialog | None = None
-        self._live_tab_index = 2
+        self._live_tab_index = 0
         self._raw_replay_through_at: str | None = None
         self.well_provider = well_provider
         self.on_dataset_changed = on_dataset_changed
@@ -144,8 +191,11 @@ class Wits0CaptureDialog(QDialog):
         root.setContentsMargins(10, 10, 10, 10)
         root.setSpacing(8)
 
+        self._create_action_buttons()
+
         scroll_content = QWidget(self)
         scroll_content.setObjectName("wits0ScrollContent")
+        scroll_content.setMinimumWidth(0)
         scroll_content.setSizePolicy(
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Minimum,
@@ -153,13 +203,23 @@ class Wits0CaptureDialog(QDialog):
         self.scroll_content = scroll_content
         scroll_layout = QVBoxLayout(scroll_content)
         scroll_layout.setContentsMargins(8, 8, 8, 8)
-        scroll_layout.setSpacing(12)
-        scroll_layout.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
+        scroll_layout.setSpacing(10)
+        scroll_layout.setSizeConstraint(QLayout.SizeConstraint.SetDefaultConstraint)
+
         scroll_layout.addWidget(self._build_connection_group())
-        scroll_layout.addWidget(self._build_status_group())
+        advanced_content = self._build_advanced_connection_group()
+        self.advanced_section = _CollapsibleSection(
+            self._t("wits0.advanced_settings"),
+            advanced_content,
+            expanded=False,
+            object_name="wits0AdvancedSection",
+            parent=scroll_content,
+        )
+        scroll_layout.addWidget(self.advanced_section)
 
         self.tabs = QTabWidget(scroll_content)
-        self.tabs.setMinimumHeight(280)
+        self.tabs.setObjectName("wits0WorkspaceTabs")
+        self.tabs.setMinimumHeight(320)
         self.tabs.setSizePolicy(
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.MinimumExpanding,
@@ -178,15 +238,26 @@ class Wits0CaptureDialog(QDialog):
         self.help_text.setPlainText(_operator_help_document(language))
         self.live_view = Wits0LiveViewWidget(self, language=language)
         self.live_view.fullScreenRequested.connect(self._set_live_fullscreen)
+        self.tabs.addTab(self.live_view, self._t("wits0.live_tab"))
         self.tabs.addTab(self.raw_text, self._t("wits0.raw_tab"))
         self.tabs.addTab(self.parsed_text, self._t("wits0.parsed_tab"))
-        self.tabs.addTab(self.live_view, self._t("wits0.live_tab"))
         self.tabs.addTab(self.event_text, self._t("wits0.events_tab"))
         self.tabs.addTab(
             self.help_text,
             _operator_help_text(language, "help_tab"),
         )
+        self.tabs.setCurrentWidget(self.live_view)
         scroll_layout.addWidget(self.tabs, 1)
+
+        diagnostics_content = self._build_status_group()
+        self.diagnostics_section = _CollapsibleSection(
+            self._t("wits0.diagnostics_panel"),
+            diagnostics_content,
+            expanded=False,
+            object_name="wits0DiagnosticsSection",
+            parent=scroll_content,
+        )
+        scroll_layout.addWidget(self.diagnostics_section)
 
         self.scroll_area = QScrollArea(self)
         self.scroll_area.setObjectName("wits0ScrollArea")
@@ -195,7 +266,7 @@ class Wits0CaptureDialog(QDialog):
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
         )
         self.scroll_area.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
         self.scroll_area.setVerticalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAsNeeded
@@ -204,49 +275,34 @@ class Wits0CaptureDialog(QDialog):
         root.addWidget(self.scroll_area, 1)
 
         actions = QGridLayout()
-        self.start_button = QPushButton(self._t("wits0.start"), self)
-        self.start_button.setProperty("uiRole", "primary")
-        self.stop_button = QPushButton(self._t("wits0.stop"), self)
-        self.stop_button.setProperty("uiRole", "destructive")
-        self.stop_button.setEnabled(False)
-        self.start_button.clicked.connect(self._start_capture)
-        self.stop_button.clicked.connect(self._stop_capture)
+        actions.setHorizontalSpacing(8)
+        actions.setVerticalSpacing(6)
         actions.addWidget(self.start_button, 0, 0)
         actions.addWidget(self.stop_button, 0, 1)
-        self.review_button = QPushButton(self._t("wits0.review_action"), self)
-        self.review_button.clicked.connect(self._open_import_review)
-        self.reset_discovery_button = QPushButton(
-            self._t("wits0.reset_discovery_action"),
-            self,
-        )
-        self.reset_discovery_button.clicked.connect(self._reset_discovery)
         actions.addWidget(self.review_button, 0, 2)
-        actions.addWidget(self.reset_discovery_button, 0, 3)
-        self.start_acquisition_button = QPushButton(
-            self._t("wits0.acquisition_start"), self
-        )
-        self.flush_acquisition_button = QPushButton(
-            self._t("wits0.acquisition_flush"), self
-        )
-        self.close_acquisition_button = QPushButton(
-            self._t("wits0.acquisition_close"), self
-        )
-        self.start_acquisition_button.clicked.connect(self._start_acquisition)
-        self.flush_acquisition_button.clicked.connect(self._flush_acquisition)
-        self.close_acquisition_button.clicked.connect(self._close_acquisition)
         actions.addWidget(self.start_acquisition_button, 1, 0)
-        actions.addWidget(self.flush_acquisition_button, 1, 1)
-        actions.addWidget(self.close_acquisition_button, 1, 2)
+        actions.addWidget(self.close_acquisition_button, 1, 1)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, self)
+        buttons.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Preferred,
+        )
+        close_button = buttons.button(QDialogButtonBox.StandardButton.Close)
+        if close_button is not None:
+            close_button.setObjectName("wits0CloseButton")
+            close_button.setText(self._t("common.close"))
+            close_button.setMinimumWidth(0)
+            close_button.setSizePolicy(
+                QSizePolicy.Policy.Expanding,
+                QSizePolicy.Policy.Preferred,
+            )
         buttons.rejected.connect(self.close)
-        actions.addWidget(buttons, 1, 3)
+        actions.addWidget(buttons, 1, 2)
         for action_button in (
             self.start_button,
             self.stop_button,
             self.review_button,
-            self.reset_discovery_button,
             self.start_acquisition_button,
-            self.flush_acquisition_button,
             self.close_acquisition_button,
         ):
             action_button.setMinimumWidth(0)
@@ -254,7 +310,7 @@ class Wits0CaptureDialog(QDialog):
                 QSizePolicy.Policy.Expanding,
                 QSizePolicy.Policy.Preferred,
             )
-        for column in range(4):
+        for column in range(3):
             actions.setColumnStretch(column, 1)
         root.addLayout(actions)
 
@@ -271,8 +327,38 @@ class Wits0CaptureDialog(QDialog):
             minimum=QSize(600, 420),
         )
 
+    def _create_action_buttons(self) -> None:
+        self.start_button = QPushButton(self._t("wits0.start"), self)
+        self.start_button.setProperty("uiRole", "primary")
+        self.stop_button = QPushButton(self._t("wits0.stop"), self)
+        self.stop_button.setProperty("uiRole", "destructive")
+        self.stop_button.setEnabled(False)
+        self.start_button.clicked.connect(self._start_capture)
+        self.stop_button.clicked.connect(self._stop_capture)
+
+        self.review_button = QPushButton(self._t("wits0.review_action"), self)
+        self.review_button.clicked.connect(self._open_import_review)
+        self.reset_discovery_button = QPushButton(
+            self._t("wits0.reset_discovery_action"),
+            self,
+        )
+        self.reset_discovery_button.clicked.connect(self._reset_discovery)
+
+        self.start_acquisition_button = QPushButton(
+            self._t("wits0.acquisition_start"), self
+        )
+        self.flush_acquisition_button = QPushButton(
+            self._t("wits0.acquisition_flush"), self
+        )
+        self.close_acquisition_button = QPushButton(
+            self._t("wits0.acquisition_close"), self
+        )
+        self.start_acquisition_button.clicked.connect(self._start_acquisition)
+        self.flush_acquisition_button.clicked.connect(self._flush_acquisition)
+        self.close_acquisition_button.clicked.connect(self._close_acquisition)
+
     def _build_connection_group(self) -> QGroupBox:
-        group = QGroupBox(self._t("wits0.connection_group"), self)
+        group = QGroupBox(self._t("wits0.quick_connection"), self)
         form = QFormLayout(group)
         form.setFieldGrowthPolicy(
             QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow
@@ -287,6 +373,8 @@ class Wits0CaptureDialog(QDialog):
             _operator_help_text(self.language, "startup_hint"),
             group,
         )
+        startup_hint.setObjectName("wits0StartupHint")
+        startup_hint.setProperty("guidanceRole", "info")
         startup_hint.setWordWrap(True)
         form.addRow(startup_hint)
 
@@ -315,15 +403,40 @@ class Wits0CaptureDialog(QDialog):
         self.mode_combo.setCurrentIndex(max(0, mode_index))
         form.addRow(self._t("wits0.mode"), self.mode_combo)
 
-        # WITS0 has no transport authentication or encryption. New profiles
-        # therefore listen on loopback unless the operator explicitly selects a
-        # trusted field-network interface.
         self.host_edit = QLineEdit(
             str(self.settings.value("wits0/host", "127.0.0.1")),
             group,
         )
         form.addRow(self._t("wits0.host"), self.host_edit)
 
+        self.port_spin = QSpinBox(group)
+        self.port_spin.setRange(1, 65_535)
+        self.port_spin.setValue(_setting_int(self.settings, "wits0/port", 2041))
+        form.addRow(self._t("wits0.port"), self.port_spin)
+
+        self.health_summary = QLabel(group)
+        self.health_summary.setObjectName("wits0HealthSummary")
+        self.health_summary.setProperty("statusRole", "muted")
+        self.health_summary.setWordWrap(True)
+        form.addRow(self._t("wits0.operator_health"), self.health_summary)
+        return group
+
+    def _build_advanced_connection_group(self) -> QWidget:
+        group = QWidget(self)
+        group.setObjectName("wits0AdvancedContent")
+        form = QFormLayout(group)
+        form.setFieldGrowthPolicy(
+            QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow
+        )
+        form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
+        form.setFormAlignment(Qt.AlignmentFlag.AlignTop)
+        form.setLabelAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+        )
+
+        # WITS0 has no transport authentication or encryption. New profiles
+        # therefore listen on loopback unless the operator explicitly selects a
+        # trusted field-network interface.
         self.allowed_networks_edit = QLineEdit(
             str(self.settings.value("wits0/allowed_peer_networks", "")),
             group,
@@ -344,11 +457,6 @@ class Wits0CaptureDialog(QDialog):
             _setting_bool(self.settings, "wits0/allow_wildcard_bind", False)
         )
         form.addRow("", self.allow_wildcard_bind_check)
-
-        self.port_spin = QSpinBox(group)
-        self.port_spin.setRange(1, 65_535)
-        self.port_spin.setValue(_setting_int(self.settings, "wits0/port", 2041))
-        form.addRow(self._t("wits0.port"), self.port_spin)
 
         self.disk_critical_spin = QSpinBox(group)
         self.disk_critical_spin.setRange(64, 1_048_576)
@@ -431,6 +539,7 @@ class Wits0CaptureDialog(QDialog):
         form.addRow(self._t("wits0.profile"), profile_label)
 
         warning = QLabel(self._t("wits0.capture_only_warning"), group)
+        warning.setProperty("guidanceRole", "warning")
         warning.setWordWrap(True)
         form.addRow(warning)
         self._apply_connection_tooltips()
@@ -552,6 +661,21 @@ class Wits0CaptureDialog(QDialog):
             )
             layout.addWidget(label, row, 0)
             layout.addWidget(value, row, 1)
+        maintenance = QWidget(group)
+        maintenance_layout = QHBoxLayout(maintenance)
+        maintenance_layout.setContentsMargins(0, 4, 0, 0)
+        maintenance_layout.setSpacing(8)
+        self.flush_acquisition_button.setParent(maintenance)
+        self.reset_discovery_button.setParent(maintenance)
+        maintenance_layout.addWidget(self.flush_acquisition_button)
+        maintenance_layout.addWidget(self.reset_discovery_button)
+        maintenance_layout.addStretch(1)
+        layout.addWidget(
+            QLabel(self._t("wits0.maintenance_actions"), group),
+            len(rows),
+            0,
+        )
+        layout.addWidget(maintenance, len(rows), 1)
         layout.setColumnStretch(1, 1)
         return group
 
@@ -872,7 +996,40 @@ class Wits0CaptureDialog(QDialog):
                     repaired=snapshot.recovery_sidecars_repaired,
                 )
             )
-        self.state_value.setText(self._t(f"wits0.state_{state.value}"))
+        state_text = self._t(f"wits0.state_{state.value}")
+        self.state_value.setText(state_text)
+        peer_text = snapshot.current_peer if snapshot is not None else None
+        last_text = snapshot.last_received_at if snapshot is not None else None
+        error_count = snapshot.errors if snapshot is not None else 0
+        self.health_summary.setText(
+            self._t(
+                "wits0.health_summary",
+                state=state_text,
+                peer=peer_text or "—",
+                last=last_text or "—",
+                errors=error_count,
+            )
+        )
+        health_role = (
+            "error"
+            if state is Wits0CaptureState.FAILED
+            else "active"
+            if state
+            in {
+                Wits0CaptureState.STARTING,
+                Wits0CaptureState.LISTENING,
+                Wits0CaptureState.CONNECTING,
+                Wits0CaptureState.CONNECTED,
+                Wits0CaptureState.RETRY_WAIT,
+            }
+            else "muted"
+        )
+        if self.health_summary.property("statusRole") != health_role:
+            self.health_summary.setProperty("statusRole", health_role)
+            health_style = self.health_summary.style()
+            health_style.unpolish(self.health_summary)
+            health_style.polish(self.health_summary)
+            self.health_summary.update()
         self._refresh_discovery_status()
         self._refresh_acquisition_status()
 

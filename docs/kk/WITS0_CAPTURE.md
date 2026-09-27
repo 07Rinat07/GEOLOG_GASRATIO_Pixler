@@ -19,6 +19,14 @@ Review-дан кейін append-only `AcquisitionSession` бастауға бо�
 live бұрғылау деректерін көру → қажет болса Import Review → тұрақты acquisition бастау**.
 Оператор пайдалы мониторды көру үшін барлық техникалық өрістерді алдын ала түсінуге міндетті емес.
 
+Терезе **live-first** қағидасымен құрылады: **Монитор** қойындысы бірінші ашылады. Негізгі
+quick connection (preset, режим, IP/interface, port), ықшам health және негізгі әрекеттер үнемі
+көрінеді. CIDR/wildcard bind, raw directory, disk thresholds, retention және profile
+**Желі мен сақтаудың кеңейтілген баптаулары** бөлімінде жиналады. Parser/sequence/schema/
+acquisition/recovery есептегіштері, queue flush және discovery reset
+**Диагностика және қызметтік есептегіштер** бөлімінде орналасады. Сыртқы көлденең scroll
+қолданылмайды; биіктік жетпегенде тек тік scroll қажет.
+
 GeoScape/GSWITS үшін дайын preset қолданылады. Режим, IP/interface, port, CIDR, raw directory,
 дискідегі бос орын шектері және retention жанында контекстік көмек болуы тиіс. Кірістірілген
 **Көмек және нұсқаулық** қойындысы client/server рөлдерін, жергілікті/қашық мекенжайды, CIDR
