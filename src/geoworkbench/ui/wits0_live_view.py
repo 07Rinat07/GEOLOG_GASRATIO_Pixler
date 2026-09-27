@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QListWidget,
     QListWidgetItem,
@@ -54,6 +55,10 @@ if TYPE_CHECKING:
     from geoworkbench.services.wits0_acquisition import Wits0AcquisitionRuntime
 
 
+_COMPACT_NAVIGATION_BREAKPOINT = 820
+_WIDE_SIDEBAR_WIDTH = 330
+
+
 class Wits0LiveViewWidget(QWidget):
     """Read-only current-values and live/history chart for a growing WITS0 Dataset.
 
@@ -86,6 +91,8 @@ class Wits0LiveViewWidget(QWidget):
         self._updating_plot_range = False
         self._fullscreen = False
         self._sidebar_user_override: bool | None = None
+        self._compact_parameters_open = False
+        self._compact_navigation_active = False
 
         root = QVBoxLayout(self)
         root.setContentsMargins(6, 6, 6, 6)
@@ -219,6 +226,8 @@ class Wits0LiveViewWidget(QWidget):
 
     def _build_left_panel(self) -> QWidget:
         panel = QWidget(self)
+        panel.setObjectName("wits0LiveSidebar")
+        panel.setMinimumWidth(0)
         layout = QVBoxLayout(panel)
         layout.setContentsMargins(0, 0, 6, 0)
 
@@ -244,23 +253,27 @@ class Wits0LiveViewWidget(QWidget):
         )
         dexp_layout.addWidget(self.dexp_correction_check)
 
-        density_row = QHBoxLayout()
-        density_row.addWidget(
-            QLabel(_operator_text(self._language, "normal_mud_density"), dexp_group)
+        density_grid = QGridLayout()
+        density_label = QLabel(
+            _operator_text(self._language, "normal_mud_density"),
+            dexp_group,
         )
+        density_label.setWordWrap(True)
+        density_grid.addWidget(density_label, 0, 0, 1, 2)
         self.normal_mud_density_spin = QDoubleSpinBox(dexp_group)
         self.normal_mud_density_spin.setDecimals(3)
         self.normal_mud_density_spin.setRange(0.001, 5_000.0)
         self.normal_mud_density_spin.setValue(1.0)
         self.normal_mud_density_spin.setEnabled(False)
-        density_row.addWidget(self.normal_mud_density_spin)
+        density_grid.addWidget(self.normal_mud_density_spin, 1, 0)
 
         self.normal_mud_density_unit_combo = QComboBox(dexp_group)
         for unit in ("ppg", "kg/m3", "g/cm3"):
             self.normal_mud_density_unit_combo.addItem(unit, unit)
         self.normal_mud_density_unit_combo.setEnabled(False)
-        density_row.addWidget(self.normal_mud_density_unit_combo)
-        dexp_layout.addLayout(density_row)
+        density_grid.addWidget(self.normal_mud_density_unit_combo, 1, 1)
+        density_grid.setColumnStretch(0, 1)
+        dexp_layout.addLayout(density_grid)
         layout.addWidget(dexp_group)
 
         self.dexp_correction_check.toggled.connect(self._dexp_correction_changed)
@@ -287,7 +300,9 @@ class Wits0LiveViewWidget(QWidget):
             QAbstractItemView.SelectionBehavior.SelectRows
         )
         self.values_table.verticalHeader().setVisible(False)
-        self.values_table.horizontalHeader().setStretchLastSection(True)
+        values_header = self.values_table.horizontalHeader()
+        values_header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        values_header.setMinimumSectionSize(48)
         self.values_table.setAlternatingRowColors(True)
         values_layout.addWidget(self.values_table)
         layout.addWidget(values_group, 3)
@@ -295,6 +310,8 @@ class Wits0LiveViewWidget(QWidget):
 
     def _build_plot_panel(self) -> QWidget:
         panel = QWidget(self)
+        panel.setObjectName("wits0LivePlotPanel")
+        panel.setMinimumWidth(0)
         layout = QVBoxLayout(panel)
         layout.setContentsMargins(0, 0, 0, 0)
 
@@ -841,7 +858,6 @@ class Wits0LiveViewWidget(QWidget):
                 if foreground is not None:
                     cell.setForeground(QBrush(foreground))
                 self.values_table.setItem(row, column, cell)
-        self.values_table.resizeColumnsToContents()
 
     def _set_empty_state(self) -> None:
         self.state_label.setText(self._t("wits0_live.no_session"))
@@ -965,7 +981,11 @@ class Wits0LiveViewWidget(QWidget):
             auto_follow=self.auto_follow_check.isChecked(),
             follow_span=float(self.window_spin.value()),
             max_points=int(self.max_points_spin.value()),
-            sidebar_visible=self.left_panel.isVisible(),
+            sidebar_visible=(
+                True
+                if self._sidebar_user_override is None
+                else self._sidebar_user_override
+            ),
         )
         self.form_settings.save(state)
         self._update_form_description()
@@ -979,6 +999,8 @@ class Wits0LiveViewWidget(QWidget):
         form_id = str(self.form_combo.currentData() or UNIVERSAL_LIVE_FORM_ID)
         self.form_settings.reset(form_id)
         self._sidebar_user_override = None
+        self._compact_parameters_open = False
+        self._apply_navigation_layout()
         self._update_form_description()
         if self._view is not None:
             self._updating_controls = True
@@ -996,39 +1018,87 @@ class Wits0LiveViewWidget(QWidget):
             self._last_revision = None
             self.refresh(force=True)
 
-    def _set_sidebar_visible(self, visible: bool) -> None:
-        self.left_panel.setVisible(bool(visible))
+    def _is_compact_navigation(self) -> bool:
+        return self._fullscreen or self.width() < _COMPACT_NAVIGATION_BREAKPOINT
+
+    def _apply_navigation_layout(self) -> None:
+        compact = self._is_compact_navigation()
+        if compact != self._compact_navigation_active:
+            self._compact_navigation_active = compact
+            if compact:
+                self._compact_parameters_open = False
+
+        if compact:
+            parameters_open = self._compact_parameters_open
+            self.left_panel.setVisible(parameters_open)
+            self.plot_panel.setVisible(not parameters_open)
+            self.sidebar_button.setText(
+                _operator_text(
+                    self._language,
+                    "back_to_monitor" if parameters_open else "show_sidebar",
+                )
+            )
+            available = max(1, self.width())
+            self.splitter.setSizes(
+                [available, 0] if parameters_open else [0, available]
+            )
+            return
+
+        self._compact_parameters_open = False
+        self.plot_panel.setVisible(True)
+        sidebar_visible = (
+            True
+            if self._sidebar_user_override is None
+            else self._sidebar_user_override
+        )
+        self.left_panel.setVisible(sidebar_visible)
         self.sidebar_button.setText(
             _operator_text(
                 self._language,
-                "hide_sidebar" if visible else "show_sidebar",
+                "hide_sidebar" if sidebar_visible else "show_sidebar",
             )
         )
-        if visible:
-            self.splitter.setSizes([330, max(650, self.width() - 330)])
+        available = max(1, self.width())
+        if sidebar_visible:
+            sidebar_width = min(
+                _WIDE_SIDEBAR_WIDTH,
+                max(240, available // 3),
+            )
+            self.splitter.setSizes(
+                [sidebar_width, max(1, available - sidebar_width)]
+            )
+        else:
+            self.splitter.setSizes([0, available])
+
+    def _set_sidebar_visible(self, visible: bool) -> None:
+        self._sidebar_user_override = bool(visible)
+        self._apply_navigation_layout()
 
     def _toggle_sidebar(self) -> None:
-        visible = not self.left_panel.isVisible()
-        self._sidebar_user_override = visible
-        self._set_sidebar_visible(visible)
+        if self._is_compact_navigation():
+            self._compact_parameters_open = not self._compact_parameters_open
+            self._apply_navigation_layout()
+            return
+        self._set_sidebar_visible(not self.left_panel.isVisible())
 
     def _toggle_fullscreen(self) -> None:
         self.fullScreenRequested.emit(not self._fullscreen)
 
     def set_fullscreen_state(self, enabled: bool) -> None:
         self._fullscreen = bool(enabled)
+        if enabled:
+            self._compact_parameters_open = False
         self.fullscreen_button.setText(
             _operator_text(
                 self._language,
                 "exit_fullscreen" if enabled else "fullscreen",
             )
         )
+        self._apply_navigation_layout()
 
     def resizeEvent(self, event: QResizeEvent) -> None:  # noqa: N802
         super().resizeEvent(event)
-        if self._fullscreen or self._sidebar_user_override is not None:
-            return
-        self._set_sidebar_visible(self.width() >= 820)
+        self._apply_navigation_layout()
 
     def _health_tooltip(self, health: AcquisitionLiveHealth) -> str:
         return self._t(f"wits0_live.health_{health.value}_help")
@@ -1052,6 +1122,7 @@ def _operator_text(language: AppLanguage, key: str) -> str:
             "reset_form": "Сбросить",
             "hide_sidebar": "Скрыть параметры",
             "show_sidebar": "Показать параметры",
+            "back_to_monitor": "Назад к монитору",
             "fullscreen": "На весь экран",
             "exit_fullscreen": "Выйти из полного экрана",
             "saved_override": "сохранённая настройка",
@@ -1067,6 +1138,7 @@ def _operator_text(language: AppLanguage, key: str) -> str:
             "reset_form": "Қалпына келтіру",
             "hide_sidebar": "Параметрлерді жасыру",
             "show_sidebar": "Параметрлерді көрсету",
+            "back_to_monitor": "Мониторға қайту",
             "fullscreen": "Толық экран",
             "exit_fullscreen": "Толық экраннан шығу",
             "saved_override": "сақталған баптау",
@@ -1082,6 +1154,7 @@ def _operator_text(language: AppLanguage, key: str) -> str:
             "reset_form": "Reset",
             "hide_sidebar": "Hide parameters",
             "show_sidebar": "Show parameters",
+            "back_to_monitor": "Back to monitor",
             "fullscreen": "Full screen",
             "exit_fullscreen": "Exit full screen",
             "saved_override": "saved setup",
