@@ -7,6 +7,7 @@ from geoworkbench.product_identity import PRODUCT_NAME
 
 
 EXPECTED_PRODUCT_NAME = "DIGITAL GEOLOG GASRATIO&PIXLER"
+DOUBLE_DIGITAL_PREFIX = "DIGITAL " + "DIGITAL GEOLOG"
 LEGACY_PRODUCT_NAMES = (
     "GEOLOG " + "GASRATIO@Pixler",
     "Geolog " + "GASRATIO&Pixler",
@@ -15,7 +16,7 @@ LEGACY_PRODUCT_NAMES = (
 
 def test_product_name_contract() -> None:
     assert PRODUCT_NAME == EXPECTED_PRODUCT_NAME
-    assert not PRODUCT_NAME.startswith("DIGITAL DIGITAL ")
+    assert not PRODUCT_NAME.startswith("DIGITAL " + "DIGITAL ")
 
 
 def test_canonical_product_name_is_used_in_primary_documentation() -> None:
@@ -34,7 +35,7 @@ def test_canonical_product_name_is_used_in_primary_documentation() -> None:
     for path in paths:
         text = path.read_text(encoding="utf-8")
         assert PRODUCT_NAME in text, path
-        assert "DIGITAL DIGITAL GEOLOG" not in text, path
+        assert DOUBLE_DIGITAL_PREFIX not in text, path
 
 
 def test_first_party_text_does_not_reintroduce_legacy_product_names() -> None:
@@ -65,7 +66,7 @@ def test_first_party_text_does_not_reintroduce_legacy_product_names() -> None:
 
     for path in paths:
         text = path.read_text(encoding="utf-8", errors="ignore")
-        assert "DIGITAL DIGITAL GEOLOG" not in text, path
+        assert DOUBLE_DIGITAL_PREFIX not in text, path
         for legacy_name in LEGACY_PRODUCT_NAMES:
             assert legacy_name not in text, path
 
