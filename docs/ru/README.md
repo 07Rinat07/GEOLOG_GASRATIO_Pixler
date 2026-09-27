@@ -1,6 +1,6 @@
 # Руководство пользователя
 
-GEOLOG GASRATIO@Pixler — редактор буровых, газокаротажных, LAS и GeoScape2/GS2-данных.
+DIGITAL DIGITAL GEOLOG GASRATIO&PIXLER — редактор буровых, газокаротажных, LAS и GeoScape2/GS2-данных.
 
 ## Установка и запуск
 
