@@ -29,17 +29,19 @@ def test_home_dashboard_is_palette_aware_and_adaptive() -> None:
     assert re.search(r"#[0-9a-fA-F]{3,8}\\b", source) is None
 
 
-def test_application_main_shell_style_has_no_fixed_theme_colours() -> None:
+def test_application_main_shell_uses_centralized_industrial_blue_theme() -> None:
     source = Path("src/geoworkbench/ui/application_style.py").read_text(encoding="utf-8")
 
-    main_shell = source.split("QMainWindow#mainWindow", 1)[1].split(
-        "QFrame#formEditToolbar", 1
-    )[0]
-    assert "QToolBar#leftPanelRail" in main_shell
-    assert "QTabWidget#workspaceTabs" in main_shell
-    assert "QStatusBar#mainStatusBar" in main_shell
-    assert "QDockWidget::title" in main_shell
-    assert re.search(r"#[0-9a-fA-F]{3,8}\\b", main_shell) is None
+    assert "class IndustrialBlueTheme" in source
+    assert 'shell_background: str = "#071A2B"' in source
+    assert 'work_background: str = "#EDF4F8"' in source
+    assert 'panel_background: str = "#FFFFFF"' in source
+    assert 'accent: str = "#00A6E2"' in source
+    shell = source.split("def industrial_shell_stylesheet", 1)[1]
+    assert "QToolBar#leftPanelRail" in shell
+    assert "QTabWidget#workspaceTabs" in shell
+    assert "QStatusBar#mainStatusBar" in shell
+    assert "QDockWidget::title" in shell
 
 
 
