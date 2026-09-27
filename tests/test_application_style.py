@@ -11,6 +11,7 @@ from geoworkbench.ui.application_style import (
     adaptive_application_stylesheet,
     industrial_application_palette,
     industrial_shell_stylesheet,
+    wits0_dialog_stylesheet,
 )
 
 
@@ -103,10 +104,22 @@ def test_industrial_shell_stylesheet_uses_navy_navigation_and_cyan_activity() ->
     assert f"background: {INDUSTRIAL_BLUE_THEME.shell_background}" in stylesheet
     assert f"background: {INDUSTRIAL_BLUE_THEME.accent}" in stylesheet
     assert f"background: {INDUSTRIAL_BLUE_THEME.panel_background}" in stylesheet
+    assert INDUSTRIAL_BLUE_THEME.shell_disabled_text == "#8EADC2"
     assert "QMainWindow#mainWindow QMenuBar" in stylesheet
     assert "QFrame#mainToolbar" in stylesheet
     assert "QToolBar#leftPanelRail" in stylesheet
     assert "QStatusBar#mainStatusBar" in stylesheet
+
+
+def test_wits0_dialog_stylesheet_scopes_visible_scrollbar_dimensions() -> None:
+    stylesheet = wits0_dialog_stylesheet()
+
+    assert "QDialog#wits0CaptureDialog QScrollBar:vertical" in stylesheet
+    assert "QDialog#wits0CaptureDialog QScrollBar:horizontal" in stylesheet
+    assert "width: 14px" in stylesheet
+    assert "height: 14px" in stylesheet
+    assert "min-height: 34px" in stylesheet
+    assert "min-width: 34px" in stylesheet
 
 
 @pytest.mark.skipif(
@@ -133,6 +146,7 @@ def test_adaptive_application_style_is_idempotent(
         assert first == second
         assert adaptive_application_stylesheet().strip() in first
         assert industrial_shell_stylesheet().strip() in first
+        assert wits0_dialog_stylesheet().strip() in first
     finally:
         app.setStyleSheet(original)
         app.setPalette(original_palette)
