@@ -20,6 +20,7 @@ from PySide6.QtGui import (
     QTextDocument,
 )
 
+from geoworkbench.product_identity import PRODUCT_NAME
 from geoworkbench.domain.models import IndexRole
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.gas_ratio_interpretation import classify_gas_ratio
@@ -319,7 +320,7 @@ def export_gas_mixture_ramp_pdf(
         )
         writer.setResolution(300)
         writer.setTitle("Gas mixture ramp report")
-        writer.setCreator("GEOLOG GASRATIO@Pixler")
+        writer.setCreator(PRODUCT_NAME)
         html = gas_mixture_ramp_html(
             report,
             language,

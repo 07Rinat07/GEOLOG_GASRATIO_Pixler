@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+LEGACY_PRODUCT_NAME = "GEOLOG " + "GASRATIO@Pixler"
+
 import zipfile
 from xml.etree import ElementTree as ET
 
@@ -142,7 +144,7 @@ def test_pdf_cover_uses_manual_identity_instead_of_loaded_file_names(qapp, tmp_p
     assert "ТОО Сервис ГТИ" in cover_text
     assert "Инженер ГТИ И.И." in cover_text
     assert REPORT_BRAND_WORDMARK in cover_text
-    assert "GEOLOG GASRATIO@Pixler" not in cover_text
+    assert LEGACY_PRODUCT_NAME not in cover_text
     assert "Техническое_имя_загруженного_файла.las" not in cover_text
 
 
@@ -168,7 +170,7 @@ def test_word_cover_is_separate_and_not_bunched_at_top(tmp_path) -> None:
     assert "ТОО Сервис ГТИ" in document_text
     assert "Инженер ГТИ И.И." in document_text
     assert REPORT_BRAND_WORDMARK in document_text
-    assert "GEOLOG GASRATIO@Pixler" not in document_text
+    assert LEGACY_PRODUCT_NAME not in document_text
     assert "Техническое_имя_загруженного_файла.las" not in document_text
 
     children = list(body)

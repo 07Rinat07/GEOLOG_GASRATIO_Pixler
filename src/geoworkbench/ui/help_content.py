@@ -27,7 +27,7 @@ _ACTION_TEXTS = {
 
 _OVERVIEW = {
     AppLanguage.RU: """
-        <h1>Справочный центр GEOLOG GASRATIO@Pixler</h1>
+        <h1>Справочный центр DIGITAL GEOLOG GASRATIO&PIXLER</h1>
         <p>Интерфейс разделён по назначению, чтобы рабочие вкладки не были
         перегружены служебными окнами.</p>
         <ul>
@@ -46,7 +46,7 @@ _OVERVIEW = {
         </ol>
     """,
     AppLanguage.KK: """
-        <h1>GEOLOG GASRATIO@Pixler анықтамалық орталығы</h1>
+        <h1>DIGITAL GEOLOG GASRATIO&PIXLER анықтамалық орталығы</h1>
         <p>Жұмыс қойындылары қызметтік терезелермен толып кетпеуі үшін интерфейс
         міндеті бойынша бөлінген.</p>
         <ul>
@@ -65,7 +65,7 @@ _OVERVIEW = {
         </ol>
     """,
     AppLanguage.EN: """
-        <h1>GEOLOG GASRATIO@Pixler help centre</h1>
+        <h1>DIGITAL GEOLOG GASRATIO&PIXLER help centre</h1>
         <p>The interface is organised by purpose so permanent work tabs are not
         crowded with utility windows.</p>
         <ul>

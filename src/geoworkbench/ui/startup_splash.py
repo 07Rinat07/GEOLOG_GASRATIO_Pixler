@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from geoworkbench.product_identity import PRODUCT_FAMILY_NAME, PRODUCT_SUITE_NAME
 from geoworkbench import __version__
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.startup_timing import (
@@ -81,9 +82,9 @@ class StartupSplash(QWidget):
         brand_row.addWidget(logo)
         names = QVBoxLayout()
         names.setSpacing(1)
-        product = QLabel("GEOLOG", card)
+        product = QLabel(PRODUCT_FAMILY_NAME, card)
         product.setObjectName("splashProduct")
-        suite = QLabel("GASRATIO@Pixler", card)
+        suite = QLabel(PRODUCT_SUITE_NAME, card)
         suite.setObjectName("splashSuite")
         names.addStretch(1)
         names.addWidget(product)
