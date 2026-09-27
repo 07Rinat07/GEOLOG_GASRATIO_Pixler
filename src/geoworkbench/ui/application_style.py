@@ -1,9 +1,205 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+
+from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QApplication
 
 
 _ADAPTIVE_STYLE_PROPERTY = "_geologAdaptiveUiInstalled"
+
+
+
+@dataclass(frozen=True, slots=True)
+class IndustrialBlueTheme:
+    """Centralized visual tokens for the DIGITAL GEOLOG desktop UI."""
+
+    shell_background: str = "#071A2B"
+    shell_surface: str = "#0B2A44"
+    shell_surface_hover: str = "#123C5C"
+    shell_border: str = "#274B68"
+    work_background: str = "#EDF4F8"
+    panel_background: str = "#FFFFFF"
+    panel_alternate: str = "#E3EDF4"
+    border: str = "#B8CAD7"
+    text: str = "#122B3E"
+    muted_text: str = "#60798B"
+    shell_text: str = "#F7FBFE"
+    accent: str = "#00A6E2"
+    accent_hover: str = "#19B7EE"
+    accent_pressed: str = "#0087BA"
+    selection: str = "#D8F2FC"
+    disabled_text: str = "#91A5B3"
+
+
+INDUSTRIAL_BLUE_THEME = IndustrialBlueTheme()
+
+
+def industrial_application_palette(
+    base_palette: QPalette | None = None,
+    *,
+    theme: IndustrialBlueTheme = INDUSTRIAL_BLUE_THEME,
+) -> QPalette:
+    """Build the application-wide light industrial palette.
+
+    The working surfaces stay bright and readable while the navigation chrome is
+    styled separately as deep navy. This keeps dialogs, tables and forms
+    presentation-friendly instead of turning the whole desktop into a dark slab.
+    """
+
+    palette = QPalette(base_palette) if base_palette is not None else QPalette()
+    role_colors = {
+        QPalette.ColorRole.Window: theme.work_background,
+        QPalette.ColorRole.WindowText: theme.text,
+        QPalette.ColorRole.Base: theme.panel_background,
+        QPalette.ColorRole.AlternateBase: theme.panel_alternate,
+        QPalette.ColorRole.ToolTipBase: theme.panel_background,
+        QPalette.ColorRole.ToolTipText: theme.text,
+        QPalette.ColorRole.Text: theme.text,
+        QPalette.ColorRole.Button: "#F5F9FC",
+        QPalette.ColorRole.ButtonText: theme.text,
+        QPalette.ColorRole.BrightText: theme.shell_text,
+        QPalette.ColorRole.Light: theme.panel_background,
+        QPalette.ColorRole.Midlight: "#D6E3EC",
+        QPalette.ColorRole.Mid: theme.border,
+        QPalette.ColorRole.Dark: "#6E8595",
+        QPalette.ColorRole.Shadow: "#31495A",
+        QPalette.ColorRole.Highlight: theme.accent,
+        QPalette.ColorRole.HighlightedText: theme.shell_text,
+        QPalette.ColorRole.Link: theme.accent_pressed,
+        QPalette.ColorRole.LinkVisited: "#4869B1",
+        QPalette.ColorRole.PlaceholderText: theme.muted_text,
+    }
+    for role, value in role_colors.items():
+        palette.setColor(role, QColor(value))
+
+    disabled = QPalette.ColorGroup.Disabled
+    palette.setColor(disabled, QPalette.ColorRole.WindowText, QColor(theme.disabled_text))
+    palette.setColor(disabled, QPalette.ColorRole.Text, QColor(theme.disabled_text))
+    palette.setColor(disabled, QPalette.ColorRole.ButtonText, QColor(theme.disabled_text))
+    palette.setColor(disabled, QPalette.ColorRole.Highlight, QColor(theme.border))
+    palette.setColor(disabled, QPalette.ColorRole.HighlightedText, QColor(theme.muted_text))
+    return palette
+
+
+def industrial_shell_stylesheet(
+    theme: IndustrialBlueTheme = INDUSTRIAL_BLUE_THEME,
+) -> str:
+    """Return the scoped navy/cyan shell layer for the main desktop window."""
+
+    return f"""
+/* DIGITAL GEOLOG industrial blue shell */
+QMainWindow#mainWindow {{
+    background: {theme.work_background};
+    color: {theme.text};
+}}
+QMainWindow#mainWindow QMenuBar {{
+    background: {theme.shell_background};
+    color: {theme.shell_text};
+    border-bottom: 1px solid {theme.shell_border};
+}}
+QMainWindow#mainWindow QMenuBar::item {{
+    color: {theme.shell_text};
+}}
+QMainWindow#mainWindow QMenuBar::item:selected {{
+    background: {theme.shell_surface_hover};
+}}
+QMainWindow#mainWindow QMenuBar::item:pressed {{
+    background: {theme.accent};
+    color: {theme.shell_text};
+}}
+
+QWidget#responsiveToolbarHost,
+QFrame#mainToolbar {{
+    background: {theme.shell_background};
+    border-bottom: 1px solid {theme.shell_border};
+}}
+QFrame#mainToolbar QToolButton {{
+    background: {theme.shell_surface};
+    color: {theme.shell_text};
+    border: 1px solid {theme.shell_border};
+}}
+QFrame#mainToolbar QToolButton:hover {{
+    background: {theme.shell_surface_hover};
+    border-color: {theme.accent_hover};
+}}
+QFrame#mainToolbar QToolButton:pressed,
+QFrame#mainToolbar QToolButton:checked {{
+    background: {theme.accent};
+    border-color: {theme.accent_hover};
+    color: {theme.shell_text};
+}}
+QFrame#mainToolbar QToolButton:disabled {{
+    background: {theme.shell_background};
+    border-color: {theme.shell_border};
+    color: {theme.disabled_text};
+}}
+QFrame#toolbarSeparator {{
+    border-left-color: {theme.shell_border};
+}}
+
+QToolBar#leftPanelRail,
+QToolBar#rightPanelRail {{
+    background: {theme.shell_background};
+}}
+QToolBar#leftPanelRail {{
+    border-right: 1px solid {theme.shell_border};
+}}
+QToolBar#rightPanelRail {{
+    border-left: 1px solid {theme.shell_border};
+}}
+QToolBar#leftPanelRail QToolButton,
+QToolBar#rightPanelRail QToolButton {{
+    color: {theme.shell_text};
+}}
+QToolBar#leftPanelRail QToolButton:hover,
+QToolBar#rightPanelRail QToolButton:hover {{
+    background: {theme.shell_surface_hover};
+    border-color: {theme.accent_hover};
+}}
+QToolBar#leftPanelRail QToolButton:checked,
+QToolBar#rightPanelRail QToolButton:checked {{
+    background: {theme.accent};
+    border-color: {theme.accent_hover};
+    color: {theme.shell_text};
+}}
+
+QTabWidget#workspaceTabs::pane {{
+    background: {theme.panel_background};
+    border-top: 1px solid {theme.border};
+}}
+QTabWidget#workspaceTabs QTabBar::tab {{
+    background: {theme.panel_alternate};
+    color: {theme.text};
+    border-bottom-color: transparent;
+}}
+QTabWidget#workspaceTabs QTabBar::tab:hover {{
+    background: {theme.selection};
+}}
+QTabWidget#workspaceTabs QTabBar::tab:selected {{
+    background: {theme.panel_background};
+    color: {theme.text};
+    border-bottom-color: {theme.accent};
+}}
+
+QDockWidget::title {{
+    background: {theme.panel_alternate};
+    color: {theme.text};
+    border-bottom: 1px solid {theme.border};
+}}
+QStatusBar#mainStatusBar {{
+    background: {theme.shell_background};
+    color: {theme.shell_text};
+    border-top: 1px solid {theme.shell_border};
+}}
+QStatusBar#mainStatusBar QLabel,
+QStatusBar#mainStatusBar QLabel#formWidthIndicator {{
+    color: {theme.shell_text};
+}}
+QLabel#formWidthIndicator {{
+    border-left-color: {theme.shell_border};
+}}
+"""
 
 
 def adaptive_application_stylesheet() -> str:
@@ -584,17 +780,24 @@ QToolTip {
 
 
 def apply_adaptive_application_style(app: QApplication) -> None:
-    """Install the shared style once without replacing application palette."""
+    """Install the shared industrial-blue palette and presentation contract once."""
 
     if bool(app.property(_ADAPTIVE_STYLE_PROPERTY)):
         return
+    app.setPalette(industrial_application_palette(app.palette()))
     current = app.styleSheet().rstrip()
     shared = adaptive_application_stylesheet().strip()
-    app.setStyleSheet(f"{current}\n{shared}" if current else shared)
+    shell = industrial_shell_stylesheet().strip()
+    combined = f"{shared}\n{shell}"
+    app.setStyleSheet(f"{current}\n{combined}" if current else combined)
     app.setProperty(_ADAPTIVE_STYLE_PROPERTY, True)
 
 
 __all__ = [
+    "INDUSTRIAL_BLUE_THEME",
+    "IndustrialBlueTheme",
     "adaptive_application_stylesheet",
     "apply_adaptive_application_style",
+    "industrial_application_palette",
+    "industrial_shell_stylesheet",
 ]
