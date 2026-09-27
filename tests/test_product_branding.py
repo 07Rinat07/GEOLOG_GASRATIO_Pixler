@@ -32,7 +32,8 @@ def test_legacy_display_names_are_not_present_in_product_text_sources() -> None:
         if path == Path(__file__).resolve():
             continue
         text = path.read_text(encoding="utf-8")
+        searchable_text = text.replace(APPLICATION_DISPLAY_NAME, "<CANONICAL_PRODUCT_NAME>")
         for legacy_name in LEGACY_DISPLAY_NAMES:
-            if legacy_name in text:
+            if legacy_name in searchable_text:
                 offenders.append(f"{path.relative_to(root)}: {legacy_name}")
     assert offenders == []
