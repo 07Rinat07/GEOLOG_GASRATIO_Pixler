@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-LEGACY_PRODUCT_NAME = "GEOLOG " + "GASRATIO@Pixler"
 
 import zipfile
 from xml.etree import ElementTree as ET
@@ -85,6 +84,8 @@ def _manual_identity() -> InterpretationReportIdentity:
 def _word_text(element: ET.Element) -> str:
     return "".join(node.text or "" for node in element.findall(".//w:t", _W))
 
+
+LEGACY_PRODUCT_NAME = "GEOLOG " + "GASRATIO@Pixler"
 
 def test_default_identity_uses_loaded_values_only_as_initial_suggestion() -> None:
     identity = default_interpretation_report_identity(
