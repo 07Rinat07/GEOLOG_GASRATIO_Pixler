@@ -32,10 +32,26 @@ def test_branding_uses_one_canonical_logo_resource() -> None:
     branding_source = (
         root / "src" / "geoworkbench" / "ui" / "branding.py"
     ).read_text(encoding="utf-8")
+    canonical_logo = "geologist-logo.png"
+    legacy_about_logo = "about-program-" + "logo.png"
 
-    assert 'resources/geologist-logo.png' in branding_source
-    assert 'about-program-logo.png' not in branding_source
-    assert (root / "src" / "geoworkbench" / "resources" / "geologist-logo.png").is_file()
+    assert f"resources/{canonical_logo}" in branding_source
+    assert legacy_about_logo not in branding_source
+    assert (root / "src" / "geoworkbench" / "resources" / canonical_logo).is_file()
     assert not (
-        root / "src" / "geoworkbench" / "resources" / "about-program-logo.png"
+        root / "src" / "geoworkbench" / "resources" / legacy_about_logo
     ).exists()
+
+    candidates = [
+        root / "README.md",
+        *sorted((root / "src").rglob("*.py")),
+        *sorted((root / "tests").rglob("*.py")),
+        *sorted((root / "docs").rglob("*.md")),
+    ]
+    offenders = [
+        str(candidate.relative_to(root))
+        for candidate in candidates
+        if candidate != Path(__file__).resolve()
+        and legacy_about_logo in candidate.read_text(encoding="utf-8")
+    ]
+    assert offenders == []
