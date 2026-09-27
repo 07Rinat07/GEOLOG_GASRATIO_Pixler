@@ -136,6 +136,17 @@ audit-инкремент также проводит через общий repor
 
 ## UI-SYS-01 — единый адаптивный интерфейс
 
+**Зафиксированный визуальный baseline.** Актуальный industrial-blue дизайн, централизованный
+в `ui/application_style.py` и интегрированный последними branding/UI PR, считается текущей
+канонической айдентикой приложения. UI-SYS-01 **не является редизайном**: дальнейшие инкременты
+сохраняют выбранные navy/cyan/bright-work-surface токены, типографическую иерархию, логотип
+DIGITAL GEOLOG GASRATIO&PIXLER и общую визуальную плотность. Допустимы только перенос локальных
+presentation-QSS в shared palette-aware contract, адаптивность, accessibility, состояния controls
+и устранение конфликтующих локальных стилей. Изменение ключевой палитры, визуального языка,
+брендинга или массовое переоформление компонентов выполняется только отдельным явно согласованным
+дизайн-инкрементом с собственным visual-regression scope, а не попутно при выполнении roadmap.
+Document/painter/user-selected colors остаются данными документа и не приводятся к UI-палитре.
+
 - [ ] Ввести application-level visual/interaction contract вместо разрозненных локальных
   `setStyleSheet`: единые логические высоты кнопок/полей, внутренние отступы, focus ring,
   hover/pressed/checked/disabled states, toolbar icon metrics и compact mode.
