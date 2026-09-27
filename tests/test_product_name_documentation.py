@@ -8,7 +8,6 @@ from geoworkbench.product_identity import PRODUCT_NAME
 
 EXPECTED_PRODUCT_NAME = "DIGITAL GEOLOG GASRATIO&PIXLER"
 LEGACY_PRODUCT_NAMES = (
-    "GEOLOG " + "GASRATIO&PIXLER",
     "GEOLOG " + "GASRATIO@Pixler",
     "Geolog " + "GASRATIO&Pixler",
 )
