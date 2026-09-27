@@ -2429,5 +2429,11 @@
   "document_bundle.retry_not_required": "Нет неудачных результатов для повторного выпуска.",
   "menu.wits": "WITS",
   "wits0.start_failed_event": "Не удалось запустить WITS0: {error}",
-  "import.las_loading": "Загрузка и анализ LAS: {files}…"
+  "import.las_loading": "Загрузка и анализ LAS: {files}…",
+  "wits0.quick_connection": "Подключение WITS",
+  "wits0.advanced_settings": "Расширенные настройки сети и хранения",
+  "wits0.diagnostics_panel": "Диагностика и служебные счётчики",
+  "wits0.operator_health": "Состояние",
+  "wits0.health_summary": "{state} · источник: {peer} · последний приём: {last} · ошибок: {errors}",
+  "wits0.maintenance_actions": "Служебные действия"
 }
