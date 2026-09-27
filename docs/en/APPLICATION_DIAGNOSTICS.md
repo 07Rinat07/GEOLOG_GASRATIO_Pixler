@@ -1,6 +1,6 @@
 # Application diagnostics
 
-GEOLOG GASRATIO@Pixler writes a persistent rotating log from version 0.7.51.
+DIGITAL DIGITAL GEOLOG GASRATIO&PIXLER writes a persistent rotating log from version 0.7.51.
 
 Use **Help → Open log folder** to open the directory. The current file is `geolog.log`; older
 files are kept as numbered rotations. `geolog-crash.log` is reserved for Python faulthandler/native

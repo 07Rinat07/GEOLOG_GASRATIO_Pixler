@@ -2,7 +2,7 @@
 
 ## Core model
 
-GEOLOG GASRATIO@Pixler uses a project-based workflow. The primary portable working document is the
+DIGITAL DIGITAL GEOLOG GASRATIO&PIXLER uses a project-based workflow. The primary portable working document is the
 `*.geologpkg` well project, not the source LAS, GS2, or Paradox DB file. Legacy
 `*.geolog.json` projects remain readable and writable for compatibility.
 
