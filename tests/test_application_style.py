@@ -51,6 +51,8 @@ def test_adaptive_application_stylesheet_uses_palette_roles_and_no_fixed_widths(
     info_block = stylesheet.split('QLabel[guidanceRole="info"]', 1)[1].split("}", 1)[0]
     assert "color: palette(window-text)" in info_block
     assert "color: palette(mid)" not in info_block
+    assert "QDialog#wits0CaptureDialog QScrollBar:vertical" in stylesheet
+    assert "QDialog#wits0CaptureDialog QScrollBar:horizontal" in stylesheet
     assert "QDialog#form-create-dialog QTreeWidget::item" in stylesheet
     assert "QDialog#form-manager-dialog QTreeWidget::item" in stylesheet
     assert "QLabel#form-manager-heading" in stylesheet
@@ -103,6 +105,7 @@ def test_industrial_shell_stylesheet_uses_navy_navigation_and_cyan_activity() ->
     assert f"background: {INDUSTRIAL_BLUE_THEME.shell_background}" in stylesheet
     assert f"background: {INDUSTRIAL_BLUE_THEME.accent}" in stylesheet
     assert f"background: {INDUSTRIAL_BLUE_THEME.panel_background}" in stylesheet
+    assert INDUSTRIAL_BLUE_THEME.shell_disabled_text == "#8EADC2"
     assert "QMainWindow#mainWindow QMenuBar" in stylesheet
     assert "QFrame#mainToolbar" in stylesheet
     assert "QToolBar#leftPanelRail" in stylesheet

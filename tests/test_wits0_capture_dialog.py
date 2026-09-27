@@ -27,6 +27,12 @@ def test_wits0_capture_ui_is_resizable_and_keeps_actions_outside_scroll_area() -
 
     assert "QScrollArea" in source
     assert "fit_window_to_screen(" in source
+    assert 'self.setObjectName("wits0CaptureDialog")' in source
+    assert "WindowMaximizeButtonHint" in source
+    assert "self.setSizeGripEnabled(True)" in source
+    assert "QLayout.SizeConstraint.SetMinimumSize" in source
+    assert "QFormLayout.RowWrapPolicy.WrapLongRows" in source
+    assert 'self.scroll_area.setObjectName("wits0ScrollArea")' in source
     assert "self.setMinimumSize(640, 480)" not in source
     assert "root.addWidget(self.scroll_area, 1)" in source
     assert "actions = QGridLayout()" in source
@@ -169,6 +175,14 @@ def test_wits0_capture_dialog_constructs_offscreen(monkeypatch) -> None:  # type
     dialog = Wits0CaptureDialog(language=AppLanguage.RU)
     try:
         assert dialog.windowTitle()
+        from PySide6.QtCore import Qt
+
+        assert dialog.windowFlags() & Qt.WindowType.WindowMaximizeButtonHint
+        assert dialog.isSizeGripEnabled()
+        dialog.show()
+        dialog.resize(600, 420)
+        app.processEvents()
+        assert dialog.scroll_area.verticalScrollBar().maximum() > 0
         assert dialog.start_button.isEnabled()
         assert not dialog.stop_button.isEnabled()
         assert dialog.help_text.isReadOnly()

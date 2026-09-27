@@ -19,11 +19,13 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QLayout,
     QLineEdit,
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QSpinBox,
     QTabWidget,
     QVBoxLayout,
@@ -132,16 +134,36 @@ class Wits0CaptureDialog(QDialog):
         self.previous_custom_profile = self._load_previous_custom_profile()
 
         self.setWindowTitle(self._t("wits0.title"))
+        self.setObjectName("wits0CaptureDialog")
+        self.setModal(False)
+        self.setWindowFlag(Qt.WindowType.WindowMinimizeButtonHint, True)
+        self.setWindowFlag(Qt.WindowType.WindowMaximizeButtonHint, True)
+        self.setSizeGripEnabled(True)
+
         root = QVBoxLayout(self)
+        root.setContentsMargins(10, 10, 10, 10)
+        root.setSpacing(8)
 
         scroll_content = QWidget(self)
+        scroll_content.setObjectName("wits0ScrollContent")
+        scroll_content.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Minimum,
+        )
+        self.scroll_content = scroll_content
         scroll_layout = QVBoxLayout(scroll_content)
-        scroll_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_layout.setContentsMargins(8, 8, 8, 8)
+        scroll_layout.setSpacing(12)
+        scroll_layout.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
         scroll_layout.addWidget(self._build_connection_group())
         scroll_layout.addWidget(self._build_status_group())
 
         self.tabs = QTabWidget(scroll_content)
-        self.tabs.setMinimumHeight(220)
+        self.tabs.setMinimumHeight(280)
+        self.tabs.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.MinimumExpanding,
+        )
         self.raw_text = QPlainTextEdit(self)
         self.raw_text.setReadOnly(True)
         self.raw_text.document().setMaximumBlockCount(4_000)
@@ -167,7 +189,11 @@ class Wits0CaptureDialog(QDialog):
         scroll_layout.addWidget(self.tabs, 1)
 
         self.scroll_area = QScrollArea(self)
+        self.scroll_area.setObjectName("wits0ScrollArea")
         self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
+        )
         self.scroll_area.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAsNeeded
         )
@@ -214,6 +240,20 @@ class Wits0CaptureDialog(QDialog):
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, self)
         buttons.rejected.connect(self.close)
         actions.addWidget(buttons, 1, 3)
+        for action_button in (
+            self.start_button,
+            self.stop_button,
+            self.review_button,
+            self.reset_discovery_button,
+            self.start_acquisition_button,
+            self.flush_acquisition_button,
+            self.close_acquisition_button,
+        ):
+            action_button.setMinimumWidth(0)
+            action_button.setSizePolicy(
+                QSizePolicy.Policy.Expanding,
+                QSizePolicy.Policy.Preferred,
+            )
         for column in range(4):
             actions.setColumnStretch(column, 1)
         root.addLayout(actions)
@@ -227,25 +267,38 @@ class Wits0CaptureDialog(QDialog):
         self._refresh_snapshot()
         fit_window_to_screen(
             self,
-            preferred=QSize(980, 720),
-            minimum=QSize(520, 360),
+            preferred=QSize(1180, 820),
+            minimum=QSize(600, 420),
         )
 
     def _build_connection_group(self) -> QGroupBox:
         group = QGroupBox(self._t("wits0.connection_group"), self)
         form = QFormLayout(group)
+        form.setFieldGrowthPolicy(
+            QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow
+        )
+        form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
+        form.setFormAlignment(Qt.AlignmentFlag.AlignTop)
+        form.setLabelAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+        )
 
         startup_hint = QLabel(
             _operator_help_text(self.language, "startup_hint"),
             group,
         )
         startup_hint.setWordWrap(True)
-        form.addRow("", startup_hint)
+        form.addRow(startup_hint)
 
         self.field_preset_button = QPushButton(
             self._field_preset_text("button"), group
         )
         self.field_preset_button.clicked.connect(self._apply_geoscape_field_preset)
+        self.field_preset_button.setMinimumWidth(0)
+        self.field_preset_button.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Preferred,
+        )
         form.addRow(self._field_preset_text("label"), self.field_preset_button)
 
         self.mode_combo = QComboBox(group)
@@ -349,11 +402,16 @@ class Wits0CaptureDialog(QDialog):
             )
         ) / "raw" / "wits0"
         raw_row = QWidget(group)
+        raw_row.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Preferred,
+        )
         raw_layout = QHBoxLayout(raw_row)
         raw_layout.setContentsMargins(0, 0, 0, 0)
         self.raw_directory_edit = QLineEdit(
             str(self.settings.value("wits0/raw_directory", str(default_raw))), raw_row
         )
+        self.raw_directory_edit.setMinimumWidth(0)
         browse = QPushButton(self._t("wits0.browse"), raw_row)
         browse.clicked.connect(self._choose_raw_directory)
         raw_layout.addWidget(self.raw_directory_edit, 1)
@@ -374,7 +432,7 @@ class Wits0CaptureDialog(QDialog):
 
         warning = QLabel(self._t("wits0.capture_only_warning"), group)
         warning.setWordWrap(True)
-        form.addRow("", warning)
+        form.addRow(warning)
         self._apply_connection_tooltips()
         return group
 
@@ -413,15 +471,15 @@ class Wits0CaptureDialog(QDialog):
         translations = {
             AppLanguage.RU: {
                 "label": "Быстрая настройка",
-                "button": "GeoScape / Halliburton — 192.168.0.100:2041",
+                "button": "GeoScape / Halliburton\n192.168.0.100:2041",
             },
             AppLanguage.KK: {
                 "label": "Жылдам баптау",
-                "button": "GeoScape / Halliburton — 192.168.0.100:2041",
+                "button": "GeoScape / Halliburton\n192.168.0.100:2041",
             },
             AppLanguage.EN: {
                 "label": "Quick setup",
-                "button": "GeoScape / Halliburton — 192.168.0.100:2041",
+                "button": "GeoScape / Halliburton\n192.168.0.100:2041",
             },
         }
         return translations[self.language][role]
@@ -485,7 +543,14 @@ class Wits0CaptureDialog(QDialog):
             ("wits0.recovery_state", self.recovery_state_value),
         )
         for row, (key, value) in enumerate(rows):
-            layout.addWidget(QLabel(self._t(key), group), row, 0)
+            label = QLabel(self._t(key), group)
+            label.setWordWrap(True)
+            value.setWordWrap(True)
+            value.setSizePolicy(
+                QSizePolicy.Policy.Expanding,
+                QSizePolicy.Policy.Preferred,
+            )
+            layout.addWidget(label, row, 0)
             layout.addWidget(value, row, 1)
         layout.setColumnStretch(1, 1)
         return group
