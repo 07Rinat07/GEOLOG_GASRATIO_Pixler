@@ -205,6 +205,68 @@ def test_advanced_las_import_stops_when_mode_is_cancelled(qapp, monkeypatch) -> 
     window.close()
 
 
+def test_las_loading_message_passes_files_to_localizer(qapp, monkeypatch) -> None:
+    window = MainWindow(language=AppLanguage.RU)
+    captured: list[str] = []
+
+    class FakeProgressDialog:
+        def __init__(self, label_text, *_args, **_kwargs) -> None:
+            captured.append(label_text)
+
+        def setWindowTitle(self, *_args) -> None:
+            return
+
+        def setWindowModality(self, *_args) -> None:
+            return
+
+        def setCancelButton(self, *_args) -> None:
+            return
+
+        def setMinimumDuration(self, *_args) -> None:
+            return
+
+        def setAutoClose(self, *_args) -> None:
+            return
+
+        def setAutoReset(self, *_args) -> None:
+            return
+
+        def show(self) -> None:
+            return
+
+        def close(self) -> None:
+            return
+
+    monkeypatch.setattr(
+        "geoworkbench.ui.main_window.QProgressDialog",
+        FakeProgressDialog,
+    )
+    monkeypatch.setattr(
+        window._dataset_import_jobs,
+        "execute_las",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            successful=(),
+            failed=(),
+            skipped=(),
+            files=(),
+        ),
+    )
+    status_messages: list[str] = []
+    monkeypatch.setattr(window.statusBar(), "showMessage", status_messages.append)
+
+    window._open_las_files(
+        (Path("geology of Maksat M1 from to 5549m.las"),),
+        LasImportMode.COMPATIBLE,
+    )
+
+    expected = (
+        "Загрузка и анализ LAS: geology of Maksat M1 from to 5549m.las…"
+    )
+    assert captured == [expected]
+    assert status_messages == [expected]
+    window.close()
+
+
 def test_regular_las_action_uses_compatible_mode_without_mode_prompt(
     qapp, monkeypatch
 ) -> None:
