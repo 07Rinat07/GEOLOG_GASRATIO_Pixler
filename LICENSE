@@ -1,16 +1,21 @@
 Proprietary License
 
+Software: GEOLOG GASRATIO&PIXLER
+
 Copyright (c) 2026 Rinat Sarmuldin
 All rights reserved.
 
 1. Ownership
-The source code, assets, documentation, and all related materials in this repository
-("Software") are proprietary and owned by Rinat Sarmuldin.
+The original source code, original assets, original documentation, and other original
+materials authored for this repository (collectively, the "Software") are proprietary
+and owned by Rinat Sarmuldin, except for third-party components and materials that are
+identified by their own licenses, notices, or provenance records.
 
 2. No automatic grant of rights
 No right, license, or permission is granted to use, copy, modify, merge, publish,
 distribute, sublicense, sell, or create derivative works of the Software, in whole or
-in part, without prior written permission from the copyright owner.
+in part, without prior written permission from the copyright owner, except as expressly
+stated below or required by an applicable third-party license.
 
 3. Allowed without separate agreement
 You may view this repository and clone/download it only for personal, non-commercial,
@@ -20,14 +25,24 @@ read-only evaluation.
 Any commercial use, internal company use, SaaS use, production deployment, redistribution,
 or modification requires prior written permission from the copyright owner.
 
-5. Third-party components
-Third-party libraries and tools included in this project are subject to their own
-licenses. This license does not limit rights granted by those third-party licenses.
+5. Third-party components and materials
+Third-party libraries, tools, assets, standards, methods, names, and other materials
+referenced or included by the project remain subject to their own rights, licenses,
+notices, and attribution requirements. Nothing in this license overrides or restricts
+rights granted by an applicable third-party license.
 
-6. Warranty disclaimer
+6. Product name, trademarks, and trade names
+This license governs copyright and contractual permissions for the Software. It does not,
+by itself, establish, register, transfer, or grant any trademark, service-mark, or trade-name
+rights in the product name "GEOLOG GASRATIO&PIXLER" or in any third-party name or mark.
+References to third-party products, companies, methods, or marks are descriptive unless
+explicitly stated otherwise, and do not imply affiliation, sponsorship, or endorsement.
+All third-party trademarks and trade names remain the property of their respective owners.
+
+7. Warranty disclaimer
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
 INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
 PURPOSE, AND NON-INFRINGEMENT.
 
-7. Contact for permissions
+8. Contact for permissions
 For licensing and usage permissions, contact: ura07srr@gmail.com
