@@ -204,7 +204,7 @@ class Wits0CaptureDialog(QDialog):
         scroll_layout = QVBoxLayout(scroll_content)
         scroll_layout.setContentsMargins(8, 8, 8, 8)
         scroll_layout.setSpacing(10)
-        scroll_layout.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
+        scroll_layout.setSizeConstraint(QLayout.SizeConstraint.SetDefaultConstraint)
 
         scroll_layout.addWidget(self._build_connection_group())
         advanced_content = self._build_advanced_connection_group()
@@ -283,6 +283,19 @@ class Wits0CaptureDialog(QDialog):
         actions.addWidget(self.start_acquisition_button, 1, 0)
         actions.addWidget(self.close_acquisition_button, 1, 1)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, self)
+        buttons.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Preferred,
+        )
+        close_button = buttons.button(QDialogButtonBox.StandardButton.Close)
+        if close_button is not None:
+            close_button.setObjectName("wits0CloseButton")
+            close_button.setText(self._t("common.close"))
+            close_button.setMinimumWidth(0)
+            close_button.setSizePolicy(
+                QSizePolicy.Policy.Expanding,
+                QSizePolicy.Policy.Preferred,
+            )
         buttons.rejected.connect(self.close)
         actions.addWidget(buttons, 1, 2)
         for action_button in (
