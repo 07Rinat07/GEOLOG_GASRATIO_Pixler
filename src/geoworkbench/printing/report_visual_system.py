@@ -4,8 +4,10 @@ from dataclasses import dataclass, fields
 from enum import StrEnum
 import re
 
+from geoworkbench.product_identity import PRODUCT_NAME
 
-REPORT_BRAND_WORDMARK = "Geolog GASRATIO&Pixler"
+
+REPORT_BRAND_WORDMARK = PRODUCT_NAME
 _HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
 
 
