@@ -6,7 +6,12 @@ from pathlib import Path
 
 import pytest
 
-from geoworkbench.ui.application_style import adaptive_application_stylesheet
+from geoworkbench.ui.application_style import (
+    INDUSTRIAL_BLUE_THEME,
+    adaptive_application_stylesheet,
+    industrial_application_palette,
+    industrial_shell_stylesheet,
+)
 
 
 def test_adaptive_application_stylesheet_uses_palette_roles_and_no_fixed_widths() -> None:
@@ -74,43 +79,34 @@ def test_entrypoint_does_not_override_global_palette_or_tooltip_style() -> None:
     importlib.util.find_spec("PySide6") is None,
     reason="PySide6 is not installed",
 )
-def test_adaptive_application_style_preserves_dark_application_palette(
+def test_industrial_application_palette_uses_bright_work_surfaces_and_blue_accent(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
-    from PySide6.QtGui import QColor, QPalette
+    from PySide6.QtGui import QPalette
     from PySide6.QtWidgets import QApplication
 
-    from geoworkbench.ui.application_style import apply_adaptive_application_style
-
     app = QApplication.instance() or QApplication([])
-    original_style = app.styleSheet()
-    original_palette = app.palette()
-    original_installed = app.property("_geologAdaptiveUiInstalled")
-    dark_palette = QPalette(original_palette)
-    dark_palette.setColor(QPalette.ColorRole.Window, QColor(24, 24, 24))
-    dark_palette.setColor(QPalette.ColorRole.WindowText, QColor(232, 232, 232))
-    dark_palette.setColor(QPalette.ColorRole.Base, QColor(32, 32, 32))
-    dark_palette.setColor(QPalette.ColorRole.Text, QColor(240, 240, 240))
-    app.setPalette(dark_palette)
-    app.setProperty("_geologAdaptiveUiInstalled", False)
-    before = app.palette()
+    palette = industrial_application_palette(app.palette())
 
-    try:
-        apply_adaptive_application_style(app)
-        after = app.palette()
+    assert palette.color(QPalette.ColorRole.Window).name().upper() == "#EDF4F8"
+    assert palette.color(QPalette.ColorRole.Base).name().upper() == "#FFFFFF"
+    assert palette.color(QPalette.ColorRole.Text).name().upper() == "#122B3E"
+    assert palette.color(QPalette.ColorRole.Highlight).name().upper() == "#00A6E2"
+    assert palette.color(QPalette.ColorRole.Window).lightness() > 200
+    assert palette.color(QPalette.ColorRole.Base).lightness() > 240
 
-        for role in (
-            QPalette.ColorRole.Window,
-            QPalette.ColorRole.WindowText,
-            QPalette.ColorRole.Base,
-            QPalette.ColorRole.Text,
-        ):
-            assert after.color(role) == before.color(role)
-    finally:
-        app.setStyleSheet(original_style)
-        app.setPalette(original_palette)
-        app.setProperty("_geologAdaptiveUiInstalled", original_installed)
+
+def test_industrial_shell_stylesheet_uses_navy_navigation_and_cyan_activity() -> None:
+    stylesheet = industrial_shell_stylesheet()
+
+    assert f"background: {INDUSTRIAL_BLUE_THEME.shell_background}" in stylesheet
+    assert f"background: {INDUSTRIAL_BLUE_THEME.accent}" in stylesheet
+    assert f"background: {INDUSTRIAL_BLUE_THEME.panel_background}" in stylesheet
+    assert "QMainWindow#mainWindow QMenuBar" in stylesheet
+    assert "QFrame#mainToolbar" in stylesheet
+    assert "QToolBar#leftPanelRail" in stylesheet
+    assert "QStatusBar#mainStatusBar" in stylesheet
 
 
 @pytest.mark.skipif(
@@ -135,6 +131,7 @@ def test_adaptive_application_style_is_idempotent(
 
         assert first == second
         assert adaptive_application_stylesheet().strip() in first
+        assert industrial_shell_stylesheet().strip() in first
     finally:
         app.setStyleSheet(original)
         app.setProperty("_geologAdaptiveUiInstalled", False)
