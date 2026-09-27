@@ -30,6 +30,26 @@ Curves, additional indexes, headers, and parameters are retained. Incompatible d
 mnemonics are preserved under a unique name. `MERGE_MANIFEST` records parents, policy, header
 conflicts, and overlap differences. Missing samples are not interpolated.
 
+## Portable geology in LAS
+
+On normal LAS open, the application materializes geology only from explicit portable channels.
+The compatible baseline contract is:
+
+- `КОД_ПОРОДЫ` plus `ПОРОДА1..5_КОД / ПОРОДА1..5_КОЛИЧ` for lithology and cuttings composition;
+- `CACO3` and `CAMG_CO3_2` for measured calcite and dolomite percentages;
+- `LBA_GROUP`, `INTENSITY_LBA`, `LBA_TYPE`, and `ZVET_LBA` for LBA;
+- `STRAT_CODE` for a numeric stratigraphic interval code;
+- `GEO_DESC_ID` for a portable description reference.
+
+Localized descriptions, LBA code dictionaries, and stratigraphic labels may be carried in the
+optional bounded `GEOWORKBENCH_GEOLOGY_METADATA` block inside `~Other`. It is stored as
+validated zlib+base64 JSON with hard size limits. A malformed or unknown metadata payload
+**must never block the LAS itself from opening**; it is ignored and ordinary curves remain
+available. The source LAS stays immutable.
+
+Large vendor/custom header sections do not participate unboundedly in encoding detection: the
+encoding sample is capped at the first 128 KiB of header content before `~ASCII`.
+
 ## Insert data from an external LAS
 
 **Insert data from external LAS…** reads a disk file and adds selected curves to the current
