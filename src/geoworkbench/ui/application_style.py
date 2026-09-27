@@ -203,6 +203,72 @@ QLabel#formWidthIndicator {{
 """
 
 
+def wits0_dialog_stylesheet() -> str:
+    """Return WITS-specific sizing for visible, operator-friendly scrollbars."""
+
+    return """
+
+QDialog#wits0CaptureDialog QScrollArea#wits0ScrollArea {
+    border: 1px solid palette(mid);
+    border-radius: 6px;
+    background: palette(window);
+}
+QDialog#wits0CaptureDialog QWidget#wits0ScrollContent {
+    background: palette(window);
+}
+QDialog#wits0CaptureDialog QScrollBar:vertical {
+    width: 14px;
+    margin: 2px;
+    border: none;
+    border-radius: 6px;
+    background: palette(alternate-base);
+}
+QDialog#wits0CaptureDialog QScrollBar::handle:vertical {
+    min-height: 34px;
+    border: 1px solid palette(dark);
+    border-radius: 5px;
+    background: palette(mid);
+}
+QDialog#wits0CaptureDialog QScrollBar::handle:vertical:hover {
+    border-color: palette(highlight);
+    background: palette(highlight);
+}
+QDialog#wits0CaptureDialog QScrollBar::add-line:vertical,
+QDialog#wits0CaptureDialog QScrollBar::sub-line:vertical {
+    height: 0;
+}
+QDialog#wits0CaptureDialog QScrollBar::add-page:vertical,
+QDialog#wits0CaptureDialog QScrollBar::sub-page:vertical {
+    background: transparent;
+}
+QDialog#wits0CaptureDialog QScrollBar:horizontal {
+    height: 14px;
+    margin: 2px;
+    border: none;
+    border-radius: 6px;
+    background: palette(alternate-base);
+}
+QDialog#wits0CaptureDialog QScrollBar::handle:horizontal {
+    min-width: 34px;
+    border: 1px solid palette(dark);
+    border-radius: 5px;
+    background: palette(mid);
+}
+QDialog#wits0CaptureDialog QScrollBar::handle:horizontal:hover {
+    border-color: palette(highlight);
+    background: palette(highlight);
+}
+QDialog#wits0CaptureDialog QScrollBar::add-line:horizontal,
+QDialog#wits0CaptureDialog QScrollBar::sub-line:horizontal {
+    width: 0;
+}
+QDialog#wits0CaptureDialog QScrollBar::add-page:horizontal,
+QDialog#wits0CaptureDialog QScrollBar::sub-page:horizontal {
+    background: transparent;
+}
+"""
+
+
 def adaptive_application_stylesheet() -> str:
     """Return the shared palette-aware UI contract for desktop controls.
 
@@ -694,66 +760,6 @@ QTableWidget {
     selection-color: palette(highlighted-text);
 }
 
-
-QDialog#wits0CaptureDialog QScrollArea#wits0ScrollArea {
-    border: 1px solid palette(mid);
-    border-radius: 6px;
-    background: palette(window);
-}
-QDialog#wits0CaptureDialog QWidget#wits0ScrollContent {
-    background: palette(window);
-}
-QDialog#wits0CaptureDialog QScrollBar:vertical {
-    width: 14px;
-    margin: 2px;
-    border: none;
-    border-radius: 6px;
-    background: palette(alternate-base);
-}
-QDialog#wits0CaptureDialog QScrollBar::handle:vertical {
-    min-height: 34px;
-    border: 1px solid palette(dark);
-    border-radius: 5px;
-    background: palette(mid);
-}
-QDialog#wits0CaptureDialog QScrollBar::handle:vertical:hover {
-    border-color: palette(highlight);
-    background: palette(highlight);
-}
-QDialog#wits0CaptureDialog QScrollBar::add-line:vertical,
-QDialog#wits0CaptureDialog QScrollBar::sub-line:vertical {
-    height: 0;
-}
-QDialog#wits0CaptureDialog QScrollBar::add-page:vertical,
-QDialog#wits0CaptureDialog QScrollBar::sub-page:vertical {
-    background: transparent;
-}
-QDialog#wits0CaptureDialog QScrollBar:horizontal {
-    height: 14px;
-    margin: 2px;
-    border: none;
-    border-radius: 6px;
-    background: palette(alternate-base);
-}
-QDialog#wits0CaptureDialog QScrollBar::handle:horizontal {
-    min-width: 34px;
-    border: 1px solid palette(dark);
-    border-radius: 5px;
-    background: palette(mid);
-}
-QDialog#wits0CaptureDialog QScrollBar::handle:horizontal:hover {
-    border-color: palette(highlight);
-    background: palette(highlight);
-}
-QDialog#wits0CaptureDialog QScrollBar::add-line:horizontal,
-QDialog#wits0CaptureDialog QScrollBar::sub-line:horizontal {
-    width: 0;
-}
-QDialog#wits0CaptureDialog QScrollBar::add-page:horizontal,
-QDialog#wits0CaptureDialog QScrollBar::sub-page:horizontal {
-    background: transparent;
-}
-
 QDialog#form-create-dialog QTreeWidget::item {
     min-height: 25px;
     padding: 2px 4px;
@@ -851,7 +857,8 @@ def apply_adaptive_application_style(app: QApplication) -> None:
     current = app.styleSheet().rstrip()
     shared = adaptive_application_stylesheet().strip()
     shell = industrial_shell_stylesheet().strip()
-    combined = f"{shared}\n{shell}"
+    wits0 = wits0_dialog_stylesheet().strip()
+    combined = f"{shared}\n{shell}\n{wits0}"
     app.setStyleSheet(f"{current}\n{combined}" if current else combined)
     app.setProperty(_ADAPTIVE_STYLE_PROPERTY, True)
 
@@ -863,4 +870,5 @@ __all__ = [
     "apply_adaptive_application_style",
     "industrial_application_palette",
     "industrial_shell_stylesheet",
+    "wits0_dialog_stylesheet",
 ]
