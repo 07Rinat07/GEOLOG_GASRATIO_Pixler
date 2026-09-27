@@ -2429,5 +2429,11 @@
   "document_bundle.retry_not_required": "There are no failed outputs to retry.",
   "menu.wits": "WITS",
   "wits0.start_failed_event": "Failed to start WITS0: {error}",
-  "import.las_loading": "Loading and analysing LAS: {files}…"
+  "import.las_loading": "Loading and analysing LAS: {files}…",
+  "wits0.quick_connection": "WITS connection",
+  "wits0.advanced_settings": "Advanced network and storage settings",
+  "wits0.diagnostics_panel": "Diagnostics and service counters",
+  "wits0.operator_health": "Health",
+  "wits0.health_summary": "{state} · source: {peer} · last receive: {last} · errors: {errors}",
+  "wits0.maintenance_actions": "Maintenance actions"
 }
