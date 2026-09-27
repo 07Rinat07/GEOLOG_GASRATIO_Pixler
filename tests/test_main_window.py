@@ -23,6 +23,7 @@ from geoworkbench.project.curve_transfer_controller import CurveTransferControll
 from geoworkbench.project.dataset_merge_controller import DatasetMergeController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.printing.print_job import PrintJobSettings, PrintOutputFormat
+from geoworkbench.services.import_jobs import LasImportBatchOutcome
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.report_passport import passport_sidecar_path
 from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind, XScale
@@ -244,12 +245,11 @@ def test_las_loading_message_passes_files_to_localizer(qapp, monkeypatch) -> Non
     monkeypatch.setattr(
         window._dataset_import_jobs,
         "execute_las",
-        lambda *_args, **_kwargs: SimpleNamespace(
-            successful=(),
-            failed=(),
-            skipped=(),
-            files=(),
-        ),
+        lambda *_args, **_kwargs: LasImportBatchOutcome(()),
+    )
+    monkeypatch.setattr(
+        "geoworkbench.ui.main_window.QMessageBox.critical",
+        lambda *_args, **_kwargs: QMessageBox.StandardButton.Ok,
     )
     status_messages: list[str] = []
     monkeypatch.setattr(window.statusBar(), "showMessage", status_messages.append)
