@@ -47,14 +47,18 @@ def test_product_branding_uses_exact_gasratio_pixler_name() -> None:
     import json
 
     exact_name = "GEOLOG GASRATIO&PIXLER"
+    product_identity = Path("src/geoworkbench/product_identity.py").read_text(encoding="utf-8")
     branding = Path("src/geoworkbench/ui/branding.py").read_text(encoding="utf-8")
     home_page = Path("src/geoworkbench/ui/home_page.py").read_text(encoding="utf-8")
     main_window = Path("src/geoworkbench/ui/main_window.py").read_text(encoding="utf-8")
+    report_visual = Path("src/geoworkbench/printing/report_visual_system.py").read_text(encoding="utf-8")
 
-    assert f'PRODUCT_NAME = "{exact_name}"' in branding
+    assert f'PRODUCT_NAME = "{exact_name}"' in product_identity
+    assert "from geoworkbench.product_identity import PRODUCT_NAME" in branding
     assert "self.title.setText(PRODUCT_NAME)" in home_page
     assert "PRODUCT_NAME" in main_window
     assert "GASRATIO@Pixler" not in main_window
+    assert "REPORT_BRAND_WORDMARK = PRODUCT_NAME" in report_visual
 
     for language in ("ru", "kk", "en"):
         catalog = json.loads(
