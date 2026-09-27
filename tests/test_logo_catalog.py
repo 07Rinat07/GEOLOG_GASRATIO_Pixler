@@ -22,7 +22,7 @@ def test_final_digital_geolog_logo_is_installable_and_persistable(tmp_path) -> N
 
     asset = controller.resolve_asset(factory.logo_id)
     assert asset.media_type == "image/png"
-    assert asset.payload.startswith(b"\\x89PNG\\r\\n\\x1a\\n")
+    assert asset.payload.startswith(b"\x89PNG\r\n\x1a\n")
     assert asset.asset_id in session.image_assets
 
     entry = controller.copy_factory(factory.logo_id, name="DIGITAL GEOLOG — проект")
@@ -31,7 +31,7 @@ def test_final_digital_geolog_logo_is_installable_and_persistable(tmp_path) -> N
     loaded = load_project_document(target)
 
     assert loaded.project.logo_catalog[entry.logo_id].asset_id == asset.asset_id
-    assert loaded.image_assets[asset.asset_id].payload.startswith(b"\\x89PNG\\r\\n\\x1a\\n")
+    assert loaded.image_assets[asset.asset_id].payload.startswith(b"\x89PNG\r\n\x1a\n")
 
 
 def test_factory_logo_can_be_installed_and_copied_without_mutating_factory() -> None:
