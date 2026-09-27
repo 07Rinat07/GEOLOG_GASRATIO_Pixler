@@ -9,6 +9,20 @@ def _session() -> ProjectSession:
     return ProjectSession(Project(new_id(), "Logo catalog test"))
 
 
+def test_final_digital_geolog_logo_is_available_for_print_and_export() -> None:
+    session = _session()
+    controller = LogoCatalogController(session)
+
+    factory = controller.item("factory-digital-geolog")
+    assert factory.read_only is True
+    assert factory.name == "DIGITAL GEOLOG GASRATIO&PIXLER"
+
+    asset = controller.resolve_asset(factory.logo_id, install=False)
+    assert asset.media_type == "image/svg+xml"
+    assert b"DIGITAL GEOLOG" not in asset.payload
+    assert b"<svg" in asset.payload
+
+
 def test_factory_logo_can_be_installed_and_copied_without_mutating_factory() -> None:
     session = _session()
     controller = LogoCatalogController(session)
