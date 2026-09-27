@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from geoworkbench.product_identity import PRODUCT_NAME
 from geoworkbench.printing.report_visual_system import (
     REPORT_BRAND_WORDMARK,
     ReportVisualProfileId,
@@ -10,7 +11,8 @@ from geoworkbench.printing.report_visual_system import (
 
 
 def test_report_brand_wordmark_is_canonical() -> None:
-    assert REPORT_BRAND_WORDMARK == "Geolog GASRATIO&Pixler"
+    assert REPORT_BRAND_WORDMARK == PRODUCT_NAME
+    assert PRODUCT_NAME == "DIGITAL GEOLOG GASRATIO&PIXLER"
 
 
 def test_modern_oilfield_profile_has_shared_brand_and_semantic_palette() -> None:
@@ -45,6 +47,8 @@ def test_print_footer_wordmarks_use_bold_brand_without_changing_canonical_text()
     assert "text=REPORT_BRAND_WORDMARK" in pdf_canvas
     assert "font.setBold(True)" in masterlog
     assert "font.setBold(False)" in masterlog
-    assert 'REPORT_BRAND_WORDMARK = "Geolog GASRATIO&Pixler"' in (
+    report_visual_source = (
         root / "src" / "geoworkbench" / "printing" / "report_visual_system.py"
     ).read_text(encoding="utf-8")
+    assert "from geoworkbench.product_identity import PRODUCT_NAME" in report_visual_source
+    assert "REPORT_BRAND_WORDMARK = PRODUCT_NAME" in report_visual_source
