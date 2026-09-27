@@ -46,7 +46,7 @@ def test_application_main_shell_style_has_no_fixed_theme_colours() -> None:
 def test_product_branding_uses_exact_gasratio_pixler_name() -> None:
     import json
 
-    exact_name = "GEOLOG GASRATIO&PIXLER"
+    exact_name = "DIGITAL GEOLOG GASRATIO&PIXLER"
     product_identity = Path("src/geoworkbench/product_identity.py").read_text(encoding="utf-8")
     branding = Path("src/geoworkbench/ui/branding.py").read_text(encoding="utf-8")
     home_page = Path("src/geoworkbench/ui/home_page.py").read_text(encoding="utf-8")
