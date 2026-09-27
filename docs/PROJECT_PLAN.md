@@ -386,12 +386,15 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   mnemonic-based workspace persistence, LIVE PREVIEW → persistent handoff, editable factory forms,
   fullscreen/back без пересоздания acquisition и RU/KK/EN contextual help/tooltips. Текущий
   инкремент закрывает shell-level live-first layout: collapsed Advanced/Diagnostics по умолчанию,
-  Live tab first/current, compact health summary, перенос flush/reset в Diagnostics и отсутствие
-  outer horizontal scrollbar. Следующие slices: responsive side-panel/navigation inside Live,
+  Live tab first/current, compact health summary, перенос flush/reset в Diagnostics, отсутствие
+  outer horizontal scrollbar и многострочный adaptive control grid внутри Live вместо одного
+  неумещающегося toolbar-рядка. Следующие slices: responsive side-panel/navigation inside Live,
   persistence/reconnect acceptance, editable panel layout и field UX.
 
-  Приёмка текущего инкремента: 600×420 offscreen regression без horizontal scroll, Live — индекс 0
-  и current tab, Advanced/Diagnostics collapsed по умолчанию и раскрываются без потери state,
+  Приёмка текущего инкремента: 600×420 offscreen regression без horizontal scroll, все Live
+  form/axis/follow/window/points/refresh/sidebar/fullscreen controls остаются доступными внутри
+  adaptive grid, Live — индекс 0 и current tab, Advanced/Diagnostics collapsed по умолчанию и
+  раскрываются без потери state,
   maintenance controls доступны в Diagnostics, quick preset/tooltips сохраняются. Итоговая
   WITS-UX приёмка остаётся 100/125/150/200% DPI, normal/fullscreen/back, restart/reconnect/schema
   change без потери runtime state; RU/KK/EN тексты и tooltips обязательны.
