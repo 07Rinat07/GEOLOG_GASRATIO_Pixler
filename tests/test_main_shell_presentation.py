@@ -55,5 +55,6 @@ def test_product_branding_uses_exact_gasratio_pixler_name() -> None:
     assert f'APPLICATION_DISPLAY_NAME = "{exact_name}"' in brand
     assert "self.title.setText(APPLICATION_DISPLAY_NAME)" in home_page
     assert "APPLICATION_DISPLAY_NAME" in main_window
-    assert "GASRATIO@Pixler" not in main_window
+    legacy_suite_name = "GASRATIO" + "@Pixler"
+    assert legacy_suite_name not in main_window
     assert "from geoworkbench.brand import REPORT_BRAND_WORDMARK" in report_visual
