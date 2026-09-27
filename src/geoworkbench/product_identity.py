@@ -1,5 +1,5 @@
 from __future__ import annotations
 
-PRODUCT_NAME = "GEOLOG GASRATIO&PIXLER"
+PRODUCT_NAME = "DIGITAL GEOLOG GASRATIO&PIXLER"
 
 __all__ = ["PRODUCT_NAME"]
