@@ -62,6 +62,13 @@ def test_live_view_uses_read_only_projection_and_shared_downsampling() -> None:
     ]
     assert ".stop(" not in pause_body
     assert ".close(" not in pause_body
+    navigation_body = widget[
+        widget.index("def _is_compact_navigation")
+        : widget.index("def _health_tooltip")
+    ]
+    assert "bind_runtime(" not in navigation_body
+    assert ".stop(" not in navigation_body
+    assert ".close(" not in navigation_body
 
 
 @pytest.mark.skipif(
@@ -117,7 +124,7 @@ def test_wits0_live_view_constructs_offscreen(monkeypatch: pytest.MonkeyPatch) -
         for section in range(widget.values_table.columnCount()):
             assert (
                 widget.values_table.horizontalHeader().sectionResizeMode(section)
-                is QHeaderView.ResizeMode.Stretch
+                == QHeaderView.ResizeMode.Stretch
             )
 
         widget.sidebar_button.click()
