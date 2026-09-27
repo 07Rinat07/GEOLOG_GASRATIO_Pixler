@@ -21,10 +21,12 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
+    QLayout,
     QMessageBox,
     QProgressBar,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
     QTabWidget,
@@ -405,9 +407,29 @@ class ParadoxImportDialog(QDialog):
 
     def _build_file_tab(self) -> None:
         page = QWidget()
-        layout = QVBoxLayout(page)
-        info_group = QGroupBox(self._t("paradox.file_info"))
+        page.setObjectName("paradoxImportFilePage")
+        page_layout = QVBoxLayout(page)
+        page_layout.setContentsMargins(0, 0, 0, 0)
+
+        content = QWidget(page)
+        content.setObjectName("paradoxImportFileContent")
+        content.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Minimum,
+        )
+        content_layout = QVBoxLayout(content)
+        content_layout.setContentsMargins(8, 8, 8, 8)
+        content_layout.setSpacing(12)
+        content_layout.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
+
+        info_group = QGroupBox(self._t("paradox.file_info"), content)
+        info_group.setObjectName("paradoxFileInfoGroup")
+        info_group.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Minimum,
+        )
         info = QFormLayout(info_group)
+        self._configure_file_tab_form(info)
         self.info_path = QLabel(str(self.source))
         self.info_path.setWordWrap(True)
         self.info_format = QLabel("—")
@@ -417,6 +439,19 @@ class ParadoxImportDialog(QDialog):
         self.info_fields = QLabel("—")
         self.info_bundle = QLabel("—")
         self.info_bundle.setWordWrap(True)
+        for value in (
+            self.info_path,
+            self.info_format,
+            self.info_version,
+            self.info_size,
+            self.info_records,
+            self.info_fields,
+            self.info_bundle,
+        ):
+            value.setSizePolicy(
+                QSizePolicy.Policy.Expanding,
+                QSizePolicy.Policy.Preferred,
+            )
         info.addRow(self._t("paradox.path"), self.info_path)
         info.addRow(self._t("paradox.format"), self.info_format)
         info.addRow(self._t("paradox.version"), self.info_version)
@@ -424,10 +459,17 @@ class ParadoxImportDialog(QDialog):
         info.addRow(self._t("paradox.records"), self.info_records)
         info.addRow(self._t("paradox.fields"), self.info_fields)
         info.addRow(self._t("paradox.bundle"), self.info_bundle)
-        layout.addWidget(info_group)
+        content_layout.addWidget(info_group)
 
-        options_group = QGroupBox(self._t("paradox.data_type"))
+        options_group = QGroupBox(self._t("paradox.data_type"), content)
+        options_group.setObjectName("paradoxDataOptionsGroup")
+        options_group.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Minimum,
+        )
         options = QFormLayout(options_group)
+        self._configure_file_tab_form(options)
+
         self.classification = QComboBox()
         for kind, key in (
             (DatasetClassification.DEPTH, "paradox.type_depth"),
@@ -459,8 +501,31 @@ class ParadoxImportDialog(QDialog):
             self.duplicate_policy.addItem(self._t(key), policy)
         self.drop_empty_channels = QCheckBox(self._t("paradox.drop_empty_channels"))
         self.actual_depth_step = QLabel("—")
+        self.actual_depth_step.setWordWrap(True)
         self.standard_depth_step = QLabel(f"{GEOSCAPE_STANDARD_DEPTH_STEP_M:g} m")
+        self.standard_depth_step.setWordWrap(True)
         self.standard_depth_step.setToolTip(self._t("paradox.standard_depth_step_hint"))
+
+        for field in (
+            self.classification,
+            self.depth_field,
+            self.time_field,
+            self.active_role,
+            self.null_value,
+            self.duplicate_policy,
+        ):
+            field.setMinimumWidth(0)
+            field.setSizePolicy(
+                QSizePolicy.Policy.Expanding,
+                QSizePolicy.Policy.Fixed,
+            )
+
+        for value in (self.actual_depth_step, self.standard_depth_step):
+            value.setSizePolicy(
+                QSizePolicy.Policy.Expanding,
+                QSizePolicy.Policy.Preferred,
+            )
+
         options.addRow(self._t("paradox.detected_type"), self.classification)
         options.addRow(self._t("paradox.depth_channel"), self.depth_field)
         options.addRow(self._t("paradox.time_channel"), self.time_field)
@@ -473,9 +538,39 @@ class ParadoxImportDialog(QDialog):
         options.addRow(self.drop_empty_channels)
         self.depth_field.currentIndexChanged.connect(self._populate_preview)
         self.time_field.currentIndexChanged.connect(self._populate_preview)
-        layout.addWidget(options_group)
-        layout.addStretch(1)
+        content_layout.addWidget(options_group)
+        content_layout.addStretch(1)
+
+        self.file_tab_scroll = QScrollArea(page)
+        self.file_tab_scroll.setObjectName("paradoxImportFileScroll")
+        self.file_tab_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.file_tab_scroll.setWidgetResizable(True)
+        self.file_tab_scroll.setAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
+        )
+        self.file_tab_scroll.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        self.file_tab_scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        self.file_tab_scroll.setWidget(content)
+        page_layout.addWidget(self.file_tab_scroll, 1)
         self.tabs.addTab(page, self._t("paradox.file_info"))
+
+    @staticmethod
+    def _configure_file_tab_form(form: QFormLayout) -> None:
+        form.setFieldGrowthPolicy(
+            QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow
+        )
+        form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
+        form.setFormAlignment(Qt.AlignmentFlag.AlignTop)
+        form.setLabelAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+        )
+        form.setHorizontalSpacing(12)
+        form.setVerticalSpacing(8)
+        form.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
 
     def _build_channels_tab(self) -> None:
         page = QWidget()
