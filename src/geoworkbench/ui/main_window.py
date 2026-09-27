@@ -61,6 +61,7 @@ from PySide6.QtWidgets import (
 )
 
 from geoworkbench import __version__
+from geoworkbench.brand import APPLICATION_DISPLAY_NAME, DIAGNOSTIC_BUNDLE_PREFIX
 from geoworkbench.app.context import ApplicationContext
 from geoworkbench.calculations.calculation_profiles import (
     GasRatioCalculationProfile,
@@ -697,7 +698,7 @@ class MainWindow(QMainWindow):
         self._last_document_bundle_execution: RecordedDocumentBundleExecution | None = None
         self.cursor_line_settings = self.user_profile_settings.cursor_line_settings()
         self.setWindowIcon(application_icon())
-        self.setWindowTitle(f"GEOLOG GASRATIO@Pixler {__version__}")
+        self.setWindowTitle(f"{APPLICATION_DISPLAY_NAME} {__version__}")
         self.setAcceptDrops(True)
         self._initial_geometry_checked = False
         self._toolbar_screen_signal_connected = False
@@ -9786,7 +9787,7 @@ class MainWindow(QMainWindow):
     def _update_title(self) -> None:
         marker = " *" if self.session.dirty else ""
         self.setWindowTitle(
-            f"GEOLOG GASRATIO@Pixler {__version__} — {self.session.project.name}{marker}"
+            f"{APPLICATION_DISPLAY_NAME} {__version__} — {self.session.project.name}{marker}"
         )
         self._update_form_width_indicator()
 
@@ -9924,7 +9925,7 @@ class MainWindow(QMainWindow):
         default_directory = Path(
             QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DesktopLocation)
         )
-        default_path = default_directory / f"GEOLOG_diagnostics_{timestamp}.zip"
+        default_path = default_directory / f"{DIAGNOSTIC_BUNDLE_PREFIX}_{timestamp}.zip"
         filename, _ = QFileDialog.getSaveFileName(
             self,
             self._t("diagnostics.save_title"),
@@ -10023,7 +10024,7 @@ class MainWindow(QMainWindow):
 
     def show_about(self) -> None:
         dialog = QDialog(self)
-        dialog.setWindowTitle("GEOLOG GASRATIO@Pixler")
+        dialog.setWindowTitle(APPLICATION_DISPLAY_NAME)
         dialog.setWindowIcon(application_icon())
         dialog.setModal(True)
         target_geometry = fit_window_to_screen(
@@ -10084,7 +10085,7 @@ class MainWindow(QMainWindow):
             label.setPalette(label_palette)
             label.setStyleSheet(f"color: {color.name()}; background: transparent; border: none;")
 
-        title_label = QLabel("GEOLOG GASRATIO@Pixler", info_panel)
+        title_label = QLabel(APPLICATION_DISPLAY_NAME, info_panel)
         title_label.setWordWrap(True)
         configure_label(
             title_label,

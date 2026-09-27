@@ -13,6 +13,7 @@ from PySide6.QtCore import (
 from PySide6.QtWidgets import QApplication, QInputDialog
 
 from geoworkbench import __version__
+from geoworkbench.brand import APPLICATION_DISPLAY_NAME
 from geoworkbench.services.application_logging import (
     ApplicationLogManager,
     configure_application_logging,
@@ -94,7 +95,7 @@ def _install_qt_message_logging(manager: ApplicationLogManager) -> None:
 def main() -> int:
     app = DiagnosticApplication(sys.argv)
     apply_adaptive_application_style(app)
-    app.setApplicationName("GEOLOG GASRATIO@Pixler")
+    app.setApplicationName(APPLICATION_DISPLAY_NAME)
     app.setOrganizationName("GeoLog")
 
     app_data_root = Path(

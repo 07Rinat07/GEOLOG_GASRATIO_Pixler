@@ -1,4 +1,4 @@
-# Функциональные требования GEOLOG GASRATIO@Pixler
+# Функциональные требования DIGITAL DIGITAL GEOLOG GASRATIO&PIXLER
 
 Этот документ — единый источник продуктовых требований. Статусы:
 

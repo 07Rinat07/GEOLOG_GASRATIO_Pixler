@@ -533,7 +533,7 @@ def test_about_dialog_contains_author_details(qapp, monkeypatch) -> None:
     assert len(captured) == 1
     labels = captured[0].findChildren(QLabel)
     texts = [label.text() for label in labels]
-    assert "GEOLOG GASRATIO@Pixler" in texts
+    assert "DIGITAL GEOLOG GASRATIO&PIXLER" in texts
     assert any(text.startswith("Версия ") for text in texts)
     assert "Rinat Sarmuldin" in texts
     assert "ura07srr@gmail.com" in texts

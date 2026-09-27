@@ -15,6 +15,7 @@ from PySide6.QtPrintSupport import QPrinter
 from PySide6.QtSvg import QSvgGenerator
 from PySide6.QtWidgets import QWidget
 
+from geoworkbench.brand import APPLICATION_DISPLAY_NAME
 from geoworkbench.printing.document_renderer import (
     PrintDocumentContext,
     build_document_plan,
@@ -182,7 +183,7 @@ def _render_document_pdf_file(
         writer.setPageMargins(job.page.qt_margins, QPageLayout.Unit.Millimeter)
         writer.setResolution(job.dpi)
         writer.setTitle(context.title)
-        writer.setCreator("GEOLOG GASRATIO@Pixler")
+        writer.setCreator(APPLICATION_DISPLAY_NAME)
         if not painter.begin(writer):
             raise DocumentExportError("Не удалось запустить PDF renderer")
         plan = paint_document_pages(
@@ -413,7 +414,7 @@ def _unicode_preflight(
         selected_report = preflight_texts(selected_texts)
         if not selected_report.ok:
             raise UnicodePrintError(selected_report.error_message())
-    metadata = preflight_texts([context.title, "GEOLOG GASRATIO@Pixler"])
+    metadata = preflight_texts([context.title, APPLICATION_DISPLAY_NAME])
     if not metadata.ok:
         raise UnicodePrintError(metadata.error_message())
 

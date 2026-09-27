@@ -15,6 +15,7 @@ from PySide6.QtGui import (
 from PySide6.QtSvg import QSvgGenerator
 from PySide6.QtWidgets import QWidget
 
+from geoworkbench.brand import APPLICATION_DISPLAY_NAME
 from geoworkbench.printing.document_renderer import build_document_plan
 from geoworkbench.printing.page_renderer import PageRenderError, paint_widget_page
 from geoworkbench.printing.page_settings import PrintPageSettings
@@ -167,7 +168,7 @@ def export_widget_svg(
             )
         generator.setSize(size)
         generator.setViewBox(QRect(0, 0, size.width(), size.height()))
-        generator.setTitle("GEOLOG GASRATIO@Pixler visualization")
+        generator.setTitle(f"{APPLICATION_DISPLAY_NAME} visualization")
         painter = QPainter()
         if not painter.begin(generator):
             raise VisualizationExportError("Не удалось запустить SVG renderer")
@@ -243,8 +244,8 @@ def export_widget_pdf(
         writer.setPageOrientation(settings.qt_orientation)
         writer.setPageMargins(settings.qt_margins, QPageLayout.Unit.Millimeter)
         writer.setResolution(dpi)
-        writer.setTitle("GEOLOG GASRATIO@Pixler visualization")
-        writer.setCreator("GEOLOG GASRATIO@Pixler")
+        writer.setTitle(f"{APPLICATION_DISPLAY_NAME} visualization")
+        writer.setCreator(APPLICATION_DISPLAY_NAME)
         painter = QPainter()
         if not painter.begin(writer):
             raise VisualizationExportError("Не удалось запустить PDF renderer")
