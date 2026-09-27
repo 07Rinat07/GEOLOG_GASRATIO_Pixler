@@ -1,6 +1,6 @@
 # Пайдаланушы нұсқаулығы
 
-GEOLOG GASRATIO&PIXLER — бұрғылау, газ каротажы, LAS және GeoScape2/GS2 деректерінің редакторы.
+DIGITAL GEOLOG GASRATIO&PIXLER — бұрғылау, газ каротажы, LAS және GeoScape2/GS2 деректерінің редакторы.
 
 ## Орнату және іске қосу
 
