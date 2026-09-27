@@ -35,6 +35,7 @@ def test_adaptive_application_stylesheet_uses_palette_roles_and_no_fixed_widths(
     assert "QPushButton#print-center-primary-action" in stylesheet
     assert "QLabel#print-center-header-preview" in stylesheet
     assert "QLabel#print-center-depth-standard" in stylesheet
+    assert "QLabel#logo-catalog-preview" in stylesheet
     assert 'QLabel#print-job-status-title[statusRole="success"]' in stylesheet
     assert 'QLabel#print-job-status-title[statusRole="error"]' in stylesheet
     assert 'QLabel[validationRole="error"]' in stylesheet
@@ -64,6 +65,15 @@ def test_adaptive_application_stylesheet_uses_palette_roles_and_no_fixed_widths(
     assert "min-height: 28px" in stylesheet
     assert "\n    width:" not in stylesheet
     assert re.search(r"#[0-9a-fA-F]{3,8}\b", stylesheet) is None
+
+
+def test_logo_catalog_preview_uses_shared_palette_style() -> None:
+    source = Path("src/geoworkbench/ui/logo_catalog_dialog.py").read_text(encoding="utf-8")
+
+    assert 'self.preview.setObjectName("logo-catalog-preview")' in source
+    assert "self.preview.setStyleSheet(" not in source
+    assert "background: white" not in source
+    assert "#cbd5e1" not in source
 
 
 def test_entrypoint_does_not_override_global_palette_or_tooltip_style() -> None:

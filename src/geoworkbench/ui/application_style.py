@@ -615,6 +615,11 @@ QLabel#print-center-depth-standard {
     color: palette(mid);
 }
 
+QLabel#logo-catalog-preview {
+    background: palette(base);
+    border: 1px solid palette(mid);
+}
+
 QLabel#print-job-status-title {
     font-size: 14px;
     font-weight: 700;
