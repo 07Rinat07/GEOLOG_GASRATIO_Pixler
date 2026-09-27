@@ -48,6 +48,10 @@ def test_live_view_uses_read_only_projection_and_shared_downsampling() -> None:
     assert "def _reset_current_form(" in widget
     assert "fullScreenRequested = Signal(bool)" in widget
     assert "def resizeEvent(" in widget
+    assert "def _apply_navigation_layout(" in widget
+    assert "_COMPACT_NAVIGATION_BREAKPOINT = 820" in widget
+    assert 'panel.setObjectName("wits0LiveSidebar")' in widget
+    assert 'panel.setObjectName("wits0LivePlotPanel")' in widget
     selection_body = widget[
         widget.index("def _curve_selection_changed")
         : widget.index("def _dashboard_range_changed")
@@ -67,7 +71,7 @@ def test_live_view_uses_read_only_projection_and_shared_downsampling() -> None:
 )
 def test_wits0_live_view_constructs_offscreen(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
-    from PySide6.QtWidgets import QApplication, QWidget
+    from PySide6.QtWidgets import QApplication, QHeaderView, QWidget
 
     from geoworkbench.services.localization import AppLanguage
     from geoworkbench.ui.wits0_live_view import Wits0LiveViewWidget
@@ -98,6 +102,67 @@ def test_wits0_live_view_constructs_offscreen(monkeypatch: pytest.MonkeyPatch) -
         ):
             assert control.isVisible()
             assert control.geometry().right() <= toolbar_right
+
+        assert not widget.left_panel.isVisible()
+        assert widget.plot_panel.isVisible()
+        assert widget.sidebar_button.text() == "Показать параметры"
+
+        widget.sidebar_button.click()
+        app.processEvents()
+        assert widget.left_panel.isVisible()
+        assert not widget.plot_panel.isVisible()
+        assert widget.sidebar_button.text() == "Назад к монитору"
+        assert widget.curve_list.isVisible()
+        assert widget.values_table.isVisible()
+        for section in range(widget.values_table.columnCount()):
+            assert (
+                widget.values_table.horizontalHeader().sectionResizeMode(section)
+                is QHeaderView.ResizeMode.Stretch
+            )
+
+        widget.sidebar_button.click()
+        app.processEvents()
+        assert not widget.left_panel.isVisible()
+        assert widget.plot_panel.isVisible()
+
+        widget.resize(1200, 700)
+        app.processEvents()
+        assert widget.left_panel.isVisible()
+        assert widget.plot_panel.isVisible()
+        assert widget.sidebar_button.text() == "Скрыть параметры"
+
+        widget.sidebar_button.click()
+        app.processEvents()
+        assert not widget.left_panel.isVisible()
+        assert widget.plot_panel.isVisible()
+
+        widget.resize(600, 420)
+        app.processEvents()
+        assert not widget.left_panel.isVisible()
+        assert widget.plot_panel.isVisible()
+
+        widget.resize(1200, 700)
+        app.processEvents()
+        assert not widget.left_panel.isVisible()
+        assert widget.plot_panel.isVisible()
+
+        widget.set_fullscreen_state(True)
+        app.processEvents()
+        assert not widget.left_panel.isVisible()
+        assert widget.plot_panel.isVisible()
+        assert widget.fullscreen_button.text() == "Выйти из полного экрана"
+
+        widget.sidebar_button.click()
+        app.processEvents()
+        assert widget.left_panel.isVisible()
+        assert not widget.plot_panel.isVisible()
+        assert widget.sidebar_button.text() == "Назад к монитору"
+
+        widget.set_fullscreen_state(False)
+        app.processEvents()
+        assert not widget.left_panel.isVisible()
+        assert widget.plot_panel.isVisible()
+        assert widget.fullscreen_button.text() == "На весь экран"
 
         assert widget.state_label.text()
         assert widget.state_label.toolTip()
