@@ -1299,6 +1299,7 @@ class MasterlogHeaderDialog(QDialog):
             inspector_form.addRow(label, control)
         inspector_layout.addLayout(inspector_form)
         self.inspector_bounds = QLabel()
+        self.inspector_bounds.setObjectName("masterlog-header-inspector-bounds")
         self.inspector_bounds.setWordWrap(True)
         inspector_layout.addWidget(self.inspector_bounds)
         self.visual_assistant = HeaderVisualAssistant(
@@ -1621,6 +1622,7 @@ class MasterlogHeaderDialog(QDialog):
         if element is None:
             self.inspector_title.setText("—")
             self.inspector_bounds.clear()
+            self._set_inspector_bounds_warning(False)
             self.visual_assistant.set_element(
                 None,
                 page_width_mm=page_width,
@@ -1637,13 +1639,24 @@ class MasterlogHeaderDialog(QDialog):
         outside = right > page_width + 1e-6 or bottom > self.template.header_height_mm + 1e-6
         self.inspector_bounds.setText(
             f"Правая граница: {right:g} / {page_width:g} мм<br>Нижняя граница: {bottom:g} / {self.template.header_height_mm:g} мм"
-            + ("<br><b style='color:#b91c1c'>Элемент выходит за границы шапки</b>" if outside else "")
+            + ("<br><b>Элемент выходит за границы шапки</b>" if outside else "")
         )
+        self._set_inspector_bounds_warning(outside)
         self.visual_assistant.set_element(
             element,
             page_width_mm=page_width,
             header_height_mm=self.template.header_height_mm,
         )
+
+    def _set_inspector_bounds_warning(self, active: bool) -> None:
+        self.inspector_bounds.setProperty(
+            "validationRole",
+            "warning" if active else "",
+        )
+        bounds_style = self.inspector_bounds.style()
+        bounds_style.unpolish(self.inspector_bounds)
+        bounds_style.polish(self.inspector_bounds)
+        self.inspector_bounds.update()
 
     def _toggle_fullscreen(self) -> None:
         if self.isMaximized():
