@@ -5,8 +5,7 @@ from importlib.resources import files
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon, QPixmap
 
-
-PRODUCT_NAME = "GEOLOG GASRATIO&PIXLER"
+from geoworkbench.product_identity import PRODUCT_NAME
 
 
 _LOGO_RESOURCE = "resources/geologist-logo.png"
