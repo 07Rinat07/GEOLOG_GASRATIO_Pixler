@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 
 from geoworkbench.product_identity import PRODUCT_NAME
 
@@ -68,3 +69,9 @@ def test_first_party_text_does_not_reintroduce_legacy_product_names() -> None:
         assert "DIGITAL DIGITAL GEOLOG" not in text, path
         for legacy_name in LEGACY_PRODUCT_NAMES:
             assert legacy_name not in text, path
+
+        for match in re.finditer(
+            r"(?i)\\b(?:digital\\s+)*geolog\\s+gasratio(?:\\s*@\\s*|\\s*&\\s*|\\s+)pixler\\b",
+            text,
+        ):
+            assert match.group(0) == PRODUCT_NAME, (path, match.group(0))
