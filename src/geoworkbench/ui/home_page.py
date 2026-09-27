@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from PySide6.QtCore import QEvent, QObject, QSize, Qt
+from PySide6.QtCore import QEvent, QObject, QSize, QTimer, Qt
 from PySide6.QtGui import QAction, QPalette
 from PySide6.QtWidgets import (
     QFrame,
@@ -103,6 +103,14 @@ class HomePage(QWidget):
         background_opacity.setOpacity(0.18)
         self.background_art.setGraphicsEffect(background_opacity)
         self.background_art.hide()
+        self._background_artwork_viewport_width = 0
+        self._background_artwork_render_size: tuple[int, int] | None = None
+        self._background_artwork_timer = QTimer(self)
+        self._background_artwork_timer.setSingleShot(True)
+        self._background_artwork_timer.setInterval(80)
+        self._background_artwork_timer.timeout.connect(
+            self._apply_background_artwork_layout
+        )
 
         self.content = QWidget(self.scroll_area)
         self.content.setObjectName("homeContent")
@@ -341,11 +349,22 @@ class HomePage(QWidget):
                 content_width = min(1180, viewport_width)
                 self.content.setFixedWidth(content_width)
                 self.drilling_animation.setVisible(viewport_width >= 820)
-                self._layout_background_artwork(viewport_width)
+                self._schedule_background_artwork(viewport_width)
                 self._relayout_cards(viewport_width)
         return super().eventFilter(watched, event)
 
-    def _layout_background_artwork(self, viewport_width: int) -> None:
+    def _schedule_background_artwork(self, viewport_width: int) -> None:
+        self._background_artwork_viewport_width = viewport_width
+        viewport = self.scroll_area.viewport()
+        side_margin = max(0, (viewport_width - min(1180, viewport_width)) // 2)
+        if side_margin < 170 or viewport.height() < 360:
+            self._background_artwork_timer.stop()
+            self.background_art.hide()
+            return
+        self._background_artwork_timer.start()
+
+    def _apply_background_artwork_layout(self) -> None:
+        viewport_width = self._background_artwork_viewport_width
         viewport = self.scroll_area.viewport()
         side_margin = max(0, (viewport_width - min(1180, viewport_width)) // 2)
         if side_margin < 170 or viewport.height() < 360:
@@ -354,9 +373,12 @@ class HomePage(QWidget):
 
         artwork_width = min(260, max(170, side_margin - 16))
         artwork_height = max(420, viewport.height())
-        self.background_art.setPixmap(
-            home_background_pixmap(artwork_width, artwork_height)
-        )
+        target_size = (artwork_width, artwork_height)
+        if target_size != self._background_artwork_render_size:
+            self.background_art.setPixmap(
+                home_background_pixmap(artwork_width, artwork_height)
+            )
+            self._background_artwork_render_size = target_size
         self.background_art.setGeometry(
             8,
             0,

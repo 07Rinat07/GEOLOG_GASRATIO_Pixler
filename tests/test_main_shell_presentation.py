@@ -80,3 +80,46 @@ def test_cursor_line_does_not_force_side_panel_open_on_startup() -> None:
         "def _show_cursor_values", 1
     )[0]
     assert "self.cursor_dock.setVisible" not in toggle
+
+
+def test_home_background_render_is_debounced_and_reused(qapp, monkeypatch) -> None:
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QAction, QPixmap
+    from PySide6.QtTest import QTest
+
+    import geoworkbench.ui.home_page as home_page_module
+    from geoworkbench.services.localization import AppLanguage
+
+    rendered: list[tuple[int, int]] = []
+
+    def fake_background(width: int, height: int) -> QPixmap:
+        rendered.append((width, height))
+        pixmap = QPixmap(width, height)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        return pixmap
+
+    monkeypatch.setattr(home_page_module, "home_background_pixmap", fake_background)
+    workspace_action = QAction("Workspace", qapp)
+    page = home_page_module.HomePage(
+        (),
+        workspace_action,
+        language=AppLanguage.EN,
+    )
+    page.resize(1800, 900)
+    page.show()
+    qapp.processEvents()
+    page._background_artwork_timer.stop()
+    page._background_artwork_render_size = None
+    rendered.clear()
+
+    for width in (1500, 1600, 1700, 1800):
+        page._schedule_background_artwork(width)
+
+    assert rendered == []
+    QTest.qWait(120)
+    assert len(rendered) == 1
+
+    page._schedule_background_artwork(1800)
+    QTest.qWait(120)
+    assert len(rendered) == 1
+    page.close()

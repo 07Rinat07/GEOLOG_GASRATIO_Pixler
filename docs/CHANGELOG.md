@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- Startup/Home: устранено зависание белого окна на широком/разворачиваемом окне: декоративный geology background больше не синхронно SVG-рендерится на каждый Resize; рендер откладывается до стабилизации размера и повторный одинаковый target size переиспользуется без изменения изображения или industrial-blue дизайна.
 - UI: Logo Catalog preview больше не фиксирует белый фон и hex-border локальным QSS; preview использует shared palette-aware selector, сохраняя рендеринг и масштабирование самих logo assets без изменений.
 - Branding/Print: заводской DIGITAL GEOLOG больше не устанавливает embedded-raster SVG в project assets; печатный каталог нормализует отдельный bundled JPEG source в валидированный PNG, поэтому выбор/копирование логотипа и сохранение/reopen Masterlog не конфликтуют со строгой SVG security policy.
 - Gas context/Reports: общий report DTO теперь хранит измеренные TG/C1–C5 min/mean/max отдельно от ручного TG/QC reference; QC delta считается как manual reference − measured interval mean только при сопоставимых единицах, а preview/PDF/XLSX/DOCX используют один и тот же audit-контракт без изменения source curves.

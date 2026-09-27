@@ -146,6 +146,8 @@ presentation-QSS в shared palette-aware contract, адаптивность, acc
 брендинга или массовое переоформление компонентов выполняется только отдельным явно согласованным
 дизайн-инкрементом с собственным visual-regression scope, а не попутно при выполнении roadmap.
 Document/painter/user-selected colors остаются данными документа и не приводятся к UI-палитре.
+Декоративные branding/Home assets не должны блокировать GUI-thread: resize-dependent artwork
+рендерится только после стабилизации геометрии и не пересоздаётся без изменения target size.
 
 - [ ] Ввести application-level visual/interaction contract вместо разрозненных локальных
   `setStyleSheet`: единые логические высоты кнопок/полей, внутренние отступы, focus ring,
