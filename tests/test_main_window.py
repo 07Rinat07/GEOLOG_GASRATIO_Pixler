@@ -20,6 +20,7 @@ from geoworkbench.domain.models import (
 )
 from geoworkbench.forms.repository import FormRepository
 from geoworkbench.project.curve_transfer_controller import CurveTransferController
+from geoworkbench.product_identity import PRODUCT_NAME
 from geoworkbench.project.dataset_merge_controller import DatasetMergeController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.printing.print_job import PrintJobSettings, PrintOutputFormat
@@ -533,7 +534,7 @@ def test_about_dialog_contains_author_details(qapp, monkeypatch) -> None:
     assert len(captured) == 1
     labels = captured[0].findChildren(QLabel)
     texts = [label.text() for label in labels]
-    assert "GEOLOG GASRATIO@Pixler" in texts
+    assert PRODUCT_NAME in texts
     assert any(text.startswith("Версия ") for text in texts)
     assert "Rinat Sarmuldin" in texts
     assert "ura07srr@gmail.com" in texts
