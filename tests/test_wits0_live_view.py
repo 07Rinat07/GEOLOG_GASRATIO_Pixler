@@ -67,7 +67,7 @@ def test_live_view_uses_read_only_projection_and_shared_downsampling() -> None:
 )
 def test_wits0_live_view_constructs_offscreen(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
-    from PySide6.QtWidgets import QApplication
+    from PySide6.QtWidgets import QApplication, QWidget
 
     from geoworkbench.services.localization import AppLanguage
     from geoworkbench.ui.wits0_live_view import Wits0LiveViewWidget
@@ -75,6 +75,30 @@ def test_wits0_live_view_constructs_offscreen(monkeypatch: pytest.MonkeyPatch) -
     app = QApplication.instance() or QApplication([])
     widget = Wits0LiveViewWidget(language=AppLanguage.RU)
     try:
+        widget.resize(600, 420)
+        widget.show()
+        app.processEvents()
+
+        toolbar = widget.findChild(QWidget, "wits0LiveToolbar")
+        assert toolbar is not None
+        assert toolbar.width() <= widget.width()
+        toolbar_right = toolbar.contentsRect().right()
+        for control in (
+            widget.form_combo,
+            widget.save_form_button,
+            widget.reset_form_button,
+            widget.axis_combo,
+            widget.auto_follow_check,
+            widget.pause_button,
+            widget.window_spin,
+            widget.max_points_spin,
+            widget.refresh_button,
+            widget.sidebar_button,
+            widget.fullscreen_button,
+        ):
+            assert control.isVisible()
+            assert control.geometry().right() <= toolbar_right
+
         assert widget.state_label.text()
         assert widget.state_label.toolTip()
         assert widget.form_combo.isEnabled()
