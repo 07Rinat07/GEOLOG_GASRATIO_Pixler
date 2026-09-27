@@ -4,7 +4,11 @@ from dataclasses import dataclass
 from hashlib import sha256
 from importlib.resources import files
 
-from geoworkbench.printing.image_assets import ImageAsset, PNG_MEDIA_TYPE, SVG_MEDIA_TYPE
+from geoworkbench.printing.image_assets import (
+    ImageAsset,
+    SVG_MEDIA_TYPE,
+    create_raster_payload_asset,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,12 +45,14 @@ class BuiltinLogoDefinition:
 
     def create_asset(self) -> ImageAsset:
         payload = files("geoworkbench.resources").joinpath(self.resource_name).read_bytes()
+        if not self.resource_name.casefold().endswith(".svg"):
+            return create_raster_payload_asset(payload, original_name=self.resource_name)
+
         digest = sha256(payload).hexdigest()
-        media_type = SVG_MEDIA_TYPE if self.resource_name.lower().endswith(".svg") else PNG_MEDIA_TYPE
         return ImageAsset(
             asset_id=f"sha256:{digest}",
             original_name=self.resource_name,
-            media_type=media_type,
+            media_type=SVG_MEDIA_TYPE,
             payload=payload,
         )
 
@@ -60,7 +66,7 @@ BUILTIN_LOGOS: tuple[BuiltinLogoDefinition, ...] = (
         category_ru="Бренд приложения",
         category_kk="Қолданба бренді",
         category_en="Application brand",
-        resource_name="digital-geolog-logo.svg",
+        resource_name="digital-geolog-logo.jpg",
         notes_ru="Финальный логотип DIGITAL GEOLOG для печатных шапок и экспорта.",
         notes_kk="Баспа тақырыптары мен экспортқа арналған DIGITAL GEOLOG соңғы логотипі.",
         notes_en="Final DIGITAL GEOLOG logo for print headers and exports.",
