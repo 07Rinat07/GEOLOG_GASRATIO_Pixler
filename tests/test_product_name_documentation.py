@@ -5,11 +5,17 @@ from pathlib import Path
 from geoworkbench.product_identity import PRODUCT_NAME
 
 
+EXPECTED_PRODUCT_NAME = "DIGITAL GEOLOG GASRATIO&PIXLER"
 LEGACY_PRODUCT_NAMES = (
-    "GEOLOG GASRATIO&PIXLER",
-    "GEOLOG GASRATIO@Pixler",
-    "Geolog GASRATIO&Pixler",
+    "GEOLOG " + "GASRATIO&PIXLER",
+    "GEOLOG " + "GASRATIO@Pixler",
+    "Geolog " + "GASRATIO&Pixler",
 )
+
+
+def test_product_name_contract() -> None:
+    assert PRODUCT_NAME == EXPECTED_PRODUCT_NAME
+    assert not PRODUCT_NAME.startswith("DIGITAL DIGITAL ")
 
 
 def test_canonical_product_name_is_used_in_primary_documentation() -> None:
@@ -17,6 +23,7 @@ def test_canonical_product_name_is_used_in_primary_documentation() -> None:
     paths = [
         repository_root / "README.md",
         repository_root / "LICENSE",
+        repository_root / "pyproject.toml",
         repository_root / "docs" / "BRANDING.md",
         repository_root / "docs" / "README.md",
         repository_root / "docs" / "USER_GUIDE_RU.md",
@@ -27,20 +34,37 @@ def test_canonical_product_name_is_used_in_primary_documentation() -> None:
     for path in paths:
         text = path.read_text(encoding="utf-8")
         assert PRODUCT_NAME in text, path
-        for legacy_name in LEGACY_PRODUCT_NAMES:
-            assert legacy_name not in text, path
+        assert "DIGITAL DIGITAL GEOLOG" not in text, path
 
 
-def test_documentation_does_not_reintroduce_legacy_product_wordmarks() -> None:
+def test_first_party_text_does_not_reintroduce_legacy_product_names() -> None:
     repository_root = Path(__file__).resolve().parents[1]
-    documentation_paths = [repository_root / "README.md"]
-    documentation_paths.extend(
-        path
-        for path in (repository_root / "docs").rglob("*.md")
-        if "vendor_reference" not in path.parts
+    roots = (
+        repository_root / "src" / "geoworkbench",
+        repository_root / "tests",
+        repository_root / "docs",
     )
+    suffixes = {
+        ".py", ".md", ".json", ".toml", ".txt", ".yml", ".yaml",
+        ".ini", ".cfg", ".ps1", ".sh", ".bat", ".xml", ".html", ".css", ".qss",
+    }
+    paths = [
+        repository_root / "README.md",
+        repository_root / "LICENSE",
+        repository_root / "SECURITY.md",
+        repository_root / "pyproject.toml",
+    ]
+    for root in roots:
+        paths.extend(
+            path
+            for path in root.rglob("*")
+            if path.is_file()
+            and path.suffix.casefold() in suffixes
+            and "vendor_reference" not in path.parts
+        )
 
-    for path in documentation_paths:
-        text = path.read_text(encoding="utf-8")
+    for path in paths:
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        assert "DIGITAL DIGITAL GEOLOG" not in text, path
         for legacy_name in LEGACY_PRODUCT_NAMES:
             assert legacy_name not in text, path
