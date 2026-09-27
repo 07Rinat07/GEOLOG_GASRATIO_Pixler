@@ -1,4 +1,4 @@
-# GEOLOG GASRATIO&PIXLER пайдаланушы нұсқаулығы
+# DIGITAL GEOLOG GASRATIO&PIXLER пайдаланушы нұсқаулығы
 
 ## 1. Бөлімдердің реті
 
