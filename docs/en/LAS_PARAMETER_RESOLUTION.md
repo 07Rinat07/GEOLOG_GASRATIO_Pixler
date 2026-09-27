@@ -4,7 +4,7 @@
 
 LAS files from different vendors often use different mnemonics, descriptions, and units for the
 same physical measurement. Column order also varies and is never treated as semantic evidence.
-GEOLOG GASRATIO@Pixler uses one semantic resolver that maps each source curve to a canonical
+GEOLOG GASRATIO&PIXLER uses one semantic resolver that maps each source curve to a canonical
 parameter.
 
 ## Evidence used
