@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDoubleSpinBox,
+    QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -88,7 +89,7 @@ class Wits0LiveViewWidget(QWidget):
 
         root = QVBoxLayout(self)
         root.setContentsMargins(6, 6, 6, 6)
-        root.addLayout(self._build_toolbar())
+        root.addWidget(self._build_toolbar())
 
         self.form_description_label = QLabel("", self)
         self.form_description_label.setWordWrap(True)
@@ -108,12 +109,19 @@ class Wits0LiveViewWidget(QWidget):
         self._update_form_description()
         self._set_empty_state()
 
-    def _build_toolbar(self) -> QHBoxLayout:
-        layout = QHBoxLayout()
+    def _build_toolbar(self) -> QWidget:
+        toolbar = QWidget(self)
+        toolbar.setObjectName("wits0LiveToolbar")
+        layout = QGridLayout(toolbar)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.setHorizontalSpacing(6)
+        layout.setVerticalSpacing(5)
 
-        layout.addWidget(QLabel(_live_form_selector_label(self._language), self))
-        self.form_combo = QComboBox(self)
+        form_label = QLabel(_live_form_selector_label(self._language), toolbar)
+        form_label.setObjectName("wits0LiveFormLabel")
+        layout.addWidget(form_label, 0, 0)
+
+        self.form_combo = QComboBox(toolbar)
         for definition in live_form_definitions():
             self.form_combo.addItem(
                 definition.title(self._language),
@@ -122,77 +130,92 @@ class Wits0LiveViewWidget(QWidget):
         universal_index = self.form_combo.findData(UNIVERSAL_LIVE_FORM_ID)
         if universal_index >= 0:
             self.form_combo.setCurrentIndex(universal_index)
-        self.form_combo.setMinimumWidth(210)
+        self.form_combo.setMinimumWidth(160)
         self.form_combo.currentIndexChanged.connect(self._form_changed)
-        layout.addWidget(self.form_combo)
+        layout.addWidget(self.form_combo, 0, 1, 1, 2)
 
         self.save_form_button = QPushButton(
             _operator_text(self._language, "save_form"),
-            self,
+            toolbar,
         )
         self.save_form_button.setProperty("uiRole", "primary")
+        self.save_form_button.setMinimumWidth(0)
         self.save_form_button.clicked.connect(self._save_current_form)
-        layout.addWidget(self.save_form_button)
+        layout.addWidget(self.save_form_button, 0, 3)
 
         self.reset_form_button = QPushButton(
             _operator_text(self._language, "reset_form"),
-            self,
+            toolbar,
         )
         self.reset_form_button.setProperty("uiRole", "quiet")
+        self.reset_form_button.setMinimumWidth(0)
         self.reset_form_button.clicked.connect(self._reset_current_form)
-        layout.addWidget(self.reset_form_button)
+        layout.addWidget(self.reset_form_button, 0, 4)
 
-        layout.addWidget(QLabel(self._t("wits0_live.axis"), self))
-        self.axis_combo = QComboBox(self)
+        axis_label = QLabel(self._t("wits0_live.axis"), toolbar)
+        axis_label.setObjectName("wits0LiveAxisLabel")
+        layout.addWidget(axis_label, 1, 0)
+        self.axis_combo = QComboBox(toolbar)
         self.axis_combo.currentIndexChanged.connect(self._axis_changed)
-        layout.addWidget(self.axis_combo)
+        layout.addWidget(self.axis_combo, 1, 1)
 
-        self.auto_follow_check = QCheckBox(self._t("wits0_live.auto_follow"), self)
+        self.auto_follow_check = QCheckBox(self._t("wits0_live.auto_follow"), toolbar)
         self.auto_follow_check.setChecked(True)
         self.auto_follow_check.toggled.connect(self._auto_follow_changed)
-        layout.addWidget(self.auto_follow_check)
+        layout.addWidget(self.auto_follow_check, 1, 2)
 
-        self.pause_button = QPushButton(self._t("wits0_live.pause_view"), self)
+        self.pause_button = QPushButton(self._t("wits0_live.pause_view"), toolbar)
         self.pause_button.setCheckable(True)
+        self.pause_button.setMinimumWidth(0)
         self.pause_button.toggled.connect(self._pause_changed)
-        layout.addWidget(self.pause_button)
+        layout.addWidget(self.pause_button, 1, 3, 1, 2)
 
-        layout.addWidget(QLabel(self._t("wits0_live.window"), self))
-        self.window_spin = QDoubleSpinBox(self)
+        window_label = QLabel(self._t("wits0_live.window"), toolbar)
+        window_label.setObjectName("wits0LiveWindowLabel")
+        layout.addWidget(window_label, 2, 0)
+        self.window_spin = QDoubleSpinBox(toolbar)
         self.window_spin.setDecimals(1)
         self.window_spin.setRange(0.1, 86_400.0)
         self.window_spin.setValue(600.0)
         self.window_spin.setSuffix(self._t("wits0_live.seconds_suffix"))
         self.window_spin.valueChanged.connect(self._follow_span_changed)
-        layout.addWidget(self.window_spin)
+        layout.addWidget(self.window_spin, 2, 1)
 
-        layout.addWidget(QLabel(self._t("wits0_live.max_points"), self))
-        self.max_points_spin = QSpinBox(self)
+        max_points_label = QLabel(self._t("wits0_live.max_points"), toolbar)
+        max_points_label.setObjectName("wits0LiveMaxPointsLabel")
+        layout.addWidget(max_points_label, 2, 2)
+        self.max_points_spin = QSpinBox(toolbar)
         self.max_points_spin.setRange(100, 20_000)
         self.max_points_spin.setSingleStep(100)
         self.max_points_spin.setValue(2_000)
         self.max_points_spin.valueChanged.connect(self.refresh)
-        layout.addWidget(self.max_points_spin)
+        layout.addWidget(self.max_points_spin, 2, 3)
 
-        self.refresh_button = QPushButton(self._t("wits0_live.refresh"), self)
+        self.refresh_button = QPushButton(self._t("wits0_live.refresh"), toolbar)
+        self.refresh_button.setMinimumWidth(0)
         self.refresh_button.clicked.connect(self.refresh)
-        layout.addWidget(self.refresh_button)
+        layout.addWidget(self.refresh_button, 2, 4)
 
         self.sidebar_button = QPushButton(
             _operator_text(self._language, "hide_sidebar"),
-            self,
+            toolbar,
         )
+        self.sidebar_button.setMinimumWidth(0)
         self.sidebar_button.clicked.connect(self._toggle_sidebar)
-        layout.addWidget(self.sidebar_button)
+        layout.addWidget(self.sidebar_button, 3, 0, 1, 2)
 
         self.fullscreen_button = QPushButton(
             _operator_text(self._language, "fullscreen"),
-            self,
+            toolbar,
         )
+        self.fullscreen_button.setMinimumWidth(0)
         self.fullscreen_button.clicked.connect(self._toggle_fullscreen)
-        layout.addWidget(self.fullscreen_button)
-        layout.addStretch(1)
-        return layout
+        layout.addWidget(self.fullscreen_button, 3, 2, 1, 2)
+        layout.setColumnStretch(1, 1)
+        layout.setColumnStretch(2, 1)
+        layout.setColumnStretch(3, 1)
+        layout.setColumnStretch(4, 1)
+        return toolbar
 
     def _build_left_panel(self) -> QWidget:
         panel = QWidget(self)
