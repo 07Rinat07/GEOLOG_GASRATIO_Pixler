@@ -199,8 +199,16 @@ def _stratigraphy_from_raw(raw: Any) -> tuple[LasStratigraphyEntry, ...]:
         bottom = _finite_depth(value.get("bottom"), "stratigraphy.bottom")
         if bottom <= top:
             raise ValueError("Stratigraphy interval must have bottom > top")
-        code = _bounded_text(value.get("short") or value.get("code"), "stratigraphy.code", maximum=80)
-        name_ru = _bounded_text(value.get("name_ru"), "stratigraphy.name_ru", maximum=300)
+        code = _bounded_text(
+            value.get("short") or value.get("code"),
+            "stratigraphy.code",
+            maximum=80,
+        )
+        name_ru = _bounded_text(
+            value.get("name_ru"),
+            "stratigraphy.name_ru",
+            maximum=300,
+        )
         rank = _optional_text(value.get("rank"), maximum=80)
         color = _optional_text(value.get("color"), maximum=7)
         if color is not None and not _COLOR_PATTERN.fullmatch(color):
