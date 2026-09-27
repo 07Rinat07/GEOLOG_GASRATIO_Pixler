@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from importlib.resources import files
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QByteArray, Qt
 from PySide6.QtGui import QColor, QIcon, QPainter, QPixmap
 from PySide6.QtSvg import QSvgRenderer
 
@@ -15,7 +15,7 @@ def _svg_pixmap(resource_name: str, width: int, height: int) -> QPixmap:
     if width < 1 or height < 1:
         raise ValueError("Размер изображения должен быть положительным")
     raw = files("geoworkbench").joinpath(resource_name).read_bytes()
-    renderer = QSvgRenderer(raw)
+    renderer = QSvgRenderer(QByteArray(raw))
     if not renderer.isValid():
         raise RuntimeError(f"Не удалось загрузить SVG-ресурс {resource_name}")
     pixmap = QPixmap(width, height)
