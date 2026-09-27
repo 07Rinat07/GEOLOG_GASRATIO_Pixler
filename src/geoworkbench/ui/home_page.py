@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from geoworkbench.services.localization import AppLanguage, Localizer
-from geoworkbench.ui.branding import logo_pixmap
+from geoworkbench.ui.branding import PRODUCT_NAME, logo_pixmap
 from geoworkbench.ui.drilling_animation import DrillingAnimation
 
 
@@ -344,7 +344,7 @@ class HomePage(QWidget):
         self.language = language
         self.localizer = Localizer.create(language)
         self.eyebrow.setText(self.localizer.text("home.eyebrow"))
-        self.title.setText(self.localizer.text("home.title"))
+        self.title.setText(PRODUCT_NAME)
         self.subtitle.setText(self.localizer.text("home.subtitle"))
         self.workspace_caption.setText(self.localizer.text("home.workspace_caption"))
         self.quick_title.setText(self.localizer.text("home.quick_actions"))
