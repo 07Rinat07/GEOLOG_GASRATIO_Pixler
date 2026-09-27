@@ -1,6 +1,6 @@
 # User guide
 
-GEOLOG GASRATIO&PIXLER is an editor for drilling, mud-logging, LAS, and GeoScape2/GS2 data.
+DIGITAL GEOLOG GASRATIO&PIXLER is an editor for drilling, mud-logging, LAS, and GeoScape2/GS2 data.
 
 ## Installation and startup
 
