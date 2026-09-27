@@ -175,8 +175,10 @@ audit-инкремент также проводит через общий repor
   semantic `guidanceRole="info"|"warning"`; локальные fixed-hex QSS удалены без изменения
   template selection, RU/KK/EN контента или lithology CRUD. Действия Lithology используют
   semantic `uiRole`: Add — primary, Remove — destructive, Update сохраняет default presentation;
-  callbacks и CRUD semantics не меняются. Следующий slice — repo-wide аудит оставшихся локальных
-  presentation-QSS вне preview/painter и пользовательских/document colors.
+  callbacks и CRUD semantics не меняются. Logo Catalog preview также переведён с локального
+  light-only QSS на shared palette-aware selector; отображение и масштабирование самих logo assets
+  остаются неизменными. Следующий slice — repo-wide аудит оставшихся локальных presentation-QSS
+  вне preview/painter и пользовательских/document colors.
 - [ ] Primary/secondary/destructive/quiet роли задавать semantic property, а не цветом по месту.
 - [ ] Диалоги продолжают использовать `fit_window_to_screen`; длинные RU/KK/EN подписи
   переносятся/уходят в overflow, primary action остаётся видимым.
