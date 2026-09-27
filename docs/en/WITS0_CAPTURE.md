@@ -19,6 +19,14 @@ The target WITS workflow is **choose a form → choose connection mode → start
 rig data → review mapping when needed → start persistent acquisition**. Operators should not have
 to understand every technical field before seeing useful data.
 
+The window now follows a **live-first** information architecture: **Monitor** opens first. Quick
+connection (preset, mode, IP/interface, port), compact health, and primary actions stay visible.
+CIDR/wildcard bind, raw directory, disk thresholds, retention, and profile are grouped under
+collapsible **Advanced network and storage settings**. Parser/sequence/schema/acquisition/recovery
+counters plus queue flush and discovery reset live under collapsible **Diagnostics and service
+counters**. The outer workspace does not use horizontal scrolling; vertical scrolling remains
+available only when the available height is insufficient.
+
 A GeoScape/GSWITS preset is provided for the common path. Context help is required next to mode,
 IP/interface, port, CIDR, raw directory, free-space thresholds and retention. The built-in
 **Help and instructions** tab explains client/server roles, local versus remote addressing,
