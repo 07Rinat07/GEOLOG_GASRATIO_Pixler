@@ -123,6 +123,7 @@ def test_adaptive_application_style_is_idempotent(
 
     app = QApplication.instance() or QApplication([])
     original = app.styleSheet()
+    original_palette = app.palette()
     try:
         apply_adaptive_application_style(app)
         first = app.styleSheet()
@@ -134,4 +135,5 @@ def test_adaptive_application_style_is_idempotent(
         assert industrial_shell_stylesheet().strip() in first
     finally:
         app.setStyleSheet(original)
+        app.setPalette(original_palette)
         app.setProperty("_geologAdaptiveUiInstalled", False)
