@@ -109,6 +109,7 @@ def test_home_background_render_is_debounced_and_reused(qapp, monkeypatch) -> No
     page.show()
     qapp.processEvents()
     page._background_artwork_timer.stop()
+    page._background_artwork_render_size = None
     rendered.clear()
 
     for width in (1500, 1600, 1700, 1800):
