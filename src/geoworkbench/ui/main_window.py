@@ -698,7 +698,7 @@ class MainWindow(QMainWindow):
         self._last_document_bundle_execution: RecordedDocumentBundleExecution | None = None
         self.cursor_line_settings = self.user_profile_settings.cursor_line_settings()
         self.setWindowIcon(application_icon())
-        self.setWindowTitle(f"GEOLOG GASRATIO@Pixler {__version__}")
+        self.setWindowTitle(f"GEOLOG GASRATIO&PIXLER {__version__}")
         self.setAcceptDrops(True)
         self._initial_geometry_checked = False
         self._toolbar_screen_signal_connected = False
@@ -9784,7 +9784,7 @@ class MainWindow(QMainWindow):
     def _update_title(self) -> None:
         marker = " *" if self.session.dirty else ""
         self.setWindowTitle(
-            f"GEOLOG GASRATIO@Pixler {__version__} — {self.session.project.name}{marker}"
+            f"GEOLOG GASRATIO&PIXLER {__version__} — {self.session.project.name}{marker}"
         )
         self._update_form_width_indicator()
 
@@ -10021,7 +10021,7 @@ class MainWindow(QMainWindow):
 
     def show_about(self) -> None:
         dialog = QDialog(self)
-        dialog.setWindowTitle("GEOLOG GASRATIO@Pixler")
+        dialog.setWindowTitle("GEOLOG GASRATIO&PIXLER")
         dialog.setWindowIcon(application_icon())
         dialog.setModal(True)
         target_geometry = fit_window_to_screen(
@@ -10082,7 +10082,7 @@ class MainWindow(QMainWindow):
             label.setPalette(label_palette)
             label.setStyleSheet(f"color: {color.name()}; background: transparent; border: none;")
 
-        title_label = QLabel("GEOLOG GASRATIO@Pixler", info_panel)
+        title_label = QLabel("GEOLOG GASRATIO&PIXLER", info_panel)
         title_label.setWordWrap(True)
         configure_label(
             title_label,
