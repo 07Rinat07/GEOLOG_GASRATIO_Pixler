@@ -6,6 +6,9 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon, QPixmap
 
 
+PRODUCT_NAME = "GEOLOG GASRATIO&PIXLER"
+
+
 _LOGO_RESOURCE = "resources/geologist-logo.png"
 _ABOUT_PROGRAM_LOGO_RESOURCE = "resources/about-program-logo.png"
 
@@ -44,3 +47,6 @@ def about_program_logo_pixmap(width: int, height: int) -> QPixmap:
 
 def application_icon() -> QIcon:
     return QIcon(logo_pixmap())
+
+
+__all__ = ["PRODUCT_NAME", "application_icon", "logo_pixmap", "about_program_logo_pixmap"]
