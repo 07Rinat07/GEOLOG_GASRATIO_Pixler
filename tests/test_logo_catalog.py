@@ -9,7 +9,10 @@ def _session() -> ProjectSession:
     return ProjectSession(Project(new_id(), "Logo catalog test"))
 
 
-def test_final_digital_geolog_logo_is_available_for_print_and_export() -> None:
+def test_final_digital_geolog_logo_is_installable_and_persistable(tmp_path) -> None:
+    from geoworkbench.storage.atomic_json import save_project
+    from geoworkbench.storage.project_codec import load_project_document
+
     session = _session()
     controller = LogoCatalogController(session)
 
@@ -17,10 +20,18 @@ def test_final_digital_geolog_logo_is_available_for_print_and_export() -> None:
     assert factory.read_only is True
     assert factory.name == "DIGITAL GEOLOG GASRATIO&PIXLER"
 
-    asset = controller.resolve_asset(factory.logo_id, install=False)
-    assert asset.media_type == "image/svg+xml"
-    assert b"DIGITAL GEOLOG" not in asset.payload
-    assert b"<svg" in asset.payload
+    asset = controller.resolve_asset(factory.logo_id)
+    assert asset.media_type == "image/png"
+    assert asset.payload.startswith(b"\x89PNG\r\n\x1a\n")
+    assert asset.asset_id in session.image_assets
+
+    entry = controller.copy_factory(factory.logo_id, name="DIGITAL GEOLOG — проект")
+    target = tmp_path / "digital-geolog.geolog.json"
+    save_project(session.project, target, image_assets=session.image_assets)
+    loaded = load_project_document(target)
+
+    assert loaded.project.logo_catalog[entry.logo_id].asset_id == asset.asset_id
+    assert loaded.image_assets[asset.asset_id].payload.startswith(b"\x89PNG\r\n\x1a\n")
 
 
 def test_factory_logo_can_be_installed_and_copied_without_mutating_factory() -> None:

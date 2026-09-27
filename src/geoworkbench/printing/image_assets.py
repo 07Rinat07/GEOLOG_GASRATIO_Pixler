@@ -68,23 +68,19 @@ def create_png_asset(source: Path) -> ImageAsset:
 
 
 
-def create_raster_asset(source: Path) -> ImageAsset:
-    """Create a normalized PNG asset from any raster format supported by Qt.
+def create_raster_payload_asset(payload: bytes, *, original_name: str) -> ImageAsset:
+    """Normalize trusted or user-supplied raster bytes to the persisted PNG contract."""
 
-    This covers PNG, JPEG, BMP, TIFF and WebP when the corresponding Qt image
-    plugin is available. Normalization keeps project serialization and print
-    rendering deterministic.
-    """
-
-    if not source.is_file() or source.is_symlink():
-        raise ImageAssetError("Raster asset должен быть обычным файлом")
-    if source.stat().st_size > MAX_IMAGE_ASSET_BYTES:
+    if not payload:
+        raise ImageAssetError("Raster asset не должен быть пустым")
+    if len(payload) > MAX_IMAGE_ASSET_BYTES:
         raise ImageAssetError("Raster asset превышает лимит 10 МБ")
-    if source.suffix.casefold() == ".png":
-        return create_png_asset(source)
+    if payload.startswith(PNG_SIGNATURE):
+        digest = sha256(payload).hexdigest()
+        return ImageAsset(f"sha256:{digest}", original_name, PNG_MEDIA_TYPE, payload)
+
     # Project loading, persistence and SVG/PNG validation are deliberately
-    # independent of Qt.  Import Qt only for the operation that actually needs
-    # its raster codecs so headless/domain tests remain usable.
+    # independent of Qt. Import Qt only for the operation that needs raster codecs.
     try:
         from PySide6.QtCore import QBuffer, QIODevice
         from PySide6.QtGui import QImage
@@ -92,7 +88,8 @@ def create_raster_asset(source: Path) -> ImageAsset:
         raise ImageAssetError(
             "Для преобразования JPEG/BMP/TIFF/WebP требуется установленный PySide6"
         ) from exc
-    image = QImage(str(source))
+
+    image = QImage.fromData(payload)
     if image.isNull():
         raise ImageAssetError("Формат изображения не поддерживается или файл повреждён")
     buffer = QBuffer()
@@ -101,11 +98,22 @@ def create_raster_asset(source: Path) -> ImageAsset:
     try:
         if not image.save(buffer, cast(Any, "PNG")):
             raise ImageAssetError("Не удалось преобразовать изображение в PNG")
-        payload = bytes(buffer.data().data())
+        normalized = bytes(buffer.data().data())
     finally:
         buffer.close()
-    digest = sha256(payload).hexdigest()
-    return ImageAsset(f"sha256:{digest}", source.name, PNG_MEDIA_TYPE, payload)
+
+    digest = sha256(normalized).hexdigest()
+    return ImageAsset(f"sha256:{digest}", original_name, PNG_MEDIA_TYPE, normalized)
+
+
+def create_raster_asset(source: Path) -> ImageAsset:
+    """Create a normalized PNG asset from any raster format supported by Qt."""
+
+    if not source.is_file() or source.is_symlink():
+        raise ImageAssetError("Raster asset должен быть обычным файлом")
+    if source.stat().st_size > MAX_IMAGE_ASSET_BYTES:
+        raise ImageAssetError("Raster asset превышает лимит 10 МБ")
+    return create_raster_payload_asset(source.read_bytes(), original_name=source.name)
 
 def create_svg_asset(source: Path) -> ImageAsset:
     if not source.is_file() or source.is_symlink():
