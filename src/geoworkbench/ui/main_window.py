@@ -3105,7 +3105,7 @@ class MainWindow(QMainWindow):
         if len(filenames) > 3:
             names += f" (+{len(filenames) - 3})"
         progress = QProgressDialog(
-            self._t("import.las_loading").format(files=names),
+            self._t("import.las_loading", files=names),
             "",
             0,
             0,
