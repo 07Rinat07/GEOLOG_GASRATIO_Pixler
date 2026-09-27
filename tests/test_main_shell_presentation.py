@@ -40,3 +40,20 @@ def test_application_main_shell_style_has_no_fixed_theme_colours() -> None:
     assert "QStatusBar#mainStatusBar" in main_shell
     assert "QDockWidget::title" in main_shell
     assert re.search(r"#[0-9a-fA-F]{3,8}\\b", main_shell) is None
+
+
+def test_product_branding_uses_exact_gasratio_pixler_name() -> None:
+    import json
+
+    exact_name = "GEOLOG GASRATIO&PIXLER"
+    main_window = Path("src/geoworkbench/ui/main_window.py").read_text(encoding="utf-8")
+    assert exact_name in main_window
+    assert "GASRATIO@Pixler" not in main_window
+
+    for language in ("ru", "kk", "en"):
+        catalog = json.loads(
+            Path(f"src/geoworkbench/resources/i18n/{language}.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        assert catalog["home.title"] == exact_name
