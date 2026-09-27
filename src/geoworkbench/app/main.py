@@ -174,14 +174,20 @@ def main() -> int:
     splash.set_stage(startup_localizer.text("startup.stage.catalogs"), 38)
     app.processEvents()
     try:
+        log_manager.event("application.startup.context.begin")
         application_context = build_application_context(app_data_root)
+        log_manager.event("application.startup.context.ready")
+        log_manager.event("application.startup.main_window.begin")
         window = MainWindow(
             language=language,
             language_settings=settings,
             application_context=application_context,
         )
+        log_manager.event("application.startup.main_window.constructed")
         window.show()
+        log_manager.event("application.startup.main_window.shown")
         app.processEvents()
+        log_manager.event("application.startup.first_events.processed")
         splash.finish()
         log_manager.event("application.main_window.ready", language=language.value)
         return app.exec()
