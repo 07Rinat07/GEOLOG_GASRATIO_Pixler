@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from hashlib import sha256
 from importlib.resources import files
 
-from geoworkbench.printing.image_assets import ImageAsset, PNG_MEDIA_TYPE
+from geoworkbench.printing.image_assets import ImageAsset, PNG_MEDIA_TYPE, SVG_MEDIA_TYPE
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,15 +42,29 @@ class BuiltinLogoDefinition:
     def create_asset(self) -> ImageAsset:
         payload = files("geoworkbench.resources").joinpath(self.resource_name).read_bytes()
         digest = sha256(payload).hexdigest()
+        media_type = SVG_MEDIA_TYPE if self.resource_name.lower().endswith(".svg") else PNG_MEDIA_TYPE
         return ImageAsset(
             asset_id=f"sha256:{digest}",
             original_name=self.resource_name,
-            media_type=PNG_MEDIA_TYPE,
+            media_type=media_type,
             payload=payload,
         )
 
 
 BUILTIN_LOGOS: tuple[BuiltinLogoDefinition, ...] = (
+    BuiltinLogoDefinition(
+        logo_id="factory-digital-geolog",
+        name_ru="DIGITAL GEOLOG GASRATIO&PIXLER",
+        name_kk="DIGITAL GEOLOG GASRATIO&PIXLER",
+        name_en="DIGITAL GEOLOG GASRATIO&PIXLER",
+        category_ru="Бренд приложения",
+        category_kk="Қолданба бренді",
+        category_en="Application brand",
+        resource_name="digital-geolog-logo.svg",
+        notes_ru="Финальный логотип DIGITAL GEOLOG для печатных шапок и экспорта.",
+        notes_kk="Баспа тақырыптары мен экспортқа арналған DIGITAL GEOLOG соңғы логотипі.",
+        notes_en="Final DIGITAL GEOLOG logo for print headers and exports.",
+    ),
     BuiltinLogoDefinition(
         logo_id="factory-bpservices",
         name_ru="BPServices",

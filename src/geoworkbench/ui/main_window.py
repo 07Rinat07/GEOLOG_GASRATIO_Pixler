@@ -878,7 +878,11 @@ class MainWindow(QMainWindow):
         self._print_jobs = PrintJobExecutor()
         self._workspace_controller.set_dataset(None)
         self._set_tablet_edit_mode(False)
+        self.cursor_line_action.blockSignals(True)
         self.cursor_line_action.setChecked(self.cursor_line_settings.enabled)
+        self.cursor_line_action.blockSignals(False)
+        self.tablet_view.set_cursor_enabled(self.cursor_line_settings.enabled)
+        self.cursor_dock.hide()
         self.statusBar().showMessage(self._t("app.ready"))
         self._update_title()
 
@@ -2842,7 +2846,6 @@ class MainWindow(QMainWindow):
 
     def toggle_cursor_line(self, enabled: bool) -> None:
         self.tablet_view.set_cursor_enabled(enabled)
-        self.cursor_dock.setVisible(enabled)
         self.cursor_line_settings = CursorLineSettings(
             self.cursor_line_settings.color, self.cursor_line_settings.width, enabled
         )

@@ -169,7 +169,7 @@ python scripts/run_tests.py -p no:cacheprovider
 
 <p align="center">
   <img
-    src="src/geoworkbench/resources/geologist-logo.png"
+    src="src/geoworkbench/resources/digital-geolog-logo.svg"
     alt="Логотип DIGITAL GEOLOG GASRATIO&PIXLER"
     width="720"
   >

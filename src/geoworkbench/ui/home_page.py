@@ -6,6 +6,7 @@ from PySide6.QtCore import QEvent, QObject, QSize, Qt
 from PySide6.QtGui import QAction, QPalette
 from PySide6.QtWidgets import (
     QFrame,
+    QGraphicsOpacityEffect,
     QGridLayout,
     QHBoxLayout,
     QLabel,
@@ -18,7 +19,7 @@ from PySide6.QtWidgets import (
 
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.brand import APPLICATION_DISPLAY_NAME
-from geoworkbench.ui.branding import logo_pixmap
+from geoworkbench.ui.branding import home_background_pixmap, logo_pixmap
 from geoworkbench.ui.drilling_animation import DrillingAnimation
 
 
@@ -90,6 +91,18 @@ class HomePage(QWidget):
         self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
         self.scroll_area.viewport().installEventFilter(self)
         outer.addWidget(self.scroll_area)
+
+        self.background_art = QLabel(self.scroll_area.viewport())
+        self.background_art.setObjectName("homeBackgroundArtwork")
+        self.background_art.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self.background_art.setAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+        )
+        self.background_art.lower()
+        background_opacity = QGraphicsOpacityEffect(self.background_art)
+        background_opacity.setOpacity(0.18)
+        self.background_art.setGraphicsEffect(background_opacity)
+        self.background_art.hide()
 
         self.content = QWidget(self.scroll_area)
         self.content.setObjectName("homeContent")
@@ -325,10 +338,34 @@ class HomePage(QWidget):
         if watched is self.scroll_area.viewport() and event.type() is QEvent.Type.Resize:
             viewport_width = self.scroll_area.viewport().width()
             if viewport_width > 0:
-                self.content.setFixedWidth(min(1180, viewport_width))
+                content_width = min(1180, viewport_width)
+                self.content.setFixedWidth(content_width)
                 self.drilling_animation.setVisible(viewport_width >= 820)
+                self._layout_background_artwork(viewport_width)
                 self._relayout_cards(viewport_width)
         return super().eventFilter(watched, event)
+
+    def _layout_background_artwork(self, viewport_width: int) -> None:
+        viewport = self.scroll_area.viewport()
+        side_margin = max(0, (viewport_width - min(1180, viewport_width)) // 2)
+        if side_margin < 170 or viewport.height() < 360:
+            self.background_art.hide()
+            return
+
+        artwork_width = min(260, max(170, side_margin - 16))
+        artwork_height = max(420, viewport.height())
+        self.background_art.setPixmap(
+            home_background_pixmap(artwork_width, artwork_height)
+        )
+        self.background_art.setGeometry(
+            8,
+            0,
+            artwork_width,
+            viewport.height(),
+        )
+        self.background_art.lower()
+        self.background_art.show()
+
 
     def _relayout_cards(self, viewport_width: int) -> None:
         columns = 3 if viewport_width >= 1080 else 2 if viewport_width >= 720 else 1

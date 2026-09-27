@@ -20,8 +20,12 @@ SYMBOL_IDS = (
 
 @lru_cache(maxsize=1)
 def masterlog_header_assets() -> dict[str, ImageAsset]:
-    logo = builtin_logo_definition("factory-bpservices").create_asset()
-    result = {"bpservices": logo}
+    product_logo = builtin_logo_definition("factory-digital-geolog").create_asset()
+    contractor_logo = builtin_logo_definition("factory-bpservices").create_asset()
+    result = {
+        "digital-geolog": product_logo,
+        "bpservices": contractor_logo,
+    }
     registry = load_factory_constructor_registry()
     for item in registry.all(kind="depth_symbol"):
         if item.asset_id in SYMBOL_IDS:
@@ -63,7 +67,7 @@ def masterlog_header_elements(orientation: str) -> tuple[MasterlogHeaderElement,
         optional=True, logo_role="customer", mode="fit", placeholder_text="",
         placeholder_text_ru="", placeholder_text_kk="", placeholder_text_en="")
     add("contractor_logo", "image", right-usable*.22-2, 2, usable*.22, top-4,
-        asset_ref=masterlog_header_assets()["bpservices"].asset_id,
+        asset_ref=masterlog_header_assets()["digital-geolog"].asset_id,
         optional=True, logo_role="contractor", mode="fit")
     label("title", ("Мастерлог", "Мастерлог", "Masterlog"), width*.3, 1, width*.4, 5,
           bold=True, alignment="center")
