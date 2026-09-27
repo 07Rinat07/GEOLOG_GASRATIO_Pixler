@@ -1,7 +1,7 @@
 <!-- runtime-contract: package=0.7.96; project=v36; form=v18; layout=v25 -->
 # Единый план проекта
 
-Решения и приоритеты обновлены 24 сентября 2026 года по `main` на `3e29ffaf` (включая PR #281), текущей WITS-UX ветке, исходному коду, тестам и операторским требованиям. Новые требования включают адаптивный полноэкранный монитор, редактируемые и сохраняемые формы, live Gas Ratio/Pixler/DEXP, интерпретационные маркеры, классификацию background/formation/connection/trip gas и универсальные min/max alarm-пороги. Это единственный канонический план проекта. Завершённые
+Решения и приоритеты обновлены 27 сентября 2026 года по `main` на `e968f745` (включая PR #350), текущему коду, тестам, операторскому скриншоту WITS и публичному benchmark real-time drilling software. WITS-UX теперь трактуется как live-first operator workspace, а не как техническая форма настроек: основной экран — live данные и health, редкие network/storage параметры сворачиваются, diagnostics отделяются от рабочего потока, navigation/scroll/help должны быть адаптивными. Текущая industrial-blue DIGITAL GEOLOG айдентика остаётся канонической и не меняется этим UX-рефакторингом. Это единственный канонический план проекта. Завершённые
 изменения фиксируются в [CHANGELOG.md](CHANGELOG.md); отдельные roadmap, build report,
 release plan и временные планы в `docs` не создаются.
 
@@ -42,26 +42,20 @@ release plan и временные планы в `docs` не создаются.
 | Порядок | Задачи | Результат и зависимость | Ответственный по роли / статус |
 |---|---|---|---|
 | 1 | WITS-MEM-01 | Автоматические raw replay/acquisition-boundary/RSS gates закрыты; остался длительный реальный raw/field прогон перед FIELD-01 | Оператор + разработчик / блокировано внешним условием |
-| 2 | UI-SYS-01 | Единый адаптивный UI foundation: кнопки, поля, toolbar, focus/hover/disabled states, размеры касания, small-screen/HiDPI правила; без локальных desktop-only стилей | Разработчик / в работе |
-| 3 | PRINT-STYLE-01 | Единый Report Visual System уровня профессиональных нефтесервисных отчётов: PDF/Masterlog/DOCX/XLSX, A4/A3/roll, colour + grayscale | Разработчик / в работе |
-| 4 | GASCTX-RPT-01 | Перед Gas Ratio/Haworth/Pixler/OPUS и всеми газовыми интерпретационными отчётами — редактор повторяющихся технологических газовых интервалов и единый report-first Gas Context Registry; известные gas-test/connection/trip/swab/circulated/recycled/calibration/lag-tracer интервалы не должны автоматически становиться УВ-пластами | Разработчик + специалист ГТИ / в работе |
-| 5 | WITS-UX-01 | Довести operator workspace после foundation PR #282: no-data states, help, persistence/reconnect и полевой UX acceptance | Разработчик / в работе |
-| 6 | WITS-CALC-01 | Live-derived Gas Ratio/Haworth, Pixler и DEXP/DEXPC через существующий versioned formula registry; без второй реализации формул в UI | Разработчик / завершено |
+| 2 | WITS-UX-01 | Live-first operator workspace: компактное подключение/health, Live как основной экран, collapsible Advanced/Diagnostics, понятная навигация/help, без outer horizontal scroll; далее persistence/reconnect и полевой UX acceptance | Разработчик / в работе |
+| 3 | WITS-PLOT-01 | Независимые шкалы/диапазоны, редактируемые панели/колонки, читаемые интерпретационные полосы и non-overlap badges поверх нового operator workspace | Разработчик / в работе |
+| 4 | WITS-ALARM-01 | Для всех отображаемых параметров min/max, visual/audio alarm, hysteresis/debounce, acknowledgement и маркеры на графике | Разработчик + оператор / готово к разработке |
+| 5 | WITS-GASCTX-01 | Live/WITS-классификация background/formation/connection/trip/circulated/elevated-unclassified поверх общего gas-context контракта | Разработчик + специалист ГТИ / в работе |
+| 6 | UI-SYS-01 | Продолжить общий adaptive UI foundation без изменения зафиксированной industrial-blue айдентики | Разработчик / в работе |
+| 7 | PRINT-STYLE-01 | Единый Report Visual System PDF/Masterlog/DOCX/XLSX, A4/A3/roll, colour + grayscale | Разработчик / в работе |
+| 8 | GASCTX-RPT-01 | Завершить остаточную report-first приёмку Gas Context Registry и синхронизацию тематического checklist с уже интегрированным кодом | Разработчик + специалист ГТИ / в работе |
+| 9 | FIELD-01 | Реальный WITS: сеть, профиль, live → review → запись → reconnect/reopen + Gas Ratio/Pixler/DEXP/alarms | Оператор + разработчик / блокировано внешним условием |
+| 10 | WELL-04 → WELL-05 | Закрыть остаточную сквозную приёмку переводов и связанных макетов; использовать готовый WELL-06 | Разработчик + оператор / запланировано |
+| 11 | REL-03 / CUT-03 | Реальная печать A4/A3 и комплект одной ревизии; финальная physical acceptance требует принтер и образцы | Оператор + разработчик / частично блокировано |
+| 12 | PERF-05 | Решение по storage только после измеренного baseline 100k/1M строк | Разработчик / запланировано |
+| 13 | FIELD-02…05; OPUS-08 | Совместимость с внешними системами и независимая проверка интерпретации | Разработчик + профильный специалист / блокировано внешним условием |
 
-WITS-CALC-01 закрыт зелёным Release gate и merge в `main`: live virtual Haworth/Pixler/DEXP/DEXPC, explicit operator normal mud density и live↔batch parity покрыты автоматическими regression tests.
-
-| 7 | WITS-GASCTX-01 | Live/WITS-классификация background/formation/connection/trip/circulated/elevated-unclassified остаётся отдельной вторичной интеграцией поверх общего gas-context контракта; WITS не является обязательной зависимостью для report-first редактора | Разработчик + специалист ГТИ / в работе |
-
-WITS-GASCTX-01: effective gas context presentation boundary и общий projection service добавлены как единый контракт observation → automatic assessment → manual precedence → localized presentation. Дальнейшая WITS-интеграция должна переиспользовать общий Gas Context Registry, но не блокирует работу газовых отчётов.
-
-| 8 | WITS-ALARM-01 | Для всех отображаемых параметров min/max, visual/audio alarm, hysteresis/debounce, acknowledgement и маркеры на графике | Разработчик + оператор / готово к разработке |
-| 9 | OBS-01 | Build/session identity и объяснимые состояния no-data/stale/error; используется операторским помощником и alarms | Разработчик / готово к разработке |
-| 10 | WITS-PLOT-01 | Независимые шкалы/диапазоны, редактируемые панели/колонки, читаемые интерпретационные полосы и non-overlap badges | Разработчик / в работе |
-| 11 | FIELD-01 | Реальный WITS: сеть, профиль, live → review → запись → reconnect/reopen + Gas Ratio/Pixler/DEXP/alarms | Оператор + разработчик / блокировано внешним условием |
-| 12 | WELL-04 → WELL-05 | Закрыть остаточную сквозную приёмку переводов и связанных макетов; использовать готовый WELL-06 | Разработчик + оператор / запланировано |
-| 13 | REL-03 / CUT-03 | Реальная печать A4/A3 и комплект одной ревизии уже через PRINT-STYLE-01; блокер финальной physical acceptance: нужны принтер и образцы | Оператор + разработчик / частично блокировано |
-| 14 | PERF-05 | Решение по storage только после измеренного baseline 100k/1M строк | Разработчик / запланировано |
-| 15 | FIELD-02…05; OPUS-08 | Совместимость с внешними системами и независимая проверка интерпретации | Разработчик + профильный специалист / блокировано внешним условием |
+WITS-CALC-01 и OBS-01 уже интегрированы и поэтому удалены из активной очереди согласно правилу 8. Live-derived Haworth/Pixler/DEXP/DEXPC и build/session diagnostics остаются существующими контрактами, которые WITS-UX обязан переиспользовать, а не реализовывать повторно.
 
 **Внешние действия, начинаемые сейчас:** WITS-NET-01 (оператор сети), SEC-05 (владелец
 ресурсов) и подготовка решения SEC-01 (владелец репозитория). Они не требуют ожидания
@@ -371,22 +365,36 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   Raw-измерения, credentials и содержимое пользовательского проекта автоматически не включаются.
 
 - [ ] **WITS-UX-01 (P0, в работе):** операторский WITS workspace должен поддерживать сценарий
-  «открыть WITS → выбрать форму → подключиться → сразу видеть буровую». Текущий UX-slice добавляет
-  отдельный health contract read-only проекции: no-data/healthy/stale/degraded вычисляются из
-  snapshot quality без догадок о TCP/acquisition; оператор видит локализованный статус и guidance,
-  а ошибка refresh явно не трактуется как остановка приёма/записи. Следующий slice переводит
-  workspace channel selection с session-local curve IDs на canonical mnemonics; schema-v1
-  мигрируется без падения и больше не сохраняет нестабильные ID. Выбор формы доступен до
-  runtime и не сбрасывается при LIVE PREVIEW → persistent handoff. Любая заводская форма является
-  редактируемой рабочей конфигурацией: можно добавлять/убирать параметры и графики, менять ось,
-  окно истории, max-points и layout; **Сохранить форму** записывает override по каноническим
-  мнемоникам, **Сбросить** возвращает factory template. Формы переживают reconnect/restart без
-  привязки к нестабильным curve_id. Монитор адаптивный: боковая панель сворачивается на малой
-  ширине, live view можно вынести в fullscreen и вернуть обратно без пересоздания acquisition.
-  Встроенная помощь объясняет TCP client/server, IP/interface, port, CIDR, raw retention,
-  Import Review, pause-view и разницу preview/recording. Приёмка: 100/125/150/200% DPI,
-  обычный/fullscreen/back, сохранение формы после restart, reconnect/schema change и отсутствие
-  потери runtime state. RU/KK/EN тексты и tooltips обязательны.
+  «открыть WITS → выбрать форму → подключиться → сразу видеть буровую» и не выглядеть как единая
+  техническая форма со всеми внутренними counters. **Live-first information architecture**:
+  вкладка Monitor/Live открывается первой; постоянно видимы только quick connection
+  (field preset, TCP client/server, host/interface, port), компактный health и основные действия.
+  CIDR/wildcard bind, raw directory, disk thresholds, retention и profile находятся в
+  сворачиваемом **Advanced**; raw/parser/sequence/schema/acquisition/recovery counters и
+  maintenance actions — в отдельном сворачиваемом **Diagnostics**. Raw/Parsed/Events/Help остаются
+  вторичными вкладками. Внешний горизонтальный scroll запрещён; вертикальный используется только
+  при реальной нехватке высоты. На малой ширине form rows должны переноситься, а основные actions
+  не должны исчезать или перекрываться.
+
+  Публичный benchmark используется как набор принципов, а не как источник для копирования UI:
+  SLB real-time dashboard показывает live gauges/log tracks, Techlog Real Time обновляет streaming
+  plots, Halliburton HalVue делает акцент на быстро настраиваемых displays/templates и alerts,
+  NOV WellData — на one-click доступе к важному, персонализируемых screens/profiles и alarms.
+  DIGITAL GEOLOG сохраняет собственную industrial-blue айдентику, терминологию и Qt architecture.
+
+  Уже существующие контракты сохраняются: explainable no-data/healthy/stale/degraded health,
+  mnemonic-based workspace persistence, LIVE PREVIEW → persistent handoff, editable factory forms,
+  fullscreen/back без пересоздания acquisition и RU/KK/EN contextual help/tooltips. Текущий
+  инкремент закрывает shell-level live-first layout: collapsed Advanced/Diagnostics по умолчанию,
+  Live tab first/current, compact health summary, перенос flush/reset в Diagnostics и отсутствие
+  outer horizontal scrollbar. Следующие slices: responsive side-panel/navigation inside Live,
+  persistence/reconnect acceptance, editable panel layout и field UX.
+
+  Приёмка текущего инкремента: 600×420 offscreen regression без horizontal scroll, Live — индекс 0
+  и current tab, Advanced/Diagnostics collapsed по умолчанию и раскрываются без потери state,
+  maintenance controls доступны в Diagnostics, quick preset/tooltips сохраняются. Итоговая
+  WITS-UX приёмка остаётся 100/125/150/200% DPI, normal/fullscreen/back, restart/reconnect/schema
+  change без потери runtime state; RU/KK/EN тексты и tooltips обязательны.
 
 - [ ] **WITS-PLOT-01 (P1, в работе):** отдельные дорожки/панели совместимых физических
   единиц с общей осью времени/глубины и независимыми auto/manual X-ranges. Панели и колонки
