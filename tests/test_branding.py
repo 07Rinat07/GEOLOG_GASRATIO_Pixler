@@ -1,6 +1,11 @@
 import pytest
 
-from geoworkbench.ui.branding import application_icon, about_program_logo_pixmap, logo_pixmap
+from geoworkbench.ui.branding import (
+    application_icon,
+    about_program_logo_pixmap,
+    home_background_pixmap,
+    logo_pixmap,
+)
 
 
 def test_packaged_logo_loads_and_scales(qapp) -> None:
@@ -17,6 +22,10 @@ def test_packaged_logo_loads_and_scales(qapp) -> None:
     assert not about.isNull()
     assert about.width() <= 420
     assert about.height() <= 420
+    background = home_background_pixmap(220, 640)
+    assert not background.isNull()
+    assert background.width() == 220
+    assert background.height() == 640
     assert not application_icon().isNull()
 
 
@@ -32,14 +41,23 @@ def test_branding_uses_one_canonical_logo_resource() -> None:
     branding_source = (
         root / "src" / "geoworkbench" / "ui" / "branding.py"
     ).read_text(encoding="utf-8")
-    canonical_logo = "geologist-logo.png"
+    canonical_logo = "digital-geolog-logo.svg"
     legacy_about_logo = "about-program-" + "logo.png"
+    legacy_geologist_logo = "geologist-" + "logo.png"
 
     assert f"resources/{canonical_logo}" in branding_source
+    assert 'resources/home-geology-background.svg' in branding_source
     assert legacy_about_logo not in branding_source
+    assert legacy_geologist_logo not in branding_source
     assert (root / "src" / "geoworkbench" / "resources" / canonical_logo).is_file()
+    assert (
+        root / "src" / "geoworkbench" / "resources" / "home-geology-background.svg"
+    ).is_file()
     assert not (
         root / "src" / "geoworkbench" / "resources" / legacy_about_logo
+    ).exists()
+    assert not (
+        root / "src" / "geoworkbench" / "resources" / legacy_geologist_logo
     ).exists()
 
     candidates = [
@@ -52,6 +70,9 @@ def test_branding_uses_one_canonical_logo_resource() -> None:
         str(candidate.relative_to(root))
         for candidate in candidates
         if candidate != Path(__file__).resolve()
-        and legacy_about_logo in candidate.read_text(encoding="utf-8")
+        and (
+            legacy_about_logo in candidate.read_text(encoding="utf-8")
+            or legacy_geologist_logo in candidate.read_text(encoding="utf-8")
+        )
     ]
     assert offenders == []
