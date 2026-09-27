@@ -355,13 +355,16 @@ def import_las_geology(session: ProjectSession) -> LasGeologyResult:
         if session.project.lithotypes[identity].category == "LAS: unmapped":
             unknown.append(code)
 
-    stratigraphy = (
-        _stratigraphy_from_metadata(metadata, depth)
-        if not well.stratigraphy and metadata is not None
-        else _stratigraphy_from_codes(depth, edges, stratigraphy_values)
-        if not well.stratigraphy and stratigraphy_values is not None
-        else []
-    )
+    stratigraphy: list[StratigraphyInterval] = []
+    if not well.stratigraphy:
+        if metadata is not None:
+            stratigraphy = _stratigraphy_from_metadata(metadata, depth)
+        elif stratigraphy_values is not None:
+            stratigraphy = _stratigraphy_from_codes(
+                depth,
+                edges,
+                stratigraphy_values,
+            )
 
     well.lithology.extend(lithology)
     well.cuttings.extend(cuttings)
