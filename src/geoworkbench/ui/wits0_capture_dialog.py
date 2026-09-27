@@ -1011,11 +1011,12 @@ class Wits0CaptureDialog(QDialog):
             }
             else "muted"
         )
-        self.health_summary.setProperty("statusRole", health_role)
-        health_style = self.health_summary.style()
-        health_style.unpolish(self.health_summary)
-        health_style.polish(self.health_summary)
-        self.health_summary.update()
+        if self.health_summary.property("statusRole") != health_role:
+            self.health_summary.setProperty("statusRole", health_role)
+            health_style = self.health_summary.style()
+            health_style.unpolish(self.health_summary)
+            health_style.polish(self.health_summary)
+            self.health_summary.update()
         self._refresh_discovery_status()
         self._refresh_acquisition_status()
 
