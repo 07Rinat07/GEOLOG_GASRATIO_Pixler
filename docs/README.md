@@ -1,4 +1,4 @@
-# DIGITAL GEOLOG GASRATIO&PIXLER — пользовательская документация
+# DIGITAL DIGITAL GEOLOG GASRATIO&PIXLER — пользовательская документация
 
 Руководства доступны на трёх языках:
 

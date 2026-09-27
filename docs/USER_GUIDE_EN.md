@@ -1,4 +1,4 @@
-# DIGITAL GEOLOG GASRATIO&PIXLER user guide
+# DIGITAL DIGITAL GEOLOG GASRATIO&PIXLER user guide
 
 ## 1. Interface order
 

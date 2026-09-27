@@ -1,6 +1,6 @@
 # Қолданбамен қауіпсіз жұмыс істеу
 
-Бұл нұсқаулық DIGITAL GEOLOG GASRATIO&PIXLER пайдаланушылары мен әкімшілеріне арналған. Қолданба
+Бұл нұсқаулық DIGITAL DIGITAL GEOLOG GASRATIO&PIXLER пайдаланушылары мен әкімшілеріне арналған. Қолданба
 well-control немесе emergency-shutdown system емес, decision-support tool болып табылады.
 Төмендегі нұсқаулармен бірге ұйымыңыздың access, backup және геологиялық деректерді өңдеу
 ережелерін қолданыңыз.

@@ -18,7 +18,7 @@ import uuid
 from typing import Any, Callable, cast
 from zipfile import ZIP_DEFLATED, ZipFile
 
-from geoworkbench.product_identity import PRODUCT_NAME
+from geoworkbench.brand import APPLICATION_DISPLAY_NAME
 from geoworkbench.services.build_identity import BuildIdentity, resolve_build_identity
 
 
@@ -460,7 +460,7 @@ class ApplicationLogManager:
                 included.append(arcname)
             archive.writestr(
                 "README.txt",
-                f"{PRODUCT_NAME} diagnostics bundle.\n"
+                f"{APPLICATION_DISPLAY_NAME} diagnostics bundle.\n"
                 "It contains runtime logs, system metadata and sanitized WITS0 connection "
                 "lifecycle metadata when available.\n"
                 "Project datasets, LAS values, forms, raw WITS frames and user files are not "

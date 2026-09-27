@@ -11,7 +11,7 @@ from xml.sax.saxutils import escape as xml_escape
 
 import numpy as np
 
-from geoworkbench.product_identity import PRODUCT_NAME
+from geoworkbench.brand import APPLICATION_DISPLAY_NAME
 from geoworkbench.data.number_format import format_decimal_number
 from geoworkbench.domain.models import CurveData, Dataset, DatasetIndex, IndexRole, IndexType
 from geoworkbench.services.coverage import ChannelAvailability, ChannelCoverage
@@ -568,7 +568,7 @@ def _docx_core_properties(model: ReportDocumentModel) -> str:
         'xmlns:dcmitype="http://purl.org/dc/dcmitype/" '
         'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">'
         f"<dc:title>{xml_escape(model.title)}</dc:title>"
-        f'<dc:creator>{PRODUCT_NAME}</dc:creator>'
+        f'<dc:creator>{APPLICATION_DISPLAY_NAME}</dc:creator>'
         f"<dc:language>{model.language.value}</dc:language>"
         f"<cp:keywords>{model.definition_sha256}</cp:keywords>"
         '</cp:coreProperties>'
@@ -581,7 +581,7 @@ def _docx_app_properties() -> str:
         '<Properties '
         'xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" '
         'xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">'
-        f'<Application>{PRODUCT_NAME}</Application><AppVersion>0.7</AppVersion>'
+        f'<Application>{APPLICATION_DISPLAY_NAME}</Application><AppVersion>0.7</AppVersion>'
         '</Properties>'
     )
 

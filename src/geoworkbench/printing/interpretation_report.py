@@ -10,7 +10,7 @@ import tempfile
 from PySide6.QtCore import QMarginsF
 from PySide6.QtGui import QPageLayout, QPageSize, QPdfWriter, QTextDocument
 
-from geoworkbench.product_identity import PRODUCT_NAME
+from geoworkbench.brand import APPLICATION_DISPLAY_NAME
 from geoworkbench.domain.models import CuttingsSample, Dataset
 from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
 from geoworkbench.project.lithotype_catalog_models import CatalogLithotype
@@ -1106,7 +1106,7 @@ def export_interpretation_report_pdf(
         writer.setPageMargins(QMarginsF(14.0, 14.0, 14.0, 14.0), QPageLayout.Unit.Millimeter)
         writer.setResolution(300)
         writer.setTitle(_LABELS[language]["title"])
-        writer.setCreator(PRODUCT_NAME)
+        writer.setCreator(APPLICATION_DISPLAY_NAME)
         html = interpretation_report_html(report, language)
         unicode_report = preflight_texts([html])
         if not unicode_report.ok:

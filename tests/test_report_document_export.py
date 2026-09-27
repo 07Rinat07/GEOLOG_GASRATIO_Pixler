@@ -5,7 +5,7 @@ import zipfile
 import numpy as np
 import pytest
 
-from geoworkbench.product_identity import PRODUCT_NAME
+from geoworkbench.brand import APPLICATION_DISPLAY_NAME
 from geoworkbench.data.report_document_export import (
     MISSING_CELL,
     REPORT_DOCUMENT_SCHEMA_VERSION,
@@ -126,7 +126,7 @@ def test_docx_export_is_valid_deterministic_openxml(tmp_path) -> None:
     assert "—" in document
     assert "0" in document
     assert report.definition.content_sha256 in document
-    assert PRODUCT_NAME in core
+    assert APPLICATION_DISPLAY_NAME in core
 
 
 def test_document_export_validates_suffix_and_overwrite(tmp_path) -> None:

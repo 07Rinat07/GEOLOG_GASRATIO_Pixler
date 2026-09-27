@@ -1,4 +1,4 @@
-# Руководство пользователя DIGITAL GEOLOG GASRATIO&PIXLER
+# Руководство пользователя DIGITAL DIGITAL GEOLOG GASRATIO&PIXLER
 
 ## 1. Порядок разделов
 

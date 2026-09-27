@@ -7,7 +7,7 @@ import ssl
 from typing import Any, Mapping
 from uuid import uuid4
 
-from geoworkbench.product_identity import PRODUCT_NAME
+from geoworkbench.brand import APPLICATION_DISPLAY_NAME
 from geoworkbench import __version__
 from geoworkbench.importers.etp12.models import (
     Etp12AuthMode,
@@ -92,7 +92,7 @@ class EtpProtoMessageFactory:
         ]
         now_us = int(datetime.now(timezone.utc).timestamp() * 1_000_000)
         return RequestSession(
-            application_name=PRODUCT_NAME,
+            application_name=APPLICATION_DISPLAY_NAME,
             application_version=__version__,
             client_instance_id=uuid4(),
             requested_protocols=requested,

@@ -6,7 +6,7 @@
 
 ## Архитектурный стиль
 
-DIGITAL GEOLOG GASRATIO&PIXLER — desktop-модульный монолит на Python 3.11, PySide6, PyQtGraph и NumPy.
+DIGITAL DIGITAL GEOLOG GASRATIO&PIXLER — desktop-модульный монолит на Python 3.11, PySide6, PyQtGraph и NumPy.
 Модульность определяется направлением зависимостей и контрактами, а не количеством процессов.
 
 ```text
@@ -496,7 +496,7 @@ Preview и физический printer job не владеют постоянн
 и его `ReportPassport`; служебная PDF-копия не создаётся. Атомарные временные файлы имеют
 application-префикс `geolog-export-`, удаляются после success/failure и могут быть очищены как
 stale только для того же exact destination. Миграционная очистка старых timestamp PDF ограничена
-выделенным каталогом `DIGITAL GEOLOG GASRATIO&PIXLER/Печатные копии`: каталог сначала подтверждается
+выделенным каталогом `GEOLOG GASRATIO Pixler/Печатные копии`: каталог сначала подтверждается
 ownership marker либо безопасно принимается только когда все его элементы соответствуют строгим
 legacy-шаблонам. Наличие постороннего файла, symlink/reparse point или неверного marker блокирует
 удаление; произвольное сканирование project directory и удаление пользовательских `*.pdf`

@@ -1,6 +1,6 @@
 # Using the application securely
 
-This guide is for DIGITAL GEOLOG GASRATIO&PIXLER users and administrators. The application is a
+This guide is for DIGITAL DIGITAL GEOLOG GASRATIO&PIXLER users and administrators. The application is a
 decision-support tool, not a well-control or emergency-shutdown system. Apply your organization's
 access, backup, and geological-data handling policies in addition to the guidance below.
 

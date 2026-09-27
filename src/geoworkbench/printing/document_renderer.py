@@ -9,7 +9,7 @@ from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QPainter
 from PySide6.QtWidgets import QWidget
 
-from geoworkbench.product_identity import PRODUCT_NAME
+from geoworkbench.brand import APPLICATION_DISPLAY_NAME
 from geoworkbench.domain.models import MasterlogTemplate
 from geoworkbench.printing.auto_pagination import (
     PRINT_FOOTER_MM,
@@ -683,11 +683,11 @@ def _paint_footer(
     try:
         painter.setPen(Qt.GlobalColor.black)
         painter.drawLine(rect.topLeft(), rect.topRight())
-        painter.setFont(print_font(7.5, text=PRODUCT_NAME))
+        painter.setFont(print_font(7.5, text=APPLICATION_DISPLAY_NAME))
         painter.drawText(
             rect,
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-            PRODUCT_NAME,
+            APPLICATION_DISPLAY_NAME,
         )
         if show_page_numbers:
             painter.drawText(
