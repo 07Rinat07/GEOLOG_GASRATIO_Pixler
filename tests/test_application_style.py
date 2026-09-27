@@ -11,6 +11,7 @@ from geoworkbench.ui.application_style import (
     adaptive_application_stylesheet,
     industrial_application_palette,
     industrial_shell_stylesheet,
+    wits0_dialog_stylesheet,
 )
 
 
@@ -51,8 +52,6 @@ def test_adaptive_application_stylesheet_uses_palette_roles_and_no_fixed_widths(
     info_block = stylesheet.split('QLabel[guidanceRole="info"]', 1)[1].split("}", 1)[0]
     assert "color: palette(window-text)" in info_block
     assert "color: palette(mid)" not in info_block
-    assert "QDialog#wits0CaptureDialog QScrollBar:vertical" in stylesheet
-    assert "QDialog#wits0CaptureDialog QScrollBar:horizontal" in stylesheet
     assert "QDialog#form-create-dialog QTreeWidget::item" in stylesheet
     assert "QDialog#form-manager-dialog QTreeWidget::item" in stylesheet
     assert "QLabel#form-manager-heading" in stylesheet
@@ -112,6 +111,17 @@ def test_industrial_shell_stylesheet_uses_navy_navigation_and_cyan_activity() ->
     assert "QStatusBar#mainStatusBar" in stylesheet
 
 
+def test_wits0_dialog_stylesheet_scopes_visible_scrollbar_dimensions() -> None:
+    stylesheet = wits0_dialog_stylesheet()
+
+    assert "QDialog#wits0CaptureDialog QScrollBar:vertical" in stylesheet
+    assert "QDialog#wits0CaptureDialog QScrollBar:horizontal" in stylesheet
+    assert "width: 14px" in stylesheet
+    assert "height: 14px" in stylesheet
+    assert "min-height: 34px" in stylesheet
+    assert "min-width: 34px" in stylesheet
+
+
 @pytest.mark.skipif(
     importlib.util.find_spec("PySide6") is None,
     reason="PySide6 is not installed",
@@ -136,6 +146,7 @@ def test_adaptive_application_style_is_idempotent(
         assert first == second
         assert adaptive_application_stylesheet().strip() in first
         assert industrial_shell_stylesheet().strip() in first
+        assert wits0_dialog_stylesheet().strip() in first
     finally:
         app.setStyleSheet(original)
         app.setPalette(original_palette)
