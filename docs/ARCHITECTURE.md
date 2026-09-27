@@ -6,7 +6,7 @@
 
 ## Архитектурный стиль
 
-GEOLOG GASRATIO&PIXLER — desktop-модульный монолит на Python 3.11, PySide6, PyQtGraph и NumPy.
+DIGITAL GEOLOG GASRATIO&PIXLER — desktop-модульный монолит на Python 3.11, PySide6, PyQtGraph и NumPy.
 Модульность определяется направлением зависимостей и контрактами, а не количеством процессов.
 
 ```text
