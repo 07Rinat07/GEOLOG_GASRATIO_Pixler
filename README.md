@@ -1,4 +1,4 @@
-# DIGITAL DIGITAL GEOLOG GASRATIO&PIXLER
+# DIGITAL GEOLOG GASRATIO&PIXLER
 
 Настольная платформа для подготовки, проверки, интерпретации и визуализации буровых,
 газокаротажных, LAS- и GeoScape2/GS2-данных. Приложение объединяет работу с исходными данными,
@@ -169,15 +169,15 @@ python scripts/run_tests.py -p no:cacheprovider
 
 <p align="center">
   <img
-    src="docs/assets/author-rinat-sarmuldin.png"
-    alt="Логотип DIGITAL DIGITAL GEOLOG GASRATIO&PIXLER"
+    src="src/geoworkbench/resources/geologist-logo.png"
+    alt="Логотип DIGITAL GEOLOG GASRATIO&PIXLER"
     width="720"
   >
 </p>
 
 <p align="center">
   <strong>Rinat Sarmuldin</strong><br>
-  Автор и разработчик проекта DIGITAL DIGITAL GEOLOG GASRATIO&PIXLER.
+  Автор и разработчик проекта DIGITAL GEOLOG GASRATIO&PIXLER.
 </p>
 
 ## Документация
