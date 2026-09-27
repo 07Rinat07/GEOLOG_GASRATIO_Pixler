@@ -44,6 +44,217 @@ class _TopToolTipButton(QToolButton):
         return super().event(event)
 
 
+def _interpretation_workspace_accessibility_stylesheet() -> str:
+    """Final palette-aware readability layer for the interpretation workspace."""
+
+    return """
+    QWidget#interpretation-report-workspace {
+        color: palette(window-text);
+    }
+    QWidget#interpretation-report-workspace QLabel {
+        color: palette(window-text);
+    }
+    QWidget#interpretation-report-workspace QLabel#interpretation-section-heading,
+    QWidget#interpretation-report-workspace QLabel#interpretation-page-subtitle,
+    QWidget#interpretation-report-workspace QLabel#drilling-input-plan-status,
+    QWidget#interpretation-report-workspace QLabel#dexp-quality-summary,
+    QWidget#interpretation-report-workspace QLabel#dexp-quality-reasons,
+    QWidget#interpretation-report-workspace QLabel#interpretation-export-label {
+        color: palette(window-text);
+    }
+
+    QWidget#interpretation-report-workspace QPushButton {
+        min-height: 36px;
+        padding: 6px 12px;
+        border: 1px solid palette(mid);
+        border-radius: 8px;
+        background: palette(button);
+        color: palette(button-text);
+        font-weight: 600;
+    }
+    QWidget#interpretation-report-workspace QPushButton:hover {
+        background: palette(midlight);
+        border-color: palette(highlight);
+        color: palette(button-text);
+    }
+    QWidget#interpretation-report-workspace QPushButton:pressed,
+    QWidget#interpretation-report-workspace QPushButton:checked {
+        background: palette(highlight);
+        border-color: palette(highlight);
+        color: palette(highlighted-text);
+    }
+    QWidget#interpretation-report-workspace QPushButton:focus {
+        border: 2px solid palette(highlight);
+        padding: 5px 11px;
+    }
+    QWidget#interpretation-report-workspace QPushButton:disabled {
+        background: palette(window);
+        border-color: palette(mid);
+        color: palette(mid);
+    }
+    QWidget#interpretation-report-workspace QPushButton[role="primary"],
+    QWidget#interpretation-report-workspace QPushButton[uiRole="primary"] {
+        min-height: 42px;
+        background: palette(highlight);
+        border-color: palette(highlight);
+        color: palette(highlighted-text);
+        font-weight: 700;
+    }
+    QWidget#interpretation-report-workspace QPushButton[role="secondary"],
+    QWidget#interpretation-report-workspace QPushButton[uiRole="secondary"] {
+        border-color: palette(highlight);
+        background: palette(button);
+        color: palette(button-text);
+    }
+
+    QPushButton#gas-context-event-editor-button {
+        min-height: 52px;
+        padding-left: 16px;
+        padding-right: 12px;
+        text-align: left;
+        border-left: 4px solid palette(highlight);
+        background: palette(button);
+        color: palette(button-text);
+        font-weight: 700;
+    }
+    QPushButton#gas-context-event-editor-button:hover {
+        background: palette(midlight);
+        border-color: palette(highlight);
+        color: palette(button-text);
+    }
+    QPushButton#gas-context-event-editor-button:pressed {
+        background: palette(highlight);
+        color: palette(highlighted-text);
+    }
+    QPushButton#gas-context-event-editor-button:disabled {
+        border-left-color: palette(mid);
+    }
+
+    QFrame#interpretation-workflow-card {
+        border: 1px solid palette(mid);
+        border-radius: 9px;
+        background: palette(alternate-base);
+    }
+    QLabel#interpretation-workflow-title {
+        border: none;
+        background: transparent;
+        color: palette(window-text);
+        font-weight: 700;
+    }
+    QLabel#interpretation-workflow-steps {
+        border: none;
+        background: transparent;
+        color: palette(window-text);
+    }
+    QToolButton#interpretation-workflow-help,
+    QToolButton#interpretation-back-button,
+    QToolButton#methodology-toggle,
+    QToolButton#interpretation-log-toggle {
+        min-height: 34px;
+        padding: 6px 10px;
+        border: 1px solid palette(mid);
+        border-radius: 8px;
+        background: palette(button);
+        color: palette(button-text);
+        font-weight: 600;
+    }
+    QToolButton#interpretation-workflow-help {
+        min-height: 46px;
+        border-left: 4px solid palette(highlight);
+        text-align: left;
+    }
+    QToolButton#interpretation-workflow-help:hover,
+    QToolButton#interpretation-back-button:hover,
+    QToolButton#methodology-toggle:hover,
+    QToolButton#interpretation-log-toggle:hover {
+        background: palette(midlight);
+        border-color: palette(highlight);
+        color: palette(button-text);
+    }
+    QToolButton#interpretation-workflow-help:pressed,
+    QToolButton#interpretation-back-button:pressed,
+    QToolButton#methodology-toggle:pressed,
+    QToolButton#interpretation-log-toggle:pressed,
+    QToolButton#methodology-toggle:checked,
+    QToolButton#interpretation-log-toggle:checked {
+        background: palette(highlight);
+        border-color: palette(highlight);
+        color: palette(highlighted-text);
+    }
+    QToolButton#interpretation-workflow-guide {
+        min-height: 32px;
+        border: none;
+        border-radius: 7px;
+        padding: 4px 8px;
+        color: palette(link);
+        background: transparent;
+        text-decoration: underline;
+    }
+    QToolButton#interpretation-workflow-guide:hover {
+        background: palette(midlight);
+        color: palette(window-text);
+    }
+
+    QWidget#interpretation-report-workspace QScrollBar:vertical {
+        width: 14px;
+        margin: 2px;
+        border: none;
+        background: transparent;
+    }
+    QWidget#interpretation-report-workspace QScrollBar::handle:vertical {
+        min-height: 38px;
+        margin: 1px;
+        border: 1px solid palette(mid);
+        border-radius: 6px;
+        background: palette(mid);
+    }
+    QWidget#interpretation-report-workspace QScrollBar::handle:vertical:hover,
+    QWidget#interpretation-report-workspace QScrollBar::handle:vertical:pressed {
+        border-color: palette(highlight);
+        background: palette(highlight);
+    }
+    QWidget#interpretation-report-workspace QScrollBar::add-line:vertical,
+    QWidget#interpretation-report-workspace QScrollBar::sub-line:vertical {
+        height: 0;
+        border: none;
+        background: transparent;
+    }
+    QWidget#interpretation-report-workspace QScrollBar::add-page:vertical,
+    QWidget#interpretation-report-workspace QScrollBar::sub-page:vertical {
+        background: transparent;
+    }
+
+    QWidget#interpretation-report-workspace QScrollBar:horizontal {
+        height: 14px;
+        margin: 2px;
+        border: none;
+        background: transparent;
+    }
+    QWidget#interpretation-report-workspace QScrollBar::handle:horizontal {
+        min-width: 38px;
+        margin: 1px;
+        border: 1px solid palette(mid);
+        border-radius: 6px;
+        background: palette(mid);
+    }
+    QWidget#interpretation-report-workspace QScrollBar::handle:horizontal:hover,
+    QWidget#interpretation-report-workspace QScrollBar::handle:horizontal:pressed {
+        border-color: palette(highlight);
+        background: palette(highlight);
+    }
+    QWidget#interpretation-report-workspace QScrollBar::add-line:horizontal,
+    QWidget#interpretation-report-workspace QScrollBar::sub-line:horizontal {
+        width: 0;
+        border: none;
+        background: transparent;
+    }
+    QWidget#interpretation-report-workspace QScrollBar::add-page:horizontal,
+    QWidget#interpretation-report-workspace QScrollBar::sub-page:horizontal {
+        background: transparent;
+    }
+    """
+
+
 class InterpretationReportWorkspace(_LayoutWorkspace):
     """Interpretation workspace linked to the central three-language help centre."""
 
@@ -115,6 +326,8 @@ class InterpretationReportWorkspace(_LayoutWorkspace):
         gas_context_button = QPushButton()
         gas_context_button.setObjectName("gas-context-event-editor-button")
         gas_context_button.clicked.connect(self._edit_gas_context_events)
+        gas_context_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        gas_context_button.setMinimumHeight(52)
         gas_context_button.setSizePolicy(
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Fixed,
@@ -126,53 +339,7 @@ class InterpretationReportWorkspace(_LayoutWorkspace):
 
         button.setEnabled(self.print_button.isEnabled())
         self.setStyleSheet(
-            self.styleSheet()
-            + """
-            QFrame#interpretation-workflow-card {
-                border: 1px solid palette(mid);
-                border-radius: 7px;
-                background: palette(alternate-base);
-            }
-            QLabel#interpretation-workflow-title {
-                border: none;
-                background: transparent;
-                color: palette(text);
-                font-weight: 700;
-            }
-            QLabel#interpretation-workflow-steps {
-                border: none;
-                background: transparent;
-                color: palette(text);
-                line-height: 1.35;
-            }
-            QToolButton#interpretation-workflow-help {
-                border: 1px solid palette(mid);
-                border-left: 4px solid palette(highlight);
-                border-radius: 6px;
-                padding: 7px 10px;
-                color: palette(button-text);
-                background: palette(button);
-                font-weight: 600;
-                text-align: left;
-            }
-            QToolButton#interpretation-workflow-help:hover {
-                border-color: palette(highlight);
-                background: palette(alternate-base);
-            }
-            QToolButton#interpretation-workflow-help:disabled {
-                color: palette(mid);
-                border-left-color: palette(mid);
-            }
-            QToolButton#interpretation-workflow-guide {
-                border: none;
-                color: palette(link);
-                background: transparent;
-                text-decoration: underline;
-            }
-            QToolButton#interpretation-workflow-guide:hover {
-                color: palette(highlight);
-            }
-            """
+            self.styleSheet() + _interpretation_workspace_accessibility_stylesheet()
         )
 
     def _set_exports_enabled(self, enabled: bool) -> None:
@@ -244,9 +411,9 @@ class InterpretationReportWorkspace(_LayoutWorkspace):
         if self.gas_context_button is not None:
             self.gas_context_button.setText(
                 self._text(
-                    "1. Газовые события перед расчётом…",
-                    "1. Есептеу алдындағы газ оқиғалары…",
-                    "1. Gas events before calculation…",
+                    "1. Газовые события\nперед расчётом…",
+                    "1. Есептеу алдындағы\nгаз оқиғалары…",
+                    "1. Gas events before\ncalculation…",
                 )
             )
             gas_context_tooltip = self._text(

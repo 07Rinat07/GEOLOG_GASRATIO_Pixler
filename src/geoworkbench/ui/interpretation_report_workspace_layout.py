@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QPalette, QResizeEvent
+from PySide6.QtGui import QResizeEvent
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -36,7 +36,12 @@ class InterpretationReportWorkspace(_ResponsiveInterpretationReportWorkspace):
 
         self.preview_sidebar = QFrame()
         self.preview_sidebar.setObjectName("interpretation-preview-sidebar")
-        self.preview_sidebar.setFixedWidth(196)
+        self.preview_sidebar.setMinimumWidth(224)
+        self.preview_sidebar.setMaximumWidth(264)
+        self.preview_sidebar.setSizePolicy(
+            QSizePolicy.Policy.Preferred,
+            QSizePolicy.Policy.Expanding,
+        )
         sidebar_layout = QVBoxLayout(self.preview_sidebar)
         sidebar_layout.setContentsMargins(8, 8, 8, 8)
         sidebar_layout.setSpacing(8)
@@ -72,40 +77,33 @@ class InterpretationReportWorkspace(_ResponsiveInterpretationReportWorkspace):
 
     def _apply_responsive_theme(self) -> None:
         super()._apply_responsive_theme()
-        dark = self.palette().color(QPalette.ColorRole.Window).lightness() < 128
-        sidebar_background = "#111923" if dark else "#f3f6fa"
-        sidebar_border = "#334155" if dark else "#cbd5e1"
-        button_background = "#1e293b" if dark else "#ffffff"
-        button_hover = "#26364b" if dark else "#eaf3ff"
-        button_checked = "#164e63" if dark else "#dbeafe"
-        text = "#e5edf7" if dark else "#172033"
-        accent = "#38bdf8" if dark else "#2563eb"
         self.setStyleSheet(
             self.styleSheet()
-            + f"""
-            QFrame#interpretation-preview-sidebar {{
-                background: {sidebar_background};
-                border: 1px solid {sidebar_border};
+            + """
+            QFrame#interpretation-preview-sidebar {
+                background: palette(window);
+                border: 1px solid palette(mid);
+                border-radius: 10px;
+            }
+            QToolButton#interpretation-preview-toggle {
+                background: palette(button);
+                color: palette(button-text);
+                border: 1px solid palette(mid);
+                border-left: 4px solid palette(highlight);
                 border-radius: 8px;
-            }}
-            QToolButton#interpretation-preview-toggle {{
-                background: {button_background};
-                color: {text};
-                border: 1px solid {sidebar_border};
-                border-left: 4px solid {accent};
-                border-radius: 6px;
-                padding: 8px 10px;
-                font-weight: 600;
+                padding: 8px 12px;
+                font-weight: 700;
                 text-align: left;
-            }}
-            QToolButton#interpretation-preview-toggle:hover {{
-                background: {button_hover};
-                border-color: {accent};
-            }}
-            QToolButton#interpretation-preview-toggle:checked {{
-                background: {button_checked};
-                border-color: {accent};
-            }}
+            }
+            QToolButton#interpretation-preview-toggle:hover {
+                background: palette(midlight);
+                border-color: palette(highlight);
+            }
+            QToolButton#interpretation-preview-toggle:checked {
+                background: palette(highlight);
+                border-color: palette(highlight);
+                color: palette(highlighted-text);
+            }
             """
         )
 
