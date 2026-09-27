@@ -200,6 +200,10 @@ Document/painter/user-selected colors остаются данными докум
 
 Цель — единый оригинальный профессиональный нефтесервисный стиль, ориентированный на лучшие
 практики полевых/инженерных отчётов, без копирования фирменной айдентики сторонних компаний.
+Печатный visual profile является **адаптацией текущей DIGITAL GEOLOG industrial-blue айдентики**,
+а не вторым редизайном приложения: navy/cyan brand-направление, wordmark и визуальная иерархия
+сохраняются, но значения contrast/fills/line weights подбираются для A4/A3/roll и grayscale.
+PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
 
 - [ ] Один immutable style profile для PDF, Masterlog, планшетной печати и Office-экспорта:
   нейтральная техническая типографика, строгая сетка, сдержанный petroleum-blue accent,
