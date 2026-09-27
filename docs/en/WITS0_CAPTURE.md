@@ -27,6 +27,13 @@ counters plus queue flush and discovery reset live under collapsible **Diagnosti
 counters**. The outer workspace does not use horizontal scrolling; vertical scrolling remains
 available only when the available height is insufficient.
 
+Navigation inside **Monitor** is adaptive as well. On wide windows the parameter sidebar and plot
+can remain visible together in the splitter. Below 820 px, and in full-screen mode, the plot takes
+priority: **Show parameters** switches to a dedicated parameter view and **Back to monitor**
+returns to the live plot. Acquisition is neither rebuilt nor stopped by this navigation. The
+current-values table stretches all four columns to the available width instead of introducing its
+own horizontal overflow.
+
 A GeoScape/GSWITS preset is provided for the common path. Context help is required next to mode,
 IP/interface, port, CIDR, raw directory, free-space thresholds and retention. The built-in
 **Help and instructions** tab explains client/server roles, local versus remote addressing,

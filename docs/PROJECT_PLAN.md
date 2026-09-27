@@ -385,17 +385,22 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   Уже существующие контракты сохраняются: explainable no-data/healthy/stale/degraded health,
   mnemonic-based workspace persistence, LIVE PREVIEW → persistent handoff, editable factory forms,
   fullscreen/back без пересоздания acquisition и RU/KK/EN contextual help/tooltips. Текущий
-  инкремент закрывает shell-level live-first layout: collapsed Advanced/Diagnostics по умолчанию,
-  Live tab first/current, compact health summary, перенос flush/reset в Diagnostics, отсутствие
-  outer horizontal scrollbar и многострочный adaptive control grid внутри Live вместо одного
-  неумещающегося toolbar-рядка. Следующие slices: responsive side-panel/navigation inside Live,
-  persistence/reconnect acceptance, editable panel layout и field UX.
+  Первые два UX-инкремента закрывают shell-level live-first layout и responsive navigation:
+  collapsed Advanced/Diagnostics по умолчанию, Live tab first/current, compact health summary,
+  перенос flush/reset в Diagnostics, отсутствие outer horizontal scrollbar, многострочный
+  adaptive control grid внутри Live и отдельный **compact parameter navigation mode**. При ширине
+  <820 px и в fullscreen Monitor/plot остаётся основным экраном; параметры открываются кнопкой
+  как отдельный view и возвращаются действием «Назад к монитору», без пересоздания acquisition.
+  На широком окне сохраняется обычный splitter-sidebar и его пользовательская видимость.
+  Current-values table растягивает четыре колонки по доступной ширине вместо собственного
+  горизонтального overflow. Следующие slices: persistence/reconnect acceptance, editable panel
+  layout и field UX.
 
-  Приёмка текущего инкремента: 600×420 offscreen regression без horizontal scroll, все Live
-  form/axis/follow/window/points/refresh/sidebar/fullscreen controls остаются доступными внутри
-  adaptive grid, Live — индекс 0 и current tab, Advanced/Diagnostics collapsed по умолчанию и
-  раскрываются без потери state,
-  maintenance controls доступны в Diagnostics, quick preset/tooltips сохраняются. Итоговая
+  Приёмка responsive-navigation инкремента: 600×420 открывается plot-first; переключение
+  Monitor ↔ Parameters не меняет runtime state; на 1200 px sidebar и plot могут быть видимы
+  одновременно; wide sidebar preference восстанавливается после compact/fullscreen round-trip;
+  fullscreen/back не пересоздаёт acquisition; current-values columns используют Stretch.
+  Итоговая
   WITS-UX приёмка остаётся 100/125/150/200% DPI, normal/fullscreen/back, restart/reconnect/schema
   change без потери runtime state; RU/KK/EN тексты и tooltips обязательны.
 
