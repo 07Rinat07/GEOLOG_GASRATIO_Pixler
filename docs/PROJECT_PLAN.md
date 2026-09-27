@@ -190,8 +190,10 @@ Document/painter/user-selected colors остаются данными докум
   semantic `uiRole`: Add — primary, Remove — destructive, Update сохраняет default presentation;
   callbacks и CRUD semantics не меняются. Logo Catalog preview также переведён с локального
   light-only QSS на shared palette-aware selector; отображение и масштабирование самих logo assets
-  остаются неизменными. Следующий slice — repo-wide аудит оставшихся локальных presentation-QSS
-  вне preview/painter и пользовательских/document colors.
+  остаются неизменными. Masterlog Header inspector warning о выходе элемента за границы также
+  использует shared semantic `validationRole="warning"` вместо inline fixed-red HTML; preview/painter
+  и пользовательские document colors не меняются. Следующий slice — repo-wide аудит оставшихся
+  локальных presentation-QSS вне preview/painter и пользовательских/document colors.
 - [ ] Primary/secondary/destructive/quiet роли задавать semantic property, а не цветом по месту.
 - [ ] Диалоги продолжают использовать `fit_window_to_screen`; длинные RU/KK/EN подписи
   переносятся/уходят в overflow, primary action остаётся видимым.
