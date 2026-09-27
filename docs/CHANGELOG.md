@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- LAS/UI: исправлен crash до начала импорта (`KeyError: 'files'`) при открытии любого LAS: имя файла теперь передаётся непосредственно в `Localizer.text(...)`, а progress/status сообщения покрыты regression-тестом.
 - WITS0/UI: capture workspace переведён на live-first operator flow: Monitor открывается первым, quick connection и compact health остаются на виду, network/storage параметры скрыты в collapsible Advanced, длинные counters и flush/reset — в Diagnostics, внешний horizontal scroll отключён, а form/axis/follow/window/points/actions внутри Live разложены в адаптивный многострочный control grid; текущая industrial-blue айдентика и WITS transport/acquisition semantics не менялись.
 - UI: предупреждение Masterlog Header inspector о выходе элемента за границы переведено с inline fixed-red HTML на shared palette-aware `validationRole="warning"`; геометрия шапки, preview/painter и пользовательские document colors не менялись.
 - Startup/Home: устранено зависание белого окна на широком/разворачиваемом окне: декоративный geology background больше не синхронно SVG-рендерится на каждый Resize; рендер откладывается до стабилизации размера и повторный одинаковый target size переиспользуется без изменения изображения или industrial-blue дизайна.
