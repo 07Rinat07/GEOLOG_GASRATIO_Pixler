@@ -399,7 +399,7 @@ class CuttingsController:
 
     @staticmethod
     def _has_non_description_data(sample: CuttingsSample) -> bool:
-        if sample.components:
+        if sample.components or sample.total_carbonate_percent is not None:
             return True
         values = (
             sample.lba_group,

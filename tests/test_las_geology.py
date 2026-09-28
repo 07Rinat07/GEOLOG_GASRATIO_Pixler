@@ -3,8 +3,10 @@ import json
 from pathlib import Path
 import zlib
 
+import pytest
+
 from geoworkbench.data.las_adapter import import_las, import_las_with_report
-from geoworkbench.domain.models import CuttingsSample, LithologyInterval
+from geoworkbench.domain.models import CuttingsSample, LithologyInterval, StratigraphyInterval
 from geoworkbench.project.dataset_export_controller import DatasetExportController
 from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
 from geoworkbench.project.session import ProjectSession
@@ -332,7 +334,7 @@ def test_metadata_without_usable_stratigraphy_falls_back_to_strat_code(tmp_path:
     assert well.stratigraphy[0].code == "7"
 
 
-def test_metadata_stratigraphy_requires_retained_strat_code_channel(tmp_path: Path) -> None:
+def test_metadata_stratigraphy_survives_without_a_sampled_code_channel(tmp_path: Path) -> None:
     source = tmp_path / "strat-channel-gate.las"
     metadata = _base_metadata(
         stratigraphy=[
@@ -361,7 +363,52 @@ def test_metadata_stratigraphy_requires_retained_strat_code_channel(tmp_path: Pa
         create_new_well=True,
     )
 
-    assert well.stratigraphy == []
+    assert len(well.stratigraphy) == 1
+    assert well.stratigraphy[0].name == "Меловая система"
+
+
+def test_metadata_stratigraphy_survives_a_gap_in_depth_samples(tmp_path: Path) -> None:
+    source = tmp_path / "strat-in-gap.las"
+    source.write_bytes(_small_geology_las(
+        (" LBA_GROUP.CODE : LBA group",),
+        ("0 2", "100 2"),
+        metadata=_base_metadata(stratigraphy=[{
+            "top": 40, "bottom": 60, "short": "K", "name_ru": "Меловая система",
+        }]),
+    ))
+    result = import_las_with_report(source)
+    session = ProjectSession()
+    well = session.add_dataset(
+        result.dataset, "Test", source_document=result.source_document,
+        import_report=result.report, create_new_well=True,
+    )
+    assert [(item.top_depth, item.bottom_depth, item.code) for item in well.stratigraphy] == [
+        (40.0, 60.0, "K"),
+    ]
+
+
+def test_exported_stratigraphy_inside_depth_gap_reimports_without_carrier(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "strat-gap-source.las"
+    source.write_bytes(_small_geology_las(
+        (" LBA_GROUP.CODE : LBA group",), ("0 2", "100 2"),
+    ))
+    session = ProjectSession()
+    well = session.add_dataset(import_las(source), "Test", create_new_well=True)
+    well.stratigraphy.append(StratigraphyInterval("strat-gap", 40, 60, "K", name="Cretaceous"))
+
+    exported = DatasetExportController(session).export_current_las(tmp_path / "strat-gap.las")
+    reopened = import_las_with_report(exported)
+    restored = ProjectSession().add_dataset(
+        reopened.dataset, "Test", source_document=reopened.source_document,
+        import_report=reopened.report, create_new_well=True,
+    )
+
+    assert reopened.dataset.curve_by_mnemonic("STRAT_CODE") is None
+    assert [(item.top_depth, item.bottom_depth, item.name) for item in restored.stratigraphy] == [
+        (40.0, 60.0, "Cretaceous"),
+    ]
 
 
 def test_strat_code_does_not_bridge_unsampled_depth_gap(tmp_path: Path) -> None:
@@ -751,3 +798,71 @@ def test_portable_las_retains_distinct_lithology_and_cuttings_descriptions(
     assert any(item.description == "Шлам мергеля с кальцитом" for item in restored.cuttings)
     assert restored.cuttings[0].total_carbonate_percent == 43.0
     assert len(restored.stratigraphy) == 1
+
+
+def test_portable_las_retains_non_russian_geology_translations(tmp_path: Path) -> None:
+    source = tmp_path / "localized-source.las"
+    source.write_bytes(_legacy_maksat_geology_las())
+    imported = import_las_with_report(source)
+    session = ProjectSession()
+    well = session.add_dataset(
+        imported.dataset, "Test", source_document=imported.source_document,
+        import_report=imported.report, create_new_well=True,
+    )
+    well.lithology[0].description = None
+    well.lithology[0].description_i18n = {"en": "Gray sandstone", "kk": "Сұр құмтас"}
+    well.cuttings[0].description = None
+    well.cuttings[0].description_i18n = {"en": "Oil stained chips", "kk": "Мұнайлы шлам"}
+    well.stratigraphy[0].name = None
+    well.stratigraphy[0].name_i18n = {"en": "Cretaceous", "kk": "Бор жүйесі"}
+    well.stratigraphy[0].description = None
+    well.stratigraphy[0].description_i18n = {"en": "Lower unit", "kk": "Төменгі қабат"}
+
+    exported = DatasetExportController(session).export_current_las(tmp_path / "localized.las")
+    reopened = import_las_with_report(exported)
+    restored = ProjectSession().add_dataset(
+        reopened.dataset, "Test", source_document=reopened.source_document,
+        import_report=reopened.report, create_new_well=True,
+    )
+    assert any(item.description_i18n == {"en": "Gray sandstone", "kk": "Сұр құмтас"}
+               for item in restored.lithology)
+    assert any(item.description_i18n == {"en": "Oil stained chips", "kk": "Мұнайлы шлам"}
+               for item in restored.cuttings)
+    assert restored.stratigraphy[0].name_i18n == {"en": "Cretaceous", "kk": "Бор жүйесі"}
+    assert restored.stratigraphy[0].description_i18n == {
+        "en": "Lower unit", "kk": "Төменгі қабат",
+    }
+
+
+def test_lithology_only_export_does_not_create_empty_cuttings(tmp_path: Path) -> None:
+    source = tmp_path / "lith-source.las"
+    source.write_bytes(_small_geology_las(
+        (" LITHOLOGY_CODE.CODE : Primary lithology",),
+        ("0 5", "1 5"),
+    ))
+    session = ProjectSession()
+    well = session.add_dataset(import_las(source), "Test", create_new_well=True)
+    assert well.cuttings == [] and well.lithology
+    well.lithology[0].description = "Fine sandstone"
+
+    exported = DatasetExportController(session).export_current_las(tmp_path / "lith-only.las")
+    reopened = import_las_with_report(exported)
+    restored = ProjectSession().add_dataset(
+        reopened.dataset, "Test", source_document=reopened.source_document,
+        import_report=reopened.report, create_new_well=True,
+    )
+    assert reopened.dataset.curve_by_mnemonic("LITHO_DESC_ID") is not None
+    assert reopened.dataset.curve_by_mnemonic("GEO_DESC_ID") is None
+    assert any(item.description == "Fine sandstone" for item in restored.lithology)
+    assert restored.cuttings == []
+
+
+def test_portable_las_rejects_oversized_text_before_writing(tmp_path: Path) -> None:
+    session = ProjectSession()
+    well = session.add_dataset(import_las(LAS_FIXTURE), "Test", create_new_well=True)
+    well.lithology[0].description = "x" * 4_001
+    target = tmp_path / "oversized.las"
+
+    with pytest.raises(ValueError, match="too long"):
+        DatasetExportController(session).export_current_las(target)
+    assert not target.exists()

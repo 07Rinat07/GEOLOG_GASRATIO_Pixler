@@ -40,6 +40,15 @@ def test_continuous_depth_segments_keeps_short_dense_series_exact() -> None:
     assert segments[0].tolist() == [0, 1, 2, 3]
 
 
+def test_sustained_coarse_sampling_remains_drawable_after_fine_sampling() -> None:
+    depth = np.asarray([0.0, 1.0, 2.0, 7.0, 12.0, 17.0, 18.0, 19.0])
+    indices = np.arange(depth.size, dtype=np.int64)
+
+    segments = continuous_depth_segments(depth, indices, limit=100)
+
+    assert [segment.tolist() for segment in segments] == [indices.tolist()]
+
+
 def test_sparse_runs_keep_their_gaps_and_obey_the_total_point_limit() -> None:
     depth = np.asarray(
         [step for index in range(400) for step in (index * 20.0, index * 20.0 + 1.0)],

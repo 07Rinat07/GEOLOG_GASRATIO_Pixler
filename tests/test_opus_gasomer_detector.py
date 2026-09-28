@@ -260,3 +260,20 @@ def test_hard_exclusion_removes_peak_before_opus_detection() -> None:
     excluded = (depth >= 10.0) & (depth <= 11.0)
     assert not result.raw_candidate_mask[excluded].any()
     assert not result.candidate_mask[excluded].any()
+
+
+def test_narrow_hard_exclusion_splits_adjacent_opus_shows() -> None:
+    depth = np.arange(0.0, 40.0, 0.2)
+    total_gas = np.full(depth.shape, 0.01)
+    total_gas[50:59] = 0.20
+    # The excluded depth lies between samples: masking rows alone cannot split the show.
+    excluded = ((10.65, 10.75),)
+
+    result = detect_opus_gasomer_intervals(
+        depth, total_gas, total_gas_lod=0.001,
+        policy=_policy(), candidate_exclusion_intervals=excluded,
+    )
+
+    assert len(result.intervals) == 2
+    assert result.intervals[0].bottom_depth < excluded[0][0]
+    assert result.intervals[1].top_depth > excluded[0][1]

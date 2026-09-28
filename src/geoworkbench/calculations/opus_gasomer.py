@@ -703,6 +703,7 @@ def detect_opus_gasomer_intervals(
         robust_z,
         contrast,
         raw_candidates,
+        exclusion_intervals=candidate_exclusion_intervals,
         policy=resolved_policy,
     )
     warnings = [
@@ -909,6 +910,7 @@ def _build_detected_intervals(
     contrast: Array,
     raw_candidates: NDArray[np.bool_],
     *,
+    exclusion_intervals: tuple[tuple[float, float], ...] = (),
     policy: OpusGasomerDetectorPolicy,
 ) -> tuple[NDArray[np.bool_], tuple[OpusGasomerDetectedInterval, ...]]:
     candidate_indices = np.flatnonzero(raw_candidates)
@@ -921,7 +923,12 @@ def _build_detected_intervals(
     for offset in range(1, candidate_indices.size):
         previous = candidate_indices[offset - 1]
         current = candidate_indices[offset]
-        if (
+        crosses_exclusion = any(
+            min(top, bottom) <= depth[current]
+            and max(top, bottom) >= depth[previous]
+            for top, bottom in exclusion_intervals
+        )
+        if crosses_exclusion or (
             depth[current] - depth[previous]
             - policy.maximum_candidate_separation
             > tolerance

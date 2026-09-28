@@ -713,6 +713,30 @@ def test_hard_excluded_context_is_not_calculated_or_printed() -> None:
     assert "exclude_geological" not in html
 
 
+def test_narrow_hard_exclusion_keeps_separate_shows_on_both_sides() -> None:
+    session = _session()
+    well = session.current_well
+    dataset = session.current_dataset
+    assert well is not None and dataset is not None
+    well.gas_context_events.append(GasContextEvent(
+        event_id="excluded-peak-middle",
+        event_type=GasContextEventType.CHROMATOGRAPH_TEST_GAS,
+        top_depth=1_041.0,
+        bottom_depth=1_041.0,
+        depth_domain=dataset.depth_domain,
+        impact=InterpretationImpact.EXCLUDE_GEOLOGICAL,
+        confirmed=True,
+    ))
+
+    report = build_hydrocarbon_interpretation_report(session, threshold=3.0)
+
+    assert len(report.candidates) == 2
+    assert report.candidates[0].bottom_depth < 1_041.0
+    assert report.candidates[1].top_depth > 1_041.0
+    assert sum(item.sample_count for item in report.candidates) == 2
+    assert "excluded-peak-middle" not in hydrocarbon_interpretation_html(report, AppLanguage.RU)
+
+
 def test_hard_exclusion_takes_precedence_over_overlapping_technological_audit() -> None:
     session = _session()
     well = session.current_well

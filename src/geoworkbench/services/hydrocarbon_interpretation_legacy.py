@@ -514,7 +514,16 @@ def _detect_candidates(
     )
     groups: list[list[int]] = []
     for row_index in flagged_indices:
-        if not groups or depth[row_index] - depth[groups[-1][-1]] > max_gap:
+        crosses_exclusion = bool(groups) and any(
+            min(top, bottom) <= depth[row_index]
+            and max(top, bottom) >= depth[groups[-1][-1]]
+            for top, bottom in candidate_exclusion_intervals
+        )
+        if (
+            not groups
+            or depth[row_index] - depth[groups[-1][-1]] > max_gap
+            or crosses_exclusion
+        ):
             groups.append([int(row_index)])
         else:
             groups[-1].append(int(row_index))
@@ -526,6 +535,12 @@ def _detect_candidates(
         group_indices = np.asarray(group, dtype=np.int64)
         top = max(overall_top, float(np.min(depth[group_indices])) - step / 2.0)
         bottom = min(overall_bottom, float(np.max(depth[group_indices])) + step / 2.0)
+        for excluded_top, excluded_bottom in candidate_exclusion_intervals:
+            low, high = sorted((float(excluded_top), float(excluded_bottom)))
+            if depth[group_indices[-1]] < low:
+                bottom = min(bottom, float(np.nextafter(low, -np.inf)))
+            elif depth[group_indices[0]] > high:
+                top = max(top, float(np.nextafter(high, np.inf)))
         if bottom <= top:
             bottom = top + step
         maximum_z = float(np.nanmax(robust_z[group_indices]))

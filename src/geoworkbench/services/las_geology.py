@@ -217,10 +217,21 @@ def import_las_geology(session: ProjectSession) -> LasGeologyResult:
             if metadata is not None
             else None
         )
+        description_i18n = (
+            metadata.description_i18n(description_id)
+            if metadata is not None else {}
+        )
+        lithology_description_id = (
+            _code(float(lithology_description_values[index]))
+            if lithology_description_values is not None else description_id
+        )
         lithology_description = (
-            metadata.description(_code(float(lithology_description_values[index])))
-            if metadata is not None and lithology_description_values is not None
-            else description
+            metadata.description(lithology_description_id)
+            if metadata is not None else None
+        )
+        lithology_description_i18n = (
+            metadata.description_i18n(lithology_description_id)
+            if metadata is not None else {}
         )
 
         rock = _code(float(primary[index])) if primary is not None else None
@@ -232,6 +243,7 @@ def import_las_geology(session: ProjectSession) -> LasGeologyResult:
                     lithology
                     and lithology[-1].lithotype_id == identity
                     and lithology[-1].description == lithology_description
+                    and lithology[-1].description_i18n == lithology_description_i18n
                     and lithology[-1].bottom_depth == top
                 ):
                     lithology[-1].bottom_depth = bottom
@@ -243,6 +255,7 @@ def import_las_geology(session: ProjectSession) -> LasGeologyResult:
                             bottom,
                             identity,
                             description=lithology_description,
+                            description_i18n=lithology_description_i18n,
                         )
                     )
 
@@ -367,6 +380,7 @@ def import_las_geology(session: ProjectSession) -> LasGeologyResult:
             dolomite_percent=dolomite,
             total_carbonate_percent=total_carbonate,
             description=description,
+            description_i18n=description_i18n,
         )
         if (
             cuttings
@@ -388,10 +402,10 @@ def import_las_geology(session: ProjectSession) -> LasGeologyResult:
             unknown.append(code)
 
     stratigraphy: list[StratigraphyInterval] = []
-    if not well.stratigraphy and stratigraphy_values is not None:
+    if not well.stratigraphy:
         if metadata is not None:
             stratigraphy = _stratigraphy_from_metadata(metadata, depth)
-        if not stratigraphy:
+        if not stratigraphy and stratigraphy_values is not None:
             stratigraphy = _stratigraphy_from_codes(
                 depth,
                 edges,
@@ -442,6 +456,7 @@ def _same_cuttings_payload(left: CuttingsSample, right: CuttingsSample) -> bool:
         and left.dolomite_percent == right.dolomite_percent
         and left.total_carbonate_percent == right.total_carbonate_percent
         and left.description == right.description
+        and left.description_i18n == right.description_i18n
     )
 
 
@@ -463,10 +478,12 @@ def _stratigraphy_from_metadata(
                 top,
                 bottom,
                 entry.code,
-                name=entry.name_ru,
+                name=entry.name or entry.name_ru,
                 rank=entry.rank,
                 color=entry.color or "#dbeafe",
-                description=entry.description_ru,
+                description=entry.description or entry.description_ru,
+                name_i18n=dict(entry.name_i18n),
+                description_i18n=dict(entry.description_i18n),
             )
         )
     return result
@@ -584,8 +601,6 @@ def dataset_with_well_geology(session: ProjectSession):
             )
             if description_id is not None:
                 lithology_description_column[index] = float(description_id)
-                if not well.cuttings:
-                    description_column[index] = float(description_id)
         if np.isfinite(primary).any():
             exported.upsert_curve(
                 source_mnemonic(GeologyChannelRole.PRIMARY_LITHOLOGY, "КОД_ПОРОДЫ"),
@@ -758,7 +773,7 @@ def dataset_with_well_geology(session: ProjectSession):
     else:
         remove_role(GeologyChannelRole.DESCRIPTION_ID)
 
-    if np.isfinite(lithology_description_column).any() and well.cuttings:
+    if np.isfinite(lithology_description_column).any():
         exported.upsert_curve(
             source_mnemonic(GeologyChannelRole.LITHOLOGY_DESCRIPTION_ID, "LITHO_DESC_ID"),
             lithology_description_column,

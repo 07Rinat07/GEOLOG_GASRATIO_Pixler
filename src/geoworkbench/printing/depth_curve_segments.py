@@ -39,8 +39,14 @@ def continuous_depth_segments(
     # lower half of positive steps to estimate the native sampling cadence.
     ordered_steps = np.sort(positive)
     typical_step = float(np.median(ordered_steps[: (len(ordered_steps) + 1) // 2]))
+    large_steps = differences > typical_step * gap_factor
+    # A sustained change in sampling cadence is a continuous coarse run, not
+    # a series of missing intervals. Only isolated oversized steps are gaps.
+    neighboring_large = np.zeros(large_steps.shape, dtype=np.bool_)
+    neighboring_large[1:] |= large_steps[:-1]
+    neighboring_large[:-1] |= large_steps[1:]
     gap_positions = np.flatnonzero(
-        ~np.isfinite(differences) | (differences > typical_step * gap_factor)
+        ~np.isfinite(differences) | (large_steps & ~neighboring_large)
     )
     raw_segments = np.split(indices, gap_positions + 1)
     raw_segments = [segment for segment in raw_segments if segment.size]

@@ -7,7 +7,7 @@ import math
 from pathlib import Path
 import re
 import zlib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from geoworkbench.domain.models import Well
@@ -37,6 +37,8 @@ class LasGeologyDescription:
     top_depth: float
     bottom_depth: float
     text_ru: str
+    text: str | None = None
+    text_i18n: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,6 +50,10 @@ class LasStratigraphyEntry:
     rank: str | None = None
     color: str | None = None
     description_ru: str | None = None
+    name: str | None = None
+    description: str | None = None
+    name_i18n: dict[str, str] = field(default_factory=dict)
+    description_i18n: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,7 +81,11 @@ class LasGeologyMetadata:
         if description_id is None:
             return None
         item = self.descriptions.get(description_id)
-        return item.text_ru if item is not None else None
+        return (item.text or item.text_ru) if item is not None else None
+
+    def description_i18n(self, description_id: int | None) -> dict[str, str]:
+        item = self.descriptions.get(description_id) if description_id is not None else None
+        return dict(item.text_i18n) if item is not None else {}
 
     def lba_type(self, code: int | None) -> str | None:
         return self.lba_type_codes.get(code) if code is not None else None
@@ -311,11 +321,15 @@ def _descriptions_from_raw(raw: Any) -> dict[int, LasGeologyDescription]:
         if bottom <= top:
             raise ValueError("Description interval must have bottom > top")
         text_ru = _bounded_text(value.get("text_ru"), "description.text_ru")
+        text = _optional_text(value.get("text"), maximum=_MAX_TEXT)
+        localized = _localized_text_map(value.get("text_i18n", {}), "description.text_i18n")
         result[description_id] = LasGeologyDescription(
             description_id,
             top,
             bottom,
             text_ru,
+            text=text,
+            text_i18n=localized,
         )
     return result
 
@@ -349,6 +363,14 @@ def _stratigraphy_from_raw(raw: Any) -> tuple[LasStratigraphyEntry, ...]:
             value.get("description_ru"),
             maximum=_MAX_TEXT,
         )
+        name = _optional_text(value.get("name"), maximum=300)
+        description = _optional_text(value.get("description"), maximum=_MAX_TEXT)
+        name_i18n = _localized_text_map(
+            value.get("name_i18n", {}), "stratigraphy.name_i18n", maximum=300,
+        )
+        description_i18n = _localized_text_map(
+            value.get("description_i18n", {}), "stratigraphy.description_i18n",
+        )
         result.append(
             LasStratigraphyEntry(
                 top_depth=top,
@@ -358,6 +380,10 @@ def _stratigraphy_from_raw(raw: Any) -> tuple[LasStratigraphyEntry, ...]:
                 rank=rank,
                 color=color.lower() if color is not None else None,
                 description_ru=description_ru,
+                name=name,
+                description=description,
+                name_i18n=name_i18n,
+                description_i18n=description_i18n,
             )
         )
     result.sort(key=lambda item: (item.top_depth, item.bottom_depth, item.code))
@@ -386,6 +412,37 @@ def _code_dictionary(raw: Any, label: str) -> dict[int, str]:
     return result
 
 
+def _localized_text_map(
+    raw: Any, label: str, *, maximum: int = _MAX_TEXT,
+) -> dict[str, str]:
+    if not isinstance(raw, dict) or len(raw) > 16:
+        raise ValueError(f"{label} must contain at most 16 languages")
+    result: dict[str, str] = {}
+    for language, value in raw.items():
+        if not isinstance(language, str) or not re.fullmatch(
+            r"[a-zA-Z]{2,8}(?:-[a-zA-Z0-9]{1,8}){0,2}", language,
+        ):
+            raise ValueError(f"{label} has an invalid language tag")
+        result[language] = _bounded_text(value, label, maximum=maximum)
+    return result
+
+
+def _source_localized_text(
+    plain: str | None, localized: dict[str, str], label: str, *, maximum: int = _MAX_TEXT,
+) -> tuple[str | None, str | None, dict[str, str]]:
+    translated = _localized_text_map(
+        {
+            language: value for language, value in localized.items()
+            if not isinstance(value, str) or value.strip()
+        },
+        label, maximum=maximum,
+    )
+    original = _optional_text(plain, maximum=maximum)
+    selected = (
+        original or translated.get("ru") or translated.get("en")
+        or next(iter(translated.values()), None)
+    )
+    return selected, translated.get("ru") or selected, translated
 
 def geology_export_plan_from_well(well: Well) -> LasGeologyExportPlan:
     """Build stable numeric carriers plus portable text dictionaries for one well."""
@@ -403,11 +460,9 @@ def geology_export_plan_from_well(well: Well) -> LasGeologyExportPlan:
             item.interval_id,
         ),
     ):
-        text = (
-            interval.description_i18n.get("ru")
-            or interval.description
-            or ""
-        ).strip()
+        text, text_ru, localized = _source_localized_text(
+            interval.description, interval.description_i18n, "lithology.description_i18n",
+        )
         if not text:
             continue
         lithology_description_ids[interval.interval_id] = next_description_id
@@ -415,7 +470,9 @@ def geology_export_plan_from_well(well: Well) -> LasGeologyExportPlan:
             next_description_id,
             float(interval.top_depth),
             float(interval.bottom_depth),
-            text,
+            text_ru or text,
+            text=text,
+            text_i18n=localized,
         )
         next_description_id += 1
 
@@ -423,11 +480,9 @@ def geology_export_plan_from_well(well: Well) -> LasGeologyExportPlan:
         well.cuttings,
         key=lambda item: (float(item.top_depth), float(item.bottom_depth), item.sample_id),
     ):
-        text = (
-            sample.description_i18n.get("ru")
-            or sample.description
-            or ""
-        ).strip()
+        text, text_ru, localized = _source_localized_text(
+            sample.description, sample.description_i18n, "cuttings.description_i18n",
+        )
         if not text:
             continue
         description_ids[sample.sample_id] = next_description_id
@@ -435,7 +490,9 @@ def geology_export_plan_from_well(well: Well) -> LasGeologyExportPlan:
             next_description_id,
             float(sample.top_depth),
             float(sample.bottom_depth),
-            text,
+            text_ru or text,
+            text=text,
+            text_i18n=localized,
         )
         next_description_id += 1
 
@@ -454,30 +511,27 @@ def geology_export_plan_from_well(well: Well) -> LasGeologyExportPlan:
         start=1,
     ):
         stratigraphy_codes[strat_interval.interval_id] = numeric_code
-        name_ru = (
-            strat_interval.name_i18n.get("ru")
-            or strat_interval.name
-            or strat_interval.code
-            or str(numeric_code)
-        ).strip()
-        description_ru = (
-            strat_interval.description_i18n.get("ru")
-            or strat_interval.description
-            or None
+        name, name_ru, name_i18n = _source_localized_text(
+            strat_interval.name, strat_interval.name_i18n, "stratigraphy.name_i18n",
+            maximum=300,
+        )
+        description, description_ru, description_i18n = _source_localized_text(
+            strat_interval.description, strat_interval.description_i18n,
+            "stratigraphy.description_i18n",
         )
         stratigraphy.append(
             LasStratigraphyEntry(
                 top_depth=float(strat_interval.top_depth),
                 bottom_depth=float(strat_interval.bottom_depth),
                 code=(strat_interval.code or str(numeric_code)).strip(),
-                name_ru=name_ru,
+                name_ru=name_ru or _bounded_text(strat_interval.code or str(numeric_code), "stratigraphy.name_ru", maximum=300),
                 rank=(strat_interval.rank or None),
                 color=(strat_interval.color or "#dbeafe").lower(),
-                description_ru=(
-                    description_ru.strip()
-                    if isinstance(description_ru, str) and description_ru.strip()
-                    else None
-                ),
+                description_ru=description_ru,
+                name=name,
+                description=description,
+                name_i18n=name_i18n,
+                description_i18n=description_i18n,
             )
         )
 
@@ -539,6 +593,8 @@ def render_las_geology_metadata_section(
                 "top": item.top_depth,
                 "bottom": item.bottom_depth,
                 "text_ru": item.text_ru,
+                **({"text": item.text} if item.text else {}),
+                **({"text_i18n": item.text_i18n} if item.text_i18n else {}),
             }
             for key, item in sorted(metadata.descriptions.items())
         },
@@ -548,6 +604,8 @@ def render_las_geology_metadata_section(
                 "bottom": item.bottom_depth,
                 "short": item.code,
                 "name_ru": item.name_ru,
+                **({"name": item.name} if item.name else {}),
+                **({"name_i18n": item.name_i18n} if item.name_i18n else {}),
                 **({"rank": item.rank} if item.rank else {}),
                 **({"color": item.color} if item.color else {}),
                 **(
@@ -555,6 +613,8 @@ def render_las_geology_metadata_section(
                     if item.description_ru
                     else {}
                 ),
+                **({"description": item.description} if item.description else {}),
+                **({"description_i18n": item.description_i18n} if item.description_i18n else {}),
             }
             for item in metadata.stratigraphy
         ],
@@ -565,6 +625,9 @@ def render_las_geology_metadata_section(
             str(key): value for key, value in sorted(metadata.lba_color_codes.items())
         },
     }
+    # Keep writer and reader in lockstep: an export must never contain optional
+    # metadata which this same application would silently discard on import.
+    _metadata_from_dict(payload)
     raw = json.dumps(
         payload,
         ensure_ascii=False,
