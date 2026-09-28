@@ -5,6 +5,7 @@
 
 ## Unreleased
 - LAS/Geology: восстановлена обратная совместимость с ранее сформированными полевыми LAS Максат М-1: русские `ЛБА_ГРУППА`/`СТРАТ_КОД`/`ОПИСАНИЕ_ID` и bounded CP1251/UTF-8 `# STRAT`/`# DESC` снова материализуют ЛБА, описания и стратиграфию без ослабления валидации нового metadata-контракта.
+- Geology report: фактические интервалы отбора теперь являются основным разделом PDF/XLSX/DOCX без смешивания соседних проб; производная 1-метровая length-weighted агрегация перенесена в явно помеченное аналитическое приложение «не фактическая шламограмма» и в Excel размещается последним листом.
 - LAS/Geology: portable geology import расширен до кальциметрии (`CACO3`/`CAMG_CO3_2`), ЛБА (`LBA_GROUP`/`INTENSITY_LBA`/`LBA_TYPE`/`ZVET_LBA`), описаний и стратиграфии; bounded `GEOWORKBENCH_GEOLOGY_METADATA` в `~Other` является необязательным и повреждённый payload не блокирует обычное открытие LAS. Encoding detection крупных custom headers ограничен 128 KiB.
 - LAS/UI: исправлен crash до начала импорта (`KeyError: 'files'`) при открытии любого LAS: имя файла теперь передаётся непосредственно в `Localizer.text(...)`, а progress/status сообщения покрыты regression-тестом.
 - WITS0/UI: Live workspace получил responsive parameter navigation: при ширине <820 px и в fullscreen Monitor и sidebar больше не ужимаются рядом — параметры открываются отдельным view с действием «Назад к монитору», wide sidebar preference сохраняется; current-values table растягивает колонки по доступной ширине без horizontal overflow.

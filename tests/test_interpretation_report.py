@@ -187,6 +187,51 @@ def test_meter_geology_preserves_partial_sampling_and_length_weighted_compositio
     assert meter.rock_descriptions == ("Upper quarter", "Lower half")
 
 
+def test_primary_report_keeps_adjacent_cuttings_samples_separate() -> None:
+    session = ProjectSession()
+    session.add_dataset(
+        Dataset(
+            "adjacent",
+            "Adjacent samples",
+            DatasetKind.GTI,
+            DepthDomain.MD,
+            np.array([100.0, 103.0]),
+        ),
+        "Well adjacent",
+    )
+    controller = CuttingsController(session)
+    controller.create_full_sample(
+        100.5,
+        101.5,
+        {"sandstone": 100.0},
+        description="Sandstone sample",
+    )
+    controller.create_full_sample(
+        101.5,
+        102.5,
+        {"clay": 100.0},
+        description="Clay sample",
+    )
+
+    report = build_interpretation_report(session)
+    html = interpretation_report_html(report, AppLanguage.RU)
+
+    actual_start = html.index("Фактические интервалы отбора шлама")
+    appendix_start = html.index("Аналитическое приложение: метровая агрегация")
+    actual_section = html[actual_start:appendix_start]
+    appendix = html[appendix_start:]
+
+    assert "100.5-101.5 m" in actual_section
+    assert "101.5-102.5 m" in actual_section
+    assert "Песчаник (SANDSTONE): 100%" in actual_section
+    assert "Глина (CLAY): 100%" in actual_section
+    assert "Песчаник (SANDSTONE): 50%" not in actual_section
+    assert "Глина (CLAY): 50%" not in actual_section
+    assert "101-102 m" in appendix
+    assert "Песчаник (SANDSTONE): 50%" in appendix
+    assert "Глина (CLAY): 50%" in appendix
+
+
 def test_component_sum_is_reported_when_total_gas_curve_is_missing() -> None:
     session = ProjectSession()
     dataset = Dataset(
@@ -249,8 +294,12 @@ def test_interpretation_report_html_is_localized_and_escapes_project_data() -> N
     english = interpretation_report_html(report, AppLanguage.EN)
 
     assert "Геологический отчёт по шламу, стратиграфии, газу, кальциметрии и ЛБА" in html
-    assert "Описание пород по метровым интервалам" in html
+    assert "Аналитическое приложение: метровая агрегация" in html
     assert "Фактические интервалы отбора шлама" in html
+    assert html.index("Фактические интервалы отбора шлама") < html.index(
+        "Аналитическое приложение: метровая агрегация"
+    )
+    assert "не фактическая шламограмма" in html
     assert "Стратиграфия по всей глубине скважины" in html
     assert "Газ и ЛБА по фактическим интервалам отбора" in html
     assert "Total Gas (отдельная кривая): TG [ppm]" in html
@@ -275,8 +324,10 @@ def test_interpretation_report_html_is_localized_and_escapes_project_data() -> N
     assert "html, body { background: #ffffff; color: #172033; }" in html
     assert "td { background: #ffffff; color: #172033; }" in html
     assert "Geological report: cuttings, stratigraphy, gas, calcimetry and LBA" in english
-    assert "Rock description by one-metre interval" in english
+    assert "Analytical appendix: one-metre aggregation" in english
     assert "This report is not an automatic" in english
+    kazakh = interpretation_report_html(report, AppLanguage.KK)
+    assert "автоматты қорытынды болып табылмайды" in kazakh
 
 
 def test_interpretation_report_exports_pdf(qapp, tmp_path) -> None:
@@ -291,8 +342,11 @@ def test_interpretation_report_exports_pdf(qapp, tmp_path) -> None:
     with fitz.open(target) as document:
         text = "\n".join(page.get_text() for page in document)
         assert document.page_count >= 3
-    assert "Rock description by one-metre interval" in text
+    assert "Analytical appendix: one-metre aggregation" in text
     assert "Actual cuttings sampling intervals" in text
+    assert text.index("Actual cuttings sampling intervals") < text.index(
+        "Analytical appendix: one-metre aggregation"
+    )
     assert "Whole-well stratigraphy" in text
     assert "Gas and LBA by actual sampling interval" in text
     assert "Component sum [ppm]" in text
@@ -328,13 +382,10 @@ def test_interpretation_report_exports_excel_and_word(tmp_path) -> None:
     )
     assert "Фактические отборы" in summary_values
     assert "отсчётов" not in summary_values
-    gas_sheet = workbook[workbook.sheetnames[3]]
-    gas_values = tuple(
-        cell.value for row in gas_sheet.iter_rows() for cell in row
-    )
-    assert "Сумма компонентов" in gas_values
-    assert "TG" in gas_values
-    samples_sheet = workbook[workbook.sheetnames[2]]
+    assert workbook.sheetnames[1].startswith("Фактические интервалы")
+    assert workbook.sheetnames[-1].startswith("Аналитическое приложение")
+
+    samples_sheet = workbook[workbook.sheetnames[1]]
     sample_values = tuple(
         cell.value for row in samples_sheet.iter_rows() for cell in row
     )
@@ -342,9 +393,24 @@ def test_interpretation_report_exports_excel_and_word(tmp_path) -> None:
     assert "Petroleum" in sample_values
     assert "'=2+2" in sample_values
 
+    gas_sheet = workbook[workbook.sheetnames[2]]
+    gas_values = tuple(
+        cell.value for row in gas_sheet.iter_rows() for cell in row
+    )
+    assert "Сумма компонентов" in gas_values
+    assert "TG" in gas_values
+
+    meter_sheet = workbook[workbook.sheetnames[-1]]
+    assert meter_sheet["A1"].comment is not None
+    assert "не фактическая шламограмма" in meter_sheet["A1"].comment.text
+
     with zipfile.ZipFile(docx) as package:
         document_xml = package.read("word/document.xml").decode("utf-8")
     assert "Фактические интервалы отбора шлама" in document_xml
+    assert "Аналитическое приложение: метровая агрегация" in document_xml
+    assert document_xml.index("Фактические интервалы отбора шлама") < document_xml.index(
+        "Аналитическое приложение: метровая агрегация"
+    )
     assert "Сумма компонентов" in document_xml
     assert "Petroleum" in document_xml
     assert "Нерастворимый остаток" in document_xml
