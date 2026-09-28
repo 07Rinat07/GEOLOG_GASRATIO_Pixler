@@ -52,3 +52,8 @@ Editing is transactional: all actions operate on a working `GasContextRegistry`.
 This increment creates and persists the operator registry. Applying confirmed events to
 Gas Ratio/Haworth/Pixler/OPUS candidate classification and presenting the same effective
 context in preview/PDF/XLSX/DOCX is the next separate increment.
+
+
+### Excluded intervals in customer-facing reports
+
+A confirmed event with `exclude_geological` is excluded from robust-background learning and automatic geological hydrocarbon assignment. The internal/tabular audit retains measured TG/C1–C5 and the suppressed automatic candidate for reproducibility, while customer-facing PDF/HTML/DOCX show only the interval, context type, exclusion status, optional manual QC and comment — not measured min/mean/max or the suppressed geological hypothesis.
