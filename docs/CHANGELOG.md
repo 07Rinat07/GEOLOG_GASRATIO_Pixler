@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- LAS/Geology: добавлен единый conservative geology dialect resolver для canonical/localized/common vendor aliases и однозначного description+UOM fallback; legacy DIGITAL GEOLOG `~Other` (`# STRAT/# DESC`) и русские геологические мнемоники теперь материализуют шлам, кальциметрию, ЛБА, стратиграфию и описания без well-specific special-case.
 - LAS/Geology: portable geology import расширен до кальциметрии (`CACO3`/`CAMG_CO3_2`), ЛБА (`LBA_GROUP`/`INTENSITY_LBA`/`LBA_TYPE`/`ZVET_LBA`), описаний и стратиграфии; bounded `GEOWORKBENCH_GEOLOGY_METADATA` в `~Other` является необязательным и повреждённый payload не блокирует обычное открытие LAS. Encoding detection крупных custom headers ограничен 128 KiB.
 - LAS/UI: исправлен crash до начала импорта (`KeyError: 'files'`) при открытии любого LAS: имя файла теперь передаётся непосредственно в `Localizer.text(...)`, а progress/status сообщения покрыты regression-тестом.
 - WITS0/UI: Live workspace получил responsive parameter navigation: при ширине <820 px и в fullscreen Monitor и sidebar больше не ужимаются рядом — параметры открываются отдельным view с действием «Назад к монитору», wide sidebar preference сохраняется; current-values table растягивает колонки по доступной ширине без horizontal overflow.
