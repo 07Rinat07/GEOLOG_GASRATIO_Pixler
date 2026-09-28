@@ -270,6 +270,11 @@ def import_las_geology(session: ProjectSession) -> LasGeologyResult:
             if dolomite_values is not None
             else None
         )
+        total_carbonate = (
+            _percentage(float(total_carbonate_values[index]))
+            if total_carbonate_values is not None
+            else None
+        )
         if (
             calcite is not None
             and dolomite is not None
@@ -322,11 +327,7 @@ def import_las_geology(session: ProjectSession) -> LasGeologyResult:
             for value in (
                 calcite,
                 dolomite,
-                (
-                    _percentage(float(total_carbonate_values[index]))
-                    if total_carbonate_values is not None
-                    else None
-                ),
+                total_carbonate,
                 lba_group,
                 lba_type_id,
                 lba_intensity,
@@ -352,6 +353,7 @@ def import_las_geology(session: ProjectSession) -> LasGeologyResult:
             lba_color=lba_color,
             calcite_percent=calcite,
             dolomite_percent=dolomite,
+            total_carbonate_percent=total_carbonate,
             description=description,
         )
         if (
@@ -426,6 +428,7 @@ def _same_cuttings_payload(left: CuttingsSample, right: CuttingsSample) -> bool:
         and left.lba_color == right.lba_color
         and left.calcite_percent == right.calcite_percent
         and left.dolomite_percent == right.dolomite_percent
+        and left.total_carbonate_percent == right.total_carbonate_percent
         and left.description == right.description
     )
 
@@ -549,7 +552,8 @@ def dataset_with_well_geology(session: ProjectSession):
 
         calcite_column = source_values("CACO3", "CALCITE", "CACO3_(КАЛЬЦИТ)")
         dolomite_column = source_values("CAMG_CO3_2", "DOLOMITE")
-        lba_group_column = source_values("LBA_GROUP")
+        total_carbonate_column = source_values("КАРБОНАТНОСТЬ", "TOTAL_CARBONATE")
+        lba_group_column = source_values("LBA_GROUP", "ЛБА_ГРУППА")
         lba_intensity_column = source_values("INTENSITY_LBA", "LBA_INTENSITY")
         lba_type_column = source_values("LBA_TYPE")
         lba_color_column = source_values("ZVET_LBA", "LBA_COLOR")
@@ -592,6 +596,8 @@ def dataset_with_well_geology(session: ProjectSession):
                 calcite_column[index] = float(sample.calcite_percent)
             if sample.dolomite_percent is not None:
                 dolomite_column[index] = float(sample.dolomite_percent)
+            if sample.total_carbonate_percent is not None:
+                total_carbonate_column[index] = float(sample.total_carbonate_percent)
             if sample.lba_group is not None:
                 lba_group_column[index] = float(sample.lba_group)
             if sample.lba_intensity is not None:
@@ -661,7 +667,14 @@ def dataset_with_well_geology(session: ProjectSession):
             description="Dolomite",
         )
         upsert_geology_curve(
-            ("LBA_GROUP",),
+            ("КАРБОНАТНОСТЬ", "TOTAL_CARBONATE"),
+            "TOTAL_CARBONATE",
+            total_carbonate_column,
+            unit="%",
+            description="Total carbonate",
+        )
+        upsert_geology_curve(
+            ("LBA_GROUP", "ЛБА_ГРУППА"),
             "LBA_GROUP",
             lba_group_column,
             unit="CODE",
