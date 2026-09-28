@@ -107,10 +107,17 @@ def build_opus_interpretation_report(
     *,
     threshold: float = 3.0,
     total_gas_lod: float | None = None,
+    background_exclusion_intervals: tuple[tuple[float, float], ...] = (),
+    candidate_exclusion_intervals: tuple[tuple[float, float], ...] = (),
 ) -> HydrocarbonInterpretationReport:
     """Build the additional OPUS report without changing the standard report path."""
 
-    base = legacy.build_hydrocarbon_interpretation_report(session, threshold=threshold)
+    base = legacy.build_hydrocarbon_interpretation_report(
+        session,
+        threshold=threshold,
+        background_exclusion_intervals=background_exclusion_intervals,
+        candidate_exclusion_intervals=candidate_exclusion_intervals,
+    )
     dataset = session.current_dataset
     well = session.current_well
     if dataset is None or well is None:
@@ -239,6 +246,8 @@ def build_opus_interpretation_report(
             dataset,
             (),
             total_gas_lod=total_gas_lod,
+            background_exclusion_intervals=background_exclusion_intervals,
+            candidate_exclusion_intervals=candidate_exclusion_intervals,
         )
         return replace(
             base,
@@ -257,6 +266,8 @@ def build_opus_interpretation_report(
         "OPUS_TG_PCT",
         threshold,
         lba_samples=tuple(well.cuttings),
+        background_exclusion_intervals=background_exclusion_intervals,
+        candidate_exclusion_intervals=candidate_exclusion_intervals,
     )
     if detection_warning:
         warnings.append(detection_warning)
@@ -289,6 +300,8 @@ def build_opus_interpretation_report(
         dataset,
         candidates,
         total_gas_lod=total_gas_lod,
+        background_exclusion_intervals=background_exclusion_intervals,
+        candidate_exclusion_intervals=candidate_exclusion_intervals,
     )
     candidates = _with_gasomer_primary_results(candidates, gasomer)
     return replace(
@@ -564,6 +577,8 @@ def _build_gasomer_section(
     fallback_candidates: tuple[HydrocarbonCandidateInterval, ...],
     *,
     total_gas_lod: float | None,
+    background_exclusion_intervals: tuple[tuple[float, float], ...] = (),
+    candidate_exclusion_intervals: tuple[tuple[float, float], ...] = (),
 ) -> OpusGasomerReportSection:
     profile = load_opus_gasomer_profile()
     formulas = tuple(
@@ -641,6 +656,8 @@ def _build_gasomer_section(
                 inputs_percent["TOTAL_GAS"],
                 unit="%vol",
                 total_gas_lod=lod_percent,
+                background_exclusion_intervals=background_exclusion_intervals,
+                candidate_exclusion_intervals=candidate_exclusion_intervals,
             )
             bounds = tuple(
                 (item.top_depth, item.bottom_depth) for item in detection.intervals
