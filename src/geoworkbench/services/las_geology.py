@@ -25,6 +25,7 @@ from geoworkbench.services.las_geology_metadata import (
     geology_metadata_from_las_bytes,
 )
 from geoworkbench.services.lba_standard import (
+    lba_color_code,
     lba_standard_group,
     lba_standard_type,
 )
@@ -114,6 +115,7 @@ def import_las_geology(session: ProjectSession) -> LasGeologyResult:
     optional_geology_names = {
         "CACO3",
         "CALCITE",
+        "CACO3_(КАЛЬЦИТ)",
         "CAMG_CO3_2",
         "DOLOMITE",
         "INTENSITY_LBA",
@@ -263,6 +265,14 @@ def import_las_geology(session: ProjectSession) -> LasGeologyResult:
             if dolomite_values is not None
             else None
         )
+        if (
+            calcite is not None
+            and dolomite is not None
+            and calcite + dolomite > 100.0 + 1e-6
+        ):
+            calcite = None
+            dolomite = None
+
         lba_group = (
             _bounded_integer(float(lba_group_values[index]), 1, 5)
             if lba_group_values is not None
@@ -288,11 +298,9 @@ def import_las_geology(session: ProjectSession) -> LasGeologyResult:
             if metadata is not None
             else None
         )
-        standard = (
-            lba_standard_type(metadata_type)
-            if metadata_type
-            else lba_standard_group(lba_group)
-        )
+        standard = lba_standard_type(metadata_type) if metadata_type else None
+        if standard is None:
+            standard = lba_standard_group(lba_group)
         if standard is not None and lba_group is None:
             lba_group = standard.group
         lba_type_id = standard.type_id if standard is not None else None
@@ -356,14 +364,15 @@ def import_las_geology(session: ProjectSession) -> LasGeologyResult:
             unknown.append(code)
 
     stratigraphy: list[StratigraphyInterval] = []
-    if not well.stratigraphy:
+    if not well.stratigraphy and stratigraphy_values is not None:
         if metadata is not None:
             stratigraphy = _stratigraphy_from_metadata(metadata, depth)
-        elif stratigraphy_values is not None:
+        if not stratigraphy:
             stratigraphy = _stratigraphy_from_codes(
                 depth,
                 edges,
                 stratigraphy_values,
+                typical_step,
             )
 
     well.lithology.extend(lithology)
@@ -442,14 +451,24 @@ def _stratigraphy_from_codes(
     depth: NDArray[np.float64],
     edges: NDArray[np.float64],
     values: NDArray[np.float64],
+    typical_step: float,
 ) -> list[StratigraphyInterval]:
     result: list[StratigraphyInterval] = []
     for index, raw in enumerate(values):
         code = _code(float(raw))
         if code is None:
             continue
-        top = float(edges[index])
-        bottom = float(edges[index + 1])
+        top = float(
+            edges[index]
+            if index == 0 or depth[index] - depth[index - 1] <= typical_step * 3
+            else depth[index]
+        )
+        bottom = float(
+            edges[index + 1]
+            if index == depth.size - 1
+            or depth[index + 1] - depth[index] <= typical_step * 3
+            else depth[index]
+        )
         if bottom <= top:
             continue
         code_text = str(code)
@@ -508,6 +527,31 @@ def dataset_with_well_geology(session: ProjectSession):
     if well.cuttings:
         code_columns = [np.full(depth.shape, np.nan, dtype=np.float64) for _ in range(5)]
         amount_columns = [np.full(depth.shape, np.nan, dtype=np.float64) for _ in range(5)]
+        calcite_column = np.full(depth.shape, np.nan, dtype=np.float64)
+        dolomite_column = np.full(depth.shape, np.nan, dtype=np.float64)
+        lba_group_column = np.full(depth.shape, np.nan, dtype=np.float64)
+        lba_intensity_column = np.full(depth.shape, np.nan, dtype=np.float64)
+        lba_type_column = np.full(depth.shape, np.nan, dtype=np.float64)
+        lba_color_column = np.full(depth.shape, np.nan, dtype=np.float64)
+
+        source_document = session.source_documents.get(dataset.dataset_id)
+        export_metadata = (
+            geology_metadata_from_las_bytes(source_document.raw_bytes)
+            if source_document is not None
+            else None
+        )
+        lba_type_code_by_type: dict[str, int] = {}
+        lba_color_code_by_label: dict[str, int] = {}
+        if export_metadata is not None:
+            for code, label in export_metadata.lba_type_codes.items():
+                standard = lba_standard_type(label)
+                if standard is not None:
+                    lba_type_code_by_type.setdefault(standard.type_id, code)
+            for code, label in export_metadata.lba_color_codes.items():
+                normalized = lba_color_code(label)
+                if normalized:
+                    lba_color_code_by_label.setdefault(normalized, code)
+
         for index, value in enumerate(depth):
             sample = _cuttings_sample_at(well.cuttings, float(value))
             if sample is None:
@@ -523,6 +567,26 @@ def dataset_with_well_geology(session: ProjectSession):
             for slot, (code, percentage) in enumerate(components[:5]):
                 code_columns[slot][index] = code
                 amount_columns[slot][index] = percentage
+
+            if sample.calcite_percent is not None:
+                calcite_column[index] = float(sample.calcite_percent)
+            if sample.dolomite_percent is not None:
+                dolomite_column[index] = float(sample.dolomite_percent)
+            if sample.lba_group is not None:
+                lba_group_column[index] = float(sample.lba_group)
+            if sample.lba_intensity is not None:
+                lba_intensity_column[index] = float(sample.lba_intensity)
+            if sample.lba_type_id:
+                standard = lba_standard_type(sample.lba_type_id)
+                if standard is not None:
+                    code = lba_type_code_by_type.get(standard.type_id)
+                    if code is not None:
+                        lba_type_column[index] = float(code)
+            if sample.lba_color:
+                code = lba_color_code_by_label.get(lba_color_code(sample.lba_color))
+                if code is not None:
+                    lba_color_column[index] = float(code)
+
         if any(np.isfinite(column).any() for column in code_columns):
             for slot, (codes, amounts) in enumerate(zip(code_columns, amount_columns), start=1):
                 exported.upsert_curve(
@@ -537,6 +601,73 @@ def dataset_with_well_geology(session: ProjectSession):
                     description=f"Cuttings component {slot} percentage",
                     provenance="derived:project-geology",
                 )
+
+        def upsert_geology_curve(
+            aliases: tuple[str, ...],
+            fallback: str,
+            values: NDArray[np.float64],
+            *,
+            unit: str,
+            description: str,
+        ) -> None:
+            if not np.isfinite(values).any():
+                return
+            mnemonic = fallback
+            for alias in aliases:
+                existing = exported.curve_by_mnemonic(alias)
+                if existing is not None:
+                    mnemonic = existing.metadata.original_mnemonic
+                    break
+            exported.upsert_curve(
+                mnemonic,
+                values,
+                unit=unit,
+                description=description,
+                provenance="derived:project-geology",
+            )
+
+        upsert_geology_curve(
+            ("CACO3", "CALCITE", "CACO3_(КАЛЬЦИТ)"),
+            "CACO3",
+            calcite_column,
+            unit="%",
+            description="Calcite",
+        )
+        upsert_geology_curve(
+            ("CAMG_CO3_2", "DOLOMITE"),
+            "CAMG_CO3_2",
+            dolomite_column,
+            unit="%",
+            description="Dolomite",
+        )
+        upsert_geology_curve(
+            ("LBA_GROUP",),
+            "LBA_GROUP",
+            lba_group_column,
+            unit="CODE",
+            description="LBA group",
+        )
+        upsert_geology_curve(
+            ("INTENSITY_LBA", "LBA_INTENSITY"),
+            "INTENSITY_LBA",
+            lba_intensity_column,
+            unit="CODE",
+            description="LBA intensity",
+        )
+        upsert_geology_curve(
+            ("LBA_TYPE",),
+            "LBA_TYPE",
+            lba_type_column,
+            unit="CODE",
+            description="LBA type code",
+        )
+        upsert_geology_curve(
+            ("ZVET_LBA", "LBA_COLOR"),
+            "ZVET_LBA",
+            lba_color_column,
+            unit="CODE",
+            description="LBA colour code",
+        )
     return exported
 
 
