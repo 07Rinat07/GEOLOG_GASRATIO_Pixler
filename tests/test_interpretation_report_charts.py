@@ -21,6 +21,9 @@ from geoworkbench.printing.hydrocarbon_interpretation_chart_front import (
 from geoworkbench.printing.hydrocarbon_interpretation_report import (
     export_hydrocarbon_interpretation_pdf,
 )
+from geoworkbench.printing.hydrocarbon_interpretation_pdf_chart import (
+    _rendered_depth_gap_limit,
+)
 from geoworkbench.project.interpretation_calculation_controller import (
     InterpretationCalculationController,
 )
@@ -198,3 +201,24 @@ def test_pdf_chart_breaks_clipped_outlier_spikes_and_limits_band_glare() -> None
     assert "abs(normalized - previous_normalized) >= 0.72" in base
     assert "if previous is not None and not break_clipped_spike:" in base
     assert "band_color.setAlpha(20)" in enhanced
+
+
+
+def test_pdf_chart_gap_threshold_breaks_real_missing_depth_runs() -> None:
+    depth = np.asarray([0.0, 0.1, 0.2, 0.3, 25.0, 25.1, 25.2], dtype=np.float64)
+    indices = np.arange(depth.size, dtype=np.int64)
+
+    threshold = _rendered_depth_gap_limit(depth, indices, maximum_points=2_500)
+
+    assert threshold < 1.0
+    assert depth[4] - depth[3] > threshold
+
+
+def test_pdf_chart_gap_threshold_allows_uniform_downsampling_stride() -> None:
+    depth = np.arange(0.0, 1_000.0, 0.1, dtype=np.float64)
+    indices = np.arange(depth.size, dtype=np.int64)
+
+    threshold = _rendered_depth_gap_limit(depth, indices, maximum_points=2_500)
+
+    rendered_stride = depth.size / 2_500
+    assert threshold >= 0.1 * rendered_stride * 3.0
