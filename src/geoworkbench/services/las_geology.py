@@ -512,6 +512,7 @@ def dataset_with_well_geology(session: ProjectSession):
     if depth.ndim != 1 or not depth.size:
         return exported
     geology_plan = geology_export_plan_from_well(well)
+    description_column = np.full(depth.shape, np.nan, dtype=np.float64)
 
     if well.lithology:
         primary = np.full(depth.shape, np.nan, dtype=np.float64)
@@ -522,6 +523,11 @@ def dataset_with_well_geology(session: ProjectSession):
             code = _project_lithotype_code(session, interval.lithotype_id)
             if code is not None:
                 primary[index] = code
+            description_id = geology_plan.lithology_description_ids.get(
+                interval.interval_id
+            )
+            if description_id is not None:
+                description_column[index] = float(description_id)
         if np.isfinite(primary).any():
             exported.upsert_curve(
                 "КОД_ПОРОДЫ",
@@ -547,12 +553,14 @@ def dataset_with_well_geology(session: ProjectSession):
         dolomite_column = source_values("CAMG_CO3_2", "DOLOMITE")
         lba_group_column = source_values("LBA_GROUP")
         lba_intensity_column = source_values("INTENSITY_LBA", "LBA_INTENSITY")
-        lba_type_column = source_values("LBA_TYPE")
-        lba_color_column = source_values("ZVET_LBA", "LBA_COLOR")
+        # Dictionary-dependent carriers are rebuilt from project state. Keeping
+        # old numeric values while emitting a new dictionary can silently map a
+        # retained source code to a different meaning after reopen.
+        lba_type_column = np.full(depth.shape, np.nan, dtype=np.float64)
+        lba_color_column = np.full(depth.shape, np.nan, dtype=np.float64)
 
         lba_type_code_by_type = dict(geology_plan.lba_type_codes)
         lba_color_code_by_label = dict(geology_plan.lba_color_codes)
-        description_column = source_values("GEO_DESC_ID")
 
         for index, value in enumerate(depth):
             sample = _cuttings_sample_at(well.cuttings, float(value))
@@ -673,20 +681,19 @@ def dataset_with_well_geology(session: ProjectSession):
             unit="CODE",
             description="LBA colour code",
         )
-        upsert_geology_curve(
-            ("GEO_DESC_ID",),
+    if np.isfinite(description_column).any():
+        exported.upsert_curve(
             "GEO_DESC_ID",
             description_column,
             unit="CODE",
             description="Portable geology description ID",
+            provenance="derived:project-geology",
         )
+
     if well.stratigraphy:
+        # STRAT_CODE is another dictionary-dependent carrier and must be
+        # regenerated together with the metadata dictionary.
         stratigraphy_column = np.full(depth.shape, np.nan, dtype=np.float64)
-        existing_stratigraphy = exported.curve_by_mnemonic("STRAT_CODE")
-        if existing_stratigraphy is not None:
-            existing_values = np.asarray(existing_stratigraphy.values, dtype=np.float64)
-            if existing_values.shape == depth.shape:
-                stratigraphy_column = existing_values.copy()
         for index, value in enumerate(depth):
             stratigraphy_interval = _stratigraphy_interval_at(
                 well.stratigraphy,
