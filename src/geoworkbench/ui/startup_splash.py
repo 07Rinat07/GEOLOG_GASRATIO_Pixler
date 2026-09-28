@@ -9,7 +9,7 @@ from PySide6.QtCore import (
     QTimer,
     Qt,
 )
-from PySide6.QtGui import QCursor, QShowEvent
+from PySide6.QtGui import QCursor, QResizeEvent, QShowEvent
 from PySide6.QtWidgets import (
     QApplication,
     QFrame,
@@ -133,8 +133,8 @@ class StartupSplash(QWidget):
         self.rig = DrillingAnimation(dark=True, parent=card)
         self.rig.setObjectName("splashRig")
         self.rig.setFixedSize(220, 220)
-        self.rig.setVisible(self.width() >= 720 and self.height() >= 370)
         layout.addWidget(self.rig, 2, Qt.AlignmentFlag.AlignCenter)
+        self._update_adaptive_content()
 
         self.setStyleSheet(
             "QFrame#splashCard { background: #071a2d; border: 1px solid #17456a; "
@@ -166,6 +166,13 @@ class StartupSplash(QWidget):
             max(320, min(760, available.width() - 48)),
             max(280, min(410, available.height() - 48)),
         )
+
+    def _update_adaptive_content(self) -> None:
+        self.rig.setVisible(self.width() >= 720 and self.height() >= 370)
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        self._update_adaptive_content()
 
     def _centre_on_active_screen(self) -> None:
         screen = QApplication.screenAt(QCursor.pos()) or QApplication.primaryScreen()
