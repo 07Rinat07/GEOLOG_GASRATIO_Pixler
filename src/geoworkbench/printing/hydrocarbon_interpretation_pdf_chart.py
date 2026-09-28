@@ -465,7 +465,13 @@ def _rendered_depth_gap_limit(
     positive = differences[np.isfinite(differences) & (differences > 0.0)]
     if not positive.size:
         return float("inf")
-    typical_step = float(np.median(positive))
+    # Estimate the native sampling cadence from the lower cluster so a
+    # genuine acquisition gap cannot inflate its own break threshold.  The lower
+    # half is robust for pages such as [0, 0.1, 25] where the global median of
+    # positive differences would incorrectly be dominated by the gap.
+    ordered_positive = np.sort(positive)
+    lower_count = max(1, (ordered_positive.size + 1) // 2)
+    typical_step = float(np.median(ordered_positive[:lower_count]))
     rendered_count = min(int(indices.size), maximum_points)
     sampling_stride = max(1.0, float(indices.size) / max(1, rendered_count))
     return typical_step * max(3.0, sampling_stride * 3.0)
