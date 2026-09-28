@@ -688,10 +688,15 @@ def dataset_with_well_geology(session: ProjectSession):
             if existing_values.shape == depth.shape:
                 stratigraphy_column = existing_values.copy()
         for index, value in enumerate(depth):
-            interval = _stratigraphy_interval_at(well.stratigraphy, float(value))
-            if interval is None:
+            stratigraphy_interval = _stratigraphy_interval_at(
+                well.stratigraphy,
+                float(value),
+            )
+            if stratigraphy_interval is None:
                 continue
-            code = geology_plan.stratigraphy_codes.get(interval.interval_id)
+            code = geology_plan.stratigraphy_codes.get(
+                stratigraphy_interval.interval_id
+            )
             if code is not None:
                 stratigraphy_column[index] = float(code)
         if np.isfinite(stratigraphy_column).any():
