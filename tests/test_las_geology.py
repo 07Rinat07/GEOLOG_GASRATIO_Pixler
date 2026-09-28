@@ -4,7 +4,11 @@ from pathlib import Path
 import zlib
 
 from geoworkbench.data.las_adapter import import_las, import_las_with_report
-from geoworkbench.domain.models import CuttingsSample, LithologyInterval
+from geoworkbench.domain.models import (
+    CuttingsSample,
+    LithologyInterval,
+    StratigraphyInterval,
+)
 from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.las_geology import (
@@ -12,7 +16,11 @@ from geoworkbench.services.las_geology import (
     import_las_geology,
     las_code_id,
 )
-from geoworkbench.services.las_geology_metadata import geology_metadata_from_las_bytes
+from geoworkbench.services.las_geology_metadata import (
+    append_las_geology_metadata,
+    geology_export_plan_from_well,
+    geology_metadata_from_las_bytes,
+)
 from geoworkbench.storage.atomic_json import save_project
 from geoworkbench.storage.project_codec import load_project
 from geoworkbench.tablet.lithology_legend import build_lithology_legend
@@ -541,3 +549,123 @@ def test_export_projects_edited_calcimetry_and_lba_back_to_curves(tmp_path: Path
     assert exported.curve_by_mnemonic("LBA_GROUP").values.tolist() == [2.0, 2.0]
     assert exported.curve_by_mnemonic("INTENSITY_LBA").values.tolist() == [4.0, 4.0]
     assert exported.curve_by_mnemonic("ZVET_LBA").values.tolist() == [3.0, 3.0]
+
+
+
+def test_portable_geology_export_plan_round_trips_descriptions_lba_and_stratigraphy(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "field-geology.las"
+    source.write_bytes(
+        _small_geology_las(
+            (
+                " КОД_ПОРОДЫ.CODE : Primary rock",
+                " ПОРОДА1_КОД.CODE : Cuttings code",
+                " ПОРОДА1_КОЛИЧ.PCT : Cuttings percent",
+                " CALCITE.PCT : Calcite",
+                " DOLOMITE.PCT : Dolomite",
+                " LBA_GROUP.CODE : LBA group",
+                " LBA_INTENSITY.CODE : LBA intensity",
+                " LBA_TYPE.CODE : LBA type",
+                " LBA_COLOR.CODE : LBA colour",
+                " GEO_DESC_ID.CODE : Description",
+                " STRAT_CODE.CODE : Stratigraphy",
+            ),
+            ("0 5 5 100 30 10 2 4 2 1 1 1", "1 5 5 100 30 10 2 4 2 1 1 1"),
+        )
+    )
+    imported = import_las_with_report(source)
+    session = ProjectSession()
+    well = session.add_dataset(
+        imported.dataset,
+        "Test",
+        source_document=imported.source_document,
+        import_report=imported.report,
+        create_new_well=True,
+    )
+    assert well.cuttings
+    sample = well.cuttings[0]
+    sample.description = "Песчаник серый, мелкозернистый, пиритизированный."
+    sample.calcite_percent = 35.0
+    sample.dolomite_percent = 12.0
+    sample.lba_group = 2
+    sample.lba_type_id = "oily"
+    sample.lba_intensity = 4
+    sample.lba_color = "БЖ — беловато-жёлтый"
+    well.stratigraphy = [
+        StratigraphyInterval(
+            "strat-1",
+            0.0,
+            1.0,
+            "K",
+            name="Меловая система",
+            rank="system",
+            color="#dbeafe",
+            description="Мел",
+        )
+    ]
+
+    export_dataset = dataset_with_well_geology(session)
+    assert export_dataset is not None
+    plan = geology_export_plan_from_well(well)
+    target = tmp_path / "portable-roundtrip.las"
+    from geoworkbench.data.las_adapter import export_las
+
+    export_las(export_dataset, target)
+    append_las_geology_metadata(target, plan.metadata)
+
+    reopened = import_las_with_report(target)
+    reopened_session = ProjectSession()
+    reopened_well = reopened_session.add_dataset(
+        reopened.dataset,
+        "Test",
+        source_document=reopened.source_document,
+        import_report=reopened.report,
+        create_new_well=True,
+    )
+
+    assert len(reopened_well.cuttings) == 1
+    restored = reopened_well.cuttings[0]
+    assert restored.description == "Песчаник серый, мелкозернистый, пиритизированный."
+    assert restored.calcite_percent == 35.0
+    assert restored.dolomite_percent == 12.0
+    assert restored.insoluble_residue_percent == 53.0
+    assert restored.lba_group == 2
+    assert restored.lba_type_id == "oily"
+    assert restored.lba_intensity == 4
+    assert restored.lba_color == "БЖ"
+    assert len(reopened_well.stratigraphy) == 1
+    assert reopened_well.stratigraphy[0].code == "K"
+    assert reopened_well.stratigraphy[0].name == "Меловая система"
+
+
+def test_rendered_portable_metadata_replaces_prior_block(tmp_path: Path) -> None:
+    source = tmp_path / "metadata-replace.las"
+    source.write_bytes(
+        _small_geology_las(
+            (" STRAT_CODE.CODE : Stratigraphy",),
+            ("0 1", "1 1"),
+        )
+    )
+    session = ProjectSession()
+    imported = import_las_with_report(source)
+    well = session.add_dataset(
+        imported.dataset,
+        "Test",
+        source_document=imported.source_document,
+        import_report=imported.report,
+        create_new_well=True,
+    )
+    well.stratigraphy = [
+        StratigraphyInterval("s1", 0.0, 1.0, "K", name="Мел")
+    ]
+    metadata = geology_export_plan_from_well(well).metadata
+
+    append_las_geology_metadata(source, metadata)
+    append_las_geology_metadata(source, metadata)
+
+    raw = source.read_bytes()
+    assert raw.count(b"GEOWORKBENCH_GEOLOGY_METADATA") == 1
+    parsed = geology_metadata_from_las_bytes(raw)
+    assert parsed is not None
+    assert parsed.stratigraphy[0].code == "K"
