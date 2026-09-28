@@ -18,6 +18,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import (
     chart_geometry,
     plan_depth_pages,
 )
+from geoworkbench.printing.depth_curve_segments import continuous_depth_segments
 from geoworkbench.printing.unicode_support import print_font
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
@@ -384,9 +385,7 @@ def _draw_curves(
         & (depth <= page.bottom_depth)
     )
     indices = indices[np.argsort(depth[indices], kind="stable")]
-    if indices.size > 2_500:
-        positions = np.linspace(0, indices.size - 1, 2_500, dtype=np.int64)
-        indices = indices[positions]
+    segments = continuous_depth_segments(depth, indices, limit=2_500)
 
     painter.save()
     painter.setClipRect(rect.adjusted(0.8, 0.8, -0.8, -0.8))
@@ -398,35 +397,36 @@ def _draw_curves(
             continue
         low, high = value_range
         painter.setPen(QPen(QColor(_COLORS[curve_index % len(_COLORS)]), 0.8))
-        previous: tuple[float, float] | None = None
-        previous_normalized: float | None = None
-        previous_clipped = False
-        for row_index in indices:
-            value = values[row_index]
-            if not np.isfinite(value):
-                previous = None
-                previous_normalized = None
-                previous_clipped = False
-                continue
-            raw_normalized = float((value - low) / (high - low))
-            normalized = float(np.clip(raw_normalized, 0.0, 1.0))
-            clipped = raw_normalized < 0.0 or raw_normalized > 1.0
-            current = (
-                curve_rect.left() + normalized * curve_rect.width(),
-                _depth_y(float(depth[row_index]), page, curve_rect),
-            )
-            break_clipped_spike = (
-                previous_normalized is not None
-                and (clipped or previous_clipped)
-                and abs(normalized - previous_normalized) >= 0.72
-            )
-            if previous is not None and not break_clipped_spike:
-                painter.drawLine(
-                    QLineF(previous[0], previous[1], current[0], current[1])
+        for segment in segments:
+            previous: tuple[float, float] | None = None
+            previous_normalized: float | None = None
+            previous_clipped = False
+            for row_index in segment:
+                value = values[row_index]
+                if not np.isfinite(value):
+                    previous = None
+                    previous_normalized = None
+                    previous_clipped = False
+                    continue
+                raw_normalized = float((value - low) / (high - low))
+                normalized = float(np.clip(raw_normalized, 0.0, 1.0))
+                clipped = raw_normalized < 0.0 or raw_normalized > 1.0
+                current = (
+                    curve_rect.left() + normalized * curve_rect.width(),
+                    _depth_y(float(depth[row_index]), page, curve_rect),
                 )
-            previous = current
-            previous_normalized = normalized
-            previous_clipped = clipped
+                break_clipped_spike = (
+                    previous_normalized is not None
+                    and (clipped or previous_clipped)
+                    and abs(normalized - previous_normalized) >= 0.72
+                )
+                if previous is not None and not break_clipped_spike:
+                    painter.drawLine(
+                        QLineF(previous[0], previous[1], current[0], current[1])
+                    )
+                previous = current
+                previous_normalized = normalized
+                previous_clipped = clipped
     painter.restore()
 
 
