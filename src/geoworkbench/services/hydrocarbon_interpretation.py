@@ -143,11 +143,13 @@ def build_hydrocarbon_interpretation_report(
     session_id = id(session)
     effective_events = _effective_session_gas_context_events(session)
     background_exclusions = _background_exclusion_intervals(effective_events)
+    candidate_exclusions = _candidate_exclusion_intervals(effective_events)
     if normalized_gas_mode is None and session_id not in _SELECTED_MODES:
         filtered_report = _legacy.build_hydrocarbon_interpretation_report(
             session,
             threshold=threshold,
             background_exclusion_intervals=background_exclusions,
+            candidate_exclusion_intervals=candidate_exclusions,
         )
         contextual = _apply_session_gas_context(
             session,
@@ -191,6 +193,7 @@ def build_hydrocarbon_interpretation_report(
         threshold=threshold,
         normalized_gas_mode=effective_mode,
         background_exclusion_intervals=background_exclusions,
+        candidate_exclusion_intervals=candidate_exclusions,
     )
     if waiting_for_local_total:
         report = replace(
@@ -239,12 +242,15 @@ def build_opus_interpretation_report(
     threshold: float = 3.0,
     total_gas_lod: float | None = None,
 ) -> HydrocarbonInterpretationReport:
+    effective_events = _effective_session_gas_context_events(session)
     report = _build_opus_interpretation_report(
         session,
         threshold=threshold,
         total_gas_lod=total_gas_lod,
+        background_exclusion_intervals=_background_exclusion_intervals(effective_events),
+        candidate_exclusion_intervals=_candidate_exclusion_intervals(effective_events),
     )
-    return _apply_session_gas_context(session, report)
+    return _apply_session_gas_context(session, report, events=effective_events)
 
 
 def hydrocarbon_interpretation_html(
@@ -315,9 +321,16 @@ def _merge_background_suppression_audit(
     dataset = session.current_dataset
     if dataset is None:
         return contextual
+    auditable_events = tuple(
+        event
+        for event in events
+        if event.effective_impact is InterpretationImpact.TECHNOLOGICAL_GAS
+    )
+    if not auditable_events:
+        return contextual
     audited = apply_gas_context_to_report(
         audit_source,
-        GasContextRegistry(events),
+        GasContextRegistry(auditable_events),
         depth_domain=dataset.depth_domain,
     )
     if not audited.suppressed_candidates:
@@ -370,6 +383,17 @@ def _background_exclusion_intervals(
     )
 
 
+def _candidate_exclusion_intervals(
+    events: tuple[GasContextEvent, ...],
+) -> tuple[tuple[float, float], ...]:
+    return tuple(
+        (event.top_depth, event.bottom_depth)
+        for event in events
+        if event.confirmed
+        and event.effective_impact is InterpretationImpact.EXCLUDE_GEOLOGICAL
+    )
+
+
 def _apply_session_gas_context(
     session: ProjectSession,
     report: HydrocarbonInterpretationReport,
@@ -389,6 +413,12 @@ def _apply_session_gas_context(
         GasContextRegistry(effective_events),
         depth_domain=dataset.depth_domain,
     )
+    presentation_events = tuple(
+        event
+        for event in contextual.gas_context_events
+        if event.effective_impact is not InterpretationImpact.EXCLUDE_GEOLOGICAL
+    )
+    contextual = replace(contextual, gas_context_events=presentation_events)
     return attach_gas_context_measurement_audit(contextual, dataset)
 
 
