@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- Field acceptance/Maksat M-1: legacy geology LAS now recognizes Cyrillic `КАРБОНАТНОСТЬ`, `ЛБА_ГРУППА`, `СТРАТ_КОД`, `ОПИСАНИЕ_ID` plus bounded `# STRAT/# DESC`; aggregate carbonate is preserved separately from calcite/dolomite, startup branding no longer clips on constrained screens, report curves stop at real depth gaps, and gas intervals excluded from geological interpretation remain internal audit only instead of reappearing as client candidates.
 - LAS/Geology: portable geology import расширен до кальциметрии (`CACO3`/`CAMG_CO3_2`), ЛБА (`LBA_GROUP`/`INTENSITY_LBA`/`LBA_TYPE`/`ZVET_LBA`), описаний и стратиграфии; bounded `GEOWORKBENCH_GEOLOGY_METADATA` в `~Other` является необязательным и повреждённый payload не блокирует обычное открытие LAS. Encoding detection крупных custom headers ограничен 128 KiB.
 - LAS/UI: исправлен crash до начала импорта (`KeyError: 'files'`) при открытии любого LAS: имя файла теперь передаётся непосредственно в `Localizer.text(...)`, а progress/status сообщения покрыты regression-тестом.
 - WITS0/UI: Live workspace получил responsive parameter navigation: при ширине <820 px и в fullscreen Monitor и sidebar больше не ужимаются рядом — параметры открываются отдельным view с действием «Назад к монитору», wide sidebar preference сохраняется; current-values table растягивает колонки по доступной ширине без horizontal overflow.
