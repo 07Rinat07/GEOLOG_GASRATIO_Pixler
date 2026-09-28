@@ -467,6 +467,7 @@ class CuttingsSample:
     lba_description: str | None = None
     calcite_percent: float | None = None
     dolomite_percent: float | None = None
+    total_carbonate_percent: float | None = None
     description: str | None = None
     analysis_interpretation: str | None = None
     description_word_wrap: bool = True
@@ -477,6 +478,8 @@ class CuttingsSample:
 
     @property
     def insoluble_residue_percent(self) -> float | None:
+        if self.total_carbonate_percent is not None:
+            return max(0.0, 100.0 - self.total_carbonate_percent)
         if self.calcite_percent is None or self.dolomite_percent is None:
             return None
         return max(0.0, 100.0 - self.calcite_percent - self.dolomite_percent)
