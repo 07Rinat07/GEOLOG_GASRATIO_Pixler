@@ -223,3 +223,14 @@ def test_pdf_chart_gap_threshold_allows_uniform_downsampling_stride() -> None:
 
     rendered_stride = depth.size / 2_500
     assert threshold >= 0.1 * rendered_stride * 3.0
+
+
+
+def test_pdf_chart_gap_threshold_handles_two_step_sparse_page() -> None:
+    depth = np.asarray([0.0, 0.1, 25.0], dtype=np.float64)
+    indices = np.arange(depth.size, dtype=np.int64)
+
+    threshold = _rendered_depth_gap_limit(depth, indices, maximum_points=2_500)
+
+    assert threshold == pytest.approx(0.3)
+    assert depth[2] - depth[1] > threshold
