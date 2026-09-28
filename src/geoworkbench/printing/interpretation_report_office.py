@@ -6,6 +6,7 @@ import tempfile
 import zipfile
 
 from openpyxl import Workbook  # type: ignore[import-untyped]
+from openpyxl.comments import Comment  # type: ignore[import-untyped]
 from openpyxl.styles import Alignment, Font, PatternFill  # type: ignore[import-untyped]
 from openpyxl.utils import get_column_letter  # type: ignore[import-untyped]
 
@@ -137,36 +138,6 @@ def _write_xlsx(
     summary.column_dimensions["A"].width = 34
     summary.column_dimensions["B"].width = 80
 
-    meter = workbook.create_sheet(_sheet_name(labels["meter_section"]))
-    _write_table(
-        meter,
-        (
-            labels["interval"],
-            labels["sample_intervals"],
-            labels["coverage"],
-            labels["composition"],
-            labels["rock_description"],
-            labels["stratigraphy"],
-        ),
-        tuple(
-            (
-                _interval(entry.top_depth, entry.bottom_depth, report.depth_unit),
-                "\n".join(
-                    _interval(top, bottom, report.depth_unit)
-                    for top, bottom in entry.sample_intervals
-                ),
-                entry.sampling_coverage,
-                _components(entry.rock_components, language),
-                "\n\n".join(entry.rock_descriptions),
-                _stratigraphy(entry.stratigraphy, language, report.depth_unit),
-            )
-            for entry in report.meter_geology
-        ),
-        widths=(18, 25, 15, 34, 70, 42),
-    )
-    for cell in meter["C"][1:]:
-        cell.number_format = "0.0%"
-
     samples = workbook.create_sheet(_sheet_name(labels["sample_section"]))
     lba_headers = tuple(_LBA_LABELS[language][key] for key, _ in LBA_FIELDS)
     sample_headers = (
@@ -230,8 +201,40 @@ def _write_xlsx(
         ),
         widths=(18, 18, 16, 32, 70),
     )
-    workbook.save(path)
 
+    meter = workbook.create_sheet(_sheet_name(labels["meter_section"]))
+    _write_table(
+        meter,
+        (
+            labels["interval"],
+            labels["sample_intervals"],
+            labels["coverage"],
+            labels["composition"],
+            labels["rock_description"],
+            labels["stratigraphy"],
+        ),
+        tuple(
+            (
+                _interval(entry.top_depth, entry.bottom_depth, report.depth_unit),
+                "\n".join(
+                    _interval(top, bottom, report.depth_unit)
+                    for top, bottom in entry.sample_intervals
+                ),
+                entry.sampling_coverage,
+                _components(entry.rock_components, language),
+                "\n\n".join(entry.rock_descriptions),
+                _stratigraphy(entry.stratigraphy, language, report.depth_unit),
+            )
+            for entry in report.meter_geology
+        ),
+        widths=(18, 25, 15, 34, 70, 42),
+    )
+    for cell in meter["C"][1:]:
+        cell.number_format = "0.0%"
+    meter.sheet_properties.tabColor = "D9A441"
+    meter["A1"].comment = Comment(labels["meter_note"], "DIGITAL GEOLOG")
+
+    workbook.save(path)
 
 def _sample_row(
     entry: AnalysisInterpretationEntry,
@@ -289,32 +292,6 @@ def _write_docx(
         _paragraph(f"{labels['project']}: {report.project_name}"),
         _paragraph(f"{labels['well']}: {report.well_name}"),
         _paragraph(f"{labels['dataset']}: {report.dataset_name or '—'}"),
-        _paragraph(labels["meter_section"], style="Heading1"),
-        _table(
-            (
-                labels["interval"],
-                labels["sample_intervals"],
-                labels["coverage"],
-                labels["composition"],
-                labels["rock_description"],
-                labels["stratigraphy"],
-            ),
-            tuple(
-                (
-                    _interval(item.top_depth, item.bottom_depth, report.depth_unit),
-                    "; ".join(
-                        _interval(top, bottom, report.depth_unit)
-                        for top, bottom in item.sample_intervals
-                    ),
-                    f"{item.sampling_coverage * 100:g}%",
-                    _components(item.rock_components, language),
-                    " | ".join(item.rock_descriptions),
-                    _stratigraphy(item.stratigraphy, language, report.depth_unit),
-                )
-                for item in report.meter_geology
-            ),
-            widths=(1500, 1800, 1100, 3000, 4200, 3500),
-        ),
         _paragraph(labels["sample_section"], style="Heading1"),
         _table(
             (
@@ -350,6 +327,33 @@ def _write_docx(
                 for item in report.stratigraphy
             ),
             widths=(2200, 1800, 1600, 3600, 5900),
+        ),
+        _paragraph(labels["meter_section"], style="Heading1"),
+        _paragraph(labels["meter_note"]),
+        _table(
+            (
+                labels["interval"],
+                labels["sample_intervals"],
+                labels["coverage"],
+                labels["composition"],
+                labels["rock_description"],
+                labels["stratigraphy"],
+            ),
+            tuple(
+                (
+                    _interval(item.top_depth, item.bottom_depth, report.depth_unit),
+                    "; ".join(
+                        _interval(top, bottom, report.depth_unit)
+                        for top, bottom in item.sample_intervals
+                    ),
+                    f"{item.sampling_coverage * 100:g}%",
+                    _components(item.rock_components, language),
+                    " | ".join(item.rock_descriptions),
+                    _stratigraphy(item.stratigraphy, language, report.depth_unit),
+                )
+                for item in report.meter_geology
+            ),
+            widths=(1500, 1800, 1100, 3000, 4200, 3500),
         ),
         _paragraph(labels["notice"]),
     ]
@@ -391,7 +395,6 @@ def _write_docx(
             '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"/>',
         )
         package.writestr("word/styles.xml", _docx_styles())
-
 
 def _docx_sample_row(
     entry: AnalysisInterpretationEntry,
