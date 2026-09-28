@@ -541,3 +541,91 @@ def test_export_projects_edited_calcimetry_and_lba_back_to_curves(tmp_path: Path
     assert exported.curve_by_mnemonic("LBA_GROUP").values.tolist() == [2.0, 2.0]
     assert exported.curve_by_mnemonic("INTENSITY_LBA").values.tolist() == [4.0, 4.0]
     assert exported.curve_by_mnemonic("ZVET_LBA").values.tolist() == [3.0, 3.0]
+
+
+def _legacy_m1_geology_las() -> bytes:
+    text = "\n".join(
+        [
+            "~Version Information",
+            " VERS. 2.0 : LAS 2.0",
+            " WRAP. NO : One row per depth",
+            "~Well Information",
+            " STRT.M 1000.0 : Start",
+            " STOP.M 1001.0 : Stop",
+            " STEP.M 1.0 : Step",
+            " NULL. -999.25 : Null",
+            " WELL. М-1 : Well",
+            "~Curve Information",
+            " DEPTH.M : Глубина",
+            " КОД_ПОРОДЫ.CODE : Интерпретированная литология",
+            " ПОРОДА1_КОД.CODE : Шламограмма, компонент 1",
+            " ПОРОДА1_КОЛИЧ.PCT : Шламограмма, компонент 1, %",
+            " ЛБА_ГРУППА.CODE : ЛБА",
+            " СТРАТ_КОД.CODE : Стратиграфия",
+            " ОПИСАНИЕ_ID.CODE : Описание пород",
+            "~Other DIGITAL GEOLOG / GeoWorkbench geology",
+            "# GEOLOGY_SOURCE=Мастерлог Максат М-1",
+            "# CURVE_CONTRACT: СТРАТ_КОД uses STRAT; ОПИСАНИЕ_ID uses DESC.",
+            "# STRAT id=1; top=1000.0; bottom=1002.0; code=K; rank=system; name=Меловая",
+            (
+                "# DESC id=1; top=1000.0; bottom=1002.0; "
+                "text=Известняки серые, плотные, скрытокристаллические."
+            ),
+            "~ASCII Log Data",
+            "1000 7 7 100 2 1 1",
+            "1001 7 7 100 2 1 1",
+            "",
+        ]
+    )
+    return text.encode("cp1251")
+
+
+def test_legacy_m1_contract_materializes_cuttings_lba_description_and_stratigraphy(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "legacy-m1-geology.las"
+    source.write_bytes(_legacy_m1_geology_las())
+
+    result = import_las_with_report(source)
+    session = ProjectSession()
+    well = session.add_dataset(
+        result.dataset,
+        "М-1",
+        source_document=result.source_document,
+        import_report=result.report,
+        create_new_well=True,
+    )
+
+    assert len(well.lithology) == 1
+    assert len(well.cuttings) == 1
+    sample = well.cuttings[0]
+    assert [(item.lithotype_id, item.percentage) for item in sample.components] == [
+        ("las-code-7", 100.0)
+    ]
+    assert sample.lba_group == 2
+    assert sample.lba_type_id == "oily"
+    assert sample.description == "Известняки серые, плотные, скрытокристаллические."
+
+    assert len(well.stratigraphy) == 1
+    interval = well.stratigraphy[0]
+    assert interval.top_depth == 1000.0
+    assert interval.bottom_depth == 1001.0
+    assert interval.code == "K"
+    assert interval.name == "Меловая"
+
+
+def test_legacy_m1_metadata_is_bounded_and_malformed_records_are_advisory() -> None:
+    oversized_header = (
+        b"~Other information\n"
+        b"# STRAT id=1; top=0; bottom=1; code=K; rank=system; name=K\n"
+        + b"# padding=" + b"x" * (8 * 1024 * 1024)
+        + b"\n~ASCII Log Data\n0 1\n"
+    )
+    assert geology_metadata_from_las_bytes(oversized_header) is None
+
+    malformed = (
+        "~Other information\n"
+        "# DESC id=1; top=0; bottom=1; text=\n"
+        "~ASCII Log Data\n"
+    ).encode("cp1251")
+    assert geology_metadata_from_las_bytes(malformed) is None
