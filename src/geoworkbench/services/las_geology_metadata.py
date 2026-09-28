@@ -17,6 +17,7 @@ _PAYLOAD_CONT_PREFIX = b"# GEOLOGY_ZLIB_BASE64_CONT="
 _MAX_COMPRESSED_BYTES = 2 * 1024 * 1024
 _MAX_ENCODED_BYTES = ((_MAX_COMPRESSED_BYTES + 2) // 3) * 4
 _MAX_DECOMPRESSED_BYTES = 8 * 1024 * 1024
+_MAX_LEGACY_HEADER_BYTES = 8 * 1024 * 1024
 _MAX_DESCRIPTIONS = 100_000
 _MAX_STRATIGRAPHY = 10_000
 _MAX_TEXT = 4_000
@@ -67,47 +68,153 @@ class LasGeologyMetadata:
 def geology_metadata_from_las_bytes(raw: bytes) -> LasGeologyMetadata | None:
     """Read optional portable geology metadata without making LAS import fragile.
 
-    Invalid/malformed metadata is ignored deliberately.  The raw LAS remains the
-    source of truth and must still be readable when this optional annotation is
-    absent or damaged.
+    Both the current compressed envelope and the earlier DIGITAL GEOLOG
+    # STRAT / # DESC header contract are supported. Invalid optional metadata
+    is ignored so it can never make a readable LAS fail to open.
     """
 
-    if not isinstance(raw, bytes) or _MARKER not in raw:
+    if not isinstance(raw, bytes):
         return None
-    section_matches = list(re.finditer(rb"(?m)^[ \t]*~[^\r\n]*", raw))
-    for index in range(len(section_matches) - 1, -1, -1):
-        start = section_matches[index].start()
-        end = (
-            section_matches[index + 1].start()
-            if index + 1 < len(section_matches)
-            else len(raw)
-        )
-        section = raw[start:end]
-        if _MARKER not in section:
-            continue
+    if _MARKER in raw:
+        section_matches = list(re.finditer(rb"(?m)^[ \\t]*~[^\\r\\n]*", raw))
+        for index in range(len(section_matches) - 1, -1, -1):
+            start = section_matches[index].start()
+            end = (
+                section_matches[index + 1].start()
+                if index + 1 < len(section_matches)
+                else len(raw)
+            )
+            section = raw[start:end]
+            if _MARKER not in section:
+                continue
+            try:
+                encoded = _payload_from_section(section)
+                if encoded is None:
+                    continue
+                if len(encoded) > _MAX_ENCODED_BYTES:
+                    continue
+                compressed = base64.b64decode(encoded, validate=True)
+                if len(compressed) > _MAX_COMPRESSED_BYTES:
+                    continue
+                payload = _decompress_bounded(compressed)
+                decoded = json.loads(payload.decode("utf-8"))
+                return _metadata_from_dict(decoded)
+            except (
+                binascii.Error,
+                UnicodeDecodeError,
+                ValueError,
+                TypeError,
+                json.JSONDecodeError,
+                RecursionError,
+                zlib.error,
+            ):
+                continue
+    return _legacy_metadata_from_las_bytes(raw)
+
+
+def _legacy_metadata_from_las_bytes(raw: bytes) -> LasGeologyMetadata | None:
+    """Parse bounded legacy DIGITAL GEOLOG ~Other geology annotations."""
+
+    header_probe = raw[: _MAX_LEGACY_HEADER_BYTES + 1]
+    ascii_match = re.search(rb"(?mi)^[ \\t]*~ASCII\\b", header_probe)
+    if ascii_match is None:
+        if len(raw) > _MAX_LEGACY_HEADER_BYTES:
+            return None
+        header = raw
+    else:
+        header = raw[: ascii_match.start()]
+    if len(header) > _MAX_LEGACY_HEADER_BYTES:
+        return None
+    if b"# STRAT " not in header and b"# DESC " not in header:
+        return None
+
+    text: str | None = None
+    for encoding in ("utf-8", "cp1251"):
         try:
-            encoded = _payload_from_section(section)
-            if encoded is None:
-                continue
-            if len(encoded) > _MAX_ENCODED_BYTES:
-                continue
-            compressed = base64.b64decode(encoded, validate=True)
-            if len(compressed) > _MAX_COMPRESSED_BYTES:
-                continue
-            payload = _decompress_bounded(compressed)
-            decoded = json.loads(payload.decode("utf-8"))
-            return _metadata_from_dict(decoded)
-        except (
-            binascii.Error,
-            UnicodeDecodeError,
-            ValueError,
-            TypeError,
-            json.JSONDecodeError,
-            RecursionError,
-            zlib.error,
-        ):
+            text = header.decode(encoding, errors="strict")
+            break
+        except UnicodeDecodeError:
             continue
-    return None
+    if text is None:
+        return None
+
+    descriptions: dict[int, LasGeologyDescription] = {}
+    stratigraphy: list[LasStratigraphyEntry] = []
+    source = "legacy DIGITAL GEOLOG LAS geology metadata"
+
+    source_match = re.search(r"(?m)^# GEOLOGY_SOURCE=(.+)$", text)
+    if source_match is not None:
+        try:
+            source = _bounded_text(source_match.group(1), "source", maximum=500)
+        except ValueError:
+            return None
+
+    description_pattern = re.compile(
+        r"(?m)^# DESC id=(\\d+); top=([^;]+); bottom=([^;]+); text=(.*)$"
+    )
+    for match in description_pattern.finditer(text):
+        if len(descriptions) >= _MAX_DESCRIPTIONS:
+            return None
+        try:
+            description_id = int(match.group(1))
+            top = _finite_depth(match.group(2), "description.top")
+            bottom = _finite_depth(match.group(3), "description.bottom")
+            text_ru = _bounded_text(match.group(4), "description.text_ru")
+        except (TypeError, ValueError):
+            return None
+        if description_id < 1 or bottom <= top or description_id in descriptions:
+            return None
+        descriptions[description_id] = LasGeologyDescription(
+            description_id=description_id,
+            top_depth=top,
+            bottom_depth=bottom,
+            text_ru=text_ru,
+        )
+
+    stratigraphy_pattern = re.compile(
+        r"(?m)^# STRAT id=(\\d+); top=([^;]+); bottom=([^;]+); "
+        r"code=([^;]+); rank=([^;]*); name=(.*)$"
+    )
+    for match in stratigraphy_pattern.finditer(text):
+        if len(stratigraphy) >= _MAX_STRATIGRAPHY:
+            return None
+        try:
+            top = _finite_depth(match.group(2), "stratigraphy.top")
+            bottom = _finite_depth(match.group(3), "stratigraphy.bottom")
+            code = _bounded_text(match.group(4), "stratigraphy.code", maximum=80)
+            rank = _optional_text(match.group(5), maximum=80)
+            name_ru = _bounded_text(match.group(6), "stratigraphy.name_ru", maximum=300)
+        except (TypeError, ValueError):
+            return None
+        if bottom <= top:
+            return None
+        stratigraphy.append(
+            LasStratigraphyEntry(
+                top_depth=top,
+                bottom_depth=bottom,
+                code=code,
+                name_ru=name_ru,
+                rank=rank,
+            )
+        )
+
+    if not descriptions and not stratigraphy:
+        return None
+    stratigraphy.sort(key=lambda item: (item.top_depth, item.bottom_depth, item.code))
+    previous_by_rank: dict[str, LasStratigraphyEntry] = {}
+    for item in stratigraphy:
+        rank_key = (item.rank or "").strip().casefold()
+        previous = previous_by_rank.get(rank_key)
+        if previous is not None and item.top_depth < previous.bottom_depth:
+            return None
+        previous_by_rank[rank_key] = item
+    return LasGeologyMetadata(
+        source=source,
+        descriptions=descriptions,
+        stratigraphy=tuple(stratigraphy),
+        lba_type_codes={},
+        lba_color_codes={},
+    )
 
 
 def _payload_from_section(section: bytes) -> str | None:
