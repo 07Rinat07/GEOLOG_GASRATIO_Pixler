@@ -480,8 +480,8 @@ def test_confirmed_technological_gas_suppresses_geological_candidate_and_exports
     assert "TG: min 4; mean 4; max 4 %" in html
     assert "QC Δ к среднему TG" in html
     assert "0.25 %vol" in html
-    assert "Аудит подавленных автоматических кандидатов" in html
-    assert "gas-context: event_id=connection-1" in html
+    assert "Аудит подавленных автоматических кандидатов" not in html
+    assert "gas-context: event_id=connection-1" not in html
 
     xlsx_path = export_hydrocarbon_interpretation_xlsx(
         report,
@@ -509,8 +509,11 @@ def test_confirmed_technological_gas_suppresses_geological_candidate_and_exports
             for cell in row
             if cell.value is not None
         ]
-        assert "Подавленные автоматические кандидаты — аудит" in audit_values
-        assert any("gas-context: event_id=connection-1" in str(value) for value in audit_values)
+        assert "Подавленные автоматические кандидаты — аудит" not in audit_values
+        assert not any(
+            "gas-context: event_id=connection-1" in str(value)
+            for value in audit_values
+        )
     finally:
         workbook.close()
 
@@ -527,8 +530,8 @@ def test_confirmed_technological_gas_suppresses_geological_candidate_and_exports
         assert "Измеренный TG" in document
         assert "TG: min 4; mean 4; max 4 %" in document
         assert "0.25 %vol" in document
-        assert "Аудит подавленных автоматических кандидатов" in document
-        assert "gas-context: event_id=connection-1" in document
+        assert "Аудит подавленных автоматических кандидатов" not in document
+        assert "gas-context: event_id=connection-1" not in document
 
 
 def test_confirmed_technological_context_is_excluded_from_robust_background() -> None:
