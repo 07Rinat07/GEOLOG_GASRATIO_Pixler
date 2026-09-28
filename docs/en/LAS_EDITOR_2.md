@@ -102,3 +102,8 @@ The pencil can also be started from the tablet: right-click a graphical track or
 ## Excel export 0.7.4
 
 The `Data` header shows a readable name, mnemonic and unit. The `Parameters` sheet records the full mapping, LAS description, confidence and match method. Unresolved fields are explicitly marked.
+
+
+### Field geology round-trip
+
+When the current well is exported, DIGITAL GEOLOG writes the numeric `GEO_DESC_ID`, `STRAT_CODE`, LBA type/colour carriers and the bounded `GEOWORKBENCH_GEOLOGY_METADATA` block in `~Other` from one deterministic plan. Reopening that LAS restores rock descriptions, stratigraphy, calcimetry and LBA instead of only lithology/cuttings. Field mnemonics `CALCITE` and `DOLOMITE` are accepted aliases of `CACO3` and `CAMG_CO3_2`. Invalid optional metadata never blocks the base LAS.
