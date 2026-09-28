@@ -387,6 +387,7 @@ def _draw_curves(
     if indices.size > 2_500:
         positions = np.linspace(0, indices.size - 1, 2_500, dtype=np.int64)
         indices = indices[positions]
+    gap_limit = _depth_gap_limit(depth[indices])
 
     painter.save()
     painter.setClipRect(rect.adjusted(0.8, 0.8, -0.8, -0.8))
@@ -399,12 +400,14 @@ def _draw_curves(
         low, high = value_range
         painter.setPen(QPen(QColor(_COLORS[curve_index % len(_COLORS)]), 0.8))
         previous: tuple[float, float] | None = None
+        previous_depth: float | None = None
         previous_normalized: float | None = None
         previous_clipped = False
         for row_index in indices:
             value = values[row_index]
             if not np.isfinite(value):
                 previous = None
+                previous_depth = None
                 previous_normalized = None
                 previous_clipped = False
                 continue
@@ -420,14 +423,33 @@ def _draw_curves(
                 and (clipped or previous_clipped)
                 and abs(normalized - previous_normalized) >= 0.72
             )
-            if previous is not None and not break_clipped_spike:
+            current_depth = float(depth[row_index])
+            depth_contiguous = (
+                previous_depth is not None
+                and (gap_limit is None or current_depth - previous_depth <= gap_limit)
+            )
+            if previous is not None and depth_contiguous and not break_clipped_spike:
                 painter.drawLine(
                     QLineF(previous[0], previous[1], current[0], current[1])
                 )
             previous = current
+            previous_depth = current_depth
             previous_normalized = normalized
             previous_clipped = clipped
     painter.restore()
+
+
+def _depth_gap_limit(depth_values: NDArray[np.float64]) -> float | None:
+    values = np.asarray(depth_values, dtype=np.float64)
+    values = values[np.isfinite(values)]
+    if values.size < 3:
+        return None
+    differences = np.diff(values)
+    positive = differences[np.isfinite(differences) & (differences > 0.0)]
+    if not positive.size:
+        return None
+    typical = float(np.median(positive))
+    return max(typical * 3.0, float(np.finfo(np.float64).eps))
 
 
 def _draw_legend(
