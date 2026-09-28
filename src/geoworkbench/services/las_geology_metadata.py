@@ -76,7 +76,7 @@ def geology_metadata_from_las_bytes(raw: bytes) -> LasGeologyMetadata | None:
     if not isinstance(raw, bytes):
         return None
     if _MARKER in raw:
-        section_matches = list(re.finditer(rb"(?m)^[ \\t]*~[^\\r\\n]*", raw))
+        section_matches = list(re.finditer(rb"(?m)^[ \t]*~[^\r\n]*", raw))
         for index in range(len(section_matches) - 1, -1, -1):
             start = section_matches[index].start()
             end = (
@@ -116,7 +116,7 @@ def _legacy_metadata_from_las_bytes(raw: bytes) -> LasGeologyMetadata | None:
     """Parse bounded legacy DIGITAL GEOLOG ~Other geology annotations."""
 
     header_probe = raw[: _MAX_LEGACY_HEADER_BYTES + 1]
-    ascii_match = re.search(rb"(?mi)^[ \\t]*~ASCII\\b", header_probe)
+    ascii_match = re.search(rb"(?mi)^[ \t]*~ASCII\b", header_probe)
     if ascii_match is None:
         if len(raw) > _MAX_LEGACY_HEADER_BYTES:
             return None
@@ -150,7 +150,7 @@ def _legacy_metadata_from_las_bytes(raw: bytes) -> LasGeologyMetadata | None:
             return None
 
     description_pattern = re.compile(
-        r"(?m)^# DESC id=(\\d+); top=([^;]+); bottom=([^;]+); text=(.*)$"
+        r"(?m)^# DESC id=(\d+); top=([^;]+); bottom=([^;]+); text=(.*)$"
     )
     for match in description_pattern.finditer(text):
         if len(descriptions) >= _MAX_DESCRIPTIONS:
@@ -172,7 +172,7 @@ def _legacy_metadata_from_las_bytes(raw: bytes) -> LasGeologyMetadata | None:
         )
 
     stratigraphy_pattern = re.compile(
-        r"(?m)^# STRAT id=(\\d+); top=([^;]+); bottom=([^;]+); "
+        r"(?m)^# STRAT id=(\d+); top=([^;]+); bottom=([^;]+); "
         r"code=([^;]+); rank=([^;]*); name=(.*)$"
     )
     for match in stratigraphy_pattern.finditer(text):
