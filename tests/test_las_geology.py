@@ -673,3 +673,93 @@ def test_rendered_portable_metadata_replaces_prior_block(tmp_path: Path) -> None
     parsed = geology_metadata_from_las_bytes(raw)
     assert parsed is not None
     assert parsed.stratigraphy[0].code == "K"
+
+
+
+def test_lithology_only_description_survives_portable_las_round_trip(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "lithology-only.las"
+    source.write_bytes(
+        _small_geology_las(
+            (" КОД_ПОРОДЫ.CODE : Primary rock",),
+            ("0 5", "1 5"),
+        )
+    )
+    imported = import_las_with_report(source)
+    session = ProjectSession()
+    well = session.add_dataset(
+        imported.dataset,
+        "Test",
+        source_document=imported.source_document,
+        import_report=imported.report,
+        create_new_well=True,
+    )
+    assert len(well.lithology) == 1
+    assert well.cuttings == []
+    well.lithology[0].description = "Аргиллит тонкомелкозернистый, пиритизированный."
+
+    exported = dataset_with_well_geology(session)
+    assert exported is not None
+    description_curve = exported.curve_by_mnemonic("GEO_DESC_ID")
+    assert description_curve is not None
+    assert np.isfinite(description_curve.values).all()
+
+    from geoworkbench.data.las_adapter import export_las
+
+    target = tmp_path / "lithology-only-roundtrip.las"
+    export_las(exported, target)
+    plan = geology_export_plan_from_well(well)
+    append_las_geology_metadata(target, plan.metadata)
+
+    reopened = import_las_with_report(target)
+    reopened_session = ProjectSession()
+    reopened_well = reopened_session.add_dataset(
+        reopened.dataset,
+        "Test",
+        source_document=reopened.source_document,
+        import_report=reopened.report,
+        create_new_well=True,
+    )
+
+    assert len(reopened_well.lithology) == 1
+    assert (
+        reopened_well.lithology[0].description
+        == "Аргиллит тонкомелкозернистый, пиритизированный."
+    )
+
+
+def test_portable_export_drops_stale_dictionary_carriers_outside_project_geology(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "stale-carriers.las"
+    source.write_bytes(_enriched_cp1251_las())
+    imported = import_las_with_report(source)
+    session = ProjectSession()
+    well = session.add_dataset(
+        imported.dataset,
+        "Тест",
+        source_document=imported.source_document,
+        import_report=imported.report,
+        create_new_well=True,
+    )
+    sample = well.cuttings[0]
+    sample.bottom_depth = 1000.4
+    well.stratigraphy.clear()
+
+    exported = dataset_with_well_geology(session)
+    assert exported is not None
+
+    description = exported.curve_by_mnemonic("GEO_DESC_ID")
+    lba_type = exported.curve_by_mnemonic("LBA_TYPE")
+    lba_color = exported.curve_by_mnemonic("ZVET_LBA")
+    assert description is not None
+    assert lba_type is not None
+    assert lba_color is not None
+    assert np.isfinite(description.values[0])
+    assert np.isnan(description.values[1])
+    assert np.isfinite(lba_type.values[0])
+    assert np.isnan(lba_type.values[1])
+    assert np.isfinite(lba_color.values[0])
+    assert np.isnan(lba_color.values[1])
+    assert exported.curve_by_mnemonic("STRAT_CODE") is None
