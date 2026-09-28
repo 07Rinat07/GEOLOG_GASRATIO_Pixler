@@ -47,6 +47,16 @@ validated zlib+base64 JSON with hard size limits. A malformed or unknown metadat
 **must never block the LAS itself from opening**; it is ignored and ordinary curves remain
 available. The source LAS stays immutable.
 
+A single conservative geology-channel resolver is also used. It recognizes canonical,
+localized and common vendor aliases for lithology/cuttings, calcimetry, LBA, stratigraphy and
+description IDs. A description+UOM fallback is accepted only when the evidence is specific;
+ambiguous unknown curves remain ordinary LAS curves rather than being guessed.
+
+Legacy DIGITAL GEOLOG compatibility includes `КАРБОНАТНОСТЬ`, `ЛБА_ГРУППА`,
+`ЛБА_ИНТЕНСИВНОСТЬ`, `ЛБА_ТИП`, `ЛБА_ЦВЕТ`, `СТРАТ_КОД`, `ОПИСАНИЕ_ID`
+and bounded plain `# GEOLOGY_SOURCE` / `# STRAT` / `# DESC` records in `~Other`.
+This is a reusable dialect boundary, not a well-specific special case.
+
 Large vendor/custom header sections do not participate unboundedly in encoding detection: the
 encoding sample is capped at the first 128 KiB of header content before `~ASCII`.
 
