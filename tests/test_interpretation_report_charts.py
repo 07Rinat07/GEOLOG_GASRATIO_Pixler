@@ -13,10 +13,14 @@ from geoworkbench.domain.models import (
     DepthDomain,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_chart import (
+    _depth_gap_limit as whole_well_depth_gap_limit,
     hydrocarbon_interpretation_chart_data_uri,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_chart_front import (
     hydrocarbon_interpretation_html_with_front_chart,
+)
+from geoworkbench.printing.hydrocarbon_interpretation_pdf_chart import (
+    _depth_gap_limit as pdf_depth_gap_limit,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_report import (
     export_hydrocarbon_interpretation_pdf,
@@ -198,3 +202,17 @@ def test_pdf_chart_breaks_clipped_outlier_spikes_and_limits_band_glare() -> None
     assert "abs(normalized - previous_normalized) >= 0.72" in base
     assert "if previous is not None and not break_clipped_spike:" in base
     assert "band_color.setAlpha(20)" in enhanced
+
+
+def test_report_curve_renderers_detect_real_depth_gaps_after_sampling() -> None:
+    sampled_depth = np.asarray([0.0, 5.0, 10.0, 100.0, 105.0, 110.0])
+
+    whole_limit = whole_well_depth_gap_limit(sampled_depth)
+    pdf_limit = pdf_depth_gap_limit(sampled_depth)
+
+    assert whole_limit is not None
+    assert pdf_limit is not None
+    assert abs(10.0 - 5.0) <= whole_limit
+    assert abs(100.0 - 10.0) > whole_limit
+    assert abs(10.0 - 5.0) <= pdf_limit
+    assert abs(100.0 - 10.0) > pdf_limit
