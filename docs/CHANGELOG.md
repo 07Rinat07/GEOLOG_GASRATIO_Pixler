@@ -4,6 +4,9 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- LAS/Geology: field round-trip теперь переносит не только литологию/шлам, но и описания пород, стратиграфию и LBA dictionaries через согласованные `GEO_DESC_ID`/`STRAT_CODE` + bounded `GEOWORKBENCH_GEOLOGY_METADATA`; полевые aliases `CALCITE`/`DOLOMITE` разрешаются как `CACO3`/`CAMG_CO3_2`.
+- Gas context/Reports: confirmed `exclude_geological`/technological intervals по-прежнему исключаются из background/candidate расчёта, но customer-facing PDF/HTML/DOCX больше не повторяют их measured min/mean/max, QC delta или подавленную автоматическую гипотезу; полный structured audit остаётся доступным для технической проверки.
+- Reports/UI: интерпретационные PDF-кривые разрываются на реальных пробелах глубины вместо соединения далёких точек; startup splash получил более широкую responsive геометрию и не обрезает DIGITAL GEOLOG / GASRATIO&PIXLER.
 - LAS/Geology: portable geology import расширен до кальциметрии (`CACO3`/`CAMG_CO3_2`), ЛБА (`LBA_GROUP`/`INTENSITY_LBA`/`LBA_TYPE`/`ZVET_LBA`), описаний и стратиграфии; bounded `GEOWORKBENCH_GEOLOGY_METADATA` в `~Other` является необязательным и повреждённый payload не блокирует обычное открытие LAS. Encoding detection крупных custom headers ограничен 128 KiB.
 - LAS/UI: исправлен crash до начала импорта (`KeyError: 'files'`) при открытии любого LAS: имя файла теперь передаётся непосредственно в `Localizer.text(...)`, а progress/status сообщения покрыты regression-тестом.
 - WITS0/UI: Live workspace получил responsive parameter navigation: при ширине <820 px и в fullscreen Monitor и sidebar больше не ужимаются рядом — параметры открываются отдельным view с действием «Назад к монитору», wide sidebar preference сохраняется; current-values table растягивает колонки по доступной ширине без horizontal overflow.
