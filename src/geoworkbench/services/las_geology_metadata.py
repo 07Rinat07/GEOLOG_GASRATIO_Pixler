@@ -20,6 +20,10 @@ _MAX_DECOMPRESSED_BYTES = 8 * 1024 * 1024
 _MAX_DESCRIPTIONS = 100_000
 _MAX_STRATIGRAPHY = 10_000
 _MAX_TEXT = 4_000
+_MAX_LEGACY_SECTION_BYTES = 8 * 1024 * 1024
+_LEGACY_SOURCE_PREFIX = "# GEOLOGY_SOURCE="
+_LEGACY_STRAT_PREFIX = "# STRAT "
+_LEGACY_DESC_PREFIX = "# DESC "
 _COLOR_PATTERN = re.compile(r"^#[0-9a-fA-F]{6}$")
 
 
@@ -67,14 +71,22 @@ class LasGeologyMetadata:
 def geology_metadata_from_las_bytes(raw: bytes) -> LasGeologyMetadata | None:
     """Read optional portable geology metadata without making LAS import fragile.
 
-    Invalid/malformed metadata is ignored deliberately.  The raw LAS remains the
-    source of truth and must still be readable when this optional annotation is
-    absent or damaged.
+    Canonical metadata uses bounded zlib/base64 JSON. Older DIGITAL GEOLOG field
+    LAS files used plain STRAT/DESC records in ~Other. Both are advisory:
+    malformed metadata must never block the base LAS.
     """
 
-    if not isinstance(raw, bytes) or _MARKER not in raw:
+    if not isinstance(raw, bytes):
         return None
-    section_matches = list(re.finditer(rb"(?m)^[ \t]*~[^\r\n]*", raw))
+    if _MARKER in raw:
+        canonical = _canonical_metadata_from_las_bytes(raw)
+        if canonical is not None:
+            return canonical
+    return _legacy_metadata_from_las_bytes(raw)
+
+
+def _canonical_metadata_from_las_bytes(raw: bytes) -> LasGeologyMetadata | None:
+    section_matches = list(re.finditer(rb"(?m)^[ \\t]*~[^\\r\\n]*", raw))
     for index in range(len(section_matches) - 1, -1, -1):
         start = section_matches[index].start()
         end = (
@@ -109,6 +121,120 @@ def geology_metadata_from_las_bytes(raw: bytes) -> LasGeologyMetadata | None:
             continue
     return None
 
+
+def _legacy_metadata_from_las_bytes(raw: bytes) -> LasGeologyMetadata | None:
+    """Parse the bounded plain-text geology dialect used by older field LAS files."""
+
+    section_match = re.search(rb"(?mi)^[ \\t]*~OTHER[^\\r\\n]*", raw)
+    if section_match is None:
+        return None
+    next_section = re.search(
+        rb"(?mi)^[ \\t]*~(?!OTHER\\b)[^\\r\\n]*",
+        raw[section_match.end():],
+    )
+    end = (
+        section_match.end() + next_section.start()
+        if next_section is not None
+        else len(raw)
+    )
+    if end - section_match.start() > _MAX_LEGACY_SECTION_BYTES:
+        return None
+    section = raw[section_match.start():end]
+    if (
+        b"GEOLOGY_SOURCE=" not in section
+        and b"# STRAT " not in section
+        and b"# DESC " not in section
+    ):
+        return None
+
+    text: str | None = None
+    for encoding in ("utf-8", "cp1251"):
+        try:
+            text = section.decode(encoding)
+            break
+        except UnicodeDecodeError:
+            continue
+    if text is None:
+        return None
+
+    source = "legacy LAS ~Other geology metadata"
+    descriptions: dict[str, dict[str, object]] = {}
+    stratigraphy: list[dict[str, object]] = []
+    try:
+        for raw_line in text.splitlines():
+            line = raw_line.strip()
+            if line.startswith(_LEGACY_SOURCE_PREFIX):
+                candidate = line.removeprefix(_LEGACY_SOURCE_PREFIX).strip()
+                if candidate:
+                    source = candidate[:500]
+                continue
+            if line.startswith(_LEGACY_STRAT_PREFIX):
+                fields = _legacy_fields(line.removeprefix(_LEGACY_STRAT_PREFIX))
+                stratigraphy.append(
+                    {
+                        "top": _legacy_float(fields, "top"),
+                        "bottom": _legacy_float(fields, "bottom"),
+                        "short": _legacy_text(fields, "code", maximum=80),
+                        "name_ru": _legacy_text(fields, "name", maximum=300),
+                        "rank": _legacy_optional_text(fields.get("rank"), maximum=80),
+                    }
+                )
+                continue
+            if line.startswith(_LEGACY_DESC_PREFIX):
+                fields = _legacy_fields(line.removeprefix(_LEGACY_DESC_PREFIX))
+                description_id = _legacy_int(fields, "id")
+                descriptions[str(description_id)] = {
+                    "top": _legacy_float(fields, "top"),
+                    "bottom": _legacy_float(fields, "bottom"),
+                    "text_ru": _legacy_text(fields, "text", maximum=_MAX_TEXT),
+                }
+        if not descriptions and not stratigraphy:
+            return None
+        return _metadata_from_dict(
+            {
+                "schema_version": GEOLOGY_METADATA_SCHEMA,
+                "source": source,
+                "descriptions": descriptions,
+                "stratigraphy": stratigraphy,
+                "lba_type_codes": {},
+                "lba_color_codes": {},
+            }
+        )
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
+def _legacy_fields(payload: str) -> dict[str, str]:
+    fields: dict[str, str] = {}
+    for part in payload.split(";"):
+        key, separator, value = part.partition("=")
+        if not separator:
+            continue
+        normalized = key.strip().casefold()
+        if normalized and normalized not in fields:
+            fields[normalized] = value.strip()
+    return fields
+
+
+def _legacy_text(fields: dict[str, str], key: str, *, maximum: int) -> str:
+    value = fields.get(key.casefold())
+    return _bounded_text(value, f"legacy.{key}", maximum=maximum)
+
+
+def _legacy_optional_text(value: str | None, *, maximum: int) -> str | None:
+    return _optional_text(value, maximum=maximum)
+
+
+def _legacy_float(fields: dict[str, str], key: str) -> float:
+    return _finite_depth(fields.get(key.casefold()), f"legacy.{key}")
+
+
+def _legacy_int(fields: dict[str, str], key: str) -> int:
+    value = _legacy_text(fields, key, maximum=32)
+    parsed = int(value)
+    if not 1 <= parsed <= 999_999:
+        raise ValueError(f"legacy.{key} is outside the supported range")
+    return parsed
 
 def _payload_from_section(section: bytes) -> str | None:
     chunks: list[str] = []
