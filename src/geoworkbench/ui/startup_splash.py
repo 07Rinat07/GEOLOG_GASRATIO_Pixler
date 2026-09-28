@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QProgressBar,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -82,13 +83,23 @@ class StartupSplash(QWidget):
         brand_row.addWidget(logo)
         names = QVBoxLayout()
         names.setSpacing(1)
-        product = QLabel(APPLICATION_PRODUCT_LINE, card)
-        product.setObjectName("splashProduct")
-        suite = QLabel(APPLICATION_SUITE_NAME, card)
-        suite.setObjectName("splashSuite")
+        self.product_label = QLabel(APPLICATION_PRODUCT_LINE, card)
+        self.product_label.setObjectName("splashProduct")
+        self.product_label.setMinimumWidth(0)
+        self.product_label.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Preferred,
+        )
+        self.suite_label = QLabel(APPLICATION_SUITE_NAME, card)
+        self.suite_label.setObjectName("splashSuite")
+        self.suite_label.setMinimumWidth(0)
+        self.suite_label.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Preferred,
+        )
         names.addStretch(1)
-        names.addWidget(product)
-        names.addWidget(suite)
+        names.addWidget(self.product_label)
+        names.addWidget(self.suite_label)
         names.addStretch(1)
         brand_row.addLayout(names, 1)
         information.addLayout(brand_row)
@@ -117,12 +128,12 @@ class StartupSplash(QWidget):
         )
         version.setObjectName("splashVersion")
         information.addWidget(version)
-        layout.addLayout(information, 3)
+        layout.addLayout(information, 4)
 
         self.rig = DrillingAnimation(dark=True, parent=card)
         self.rig.setObjectName("splashRig")
-        self.rig.setFixedSize(280, 280)
-        self.rig.setVisible(self.width() >= 650 and self.height() >= 370)
+        self.rig.setFixedSize(220, 220)
+        self.rig.setVisible(self.width() >= 720 and self.height() >= 370)
         layout.addWidget(self.rig, 2, Qt.AlignmentFlag.AlignCenter)
 
         self.setStyleSheet(
