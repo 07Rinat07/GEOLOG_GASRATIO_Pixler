@@ -21,6 +21,10 @@ _MAX_DESCRIPTIONS = 100_000
 _MAX_STRATIGRAPHY = 10_000
 _MAX_TEXT = 4_000
 _COLOR_PATTERN = re.compile(r"^#[0-9a-fA-F]{6}$")
+_MAX_LEGACY_HEADER_BYTES = 8 * 1024 * 1024
+_LEGACY_STRAT_PREFIX = "# STRAT "
+_LEGACY_DESC_PREFIX = "# DESC "
+_LEGACY_SOURCE_PREFIX = "# GEOLOGY_SOURCE="
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,14 +69,25 @@ class LasGeologyMetadata:
 
 
 def geology_metadata_from_las_bytes(raw: bytes) -> LasGeologyMetadata | None:
-    """Read optional portable geology metadata without making LAS import fragile.
+    """Read portable geology metadata without making LAS import fragile.
 
-    Invalid/malformed metadata is ignored deliberately.  The raw LAS remains the
-    source of truth and must still be readable when this optional annotation is
-    absent or damaged.
+    The current bounded zlib/JSON contract is preferred. Older DIGITAL GEOLOG
+    field LAS files used bounded plain-text # STRAT / # DESC records in ~Other;
+    that contract remains readable for backward compatibility. Invalid optional
+    metadata is ignored deliberately so the base LAS can still open.
     """
 
-    if not isinstance(raw, bytes) or _MARKER not in raw:
+    if not isinstance(raw, bytes):
+        return None
+
+    current = _current_metadata_from_las_bytes(raw)
+    if current is not None:
+        return current
+    return _legacy_metadata_from_las_bytes(raw)
+
+
+def _current_metadata_from_las_bytes(raw: bytes) -> LasGeologyMetadata | None:
+    if _MARKER not in raw:
         return None
     section_matches = list(re.finditer(rb"(?m)^[ \t]*~[^\r\n]*", raw))
     for index in range(len(section_matches) - 1, -1, -1):
@@ -108,6 +123,90 @@ def geology_metadata_from_las_bytes(raw: bytes) -> LasGeologyMetadata | None:
         ):
             continue
     return None
+
+
+def _legacy_metadata_from_las_bytes(raw: bytes) -> LasGeologyMetadata | None:
+    """Parse the bounded pre-ASCII legacy geology annotation contract."""
+
+    ascii_offsets = [
+        offset
+        for marker in (b"~ASCII", b"~Ascii", b"~ascii")
+        if (offset := raw.find(marker)) >= 0
+    ]
+    header_end = min(ascii_offsets) if ascii_offsets else min(len(raw), _MAX_LEGACY_HEADER_BYTES)
+    if header_end > _MAX_LEGACY_HEADER_BYTES:
+        return None
+    header = raw[:header_end]
+    if b"# STRAT " not in header and b"# DESC " not in header:
+        return None
+
+    text: str | None = None
+    for encoding in ("utf-8", "cp1251"):
+        try:
+            text = header.decode(encoding, errors="strict")
+            break
+        except UnicodeDecodeError:
+            continue
+    if text is None:
+        return None
+
+    source = "legacy DIGITAL GEOLOG LAS geology metadata"
+    descriptions: dict[str, dict[str, object]] = {}
+    stratigraphy: list[dict[str, object]] = []
+    try:
+        for line in text.splitlines():
+            if line.startswith(_LEGACY_SOURCE_PREFIX):
+                candidate = line.removeprefix(_LEGACY_SOURCE_PREFIX).strip()
+                if candidate:
+                    source = _bounded_text(candidate, "source", maximum=500)
+                continue
+            if line.startswith(_LEGACY_DESC_PREFIX):
+                if len(descriptions) >= _MAX_DESCRIPTIONS:
+                    raise ValueError("Too many legacy geology descriptions")
+                match = re.fullmatch(
+                    r"# DESC id=(\d+); top=([^;]+); bottom=([^;]+); text=(.*)",
+                    line,
+                )
+                if match is None:
+                    raise ValueError("Invalid legacy geology description")
+                description_id, top, bottom, description = match.groups()
+                descriptions[description_id] = {
+                    "top": top.strip(),
+                    "bottom": bottom.strip(),
+                    "text_ru": description.strip(),
+                }
+                continue
+            if line.startswith(_LEGACY_STRAT_PREFIX):
+                if len(stratigraphy) >= _MAX_STRATIGRAPHY:
+                    raise ValueError("Too many legacy stratigraphy intervals")
+                match = re.fullmatch(
+                    r"# STRAT id=\d+; top=([^;]+); bottom=([^;]+); "
+                    r"code=([^;]+); rank=([^;]+); name=(.*)",
+                    line,
+                )
+                if match is None:
+                    raise ValueError("Invalid legacy stratigraphy interval")
+                top, bottom, code, rank, name = match.groups()
+                stratigraphy.append(
+                    {
+                        "top": top.strip(),
+                        "bottom": bottom.strip(),
+                        "code": code.strip(),
+                        "rank": rank.strip(),
+                        "name_ru": name.strip(),
+                    }
+                )
+        if not descriptions and not stratigraphy:
+            return None
+        return LasGeologyMetadata(
+            source=source,
+            descriptions=_descriptions_from_raw(descriptions),
+            stratigraphy=_stratigraphy_from_raw(stratigraphy),
+            lba_type_codes={},
+            lba_color_codes={},
+        )
+    except (TypeError, ValueError, RecursionError):
+        return None
 
 
 def _payload_from_section(section: bytes) -> str | None:
