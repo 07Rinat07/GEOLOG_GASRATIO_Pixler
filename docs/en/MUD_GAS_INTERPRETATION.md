@@ -139,6 +139,8 @@ without long text; full depths and full preliminary wording stay in the table. S
 and OPUS reports use the same physical-fluid dictionary; ambiguous/no-consensus results
 are never forced to oil or gas and use the `?` marker.
 
+For sparse or segmented acquisition, report curves are not connected across real depth gaps. The renderer estimates the typical spacing of the displayed sample and starts a new segment after a large physical depth gap, preventing false long horizontal or diagonal bridges between non-adjacent measurements.
+
 The primary palette uses:
 
 ```text

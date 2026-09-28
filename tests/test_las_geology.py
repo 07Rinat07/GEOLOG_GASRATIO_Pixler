@@ -5,8 +5,10 @@ import zlib
 
 from geoworkbench.data.las_adapter import import_las, import_las_with_report
 from geoworkbench.domain.models import CuttingsSample, LithologyInterval
+from geoworkbench.project.dataset_export_controller import DatasetExportController
 from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.printing.interpretation_report import build_interpretation_report
 from geoworkbench.services.las_geology import (
     dataset_with_well_geology,
     import_las_geology,
@@ -540,4 +542,212 @@ def test_export_projects_edited_calcimetry_and_lba_back_to_curves(tmp_path: Path
     assert exported.curve_by_mnemonic("CAMG_CO3_2").values.tolist() == [15.0, 15.0]
     assert exported.curve_by_mnemonic("LBA_GROUP").values.tolist() == [2.0, 2.0]
     assert exported.curve_by_mnemonic("INTENSITY_LBA").values.tolist() == [4.0, 4.0]
-    assert exported.curve_by_mnemonic("ZVET_LBA").values.tolist() == [3.0, 3.0]
+    # The portable export regenerates its LBA dictionary with matching codes.
+    assert exported.curve_by_mnemonic("ZVET_LBA").values.tolist() == [1.0, 1.0]
+
+
+def _legacy_maksat_geology_las() -> bytes:
+    text = "\n".join(
+        [
+            "~Version Information",
+            " VERS. 2.0 : LAS 2.0",
+            " WRAP. NO : One row per depth",
+            "~Well Information",
+            " STRT.M 780.0 : Start",
+            " STOP.M 781.0 : Stop",
+            " STEP.M 1.0 : Step",
+            " NULL. -999.25 : Null",
+            " WELL. М-1 : Well",
+            "~Curve Information",
+            " DEPT.M : Глубина",
+            " КОД_ПОРОДЫ.CODE : Основная порода",
+            " ПОРОДА1_КОД.CODE : Код компонента шлама",
+            " ПОРОДА1_КОЛИЧ.PCT : Содержание компонента",
+            " КАРБОНАТНОСТЬ.% : Суммарная карбонатность",
+            " ЛБА_ГРУППА.CODE : Группа ЛБА",
+            " СТРАТ_КОД.CODE : Стратиграфический код",
+            " ОПИСАНИЕ_ID.CODE : ID описания породы",
+            "~Other information",
+            "# GEOLOGY_SOURCE=Мастерлог_Максат-1_51-5549м(1).pdf",
+            "# STRAT id=1; top=780; bottom=782; code=K; rank=Система; name=Меловая система",
+            (
+                "# DESC id=1; top=780; bottom=782; text="
+                "Мергель серый, плотный, глинистый."
+            ),
+            "~ASCII Log Data",
+            "780 3 3 100 43 1 1 1",
+            "781 3 3 100 43 1 1 1",
+            "",
+        ]
+    )
+    return text.encode("cp1251")
+
+
+def test_legacy_maksat_cyrillic_geology_materializes_all_available_layers(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "geology of Maksat M1 from to 5549m.las"
+    source.write_bytes(_legacy_maksat_geology_las())
+
+    imported = import_las_with_report(source)
+    session = ProjectSession()
+    well = session.add_dataset(
+        imported.dataset,
+        "М-1",
+        source_document=imported.source_document,
+        import_report=imported.report,
+        create_new_well=True,
+    )
+
+    assert len(well.lithology) == 1
+    assert len(well.cuttings) == 1
+    sample = well.cuttings[0]
+    assert sample.components[0].percentage == 100.0
+    assert sample.total_carbonate_percent == 43.0
+    assert sample.calcite_percent is None
+    assert sample.dolomite_percent is None
+    assert sample.insoluble_residue_percent == 57.0
+    assert sample.lba_group == 1
+    assert sample.lba_type_id == "light"
+    assert sample.description == "Мергель серый, плотный, глинистый."
+
+    assert len(well.stratigraphy) == 1
+    stratigraphy = well.stratigraphy[0]
+    assert stratigraphy.code == "K"
+    assert stratigraphy.name == "Меловая система"
+    assert stratigraphy.rank == "Система"
+
+    report = build_interpretation_report(session)
+    assert report.sample_count == 1
+    assert report.calcimetry_count == 1
+    assert report.lba_count == 1
+    assert len(report.stratigraphy) == 1
+    assert report.entries[0].rock_description == "Мергель серый, плотный, глинистый."
+    assert report.entries[0].total_carbonate_percent == 43.0
+
+
+def test_legacy_total_carbonate_survives_project_round_trip(tmp_path: Path) -> None:
+    source = tmp_path / "legacy-maksat.las"
+    source.write_bytes(_legacy_maksat_geology_las())
+    imported = import_las_with_report(source)
+    session = ProjectSession()
+    session.add_dataset(
+        imported.dataset,
+        "М-1",
+        source_document=imported.source_document,
+        import_report=imported.report,
+        create_new_well=True,
+    )
+    project_path = tmp_path / "maksat.geoworkbench.json"
+    save_project(session.project, project_path)
+
+    reopened = load_project(project_path)
+    sample = next(iter(reopened.wells.values())).cuttings[0]
+    assert sample.total_carbonate_percent == 43.0
+    assert sample.insoluble_residue_percent == 57.0
+
+
+def test_legacy_total_carbonate_exports_without_becoming_calcite(tmp_path: Path) -> None:
+    source = tmp_path / "legacy-maksat-export.las"
+    source.write_bytes(_legacy_maksat_geology_las())
+    imported = import_las_with_report(source)
+    session = ProjectSession()
+    session.add_dataset(
+        imported.dataset,
+        "М-1",
+        source_document=imported.source_document,
+        import_report=imported.report,
+        create_new_well=True,
+    )
+
+    exported = dataset_with_well_geology(session)
+
+    assert exported is not None
+    carbonate = exported.curve_by_mnemonic("КАРБОНАТНОСТЬ")
+    assert carbonate is not None
+    assert carbonate.values.tolist() == [43.0, 43.0]
+    assert exported.curve_by_mnemonic("CACO3") is None
+
+
+def test_unused_null_cuttings_slots_do_not_invalidate_real_composition(tmp_path: Path) -> None:
+    text = _legacy_maksat_geology_las().decode("cp1251")
+    text = text.replace(
+        " ПОРОДА1_КОЛИЧ.PCT : Содержание компонента",
+        " ПОРОДА1_КОЛИЧ.PCT : Содержание компонента\n"
+        " ROCK2_CODE.CODE : Unused component\n ROCK2_PCT.PCT : Unused amount",
+    )
+    text = text.replace("780 3 3 100 43", "780 3 3 100 -999.25 -999.25 43")
+    text = text.replace("781 3 3 100 43", "781 3 3 100 -999.25 -999.25 43")
+    source = tmp_path / "unused-slots.las"
+    source.write_bytes(text.encode("cp1251"))
+    imported = import_las_with_report(source)
+    session = ProjectSession()
+    well = session.add_dataset(
+        imported.dataset, "М-1", source_document=imported.source_document,
+        import_report=imported.report, create_new_well=True,
+    )
+
+    assert len(well.cuttings) == 1
+    assert [(item.lithotype_id, item.percentage) for item in well.cuttings[0].components] == [
+        (las_code_id(3), 100.0),
+    ]
+
+
+def test_short_ascii_section_and_source_aliases_preserve_geology(tmp_path: Path) -> None:
+    text = _legacy_maksat_geology_las().decode("cp1251")
+    for source, target in (
+        ("~ASCII Log Data", "~A"),
+        ("КОД_ПОРОДЫ.CODE", "LITHOLOGY_CODE.CODE"),
+        ("ПОРОДА1_КОД.CODE", "ROCK1_CODE.CODE"),
+        ("ПОРОДА1_КОЛИЧ.PCT", "ROCK1_PCT.PCT"),
+        ("КАРБОНАТНОСТЬ.%", "TOTAL_CARBONATE.%"),
+    ):
+        text = text.replace(source, target)
+    source = tmp_path / "alternative-dialect.las"
+    source.write_bytes(text.encode("cp1251"))
+    imported = import_las_with_report(source)
+    session = ProjectSession()
+    well = session.add_dataset(
+        imported.dataset, "М-1", source_document=imported.source_document,
+        import_report=imported.report, create_new_well=True,
+    )
+
+    assert well.lithology[0].description == "Мергель серый, плотный, глинистый."
+    assert well.cuttings[0].components[0].percentage == 100.0
+    assert len(well.stratigraphy) == 1
+    exported = dataset_with_well_geology(session)
+    assert exported is not None
+    for mnemonic in ("LITHOLOGY_CODE", "ROCK1_CODE", "ROCK1_PCT", "TOTAL_CARBONATE"):
+        assert exported.curve_by_mnemonic(mnemonic) is not None
+    for mnemonic in ("КОД_ПОРОДЫ", "ПОРОДА1_КОД", "КАРБОНАТНОСТЬ"):
+        assert exported.curve_by_mnemonic(mnemonic) is None
+
+
+def test_portable_las_retains_distinct_lithology_and_cuttings_descriptions(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "described-source.las"
+    source.write_bytes(_legacy_maksat_geology_las())
+    imported = import_las_with_report(source)
+    session = ProjectSession()
+    well = session.add_dataset(
+        imported.dataset, "М-1", source_document=imported.source_document,
+        import_report=imported.report, create_new_well=True,
+    )
+    well.lithology[0].description = "Слой мергеля с пиритом"
+    well.cuttings[0].description = "Шлам мергеля с кальцитом"
+    exported = DatasetExportController(session).export_current_las(
+        tmp_path / "portable-geology.las",
+    )
+    reopened = import_las_with_report(exported)
+    reopened_session = ProjectSession()
+    restored = reopened_session.add_dataset(
+        reopened.dataset, "М-1", source_document=reopened.source_document,
+        import_report=reopened.report, create_new_well=True,
+    )
+
+    assert reopened.dataset.curve_by_mnemonic("LITHO_DESC_ID") is not None
+    assert any(item.description == "Слой мергеля с пиритом" for item in restored.lithology)
+    assert any(item.description == "Шлам мергеля с кальцитом" for item in restored.cuttings)
+    assert restored.cuttings[0].total_carbonate_percent == 43.0
+    assert len(restored.stratigraphy) == 1

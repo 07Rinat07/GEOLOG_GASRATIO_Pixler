@@ -13,6 +13,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from geoworkbench.domain.models import (
+    CurveData,
     CuttingsComponent,
     CuttingsSample,
     LithologyInterval,
@@ -20,8 +21,13 @@ from geoworkbench.domain.models import (
     StratigraphyInterval,
     new_id,
 )
+from geoworkbench.services.las_geology_dialect import (
+    GeologyChannelRole,
+    resolve_geology_channel,
+)
 from geoworkbench.services.las_geology_metadata import (
     LasGeologyMetadata,
+    geology_export_plan_from_well,
     geology_metadata_from_las_bytes,
 )
 from geoworkbench.services.lba_standard import (
@@ -108,30 +114,23 @@ def import_las_geology(session: ProjectSession) -> LasGeologyResult:
             apply_dictionary(session, embedded, overwrite=False)
         metadata = geology_metadata_from_las_bytes(source_document.raw_bytes)
 
-    normalized_names = {
-        curve.metadata.original_mnemonic.upper().replace(" ", "_")
-        for curve in dataset.curves.values()
-    }
-    optional_geology_names = {
-        "CACO3",
-        "CALCITE",
-        "CACO3_(КАЛЬЦИТ)",
-        "CAMG_CO3_2",
-        "DOLOMITE",
-        "INTENSITY_LBA",
-        "LBA_INTENSITY",
-        "ZVET_LBA",
-        "LBA_COLOR",
-        "LBA_GROUP",
-        "LBA_TYPE",
-        "STRAT_CODE",
-        "GEO_DESC_ID",
-    }
-    if (
-        not any("ПОРОД" in name for name in normalized_names)
-        and not normalized_names.intersection(optional_geology_names)
-        and metadata is None
-    ):
+    geology_curves: dict[
+        tuple[GeologyChannelRole, int | None],
+        list[tuple[CurveData, float]],
+    ] = {}
+    for curve in dataset.curves.values():
+        match = resolve_geology_channel(
+            curve.metadata.original_mnemonic,
+            description=curve.metadata.description or "",
+            unit=curve.metadata.unit or "",
+        )
+        if match is None:
+            continue
+        geology_curves.setdefault((match.role, match.slot), []).append(
+            (curve, match.confidence)
+        )
+
+    if not geology_curves and metadata is None:
         return LasGeologyResult()
 
     depth = np.asarray(dataset.depth, dtype=float)
@@ -144,33 +143,42 @@ def import_las_geology(session: ProjectSession) -> LasGeologyResult:
     if reverse:
         depth = depth[::-1]
 
-    def values(*names: str) -> NDArray[np.float64] | None:
-        wanted = {name.upper().replace(" ", "_") for name in names}
-        matches = [
-            curve
-            for curve in dataset.curves.values()
-            if curve.metadata.original_mnemonic.upper().replace(" ", "_") in wanted
-        ]
-        if len(matches) != 1:
+    def values_for(
+        role: GeologyChannelRole,
+        *,
+        slot: int | None = None,
+    ) -> NDArray[np.float64] | None:
+        matches = geology_curves.get((role, slot), [])
+        if not matches:
             return None
-        array = np.asarray(matches[0].values, dtype=float)
+        strongest = [curve for curve, confidence in matches
+                     if confidence == max(score for _, score in matches)]
+        if len(strongest) != 1:
+            return None
+        curve = strongest[0]
+        array = np.asarray(curve.values, dtype=float)
         if array.shape != depth.shape:
             return None
         return array[::-1] if reverse else array
 
-    primary = values("КОД_ПОРОДЫ")
+    primary = values_for(GeologyChannelRole.PRIMARY_LITHOLOGY)
     slots = [
-        (values(f"ПОРОДА{i}_КОД"), values(f"ПОРОДА{i}_КОЛИЧ"))
+        (
+            values_for(GeologyChannelRole.CUTTINGS_CODE, slot=i),
+            values_for(GeologyChannelRole.CUTTINGS_AMOUNT, slot=i),
+        )
         for i in range(1, 6)
     ]
-    calcite_values = values("CACO3", "CALCITE", "CACO3_(КАЛЬЦИТ)")
-    dolomite_values = values("CAMG_CO3_2", "DOLOMITE")
-    lba_group_values = values("LBA_GROUP")
-    lba_intensity_values = values("INTENSITY_LBA", "LBA_INTENSITY")
-    lba_type_values = values("LBA_TYPE")
-    lba_color_values = values("ZVET_LBA", "LBA_COLOR")
-    description_values = values("GEO_DESC_ID")
-    stratigraphy_values = values("STRAT_CODE")
+    calcite_values = values_for(GeologyChannelRole.CALCITE)
+    total_carbonate_values = values_for(GeologyChannelRole.LEGACY_CARBONATE)
+    dolomite_values = values_for(GeologyChannelRole.DOLOMITE)
+    lba_group_values = values_for(GeologyChannelRole.LBA_GROUP)
+    lba_intensity_values = values_for(GeologyChannelRole.LBA_INTENSITY)
+    lba_type_values = values_for(GeologyChannelRole.LBA_TYPE)
+    lba_color_values = values_for(GeologyChannelRole.LBA_COLOR)
+    description_values = values_for(GeologyChannelRole.DESCRIPTION_ID)
+    lithology_description_values = values_for(GeologyChannelRole.LITHOLOGY_DESCRIPTION_ID)
+    stratigraphy_values = values_for(GeologyChannelRole.STRATIGRAPHY_CODE)
 
     edges = np.concatenate(
         ([depth[0]], (depth[:-1] + depth[1:]) / 2, [depth[-1]])
@@ -209,6 +217,11 @@ def import_las_geology(session: ProjectSession) -> LasGeologyResult:
             if metadata is not None
             else None
         )
+        lithology_description = (
+            metadata.description(_code(float(lithology_description_values[index])))
+            if metadata is not None and lithology_description_values is not None
+            else description
+        )
 
         rock = _code(float(primary[index])) if primary is not None else None
         if rock is not None:
@@ -218,7 +231,7 @@ def import_las_geology(session: ProjectSession) -> LasGeologyResult:
                 if (
                     lithology
                     and lithology[-1].lithotype_id == identity
-                    and lithology[-1].description == description
+                    and lithology[-1].description == lithology_description
                     and lithology[-1].bottom_depth == top
                 ):
                     lithology[-1].bottom_depth = bottom
@@ -229,7 +242,7 @@ def import_las_geology(session: ProjectSession) -> LasGeologyResult:
                             top,
                             bottom,
                             identity,
-                            description=description,
+                            description=lithology_description,
                         )
                     )
 
@@ -242,9 +255,13 @@ def import_las_geology(session: ProjectSession) -> LasGeologyResult:
                 valid_composition = False
                 break
             amount = float(amounts[index])
+            raw_code = float(code_values[index])
+            # LAS NULL marks an unused component slot in many exporters.
+            if not np.isfinite(amount) and not np.isfinite(raw_code):
+                continue
             if amount == 0:
                 continue
-            code = _code(float(code_values[index]))
+            code = _code(raw_code)
             if code is None or not np.isfinite(amount) or not 0 < amount <= 100:
                 valid_composition = False
                 break
@@ -263,6 +280,11 @@ def import_las_geology(session: ProjectSession) -> LasGeologyResult:
         dolomite = (
             _percentage(float(dolomite_values[index]))
             if dolomite_values is not None
+            else None
+        )
+        total_carbonate = (
+            _percentage(float(total_carbonate_values[index]))
+            if total_carbonate_values is not None
             else None
         )
         if (
@@ -317,6 +339,7 @@ def import_las_geology(session: ProjectSession) -> LasGeologyResult:
             for value in (
                 calcite,
                 dolomite,
+                total_carbonate,
                 lba_group,
                 lba_type_id,
                 lba_intensity,
@@ -342,6 +365,7 @@ def import_las_geology(session: ProjectSession) -> LasGeologyResult:
             lba_color=lba_color,
             calcite_percent=calcite,
             dolomite_percent=dolomite,
+            total_carbonate_percent=total_carbonate,
             description=description,
         )
         if (
@@ -416,6 +440,7 @@ def _same_cuttings_payload(left: CuttingsSample, right: CuttingsSample) -> bool:
         and left.lba_color == right.lba_color
         and left.calcite_percent == right.calcite_percent
         and left.dolomite_percent == right.dolomite_percent
+        and left.total_carbonate_percent == right.total_carbonate_percent
         and left.description == right.description
     )
 
@@ -499,13 +524,51 @@ def dataset_with_well_geology(session: ProjectSession):
     """
 
     dataset, well = session.current_dataset, session.current_well
-    if dataset is None or well is None or (not well.lithology and not well.cuttings):
+    if dataset is None or well is None or (
+        not well.lithology and not well.cuttings and not well.stratigraphy
+    ):
         return dataset
 
     exported = deepcopy(dataset)
     depth = np.asarray(exported.active_index.values, dtype=np.float64)
     if depth.ndim != 1 or not depth.size:
         return exported
+    geology_plan = geology_export_plan_from_well(well)
+    description_column = np.full(depth.shape, np.nan, dtype=np.float64)
+    lithology_description_column = np.full(depth.shape, np.nan, dtype=np.float64)
+
+    def source_curve_for_role(
+        role: GeologyChannelRole, slot: int | None = None,
+    ) -> CurveData | None:
+        matches: list[tuple[CurveData, float]] = []
+        for existing in exported.curves.values():
+            match = resolve_geology_channel(
+                existing.metadata.original_mnemonic,
+                description=existing.metadata.description or "",
+                unit=existing.metadata.unit or "",
+            )
+            if match is not None and match.role is role and match.slot == slot:
+                matches.append((existing, match.confidence))
+        if not matches:
+            return None
+        strongest = [curve for curve, confidence in matches
+                     if confidence == max(score for _, score in matches)]
+        return strongest[0] if len(strongest) == 1 else None
+
+    def source_mnemonic(role: GeologyChannelRole, fallback: str,
+                        slot: int | None = None) -> str:
+        existing = source_curve_for_role(role, slot)
+        return existing.metadata.original_mnemonic if existing is not None else fallback
+
+    def remove_role(role: GeologyChannelRole) -> None:
+        for curve_id, existing in tuple(exported.curves.items()):
+            match = resolve_geology_channel(
+                existing.metadata.original_mnemonic,
+                description=existing.metadata.description or "",
+                unit=existing.metadata.unit or "",
+            )
+            if match is not None and match.role is role and match.slot is None:
+                exported.curves.pop(curve_id)
 
     if well.lithology:
         primary = np.full(depth.shape, np.nan, dtype=np.float64)
@@ -516,9 +579,16 @@ def dataset_with_well_geology(session: ProjectSession):
             code = _project_lithotype_code(session, interval.lithotype_id)
             if code is not None:
                 primary[index] = code
+            description_id = geology_plan.lithology_description_ids.get(
+                interval.interval_id
+            )
+            if description_id is not None:
+                lithology_description_column[index] = float(description_id)
+                if not well.cuttings:
+                    description_column[index] = float(description_id)
         if np.isfinite(primary).any():
             exported.upsert_curve(
-                "КОД_ПОРОДЫ",
+                source_mnemonic(GeologyChannelRole.PRIMARY_LITHOLOGY, "КОД_ПОРОДЫ"),
                 primary,
                 description="Primary lithology source code",
                 provenance="derived:project-geology",
@@ -527,40 +597,26 @@ def dataset_with_well_geology(session: ProjectSession):
     if well.cuttings:
         code_columns = [np.full(depth.shape, np.nan, dtype=np.float64) for _ in range(5)]
         amount_columns = [np.full(depth.shape, np.nan, dtype=np.float64) for _ in range(5)]
-        def source_values(*aliases: str) -> NDArray[np.float64]:
-            for alias in aliases:
-                existing = exported.curve_by_mnemonic(alias)
-                if existing is None:
-                    continue
-                values = np.asarray(existing.values, dtype=np.float64)
-                if values.shape == depth.shape:
-                    return values.copy()
-            return np.full(depth.shape, np.nan, dtype=np.float64)
+        def source_values_for_role(role: GeologyChannelRole) -> NDArray[np.float64]:
+            existing = source_curve_for_role(role)
+            if existing is None:
+                return np.full(depth.shape, np.nan, dtype=np.float64)
+            values = np.asarray(existing.values, dtype=np.float64)
+            if values.shape != depth.shape:
+                return np.full(depth.shape, np.nan, dtype=np.float64)
+            return values.copy()
 
-        calcite_column = source_values("CACO3", "CALCITE", "CACO3_(КАЛЬЦИТ)")
-        dolomite_column = source_values("CAMG_CO3_2", "DOLOMITE")
-        lba_group_column = source_values("LBA_GROUP")
-        lba_intensity_column = source_values("INTENSITY_LBA", "LBA_INTENSITY")
-        lba_type_column = source_values("LBA_TYPE")
-        lba_color_column = source_values("ZVET_LBA", "LBA_COLOR")
+        calcite_column = source_values_for_role(GeologyChannelRole.CALCITE)
+        dolomite_column = source_values_for_role(GeologyChannelRole.DOLOMITE)
+        total_carbonate_column = source_values_for_role(GeologyChannelRole.LEGACY_CARBONATE)
+        lba_group_column = source_values_for_role(GeologyChannelRole.LBA_GROUP)
+        lba_intensity_column = source_values_for_role(GeologyChannelRole.LBA_INTENSITY)
+        # A new portable dictionary must never refer to stale source carrier codes.
+        lba_type_column = np.full(depth.shape, np.nan, dtype=np.float64)
+        lba_color_column = np.full(depth.shape, np.nan, dtype=np.float64)
 
-        source_document = session.source_documents.get(dataset.dataset_id)
-        export_metadata = (
-            geology_metadata_from_las_bytes(source_document.raw_bytes)
-            if source_document is not None
-            else None
-        )
-        lba_type_code_by_type: dict[str, int] = {}
-        lba_color_code_by_label: dict[str, int] = {}
-        if export_metadata is not None:
-            for code, label in export_metadata.lba_type_codes.items():
-                standard = lba_standard_type(label)
-                if standard is not None:
-                    lba_type_code_by_type.setdefault(standard.type_id, code)
-            for code, label in export_metadata.lba_color_codes.items():
-                normalized = lba_color_code(label)
-                if normalized:
-                    lba_color_code_by_label.setdefault(normalized, code)
+        lba_type_code_by_type = geology_plan.lba_type_codes
+        lba_color_code_by_label = geology_plan.lba_color_codes
 
         for index, value in enumerate(depth):
             sample = _cuttings_sample_at(well.cuttings, float(value))
@@ -582,6 +638,8 @@ def dataset_with_well_geology(session: ProjectSession):
                 calcite_column[index] = float(sample.calcite_percent)
             if sample.dolomite_percent is not None:
                 dolomite_column[index] = float(sample.dolomite_percent)
+            if sample.total_carbonate_percent is not None:
+                total_carbonate_column[index] = float(sample.total_carbonate_percent)
             if sample.lba_group is not None:
                 lba_group_column[index] = float(sample.lba_group)
             if sample.lba_intensity is not None:
@@ -596,40 +654,42 @@ def dataset_with_well_geology(session: ProjectSession):
                 code = lba_color_code_by_label.get(lba_color_code(sample.lba_color))
                 if code is not None:
                     lba_color_column[index] = float(code)
+            description_id = geology_plan.description_ids.get(sample.sample_id)
+            if description_id is not None:
+                description_column[index] = float(description_id)
 
         if any(np.isfinite(column).any() for column in code_columns):
             for slot, (codes, amounts) in enumerate(zip(code_columns, amount_columns), start=1):
                 exported.upsert_curve(
-                    f"ПОРОДА{slot}_КОД",
+                    source_mnemonic(GeologyChannelRole.CUTTINGS_CODE,
+                                    f"ПОРОДА{slot}_КОД", slot),
                     codes,
                     description=f"Cuttings component {slot} rock code",
                     provenance="derived:project-geology",
                 )
                 exported.upsert_curve(
-                    f"ПОРОДА{slot}_КОЛИЧ",
+                    source_mnemonic(GeologyChannelRole.CUTTINGS_AMOUNT,
+                                    f"ПОРОДА{slot}_КОЛИЧ", slot),
                     amounts,
                     description=f"Cuttings component {slot} percentage",
                     provenance="derived:project-geology",
                 )
 
         def upsert_geology_curve(
-            aliases: tuple[str, ...],
+            role: GeologyChannelRole,
             fallback: str,
             values: NDArray[np.float64],
             *,
             unit: str,
             description: str,
+            clear_when_empty: bool = False,
         ) -> None:
             if not np.isfinite(values).any():
+                if clear_when_empty:
+                    remove_role(role)
                 return
-            mnemonic = fallback
-            for alias in aliases:
-                existing = exported.curve_by_mnemonic(alias)
-                if existing is not None:
-                    mnemonic = existing.metadata.original_mnemonic
-                    break
             exported.upsert_curve(
-                mnemonic,
+                source_mnemonic(role, fallback),
                 values,
                 unit=unit,
                 description=description,
@@ -637,48 +697,108 @@ def dataset_with_well_geology(session: ProjectSession):
             )
 
         upsert_geology_curve(
-            ("CACO3", "CALCITE", "CACO3_(КАЛЬЦИТ)"),
+            GeologyChannelRole.CALCITE,
             "CACO3",
             calcite_column,
             unit="%",
             description="Calcite",
         )
         upsert_geology_curve(
-            ("CAMG_CO3_2", "DOLOMITE"),
+            GeologyChannelRole.DOLOMITE,
             "CAMG_CO3_2",
             dolomite_column,
             unit="%",
             description="Dolomite",
         )
         upsert_geology_curve(
-            ("LBA_GROUP",),
+            GeologyChannelRole.LEGACY_CARBONATE,
+            "TOTAL_CARBONATE",
+            total_carbonate_column,
+            unit="%",
+            description="Total carbonate",
+        )
+        upsert_geology_curve(
+            GeologyChannelRole.LBA_GROUP,
             "LBA_GROUP",
             lba_group_column,
             unit="CODE",
             description="LBA group",
         )
         upsert_geology_curve(
-            ("INTENSITY_LBA", "LBA_INTENSITY"),
+            GeologyChannelRole.LBA_INTENSITY,
             "INTENSITY_LBA",
             lba_intensity_column,
             unit="CODE",
             description="LBA intensity",
         )
         upsert_geology_curve(
-            ("LBA_TYPE",),
+            GeologyChannelRole.LBA_TYPE,
             "LBA_TYPE",
             lba_type_column,
             unit="CODE",
             description="LBA type code",
+            clear_when_empty=True,
         )
         upsert_geology_curve(
-            ("ZVET_LBA", "LBA_COLOR"),
+            GeologyChannelRole.LBA_COLOR,
             "ZVET_LBA",
             lba_color_column,
             unit="CODE",
             description="LBA colour code",
+            clear_when_empty=True,
         )
+    if np.isfinite(description_column).any():
+        exported.upsert_curve(
+            source_mnemonic(GeologyChannelRole.DESCRIPTION_ID, "GEO_DESC_ID"),
+            description_column,
+            unit="CODE",
+            description="Portable geology description ID",
+            provenance="derived:project-geology",
+        )
+    else:
+        remove_role(GeologyChannelRole.DESCRIPTION_ID)
+
+    if np.isfinite(lithology_description_column).any() and well.cuttings:
+        exported.upsert_curve(
+            source_mnemonic(GeologyChannelRole.LITHOLOGY_DESCRIPTION_ID, "LITHO_DESC_ID"),
+            lithology_description_column,
+            unit="CODE",
+            description="Portable primary lithology description ID",
+            provenance="derived:project-geology",
+        )
+    else:
+        remove_role(GeologyChannelRole.LITHOLOGY_DESCRIPTION_ID)
+
+    if well.stratigraphy:
+        stratigraphy_column = np.full(depth.shape, np.nan, dtype=np.float64)
+        for index, value in enumerate(depth):
+            strat_interval = _stratigraphy_interval_at(well.stratigraphy, float(value))
+            if strat_interval is not None:
+                code = geology_plan.stratigraphy_codes.get(strat_interval.interval_id)
+                if code is not None:
+                    stratigraphy_column[index] = float(code)
+        if np.isfinite(stratigraphy_column).any():
+            exported.upsert_curve(
+                source_mnemonic(GeologyChannelRole.STRATIGRAPHY_CODE, "STRAT_CODE"),
+                stratigraphy_column,
+                unit="CODE",
+                description="Portable stratigraphy interval code",
+                provenance="derived:project-geology",
+            )
+        else:
+            remove_role(GeologyChannelRole.STRATIGRAPHY_CODE)
+    else:
+        remove_role(GeologyChannelRole.STRATIGRAPHY_CODE)
     return exported
+
+
+def _stratigraphy_interval_at(
+    intervals: list[StratigraphyInterval], depth: float,
+) -> StratigraphyInterval | None:
+    for interval in intervals:
+        if interval.top_depth <= depth <= interval.bottom_depth:
+            return interval
+    return None
 
 
 def _lithology_interval_at(

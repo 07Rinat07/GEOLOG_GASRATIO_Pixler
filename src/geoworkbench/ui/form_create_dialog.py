@@ -380,7 +380,9 @@ class FormCreateDialog(QDialog):
             visible_count = 0
             for child_index in range(group.childCount()):
                 item = group.child(child_index)
-                form = item.data(0, Qt.ItemDataRole.UserRole) if item else None
+                if item is None:
+                    continue
+                form = item.data(0, Qt.ItemDataRole.UserRole)
                 haystack = ""
                 if isinstance(form, FormDocument):
                     column_titles = [column.title for column in form.columns]

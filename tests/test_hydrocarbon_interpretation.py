@@ -480,8 +480,8 @@ def test_confirmed_technological_gas_suppresses_geological_candidate_and_exports
     assert "TG: min 4; mean 4; max 4 %" in html
     assert "QC Δ к среднему TG" in html
     assert "0.25 %vol" in html
-    assert "Аудит подавленных автоматических кандидатов" in html
-    assert "gas-context: event_id=connection-1" in html
+    assert "Аудит подавленных автоматических кандидатов" not in html
+    assert "gas-context: event_id=connection-1" not in html
 
     xlsx_path = export_hydrocarbon_interpretation_xlsx(
         report,
@@ -509,8 +509,11 @@ def test_confirmed_technological_gas_suppresses_geological_candidate_and_exports
             for cell in row
             if cell.value is not None
         ]
-        assert "Подавленные автоматические кандидаты — аудит" in audit_values
-        assert any("gas-context: event_id=connection-1" in str(value) for value in audit_values)
+        assert "Подавленные автоматические кандидаты — аудит" not in audit_values
+        assert not any(
+            "gas-context: event_id=connection-1" in str(value)
+            for value in audit_values
+        )
     finally:
         workbook.close()
 
@@ -527,8 +530,8 @@ def test_confirmed_technological_gas_suppresses_geological_candidate_and_exports
         assert "Измеренный TG" in document
         assert "TG: min 4; mean 4; max 4 %" in document
         assert "0.25 %vol" in document
-        assert "Аудит подавленных автоматических кандидатов" in document
-        assert "gas-context: event_id=connection-1" in document
+        assert "Аудит подавленных автоматических кандидатов" not in document
+        assert "gas-context: event_id=connection-1" not in document
 
 
 def test_confirmed_technological_context_is_excluded_from_robust_background() -> None:
@@ -676,3 +679,67 @@ def test_unbound_legacy_context_is_not_applied_across_multiple_depth_domains() -
     assert report.suppressed_candidates == ()
     assert report.gas_context_events == ()
     assert not any("suppressed" in item for item in report.warnings)
+
+
+def test_hard_excluded_context_is_not_calculated_or_printed() -> None:
+    session = _session()
+    well = session.current_well
+    dataset = session.current_dataset
+    assert well is not None
+    assert dataset is not None
+
+    well.gas_context_events.append(
+        GasContextEvent(
+            event_id="hard-exclude-135-140",
+            event_type=GasContextEventType.CHROMATOGRAPH_TEST_GAS,
+            top_depth=1_039.0,
+            bottom_depth=1_043.0,
+            depth_domain=dataset.depth_domain,
+            impact=InterpretationImpact.EXCLUDE_GEOLOGICAL,
+            confirmed=True,
+            comment="Do not use for geological calculation or interpretation",
+        )
+    )
+
+    report = build_hydrocarbon_interpretation_report(session, threshold=3.0)
+
+    assert report.candidates == ()
+    assert report.suppressed_candidates == ()
+    assert all(item.event_id != "hard-exclude-135-140" for item in report.gas_context_events)
+    assert all(item.event_id != "hard-exclude-135-140" for item in report.gas_context_audit)
+    html = hydrocarbon_interpretation_html(report, AppLanguage.RU)
+    assert "hard-exclude-135-140" not in html
+    assert "Do not use for geological calculation or interpretation" not in html
+    assert "exclude_geological" not in html
+
+
+def test_hard_exclusion_takes_precedence_over_overlapping_technological_audit() -> None:
+    session = _session()
+    well = session.current_well
+    dataset = session.current_dataset
+    assert well is not None and dataset is not None
+    well.gas_context_events.extend((
+        GasContextEvent(
+            event_id="technical-overlap",
+            event_type=GasContextEventType.CONNECTION_GAS,
+            top_depth=1_039.0,
+            bottom_depth=1_043.0,
+            depth_domain=dataset.depth_domain,
+            confirmed=True,
+        ),
+        GasContextEvent(
+            event_id="hard-overlap",
+            event_type=GasContextEventType.CHROMATOGRAPH_TEST_GAS,
+            top_depth=1_040.5,
+            bottom_depth=1_041.5,
+            depth_domain=dataset.depth_domain,
+            impact=InterpretationImpact.EXCLUDE_GEOLOGICAL,
+            confirmed=True,
+        ),
+    ))
+
+    report = build_hydrocarbon_interpretation_report(session, threshold=3.0)
+
+    assert report.candidates == ()
+    assert report.suppressed_candidates == ()
+    assert "hard-overlap" not in hydrocarbon_interpretation_html(report, AppLanguage.RU)

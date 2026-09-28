@@ -1764,7 +1764,11 @@ def _paint_calcimetry_column(
     for sample in well.cuttings:
         if sample.bottom_depth < top or sample.top_depth > bottom:
             continue
-        if sample.calcite_percent is None and sample.dolomite_percent is None:
+        if (
+            sample.calcite_percent is None
+            and sample.dolomite_percent is None
+            and sample.total_carbonate_percent is None
+        ):
             continue
         y_top = rect.top() + (max(top, sample.top_depth) - top) / (bottom - top) * rect.height()
         y_bottom = (
@@ -1773,13 +1777,15 @@ def _paint_calcimetry_column(
         height = max(0.2, y_bottom - y_top)
         calcite = sample.calcite_percent
         dolomite = sample.dolomite_percent
+        total = sample.total_carbonate_percent
         residue = sample.insoluble_residue_percent
         left = rect.left()
-        for value, color in (
-            (calcite, "#22d3ee"),
-            (dolomite, "#a78bfa"),
-            (residue, "#d1d5db"),
-        ):
+        components = (
+            ((total, "#14b8a6"), (residue, "#d1d5db"))
+            if calcite is None and dolomite is None
+            else ((calcite, "#22d3ee"), (dolomite, "#a78bfa"), (residue, "#d1d5db"))
+        )
+        for value, color in components:
             if value is None:
                 continue
             numeric = min(100.0, max(0.0, float(value)))
@@ -1801,6 +1807,8 @@ def _paint_calcimetry_column(
                 parts.append(f"Ca {calcite:g}%")
             if dolomite is not None:
                 parts.append(f"Dol {dolomite:g}%")
+            if total is not None:
+                parts.append(f"Σ carb {total:g}%")
             if residue is not None:
                 parts.append(f"IR {residue:g}%")
             draw_oriented_text(

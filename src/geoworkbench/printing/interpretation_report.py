@@ -137,10 +137,15 @@ class AnalysisInterpretationEntry:
     rock_description: str | None
     stratigraphy: tuple[GeologicalStratigraphyEntry, ...]
     gas_statistics: tuple[GeologicalGasStatistics, ...]
+    total_carbonate_percent: float | None = None
 
     @property
     def has_calcimetry(self) -> bool:
-        return self.calcite_percent is not None or self.dolomite_percent is not None
+        return (
+            self.calcite_percent is not None
+            or self.dolomite_percent is not None
+            or self.total_carbonate_percent is not None
+        )
 
     @property
     def has_lba(self) -> bool:
@@ -279,6 +284,7 @@ def _entry_from_sample(
         rock_description or None,
         sample_stratigraphy,
         _build_sample_gas_statistics(dataset, sample.top_depth, sample.bottom_depth),
+        sample.total_carbonate_percent,
     )
 
 
@@ -575,6 +581,7 @@ _LABELS = {
         "name": "Название",
         "description": "Описание",
         "calcimetry": "Кальциметрия",
+        "total_carbonate": "Общая карбонатность",
         "gas": "Газ: минимум / среднее / максимум",
         "gas_total": "Total Gas (отдельная кривая)",
         "gas_component_sum": "Сумма компонентов",
@@ -634,6 +641,7 @@ _LABELS = {
         "name": "Атауы",
         "description": "Сипаттама",
         "calcimetry": "Кальциметрия",
+        "total_carbonate": "Жалпы карбонаттылық",
         "gas": "Газ: ең аз / орташа / ең көп",
         "gas_total": "Total Gas (бөлек қисық)",
         "gas_component_sum": "Компоненттер қосындысы",
@@ -693,6 +701,7 @@ _LABELS = {
         "name": "Name",
         "description": "Description",
         "calcimetry": "Calcimetry",
+        "total_carbonate": "Total carbonate",
         "gas": "Gas: minimum / mean / maximum",
         "gas_total": "Total Gas (dedicated curve)",
         "gas_component_sum": "Component sum",
@@ -977,6 +986,7 @@ def _calcimetry_html(
     if not entry.has_calcimetry:
         return "—"
     values = (
+        (labels["total_carbonate"], entry.total_carbonate_percent),
         ("CaCO₃", entry.calcite_percent),
         ("CaMg(CO₃)₂", entry.dolomite_percent),
         (labels["insoluble"], entry.insoluble_residue_percent),

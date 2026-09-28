@@ -46,6 +46,18 @@ def apply_gas_context_to_report(
     kept: list[HydrocarbonCandidateInterval] = []
     suppressed_candidates: list[HydrocarbonCandidateInterval] = []
     for candidate in report.candidates:
+        overlaps = registry.confirmed_overlapping(
+            candidate.top_depth,
+            candidate.bottom_depth,
+            depth_domain=depth_domain,
+        )
+        # A confirmed hard exclusion takes precedence even if another context
+        # wins the registry's generic event-priority rule.
+        if any(
+            event.effective_impact is InterpretationImpact.EXCLUDE_GEOLOGICAL
+            for event in overlaps
+        ):
+            continue
         event = registry.resolve_for_interval(
             candidate.top_depth,
             candidate.bottom_depth,
@@ -78,8 +90,9 @@ def apply_gas_context_to_report(
             intervals=tuple(
                 interval
                 for interval in opus_gasomer.intervals
-                if not _suppresses_geological_candidate(
-                    registry.resolve_for_interval(
+                if not any(
+                    _suppresses_geological_candidate(event)
+                    for event in registry.confirmed_overlapping(
                         interval.top_depth,
                         interval.bottom_depth,
                         depth_domain=depth_domain,

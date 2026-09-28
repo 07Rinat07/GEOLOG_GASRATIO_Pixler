@@ -9,13 +9,14 @@ from PySide6.QtCore import (
     QTimer,
     Qt,
 )
-from PySide6.QtGui import QCursor, QShowEvent
+from PySide6.QtGui import QCursor, QResizeEvent, QShowEvent
 from PySide6.QtWidgets import (
     QApplication,
     QFrame,
     QHBoxLayout,
     QLabel,
     QProgressBar,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -82,13 +83,21 @@ class StartupSplash(QWidget):
         brand_row.addWidget(logo)
         names = QVBoxLayout()
         names.setSpacing(1)
-        product = QLabel(APPLICATION_PRODUCT_LINE, card)
-        product.setObjectName("splashProduct")
-        suite = QLabel(APPLICATION_SUITE_NAME, card)
-        suite.setObjectName("splashSuite")
+        self.product_label = QLabel(APPLICATION_PRODUCT_LINE, card)
+        self.product_label.setObjectName("splashProduct")
+        self.product_label.setMinimumWidth(0)
+        self.product_label.setWordWrap(True)
+        self.product_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        self.product_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        self.suite_label = QLabel(APPLICATION_SUITE_NAME, card)
+        self.suite_label.setObjectName("splashSuite")
+        self.suite_label.setMinimumWidth(0)
+        self.suite_label.setWordWrap(True)
+        self.suite_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        self.suite_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         names.addStretch(1)
-        names.addWidget(product)
-        names.addWidget(suite)
+        names.addWidget(self.product_label)
+        names.addWidget(self.suite_label)
         names.addStretch(1)
         brand_row.addLayout(names, 1)
         information.addLayout(brand_row)
@@ -117,20 +126,20 @@ class StartupSplash(QWidget):
         )
         version.setObjectName("splashVersion")
         information.addWidget(version)
-        layout.addLayout(information, 3)
+        layout.addLayout(information, 4)
 
         self.rig = DrillingAnimation(dark=True, parent=card)
         self.rig.setObjectName("splashRig")
-        self.rig.setFixedSize(280, 280)
-        self.rig.setVisible(self.width() >= 650 and self.height() >= 370)
+        self.rig.setFixedSize(220, 220)
         layout.addWidget(self.rig, 2, Qt.AlignmentFlag.AlignCenter)
+        self._update_adaptive_content()
 
         self.setStyleSheet(
             "QFrame#splashCard { background: #071a2d; border: 1px solid #17456a; "
             "border-radius: 18px; }"
             "QLabel#splashLogo { background: white; border: 2px solid #d99a24; "
             "border-radius: 12px; padding: 2px; }"
-            "QLabel#splashProduct { color: white; font-size: 30px; font-weight: 900; "
+            "QLabel#splashProduct { color: white; font-size: 27px; font-weight: 900; "
             "letter-spacing: 2px; }"
             "QLabel#splashSuite { color: #f5b942; font-size: 16px; font-weight: 800; }"
             "QLabel#splashTagline { color: #dcecff; font-size: 16px; font-weight: 650; "
@@ -155,6 +164,15 @@ class StartupSplash(QWidget):
             max(320, min(760, available.width() - 48)),
             max(280, min(410, available.height() - 48)),
         )
+
+    def _update_adaptive_content(self) -> None:
+        rig = getattr(self, "rig", None)
+        if rig is not None:
+            rig.setVisible(self.width() >= 720 and self.height() >= 370)
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        self._update_adaptive_content()
 
     def _centre_on_active_screen(self) -> None:
         screen = QApplication.screenAt(QCursor.pos()) or QApplication.primaryScreen()

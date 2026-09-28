@@ -5659,17 +5659,27 @@ class TabletView(QWidget):
                     f"{sample.top_depth:g}–{sample.bottom_depth:g} {depth_unit}: "
                     + "; ".join(parts)
                 )
-            if sample.calcite_percent is not None or sample.dolomite_percent is not None:
+            if any(value is not None for value in (
+                sample.calcite_percent, sample.dolomite_percent,
+                sample.total_carbonate_percent,
+            )):
                 residue = sample.insoluble_residue_percent
-                values.append(
-                    f"{self._localizer.text('cursor.calcimetry')}: "
-                    f"CaCO₃ {sample.calcite_percent or 0.0:g}%; "
-                    f"CaMg(CO₃)₂ {sample.dolomite_percent or 0.0:g}%"
-                    + (
-                        f"; {self._localizer.text('cursor.insoluble_residue')} {residue:g}%"
-                        if residue is not None
-                        else ""
+                components = []
+                if sample.calcite_percent is not None:
+                    components.append(f"CaCO₃ {sample.calcite_percent:g}%")
+                if sample.dolomite_percent is not None:
+                    components.append(f"CaMg(CO₃)₂ {sample.dolomite_percent:g}%")
+                if sample.total_carbonate_percent is not None:
+                    components.append(
+                        f"{self._localizer.text('tablet.calcimetry_total')}: "
+                        f"{sample.total_carbonate_percent:g}%"
                     )
+                if residue is not None:
+                    components.append(
+                        f"{self._localizer.text('cursor.insoluble_residue')} {residue:g}%"
+                    )
+                values.append(
+                    f"{self._localizer.text('cursor.calcimetry')}: " + "; ".join(components)
                 )
             lba = [
                 f"G={sample.lba_group}" if sample.lba_group is not None else None,
@@ -9680,31 +9690,40 @@ class TabletView(QWidget):
         if definition.kind is TrackKind.CALCIMETRY:
             track.plot.setXRange(0.0, 100.0, padding=0)
             if not definition.curve_mnemonics:
-                track.set_curve_headers(
-                    [
-                        (
-                            "__calcite__",
-                            self._localizer.text("tablet.calcimetry_header_calcite"),
-                            "#06b6d4",
-                            "#0f172a",
-                            None,
-                        ),
-                        (
-                            "__dolomite__",
-                            self._localizer.text("tablet.calcimetry_header_dolomite"),
-                            "#8b5cf6",
-                            "#0f172a",
-                            None,
-                        ),
-                        (
-                            "__residue__",
-                            self._localizer.text("tablet.calcimetry_header_residue"),
-                            "#94a3b8",
-                            "#0f172a",
-                            None,
-                        ),
-                    ]
+                headers: list[tuple[str, str, str, str, str | None]] = [
+                    (
+                        "__calcite__",
+                        self._localizer.text("tablet.calcimetry_header_calcite"),
+                        "#06b6d4",
+                        "#0f172a",
+                        None,
+                    ),
+                    (
+                        "__dolomite__",
+                        self._localizer.text("tablet.calcimetry_header_dolomite"),
+                        "#8b5cf6",
+                        "#0f172a",
+                        None,
+                    ),
+                ]
+                if any(sample.total_carbonate_percent is not None for sample in self._cuttings):
+                    headers.append((
+                        "__total_carbonate__",
+                        self._localizer.text("tablet.calcimetry_header_total"),
+                        "#14b8a6",
+                        "#0f172a",
+                        None,
+                    ))
+                headers.append(
+                    (
+                        "__residue__",
+                        self._localizer.text("tablet.calcimetry_header_residue"),
+                        "#94a3b8",
+                        "#0f172a",
+                        None,
+                    )
                 )
+                track.set_curve_headers(headers)
         else:
             # GeoData-style LBA track: three synchronized subcolumns for
             # score, fluorescence color and bitumoid type.  This is a
@@ -9742,10 +9761,15 @@ class TabletView(QWidget):
             items: list[object] = []
 
             if definition.kind is TrackKind.CALCIMETRY:
-                if sample.calcite_percent is None and sample.dolomite_percent is None:
+                if (
+                    sample.calcite_percent is None
+                    and sample.dolomite_percent is None
+                    and sample.total_carbonate_percent is None
+                ):
                     continue
                 calcite = sample.calcite_percent
                 dolomite = sample.dolomite_percent
+                total = sample.total_carbonate_percent
                 residue = sample.insoluble_residue_percent
                 tooltip_parts = [
                     self._localizer.text(
@@ -9761,6 +9785,10 @@ class TabletView(QWidget):
                 if dolomite is not None:
                     tooltip_parts.append(
                         f"{self._localizer.text('tablet.calcimetry_dolomite')}: {dolomite:g} %"
+                    )
+                if total is not None:
+                    tooltip_parts.append(
+                        f"{self._localizer.text('tablet.calcimetry_total')}: {total:g} %"
                     )
                 if residue is not None:
                     tooltip_parts.append(
@@ -9781,11 +9809,15 @@ class TabletView(QWidget):
                 items.append(frame)
 
                 left = 0.0
-                for label, value, color in (
-                    (self._localizer.text("tablet.calcimetry_calcite"), calcite, "#06b6d4"),
-                    (self._localizer.text("tablet.calcimetry_dolomite"), dolomite, "#8b5cf6"),
-                    (self._localizer.text("tablet.calcimetry_residue"), residue, "#cbd5e1"),
-                ):
+                components = (
+                    ((self._localizer.text("tablet.calcimetry_total"), total, "#14b8a6"),
+                     (self._localizer.text("tablet.calcimetry_residue"), residue, "#cbd5e1"))
+                    if calcite is None and dolomite is None
+                    else ((self._localizer.text("tablet.calcimetry_calcite"), calcite, "#06b6d4"),
+                          (self._localizer.text("tablet.calcimetry_dolomite"), dolomite, "#8b5cf6"),
+                          (self._localizer.text("tablet.calcimetry_residue"), residue, "#cbd5e1"))
+                )
+                for label, value, color in components:
                     if value is None:
                         continue
                     numeric = min(100.0, max(0.0, float(value)))
@@ -9821,6 +9853,10 @@ class TabletView(QWidget):
                 if dolomite is not None:
                     text_values.append(
                         f"{self._localizer.text('tablet.calcimetry_short_dolomite')} {dolomite:g}"
+                    )
+                if total is not None:
+                    text_values.append(
+                        f"{self._localizer.text('tablet.calcimetry_short_total')} {total:g}"
                     )
                 if residue is not None:
                     text_values.append(

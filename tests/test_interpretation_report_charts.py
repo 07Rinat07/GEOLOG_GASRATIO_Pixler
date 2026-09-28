@@ -197,4 +197,17 @@ def test_pdf_chart_breaks_clipped_outlier_spikes_and_limits_band_glare() -> None
     assert "(clipped or previous_clipped)" in base
     assert "abs(normalized - previous_normalized) >= 0.72" in base
     assert "if previous is not None and not break_clipped_spike:" in base
+    assert "continuous_depth_segments(depth, indices," in base
     assert "band_color.setAlpha(20)" in enhanced
+
+
+def test_report_curve_renderers_share_the_gap_segmenter() -> None:
+    whole = Path(
+        "src/geoworkbench/printing/hydrocarbon_interpretation_chart.py"
+    ).read_text(encoding="utf-8")
+    pdf = Path(
+        "src/geoworkbench/printing/hydrocarbon_interpretation_pdf_chart.py"
+    ).read_text(encoding="utf-8")
+
+    assert "continuous_depth_segments(depth, depth_indices," in whole
+    assert "continuous_depth_segments(depth, indices," in pdf
