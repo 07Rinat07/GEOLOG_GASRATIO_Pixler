@@ -22,8 +22,8 @@ def test_startup_splash_is_branded_animated_and_screen_safe(qapp) -> None:
     assert suite.wordWrap()
     assert product.minimumWidth() == 0
     assert suite.minimumWidth() == 0
-    assert product.sizePolicy().horizontalPolicy() is QSizePolicy.Policy.Ignored
-    assert suite.sizePolicy().horizontalPolicy() is QSizePolicy.Policy.Ignored
+    assert product.sizePolicy().horizontalPolicy() == QSizePolicy.Policy.Ignored
+    assert suite.sizePolicy().horizontalPolicy() == QSizePolicy.Policy.Ignored
     assert "Preparing" in splash.stage_label.text()
 
     splash.set_stage("Loading test", 64)
