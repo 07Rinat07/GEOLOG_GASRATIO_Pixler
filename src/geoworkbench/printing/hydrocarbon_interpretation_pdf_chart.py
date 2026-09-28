@@ -442,7 +442,7 @@ def _draw_curves(
     painter.restore()
 
 
-def _depth_gap_limit(depth_values: NDArray[np.float64]) -> float | None:
+def _depth_gap_limit(depth_values: np.ndarray) -> float | None:
     values = np.asarray(depth_values, dtype=np.float64)
     values = values[np.isfinite(values)]
     if values.size < 3:
