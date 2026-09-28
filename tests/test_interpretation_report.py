@@ -187,28 +187,28 @@ def test_meter_geology_preserves_partial_sampling_and_length_weighted_compositio
     assert meter.rock_descriptions == ("Upper quarter", "Lower half")
 
 
-def test_primary_report_keeps_overlapping_cuttings_samples_separate() -> None:
+def test_primary_report_keeps_adjacent_cuttings_samples_separate() -> None:
     session = ProjectSession()
     session.add_dataset(
         Dataset(
-            "overlap",
-            "Overlapping samples",
+            "adjacent",
+            "Adjacent samples",
             DatasetKind.GTI,
             DepthDomain.MD,
-            np.array([100.0, 101.0]),
+            np.array([100.0, 103.0]),
         ),
-        "Well overlap",
+        "Well adjacent",
     )
     controller = CuttingsController(session)
     controller.create_full_sample(
-        100.0,
-        100.75,
+        100.5,
+        101.5,
         {"sandstone": 100.0},
         description="Sandstone sample",
     )
     controller.create_full_sample(
-        100.25,
-        101.0,
+        101.5,
+        102.5,
         {"clay": 100.0},
         description="Clay sample",
     )
@@ -221,12 +221,13 @@ def test_primary_report_keeps_overlapping_cuttings_samples_separate() -> None:
     actual_section = html[actual_start:appendix_start]
     appendix = html[appendix_start:]
 
-    assert "100-100.75 m" in actual_section
-    assert "100.25-101 m" in actual_section
+    assert "100.5-101.5 m" in actual_section
+    assert "101.5-102.5 m" in actual_section
     assert "Песчаник (SANDSTONE): 100%" in actual_section
     assert "Глина (CLAY): 100%" in actual_section
     assert "Песчаник (SANDSTONE): 50%" not in actual_section
     assert "Глина (CLAY): 50%" not in actual_section
+    assert "101-102 m" in appendix
     assert "Песчаник (SANDSTONE): 50%" in appendix
     assert "Глина (CLAY): 50%" in appendix
 
@@ -325,6 +326,8 @@ def test_interpretation_report_html_is_localized_and_escapes_project_data() -> N
     assert "Geological report: cuttings, stratigraphy, gas, calcimetry and LBA" in english
     assert "Analytical appendix: one-metre aggregation" in english
     assert "This report is not an automatic" in english
+    kazakh = interpretation_report_html(report, AppLanguage.KK)
+    assert "автоматты қорытынды болып табылмайды" in kazakh
 
 
 def test_interpretation_report_exports_pdf(qapp, tmp_path) -> None:
