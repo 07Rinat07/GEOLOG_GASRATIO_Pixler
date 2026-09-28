@@ -527,12 +527,22 @@ def dataset_with_well_geology(session: ProjectSession):
     if well.cuttings:
         code_columns = [np.full(depth.shape, np.nan, dtype=np.float64) for _ in range(5)]
         amount_columns = [np.full(depth.shape, np.nan, dtype=np.float64) for _ in range(5)]
-        calcite_column = np.full(depth.shape, np.nan, dtype=np.float64)
-        dolomite_column = np.full(depth.shape, np.nan, dtype=np.float64)
-        lba_group_column = np.full(depth.shape, np.nan, dtype=np.float64)
-        lba_intensity_column = np.full(depth.shape, np.nan, dtype=np.float64)
-        lba_type_column = np.full(depth.shape, np.nan, dtype=np.float64)
-        lba_color_column = np.full(depth.shape, np.nan, dtype=np.float64)
+        def source_values(*aliases: str) -> NDArray[np.float64]:
+            for alias in aliases:
+                existing = exported.curve_by_mnemonic(alias)
+                if existing is None:
+                    continue
+                values = np.asarray(existing.values, dtype=np.float64)
+                if values.shape == depth.shape:
+                    return values.copy()
+            return np.full(depth.shape, np.nan, dtype=np.float64)
+
+        calcite_column = source_values("CACO3", "CALCITE", "CACO3_(КАЛЬЦИТ)")
+        dolomite_column = source_values("CAMG_CO3_2", "DOLOMITE")
+        lba_group_column = source_values("LBA_GROUP")
+        lba_intensity_column = source_values("INTENSITY_LBA", "LBA_INTENSITY")
+        lba_type_column = source_values("LBA_TYPE")
+        lba_color_column = source_values("ZVET_LBA", "LBA_COLOR")
 
         source_document = session.source_documents.get(dataset.dataset_id)
         export_metadata = (
