@@ -14,7 +14,6 @@ from geoworkbench.domain.models import Well
 from geoworkbench.services.lba_standard import (
     LBA_STANDARD_GROUPS,
     lba_color_code,
-    lba_standard_type,
 )
 
 
