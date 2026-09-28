@@ -3,6 +3,8 @@ import json
 from pathlib import Path
 import zlib
 
+import numpy as np
+
 from geoworkbench.data.las_adapter import import_las, import_las_with_report
 from geoworkbench.domain.models import (
     CuttingsSample,
