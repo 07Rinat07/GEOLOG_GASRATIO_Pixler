@@ -676,3 +676,35 @@ def test_unbound_legacy_context_is_not_applied_across_multiple_depth_domains() -
     assert report.suppressed_candidates == ()
     assert report.gas_context_events == ()
     assert not any("suppressed" in item for item in report.warnings)
+
+
+def test_hard_excluded_context_is_not_calculated_or_printed() -> None:
+    session = _session()
+    well = session.current_well
+    dataset = session.current_dataset
+    assert well is not None
+    assert dataset is not None
+
+    well.gas_context_events.append(
+        GasContextEvent(
+            event_id="hard-exclude-135-140",
+            event_type=GasContextEventType.CHROMATOGRAPH_TEST_GAS,
+            top_depth=1_039.0,
+            bottom_depth=1_043.0,
+            depth_domain=dataset.depth_domain,
+            impact=InterpretationImpact.EXCLUDE_GEOLOGICAL,
+            confirmed=True,
+            comment="Do not use for geological calculation or interpretation",
+        )
+    )
+
+    report = build_hydrocarbon_interpretation_report(session, threshold=3.0)
+
+    assert report.candidates == ()
+    assert report.suppressed_candidates == ()
+    assert all(item.event_id != "hard-exclude-135-140" for item in report.gas_context_events)
+    assert all(item.event_id != "hard-exclude-135-140" for item in report.gas_context_audit)
+    html = hydrocarbon_interpretation_html(report, AppLanguage.RU)
+    assert "hard-exclude-135-140" not in html
+    assert "Do not use for geological calculation or interpretation" not in html
+    assert "exclude_geological" not in html
