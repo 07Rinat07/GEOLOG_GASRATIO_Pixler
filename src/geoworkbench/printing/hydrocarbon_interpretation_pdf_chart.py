@@ -426,7 +426,10 @@ def _draw_curves(
             current_depth = float(depth[row_index])
             depth_contiguous = (
                 previous_depth is not None
-                and (gap_limit is None or current_depth - previous_depth <= gap_limit)
+                and (
+                    gap_limit is None
+                    or abs(current_depth - previous_depth) <= gap_limit
+                )
             )
             if previous is not None and depth_contiguous and not break_clipped_spike:
                 painter.drawLine(
@@ -444,7 +447,7 @@ def _depth_gap_limit(depth_values: NDArray[np.float64]) -> float | None:
     values = values[np.isfinite(values)]
     if values.size < 3:
         return None
-    differences = np.diff(values)
+    differences = np.abs(np.diff(values))
     positive = differences[np.isfinite(differences) & (differences > 0.0)]
     if not positive.size:
         return None
