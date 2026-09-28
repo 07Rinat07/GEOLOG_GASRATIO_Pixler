@@ -294,12 +294,10 @@ def hydrocarbon_interpretation_html(
             _gas_context_html(report, language) + "</body>",
             1,
         )
-    if report.suppressed_candidates:
-        html = html.replace(
-            "</body>",
-            _suppressed_candidates_html(report, language) + "</body>",
-            1,
-        )
+    # Suppressed automatic candidates remain in the structured report audit, but
+    # are intentionally not rendered into customer-facing HTML/PDF.  Showing the
+    # pre-exclusion hypothesis made an operator-selected exclusion look as if the
+    # interval had still been interpreted geologically.
     return _strip_client_limitations(html)
 
 
@@ -440,12 +438,22 @@ def _gas_context_html(
         )
 
     rows = []
+    excluded_impacts = {
+        InterpretationImpact.EXCLUDE_GEOLOGICAL,
+        InterpretationImpact.TECHNOLOGICAL_GAS,
+    }
+    excluded_status = {
+        AppLanguage.RU: "исключено из геологического расчёта",
+        AppLanguage.KK: "геологиялық есептеуден алынып тасталды",
+        AppLanguage.EN: "excluded from geological calculation",
+    }[language]
     for event in report.gas_context_events:
         audit = audit_by_id.get(event.event_id)
+        excluded = event.effective_impact in excluded_impacts
         component_text = "—"
         measured_total_text = "—"
         delta_text = "—"
-        if audit is not None:
+        if audit is not None and not excluded:
             measured_total_text = stats_text(audit.measured_total_gas)
             if audit.measured_components:
                 component_text = "; ".join(stats_text(item) for item in audit.measured_components)
@@ -463,7 +471,7 @@ def _gas_context_html(
             "<tr>"
             f"<td>{escape(event.event_type.value)}</td>"
             f"<td>{event.top_depth:g}–{event.bottom_depth:g} {escape(report.depth_unit)}</td>"
-            f"<td>{confirmed}</td>"
+            f"<td>{escape(excluded_status if excluded else confirmed)}</td>"
             f"<td>{escape(event.effective_impact.value)}</td>"
             f"<td>{escape(measured_total_text)}</td>"
             f"<td>{escape(component_text)}</td>"
