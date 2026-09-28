@@ -41,6 +41,12 @@ The compatible baseline contract is:
 - `STRAT_CODE` for a numeric stratigraphic interval code;
 - `GEO_DESC_ID` for a portable description reference.
 
+Earlier DIGITAL GEOLOG field LAS files are also accepted through Cyrillic aliases
+`ЛБА_ГРУППА`, `СТРАТ_КОД`, `ОПИСАНИЕ_ID`, and `КАРБОНАТНОСТЬ`, plus bounded
+`# STRAT` / `# DESC` records in `~Other`. `КАРБОНАТНОСТЬ` is preserved as **total
+carbonate** and is never silently relabelled as `CACO3`; when only the aggregate exists,
+separate calcite and dolomite remain unknown.
+
 Localized descriptions, LBA code dictionaries, and stratigraphic labels may be carried in the
 optional bounded `GEOWORKBENCH_GEOLOGY_METADATA` block inside `~Other`. It is stored as
 validated zlib+base64 JSON with hard size limits. A malformed or unknown metadata payload
