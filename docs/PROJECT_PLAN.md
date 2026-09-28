@@ -1,7 +1,7 @@
 <!-- runtime-contract: package=0.7.96; project=v36; form=v18; layout=v25 -->
 # Единый план проекта
 
-Решения и приоритеты обновлены 27 сентября 2026 года по `main` на `e968f745` (включая PR #350), текущему коду, тестам, операторскому скриншоту WITS и публичному benchmark real-time drilling software. WITS-UX теперь трактуется как live-first operator workspace, а не как техническая форма настроек: основной экран — live данные и health, редкие network/storage параметры сворачиваются, diagnostics отделяются от рабочего потока, navigation/scroll/help должны быть адаптивными. Текущая industrial-blue DIGITAL GEOLOG айдентика остаётся канонической и не меняется этим UX-рефакторингом. Это единственный канонический план проекта. Завершённые
+Решения и приоритеты обновлены 28 сентября 2026 года по `main` на `002bea81` (включая PR #353), текущему коду, тестам, операторскому скриншоту WITS и публичному benchmark real-time drilling software. WITS-UX теперь трактуется как live-first operator workspace, а не как техническая форма настроек: основной экран — live данные и health, редкие network/storage параметры сворачиваются, diagnostics отделяются от рабочего потока, navigation/scroll/help должны быть адаптивными. Текущая industrial-blue DIGITAL GEOLOG айдентика остаётся канонической и не меняется этим UX-рефакторингом. Это единственный канонический план проекта. Завершённые
 изменения фиксируются в [CHANGELOG.md](CHANGELOG.md); отдельные roadmap, build report,
 release plan и временные планы в `docs` не создаются.
 
@@ -72,6 +72,8 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
 Календарные сроки не назначаются без доступности стенда и измерения первого инкремента.
 
 ## GASCTX-RPT-01 — технологический газовый контекст интерпретационных отчётов
+
+Операторская приёмка по реальному отчёту М-1 уточнила семантику `exclude_geological`: подтверждённый интервал с этим impact является **hard exclusion** — он не обучает robust background, не участвует в автоматическом candidate detection (включая ОПУС) и не выводится в печатной геологической интерпретации. `technological_gas` остаётся отдельным аудируемым технологическим контекстом. Графики отчётов дополнительно обязаны разрывать кривые на реальных depth gaps, а не соединять несмежные отсчёты.
 
 Первый инкремент GASCTX-RPT-01 реализует generic `GasContextEvent` / `GasContextRegistry`
 без WITS-зависимости и project-format v35 persistence на уровне `Well.gas_context_events`. Depth-domain-aware persistence использует project-format v36, а v35 события мигрируют как unbound и безопасно привязываются только для single-domain well.
