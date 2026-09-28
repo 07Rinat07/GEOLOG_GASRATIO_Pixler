@@ -47,6 +47,9 @@ validated zlib+base64 JSON with hard size limits. A malformed or unknown metadat
 **must never block the LAS itself from opening**; it is ignored and ordinary curves remain
 available. The source LAS stays immutable.
 
+
+Backward compatibility is retained for previously generated field LAS files: Russian aliases `ЛБА_ГРУППА`, `СТРАТ_КОД`, and `ОПИСАНИЕ_ID` are recognized alongside the English mnemonics. The legacy bounded `# STRAT` / `# DESC` contract in the pre-`~ASCII` part of `~Other` is read as UTF-8 or CP1251 with hard header and record-count limits. `КАРБОНАТНОСТЬ` represents total carbonateness and is not falsely reinterpreted as calcite or dolomite.
+
 Large vendor/custom header sections do not participate unboundedly in encoding detection: the
 encoding sample is capped at the first 128 KiB of header content before `~ASCII`.
 
