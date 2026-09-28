@@ -1,4 +1,6 @@
 from geoworkbench.services.localization import AppLanguage
+from PySide6.QtWidgets import QLabel
+
 from geoworkbench.ui.drilling_animation import DrillingAnimation
 from geoworkbench.ui.startup_splash import StartupSplash
 
@@ -12,6 +14,11 @@ def test_startup_splash_is_branded_animated_and_screen_safe(qapp) -> None:
     assert screen is not None
     assert screen.availableGeometry().contains(splash.geometry())
     assert splash.findChild(DrillingAnimation, "splashRig") is splash.rig
+    product = splash.findChild(QLabel, "splashProduct")
+    suite = splash.findChild(QLabel, "splashSuite")
+    assert product is not None and suite is not None
+    assert product.width() >= product.sizeHint().width()
+    assert suite.width() >= suite.sizeHint().width()
     assert "Preparing" in splash.stage_label.text()
 
     splash.set_stage("Loading test", 64)
