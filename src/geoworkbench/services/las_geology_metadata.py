@@ -55,6 +55,7 @@ class LasGeologyExportPlan:
 
     metadata: "LasGeologyMetadata"
     description_ids: dict[str, int]
+    lithology_description_ids: dict[str, int]
     stratigraphy_codes: dict[str, int]
     lba_type_codes: dict[str, int]
     lba_color_codes: dict[str, int]
@@ -283,8 +284,34 @@ def geology_export_plan_from_well(well: Well) -> LasGeologyExportPlan:
     """Build stable numeric carriers plus portable text dictionaries for one well."""
 
     description_ids: dict[str, int] = {}
+    lithology_description_ids: dict[str, int] = {}
     descriptions: dict[int, LasGeologyDescription] = {}
     next_description_id = 1
+
+    for interval in sorted(
+        well.lithology,
+        key=lambda item: (
+            float(item.top_depth),
+            float(item.bottom_depth),
+            item.interval_id,
+        ),
+    ):
+        text = (
+            interval.description_i18n.get("ru")
+            or interval.description
+            or ""
+        ).strip()
+        if not text:
+            continue
+        lithology_description_ids[interval.interval_id] = next_description_id
+        descriptions[next_description_id] = LasGeologyDescription(
+            next_description_id,
+            float(interval.top_depth),
+            float(interval.bottom_depth),
+            text,
+        )
+        next_description_id += 1
+
     for sample in sorted(
         well.cuttings,
         key=lambda item: (float(item.top_depth), float(item.bottom_depth), item.sample_id),
@@ -383,6 +410,7 @@ def geology_export_plan_from_well(well: Well) -> LasGeologyExportPlan:
     return LasGeologyExportPlan(
         metadata=metadata,
         description_ids=description_ids,
+        lithology_description_ids=lithology_description_ids,
         stratigraphy_codes=stratigraphy_codes,
         lba_type_codes=lba_type_codes,
         lba_color_codes=lba_color_codes,
