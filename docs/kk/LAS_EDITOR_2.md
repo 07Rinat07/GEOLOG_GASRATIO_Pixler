@@ -48,6 +48,17 @@ zlib+base64 JSON ретінде сақталады, өлшемі мен құры
 metadata payload негізгі LAS ашылуын **ешқашан блоктамайды**: бағдарлама оны елемей, кәдімгі
 қисықтармен жұмысты жалғастырады. Бастапқы LAS өзгермейді.
 
+Қосымша бір conservative geology-channel resolver қолданылады. Ол lithology/cuttings,
+calcimetry, LBA, stratigraphy және description ID үшін canonical, локализацияланған және
+жиі кездесетін vendor aliases мәндерін таниды; description+UOM бойынша fallback тек дәлел
+бірмәнді болғанда қолданылады. Белгісіз екіұшты арна болжанбайды және кәдімгі LAS қисығы
+болып қалады.
+
+Legacy DIGITAL GEOLOG файлдары үшін `КАРБОНАТНОСТЬ`, `ЛБА_ГРУППА`,
+`ЛБА_ИНТЕНСИВНОСТЬ`, `ЛБА_ТИП`, `ЛБА_ЦВЕТ`, `СТРАТ_КОД`, `ОПИСАНИЕ_ID`
+және `~Other` ішіндегі bounded `# GEOLOGY_SOURCE` / `# STRAT` / `# DESC`
+жазбалары қолдау табады. Бұл бір ұңғымаға арналған special-case емес, compatibility dialect.
+
 Үлкен vendor/custom header секциялары кодтауды анықтауды баяулатпауы тиіс: encoding sample
 `~ASCII` алдындағы header-дің алғашқы 128 KiB көлемімен шектеледі.
 
