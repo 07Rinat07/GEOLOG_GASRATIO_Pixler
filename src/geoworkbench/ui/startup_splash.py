@@ -168,7 +168,9 @@ class StartupSplash(QWidget):
         )
 
     def _update_adaptive_content(self) -> None:
-        self.rig.setVisible(self.width() >= 720 and self.height() >= 370)
+        rig = getattr(self, "rig", None)
+        if rig is not None:
+            rig.setVisible(self.width() >= 720 and self.height() >= 370)
 
     def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)
