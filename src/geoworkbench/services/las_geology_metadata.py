@@ -4,10 +4,18 @@ import base64
 import binascii
 import json
 import math
+from pathlib import Path
 import re
 import zlib
 from dataclasses import dataclass
 from typing import Any
+
+from geoworkbench.domain.models import Well
+from geoworkbench.services.lba_standard import (
+    LBA_STANDARD_GROUPS,
+    lba_color_code,
+    lba_standard_type,
+)
 
 
 GEOLOGY_METADATA_SCHEMA = 1
@@ -40,6 +48,17 @@ class LasStratigraphyEntry:
     rank: str | None = None
     color: str | None = None
     description_ru: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class LasGeologyExportPlan:
+    """One deterministic contract shared by LAS curves and portable metadata."""
+
+    metadata: "LasGeologyMetadata"
+    description_ids: dict[str, int]
+    stratigraphy_codes: dict[str, int]
+    lba_type_codes: dict[str, int]
+    lba_color_codes: dict[str, int]
 
 
 @dataclass(frozen=True, slots=True)
@@ -258,6 +277,224 @@ def _code_dictionary(raw: Any, label: str) -> dict[int, str]:
             raise ValueError(f"{label} key is outside the supported range")
         result[code] = _bounded_text(value, label, maximum=80)
     return result
+
+
+
+def geology_export_plan_from_well(well: Well) -> LasGeologyExportPlan:
+    """Build stable numeric carriers plus portable text dictionaries for one well."""
+
+    description_ids: dict[str, int] = {}
+    descriptions: dict[int, LasGeologyDescription] = {}
+    next_description_id = 1
+    for sample in sorted(
+        well.cuttings,
+        key=lambda item: (float(item.top_depth), float(item.bottom_depth), item.sample_id),
+    ):
+        text = (
+            sample.description_i18n.get("ru")
+            or sample.description
+            or ""
+        ).strip()
+        if not text:
+            continue
+        description_ids[sample.sample_id] = next_description_id
+        descriptions[next_description_id] = LasGeologyDescription(
+            next_description_id,
+            float(sample.top_depth),
+            float(sample.bottom_depth),
+            text,
+        )
+        next_description_id += 1
+
+    stratigraphy_codes: dict[str, int] = {}
+    stratigraphy: list[LasStratigraphyEntry] = []
+    for numeric_code, interval in enumerate(
+        sorted(
+            well.stratigraphy,
+            key=lambda item: (
+                float(item.top_depth),
+                float(item.bottom_depth),
+                item.code,
+                item.interval_id,
+            ),
+        ),
+        start=1,
+    ):
+        stratigraphy_codes[interval.interval_id] = numeric_code
+        name_ru = (
+            interval.name_i18n.get("ru")
+            or interval.name
+            or interval.code
+            or str(numeric_code)
+        ).strip()
+        description_ru = (
+            interval.description_i18n.get("ru")
+            or interval.description
+            or None
+        )
+        stratigraphy.append(
+            LasStratigraphyEntry(
+                top_depth=float(interval.top_depth),
+                bottom_depth=float(interval.bottom_depth),
+                code=(interval.code or str(numeric_code)).strip(),
+                name_ru=name_ru,
+                rank=(interval.rank or None),
+                color=(interval.color or "#dbeafe").lower(),
+                description_ru=(
+                    description_ru.strip()
+                    if isinstance(description_ru, str) and description_ru.strip()
+                    else None
+                ),
+            )
+        )
+
+    # Standard type codes deliberately match the field LAS convention 1..5.
+    lba_type_codes = {
+        standard.type_id: standard.group
+        for standard in LBA_STANDARD_GROUPS
+    }
+    metadata_type_codes = {
+        standard.group: standard.code
+        for standard in LBA_STANDARD_GROUPS
+    }
+
+    color_labels = sorted(
+        {
+            lba_color_code(sample.lba_color)
+            for sample in well.cuttings
+            if lba_color_code(sample.lba_color)
+        }
+    )
+    lba_color_codes = {
+        label: index
+        for index, label in enumerate(color_labels, start=1)
+    }
+    metadata_color_codes = {
+        index: label
+        for label, index in lba_color_codes.items()
+    }
+
+    metadata = LasGeologyMetadata(
+        source="DIGITAL GEOLOG project geology",
+        descriptions=descriptions,
+        stratigraphy=tuple(stratigraphy),
+        lba_type_codes=metadata_type_codes,
+        lba_color_codes=metadata_color_codes,
+    )
+    return LasGeologyExportPlan(
+        metadata=metadata,
+        description_ids=description_ids,
+        stratigraphy_codes=stratigraphy_codes,
+        lba_type_codes=lba_type_codes,
+        lba_color_codes=lba_color_codes,
+    )
+
+
+def render_las_geology_metadata_section(
+    metadata: LasGeologyMetadata,
+    *,
+    newline: bytes = b"\n",
+) -> bytes:
+    """Render bounded portable geology metadata as one LAS ~Other section."""
+
+    payload = {
+        "schema_version": metadata.schema_version,
+        "source": metadata.source,
+        "descriptions": {
+            str(key): {
+                "top": item.top_depth,
+                "bottom": item.bottom_depth,
+                "text_ru": item.text_ru,
+            }
+            for key, item in sorted(metadata.descriptions.items())
+        },
+        "stratigraphy": [
+            {
+                "top": item.top_depth,
+                "bottom": item.bottom_depth,
+                "short": item.code,
+                "name_ru": item.name_ru,
+                **({"rank": item.rank} if item.rank else {}),
+                **({"color": item.color} if item.color else {}),
+                **(
+                    {"description_ru": item.description_ru}
+                    if item.description_ru
+                    else {}
+                ),
+            }
+            for item in metadata.stratigraphy
+        ],
+        "lba_type_codes": {
+            str(key): value for key, value in sorted(metadata.lba_type_codes.items())
+        },
+        "lba_color_codes": {
+            str(key): value for key, value in sorted(metadata.lba_color_codes.items())
+        },
+    }
+    raw = json.dumps(
+        payload,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    if len(raw) > _MAX_DECOMPRESSED_BYTES:
+        raise ValueError("Portable geology metadata exceeds the safe decoded size limit")
+    compressed = zlib.compress(raw, 9)
+    if len(compressed) > _MAX_COMPRESSED_BYTES:
+        raise ValueError("Portable geology metadata exceeds the safe compressed size limit")
+    encoded = base64.b64encode(compressed)
+    if len(encoded) > _MAX_ENCODED_BYTES:
+        raise ValueError("Portable geology metadata exceeds the safe encoded size limit")
+
+    lines = [
+        b"~Other GeoWorkbench Geology Metadata",
+        b"# GEOWORKBENCH_GEOLOGY_METADATA schema=1",
+    ]
+    for offset in range(0, len(encoded), 72):
+        prefix = (
+            _PAYLOAD_PREFIX
+            if offset == 0
+            else _PAYLOAD_CONT_PREFIX
+        )
+        lines.append(prefix + encoded[offset : offset + 72])
+    return newline.join(lines) + newline
+
+
+def append_las_geology_metadata(
+    path: str | Path,
+    metadata: LasGeologyMetadata,
+) -> Path:
+    """Replace prior GeoWorkbench geology metadata and insert the current block."""
+
+    target = Path(path)
+    raw = target.read_bytes()
+    newline = b"\r\n" if b"\r\n" in raw else b"\n"
+
+    section_matches = list(re.finditer(rb"(?m)^[ \t]*~[^\r\n]*", raw))
+    parts: list[bytes] = []
+    cursor = 0
+    for index, match in enumerate(section_matches):
+        start = match.start()
+        end = (
+            section_matches[index + 1].start()
+            if index + 1 < len(section_matches)
+            else len(raw)
+        )
+        section = raw[start:end]
+        if _MARKER in section:
+            parts.append(raw[cursor:start])
+            cursor = end
+    if cursor:
+        parts.append(raw[cursor:])
+        raw = b"".join(parts)
+
+    data_section = re.search(rb"(?im)^~A(?:SCII)?\b[^\r\n]*", raw)
+    if data_section is None:
+        raise ValueError("LAS ASCII section is missing")
+    section = render_las_geology_metadata_section(metadata, newline=newline)
+    offset = data_section.start()
+    target.write_bytes(raw[:offset] + section + raw[offset:])
+    return target
 
 
 def _finite_depth(value: Any, label: str) -> float:
