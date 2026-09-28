@@ -240,3 +240,40 @@ def test_missing_and_invalid_total_gas_keep_distinct_states() -> None:
     assert result.input_states[2] == int(OpusGasomerValueState.MISSING)
     assert result.input_states[4] == int(OpusGasomerValueState.INVALID)
     assert not result.raw_candidate_mask[[2, 4]].any()
+
+
+def test_hard_exclusion_removes_peak_before_opus_detection() -> None:
+    depth = np.arange(0.0, 40.0, 0.2)
+    total_gas = np.full(depth.shape, 0.01)
+    total_gas[50:55] = 0.20
+
+    result = detect_opus_gasomer_intervals(
+        depth,
+        total_gas,
+        total_gas_lod=0.001,
+        policy=_policy(),
+        background_exclusion_intervals=((10.0, 11.0),),
+        candidate_exclusion_intervals=((10.0, 11.0),),
+    )
+
+    assert result.intervals == ()
+    excluded = (depth >= 10.0) & (depth <= 11.0)
+    assert not result.raw_candidate_mask[excluded].any()
+    assert not result.candidate_mask[excluded].any()
+
+
+def test_narrow_hard_exclusion_splits_adjacent_opus_shows() -> None:
+    depth = np.arange(0.0, 40.0, 0.2)
+    total_gas = np.full(depth.shape, 0.01)
+    total_gas[50:59] = 0.20
+    # The excluded depth lies between samples: masking rows alone cannot split the show.
+    excluded = ((10.65, 10.75),)
+
+    result = detect_opus_gasomer_intervals(
+        depth, total_gas, total_gas_lod=0.001,
+        policy=_policy(), candidate_exclusion_intervals=excluded,
+    )
+
+    assert len(result.intervals) == 2
+    assert result.intervals[0].bottom_depth < excluded[0][0]
+    assert result.intervals[1].top_depth > excluded[0][1]

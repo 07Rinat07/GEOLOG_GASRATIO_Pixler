@@ -203,6 +203,18 @@ def test_delete_description_preserves_sample_analysis() -> None:
     assert controller.get(sample.sample_id) is sample
 
 
+def test_delete_description_preserves_total_carbonate_only_sample() -> None:
+    controller = _controller()
+    sample = controller.set_description(500, 510, "Imported rock description")
+    sample.total_carbonate_percent = 0.0
+
+    controller.delete_description(sample.sample_id)
+
+    assert controller.get(sample.sample_id) is sample
+    assert sample.description is None
+    assert sample.total_carbonate_percent == 0.0
+
+
 def test_delete_description_removes_description_only_interval() -> None:
     controller = _controller()
     sample = controller.set_description(500, 510, "Описание")

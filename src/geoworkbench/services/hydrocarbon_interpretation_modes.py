@@ -49,6 +49,7 @@ def build_hydrocarbon_interpretation_report(
     threshold: float = 3.0,
     normalized_gas_mode: NormalizedGasCalculationMode | str | None = None,
     background_exclusion_intervals: tuple[tuple[float, float], ...] = (),
+    candidate_exclusion_intervals: tuple[tuple[float, float], ...] = (),
 ) -> HydrocarbonInterpretationReport:
     """Build one report while keeping server and local normalized gas independent."""
 
@@ -56,6 +57,7 @@ def build_hydrocarbon_interpretation_report(
         session,
         threshold=threshold,
         background_exclusion_intervals=background_exclusion_intervals,
+        candidate_exclusion_intervals=candidate_exclusion_intervals,
     )
     dataset = session.current_dataset
     well = session.current_well
@@ -117,6 +119,7 @@ def build_hydrocarbon_interpretation_report(
             threshold,
             lba_samples=tuple(well.cuttings),
             background_exclusion_intervals=background_exclusion_intervals,
+            candidate_exclusion_intervals=candidate_exclusion_intervals,
         )
         marker = (
             f"normalized-gas source={source_kind}; "

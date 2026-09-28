@@ -1,7 +1,7 @@
 <!-- runtime-contract: package=0.7.96; project=v36; form=v18; layout=v25 -->
 # Единый план проекта
 
-Решения и приоритеты обновлены 27 сентября 2026 года по `main` на `e968f745` (включая PR #350), текущему коду, тестам, операторскому скриншоту WITS и публичному benchmark real-time drilling software. WITS-UX теперь трактуется как live-first operator workspace, а не как техническая форма настроек: основной экран — live данные и health, редкие network/storage параметры сворачиваются, diagnostics отделяются от рабочего потока, navigation/scroll/help должны быть адаптивными. Текущая industrial-blue DIGITAL GEOLOG айдентика остаётся канонической и не меняется этим UX-рефакторингом. Это единственный канонический план проекта. Завершённые
+Решения и приоритеты обновлены 28 сентября 2026 года по `main` на `002bea81` (включая PR #353), текущему коду, тестам, операторскому скриншоту WITS и публичному benchmark real-time drilling software. WITS-UX теперь трактуется как live-first operator workspace, а не как техническая форма настроек: основной экран — live данные и health, редкие network/storage параметры сворачиваются, diagnostics отделяются от рабочего потока, navigation/scroll/help должны быть адаптивными. Текущая industrial-blue DIGITAL GEOLOG айдентика остаётся канонической и не меняется этим UX-рефакторингом. Это единственный канонический план проекта. Завершённые
 изменения фиксируются в [CHANGELOG.md](CHANGELOG.md); отдельные roadmap, build report,
 release plan и временные планы в `docs` не создаются.
 
@@ -16,9 +16,12 @@ release plan и временные планы в `docs` не создаются.
    RU/KK/EN, записью в `CHANGELOG.md` и успешными применимыми gates.
 4. Исходные LAS/GS2/WITS/WITSML данные неизменяемы. Очистка, нормализация и расчёты выполняются
    над рабочими копиями с версионированным provenance. Переносимая геология LAS использует
-   явные числовые каналы (литология/шлам, кальциметрия, ЛБА, стратиграфия) и необязательный
-   bounded metadata-блок в `~Other`; повреждённые/неизвестные дополнительные metadata не должны
-   блокировать открытие базового LAS. Большие custom header sections имеют bounded parsing.
+   единый conservative dialect resolver: canonical/localized/vendor aliases и только однозначный
+   description+UOM fallback для литологии/шлама, кальциметрии, ЛБА, стратиграфии и описаний.
+   Неизвестный канал не угадывается. Необязательные canonical/legacy metadata в `~Other`
+   bounded и advisory; повреждённые/неизвестные metadata не должны блокировать базовый LAS.
+   Суммарная `КАРБОНАТНОСТЬ` хранится отдельно от кальцита и доломита.
+   Большие custom header sections имеют bounded parsing.
 5. Новые hot paths получают оценку сложности, bounded memory и benchmark. Новый внешний ввод
    получает лимиты, валидацию, безопасные ошибки и security tests.
 6. После интеграции не должны оставаться временные ветки, trigger-файлы, диагностические workflow,
@@ -44,19 +47,21 @@ release plan и временные планы в `docs` не создаются.
 
 | Порядок | Задачи | Результат и зависимость | Ответственный по роли / статус |
 |---|---|---|---|
-| 1 | WITS-MEM-01 | Автоматические raw replay/acquisition-boundary/RSS gates закрыты; остался длительный реальный raw/field прогон перед FIELD-01 | Оператор + разработчик / блокировано внешним условием |
-| 2 | WITS-UX-01 | Live-first operator workspace: компактное подключение/health, Live как основной экран, collapsible Advanced/Diagnostics, понятная навигация/help, без outer horizontal scroll; далее persistence/reconnect и полевой UX acceptance | Разработчик / в работе |
-| 3 | WITS-PLOT-01 | Независимые шкалы/диапазоны, редактируемые панели/колонки, читаемые интерпретационные полосы и non-overlap badges поверх нового operator workspace | Разработчик / в работе |
-| 4 | WITS-ALARM-01 | Для всех отображаемых параметров min/max, visual/audio alarm, hysteresis/debounce, acknowledgement и маркеры на графике | Разработчик + оператор / готово к разработке |
-| 5 | WITS-GASCTX-01 | Live/WITS-классификация background/formation/connection/trip/circulated/elevated-unclassified поверх общего gas-context контракта | Разработчик + специалист ГТИ / в работе |
-| 6 | UI-SYS-01 | Продолжить общий adaptive UI foundation без изменения зафиксированной industrial-blue айдентики | Разработчик / в работе |
-| 7 | PRINT-STYLE-01 | Единый Report Visual System PDF/Masterlog/DOCX/XLSX, A4/A3/roll, colour + grayscale | Разработчик / в работе |
-| 8 | GASCTX-RPT-01 | Завершить остаточную report-first приёмку Gas Context Registry и синхронизацию тематического checklist с уже интегрированным кодом | Разработчик + специалист ГТИ / в работе |
-| 9 | FIELD-01 | Реальный WITS: сеть, профиль, live → review → запись → reconnect/reopen + Gas Ratio/Pixler/DEXP/alarms | Оператор + разработчик / блокировано внешним условием |
-| 10 | WELL-04 → WELL-05 | Закрыть остаточную сквозную приёмку переводов и связанных макетов; использовать готовый WELL-06 | Разработчик + оператор / запланировано |
-| 11 | REL-03 / CUT-03 | Реальная печать A4/A3 и комплект одной ревизии; финальная physical acceptance требует принтер и образцы | Оператор + разработчик / частично блокировано |
-| 12 | PERF-05 | Решение по storage только после измеренного baseline 100k/1M строк | Разработчик / запланировано |
-| 13 | FIELD-02…05; OPUS-08 | Совместимость с внешними системами и независимая проверка интерпретации | Разработчик + профильный специалист / блокировано внешним условием |
+| 1 | LAS-GEO-02 | Универсальный geology dialect resolver для canonical/localized/vendor LAS + legacy `~Other`; реальный Maksat dialect является regression-case, а не special-case | Разработчик / в работе |
+| 2 | RPT-QA-01 | Исправить пропуски/разрывы интерпретационных графиков и strict gas-context exclusion до расчёта/печати; текущий industrial-blue visual style не менять | Разработчик + специалист ГТИ / готово к разработке |
+| 3 | WITS-MEM-01 | Автоматические raw replay/acquisition-boundary/RSS gates закрыты; остался длительный реальный raw/field прогон перед FIELD-01 | Оператор + разработчик / блокировано внешним условием |
+| 4 | WITS-UX-01 | Live-first operator workspace: компактное подключение/health, Live как основной экран, collapsible Advanced/Diagnostics, понятная навигация/help, без outer horizontal scroll; далее persistence/reconnect и полевой UX acceptance | Разработчик / в работе |
+| 5 | WITS-PLOT-01 | Независимые шкалы/диапазоны, редактируемые панели/колонки, читаемые интерпретационные полосы и non-overlap badges поверх нового operator workspace | Разработчик / в работе |
+| 6 | WITS-ALARM-01 | Для всех отображаемых параметров min/max, visual/audio alarm, hysteresis/debounce, acknowledgement и маркеры на графике | Разработчик + оператор / готово к разработке |
+| 7 | WITS-GASCTX-01 | Live/WITS-классификация background/formation/connection/trip/circulated/elevated-unclassified поверх общего gas-context контракта | Разработчик + специалист ГТИ / в работе |
+| 8 | UI-SYS-01 | Продолжить общий adaptive UI foundation без изменения зафиксированной industrial-blue айдентики | Разработчик / в работе |
+| 9 | PRINT-STYLE-01 | Единый Report Visual System PDF/Masterlog/DOCX/XLSX, A4/A3/roll, colour + grayscale | Разработчик / в работе |
+| 10 | GASCTX-RPT-01 | Завершить остаточную report-first приёмку Gas Context Registry и синхронизацию тематического checklist с уже интегрированным кодом | Разработчик + специалист ГТИ / в работе |
+| 11 | FIELD-01 | Реальный WITS: сеть, профиль, live → review → запись → reconnect/reopen + Gas Ratio/Pixler/DEXP/alarms | Оператор + разработчик / блокировано внешним условием |
+| 12 | WELL-04 → WELL-05 | Закрыть остаточную сквозную приёмку переводов и связанных макетов; использовать готовый WELL-06 | Разработчик + оператор / запланировано |
+| 13 | REL-03 / CUT-03 | Реальная печать A4/A3 и комплект одной ревизии; финальная physical acceptance требует принтер и образцы | Оператор + разработчик / частично блокировано |
+| 14 | PERF-05 | Решение по storage только после измеренного baseline 100k/1M строк | Разработчик / запланировано |
+| 15 | FIELD-02…05; OPUS-08 | Совместимость с внешними системами и независимая проверка интерпретации | Разработчик + профильный специалист / блокировано внешним условием |
 
 WITS-CALC-01 и OBS-01 уже интегрированы и поэтому удалены из активной очереди согласно правилу 8. Live-derived Haworth/Pixler/DEXP/DEXPC и build/session diagnostics остаются существующими контрактами, которые WITS-UX обязан переиспользовать, а не реализовывать повторно.
 
@@ -72,6 +77,8 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
 Календарные сроки не назначаются без доступности стенда и измерения первого инкремента.
 
 ## GASCTX-RPT-01 — технологический газовый контекст интерпретационных отчётов
+
+Операторская приёмка по реальному отчёту М-1 уточнила семантику `exclude_geological`: подтверждённый интервал с этим impact является **hard exclusion** — он не обучает robust background, не участвует в автоматическом candidate detection (включая ОПУС) и не выводится в печатной геологической интерпретации. `technological_gas` остаётся отдельным аудируемым технологическим контекстом. Графики отчётов дополнительно обязаны разрывать кривые на реальных depth gaps, а не соединять несмежные отсчёты.
 
 Первый инкремент GASCTX-RPT-01 реализует generic `GasContextEvent` / `GasContextRegistry`
 без WITS-зависимости и project-format v35 persistence на уровне `Well.gas_context_events`. Depth-domain-aware persistence использует project-format v36, а v35 события мигрируют как unbound и безопасно привязываются только для single-domain well.
@@ -105,7 +112,9 @@ audit-инкремент также проводит через общий repor
   **exclude geological interpretation**, **operational/technological gas**, **formation gas**;
   дополнительно поддержать **auto / requires geologist review** для неоднозначных случаев.
 - [ ] Gas-line/chromatograph/calibration/lag-tracer test интервалы исключаются из автоматического
-  назначения УВ-пласта и из обучения фонового газа. Значения и формулы сохраняются для аудита.
+  назначения УВ-пласта и из обучения фонового газа. Значения и формулы сохраняются для внутреннего
+  аудита, но исключённый автоматический кандидат не возвращается в клиентские HTML/PDF/DOCX/XLSX
+  как перспективный интервал или отдельная таблица подавленного кандидата.
 - [ ] Connection/build-up, trip/СПО, swab, circulated/recycled gas не назначают самостоятельный
   продуктивный пласт автоматически, но их C1–C5/TG, Gas Ratio, Haworth/Pixler и OPUS результаты
   сохраняются и подписываются как технологический контекст для решения геолога.

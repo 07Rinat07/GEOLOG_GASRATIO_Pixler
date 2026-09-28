@@ -25,6 +25,11 @@ from geoworkbench.domain.models import Dataset, ExportProfile, new_id
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.las_geology import dataset_with_well_geology
+from geoworkbench.services.las_geology_metadata import (
+    append_las_geology_metadata,
+    geology_export_plan_from_well,
+    render_las_geology_metadata_section,
+)
 from geoworkbench.services.rock_code_dictionary import (
     RockCodeDictionary,
     apply_dictionary,
@@ -182,6 +187,15 @@ class DatasetExportController:
             raise RuntimeError("Сначала выберите набор данных")
         export_dataset = dataset_with_well_geology(self.session)
         dictionary = dictionary_from_session(self.session)
+        well = self.session.current_well
+        geology_plan = (
+            geology_export_plan_from_well(well)
+            if well is not None and (well.lithology or well.cuttings or well.stratigraphy)
+            else None
+        )
+        if geology_plan is not None:
+            # Reject an unreadable metadata payload before creating the LAS file.
+            render_las_geology_metadata_section(geology_plan.metadata)
         result = export_las(
             export_dataset,
             target,
@@ -191,6 +205,8 @@ class DatasetExportController:
         )
         if result.exists() and dictionary.entries:
             append_las_dictionary(result, dictionary)
+        if result.exists() and geology_plan is not None:
+            append_las_geology_metadata(result, geology_plan.metadata)
         return result
 
     def export_current_rock_dictionary(

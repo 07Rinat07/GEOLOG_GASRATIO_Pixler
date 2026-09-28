@@ -614,6 +614,8 @@ def detect_opus_gasomer_intervals(
     unit: str = "%vol",
     total_gas_lod: float,
     policy: OpusGasomerDetectorPolicy | None = None,
+    background_exclusion_intervals: tuple[tuple[float, float], ...] = (),
+    candidate_exclusion_intervals: tuple[tuple[float, float], ...] = (),
 ) -> OpusGasomerDetectionResult:
     """Detect gas shows from local TotalGas dynamics without a 0.1% hard gate."""
 
@@ -645,16 +647,31 @@ def detect_opus_gasomer_intervals(
             int(OpusGasomerValueState.INVALID),
         ),
     )
+
+    def interval_mask(
+        intervals: tuple[tuple[float, float], ...],
+    ) -> NDArray[np.bool_]:
+        mask = np.zeros(work_depth.shape, dtype=np.bool_)
+        for top_depth, bottom_depth in intervals:
+            low = min(float(top_depth), float(bottom_depth))
+            high = max(float(top_depth), float(bottom_depth))
+            mask |= (work_depth >= low) & (work_depth <= high)
+        return mask
+
+    hard_excluded = interval_mask(candidate_exclusion_intervals)
+    background_excluded = interval_mask(background_exclusion_intervals)
+    signal_usable = usable & ~hard_excluded
+    background_usable = signal_usable & ~background_excluded
     smoothed = _rolling_median_by_depth(
         work_depth,
         work_values,
-        usable,
+        signal_usable,
         half_span=resolved_policy.smoothing_span / 2.0,
     )
     background, robust_scale = _rolling_robust_background(
         work_depth,
         smoothed,
-        np.isfinite(smoothed),
+        np.isfinite(smoothed) & background_usable,
         half_span=resolved_policy.background_half_span,
         lod_floor=lod_percent,
         policy=resolved_policy,
@@ -665,7 +682,7 @@ def detect_opus_gasomer_intervals(
     robust_z = np.full(work_values.shape, np.nan, dtype=np.float64)
     contrast = np.full(work_values.shape, np.nan, dtype=np.float64)
     finite_metrics = (
-        usable
+        signal_usable
         & np.isfinite(smoothed)
         & np.isfinite(background)
         & np.isfinite(scale_floor)
@@ -686,6 +703,7 @@ def detect_opus_gasomer_intervals(
         robust_z,
         contrast,
         raw_candidates,
+        exclusion_intervals=candidate_exclusion_intervals,
         policy=resolved_policy,
     )
     warnings = [
@@ -892,6 +910,7 @@ def _build_detected_intervals(
     contrast: Array,
     raw_candidates: NDArray[np.bool_],
     *,
+    exclusion_intervals: tuple[tuple[float, float], ...] = (),
     policy: OpusGasomerDetectorPolicy,
 ) -> tuple[NDArray[np.bool_], tuple[OpusGasomerDetectedInterval, ...]]:
     candidate_indices = np.flatnonzero(raw_candidates)
@@ -904,7 +923,12 @@ def _build_detected_intervals(
     for offset in range(1, candidate_indices.size):
         previous = candidate_indices[offset - 1]
         current = candidate_indices[offset]
-        if (
+        crosses_exclusion = any(
+            min(top, bottom) <= depth[current]
+            and max(top, bottom) >= depth[previous]
+            for top, bottom in exclusion_intervals
+        )
+        if crosses_exclusion or (
             depth[current] - depth[previous]
             - policy.maximum_candidate_separation
             > tolerance

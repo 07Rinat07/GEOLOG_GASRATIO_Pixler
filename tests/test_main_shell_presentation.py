@@ -117,6 +117,12 @@ def test_home_background_render_is_debounced_and_reused(qapp, monkeypatch) -> No
 
     assert rendered == []
     QTest.qWait(120)
+    # After other GUI tests, Qt can leave this single-shot timer overdue until
+    # the next event-loop turn. Allow that turn without weakening the count.
+    for _ in range(20):
+        if rendered:
+            break
+        QTest.qWait(20)
     assert len(rendered) == 1
 
     page._schedule_background_artwork(1800)

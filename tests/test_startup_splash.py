@@ -1,3 +1,5 @@
+from PySide6.QtWidgets import QLabel, QSizePolicy
+
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.drilling_animation import DrillingAnimation
 from geoworkbench.ui.startup_splash import StartupSplash
@@ -12,6 +14,16 @@ def test_startup_splash_is_branded_animated_and_screen_safe(qapp) -> None:
     assert screen is not None
     assert screen.availableGeometry().contains(splash.geometry())
     assert splash.findChild(DrillingAnimation, "splashRig") is splash.rig
+    product = splash.findChild(QLabel, "splashProduct")
+    suite = splash.findChild(QLabel, "splashSuite")
+    assert product is not None
+    assert suite is not None
+    assert product.wordWrap()
+    assert suite.wordWrap()
+    assert product.minimumWidth() == 0
+    assert suite.minimumWidth() == 0
+    assert product.sizePolicy().horizontalPolicy() == QSizePolicy.Policy.Ignored
+    assert suite.sizePolicy().horizontalPolicy() == QSizePolicy.Policy.Ignored
     assert "Preparing" in splash.stage_label.text()
 
     splash.set_stage("Loading test", 64)
@@ -21,4 +33,19 @@ def test_startup_splash_is_branded_animated_and_screen_safe(qapp) -> None:
 
     splash.finish()
     assert splash.progress.value() == 100
+    splash.close()
+
+
+def test_startup_splash_prioritizes_brand_text_on_narrow_width(qapp) -> None:
+    splash = StartupSplash(AppLanguage.EN)
+    splash.setFixedSize(650, 410)
+    splash.show()
+    qapp.processEvents()
+
+    assert not splash.rig.isVisible()
+    assert splash.product_label.text() == "DIGITAL GEOLOG"
+    assert splash.suite_label.text() == "GASRATIO&PIXLER"
+    assert splash.product_label.width() >= splash.product_label.sizeHint().width()
+    assert splash.suite_label.width() >= splash.suite_label.sizeHint().width()
+
     splash.close()

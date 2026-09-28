@@ -147,6 +147,7 @@ def _write_xlsx(
         labels["stratigraphy"],
         "CaCO3, %",
         "CaMg(CO3)2, %",
+        f"{labels['total_carbonate']}, %",
         f"{labels['insoluble']}, %",
         *lba_headers,
         labels["lba_standard"],
@@ -156,7 +157,7 @@ def _write_xlsx(
         samples,
         sample_headers,
         tuple(_sample_row(entry, report, language) for entry in report.entries),
-        widths=(18, 34, 60, 40, 13, 15, 18, *((20,) * len(lba_headers)), 45, 60),
+        widths=(18, 34, 60, 40, 13, 15, 22, 18, *((20,) * len(lba_headers)), 45, 60),
     )
 
     gas = workbook.create_sheet(_sheet_name(labels["gas_lba_section"]))
@@ -254,6 +255,7 @@ def _sample_row(
         _stratigraphy(entry.stratigraphy, language, report.depth_unit),
         entry.calcite_percent,
         entry.dolomite_percent,
+        entry.total_carbonate_percent,
         entry.insoluble_residue_percent,
         *(observations.get(key, "") for key, _ in LBA_FIELDS),
         assessment,
@@ -415,6 +417,7 @@ def _docx_sample_row(
         for name, value in (
             ("CaCO3", entry.calcite_percent),
             ("CaMg(CO3)2", entry.dolomite_percent),
+            (labels["total_carbonate"], entry.total_carbonate_percent),
             (labels["insoluble"], entry.insoluble_residue_percent),
         )
         if value is not None

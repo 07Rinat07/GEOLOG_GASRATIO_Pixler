@@ -416,6 +416,32 @@ def test_interpretation_report_exports_excel_and_word(tmp_path) -> None:
     assert "Нерастворимый остаток" in document_xml
 
 
+def test_total_carbonate_is_exported_as_aggregate_in_excel_and_word(tmp_path) -> None:
+    session = _session()
+    well = session.current_well
+    assert well is not None
+    sample = well.cuttings[0]
+    sample.calcite_percent = None
+    sample.dolomite_percent = None
+    sample.total_carbonate_percent = 43.0
+    report = build_interpretation_report(session)
+    xlsx = export_interpretation_report_xlsx(report, tmp_path / "aggregate.xlsx")
+    docx = export_interpretation_report_docx(report, tmp_path / "aggregate.docx")
+
+    workbook = load_workbook(xlsx, read_only=True, data_only=True)
+    try:
+        rows = list(workbook[workbook.sheetnames[1]].values)
+        assert "Общая карбонатность, %" in rows[0]
+        assert rows[1][rows[0].index("Общая карбонатность, %")] == 43.0
+        assert rows[1][rows[0].index("CaCO3, %")] is None
+    finally:
+        workbook.close()
+    with zipfile.ZipFile(docx) as package:
+        document_xml = package.read("word/document.xml").decode("utf-8")
+    assert "Общая карбонатность: 43%" in document_xml
+    assert "CaCO3: 43%" not in document_xml
+
+
 def test_interpretation_report_dialog_previews_report(qapp) -> None:
     dialog = InterpretationReportDialog(_session(), language=AppLanguage.EN)
     dialog.resize(720, 420)

@@ -474,9 +474,14 @@ class CuttingsSample:
     description_template_blocks: list[DescriptionTemplateBlock] = field(default_factory=list)
     lba_description_i18n: dict[str, str] = field(default_factory=dict)
     analysis_interpretation_i18n: dict[str, str] = field(default_factory=dict)
+    # Additive compatibility field kept at the end so historical positional
+    # CuttingsSample constructors retain their argument meaning.
+    total_carbonate_percent: float | None = None
 
     @property
     def insoluble_residue_percent(self) -> float | None:
+        if self.total_carbonate_percent is not None:
+            return max(0.0, 100.0 - self.total_carbonate_percent)
         if self.calcite_percent is None or self.dolomite_percent is None:
             return None
         return max(0.0, 100.0 - self.calcite_percent - self.dolomite_percent)

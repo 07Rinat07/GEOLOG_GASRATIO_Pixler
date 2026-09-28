@@ -260,7 +260,9 @@ class TabletController:
                     )
                 )
             if any(
-                item.calcite_percent is not None or item.dolomite_percent is not None
+                item.calcite_percent is not None
+                or item.dolomite_percent is not None
+                or item.total_carbonate_percent is not None
                 for item in well.cuttings
             ):
                 tracks.append(

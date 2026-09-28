@@ -14,6 +14,7 @@ from geoworkbench.printing.hydrocarbon_fluid_markers import (
     marker_lane_offsets,
     marker_lanes,
 )
+from geoworkbench.printing.depth_curve_segments import continuous_depth_segments
 from geoworkbench.printing.unicode_support import print_font
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonCandidateInterval,
@@ -467,7 +468,9 @@ def _draw_panel(
         labels[panel_name],
     )
 
-    sampled = _sample_indices(depth.size, limit=1_800)
+    depth_indices = np.flatnonzero(finite_depth)
+    depth_indices = depth_indices[np.argsort(depth[depth_indices], kind="stable")]
+    segments = continuous_depth_segments(depth, depth_indices, limit=1_800)
     curve_rect = rect.adjusted(7.0, 1.0, -7.0, -1.0)
     painter.save()
     painter.setClipRect(rect.adjusted(1.0, 1.0, -1.0, -1.0))
@@ -486,28 +489,40 @@ def _draw_panel(
             high = low + max(1.0, abs(low) * 0.01)
         color = QColor(_COLORS[curve_index % len(_COLORS)])
         painter.setPen(QPen(color, 2.2))
-        previous: tuple[float, float] | None = None
-        for index in sampled:
-            if not usable[index]:
-                previous = None
-                continue
-            normalized = float(
-                np.clip((values[index] - low) / (high - low), 0.0, 1.0)
-            )
-            x = curve_rect.left() + normalized * curve_rect.width()
-            y = _depth_y(
-                depth[index],
-                depth_min,
-                depth_max,
-                curve_rect.top(),
-                curve_rect.height(),
-            )
-            current = (float(x), float(y))
-            if previous is not None:
-                painter.drawLine(
-                    QLineF(previous[0], previous[1], current[0], current[1])
+        for segment in segments:
+            previous: tuple[float, float] | None = None
+            previous_normalized: float | None = None
+            previous_clipped = False
+            for index in segment:
+                if not usable[index]:
+                    previous = None
+                    previous_normalized = None
+                    previous_clipped = False
+                    continue
+                raw_normalized = float((values[index] - low) / (high - low))
+                normalized = float(np.clip(raw_normalized, 0.0, 1.0))
+                clipped = raw_normalized < 0.0 or raw_normalized > 1.0
+                x = curve_rect.left() + normalized * curve_rect.width()
+                y = _depth_y(
+                    depth[index],
+                    depth_min,
+                    depth_max,
+                    curve_rect.top(),
+                    curve_rect.height(),
                 )
-            previous = current
+                current = (float(x), float(y))
+                spike = (
+                    previous_normalized is not None
+                    and (clipped or previous_clipped)
+                    and abs(normalized - previous_normalized) >= 0.72
+                )
+                if previous is not None and not spike:
+                    painter.drawLine(
+                        QLineF(previous[0], previous[1], current[0], current[1])
+                    )
+                previous = current
+                previous_normalized = normalized
+                previous_clipped = clipped
 
         legend = curve.metadata.original_mnemonic
         if curve.metadata.unit:

@@ -299,6 +299,18 @@ def test_default_layout_adds_available_calcimetry_and_lba_tracks() -> None:
     assert TrackKind.LBA in kinds
 
 
+def test_default_layout_adds_total_carbonate_only_calcimetry() -> None:
+    session = make_session()
+    assert session.current_well is not None
+    session.current_well.cuttings.append(CuttingsSample(
+        "sample", 1.0, 2.0, total_carbonate_percent=43.0,
+    ))
+
+    kinds = [track.kind for track in TabletController(session).build_default_layout().tracks]
+
+    assert TrackKind.CALCIMETRY in kinds
+
+
 def test_default_layout_adds_lithology_and_description_tracks() -> None:
     session = make_session()
     assert session.current_well is not None

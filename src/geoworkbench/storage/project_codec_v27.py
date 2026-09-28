@@ -1355,6 +1355,11 @@ def _well_from_dict(data: dict[str, Any]) -> Well:
                 if item.get("dolomite_percent") is not None
                 else None
             ),
+            total_carbonate_percent=(
+                float(item["total_carbonate_percent"])
+                if item.get("total_carbonate_percent") is not None
+                else None
+            ),
             description=item.get("description"),
             analysis_interpretation=item.get("analysis_interpretation"),
             description_word_wrap=_optional_bool_field(

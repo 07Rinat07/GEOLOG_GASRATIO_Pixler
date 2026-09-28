@@ -283,6 +283,7 @@ def build_hydrocarbon_interpretation_report(
     *,
     threshold: float = 3.0,
     background_exclusion_intervals: tuple[tuple[float, float], ...] = (),
+    candidate_exclusion_intervals: tuple[tuple[float, float], ...] = (),
 ) -> HydrocarbonInterpretationReport:
     if not np.isfinite(threshold) or not 2.0 <= threshold <= 10.0:
         raise ValueError("Порог robust z должен находиться в диапазоне 2–10")
@@ -391,6 +392,7 @@ def build_hydrocarbon_interpretation_report(
             threshold,
             lba_samples=tuple(well.cuttings),
             background_exclusion_intervals=background_exclusion_intervals,
+            candidate_exclusion_intervals=candidate_exclusion_intervals,
         )
         if detection_warning:
             warnings.append(detection_warning)
@@ -441,6 +443,7 @@ def _detect_candidates(
     *,
     lba_samples: tuple[CuttingsSample, ...] = (),
     background_exclusion_intervals: tuple[tuple[float, float], ...] = (),
+    candidate_exclusion_intervals: tuple[tuple[float, float], ...] = (),
 ) -> tuple[
     tuple[HydrocarbonCandidateInterval, ...],
     float | None,
@@ -460,6 +463,15 @@ def _detect_candidates(
         low = min(float(top_depth), float(bottom_depth))
         high = max(float(top_depth), float(bottom_depth))
         background_valid &= ~(
+            np.isfinite(depth)
+            & (depth >= low)
+            & (depth <= high)
+        )
+    candidate_valid = valid.copy()
+    for top_depth, bottom_depth in candidate_exclusion_intervals:
+        low = min(float(top_depth), float(bottom_depth))
+        high = max(float(top_depth), float(bottom_depth))
+        candidate_valid &= ~(
             np.isfinite(depth)
             & (depth >= low)
             & (depth <= high)
@@ -485,7 +497,7 @@ def _detect_candidates(
 
     robust_z = np.full(values.shape, np.nan, dtype=np.float64)
     robust_z[valid] = (transformed[valid] - median) / scale
-    flagged = valid & (robust_z >= threshold)
+    flagged = candidate_valid & (robust_z >= threshold)
     if not np.any(flagged):
         return (), median, scale, None
 
@@ -502,7 +514,16 @@ def _detect_candidates(
     )
     groups: list[list[int]] = []
     for row_index in flagged_indices:
-        if not groups or depth[row_index] - depth[groups[-1][-1]] > max_gap:
+        crosses_exclusion = bool(groups) and any(
+            min(top, bottom) <= depth[row_index]
+            and max(top, bottom) >= depth[groups[-1][-1]]
+            for top, bottom in candidate_exclusion_intervals
+        )
+        if (
+            not groups
+            or depth[row_index] - depth[groups[-1][-1]] > max_gap
+            or crosses_exclusion
+        ):
             groups.append([int(row_index)])
         else:
             groups[-1].append(int(row_index))
@@ -514,6 +535,12 @@ def _detect_candidates(
         group_indices = np.asarray(group, dtype=np.int64)
         top = max(overall_top, float(np.min(depth[group_indices])) - step / 2.0)
         bottom = min(overall_bottom, float(np.max(depth[group_indices])) + step / 2.0)
+        for excluded_top, excluded_bottom in candidate_exclusion_intervals:
+            low, high = sorted((float(excluded_top), float(excluded_bottom)))
+            if depth[group_indices[-1]] < low:
+                bottom = min(bottom, float(np.nextafter(low, -np.inf)))
+            elif depth[group_indices[0]] > high:
+                top = max(top, float(np.nextafter(high, np.inf)))
         if bottom <= top:
             bottom = top + step
         maximum_z = float(np.nanmax(robust_z[group_indices]))
