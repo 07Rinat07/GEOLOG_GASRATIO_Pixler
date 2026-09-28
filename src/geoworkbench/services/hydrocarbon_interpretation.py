@@ -294,12 +294,6 @@ def hydrocarbon_interpretation_html(
             _gas_context_html(report, language) + "</body>",
             1,
         )
-    if report.suppressed_candidates:
-        html = html.replace(
-            "</body>",
-            _suppressed_candidates_html(report, language) + "</body>",
-            1,
-        )
     return _strip_client_limitations(html)
 
 
