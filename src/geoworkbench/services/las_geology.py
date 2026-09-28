@@ -543,7 +543,7 @@ def dataset_with_well_geology(session: ProjectSession):
 
         calcite_column = source_values("CACO3", "CALCITE", "CACO3_(КАЛЬЦИТ)")
         dolomite_column = source_values("CAMG_CO3_2", "DOLOMITE")
-        lba_group_column = source_values("LBA_GROUP")
+        lba_group_column = source_values("LBA_GROUP", "ЛБА_ГРУППА")
         lba_intensity_column = source_values("INTENSITY_LBA", "LBA_INTENSITY")
         lba_type_column = source_values("LBA_TYPE")
         lba_color_column = source_values("ZVET_LBA", "LBA_COLOR")
@@ -655,7 +655,7 @@ def dataset_with_well_geology(session: ProjectSession):
             description="Dolomite",
         )
         upsert_geology_curve(
-            ("LBA_GROUP",),
+            ("LBA_GROUP", "ЛБА_ГРУППА"),
             "LBA_GROUP",
             lba_group_column,
             unit="CODE",
