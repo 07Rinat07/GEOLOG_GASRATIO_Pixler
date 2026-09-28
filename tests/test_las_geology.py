@@ -7,7 +7,11 @@ from geoworkbench.data.las_adapter import import_las, import_las_with_report
 from geoworkbench.domain.models import CuttingsSample, LithologyInterval
 from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
 from geoworkbench.project.session import ProjectSession
-from geoworkbench.services.las_geology import import_las_geology, las_code_id
+from geoworkbench.services.las_geology import (
+    dataset_with_well_geology,
+    import_las_geology,
+    las_code_id,
+)
 from geoworkbench.services.las_geology_metadata import geology_metadata_from_las_bytes
 from geoworkbench.storage.atomic_json import save_project
 from geoworkbench.storage.project_codec import load_project
@@ -239,3 +243,301 @@ def test_invalid_optional_geology_metadata_never_blocks_las_opening() -> None:
     )
 
     assert geology_metadata_from_las_bytes(raw) is None
+
+
+def _metadata_payload_section(metadata: dict, *, compressed: bytes | None = None) -> bytes:
+    payload = compressed
+    if payload is None:
+        payload = zlib.compress(
+            json.dumps(metadata, ensure_ascii=False, separators=(",", ":")).encode("utf-8"),
+            9,
+        )
+    encoded = base64.b64encode(payload).decode("ascii")
+    lines = [
+        "~Other information",
+        "# GEOWORKBENCH_GEOLOGY_METADATA schema=1",
+    ]
+    for offset in range(0, len(encoded), 72):
+        prefix = (
+            "# GEOLOGY_ZLIB_BASE64="
+            if offset == 0
+            else "# GEOLOGY_ZLIB_BASE64_CONT="
+        )
+        lines.append(prefix + encoded[offset : offset + 72])
+    return ("\n".join(lines) + "\n").encode("ascii")
+
+
+def _small_geology_las(
+    curves: tuple[str, ...],
+    rows: tuple[str, ...],
+    *,
+    metadata: dict | None = None,
+) -> bytes:
+    parts = [
+        "~Version Information",
+        " VERS. 2.0 : LAS 2.0",
+        " WRAP. NO : One row per depth",
+        "~Well Information",
+        " STRT.M 0 : Start",
+        " STOP.M 101 : Stop",
+        " STEP.M 1 : Step",
+        " NULL. -999.25 : Null",
+        " WELL. Test : Well",
+        "~Curve Information",
+        " DEPT.M : Depth",
+        *curves,
+    ]
+    raw = ("\n".join(parts) + "\n").encode("utf-8")
+    if metadata is not None:
+        raw += _metadata_payload_section(metadata)
+    raw += ("~ASCII Log Data\n" + "\n".join(rows) + "\n").encode("utf-8")
+    return raw
+
+
+def _base_metadata(**overrides) -> dict:
+    metadata = {
+        "schema_version": 1,
+        "source": "unit test",
+        "descriptions": {},
+        "stratigraphy": [],
+        "lba_type_codes": {},
+        "lba_color_codes": {},
+    }
+    metadata.update(overrides)
+    return metadata
+
+
+def test_metadata_without_usable_stratigraphy_falls_back_to_strat_code(tmp_path: Path) -> None:
+    source = tmp_path / "strat-fallback.las"
+    source.write_bytes(
+        _small_geology_las(
+            (" STRAT_CODE.CODE : Stratigraphy",),
+            ("0 7", "1 7"),
+            metadata=_base_metadata(),
+        )
+    )
+    result = import_las_with_report(source)
+    session = ProjectSession()
+    well = session.add_dataset(
+        result.dataset,
+        "Test",
+        source_document=result.source_document,
+        import_report=result.report,
+        create_new_well=True,
+    )
+
+    assert len(well.stratigraphy) == 1
+    assert well.stratigraphy[0].code == "7"
+
+
+def test_metadata_stratigraphy_requires_retained_strat_code_channel(tmp_path: Path) -> None:
+    source = tmp_path / "strat-channel-gate.las"
+    metadata = _base_metadata(
+        stratigraphy=[
+            {
+                "top": 0.0,
+                "bottom": 1.0,
+                "short": "K",
+                "name_ru": "Меловая система",
+            }
+        ],
+    )
+    source.write_bytes(
+        _small_geology_las(
+            (" LBA_GROUP.CODE : LBA group",),
+            ("0 2", "1 2"),
+            metadata=metadata,
+        )
+    )
+    result = import_las_with_report(source)
+    session = ProjectSession()
+    well = session.add_dataset(
+        result.dataset,
+        "Test",
+        source_document=result.source_document,
+        import_report=result.report,
+        create_new_well=True,
+    )
+
+    assert well.stratigraphy == []
+
+
+def test_strat_code_does_not_bridge_unsampled_depth_gap(tmp_path: Path) -> None:
+    source = tmp_path / "strat-gap.las"
+    source.write_bytes(
+        _small_geology_las(
+            (" STRAT_CODE.CODE : Stratigraphy",),
+            ("0 1", "1 1", "100 1", "101 1"),
+        )
+    )
+    result = import_las_with_report(source)
+    session = ProjectSession()
+    well = session.add_dataset(
+        result.dataset,
+        "Test",
+        source_document=result.source_document,
+        import_report=result.report,
+        create_new_well=True,
+    )
+
+    assert [(item.top_depth, item.bottom_depth) for item in well.stratigraphy] == [
+        (0.0, 1.0),
+        (100.0, 101.0),
+    ]
+
+
+def test_calcimetry_total_above_one_hundred_is_not_materialized(tmp_path: Path) -> None:
+    source = tmp_path / "invalid-calcimetry.las"
+    source.write_bytes(
+        _small_geology_las(
+            (
+                " CACO3.% : Calcite",
+                " CAMG_CO3_2.% : Dolomite",
+            ),
+            ("0 80 40", "1 80 40"),
+        )
+    )
+    result = import_las_with_report(source)
+    session = ProjectSession()
+    well = session.add_dataset(
+        result.dataset,
+        "Test",
+        source_document=result.source_document,
+        import_report=result.report,
+        create_new_well=True,
+    )
+
+    assert well.cuttings == []
+
+
+def test_localized_calcite_alias_passes_early_geology_gate(tmp_path: Path) -> None:
+    source = tmp_path / "localized-calcite.las"
+    source.write_bytes(
+        _small_geology_las(
+            (" CACO3_(КАЛЬЦИТ).% : Calcite",),
+            ("0 30", "1 30"),
+        )
+    )
+    result = import_las_with_report(source)
+    session = ProjectSession()
+    well = session.add_dataset(
+        result.dataset,
+        "Test",
+        source_document=result.source_document,
+        import_report=result.report,
+        create_new_well=True,
+    )
+
+    assert len(well.cuttings) == 1
+    assert well.cuttings[0].calcite_percent == 30.0
+
+
+def test_unknown_metadata_lba_type_falls_back_to_lba_group(tmp_path: Path) -> None:
+    source = tmp_path / "lba-fallback.las"
+    source.write_bytes(
+        _small_geology_las(
+            (
+                " LBA_GROUP.CODE : LBA group",
+                " LBA_TYPE.CODE : LBA type",
+            ),
+            ("0 3 2", "1 3 2"),
+            metadata=_base_metadata(lba_type_codes={"2": "VENDOR_UNKNOWN"}),
+        )
+    )
+    result = import_las_with_report(source)
+    session = ProjectSession()
+    well = session.add_dataset(
+        result.dataset,
+        "Test",
+        source_document=result.source_document,
+        import_report=result.report,
+        create_new_well=True,
+    )
+
+    assert len(well.cuttings) == 1
+    assert well.cuttings[0].lba_group == 3
+    assert well.cuttings[0].lba_type_id == "oily_resinous"
+
+
+def test_optional_metadata_rejects_recursion_truncation_trailing_and_overlap() -> None:
+    recursive_json = ("[" * 2000 + "0" + "]" * 2000).encode("ascii")
+    recursive_raw = (
+        b"~Other information\n"
+        b"# GEOWORKBENCH_GEOLOGY_METADATA schema=1\n"
+        + b"# GEOLOGY_ZLIB_BASE64="
+        + base64.b64encode(zlib.compress(recursive_json))
+        + b"\n"
+    )
+    assert geology_metadata_from_las_bytes(recursive_raw) is None
+
+    valid = _base_metadata()
+    compressed = zlib.compress(
+        json.dumps(valid, separators=(",", ":")).encode("utf-8"),
+        9,
+    )
+    assert geology_metadata_from_las_bytes(
+        _metadata_payload_section(valid, compressed=compressed[:-4])
+    ) is None
+    assert geology_metadata_from_las_bytes(
+        _metadata_payload_section(valid, compressed=compressed + b"junk")
+    ) is None
+
+    overlap = _base_metadata(
+        stratigraphy=[
+            {
+                "top": 0.0,
+                "bottom": 10.0,
+                "short": "K1",
+                "name_ru": "A",
+                "rank": "system",
+            },
+            {
+                "top": 5.0,
+                "bottom": 12.0,
+                "short": "K2",
+                "name_ru": "B",
+                "rank": "SYSTEM",
+            },
+        ],
+    )
+    assert geology_metadata_from_las_bytes(_metadata_payload_section(overlap)) is None
+
+
+def test_optional_metadata_rejects_oversized_base64_before_materialization() -> None:
+    raw = (
+        b"~Other information\n"
+        b"# GEOWORKBENCH_GEOLOGY_METADATA schema=1\n"
+        b"# GEOLOGY_ZLIB_BASE64="
+        + b"A" * (3 * 1024 * 1024)
+        + b"\n"
+    )
+    assert geology_metadata_from_las_bytes(raw) is None
+
+
+def test_export_projects_edited_calcimetry_and_lba_back_to_curves(tmp_path: Path) -> None:
+    source = tmp_path / "enriched-roundtrip.las"
+    source.write_bytes(_enriched_cp1251_las())
+    result = import_las_with_report(source)
+    session = ProjectSession()
+    well = session.add_dataset(
+        result.dataset,
+        "Тест",
+        source_document=result.source_document,
+        import_report=result.report,
+        create_new_well=True,
+    )
+    sample = well.cuttings[0]
+    sample.calcite_percent = 45.0
+    sample.dolomite_percent = 15.0
+    sample.lba_group = 2
+    sample.lba_type_id = "oily"
+    sample.lba_intensity = 4
+    sample.lba_color = "БЖ"
+
+    exported = dataset_with_well_geology(session)
+    assert exported is not None
+    assert exported.curve_by_mnemonic("CACO3").values.tolist() == [45.0, 45.0]
+    assert exported.curve_by_mnemonic("CAMG_CO3_2").values.tolist() == [15.0, 15.0]
+    assert exported.curve_by_mnemonic("LBA_GROUP").values.tolist() == [2.0, 2.0]
+    assert exported.curve_by_mnemonic("INTENSITY_LBA").values.tolist() == [4.0, 4.0]
+    assert exported.curve_by_mnemonic("ZVET_LBA").values.tolist() == [3.0, 3.0]
