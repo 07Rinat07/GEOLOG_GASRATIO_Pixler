@@ -272,7 +272,17 @@ def build_opus_interpretation_report(
     if detection_warning:
         warnings.append(detection_warning)
 
-    raw_background = _raw_background(total.values)
+    raw_background_values = np.asarray(total.values, dtype=np.float64).copy()
+    raw_background_depth = np.asarray(dataset.depth, dtype=np.float64)
+    for top_depth, bottom_depth in background_exclusion_intervals:
+        low = min(float(top_depth), float(bottom_depth))
+        high = max(float(top_depth), float(bottom_depth))
+        raw_background_values[
+            np.isfinite(raw_background_depth)
+            & (raw_background_depth >= low)
+            & (raw_background_depth <= high)
+        ] = np.nan
+    raw_background = _raw_background(raw_background_values)
     if raw_background is None:
         warnings.append(
             "Не удалось оценить фон C1-C5 в % об.; интервалы оставлены как кандидаты "
