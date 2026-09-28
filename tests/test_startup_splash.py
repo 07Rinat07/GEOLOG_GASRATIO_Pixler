@@ -22,3 +22,18 @@ def test_startup_splash_is_branded_animated_and_screen_safe(qapp) -> None:
     splash.finish()
     assert splash.progress.value() == 100
     splash.close()
+
+
+def test_startup_splash_prioritizes_brand_text_on_narrow_width(qapp) -> None:
+    splash = StartupSplash(AppLanguage.EN)
+    splash.setFixedSize(650, 410)
+    splash.show()
+    qapp.processEvents()
+
+    assert not splash.rig.isVisible()
+    assert splash.product_label.text() == "DIGITAL GEOLOG"
+    assert splash.suite_label.text() == "GASRATIO&PIXLER"
+    assert splash.product_label.width() >= splash.product_label.sizeHint().width()
+    assert splash.suite_label.width() >= splash.suite_label.sizeHint().width()
+
+    splash.close()
