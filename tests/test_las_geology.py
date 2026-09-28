@@ -548,7 +548,11 @@ def test_export_projects_edited_calcimetry_and_lba_back_to_curves(tmp_path: Path
     assert exported.curve_by_mnemonic("CAMG_CO3_2").values.tolist() == [15.0, 15.0]
     assert exported.curve_by_mnemonic("LBA_GROUP").values.tolist() == [2.0, 2.0]
     assert exported.curve_by_mnemonic("INTENSITY_LBA").values.tolist() == [4.0, 4.0]
-    assert exported.curve_by_mnemonic("ZVET_LBA").values.tolist() == [3.0, 3.0]
+    color_curve = exported.curve_by_mnemonic("ZVET_LBA")
+    assert color_curve is not None
+    assert color_curve.values.tolist() == [1.0, 1.0]
+    export_plan = geology_export_plan_from_well(well)
+    assert export_plan.metadata.lba_color_codes == {1: "БЖ"}
 
 
 
