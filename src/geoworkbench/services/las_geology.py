@@ -20,6 +20,10 @@ from geoworkbench.domain.models import (
     StratigraphyInterval,
     new_id,
 )
+from geoworkbench.services.las_geology_dialect import (
+    GeologyChannelRole,
+    resolve_geology_channel,
+)
 from geoworkbench.services.las_geology_metadata import (
     LasGeologyMetadata,
     geology_metadata_from_las_bytes,
@@ -108,37 +112,21 @@ def import_las_geology(session: ProjectSession) -> LasGeologyResult:
             apply_dictionary(session, embedded, overwrite=False)
         metadata = geology_metadata_from_las_bytes(source_document.raw_bytes)
 
-    normalized_names = {
-        curve.metadata.original_mnemonic.upper().replace(" ", "_")
-        for curve in dataset.curves.values()
-    }
-    optional_geology_names = {
-        "CACO3",
-        "CALCITE",
-        "CACO3_(КАЛЬЦИТ)",
-        "КАРБОНАТНОСТЬ",
-        "CAMG_CO3_2",
-        "DOLOMITE",
-        "INTENSITY_LBA",
-        "LBA_INTENSITY",
-        "ZVET_LBA",
-        "LBA_COLOR",
-        "LBA_GROUP",
-        "ЛБА_ГРУППА",
-        "LBA_TYPE",
-        "ЛБА_ТИП",
-        "ЛБА_ИНТЕНСИВНОСТЬ",
-        "ЛБА_ЦВЕТ",
-        "STRAT_CODE",
-        "СТРАТ_КОД",
-        "GEO_DESC_ID",
-        "ОПИСАНИЕ_ID",
-    }
-    if (
-        not any("ПОРОД" in name for name in normalized_names)
-        and not normalized_names.intersection(optional_geology_names)
-        and metadata is None
-    ):
+    geology_curves: dict[
+        tuple[GeologyChannelRole, int | None],
+        list[object],
+    ] = {}
+    for curve in dataset.curves.values():
+        match = resolve_geology_channel(
+            curve.metadata.original_mnemonic,
+            description=curve.metadata.description or "",
+            unit=curve.metadata.unit or "",
+        )
+        if match is None:
+            continue
+        geology_curves.setdefault((match.role, match.slot), []).append(curve)
+
+    if not geology_curves and metadata is None:
         return LasGeologyResult()
 
     depth = np.asarray(dataset.depth, dtype=float)
@@ -151,45 +139,41 @@ def import_las_geology(session: ProjectSession) -> LasGeologyResult:
     if reverse:
         depth = depth[::-1]
 
-    def values(*names: str) -> NDArray[np.float64] | None:
-        wanted = {name.upper().replace(" ", "_") for name in names}
-        matches = [
-            curve
-            for curve in dataset.curves.values()
-            if curve.metadata.original_mnemonic.upper().replace(" ", "_") in wanted
-        ]
+    def values_for(
+        role: GeologyChannelRole,
+        *,
+        slot: int | None = None,
+    ) -> NDArray[np.float64] | None:
+        matches = geology_curves.get((role, slot), [])
         if len(matches) != 1:
             return None
-        array = np.asarray(matches[0].values, dtype=float)
+        curve = matches[0]
+        array = np.asarray(curve.values, dtype=float)
         if array.shape != depth.shape:
             return None
         return array[::-1] if reverse else array
 
-    primary = values("КОД_ПОРОДЫ")
+    primary = values_for(GeologyChannelRole.PRIMARY_LITHOLOGY)
     slots = [
-        (values(f"ПОРОДА{i}_КОД"), values(f"ПОРОДА{i}_КОЛИЧ"))
+        (
+            values_for(GeologyChannelRole.CUTTINGS_CODE, slot=i),
+            values_for(GeologyChannelRole.CUTTINGS_AMOUNT, slot=i),
+        )
         for i in range(1, 6)
     ]
-    # Legacy Maksat field LAS files used Russian mnemonics. The single
-    # КАРБОНАТНОСТЬ channel is carried through the existing calcimetry slot
-    # without changing its source curve or inventing a dolomite split.
-    calcite_values = values(
-        "CACO3",
-        "CALCITE",
-        "CACO3_(КАЛЬЦИТ)",
-        "КАРБОНАТНОСТЬ",
-    )
-    dolomite_values = values("CAMG_CO3_2", "DOLOMITE")
-    lba_group_values = values("LBA_GROUP", "ЛБА_ГРУППА")
-    lba_intensity_values = values(
-        "INTENSITY_LBA",
-        "LBA_INTENSITY",
-        "ЛБА_ИНТЕНСИВНОСТЬ",
-    )
-    lba_type_values = values("LBA_TYPE", "ЛБА_ТИП")
-    lba_color_values = values("ZVET_LBA", "LBA_COLOR", "ЛБА_ЦВЕТ")
-    description_values = values("GEO_DESC_ID", "ОПИСАНИЕ_ID")
-    stratigraphy_values = values("STRAT_CODE", "СТРАТ_КОД")
+    calcite_values = values_for(GeologyChannelRole.CALCITE)
+    legacy_carbonate_values = values_for(GeologyChannelRole.LEGACY_CARBONATE)
+    if calcite_values is None:
+        # Legacy single-channel carbonate data is surfaced through the existing
+        # calcimetry field without fabricating a dolomite split.
+        calcite_values = legacy_carbonate_values
+    dolomite_values = values_for(GeologyChannelRole.DOLOMITE)
+    lba_group_values = values_for(GeologyChannelRole.LBA_GROUP)
+    lba_intensity_values = values_for(GeologyChannelRole.LBA_INTENSITY)
+    lba_type_values = values_for(GeologyChannelRole.LBA_TYPE)
+    lba_color_values = values_for(GeologyChannelRole.LBA_COLOR)
+    description_values = values_for(GeologyChannelRole.DESCRIPTION_ID)
+    stratigraphy_values = values_for(GeologyChannelRole.STRATIGRAPHY_CODE)
 
     edges = np.concatenate(
         ([depth[0]], (depth[:-1] + depth[1:]) / 2, [depth[-1]])
@@ -546,26 +530,38 @@ def dataset_with_well_geology(session: ProjectSession):
     if well.cuttings:
         code_columns = [np.full(depth.shape, np.nan, dtype=np.float64) for _ in range(5)]
         amount_columns = [np.full(depth.shape, np.nan, dtype=np.float64) for _ in range(5)]
-        def source_values(*aliases: str) -> NDArray[np.float64]:
-            for alias in aliases:
-                existing = exported.curve_by_mnemonic(alias)
-                if existing is None:
-                    continue
-                values = np.asarray(existing.values, dtype=np.float64)
-                if values.shape == depth.shape:
-                    return values.copy()
-            return np.full(depth.shape, np.nan, dtype=np.float64)
+        def source_curve_for_role(role: GeologyChannelRole):
+            matches = []
+            for existing in exported.curves.values():
+                match = resolve_geology_channel(
+                    existing.metadata.original_mnemonic,
+                    description=existing.metadata.description or "",
+                    unit=existing.metadata.unit or "",
+                )
+                if match is not None and match.role is role and match.slot is None:
+                    matches.append(existing)
+            return matches[0] if len(matches) == 1 else None
 
-        calcite_column = source_values(
-            "CACO3", "CALCITE", "CACO3_(КАЛЬЦИТ)", "КАРБОНАТНОСТЬ"
+        def source_values_for_role(role: GeologyChannelRole) -> NDArray[np.float64]:
+            existing = source_curve_for_role(role)
+            if existing is None:
+                return np.full(depth.shape, np.nan, dtype=np.float64)
+            values = np.asarray(existing.values, dtype=np.float64)
+            if values.shape != depth.shape:
+                return np.full(depth.shape, np.nan, dtype=np.float64)
+            return values.copy()
+
+        calcite_source_role = (
+            GeologyChannelRole.CALCITE
+            if source_curve_for_role(GeologyChannelRole.CALCITE) is not None
+            else GeologyChannelRole.LEGACY_CARBONATE
         )
-        dolomite_column = source_values("CAMG_CO3_2", "DOLOMITE")
-        lba_group_column = source_values("LBA_GROUP", "ЛБА_ГРУППА")
-        lba_intensity_column = source_values(
-            "INTENSITY_LBA", "LBA_INTENSITY", "ЛБА_ИНТЕНСИВНОСТЬ"
-        )
-        lba_type_column = source_values("LBA_TYPE", "ЛБА_ТИП")
-        lba_color_column = source_values("ZVET_LBA", "LBA_COLOR", "ЛБА_ЦВЕТ")
+        calcite_column = source_values_for_role(calcite_source_role)
+        dolomite_column = source_values_for_role(GeologyChannelRole.DOLOMITE)
+        lba_group_column = source_values_for_role(GeologyChannelRole.LBA_GROUP)
+        lba_intensity_column = source_values_for_role(GeologyChannelRole.LBA_INTENSITY)
+        lba_type_column = source_values_for_role(GeologyChannelRole.LBA_TYPE)
+        lba_color_column = source_values_for_role(GeologyChannelRole.LBA_COLOR)
 
         source_document = session.source_documents.get(dataset.dataset_id)
         export_metadata = (
@@ -636,7 +632,7 @@ def dataset_with_well_geology(session: ProjectSession):
                 )
 
         def upsert_geology_curve(
-            aliases: tuple[str, ...],
+            role: GeologyChannelRole,
             fallback: str,
             values: NDArray[np.float64],
             *,
@@ -645,12 +641,12 @@ def dataset_with_well_geology(session: ProjectSession):
         ) -> None:
             if not np.isfinite(values).any():
                 return
-            mnemonic = fallback
-            for alias in aliases:
-                existing = exported.curve_by_mnemonic(alias)
-                if existing is not None:
-                    mnemonic = existing.metadata.original_mnemonic
-                    break
+            existing = source_curve_for_role(role)
+            mnemonic = (
+                existing.metadata.original_mnemonic
+                if existing is not None
+                else fallback
+            )
             exported.upsert_curve(
                 mnemonic,
                 values,
@@ -660,42 +656,42 @@ def dataset_with_well_geology(session: ProjectSession):
             )
 
         upsert_geology_curve(
-            ("CACO3", "CALCITE", "CACO3_(КАЛЬЦИТ)", "КАРБОНАТНОСТЬ"),
+            calcite_source_role,
             "CACO3",
             calcite_column,
             unit="%",
             description="Calcite",
         )
         upsert_geology_curve(
-            ("CAMG_CO3_2", "DOLOMITE"),
+            GeologyChannelRole.DOLOMITE,
             "CAMG_CO3_2",
             dolomite_column,
             unit="%",
             description="Dolomite",
         )
         upsert_geology_curve(
-            ("LBA_GROUP", "ЛБА_ГРУППА"),
+            GeologyChannelRole.LBA_GROUP,
             "LBA_GROUP",
             lba_group_column,
             unit="CODE",
             description="LBA group",
         )
         upsert_geology_curve(
-            ("INTENSITY_LBA", "LBA_INTENSITY", "ЛБА_ИНТЕНСИВНОСТЬ"),
+            GeologyChannelRole.LBA_INTENSITY,
             "INTENSITY_LBA",
             lba_intensity_column,
             unit="CODE",
             description="LBA intensity",
         )
         upsert_geology_curve(
-            ("LBA_TYPE", "ЛБА_ТИП"),
+            GeologyChannelRole.LBA_TYPE,
             "LBA_TYPE",
             lba_type_column,
             unit="CODE",
             description="LBA type code",
         )
         upsert_geology_curve(
-            ("ZVET_LBA", "LBA_COLOR", "ЛБА_ЦВЕТ"),
+            GeologyChannelRole.LBA_COLOR,
             "ZVET_LBA",
             lba_color_column,
             unit="CODE",
