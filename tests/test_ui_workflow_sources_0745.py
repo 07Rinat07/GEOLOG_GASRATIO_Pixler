@@ -41,7 +41,8 @@ def test_las_import_shows_busy_state_before_synchronous_job() -> None:
     block = source[start:end]
 
     assert "QProgressDialog(" in block
-    assert 'self._t("import.las_loading")' in block
+    assert 'self._t("import.las_loading", files=names)' in block
+    assert '.format(files=names)' not in block
     assert "progress.setRange" not in block
     assert "progress.setCancelButton(None)" in block
     assert "QApplication.processEvents()" in block

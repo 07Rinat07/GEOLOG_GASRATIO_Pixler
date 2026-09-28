@@ -3105,7 +3105,7 @@ class MainWindow(QMainWindow):
         if len(filenames) > 3:
             names += f" (+{len(filenames) - 3})"
         progress = QProgressDialog(
-            self._t("import.las_loading").format(files=names),
+            self._t("import.las_loading", files=names),
             "",
             0,
             0,
@@ -3118,7 +3118,7 @@ class MainWindow(QMainWindow):
         progress.setAutoClose(False)
         progress.setAutoReset(False)
         progress.show()
-        self.statusBar().showMessage(self._t("import.las_loading").format(files=names))
+        self.statusBar().showMessage(self._t("import.las_loading", files=names))
         self._log(f"Начата загрузка LAS: {names}")
         QApplication.processEvents()
         try:
