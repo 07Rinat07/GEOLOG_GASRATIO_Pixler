@@ -13,6 +13,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from geoworkbench.domain.models import (
+    CurveData,
     CuttingsComponent,
     CuttingsSample,
     LithologyInterval,
@@ -114,7 +115,7 @@ def import_las_geology(session: ProjectSession) -> LasGeologyResult:
 
     geology_curves: dict[
         tuple[GeologyChannelRole, int | None],
-        list[object],
+        list[CurveData],
     ] = {}
     for curve in dataset.curves.values():
         match = resolve_geology_channel(
@@ -530,7 +531,9 @@ def dataset_with_well_geology(session: ProjectSession):
     if well.cuttings:
         code_columns = [np.full(depth.shape, np.nan, dtype=np.float64) for _ in range(5)]
         amount_columns = [np.full(depth.shape, np.nan, dtype=np.float64) for _ in range(5)]
-        def source_curve_for_role(role: GeologyChannelRole):
+        def source_curve_for_role(
+            role: GeologyChannelRole,
+        ) -> CurveData | None:
             matches = []
             for existing in exported.curves.values():
                 match = resolve_geology_channel(
