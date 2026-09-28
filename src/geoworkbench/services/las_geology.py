@@ -514,6 +514,12 @@ def dataset_with_well_geology(session: ProjectSession):
     geology_plan = geology_export_plan_from_well(well)
     description_column = np.full(depth.shape, np.nan, dtype=np.float64)
 
+    def remove_export_curve(*aliases: str) -> None:
+        for alias in aliases:
+            existing = exported.curve_by_mnemonic(alias)
+            if existing is not None:
+                exported.curves.pop(existing.metadata.curve_id, None)
+
     if well.lithology:
         primary = np.full(depth.shape, np.nan, dtype=np.float64)
         for index, value in enumerate(depth):
@@ -622,8 +628,11 @@ def dataset_with_well_geology(session: ProjectSession):
             *,
             unit: str,
             description: str,
+            clear_when_empty: bool = False,
         ) -> None:
             if not np.isfinite(values).any():
+                if clear_when_empty:
+                    remove_export_curve(*aliases)
                 return
             mnemonic = fallback
             for alias in aliases:
@@ -673,6 +682,7 @@ def dataset_with_well_geology(session: ProjectSession):
             lba_type_column,
             unit="CODE",
             description="LBA type code",
+            clear_when_empty=True,
         )
         upsert_geology_curve(
             ("ZVET_LBA", "LBA_COLOR"),
@@ -680,6 +690,7 @@ def dataset_with_well_geology(session: ProjectSession):
             lba_color_column,
             unit="CODE",
             description="LBA colour code",
+            clear_when_empty=True,
         )
     if np.isfinite(description_column).any():
         exported.upsert_curve(
@@ -689,6 +700,8 @@ def dataset_with_well_geology(session: ProjectSession):
             description="Portable geology description ID",
             provenance="derived:project-geology",
         )
+    else:
+        remove_export_curve("GEO_DESC_ID")
 
     if well.stratigraphy:
         # STRAT_CODE is another dictionary-dependent carrier and must be
@@ -714,6 +727,10 @@ def dataset_with_well_geology(session: ProjectSession):
                 description="Portable stratigraphy interval code",
                 provenance="derived:project-geology",
             )
+        else:
+            remove_export_curve("STRAT_CODE")
+    else:
+        remove_export_curve("STRAT_CODE")
 
     return exported
 
