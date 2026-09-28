@@ -84,8 +84,10 @@ class StartupSplash(QWidget):
         names.setSpacing(1)
         product = QLabel(APPLICATION_PRODUCT_LINE, card)
         product.setObjectName("splashProduct")
+        product.setWordWrap(False)
         suite = QLabel(APPLICATION_SUITE_NAME, card)
         suite.setObjectName("splashSuite")
+        suite.setWordWrap(False)
         names.addStretch(1)
         names.addWidget(product)
         names.addWidget(suite)
@@ -122,7 +124,11 @@ class StartupSplash(QWidget):
         self.rig = DrillingAnimation(dark=True, parent=card)
         self.rig.setObjectName("splashRig")
         self.rig.setFixedSize(280, 280)
-        self.rig.setVisible(self.width() >= 650 and self.height() >= 370)
+        # The branded wordmark needs substantially more horizontal room than the
+        # old splash allocation.  Keep the rig on normal desktop screens, but
+        # yield the full card width to text on compact displays instead of
+        # clipping the product/suite names.
+        self.rig.setVisible(self.width() >= 860 and self.height() >= 370)
         layout.addWidget(self.rig, 2, Qt.AlignmentFlag.AlignCenter)
 
         self.setStyleSheet(
@@ -149,11 +155,11 @@ class StartupSplash(QWidget):
     def _adaptive_size(self) -> QSize:
         screen = QApplication.screenAt(QCursor.pos()) or QApplication.primaryScreen()
         if screen is None:
-            return QSize(760, 410)
+            return QSize(940, 430)
         available = screen.availableGeometry()
         return QSize(
-            max(320, min(760, available.width() - 48)),
-            max(280, min(410, available.height() - 48)),
+            max(320, min(940, available.width() - 48)),
+            max(280, min(430, available.height() - 48)),
         )
 
     def _centre_on_active_screen(self) -> None:
