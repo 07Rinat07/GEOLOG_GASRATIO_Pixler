@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QProgressBar,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -84,8 +85,16 @@ class StartupSplash(QWidget):
         names.setSpacing(1)
         product = QLabel(APPLICATION_PRODUCT_LINE, card)
         product.setObjectName("splashProduct")
+        product.setMinimumWidth(0)
+        product.setWordWrap(True)
+        product.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        product.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         suite = QLabel(APPLICATION_SUITE_NAME, card)
         suite.setObjectName("splashSuite")
+        suite.setMinimumWidth(0)
+        suite.setWordWrap(True)
+        suite.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        suite.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         names.addStretch(1)
         names.addWidget(product)
         names.addWidget(suite)
@@ -121,8 +130,8 @@ class StartupSplash(QWidget):
 
         self.rig = DrillingAnimation(dark=True, parent=card)
         self.rig.setObjectName("splashRig")
-        self.rig.setFixedSize(280, 280)
-        self.rig.setVisible(self.width() >= 650 and self.height() >= 370)
+        self.rig.setFixedSize(250, 250)
+        self.rig.setVisible(self.width() >= 700 and self.height() >= 370)
         layout.addWidget(self.rig, 2, Qt.AlignmentFlag.AlignCenter)
 
         self.setStyleSheet(
@@ -130,7 +139,7 @@ class StartupSplash(QWidget):
             "border-radius: 18px; }"
             "QLabel#splashLogo { background: white; border: 2px solid #d99a24; "
             "border-radius: 12px; padding: 2px; }"
-            "QLabel#splashProduct { color: white; font-size: 30px; font-weight: 900; "
+            "QLabel#splashProduct { color: white; font-size: 27px; font-weight: 900; "
             "letter-spacing: 2px; }"
             "QLabel#splashSuite { color: #f5b942; font-size: 16px; font-weight: 800; }"
             "QLabel#splashTagline { color: #dcecff; font-size: 16px; font-weight: 650; "
