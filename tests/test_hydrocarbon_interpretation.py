@@ -477,11 +477,12 @@ def test_confirmed_technological_gas_suppresses_geological_candidate_and_exports
     assert "connection_gas" in html
     assert "Connection gas QC" in html
     assert "Измеренный TG" in html
-    assert "TG: min 4; mean 4; max 4 %" in html
+    assert "исключено из геологического расчёта" in html
+    assert "TG: min 4; mean 4; max 4 %" not in html
     assert "QC Δ к среднему TG" in html
-    assert "0.25 %vol" in html
-    assert "Аудит подавленных автоматических кандидатов" in html
-    assert "gas-context: event_id=connection-1" in html
+    assert "0.25 %vol" not in html
+    assert "Аудит подавленных автоматических кандидатов" not in html
+    assert "gas-context: event_id=connection-1" not in html
 
     xlsx_path = export_hydrocarbon_interpretation_xlsx(
         report,
@@ -525,10 +526,11 @@ def test_confirmed_technological_gas_suppresses_geological_candidate_and_exports
         assert "connection_gas" in document
         assert "technological_gas" in document
         assert "Измеренный TG" in document
-        assert "TG: min 4; mean 4; max 4 %" in document
-        assert "0.25 %vol" in document
-        assert "Аудит подавленных автоматических кандидатов" in document
-        assert "gas-context: event_id=connection-1" in document
+        assert "исключено из геологического расчёта" in document
+        assert "TG: min 4; mean 4; max 4 %" not in document
+        assert "0.25 %vol" not in document
+        assert "Аудит подавленных автоматических кандидатов" not in document
+        assert "gas-context: event_id=connection-1" not in document
 
 
 def test_confirmed_technological_context_is_excluded_from_robust_background() -> None:
@@ -676,3 +678,51 @@ def test_unbound_legacy_context_is_not_applied_across_multiple_depth_domains() -
     assert report.suppressed_candidates == ()
     assert report.gas_context_events == ()
     assert not any("suppressed" in item for item in report.warnings)
+
+
+
+def test_exclude_geological_context_is_visible_but_not_calculated_in_client_report() -> None:
+    session = _session()
+    well = session.current_well
+    dataset = session.current_dataset
+    assert well is not None
+    assert dataset is not None
+    dataset.curves["TG"] = CurveData(
+        CurveMetadata(
+            "TG",
+            "TG",
+            "TG",
+            "%",
+            "Measured total gas",
+            dataset.dataset_id,
+            "source:test",
+        ),
+        np.full(dataset.depth.shape, 4.0),
+    )
+    well.gas_context_events.append(
+        GasContextEvent(
+            event_id="exclude-qc",
+            event_type=GasContextEventType.GAS_LINE_TEST_GAS,
+            top_depth=1_039.0,
+            bottom_depth=1_043.0,
+            impact=InterpretationImpact.EXCLUDE_GEOLOGICAL,
+            confirmed=True,
+            depth_domain=dataset.depth_domain,
+            comment="Не использовать для геологической интерпретации",
+        )
+    )
+
+    report = build_hydrocarbon_interpretation_report(session, threshold=3.0)
+
+    assert report.candidates == ()
+    assert len(report.suppressed_candidates) == 1
+    assert len(report.gas_context_audit) == 1
+    assert report.gas_context_audit[0].measured_total_gas is not None
+
+    html = hydrocarbon_interpretation_html(report, AppLanguage.RU)
+    assert "exclude_geological" in html
+    assert "исключено из геологического расчёта" in html
+    assert "Не использовать для геологической интерпретации" in html
+    assert "TG: min 4; mean 4; max 4 %" not in html
+    assert "Аудит подавленных автоматических кандидатов" not in html
+    assert "gas-context: event_id=exclude-qc" not in html
