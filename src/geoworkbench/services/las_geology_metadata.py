@@ -15,6 +15,7 @@ _MARKER = b"GEOWORKBENCH_GEOLOGY_METADATA"
 _PAYLOAD_PREFIX = b"# GEOLOGY_ZLIB_BASE64="
 _PAYLOAD_CONT_PREFIX = b"# GEOLOGY_ZLIB_BASE64_CONT="
 _MAX_COMPRESSED_BYTES = 2 * 1024 * 1024
+_MAX_ENCODED_BYTES = ((_MAX_COMPRESSED_BYTES + 2) // 3) * 4
 _MAX_DECOMPRESSED_BYTES = 8 * 1024 * 1024
 _MAX_DESCRIPTIONS = 100_000
 _MAX_STRATIGRAPHY = 10_000
@@ -88,6 +89,8 @@ def geology_metadata_from_las_bytes(raw: bytes) -> LasGeologyMetadata | None:
             encoded = _payload_from_section(section)
             if encoded is None:
                 continue
+            if len(encoded) > _MAX_ENCODED_BYTES:
+                continue
             compressed = base64.b64decode(encoded, validate=True)
             if len(compressed) > _MAX_COMPRESSED_BYTES:
                 continue
@@ -100,6 +103,7 @@ def geology_metadata_from_las_bytes(raw: bytes) -> LasGeologyMetadata | None:
             ValueError,
             TypeError,
             json.JSONDecodeError,
+            RecursionError,
             zlib.error,
         ):
             continue
@@ -108,21 +112,21 @@ def geology_metadata_from_las_bytes(raw: bytes) -> LasGeologyMetadata | None:
 
 def _payload_from_section(section: bytes) -> str | None:
     chunks: list[str] = []
+    encoded_size = 0
     for line in section.splitlines():
+        payload: bytes | None = None
         if line.startswith(_PAYLOAD_PREFIX):
-            chunks = [
-                line.removeprefix(_PAYLOAD_PREFIX).decode(
-                    "ascii",
-                    errors="strict",
-                )
-            ]
+            chunks = []
+            encoded_size = 0
+            payload = line.removeprefix(_PAYLOAD_PREFIX)
         elif chunks and line.startswith(_PAYLOAD_CONT_PREFIX):
-            chunks.append(
-                line.removeprefix(_PAYLOAD_CONT_PREFIX).decode(
-                    "ascii",
-                    errors="strict",
-                )
-            )
+            payload = line.removeprefix(_PAYLOAD_CONT_PREFIX)
+        if payload is None:
+            continue
+        encoded_size += len(payload)
+        if encoded_size > _MAX_ENCODED_BYTES:
+            raise ValueError("Embedded geology metadata exceeds the safe encoded size limit")
+        chunks.append(payload.decode("ascii", errors="strict"))
     return "".join(chunks) if chunks else None
 
 
@@ -137,6 +141,8 @@ def _decompress_bounded(compressed: bytes) -> bytes:
     payload += decompressor.flush()
     if len(payload) > _MAX_DECOMPRESSED_BYTES:
         raise ValueError("Embedded geology metadata exceeds the safe size limit")
+    if not decompressor.eof or decompressor.unused_data:
+        raise ValueError("Embedded geology metadata is not one complete zlib stream")
     return payload
 
 
@@ -229,6 +235,13 @@ def _stratigraphy_from_raw(raw: Any) -> tuple[LasStratigraphyEntry, ...]:
             )
         )
     result.sort(key=lambda item: (item.top_depth, item.bottom_depth, item.code))
+    previous_by_rank: dict[str, LasStratigraphyEntry] = {}
+    for item in result:
+        rank_key = (item.rank or "").strip().casefold()
+        previous = previous_by_rank.get(rank_key)
+        if previous is not None and item.top_depth < previous.bottom_depth:
+            raise ValueError("Overlapping stratigraphy intervals of the same rank")
+        previous_by_rank[rank_key] = item
     return tuple(result)
 
 
