@@ -123,9 +123,13 @@ def import_las_geology(session: ProjectSession) -> LasGeologyResult:
         "ZVET_LBA",
         "LBA_COLOR",
         "LBA_GROUP",
+        "ЛБА_ГРУППА",
         "LBA_TYPE",
         "STRAT_CODE",
+        "СТРАТ_КОД",
         "GEO_DESC_ID",
+        "ОПИСАНИЕ_ID",
+        "КАРБОНАТНОСТЬ",
     }
     if (
         not any("ПОРОД" in name for name in normalized_names)
@@ -165,12 +169,12 @@ def import_las_geology(session: ProjectSession) -> LasGeologyResult:
     ]
     calcite_values = values("CACO3", "CALCITE", "CACO3_(КАЛЬЦИТ)")
     dolomite_values = values("CAMG_CO3_2", "DOLOMITE")
-    lba_group_values = values("LBA_GROUP")
+    lba_group_values = values("LBA_GROUP", "ЛБА_ГРУППА")
     lba_intensity_values = values("INTENSITY_LBA", "LBA_INTENSITY")
     lba_type_values = values("LBA_TYPE")
     lba_color_values = values("ZVET_LBA", "LBA_COLOR")
-    description_values = values("GEO_DESC_ID")
-    stratigraphy_values = values("STRAT_CODE")
+    description_values = values("GEO_DESC_ID", "ОПИСАНИЕ_ID")
+    stratigraphy_values = values("STRAT_CODE", "СТРАТ_КОД")
 
     edges = np.concatenate(
         ([depth[0]], (depth[:-1] + depth[1:]) / 2, [depth[-1]])
