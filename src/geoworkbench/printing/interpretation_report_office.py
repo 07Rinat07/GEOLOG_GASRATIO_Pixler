@@ -6,6 +6,7 @@ import tempfile
 import zipfile
 
 from openpyxl import Workbook  # type: ignore[import-untyped]
+from openpyxl.comments import Comment  # type: ignore[import-untyped]
 from openpyxl.styles import Alignment, Font, PatternFill  # type: ignore[import-untyped]
 from openpyxl.utils import get_column_letter  # type: ignore[import-untyped]
 
