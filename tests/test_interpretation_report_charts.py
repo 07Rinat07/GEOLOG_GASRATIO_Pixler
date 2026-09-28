@@ -199,7 +199,8 @@ def test_pdf_chart_breaks_clipped_outlier_spikes_and_limits_band_glare() -> None
     assert "break_clipped_spike" in base
     assert "(clipped or previous_clipped)" in base
     assert "abs(normalized - previous_normalized) >= 0.72" in base
-    assert "if previous is not None and not break_clipped_spike:" in base
+    assert "and not break_clipped_spike" in base
+    assert "and not break_depth_gap" in base
     assert "band_color.setAlpha(20)" in enhanced
 
 
