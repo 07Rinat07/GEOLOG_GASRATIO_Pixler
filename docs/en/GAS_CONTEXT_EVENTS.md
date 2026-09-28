@@ -20,7 +20,7 @@ calibration gas, elevated-unclassified and other technological gas.
 
 `InterpretationImpact` supports:
 
-- `exclude_geological` — suppress automatic geological classification;
+- `exclude_geological` — hard-exclude the interval from automatic geological candidate calculation and printed interpretation while leaving source curves unchanged;
 - `technological_gas` — preserve calculations without assigning a standalone productive interval;
 - `formation_gas` — treat the context as confirmed formation gas;
 - `review_required` — require geologist review.
