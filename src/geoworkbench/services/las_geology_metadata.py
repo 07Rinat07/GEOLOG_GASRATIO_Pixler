@@ -128,14 +128,17 @@ def _current_metadata_from_las_bytes(raw: bytes) -> LasGeologyMetadata | None:
 def _legacy_metadata_from_las_bytes(raw: bytes) -> LasGeologyMetadata | None:
     """Parse the bounded pre-ASCII legacy geology annotation contract."""
 
-    ascii_offsets = [
-        offset
-        for marker in (b"~ASCII", b"~Ascii", b"~ascii")
-        if (offset := raw.find(marker)) >= 0
-    ]
-    header_end = min(ascii_offsets) if ascii_offsets else min(len(raw), _MAX_LEGACY_HEADER_BYTES)
-    if header_end > _MAX_LEGACY_HEADER_BYTES:
+    bounded = raw[: _MAX_LEGACY_HEADER_BYTES + 1]
+    ascii_match = re.search(
+        rb"(?im)^[ \t]*~A(?:SCII)?(?:[ \t][^\r\n]*)?[ \t]*$",
+        bounded,
+    )
+    if ascii_match is not None:
+        header_end = ascii_match.start()
+    elif len(raw) > _MAX_LEGACY_HEADER_BYTES:
         return None
+    else:
+        header_end = len(raw)
     header = raw[:header_end]
     if b"# STRAT " not in header and b"# DESC " not in header:
         return None
