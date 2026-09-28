@@ -541,3 +541,83 @@ def test_export_projects_edited_calcimetry_and_lba_back_to_curves(tmp_path: Path
     assert exported.curve_by_mnemonic("LBA_GROUP").values.tolist() == [2.0, 2.0]
     assert exported.curve_by_mnemonic("INTENSITY_LBA").values.tolist() == [4.0, 4.0]
     assert exported.curve_by_mnemonic("ZVET_LBA").values.tolist() == [3.0, 3.0]
+
+
+def _legacy_maksat_geology_las() -> bytes:
+    text = "\n".join(
+        [
+            "~Version Information",
+            " VERS. 2.0 : LAS 2.0",
+            " WRAP. NO : One row per depth",
+            "~Well Information",
+            " STRT.M 51.0 : Start",
+            " STOP.M 53.0 : Stop",
+            " STEP.M 1.0 : Step",
+            " NULL. -999.25 : Null",
+            " WELL. М-1 : Well",
+            "~Curve Information",
+            " DEPT.M : Глубина",
+            " КОД_ПОРОДЫ.CODE : Интерпретированная литология",
+            " ПОРОДА1_КОД.CODE : Код компонента",
+            " ПОРОДА1_КОЛИЧ.PCT : Содержание компонента",
+            " КАРБОНАТНОСТЬ.PCT : Кальциметрия/карбонатность по мастерлогу, %",
+            " ЛБА_ГРУППА.CODE : ЛБА: 1=ЛБ 2=МБ 3=МСБ 4=СБ 5=САБ",
+            " СТРАТ_КОД.CODE : Стратиграфический интервал",
+            " ОПИСАНИЕ_ID.CODE : Описание пород",
+            "~Other information",
+            "# GEOLOGY_SOURCE=Мастерлог_Максат-1_51-5549м(1).pdf",
+            "# STRAT id=1; top=51.0; bottom=53.0; code=Pg; rank=system; name=Палеогеновая",
+            "# DESC id=1; top=51.0; bottom=53.0; text=Пески серые, светло-серые, кварцевые, известковистые.",
+            "~ASCII Log Data",
+            "51 7 7 100 36 -32768 1 1",
+            "52 7 7 100 36 1 1 1",
+            "53 7 7 100 36 -32768 1 1",
+            "",
+        ]
+    )
+    return text.encode("cp1251")
+
+
+def test_legacy_maksat_dialect_materializes_description_lba_calcimetry_and_stratigraphy(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "geology of Maksat M1 from to 5549m.las"
+    source.write_bytes(_legacy_maksat_geology_las())
+
+    result = import_las_with_report(source)
+    session = ProjectSession()
+    well = session.add_dataset(
+        result.dataset,
+        "М-1",
+        source_document=result.source_document,
+        import_report=result.report,
+        create_new_well=True,
+    )
+
+    assert well.lithology
+    assert well.cuttings
+    assert all(
+        item.description == "Пески серые, светло-серые, кварцевые, известковистые."
+        for item in well.lithology
+    )
+    calcimetry = [item for item in well.cuttings if item.calcite_percent is not None]
+    assert calcimetry
+    assert {item.calcite_percent for item in calcimetry} == {36.0}
+    assert any(item.lba_group == 1 for item in well.cuttings)
+    assert all(item.lba_group is None or item.lba_group == 1 for item in well.cuttings)
+
+    assert len(well.stratigraphy) == 1
+    stratigraphy = well.stratigraphy[0]
+    assert stratigraphy.code == "Pg"
+    assert stratigraphy.name == "Палеогеновая"
+    assert stratigraphy.rank == "system"
+
+
+def test_legacy_maksat_metadata_is_advisory_when_malformed() -> None:
+    raw = (
+        "~Other information\n"
+        "# GEOLOGY_SOURCE=field masterlog\n"
+        "# STRAT id=1; top=bad; bottom=53; code=Pg; rank=system; name=Палеогеновая\n"
+    ).encode("cp1251")
+
+    assert geology_metadata_from_las_bytes(raw) is None
