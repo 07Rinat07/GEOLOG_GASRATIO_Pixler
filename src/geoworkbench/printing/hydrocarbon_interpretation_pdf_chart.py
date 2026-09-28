@@ -384,6 +384,7 @@ def _draw_curves(
         & (depth <= page.bottom_depth)
     )
     indices = indices[np.argsort(depth[indices], kind="stable")]
+    gap_limit = _rendered_depth_gap_limit(depth, indices, maximum_points=2_500)
     if indices.size > 2_500:
         positions = np.linspace(0, indices.size - 1, 2_500, dtype=np.int64)
         indices = indices[positions]
@@ -399,12 +400,15 @@ def _draw_curves(
         low, high = value_range
         painter.setPen(QPen(QColor(_COLORS[curve_index % len(_COLORS)]), 0.8))
         previous: tuple[float, float] | None = None
+        previous_depth: float | None = None
         previous_normalized: float | None = None
         previous_clipped = False
         for row_index in indices:
             value = values[row_index]
+            current_depth = float(depth[row_index])
             if not np.isfinite(value):
                 previous = None
+                previous_depth = None
                 previous_normalized = None
                 previous_clipped = False
                 continue
@@ -413,22 +417,58 @@ def _draw_curves(
             clipped = raw_normalized < 0.0 or raw_normalized > 1.0
             current = (
                 curve_rect.left() + normalized * curve_rect.width(),
-                _depth_y(float(depth[row_index]), page, curve_rect),
+                _depth_y(current_depth, page, curve_rect),
+            )
+            break_depth_gap = (
+                previous_depth is not None
+                and current_depth - previous_depth > gap_limit
             )
             break_clipped_spike = (
                 previous_normalized is not None
                 and (clipped or previous_clipped)
                 and abs(normalized - previous_normalized) >= 0.72
             )
-            if previous is not None and not break_clipped_spike:
+            if (
+                previous is not None
+                and not break_clipped_spike
+                and not break_depth_gap
+            ):
                 painter.drawLine(
                     QLineF(previous[0], previous[1], current[0], current[1])
                 )
             previous = current
+            previous_depth = current_depth
             previous_normalized = normalized
             previous_clipped = clipped
     painter.restore()
 
+
+
+
+def _rendered_depth_gap_limit(
+    depth: np.ndarray,
+    indices: np.ndarray,
+    *,
+    maximum_points: int,
+) -> float:
+    """Return a gap threshold that survives uniform plot downsampling.
+
+    The threshold is based on the native positive sampling step, then widened only
+    by the expected downsampling stride.  Genuine acquisition gaps therefore break
+    the polyline instead of being bridged by a misleading straight segment.
+    """
+
+    if indices.size < 2:
+        return float("inf")
+    ordered = np.asarray(depth[indices], dtype=np.float64)
+    differences = np.diff(ordered)
+    positive = differences[np.isfinite(differences) & (differences > 0.0)]
+    if not positive.size:
+        return float("inf")
+    typical_step = float(np.median(positive))
+    rendered_count = min(int(indices.size), maximum_points)
+    sampling_stride = max(1.0, float(indices.size) / max(1, rendered_count))
+    return typical_step * max(3.0, sampling_stride * 3.0)
 
 def _draw_legend(
     painter: QPainter,
