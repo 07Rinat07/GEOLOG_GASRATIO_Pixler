@@ -468,6 +468,7 @@ def _draw_panel(
     )
 
     sampled = _sample_indices(depth.size, limit=1_800)
+    gap_limit = _depth_gap_limit(depth[sampled])
     curve_rect = rect.adjusted(7.0, 1.0, -7.0, -1.0)
     painter.save()
     painter.setClipRect(rect.adjusted(1.0, 1.0, -1.0, -1.0))
@@ -487,9 +488,11 @@ def _draw_panel(
         color = QColor(_COLORS[curve_index % len(_COLORS)])
         painter.setPen(QPen(color, 2.2))
         previous: tuple[float, float] | None = None
+        previous_depth: float | None = None
         for index in sampled:
             if not usable[index]:
                 previous = None
+                previous_depth = None
                 continue
             normalized = float(
                 np.clip((values[index] - low) / (high - low), 0.0, 1.0)
@@ -503,11 +506,20 @@ def _draw_panel(
                 curve_rect.height(),
             )
             current = (float(x), float(y))
-            if previous is not None:
+            current_depth = float(depth[index])
+            depth_contiguous = (
+                previous_depth is not None
+                and (
+                    gap_limit is None
+                    or abs(current_depth - previous_depth) <= gap_limit
+                )
+            )
+            if previous is not None and depth_contiguous:
                 painter.drawLine(
                     QLineF(previous[0], previous[1], current[0], current[1])
                 )
             previous = current
+            previous_depth = current_depth
 
         legend = curve.metadata.original_mnemonic
         if curve.metadata.unit:
@@ -710,6 +722,19 @@ def _depth_y(
     height: float,
 ) -> float:
     return top + (float(depth) - depth_min) / (depth_max - depth_min) * height
+
+
+def _depth_gap_limit(depth_values: np.ndarray) -> float | None:
+    values = np.asarray(depth_values, dtype=np.float64)
+    values = values[np.isfinite(values)]
+    if values.size < 3:
+        return None
+    differences = np.abs(np.diff(values))
+    positive = differences[np.isfinite(differences) & (differences > 0.0)]
+    if not positive.size:
+        return None
+    typical = float(np.median(positive))
+    return max(typical * 3.0, float(np.finfo(np.float64).eps))
 
 
 def _sample_indices(size: int, *, limit: int) -> np.ndarray:
