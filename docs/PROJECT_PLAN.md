@@ -17,8 +17,11 @@ release plan и временные планы в `docs` не создаются.
 4. Исходные LAS/GS2/WITS/WITSML данные неизменяемы. Очистка, нормализация и расчёты выполняются
    над рабочими копиями с версионированным provenance. Переносимая геология LAS использует
    явные числовые каналы (литология/шлам, кальциметрия, ЛБА, стратиграфия) и необязательный
-   bounded metadata-блок в `~Other`; повреждённые/неизвестные дополнительные metadata не должны
-   блокировать открытие базового LAS. Большие custom header sections имеют bounded parsing.
+   bounded metadata-блок в `~Other`; экспорт проекта обязан синхронно записывать numeric carrier
+   curves (`GEO_DESC_ID`, `STRAT_CODE`, LBA codes) и тот же metadata dictionary, чтобы reopen
+   восстанавливал описания, стратиграфию, кальциметрию и ЛБА без потерь. Повреждённые/неизвестные
+   дополнительные metadata не должны блокировать открытие базового LAS. Большие custom header
+   sections имеют bounded parsing.
 5. Новые hot paths получают оценку сложности, bounded memory и benchmark. Новый внешний ввод
    получает лимиты, валидацию, безопасные ошибки и security tests.
 6. После интеграции не должны оставаться временные ветки, trigger-файлы, диагностические workflow,
@@ -104,8 +107,10 @@ audit-инкремент также проводит через общий repor
 - [x] Ввести явный `InterpretationImpact` минимум из трёх режимов:
   **exclude geological interpretation**, **operational/technological gas**, **formation gas**;
   дополнительно поддержать **auto / requires geologist review** для неоднозначных случаев.
-- [ ] Gas-line/chromatograph/calibration/lag-tracer test интервалы исключаются из автоматического
-  назначения УВ-пласта и из обучения фонового газа. Значения и формулы сохраняются для аудита.
+- [x] Gas-line/chromatograph/calibration/lag-tracer test интервалы исключаются из автоматического
+  назначения УВ-пласта и из обучения фонового газа. Значения и формулы сохраняются в structured
+  audit, но customer-facing PDF/HTML/DOCX для `exclude_geological` не печатают measured statistics
+  и подавленную автоматическую геологическую гипотезу как результат интерпретации.
 - [ ] Connection/build-up, trip/СПО, swab, circulated/recycled gas не назначают самостоятельный
   продуктивный пласт автоматически, но их C1–C5/TG, Gas Ratio, Haworth/Pixler и OPUS результаты
   сохраняются и подписываются как технологический контекст для решения геолога.
@@ -113,9 +118,10 @@ audit-инкремент также проводит через общий repor
   draft/unconfirmed не меняет итог. При пересечении нескольких confirmed событий применяется
   детерминированный приоритет тест/QC → trip/swab/connection/circulation/recycle → formation/background,
   а исходная automatic assessment сохраняется для аудита.
-- [ ] Отчёт выводит для каждого затронутого интервала: effective gas context, тип события,
-  event ID/номер, глубины, измеренные TG/C1–C5, ручной QC reference при наличии, automatic
-  assessment и пояснение, почему продуктивная классификация подавлена или уточнена.
+- [ ] Отчёт выводит effective gas context, тип события, глубины и комментарий. Для formation/review
+  context клиентский отчёт может показывать измеренные TG/C1–C5 и QC; для confirmed
+  `exclude_geological` customer-facing PDF/HTML/DOCX показывает факт исключения без calculated
+  geological result, а measured statistics/automatic assessment остаются только в structured audit.
 - [ ] Один registry обязателен для PDF, XLSX, DOCX и preview; Gas Ratio/Haworth, Pixler, OPUS и
   комбинированный hydrocarbon report не создают собственных несовместимых списков исключений.
 - [ ] Графики/планшет могут показывать эти интервалы отдельными полосами/метками, но цвет не является
