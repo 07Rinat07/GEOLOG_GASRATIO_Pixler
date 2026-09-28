@@ -8,6 +8,7 @@ import zipfile
 from xml.sax.saxutils import escape as xml_escape
 
 
+from geoworkbench.domain.gas_context_events import InterpretationImpact
 from geoworkbench.domain.models import Dataset
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
@@ -144,8 +145,7 @@ def _write_docx(
         body.extend(_opus_gasomer_docx(report, language))
     if getattr(report, "gas_context_events", ()):
         body.extend(_gas_context_docx(report, language))
-    if getattr(report, "suppressed_candidates", ()):
-        body.extend(_suppressed_candidates_docx(report, language))
+    # Suppressed candidates remain in the structured audit, not the client DOCX.
     body.append(_paragraph(labels.prospective_heading, style="Heading1"))
     if report.candidates:
         body.append(
@@ -315,12 +315,22 @@ def _gas_context_docx(
         )
 
     rows: list[tuple[str, ...]] = []
+    excluded_impacts = {
+        InterpretationImpact.EXCLUDE_GEOLOGICAL,
+        InterpretationImpact.TECHNOLOGICAL_GAS,
+    }
+    excluded_status = {
+        AppLanguage.RU: "исключено из геологического расчёта",
+        AppLanguage.KK: "геологиялық есептеуден алынып тасталды",
+        AppLanguage.EN: "excluded from geological calculation",
+    }[language]
     for event in report.gas_context_events:
         audit = audit_by_id.get(event.event_id)
+        excluded = event.effective_impact in excluded_impacts
         measured_total_text = "—"
         component_text = "—"
         delta_text = "—"
-        if audit is not None:
+        if audit is not None and not excluded:
             measured_total_text = stats_text(audit.measured_total_gas)
             if audit.measured_components:
                 component_text = "; ".join(stats_text(item) for item in audit.measured_components)
@@ -338,7 +348,7 @@ def _gas_context_docx(
             (
                 event.event_type.value,
                 f"{event.top_depth:g}–{event.bottom_depth:g} {report.depth_unit}",
-                confirmed,
+                excluded_status if excluded else confirmed,
                 event.effective_impact.value,
                 measured_total_text,
                 component_text,
