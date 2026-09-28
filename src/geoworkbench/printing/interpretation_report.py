@@ -129,7 +129,6 @@ class AnalysisInterpretationEntry:
     bottom_depth: float
     calcite_percent: float | None
     dolomite_percent: float | None
-    total_carbonate_percent: float | None
     insoluble_residue_percent: float | None
     lba_observations: tuple[tuple[str, str], ...]
     lba_standard_assessment: LbaStandardAssessment | None
@@ -138,6 +137,7 @@ class AnalysisInterpretationEntry:
     rock_description: str | None
     stratigraphy: tuple[GeologicalStratigraphyEntry, ...]
     gas_statistics: tuple[GeologicalGasStatistics, ...]
+    total_carbonate_percent: float | None = None
 
     @property
     def has_calcimetry(self) -> bool:
@@ -276,7 +276,6 @@ def _entry_from_sample(
         sample.bottom_depth,
         sample.calcite_percent,
         sample.dolomite_percent,
-        sample.total_carbonate_percent,
         sample.insoluble_residue_percent,
         observations,
         lba_standard_assessment,
@@ -285,6 +284,7 @@ def _entry_from_sample(
         rock_description or None,
         sample_stratigraphy,
         _build_sample_gas_statistics(dataset, sample.top_depth, sample.bottom_depth),
+        sample.total_carbonate_percent,
     )
 
 
