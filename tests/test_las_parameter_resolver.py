@@ -298,3 +298,19 @@ def test_concentration_unit_scales() -> None:
     assert concentration_scale_to_percent("ppb") == pytest.approx(1.0e-7)
     assert concentration_scale_to_percent("fraction") == 100.0
     assert concentration_scale_to_percent("m/h") is None
+
+
+
+def test_resolver_maps_field_calcimetry_mnemonics_to_masterlog_canonicals() -> None:
+    dataset = _dataset(
+        ("CALCITE", "Calcite from GTI report", "%", [35.0, 36.0]),
+        ("DOLOMITE", "Dolomite from GTI report", "%", [12.0, 11.0]),
+    )
+
+    resolution = LasParameterResolver().resolve_dataset(
+        dataset,
+        targets=("CACO3", "CAMG_CO3_2"),
+    )
+
+    assert resolution.require("CACO3").source_mnemonic == "CALCITE"
+    assert resolution.require("CAMG_CO3_2").source_mnemonic == "DOLOMITE"
