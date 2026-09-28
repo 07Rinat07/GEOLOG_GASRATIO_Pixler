@@ -22,6 +22,7 @@ from geoworkbench.domain.models import (
 )
 from geoworkbench.services.las_geology_metadata import (
     LasGeologyMetadata,
+    geology_export_plan_from_well,
     geology_metadata_from_las_bytes,
 )
 from geoworkbench.services.lba_standard import (
@@ -499,13 +500,18 @@ def dataset_with_well_geology(session: ProjectSession):
     """
 
     dataset, well = session.current_dataset, session.current_well
-    if dataset is None or well is None or (not well.lithology and not well.cuttings):
+    if (
+        dataset is None
+        or well is None
+        or (not well.lithology and not well.cuttings and not well.stratigraphy)
+    ):
         return dataset
 
     exported = deepcopy(dataset)
     depth = np.asarray(exported.active_index.values, dtype=np.float64)
     if depth.ndim != 1 or not depth.size:
         return exported
+    geology_plan = geology_export_plan_from_well(well)
 
     if well.lithology:
         primary = np.full(depth.shape, np.nan, dtype=np.float64)
@@ -544,23 +550,9 @@ def dataset_with_well_geology(session: ProjectSession):
         lba_type_column = source_values("LBA_TYPE")
         lba_color_column = source_values("ZVET_LBA", "LBA_COLOR")
 
-        source_document = session.source_documents.get(dataset.dataset_id)
-        export_metadata = (
-            geology_metadata_from_las_bytes(source_document.raw_bytes)
-            if source_document is not None
-            else None
-        )
-        lba_type_code_by_type: dict[str, int] = {}
-        lba_color_code_by_label: dict[str, int] = {}
-        if export_metadata is not None:
-            for code, label in export_metadata.lba_type_codes.items():
-                standard = lba_standard_type(label)
-                if standard is not None:
-                    lba_type_code_by_type.setdefault(standard.type_id, code)
-            for code, label in export_metadata.lba_color_codes.items():
-                normalized = lba_color_code(label)
-                if normalized:
-                    lba_color_code_by_label.setdefault(normalized, code)
+        lba_type_code_by_type = dict(geology_plan.lba_type_codes)
+        lba_color_code_by_label = dict(geology_plan.lba_color_codes)
+        description_column = source_values("GEO_DESC_ID")
 
         for index, value in enumerate(depth):
             sample = _cuttings_sample_at(well.cuttings, float(value))
@@ -596,6 +588,9 @@ def dataset_with_well_geology(session: ProjectSession):
                 code = lba_color_code_by_label.get(lba_color_code(sample.lba_color))
                 if code is not None:
                     lba_color_column[index] = float(code)
+            description_id = geology_plan.description_ids.get(sample.sample_id)
+            if description_id is not None:
+                description_column[index] = float(description_id)
 
         if any(np.isfinite(column).any() for column in code_columns):
             for slot, (codes, amounts) in enumerate(zip(code_columns, amount_columns), start=1):
@@ -678,7 +673,49 @@ def dataset_with_well_geology(session: ProjectSession):
             unit="CODE",
             description="LBA colour code",
         )
+        upsert_geology_curve(
+            ("GEO_DESC_ID",),
+            "GEO_DESC_ID",
+            description_column,
+            unit="CODE",
+            description="Portable geology description ID",
+        )
+    if well.stratigraphy:
+        stratigraphy_column = np.full(depth.shape, np.nan, dtype=np.float64)
+        existing_stratigraphy = exported.curve_by_mnemonic("STRAT_CODE")
+        if existing_stratigraphy is not None:
+            existing_values = np.asarray(existing_stratigraphy.values, dtype=np.float64)
+            if existing_values.shape == depth.shape:
+                stratigraphy_column = existing_values.copy()
+        for index, value in enumerate(depth):
+            interval = _stratigraphy_interval_at(well.stratigraphy, float(value))
+            if interval is None:
+                continue
+            code = geology_plan.stratigraphy_codes.get(interval.interval_id)
+            if code is not None:
+                stratigraphy_column[index] = float(code)
+        if np.isfinite(stratigraphy_column).any():
+            exported.upsert_curve(
+                "STRAT_CODE",
+                stratigraphy_column,
+                unit="CODE",
+                description="Portable stratigraphy interval code",
+                provenance="derived:project-geology",
+            )
+
     return exported
+
+
+def _stratigraphy_interval_at(
+    intervals: list[StratigraphyInterval],
+    depth: float,
+) -> StratigraphyInterval | None:
+    for interval in intervals:
+        top = min(float(interval.top_depth), float(interval.bottom_depth))
+        bottom = max(float(interval.top_depth), float(interval.bottom_depth))
+        if top <= depth <= bottom:
+            return interval
+    return None
 
 
 def _lithology_interval_at(
