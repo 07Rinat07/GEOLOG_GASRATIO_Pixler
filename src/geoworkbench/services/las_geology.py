@@ -116,6 +116,7 @@ def import_las_geology(session: ProjectSession) -> LasGeologyResult:
         "CACO3",
         "CALCITE",
         "CACO3_(КАЛЬЦИТ)",
+        "КАРБОНАТНОСТЬ",
         "CAMG_CO3_2",
         "DOLOMITE",
         "INTENSITY_LBA",
@@ -123,9 +124,15 @@ def import_las_geology(session: ProjectSession) -> LasGeologyResult:
         "ZVET_LBA",
         "LBA_COLOR",
         "LBA_GROUP",
+        "ЛБА_ГРУППА",
         "LBA_TYPE",
+        "ЛБА_ТИП",
+        "ЛБА_ИНТЕНСИВНОСТЬ",
+        "ЛБА_ЦВЕТ",
         "STRAT_CODE",
+        "СТРАТ_КОД",
         "GEO_DESC_ID",
+        "ОПИСАНИЕ_ID",
     }
     if (
         not any("ПОРОД" in name for name in normalized_names)
@@ -163,14 +170,26 @@ def import_las_geology(session: ProjectSession) -> LasGeologyResult:
         (values(f"ПОРОДА{i}_КОД"), values(f"ПОРОДА{i}_КОЛИЧ"))
         for i in range(1, 6)
     ]
-    calcite_values = values("CACO3", "CALCITE", "CACO3_(КАЛЬЦИТ)")
+    # Legacy Maksat field LAS files used Russian mnemonics. The single
+    # КАРБОНАТНОСТЬ channel is carried through the existing calcimetry slot
+    # without changing its source curve or inventing a dolomite split.
+    calcite_values = values(
+        "CACO3",
+        "CALCITE",
+        "CACO3_(КАЛЬЦИТ)",
+        "КАРБОНАТНОСТЬ",
+    )
     dolomite_values = values("CAMG_CO3_2", "DOLOMITE")
-    lba_group_values = values("LBA_GROUP")
-    lba_intensity_values = values("INTENSITY_LBA", "LBA_INTENSITY")
-    lba_type_values = values("LBA_TYPE")
-    lba_color_values = values("ZVET_LBA", "LBA_COLOR")
-    description_values = values("GEO_DESC_ID")
-    stratigraphy_values = values("STRAT_CODE")
+    lba_group_values = values("LBA_GROUP", "ЛБА_ГРУППА")
+    lba_intensity_values = values(
+        "INTENSITY_LBA",
+        "LBA_INTENSITY",
+        "ЛБА_ИНТЕНСИВНОСТЬ",
+    )
+    lba_type_values = values("LBA_TYPE", "ЛБА_ТИП")
+    lba_color_values = values("ZVET_LBA", "LBA_COLOR", "ЛБА_ЦВЕТ")
+    description_values = values("GEO_DESC_ID", "ОПИСАНИЕ_ID")
+    stratigraphy_values = values("STRAT_CODE", "СТРАТ_КОД")
 
     edges = np.concatenate(
         ([depth[0]], (depth[:-1] + depth[1:]) / 2, [depth[-1]])
@@ -537,12 +556,16 @@ def dataset_with_well_geology(session: ProjectSession):
                     return values.copy()
             return np.full(depth.shape, np.nan, dtype=np.float64)
 
-        calcite_column = source_values("CACO3", "CALCITE", "CACO3_(КАЛЬЦИТ)")
+        calcite_column = source_values(
+            "CACO3", "CALCITE", "CACO3_(КАЛЬЦИТ)", "КАРБОНАТНОСТЬ"
+        )
         dolomite_column = source_values("CAMG_CO3_2", "DOLOMITE")
-        lba_group_column = source_values("LBA_GROUP")
-        lba_intensity_column = source_values("INTENSITY_LBA", "LBA_INTENSITY")
-        lba_type_column = source_values("LBA_TYPE")
-        lba_color_column = source_values("ZVET_LBA", "LBA_COLOR")
+        lba_group_column = source_values("LBA_GROUP", "ЛБА_ГРУППА")
+        lba_intensity_column = source_values(
+            "INTENSITY_LBA", "LBA_INTENSITY", "ЛБА_ИНТЕНСИВНОСТЬ"
+        )
+        lba_type_column = source_values("LBA_TYPE", "ЛБА_ТИП")
+        lba_color_column = source_values("ZVET_LBA", "LBA_COLOR", "ЛБА_ЦВЕТ")
 
         source_document = session.source_documents.get(dataset.dataset_id)
         export_metadata = (
@@ -637,7 +660,7 @@ def dataset_with_well_geology(session: ProjectSession):
             )
 
         upsert_geology_curve(
-            ("CACO3", "CALCITE", "CACO3_(КАЛЬЦИТ)"),
+            ("CACO3", "CALCITE", "CACO3_(КАЛЬЦИТ)", "КАРБОНАТНОСТЬ"),
             "CACO3",
             calcite_column,
             unit="%",
@@ -651,28 +674,28 @@ def dataset_with_well_geology(session: ProjectSession):
             description="Dolomite",
         )
         upsert_geology_curve(
-            ("LBA_GROUP",),
+            ("LBA_GROUP", "ЛБА_ГРУППА"),
             "LBA_GROUP",
             lba_group_column,
             unit="CODE",
             description="LBA group",
         )
         upsert_geology_curve(
-            ("INTENSITY_LBA", "LBA_INTENSITY"),
+            ("INTENSITY_LBA", "LBA_INTENSITY", "ЛБА_ИНТЕНСИВНОСТЬ"),
             "INTENSITY_LBA",
             lba_intensity_column,
             unit="CODE",
             description="LBA intensity",
         )
         upsert_geology_curve(
-            ("LBA_TYPE",),
+            ("LBA_TYPE", "ЛБА_ТИП"),
             "LBA_TYPE",
             lba_type_column,
             unit="CODE",
             description="LBA type code",
         )
         upsert_geology_curve(
-            ("ZVET_LBA", "LBA_COLOR"),
+            ("ZVET_LBA", "LBA_COLOR", "ЛБА_ЦВЕТ"),
             "ZVET_LBA",
             lba_color_column,
             unit="CODE",
