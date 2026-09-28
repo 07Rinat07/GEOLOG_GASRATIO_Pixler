@@ -547,15 +547,15 @@ _LABELS = {
         "dataset": "Набор данных",
         "summary": "Сводка",
         "counts": (
-            "фактических отборов: {samples}; метровых строк: {meters}; "
+            "фактических отборов: {samples}; аналитических метровых строк: {meters}; "
             "стратиграфических интервалов: {strat}; кальциметрия: {calc}; "
             "ЛБА: {lba}; заключения геолога: {interpreted}"
         ),
-        "meter_section": "Описание пород по метровым интервалам",
+        "meter_section": "Аналитическое приложение: метровая агрегация",
         "meter_note": (
-            "Производная сводка по фиксированному шагу 1 м. Процент покрытия показывает, "
-            "какая часть метра обеспечена фактическим отбором; состав усредняется по длине "
-            "только между реально перекрывающими метр пробами."
+            "Это производная аналитическая агрегация, а не фактическая шламограмма. "
+            "При перекрытии нескольких проб состав усредняется по длине; для геологической "
+            "интерпретации и исходного процентного состава используйте раздел фактических отборов."
         ),
         "sample_section": "Фактические интервалы отбора шлама",
         "gas_lba_section": "Газ и ЛБА по фактическим интервалам отбора",
@@ -594,8 +594,9 @@ _LABELS = {
         "no_stratigraphy": "Стратиграфические интервалы не заполнены.",
         "no_lba": "ЛБА не заполнен",
         "notice": (
-            "Фактические отборы, исходные наблюдения ЛБА, расчётная метровая сводка и "
-            "экспертное заключение приведены раздельно. Отчёт не является автоматическим "
+            "Основной геологический раздел построен по фактическим интервалам отбора без "
+            "смешивания соседних проб. Метровая агрегация вынесена в аналитическое приложение "
+            "и не является фактической шламограммой. Отчёт не является автоматическим "
             "заключением о нефтенасыщении."
         ),
     },
@@ -606,14 +607,14 @@ _LABELS = {
         "dataset": "Деректер жиыны",
         "summary": "Жиынтық",
         "counts": (
-            "нақты сынама: {samples}; метрлік жол: {meters}; стратиграфиялық аралық: "
+            "нақты сынама: {samples}; аналитикалық метрлік жол: {meters}; стратиграфиялық аралық: "
             "{strat}; кальциметрия: {calc}; ЛБА: {lba}; геолог қорытындысы: {interpreted}"
         ),
-        "meter_section": "Метрлік аралықтар бойынша жыныс сипаттамасы",
+        "meter_section": "Аналитикалық қосымша: метрлік агрегация",
         "meter_note": (
-            "1 м тұрақты қадаммен жасалған туынды жиынтық. Қамту пайызы метрдің нақты "
-            "сынамаға негізделген бөлігін көрсетеді; құрам тек метрді нақты қиып өтетін "
-            "сынамалар арасында ұзындық бойынша орташаланады."
+            "Бұл нақты шламограмма емес, 1 м қадаммен жасалған аналитикалық агрегация. "
+            "Бірнеше сынама қабаттасса, құрам ұзындық бойынша орташаланады; бастапқы пайыздық "
+            "құрам мен геологиялық интерпретация үшін нақты сынама аралықтарын пайдаланыңыз."
         ),
         "sample_section": "Шлам алудың нақты аралықтары",
         "gas_lba_section": "Нақты сынама аралықтары бойынша газ және ЛБА",
@@ -652,9 +653,9 @@ _LABELS = {
         "no_stratigraphy": "Стратиграфиялық аралықтар толтырылмаған.",
         "no_lba": "ЛБА толтырылмаған",
         "notice": (
-            "Нақты сынамалар, ЛБА бастапқы бақылаулары, есептелген метрлік жиынтық және "
-            "сараптамалық қорытынды бөлек берілген. Есеп мұнайға қанығу туралы автоматты "
-            "қорытынды болып табылмайды."
+            "Негізгі геологиялық бөлім көршілес сынамаларды араластырмай, нақты сынама "
+            "аралықтары бойынша беріледі. Метрлік агрегация аналитикалық қосымшаға шығарылған "
+            "және нақты шламограмма болып саналмайды."
         ),
     },
     AppLanguage.EN: {
@@ -664,14 +665,14 @@ _LABELS = {
         "dataset": "Dataset",
         "summary": "Summary",
         "counts": (
-            "actual samples: {samples}; one-metre rows: {meters}; stratigraphic intervals: "
+            "actual samples: {samples}; analytical one-metre rows: {meters}; stratigraphic intervals: "
             "{strat}; calcimetry: {calc}; LBA: {lba}; geologist interpretations: {interpreted}"
         ),
-        "meter_section": "Rock description by one-metre interval",
+        "meter_section": "Analytical appendix: one-metre aggregation",
         "meter_note": (
-            "Derived summary at a fixed one-metre step. Sampling coverage shows how much of "
-            "each metre is supported by actual samples; composition is length-weighted only "
-            "between samples that really overlap that metre."
+            "This is an analytical aggregation, not the factual cuttings log. When multiple "
+            "samples overlap a metre, composition is length-weighted; use the actual sampling "
+            "section for source percentages and geological interpretation."
         ),
         "sample_section": "Actual cuttings sampling intervals",
         "gas_lba_section": "Gas and LBA by actual sampling interval",
@@ -710,9 +711,9 @@ _LABELS = {
         "no_stratigraphy": "No stratigraphic intervals have been entered.",
         "no_lba": "No LBA data",
         "notice": (
-            "Actual samples, source LBA observations, the derived one-metre summary, and the "
-            "expert interpretation are shown separately. This report is not an automatic "
-            "conclusion about hydrocarbon saturation."
+            "The primary geological section follows actual sampling intervals without mixing "
+            "neighbouring samples. One-metre aggregation is an analytical appendix and is not "
+            "the factual cuttings log. This report is not an automatic hydrocarbon conclusion."
         ),
     },
 }
@@ -846,13 +847,7 @@ td {{ background: #ffffff; color: #172033; }}
 <b>{escape(labels["well"])}:</b> {escape(report.well_name)}<br>
 <b>{escape(labels["dataset"])}:</b> {escape(dataset)}</div>
 <p><b>{escape(labels["summary"])}:</b> {escape(summary)}</p>
-<h2>{escape(labels["meter_section"])}</h2>
-<p class="section-note">{escape(labels["meter_note"])}</p>
-<table class="meter-table"><thead><tr><th>{interval_heading}</th>
-<th>{escape(labels["sample_intervals"])}</th><th>{escape(labels["coverage"])}</th>
-<th>{escape(labels["composition"])}</th><th>{escape(labels["rock_description"])}</th>
-<th>{escape(labels["stratigraphy"])}</th></tr></thead><tbody>{meter_rows}</tbody></table>
-<h2 class="new-page">{escape(labels["sample_section"])}</h2>
+<h2>{escape(labels["sample_section"])}</h2>
 <table class="sample-table"><thead><tr><th>{interval_heading}</th>
 <th>{escape(labels["composition"])}</th><th>{escape(labels["rock_description"])}</th>
 <th>{escape(labels["stratigraphy"])}</th><th>{escape(labels["calcimetry"])}</th>
@@ -868,6 +863,12 @@ td {{ background: #ffffff; color: #172033; }}
 <th>{escape(labels["rank"])}</th><th>{escape(labels["code"])}</th>
 <th>{escape(labels["name"])}</th><th>{escape(labels["description"])}</th>
 </tr></thead><tbody>{stratigraphy_rows}</tbody></table>
+<h2 class="new-page">{escape(labels["meter_section"])}</h2>
+<p class="section-note">{escape(labels["meter_note"])}</p>
+<table class="meter-table"><thead><tr><th>{interval_heading}</th>
+<th>{escape(labels["sample_intervals"])}</th><th>{escape(labels["coverage"])}</th>
+<th>{escape(labels["composition"])}</th><th>{escape(labels["rock_description"])}</th>
+<th>{escape(labels["stratigraphy"])}</th></tr></thead><tbody>{meter_rows}</tbody></table>
 <table class="notice-table"><tr><td>{escape(labels["notice"])}</td></tr></table>
 </body></html>
 """.strip()
