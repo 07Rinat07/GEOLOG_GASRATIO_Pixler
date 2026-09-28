@@ -212,8 +212,8 @@ def _encoding_sample(raw_bytes: bytes) -> bytes:
         for marker in (b"~a", b"~ascii", b"~log_data")
         if (position := lowered.find(marker)) >= 0
     ]
-    end = min(ascii_positions) if ascii_positions else min(len(raw_bytes), 131_072)
-    return raw_bytes[:end]
+    header_end = min(ascii_positions) if ascii_positions else len(raw_bytes)
+    return raw_bytes[: min(header_end, 131_072)]
 
 
 def _detect_newline_style(raw_bytes: bytes) -> NewlineStyle:

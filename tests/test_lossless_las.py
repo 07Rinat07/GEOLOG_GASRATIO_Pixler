@@ -3,6 +3,7 @@ import pytest
 from geoworkbench.data.lossless_las import (
     LasSectionEditError,
     NewlineStyle,
+    _encoding_sample,
     parse_lossless_las,
     replace_section_roles,
 )
@@ -126,3 +127,18 @@ def test_lossless_document_detects_cp866_header_text() -> None:
 
     assert document.encoding == "cp866"
     assert document.to_bytes() == raw
+
+
+def test_encoding_detection_sample_is_bounded_for_large_custom_header() -> None:
+    raw = (
+        "~Version Information\r\n"
+        "VERS. 2.0 : Версия LAS\r\n"
+        "~Other information\r\n"
+    ).encode("cp1251") + (b"# metadata padding\r\n" * 20_000) + b"~ASCII\r\n100 1\r\n"
+
+    sample = _encoding_sample(raw)
+    document = parse_lossless_las(raw)
+
+    assert len(sample) == 131_072
+    assert document.encoding == "cp1251"
+    assert document.sections[-1].name == "ascii"
