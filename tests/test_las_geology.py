@@ -629,3 +629,47 @@ def test_legacy_m1_metadata_is_bounded_and_malformed_records_are_advisory() -> N
         "~ASCII Log Data\n"
     ).encode("cp1251")
     assert geology_metadata_from_las_bytes(malformed) is None
+
+
+def test_legacy_metadata_stops_at_abbreviated_ascii_section() -> None:
+    raw = (
+        "~Other information\n"
+        "# DESC id=1; top=0; bottom=1; text=До ASCII\n"
+        "~a data\n"
+        "0 1\n"
+        "# DESC id=2; top=1; bottom=2; text=После ASCII не metadata\n"
+    ).encode("cp1251")
+
+    metadata = geology_metadata_from_las_bytes(raw)
+
+    assert metadata is not None
+    assert tuple(metadata.descriptions) == (1,)
+    assert metadata.description(1) == "До ASCII"
+    assert metadata.description(2) is None
+
+
+def test_legacy_russian_lba_alias_round_trips_without_duplicate_curve(tmp_path: Path) -> None:
+    source = tmp_path / "legacy-m1-lba-roundtrip.las"
+    source.write_bytes(_legacy_m1_geology_las())
+    result = import_las_with_report(source)
+    session = ProjectSession()
+    well = session.add_dataset(
+        result.dataset,
+        "М-1",
+        source_document=result.source_document,
+        import_report=result.report,
+        create_new_well=True,
+    )
+    assert well.cuttings[0].lba_group == 2
+
+    exported = dataset_with_well_geology(session)
+    assert exported is not None
+    aliases = [
+        curve
+        for curve in exported.curves.values()
+        if curve.metadata.original_mnemonic.upper().replace(" ", "_")
+        in {"LBA_GROUP", "ЛБА_ГРУППА"}
+    ]
+    assert len(aliases) == 1
+    assert aliases[0].metadata.original_mnemonic == "ЛБА_ГРУППА"
+    assert aliases[0].values.tolist() == [2.0, 2.0]
