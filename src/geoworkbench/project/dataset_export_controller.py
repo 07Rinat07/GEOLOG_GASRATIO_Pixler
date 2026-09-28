@@ -196,7 +196,11 @@ class DatasetExportController:
         if result.exists() and dictionary.entries:
             append_las_dictionary(result, dictionary)
         well = self.session.current_well
-        if result.exists() and well is not None and (well.cuttings or well.stratigraphy):
+        if (
+            result.exists()
+            and well is not None
+            and (well.lithology or well.cuttings or well.stratigraphy)
+        ):
             geology_plan = geology_export_plan_from_well(well)
             append_las_geology_metadata(result, geology_plan.metadata)
         return result
