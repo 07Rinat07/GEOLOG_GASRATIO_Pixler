@@ -23,7 +23,9 @@ from geoworkbench.project.cuttings_controller import CuttingsController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.project.stratigraphy_controller import StratigraphyController
 from geoworkbench.services.interval_gas_statistics import (
+    IntervalGasStatisticsIndex,
     build_interval_component_sum_statistics,
+    build_interval_statistics,
 )
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.interpretation_report_dialog import InterpretationReportDialog
@@ -440,6 +442,23 @@ def test_total_carbonate_is_exported_as_aggregate_in_excel_and_word(tmp_path) ->
         document_xml = package.read("word/document.xml").decode("utf-8")
     assert "Общая карбонатность: 43%" in document_xml
     assert "CaCO3: 43%" not in document_xml
+
+
+
+
+def test_interval_gas_statistics_index_matches_one_shot_helpers() -> None:
+    session = _session()
+    dataset = session.current_dataset
+    assert dataset is not None
+    index = IntervalGasStatisticsIndex(dataset)
+
+    for top, bottom in ((500.0, 510.0), (505.0, 515.0), (515.0, 505.0)):
+        assert index.build(top, bottom) == build_interval_statistics(
+            dataset, top, bottom
+        )
+        assert index.build_component_sum(
+            top, bottom
+        ) == build_interval_component_sum_statistics(dataset, top, bottom)
 
 
 def test_interpretation_report_dialog_previews_report(qapp) -> None:

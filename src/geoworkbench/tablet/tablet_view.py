@@ -8624,6 +8624,18 @@ class TabletView(QWidget):
             track.plot.hideAxis("bottom")
             track.plot.setXRange(0.0, 100.0, padding=0)
             track.plot.setMouseEnabled(x=False, y=True)
+            has_sample_calcimetry = any(
+                sample.calcite_percent is not None
+                or sample.dolomite_percent is not None
+                or sample.total_carbonate_percent is not None
+                for sample in self._cuttings
+            )
+            if has_sample_calcimetry:
+                # LAS geology import already materializes calcimetry into factual
+                # cuttings intervals. Prefer those discrete laboratory samples
+                # over continuous source curves so imported values are not drawn
+                # twice or relabelled as a different carbonate component.
+                return (), {}, {}, None
             calc_curve_items: dict[str, pg.PlotDataItem] = {}
             calc_header_rows: list[tuple[str, str, str, str, str | None]] = []
             calc_legend_labels: list[str] = []
@@ -9779,26 +9791,42 @@ class TabletView(QWidget):
         track.plot.hideAxis("bottom")
         if definition.kind is TrackKind.CALCIMETRY:
             track.plot.setXRange(0.0, 100.0, padding=0)
-            if not definition.curve_mnemonics:
-                headers: list[tuple[str, str, str, str, str | None]] = [
-                    (
-                        "__calcite__",
-                        self._localizer.text("tablet.calcimetry_header_calcite"),
-                        "#06b6d4",
-                        "#0f172a",
-                        None,
-                    ),
-                    (
-                        "__dolomite__",
-                        self._localizer.text("tablet.calcimetry_header_dolomite"),
-                        "#8b5cf6",
-                        "#0f172a",
-                        None,
-                    ),
-                ]
-                if definition.calcimetry_show_total is not False and any(
-                    sample.total_carbonate_percent is not None for sample in self._cuttings
-                ):
+            has_calcite = any(
+                sample.calcite_percent is not None for sample in self._cuttings
+            )
+            has_dolomite = any(
+                sample.dolomite_percent is not None for sample in self._cuttings
+            )
+            has_total = (
+                definition.calcimetry_show_total is not False
+                and any(
+                    sample.total_carbonate_percent is not None
+                    for sample in self._cuttings
+                )
+            )
+            if has_calcite or has_dolomite or has_total:
+                headers: list[tuple[str, str, str, str, str | None]] = []
+                if has_calcite:
+                    headers.append(
+                        (
+                            "__calcite__",
+                            self._localizer.text("tablet.calcimetry_header_calcite"),
+                            "#06b6d4",
+                            "#0f172a",
+                            None,
+                        )
+                    )
+                if has_dolomite:
+                    headers.append(
+                        (
+                            "__dolomite__",
+                            self._localizer.text("tablet.calcimetry_header_dolomite"),
+                            "#8b5cf6",
+                            "#0f172a",
+                            None,
+                        )
+                    )
+                if has_total:
                     headers.append(
                         (
                             "__total_carbonate__",

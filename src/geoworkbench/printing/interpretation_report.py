@@ -11,7 +11,7 @@ from PySide6.QtCore import QMarginsF
 from PySide6.QtGui import QPageLayout, QPageSize, QPdfWriter, QTextDocument
 
 from geoworkbench.brand import APPLICATION_DISPLAY_NAME
-from geoworkbench.domain.models import CuttingsSample, Dataset
+from geoworkbench.domain.models import CuttingsSample
 from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
 from geoworkbench.project.lithotype_catalog_models import CatalogLithotype
 from geoworkbench.project.session import ProjectSession
@@ -27,8 +27,7 @@ from geoworkbench.services.lba_standard import (
 )
 from geoworkbench.services.interval_gas_statistics import (
     IntervalCurveStatistics,
-    build_interval_component_sum_statistics,
-    build_interval_statistics,
+    IntervalGasStatisticsIndex,
 )
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.domain.localized_content import localized_text
@@ -191,12 +190,13 @@ def build_interpretation_report(
     }
     stratigraphy = _build_stratigraphy_snapshot(session, language=language)
     dataset = session.current_dataset
+    gas_statistics = IntervalGasStatisticsIndex(dataset) if dataset is not None else None
     entries = tuple(
         _entry_from_sample(
             sample,
             lithotypes=lithotypes,
             stratigraphy=stratigraphy,
-            dataset=dataset,
+            gas_statistics=gas_statistics,
             language=language,
         )
         for sample in sorted(
@@ -225,7 +225,7 @@ def _entry_from_sample(
     *,
     lithotypes: dict[str, CatalogLithotype],
     stratigraphy: tuple[GeologicalStratigraphyEntry, ...],
-    dataset: Dataset | None,
+    gas_statistics: IntervalGasStatisticsIndex | None,
     language: AppLanguage,
 ) -> AnalysisInterpretationEntry:
     observations_list: list[tuple[str, str]] = []
@@ -283,19 +283,21 @@ def _entry_from_sample(
         components,
         rock_description or None,
         sample_stratigraphy,
-        _build_sample_gas_statistics(dataset, sample.top_depth, sample.bottom_depth),
+        _build_sample_gas_statistics(
+            gas_statistics, sample.top_depth, sample.bottom_depth
+        ),
         sample.total_carbonate_percent,
     )
 
 
 def _build_sample_gas_statistics(
-    dataset: Dataset | None,
+    gas_statistics: IntervalGasStatisticsIndex | None,
     top_depth: float,
     bottom_depth: float,
 ) -> tuple[GeologicalGasStatistics, ...]:
-    if dataset is None:
+    if gas_statistics is None:
         return ()
-    interval = build_interval_statistics(dataset, top_depth, bottom_depth)
+    interval = gas_statistics.build(top_depth, bottom_depth)
     rows: list[GeologicalGasStatistics] = []
     if interval.raw_total is not None:
         rows.append(_geological_gas_statistics("total", interval.raw_total))
@@ -303,11 +305,7 @@ def _build_sample_gas_statistics(
         _geological_gas_statistics("component", item)
         for item in interval.components
     )
-    component_sum = build_interval_component_sum_statistics(
-        dataset,
-        top_depth,
-        bottom_depth,
-    )
+    component_sum = gas_statistics.build_component_sum(top_depth, bottom_depth)
     if component_sum is not None:
         rows.append(_geological_gas_statistics("sum", component_sum))
     return tuple(rows)
@@ -439,14 +437,29 @@ def _build_meter_geology(
             )
 
     result: list[MeterGeologyEntry] = []
+    ordered_entries = tuple(
+        sorted(entries, key=lambda item: (item.top_depth, item.bottom_depth))
+    )
+    first_candidate = 0
     for meter_index in sorted(meter_indexes):
         top = float(meter_index)
         bottom = top + 1.0
-        overlapping = tuple(
-            entry
-            for entry in entries
-            if entry.top_depth < bottom and entry.bottom_depth > top
-        )
+        while (
+            first_candidate < len(ordered_entries)
+            and ordered_entries[first_candidate].bottom_depth <= top
+        ):
+            first_candidate += 1
+        overlapping_items: list[AnalysisInterpretationEntry] = []
+        candidate = first_candidate
+        while (
+            candidate < len(ordered_entries)
+            and ordered_entries[candidate].top_depth < bottom
+        ):
+            entry = ordered_entries[candidate]
+            if entry.bottom_depth > top:
+                overlapping_items.append(entry)
+            candidate += 1
+        overlapping = tuple(overlapping_items)
         if not overlapping:
             continue
         overlaps = tuple(

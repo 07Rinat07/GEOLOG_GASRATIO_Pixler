@@ -59,6 +59,228 @@ class CandidateIntervalGasStatistics:
     dexp: IntervalCurveStatistics | None
 
 
+class IntervalGasStatisticsIndex:
+    """Reusable interval-statistics index for many intervals of one dataset.
+
+    Large geology reports can contain thousands of sampling intervals. Rebuilding
+    a full-depth mask and whole-well background for every row becomes quadratic
+    in practice. This index resolves curves once, keeps depth-sorted aligned
+    arrays, caches whole-well backgrounds, and uses binary depth lookups so each
+    request touches only samples inside the requested interval.
+    """
+
+    def __init__(self, dataset: Dataset) -> None:
+        self.dataset = dataset
+        source_depth = np.asarray(dataset.depth, dtype=np.float64)
+        source_indexes = np.flatnonzero(np.isfinite(source_depth))
+        if source_indexes.size:
+            order = np.argsort(source_depth[source_indexes], kind="stable")
+            self._source_indexes = source_indexes[order]
+            self._depth = source_depth[self._source_indexes]
+        else:
+            self._source_indexes = np.array([], dtype=np.int64)
+            self._depth = np.array([], dtype=np.float64)
+        self._raw_curve = _find_curve(dataset, _RAW_TOTAL_NAMES)
+        self._components = _component_curves(dataset)
+        self._dexp_curve = _find_curve(dataset, ("DEXPC", "DEXP"))
+        self._ordered_values_cache: dict[str, np.ndarray | None] = {}
+        self._background_cache: dict[tuple[str, bool], float | None] = {}
+        self._component_sum = self._build_component_sum_array()
+
+    def build(
+        self,
+        top_depth: float,
+        bottom_depth: float,
+        *,
+        primary_mnemonic: str | None = None,
+    ) -> CandidateIntervalGasStatistics:
+        left, right = self._bounds(top_depth, bottom_depth)
+        primary_curve = (
+            _find_curve(self.dataset, (primary_mnemonic,))
+            if primary_mnemonic
+            else None
+        )
+        raw_curve = self._raw_curve
+        if primary_curve is not None and raw_curve is not None:
+            if primary_curve.metadata.curve_id == raw_curve.metadata.curve_id:
+                raw_curve = None
+        return CandidateIntervalGasStatistics(
+            self._curve_stats(primary_curve, left, right, gas=True),
+            self._curve_stats(raw_curve, left, right, gas=True),
+            tuple(
+                item
+                for curve in self._components
+                if (item := self._curve_stats(curve, left, right, gas=False))
+                is not None
+            ),
+            self._curve_stats(self._dexp_curve, left, right, gas=False),
+        )
+
+    def build_component_sum(
+        self,
+        top_depth: float,
+        bottom_depth: float,
+    ) -> IntervalCurveStatistics | None:
+        prepared = self._component_sum
+        if prepared is None:
+            return None
+        mnemonic, unit, values = prepared
+        left, right = self._bounds(top_depth, bottom_depth)
+        return self._stats_from_ordered(
+            mnemonic,
+            unit,
+            values,
+            left,
+            right,
+            gas=False,
+            background_key=("__component_sum__", False),
+        )
+
+    def _bounds(self, top_depth: float, bottom_depth: float) -> tuple[int, int]:
+        if not self._depth.size:
+            return 0, 0
+        low = min(float(top_depth), float(bottom_depth))
+        high = max(float(top_depth), float(bottom_depth))
+        left = int(np.searchsorted(self._depth, low, side="left"))
+        right = int(np.searchsorted(self._depth, high, side="right"))
+        return left, right
+
+    def _ordered_values(self, curve: CurveData) -> np.ndarray | None:
+        curve_id = curve.metadata.curve_id
+        if curve_id in self._ordered_values_cache:
+            return self._ordered_values_cache[curve_id]
+        values = np.asarray(curve.values, dtype=np.float64)
+        source_depth = np.asarray(self.dataset.depth, dtype=np.float64)
+        ordered = (
+            values[self._source_indexes]
+            if values.shape == source_depth.shape
+            else None
+        )
+        self._ordered_values_cache[curve_id] = ordered
+        return ordered
+
+    def _curve_stats(
+        self,
+        curve: CurveData | None,
+        left: int,
+        right: int,
+        *,
+        gas: bool,
+    ) -> IntervalCurveStatistics | None:
+        if curve is None:
+            return None
+        mnemonic = curve.metadata.canonical_mnemonic or curve.metadata.original_mnemonic
+        unit = curve.metadata.unit or ""
+        values = self._ordered_values(curve)
+        if values is None:
+            return IntervalCurveStatistics(
+                mnemonic, unit, None, None, None, None, None, 0, 0
+            )
+        return self._stats_from_ordered(
+            mnemonic,
+            unit,
+            values,
+            left,
+            right,
+            gas=gas,
+            background_key=(curve.metadata.curve_id, gas),
+        )
+
+    def _stats_from_ordered(
+        self,
+        mnemonic: str,
+        unit: str,
+        values: np.ndarray,
+        left: int,
+        right: int,
+        *,
+        gas: bool,
+        background_key: tuple[str, bool] | None,
+    ) -> IntervalCurveStatistics:
+        window = values[left:right]
+        interval = window[np.isfinite(window)]
+        minimum = float(np.min(interval)) if interval.size else None
+        mean = float(np.mean(interval)) if interval.size else None
+        median = float(np.median(interval)) if interval.size else None
+        maximum = float(np.max(interval)) if interval.size else None
+        if background_key is not None and background_key in self._background_cache:
+            background = self._background_cache[background_key]
+        else:
+            whole = values[np.isfinite(values)]
+            if gas:
+                whole = whole[whole >= 0.0]
+            background = None
+            if whole.size:
+                background = (
+                    float(np.expm1(np.median(np.log1p(whole))))
+                    if gas
+                    else float(np.median(whole))
+                )
+            if background_key is not None:
+                self._background_cache[background_key] = background
+        return IntervalCurveStatistics(
+            mnemonic,
+            unit,
+            minimum,
+            mean,
+            median,
+            maximum,
+            background,
+            int(interval.size),
+            int(np.count_nonzero(interval > _EPS)),
+        )
+
+    def _build_component_sum_array(
+        self,
+    ) -> tuple[str, str, np.ndarray] | None:
+        curves = self._components
+        if not curves:
+            return None
+        source_units = tuple((curve.metadata.unit or "").strip() for curve in curves)
+        normalized_units = {normalize_unit(unit).casefold() for unit in source_units}
+        arrays = [self._ordered_values(curve) for curve in curves]
+        if any(values is None for values in arrays):
+            empty = np.full(self._depth.shape, np.nan, dtype=np.float64)
+            return (
+                "SUM_COMPONENTS",
+                source_units[0] if len(normalized_units) == 1 else "",
+                empty,
+            )
+        numeric_arrays = [values for values in arrays if values is not None]
+        if len(normalized_units) == 1:
+            unit = source_units[0]
+            converted = numeric_arrays
+        else:
+            raw_scales = tuple(
+                concentration_scale_to_percent(unit) for unit in source_units
+            )
+            known_scales = {scale for scale in raw_scales if scale is not None}
+            if any(scale is None for scale in raw_scales):
+                unknown_units = tuple(
+                    unit
+                    for unit, scale in zip(source_units, raw_scales, strict=True)
+                    if scale is None
+                )
+                if len(known_scales) != 1 or any(unit for unit in unknown_units):
+                    return None
+            inferred_scale = next(iter(known_scales), None)
+            scales = tuple(
+                scale if scale is not None else inferred_scale
+                for scale in raw_scales
+            )
+            unit = "%vol"
+            converted = []
+            for values, scale in zip(numeric_arrays, scales, strict=True):
+                if scale is None:
+                    return None
+                converted.append(values * scale)
+        matrix = np.vstack(converted)
+        valid = np.all(np.isfinite(matrix), axis=0)
+        summed = np.full(self._depth.shape, np.nan, dtype=np.float64)
+        summed[valid] = np.sum(matrix[:, valid], axis=0)
+        return "SUM_COMPONENTS", unit, summed
+
+
 def build_candidate_interval_statistics(
     dataset: Dataset,
     candidate: HydrocarbonCandidateInterval,
@@ -511,6 +733,7 @@ def _labels(language: AppLanguage) -> dict[str, str]:
 __all__ = [
     "CandidateIntervalGasStatistics",
     "IntervalCurveStatistics",
+    "IntervalGasStatisticsIndex",
     "build_candidate_interval_statistics",
     "build_interval_component_sum_statistics",
     "build_interval_statistics",

@@ -170,7 +170,6 @@ def build_document_plan(
         if (
             job.page.scale_mode is PrintScaleMode.FIT
             and full_range is not None
-            and use_auto_density
         ):
             printable_tracks = _selected_tablet_tracks(widget, job)
             selected_definitions = [item.definition for item in printable_tracks]
@@ -237,15 +236,33 @@ def build_document_plan(
                 media.content_height_mm,
                 header_band_mm=first_header_band_mm,
             )
-            first_geometry = automatic_tablet_first_page_geometry(
-                canonical_content_height_px=target_content_height,
-                column_header_height_px=header_height,
-                regular_units_per_page=resolved_units_per_page,
-                regular_body_height_mm=regular_body_height_mm,
-                first_body_height_mm=first_body_height_mm,
+            canonical_body_height = max(1, target_content_height - header_height)
+            first_physical_ratio = min(
+                1.0,
+                first_body_height_mm / regular_body_height_mm,
             )
-            first_page_units_per_page = first_geometry.units_per_page
-            first_page_target_content_height_px = first_geometry.target_content_height_px
+            first_logical_capacity = round(
+                canonical_body_height * first_physical_ratio
+            )
+            if first_logical_capacity <= header_height:
+                # A tall document passport plus a dense curve header cannot keep
+                # the continuation-page engineering scale on the first sheet.
+                # Do not abort preview/export: keep the requested interval and
+                # let the page renderer uniformly shrink this first tablet only.
+                first_page_units_per_page = resolved_units_per_page
+                first_page_target_content_height_px = target_content_height
+            else:
+                first_geometry = automatic_tablet_first_page_geometry(
+                    canonical_content_height_px=target_content_height,
+                    column_header_height_px=header_height,
+                    regular_units_per_page=resolved_units_per_page,
+                    regular_body_height_mm=regular_body_height_mm,
+                    first_body_height_mm=first_body_height_mm,
+                )
+                first_page_units_per_page = first_geometry.units_per_page
+                first_page_target_content_height_px = (
+                    first_geometry.target_content_height_px
+                )
             if use_auto_density:
                 (
                     first_page_units_per_page,
@@ -365,7 +382,7 @@ def _planned_full_header_band_height_mm(
         return None
     proportional = content_width_mm * size.height() / size.width()
     minimum = min(content_height_mm * 0.08, 15.0)
-    return max(minimum, min(proportional, content_height_mm * 0.46))
+    return max(minimum, min(proportional, content_height_mm * 0.34))
 
 
 def _build_automatic_page_slices(
@@ -741,7 +758,7 @@ def _print_header_band_height(
     minimum = min(page_rect.height() * 0.08, 15.0 * dpi / 25.4)
     # A very tall imported header must not consume the whole sheet.  The header
     # stays legible while at least half of the printable page remains for curves.
-    return max(minimum, min(proportional, page_rect.height() * 0.46))
+    return max(minimum, min(proportional, page_rect.height() * 0.34))
 
 
 def _vertical_gap_height(painter: QPainter) -> float:
