@@ -196,6 +196,12 @@ def test_operator_dashboard_renders_indicators_and_independent_panels(
         assert tuple(gas_y) == pytest.approx(
             (1_700_000_000.0, 1_700_000_001.0, 1_700_000_002.0)
         )
+
+        dashboard.set_panel_layout(hidden_panel_ids=("depth",))
+        dashboard.render_snapshot(snapshot)
+        app.processEvents()
+        assert dashboard.panels["depth"].box.isHidden()
+        assert not dashboard.panels["gas_total"].box.isHidden()
     finally:
         dashboard.close()
         app.processEvents()
