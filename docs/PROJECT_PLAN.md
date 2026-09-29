@@ -1128,6 +1128,7 @@ WELL-04 уже имеет field-level статусы и readiness; WELL-05 — f
   `27.797/106.746/197.813 ms`, peak RSS `84.5/302.1/574.2 MiB`; две cached geometry занимают
   `131 072 B` из `67 108 864 B` независимо от длины source fixture.
 - [ ] **PERF-05:** совместимый versioned storage port: manifest, column chunks, atomic commit и
+  Large-LAS slice: устранены две file-sized временные аллокации при импорте — полный decoded `StringIO` и полный `raw_bytes.lower()`; source snapshot/provenance остаются lossless. Следующие измеряемые шаги — сокращение full Tablet redraw и stage timings импорта.
   crash recovery вместо монолитного JSON для больших проектов.
 - [x] **PERF-06:** исключён двойной PDF-render для preview/printer; постоянный файл создаётся
   только явным export job, временные файлы имеют ownership-prefix и bounded stale cleanup, а
