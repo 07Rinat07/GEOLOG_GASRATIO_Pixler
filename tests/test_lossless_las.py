@@ -129,6 +129,22 @@ def test_lossless_document_detects_cp866_header_text() -> None:
     assert document.to_bytes() == raw
 
 
+def test_encoding_detection_does_not_lowercase_complete_source() -> None:
+    class GuardedBytes(bytes):
+        def lower(self) -> bytes:
+            raise AssertionError("full LAS source must not be lowercased")
+
+    raw = GuardedBytes(
+        b"~Version Information\nVERS. 2.0\n~Curve\nDEPT.M\n"
+        + b"# header padding\n" * 10_000
+        + b"~ASCII\n100\n"
+    )
+
+    sample = _encoding_sample(raw)
+
+    assert len(sample) <= 131_072
+
+
 def test_encoding_detection_sample_is_bounded_for_large_custom_header() -> None:
     raw = (
         "~Version Information\r\n"
