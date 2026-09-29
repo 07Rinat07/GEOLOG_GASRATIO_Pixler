@@ -946,6 +946,7 @@ class Wits0LiveViewWidget(QWidget):
         finally:
             self.panel_list.blockSignals(False)
         self._refresh_panel_order_buttons()
+        self._sync_panel_scale_controls()
 
     def _panel_layout_from_controls(
         self,
