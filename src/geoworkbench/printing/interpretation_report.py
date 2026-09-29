@@ -27,8 +27,7 @@ from geoworkbench.services.lba_standard import (
 )
 from geoworkbench.services.interval_gas_statistics import (
     IntervalCurveStatistics,
-    build_interval_component_sum_statistics,
-    build_interval_statistics,
+    IntervalGasStatisticsIndex,
 )
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.domain.localized_content import localized_text
@@ -191,12 +190,13 @@ def build_interpretation_report(
     }
     stratigraphy = _build_stratigraphy_snapshot(session, language=language)
     dataset = session.current_dataset
+    gas_statistics = IntervalGasStatisticsIndex(dataset) if dataset is not None else None
     entries = tuple(
         _entry_from_sample(
             sample,
             lithotypes=lithotypes,
             stratigraphy=stratigraphy,
-            dataset=dataset,
+            gas_statistics=gas_statistics,
             language=language,
         )
         for sample in sorted(
@@ -225,7 +225,7 @@ def _entry_from_sample(
     *,
     lithotypes: dict[str, CatalogLithotype],
     stratigraphy: tuple[GeologicalStratigraphyEntry, ...],
-    dataset: Dataset | None,
+    gas_statistics: IntervalGasStatisticsIndex | None,
     language: AppLanguage,
 ) -> AnalysisInterpretationEntry:
     observations_list: list[tuple[str, str]] = []
@@ -283,19 +283,21 @@ def _entry_from_sample(
         components,
         rock_description or None,
         sample_stratigraphy,
-        _build_sample_gas_statistics(dataset, sample.top_depth, sample.bottom_depth),
+        _build_sample_gas_statistics(
+            gas_statistics, sample.top_depth, sample.bottom_depth
+        ),
         sample.total_carbonate_percent,
     )
 
 
 def _build_sample_gas_statistics(
-    dataset: Dataset | None,
+    gas_statistics: IntervalGasStatisticsIndex | None,
     top_depth: float,
     bottom_depth: float,
 ) -> tuple[GeologicalGasStatistics, ...]:
-    if dataset is None:
+    if gas_statistics is None:
         return ()
-    interval = build_interval_statistics(dataset, top_depth, bottom_depth)
+    interval = gas_statistics.build(top_depth, bottom_depth)
     rows: list[GeologicalGasStatistics] = []
     if interval.raw_total is not None:
         rows.append(_geological_gas_statistics("total", interval.raw_total))
@@ -303,11 +305,7 @@ def _build_sample_gas_statistics(
         _geological_gas_statistics("component", item)
         for item in interval.components
     )
-    component_sum = build_interval_component_sum_statistics(
-        dataset,
-        top_depth,
-        bottom_depth,
-    )
+    component_sum = gas_statistics.build_component_sum(top_depth, bottom_depth)
     if component_sum is not None:
         rows.append(_geological_gas_statistics("sum", component_sum))
     return tuple(rows)
