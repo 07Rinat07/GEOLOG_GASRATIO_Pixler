@@ -27,7 +27,6 @@ from PySide6.QtGui import (
     QPixmap,
     QShowEvent,
 )
-from PySide6.QtPrintSupport import QPrintPreviewDialog
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
@@ -182,6 +181,7 @@ from geoworkbench.printing.print_job import (
 from geoworkbench.printing.header_catalog import catalog_items, resolve_catalog_header
 from geoworkbench.ui.header_preview_widget import render_header_preview_pixmap
 from geoworkbench.ui.print_job_status_dialog import PrintJobStatusDialog
+from geoworkbench.ui.stable_print_preview_dialog import StablePrintPreviewDialog
 from geoworkbench.ui.file_workspace_widget import FileWorkspaceWidget
 from geoworkbench.printing.pagination import PrintRangeMode
 from geoworkbench.printing.form_width_advisor import FormWidthLevel, audit_form_width
@@ -4713,8 +4713,11 @@ class MainWindow(QMainWindow):
         except (ReportDefinitionError, RuntimeError, ValueError) as exc:
             QMessageBox.critical(self, self._t("print_center.title"), str(exc))
             return
-        preview = QPrintPreviewDialog(printer, self)
-        preview.setWindowTitle(self._t("print.preview_title"))
+        preview = StablePrintPreviewDialog(
+            printer,
+            self,
+            title=self._t("print.preview_title"),
+        )
         preview_error: list[Exception] = []
 
         def render_preview_safely(requested) -> None:
@@ -4731,14 +4734,15 @@ class MainWindow(QMainWindow):
                     session=self.session,
                 )
             except (RuntimeError, ValueError) as exc:
-                # paintRequested is emitted from Qt's preview paint cycle. An
-                # exception escaping this callback can terminate the native
-                # Windows print preview instead of returning to our dialog.
+                # Preview painting runs inside an application-owned widget rather
+                # than QPrintPreviewDialog's native Windows dialog path.  Keep
+                # Python failures contained as well and close the preview safely.
                 preview_error.append(exc)
                 self._log(f"Ошибка предварительного просмотра печати: {exc}")
                 QTimer.singleShot(0, preview.reject)
 
-        preview.paintRequested.connect(render_preview_safely)
+        preview.preview_widget.paintRequested.connect(render_preview_safely)
+        QTimer.singleShot(0, preview.preview_widget.updatePreview)
         preview.exec()
         if preview_error:
             QMessageBox.critical(
