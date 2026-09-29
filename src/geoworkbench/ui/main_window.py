@@ -7963,6 +7963,8 @@ class MainWindow(QMainWindow):
                     dialog.top_depth,
                     dialog.bottom_depth,
                     dialog.lithotype_id,
+                    description=dialog.description,
+                    content_language=self.language.value,
                 )
             except (RuntimeError, ValueError) as exc:
                 QMessageBox.warning(self, self._t("lithology.title"), str(exc))
@@ -8003,6 +8005,11 @@ class MainWindow(QMainWindow):
             catalog,
             language=self.language,
             lithotype_id=interval.lithotype_id,
+            description=localized_text(
+                interval.description_i18n,
+                self.language,
+                legacy=interval.description,
+            ),
             parent=self,
         )
         while dialog.exec() == QDialog.DialogCode.Accepted:
@@ -8033,7 +8040,8 @@ class MainWindow(QMainWindow):
                     top_depth=dialog.top_depth,
                     bottom_depth=dialog.bottom_depth,
                     lithotype_id=dialog.lithotype_id,
-                    description=interval.description,
+                    description=dialog.description,
+                    content_language=self.language.value,
                 )
             except (KeyError, RuntimeError, ValueError) as exc:
                 QMessageBox.warning(self, self._t("lithology.title"), str(exc))
@@ -8412,19 +8420,21 @@ class MainWindow(QMainWindow):
             )
             dialog.rank_input.setCurrentText(interval.rank or "")
             dialog.code_input.setText(interval.code)
-            dialog.name_input.setText(
-                localized_text(
-                    interval.name_i18n, self.language, legacy=interval.name
+            for language_code, editor in dialog.name_inputs.items():
+                editor.setText(
+                    interval.name_i18n.get(
+                        language_code,
+                        interval.name or "" if language_code == "ru" else "",
+                    )
                 )
-            )
             dialog.color_input.setText(interval.color)
-            dialog.description_input.setText(
-                localized_text(
-                    interval.description_i18n,
-                    self.language,
-                    legacy=interval.description,
+            for language_code, editor in dialog.description_inputs.items():
+                editor.setText(
+                    interval.description_i18n.get(
+                        language_code,
+                        interval.description or "" if language_code == "ru" else "",
+                    )
                 )
-            )
             dialog.set_text_presentation(interval.text_orientation, interval.text_position)
             if dialog.exec() != QDialog.DialogCode.Accepted:
                 return
