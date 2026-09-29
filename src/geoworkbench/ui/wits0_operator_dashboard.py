@@ -289,7 +289,6 @@ class Wits0OperatorDashboard(QWidget):
             if series_list and panel_id not in self._hidden_panel_ids
         }
         self._sync_unit_panels(unit_groups)
-        self._reorder_panel_widgets()
 
         history_label = snapshot.index_mnemonic
         history_unit = snapshot.index_unit or ""
