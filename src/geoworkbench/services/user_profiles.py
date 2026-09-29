@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from typing import Any
+from urllib.parse import quote
 from uuid import uuid4
 
 from PySide6.QtCore import QSettings
@@ -177,11 +178,43 @@ class UserProfileSettings:
         self.settings.sync()
 
     def print_export_preferences(self) -> PrintExportPreferences:
-        raw = self.settings.value(self._print_export_preferences_key(), "")
+        return self._read_print_export_preferences(
+            self._print_export_preferences_key(),
+            PrintExportPreferences(),
+        )
+
+    def print_export_preferences_for_form(
+        self, form_id: str
+    ) -> PrintExportPreferences:
+        normalized = self._validated_form_id(form_id)
+        fallback = self.print_export_preferences()
+        raw = self.settings.value(self._print_export_form_preferences_key(normalized), "")
+        if str(raw).strip():
+            return self._read_print_export_preferences(
+                self._print_export_form_preferences_key(normalized),
+                fallback,
+            )
+        if (
+            normalized.startswith("factory-masterlog-a4-")
+            and self._is_untouched_legacy_print_pagination(fallback)
+        ):
+            return replace(
+                fallback,
+                auto_units_per_page=True,
+                overlap=0.0,
+            )
+        return fallback
+
+    def _read_print_export_preferences(
+        self,
+        key: str,
+        fallback: PrintExportPreferences,
+    ) -> PrintExportPreferences:
+        raw = self.settings.value(key, "")
         try:
             payload = json.loads(str(raw))
             if not isinstance(payload, dict):
-                return PrintExportPreferences()
+                return fallback
             custom_start = payload.get("custom_start")
             custom_end = payload.get("custom_end")
             raw_printer_name = payload.get("printer_name")
@@ -236,13 +269,34 @@ class UserProfileSettings:
                 copy_count=int(payload.get("copy_count", 1)),
             )
         except (json.JSONDecodeError, TypeError, ValueError):
-            return PrintExportPreferences()
+            return fallback
 
     def save_print_export_preferences(self, value: PrintExportPreferences) -> None:
+        self._save_print_export_preferences(
+            self._print_export_preferences_key(),
+            value,
+        )
+
+    def save_print_export_preferences_for_form(
+        self,
+        form_id: str,
+        value: PrintExportPreferences,
+    ) -> None:
+        normalized = self._validated_form_id(form_id)
+        self._save_print_export_preferences(
+            self._print_export_form_preferences_key(normalized),
+            value,
+        )
+
+    def _save_print_export_preferences(
+        self,
+        key: str,
+        value: PrintExportPreferences,
+    ) -> None:
         if not isinstance(value, PrintExportPreferences):
             raise TypeError("Настройки экспорта должны использовать PrintExportPreferences")
         self.settings.setValue(
-            self._print_export_preferences_key(),
+            key,
             json.dumps(
                 {
                     "defaults_version": _PRINT_EXPORT_DEFAULTS_VERSION,
@@ -347,6 +401,32 @@ class UserProfileSettings:
         active = self.active()
         profile_id = active.profile_id if active is not None else "default"
         return f"users/print_export/{profile_id}"
+
+    def _print_export_form_preferences_key(self, form_id: str) -> str:
+        active = self.active()
+        profile_id = active.profile_id if active is not None else "default"
+        encoded_form_id = quote(form_id, safe="")
+        return f"users/print_export_form/{profile_id}/{encoded_form_id}"
+
+    @staticmethod
+    def _is_untouched_legacy_print_pagination(
+        value: PrintExportPreferences,
+    ) -> bool:
+        return (
+            value.range_mode is PrintRangeMode.CURRENT
+            and abs(value.units_per_page - 50.0) < 1e-9
+            and not value.auto_units_per_page
+            and abs(value.overlap) < 1e-9
+            and value.custom_start is None
+            and value.custom_end is None
+        )
+
+    @staticmethod
+    def _validated_form_id(form_id: str) -> str:
+        normalized = str(form_id).strip()
+        if not normalized or len(normalized) > 256:
+            raise ValueError("Некорректный ID формы печати")
+        return normalized
 
     def selected_form_id(self) -> str | None:
         raw = self.settings.value(self._selected_form_key(), "")
