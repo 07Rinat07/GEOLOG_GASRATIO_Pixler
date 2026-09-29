@@ -80,7 +80,7 @@ class CuttingsController:
         sample = self._require_sample(sample_id)
         top, bottom = self._validate_interval(top_depth, bottom_depth)
         normalized = self._validate_components(components)
-        self._ensure_no_overlap(top, bottom, excluded_id=sample_id)
+        self._ensure_no_composition_overlap(top, bottom, excluded_id=sample_id)
         source_language = self.description_source_language(sample_id)
         if source_language is not None:
             previous = deepcopy(sample)
@@ -115,7 +115,7 @@ class CuttingsController:
         """Create one complete geological sample shared by all related tracks."""
         top, bottom = self._validate_interval(top_depth, bottom_depth)
         normalized = self._validate_components(components)
-        self._ensure_no_overlap(top, bottom)
+        self._ensure_no_composition_overlap(top, bottom)
         sample = CuttingsSample(new_id(), top, bottom, self._component_list(normalized))
         self._apply_full_values(sample, values, bump_revisions=False)
 
@@ -142,7 +142,7 @@ class CuttingsController:
         sample = self._require_sample(sample_id)
         top, bottom = self._validate_interval(top_depth, bottom_depth)
         normalized = self._validate_components(components)
-        self._ensure_no_overlap(top, bottom, excluded_id=sample_id)
+        self._ensure_no_composition_overlap(top, bottom, excluded_id=sample_id)
 
         previous = deepcopy(sample)
         staged = deepcopy(sample)
@@ -288,8 +288,12 @@ class CuttingsController:
         sample = self._require_sample(sample_id)
         top, bottom = self._validate_interval(top_depth, bottom_depth)
         normalized = self._normalize_text(description, 2_000_000, "Описание шлама")
-        if self._has_non_description_data(sample):
-            self._ensure_no_overlap(top, bottom, excluded_id=sample_id)
+        if sample.components:
+            self._ensure_no_composition_overlap(
+                top,
+                bottom,
+                excluded_id=sample_id,
+            )
 
         previous = deepcopy(sample)
         effective_source = (
@@ -469,7 +473,7 @@ class CuttingsController:
                 existing.description = normalized_description
             self.session.dirty = True
             return existing
-        self._ensure_no_overlap(top, bottom)
+        self._ensure_no_composition_overlap(top, bottom)
         sample = CuttingsSample(
             new_id(),
             top,
@@ -668,7 +672,7 @@ class CuttingsController:
             not np.isclose(sample.top_depth, top)
             or not np.isclose(sample.bottom_depth, bottom)
         ):
-            self._ensure_no_overlap(top, bottom, excluded_id=sample_id)
+            self._ensure_no_composition_overlap(top, bottom, excluded_id=sample_id)
 
         return self._save_analysis(
             sample,
@@ -1259,11 +1263,13 @@ class CuttingsController:
             raise ValueError("Сумма компонентов шлама должна быть равна 100%")
         return normalized
 
-    def _ensure_no_overlap(
+    def _ensure_no_composition_overlap(
         self, top: float, bottom: float, *, excluded_id: str | None = None
     ) -> None:
+        """Keep factual cuttings intervals disjoint while allowing overlays."""
+
         for sample in self._require_well().cuttings:
-            if sample.sample_id == excluded_id:
+            if sample.sample_id == excluded_id or not sample.components:
                 continue
             if top < sample.bottom_depth and bottom > sample.top_depth:
                 raise ValueError(
