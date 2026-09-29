@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QFormLayout,
     QLabel,
+    QPlainTextEdit,
     QVBoxLayout,
     QWidget,
 )
@@ -21,9 +22,9 @@ from geoworkbench.ui.window_geometry import fit_window_to_screen
 class LithologyIntervalDialog(QDialog):
     """Small editor opened after Shift+left drag in a lithology track.
 
-    A lithology interval intentionally contains exactly one rock type.  Free-form
-    descriptions and multi-component percentages belong to the cuttings sample
-    editor and therefore are not exposed here.
+    A lithology interval contains one rock type, but its saved free-form rock
+    description is editable here as part of the same persisted interval.
+    Multi-component percentages remain the responsibility of the cuttings editor.
     """
 
     def __init__(
@@ -34,6 +35,7 @@ class LithologyIntervalDialog(QDialog):
         *,
         language: AppLanguage = AppLanguage.RU,
         lithotype_id: str | None = None,
+        description: str | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -74,9 +76,15 @@ class LithologyIntervalDialog(QDialog):
             if index >= 0:
                 self.lithotype_input.setCurrentIndex(index)
 
+        self.description_input = QPlainTextEdit()
+        self.description_input.setObjectName("lithology-quick-description")
+        self.description_input.setPlainText(description or "")
+        self.description_input.setMinimumHeight(86)
+
         form.addRow(self._t("lithology.top"), self.top_input)
         form.addRow(self._t("lithology.bottom"), self.bottom_input)
         form.addRow(self._t("lithology.quick_rock"), self.lithotype_input)
+        form.addRow(self._t("lithology.description"), self.description_input)
         root.addLayout(form)
 
         self.buttons = QDialogButtonBox(
@@ -98,8 +106,8 @@ class LithologyIntervalDialog(QDialog):
         root.addWidget(self.buttons)
         fit_window_to_screen(
             self,
-            preferred=QSize(460, 210),
-            minimum=QSize(360, 210),
+            preferred=QSize(520, 330),
+            minimum=QSize(380, 280),
         )
 
     def _t(self, key: str, **values: object) -> str:
@@ -130,3 +138,9 @@ class LithologyIntervalDialog(QDialog):
     def lithotype_id(self) -> str:
         value = self.lithotype_input.currentData()
         return str(value) if value is not None else ""
+
+    @property
+    def description(self) -> str | None:
+        value = self.description_input.toPlainText().strip()
+        return value or None
+
