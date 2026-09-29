@@ -37,6 +37,7 @@ from geoworkbench.printing.masterlog_renderer import (
     paint_masterlog,
     render_masterlog_to_printer,
     _aligned_depth_grid_values,
+    _build_masterlog_render_context,
     _header_text,
     _page_orientation,
     _paint_annotations,
@@ -251,6 +252,43 @@ def test_paginated_masterlog_reuses_one_render_context(monkeypatch) -> None:
     assert len(seen_contexts) == 2
     assert seen_contexts[0] is seen_contexts[1]
     assert device.new_page_calls == 1
+
+
+def test_masterlog_render_context_indexes_visible_geology_once() -> None:
+    session = make_session_with_curves()
+    assert session.current_well is not None
+    session.current_well.cuttings.extend(
+        [
+            CuttingsSample("above", 100.0, 110.0),
+            CuttingsSample("page", 145.0, 155.0, calcite_percent=25.0),
+            CuttingsSample("below", 190.0, 200.0),
+        ]
+    )
+    session.current_well.lithology.extend(
+        [
+            LithologyInterval("l1", 100.0, 120.0, "sand"),
+            LithologyInterval("l2", 145.0, 155.0, "sand"),
+        ]
+    )
+    session.current_well.stratigraphy.extend(
+        [
+            StratigraphyInterval("s1", 90.0, 130.0, "K"),
+            StratigraphyInterval("s2", 145.0, 180.0, "Pg"),
+        ]
+    )
+
+    context = _build_masterlog_render_context(make_template(), session)
+
+    assert [item.sample_id for item in context.cuttings_index.overlapping(140.0, 160.0)] == [
+        "page"
+    ]
+    assert [item.interval_id for item in context.lithology_index.overlapping(140.0, 160.0)] == [
+        "l2"
+    ]
+    assert [
+        item.interval_id for item in context.stratigraphy_index.overlapping(140.0, 160.0)
+    ] == ["s2"]
+    assert context.has_sample_calcimetry is True
 
 
 def test_masterlog_depth_scale_controls_roll_height() -> None:
