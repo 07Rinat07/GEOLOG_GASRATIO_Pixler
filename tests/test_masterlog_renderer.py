@@ -259,6 +259,8 @@ def test_paginated_masterlog_uses_physical_printer_paint_rect(monkeypatch) -> No
     template = make_template()
     template.page_format = "A4"
     targets: list[QRectF] = []
+    canvas_sizes: list[QSizeF] = []
+    pagination_sizes: list[QSizeF] = []
 
     class FakePageLayout:
         @staticmethod
@@ -290,16 +292,16 @@ def test_paginated_masterlog_uses_physical_printer_paint_rect(monkeypatch) -> No
         def newPage() -> bool:
             return True
 
-    monkeypatch.setattr(
-        masterlog_renderer,
-        "paint_masterlog",
-        lambda _painter, target, *_args, **_kwargs: targets.append(target),
-    )
-    monkeypatch.setattr(
-        masterlog_renderer,
-        "masterlog_page_ranges",
-        lambda *_args, **_kwargs: ((100.0, 150.0),),
-    )
+    def capture_page(_painter, target, *_args, **kwargs) -> None:
+        targets.append(target)
+        canvas_sizes.append(kwargs["canvas_size_mm"])
+
+    def capture_ranges(*_args, **kwargs):
+        pagination_sizes.append(kwargs["page_size_mm"])
+        return ((100.0, 150.0),)
+
+    monkeypatch.setattr(masterlog_renderer, "paint_masterlog", capture_page)
+    monkeypatch.setattr(masterlog_renderer, "masterlog_page_ranges", capture_ranges)
     monkeypatch.setattr(
         masterlog_renderer,
         "masterlog_column_groups",
@@ -318,6 +320,16 @@ def test_paginated_masterlog_uses_physical_printer_paint_rect(monkeypatch) -> No
     assert targets[0].y() == 31.0
     assert targets[0].width() == 1800.0
     assert targets[0].height() == 2500.0
+    expected_width_mm = 1800.0 * 25.4 / 300.0
+    expected_height_mm = 2500.0 * 25.4 / 300.0
+    assert len(canvas_sizes) == 1
+    assert canvas_sizes[0].width() == pytest.approx(expected_width_mm)
+    assert canvas_sizes[0].height() == pytest.approx(expected_height_mm)
+    assert len(pagination_sizes) == 1
+    assert pagination_sizes[0].width() == pytest.approx(expected_width_mm)
+    assert pagination_sizes[0].height() == pytest.approx(expected_height_mm)
+    assert targets[0].width() / canvas_sizes[0].width() == pytest.approx(300.0 / 25.4)
+    assert targets[0].height() / canvas_sizes[0].height() == pytest.approx(300.0 / 25.4)
 
 
 def test_masterlog_render_context_indexes_visible_geology_once() -> None:
