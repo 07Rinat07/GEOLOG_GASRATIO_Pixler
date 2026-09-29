@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QPushButton,
+    QScrollArea,
     QSpinBox,
     QSplitter,
     QTableWidget,
@@ -225,13 +226,23 @@ class Wits0LiveViewWidget(QWidget):
         return toolbar
 
     def _build_left_panel(self) -> QWidget:
-        panel = QWidget(self)
+        panel = QScrollArea(self)
         panel.setObjectName("wits0LiveSidebar")
         panel.setMinimumWidth(0)
-        layout = QVBoxLayout(panel)
+        panel.setWidgetResizable(True)
+        panel.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        panel.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        content = QWidget(panel)
+        content.setMinimumWidth(0)
+        panel.setWidget(content)
+        layout = QVBoxLayout(content)
         layout.setContentsMargins(0, 0, 6, 0)
 
-        curve_group = QGroupBox(self._t("wits0_live.curves"), panel)
+        curve_group = QGroupBox(self._t("wits0_live.curves"), content)
         curve_layout = QVBoxLayout(curve_group)
         self.curve_list = QListWidget(curve_group)
         self.curve_list.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
@@ -241,7 +252,7 @@ class Wits0LiveViewWidget(QWidget):
 
         panel_group = QGroupBox(
             _operator_text(self._language, "panel_layout_group"),
-            panel,
+            content,
         )
         panel_layout = QVBoxLayout(panel_group)
         self.panel_list = QListWidget(panel_group)
@@ -353,7 +364,7 @@ class Wits0LiveViewWidget(QWidget):
 
         dexp_group = QGroupBox(
             _operator_text(self._language, "dexp_correction_group"),
-            panel,
+            content,
         )
         dexp_layout = QVBoxLayout(dexp_group)
         self.dexp_correction_check = QCheckBox(
@@ -396,7 +407,10 @@ class Wits0LiveViewWidget(QWidget):
             self._dexp_correction_changed
         )
 
-        values_group = QGroupBox(self._t("wits0_live.current_values"), panel)
+        values_group = QGroupBox(
+            self._t("wits0_live.current_values"),
+            content,
+        )
         values_layout = QVBoxLayout(values_group)
         self.values_table = QTableWidget(0, 4, values_group)
         self.values_table.setHorizontalHeaderLabels(
