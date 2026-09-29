@@ -426,8 +426,12 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   сохраняет factory fallback и unit-split панели. Второй slice добавляет в существующий
   Parameters sidebar checkable-список панелей и действия «Выше/Ниже»: layout применяется
   сразу, сохраняется через Save form, Reset возвращает factory layout; список не создаёт
-  horizontal overflow, а RU/KK/EN подписи покрыты regression-контрактом. Следующий scope —
-  редактируемые колонки/scale ranges и field UX. Интерпретационные
+  horizontal overflow, а RU/KK/EN подписи покрыты regression-контрактом. Третий slice
+  поднимает form-state до schema v3 и добавляет независимые Auto/Manual X-ranges по
+  `semantic panel + normalized unit`: `%`, `ppm` и другие unit-split шкалы сохраняются
+  отдельно, manual range не сбрасывается live redraw, Auto→Manual использует текущий
+  ViewBox, Reset возвращает Auto X. Следующий scope — редактируемые колонки и field UX.
+  Интерпретационные
   события рисуются как цветная линия/полоса на фактической глубине, а длинная подпись выводится
   горизонтальным компактным badge у края графика; соседние badges автоматически раздвигаются,
   не изменяя координату самого события. Приёмка: synthetic incompatible-units fixture,
