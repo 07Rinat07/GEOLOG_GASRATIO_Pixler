@@ -93,7 +93,8 @@ def test_physical_print_path_allows_600_dpi_chart_rasterization() -> None:
 
     assert "max(300, min(600, int(printer.resolution() or 600)))" in source
     assert "max(144, min(300" not in source
-    assert 'getattr(pixmap, "samples_mv", None)' in source
+    assert "sample_buffer = pixmap.samples_mv" in source
+    assert "pixmap.samples\n" not in source
     assert ").copy()" not in source
     assert "del image" in source
     assert "del pixmap" in source
