@@ -25,6 +25,7 @@ from geoworkbench.project.stratigraphy_controller import StratigraphyController
 from geoworkbench.services.interval_gas_statistics import (
     IntervalGasStatisticsIndex,
     build_interval_component_sum_statistics,
+    build_interval_statistics,
 )
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.interpretation_report_dialog import InterpretationReportDialog
