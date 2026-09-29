@@ -383,6 +383,8 @@ def test_wits0_scale_editor_applies_manual_and_auto_per_unit(
         assert widget.panel_x_auto_check.isChecked()
 
         widget.panel_x_auto_check.setChecked(False)
+        assert widget.panel_x_min_spin.value() == pytest.approx(0.0)
+        assert widget.panel_x_max_spin.value() == pytest.approx(100.0)
         widget.panel_x_min_spin.setValue(5.0)
         widget.panel_x_max_spin.setValue(75.0)
         widget.panel_x_apply_button.click()
