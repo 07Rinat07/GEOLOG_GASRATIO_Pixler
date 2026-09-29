@@ -1087,6 +1087,23 @@ class Wits0LiveViewWidget(QWidget):
 
     def _panel_x_auto_toggled(self, auto_range: bool) -> None:
         enabled = self._view is not None and not auto_range
+        if enabled:
+            panel_id = self._selected_panel_id()
+            scale_key = self.panel_scale_combo.currentData()
+            if panel_id is not None and isinstance(scale_key, str):
+                target = next(
+                    (
+                        item
+                        for item in self.dashboard.panel_scale_targets(
+                            panel_id
+                        )
+                        if item.scale_key == scale_key
+                    ),
+                    None,
+                )
+                if target is not None:
+                    self.panel_x_min_spin.setValue(target.minimum)
+                    self.panel_x_max_spin.setValue(target.maximum)
         self.panel_x_min_spin.setEnabled(enabled)
         self.panel_x_max_spin.setEnabled(enabled)
 
