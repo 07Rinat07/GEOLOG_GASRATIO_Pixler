@@ -2768,6 +2768,20 @@ class TabletView(QWidget):
     def rendered_track_ids(self) -> tuple[str, ...]:
         return tuple(self._rendered)
 
+    def refresh_group_headers(self) -> None:
+        """Refresh only merged group captions after a group-title edit."""
+
+        self._rebuild_group_headers()
+        self._synchronize_track_heights()
+        current = self.visible_depth_range
+        if current is not None:
+            self._synchronize_depth_ranges(*current)
+            self._synchronize_vertical_rulers(*current)
+            self._update_lithology_text_visibility(*current)
+            self._update_stratigraphy_text_visibility(*current)
+        self._sync_annotation_overlay_geometry()
+        self._update_navigation_controls()
+
     @property
     def group_header_titles(self) -> tuple[str, ...]:
         """Return merged visible form-section captions in screen order."""
@@ -8607,9 +8621,9 @@ class TabletView(QWidget):
             self._apply_static_track_configuration(rendered, definition)
         if reasons & DirtyReason.STYLE:
             self._apply_curve_styles(rendered, definition)
-            # A scale-visibility toggle replaces CurveHeaderEditor with the
-            # caption-only CurveHeaderLabel (or vice versa).  Recompute the
-            # shared band immediately so all plot viewports remain aligned.
+        if reasons & (DirtyReason.STATIC | DirtyReason.STYLE):
+            # Captions, widths and scale-header visibility can change the
+            # natural header height without requiring a full track rebuild.
             self._synchronize_track_header_bands()
         if reasons & (DirtyReason.DATA | DirtyReason.VIEWPORT | DirtyReason.STYLE):
             visible = self.visible_depth_range
