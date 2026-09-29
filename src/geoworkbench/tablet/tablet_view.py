@@ -10748,7 +10748,25 @@ class TabletView(QWidget):
             plot = rendered.plot
             if plot is None:
                 continue
-            if rendered.definition.kind is TrackKind.CUTTINGS:
+            if rendered.definition.kind is TrackKind.LITHOLOGY:
+                for item in (rendered.lithology_items or {}).values():
+                    plot.removeItem(item)
+                for item in (rendered.lithology_label_items or {}).values():
+                    plot.removeItem(item)
+                rendered.lithology_items = self._populate_lithology(
+                    rendered.widget, rendered.definition
+                )
+                rendered.lithology_label_items = self._populate_lithology_labels(
+                    rendered.widget, rendered.definition
+                )
+            elif rendered.definition.kind is TrackKind.STRATIGRAPHY:
+                for items in (rendered.stratigraphy_items or {}).values():
+                    for item in items:
+                        plot.removeItem(item)
+                rendered.stratigraphy_items = self._populate_stratigraphy(
+                    rendered.widget, rendered.definition
+                )
+            elif rendered.definition.kind is TrackKind.CUTTINGS:
                 for items in (rendered.cuttings_items or {}).values():
                     for item in items:
                         plot.removeItem(item)
