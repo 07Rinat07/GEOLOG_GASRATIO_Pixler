@@ -406,9 +406,11 @@ def _extrema_preserving_print_rows(
     if segment.size <= bucket_count * 4:
         return segment
 
-    y = np.asarray(
-        [_depth_y(float(depth[index]), page, rect) for index in segment],
-        dtype=np.float64,
+    y = (
+        rect.top()
+        + (depth[segment] - page.top_depth)
+        / page.span
+        * rect.height()
     )
     normalized = np.clip(
         (y - rect.top()) / max(rect.height(), 1.0),
@@ -459,7 +461,14 @@ def _draw_curves(
         & (depth <= page.bottom_depth)
     )
     indices = indices[np.argsort(depth[indices], kind="stable")]
-    segments = continuous_depth_segments(depth, indices, limit=2_500)
+    # Preserve every source row while detecting real acquisition gaps.
+    # Print-density reduction is value-aware below; uniform pre-downsampling
+    # here could remove a narrow OPUS/GasRatio peak before extrema selection.
+    segments = continuous_depth_segments(
+        depth,
+        indices,
+        limit=max(2, int(indices.size)),
+    )
 
     painter.save()
     painter.setClipRect(rect.adjusted(0.8, 0.8, -0.8, -0.8))
