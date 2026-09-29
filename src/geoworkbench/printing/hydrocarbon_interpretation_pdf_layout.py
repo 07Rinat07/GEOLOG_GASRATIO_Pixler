@@ -24,6 +24,7 @@ STANDARD_DEPTH_SCALES = (
     20_000,
 )
 _MIN_PLOT_UTILIZATION = 0.82
+_MAX_TARGET_DEPTH_OVERSHOOT = 1.05
 MAX_AUTOMATIC_CHART_PAGES = 80
 TARGET_DEPTH_PER_PAGE = 100.0
 PAGE_FOOTER_HEIGHT = 16.0
@@ -77,7 +78,8 @@ def plan_depth_pages(
 
     span = high - low
     height_mm = available_plot_height_points / POINTS_PER_MM
-    desired_pages = min(max_pages, max(1, int(ceil(span / TARGET_DEPTH_PER_PAGE))))
+    readable_page_span = TARGET_DEPTH_PER_PAGE * _MAX_TARGET_DEPTH_OVERSHOOT
+    desired_pages = min(max_pages, max(1, int(ceil(span / readable_page_span))))
     required_scale = span * 1_000.0 / (height_mm * desired_pages)
     scale = _fit_scale_denominator(required_scale)
 
