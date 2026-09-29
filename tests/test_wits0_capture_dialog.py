@@ -70,6 +70,33 @@ def test_wits0_capture_exposes_operator_help_and_fullscreen_monitor() -> None:
     assert "def _restore_live_view_from_fullscreen(" in source
 
 
+def test_wits0_capture_returns_to_live_when_streaming_starts_or_recovers() -> None:
+    source = SOURCE.read_text(encoding="utf-8")
+
+    assert "def _focus_live_workspace(self) -> None:" in source
+
+    start_capture = source[
+        source.index("def _start_capture") : source.index("def _prepare_raw_directory")
+    ]
+    start_acquisition = source[
+        source.index("def _start_acquisition") : source.index("def _flush_acquisition")
+    ]
+    restore = source[
+        source.index("def _restore_open_acquisition_session")
+        : source.index("def _set_live_fullscreen")
+    ]
+
+    assert start_capture.index("self.engine = engine") < start_capture.index(
+        "self._focus_live_workspace()"
+    )
+    assert start_acquisition.index("self._restore_workspace_state(runtime)") < (
+        start_acquisition.index("self._focus_live_workspace()")
+    )
+    assert restore.index("self._restore_workspace_state(runtime)") < restore.index(
+        "self._focus_live_workspace()"
+    )
+
+
 def test_wits0_capture_ui_connects_review_to_bounded_acquisition_runtime() -> None:
     source = SOURCE.read_text(encoding="utf-8")
     main_source = MAIN_WINDOW.read_text(encoding="utf-8")
@@ -197,6 +224,10 @@ def test_wits0_capture_dialog_constructs_offscreen(monkeypatch) -> None:  # type
         )
         assert dialog.tabs.currentWidget() is dialog.live_view
         assert dialog.tabs.indexOf(dialog.live_view) == 0
+        dialog.tabs.setCurrentWidget(dialog.raw_text)
+        assert dialog.tabs.currentWidget() is dialog.raw_text
+        dialog._focus_live_workspace()
+        assert dialog.tabs.currentWidget() is dialog.live_view
         assert not dialog.advanced_section.is_expanded()
         assert not dialog.diagnostics_section.is_expanded()
         assert dialog.health_summary.text()
