@@ -289,6 +289,95 @@ def test_component_sum_converts_compatible_mixed_units_and_rejects_incompatible_
     assert build_interval_component_sum_statistics(dataset, 100.0, 101.0) is None
 
 
+def test_report_preserves_authored_stratigraphy_names_per_language() -> None:
+    session = ProjectSession()
+    session.add_dataset(
+        Dataset(
+            "localized-stratigraphy",
+            "Localized stratigraphy",
+            DatasetKind.GTI,
+            DepthDomain.MD,
+            np.array([100.0, 110.0]),
+        ),
+        "Well localized",
+    )
+    StratigraphyController(session).add(
+        100.0,
+        110.0,
+        "K",
+        rank="System / Period",
+        name_i18n={
+            "ru": "Меловая система",
+            "kk": "Бор жүйесі",
+            "en": "Cretaceous System",
+        },
+        description_i18n={
+            "ru": "Русское описание",
+            "kk": "Қазақша сипаттама",
+            "en": "English description",
+        },
+    )
+
+    report = build_interpretation_report(session, language=AppLanguage.EN)
+    item = report.stratigraphy[0]
+
+    assert item.localized_name(AppLanguage.RU) == "Меловая система"
+    assert item.localized_name(AppLanguage.KK) == "Бор жүйесі"
+    assert item.localized_name(AppLanguage.EN) == "Cretaceous System"
+    assert item.description == "English description"
+
+
+def test_excel_factual_sample_rows_keep_interval_description_pairing(tmp_path) -> None:
+    session = ProjectSession()
+    session.add_dataset(
+        Dataset(
+            "xlsx-description-pairing",
+            "XLSX description pairing",
+            DatasetKind.GTI,
+            DepthDomain.MD,
+            np.array([100.0, 103.0]),
+        ),
+        "Well pairing",
+    )
+    controller = CuttingsController(session)
+    controller.create_full_sample(
+        100.5,
+        101.5,
+        {"sandstone": 100.0},
+        description="Описание только первого интервала",
+    )
+    controller.create_full_sample(
+        101.5,
+        102.5,
+        {"clay": 100.0},
+        description="Описание только второго интервала",
+    )
+
+    report = build_interpretation_report(session)
+    target = export_interpretation_report_xlsx(
+        report,
+        tmp_path / "interval-description-pairing.xlsx",
+        language=AppLanguage.RU,
+    )
+    workbook = load_workbook(target, read_only=True, data_only=True)
+    try:
+        rows = list(workbook[workbook.sheetnames[1]].values)
+    finally:
+        workbook.close()
+
+    header = rows[0]
+    interval_column = header.index("Интервал")
+    description_column = header.index("Описание пород")
+    factual = {
+        row[interval_column]: row[description_column]
+        for row in rows[1:]
+    }
+
+    assert factual == {
+        "100.5–101.5 m": "Описание только первого интервала",
+        "101.5–102.5 m": "Описание только второго интервала",
+    }
+
 def test_interpretation_report_html_is_localized_and_escapes_project_data() -> None:
     report = build_interpretation_report(_session())
 
