@@ -36,6 +36,14 @@ _SLOT = re.compile(
     r"(?P<field>КОД|CODE|КОЛИЧ|AMOUNT|PCT|PERCENT|PERCENTAGE)$",
     re.IGNORECASE,
 )
+_DESCRIPTION_SLOT_AFTER = re.compile(
+    r"(?:ПОРОДА|ПОРОДЫ|ROCK|LITH|LITHOLOGY)_?(?P<slot>[1-5])_?"
+    r"(?P<field>КОД|CODE|КОЛИЧ(?:ЕСТВО)?|СОДЕРЖАН(?:ИЕ|ИЯ)|AMOUNT|PCT|PERCENT|PERCENTAGE)"
+)
+_DESCRIPTION_SLOT_BEFORE = re.compile(
+    r"(?P<field>КОД|CODE|КОЛИЧ(?:ЕСТВО)?|СОДЕРЖАН(?:ИЕ|ИЯ)|AMOUNT|PCT|PERCENT|PERCENTAGE)_?"
+    r"(?:ПОРОДА|ПОРОДЫ|ROCK|LITH|LITHOLOGY)_?(?P<slot>[1-5])"
+)
 
 
 def normalize_geology_mnemonic(value: str) -> str:
@@ -56,11 +64,30 @@ _ALIASES: dict[GeologyChannelRole, frozenset[str]] = {
     ),
     GeologyChannelRole.CALCITE: frozenset(
         normalize_geology_mnemonic(value)
-        for value in ("CACO3", "CALCITE", "CACO3_(КАЛЬЦИТ)", "КАЛЬЦИТ")
+        for value in (
+            "CACO3",
+            "CA_CO3",
+            "CALCITE",
+            "CALCITE_CACO3",
+            "CACO3_(КАЛЬЦИТ)",
+            "КАЛЬЦИТ",
+            "КАЛЬЦИТ_CACO3",
+            "СОДЕРЖАНИЕ_CACO3",
+        )
     ),
     GeologyChannelRole.DOLOMITE: frozenset(
         normalize_geology_mnemonic(value)
-        for value in ("CAMG_CO3_2", "DOLOMITE", "DOLO", "ДОЛОМИТ")
+        for value in (
+            "CAMG_CO3_2",
+            "CA_MG_CO3_2",
+            "CAMGCO3_2",
+            "CAMGCO32",
+            "DOLOMITE",
+            "DOLOMITE_CAMG_CO3_2",
+            "DOLO",
+            "ДОЛОМИТ",
+            "ДОЛОМИТ_CAMG_CO3_2",
+        )
     ),
     GeologyChannelRole.LEGACY_CARBONATE: frozenset(
         normalize_geology_mnemonic(value)
@@ -69,8 +96,12 @@ _ALIASES: dict[GeologyChannelRole, frozenset[str]] = {
             "CARBONATE",
             "CARBONATE_CONTENT",
             "TOTAL_CARBONATE",
+            "TOTAL_CARBONATES",
+            "TOTALCARBONATE",
             "CARBONATE_PCT",
             "CARBONATES",
+            "СУММАРНАЯ_КАРБОНАТНОСТЬ",
+            "ОБЩАЯ_КАРБОНАТНОСТЬ",
         )
     ),
     GeologyChannelRole.LBA_GROUP: frozenset(
@@ -156,11 +187,53 @@ def resolve_geology_channel(
             return GeologyChannelMatch(role=role)
 
     desc = unicodedata.normalize("NFKC", description).casefold().replace("ё", "е")
+    normalized_desc = normalize_geology_mnemonic(description)
     normalized_unit = normalize_geology_mnemonic(unit)
     percent_like = unit.strip() == "%" or normalized_unit in {
         "PCT", "PERCENT", "PERCENTAGE",
     }
     code_like = normalized_unit in {"CODE", "ID", "INT"}
+
+    # Opaque vendor mnemonics are accepted only when their descriptions encode
+    # an unambiguous geology slot and the unit agrees with that role.
+    for pattern in (_DESCRIPTION_SLOT_AFTER, _DESCRIPTION_SLOT_BEFORE):
+        description_slot = pattern.search(normalized_desc)
+        if description_slot is None:
+            continue
+        field = description_slot.group("field")
+        slot = int(description_slot.group("slot"))
+        if code_like and field in {"КОД", "CODE"}:
+            return GeologyChannelMatch(
+                GeologyChannelRole.CUTTINGS_CODE,
+                slot=slot,
+                confidence=0.92,
+                matched_by="description+uom",
+            )
+        if percent_like and field not in {"КОД", "CODE"}:
+            return GeologyChannelMatch(
+                GeologyChannelRole.CUTTINGS_AMOUNT,
+                slot=slot,
+                confidence=0.92,
+                matched_by="description+uom",
+            )
+
+    if code_like and any(
+        marker in normalized_desc
+        for marker in (
+            "КОД_ПОРОДЫ",
+            "КОД_ОСНОВНОЙ_ПОРОДЫ",
+            "ОСНОВНАЯ_ПОРОДА",
+            "PRIMARY_LITHOLOGY",
+            "PRIMARY_ROCK",
+            "LITHOLOGY_CODE",
+            "ROCK_CODE",
+        )
+    ):
+        return GeologyChannelMatch(
+            GeologyChannelRole.PRIMARY_LITHOLOGY,
+            confidence=0.92,
+            matched_by="description+uom",
+        )
 
     if percent_like:
         if "caco3" in desc or "calcite" in desc or "кальцит" in desc:
