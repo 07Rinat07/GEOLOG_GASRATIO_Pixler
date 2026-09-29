@@ -908,6 +908,16 @@ class CuttingsController:
         }
         plan = self._full_sample_tracking_plan(previous, staged, tracking_values)
 
+        if (
+            existing_sample is not None
+            and previous == staged
+            and (plan is None or not self._tracking_metadata_changed(plan))
+        ):
+            # Re-saving an unchanged tracked analysis is a true no-op.  Do not
+            # advance content/language revisions or mark the project dirty merely
+            # because the editor was opened and accepted without modifications.
+            return existing_sample
+
         if existing_sample is None:
             current = staged
             self._require_well().cuttings.append(current)
