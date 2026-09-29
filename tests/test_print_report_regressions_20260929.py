@@ -39,3 +39,16 @@ def test_masterlog_print_preferences_are_resolved_per_active_form() -> None:
     assert "explicit_form_id or self.user_profile_settings.selected_form_id()" in source
     assert "print_export_preferences_for_form(form_id)" in source
     assert "save_print_export_preferences_for_form(" in source
+
+
+def test_saved_analysis_has_a_dedicated_reedit_path() -> None:
+    tablet = (ROOT / "src/geoworkbench/tablet/tablet_view.py").read_text(encoding="utf-8")
+    main_window = (ROOT / "src/geoworkbench/ui/main_window.py").read_text(encoding="utf-8")
+    controller = (
+        ROOT / "src/geoworkbench/project/cuttings_controller.py"
+    ).read_text(encoding="utf-8")
+
+    assert "analysis_sample_edit_requested = Signal(str)" in tablet
+    assert "self.analysis_sample_edit_requested.emit(sample.sample_id)" in tablet
+    assert "self._edit_analysis_interval_from_tablet" in main_window
+    assert "def update_analysis(" in controller
