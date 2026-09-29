@@ -437,14 +437,29 @@ def _build_meter_geology(
             )
 
     result: list[MeterGeologyEntry] = []
+    ordered_entries = tuple(
+        sorted(entries, key=lambda item: (item.top_depth, item.bottom_depth))
+    )
+    first_candidate = 0
     for meter_index in sorted(meter_indexes):
         top = float(meter_index)
         bottom = top + 1.0
-        overlapping = tuple(
-            entry
-            for entry in entries
-            if entry.top_depth < bottom and entry.bottom_depth > top
-        )
+        while (
+            first_candidate < len(ordered_entries)
+            and ordered_entries[first_candidate].bottom_depth <= top
+        ):
+            first_candidate += 1
+        overlapping_items: list[AnalysisInterpretationEntry] = []
+        candidate = first_candidate
+        while (
+            candidate < len(ordered_entries)
+            and ordered_entries[candidate].top_depth < bottom
+        ):
+            entry = ordered_entries[candidate]
+            if entry.bottom_depth > top:
+                overlapping_items.append(entry)
+            candidate += 1
+        overlapping = tuple(overlapping_items)
         if not overlapping:
             continue
         overlaps = tuple(
