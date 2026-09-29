@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 import numpy as np
@@ -113,6 +114,19 @@ class _IndicatorCard(QFrame):
         self.setToolTip(tooltip)
 
 
+@dataclass(frozen=True, slots=True)
+class Wits0PanelScaleTarget:
+    """One rendered engineering X scale, isolated by semantic panel and unit."""
+
+    scale_key: str
+    panel_id: str
+    title: str
+    unit: str
+    auto_range: bool
+    minimum: float
+    maximum: float
+
+
 class _PlotPanel:
     def __init__(
         self,
@@ -144,6 +158,7 @@ class Wits0OperatorDashboard(QWidget):
     """Operator-oriented WITS dashboard with independent engineering scales."""
 
     historyRangeChanged = Signal(float, float)
+    scaleTargetsChanged = Signal()
 
     def __init__(
         self,
@@ -157,6 +172,11 @@ class Wits0OperatorDashboard(QWidget):
         self._updating_range = False
         self._indicator_cards: dict[str, _IndicatorCard] = {}
         self._unit_panels: dict[tuple[str, str], _PlotPanel] = {}
+        self._panel_x_ranges: dict[str, tuple[float, float]] = {}
+        self._active_scale_panels: dict[
+            str,
+            tuple[str, str, _PlotPanel],
+        ] = {}
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -265,9 +285,106 @@ class Wits0OperatorDashboard(QWidget):
         )
         return self._panel_order, hidden
 
+    def set_panel_x_ranges(
+        self,
+        ranges: tuple[tuple[str, float, float], ...],
+    ) -> None:
+        normalized: dict[str, tuple[float, float]] = {}
+        for scale_key, minimum, maximum in ranges:
+            key = str(scale_key).strip()
+            low = float(minimum)
+            high = float(maximum)
+            if (
+                not key
+                or not np.isfinite(low)
+                or not np.isfinite(high)
+                or low >= high
+            ):
+                continue
+            normalized[key] = (low, high)
+        self._panel_x_ranges = normalized
+        for scale_key, (_panel_id, _unit, panel) in (
+            self._active_scale_panels.items()
+        ):
+            self._apply_panel_x_range(panel, scale_key)
+
+    def panel_x_ranges(self) -> tuple[tuple[str, float, float], ...]:
+        return tuple(
+            (scale_key, minimum, maximum)
+            for scale_key, (minimum, maximum) in sorted(
+                self._panel_x_ranges.items()
+            )
+        )
+
+    def set_panel_x_range(
+        self,
+        scale_key: str,
+        minimum: float,
+        maximum: float,
+    ) -> None:
+        key = scale_key.strip()
+        low = float(minimum)
+        high = float(maximum)
+        if (
+            not key
+            or not np.isfinite(low)
+            or not np.isfinite(high)
+            or low >= high
+        ):
+            raise ValueError("WITS panel X range requires finite min < max")
+        self._panel_x_ranges[key] = (low, high)
+        active = self._active_scale_panels.get(key)
+        if active is not None:
+            self._apply_panel_x_range(active[2], key)
+
+    def reset_panel_x_range(self, scale_key: str) -> None:
+        key = scale_key.strip()
+        self._panel_x_ranges.pop(key, None)
+        active = self._active_scale_panels.get(key)
+        if active is not None:
+            self._apply_panel_x_range(active[2], key)
+
+    def panel_scale_targets(
+        self,
+        panel_id: str,
+    ) -> tuple[Wits0PanelScaleTarget, ...]:
+        targets: list[Wits0PanelScaleTarget] = []
+        for scale_key, (base_panel_id, unit, panel) in (
+            self._active_scale_panels.items()
+        ):
+            if base_panel_id != panel_id:
+                continue
+            manual = self._panel_x_ranges.get(scale_key)
+            if manual is None:
+                view_range = panel.plot.getViewBox().viewRange()[0]
+                minimum = float(min(view_range))
+                maximum = float(max(view_range))
+                auto_range = True
+            else:
+                minimum, maximum = manual
+                auto_range = False
+            title = panel.definition.title(self._language)
+            if unit:
+                title = f"{title} [{unit}]"
+            targets.append(
+                Wits0PanelScaleTarget(
+                    scale_key=scale_key,
+                    panel_id=base_panel_id,
+                    title=title,
+                    unit=unit,
+                    auto_range=auto_range,
+                    minimum=minimum,
+                    maximum=maximum,
+                )
+            )
+        return tuple(targets)
+
     def clear(self) -> None:
         self._clear_indicator_cards()
         self._clear_unit_panels()
+        if self._active_scale_panels:
+            self._active_scale_panels = {}
+            self.scaleTargetsChanged.emit()
         for panel in self.panels.values():
             panel.plot.clear()
             panel.legend.clear()
@@ -295,7 +412,15 @@ class Wits0OperatorDashboard(QWidget):
         if snapshot.axis_is_datetime:
             history_label = self._localizer.text("wits0_live.time_utc")
 
-        render_targets: list[tuple[_PlotPanel, list[AcquisitionLiveSeries]]] = []
+        render_targets: list[
+            tuple[
+                _PlotPanel,
+                list[AcquisitionLiveSeries],
+                str,
+                str,
+                str,
+            ]
+        ] = []
         for panel_id in self._panel_order:
             panel = self.panels[panel_id]
             if panel_id in self._hidden_panel_ids:
@@ -310,13 +435,46 @@ class Wits0OperatorDashboard(QWidget):
                 panel.box.hide()
                 continue
             primary_unit, primary_series = groups[0]
-            panel.box.setTitle(_panel_title(panel.definition, self._language, primary_unit, len(groups)))
-            render_targets.append((panel, primary_series))
+            panel.box.setTitle(
+                _panel_title(
+                    panel.definition,
+                    self._language,
+                    primary_unit,
+                    len(groups),
+                )
+            )
+            render_targets.append(
+                (
+                    panel,
+                    primary_series,
+                    _panel_scale_key(panel_id, primary_unit),
+                    panel_id,
+                    primary_unit,
+                )
+            )
             for unit_key, series_list in groups[1:]:
                 extra = self._unit_panels[(panel_id, unit_key)]
-                render_targets.append((extra, series_list))
+                render_targets.append(
+                    (
+                        extra,
+                        series_list,
+                        _panel_scale_key(panel_id, unit_key),
+                        panel_id,
+                        unit_key,
+                    )
+                )
 
-        for panel, series_list in render_targets:
+        active_scale_panels = {
+            scale_key: (panel_id, unit, panel)
+            for panel, _series, scale_key, panel_id, unit in render_targets
+        }
+        if tuple(active_scale_panels) != tuple(self._active_scale_panels):
+            self._active_scale_panels = active_scale_panels
+            self.scaleTargetsChanged.emit()
+        else:
+            self._active_scale_panels = active_scale_panels
+
+        for panel, series_list, scale_key, _panel_id, _unit in render_targets:
             panel.plot.clear()
             panel.legend.clear()
             panel.box.show()
@@ -344,6 +502,8 @@ class Wits0OperatorDashboard(QWidget):
                     skipFiniteCheck=False,
                 )
 
+            self._apply_panel_x_range(panel, scale_key)
+
             curve_ids = {series.curve_id for series in series_list}
             self._render_markers(panel.plot, snapshot, curve_ids)
 
@@ -357,7 +517,19 @@ class Wits0OperatorDashboard(QWidget):
                     )
                 finally:
                     self._updating_range = False
+
+    def _apply_panel_x_range(
+        self,
+        panel: _PlotPanel,
+        scale_key: str,
+    ) -> None:
+        manual = self._panel_x_ranges.get(scale_key)
+        if manual is None:
             panel.plot.enableAutoRange(axis="x", enable=True)
+            return
+        minimum, maximum = manual
+        panel.plot.enableAutoRange(axis="x", enable=False)
+        panel.plot.setXRange(minimum, maximum, padding=0.0)
 
     def _sync_unit_panels(
         self,
@@ -539,6 +711,11 @@ class Wits0OperatorDashboard(QWidget):
 
 def _normalized_unit(unit: str | None) -> str:
     return (unit or "").strip().casefold()
+
+
+def _panel_scale_key(panel_id: str, unit: str | None) -> str:
+    normalized_unit = _normalized_unit(unit) or "unitless"
+    return f"{panel_id}|{normalized_unit}"
 
 
 def _group_series_by_unit(

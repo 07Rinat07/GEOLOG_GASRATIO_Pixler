@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QPushButton,
+    QScrollArea,
     QSpinBox,
     QSplitter,
     QTableWidget,
@@ -225,13 +226,23 @@ class Wits0LiveViewWidget(QWidget):
         return toolbar
 
     def _build_left_panel(self) -> QWidget:
-        panel = QWidget(self)
+        panel = QScrollArea(self)
         panel.setObjectName("wits0LiveSidebar")
         panel.setMinimumWidth(0)
-        layout = QVBoxLayout(panel)
+        panel.setWidgetResizable(True)
+        panel.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        panel.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        content = QWidget(panel)
+        content.setMinimumWidth(0)
+        panel.setWidget(content)
+        layout = QVBoxLayout(content)
         layout.setContentsMargins(0, 0, 6, 0)
 
-        curve_group = QGroupBox(self._t("wits0_live.curves"), panel)
+        curve_group = QGroupBox(self._t("wits0_live.curves"), content)
         curve_layout = QVBoxLayout(curve_group)
         self.curve_list = QListWidget(curve_group)
         self.curve_list.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
@@ -241,7 +252,7 @@ class Wits0LiveViewWidget(QWidget):
 
         panel_group = QGroupBox(
             _operator_text(self._language, "panel_layout_group"),
-            panel,
+            content,
         )
         panel_layout = QVBoxLayout(panel_group)
         self.panel_list = QListWidget(panel_group)
@@ -256,7 +267,7 @@ class Wits0LiveViewWidget(QWidget):
         self.panel_list.setMaximumHeight(180)
         self.panel_list.itemChanged.connect(self._panel_visibility_changed)
         self.panel_list.currentRowChanged.connect(
-            self._refresh_panel_order_buttons
+            self._panel_selection_changed
         )
         panel_layout.addWidget(self.panel_list)
 
@@ -285,11 +296,75 @@ class Wits0LiveViewWidget(QWidget):
         panel_actions.setColumnStretch(0, 1)
         panel_actions.setColumnStretch(1, 1)
         panel_layout.addLayout(panel_actions)
+
+        scale_grid = QGridLayout()
+        scale_grid.setHorizontalSpacing(6)
+        scale_grid.setVerticalSpacing(4)
+        scale_label = QLabel(
+            _operator_text(self._language, "panel_scale"),
+            panel_group,
+        )
+        scale_grid.addWidget(scale_label, 0, 0)
+        self.panel_scale_combo = QComboBox(panel_group)
+        self.panel_scale_combo.setObjectName("wits0PanelScaleCombo")
+        self.panel_scale_combo.setMinimumWidth(0)
+        self.panel_scale_combo.currentIndexChanged.connect(
+            self._panel_scale_target_changed
+        )
+        scale_grid.addWidget(self.panel_scale_combo, 0, 1, 1, 3)
+
+        self.panel_x_auto_check = QCheckBox(
+            _operator_text(self._language, "panel_x_auto"),
+            panel_group,
+        )
+        self.panel_x_auto_check.setObjectName("wits0PanelXAutoCheck")
+        self.panel_x_auto_check.toggled.connect(
+            self._panel_x_auto_toggled
+        )
+        scale_grid.addWidget(self.panel_x_auto_check, 1, 0, 1, 2)
+
+        minimum_label = QLabel(
+            _operator_text(self._language, "panel_x_min"),
+            panel_group,
+        )
+        scale_grid.addWidget(minimum_label, 2, 0)
+        self.panel_x_min_spin = QDoubleSpinBox(panel_group)
+        self.panel_x_min_spin.setObjectName("wits0PanelXMin")
+        self.panel_x_min_spin.setDecimals(6)
+        self.panel_x_min_spin.setRange(-1.0e15, 1.0e15)
+        self.panel_x_min_spin.setKeyboardTracking(False)
+        scale_grid.addWidget(self.panel_x_min_spin, 2, 1)
+
+        maximum_label = QLabel(
+            _operator_text(self._language, "panel_x_max"),
+            panel_group,
+        )
+        scale_grid.addWidget(maximum_label, 2, 2)
+        self.panel_x_max_spin = QDoubleSpinBox(panel_group)
+        self.panel_x_max_spin.setObjectName("wits0PanelXMax")
+        self.panel_x_max_spin.setDecimals(6)
+        self.panel_x_max_spin.setRange(-1.0e15, 1.0e15)
+        self.panel_x_max_spin.setKeyboardTracking(False)
+        scale_grid.addWidget(self.panel_x_max_spin, 2, 3)
+
+        self.panel_x_apply_button = QPushButton(
+            _operator_text(self._language, "panel_x_apply"),
+            panel_group,
+        )
+        self.panel_x_apply_button.setObjectName("wits0PanelXApply")
+        self.panel_x_apply_button.setMinimumWidth(0)
+        self.panel_x_apply_button.clicked.connect(
+            self._apply_selected_panel_x_range
+        )
+        scale_grid.addWidget(self.panel_x_apply_button, 3, 0, 1, 4)
+        scale_grid.setColumnStretch(1, 1)
+        scale_grid.setColumnStretch(3, 1)
+        panel_layout.addLayout(scale_grid)
         layout.addWidget(panel_group)
 
         dexp_group = QGroupBox(
             _operator_text(self._language, "dexp_correction_group"),
-            panel,
+            content,
         )
         dexp_layout = QVBoxLayout(dexp_group)
         self.dexp_correction_check = QCheckBox(
@@ -332,7 +407,10 @@ class Wits0LiveViewWidget(QWidget):
             self._dexp_correction_changed
         )
 
-        values_group = QGroupBox(self._t("wits0_live.current_values"), panel)
+        values_group = QGroupBox(
+            self._t("wits0_live.current_values"),
+            content,
+        )
         values_layout = QVBoxLayout(values_group)
         self.values_table = QTableWidget(0, 4, values_group)
         self.values_table.setHorizontalHeaderLabels(
@@ -373,6 +451,9 @@ class Wits0LiveViewWidget(QWidget):
         )
         self.dashboard.historyRangeChanged.connect(
             self._dashboard_range_changed
+        )
+        self.dashboard.scaleTargetsChanged.connect(
+            self._sync_panel_scale_controls
         )
         layout.addWidget(self.dashboard, 1)
 
@@ -437,6 +518,11 @@ class Wits0LiveViewWidget(QWidget):
             self.refresh_button,
             self.curve_list,
             self.panel_list,
+            self.panel_scale_combo,
+            self.panel_x_auto_check,
+            self.panel_x_min_spin,
+            self.panel_x_max_spin,
+            self.panel_x_apply_button,
         ):
             widget.setEnabled(True)
         self._populate_axes()
@@ -706,6 +792,7 @@ class Wits0LiveViewWidget(QWidget):
                 saved.panel_order,
                 saved.hidden_panel_ids,
             )
+            self.dashboard.set_panel_x_ranges(saved.panel_x_ranges)
             self._sync_panel_controls_from_dashboard()
             try:
                 view.set_axis_mode(AcquisitionLiveAxisMode(saved.axis_mode))
@@ -715,6 +802,7 @@ class Wits0LiveViewWidget(QWidget):
             view.set_follow_span(saved.follow_span)
         else:
             self.dashboard.set_panel_layout()
+            self.dashboard.set_panel_x_ranges(())
             self._sync_panel_controls_from_dashboard()
         self._set_view_source_selection(self._selected_curve_ids())
 
@@ -872,6 +960,7 @@ class Wits0LiveViewWidget(QWidget):
         finally:
             self.panel_list.blockSignals(False)
         self._refresh_panel_order_buttons()
+        self._sync_panel_scale_controls()
 
     def _panel_layout_from_controls(
         self,
@@ -921,6 +1010,122 @@ class Wits0LiveViewWidget(QWidget):
         self.panel_down_button.setEnabled(
             enabled and 0 <= row < count - 1
         )
+
+    def _panel_selection_changed(self, _row: int) -> None:
+        self._refresh_panel_order_buttons()
+        self._sync_panel_scale_controls()
+
+    def _selected_panel_id(self) -> str | None:
+        item = self.panel_list.currentItem()
+        if item is None:
+            return None
+        panel_id = item.data(Qt.ItemDataRole.UserRole)
+        return panel_id if isinstance(panel_id, str) else None
+
+    def _sync_panel_scale_controls(self) -> None:
+        panel_id = self._selected_panel_id()
+        current_key = self.panel_scale_combo.currentData()
+        targets = (
+            self.dashboard.panel_scale_targets(panel_id)
+            if panel_id is not None
+            else ()
+        )
+        self.panel_scale_combo.blockSignals(True)
+        try:
+            self.panel_scale_combo.clear()
+            selected_index = -1
+            for index, target in enumerate(targets):
+                self.panel_scale_combo.addItem(
+                    target.title,
+                    target.scale_key,
+                )
+                if target.scale_key == current_key:
+                    selected_index = index
+            if selected_index < 0 and targets:
+                selected_index = 0
+            if selected_index >= 0:
+                self.panel_scale_combo.setCurrentIndex(selected_index)
+        finally:
+            self.panel_scale_combo.blockSignals(False)
+        self._load_selected_panel_scale_target()
+
+    def _panel_scale_target_changed(self, _index: int) -> None:
+        self._load_selected_panel_scale_target()
+
+    def _load_selected_panel_scale_target(self) -> None:
+        panel_id = self._selected_panel_id()
+        scale_key = self.panel_scale_combo.currentData()
+        target = None
+        if panel_id is not None and isinstance(scale_key, str):
+            target = next(
+                (
+                    item
+                    for item in self.dashboard.panel_scale_targets(panel_id)
+                    if item.scale_key == scale_key
+                ),
+                None,
+            )
+        enabled = target is not None and self._view is not None
+        self.panel_scale_combo.setEnabled(enabled)
+        self.panel_x_auto_check.blockSignals(True)
+        try:
+            self.panel_x_auto_check.setChecked(
+                True if target is None else target.auto_range
+            )
+        finally:
+            self.panel_x_auto_check.blockSignals(False)
+        if target is not None:
+            self.panel_x_min_spin.setValue(target.minimum)
+            self.panel_x_max_spin.setValue(target.maximum)
+        manual_enabled = enabled and not self.panel_x_auto_check.isChecked()
+        self.panel_x_auto_check.setEnabled(enabled)
+        self.panel_x_min_spin.setEnabled(manual_enabled)
+        self.panel_x_max_spin.setEnabled(manual_enabled)
+        self.panel_x_apply_button.setEnabled(enabled)
+
+    def _panel_x_auto_toggled(self, auto_range: bool) -> None:
+        enabled = self._view is not None and not auto_range
+        if enabled:
+            panel_id = self._selected_panel_id()
+            scale_key = self.panel_scale_combo.currentData()
+            if panel_id is not None and isinstance(scale_key, str):
+                target = next(
+                    (
+                        item
+                        for item in self.dashboard.panel_scale_targets(
+                            panel_id
+                        )
+                        if item.scale_key == scale_key
+                    ),
+                    None,
+                )
+                if target is not None:
+                    self.panel_x_min_spin.setValue(target.minimum)
+                    self.panel_x_max_spin.setValue(target.maximum)
+        self.panel_x_min_spin.setEnabled(enabled)
+        self.panel_x_max_spin.setEnabled(enabled)
+
+    def _apply_selected_panel_x_range(self) -> None:
+        scale_key = self.panel_scale_combo.currentData()
+        if not isinstance(scale_key, str) or not scale_key:
+            return
+        if self.panel_x_auto_check.isChecked():
+            self.dashboard.reset_panel_x_range(scale_key)
+            self._sync_panel_scale_controls()
+            return
+        minimum = float(self.panel_x_min_spin.value())
+        maximum = float(self.panel_x_max_spin.value())
+        if minimum >= maximum:
+            self.state_label.setText(
+                _operator_text(self._language, "panel_x_invalid")
+            )
+            return
+        self.dashboard.set_panel_x_range(
+            scale_key,
+            minimum,
+            maximum,
+        )
+        self._sync_panel_scale_controls()
 
     def _curve_selection_changed(self, _item: QListWidgetItem) -> None:
         if self._updating_controls:
@@ -1031,6 +1236,11 @@ class Wits0LiveViewWidget(QWidget):
             self.panel_list,
             self.panel_up_button,
             self.panel_down_button,
+            self.panel_scale_combo,
+            self.panel_x_auto_check,
+            self.panel_x_min_spin,
+            self.panel_x_max_spin,
+            self.panel_x_apply_button,
             self.save_form_button,
         ):
             widget.setEnabled(self._view is not None)
@@ -1145,6 +1355,7 @@ class Wits0LiveViewWidget(QWidget):
             ),
             panel_order=panel_order,
             hidden_panel_ids=hidden_panel_ids,
+            panel_x_ranges=self.dashboard.panel_x_ranges(),
         )
         self.form_settings.save(state)
         self._update_form_description()
@@ -1160,6 +1371,7 @@ class Wits0LiveViewWidget(QWidget):
         self._sidebar_user_override = None
         self._compact_parameters_open = False
         self.dashboard.set_panel_layout()
+        self.dashboard.set_panel_x_ranges(())
         self._sync_panel_controls_from_dashboard()
         self._apply_navigation_layout()
         self._update_form_description()
@@ -1296,6 +1508,12 @@ def _operator_text(language: AppLanguage, key: str) -> str:
             "panel_layout_group": "Панели графиков",
             "panel_up": "Выше",
             "panel_down": "Ниже",
+            "panel_scale": "Шкала X",
+            "panel_x_auto": "Авто X",
+            "panel_x_min": "Мин.",
+            "panel_x_max": "Макс.",
+            "panel_x_apply": "Применить X-диапазон",
+            "panel_x_invalid": "Минимум X должен быть меньше максимума.",
         },
         AppLanguage.KK: {
             "save_form": "Пішінді сақтау",
@@ -1315,6 +1533,12 @@ def _operator_text(language: AppLanguage, key: str) -> str:
             "panel_layout_group": "График панельдері",
             "panel_up": "Жоғары",
             "panel_down": "Төмен",
+            "panel_scale": "X шкаласы",
+            "panel_x_auto": "Авто X",
+            "panel_x_min": "Мин.",
+            "panel_x_max": "Макс.",
+            "panel_x_apply": "X ауқымын қолдану",
+            "panel_x_invalid": "X минимумы максимумнан кіші болуы керек.",
         },
         AppLanguage.EN: {
             "save_form": "Save form",
@@ -1334,6 +1558,12 @@ def _operator_text(language: AppLanguage, key: str) -> str:
             "panel_layout_group": "Plot panels",
             "panel_up": "Move up",
             "panel_down": "Move down",
+            "panel_scale": "X scale",
+            "panel_x_auto": "Auto X",
+            "panel_x_min": "Min",
+            "panel_x_max": "Max",
+            "panel_x_apply": "Apply X range",
+            "panel_x_invalid": "X minimum must be smaller than maximum.",
         },
     }
     return translations.get(language, translations[AppLanguage.EN]).get(key, key)

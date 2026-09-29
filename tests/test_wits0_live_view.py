@@ -57,12 +57,25 @@ def test_live_view_uses_read_only_projection_and_shared_downsampling() -> None:
     assert "def _panel_layout_from_controls(" in widget
     assert "def _move_selected_panel(" in widget
     assert "self.dashboard.set_panel_layout(panel_order, hidden_panel_ids)" in widget
+    assert "self.dashboard.set_panel_x_range(" in widget
+    assert "self.dashboard.reset_panel_x_range(" in widget
+    assert "panel_x_ranges=self.dashboard.panel_x_ranges()" in widget
+    assert "self.dashboard.set_panel_x_ranges(saved.panel_x_ranges)" in widget
+    assert "self.dashboard.scaleTargetsChanged.connect(" in widget
+    assert "panel = QScrollArea(self)" in widget
+    assert "Qt.ScrollBarPolicy.ScrollBarAsNeeded" in widget
     assert '"panel_up": "Выше"' in widget
     assert '"panel_down": "Ниже"' in widget
     assert '"panel_up": "Жоғары"' in widget
     assert '"panel_down": "Төмен"' in widget
     assert '"panel_up": "Move up"' in widget
     assert '"panel_down": "Move down"' in widget
+    assert '"panel_x_auto": "Авто X"' in widget
+    assert '"panel_x_apply": "Применить X-диапазон"' in widget
+    assert '"panel_x_auto": "Авто X"' in widget
+    assert '"panel_x_apply": "X ауқымын қолдану"' in widget
+    assert '"panel_x_auto": "Auto X"' in widget
+    assert '"panel_x_apply": "Apply X range"' in widget
     selection_body = widget[
         widget.index("def _curve_selection_changed")
         : widget.index("def _dashboard_range_changed")
@@ -89,6 +102,7 @@ def test_live_view_uses_read_only_projection_and_shared_downsampling() -> None:
 )
 def test_wits0_live_view_constructs_offscreen(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtCore import Qt
     from PySide6.QtWidgets import QApplication, QHeaderView, QWidget
 
     from geoworkbench.services.localization import AppLanguage
@@ -135,6 +149,17 @@ def test_wits0_live_view_constructs_offscreen(monkeypatch: pytest.MonkeyPatch) -
         assert widget.panel_list.count() == len(widget.dashboard.panels)
         assert widget.panel_up_button.text() == "Выше"
         assert widget.panel_down_button.text() == "Ниже"
+        assert (
+            widget.left_panel.horizontalScrollBarPolicy()
+            is Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        assert (
+            widget.left_panel.verticalScrollBarPolicy()
+            is Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        assert widget.panel_scale_combo is not None
+        assert widget.panel_x_auto_check.text() == "Авто X"
+        assert widget.panel_x_apply_button.text() == "Применить X-диапазон"
         assert widget.values_table.isVisible()
         for section in range(widget.values_table.columnCount()):
             assert (
@@ -280,6 +305,104 @@ def test_wits0_panel_editor_reorders_and_hides_dashboard_panels(
         final_order, final_hidden = widget.dashboard.panel_layout()
         assert final_order == moved_order
         assert final_hidden == (first_id,)
+    finally:
+        widget.close()
+        app.processEvents()
+
+
+@pytest.mark.skipif(
+    importlib.util.find_spec("PySide6") is None
+    or importlib.util.find_spec("pyqtgraph") is None,
+    reason="PySide6/pyqtgraph are not installed in the headless test environment",
+)
+def test_wits0_scale_editor_applies_manual_and_auto_per_unit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QApplication
+
+    from geoworkbench.services.localization import AppLanguage
+    from geoworkbench.ui.wits0_operator_dashboard import Wits0PanelScaleTarget
+    from geoworkbench.ui.wits0_live_view import Wits0LiveViewWidget
+
+    app = QApplication.instance() or QApplication([])
+    widget = Wits0LiveViewWidget(language=AppLanguage.RU)
+    widget._view = object()  # type: ignore[assignment] - UI boundary only
+
+    targets = (
+        Wits0PanelScaleTarget(
+            scale_key="gas_components|ppm",
+            panel_id="gas_components",
+            title="Газовые компоненты [ppm]",
+            unit="ppm",
+            auto_range=True,
+            minimum=0.0,
+            maximum=100.0,
+        ),
+        Wits0PanelScaleTarget(
+            scale_key="gas_components|%",
+            panel_id="gas_components",
+            title="Газовые компоненты [%]",
+            unit="%",
+            auto_range=False,
+            minimum=0.0,
+            maximum=2.0,
+        ),
+    )
+    applied: list[tuple[str, float, float]] = []
+    reset: list[str] = []
+    monkeypatch.setattr(
+        widget.dashboard,
+        "panel_scale_targets",
+        lambda panel_id: targets if panel_id == "gas_components" else (),
+    )
+    monkeypatch.setattr(
+        widget.dashboard,
+        "set_panel_x_range",
+        lambda key, low, high: applied.append((key, low, high)),
+    )
+    monkeypatch.setattr(
+        widget.dashboard,
+        "reset_panel_x_range",
+        reset.append,
+    )
+
+    try:
+        gas_row = next(
+            row
+            for row in range(widget.panel_list.count())
+            if widget.panel_list.item(row).data(Qt.ItemDataRole.UserRole)
+            == "gas_components"
+        )
+        widget.panel_list.setEnabled(True)
+        widget.panel_list.setCurrentRow(gas_row)
+        widget._sync_panel_scale_controls()
+
+        assert widget.panel_scale_combo.count() == 2
+        assert widget.panel_scale_combo.currentData() == "gas_components|ppm"
+        assert widget.panel_x_auto_check.isChecked()
+
+        widget.panel_x_auto_check.setChecked(False)
+        assert widget.panel_x_min_spin.value() == pytest.approx(0.0)
+        assert widget.panel_x_max_spin.value() == pytest.approx(100.0)
+        widget.panel_x_min_spin.setValue(5.0)
+        widget.panel_x_max_spin.setValue(75.0)
+        widget.panel_x_apply_button.click()
+        assert applied == [("gas_components|ppm", 5.0, 75.0)]
+
+        percent_index = widget.panel_scale_combo.findData(
+            "gas_components|%"
+        )
+        assert percent_index >= 0
+        widget.panel_scale_combo.setCurrentIndex(percent_index)
+        assert not widget.panel_x_auto_check.isChecked()
+        assert widget.panel_x_min_spin.value() == pytest.approx(0.0)
+        assert widget.panel_x_max_spin.value() == pytest.approx(2.0)
+
+        widget.panel_x_auto_check.setChecked(True)
+        widget.panel_x_apply_button.click()
+        assert reset == ["gas_components|%"]
     finally:
         widget.close()
         app.processEvents()

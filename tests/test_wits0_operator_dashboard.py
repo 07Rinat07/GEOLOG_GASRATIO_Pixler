@@ -326,6 +326,48 @@ def test_operator_dashboard_splits_semantic_panel_when_units_differ(
         base_range = base.plot.viewRange()[0]
         extra_range = extra.plot.viewRange()[0]
         assert base_range != extra_range
+
+        targets = {
+            item.scale_key: item
+            for item in dashboard.panel_scale_targets("gas_components")
+        }
+        assert set(targets) == {
+            "gas_components|ppm",
+            "gas_components|%",
+        }
+        assert targets["gas_components|ppm"].auto_range is True
+        assert targets["gas_components|%"].auto_range is True
+
+        dashboard.set_panel_x_range(
+            "gas_components|ppm",
+            0.0,
+            100.0,
+        )
+        dashboard.set_panel_x_range(
+            "gas_components|%",
+            0.0,
+            2.0,
+        )
+        dashboard.render_snapshot(snapshot)
+        app.processEvents()
+
+        assert base.plot.viewRange()[0] == pytest.approx([0.0, 100.0])
+        assert extra.plot.viewRange()[0] == pytest.approx([0.0, 2.0])
+        assert dashboard.panel_x_ranges() == (
+            ("gas_components|%", 0.0, 2.0),
+            ("gas_components|ppm", 0.0, 100.0),
+        )
+
+        dashboard.reset_panel_x_range("gas_components|ppm")
+        dashboard.render_snapshot(snapshot)
+        app.processEvents()
+        targets = {
+            item.scale_key: item
+            for item in dashboard.panel_scale_targets("gas_components")
+        }
+        assert targets["gas_components|ppm"].auto_range is True
+        assert targets["gas_components|%"].auto_range is False
+        assert extra.plot.viewRange()[0] == pytest.approx([0.0, 2.0])
     finally:
         dashboard.close()
         app.processEvents()
