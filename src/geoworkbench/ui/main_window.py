@@ -4578,7 +4578,18 @@ class MainWindow(QMainWindow):
             selection_range=selected_range,
         )
         explicit_form_id = str(getattr(report_form, "form_id", "") or "").strip()
-        form_id = explicit_form_id or self.user_profile_settings.selected_form_id()
+        layout_form_id = ""
+        if paged_tablet is not None:
+            scope_id = str(
+                getattr(paged_tablet.layout_model, "annotation_scope_id", "") or ""
+            )
+            if ":form:" in scope_id:
+                layout_form_id = scope_id.rsplit(":form:", 1)[1].strip()
+        form_id = (
+            explicit_form_id
+            or layout_form_id
+            or self.user_profile_settings.selected_form_id()
+        )
         initial_preferences = (
             self.user_profile_settings.print_export_preferences_for_form(form_id)
             if form_id
