@@ -405,8 +405,10 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   как отдельный view и возвращаются действием «Назад к монитору», без пересоздания acquisition.
   На широком окне сохраняется обычный splitter-sidebar и его пользовательская видимость.
   Current-values table растягивает четыре колонки по доступной ширине вместо собственного
-  горизонтального overflow. Следующие slices: persistence/reconnect acceptance, editable panel
-  layout и field UX.
+  горизонтального overflow. Третий live-first slice возвращает вкладку Monitor/Live в фокус
+  после успешного старта TCP capture, старта persistent acquisition и восстановления открытой
+  acquisition session; Raw/Parsed/Events/Help остаются вторичными диагностическими вкладками.
+  Следующие slices: persistence/reconnect acceptance, editable panel layout и field UX.
 
   Приёмка responsive-navigation инкремента: 600×420 открывается plot-first; переключение
   Monitor ↔ Parameters не меняет runtime state; на 1200 px sidebar и plot могут быть видимы
