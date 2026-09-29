@@ -205,15 +205,26 @@ def _detect_encoding(raw_bytes: bytes) -> str:
     return max(candidates)[2]
 
 
+_ENCODING_SAMPLE_LIMIT = 131_072
+
+
 def _encoding_sample(raw_bytes: bytes) -> bytes:
-    lowered = raw_bytes.lower()
+    """Inspect only bytes that can contribute to encoding detection.
+
+    Large LAS files can contain tens or hundreds of megabytes of numeric ASCII
+    rows. Lower-casing the complete source just to find the data-section marker
+    creates an avoidable full-file allocation. The encoding score is capped at
+    128 KiB anyway, so markers beyond that boundary cannot change the sample.
+    """
+
+    scan = raw_bytes[:_ENCODING_SAMPLE_LIMIT].lower()
     ascii_positions = [
         position
         for marker in (b"~a", b"~ascii", b"~log_data")
-        if (position := lowered.find(marker)) >= 0
+        if (position := scan.find(marker)) >= 0
     ]
-    header_end = min(ascii_positions) if ascii_positions else len(raw_bytes)
-    return raw_bytes[: min(header_end, 131_072)]
+    header_end = min(ascii_positions) if ascii_positions else len(scan)
+    return raw_bytes[:header_end]
 
 
 def _detect_newline_style(raw_bytes: bytes) -> NewlineStyle:
