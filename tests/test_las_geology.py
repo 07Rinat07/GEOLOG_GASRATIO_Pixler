@@ -459,6 +459,49 @@ def test_calcimetry_total_above_one_hundred_is_not_materialized(tmp_path: Path) 
     assert well.cuttings == []
 
 
+
+def test_opaque_vendor_channels_materialize_geology_from_description_and_unit(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "opaque-vendor-geology.las"
+    source.write_bytes(
+        _small_geology_las(
+            (
+                " S701.CODE : Код основной породы",
+                " S711.CODE : Код породы 1",
+                " S712.% : Содержание породы 1",
+                " S721.% : Лабораторный кальцит CaCO3",
+                " S722.% : Лабораторный доломит CaMg(CO3)2",
+            ),
+            (
+                "0 5 5 100 30 10",
+                "1 5 5 100 30 10",
+            ),
+        )
+    )
+
+    result = import_las_with_report(source)
+    session = ProjectSession()
+    well = session.add_dataset(
+        result.dataset,
+        "Test",
+        source_document=result.source_document,
+        import_report=result.report,
+        create_new_well=True,
+    )
+
+    assert len(well.lithology) == 1
+    assert well.lithology[0].lithotype_id == "las-code-5"
+    assert len(well.cuttings) == 1
+    sample = well.cuttings[0]
+    assert [(item.lithotype_id, item.percentage) for item in sample.components] == [
+        ("las-code-5", 100.0)
+    ]
+    assert sample.calcite_percent == 30.0
+    assert sample.dolomite_percent == 10.0
+    assert sample.insoluble_residue_percent == 60.0
+
+
 def test_localized_calcite_alias_passes_early_geology_gate(tmp_path: Path) -> None:
     source = tmp_path / "localized-calcite.las"
     source.write_bytes(
