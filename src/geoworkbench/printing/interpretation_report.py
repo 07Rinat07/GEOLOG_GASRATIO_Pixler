@@ -377,8 +377,29 @@ def _build_stratigraphy_snapshot(
         definition = catalog.get(
             ((interval.rank or "").strip().casefold(), interval.code.strip().casefold())
         )
-        if interval.name:
-            names = (interval.name, interval.name, interval.name)
+        if interval.name_i18n or interval.name:
+            # Persisted interval translations are authoritative authored names.
+            # Previously the report collapsed all languages to interval.name.
+            names = (
+                localized_text(
+                    interval.name_i18n,
+                    AppLanguage.RU,
+                    legacy=interval.name,
+                )
+                or interval.code,
+                localized_text(
+                    interval.name_i18n,
+                    AppLanguage.KK,
+                    legacy=interval.name,
+                )
+                or interval.code,
+                localized_text(
+                    interval.name_i18n,
+                    AppLanguage.EN,
+                    legacy=interval.name,
+                )
+                or interval.code,
+            )
         elif definition is not None:
             names = (
                 definition.name_ru,
