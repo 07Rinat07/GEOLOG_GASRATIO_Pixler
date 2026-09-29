@@ -1683,6 +1683,89 @@ def test_tablet_view_keeps_depth_in_form_order_and_scrolls_wide_canvas(qapp):
     view.close()
 
 
+def test_tablet_discrete_samples_follow_visible_depth_without_rebuilding_headers(qapp) -> None:
+    dataset = Dataset(
+        "sample-window",
+        "Sample window",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.linspace(0.0, 200.0, 201),
+    )
+    view = TabletView()
+    view.set_cuttings(
+        [
+            CuttingsSample(
+                f"sample-{index}",
+                float(index),
+                float(index + 1),
+                calcite_percent=30.0,
+                lba_type_id="oil",
+            )
+            for index in range(200)
+        ],
+        refresh=False,
+    )
+    view.set_layout_and_dataset(
+        TabletLayout(
+            [
+                TrackDefinition("calc", "Calc", TrackKind.CALCIMETRY),
+                TrackDefinition("lba", "LBA", TrackKind.LBA),
+            ],
+            visible_depth_top=0.0,
+            visible_depth_bottom=10.0,
+        ),
+        dataset,
+    )
+    calc = view._rendered["calc"]
+    lba = view._rendered["lba"]
+    original_header = calc.widget._curve_header_labels["__calcite__"]
+    assert "sample-5" in calc.analysis_items
+    assert "sample-150" not in calc.analysis_items
+    assert "sample-150" not in lba.analysis_items
+
+    view.set_visible_depth(150.0, 160.0)
+
+    assert "sample-150" in calc.analysis_items
+    assert "sample-5" not in calc.analysis_items
+    assert "sample-150" in lba.analysis_items
+    assert calc.widget._curve_header_labels["__calcite__"] is original_header
+    view.close()
+
+
+def test_tablet_can_fill_screen_width_and_scroll_with_visible_controls(qapp) -> None:
+    dataset = Dataset(
+        "fit-width",
+        "Fit width",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.linspace(0.0, 500.0, 501),
+    )
+    view = TabletView()
+    view.resize(1100, 620)
+    view.show()
+    view.set_layout_and_dataset(
+        TabletLayout(
+            [
+                TrackDefinition("depth", "Depth", TrackKind.DEPTH, width=100),
+                TrackDefinition("lith", "Lithology", TrackKind.LITHOLOGY, width=100),
+            ],
+            visible_depth_top=100.0,
+            visible_depth_bottom=150.0,
+            localize_factory_labels=True,
+        ),
+        dataset,
+    )
+    qapp.processEvents()
+
+    assert view._fit_width_button.isChecked()
+    assert view._rendered["lith"].widget.display_width > 100
+    view._page_down_button.click()
+    assert view.visible_depth_range == pytest.approx((140.0, 190.0))
+    view._fit_width_button.click()
+    assert view._rendered["lith"].widget.display_width == 100
+    view.close()
+
+
 def test_tablet_view_lod_budget_is_pixel_aware():
     from geoworkbench.tablet.tablet_view import TabletView
 

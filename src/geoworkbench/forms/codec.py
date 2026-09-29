@@ -86,6 +86,7 @@ def form_to_dict(form: FormDocument) -> dict[str, Any]:
                         "show_interval_labels": track.show_interval_labels,
                         "lba_label_orientation": track.lba_label_orientation,
                         "calcimetry_label_orientation": track.calcimetry_label_orientation,
+                        "calcimetry_show_total": track.calcimetry_show_total,
                         "show_description_borders": track.show_description_borders,
                         "vertical_ruler": {
                             "mode": track.vertical_ruler.mode.value,
@@ -246,9 +247,8 @@ def _track_from_dict(data: object) -> FormTrack:
             "calcimetry_label_orientation",
             default="vertical_top_to_bottom",
         ),
-        show_description_borders=_boolean(
-            data, "show_description_borders", default=True
-        ),
+        calcimetry_show_total=_optional_boolean(data, "calcimetry_show_total"),
+        show_description_borders=_boolean(data, "show_description_borders", default=True),
         vertical_ruler=_vertical_ruler_from_dict(data.get("vertical_ruler")),
         bindings=[_binding_from_dict(item) for item in _list(data, "bindings", default=[])],
     )
@@ -481,6 +481,13 @@ def _boolean(data: dict[str, Any], key: str, *, default: bool) -> bool:
     value = data.get(key, default)
     if not isinstance(value, bool):
         raise TypeError(f"{key} должен быть логическим")
+    return value
+
+
+def _optional_boolean(data: dict[str, Any], key: str) -> bool | None:
+    value = data.get(key)
+    if value is not None and not isinstance(value, bool):
+        raise TypeError(f"{key} должен быть логическим или null")
     return value
 
 

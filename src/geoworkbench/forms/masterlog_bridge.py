@@ -10,7 +10,9 @@ from geoworkbench.domain.models import (
     MasterlogCurveStyle,
     MasterlogTemplate,
 )
-from geoworkbench.forms.models import FormAxisKind, FormDocument, FormTrack, ParameterBinding
+from geoworkbench.forms.models import (
+    FormAxisKind, FormDocument, FormTrack, ParameterBinding, TOTAL_CALCIMETRY_PARAMETERS,
+)
 from geoworkbench.printing.header_fields import header_field_defaults
 from geoworkbench.printing.masterlog_presets import builtin_header_preset
 from geoworkbench.tablet.models import TrackKind, XScale, minimum_track_width
@@ -201,6 +203,17 @@ def _column_from_track(
         "show_interval_labels": track.show_interval_labels,
         "lba_label_orientation": track.lba_label_orientation,
         "calcimetry_label_orientation": track.calcimetry_label_orientation,
+        "calcimetry_show_total": (
+            track.calcimetry_show_total
+            if track.calcimetry_show_total is not None
+            else any(
+                binding.canonical_parameter_id.upper()
+                in TOTAL_CALCIMETRY_PARAMETERS
+                for binding in visible_bindings
+            )
+            if track.kind is TrackKind.CALCIMETRY and track.bindings
+            else True
+        ),
         "show_description_borders": track.show_description_borders,
     }
     if track.kind is TrackKind.TEXT:

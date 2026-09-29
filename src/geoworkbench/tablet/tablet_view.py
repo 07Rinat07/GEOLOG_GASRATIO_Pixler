@@ -476,6 +476,7 @@ class RenderedTrack:
     curve_pencil_badge: QLabel | None = None
     curve_pencil_readout: QLabel | None = None
     analysis_region: pg.LinearRegionItem | None = None
+    description_frames: dict[str, DeviceTiledRectItem] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -1163,9 +1164,8 @@ class CurveHeaderEditor(QFrame):
         if self._disposed:
             return self._title_text
         unit = self.unit.text().strip()
-        return (
-            f"{self._title_text}\n{self.minimum.value():g} … {self.maximum.value():g}"
-            + (f" {unit}" if unit else "")
+        return f"{self._title_text}\n{self.minimum.value():g} … {self.maximum.value():g}" + (
+            f" {unit}" if unit else ""
         )
 
     def update_display_range(
@@ -1548,8 +1548,8 @@ class TabletTrackWidget(QFrame):
                 )
             )
             label.double_clicked.connect(
-                lambda selected, track_id=self.definition.track_id: (
-                    self.curve_edit_requested.emit(track_id, selected)
+                lambda selected, track_id=self.definition.track_id: self.curve_edit_requested.emit(
+                    track_id, selected
                 )
             )
             label.context_requested.connect(
@@ -2086,6 +2086,8 @@ class TabletView(QWidget):
         self._annotation_print_mode = False
         self._lithology: tuple[LithologyInterval, ...] = ()
         self._cuttings: tuple[CuttingsSample, ...] = ()
+        self._geology_window: tuple[float, float] | None = None
+        self._depth_axis_mapping: tuple[int, int, np.ndarray, np.ndarray] | None = None
         self._stratigraphy: tuple[StratigraphyInterval, ...] = ()
         self._interpretations: tuple[WellInterpretation, ...] = ()
         self._selection = SelectionManager()
@@ -2238,6 +2240,18 @@ class TabletView(QWidget):
         self._zoom_out_button.setText("−")
         self._zoom_out_button.setToolTip(self._localizer.text("tablet.zoom_out"))
         self._zoom_out_button.clicked.connect(lambda: self.zoom_depth(1.25))
+        self._page_up_button = QToolButton()
+        self._page_up_button.setText("▲")
+        self._page_up_button.setToolTip(self._localizer.text("tablet.page_up"))
+        self._page_up_button.clicked.connect(lambda: self._page_depth(-1))
+        self._page_down_button = QToolButton()
+        self._page_down_button.setText("▼")
+        self._page_down_button.setToolTip(self._localizer.text("tablet.page_down"))
+        self._page_down_button.clicked.connect(lambda: self._page_depth(1))
+        self._fit_width_button = QToolButton()
+        self._fit_width_button.setText(self._localizer.text("tablet.fit_screen_width"))
+        self._fit_width_button.setCheckable(True)
+        self._fit_width_button.toggled.connect(self._fit_tracks_to_screen)
         self._full_range_button = QPushButton(self._localizer.text("tablet.full_range"))
         self._full_range_button.clicked.connect(self.show_full_vertical_range)
         self._span_combo = QComboBox()
@@ -2277,6 +2291,9 @@ class TabletView(QWidget):
         navigation.addWidget(self._goto_button)
         navigation.addWidget(self._zoom_in_button)
         navigation.addWidget(self._zoom_out_button)
+        navigation.addWidget(self._page_up_button)
+        navigation.addWidget(self._page_down_button)
+        navigation.addWidget(self._fit_width_button)
         self._depth_span_label = QLabel(self._localizer.text("tablet.depth_span"))
         navigation.addWidget(self._depth_span_label)
         navigation.addWidget(self._span_combo)
@@ -2437,6 +2454,16 @@ class TabletView(QWidget):
         self._curve_pencil_scroll.setFixedHeight(pencil_height)
 
         self._vertical_scrollbar = QScrollBar(Qt.Orientation.Vertical)
+        self._vertical_scrollbar.setObjectName("tabletDepthScrollBar")
+        self._vertical_scrollbar.setAccessibleName(self._localizer.text("tablet.depth_scrollbar"))
+        self._vertical_scrollbar.setMinimumWidth(18)
+        self._vertical_scrollbar.setStyleSheet(
+            "QScrollBar:vertical {background:#e2e8f0; width:18px; margin:2px;} "
+            "QScrollBar::handle:vertical {background:#2563eb; min-height:42px; "
+            "border-radius:5px; margin:1px 2px;} "
+            "QScrollBar::handle:vertical:hover {background:#1d4ed8;} "
+            "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {height:0;}"
+        )
         self._vertical_scrollbar.setRange(0, 0)
         self._vertical_scrollbar.valueChanged.connect(self._vertical_scrollbar_changed)
         self._mini_map = TabletMiniMap()
@@ -2474,6 +2501,10 @@ class TabletView(QWidget):
         self._goto_button.setText(self._localizer.text("tablet.goto"))
         self._zoom_in_button.setToolTip(self._localizer.text("tablet.zoom_in"))
         self._zoom_out_button.setToolTip(self._localizer.text("tablet.zoom_out"))
+        self._page_up_button.setToolTip(self._localizer.text("tablet.page_up"))
+        self._page_down_button.setToolTip(self._localizer.text("tablet.page_down"))
+        self._fit_width_button.setText(self._localizer.text("tablet.fit_screen_width"))
+        self._vertical_scrollbar.setAccessibleName(self._localizer.text("tablet.depth_scrollbar"))
         self._full_range_button.setText(self._localizer.text("tablet.full_range"))
         self._depth_span_label.setText(self._localizer.text("tablet.depth_span"))
         self._curve_pencil_button.setText(self._localizer.text("tablet.curve_pencil_button"))
@@ -3102,6 +3133,29 @@ class TabletView(QWidget):
 
     def _update_track_canvas_width(self) -> int:
         visible = self._layout_model.visible_tracks()
+        if self._rendered and not self._annotation_print_mode:
+            descriptor = self._axis_descriptor()
+            widths = [
+                effective_track_width(
+                    track,
+                    axis_role=descriptor.role if descriptor is not None else None,
+                    axis_type=descriptor.index_type if descriptor is not None else None,
+                )
+                for track in visible
+            ]
+            natural = horizontal_track_extent(widths, spacing=self._tracks_layout.spacing())
+            available = self._scroll.viewport().width()
+            if self._fit_width_button.isChecked() and len(widths) > 1 and 0 < natural < available:
+                extra = available - natural
+                weight = sum(widths)
+                widths = [width + round(extra * width / weight) for width in widths]
+                widths[-1] += available - horizontal_track_extent(
+                    widths, spacing=self._tracks_layout.spacing()
+                )
+            for definition, width in zip(visible, widths, strict=True):
+                rendered = self._rendered.get(definition.track_id)
+                if rendered is not None and rendered.widget.display_width != width:
+                    rendered.widget.set_track_width(width)
         total_width = horizontal_track_extent(
             (self._track_display_width(track) for track in visible),
             spacing=self._tracks_layout.spacing(),
@@ -3110,7 +3164,16 @@ class TabletView(QWidget):
         self._tracks_container.setFixedWidth(max(total_width, 1))
         return total_width
 
+    def _fit_tracks_to_screen(self) -> None:
+        if not self._rendered:
+            return
+        self._update_track_canvas_width()
+        self._rebuild_group_headers()
+        self._synchronize_track_header_bands()
+
     def _resize_track_from_widget(self, track_id: str, new_width: int) -> None:
+        if self._fit_width_button.isChecked():
+            self._fit_width_button.setChecked(False)
         try:
             definition = self._layout_model.track_by_id(track_id)
         except KeyError:
@@ -4064,9 +4127,7 @@ class TabletView(QWidget):
         axis_descriptor = self._axis_descriptor()
         axis_name = axis_descriptor.label if axis_descriptor is not None else "Axis"
         unit_suffix = f" {unit}" if unit else ""
-        value_text = (
-            f"{format_decimal_number(point.source_value, precision=7)}{unit_suffix}"
-        )
+        value_text = f"{format_decimal_number(point.source_value, precision=7)}{unit_suffix}"
         old_text = (
             f"{format_decimal_number(old_value, precision=7)}{unit_suffix}"
             if old_value is not None
@@ -4076,9 +4137,7 @@ class TabletView(QWidget):
         if old_value is not None:
             delta = point.source_value - old_value
             delta_prefix = "+" if delta > 0.0 else ""
-            delta_text = (
-                f"{delta_prefix}{format_decimal_number(delta, precision=7)}{unit_suffix}"
-            )
+            delta_text = f"{delta_prefix}{format_decimal_number(delta, precision=7)}{unit_suffix}"
         label = rendered.curve_pencil_readout
         if label is None:
             return
@@ -4115,7 +4174,10 @@ class TabletView(QWidget):
     def _hide_curve_pencil_hover(self, track_id: str | None) -> None:
         if track_id is None:
             return
-        if self._curve_pencil_last_hover is not None and self._curve_pencil_last_hover[0] == track_id:
+        if (
+            self._curve_pencil_last_hover is not None
+            and self._curve_pencil_last_hover[0] == track_id
+        ):
             self._curve_pencil_last_hover = None
         rendered = self._rendered.get(track_id)
         if rendered is not None and rendered.curve_pencil_readout is not None:
@@ -4290,7 +4352,10 @@ class TabletView(QWidget):
                 self._curve_pencil_points = deduplicated
                 self._update_curve_pencil_preview()
                 self._update_curve_pencil_status()
-                if event_type == QEvent.Type.MouseButtonDblClick and len(self._curve_pencil_points) >= 2:
+                if (
+                    event_type == QEvent.Type.MouseButtonDblClick
+                    and len(self._curve_pencil_points) >= 2
+                ):
                     if self._commit_curve_pencil_gesture():
                         self.cancel_curve_pencil_gesture()
                 event.accept()
@@ -4898,10 +4963,7 @@ class TabletView(QWidget):
         depth_unit = str(payload.get("depth_unit", "м")).strip() or "м"
         raw_depth = payload.get("depth", 0.0)
         depth = float(raw_depth) if isinstance(raw_depth, (int, float)) else 0.0
-        return (
-            f"{payload.get('mnemonic', '')}: {rendered_value} · "
-            f"{depth:g} {depth_unit}"
-        )
+        return f"{payload.get('mnemonic', '')}: {rendered_value} · {depth:g} {depth_unit}"
 
     def _show_curve_value_popup(
         self,
@@ -4978,6 +5040,7 @@ class TabletView(QWidget):
             self._analysis_interval_gesture = None
             self.interval_analysis_cleared.emit()
         self._dataset = dataset
+        self._depth_axis_mapping = None
         self._geometry_cache.clear()
         self._static_layer_cache.clear()
 
@@ -5247,10 +5310,7 @@ class TabletView(QWidget):
             self._selected_interpretation_id,
             refresh=False,
         )
-        if (
-            self._selected_interpretation_id is not None
-            and self._selected_interval_id is not None
-        ):
+        if self._selected_interpretation_id is not None and self._selected_interval_id is not None:
             clone._interpretation_selection.select_interval(
                 self._selected_interpretation_id,
                 self._selected_interval_id,
@@ -5454,6 +5514,9 @@ class TabletView(QWidget):
             # the dataset during refresh, so it remains safe for the new tracks.
             self._layout_mutations.set_visible_depth(*previous_range)
         self._layout_model = layout_model
+        was_blocked = self._fit_width_button.blockSignals(True)
+        self._fit_width_button.setChecked(layout_model.localize_factory_labels)
+        self._fit_width_button.blockSignals(was_blocked)
         self._cursor_depth = layout_model.cursor_depth
 
     def set_layout_model(self, layout_model: TabletLayout) -> None:
@@ -5733,8 +5796,7 @@ class TabletView(QWidget):
                     values.append(f"{display_name} [{mnemonic}]: {time_text}")
                 else:
                     values.append(
-                        f"{display_name} [{mnemonic}]: {value:g}"
-                        f"{f' {unit}' if unit else ''}"
+                        f"{display_name} [{mnemonic}]: {value:g}{f' {unit}' if unit else ''}"
                     )
                 seen.add(mnemonic)
         return " | ".join(values)
@@ -5779,10 +5841,7 @@ class TabletView(QWidget):
             TrackKind.GAS,
             TrackKind.DEXP,
         }:
-            hint = (
-                f"{self._navigation_hint}\n"
-                f"{self._localizer.text('statistics.drag_hint')}"
-            )
+            hint = f"{self._navigation_hint}\n{self._localizer.text('statistics.drag_hint')}"
         else:
             hint = self._navigation_hint
         track.plot.setToolTip(hint)
@@ -5809,7 +5868,7 @@ class TabletView(QWidget):
         ) = self._populate_track(track, definition, visible_top, visible_bottom)
         lithology_items = self._populate_lithology(track, definition)
         lithology_label_items = self._populate_lithology_labels(track, definition)
-        lithology_description_items = self._populate_lithology_descriptions(
+        lithology_description_items, description_frames = self._populate_lithology_descriptions(
             track, definition
         )
         # Professional annotations live once in the canvas-wide overlay;
@@ -5832,6 +5891,7 @@ class TabletView(QWidget):
             curve_render_keys={},
             relative_fill_items=relative_fill_items,
             relative_baseline_item=relative_baseline_item,
+            description_frames=description_frames,
         )
         view_box = track.plot.getViewBox()
         view_box.disableAutoRange(axis=pg.ViewBox.YAxis)
@@ -5942,6 +6002,7 @@ class TabletView(QWidget):
             ),
         )
         self._rendered.clear()
+        self._geology_window = None
         self._shared_vertical_ruler_layout = None
         self._overlay_layers.clear()
         self._tooltip_items.clear()
@@ -6026,6 +6087,9 @@ class TabletView(QWidget):
         elif visible_top is not None and visible_bottom is not None:
             visible_top, visible_bottom = self._normalize_depth_window(visible_top, visible_bottom)
             self._layout_mutations.set_visible_depth(visible_top, visible_bottom)
+
+        if visible_top is not None and visible_bottom is not None:
+            self._geology_window = self._prefetched_geology_window(visible_top, visible_bottom)
 
         axis_descriptor = self._axis_descriptor()
         self._rendered = self._track_lifecycle.create_entries(
@@ -6320,6 +6384,10 @@ class TabletView(QWidget):
     def _restore_visible_depth_after_resize(self) -> None:
         if not self._rendered:
             return
+        previous_widths = tuple(item.widget.display_width for item in self._rendered.values())
+        self._update_track_canvas_width()
+        if previous_widths != tuple(item.widget.display_width for item in self._rendered.values()):
+            self._rebuild_group_headers()
         self._synchronize_track_header_bands()
         self._synchronize_track_heights()
         current = self.visible_depth_range
@@ -6534,6 +6602,9 @@ class TabletView(QWidget):
             self._goto_button,
             self._zoom_in_button,
             self._zoom_out_button,
+            self._page_up_button,
+            self._page_down_button,
+            self._fit_width_button,
             self._full_range_button,
             self._span_combo,
             self._vertical_scrollbar,
@@ -6856,6 +6927,13 @@ class TabletView(QWidget):
             unit=descriptor.unit if descriptor is not None else "",
         )
         return self._apply_visible_depth(top, bottom, emit_change=True)
+
+    def _page_depth(self, direction: int) -> bool:
+        visible = self.visible_depth_range
+        if visible is None:
+            return False
+        offset = (visible[1] - visible[0]) * 0.8 * direction
+        return self._apply_visible_depth(visible[0] + offset, visible[1] + offset, emit_change=True)
 
     def zoom_depth(self, factor: float, anchor: float | None = None) -> bool:
         current = self.visible_depth_range
@@ -7198,10 +7276,7 @@ class TabletView(QWidget):
             plot = None
         if plot is not None and isinstance(event, QKeyEvent):
             if event.type() == QEvent.Type.KeyPress:
-                if (
-                    event.key() == Qt.Key.Key_Escape
-                    and self._analysis_interval_gesture is not None
-                ):
+                if event.key() == Qt.Key.Key_Escape and self._analysis_interval_gesture is not None:
                     self.cancel_interval_analysis(clear_interval=True)
                     event.accept()
                     return True
@@ -7238,19 +7313,18 @@ class TabletView(QWidget):
                 )
             )
         )
-        if isinstance(event, QMouseEvent) and (
-            plot is not None or self._interaction_router.has_active_capture
-        ) and (self._interaction_router.has_active_capture or not pan_pointer):
-            response = self._route_interaction_event(
-                self._tablet_input_from_mouse(plot, event)
-            )
+        if (
+            isinstance(event, QMouseEvent)
+            and (plot is not None or self._interaction_router.has_active_capture)
+            and (self._interaction_router.has_active_capture or not pan_pointer)
+        ):
+            response = self._route_interaction_event(self._tablet_input_from_mouse(plot, event))
             self._apply_interaction_cursor(watched, response)
             if response.consume:
-                if (
-                    event.type()
-                    in {QEvent.Type.MouseButtonPress, QEvent.Type.MouseButtonDblClick}
-                    and isinstance(watched, QWidget)
-                ):
+                if event.type() in {
+                    QEvent.Type.MouseButtonPress,
+                    QEvent.Type.MouseButtonDblClick,
+                } and isinstance(watched, QWidget):
                     watched.setFocus(Qt.FocusReason.MouseFocusReason)
                 event.accept()
                 return True
@@ -8037,6 +8111,7 @@ class TabletView(QWidget):
                     )
             self._synchronize_vertical_rulers(normalized_top, normalized_bottom)
             self._update_visible_curve_data(normalized_top, normalized_bottom)
+            self._refresh_visible_geology(normalized_top, normalized_bottom)
             self._update_lithology_text_visibility(normalized_top, normalized_bottom)
             self._update_stratigraphy_text_visibility(normalized_top, normalized_bottom)
         finally:
@@ -8127,21 +8202,27 @@ class TabletView(QWidget):
     def _depth_to_axis_value(self, depth: float) -> float:
         if self._dataset is None:
             return float(depth)
-        axis = self._axis_values()
-        source_depth = np.asarray(self._dataset.depth, dtype=float)
-        valid = np.isfinite(source_depth) & np.isfinite(axis)
-        if not np.any(valid):
+        index = self._vertical_index()
+        if index is None:
             return float(depth)
-        x = source_depth[valid]
-        y = axis[valid]
-        order = np.argsort(x, kind="stable")
-        x = x[order]
-        y = y[order]
-        unique_x, unique_positions = np.unique(x, return_index=True)
-        unique_y = y[unique_positions]
-        if unique_x.size == 1:
-            return float(unique_y[0])
-        return float(np.interp(float(depth), unique_x, unique_y))
+        if index.role is IndexRole.DEPTH and np.shares_memory(index.values, self._dataset.depth):
+            return float(depth)
+        cache = self._depth_axis_mapping
+        axis = self._axis_values()
+        source_depth = self._dataset.depth
+        if cache is None or cache[0] != id(source_depth) or cache[1] != id(index.values):
+            valid = np.isfinite(source_depth) & np.isfinite(axis)
+            if not np.any(valid):
+                return float(depth)
+            order = np.argsort(source_depth[valid], kind="stable")
+            sorted_depth = source_depth[valid][order]
+            sorted_axis = axis[valid][order]
+            unique_depth, positions = np.unique(sorted_depth, return_index=True)
+            cache = (id(source_depth), id(index.values), unique_depth, sorted_axis[positions])
+            self._depth_axis_mapping = cache
+        if cache[2].size == 1:
+            return float(cache[3][0])
+        return float(np.interp(float(depth), cache[2], cache[3]))
 
     def _axis_to_depth_value(self, value: float) -> float:
         if self._dataset is None:
@@ -8936,7 +9017,10 @@ class TabletView(QWidget):
             generated = " / ".join(definition.curve_mnemonics)
             if len(definition.curve_mnemonics) == 1:
                 mnemonic = definition.curve_mnemonics[0]
-                if definition.title.strip().casefold() == mnemonic.casefold() and self._dataset is not None:
+                if (
+                    definition.title.strip().casefold() == mnemonic.casefold()
+                    and self._dataset is not None
+                ):
                     curve = self._dataset.curve_by_mnemonic(mnemonic)
                     if curve is not None:
                         display = self._curve_display_name(definition, mnemonic, curve).strip()
@@ -9647,6 +9731,8 @@ class TabletView(QWidget):
         track.plot.setMouseEnabled(x=False, y=True)
         rendered: dict[str, tuple[pg.BarGraphItem, ...]] = {}
         for sample in self._cuttings:
+            if not self._geology_interval_is_loaded(sample.top_depth, sample.bottom_depth):
+                continue
             left = 0.0
             axis_top, axis_bottom = self._depth_interval_to_axis(
                 sample.top_depth, sample.bottom_depth
@@ -9674,7 +9760,11 @@ class TabletView(QWidget):
         return rendered
 
     def _populate_sample_analysis(
-        self, track: TabletTrackWidget, definition: TrackDefinition
+        self,
+        track: TabletTrackWidget,
+        definition: TrackDefinition,
+        *,
+        initialize_track: bool = True,
     ) -> dict[str, tuple[object, ...]]:
         """Render discrete calcimetry and LBA samples as interval observations.
 
@@ -9706,14 +9796,18 @@ class TabletView(QWidget):
                         None,
                     ),
                 ]
-                if any(sample.total_carbonate_percent is not None for sample in self._cuttings):
-                    headers.append((
-                        "__total_carbonate__",
-                        self._localizer.text("tablet.calcimetry_header_total"),
-                        "#14b8a6",
-                        "#0f172a",
-                        None,
-                    ))
+                if definition.calcimetry_show_total is not False and any(
+                    sample.total_carbonate_percent is not None for sample in self._cuttings
+                ):
+                    headers.append(
+                        (
+                            "__total_carbonate__",
+                            self._localizer.text("tablet.calcimetry_header_total"),
+                            "#14b8a6",
+                            "#0f172a",
+                            None,
+                        )
+                    )
                 headers.append(
                     (
                         "__residue__",
@@ -9723,36 +9817,40 @@ class TabletView(QWidget):
                         None,
                     )
                 )
-                track.set_curve_headers(headers)
+                if initialize_track:
+                    track.set_curve_headers(headers)
         else:
             # GeoData-style LBA track: three synchronized subcolumns for
             # score, fluorescence color and bitumoid type.  This is a
             # discrete laboratory observation, not a continuous curve.
             track.plot.setXRange(0.0, 3.0, padding=0)
-            track.set_curve_headers(
-                [
-                    (
-                        "__lba_legend__",
-                        self._localizer.text("tablet.lba_columns"),
-                        "#f97316",
-                        "#0f172a",
-                        None,
-                    )
-                ]
-            )
-            for divider in (1.0, 2.0):
-                track.plot.addItem(
-                    pg.InfiniteLine(
-                        pos=divider,
-                        angle=90,
-                        movable=False,
-                        pen=pg.mkPen("#94a3b8", width=0.8),
-                    )
+            if initialize_track:
+                track.set_curve_headers(
+                    [
+                        (
+                            "__lba_legend__",
+                            self._localizer.text("tablet.lba_columns"),
+                            "#f97316",
+                            "#0f172a",
+                            None,
+                        )
+                    ]
                 )
+                for divider in (1.0, 2.0):
+                    track.plot.addItem(
+                        pg.InfiniteLine(
+                            pos=divider,
+                            angle=90,
+                            movable=False,
+                            pen=pg.mkPen("#94a3b8", width=0.8),
+                        )
+                    )
         track.plot.setMouseEnabled(x=False, y=True)
 
         rendered: dict[str, tuple[object, ...]] = {}
         for sample in self._cuttings:
+            if not self._geology_interval_is_loaded(sample.top_depth, sample.bottom_depth):
+                continue
             axis_top, axis_bottom = self._depth_interval_to_axis(
                 sample.top_depth, sample.bottom_depth
             )
@@ -9764,12 +9862,19 @@ class TabletView(QWidget):
                 if (
                     sample.calcite_percent is None
                     and sample.dolomite_percent is None
-                    and sample.total_carbonate_percent is None
+                    and (
+                        sample.total_carbonate_percent is None
+                        or definition.calcimetry_show_total is False
+                    )
                 ):
                     continue
                 calcite = sample.calcite_percent
                 dolomite = sample.dolomite_percent
-                total = sample.total_carbonate_percent
+                total = (
+                    sample.total_carbonate_percent
+                    if definition.calcimetry_show_total is not False
+                    else None
+                )
                 residue = sample.insoluble_residue_percent
                 tooltip_parts = [
                     self._localizer.text(
@@ -9810,12 +9915,16 @@ class TabletView(QWidget):
 
                 left = 0.0
                 components = (
-                    ((self._localizer.text("tablet.calcimetry_total"), total, "#14b8a6"),
-                     (self._localizer.text("tablet.calcimetry_residue"), residue, "#cbd5e1"))
+                    (
+                        (self._localizer.text("tablet.calcimetry_total"), total, "#14b8a6"),
+                        (self._localizer.text("tablet.calcimetry_residue"), residue, "#cbd5e1"),
+                    )
                     if calcite is None and dolomite is None
-                    else ((self._localizer.text("tablet.calcimetry_calcite"), calcite, "#06b6d4"),
-                          (self._localizer.text("tablet.calcimetry_dolomite"), dolomite, "#8b5cf6"),
-                          (self._localizer.text("tablet.calcimetry_residue"), residue, "#cbd5e1"))
+                    else (
+                        (self._localizer.text("tablet.calcimetry_calcite"), calcite, "#06b6d4"),
+                        (self._localizer.text("tablet.calcimetry_dolomite"), dolomite, "#8b5cf6"),
+                        (self._localizer.text("tablet.calcimetry_residue"), residue, "#cbd5e1"),
+                    )
                 )
                 for label, value, color in components:
                     if value is None:
@@ -10063,7 +10172,7 @@ class TabletView(QWidget):
 
     def _populate_lithology_descriptions(
         self, track: TabletTrackWidget, definition: TrackDefinition
-    ) -> dict[str, pg.TextItem]:
+    ) -> tuple[dict[str, pg.TextItem], dict[str, DeviceTiledRectItem]]:
         """Render rich cuttings text and lithology fallback in one text track.
 
         Cuttings descriptions have priority because they are entered for an
@@ -10072,8 +10181,9 @@ class TabletView(QWidget):
         interval, which keeps old projects readable without duplicating text.
         """
         if definition.kind not in {TrackKind.TEXT, TrackKind.INTERPRETATION}:
-            return {}
+            return {}, {}
         rendered: dict[str, pg.TextItem] = {}
+        frames: dict[str, DeviceTiledRectItem] = {}
         text_width = max(32, definition.width - 16)
         described_ranges: list[tuple[float, float]] = []
         interpretation = self._current_interpretation()
@@ -10103,6 +10213,9 @@ class TabletView(QWidget):
             ).strip()
             if not description:
                 continue
+            described_ranges.append((sample.top_depth, sample.bottom_depth))
+            if not self._geology_interval_is_loaded(sample.top_depth, sample.bottom_depth):
+                continue
             label = pg.TextItem(anchor=(0.0, 0.5))
             body = (
                 rich_body(description)
@@ -10110,10 +10223,7 @@ class TabletView(QWidget):
                 else plain_html(description)
             )
             style = "color:#202020; margin:0; padding:2px;"
-            if (
-                definition.kind is TrackKind.INTERPRETATION
-                and definition.show_description_borders
-            ):
+            if definition.kind is TrackKind.INTERPRETATION and definition.show_description_borders:
                 style += " background:#f8fafc; border:1px solid #94a3b8;"
             display_html = f'<div style="{style}">{body}</div>'
             label.setData(_DESCRIPTION_HTML_ROLE, display_html)
@@ -10127,10 +10237,7 @@ class TabletView(QWidget):
             axis_top, axis_bottom = self._depth_interval_to_axis(
                 sample.top_depth, sample.bottom_depth
             )
-            if (
-                definition.kind is TrackKind.INTERPRETATION
-                or definition.show_description_borders
-            ):
+            if definition.kind is TrackKind.INTERPRETATION or definition.show_description_borders:
                 interval_block = DeviceTiledRectItem(
                     QRectF(
                         0.0,
@@ -10151,6 +10258,7 @@ class TabletView(QWidget):
                 )
                 interval_block.setZValue(20.0)
                 track.plot.addItem(interval_block)
+                frames[sample.sample_id] = interval_block
                 label.setZValue(21.0)
             label.setPos(0.02, (axis_top + axis_bottom) / 2.0)
             label.setToolTip(
@@ -10162,12 +10270,13 @@ class TabletView(QWidget):
             )
             track.plot.addItem(label)
             rendered[sample.sample_id] = label
-            described_ranges.append((sample.top_depth, sample.bottom_depth))
 
         if definition.kind is TrackKind.INTERPRETATION:
-            return rendered
+            return rendered, frames
 
         for interval in self._lithology:
+            if not self._geology_interval_is_loaded(interval.top_depth, interval.bottom_depth):
+                continue
             overlaps_sample_text = any(
                 interval.top_depth < bottom and interval.bottom_depth > top
                 for top, bottom in described_ranges
@@ -10181,11 +10290,12 @@ class TabletView(QWidget):
                 self._localizer.language,
                 legacy=interval.description,
             ).strip()
-            description = self._localized_rock_text(raw_description) if raw_description else fallback
+            description = (
+                self._localized_rock_text(raw_description) if raw_description else fallback
+            )
             label = pg.TextItem(anchor=(0.0, 0.5))
             display_html = (
-                '<div style="color:#202020; margin:0; padding:0;">'
-                f"{plain_html(description)}</div>"
+                f'<div style="color:#202020; margin:0; padding:0;">{plain_html(description)}</div>'
             )
             label.setData(_DESCRIPTION_HTML_ROLE, display_html)
             label.setData(_DESCRIPTION_WORD_WRAP_ROLE, True)
@@ -10208,11 +10318,12 @@ class TabletView(QWidget):
                 )
                 interval_block.setZValue(20.0)
                 track.plot.addItem(interval_block)
+                frames[interval.interval_id] = interval_block
                 label.setZValue(21.0)
             label.setPos(0.02, (axis_top + axis_bottom) / 2.0)
             track.plot.addItem(label)
             rendered[interval.interval_id] = label
-        return rendered
+        return rendered, frames
 
     def _populate_lithology_labels(
         self, track: TabletTrackWidget, definition: TrackDefinition
@@ -10379,9 +10490,8 @@ class TabletView(QWidget):
 
     def _annotation_axis_value(self, record) -> float | None:
         if record.anchor is AnnotationAnchor.TIME:
-            if (
-                record.axis_value is not None
-                and (record.axis_id is None or record.axis_id == self.vertical_index_id)
+            if record.axis_value is not None and (
+                record.axis_id is None or record.axis_id == self.vertical_index_id
             ):
                 return float(record.axis_value)
             if record.depth is not None:
@@ -10486,9 +10596,69 @@ class TabletView(QWidget):
         for rendered in self._rendered.values():
             self._update_rendered_track_curve_data(rendered, top, bottom)
 
+    def _prefetched_geology_window(self, top: float, bottom: float) -> tuple[float, float]:
+        depth_top, depth_bottom = sorted(
+            (self._axis_to_depth_value(top), self._axis_to_depth_value(bottom))
+        )
+        margin = max(10.0, min(100.0, depth_bottom - depth_top))
+        return depth_top - margin, depth_bottom + margin
+
+    def _geology_interval_is_loaded(self, top: float, bottom: float) -> bool:
+        window = self._geology_window
+        return window is None or (bottom >= window[0] and top <= window[1])
+
+    def _refresh_visible_geology(self, top: float, bottom: float) -> None:
+        """Keep only nearby sample graphics in the Qt scene while panning.
+
+        The domain samples remain complete. Print pagination calls set_visible_depth
+        for every page, so its page geometry is materialized from the same source.
+        """
+
+        if self._geology_window is None or not self._rendered:
+            return
+        depth_top, depth_bottom = sorted(
+            (self._axis_to_depth_value(top), self._axis_to_depth_value(bottom))
+        )
+        if self._geology_window[0] <= depth_top and depth_bottom <= self._geology_window[1]:
+            return
+        self._geology_window = self._prefetched_geology_window(top, bottom)
+        for rendered in self._rendered.values():
+            plot = rendered.plot
+            if plot is None:
+                continue
+            if rendered.definition.kind is TrackKind.CUTTINGS:
+                for items in (rendered.cuttings_items or {}).values():
+                    for item in items:
+                        plot.removeItem(item)
+                rendered.cuttings_items = self._populate_cuttings(
+                    rendered.widget, rendered.definition
+                )
+            elif rendered.definition.kind in {TrackKind.CALCIMETRY, TrackKind.LBA}:
+                for items in (rendered.analysis_items or {}).values():
+                    for item in items:
+                        plot.removeItem(item)
+                rendered.analysis_items = self._populate_sample_analysis(
+                    rendered.widget, rendered.definition, initialize_track=False
+                )
+            elif rendered.definition.kind in {TrackKind.TEXT, TrackKind.INTERPRETATION}:
+                for item in (rendered.lithology_description_items or {}).values():
+                    plot.removeItem(item)
+                for item in (rendered.description_frames or {}).values():
+                    plot.removeItem(item)
+                (rendered.lithology_description_items, rendered.description_frames) = (
+                    self._populate_lithology_descriptions(rendered.widget, rendered.definition)
+                )
+
     def _update_lithology_text_visibility(self, top: float, bottom: float) -> None:
         lithology_intervals = {item.interval_id: item for item in self._lithology}
-        cuttings_intervals = {item.sample_id: item for item in self._cuttings}
+        visible_ids = {
+            identifier
+            for rendered in self._rendered.values()
+            for identifier in (rendered.lithology_description_items or {})
+        }
+        cuttings_intervals = {
+            item.sample_id: item for item in self._cuttings if item.sample_id in visible_ids
+        }
         for rendered in self._rendered.values():
             if rendered.plot is None:
                 continue
@@ -10592,6 +10762,7 @@ class TabletView(QWidget):
                 self._layout_mutations.set_visible_depth(top, bottom)
             self._update_visible_curve_data(top, bottom)
             self._synchronize_depth_ranges(top, bottom)
+            self._refresh_visible_geology(top, bottom)
             self._update_lithology_text_visibility(top, bottom)
             self._update_stratigraphy_text_visibility(top, bottom)
             # A direct ViewBox gesture (wheel, pan or zoom) bypasses

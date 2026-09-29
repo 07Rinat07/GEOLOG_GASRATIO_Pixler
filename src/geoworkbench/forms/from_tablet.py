@@ -99,6 +99,7 @@ def form_from_tablet_layout(
             show_interval_labels=live_track.show_interval_labels,
             lba_label_orientation=live_track.lba_label_orientation,
             calcimetry_label_orientation=live_track.calcimetry_label_orientation,
+            calcimetry_show_total=live_track.calcimetry_show_total,
             show_description_borders=live_track.show_description_borders,
             vertical_ruler=live_track.vertical_ruler,
         )

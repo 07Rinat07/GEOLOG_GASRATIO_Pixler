@@ -188,6 +188,7 @@ class TrackDefinition:
     )
     lba_label_orientation: str = "vertical_top_to_bottom"
     calcimetry_label_orientation: str = "vertical_top_to_bottom"
+    calcimetry_show_total: bool | None = None
     show_description_borders: bool = True
 
     def __post_init__(self) -> None:
@@ -201,6 +202,10 @@ class TrackDefinition:
         self.calcimetry_label_orientation = normalize_text_orientation(
             self.calcimetry_label_orientation
         )
+        if self.calcimetry_show_total is not None and not isinstance(
+            self.calcimetry_show_total, bool
+        ):
+            raise ValueError("calcimetry_show_total должен быть логическим или null")
         if not isinstance(self.show_interval_labels, bool):
             raise ValueError("show_interval_labels должен быть логическим")
         if not isinstance(self.show_description_borders, bool):

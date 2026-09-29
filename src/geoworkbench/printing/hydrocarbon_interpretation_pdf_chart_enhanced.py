@@ -80,7 +80,6 @@ def render_chart_pages(
         depth_max,
         available_height,
     )
-    ranges = base_chart._curve_ranges(panels, dataset)
     for page_index, page in enumerate(pages, start=1):
         canvas.new_page()
         _draw_chart_page(
@@ -92,7 +91,7 @@ def render_chart_pages(
             report,
             dataset,
             panels,
-            ranges,
+            base_chart._curve_ranges(panels, dataset, page=page),
             language,
         )
         canvas.y = canvas.content_rect.bottom()
@@ -337,8 +336,11 @@ def _draw_panel(
         painter.drawLine(QLineF(x, rect.top(), x, rect.bottom()))
         painter.setFont(print_font(6.2, text="100"))
         painter.setPen(QColor("#475569"))
+        label_left = (
+            rect.left() + 2.0 if index == 0 else rect.right() - 30.0 if index == 4 else x - 14.0
+        )
         painter.drawText(
-            QRectF(x - 14.0, rect.top() - 19.0, 28.0, 12.0),
+            QRectF(label_left, rect.top() - 19.0, 28.0, 12.0),
             Qt.AlignmentFlag.AlignCenter,
             str(index * 25),
         )
@@ -354,7 +356,13 @@ def _draw_panel(
         Qt.AlignmentFlag.AlignCenter,
         heading,
     )
-    base_chart._draw_curves(painter, rect, page, dataset, curves, ranges)
+    if not any(curve.metadata.curve_id in ranges for curve in curves):
+        painter.setPen(QColor("#64748b"))
+        label = base_chart._labels(language)["no_data"]
+        painter.setFont(print_font(8.0, text=label))
+        painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, label)
+    else:
+        base_chart._draw_curves(painter, rect, page, dataset, curves, ranges)
     painter.setPen(QPen(QColor("#263746"), 1.1))
     painter.drawRect(rect)
 
@@ -452,9 +460,7 @@ def _draw_fluid_markers(
         minimum_gap=badge_height + 1.0,
     )
     coded_lane_count = max(coded_lanes, default=0) + 1
-    show_codes = (
-        coded_lane_count * (badge_width + badge_gap) <= zone_width
-    )
+    show_codes = coded_lane_count * (badge_width + badge_gap) <= zone_width
 
     if show_codes:
         for candidate, center_y, lane in zip(
@@ -510,11 +516,7 @@ def _draw_fluid_markers(
         zone_width=zone_width,
         max_spacing=12.0,
     )
-    lane_spacing = (
-        offsets[1] - offsets[0]
-        if len(offsets) > 1
-        else min(12.0, zone_width)
-    )
+    lane_spacing = offsets[1] - offsets[0] if len(offsets) > 1 else min(12.0, zone_width)
     marker_size = max(2.5, min(5.5, lane_spacing * 0.62))
     for candidate, y, lane in zip(
         visible,
@@ -596,15 +598,15 @@ def _draw_fluid_marker_legend(
     note = {
         AppLanguage.RU: (
             "Маркеры показывают предварительный тип; полные глубины и формулировки — "
-            "в таблице. Кривые масштабированы по p1–p99."
+            "в таблице. Кривые масштабированы по p5–p95 каждого листа."
         ),
         AppLanguage.KK: (
             "Маркерлер алдын ала түрді көрсетеді; толық тереңдік пен мәтін кестеде. "
-            "Қисықтар p1–p99 бойынша масштабталған."
+            "Қисықтар әр бетте p5–p95 бойынша масштабталған."
         ),
         AppLanguage.EN: (
             "Markers show preliminary type; full depths and wording are in the table. "
-            "Curves are scaled to p1–p99."
+            "Curves are scaled to each page's p5–p95."
         ),
     }[language]
     note_top = rect.top() + rows * row_height + 0.5

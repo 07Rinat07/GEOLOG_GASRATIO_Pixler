@@ -53,6 +53,7 @@ def layout_to_dict(layout: TabletLayout) -> dict[str, Any]:
                 "show_interval_labels": track.show_interval_labels,
                 "lba_label_orientation": track.lba_label_orientation,
                 "calcimetry_label_orientation": track.calcimetry_label_orientation,
+                "calcimetry_show_total": track.calcimetry_show_total,
                 "show_description_borders": track.show_description_borders,
                 "vertical_ruler": {
                     "mode": track.vertical_ruler.mode.value,
@@ -221,6 +222,7 @@ def _track_from_dict(data: object) -> TrackDefinition:
     calcimetry_label_orientation = data.get(
         "calcimetry_label_orientation", "vertical_top_to_bottom"
     )
+    calcimetry_show_total = data.get("calcimetry_show_total")
     show_description_borders = data.get("show_description_borders", True)
     raw_vertical_ruler = data.get("vertical_ruler", {})
     raw_mnemonics = data.get("curve_mnemonics", [])
@@ -251,6 +253,8 @@ def _track_from_dict(data: object) -> TrackDefinition:
         raise TypeError("Направление подписей ЛБА должно быть строкой")
     if not isinstance(calcimetry_label_orientation, str):
         raise TypeError("Направление подписей кальциметрии должно быть строкой")
+    if calcimetry_show_total is not None and not isinstance(calcimetry_show_total, bool):
+        raise TypeError("calcimetry_show_total должен быть логическим или null")
     if not isinstance(show_interval_labels, bool):
         raise TypeError("show_interval_labels должен быть логическим")
     if not isinstance(show_description_borders, bool):
@@ -347,6 +351,7 @@ def _track_from_dict(data: object) -> TrackDefinition:
         show_interval_labels=show_interval_labels,
         lba_label_orientation=lba_label_orientation,
         calcimetry_label_orientation=calcimetry_label_orientation,
+        calcimetry_show_total=calcimetry_show_total,
         show_description_borders=show_description_borders,
         vertical_ruler=vertical_ruler,
         curve_mnemonics=list(raw_mnemonics),
