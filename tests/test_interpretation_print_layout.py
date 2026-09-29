@@ -73,6 +73,15 @@ def test_long_well_is_split_into_continuous_readable_pages() -> None:
     )
 
 
+def test_page_count_does_not_jump_for_tiny_target_boundary_overshoot() -> None:
+    one_page = plan_depth_pages(1_000.0, 1_100.001, 330.0)
+    two_pages = plan_depth_pages(1_000.0, 1_200.001, 330.0)
+
+    assert len(one_page) == 1
+    assert len(two_pages) == 2
+    assert max(page.span for page in two_pages) <= 105.0
+
+
 def test_large_well_uses_coarser_scale_than_small_well() -> None:
     short = plan_depth_pages(1_000.0, 1_050.0, 330.0)
     long = plan_depth_pages(1_000.0, 4_000.0, 330.0)
