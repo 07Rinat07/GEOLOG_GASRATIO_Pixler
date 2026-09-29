@@ -422,7 +422,9 @@ def test_import_las_passes_detected_cp866_encoding_to_parser(tmp_path, monkeypat
     captured: dict[str, object] = {}
 
     def read(file_ref, **kwargs):
-        captured["file_ref"] = file_ref
+        captured["is_readable"] = hasattr(file_ref, "read")
+        captured["prefix"] = file_ref.read().startswith("~Version Information")
+        file_ref.seek(0)
         captured.update(kwargs)
         return FakeLas()
 
@@ -430,8 +432,8 @@ def test_import_las_passes_detected_cp866_encoding_to_parser(tmp_path, monkeypat
 
     import_las(source)
 
-    assert hasattr(captured["file_ref"], "read")
-    assert captured["file_ref"].read().startswith("~Version Information")
+    assert captured["is_readable"] is True
+    assert captured["prefix"] is True
     assert captured["encoding"] == "cp866"
     assert captured["encoding_errors"] == "replace"
     assert captured["autodetect_encoding"] is False
