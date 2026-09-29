@@ -32,3 +32,11 @@ def test_native_print_preview_contains_renderer_exceptions() -> None:
     assert "def render_preview_safely(requested)" in source
     assert "except (RuntimeError, ValueError) as exc:" in source
     assert "QTimer.singleShot(0, preview.reject)" in source
+
+
+def test_masterlog_legacy_50m_print_default_is_upgraded_to_auto_density() -> None:
+    source = (ROOT / "src/geoworkbench/ui/main_window.py").read_text(encoding="utf-8")
+    assert 'form_id.startswith("factory-masterlog-a4-")' in source
+    assert "abs(initial_preferences.units_per_page - 50.0) < 1e-9" in source
+    assert "auto_units_per_page=True" in source
+    assert "initial_preferences=initial_preferences" in source
