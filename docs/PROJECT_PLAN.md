@@ -1132,6 +1132,14 @@ WELL-04 уже имеет field-level статусы и readiness; WELL-05 — f
 - [x] **PERF-06:** исключён двойной PDF-render для preview/printer; постоянный файл создаётся
   только явным export job, временные файлы имеют ownership-prefix и bounded stale cleanup, а
   миграционная очистка legacy-копий fails closed при постороннем содержимом каталога.
+- [ ] **PERF-07 (P0, в работе):** отзывчивость больших LAS и тяжёлых проектов. Полевой
+  diagnostics baseline на Maksat M-1 фиксирует загрузку большого LAS до ~94 с и полный
+  TabletView rebuild 16 дорожек ~1.1–1.2 с на MainThread. Первый slice убирает full-file
+  allocation из encoding detection, передаёт LAS в parser через streaming TextIOWrapper и
+  переводит cursor/interval nearest-axis lookup для монотонных depth/time индексов с O(N)
+  argmin на cached searchsorted O(log N), сохраняя exact fallback для mixed axes. Следующие
+  измеряемые slices: import parser phase timing/RSS, coalesced main-window refresh и сокращение
+  full widget rebuild без ослабления viewport LOD/geometry-cache контрактов.
 
 ## P1 — поддерживаемая архитектура
 

@@ -81,6 +81,26 @@ def test_import_las_builds_dataset_with_metadata(tmp_path, monkeypatch) -> None:
     assert dataset.parameters["RUN"] == "1"
 
 
+def test_import_las_streams_decoding_into_lasio(tmp_path, monkeypatch) -> None:
+    source = tmp_path / "streamed.las"
+    source.write_bytes(b"~V\nVERS. 2.0\n~A\n100 1\n101 2\n")
+    seen: dict[str, object] = {}
+
+    def fake_read(stream, *args, **kwargs):
+        import io
+
+        seen["is_text_wrapper"] = isinstance(stream, io.TextIOWrapper)
+        seen["prefix"] = stream.read(2)
+        return FakeLas()
+
+    monkeypatch.setattr("geoworkbench.data.las_adapter.lasio.read", fake_read)
+
+    dataset = import_las(source)
+
+    assert seen == {"is_text_wrapper": True, "prefix": "~V"}
+    assert dataset.depth.size == 2
+
+
 def test_import_las_with_report_captures_source_and_depth_diagnostics(
     tmp_path, monkeypatch
 ) -> None:
@@ -402,7 +422,9 @@ def test_import_las_passes_detected_cp866_encoding_to_parser(tmp_path, monkeypat
     captured: dict[str, object] = {}
 
     def read(file_ref, **kwargs):
-        captured["file_ref"] = file_ref
+        captured["is_readable"] = hasattr(file_ref, "read")
+        captured["prefix"] = file_ref.read().startswith("~Version Information")
+        file_ref.seek(0)
         captured.update(kwargs)
         return FakeLas()
 
@@ -410,8 +432,8 @@ def test_import_las_passes_detected_cp866_encoding_to_parser(tmp_path, monkeypat
 
     import_las(source)
 
-    assert hasattr(captured["file_ref"], "read")
-    assert captured["file_ref"].read().startswith("~Version Information")
+    assert captured["is_readable"] is True
+    assert captured["prefix"] is True
     assert captured["encoding"] == "cp866"
     assert captured["encoding_errors"] == "replace"
     assert captured["autodetect_encoding"] is False

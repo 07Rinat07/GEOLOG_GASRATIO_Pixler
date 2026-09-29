@@ -2100,6 +2100,7 @@ class TabletView(QWidget):
         )
         self._calcimetry_presence = (False, False, False)
         self._depth_axis_mapping: tuple[int, int, np.ndarray, np.ndarray] | None = None
+        self._axis_lookup_cache: tuple[int, np.ndarray, np.ndarray] | None = None
         self._stratigraphy: tuple[StratigraphyInterval, ...] = ()
         self._interpretations: tuple[WellInterpretation, ...] = ()
         self._selection = SelectionManager()
@@ -5054,6 +5055,7 @@ class TabletView(QWidget):
             self.interval_analysis_cleared.emit()
         self._dataset = dataset
         self._depth_axis_mapping = None
+        self._axis_lookup_cache = None
         self._geometry_cache.clear()
         self._static_layer_cache.clear()
 
@@ -5719,12 +5721,11 @@ class TabletView(QWidget):
     def set_cursor_depth(self, depth: float) -> None:
         if self._dataset is None or not np.isfinite(depth):
             return
-        finite = self._axis_values()
-        finite = finite[np.isfinite(finite)]
-        if not finite.size:
+        axis_values = self._axis_values()
+        nearest = self._nearest_axis_index(float(depth))
+        if nearest is None:
             return
-        bounded = min(max(float(depth), float(np.min(finite))), float(np.max(finite)))
-        bounded = float(finite[int(np.argmin(np.abs(finite - bounded)))])
+        bounded = float(axis_values[nearest])
         self._cursor_depth = bounded
         self._overlay_layers.mark_dirty(OverlayLayerKind.CURSOR)
         self._cursor_guard = True
@@ -5753,10 +5754,9 @@ class TabletView(QWidget):
         if self._dataset is None:
             return ""
         axis_values = self._axis_values()
-        valid_axis = np.flatnonzero(np.isfinite(axis_values))
-        if not valid_axis.size:
+        index = self._nearest_axis_index(float(depth))
+        if index is None:
             return ""
-        index = int(valid_axis[np.argmin(np.abs(axis_values[valid_axis] - depth))])
         depths = np.asarray(self._dataset.depth, dtype=float)
         sample_depth = float(depths[index])
         depth_unit = self._localizer.text("tablet.depth_span_unit")
@@ -6375,11 +6375,8 @@ class TabletView(QWidget):
 
     def _snap_analysis_axis_value(self, value: float) -> float | None:
         axis = self._axis_values()
-        finite = np.flatnonzero(np.isfinite(axis))
-        if finite.size == 0 or not np.isfinite(value):
-            return None
-        nearest = int(finite[np.argmin(np.abs(axis[finite] - float(value)))])
-        return float(axis[nearest])
+        nearest = self._nearest_axis_index(float(value))
+        return None if nearest is None else float(axis[nearest])
 
     def _install_analysis_region(self, rendered: RenderedTrack) -> None:
         if rendered.plot is None:
@@ -8242,6 +8239,78 @@ class TabletView(QWidget):
             return np.array([], dtype=np.float64)
         return self._index_numeric_values(index)
 
+    def _nearest_axis_index(self, value: float) -> int | None:
+        """Return the nearest finite axis row without scanning monotonic LAS axes.
+
+        Depth/time indexes from LAS are normally monotonic. Cursor and interval
+        gestures can call this path on every mouse move, so an O(N) argmin over a
+        million-row file produces visible UI lag. Cache a finite sorted lookup
+        and use searchsorted (O(log N)); mixed axes keep the conservative O(N)
+        fallback.
+        """
+
+        axis = self._axis_values()
+        if axis.size == 0 or not np.isfinite(value):
+            return None
+        index = self._vertical_index()
+        cache_key = id(index.values) if index is not None else id(axis)
+        cache = self._axis_lookup_cache
+        if cache is None or cache[0] != cache_key:
+            finite_positions = np.flatnonzero(np.isfinite(axis))
+            finite_values = axis[finite_positions]
+            if finite_values.size == 0:
+                self._axis_lookup_cache = (
+                    cache_key,
+                    np.array([], dtype=np.float64),
+                    np.array([], dtype=np.int64),
+                )
+            elif finite_values.size == 1 or np.all(np.diff(finite_values) >= 0):
+                self._axis_lookup_cache = (
+                    cache_key,
+                    np.asarray(finite_values, dtype=np.float64),
+                    np.asarray(finite_positions, dtype=np.int64),
+                )
+            elif np.all(np.diff(finite_values) <= 0):
+                self._axis_lookup_cache = (
+                    cache_key,
+                    np.asarray(finite_values[::-1], dtype=np.float64),
+                    np.asarray(finite_positions[::-1], dtype=np.int64),
+                )
+            else:
+                # Empty sorted-values marks a mixed axis; positions retain the
+                # finite rows for the exact fallback.
+                self._axis_lookup_cache = (
+                    cache_key,
+                    np.array([], dtype=np.float64),
+                    np.asarray(finite_positions, dtype=np.int64),
+                )
+            cache = self._axis_lookup_cache
+
+        assert cache is not None
+        sorted_values, positions = cache[1], cache[2]
+        if positions.size == 0:
+            return None
+        if sorted_values.size == 0:
+            nearest = int(
+                positions[
+                    np.argmin(np.abs(axis[positions] - float(value)))
+                ]
+            )
+            return nearest
+
+        insertion = int(np.searchsorted(sorted_values, float(value), side="left"))
+        if insertion <= 0:
+            return int(positions[0])
+        if insertion >= sorted_values.size:
+            return int(positions[-1])
+        before = insertion - 1
+        after = insertion
+        if abs(float(value) - sorted_values[before]) <= abs(
+            sorted_values[after] - float(value)
+        ):
+            return int(positions[before])
+        return int(positions[after])
+
     def _axis_descriptor(self) -> VerticalAxisDescriptor | None:
         index = self._vertical_index()
         if index is None:
@@ -8304,13 +8373,10 @@ class TabletView(QWidget):
     def _axis_to_depth_value(self, value: float) -> float:
         if self._dataset is None:
             return float(value)
-        axis = self._axis_values()
         source_depth = np.asarray(self._dataset.depth, dtype=float)
-        valid = np.isfinite(source_depth) & np.isfinite(axis)
-        if not np.any(valid):
+        nearest = self._nearest_axis_index(float(value))
+        if nearest is None or nearest >= source_depth.size:
             return float(value)
-        positions = np.flatnonzero(valid)
-        nearest = positions[int(np.argmin(np.abs(axis[positions] - float(value))))]
         return float(source_depth[nearest])
 
     def _depth_interval_to_axis(self, top: float, bottom: float) -> tuple[float, float]:
