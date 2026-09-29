@@ -35,6 +35,11 @@ class FormPageOrientation(StrEnum):
     LANDSCAPE = "landscape"
 
 
+TOTAL_CALCIMETRY_PARAMETERS = frozenset(
+    {"TOTAL_CARBONATE", "TOTAL_CALCIMETRY", "CARB_TOTAL"}
+)
+
+
 @dataclass(frozen=True, slots=True)
 class ParameterBinding:
     binding_id: str
@@ -116,6 +121,7 @@ class FormTrack:
     )
     lba_label_orientation: str = "vertical_top_to_bottom"
     calcimetry_label_orientation: str = "vertical_top_to_bottom"
+    calcimetry_show_total: bool | None = None
     show_description_borders: bool = True
 
     def __post_init__(self) -> None:
@@ -147,6 +153,10 @@ class FormTrack:
         self.calcimetry_label_orientation = normalize_text_orientation(
             self.calcimetry_label_orientation
         )
+        if self.calcimetry_show_total is not None and not isinstance(
+            self.calcimetry_show_total, bool
+        ):
+            raise ValueError("calcimetry_show_total должен быть логическим или null")
         if not isinstance(self.show_interval_labels, bool):
             raise ValueError("show_interval_labels должен быть логическим")
         if not isinstance(self.show_description_borders, bool):
@@ -179,6 +189,7 @@ class FormTrack:
         show_interval_labels: bool = False,
         lba_label_orientation: str = "vertical_top_to_bottom",
         calcimetry_label_orientation: str = "vertical_top_to_bottom",
+        calcimetry_show_total: bool | None = None,
         show_description_borders: bool = True,
         vertical_ruler: VerticalRulerTrackSettings | None = None,
     ) -> FormTrack:
@@ -202,6 +213,7 @@ class FormTrack:
             show_interval_labels=show_interval_labels,
             lba_label_orientation=lba_label_orientation,
             calcimetry_label_orientation=calcimetry_label_orientation,
+            calcimetry_show_total=calcimetry_show_total,
             show_description_borders=show_description_borders,
             vertical_ruler=vertical_ruler or VerticalRulerTrackSettings(),
         )

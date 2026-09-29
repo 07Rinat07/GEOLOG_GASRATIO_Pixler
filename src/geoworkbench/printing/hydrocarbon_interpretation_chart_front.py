@@ -87,13 +87,13 @@ def _labels(language: AppLanguage) -> dict[str, str]:
             "title": "Графики интерпретационных кривых по глубине",
             "note": (
                 "Графики приведены перед таблицами. Каждая кривая масштабирована внутри своей "
-                "дорожки по диапазону p1–p99; масштаб предназначен для сопоставления формы."
+                "дорожки по диапазону p5–p95; масштаб предназначен для сопоставления формы."
             ),
         },
         AppLanguage.KK: {
             "title": "Тереңдік бойынша интерпретациялық қисықтар графиктері",
             "note": (
-                "Графиктер кестелердің алдында берілген. Әр қисық өз жолында p1–p99 ауқымы "
+                "Графиктер кестелердің алдында берілген. Әр қисық өз жолында p5–p95 ауқымы "
                 "бойынша масштабталған; масштаб пішінді салыстыруға арналған."
             ),
         },
@@ -101,7 +101,7 @@ def _labels(language: AppLanguage) -> dict[str, str]:
             "title": "Depth plots of interpretation curves",
             "note": (
                 "The plots are shown before the tables. Each curve is scaled within its track "
-                "to its p1–p99 range; the scale is intended for shape comparison."
+                "to its p5–p95 range; the scale is intended for shape comparison."
             ),
         },
     }[language]

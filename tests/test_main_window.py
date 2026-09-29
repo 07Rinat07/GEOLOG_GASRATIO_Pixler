@@ -1,9 +1,11 @@
 from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
+import threading
+import time
 
 import numpy as np
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QDialog, QFileDialog, QInputDialog, QLabel, QMessageBox
 
 from geoworkbench.data.las_import_policy import LasImportMode
@@ -29,6 +31,27 @@ from geoworkbench.services.report_passport import passport_sidecar_path
 from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind, XScale
 from geoworkbench.tablet.models import CurveLineStyle
 from geoworkbench.ui.main_window import MainWindow
+
+
+def test_las_parsing_keeps_gui_event_loop_responsive(qapp, monkeypatch) -> None:
+    from geoworkbench.ui import main_window
+
+    gui_thread = threading.get_ident()
+    observed: list[str] = []
+    expected = object()
+
+    def parse(_source):
+        assert threading.get_ident() != gui_thread
+        time.sleep(0.08)
+        return expected
+
+    monkeypatch.setattr(main_window, "import_las_with_report", parse)
+    window = MainWindow()
+    QTimer.singleShot(10, lambda: observed.append("gui-tick"))
+
+    assert window._load_las_responsive("large.las") is expected
+    assert observed == ["gui-tick"]
+    window.close()
 
 
 def make_session() -> tuple[ProjectSession, TabletLayout]:

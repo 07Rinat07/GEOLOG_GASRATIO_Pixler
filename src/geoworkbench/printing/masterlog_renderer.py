@@ -1759,6 +1759,7 @@ def _paint_calcimetry_column(
     if well is None:
         return
     top, bottom = depth_range
+    show_total = column.properties.get("calcimetry_show_total", True) is not False
     painter.save()
     painter.setClipRect(rect)
     for sample in well.cuttings:
@@ -1767,7 +1768,7 @@ def _paint_calcimetry_column(
         if (
             sample.calcite_percent is None
             and sample.dolomite_percent is None
-            and sample.total_carbonate_percent is None
+            and (sample.total_carbonate_percent is None or not show_total)
         ):
             continue
         y_top = rect.top() + (max(top, sample.top_depth) - top) / (bottom - top) * rect.height()
@@ -1777,7 +1778,7 @@ def _paint_calcimetry_column(
         height = max(0.2, y_bottom - y_top)
         calcite = sample.calcite_percent
         dolomite = sample.dolomite_percent
-        total = sample.total_carbonate_percent
+        total = sample.total_carbonate_percent if show_total else None
         residue = sample.insoluble_residue_percent
         left = rect.left()
         components = (

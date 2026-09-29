@@ -9,6 +9,7 @@ from geoworkbench.forms.models import (
     FormDocument,
     FormTemplateOrigin,
     ParameterBinding,
+    TOTAL_CALCIMETRY_PARAMETERS,
 )
 from geoworkbench.forms.materialize import materialize_form_for_dataset
 from geoworkbench.services.las_parameter_resolver import (
@@ -238,6 +239,18 @@ class FormApplyEngine:
                             "vertical_top_to_bottom"
                             if is_calcimetry
                             else form_track.calcimetry_label_orientation
+                        ),
+                        calcimetry_show_total=(
+                            form_track.calcimetry_show_total
+                            if form_track.calcimetry_show_total is not None
+                            else any(
+                                binding.visible
+                                and binding.canonical_parameter_id.upper()
+                                in TOTAL_CALCIMETRY_PARAMETERS
+                                for binding in form_track.bindings
+                            )
+                            if is_calcimetry and form_track.bindings
+                            else None
                         ),
                         show_description_borders=form_track.show_description_borders,
                         vertical_ruler=form_track.vertical_ruler,

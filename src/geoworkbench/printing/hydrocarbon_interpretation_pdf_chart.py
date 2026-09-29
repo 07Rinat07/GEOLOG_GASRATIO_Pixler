@@ -7,6 +7,7 @@ from PySide6.QtCore import QLineF, QRectF, Qt
 from PySide6.QtGui import QColor, QPainter, QPen
 
 from geoworkbench.domain.models import CurveData, Dataset
+from geoworkbench.printing.hydrocarbon_interpretation_curve_selection import report_curve_panels
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_canvas import PageCanvas
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import (
     CHART_HEADER_HEIGHT,
@@ -125,7 +126,6 @@ def render_chart_pages(
         float(np.nanmax(depth[finite_depth])),
         available_height,
     )
-    ranges = _curve_ranges(panels, dataset)
     for page_index, page in enumerate(pages, start=1):
         canvas.new_page()
         _draw_chart_page(
@@ -137,7 +137,7 @@ def render_chart_pages(
             report,
             dataset,
             panels,
-            ranges,
+            _curve_ranges(panels, dataset, page=page),
             language,
         )
         canvas.y = canvas.content_rect.bottom()
@@ -322,8 +322,11 @@ def _draw_panel(
         painter.drawLine(QLineF(x, rect.top(), x, rect.bottom()))
         painter.setFont(print_font(5.8, text="100"))
         painter.setPen(QColor("#64748b"))
+        label_left = (
+            rect.left() + 2.0 if index == 0 else rect.right() - 30.0 if index == 4 else x - 14.0
+        )
         painter.drawText(
-            QRectF(x - 14.0, rect.top() - 19.0, 28.0, 12.0),
+            QRectF(label_left, rect.top() - 19.0, 28.0, 12.0),
             Qt.AlignmentFlag.AlignCenter,
             str(index * 25),
         )
@@ -339,7 +342,13 @@ def _draw_panel(
         Qt.AlignmentFlag.AlignCenter,
         heading,
     )
-    _draw_curves(painter, rect, page, dataset, curves, ranges)
+    if not any(curve.metadata.curve_id in ranges for curve in curves):
+        painter.setPen(QColor("#64748b"))
+        label = _labels(language)["no_data"]
+        painter.setFont(print_font(8.0, text=label))
+        painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, label)
+    else:
+        _draw_curves(painter, rect, page, dataset, curves, ranges)
     painter.setPen(QPen(QColor("#334155"), 1.0))
     painter.drawRect(rect)
 
@@ -408,9 +417,13 @@ def _draw_curves(
                     previous_normalized = None
                     previous_clipped = False
                     continue
-                raw_normalized = float((value - low) / (high - low))
-                normalized = float(np.clip(raw_normalized, 0.0, 1.0))
-                clipped = raw_normalized < 0.0 or raw_normalized > 1.0
+                if high <= low:
+                    normalized = 0.5 if value == low else 1.0 if value > low else 0.0
+                    clipped = value != low
+                else:
+                    raw_normalized = float((value - low) / (high - low))
+                    normalized = float(np.clip(raw_normalized, 0.0, 1.0))
+                    clipped = raw_normalized < 0.0 or raw_normalized > 1.0
                 current = (
                     curve_rect.left() + normalized * curve_rect.width(),
                     _depth_y(float(depth[row_index]), page, curve_rect),
@@ -460,7 +473,7 @@ def _draw_legend(
         text = curve.metadata.original_mnemonic
         if curve.metadata.unit:
             text += f" [{curve.metadata.unit}]"
-        text += f"  p1={low:.4g}; p99={high:.4g}"
+        text += f"  p5={low:.4g}; p95={high:.4g}"
         painter.setPen(QColor("#172033"))
         painter.setFont(print_font(5.9, text=text))
         painter.drawText(
@@ -473,22 +486,28 @@ def _draw_legend(
 def _curve_ranges(
     panels: tuple[tuple[str, tuple[CurveData, ...]], ...],
     dataset: Dataset,
+    *,
+    page: DepthPage | None = None,
 ) -> dict[str, tuple[float, float]]:
     result: dict[str, tuple[float, float]] = {}
+    depth = np.asarray(dataset.depth, dtype=np.float64)
+    selected = (
+        np.isfinite(depth) & (depth >= page.top_depth) & (depth <= page.bottom_depth)
+        if page is not None
+        else np.isfinite(depth)
+    )
     for _panel_name, curves in panels:
         for curve in curves:
             values = np.asarray(curve.values, dtype=np.float64)
             if values.shape != dataset.depth.shape:
                 continue
-            finite = values[np.isfinite(values)]
+            finite = values[selected & np.isfinite(values)]
             if finite.size < 2:
                 continue
-            low = float(np.nanpercentile(finite, 1.0))
-            high = float(np.nanpercentile(finite, 99.0))
+            low = float(np.percentile(finite, 5.0))
+            high = float(np.percentile(finite, 95.0))
             if not np.isfinite(low) or not np.isfinite(high):
                 continue
-            if high <= low:
-                high = low + max(1.0, abs(low) * 0.01)
             result[curve.metadata.curve_id] = (low, high)
     return result
 
@@ -497,43 +516,12 @@ def _panel_curves(
     report: HydrocarbonInterpretationReport,
     dataset: Dataset,
 ) -> tuple[tuple[str, tuple[CurveData, ...]], ...]:
-    preferred: list[str] = []
-    if report.primary_mnemonic:
-        preferred.extend(
-            part.strip()
-            for part in report.primary_mnemonic.split("|")
-            if part.strip()
-        )
-    for method in report.methods:
-        preferred.extend(method.available_mnemonics)
-
-    result: list[tuple[str, tuple[CurveData, ...]]] = []
     marker_groups = (
         _OPUS_PANEL_METHOD_MARKERS
         if report.report_profile == "opus"
         else _PANEL_METHOD_MARKERS
     )
-    for panel_name, fallback_order in marker_groups:
-        curves: list[CurveData] = []
-        seen: set[str] = set()
-        for mnemonic in (*preferred, *fallback_order):
-            curve = dataset.curve_by_mnemonic(_strip_source_prefix(mnemonic))
-            if curve is None or curve.metadata.curve_id in seen:
-                continue
-            if curve.metadata.original_mnemonic.upper() not in fallback_order:
-                continue
-            values = np.asarray(curve.values, dtype=np.float64)
-            if (
-                values.shape != dataset.depth.shape
-                or np.count_nonzero(np.isfinite(values)) < 2
-            ):
-                continue
-            curves.append(curve)
-            seen.add(curve.metadata.curve_id)
-            if len(curves) >= (3 if panel_name == "total" else 5):
-                break
-        result.append((panel_name, tuple(curves)))
-    return tuple(result)
+    return report_curve_panels(report, dataset, marker_groups)
 
 
 def _nice_tick_step(span: float, *, target_ticks: int) -> float:
@@ -575,11 +563,7 @@ def _readable_depth_ticks(
 
     ticks = _depth_ticks(page, step)
     tolerance = step * 1e-7
-    minimum_depth_gap = (
-        page.span
-        * _MIN_AXIS_LABEL_GAP_POINTS
-        / max(float(plot_height_points), 1.0)
-    )
+    minimum_depth_gap = page.span * _MIN_AXIS_LABEL_GAP_POINTS / max(float(plot_height_points), 1.0)
     endpoints = (page.top_depth, page.bottom_depth)
     readable: list[float] = []
     for tick in ticks:
@@ -603,14 +587,6 @@ def _depth_label(value: float, step: float) -> str:
     return f"{value:.{decimals}f}"
 
 
-def _strip_source_prefix(value: str) -> str:
-    stripped = value.strip()
-    for prefix in ("server:", "local-calculation:"):
-        if stripped.casefold().startswith(prefix):
-            return stripped[len(prefix) :].strip()
-    return stripped
-
-
 def _labels(language: AppLanguage) -> dict[str, str]:
     return {
         AppLanguage.RU: {
@@ -620,12 +596,13 @@ def _labels(language: AppLanguage) -> dict[str, str]:
                 "{unit}; вертикальный масштаб 1:{scale}"
             ),
             "depth": "Глубина",
+            "no_data": "Нет измерений на этом интервале",
             "total": "Общий и нормализованный газ",
             "opus": "Показатели ОПУС",
             "ratios": "Haworth и Pixler",
             "drilling": "Буровой контекст и DEXP",
             "note": (
-                "Кривые нормированы внутри дорожек по p1–p99. Цветные полосы и "
+                "Кривые нормированы внутри дорожек по p5–p95 для каждого листа. Цветные полосы и "
                 "маркеры формы/цвета отмечают перспективные интервалы и предварительный "
                 "тип флюида; полная формулировка остаётся в таблице. Каждый лист сохраняет "
                 "физический масштаб глубины; шкалы и границы повторяются с обеих сторон."
@@ -638,12 +615,13 @@ def _labels(language: AppLanguage) -> dict[str, str]:
                 "тік масштаб 1:{scale}"
             ),
             "depth": "Тереңдік",
+            "no_data": "Бұл аралықта өлшемдер жоқ",
             "total": "Жалпы және нормаланған газ",
             "opus": "ОПУС көрсеткіштері",
             "ratios": "Haworth және Pixler",
             "drilling": "Бұрғылау контексті және DEXP",
             "note": (
-                "Қисықтар жол ішінде p1–p99 бойынша нормаланады. Түсті жолақтар мен "
+                "Қисықтар әр бетте жол ішінде p5–p95 бойынша нормаланады. Түсті жолақтар мен "
                 "пішін/түс маркерлері перспективалы аралықты және алдын ала флюид түрін "
                 "көрсетеді; толық мәтін кестеде қалады. Әр бет тереңдіктің физикалық "
                 "масштабын сақтайды; шкалалар мен шекаралар екі жақта қайталанады."
@@ -656,12 +634,13 @@ def _labels(language: AppLanguage) -> dict[str, str]:
                 "{unit}; vertical scale 1:{scale}"
             ),
             "depth": "Depth",
+            "no_data": "No measurements in this interval",
             "total": "Total and normalized gas",
             "opus": "OPUS indicators",
             "ratios": "Haworth and Pixler",
             "drilling": "Drilling context and DEXP",
             "note": (
-                "Curves are normalized within tracks to p1–p99. Colored bands plus "
+                "Curves are normalized within tracks to each page's p5–p95. Colored bands plus "
                 "shape/colour markers show prospective intervals and preliminary fluid "
                 "type; full wording remains in the table. Every sheet preserves a physical "
                 "depth scale; scales and outer borders repeat on both sides."

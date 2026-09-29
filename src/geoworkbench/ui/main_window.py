@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, replace
 from datetime import datetime
 from functools import partial
@@ -9,7 +10,7 @@ from typing import TypedDict, cast
 from weakref import ref
 
 import numpy as np
-from PySide6.QtCore import QEvent, QTimer, QUrl, QSize, QStandardPaths, Qt, Signal
+from PySide6.QtCore import QEvent, QEventLoop, QTimer, QUrl, QSize, QStandardPaths, Qt, Signal
 from PySide6.QtGui import (
     QAction,
     QActionGroup,
@@ -82,7 +83,7 @@ from geoworkbench.importers.legacy_geosight_forms import import_legacy_geosight_
 from geoworkbench.importers.skf_importer import import_skf_file
 from geoworkbench.domain.models import CurveData, Dataset, IndexRole, IndexType
 from geoworkbench.domain.localized_content import localized_text
-from geoworkbench.data.las_adapter import LasExportError
+from geoworkbench.data.las_adapter import LasExportError, LasImportResult, import_las_with_report
 from geoworkbench.data.las_import_policy import LasImportMode
 from geoworkbench.data.las_import_report import LasImportIssue, LasImportReport
 from geoworkbench.data.lossless_las import LosslessLasDocument
@@ -873,7 +874,9 @@ class MainWindow(QMainWindow):
             if application_context is not None
             else ImportJobController(import_port)
         )
-        self._dataset_import_jobs = DatasetImportJobExecutor(_MainWindowDatasetImportPort(self))
+        self._dataset_import_jobs = DatasetImportJobExecutor(
+            _MainWindowDatasetImportPort(self), las_loader=self._load_las_responsive
+        )
         self.gs2_import_coordinator = Gs2ImportCoordinator(self._dataset_import_jobs)
         self._print_jobs = PrintJobExecutor()
         self._workspace_controller.set_dataset(None)
@@ -3095,6 +3098,23 @@ class MainWindow(QMainWindow):
             )
             return None
         return dialog.accepted_dataset
+
+    def _load_las_responsive(self, source: str | Path) -> LasImportResult:
+        """Parse the LAS off the GUI thread; commit and review stay on the GUI thread."""
+
+        with ThreadPoolExecutor(max_workers=1, thread_name_prefix="las-import") as worker:
+            pending = worker.submit(import_las_with_report, source)
+            loop = QEventLoop(self)
+            timer = QTimer(loop)
+            timer.setInterval(30)
+            timer.timeout.connect(lambda: loop.quit() if pending.done() else None)
+            timer.start()
+            try:
+                if not pending.done():
+                    loop.exec()
+            finally:
+                timer.stop()
+            return pending.result()
 
     def _open_las_files(
         self,

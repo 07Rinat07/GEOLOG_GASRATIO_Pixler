@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
+from PySide6.QtCore import QRectF
+from PySide6.QtGui import QImage, QPainter
 
 from geoworkbench.domain.models import (
     CurveData,
@@ -13,11 +16,18 @@ from geoworkbench.domain.models import (
     DepthDomain,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_chart import (
+    _panel_curves as whole_well_panels,
     hydrocarbon_interpretation_chart_data_uri,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_chart_front import (
     hydrocarbon_interpretation_html_with_front_chart,
 )
+from geoworkbench.printing.hydrocarbon_interpretation_pdf_chart import (
+    _curve_ranges,
+    _draw_curves,
+    _panel_curves as printed_panels,
+)
+from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import DepthPage
 from geoworkbench.printing.hydrocarbon_interpretation_report import (
     export_hydrocarbon_interpretation_pdf,
 )
@@ -76,6 +86,71 @@ def _session_with_report_curves(
 
 def _pdf_page_count(payload: bytes) -> int:
     return len(re.findall(rb"/Type\s*/Page\b", payload))
+
+
+def test_printed_chart_scales_each_page_and_exposes_missing_measurements() -> None:
+    depth = np.linspace(0.0, 199.0, 200)
+    dataset = Dataset("page-ranges", "Page ranges", DatasetKind.GTI, DepthDomain.MD, depth)
+    values = np.concatenate(
+        (np.linspace(1.0, 2.0, 100), np.linspace(100.0, 200.0, 80), np.full(20, np.nan))
+    )
+    curve = CurveData(
+        CurveMetadata("gas", "TG_CALC", "TG_CALC", "%", None, dataset.dataset_id),
+        values,
+    )
+    dataset.curves["gas"] = curve
+    panels = (("total", (curve,)),)
+
+    first = _curve_ranges(panels, dataset, page=DepthPage(0.0, 99.0, 500, 500.0))
+    second = _curve_ranges(panels, dataset, page=DepthPage(100.0, 179.0, 500, 500.0))
+    missing = _curve_ranges(panels, dataset, page=DepthPage(180.0, 199.0, 500, 500.0))
+
+    assert first["gas"][1] < 2.1
+    assert second["gas"][0] > 100.0
+    assert missing == {}
+
+
+def test_report_charts_keep_source_named_las_evidence() -> None:
+    dataset = Dataset(
+        "source-names", "Source names", DatasetKind.GTI, DepthDomain.MD,
+        np.linspace(100.0, 150.0, 51),
+    )
+    for mnemonic, canonical in (("S1500", "S1500"), ("S224", "S224"), ("S1600", "TG")):
+        dataset.curves[mnemonic] = CurveData(
+            CurveMetadata(mnemonic, mnemonic, canonical, "%", None, dataset.dataset_id),
+            np.linspace(1.0, 2.0, 51),
+        )
+    report = SimpleNamespace(
+        primary_mnemonic="S1500", report_profile="standard",
+        methods=(SimpleNamespace(curve_mnemonics=("DEXP",), available_mnemonics=("S224",)),),
+    )
+
+    for select in (printed_panels, whole_well_panels):
+        panels = dict(select(report, dataset))
+        assert {curve.metadata.original_mnemonic for curve in panels["total"]} == {
+            "S1500", "S1600"
+        }
+        assert [curve.metadata.original_mnemonic for curve in panels["drilling"]] == ["S224"]
+
+
+def test_constant_gas_curve_keeps_true_percentiles_and_a_visible_trace(qapp) -> None:
+    depth = np.linspace(0.0, 10.0, 11)
+    dataset = Dataset("constant-gas", "Constant gas", DatasetKind.GTI, DepthDomain.MD, depth)
+    curve = CurveData(
+        CurveMetadata("constant", "S1500", "TG", "%", None, dataset.dataset_id),
+        np.zeros(depth.size),
+    )
+    dataset.curves["constant"] = curve
+    page = DepthPage(0.0, 10.0, 100, 100.0)
+    ranges = _curve_ranges((("total", (curve,)),), dataset, page=page)
+    assert ranges["constant"] == (0.0, 0.0)
+
+    image = QImage(100, 100, QImage.Format.Format_ARGB32_Premultiplied)
+    image.fill(0xFFFFFFFF)
+    painter = QPainter(image)
+    _draw_curves(painter, QRectF(0.0, 0.0, 100.0, 100.0), page, dataset, (curve,), ranges)
+    painter.end()
+    assert image.pixelColor(50, 50).name() != "#ffffff"
 
 
 def test_whole_well_chart_uses_shared_fluid_markers_without_long_callouts() -> None:

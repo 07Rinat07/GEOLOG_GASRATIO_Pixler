@@ -7,6 +7,7 @@ from PySide6.QtCore import QByteArray, QBuffer, QIODevice, QLineF, QPointF, QRec
 from PySide6.QtGui import QColor, QImage, QPainter, QPen
 
 from geoworkbench.domain.models import CurveData, Dataset
+from geoworkbench.printing.hydrocarbon_interpretation_curve_selection import report_curve_panels
 from geoworkbench.printing.hydrocarbon_fluid_markers import (
     draw_fluid_marker,
     fluid_marker_legend_specs,
@@ -278,45 +279,12 @@ def _panel_curves(
     report: HydrocarbonInterpretationReport,
     dataset: Dataset,
 ) -> tuple[tuple[str, tuple[CurveData, ...]], ...]:
-    preferred: list[str] = []
-    if report.primary_mnemonic:
-        preferred.extend(
-            part.strip()
-            for part in report.primary_mnemonic.split("|")
-            if part.strip()
-        )
-    for method in report.methods:
-        preferred.extend(method.available_mnemonics)
-
-    result: list[tuple[str, tuple[CurveData, ...]]] = []
     marker_groups = (
         _OPUS_PANEL_METHOD_MARKERS
         if report.report_profile == "opus"
         else _PANEL_METHOD_MARKERS
     )
-    for panel_name, fallback_order in marker_groups:
-        candidates = [*preferred, *fallback_order]
-        curves: list[CurveData] = []
-        seen: set[str] = set()
-        for mnemonic in candidates:
-            curve = dataset.curve_by_mnemonic(_strip_source_prefix(mnemonic))
-            if curve is None or curve.metadata.curve_id in seen:
-                continue
-            canonical = curve.metadata.original_mnemonic.upper()
-            if canonical not in fallback_order:
-                continue
-            values = np.asarray(curve.values, dtype=np.float64)
-            if (
-                values.shape != dataset.depth.shape
-                or np.count_nonzero(np.isfinite(values)) < 2
-            ):
-                continue
-            curves.append(curve)
-            seen.add(curve.metadata.curve_id)
-            if len(curves) >= (3 if panel_name == "total" else 5):
-                break
-        result.append((panel_name, tuple(curves)))
-    return tuple(result)
+    return report_curve_panels(report, dataset, marker_groups)
 
 
 def _draw_depth_axis(
@@ -481,12 +449,10 @@ def _draw_panel(
         if np.count_nonzero(usable) < 2:
             continue
         finite_values = values[usable]
-        low = float(np.nanpercentile(finite_values, 1.0))
-        high = float(np.nanpercentile(finite_values, 99.0))
+        low = float(np.percentile(finite_values, 5.0))
+        high = float(np.percentile(finite_values, 95.0))
         if not np.isfinite(low) or not np.isfinite(high):
             continue
-        if high <= low:
-            high = low + max(1.0, abs(low) * 0.01)
         color = QColor(_COLORS[curve_index % len(_COLORS)])
         painter.setPen(QPen(color, 2.2))
         for segment in segments:
@@ -499,9 +465,13 @@ def _draw_panel(
                     previous_normalized = None
                     previous_clipped = False
                     continue
-                raw_normalized = float((values[index] - low) / (high - low))
-                normalized = float(np.clip(raw_normalized, 0.0, 1.0))
-                clipped = raw_normalized < 0.0 or raw_normalized > 1.0
+                if high <= low:
+                    normalized = 0.5 if values[index] == low else 1.0 if values[index] > low else 0.0
+                    clipped = values[index] != low
+                else:
+                    raw_normalized = float((values[index] - low) / (high - low))
+                    normalized = float(np.clip(raw_normalized, 0.0, 1.0))
+                    clipped = raw_normalized < 0.0 or raw_normalized > 1.0
                 x = curve_rect.left() + normalized * curve_rect.width()
                 y = _depth_y(
                     depth[index],
@@ -527,7 +497,7 @@ def _draw_panel(
         legend = curve.metadata.original_mnemonic
         if curve.metadata.unit:
             legend += f" [{curve.metadata.unit}]"
-        legend += f"  p1={low:.4g}; p99={high:.4g}"
+        legend += f"  p5={low:.4g}; p95={high:.4g}"
         legend_rows.append((color, legend))
     painter.restore()
 
@@ -733,21 +703,13 @@ def _sample_indices(size: int, *, limit: int) -> np.ndarray:
     return np.linspace(0, size - 1, limit, dtype=np.int64)
 
 
-def _strip_source_prefix(value: str) -> str:
-    stripped = value.strip()
-    for prefix in ("server:", "local-calculation:"):
-        if stripped.casefold().startswith(prefix):
-            return stripped[len(prefix) :].strip()
-    return stripped
-
-
 def _labels(language: AppLanguage) -> dict[str, str]:
     return {
         AppLanguage.RU: {
             "title": "Графики интерпретационных кривых по глубине",
             "note": (
                 "Каждая кривая масштабирована внутри своей дорожки по диапазону "
-                "p1–p99; масштаб служит для сопоставления формы, а не абсолютных "
+                "p5–p95; масштаб служит для сопоставления формы, а не абсолютных "
                 "значений разных методов."
             ),
             "depth": "Глубина",
@@ -759,13 +721,13 @@ def _labels(language: AppLanguage) -> dict[str, str]:
                 "Цветные полосы и маркеры формы/цвета показывают перспективные интервалы "
                 "и предварительный тип флюида; расшифровка приведена в легенде, а полная "
                 "формулировка — в таблице. Шкалы глубины продублированы слева и справа; "
-                "0–100 над дорожками показывает положение внутри диапазона p1–p99."
+                "0–100 над дорожками показывает положение внутри диапазона p5–p95."
             ),
         },
         AppLanguage.KK: {
             "title": "Тереңдік бойынша интерпретациялық қисықтар графиктері",
             "note": (
-                "Әр қисық өз жолында p1–p99 ауқымы бойынша масштабталған; масштаб "
+                "Әр қисық өз жолында p5–p95 ауқымы бойынша масштабталған; масштаб "
                 "әртүрлі әдістердің абсолют мәндерін емес, пішінін салыстыруға арналған."
             ),
             "depth": "Тереңдік",
@@ -777,13 +739,13 @@ def _labels(language: AppLanguage) -> dict[str, str]:
                 "Түсті жолақтар мен пішін/түс маркерлері перспективалы аралықтарды және "
                 "флюидтің алдын ала түрін көрсетеді; түсіндірме легендада, толық мәтін "
                 "кестеде беріледі. Тереңдік шкаласы екі жақта қайталанады; 0–100 мәндері "
-                "p1–p99 ауқымындағы орынды көрсетеді."
+                "p5–p95 ауқымындағы орынды көрсетеді."
             ),
         },
         AppLanguage.EN: {
             "title": "Depth plots of interpretation curves",
             "note": (
-                "Each curve is scaled within its track to the p1–p99 range; this "
+                "Each curve is scaled within its track to the p5–p95 range; this "
                 "scale compares shape and does not imply that absolute values from "
                 "different methods are equivalent."
             ),
@@ -796,7 +758,7 @@ def _labels(language: AppLanguage) -> dict[str, str]:
                 "Colored bands plus shape/colour markers show prospective intervals and "
                 "preliminary fluid type; the legend decodes markers and the table keeps "
                 "the full wording. Depth scales are shown on both sides; 0–100 labels "
-                "show position within each p1–p99 range."
+                "show position within each p5–p95 range."
             ),
         },
     }[language]
