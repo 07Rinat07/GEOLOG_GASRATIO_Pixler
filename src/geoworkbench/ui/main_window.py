@@ -4574,24 +4574,13 @@ class MainWindow(QMainWindow):
             full_range=full_range,
             selection_range=selected_range,
         )
-        initial_preferences = self.print_export_preferences
-        form_id = str(getattr(report_form, "form_id", "") or "")
-        if (
-            form_id.startswith("factory-masterlog-a4-")
-            and initial_preferences.range_mode is not PrintRangeMode.CURRENT
-            and not initial_preferences.auto_units_per_page
-            and abs(initial_preferences.units_per_page - 50.0) < 1e-9
-        ):
-            # Historical default was a fixed 50 m/page.  On A4 Masterlog this
-            # produces roughly twice the reference page count and leaves a large
-            # unused vertical band.  Upgrade only that untouched legacy default
-            # to the existing aspect-ratio-aware auto density.  Explicit custom
-            # intervals remain fully respected.
-            initial_preferences = replace(
-                initial_preferences,
-                auto_units_per_page=True,
-                overlap=0.0,
-            )
+        explicit_form_id = str(getattr(report_form, "form_id", "") or "").strip()
+        form_id = explicit_form_id or self.user_profile_settings.selected_form_id()
+        initial_preferences = (
+            self.user_profile_settings.print_export_preferences_for_form(form_id)
+            if form_id
+            else self.print_export_preferences
+        )
 
         dialog = PrintCenterDialog(
             self,
@@ -4652,9 +4641,18 @@ class MainWindow(QMainWindow):
             return
         job = dialog.job_settings()
         self.print_page_settings = job.page
-        self.print_export_preferences = dialog.preferences()
+        accepted_preferences = dialog.preferences()
         self.user_profile_settings.save_print_page_settings(job.page)
-        self.user_profile_settings.save_print_export_preferences(self.print_export_preferences)
+        if form_id:
+            self.user_profile_settings.save_print_export_preferences_for_form(
+                form_id,
+                accepted_preferences,
+            )
+        else:
+            self.print_export_preferences = accepted_preferences
+            self.user_profile_settings.save_print_export_preferences(
+                self.print_export_preferences
+            )
         self._execute_print_job(
             current,
             job,
