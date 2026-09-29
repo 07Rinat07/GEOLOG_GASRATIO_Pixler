@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from geoworkbench.acquisition.wits0_live_forms import (
     CUSTOM_LIVE_FORM_ID,
     WITS0_LIVE_FORM_STATE_SCHEMA_VERSION,
