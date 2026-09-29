@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 import json
+import math
 from typing import Protocol
 
 from geoworkbench.catalogs.sensors import normalize_sensor_key
@@ -10,7 +11,7 @@ from geoworkbench.catalogs.sensors import normalize_sensor_key
 
 CUSTOM_LIVE_FORM_ID = "custom"
 UNIVERSAL_LIVE_FORM_ID = "universal"
-WITS0_LIVE_FORM_STATE_SCHEMA_VERSION = 2
+WITS0_LIVE_FORM_STATE_SCHEMA_VERSION = 3
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,6 +58,7 @@ class Wits0SavedLiveFormState:
     sidebar_visible: bool = True
     panel_order: tuple[str, ...] = ()
     hidden_panel_ids: tuple[str, ...] = ()
+    panel_x_ranges: tuple[tuple[str, float, float], ...] = ()
     schema_version: int = WITS0_LIVE_FORM_STATE_SCHEMA_VERSION
 
     def __post_init__(self) -> None:
@@ -85,6 +87,24 @@ class Wits0SavedLiveFormState:
                 raise ValueError(f"{field_name} must contain non-empty strings")
             if len(set(items)) != len(items):
                 raise ValueError(f"{field_name} must not contain duplicates")
+        scale_keys: list[str] = []
+        for entry in self.panel_x_ranges:
+            if len(entry) != 3:
+                raise ValueError("panel_x_ranges entries must have key/min/max")
+            scale_key, minimum, maximum = entry
+            if not isinstance(scale_key, str) or not scale_key.strip():
+                raise ValueError("panel_x_ranges keys must be non-empty strings")
+            if (
+                isinstance(minimum, bool)
+                or isinstance(maximum, bool)
+                or not math.isfinite(float(minimum))
+                or not math.isfinite(float(maximum))
+                or float(minimum) >= float(maximum)
+            ):
+                raise ValueError("panel_x_ranges require finite min < max")
+            scale_keys.append(scale_key)
+        if len(set(scale_keys)) != len(scale_keys):
+            raise ValueError("panel_x_ranges keys must not contain duplicates")
 
 
 class _SettingsLike(Protocol):
@@ -115,16 +135,33 @@ class Wits0LiveFormSettings:
             if not isinstance(payload, dict):
                 return None
             schema_version = int(payload.get("schema_version", 1))
-            if schema_version not in {1, WITS0_LIVE_FORM_STATE_SCHEMA_VERSION}:
+            if schema_version not in {
+                1,
+                2,
+                WITS0_LIVE_FORM_STATE_SCHEMA_VERSION,
+            }:
                 return None
             selected = payload.get("selected_mnemonics", [])
             panel_order = payload.get("panel_order", [])
             hidden_panel_ids = payload.get("hidden_panel_ids", [])
+            panel_x_ranges = payload.get("panel_x_ranges", [])
             for values in (selected, panel_order, hidden_panel_ids):
                 if not isinstance(values, list) or not all(
                     isinstance(item, str) for item in values
                 ):
                     return None
+            if not isinstance(panel_x_ranges, list):
+                return None
+            parsed_ranges: list[tuple[str, float, float]] = []
+            for entry in panel_x_ranges:
+                if not isinstance(entry, list) or len(entry) != 3:
+                    return None
+                scale_key, minimum, maximum = entry
+                if not isinstance(scale_key, str):
+                    return None
+                parsed_ranges.append(
+                    (scale_key, float(minimum), float(maximum))
+                )
             return Wits0SavedLiveFormState(
                 form_id=str(payload.get("form_id", form_id)),
                 selected_mnemonics=tuple(selected),
@@ -135,12 +172,18 @@ class Wits0LiveFormSettings:
                 sidebar_visible=payload.get("sidebar_visible", True),
                 panel_order=(
                     tuple(panel_order)
-                    if schema_version == WITS0_LIVE_FORM_STATE_SCHEMA_VERSION
+                    if schema_version >= 2
                     else ()
                 ),
                 hidden_panel_ids=(
                     tuple(hidden_panel_ids)
-                    if schema_version == WITS0_LIVE_FORM_STATE_SCHEMA_VERSION
+                    if schema_version >= 2
+                    else ()
+                ),
+                panel_x_ranges=(
+                    tuple(parsed_ranges)
+                    if schema_version
+                    == WITS0_LIVE_FORM_STATE_SCHEMA_VERSION
                     else ()
                 ),
                 schema_version=WITS0_LIVE_FORM_STATE_SCHEMA_VERSION,
