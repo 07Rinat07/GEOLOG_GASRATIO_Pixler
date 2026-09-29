@@ -4574,10 +4574,29 @@ class MainWindow(QMainWindow):
             full_range=full_range,
             selection_range=selected_range,
         )
+        initial_preferences = self.print_export_preferences
+        form_id = str(getattr(report_form, "form_id", "") or "")
+        if (
+            form_id.startswith("factory-masterlog-a4-")
+            and initial_preferences.range_mode is not PrintRangeMode.CURRENT
+            and not initial_preferences.auto_units_per_page
+            and abs(initial_preferences.units_per_page - 50.0) < 1e-9
+        ):
+            # Historical default was a fixed 50 m/page.  On A4 Masterlog this
+            # produces roughly twice the reference page count and leaves a large
+            # unused vertical band.  Upgrade only that untouched legacy default
+            # to the existing aspect-ratio-aware auto density.  Explicit custom
+            # intervals remain fully respected.
+            initial_preferences = replace(
+                initial_preferences,
+                auto_units_per_page=True,
+                overlap=0.0,
+            )
+
         dialog = PrintCenterDialog(
             self,
             initial_page=self.print_page_settings,
-            initial_preferences=self.print_export_preferences,
+            initial_preferences=initial_preferences,
             language=self.language,
             source_name=resolved_name,
             preview_callback=lambda job: self._preview_print_job(
