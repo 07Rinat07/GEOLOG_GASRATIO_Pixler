@@ -267,7 +267,7 @@ def test_paginated_masterlog_uses_physical_printer_paint_rect(monkeypatch) -> No
 
         @staticmethod
         def paintRectPixels(_resolution):
-            return QRectF(0.0, 0.0, 1800.0, 2500.0)
+            return QRectF(23.0, 31.0, 1800.0, 2500.0)
 
     class FakeDevice:
         @staticmethod
@@ -314,6 +314,8 @@ def test_paginated_masterlog_uses_physical_printer_paint_rect(monkeypatch) -> No
     )
 
     assert len(targets) == 1
+    assert targets[0].x() == 23.0
+    assert targets[0].y() == 31.0
     assert targets[0].width() == 1800.0
     assert targets[0].height() == 2500.0
 
