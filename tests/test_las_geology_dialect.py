@@ -79,3 +79,81 @@ def test_resolver_does_not_guess_ambiguous_vendor_curves() -> None:
         "VENDOR_1", description="Laboratory calcite CaCO3 content", unit="",
     ) is None
     assert resolve_geology_channel("CARBONATE_PCT").role is GeologyChannelRole.LEGACY_CARBONATE
+
+
+def test_resolver_accepts_common_calcimetry_formula_spellings() -> None:
+    cases = {
+        "CA_CO3": GeologyChannelRole.CALCITE,
+        "КАЛЬЦИТ_CACO3": GeologyChannelRole.CALCITE,
+        "CA_MG_CO3_2": GeologyChannelRole.DOLOMITE,
+        "CAMGCO32": GeologyChannelRole.DOLOMITE,
+        "ОБЩАЯ_КАРБОНАТНОСТЬ": GeologyChannelRole.LEGACY_CARBONATE,
+    }
+    for mnemonic, role in cases.items():
+        match = resolve_geology_channel(mnemonic)
+        assert match is not None
+        assert match.role is role
+
+
+def test_resolver_recognizes_opaque_vendor_cuttings_channels_from_descriptions() -> None:
+    primary = resolve_geology_channel(
+        "S701",
+        description="Код основной породы",
+        unit="CODE",
+    )
+    rock_1 = resolve_geology_channel(
+        "S711",
+        description="Код породы 1",
+        unit="CODE",
+    )
+    amount_1 = resolve_geology_channel(
+        "S712",
+        description="Содержание породы 1",
+        unit="%",
+    )
+    rock_3 = resolve_geology_channel(
+        "CH33",
+        description="Rock 3 code",
+        unit="ID",
+    )
+    amount_3 = resolve_geology_channel(
+        "CH34",
+        description="Rock 3 percentage",
+        unit="PCT",
+    )
+
+    assert primary is not None
+    assert primary.role is GeologyChannelRole.PRIMARY_LITHOLOGY
+    assert primary.matched_by == "description+uom"
+
+    assert rock_1 is not None
+    assert rock_1.role is GeologyChannelRole.CUTTINGS_CODE
+    assert rock_1.slot == 1
+    assert amount_1 is not None
+    assert amount_1.role is GeologyChannelRole.CUTTINGS_AMOUNT
+    assert amount_1.slot == 1
+
+    assert rock_3 is not None
+    assert rock_3.role is GeologyChannelRole.CUTTINGS_CODE
+    assert rock_3.slot == 3
+    assert amount_3 is not None
+    assert amount_3.role is GeologyChannelRole.CUTTINGS_AMOUNT
+    assert amount_3.slot == 3
+
+
+def test_description_based_cuttings_mapping_requires_compatible_units() -> None:
+    assert resolve_geology_channel(
+        "S711",
+        description="Код породы 1",
+        unit="%",
+    ) is None
+    assert resolve_geology_channel(
+        "S712",
+        description="Содержание породы 1",
+        unit="CODE",
+    ) is None
+    assert resolve_geology_channel(
+        "S701",
+        description="Основная порода",
+        unit="%",
+    ) is None
