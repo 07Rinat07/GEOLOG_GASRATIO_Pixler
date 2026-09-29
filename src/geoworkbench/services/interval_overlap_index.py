@@ -1,1 +1,78 @@
-from __future__ import annotations\n\nfrom bisect import bisect_left, bisect_right\nfrom dataclasses import dataclass\nfrom typing import Generic, Iterable, Protocol, TypeVar\n\n\nclass DepthInterval(Protocol):\n    top_depth: float\n    bottom_depth: float\n\n\nT = TypeVar("T", bound=DepthInterval)\n\n\n@dataclass(frozen=True, slots=True)\nclass IntervalOverlapIndex(Generic[T]):\n    """Immutable overlap index for depth intervals.\n\n    The index preserves the legacy inclusive boundary semantics used by the\n    Masterlog renderer: an interval is visible when bottom_depth >= page_top\n    and top_depth <= page_bottom.\n\n    Query cost is O(log n + k) for ordinary non-pathological data instead of\n    scanning every interval for every rendered page/track.\n    """\n\n    _items: tuple[T, ...]\n    _tops: tuple[float, ...]\n    _prefix_max_bottom: tuple[float, ...]\n\n    @classmethod\n    def build(cls, items: Iterable[T]) -> "IntervalOverlapIndex[T]":\n        ordered = tuple(\n            sorted(\n                items,\n                key=lambda item: (\n                    float(item.top_depth),\n                    float(item.bottom_depth),\n                ),\n            )\n        )\n        tops = tuple(float(item.top_depth) for item in ordered)\n        prefix: list[float] = []\n        maximum_bottom = float("-inf")\n        for item in ordered:\n            maximum_bottom = max(maximum_bottom, float(item.bottom_depth))\n            prefix.append(maximum_bottom)\n        return cls(ordered, tops, tuple(prefix))\n\n    @property\n    def items(self) -> tuple[T, ...]:\n        return self._items\n\n    def overlapping(self, top_depth: float, bottom_depth: float) -> tuple[T, ...]:\n        top = float(top_depth)\n        bottom = float(bottom_depth)\n        if bottom < top:\n            raise ValueError("Нижняя граница интервала должна быть не меньше верхней")\n        if not self._items:\n            return ()\n\n        end = bisect_right(self._tops, bottom)\n        if end <= 0:\n            return ()\n\n        start = bisect_left(self._prefix_max_bottom, top, 0, end)\n        if start >= end:\n            return ()\n\n        return tuple(\n            item\n            for item in self._items[start:end]\n            if float(item.bottom_depth) >= top\n        )\n\n\n__all__ = ["DepthInterval", "IntervalOverlapIndex"]\n
+from __future__ import annotations
+
+from bisect import bisect_left, bisect_right
+from dataclasses import dataclass
+from typing import Generic, Iterable, Protocol, TypeVar
+
+
+class DepthInterval(Protocol):
+    top_depth: float
+    bottom_depth: float
+
+
+T = TypeVar("T", bound=DepthInterval)
+
+
+@dataclass(frozen=True, slots=True)
+class IntervalOverlapIndex(Generic[T]):
+    """Immutable overlap index for depth intervals.
+
+    The index preserves the legacy inclusive boundary semantics used by the
+    Masterlog renderer: an interval is visible when bottom_depth >= page_top
+    and top_depth <= page_bottom.
+
+    Query cost is O(log n + k) for ordinary non-pathological data instead of
+    scanning every interval for every rendered page/track.
+    """
+
+    _items: tuple[T, ...]
+    _tops: tuple[float, ...]
+    _prefix_max_bottom: tuple[float, ...]
+
+    @classmethod
+    def build(cls, items: Iterable[T]) -> "IntervalOverlapIndex[T]":
+        ordered = tuple(
+            sorted(
+                items,
+                key=lambda item: (
+                    float(item.top_depth),
+                    float(item.bottom_depth),
+                ),
+            )
+        )
+        tops = tuple(float(item.top_depth) for item in ordered)
+        prefix: list[float] = []
+        maximum_bottom = float("-inf")
+        for item in ordered:
+            maximum_bottom = max(maximum_bottom, float(item.bottom_depth))
+            prefix.append(maximum_bottom)
+        return cls(ordered, tops, tuple(prefix))
+
+    @property
+    def items(self) -> tuple[T, ...]:
+        return self._items
+
+    def overlapping(self, top_depth: float, bottom_depth: float) -> tuple[T, ...]:
+        top = float(top_depth)
+        bottom = float(bottom_depth)
+        if bottom < top:
+            raise ValueError("Нижняя граница интервала должна быть не меньше верхней")
+        if not self._items:
+            return ()
+
+        end = bisect_right(self._tops, bottom)
+        if end <= 0:
+            return ()
+
+        start = bisect_left(self._prefix_max_bottom, top, 0, end)
+        if start >= end:
+            return ()
+
+        return tuple(
+            item
+            for item in self._items[start:end]
+            if float(item.bottom_depth) >= top
+        )
+
+
+__all__ = ["DepthInterval", "IntervalOverlapIndex"]
