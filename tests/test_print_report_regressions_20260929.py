@@ -34,9 +34,8 @@ def test_native_print_preview_contains_renderer_exceptions() -> None:
     assert "QTimer.singleShot(0, preview.reject)" in source
 
 
-def test_masterlog_legacy_50m_print_default_is_upgraded_to_auto_density() -> None:
+def test_masterlog_print_preferences_are_resolved_per_active_form() -> None:
     source = (ROOT / "src/geoworkbench/ui/main_window.py").read_text(encoding="utf-8")
-    assert 'form_id.startswith("factory-masterlog-a4-")' in source
-    assert "abs(initial_preferences.units_per_page - 50.0) < 1e-9" in source
-    assert "auto_units_per_page=True" in source
-    assert "initial_preferences=initial_preferences" in source
+    assert "explicit_form_id or self.user_profile_settings.selected_form_id()" in source
+    assert "print_export_preferences_for_form(form_id)" in source
+    assert "save_print_export_preferences_for_form(" in source
