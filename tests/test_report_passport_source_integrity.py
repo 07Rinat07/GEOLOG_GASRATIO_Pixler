@@ -47,12 +47,15 @@ def test_report_passport_does_not_persist_absolute_output_path_or_timestamp() ->
     assert "target.name + REPORT_PASSPORT_SUFFIX" in service
 
 
-def test_interpretation_report_uses_well_level_artifact_passport() -> None:
+def test_interpretation_report_normal_export_has_no_forced_passport_sidecar() -> None:
     dialog = _source("src/geoworkbench/ui/interpretation_report_dialog.py")
     renderer = _source("src/geoworkbench/printing/interpretation_report.py")
 
-    assert "ReportPassportBuilder().build_artifact" in dialog
-    assert "depth_interval_snapshot" in dialog
-    assert "report_definition_snapshot" in dialog
-    assert "passport=passport" in dialog
+    # Interactive PDF/XLSX/DOCX export must create exactly the file selected by
+    # the user. Provenance/passport support remains available to explicit
+    # automated callers through the low-level exporter.
+    assert "ReportPassportBuilder().build_artifact" not in dialog
+    assert "passport_sidecar_path" not in dialog
+    assert "passport=passport" not in dialog
+    assert "passport: ReportPassport | None = None" in renderer
     assert "execute_report_output_transaction" in renderer
