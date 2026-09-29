@@ -729,6 +729,7 @@ class Wits0CaptureDialog(QDialog):
             )
             return
         self.engine = engine
+        self._focus_live_workspace()
         runtime = self.acquisition_runtime
         engine.set_recovery_context(
             acquisition_session_id=(
@@ -1411,6 +1412,7 @@ class Wits0CaptureDialog(QDialog):
             )
         self._notify_dataset_changed(runtime)
         self._restore_workspace_state(runtime)
+        self._focus_live_workspace()
         capture_snapshot = engine.snapshot() if engine is not None else None
         if (
             capture_snapshot is not None
@@ -1753,6 +1755,7 @@ class Wits0CaptureDialog(QDialog):
         self.acquisition_runtime = runtime
         self._notify_dataset_changed(runtime)
         self._restore_workspace_state(runtime)
+        self._focus_live_workspace()
         self.event_text.appendPlainText(
             self._t(
                 "wits0.recovery_restored_event",
@@ -1760,6 +1763,14 @@ class Wits0CaptureDialog(QDialog):
                 sequence=session.last_sequence,
             )
         )
+
+    def _focus_live_workspace(self) -> None:
+        """Return the operator to Live when streaming starts or is recovered."""
+
+        live_index = self.tabs.indexOf(self.live_view)
+        if live_index >= 0:
+            self.tabs.setCurrentIndex(live_index)
+        self.live_view.setFocus(Qt.FocusReason.OtherFocusReason)
 
     def _set_live_fullscreen(self, enabled: bool) -> None:
         if enabled:
