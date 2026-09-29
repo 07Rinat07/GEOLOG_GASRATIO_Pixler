@@ -345,3 +345,48 @@ def test_update_analysis_can_move_overlay_without_replacing_imported_cuttings() 
     assert updated.calcite_percent == 55.0
     assert imported.components[0].lithotype_id == "sandstone"
     assert (imported.top_depth, imported.bottom_depth) == (500.0, 510.0)
+
+
+def test_reediting_cuttings_ignores_analysis_only_overlay_for_overlap_rules() -> None:
+    controller = _controller()
+    cuttings = controller.add(500, 510, {"sandstone": 100})
+    analysis = controller.set_analysis(503, 507, calcite_percent=62.5)
+
+    updated = controller.update_composition(
+        cuttings.sample_id,
+        top_depth=500,
+        bottom_depth=511,
+        components={"sandstone": 80, "clay": 20},
+    )
+
+    assert updated is cuttings
+    assert (updated.top_depth, updated.bottom_depth) == (500.0, 511.0)
+    assert analysis.calcite_percent == 62.5
+    assert (analysis.top_depth, analysis.bottom_depth) == (503.0, 507.0)
+
+
+def test_full_sample_reedit_preserves_overlapping_analysis_overlay() -> None:
+    controller = _controller()
+    cuttings = controller.create_full_sample(
+        500,
+        510,
+        {"sandstone": 100},
+        description="Initial",
+        calcite_percent=40.0,
+    )
+    overlay = controller.set_analysis(503, 507, calcite_percent=62.5)
+
+    updated = controller.update_full_sample(
+        cuttings.sample_id,
+        top_depth=500,
+        bottom_depth=511,
+        components={"sandstone": 70, "clay": 30},
+        description="Updated",
+        calcite_percent=45.0,
+    )
+
+    assert updated is cuttings
+    assert updated.description == "Updated"
+    assert updated.calcite_percent == 45.0
+    assert overlay.calcite_percent == 62.5
+    assert (overlay.top_depth, overlay.bottom_depth) == (503.0, 507.0)
