@@ -31,9 +31,6 @@ from geoworkbench.domain.models import (
 from geoworkbench.project.cuttings_analysis_tracking_coordinator import (
     CuttingsAnalysisTrackingCoordinator,
 )
-from geoworkbench.project.cuttings_tracked_analysis_writer import (
-    CuttingsTrackedAnalysisWriter,
-)
 from geoworkbench.project.session import ProjectSession
 
 
@@ -428,6 +425,39 @@ class CuttingsController:
         return any(bool(value) for value in values)
 
     @staticmethod
+    def _has_analysis_data(sample: CuttingsSample) -> bool:
+        if any(
+            value is not None
+            for value in (
+                sample.total_carbonate_percent,
+                sample.calcite_percent,
+                sample.dolomite_percent,
+            )
+        ):
+            return True
+        return any(
+            bool(value)
+            for value in (
+                sample.lba_group,
+                sample.lba_type_id,
+                sample.lba_intensity,
+                sample.lba_color,
+                sample.lba_distribution,
+                sample.lba_cut,
+                sample.lba_cut_speed,
+                sample.lba_cut_color,
+                sample.lba_residue_type,
+                sample.lba_residue_color,
+                sample.lba_odour,
+                sample.lba_stain,
+                sample.lba_description,
+                sample.analysis_interpretation,
+                sample.lba_description_i18n,
+                sample.analysis_interpretation_i18n,
+            )
+        )
+
+    @staticmethod
     def _has_description_data(sample: CuttingsSample) -> bool:
         return bool(sample.description or sample.description_i18n)
 
@@ -762,7 +792,7 @@ class CuttingsController:
             "stain": self._normalize_text(lba_stain, 100),
             "description": self._normalize_text(lba_description, 2000),
             "interpretation": self._normalize_text(
-                analysis_interpretation, 4000, "Текст интерпретации"
+                analysis_interpretation, 20_000, "Текст интерпретации"
             ),
         }
         localized_lba = self._validate_localized_texts(
@@ -865,12 +895,18 @@ class CuttingsController:
             elif "ru" in previous_languages:
                 staged.analysis_interpretation = None
 
-        if sources.tracked:
-            return CuttingsTrackedAnalysisWriter(self.session).commit(
-                existing_sample,
-                staged,
-                sources=sources,
-            )
+        tracking_values: dict[str, object] = {
+            "lba_description": lba_description,
+            "analysis_interpretation": analysis_interpretation,
+            "content_language": content_language,
+            "lba_description_i18n": lba_description_i18n,
+            "analysis_interpretation_i18n": analysis_interpretation_i18n,
+            "lba_description_source_language": lba_description_source_language,
+            "analysis_interpretation_source_language": (
+                analysis_interpretation_source_language
+            ),
+        }
+        plan = self._full_sample_tracking_plan(previous, staged, tracking_values)
 
         if existing_sample is None:
             current = staged
@@ -878,7 +914,23 @@ class CuttingsController:
         else:
             current = existing_sample
             self._commit_sample(current, staged)
-        self._bump_analysis_language_changes(previous, current)
+
+        if plan is not None:
+            self._apply_tracking_plan(
+                plan,
+                previous_sample=previous,
+                current_sample=current,
+            )
+        else:
+            self._bump_analysis_language_changes(previous, current)
+
+        if not self._has_analysis_data(current):
+            CuttingsAnalysisTrackingCoordinator(self.session).clear(
+                current.sample_id
+            )
+            if not current.components and not self._has_description_data(current):
+                self._require_well().cuttings.remove(current)
+
         self.session.dirty = True
         return current
 
