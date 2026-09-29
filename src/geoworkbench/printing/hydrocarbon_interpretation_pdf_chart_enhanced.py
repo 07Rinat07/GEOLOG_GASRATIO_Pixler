@@ -82,6 +82,7 @@ def render_chart_pages(
     )
     for page_index, page in enumerate(pages, start=1):
         canvas.new_page()
+        percentiles = base_chart._curve_percentiles(panels, dataset, page=page)
         _draw_chart_page(
             canvas.painter,
             chart_geometry(canvas.content_rect, page, len(panels)),
@@ -91,7 +92,8 @@ def render_chart_pages(
             report,
             dataset,
             panels,
-            base_chart._curve_ranges(panels, dataset, page=page),
+            base_chart._display_curve_ranges(percentiles),
+            percentiles,
             language,
         )
         canvas.y = canvas.content_rect.bottom()
@@ -139,6 +141,7 @@ def _draw_chart_page(
     dataset: Dataset,
     panels: tuple[tuple[str, tuple[CurveData, ...]], ...],
     ranges: dict[str, tuple[float, float]],
+    percentiles: dict[str, tuple[float, float]],
     language: AppLanguage,
 ) -> None:
     labels = base_chart._labels(language)
@@ -214,7 +217,7 @@ def _draw_chart_page(
             panel_index,
             len(panels),
             curves,
-            ranges,
+            percentiles,
         )
 
     _draw_fluid_markers(
