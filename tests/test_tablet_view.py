@@ -1812,7 +1812,7 @@ def test_set_layout_and_dataset_requests_one_full_refresh(
 
     assert calls == [None]
     assert view.layout_model is layout
-    assert view.dataset is dataset
+    assert view._dataset is dataset
     view.close()
 
 
