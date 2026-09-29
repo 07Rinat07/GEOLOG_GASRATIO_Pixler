@@ -1137,9 +1137,12 @@ WELL-04 уже имеет field-level статусы и readiness; WELL-05 — f
   TabletView rebuild 16 дорожек ~1.1–1.2 с на MainThread. Первый slice убирает full-file
   allocation из encoding detection, передаёт LAS в parser через streaming TextIOWrapper и
   переводит cursor/interval nearest-axis lookup для монотонных depth/time индексов с O(N)
-  argmin на cached searchsorted O(log N), сохраняя exact fallback для mixed axes. Следующие
-  измеряемые slices: import parser phase timing/RSS, coalesced main-window refresh и сокращение
-  full widget rebuild без ослабления viewport LOD/geometry-cache контрактов.
+  argmin на cached searchsorted O(log N), сохраняя exact fallback для mixed axes. Второй slice
+  убирает двойной full rebuild в Curve Browser build, tablet preset apply и import recovery:
+  layout+dataset устанавливаются одной `set_layout_and_dataset()` транзакцией и дают один
+  full render pass вместо двух. Следующие измеряемые slices: import parser phase timing/RSS,
+  coalesced main-window refresh и дальнейшее сокращение MainThread rebuild без ослабления
+  viewport LOD/geometry-cache контрактов.
 
 ## P1 — поддерживаемая архитектура
 
