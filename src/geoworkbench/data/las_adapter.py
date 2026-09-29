@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import io
 import os
 import tempfile
 from collections import Counter
@@ -99,12 +98,13 @@ def import_las_with_report(
             max_bytes=safety.max_file_size,
             chunk_size=safety.chunk_size,
         )
-        decoded_source = source_document.raw_bytes.decode(
-            source_document.encoding,
-            errors="replace",
-        )
+        # The lossless snapshot already owns the immutable source bytes.
+        # Parsing a second full-file decoded string + StringIO doubles the peak
+        # memory footprint for large LAS files and amplifies GC/GIL stalls.
+        # Let lasio stream from the source path using the encoding detected by
+        # the lossless layer instead.
         las = lasio.read(
-            io.StringIO(decoded_source),
+            source,
             ignore_header_errors=True,
             encoding=source_document.encoding,
             encoding_errors="replace",
