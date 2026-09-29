@@ -101,6 +101,48 @@ def test_import_las_streams_decoding_into_lasio(tmp_path, monkeypatch) -> None:
     assert dataset.depth.size == 2
 
 
+def test_import_las_logs_phase_timings_without_source_values(
+    tmp_path, monkeypatch
+) -> None:
+    source = tmp_path / "timed.las"
+    raw = b"~V\nVERS. 2.0\n~W\nNULL. -999.25\n~A\n100 1\n101 2\n"
+    source.write_bytes(raw)
+    ticks = iter((10.0, 10.125, 10.625, 11.625, 11.875))
+    events: list[tuple[str, dict[str, object]]] = []
+
+    monkeypatch.setattr(
+        "geoworkbench.data.las_adapter.perf_counter",
+        lambda: next(ticks),
+    )
+    monkeypatch.setattr(
+        "geoworkbench.data.las_adapter.log_event",
+        lambda event, **context: events.append((event, context)),
+    )
+    monkeypatch.setattr(
+        "geoworkbench.data.las_adapter.lasio.read",
+        lambda *args, **kwargs: FakeLas(),
+    )
+
+    result = import_las_with_report(source)
+
+    assert len(events) == 1
+    event, context = events[0]
+    assert event == "las.import.performance"
+    assert context["source_name"] == "timed.las"
+    assert context["size_bytes"] == len(raw)
+    assert context["encoding"] == result.source_document.encoding
+    assert context["rows"] == 2
+    assert context["curves"] == 2
+    assert context["warnings"] == result.report.warning_count
+    assert context["source_ms"] == pytest.approx(125.0)
+    assert context["parse_ms"] == pytest.approx(500.0)
+    assert context["dataset_ms"] == pytest.approx(1000.0)
+    assert context["report_ms"] == pytest.approx(250.0)
+    assert context["total_ms"] == pytest.approx(1875.0)
+    assert "source_path" not in context
+    assert "values" not in context
+
+
 def test_import_las_with_report_captures_source_and_depth_diagnostics(
     tmp_path, monkeypatch
 ) -> None:
