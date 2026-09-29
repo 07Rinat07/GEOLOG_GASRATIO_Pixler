@@ -91,7 +91,11 @@ def print_pdf_page_selection(
                     raise RuntimeError("Не удалось создать следующую печатную страницу")
 
                 page = document[page_number - 1]
-                render_dpi = max(144, min(300, int(printer.resolution() or 300)))
+                # Preserve thin vector chart lines when a PDF page must be
+                # rasterized for the Qt printer backend.  300 DPI visibly
+                # softens dense OPUS/GasRatio curves; use the driver's native
+                # resolution up to a bounded 600 DPI, one page at a time.
+                render_dpi = max(300, min(600, int(printer.resolution() or 600)))
                 scale = render_dpi / 72.0
                 pixmap = page.get_pixmap(
                     matrix=fitz.Matrix(scale, scale),
