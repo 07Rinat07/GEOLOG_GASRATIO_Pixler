@@ -68,7 +68,8 @@ def test_long_interpretation_range_has_even_page_density_without_short_tail() ->
     available = 360.0
     pages = plan_depth_pages(51.0, 5549.0, available)
 
-    assert 1 < len(pages) <= 12
+    assert 1 < len(pages) <= 80
+    assert max(page.span for page in pages) <= 105.0
     heights = [page.plot_height_points for page in pages]
     assert min(heights) >= available * 0.82
     assert max(heights) - min(heights) <= 1.0
@@ -121,6 +122,32 @@ def test_print_curve_remains_visible_for_nearly_constant_signal(qapp) -> None:
     assert dark_pixels >= 250
 
 
+def test_extrema_preserving_print_rows_keeps_narrow_peaks_and_bounds_density() -> None:
+    depth = np.linspace(100.0, 200.0, 10_001)
+    values = np.zeros(depth.shape, dtype=np.float64)
+    values[4321] = 100.0
+    values[7654] = -80.0
+    segment = np.arange(depth.size, dtype=np.int64)
+    page = DepthPage(100.0, 200.0, 500, 360.0)
+    rect = QRectF(0.0, 0.0, 300.0, 360.0)
+
+    reduced = chart.base_chart._extrema_preserving_print_rows(
+        segment,
+        depth,
+        values,
+        page,
+        rect,
+    )
+
+    assert 4321 in reduced
+    assert 7654 in reduced
+    assert 0 in reduced
+    assert depth.size - 1 in reduced
+    assert reduced.size < 1_000
+    assert np.all(np.diff(reduced) > 0)
+
+
+def test_enhanced_chart_uses_compact_markers_not_text_callout_stack() -> None:
 def test_enhanced_chart_uses_compact_markers_not_text_callout_stack() -> None:
     source = Path(
         "src/geoworkbench/printing/hydrocarbon_interpretation_pdf_chart_enhanced.py"
