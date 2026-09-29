@@ -361,7 +361,10 @@ def test_masterlog_calcimetry_uses_las_curve_when_no_sample_analysis(
         unit="%",
     )
     session = ProjectSession()
-    session.add_dataset(dataset, "Test", create_new_well=True)
+    well = session.add_dataset(dataset, "Test", create_new_well=True)
+    # ProjectSession materializes recognized LAS calcimetry on import.  Clear
+    # those factual samples to exercise the deliberate raw-LAS fallback path.
+    well.cuttings.clear()
     column = MasterlogColumnTemplate(
         "calc",
         "Calcimetry",
