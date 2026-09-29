@@ -56,3 +56,34 @@ def test_tablet_geology_indexes_rebuild_when_saved_data_changes(qapp) -> None:
     assert [item.sample_id for item in view._loaded_cuttings()] == ["updated"]
     assert view._calcimetry_presence == (False, True, False)
     view.close()
+
+
+def test_indexed_geology_hit_tests_preserve_deeper_shared_boundary(qapp) -> None:
+    view = TabletView()
+    view.set_cuttings(
+        [
+            CuttingsSample("cut-upper", 0.0, 10.0),
+            CuttingsSample("cut-lower", 10.0, 20.0),
+        ],
+        refresh=False,
+    )
+    view.set_lithology(
+        [
+            LithologyInterval("lith-upper", 0.0, 10.0, "sandstone"),
+            LithologyInterval("lith-lower", 10.0, 20.0, "clay"),
+        ],
+        (),
+        refresh=False,
+    )
+    view.set_stratigraphy(
+        [
+            StratigraphyInterval("strat-upper", 0.0, 10.0, "K1"),
+            StratigraphyInterval("strat-lower", 10.0, 20.0, "K2"),
+        ],
+        refresh=False,
+    )
+
+    assert view.cuttings_sample_at_depth(10.0).sample_id == "cut-lower"
+    assert view.lithology_interval_at_depth(10.0).interval_id == "lith-lower"
+    assert view.stratigraphy_interval_at_depth(10.0).interval_id == "strat-lower"
+    view.close()
