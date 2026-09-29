@@ -382,6 +382,68 @@ def _draw_interval_bands(
         )
 
 
+def _extrema_preserving_print_rows(
+    segment: np.ndarray,
+    depth: np.ndarray,
+    values: np.ndarray,
+    page: DepthPage,
+    rect: QRectF,
+) -> np.ndarray:
+    """Reduce dense print rows without losing local extrema.
+
+    Uniform linspace downsampling can miss narrow gas peaks or connect sparse
+    retained points into long diagonal spikes. Bucket rows by their final
+    vertical print position and retain first/min/max/last samples in stable
+    order. This preserves extrema while bounding visual density.
+    """
+
+    if segment.size <= 4:
+        return segment
+    # About one bucket per two typographic points keeps vector output readable
+    # while preserving substantially more detail than the printed raster can
+    # resolve at normal viewing distance.
+    bucket_count = max(8, min(int(rect.height() / 2.0), 900))
+    if segment.size <= bucket_count * 4:
+        return segment
+
+    y = np.asarray(
+        [_depth_y(float(depth[index]), page, rect) for index in segment],
+        dtype=np.float64,
+    )
+    normalized = np.clip(
+        (y - rect.top()) / max(rect.height(), 1.0),
+        0.0,
+        1.0,
+    )
+    buckets = np.minimum(
+        bucket_count - 1,
+        np.floor(normalized * bucket_count).astype(np.int64),
+    )
+
+    keep: list[int] = []
+    for bucket in np.unique(buckets):
+        positions = np.flatnonzero(buckets == bucket)
+        if positions.size == 0:
+            continue
+        rows = segment[positions]
+        finite_positions = positions[np.isfinite(values[rows])]
+        selected_positions = {int(positions[0]), int(positions[-1])}
+        if finite_positions.size:
+            finite_rows = segment[finite_positions]
+            local_values = values[finite_rows]
+            selected_positions.add(
+                int(finite_positions[int(np.argmin(local_values))])
+            )
+            selected_positions.add(
+                int(finite_positions[int(np.argmax(local_values))])
+            )
+        keep.extend(sorted(selected_positions))
+    if not keep:
+        return segment
+    unique_positions = np.asarray(sorted(set(keep)), dtype=np.int64)
+    return segment[unique_positions]
+
+
 def _draw_curves(
     painter: QPainter,
     rect: QRectF,
@@ -412,10 +474,17 @@ def _draw_curves(
         pen.setCosmetic(True)
         painter.setPen(pen)
         for segment in segments:
+            render_rows = _extrema_preserving_print_rows(
+                segment,
+                depth,
+                values,
+                page,
+                curve_rect,
+            )
             previous: tuple[float, float] | None = None
             previous_normalized: float | None = None
             previous_clipped = False
-            for row_index in segment:
+            for row_index in render_rows:
                 value = values[row_index]
                 if not np.isfinite(value):
                     previous = None
