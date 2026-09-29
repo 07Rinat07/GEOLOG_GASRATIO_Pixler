@@ -99,17 +99,19 @@ def import_las_with_report(
             max_bytes=safety.max_file_size,
             chunk_size=safety.chunk_size,
         )
-        decoded_source = source_document.raw_bytes.decode(
-            source_document.encoding,
-            errors="replace",
-        )
-        las = lasio.read(
-            io.StringIO(decoded_source),
-            ignore_header_errors=True,
+        with io.TextIOWrapper(
+            io.BytesIO(source_document.raw_bytes),
             encoding=source_document.encoding,
-            encoding_errors="replace",
-            autodetect_encoding=False,
-        )
+            errors="replace",
+            newline=None,
+        ) as decoded_source:
+            las = lasio.read(
+                decoded_source,
+                ignore_header_errors=True,
+                encoding=source_document.encoding,
+                encoding_errors="replace",
+                autodetect_encoding=False,
+            )
         depth = np.asarray(las.index, dtype=np.float64).copy()
     except Exception as exc:
         raise LasImportError(f"Не удалось прочитать LAS-файл: {source}") from exc
