@@ -393,8 +393,9 @@ def _extrema_preserving_print_rows(
 
     Uniform linspace downsampling can miss narrow gas peaks or connect sparse
     retained points into long diagonal spikes. Bucket rows by their final
-    vertical print position and retain first/min/max/last samples in stable
-    order. This preserves extrema while bounding visual density.
+    vertical print position and retain first/min/max/last samples plus
+    missing-value sentinels in stable order. This preserves extrema and real
+    acquisition breaks while bounding visual density.
     """
 
     if segment.size <= 4:
@@ -428,8 +429,13 @@ def _extrema_preserving_print_rows(
         if positions.size == 0:
             continue
         rows = segment[positions]
-        finite_positions = positions[np.isfinite(values[rows])]
+        finite_mask = np.isfinite(values[rows])
+        finite_positions = positions[finite_mask]
+        nonfinite_positions = positions[~finite_mask]
         selected_positions = {int(positions[0]), int(positions[-1])}
+        if nonfinite_positions.size:
+            selected_positions.add(int(nonfinite_positions[0]))
+            selected_positions.add(int(nonfinite_positions[-1]))
         if finite_positions.size:
             finite_rows = segment[finite_positions]
             local_values = values[finite_rows]
@@ -595,10 +601,6 @@ def _curve_ranges(
                 center = float(np.nanmedian(finite))
                 spread = max(abs(center) * 0.05, 1e-6)
                 low, high = center - spread, center + spread
-            else:
-                padding = (high - low) * 0.03
-                low -= padding
-                high += padding
             result[curve.metadata.curve_id] = (low, high)
     return result
 
