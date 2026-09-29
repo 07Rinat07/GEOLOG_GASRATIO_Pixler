@@ -133,7 +133,7 @@ class IntervalGasStatisticsIndex:
             left,
             right,
             gas=False,
-            background_key=None,
+            background_key=("__component_sum__", False),
         )
 
     def _bounds(self, top_depth: float, bottom_depth: float) -> tuple[int, int]:
