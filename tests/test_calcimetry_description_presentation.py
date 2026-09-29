@@ -2,14 +2,24 @@ from __future__ import annotations
 
 import numpy as np
 import pyqtgraph as pg
+from PySide6.QtCore import QRectF
+from PySide6.QtGui import QImage, QPainter
 
-from geoworkbench.domain.models import CuttingsSample, Dataset, DatasetKind, DepthDomain
+from geoworkbench.domain.models import (
+    CuttingsSample,
+    Dataset,
+    DatasetKind,
+    DepthDomain,
+    MasterlogColumnTemplate,
+)
 from geoworkbench.forms.a4_factory_templates import a4_factory_templates
 from geoworkbench.forms.apply import FormApplyEngine
 from geoworkbench.forms.codec import form_from_dict, form_to_dict
 from geoworkbench.forms.from_tablet import form_from_tablet_layout
 from geoworkbench.forms.models import FormAxisKind, FormColumn, FormDocument, FormTrack
 from geoworkbench.forms.masterlog_bridge import build_masterlog_from_form
+from geoworkbench.printing import masterlog_renderer
+from geoworkbench.project.session import ProjectSession
 from geoworkbench.forms.templates import factory_templates
 from geoworkbench.tablet.layout_codec import layout_from_dict, layout_to_dict
 from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind
@@ -277,3 +287,107 @@ def test_sample_calcimetry_overrides_duplicate_configured_las_curve(qapp) -> Non
     assert "__dolomite__" not in rendered.widget._curve_header_labels
     assert "sample" in rendered.analysis_items
     view.close()
+
+
+def test_masterlog_sample_calcimetry_suppresses_duplicate_las_curve(
+    qapp, monkeypatch
+) -> None:
+    dataset = Dataset(
+        "masterlog-calcimetry-precedence",
+        "Masterlog calcimetry precedence",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 105.0, 110.0]),
+    )
+    dataset.upsert_curve(
+        "TOTAL_CARBONATE",
+        np.array([40.0, 42.0, 44.0]),
+        unit="%",
+    )
+    session = ProjectSession()
+    well = session.add_dataset(dataset, "Test", create_new_well=True)
+    well.cuttings.append(
+        CuttingsSample(
+            "sample",
+            100.0,
+            110.0,
+            total_carbonate_percent=42.0,
+        )
+    )
+    column = MasterlogColumnTemplate(
+        "calc",
+        "Calcimetry",
+        "calcimetry",
+        50.0,
+        curve_mnemonics=["TOTAL_CARBONATE"],
+    )
+    curve_paint_calls = 0
+
+    def count_curve_paint(*_args, **_kwargs) -> None:
+        nonlocal curve_paint_calls
+        curve_paint_calls += 1
+
+    monkeypatch.setattr(masterlog_renderer, "_paint_curve_column", count_curve_paint)
+    image = QImage(400, 800, QImage.Format.Format_ARGB32_Premultiplied)
+    image.fill(0xFFFFFFFF)
+    painter = QPainter(image)
+    masterlog_renderer._paint_calcimetry_column(
+        painter,
+        QRectF(0.0, 0.0, 100.0, 400.0),
+        column,
+        dataset,
+        session,
+        (100.0, 110.0),
+        {},
+    )
+    painter.end()
+
+    assert curve_paint_calls == 0
+
+
+def test_masterlog_calcimetry_uses_las_curve_when_no_sample_analysis(
+    qapp, monkeypatch
+) -> None:
+    dataset = Dataset(
+        "masterlog-calcimetry-las-fallback",
+        "Masterlog calcimetry LAS fallback",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 105.0, 110.0]),
+    )
+    dataset.upsert_curve(
+        "CACO3",
+        np.array([20.0, 21.0, 22.0]),
+        unit="%",
+    )
+    session = ProjectSession()
+    session.add_dataset(dataset, "Test", create_new_well=True)
+    column = MasterlogColumnTemplate(
+        "calc",
+        "Calcimetry",
+        "calcimetry",
+        50.0,
+        curve_mnemonics=["CACO3"],
+    )
+    curve_paint_calls = 0
+
+    def count_curve_paint(*_args, **_kwargs) -> None:
+        nonlocal curve_paint_calls
+        curve_paint_calls += 1
+
+    monkeypatch.setattr(masterlog_renderer, "_paint_curve_column", count_curve_paint)
+    image = QImage(400, 800, QImage.Format.Format_ARGB32_Premultiplied)
+    image.fill(0xFFFFFFFF)
+    painter = QPainter(image)
+    masterlog_renderer._paint_calcimetry_column(
+        painter,
+        QRectF(0.0, 0.0, 100.0, 400.0),
+        column,
+        dataset,
+        session,
+        (100.0, 110.0),
+        {},
+    )
+    painter.end()
+
+    assert curve_paint_calls == 1
