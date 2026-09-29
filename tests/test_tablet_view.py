@@ -462,6 +462,60 @@ def test_tablet_uses_one_shared_unscaled_depth_axis_in_graphical_tracks(qapp) ->
     assert view._rendered["depth"].plot.toolTip().startswith("Колесо — прокрутка")
     view.close()
 
+def test_nearest_axis_lookup_uses_searchsorted_for_large_monotonic_axis(
+    qapp, monkeypatch
+) -> None:
+    depth = np.arange(0.0, 100_000.0, 0.5)
+    dataset = Dataset(
+        "dataset-large-axis",
+        "Large axis",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        depth,
+    )
+    view = TabletView()
+    view.set_dataset(dataset)
+
+    original_argmin = np.argmin
+
+    def fail_argmin(*_args, **_kwargs):
+        raise AssertionError("monotonic axis lookup must not scan with argmin")
+
+    monkeypatch.setattr(np, "argmin", fail_argmin)
+    try:
+        index = view._nearest_axis_index(54_321.24)
+    finally:
+        monkeypatch.setattr(np, "argmin", original_argmin)
+
+    assert index is not None
+    assert depth[index] == pytest.approx(54_321.0)
+    view.close()
+
+
+def test_nearest_axis_lookup_supports_descending_and_mixed_axes(qapp) -> None:
+    descending = Dataset(
+        "dataset-desc-axis",
+        "Descending axis",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([300.0, 200.0, 100.0]),
+    )
+    view = TabletView()
+    view.set_dataset(descending)
+    assert view._nearest_axis_index(175.0) == 1
+
+    mixed = Dataset(
+        "dataset-mixed-axis",
+        "Mixed axis",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 300.0, 200.0]),
+    )
+    view.set_dataset(mixed)
+    assert view._nearest_axis_index(225.0) == 2
+    view.close()
+
+
 def test_tablet_cursor_line_is_synchronized_and_reports_all_curve_values(qapp) -> None:
     dataset = Dataset(
         "dataset-1",
