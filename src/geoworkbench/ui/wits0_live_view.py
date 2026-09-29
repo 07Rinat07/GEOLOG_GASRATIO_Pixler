@@ -46,7 +46,6 @@ from geoworkbench.acquisition.wits0_live_forms import (
     live_curve_priority,
     live_form,
     live_form_definitions,
-    live_panel_definitions,
     select_live_curve_ids,
 )
 from geoworkbench.ui.wits0_operator_dashboard import Wits0OperatorDashboard
@@ -828,11 +827,8 @@ class Wits0LiveViewWidget(QWidget):
         self.refresh(force=True)
 
     def _populate_panel_controls(self) -> None:
-        """Build the operator panel editor from the dashboard's canonical panels."""
+        """Build the operator editor from the dashboard's canonical panels."""
 
-        # Force catalog initialization here so the UI remains tied to the
-        # canonical WITS panel definitions rather than a duplicated label list.
-        live_panel_definitions()
         self._sync_panel_controls_from_dashboard()
 
     def _sync_panel_controls_from_dashboard(self) -> None:
