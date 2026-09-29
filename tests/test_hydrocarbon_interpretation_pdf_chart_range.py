@@ -148,7 +148,6 @@ def test_extrema_preserving_print_rows_keeps_narrow_peaks_and_bounds_density() -
 
 
 def test_enhanced_chart_uses_compact_markers_not_text_callout_stack() -> None:
-def test_enhanced_chart_uses_compact_markers_not_text_callout_stack() -> None:
     source = Path(
         "src/geoworkbench/printing/hydrocarbon_interpretation_pdf_chart_enhanced.py"
     ).read_text(encoding="utf-8")
