@@ -4684,18 +4684,37 @@ class MainWindow(QMainWindow):
             return
         preview = QPrintPreviewDialog(printer, self)
         preview.setWindowTitle(self._t("print.preview_title"))
-        preview.paintRequested.connect(
-            lambda requested: self._print_jobs.render_preview(
-                widget,
-                requested,
-                normalized_job,
-                source_name=source_name,
-                language=self.language,
-                header_template=header_template,
-                session=self.session,
-            )
-        )
+        preview_error: list[Exception] = []
+
+        def render_preview_safely(requested) -> None:
+            if preview_error:
+                return
+            try:
+                self._print_jobs.render_preview(
+                    widget,
+                    requested,
+                    normalized_job,
+                    source_name=source_name,
+                    language=self.language,
+                    header_template=header_template,
+                    session=self.session,
+                )
+            except (RuntimeError, ValueError) as exc:
+                # paintRequested is emitted from Qt's preview paint cycle. An
+                # exception escaping this callback can terminate the native
+                # Windows print preview instead of returning to our dialog.
+                preview_error.append(exc)
+                self._log(f"Ошибка предварительного просмотра печати: {exc}")
+                QTimer.singleShot(0, preview.reject)
+
+        preview.paintRequested.connect(render_preview_safely)
         preview.exec()
+        if preview_error:
+            QMessageBox.critical(
+                self,
+                self._t("print_center.title"),
+                str(preview_error[0]),
+            )
 
     def _execute_print_job(
         self,
