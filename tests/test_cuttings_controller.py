@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 
+from geoworkbench.domain.cuttings_description_tracking import CuttingsDescriptionTrackingWorkflow
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
 from geoworkbench.project.cuttings_controller import CuttingsController
 from geoworkbench.project.session import ProjectSession
@@ -390,3 +391,67 @@ def test_full_sample_reedit_preserves_overlapping_analysis_overlay() -> None:
     assert updated.calcite_percent == 45.0
     assert overlay.calcite_percent == 62.5
     assert (overlay.top_depth, overlay.bottom_depth) == (503.0, 507.0)
+
+
+def test_update_analysis_accepts_existing_twenty_thousand_character_interpretation() -> None:
+    controller = _controller()
+    interpretation = "x" * 20_000
+    sample = controller.set_analysis(
+        500,
+        510,
+        calcite_percent=40.0,
+        analysis_interpretation=interpretation,
+    )
+
+    updated = controller.update_analysis(
+        sample.sample_id,
+        top_depth=500,
+        bottom_depth=510,
+        calcite_percent=45.0,
+        analysis_interpretation=interpretation,
+    )
+
+    assert updated.calcite_percent == 45.0
+    assert updated.analysis_interpretation == interpretation
+
+
+def test_moving_analysis_on_shared_tracked_description_updates_depth_provenance() -> None:
+    controller = _controller()
+    sample = controller.set_description(
+        500,
+        510,
+        "Tracked rock description",
+        language="en",
+        source_language="en",
+    )
+    controller.set_analysis(500, 510, calcite_percent=40.0)
+
+    depth_id = CuttingsDescriptionTrackingWorkflow.depth_dependency_id(
+        sample.sample_id
+    )
+    before = controller.session.current_well.authored_field_revisions[depth_id]
+
+    controller.update_analysis(
+        sample.sample_id,
+        top_depth=501,
+        bottom_depth=511,
+        calcite_percent=45.0,
+    )
+
+    after = controller.session.current_well.authored_field_revisions[depth_id]
+    assert after == before + 1
+    assert (sample.top_depth, sample.bottom_depth) == (501.0, 511.0)
+
+
+def test_clearing_standalone_analysis_removes_invisible_orphan() -> None:
+    controller = _controller()
+    sample = controller.set_analysis(500, 510, calcite_percent=40.0)
+
+    updated = controller.update_analysis(
+        sample.sample_id,
+        top_depth=500,
+        bottom_depth=510,
+    )
+
+    assert updated is sample
+    assert controller.available() == ()
