@@ -1679,13 +1679,20 @@ def _paint_lithology_column(
     session: ProjectSession,
     depth_range: tuple[float, float],
     lithotype_catalog: dict[str, CatalogLithotype],
+    *,
+    intervals: Sequence[LithologyInterval] | None = None,
 ) -> None:
     well = session.current_well
     if well is None:
         return
     painter.save()
     painter.setClipRect(rect)
-    for interval in visible_lithology_intervals(well.lithology, depth_range):
+    visible_intervals = (
+        tuple(intervals)
+        if intervals is not None
+        else visible_lithology_intervals(well.lithology, depth_range)
+    )
+    for interval in visible_intervals:
         interval_rect = _interval_rect(rect, interval, depth_range)
         definition = lithotype_catalog.get(interval.lithotype_id)
         color = definition.color if definition is not None else "#b0b0b0"
@@ -1739,11 +1746,13 @@ def _paint_stratigraphy_column(
     session: ProjectSession,
     depth_range: tuple[float, float],
     language: AppLanguage = AppLanguage.RU,
+    *,
+    intervals: Sequence[StratigraphyInterval] | None = None,
 ) -> None:
     well = session.current_well
     if well is None:
         return
-    visible = [
+    visible = list(intervals) if intervals is not None else [
         item
         for item in well.stratigraphy
         if item.bottom_depth >= depth_range[0] and item.top_depth <= depth_range[1]
@@ -1800,6 +1809,8 @@ def _paint_cuttings_column(
     session: ProjectSession,
     depth_range: tuple[float, float],
     lithotype_catalog: dict[str, CatalogLithotype],
+    *,
+    samples: Sequence[CuttingsSample] | None = None,
 ) -> None:
     well = session.current_well
     if well is None:
@@ -1807,7 +1818,8 @@ def _paint_cuttings_column(
     top, bottom = depth_range
     painter.save()
     painter.setClipRect(rect)
-    for sample in well.cuttings:
+    source_samples = samples if samples is not None else well.cuttings
+    for sample in source_samples:
         if sample.bottom_depth < top or sample.top_depth > bottom:
             continue
         visible_top = max(top, sample.top_depth)
@@ -1848,6 +1860,9 @@ def _paint_calcimetry_column(
     session: ProjectSession,
     depth_range: tuple[float, float],
     bindings: dict[str, str],
+    *,
+    samples: Sequence[CuttingsSample] | None = None,
+    has_sample_calcimetry: bool | None = None,
 ) -> None:
     # Some providers store calcite/dolomite as LAS curves, while other jobs keep
     # them as discrete cuttings-sample analyses.  LAS geology import materializes
@@ -1861,19 +1876,21 @@ def _paint_calcimetry_column(
         if column.curve_mnemonics:
             _paint_curve_column(painter, rect, column, dataset, depth_range, bindings)
         return
-    has_sample_calcimetry = any(
-        sample.calcite_percent is not None
-        or sample.dolomite_percent is not None
-        or sample.total_carbonate_percent is not None
-        for sample in well.cuttings
-    )
+    source_samples = samples if samples is not None else well.cuttings
+    if has_sample_calcimetry is None:
+        has_sample_calcimetry = any(
+            sample.calcite_percent is not None
+            or sample.dolomite_percent is not None
+            or sample.total_carbonate_percent is not None
+            for sample in well.cuttings
+        )
     if column.curve_mnemonics and not has_sample_calcimetry:
         _paint_curve_column(painter, rect, column, dataset, depth_range, bindings)
     top, bottom = depth_range
     show_total = column.properties.get("calcimetry_show_total", True) is not False
     painter.save()
     painter.setClipRect(rect)
-    for sample in well.cuttings:
+    for sample in source_samples:
         if sample.bottom_depth < top or sample.top_depth > bottom:
             continue
         if (
@@ -1946,6 +1963,8 @@ def _paint_lba_column(
     session: ProjectSession,
     depth_range: tuple[float, float],
     language: AppLanguage = AppLanguage.RU,
+    *,
+    samples: Sequence[CuttingsSample] | None = None,
 ) -> None:
     well = session.current_well
     if well is None:
@@ -1956,7 +1975,8 @@ def _paint_lba_column(
     font = QFont()
     _set_scaled_font_points(painter, font, 5.0)
     painter.setFont(font)
-    for sample in well.cuttings:
+    source_samples = samples if samples is not None else well.cuttings
+    for sample in source_samples:
         if sample.bottom_depth < top or sample.top_depth > bottom:
             continue
         intensity = normalized_lba_intensity(sample.lba_intensity)
@@ -2060,6 +2080,7 @@ def _paint_lithology_descriptions(
     language: AppLanguage,
     lithotype_catalog: dict[str, CatalogLithotype],
     *,
+    intervals: Sequence[LithologyInterval] | None = None,
     show_borders: bool = True,
 ) -> None:
     well = session.current_well
@@ -2070,7 +2091,12 @@ def _paint_lithology_descriptions(
     font = QFont()
     _set_scaled_font_points(painter, font, 6.5)
     painter.setFont(font)
-    for interval in visible_lithology_intervals(well.lithology, depth_range):
+    visible_intervals = (
+        tuple(intervals)
+        if intervals is not None
+        else visible_lithology_intervals(well.lithology, depth_range)
+    )
+    for interval in visible_intervals:
         interval_rect = _interval_rect(rect, interval, depth_range)
         definition = lithotype_catalog.get(interval.lithotype_id)
         name = (
@@ -2103,6 +2129,7 @@ def _paint_cuttings_descriptions(
     depth_range: tuple[float, float],
     language: AppLanguage = AppLanguage.RU,
     *,
+    samples: Sequence[CuttingsSample] | None = None,
     show_borders: bool = True,
 ) -> None:
     well = session.current_well
@@ -2114,7 +2141,8 @@ def _paint_cuttings_descriptions(
     font = QFont()
     _set_scaled_font_points(painter, font, 6.5)
     painter.setFont(font)
-    for sample in well.cuttings:
+    source_samples = samples if samples is not None else well.cuttings
+    for sample in source_samples:
         description = localized_text(
             sample.description_i18n,
             language,
@@ -2150,6 +2178,7 @@ def _paint_sample_interpretations(
     depth_range: tuple[float, float],
     language: AppLanguage = AppLanguage.RU,
     *,
+    samples: Sequence[CuttingsSample] | None = None,
     show_borders: bool = True,
 ) -> None:
     well = session.current_well
@@ -2161,7 +2190,8 @@ def _paint_sample_interpretations(
     font = QFont()
     _set_scaled_font_points(painter, font, 6.0)
     painter.setFont(font)
-    for sample in well.cuttings:
+    source_samples = samples if samples is not None else well.cuttings
+    for sample in source_samples:
         raw_description = localized_text(
             sample.description_i18n,
             language,
