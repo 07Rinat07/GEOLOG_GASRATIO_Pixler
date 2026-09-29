@@ -432,6 +432,7 @@ class Wits0LiveViewWidget(QWidget):
             self.max_points_spin,
             self.refresh_button,
             self.curve_list,
+            self.panel_list,
         ):
             widget.setEnabled(True)
         self._populate_axes()
