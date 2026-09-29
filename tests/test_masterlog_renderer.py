@@ -254,6 +254,70 @@ def test_paginated_masterlog_reuses_one_render_context(monkeypatch) -> None:
     assert device.new_page_calls == 1
 
 
+def test_paginated_masterlog_uses_physical_printer_paint_rect(monkeypatch) -> None:
+    session = make_session_with_curves()
+    template = make_template()
+    template.page_format = "A4"
+    targets: list[QRectF] = []
+
+    class FakePageLayout:
+        @staticmethod
+        def fullRect(_unit):
+            return QRectF(0.0, 0.0, 210.0, 297.0)
+
+        @staticmethod
+        def paintRectPixels(_resolution):
+            return QRectF(0.0, 0.0, 1800.0, 2500.0)
+
+    class FakeDevice:
+        @staticmethod
+        def width() -> int:
+            return 2480
+
+        @staticmethod
+        def height() -> int:
+            return 3508
+
+        @staticmethod
+        def resolution() -> int:
+            return 300
+
+        @staticmethod
+        def pageLayout() -> FakePageLayout:
+            return FakePageLayout()
+
+        @staticmethod
+        def newPage() -> bool:
+            return True
+
+    monkeypatch.setattr(
+        masterlog_renderer,
+        "paint_masterlog",
+        lambda _painter, target, *_args, **_kwargs: targets.append(target),
+    )
+    monkeypatch.setattr(
+        masterlog_renderer,
+        "masterlog_page_ranges",
+        lambda *_args, **_kwargs: ((100.0, 150.0),),
+    )
+    monkeypatch.setattr(
+        masterlog_renderer,
+        "masterlog_column_groups",
+        lambda value, _width: (tuple(value.columns),),
+    )
+
+    masterlog_renderer.paint_masterlog_pages(
+        object(),
+        FakeDevice(),
+        template,
+        session,
+    )
+
+    assert len(targets) == 1
+    assert targets[0].width() == 1800.0
+    assert targets[0].height() == 2500.0
+
+
 def test_masterlog_render_context_indexes_visible_geology_once() -> None:
     session = make_session_with_curves()
     assert session.current_well is not None
