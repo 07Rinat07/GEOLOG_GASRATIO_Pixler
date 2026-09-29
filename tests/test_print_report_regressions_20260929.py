@@ -27,11 +27,20 @@ def test_geology_dialog_does_not_create_report_passport_sidecars() -> None:
     assert "passport=" not in source
 
 
-def test_native_print_preview_contains_renderer_exceptions() -> None:
+def test_print_preview_avoids_native_dialog_and_contains_renderer_exceptions() -> None:
     source = (ROOT / "src/geoworkbench/ui/main_window.py").read_text(encoding="utf-8")
-    assert "def render_preview_safely(requested)" in source
+    preview_dialog = (
+        ROOT / "src/geoworkbench/ui/stable_print_preview_dialog.py"
+    ).read_text(encoding="utf-8")
+
+    assert "from PySide6.QtPrintSupport import QPrintPreviewDialog" not in source
+    assert "QPrintPreviewDialog(" not in source
+    assert "StablePrintPreviewDialog" in source
+    assert "preview.preview_widget.paintRequested.connect(render_preview_safely)" in source
+    assert "QTimer.singleShot(0, preview.preview_widget.updatePreview)" in source
     assert "except (RuntimeError, ValueError) as exc:" in source
     assert "QTimer.singleShot(0, preview.reject)" in source
+    assert "QPrintPreviewWidget" in preview_dialog
 
 
 def test_masterlog_print_preferences_are_resolved_per_active_form() -> None:
