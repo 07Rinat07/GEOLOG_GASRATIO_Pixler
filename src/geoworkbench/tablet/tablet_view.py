@@ -2059,6 +2059,7 @@ class TabletView(QWidget):
     lithology_interval_edit_requested = Signal(str)
     cuttings_interval_requested = Signal(float, float)
     analysis_interval_requested = Signal(float, float)
+    analysis_sample_edit_requested = Signal(str)
     cuttings_sample_edit_requested = Signal(str)
     description_interval_requested = Signal(float, float)
     description_edit_requested = Signal(str)
@@ -4483,7 +4484,11 @@ class TabletView(QWidget):
             return
         self.select_track(track_id, emit_signal=True)
         menu = QMenu(self)
-        sample = self.cuttings_sample_at_depth(depth)
+        sample = self.editable_sample_at_depth(
+            depth,
+            definition.kind,
+            calcimetry_show_total=definition.calcimetry_show_total,
+        )
         lithology = self.lithology_interval_at_depth(depth)
         stratigraphy = self.stratigraphy_interval_at_depth(depth)
 
@@ -4500,7 +4505,7 @@ class TabletView(QWidget):
                 )
             else:
                 edit_action = menu.addAction(self._localizer.text("geology.context.edit_lithology"))
-        elif definition.kind is TrackKind.TEXT:
+        elif definition.kind in {TrackKind.TEXT, TrackKind.INTERPRETATION}:
             if sample is None:
                 create_action = menu.addAction(
                     self._localizer.text("geology.context.new_description")
@@ -4523,7 +4528,11 @@ class TabletView(QWidget):
                 )
             else:
                 edit_action = menu.addAction(
-                    self._localizer.text("geology.context.edit_full_sample")
+                    self._localizer.text(
+                        "geology.context.edit_analysis"
+                        if definition.kind in {TrackKind.CALCIMETRY, TrackKind.LBA}
+                        else "geology.context.edit_full_sample"
+                    )
                 )
 
         annotation_callout_action = annotation_comment_action = None
@@ -4592,14 +4601,7 @@ class TabletView(QWidget):
             self.cuttings_sample_edit_requested.emit(sample.sample_id)
             return
         if chosen == edit_action:
-            if definition.kind is TrackKind.STRATIGRAPHY and stratigraphy is not None:
-                self.stratigraphy_interval_edit_requested.emit(stratigraphy.interval_id)
-            elif definition.kind is TrackKind.LITHOLOGY and lithology is not None:
-                self.lithology_interval_edit_requested.emit(lithology.interval_id)
-            elif definition.kind is TrackKind.TEXT and sample is not None:
-                self.description_edit_requested.emit(sample.sample_id)
-            elif sample is not None:
-                self.cuttings_sample_edit_requested.emit(sample.sample_id)
+            self._emit_geological_edit_request(definition, depth)
             return
         if chosen is create_action:
             top, bottom = self._default_geological_interval(depth)
@@ -4607,7 +4609,7 @@ class TabletView(QWidget):
                 self.stratigraphy_interval_requested.emit(top, bottom)
             elif definition.kind is TrackKind.LITHOLOGY:
                 self.lithology_interval_requested.emit(top, bottom)
-            elif definition.kind is TrackKind.TEXT:
+            elif definition.kind in {TrackKind.TEXT, TrackKind.INTERPRETATION}:
                 self.description_interval_requested.emit(top, bottom)
             elif definition.kind in {TrackKind.CALCIMETRY, TrackKind.LBA}:
                 self.analysis_interval_requested.emit(top, bottom)
@@ -5416,7 +5418,7 @@ class TabletView(QWidget):
                 )
                 or (
                     self._geological_input_mode is GeologicalInputMode.DESCRIPTION
-                    and kind is TrackKind.TEXT
+                    and kind in {TrackKind.TEXT, TrackKind.INTERPRETATION}
                 )
                 or (
                     self._geological_input_mode is GeologicalInputMode.EDIT
@@ -5428,6 +5430,7 @@ class TabletView(QWidget):
                         TrackKind.LBA,
                         TrackKind.STRATIGRAPHY,
                         TrackKind.TEXT,
+                        TrackKind.INTERPRETATION,
                     }
                 )
             )
@@ -5481,6 +5484,121 @@ class TabletView(QWidget):
         if not matches:
             matches = [item for item in self._cuttings if np.isclose(item.bottom_depth, value)]
         return max(matches, key=lambda item: item.top_depth) if matches else None
+
+    def editable_sample_at_depth(
+        self,
+        depth: float,
+        kind: TrackKind,
+        *,
+        calcimetry_show_total: bool | None = None,
+    ) -> CuttingsSample | None:
+        """Resolve the sample that actually renders in a geological track.
+
+        Analysis and description intervals may overlap imported cuttings.  A
+        generic depth hit-test can therefore select a different sample than the
+        one visible in the clicked column.  Filter by track semantics first,
+        then prefer the narrowest interval.
+        """
+
+        value = float(depth)
+
+        def belongs_to_track(sample: CuttingsSample) -> bool:
+            if kind is TrackKind.CUTTINGS:
+                return bool(sample.components)
+            if kind is TrackKind.CALCIMETRY:
+                return (
+                    sample.calcite_percent is not None
+                    or sample.dolomite_percent is not None
+                    or (
+                        calcimetry_show_total is not False
+                        and sample.total_carbonate_percent is not None
+                    )
+                )
+            if kind is TrackKind.LBA:
+                return any(
+                    bool(item)
+                    for item in (
+                        sample.lba_group,
+                        sample.lba_type_id,
+                        sample.lba_intensity,
+                        sample.lba_color,
+                        sample.lba_distribution,
+                        sample.lba_cut,
+                        sample.lba_cut_speed,
+                        sample.lba_cut_color,
+                        sample.lba_residue_type,
+                        sample.lba_residue_color,
+                        sample.lba_odour,
+                        sample.lba_stain,
+                        sample.lba_description,
+                        sample.lba_description_i18n,
+                    )
+                )
+            if kind in {TrackKind.TEXT, TrackKind.INTERPRETATION}:
+                return bool(sample.description or sample.description_i18n)
+            return True
+
+        matches = [
+            item
+            for item in self._cuttings
+            if belongs_to_track(item) and item.top_depth <= value < item.bottom_depth
+        ]
+        if not matches:
+            matches = [
+                item
+                for item in self._cuttings
+                if belongs_to_track(item) and np.isclose(item.bottom_depth, value)
+            ]
+        if not matches:
+            return None
+        return min(
+            matches,
+            key=lambda item: (
+                item.bottom_depth - item.top_depth,
+                -item.top_depth,
+                item.sample_id,
+            ),
+        )
+
+    def _emit_geological_edit_request(
+        self,
+        definition: TrackDefinition,
+        depth: float,
+    ) -> bool:
+        if definition.kind is TrackKind.STRATIGRAPHY:
+            stratigraphy_interval = self.stratigraphy_interval_at_depth(depth)
+            if stratigraphy_interval is None:
+                return False
+            self.stratigraphy_interval_edit_requested.emit(
+                stratigraphy_interval.interval_id
+            )
+            return True
+        if definition.kind is TrackKind.LITHOLOGY:
+            lithology_interval = self.lithology_interval_at_depth(depth)
+            if lithology_interval is None:
+                return False
+            self.lithology_interval_edit_requested.emit(
+                lithology_interval.interval_id
+            )
+            return True
+
+        sample = self.editable_sample_at_depth(
+            depth,
+            definition.kind,
+            calcimetry_show_total=definition.calcimetry_show_total,
+        )
+        if sample is None:
+            return False
+        if definition.kind in {TrackKind.TEXT, TrackKind.INTERPRETATION}:
+            self.description_edit_requested.emit(sample.sample_id)
+            return True
+        if definition.kind in {TrackKind.CALCIMETRY, TrackKind.LBA}:
+            self.analysis_sample_edit_requested.emit(sample.sample_id)
+            return True
+        if definition.kind is TrackKind.CUTTINGS:
+            self.cuttings_sample_edit_requested.emit(sample.sample_id)
+            return True
+        return False
 
     def set_stratigraphy(
         self, intervals: list[StratigraphyInterval], *, refresh: bool = True
@@ -7380,38 +7498,9 @@ class TabletView(QWidget):
             ):
                 point = self._mouse_event_plot_point(plot, event)
                 depth = self._axis_to_depth_value(float(point.y()))
-                if definition.kind is TrackKind.STRATIGRAPHY:
-                    stratigraphy_interval = self.stratigraphy_interval_at_depth(depth)
-                    if stratigraphy_interval is not None:
-                        self.stratigraphy_interval_edit_requested.emit(
-                            stratigraphy_interval.interval_id
-                        )
-                        event.accept()
-                        return True
-                elif definition.kind is TrackKind.LITHOLOGY:
-                    lithology_interval = self.lithology_interval_at_depth(depth)
-                    if lithology_interval is not None:
-                        self.lithology_interval_edit_requested.emit(
-                            lithology_interval.interval_id
-                        )
-                        event.accept()
-                        return True
-                elif definition.kind is TrackKind.TEXT:
-                    sample = self.cuttings_sample_at_depth(depth)
-                    if sample is not None:
-                        self.description_edit_requested.emit(sample.sample_id)
-                        event.accept()
-                        return True
-                elif definition.kind in {
-                    TrackKind.CUTTINGS,
-                    TrackKind.CALCIMETRY,
-                    TrackKind.LBA,
-                }:
-                    sample = self.cuttings_sample_at_depth(depth)
-                    if sample is not None:
-                        self.cuttings_sample_edit_requested.emit(sample.sample_id)
-                        event.accept()
-                        return True
+                if self._emit_geological_edit_request(definition, depth):
+                    event.accept()
+                    return True
             if (
                 definition is not None
                 and self._geological_input_mode is GeologicalInputMode.EDIT
@@ -7420,34 +7509,9 @@ class TabletView(QWidget):
             ):
                 point = self._mouse_event_plot_point(plot, event)
                 depth = self._axis_to_depth_value(float(point.y()))
-                if definition.kind is TrackKind.STRATIGRAPHY:
-                    stratigraphy_interval = self.stratigraphy_interval_at_depth(depth)
-                    if stratigraphy_interval is not None:
-                        self.stratigraphy_interval_edit_requested.emit(
-                            stratigraphy_interval.interval_id
-                        )
-                        event.accept()
-                        return True
-                elif definition.kind is TrackKind.LITHOLOGY:
-                    lithology_interval = self.lithology_interval_at_depth(depth)
-                    if lithology_interval is not None:
-                        self.lithology_interval_edit_requested.emit(
-                            lithology_interval.interval_id
-                        )
-                        event.accept()
-                        return True
-                elif definition.kind is TrackKind.TEXT:
-                    sample = self.cuttings_sample_at_depth(depth)
-                    if sample is not None:
-                        self.description_edit_requested.emit(sample.sample_id)
-                        event.accept()
-                        return True
-                elif definition.kind in {TrackKind.CUTTINGS, TrackKind.CALCIMETRY, TrackKind.LBA}:
-                    sample = self.cuttings_sample_at_depth(depth)
-                    if sample is not None:
-                        self.cuttings_sample_edit_requested.emit(sample.sample_id)
-                        event.accept()
-                        return True
+                if self._emit_geological_edit_request(definition, depth):
+                    event.accept()
+                    return True
 
             if definition is not None and definition.kind in {
                 TrackKind.CUTTINGS,
@@ -7565,6 +7629,7 @@ class TabletView(QWidget):
                         TrackKind.CALCIMETRY,
                         TrackKind.LBA,
                         TrackKind.TEXT,
+                        TrackKind.INTERPRETATION,
                     }:
                         self.show_geological_context_menu(
                             track_id,
@@ -9414,8 +9479,9 @@ class TabletView(QWidget):
                 and event.button() == Qt.MouseButton.LeftButton
             ):
                 point = self._mouse_event_view_point(rendered, event)
-                sample = self.cuttings_sample_at_depth(
-                    self._axis_to_depth_value(float(point.y()))
+                sample = self.editable_sample_at_depth(
+                    self._axis_to_depth_value(float(point.y())),
+                    TrackKind.INTERPRETATION,
                 )
                 if sample is not None:
                     self.description_edit_requested.emit(sample.sample_id)

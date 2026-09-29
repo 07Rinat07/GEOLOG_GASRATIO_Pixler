@@ -32,3 +32,34 @@ def test_native_print_preview_contains_renderer_exceptions() -> None:
     assert "def render_preview_safely(requested)" in source
     assert "except (RuntimeError, ValueError) as exc:" in source
     assert "QTimer.singleShot(0, preview.reject)" in source
+
+
+def test_masterlog_print_preferences_are_resolved_per_active_form() -> None:
+    source = (ROOT / "src/geoworkbench/ui/main_window.py").read_text(encoding="utf-8")
+    assert 'if ":form:" in scope_id:' in source
+    assert "or layout_form_id" in source
+    assert "or self.user_profile_settings.selected_form_id()" in source
+    assert "print_export_preferences_for_form(form_id)" in source
+    assert "save_print_export_preferences_for_form(" in source
+
+
+def test_saved_analysis_has_a_dedicated_reedit_path() -> None:
+    tablet = (ROOT / "src/geoworkbench/tablet/tablet_view.py").read_text(encoding="utf-8")
+    main_window = (ROOT / "src/geoworkbench/ui/main_window.py").read_text(encoding="utf-8")
+    controller = (
+        ROOT / "src/geoworkbench/project/cuttings_controller.py"
+    ).read_text(encoding="utf-8")
+
+    assert "analysis_sample_edit_requested = Signal(str)" in tablet
+    assert "self.analysis_sample_edit_requested.emit(sample.sample_id)" in tablet
+    assert "self._edit_analysis_interval_from_tablet" in main_window
+    assert "def update_analysis(" in controller
+
+
+def test_rock_description_interpretation_track_uses_geological_edit_routing() -> None:
+    source = (ROOT / "src/geoworkbench/tablet/tablet_view.py").read_text(
+        encoding="utf-8"
+    )
+    right_click_block = source[source.index("event.button() == Qt.MouseButton.RightButton") :]
+    assert "TrackKind.INTERPRETATION" in right_click_block
+    assert "kind in {TrackKind.TEXT, TrackKind.INTERPRETATION}" in source

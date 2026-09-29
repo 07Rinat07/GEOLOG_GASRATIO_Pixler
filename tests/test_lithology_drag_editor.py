@@ -486,3 +486,118 @@ def test_lithology_edit_dialog_exposes_delete_for_existing_interval(qapp) -> Non
     delete_button.click()
     assert dialog.delete_requested is True
     dialog.close()
+
+
+def test_double_click_calcimetry_edits_visible_analysis_overlay(qapp) -> None:
+    dataset = Dataset(
+        "dataset-calcimetry-reedit",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.arange(100.0, 181.0, 10.0),
+    )
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout([TrackDefinition("calcimetry", "Кальциметрия", TrackKind.CALCIMETRY)])
+    )
+    view.set_cuttings(
+        [
+            CuttingsSample(
+                "sample-cuttings",
+                120.0,
+                150.0,
+                [CuttingsComponent("clay", 100.0)],
+            ),
+            CuttingsSample(
+                "sample-analysis",
+                125.0,
+                135.0,
+                calcite_percent=60.0,
+            ),
+        ]
+    )
+    view.resize(520, 620)
+    view.show()
+    view.set_dataset(dataset)
+    qapp.processEvents()
+
+    rendered = view._rendered["calcimetry"]
+    assert rendered.plot is not None
+    viewport = rendered.plot.viewport()
+    position = _viewport_point_for_depth(view, 130.0, "calcimetry")
+    analysis_requests: list[str] = []
+    cuttings_requests: list[str] = []
+    view.analysis_sample_edit_requested.connect(analysis_requests.append)
+    view.cuttings_sample_edit_requested.connect(cuttings_requests.append)
+    event = _mouse_event(
+        QEvent.Type.MouseButtonDblClick,
+        viewport,
+        position,
+        button=Qt.MouseButton.LeftButton,
+        buttons=Qt.MouseButton.LeftButton,
+        modifiers=Qt.KeyboardModifier.NoModifier,
+    )
+
+    assert view.eventFilter(viewport, event) is True
+    assert analysis_requests == ["sample-analysis"]
+    assert cuttings_requests == []
+    view.close()
+
+
+def test_editable_sample_at_depth_uses_track_semantics_for_overlays(qapp) -> None:
+    view = TabletView()
+    view.set_cuttings(
+        [
+            CuttingsSample(
+                "cuttings",
+                120.0,
+                150.0,
+                [CuttingsComponent("clay", 100.0)],
+                description="Глина серая",
+            ),
+            CuttingsSample("analysis", 125.0, 135.0, calcite_percent=60.0),
+        ]
+    )
+
+    assert view.editable_sample_at_depth(130.0, TrackKind.CUTTINGS).sample_id == "cuttings"
+    assert (
+        view.editable_sample_at_depth(130.0, TrackKind.CALCIMETRY).sample_id
+        == "analysis"
+    )
+    assert (
+        view.editable_sample_at_depth(130.0, TrackKind.INTERPRETATION).sample_id
+        == "cuttings"
+    )
+    view.close()
+
+
+def test_hidden_total_carbonate_is_not_an_editable_visible_calcimetry_sample(qapp) -> None:
+    view = TabletView()
+    view.set_cuttings(
+        [
+            CuttingsSample(
+                "total-only",
+                120.0,
+                130.0,
+                total_carbonate_percent=65.0,
+            )
+        ]
+    )
+
+    assert (
+        view.editable_sample_at_depth(
+            125.0,
+            TrackKind.CALCIMETRY,
+            calcimetry_show_total=False,
+        )
+        is None
+    )
+    assert (
+        view.editable_sample_at_depth(
+            125.0,
+            TrackKind.CALCIMETRY,
+            calcimetry_show_total=True,
+        ).sample_id
+        == "total-only"
+    )
+    view.close()

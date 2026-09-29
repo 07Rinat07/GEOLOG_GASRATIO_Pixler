@@ -31,9 +31,6 @@ from geoworkbench.domain.models import (
 from geoworkbench.project.cuttings_analysis_tracking_coordinator import (
     CuttingsAnalysisTrackingCoordinator,
 )
-from geoworkbench.project.cuttings_tracked_analysis_writer import (
-    CuttingsTrackedAnalysisWriter,
-)
 from geoworkbench.project.session import ProjectSession
 
 
@@ -80,7 +77,7 @@ class CuttingsController:
         sample = self._require_sample(sample_id)
         top, bottom = self._validate_interval(top_depth, bottom_depth)
         normalized = self._validate_components(components)
-        self._ensure_no_overlap(top, bottom, excluded_id=sample_id)
+        self._ensure_no_composition_overlap(top, bottom, excluded_id=sample_id)
         source_language = self.description_source_language(sample_id)
         if source_language is not None:
             previous = deepcopy(sample)
@@ -115,7 +112,7 @@ class CuttingsController:
         """Create one complete geological sample shared by all related tracks."""
         top, bottom = self._validate_interval(top_depth, bottom_depth)
         normalized = self._validate_components(components)
-        self._ensure_no_overlap(top, bottom)
+        self._ensure_no_composition_overlap(top, bottom)
         sample = CuttingsSample(new_id(), top, bottom, self._component_list(normalized))
         self._apply_full_values(sample, values, bump_revisions=False)
 
@@ -142,7 +139,7 @@ class CuttingsController:
         sample = self._require_sample(sample_id)
         top, bottom = self._validate_interval(top_depth, bottom_depth)
         normalized = self._validate_components(components)
-        self._ensure_no_overlap(top, bottom, excluded_id=sample_id)
+        self._ensure_no_composition_overlap(top, bottom, excluded_id=sample_id)
 
         previous = deepcopy(sample)
         staged = deepcopy(sample)
@@ -288,8 +285,12 @@ class CuttingsController:
         sample = self._require_sample(sample_id)
         top, bottom = self._validate_interval(top_depth, bottom_depth)
         normalized = self._normalize_text(description, 2_000_000, "Описание шлама")
-        if self._has_non_description_data(sample):
-            self._ensure_no_overlap(top, bottom, excluded_id=sample_id)
+        if sample.components:
+            self._ensure_no_composition_overlap(
+                top,
+                bottom,
+                excluded_id=sample_id,
+            )
 
         previous = deepcopy(sample)
         effective_source = (
@@ -424,6 +425,39 @@ class CuttingsController:
         return any(bool(value) for value in values)
 
     @staticmethod
+    def _has_analysis_data(sample: CuttingsSample) -> bool:
+        if any(
+            value is not None
+            for value in (
+                sample.total_carbonate_percent,
+                sample.calcite_percent,
+                sample.dolomite_percent,
+            )
+        ):
+            return True
+        return any(
+            bool(value)
+            for value in (
+                sample.lba_group,
+                sample.lba_type_id,
+                sample.lba_intensity,
+                sample.lba_color,
+                sample.lba_distribution,
+                sample.lba_cut,
+                sample.lba_cut_speed,
+                sample.lba_cut_color,
+                sample.lba_residue_type,
+                sample.lba_residue_color,
+                sample.lba_odour,
+                sample.lba_stain,
+                sample.lba_description,
+                sample.analysis_interpretation,
+                sample.lba_description_i18n,
+                sample.analysis_interpretation_i18n,
+            )
+        )
+
+    @staticmethod
     def _has_description_data(sample: CuttingsSample) -> bool:
         return bool(sample.description or sample.description_i18n)
 
@@ -469,7 +503,7 @@ class CuttingsController:
                 existing.description = normalized_description
             self.session.dirty = True
             return existing
-        self._ensure_no_overlap(top, bottom)
+        self._ensure_no_composition_overlap(top, bottom)
         sample = CuttingsSample(
             new_id(),
             top,
@@ -593,10 +627,158 @@ class CuttingsController:
         lba_description_source_language: object | None = None,
         analysis_interpretation_source_language: object | None = None,
     ) -> CuttingsSample:
+        """Create or replace analysis for one exact geological interval."""
+
         top, bottom = self._validate_interval(top_depth, bottom_depth)
-        calcite, dolomite = self._validate_calcimetry(calcite_percent, dolomite_percent)
+        existing_sample = self._find_exact_sample(top, bottom)
+        return self._save_analysis(
+            existing_sample,
+            top_depth=top,
+            bottom_depth=bottom,
+            require_nonempty=True,
+            calcite_percent=calcite_percent,
+            dolomite_percent=dolomite_percent,
+            lba_group=lba_group,
+            lba_type_id=lba_type_id,
+            lba_intensity=lba_intensity,
+            lba_color=lba_color,
+            lba_distribution=lba_distribution,
+            lba_cut=lba_cut,
+            lba_cut_speed=lba_cut_speed,
+            lba_cut_color=lba_cut_color,
+            lba_residue_type=lba_residue_type,
+            lba_residue_color=lba_residue_color,
+            lba_odour=lba_odour,
+            lba_stain=lba_stain,
+            lba_description=lba_description,
+            analysis_interpretation=analysis_interpretation,
+            content_language=content_language,
+            lba_description_i18n=lba_description_i18n,
+            analysis_interpretation_i18n=analysis_interpretation_i18n,
+            lba_description_source_language=lba_description_source_language,
+            analysis_interpretation_source_language=(
+                analysis_interpretation_source_language
+            ),
+        )
+
+    def update_analysis(
+        self,
+        sample_id: str,
+        *,
+        top_depth: float,
+        bottom_depth: float,
+        calcite_percent: float | None = None,
+        dolomite_percent: float | None = None,
+        lba_group: int | None = None,
+        lba_type_id: str | None = None,
+        lba_intensity: int | None = None,
+        lba_color: str | None = None,
+        lba_distribution: str | None = None,
+        lba_cut: str | None = None,
+        lba_cut_speed: str | None = None,
+        lba_cut_color: str | None = None,
+        lba_residue_type: str | None = None,
+        lba_residue_color: str | None = None,
+        lba_odour: str | None = None,
+        lba_stain: str | None = None,
+        lba_description: str | None = None,
+        analysis_interpretation: str | None = None,
+        content_language: object | None = None,
+        lba_description_i18n: object | None = None,
+        analysis_interpretation_i18n: object | None = None,
+        lba_description_source_language: object | None = None,
+        analysis_interpretation_source_language: object | None = None,
+    ) -> CuttingsSample:
+        """Edit saved calcimetry/LBA while preserving the sample identity and geology."""
+
+        sample = self._require_sample(sample_id)
+        top, bottom = self._validate_interval(top_depth, bottom_depth)
+        exact = self._find_exact_sample(top, bottom)
+        if exact is not None and exact.sample_id != sample_id:
+            raise ValueError(
+                f"На интервале {top:g}–{bottom:g} м уже существует другая проба"
+            )
+        if sample.components and (
+            not np.isclose(sample.top_depth, top)
+            or not np.isclose(sample.bottom_depth, bottom)
+        ):
+            self._ensure_no_composition_overlap(top, bottom, excluded_id=sample_id)
+
+        return self._save_analysis(
+            sample,
+            top_depth=top,
+            bottom_depth=bottom,
+            require_nonempty=False,
+            calcite_percent=calcite_percent,
+            dolomite_percent=dolomite_percent,
+            lba_group=lba_group,
+            lba_type_id=lba_type_id,
+            lba_intensity=lba_intensity,
+            lba_color=lba_color,
+            lba_distribution=lba_distribution,
+            lba_cut=lba_cut,
+            lba_cut_speed=lba_cut_speed,
+            lba_cut_color=lba_cut_color,
+            lba_residue_type=lba_residue_type,
+            lba_residue_color=lba_residue_color,
+            lba_odour=lba_odour,
+            lba_stain=lba_stain,
+            lba_description=lba_description,
+            analysis_interpretation=analysis_interpretation,
+            content_language=content_language,
+            lba_description_i18n=lba_description_i18n,
+            analysis_interpretation_i18n=analysis_interpretation_i18n,
+            lba_description_source_language=lba_description_source_language,
+            analysis_interpretation_source_language=(
+                analysis_interpretation_source_language
+            ),
+        )
+
+    def _save_analysis(
+        self,
+        existing_sample: CuttingsSample | None,
+        *,
+        top_depth: float,
+        bottom_depth: float,
+        require_nonempty: bool,
+        calcite_percent: float | None,
+        dolomite_percent: float | None,
+        lba_group: int | None,
+        lba_type_id: str | None,
+        lba_intensity: int | None,
+        lba_color: str | None,
+        lba_distribution: str | None,
+        lba_cut: str | None,
+        lba_cut_speed: str | None,
+        lba_cut_color: str | None,
+        lba_residue_type: str | None,
+        lba_residue_color: str | None,
+        lba_odour: str | None,
+        lba_stain: str | None,
+        lba_description: str | None,
+        analysis_interpretation: str | None,
+        content_language: object | None,
+        lba_description_i18n: object | None,
+        analysis_interpretation_i18n: object | None,
+        lba_description_source_language: object | None,
+        analysis_interpretation_source_language: object | None,
+    ) -> CuttingsSample:
+        previous = deepcopy(existing_sample) if existing_sample is not None else None
+        staged = (
+            deepcopy(existing_sample)
+            if existing_sample is not None
+            else CuttingsSample(new_id(), top_depth, bottom_depth)
+        )
+        staged.top_depth = top_depth
+        staged.bottom_depth = bottom_depth
+
+        calcite, dolomite = self._validate_calcimetry(
+            calcite_percent, dolomite_percent
+        )
         group = self._validate_lba_scale(lba_group, "Группа ЛБА")
-        intensity = self._validate_lba_scale(lba_intensity, "Интенсивность ЛБА")
+        intensity = self._validate_lba_scale(
+            lba_intensity, "Интенсивность ЛБА"
+        )
         strings = {
             "type": self._normalize_text(lba_type_id, 100),
             "color": self._normalize_text(lba_color, 100),
@@ -610,15 +792,18 @@ class CuttingsController:
             "stain": self._normalize_text(lba_stain, 100),
             "description": self._normalize_text(lba_description, 2000),
             "interpretation": self._normalize_text(
-                analysis_interpretation, 4000, "Текст интерпретации"
+                analysis_interpretation, 20_000, "Текст интерпретации"
             ),
         }
-        localized_lba = self._validate_localized_texts(lba_description_i18n, maximum=2_000)
+        localized_lba = self._validate_localized_texts(
+            lba_description_i18n, maximum=2_000
+        )
         localized_interpretation = self._validate_localized_texts(
             analysis_interpretation_i18n, maximum=20_000
         )
         if (
-            calcite is None
+            require_nonempty
+            and calcite is None
             and dolomite is None
             and group is None
             and intensity is None
@@ -628,119 +813,49 @@ class CuttingsController:
         ):
             raise ValueError("Укажите хотя бы один результат кальциметрии или ЛБА")
 
-        existing_sample = self._find_exact_sample(top, bottom)
+        staged.calcite_percent = calcite
+        staged.dolomite_percent = dolomite
+        staged.lba_group = group
+        staged.lba_type_id = strings["type"]
+        staged.lba_intensity = intensity
+        staged.lba_color = strings["color"]
+        staged.lba_distribution = strings["distribution"]
+        staged.lba_cut = strings["cut"]
+        staged.lba_cut_speed = strings["cut_speed"]
+        staged.lba_cut_color = strings["cut_color"]
+        staged.lba_residue_type = strings["residue_type"]
+        staged.lba_residue_color = strings["residue_color"]
+        staged.lba_odour = strings["odour"]
+        staged.lba_stain = strings["stain"]
+
         coordinator = CuttingsAnalysisTrackingCoordinator(self.session)
         sources = coordinator.resolve_sources(
             existing_sample.sample_id if existing_sample is not None else None,
             lba_description_source_language=lba_description_source_language,
             interpretation_source_language=analysis_interpretation_source_language,
         )
-        if sources.tracked:
-            staged = (
-                deepcopy(existing_sample)
-                if existing_sample is not None
-                else CuttingsSample(new_id(), top, bottom)
-            )
-            staged.calcite_percent = calcite
-            staged.dolomite_percent = dolomite
-            staged.lba_group = group
-            staged.lba_type_id = strings["type"]
-            staged.lba_intensity = intensity
-            staged.lba_color = strings["color"]
-            staged.lba_distribution = strings["distribution"]
-            staged.lba_cut = strings["cut"]
-            staged.lba_cut_speed = strings["cut_speed"]
-            staged.lba_cut_color = strings["cut_color"]
-            staged.lba_residue_type = strings["residue_type"]
-            staged.lba_residue_color = strings["residue_color"]
-            staged.lba_odour = strings["odour"]
-            staged.lba_stain = strings["stain"]
-            if (
-                content_language is None
-                and lba_description_i18n is None
-                and analysis_interpretation_i18n is None
-            ):
-                if sources.lba_description is not None and strings["description"] is not None:
-                    raise ValueError(
-                        "Для tracked-описания ЛБА передайте lba_description_i18n или content_language"
-                    )
-                if sources.interpretation is not None and strings["interpretation"] is not None:
-                    raise ValueError(
-                        "Для tracked-интерпретации передайте analysis_interpretation_i18n или content_language"
-                    )
-                if sources.lba_description is None:
-                    staged.lba_description = strings["description"]
-                if sources.interpretation is None:
-                    staged.analysis_interpretation = strings["interpretation"]
-            elif (
-                content_language is not None
-                and lba_description_i18n is None
-                and analysis_interpretation_i18n is None
-            ):
-                language = normalize_content_language(content_language)
-                set_localized_text(
-                    staged.lba_description_i18n,
-                    language,
-                    strings["description"],
-                    maximum=2_000,
-                )
-                set_localized_text(
-                    staged.analysis_interpretation_i18n,
-                    language,
-                    strings["interpretation"],
-                    maximum=20_000,
-                )
-                if language == "ru":
-                    staged.lba_description = strings["description"]
-                    staged.analysis_interpretation = strings["interpretation"]
-            if localized_lba is not None:
-                previous_languages = set(staged.lba_description_i18n)
-                staged.lba_description_i18n.clear()
-                staged.lba_description_i18n.update(localized_lba)
-                if "ru" in localized_lba:
-                    staged.lba_description = localized_lba["ru"]
-                elif "ru" in previous_languages:
-                    staged.lba_description = None
-            if localized_interpretation is not None:
-                previous_languages = set(staged.analysis_interpretation_i18n)
-                staged.analysis_interpretation_i18n.clear()
-                staged.analysis_interpretation_i18n.update(localized_interpretation)
-                if "ru" in localized_interpretation:
-                    staged.analysis_interpretation = localized_interpretation["ru"]
-                elif "ru" in previous_languages:
-                    staged.analysis_interpretation = None
-
-            return CuttingsTrackedAnalysisWriter(self.session).commit(
-                existing_sample,
-                staged,
-                sources=sources,
-            )
-
-        sample = existing_sample
-        if sample is None:
-            sample = CuttingsSample(new_id(), top, bottom)
-            self._require_well().cuttings.append(sample)
-        sample.calcite_percent = calcite
-        sample.dolomite_percent = dolomite
-        sample.lba_group = group
-        sample.lba_type_id = strings["type"]
-        sample.lba_intensity = intensity
-        sample.lba_color = strings["color"]
-        sample.lba_distribution = strings["distribution"]
-        sample.lba_cut = strings["cut"]
-        sample.lba_cut_speed = strings["cut_speed"]
-        sample.lba_cut_color = strings["cut_color"]
-        sample.lba_residue_type = strings["residue_type"]
-        sample.lba_residue_color = strings["residue_color"]
-        sample.lba_odour = strings["odour"]
-        sample.lba_stain = strings["stain"]
         if (
             content_language is None
             and lba_description_i18n is None
             and analysis_interpretation_i18n is None
         ):
-            sample.lba_description = strings["description"]
-            sample.analysis_interpretation = strings["interpretation"]
+            if sources.lba_description is not None and strings["description"] is not None:
+                raise ValueError(
+                    "Для tracked-описания ЛБА передайте lba_description_i18n "
+                    "или content_language"
+                )
+            if (
+                sources.interpretation is not None
+                and strings["interpretation"] is not None
+            ):
+                raise ValueError(
+                    "Для tracked-интерпретации передайте "
+                    "analysis_interpretation_i18n или content_language"
+                )
+            if sources.lba_description is None:
+                staged.lba_description = strings["description"]
+            if sources.interpretation is None:
+                staged.analysis_interpretation = strings["interpretation"]
         elif (
             content_language is not None
             and lba_description_i18n is None
@@ -748,45 +863,113 @@ class CuttingsController:
         ):
             language = normalize_content_language(content_language)
             set_localized_text(
-                sample.lba_description_i18n,
+                staged.lba_description_i18n,
                 language,
                 strings["description"],
                 maximum=2_000,
             )
             set_localized_text(
-                sample.analysis_interpretation_i18n,
+                staged.analysis_interpretation_i18n,
                 language,
                 strings["interpretation"],
                 maximum=20_000,
             )
             if language == "ru":
-                sample.lba_description = strings["description"]
-                sample.analysis_interpretation = strings["interpretation"]
-            self._bump_content(language)
-        changed_languages: set[str] = set()
+                staged.lba_description = strings["description"]
+                staged.analysis_interpretation = strings["interpretation"]
+
         if localized_lba is not None:
-            previous_languages = set(sample.lba_description_i18n)
-            sample.lba_description_i18n.clear()
-            sample.lba_description_i18n.update(localized_lba)
+            previous_languages = set(staged.lba_description_i18n)
+            staged.lba_description_i18n.clear()
+            staged.lba_description_i18n.update(localized_lba)
             if "ru" in localized_lba:
-                sample.lba_description = localized_lba["ru"]
+                staged.lba_description = localized_lba["ru"]
             elif "ru" in previous_languages:
-                sample.lba_description = None
-            changed_languages |= previous_languages | set(localized_lba)
+                staged.lba_description = None
         if localized_interpretation is not None:
-            previous_languages = set(sample.analysis_interpretation_i18n)
-            sample.analysis_interpretation_i18n.clear()
-            sample.analysis_interpretation_i18n.update(localized_interpretation)
+            previous_languages = set(staged.analysis_interpretation_i18n)
+            staged.analysis_interpretation_i18n.clear()
+            staged.analysis_interpretation_i18n.update(localized_interpretation)
             if "ru" in localized_interpretation:
-                sample.analysis_interpretation = localized_interpretation["ru"]
+                staged.analysis_interpretation = localized_interpretation["ru"]
             elif "ru" in previous_languages:
-                sample.analysis_interpretation = None
-            changed_languages |= previous_languages | set(localized_interpretation)
-        for language in changed_languages:
-            if language != "und":
-                self._bump_content(language)
+                staged.analysis_interpretation = None
+
+        tracking_values: dict[str, object] = {
+            "lba_description": lba_description,
+            "analysis_interpretation": analysis_interpretation,
+            "content_language": content_language,
+            "lba_description_i18n": lba_description_i18n,
+            "analysis_interpretation_i18n": analysis_interpretation_i18n,
+            "lba_description_source_language": lba_description_source_language,
+            "analysis_interpretation_source_language": (
+                analysis_interpretation_source_language
+            ),
+        }
+        plan = self._full_sample_tracking_plan(previous, staged, tracking_values)
+
+        if (
+            existing_sample is not None
+            and previous == staged
+            and (plan is None or not self._tracking_metadata_changed(plan))
+        ):
+            # Re-saving an unchanged tracked analysis is a true no-op.  Do not
+            # advance content/language revisions or mark the project dirty merely
+            # because the editor was opened and accepted without modifications.
+            return existing_sample
+
+        if existing_sample is None:
+            current = staged
+            self._require_well().cuttings.append(current)
+        else:
+            current = existing_sample
+            self._commit_sample(current, staged)
+
+        if plan is not None:
+            self._apply_tracking_plan(
+                plan,
+                previous_sample=previous,
+                current_sample=current,
+            )
+        else:
+            self._bump_analysis_language_changes(previous, current)
+
+        if not self._has_analysis_data(current):
+            CuttingsAnalysisTrackingCoordinator(self.session).clear(
+                current.sample_id
+            )
+            if not current.components and not self._has_description_data(current):
+                self._clear_description_tracking(current.sample_id)
+                self._require_well().cuttings.remove(current)
+
         self.session.dirty = True
-        return sample
+        return current
+
+    def _bump_analysis_language_changes(
+        self,
+        previous_sample: CuttingsSample | None,
+        current_sample: CuttingsSample,
+    ) -> None:
+        previous_maps = (
+            ({}, {})
+            if previous_sample is None
+            else (
+                previous_sample.lba_description_i18n,
+                previous_sample.analysis_interpretation_i18n,
+            )
+        )
+        current_maps = (
+            current_sample.lba_description_i18n,
+            current_sample.analysis_interpretation_i18n,
+        )
+        for language in SUPPORTED_CONTENT_LANGUAGES:
+            if any(
+                previous.get(language) != current.get(language)
+                for previous, current in zip(
+                    previous_maps, current_maps, strict=True
+                )
+            ):
+                self._bump_content(language)
 
     @staticmethod
     def _validate_localized_texts(value: object | None, *, maximum: int) -> dict[str, str] | None:
@@ -1143,11 +1326,13 @@ class CuttingsController:
             raise ValueError("Сумма компонентов шлама должна быть равна 100%")
         return normalized
 
-    def _ensure_no_overlap(
+    def _ensure_no_composition_overlap(
         self, top: float, bottom: float, *, excluded_id: str | None = None
     ) -> None:
+        """Keep factual cuttings intervals disjoint while allowing overlays."""
+
         for sample in self._require_well().cuttings:
-            if sample.sample_id == excluded_id:
+            if sample.sample_id == excluded_id or not sample.components:
                 continue
             if top < sample.bottom_depth and bottom > sample.top_depth:
                 raise ValueError(
