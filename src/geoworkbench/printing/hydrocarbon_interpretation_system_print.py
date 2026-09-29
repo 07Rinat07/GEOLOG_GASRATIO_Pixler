@@ -101,35 +101,45 @@ def print_pdf_page_selection(
                     matrix=fitz.Matrix(scale, scale),
                     alpha=False,
                 )
+                sample_buffer = getattr(pixmap, "samples_mv", None)
+                if sample_buffer is None:
+                    sample_buffer = pixmap.samples
                 image = QImage(
-                    pixmap.samples,
+                    sample_buffer,
                     pixmap.width,
                     pixmap.height,
                     pixmap.stride,
                     QImage.Format.Format_RGB888,
-                ).copy()
-                if image.isNull():
-                    raise RuntimeError(
-                        f"Не удалось подготовить страницу {page_number} для печати"
-                    )
-
-                paint_rect = printer.pageLayout().paintRectPixels(printer.resolution())
-                target = _fit_rect(
-                    float(paint_rect.width()),
-                    float(paint_rect.height()),
-                    float(image.width()),
-                    float(image.height()),
                 )
-                painter.fillRect(
-                    QRectF(
-                        0.0,
-                        0.0,
+                try:
+                    if image.isNull():
+                        raise RuntimeError(
+                            f"Не удалось подготовить страницу {page_number} для печати"
+                        )
+
+                    paint_rect = printer.pageLayout().paintRectPixels(printer.resolution())
+                    target = _fit_rect(
                         float(paint_rect.width()),
                         float(paint_rect.height()),
-                    ),
-                    QColor("#ffffff"),
-                )
-                painter.drawImage(target, image)
+                        float(image.width()),
+                        float(image.height()),
+                    )
+                    painter.fillRect(
+                        QRectF(
+                            0.0,
+                            0.0,
+                            float(paint_rect.width()),
+                            float(paint_rect.height()),
+                        ),
+                        QColor("#ffffff"),
+                    )
+                    painter.drawImage(target, image)
+                finally:
+                    # QPainter consumes the image synchronously. Release the
+                    # page buffer before the next 600-DPI pixmap is allocated.
+                    del image
+                    del sample_buffer
+                    del pixmap
                 if progress is not None:
                     progress(output_index, total, page_number)
         finally:
