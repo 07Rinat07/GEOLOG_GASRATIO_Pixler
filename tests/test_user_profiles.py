@@ -301,3 +301,53 @@ def test_v2_print_preferences_keep_header_placement_but_header_choice_is_implici
     assert restored.header_placement is PrintHeaderPlacement.EVERY_PAGE
     assert restored.header_selection_explicit is False
     assert restored.header_template_id is None
+
+
+def test_masterlog_form_uses_auto_density_only_for_untouched_legacy_default() -> None:
+    from geoworkbench.printing.print_job import PrintExportPreferences
+
+    storage = MemorySettings()
+    settings = UserProfileSettings(storage)
+
+    masterlog = settings.print_export_preferences_for_form(
+        "factory-masterlog-a4-landscape"
+    )
+    assert masterlog.auto_units_per_page is True
+
+    explicit_fixed = PrintExportPreferences(
+        range_mode=__import__(
+            "geoworkbench.printing.pagination",
+            fromlist=["PrintRangeMode"],
+        ).PrintRangeMode.FULL,
+        units_per_page=50.0,
+        auto_units_per_page=False,
+    )
+    settings.save_print_export_preferences(explicit_fixed)
+    settings = UserProfileSettings(storage)
+    preserved = settings.print_export_preferences_for_form(
+        "factory-masterlog-a4-landscape"
+    )
+    assert preserved.range_mode.value == "full"
+    assert preserved.units_per_page == 50.0
+    assert preserved.auto_units_per_page is False
+
+
+def test_form_print_preferences_do_not_leak_to_global_or_other_forms() -> None:
+    from geoworkbench.printing.print_job import PrintExportPreferences
+
+    storage = MemorySettings()
+    settings = UserProfileSettings(storage)
+    masterlog_preferences = PrintExportPreferences(auto_units_per_page=True)
+
+    settings.save_print_export_preferences_for_form(
+        "factory-masterlog-a4-landscape",
+        masterlog_preferences,
+    )
+
+    assert settings.print_export_preferences_for_form(
+        "factory-masterlog-a4-landscape"
+    ) == masterlog_preferences
+    assert settings.print_export_preferences().auto_units_per_page is False
+    assert settings.print_export_preferences_for_form(
+        "customer-form"
+    ).auto_units_per_page is False
