@@ -9705,7 +9705,11 @@ class MainWindow(QMainWindow):
         except (KeyError, ValueError) as exc:
             QMessageBox.warning(self, self._t("tablet.rename_track"), str(exc))
             return
-        self.tablet_view.refresh_view()
+        if not self.tablet_view.refresh_track(
+            track_id,
+            DirtyReason.STATIC,
+        ):
+            self.tablet_view.refresh_view()
         self._refresh_tree()
         self._update_title()
 
@@ -9727,7 +9731,7 @@ class MainWindow(QMainWindow):
         except (KeyError, ValueError) as exc:
             QMessageBox.warning(self, self._t("tablet.rename_group"), str(exc))
             return
-        self.tablet_view.refresh_view()
+        self.tablet_view.refresh_group_headers()
         self._refresh_tree()
         self._update_title()
 

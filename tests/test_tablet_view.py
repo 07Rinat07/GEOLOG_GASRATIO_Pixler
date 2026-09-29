@@ -135,6 +135,80 @@ def test_standard_track_rename_is_visible_and_known_cuttings_name_is_localized(q
     localized.close()
 
 
+def test_track_and_group_rename_refresh_without_full_rebuild(qapp) -> None:
+    from geoworkbench.tablet.render_invalidation import DirtyReason
+
+    dataset = Dataset(
+        "dataset-partial-title",
+        "Partial title",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 101.0, 102.0]),
+    )
+    for mnemonic in ("ROP", "WOB"):
+        curve = CurveData(
+            CurveMetadata(
+                f"curve-{mnemonic}",
+                mnemonic,
+                mnemonic,
+                "u",
+                None,
+                dataset.dataset_id,
+            ),
+            np.array([1.0, 2.0, 3.0]),
+        )
+        dataset.curves[curve.metadata.curve_id] = curve
+
+    layout = TabletLayout(
+        [
+            TrackDefinition(
+                "rop",
+                "ROP",
+                TrackKind.CURVE,
+                curve_mnemonics=["ROP"],
+                group_title="Drilling",
+            ),
+            TrackDefinition(
+                "wob",
+                "WOB",
+                TrackKind.CURVE,
+                curve_mnemonics=["WOB"],
+                group_title="Drilling",
+            ),
+        ]
+    )
+    view = TabletView()
+    view.set_layout_and_dataset(layout, dataset)
+    qapp.processEvents()
+
+    rop_widget = view._rendered["rop"].widget
+    wob_widget = view._rendered["wob"].widget
+    before = view.dirty_render_stats()
+
+    layout.track_by_id("rop").title = "ROP renamed"
+    assert view.refresh_track("rop", DirtyReason.STATIC)
+    qapp.processEvents()
+
+    after_title = view.dirty_render_stats()
+    assert view._rendered["rop"].widget is rop_widget
+    assert view._rendered["wob"].widget is wob_widget
+    assert rop_widget.title.text() == "ROP renamed"
+    assert after_title.full_updates == before.full_updates
+    assert after_title.partial_updates == before.partial_updates + 1
+
+    for track in layout.tracks:
+        track.group_title = "Operations"
+    view.refresh_group_headers()
+    qapp.processEvents()
+
+    after_group = view.dirty_render_stats()
+    assert view.group_header_titles == ("Operations",)
+    assert view._rendered["rop"].widget is rop_widget
+    assert view._rendered["wob"].widget is wob_widget
+    assert after_group.full_updates == after_title.full_updates
+    view.close()
+
+
 def test_existing_russian_absolute_gas_title_retranslates_on_tablet(qapp) -> None:
     dataset = Dataset(
         "dataset-absolute-gas-title",
