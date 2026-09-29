@@ -8,6 +8,7 @@ from PySide6.QtCore import QRectF
 
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
 from geoworkbench.printing import hydrocarbon_interpretation_pdf_chart_enhanced as chart
+from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import plan_depth_pages
 from geoworkbench.printing.hydrocarbon_interpretation_report_range import ReportDepthRange
 from geoworkbench.services.localization import AppLanguage
 
@@ -51,6 +52,27 @@ def test_chart_page_planner_uses_selected_report_depth_range(monkeypatch) -> Non
     assert len(observed) == 1
     assert observed[0][0:2] == (1980.0, 2016.2)
     assert observed[0][2] > 0.0
+
+
+def test_short_interpretation_interval_fills_printable_chart_height() -> None:
+    available = 360.0
+    pages = plan_depth_pages(4313.7, 4389.7, available)
+
+    assert len(pages) == 1
+    assert pages[0].scale_denominator == 600
+    assert pages[0].plot_height_points >= available * 0.95
+
+
+def test_long_interpretation_range_has_even_page_density_without_short_tail() -> None:
+    available = 360.0
+    pages = plan_depth_pages(51.0, 5549.0, available)
+
+    assert 1 < len(pages) <= 12
+    heights = [page.plot_height_points for page in pages]
+    assert min(heights) >= available * 0.82
+    assert max(heights) - min(heights) <= 1.0
+    assert pages[0].top_depth == 51.0
+    assert pages[-1].bottom_depth == 5549.0
 
 
 def test_enhanced_chart_uses_compact_markers_not_text_callout_stack() -> None:
