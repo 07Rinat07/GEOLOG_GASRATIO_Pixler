@@ -5582,7 +5582,11 @@ class TabletView(QWidget):
             )
             return True
 
-        sample = self.editable_sample_at_depth(depth, definition.kind)
+        sample = self.editable_sample_at_depth(
+            depth,
+            definition.kind,
+            calcimetry_show_total=definition.calcimetry_show_total,
+        )
         if sample is None:
             return False
         if definition.kind in {TrackKind.TEXT, TrackKind.INTERPRETATION}:
