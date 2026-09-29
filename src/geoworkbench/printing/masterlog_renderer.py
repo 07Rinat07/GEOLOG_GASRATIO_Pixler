@@ -604,7 +604,7 @@ def paint_masterlog_pages(
             raise MasterlogRenderError("Не удалось создать следующую страницу masterlog")
         paint_masterlog(
             painter,
-            QRectF(0.0, 0.0, float(device.width()), float(device.height())),
+            _masterlog_device_target_rect(device),
             template,
             session,
             depth_range=page_range,
@@ -616,6 +616,24 @@ def paint_masterlog_pages(
             language=language,
             _render_context=render_context,
         )
+
+
+def _masterlog_device_target_rect(device: PagedPaintDevice) -> QRectF:
+    """Use the real printable area for printers, with a PDF/test fallback."""
+
+    try:
+        resolution = int(device.resolution())
+        paint_rect = device.pageLayout().paintRectPixels(resolution)
+        if paint_rect.width() > 0 and paint_rect.height() > 0:
+            return QRectF(
+                0.0,
+                0.0,
+                float(paint_rect.width()),
+                float(paint_rect.height()),
+            )
+    except (AttributeError, TypeError, ValueError):
+        pass
+    return QRectF(0.0, 0.0, float(device.width()), float(device.height()))
 
 
 def _page_size(
