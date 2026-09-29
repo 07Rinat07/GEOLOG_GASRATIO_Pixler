@@ -23,6 +23,7 @@ STANDARD_DEPTH_SCALES = (
     10_000,
     20_000,
 )
+_MIN_PLOT_UTILIZATION = 0.82
 MAX_AUTOMATIC_CHART_PAGES = 12
 TARGET_DEPTH_PER_PAGE = 150.0
 PAGE_FOOTER_HEIGHT = 16.0
@@ -78,31 +79,62 @@ def plan_depth_pages(
     height_mm = available_plot_height_points / POINTS_PER_MM
     desired_pages = min(max_pages, max(1, int(ceil(span / TARGET_DEPTH_PER_PAGE))))
     required_scale = span * 1_000.0 / (height_mm * desired_pages)
-    scale = next(
-        (candidate for candidate in STANDARD_DEPTH_SCALES if candidate >= required_scale),
-        0,
-    )
-    if scale == 0:
-        scale = int(ceil(required_scale / 5_000.0) * 5_000)
+    scale = _fit_scale_denominator(required_scale)
 
+    # Keep every sheet equally dense instead of leaving a short, half-empty
+    # remainder page.  The selected denominator is always >= required_scale,
+    # so the evenly distributed page span remains inside the printable height.
     depth_capacity = height_mm * scale / 1_000.0
+    page_count = min(max_pages, max(1, int(ceil(span / depth_capacity))))
+    page_span = span / page_count
+    plot_height_mm = page_span * 1_000.0 / scale
+    utilization = plot_height_mm / height_mm
+    if utilization < _MIN_PLOT_UTILIZATION and page_count < max_pages:
+        # One more page with a tighter denominator often gives a materially
+        # larger plot for short/intermediate report intervals.
+        candidate_count = page_count + 1
+        candidate_required = span * 1_000.0 / (height_mm * candidate_count)
+        candidate_scale = _fit_scale_denominator(candidate_required)
+        candidate_span = span / candidate_count
+        candidate_height_mm = candidate_span * 1_000.0 / candidate_scale
+        candidate_utilization = candidate_height_mm / height_mm
+        if candidate_utilization > utilization:
+            page_count = candidate_count
+            scale = candidate_scale
+            page_span = candidate_span
+            plot_height_mm = candidate_height_mm
+
     pages: list[DepthPage] = []
-    top = low
-    tolerance = max(1e-9, span * 1e-12)
-    while top < high - tolerance:
-        bottom = min(high, top + depth_capacity)
-        page_span = bottom - top
-        plot_height_mm = page_span * 1_000.0 / scale
+    for index in range(page_count):
+        top = low + index * page_span
+        bottom = high if index == page_count - 1 else low + (index + 1) * page_span
+        actual_span = bottom - top
+        actual_height_mm = actual_span * 1_000.0 / scale
         pages.append(
             DepthPage(
                 top,
                 bottom,
                 scale,
-                plot_height_mm * POINTS_PER_MM,
+                actual_height_mm * POINTS_PER_MM,
             )
         )
-        top = bottom
     return tuple(pages)
+
+
+def _fit_scale_denominator(required_scale: float) -> int:
+    """Round up just enough to fit instead of jumping to a coarse scale tier."""
+
+    if not np.isfinite(required_scale) or required_scale <= 0.0:
+        return STANDARD_DEPTH_SCALES[0]
+    if required_scale <= 1_000.0:
+        step = 25.0
+    elif required_scale <= 5_000.0:
+        step = 100.0
+    elif required_scale <= 20_000.0:
+        step = 500.0
+    else:
+        step = 1_000.0
+    return max(1, int(ceil(required_scale / step) * step))
 
 
 def chart_geometry(
