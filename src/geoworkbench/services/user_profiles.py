@@ -187,17 +187,23 @@ class UserProfileSettings:
         self, form_id: str
     ) -> PrintExportPreferences:
         normalized = self._validated_form_id(form_id)
-        fallback = self.print_export_preferences()
-        raw = self.settings.value(self._print_export_form_preferences_key(normalized), "")
-        if str(raw).strip():
-            return self._read_print_export_preferences(
-                self._print_export_form_preferences_key(normalized),
-                fallback,
-            )
-        if (
-            normalized.startswith("factory-masterlog-a4-")
-            and self._is_untouched_legacy_print_pagination(fallback)
-        ):
+        global_key = self._print_export_preferences_key()
+        global_raw = self.settings.value(global_key, "")
+        fallback = self._read_print_export_preferences(
+            global_key,
+            PrintExportPreferences(),
+        )
+        form_key = self._print_export_form_preferences_key(normalized)
+        form_raw = self.settings.value(form_key, "")
+        if str(form_raw).strip():
+            return self._read_print_export_preferences(form_key, fallback)
+
+        # Only a truly absent preference is an untouched legacy default.
+        # A persisted fixed 50 m CURRENT preference may be a deliberate user
+        # choice and must never be reinterpreted from its numeric values.
+        if normalized.startswith("factory-masterlog-a4-") and not str(
+            global_raw
+        ).strip():
             return replace(
                 fallback,
                 auto_units_per_page=True,
@@ -407,19 +413,6 @@ class UserProfileSettings:
         profile_id = active.profile_id if active is not None else "default"
         encoded_form_id = quote(form_id, safe="")
         return f"users/print_export_form/{profile_id}/{encoded_form_id}"
-
-    @staticmethod
-    def _is_untouched_legacy_print_pagination(
-        value: PrintExportPreferences,
-    ) -> bool:
-        return (
-            value.range_mode is PrintRangeMode.CURRENT
-            and abs(value.units_per_page - 50.0) < 1e-9
-            and not value.auto_units_per_page
-            and abs(value.overlap) < 1e-9
-            and value.custom_start is None
-            and value.custom_end is None
-        )
 
     @staticmethod
     def _validated_form_id(form_id: str) -> str:
