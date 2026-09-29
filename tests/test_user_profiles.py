@@ -3,6 +3,7 @@ import json
 import pytest
 
 from geoworkbench.data.number_format import NumberDisplayFormat, NumberFormatMode
+from geoworkbench.printing.pagination import PrintRangeMode
 from geoworkbench.printing.page_settings import (
     PrintOrientation,
     PrintPageFormat,
@@ -315,10 +316,7 @@ def test_masterlog_form_uses_auto_density_only_for_untouched_legacy_default() ->
     assert masterlog.auto_units_per_page is True
 
     explicit_fixed = PrintExportPreferences(
-        range_mode=__import__(
-            "geoworkbench.printing.pagination",
-            fromlist=["PrintRangeMode"],
-        ).PrintRangeMode.FULL,
+        range_mode=PrintRangeMode.FULL,
         units_per_page=50.0,
         auto_units_per_page=False,
     )
