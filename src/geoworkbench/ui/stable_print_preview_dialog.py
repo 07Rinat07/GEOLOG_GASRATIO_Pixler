@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from PySide6.QtCore import QSize
 from PySide6.QtPrintSupport import QPrinter, QPrintPreviewWidget
 from PySide6.QtWidgets import QDialog, QDialogButtonBox, QVBoxLayout, QWidget
+
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 class StablePrintPreviewDialog(QDialog):
@@ -37,7 +40,11 @@ class StablePrintPreviewDialog(QDialog):
         layout.setContentsMargins(8, 8, 8, 8)
         layout.addWidget(self.preview_widget, 1)
         layout.addWidget(buttons)
-        self.resize(1000, 720)
+        fit_window_to_screen(
+            self,
+            preferred=QSize(1000, 720),
+            minimum=QSize(640, 480),
+        )
 
 
 __all__ = ["StablePrintPreviewDialog"]
