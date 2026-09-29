@@ -206,14 +206,19 @@ def _detect_encoding(raw_bytes: bytes) -> str:
 
 
 def _encoding_sample(raw_bytes: bytes) -> bytes:
-    lowered = raw_bytes.lower()
+    # Encoding detection never consumes more than 128 KiB. Lowercasing the
+    # complete source used to allocate another file-sized bytes object (tens or
+    # hundreds of MiB for field LAS files) only to discard nearly all of it.
+    sample_limit = min(len(raw_bytes), 131_072)
+    header_window = raw_bytes[:sample_limit]
+    lowered = header_window.lower()
     ascii_positions = [
         position
         for marker in (b"~a", b"~ascii", b"~log_data")
         if (position := lowered.find(marker)) >= 0
     ]
-    header_end = min(ascii_positions) if ascii_positions else len(raw_bytes)
-    return raw_bytes[: min(header_end, 131_072)]
+    header_end = min(ascii_positions) if ascii_positions else sample_limit
+    return header_window[:header_end]
 
 
 def _detect_newline_style(raw_bytes: bytes) -> NewlineStyle:
