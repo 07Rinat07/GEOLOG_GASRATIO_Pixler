@@ -97,6 +97,8 @@ def test_print_curve_remains_visible_for_nearly_constant_signal(qapp) -> None:
     assert curve.metadata.curve_id in ranges
     low, high = ranges[curve.metadata.curve_id]
     assert low < 1.0 < high
+    percentiles = chart.base_chart._curve_percentiles(panels, dataset, page=page)
+    assert percentiles[curve.metadata.curve_id] == (1.0, 1.0)
 
     image = QImage(420, 360, QImage.Format.Format_ARGB32_Premultiplied)
     image.fill(0xFFFFFFFF)
@@ -147,10 +149,12 @@ def test_extrema_preserving_print_rows_keeps_narrow_peaks_and_bounds_density() -
     assert np.all(np.diff(reduced) > 0)
 
 
-def test_extrema_preserving_print_rows_retains_missing_value_breaks() -> None:
+def test_extrema_preserving_print_rows_retains_every_missing_value_run() -> None:
     depth = np.linspace(100.0, 200.0, 10_001)
     values = np.sin(depth)
-    values[4501:4504] = np.nan
+    missing_runs = ((4501, 4504), (4510, 4513), (4520, 4523))
+    for start, stop in missing_runs:
+        values[start:stop] = np.nan
     segment = np.arange(depth.size, dtype=np.int64)
     page = DepthPage(100.0, 200.0, 500, 360.0)
     rect = QRectF(0.0, 0.0, 300.0, 360.0)
@@ -164,9 +168,8 @@ def test_extrema_preserving_print_rows_retains_missing_value_breaks() -> None:
     )
 
     retained_missing = reduced[~np.isfinite(values[reduced])]
-    assert retained_missing.size >= 1
-    assert retained_missing[0] >= 4501
-    assert retained_missing[-1] <= 4503
+    for start, stop in missing_runs:
+        assert np.any((retained_missing >= start) & (retained_missing < stop))
 
 
 def test_enhanced_chart_uses_compact_markers_not_text_callout_stack() -> None:
