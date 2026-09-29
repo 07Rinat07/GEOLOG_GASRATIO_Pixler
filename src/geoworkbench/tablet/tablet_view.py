@@ -10423,7 +10423,11 @@ class TabletView(QWidget):
         if definition.kind is not TrackKind.LITHOLOGY or not definition.show_interval_labels:
             return {}
         rendered: dict[str, pg.TextItem] = {}
-        for interval in self._loaded_lithology():
+        # Keep the lightweight interval labels materialized for the full well.
+        # Their visibility is pixel/zoom dependent and is updated in-place; if
+        # labels are window-indexed, an interval that was initially too thin to
+        # show can remain absent when the operator zooms into it.
+        for interval in self._lithology:
             lithotype = self._lithotype_catalog.get(interval.lithotype_id)
             code = lithotype.code if lithotype is not None else interval.lithotype_id
             label = pg.TextItem(code, color="#202020", anchor=(0.5, 0.5))
