@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import os
 import tempfile
+from time import perf_counter
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
@@ -38,6 +39,7 @@ from geoworkbench.domain.models import (
     IndexType,
     new_id,
 )
+from geoworkbench.services.application_logging import log_event
 from geoworkbench.services.depth_axis import DepthAxisReport, DepthDirection, analyze_depth_axis
 from geoworkbench.services.index_detection import IndexColumn, detect_index_candidates
 from geoworkbench.services.las_parameter_resolver import infer_canonical_mnemonic
@@ -93,12 +95,14 @@ def import_las_with_report(
         raise LasImportError(f"Ожидался LAS-файл, получен: {source.suffix}")
 
     safety = limits or LasInputLimits()
+    import_started_at = perf_counter()
     try:
         source_document = read_lossless_las(
             source,
             max_bytes=safety.max_file_size,
             chunk_size=safety.chunk_size,
         )
+        source_loaded_at = perf_counter()
         with io.TextIOWrapper(
             io.BytesIO(source_document.raw_bytes),
             encoding=source_document.encoding,
@@ -113,6 +117,7 @@ def import_las_with_report(
                 autodetect_encoding=False,
             )
         depth = np.asarray(las.index, dtype=np.float64).copy()
+        parsed_at = perf_counter()
     except Exception as exc:
         raise LasImportError(f"Не удалось прочитать LAS-файл: {source}") from exc
 
@@ -217,10 +222,30 @@ def import_las_with_report(
             f"Некорректные метаданные LAS-файла: {source}: "
             f"{type(exc).__name__}: {exc}"
         ) from exc
+    dataset_materialized_at = perf_counter()
     report = _build_import_report(
         source, source_document, las, depth, extra_issues=tuple(channel_issues)
     )
+    report_built_at = perf_counter()
+    log_event(
+        "las.import.performance",
+        source_name=source.name,
+        size_bytes=source_document.size_bytes,
+        encoding=source_document.encoding,
+        rows=int(depth.size),
+        curves=len(dataset.curves),
+        warnings=report.warning_count,
+        source_ms=_elapsed_ms(import_started_at, source_loaded_at),
+        parse_ms=_elapsed_ms(source_loaded_at, parsed_at),
+        dataset_ms=_elapsed_ms(parsed_at, dataset_materialized_at),
+        report_ms=_elapsed_ms(dataset_materialized_at, report_built_at),
+        total_ms=_elapsed_ms(import_started_at, report_built_at),
+    )
     return LasImportResult(dataset=dataset, report=report, source_document=source_document)
+
+
+def _elapsed_ms(started_at: float, finished_at: float) -> float:
+    return round(max(0.0, finished_at - started_at) * 1000.0, 3)
 
 
 def _curve_values_by_position(
