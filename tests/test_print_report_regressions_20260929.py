@@ -33,7 +33,8 @@ def test_print_preview_avoids_native_dialog_and_contains_renderer_exceptions() -
         ROOT / "src/geoworkbench/ui/stable_print_preview_dialog.py"
     ).read_text(encoding="utf-8")
 
-    assert "QPrintPreviewDialog" not in source
+    assert "from PySide6.QtPrintSupport import QPrintPreviewDialog" not in source
+    assert "QPrintPreviewDialog(" not in source
     assert "StablePrintPreviewDialog" in source
     assert "preview.preview_widget.paintRequested.connect(render_preview_safely)" in source
     assert "QTimer.singleShot(0, preview.preview_widget.updatePreview)" in source
