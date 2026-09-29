@@ -22,6 +22,7 @@ from geoworkbench.domain.models import (
     StratigraphyInterval,
 )
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.printing import masterlog_renderer
 from geoworkbench.printing.image_assets import create_svg_asset
 from geoworkbench.printing.masterlog_renderer import (
     MasterlogRenderError,
@@ -177,6 +178,79 @@ def make_session_with_curves() -> ProjectSession:
     session = ProjectSession()
     session.add_dataset(dataset, "Well")
     return session
+
+
+
+def test_paginated_masterlog_reuses_one_render_context(monkeypatch) -> None:
+    session = make_session_with_curves()
+    template = make_template()
+    template.page_format = "A4"
+    seen_contexts: list[object] = []
+    context_builds = 0
+    original_builder = masterlog_renderer._build_masterlog_render_context
+
+    def counted_builder(*args, **kwargs):
+        nonlocal context_builds
+        context_builds += 1
+        return original_builder(*args, **kwargs)
+
+    def capture_page(*_args, **kwargs) -> None:
+        seen_contexts.append(kwargs["_render_context"])
+
+    class FakePageLayout:
+        @staticmethod
+        def fullRect(_unit):
+            return QRectF(0.0, 0.0, 297.0, 210.0)
+
+    class FakeDevice:
+        def __init__(self) -> None:
+            self.new_page_calls = 0
+
+        @staticmethod
+        def width() -> int:
+            return 1200
+
+        @staticmethod
+        def height() -> int:
+            return 850
+
+        @staticmethod
+        def pageLayout() -> FakePageLayout:
+            return FakePageLayout()
+
+        def newPage(self) -> bool:
+            self.new_page_calls += 1
+            return True
+
+    monkeypatch.setattr(
+        masterlog_renderer,
+        "_build_masterlog_render_context",
+        counted_builder,
+    )
+    monkeypatch.setattr(masterlog_renderer, "paint_masterlog", capture_page)
+    monkeypatch.setattr(
+        masterlog_renderer,
+        "masterlog_page_ranges",
+        lambda *_args, **_kwargs: ((100.0, 150.0), (150.0, 200.0)),
+    )
+    monkeypatch.setattr(
+        masterlog_renderer,
+        "masterlog_column_groups",
+        lambda value, _width: (tuple(value.columns),),
+    )
+
+    device = FakeDevice()
+    masterlog_renderer.paint_masterlog_pages(
+        object(),  # painter is intentionally unused by the patched page renderer
+        device,
+        template,
+        session,
+    )
+
+    assert context_builds == 1
+    assert len(seen_contexts) == 2
+    assert seen_contexts[0] is seen_contexts[1]
+    assert device.new_page_calls == 1
 
 
 def test_masterlog_depth_scale_controls_roll_height() -> None:
