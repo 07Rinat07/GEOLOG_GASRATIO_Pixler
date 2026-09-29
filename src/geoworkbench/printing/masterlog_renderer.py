@@ -622,15 +622,21 @@ def _masterlog_device_target_rect(device: PagedPaintDevice) -> QRectF:
     """Use the real printable area for printers, with a PDF/test fallback."""
 
     try:
-        resolution = int(device.resolution())
-        paint_rect = device.pageLayout().paintRectPixels(resolution)
-        if paint_rect.width() > 0 and paint_rect.height() > 0:
-            return QRectF(
-                0.0,
-                0.0,
-                float(paint_rect.width()),
-                float(paint_rect.height()),
-            )
+        resolution_getter = getattr(device, "resolution", None)
+        resolution = (
+            int(resolution_getter())
+            if callable(resolution_getter)
+            else 0
+        )
+        if resolution > 0:
+            paint_rect = device.pageLayout().paintRectPixels(resolution)
+            if paint_rect.width() > 0 and paint_rect.height() > 0:
+                return QRectF(
+                    0.0,
+                    0.0,
+                    float(paint_rect.width()),
+                    float(paint_rect.height()),
+                )
     except (AttributeError, TypeError, ValueError):
         pass
     return QRectF(0.0, 0.0, float(device.width()), float(device.height()))
