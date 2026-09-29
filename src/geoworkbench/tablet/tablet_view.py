@@ -4484,7 +4484,11 @@ class TabletView(QWidget):
             return
         self.select_track(track_id, emit_signal=True)
         menu = QMenu(self)
-        sample = self.editable_sample_at_depth(depth, definition.kind)
+        sample = self.editable_sample_at_depth(
+            depth,
+            definition.kind,
+            calcimetry_show_total=definition.calcimetry_show_total,
+        )
         lithology = self.lithology_interval_at_depth(depth)
         stratigraphy = self.stratigraphy_interval_at_depth(depth)
 
@@ -5414,7 +5418,7 @@ class TabletView(QWidget):
                 )
                 or (
                     self._geological_input_mode is GeologicalInputMode.DESCRIPTION
-                    and kind is TrackKind.TEXT
+                    and kind in {TrackKind.TEXT, TrackKind.INTERPRETATION}
                 )
                 or (
                     self._geological_input_mode is GeologicalInputMode.EDIT
@@ -5426,6 +5430,7 @@ class TabletView(QWidget):
                         TrackKind.LBA,
                         TrackKind.STRATIGRAPHY,
                         TrackKind.TEXT,
+                        TrackKind.INTERPRETATION,
                     }
                 )
             )
@@ -5484,6 +5489,8 @@ class TabletView(QWidget):
         self,
         depth: float,
         kind: TrackKind,
+        *,
+        calcimetry_show_total: bool | None = None,
     ) -> CuttingsSample | None:
         """Resolve the sample that actually renders in a geological track.
 
@@ -5499,12 +5506,12 @@ class TabletView(QWidget):
             if kind is TrackKind.CUTTINGS:
                 return bool(sample.components)
             if kind is TrackKind.CALCIMETRY:
-                return any(
-                    item is not None
-                    for item in (
-                        sample.total_carbonate_percent,
-                        sample.calcite_percent,
-                        sample.dolomite_percent,
+                return (
+                    sample.calcite_percent is not None
+                    or sample.dolomite_percent is not None
+                    or (
+                        calcimetry_show_total is not False
+                        and sample.total_carbonate_percent is not None
                     )
                 )
             if kind is TrackKind.LBA:
@@ -7618,6 +7625,7 @@ class TabletView(QWidget):
                         TrackKind.CALCIMETRY,
                         TrackKind.LBA,
                         TrackKind.TEXT,
+                        TrackKind.INTERPRETATION,
                     }:
                         self.show_geological_context_menu(
                             track_id,
