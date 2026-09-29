@@ -1066,9 +1066,7 @@ class Wits0LiveViewWidget(QWidget):
                 None,
             )
         enabled = target is not None and self._view is not None
-        self.panel_scale_combo.setEnabled(
-            bool(panel_id) and self.panel_scale_combo.count() > 0
-        )
+        self.panel_scale_combo.setEnabled(enabled)
         self.panel_x_auto_check.blockSignals(True)
         try:
             self.panel_x_auto_check.setChecked(
