@@ -632,8 +632,8 @@ def _masterlog_device_target_rect(device: PagedPaintDevice) -> QRectF:
             paint_rect = device.pageLayout().paintRectPixels(resolution)
             if paint_rect.width() > 0 and paint_rect.height() > 0:
                 return QRectF(
-                    0.0,
-                    0.0,
+                    float(paint_rect.x()),
+                    float(paint_rect.y()),
                     float(paint_rect.width()),
                     float(paint_rect.height()),
                 )
