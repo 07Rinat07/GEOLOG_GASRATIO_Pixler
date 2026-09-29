@@ -1140,8 +1140,11 @@ WELL-04 уже имеет field-level статусы и readiness; WELL-05 — f
   argmin на cached searchsorted O(log N), сохраняя exact fallback для mixed axes. Второй slice
   убирает двойной full rebuild в Curve Browser build, tablet preset apply и import recovery:
   layout+dataset устанавливаются одной `set_layout_and_dataset()` транзакцией и дают один
-  full render pass вместо двух. Следующие измеряемые slices: import parser phase timing/RSS,
-  coalesced main-window refresh и дальнейшее сокращение MainThread rebuild без ослабления
+  full render pass вместо двух. Третий slice переводит rename дорожки на track-level
+  `DirtyReason.STATIC`, а rename группы — на lightweight rebuild только merged group-header
+  strip; curve widgets и full-render counter при этих действиях сохраняются. Следующие
+  измеряемые slices: import parser phase timing/RSS, coalesced main-window refresh для
+  безопасных structural cases и дальнейшее сокращение MainThread rebuild без ослабления
   viewport LOD/geometry-cache контрактов.
 
 ## P1 — поддерживаемая архитектура
