@@ -89,7 +89,7 @@ class Wits0SavedLiveFormState:
                 raise ValueError(f"{field_name} must not contain duplicates")
         scale_keys: list[str] = []
         for entry in self.panel_x_ranges:
-            if len(entry) != 3:
+            if not isinstance(entry, tuple) or len(entry) != 3:
                 raise ValueError("panel_x_ranges entries must have key/min/max")
             scale_key, minimum, maximum = entry
             if not isinstance(scale_key, str) or not scale_key.strip():
