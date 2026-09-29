@@ -101,9 +101,7 @@ def print_pdf_page_selection(
                     matrix=fitz.Matrix(scale, scale),
                     alpha=False,
                 )
-                sample_buffer = getattr(pixmap, "samples_mv", None)
-                if sample_buffer is None:
-                    sample_buffer = pixmap.samples
+                sample_buffer = pixmap.samples_mv
                 image = QImage(
                     sample_buffer,
                     pixmap.width,
