@@ -330,6 +330,27 @@ def test_masterlog_form_uses_auto_density_only_for_untouched_legacy_default() ->
     assert preserved.auto_units_per_page is False
 
 
+
+
+def test_explicit_current_50m_masterlog_preference_is_not_migrated() -> None:
+    from geoworkbench.printing.print_job import PrintExportPreferences
+
+    storage = MemorySettings()
+    settings = UserProfileSettings(storage)
+    explicit = PrintExportPreferences(
+        range_mode=PrintRangeMode.CURRENT,
+        units_per_page=50.0,
+        auto_units_per_page=False,
+        overlap=0.0,
+    )
+    settings.save_print_export_preferences(explicit)
+
+    restored = settings.print_export_preferences_for_form(
+        "factory-masterlog-a4-landscape"
+    )
+
+    assert restored == explicit
+
 def test_form_print_preferences_do_not_leak_to_global_or_other_forms() -> None:
     from geoworkbench.printing.print_job import PrintExportPreferences
 
