@@ -286,3 +286,62 @@ def test_cuttings_update_ignores_own_interval_but_rejects_other_sample_overlap()
             bottom_depth=125,
             components={"clay": 100},
         )
+
+
+def test_update_analysis_preserves_shared_sample_geology_and_identity() -> None:
+    controller = _controller()
+    sample = controller.add(
+        500,
+        510,
+        {"sandstone": 100},
+        description="Авторское описание",
+    )
+    controller.set_analysis(
+        500,
+        510,
+        calcite_percent=60.0,
+        lba_group=2,
+        lba_description="Initial LBA",
+    )
+
+    updated = controller.update_analysis(
+        sample.sample_id,
+        top_depth=501,
+        bottom_depth=511,
+        calcite_percent=70.0,
+        dolomite_percent=10.0,
+        lba_group=3,
+        lba_description="Updated LBA",
+    )
+
+    assert updated is sample
+    assert updated.sample_id == sample.sample_id
+    assert (updated.top_depth, updated.bottom_depth) == (501.0, 511.0)
+    assert [(item.lithotype_id, item.percentage) for item in updated.components] == [
+        ("sandstone", 100.0)
+    ]
+    assert updated.description == "Авторское описание"
+    assert updated.calcite_percent == 70.0
+    assert updated.dolomite_percent == 10.0
+    assert updated.lba_group == 3
+    assert updated.lba_description == "Updated LBA"
+    assert len(controller.available()) == 1
+
+
+def test_update_analysis_can_move_overlay_without_replacing_imported_cuttings() -> None:
+    controller = _controller()
+    imported = controller.add(500, 510, {"sandstone": 100})
+    analysis = controller.set_analysis(503, 507, calcite_percent=62.5)
+
+    updated = controller.update_analysis(
+        analysis.sample_id,
+        top_depth=504,
+        bottom_depth=508,
+        calcite_percent=55.0,
+    )
+
+    assert updated is analysis
+    assert (updated.top_depth, updated.bottom_depth) == (504.0, 508.0)
+    assert updated.calcite_percent == 55.0
+    assert imported.components[0].lithotype_id == "sandstone"
+    assert (imported.top_depth, imported.bottom_depth) == (500.0, 510.0)
