@@ -929,6 +929,7 @@ class CuttingsController:
                 current.sample_id
             )
             if not current.components and not self._has_description_data(current):
+                self._clear_description_tracking(current.sample_id)
                 self._require_well().cuttings.remove(current)
 
         self.session.dirty = True
