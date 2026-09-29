@@ -410,11 +410,33 @@ def test_import_las_passes_detected_cp866_encoding_to_parser(tmp_path, monkeypat
 
     import_las(source)
 
-    assert hasattr(captured["file_ref"], "read")
-    assert captured["file_ref"].read().startswith("~Version Information")
+    assert captured["file_ref"] == source
     assert captured["encoding"] == "cp866"
     assert captured["encoding_errors"] == "replace"
     assert captured["autodetect_encoding"] is False
+
+
+def test_import_las_parses_from_source_path_without_full_decoded_copy(
+    tmp_path, monkeypatch
+) -> None:
+    source = tmp_path / "large.las"
+    source.write_bytes(
+        b"~Version Information\nVERS. 2.0\n~Curve\nDEPT.M\n~Ascii\n100\n"
+    )
+    captured: dict[str, object] = {}
+
+    def read(file_ref, **kwargs):
+        captured["file_ref"] = file_ref
+        captured.update(kwargs)
+        return FakeLas()
+
+    monkeypatch.setattr("geoworkbench.data.las_adapter.lasio.read", read)
+
+    import_las_with_report(source)
+
+    assert captured["file_ref"] == source
+    assert captured["autodetect_encoding"] is False
+    assert captured["encoding_errors"] == "replace"
 
 
 def test_import_las_canonicalizes_vendor_gas_channels_from_description(
