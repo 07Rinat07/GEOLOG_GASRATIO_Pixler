@@ -83,6 +83,16 @@ def test_pdf_writer_receives_only_requested_pages(tmp_path) -> None:
         assert printed.page_count == 2
 
 
+def test_physical_print_path_allows_600_dpi_chart_rasterization() -> None:
+    source = (
+        __import__("pathlib").Path(__file__).resolve().parents[1]
+        / "src/geoworkbench/printing/hydrocarbon_interpretation_system_print.py"
+    ).read_text(encoding="utf-8")
+
+    assert "max(300, min(600, int(printer.resolution() or 600)))" in source
+    assert "max(144, min(300" not in source
+
+
 def test_pdf_writer_can_stop_before_all_pages_are_spooled(tmp_path) -> None:
     source = tmp_path / "source.pdf"
     target = tmp_path / "cancelled.pdf"
