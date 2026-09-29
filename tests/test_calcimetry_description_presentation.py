@@ -233,3 +233,47 @@ def test_tablet_rotates_calcimetry_interval_label(qapp) -> None:
     assert labels[0].angle == 90.0
     assert "Н.О." in labels[0].textItem.toPlainText()
     view.close()
+
+
+def test_sample_calcimetry_overrides_duplicate_configured_las_curve(qapp) -> None:
+    dataset = Dataset(
+        "calcimetry-source-and-sample",
+        "Calcimetry source and sample",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 105.0, 110.0]),
+    )
+    dataset.upsert_curve(
+        "TOTAL_CARBONATE",
+        np.array([40.0, 42.0, 44.0]),
+        unit="%",
+    )
+    track = TrackDefinition(
+        "calc",
+        "Calcimetry",
+        TrackKind.CALCIMETRY,
+        curve_mnemonics=["TOTAL_CARBONATE"],
+        calcimetry_show_total=True,
+    )
+    view = TabletView()
+    view.set_cuttings(
+        [
+            CuttingsSample(
+                "sample",
+                100.0,
+                110.0,
+                total_carbonate_percent=42.0,
+            )
+        ],
+        refresh=False,
+    )
+    view.set_layout_and_dataset(TabletLayout([track]), dataset)
+
+    rendered = view._rendered["calc"]
+    assert rendered.curve_items == {}
+    assert "__total_carbonate__" in rendered.widget._curve_header_labels
+    assert "__residue__" in rendered.widget._curve_header_labels
+    assert "__calcite__" not in rendered.widget._curve_header_labels
+    assert "__dolomite__" not in rendered.widget._curve_header_labels
+    assert "sample" in rendered.analysis_items
+    view.close()
