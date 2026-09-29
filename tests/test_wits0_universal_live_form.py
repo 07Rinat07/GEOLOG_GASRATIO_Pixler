@@ -226,6 +226,10 @@ def test_live_form_settings_roundtrip_operator_overrides_by_mnemonic() -> None:
         sidebar_visible=False,
         panel_order=("gas_total", "gas_components", "depth"),
         hidden_panel_ids=("depth",),
+        panel_x_ranges=(
+            ("gas_components|ppm", 0.0, 500.0),
+            ("gas_components|%", 0.0, 5.0),
+        ),
     )
 
     settings.save(state)
@@ -261,6 +265,45 @@ def test_live_form_settings_migrate_schema_v1_without_panel_overrides() -> None:
     assert migrated.selected_mnemonics == ("ROP", "WOB")
     assert migrated.panel_order == ()
     assert migrated.hidden_panel_ids == ()
+    assert migrated.panel_x_ranges == ()
+
+
+def test_live_form_settings_migrate_schema_v2_without_x_ranges() -> None:
+    storage = _MemorySettings()
+    settings = Wits0LiveFormSettings(storage)
+    storage.setValue(
+        "wits0/live-forms/gas",
+        json.dumps(
+            {
+                "form_id": "gas",
+                "selected_mnemonics": ["C1", "CO2"],
+                "axis_mode": "time",
+                "auto_follow": True,
+                "follow_span": 600.0,
+                "max_points": 2000,
+                "sidebar_visible": True,
+                "panel_order": ["gas_total", "gas_components"],
+                "hidden_panel_ids": ["gas_total"],
+                "schema_version": 2,
+            }
+        ),
+    )
+
+    migrated = settings.load("gas")
+
+    assert migrated is not None
+    assert migrated.schema_version == WITS0_LIVE_FORM_STATE_SCHEMA_VERSION
+    assert migrated.panel_order == ("gas_total", "gas_components")
+    assert migrated.hidden_panel_ids == ("gas_total",)
+    assert migrated.panel_x_ranges == ()
+
+
+def test_live_form_state_rejects_invalid_panel_x_range() -> None:
+    with pytest.raises(ValueError, match="finite min < max"):
+        Wits0SavedLiveFormState(
+            form_id="gas",
+            panel_x_ranges=(("gas_components|ppm", 10.0, 10.0),),
+        )
 
 
 def test_all_operator_forms_have_context_descriptions() -> None:
