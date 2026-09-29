@@ -102,6 +102,7 @@ def test_live_view_uses_read_only_projection_and_shared_downsampling() -> None:
 )
 def test_wits0_live_view_constructs_offscreen(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtCore import Qt
     from PySide6.QtWidgets import QApplication, QHeaderView, QWidget
 
     from geoworkbench.services.localization import AppLanguage
