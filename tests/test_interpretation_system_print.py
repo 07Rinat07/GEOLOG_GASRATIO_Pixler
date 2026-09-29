@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import fitz
 from PySide6.QtGui import QPageLayout, QPageSize, QPdfWriter
 from PySide6.QtPrintSupport import QAbstractPrintDialog
@@ -85,7 +87,7 @@ def test_pdf_writer_receives_only_requested_pages(tmp_path) -> None:
 
 def test_physical_print_path_allows_600_dpi_chart_rasterization() -> None:
     source = (
-        __import__("pathlib").Path(__file__).resolve().parents[1]
+        Path(__file__).resolve().parents[1]
         / "src/geoworkbench/printing/hydrocarbon_interpretation_system_print.py"
     ).read_text(encoding="utf-8")
 
