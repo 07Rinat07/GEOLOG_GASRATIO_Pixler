@@ -54,3 +54,12 @@ def test_saved_analysis_has_a_dedicated_reedit_path() -> None:
     assert "self.analysis_sample_edit_requested.emit(sample.sample_id)" in tablet
     assert "self._edit_analysis_interval_from_tablet" in main_window
     assert "def update_analysis(" in controller
+
+
+def test_rock_description_interpretation_track_uses_geological_edit_routing() -> None:
+    source = (ROOT / "src/geoworkbench/tablet/tablet_view.py").read_text(
+        encoding="utf-8"
+    )
+    right_click_block = source[source.index("event.button() == Qt.MouseButton.RightButton") :]
+    assert "TrackKind.INTERPRETATION" in right_click_block
+    assert "kind in {TrackKind.TEXT, TrackKind.INTERPRETATION}" in source
