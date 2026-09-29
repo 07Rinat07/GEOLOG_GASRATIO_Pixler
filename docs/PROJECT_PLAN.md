@@ -231,6 +231,7 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   читаемая кегль/высота строки.
 - [ ] Графики/логи: цвет не является единственным кодом — используются dash/marker/label;
   шкалы и единицы печатаются явно; события/alarms/interpreted intervals сохраняют смысл в grayscale.
+- [x] **PRINT-STYLE-01/RPT-QA print readability slice:** OPUS/GasRatio interpretation charts используют readability-first pagination с целевым диапазоном около 100 м на лист и адаптивным физическим vertical scale вместо жёсткого ограничения 12 страниц; короткие остаточные страницы равномерно распределяются. Dense source rows проходят extrema-preserving print decimation после разрыва реальных depth gaps, поэтому узкие пики не исчезают и не превращаются в случайные длинные диагонали из-за `linspace`. Physical PDF spool допускает до 600 DPI, Masterlog рендерится по фактическому printer paint rect; контраст кривых/сетки и прозрачность interval bands настроены для печати.
 - [ ] Профили носителя: A4 portrait/landscape, A3 и roll/masterlog. Макет адаптируется,
   а не просто масштабируется до нечитаемого состояния.
 - [ ] Один visual profile применяется к hydrocarbon interpretation PDF, generic report PDF,
