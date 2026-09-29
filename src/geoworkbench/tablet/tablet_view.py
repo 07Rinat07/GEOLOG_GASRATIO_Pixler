@@ -85,6 +85,7 @@ from geoworkbench.project.annotation_schema import (
 )
 from geoworkbench.services.curve_editing import DrawPoint, interpolate_drawn_curve
 from geoworkbench.services.application_logging import log_event, log_exception
+from geoworkbench.services.interval_overlap_index import IntervalOverlapIndex
 from geoworkbench.services.lba_standard import lba_color_code
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.geology_labels import (
@@ -2088,6 +2089,16 @@ class TabletView(QWidget):
         self._lithology: tuple[LithologyInterval, ...] = ()
         self._cuttings: tuple[CuttingsSample, ...] = ()
         self._geology_window: tuple[float, float] | None = None
+        self._lithology_index: IntervalOverlapIndex[LithologyInterval] = (
+            IntervalOverlapIndex.build(())
+        )
+        self._cuttings_index: IntervalOverlapIndex[CuttingsSample] = (
+            IntervalOverlapIndex.build(())
+        )
+        self._stratigraphy_index: IntervalOverlapIndex[StratigraphyInterval] = (
+            IntervalOverlapIndex.build(())
+        )
+        self._calcimetry_presence = (False, False, False)
         self._depth_axis_mapping: tuple[int, int, np.ndarray, np.ndarray] | None = None
         self._stratigraphy: tuple[StratigraphyInterval, ...] = ()
         self._interpretations: tuple[WellInterpretation, ...] = ()
@@ -5378,6 +5389,7 @@ class TabletView(QWidget):
         refresh: bool = True,
     ) -> None:
         self._lithology = tuple(intervals)
+        self._lithology_index = IntervalOverlapIndex.build(self._lithology)
         self._lithotype_catalog = {item.lithotype_id: item for item in catalog}
         if refresh:
             self.refresh_view()
@@ -5448,6 +5460,12 @@ class TabletView(QWidget):
         self, samples: list[CuttingsSample], *, refresh: bool = True
     ) -> None:
         self._cuttings = tuple(samples)
+        self._cuttings_index = IntervalOverlapIndex.build(self._cuttings)
+        self._calcimetry_presence = (
+            any(sample.calcite_percent is not None for sample in self._cuttings),
+            any(sample.dolomite_percent is not None for sample in self._cuttings),
+            any(sample.total_carbonate_percent is not None for sample in self._cuttings),
+        )
         if refresh:
             self.refresh_view()
 
@@ -5604,6 +5622,7 @@ class TabletView(QWidget):
         self, intervals: list[StratigraphyInterval], *, refresh: bool = True
     ) -> None:
         self._stratigraphy = tuple(intervals)
+        self._stratigraphy_index = IntervalOverlapIndex.build(self._stratigraphy)
         if refresh:
             self.refresh_view()
 
@@ -9185,7 +9204,7 @@ class TabletView(QWidget):
         if definition.kind is not TrackKind.LITHOLOGY:
             return {}
         rendered: dict[str, pg.BarGraphItem] = {}
-        for interval in self._lithology:
+        for interval in self._loaded_lithology():
             lithotype = self._lithotype_catalog.get(interval.lithotype_id)
             color = lithotype.color if lithotype is not None else "#b0b0b0"
             pattern = lithotype.pattern_key if lithotype is not None else "solid"
@@ -9219,7 +9238,7 @@ class TabletView(QWidget):
         track.plot.setXRange(0.0, float(max(1, len(ranks))), padding=0)
         track.plot.setMouseEnabled(x=False, y=True)
         rendered: dict[str, tuple[object, ...]] = {}
-        for interval in self._stratigraphy:
+        for interval in self._loaded_stratigraphy():
             lane = lane_by_rank[interval.rank or ""]
             color = interval.color if pg.mkColor(interval.color).isValid() else "#dbeafe"
             axis_top, axis_bottom = self._depth_interval_to_axis(
@@ -9808,9 +9827,7 @@ class TabletView(QWidget):
         track.plot.setXRange(0.0, 100.0, padding=0)
         track.plot.setMouseEnabled(x=False, y=True)
         rendered: dict[str, tuple[pg.BarGraphItem, ...]] = {}
-        for sample in self._cuttings:
-            if not self._geology_interval_is_loaded(sample.top_depth, sample.bottom_depth):
-                continue
+        for sample in self._loaded_cuttings():
             left = 0.0
             axis_top, axis_bottom = self._depth_interval_to_axis(
                 sample.top_depth, sample.bottom_depth
@@ -9857,18 +9874,10 @@ class TabletView(QWidget):
         track.plot.hideAxis("bottom")
         if definition.kind is TrackKind.CALCIMETRY:
             track.plot.setXRange(0.0, 100.0, padding=0)
-            has_calcite = any(
-                sample.calcite_percent is not None for sample in self._cuttings
-            )
-            has_dolomite = any(
-                sample.dolomite_percent is not None for sample in self._cuttings
-            )
+            has_calcite, has_dolomite, has_total_anywhere = self._calcimetry_presence
             has_total = (
                 definition.calcimetry_show_total is not False
-                and any(
-                    sample.total_carbonate_percent is not None
-                    for sample in self._cuttings
-                )
+                and has_total_anywhere
             )
             if has_calcite or has_dolomite or has_total:
                 headers: list[tuple[str, str, str, str, str | None]] = []
@@ -9942,9 +9951,7 @@ class TabletView(QWidget):
         track.plot.setMouseEnabled(x=False, y=True)
 
         rendered: dict[str, tuple[object, ...]] = {}
-        for sample in self._cuttings:
-            if not self._geology_interval_is_loaded(sample.top_depth, sample.bottom_depth):
-                continue
+        for sample in self._loaded_cuttings():
             axis_top, axis_bottom = self._depth_interval_to_axis(
                 sample.top_depth, sample.bottom_depth
             )
@@ -10299,7 +10306,7 @@ class TabletView(QWidget):
             )
             return body_match.group("body") if body_match is not None else value
 
-        for sample in self._cuttings:
+        for sample in self._loaded_cuttings():
             description = localized_text(
                 sample.description_i18n,
                 self._localizer.language,
@@ -10368,9 +10375,7 @@ class TabletView(QWidget):
         if definition.kind is TrackKind.INTERPRETATION:
             return rendered, frames
 
-        for interval in self._lithology:
-            if not self._geology_interval_is_loaded(interval.top_depth, interval.bottom_depth):
-                continue
+        for interval in self._loaded_lithology():
             overlaps_sample_text = any(
                 interval.top_depth < bottom and interval.bottom_depth > top
                 for top, bottom in described_ranges
@@ -10425,7 +10430,7 @@ class TabletView(QWidget):
         if definition.kind is not TrackKind.LITHOLOGY or not definition.show_interval_labels:
             return {}
         rendered: dict[str, pg.TextItem] = {}
-        for interval in self._lithology:
+        for interval in self._loaded_lithology():
             lithotype = self._lithotype_catalog.get(interval.lithotype_id)
             code = lithotype.code if lithotype is not None else interval.lithotype_id
             label = pg.TextItem(code, color="#202020", anchor=(0.5, 0.5))
@@ -10700,6 +10705,29 @@ class TabletView(QWidget):
     def _geology_interval_is_loaded(self, top: float, bottom: float) -> bool:
         window = self._geology_window
         return window is None or (bottom >= window[0] and top <= window[1])
+    def _loaded_cuttings(self) -> tuple[CuttingsSample, ...]:
+        window = self._geology_window
+        return (
+            self._cuttings
+            if window is None
+            else self._cuttings_index.overlapping(*window)
+        )
+
+    def _loaded_lithology(self) -> tuple[LithologyInterval, ...]:
+        window = self._geology_window
+        return (
+            self._lithology
+            if window is None
+            else self._lithology_index.overlapping(*window)
+        )
+
+    def _loaded_stratigraphy(self) -> tuple[StratigraphyInterval, ...]:
+        window = self._geology_window
+        return (
+            self._stratigraphy
+            if window is None
+            else self._stratigraphy_index.overlapping(*window)
+        )
 
     def _refresh_visible_geology(self, top: float, bottom: float) -> None:
         """Keep only nearby sample graphics in the Qt scene while panning.
