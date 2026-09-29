@@ -2,7 +2,7 @@ import fitz
 import numpy as np
 import pytest
 from unittest.mock import MagicMock
-from PySide6.QtCore import QMarginsF, QRectF, Qt
+from PySide6.QtCore import QMarginsF, QRectF, QSizeF, Qt
 from PySide6.QtGui import QImage, QPageLayout, QPageSize, QPainter, QPdfWriter
 
 from geoworkbench.domain.models import (
