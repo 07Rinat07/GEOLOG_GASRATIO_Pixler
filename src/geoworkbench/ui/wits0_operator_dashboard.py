@@ -502,6 +502,8 @@ class Wits0OperatorDashboard(QWidget):
                     skipFiniteCheck=False,
                 )
 
+            self._apply_panel_x_range(panel, scale_key)
+
             curve_ids = {series.curve_id for series in series_list}
             self._render_markers(panel.plot, snapshot, curve_ids)
 
@@ -515,7 +517,6 @@ class Wits0OperatorDashboard(QWidget):
                     )
                 finally:
                     self._updating_range = False
-            self._apply_panel_x_range(panel, scale_key)
 
     def _apply_panel_x_range(
         self,
