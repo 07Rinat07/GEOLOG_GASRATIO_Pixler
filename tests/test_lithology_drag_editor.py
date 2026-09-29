@@ -569,3 +569,35 @@ def test_editable_sample_at_depth_uses_track_semantics_for_overlays(qapp) -> Non
         == "cuttings"
     )
     view.close()
+
+
+def test_hidden_total_carbonate_is_not_an_editable_visible_calcimetry_sample(qapp) -> None:
+    view = TabletView()
+    view.set_cuttings(
+        [
+            CuttingsSample(
+                "total-only",
+                120.0,
+                130.0,
+                total_carbonate_percent=65.0,
+            )
+        ]
+    )
+
+    assert (
+        view.editable_sample_at_depth(
+            125.0,
+            TrackKind.CALCIMETRY,
+            calcimetry_show_total=False,
+        )
+        is None
+    )
+    assert (
+        view.editable_sample_at_depth(
+            125.0,
+            TrackKind.CALCIMETRY,
+            calcimetry_show_total=True,
+        ).sample_id
+        == "total-only"
+    )
+    view.close()
