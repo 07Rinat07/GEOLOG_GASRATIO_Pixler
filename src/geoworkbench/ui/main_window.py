@@ -3294,8 +3294,7 @@ class MainWindow(QMainWindow):
                 self._recovery_component_diagnostic(source, dataset, exc, component="curve_browser")
             )
         try:
-            self.tablet_view.set_layout_model(TabletLayout())
-            self.tablet_view.set_dataset(None)
+            self.tablet_view.set_layout_and_dataset(TabletLayout(), None)
         except Exception as exc:  # noqa: BLE001 - broken tablet must stay isolated
             self._log(f"ОШИБКА СБРОСА ПЛАНШЕТА: {type(exc).__name__}: {exc}")
             diagnostics.append(
@@ -6092,8 +6091,10 @@ class MainWindow(QMainWindow):
             return
         self._selected_track_id = None
         self.curve_browser.set_replace_enabled(False)
-        self.tablet_view.set_layout_model(layout)
-        self.tablet_view.set_dataset(self.session.current_dataset)
+        self.tablet_view.set_layout_and_dataset(
+            layout,
+            self.session.current_dataset,
+        )
         self._show_workspace(self.tablet_view)
         self.curve_browser_dock.hide()
         self._refresh_tree()
@@ -6724,8 +6725,10 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, self._t("tablet.title"), str(exc))
             return
         self._selected_track_id = None
-        self.tablet_view.set_layout_model(layout)
-        self.tablet_view.set_dataset(self.session.current_dataset)
+        self.tablet_view.set_layout_and_dataset(
+            layout,
+            self.session.current_dataset,
+        )
         self._refresh_tree()
         self._update_title()
         self._log(self._t("tablet.preset_applied", name=name))
