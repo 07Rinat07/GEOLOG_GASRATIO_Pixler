@@ -5559,16 +5559,20 @@ class TabletView(QWidget):
         depth: float,
     ) -> bool:
         if definition.kind is TrackKind.STRATIGRAPHY:
-            interval = self.stratigraphy_interval_at_depth(depth)
-            if interval is None:
+            stratigraphy_interval = self.stratigraphy_interval_at_depth(depth)
+            if stratigraphy_interval is None:
                 return False
-            self.stratigraphy_interval_edit_requested.emit(interval.interval_id)
+            self.stratigraphy_interval_edit_requested.emit(
+                stratigraphy_interval.interval_id
+            )
             return True
         if definition.kind is TrackKind.LITHOLOGY:
-            interval = self.lithology_interval_at_depth(depth)
-            if interval is None:
+            lithology_interval = self.lithology_interval_at_depth(depth)
+            if lithology_interval is None:
                 return False
-            self.lithology_interval_edit_requested.emit(interval.interval_id)
+            self.lithology_interval_edit_requested.emit(
+                lithology_interval.interval_id
+            )
             return True
 
         sample = self.editable_sample_at_depth(depth, definition.kind)
