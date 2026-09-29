@@ -36,7 +36,9 @@ def test_native_print_preview_contains_renderer_exceptions() -> None:
 
 def test_masterlog_print_preferences_are_resolved_per_active_form() -> None:
     source = (ROOT / "src/geoworkbench/ui/main_window.py").read_text(encoding="utf-8")
-    assert "explicit_form_id or self.user_profile_settings.selected_form_id()" in source
+    assert 'if ":form:" in scope_id:' in source
+    assert "or layout_form_id" in source
+    assert "or self.user_profile_settings.selected_form_id()" in source
     assert "print_export_preferences_for_form(form_id)" in source
     assert "save_print_export_preferences_for_form(" in source
 
