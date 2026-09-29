@@ -780,6 +780,9 @@ class MainWindow(QMainWindow):
         self.tablet_view.analysis_interval_requested.connect(
             self._create_analysis_interval_from_tablet
         )
+        self.tablet_view.analysis_sample_edit_requested.connect(
+            self._edit_analysis_interval_from_tablet
+        )
         self.tablet_view.cuttings_sample_edit_requested.connect(
             self._edit_cuttings_sample_from_tablet
         )
@@ -8123,6 +8126,46 @@ class MainWindow(QMainWindow):
                     "analysis.created",
                     top=f"{saved.top_depth:g}",
                     bottom=f"{saved.bottom_depth:g}",
+                )
+            )
+            break
+
+    def _edit_analysis_interval_from_tablet(self, sample_id: str) -> None:
+        """Reopen saved calcimetry/LBA and persist corrections on the same sample."""
+
+        if self.session.current_well is None:
+            return
+        try:
+            sample = self.cuttings_controller.get(sample_id)
+        except (KeyError, RuntimeError) as exc:
+            QMessageBox.warning(self, self._t("analysis.edit_title"), str(exc))
+            return
+
+        dialog = SampleAnalysisDialog(
+            sample.top_depth,
+            sample.bottom_depth,
+            language=self.language,
+            sample=sample,
+            parent=self,
+        )
+        while dialog.exec() == QDialog.DialogCode.Accepted:
+            try:
+                updated = self.cuttings_controller.update_analysis(
+                    sample_id,
+                    top_depth=dialog.top_depth,
+                    bottom_depth=dialog.bottom_depth,
+                    **dialog.values(),
+                    content_language=self.language.value,
+                )
+            except (KeyError, RuntimeError, ValueError) as exc:
+                QMessageBox.warning(self, self._t("analysis.edit_title"), str(exc))
+                continue
+            self._refresh_cuttings_after_edit()
+            self.statusBar().showMessage(
+                self._t(
+                    "analysis.updated",
+                    top=f"{updated.top_depth:g}",
+                    bottom=f"{updated.bottom_depth:g}",
                 )
             )
             break
