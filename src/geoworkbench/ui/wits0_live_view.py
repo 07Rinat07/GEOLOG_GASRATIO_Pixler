@@ -250,6 +250,11 @@ class Wits0LiveViewWidget(QWidget):
         self.panel_list.setSelectionMode(
             QAbstractItemView.SelectionMode.SingleSelection
         )
+        self.panel_list.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self.panel_list.setMinimumHeight(120)
+        self.panel_list.setMaximumHeight(180)
         self.panel_list.itemChanged.connect(self._panel_visibility_changed)
         self.panel_list.currentRowChanged.connect(
             self._refresh_panel_order_buttons
@@ -848,11 +853,10 @@ class Wits0LiveViewWidget(QWidget):
                 panel = self.dashboard.panels.get(panel_id)
                 if panel is None:
                     continue
-                item = QListWidgetItem(
-                    panel.definition.title(self._language),
-                    self.panel_list,
-                )
+                title = panel.definition.title(self._language)
+                item = QListWidgetItem(title, self.panel_list)
                 item.setData(Qt.ItemDataRole.UserRole, panel_id)
+                item.setToolTip(title)
                 item.setFlags(
                     item.flags()
                     | Qt.ItemFlag.ItemIsSelectable
