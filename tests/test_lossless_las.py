@@ -129,6 +129,29 @@ def test_lossless_document_detects_cp866_header_text() -> None:
     assert document.to_bytes() == raw
 
 
+def test_encoding_sample_never_lowercases_beyond_sample_budget() -> None:
+    class GuardedBytes:
+        def __init__(self, payload: bytes) -> None:
+            self.payload = payload
+            self.slices: list[slice] = []
+
+        def __getitem__(self, key):
+            if isinstance(key, slice):
+                self.slices.append(key)
+                if key.stop is not None:
+                    assert key.stop <= 131_072
+                return self.payload[key]
+            return self.payload[key]
+
+    raw = GuardedBytes(b"~Version\nVERS. 2.0\n~ASCII\n" + b"1 2\n" * 100_000)
+
+    sample = _encoding_sample(raw)  # type: ignore[arg-type]
+
+    assert sample.endswith(b"VERS. 2.0\n")
+    assert raw.slices
+    assert all(item.stop is None or item.stop <= 131_072 for item in raw.slices)
+
+
 def test_encoding_detection_sample_is_bounded_for_large_custom_header() -> None:
     raw = (
         "~Version Information\r\n"
