@@ -652,12 +652,18 @@ class Wits0LiveViewWidget(QWidget):
         finally:
             self._updating_controls = False
         if saved is not None:
+            self.dashboard.set_panel_layout(
+                saved.panel_order,
+                saved.hidden_panel_ids,
+            )
             try:
                 view.set_axis_mode(AcquisitionLiveAxisMode(saved.axis_mode))
             except ValueError:
                 view.set_axis_mode(AcquisitionLiveAxisMode.AUTO)
             view.set_auto_follow(saved.auto_follow)
             view.set_follow_span(saved.follow_span)
+        else:
+            self.dashboard.set_panel_layout()
         self._set_view_source_selection(self._selected_curve_ids())
 
     def _dexp_correction_config(self) -> Wits0DexpCorrectionConfig | None:
@@ -973,6 +979,7 @@ class Wits0LiveViewWidget(QWidget):
         if view is None:
             return
         form_id = str(self.form_combo.currentData() or UNIVERSAL_LIVE_FORM_ID)
+        panel_order, hidden_panel_ids = self.dashboard.panel_layout()
         state = Wits0SavedLiveFormState(
             form_id=form_id,
             selected_mnemonics=self._selected_mnemonics(),
@@ -985,6 +992,8 @@ class Wits0LiveViewWidget(QWidget):
                 if self._sidebar_user_override is None
                 else self._sidebar_user_override
             ),
+            panel_order=panel_order,
+            hidden_panel_ids=hidden_panel_ids,
         )
         self.form_settings.save(state)
         self._update_form_description()
@@ -999,6 +1008,7 @@ class Wits0LiveViewWidget(QWidget):
         self.form_settings.reset(form_id)
         self._sidebar_user_override = None
         self._compact_parameters_open = False
+        self.dashboard.set_panel_layout()
         self._apply_navigation_layout()
         self._update_form_description()
         if self._view is not None:
