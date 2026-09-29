@@ -1752,12 +1752,25 @@ def _paint_calcimetry_column(
     bindings: dict[str, str],
 ) -> None:
     # Some providers store calcite/dolomite as LAS curves, while other jobs keep
-    # them as discrete cuttings-sample analyses.  The masterlog supports both.
-    if column.curve_mnemonics:
-        _paint_curve_column(painter, rect, column, dataset, depth_range, bindings)
+    # them as discrete cuttings-sample analyses.  LAS geology import materializes
+    # recognized calcimetry curves into factual sample intervals.  Once those
+    # intervals exist they are the authoritative representation and the original
+    # continuous LAS curves must not be painted underneath them a second time.
+    # This mirrors TabletView and prevents duplicate/phantom "total carbonate"
+    # traces in Masterlog/PDF output.
     well = session.current_well
     if well is None:
+        if column.curve_mnemonics:
+            _paint_curve_column(painter, rect, column, dataset, depth_range, bindings)
         return
+    has_sample_calcimetry = any(
+        sample.calcite_percent is not None
+        or sample.dolomite_percent is not None
+        or sample.total_carbonate_percent is not None
+        for sample in well.cuttings
+    )
+    if column.curve_mnemonics and not has_sample_calcimetry:
+        _paint_curve_column(painter, rect, column, dataset, depth_range, bindings)
     top, bottom = depth_range
     show_total = column.properties.get("calcimetry_show_total", True) is not False
     painter.save()
