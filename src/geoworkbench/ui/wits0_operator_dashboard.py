@@ -223,8 +223,47 @@ class Wits0OperatorDashboard(QWidget):
         self.plot_layout.addWidget(self.other_panel.box)
         self.panels["other"] = self.other_panel
 
+        self._panel_order = tuple(self.panels)
+        self._hidden_panel_ids: frozenset[str] = frozenset()
+
         self.plot_scroll.setWidget(self.plot_host)
         root.addWidget(self.plot_scroll, 1)
+
+    def set_panel_layout(
+        self,
+        panel_order: tuple[str, ...] = (),
+        hidden_panel_ids: tuple[str, ...] = (),
+    ) -> None:
+        valid_ids = tuple(self.panels)
+        requested: list[str] = []
+        for panel_id in panel_order:
+            if panel_id in self.panels and panel_id not in requested:
+                requested.append(panel_id)
+        requested.extend(
+            panel_id
+            for panel_id in valid_ids
+            if panel_id not in requested
+        )
+        self._panel_order = tuple(requested)
+        self._hidden_panel_ids = frozenset(
+            panel_id
+            for panel_id in hidden_panel_ids
+            if panel_id in self.panels
+        )
+        self._reorder_panel_widgets()
+        for panel_id in self._hidden_panel_ids:
+            self.panels[panel_id].box.hide()
+            for (base_id, _unit), panel in self._unit_panels.items():
+                if base_id == panel_id:
+                    panel.box.hide()
+
+    def panel_layout(self) -> tuple[tuple[str, ...], tuple[str, ...]]:
+        hidden = tuple(
+            panel_id
+            for panel_id in self._panel_order
+            if panel_id in self._hidden_panel_ids
+        )
+        return self._panel_order, hidden
 
     def clear(self) -> None:
         self._clear_indicator_cards()
@@ -247,7 +286,7 @@ class Wits0OperatorDashboard(QWidget):
         unit_groups = {
             panel_id: _group_series_by_unit(series_list)
             for panel_id, series_list in grouped.items()
-            if series_list
+            if series_list and panel_id not in self._hidden_panel_ids
         }
         self._sync_unit_panels(unit_groups)
 
@@ -257,7 +296,13 @@ class Wits0OperatorDashboard(QWidget):
             history_label = self._localizer.text("wits0_live.time_utc")
 
         render_targets: list[tuple[_PlotPanel, list[AcquisitionLiveSeries]]] = []
-        for panel_id, panel in self.panels.items():
+        for panel_id in self._panel_order:
+            panel = self.panels[panel_id]
+            if panel_id in self._hidden_panel_ids:
+                panel.plot.clear()
+                panel.legend.clear()
+                panel.box.hide()
+                continue
             groups = unit_groups.get(panel_id, [])
             if not groups:
                 panel.plot.clear()
@@ -366,6 +411,23 @@ class Wits0OperatorDashboard(QWidget):
                         self.plot_layout.removeWidget(extra_panel.box)
                     self.plot_layout.insertWidget(target_index, extra_panel.box)
                 insert_offset += 1
+
+    def _reorder_panel_widgets(self) -> None:
+        for panel_id in self._panel_order:
+            base_panel = self.panels[panel_id]
+            self.plot_layout.removeWidget(base_panel.box)
+            self.plot_layout.addWidget(base_panel.box)
+            unit_panels = sorted(
+                (
+                    (unit_key, panel)
+                    for (base_id, unit_key), panel in self._unit_panels.items()
+                    if base_id == panel_id
+                ),
+                key=lambda item: item[0],
+            )
+            for _unit_key, panel in unit_panels:
+                self.plot_layout.removeWidget(panel.box)
+                self.plot_layout.addWidget(panel.box)
 
     def _clear_unit_panels(self) -> None:
         for panel in self._unit_panels.values():

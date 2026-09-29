@@ -10,7 +10,7 @@ from geoworkbench.catalogs.sensors import normalize_sensor_key
 
 CUSTOM_LIVE_FORM_ID = "custom"
 UNIVERSAL_LIVE_FORM_ID = "universal"
-WITS0_LIVE_FORM_STATE_SCHEMA_VERSION = 1
+WITS0_LIVE_FORM_STATE_SCHEMA_VERSION = 2
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,6 +55,8 @@ class Wits0SavedLiveFormState:
     follow_span: float = 600.0
     max_points: int = 2_000
     sidebar_visible: bool = True
+    panel_order: tuple[str, ...] = ()
+    hidden_panel_ids: tuple[str, ...] = ()
     schema_version: int = WITS0_LIVE_FORM_STATE_SCHEMA_VERSION
 
     def __post_init__(self) -> None:
@@ -70,8 +72,19 @@ class Wits0SavedLiveFormState:
             raise ValueError("max_points is outside supported range")
         if self.schema_version != WITS0_LIVE_FORM_STATE_SCHEMA_VERSION:
             raise ValueError("Unsupported WITS live-form settings schema")
-        if not all(isinstance(item, str) and item.strip() for item in self.selected_mnemonics):
+        if not all(
+            isinstance(item, str) and item.strip()
+            for item in self.selected_mnemonics
+        ):
             raise ValueError("selected_mnemonics must contain non-empty strings")
+        for field_name, items in (
+            ("panel_order", self.panel_order),
+            ("hidden_panel_ids", self.hidden_panel_ids),
+        ):
+            if not all(isinstance(item, str) and item.strip() for item in items):
+                raise ValueError(f"{field_name} must contain non-empty strings")
+            if len(set(items)) != len(items):
+                raise ValueError(f"{field_name} must not contain duplicates")
 
 
 class _SettingsLike(Protocol):
@@ -101,9 +114,17 @@ class Wits0LiveFormSettings:
             payload = json.loads(str(raw))
             if not isinstance(payload, dict):
                 return None
-            selected = payload.get("selected_mnemonics", [])
-            if not isinstance(selected, list) or not all(isinstance(item, str) for item in selected):
+            schema_version = int(payload.get("schema_version", 1))
+            if schema_version not in {1, WITS0_LIVE_FORM_STATE_SCHEMA_VERSION}:
                 return None
+            selected = payload.get("selected_mnemonics", [])
+            panel_order = payload.get("panel_order", [])
+            hidden_panel_ids = payload.get("hidden_panel_ids", [])
+            for values in (selected, panel_order, hidden_panel_ids):
+                if not isinstance(values, list) or not all(
+                    isinstance(item, str) for item in values
+                ):
+                    return None
             return Wits0SavedLiveFormState(
                 form_id=str(payload.get("form_id", form_id)),
                 selected_mnemonics=tuple(selected),
@@ -112,12 +133,17 @@ class Wits0LiveFormSettings:
                 follow_span=float(payload.get("follow_span", 600.0)),
                 max_points=int(payload.get("max_points", 2_000)),
                 sidebar_visible=payload.get("sidebar_visible", True),
-                schema_version=int(
-                    payload.get(
-                        "schema_version",
-                        WITS0_LIVE_FORM_STATE_SCHEMA_VERSION,
-                    )
+                panel_order=(
+                    tuple(panel_order)
+                    if schema_version == WITS0_LIVE_FORM_STATE_SCHEMA_VERSION
+                    else ()
                 ),
+                hidden_panel_ids=(
+                    tuple(hidden_panel_ids)
+                    if schema_version == WITS0_LIVE_FORM_STATE_SCHEMA_VERSION
+                    else ()
+                ),
+                schema_version=WITS0_LIVE_FORM_STATE_SCHEMA_VERSION,
             )
         except (TypeError, ValueError, json.JSONDecodeError):
             return None

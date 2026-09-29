@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from geoworkbench.acquisition.wits0_live_forms import (
     CUSTOM_LIVE_FORM_ID,
+    WITS0_LIVE_FORM_STATE_SCHEMA_VERSION,
     Wits0LiveFormSettings,
     Wits0SavedLiveFormState,
     live_channel_key,
@@ -184,6 +186,8 @@ def test_wits_live_view_exposes_editable_persistent_form_selector() -> None:
     assert "Wits0LiveFormSettings" in source
     assert "def _save_current_form(" in source
     assert "def _reset_current_form(" in source
+    assert "panel_order, hidden_panel_ids = self.dashboard.panel_layout()" in source
+    assert "self.dashboard.set_panel_layout(" in source
     selection_body = source[
         source.index("def _curve_selection_changed")
         : source.index("def _dashboard_range_changed")
@@ -220,6 +224,8 @@ def test_live_form_settings_roundtrip_operator_overrides_by_mnemonic() -> None:
         follow_span=250.0,
         max_points=4_000,
         sidebar_visible=False,
+        panel_order=("gas_total", "gas_components", "depth"),
+        hidden_panel_ids=("depth",),
     )
 
     settings.save(state)
@@ -227,6 +233,34 @@ def test_live_form_settings_roundtrip_operator_overrides_by_mnemonic() -> None:
     assert settings.load("drilling") == state
     settings.reset("drilling")
     assert settings.load("drilling") is None
+
+
+def test_live_form_settings_migrate_schema_v1_without_panel_overrides() -> None:
+    storage = _MemorySettings()
+    settings = Wits0LiveFormSettings(storage)
+    storage.setValue(
+        "wits0/live-forms/drilling",
+        json.dumps(
+            {
+                "form_id": "drilling",
+                "selected_mnemonics": ["ROP", "WOB"],
+                "axis_mode": "depth",
+                "auto_follow": False,
+                "follow_span": 180.0,
+                "max_points": 2500,
+                "sidebar_visible": False,
+                "schema_version": 1,
+            }
+        ),
+    )
+
+    migrated = settings.load("drilling")
+
+    assert migrated is not None
+    assert migrated.schema_version == WITS0_LIVE_FORM_STATE_SCHEMA_VERSION
+    assert migrated.selected_mnemonics == ("ROP", "WOB")
+    assert migrated.panel_order == ()
+    assert migrated.hidden_panel_ids == ()
 
 
 def test_all_operator_forms_have_context_descriptions() -> None:

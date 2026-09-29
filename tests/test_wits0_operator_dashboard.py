@@ -10,6 +10,48 @@ import pytest
     or importlib.util.find_spec("pyqtgraph") is None,
     reason="PySide6/pyqtgraph are not installed in the headless test environment",
 )
+def test_operator_dashboard_normalizes_panel_order_and_hidden_state(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtWidgets import QApplication
+
+    from geoworkbench.services.localization import AppLanguage
+    from geoworkbench.ui.wits0_operator_dashboard import Wits0OperatorDashboard
+
+    app = QApplication.instance() or QApplication([])
+    dashboard = Wits0OperatorDashboard(language=AppLanguage.RU)
+    default_order = tuple(dashboard.panels)
+    try:
+        dashboard.panels["depth"].box.show()
+        dashboard.set_panel_layout(
+            ("gas_total", "depth", "gas_total", "unknown"),
+            ("depth", "unknown"),
+        )
+
+        panel_order, hidden = dashboard.panel_layout()
+
+        assert panel_order[:2] == ("gas_total", "depth")
+        assert len(panel_order) == len(default_order)
+        assert set(panel_order) == set(default_order)
+        assert hidden == ("depth",)
+        assert dashboard.plot_layout.indexOf(
+            dashboard.panels["gas_total"].box
+        ) < dashboard.plot_layout.indexOf(dashboard.panels["depth"].box)
+        assert dashboard.panels["depth"].box.isHidden()
+
+        dashboard.set_panel_layout()
+        assert dashboard.panel_layout() == (default_order, ())
+    finally:
+        dashboard.close()
+        app.processEvents()
+
+
+@pytest.mark.skipif(
+    importlib.util.find_spec("PySide6") is None
+    or importlib.util.find_spec("pyqtgraph") is None,
+    reason="PySide6/pyqtgraph are not installed in the headless test environment",
+)
 def test_operator_dashboard_renders_indicators_and_independent_panels(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -154,6 +196,12 @@ def test_operator_dashboard_renders_indicators_and_independent_panels(
         assert tuple(gas_y) == pytest.approx(
             (1_700_000_000.0, 1_700_000_001.0, 1_700_000_002.0)
         )
+
+        dashboard.set_panel_layout(hidden_panel_ids=("depth",))
+        dashboard.render_snapshot(snapshot)
+        app.processEvents()
+        assert dashboard.panels["depth"].box.isHidden()
+        assert not dashboard.panels["gas_total"].box.isHidden()
     finally:
         dashboard.close()
         app.processEvents()
