@@ -147,6 +147,28 @@ def test_extrema_preserving_print_rows_keeps_narrow_peaks_and_bounds_density() -
     assert np.all(np.diff(reduced) > 0)
 
 
+def test_extrema_preserving_print_rows_retains_missing_value_breaks() -> None:
+    depth = np.linspace(100.0, 200.0, 10_001)
+    values = np.sin(depth)
+    values[4501:4504] = np.nan
+    segment = np.arange(depth.size, dtype=np.int64)
+    page = DepthPage(100.0, 200.0, 500, 360.0)
+    rect = QRectF(0.0, 0.0, 300.0, 360.0)
+
+    reduced = chart.base_chart._extrema_preserving_print_rows(
+        segment,
+        depth,
+        values,
+        page,
+        rect,
+    )
+
+    retained_missing = reduced[~np.isfinite(values[reduced])]
+    assert retained_missing.size >= 1
+    assert retained_missing[0] >= 4501
+    assert retained_missing[-1] <= 4503
+
+
 def test_enhanced_chart_uses_compact_markers_not_text_callout_stack() -> None:
     source = Path(
         "src/geoworkbench/printing/hydrocarbon_interpretation_pdf_chart_enhanced.py"
