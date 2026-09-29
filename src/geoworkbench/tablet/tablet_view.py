@@ -5471,11 +5471,12 @@ class TabletView(QWidget):
 
     def stratigraphy_interval_at_depth(self, depth: float) -> StratigraphyInterval | None:
         value = float(depth)
+        candidates = self._stratigraphy_index.overlapping(value, value)
         matches = [
-            item for item in self._stratigraphy if item.top_depth <= value < item.bottom_depth
+            item for item in candidates if item.top_depth <= value < item.bottom_depth
         ]
         if not matches:
-            matches = [item for item in self._stratigraphy if value == item.bottom_depth]
+            matches = [item for item in candidates if value == item.bottom_depth]
         if not matches:
             return None
         return min(
@@ -5489,18 +5490,20 @@ class TabletView(QWidget):
 
     def lithology_interval_at_depth(self, depth: float) -> LithologyInterval | None:
         value = float(depth)
+        candidates = self._lithology_index.overlapping(value, value)
         # Use half-open intervals so a shared boundary belongs to the deeper
         # interval.  The final bottom is accepted as a fallback for usability.
-        matches = [item for item in self._lithology if item.top_depth <= value < item.bottom_depth]
+        matches = [item for item in candidates if item.top_depth <= value < item.bottom_depth]
         if not matches:
-            matches = [item for item in self._lithology if np.isclose(item.bottom_depth, value)]
+            matches = [item for item in candidates if np.isclose(item.bottom_depth, value)]
         return max(matches, key=lambda item: item.top_depth) if matches else None
 
     def cuttings_sample_at_depth(self, depth: float) -> CuttingsSample | None:
         value = float(depth)
-        matches = [item for item in self._cuttings if item.top_depth <= value < item.bottom_depth]
+        candidates = self._cuttings_index.overlapping(value, value)
+        matches = [item for item in candidates if item.top_depth <= value < item.bottom_depth]
         if not matches:
-            matches = [item for item in self._cuttings if np.isclose(item.bottom_depth, value)]
+            matches = [item for item in candidates if np.isclose(item.bottom_depth, value)]
         return max(matches, key=lambda item: item.top_depth) if matches else None
 
     def editable_sample_at_depth(
@@ -5519,6 +5522,7 @@ class TabletView(QWidget):
         """
 
         value = float(depth)
+        candidates = self._cuttings_index.overlapping(value, value)
 
         def belongs_to_track(sample: CuttingsSample) -> bool:
             if kind is TrackKind.CUTTINGS:
@@ -5558,13 +5562,13 @@ class TabletView(QWidget):
 
         matches = [
             item
-            for item in self._cuttings
+            for item in candidates
             if belongs_to_track(item) and item.top_depth <= value < item.bottom_depth
         ]
         if not matches:
             matches = [
                 item
-                for item in self._cuttings
+                for item in candidates
                 if belongs_to_track(item) and np.isclose(item.bottom_depth, value)
             ]
         if not matches:
@@ -5769,14 +5773,7 @@ class TabletView(QWidget):
                 f"{self._localizer.text('cursor.time')}: "
                 f"{self._format_axis_value(float(axis_values[index]))}",
             )
-        interval = next(
-            (
-                item
-                for item in self._lithology
-                if item.top_depth <= sample_depth <= item.bottom_depth
-            ),
-            None,
-        )
+        interval = self.lithology_interval_at_depth(sample_depth)
         if interval is not None:
             lithotype = self._lithotype_catalog.get(interval.lithotype_id)
             rock = self._localized_lithotype_name(lithotype, interval.lithotype_id)
@@ -5793,11 +5790,7 @@ class TabletView(QWidget):
                 interval_text += f" — {interval_description}"
             values.append(interval_text)
         active_stratigraphy = sorted(
-            (
-                item
-                for item in self._stratigraphy
-                if item.top_depth <= sample_depth <= item.bottom_depth
-            ),
+            self._stratigraphy_index.overlapping(sample_depth, sample_depth),
             key=lambda item: (stratigraphy_rank_order(item.rank), item.top_depth),
         )
         for stratigraphy in active_stratigraphy:
@@ -5839,14 +5832,7 @@ class TabletView(QWidget):
                     if interpretation_interval.comment:
                         interval_text += f" — {interpretation_interval.comment}"
                     values.append(interval_text)
-        sample = next(
-            (
-                item
-                for item in self._cuttings
-                if item.top_depth <= sample_depth <= item.bottom_depth
-            ),
-            None,
-        )
+        sample = self.cuttings_sample_at_depth(sample_depth)
         if sample is not None:
             parts = []
             for component in sample.components:
