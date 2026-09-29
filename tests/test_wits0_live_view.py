@@ -57,6 +57,12 @@ def test_live_view_uses_read_only_projection_and_shared_downsampling() -> None:
     assert "def _panel_layout_from_controls(" in widget
     assert "def _move_selected_panel(" in widget
     assert "self.dashboard.set_panel_layout(panel_order, hidden_panel_ids)" in widget
+    assert '"panel_up": "Выше"' in widget
+    assert '"panel_down": "Ниже"' in widget
+    assert '"panel_up": "Жоғары"' in widget
+    assert '"panel_down": "Төмен"' in widget
+    assert '"panel_up": "Move up"' in widget
+    assert '"panel_down": "Move down"' in widget
     selection_body = widget[
         widget.index("def _curve_selection_changed")
         : widget.index("def _dashboard_range_changed")
