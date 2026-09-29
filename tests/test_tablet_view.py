@@ -1786,6 +1786,36 @@ def test_tablet_discrete_samples_follow_visible_depth_without_rebuilding_headers
     view.close()
 
 
+def test_set_layout_and_dataset_requests_one_full_refresh(
+    qapp, monkeypatch
+) -> None:
+    dataset = Dataset(
+        "single-render",
+        "Single render",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 101.0, 102.0]),
+    )
+    layout = TabletLayout(
+        [TrackDefinition("depth", "Depth", TrackKind.DEPTH)]
+    )
+    view = TabletView()
+    calls: list[None] = []
+
+    monkeypatch.setattr(
+        view,
+        "refresh_view",
+        lambda: calls.append(None),
+    )
+
+    view.set_layout_and_dataset(layout, dataset)
+
+    assert calls == [None]
+    assert view.layout_model is layout
+    assert view.dataset is dataset
+    view.close()
+
+
 def test_tablet_can_fill_screen_width_and_scroll_with_visible_controls(qapp) -> None:
     dataset = Dataset(
         "fit-width",
