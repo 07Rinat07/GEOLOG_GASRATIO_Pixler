@@ -5464,7 +5464,10 @@ class TabletView(QWidget):
         self._calcimetry_presence = (
             any(sample.calcite_percent is not None for sample in self._cuttings),
             any(sample.dolomite_percent is not None for sample in self._cuttings),
-            any(sample.total_carbonate_percent is not None for sample in self._cuttings),
+            any(
+                sample.total_carbonate_percent is not None
+                for sample in self._cuttings
+            ),
         )
         if refresh:
             self.refresh_view()
@@ -5493,9 +5496,13 @@ class TabletView(QWidget):
         candidates = self._lithology_index.overlapping(value, value)
         # Use half-open intervals so a shared boundary belongs to the deeper
         # interval.  The final bottom is accepted as a fallback for usability.
-        matches = [item for item in candidates if item.top_depth <= value < item.bottom_depth]
+        matches = [
+            item for item in candidates if item.top_depth <= value < item.bottom_depth
+        ]
         if not matches:
-            matches = [item for item in candidates if np.isclose(item.bottom_depth, value)]
+            matches = [
+                item for item in candidates if np.isclose(item.bottom_depth, value)
+            ]
         return max(matches, key=lambda item: item.top_depth) if matches else None
 
     def cuttings_sample_at_depth(self, depth: float) -> CuttingsSample | None:
@@ -10691,6 +10698,7 @@ class TabletView(QWidget):
     def _geology_interval_is_loaded(self, top: float, bottom: float) -> bool:
         window = self._geology_window
         return window is None or (bottom >= window[0] and top <= window[1])
+
     def _loaded_cuttings(self) -> tuple[CuttingsSample, ...]:
         window = self._geology_window
         return (
