@@ -10723,6 +10723,101 @@ class TabletView(QWidget):
             else self._stratigraphy_index.overlapping(*window)
         )
 
+    def _visible_geology_is_materialized(
+        self,
+        depth_top: float,
+        depth_bottom: float,
+    ) -> bool:
+        """Return whether all indexed geology visible now exists in the Qt scene.
+
+        Prefetch bounds are only a cache hint.  A layout rebuild, late data update,
+        or zoom can leave the bounds valid while a newly relevant interval has not
+        yet been instantiated.  In that case we must rebuild instead of treating
+        the window containment check as proof that the scene is complete.
+        """
+
+        expected_lithology = {
+            item.interval_id
+            for item in self._lithology_index.overlapping(depth_top, depth_bottom)
+        }
+        expected_stratigraphy = {
+            item.interval_id
+            for item in self._stratigraphy_index.overlapping(depth_top, depth_bottom)
+        }
+        expected_cuttings = {
+            item.sample_id
+            for item in self._cuttings_index.overlapping(depth_top, depth_bottom)
+        }
+
+        for rendered in self._rendered.values():
+            kind = rendered.definition.kind
+            if kind is TrackKind.LITHOLOGY:
+                materialized = set((rendered.lithology_items or {}).keys())
+                labels = set((rendered.lithology_label_items or {}).keys())
+                if not expected_lithology.issubset(materialized):
+                    return False
+                if rendered.definition.show_interval_labels and not expected_lithology.issubset(
+                    labels
+                ):
+                    return False
+            elif kind is TrackKind.STRATIGRAPHY:
+                if not expected_stratigraphy.issubset(
+                    set((rendered.stratigraphy_items or {}).keys())
+                ):
+                    return False
+            elif kind is TrackKind.CUTTINGS:
+                if not expected_cuttings.issubset(
+                    set((rendered.cuttings_items or {}).keys())
+                ):
+                    return False
+            elif kind in {TrackKind.CALCIMETRY, TrackKind.LBA}:
+                analysis_ids = set((rendered.analysis_items or {}).keys())
+                relevant_ids = {
+                    sample.sample_id
+                    for sample in self._cuttings_index.overlapping(
+                        depth_top, depth_bottom
+                    )
+                    if (
+                        kind is TrackKind.LBA
+                        and any(
+                            value not in (None, "")
+                            for value in (
+                                sample.lba_type_id,
+                                sample.lba_intensity,
+                                sample.lba_color,
+                                sample.lba_distribution,
+                                sample.lba_cut,
+                                sample.lba_description,
+                            )
+                        )
+                    )
+                    or (
+                        kind is TrackKind.CALCIMETRY
+                        and (
+                            sample.calcite_percent is not None
+                            or sample.dolomite_percent is not None
+                            or sample.total_carbonate_percent is not None
+                        )
+                    )
+                }
+                if not relevant_ids.issubset(analysis_ids):
+                    return False
+            elif kind in {TrackKind.TEXT, TrackKind.INTERPRETATION}:
+                description_ids = set(
+                    (rendered.lithology_description_items or {}).keys()
+                )
+                if kind is TrackKind.TEXT and not (
+                    expected_lithology | expected_cuttings
+                ).intersection(description_ids) and (
+                    expected_lithology or expected_cuttings
+                ):
+                    # TEXT tracks may suppress lithology descriptions when a
+                    # cuttings description covers the same interval, so require
+                    # at least one materialized visible text object rather than
+                    # one-to-one IDs.
+                    return False
+        return True
+
     def _refresh_visible_geology(self, top: float, bottom: float) -> None:
         """Keep only nearby sample graphics in the Qt scene while panning.
 
@@ -10735,7 +10830,11 @@ class TabletView(QWidget):
         depth_top, depth_bottom = sorted(
             (self._axis_to_depth_value(top), self._axis_to_depth_value(bottom))
         )
-        if self._geology_window[0] <= depth_top and depth_bottom <= self._geology_window[1]:
+        if (
+            self._geology_window[0] <= depth_top
+            and depth_bottom <= self._geology_window[1]
+            and self._visible_geology_is_materialized(depth_top, depth_bottom)
+        ):
             return
         self._geology_window = self._prefetched_geology_window(top, bottom)
         for rendered in self._rendered.values():
