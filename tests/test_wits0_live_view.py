@@ -52,6 +52,17 @@ def test_live_view_uses_read_only_projection_and_shared_downsampling() -> None:
     assert "_COMPACT_NAVIGATION_BREAKPOINT = 820" in widget
     assert 'panel.setObjectName("wits0LiveSidebar")' in widget
     assert 'panel.setObjectName("wits0LivePlotPanel")' in widget
+    assert 'self.panel_list.setObjectName("wits0PanelLayoutList")' in widget
+    assert 'Qt.ScrollBarPolicy.ScrollBarAlwaysOff' in widget
+    assert "def _panel_layout_from_controls(" in widget
+    assert "def _move_selected_panel(" in widget
+    assert "self.dashboard.set_panel_layout(panel_order, hidden_panel_ids)" in widget
+    assert '"panel_up": "Выше"' in widget
+    assert '"panel_down": "Ниже"' in widget
+    assert '"panel_up": "Жоғары"' in widget
+    assert '"panel_down": "Төмен"' in widget
+    assert '"panel_up": "Move up"' in widget
+    assert '"panel_down": "Move down"' in widget
     selection_body = widget[
         widget.index("def _curve_selection_changed")
         : widget.index("def _dashboard_range_changed")
@@ -120,6 +131,10 @@ def test_wits0_live_view_constructs_offscreen(monkeypatch: pytest.MonkeyPatch) -
         assert not widget.plot_panel.isVisible()
         assert widget.sidebar_button.text() == "Назад к монитору"
         assert widget.curve_list.isVisible()
+        assert widget.panel_list.isVisible()
+        assert widget.panel_list.count() == len(widget.dashboard.panels)
+        assert widget.panel_up_button.text() == "Выше"
+        assert widget.panel_down_button.text() == "Ниже"
         assert widget.values_table.isVisible()
         for section in range(widget.values_table.columnCount()):
             assert (
@@ -196,6 +211,75 @@ def test_wits0_live_view_constructs_offscreen(monkeypatch: pytest.MonkeyPatch) -
         assert config.unit == "ppg"
         assert widget.normal_mud_density_spin.isEnabled()
         assert widget.normal_mud_density_unit_combo.isEnabled()
+    finally:
+        widget.close()
+        app.processEvents()
+
+
+@pytest.mark.skipif(
+    importlib.util.find_spec("PySide6") is None
+    or importlib.util.find_spec("pyqtgraph") is None,
+    reason="PySide6/pyqtgraph are not installed in the headless test environment",
+)
+def test_wits0_panel_editor_reorders_and_hides_dashboard_panels(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QApplication
+
+    from geoworkbench.services.localization import AppLanguage
+    from geoworkbench.ui.wits0_live_view import Wits0LiveViewWidget
+
+    app = QApplication.instance() or QApplication([])
+    widget = Wits0LiveViewWidget(language=AppLanguage.RU)
+    monkeypatch.setattr(widget, "refresh", lambda *args, **kwargs: None)
+    widget._view = object()  # type: ignore[assignment] - UI boundary only
+    widget.panel_list.setEnabled(True)
+    widget._refresh_panel_order_buttons()
+
+    try:
+        initial_order, initial_hidden = widget.dashboard.panel_layout()
+        listed = tuple(
+            str(
+                widget.panel_list.item(row).data(
+                    Qt.ItemDataRole.UserRole
+                )
+            )
+            for row in range(widget.panel_list.count())
+        )
+
+        assert listed == initial_order
+        assert initial_hidden == ()
+        assert (
+            widget.panel_list.horizontalScrollBarPolicy()
+            is Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+
+        widget.panel_list.setCurrentRow(0)
+        widget._refresh_panel_order_buttons()
+        assert not widget.panel_up_button.isEnabled()
+        assert widget.panel_down_button.isEnabled()
+
+        widget.panel_list.setCurrentRow(1)
+        widget._refresh_panel_order_buttons()
+        assert widget.panel_up_button.isEnabled()
+        widget.panel_up_button.click()
+        app.processEvents()
+
+        moved_order, hidden = widget.dashboard.panel_layout()
+        assert moved_order[0] == initial_order[1]
+        assert moved_order[1] == initial_order[0]
+        assert hidden == ()
+
+        first_item = widget.panel_list.item(0)
+        first_id = str(first_item.data(Qt.ItemDataRole.UserRole))
+        first_item.setCheckState(Qt.CheckState.Unchecked)
+        app.processEvents()
+
+        final_order, final_hidden = widget.dashboard.panel_layout()
+        assert final_order == moved_order
+        assert final_hidden == (first_id,)
     finally:
         widget.close()
         app.processEvents()

@@ -111,6 +111,7 @@ class Wits0LiveViewWidget(QWidget):
         self.splitter.setSizes([330, 650])
         root.addWidget(self.splitter, 1)
 
+        self._populate_panel_controls()
         self._restore_last_form()
         self._update_form_description()
         self._set_empty_state()
@@ -237,6 +238,54 @@ class Wits0LiveViewWidget(QWidget):
         self.curve_list.itemChanged.connect(self._curve_selection_changed)
         curve_layout.addWidget(self.curve_list)
         layout.addWidget(curve_group, 2)
+
+        panel_group = QGroupBox(
+            _operator_text(self._language, "panel_layout_group"),
+            panel,
+        )
+        panel_layout = QVBoxLayout(panel_group)
+        self.panel_list = QListWidget(panel_group)
+        self.panel_list.setObjectName("wits0PanelLayoutList")
+        self.panel_list.setSelectionMode(
+            QAbstractItemView.SelectionMode.SingleSelection
+        )
+        self.panel_list.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self.panel_list.setMinimumHeight(120)
+        self.panel_list.setMaximumHeight(180)
+        self.panel_list.itemChanged.connect(self._panel_visibility_changed)
+        self.panel_list.currentRowChanged.connect(
+            self._refresh_panel_order_buttons
+        )
+        panel_layout.addWidget(self.panel_list)
+
+        panel_actions = QGridLayout()
+        panel_actions.setHorizontalSpacing(6)
+        self.panel_up_button = QPushButton(
+            _operator_text(self._language, "panel_up"),
+            panel_group,
+        )
+        self.panel_up_button.setObjectName("wits0PanelUpButton")
+        self.panel_up_button.setMinimumWidth(0)
+        self.panel_up_button.clicked.connect(
+            lambda: self._move_selected_panel(-1)
+        )
+        panel_actions.addWidget(self.panel_up_button, 0, 0)
+        self.panel_down_button = QPushButton(
+            _operator_text(self._language, "panel_down"),
+            panel_group,
+        )
+        self.panel_down_button.setObjectName("wits0PanelDownButton")
+        self.panel_down_button.setMinimumWidth(0)
+        self.panel_down_button.clicked.connect(
+            lambda: self._move_selected_panel(1)
+        )
+        panel_actions.addWidget(self.panel_down_button, 0, 1)
+        panel_actions.setColumnStretch(0, 1)
+        panel_actions.setColumnStretch(1, 1)
+        panel_layout.addLayout(panel_actions)
+        layout.addWidget(panel_group)
 
         dexp_group = QGroupBox(
             _operator_text(self._language, "dexp_correction_group"),
@@ -387,6 +436,7 @@ class Wits0LiveViewWidget(QWidget):
             self.max_points_spin,
             self.refresh_button,
             self.curve_list,
+            self.panel_list,
         ):
             widget.setEnabled(True)
         self._populate_axes()
@@ -656,6 +706,7 @@ class Wits0LiveViewWidget(QWidget):
                 saved.panel_order,
                 saved.hidden_panel_ids,
             )
+            self._sync_panel_controls_from_dashboard()
             try:
                 view.set_axis_mode(AcquisitionLiveAxisMode(saved.axis_mode))
             except ValueError:
@@ -664,6 +715,7 @@ class Wits0LiveViewWidget(QWidget):
             view.set_follow_span(saved.follow_span)
         else:
             self.dashboard.set_panel_layout()
+            self._sync_panel_controls_from_dashboard()
         self._set_view_source_selection(self._selected_curve_ids())
 
     def _dexp_correction_config(self) -> Wits0DexpCorrectionConfig | None:
@@ -774,6 +826,102 @@ class Wits0LiveViewWidget(QWidget):
         self._last_revision = None
         self.refresh(force=True)
 
+    def _populate_panel_controls(self) -> None:
+        """Build the operator editor from the dashboard's canonical panels."""
+
+        self._sync_panel_controls_from_dashboard()
+
+    def _sync_panel_controls_from_dashboard(self) -> None:
+        current_id: str | None = None
+        current_item = self.panel_list.currentItem()
+        if current_item is not None:
+            raw_current = current_item.data(Qt.ItemDataRole.UserRole)
+            if isinstance(raw_current, str):
+                current_id = raw_current
+
+        panel_order, hidden_panel_ids = self.dashboard.panel_layout()
+        hidden = set(hidden_panel_ids)
+        self.panel_list.blockSignals(True)
+        try:
+            self.panel_list.clear()
+            selected_row = -1
+            for row, panel_id in enumerate(panel_order):
+                panel = self.dashboard.panels.get(panel_id)
+                if panel is None:
+                    continue
+                title = panel.definition.title(self._language)
+                item = QListWidgetItem(title, self.panel_list)
+                item.setData(Qt.ItemDataRole.UserRole, panel_id)
+                item.setToolTip(title)
+                item.setFlags(
+                    item.flags()
+                    | Qt.ItemFlag.ItemIsSelectable
+                    | Qt.ItemFlag.ItemIsUserCheckable
+                )
+                item.setCheckState(
+                    Qt.CheckState.Unchecked
+                    if panel_id in hidden
+                    else Qt.CheckState.Checked
+                )
+                if panel_id == current_id:
+                    selected_row = row
+            if selected_row < 0 and self.panel_list.count():
+                selected_row = 0
+            if selected_row >= 0:
+                self.panel_list.setCurrentRow(selected_row)
+        finally:
+            self.panel_list.blockSignals(False)
+        self._refresh_panel_order_buttons()
+
+    def _panel_layout_from_controls(
+        self,
+    ) -> tuple[tuple[str, ...], tuple[str, ...]]:
+        order: list[str] = []
+        hidden: list[str] = []
+        for row in range(self.panel_list.count()):
+            item = self.panel_list.item(row)
+            panel_id = item.data(Qt.ItemDataRole.UserRole)
+            if not isinstance(panel_id, str) or not panel_id:
+                continue
+            order.append(panel_id)
+            if item.checkState() != Qt.CheckState.Checked:
+                hidden.append(panel_id)
+        return tuple(order), tuple(hidden)
+
+    def _apply_panel_controls(self, *, refresh: bool) -> None:
+        panel_order, hidden_panel_ids = self._panel_layout_from_controls()
+        self.dashboard.set_panel_layout(panel_order, hidden_panel_ids)
+        if refresh and self._view is not None:
+            self._last_revision = None
+            self.refresh(force=True)
+
+    def _panel_visibility_changed(self, _item: QListWidgetItem) -> None:
+        self._apply_panel_controls(refresh=True)
+
+    def _move_selected_panel(self, offset: int) -> None:
+        current_row = self.panel_list.currentRow()
+        if current_row < 0 or offset == 0:
+            return
+        target_row = current_row + offset
+        if not 0 <= target_row < self.panel_list.count():
+            return
+        item = self.panel_list.takeItem(current_row)
+        if item is None:
+            return
+        self.panel_list.insertItem(target_row, item)
+        self.panel_list.setCurrentRow(target_row)
+        self._apply_panel_controls(refresh=False)
+        self._refresh_panel_order_buttons()
+
+    def _refresh_panel_order_buttons(self, _row: int = -1) -> None:
+        row = self.panel_list.currentRow()
+        count = self.panel_list.count()
+        enabled = self._view is not None
+        self.panel_up_button.setEnabled(enabled and row > 0)
+        self.panel_down_button.setEnabled(
+            enabled and 0 <= row < count - 1
+        )
+
     def _curve_selection_changed(self, _item: QListWidgetItem) -> None:
         if self._updating_controls:
             return
@@ -880,6 +1028,9 @@ class Wits0LiveViewWidget(QWidget):
             self.max_points_spin,
             self.refresh_button,
             self.curve_list,
+            self.panel_list,
+            self.panel_up_button,
+            self.panel_down_button,
             self.save_form_button,
         ):
             widget.setEnabled(self._view is not None)
@@ -1009,6 +1160,7 @@ class Wits0LiveViewWidget(QWidget):
         self._sidebar_user_override = None
         self._compact_parameters_open = False
         self.dashboard.set_panel_layout()
+        self._sync_panel_controls_from_dashboard()
         self._apply_navigation_layout()
         self._update_form_description()
         if self._view is not None:
@@ -1141,6 +1293,9 @@ def _operator_text(language: AppLanguage, key: str) -> str:
             "dexp_correction_enable": "Включить DEXPC",
             "dexp_correction_help": "DEXPC рассчитывается только после явного задания нормальной плотности бурового раствора.",
             "normal_mud_density": "Нормальная плотность раствора",
+            "panel_layout_group": "Панели графиков",
+            "panel_up": "Выше",
+            "panel_down": "Ниже",
         },
         AppLanguage.KK: {
             "save_form": "Пішінді сақтау",
@@ -1157,6 +1312,9 @@ def _operator_text(language: AppLanguage, key: str) -> str:
             "dexp_correction_enable": "DEXPC қосу",
             "dexp_correction_help": "DEXPC бұрғылау ерітіндісінің қалыпты тығыздығы анық берілгеннен кейін ғана есептеледі.",
             "normal_mud_density": "Ерітіндінің қалыпты тығыздығы",
+            "panel_layout_group": "График панельдері",
+            "panel_up": "Жоғары",
+            "panel_down": "Төмен",
         },
         AppLanguage.EN: {
             "save_form": "Save form",
@@ -1173,6 +1331,9 @@ def _operator_text(language: AppLanguage, key: str) -> str:
             "dexp_correction_enable": "Enable DEXPC",
             "dexp_correction_help": "DEXPC is calculated only after an explicit normal mud density is supplied.",
             "normal_mud_density": "Normal mud density",
+            "panel_layout_group": "Plot panels",
+            "panel_up": "Move up",
+            "panel_down": "Move down",
         },
     }
     return translations.get(language, translations[AppLanguage.EN]).get(key, key)
