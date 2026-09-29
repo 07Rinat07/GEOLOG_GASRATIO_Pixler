@@ -61,7 +61,8 @@ def test_short_well_uses_one_page_without_vertical_stretching() -> None:
 def test_long_well_is_split_into_continuous_readable_pages() -> None:
     pages = plan_depth_pages(1_000.0, 4_000.0, 330.0)
 
-    assert 2 <= len(pages) <= 12
+    assert 2 <= len(pages) <= 80
+    assert max(page.span for page in pages) <= 105.0
     assert pages[0].top_depth == 1_000.0
     assert pages[-1].bottom_depth == 4_000.0
     assert len({page.scale_denominator for page in pages}) == 1
