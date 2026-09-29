@@ -3,6 +3,7 @@ from __future__ import annotations
 from geoworkbench.services.lba_standard import lba_color_code
 import os
 import tempfile
+from dataclasses import dataclass
 from math import isfinite
 from pathlib import Path
 from collections.abc import Sequence
@@ -120,6 +121,32 @@ def _set_scaled_font_points(painter: QPainter, font: QFont, size_points: float) 
 
 class MasterlogRenderError(RuntimeError):
     pass
+
+
+@dataclass(frozen=True, slots=True)
+class _MasterlogRenderContext:
+    """Immutable per-print cache for expensive Masterlog source resolution."""
+
+    lithotype_catalog: dict[str, CatalogLithotype]
+    curve_bindings: dict[str, str]
+
+
+def _build_masterlog_render_context(
+    template: MasterlogTemplate,
+    session: ProjectSession,
+) -> _MasterlogRenderContext:
+    dataset = session.current_dataset
+    return _MasterlogRenderContext(
+        lithotype_catalog={
+            item.lithotype_id: item
+            for item in LithotypeCatalogController(session).available()
+        },
+        curve_bindings=(
+            masterlog_curve_bindings(template, dataset)
+            if dataset is not None
+            else {}
+        ),
+    )
 
 
 class PagedPaintDevice(Protocol):
@@ -265,6 +292,7 @@ def paint_masterlog(
     page_label: str | None = None,
     columns: Sequence[MasterlogColumnTemplate] | None = None,
     language: AppLanguage = AppLanguage.RU,
+    _render_context: _MasterlogRenderContext | None = None,
 ) -> None:
     effective_range = depth_range or masterlog_depth_range(session)
     size = canvas_size_mm or masterlog_size_mm(template, session, depth_range=effective_range)
@@ -281,9 +309,11 @@ def paint_masterlog(
     painter.drawLine(
         QLineF(0.0, template.header_height_mm, size.width(), template.header_height_mm)
     )
-    lithotype_catalog = {
-        item.lithotype_id: item for item in LithotypeCatalogController(session).available()
-    }
+    render_context = _render_context or _build_masterlog_render_context(
+        template,
+        session,
+    )
+    lithotype_catalog = render_context.lithotype_catalog
     for element in template.header_elements:
         _paint_header_element(
             painter,
@@ -303,6 +333,7 @@ def paint_masterlog(
         columns if columns is not None else template.columns,
         language,
         lithotype_catalog,
+        render_context.curve_bindings,
     )
     if page_label:
         visual = modern_oilfield_report_profile()
@@ -545,6 +576,10 @@ def paint_masterlog_pages(
     pages = tuple((group, segment) for group in groups for segment in segments)
     language = settings.language if settings is not None else AppLanguage.RU
     localizer = Localizer.create(language)
+    # Curve semantic resolution and lithotype catalog construction are invariant
+    # across all pages of one print job.  Build them once instead of repeating
+    # the same O(curves × aliases) work for every depth page and column group.
+    render_context = _build_masterlog_render_context(template, session)
     for page_index, (columns, page_range) in enumerate(pages):
         if page_index and not device.newPage():
             raise MasterlogRenderError("Не удалось создать следующую страницу masterlog")
@@ -560,6 +595,7 @@ def paint_masterlog_pages(
             ),
             columns=columns,
             language=language,
+            _render_context=render_context,
         )
 
 
@@ -1227,6 +1263,7 @@ def _paint_columns(
     columns: Sequence[MasterlogColumnTemplate],
     language: AppLanguage,
     lithotype_catalog: dict[str, CatalogLithotype],
+    bindings: dict[str, str],
 ) -> None:
     x = 0.0
     top = template.header_height_mm
@@ -1234,7 +1271,6 @@ def _paint_columns(
     # reserve the same (maximum) heading band to keep the physical depth scale exact.
     header_height = _masterlog_column_heading_height(template)
     dataset = session.current_dataset
-    bindings = masterlog_curve_bindings(template, dataset) if dataset is not None else {}
     annotation_columns: list[tuple[MasterlogColumnTemplate, QRectF]] = []
     for column in columns:
         rect = QRectF(x, top, column.width_mm, size.height() - top)
