@@ -635,7 +635,18 @@ def _masterlog_device_page_geometry(
     try:
         resolution_getter = getattr(device, "resolution", None)
         resolution = int(resolution_getter()) if callable(resolution_getter) else 0
-        if resolution > 0 and target.width() > 0 and target.height() > 0:
+        has_printable_inset = (
+            abs(target.x()) > 0.5
+            or abs(target.y()) > 0.5
+            or abs(target.width() - float(device.width())) > 0.5
+            or abs(target.height() - float(device.height())) > 0.5
+        )
+        if (
+            resolution > 0
+            and has_printable_inset
+            and target.width() > 0
+            and target.height() > 0
+        ):
             millimeters_per_pixel = 25.4 / resolution
             printable_size = QSizeF(
                 target.width() * millimeters_per_pixel,
