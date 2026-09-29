@@ -11,7 +11,7 @@ from PySide6.QtCore import QMarginsF
 from PySide6.QtGui import QPageLayout, QPageSize, QPdfWriter, QTextDocument
 
 from geoworkbench.brand import APPLICATION_DISPLAY_NAME
-from geoworkbench.domain.models import CuttingsSample, Dataset
+from geoworkbench.domain.models import CuttingsSample
 from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
 from geoworkbench.project.lithotype_catalog_models import CatalogLithotype
 from geoworkbench.project.session import ProjectSession
