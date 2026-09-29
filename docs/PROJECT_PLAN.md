@@ -1142,8 +1142,11 @@ WELL-04 уже имеет field-level статусы и readiness; WELL-05 — f
   layout+dataset устанавливаются одной `set_layout_and_dataset()` транзакцией и дают один
   full render pass вместо двух. Третий slice переводит rename дорожки на track-level
   `DirtyReason.STATIC`, а rename группы — на lightweight rebuild только merged group-header
-  strip; curve widgets и full-render counter при этих действиях сохраняются. Следующие
-  измеряемые slices: import parser phase timing/RSS, coalesced main-window refresh для
+  strip; curve widgets и full-render counter при этих действиях сохраняются. Четвёртый slice
+  добавляет `las.import.performance`: source read/encoding, `lasio` parse, Dataset materialize,
+  import-report и total измеряются отдельными `perf_counter()` checkpoints; diagnostics хранит
+  только bytes/rows/curves/warnings/encoding и basename, без LAS values/full path. Следующие
+  измеряемые slices: RSS/peak-memory instrumentation, coalesced main-window refresh для
   безопасных structural cases и дальнейшее сокращение MainThread rebuild без ослабления
   viewport LOD/geometry-cache контрактов.
 
