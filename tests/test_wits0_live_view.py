@@ -65,7 +65,9 @@ def test_live_view_uses_read_only_projection_and_shared_downsampling() -> None:
     assert "self.alarm_editor.set_rules(saved.alarm_rules)" in widget
     assert "self.alarm_editor.clear_rules()" in widget
     assert "Wits0LiveAlarmController" in widget
-    assert "self._alarm_controller.evaluate(snapshot.current_values)" in widget
+    assert "self._alarm_controller.evaluate(" in widget
+    assert "view.session," in widget
+    assert "snapshot.current_values," in widget
     assert "self.dashboard.render_alarm_statuses(alarm_statuses)" in widget
     assert "def _acknowledge_active_alarms(" in widget
     assert "self.dashboard.set_panel_x_ranges(saved.panel_x_ranges)" in widget
