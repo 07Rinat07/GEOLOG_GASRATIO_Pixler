@@ -754,9 +754,7 @@ threshold logic in Qt.
 `acquisition/wits0_live_alarms.py` owns runtime state for schema-v4 alarm rules. The controller
 normalizes configured mnemonics, translates each new `AcquisitionCurrentValue` into one domain
 transition, and remembers sample identity so repeated QWidget refreshes cannot advance debounce.
-A factual sample is keyed by its sample row/source sequence. Missing or invalid relevant rows are
-fed to the domain evaluator as missing input and therefore may reset only pending debounce while an
-already active alarm remains active.
+Policy lookup remains mnemonic-based, while runtime state and sample tokens are keyed by `curve_id`; two curves that resolve to the same canonical mnemonic therefore cannot advance each other's debounce. A factual sample is keyed by its sample row/source sequence. Missing or invalid relevant rows are fed to the domain evaluator as missing input and therefore may reset only pending debounce while an already active alarm remains active.
 
 Changing a rule resets only that rule's runtime state; unchanged rules keep state across ordinary
 view refreshes. Rebinding to another acquisition runtime clears all runtime alarm state.
