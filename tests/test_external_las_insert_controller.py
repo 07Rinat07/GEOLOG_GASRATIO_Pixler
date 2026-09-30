@@ -13,6 +13,7 @@ from geoworkbench.domain.models import CurveData, CurveMetadata, Dataset, Datase
 from geoworkbench.project.external_las_insert_controller import ExternalLasInsertController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.depth_axis import analyze_depth_axis
+from geoworkbench.services.edit_history import CommandHistory, CurveEditCommand
 from geoworkbench.services.external_las_insert import ExternalLasCurveSelection
 
 
@@ -173,3 +174,82 @@ def test_create_copy_keeps_target_unchanged_and_selects_new_dataset(
     assert any(
         key.startswith("EXTERNAL_LAS_IMPORT_") for key in outcome.dataset.parameters
     )
+
+
+def test_shared_history_keeps_external_las_undo_domain_safe(
+    monkeypatch, tmp_path: Path
+) -> None:
+    target = dataset("target", [100.0, 101.0])
+    source = dataset("source", [100.0, 101.0])
+    add_curve(source, "inc", "INCL", [1.0, 2.0])
+    history = CommandHistory()
+    session = ProjectSession()
+    session.add_dataset(target)
+    controller = ExternalLasInsertController(session, shared_history=history)
+    result = imported(source, tmp_path / "survey.las")
+    monkeypatch.setattr(
+        "geoworkbench.project.external_las_insert_controller.import_las_with_report",
+        lambda _path: result,
+    )
+
+    analysis = controller.analyze_file(tmp_path / "survey.las")
+    controller.apply(analysis, (ExternalLasCurveSelection("inc", "INCL_EXT"),))
+    inserted = target.curve_by_mnemonic("INCL_EXT")
+    assert inserted is not None
+    assert controller.can_undo is True
+
+    history.execute(
+        CurveEditCommand.create(
+            inserted,
+            np.array([0], dtype=np.int64),
+            np.array([9.0], dtype=np.float64),
+        )
+    )
+
+    assert controller.can_undo is False
+    history.undo()
+    assert inserted.values[0] == 1.0
+    assert controller.can_undo is True
+
+    controller.undo()
+
+    assert target.curve_by_mnemonic("INCL_EXT") is None
+
+
+def test_shared_history_supports_multiple_external_las_inserts(
+    monkeypatch, tmp_path: Path
+) -> None:
+    target = dataset("target", [100.0, 101.0])
+    history = CommandHistory()
+    session = ProjectSession()
+    session.add_dataset(target)
+    controller = ExternalLasInsertController(session, shared_history=history)
+
+    for number in (1, 2):
+        source = dataset(f"source-{number}", [100.0, 101.0])
+        add_curve(source, f"curve-{number}", f"EXT{number}", [number, number + 1])
+        result = imported(source, tmp_path / f"survey-{number}.las")
+        monkeypatch.setattr(
+            "geoworkbench.project.external_las_insert_controller.import_las_with_report",
+            lambda _path, result=result: result,
+        )
+        analysis = controller.analyze_file(tmp_path / f"survey-{number}.las")
+        controller.apply(
+            analysis,
+            (ExternalLasCurveSelection(f"curve-{number}", f"EXT{number}"),),
+        )
+
+    assert target.curve_by_mnemonic("EXT1") is not None
+    assert target.curve_by_mnemonic("EXT2") is not None
+
+    controller.undo()
+    assert target.curve_by_mnemonic("EXT2") is None
+    assert target.curve_by_mnemonic("EXT1") is not None
+
+    controller.undo()
+    assert target.curve_by_mnemonic("EXT1") is None
+
+    controller.redo()
+    controller.redo()
+    assert target.curve_by_mnemonic("EXT1") is not None
+    assert target.curve_by_mnemonic("EXT2") is not None
