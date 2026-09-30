@@ -71,6 +71,10 @@ def test_live_view_uses_read_only_projection_and_shared_downsampling() -> None:
     assert "virtual_curves=self._virtual_curves" in widget
     assert "dataset_row_count=len(view.dataset.depth)" in widget
     assert "self.dashboard.render_alarm_statuses(alarm_statuses)" in widget
+    assert "self._alarm_controller.latest_events" in widget
+    assert "self._alarm_controller.event_history" in widget
+    assert "AcquisitionLiveMarkerKind.THRESHOLD_ALARM" in widget
+    assert "QApplication.beep()" in widget
     assert "def _acknowledge_active_alarms(" in widget
     assert "self.dashboard.set_panel_x_ranges(saved.panel_x_ranges)" in widget
     assert "self.dashboard.scaleTargetsChanged.connect(" in widget
@@ -615,6 +619,189 @@ def test_preview_to_persistent_handoff_preserves_unsaved_workspace_state(
         assert applied == [expected_state]
         assert widget._preview_mode is False
         assert widget._runtime is persistent_runtime
+    finally:
+        widget.close()
+        app.processEvents()
+
+
+@pytest.mark.skipif(
+    importlib.util.find_spec("PySide6") is None
+    or importlib.util.find_spec("pyqtgraph") is None,
+    reason="PySide6/pyqtgraph are not installed in the headless test environment",
+)
+def test_alarm_audio_coalesces_factual_activation_batch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtWidgets import QApplication
+
+    from geoworkbench.acquisition.wits0_live_alarms import Wits0LiveAlarmEvent
+    from geoworkbench.services.localization import AppLanguage
+    from geoworkbench.services.wits0_alarms import AlarmSide, AlarmTransition
+    import geoworkbench.ui.wits0_live_view as live_module
+
+    app = QApplication.instance() or QApplication([])
+    widget = live_module.Wits0LiveViewWidget(language=AppLanguage.RU)
+    beeps: list[str] = []
+    monkeypatch.setattr(
+        live_module.QApplication,
+        "beep",
+        staticmethod(lambda: beeps.append("beep")),
+    )
+
+    silent = Wits0LiveAlarmEvent(
+        curve_id="gas",
+        mnemonic="TOTAL_GAS",
+        transition=AlarmTransition.ACTIVATED,
+        side=AlarmSide.HIGH,
+        row_index=1,
+        record_sequence=2,
+        value=6.0,
+        threshold=5.0,
+        visual_enabled=True,
+        audio_enabled=False,
+    )
+    audible = Wits0LiveAlarmEvent(
+        curve_id="gas",
+        mnemonic="TOTAL_GAS",
+        transition=AlarmTransition.ACTIVATED,
+        side=AlarmSide.HIGH,
+        row_index=2,
+        record_sequence=3,
+        value=7.0,
+        threshold=5.0,
+        visual_enabled=True,
+        audio_enabled=True,
+    )
+    cleared = Wits0LiveAlarmEvent(
+        curve_id="gas",
+        mnemonic="TOTAL_GAS",
+        transition=AlarmTransition.CLEARED,
+        side=AlarmSide.HIGH,
+        row_index=3,
+        record_sequence=4,
+        value=4.0,
+        threshold=5.0,
+        visual_enabled=True,
+        audio_enabled=True,
+    )
+
+    try:
+        widget._emit_alarm_audio((silent, cleared))
+        assert beeps == []
+
+        widget._emit_alarm_audio((audible, audible, cleared))
+        assert beeps == ["beep"]
+
+        widget._emit_alarm_audio(())
+        assert beeps == ["beep"]
+    finally:
+        widget.close()
+        app.processEvents()
+
+
+@pytest.mark.skipif(
+    importlib.util.find_spec("PySide6") is None
+    or importlib.util.find_spec("pyqtgraph") is None,
+    reason="PySide6/pyqtgraph are not installed in the headless test environment",
+)
+def test_alarm_markers_use_visible_axis_and_respect_visual_policy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    from types import SimpleNamespace
+
+    from PySide6.QtWidgets import QApplication
+
+    from geoworkbench.acquisition.wits0_live_alarms import Wits0LiveAlarmEvent
+    from geoworkbench.services.acquisition_live_view import AcquisitionLiveMarkerKind
+    from geoworkbench.services.localization import AppLanguage
+    from geoworkbench.services.wits0_alarms import AlarmSide, AlarmTransition
+    import geoworkbench.ui.wits0_live_view as live_module
+
+    app = QApplication.instance() or QApplication([])
+    widget = live_module.Wits0LiveViewWidget(language=AppLanguage.EN)
+    axis = {0: 100.0, 1: 101.0, 2: 102.0, 3: 103.0}
+    widget._view = SimpleNamespace(
+        config=SimpleNamespace(max_markers=10),
+        axis_value_for_row=lambda row: axis.get(row),
+    )
+    events = (
+        Wits0LiveAlarmEvent(
+            curve_id="gas",
+            mnemonic="TOTAL_GAS",
+            transition=AlarmTransition.ACTIVATED,
+            side=AlarmSide.HIGH,
+            row_index=1,
+            record_sequence=2,
+            value=6.0,
+            threshold=5.0,
+            visual_enabled=True,
+            audio_enabled=False,
+        ),
+        Wits0LiveAlarmEvent(
+            curve_id="gas",
+            mnemonic="TOTAL_GAS",
+            transition=AlarmTransition.CLEARED,
+            side=AlarmSide.HIGH,
+            row_index=2,
+            record_sequence=3,
+            value=4.0,
+            threshold=5.0,
+            visual_enabled=True,
+            audio_enabled=False,
+        ),
+        Wits0LiveAlarmEvent(
+            curve_id="gas",
+            mnemonic="TOTAL_GAS",
+            transition=AlarmTransition.ACTIVATED,
+            side=AlarmSide.HIGH,
+            row_index=3,
+            record_sequence=4,
+            value=7.0,
+            threshold=5.0,
+            visual_enabled=False,
+            audio_enabled=False,
+        ),
+        Wits0LiveAlarmEvent(
+            curve_id="other",
+            mnemonic="SPP",
+            transition=AlarmTransition.ACTIVATED,
+            side=AlarmSide.HIGH,
+            row_index=1,
+            record_sequence=2,
+            value=400.0,
+            threshold=350.0,
+            visual_enabled=True,
+            audio_enabled=False,
+        ),
+    )
+    widget._alarm_controller = SimpleNamespace(event_history=events)
+    snapshot = SimpleNamespace(
+        window_start=100.5,
+        window_end=102.5,
+        visible_row_count=3,
+        markers=(),
+        series=(SimpleNamespace(curve_id="gas"),),
+    )
+
+    try:
+        markers = widget._alarm_markers(snapshot)
+
+        assert len(markers) == 2
+        assert all(
+            marker.kind is AcquisitionLiveMarkerKind.THRESHOLD_ALARM
+            for marker in markers
+        )
+        assert [marker.axis_start for marker in markers] == [101.0, 102.0]
+        assert [marker.display_color for marker in markers] == [
+            "#dc2626",
+            "#15803d",
+        ]
+        assert markers[0].show_label
+        assert not markers[1].show_label
+        assert "activated" in markers[0].label
+        assert "cleared" in markers[1].label
     finally:
         widget.close()
         app.processEvents()

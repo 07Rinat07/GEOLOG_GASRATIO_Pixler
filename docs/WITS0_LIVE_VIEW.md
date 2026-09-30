@@ -123,4 +123,4 @@ Saved alarm rules are evaluated by a separate runtime controller. It catches up 
 Active visual alarms are shown in current values and dashboard indicator cards. The operator can
 acknowledge all active alarms; acknowledgement removes the attention requirement but does not clear
 the alarm. Clearing still requires a factual recovery sample crossing the configured hysteresis
-boundary. Audio playback and threshold markers are handled by later increments.
+boundary. Runtime также ведёт bounded историю фактических `ACTIVATED/CLEARED` событий с dataset row и acquisition sequence. Для audio-enabled активаций один factual batch даёт один системный звуковой сигнал; повторный refresh того же состояния сигнал не повторяет. Visual-enabled события рисуются как threshold markers на текущей time/depth оси: красный marker — activation, зелёный — clear. Pause не прекращает alarm evaluation и звук; события строк, пришедших после заморозки, остаются в history и появляются на графике после Resume.

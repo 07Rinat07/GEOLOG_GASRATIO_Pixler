@@ -695,3 +695,27 @@ def test_snapshot_rejects_invalid_virtual_curve_contract() -> None:
             curve_ids=(virtual_id,),
             virtual_curves={virtual_id: short_curve},
         )
+
+
+def test_axis_value_for_row_tracks_selected_time_and_depth_modes() -> None:
+    runtime, _frames = _runtime_with_frames(
+        (
+            _frame(1, time_value="0315450", depth=100.0, rop=10.0),
+            _frame(2, time_value="0315460", depth=100.2, rop=11.0),
+        )
+    )
+    view = AcquisitionLiveView(runtime.controller.dataset, runtime.session)
+
+    time_value = view.axis_value_for_row(1)
+    assert time_value is not None
+
+    view.set_axis_mode(AcquisitionLiveAxisMode.DEPTH)
+    assert view.axis_value_for_row(0) == pytest.approx(100.0)
+    assert view.axis_value_for_row(1) == pytest.approx(100.2)
+    assert view.axis_value_for_row(2) is None
+
+    with pytest.raises(ValueError, match="row_index"):
+        view.axis_value_for_row(-1)
+
+    view.set_axis_mode(AcquisitionLiveAxisMode.TIME)
+    assert view.axis_value_for_row(1) == pytest.approx(time_value)
