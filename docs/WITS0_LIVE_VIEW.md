@@ -83,10 +83,12 @@ Pixler C1/C2–C1/C5 и DEXP/DEXPC через существующий versioned
 
 ## Пороговые alarms
 
-WITS-ALARM-01 вводит единый min/max contract для исходных и расчётных каналов: отдельное включение
-visual/audio alarm, hysteresis, debounce/minimum-duration, acknowledgement и global mute. Alarm
-является контролем параметра, а не геологическим заключением. Событие фиксируется маркером на
-графике и не должно повторно воспроизводить звук на каждом sample.
+WITS-ALARM-01 вводит единый min/max contract для исходных и расчётных каналов: hysteresis,
+debounce/minimum-duration и acknowledgement являются частью общего state contract. Live-form
+settings schema v4 сохраняет per-channel правила по mnemonic: min/max, hysteresis и debounce;
+schema v1–v3 мигрируют с пустым набором alarm rules. Runtime acknowledgement/active state не
+сохраняются как настройки. Alarm является контролем параметра, а не геологическим заключением.
+Visual/audio policy и маркеры графика подключаются поверх этого контракта отдельными slices.
 
 ## Ограничения и приёмка
 
