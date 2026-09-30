@@ -1255,10 +1255,13 @@ WELL-04 уже имеет field-level статусы и readiness; WELL-05 — f
   локальных undo/redo стеков. Первый инкремент вводит bounded `CommandHistory` с атомарным
   execute/undo/redo, полной invalidation redo-ветки после нового изменения, conflict-safe
   stack semantics и listener projection для UI; Curve Pencil и LAS Header Editor используют
-  один хронологический стек, а глобальный Ctrl+Z/Ctrl+Shift+Z отменяет последнее изменение
-  между этими двумя доменами. Локальные кнопки карандаша остаются domain-safe и не могут
-  отменить изменение заголовка. Следующие инкременты переводят остальные project mutation
-  controllers в тот же history boundary и добавляют savepoint/dirty revision semantics.
+  один хронологический стек. Второй инкремент подключает `CurveMetadataController`: rename/
+  unit/description, создание и удаление пользовательских кривых входят в тот же chronological
+  stack через typed callback adapter без ослабления existing conflict checks. Глобальный
+  Ctrl+Z/Ctrl+Shift+Z отменяет фактически последнее изменение между тремя доменами; локальные
+  Curve Pencil, Header Editor и Data Inspector controls остаются domain-safe и не перескакивают
+  через более новую команду другого типа. Следующие инкременты переводят остальные project
+  mutation controllers в тот же history boundary и добавляют savepoint/dirty revision semantics.
 
 ## P1 — полевая совместимость
 
