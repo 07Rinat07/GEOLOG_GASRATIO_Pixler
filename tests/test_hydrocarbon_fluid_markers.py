@@ -6,6 +6,7 @@ from geoworkbench.printing.hydrocarbon_fluid_markers import (
     marker_lanes,
 )
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.opus_report_labels import opus_report_label
 
 
 def test_fluid_marker_palette_has_unique_category_codes_and_colors() -> None:
@@ -71,9 +72,9 @@ def test_marker_legend_deduplicates_categories_and_keeps_canonical_order() -> No
 def test_marker_labels_are_available_for_ru_kk_en() -> None:
     spec = fluid_marker_spec("opus_gasomer_gas_condensate")
 
-    assert spec.label(AppLanguage.RU) == "газ-конденсат"
-    assert spec.label(AppLanguage.KK) == "газ-конденсат"
-    assert spec.label(AppLanguage.EN) == "gas condensate"
+    assert spec.label(AppLanguage.RU) == "газоконденсатная УВ-фаза"
+    assert spec.label(AppLanguage.KK) == "газ-конденсатты КС фазасы"
+    assert spec.label(AppLanguage.EN) == "gas-condensate hydrocarbon phase"
 
 
 def test_dense_markers_use_horizontal_lanes_without_changing_y_positions() -> None:
@@ -94,3 +95,39 @@ def test_dense_lane_offsets_stay_inside_reserved_zone() -> None:
     assert offsets[0] > 0.0
     assert offsets[-1] < 120.0
     assert len(set(offsets)) == 64
+
+
+
+def test_opus_class_labels_use_phase_wording_in_three_languages() -> None:
+    assert opus_report_label("class_2", AppLanguage.RU) == "Признаки нефтяной фазы"
+    assert opus_report_label("class_2", AppLanguage.KK) == "Мұнай фазасының белгілері"
+    assert opus_report_label("class_2", AppLanguage.EN) == "Indications of an oil phase"
+
+    assert (
+        opus_report_label("class_6", AppLanguage.RU)
+        == "Признаки газированной нефтяной фазы"
+    )
+    assert (
+        opus_report_label("class_7", AppLanguage.RU)
+        == "УВ-флюид неопределённого типа"
+    )
+
+
+def test_opus_graph_markers_do_not_use_old_oil_wording() -> None:
+    labels = tuple(
+        fluid_marker_spec(hypothesis).label(AppLanguage.RU)
+        for hypothesis in (
+            "opus_gasomer_oil",
+            "opus_gasomer_gassy_oil",
+            "opus_gasomer_oxidized_residual_oil",
+            "opus_gasomer_undefined",
+        )
+    )
+
+    assert labels == (
+        "признаки нефтяной фазы",
+        "признаки газированной нефтяной фазы",
+        "признаки тяж./остат. нефтяной фазы",
+        "УВ-флюид неопределённого типа",
+    )
+    assert "нефть" not in labels
