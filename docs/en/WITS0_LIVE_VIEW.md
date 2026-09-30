@@ -122,9 +122,7 @@ The Parameters sidebar includes an editor for alarm rules of channels available 
 
 ## Runtime alarm state and acknowledgement
 
-Saved rules are evaluated by a separate runtime controller. Debounce advances only for a new factual
-channel sample, so repainting or refreshing the same snapshot cannot activate an alarm. Missing or
-invalid relevant rows do not reuse the previous displayed value as a new measurement. Active visual
+Saved rules are evaluated by a separate runtime controller. It replays every newly appended acquisition DATA_ROW in session order, so repainting the same snapshot cannot advance debounce and several rows drained in one batch cannot collapse into one sample. Plot Pause freezes visualization only; alarm monitoring keeps consuming the acquisition session. An explicit missing value for the channel is missing alarm input, while unrelated WITS record rows do not break that channel's debounce sequence. Active visual
 alarms are highlighted in the current-values table and dashboard indicator card. Acknowledge changes
 the active alarm to acknowledged state without clearing it; clearing still requires a factual
 recovery sample across the hysteresis boundary. Audio and graph threshold markers remain separate
