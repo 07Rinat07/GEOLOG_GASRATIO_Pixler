@@ -707,6 +707,8 @@ class Wits0LiveViewWidget(QWidget):
         alarm_statuses = self._alarm_controller.evaluate(
             view.session,
             snapshot.current_values,
+            virtual_curves=self._virtual_curves,
+            dataset_row_count=len(view.dataset.depth),
         )
         self._last_alarm_statuses = alarm_statuses
         if not force and snapshot.revision == self._last_revision:
