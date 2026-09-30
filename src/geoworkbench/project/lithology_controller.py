@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from copy import deepcopy
+from dataclasses import dataclass, field, fields
+from functools import partial
 
 import numpy as np
 
@@ -17,11 +19,38 @@ from geoworkbench.domain.localized_content import (
 )
 from geoworkbench.domain.models import LithologyInterval, Well, new_id
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.services.edit_history import CallbackCommand, CommandHistory
+
+
+@dataclass(frozen=True, slots=True)
+class _LithologyTrackingSnapshot:
+    translation_statuses: dict[str, object]
+    authored_field_revisions: dict[str, int]
+    authored_field_source_languages: dict[str, str]
+    language_revisions: dict[str, int]
+    content_revision: int
 
 
 @dataclass(slots=True)
 class LithologyController:
     session: ProjectSession
+    shared_history: CommandHistory | None = field(default=None, kw_only=True, repr=False)
+    _history: CommandHistory = field(init=False, repr=False)
+
+    _HISTORY_DOMAIN = "lithology"
+
+    def __post_init__(self) -> None:
+        self._history = self.shared_history or CommandHistory()
+
+    @property
+    def can_undo(self) -> bool:
+        command = self._history.next_undo
+        return command is not None and command.history_domain == self._HISTORY_DOMAIN
+
+    @property
+    def can_redo(self) -> bool:
+        command = self._history.next_redo
+        return command is not None and command.history_domain == self._HISTORY_DOMAIN
 
     def available(self) -> tuple[LithologyInterval, ...]:
         return tuple(
@@ -59,6 +88,8 @@ class LithologyController:
         self._ensure_no_overlap(top, bottom)
         interval_id = new_id()
         well = self._require_well()
+        position = len(well.lithology)
+        before_tracking = self._tracking_snapshot(interval_id)
 
         tracking_plan: AuthoredTranslationPlan | None = None
         after_language_revisions: dict[str, int] | None = None
@@ -115,6 +146,27 @@ class LithologyController:
                     if language != "und":
                         self._bump_content(language)
         well.lithology.append(interval)
+        after_interval = deepcopy(interval)
+        after_tracking = self._tracking_snapshot(interval_id)
+        self._record(
+            description=f"Добавление литологии {top:g}–{bottom:g} м",
+            undo_action=partial(
+                self._undo_add,
+                interval,
+                after_interval,
+                position,
+                before_tracking,
+                after_tracking,
+            ),
+            redo_action=partial(
+                self._redo_add,
+                interval,
+                after_interval,
+                position,
+                before_tracking,
+                after_tracking,
+            ),
+        )
         self.session.dirty = True
         return interval
 
@@ -131,6 +183,8 @@ class LithologyController:
         source_language: object | None = None,
     ) -> LithologyInterval:
         interval = self._require_interval(interval_id)
+        before_interval = deepcopy(interval)
+        before_tracking = self._tracking_snapshot(interval_id)
         top, bottom, lithotype, normalized_description = self._validate(
             top_depth,
             bottom_depth,
@@ -196,6 +250,11 @@ class LithologyController:
                 tracking_plan,
                 after_language_revisions=after_language_revisions,
             )
+            self._record_update_if_changed(
+                interval,
+                before_interval,
+                before_tracking,
+            )
             self.session.dirty = True
             return interval
 
@@ -226,12 +285,20 @@ class LithologyController:
             for language in previous_languages | set(localized_descriptions):
                 if language != "und":
                     self._bump_content(language)
+        self._record_update_if_changed(
+            interval,
+            before_interval,
+            before_tracking,
+        )
         self.session.dirty = True
         return interval
 
     def remove(self, interval_id: str) -> LithologyInterval:
         well = self._require_well()
         interval = self._require_interval(interval_id)
+        position = well.lithology.index(interval)
+        before_interval = deepcopy(interval)
+        before_tracking = self._tracking_snapshot(interval_id)
         well.lithology.remove(interval)
         field_id = self._description_field_id(interval.interval_id)
         well.translation_statuses.pop(field_id, None)
@@ -242,8 +309,255 @@ class LithologyController:
             self._lithotype_dependency_id(interval.interval_id),
         ):
             well.authored_field_revisions.pop(revision_id, None)
+        after_tracking = self._tracking_snapshot(interval_id)
+        self._record(
+            description=f"Удаление литологии {interval.top_depth:g}–{interval.bottom_depth:g} м",
+            undo_action=partial(
+                self._undo_remove,
+                interval,
+                before_interval,
+                position,
+                before_tracking,
+                after_tracking,
+            ),
+            redo_action=partial(
+                self._redo_remove,
+                interval,
+                before_interval,
+                before_tracking,
+                after_tracking,
+            ),
+        )
         self.session.dirty = True
         return interval
+
+    def undo(self) -> str:
+        if not self.can_undo:
+            raise RuntimeError("Нет изменений литологии для отмены")
+        command = self._history.undo()
+        self.session.dirty = True
+        return command.description
+
+    def redo(self) -> str:
+        if not self.can_redo:
+            raise RuntimeError("Нет изменений литологии для повтора")
+        command = self._history.redo()
+        self.session.dirty = True
+        return command.description
+
+    def clear_history(self) -> None:
+        self._history.clear()
+
+    def _record_update_if_changed(
+        self,
+        interval: LithologyInterval,
+        before_interval: LithologyInterval,
+        before_tracking: _LithologyTrackingSnapshot,
+    ) -> None:
+        after_interval = deepcopy(interval)
+        after_tracking = self._tracking_snapshot(interval.interval_id)
+        if before_interval == after_interval and before_tracking == after_tracking:
+            return
+        self._record(
+            description=f"Изменение литологии {interval.top_depth:g}–{interval.bottom_depth:g} м",
+            undo_action=partial(
+                self._restore_update,
+                interval,
+                after_interval,
+                before_interval,
+                after_tracking,
+                before_tracking,
+            ),
+            redo_action=partial(
+                self._restore_update,
+                interval,
+                before_interval,
+                after_interval,
+                before_tracking,
+                after_tracking,
+            ),
+        )
+
+    def _record(
+        self,
+        *,
+        description: str,
+        undo_action: object,
+        redo_action: object,
+    ) -> None:
+        self._history.record_applied(
+            CallbackCommand(
+                description=description,
+                history_domain=self._HISTORY_DOMAIN,
+                execute_action=redo_action,  # type: ignore[arg-type]
+                undo_action=undo_action,  # type: ignore[arg-type]
+            )
+        )
+
+    def _undo_add(
+        self,
+        interval: LithologyInterval,
+        expected_interval: LithologyInterval,
+        position: int,
+        before_tracking: _LithologyTrackingSnapshot,
+        after_tracking: _LithologyTrackingSnapshot,
+    ) -> None:
+        del position
+        well = self._require_well()
+        current = self._require_interval(interval.interval_id)
+        if current is not interval or current != expected_interval:
+            raise RuntimeError("Литологический интервал был изменён вне истории команд")
+        self._assert_tracking(interval.interval_id, after_tracking)
+        well.lithology.remove(interval)
+        self._restore_tracking(interval.interval_id, before_tracking)
+        self.session.dirty = True
+
+    def _redo_add(
+        self,
+        interval: LithologyInterval,
+        expected_interval: LithologyInterval,
+        position: int,
+        before_tracking: _LithologyTrackingSnapshot,
+        after_tracking: _LithologyTrackingSnapshot,
+    ) -> None:
+        well = self._require_well()
+        if any(item.interval_id == interval.interval_id for item in well.lithology):
+            raise RuntimeError("Литологический интервал уже существует вне истории команд")
+        self._assert_tracking(interval.interval_id, before_tracking)
+        self._ensure_no_overlap(
+            expected_interval.top_depth,
+            expected_interval.bottom_depth,
+        )
+        self._commit_interval(interval, expected_interval)
+        well.lithology.insert(min(position, len(well.lithology)), interval)
+        self._restore_tracking(interval.interval_id, after_tracking)
+        self.session.dirty = True
+
+    def _restore_update(
+        self,
+        interval: LithologyInterval,
+        expected_interval: LithologyInterval,
+        replacement_interval: LithologyInterval,
+        expected_tracking: _LithologyTrackingSnapshot,
+        replacement_tracking: _LithologyTrackingSnapshot,
+    ) -> None:
+        current = self._require_interval(interval.interval_id)
+        if current is not interval or current != expected_interval:
+            raise RuntimeError("Литологический интервал был изменён вне истории команд")
+        self._assert_tracking(interval.interval_id, expected_tracking)
+        self._ensure_no_overlap(
+            replacement_interval.top_depth,
+            replacement_interval.bottom_depth,
+            excluded_id=interval.interval_id,
+        )
+        self._commit_interval(interval, replacement_interval)
+        self._restore_tracking(interval.interval_id, replacement_tracking)
+        self.session.dirty = True
+
+    def _undo_remove(
+        self,
+        interval: LithologyInterval,
+        expected_interval: LithologyInterval,
+        position: int,
+        before_tracking: _LithologyTrackingSnapshot,
+        after_tracking: _LithologyTrackingSnapshot,
+    ) -> None:
+        well = self._require_well()
+        if any(item.interval_id == interval.interval_id for item in well.lithology):
+            raise RuntimeError("Удалённый литологический интервал уже восстановлен вне истории")
+        self._assert_tracking(interval.interval_id, after_tracking)
+        self._ensure_no_overlap(
+            expected_interval.top_depth,
+            expected_interval.bottom_depth,
+        )
+        self._commit_interval(interval, expected_interval)
+        well.lithology.insert(min(position, len(well.lithology)), interval)
+        self._restore_tracking(interval.interval_id, before_tracking)
+        self.session.dirty = True
+
+    def _redo_remove(
+        self,
+        interval: LithologyInterval,
+        expected_interval: LithologyInterval,
+        before_tracking: _LithologyTrackingSnapshot,
+        after_tracking: _LithologyTrackingSnapshot,
+    ) -> None:
+        well = self._require_well()
+        current = self._require_interval(interval.interval_id)
+        if current is not interval or current != expected_interval:
+            raise RuntimeError("Литологический интервал был изменён вне истории команд")
+        self._assert_tracking(interval.interval_id, before_tracking)
+        well.lithology.remove(interval)
+        self._restore_tracking(interval.interval_id, after_tracking)
+        self.session.dirty = True
+
+    def _tracking_snapshot(self, interval_id: str) -> _LithologyTrackingSnapshot:
+        well = self._require_well()
+        field_ids = (
+            self._description_field_id(interval_id),
+            self._depth_dependency_id(interval_id),
+            self._lithotype_dependency_id(interval_id),
+        )
+        description_id = field_ids[0]
+        return _LithologyTrackingSnapshot(
+            translation_statuses={
+                description_id: deepcopy(well.translation_statuses[description_id])
+                for _ in (0,)
+                if description_id in well.translation_statuses
+            },
+            authored_field_revisions={
+                key: well.authored_field_revisions[key]
+                for key in field_ids
+                if key in well.authored_field_revisions
+            },
+            authored_field_source_languages={
+                description_id: well.authored_field_source_languages[description_id]
+                for _ in (0,)
+                if description_id in well.authored_field_source_languages
+            },
+            language_revisions=dict(well.language_revisions),
+            content_revision=well.content_revision,
+        )
+
+    def _assert_tracking(
+        self,
+        interval_id: str,
+        expected: _LithologyTrackingSnapshot,
+    ) -> None:
+        if self._tracking_snapshot(interval_id) != expected:
+            raise RuntimeError("Метаданные перевода литологии изменены вне истории команд")
+
+    def _restore_tracking(
+        self,
+        interval_id: str,
+        snapshot: _LithologyTrackingSnapshot,
+    ) -> None:
+        well = self._require_well()
+        field_ids = (
+            self._description_field_id(interval_id),
+            self._depth_dependency_id(interval_id),
+            self._lithotype_dependency_id(interval_id),
+        )
+        description_id = field_ids[0]
+        well.translation_statuses.pop(description_id, None)
+        well.translation_statuses.update(deepcopy(snapshot.translation_statuses))
+        well.authored_field_source_languages.pop(description_id, None)
+        well.authored_field_source_languages.update(
+            snapshot.authored_field_source_languages
+        )
+        for key in field_ids:
+            well.authored_field_revisions.pop(key, None)
+        well.authored_field_revisions.update(snapshot.authored_field_revisions)
+        well.language_revisions = dict(snapshot.language_revisions)
+        well.content_revision = snapshot.content_revision
+
+    @staticmethod
+    def _commit_interval(
+        target: LithologyInterval,
+        source: LithologyInterval,
+    ) -> None:
+        for model_field in fields(LithologyInterval):
+            setattr(target, model_field.name, deepcopy(getattr(source, model_field.name)))
 
     def _tracked_descriptions(
         self,
