@@ -55,10 +55,16 @@ class Wits0SavedAlarmRule:
     maximum: float | None = None
     hysteresis: float = 0.0
     debounce_samples: int = 1
+    visual_enabled: bool = True
+    audio_enabled: bool = False
 
     def __post_init__(self) -> None:
         if not isinstance(self.mnemonic, str) or not self.mnemonic.strip():
             raise ValueError("alarm mnemonic must be a non-empty string")
+        if not isinstance(self.visual_enabled, bool) or not isinstance(
+            self.audio_enabled, bool
+        ):
+            raise ValueError("alarm visual/audio flags must be booleans")
         AlarmLimits(
             minimum=self.minimum,
             maximum=self.maximum,
@@ -219,6 +225,8 @@ class Wits0LiveFormSettings:
                             maximum=_optional_float(entry.get("maximum")),
                             hysteresis=float(entry.get("hysteresis", 0.0)),
                             debounce_samples=int(entry.get("debounce_samples", 1)),
+                            visual_enabled=entry.get("visual_enabled", True),
+                            audio_enabled=entry.get("audio_enabled", False),
                         )
                     )
             return Wits0SavedLiveFormState(
