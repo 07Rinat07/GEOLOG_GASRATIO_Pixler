@@ -89,7 +89,7 @@ the actual event coordinate.
 
 WITS-ALARM-01 defines one state contract for optional per-channel min/max, hysteresis,
 debounce/minimum-duration and acknowledgement. Live-form settings schema v4 persists alarm rules
-by channel mnemonic with min/max, hysteresis and debounce; schema v1–v3 migrate safely with an
+by channel mnemonic with min/max, hysteresis, debounce, visual-enabled and audio-enabled; schema v1–v3 migrate safely with an
 empty alarm set. Runtime acknowledgement and active state are not persisted as configuration.
 Visual/audio policy, global mute and plot markers are follow-up layers over the same contract.
 
