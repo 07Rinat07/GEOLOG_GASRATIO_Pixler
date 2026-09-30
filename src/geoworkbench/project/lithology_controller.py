@@ -19,13 +19,14 @@ from geoworkbench.domain.localized_content import (
     validate_localized_texts,
 )
 from geoworkbench.domain.models import LithologyInterval, Well, new_id
+from geoworkbench.domain.translation_status import TranslationStatusRegistry
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.edit_history import CallbackCommand, CommandHistory
 
 
 @dataclass(frozen=True, slots=True)
 class _LithologyTrackingSnapshot:
-    translation_statuses: dict[str, object]
+    translation_statuses: TranslationStatusRegistry
     authored_field_revisions: dict[str, int]
     authored_field_source_languages: dict[str, str]
     language_revisions: dict[str, int]
