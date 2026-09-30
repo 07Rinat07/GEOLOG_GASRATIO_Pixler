@@ -476,3 +476,37 @@ def test_runtime_does_not_fabricate_audio_or_marker_event_when_rule_is_seeded() 
     assert status[0].is_active
     assert controller.latest_events == ()
     assert controller.event_history == ()
+
+
+def test_runtime_event_stream_preserves_clear_before_direct_opposite_activation() -> None:
+    controller = Wits0LiveAlarmController()
+    controller.set_rules(
+        (
+            Wits0SavedAlarmRule(
+                mnemonic="TOTAL_GAS",
+                minimum=2.0,
+                maximum=8.0,
+                debounce_samples=1,
+            ),
+        )
+    )
+    session = _SessionStub([_record(1, (("curve-tg", 5.0),))])
+    _evaluate(controller, session, (_value(5.0, row=0),))
+
+    session.records.extend(
+        (
+            _record(2, (("curve-tg", 9.0),)),
+            _record(3, (("curve-tg", 1.0),)),
+        )
+    )
+    status = _evaluate(controller, session, (_value(1.0, row=2),))
+
+    assert status[0].active_side is AlarmSide.LOW
+    assert [
+        (event.row_index, event.transition, event.side)
+        for event in controller.latest_events
+    ] == [
+        (1, AlarmTransition.ACTIVATED, AlarmSide.HIGH),
+        (2, AlarmTransition.CLEARED, AlarmSide.HIGH),
+        (2, AlarmTransition.ACTIVATED, AlarmSide.LOW),
+    ]
