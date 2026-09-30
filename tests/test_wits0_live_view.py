@@ -64,6 +64,14 @@ def test_live_view_uses_read_only_projection_and_shared_downsampling() -> None:
     assert "alarm_rules=self.alarm_editor.rules()" in widget
     assert "self.alarm_editor.set_rules(saved.alarm_rules)" in widget
     assert "self.alarm_editor.clear_rules()" in widget
+    assert "Wits0LiveAlarmController" in widget
+    assert "self._alarm_controller.evaluate(" in widget
+    assert "view.session," in widget
+    assert "snapshot.current_values," in widget
+    assert "virtual_curves=self._virtual_curves" in widget
+    assert "dataset_row_count=len(view.dataset.depth)" in widget
+    assert "self.dashboard.render_alarm_statuses(alarm_statuses)" in widget
+    assert "def _acknowledge_active_alarms(" in widget
     assert "self.dashboard.set_panel_x_ranges(saved.panel_x_ranges)" in widget
     assert "self.dashboard.scaleTargetsChanged.connect(" in widget
     assert "panel = QScrollArea(self)" in widget
@@ -166,6 +174,9 @@ def test_wits0_live_view_constructs_offscreen(monkeypatch: pytest.MonkeyPatch) -
         assert widget.panel_x_apply_button.text() == "Применить X-диапазон"
         assert widget.alarm_editor.isVisible()
         assert widget.alarm_editor.objectName() == "wits0AlarmSettingsEditor"
+        assert widget.alarm_summary_label.isVisible()
+        assert widget.acknowledge_alarms_button.isVisible()
+        assert not widget.acknowledge_alarms_button.isEnabled()
         assert widget.values_table.isVisible()
         for section in range(widget.values_table.columnCount()):
             assert (

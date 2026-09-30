@@ -40,6 +40,10 @@ from geoworkbench.services.wits0_live_derived import (
     Wits0LiveDerivedChannelService,
 )
 from geoworkbench.acquisition.wits0_reliability import Wits0WorkspaceState
+from geoworkbench.acquisition.wits0_live_alarms import (
+    Wits0LiveAlarmController,
+    Wits0LiveAlarmStatus,
+)
 from geoworkbench.acquisition.wits0_live_forms import (
     UNIVERSAL_LIVE_FORM_ID,
     Wits0LiveFormSettings,
@@ -94,6 +98,8 @@ class Wits0LiveViewWidget(QWidget):
         self._sidebar_user_override: bool | None = None
         self._compact_parameters_open = False
         self._compact_navigation_active = False
+        self._alarm_controller = Wits0LiveAlarmController()
+        self._last_alarm_statuses: tuple[Wits0LiveAlarmStatus, ...] = ()
 
         root = QVBoxLayout(self)
         root.setContentsMargins(6, 6, 6, 6)
@@ -367,7 +373,32 @@ class Wits0LiveViewWidget(QWidget):
             content,
             language=self._language,
         )
+        self.alarm_editor.rulesChanged.connect(self._alarm_rules_changed)
         layout.addWidget(self.alarm_editor)
+
+        alarm_runtime_group = QGroupBox(
+            _operator_text(self._language, "alarm_runtime_group"),
+            content,
+        )
+        alarm_runtime_layout = QVBoxLayout(alarm_runtime_group)
+        self.alarm_summary_label = QLabel(
+            _operator_text(self._language, "alarm_none"),
+            alarm_runtime_group,
+        )
+        self.alarm_summary_label.setObjectName("wits0AlarmRuntimeSummary")
+        self.alarm_summary_label.setWordWrap(True)
+        alarm_runtime_layout.addWidget(self.alarm_summary_label)
+        self.acknowledge_alarms_button = QPushButton(
+            _operator_text(self._language, "alarm_ack_all"),
+            alarm_runtime_group,
+        )
+        self.acknowledge_alarms_button.setObjectName("wits0AlarmAcknowledgeAll")
+        self.acknowledge_alarms_button.setEnabled(False)
+        self.acknowledge_alarms_button.clicked.connect(
+            self._acknowledge_active_alarms
+        )
+        alarm_runtime_layout.addWidget(self.acknowledge_alarms_button)
+        layout.addWidget(alarm_runtime_group)
 
         dexp_group = QGroupBox(
             _operator_text(self._language, "dexp_correction_group"),
@@ -491,6 +522,8 @@ class Wits0LiveViewWidget(QWidget):
             self.refresh()
             return
         self._runtime = runtime
+        self._alarm_controller.clear()
+        self._last_alarm_statuses = ()
         self._view = AcquisitionLiveView(
             runtime.controller.dataset,
             runtime.session,
@@ -635,9 +668,13 @@ class Wits0LiveViewWidget(QWidget):
         self._preview_mode = False
         self._last_revision = None
         self._last_plot_rendered_points = 0
+        self._alarm_controller.clear()
+        self._last_alarm_statuses = ()
         self.curve_list.clear()
         self.alarm_editor.set_channels(())
         self.alarm_editor.set_rules(())
+        self.alarm_summary_label.setText(_operator_text(self._language, "alarm_none"))
+        self.acknowledge_alarms_button.setEnabled(False)
         self.values_table.setRowCount(0)
         self.dashboard.clear()
         self._set_empty_state()
@@ -667,11 +704,19 @@ class Wits0LiveViewWidget(QWidget):
             self.state_label.setToolTip(self._t("wits0_live.error_help"))
             self.summary_label.setText(self._t("wits0_live.error_view_only"))
             return
+        alarm_statuses = self._alarm_controller.evaluate(
+            view.session,
+            snapshot.current_values,
+            virtual_curves=self._virtual_curves,
+            dataset_row_count=len(view.dataset.depth),
+        )
+        self._last_alarm_statuses = alarm_statuses
         if not force and snapshot.revision == self._last_revision:
-            self._render_current_values(snapshot)
+            self._render_current_values(snapshot, alarm_statuses)
+            self._render_alarm_summary(alarm_statuses)
             return
         self._last_revision = snapshot.revision
-        self._render_snapshot(snapshot)
+        self._render_snapshot(snapshot, alarm_statuses)
 
     def _populate_axes(self) -> None:
         view = self._view
@@ -814,6 +859,8 @@ class Wits0LiveViewWidget(QWidget):
             )
             self.dashboard.set_panel_x_ranges(saved.panel_x_ranges)
             self.alarm_editor.set_rules(saved.alarm_rules)
+            self._alarm_controller.set_rules(saved.alarm_rules)
+            self._last_alarm_statuses = ()
             self._sync_panel_controls_from_dashboard()
             try:
                 view.set_axis_mode(AcquisitionLiveAxisMode(saved.axis_mode))
@@ -825,6 +872,8 @@ class Wits0LiveViewWidget(QWidget):
             self.dashboard.set_panel_layout()
             self.dashboard.set_panel_x_ranges(())
             self.alarm_editor.set_rules(())
+            self._alarm_controller.set_rules(())
+            self._last_alarm_statuses = ()
             self._sync_panel_controls_from_dashboard()
         self._set_view_source_selection(self._selected_curve_ids())
 
@@ -1166,7 +1215,11 @@ class Wits0LiveViewWidget(QWidget):
         self._last_revision = None
         self.refresh(force=True)
 
-    def _render_snapshot(self, snapshot: AcquisitionLiveSnapshot) -> None:
+    def _render_snapshot(
+        self,
+        snapshot: AcquisitionLiveSnapshot,
+        alarm_statuses: tuple[Wits0LiveAlarmStatus, ...],
+    ) -> None:
         self._last_plot_rendered_points = snapshot.rendered_point_count
         self._updating_plot_range = True
         try:
@@ -1174,7 +1227,8 @@ class Wits0LiveViewWidget(QWidget):
         finally:
             self._updating_plot_range = False
 
-        self._render_current_values(snapshot)
+        self._render_current_values(snapshot, alarm_statuses)
+        self._render_alarm_summary(alarm_statuses)
         self.auto_follow_check.blockSignals(True)
         self.auto_follow_check.setChecked(snapshot.auto_follow)
         self.auto_follow_check.blockSignals(False)
@@ -1218,9 +1272,15 @@ class Wits0LiveViewWidget(QWidget):
             )
         )
 
-    def _render_current_values(self, snapshot: AcquisitionLiveSnapshot) -> None:
+    def _render_current_values(
+        self,
+        snapshot: AcquisitionLiveSnapshot,
+        alarm_statuses: tuple[Wits0LiveAlarmStatus, ...],
+    ) -> None:
         values = snapshot.current_values
         self.dashboard.render_current_values(values)
+        self.dashboard.render_alarm_statuses(alarm_statuses)
+        alarm_by_curve = {status.curve_id: status for status in alarm_statuses}
         self.values_table.setRowCount(len(values))
         for row, item in enumerate(values):
             display_value = "—" if item.value is None else f"{item.value:.8g}"
@@ -1232,12 +1292,53 @@ class Wits0LiveViewWidget(QWidget):
             )
             tooltip = ", ".join(item.quality_codes)
             foreground = _quality_color(item.quality)
+            alarm_status = alarm_by_curve.get(item.curve_id)
+            alarm_background = _alarm_background(alarm_status)
+            if alarm_status is not None and alarm_status.is_active:
+                alarm_note = _alarm_status_text(self._language, alarm_status)
+                tooltip = f"{tooltip}; {alarm_note}" if tooltip else alarm_note
             for column, value in enumerate(cells):
                 cell = QTableWidgetItem(value)
                 cell.setToolTip(tooltip)
                 if foreground is not None:
                     cell.setForeground(QBrush(foreground))
+                if alarm_background is not None:
+                    cell.setBackground(QBrush(alarm_background))
                 self.values_table.setItem(row, column, cell)
+
+    def _render_alarm_summary(
+        self,
+        statuses: tuple[Wits0LiveAlarmStatus, ...],
+    ) -> None:
+        active = tuple(status for status in statuses if status.is_active)
+        attention = tuple(status for status in active if status.needs_attention)
+        if not active:
+            self.alarm_summary_label.setText(
+                _operator_text(self._language, "alarm_none")
+            )
+            self.acknowledge_alarms_button.setEnabled(False)
+            return
+        items = ", ".join(
+            _alarm_status_text(self._language, status)
+            for status in active
+        )
+        self.alarm_summary_label.setText(
+            _operator_text(self._language, "alarm_active").format(items=items)
+        )
+        self.acknowledge_alarms_button.setEnabled(bool(attention))
+
+    def _alarm_rules_changed(self) -> None:
+        self._alarm_controller.set_rules(self.alarm_editor.rules())
+        self._last_alarm_statuses = ()
+        if self._view is not None:
+            self._last_revision = None
+            self.refresh(force=True)
+
+    def _acknowledge_active_alarms(self) -> None:
+        if self._alarm_controller.acknowledge_all() <= 0:
+            return
+        if self._view is not None:
+            self.refresh(force=True)
 
     def _set_empty_state(self) -> None:
         self.state_label.setText(self._t("wits0_live.no_session"))
@@ -1264,6 +1365,7 @@ class Wits0LiveViewWidget(QWidget):
             self.panel_x_max_spin,
             self.panel_x_apply_button,
             self.alarm_editor,
+            self.acknowledge_alarms_button,
             self.save_form_button,
         ):
             widget.setEnabled(self._view is not None)
@@ -1539,6 +1641,13 @@ def _operator_text(language: AppLanguage, key: str) -> str:
             "panel_x_max": "Макс.",
             "panel_x_apply": "Применить X-диапазон",
             "panel_x_invalid": "Минимум X должен быть меньше максимума.",
+            "alarm_runtime_group": "Активные тревоги",
+            "alarm_none": "Активных тревог нет.",
+            "alarm_active": "Активные тревоги: {items}",
+            "alarm_ack_all": "Подтвердить активные тревоги",
+            "alarm_ack": "подтверждено",
+            "alarm_high": "выше максимума",
+            "alarm_low": "ниже минимума",
         },
         AppLanguage.KK: {
             "save_form": "Пішінді сақтау",
@@ -1564,6 +1673,13 @@ def _operator_text(language: AppLanguage, key: str) -> str:
             "panel_x_max": "Макс.",
             "panel_x_apply": "X ауқымын қолдану",
             "panel_x_invalid": "X минимумы максимумнан кіші болуы керек.",
+            "alarm_runtime_group": "Белсенді дабылдар",
+            "alarm_none": "Белсенді дабылдар жоқ.",
+            "alarm_active": "Белсенді дабылдар: {items}",
+            "alarm_ack_all": "Белсенді дабылдарды растау",
+            "alarm_ack": "расталды",
+            "alarm_high": "максимумнан жоғары",
+            "alarm_low": "минимумнан төмен",
         },
         AppLanguage.EN: {
             "save_form": "Save form",
@@ -1589,9 +1705,41 @@ def _operator_text(language: AppLanguage, key: str) -> str:
             "panel_x_max": "Max",
             "panel_x_apply": "Apply X range",
             "panel_x_invalid": "X minimum must be smaller than maximum.",
+            "alarm_runtime_group": "Active alarms",
+            "alarm_none": "No active alarms.",
+            "alarm_active": "Active alarms: {items}",
+            "alarm_ack_all": "Acknowledge active alarms",
+            "alarm_ack": "acknowledged",
+            "alarm_high": "above maximum",
+            "alarm_low": "below minimum",
         },
     }
     return translations.get(language, translations[AppLanguage.EN]).get(key, key)
+
+
+def _alarm_status_text(
+    language: AppLanguage,
+    status: Wits0LiveAlarmStatus,
+) -> str:
+    side = (
+        _operator_text(language, "alarm_high")
+        if status.active_side is not None and status.active_side.value == "high"
+        else _operator_text(language, "alarm_low")
+    )
+    suffix = (
+        f" ({_operator_text(language, 'alarm_ack')})"
+        if status.acknowledged
+        else ""
+    )
+    return f"{status.mnemonic}: {side}{suffix}"
+
+
+def _alarm_background(
+    status: Wits0LiveAlarmStatus | None,
+) -> QColor | None:
+    if status is None or not status.is_active or not status.visual_enabled:
+        return None
+    return QColor("#fef3c7" if status.acknowledged else "#fee2e2")
 
 
 def _quality_color(quality: AcquisitionLiveQuality) -> QColor | None:

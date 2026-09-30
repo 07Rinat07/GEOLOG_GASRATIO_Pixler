@@ -118,3 +118,12 @@ mandatory.
 ## Parameter alarm settings
 
 The Parameters sidebar includes an editor for alarm rules of channels available in the current live form. For the selected parameter, the operator can independently enable lower and upper limits, set hysteresis, consecutive confirmation samples, and visual/audio policy flags. Apply rule changes the working form setup; cross-session persistence happens only through Save form. Reset removes saved alarm rules together with the form's other user overrides. Runtime active/acknowledged alarm state is not persisted in schema v4.
+
+
+## Runtime alarm state and acknowledgement
+
+Saved rules are evaluated by a separate runtime controller. It replays every newly appended acquisition DATA_ROW in session order, so repainting the same snapshot cannot advance debounce and several rows drained in one batch cannot collapse into one sample. Plot Pause freezes visualization only; alarm monitoring keeps consuming the acquisition session. An explicit missing value for a source channel is missing alarm input, while unrelated WITS record rows do not break that channel's debounce sequence. Displayed virtual Haworth/Pixler/DEXP/DEXPC channels use the same runtime path: the aligned derived value is evaluated only for WITS record numbers declared by the existing `source-records` provenance. Active visual
+alarms are highlighted in the current-values table and dashboard indicator card. Acknowledge changes
+the active alarm to acknowledged state without clearing it; clearing still requires a factual
+recovery sample across the hysteresis boundary. Audio and graph threshold markers remain separate
+follow-up increments.

@@ -747,3 +747,14 @@ DTOs back to `Wits0LiveViewWidget`. The live view owns form selection/save/reset
 The editor does not evaluate samples, acknowledge runtime alarms, play audio, or paint graph
 markers. Those later layers must consume `services/wits0_alarms.py` rather than duplicating
 threshold logic in Qt.
+
+
+### WITS0 live alarm runtime boundary
+
+`acquisition/wits0_live_alarms.py` owns runtime state for schema-v4 alarm rules. The controller
+normalizes configured mnemonics and replays newly appended `AcquisitionRecordKind.DATA_ROW` records from the per-curve last processed session sequence. Repeated QWidget refreshes therefore cannot advance debounce, while a `runtime.drain()` batch containing several measurements advances debounce once per factual DATA_ROW. Policy lookup remains mnemonic-based, while runtime state and last processed sequence are keyed by `curve_id`; two curves that resolve to the same canonical mnemonic therefore cannot advance each other's debounce. Source curves consume their exact `curve_id` value from `AcquisitionDataRowPayload`. Virtual live curves consume the aligned derived value only when the DATA_ROW WITS record number belongs to the existing `source-records` provenance allowlist; no second formula or source-mapping registry is introduced. A DATA_ROW that explicitly contains a source curve with `None`, or a relevant derived row whose value is non-finite, is missing alarm input and may reset only pending debounce while an already active alarm remains active; unrelated DATA_ROW records do not break the channel sequence.
+
+Changing a rule resets only that rule's runtime state; unchanged rules keep state across ordinary view refreshes. Runtime evaluation reads the append-only acquisition session rather than the frozen plot row boundary, so Pause affects visualization but does not suspend alarm monitoring. Rebinding to another acquisition runtime clears all runtime alarm state.
+Acknowledgement delegates to the Qt-independent `acknowledge_alarm()` transition and never clears
+the active side. `Wits0LiveViewWidget` passes the full dataset row count and current virtual-curve projection to the controller and renders the resulting immutable statuses; dashboard/table presentation must not recalculate thresholds. Audio playback and graph markers remain downstream
+consumers of the same status stream.

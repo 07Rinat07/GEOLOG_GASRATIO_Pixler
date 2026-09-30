@@ -158,6 +158,42 @@ def test_operator_dashboard_renders_indicators_and_independent_panels(
         app.processEvents()
 
         assert set(dashboard._indicator_cards) == {"depth", "gas"}
+
+        from geoworkbench.acquisition.wits0_live_alarms import Wits0LiveAlarmStatus
+        from geoworkbench.services.wits0_alarms import AlarmSide, AlarmTransition
+
+        dashboard.render_alarm_statuses(
+            (
+                Wits0LiveAlarmStatus(
+                    curve_id="gas",
+                    mnemonic="TOTAL_GAS",
+                    active_side=AlarmSide.HIGH,
+                    acknowledged=False,
+                    transition=AlarmTransition.ACTIVATED,
+                    visual_enabled=True,
+                    audio_enabled=False,
+                ),
+            )
+        )
+        gas_card = dashboard._indicator_cards["gas"]
+        assert "dc2626" in gas_card.styleSheet()
+        assert gas_card.name_label.text().startswith("⚠ ")
+
+        dashboard.render_alarm_statuses(
+            (
+                Wits0LiveAlarmStatus(
+                    curve_id="gas",
+                    mnemonic="TOTAL_GAS",
+                    active_side=AlarmSide.HIGH,
+                    acknowledged=True,
+                    transition=AlarmTransition.ACKNOWLEDGED,
+                    visual_enabled=True,
+                    audio_enabled=False,
+                ),
+            )
+        )
+        assert "d97706" in gas_card.styleSheet()
+        assert gas_card.name_label.text().startswith("✓ ⚠ ")
         assert not dashboard.panels["depth"].box.isHidden()
         assert not dashboard.panels["gas_total"].box.isHidden()
         assert dashboard.panels["load"].box.isHidden()

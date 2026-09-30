@@ -31,6 +31,7 @@ from geoworkbench.services.acquisition_live_view import (
     AcquisitionLiveSnapshot,
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.acquisition.wits0_live_alarms import Wits0LiveAlarmStatus
 from geoworkbench.tablet.grid_geometry import DEFAULT_GRID_ALPHA
 
 
@@ -112,6 +113,22 @@ class _IndicatorCard(QFrame):
         )
         tooltip = ", ".join(value.quality_codes)
         self.setToolTip(tooltip)
+
+    def set_alarm_status(self, status: Wits0LiveAlarmStatus | None) -> None:
+        current = self.name_label.text().removeprefix("✓ ⚠ ").removeprefix("⚠ ")
+        self.name_label.setText(current)
+        if status is None or not status.is_active or not status.visual_enabled:
+            self.setStyleSheet("")
+            return
+        border = "#d97706" if status.acknowledged else "#dc2626"
+        self.setStyleSheet(
+            "QFrame {"
+            f" border: 2px solid {border};"
+            " border-radius: 4px;"
+            "}"
+        )
+        prefix = "✓ ⚠ " if status.acknowledged else "⚠ "
+        self.name_label.setText(prefix + current)
 
 
 @dataclass(frozen=True, slots=True)
@@ -624,6 +641,14 @@ class Wits0OperatorDashboard(QWidget):
                     f"wits0_live.quality_{item.quality.value}"
                 ),
             )
+
+    def render_alarm_statuses(
+        self,
+        statuses: tuple[Wits0LiveAlarmStatus, ...],
+    ) -> None:
+        by_curve = {status.curve_id: status for status in statuses}
+        for curve_id, card in self._indicator_cards.items():
+            card.set_alarm_status(by_curve.get(curve_id))
 
     def _rebuild_indicator_cards(
         self,
