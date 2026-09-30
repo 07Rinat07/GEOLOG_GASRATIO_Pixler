@@ -26,6 +26,15 @@ class UndoableCommand(Protocol):
 HistoryListener = Callable[[], None]
 
 
+@dataclass(frozen=True, slots=True)
+class CommandHistoryCheckpoint:
+    """Opaque snapshot used to restore history after an enclosing transaction rolls back."""
+
+    _token: object = field(repr=False)
+    _undo_stack: tuple[UndoableCommand, ...] = field(repr=False)
+    _redo_stack: tuple[UndoableCommand, ...] = field(repr=False)
+
+
 @dataclass(slots=True)
 class CallbackCommand:
     """Adapter for validated domain operations that already own mutation rules."""
@@ -62,6 +71,7 @@ class CommandHistory:
     _undo_stack: list[UndoableCommand] = field(default_factory=list, init=False)
     _redo_stack: list[UndoableCommand] = field(default_factory=list, init=False)
     _listeners: list[HistoryListener] = field(default_factory=list, init=False, repr=False)
+    _checkpoint_token: object = field(default_factory=object, init=False, repr=False)
 
     def __post_init__(self) -> None:
         if self.max_commands < 1:
@@ -120,6 +130,31 @@ class CommandHistory:
         self._notify()
         return command
 
+    def checkpoint(self) -> CommandHistoryCheckpoint:
+        """Capture stack state without mutating commands or their model state."""
+
+        return CommandHistoryCheckpoint(
+            self._checkpoint_token,
+            tuple(self._undo_stack),
+            tuple(self._redo_stack),
+        )
+
+    def restore(self, checkpoint: CommandHistoryCheckpoint) -> None:
+        """Restore stacks after the caller has rolled back the associated model transaction."""
+
+        if not isinstance(checkpoint, CommandHistoryCheckpoint):
+            raise TypeError("Ожидалась контрольная точка истории команд")
+        if checkpoint._token is not self._checkpoint_token:
+            raise ValueError("Контрольная точка относится к другой истории команд")
+        changed = not (
+            self._same_stack(self._undo_stack, checkpoint._undo_stack)
+            and self._same_stack(self._redo_stack, checkpoint._redo_stack)
+        )
+        self._undo_stack = list(checkpoint._undo_stack)
+        self._redo_stack = list(checkpoint._redo_stack)
+        if changed:
+            self._notify()
+
     def clear(self) -> None:
         changed = bool(self._undo_stack or self._redo_stack)
         self._undo_stack.clear()
@@ -139,6 +174,15 @@ class CommandHistory:
         self._undo_stack.append(command)
         if len(self._undo_stack) > self.max_commands:
             del self._undo_stack[0]
+
+    @staticmethod
+    def _same_stack(
+        current: list[UndoableCommand],
+        expected: tuple[UndoableCommand, ...],
+    ) -> bool:
+        return len(current) == len(expected) and all(
+            left is right for left, right in zip(current, expected, strict=True)
+        )
 
     def _notify(self) -> None:
         for listener in tuple(self._listeners):
