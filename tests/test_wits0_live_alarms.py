@@ -16,7 +16,7 @@ from geoworkbench.services.acquisition_live_view import (
     AcquisitionCurrentValue,
     AcquisitionLiveQuality,
 )
-from geoworkbench.services.wits0_alarms import AlarmSide
+from geoworkbench.services.wits0_alarms import AlarmSide, AlarmTransition
 
 
 @dataclass
@@ -365,3 +365,114 @@ def test_derived_alarm_ignores_unrelated_wits_record_rows() -> None:
     )
 
     assert status[0].is_active
+
+
+def test_runtime_records_every_factual_activation_and_clear_in_batch() -> None:
+    controller = Wits0LiveAlarmController()
+    controller.set_rules(
+        (
+            Wits0SavedAlarmRule(
+                mnemonic="TOTAL_GAS",
+                maximum=5.0,
+                debounce_samples=1,
+                visual_enabled=True,
+                audio_enabled=True,
+            ),
+        )
+    )
+    session = _SessionStub([_record(1, (("curve-tg", 4.0),))])
+
+    _evaluate(controller, session, (_value(4.0, row=0),))
+    assert controller.latest_events == ()
+    assert controller.event_history == ()
+
+    session.records.extend(
+        (
+            _record(2, (("curve-tg", 6.0),)),
+            _record(3, (("curve-tg", 4.0),)),
+            _record(4, (("curve-tg", 7.0),)),
+        )
+    )
+    _evaluate(controller, session, (_value(7.0, row=3),))
+
+    events = controller.latest_events
+    assert [event.transition for event in events] == [
+        AlarmTransition.ACTIVATED,
+        AlarmTransition.CLEARED,
+        AlarmTransition.ACTIVATED,
+    ]
+    assert [event.row_index for event in events] == [1, 2, 3]
+    assert [event.record_sequence for event in events] == [2, 3, 4]
+    assert [event.side for event in events] == [
+        AlarmSide.HIGH,
+        AlarmSide.HIGH,
+        AlarmSide.HIGH,
+    ]
+    assert [event.value for event in events] == [6.0, 4.0, 7.0]
+    assert all(event.threshold == 5.0 for event in events)
+    assert all(event.visual_enabled for event in events)
+    assert all(event.audio_enabled for event in events)
+    assert controller.event_history == events
+
+    _evaluate(controller, session, (_value(7.0, row=3),))
+    assert controller.latest_events == ()
+    assert controller.event_history == events
+
+
+def test_runtime_event_history_is_bounded_and_rule_change_drops_old_events() -> None:
+    controller = Wits0LiveAlarmController(max_event_history=2)
+    controller.set_rules(
+        (
+            Wits0SavedAlarmRule(
+                mnemonic="TOTAL_GAS",
+                maximum=5.0,
+                debounce_samples=1,
+            ),
+        )
+    )
+    session = _SessionStub([_record(1, (("curve-tg", 4.0),))])
+    _evaluate(controller, session, (_value(4.0, row=0),))
+
+    session.records.extend(
+        (
+            _record(2, (("curve-tg", 6.0),)),
+            _record(3, (("curve-tg", 4.0),)),
+            _record(4, (("curve-tg", 7.0),)),
+        )
+    )
+    _evaluate(controller, session, (_value(7.0, row=3),))
+
+    assert [event.row_index for event in controller.event_history] == [2, 3]
+
+    controller.set_rules(
+        (
+            Wits0SavedAlarmRule(
+                mnemonic="TOTAL_GAS",
+                maximum=10.0,
+                debounce_samples=1,
+            ),
+        )
+    )
+    assert controller.event_history == ()
+    assert controller.latest_events == ()
+
+
+def test_runtime_does_not_fabricate_audio_or_marker_event_when_rule_is_seeded() -> None:
+    controller = Wits0LiveAlarmController()
+    controller.set_rules(
+        (
+            Wits0SavedAlarmRule(
+                mnemonic="TOTAL_GAS",
+                maximum=5.0,
+                debounce_samples=1,
+                audio_enabled=True,
+            ),
+        )
+    )
+    session = _SessionStub([_record(1, (("curve-tg", 9.0),))])
+
+    status = _evaluate(controller, session, (_value(9.0, row=0),))
+
+    assert status[0].is_active
+    assert controller.latest_events == ()
+    assert controller.event_history == ()
