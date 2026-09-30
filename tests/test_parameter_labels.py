@@ -115,3 +115,12 @@ def test_report_curve_reference_hides_vendor_mnemonics() -> None:
     )
     assert "S224" not in localized_curve_reference("S224", language=AppLanguage.EN)
     assert "S224" not in localized_curve_reference("S224", language=AppLanguage.KK)
+
+
+
+def test_opus_report_parameters_have_readable_names_in_all_languages() -> None:
+    assert localized_curve_name("OPUS_TG_PCT", language=AppLanguage.RU) == "Общий газ ОПУС"
+    assert localized_curve_name("OPUS_TG_PCT", language=AppLanguage.KK) == "ОПУС жалпы газы"
+    assert localized_curve_name("OPUS_TG_PCT", language=AppLanguage.EN) == "OPUS total gas"
+    assert localized_curve_name("OPUS3", language=AppLanguage.RU) == "ОПУС-3"
+    assert localized_curve_name("OPUS4", language=AppLanguage.EN) == "OPUS-4"
