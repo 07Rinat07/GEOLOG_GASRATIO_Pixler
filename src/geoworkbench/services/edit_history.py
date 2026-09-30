@@ -201,7 +201,6 @@ class CurveEditCommand:
         self.curve.state = CalculationState.CURRENT
 
 
-@dataclass(slots=True)
 class CurveEditHistory(CommandHistory):
     """Compatibility facade for callers that still expect curve-only history."""
 

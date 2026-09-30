@@ -2,6 +2,8 @@ import numpy as np
 import pytest
 
 from geoworkbench.domain.models import (
+    CurveData,
+    CurveMetadata,
     Dataset,
     DatasetIndex,
     DatasetKind,
@@ -15,10 +17,11 @@ from geoworkbench.project.header_editing_controller import (
 )
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.edit_history import CommandHistory, CurveEditCommand
-from geoworkbench.domain.models import CurveData, CurveMetadata
 
 
-def make_controller() -> HeaderEditingController:
+def make_controller(
+    shared_history: CommandHistory | None = None,
+) -> HeaderEditingController:
     session = ProjectSession()
     dataset = Dataset(
         "dataset-1",
@@ -32,7 +35,7 @@ def make_controller() -> HeaderEditingController:
     )
     session.add_dataset(dataset)
     session.dirty = False
-    return HeaderEditingController(session)
+    return HeaderEditingController(session, shared_history=shared_history)
 
 
 def test_updates_well_name_and_supports_undo_redo() -> None:
@@ -177,9 +180,7 @@ def test_depth_sync_rejects_active_time_index() -> None:
 
 def test_header_controller_can_share_application_history_without_cross_domain_undo() -> None:
     history = CommandHistory()
-    controller = make_controller()
-    controller.shared_history = history
-    controller._history = history
+    controller = make_controller(history)
 
     dataset = controller.session.current_dataset
     assert dataset is not None
