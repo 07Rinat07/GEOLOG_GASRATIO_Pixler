@@ -1754,3 +1754,119 @@ def test_curve_pencil_applies_in_memory_and_marks_project_dirty(qapp) -> None:
     assert session.dirty is True
     assert "Не сохранено" in window.tablet_view._curve_pencil_status.text()
     window.close()
+
+
+def test_las_presentation_logs_timing_and_memory_on_success(
+    qapp,
+    monkeypatch,
+) -> None:
+    from geoworkbench.services.process_metrics import ProcessMemorySnapshot
+    import geoworkbench.ui.main_window as main_window_module
+
+    session, _layout = make_session()
+    dataset = session.current_dataset
+    assert dataset is not None
+    window = MainWindow()
+    events: list[tuple[str, dict[str, object]]] = []
+    ticks = iter((30.0, 30.125))
+
+    monkeypatch.setattr(window, "_show_current_dataset", lambda: None)
+    monkeypatch.setattr(main_window_module, "perf_counter", lambda: next(ticks))
+    monkeypatch.setattr(
+        main_window_module,
+        "process_memory_snapshot",
+        lambda: ProcessMemorySnapshot(555_000, 777_000),
+    )
+    monkeypatch.setattr(
+        main_window_module,
+        "log_event",
+        lambda event, **context: events.append((event, context)),
+    )
+
+    try:
+        assert window._present_imported_dataset_safely(
+            dataset,
+            Path("profiled.las"),
+        ) == ()
+        assert events == [
+            (
+                "las.import.presentation",
+                {
+                    "file": "profiled.las",
+                    "duration_ms": 125.0,
+                    "rss_bytes": 555_000,
+                    "peak_rss_bytes": 777_000,
+                    "rows": 2,
+                    "curves": 1,
+                    "success": True,
+                },
+            )
+        ]
+    finally:
+        window.close()
+
+
+def test_las_presentation_failure_logs_metrics_and_keeps_recovery_path(
+    qapp,
+    monkeypatch,
+) -> None:
+    from geoworkbench.services.process_metrics import ProcessMemorySnapshot
+    import geoworkbench.ui.main_window as main_window_module
+
+    session, _layout = make_session()
+    dataset = session.current_dataset
+    assert dataset is not None
+    window = MainWindow()
+    events: list[tuple[str, dict[str, object]]] = []
+    ticks = iter((40.0, 40.5))
+
+    def fail_presentation() -> None:
+        raise TypeError("presentation failed")
+
+    monkeypatch.setattr(window, "_show_current_dataset", fail_presentation)
+    monkeypatch.setattr(
+        window,
+        "_show_import_recovery_workspace",
+        lambda _dataset, _source: (),
+    )
+    monkeypatch.setattr(main_window_module, "perf_counter", lambda: next(ticks))
+    monkeypatch.setattr(
+        main_window_module,
+        "process_memory_snapshot",
+        lambda: ProcessMemorySnapshot(666_000, 888_000),
+    )
+    monkeypatch.setattr(
+        main_window_module,
+        "log_event",
+        lambda event, **context: events.append((event, context)),
+    )
+
+    try:
+        diagnostics = window._present_imported_dataset_safely(
+            dataset,
+            Path("broken-profiled.las"),
+        )
+        assert len(diagnostics) == 1
+        assert diagnostics[0].code == "dataset-presentation-failed"
+        presentation_events = [
+            item
+            for item in events
+            if item[0] == "las.import.presentation"
+        ]
+        assert presentation_events == [
+            (
+                "las.import.presentation",
+                {
+                    "file": "broken-profiled.las",
+                    "duration_ms": 500.0,
+                    "rss_bytes": 666_000,
+                    "peak_rss_bytes": 888_000,
+                    "rows": 2,
+                    "curves": 1,
+                    "success": False,
+                    "exception_type": "TypeError",
+                },
+            )
+        ]
+    finally:
+        window.close()

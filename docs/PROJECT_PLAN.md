@@ -1148,10 +1148,13 @@ WELL-04 уже имеет field-level статусы и readiness; WELL-05 — f
   strip; curve widgets и full-render counter при этих действиях сохраняются. Четвёртый slice
   добавляет `las.import.performance`: source read/encoding, `lasio` parse, Dataset materialize,
   import-report и total измеряются отдельными `perf_counter()` checkpoints; diagnostics хранит
-  только bytes/rows/curves/warnings/encoding и basename, без LAS values/full path. Следующие
-  измеряемые slices: RSS/peak-memory instrumentation, coalesced main-window refresh для
-  безопасных structural cases и дальнейшее сокращение MainThread rebuild без ослабления
-  viewport LOD/geometry-cache контрактов.
+  только bytes/rows/curves/warnings/encoding и basename, без LAS values/full path. Пятый slice
+  добавляет dependency-free RSS/peak-RSS probe для Windows/POSIX, memory snapshots к существующему
+  `las.import.performance`, application-level timing/RSS этапов `job_load/policy/review/register`
+  и отдельный `las.import.presentation` для Qt presentation/recovery boundary. Логи по-прежнему
+  не содержат LAS values/full path и дают измеримый baseline от чтения файла до первого UI render.
+  Следующие измеряемые slices: coalesced main-window refresh для безопасных structural cases и
+  дальнейшее сокращение MainThread rebuild без ослабления viewport LOD/geometry-cache контрактов.
 
 ## P1 — поддерживаемая архитектура
 

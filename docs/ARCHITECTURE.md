@@ -759,3 +759,23 @@ Acknowledgement delegates to the Qt-independent `acknowledge_alarm()` transition
 the active side. `Wits0LiveViewWidget` passes the full dataset row count and current virtual-curve projection to the controller and renders the resulting immutable statuses; dashboard/table presentation must not recalculate thresholds. In addition to current status, the controller retains a bounded factual event history for active-side changes. Events are derived from the before/after active state rather than the single summary transition, so a direct HIGH→LOW crossing records HIGH clear and LOW activation separately. Historical events carry dataset row, acquisition sequence, factual value and threshold plus visual/audio policy flags; seeding a newly applied rule from an already existing current value does not fabricate a historical event.
 
 Audio and graph presentation are downstream consumers of that event history. The live widget coalesces all audio-enabled activations produced by one evaluation batch into one system cue, so repeated refresh does not replay sound. Visual-enabled activation/clear events are converted to `THRESHOLD_ALARM` markers through the public read-only `AcquisitionLiveView.axis_value_for_row()` lookup. Alarm markers have priority inside the bounded marker budget. Pause continues runtime evaluation/audio but excludes post-pause rows from the frozen projection; those retained events become visible on Resume. No audio or marker layer evaluates thresholds independently.
+
+
+## LAS import performance observability boundary
+
+Large-LAS profiling reuses the existing application logging boundary and does not introduce a
+parallel profiler service. `services/process_metrics.py` provides a dependency-free best-effort
+process memory snapshot: current RSS where the platform exposes it cheaply and process peak RSS.
+Unsupported/error paths return `None` metrics and must never make an import fail.
+
+`data/las_adapter.py` remains the parser/materialization owner. Its existing
+`las.import.performance` event keeps the source/parse/dataset/report/total timing contract and
+adds RSS checkpoints for those same boundaries. `services/import_jobs.py` measures the
+application stages `job_load`, `policy`, `review`, `register` and total, while failures
+record the exact diagnostic stage. `MainWindow._present_imported_dataset_safely()` owns only the
+final presentation metric and keeps the existing recovery workspace unchanged.
+
+Performance telemetry is deliberately metadata-only: basename, byte/row/curve/warning counts,
+encoding, durations, RSS and exception type. Source values and full filesystem paths are not
+logged. These measurements are diagnostic evidence for PERF-07/PERF-05 decisions; they are not
+wall-clock pass/fail thresholds by themselves.

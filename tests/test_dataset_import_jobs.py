@@ -313,3 +313,110 @@ def test_compatible_las_warnings_are_collected_without_blocking_registration(
     assert outcome.diagnostic_report.warning_count == 1
     assert outcome.diagnostic_report.error_count == 0
     assert port.registrations
+
+
+def test_las_job_logs_phase_timing_and_memory(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from geoworkbench.services.process_metrics import ProcessMemorySnapshot
+
+    source = tmp_path / "profiled.las"
+    result = make_las_result(source)
+    port = FakeDatasetImportPort()
+    ticks = iter((10.0, 10.1, 10.2, 10.5, 10.7, 10.9))
+    events: list[tuple[str, dict[str, object]]] = []
+
+    monkeypatch.setattr(
+        "geoworkbench.services.import_jobs.perf_counter",
+        lambda: next(ticks),
+    )
+    monkeypatch.setattr(
+        "geoworkbench.services.import_jobs.process_memory_snapshot",
+        lambda: ProcessMemorySnapshot(123_456, 234_567),
+    )
+    monkeypatch.setattr(
+        "geoworkbench.services.import_jobs.log_event",
+        lambda event, **context: events.append((event, context)),
+    )
+
+    outcome = DatasetImportJobExecutor(
+        port,
+        las_loader=lambda _source: result,
+    ).execute_las((source,), LasImportMode.COMPATIBLE)
+
+    assert len(outcome.successful) == 1
+    phases = [
+        context
+        for event, context in events
+        if event == "las.import.job.phase"
+    ]
+    assert [item["phase"] for item in phases] == [
+        "job_load",
+        "policy",
+        "review",
+        "register",
+        "total",
+    ]
+    assert [item["duration_ms"] for item in phases] == [
+        100.0,
+        100.0,
+        300.0,
+        200.0,
+        900.0,
+    ]
+    assert all(item["rss_bytes"] == 123_456 for item in phases)
+    assert all(item["peak_rss_bytes"] == 234_567 for item in phases)
+    assert all(item["rows"] == len(result.dataset.depth) for item in phases)
+    assert all(item["curves"] == len(result.dataset.curves) for item in phases)
+    assert all(item["file"] == "profiled.las" for item in phases)
+
+
+def test_las_job_failure_logs_stage_timing_and_memory(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from geoworkbench.services.process_metrics import ProcessMemorySnapshot
+
+    source = tmp_path / "broken-profiled.las"
+    port = FakeDatasetImportPort()
+    ticks = iter((20.0, 20.25))
+    events: list[tuple[str, dict[str, object]]] = []
+
+    monkeypatch.setattr(
+        "geoworkbench.services.import_jobs.perf_counter",
+        lambda: next(ticks),
+    )
+    monkeypatch.setattr(
+        "geoworkbench.services.import_jobs.process_memory_snapshot",
+        lambda: ProcessMemorySnapshot(333_000, 444_000),
+    )
+    monkeypatch.setattr(
+        "geoworkbench.services.import_jobs.log_event",
+        lambda event, **context: events.append((event, context)),
+    )
+
+    def broken_loader(_source: str | Path) -> FakeLasImportResult:
+        raise RuntimeError("boom")
+
+    outcome = DatasetImportJobExecutor(
+        port,
+        las_loader=broken_loader,
+    ).execute_las((source,), LasImportMode.COMPATIBLE)
+
+    assert len(outcome.failed) == 1
+    failed = [
+        context
+        for event, context in events
+        if event == "las.import.job.failed"
+    ]
+    assert failed == [
+        {
+            "file": "broken-profiled.las",
+            "stage": "read_source",
+            "duration_ms": 250.0,
+            "rss_bytes": 333_000,
+            "peak_rss_bytes": 444_000,
+            "exception_type": "RuntimeError",
+        }
+    ]

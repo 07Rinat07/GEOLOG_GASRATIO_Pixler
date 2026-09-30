@@ -350,6 +350,26 @@ hit и zoom miss при `max_points=4096`, одновременно провер
 `84.5 / 302.1 / 574.2 MiB`. Во всех сценариях две cached geometry занимают `131 072 B` из
 hard budget `67 108 864 B`.
 
+### PERF-07: LAS import timing/RSS observability
+
+Correctness coverage for the large-LAS profiling boundary:
+
+```powershell
+python -m pytest -q -p no:cacheprovider `
+  tests/test_process_metrics.py `
+  tests/test_las_adapter.py `
+  tests/test_dataset_import_jobs.py `
+  tests/test_main_window.py
+```
+
+The tests preserve the existing `las.import.performance` timing contract and verify RSS checkpoints
+without exposing source values/full paths. Job-level tests guard the ordered
+`job_load → policy → review → register → total` phases and failure-stage metrics. Main-window
+tests verify both successful presentation and the existing fail-safe recovery path emit
+`las.import.presentation` with duration/RSS. Memory collection is best-effort and cannot fail an
+otherwise valid import. These metrics are observational; performance thresholds require a measured
+Windows baseline rather than unit-test wall-clock assertions.
+
 ## 11. Регрессия GeoScape2/GS2 временного планшета
 
 `tests/test_gs2_time_tablet_rendering.py` проверяет единый расчёт фактической ширины
