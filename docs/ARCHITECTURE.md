@@ -813,3 +813,19 @@ Reset keeps the existing semantic contract: the controller clears the saved rang
 only title/log state afterwards. Neither manual range changes nor reset rebuild Project Tree,
 because the explorer contains project/well/dataset/curve/track structure but no viewport-depth
 state.
+
+
+## Curve-metadata history incremental refresh boundary
+
+Curve metadata Undo/Redo mutates metadata inside the current Dataset; it does not replace the
+Dataset or TabletLayout. Therefore `MainWindow._after_curve_metadata_history_change()` must not
+call the full `_show_current_dataset()` render path. That path destroys and recreates every
+PyQtGraph `PlotWidget` and was reproducibly associated with Windows native access violations in
+isolated history tests.
+
+`TabletView.refresh_dataset_metadata()` owns the incremental reconciliation. It preserves existing
+track widgets, reconciles rendered curve membership against current mnemonics when metadata rename
+changes lookup identity, and applies `DirtyReason.STYLE` so display names, units, ranges and curve
+headers are rebuilt in place. MainWindow refreshes the curve view, LAS table, curve browser,
+interpretation-report presentation, Project Tree and dirty title without replacing the tablet
+widget tree. A different Dataset ID still falls back to the existing full dataset replacement.
