@@ -1265,7 +1265,9 @@ WELL-04 уже имеет field-level статусы и readiness; WELL-05 — f
   `DatasetMergeController`: каждое сращивание становится отдельной reversible command,
   поэтому поддерживаются несколько последовательных Merge Undo/Redo; dataset/layout/source
   sidecars восстанавливаются вместе, а conflict guard сравнивает фактическое содержимое без
-  монотонных curve version counters. Глобальный Ctrl+Z/Ctrl+Shift+Z отменяет фактически последнее
+  монотонных curve version counters. History checkpoint входит в export transaction: disk/export
+  failure откатывает project state и возвращает прежние undo/redo stacks без потери redo-ветки.
+  Глобальный Ctrl+Z/Ctrl+Shift+Z отменяет фактически последнее
   изменение между пятью доменами; локальные Curve Pencil, Header Editor, Data Inspector,
   Curve Transfer и Dataset Merge controls остаются domain-safe и не перескакивают через более
   новую команду другого типа. Следующие инкременты переводят остальные project mutation
