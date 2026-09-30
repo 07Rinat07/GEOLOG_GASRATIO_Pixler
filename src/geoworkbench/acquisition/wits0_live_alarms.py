@@ -29,6 +29,22 @@ from geoworkbench.services.wits0_alarms import (
 
 
 @dataclass(frozen=True, slots=True)
+class Wits0LiveAlarmEvent:
+    """One factual threshold transition tied to an acquisition DATA_ROW."""
+
+    curve_id: str
+    mnemonic: str
+    transition: AlarmTransition
+    side: AlarmSide
+    row_index: int
+    record_sequence: int
+    value: float
+    threshold: float
+    visual_enabled: bool
+    audio_enabled: bool
+
+
+@dataclass(frozen=True, slots=True)
 class Wits0LiveAlarmStatus:
     curve_id: str
     mnemonic: str
@@ -57,12 +73,31 @@ class Wits0LiveAlarmController:
     values reset only an uncommitted debounce sequence while preserving active alarms.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, *, max_event_history: int = 2_000) -> None:
+        if (
+            isinstance(max_event_history, bool)
+            or not isinstance(max_event_history, int)
+            or max_event_history < 1
+        ):
+            raise ValueError("max_event_history must be a positive integer")
+        self._max_event_history = max_event_history
         self._rules: dict[str, Wits0SavedAlarmRule] = {}
         self._states: dict[str, AlarmState] = {}
         self._last_sequences: dict[str, int] = {}
         self._state_rule_keys: dict[str, str] = {}
         self._state_rules: dict[str, Wits0SavedAlarmRule] = {}
+        self._event_history: list[Wits0LiveAlarmEvent] = []
+        self._latest_events: tuple[Wits0LiveAlarmEvent, ...] = ()
+
+    @property
+    def event_history(self) -> tuple[Wits0LiveAlarmEvent, ...]:
+        return tuple(self._event_history)
+
+    @property
+    def latest_events(self) -> tuple[Wits0LiveAlarmEvent, ...]:
+        """Return factual threshold events produced by the latest evaluate() call."""
+
+        return self._latest_events
 
     def set_rules(self, rules: Iterable[Wits0SavedAlarmRule]) -> None:
         materialized = tuple(rules)
@@ -100,6 +135,12 @@ class Wits0LiveAlarmController:
             for curve_id, rule in self._state_rules.items()
             if curve_id in preserved_curve_ids
         }
+        self._event_history = [
+            event
+            for event in self._event_history
+            if event.curve_id in preserved_curve_ids
+        ]
+        self._latest_events = ()
 
     def clear(self) -> None:
         self._rules.clear()
@@ -107,6 +148,8 @@ class Wits0LiveAlarmController:
         self._last_sequences.clear()
         self._state_rule_keys.clear()
         self._state_rules.clear()
+        self._event_history.clear()
+        self._latest_events = ()
 
     def evaluate(
         self,
@@ -123,6 +166,8 @@ class Wits0LiveAlarmController:
         ):
             raise ValueError("dataset_row_count must be a non-negative integer")
 
+        self._latest_events = ()
+        new_events: list[Wits0LiveAlarmEvent] = []
         virtual = dict(virtual_curves or {})
         materialized = tuple(values)
         configured: dict[
@@ -217,14 +262,28 @@ class Wits0LiveAlarmController:
                     )
                     if not has_sample:
                         continue
+                    previous_state = self._states.get(curve_id, AlarmState())
                     evaluation = evaluate_alarm(
                         _limits(rule),
-                        self._states.get(curve_id, AlarmState()),
+                        previous_state,
                         sample,
                     )
                     self._states[curve_id] = evaluation.state
                     if evaluation.transition is not AlarmTransition.NONE:
                         transitions[curve_id] = evaluation.transition
+                    event = _threshold_event(
+                        curve_id=curve_id,
+                        mnemonic=_item.mnemonic,
+                        rule=rule,
+                        previous_state=previous_state,
+                        state=evaluation.state,
+                        transition=evaluation.transition,
+                        row_index=data_row_index,
+                        record_sequence=record.sequence,
+                        sample=sample,
+                    )
+                    if event is not None:
+                        new_events.append(event)
                 data_row_index += 1
 
             if data_row_index != dataset_row_count:
@@ -233,6 +292,13 @@ class Wits0LiveAlarmController:
                 )
             for curve_id in catch_up:
                 self._last_sequences[curve_id] = session.last_sequence
+
+        if new_events:
+            self._event_history.extend(new_events)
+            overflow = len(self._event_history) - self._max_event_history
+            if overflow > 0:
+                del self._event_history[:overflow]
+            self._latest_events = tuple(new_events)
 
         statuses: list[Wits0LiveAlarmStatus] = []
         for item in materialized:
@@ -281,6 +347,43 @@ class Wits0LiveAlarmController:
         return count
 
 
+def _threshold_event(
+    *,
+    curve_id: str,
+    mnemonic: str,
+    rule: Wits0SavedAlarmRule,
+    previous_state: AlarmState,
+    state: AlarmState,
+    transition: AlarmTransition,
+    row_index: int,
+    record_sequence: int,
+    sample: float | None,
+) -> Wits0LiveAlarmEvent | None:
+    if transition is AlarmTransition.ACTIVATED:
+        side = state.active_side
+    elif transition is AlarmTransition.CLEARED:
+        side = previous_state.active_side
+    else:
+        return None
+    if side is None or sample is None or not isfinite(float(sample)):
+        return None
+    threshold = rule.minimum if side is AlarmSide.LOW else rule.maximum
+    if threshold is None:
+        return None
+    return Wits0LiveAlarmEvent(
+        curve_id=curve_id,
+        mnemonic=mnemonic,
+        transition=transition,
+        side=side,
+        row_index=row_index,
+        record_sequence=record_sequence,
+        value=float(sample),
+        threshold=float(threshold),
+        visual_enabled=rule.visual_enabled,
+        audio_enabled=rule.audio_enabled,
+    )
+
+
 def _sample_from_data_row(
     curve_id: str,
     row_values: Mapping[str, float | None],
@@ -315,5 +418,6 @@ def _limits(rule: Wits0SavedAlarmRule) -> AlarmLimits:
 
 __all__ = [
     "Wits0LiveAlarmController",
+    "Wits0LiveAlarmEvent",
     "Wits0LiveAlarmStatus",
 ]
