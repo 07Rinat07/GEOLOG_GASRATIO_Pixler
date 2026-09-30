@@ -798,3 +798,18 @@ reducing repeated tree rebuilds during a continuous gesture.
 Dataset replacement, imports, Undo/Redo callbacks, axis conversions, report refresh, and full
 TabletView rebuilds remain outside this coalescer. Extending the intent set requires a measured hot
 path plus a regression proving that delayed presentation cannot expose stale domain state.
+
+
+## Visible-depth incremental refresh boundary
+
+Visible-depth navigation is a viewport mutation, not a TabletLayout topology mutation.
+`TabletView._apply_visible_depth()` already updates plot Y ranges, shared rulers, visible-curve
+LOD data, geology overlays, lithology/stratigraphy text visibility and annotation anchors in place.
+A manual depth-range change therefore must not call the generic `MainWindow._layout_changed()`
+full-rebuild path after `TabletView.set_visible_depth()`.
+
+Reset keeps the existing semantic contract: the controller clears the saved range and one
+`TabletView.refresh_view()` resolves the default/recommended initial window. MainWindow updates
+only title/log state afterwards. Neither manual range changes nor reset rebuild Project Tree,
+because the explorer contains project/well/dataset/curve/track structure but no viewport-depth
+state.
