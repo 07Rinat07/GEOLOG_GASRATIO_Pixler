@@ -6189,7 +6189,43 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(description)
 
     def _after_curve_metadata_history_change(self, description: str) -> None:
-        self._show_current_dataset()
+        dataset = self.session.current_dataset
+        if dataset is not None:
+            # Metadata undo/redo does not replace the Dataset or TabletLayout.
+            # Refresh the existing presentation surfaces in place instead of
+            # recreating every PlotWidget through _show_current_dataset().
+            self.curve_view.show_dataset(dataset)
+            self.las_table_editor.set_dataset(dataset)
+            self.curve_browser.set_dataset(dataset)
+            self.curve_browser.select_recommended()
+            refresh_mnemonics = tuple(
+                dict.fromkeys(
+                    mnemonic
+                    for mnemonic in (
+                        *(
+                            item
+                            for track in self.tablet_view.layout_model.tracks
+                            for item in track.curve_mnemonics
+                        ),
+                        *(
+                            item
+                            for curve in dataset.curves.values()
+                            for item in (
+                                curve.metadata.original_mnemonic,
+                                curve.metadata.canonical_mnemonic,
+                            )
+                            if item
+                        ),
+                    )
+                    if mnemonic
+                )
+            )
+            if refresh_mnemonics:
+                self.tablet_view.refresh_dataset_curves(
+                    dataset,
+                    refresh_mnemonics,
+                )
+            self.interpretation_report_workspace.refresh()
         self._refresh_tree()
         self._update_title()
         self.statusBar().showMessage(description)
