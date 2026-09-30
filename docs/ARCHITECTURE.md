@@ -735,4 +735,4 @@ a clear is produced only by a factual sample crossing the hysteresis recovery
 boundary. Later UI/audio/marker layers must consume this state instead of
 implementing a second threshold engine.
 
-Persistence is owned by the WITS live-form settings boundary, not by the alarm evaluator. Schema v4 stores immutable `Wits0SavedAlarmRule` entries keyed by channel mnemonic and reuses `AlarmLimits` validation for min/max, hysteresis and debounce. Schema v1–v3 migrate with no configured alarms; malformed v4 rules fail closed. Runtime alarm state and acknowledgement are intentionally not persisted as configuration.
+Persistence is owned by the WITS live-form settings boundary, not by the alarm evaluator. Schema v4 stores immutable `Wits0SavedAlarmRule` entries keyed by channel mnemonic and reuses `AlarmLimits` validation for min/max, hysteresis and debounce. Per-channel visual/audio policy flags are persisted beside those limits; audio defaults to opt-in while visual indication defaults on. Schema v1–v3 migrate with no configured alarms; malformed v4 rules fail closed. Runtime alarm state and acknowledgement are intentionally not persisted as configuration.
