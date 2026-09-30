@@ -1012,4 +1012,4 @@ python -m pytest -q -p no:cacheprovider `
   tests/test_wits0_operator_dashboard.py
 ```
 
-The runtime regression specifically guards against debounce advancing on repeated UI refreshes, catches up every DATA_ROW in a drained batch even when the plot is paused/frozen, ignores unrelated record rows, resets pending debounce on an explicit missing channel sample, preserves active alarms through missing input, isolates duplicate canonical mnemonics by curve ID, and verifies acknowledgement without alarm clearing.
+The runtime regression specifically guards against debounce advancing on repeated UI refreshes, catches up every DATA_ROW in a drained batch even when the plot is paused/frozen, ignores unrelated record rows, resets pending debounce on an explicit missing channel sample, preserves active alarms through missing input, isolates duplicate canonical mnemonics by curve ID, covers derived-channel catch-up through `source-records` provenance while ignoring unrelated WITS records, and verifies acknowledgement without alarm clearing.
