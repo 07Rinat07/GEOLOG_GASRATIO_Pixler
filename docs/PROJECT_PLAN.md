@@ -1271,12 +1271,17 @@ WELL-04 уже имеет field-level статусы и readiness; WELL-05 — f
   внешнего LAS становится отдельной reversible command в общем history, поддерживаются несколько
   последовательных вставок, а factual metadata/value guard позволяет Undo после полностью
   отменённой последующей правки кривой без зависимости от монотонного `curve.version`.
-  Глобальный Ctrl+Z/Ctrl+Shift+Z отменяет фактически последнее изменение между шестью доменами;
-  локальные Curve Pencil, Header Editor, Data Inspector, Curve Transfer, Dataset Merge и
-  External LAS controls остаются domain-safe и не перескакивают через более новую команду другого
-  типа. Создание отдельной копии dataset через External LAS остаётся отдельным derived-dataset
-  workflow и не включается в этот in-place slice. Следующие инкременты переводят остальные project
-  mutation controllers в тот же history boundary и добавляют savepoint/dirty revision semantics.
+  Шестой инкремент переводит `LithologyController`: Add/Update/Delete интервала становятся
+  отдельными reversible commands, сохраняющими identity интервала и только связанные
+  translation-tracking sidecars; Undo fail-closed при внешнем изменении интервала или его
+  provenance и не делает полную копию геологической коллекции.
+  Глобальный Ctrl+Z/Ctrl+Shift+Z отменяет фактически последнее изменение между семью доменами;
+  локальные Curve Pencil, Header Editor, Data Inspector, Curve Transfer, Dataset Merge,
+  External LAS и Lithology controls остаются domain-safe и не перескакивают через более новую
+  команду другого типа. Создание отдельной копии dataset через External LAS остаётся отдельным
+  derived-dataset workflow и не включается в этот in-place slice. Следующие инкременты переводят
+  остальные project mutation controllers в тот же history boundary и добавляют savepoint/dirty
+  revision semantics.
 
 ## P1 — полевая совместимость
 
