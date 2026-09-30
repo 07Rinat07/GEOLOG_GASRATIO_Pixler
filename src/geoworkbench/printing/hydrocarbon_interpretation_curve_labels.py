@@ -6,6 +6,7 @@ from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
 )
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.parameter_labels import localized_curve_name
 
 
 _RU_CURVE_LABELS: dict[str, str] = {
@@ -115,6 +116,16 @@ def curve_display_name(
 
     description = (metadata.description or "").strip()
 
+    for candidate in candidates:
+        readable = localized_curve_name(
+            candidate,
+            description=description,
+            unit=metadata.unit or "",
+            language=language,
+        ).strip()
+        if readable and readable.casefold() != candidate.casefold():
+            return readable
+
     if language is AppLanguage.RU:
         catalog = active_sensor_catalog()
         semantic = metadata.semantic
@@ -126,21 +137,17 @@ def curve_display_name(
             else:
                 return definition.short_name_ru or definition.name_ru
 
-        for candidate in candidates:
-            match = catalog.match(
-                candidate,
-                description=description,
-                unit=metadata.unit or "",
-            )
-            if match is not None:
-                return match.definition.short_name_ru or match.definition.name_ru
-
     if description and description.casefold() not in {
         item.casefold() for item in candidates
     }:
         return _compact_description(description)
 
-    fallback = hint or canonical or original
+    fallback = localized_curve_name(
+        hint or canonical or original,
+        description=description,
+        unit=metadata.unit or "",
+        language=language,
+    )
     return fallback.replace("_", "/")
 
 
