@@ -60,6 +60,10 @@ def test_live_view_uses_read_only_projection_and_shared_downsampling() -> None:
     assert "self.dashboard.set_panel_x_range(" in widget
     assert "self.dashboard.reset_panel_x_range(" in widget
     assert "panel_x_ranges=self.dashboard.panel_x_ranges()" in widget
+    assert "Wits0AlarmSettingsEditor" in widget
+    assert "alarm_rules=self.alarm_editor.rules()" in widget
+    assert "self.alarm_editor.set_rules(saved.alarm_rules)" in widget
+    assert "self.alarm_editor.clear_rules()" in widget
     assert "self.dashboard.set_panel_x_ranges(saved.panel_x_ranges)" in widget
     assert "self.dashboard.scaleTargetsChanged.connect(" in widget
     assert "panel = QScrollArea(self)" in widget
@@ -160,6 +164,8 @@ def test_wits0_live_view_constructs_offscreen(monkeypatch: pytest.MonkeyPatch) -
         assert widget.panel_scale_combo is not None
         assert widget.panel_x_auto_check.text() == "Авто X"
         assert widget.panel_x_apply_button.text() == "Применить X-диапазон"
+        assert widget.alarm_editor.isVisible()
+        assert widget.alarm_editor.objectName() == "wits0AlarmSettingsEditor"
         assert widget.values_table.isVisible()
         for section in range(widget.values_table.columnCount()):
             assert (
