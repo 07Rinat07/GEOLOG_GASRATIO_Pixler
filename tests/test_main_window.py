@@ -1051,6 +1051,35 @@ def test_window_global_undo_routes_curve_metadata_edits(qapp) -> None:
     window.close()
 
 
+def test_window_global_undo_routes_lithology_edits(qapp) -> None:
+    window = MainWindow()
+    session, _ = make_session()
+    bind_session(window, session)
+
+    interval = window.lithology_controller.add(
+        1000.0,
+        1010.0,
+        "sandstone",
+        description="Песчаник",
+    )
+    qapp.processEvents()
+
+    assert window.edit_history.next_undo is not None
+    assert window.edit_history.next_undo.history_domain == "lithology"
+    assert window.undo_action.isEnabled() is True
+
+    window.undo_project_edit()
+    assert all(
+        item.interval_id != interval.interval_id
+        for item in window.session.current_well.lithology
+    )
+    assert window.redo_action.isEnabled() is True
+
+    window.redo_project_edit()
+    assert window.lithology_controller.get(interval.interval_id) is interval
+    window.close()
+
+
 def test_external_las_actions_follow_shared_history_domain(qapp, monkeypatch) -> None:
     window = MainWindow()
     session, _ = make_session()
