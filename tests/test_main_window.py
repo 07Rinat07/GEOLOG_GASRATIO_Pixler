@@ -1051,6 +1051,53 @@ def test_window_global_undo_routes_curve_metadata_edits(qapp) -> None:
     window.close()
 
 
+def test_external_las_actions_follow_shared_history_domain(qapp, monkeypatch) -> None:
+    window = MainWindow()
+    session, _ = make_session()
+    bind_session(window, session)
+
+    monkeypatch.setattr(
+        ExternalLasInsertController,
+        "can_undo",
+        property(
+            lambda controller: controller._history.next_undo is not None
+            and controller._history.next_undo.history_domain == "external_las_insert"
+        ),
+    )
+    monkeypatch.setattr(
+        ExternalLasInsertController,
+        "can_redo",
+        property(
+            lambda controller: controller._history.next_redo is not None
+            and controller._history.next_redo.history_domain == "external_las_insert"
+        ),
+    )
+
+    external = CallbackCommand(
+        description="External LAS insert",
+        history_domain="external_las_insert",
+        execute_action=lambda: None,
+        undo_action=lambda: None,
+    )
+    newer = CallbackCommand(
+        description="Newer metadata edit",
+        history_domain="curve_metadata",
+        execute_action=lambda: None,
+        undo_action=lambda: None,
+    )
+
+    window.edit_history.record_applied(external)
+    assert window.undo_external_las_insert_action.isEnabled() is True
+
+    window.edit_history.record_applied(newer)
+    assert window.undo_external_las_insert_action.isEnabled() is False
+
+    window.edit_history.undo()
+    assert window.undo_external_las_insert_action.isEnabled() is True
+    assert window.redo_external_las_insert_action.isEnabled() is False
+    window.close()
+
+
 def test_window_global_undo_routes_external_las_insert(qapp, monkeypatch) -> None:
     window = MainWindow()
     session, _ = make_session()
