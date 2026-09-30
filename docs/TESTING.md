@@ -387,12 +387,17 @@ Visible-depth refresh regression:
 
 ```powershell
 python -m pytest -q -p no:cacheprovider `
-  tests/test_main_window_visible_depth_refresh.py
+  tests/test_main_window_visible_depth_refresh.py `
+  tests/test_main_window.py::test_curve_metadata_history_refresh_preserves_tablet_track_widgets `
+  tests/test_tablet_view.py::test_curve_metadata_refresh_updates_headers_and_membership_in_place
 ```
 
 The manual range case must keep `DirtyRenderStats.full_updates` and `partial_updates` unchanged
 while the displayed/layout range changes in place. Reset must increment `full_updates` exactly
 once, preserving the existing default-range resolution, and neither path may rebuild Project Tree.
+Curve-metadata history regression additionally requires unchanged `full_updates`, stable track
+widget identity and in-place header/unit refresh across Undo/Redo. TabletView metadata regression
+also covers mnemonic rename reconciliation without restoring the full widget tree.
 
 ## 11. Регрессия GeoScape2/GS2 временного планшета
 
