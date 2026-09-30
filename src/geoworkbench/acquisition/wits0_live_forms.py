@@ -140,7 +140,7 @@ class Wits0SavedLiveFormState:
 def _optional_float(value: object) -> float | None:
     if value is None:
         return None
-    if isinstance(value, bool):
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError("alarm limit must be numeric or null")
     return float(value)
 
