@@ -9069,6 +9069,7 @@ class MainWindow(QMainWindow):
         ):
             return
         checkpoint = self.derived_dataset_controller.checkpoint()
+        history_checkpoint = self.edit_history.checkpoint()
         try:
             self.dataset_merge_controller.create(
                 dialog.source_dataset_id,
@@ -9079,6 +9080,7 @@ class MainWindow(QMainWindow):
             exported = self._export_current_dataset_to_path(dialog.output_path)
         except (KeyError, RuntimeError, ValueError, OSError, LasExportError) as exc:
             self.derived_dataset_controller.rollback(checkpoint)
+            self.edit_history.restore(history_checkpoint)
             QMessageBox.warning(self, self._t("merge.title"), str(exc))
             return
         self._after_dataset_merge(self._t("merge.copy_completed", name=exported.name))
