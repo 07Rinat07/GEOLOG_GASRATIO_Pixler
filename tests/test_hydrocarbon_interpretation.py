@@ -151,7 +151,7 @@ def test_report_detects_relative_anomaly_and_keeps_manual_intervals_separate() -
     assert "Prospective hydrocarbon-show intervals" in en_html
     assert "Candidate hydrocarbon-show intervals" not in en_html
     assert "page-break-before: always" in html
-    assert "тяжёлая или остаточная нефть" in html
+    assert "признаки тяжёлых/остаточных жидких УВ" in html
     assert "Check DST" in html
 
 
@@ -264,7 +264,7 @@ def test_report_exports_openable_xlsx_and_docx(tmp_path) -> None:
         document = package.read("word/document.xml").decode("utf-8")
         assert "Перспективные интервалы" in document
         assert "Кандидатные интервалы" not in document
-        assert "тяжёлая или остаточная нефть" in document
+        assert "признаки тяжёлых/остаточных жидких УВ" in document
         assert "Абсолютный газ: мин / среднее / макс" in document
         assert "Точек выше порога" not in document
         assert "Медиана" not in document
