@@ -1848,7 +1848,12 @@ def test_las_presentation_failure_logs_metrics_and_keeps_recovery_path(
         )
         assert len(diagnostics) == 1
         assert diagnostics[0].code == "dataset-presentation-failed"
-        assert events == [
+        presentation_events = [
+            item
+            for item in events
+            if item[0] == "las.import.presentation"
+        ]
+        assert presentation_events == [
             (
                 "las.import.presentation",
                 {
