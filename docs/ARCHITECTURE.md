@@ -381,6 +381,15 @@ undo/redo stacks до первой mutation. Если файловый эксп�
 сначала восстанавливает модель, затем history checkpoint возвращает прежние stacks, включая
 существовавшую redo-ветку; неуспешная транзакция не оставляет фантомную merge-команду.
 
+Пятый инкремент переводит in-place `ExternalLasInsertController`. Одна вставка одного или
+нескольких каналов внешнего LAS хранится одной typed command; несколько последовательных вставок
+образуют обычную chronological цепочку. Command сохраняет dataset identity, manifest state,
+исходные metadata и values вставленных кривых. Undo сравнивает фактическое текущее состояние,
+поэтому полностью отменённая Curve Pencil/metadata правка не блокирует предыдущую вставку только
+из-за увеличившегося `curve.version`; реально отличающиеся metadata/values, удалённая или
+подменённая кривая по-прежнему fail-closed. `create_copy()` намеренно остаётся отдельным
+derived-dataset workflow и не маскируется как in-place edit.
+
 Глобальные действия MainWindow маршрутизируют верхнюю команду к контроллеру соответствующего
 домена, чтобы curve undo продолжал выполнять dependency recalculation, header undo — snapshot
 conflict check, curve-metadata undo — dataset identity/metadata/value/order checks, curve-transfer
