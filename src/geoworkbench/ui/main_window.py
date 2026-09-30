@@ -7112,22 +7112,30 @@ class MainWindow(QMainWindow):
         if not accepted:
             return
         try:
-            self.tablet_controller.set_visible_depth(top, bottom)
+            changed = self.tablet_controller.set_visible_depth(top, bottom)
         except ValueError as exc:
             QMessageBox.warning(self, self._t("tablet.depth_range_title"), str(exc))
             return
         self.tablet_view.set_visible_depth(top, bottom)
-        self._layout_changed(
-            self._t("tablet.depth_range_changed", top=f"{top:g}", bottom=f"{bottom:g}")
-        )
+        if changed:
+            self._update_title()
+            self._log(
+                self._t(
+                    "tablet.depth_range_changed",
+                    top=f"{top:g}",
+                    bottom=f"{bottom:g}",
+                )
+            )
 
     def reset_visible_depth_range(self) -> None:
         if self.session.current_tablet_layout is None:
             QMessageBox.information(self, self._t("tablet.title"), self._t("tablet.build_first"))
             return
-        self.tablet_controller.reset_visible_depth()
+        if not self.tablet_controller.reset_visible_depth():
+            return
         self.tablet_view.refresh_view()
-        self._layout_changed(self._t("tablet.full_depth_restored"))
+        self._update_title()
+        self._log(self._t("tablet.full_depth_restored"))
 
     def hide_selected_track(self) -> None:
         track = self._selected_track()
