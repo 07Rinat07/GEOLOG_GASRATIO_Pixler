@@ -23,6 +23,7 @@ from geoworkbench.services.interval_gas_statistics import (
 )
 from geoworkbench.printing.hydrocarbon_report_i18n import hydrocarbon_report_labels
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.opus_report_labels import opus_report_label
 from geoworkbench.services.parameter_labels import (
     localized_curve_name,
     localized_curve_reference,
@@ -487,7 +488,8 @@ def _opus_gasomer_docx(
             _paragraph(
                 f"{interval.top_depth:.2f}–{interval.bottom_depth:.2f} "
                 f"{report.depth_unit}: {class_word} {interval.class_code} — "
-                f"{interval.class_label}; {labels.class_support} "
+                f"{opus_report_label(f'class_{interval.class_code}', language)}; "
+                f"{labels.class_support} "
                 f"{interval.support_fraction * 100.0:.1f}%; "
                 f"{labels.valid_rows} {interval.valid_rows}/{interval.total_rows}; {detector}."
             )
@@ -504,9 +506,9 @@ def _opus_gasomer_docx(
                 ),
                 tuple(
                     (
-                        item.mnemonic,
+                        localized_curve_reference(item.mnemonic, language=language),
                         "—" if item.median_value is None else f"{item.median_value:.6g}",
-                        f"{item.class_code} — {item.class_label}",
+                        f"{item.class_code} — {opus_report_label(f'class_{item.class_code}', language)}",
                         f"{item.vote_support * 100.0:.1f}%",
                         f"{item.available_rows}/{item.total_rows}",
                         ", ".join(
