@@ -1,10 +1,45 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
 from geoworkbench.acquisition.wits0_live_alarms import Wits0LiveAlarmController
 from geoworkbench.acquisition.wits0_live_forms import Wits0SavedAlarmRule
+from geoworkbench.domain.acquisition import (
+    AcquisitionDataRowPayload,
+    AcquisitionRecord,
+    AcquisitionRecordKind,
+)
 from geoworkbench.services.acquisition_live_view import (
     AcquisitionCurrentValue,
     AcquisitionLiveQuality,
 )
 from geoworkbench.services.wits0_alarms import AlarmSide
+
+
+@dataclass
+class _SessionStub:
+    records: list[AcquisitionRecord] = field(default_factory=list)
+
+    @property
+    def last_sequence(self) -> int:
+        return self.records[-1].sequence if self.records else 0
+
+
+def _record(
+    sequence: int,
+    values: tuple[tuple[str, float | None], ...],
+) -> AcquisitionRecord:
+    return AcquisitionRecord(
+        record_id=f"record-{sequence}",
+        sequence=sequence,
+        kind=AcquisitionRecordKind.DATA_ROW,
+        payload=AcquisitionDataRowPayload(
+            index_values=(("time", sequence),),
+            curve_values=values,
+        ),
+        received_at=f"2026-09-30T12:00:{sequence:02d}Z",
+        source="wits0:record=01",
+    )
 
 
 def _value(
@@ -38,10 +73,12 @@ def test_runtime_debounce_advances_once_per_factual_sample() -> None:
     controller.set_rules(
         (Wits0SavedAlarmRule(mnemonic="total_gas", maximum=5.0, debounce_samples=2),)
     )
+    session = _SessionStub([_record(1, (("curve-tg", 6.0),))])
 
-    first = controller.evaluate((_value(6.0, row=10),))
-    repeated = controller.evaluate((_value(6.0, row=10),))
-    second = controller.evaluate((_value(6.5, row=11),))
+    first = controller.evaluate(session, (_value(6.0, row=0),))
+    repeated = controller.evaluate(session, (_value(6.0, row=0),))
+    session.records.append(_record(2, (("curve-tg", 6.5),)))
+    second = controller.evaluate(session, (_value(6.5, row=1),))
 
     assert not first[0].is_active
     assert not repeated[0].is_active
@@ -49,39 +86,68 @@ def test_runtime_debounce_advances_once_per_factual_sample() -> None:
     assert second[0].needs_attention
 
 
-def test_missing_relevant_row_resets_pending_without_clearing_active_alarm() -> None:
+def test_runtime_catches_up_every_drained_sample_while_view_is_frozen() -> None:
+    controller = Wits0LiveAlarmController()
+    controller.set_rules(
+        (Wits0SavedAlarmRule(mnemonic="TOTAL_GAS", maximum=5.0, debounce_samples=3),)
+    )
+    session = _SessionStub([_record(1, (("curve-tg", 6.0),))])
+    frozen = _value(6.0, row=0)
+
+    assert not controller.evaluate(session, (frozen,))[0].is_active
+
+    session.records.extend(
+        (
+            _record(2, (("curve-tg", 6.1),)),
+            _record(3, (("curve-tg", 6.2),)),
+        )
+    )
+    caught_up = controller.evaluate(session, (frozen,))
+
+    assert caught_up[0].active_side is AlarmSide.HIGH
+    assert caught_up[0].needs_attention
+
+
+def test_explicit_missing_sample_resets_pending_without_clearing_active_alarm() -> None:
     controller = Wits0LiveAlarmController()
     controller.set_rules(
         (Wits0SavedAlarmRule(mnemonic="TOTAL_GAS", maximum=5.0, debounce_samples=2),)
     )
+    session = _SessionStub([_record(1, (("curve-tg", 6.0),))])
+    controller.evaluate(session, (_value(6.0, row=0),))
 
-    controller.evaluate((_value(6.0, row=1),))
+    session.records.append(_record(2, (("curve-tg", None),)))
     missing = controller.evaluate(
+        session,
         (
             _value(
                 6.0,
-                row=2,
-                sample_row=1,
+                row=1,
+                sample_row=0,
                 quality=AcquisitionLiveQuality.MISSING,
             ),
-        )
+        ),
     )
-    after_gap = controller.evaluate((_value(6.2, row=3),))
-    active = controller.evaluate((_value(6.4, row=4),))
+    session.records.append(_record(3, (("curve-tg", 6.2),)))
+    after_gap = controller.evaluate(session, (_value(6.2, row=2),))
+    session.records.append(_record(4, (("curve-tg", 6.4),)))
+    active = controller.evaluate(session, (_value(6.4, row=3),))
 
     assert not missing[0].is_active
     assert not after_gap[0].is_active
     assert active[0].is_active
 
+    session.records.append(_record(5, (("curve-tg", None),)))
     preserved = controller.evaluate(
+        session,
         (
             _value(
                 6.4,
-                row=5,
-                sample_row=4,
+                row=4,
+                sample_row=3,
                 quality=AcquisitionLiveQuality.MISSING,
             ),
-        )
+        ),
     )
     assert preserved[0].is_active
 
@@ -98,11 +164,12 @@ def test_acknowledge_all_preserves_active_alarm_and_clears_attention() -> None:
             ),
         )
     )
-    active = controller.evaluate((_value(7.0, row=1),))
+    session = _SessionStub([_record(1, (("curve-tg", 7.0),))])
+    active = controller.evaluate(session, (_value(7.0, row=0),))
     assert active[0].needs_attention
 
     assert controller.acknowledge_all() == 1
-    acknowledged = controller.evaluate((_value(7.0, row=1),))
+    acknowledged = controller.evaluate(session, (_value(7.0, row=0),))
 
     assert acknowledged[0].is_active
     assert acknowledged[0].acknowledged
@@ -114,13 +181,13 @@ def test_acknowledge_all_preserves_active_alarm_and_clears_attention() -> None:
 def test_changed_rule_resets_previous_runtime_state() -> None:
     controller = Wits0LiveAlarmController()
     controller.set_rules((Wits0SavedAlarmRule(mnemonic="TOTAL_GAS", maximum=5.0),))
-    assert controller.evaluate((_value(7.0, row=1),))[0].is_active
+    session = _SessionStub([_record(1, (("curve-tg", 7.0),))])
+    assert controller.evaluate(session, (_value(7.0, row=0),))[0].is_active
 
     controller.set_rules((Wits0SavedAlarmRule(mnemonic="TOTAL_GAS", maximum=10.0),))
-    status = controller.evaluate((_value(7.0, row=1),))
+    status = controller.evaluate(session, (_value(7.0, row=0),))
 
     assert not status[0].is_active
-
 
 
 def test_duplicate_mnemonic_curves_do_not_share_debounce_state() -> None:
@@ -128,22 +195,48 @@ def test_duplicate_mnemonic_curves_do_not_share_debounce_state() -> None:
     controller.set_rules(
         (Wits0SavedAlarmRule(mnemonic="TOTAL_GAS", maximum=5.0, debounce_samples=2),)
     )
-
+    session = _SessionStub(
+        [_record(1, (("gas-a", 6.0), ("gas-b", 7.0)))]
+    )
     first = controller.evaluate(
+        session,
         (
-            _value(6.0, row=1, curve_id="gas-a"),
-            _value(7.0, row=1, curve_id="gas-b"),
-        )
+            _value(6.0, row=0, curve_id="gas-a"),
+            _value(7.0, row=0, curve_id="gas-b"),
+        ),
     )
     assert all(not status.is_active for status in first)
 
+    session.records.append(
+        _record(2, (("gas-a", 6.1), ("gas-b", 7.1)))
+    )
     second = controller.evaluate(
+        session,
         (
-            _value(6.1, row=2, curve_id="gas-a"),
-            _value(7.1, row=2, curve_id="gas-b"),
-        )
+            _value(6.1, row=1, curve_id="gas-a"),
+            _value(7.1, row=1, curve_id="gas-b"),
+        ),
     )
     assert {status.curve_id for status in second if status.is_active} == {
         "gas-a",
         "gas-b",
     }
+
+
+def test_unrelated_data_row_does_not_break_channel_debounce() -> None:
+    controller = Wits0LiveAlarmController()
+    controller.set_rules(
+        (Wits0SavedAlarmRule(mnemonic="TOTAL_GAS", maximum=5.0, debounce_samples=2),)
+    )
+    session = _SessionStub([_record(1, (("curve-tg", 6.0),))])
+    controller.evaluate(session, (_value(6.0, row=0),))
+
+    session.records.extend(
+        (
+            _record(2, (("other-curve", 100.0),)),
+            _record(3, (("curve-tg", 6.5),)),
+        )
+    )
+    status = controller.evaluate(session, (_value(6.5, row=2),))
+
+    assert status[0].is_active
