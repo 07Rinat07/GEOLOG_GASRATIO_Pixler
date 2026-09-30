@@ -752,12 +752,9 @@ threshold logic in Qt.
 ### WITS0 live alarm runtime boundary
 
 `acquisition/wits0_live_alarms.py` owns runtime state for schema-v4 alarm rules. The controller
-normalizes configured mnemonics, translates each new `AcquisitionCurrentValue` into one domain
-transition, and remembers sample identity so repeated QWidget refreshes cannot advance debounce.
-Policy lookup remains mnemonic-based, while runtime state and sample tokens are keyed by `curve_id`; two curves that resolve to the same canonical mnemonic therefore cannot advance each other's debounce. A factual sample is keyed by its sample row/source sequence. Missing or invalid relevant rows are fed to the domain evaluator as missing input and therefore may reset only pending debounce while an already active alarm remains active.
+normalizes configured mnemonics and replays newly appended `AcquisitionRecordKind.DATA_ROW` records from the per-curve last processed session sequence. Repeated QWidget refreshes therefore cannot advance debounce, while a `runtime.drain()` batch containing several measurements advances debounce once per factual DATA_ROW. Policy lookup remains mnemonic-based, while runtime state and last processed sequence are keyed by `curve_id`; two curves that resolve to the same canonical mnemonic therefore cannot advance each other's debounce. A DATA_ROW that explicitly contains the curve with `None` is missing alarm input and may reset only pending debounce while an already active alarm remains active; unrelated DATA_ROW records do not break the channel sequence.
 
-Changing a rule resets only that rule's runtime state; unchanged rules keep state across ordinary
-view refreshes. Rebinding to another acquisition runtime clears all runtime alarm state.
+Changing a rule resets only that rule's runtime state; unchanged rules keep state across ordinary view refreshes. Runtime evaluation reads the append-only acquisition session rather than the frozen plot row boundary, so Pause affects visualization but does not suspend alarm monitoring. Rebinding to another acquisition runtime clears all runtime alarm state.
 Acknowledgement delegates to the Qt-independent `acknowledge_alarm()` transition and never clears
 the active side. `Wits0LiveViewWidget` renders the resulting immutable statuses; dashboard/table
 presentation must not recalculate thresholds. Audio playback and graph markers remain downstream
