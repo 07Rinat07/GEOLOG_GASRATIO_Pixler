@@ -13,9 +13,12 @@ from geoworkbench.domain.models import (
 )
 from geoworkbench.project.curve_metadata_controller import CurveMetadataController
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.services.edit_history import CommandHistory, CurveEditCommand
 
 
-def make_controller() -> CurveMetadataController:
+def make_controller(
+    shared_history: CommandHistory | None = None,
+) -> CurveMetadataController:
     session = ProjectSession()
     dataset = Dataset(
         "dataset-1",
@@ -44,7 +47,7 @@ def make_controller() -> CurveMetadataController:
     )
     session.add_dataset(dataset)
     session.dirty = False
-    return CurveMetadataController(session)
+    return CurveMetadataController(session, shared_history=shared_history)
 
 
 def test_updates_metadata_preserves_canonical_identity_and_supports_history() -> None:
@@ -192,3 +195,67 @@ def test_metadata_edit_preserves_imported_source_mnemonic_in_semantic_binding() 
     assert curve.metadata.semantic.source_mnemonic == "VENDOR_CH4_RAW"
     assert curve.metadata.semantic.canonical_kind == "gas.c1"
     assert "curve_metadata=update" in curve.metadata.semantic.evidence
+
+
+
+def test_shared_history_keeps_curve_metadata_undo_domain_safe() -> None:
+    history = CommandHistory()
+    controller = make_controller(history)
+    dataset = controller.session.current_dataset
+    assert dataset is not None
+    curve = dataset.curves["c1"]
+
+    history.execute(
+        CurveEditCommand.create(
+            curve,
+            np.array([0], dtype=np.int64),
+            np.array([9.0], dtype=np.float64),
+        )
+    )
+
+    assert controller.can_undo is False
+
+    controller.update(
+        "c1",
+        mnemonic="METHANE",
+        unit="ppm",
+        description="Shared history methane",
+    )
+
+    assert controller.can_undo is True
+    assert history.next_undo is not None
+    assert history.next_undo.history_domain == "curve_metadata"
+
+    controller.undo()
+
+    assert curve.metadata.original_mnemonic == "CH4"
+    assert curve.values[0] == 9.0
+    assert history.next_undo is not None
+    assert history.next_undo.history_domain == "curve"
+    assert controller.can_undo is False
+
+
+
+def test_created_curve_can_be_undone_after_later_value_edit_is_undone() -> None:
+    history = CommandHistory()
+    controller = make_controller(history)
+    dataset = controller.session.current_dataset
+    assert dataset is not None
+
+    curve = controller.create(mnemonic="ROP_USER", unit="m/h", description="User curve")
+    history.execute(
+        CurveEditCommand.create(
+            curve,
+            np.array([0], dtype=np.int64),
+            np.array([12.0], dtype=np.float64),
+        )
+    )
+
+    assert controller.can_undo is False
+    history.undo()
+    assert np.isnan(curve.values).all()
+    assert controller.can_undo is True
+
+    controller.undo()
+
+    assert curve.metadata.curve_id not in dataset.curves
