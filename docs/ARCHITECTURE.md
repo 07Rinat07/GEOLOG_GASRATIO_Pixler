@@ -717,3 +717,20 @@ This boundary deliberately does not implement Gas Ratio/Haworth/Pixler/OPUS clas
 The next increment consumes the persisted registry from interpretation services and export renderers,
 so UI code never becomes a second source of geological classification logic.
 
+
+
+## WITS0 alarm domain boundary
+
+WITS-ALARM-01 starts with a Qt-independent state machine in
+`services/wits0_alarms.py`. `AlarmLimits` owns threshold validation, hysteresis
+and sample-count debounce. `AlarmState` is immutable and records only active or
+pending side plus acknowledgement. `evaluate_alarm()` is a pure transition
+function: transport cadence, widgets, audio devices and persistence are outside
+this boundary.
+
+Missing or non-finite samples cannot fabricate activation or clearing. They reset
+only an uncommitted debounce sequence while an already active alarm remains active.
+Acknowledgement suppresses the attention requirement but never clears the alarm;
+a clear is produced only by a factual sample crossing the hysteresis recovery
+boundary. Later UI/audio/marker layers must consume this state instead of
+implementing a second threshold engine.
