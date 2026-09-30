@@ -145,13 +145,13 @@ _SPECS: tuple[FluidMarkerSpec, ...] = (
         100,
     ),
     FluidMarkerSpec(
-        "hydrocarbon fluid of undetermined type",
+        "indeterminate",
         "?",
         FluidMarkerShape.CROSS,
         "#64748b",
         "УВ-флюид неопределённого типа",
         "түрі анықталмаған көмірсутекті флюид",
-        "indeterminate",
+        "hydrocarbon fluid of undetermined type",
         110,
     ),
 )
