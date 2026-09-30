@@ -388,6 +388,16 @@ undo/redo stacks до первой mutation. Если файловый эксп�
 поэтому полностью отменённая Curve Pencil/metadata правка не блокирует предыдущую вставку только
 из-за увеличившегося `curve.version`; реально отличающиеся metadata/values, удалённая или
 подменённая кривая по-прежнему fail-closed. `create_copy()` намеренно остаётся отдельным
+
+Шестой инкремент переводит `LithologyController`. Add/Update/Delete записываются в общий
+history как bounded callback commands. Команда хранит только один изменяемый
+`LithologyInterval` и связанные ключи translation tracking: description status/source,
+depth/lithotype dependency revisions, language revisions и content revision. Полная коллекция
+литологии и весь Well не копируются. Undo/Redo сначала сравнивает фактический interval и sidecars
+с ожидаемым состоянием, проверяет overlap при восстановлении и только затем применяет mutation;
+внешнее изменение остаётся fail-closed. Identity объекта интервала сохраняется через весь цикл
+Add → Undo → Redo и Update/Remove.
+
 derived-dataset workflow и не маскируется как in-place edit.
 
 Глобальные действия MainWindow маршрутизируют верхнюю команду к контроллеру соответствующего
