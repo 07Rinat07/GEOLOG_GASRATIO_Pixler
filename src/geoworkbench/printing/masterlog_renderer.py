@@ -215,6 +215,8 @@ def masterlog_page_ranges(
     template: MasterlogTemplate,
     session: ProjectSession,
     settings: MasterlogOutputSettings | None = None,
+    *,
+    page_size_mm: QSizeF | None = None,
 ) -> tuple[tuple[float, float], ...]:
     available_range = masterlog_depth_range(session)
     depth_range: tuple[float, float] | None
@@ -230,7 +232,7 @@ def masterlog_page_ranges(
         return ()
     if template.page_format.casefold() == "roll":
         return (depth_range,)
-    page_size = _fixed_page_size_mm(template)
+    page_size = page_size_mm or _fixed_page_size_mm(template)
     depth_scale = _depth_scale(template)
     plot_height_mm = (
         page_size.height()
@@ -588,8 +590,13 @@ def paint_masterlog_pages(
     *,
     settings: MasterlogOutputSettings | None = None,
 ) -> None:
-    page_size_mm = device.pageLayout().fullRect(QPageLayout.Unit.Millimeter).size()
-    page_ranges = masterlog_page_ranges(template, session, settings)
+    target_rect, page_size_mm = _masterlog_device_page_geometry(device)
+    page_ranges = masterlog_page_ranges(
+        template,
+        session,
+        settings,
+        page_size_mm=page_size_mm,
+    )
     segments: tuple[tuple[float, float] | None, ...] = page_ranges or (None,)
     groups = masterlog_column_groups(template, page_size_mm.width())
     pages = tuple((group, segment) for group in groups for segment in segments)
@@ -604,7 +611,7 @@ def paint_masterlog_pages(
             raise MasterlogRenderError("Не удалось создать следующую страницу masterlog")
         paint_masterlog(
             painter,
-            QRectF(0.0, 0.0, float(device.width()), float(device.height())),
+            target_rect,
             template,
             session,
             depth_range=page_range,
@@ -616,6 +623,64 @@ def paint_masterlog_pages(
             language=language,
             _render_context=render_context,
         )
+
+
+def _masterlog_device_page_geometry(
+    device: PagedPaintDevice,
+) -> tuple[QRectF, QSizeF]:
+    """Return matching pixel/mm printable geometry so depth scale stays physical."""
+
+    target = _masterlog_device_target_rect(device)
+    full_size_mm = device.pageLayout().fullRect(QPageLayout.Unit.Millimeter).size()
+    try:
+        resolution_getter = getattr(device, "resolution", None)
+        resolution = int(resolution_getter()) if callable(resolution_getter) else 0
+        has_printable_inset = (
+            abs(target.x()) > 0.5
+            or abs(target.y()) > 0.5
+            or abs(target.width() - float(device.width())) > 0.5
+            or abs(target.height() - float(device.height())) > 0.5
+        )
+        if (
+            resolution > 0
+            and has_printable_inset
+            and target.width() > 0
+            and target.height() > 0
+        ):
+            millimeters_per_pixel = 25.4 / resolution
+            printable_size = QSizeF(
+                target.width() * millimeters_per_pixel,
+                target.height() * millimeters_per_pixel,
+            )
+            if printable_size.width() > 0 and printable_size.height() > 0:
+                return target, printable_size
+    except (AttributeError, TypeError, ValueError):
+        pass
+    return target, full_size_mm
+
+
+def _masterlog_device_target_rect(device: PagedPaintDevice) -> QRectF:
+    """Use the real printable area for printers, with a PDF/test fallback."""
+
+    try:
+        resolution_getter = getattr(device, "resolution", None)
+        resolution = (
+            int(resolution_getter())
+            if callable(resolution_getter)
+            else 0
+        )
+        if resolution > 0:
+            paint_rect = device.pageLayout().paintRectPixels(resolution)
+            if paint_rect.width() > 0 and paint_rect.height() > 0:
+                return QRectF(
+                    float(paint_rect.x()),
+                    float(paint_rect.y()),
+                    float(paint_rect.width()),
+                    float(paint_rect.height()),
+                )
+    except (AttributeError, TypeError, ValueError):
+        pass
+    return QRectF(0.0, 0.0, float(device.width()), float(device.height()))
 
 
 def _page_size(

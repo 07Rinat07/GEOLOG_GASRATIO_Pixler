@@ -82,6 +82,7 @@ def render_chart_pages(
     )
     for page_index, page in enumerate(pages, start=1):
         canvas.new_page()
+        percentiles = base_chart._curve_percentiles(panels, dataset, page=page)
         _draw_chart_page(
             canvas.painter,
             chart_geometry(canvas.content_rect, page, len(panels)),
@@ -91,7 +92,8 @@ def render_chart_pages(
             report,
             dataset,
             panels,
-            base_chart._curve_ranges(panels, dataset, page=page),
+            base_chart._display_curve_ranges(percentiles),
+            percentiles,
             language,
         )
         canvas.y = canvas.content_rect.bottom()
@@ -139,6 +141,7 @@ def _draw_chart_page(
     dataset: Dataset,
     panels: tuple[tuple[str, tuple[CurveData, ...]], ...],
     ranges: dict[str, tuple[float, float]],
+    percentiles: dict[str, tuple[float, float]],
     language: AppLanguage,
 ) -> None:
     labels = base_chart._labels(language)
@@ -214,7 +217,7 @@ def _draw_chart_page(
             panel_index,
             len(panels),
             curves,
-            ranges,
+            percentiles,
         )
 
     _draw_fluid_markers(
@@ -318,7 +321,7 @@ def _draw_panel(
     painter.fillRect(rect, QColor("#ffffff"))
     for tick in minor_depth_ticks(page):
         y = base_chart._depth_y(tick, page, rect)
-        painter.setPen(QPen(QColor("#e0e7ee"), 0.42))
+        painter.setPen(QPen(QColor("#d4dde6"), 0.55))
         painter.drawLine(QLineF(rect.left(), y, rect.right(), y))
 
     major_step = base_chart._nice_tick_step(
@@ -327,12 +330,12 @@ def _draw_panel(
     )
     for tick in base_chart._depth_ticks(page, major_step):
         y = base_chart._depth_y(tick, page, rect)
-        painter.setPen(QPen(QColor("#aebdca"), 0.78))
+        painter.setPen(QPen(QColor("#8fa3b5"), 0.92))
         painter.drawLine(QLineF(rect.left(), y, rect.right(), y))
 
     for index in range(5):
         x = rect.left() + index / 4.0 * rect.width()
-        painter.setPen(QPen(QColor("#d6dee7"), 0.5))
+        painter.setPen(QPen(QColor("#c4d0db"), 0.58))
         painter.drawLine(QLineF(x, rect.top(), x, rect.bottom()))
         painter.setFont(print_font(6.2, text="100"))
         painter.setPen(QColor("#475569"))
@@ -387,7 +390,7 @@ def _draw_candidate_bands(
             continue
         spec = fluid_marker_spec(candidate.fluid_hypothesis)
         band_color = QColor(spec.color)
-        band_color.setAlpha(20)
+        band_color.setAlpha(12)
         y1 = base_chart._depth_y(overlap_top, page, rect)
         y2 = base_chart._depth_y(overlap_bottom, page, rect)
         painter.fillRect(

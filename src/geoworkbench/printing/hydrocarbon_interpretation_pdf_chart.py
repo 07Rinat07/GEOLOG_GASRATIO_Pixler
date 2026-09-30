@@ -94,6 +94,9 @@ _COLORS = (
     "#64748b",
 )
 _MIN_AXIS_LABEL_GAP_POINTS = 14.0
+_PRINT_CURVE_WIDTH = 1.25
+_PRINT_GRID_MINOR = "#d1d9e2"
+_PRINT_GRID_MAJOR = "#9eafbf"
 
 
 def render_chart_pages(
@@ -128,6 +131,7 @@ def render_chart_pages(
     )
     for page_index, page in enumerate(pages, start=1):
         canvas.new_page()
+        percentiles = _curve_percentiles(panels, dataset, page=page)
         _draw_chart_page(
             canvas.painter,
             chart_geometry(canvas.content_rect, page, len(panels)),
@@ -137,7 +141,8 @@ def render_chart_pages(
             report,
             dataset,
             panels,
-            _curve_ranges(panels, dataset, page=page),
+            _display_curve_ranges(percentiles),
+            percentiles,
             language,
         )
         canvas.y = canvas.content_rect.bottom()
@@ -153,6 +158,7 @@ def _draw_chart_page(
     dataset: Dataset,
     panels: tuple[tuple[str, tuple[CurveData, ...]], ...],
     ranges: dict[str, tuple[float, float]],
+    percentiles: dict[str, tuple[float, float]],
     language: AppLanguage,
 ) -> None:
     labels = _labels(language)
@@ -231,7 +237,7 @@ def _draw_chart_page(
             panel_index,
             len(panels),
             curves,
-            ranges,
+            percentiles,
         )
 
     painter.setPen(QColor("#475569"))
@@ -314,11 +320,11 @@ def _draw_panel(
     step = _nice_tick_step(page.span, target_ticks=8)
     for tick in _depth_ticks(page, step):
         y = _depth_y(tick, page, rect)
-        painter.setPen(QPen(QColor("#d8e0e8"), 0.45))
+        painter.setPen(QPen(QColor(_PRINT_GRID_MINOR), 0.55))
         painter.drawLine(QLineF(rect.left(), y, rect.right(), y))
     for index in range(5):
         x = rect.left() + index / 4.0 * rect.width()
-        painter.setPen(QPen(QColor("#e4e9ef"), 0.4))
+        painter.setPen(QPen(QColor("#d8e0e8"), 0.5))
         painter.drawLine(QLineF(x, rect.top(), x, rect.bottom()))
         painter.setFont(print_font(5.8, text="100"))
         painter.setPen(QColor("#64748b"))
@@ -379,6 +385,88 @@ def _draw_interval_bands(
         )
 
 
+def _extrema_preserving_print_rows(
+    segment: np.ndarray,
+    depth: np.ndarray,
+    values: np.ndarray,
+    page: DepthPage,
+    rect: QRectF,
+) -> np.ndarray:
+    """Reduce dense print rows without losing local extrema.
+
+    Uniform linspace downsampling can miss narrow gas peaks or connect sparse
+    retained points into long diagonal spikes. Bucket rows by their final
+    vertical print position and retain first/min/max/last samples plus
+    missing-value sentinels in stable order. This preserves extrema and real
+    acquisition breaks while bounding visual density.
+    """
+
+    if segment.size <= 4:
+        return segment
+    # About one bucket per two typographic points keeps vector output readable
+    # while preserving substantially more detail than the printed raster can
+    # resolve at normal viewing distance.
+    bucket_count = max(8, min(int(rect.height() / 2.0), 900))
+    if segment.size <= bucket_count * 4:
+        return segment
+
+    y = (
+        rect.top()
+        + (depth[segment] - page.top_depth)
+        / page.span
+        * rect.height()
+    )
+    normalized = np.clip(
+        (y - rect.top()) / max(rect.height(), 1.0),
+        0.0,
+        1.0,
+    )
+    buckets = np.minimum(
+        bucket_count - 1,
+        np.floor(normalized * bucket_count).astype(np.int64),
+    )
+
+    keep: list[int] = []
+    for bucket in np.unique(buckets):
+        positions = np.flatnonzero(buckets == bucket)
+        if positions.size == 0:
+            continue
+        rows = segment[positions]
+        finite_mask = np.isfinite(values[rows])
+        finite_positions = positions[finite_mask]
+        nonfinite_mask = ~finite_mask
+        selected_positions = {int(positions[0]), int(positions[-1])}
+        if np.any(nonfinite_mask):
+            run_starts = np.flatnonzero(
+                nonfinite_mask
+                & np.concatenate(
+                    (np.asarray([True]), finite_mask[:-1]),
+                )
+            )
+            run_ends = np.flatnonzero(
+                nonfinite_mask
+                & np.concatenate(
+                    (finite_mask[1:], np.asarray([True])),
+                )
+            )
+            selected_positions.update(int(positions[item]) for item in run_starts)
+            selected_positions.update(int(positions[item]) for item in run_ends)
+        if finite_positions.size:
+            finite_rows = segment[finite_positions]
+            local_values = values[finite_rows]
+            selected_positions.add(
+                int(finite_positions[int(np.argmin(local_values))])
+            )
+            selected_positions.add(
+                int(finite_positions[int(np.argmax(local_values))])
+            )
+        keep.extend(sorted(selected_positions))
+    if not keep:
+        return segment
+    unique_positions = np.asarray(sorted(set(keep)), dtype=np.int64)
+    return segment[unique_positions]
+
+
 def _draw_curves(
     painter: QPainter,
     rect: QRectF,
@@ -394,7 +482,14 @@ def _draw_curves(
         & (depth <= page.bottom_depth)
     )
     indices = indices[np.argsort(depth[indices], kind="stable")]
-    segments = continuous_depth_segments(depth, indices, limit=2_500)
+    # Preserve every source row while detecting real acquisition gaps.
+    # Print-density reduction is value-aware below; uniform pre-downsampling
+    # here could remove a narrow OPUS/GasRatio peak before extrema selection.
+    segments = continuous_depth_segments(
+        depth,
+        indices,
+        limit=max(2, int(indices.size)),
+    )
 
     painter.save()
     painter.setClipRect(rect.adjusted(0.8, 0.8, -0.8, -0.8))
@@ -405,12 +500,21 @@ def _draw_curves(
         if values.shape != depth.shape or value_range is None:
             continue
         low, high = value_range
-        painter.setPen(QPen(QColor(_COLORS[curve_index % len(_COLORS)]), 0.8))
+        pen = QPen(QColor(_COLORS[curve_index % len(_COLORS)]), _PRINT_CURVE_WIDTH)
+        pen.setCosmetic(True)
+        painter.setPen(pen)
         for segment in segments:
+            render_rows = _extrema_preserving_print_rows(
+                segment,
+                depth,
+                values,
+                page,
+                curve_rect,
+            )
             previous: tuple[float, float] | None = None
             previous_normalized: float | None = None
             previous_clipped = False
-            for row_index in segment:
+            for row_index in render_rows:
                 value = values[row_index]
                 if not np.isfinite(value):
                     previous = None
@@ -466,7 +570,7 @@ def _draw_legend(
         low, high = value_range
         y = column.top() + row_index * 14.5
         color = QColor(_COLORS[row_index % len(_COLORS)])
-        painter.setPen(QPen(color, 1.8))
+        painter.setPen(QPen(color, 2.2))
         painter.drawLine(
             QLineF(column.left(), y + 5.0, column.left() + 17.0, y + 5.0)
         )
@@ -483,12 +587,14 @@ def _draw_legend(
         )
 
 
-def _curve_ranges(
+def _curve_percentiles(
     panels: tuple[tuple[str, tuple[CurveData, ...]], ...],
     dataset: Dataset,
     *,
     page: DepthPage | None = None,
 ) -> dict[str, tuple[float, float]]:
+    """Return factual p5/p95 values used by the printed legend."""
+
     result: dict[str, tuple[float, float]] = {}
     depth = np.asarray(dataset.depth, dtype=np.float64)
     selected = (
@@ -506,10 +612,37 @@ def _curve_ranges(
                 continue
             low = float(np.percentile(finite, 5.0))
             high = float(np.percentile(finite, 95.0))
-            if not np.isfinite(low) or not np.isfinite(high):
-                continue
-            result[curve.metadata.curve_id] = (low, high)
+            if np.isfinite(low) and np.isfinite(high):
+                result[curve.metadata.curve_id] = (low, high)
     return result
+
+
+def _display_curve_ranges(
+    percentiles: dict[str, tuple[float, float]],
+) -> dict[str, tuple[float, float]]:
+    """Expand only degenerate ranges for visibility without falsifying p5/p95."""
+
+    result: dict[str, tuple[float, float]] = {}
+    for curve_id, (low, high) in percentiles.items():
+        display_low = low
+        display_high = high
+        if high <= low or np.isclose(high, low, rtol=1e-9, atol=1e-12):
+            center = (low + high) / 2.0
+            spread = max(abs(center) * 0.05, 1e-6)
+            display_low, display_high = center - spread, center + spread
+        result[curve_id] = (display_low, display_high)
+    return result
+
+
+def _curve_ranges(
+    panels: tuple[tuple[str, tuple[CurveData, ...]], ...],
+    dataset: Dataset,
+    *,
+    page: DepthPage | None = None,
+) -> dict[str, tuple[float, float]]:
+    """Return display ranges; factual percentiles remain available separately."""
+
+    return _display_curve_ranges(_curve_percentiles(panels, dataset, page=page))
 
 
 def _panel_curves(

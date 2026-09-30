@@ -61,7 +61,8 @@ def test_short_well_uses_one_page_without_vertical_stretching() -> None:
 def test_long_well_is_split_into_continuous_readable_pages() -> None:
     pages = plan_depth_pages(1_000.0, 4_000.0, 330.0)
 
-    assert 2 <= len(pages) <= 12
+    assert 2 <= len(pages) <= 80
+    assert max(page.span for page in pages) <= 105.0
     assert pages[0].top_depth == 1_000.0
     assert pages[-1].bottom_depth == 4_000.0
     assert len({page.scale_denominator for page in pages}) == 1
@@ -70,6 +71,15 @@ def test_long_well_is_split_into_continuous_readable_pages() -> None:
         abs(left.bottom_depth - right.top_depth) < 1e-9
         for left, right in zip(pages, pages[1:], strict=False)
     )
+
+
+def test_page_count_does_not_jump_for_tiny_target_boundary_overshoot() -> None:
+    one_page = plan_depth_pages(1_000.0, 1_100.001, 330.0)
+    two_pages = plan_depth_pages(1_000.0, 1_200.001, 330.0)
+
+    assert len(one_page) == 1
+    assert len(two_pages) == 2
+    assert max(page.span for page in two_pages) <= 105.0
 
 
 def test_large_well_uses_coarser_scale_than_small_well() -> None:
