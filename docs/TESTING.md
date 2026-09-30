@@ -925,7 +925,9 @@ cross-domain порядок undo/redo, очистку всей redo-ветки �
 инкремент добавляет Dataset Merge: проверяются два последовательных merge с многошаговым
 Undo/Redo, восстановление layout/source sidecars, global MainWindow routing, domain-safe локальные
 Merge actions, блокировка при реальном изменении результата и успешный Undo после полностью
-отменённой Curve Pencil правки несмотря на увеличившийся curve version.
+отменённой Curve Pencil правки несмотря на увеличившийся curve version. Отдельный disk/export
+rollback regression проверяет, что неуспешный merge не остаётся в history и восстанавливает
+существовавшую до операции redo-ветку.
 
 ```powershell
 python scripts/run_tests.py -q -p no:cacheprovider tests/test_edit_history.py tests/test_curve_editing_controller.py tests/test_header_editing_controller.py tests/test_curve_metadata_controller.py tests/test_curve_transfer_controller.py tests/test_dataset_merge_controller.py tests/test_main_window.py
