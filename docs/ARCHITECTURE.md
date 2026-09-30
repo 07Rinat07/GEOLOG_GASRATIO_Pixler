@@ -136,6 +136,19 @@ project state + derived curves + annotations/layout
 PDF / printer / LAS / CSV / XLSX / DOCX / HTML
 ```
 
+
+
+### Report presentation labels и source identity
+
+Report DTO и Dataset сохраняют exact source mnemonic для воспроизводимости расчёта и аудита.
+Пользовательский presentation layer не должен выводить vendor/source codes напрямую, если
+`parameter_labels` или semantic/Sensors resolver однозначно знает физический параметр.
+Графики, HTML/PDF, DOCX и видимые XLSX-листы используют общий localized display contract;
+скрытые source/audit sheets и доменные поля сохраняют исходную мнемонику без потери provenance.
+Та же граница применяется к RU/KK/EN fluid terminology: вычислительный code остаётся стабильным,
+а локализованный отчёт отображает фазовую формулировку без превращения предварительного evidence
+в доказанный тип залежи.
+
 Исходный LAS/GS2/raw artifact, source mnemonic, unit, mapping evidence и fingerprint являются
 доказательствами происхождения. Производная кривая не подменяет source-кривую и получает
 versioned provenance. Экспорт является проекцией проекта и не заменяет `Ctrl+S`.

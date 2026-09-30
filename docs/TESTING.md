@@ -963,3 +963,36 @@ python scripts/run_tests.py -q -p no:cacheprovider tests/test_hydrocarbon_interp
 ```powershell
 python scripts/run_tests.py -q -p no:cacheprovider tests/test_gas_ratio_interpretation.py tests/test_hydrocarbon_interpretation.py
 ```
+
+
+### RPT-QA-01: терминология флюида и читаемые параметры
+
+Видимые отчёты и графики не должны показывать vendor/source mnemonics вроде `S224`,
+`S106`, `S1003`, если semantic/Sensors resolver однозначно определяет физический параметр.
+Например `S224` в пользовательском выводе становится `D-exponent`. Exact source mnemonic
+сохраняется в доменной модели и скрытых audit/source sheets для воспроизводимости.
+
+Fluid labels проверяются на трёх языках как один семантический контракт:
+- неопределённый тип: «УВ-флюид неопределённого типа»;
+- жидкая тенденция без подтипа: «жидкая УВ-фаза; тип не установлен»;
+- согласованная light-oil тенденция: «признаки лёгкой нефтяной фазы»;
+- переход light oil / gas condensate: «жидкая УВ-фаза; возможны лёгкая нефть или газоконденсат»;
+- газовый класс: «газовая УВ-фаза».
+
+```powershell
+python scripts/run_tests.py -q -p no:cacheprovider tests/test_parameter_labels.py tests/test_interpretation_report_charts.py tests/test_hydrocarbon_interpretation.py tests/test_hydrocarbon_fluid_markers.py
+```
+
+
+### RPT-QA-01: OPUS-графики и OPUS Газомер
+
+OPUS использует тот же presentation contract, что и стандартный отчёт. В пользовательских
+графиках `OPUS_TG_PCT` отображается как локализованное физическое имя, индикаторы ОПУС
+не печатают внутренние мнемоники, а class code 1–7 сохраняется отдельно от локализованной
+интерпретации. Маркерные категории должны использовать фазовые формулировки:
+нефтяная фаза, газовая УВ-фаза, газоконденсатная УВ-фаза, газированная нефтяная фаза
+или УВ-флюид неопределённого типа.
+
+```powershell
+python scripts/run_tests.py -q -p no:cacheprovider tests/test_hydrocarbon_fluid_markers.py tests/test_parameter_labels.py tests/test_interpretation_report_charts.py
+```
