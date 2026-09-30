@@ -47,6 +47,10 @@ _RUSSIAN_NAMES: dict[str, str] = {
     "DEXPC": "Скорректированный D-exponent",
     "DEXPC_NCT": "DEXPC / тренд NCT",
     "NCT": "Тренд нормального уплотнения",
+    "OPUS3": "ОПУС-3",
+    "OPUS4": "ОПУС-4",
+    "OPUS_K1_3": "ОПУС K1-3",
+    "OPUS_1_5": "ОПУС 1-5",
 }
 
 _ENGLISH_NAMES: dict[str, str] = {
@@ -101,6 +105,10 @@ _ENGLISH_NAMES: dict[str, str] = {
     "DEXPC": "Corrected D-exponent",
     "DEXPC_NCT": "DEXPC / NCT trend",
     "NCT": "Normal Compaction Trend",
+    "OPUS3": "OPUS-3",
+    "OPUS4": "OPUS-4",
+    "OPUS_K1_3": "OPUS K1-3",
+    "OPUS_1_5": "OPUS 1-5",
 }
 
 _KAZAKH_NAMES: dict[str, str] = {
@@ -155,6 +163,10 @@ _KAZAKH_NAMES: dict[str, str] = {
     "DEXPC": "Түзетілген D-exponent",
     "DEXPC_NCT": "DEXPC / NCT тренді",
     "NCT": "Қалыпты тығыздалу тренді",
+    "OPUS3": "ОПУС-3",
+    "OPUS4": "ОПУС-4",
+    "OPUS_K1_3": "ОПУС K1-3",
+    "OPUS_1_5": "ОПУС 1-5",
 }
 
 
