@@ -345,6 +345,23 @@ Interpretation marker содержит фактический axis anchor и pre
 - один commit и один dirty transition;
 - audit/provenance без секретов и абсолютных пользовательских путей.
 
+### Application command history
+
+Обратимые изменения проекта постепенно консолидируются в
+`geoworkbench.services.edit_history.CommandHistory`. История ограничена по размеру и хранит
+гетерогенные `UndoableCommand` в одном хронологическом порядке; стек меняется только после
+успешного execute/undo/redo, а новый command полностью инвалидирует redo-ветку. Команда несёт
+`history_domain` и описание, но UI не получает права напрямую менять модель.
+
+Первый ARCH-07 инкремент подключает к одному экземпляру history `CurveEditingController` и
+`HeaderEditingController`. Глобальные действия MainWindow маршрутизируют верхнюю команду к
+контроллеру соответствующего домена, чтобы curve undo продолжал выполнять dependency
+recalculation, а header undo — snapshot conflict check. Локальные curve-pencil controls проверяют
+тип верхней команды и не перескакивают через более новое изменение другого домена. При смене
+project/session общий history очищается через существующий session binding reset boundary.
+Остальные специализированные undo/redo стеки считаются migration backlog ARCH-07, а не второй
+утверждённой архитектурой.
+
 ## Утверждённая модель ведения одной скважины на трёх языках
 
 Принята пользователем 5 сентября 2026 года. **Целевой контракт WELL-01…06, ещё не реализованный

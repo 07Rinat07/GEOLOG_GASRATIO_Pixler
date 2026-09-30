@@ -908,3 +908,15 @@ NaN и ноль, no-op после повторного анализа, ошиб�
 коллизии поставщиков, неизвестные коды, разрывы глубины, устаревший план, сохранение
 профиля и исходника, откат при ошибке, миграция v26.
 Полный прогон и security gate текущего инкремента пока не завершены.
+
+
+### ARCH-07: общая история редактирования
+
+Первый инкремент проверяет общий chronological stack для Curve Pencil и LAS Header Editor:
+cross-domain порядок undo/redo, очистку всей redo-ветки после нового изменения, неизменность
+стеков при conflict, listener state для QAction, domain-safe локальный curve undo и глобальную
+маршрутизацию MainWindow.
+
+```powershell
+python scripts/run_tests.py -q -p no:cacheprovider tests/test_edit_history.py tests/test_curve_editing_controller.py tests/test_header_editing_controller.py tests/test_main_window.py
+```

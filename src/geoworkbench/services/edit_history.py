@@ -12,8 +12,11 @@ from geoworkbench.domain.models import CalculationState, CurveData
 class UndoableCommand(Protocol):
     """A reversible application command stored by :class:`CommandHistory`."""
 
-    description: str
-    history_domain: str
+    @property
+    def description(self) -> str: ...
+
+    @property
+    def history_domain(self) -> str: ...
 
     def execute(self) -> None: ...
 
@@ -203,9 +206,6 @@ class CurveEditCommand:
 
 class CurveEditHistory(CommandHistory):
     """Compatibility facade for callers that still expect curve-only history."""
-
-    def execute(self, command: CurveEditCommand) -> None:
-        super().execute(command)
 
     def undo(self) -> CurveEditCommand:
         return cast(CurveEditCommand, super().undo())
