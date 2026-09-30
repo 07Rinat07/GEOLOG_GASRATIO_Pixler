@@ -387,3 +387,22 @@ def test_report_method_hint_relabels_source_only_dexp_curve() -> None:
         )
         == "D-exponent"
     )
+
+
+
+def test_opus_chart_curve_labels_hide_internal_mnemonics() -> None:
+    curve = CurveData(
+        CurveMetadata(
+            "opus-total",
+            "OPUS_TG_PCT",
+            "OPUS_TG_PCT",
+            "%об.",
+            None,
+            "dataset",
+        ),
+        np.asarray([0.1, 0.2], dtype=np.float64),
+    )
+
+    assert curve_display_name(curve, AppLanguage.RU) == "Общий газ ОПУС"
+    assert curve_display_name(curve, AppLanguage.KK) == "ОПУС жалпы газы"
+    assert curve_display_name(curve, AppLanguage.EN) == "OPUS total gas"
