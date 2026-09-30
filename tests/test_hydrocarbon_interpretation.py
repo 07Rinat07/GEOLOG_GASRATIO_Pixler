@@ -151,7 +151,7 @@ def test_report_detects_relative_anomaly_and_keeps_manual_intervals_separate() -
     assert "Prospective hydrocarbon-show intervals" in en_html
     assert "Candidate hydrocarbon-show intervals" not in en_html
     assert "page-break-before: always" in html
-    assert "признаки тяжёлых/остаточных жидких УВ" in html
+    assert "признаки тяжёлой/остаточной нефтяной фазы" in html
     assert "Check DST" in html
 
 
@@ -215,7 +215,8 @@ def test_printable_evidence_humanizes_normalized_gas_curve_name() -> None:
     )
 
     assert "Нормализованный газ: источник — локальный расчёт" in readable
-    assert "Расчётный нормализованный общий газ (TG_NORM_CALC)" in readable
+    assert "Расчётный нормализованный общий газ" in readable
+    assert "(TG_NORM_CALC)" not in readable
     assert "source=local-calculation" not in readable
     assert "curve=TG_NORM_CALC" not in readable
 
@@ -264,7 +265,7 @@ def test_report_exports_openable_xlsx_and_docx(tmp_path) -> None:
         document = package.read("word/document.xml").decode("utf-8")
         assert "Перспективные интервалы" in document
         assert "Кандидатные интервалы" not in document
-        assert "признаки тяжёлых/остаточных жидких УВ" in document
+        assert "признаки тяжёлой/остаточной нефтяной фазы" in document
         assert "Абсолютный газ: мин / среднее / макс" in document
         assert "Точек выше порога" not in document
         assert "Медиана" not in document
