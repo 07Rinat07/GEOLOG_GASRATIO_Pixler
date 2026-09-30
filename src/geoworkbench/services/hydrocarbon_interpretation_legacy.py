@@ -1275,7 +1275,7 @@ _HTML_LABELS = {
         "no_manual": "No geologist-confirmed intervals have been entered.",
         "hypothesis_probable_gas": "probable gas",
         "hypothesis_probable_liquid_hydrocarbons": (
-            "probable liquid hydrocarbons (oil/condensate)"
+            "probable liquid hydrocarbons; oil/condensate type is unconfirmed"
         ),
         "hypothesis_indeterminate": "mixed/indeterminate hydrocarbon show",
         "hypothesis_insufficient_data": (
