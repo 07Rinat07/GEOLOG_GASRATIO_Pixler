@@ -996,3 +996,22 @@ OPUS использует тот же presentation contract, что и стан�
 ```powershell
 python scripts/run_tests.py -q -p no:cacheprovider tests/test_hydrocarbon_fluid_markers.py tests/test_parameter_labels.py tests/test_interpretation_report_charts.py
 ```
+
+
+## WITS-ALARM-01 runtime regression
+
+Alarm-domain, persistence/editor and live-runtime checks can be run together with:
+
+```powershell
+python -m pytest -q -p no:cacheprovider `
+  tests/test_wits0_alarms.py `
+  tests/test_wits0_live_forms.py `
+  tests/test_wits0_alarm_settings_editor.py `
+  tests/test_wits0_live_alarms.py `
+  tests/test_wits0_live_view.py `
+  tests/test_wits0_operator_dashboard.py
+```
+
+The runtime regression specifically guards against debounce advancing on repeated UI refreshes,
+resets pending debounce on a missing relevant sample, preserves active alarms through missing input,
+and verifies acknowledgement without alarm clearing.
