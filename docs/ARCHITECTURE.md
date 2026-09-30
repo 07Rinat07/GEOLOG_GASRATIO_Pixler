@@ -736,3 +736,14 @@ boundary. Later UI/audio/marker layers must consume this state instead of
 implementing a second threshold engine.
 
 Persistence is owned by the WITS live-form settings boundary, not by the alarm evaluator. Schema v4 stores immutable `Wits0SavedAlarmRule` entries keyed by channel mnemonic and reuses `AlarmLimits` validation for min/max, hysteresis and debounce. Per-channel visual/audio policy flags are persisted beside those limits; audio defaults to opt-in while visual indication defaults on. Schema v1–v3 migrate with no configured alarms; malformed v4 rules fail closed. Runtime alarm state and acknowledgement are intentionally not persisted as configuration.
+
+
+### WITS0 alarm settings presentation boundary
+
+`ui/wits0_alarm_settings_editor.py` is a presentation-only editor for the schema-v4
+`Wits0SavedAlarmRule` contract. It owns widget state and a working set of rules, delegates
+threshold validation to the existing domain/persistence model, and exposes immutable saved-rule
+DTOs back to `Wits0LiveViewWidget`. The live view owns form selection/save/reset orchestration.
+The editor does not evaluate samples, acknowledge runtime alarms, play audio, or paint graph
+markers. Those later layers must consume `services/wits0_alarms.py` rather than duplicating
+threshold logic in Qt.
