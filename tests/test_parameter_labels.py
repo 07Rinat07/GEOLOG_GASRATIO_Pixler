@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from geoworkbench.services.localization import AppLanguage
-from geoworkbench.services.parameter_labels import localized_curve_name
+from geoworkbench.services.parameter_labels import (
+    localized_curve_name,
+    localized_curve_reference,
+)
 
 
 def test_legacy_vendor_sensor_codes_are_shown_as_readable_names() -> None:
@@ -98,3 +101,17 @@ def test_reference_normalized_methane_has_readable_report_name() -> None:
         == "Тірек қисығы бойынша нормаланған метан"
     )
 
+
+
+
+def test_report_curve_reference_hides_vendor_mnemonics() -> None:
+    assert localized_curve_reference("S224", language=AppLanguage.RU) == "D-exponent"
+    assert (
+        localized_curve_reference(
+            "server: S1600 | local-calculation: TG_NORM_CALC",
+            language=AppLanguage.RU,
+        )
+        == "Сервер/файл: Общий газ | Локальный расчёт: Расчётный нормализованный общий газ"
+    )
+    assert "S224" not in localized_curve_reference("S224", language=AppLanguage.EN)
+    assert "S224" not in localized_curve_reference("S224", language=AppLanguage.KK)
