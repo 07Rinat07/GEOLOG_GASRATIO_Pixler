@@ -19,7 +19,7 @@ class PresentationRefreshBatch:
 
     @property
     def is_empty(self) -> bool:
-        return self.intents is PresentationRefreshIntent.NONE
+        return self.intents == PresentationRefreshIntent.NONE
 
 
 class PresentationRefreshAccumulator:
