@@ -910,6 +910,19 @@ NaN и ноль, no-op после повторного анализа, ошиб�
 Полный прогон и security gate текущего инкремента пока не завершены.
 
 
+### RPT-QA-01: видимость многостраничных PDF-графиков
+
+Regression для печатного renderer воспроизводит дефект, при котором dense fluid-marker path
+оставлял полупрозрачную белую QPainter brush и следующая страница заливалась ею повторно через
+рамочный drawRect поверх уже нарисованных кривых. Проверяются два контракта: marker renderer
+полностью восстанавливает pen/brush state, а рамка дорожки не заливает содержимое даже при
+наследованной прозрачной кисти.
+
+```powershell
+python scripts/run_tests.py -q -p no:cacheprovider tests/test_hydrocarbon_interpretation_pdf_chart_range.py tests/test_interpretation_report_charts.py
+```
+
+
 ### ARCH-07: общая история редактирования
 
 Первый инкремент проверяет общий chronological stack для Curve Pencil и LAS Header Editor:
