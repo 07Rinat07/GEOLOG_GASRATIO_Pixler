@@ -125,7 +125,7 @@ WITS-MEM-01 келесі бөлігі болып қалады. Windows Qt smoke 
 
 ## Runtime дабыл күйі және растау
 
-Сақталған ережелерді бөлек runtime controller бағалайды. Ол acquisition session ішіндегі әр жаңа append-only DATA_ROW жазбасын ретімен өңдейді, сондықтан бір snapshot-ты қайта refresh жасау debounce-ты өсірмейді және бір drain batch ішіндегі бірнеше өлшем бір есепке біріктірілмейді. Pause тек графикті тоқтатады, ал дабыл мониторингі acquisition session бойынша жалғасады. Арна үшін айқын missing мәні missing input болып саналады, басқа WITS record жолдары бұл арнаның debounce тізбегін үзбейді. Белсенді көрнекі дабыл ағымдағы
+Сақталған ережелерді бөлек runtime controller бағалайды. Ол acquisition session ішіндегі әр жаңа append-only DATA_ROW жазбасын ретімен өңдейді, сондықтан бір snapshot-ты қайта refresh жасау debounce-ты өсірмейді және бір drain batch ішіндегі бірнеше өлшем бір есепке біріктірілмейді. Pause тек графикті тоқтатады, ал дабыл мониторингі acquisition session бойынша жалғасады. Source-арна үшін айқын missing мәні missing input болып саналады, басқа WITS record жолдары бұл арнаның debounce тізбегін үзбейді. Көрсетілетін virtual Haworth/Pixler/DEXP/DEXPC арналары үшін де сол runtime қолданылады: aligned derived value тек қолданыстағы `source-records` provenance ішінде көрсетілген WITS record үшін бағаланады. Белсенді көрнекі дабыл ағымдағы
 мәндер кестесінде және indicator card-та ерекшеленеді. Растау батырмасы белсенді дабылды
 acknowledged күйіне ауыстырады, бірақ оны өшірмейді; дабыл тек hysteresis шекарасынан нақты
 қалпына келу өлшемі өткенде өшеді. Дыбыс пен графиктегі шек маркерлері келесі бөлек
