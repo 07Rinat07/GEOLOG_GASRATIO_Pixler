@@ -92,10 +92,12 @@ read-only каналы. Используется тот же versioned formula r
 
 ## Min/max и сигнализация
 
-Для каждого исходного или расчётного параметра планируется optional min/max, visual alarm,
-audio alarm, hysteresis, debounce/minimum-duration и acknowledgement. Звук можно глобально
-заглушить, не отключая визуальную фиксацию. Повторный звук на каждом sample запрещён: alarm
-срабатывает по переходу состояния и возвращается в normal только с учётом hysteresis.
+Для каждого исходного или расчётного параметра WITS-ALARM-01 использует optional min/max,
+hysteresis, debounce/minimum-duration и acknowledgement через единый state contract. Live-form
+settings schema v4 сохраняет правила по mnemonic канала: min/max, hysteresis и debounce;
+schema v1–v3 мигрируют с пустым набором alarm rules. Runtime acknowledgement и active state
+не сохраняются как конфигурация. Visual/audio alarm, global mute и графические маркеры
+подключаются поверх этого контракта отдельными инкрементами.
 
 ## Ограничения и приёмка
 
@@ -103,8 +105,9 @@ audio alarm, hysteresis, debounce/minimum-duration и acknowledgement. Звук 
 разделяет несовместимые единицы на соседние треки с независимым X-autoscale. Выбор каналов
 сохраняется в workspace по canonical mnemonic, а не по session-local `curve_id`, поэтому
 reconnect/новый Dataset не привязывает восстановление к старым внутренним ID. Schema-v1 с
-`selected_curve_ids` читается только как migration fallback и при следующем сохранении
-переписывается в schema-v2. Ось, auto-follow, pause-view и окно истории также сохраняются;
+`selected_curve_ids` читается как migration fallback; текущая schema-v4 дополнительно хранит
+panel layout, X-ranges и alarm rules. Schema-v1/v2/v3 безопасно мигрируют в v4. Ось, auto-follow,
+pause-view и окно истории также сохраняются;
 временный preview session ID не сохраняется.
 
 Preview хранит не более 2000 последних кадров. Производный transient Dataset, curve arrays,
