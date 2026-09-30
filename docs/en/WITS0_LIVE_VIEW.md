@@ -113,3 +113,8 @@ created. The in-memory tail therefore cannot be silently presented as complete h
 the available raw interval and explicit selection of a later boundary remain the next WITS-MEM-01
 slice. A Windows Qt smoke test and validation with real anonymized GSWITS raw traffic remain
 mandatory.
+
+
+## Parameter alarm settings
+
+The Parameters sidebar includes an editor for alarm rules of channels available in the current live form. For the selected parameter, the operator can independently enable lower and upper limits, set hysteresis, consecutive confirmation samples, and visual/audio policy flags. Apply rule changes the working form setup; cross-session persistence happens only through Save form. Reset removes saved alarm rules together with the form's other user overrides. Runtime active/acknowledged alarm state is not persisted in schema v4.
