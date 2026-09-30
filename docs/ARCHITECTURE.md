@@ -390,6 +390,16 @@ undo/redo stacks до первой mutation. Если файловый эксп�
 подменённая кривая по-прежнему fail-closed. `create_copy()` намеренно остаётся отдельным
 derived-dataset workflow и не маскируется как in-place edit.
 
+Шестой инкремент переводит `LithologyController`. Add/Update/Delete записываются в общий
+history как bounded callback commands. Команда хранит только один изменяемый
+`LithologyInterval` и связанные ключи translation tracking: description status/source,
+depth/lithotype dependency revisions, language revisions и content revision. Полная коллекция
+литологии и весь Well не копируются. Undo/Redo сначала сравнивает фактический interval и sidecars
+с ожидаемым состоянием, проверяет overlap при восстановлении и только затем применяет mutation;
+внешнее изменение остаётся fail-closed. Identity объекта интервала сохраняется через весь цикл
+Add → Undo → Redo и Update/Remove.
+
+
 Глобальные действия MainWindow маршрутизируют верхнюю команду к контроллеру соответствующего
 домена, чтобы curve undo продолжал выполнять dependency recalculation, header undo — snapshot
 conflict check, curve-metadata undo — dataset identity/metadata/value/order checks, curve-transfer

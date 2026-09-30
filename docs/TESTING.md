@@ -930,8 +930,10 @@ rollback regression проверяет, что неуспешный merge не �
 существовавшую до операции redo-ветку. Пятый инкремент добавляет in-place External LAS Insert:
 проверяются shared-history injection, несколько последовательных вставок, domain-safe локальный
 Undo, factual metadata/value conflict guard, Undo после полностью отменённой Curve Pencil правки и
-global MainWindow routing.
+global MainWindow routing. Шестой инкремент добавляет Lithology Add/Update/Delete: проверяются
+многошаговый chronological Undo/Redo, сохранение identity интервала, translation-tracking
+sidecars, domain-safe local undo, fail-closed внешний конфликт и global MainWindow routing.
 
 ```powershell
-python scripts/run_tests.py -q -p no:cacheprovider tests/test_edit_history.py tests/test_curve_editing_controller.py tests/test_header_editing_controller.py tests/test_curve_metadata_controller.py tests/test_curve_transfer_controller.py tests/test_dataset_merge_controller.py tests/test_external_las_insert_controller.py tests/test_main_window.py
+python scripts/run_tests.py -q -p no:cacheprovider tests/test_edit_history.py tests/test_curve_editing_controller.py tests/test_header_editing_controller.py tests/test_curve_metadata_controller.py tests/test_curve_transfer_controller.py tests/test_dataset_merge_controller.py tests/test_external_las_insert_controller.py tests/test_lithology_controller.py tests/test_main_window.py
 ```
