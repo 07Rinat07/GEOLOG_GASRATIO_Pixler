@@ -1074,7 +1074,7 @@ def wits0_source_record_no(source: str) -> int | None:
     return _parse_source_metadata(source).record_no
 
 
-def wits0wits0_virtual_source_record_numbers(provenance: str) -> frozenset[int]:
+def wits0_virtual_source_record_numbers(provenance: str) -> frozenset[int]:
     """Extract allowlisted WITS source record numbers from derived provenance."""
 
     prefix = "source-records="
