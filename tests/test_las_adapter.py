@@ -191,6 +191,7 @@ def test_import_las_performance_event_includes_phase_rss_snapshots(
     assert context["rss_report_bytes"] == 220
     assert context["peak_rss_bytes"] == 270
 
+
 def test_import_las_with_report_captures_source_and_depth_diagnostics(
     tmp_path, monkeypatch
 ) -> None:
