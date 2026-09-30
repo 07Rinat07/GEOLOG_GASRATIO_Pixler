@@ -9,6 +9,7 @@ from geoworkbench.acquisition.wits0_live_forms import (
     CUSTOM_LIVE_FORM_ID,
     WITS0_LIVE_FORM_STATE_SCHEMA_VERSION,
     Wits0LiveFormSettings,
+    Wits0SavedAlarmRule,
     Wits0SavedLiveFormState,
     live_channel_key,
     live_form_definitions,
@@ -232,6 +233,21 @@ def test_live_form_settings_roundtrip_operator_overrides_by_mnemonic() -> None:
             ("gas_components|ppm", 0.0, 500.0),
             ("gas_components|%", 0.0, 5.0),
         ),
+        alarm_rules=(
+            Wits0SavedAlarmRule(
+                mnemonic="SPP",
+                minimum=50.0,
+                maximum=350.0,
+                hysteresis=5.0,
+                debounce_samples=3,
+            ),
+            Wits0SavedAlarmRule(
+                mnemonic="H2S",
+                maximum=10.0,
+                hysteresis=1.0,
+                debounce_samples=2,
+            ),
+        ),
     )
 
     settings.save(state)
@@ -268,6 +284,7 @@ def test_live_form_settings_migrate_schema_v1_without_panel_overrides() -> None:
     assert migrated.panel_order == ()
     assert migrated.hidden_panel_ids == ()
     assert migrated.panel_x_ranges == ()
+    assert migrated.alarm_rules == ()
 
 
 def test_live_form_settings_migrate_schema_v2_without_x_ranges() -> None:
@@ -298,6 +315,77 @@ def test_live_form_settings_migrate_schema_v2_without_x_ranges() -> None:
     assert migrated.panel_order == ("gas_total", "gas_components")
     assert migrated.hidden_panel_ids == ("gas_total",)
     assert migrated.panel_x_ranges == ()
+    assert migrated.alarm_rules == ()
+
+
+def test_live_form_settings_migrate_schema_v3_without_alarm_rules() -> None:
+    storage = _MemorySettings()
+    settings = Wits0LiveFormSettings(storage)
+    storage.setValue(
+        "wits0/live-forms/gas",
+        json.dumps(
+            {
+                "form_id": "gas",
+                "selected_mnemonics": ["TG", "C1"],
+                "axis_mode": "time",
+                "auto_follow": True,
+                "follow_span": 600.0,
+                "max_points": 2000,
+                "sidebar_visible": True,
+                "panel_order": ["gas_total", "gas_components"],
+                "hidden_panel_ids": [],
+                "panel_x_ranges": [["gas_components|ppm", 0.0, 500.0]],
+                "schema_version": 3,
+            }
+        ),
+    )
+
+    migrated = settings.load("gas")
+
+    assert migrated is not None
+    assert migrated.schema_version == WITS0_LIVE_FORM_STATE_SCHEMA_VERSION
+    assert migrated.panel_x_ranges == (("gas_components|ppm", 0.0, 500.0),)
+    assert migrated.alarm_rules == ()
+
+
+def test_live_form_state_rejects_invalid_and_duplicate_alarm_rules() -> None:
+    with pytest.raises(ValueError, match="at least one alarm limit"):
+        Wits0SavedAlarmRule(mnemonic="SPP")
+
+    with pytest.raises(ValueError, match="duplicates"):
+        Wits0SavedLiveFormState(
+            form_id="drilling",
+            alarm_rules=(
+                Wits0SavedAlarmRule(mnemonic="SPP", maximum=300.0),
+                Wits0SavedAlarmRule(mnemonic="spp", maximum=350.0),
+            ),
+        )
+
+
+def test_live_form_settings_fail_closed_on_malformed_alarm_rule() -> None:
+    storage = _MemorySettings()
+    settings = Wits0LiveFormSettings(storage)
+    storage.setValue(
+        "wits0/live-forms/drilling",
+        json.dumps(
+            {
+                "form_id": "drilling",
+                "selected_mnemonics": ["SPP"],
+                "alarm_rules": [
+                    {
+                        "mnemonic": "SPP",
+                        "minimum": 400.0,
+                        "maximum": 300.0,
+                        "hysteresis": 1.0,
+                        "debounce_samples": 2,
+                    }
+                ],
+                "schema_version": WITS0_LIVE_FORM_STATE_SCHEMA_VERSION,
+            }
+        ),
+    )
+
+    assert settings.load("drilling") is None
 
 
 def test_live_form_state_rejects_invalid_panel_x_range() -> None:
