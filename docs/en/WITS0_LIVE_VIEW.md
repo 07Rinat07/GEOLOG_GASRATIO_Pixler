@@ -87,18 +87,20 @@ the actual event coordinate.
 
 ## Min/max alarms
 
-WITS-ALARM-01 defines optional per-channel min/max, visual/audio enable flags, hysteresis,
-debounce/minimum-duration, acknowledgement and global mute. An alarm is parameter supervision,
-not a geological conclusion. Sound is emitted on state transition rather than on every sample.
+WITS-ALARM-01 defines one state contract for optional per-channel min/max, hysteresis,
+debounce/minimum-duration and acknowledgement. Live-form settings schema v4 persists alarm rules
+by channel mnemonic with min/max, hysteresis, debounce, visual-enabled and audio-enabled; schema v1–v3 migrate safely with an
+empty alarm set. Runtime acknowledgement and active state are not persisted as configuration.
+Visual/audio policy, global mute and plot markers are follow-up layers over the same contract.
 
 ## Limitations and acceptance
 
 The operator dashboard groups compatible channels into engineering panels and automatically splits
 incompatible units into adjacent tracks with independent X autoscaling. Workspace channel selection
 is persisted by canonical mnemonic rather than session-local `curve_id`, so reconnect or a new
-Dataset does not depend on stale internal IDs. Schema-v1 `selected_curve_ids` are accepted only as
-a migration fallback and are rewritten as schema-v2 on the next save. Axis, auto-follow,
-pause-view, and history-window settings persist as before.
+Dataset does not depend on stale internal IDs. Schema-v1 `selected_curve_ids` are accepted as a migration fallback; current schema-v4 also
+persists panel layout, X ranges and alarm rules. Schema v1/v2/v3 migrate safely to v4. Axis,
+auto-follow, pause-view, and history-window settings persist as before.
 
 The transient LIVE PREVIEW keeps at most the latest 2000 frames. Its derived Dataset, curve arrays,
 preview-session records, and record-id index are bounded as well: when the upper threshold is

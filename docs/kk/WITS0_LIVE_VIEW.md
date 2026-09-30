@@ -88,9 +88,12 @@ density мәнін енгізіп, ppg, kg/m3 немесе g/cm3 бірлігі�
 
 ## Min/max дабылдары
 
-WITS-ALARM-01 әр арнаға optional min/max, visual/audio enable, hysteresis, debounce/minimum-duration,
-acknowledgement және global mute береді. Alarm — параметрді бақылау құралы, геологиялық қорытынды
-емес. Дыбыс әр sample сайын емес, күй ауысқанда ғана беріледі.
+WITS-ALARM-01 әр арнаға optional min/max, hysteresis, debounce/minimum-duration және
+acknowledgement үшін бірыңғай state contract береді. Live-form settings schema v4 alarm rules-ты
+арна mnemonic-і бойынша сақтайды: min/max, hysteresis, debounce, visual-enabled және audio-enabled; schema v1–v3 бос alarm
+жиынымен қауіпсіз көшіріледі. Runtime acknowledgement және active state конфигурация ретінде
+сақталмайды. Visual/audio policy, global mute және график маркерлері кейінгі бөлек инкременттерде
+осы contract үстіне қосылады.
 
 ## Шектеулер және қабылдау
 
@@ -98,9 +101,9 @@ acknowledgement және global mute береді. Alarm — параметрд�
 үйлеспейтін арналарды тәуелсіз X-autoscale бар көршілес тректерге автоматты түрде бөледі.
 Арна таңдауы workspace ішінде session-local `curve_id` емес, canonical mnemonic бойынша
 сақталады. Сондықтан reconnect немесе жаңа Dataset кезінде ескі ішкі ID-ге тәуелділік жоқ.
-Schema-v1 ішіндегі `selected_curve_ids` тек migration fallback ретінде оқылады және келесі сақтау
-кезінде schema-v2 форматына қайта жазылады. Ось, auto-follow, pause-view және history-window
-параметрлері де workspace ішінде сақталады.
+Schema-v1 ішіндегі `selected_curve_ids` migration fallback ретінде оқылады; ағымдағы schema-v4
+panel layout, X-ranges және alarm rules-ты да сақтайды. Schema-v1/v2/v3 v4-ке қауіпсіз көшіріледі.
+Ось, auto-follow, pause-view және history-window параметрлері де workspace ішінде сақталады.
 
 Transient LIVE PREVIEW ең соңғы 2000 кадрды ғана сақтайды. Оның туынды Dataset, curve arrays,
 preview-session records және record-id index құрылымдары да bounded: жоғарғы шекке жеткенде

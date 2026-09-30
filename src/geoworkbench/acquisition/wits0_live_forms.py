@@ -7,11 +7,12 @@ import math
 from typing import Protocol
 
 from geoworkbench.catalogs.sensors import normalize_sensor_key
+from geoworkbench.services.wits0_alarms import AlarmLimits
 
 
 CUSTOM_LIVE_FORM_ID = "custom"
 UNIVERSAL_LIVE_FORM_ID = "universal"
-WITS0_LIVE_FORM_STATE_SCHEMA_VERSION = 3
+WITS0_LIVE_FORM_STATE_SCHEMA_VERSION = 4
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +47,33 @@ class Wits0LiveFormDefinition:
 
 
 @dataclass(frozen=True, slots=True)
+class Wits0SavedAlarmRule:
+    """Persisted threshold policy for one WITS live channel."""
+
+    mnemonic: str
+    minimum: float | None = None
+    maximum: float | None = None
+    hysteresis: float = 0.0
+    debounce_samples: int = 1
+    visual_enabled: bool = True
+    audio_enabled: bool = False
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.mnemonic, str) or not self.mnemonic.strip():
+            raise ValueError("alarm mnemonic must be a non-empty string")
+        if not isinstance(self.visual_enabled, bool) or not isinstance(
+            self.audio_enabled, bool
+        ):
+            raise ValueError("alarm visual/audio flags must be booleans")
+        AlarmLimits(
+            minimum=self.minimum,
+            maximum=self.maximum,
+            hysteresis=self.hysteresis,
+            debounce_samples=self.debounce_samples,
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class Wits0SavedLiveFormState:
     """Persisted operator overrides for one named WITS live form."""
 
@@ -59,6 +87,7 @@ class Wits0SavedLiveFormState:
     panel_order: tuple[str, ...] = ()
     hidden_panel_ids: tuple[str, ...] = ()
     panel_x_ranges: tuple[tuple[str, float, float], ...] = ()
+    alarm_rules: tuple[Wits0SavedAlarmRule, ...] = ()
     schema_version: int = WITS0_LIVE_FORM_STATE_SCHEMA_VERSION
 
     def __post_init__(self) -> None:
@@ -105,6 +134,21 @@ class Wits0SavedLiveFormState:
             scale_keys.append(scale_key)
         if len(set(scale_keys)) != len(scale_keys):
             raise ValueError("panel_x_ranges keys must not contain duplicates")
+        if not all(isinstance(rule, Wits0SavedAlarmRule) for rule in self.alarm_rules):
+            raise ValueError("alarm_rules must contain saved alarm rules")
+        alarm_keys = [normalize_sensor_key(rule.mnemonic) for rule in self.alarm_rules]
+        if any(not key for key in alarm_keys):
+            raise ValueError("alarm_rules must contain valid mnemonics")
+        if len(set(alarm_keys)) != len(alarm_keys):
+            raise ValueError("alarm_rules mnemonics must not contain duplicates")
+
+
+def _optional_float(value: object) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError("alarm limit must be numeric or null")
+    return float(value)
 
 
 class _SettingsLike(Protocol):
@@ -138,6 +182,7 @@ class Wits0LiveFormSettings:
             if schema_version not in {
                 1,
                 2,
+                3,
                 WITS0_LIVE_FORM_STATE_SCHEMA_VERSION,
             }:
                 return None
@@ -145,6 +190,7 @@ class Wits0LiveFormSettings:
             panel_order = payload.get("panel_order", [])
             hidden_panel_ids = payload.get("hidden_panel_ids", [])
             panel_x_ranges = payload.get("panel_x_ranges", [])
+            alarm_rules = payload.get("alarm_rules", [])
             for values in (selected, panel_order, hidden_panel_ids):
                 if not isinstance(values, list) or not all(
                     isinstance(item, str) for item in values
@@ -162,6 +208,27 @@ class Wits0LiveFormSettings:
                 parsed_ranges.append(
                     (scale_key, float(minimum), float(maximum))
                 )
+            if not isinstance(alarm_rules, list):
+                return None
+            parsed_alarm_rules: list[Wits0SavedAlarmRule] = []
+            if schema_version >= 4:
+                for entry in alarm_rules:
+                    if not isinstance(entry, dict):
+                        return None
+                    mnemonic = entry.get("mnemonic")
+                    if not isinstance(mnemonic, str):
+                        return None
+                    parsed_alarm_rules.append(
+                        Wits0SavedAlarmRule(
+                            mnemonic=mnemonic,
+                            minimum=_optional_float(entry.get("minimum")),
+                            maximum=_optional_float(entry.get("maximum")),
+                            hysteresis=float(entry.get("hysteresis", 0.0)),
+                            debounce_samples=int(entry.get("debounce_samples", 1)),
+                            visual_enabled=entry.get("visual_enabled", True),
+                            audio_enabled=entry.get("audio_enabled", False),
+                        )
+                    )
             return Wits0SavedLiveFormState(
                 form_id=str(payload.get("form_id", form_id)),
                 selected_mnemonics=tuple(selected),
@@ -182,8 +249,12 @@ class Wits0LiveFormSettings:
                 ),
                 panel_x_ranges=(
                     tuple(parsed_ranges)
-                    if schema_version
-                    == WITS0_LIVE_FORM_STATE_SCHEMA_VERSION
+                    if schema_version >= 3
+                    else ()
+                ),
+                alarm_rules=(
+                    tuple(parsed_alarm_rules)
+                    if schema_version >= 4
                     else ()
                 ),
                 schema_version=WITS0_LIVE_FORM_STATE_SCHEMA_VERSION,
