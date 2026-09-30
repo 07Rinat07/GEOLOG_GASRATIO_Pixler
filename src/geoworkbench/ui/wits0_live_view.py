@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QSettings, Qt, Signal
 from PySide6.QtGui import QBrush, QColor, QResizeEvent
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QApplication,
     QCheckBox,
     QComboBox,
     QDoubleSpinBox,
@@ -28,6 +30,8 @@ from PySide6.QtWidgets import (
 from geoworkbench.services.acquisition_live_view import (
     AcquisitionLiveAxisMode,
     AcquisitionLiveHealth,
+    AcquisitionLiveMarker,
+    AcquisitionLiveMarkerKind,
     AcquisitionLiveQuality,
     AcquisitionLiveSnapshot,
     AcquisitionLiveView,
@@ -39,9 +43,11 @@ from geoworkbench.services.wits0_live_derived import (
     Wits0DexpCorrectionConfig,
     Wits0LiveDerivedChannelService,
 )
+from geoworkbench.services.wits0_alarms import AlarmTransition
 from geoworkbench.acquisition.wits0_reliability import Wits0WorkspaceState
 from geoworkbench.acquisition.wits0_live_alarms import (
     Wits0LiveAlarmController,
+    Wits0LiveAlarmEvent,
     Wits0LiveAlarmStatus,
 )
 from geoworkbench.acquisition.wits0_live_forms import (
@@ -711,6 +717,7 @@ class Wits0LiveViewWidget(QWidget):
             dataset_row_count=len(view.dataset.depth),
         )
         self._last_alarm_statuses = alarm_statuses
+        self._emit_alarm_audio(self._alarm_controller.latest_events)
         if not force and snapshot.revision == self._last_revision:
             self._render_current_values(snapshot, alarm_statuses)
             self._render_alarm_summary(alarm_statuses)
@@ -1220,6 +1227,12 @@ class Wits0LiveViewWidget(QWidget):
         snapshot: AcquisitionLiveSnapshot,
         alarm_statuses: tuple[Wits0LiveAlarmStatus, ...],
     ) -> None:
+        alarm_markers = self._alarm_markers(snapshot)
+        if alarm_markers:
+            snapshot = replace(
+                snapshot,
+                markers=(*snapshot.markers, *alarm_markers),
+            )
         self._last_plot_rendered_points = snapshot.rendered_point_count
         self._updating_plot_range = True
         try:
@@ -1271,6 +1284,66 @@ class Wits0LiveViewWidget(QWidget):
                 markers=len(snapshot.markers),
             )
         )
+
+    def _emit_alarm_audio(
+        self,
+        events: tuple[Wits0LiveAlarmEvent, ...],
+    ) -> None:
+        if any(
+            event.transition is AlarmTransition.ACTIVATED
+            and event.audio_enabled
+            for event in events
+        ):
+            QApplication.beep()
+
+    def _alarm_markers(
+        self,
+        snapshot: AcquisitionLiveSnapshot,
+    ) -> tuple[AcquisitionLiveMarker, ...]:
+        view = self._view
+        if view is None or snapshot.window_start is None or snapshot.window_end is None:
+            return ()
+
+        visible_curve_ids = {series.curve_id for series in snapshot.series}
+        available = max(0, view.config.max_markers - len(snapshot.markers))
+        if not visible_curve_ids or available <= 0:
+            return ()
+
+        candidates: list[AcquisitionLiveMarker] = []
+        for event in self._alarm_controller.event_history:
+            if (
+                not event.visual_enabled
+                or event.curve_id not in visible_curve_ids
+                or event.row_index >= snapshot.visible_row_count
+            ):
+                continue
+            axis_value = view.axis_value_for_row(event.row_index)
+            if (
+                axis_value is None
+                or axis_value < snapshot.window_start
+                or axis_value > snapshot.window_end
+            ):
+                continue
+            activated = event.transition is AlarmTransition.ACTIVATED
+            candidates.append(
+                AcquisitionLiveMarker(
+                    kind=AcquisitionLiveMarkerKind.THRESHOLD_ALARM,
+                    axis_start=axis_value,
+                    axis_end=None,
+                    row_start=event.row_index,
+                    row_end=event.row_index,
+                    record_sequence=event.record_sequence,
+                    curve_id=event.curve_id,
+                    code=(
+                        f"alarm_{event.side.value}_"
+                        f"{event.transition.value}"
+                    ),
+                    label=_alarm_event_text(self._language, event),
+                    display_color="#dc2626" if activated else "#15803d",
+                    show_label=activated,
+                )
+            )
+        return tuple(candidates[-available:])
 
     def _render_current_values(
         self,
@@ -1648,6 +1721,11 @@ def _operator_text(language: AppLanguage, key: str) -> str:
             "alarm_ack": "подтверждено",
             "alarm_high": "выше максимума",
             "alarm_low": "ниже минимума",
+            "alarm_event_activated": "активирована",
+            "alarm_event_cleared": "снята",
+            "alarm_limit_high": "верхний порог",
+            "alarm_limit_low": "нижний порог",
+            "alarm_event_label": "{mnemonic}: тревога {transition}, {side}; значение {value}, порог {threshold}",
         },
         AppLanguage.KK: {
             "save_form": "Пішінді сақтау",
@@ -1680,6 +1758,11 @@ def _operator_text(language: AppLanguage, key: str) -> str:
             "alarm_ack": "расталды",
             "alarm_high": "максимумнан жоғары",
             "alarm_low": "минимумнан төмен",
+            "alarm_event_activated": "іске қосылды",
+            "alarm_event_cleared": "сөндірілді",
+            "alarm_limit_high": "жоғарғы шек",
+            "alarm_limit_low": "төменгі шек",
+            "alarm_event_label": "{mnemonic}: дабыл {transition}, {side}; мәні {value}, шегі {threshold}",
         },
         AppLanguage.EN: {
             "save_form": "Save form",
@@ -1712,9 +1795,37 @@ def _operator_text(language: AppLanguage, key: str) -> str:
             "alarm_ack": "acknowledged",
             "alarm_high": "above maximum",
             "alarm_low": "below minimum",
+            "alarm_event_activated": "activated",
+            "alarm_event_cleared": "cleared",
+            "alarm_limit_high": "upper limit",
+            "alarm_limit_low": "lower limit",
+            "alarm_event_label": "{mnemonic}: alarm {transition}, {side}; value {value}, threshold {threshold}",
         },
     }
     return translations.get(language, translations[AppLanguage.EN]).get(key, key)
+
+
+def _alarm_event_text(
+    language: AppLanguage,
+    event: Wits0LiveAlarmEvent,
+) -> str:
+    transition_key = (
+        "alarm_event_activated"
+        if event.transition is AlarmTransition.ACTIVATED
+        else "alarm_event_cleared"
+    )
+    side_key = (
+        "alarm_limit_high"
+        if event.side.value == "high"
+        else "alarm_limit_low"
+    )
+    return _operator_text(language, "alarm_event_label").format(
+        mnemonic=event.mnemonic,
+        transition=_operator_text(language, transition_key),
+        side=_operator_text(language, side_key),
+        value=f"{event.value:g}",
+        threshold=f"{event.threshold:g}",
+    )
 
 
 def _alarm_status_text(
