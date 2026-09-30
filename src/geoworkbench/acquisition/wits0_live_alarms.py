@@ -51,6 +51,8 @@ class Wits0LiveAlarmController:
         self._rules: dict[str, Wits0SavedAlarmRule] = {}
         self._states: dict[str, AlarmState] = {}
         self._last_tokens: dict[str, tuple[object, ...]] = {}
+        self._state_rule_keys: dict[str, str] = {}
+        self._state_rules: dict[str, Wits0SavedAlarmRule] = {}
 
     def set_rules(self, rules: Iterable[Wits0SavedAlarmRule]) -> None:
         materialized = tuple(rules)
@@ -62,24 +64,39 @@ class Wits0LiveAlarmController:
         if len(updated) != len(materialized):
             raise ValueError("alarm rules must have unique valid mnemonics")
 
-        preserved_states: dict[str, AlarmState] = {}
-        preserved_tokens: dict[str, tuple[object, ...]] = {}
-        for key, rule in updated.items():
-            if self._rules.get(key) != rule:
-                continue
-            if key in self._states:
-                preserved_states[key] = self._states[key]
-            if key in self._last_tokens:
-                preserved_tokens[key] = self._last_tokens[key]
-
+        preserved_curve_ids = {
+            curve_id
+            for curve_id, key in self._state_rule_keys.items()
+            if key in updated and self._state_rules.get(curve_id) == updated[key]
+        }
         self._rules = updated
-        self._states = preserved_states
-        self._last_tokens = preserved_tokens
+        self._states = {
+            curve_id: state
+            for curve_id, state in self._states.items()
+            if curve_id in preserved_curve_ids
+        }
+        self._last_tokens = {
+            curve_id: token
+            for curve_id, token in self._last_tokens.items()
+            if curve_id in preserved_curve_ids
+        }
+        self._state_rule_keys = {
+            curve_id: key
+            for curve_id, key in self._state_rule_keys.items()
+            if curve_id in preserved_curve_ids
+        }
+        self._state_rules = {
+            curve_id: rule
+            for curve_id, rule in self._state_rules.items()
+            if curve_id in preserved_curve_ids
+        }
 
     def clear(self) -> None:
         self._rules.clear()
         self._states.clear()
         self._last_tokens.clear()
+        self._state_rule_keys.clear()
+        self._state_rules.clear()
 
     def evaluate(
         self,
@@ -92,17 +109,27 @@ class Wits0LiveAlarmController:
             if rule is None:
                 continue
 
-            state = self._states.get(key, AlarmState())
+            curve_id = item.curve_id
+            if (
+                self._state_rule_keys.get(curve_id) != key
+                or self._state_rules.get(curve_id) != rule
+            ):
+                self._states.pop(curve_id, None)
+                self._last_tokens.pop(curve_id, None)
+            self._state_rule_keys[curve_id] = key
+            self._state_rules[curve_id] = rule
+
+            state = self._states.get(curve_id, AlarmState())
             transition = AlarmTransition.NONE
             event = _evaluation_event(item)
             if event is not None:
                 token, sample = event
-                if self._last_tokens.get(key) != token:
+                if self._last_tokens.get(curve_id) != token:
                     evaluation = evaluate_alarm(_limits(rule), state, sample)
                     state = evaluation.state
                     transition = evaluation.transition
-                    self._states[key] = state
-                    self._last_tokens[key] = token
+                    self._states[curve_id] = state
+                    self._last_tokens[curve_id] = token
 
             statuses.append(
                 Wits0LiveAlarmStatus(
@@ -117,24 +144,26 @@ class Wits0LiveAlarmController:
             )
         return tuple(statuses)
 
-    def acknowledge(self, mnemonic: str) -> bool:
+    def acknowledge(self, mnemonic: str) -> int:
         key = normalize_sensor_key(mnemonic)
-        state = self._states.get(key)
-        if state is None:
-            return False
-        evaluation = acknowledge_alarm(state)
-        if evaluation.transition is not AlarmTransition.ACKNOWLEDGED:
-            return False
-        self._states[key] = evaluation.state
-        return True
-
-    def acknowledge_all(self) -> int:
         count = 0
-        for key, state in tuple(self._states.items()):
+        for curve_id, state in tuple(self._states.items()):
+            if self._state_rule_keys.get(curve_id) != key:
+                continue
             evaluation = acknowledge_alarm(state)
             if evaluation.transition is not AlarmTransition.ACKNOWLEDGED:
                 continue
-            self._states[key] = evaluation.state
+            self._states[curve_id] = evaluation.state
+            count += 1
+        return count
+
+    def acknowledge_all(self) -> int:
+        count = 0
+        for curve_id, state in tuple(self._states.items()):
+            evaluation = acknowledge_alarm(state)
+            if evaluation.transition is not AlarmTransition.ACKNOWLEDGED:
+                continue
+            self._states[curve_id] = evaluation.state
             count += 1
         return count
 
