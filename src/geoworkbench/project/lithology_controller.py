@@ -3,6 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 from dataclasses import dataclass, field, fields
 from functools import partial
+from typing import Callable
 
 import numpy as np
 
@@ -382,15 +383,15 @@ class LithologyController:
         self,
         *,
         description: str,
-        undo_action: object,
-        redo_action: object,
+        undo_action: Callable[[], None],
+        redo_action: Callable[[], None],
     ) -> None:
         self._history.record_applied(
             CallbackCommand(
                 description=description,
                 history_domain=self._HISTORY_DOMAIN,
-                execute_action=redo_action,  # type: ignore[arg-type]
-                undo_action=undo_action,  # type: ignore[arg-type]
+                execute_action=redo_action,
+                undo_action=undo_action,
             )
         )
 
@@ -500,21 +501,23 @@ class LithologyController:
         )
         description_id = field_ids[0]
         return _LithologyTrackingSnapshot(
-            translation_statuses={
-                description_id: deepcopy(well.translation_statuses[description_id])
-                for _ in (0,)
+            translation_statuses=(
+                {description_id: deepcopy(well.translation_statuses[description_id])}
                 if description_id in well.translation_statuses
-            },
+                else {}
+            ),
             authored_field_revisions={
                 key: well.authored_field_revisions[key]
                 for key in field_ids
                 if key in well.authored_field_revisions
             },
-            authored_field_source_languages={
-                description_id: well.authored_field_source_languages[description_id]
-                for _ in (0,)
+            authored_field_source_languages=(
+                {
+                    description_id: well.authored_field_source_languages[description_id]
+                }
                 if description_id in well.authored_field_source_languages
-            },
+                else {}
+            ),
             language_revisions=dict(well.language_revisions),
             content_revision=well.content_revision,
         )
