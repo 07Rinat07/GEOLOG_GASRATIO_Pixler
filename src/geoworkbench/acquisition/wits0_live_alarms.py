@@ -271,19 +271,18 @@ class Wits0LiveAlarmController:
                     self._states[curve_id] = evaluation.state
                     if evaluation.transition is not AlarmTransition.NONE:
                         transitions[curve_id] = evaluation.transition
-                    event = _threshold_event(
-                        curve_id=curve_id,
-                        mnemonic=_item.mnemonic,
-                        rule=rule,
-                        previous_state=previous_state,
-                        state=evaluation.state,
-                        transition=evaluation.transition,
-                        row_index=data_row_index,
-                        record_sequence=record.sequence,
-                        sample=sample,
+                    new_events.extend(
+                        _threshold_events(
+                            curve_id=curve_id,
+                            mnemonic=_item.mnemonic,
+                            rule=rule,
+                            previous_state=previous_state,
+                            state=evaluation.state,
+                            row_index=data_row_index,
+                            record_sequence=record.sequence,
+                            sample=sample,
+                        )
                     )
-                    if event is not None:
-                        new_events.append(event)
                 data_row_index += 1
 
             if data_row_index != dataset_row_count:
@@ -347,29 +346,81 @@ class Wits0LiveAlarmController:
         return count
 
 
-def _threshold_event(
+def _threshold_events(
     *,
     curve_id: str,
     mnemonic: str,
     rule: Wits0SavedAlarmRule,
     previous_state: AlarmState,
     state: AlarmState,
-    transition: AlarmTransition,
     row_index: int,
     record_sequence: int,
     sample: float | None,
-) -> Wits0LiveAlarmEvent | None:
-    if transition is AlarmTransition.ACTIVATED:
-        side = state.active_side
-    elif transition is AlarmTransition.CLEARED:
-        side = previous_state.active_side
-    else:
-        return None
-    if side is None or sample is None or not isfinite(float(sample)):
-        return None
-    threshold = rule.minimum if side is AlarmSide.LOW else rule.maximum
-    if threshold is None:
-        return None
+) -> tuple[Wits0LiveAlarmEvent, ...]:
+    if sample is None or not isfinite(float(sample)):
+        return ()
+
+    events: list[Wits0LiveAlarmEvent] = []
+    previous_side = previous_state.active_side
+    current_side = state.active_side
+
+    if previous_side is not None and previous_side is not current_side:
+        threshold = (
+            rule.minimum
+            if previous_side is AlarmSide.LOW
+            else rule.maximum
+        )
+        if threshold is not None:
+            events.append(
+                _make_threshold_event(
+                    curve_id=curve_id,
+                    mnemonic=mnemonic,
+                    rule=rule,
+                    transition=AlarmTransition.CLEARED,
+                    side=previous_side,
+                    row_index=row_index,
+                    record_sequence=record_sequence,
+                    sample=float(sample),
+                    threshold=float(threshold),
+                )
+            )
+
+    if current_side is not None and current_side is not previous_side:
+        threshold = (
+            rule.minimum
+            if current_side is AlarmSide.LOW
+            else rule.maximum
+        )
+        if threshold is not None:
+            events.append(
+                _make_threshold_event(
+                    curve_id=curve_id,
+                    mnemonic=mnemonic,
+                    rule=rule,
+                    transition=AlarmTransition.ACTIVATED,
+                    side=current_side,
+                    row_index=row_index,
+                    record_sequence=record_sequence,
+                    sample=float(sample),
+                    threshold=float(threshold),
+                )
+            )
+
+    return tuple(events)
+
+
+def _make_threshold_event(
+    *,
+    curve_id: str,
+    mnemonic: str,
+    rule: Wits0SavedAlarmRule,
+    transition: AlarmTransition,
+    side: AlarmSide,
+    row_index: int,
+    record_sequence: int,
+    sample: float,
+    threshold: float,
+) -> Wits0LiveAlarmEvent:
     return Wits0LiveAlarmEvent(
         curve_id=curve_id,
         mnemonic=mnemonic,
@@ -377,12 +428,11 @@ def _threshold_event(
         side=side,
         row_index=row_index,
         record_sequence=record_sequence,
-        value=float(sample),
-        threshold=float(threshold),
+        value=sample,
+        threshold=threshold,
         visual_enabled=rule.visual_enabled,
         audio_enabled=rule.audio_enabled,
     )
-
 
 def _sample_from_data_row(
     curve_id: str,
