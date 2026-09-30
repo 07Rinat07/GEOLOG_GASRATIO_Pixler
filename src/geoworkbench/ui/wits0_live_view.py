@@ -43,7 +43,6 @@ from geoworkbench.acquisition.wits0_reliability import Wits0WorkspaceState
 from geoworkbench.acquisition.wits0_live_forms import (
     UNIVERSAL_LIVE_FORM_ID,
     Wits0LiveFormSettings,
-    Wits0SavedAlarmRule,
     Wits0SavedLiveFormState,
     live_curve_priority,
     live_form,
