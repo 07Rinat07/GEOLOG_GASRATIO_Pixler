@@ -94,7 +94,7 @@ read-only каналы. Используется тот же versioned formula r
 
 Для каждого исходного или расчётного параметра WITS-ALARM-01 использует optional min/max,
 hysteresis, debounce/minimum-duration и acknowledgement через единый state contract. Live-form
-settings schema v4 сохраняет правила по mnemonic канала: min/max, hysteresis и debounce;
+settings schema v4 сохраняет правила по mnemonic канала: min/max, hysteresis, debounce, visual-enabled и audio-enabled;
 schema v1–v3 мигрируют с пустым набором alarm rules. Runtime acknowledgement и active state
 не сохраняются как конфигурация. Visual/audio alarm, global mute и графические маркеры
 подключаются поверх этого контракта отдельными инкрементами.
