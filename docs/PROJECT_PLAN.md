@@ -1257,11 +1257,15 @@ WELL-04 уже имеет field-level статусы и readiness; WELL-05 — f
   stack semantics и listener projection для UI; Curve Pencil и LAS Header Editor используют
   один хронологический стек. Второй инкремент подключает `CurveMetadataController`: rename/
   unit/description, создание и удаление пользовательских кривых входят в тот же chronological
-  stack через typed callback adapter без ослабления existing conflict checks. Глобальный
-  Ctrl+Z/Ctrl+Shift+Z отменяет фактически последнее изменение между тремя доменами; локальные
-  Curve Pencil, Header Editor и Data Inspector controls остаются domain-safe и не перескакивают
-  через более новую команду другого типа. Следующие инкременты переводят остальные project
-  mutation controllers в тот же history boundary и добавляют savepoint/dirty revision semantics.
+  stack через typed callback adapter без ослабления existing conflict checks. Третий инкремент
+  переводит `CurveTransferController` с собственного undo/redo стека на общий history:
+  перенос нескольких кривых остаётся одной атомарной командой, metadata/value conflict checks
+  сохраняются, а полностью отменённая последующая правка значений больше не блокирует Undo
+  переноса только из-за монотонного `curve.version`. Глобальный Ctrl+Z/Ctrl+Shift+Z отменяет
+  фактически последнее изменение между четырьмя доменами; локальные Curve Pencil, Header Editor,
+  Data Inspector и Curve Transfer controls остаются domain-safe и не перескакивают через более
+  новую команду другого типа. Следующие инкременты переводят остальные project mutation
+  controllers в тот же history boundary и добавляют savepoint/dirty revision semantics.
 
 ## P1 — полевая совместимость
 

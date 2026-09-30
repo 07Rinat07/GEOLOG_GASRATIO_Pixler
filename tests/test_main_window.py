@@ -1049,6 +1049,76 @@ def test_window_global_undo_routes_curve_metadata_edits(qapp) -> None:
     window.close()
 
 
+def test_window_global_undo_routes_curve_transfer_and_keeps_local_action_domain_safe(
+    qapp,
+) -> None:
+    window = MainWindow()
+    session, _ = make_session()
+    target = session.current_dataset
+    well = session.current_well
+    assert target is not None and well is not None
+    source = Dataset(
+        "source",
+        "Source GIS",
+        DatasetKind.GIS,
+        DepthDomain.MD,
+        target.depth.copy(),
+    )
+    source.curves["gr"] = CurveData(
+        CurveMetadata("gr", "GR", "GR", "API", None, source.dataset_id),
+        np.array([10.0, 20.0]),
+    )
+    well.datasets[source.dataset_id] = source
+    bind_session(window, session)
+
+    analysis = window.curve_transfer_controller.analyze(source.dataset_id)
+    curves = window.curve_transfer_controller.apply(
+        source.dataset_id,
+        ("gr",),
+        analysis,
+    )
+    window._after_curve_transfer("transfer applied", curves)
+    transferred = curves[0]
+
+    assert target.curves[transferred.metadata.curve_id] is transferred
+    assert window.edit_history.next_undo is not None
+    assert window.edit_history.next_undo.history_domain == "curve_transfer"
+    assert window.undo_transfer_action.isEnabled() is True
+
+    window.curve_metadata_controller.update(
+        "curve-1",
+        mnemonic="ROP",
+        unit="ft/h",
+        description="Edited penetration rate",
+    )
+    qapp.processEvents()
+
+    assert window.edit_history.next_undo is not None
+    assert window.edit_history.next_undo.history_domain == "curve_metadata"
+    assert window.undo_transfer_action.isEnabled() is False
+
+    window.undo_project_edit()
+
+    assert target.curves["curve-1"].metadata.unit == "m/h"
+    assert window.undo_transfer_action.isEnabled() is True
+
+    window.undo_project_edit()
+
+    assert transferred.metadata.curve_id not in target.curves
+    assert window.redo_transfer_action.isEnabled() is True
+
+    window.redo_project_edit()
+
+    assert target.curves[transferred.metadata.curve_id] is transferred
+    assert window.edit_history.next_redo is not None
+    assert window.edit_history.next_redo.history_domain == "curve_metadata"
+
+    window.redo_project_edit()
+
+    assert target.curves["curve-1"].metadata.unit == "ft/h"
+    window.close()
+
+
 def test_window_creates_and_undoes_resampled_copy(qapp, monkeypatch) -> None:
     window = MainWindow(language=AppLanguage.EN)
     session, _ = make_session()

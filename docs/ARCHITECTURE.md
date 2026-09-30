@@ -363,13 +363,20 @@ generic history service. Для creation-undo guard сравнивает фак�
 последующая правка не блокирует следующий Undo создания, тогда как отличающееся текущее состояние
 по-прежнему fail-closed.
 
+Третий инкремент переводит `CurveTransferController` на тот же history boundary. Одна операция
+переноса нескольких кривых хранится одной typed command, а controller сохраняет dataset identity,
+metadata и value conflict guards. Guard сверяет фактический baseline перенесённой кривой вместо
+монотонной версии объекта: если последующая Curve Pencil правка полностью отменена, Undo переноса
+снова допустим; если metadata или значения реально отличаются, операция остаётся fail-closed.
+
 Глобальные действия MainWindow маршрутизируют верхнюю команду к контроллеру соответствующего
 домена, чтобы curve undo продолжал выполнять dependency recalculation, header undo — snapshot
-conflict check, а curve-metadata undo — dataset identity, metadata/value conflict и curve-order
-checks. Локальные Curve Pencil/Data Inspector controls проверяют тип верхней команды и не
-перескакивают через более новое изменение другого домена. При смене project/session общий history
-очищается через существующий session binding reset boundary. Остальные специализированные
-undo/redo стеки считаются migration backlog ARCH-07, а не второй утверждённой архитектурой.
+conflict check, curve-metadata undo — dataset identity/metadata/value/order checks, а curve-transfer
+undo — atomic removal/restore перенесённого набора. Локальные Curve Pencil, Data Inspector и Curve
+Transfer controls проверяют тип верхней команды и не перескакивают через более новое изменение
+другого домена. При смене project/session общий history очищается через существующий session
+binding reset boundary. Остальные специализированные undo/redo стеки считаются migration backlog
+ARCH-07, а не второй утверждённой архитектурой.
 
 ## Утверждённая модель ведения одной скважины на трёх языках
 

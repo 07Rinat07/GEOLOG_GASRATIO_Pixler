@@ -917,8 +917,12 @@ cross-domain порядок undo/redo, очистку всей redo-ветки �
 стеков при conflict, listener state для QAction, domain-safe локальный curve undo и глобальную
 маршрутизацию MainWindow. Второй инкремент добавляет Curve Metadata update/create/remove:
 проверяются shared-history injection, запрет локального undo через более новую команду другого
-домена, сохранение существующих conflict guards и global MainWindow routing.
+домена, сохранение существующих conflict guards и global MainWindow routing. Третий инкремент
+добавляет Curve Transfer: перенос нескольких кривых является одной командой общего history,
+локальные transfer Undo/Redo не перескакивают через более новую команду другого домена, metadata
+и values external-change остаются fail-closed, а полностью отменённая Curve Pencil правка не
+блокирует последующий Undo переноса из-за одного лишь увеличившегося version counter.
 
 ```powershell
-python scripts/run_tests.py -q -p no:cacheprovider tests/test_edit_history.py tests/test_curve_editing_controller.py tests/test_header_editing_controller.py tests/test_curve_metadata_controller.py tests/test_main_window.py
+python scripts/run_tests.py -q -p no:cacheprovider tests/test_edit_history.py tests/test_curve_editing_controller.py tests/test_header_editing_controller.py tests/test_curve_metadata_controller.py tests/test_curve_transfer_controller.py tests/test_main_window.py
 ```

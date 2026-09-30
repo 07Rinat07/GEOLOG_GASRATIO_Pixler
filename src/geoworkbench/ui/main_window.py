@@ -667,7 +667,10 @@ class MainWindow(QMainWindow):
             self.session,
             shared_history=self.edit_history,
         )
-        self.curve_transfer_controller = CurveTransferController(self.session)
+        self.curve_transfer_controller = CurveTransferController(
+            self.session,
+            shared_history=self.edit_history,
+        )
         self.external_las_insert_controller = ExternalLasInsertController(self.session)
         self.gas_ratio_project_controller = GasRatioProjectController(self.session)
         self.formula_registry = build_all_sourced_formula_registry()
@@ -868,6 +871,7 @@ class MainWindow(QMainWindow):
         self._create_panel_rails()
         self._create_actions()
         self.edit_history.add_listener(self._update_curve_edit_actions)
+        self.edit_history.add_listener(self._update_transfer_actions)
         self._create_home_page()
         self._create_toolbar()
         status_bar = QStatusBar()
@@ -6035,6 +6039,9 @@ class MainWindow(QMainWindow):
                 return
             self._after_curve_metadata_history_change(description)
             return
+        if command.history_domain == "curve_transfer":
+            self.undo_curve_transfer()
+            return
         QMessageBox.warning(
             self,
             "Отмена редактирования",
@@ -6064,6 +6071,9 @@ class MainWindow(QMainWindow):
                 QMessageBox.warning(self, "Повтор редактирования", str(exc))
                 return
             self._after_curve_metadata_history_change(description)
+            return
+        if command.history_domain == "curve_transfer":
+            self.redo_curve_transfer()
             return
         QMessageBox.warning(
             self,
