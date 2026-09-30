@@ -184,6 +184,13 @@ def _canonical_title(canonical: str) -> str:
     )
 
 
+_REPORT_LEGACY_CANONICAL: dict[str, str] = {
+    # Legacy GID observed in the interpretation-method source mapping.
+    # Keep this presentation-only: domain/audit data retains the exact S224 code.
+    "S224": "DEXP",
+}
+
+
 _SOURCE_REFERENCE_LABELS: dict[AppLanguage, dict[str, str]] = {
     AppLanguage.RU: {
         "server": "Сервер/файл",
@@ -224,7 +231,11 @@ def localized_curve_reference(
                 source = prefix[:-1]
                 mnemonic = part[len(prefix) :].strip()
                 break
-        readable = localized_curve_name(mnemonic, language=language)
+        display_mnemonic = _REPORT_LEGACY_CANONICAL.get(
+            mnemonic.strip().upper(),
+            mnemonic,
+        )
+        readable = localized_curve_name(display_mnemonic, language=language)
         if source:
             source_label = _SOURCE_REFERENCE_LABELS[language].get(source, source)
             parts.append(f"{source_label}: {readable}")
