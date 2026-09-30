@@ -36,6 +36,17 @@ _RUSSIAN_NAMES: dict[str, str] = {
     "NC4_NORM": "Нормализованный н-бутан",
     "IC5_NORM": "Нормализованный изопентан",
     "NC5_NORM": "Нормализованный н-пентан",
+    "WH": "Влажность Haworth",
+    "BH": "Баланс Haworth",
+    "CH": "Характер Haworth",
+    "C1_C2": "Отношение C1/C2",
+    "C1_C3": "Отношение C1/C3",
+    "C1_C4": "Отношение C1/C4",
+    "C1_C5": "Отношение C1/C5",
+    "DEXP": "D-exponent",
+    "DEXPC": "Скорректированный D-exponent",
+    "DEXPC_NCT": "DEXPC / тренд NCT",
+    "NCT": "Тренд нормального уплотнения",
 }
 
 _ENGLISH_NAMES: dict[str, str] = {
@@ -79,6 +90,17 @@ _ENGLISH_NAMES: dict[str, str] = {
     "BHP": "Downhole Pressure",
     "HOLE_DEPTH": "Hole Depth",
     "BIT_DEPTH": "Bit Depth",
+    "WH": "Haworth Wetness",
+    "BH": "Haworth Balance",
+    "CH": "Haworth Character",
+    "C1_C2": "C1/C2 Ratio",
+    "C1_C3": "C1/C3 Ratio",
+    "C1_C4": "C1/C4 Ratio",
+    "C1_C5": "C1/C5 Ratio",
+    "DEXP": "D-exponent",
+    "DEXPC": "Corrected D-exponent",
+    "DEXPC_NCT": "DEXPC / NCT trend",
+    "NCT": "Normal Compaction Trend",
 }
 
 _KAZAKH_NAMES: dict[str, str] = {
@@ -122,6 +144,17 @@ _KAZAKH_NAMES: dict[str, str] = {
     "BHP": "Ұңғыма қысымы",
     "HOLE_DEPTH": "Ұңғыма тереңдігі",
     "BIT_DEPTH": "Қашау тереңдігі",
+    "WH": "Haworth ылғалдылығы",
+    "BH": "Haworth балансы",
+    "CH": "Haworth сипаты",
+    "C1_C2": "C1/C2 қатынасы",
+    "C1_C3": "C1/C3 қатынасы",
+    "C1_C4": "C1/C4 қатынасы",
+    "C1_C5": "C1/C5 қатынасы",
+    "DEXP": "D-exponent",
+    "DEXPC": "Түзетілген D-exponent",
+    "DEXPC_NCT": "DEXPC / NCT тренді",
+    "NCT": "Қалыпты тығыздалу тренді",
 }
 
 
@@ -134,6 +167,55 @@ def _canonical_title(canonical: str) -> str:
         token if any(character.isdigit() for character in token) else token.title()
         for token in tokens
     )
+
+
+_SOURCE_REFERENCE_LABELS: dict[AppLanguage, dict[str, str]] = {
+    AppLanguage.RU: {
+        "server": "Сервер/файл",
+        "local-calculation": "Локальный расчёт",
+    },
+    AppLanguage.KK: {
+        "server": "Сервер/файл",
+        "local-calculation": "Жергілікті есеп",
+    },
+    AppLanguage.EN: {
+        "server": "Server/file",
+        "local-calculation": "Local calculation",
+    },
+}
+
+
+def localized_curve_reference(
+    reference: str,
+    *,
+    language: AppLanguage = AppLanguage.RU,
+) -> str:
+    """Humanize one or more report curve references without exposing source mnemonics.
+
+    Domain/report objects keep exact mnemonics for reproducibility. This helper is
+    presentation-only: visible reports get a localized physical parameter name,
+    while source prefixes remain readable provenance labels.
+    """
+
+    parts: list[str] = []
+    for raw_part in str(reference).split("|"):
+        part = raw_part.strip()
+        if not part:
+            continue
+        source = ""
+        mnemonic = part
+        for prefix in ("server:", "local-calculation:"):
+            if part.casefold().startswith(prefix):
+                source = prefix[:-1]
+                mnemonic = part[len(prefix) :].strip()
+                break
+        readable = localized_curve_name(mnemonic, language=language)
+        if source:
+            source_label = _SOURCE_REFERENCE_LABELS[language].get(source, source)
+            parts.append(f"{source_label}: {readable}")
+        else:
+            parts.append(readable)
+    return " | ".join(dict.fromkeys(parts))
 
 
 def localized_curve_name(
