@@ -7,6 +7,10 @@ from PySide6.QtCore import QLineF, QRectF, Qt
 from PySide6.QtGui import QColor, QPainter, QPen
 
 from geoworkbench.domain.models import CurveData, Dataset
+from geoworkbench.printing.hydrocarbon_interpretation_curve_labels import (
+    curve_legend_text,
+    report_curve_label_hints,
+)
 from geoworkbench.printing.hydrocarbon_interpretation_curve_selection import report_curve_panels
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_canvas import PageCanvas
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import (
@@ -217,6 +221,7 @@ def _draw_chart_page(
         (candidate.top_depth, candidate.bottom_depth)
         for candidate in report.candidates
     )
+    display_hints = report_curve_label_hints(report)
     for panel_index, ((panel_name, curves), rect) in enumerate(
         zip(panels, geometry.panel_rects, strict=True)
     ):
@@ -238,6 +243,8 @@ def _draw_chart_page(
             len(panels),
             curves,
             percentiles,
+            language=language,
+            display_hints=display_hints,
         )
 
     painter.setPen(QColor("#475569"))
@@ -554,6 +561,9 @@ def _draw_legend(
     panel_count: int,
     curves: tuple[CurveData, ...],
     ranges: dict[str, tuple[float, float]],
+    *,
+    language: AppLanguage,
+    display_hints: dict[str, str] | None = None,
 ) -> None:
     gap = 8.0
     width = (legend_rect.width() - gap * (panel_count - 1)) / panel_count
@@ -574,10 +584,15 @@ def _draw_legend(
         painter.drawLine(
             QLineF(column.left(), y + 5.0, column.left() + 17.0, y + 5.0)
         )
-        text = curve.metadata.original_mnemonic
-        if curve.metadata.unit:
-            text += f" [{curve.metadata.unit}]"
-        text += f"  p5={low:.4g}; p95={high:.4g}"
+        hints = display_hints or {}
+        canonical_hint = hints.get(curve.metadata.original_mnemonic.strip().upper())
+        text = curve_legend_text(
+            curve,
+            low,
+            high,
+            language,
+            canonical_hint=canonical_hint,
+        )
         painter.setPen(QColor("#172033"))
         painter.setFont(print_font(5.9, text=text))
         painter.drawText(
