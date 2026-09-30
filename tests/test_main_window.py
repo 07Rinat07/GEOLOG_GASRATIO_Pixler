@@ -1361,6 +1361,73 @@ def test_daily_las_controller_follows_reopened_project_session(qapp) -> None:
     window.close()
 
 
+def test_failed_dataset_merge_export_restores_project_and_history_branch(
+    qapp,
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    window = MainWindow(language=AppLanguage.EN)
+    session, _ = make_session()
+    target = session.current_dataset
+    well = session.current_well
+    assert target is not None and well is not None
+    source = Dataset(
+        "source",
+        "Source GIS",
+        DatasetKind.GIS,
+        DepthDomain.MD,
+        np.array([99.0, 100.0]),
+    )
+    source.curves["gr"] = CurveData(
+        CurveMetadata("gr", "GR", "GR", "API", None, source.dataset_id),
+        np.array([9.0, 10.0]),
+    )
+    well.datasets[source.dataset_id] = source
+    bind_session(window, session)
+
+    window.curve_metadata_controller.update(
+        "curve-1",
+        mnemonic="ROP",
+        unit="ft/h",
+        description="Temporary metadata edit",
+    )
+    window.undo_project_edit()
+    assert window.edit_history.next_redo is not None
+    assert window.edit_history.next_redo.history_domain == "curve_metadata"
+
+    monkeypatch.setattr(
+        "geoworkbench.ui.main_window.DatasetMergeDialog.exec",
+        lambda self: QDialog.DialogCode.Accepted,
+    )
+    monkeypatch.setattr(
+        window,
+        "_export_current_dataset_to_path",
+        lambda _path: (_ for _ in ()).throw(OSError("disk full")),
+    )
+    monkeypatch.setattr(
+        "geoworkbench.ui.main_window.QMessageBox.warning",
+        lambda *args, **kwargs: QMessageBox.StandardButton.Ok,
+    )
+
+    window.show_dataset_merge()
+    qapp.processEvents()
+
+    assert set(well.datasets) == {"dataset-1", "source"}
+    assert session.current_dataset is target
+    assert target.curves["curve-1"].metadata.unit == "m/h"
+    assert window.edit_history.next_undo is None
+    assert window.edit_history.next_redo is not None
+    assert window.edit_history.next_redo.history_domain == "curve_metadata"
+    assert window.redo_action.isEnabled() is True
+    assert window.undo_merge_action.isEnabled() is False
+    assert window.redo_merge_action.isEnabled() is False
+
+    window.redo_project_edit()
+    assert target.curves["curve-1"].metadata.unit == "ft/h"
+    window.close()
+
+
 def test_window_merges_datasets_and_updates_history_actions(qapp, monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     window = MainWindow(language=AppLanguage.EN)
