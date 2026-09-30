@@ -479,7 +479,7 @@ def test_confirmed_technological_gas_suppresses_geological_candidate_and_exports
     assert "connection_gas" in html
     assert "Connection gas QC" in html
     assert "Измеренный TG" in html
-    assert "TG: min 4; mean 4; max 4 %" in html
+    assert "Общий газ: min 4; mean 4; max 4 %" in html
     assert "QC Δ к среднему TG" in html
     assert "0.25 %vol" in html
     assert "Аудит подавленных автоматических кандидатов" not in html
@@ -496,11 +496,11 @@ def test_confirmed_technological_gas_suppresses_geological_candidate_and_exports
         context_sheet = workbook["Газовый контекст"]
         assert context_sheet["A2"].value == "connection_gas"
         assert context_sheet["E2"].value == "technological_gas"
-        assert context_sheet["F2"].value == "TG [%]"
+        assert context_sheet["F2"].value == "Общий газ [%]"
         assert context_sheet["G2"].value == 4.0
         assert context_sheet["H2"].value == 4.0
         assert context_sheet["I2"].value == 4.0
-        assert "C1:" in context_sheet["J2"].value
+        assert "Содержание метана:" in context_sheet["J2"].value
         assert context_sheet["K2"].value == 4.25
         assert context_sheet["L2"].value == "%"
         assert context_sheet["M2"].value == 0.25
@@ -530,7 +530,7 @@ def test_confirmed_technological_gas_suppresses_geological_candidate_and_exports
         assert "connection_gas" in document
         assert "technological_gas" in document
         assert "Измеренный TG" in document
-        assert "TG: min 4; mean 4; max 4 %" in document
+        assert "Общий газ: min 4; mean 4; max 4 %" in document
         assert "0.25 %vol" in document
         assert "Аудит подавленных автоматических кандидатов" not in document
         assert "gas-context: event_id=connection-1" not in document
@@ -782,15 +782,15 @@ def test_conservative_liquid_hydrocarbon_wording_is_consistent_in_three_language
 
     assert (
         fluid_hypothesis_label(candidate, AppLanguage.RU)
-        == "вероятные жидкие УВ; тип нефть/конденсат не подтверждён"
+        == "жидкая УВ-фаза; тип не установлен"
     )
     assert (
         fluid_hypothesis_label(candidate, AppLanguage.KK)
-        == "ықтимал сұйық КС; мұнай/конденсат түрі расталмаған"
+        == "сұйық КС фазасы; түрі анықталмаған"
     )
     assert (
         fluid_hypothesis_label(candidate, AppLanguage.EN)
-        == "probable liquid hydrocarbons; oil/condensate type is unconfirmed"
+        == "liquid hydrocarbon phase; type undetermined"
     )
 
     ru_basis = fluid_hypothesis_basis(candidate, AppLanguage.RU)
@@ -802,6 +802,28 @@ def test_conservative_liquid_hydrocarbon_wording_is_consistent_in_three_language
     assert "Конкретный нефтяной подтип автоматически не назначен" in ru_basis
     assert "Нақты мұнай қосалқы түрі автоматты түрде тағайындалмады" in kk_basis
     assert "No specific oil subtype is assigned automatically" in en_basis
+
+
+def test_visible_report_humanizes_source_vendor_mnemonics() -> None:
+    report = build_hydrocarbon_interpretation_report(_session(), threshold=3.0)
+    dexp_method_index = next(
+        index
+        for index, method in enumerate(report.methods)
+        if "d-exponent" in method.method.casefold()
+    )
+    methods = list(report.methods)
+    methods[dexp_method_index] = replace(
+        methods[dexp_method_index],
+        available_mnemonics=("S224",),
+    )
+    humanized = replace(report, methods=tuple(methods), primary_mnemonic="S1600")
+
+    html = hydrocarbon_interpretation_html(humanized, AppLanguage.RU)
+
+    assert "D-exponent" in html
+    assert "Общий газ" in html
+    assert "S224" not in html
+    assert "S1600" not in html
 
 
 def test_weak_liquid_signature_in_report_is_downgraded_from_specific_oil() -> None:
