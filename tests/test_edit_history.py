@@ -3,6 +3,7 @@ import pytest
 
 from geoworkbench.domain.models import CurveData, CurveMetadata
 from geoworkbench.services.edit_history import (
+    CommandHistory,
     CurveEditCommand,
     CurveEditConflictError,
     CurveEditHistory,
@@ -91,3 +92,82 @@ def test_history_rejects_invalid_limit_and_empty_operations() -> None:
         history.undo()
     with pytest.raises(RuntimeError, match="повтора"):
         history.redo()
+
+
+class _ValueCommand:
+    def __init__(self, state: list[int], before: int, after: int, domain: str) -> None:
+        self.state = state
+        self.before = before
+        self.after = after
+        self.description = f"{domain}: {before}->{after}"
+        self.history_domain = domain
+        self.applied = False
+
+    def execute(self) -> None:
+        if self.state[0] != self.before:
+            raise RuntimeError("unexpected before state")
+        self.state[0] = self.after
+        self.applied = True
+
+    def undo(self) -> None:
+        if self.state[0] != self.after:
+            raise RuntimeError("unexpected after state")
+        self.state[0] = self.before
+        self.applied = False
+
+
+def test_shared_history_preserves_cross_domain_chronology_and_branching() -> None:
+    state = [0]
+    history = CommandHistory()
+    first = _ValueCommand(state, 0, 1, "curve")
+    second = _ValueCommand(state, 1, 2, "header")
+
+    history.execute(first)
+    history.execute(second)
+
+    assert history.next_undo is second
+    assert history.undo() is second
+    assert state == [1]
+    assert history.undo() is first
+    assert state == [0]
+
+    replacement = _ValueCommand(state, 0, 3, "header")
+    history.execute(replacement)
+
+    assert state == [3]
+    assert history.can_redo is False
+    assert history.next_undo is replacement
+
+
+def test_history_keeps_stacks_intact_when_undo_conflicts() -> None:
+    state = [0]
+    history = CommandHistory()
+    command = _ValueCommand(state, 0, 1, "header")
+    history.execute(command)
+    state[0] = 99
+
+    with pytest.raises(RuntimeError, match="unexpected after"):
+        history.undo()
+
+    assert history.next_undo is command
+    assert history.can_redo is False
+
+
+def test_history_notifies_listener_after_successful_transitions_only() -> None:
+    state = [0]
+    history = CommandHistory()
+    observed: list[tuple[bool, bool]] = []
+    history.add_listener(lambda: observed.append((history.can_undo, history.can_redo)))
+    command = _ValueCommand(state, 0, 1, "curve")
+
+    history.execute(command)
+    history.undo()
+    history.redo()
+    history.clear()
+
+    assert observed == [
+        (True, False),
+        (False, True),
+        (True, False),
+        (False, False),
+    ]

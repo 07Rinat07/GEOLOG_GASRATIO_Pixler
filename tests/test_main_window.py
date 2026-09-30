@@ -22,6 +22,7 @@ from geoworkbench.domain.models import (
 )
 from geoworkbench.forms.repository import FormRepository
 from geoworkbench.project.curve_transfer_controller import CurveTransferController
+from geoworkbench.project.header_editing_controller import HeaderSection
 from geoworkbench.project.dataset_merge_controller import DatasetMergeController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.printing.print_job import PrintJobSettings, PrintOutputFormat
@@ -973,6 +974,48 @@ def test_window_applies_curve_edit_and_updates_undo_redo_actions(qapp) -> None:
 
     window.redo_curve_edit()
     assert curve.values[0] == 10.0
+    window.close()
+
+
+def test_window_global_undo_routes_header_and_curve_edits_in_chronological_order(qapp) -> None:
+    window = MainWindow()
+    session, _ = make_session()
+    bind_session(window, session)
+    dataset = session.current_dataset
+    well = session.current_well
+    assert dataset is not None and well is not None
+    dataset.headers["WELL"] = "Well"
+    original_well_name = well.name
+
+    window._apply_curve_draw_edit("curve-1", np.array([0]), np.array([10.0]))
+    window.header_editing_controller.update(
+        HeaderSection.WELL,
+        "WELL",
+        "WELL",
+        "Renamed Well",
+    )
+    qapp.processEvents()
+
+    assert window.edit_history.next_undo is not None
+    assert window.edit_history.next_undo.history_domain == "header"
+    assert window.undo_action.isEnabled() is True
+
+    window.undo_project_edit()
+    assert well.name == original_well_name
+    assert dataset.curves["curve-1"].values[0] == 10.0
+    assert window.edit_history.next_undo is not None
+    assert window.edit_history.next_undo.history_domain == "curve"
+
+    window.undo_project_edit()
+    assert dataset.curves["curve-1"].values[0] == 1.0
+    assert window.redo_action.isEnabled() is True
+
+    window.redo_project_edit()
+    assert dataset.curves["curve-1"].values[0] == 10.0
+    assert window.edit_history.next_redo is not None
+    assert window.edit_history.next_redo.history_domain == "header"
+    window.redo_project_edit()
+    assert well.name == "Renamed Well"
     window.close()
 
 

@@ -9,7 +9,7 @@ from numpy.typing import NDArray
 from geoworkbench.domain.models import CalculationState, CurveData, Dataset
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.dependency_graph import DependencyGraph
-from geoworkbench.services.edit_history import CurveEditCommand, CurveEditHistory
+from geoworkbench.services.edit_history import CommandHistory, CurveEditCommand, CurveEditHistory
 from geoworkbench.services.dependent_recalculation import recalculate_existing_dependents
 
 if TYPE_CHECKING:
@@ -33,7 +33,7 @@ class CurveEditingController:
 
     session: ProjectSession
     dependency_graph: DependencyGraph = field(default_factory=DependencyGraph)
-    history: CurveEditHistory = field(default_factory=CurveEditHistory)
+    history: CommandHistory = field(default_factory=CurveEditHistory)
     formula_registry: "FormulaProfileRegistry | None" = None
 
     def edit_curve(
@@ -57,13 +57,29 @@ class CurveEditingController:
         self.history.execute(command)
         return self._after_change("edit", dataset, curve)
 
+    @property
+    def can_undo(self) -> bool:
+        return isinstance(self.history.next_undo, CurveEditCommand)
+
+    @property
+    def can_redo(self) -> bool:
+        return isinstance(self.history.next_redo, CurveEditCommand)
+
     def undo(self) -> CurveEditOutcome:
+        if not self.can_undo:
+            raise RuntimeError("Нет изменений кривой для отмены")
         command = self.history.undo()
+        if not isinstance(command, CurveEditCommand):
+            raise RuntimeError("Последняя команда не относится к редактированию кривой")
         dataset = self._dataset_for_curve(command.curve)
         return self._after_change("undo", dataset, command.curve)
 
     def redo(self) -> CurveEditOutcome:
+        if not self.can_redo:
+            raise RuntimeError("Нет изменений кривой для повтора")
         command = self.history.redo()
+        if not isinstance(command, CurveEditCommand):
+            raise RuntimeError("Следующая команда не относится к редактированию кривой")
         dataset = self._dataset_for_curve(command.curve)
         return self._after_change("redo", dataset, command.curve)
 

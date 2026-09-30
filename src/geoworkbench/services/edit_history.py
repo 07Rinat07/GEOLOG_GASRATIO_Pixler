@@ -1,11 +1,123 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Callable, Protocol, cast
 
 import numpy as np
 from numpy.typing import NDArray
 
 from geoworkbench.domain.models import CalculationState, CurveData
+
+
+class UndoableCommand(Protocol):
+    """A reversible application command stored by :class:`CommandHistory`."""
+
+    description: str
+    history_domain: str
+
+    def execute(self) -> None: ...
+
+    def undo(self) -> None: ...
+
+
+HistoryListener = Callable[[], None]
+
+
+@dataclass(slots=True)
+class CommandHistory:
+    """Bounded chronological history shared by reversible project edits.
+
+    Stack mutations happen only after the command itself succeeds.  This keeps
+    failed execute/undo/redo operations from corrupting history order.  A new
+    edit always invalidates the complete redo branch, even when the new command
+    belongs to another editing domain.
+    """
+
+    max_commands: int = 100
+    _undo_stack: list[UndoableCommand] = field(default_factory=list, init=False)
+    _redo_stack: list[UndoableCommand] = field(default_factory=list, init=False)
+    _listeners: list[HistoryListener] = field(default_factory=list, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        if self.max_commands < 1:
+            raise ValueError("История должна хранить минимум одну команду")
+
+    @property
+    def can_undo(self) -> bool:
+        return bool(self._undo_stack)
+
+    @property
+    def can_redo(self) -> bool:
+        return bool(self._redo_stack)
+
+    @property
+    def next_undo(self) -> UndoableCommand | None:
+        return self._undo_stack[-1] if self._undo_stack else None
+
+    @property
+    def next_redo(self) -> UndoableCommand | None:
+        return self._redo_stack[-1] if self._redo_stack else None
+
+    def execute(self, command: UndoableCommand) -> None:
+        command.execute()
+        self._append_undo(command)
+        self._redo_stack.clear()
+        self._notify()
+
+    def record_applied(self, command: UndoableCommand) -> None:
+        """Record a command whose forward mutation was already committed.
+
+        This supports snapshot-based editors that must validate and materialize
+        their post-state before a reversible command can be constructed.
+        """
+
+        self._append_undo(command)
+        self._redo_stack.clear()
+        self._notify()
+
+    def undo(self) -> UndoableCommand:
+        if not self._undo_stack:
+            raise RuntimeError("Нет команд для отмены")
+        command = self._undo_stack[-1]
+        command.undo()
+        self._undo_stack.pop()
+        self._redo_stack.append(command)
+        self._notify()
+        return command
+
+    def redo(self) -> UndoableCommand:
+        if not self._redo_stack:
+            raise RuntimeError("Нет команд для повтора")
+        command = self._redo_stack[-1]
+        command.execute()
+        self._redo_stack.pop()
+        self._append_undo(command)
+        self._notify()
+        return command
+
+    def clear(self) -> None:
+        changed = bool(self._undo_stack or self._redo_stack)
+        self._undo_stack.clear()
+        self._redo_stack.clear()
+        if changed:
+            self._notify()
+
+    def add_listener(self, listener: HistoryListener) -> None:
+        if listener not in self._listeners:
+            self._listeners.append(listener)
+
+    def remove_listener(self, listener: HistoryListener) -> None:
+        if listener in self._listeners:
+            self._listeners.remove(listener)
+
+    def _append_undo(self, command: UndoableCommand) -> None:
+        self._undo_stack.append(command)
+        if len(self._undo_stack) > self.max_commands:
+            del self._undo_stack[0]
+
+    def _notify(self) -> None:
+        for listener in tuple(self._listeners):
+            listener()
 
 
 class CurveEditConflictError(RuntimeError):
@@ -19,6 +131,7 @@ class CurveEditCommand:
     before_values: NDArray[np.float64]
     after_values: NDArray[np.float64]
     description: str = "Редактирование кривой"
+    history_domain: str = field(default="curve", init=False, repr=False)
     _applied: bool = field(default=False, init=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -89,48 +202,14 @@ class CurveEditCommand:
 
 
 @dataclass(slots=True)
-class CurveEditHistory:
-    max_commands: int = 100
-    _undo_stack: list[CurveEditCommand] = field(default_factory=list, init=False)
-    _redo_stack: list[CurveEditCommand] = field(default_factory=list, init=False)
-
-    def __post_init__(self) -> None:
-        if self.max_commands < 1:
-            raise ValueError("История должна хранить минимум одну команду")
-
-    @property
-    def can_undo(self) -> bool:
-        return bool(self._undo_stack)
-
-    @property
-    def can_redo(self) -> bool:
-        return bool(self._redo_stack)
+class CurveEditHistory(CommandHistory):
+    """Compatibility facade for callers that still expect curve-only history."""
 
     def execute(self, command: CurveEditCommand) -> None:
-        command.execute()
-        self._undo_stack.append(command)
-        if len(self._undo_stack) > self.max_commands:
-            del self._undo_stack[0]
-        self._redo_stack.clear()
+        super().execute(command)
 
     def undo(self) -> CurveEditCommand:
-        if not self._undo_stack:
-            raise RuntimeError("Нет команд для отмены")
-        command = self._undo_stack[-1]
-        command.undo()
-        self._undo_stack.pop()
-        self._redo_stack.append(command)
-        return command
+        return cast(CurveEditCommand, super().undo())
 
     def redo(self) -> CurveEditCommand:
-        if not self._redo_stack:
-            raise RuntimeError("Нет команд для повтора")
-        command = self._redo_stack[-1]
-        command.execute()
-        self._redo_stack.pop()
-        self._undo_stack.append(command)
-        return command
-
-    def clear(self) -> None:
-        self._undo_stack.clear()
-        self._redo_stack.clear()
+        return cast(CurveEditCommand, super().redo())

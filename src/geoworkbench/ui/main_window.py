@@ -228,6 +228,7 @@ from geoworkbench.services.import_diagnostics import (
     presentation_diagnostic,
 )
 from geoworkbench.services.session_binding import SessionBindingController
+from geoworkbench.services.edit_history import CommandHistory
 from geoworkbench.services.print_jobs import PrintJobExecutor, report_render_settings
 from geoworkbench.services.workspace_commands import WorkspaceCommandController
 from geoworkbench.services.datetime_boundary import datetime_boundary_unix_seconds
@@ -649,12 +650,19 @@ class MainWindow(QMainWindow):
             else ReportPassportBuilder()
         )
         self.tablet_controller = TabletController(self.session)
-        self.curve_editing_controller = CurveEditingController(self.session)
+        self.edit_history = CommandHistory()
+        self.curve_editing_controller = CurveEditingController(
+            self.session,
+            history=self.edit_history,
+        )
         self.dataset_export_controller = DatasetExportController(self.session)
         self.dataset_merge_controller = DatasetMergeController(self.session)
         self.derived_dataset_controller = DerivedDatasetController(self.session)
         self.data_inspector_controller = DataInspectorController(self.session)
-        self.header_editing_controller = HeaderEditingController(self.session)
+        self.header_editing_controller = HeaderEditingController(
+            self.session,
+            shared_history=self.edit_history,
+        )
         self.curve_metadata_controller = CurveMetadataController(self.session)
         self.curve_transfer_controller = CurveTransferController(self.session)
         self.external_las_insert_controller = ExternalLasInsertController(self.session)
@@ -856,6 +864,7 @@ class MainWindow(QMainWindow):
         self._create_cursor_panel()
         self._create_panel_rails()
         self._create_actions()
+        self.edit_history.add_listener(self._update_curve_edit_actions)
         self._create_home_page()
         self._create_toolbar()
         status_bar = QStatusBar()
@@ -1679,14 +1688,14 @@ class MainWindow(QMainWindow):
         self.undo_action = self._localized_action("shell.undo_curve_edit")
         self.undo_action.setShortcut("Ctrl+Z")
         self.undo_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
-        self.undo_action.triggered.connect(self.undo_curve_edit)
+        self.undo_action.triggered.connect(self.undo_project_edit)
         self.undo_action.setEnabled(False)
         edit_menu.addAction(self.undo_action)
 
         self.redo_action = self._localized_action("shell.redo_curve_edit")
         self.redo_action.setShortcut("Ctrl+Shift+Z")
         self.redo_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
-        self.redo_action.triggered.connect(self.redo_curve_edit)
+        self.redo_action.triggered.connect(self.redo_project_edit)
         self.redo_action.setEnabled(False)
         edit_menu.addAction(self.redo_action)
 
@@ -5999,6 +6008,50 @@ class MainWindow(QMainWindow):
         self.tablet_view.acknowledge_curve_pencil_commit(True)
         self._after_curve_edit(outcome)
 
+    def undo_project_edit(self) -> None:
+        command = self.edit_history.next_undo
+        if command is None:
+            QMessageBox.warning(self, "Отмена редактирования", "Нет команд для отмены")
+            return
+        if command.history_domain == "curve":
+            self.undo_curve_edit()
+            return
+        if command.history_domain == "header":
+            try:
+                description = self.header_editing_controller.undo()
+            except RuntimeError as exc:
+                QMessageBox.warning(self, "Отмена редактирования", str(exc))
+                return
+            self._after_header_history_change(description)
+            return
+        QMessageBox.warning(
+            self,
+            "Отмена редактирования",
+            f"Неподдерживаемый тип команды: {command.history_domain}",
+        )
+
+    def redo_project_edit(self) -> None:
+        command = self.edit_history.next_redo
+        if command is None:
+            QMessageBox.warning(self, "Повтор редактирования", "Нет команд для повтора")
+            return
+        if command.history_domain == "curve":
+            self.redo_curve_edit()
+            return
+        if command.history_domain == "header":
+            try:
+                description = self.header_editing_controller.redo()
+            except RuntimeError as exc:
+                QMessageBox.warning(self, "Повтор редактирования", str(exc))
+                return
+            self._after_header_history_change(description)
+            return
+        QMessageBox.warning(
+            self,
+            "Повтор редактирования",
+            f"Неподдерживаемый тип команды: {command.history_domain}",
+        )
+
     def undo_curve_edit(self) -> None:
         try:
             outcome = self.curve_editing_controller.undo()
@@ -6014,6 +6067,12 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Повтор редактирования", str(exc))
             return
         self._after_curve_edit(outcome)
+
+    def _after_header_history_change(self, description: str) -> None:
+        self._show_current_dataset()
+        self._refresh_tree()
+        self._update_title()
+        self.statusBar().showMessage(description)
 
     def _after_curve_edit(self, outcome: CurveEditOutcome) -> None:
         dataset = self.session.current_dataset
@@ -6074,11 +6133,12 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage("Значение изменено; газовые производные пересчитаны")
 
     def _update_curve_edit_actions(self) -> None:
-        can_undo = self.curve_editing_controller.history.can_undo
-        can_redo = self.curve_editing_controller.history.can_redo
-        self.undo_action.setEnabled(can_undo)
-        self.redo_action.setEnabled(can_redo)
-        self.tablet_view.set_curve_pencil_history_state(can_undo, can_redo)
+        self.undo_action.setEnabled(self.edit_history.can_undo)
+        self.redo_action.setEnabled(self.edit_history.can_redo)
+        self.tablet_view.set_curve_pencil_history_state(
+            self.curve_editing_controller.can_undo,
+            self.curve_editing_controller.can_redo,
+        )
 
     def _build_tablet_from_curve_selection(self, mnemonics: object) -> None:
         selected = [str(item) for item in mnemonics] if isinstance(mnemonics, list) else []
