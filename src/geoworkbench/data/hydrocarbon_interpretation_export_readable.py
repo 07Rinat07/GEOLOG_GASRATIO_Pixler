@@ -43,6 +43,7 @@ from geoworkbench.services.parameter_labels import (
     localized_curve_name,
     localized_curve_reference,
 )
+from geoworkbench.services.opus_report_labels import opus_report_label
 
 
 _EXCEL_MAX_ROWS = 1_048_576
@@ -625,7 +626,11 @@ def _write_opus_gasomer_sheet(
         protect_spreadsheet_row((labels.indicator, labels.exact_formula))
     )
     for name, formula in section.formulas:
-        sheet.append(protect_spreadsheet_row((name, formula)))
+        sheet.append(
+            protect_spreadsheet_row(
+                (localized_curve_reference(name, language=language), formula)
+            )
+        )
     sheet.append(())
     sheet.append(
         protect_spreadsheet_row(
@@ -649,7 +654,7 @@ def _write_opus_gasomer_sheet(
                 (
                     f"{interval.top_depth:.2f}–{interval.bottom_depth:.2f} {report.depth_unit}",
                     interval.class_code,
-                    interval.class_label,
+                    opus_report_label(f"class_{interval.class_code}", language),
                     interval.support_fraction * 100.0,
                     f"{interval.valid_rows}/{interval.total_rows}",
                     interval.background_median,
@@ -678,10 +683,10 @@ def _write_opus_gasomer_sheet(
             sheet.append(
                 protect_spreadsheet_row(
                     (
-                        item.mnemonic,
+                        localized_curve_reference(item.mnemonic, language=language),
                         item.median_value,
                         item.class_code,
-                        item.class_label,
+                        opus_report_label(f"class_{item.class_code}", language),
                         item.vote_support * 100.0,
                         f"{item.available_rows}/{item.total_rows}",
                         ", ".join(f"{code}:{count}" for code, count in item.vote_counts),
