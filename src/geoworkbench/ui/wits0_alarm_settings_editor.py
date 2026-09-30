@@ -51,7 +51,6 @@ class Wits0AlarmSettingsEditor(QGroupBox):
 
         self.minimum_check = QCheckBox(_text(language, "minimum"), self)
         self.minimum_check.setObjectName("wits0AlarmMinimumCheck")
-        self.minimum_check.toggled.connect(self.minimum_spin.setEnabled if hasattr(self, "minimum_spin") else lambda _v: None)
         grid.addWidget(self.minimum_check, 1, 0)
         self.minimum_spin = _value_spin(self, "wits0AlarmMinimumSpin")
         self.minimum_spin.setEnabled(False)
