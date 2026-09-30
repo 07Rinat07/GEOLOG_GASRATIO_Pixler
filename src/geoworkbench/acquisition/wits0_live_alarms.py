@@ -4,6 +4,11 @@ from dataclasses import dataclass
 from typing import Iterable
 
 from geoworkbench.acquisition.wits0_live_forms import Wits0SavedAlarmRule
+from geoworkbench.domain.acquisition import (
+    AcquisitionDataRowPayload,
+    AcquisitionRecordKind,
+    AcquisitionSession,
+)
 from geoworkbench.catalogs.sensors import normalize_sensor_key
 from geoworkbench.services.acquisition_live_view import (
     AcquisitionCurrentValue,
@@ -41,16 +46,17 @@ class Wits0LiveAlarmStatus:
 class Wits0LiveAlarmController:
     """Evaluate configured WITS alarm rules once per factual live sample.
 
-    UI refresh cadence is intentionally irrelevant to debounce. A repeated snapshot
-    keeps the existing state because it carries the same sample identity. Missing or
-    invalid relevant rows are evaluated as missing input once for that row, which
-    resets only an uncommitted debounce sequence while preserving active alarms.
+    UI refresh cadence is intentionally irrelevant to debounce. New append-only
+    acquisition DATA_ROW records are replayed from the last processed session
+    sequence for each displayed curve, so a drained batch cannot collapse into one
+    debounce sample and screen Pause cannot suspend alarm evaluation. Explicit None
+    values reset only an uncommitted debounce sequence while preserving active alarms.
     """
 
     def __init__(self) -> None:
         self._rules: dict[str, Wits0SavedAlarmRule] = {}
         self._states: dict[str, AlarmState] = {}
-        self._last_tokens: dict[str, tuple[object, ...]] = {}
+        self._last_sequences: dict[str, int] = {}
         self._state_rule_keys: dict[str, str] = {}
         self._state_rules: dict[str, Wits0SavedAlarmRule] = {}
 
@@ -75,9 +81,9 @@ class Wits0LiveAlarmController:
             for curve_id, state in self._states.items()
             if curve_id in preserved_curve_ids
         }
-        self._last_tokens = {
-            curve_id: token
-            for curve_id, token in self._last_tokens.items()
+        self._last_sequences = {
+            curve_id: sequence
+            for curve_id, sequence in self._last_sequences.items()
             if curve_id in preserved_curve_ids
         }
         self._state_rule_keys = {
@@ -94,50 +100,102 @@ class Wits0LiveAlarmController:
     def clear(self) -> None:
         self._rules.clear()
         self._states.clear()
-        self._last_tokens.clear()
+        self._last_sequences.clear()
         self._state_rule_keys.clear()
         self._state_rules.clear()
 
     def evaluate(
         self,
+        session: AcquisitionSession,
         values: Iterable[AcquisitionCurrentValue],
     ) -> tuple[Wits0LiveAlarmStatus, ...]:
-        statuses: list[Wits0LiveAlarmStatus] = []
-        for item in values:
+        materialized = tuple(values)
+        configured: dict[
+            str,
+            tuple[AcquisitionCurrentValue, str, Wits0SavedAlarmRule],
+        ] = {}
+        transitions: dict[str, AlarmTransition] = {}
+
+        for item in materialized:
             key = normalize_sensor_key(item.mnemonic)
             rule = self._rules.get(key)
             if rule is None:
                 continue
-
             curve_id = item.curve_id
+            configured[curve_id] = (item, key, rule)
             if (
-                self._state_rule_keys.get(curve_id) != key
-                or self._state_rules.get(curve_id) != rule
+                self._state_rule_keys.get(curve_id) == key
+                and self._state_rules.get(curve_id) == rule
             ):
-                self._states.pop(curve_id, None)
-                self._last_tokens.pop(curve_id, None)
+                continue
+
+            self._states.pop(curve_id, None)
+            self._last_sequences.pop(curve_id, None)
             self._state_rule_keys[curve_id] = key
             self._state_rules[curve_id] = rule
+            initial_sample = (
+                None
+                if item.quality
+                in {
+                    AcquisitionLiveQuality.MISSING,
+                    AcquisitionLiveQuality.INVALID,
+                }
+                else item.value
+            )
+            evaluation = evaluate_alarm(_limits(rule), AlarmState(), initial_sample)
+            self._states[curve_id] = evaluation.state
+            self._last_sequences[curve_id] = session.last_sequence
+            transitions[curve_id] = evaluation.transition
 
-            state = self._states.get(curve_id, AlarmState())
-            transition = AlarmTransition.NONE
-            event = _evaluation_event(item)
-            if event is not None:
-                token, sample = event
-                if self._last_tokens.get(curve_id) != token:
-                    evaluation = evaluate_alarm(_limits(rule), state, sample)
-                    state = evaluation.state
-                    transition = evaluation.transition
-                    self._states[curve_id] = state
-                    self._last_tokens[curve_id] = token
+        catch_up = {
+            curve_id: payload
+            for curve_id, payload in configured.items()
+            if curve_id in self._last_sequences
+        }
+        if catch_up:
+            earliest = min(self._last_sequences[curve_id] for curve_id in catch_up)
+            for record in session.records:
+                if record.sequence <= earliest:
+                    continue
+                if (
+                    record.kind is not AcquisitionRecordKind.DATA_ROW
+                    or not isinstance(record.payload, AcquisitionDataRowPayload)
+                ):
+                    continue
+                row_values = record.payload.curves_dict()
+                for curve_id, (_item, _key, rule) in catch_up.items():
+                    if record.sequence <= self._last_sequences[curve_id]:
+                        continue
+                    if curve_id not in row_values:
+                        continue
+                    evaluation = evaluate_alarm(
+                        _limits(rule),
+                        self._states.get(curve_id, AlarmState()),
+                        row_values[curve_id],
+                    )
+                    self._states[curve_id] = evaluation.state
+                    if evaluation.transition is not AlarmTransition.NONE:
+                        transitions[curve_id] = evaluation.transition
+            for curve_id in catch_up:
+                self._last_sequences[curve_id] = session.last_sequence
 
+        statuses: list[Wits0LiveAlarmStatus] = []
+        for item in materialized:
+            key = normalize_sensor_key(item.mnemonic)
+            rule = self._rules.get(key)
+            if rule is None:
+                continue
+            state = self._states.get(item.curve_id, AlarmState())
             statuses.append(
                 Wits0LiveAlarmStatus(
                     curve_id=item.curve_id,
                     mnemonic=item.mnemonic,
                     active_side=state.active_side,
                     acknowledged=state.acknowledged,
-                    transition=transition,
+                    transition=transitions.get(
+                        item.curve_id,
+                        AlarmTransition.NONE,
+                    ),
                     visual_enabled=rule.visual_enabled,
                     audio_enabled=rule.audio_enabled,
                 )
@@ -174,31 +232,6 @@ def _limits(rule: Wits0SavedAlarmRule) -> AlarmLimits:
         maximum=rule.maximum,
         hysteresis=rule.hysteresis,
         debounce_samples=rule.debounce_samples,
-    )
-
-
-def _evaluation_event(
-    value: AcquisitionCurrentValue,
-) -> tuple[tuple[object, ...], float | None] | None:
-    if value.latest_row_index is None:
-        return None
-    if value.quality in {
-        AcquisitionLiveQuality.MISSING,
-        AcquisitionLiveQuality.INVALID,
-    }:
-        return (
-            ("missing", value.latest_row_index, value.quality.value),
-            None,
-        )
-    if value.sample_row_index is None:
-        return None
-    return (
-        (
-            "sample",
-            value.sample_row_index,
-            value.source_sequence_no,
-        ),
-        value.value,
     )
 
 
