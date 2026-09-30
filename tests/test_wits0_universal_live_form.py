@@ -240,12 +240,16 @@ def test_live_form_settings_roundtrip_operator_overrides_by_mnemonic() -> None:
                 maximum=350.0,
                 hysteresis=5.0,
                 debounce_samples=3,
+                visual_enabled=True,
+                audio_enabled=True,
             ),
             Wits0SavedAlarmRule(
                 mnemonic="H2S",
                 maximum=10.0,
                 hysteresis=1.0,
                 debounce_samples=2,
+                visual_enabled=True,
+                audio_enabled=False,
             ),
         ),
     )
@@ -359,6 +363,15 @@ def test_live_form_state_rejects_invalid_and_duplicate_alarm_rules() -> None:
                 Wits0SavedAlarmRule(mnemonic="SPP", maximum=300.0),
                 Wits0SavedAlarmRule(mnemonic="spp", maximum=350.0),
             ),
+        )
+
+
+def test_live_form_state_rejects_non_boolean_alarm_policy_flags() -> None:
+    with pytest.raises(ValueError, match="flags must be booleans"):
+        Wits0SavedAlarmRule(
+            mnemonic="SPP",
+            maximum=300.0,
+            visual_enabled=1,  # type: ignore[arg-type]
         )
 
 
