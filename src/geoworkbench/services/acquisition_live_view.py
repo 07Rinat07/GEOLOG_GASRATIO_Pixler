@@ -729,7 +729,7 @@ class AcquisitionLiveView:
 
             source_id = _curve_source_id(curve.metadata.provenance)
             source_record_no = _source_record_no(source_id)
-            virtual_source_records = _virtual_source_record_numbers(
+            virtual_source_records = wits0_virtual_source_record_numbers(
                 curve.metadata.provenance
             )
             latest_relevant_row: int | None = None
@@ -1068,7 +1068,13 @@ def _curve_source_id(provenance: str | None) -> str | None:
     return None
 
 
-def _virtual_source_record_numbers(provenance: str) -> frozenset[int]:
+def wits0_source_record_no(source: str) -> int | None:
+    """Return the WITS record number encoded in acquisition source metadata."""
+
+    return _parse_source_metadata(source).record_no
+
+
+def wits0wits0_virtual_source_record_numbers(provenance: str) -> frozenset[int]:
     """Extract allowlisted WITS source record numbers from derived provenance."""
 
     prefix = "source-records="
