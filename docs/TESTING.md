@@ -982,3 +982,17 @@ Fluid labels проверяются на трёх языках как один �
 ```powershell
 python scripts/run_tests.py -q -p no:cacheprovider tests/test_parameter_labels.py tests/test_interpretation_report_charts.py tests/test_hydrocarbon_interpretation.py tests/test_hydrocarbon_fluid_markers.py
 ```
+
+
+### RPT-QA-01: OPUS-графики и OPUS Газомер
+
+OPUS использует тот же presentation contract, что и стандартный отчёт. В пользовательских
+графиках `OPUS_TG_PCT` отображается как локализованное физическое имя, индикаторы ОПУС
+не печатают внутренние мнемоники, а class code 1–7 сохраняется отдельно от локализованной
+интерпретации. Маркерные категории должны использовать фазовые формулировки:
+нефтяная фаза, газовая УВ-фаза, газоконденсатная УВ-фаза, газированная нефтяная фаза
+или УВ-флюид неопределённого типа.
+
+```powershell
+python scripts/run_tests.py -q -p no:cacheprovider tests/test_hydrocarbon_fluid_markers.py tests/test_parameter_labels.py tests/test_interpretation_report_charts.py
+```
