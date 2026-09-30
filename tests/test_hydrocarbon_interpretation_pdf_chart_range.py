@@ -188,7 +188,6 @@ def test_enhanced_chart_uses_compact_markers_not_text_callout_stack() -> None:
     assert "marker_lanes" in source
 
 
-
 def test_dense_fluid_markers_restore_painter_state_between_pdf_pages(qapp) -> None:
     image = QImage(640, 480, QImage.Format.Format_ARGB32_Premultiplied)
     image.fill(0xFFFFFFFF)
