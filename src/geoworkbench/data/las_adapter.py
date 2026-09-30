@@ -43,6 +43,7 @@ from geoworkbench.services.application_logging import log_event
 from geoworkbench.services.depth_axis import DepthAxisReport, DepthDirection, analyze_depth_axis
 from geoworkbench.services.index_detection import IndexColumn, detect_index_candidates
 from geoworkbench.services.las_parameter_resolver import infer_canonical_mnemonic
+from geoworkbench.services.process_metrics import process_memory_snapshot
 from geoworkbench.services.semantic_channels import default_semantic_channel_dictionary
 from geoworkbench.services.text_normalization import clean_display_text, clean_mnemonic
 
@@ -95,6 +96,7 @@ def import_las_with_report(
         raise LasImportError(f"Ожидался LAS-файл, получен: {source.suffix}")
 
     safety = limits or LasInputLimits()
+    memory_started = process_memory_snapshot()
     import_started_at = perf_counter()
     try:
         source_document = read_lossless_las(
@@ -103,6 +105,7 @@ def import_las_with_report(
             chunk_size=safety.chunk_size,
         )
         source_loaded_at = perf_counter()
+        memory_source = process_memory_snapshot()
         with io.TextIOWrapper(
             io.BytesIO(source_document.raw_bytes),
             encoding=source_document.encoding,
@@ -118,6 +121,7 @@ def import_las_with_report(
             )
         depth = np.asarray(las.index, dtype=np.float64).copy()
         parsed_at = perf_counter()
+        memory_parse = process_memory_snapshot()
     except Exception as exc:
         raise LasImportError(f"Не удалось прочитать LAS-файл: {source}") from exc
 
@@ -223,10 +227,12 @@ def import_las_with_report(
             f"{type(exc).__name__}: {exc}"
         ) from exc
     dataset_materialized_at = perf_counter()
+    memory_dataset = process_memory_snapshot()
     report = _build_import_report(
         source, source_document, las, depth, extra_issues=tuple(channel_issues)
     )
     report_built_at = perf_counter()
+    memory_report = process_memory_snapshot()
     log_event(
         "las.import.performance",
         source_name=source.name,
@@ -240,12 +246,29 @@ def import_las_with_report(
         dataset_ms=_elapsed_ms(parsed_at, dataset_materialized_at),
         report_ms=_elapsed_ms(dataset_materialized_at, report_built_at),
         total_ms=_elapsed_ms(import_started_at, report_built_at),
+        rss_start_bytes=memory_started.rss_bytes,
+        rss_source_bytes=memory_source.rss_bytes,
+        rss_parse_bytes=memory_parse.rss_bytes,
+        rss_dataset_bytes=memory_dataset.rss_bytes,
+        rss_report_bytes=memory_report.rss_bytes,
+        peak_rss_bytes=_max_optional(
+            memory_started.peak_rss_bytes,
+            memory_source.peak_rss_bytes,
+            memory_parse.peak_rss_bytes,
+            memory_dataset.peak_rss_bytes,
+            memory_report.peak_rss_bytes,
+        ),
     )
     return LasImportResult(dataset=dataset, report=report, source_document=source_document)
 
 
 def _elapsed_ms(started_at: float, finished_at: float) -> float:
     return round(max(0.0, finished_at - started_at) * 1000.0, 3)
+
+
+def _max_optional(*values: int | None) -> int | None:
+    present = [value for value in values if value is not None]
+    return max(present) if present else None
 
 
 def _curve_values_by_position(
