@@ -128,6 +128,8 @@ class Wits0SavedLiveFormState:
             scale_keys.append(scale_key)
         if len(set(scale_keys)) != len(scale_keys):
             raise ValueError("panel_x_ranges keys must not contain duplicates")
+        if not all(isinstance(rule, Wits0SavedAlarmRule) for rule in self.alarm_rules):
+            raise ValueError("alarm_rules must contain saved alarm rules")
         alarm_keys = [normalize_sensor_key(rule.mnemonic) for rule in self.alarm_rules]
         if any(not key for key in alarm_keys):
             raise ValueError("alarm_rules must contain valid mnemonics")
