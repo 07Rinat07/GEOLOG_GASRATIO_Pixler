@@ -328,6 +328,21 @@ class AcquisitionLiveView:
     def clear_history_window(self) -> None:
         self._manual_window = None
 
+    def axis_value_for_row(self, row_index: int) -> float | None:
+        """Resolve one dataset row onto the currently selected live plot axis."""
+
+        if (
+            isinstance(row_index, bool)
+            or not isinstance(row_index, int)
+            or row_index < 0
+        ):
+            raise ValueError("row_index must be a non-negative integer")
+        axis = _index_as_plot_values(self._resolve_index(self._axis_mode))
+        if row_index >= len(axis):
+            return None
+        value = float(axis[row_index])
+        return value if isfinite(value) else None
+
     def pause(self) -> None:
         if self._paused:
             return
