@@ -921,8 +921,12 @@ cross-domain порядок undo/redo, очистку всей redo-ветки �
 добавляет Curve Transfer: перенос нескольких кривых является одной командой общего history,
 локальные transfer Undo/Redo не перескакивают через более новую команду другого домена, metadata
 и values external-change остаются fail-closed, а полностью отменённая Curve Pencil правка не
-блокирует последующий Undo переноса из-за одного лишь увеличившегося version counter.
+блокирует последующий Undo переноса из-за одного лишь увеличившегося version counter. Четвёртый
+инкремент добавляет Dataset Merge: проверяются два последовательных merge с многошаговым
+Undo/Redo, восстановление layout/source sidecars, global MainWindow routing, domain-safe локальные
+Merge actions, блокировка при реальном изменении результата и успешный Undo после полностью
+отменённой Curve Pencil правки несмотря на увеличившийся curve version.
 
 ```powershell
-python scripts/run_tests.py -q -p no:cacheprovider tests/test_edit_history.py tests/test_curve_editing_controller.py tests/test_header_editing_controller.py tests/test_curve_metadata_controller.py tests/test_curve_transfer_controller.py tests/test_main_window.py
+python scripts/run_tests.py -q -p no:cacheprovider tests/test_edit_history.py tests/test_curve_editing_controller.py tests/test_header_editing_controller.py tests/test_curve_metadata_controller.py tests/test_curve_transfer_controller.py tests/test_dataset_merge_controller.py tests/test_main_window.py
 ```
