@@ -27,7 +27,10 @@ from geoworkbench.services.lba_standard import (
     describe_lba_assessment,
 )
 from geoworkbench.services.localization import AppLanguage
-from geoworkbench.services.parameter_labels import localized_curve_name
+from geoworkbench.services.parameter_labels import (
+    localized_curve_name,
+    localized_curve_reference,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -969,11 +972,11 @@ _HTML_LABELS = {
         "warnings": "Ограничения методики",
         "empty": "Кандидатные интервалы по выбранному порогу не найдены.",
         "no_manual": "Подтверждённые геологом интервалы пока не заполнены.",
-        "hypothesis_probable_gas": "вероятный газ",
+        "hypothesis_probable_gas": "газовая УВ-фаза",
         "hypothesis_probable_liquid_hydrocarbons": (
-            "вероятные жидкие УВ; тип нефть/конденсат не подтверждён"
+            "жидкая УВ-фаза; тип не установлен"
         ),
-        "hypothesis_indeterminate": "УВ-проявление смешанного/неопределённого типа",
+        "hypothesis_indeterminate": "УВ-флюид неопределённого типа",
         "hypothesis_insufficient_data": (
             "газовое УВ-проявление; C1–C5 недостаточно для определения типа"
         ),
@@ -986,20 +989,18 @@ _HTML_LABELS = {
         "hypothesis_wet_gas_or_gas_condensate": (
             "продуктивная газовая фаза: влажный газ или газоконденсат"
         ),
-        "hypothesis_light_oil_high_gor": (
-            "признаки лёгкой жидкой УВ-фазы с высоким газовым фактором"
-        ),
+        "hypothesis_light_oil_high_gor": "признаки лёгкой нефтяной фазы",
         "hypothesis_gas_condensate_or_high_api_oil": (
-            "лёгкие жидкие УВ / газоконденсат; тип неоднозначен"
+            "жидкая УВ-фаза; возможны лёгкая нефть или газоконденсат"
         ),
         "hypothesis_productive_oil_decreasing_gravity": (
-            "признаки нефтяного типа по газогеохимической палетке"
+            "признаки нефтяной фазы по газогеохимической палетке"
         ),
         "hypothesis_poor_low_gravity_oil": (
-            "признаки тяжёлой жидкой УВ-фазы с низким газосодержанием"
+            "признаки тяжёлой нефтяной фазы с низким газосодержанием"
         ),
         "hypothesis_heavy_or_residual_oil": (
-            "признаки тяжёлых/остаточных жидких УВ; возможна непродуктивная зона"
+            "признаки тяжёлой/остаточной нефтяной фазы; возможна непродуктивная зона"
         ),
         "hypothesis_opus_oxidized_residual_oil": (
             "УВ-газопроявление; ОПУС предварительно: окисленная (остаточная) нефть"
@@ -1127,11 +1128,11 @@ _HTML_LABELS = {
         "warnings": "Әдістеме шектеулері",
         "empty": "Таңдалған шек бойынша кандидат аралықтар табылмады.",
         "no_manual": "Геолог растаған аралықтар әлі толтырылмаған.",
-        "hypothesis_probable_gas": "ықтимал газ",
+        "hypothesis_probable_gas": "газдық КС фазасы",
         "hypothesis_probable_liquid_hydrocarbons": (
-            "ықтимал сұйық КС; мұнай/конденсат түрі расталмаған"
+            "сұйық КС фазасы; түрі анықталмаған"
         ),
-        "hypothesis_indeterminate": "аралас/анықталмаған түрдегі көмірсутек көрінісі",
+        "hypothesis_indeterminate": "түрі анықталмаған көмірсутекті флюид",
         "hypothesis_insufficient_data": (
             "газдық көмірсутек көрінісі; түрін анықтау үшін C1–C5 жеткіліксіз"
         ),
@@ -1144,20 +1145,18 @@ _HTML_LABELS = {
         "hypothesis_wet_gas_or_gas_condensate": (
             "өнімді газ фазасы: ылғалды газ немесе газ конденсаты"
         ),
-        "hypothesis_light_oil_high_gor": (
-            "газ факторы жоғары жеңіл сұйық КС фазасының белгілері"
-        ),
+        "hypothesis_light_oil_high_gor": "жеңіл мұнай фазасының белгілері",
         "hypothesis_gas_condensate_or_high_api_oil": (
-            "жеңіл сұйық КС / газ конденсаты; түрі бірмәнді емес"
+            "сұйық КС фазасы; жеңіл мұнай немесе газ конденсаты болуы мүмкін"
         ),
         "hypothesis_productive_oil_decreasing_gravity": (
-            "газ-геохимиялық палетка бойынша мұнай типінің белгілері"
+            "газ-геохимиялық палетка бойынша мұнай фазасының белгілері"
         ),
         "hypothesis_poor_low_gravity_oil": (
-            "газ мөлшері төмен ауыр сұйық КС фазасының белгілері"
+            "газ мөлшері төмен ауыр мұнай фазасының белгілері"
         ),
         "hypothesis_heavy_or_residual_oil": (
-            "ауыр/қалдық сұйық КС белгілері; өнімсіз аймақ болуы мүмкін"
+            "ауыр/қалдық мұнай фазасының белгілері; өнімсіз аймақ болуы мүмкін"
         ),
         "hypothesis_opus_oxidized_residual_oil": (
             "КС газ көрінісі; ОПУС алдын ала: тотыққан (қалдық) мұнай"
@@ -1273,11 +1272,11 @@ _HTML_LABELS = {
         "warnings": "Method limitations",
         "empty": "No candidate intervals were found at the selected threshold.",
         "no_manual": "No geologist-confirmed intervals have been entered.",
-        "hypothesis_probable_gas": "probable gas",
+        "hypothesis_probable_gas": "gaseous hydrocarbon phase",
         "hypothesis_probable_liquid_hydrocarbons": (
-            "probable liquid hydrocarbons; oil/condensate type is unconfirmed"
+            "liquid hydrocarbon phase; type undetermined"
         ),
-        "hypothesis_indeterminate": "mixed/indeterminate hydrocarbon show",
+        "hypothesis_indeterminate": "hydrocarbon fluid of undetermined type",
         "hypothesis_insufficient_data": (
             "gas hydrocarbon show; insufficient C1–C5 to determine fluid type"
         ),
@@ -1288,20 +1287,18 @@ _HTML_LABELS = {
         ),
         "hypothesis_gas_increasing_wetness": ("gas with increasing heavy-hydrocarbon content"),
         "hypothesis_wet_gas_or_gas_condensate": ("productive gas phase: wet gas or gas condensate"),
-        "hypothesis_light_oil_high_gor": (
-            "indications of a light liquid-HC phase with high GOR"
-        ),
+        "hypothesis_light_oil_high_gor": "indications of a light-oil phase",
         "hypothesis_gas_condensate_or_high_api_oil": (
-            "light liquid hydrocarbons / gas condensate; type is indeterminate"
+            "liquid hydrocarbon phase; light oil or gas condensate possible"
         ),
         "hypothesis_productive_oil_decreasing_gravity": (
-            "oil-like signature from the gas-geochemical palette"
+            "indications of an oil phase from the gas-geochemical palette"
         ),
         "hypothesis_poor_low_gravity_oil": (
-            "indications of a heavy liquid-HC phase with low gas content"
+            "indications of a heavy-oil phase with low gas content"
         ),
         "hypothesis_heavy_or_residual_oil": (
-            "indications of heavy/residual liquid HC; possibly non-productive"
+            "indications of a heavy/residual-oil phase; possibly non-productive"
         ),
         "hypothesis_opus_oxidized_residual_oil": (
             "HC gas show; preliminary OPUS: oxidized (residual) oil"
@@ -1410,7 +1407,7 @@ def hydrocarbon_interpretation_html(
     method_rows = "".join(
         "<tr>"
         f"<td>{escape(method.method)}</td>"
-        f"<td>{escape(', '.join(method.available_mnemonics) or labels['no'])}</td>"
+        f"<td>{escape(', '.join(localized_curve_reference(name, language=language) for name in method.available_mnemonics) or labels['no'])}</td>"
         f"<td>{escape(method.calculation or '—')}</td>"
         f"<td>{escape(method.source)}</td>"
         "</tr>"
@@ -1496,7 +1493,7 @@ small {{ color: #44566c; }}
 <b>{escape(labels["well"])}:</b> {escape(report.well_name)}<br>
 <b>{escape(labels["dataset"])}:</b> {escape(report.dataset_name)}<br>
 <b>{escape(labels["created"])}:</b> {escape(report.generated_at)}<br>
-<b>{escape(labels["primary"])}:</b> {escape(report.primary_mnemonic or "—")}<br>
+<b>{escape(labels["primary"])}:</b> {escape(localized_curve_reference(report.primary_mnemonic, language=language) if report.primary_mnemonic else "—")}<br>
 <b>{escape(labels["threshold"])}:</b> {report.threshold:.2f}</p>
 <h2>{escape(labels["methods"])}</h2>
 <table><thead><tr><th>{escape(labels["method"])}</th><th>{escape(labels["curves"])}</th>
@@ -1721,9 +1718,9 @@ def _readable_evidence_item(item: str, language: AppLanguage) -> str:
 def _readable_evidence_mnemonic(mnemonic: str, language: AppLanguage) -> str:
     technical = mnemonic.strip()
     readable = localized_curve_name(technical, language=language)
-    if not readable or readable.casefold() == technical.casefold():
+    if not readable:
         return technical
-    return f"{readable} ({technical})"
+    return readable
 
 
 def _format_optional(value: float | None) -> str:
