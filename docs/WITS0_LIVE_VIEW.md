@@ -115,3 +115,14 @@ persisted policy для доступных live-каналов: optional min/max
 visual-enabled и audio-enabled. Редактор не владеет runtime alarm state и не выполняет
 acknowledgement. Рабочие правила входят в `Wits0SavedLiveFormState.alarm_rules` только при
 «Сохранить форму»; Reset возвращает пустой alarm set.
+
+
+## Runtime alarm state and acknowledgement
+
+Saved alarm rules are evaluated by a separate runtime controller. Debounce advances only when a new
+factual channel sample arrives; repaint/refresh of the same snapshot cannot activate an alarm.
+Missing or invalid relevant rows do not reuse the previous displayed value as a new measurement.
+Active visual alarms are shown in current values and dashboard indicator cards. The operator can
+acknowledge all active alarms; acknowledgement removes the attention requirement but does not clear
+the alarm. Clearing still requires a factual recovery sample crossing the configured hysteresis
+boundary. Audio playback and threshold markers are handled by later increments.
