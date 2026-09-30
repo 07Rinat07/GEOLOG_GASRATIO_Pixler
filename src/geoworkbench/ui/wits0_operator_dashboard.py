@@ -115,6 +115,8 @@ class _IndicatorCard(QFrame):
         self.setToolTip(tooltip)
 
     def set_alarm_status(self, status: Wits0LiveAlarmStatus | None) -> None:
+        current = self.name_label.text().removeprefix("✓ ⚠ ").removeprefix("⚠ ")
+        self.name_label.setText(current)
         if status is None or not status.is_active or not status.visual_enabled:
             self.setStyleSheet("")
             return
@@ -126,7 +128,6 @@ class _IndicatorCard(QFrame):
             "}"
         )
         prefix = "✓ ⚠ " if status.acknowledged else "⚠ "
-        current = self.name_label.text().removeprefix("✓ ⚠ ").removeprefix("⚠ ")
         self.name_label.setText(prefix + current)
 
 
