@@ -376,6 +376,10 @@ chronological stack. Conflict guard использует factual content signatu
 depth-domain, depth, headers/parameters, curve metadata и values, но намеренно не включает
 монотонный `curve.version`: полностью отменённая последующая правка не блокирует Undo, тогда как
 реально изменённое содержимое, удалённый/подменённый результат или исчезнувший target fail-closed.
+Для UI-сценария «создать merge → экспортировать файл» `CommandHistory.checkpoint()` фиксирует
+undo/redo stacks до первой mutation. Если файловый экспорт завершается ошибкой, project rollback
+сначала восстанавливает модель, затем history checkpoint возвращает прежние stacks, включая
+существовавшую redo-ветку; неуспешная транзакция не оставляет фантомную merge-команду.
 
 Глобальные действия MainWindow маршрутизируют верхнюю команду к контроллеру соответствующего
 домена, чтобы curve undo продолжал выполнять dependency recalculation, header undo — snapshot
