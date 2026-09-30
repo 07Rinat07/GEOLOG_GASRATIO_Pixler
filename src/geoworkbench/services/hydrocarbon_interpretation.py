@@ -602,7 +602,8 @@ def _opus_gasomer_html(
     ) or "—"
     formula_rows = "".join(
         "<tr>"
-        f"<td>{escape(name)}</td><td><code>{escape(formula)}</code></td>"
+        f"<td>{escape(localized_curve_reference(name, language=language))}</td>"
+        f"<td><code>{escape(formula)}</code></td>"
         "</tr>"
         for name, formula in section.formulas
     )
@@ -610,7 +611,7 @@ def _opus_gasomer_html(
     for interval in section.intervals:
         indicator_rows = "".join(
             "<tr>"
-            f"<td>{escape(item.mnemonic)}</td>"
+            f"<td>{escape(localized_curve_reference(item.mnemonic, language=language))}</td>"
             f"<td>{'—' if item.median_value is None else f'{item.median_value:.6g}'}</td>"
             f"<td>{item.class_code} — {label(f'class_{item.class_code}')}</td>"
             f"<td>{item.vote_support * 100.0:.1f}%</td>"
