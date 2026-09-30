@@ -38,6 +38,10 @@ from geoworkbench.services.hydrocarbon_interpretation_legacy import (
     OpusGasomerReportSection,
 )
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.parameter_labels import (
+    localized_curve_name,
+    localized_curve_reference,
+)
 from geoworkbench.services.opus_interpretation import (
     build_opus_interpretation_report as _build_opus_interpretation_report,
 )
@@ -467,7 +471,8 @@ def _gas_context_html(
             return "—"
         unit = f" {item.unit}" if item.unit else ""
         return (
-            f"{item.mnemonic}: min {item.minimum:.6g}; mean {item.mean:.6g}; "
+            f"{localized_curve_name(item.mnemonic, language=language)}: "
+            f"min {item.minimum:.6g}; mean {item.mean:.6g}; "
             f"max {item.maximum:.6g}{unit}"
         )
 
@@ -548,10 +553,10 @@ def _suppressed_candidates_html(
     rows = "".join(
         "<tr>"
         f"<td>{candidate.top_depth:g}–{candidate.bottom_depth:g} {escape(report.depth_unit)}</td>"
-        f"<td>{escape(candidate.primary_mnemonic)}</td>"
+        f"<td>{escape(localized_curve_reference(candidate.primary_mnemonic, language=language))}</td>"
         f"<td>{candidate.max_robust_z:.3f}</td>"
-        f"<td>{escape(candidate.fluid_hypothesis)}</td>"
-        f"<td>{escape(' | '.join(candidate.evidence))}</td>"
+        f"<td>{escape(fluid_hypothesis_label(candidate, language))}</td>"
+        f"<td>{escape(candidate_evidence_summary(candidate, language))}</td>"
         "</tr>"
         for candidate in report.suppressed_candidates
     )
@@ -590,7 +595,8 @@ def _opus_gasomer_html(
     curve_names = dict(section.input_curves)
     curve_units = dict(section.input_units)
     inputs = ", ".join(
-        f"{escape(name)}={escape(curve_names.get(name, '—'))} "
+        f"{escape(localized_curve_reference(name, language=language))}="
+        f"{escape(localized_curve_reference(curve_names.get(name, '—'), language=language))} "
         f"[{escape(curve_units.get(name, '—') or '—')}]"
         for name in ("TOTAL_GAS", "C1", "C2", "C3", "C4", "C5")
     ) or "—"
