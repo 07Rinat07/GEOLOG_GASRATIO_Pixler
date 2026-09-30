@@ -383,6 +383,17 @@ schedule Project Tree + window-title refresh instead of calling them synchronous
 must still use the immediate `DirtyReason.STATIC` track refresh. No test permits coalescing
 Dataset replacement, Undo/Redo, import presentation, or a full TabletView rebuild.
 
+Visible-depth refresh regression:
+
+```powershell
+python -m pytest -q -p no:cacheprovider `
+  tests/test_main_window_visible_depth_refresh.py
+```
+
+The manual range case must keep `DirtyRenderStats.full_updates` and `partial_updates` unchanged
+while the displayed/layout range changes in place. Reset must increment `full_updates` exactly
+once, preserving the existing default-range resolution, and neither path may rebuild Project Tree.
+
 ## 11. Регрессия GeoScape2/GS2 временного планшета
 
 `tests/test_gs2_time_tablet_rendering.py` проверяет единый расчёт фактической ширины
