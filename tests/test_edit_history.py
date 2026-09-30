@@ -171,3 +171,42 @@ def test_history_notifies_listener_after_successful_transitions_only() -> None:
         (True, False),
         (False, False),
     ]
+
+
+
+def test_history_checkpoint_restores_redo_branch_after_external_transaction_rollback() -> None:
+    state = [0]
+    history = CommandHistory()
+    first = _ValueCommand(state, 0, 1, "curve")
+    history.execute(first)
+    history.undo()
+    checkpoint = history.checkpoint()
+    observed: list[tuple[bool, bool]] = []
+    history.add_listener(lambda: observed.append((history.can_undo, history.can_redo)))
+
+    second = _ValueCommand(state, 0, 2, "dataset_merge")
+    state[0] = 2
+    second.applied = True
+    history.record_applied(second)
+
+    assert history.can_redo is False
+    assert history.next_undo is second
+
+    state[0] = 0
+    history.restore(checkpoint)
+
+    assert history.can_undo is False
+    assert history.next_redo is first
+    assert observed == [(True, False), (False, True)]
+
+    history.redo()
+    assert state == [1]
+
+
+def test_history_checkpoint_rejects_checkpoint_from_another_history() -> None:
+    first = CommandHistory()
+    second = CommandHistory()
+    checkpoint = first.checkpoint()
+
+    with pytest.raises(ValueError, match="другой истории"):
+        second.restore(checkpoint)

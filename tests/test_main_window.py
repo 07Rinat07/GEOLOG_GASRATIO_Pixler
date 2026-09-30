@@ -1119,6 +1119,81 @@ def test_window_global_undo_routes_curve_transfer_and_keeps_local_action_domain_
     window.close()
 
 
+def test_window_global_undo_routes_dataset_merge_and_keeps_local_action_domain_safe(
+    qapp,
+) -> None:
+    window = MainWindow()
+    session, _ = make_session()
+    target = session.current_dataset
+    well = session.current_well
+    assert target is not None and well is not None
+    source = Dataset(
+        "source",
+        "Source GIS",
+        DatasetKind.GIS,
+        DepthDomain.MD,
+        np.array([99.0, 100.0]),
+    )
+    source.curves["gr"] = CurveData(
+        CurveMetadata("gr", "GR", "GR", "API", None, source.dataset_id),
+        np.array([9.0, 10.0]),
+    )
+    well.datasets[source.dataset_id] = source
+    bind_session(window, session)
+
+    merged = window.dataset_merge_controller.create(
+        source.dataset_id,
+        window.dataset_merge_controller.analyze(source.dataset_id),
+    )
+    window._after_dataset_merge("merge applied")
+
+    assert session.current_dataset is merged
+    assert window.edit_history.next_undo is not None
+    assert window.edit_history.next_undo.history_domain == "dataset_merge"
+    assert window.undo_merge_action.isEnabled() is True
+
+    rop = merged.curve_by_mnemonic("ROP")
+    assert rop is not None
+    window.curve_metadata_controller.update(
+        rop.metadata.curve_id,
+        mnemonic=rop.metadata.original_mnemonic,
+        unit=rop.metadata.unit or "",
+        description="Edited after merge",
+    )
+    qapp.processEvents()
+
+    assert window.edit_history.next_undo is not None
+    assert window.edit_history.next_undo.history_domain == "curve_metadata"
+    assert window.undo_merge_action.isEnabled() is False
+
+    window.undo_project_edit()
+
+    assert window.undo_merge_action.isEnabled() is True
+    restored_rop = merged.curve_by_mnemonic("ROP")
+    assert restored_rop is not None
+    assert restored_rop.metadata.description != "Edited after merge"
+
+    window.undo_project_edit()
+
+    assert merged.dataset_id not in well.datasets
+    assert session.current_dataset is target
+    assert window.redo_merge_action.isEnabled() is True
+
+    window.redo_project_edit()
+
+    assert well.datasets[merged.dataset_id] is merged
+    assert session.current_dataset is merged
+    assert window.edit_history.next_redo is not None
+    assert window.edit_history.next_redo.history_domain == "curve_metadata"
+
+    window.redo_project_edit()
+
+    redone_rop = merged.curve_by_mnemonic("ROP")
+    assert redone_rop is not None
+    assert redone_rop.metadata.description == "Edited after merge"
+    window.close()
+
+
 def test_window_creates_and_undoes_resampled_copy(qapp, monkeypatch) -> None:
     window = MainWindow(language=AppLanguage.EN)
     session, _ = make_session()
@@ -1283,6 +1358,73 @@ def test_daily_las_controller_follows_reopened_project_session(qapp) -> None:
         dataset.dataset_id
         for dataset in window.daily_las_growth_controller.datasets_for_current_well()
     ) == ("dataset-1",)
+    window.close()
+
+
+def test_failed_dataset_merge_export_restores_project_and_history_branch(
+    qapp,
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    window = MainWindow(language=AppLanguage.EN)
+    session, _ = make_session()
+    target = session.current_dataset
+    well = session.current_well
+    assert target is not None and well is not None
+    source = Dataset(
+        "source",
+        "Source GIS",
+        DatasetKind.GIS,
+        DepthDomain.MD,
+        np.array([99.0, 100.0]),
+    )
+    source.curves["gr"] = CurveData(
+        CurveMetadata("gr", "GR", "GR", "API", None, source.dataset_id),
+        np.array([9.0, 10.0]),
+    )
+    well.datasets[source.dataset_id] = source
+    bind_session(window, session)
+
+    window.curve_metadata_controller.update(
+        "curve-1",
+        mnemonic="ROP",
+        unit="ft/h",
+        description="Temporary metadata edit",
+    )
+    window.undo_project_edit()
+    assert window.edit_history.next_redo is not None
+    assert window.edit_history.next_redo.history_domain == "curve_metadata"
+
+    monkeypatch.setattr(
+        "geoworkbench.ui.main_window.DatasetMergeDialog.exec",
+        lambda self: QDialog.DialogCode.Accepted,
+    )
+    monkeypatch.setattr(
+        window,
+        "_export_current_dataset_to_path",
+        lambda _path: (_ for _ in ()).throw(OSError("disk full")),
+    )
+    monkeypatch.setattr(
+        "geoworkbench.ui.main_window.QMessageBox.warning",
+        lambda *args, **kwargs: QMessageBox.StandardButton.Ok,
+    )
+
+    window.show_dataset_merge()
+    qapp.processEvents()
+
+    assert set(well.datasets) == {"dataset-1", "source"}
+    assert session.current_dataset is target
+    assert target.curves["curve-1"].metadata.unit == "m/h"
+    assert window.edit_history.next_undo is None
+    assert window.edit_history.next_redo is not None
+    assert window.edit_history.next_redo.history_domain == "curve_metadata"
+    assert window.redo_action.isEnabled() is True
+    assert window.undo_merge_action.isEnabled() is False
+    assert window.redo_merge_action.isEnabled() is False
+
+    window.redo_project_edit()
+    assert target.curves["curve-1"].metadata.unit == "ft/h"
     window.close()
 
 

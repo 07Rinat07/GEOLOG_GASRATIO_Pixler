@@ -4,10 +4,13 @@ import pytest
 from geoworkbench.domain.models import CurveData, CurveMetadata, Dataset, DatasetKind, DepthDomain
 from geoworkbench.project.dataset_merge_controller import DatasetMergeController
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.services.edit_history import CommandHistory, CurveEditCommand
 from geoworkbench.tablet.models import TabletLayout
 
 
-def make_controller() -> tuple[DatasetMergeController, Dataset, Dataset]:
+def make_controller(
+    shared_history: CommandHistory | None = None,
+) -> tuple[DatasetMergeController, Dataset, Dataset]:
     session = ProjectSession()
     source = Dataset("source", "Source", DatasetKind.GIS, DepthDomain.MD, np.array([100.0, 101.0]))
     source.curves["gr"] = CurveData(
@@ -22,7 +25,11 @@ def make_controller() -> tuple[DatasetMergeController, Dataset, Dataset]:
     session.add_dataset(source)
     session.add_dataset(target)
     session.dirty = False
-    return DatasetMergeController(session), source, target
+    return (
+        DatasetMergeController(session, shared_history=shared_history),
+        source,
+        target,
+    )
 
 
 def test_merge_controller_creates_copy_and_supports_undo_redo() -> None:
@@ -146,3 +153,103 @@ def test_merge_controller_rejects_blank_output_name_without_registering_dataset(
         )
 
     assert set(well.datasets) == before
+
+
+
+def test_shared_history_allows_merge_undo_after_later_curve_edit_is_reverted() -> None:
+    history = CommandHistory()
+    controller, source, target = make_controller(history)
+    result = controller.create(source.dataset_id, controller.analyze(source.dataset_id))
+    curve = result.curve_by_mnemonic("GR")
+    assert curve is not None
+    original = curve.values.copy()
+
+    history.execute(
+        CurveEditCommand.create(
+            curve,
+            np.array([0], dtype=np.int64),
+            np.array([99.0], dtype=np.float64),
+        )
+    )
+
+    assert controller.can_undo is False
+    assert history.next_undo is not None
+    assert history.next_undo.history_domain == "curve"
+
+    history.undo()
+
+    np.testing.assert_allclose(curve.values, original)
+    assert curve.version > 1
+    assert controller.can_undo is True
+
+    controller.undo()
+
+    well = controller.session.current_well
+    assert well is not None
+    assert result.dataset_id not in well.datasets
+    assert controller.session.current_dataset is target
+
+
+def test_shared_history_keeps_merge_undo_domain_safe() -> None:
+    history = CommandHistory()
+    controller, source, _ = make_controller(history)
+    result = controller.create(source.dataset_id, controller.analyze(source.dataset_id))
+    curve = result.curve_by_mnemonic("GR")
+    assert curve is not None
+
+    history.execute(
+        CurveEditCommand.create(
+            curve,
+            np.array([0], dtype=np.int64),
+            np.array([77.0], dtype=np.float64),
+        )
+    )
+
+    with pytest.raises(RuntimeError, match="Нет сращивания"):
+        controller.undo()
+
+    assert result.dataset_id in controller.session.current_well.datasets
+    assert history.next_undo is not None
+    assert history.next_undo.history_domain == "curve"
+
+
+def test_shared_history_supports_multiple_merge_undo_steps() -> None:
+    history = CommandHistory()
+    controller, source, target = make_controller(history)
+    first = controller.create(source.dataset_id, controller.analyze(source.dataset_id))
+
+    second_source = Dataset(
+        "source-2",
+        "Source 2",
+        DatasetKind.GIS,
+        DepthDomain.MD,
+        np.array([99.0, 100.0]),
+    )
+    second_source.curves["sp"] = CurveData(
+        CurveMetadata("sp", "SP", "SP", "mV", None, second_source.dataset_id),
+        np.array([5.0, 6.0]),
+    )
+    well = controller.session.current_well
+    assert well is not None
+    well.datasets[second_source.dataset_id] = second_source
+
+    second = controller.create(
+        second_source.dataset_id,
+        controller.analyze(second_source.dataset_id),
+    )
+
+    assert controller.session.current_dataset is second
+    controller.undo()
+    assert second.dataset_id not in well.datasets
+    assert controller.session.current_dataset is first
+    assert controller.can_undo is True
+
+    controller.undo()
+    assert first.dataset_id not in well.datasets
+    assert controller.session.current_dataset is target
+    assert controller.can_redo is True
+
+    controller.redo()
+    assert controller.session.current_dataset is first
+    controller.redo()
+    assert controller.session.current_dataset is second

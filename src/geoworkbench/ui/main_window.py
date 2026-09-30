@@ -656,7 +656,10 @@ class MainWindow(QMainWindow):
             history=self.edit_history,
         )
         self.dataset_export_controller = DatasetExportController(self.session)
-        self.dataset_merge_controller = DatasetMergeController(self.session)
+        self.dataset_merge_controller = DatasetMergeController(
+            self.session,
+            shared_history=self.edit_history,
+        )
         self.derived_dataset_controller = DerivedDatasetController(self.session)
         self.data_inspector_controller = DataInspectorController(self.session)
         self.header_editing_controller = HeaderEditingController(
@@ -872,6 +875,7 @@ class MainWindow(QMainWindow):
         self._create_actions()
         self.edit_history.add_listener(self._update_curve_edit_actions)
         self.edit_history.add_listener(self._update_transfer_actions)
+        self.edit_history.add_listener(self._update_merge_actions)
         self._create_home_page()
         self._create_toolbar()
         status_bar = QStatusBar()
@@ -6042,6 +6046,9 @@ class MainWindow(QMainWindow):
         if command.history_domain == "curve_transfer":
             self.undo_curve_transfer()
             return
+        if command.history_domain == "dataset_merge":
+            self.undo_dataset_merge()
+            return
         QMessageBox.warning(
             self,
             "Отмена редактирования",
@@ -6074,6 +6081,9 @@ class MainWindow(QMainWindow):
             return
         if command.history_domain == "curve_transfer":
             self.redo_curve_transfer()
+            return
+        if command.history_domain == "dataset_merge":
+            self.redo_dataset_merge()
             return
         QMessageBox.warning(
             self,
@@ -9059,6 +9069,7 @@ class MainWindow(QMainWindow):
         ):
             return
         checkpoint = self.derived_dataset_controller.checkpoint()
+        history_checkpoint = self.edit_history.checkpoint()
         try:
             self.dataset_merge_controller.create(
                 dialog.source_dataset_id,
@@ -9069,6 +9080,7 @@ class MainWindow(QMainWindow):
             exported = self._export_current_dataset_to_path(dialog.output_path)
         except (KeyError, RuntimeError, ValueError, OSError, LasExportError) as exc:
             self.derived_dataset_controller.rollback(checkpoint)
+            self.edit_history.restore(history_checkpoint)
             QMessageBox.warning(self, self._t("merge.title"), str(exc))
             return
         self._after_dataset_merge(self._t("merge.copy_completed", name=exported.name))
