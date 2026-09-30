@@ -233,3 +233,29 @@ def test_shared_history_keeps_curve_metadata_undo_domain_safe() -> None:
     assert history.next_undo is not None
     assert history.next_undo.history_domain == "curve"
     assert controller.can_undo is False
+
+
+
+def test_created_curve_can_be_undone_after_later_value_edit_is_undone() -> None:
+    history = CommandHistory()
+    controller = make_controller(history)
+    dataset = controller.session.current_dataset
+    assert dataset is not None
+
+    curve = controller.create(mnemonic="ROP_USER", unit="m/h", description="User curve")
+    history.execute(
+        CurveEditCommand.create(
+            curve,
+            np.array([0], dtype=np.int64),
+            np.array([12.0], dtype=np.float64),
+        )
+    )
+
+    assert controller.can_undo is False
+    history.undo()
+    assert np.isnan(curve.values).all()
+    assert controller.can_undo is True
+
+    controller.undo()
+
+    assert curve.metadata.curve_id not in dataset.curves

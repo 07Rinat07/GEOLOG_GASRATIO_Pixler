@@ -28,6 +28,7 @@ class CurveMetadataCommand:
 class CurveCreationCommand:
     dataset_id: str
     curve: CurveData
+    initial_metadata: CurveMetadata
     description: str
 
 
@@ -158,6 +159,7 @@ class CurveMetadataController:
             CurveCreationCommand(
                 dataset.dataset_id,
                 curve,
+                curve.metadata,
                 f"Создание кривой {normalized_mnemonic}",
             )
         )
@@ -272,7 +274,10 @@ class CurveMetadataController:
         dataset = self._dataset()
         if dataset.curves.get(command.curve.metadata.curve_id) is not command.curve:
             raise RuntimeError("Созданная кривая была изменена вне истории команд")
-        if command.curve.version != 1 or not np.all(np.isnan(command.curve.values)):
+        if (
+            command.curve.metadata != command.initial_metadata
+            or not np.all(np.isnan(command.curve.values))
+        ):
             raise RuntimeError(
                 "Кривая уже содержит пользовательские правки и не может быть удалена через Undo"
             )

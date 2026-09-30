@@ -358,7 +358,10 @@ Interpretation marker содержит фактический axis anchor и pre
 `CallbackCommand`: доменный controller сохраняет ownership validation/conflict/restore правил,
 а application history отвечает только за chronological ordering и branch semantics. Это позволяет
 metadata update/create/remove участвовать в общем Undo без копирования их инвариантов в UI или
-generic history service.
+generic history service. Для creation-undo guard сравнивает фактический baseline
+(metadata + пустые NaN values), а не монотонную curve version: поэтому полностью отменённая
+последующая правка не блокирует следующий Undo создания, тогда как отличающееся текущее состояние
+по-прежнему fail-closed.
 
 Глобальные действия MainWindow маршрутизируют верхнюю команду к контроллеру соответствующего
 домена, чтобы curve undo продолжал выполнять dependency recalculation, header undo — snapshot
