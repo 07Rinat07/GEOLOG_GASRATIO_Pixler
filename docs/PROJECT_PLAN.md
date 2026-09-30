@@ -1153,8 +1153,13 @@ WELL-04 уже имеет field-level статусы и readiness; WELL-05 — f
   `las.import.performance`, application-level timing/RSS этапов `job_load/policy/review/register`
   и отдельный `las.import.presentation` для Qt presentation/recovery boundary. Логи по-прежнему
   не содержат LAS values/full path и дают измеримый baseline от чтения файла до первого UI render.
-  Следующие измеряемые slices: coalesced main-window refresh для безопасных structural cases и
-  дальнейшее сокращение MainThread rebuild без ослабления viewport LOD/geometry-cache контрактов.
+  Шестой slice вводит Qt-независимый typed presentation-refresh accumulator и применяет
+  bounded coalescing только к вторичным Project Tree/window-title refresh при drag resize/reorder
+  треков; layout mutation и partial TabletView feedback остаются синхронными. Это намеренно не
+  является глобальным debounce: Dataset replacement, Undo/Redo, imports и full TabletView rebuild
+  сохраняют существующие немедленные контракты. Следующие измеряемые slices: расширять intent
+  classification только по подтверждённым hot paths и дальше сокращать MainThread rebuild без
+  ослабления viewport LOD/geometry-cache контрактов.
 
 ## P1 — поддерживаемая архитектура
 
