@@ -168,6 +168,70 @@ def classify_pixler_ratios(
     )
 
 
+
+_SPECIFIC_OIL_CODES = {
+    "light_oil_high_gor",
+    "productive_oil_decreasing_gravity",
+    "poor_low_gravity_oil",
+    "heavy_or_residual_oil",
+}
+_PIXLER_OIL_COMPATIBILITY: dict[str, frozenset[str]] = {
+    "light_oil_high_gor": frozenset({"high_api_light_oil", "medium_api_oil"}),
+    "productive_oil_decreasing_gravity": frozenset(
+        {"low_api_oil", "medium_api_oil", "high_api_light_oil"}
+    ),
+    "poor_low_gravity_oil": frozenset(
+        {"nonproductive_residual_or_very_heavy_oil", "low_api_oil"}
+    ),
+    "heavy_or_residual_oil": frozenset(
+        {"nonproductive_residual_or_very_heavy_oil", "low_api_oil"}
+    ),
+}
+_PIXLER_TRANSITION_CODES = {
+    "light_oil_or_gas_condensate",
+    "gas_or_gas_condensate",
+}
+
+
+def conservative_fluid_hypothesis(
+    assessment: GasRatioAssessment,
+    *,
+    pixler: PixlerAssessment | None,
+    wetness_robust_z: float | None,
+    minimum_wetness_robust_z: float = 2.0,
+) -> str:
+    """Return a report-safe fluid code without turning one palette into a reserve claim.
+
+    Haworth/DATALOG remains the raw classification. A specific oil subtype is
+    exposed to the report only when C2-C5 enrichment is robust relative to the
+    local background and Pixler independently supports a compatible oil band.
+    Otherwise the interpretation is downgraded to an ambiguous liquid-HC class.
+    """
+
+    raw_code = assessment.code
+    if raw_code not in _SPECIFIC_OIL_CODES:
+        return raw_code
+
+    if (
+        wetness_robust_z is None
+        or not np.isfinite(wetness_robust_z)
+        or wetness_robust_z < minimum_wetness_robust_z
+    ):
+        return "probable_liquid_hydrocarbons"
+
+    if pixler is None or pixler.profile_shape in {None, "mixed"}:
+        return "probable_liquid_hydrocarbons"
+
+    if pixler.code in _PIXLER_TRANSITION_CODES:
+        if raw_code == "light_oil_high_gor":
+            return "gas_condensate_or_high_api_oil"
+        return "probable_liquid_hydrocarbons"
+
+    if pixler.code not in _PIXLER_OIL_COMPATIBILITY[raw_code]:
+        return "probable_liquid_hydrocarbons"
+
+    return raw_code
+
 def _finite_nonnegative(value: float | None) -> float | None:
     if value is None:
         return None

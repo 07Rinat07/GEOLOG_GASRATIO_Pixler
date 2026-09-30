@@ -952,3 +952,14 @@ semantic/Sensors metadata и методики отчёта: source mnemonics в�
 ```powershell
 python scripts/run_tests.py -q -p no:cacheprovider tests/test_hydrocarbon_interpretation_pdf_chart_range.py tests/test_interpretation_report_charts.py
 ```
+
+
+Дополнительный fluid-classification regression сохраняет сырые Haworth/Pixler палетки, но
+проверяет report-safe decision layer: конкретный нефтяной подтип разрешается только при
+`wetness robust z >= 2.0`, согласованной Pixler oil-band и немixed profile; иначе результат
+понижается до вероятных жидких УВ или переходного «жидкие УВ / газоконденсат». Формулировки
+и rationale проверяются одновременно на русском, казахском и английском языках.
+
+```powershell
+python scripts/run_tests.py -q -p no:cacheprovider tests/test_gas_ratio_interpretation.py tests/test_hydrocarbon_interpretation.py
+```

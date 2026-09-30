@@ -13,6 +13,7 @@ from geoworkbench.services.gas_ratio_interpretation import (
     PixlerAssessment,
     classify_gas_ratio,
     classify_pixler_ratios,
+    conservative_fluid_hypothesis,
 )
 from geoworkbench.services.las_parameter_resolver import (
     DatasetParameterResolution,
@@ -761,8 +762,14 @@ def _preliminary_fluid_hypothesis(
         character=interval_character,
     )
     if context.background_median is None:
+        fluid_code = conservative_fluid_hypothesis(
+            assessment,
+            pixler=pixler_assessment,
+            wetness_robust_z=None,
+            minimum_wetness_robust_z=_FLUID_CHARACTER_Z_THRESHOLD,
+        )
         return (
-            assessment.code,
+            fluid_code,
             interval_wetness,
             None,
             None,
@@ -771,8 +778,14 @@ def _preliminary_fluid_hypothesis(
             pixler_assessment,
         )
     if context.background_scale is None:
+        fluid_code = conservative_fluid_hypothesis(
+            assessment,
+            pixler=pixler_assessment,
+            wetness_robust_z=None,
+            minimum_wetness_robust_z=_FLUID_CHARACTER_Z_THRESHOLD,
+        )
         return (
-            assessment.code,
+            fluid_code,
             interval_wetness,
             context.background_median,
             None,
@@ -780,12 +793,20 @@ def _preliminary_fluid_hypothesis(
             interval_character,
             pixler_assessment,
         )
-    relative_z = (interval_wetness - context.background_median) / context.background_scale
+    relative_z = float(
+        (interval_wetness - context.background_median) / context.background_scale
+    )
+    fluid_code = conservative_fluid_hypothesis(
+        assessment,
+        pixler=pixler_assessment,
+        wetness_robust_z=relative_z,
+        minimum_wetness_robust_z=_FLUID_CHARACTER_Z_THRESHOLD,
+    )
     return (
-        assessment.code,
+        fluid_code,
         interval_wetness,
         context.background_median,
-        float(relative_z),
+        relative_z,
         interval_balance,
         interval_character,
         pixler_assessment,
@@ -949,7 +970,9 @@ _HTML_LABELS = {
         "empty": "Кандидатные интервалы по выбранному порогу не найдены.",
         "no_manual": "Подтверждённые геологом интервалы пока не заполнены.",
         "hypothesis_probable_gas": "вероятный газ",
-        "hypothesis_probable_liquid_hydrocarbons": ("вероятные жидкие УВ (нефть/конденсат)"),
+        "hypothesis_probable_liquid_hydrocarbons": (
+            "вероятные жидкие УВ; тип нефть/конденсат не подтверждён"
+        ),
         "hypothesis_indeterminate": "УВ-проявление смешанного/неопределённого типа",
         "hypothesis_insufficient_data": (
             "газовое УВ-проявление; C1–C5 недостаточно для определения типа"
@@ -963,16 +986,20 @@ _HTML_LABELS = {
         "hypothesis_wet_gas_or_gas_condensate": (
             "продуктивная газовая фаза: влажный газ или газоконденсат"
         ),
-        "hypothesis_light_oil_high_gor": ("лёгкая нефть с высоким газовым фактором"),
+        "hypothesis_light_oil_high_gor": (
+            "признаки лёгкой жидкой УВ-фазы с высоким газовым фактором"
+        ),
         "hypothesis_gas_condensate_or_high_api_oil": (
-            "газоконденсат или лёгкая нефть с высоким API/GOR"
+            "лёгкие жидкие УВ / газоконденсат; тип неоднозначен"
         ),
         "hypothesis_productive_oil_decreasing_gravity": (
-            "нефтяная залежь с увеличением плотности нефти"
+            "признаки нефтяного типа по газогеохимической палетке"
         ),
-        "hypothesis_poor_low_gravity_oil": ("бедная тяжёлая нефть с низким газосодержанием"),
+        "hypothesis_poor_low_gravity_oil": (
+            "признаки тяжёлой жидкой УВ-фазы с низким газосодержанием"
+        ),
         "hypothesis_heavy_or_residual_oil": (
-            "тяжёлая или остаточная нефть; возможна непродуктивная зона"
+            "признаки тяжёлых/остаточных жидких УВ; возможна непродуктивная зона"
         ),
         "hypothesis_opus_oxidized_residual_oil": (
             "УВ-газопроявление; ОПУС предварительно: окисленная (остаточная) нефть"
@@ -1031,7 +1058,9 @@ _HTML_LABELS = {
         ),
         "ratio_basis": "Палетка Haworth/DATALOG: Wh={wh}, Bh={bh}, Ch={ch}.",
         "phase_productive_gas_phase": "Ch подтверждает продуктивную газовую фазу.",
-        "phase_productive_liquid_phase": ("Ch подтверждает жидкую фазу или лёгкую нефть."),
+        "phase_productive_liquid_phase": (
+            "Ch поддерживает тенденцию к жидкой фазе, но сам по себе не подтверждает нефть."
+        ),
         "phase_phase_boundary": "Ch находится на границе 0,5.",
         "pixler_basis": ("Pixler: {label}; C1/C2={c1_c2}, профиль {shape}{water}."),
         "pixler_nonproductive_residual_or_very_heavy_oil": (
@@ -1100,7 +1129,7 @@ _HTML_LABELS = {
         "no_manual": "Геолог растаған аралықтар әлі толтырылмаған.",
         "hypothesis_probable_gas": "ықтимал газ",
         "hypothesis_probable_liquid_hydrocarbons": (
-            "ықтимал сұйық көмірсутектер (мұнай/конденсат)"
+            "ықтимал сұйық КС; мұнай/конденсат түрі расталмаған"
         ),
         "hypothesis_indeterminate": "аралас/анықталмаған түрдегі көмірсутек көрінісі",
         "hypothesis_insufficient_data": (
@@ -1115,14 +1144,20 @@ _HTML_LABELS = {
         "hypothesis_wet_gas_or_gas_condensate": (
             "өнімді газ фазасы: ылғалды газ немесе газ конденсаты"
         ),
-        "hypothesis_light_oil_high_gor": "газ факторы жоғары жеңіл мұнай",
-        "hypothesis_gas_condensate_or_high_api_oil": (
-            "газ конденсаты немесе API/GOR жоғары жеңіл мұнай"
+        "hypothesis_light_oil_high_gor": (
+            "газ факторы жоғары жеңіл сұйық КС фазасының белгілері"
         ),
-        "hypothesis_productive_oil_decreasing_gravity": ("мұнай тығыздығы артатын мұнай шоғыры"),
-        "hypothesis_poor_low_gravity_oil": ("газ мөлшері аз ауыр мұнай шоғыры"),
+        "hypothesis_gas_condensate_or_high_api_oil": (
+            "жеңіл сұйық КС / газ конденсаты; түрі бірмәнді емес"
+        ),
+        "hypothesis_productive_oil_decreasing_gravity": (
+            "газ-геохимиялық палетка бойынша мұнай типінің белгілері"
+        ),
+        "hypothesis_poor_low_gravity_oil": (
+            "газ мөлшері төмен ауыр сұйық КС фазасының белгілері"
+        ),
         "hypothesis_heavy_or_residual_oil": (
-            "ауыр немесе қалдық мұнай; өнімсіз аймақ болуы мүмкін"
+            "ауыр/қалдық сұйық КС белгілері; өнімсіз аймақ болуы мүмкін"
         ),
         "hypothesis_opus_oxidized_residual_oil": (
             "КС газ көрінісі; ОПУС алдын ала: тотыққан (қалдық) мұнай"
@@ -1179,7 +1214,9 @@ _HTML_LABELS = {
         ),
         "ratio_basis": "Haworth/DATALOG палеткасы: Wh={wh}, Bh={bh}, Ch={ch}.",
         "phase_productive_gas_phase": "Ch өнімді газ фазасын растайды.",
-        "phase_productive_liquid_phase": ("Ch сұйық фазаны немесе жеңіл мұнайды растайды."),
+        "phase_productive_liquid_phase": (
+            "Ch сұйық фазаға бейімділікті қолдайды, бірақ мұнайды жеке өзі растамайды."
+        ),
         "phase_phase_boundary": "Ch 0,5 шекарасында.",
         "pixler_basis": ("Pixler: {label}; C1/C2={c1_c2}, профиль {shape}{water}."),
         "pixler_nonproductive_residual_or_very_heavy_oil": ("қалдық немесе өте ауыр өнімсіз мұнай"),
@@ -1238,7 +1275,7 @@ _HTML_LABELS = {
         "no_manual": "No geologist-confirmed intervals have been entered.",
         "hypothesis_probable_gas": "probable gas",
         "hypothesis_probable_liquid_hydrocarbons": (
-            "probable liquid hydrocarbons (oil/condensate)"
+            "probable liquid hydrocarbons; oil/condensate type is unconfirmed"
         ),
         "hypothesis_indeterminate": "mixed/indeterminate hydrocarbon show",
         "hypothesis_insufficient_data": (
@@ -1251,15 +1288,21 @@ _HTML_LABELS = {
         ),
         "hypothesis_gas_increasing_wetness": ("gas with increasing heavy-hydrocarbon content"),
         "hypothesis_wet_gas_or_gas_condensate": ("productive gas phase: wet gas or gas condensate"),
-        "hypothesis_light_oil_high_gor": "light oil with high GOR",
+        "hypothesis_light_oil_high_gor": (
+            "indications of a light liquid-HC phase with high GOR"
+        ),
         "hypothesis_gas_condensate_or_high_api_oil": (
-            "gas condensate or high-API/high-GOR light oil"
+            "light liquid hydrocarbons / gas condensate; type is indeterminate"
         ),
         "hypothesis_productive_oil_decreasing_gravity": (
-            "oil accumulation with increasing oil density"
+            "oil-like signature from the gas-geochemical palette"
         ),
-        "hypothesis_poor_low_gravity_oil": ("poor low-gravity oil with low gas content"),
-        "hypothesis_heavy_or_residual_oil": ("heavy or residual oil; possibly non-productive"),
+        "hypothesis_poor_low_gravity_oil": (
+            "indications of a heavy liquid-HC phase with low gas content"
+        ),
+        "hypothesis_heavy_or_residual_oil": (
+            "indications of heavy/residual liquid HC; possibly non-productive"
+        ),
         "hypothesis_opus_oxidized_residual_oil": (
             "HC gas show; preliminary OPUS: oxidized (residual) oil"
         ),
@@ -1315,7 +1358,9 @@ _HTML_LABELS = {
         ),
         "ratio_basis": "Haworth/DATALOG palette: Wh={wh}, Bh={bh}, Ch={ch}.",
         "phase_productive_gas_phase": "Ch supports a productive gas phase.",
-        "phase_productive_liquid_phase": ("Ch supports a liquid phase or light oil."),
+        "phase_productive_liquid_phase": (
+            "Ch supports a liquid-phase tendency but does not confirm oil by itself."
+        ),
         "phase_phase_boundary": "Ch is on the 0.5 boundary.",
         "pixler_basis": ("Pixler: {label}; C1/C2={c1_c2}, {shape} profile{water}."),
         "pixler_nonproductive_residual_or_very_heavy_oil": (
@@ -1559,6 +1604,23 @@ def fluid_hypothesis_basis(
             else "phase_boundary"
         )
         parts.append(labels[f"phase_{phase_code}"])
+    if candidate.fluid_hypothesis == "probable_liquid_hydrocarbons":
+        parts.append(
+            {
+                AppLanguage.RU: (
+                    "Конкретный нефтяной подтип автоматически не назначен: "
+                    "нужно устойчивое обогащение C2–C5 относительно фона и согласие Haworth/Pixler."
+                ),
+                AppLanguage.KK: (
+                    "Нақты мұнай қосалқы түрі автоматты түрде тағайындалмады: "
+                    "фонға қатысты C2–C5 тұрақты байытылуы және Haworth/Pixler келісімі қажет."
+                ),
+                AppLanguage.EN: (
+                    "No specific oil subtype is assigned automatically: robust C2-C5 enrichment "
+                    "relative to background and Haworth/Pixler agreement are required."
+                ),
+            }[language]
+        )
     if candidate.pixler_assessment is not None:
         pixler = candidate.pixler_assessment
         shape = pixler.profile_shape or "insufficient"

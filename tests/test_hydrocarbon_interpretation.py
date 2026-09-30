@@ -29,6 +29,8 @@ from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.hydrocarbon_interpretation import (
     build_hydrocarbon_interpretation_report,
     candidate_evidence_summary,
+    fluid_hypothesis_basis,
+    fluid_hypothesis_label,
     hydrocarbon_interpretation_html,
 )
 from geoworkbench.services.hydrocarbon_interpretation_gas_html import (
@@ -149,7 +151,7 @@ def test_report_detects_relative_anomaly_and_keeps_manual_intervals_separate() -
     assert "Prospective hydrocarbon-show intervals" in en_html
     assert "Candidate hydrocarbon-show intervals" not in en_html
     assert "page-break-before: always" in html
-    assert "тяжёлая или остаточная нефть" in html
+    assert "признаки тяжёлых/остаточных жидких УВ" in html
     assert "Check DST" in html
 
 
@@ -262,7 +264,7 @@ def test_report_exports_openable_xlsx_and_docx(tmp_path) -> None:
         document = package.read("word/document.xml").decode("utf-8")
         assert "Перспективные интервалы" in document
         assert "Кандидатные интервалы" not in document
-        assert "тяжёлая или остаточная нефть" in document
+        assert "признаки тяжёлых/остаточных жидких УВ" in document
         assert "Абсолютный газ: мин / среднее / макс" in document
         assert "Точек выше порога" not in document
         assert "Медиана" not in document
@@ -767,3 +769,64 @@ def test_hard_exclusion_takes_precedence_over_overlapping_technological_audit() 
     assert report.candidates == ()
     assert report.suppressed_candidates == ()
     assert "hard-overlap" not in hydrocarbon_interpretation_html(report, AppLanguage.RU)
+
+
+
+def test_conservative_liquid_hydrocarbon_wording_is_consistent_in_three_languages() -> None:
+    report = build_hydrocarbon_interpretation_report(_session(), threshold=3.0)
+    candidate = replace(
+        report.candidates[0],
+        fluid_hypothesis="probable_liquid_hydrocarbons",
+        wetness_robust_z=1.5,
+    )
+
+    assert (
+        fluid_hypothesis_label(candidate, AppLanguage.RU)
+        == "вероятные жидкие УВ; тип нефть/конденсат не подтверждён"
+    )
+    assert (
+        fluid_hypothesis_label(candidate, AppLanguage.KK)
+        == "ықтимал сұйық КС; мұнай/конденсат түрі расталмаған"
+    )
+    assert (
+        fluid_hypothesis_label(candidate, AppLanguage.EN)
+        == "probable liquid hydrocarbons; oil/condensate type is unconfirmed"
+    )
+
+    ru_basis = fluid_hypothesis_basis(candidate, AppLanguage.RU)
+    kk_basis = fluid_hypothesis_basis(candidate, AppLanguage.KK)
+    en_basis = fluid_hypothesis_basis(candidate, AppLanguage.EN)
+    assert "не подтверждает нефть" in ru_basis
+    assert "мұнайды жеке өзі растамайды" in kk_basis
+    assert "does not confirm oil by itself" in en_basis
+    assert "Конкретный нефтяной подтип автоматически не назначен" in ru_basis
+    assert "Нақты мұнай қосалқы түрі автоматты түрде тағайындалмады" in kk_basis
+    assert "No specific oil subtype is assigned automatically" in en_basis
+
+
+def test_weak_liquid_signature_in_report_is_downgraded_from_specific_oil() -> None:
+    session = _session()
+    dataset = session.current_dataset
+    assert dataset is not None
+
+    # Keep the total-gas anomaly, but make interval C2-C5 enrichment only mildly
+    # different from the well background while Haworth remains oil-like.
+    dataset.curves["C1"].values[40:43] = 90.0
+    dataset.curves["C2"].values[40:43] = 2.0
+    dataset.curves["C3"].values[40:43] = 4.0
+    dataset.curves["IC4"].values[40:43] = 1.5
+    dataset.curves["NC4"].values[40:43] = 1.5
+    dataset.curves["IC5"].values[40:43] = 1.0
+    dataset.curves["NC5"].values[40:43] = 1.0
+
+    report = build_hydrocarbon_interpretation_report(session, threshold=3.0)
+
+    candidate = report.candidates[0]
+    assert candidate.interval_wetness is not None
+    assert candidate.interval_balance is not None
+    assert candidate.interval_character is not None
+    assert candidate.interval_balance <= candidate.interval_wetness
+    assert candidate.interval_character > 0.5
+    assert candidate.wetness_robust_z is not None
+    assert candidate.wetness_robust_z < 2.0
+    assert candidate.fluid_hypothesis == "probable_liquid_hydrocarbons"
