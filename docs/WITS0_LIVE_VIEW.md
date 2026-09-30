@@ -119,7 +119,7 @@ acknowledgement. Рабочие правила входят в `Wits0SavedLiveFo
 
 ## Runtime alarm state and acknowledgement
 
-Saved alarm rules are evaluated by a separate runtime controller. It catches up every new append-only DATA_ROW from the acquisition session, so repainting the same snapshot cannot advance debounce and a drained batch cannot collapse several channel samples into one. Plot Pause freezes visualization only; alarm monitoring continues from the acquisition session. An explicit missing channel value is alarm missing input, while unrelated record rows are ignored for that channel.
+Saved alarm rules are evaluated by a separate runtime controller. It catches up every new append-only DATA_ROW from the acquisition session, so repainting the same snapshot cannot advance debounce and a drained batch cannot collapse several channel samples into one. Plot Pause freezes visualization only; alarm monitoring continues from the acquisition session. An explicit missing source-channel value is alarm missing input, while unrelated record rows are ignored for that channel. The same mechanism covers displayed virtual Haworth/Pixler/DEXP/DEXPC channels: their aligned derived value is evaluated only for WITS record numbers declared by the existing `source-records` provenance.
 Active visual alarms are shown in current values and dashboard indicator cards. The operator can
 acknowledge all active alarms; acknowledgement removes the attention requirement but does not clear
 the alarm. Clearing still requires a factual recovery sample crossing the configured hysteresis
