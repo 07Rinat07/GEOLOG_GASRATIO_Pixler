@@ -152,11 +152,11 @@ def test_readable_xlsx_keeps_interpretation_and_gas_statistics_on_main_sheet(
         assert not any("Фон" in str(value) for value in headers)
         assert sheet["F10"].value == "Перспективный УВ-интервал"
         assert isinstance(sheet["G10"].value, str) and sheet["G10"].value
-        assert sheet["I10"].value == "TG_CALC [%abs]"
+        assert sheet["I10"].value == "Общий газ [%abs]"
         assert sheet["J10"].value == 3.0
         assert sheet["K10"].value == 4.0
         assert sheet["L10"].value == 5.0
-        assert sheet["M10"].value == "TG_NORM_CALC [normalized gas units]"
+        assert sheet["M10"].value == "Расчётный нормализованный общий газ [normalized gas units]"
         assert sheet["N10"].value == 10.0
         assert sheet["O10"].value == 11.0
         assert sheet["P10"].value == 12.0
