@@ -5,6 +5,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from enum import StrEnum
 from pathlib import Path
+from time import perf_counter
 from typing import TYPE_CHECKING, Any, Protocol
 import zipfile
 
@@ -35,7 +36,9 @@ from geoworkbench.importers.legacy_geosight_forms import (
     LegacyGeoSightSourceKind,
     detect_geosight_source,
 )
+from geoworkbench.services.application_logging import log_event
 from geoworkbench.services.depth_axis import DepthDirection, analyze_depth_axis
+from geoworkbench.services.process_metrics import process_memory_snapshot
 from geoworkbench.services.import_diagnostics import (
     ImportDiagnostic,
     ImportDiagnosticReport,
@@ -55,6 +58,28 @@ def _load_las_with_report(path: str | Path) -> LasImportResult:
     from geoworkbench.data.las_adapter import import_las_with_report
 
     return import_las_with_report(path)
+
+
+def _log_las_job_phase(
+    source: Path,
+    phase: str,
+    started_at: float,
+    *,
+    dataset: Dataset | None = None,
+) -> float:
+    finished_at = perf_counter()
+    memory = process_memory_snapshot()
+    log_event(
+        "las.import.job.phase",
+        file=source.name,
+        phase=phase,
+        duration_ms=round(max(0.0, finished_at - started_at) * 1000.0, 3),
+        rss_bytes=memory.rss_bytes,
+        peak_rss_bytes=memory.peak_rss_bytes,
+        rows=(len(dataset.depth) if dataset is not None else None),
+        curves=(len(dataset.curves) if dataset is not None else None),
+    )
+    return finished_at
 
 
 class ImportSourceKind(StrEnum):
@@ -341,11 +366,25 @@ class DatasetImportJobExecutor:
     ) -> LasImportBatchOutcome:
         outcomes: list[LasImportOutcome] = []
         for source in sources:
+            total_started = perf_counter()
+            phase_started = total_started
             stage = ImportDiagnosticStage.READ_SOURCE
             try:
                 result = self._las_loader(source)
+                phase_started = _log_las_job_phase(
+                    source,
+                    "job_load",
+                    phase_started,
+                    dataset=result.dataset,
+                )
                 stage = ImportDiagnosticStage.POLICY
                 decision = evaluate_las_import(result.report, mode)
+                phase_started = _log_las_job_phase(
+                    source,
+                    "policy",
+                    phase_started,
+                    dataset=result.dataset,
+                )
                 report_diagnostics = tuple(
                     policy_diagnostic(
                         source,
@@ -374,6 +413,12 @@ class DatasetImportJobExecutor:
                             ),
                         )
                     )
+                    _log_las_job_phase(
+                        source,
+                        "total",
+                        total_started,
+                        dataset=result.dataset,
+                    )
                     continue
                 if decision.requires_confirmation:
                     if confirm_review is None:
@@ -389,11 +434,23 @@ class DatasetImportJobExecutor:
                                 diagnostics=report_diagnostics,
                             )
                         )
+                        _log_las_job_phase(
+                            source,
+                            "total",
+                            total_started,
+                            dataset=result.dataset,
+                        )
                         continue
 
                 stage = ImportDiagnosticStage.REVIEW
                 dataset = self._review_or_original(
                     result.dataset, ImportSourceKind.LAS, source, review_dataset
+                )
+                phase_started = _log_las_job_phase(
+                    source,
+                    "review",
+                    phase_started,
+                    dataset=(dataset or result.dataset),
                 )
                 if dataset is None:
                     outcomes.append(
@@ -403,6 +460,12 @@ class DatasetImportJobExecutor:
                             diagnostics=report_diagnostics,
                         )
                     )
+                    _log_las_job_phase(
+                        source,
+                        "total",
+                        total_started,
+                        dataset=result.dataset,
+                    )
                     continue
                 result = replace(result, dataset=dataset)
                 stage = ImportDiagnosticStage.REGISTER
@@ -411,6 +474,12 @@ class DatasetImportJobExecutor:
                     source_document=result.source_document,
                     import_report=result.report,
                     create_new_well=True,
+                )
+                _log_las_job_phase(
+                    source,
+                    "register",
+                    phase_started,
+                    dataset=result.dataset,
                 )
                 warning_messages = (
                     tuple(
@@ -437,6 +506,12 @@ class DatasetImportJobExecutor:
                         diagnostics=report_diagnostics,
                     )
                 )
+                _log_las_job_phase(
+                    source,
+                    "total",
+                    total_started,
+                    dataset=result.dataset,
+                )
             except Exception as exc:  # noqa: BLE001 - import boundary must not crash Qt
                 diagnostic = diagnostic_from_exception(
                     source,
@@ -450,6 +525,19 @@ class DatasetImportJobExecutor:
                         error=str(exc).strip() or diagnostic.summary,
                         diagnostics=(diagnostic,),
                     )
+                )
+                memory = process_memory_snapshot()
+                log_event(
+                    "las.import.job.failed",
+                    file=source.name,
+                    stage=stage.value,
+                    duration_ms=round(
+                        max(0.0, perf_counter() - total_started) * 1000.0,
+                        3,
+                    ),
+                    rss_bytes=memory.rss_bytes,
+                    peak_rss_bytes=memory.peak_rss_bytes,
+                    exception_type=type(exc).__name__,
                 )
         return LasImportBatchOutcome(tuple(outcomes))
 
