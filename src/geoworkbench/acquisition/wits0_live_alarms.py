@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable
+from collections.abc import Iterable, Mapping
+from math import isfinite
 
 from geoworkbench.acquisition.wits0_live_forms import Wits0SavedAlarmRule
 from geoworkbench.domain.acquisition import (
@@ -10,9 +11,12 @@ from geoworkbench.domain.acquisition import (
     AcquisitionSession,
 )
 from geoworkbench.catalogs.sensors import normalize_sensor_key
+from geoworkbench.domain.models import CurveData
 from geoworkbench.services.acquisition_live_view import (
     AcquisitionCurrentValue,
     AcquisitionLiveQuality,
+    wits0_source_record_no,
+    wits0_virtual_source_record_numbers,
 )
 from geoworkbench.services.wits0_alarms import (
     AlarmLimits,
@@ -108,7 +112,18 @@ class Wits0LiveAlarmController:
         self,
         session: AcquisitionSession,
         values: Iterable[AcquisitionCurrentValue],
+        *,
+        virtual_curves: Mapping[str, CurveData] | None = None,
+        dataset_row_count: int,
     ) -> tuple[Wits0LiveAlarmStatus, ...]:
+        if (
+            isinstance(dataset_row_count, bool)
+            or not isinstance(dataset_row_count, int)
+            or dataset_row_count < 0
+        ):
+            raise ValueError("dataset_row_count must be a non-negative integer")
+
+        virtual = dict(virtual_curves or {})
         materialized = tuple(values)
         configured: dict[
             str,
@@ -154,28 +169,68 @@ class Wits0LiveAlarmController:
         }
         if catch_up:
             earliest = min(self._last_sequences[curve_id] for curve_id in catch_up)
-            for record in session.records:
-                if record.sequence <= earliest:
+            if earliest < 0 or earliest > session.last_sequence:
+                raise ValueError("alarm runtime sequence is outside acquisition session")
+            tail_records = session.records[earliest:]
+            tail_data_rows = sum(
+                record.kind is AcquisitionRecordKind.DATA_ROW
+                for record in tail_records
+            )
+            first_tail_row = dataset_row_count - tail_data_rows
+            if first_tail_row < 0:
+                raise ValueError(
+                    "dataset row count is smaller than appended acquisition DATA_ROW tail"
+                )
+
+            data_row_index = first_tail_row
+            virtual_sources = {
+                curve_id: wits0_virtual_source_record_numbers(
+                    curve.metadata.provenance
+                )
+                for curve_id, curve in virtual.items()
+                if curve_id in catch_up
+            }
+            for record in tail_records:
+                if record.kind is not AcquisitionRecordKind.DATA_ROW:
                     continue
-                if (
-                    record.kind is not AcquisitionRecordKind.DATA_ROW
-                    or not isinstance(record.payload, AcquisitionDataRowPayload)
-                ):
+                if not isinstance(record.payload, AcquisitionDataRowPayload):
                     continue
+                if data_row_index >= dataset_row_count:
+                    raise ValueError(
+                        "acquisition DATA_ROW tail exceeds dataset row count"
+                    )
                 row_values = record.payload.curves_dict()
+                record_no = wits0_source_record_no(record.source)
                 for curve_id, (_item, _key, rule) in catch_up.items():
                     if record.sequence <= self._last_sequences[curve_id]:
                         continue
-                    if curve_id not in row_values:
+                    sample = _sample_from_data_row(
+                        curve_id,
+                        row_values,
+                        record_no=record_no,
+                        data_row_index=data_row_index,
+                        virtual_curve=virtual.get(curve_id),
+                        virtual_source_records=virtual_sources.get(
+                            curve_id,
+                            frozenset(),
+                        ),
+                    )
+                    if sample is _NO_SAMPLE:
                         continue
                     evaluation = evaluate_alarm(
                         _limits(rule),
                         self._states.get(curve_id, AlarmState()),
-                        row_values[curve_id],
+                        sample,
                     )
                     self._states[curve_id] = evaluation.state
                     if evaluation.transition is not AlarmTransition.NONE:
                         transitions[curve_id] = evaluation.transition
+                data_row_index += 1
+
+            if data_row_index != dataset_row_count:
+                raise ValueError(
+                    "acquisition DATA_ROW tail does not align with dataset rows"
+                )
             for curve_id in catch_up:
                 self._last_sequences[curve_id] = session.last_sequence
 
@@ -224,6 +279,32 @@ class Wits0LiveAlarmController:
             self._states[curve_id] = evaluation.state
             count += 1
         return count
+
+
+_NO_SAMPLE = object()
+
+
+def _sample_from_data_row(
+    curve_id: str,
+    row_values: Mapping[str, float | None],
+    *,
+    record_no: int | None,
+    data_row_index: int,
+    virtual_curve: CurveData | None,
+    virtual_source_records: frozenset[int],
+) -> float | None | object:
+    if curve_id in row_values:
+        return row_values[curve_id]
+    if (
+        virtual_curve is None
+        or not virtual_source_records
+        or record_no not in virtual_source_records
+    ):
+        return _NO_SAMPLE
+    if data_row_index >= len(virtual_curve.values):
+        raise ValueError("derived alarm curve does not align with dataset rows")
+    value = float(virtual_curve.values[data_row_index])
+    return value if isfinite(value) else None
 
 
 def _limits(rule: Wits0SavedAlarmRule) -> AlarmLimits:
