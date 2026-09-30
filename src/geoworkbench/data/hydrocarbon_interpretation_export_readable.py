@@ -39,6 +39,10 @@ from geoworkbench.services.interval_gas_statistics import (
 )
 from geoworkbench.services.lba_standard import describe_lba_assessment
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.parameter_labels import (
+    localized_curve_name,
+    localized_curve_reference,
+)
 
 
 _EXCEL_MAX_ROWS = 1_048_576
@@ -173,7 +177,8 @@ def _write_gas_context_sheet(
                 continue
             unit = f" {item.unit}" if item.unit else ""
             parts.append(
-                f"{item.mnemonic}: {item.minimum:.6g}/{item.mean:.6g}/{item.maximum:.6g}{unit}"
+                f"{localized_curve_name(item.mnemonic, language=language)}: "
+                f"{item.minimum:.6g}/{item.mean:.6g}/{item.maximum:.6g}{unit}"
             )
         return "; ".join(parts)
 
@@ -193,7 +198,10 @@ def _write_gas_context_sheet(
                     (
                         ""
                         if measured is None
-                        else measured.mnemonic + (f" [{measured.unit}]" if measured.unit else "")
+                        else localized_curve_name(
+                            measured.mnemonic,
+                            language=language,
+                        ) + (f" [{measured.unit}]" if measured.unit else "")
                     ),
                     None if measured is None else measured.minimum,
                     None if measured is None else measured.mean,
@@ -258,7 +266,10 @@ def _write_main_sheet(
         (labels.dataset, report.dataset_name, labels.generated, report.generated_at),
         (
             labels.primary_gas_curve,
-            report.primary_mnemonic or "-",
+            localized_curve_reference(
+                report.primary_mnemonic,
+                language=language,
+            ) if report.primary_mnemonic else "-",
             labels.robust_z_threshold,
             report.threshold,
         ),
@@ -449,11 +460,11 @@ def _candidate_row(
             "medium": labels.strength_medium,
             "high": labels.strength_high,
         }.get(candidate.anomaly_strength, candidate.anomaly_strength),
-        _curve_identity(raw),
+        _curve_identity(raw, language),
         _stat(raw, "minimum"),
         _stat(raw, "mean"),
         _stat(raw, "maximum"),
-        _curve_identity(normalized),
+        _curve_identity(normalized, language),
         _stat(normalized, "minimum"),
         _stat(normalized, "mean"),
         _stat(normalized, "maximum"),
@@ -486,11 +497,11 @@ def _manual_row(
         labels.status_confirmed,
         item.interpretation_name,
         None,
-        _curve_identity(raw),
+        _curve_identity(raw, language),
         _stat(raw, "minimum"),
         _stat(raw, "mean"),
         _stat(raw, "maximum"),
-        _curve_identity(normalized),
+        _curve_identity(normalized, language),
         _stat(normalized, "minimum"),
         _stat(normalized, "mean"),
         _stat(normalized, "maximum"),
@@ -529,7 +540,10 @@ def _write_methods_sheet(
                 (
                     method.method,
                     labels.available if method.available else labels.no_data,
-                    ", ".join(method.available_mnemonics) or labels.no_data,
+                    ", ".join(
+                        localized_curve_reference(name, language=language)
+                        for name in method.available_mnemonics
+                    ) or labels.no_data,
                     method.calculation or "—",
                     method.source,
                 )
@@ -596,7 +610,14 @@ def _write_opus_gasomer_sheet(
     for name in ("TOTAL_GAS", "C1", "C2", "C3", "C4", "C5"):
         sheet.append(
             protect_spreadsheet_row(
-                (name, curve_names.get(name, "—"), curve_units.get(name, "—") or "—")
+                (
+                    localized_curve_reference(name, language=language),
+                    localized_curve_reference(
+                        curve_names.get(name, "—"),
+                        language=language,
+                    ),
+                    curve_units.get(name, "—") or "—",
+                )
             )
         )
     sheet.append(())
@@ -821,10 +842,14 @@ def _overlaps(left_top: float, left_bottom: float, right_top: float, right_botto
     return max(left_top, right_top) < min(left_bottom, right_bottom)
 
 
-def _curve_identity(item: IntervalCurveStatistics | None) -> str | None:
+def _curve_identity(
+    item: IntervalCurveStatistics | None,
+    language: AppLanguage,
+) -> str | None:
     if item is None:
         return None
-    return f"{item.mnemonic} [{item.unit}]" if item.unit else item.mnemonic
+    name = localized_curve_name(item.mnemonic, language=language)
+    return f"{name} [{item.unit}]" if item.unit else name
 
 
 def _stat(item: IntervalCurveStatistics | None, field: str) -> float | None:
@@ -861,7 +886,8 @@ def _dexp_text(
         return None
     labels = hydrocarbon_report_labels(language)
     return (
-        f"{item.mnemonic}: {labels.min_word} {_optional(item.minimum)}; "
+        f"{localized_curve_name(item.mnemonic, language=language)}: "
+        f"{labels.min_word} {_optional(item.minimum)}; "
         f"{labels.mean_word} {_optional(item.mean)}; "
         f"{labels.max_word} {_optional(item.maximum)}"
     )
