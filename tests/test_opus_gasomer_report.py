@@ -102,7 +102,7 @@ def test_gasomer_ambiguous_oil_gas_result_is_reported_as_possible_alternatives()
     hypothesis = _gasomer_ambiguous_hypothesis(interval)
     assert hypothesis == "opus_gasomer_ambiguous__possible__2-3"
     label = fluid_hypothesis_label(SimpleNamespace(fluid_hypothesis=hypothesis), AppLanguage.RU)
-    assert "возможно, нефть или горючий газ" in label
+    assert "возможно, признаки нефтяной фазы или газовая УВ-фаза" in label
     marker = fluid_marker_spec(hypothesis)
     assert marker.category == "indeterminate"
     assert marker.code == "?"
@@ -157,7 +157,7 @@ def test_gasomer_report_stores_detector_votes_qc_and_provenance(qapp) -> None:
     assert len(section.intervals) == 1
     interval = section.intervals[0]
     assert interval.class_code == 2
-    assert interval.class_label == "Нефть"
+    assert interval.class_label == "Признаки нефтяной фазы"
     assert interval.support_fraction == 1.0
     assert interval.valid_rows == interval.total_rows
     assert interval.background_median == 0.01
@@ -187,7 +187,7 @@ def test_gasomer_report_stores_detector_votes_qc_and_provenance(qapp) -> None:
         print_layout=True,
     )
     assert "ОПУС Газомер — пять показателей и голоса" in print_html
-    assert "класс 2 — Нефть" in print_html
+    assert "класс 2 — Признаки нефтяной фазы" in print_html
 
 
 def test_gasomer_snapshot_is_exported_without_recalculation(tmp_path, qapp) -> None:
@@ -211,7 +211,7 @@ def test_gasomer_snapshot_is_exported_without_recalculation(tmp_path, qapp) -> N
         )
         assert any("opus-gasomer-total-gas-workbook" in value for value in values)
         assert any("((p2 * p3 * p4 * p5) / p1)" in value for value in values)
-        assert any("Нефть" == value for value in values)
+        assert any("Признаки нефтяной фазы" == value for value in values)
         assert any("available:" in value for value in values)
         assert not any("Исправления исходной книги" in value for value in values)
         assert not any("AB2>AB5=250000" in value for value in values)
@@ -228,7 +228,7 @@ def test_gasomer_snapshot_is_exported_without_recalculation(tmp_path, qapp) -> N
         document = unescape(package.read("word/document.xml").decode("utf-8"))
     assert "ОПУС Газомер — пять показателей и голоса" in document
     assert "opus-gasomer-total-gas-workbook" in document
-    assert "класс 2 — Нефть" in document
+    assert "класс 2 — Признаки нефтяной фазы" in document
     assert "SHA-256 книги" in document
     assert "Исправления исходной книги" not in document
     assert "AB2>AB5=250000" not in document
@@ -243,7 +243,7 @@ def test_gasomer_snapshot_is_exported_without_recalculation(tmp_path, qapp) -> N
         pdf_text = "\n".join(page.get_text() for page in document_pdf)
     assert "ОПУС Газомер" in pdf_text
     assert "opus-gasomer-total-gas-workbook" in pdf_text
-    assert "Нефть" in pdf_text
+    assert "Признаки нефтяной фазы" in pdf_text
     assert "Исправления исходной книги" not in pdf_text
     assert "AB2>AB5=250000" not in pdf_text
     assert "AB2>=250000" not in pdf_text
@@ -269,7 +269,7 @@ def test_gasomer_class_replaces_ambiguous_historical_headline() -> None:
     assert len(report.candidates) == 1
     candidate = report.candidates[0]
     assert candidate.fluid_hypothesis == "opus_gasomer_oil"
-    assert "ОПУС Газомер: класс 2 — нефть" in fluid_hypothesis_label(
+    assert "ОПУС Газомер: класс 2 — признаки нефтяной фазы" in fluid_hypothesis_label(
         candidate,
         AppLanguage.RU,
     )
