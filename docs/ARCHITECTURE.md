@@ -369,14 +369,23 @@ metadata и value conflict guards. Guard сверяет фактический b
 монотонной версии объекта: если последующая Curve Pencil правка полностью отменена, Undo переноса
 снова допустим; если metadata или значения реально отличаются, операция остаётся fail-closed.
 
+Четвёртый инкремент переводит `DatasetMergeController`. Каждое сращивание хранит собственный
+reversible state: исходный dataset, производный dataset, layout и lossless/import sidecars.
+Благодаря этому один controller поддерживает несколько последовательных Merge Undo/Redo в общем
+chronological stack. Conflict guard использует factual content signature с именем, типом,
+depth-domain, depth, headers/parameters, curve metadata и values, но намеренно не включает
+монотонный `curve.version`: полностью отменённая последующая правка не блокирует Undo, тогда как
+реально изменённое содержимое, удалённый/подменённый результат или исчезнувший target fail-closed.
+
 Глобальные действия MainWindow маршрутизируют верхнюю команду к контроллеру соответствующего
 домена, чтобы curve undo продолжал выполнять dependency recalculation, header undo — snapshot
-conflict check, curve-metadata undo — dataset identity/metadata/value/order checks, а curve-transfer
-undo — atomic removal/restore перенесённого набора. Локальные Curve Pencil, Data Inspector и Curve
-Transfer controls проверяют тип верхней команды и не перескакивают через более новое изменение
-другого домена. При смене project/session общий history очищается через существующий session
-binding reset boundary. Остальные специализированные undo/redo стеки считаются migration backlog
-ARCH-07, а не второй утверждённой архитектурой.
+conflict check, curve-metadata undo — dataset identity/metadata/value/order checks, curve-transfer
+undo — atomic removal/restore перенесённого набора, а dataset-merge undo — atomic removal/restore
+производного dataset и его sidecars. Локальные Curve Pencil, Data Inspector, Curve Transfer и
+Dataset Merge controls проверяют тип верхней команды и не перескакивают через более новое
+изменение другого домена. При смене project/session общий history очищается через существующий
+session binding reset boundary. Остальные специализированные undo/redo стеки считаются migration
+backlog ARCH-07, а не второй утверждённой архитектурой.
 
 ## Утверждённая модель ведения одной скважины на трёх языках
 
