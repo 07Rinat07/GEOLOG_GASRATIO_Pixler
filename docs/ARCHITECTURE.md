@@ -779,3 +779,22 @@ Performance telemetry is deliberately metadata-only: basename, byte/row/curve/wa
 encoding, durations, RSS and exception type. Source values and full filesystem paths are not
 logged. These measurements are diagnostic evidence for PERF-07/PERF-05 decisions; they are not
 wall-clock pass/fail thresholds by themselves.
+
+
+## Presentation refresh coalescing boundary
+
+`services/presentation_refresh.py` defines a Qt-independent typed accumulator for cheap
+presentation-only refresh intents. It does not mutate project state, Dataset objects, TabletLayout,
+history, or widgets and owns no timer. A consumer may merge repeated intents and later consume one
+immutable batch with the original request count.
+
+The first consumer is deliberately narrow. `MainWindow` uses one single-shot 75-ms timer only for
+the secondary Project Tree and window-title updates produced by track-width and track-order drag
+signals. The layout mutation itself remains synchronous; track-width rendering continues through
+the existing `DirtyReason.STATIC` partial TabletView path, and drag-order visual feedback remains
+owned by TabletView. The timer is not restarted for every request, which bounds staleness while
+reducing repeated tree rebuilds during a continuous gesture.
+
+Dataset replacement, imports, Undo/Redo callbacks, axis conversions, report refresh, and full
+TabletView rebuilds remain outside this coalescer. Extending the intent set requires a measured hot
+path plus a regression proving that delayed presentation cannot expose stale domain state.
