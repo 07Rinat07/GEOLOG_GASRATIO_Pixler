@@ -1056,9 +1056,11 @@ def test_window_global_undo_routes_lithology_edits(qapp) -> None:
     session, _ = make_session()
     bind_session(window, session)
 
+    dataset = session.current_dataset
+    assert dataset is not None
     interval = window.lithology_controller.add(
-        1000.0,
-        1010.0,
+        float(np.nanmin(dataset.depth)),
+        float(np.nanmax(dataset.depth)),
         "sandstone",
         description="Песчаник",
     )
