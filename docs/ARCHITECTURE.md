@@ -747,3 +747,20 @@ DTOs back to `Wits0LiveViewWidget`. The live view owns form selection/save/reset
 The editor does not evaluate samples, acknowledge runtime alarms, play audio, or paint graph
 markers. Those later layers must consume `services/wits0_alarms.py` rather than duplicating
 threshold logic in Qt.
+
+
+### WITS0 live alarm runtime boundary
+
+`acquisition/wits0_live_alarms.py` owns runtime state for schema-v4 alarm rules. The controller
+normalizes configured mnemonics, translates each new `AcquisitionCurrentValue` into one domain
+transition, and remembers sample identity so repeated QWidget refreshes cannot advance debounce.
+A factual sample is keyed by its sample row/source sequence. Missing or invalid relevant rows are
+fed to the domain evaluator as missing input and therefore may reset only pending debounce while an
+already active alarm remains active.
+
+Changing a rule resets only that rule's runtime state; unchanged rules keep state across ordinary
+view refreshes. Rebinding to another acquisition runtime clears all runtime alarm state.
+Acknowledgement delegates to the Qt-independent `acknowledge_alarm()` transition and never clears
+the active side. `Wits0LiveViewWidget` renders the resulting immutable statuses; dashboard/table
+presentation must not recalculate thresholds. Audio playback and graph markers remain downstream
+consumers of the same status stream.
