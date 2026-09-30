@@ -2,6 +2,8 @@ import numpy as np
 import pytest
 
 from geoworkbench.domain.models import (
+    CurveData,
+    CurveMetadata,
     Dataset,
     DatasetIndex,
     DatasetKind,
@@ -14,9 +16,12 @@ from geoworkbench.project.header_editing_controller import (
     HeaderSection,
 )
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.services.edit_history import CommandHistory, CurveEditCommand
 
 
-def make_controller() -> HeaderEditingController:
+def make_controller(
+    shared_history: CommandHistory | None = None,
+) -> HeaderEditingController:
     session = ProjectSession()
     dataset = Dataset(
         "dataset-1",
@@ -30,7 +35,7 @@ def make_controller() -> HeaderEditingController:
     )
     session.add_dataset(dataset)
     session.dirty = False
-    return HeaderEditingController(session)
+    return HeaderEditingController(session, shared_history=shared_history)
 
 
 def test_updates_well_name_and_supports_undo_redo() -> None:
@@ -171,3 +176,32 @@ def test_depth_sync_rejects_active_time_index() -> None:
     with pytest.raises(ValueError, match="глубинный индекс"):
         controller.synchronize_depth_fields()
     assert any("не является глубинным" in issue for issue in controller.depth_summary().issues)
+
+
+def test_header_controller_can_share_application_history_without_cross_domain_undo() -> None:
+    history = CommandHistory()
+    controller = make_controller(history)
+
+    dataset = controller.session.current_dataset
+    assert dataset is not None
+    curve = CurveData(
+        CurveMetadata("curve-history", "ROP", "ROP", None, None, dataset.dataset_id),
+        np.array([1.0, 2.0]),
+    )
+    dataset.curves[curve.metadata.curve_id] = curve
+    history.execute(
+        CurveEditCommand.create(curve, np.array([0]), np.array([5.0]))
+    )
+
+    assert controller.can_undo is False
+
+    controller.update(HeaderSection.WELL, "WELL", "WELL", "Shared History Well")
+
+    assert controller.can_undo is True
+    assert history.next_undo is not None
+    assert history.next_undo.history_domain == "header"
+    controller.undo()
+    assert controller.session.current_well is not None
+    assert controller.session.current_well.name == "Old Well"
+    assert history.next_undo is not None
+    assert history.next_undo.history_domain == "curve"

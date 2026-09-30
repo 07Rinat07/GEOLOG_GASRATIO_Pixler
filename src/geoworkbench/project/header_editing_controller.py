@@ -11,6 +11,7 @@ import numpy as np
 from geoworkbench.domain.models import Dataset, IndexRole, Well
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.depth_axis import DepthDirection, analyze_depth_axis
+from geoworkbench.services.edit_history import CommandHistory
 
 
 class HeaderSection(StrEnum):
@@ -54,15 +55,26 @@ class _HeaderSnapshot:
 class _HeaderCommand:
     before: _HeaderSnapshot
     after: _HeaderSnapshot
+    restore: Callable[[_HeaderSnapshot, _HeaderSnapshot], None] = field(
+        repr=False,
+        compare=False,
+    )
     description: str
+    history_domain: str = field(default="header", init=False, repr=False)
+
+    def execute(self) -> None:
+        self.restore(self.before, self.after)
+
+    def undo(self) -> None:
+        self.restore(self.after, self.before)
 
 
 @dataclass(slots=True)
 class HeaderEditingController:
     session: ProjectSession
     max_commands: int = 100
-    _undo_stack: list[_HeaderCommand] = field(default_factory=list, init=False)
-    _redo_stack: list[_HeaderCommand] = field(default_factory=list, init=False)
+    shared_history: CommandHistory | None = field(default=None, kw_only=True, repr=False)
+    _history: CommandHistory = field(init=False, repr=False)
 
     _MNEMONIC = re.compile(r"^[A-Z][A-Z0-9_-]{0,31}$")
     _PROTECTED = frozenset({"STRT", "STOP", "STEP", "NULL"})
@@ -73,14 +85,17 @@ class HeaderEditingController:
     def __post_init__(self) -> None:
         if self.max_commands < 1:
             raise ValueError("История должна хранить минимум одну команду")
+        self._history = self.shared_history or CommandHistory(max_commands=self.max_commands)
 
     @property
     def can_undo(self) -> bool:
-        return bool(self._undo_stack)
+        command = self._history.next_undo
+        return command is not None and command.history_domain == "header"
 
     @property
     def can_redo(self) -> bool:
-        return bool(self._redo_stack)
+        command = self._history.next_redo
+        return command is not None and command.history_domain == "header"
 
     def entries(self, section: HeaderSection) -> tuple[HeaderEntry, ...]:
         values = self._values(section)
@@ -230,39 +245,37 @@ class HeaderEditingController:
         self._change(f"Удаление {section.value}.{key}", lambda: values.__delitem__(key))
 
     def undo(self) -> str:
-        if not self._undo_stack:
+        if not self.can_undo:
             raise RuntimeError("Нет изменений заголовка для отмены")
-        command = self._undo_stack[-1]
-        self._restore(command.after, command.before)
-        self._undo_stack.pop()
-        self._redo_stack.append(command)
+        command = self._history.undo()
         self.session.dirty = True
         return command.description
 
     def redo(self) -> str:
-        if not self._redo_stack:
+        if not self.can_redo:
             raise RuntimeError("Нет изменений заголовка для повтора")
-        command = self._redo_stack[-1]
-        self._restore(command.before, command.after)
-        self._redo_stack.pop()
-        self._undo_stack.append(command)
+        command = self._history.redo()
         self.session.dirty = True
         return command.description
 
     def clear_history(self) -> None:
-        self._undo_stack.clear()
-        self._redo_stack.clear()
+        self._history.clear()
 
     def _change(self, description: str, operation: Callable[[], None]) -> None:
         before = self._snapshot()
-        operation()
+        try:
+            operation()
+        except Exception:
+            current = self._snapshot()
+            if current != before:
+                self._restore(current, before)
+            raise
         after = self._snapshot()
         if before == after:
             return
-        self._undo_stack.append(_HeaderCommand(before, after, description))
-        if len(self._undo_stack) > self.max_commands:
-            del self._undo_stack[0]
-        self._redo_stack.clear()
+        self._history.record_applied(
+            _HeaderCommand(before, after, self._restore, description)
+        )
         self.session.dirty = True
 
     def _restore(self, expected: _HeaderSnapshot, replacement: _HeaderSnapshot) -> None:

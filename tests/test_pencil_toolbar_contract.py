@@ -29,9 +29,16 @@ def test_connect_points_and_history_controls_are_explicit() -> None:
 def test_curve_undo_redo_shortcuts_are_application_wide() -> None:
     source = MAIN.read_text(encoding="utf-8")
     assert source.count("Qt.ShortcutContext.ApplicationShortcut") >= 2
+    assert "self.undo_action.triggered.connect(self.undo_project_edit)" in source
+    assert "self.redo_action.triggered.connect(self.redo_project_edit)" in source
     assert "curve_pencil_undo_requested.connect(self.undo_curve_edit)" in source
     assert "curve_pencil_redo_requested.connect(self.redo_curve_edit)" in source
-    assert "set_curve_pencil_history_state(can_undo, can_redo)" in source
+
+    action_state = source.split("def _update_curve_edit_actions", 1)[1].split("def ", 1)[0]
+    assert "self.edit_history.can_undo" in action_state
+    assert "self.edit_history.can_redo" in action_state
+    assert "self.curve_editing_controller.can_undo" in action_state
+    assert "self.curve_editing_controller.can_redo" in action_state
 
 
 def test_new_pencil_labels_exist_in_all_languages() -> None:
