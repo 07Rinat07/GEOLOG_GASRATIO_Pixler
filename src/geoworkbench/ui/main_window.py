@@ -879,6 +879,7 @@ class MainWindow(QMainWindow):
         self.edit_history.add_listener(self._update_curve_edit_actions)
         self.edit_history.add_listener(self._update_transfer_actions)
         self.edit_history.add_listener(self._update_merge_actions)
+        self.edit_history.add_listener(self._update_external_las_insert_actions)
         self._create_home_page()
         self._create_toolbar()
         status_bar = QStatusBar()
