@@ -48,7 +48,7 @@ release plan и временные планы в `docs` не создаются.
 | Порядок | Задачи | Результат и зависимость | Ответственный по роли / статус |
 |---|---|---|---|
 | 1 | LAS-GEO-02 | Универсальный geology dialect resolver для canonical/localized/vendor LAS + legacy `~Other`; реальный Maksat dialect является regression-case, а не special-case | Разработчик / в работе |
-| 2 | RPT-QA-01 | Исправить пропуски/разрывы интерпретационных графиков и strict gas-context exclusion до расчёта/печати; текущий industrial-blue visual style не менять | Разработчик + специалист ГТИ / готово к разработке |
+| 2 | RPT-QA-01 | Исправить пропуски/разрывы и washout интерпретационных графиков, strict gas-context exclusion до расчёта/печати; текущий industrial-blue visual style не менять. Текущий slice устраняет утечку QPainter brush между страницами PDF | Разработчик + специалист ГТИ / в работе |
 | 3 | WITS-MEM-01 | Автоматические raw replay/acquisition-boundary/RSS gates закрыты; остался длительный реальный raw/field прогон перед FIELD-01 | Оператор + разработчик / блокировано внешним условием |
 | 4 | WITS-UX-01 | Live-first operator workspace: компактное подключение/health, Live как основной экран, collapsible Advanced/Diagnostics, понятная навигация/help, без outer horizontal scroll; далее persistence/reconnect и полевой UX acceptance | Разработчик / в работе |
 | 5 | WITS-PLOT-01 | Независимые шкалы/диапазоны, редактируемые панели/колонки, читаемые интерпретационные полосы и non-overlap badges поверх нового operator workspace | Разработчик / в работе |
