@@ -157,7 +157,7 @@ def test_gasomer_report_stores_detector_votes_qc_and_provenance(qapp) -> None:
     assert len(section.intervals) == 1
     interval = section.intervals[0]
     assert interval.class_code == 2
-    assert interval.class_label == "Признаки нефтяной фазы"
+    assert interval.class_label == "Нефть"
     assert interval.support_fraction == 1.0
     assert interval.valid_rows == interval.total_rows
     assert interval.background_median == 0.01
