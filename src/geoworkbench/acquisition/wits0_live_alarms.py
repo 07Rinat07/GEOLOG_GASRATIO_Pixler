@@ -204,7 +204,7 @@ class Wits0LiveAlarmController:
                 for curve_id, (_item, _key, rule) in catch_up.items():
                     if record.sequence <= self._last_sequences[curve_id]:
                         continue
-                    sample = _sample_from_data_row(
+                    has_sample, sample = _sample_from_data_row(
                         curve_id,
                         row_values,
                         record_no=record_no,
@@ -215,7 +215,7 @@ class Wits0LiveAlarmController:
                             frozenset(),
                         ),
                     )
-                    if sample is _NO_SAMPLE:
+                    if not has_sample:
                         continue
                     evaluation = evaluate_alarm(
                         _limits(rule),
@@ -281,9 +281,6 @@ class Wits0LiveAlarmController:
         return count
 
 
-_NO_SAMPLE = object()
-
-
 def _sample_from_data_row(
     curve_id: str,
     row_values: Mapping[str, float | None],
@@ -292,19 +289,19 @@ def _sample_from_data_row(
     data_row_index: int,
     virtual_curve: CurveData | None,
     virtual_source_records: frozenset[int],
-) -> float | None | object:
+) -> tuple[bool, float | None]:
     if curve_id in row_values:
-        return row_values[curve_id]
+        return True, row_values[curve_id]
     if (
         virtual_curve is None
         or not virtual_source_records
         or record_no not in virtual_source_records
     ):
-        return _NO_SAMPLE
+        return False, None
     if data_row_index >= len(virtual_curve.values):
         raise ValueError("derived alarm curve does not align with dataset rows")
     value = float(virtual_curve.values[data_row_index])
-    return value if isfinite(value) else None
+    return True, value if isfinite(value) else None
 
 
 def _limits(rule: Wits0SavedAlarmRule) -> AlarmLimits:
