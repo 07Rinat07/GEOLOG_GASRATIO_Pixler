@@ -23,6 +23,10 @@ from geoworkbench.services.interval_gas_statistics import (
 )
 from geoworkbench.printing.hydrocarbon_report_i18n import hydrocarbon_report_labels
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.parameter_labels import (
+    localized_curve_name,
+    localized_curve_reference,
+)
 
 
 class HydrocarbonInterpretationExportError(RuntimeError):
@@ -116,7 +120,10 @@ def _write_docx(
         _paragraph(f"{labels.well}: {report.well_name}"),
         _paragraph(f"{labels.dataset}: {report.dataset_name}"),
         _paragraph(f"{labels.generated}: {report.generated_at}"),
-        _paragraph(f"{labels.primary_gas_curve}: {report.primary_mnemonic or '—'}"),
+        _paragraph(
+            f"{labels.primary_gas_curve}: "
+            f"{localized_curve_reference(report.primary_mnemonic, language=language) if report.primary_mnemonic else '—'}"
+        ),
         _paragraph(f"{labels.robust_z_threshold}: {report.threshold:.2f}"),
         _paragraph(labels.methods_heading, style="Heading1"),
         _table(
@@ -131,7 +138,10 @@ def _write_docx(
                 (
                     method.method,
                     labels.available if method.available else labels.no_data,
-                    ", ".join(method.available_mnemonics) or labels.no_data,
+                    ", ".join(
+                        localized_curve_reference(name, language=language)
+                        for name in method.available_mnemonics
+                    ) or labels.no_data,
                     method.calculation or "—",
                     method.source,
                 )
@@ -308,7 +318,8 @@ def _gas_context_docx(
             return "—"
         unit = f" {item.unit}" if item.unit else ""
         return (
-            f"{item.mnemonic}: min {item.minimum:.6g}; mean {item.mean:.6g}; "
+            f"{localized_curve_name(item.mnemonic, language=language)}: "
+            f"min {item.minimum:.6g}; mean {item.mean:.6g}; "
             f"max {item.maximum:.6g}{unit}"
         )
 
@@ -391,9 +402,9 @@ def _suppressed_candidates_docx(
     rows = tuple(
         (
             f"{candidate.top_depth:g}–{candidate.bottom_depth:g} {report.depth_unit}",
-            candidate.primary_mnemonic,
+            localized_curve_reference(candidate.primary_mnemonic, language=language),
             f"{candidate.max_robust_z:.3f}",
-            candidate.fluid_hypothesis,
+            fluid_hypothesis_label(candidate, language),
             " | ".join(candidate.evidence),
         )
         for candidate in report.suppressed_candidates
@@ -442,7 +453,10 @@ def _opus_gasomer_docx(
             tuple(
                 (
                     name,
-                    curve_names.get(name, "—"),
+                    localized_curve_reference(
+                        curve_names.get(name, "—"),
+                        language=language,
+                    ),
                     curve_units.get(name, "—") or "—",
                 )
                 for name in ("TOTAL_GAS", "C1", "C2", "C3", "C4", "C5")
