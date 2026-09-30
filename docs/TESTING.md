@@ -937,3 +937,18 @@ sidecars, domain-safe local undo, fail-closed внешний конфликт и
 ```powershell
 python scripts/run_tests.py -q -p no:cacheprovider tests/test_edit_history.py tests/test_curve_editing_controller.py tests/test_header_editing_controller.py tests/test_curve_metadata_controller.py tests/test_curve_transfer_controller.py tests/test_dataset_merge_controller.py tests/test_external_las_insert_controller.py tests/test_lithology_controller.py tests/test_main_window.py
 ```
+
+
+### RPT-QA-01: многостраничные PDF-графики и подписи параметров
+
+Печатный renderer обязан изолировать `QPainter` state между fluid-marker overlay и следующим
+листом. Regression воспроизводит ранее наблюдавшийся дефект: полупрозрачная белая marker brush
+не должна оставаться активной и превращать финальный `drawRect()` следующей страницы в белую
+заливку поверх уже нарисованных кривых. Отдельно проверяется, что legend label берётся из
+semantic/Sensors metadata и методики отчёта: source mnemonics вроде `S106`, `S1003`, `S224`
+не используются как основной пользовательский заголовок, когда известны «Скорость бур.»,
+«Расх. на вых.» и `D-exponent`.
+
+```powershell
+python scripts/run_tests.py -q -p no:cacheprovider tests/test_hydrocarbon_interpretation_pdf_chart_range.py tests/test_interpretation_report_charts.py
+```
