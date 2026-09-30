@@ -22,6 +22,11 @@ from geoworkbench.printing.hydrocarbon_interpretation_chart import (
 from geoworkbench.printing.hydrocarbon_interpretation_chart_front import (
     hydrocarbon_interpretation_html_with_front_chart,
 )
+from geoworkbench.printing.hydrocarbon_interpretation_curve_labels import (
+    curve_display_name,
+    curve_legend_text,
+    report_curve_label_hints,
+)
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_chart import (
     _curve_ranges,
     _draw_curves,
@@ -290,3 +295,95 @@ def test_report_curve_renderers_share_the_gap_segmenter() -> None:
     assert "continuous_depth_segments(depth, depth_indices," in whole
     assert "continuous_depth_segments(" in pdf
     assert "limit=max(2, int(indices.size))" in pdf
+
+
+
+def test_report_curve_legends_use_readable_parameter_names() -> None:
+    depth = np.asarray([100.0, 101.0], dtype=np.float64)
+    dataset = Dataset(
+        "legend-labels",
+        "Legend labels",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        depth,
+    )
+
+    rop = CurveData(
+        CurveMetadata(
+            "rop",
+            "S106",
+            "ROP",
+            "м/ч",
+            None,
+            dataset.dataset_id,
+        ),
+        np.asarray([10.0, 11.0], dtype=np.float64),
+    )
+    flow_out = CurveData(
+        CurveMetadata(
+            "flow-out",
+            "S1003",
+            "FLOW_OUT",
+            "л/c",
+            None,
+            dataset.dataset_id,
+        ),
+        np.asarray([60.0, 61.0], dtype=np.float64),
+    )
+    total_gas = CurveData(
+        CurveMetadata(
+            "tg",
+            "TG_CALC",
+            "TG_CALC",
+            "%abs",
+            None,
+            dataset.dataset_id,
+        ),
+        np.asarray([0.1, 0.2], dtype=np.float64),
+    )
+
+    assert curve_display_name(rop, AppLanguage.RU) == "Скорость бур."
+    assert curve_display_name(flow_out, AppLanguage.RU) == "Расх. на вых."
+    assert curve_display_name(total_gas, AppLanguage.RU) == "Общий газ"
+
+    legend = curve_legend_text(
+        rop,
+        10.0,
+        11.0,
+        AppLanguage.RU,
+    )
+    assert legend.startswith("Скорость бур. [м/ч]")
+    assert "S106" not in legend
+
+
+def test_report_method_hint_relabels_source_only_dexp_curve() -> None:
+    report = SimpleNamespace(
+        methods=(
+            SimpleNamespace(
+                curve_mnemonics=("DEXP",),
+                available_mnemonics=("S224",),
+            ),
+        ),
+    )
+    hints = report_curve_label_hints(report)  # type: ignore[arg-type]
+    curve = CurveData(
+        CurveMetadata(
+            "dexp-source",
+            "S224",
+            "S224",
+            "",
+            None,
+            "dataset",
+        ),
+        np.asarray([1.0, 1.1], dtype=np.float64),
+    )
+
+    assert hints == {"S224": "DEXP"}
+    assert (
+        curve_display_name(
+            curve,
+            AppLanguage.RU,
+            canonical_hint=hints["S224"],
+        )
+        == "D-exponent"
+    )
