@@ -145,7 +145,7 @@ _SPECS: tuple[FluidMarkerSpec, ...] = (
         100,
     ),
     FluidMarkerSpec(
-        "HC fluid: type undetermined",
+        "indeterminate",
         "?",
         FluidMarkerShape.CROSS,
         "#64748b",
