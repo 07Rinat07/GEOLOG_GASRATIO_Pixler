@@ -1261,9 +1261,13 @@ WELL-04 уже имеет field-level статусы и readiness; WELL-05 — f
   переводит `CurveTransferController` с собственного undo/redo стека на общий history:
   перенос нескольких кривых остаётся одной атомарной командой, metadata/value conflict checks
   сохраняются, а полностью отменённая последующая правка значений больше не блокирует Undo
-  переноса только из-за монотонного `curve.version`. Глобальный Ctrl+Z/Ctrl+Shift+Z отменяет
-  фактически последнее изменение между четырьмя доменами; локальные Curve Pencil, Header Editor,
-  Data Inspector и Curve Transfer controls остаются domain-safe и не перескакивают через более
+  переноса только из-за монотонного `curve.version`. Четвёртый инкремент переводит
+  `DatasetMergeController`: каждое сращивание становится отдельной reversible command,
+  поэтому поддерживаются несколько последовательных Merge Undo/Redo; dataset/layout/source
+  sidecars восстанавливаются вместе, а conflict guard сравнивает фактическое содержимое без
+  монотонных curve version counters. Глобальный Ctrl+Z/Ctrl+Shift+Z отменяет фактически последнее
+  изменение между пятью доменами; локальные Curve Pencil, Header Editor, Data Inspector,
+  Curve Transfer и Dataset Merge controls остаются domain-safe и не перескакивают через более
   новую команду другого типа. Следующие инкременты переводят остальные project mutation
   controllers в тот же history boundary и добавляют savepoint/dirty revision semantics.
 
