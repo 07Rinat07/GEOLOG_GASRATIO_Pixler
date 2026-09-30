@@ -5113,6 +5113,48 @@ class TabletView(QWidget):
         self._prefer_calendar_time_axis_for_geoscape(dataset)
         self.refresh_view()
 
+    def refresh_dataset_metadata(self, dataset: Dataset) -> int:
+        """Refresh curve metadata without rebuilding the form widget tree.
+
+        Metadata undo/redo can change mnemonic aliases, units, descriptions and
+        semantic bindings while preserving the Dataset and TabletLayout objects.
+        Reconcile rendered curve membership first, then run a STYLE refresh so
+        curve headers and display metadata update in place.
+        """
+
+        current_id = self._dataset.dataset_id if self._dataset is not None else None
+        if current_id != dataset.dataset_id:
+            self.set_dataset(dataset)
+            return len(self._rendered)
+
+        self._dataset = dataset
+        track_ids: list[str] = []
+        structural_change = False
+        for track_id, rendered in self._rendered.items():
+            definition = rendered.definition
+            if not definition.curve_mnemonics:
+                continue
+            expected = self._renderable_curve_mnemonics(definition)
+            existing = tuple((rendered.curve_items or {}).keys())
+            if existing != expected:
+                self._repopulate_rendered_track_curves(rendered)
+                structural_change = True
+            self.invalidate_track(track_id, DirtyReason.STYLE)
+            track_ids.append(track_id)
+
+        updated = self.refresh_dirty_tracks() if track_ids else 0
+        if structural_change:
+            self._synchronize_track_header_bands()
+            self._refresh_curve_pencil_targets()
+        log_event(
+            "tablet.curve_metadata.incremental_refresh",
+            dataset_id=dataset.dataset_id,
+            tracks=",".join(track_ids),
+            updated=updated,
+            structural_change=structural_change,
+        )
+        return updated
+
     def refresh_dataset_curves(
         self, dataset: Dataset, mnemonics: tuple[str, ...] | list[str] | set[str]
     ) -> int:
