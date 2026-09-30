@@ -143,6 +143,54 @@ def test_import_las_logs_phase_timings_without_source_values(
     assert "values" not in context
 
 
+
+def test_import_las_performance_event_includes_phase_rss_snapshots(
+    tmp_path, monkeypatch
+) -> None:
+    from geoworkbench.services.process_metrics import ProcessMemorySnapshot
+
+    source = tmp_path / "memory-profiled.las"
+    source.write_bytes(b"~V\nVERS. 2.0\n~A\n100 1\n101 2\n")
+    snapshots = iter(
+        (
+            ProcessMemorySnapshot(100, 100),
+            ProcessMemorySnapshot(120, 125),
+            ProcessMemorySnapshot(180, 190),
+            ProcessMemorySnapshot(240, 260),
+            ProcessMemorySnapshot(220, 270),
+        )
+    )
+    events: list[tuple[str, dict[str, object]]] = []
+
+    monkeypatch.setattr(
+        "geoworkbench.data.las_adapter.lasio.read",
+        lambda *args, **kwargs: FakeLas(),
+    )
+    monkeypatch.setattr(
+        "geoworkbench.data.las_adapter.process_memory_snapshot",
+        lambda: next(snapshots),
+    )
+    monkeypatch.setattr(
+        "geoworkbench.data.las_adapter.log_event",
+        lambda event, **context: events.append((event, context)),
+    )
+
+    import_las_with_report(source)
+
+    performance = [
+        context
+        for event, context in events
+        if event == "las.import.performance"
+    ]
+    assert len(performance) == 1
+    context = performance[0]
+    assert context["rss_start_bytes"] == 100
+    assert context["rss_source_bytes"] == 120
+    assert context["rss_parse_bytes"] == 180
+    assert context["rss_dataset_bytes"] == 240
+    assert context["rss_report_bytes"] == 220
+    assert context["peak_rss_bytes"] == 270
+
 def test_import_las_with_report_captures_source_and_depth_diagnostics(
     tmp_path, monkeypatch
 ) -> None:
