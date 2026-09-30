@@ -1229,9 +1229,19 @@ class Wits0LiveViewWidget(QWidget):
     ) -> None:
         alarm_markers = self._alarm_markers(snapshot)
         if alarm_markers:
+            marker_limit = (
+                self._view.config.max_markers
+                if self._view is not None
+                else len(snapshot.markers) + len(alarm_markers)
+            )
+            alarm_markers = alarm_markers[-marker_limit:]
+            base_capacity = max(0, marker_limit - len(alarm_markers))
             snapshot = replace(
                 snapshot,
-                markers=(*snapshot.markers, *alarm_markers),
+                markers=(
+                    *snapshot.markers[:base_capacity],
+                    *alarm_markers,
+                ),
             )
         self._last_plot_rendered_points = snapshot.rendered_point_count
         self._updating_plot_range = True
@@ -1305,8 +1315,8 @@ class Wits0LiveViewWidget(QWidget):
             return ()
 
         visible_curve_ids = {series.curve_id for series in snapshot.series}
-        available = max(0, view.config.max_markers - len(snapshot.markers))
-        if not visible_curve_ids or available <= 0:
+        available = view.config.max_markers
+        if not visible_curve_ids:
             return ()
 
         candidates: list[AcquisitionLiveMarker] = []
