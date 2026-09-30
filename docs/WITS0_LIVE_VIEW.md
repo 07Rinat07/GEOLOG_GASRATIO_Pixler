@@ -106,3 +106,12 @@ Transient LIVE PREVIEW хранит последние 2000 кадров. Его
 за полную историю. Оператор видит число вытесненных/сохранённых кадров и retained диапазон.
 Replay доступного raw-интервала и явный выбор более поздней границы остаются следующей частью
 WITS-MEM-01. Обязательны Windows Qt smoke test и проверка на реальном anonymized GSWITS raw-потоке.
+
+
+## Редактор alarm rules
+
+Панель параметров использует отдельный `Wits0AlarmSettingsEditor`. Он редактирует только
+persisted policy для доступных live-каналов: optional min/max, hysteresis, sample-count debounce,
+visual-enabled и audio-enabled. Редактор не владеет runtime alarm state и не выполняет
+acknowledgement. Рабочие правила входят в `Wits0SavedLiveFormState.alarm_rules` только при
+«Сохранить форму»; Reset возвращает пустой alarm set.

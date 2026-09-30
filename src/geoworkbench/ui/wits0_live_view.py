@@ -49,6 +49,7 @@ from geoworkbench.acquisition.wits0_live_forms import (
     live_form_definitions,
     select_live_curve_ids,
 )
+from geoworkbench.ui.wits0_alarm_settings_editor import Wits0AlarmSettingsEditor
 from geoworkbench.ui.wits0_operator_dashboard import Wits0OperatorDashboard
 
 if TYPE_CHECKING:
@@ -362,6 +363,12 @@ class Wits0LiveViewWidget(QWidget):
         panel_layout.addLayout(scale_grid)
         layout.addWidget(panel_group)
 
+        self.alarm_editor = Wits0AlarmSettingsEditor(
+            content,
+            language=self._language,
+        )
+        layout.addWidget(self.alarm_editor)
+
         dexp_group = QGroupBox(
             _operator_text(self._language, "dexp_correction_group"),
             content,
@@ -523,6 +530,7 @@ class Wits0LiveViewWidget(QWidget):
             self.panel_x_min_spin,
             self.panel_x_max_spin,
             self.panel_x_apply_button,
+            self.alarm_editor,
         ):
             widget.setEnabled(True)
         self._populate_axes()
@@ -628,6 +636,8 @@ class Wits0LiveViewWidget(QWidget):
         self._last_revision = None
         self._last_plot_rendered_points = 0
         self.curve_list.clear()
+        self.alarm_editor.set_channels(())
+        self.alarm_editor.set_rules(())
         self.values_table.setRowCount(0)
         self.dashboard.clear()
         self._set_empty_state()
@@ -726,6 +736,16 @@ class Wits0LiveViewWidget(QWidget):
                 item.setToolTip(metadata.description or metadata.provenance or "")
         finally:
             self._updating_controls = False
+        self.alarm_editor.set_channels(
+            (
+                (
+                    curve.metadata.canonical_mnemonic
+                    or curve.metadata.original_mnemonic,
+                    curve.metadata.unit,
+                )
+                for curve in curves
+            )
+        )
         if preserve_mnemonics is None:
             self._apply_live_form_selection()
         else:
@@ -793,6 +813,7 @@ class Wits0LiveViewWidget(QWidget):
                 saved.hidden_panel_ids,
             )
             self.dashboard.set_panel_x_ranges(saved.panel_x_ranges)
+            self.alarm_editor.set_rules(saved.alarm_rules)
             self._sync_panel_controls_from_dashboard()
             try:
                 view.set_axis_mode(AcquisitionLiveAxisMode(saved.axis_mode))
@@ -803,6 +824,7 @@ class Wits0LiveViewWidget(QWidget):
         else:
             self.dashboard.set_panel_layout()
             self.dashboard.set_panel_x_ranges(())
+            self.alarm_editor.set_rules(())
             self._sync_panel_controls_from_dashboard()
         self._set_view_source_selection(self._selected_curve_ids())
 
@@ -1241,6 +1263,7 @@ class Wits0LiveViewWidget(QWidget):
             self.panel_x_min_spin,
             self.panel_x_max_spin,
             self.panel_x_apply_button,
+            self.alarm_editor,
             self.save_form_button,
         ):
             widget.setEnabled(self._view is not None)
@@ -1356,6 +1379,7 @@ class Wits0LiveViewWidget(QWidget):
             panel_order=panel_order,
             hidden_panel_ids=hidden_panel_ids,
             panel_x_ranges=self.dashboard.panel_x_ranges(),
+            alarm_rules=self.alarm_editor.rules(),
         )
         self.form_settings.save(state)
         self._update_form_description()
@@ -1372,6 +1396,7 @@ class Wits0LiveViewWidget(QWidget):
         self._compact_parameters_open = False
         self.dashboard.set_panel_layout()
         self.dashboard.set_panel_x_ranges(())
+        self.alarm_editor.clear_rules()
         self._sync_panel_controls_from_dashboard()
         self._apply_navigation_layout()
         self._update_form_description()
