@@ -812,16 +812,21 @@ def test_weak_liquid_signature_in_report_is_downgraded_from_specific_oil() -> No
     # Keep the total-gas anomaly, but make interval C2-C5 enrichment only mildly
     # different from the well background while Haworth remains oil-like.
     dataset.curves["C1"].values[40:43] = 90.0
-    dataset.curves["C2"].values[40:43] = 8.0
+    dataset.curves["C2"].values[40:43] = 2.0
     dataset.curves["C3"].values[40:43] = 4.0
     dataset.curves["IC4"].values[40:43] = 1.5
     dataset.curves["NC4"].values[40:43] = 1.5
-    dataset.curves["IC5"].values[40:43] = 0.8
-    dataset.curves["NC5"].values[40:43] = 0.8
+    dataset.curves["IC5"].values[40:43] = 1.0
+    dataset.curves["NC5"].values[40:43] = 1.0
 
     report = build_hydrocarbon_interpretation_report(session, threshold=3.0)
 
     candidate = report.candidates[0]
+    assert candidate.interval_wetness is not None
+    assert candidate.interval_balance is not None
+    assert candidate.interval_character is not None
+    assert candidate.interval_balance <= candidate.interval_wetness
+    assert candidate.interval_character > 0.5
     assert candidate.wetness_robust_z is not None
-    if candidate.wetness_robust_z < 2.0:
-        assert candidate.fluid_hypothesis == "probable_liquid_hydrocarbons"
+    assert candidate.wetness_robust_z < 2.0
+    assert candidate.fluid_hypothesis == "probable_liquid_hydrocarbons"
