@@ -704,7 +704,10 @@ class Wits0LiveViewWidget(QWidget):
             self.state_label.setToolTip(self._t("wits0_live.error_help"))
             self.summary_label.setText(self._t("wits0_live.error_view_only"))
             return
-        alarm_statuses = self._alarm_controller.evaluate(snapshot.current_values)
+        alarm_statuses = self._alarm_controller.evaluate(
+            view.session,
+            snapshot.current_values,
+        )
         self._last_alarm_statuses = alarm_statuses
         if not force and snapshot.revision == self._last_revision:
             self._render_current_values(snapshot, alarm_statuses)
