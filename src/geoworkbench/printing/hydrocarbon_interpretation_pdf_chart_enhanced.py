@@ -303,6 +303,7 @@ def _draw_depth_axis(
             alignment,
             base_chart._depth_label(value, major_step),
         )
+    painter.setBrush(Qt.BrushStyle.NoBrush)
     painter.setPen(QPen(QColor("#263746"), 1.15))
     painter.drawRect(rect)
 
@@ -366,6 +367,7 @@ def _draw_panel(
         painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, label)
     else:
         base_chart._draw_curves(painter, rect, page, dataset, curves, ranges)
+    painter.setBrush(Qt.BrushStyle.NoBrush)
     painter.setPen(QPen(QColor("#263746"), 1.1))
     painter.drawRect(rect)
 
@@ -426,7 +428,7 @@ def _draw_fluid_markers(
     page: DepthPage,
     candidates: tuple[HydrocarbonCandidateInterval, ...],
 ) -> None:
-    """Draw compact fluid markers at true depth; collisions move only horizontally."""
+    """Draw compact fluid markers without leaking QPainter state to later pages."""
 
     if not geometry.panel_rects:
         return
@@ -434,6 +436,24 @@ def _draw_fluid_markers(
     if not visible:
         return
 
+    painter.save()
+    try:
+        _draw_visible_fluid_markers(
+            painter,
+            geometry,
+            page,
+            visible,
+        )
+    finally:
+        painter.restore()
+
+
+def _draw_visible_fluid_markers(
+    painter: QPainter,
+    geometry: ChartGeometry,
+    page: DepthPage,
+    visible: tuple[HydrocarbonCandidateInterval, ...],
+) -> None:
     target = geometry.panel_rects[-1]
     y_positions = tuple(
         base_chart._depth_y(
@@ -547,7 +567,6 @@ def _draw_fluid_markers(
             spec,
             size=marker_size,
         )
-
 
 def _draw_fluid_marker_legend(
     painter: QPainter,
