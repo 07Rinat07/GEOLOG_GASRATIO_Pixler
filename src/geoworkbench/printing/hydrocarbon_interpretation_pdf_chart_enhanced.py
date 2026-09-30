@@ -247,6 +247,7 @@ def _draw_depth_axis(
 ) -> None:
     labels = base_chart._labels(language)
     painter.fillRect(rect, QColor("#ffffff"))
+    painter.setBrush(Qt.BrushStyle.NoBrush)
     painter.setPen(QPen(QColor("#263746"), 1.15))
     painter.drawRect(rect)
     title = labels["depth"] + (f", {unit}" if unit else "")
@@ -567,6 +568,7 @@ def _draw_visible_fluid_markers(
             spec,
             size=marker_size,
         )
+
 
 def _draw_fluid_marker_legend(
     painter: QPainter,
