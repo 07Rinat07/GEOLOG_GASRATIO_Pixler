@@ -3524,3 +3524,82 @@ def test_datetime_depth_width_stays_aligned_after_static_refresh(qapp) -> None:
     assert time_widget.display_width == 156
     assert view._tracks_container.width() == expected
     view.close()
+
+
+def test_curve_metadata_refresh_updates_headers_and_membership_in_place(qapp) -> None:
+    dataset = Dataset(
+        "dataset-metadata-refresh",
+        "Metadata refresh",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 101.0]),
+    )
+    curve = CurveData(
+        CurveMetadata(
+            "curve-rop",
+            "ROP",
+            "ROP",
+            "m/h",
+            "Penetration rate",
+            dataset.dataset_id,
+        ),
+        np.array([1.0, 2.0]),
+    )
+    dataset.curves[curve.metadata.curve_id] = curve
+    view = TabletView(language=AppLanguage.EN)
+    view.set_layout_and_dataset(
+        TabletLayout(
+            [
+                TrackDefinition(
+                    "curve",
+                    "Curve",
+                    TrackKind.CURVE,
+                    curve_mnemonics=["ROP"],
+                )
+            ]
+        ),
+        dataset,
+    )
+    qapp.processEvents()
+
+    rendered = view._rendered["curve"]
+    widget = rendered.widget
+    before = view.dirty_render_stats()
+
+    curve.metadata = CurveMetadata(
+        "curve-rop",
+        "ROP",
+        "ROP",
+        "ft/h",
+        "Edited penetration rate",
+        dataset.dataset_id,
+    )
+    updated = view.refresh_dataset_metadata(dataset)
+    qapp.processEvents()
+
+    after_metadata = view.dirty_render_stats()
+    assert updated == 1
+    assert view._rendered["curve"].widget is widget
+    assert after_metadata.full_updates == before.full_updates
+    assert after_metadata.partial_updates == before.partial_updates + 1
+    assert "ft/h" in widget._curve_header_labels["ROP"].text()
+
+    curve.metadata = CurveMetadata(
+        "curve-rop",
+        "ROP_EDITED",
+        "ROP_EDITED",
+        "ft/h",
+        "Edited penetration rate",
+        dataset.dataset_id,
+    )
+    updated = view.refresh_dataset_metadata(dataset)
+    qapp.processEvents()
+
+    after_rename = view.dirty_render_stats()
+    assert updated == 1
+    assert view._rendered["curve"].widget is widget
+    assert after_rename.full_updates == before.full_updates
+    assert after_rename.partial_updates == before.partial_updates + 2
+    assert "ROP" not in (rendered.curve_items or {})
+    assert "ROP" not in widget._curve_header_labels
+    view.close()
