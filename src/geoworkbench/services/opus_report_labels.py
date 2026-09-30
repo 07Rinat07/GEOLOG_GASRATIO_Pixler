@@ -35,13 +35,13 @@ _LABELS = {
     "MEASURED_ZERO": ("измеренный ноль", "өлшенген нөл", "measured zero"),
     "BELOW_LOD": ("ниже LOD", "LOD-тан төмен", "below LOD"),
     "INVALID": ("некорректно", "жарамсыз", "invalid"),
-    "class_1": ("Окисленная (остаточная) нефть", "Тотыққан (қалдық) мұнай", "Oxidized (residual) oil"),
-    "class_2": ("Нефть", "Мұнай", "Oil"),
-    "class_3": ("Горючий газ", "Жанғыш газ", "Combustible gas"),
-    "class_4": ("Водорастворенный газ", "Суда еріген газ", "Water-dissolved gas"),
-    "class_5": ("Газоконденсат", "Газ конденсаты", "Gas condensate"),
-    "class_6": ("Газированная нефть", "Газдалған мұнай", "Gas-bearing oil"),
-    "class_7": ("Не определено", "Анықталмаған", "Undetermined"),
+    "class_1": ("Признаки окисленной/остаточной нефтяной фазы", "Тотыққан/қалдық мұнай фазасының белгілері", "Indications of an oxidized/residual-oil phase"),
+    "class_2": ("Признаки нефтяной фазы", "Мұнай фазасының белгілері", "Indications of an oil phase"),
+    "class_3": ("Газовая УВ-фаза (горючий газ)", "Газдық КС фазасы (жанғыш газ)", "Gaseous hydrocarbon phase (combustible gas)"),
+    "class_4": ("Водорастворённый газ", "Суда еріген газ", "Water-dissolved gas"),
+    "class_5": ("Газоконденсатная УВ-фаза", "Газ-конденсатты КС фазасы", "Gas-condensate hydrocarbon phase"),
+    "class_6": ("Признаки газированной нефтяной фазы", "Газдалған мұнай фазасының белгілері", "Indications of a gassy-oil phase"),
+    "class_7": ("УВ-флюид неопределённого типа", "Түрі анықталмаған көмірсутекті флюид", "Hydrocarbon fluid of undetermined type"),
 }
 
 
