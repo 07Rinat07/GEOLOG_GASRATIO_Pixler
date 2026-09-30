@@ -176,28 +176,28 @@ class HydrocarbonInterpretationReport:
 _GASOMER_AMBIGUOUS_PREFIX = "opus_gasomer_ambiguous__"
 _GASOMER_SHORT_LABELS = {
     AppLanguage.RU: {
-        1: "окисленная (остаточная) нефть",
-        2: "нефть",
-        3: "горючий газ",
-        4: "водорастворенный газ",
-        5: "газоконденсат",
-        6: "газированная нефть",
+        1: "признаки окисленной/остаточной нефтяной фазы",
+        2: "признаки нефтяной фазы",
+        3: "газовая УВ-фаза",
+        4: "водорастворённый газ",
+        5: "газоконденсатная УВ-фаза",
+        6: "признаки газированной нефтяной фазы",
     },
     AppLanguage.KK: {
-        1: "тотыққан (қалдық) мұнай",
-        2: "мұнай",
-        3: "жанғыш газ",
+        1: "тотыққан/қалдық мұнай фазасының белгілері",
+        2: "мұнай фазасының белгілері",
+        3: "газдық КС фазасы",
         4: "суда еріген газ",
-        5: "газ конденсаты",
-        6: "газдалған мұнай",
+        5: "газ-конденсатты КС фазасы",
+        6: "газдалған мұнай фазасының белгілері",
     },
     AppLanguage.EN: {
-        1: "oxidized (residual) oil",
-        2: "oil",
-        3: "combustible gas",
+        1: "indications of an oxidized/residual-oil phase",
+        2: "indications of an oil phase",
+        3: "gaseous hydrocarbon phase",
         4: "water-dissolved gas",
-        5: "gas condensate",
-        6: "gassy oil",
+        5: "gas-condensate hydrocarbon phase",
+        6: "indications of a gassy-oil phase",
     },
 }
 
@@ -1003,44 +1003,44 @@ _HTML_LABELS = {
             "признаки тяжёлой/остаточной нефтяной фазы; возможна непродуктивная зона"
         ),
         "hypothesis_opus_oxidized_residual_oil": (
-            "УВ-газопроявление; ОПУС предварительно: окисленная (остаточная) нефть"
+            "УВ-проявление; ОПУС предварительно: признаки окисленной/остаточной нефтяной фазы"
         ),
-        "hypothesis_opus_oil": "УВ-газопроявление; ОПУС предварительно: нефть",
+        "hypothesis_opus_oil": "УВ-проявление; ОПУС предварительно: признаки нефтяной фазы",
         "hypothesis_opus_combustible_gas": (
-            "УВ-газопроявление; ОПУС предварительно: горючий газ"
+            "УВ-проявление; ОПУС предварительно: газовая УВ-фаза (горючий газ)"
         ),
         "hypothesis_opus_water_dissolved_gas": (
-            "УВ-газопроявление; ОПУС предварительно: газ в воде/у контакта"
+            "УВ-проявление; ОПУС предварительно: водорастворённый газ"
         ),
-        "hypothesis_opus_gas_condensate": "ОПУС: газоконденсат",
-        "hypothesis_opus_gassy_oil": "ОПУС: газированная нефть",
+        "hypothesis_opus_gas_condensate": "ОПУС: газоконденсатная УВ-фаза",
+        "hypothesis_opus_gassy_oil": "ОПУС: признаки газированной нефтяной фазы",
         "hypothesis_opus_gas_condensate_or_gassy_oil": (
-            "УВ-газопроявление; ОПУС предварительно: газоконденсатная или "
-            "газонефтяная залежь"
+            "УВ-проявление; ОПУС предварительно: газоконденсатная УВ-фаза или "
+            "газированная нефтяная фаза"
         ),
         "hypothesis_opus_no_consensus": (
-            "УВ-газопроявление; ОПУС: тип флюида не определён по опубликованным диапазонам"
+            "УВ-флюид неопределённого типа; ОПУС не даёт однозначной классификации по опубликованным диапазонам"
         ),
         "hypothesis_opus_gasomer_oxidized_residual_oil": (
-            "УВ-проявление; ОПУС Газомер: класс 1 — окисленная (остаточная) нефть"
+            "УВ-проявление; ОПУС Газомер: класс 1 — признаки окисленной/остаточной нефтяной фазы"
         ),
         "hypothesis_opus_gasomer_oil": (
-            "УВ-проявление; ОПУС Газомер: класс 2 — нефть"
+            "УВ-проявление; ОПУС Газомер: класс 2 — признаки нефтяной фазы"
         ),
         "hypothesis_opus_gasomer_combustible_gas": (
-            "УВ-проявление; ОПУС Газомер: класс 3 — горючий газ"
+            "УВ-проявление; ОПУС Газомер: класс 3 — газовая УВ-фаза (горючий газ)"
         ),
         "hypothesis_opus_gasomer_water_dissolved_gas": (
             "УВ-проявление; ОПУС Газомер: класс 4 — водорастворённый газ"
         ),
         "hypothesis_opus_gasomer_gas_condensate": (
-            "УВ-проявление; ОПУС Газомер: класс 5 — газоконденсат"
+            "УВ-проявление; ОПУС Газомер: класс 5 — газоконденсатная УВ-фаза"
         ),
         "hypothesis_opus_gasomer_gassy_oil": (
-            "УВ-проявление; ОПУС Газомер: класс 6 — газированная нефть"
+            "УВ-проявление; ОПУС Газомер: класс 6 — признаки газированной нефтяной фазы"
         ),
         "hypothesis_opus_gasomer_undefined": (
-            "УВ-проявление; ОПУС Газомер: класс 7 — расчётный тип не определён; "
+            "УВ-флюид неопределённого типа; ОПУС Газомер: класс 7; "
             "точная причина указана в доказательствах"
         ),
         "opus_fallback_prefix": (
@@ -1159,42 +1159,42 @@ _HTML_LABELS = {
             "ауыр/қалдық мұнай фазасының белгілері; өнімсіз аймақ болуы мүмкін"
         ),
         "hypothesis_opus_oxidized_residual_oil": (
-            "КС газ көрінісі; ОПУС алдын ала: тотыққан (қалдық) мұнай"
+            "КС көрінісі; ОПУС алдын ала: тотыққан/қалдық мұнай фазасының белгілері"
         ),
-        "hypothesis_opus_oil": "КС газ көрінісі; ОПУС алдын ала: мұнай",
+        "hypothesis_opus_oil": "КС көрінісі; ОПУС алдын ала: мұнай фазасының белгілері",
         "hypothesis_opus_combustible_gas": (
-            "КС газ көрінісі; ОПУС алдын ала: жанғыш газ"
+            "КС көрінісі; ОПУС алдын ала: газдық КС фазасы (жанғыш газ)"
         ),
         "hypothesis_opus_water_dissolved_gas": (
-            "КС газ көрінісі; ОПУС алдын ала: судағы/жанасудағы газ"
+            "КС көрінісі; ОПУС алдын ала: суда еріген газ"
         ),
-        "hypothesis_opus_gas_condensate": "ОПУС: газ конденсаты",
-        "hypothesis_opus_gassy_oil": "ОПУС: газдалған мұнай",
+        "hypothesis_opus_gas_condensate": "ОПУС: газ-конденсатты КС фазасы",
+        "hypothesis_opus_gassy_oil": "ОПУС: газдалған мұнай фазасының белгілері",
         "hypothesis_opus_gas_condensate_or_gassy_oil": (
-            "КС газ көрінісі; ОПУС алдын ала: газ-конденсатты немесе "
-            "газ-мұнайлы шоғыр"
+            "КС көрінісі; ОПУС алдын ала: газ-конденсатты КС фазасы немесе "
+            "газдалған мұнай фазасы"
         ),
         "hypothesis_opus_no_consensus": (
-            "КС газ көрінісі; ОПУС: флюид түрі жарияланған диапазондар бойынша анықталмады"
+            "Түрі анықталмаған көмірсутекті флюид; ОПУС жарияланған диапазондар бойынша бірмәнді жіктемейді"
         ),
         "hypothesis_opus_gasomer_oxidized_residual_oil": (
-            "КС көрінісі; ОПУС Газомер: 1-класс — тотыққан (қалдық) мұнай"
+            "КС көрінісі; ОПУС Газомер: 1-класс — тотыққан/қалдық мұнай фазасының белгілері"
         ),
-        "hypothesis_opus_gasomer_oil": "КС көрінісі; ОПУС Газомер: 2-класс — мұнай",
+        "hypothesis_opus_gasomer_oil": "КС көрінісі; ОПУС Газомер: 2-класс — мұнай фазасының белгілері",
         "hypothesis_opus_gasomer_combustible_gas": (
-            "КС көрінісі; ОПУС Газомер: 3-класс — жанғыш газ"
+            "КС көрінісі; ОПУС Газомер: 3-класс — газдық КС фазасы (жанғыш газ)"
         ),
         "hypothesis_opus_gasomer_water_dissolved_gas": (
             "КС көрінісі; ОПУС Газомер: 4-класс — суда еріген газ"
         ),
         "hypothesis_opus_gasomer_gas_condensate": (
-            "КС көрінісі; ОПУС Газомер: 5-класс — газ конденсаты"
+            "КС көрінісі; ОПУС Газомер: 5-класс — газ-конденсатты КС фазасы"
         ),
         "hypothesis_opus_gasomer_gassy_oil": (
-            "КС көрінісі; ОПУС Газомер: 6-класс — газдалған мұнай"
+            "КС көрінісі; ОПУС Газомер: 6-класс — газдалған мұнай фазасының белгілері"
         ),
         "hypothesis_opus_gasomer_undefined": (
-            "КС көрінісі; ОПУС Газомер: 7-класс — есептік түр анықталмады; "
+            "Түрі анықталмаған көмірсутекті флюид; ОПУС Газомер: 7-класс; "
             "нақты себеп дәлелдерде көрсетілген"
         ),
         "opus_fallback_prefix": (
@@ -1301,42 +1301,42 @@ _HTML_LABELS = {
             "indications of a heavy/residual-oil phase; possibly non-productive"
         ),
         "hypothesis_opus_oxidized_residual_oil": (
-            "HC gas show; preliminary OPUS: oxidized (residual) oil"
+            "HC show; preliminary OPUS: indications of an oxidized/residual-oil phase"
         ),
-        "hypothesis_opus_oil": "HC gas show; preliminary OPUS: oil",
+        "hypothesis_opus_oil": "HC show; preliminary OPUS: indications of an oil phase",
         "hypothesis_opus_combustible_gas": (
-            "HC gas show; preliminary OPUS: combustible gas"
+            "HC show; preliminary OPUS: gaseous hydrocarbon phase (combustible gas)"
         ),
         "hypothesis_opus_water_dissolved_gas": (
-            "HC gas show; preliminary OPUS: gas in/contacting water"
+            "HC show; preliminary OPUS: water-dissolved gas"
         ),
-        "hypothesis_opus_gas_condensate": "OPUS: gas condensate",
-        "hypothesis_opus_gassy_oil": "OPUS: gassy oil",
+        "hypothesis_opus_gas_condensate": "OPUS: gas-condensate hydrocarbon phase",
+        "hypothesis_opus_gassy_oil": "OPUS: indications of a gassy-oil phase",
         "hypothesis_opus_gas_condensate_or_gassy_oil": (
-            "HC gas show; preliminary OPUS: gas-condensate or gas-oil "
-            "accumulation"
+            "HC show; preliminary OPUS: gas-condensate hydrocarbon phase or gassy-oil "
+            "phase"
         ),
         "hypothesis_opus_no_consensus": (
-            "HC gas show; OPUS fluid type is indeterminate from the published ranges"
+            "Hydrocarbon fluid of undetermined type; OPUS is not unambiguous within the published ranges"
         ),
         "hypothesis_opus_gasomer_oxidized_residual_oil": (
-            "HC show; OPUS Gasomer: class 1 — oxidized (residual) oil"
+            "HC show; OPUS Gasomer: class 1 — indications of an oxidized/residual-oil phase"
         ),
-        "hypothesis_opus_gasomer_oil": "HC show; OPUS Gasomer: class 2 — oil",
+        "hypothesis_opus_gasomer_oil": "HC show; OPUS Gasomer: class 2 — indications of an oil phase",
         "hypothesis_opus_gasomer_combustible_gas": (
-            "HC show; OPUS Gasomer: class 3 — combustible gas"
+            "HC show; OPUS Gasomer: class 3 — gaseous hydrocarbon phase (combustible gas)"
         ),
         "hypothesis_opus_gasomer_water_dissolved_gas": (
             "HC show; OPUS Gasomer: class 4 — water-dissolved gas"
         ),
         "hypothesis_opus_gasomer_gas_condensate": (
-            "HC show; OPUS Gasomer: class 5 — gas condensate"
+            "HC show; OPUS Gasomer: class 5 — gas-condensate hydrocarbon phase"
         ),
         "hypothesis_opus_gasomer_gassy_oil": (
-            "HC show; OPUS Gasomer: class 6 — gassy oil"
+            "HC show; OPUS Gasomer: class 6 — indications of a gassy-oil phase"
         ),
         "hypothesis_opus_gasomer_undefined": (
-            "HC show; OPUS Gasomer: class 7 — calculated type undefined; "
+            "Hydrocarbon fluid of undetermined type; OPUS Gasomer: class 7; "
             "the exact reason is listed in evidence"
         ),
         "opus_fallback_prefix": (
