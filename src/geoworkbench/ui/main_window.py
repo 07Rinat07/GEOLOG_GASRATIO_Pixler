@@ -6,6 +6,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from functools import partial
 from pathlib import Path
+from time import perf_counter
 from typing import TypedDict, cast
 from weakref import ref
 
@@ -227,6 +228,7 @@ from geoworkbench.services.import_diagnostics import (
     persist_import_diagnostic_report,
     presentation_diagnostic,
 )
+from geoworkbench.services.process_metrics import process_memory_snapshot
 from geoworkbench.services.session_binding import SessionBindingController
 from geoworkbench.services.edit_history import CommandHistory
 from geoworkbench.services.print_jobs import PrintJobExecutor, report_render_settings
@@ -3281,10 +3283,40 @@ class MainWindow(QMainWindow):
         diagnostic is returned to the caller.
         """
 
+        presentation_started = perf_counter()
         try:
             self._show_current_dataset()
+            memory = process_memory_snapshot()
+            log_event(
+                "las.import.presentation",
+                file=source.name,
+                duration_ms=round(
+                    max(0.0, perf_counter() - presentation_started) * 1000.0,
+                    3,
+                ),
+                rss_bytes=memory.rss_bytes,
+                peak_rss_bytes=memory.peak_rss_bytes,
+                rows=len(dataset.depth),
+                curves=len(dataset.curves),
+                success=True,
+            )
             return ()
         except Exception as exc:  # noqa: BLE001 - keep imported data accessible
+            memory = process_memory_snapshot()
+            log_event(
+                "las.import.presentation",
+                file=source.name,
+                duration_ms=round(
+                    max(0.0, perf_counter() - presentation_started) * 1000.0,
+                    3,
+                ),
+                rss_bytes=memory.rss_bytes,
+                peak_rss_bytes=memory.peak_rss_bytes,
+                rows=len(dataset.depth),
+                curves=len(dataset.curves),
+                success=False,
+                exception_type=type(exc).__name__,
+            )
             diagnostic = presentation_diagnostic(
                 source,
                 exc,
