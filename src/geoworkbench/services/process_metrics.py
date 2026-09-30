@@ -72,7 +72,11 @@ def _posix_process_memory_snapshot() -> ProcessMemorySnapshot:
     try:
         import resource
 
-        usage = resource.getrusage(resource.RUSAGE_SELF)
+        getrusage = getattr(resource, "getrusage", None)
+        rusage_self = getattr(resource, "RUSAGE_SELF", None)
+        if not callable(getrusage) or rusage_self is None:
+            return ProcessMemorySnapshot(None, None)
+        usage = getrusage(rusage_self)
         peak = int(usage.ru_maxrss)
         if sys.platform != "darwin":
             peak *= 1024
@@ -92,6 +96,9 @@ def _linux_current_rss_bytes() -> int | None:
             fields = stream.read().split()
         if len(fields) < 2:
             return None
-        return int(fields[1]) * int(os.sysconf("SC_PAGE_SIZE"))
+        sysconf = getattr(os, "sysconf", None)
+        if not callable(sysconf):
+            return None
+        return int(fields[1]) * int(sysconf("SC_PAGE_SIZE"))
     except (OSError, TypeError, ValueError):
         return None
