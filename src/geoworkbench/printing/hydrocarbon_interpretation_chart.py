@@ -7,6 +7,10 @@ from PySide6.QtCore import QByteArray, QBuffer, QIODevice, QLineF, QPointF, QRec
 from PySide6.QtGui import QColor, QImage, QPainter, QPen
 
 from geoworkbench.domain.models import CurveData, Dataset
+from geoworkbench.printing.hydrocarbon_interpretation_curve_labels import (
+    curve_legend_text,
+    report_curve_label_hints,
+)
 from geoworkbench.printing.hydrocarbon_interpretation_curve_selection import report_curve_panels
 from geoworkbench.printing.hydrocarbon_fluid_markers import (
     draw_fluid_marker,
@@ -148,6 +152,7 @@ def hydrocarbon_interpretation_chart_data_uri(
 
     panels = _panel_curves(report, dataset)
     panels = tuple((panel, curves) for panel, curves in panels if curves)
+    display_hints = report_curve_label_hints(report)
     if not panels:
         return ""
 
@@ -239,6 +244,7 @@ def hydrocarbon_interpretation_chart_data_uri(
                 curves,
                 candidates,
                 language,
+                display_hints,
             )
 
         if panel_rects and candidates:
@@ -369,6 +375,7 @@ def _draw_panel(
     curves: tuple[CurveData, ...],
     candidates: tuple[HydrocarbonCandidateInterval, ...],
     language: AppLanguage,
+    display_hints: dict[str, str],
 ) -> None:
     labels = _labels(language)
     painter.fillRect(rect, QColor("#ffffff"))
@@ -494,10 +501,16 @@ def _draw_panel(
                 previous_normalized = normalized
                 previous_clipped = clipped
 
-        legend = curve.metadata.original_mnemonic
-        if curve.metadata.unit:
-            legend += f" [{curve.metadata.unit}]"
-        legend += f"  p5={low:.4g}; p95={high:.4g}"
+        canonical_hint = display_hints.get(
+            curve.metadata.original_mnemonic.strip().upper()
+        )
+        legend = curve_legend_text(
+            curve,
+            low,
+            high,
+            language,
+            canonical_hint=canonical_hint,
+        )
         legend_rows.append((color, legend))
     painter.restore()
 
