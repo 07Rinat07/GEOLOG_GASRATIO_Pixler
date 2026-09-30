@@ -15,6 +15,9 @@ from geoworkbench.printing.hydrocarbon_fluid_markers import (
     marker_lane_offsets,
     marker_lanes,
 )
+from geoworkbench.printing.hydrocarbon_interpretation_curve_labels import (
+    report_curve_label_hints,
+)
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_canvas import PageCanvas
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import (
     CHART_HEADER_HEIGHT,
@@ -197,6 +200,7 @@ def _draw_chart_page(
         language=language,
     )
     candidates = tuple(report.candidates)
+    display_hints = report_curve_label_hints(report)
     for panel_index, ((panel_name, curves), rect) in enumerate(
         zip(panels, geometry.panel_rects, strict=True)
     ):
@@ -218,6 +222,8 @@ def _draw_chart_page(
             len(panels),
             curves,
             percentiles,
+            language=language,
+            display_hints=display_hints,
         )
 
     _draw_fluid_markers(
@@ -247,6 +253,7 @@ def _draw_depth_axis(
 ) -> None:
     labels = base_chart._labels(language)
     painter.fillRect(rect, QColor("#ffffff"))
+    painter.setBrush(Qt.BrushStyle.NoBrush)
     painter.setPen(QPen(QColor("#263746"), 1.15))
     painter.drawRect(rect)
     title = labels["depth"] + (f", {unit}" if unit else "")
@@ -303,6 +310,7 @@ def _draw_depth_axis(
             alignment,
             base_chart._depth_label(value, major_step),
         )
+    painter.setBrush(Qt.BrushStyle.NoBrush)
     painter.setPen(QPen(QColor("#263746"), 1.15))
     painter.drawRect(rect)
 
@@ -366,6 +374,7 @@ def _draw_panel(
         painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, label)
     else:
         base_chart._draw_curves(painter, rect, page, dataset, curves, ranges)
+    painter.setBrush(Qt.BrushStyle.NoBrush)
     painter.setPen(QPen(QColor("#263746"), 1.1))
     painter.drawRect(rect)
 
@@ -426,7 +435,7 @@ def _draw_fluid_markers(
     page: DepthPage,
     candidates: tuple[HydrocarbonCandidateInterval, ...],
 ) -> None:
-    """Draw compact fluid markers at true depth; collisions move only horizontally."""
+    """Draw compact fluid markers without leaking QPainter state to later pages."""
 
     if not geometry.panel_rects:
         return
@@ -434,6 +443,24 @@ def _draw_fluid_markers(
     if not visible:
         return
 
+    painter.save()
+    try:
+        _draw_visible_fluid_markers(
+            painter,
+            geometry,
+            page,
+            visible,
+        )
+    finally:
+        painter.restore()
+
+
+def _draw_visible_fluid_markers(
+    painter: QPainter,
+    geometry: ChartGeometry,
+    page: DepthPage,
+    visible: tuple[HydrocarbonCandidateInterval, ...],
+) -> None:
     target = geometry.panel_rects[-1]
     y_positions = tuple(
         base_chart._depth_y(
