@@ -63,7 +63,7 @@ release plan и временные планы в `docs` не создаются.
 | 14 | PERF-05 | Решение по storage только после измеренного baseline 100k/1M строк | Разработчик / запланировано |
 | 15 | FIELD-02…05; OPUS-08 | Совместимость с внешними системами и независимая проверка интерпретации | Разработчик + профильный специалист / блокировано внешним условием |
 
-Первый инкремент WITS-ALARM-01 ввёл Qt-независимый alarm state machine: валидированные min/max, sample-count debounce, hysteresis снятия, acknowledgement и fail-safe обработку отсутствующих/нечисловых отсчётов. Второй инкремент поднимает live-form settings до schema v4 и сохраняет per-channel alarm rules по mnemonic: min/max, hysteresis и debounce; schema v1–v3 мигрируют с пустым набором alarm rules. UI-подсветка, звук и маркеры графика остаются следующими отдельными slices и обязаны потреблять этот единый state contract.
+Первый инкремент WITS-ALARM-01 ввёл Qt-независимый alarm state machine: валидированные min/max, sample-count debounce, hysteresis снятия, acknowledgement и fail-safe обработку отсутствующих/нечисловых отсчётов. Второй инкремент поднимает live-form settings до schema v4 и сохраняет per-channel alarm rules по mnemonic: min/max, hysteresis, debounce, visual-enabled и audio-enabled; schema v1–v3 мигрируют с пустым набором alarm rules. UI-подсветка, звук и маркеры графика остаются следующими отдельными slices и обязаны потреблять этот единый state contract.
 
 WITS-CALC-01 и OBS-01 уже интегрированы и поэтому удалены из активной очереди согласно правилу 8. Live-derived Haworth/Pixler/DEXP/DEXPC и build/session diagnostics остаются существующими контрактами, которые WITS-UX обязан переиспользовать, а не реализовывать повторно.
 
