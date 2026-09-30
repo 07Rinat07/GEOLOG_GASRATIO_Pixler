@@ -927,8 +927,11 @@ Undo/Redo, восстановление layout/source sidecars, global MainWindo
 Merge actions, блокировка при реальном изменении результата и успешный Undo после полностью
 отменённой Curve Pencil правки несмотря на увеличившийся curve version. Отдельный disk/export
 rollback regression проверяет, что неуспешный merge не остаётся в history и восстанавливает
-существовавшую до операции redo-ветку.
+существовавшую до операции redo-ветку. Пятый инкремент добавляет in-place External LAS Insert:
+проверяются shared-history injection, несколько последовательных вставок, domain-safe локальный
+Undo, factual metadata/value conflict guard, Undo после полностью отменённой Curve Pencil правки и
+global MainWindow routing.
 
 ```powershell
-python scripts/run_tests.py -q -p no:cacheprovider tests/test_edit_history.py tests/test_curve_editing_controller.py tests/test_header_editing_controller.py tests/test_curve_metadata_controller.py tests/test_curve_transfer_controller.py tests/test_dataset_merge_controller.py tests/test_main_window.py
+python scripts/run_tests.py -q -p no:cacheprovider tests/test_edit_history.py tests/test_curve_editing_controller.py tests/test_header_editing_controller.py tests/test_curve_metadata_controller.py tests/test_curve_transfer_controller.py tests/test_dataset_merge_controller.py tests/test_external_las_insert_controller.py tests/test_main_window.py
 ```

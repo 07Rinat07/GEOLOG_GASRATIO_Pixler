@@ -1267,11 +1267,16 @@ WELL-04 уже имеет field-level статусы и readiness; WELL-05 — f
   sidecars восстанавливаются вместе, а conflict guard сравнивает фактическое содержимое без
   монотонных curve version counters. History checkpoint входит в export transaction: disk/export
   failure откатывает project state и возвращает прежние undo/redo stacks без потери redo-ветки.
-  Глобальный Ctrl+Z/Ctrl+Shift+Z отменяет фактически последнее
-  изменение между пятью доменами; локальные Curve Pencil, Header Editor, Data Inspector,
-  Curve Transfer и Dataset Merge controls остаются domain-safe и не перескакивают через более
-  новую команду другого типа. Следующие инкременты переводят остальные project mutation
-  controllers в тот же history boundary и добавляют savepoint/dirty revision semantics.
+  Пятый инкремент переводит in-place `ExternalLasInsertController`: каждая вставка
+  внешнего LAS становится отдельной reversible command в общем history, поддерживаются несколько
+  последовательных вставок, а factual metadata/value guard позволяет Undo после полностью
+  отменённой последующей правки кривой без зависимости от монотонного `curve.version`.
+  Глобальный Ctrl+Z/Ctrl+Shift+Z отменяет фактически последнее изменение между шестью доменами;
+  локальные Curve Pencil, Header Editor, Data Inspector, Curve Transfer, Dataset Merge и
+  External LAS controls остаются domain-safe и не перескакивают через более новую команду другого
+  типа. Создание отдельной копии dataset через External LAS остаётся отдельным derived-dataset
+  workflow и не включается в этот in-place slice. Следующие инкременты переводят остальные project
+  mutation controllers в тот же history boundary и добавляют savepoint/dirty revision semantics.
 
 ## P1 — полевая совместимость
 

@@ -22,10 +22,12 @@ from geoworkbench.domain.models import (
 )
 from geoworkbench.forms.repository import FormRepository
 from geoworkbench.project.curve_transfer_controller import CurveTransferController
+from geoworkbench.project.external_las_insert_controller import ExternalLasInsertController
 from geoworkbench.project.header_editing_controller import HeaderSection
 from geoworkbench.project.dataset_merge_controller import DatasetMergeController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.printing.print_job import PrintJobSettings, PrintOutputFormat
+from geoworkbench.services.edit_history import CallbackCommand
 from geoworkbench.services.import_jobs import LasImportBatchOutcome
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.report_passport import passport_sidecar_path
@@ -1046,6 +1048,91 @@ def test_window_global_undo_routes_curve_metadata_edits(qapp) -> None:
 
     window.redo_project_edit()
     assert curve.metadata.unit == "ft/h"
+    window.close()
+
+
+def test_external_las_actions_follow_shared_history_domain(qapp, monkeypatch) -> None:
+    window = MainWindow()
+    session, _ = make_session()
+    bind_session(window, session)
+
+    monkeypatch.setattr(
+        ExternalLasInsertController,
+        "can_undo",
+        property(
+            lambda controller: controller._history.next_undo is not None
+            and controller._history.next_undo.history_domain == "external_las_insert"
+        ),
+    )
+    monkeypatch.setattr(
+        ExternalLasInsertController,
+        "can_redo",
+        property(
+            lambda controller: controller._history.next_redo is not None
+            and controller._history.next_redo.history_domain == "external_las_insert"
+        ),
+    )
+
+    external = CallbackCommand(
+        description="External LAS insert",
+        history_domain="external_las_insert",
+        execute_action=lambda: None,
+        undo_action=lambda: None,
+    )
+    newer = CallbackCommand(
+        description="Newer metadata edit",
+        history_domain="curve_metadata",
+        execute_action=lambda: None,
+        undo_action=lambda: None,
+    )
+
+    window.edit_history.record_applied(external)
+    assert window.undo_external_las_insert_action.isEnabled() is True
+
+    window.edit_history.record_applied(newer)
+    assert window.undo_external_las_insert_action.isEnabled() is False
+
+    window.edit_history.undo()
+    assert window.undo_external_las_insert_action.isEnabled() is True
+    assert window.redo_external_las_insert_action.isEnabled() is False
+    window.close()
+
+
+def test_window_global_undo_routes_external_las_insert(qapp, monkeypatch) -> None:
+    window = MainWindow()
+    session, _ = make_session()
+    bind_session(window, session)
+    history = window.edit_history
+    history.record_applied(
+        CallbackCommand(
+            description="External LAS insert",
+            history_domain="external_las_insert",
+            execute_action=lambda: None,
+            undo_action=lambda: None,
+        )
+    )
+
+    def undo_external(controller):
+        controller._history.undo()
+        return SimpleNamespace(inserted_mnemonics=())
+
+    def redo_external(controller):
+        controller._history.redo()
+        return SimpleNamespace(inserted_mnemonics=())
+
+    monkeypatch.setattr(ExternalLasInsertController, "undo", undo_external)
+    monkeypatch.setattr(ExternalLasInsertController, "redo", redo_external)
+
+    assert history.next_undo is not None
+    assert history.next_undo.history_domain == "external_las_insert"
+
+    window.undo_project_edit()
+    assert history.can_undo is False
+    assert history.can_redo is True
+
+    window.redo_project_edit()
+    assert history.can_undo is True
+    assert history.can_redo is False
     window.close()
 
 

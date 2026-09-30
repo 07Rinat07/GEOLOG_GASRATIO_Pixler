@@ -674,7 +674,10 @@ class MainWindow(QMainWindow):
             self.session,
             shared_history=self.edit_history,
         )
-        self.external_las_insert_controller = ExternalLasInsertController(self.session)
+        self.external_las_insert_controller = ExternalLasInsertController(
+            self.session,
+            shared_history=self.edit_history,
+        )
         self.gas_ratio_project_controller = GasRatioProjectController(self.session)
         self.formula_registry = build_all_sourced_formula_registry()
         self.external_las_insert_controller.formula_registry = self.formula_registry
@@ -876,6 +879,7 @@ class MainWindow(QMainWindow):
         self.edit_history.add_listener(self._update_curve_edit_actions)
         self.edit_history.add_listener(self._update_transfer_actions)
         self.edit_history.add_listener(self._update_merge_actions)
+        self.edit_history.add_listener(self._update_external_las_insert_actions)
         self._create_home_page()
         self._create_toolbar()
         status_bar = QStatusBar()
@@ -6049,6 +6053,9 @@ class MainWindow(QMainWindow):
         if command.history_domain == "dataset_merge":
             self.undo_dataset_merge()
             return
+        if command.history_domain == "external_las_insert":
+            self.undo_external_las_insert()
+            return
         QMessageBox.warning(
             self,
             "Отмена редактирования",
@@ -6084,6 +6091,9 @@ class MainWindow(QMainWindow):
             return
         if command.history_domain == "dataset_merge":
             self.redo_dataset_merge()
+            return
+        if command.history_domain == "external_las_insert":
+            self.redo_external_las_insert()
             return
         QMessageBox.warning(
             self,
