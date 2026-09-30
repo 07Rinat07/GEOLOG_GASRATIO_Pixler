@@ -690,7 +690,10 @@ class MainWindow(QMainWindow):
         self.time_to_depth_controller = TimeToDepthController(self.session)
         self.depth_annotation_controller = DepthAnnotationController(self.session)
         self._selected_annotation_id: str | None = None
-        self.lithology_controller = LithologyController(self.session)
+        self.lithology_controller = LithologyController(
+            self.session,
+            shared_history=self.edit_history,
+        )
         self.cuttings_controller = CuttingsController(self.session)
         self.interpretation_controller = InterpretationController(self.session)
         self.interpretation_calculation_controller = InterpretationCalculationController(
@@ -6056,6 +6059,14 @@ class MainWindow(QMainWindow):
         if command.history_domain == "external_las_insert":
             self.undo_external_las_insert()
             return
+        if command.history_domain == "lithology":
+            try:
+                description = self.lithology_controller.undo()
+            except RuntimeError as exc:
+                QMessageBox.warning(self, "Отмена редактирования", str(exc))
+                return
+            self._after_lithology_history_change(description)
+            return
         QMessageBox.warning(
             self,
             "Отмена редактирования",
@@ -6095,6 +6106,14 @@ class MainWindow(QMainWindow):
         if command.history_domain == "external_las_insert":
             self.redo_external_las_insert()
             return
+        if command.history_domain == "lithology":
+            try:
+                description = self.lithology_controller.redo()
+            except RuntimeError as exc:
+                QMessageBox.warning(self, "Повтор редактирования", str(exc))
+                return
+            self._after_lithology_history_change(description)
+            return
         QMessageBox.warning(
             self,
             "Повтор редактирования",
@@ -6126,6 +6145,11 @@ class MainWindow(QMainWindow):
     def _after_curve_metadata_history_change(self, description: str) -> None:
         self._show_current_dataset()
         self._refresh_tree()
+        self._update_title()
+        self.statusBar().showMessage(description)
+
+    def _after_lithology_history_change(self, description: str) -> None:
+        self._show_current_dataset()
         self._update_title()
         self.statusBar().showMessage(description)
 
