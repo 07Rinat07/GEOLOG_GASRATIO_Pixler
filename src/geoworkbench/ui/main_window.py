@@ -6198,32 +6198,17 @@ class MainWindow(QMainWindow):
             self.las_table_editor.set_dataset(dataset)
             self.curve_browser.set_dataset(dataset)
             self.curve_browser.select_recommended()
-            refresh_mnemonics = tuple(
-                dict.fromkeys(
-                    mnemonic
-                    for mnemonic in (
-                        *(
-                            item
-                            for track in self.tablet_view.layout_model.tracks
-                            for item in track.curve_mnemonics
-                        ),
-                        *(
-                            item
-                            for curve in dataset.curves.values()
-                            for item in (
-                                curve.metadata.original_mnemonic,
-                                curve.metadata.canonical_mnemonic,
-                            )
-                            if item
-                        ),
-                    )
-                    if mnemonic
-                )
-            )
+            refresh_mnemonics: list[str] = []
+            for track in self.tablet_view.layout_model.tracks:
+                refresh_mnemonics.extend(track.curve_mnemonics)
+            for curve in dataset.curves.values():
+                refresh_mnemonics.append(curve.metadata.original_mnemonic)
+                if curve.metadata.canonical_mnemonic:
+                    refresh_mnemonics.append(curve.metadata.canonical_mnemonic)
             if refresh_mnemonics:
                 self.tablet_view.refresh_dataset_curves(
                     dataset,
-                    refresh_mnemonics,
+                    tuple(dict.fromkeys(refresh_mnemonics)),
                 )
             self.interpretation_report_workspace.refresh()
         self._refresh_tree()
