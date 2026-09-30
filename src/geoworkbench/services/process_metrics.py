@@ -29,7 +29,10 @@ def _windows_process_memory_snapshot() -> ProcessMemorySnapshot:
     try:
         import ctypes
         from ctypes import wintypes
+    except ImportError:
+        return ProcessMemorySnapshot(None, None)
 
+    try:
         size_t = ctypes.c_size_t
 
         class ProcessMemoryCountersEx(ctypes.Structure):
@@ -51,9 +54,21 @@ def _windows_process_memory_snapshot() -> ProcessMemorySnapshot:
         counters.cb = ctypes.sizeof(counters)
         kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
         psapi = ctypes.WinDLL("psapi", use_last_error=True)
-        kernel32.GetCurrentProcess.restype = wintypes.HANDLE
-        handle = kernel32.GetCurrentProcess()
-        ok = psapi.GetProcessMemoryInfo(
+
+        get_current_process = kernel32.GetCurrentProcess
+        get_current_process.argtypes = ()
+        get_current_process.restype = wintypes.HANDLE
+
+        get_process_memory_info = psapi.GetProcessMemoryInfo
+        get_process_memory_info.argtypes = (
+            wintypes.HANDLE,
+            ctypes.POINTER(ProcessMemoryCountersEx),
+            wintypes.DWORD,
+        )
+        get_process_memory_info.restype = wintypes.BOOL
+
+        handle = get_current_process()
+        ok = get_process_memory_info(
             handle,
             ctypes.byref(counters),
             counters.cb,
@@ -64,7 +79,14 @@ def _windows_process_memory_snapshot() -> ProcessMemorySnapshot:
             rss_bytes=int(counters.WorkingSetSize),
             peak_rss_bytes=int(counters.PeakWorkingSetSize),
         )
-    except (AttributeError, ImportError, OSError, TypeError, ValueError):
+    except (
+        AttributeError,
+        OSError,
+        OverflowError,
+        TypeError,
+        ValueError,
+        ctypes.ArgumentError,
+    ):
         return ProcessMemorySnapshot(None, None)
 
 
