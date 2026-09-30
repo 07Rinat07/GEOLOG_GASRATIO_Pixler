@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from enum import StrEnum
 import math
+from numbers import Real
 
 
 class AlarmSide(StrEnum):
@@ -40,8 +41,10 @@ class AlarmLimits:
             (self.maximum, "maximum"),
             (self.hysteresis, "hysteresis"),
         ):
-            if value is not None and (isinstance(value, bool) or not math.isfinite(value)):
-                raise ValueError(f"{name} must be finite")
+            if value is None:
+                continue
+            if isinstance(value, bool) or not isinstance(value, Real) or not math.isfinite(value):
+                raise ValueError(f"{name} must be a finite real number")
         if self.minimum is not None and self.maximum is not None:
             if self.minimum >= self.maximum:
                 raise ValueError("minimum must be lower than maximum")
@@ -88,7 +91,12 @@ def evaluate_alarm(
     reset only an uncommitted debounce sequence and preserve an active alarm.
     """
 
-    if value is None or isinstance(value, bool) or not math.isfinite(value):
+    if (
+        value is None
+        or isinstance(value, bool)
+        or not isinstance(value, Real)
+        or not math.isfinite(value)
+    ):
         if state.active_side is not None:
             return AlarmEvaluation(state)
         if state.pending_side is None:
