@@ -27,6 +27,28 @@ HistoryListener = Callable[[], None]
 
 
 @dataclass(slots=True)
+class CallbackCommand:
+    """Adapter for validated domain operations that already own mutation rules."""
+
+    description: str
+    history_domain: str
+    execute_action: HistoryListener = field(repr=False)
+    undo_action: HistoryListener = field(repr=False)
+
+    def __post_init__(self) -> None:
+        if not self.description.strip():
+            raise ValueError("Описание команды не может быть пустым")
+        if not self.history_domain.strip():
+            raise ValueError("Домен истории не может быть пустым")
+
+    def execute(self) -> None:
+        self.execute_action()
+
+    def undo(self) -> None:
+        self.undo_action()
+
+
+@dataclass(slots=True)
 class CommandHistory:
     """Bounded chronological history shared by reversible project edits.
 

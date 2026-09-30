@@ -1019,6 +1019,36 @@ def test_window_global_undo_routes_header_and_curve_edits_in_chronological_order
     window.close()
 
 
+def test_window_global_undo_routes_curve_metadata_edits(qapp) -> None:
+    window = MainWindow()
+    session, _ = make_session()
+    bind_session(window, session)
+    dataset = session.current_dataset
+    assert dataset is not None
+    curve = dataset.curves["curve-1"]
+
+    window.curve_metadata_controller.update(
+        "curve-1",
+        mnemonic="ROP",
+        unit="ft/h",
+        description="Edited penetration rate",
+    )
+    qapp.processEvents()
+
+    assert curve.metadata.unit == "ft/h"
+    assert window.edit_history.next_undo is not None
+    assert window.edit_history.next_undo.history_domain == "curve_metadata"
+    assert window.undo_action.isEnabled() is True
+
+    window.undo_project_edit()
+    assert curve.metadata.unit == "m/h"
+    assert window.redo_action.isEnabled() is True
+
+    window.redo_project_edit()
+    assert curve.metadata.unit == "ft/h"
+    window.close()
+
+
 def test_window_creates_and_undoes_resampled_copy(qapp, monkeypatch) -> None:
     window = MainWindow(language=AppLanguage.EN)
     session, _ = make_session()

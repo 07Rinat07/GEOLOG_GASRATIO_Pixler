@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field, replace
+from functools import partial
 
 import numpy as np
 
 from geoworkbench.domain.models import CurveData, CurveMetadata, Dataset, new_id
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.services.edit_history import CallbackCommand, CommandHistory
 from geoworkbench.services.semantic_channels import (
     SemanticChannelDictionary,
     default_semantic_channel_dictionary,
@@ -47,22 +49,26 @@ class CurveMetadataController:
     semantic_dictionary: SemanticChannelDictionary = field(
         default_factory=default_semantic_channel_dictionary
     )
-    _undo_stack: list[CurveCatalogCommand] = field(default_factory=list, init=False)
-    _redo_stack: list[CurveCatalogCommand] = field(default_factory=list, init=False)
+    shared_history: CommandHistory | None = field(default=None, kw_only=True, repr=False)
+    _history: CommandHistory = field(init=False, repr=False)
 
     _MNEMONIC = re.compile(r"^[A-Z][A-Z0-9_-]{0,31}$")
+    _HISTORY_DOMAIN = "curve_metadata"
 
     def __post_init__(self) -> None:
         if self.max_commands < 1:
             raise ValueError("История должна хранить минимум одну команду")
+        self._history = self.shared_history or CommandHistory(max_commands=self.max_commands)
 
     @property
     def can_undo(self) -> bool:
-        return bool(self._undo_stack)
+        command = self._history.next_undo
+        return command is not None and command.history_domain == self._HISTORY_DOMAIN
 
     @property
     def can_redo(self) -> bool:
-        return bool(self._redo_stack)
+        command = self._history.next_redo
+        return command is not None and command.history_domain == self._HISTORY_DOMAIN
 
     def update(
         self,
@@ -102,7 +108,7 @@ class CurveMetadataController:
         if before == after:
             return
         curve.metadata = after
-        self._undo_stack.append(
+        self._record(
             CurveMetadataCommand(
                 dataset.dataset_id,
                 curve,
@@ -111,9 +117,6 @@ class CurveMetadataController:
                 f"Изменение метаданных {before.original_mnemonic}",
             )
         )
-        if len(self._undo_stack) > self.max_commands:
-            del self._undo_stack[0]
-        self._redo_stack.clear()
         self.session.dirty = True
 
     def create(self, *, mnemonic: str, unit: str, description: str) -> CurveData:
@@ -151,16 +154,13 @@ class CurveMetadataController:
             np.full(dataset.depth.shape, np.nan, dtype=np.float64),
         )
         dataset.curves[curve_id] = curve
-        self._undo_stack.append(
+        self._record(
             CurveCreationCommand(
                 dataset.dataset_id,
                 curve,
                 f"Создание кривой {normalized_mnemonic}",
             )
         )
-        if len(self._undo_stack) > self.max_commands:
-            del self._undo_stack[0]
-        self._redo_stack.clear()
         self.session.dirty = True
         return curve
 
@@ -173,7 +173,7 @@ class CurveMetadataController:
             )
         position = list(dataset.curves).index(curve_id)
         del dataset.curves[curve_id]
-        self._undo_stack.append(
+        self._record(
             CurveRemovalCommand(
                 dataset.dataset_id,
                 curve,
@@ -181,16 +181,37 @@ class CurveMetadataController:
                 f"Удаление кривой {curve.metadata.original_mnemonic}",
             )
         )
-        if len(self._undo_stack) > self.max_commands:
-            del self._undo_stack[0]
-        self._redo_stack.clear()
         self.session.dirty = True
         return curve
 
     def undo(self) -> str:
-        if not self._undo_stack:
+        if not self.can_undo:
             raise RuntimeError("Нет изменений метаданных кривых для отмены")
-        command = self._undo_stack[-1]
+        command = self._history.undo()
+        self.session.dirty = True
+        return command.description
+
+    def redo(self) -> str:
+        if not self.can_redo:
+            raise RuntimeError("Нет изменений метаданных кривых для повтора")
+        command = self._history.redo()
+        self.session.dirty = True
+        return command.description
+
+    def clear_history(self) -> None:
+        self._history.clear()
+
+    def _record(self, command: CurveCatalogCommand) -> None:
+        self._history.record_applied(
+            CallbackCommand(
+                description=command.description,
+                history_domain=self._HISTORY_DOMAIN,
+                execute_action=partial(self._redo_command, command),
+                undo_action=partial(self._undo_command, command),
+            )
+        )
+
+    def _undo_command(self, command: CurveCatalogCommand) -> None:
         self._require_current_command_dataset(command)
         if isinstance(command, CurveMetadataCommand):
             self._restore(command.curve, command.after, command.before)
@@ -198,15 +219,8 @@ class CurveMetadataController:
             self._remove_created_curve(command)
         else:
             self._restore_removed_curve(command)
-        self._undo_stack.pop()
-        self._redo_stack.append(command)
-        self.session.dirty = True
-        return command.description
 
-    def redo(self) -> str:
-        if not self._redo_stack:
-            raise RuntimeError("Нет изменений метаданных кривых для повтора")
-        command = self._redo_stack[-1]
+    def _redo_command(self, command: CurveCatalogCommand) -> None:
         self._require_current_command_dataset(command)
         if isinstance(command, CurveMetadataCommand):
             self._restore(command.curve, command.before, command.after)
@@ -214,14 +228,6 @@ class CurveMetadataController:
             self._restore_created_curve(command)
         else:
             self._remove_again(command)
-        self._redo_stack.pop()
-        self._undo_stack.append(command)
-        self.session.dirty = True
-        return command.description
-
-    def clear_history(self) -> None:
-        self._undo_stack.clear()
-        self._redo_stack.clear()
 
     def _validate(
         self,

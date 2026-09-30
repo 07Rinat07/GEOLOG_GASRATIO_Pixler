@@ -663,7 +663,10 @@ class MainWindow(QMainWindow):
             self.session,
             shared_history=self.edit_history,
         )
-        self.curve_metadata_controller = CurveMetadataController(self.session)
+        self.curve_metadata_controller = CurveMetadataController(
+            self.session,
+            shared_history=self.edit_history,
+        )
         self.curve_transfer_controller = CurveTransferController(self.session)
         self.external_las_insert_controller = ExternalLasInsertController(self.session)
         self.gas_ratio_project_controller = GasRatioProjectController(self.session)
@@ -6024,6 +6027,14 @@ class MainWindow(QMainWindow):
                 return
             self._after_header_history_change(description)
             return
+        if command.history_domain == "curve_metadata":
+            try:
+                description = self.curve_metadata_controller.undo()
+            except RuntimeError as exc:
+                QMessageBox.warning(self, "Отмена редактирования", str(exc))
+                return
+            self._after_curve_metadata_history_change(description)
+            return
         QMessageBox.warning(
             self,
             "Отмена редактирования",
@@ -6045,6 +6056,14 @@ class MainWindow(QMainWindow):
                 QMessageBox.warning(self, "Повтор редактирования", str(exc))
                 return
             self._after_header_history_change(description)
+            return
+        if command.history_domain == "curve_metadata":
+            try:
+                description = self.curve_metadata_controller.redo()
+            except RuntimeError as exc:
+                QMessageBox.warning(self, "Повтор редактирования", str(exc))
+                return
+            self._after_curve_metadata_history_change(description)
             return
         QMessageBox.warning(
             self,
@@ -6069,6 +6088,12 @@ class MainWindow(QMainWindow):
         self._after_curve_edit(outcome)
 
     def _after_header_history_change(self, description: str) -> None:
+        self._show_current_dataset()
+        self._refresh_tree()
+        self._update_title()
+        self.statusBar().showMessage(description)
+
+    def _after_curve_metadata_history_change(self, description: str) -> None:
         self._show_current_dataset()
         self._refresh_tree()
         self._update_title()
