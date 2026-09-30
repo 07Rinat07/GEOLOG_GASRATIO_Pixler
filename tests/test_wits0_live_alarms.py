@@ -13,11 +13,13 @@ def _value(
     row: int,
     sample_row: int | None = None,
     quality: AcquisitionLiveQuality = AcquisitionLiveQuality.GOOD,
+    curve_id: str = "curve-tg",
+    mnemonic: str = "TOTAL_GAS",
 ) -> AcquisitionCurrentValue:
     resolved_sample = row if sample_row is None and value is not None else sample_row
     return AcquisitionCurrentValue(
-        curve_id="curve-tg",
-        mnemonic="TOTAL_GAS",
+        curve_id=curve_id,
+        mnemonic=mnemonic,
         unit="%",
         value=value,
         quality=quality,
@@ -118,3 +120,30 @@ def test_changed_rule_resets_previous_runtime_state() -> None:
     status = controller.evaluate((_value(7.0, row=1),))
 
     assert not status[0].is_active
+
+
+
+def test_duplicate_mnemonic_curves_do_not_share_debounce_state() -> None:
+    controller = Wits0LiveAlarmController()
+    controller.set_rules(
+        (Wits0SavedAlarmRule(mnemonic="TOTAL_GAS", maximum=5.0, debounce_samples=2),)
+    )
+
+    first = controller.evaluate(
+        (
+            _value(6.0, row=1, curve_id="gas-a"),
+            _value(7.0, row=1, curve_id="gas-b"),
+        )
+    )
+    assert all(not status.is_active for status in first)
+
+    second = controller.evaluate(
+        (
+            _value(6.1, row=2, curve_id="gas-a"),
+            _value(7.1, row=2, curve_id="gas-b"),
+        )
+    )
+    assert {status.curve_id for status in second if status.is_active} == {
+        "gas-a",
+        "gas-b",
+    }
