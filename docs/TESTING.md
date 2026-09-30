@@ -370,6 +370,19 @@ tests verify both successful presentation and the existing fail-safe recovery pa
 otherwise valid import. These metrics are observational; performance thresholds require a measured
 Windows baseline rather than unit-test wall-clock assertions.
 
+The first presentation-coalescing regression is intentionally separate from the LAS metrics:
+
+```powershell
+python -m pytest -q -p no:cacheprovider `
+  tests/test_presentation_refresh.py `
+  tests/test_tablet_partial_title_refresh_source.py
+```
+
+It verifies typed intent merging/reset semantics and guards that drag-width/drag-order handlers
+schedule Project Tree + window-title refresh instead of calling them synchronously. The width drag
+must still use the immediate `DirtyReason.STATIC` track refresh. No test permits coalescing
+Dataset replacement, Undo/Redo, import presentation, or a full TabletView rebuild.
+
 ## 11. Регрессия GeoScape2/GS2 временного планшета
 
 `tests/test_gs2_time_tablet_rendering.py` проверяет единый расчёт фактической ширины

@@ -229,6 +229,10 @@ from geoworkbench.services.import_diagnostics import (
     presentation_diagnostic,
 )
 from geoworkbench.services.process_metrics import process_memory_snapshot
+from geoworkbench.services.presentation_refresh import (
+    PresentationRefreshAccumulator,
+    PresentationRefreshIntent,
+)
 from geoworkbench.services.session_binding import SessionBindingController
 from geoworkbench.services.edit_history import CommandHistory
 from geoworkbench.services.print_jobs import PrintJobExecutor, report_render_settings
@@ -613,6 +617,9 @@ class _TabletFormSnapshot:
     selected_track_id: str | None
 
 
+_PRESENTATION_REFRESH_COALESCE_MS = 75
+
+
 class MainWindow(QMainWindow):
     def __init__(
         self,
@@ -733,6 +740,13 @@ class MainWindow(QMainWindow):
         self._toolbar_adaptation_in_progress = False
         self._main_toolbar_overflow_signature: tuple[str, ...] = ()
         self._form_toolbar_overflow_signature: tuple[str, ...] = ()
+        self._presentation_refresh = PresentationRefreshAccumulator()
+        self._presentation_refresh_timer = QTimer(self)
+        self._presentation_refresh_timer.setSingleShot(True)
+        self._presentation_refresh_timer.setInterval(_PRESENTATION_REFRESH_COALESCE_MS)
+        self._presentation_refresh_timer.timeout.connect(
+            self._flush_presentation_refresh
+        )
         self._apply_adaptive_initial_geometry()
         # Explicitly override child-layout minimum propagation.  The workspace
         # is scrollable; a desktop-only 640×480 minimum must never exceed the
@@ -6973,8 +6987,10 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, self._t("tablet.width_title"), str(exc))
             self.tablet_view.refresh_view()
             return
-        self._refresh_tree()
-        self._update_title()
+        self._schedule_presentation_refresh(
+            PresentationRefreshIntent.PROJECT_TREE
+            | PresentationRefreshIntent.WINDOW_TITLE
+        )
         self._log(self._t("tablet.width_changed", title=track.title, width=width))
 
     def _track_order_changed_from_drag(self, track_id: str, target_index: int) -> None:
@@ -6983,8 +6999,10 @@ class MainWindow(QMainWindow):
             self.tablet_controller.move_track_to_index(track_id, target_index)
         except (KeyError, ValueError):
             return
-        self._refresh_tree()
-        self._update_title()
+        self._schedule_presentation_refresh(
+            PresentationRefreshIntent.PROJECT_TREE
+            | PresentationRefreshIntent.WINDOW_TITLE
+        )
         self._log(self._t("tablet.track_moved", title=track.title))
 
     def move_selected_track(self, offset: int) -> None:
@@ -9449,6 +9467,34 @@ class MainWindow(QMainWindow):
             self._t("project.recovery_done", path=target),
         )
         self._log(self._t("project.recovery_done", path=target))
+
+    def _schedule_presentation_refresh(
+        self,
+        intents: PresentationRefreshIntent,
+    ) -> None:
+        if not self._presentation_refresh.request(intents):
+            return
+        if not self._presentation_refresh_timer.isActive():
+            self._presentation_refresh_timer.start()
+
+    def _flush_presentation_refresh(self) -> None:
+        batch = self._presentation_refresh.consume()
+        if batch.is_empty:
+            return
+        if batch.intents & PresentationRefreshIntent.PROJECT_TREE:
+            self._refresh_tree()
+        if batch.intents & PresentationRefreshIntent.WINDOW_TITLE:
+            self._update_title()
+        log_event(
+            "ui.presentation_refresh.flushed",
+            request_count=batch.request_count,
+            project_tree=bool(
+                batch.intents & PresentationRefreshIntent.PROJECT_TREE
+            ),
+            window_title=bool(
+                batch.intents & PresentationRefreshIntent.WINDOW_TITLE
+            ),
+        )
 
     def _refresh_tree(self) -> None:
         self.tree.clear()
