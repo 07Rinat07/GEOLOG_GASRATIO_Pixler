@@ -170,6 +170,81 @@ def test_unavailable_known_channel_keeps_readable_physical_name() -> None:
     assert "TOTAL_GAS" not in model.columns[2].header
 
 
+@pytest.mark.parametrize(
+    ("mnemonic", "expected"),
+    [
+        ("TOTAL_GAS", "Total Gas"),
+        ("FLOW_IN", "Flow In"),
+        ("OPUS3", "OPUS-3"),
+    ],
+)
+def test_available_curated_english_labels_are_not_masked(
+    mnemonic: str,
+    expected: str,
+) -> None:
+    dataset, _report = _resolved_report()
+    dataset.curves["curated"] = CurveData(
+        CurveMetadata(
+            "curated",
+            mnemonic,
+            mnemonic,
+            "",
+            None,
+            dataset.dataset_id,
+        ),
+        np.array([1.0, 2.0, 3.0, 4.0]),
+    )
+    definition = ReportDefinition(
+        f"selection:dataset-1:curated:{mnemonic}",
+        "Curated label report",
+        ReportProfile.COMBINED,
+        dataset.dataset_id,
+        dataset.active_index_id or "",
+        ReportIntervalSelection(ReportIntervalMode.SELECTION),
+        language="en",
+        curve_ids=("curated",),
+    )
+    report = resolve_report_definition(
+        dataset,
+        definition,
+        context=ReportIntervalContext(selection_range=(100.0, 102.0)),
+        require_curves=True,
+    )
+
+    model = build_report_document_model(dataset, report, language=AppLanguage.EN)
+
+    assert model.columns[1].technical_name == mnemonic
+    assert model.columns[1].header == expected
+
+
+@pytest.mark.parametrize("mnemonic", ["MS_H2S", "BIT_DEPTH_STANDS"])
+def test_unavailable_prettified_technical_names_are_masked(mnemonic: str) -> None:
+    dataset, _report = _resolved_report()
+    definition = ReportDefinition(
+        f"selection:dataset-1:unavailable:{mnemonic}",
+        "Unavailable technical label report",
+        ReportProfile.COMBINED,
+        dataset.dataset_id,
+        dataset.active_index_id or "",
+        ReportIntervalSelection(ReportIntervalMode.SELECTION),
+        language="en",
+        curve_ids=("c1",),
+        channel_mnemonics=("C1", mnemonic),
+    )
+    report = resolve_report_definition(
+        dataset,
+        definition,
+        context=ReportIntervalContext(selection_range=(100.0, 102.0)),
+        require_curves=True,
+    )
+
+    model = build_report_document_model(dataset, report, language=AppLanguage.EN)
+
+    assert model.columns[2].technical_name == mnemonic
+    assert model.columns[2].header == "Unresolved channel"
+    assert mnemonic not in model.columns[2].header
+
+
 def test_duplicate_physical_headers_use_localized_source_ordinals() -> None:
     dataset, _report = _resolved_report()
     dataset.curves["c1-backup"] = CurveData(
