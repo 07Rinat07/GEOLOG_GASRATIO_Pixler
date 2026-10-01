@@ -4,7 +4,7 @@ import html
 import os
 import tempfile
 import zipfile
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Iterable, cast
 from xml.sax.saxutils import escape as xml_escape
@@ -94,6 +94,7 @@ _LABELS: dict[AppLanguage, dict[str, str]] = {
             "#N/A — канал недоступен."
         ),
         "unresolved": "Неопределённый канал",
+        "source": "источник",
     },
     AppLanguage.KK: {
         "report": "Инженерлік есеп",
@@ -114,6 +115,7 @@ _LABELS: dict[AppLanguage, dict[str, str]] = {
         "unavailable": "қолжетімсіз",
         "legend": "Белгілер: 0 — өлшенген нөл; — — өткізіп алынған есеп; #N/A — арна қолжетімсіз.",
         "unresolved": "Анықталмаған арна",
+        "source": "дереккөз",
     },
     AppLanguage.EN: {
         "report": "Engineering report",
@@ -134,6 +136,7 @@ _LABELS: dict[AppLanguage, dict[str, str]] = {
         "unavailable": "unavailable",
         "legend": "Legend: 0 — observed zero; — — missing sample; #N/A — channel unavailable.",
         "unresolved": "Unresolved channel",
+        "source": "source",
     },
 }
 
@@ -161,10 +164,11 @@ def build_report_document_model(
     coverage_by_key = {item.channel_key: item for item in report.coverage}
     coverage_by_mnemonic = {item.mnemonic.casefold(): item for item in report.coverage}
 
+    index_ordinal = tuple(dataset.indexes).index(index.index_id) + 1
     columns: list[ReportDocumentColumn] = [
         ReportDocumentColumn(
             key=f"index:{index.index_id}",
-            title=_index_title(index, export_language),
+            title=_index_title(index, export_language, ordinal=index_ordinal),
             technical_name=("DEPTH" if index.role is IndexRole.DEPTH else index.mnemonic),
             unit=_index_unit(index),
             availability=None,
@@ -218,6 +222,8 @@ def build_report_document_model(
                 coverage=coverage,
             )
         )
+
+    columns = _disambiguate_visible_columns(columns, source_label=labels["source"])
 
     rows: list[tuple[str, ...]] = []
     index_values = np.asarray(index.values)
@@ -592,14 +598,50 @@ def _docx_app_properties() -> str:
     )
 
 
-def _index_title(index: DatasetIndex, language: AppLanguage) -> str:
+def _index_title(
+    index: DatasetIndex,
+    language: AppLanguage,
+    *,
+    ordinal: int,
+) -> str:
     names = {
         AppLanguage.RU: {"depth": "Глубина", "time": "Дата и время", "other": "Индекс"},
         AppLanguage.KK: {"depth": "Тереңдік", "time": "Күні мен уақыты", "other": "Индекс"},
         AppLanguage.EN: {"depth": "Depth", "time": "Date and time", "other": "Index"},
     }
     role = index.role.value
-    return names[language].get(role, names[language]["other"])
+    title = names[language].get(role, names[language]["other"])
+    return f"{title} {ordinal}" if index.role is IndexRole.GENERIC else title
+
+
+def _disambiguate_visible_columns(
+    columns: list[ReportDocumentColumn],
+    *,
+    source_label: str,
+) -> list[ReportDocumentColumn]:
+    """Add a nontechnical ordinal only when physical headers would collide."""
+
+    counts: dict[tuple[str, str], int] = {}
+    for column in columns[1:]:
+        key = (column.title.casefold(), column.unit.casefold())
+        counts[key] = counts.get(key, 0) + 1
+
+    ordinals: dict[tuple[str, str], int] = {}
+    result = [columns[0]]
+    for column in columns[1:]:
+        key = (column.title.casefold(), column.unit.casefold())
+        if counts[key] <= 1:
+            result.append(column)
+            continue
+        ordinal = ordinals.get(key, 0) + 1
+        ordinals[key] = ordinal
+        result.append(
+            replace(
+                column,
+                title=f"{column.title} ({source_label} {ordinal})",
+            )
+        )
+    return result
 
 
 def _index_unit(index: DatasetIndex) -> str:
