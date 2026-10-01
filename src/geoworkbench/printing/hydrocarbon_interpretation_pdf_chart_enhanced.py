@@ -137,6 +137,7 @@ def _geology_track_kinds(
         value not in (None, "")
         for sample in visible
         for value in (
+            sample.lba_group,
             sample.lba_type_id,
             sample.lba_intensity,
             sample.lba_color,
