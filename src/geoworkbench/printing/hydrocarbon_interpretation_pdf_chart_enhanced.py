@@ -25,6 +25,12 @@ from geoworkbench.printing.geology_track_rendering import (
 from geoworkbench.printing.hydrocarbon_interpretation_geology import (
     InterpretationGeologySnapshot,
 )
+from geoworkbench.printing.hydrocarbon_interpretation_geology_legend import (
+    InterpretationGeologyLegend,
+    build_interpretation_geology_legend,
+    geology_legend_height,
+    paint_geology_legend,
+)
 from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
     DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS,
     InterpretationGeologyTrackSettings,
@@ -83,23 +89,11 @@ def render_chart_pages(
     if not panels:
         return
 
-    available_height = (
-        canvas.content_rect.height()
-        - CHART_HEADER_HEIGHT
-        - CHART_TRACK_HEADER_HEIGHT
-        - CHART_LEGEND_HEIGHT
-        - CHART_NOTE_HEIGHT
-    )
     depth_min = float(np.nanmin(depth[finite_depth]))
     depth_max = float(np.nanmax(depth[finite_depth]))
     if depth_range is not None:
         depth_min = depth_range.top_depth
         depth_max = depth_range.bottom_depth
-    pages = plan_depth_pages(
-        depth_min,
-        depth_max,
-        available_height,
-    )
     geology_tracks = _geology_track_kinds(
         geology,
         depth_min,
@@ -112,9 +106,41 @@ def render_chart_pages(
         depth_max,
         geology_track_settings,
     )
+    geology_legend = build_interpretation_geology_legend(
+        geology,
+        depth_min,
+        depth_max,
+        language,
+        include_cuttings="cuttings" in geology_tracks,
+        include_lba="lba" in geology_tracks,
+    )
+    full_legend_height = geology_legend_height(
+        canvas.content_rect.width(),
+        geology_legend,
+    )
+    repeat_legend_height = geology_legend_height(
+        canvas.content_rect.width(),
+        geology_legend,
+        compact=True,
+    )
+    available_height = (
+        canvas.content_rect.height()
+        - CHART_HEADER_HEIGHT
+        - CHART_TRACK_HEADER_HEIGHT
+        - CHART_LEGEND_HEIGHT
+        - CHART_NOTE_HEIGHT
+        - full_legend_height
+        - repeat_legend_height
+    )
+    pages = plan_depth_pages(
+        depth_min,
+        depth_max,
+        available_height,
+    )
     for page_index, page in enumerate(pages, start=1):
         canvas.new_page()
         percentiles = base_chart._curve_percentiles(panels, dataset, page=page)
+        first_page_legend_height = full_legend_height if page_index == 1 else 0.0
         _draw_chart_page(
             canvas.painter,
             chart_geometry(
@@ -122,6 +148,8 @@ def render_chart_pages(
                 page,
                 len(panels),
                 geology_track_count=len(geology_tracks),
+                geology_legend_height=first_page_legend_height,
+                geology_repeat_legend_height=repeat_legend_height,
             ),
             page,
             page_index,
@@ -135,6 +163,7 @@ def render_chart_pages(
             geology,
             geology_tracks,
             empty_state_tracks,
+            geology_legend,
         )
         canvas.y = canvas.content_rect.bottom()
 
@@ -292,6 +321,7 @@ def _draw_chart_page(
     geology: InterpretationGeologySnapshot | None,
     geology_tracks: tuple[str, ...],
     empty_state_tracks: tuple[str, ...],
+    geology_legend: InterpretationGeologyLegend,
 ) -> None:
     labels = base_chart._labels(language)
     title_font = print_font(15.0, text=labels["title"])
@@ -328,6 +358,22 @@ def _draw_chart_page(
         Qt.AlignmentFlag.AlignCenter,
         subtitle,
     )
+
+    if geometry.geology_legend_rect is not None:
+        paint_geology_legend(
+            painter,
+            geometry.geology_legend_rect,
+            geology_legend,
+            language,
+        )
+    if geometry.geology_repeat_legend_rect is not None:
+        paint_geology_legend(
+            painter,
+            geometry.geology_repeat_legend_rect,
+            geology_legend,
+            language,
+            compact=True,
+        )
 
     _draw_depth_axis(
         painter,
