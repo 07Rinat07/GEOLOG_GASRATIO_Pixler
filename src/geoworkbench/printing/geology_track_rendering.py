@@ -204,19 +204,66 @@ def paint_lba_track(
         symbol_color = QColor(
             standard_group.display_color if standard_group is not None else style.color
         )
+        lane_width = sample_rect.width() / 3.0
+        for lane in (1, 2):
+            painter.setPen(QPen(QColor("#cbd5e1"), 0.15))
+            painter.drawLine(
+                QLineF(
+                    sample_rect.left() + lane * lane_width,
+                    sample_rect.top(),
+                    sample_rect.left() + lane * lane_width,
+                    sample_rect.bottom(),
+                )
+            )
+        symbol_rect = QRectF(
+            sample_rect.left(),
+            sample_rect.top(),
+            lane_width,
+            sample_rect.height(),
+        )
         diameter = min(
-            max(2.0, sample_rect.height() * 0.72),
-            max(2.0, sample_rect.width() * 0.60),
+            max(2.0, symbol_rect.height() * 0.72),
+            max(2.0, symbol_rect.width() * 0.72),
             7.0,
         )
         paint_lba_intensity_symbol(
             painter,
-            sample_rect.center().x(),
-            sample_rect.center().y(),
+            symbol_rect.center().x(),
+            symbol_rect.center().y(),
             diameter,
             symbol_color,
             sample.lba_intensity,
         )
+        if sample_rect.height() >= 7.0:
+            color_text = color_code or ""
+            type_text = (
+                style.code
+                if sample.lba_type_id
+                else standard_group.code
+                if standard_group is not None
+                else "?"
+            )
+            painter.setPen(QColor("#0f172a"))
+            painter.drawText(
+                QRectF(
+                    sample_rect.left() + lane_width,
+                    sample_rect.top(),
+                    lane_width,
+                    sample_rect.height(),
+                ),
+                Qt.AlignmentFlag.AlignCenter,
+                color_text,
+            )
+            painter.drawText(
+                QRectF(
+                    sample_rect.left() + lane_width * 2.0,
+                    sample_rect.top(),
+                    lane_width,
+                    sample_rect.height(),
+                ),
+                Qt.AlignmentFlag.AlignCenter,
+                type_text,
+            )
     painter.restore()
 
 
