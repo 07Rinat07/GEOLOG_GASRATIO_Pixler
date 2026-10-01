@@ -30,6 +30,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_geology_legend import (
     build_interpretation_geology_legend,
     geology_legend_height,
     paint_geology_legend,
+    split_geology_legend_pages,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
     DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS,
@@ -43,6 +44,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import (
     CHART_LEGEND_HEIGHT,
     CHART_NOTE_HEIGHT,
     CHART_TRACK_HEADER_HEIGHT,
+    MIN_CHART_HEIGHT,
     ChartGeometry,
     DepthPage,
     chart_geometry,
@@ -123,13 +125,45 @@ def render_chart_pages(
         geology_legend,
         compact=True,
     )
+    base_reserved_height = (
+        CHART_HEADER_HEIGHT
+        + CHART_TRACK_HEADER_HEIGHT
+        + CHART_LEGEND_HEIGHT
+        + CHART_NOTE_HEIGHT
+    )
+    max_inline_legend_height = max(
+        0.0,
+        canvas.content_rect.height()
+        - base_reserved_height
+        - MIN_CHART_HEIGHT,
+    )
+    dedicated_legend_pages: tuple[InterpretationGeologyLegend, ...] = ()
+    inline_full_legend_height = full_legend_height
+    if (
+        not geology_legend.empty
+        and full_legend_height > max_inline_legend_height
+    ):
+        dedicated_legend_pages = split_geology_legend_pages(
+            canvas.content_rect.width(),
+            geology_legend,
+            max(1.0, canvas.content_rect.height() - 12.0),
+        )
+        inline_full_legend_height = 0.0
+        _render_geology_legend_pages(
+            canvas,
+            dedicated_legend_pages,
+            language,
+        )
+
+    chart_legend_reserve = (
+        repeat_legend_height
+        if dedicated_legend_pages
+        else max(inline_full_legend_height, repeat_legend_height)
+    )
     available_height = (
         canvas.content_rect.height()
-        - CHART_HEADER_HEIGHT
-        - CHART_TRACK_HEADER_HEIGHT
-        - CHART_LEGEND_HEIGHT
-        - CHART_NOTE_HEIGHT
-        - max(full_legend_height, repeat_legend_height)
+        - base_reserved_height
+        - chart_legend_reserve
     )
     pages = plan_depth_pages(
         depth_min,
@@ -140,8 +174,16 @@ def render_chart_pages(
         canvas.new_page()
         percentiles = base_chart._curve_percentiles(panels, dataset, page=page)
         first_page = page_index == 1
-        first_page_legend_height = full_legend_height if first_page else 0.0
-        continuation_legend_height = 0.0 if first_page else repeat_legend_height
+        first_page_legend_height = (
+            inline_full_legend_height
+            if first_page and not dedicated_legend_pages
+            else 0.0
+        )
+        continuation_legend_height = (
+            repeat_legend_height
+            if dedicated_legend_pages or not first_page
+            else 0.0
+        )
         _draw_chart_page(
             canvas.painter,
             chart_geometry(
@@ -165,6 +207,32 @@ def render_chart_pages(
             geology_tracks,
             empty_state_tracks,
             geology_legend,
+        )
+        canvas.y = canvas.content_rect.bottom()
+
+
+def _render_geology_legend_pages(
+    canvas: PageCanvas,
+    pages: tuple[InterpretationGeologyLegend, ...],
+    language: AppLanguage,
+) -> None:
+    for legend_page in pages:
+        canvas.new_page()
+        height = geology_legend_height(
+            canvas.content_rect.width(),
+            legend_page,
+        )
+        rect = QRectF(
+            canvas.content_rect.left(),
+            canvas.content_rect.top() + 6.0,
+            canvas.content_rect.width(),
+            height,
+        )
+        paint_geology_legend(
+            canvas.painter,
+            rect,
+            legend_page,
+            language,
         )
         canvas.y = canvas.content_rect.bottom()
 
