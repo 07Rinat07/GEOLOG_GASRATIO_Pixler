@@ -124,3 +124,12 @@ def test_pdf_writer_can_stop_before_all_pages_are_spooled(tmp_path) -> None:
 
     assert completed is False
     assert progress == [1]
+
+
+def test_export_and_system_print_prepare_pdf_with_same_geology_visibility_settings() -> None:
+    source = (
+        Path(__file__).resolve().parents[1]
+        / "src/geoworkbench/ui/interpretation_report_workspace_final.py"
+    ).read_text(encoding="utf-8")
+
+    assert source.count("geology_track_settings=layout.geology_tracks") == 2
