@@ -22,6 +22,7 @@ from geoworkbench.domain.models import (
     DatasetKind,
     DepthDomain,
 )
+from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.report_definition import (
     ReportDefinition,
     ReportIntervalContext,
