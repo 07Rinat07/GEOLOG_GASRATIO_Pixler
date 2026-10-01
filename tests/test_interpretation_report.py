@@ -428,6 +428,39 @@ def test_interpretation_report_html_is_localized_and_escapes_project_data() -> N
     assert "Метан [ppm]" in kazakh
 
 
+def test_total_gas_source_alias_is_not_exposed_in_visible_report() -> None:
+    report = build_interpretation_report(_session())
+    first = report.entries[0]
+    total_index = next(
+        index
+        for index, item in enumerate(first.gas_statistics)
+        if item.kind == "total"
+    )
+    statistics = list(first.gas_statistics)
+    statistics[total_index] = replace(
+        statistics[total_index],
+        mnemonic="TOTAL_GAS_CALC",
+    )
+    report = replace(
+        report,
+        entries=(
+            replace(first, gas_statistics=tuple(statistics)),
+            *report.entries[1:],
+        ),
+    )
+
+    russian = interpretation_report_html(report, AppLanguage.RU)
+    kazakh = interpretation_report_html(report, AppLanguage.KK)
+    english = interpretation_report_html(report, AppLanguage.EN)
+
+    assert "Общий газ [ppm]" in russian
+    assert "Жалпы газ [ppm]" in kazakh
+    assert "Total Gas [ppm]" in english
+    assert "TOTAL_GAS_CALC" not in russian
+    assert "TOTAL_GAS_CALC" not in kazakh
+    assert "TOTAL_GAS_CALC" not in english
+
+
 def test_interpretation_report_exports_pdf(qapp, tmp_path) -> None:
     report = build_interpretation_report(_session())
     target = tmp_path / "interpretation.pdf"
