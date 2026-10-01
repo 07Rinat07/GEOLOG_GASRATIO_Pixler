@@ -167,6 +167,7 @@ def test_multi_page_partial_geology_keeps_page_gaps_empty(monkeypatch) -> None:
         _geology,
         geology_tracks,
         empty_state_tracks,
+        _geology_legend,
     ) -> None:
         observed.append(
             (
@@ -219,6 +220,7 @@ def test_multi_page_forced_empty_tracks_keep_one_report_level_empty_state(monkey
         _geology,
         _geology_tracks,
         empty_state_tracks,
+        _geology_legend,
     ) -> None:
         observed.append(empty_state_tracks)
 
