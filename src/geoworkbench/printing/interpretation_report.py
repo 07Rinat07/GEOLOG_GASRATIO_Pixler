@@ -131,6 +131,11 @@ def gas_statistic_display_name(
 
     if statistic.kind == "sum":
         return labels["gas_component_sum"]
+    if statistic.kind == "total":
+        # The calculation layer accepts several historical/source aliases for
+        # dedicated total gas. Presentation must describe the physical
+        # parameter, never whichever carrier mnemonic happened to be selected.
+        return localized_curve_name("TOTAL_GAS", language=language)
     return localized_curve_name(statistic.mnemonic, language=language)
 
 
