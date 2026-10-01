@@ -1532,6 +1532,31 @@ def test_interpretation_refresh_rebuilds_description_frames_for_lane_topology(qa
     assert rendered_after.plot is plot
     assert second_frame is not first_frame
     assert second_frame.rect().width() == pytest.approx(2.0)
+
+    resized_same_topology = WellInterpretation(
+        "primary",
+        "Primary",
+        intervals=[
+            InterpretationInterval(
+                "reservoir",
+                136.0,
+                151.0,
+                "Reservoir",
+                "A",
+                "#fde68a",
+            ),
+            second.intervals[1],
+        ],
+    )
+    view.set_interpretations(
+        [resized_same_topology],
+        resized_same_topology.interpretation_id,
+    )
+    qapp.processEvents()
+
+    rendered_resized = view._rendered["interpretation"]
+    assert rendered_resized.plot is plot
+    assert rendered_resized.description_frames["sample-description"] is second_frame
     view.close()
 
 
