@@ -30,6 +30,7 @@ class InterpretationGeologySnapshot:
             value not in (None, "")
             for sample in self.samples
             for value in (
+                sample.lba_group,
                 sample.lba_type_id,
                 sample.lba_intensity,
                 sample.lba_color,
