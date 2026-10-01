@@ -1343,7 +1343,7 @@ report snapshot/composition/render/print.
   по-прежнему не содержит абсолютного timestamp.
 
 - [ ] **RPT-GEO-01 — шламограмма и ЛБА из актуальной геологии проекта.**
-  Реализованы shared Masterlog-compatible painters, immutable geology snapshot, depth-scoped `geology_sha256` в Report Passport и независимые `Auto/Show/Hide` для PDF/system print. `Show` при полном отсутствии данных печатает локализованный empty-state, а частичные пробелы остаются пустыми. До закрытия задачи остаётся финальная acceptance-сверка preview/PDF/physical printer и multi-page edge cases.
+  Реализованы shared Masterlog-compatible painters, immutable geology snapshot, depth-scoped `geology_sha256` в Report Passport и независимые `Auto/Show/Hide` для screen preview/PDF/system print. `Show` при полном отсутствии данных печатает локализованный empty-state, а частичные пробелы остаются пустыми. Screen preview использует тот же resolved geology composition и shared painters, а multi-page empty/partial edge cases закреплены regression-тестами. До закрытия задачи остаётся финальная физическая printer acceptance на реальном устройстве.
   Report-layer использует `Well.lithology`/`Well.cuttings`, включая данные, которые уже
   материализованы из загруженного LAS существующим `import_las_geology()` и conservative
   geology dialect resolver. Повторно читать/интерпретировать source LAS внутри отчёта нельзя.
