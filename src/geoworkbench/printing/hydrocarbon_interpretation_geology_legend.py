@@ -107,6 +107,20 @@ def build_interpretation_geology_legend(
             )
 
     for sample in visible if include_lba else ():
+        has_lba = any(
+            value not in (None, "")
+            for value in (
+                sample.lba_group,
+                sample.lba_type_id,
+                sample.lba_intensity,
+                sample.lba_color,
+                sample.lba_distribution,
+                sample.lba_cut,
+                sample.lba_description,
+            )
+        )
+        if not has_lba:
+            continue
         standard_group = lba_standard_group(sample.lba_group)
         style = resolve_lba_type_style(sample.lba_type_id)
         if sample.lba_type_id:
@@ -124,9 +138,9 @@ def build_interpretation_geology_legend(
             type_key = standard_group.type_id
             type_color = standard_group.display_color
         else:
-            type_code = ""
-            type_label = ""
-            type_key = ""
+            type_code = UNKNOWN_LBA_STYLE.code
+            type_label = UNKNOWN_LBA_STYLE.localized_name(language)
+            type_key = UNKNOWN_LBA_STYLE.type_id
             type_color = UNKNOWN_LBA_STYLE.color
 
         if type_key:
@@ -140,7 +154,7 @@ def build_interpretation_geology_legend(
                         type_code,
                         type_label,
                         type_color,
-                        intensity=3,
+                        intensity=3 if type_key != UNKNOWN_LBA_STYLE.type_id else None,
                     )
                 )
 
