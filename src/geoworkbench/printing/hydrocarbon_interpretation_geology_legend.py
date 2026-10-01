@@ -78,10 +78,13 @@ def build_interpretation_geology_legend(
         for component in sample.components:
             if float(component.percentage) <= 0.0:
                 continue
-            key = ("lithology", component.lithotype_id)
-            if key in used_keys:
+            legend_key: tuple[LegendKind, str] = (
+                "lithology",
+                component.lithotype_id,
+            )
+            if legend_key in used_keys:
                 continue
-            used_keys.add(key)
+            used_keys.add(legend_key)
             lithotype = lithotypes.get(component.lithotype_id)
             if lithotype is None:
                 items.append(
@@ -144,9 +147,9 @@ def build_interpretation_geology_legend(
             type_color = UNKNOWN_LBA_STYLE.color
 
         if type_key:
-            key = ("lba-type", type_key)
-            if key not in used_keys:
-                used_keys.add(key)
+            legend_key = ("lba-type", type_key)
+            if legend_key not in used_keys:
+                used_keys.add(legend_key)
                 items.append(
                     GeologyLegendItem(
                         "lba-type",
@@ -161,9 +164,9 @@ def build_interpretation_geology_legend(
         intensity = normalized_lba_intensity(sample.lba_intensity)
         if intensity is not None:
             intensity_key = str(intensity)
-            key = ("lba-intensity", intensity_key)
-            if key not in used_keys:
-                used_keys.add(key)
+            legend_key = ("lba-intensity", intensity_key)
+            if legend_key not in used_keys:
+                used_keys.add(legend_key)
                 items.append(
                     GeologyLegendItem(
                         "lba-intensity",
@@ -177,9 +180,9 @@ def build_interpretation_geology_legend(
 
         color_code = lba_color_code(sample.lba_color)
         if color_code:
-            key = ("lba-color", color_code)
-            if key not in used_keys:
-                used_keys.add(key)
+            legend_key = ("lba-color", color_code)
+            if legend_key not in used_keys:
+                used_keys.add(legend_key)
                 items.append(
                     GeologyLegendItem(
                         "lba-color",
