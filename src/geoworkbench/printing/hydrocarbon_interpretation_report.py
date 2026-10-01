@@ -4,6 +4,7 @@ from dataclasses import replace
 import os
 from pathlib import Path
 import tempfile
+from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QMarginsF
 from PySide6.QtGui import QPageLayout, QPageSize, QPdfWriter
@@ -30,11 +31,106 @@ from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
     hydrocarbon_interpretation_html,
 )
+from geoworkbench.services.report_output_transaction import (
+    ReportOutputTransactionResult,
+    execute_report_output_transaction,
+)
+from geoworkbench.services.report_passport import (
+    ReportKind,
+    ReportPassportBuilder,
+    ReportPassportRequest,
+    ReportRenderSettings,
+)
 from geoworkbench.services.localization import AppLanguage
+
+if TYPE_CHECKING:
+    from geoworkbench.project.session import ProjectSession
 
 
 class HydrocarbonInterpretationPdfError(RuntimeError):
     pass
+
+
+def export_hydrocarbon_interpretation_pdf_with_passport(
+    session: "ProjectSession",
+    report: HydrocarbonInterpretationReport,
+    target: str | Path,
+    *,
+    language: AppLanguage = AppLanguage.RU,
+    include_chart: bool = False,
+    orientation: QPageLayout.Orientation = QPageLayout.Orientation.Landscape,
+    identity: InterpretationReportIdentity | None = None,
+    geology: InterpretationGeologySnapshot | None = None,
+    overwrite: bool = False,
+) -> ReportOutputTransactionResult:
+    dataset = session.current_dataset
+    if dataset is None:
+        raise HydrocarbonInterpretationPdfError(
+            "Для interpretation Report Passport требуется выбранный dataset"
+        )
+    destination = Path(target)
+    if destination.suffix.casefold() != ".pdf":
+        destination = destination.with_suffix(".pdf")
+    details = (
+        identity
+        or default_interpretation_report_identity(report, language)
+    ).cleaned()
+    try:
+        depth_range = resolve_report_depth_range(details.interval, dataset)
+    except ReportDepthRangeError as exc:
+        raise HydrocarbonInterpretationPdfError(
+            f"Некорректный интервал отчёта: {exc}"
+        ) from exc
+
+    passport = ReportPassportBuilder().build(
+        session,
+        ReportPassportRequest(
+            report_kind=ReportKind.INTERPRETATION,
+            report_name=details.report_title,
+            language=language.value,
+            render=ReportRenderSettings(
+                renderer="interpretation-report:1",
+                output_format="pdf",
+                page_format="a4",
+                orientation=orientation.name.casefold(),
+                dpi=72,
+                margins_mm=(14.0, 14.0, 14.0, 14.0),
+            ),
+            interval=(depth_range.top_depth, depth_range.bottom_depth),
+            curve_mnemonics=_interpretation_passport_curve_mnemonics(report),
+        ),
+    )
+
+    return execute_report_output_transaction(
+        destination,
+        lambda staged: export_hydrocarbon_interpretation_pdf(
+            report,
+            staged,
+            language=language,
+            dataset=dataset,
+            include_chart=include_chart,
+            orientation=orientation,
+            identity=details,
+            geology=geology,
+            overwrite=True,
+        ),
+        passport,
+        overwrite=overwrite,
+    )
+
+
+def _interpretation_passport_curve_mnemonics(
+    report: HydrocarbonInterpretationReport,
+) -> tuple[str, ...] | None:
+    values = tuple(
+        dict.fromkeys(
+            mnemonic
+            for method in report.methods
+            for mnemonic in method.available_mnemonics
+            if mnemonic.strip()
+        )
+    )
+    return values or None
 
 
 def export_hydrocarbon_interpretation_pdf(
