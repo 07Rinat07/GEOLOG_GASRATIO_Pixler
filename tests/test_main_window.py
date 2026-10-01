@@ -1734,35 +1734,39 @@ def test_tablet_interval_handlers_create_resize_and_undo(qapp) -> None:
         for track in session.current_tablet_layout.tracks
         if track.kind is TrackKind.INTERPRETATION
     )
-    rendered_interpretation = window.tablet_view._rendered[interpretation_track.track_id]
-    interpretation_plot = rendered_interpretation.plot
+    interpretation_plot = window.tablet_view._rendered[interpretation_track.track_id].plot
     assert interpretation_plot is not None
 
     window._create_interval_from_tablet(interpretation_id, 100.0, 101.0, "Reservoir")
-    assert window.tablet_view._rendered[interpretation_track.track_id].plot is interpretation_plot
     interval = window.interpretation_controller.selected_interval()
     assert interval is not None
     assert interval.top_depth == 100.0
     assert interval.bottom_depth == 101.0
     assert window.undo_interpretation_action.isEnabled()
-
-    interpretation_track = next(
-        track
-        for track in session.current_tablet_layout.tracks
-        if track.kind is TrackKind.INTERPRETATION
-    )
-    rendered_interpretation = window.tablet_view._rendered[interpretation_track.track_id]
-    interpretation_plot = rendered_interpretation.plot
-    assert interpretation_plot is not None
-
-    window._create_interval_from_tablet(interpretation_id, 100.0, 101.0, "Reservoir")
     assert window.tablet_view._rendered[interpretation_track.track_id].plot is interpretation_plot
+
+    window._resize_interval_from_tablet(
+        interpretation_id,
+        interval.interval_id,
+        100.0,
+        100.5,
+    )
+    resized = window.interpretation_controller.selected_interval()
+    assert resized is not None
+    assert resized.bottom_depth == 100.5
+    assert window.tablet_view._rendered[interpretation_track.track_id].plot is interpretation_plot
+
+    window.undo_interpretation_edit()
+    restored = window.interpretation_controller.selected_interval()
+    assert restored is not None
+    assert restored.bottom_depth == 101.0
+    assert window.tablet_view._rendered[interpretation_track.track_id].plot is interpretation_plot
+
     window.set_interval_interaction_mode(IntervalEditMode.SELECT)
     window.tablet_view.clear()
     window.close()
     window.deleteLater()
     qapp.processEvents()
-
 
 def test_pencil_action_edits_visible_curve_directly_in_tablet(qapp) -> None:
     window = MainWindow()
