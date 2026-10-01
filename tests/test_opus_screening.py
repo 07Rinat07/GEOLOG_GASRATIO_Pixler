@@ -219,7 +219,15 @@ def test_opus_report_is_marked_separate_and_uses_source_applicability_gates() ->
     assert report.report_profile == "opus"
     assert report.primary_mnemonic == "OPUS_TG_PCT"
     assert len(report.candidates) == 1
-    assert "ОПУС" in fluid_hypothesis_label(report.candidates[0], AppLanguage.RU)
+    headline = fluid_hypothesis_label(report.candidates[0], AppLanguage.RU)
+    assert headline in {
+        "УВ-флюид неопределённого типа",
+        "жидкая УВ-фаза",
+        "признаки лёгкой нефтяной фазы",
+        "жидкая УВ-фаза; возможны лёгкая нефть или газоконденсат",
+        "газовая УВ-фаза",
+    }
+    assert "ОПУС" not in headline
     assert any("OPUS interval means" in item for item in report.candidates[0].evidence)
     assert any("final automatic interpretation basis=" in item for item in report.candidates[0].evidence)
     assert any("отдельный дополнительный отчёт" in warning for warning in report.warnings)
