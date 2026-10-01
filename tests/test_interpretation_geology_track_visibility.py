@@ -18,6 +18,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
     GeologyTrackVisibility,
     InterpretationGeologyTrackSettings,
 )
+from geoworkbench.services.localization import AppLanguage
 
 
 def _snapshot(*, cuttings: bool = True, lba: bool = True) -> InterpretationGeologySnapshot:
