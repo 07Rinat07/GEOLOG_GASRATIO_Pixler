@@ -342,3 +342,36 @@ def test_workspace_applies_interval_and_resets_for_new_well(qapp):
     assert workspace.report.analysis_depth_interval is None
     assert workspace.depth_interval_top.value() == 2000.0
     workspace.close()
+
+
+@pytest.mark.parametrize("front_chart", [False, True])
+def test_selected_html_variants_scope_statistics(front_chart, qapp, monkeypatch):
+    from geoworkbench.printing.hydrocarbon_interpretation_chart import (
+        hydrocarbon_interpretation_html_with_chart,
+    )
+    from geoworkbench.printing.hydrocarbon_interpretation_chart_front import (
+        hydrocarbon_interpretation_html_with_front_chart,
+    )
+
+    session = _session()
+    interval = DepthInterval(1030.2, 1060.8)
+    report = build_hydrocarbon_interpretation_report(session, depth_interval=interval)
+    seen = []
+
+    def capture(html, _report, dataset, _language):
+        seen.append(dataset.depth.copy())
+        return html
+
+    monkeypatch.setattr(
+        "geoworkbench.services.hydrocarbon_interpretation_gas_html.inject_interval_gas_statistics_html",
+        capture,
+    )
+    render = (
+        hydrocarbon_interpretation_html_with_front_chart
+        if front_chart
+        else hydrocarbon_interpretation_html_with_chart
+    )
+    html = render(report, session.current_dataset)
+    assert "1030.20–1060.80" in html
+    assert len(seen) == 1
+    np.testing.assert_array_equal(seen[0], np.arange(1031.0, 1061.0))

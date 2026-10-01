@@ -141,7 +141,9 @@ def hydrocarbon_interpretation_html_with_chart(
         inject_interval_gas_statistics_html,
     )
 
-    base = inject_interval_gas_statistics_html(base, report, dataset, language)
+    base = inject_interval_gas_statistics_html(
+        base, report, scope_dataset(dataset, report.analysis_depth_interval), language,
+    )
     uri = hydrocarbon_interpretation_chart_data_uri(report, dataset, language)
     if not uri:
         return base
