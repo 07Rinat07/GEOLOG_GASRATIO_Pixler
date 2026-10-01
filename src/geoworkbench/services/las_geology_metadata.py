@@ -76,6 +76,7 @@ class LasGeologyMetadata:
     lba_type_codes: dict[int, str]
     lba_color_codes: dict[int, str]
     schema_version: int = GEOLOGY_METADATA_SCHEMA
+    legacy_plain: bool = False
 
     def description(self, description_id: int | None) -> str | None:
         if description_id is None:
@@ -243,6 +244,7 @@ def _legacy_metadata_from_las_bytes(raw: bytes) -> LasGeologyMetadata | None:
         stratigraphy=tuple(stratigraphy),
         lba_type_codes={},
         lba_color_codes={},
+        legacy_plain=True,
     )
 
 
