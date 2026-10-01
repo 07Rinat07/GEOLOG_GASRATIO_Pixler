@@ -48,7 +48,7 @@ release plan и временные планы в `docs` не создаются.
 | Порядок | Задачи | Результат и зависимость | Ответственный по роли / статус |
 |---|---|---|---|
 | 1 | RPT-QA-01 | Исправить пропуски/разрывы и межстраничный washout интерпретационных PDF-графиков; во всех видимых графиках/HTML/PDF/DOCX/XLSX использовать физические названия параметров вместо source mnemonics; единая терминология флюида: «УВ-флюид неопределённого типа» / «жидкая УВ-фаза» / «признаки лёгкой нефтяной фазы» / «жидкая УВ-фаза; возможны лёгкая нефть или газоконденсат» / «газовая УВ-фаза»; raw mnemonics сохранять только в audit/source data; OPUS-графики и OPUS Газомер используют тот же readable-label и fluid-phase contract; RU/KK/EN семантически эквивалентны | Разработчик + специалист ГТИ / в работе |
-| 2 | RPT-GEO-01 | GasRatio/Pixler/OPUS interpretation reports автоматически используют актуальную геологию текущей скважины, включая материализованную из загруженного LAS через существующий geology resolver: синхронизированные по глубине колонки «Шламограмма» и «ЛБА», режим Auto/Show/Hide, без повторного разбора LAS и без изменения расчётных формул | Разработчик + специалист ГТИ / готово к разработке |
+| 2 | RPT-GEO-01 | GasRatio/Pixler/OPUS interpretation reports автоматически используют актуальную геологию текущей скважины, включая материализованную из загруженного LAS через существующий geology resolver: синхронизированные по глубине колонки «Шламограмма» и «ЛБА», режим Auto/Show/Hide, без повторного разбора LAS и без изменения расчётных формул | Разработчик + специалист ГТИ / в работе |
 | 3 | RPT-GEO-02 | Динамические легенды шламограммы и ЛБА: полная сверху над графиками, компактная повторная снизу/на многостраничной выдаче; показывать только реально используемые обозначения, RU/KK/EN, colour + grayscale-safe | Разработчик + специалист ГТИ / запланировано |
 | 4 | PRINT-STYLE-01 | Единый Report Visual System PDF/Masterlog/DOCX/XLSX, A4/A3/roll, colour + grayscale; новые геологические колонки, легенды, шапка и annotations используют тот же style profile | Разработчик / в работе |
 | 5 | RPT-COMP-01 | Final Report Composer: финальный preview перед PDF/печатью, presentation-only управление колонками, Auto/Show/Hide для шламограммы/ЛБА, легендами, шапкой, summary и layout; Composer не изменяет source geology, GasRatio/Pixler/OPUS calculations или classification | Разработчик + специалист ГТИ / запланировано |
@@ -1343,6 +1343,7 @@ report snapshot/composition/render/print.
   по-прежнему не содержит абсолютного timestamp.
 
 - [ ] **RPT-GEO-01 — шламограмма и ЛБА из актуальной геологии проекта.**
+  Реализованы shared Masterlog-compatible painters, immutable geology snapshot, depth-scoped `geology_sha256` в Report Passport и независимые `Auto/Show/Hide` для PDF/system print. `Show` при полном отсутствии данных печатает локализованный empty-state, а частичные пробелы остаются пустыми. До закрытия задачи остаётся финальная acceptance-сверка preview/PDF/physical printer и multi-page edge cases.
   Report-layer использует `Well.lithology`/`Well.cuttings`, включая данные, которые уже
   материализованы из загруженного LAS существующим `import_las_geology()` и conservative
   geology dialect resolver. Повторно читать/интерпретировать source LAS внутри отчёта нельзя.
