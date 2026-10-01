@@ -28,10 +28,16 @@ from geoworkbench.printing.hydrocarbon_interpretation_geology import (
 )
 from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
     DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS,
+    InterpretationGeologyTrackSettings,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
     InterpretationReportIdentity,
     default_interpretation_report_identity,
+)
+from geoworkbench.printing.hydrocarbon_interpretation_report_range import (
+    ReportDepthRange,
+    ReportDepthRangeError,
+    resolve_report_depth_range,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_system_print import (
     configure_interpretation_printer,
@@ -98,23 +104,62 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
 
     def _apply_chart_preview(self) -> None:
         dataset = self.controller.session.current_dataset
-        if self.report is None or dataset is None or self._is_mixture_mode():
+        report = self.report
+        if report is None or dataset is None or self._is_mixture_mode():
             return
         geology = interpretation_geology_snapshot(self.controller.session)
-        geology_track_settings = getattr(
-            self,
-            "_preview_geology_track_settings",
-            DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS,
-        )
+        key = self._preview_report_key(report)
+        if getattr(self, "_preview_geology_report_key", None) == key:
+            geology_track_settings = getattr(
+                self,
+                "_preview_geology_track_settings",
+                DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS,
+            )
+            depth_range = getattr(self, "_preview_depth_range", None)
+        else:
+            geology_track_settings = DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS
+            depth_range = None
         self.preview.setHtml(
             hydrocarbon_interpretation_html_with_front_chart(
-                self.report,
+                report,
                 dataset,
                 self.language,
                 geology=geology,
                 geology_track_settings=geology_track_settings,
+                depth_range=depth_range,
             )
         )
+
+    @staticmethod
+    def _preview_report_key(
+        report: HydrocarbonInterpretationReport,
+    ) -> tuple[str, str, str, str]:
+        return (
+            report.project_name,
+            report.well_name,
+            report.dataset_id,
+            report.report_profile,
+        )
+
+    def _sync_preview_geology_composition(
+        self,
+        report: HydrocarbonInterpretationReport,
+        identity: InterpretationReportIdentity,
+        settings: InterpretationGeologyTrackSettings,
+    ) -> bool:
+        dataset = self.controller.session.current_dataset
+        if dataset is None:
+            return False
+        try:
+            depth_range = resolve_report_depth_range(identity.interval, dataset)
+        except ReportDepthRangeError as exc:
+            self._show_export_error(exc)
+            return False
+        self._preview_geology_report_key = self._preview_report_key(report)
+        self._preview_geology_track_settings = settings
+        self._preview_depth_range = depth_range
+        self._apply_chart_preview()
+        return True
 
     def _export_pdf(self) -> None:
         report = self._require_any_report()
@@ -139,8 +184,12 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         if layout_dialog.exec() != QDialog.DialogCode.Accepted:
             return
         layout = layout_dialog.selected_layout()
-        self._preview_geology_track_settings = layout.geology_tracks
-        self._apply_chart_preview()
+        if not self._sync_preview_geology_composition(
+            report,
+            identity,
+            layout.geology_tracks,
+        ):
+            return
         target = self._choose_target(".pdf", "PDF (*.pdf)")
         if target is None:
             return
@@ -192,8 +241,12 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         if layout_dialog.exec() != QDialog.DialogCode.Accepted:
             return
         layout = layout_dialog.selected_layout()
-        self._preview_geology_track_settings = layout.geology_tracks
-        self._apply_chart_preview()
+        if not self._sync_preview_geology_composition(
+            report,
+            identity,
+            layout.geology_tracks,
+        ):
+            return
 
         with tempfile.TemporaryDirectory(prefix="geolog-interpretation-print-") as folder:
             prepared_pdf = Path(folder) / "interpretation-report.pdf"
