@@ -6,6 +6,13 @@ from geoworkbench.domain.models import Dataset
 from geoworkbench.printing.hydrocarbon_interpretation_chart import (
     hydrocarbon_interpretation_chart_data_uri,
 )
+from geoworkbench.printing.hydrocarbon_interpretation_geology import (
+    InterpretationGeologySnapshot,
+)
+from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
+    DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS,
+    InterpretationGeologyTrackSettings,
+)
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
     hydrocarbon_interpretation_html,
@@ -19,6 +26,10 @@ def hydrocarbon_interpretation_html_with_front_chart(
     language: AppLanguage = AppLanguage.RU,
     *,
     print_layout: bool = False,
+    geology: InterpretationGeologySnapshot | None = None,
+    geology_track_settings: InterpretationGeologyTrackSettings = (
+        DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS
+    ),
 ) -> str:
     """Insert the whole-well chart before the first tabular report section."""
 
@@ -28,7 +39,13 @@ def hydrocarbon_interpretation_html_with_front_chart(
     )
 
     base = inject_interval_gas_statistics_html(base, report, dataset, language)
-    uri = hydrocarbon_interpretation_chart_data_uri(report, dataset, language)
+    uri = hydrocarbon_interpretation_chart_data_uri(
+        report,
+        dataset,
+        language,
+        geology=geology,
+        geology_track_settings=geology_track_settings,
+    )
     if not uri:
         return base
     labels = _labels(language)
