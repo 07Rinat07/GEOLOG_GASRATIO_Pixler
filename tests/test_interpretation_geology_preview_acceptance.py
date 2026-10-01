@@ -216,8 +216,8 @@ def test_multi_page_geology_legend_is_full_then_compact(monkeypatch) -> None:
 
 
 class _CanvasProbe:
-    def __init__(self) -> None:
-        self.content_rect = QRectF(0.0, 0.0, 800.0, 700.0)
+    def __init__(self, *, width: float = 800.0, height: float = 700.0) -> None:
+        self.content_rect = QRectF(0.0, 0.0, width, height)
         self.painter = object()
         self.y = 0.0
         self.pages = 0
@@ -445,3 +445,88 @@ def test_opus_refresh_applies_chart_preview(qapp) -> None:
 
     assert calls == [True]
     workspace.close()
+
+
+
+def test_oversized_geology_legend_uses_dedicated_pages_before_charts(
+    monkeypatch,
+) -> None:
+    dataset = _dataset(depth_span=2500.0, samples=501)
+    report = _report()
+    lithotypes = tuple(
+        __import__(
+            "geoworkbench.project.lithotype_catalog_models",
+            fromlist=["CatalogLithotype"],
+        ).CatalogLithotype(
+            f"long-{index}",
+            f"L{index:02d}",
+            f"Очень длинное наименование литотипа номер {index} для печатной геологической легенды",
+            f"Very long lithology name number {index} for the printed geology legend",
+            "sedimentary",
+            "#b8a67a",
+            "carbonate",
+            True,
+            name_kk=f"Баспа геологиялық легендасына арналған өте ұзын литотип атауы {index}",
+        )
+        for index in range(31)
+    )
+    geology = InterpretationGeologySnapshot(
+        samples=(
+            FrozenCuttingsSample(
+                sample_id="many-long-labels",
+                top_depth=1000.0,
+                bottom_depth=1005.0,
+                components=tuple(
+                    FrozenCuttingsComponent(item.lithotype_id, 100.0 / len(lithotypes))
+                    for item in lithotypes
+                ),
+            ),
+        ),
+        lithotypes=lithotypes,
+    )
+    chart_geometries: list[tuple[bool, bool]] = []
+
+    def capture_page(
+        _painter,
+        geometry,
+        _page,
+        _page_index,
+        _page_count,
+        _report,
+        _dataset,
+        _panels,
+        _ranges,
+        _percentiles,
+        _language,
+        _geology,
+        _geology_tracks,
+        _empty_state_tracks,
+        _geology_legend,
+    ) -> None:
+        chart_geometries.append(
+            (
+                geometry.geology_legend_rect is not None,
+                geometry.geology_repeat_legend_rect is not None,
+            )
+        )
+
+    monkeypatch.setattr(pdf_chart, "paint_geology_legend", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(pdf_chart, "_draw_chart_page", capture_page)
+    canvas = _CanvasProbe(width=600.0, height=400.0)
+
+    pdf_chart.render_chart_pages(
+        canvas,  # type: ignore[arg-type]
+        report,  # type: ignore[arg-type]
+        dataset,
+        AppLanguage.EN,
+        geology=geology,
+        geology_track_settings=InterpretationGeologyTrackSettings(
+            cuttings=GeologyTrackVisibility.SHOW,
+            lba=GeologyTrackVisibility.HIDE,
+        ),
+    )
+
+    assert chart_geometries
+    assert canvas.pages > len(chart_geometries)
+    assert all(full is False for full, _compact in chart_geometries)
+    assert all(compact is True for _full, compact in chart_geometries)
