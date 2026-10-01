@@ -16,26 +16,51 @@ from geoworkbench.tablet.lithology_patterns import masterlog_lithology_brush
 
 
 class LithotypeVisual(Protocol):
-    color: str
-    pattern_key: str
+    @property
+    def color(self) -> str: ...
+
+    @property
+    def pattern_key(self) -> str: ...
 
 
 class CuttingsComponentVisual(Protocol):
-    lithotype_id: str
-    percentage: float
+    @property
+    def lithotype_id(self) -> str: ...
+
+    @property
+    def percentage(self) -> float: ...
 
 
 class CuttingsSampleVisual(Protocol):
-    top_depth: float
-    bottom_depth: float
-    components: Sequence[CuttingsComponentVisual]
-    lba_group: int | None
-    lba_type_id: str | None
-    lba_intensity: int | None
-    lba_color: str | None
-    lba_distribution: str | None
-    lba_cut: str | None
-    lba_description: str | None
+    @property
+    def top_depth(self) -> float: ...
+
+    @property
+    def bottom_depth(self) -> float: ...
+
+    @property
+    def components(self) -> Sequence[CuttingsComponentVisual]: ...
+
+    @property
+    def lba_group(self) -> int | None: ...
+
+    @property
+    def lba_type_id(self) -> str | None: ...
+
+    @property
+    def lba_intensity(self) -> int | None: ...
+
+    @property
+    def lba_color(self) -> str | None: ...
+
+    @property
+    def lba_distribution(self) -> str | None: ...
+
+    @property
+    def lba_cut(self) -> str | None: ...
+
+    @property
+    def lba_description(self) -> str | None: ...
 
 
 @dataclass(frozen=True, slots=True)
