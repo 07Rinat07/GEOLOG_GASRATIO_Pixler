@@ -3014,6 +3014,7 @@ class TabletView(QWidget):
             rendered.interpretation_items = items
             rendered.interpretation_lanes = lanes
             self._register_interpretation_overlays(rendered)
+        self._synchronize_track_header_bands()
         self._apply_interpretation_selection_style()
 
     def _clear_interpretation_graphics(self, rendered: RenderedTrack) -> None:
