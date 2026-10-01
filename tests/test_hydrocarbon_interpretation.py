@@ -919,3 +919,4 @@ def test_interpretation_pdf_uses_immutable_current_well_geology_snapshot(
 
     assert "Шламограмма" in text
     assert "ЛБА" in text
+    assert "МБ" in text
