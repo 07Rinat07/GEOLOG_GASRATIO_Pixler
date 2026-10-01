@@ -22,6 +22,9 @@ from geoworkbench.printing.hydrocarbon_interpretation_report import (
     HydrocarbonInterpretationPdfError,
     export_hydrocarbon_interpretation_pdf,
 )
+from geoworkbench.printing.hydrocarbon_interpretation_geology import (
+    interpretation_geology_snapshot,
+)
 from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
     InterpretationReportIdentity,
     default_interpretation_report_identity,
@@ -111,6 +114,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         dataset = self.controller.session.current_dataset
         if dataset is None:
             return
+        geology = interpretation_geology_snapshot(self.controller.session)
 
         identity = self._select_report_identity(report)
         if identity is None:
@@ -142,6 +146,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     include_chart=True,
                     orientation=layout.orientation,
                     identity=identity,
+                    geology=geology,
                     overwrite=target.exists(),
                 )
         except (OSError, FileExistsError, HydrocarbonInterpretationPdfError) as exc:
@@ -159,6 +164,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         dataset = self.controller.session.current_dataset
         if dataset is None:
             return
+        geology = interpretation_geology_snapshot(self.controller.session)
 
         identity = self._select_report_identity(report)
         if identity is None:
@@ -182,6 +188,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     include_chart=True,
                     orientation=layout.orientation,
                     identity=identity,
+                    geology=geology,
                     overwrite=True,
                 )
                 with fitz.open(prepared_pdf) as document:
