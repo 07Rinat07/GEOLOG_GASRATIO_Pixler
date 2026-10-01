@@ -3006,6 +3006,10 @@ class TabletView(QWidget):
             if rendered is None or rendered.plot is None:
                 self.refresh_view()
                 return
+            previous_lane_count = max(
+                1,
+                len(set((rendered.interpretation_lanes or {}).values())),
+            )
             self._clear_interpretation_graphics(rendered)
             items, lanes = self._populate_interpretation(
                 rendered.widget,
@@ -3014,7 +3018,9 @@ class TabletView(QWidget):
             rendered.interpretation_items = items
             rendered.interpretation_lanes = lanes
             self._register_interpretation_overlays(rendered)
-            self._refresh_interpretation_descriptions(rendered)
+            lane_count = max(1, len(set(lanes.values())))
+            if lane_count != previous_lane_count:
+                self._refresh_interpretation_descriptions(rendered)
         self._synchronize_track_header_bands()
         self._synchronize_track_heights()
         self._sync_annotation_overlay_geometry()
