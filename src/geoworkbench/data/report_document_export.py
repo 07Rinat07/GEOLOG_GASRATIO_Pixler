@@ -4,7 +4,7 @@ import html
 import os
 import tempfile
 import zipfile
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Iterable, cast
 from xml.sax.saxutils import escape as xml_escape
@@ -16,7 +16,10 @@ from geoworkbench.data.number_format import format_decimal_number
 from geoworkbench.domain.models import CurveData, Dataset, DatasetIndex, IndexRole, IndexType
 from geoworkbench.services.coverage import ChannelAvailability, ChannelCoverage
 from geoworkbench.services.localization import AppLanguage
-from geoworkbench.services.parameter_labels import localized_curve_name
+from geoworkbench.services.parameter_labels import (
+    has_curated_curve_name,
+    localized_curve_name,
+)
 from geoworkbench.services.report_definition import ResolvedReportDefinition
 from geoworkbench.services.text_normalization import clean_display_text, clean_mnemonic
 
@@ -42,7 +45,7 @@ class ReportDocumentColumn:
     @property
     def header(self) -> str:
         unit = f" [{self.unit}]" if self.unit else ""
-        return f"{self.title} · {self.technical_name}{unit}"
+        return f"{self.title}{unit}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,6 +97,7 @@ _LABELS: dict[AppLanguage, dict[str, str]] = {
             "#N/A — канал недоступен."
         ),
         "unresolved": "Неопределённый канал",
+        "source": "источник",
     },
     AppLanguage.KK: {
         "report": "Инженерлік есеп",
@@ -114,6 +118,7 @@ _LABELS: dict[AppLanguage, dict[str, str]] = {
         "unavailable": "қолжетімсіз",
         "legend": "Белгілер: 0 — өлшенген нөл; — — өткізіп алынған есеп; #N/A — арна қолжетімсіз.",
         "unresolved": "Анықталмаған арна",
+        "source": "дереккөз",
     },
     AppLanguage.EN: {
         "report": "Engineering report",
@@ -134,6 +139,7 @@ _LABELS: dict[AppLanguage, dict[str, str]] = {
         "unavailable": "unavailable",
         "legend": "Legend: 0 — observed zero; — — missing sample; #N/A — channel unavailable.",
         "unresolved": "Unresolved channel",
+        "source": "source",
     },
 }
 
@@ -161,10 +167,11 @@ def build_report_document_model(
     coverage_by_key = {item.channel_key: item for item in report.coverage}
     coverage_by_mnemonic = {item.mnemonic.casefold(): item for item in report.coverage}
 
+    index_ordinal = tuple(dataset.indexes).index(index.index_id) + 1
     columns: list[ReportDocumentColumn] = [
         ReportDocumentColumn(
             key=f"index:{index.index_id}",
-            title=_index_title(index, export_language),
+            title=_index_title(index, export_language, ordinal=index_ordinal),
             technical_name=("DEPTH" if index.role is IndexRole.DEPTH else index.mnemonic),
             unit=_index_unit(index),
             availability=None,
@@ -180,19 +187,35 @@ def build_report_document_model(
         curves.append(curve)
         metadata = curve.metadata
         canonical = clean_mnemonic(metadata.canonical_mnemonic or metadata.original_mnemonic)
+        technical_name = clean_mnemonic(metadata.original_mnemonic)
+        description = clean_display_text(metadata.description or "")
+        unit = clean_display_text(metadata.unit or "")
         friendly = localized_curve_name(
             canonical,
-            description=clean_display_text(metadata.description or ""),
-            unit=clean_display_text(metadata.unit or ""),
+            description=description,
+            unit=unit,
             language=export_language,
         ).strip()
-        if not friendly:
+        curated = has_curated_curve_name(
+            canonical,
+            description=description,
+            unit=unit,
+            language=export_language,
+        )
+        if not friendly or (
+            not curated
+            and _is_technical_fallback(
+                friendly,
+                canonical,
+                technical_name,
+            )
+        ):
             friendly = labels["unresolved"]
         columns.append(
             ReportDocumentColumn(
                 key=curve_id,
                 title=friendly,
-                technical_name=clean_mnemonic(metadata.original_mnemonic),
+                technical_name=technical_name,
                 unit=clean_display_text(metadata.unit or ""),
                 availability=ChannelAvailability.AVAILABLE,
                 coverage=coverage_by_key.get(curve_id),
@@ -202,16 +225,32 @@ def build_report_document_model(
     unavailable = tuple(report.unavailable_channel_mnemonics)
     for mnemonic in unavailable:
         coverage = coverage_by_mnemonic.get(mnemonic.casefold())
+        clean_name = clean_mnemonic(mnemonic)
+        readable = localized_curve_name(
+            clean_name,
+            language=export_language,
+        ).strip()
+        curated = has_curated_curve_name(
+            clean_name,
+            language=export_language,
+        )
+        if not readable or (
+            not curated
+            and _is_technical_fallback(readable, clean_name)
+        ):
+            readable = labels["unresolved"]
         columns.append(
             ReportDocumentColumn(
                 key=f"unavailable:{mnemonic.casefold()}",
-                title=labels["unresolved"],
+                title=readable,
                 technical_name=mnemonic,
                 unit="",
                 availability=ChannelAvailability.UNAVAILABLE,
                 coverage=coverage,
             )
         )
+
+    columns = _disambiguate_visible_columns(columns, source_label=labels["source"])
 
     rows: list[tuple[str, ...]] = []
     index_values = np.asarray(index.values)
@@ -586,14 +625,85 @@ def _docx_app_properties() -> str:
     )
 
 
-def _index_title(index: DatasetIndex, language: AppLanguage) -> str:
+def _index_title(
+    index: DatasetIndex,
+    language: AppLanguage,
+    *,
+    ordinal: int,
+) -> str:
     names = {
         AppLanguage.RU: {"depth": "Глубина", "time": "Дата и время", "other": "Индекс"},
         AppLanguage.KK: {"depth": "Тереңдік", "time": "Күні мен уақыты", "other": "Индекс"},
         AppLanguage.EN: {"depth": "Depth", "time": "Date and time", "other": "Index"},
     }
     role = index.role.value
-    return names[language].get(role, names[language]["other"])
+    title = names[language].get(role, names[language]["other"])
+    return f"{title} {ordinal}" if index.role is IndexRole.GENERIC else title
+
+
+def _technical_label_key(value: str) -> str:
+    return "".join(character for character in value.casefold() if character.isalnum())
+
+
+def _is_technical_fallback(
+    visible: str,
+    *technical_values: str,
+) -> bool:
+    visible_clean = clean_display_text(visible)
+    visible_key = _technical_label_key(visible_clean)
+    for technical in technical_values:
+        technical_clean = clean_mnemonic(technical)
+        if not technical_clean:
+            continue
+        if visible_clean.casefold() == technical_clean.casefold():
+            return True
+        looks_encoded = (
+            any(character.isdigit() for character in technical_clean)
+            or any(not character.isalnum() for character in technical_clean)
+        )
+        if looks_encoded and visible_key == _technical_label_key(technical_clean):
+            return True
+    return False
+
+
+def _disambiguate_visible_columns(
+    columns: list[ReportDocumentColumn],
+    *,
+    source_label: str,
+) -> list[ReportDocumentColumn]:
+    """Make final rendered headers unique without exposing technical identifiers."""
+
+    initial_headers = [column.header.casefold() for column in columns]
+    counts: dict[str, int] = {}
+    for header in initial_headers:
+        counts[header] = counts.get(header, 0) + 1
+
+    reserved_headers = set(initial_headers)
+    used_generated: set[str] = set()
+    next_ordinal: dict[str, int] = {}
+    result: list[ReportDocumentColumn] = []
+    for column, initial_header in zip(columns, initial_headers, strict=True):
+        if counts[initial_header] <= 1:
+            result.append(column)
+            continue
+
+        ordinal = next_ordinal.get(initial_header, 0)
+        while True:
+            ordinal += 1
+            candidate = replace(
+                column,
+                title=f"{column.title} ({source_label} {ordinal})",
+            )
+            candidate_header = candidate.header.casefold()
+            if (
+                candidate_header not in reserved_headers
+                and candidate_header not in used_generated
+            ):
+                break
+        next_ordinal[initial_header] = ordinal
+        used_generated.add(candidate_header)
+        result.append(candidate)
+    return result
 
 
 def _index_unit(index: DatasetIndex) -> str:
