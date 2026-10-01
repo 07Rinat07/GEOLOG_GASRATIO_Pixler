@@ -21,6 +21,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_chart_front import (
 from geoworkbench.printing.hydrocarbon_interpretation_report import (
     HydrocarbonInterpretationPdfError,
     export_hydrocarbon_interpretation_pdf,
+    export_hydrocarbon_interpretation_pdf_with_passport,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_geology import (
     interpretation_geology_snapshot,
@@ -138,17 +139,18 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     "Building PDF report with charts…",
                 )
             ):
-                exported = export_hydrocarbon_interpretation_pdf(
+                export_result = export_hydrocarbon_interpretation_pdf_with_passport(
+                    self.controller.session,
                     report,
                     target,
                     language=self.language,
-                    dataset=dataset,
                     include_chart=True,
                     orientation=layout.orientation,
                     identity=identity,
                     geology=geology,
                     overwrite=target.exists(),
                 )
+                exported = export_result.primary_path
         except (OSError, FileExistsError, HydrocarbonInterpretationPdfError) as exc:
             self._show_export_error(exc)
             return
