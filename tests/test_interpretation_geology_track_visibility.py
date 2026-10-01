@@ -127,6 +127,9 @@ def test_auto_track_with_partial_report_data_does_not_use_empty_state() -> None:
 
 
 class _RecordingPainter:
+    def device(self):
+        return None
+
     def __init__(self) -> None:
         self.texts: list[str] = []
 

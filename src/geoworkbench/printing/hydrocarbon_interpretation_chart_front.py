@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from html import escape
 
+from geoworkbench.domain.depth_interval import scope_dataset
 from geoworkbench.domain.models import Dataset
 from geoworkbench.printing.hydrocarbon_interpretation_chart import (
     hydrocarbon_interpretation_chart_data_uri,
@@ -37,12 +38,13 @@ def hydrocarbon_interpretation_html_with_front_chart(
 ) -> str:
     """Insert the whole-well chart before the first tabular report section."""
 
+    depth_range = report.analysis_depth_interval or depth_range
     base = hydrocarbon_interpretation_html(report, language)
     from geoworkbench.services.hydrocarbon_interpretation_gas_html import (
         inject_interval_gas_statistics_html,
     )
 
-    base = inject_interval_gas_statistics_html(base, report, dataset, language)
+    base = inject_interval_gas_statistics_html(base, report, scope_dataset(dataset, report.analysis_depth_interval), language)
     uri = hydrocarbon_interpretation_chart_data_uri(
         report,
         dataset,

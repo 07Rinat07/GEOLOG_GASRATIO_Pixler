@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
+from collections.abc import Callable
 
 import numpy as np
 
@@ -10,6 +11,8 @@ from geoworkbench.calculations.gas_ratio import (
     calculate_opus_report_curves,
 )
 from geoworkbench.domain.models import Dataset
+from geoworkbench.domain.depth_interval import DepthInterval
+from geoworkbench.project.interpretation_depth_scope import scope_interpretation_session
 from geoworkbench.project.interpretation_calculation_controller_legacy import (
     DEFAULT_NORMALIZED_GAS_REFERENCE,
     Array,
@@ -59,6 +62,7 @@ class _ModeAwareDexpInputs:
 class InterpretationCalculationController(_LegacyInterpretationCalculationController):
     """Preserve source curves and use one explicit drilling-input plan for all methods."""
 
+    depth_interval: DepthInterval | None = field(default=None, kw_only=True)
     resolver: DrillingInputResolver = field(default_factory=DrillingInputResolver)
     normalized_gas_mode: NormalizedGasCalculationMode = NormalizedGasCalculationMode.COMPARE
     _active_normalized_gas_mode: NormalizedGasCalculationMode = field(
@@ -83,15 +87,20 @@ class InterpretationCalculationController(_LegacyInterpretationCalculationContro
         self,
         *,
         normal_mud_density_ppg: float | None = None,
-        normalized_gas_reference: NormalizedGasReference
-        | None = DEFAULT_NORMALIZED_GAS_REFERENCE,
+        normalized_gas_reference: NormalizedGasReference | None = DEFAULT_NORMALIZED_GAS_REFERENCE,
         normalized_gas_mode: NormalizedGasCalculationMode | str | None = None,
     ) -> InterpretationCalculationResult:
+        if self.depth_interval is not None:
+            return self._calculate_selected_interval(
+                lambda controller: controller.calculate_standard_curves(
+                    normal_mud_density_ppg=normal_mud_density_ppg,
+                    normalized_gas_reference=normalized_gas_reference,
+                    normalized_gas_mode=normalized_gas_mode,
+                )
+            )
         mode = self._normalized_gas_mode(normalized_gas_mode)
         reference = (
-            None
-            if mode is NormalizedGasCalculationMode.SERVER
-            else normalized_gas_reference
+            None if mode is NormalizedGasCalculationMode.SERVER else normalized_gas_reference
         )
         dataset = self._require_dataset()
         mode_issues: list[InterpretationCalculationIssue] = []
@@ -155,6 +164,13 @@ class InterpretationCalculationController(_LegacyInterpretationCalculationContro
     ) -> InterpretationCalculationResult:
         """Calculate only local normalized-gas curves for the selected source mode."""
 
+        if self.depth_interval is not None:
+            return self._calculate_selected_interval(
+                lambda controller: controller.calculate_normalized_gas(
+                    normalized_gas_reference=normalized_gas_reference,
+                    normalized_gas_mode=normalized_gas_mode,
+                )
+            )
         dataset = self._require_dataset()
         mode = self._normalized_gas_mode(normalized_gas_mode)
         if mode is NormalizedGasCalculationMode.SERVER:
@@ -250,6 +266,10 @@ class InterpretationCalculationController(_LegacyInterpretationCalculationContro
         the OPUS working unit, percent by volume.
         """
 
+        if self.depth_interval is not None:
+            return self._calculate_selected_interval(
+                lambda controller: controller.calculate_opus_curves()
+            )
         dataset = self._require_dataset()
         created: list[str] = []
         updated: list[str] = []
@@ -285,6 +305,39 @@ class InterpretationCalculationController(_LegacyInterpretationCalculationContro
             tuple(self._deduplicate_issues(issues)),
             {"opus": tuple(curves)},
         )
+
+    def _calculate_selected_interval(
+        self,
+        calculate: Callable[[InterpretationCalculationController], InterpretationCalculationResult],
+    ) -> InterpretationCalculationResult:
+        interval = self.depth_interval
+        if interval is None:
+            raise RuntimeError("Не выбран интервал расчёта")
+        original = self._require_dataset()
+        mask = interval.row_mask(original)
+        selected_session = scope_interpretation_session(self.session, interval)
+        scoped = replace(self, session=selected_session, depth_interval=None)
+        result = calculate(scoped)
+        selected = scoped._require_dataset()
+        # Install only changed derived curves; source curves remain untouched.
+        # A new curve has no calculated values outside the selected interval.
+        for key, curve in selected.curves.items():
+            mnemonic = curve.metadata.canonical_mnemonic or curve.metadata.original_mnemonic
+            if mnemonic not in result.changed:
+                continue
+            previous = original.curves.get(key)
+            if previous is not None and not previous.metadata.provenance.startswith("calculation:"):
+                continue
+            values = (
+                previous.values.copy()
+                if previous is not None
+                else np.full(original.depth.shape, np.nan)
+            )
+            values[mask] = curve.values
+            original.curves[key] = replace(curve, values=values)
+        if result.changed:
+            self.session.dirty = True
+        return result
 
     def normalized_gas_track_result(
         self,
@@ -541,9 +594,7 @@ class InterpretationCalculationController(_LegacyInterpretationCalculationContro
             corrected.output_mnemonic,
             corrected_values,
             unit=corrected.output_unit,
-            description=(
-                f"{corrected.display_name} — рассчитана из режимно-корректной DEXP"
-            ),
+            description=(f"{corrected.display_name} — рассчитана из режимно-корректной DEXP"),
             provenance=(
                 f"calculation:{corrected.profile_id}:{corrected.version};"
                 "source_dexp=mode-aware;mode_boundaries=preserved"
@@ -633,10 +684,7 @@ class InterpretationCalculationController(_LegacyInterpretationCalculationContro
         installed_values = values
         installed_provenance = provenance
 
-        if (
-            mnemonic in {"DEXP", "DEXPC"}
-            and provenance.startswith("calculation:")
-        ):
+        if mnemonic in {"DEXP", "DEXPC"} and provenance.startswith("calculation:"):
             modes = self._active_drilling_mode_resolution
             repair = repair_dexp_short_gaps(
                 dataset.depth,

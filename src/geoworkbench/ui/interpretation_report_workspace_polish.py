@@ -225,6 +225,7 @@ class InterpretationReportWorkspace(_DrillingInterpretationReportWorkspace):
         analysis_form.addRow(self.threshold_label, self.threshold)
         analysis_form.addRow(self.total_gas_lod_label, self.total_gas_lod)
         analysis_layout.addLayout(analysis_form)
+        analysis_layout.addWidget(self.depth_interval_panel)
         grid.addWidget(self.analysis_settings_card, 0, 0)
 
         self.reference_settings_card = QFrame()

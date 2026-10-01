@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import os
 from pathlib import Path
 import tempfile
@@ -49,6 +50,8 @@ def export_polished_hydrocarbon_interpretation_docx(
         identity
         or default_interpretation_report_identity(report, AppLanguage.RU)
     ).cleaned()
+    if report.analysis_depth_interval is not None:
+        details = replace(details, interval=report.analysis_depth_interval.formatted(report.depth_unit))
     source = _temporary_docx(destination, "source")
     rewritten = _temporary_docx(destination, "rewritten")
     try:
