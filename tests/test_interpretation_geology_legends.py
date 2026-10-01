@@ -11,6 +11,8 @@ from geoworkbench.printing.hydrocarbon_interpretation_geology import (
     InterpretationGeologySnapshot,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_geology_legend import (
+    GeologyLegendItem,
+    InterpretationGeologyLegend,
     build_interpretation_geology_legend,
     geology_legend_height,
     paint_geology_legend,
@@ -215,3 +217,122 @@ def test_dynamic_geology_legend_keeps_unresolved_lba_marker_explicit() -> None:
     assert unknown[0].key == "unknown"
     assert unknown[0].label == "unresolved bitumen"
     assert unknown[0].intensity is None
+
+
+
+def test_long_geology_labels_expand_full_legend_height(qapp) -> None:
+    short = InterpretationGeologyLegend(
+        (
+            GeologyLegendItem(
+                "lithology",
+                "short",
+                "SS",
+                "Sandstone",
+                "#d8b26e",
+                "sandstone_bricks",
+            ),
+        )
+    )
+    long = InterpretationGeologyLegend(
+        (
+            GeologyLegendItem(
+                "lithology",
+                "long",
+                "SS",
+                (
+                    "Очень длинное локализованное наименование литологии, "
+                    "которое должно переноситься на несколько строк без обрезания"
+                ),
+                "#d8b26e",
+                "sandstone_bricks",
+            ),
+        )
+    )
+
+    short_height = geology_legend_height(150.0, short)
+    long_height = geology_legend_height(150.0, long)
+
+    assert short_height >= 48.0
+    assert long_height > short_height
+
+
+def test_geology_legend_remains_distinguishable_after_grayscale_conversion(qapp) -> None:
+    legend = InterpretationGeologyLegend(
+        (
+            GeologyLegendItem(
+                "lithology",
+                "sandstone",
+                "SS",
+                "Песчаник",
+                "#d8b26e",
+                "sandstone_bricks",
+            ),
+            GeologyLegendItem(
+                "lba-type",
+                "oily-bitumen",
+                "МБ",
+                "маслянистый битум",
+                "#f59e0b",
+                intensity=3,
+            ),
+        )
+    )
+    width = 360.0
+    height = geology_legend_height(width, legend)
+    image = QImage(
+        int(width),
+        int(height) + 2,
+        QImage.Format.Format_ARGB32_Premultiplied,
+    )
+    image.fill(0xFFFFFFFF)
+    painter = QPainter(image)
+    try:
+        paint_geology_legend(
+            painter,
+            QRectF(0.0, 0.0, width, height),
+            legend,
+            AppLanguage.RU,
+        )
+    finally:
+        painter.end()
+
+    gray = image.convertToFormat(QImage.Format.Format_Grayscale8)
+    values = {
+        gray.pixelColor(x, y).red()
+        for y in range(gray.height())
+        for x in range(gray.width())
+    }
+
+    assert len(values) >= 4
+    assert min(values) < 100
+    assert max(values) > 240
+
+
+def test_multi_page_geology_layout_uses_full_then_compact_legend_exclusively() -> None:
+    content = QRectF(0.0, 0.0, 600.0, 800.0)
+    first_page = DepthPage(1000.0, 1100.0, 500, 400.0)
+    continuation = DepthPage(1100.0, 1200.0, 500, 400.0)
+
+    first = chart_geometry(
+        content,
+        first_page,
+        3,
+        geology_track_count=2,
+        geology_legend_height=62.0,
+        geology_repeat_legend_height=0.0,
+    )
+    later = chart_geometry(
+        content,
+        continuation,
+        3,
+        geology_track_count=2,
+        geology_legend_height=0.0,
+        geology_repeat_legend_height=28.0,
+    )
+
+    assert first.geology_legend_rect is not None
+    assert first.geology_repeat_legend_rect is None
+    assert later.geology_legend_rect is None
+    assert later.geology_repeat_legend_rect is not None
+    assert first.left_axis_rect.top() > later.left_axis_rect.top()
+    assert later.geology_repeat_legend_rect.bottom() <= later.note_rect.top()
