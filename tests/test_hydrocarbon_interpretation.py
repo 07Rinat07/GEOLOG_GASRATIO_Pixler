@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import replace
 import zipfile
 
+import fitz
 import numpy as np
 from openpyxl import load_workbook
 
@@ -19,10 +20,17 @@ from geoworkbench.domain.gas_context_events import (
 from geoworkbench.domain.models import (
     CurveData,
     CurveMetadata,
+    CuttingsComponent,
     CuttingsSample,
     Dataset,
     DatasetKind,
     DepthDomain,
+)
+from geoworkbench.printing.hydrocarbon_interpretation_geology import (
+    interpretation_geology_snapshot,
+)
+from geoworkbench.printing.hydrocarbon_interpretation_report import (
+    export_hydrocarbon_interpretation_pdf,
 )
 from geoworkbench.project.interpretation_controller import InterpretationController
 from geoworkbench.project.session import ProjectSession
@@ -857,3 +865,58 @@ def test_weak_liquid_signature_in_report_is_downgraded_from_specific_oil() -> No
     assert candidate.wetness_robust_z is not None
     assert candidate.wetness_robust_z < 2.0
     assert candidate.fluid_hypothesis == "probable_liquid_hydrocarbons"
+
+
+def test_interpretation_pdf_uses_immutable_current_well_geology_snapshot(
+    qapp,
+    tmp_path,
+) -> None:
+    session = _session()
+    well = session.current_well
+    dataset = session.current_dataset
+    assert well is not None
+    assert dataset is not None
+    sample = CuttingsSample(
+        "report-geology",
+        1_020.0,
+        1_030.0,
+        [
+            CuttingsComponent("sandstone", 70.0),
+            CuttingsComponent("clay", 30.0),
+        ],
+        lba_group=2,
+        lba_intensity=3,
+        lba_color="yellow",
+    )
+    well.cuttings.append(sample)
+    report = build_hydrocarbon_interpretation_report(session, threshold=3.0)
+
+    geology = interpretation_geology_snapshot(session)
+    assert geology is not None
+    assert geology.has_cuttings is True
+    assert geology.has_lba is True
+    assert geology.samples[0].components[0].percentage == 70.0
+    assert geology.samples[0].lba_group == 2
+    assert geology.samples[0].lba_type_id is None
+    assert geology.samples[0].lba_intensity == 3
+
+    sample.components[0].percentage = 5.0
+    sample.lba_intensity = 5
+    assert geology.samples[0].components[0].percentage == 70.0
+    assert geology.samples[0].lba_intensity == 3
+
+    target = tmp_path / "interpretation-geology.pdf"
+    export_hydrocarbon_interpretation_pdf(
+        report,
+        target,
+        dataset=dataset,
+        include_chart=True,
+        geology=geology,
+    )
+
+    with fitz.open(target) as document:
+        text = "\n".join(page.get_text() for page in document)
+
+    assert "Шламограмма" in text
+    assert "ЛБА" in text
+    assert "МБ" in text
