@@ -1375,8 +1375,9 @@ report snapshot/composition/render/print.
   первой chart-page и compact repeat на страницах продолжения. Lithology использует тот же
   Masterlog pattern/color brush, LBA — тот же intensity marker/type style; код/паттерн/форма
   сохраняют читаемость без зависимости только от цвета. RU/KK/EN labels берутся из domain
-  catalogs. До закрытия остаётся финальная visual acceptance длинных labels, grayscale и
-  многостраничной выдачи на реальном отчёте.
+  catalogs. Длинные RU/KK/EN labels теперь резервируют высоту по фактическому переносу текста,
+  grayscale-safe различимость и first/continuation multi-page layout закреплены regression-тестами.
+  До закрытия остаётся финальная визуальная сверка на реальном многостраничном отчёте/принтере.
   Над графическим блоком выводится полная легенда реально присутствующих lithology/LBA symbols,
   снизу — компактная повторная легенда; на многостраничной выдаче допускается компактный repeat
   per page. Не печатать неиспользуемый каталог. RU/KK/EN семантически эквивалентны; colour
