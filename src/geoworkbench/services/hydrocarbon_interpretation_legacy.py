@@ -174,35 +174,6 @@ class HydrocarbonInterpretationReport:
     suppressed_candidates: tuple[HydrocarbonCandidateInterval, ...] = ()
 
 
-_GASOMER_AMBIGUOUS_PREFIX = "opus_gasomer_ambiguous__"
-_GASOMER_SHORT_LABELS = {
-    AppLanguage.RU: {
-        1: "признаки окисленной/остаточной нефтяной фазы",
-        2: "признаки нефтяной фазы",
-        3: "газовая УВ-фаза",
-        4: "водорастворённый газ",
-        5: "газоконденсатная УВ-фаза",
-        6: "признаки газированной нефтяной фазы",
-    },
-    AppLanguage.KK: {
-        1: "тотыққан/қалдық мұнай фазасының белгілері",
-        2: "мұнай фазасының белгілері",
-        3: "газдық КС фазасы",
-        4: "суда еріген газ",
-        5: "газ-конденсатты КС фазасы",
-        6: "газдалған мұнай фазасының белгілері",
-    },
-    AppLanguage.EN: {
-        1: "indications of an oxidized/residual-oil phase",
-        2: "indications of an oil phase",
-        3: "gaseous hydrocarbon phase",
-        4: "water-dissolved gas",
-        5: "gas-condensate hydrocarbon phase",
-        6: "indications of a gassy-oil phase",
-    },
-}
-
-
 @dataclass(frozen=True, slots=True)
 class _FluidInterpretationContext:
     wetness: np.ndarray | None
