@@ -10,7 +10,9 @@ from geoworkbench.data.report_document_export import (
     MISSING_CELL,
     REPORT_DOCUMENT_SCHEMA_VERSION,
     UNAVAILABLE_CELL,
+    ReportDocumentColumn,
     ReportDocumentExportError,
+    _disambiguate_visible_columns,
     build_report_document_model,
     export_report_docx,
     export_report_html,
@@ -212,6 +214,29 @@ def test_duplicate_physical_headers_use_localized_source_ordinals() -> None:
     assert all("METHANE_BACKUP_SENSOR" not in column.header for column in model.columns[1:])
 
 
+def test_generated_source_ordinals_skip_already_reserved_headers() -> None:
+    columns = [
+        ReportDocumentColumn("a", "Methane", "A", "ppm", None, None),
+        ReportDocumentColumn("b", "Methane", "B", "ppm", None, None),
+        ReportDocumentColumn(
+            "c",
+            "Methane (source 1)",
+            "C",
+            "ppm",
+            None,
+            None,
+        ),
+    ]
+
+    result = _disambiguate_visible_columns(columns, source_label="source")
+
+    assert [column.header for column in result] == [
+        "Methane (source 2) [ppm]",
+        "Methane (source 3) [ppm]",
+        "Methane (source 1) [ppm]",
+    ]
+
+
 def test_generic_index_keeps_nontechnical_visible_identity() -> None:
     from geoworkbench.domain.models import DatasetIndex, IndexRole, IndexType
 
@@ -283,6 +308,44 @@ def test_available_unknown_curve_uses_neutral_header_but_keeps_audit_name() -> N
     assert "VENDOR_UNKNOWN_17" not in model.columns[1].header
 
 
+def test_prettified_technical_fallback_is_masked_for_available_curve() -> None:
+    dataset, _report = _resolved_report()
+    dataset.curves["sensor-111"] = CurveData(
+        CurveMetadata(
+            "sensor-111",
+            "SENSOR_111",
+            "SENSOR_111",
+            "psi",
+            None,
+            dataset.dataset_id,
+        ),
+        np.array([1.0, 2.0, 3.0, 4.0]),
+    )
+    definition = ReportDefinition(
+        "selection:dataset-1:sensor-111",
+        "Technical fallback report",
+        ReportProfile.COMBINED,
+        dataset.dataset_id,
+        dataset.active_index_id or "",
+        ReportIntervalSelection(ReportIntervalMode.SELECTION),
+        language="en",
+        curve_ids=("sensor-111",),
+    )
+    report = resolve_report_definition(
+        dataset,
+        definition,
+        context=ReportIntervalContext(selection_range=(100.0, 102.0)),
+        require_curves=True,
+    )
+
+    model = build_report_document_model(dataset, report, language=AppLanguage.EN)
+
+    assert model.columns[1].technical_name == "SENSOR_111"
+    assert model.columns[1].header == "Unresolved channel [psi]"
+    assert "Sensor 111" not in model.columns[1].header
+    assert "SENSOR_111" not in model.columns[1].header
+
+
 def test_index_curve_header_collision_is_disambiguated_without_mnemonics() -> None:
     dataset, _report = _resolved_report()
     dataset.curves["depth-like"] = CurveData(
@@ -290,8 +353,8 @@ def test_index_curve_header_collision_is_disambiguated_without_mnemonics() -> No
             "depth-like",
             "VENDOR_DEPTH_COPY",
             "VENDOR_DEPTH_COPY",
-            "m",
-            "Depth",
+            "",
+            "Depth [m]",
             dataset.dataset_id,
         ),
         np.array([1.0, 2.0, 3.0, 4.0]),
