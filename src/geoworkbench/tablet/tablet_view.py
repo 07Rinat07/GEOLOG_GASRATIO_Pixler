@@ -187,6 +187,7 @@ from geoworkbench.tablet.static_layer_cache import (
     StaticLayerKey,
 )
 from geoworkbench.tablet.overlay_layers import (
+    OverlayItem,
     OverlayLayerKind,
     OverlayLayerManager,
     OverlayLayerStats,
@@ -3027,7 +3028,8 @@ class TabletView(QWidget):
                     kind = OverlayLayerKind.ANNOTATION
                 else:
                     kind = OverlayLayerKind.MARKER
-                self._overlay_layers.unregister(kind, track_id, graphics_item)
+                overlay_item = cast(OverlayItem, graphics_item)
+                self._overlay_layers.unregister(kind, track_id, overlay_item)
                 rendered.plot.removeItem(graphics_item)
         rendered.interpretation_items = {}
         rendered.interpretation_lanes = {}
