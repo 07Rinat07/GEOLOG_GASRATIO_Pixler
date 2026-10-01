@@ -209,6 +209,37 @@ def geology_legend_height(
     return 6.0 + title_height + sum(row_heights) + 4.0
 
 
+def split_geology_legend_pages(
+    width: float,
+    legend: InterpretationGeologyLegend,
+    max_height: float,
+) -> tuple[InterpretationGeologyLegend, ...]:
+    """Split a full legend without dropping items or shrinking its text."""
+
+    if legend.empty:
+        return ()
+    if width <= 0.0 or max_height <= 0.0:
+        raise ValueError("Legend page dimensions must be positive")
+
+    pages: list[InterpretationGeologyLegend] = []
+    current: list[GeologyLegendItem] = []
+    for item in legend.items:
+        candidate = InterpretationGeologyLegend((*current, item))
+        if current and geology_legend_height(width, candidate) > max_height:
+            pages.append(InterpretationGeologyLegend(tuple(current)))
+            current = [item]
+        else:
+            current.append(item)
+
+        single = InterpretationGeologyLegend(tuple(current))
+        if geology_legend_height(width, single) > max_height:
+            raise ValueError("A single geology legend item does not fit the page")
+
+    if current:
+        pages.append(InterpretationGeologyLegend(tuple(current)))
+    return tuple(pages)
+
+
 def paint_geology_legend(
     painter: QPainter,
     rect: QRectF,
@@ -402,4 +433,5 @@ __all__ = [
     "build_interpretation_geology_legend",
     "geology_legend_height",
     "paint_geology_legend",
+    "split_geology_legend_pages",
 ]
