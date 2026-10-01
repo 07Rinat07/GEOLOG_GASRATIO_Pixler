@@ -16,7 +16,10 @@ from geoworkbench.data.number_format import format_decimal_number
 from geoworkbench.domain.models import CurveData, Dataset, DatasetIndex, IndexRole, IndexType
 from geoworkbench.services.coverage import ChannelAvailability, ChannelCoverage
 from geoworkbench.services.localization import AppLanguage
-from geoworkbench.services.parameter_labels import localized_curve_name
+from geoworkbench.services.parameter_labels import (
+    has_curated_curve_name,
+    localized_curve_name,
+)
 from geoworkbench.services.report_definition import ResolvedReportDefinition
 from geoworkbench.services.text_normalization import clean_display_text, clean_mnemonic
 
@@ -185,16 +188,27 @@ def build_report_document_model(
         metadata = curve.metadata
         canonical = clean_mnemonic(metadata.canonical_mnemonic or metadata.original_mnemonic)
         technical_name = clean_mnemonic(metadata.original_mnemonic)
+        description = clean_display_text(metadata.description or "")
+        unit = clean_display_text(metadata.unit or "")
         friendly = localized_curve_name(
             canonical,
-            description=clean_display_text(metadata.description or ""),
-            unit=clean_display_text(metadata.unit or ""),
+            description=description,
+            unit=unit,
             language=export_language,
         ).strip()
-        if not friendly or _is_technical_fallback(
-            friendly,
+        curated = has_curated_curve_name(
             canonical,
-            technical_name,
+            description=description,
+            unit=unit,
+            language=export_language,
+        )
+        if not friendly or (
+            not curated
+            and _is_technical_fallback(
+                friendly,
+                canonical,
+                technical_name,
+            )
         ):
             friendly = labels["unresolved"]
         columns.append(
@@ -211,11 +225,19 @@ def build_report_document_model(
     unavailable = tuple(report.unavailable_channel_mnemonics)
     for mnemonic in unavailable:
         coverage = coverage_by_mnemonic.get(mnemonic.casefold())
+        clean_name = clean_mnemonic(mnemonic)
         readable = localized_curve_name(
-            clean_mnemonic(mnemonic),
+            clean_name,
             language=export_language,
         ).strip()
-        if not readable or readable.casefold() == clean_mnemonic(mnemonic).casefold():
+        curated = has_curated_curve_name(
+            clean_name,
+            language=export_language,
+        )
+        if not readable or (
+            not curated
+            and _is_technical_fallback(readable, clean_name)
+        ):
             readable = labels["unresolved"]
         columns.append(
             ReportDocumentColumn(
