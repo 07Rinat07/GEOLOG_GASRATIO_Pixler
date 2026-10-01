@@ -155,10 +155,21 @@ def render_chart_pages(
             language,
         )
 
-    chart_legend_reserve = (
+    max_chart_legend_height = max(
+        0.0,
+        canvas.content_rect.height()
+        - base_reserved_height
+        - MIN_CHART_HEIGHT,
+    )
+    safe_repeat_legend_height = (
         repeat_legend_height
+        if repeat_legend_height <= max_chart_legend_height
+        else 0.0
+    )
+    chart_legend_reserve = (
+        safe_repeat_legend_height
         if dedicated_legend_pages
-        else max(inline_full_legend_height, repeat_legend_height)
+        else max(inline_full_legend_height, safe_repeat_legend_height)
     )
     available_height = (
         canvas.content_rect.height()
@@ -180,7 +191,7 @@ def render_chart_pages(
             else 0.0
         )
         continuation_legend_height = (
-            repeat_legend_height
+            safe_repeat_legend_height
             if dedicated_legend_pages or not first_page
             else 0.0
         )
