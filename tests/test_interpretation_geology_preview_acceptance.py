@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import base64
 from types import SimpleNamespace
 
 import numpy as np
 from PySide6.QtCore import QRectF
+from PySide6.QtGui import QImage
 
 from geoworkbench.domain.models import (
     CurveData,
@@ -91,6 +93,13 @@ def _geology() -> InterpretationGeologySnapshot:
     )
 
 
+def _png_size(uri: str) -> tuple[int, int]:
+    payload = base64.b64decode(uri.split(",", 1)[1])
+    image = QImage()
+    assert image.loadFromData(payload, "PNG")
+    return image.width(), image.height()
+
+
 def test_screen_preview_uses_same_auto_hide_show_geology_composition(qapp) -> None:
     dataset = _dataset()
     report = _report()
@@ -129,6 +138,81 @@ def test_screen_preview_uses_same_auto_hide_show_geology_composition(qapp) -> No
     assert forced_empty_uri.startswith("data:image/png;base64,")
     assert auto_uri != hidden_uri
     assert forced_empty_uri != hidden_uri
+
+
+def test_screen_preview_grows_canvas_instead_of_compressing_depth_plot(qapp) -> None:
+    dataset = _dataset()
+    report = _report()
+    geology = _geology()
+
+    with_legend = hydrocarbon_interpretation_chart_data_uri(
+        report,
+        dataset,
+        AppLanguage.RU,
+        geology=geology,
+        geology_track_settings=InterpretationGeologyTrackSettings(),
+    )
+    without_legend = hydrocarbon_interpretation_chart_data_uri(
+        report,
+        dataset,
+        AppLanguage.RU,
+        geology=geology,
+        geology_track_settings=InterpretationGeologyTrackSettings(
+            cuttings=GeologyTrackVisibility.HIDE,
+            lba=GeologyTrackVisibility.HIDE,
+        ),
+    )
+
+    assert _png_size(without_legend) == (2000, 1280)
+    width, height = _png_size(with_legend)
+    assert width == 2000
+    assert height > 1280
+
+
+def test_multi_page_geology_legend_is_full_then_compact(monkeypatch) -> None:
+    dataset = _dataset(depth_span=2500.0, samples=501)
+    report = _report()
+    geology = _geology()
+    observed: list[tuple[bool, bool]] = []
+
+    def capture_page(
+        _painter,
+        geometry,
+        _page,
+        _page_index,
+        _page_count,
+        _report,
+        _dataset,
+        _panels,
+        _ranges,
+        _percentiles,
+        _language,
+        _geology,
+        _geology_tracks,
+        _empty_state_tracks,
+        _geology_legend,
+    ) -> None:
+        observed.append(
+            (
+                geometry.geology_legend_rect is not None,
+                geometry.geology_repeat_legend_rect is not None,
+            )
+        )
+
+    monkeypatch.setattr(pdf_chart, "_draw_chart_page", capture_page)
+    canvas = _CanvasProbe()
+    pdf_chart.render_chart_pages(
+        canvas,  # type: ignore[arg-type]
+        report,  # type: ignore[arg-type]
+        dataset,
+        AppLanguage.RU,
+        geology=geology,
+        geology_track_settings=InterpretationGeologyTrackSettings(),
+    )
+
+    assert len(observed) > 1
+    assert observed[0] == (True, False)
+    assert all(item == (False, True) for item in observed[1:])
 
 
 class _CanvasProbe:
