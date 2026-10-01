@@ -129,8 +129,7 @@ def render_chart_pages(
         - CHART_TRACK_HEADER_HEIGHT
         - CHART_LEGEND_HEIGHT
         - CHART_NOTE_HEIGHT
-        - full_legend_height
-        - repeat_legend_height
+        - max(full_legend_height, repeat_legend_height)
     )
     pages = plan_depth_pages(
         depth_min,
@@ -140,7 +139,9 @@ def render_chart_pages(
     for page_index, page in enumerate(pages, start=1):
         canvas.new_page()
         percentiles = base_chart._curve_percentiles(panels, dataset, page=page)
-        first_page_legend_height = full_legend_height if page_index == 1 else 0.0
+        first_page = page_index == 1
+        first_page_legend_height = full_legend_height if first_page else 0.0
+        continuation_legend_height = 0.0 if first_page else repeat_legend_height
         _draw_chart_page(
             canvas.painter,
             chart_geometry(
@@ -149,7 +150,7 @@ def render_chart_pages(
                 len(panels),
                 geology_track_count=len(geology_tracks),
                 geology_legend_height=first_page_legend_height,
-                geology_repeat_legend_height=repeat_legend_height,
+                geology_repeat_legend_height=continuation_legend_height,
             ),
             page,
             page_index,
