@@ -120,7 +120,6 @@ def _write_docx(
         _paragraph(f"{labels.project}: {report.project_name}"),
         _paragraph(f"{labels.well}: {report.well_name}"),
         _paragraph(f"{labels.dataset}: {report.dataset_name}"),
-        _paragraph(f"{labels.generated}: {report.generated_at}"),
         _paragraph(
             f"{labels.primary_gas_curve}: "
             f"{localized_curve_reference(report.primary_mnemonic, language=language) if report.primary_mnemonic else '—'}"

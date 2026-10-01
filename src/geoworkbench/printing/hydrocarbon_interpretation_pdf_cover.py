@@ -31,7 +31,6 @@ _LABELS = {
         "rig": "Буровая / установка",
         "dataset": "Набор данных",
         "interval": "Интервал отчёта",
-        "created": "Сформирован",
         "primary": "Основная кривая",
         "threshold": "Порог robust z",
         "document": "Документ",
@@ -55,7 +54,6 @@ _LABELS = {
         "rig": "Бұрғылау қондырғысы",
         "dataset": "Деректер жинағы",
         "interval": "Есеп аралығы",
-        "created": "Құрылған",
         "primary": "Негізгі қисық",
         "threshold": "Robust z шегі",
         "document": "Құжат",
@@ -79,7 +77,6 @@ _LABELS = {
         "rig": "Rig / unit",
         "dataset": "Dataset",
         "interval": "Report interval",
-        "created": "Generated",
         "primary": "Primary curve",
         "threshold": "Robust z threshold",
         "document": "Document",
@@ -169,13 +166,14 @@ def render_report_cover(
         painter.setPen(QPen(card_border, 0.9))
         painter.drawRoundedRect(control, 5.0, 5.0)
 
-        control_items = (
+        control_items = [
             (labels["document"], _value(details.document_number)),
             (labels["revision"], _value(details.revision)),
             (labels["status"], _value(details.document_status)),
-            (labels["date"], _value(details.report_date)),
-        )
-        column_width = control.width() / 4.0
+        ]
+        if details.report_date.strip():
+            control_items.append((labels["date"], details.report_date.strip()))
+        column_width = control.width() / float(len(control_items))
         for index, (label, value) in enumerate(control_items):
             cell = QRectF(
                 control.left() + index * column_width,
@@ -269,7 +267,6 @@ def render_report_cover(
             (labels["rig"], details.rig_name),
             (labels["dataset"], details.dataset_name),
             (labels["interval"], details.interval),
-            (labels["created"], report.generated_at),
             (labels["primary"], report.primary_mnemonic or "—"),
             (labels["threshold"], f"{report.threshold:.2f}"),
         )
@@ -480,7 +477,7 @@ def _draw_wide_rows(
     card_border: QColor,
     font_size: float,
 ) -> None:
-    pair_count = len(rows) // 2
+    pair_count = (len(rows) + 1) // 2
     pair_height = (card.height() - 16.0) / pair_count
     inner = QRectF(
         card.left() + 12.0,
@@ -510,7 +507,10 @@ def _draw_wide_rows(
             painter.setPen(QPen(line_color, 0.7))
             painter.drawLine(QLineF(inner.left(), row_top, inner.right(), row_top))
         for column_index in range(2):
-            label, value = rows[pair_index * 2 + column_index]
+            row_index = pair_index * 2 + column_index
+            if row_index >= len(rows):
+                continue
+            label, value = rows[row_index]
             cell_left = inner.left() + column_index * column_width
             label_width = column_width * 0.37
             painter.setFont(label_font)

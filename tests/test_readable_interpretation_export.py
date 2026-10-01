@@ -141,6 +141,14 @@ def test_readable_xlsx_keeps_interpretation_and_gas_statistics_on_main_sheet(
         print_wordmark = "&B" + REPORT_BRAND_WORDMARK.replace("&", "&&") + "&B"
         assert sheet.oddHeader.left.text == print_wordmark
         assert sheet.oddFooter.left.text == print_wordmark
+        metadata_values = {
+            str(sheet.cell(row, column).value)
+            for row in range(1, 9)
+            for column in range(1, 6)
+            if sheet.cell(row, column).value is not None
+        }
+        assert report.generated_at not in metadata_values
+        assert "Сформирован" not in metadata_values
         headers = [sheet.cell(9, column).value for column in range(1, 24)]
         assert "Предварительная интерпретация" in headers
         assert "Мин исходного газа" in headers

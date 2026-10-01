@@ -1492,7 +1492,6 @@ small {{ color: #44566c; }}
 <p><b>{escape(labels["project"])}:</b> {escape(report.project_name)}<br>
 <b>{escape(labels["well"])}:</b> {escape(report.well_name)}<br>
 <b>{escape(labels["dataset"])}:</b> {escape(report.dataset_name)}<br>
-<b>{escape(labels["created"])}:</b> {escape(report.generated_at)}<br>
 <b>{escape(labels["primary"])}:</b> {escape(localized_curve_reference(report.primary_mnemonic, language=language) if report.primary_mnemonic else "—")}<br>
 <b>{escape(labels["threshold"])}:</b> {report.threshold:.2f}</p>
 <h2>{escape(labels["methods"])}</h2>

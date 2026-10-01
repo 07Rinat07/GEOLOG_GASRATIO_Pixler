@@ -142,6 +142,8 @@ def test_report_detects_relative_anomaly_and_keeps_manual_intervals_separate() -
     assert "Well &lt;A&gt;" in html
     assert "Перспективные интервалы" in html
     assert "Кандидатные интервалы" not in html
+    assert report.generated_at not in html
+    assert "Сформирован" not in html
 
     kk_html = hydrocarbon_interpretation_html(report, AppLanguage.KK)
     assert "Көмірсутек көріністерінің перспективалы аралықтары" in kk_html
@@ -272,6 +274,8 @@ def test_report_exports_openable_xlsx_and_docx(tmp_path) -> None:
         assert "Фон" not in document
         assert "IC4" in document and "NC5" in document
         assert "Check DST" in document
+        assert report.generated_at not in document
+        assert "Сформирован" not in document
 
 
 def test_report_falls_back_from_sparse_normalized_gas_to_total_gas() -> None:
