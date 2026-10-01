@@ -264,23 +264,6 @@ def _draw_geology_tracks(
             y = base_chart._depth_y(tick, page, rect)
             painter.setPen(QPen(QColor("#cbd5e1"), 0.65))
             painter.drawLine(QLineF(rect.left(), y, rect.right(), y))
-        has_track_data = (
-            any(sample.components for sample in page_samples)
-            if track == "cuttings"
-            else any(
-                value not in (None, "")
-                for sample in page_samples
-                for value in (
-                    sample.lba_group,
-                    sample.lba_type_id,
-                    sample.lba_intensity,
-                    sample.lba_color,
-                    sample.lba_distribution,
-                    sample.lba_cut,
-                    sample.lba_description,
-                )
-            )
-        )
         if track in empty_state_tracks:
             no_data = {
                 AppLanguage.RU: "Нет данных",
