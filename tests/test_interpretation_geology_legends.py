@@ -14,6 +14,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_geology_legend import (
     build_interpretation_geology_legend,
     geology_legend_height,
     paint_geology_legend,
+    split_geology_legend_pages,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import (
     CHART_HEADER_HEIGHT,
@@ -274,3 +275,49 @@ def test_compact_geology_legend_retains_non_colour_identifiers() -> None:
     assert all(item.pattern_key for item in lithology)
     assert lba
     assert any(item.intensity is not None for item in lba)
+
+
+
+def test_oversized_geology_legend_splits_without_dropping_items() -> None:
+    lithotypes = tuple(
+        CatalogLithotype(
+            f"long-{index}",
+            f"L{index:02d}",
+            f"Очень длинное наименование литотипа номер {index} для печатной геологической легенды",
+            f"Very long lithology name number {index} for the printed geology legend",
+            "sedimentary",
+            "#b8a67a",
+            "carbonate",
+            True,
+            name_kk=f"Баспа геологиялық легендасына арналған өте ұзын литотип атауы {index}",
+        )
+        for index in range(31)
+    )
+    geology = InterpretationGeologySnapshot(
+        samples=(
+            FrozenCuttingsSample(
+                sample_id="many-long-labels",
+                top_depth=1000.0,
+                bottom_depth=1005.0,
+                components=tuple(
+                    FrozenCuttingsComponent(item.lithotype_id, 100.0 / len(lithotypes))
+                    for item in lithotypes
+                ),
+            ),
+        ),
+        lithotypes=lithotypes,
+    )
+    legend = build_interpretation_geology_legend(
+        geology,
+        999.0,
+        1010.0,
+        AppLanguage.EN,
+    )
+    width = 600.0
+    max_height = 180.0
+
+    pages = split_geology_legend_pages(width, legend, max_height)
+
+    assert len(pages) > 1
+    assert tuple(item for page in pages for item in page.items) == legend.items
+    assert all(geology_legend_height(width, page) <= max_height for page in pages)
