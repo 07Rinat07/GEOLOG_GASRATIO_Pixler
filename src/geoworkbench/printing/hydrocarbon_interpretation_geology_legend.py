@@ -356,8 +356,6 @@ def _legend_row_heights(
 
     cell_width = width / columns
     text_width = max(8.0, cell_width - 27.0)
-    font = print_font(6.6, text="Ag")
-    metrics = QFontMetricsF(font)
     heights: list[float] = []
     flags = (
         Qt.AlignmentFlag.AlignLeft
@@ -369,6 +367,7 @@ def _legend_row_heights(
         measured = 0.0
         for item in row_items:
             text = _legend_item_text(item, compact=False)
+            metrics = QFontMetricsF(print_font(6.6, text=text))
             bounds = metrics.boundingRect(
                 QRectF(0.0, 0.0, text_width, 1_000.0),
                 int(flags),
