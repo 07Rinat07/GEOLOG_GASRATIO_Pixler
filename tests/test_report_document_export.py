@@ -72,6 +72,11 @@ def test_document_model_uses_resolved_indices_and_coverage_states() -> None:
     assert model.schema_version == REPORT_DOCUMENT_SCHEMA_VERSION
     assert model.sample_count == 3
     assert [column.technical_name for column in model.columns] == ["DEPTH", "C1", "H2S"]
+    assert [column.header for column in model.columns] == [
+        "Depth [m]",
+        "Methane [ppm]",
+        "Unresolved channel",
+    ]
     assert model.rows[0] == ("100", "0", UNAVAILABLE_CELL)
     assert model.rows[1] == ("101", MISSING_CELL, UNAVAILABLE_CELL)
     assert model.rows[2] == ("102", "25", UNAVAILABLE_CELL)
@@ -91,6 +96,10 @@ def test_html_export_is_self_contained_and_explicit_about_coverage(tmp_path) -> 
     text = target.read_text(encoding="utf-8")
     assert '<html lang="en">' in text
     assert "Gas interval" in text
+    assert "Methane [ppm]" in text
+    assert "Unresolved channel" in text
+    assert "Methane · C1" not in text
+    assert "Unresolved channel · H2S" not in text
     assert 'data-state="zero">0</td>' in text
     assert 'data-state="missing">—</td>' in text
     assert 'data-state="unavailable">#N/A</td>' in text
@@ -122,6 +131,10 @@ def test_docx_export_is_valid_deterministic_openxml(tmp_path) -> None:
         document = archive.read("word/document.xml").decode("utf-8")
         core = archive.read("docProps/core.xml").decode("utf-8")
     assert "Gas interval" in document
+    assert "Methane [ppm]" in document
+    assert "Unresolved channel" in document
+    assert "Methane · C1" not in document
+    assert "Unresolved channel · H2S" not in document
     assert "#N/A" in document
     assert "—" in document
     assert "0" in document
