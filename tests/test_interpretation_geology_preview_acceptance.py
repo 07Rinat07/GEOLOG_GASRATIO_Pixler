@@ -36,6 +36,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_report_range import (
 from geoworkbench.project.interpretation_calculation_controller import (
     InterpretationCalculationController,
 )
+from geoworkbench.project.lithotype_catalog_models import CatalogLithotype
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.interpretation_report_workspace_final import (
@@ -454,10 +455,7 @@ def test_oversized_geology_legend_uses_dedicated_pages_before_charts(
     dataset = _dataset(depth_span=2500.0, samples=501)
     report = _report()
     lithotypes = tuple(
-        __import__(
-            "geoworkbench.project.lithotype_catalog_models",
-            fromlist=["CatalogLithotype"],
-        ).CatalogLithotype(
+        CatalogLithotype(
             f"long-{index}",
             f"L{index:02d}",
             f"Очень длинное наименование литотипа номер {index} для печатной геологической легенды",
