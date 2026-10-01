@@ -243,7 +243,9 @@ def hydrocarbon_interpretation_chart_data_uri(
                 language,
             )
 
-        plot_top = max(130.0, 82.0 + preview_legend_height)
+        # Track headings occupy the 58 px immediately above the plot. Keep
+        # them below the dynamic legend instead of allowing the two zones to overlap.
+        plot_top = max(130.0, 134.0 + preview_legend_height)
         plot_bottom = 1_015.0
         plot_height = plot_bottom - plot_top
         outer_margin = 35.0
