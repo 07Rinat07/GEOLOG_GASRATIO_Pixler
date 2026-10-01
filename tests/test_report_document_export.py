@@ -246,6 +246,83 @@ def test_generic_index_keeps_nontechnical_visible_identity() -> None:
     assert "CUSTOM_AXIS" not in model.columns[0].header
 
 
+def test_available_unknown_curve_uses_neutral_header_but_keeps_audit_name() -> None:
+    dataset, _report = _resolved_report()
+    dataset.curves["unknown"] = CurveData(
+        CurveMetadata(
+            "unknown",
+            "VENDOR_UNKNOWN_17",
+            "VENDOR_UNKNOWN_17",
+            "ppm",
+            None,
+            dataset.dataset_id,
+        ),
+        np.array([1.0, 2.0, 3.0, 4.0]),
+    )
+    definition = ReportDefinition(
+        "selection:dataset-1:unknown-available",
+        "Unknown curve report",
+        ReportProfile.GAS,
+        dataset.dataset_id,
+        dataset.active_index_id or "",
+        ReportIntervalSelection(ReportIntervalMode.SELECTION),
+        language="en",
+        curve_ids=("unknown",),
+    )
+    report = resolve_report_definition(
+        dataset,
+        definition,
+        context=ReportIntervalContext(selection_range=(100.0, 102.0)),
+        require_curves=True,
+    )
+
+    model = build_report_document_model(dataset, report, language=AppLanguage.EN)
+
+    assert model.columns[1].technical_name == "VENDOR_UNKNOWN_17"
+    assert model.columns[1].header == "Unresolved channel [ppm]"
+    assert "VENDOR_UNKNOWN_17" not in model.columns[1].header
+
+
+def test_index_curve_header_collision_is_disambiguated_without_mnemonics() -> None:
+    dataset, _report = _resolved_report()
+    dataset.curves["depth-like"] = CurveData(
+        CurveMetadata(
+            "depth-like",
+            "VENDOR_DEPTH_COPY",
+            "VENDOR_DEPTH_COPY",
+            "m",
+            "Depth",
+            dataset.dataset_id,
+        ),
+        np.array([1.0, 2.0, 3.0, 4.0]),
+    )
+    definition = ReportDefinition(
+        "selection:dataset-1:index-collision",
+        "Index collision report",
+        ReportProfile.COMBINED,
+        dataset.dataset_id,
+        dataset.active_index_id or "",
+        ReportIntervalSelection(ReportIntervalMode.SELECTION),
+        language="en",
+        curve_ids=("depth-like",),
+    )
+    report = resolve_report_definition(
+        dataset,
+        definition,
+        context=ReportIntervalContext(selection_range=(100.0, 102.0)),
+        require_curves=True,
+    )
+
+    model = build_report_document_model(dataset, report, language=AppLanguage.EN)
+
+    assert [column.header for column in model.columns] == [
+        "Depth (source 1) [m]",
+        "Depth (source 2) [m]",
+    ]
+    assert model.columns[1].technical_name == "VENDOR_DEPTH_COPY"
+    assert all("VENDOR_DEPTH_COPY" not in column.header for column in model.columns)
+
+
 def test_html_export_is_self_contained_and_explicit_about_coverage(tmp_path) -> None:
     dataset, report = _resolved_report()
     target = tmp_path / "report.html"
