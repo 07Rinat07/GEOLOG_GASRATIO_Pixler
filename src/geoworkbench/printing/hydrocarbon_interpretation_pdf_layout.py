@@ -54,8 +54,9 @@ class ChartGeometry:
     left_axis_rect: QRectF
     right_axis_rect: QRectF
     panel_rects: tuple[QRectF, ...]
-    legend_rect: QRectF
-    note_rect: QRectF
+    geology_rects: tuple[QRectF, ...] = ()
+    legend_rect: QRectF | None = None
+    note_rect: QRectF | None = None
 
 
 def plan_depth_pages(
@@ -143,6 +144,8 @@ def chart_geometry(
     content_rect: QRectF,
     page: DepthPage,
     panel_count: int,
+    *,
+    geology_track_count: int = 0,
 ) -> ChartGeometry:
     """Return chart rectangles guaranteed to remain inside the printable area."""
 
@@ -164,6 +167,8 @@ def chart_geometry(
     axis_width = 54.0
     axis_gap = 7.0
     panel_gap = 8.0
+    geology_track_width = 34.0
+    geology_gap = 4.0
     left_axis = QRectF(content_rect.left(), chart_top, axis_width, plot_height)
     right_axis = QRectF(
         content_rect.right() - axis_width,
@@ -171,7 +176,22 @@ def chart_geometry(
         axis_width,
         plot_height,
     )
-    panels_left = left_axis.right() + axis_gap
+    geology_left = left_axis.right() + axis_gap
+    geology_rects = tuple(
+        QRectF(
+            geology_left + index * (geology_track_width + geology_gap),
+            chart_top,
+            geology_track_width,
+            plot_height,
+        )
+        for index in range(max(0, geology_track_count))
+    )
+    geology_right = (
+        geology_rects[-1].right() + axis_gap
+        if geology_rects
+        else left_axis.right() + axis_gap
+    )
+    panels_left = geology_right
     panels_right = right_axis.left() - axis_gap
     panels_width = panels_right - panels_left
     panel_width = (panels_width - panel_gap * (panel_count - 1)) / panel_count
@@ -199,12 +219,14 @@ def chart_geometry(
         content_rect.width(),
         CHART_NOTE_HEIGHT,
     )
+    plot_left = geology_rects[0].left() if geology_rects else panels_left
     return ChartGeometry(
         content_rect,
-        QRectF(panels_left, chart_top, panels_width, plot_height),
+        QRectF(plot_left, chart_top, panels_right - plot_left, plot_height),
         left_axis,
         right_axis,
         panel_rects,
+        geology_rects,
         legend,
         note,
     )
