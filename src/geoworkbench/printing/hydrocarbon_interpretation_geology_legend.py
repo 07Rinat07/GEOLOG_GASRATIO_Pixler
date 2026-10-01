@@ -113,7 +113,11 @@ def build_interpretation_geology_legend(
             type_code = style.code
             type_label = style.localized_name(language)
             type_key = style.type_id
-            type_color = style.color
+            type_color = (
+                standard_group.display_color
+                if standard_group is not None
+                else style.color
+            )
         elif standard_group is not None:
             type_code = standard_group.code
             type_label = standard_group.localized_type_name(language)
@@ -168,7 +172,7 @@ def build_interpretation_geology_legend(
                         color_code,
                         color_code,
                         _lba_color_name(color_code, language),
-                        type_color,
+                        "#64748b",
                     )
                 )
 
@@ -310,7 +314,7 @@ def _paint_legend_item(
 
 
 def _legend_columns(width: float, *, compact: bool) -> int:
-    target = 110.0 if compact else 150.0
+    target = 90.0 if compact else 120.0
     return max(1, min(8, int(width // target)))
 
 
