@@ -1372,7 +1372,7 @@ report snapshot/composition/render/print.
   Реализован первый production slice: immutable legend snapshot собирается только из символов,
   реально присутствующих в выбранном report interval и разрешённых текущими geology tracks;
   screen preview получает полную динамическую легенду, PDF/system print — полную легенду над
-  первой chart-page и compact repeat на каждой странице. Lithology использует тот же
+  первой chart-page и compact repeat на страницах продолжения. Lithology использует тот же
   Masterlog pattern/color brush, LBA — тот же intensity marker/type style; код/паттерн/форма
   сохраняют читаемость без зависимости только от цвета. RU/KK/EN labels берутся из domain
   catalogs. До закрытия остаётся финальная visual acceptance длинных labels, grayscale и
