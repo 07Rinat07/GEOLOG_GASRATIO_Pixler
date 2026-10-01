@@ -24,6 +24,9 @@ from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
     forced_empty_geology_tracks,
     resolve_geology_track_kinds,
 )
+from geoworkbench.printing.hydrocarbon_interpretation_report_range import (
+    ReportDepthRange,
+)
 from geoworkbench.printing.hydrocarbon_interpretation_curve_selection import report_curve_panels
 from geoworkbench.printing.hydrocarbon_fluid_markers import (
     draw_fluid_marker,
@@ -160,6 +163,7 @@ def hydrocarbon_interpretation_chart_data_uri(
     geology_track_settings: InterpretationGeologyTrackSettings = (
         DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS
     ),
+    depth_range: ReportDepthRange | None = None,
 ) -> str:
     """Render available interpretation curves against depth as a PNG data URI."""
 
@@ -192,8 +196,16 @@ def hydrocarbon_interpretation_chart_data_uri(
 
         depth_min = float(np.nanmin(depth[finite_depth]))
         depth_max = float(np.nanmax(depth[finite_depth]))
+        if depth_range is not None:
+            depth_min = depth_range.top_depth
+            depth_max = depth_range.bottom_depth
         if depth_max <= depth_min:
             depth_max = depth_min + 1.0
+        visible_depth = (
+            finite_depth
+            & (depth >= depth_min)
+            & (depth <= depth_max)
+        )
         geology_tracks = resolve_geology_track_kinds(
             geology,
             depth_min,
@@ -281,7 +293,12 @@ def hydrocarbon_interpretation_chart_data_uri(
                 language,
             )
 
-        candidates = tuple(report.candidates)
+        candidates = tuple(
+            candidate
+            for candidate in report.candidates
+            if candidate.bottom_depth >= depth_min
+            and candidate.top_depth <= depth_max
+        )
         panel_rects = tuple(
             QRectF(
                 panel_left + panel_index * (panel_width + panel_gap),
@@ -296,7 +313,7 @@ def hydrocarbon_interpretation_chart_data_uri(
                 painter,
                 rect,
                 depth,
-                finite_depth,
+                visible_depth,
                 depth_min,
                 depth_max,
                 panel_name,
