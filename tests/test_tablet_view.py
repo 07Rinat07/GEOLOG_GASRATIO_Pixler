@@ -1379,6 +1379,63 @@ def test_tablet_renders_interpretation_track_and_hit_tests_lanes(qapp) -> None:
     view.close()
 
 
+def test_interpretation_refresh_resizes_wrapped_title_without_rebuilding_plot(qapp) -> None:
+    from geoworkbench.domain.models import InterpretationInterval, WellInterpretation
+
+    dataset = Dataset(
+        "dataset-interpretation-title-refresh",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.array([100.0, 150.0, 200.0]),
+    )
+    interval = InterpretationInterval(
+        "interval",
+        110.0,
+        150.0,
+        "Reservoir",
+        "Sand A",
+        "#fde68a",
+    )
+    short = WellInterpretation("primary", "Primary", intervals=[interval])
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout(
+            [
+                TrackDefinition(
+                    "interpretation",
+                    "Interpretation",
+                    TrackKind.INTERPRETATION,
+                    width=140,
+                )
+            ]
+        )
+    )
+    view.set_interpretations([short], short.interpretation_id)
+    view.set_dataset(dataset)
+    qapp.processEvents()
+
+    rendered = view._rendered["interpretation"]
+    plot = rendered.plot
+    assert plot is not None
+    short_height = rendered.widget.title.height()
+
+    long_name = (
+        "Primary interpretation with a deliberately long geological interval "
+        "caption that must wrap across several header lines"
+    )
+    updated = WellInterpretation("primary", long_name, intervals=[interval])
+    view.set_interpretations([updated], updated.interpretation_id)
+    qapp.processEvents()
+
+    rendered_after = view._rendered["interpretation"]
+    assert rendered_after.plot is plot
+    assert rendered_after.widget.title.text() == f"Interpretation: {long_name}"
+    assert rendered_after.widget.title.height() >= rendered_after.widget.natural_title_header_height
+    assert rendered_after.widget.title.height() > short_height
+    view.close()
+
+
 def test_tablet_interpretation_selection_updates_style_and_signal(qapp) -> None:
     from geoworkbench.domain.models import InterpretationInterval, WellInterpretation
 
