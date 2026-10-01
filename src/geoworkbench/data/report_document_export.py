@@ -191,12 +191,11 @@ def build_report_document_model(
             unit=clean_display_text(metadata.unit or ""),
             language=export_language,
         ).strip()
-        technical_candidates = {
-            value.casefold()
-            for value in (canonical, technical_name)
-            if value
-        }
-        if not friendly or friendly.casefold() in technical_candidates:
+        if not friendly or _is_technical_fallback(
+            friendly,
+            canonical,
+            technical_name,
+        ):
             friendly = labels["unresolved"]
         columns.append(
             ReportDocumentColumn(
@@ -620,33 +619,68 @@ def _index_title(
     return f"{title} {ordinal}" if index.role is IndexRole.GENERIC else title
 
 
+def _technical_label_key(value: str) -> str:
+    return "".join(character for character in value.casefold() if character.isalnum())
+
+
+def _is_technical_fallback(
+    visible: str,
+    *technical_values: str,
+) -> bool:
+    visible_clean = clean_display_text(visible)
+    visible_key = _technical_label_key(visible_clean)
+    for technical in technical_values:
+        technical_clean = clean_mnemonic(technical)
+        if not technical_clean:
+            continue
+        if visible_clean.casefold() == technical_clean.casefold():
+            return True
+        looks_encoded = (
+            any(character.isdigit() for character in technical_clean)
+            or any(not character.isalnum() for character in technical_clean)
+        )
+        if looks_encoded and visible_key == _technical_label_key(technical_clean):
+            return True
+    return False
+
+
 def _disambiguate_visible_columns(
     columns: list[ReportDocumentColumn],
     *,
     source_label: str,
 ) -> list[ReportDocumentColumn]:
-    """Add a nontechnical ordinal only when physical headers would collide."""
+    """Make final rendered headers unique without exposing technical identifiers."""
 
-    counts: dict[tuple[str, str], int] = {}
-    for column in columns:
-        key = (column.title.casefold(), column.unit.casefold())
-        counts[key] = counts.get(key, 0) + 1
+    initial_headers = [column.header.casefold() for column in columns]
+    counts: dict[str, int] = {}
+    for header in initial_headers:
+        counts[header] = counts.get(header, 0) + 1
 
-    ordinals: dict[tuple[str, str], int] = {}
+    reserved_headers = set(initial_headers)
+    used_generated: set[str] = set()
+    next_ordinal: dict[str, int] = {}
     result: list[ReportDocumentColumn] = []
-    for column in columns:
-        key = (column.title.casefold(), column.unit.casefold())
-        if counts[key] <= 1:
+    for column, initial_header in zip(columns, initial_headers, strict=True):
+        if counts[initial_header] <= 1:
             result.append(column)
             continue
-        ordinal = ordinals.get(key, 0) + 1
-        ordinals[key] = ordinal
-        result.append(
-            replace(
+
+        ordinal = next_ordinal.get(initial_header, 0)
+        while True:
+            ordinal += 1
+            candidate = replace(
                 column,
                 title=f"{column.title} ({source_label} {ordinal})",
             )
-        )
+            candidate_header = candidate.header.casefold()
+            if (
+                candidate_header not in reserved_headers
+                and candidate_header not in used_generated
+            ):
+                break
+        next_ordinal[initial_header] = ordinal
+        used_generated.add(candidate_header)
+        result.append(candidate)
     return result
 
 
