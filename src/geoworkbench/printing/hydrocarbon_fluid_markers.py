@@ -151,7 +151,7 @@ _EXACT_CATEGORY = {
     "light_dry_gas": "gas",
     "productive_gas_increasing_wetness": "gas",
     "gas_increasing_wetness": "gas",
-    "wet_gas_or_gas_condensate": "gas_condensate",
+    "wet_gas_or_gas_condensate": "gas",
     "gas_condensate_or_high_api_oil": "gas_condensate_or_light_oil",
     "light_oil_high_gor": "light_oil",
     "productive_oil_decreasing_gravity": "oil",
