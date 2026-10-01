@@ -1376,8 +1376,9 @@ report snapshot/composition/render/print.
   Masterlog pattern/color brush, LBA — тот же intensity marker/type style; код/паттерн/форма
   сохраняют читаемость без зависимости только от цвета. RU/KK/EN labels берутся из domain
   catalogs. Автоматизированная acceptance теперь отдельно проверяет длинные RU/KK/EN labels,
-  grayscale-safe code/pattern/shape identifiers, сохранение высоты depth plot в screen preview
-  и последовательность full legend → compact repeat на реальной multi-page pagination. До
+  grayscale-safe code/pattern/shape identifiers, сохранение высоты depth plot в screen preview,
+  последовательность full legend → compact repeat и dedicated legend pages при oversized catalog
+  без потери символов. До
   закрытия остаётся финальная физическая visual/print acceptance на реальном отчёте.
   Над графическим блоком выводится полная легенда реально присутствующих lithology/LBA symbols,
   снизу — компактная повторная легенда; на многостраничной выдаче допускается компактный repeat
