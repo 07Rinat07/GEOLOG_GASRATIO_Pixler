@@ -27,8 +27,9 @@ from geoworkbench.printing.hydrocarbon_interpretation_geology import (
 )
 from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
     DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS,
-    GeologyTrackVisibility,
     InterpretationGeologyTrackSettings,
+    forced_empty_geology_tracks,
+    resolve_geology_track_kinds,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_canvas import PageCanvas
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import (
@@ -144,39 +145,12 @@ def _geology_track_kinds(
     bottom_depth: float,
     settings: InterpretationGeologyTrackSettings,
 ) -> tuple[str, ...]:
-    visible = (
-        tuple(
-            sample
-            for sample in geology.samples
-            if sample.bottom_depth >= top_depth and sample.top_depth <= bottom_depth
-        )
-        if geology is not None
-        else ()
+    return resolve_geology_track_kinds(
+        geology,
+        top_depth,
+        bottom_depth,
+        settings,
     )
-    has_cuttings = any(sample.components for sample in visible)
-    has_lba = any(
-        value not in (None, "")
-        for sample in visible
-        for value in (
-            sample.lba_group,
-            sample.lba_type_id,
-            sample.lba_intensity,
-            sample.lba_color,
-            sample.lba_distribution,
-            sample.lba_cut,
-            sample.lba_description,
-        )
-    )
-    tracks: list[str] = []
-    if settings.cuttings is GeologyTrackVisibility.SHOW or (
-        settings.cuttings is GeologyTrackVisibility.AUTO and has_cuttings
-    ):
-        tracks.append("cuttings")
-    if settings.lba is GeologyTrackVisibility.SHOW or (
-        settings.lba is GeologyTrackVisibility.AUTO and has_lba
-    ):
-        tracks.append("lba")
-    return tuple(tracks)
 
 
 def _forced_empty_geology_tracks(
@@ -185,35 +159,12 @@ def _forced_empty_geology_tracks(
     bottom_depth: float,
     settings: InterpretationGeologyTrackSettings,
 ) -> tuple[str, ...]:
-    visible = (
-        tuple(
-            sample
-            for sample in geology.samples
-            if sample.bottom_depth >= top_depth and sample.top_depth <= bottom_depth
-        )
-        if geology is not None
-        else ()
+    return forced_empty_geology_tracks(
+        geology,
+        top_depth,
+        bottom_depth,
+        settings,
     )
-    has_cuttings = any(sample.components for sample in visible)
-    has_lba = any(
-        value not in (None, "")
-        for sample in visible
-        for value in (
-            sample.lba_group,
-            sample.lba_type_id,
-            sample.lba_intensity,
-            sample.lba_color,
-            sample.lba_distribution,
-            sample.lba_cut,
-            sample.lba_description,
-        )
-    )
-    empty: list[str] = []
-    if settings.cuttings is GeologyTrackVisibility.SHOW and not has_cuttings:
-        empty.append("cuttings")
-    if settings.lba is GeologyTrackVisibility.SHOW and not has_lba:
-        empty.append("lba")
-    return tuple(empty)
 
 
 def _geology_track_labels(language: AppLanguage) -> dict[str, str]:
