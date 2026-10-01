@@ -48,7 +48,7 @@ release plan и временные планы в `docs` не создаются.
 | Порядок | Задачи | Результат и зависимость | Ответственный по роли / статус |
 |---|---|---|---|
 | 1 | RPT-QA-01 | Исправить пропуски/разрывы и межстраничный washout интерпретационных PDF-графиков; во всех видимых графиках/HTML/PDF/DOCX/XLSX использовать физические названия параметров вместо source mnemonics; единая терминология флюида: «УВ-флюид неопределённого типа» / «жидкая УВ-фаза» / «признаки лёгкой нефтяной фазы» / «жидкая УВ-фаза; возможны лёгкая нефть или газоконденсат» / «газовая УВ-фаза»; raw mnemonics сохранять только в audit/source data; OPUS-графики и OPUS Газомер используют тот же readable-label и fluid-phase contract; RU/KK/EN семантически эквивалентны | Разработчик + специалист ГТИ / в работе |
-| 2 | RPT-DATE-01 | Видимое поле даты в GasRatio/Pixler/OPUS и связанных клиентских отчётах по умолчанию пустое: не подставлять автоматически ни текущую дату, ни часы/минуты. Полный generation timestamp хранится только во внутреннем audit/provenance; пользователь при необходимости вводит видимую дату явно | Разработчик / готово к разработке |
+| 2 | RPT-DATE-01 | В GasRatio/Pixler/OPUS и связанных клиентских отчётах по умолчанию вообще не выводить блок даты и generation time. Полный generation timestamp хранится только во внутреннем audit/provenance; блок даты появляется только после явного ввода даты пользователем | Разработчик / готово к разработке |
 | 3 | RPT-GEO-01 | GasRatio/Pixler/OPUS interpretation reports автоматически используют актуальную геологию текущей скважины, включая материализованную из загруженного LAS через существующий geology resolver: синхронизированные по глубине колонки «Шламограмма» и «ЛБА», режим Auto/Show/Hide, без повторного разбора LAS и без изменения расчётных формул | Разработчик + специалист ГТИ / готово к разработке |
 | 4 | RPT-GEO-02 | Динамические легенды шламограммы и ЛБА: полная сверху над графиками, компактная повторная снизу/на многостраничной выдаче; показывать только реально используемые обозначения, RU/KK/EN, colour + grayscale-safe | Разработчик + специалист ГТИ / запланировано |
 | 5 | PRINT-STYLE-01 | Единый Report Visual System PDF/Masterlog/DOCX/XLSX, A4/A3/roll, colour + grayscale; новые геологические колонки, легенды, шапка и annotations используют тот же style profile | Разработчик / в работе |
@@ -224,9 +224,9 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
 - [ ] Один immutable style profile для PDF, Masterlog, планшетной печати и Office-экспорта:
   нейтральная техническая типографика, строгая сетка, сдержанный petroleum-blue accent,
   high-contrast текст, light technical fills, line-weight hierarchy и monochrome-safe semantics.
-- [ ] Обязательная document-control зона: well/project, interval, optional visible report date,
-  document number, revision, status, prepared/checked/approved при доступности данных. Видимая дата
-  **пустая по умолчанию** и появляется только после явного пользовательского ввода; часы/минуты и
+- [ ] Обязательная document-control зона: well/project, interval, document number, revision,
+  status, prepared/checked/approved при доступности данных. Блок report date **не выводится по
+  умолчанию вообще** и появляется только после явного пользовательского ввода даты; часы/минуты и
   автоматически подставленный generation timestamp в клиентской шапке не показываются. Полный
   timestamp допускается только во внутреннем audit/provenance.
 - [ ] Единый печатный wordmark: **DIGITAL GEOLOG GASRATIO&PIXLER**. Написание хранится в одном
@@ -1329,13 +1329,14 @@ WELL-04 уже имеет field-level статусы и readiness; WELL-05 — f
 classification являются read-only входом для presentation-layer; новые задачи меняют только
 report snapshot/composition/render/print.
 
-- [ ] **RPT-DATE-01 — пустая видимая дата по умолчанию.**
-  Во всех клиентских GasRatio/Pixler/OPUS interpretation reports поле даты не заполняется
-  автоматически. Ни текущая дата, ни часы/минуты не попадают в титул/шапку без явного ввода
-  пользователя. Generation timestamp сохраняется только в audit/provenance и не влияет на
-  визуальный report identity. Acceptance: screen preview, HTML, PDF, system print, DOCX и XLSX
-  не содержат generation timestamp в client-facing presentation при default settings; введённая
-  вручную дата воспроизводится одинаково в форматах, где отображается document-control зона.
+- [ ] **RPT-DATE-01 — без видимого блока даты по умолчанию.**
+  Во всех клиентских GasRatio/Pixler/OPUS interpretation reports блок даты отсутствует при
+  default settings: не показываются ни пустая подписанная ячейка, ни текущая дата, ни часы/минуты.
+  Generation timestamp сохраняется только в audit/provenance и не влияет на визуальный report
+  identity. Если пользователь явно вводит report date, соответствующий блок появляется.
+  Acceptance: screen preview, HTML, PDF, system print, DOCX и XLSX не содержат generation timestamp
+  и пустого date-control block при default settings; введённая вручную дата воспроизводится
+  одинаково в форматах, где отображается document-control зона.
 
 - [ ] **RPT-GEO-01 — шламограмма и ЛБА из актуальной геологии проекта.**
   Report-layer использует `Well.lithology`/`Well.cuttings`, включая данные, которые уже
