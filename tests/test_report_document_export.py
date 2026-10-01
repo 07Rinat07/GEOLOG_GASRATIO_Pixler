@@ -87,6 +87,31 @@ def test_document_model_uses_resolved_indices_and_coverage_states() -> None:
     assert model.columns[2].coverage.unavailable_count == 3
 
 
+@pytest.mark.parametrize(
+    ("language", "gas_header", "unavailable_header"),
+    [
+        (AppLanguage.RU, "Содержание метана [ppm]", "Неопределённый канал"),
+        (AppLanguage.KK, "Метан [ppm]", "Анықталмаған арна"),
+        (AppLanguage.EN, "Methane [ppm]", "Unresolved channel"),
+    ],
+)
+def test_document_headers_are_localized_without_exposing_mnemonics(
+    language: AppLanguage,
+    gas_header: str,
+    unavailable_header: str,
+) -> None:
+    dataset, report = _resolved_report()
+
+    model = build_report_document_model(dataset, report, language=language)
+
+    assert model.columns[1].technical_name == "C1"
+    assert model.columns[2].technical_name == "H2S"
+    assert model.columns[1].header == gas_header
+    assert model.columns[2].header == unavailable_header
+    assert "C1" not in model.columns[1].header
+    assert "H2S" not in model.columns[2].header
+
+
 def test_html_export_is_self_contained_and_explicit_about_coverage(tmp_path) -> None:
     dataset, report = _resolved_report()
     target = tmp_path / "report.html"
