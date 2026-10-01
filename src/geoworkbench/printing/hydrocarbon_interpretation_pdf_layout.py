@@ -54,9 +54,9 @@ class ChartGeometry:
     left_axis_rect: QRectF
     right_axis_rect: QRectF
     panel_rects: tuple[QRectF, ...]
+    legend_rect: QRectF
+    note_rect: QRectF
     geology_rects: tuple[QRectF, ...] = ()
-    legend_rect: QRectF | None = None
-    note_rect: QRectF | None = None
 
 
 def plan_depth_pages(
@@ -226,9 +226,9 @@ def chart_geometry(
         left_axis,
         right_axis,
         panel_rects,
-        geology_rects,
         legend,
         note,
+        geology_rects,
     )
 
 
