@@ -2982,7 +2982,70 @@ class TabletView(QWidget):
             self._overlay_layers.mark_dirty(OverlayLayerKind.SELECTION)
             self.selection_changed.emit(self._selection.snapshot())
         if refresh:
+            self.refresh_interpretations()
+
+    def refresh_interpretations(self) -> None:
+        """Refresh interpretation graphics without rebuilding existing PlotWidgets."""
+
+        expected_ids = {
+            definition.track_id
+            for definition in self._layout_model.visible_tracks()
+            if definition.kind is TrackKind.INTERPRETATION
+        }
+        rendered_ids = {
+            track_id
+            for track_id, rendered in self._rendered.items()
+            if rendered.definition.kind is TrackKind.INTERPRETATION
+        }
+        if expected_ids != rendered_ids:
             self.refresh_view()
+            return
+        for track_id in expected_ids:
+            rendered = self._rendered.get(track_id)
+            if rendered is None or rendered.plot is None:
+                self.refresh_view()
+                return
+            self._clear_interpretation_graphics(rendered)
+            items, lanes = self._populate_interpretation(
+                rendered.widget,
+                rendered.definition,
+            )
+            rendered.interpretation_items = items
+            rendered.interpretation_lanes = lanes
+            self._register_interpretation_overlays(rendered)
+        self._apply_interpretation_selection_style()
+
+    def _clear_interpretation_graphics(self, rendered: RenderedTrack) -> None:
+        if rendered.plot is None:
+            rendered.interpretation_items = {}
+            rendered.interpretation_lanes = {}
+            return
+        track_id = rendered.definition.track_id
+        for items in (rendered.interpretation_items or {}).values():
+            for graphics_item in items:
+                if isinstance(graphics_item, pg.TextItem):
+                    kind = OverlayLayerKind.ANNOTATION
+                else:
+                    kind = OverlayLayerKind.MARKER
+                self._overlay_layers.unregister(kind, track_id, graphics_item)
+                rendered.plot.removeItem(graphics_item)
+        rendered.interpretation_items = {}
+        rendered.interpretation_lanes = {}
+
+    def _register_interpretation_overlays(self, rendered: RenderedTrack) -> None:
+        track_id = rendered.definition.track_id
+        for items in (rendered.interpretation_items or {}).values():
+            for graphics_item in items:
+                if not hasattr(graphics_item, "setZValue") or not hasattr(
+                    graphics_item, "setVisible"
+                ):
+                    continue
+                kind = (
+                    OverlayLayerKind.ANNOTATION
+                    if isinstance(graphics_item, pg.TextItem)
+                    else OverlayLayerKind.MARKER
+                )
+                self._overlay_layers.register(kind, track_id, graphics_item)
 
     def set_selected_interpretation(
         self, interpretation_id: str | None, *, emit_signal: bool = False
@@ -3002,7 +3065,7 @@ class TabletView(QWidget):
             self._overlay_layers.mark_dirty(OverlayLayerKind.SELECTION)
             self.selection_changed.emit(self._selection.snapshot())
         if changed:
-            self.refresh_view()
+            self.refresh_interpretations()
             if emit_signal and interpretation_id is not None:
                 self.interpretation_selected.emit(interpretation_id)
         return changed
@@ -6607,17 +6670,7 @@ class TabletView(QWidget):
                         else OverlayLayerKind.MARKER
                     )
                     self._overlay_layers.register(kind, track_id, graphics_item)
-        for items in (rendered.interpretation_items or {}).values():
-            for graphics_item in items:
-                if hasattr(graphics_item, "setZValue") and hasattr(
-                    graphics_item, "setVisible"
-                ):
-                    kind = (
-                        OverlayLayerKind.ANNOTATION
-                        if isinstance(graphics_item, pg.TextItem)
-                        else OverlayLayerKind.MARKER
-                    )
-                    self._overlay_layers.register(kind, track_id, graphics_item)
+        self._register_interpretation_overlays(rendered)
 
     def _install_cursor(self, rendered: RenderedTrack) -> None:
         if rendered.plot is None:
