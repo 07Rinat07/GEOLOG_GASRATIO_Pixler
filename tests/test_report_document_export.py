@@ -380,7 +380,7 @@ def test_index_curve_header_collision_is_disambiguated_without_mnemonics() -> No
 
     assert [column.header for column in model.columns] == [
         "Depth (source 1) [m]",
-        "Depth (source 2) [m]",
+        "Depth [m] (source 2)",
     ]
     assert model.columns[1].technical_name == "VENDOR_DEPTH_COPY"
     assert all("VENDOR_DEPTH_COPY" not in column.header for column in model.columns)
