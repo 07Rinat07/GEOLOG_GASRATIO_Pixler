@@ -24,10 +24,21 @@ from geoworkbench.printing.hydrocarbon_interpretation_geology import (
     InterpretationGeologySnapshot,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
+    DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS,
     GeologyTrackVisibility,
     InterpretationGeologyTrackSettings,
 )
+from geoworkbench.printing.hydrocarbon_interpretation_report_range import (
+    ReportDepthRange,
+)
+from geoworkbench.project.interpretation_calculation_controller import (
+    InterpretationCalculationController,
+)
+from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.ui.interpretation_report_workspace_final import (
+    InterpretationReportWorkspace,
+)
 
 
 def _dataset(*, depth_span: float = 20.0, samples: int = 41) -> Dataset:
@@ -225,3 +236,126 @@ def test_multi_page_forced_empty_tracks_keep_one_report_level_empty_state(monkey
     assert canvas.pages > 1
     assert observed
     assert all(item == ("cuttings", "lba") for item in observed)
+
+
+
+def test_screen_preview_auto_ignores_geology_outside_selected_interval(qapp) -> None:
+    dataset = _dataset()
+    report = _report()
+    geology = InterpretationGeologySnapshot(
+        samples=(
+            FrozenCuttingsSample(
+                sample_id="outside",
+                top_depth=1015.0,
+                bottom_depth=1018.0,
+                components=(FrozenCuttingsComponent("sandstone", 100.0),),
+                lba_group=2,
+            ),
+        ),
+        lithotypes=(),
+    )
+    depth_range = ReportDepthRange(1000.0, 1010.0)
+
+    auto_uri = hydrocarbon_interpretation_chart_data_uri(
+        report,
+        dataset,
+        AppLanguage.RU,
+        geology=geology,
+        geology_track_settings=InterpretationGeologyTrackSettings(),
+        depth_range=depth_range,
+    )
+    hidden_uri = hydrocarbon_interpretation_chart_data_uri(
+        report,
+        dataset,
+        AppLanguage.RU,
+        geology=geology,
+        geology_track_settings=InterpretationGeologyTrackSettings(
+            cuttings=GeologyTrackVisibility.HIDE,
+            lba=GeologyTrackVisibility.HIDE,
+        ),
+        depth_range=depth_range,
+    )
+
+    assert auto_uri == hidden_uri
+
+
+def test_preview_geology_state_does_not_leak_between_report_identities(
+    qapp,
+    monkeypatch,
+) -> None:
+    session = ProjectSession()
+    session.add_dataset(_dataset(), "Well Preview")
+    workspace = InterpretationReportWorkspace(
+        InterpretationCalculationController(session),
+        language=AppLanguage.RU,
+    )
+    first = SimpleNamespace(
+        project_name="Project",
+        well_name="Well Preview",
+        dataset_id="preview-dataset",
+        report_profile="standard",
+    )
+    second = SimpleNamespace(
+        project_name="Project",
+        well_name="Well Preview",
+        dataset_id="another-dataset",
+        report_profile="opus",
+    )
+    captured: list[tuple[InterpretationGeologyTrackSettings, ReportDepthRange | None]] = []
+
+    monkeypatch.setattr(
+        "geoworkbench.ui.interpretation_report_workspace_final."
+        "interpretation_geology_snapshot",
+        lambda _session: None,
+    )
+
+    def capture_html(_report, _dataset, _language, **kwargs):
+        captured.append(
+            (
+                kwargs["geology_track_settings"],
+                kwargs["depth_range"],
+            )
+        )
+        return "<p>preview</p>"
+
+    monkeypatch.setattr(
+        "geoworkbench.ui.interpretation_report_workspace_final."
+        "hydrocarbon_interpretation_html_with_front_chart",
+        capture_html,
+    )
+
+    hidden = InterpretationGeologyTrackSettings(
+        cuttings=GeologyTrackVisibility.HIDE,
+        lba=GeologyTrackVisibility.HIDE,
+    )
+    workspace.report = first  # type: ignore[assignment]
+    workspace._preview_geology_report_key = workspace._preview_report_key(first)  # type: ignore[arg-type]
+    workspace._preview_geology_track_settings = hidden
+    workspace._preview_depth_range = ReportDepthRange(1000.0, 1010.0)
+    workspace._apply_chart_preview()
+
+    workspace.report = second  # type: ignore[assignment]
+    workspace._apply_chart_preview()
+
+    assert captured[0] == (hidden, ReportDepthRange(1000.0, 1010.0))
+    assert captured[1] == (DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS, None)
+    workspace.close()
+
+
+def test_opus_refresh_applies_chart_preview(qapp) -> None:
+    workspace = InterpretationReportWorkspace(
+        InterpretationCalculationController(ProjectSession()),
+        language=AppLanguage.RU,
+    )
+    calls: list[bool] = []
+    workspace._apply_chart_preview = lambda: calls.append(True)  # type: ignore[method-assign]
+    opus_index = workspace.report_mode.findData("opus_text")
+    assert opus_index >= 0
+    workspace.report_mode.blockSignals(True)
+    workspace.report_mode.setCurrentIndex(opus_index)
+    workspace.report_mode.blockSignals(False)
+
+    workspace.refresh()
+
+    assert calls == [True]
+    workspace.close()
