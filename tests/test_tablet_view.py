@@ -1379,7 +1379,7 @@ def test_tablet_renders_interpretation_track_and_hit_tests_lanes(qapp) -> None:
     view.close()
 
 
-def test_interpretation_refresh_resizes_wrapped_title_without_rebuilding_plot(qapp) -> None:
+def test_interpretation_refresh_resizes_wrapped_title_without_rebuilding_plot(qapp, monkeypatch) -> None:
     from geoworkbench.domain.models import InterpretationInterval, WellInterpretation
 
     dataset = Dataset(
@@ -1419,6 +1419,21 @@ def test_interpretation_refresh_resizes_wrapped_title_without_rebuilding_plot(qa
     plot = rendered.plot
     assert plot is not None
     short_height = rendered.widget.title.height()
+    geometry_refreshes: list[bool] = []
+    anchor_refreshes: list[bool] = []
+    original_geometry_refresh = view._sync_annotation_overlay_geometry
+    original_anchor_refresh = view._refresh_annotation_overlay_anchors
+
+    def refresh_geometry() -> None:
+        geometry_refreshes.append(True)
+        original_geometry_refresh()
+
+    def refresh_anchors() -> None:
+        anchor_refreshes.append(True)
+        original_anchor_refresh()
+
+    monkeypatch.setattr(view, "_sync_annotation_overlay_geometry", refresh_geometry)
+    monkeypatch.setattr(view, "_refresh_annotation_overlay_anchors", refresh_anchors)
 
     long_name = (
         "Primary interpretation with a deliberately long geological interval "
@@ -1433,6 +1448,90 @@ def test_interpretation_refresh_resizes_wrapped_title_without_rebuilding_plot(qa
     assert rendered_after.widget.title.text() == f"Interpretation: {long_name}"
     assert rendered_after.widget.title.height() >= rendered_after.widget.natural_title_header_height
     assert rendered_after.widget.title.height() > short_height
+    assert geometry_refreshes
+    assert anchor_refreshes
+    view.close()
+
+
+def test_interpretation_refresh_rebuilds_description_frames_for_lane_topology(qapp) -> None:
+    dataset = Dataset(
+        "dataset-interpretation-description-lanes",
+        "Dataset",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        np.linspace(100.0, 180.0, 81),
+    )
+    view = TabletView()
+    view.set_layout_model(
+        TabletLayout(
+            [
+                TrackDefinition(
+                    "interpretation",
+                    "Interpretation",
+                    TrackKind.INTERPRETATION,
+                    width=280,
+                )
+            ]
+        )
+    )
+    view.set_cuttings(
+        [
+            CuttingsSample(
+                "sample-description",
+                110.0,
+                130.0,
+                [CuttingsComponent("sandstone", 100.0)],
+                description="Sandstone, fine grained.",
+            )
+        ]
+    )
+    first = WellInterpretation(
+        "primary",
+        "Primary",
+        intervals=[
+            InterpretationInterval(
+                "reservoir",
+                135.0,
+                150.0,
+                "Reservoir",
+                "A",
+                "#fde68a",
+            )
+        ],
+    )
+    view.set_interpretations([first], first.interpretation_id)
+    view.set_dataset(dataset)
+    qapp.processEvents()
+
+    rendered = view._rendered["interpretation"]
+    plot = rendered.plot
+    assert plot is not None
+    first_frame = rendered.description_frames["sample-description"]
+    assert first_frame.rect().width() == pytest.approx(1.0)
+
+    second = WellInterpretation(
+        "primary",
+        "Primary",
+        intervals=[
+            *first.intervals,
+            InterpretationInterval(
+                "fluid",
+                155.0,
+                170.0,
+                "Fluid",
+                "Gas",
+                "#bfdbfe",
+            ),
+        ],
+    )
+    view.set_interpretations([second], second.interpretation_id)
+    qapp.processEvents()
+
+    rendered_after = view._rendered["interpretation"]
+    second_frame = rendered_after.description_frames["sample-description"]
+    assert rendered_after.plot is plot
+    assert second_frame is not first_frame
+    assert second_frame.rect().width() == pytest.approx(2.0)
     view.close()
 
 
