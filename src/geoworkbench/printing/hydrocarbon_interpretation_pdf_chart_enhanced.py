@@ -18,6 +18,13 @@ from geoworkbench.printing.hydrocarbon_fluid_markers import (
 from geoworkbench.printing.hydrocarbon_interpretation_curve_labels import (
     report_curve_label_hints,
 )
+from geoworkbench.printing.geology_track_rendering import (
+    paint_cuttings_track,
+    paint_lba_track,
+)
+from geoworkbench.printing.hydrocarbon_interpretation_geology import (
+    InterpretationGeologySnapshot,
+)
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_canvas import PageCanvas
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import (
     CHART_HEADER_HEIGHT,
@@ -51,6 +58,7 @@ def render_chart_pages(
     language: AppLanguage,
     *,
     depth_range: ReportDepthRange | None = None,
+    geology: InterpretationGeologySnapshot | None = None,
 ) -> None:
     """Render chart pages with printer-safe major and minor depth graduations."""
 
@@ -83,12 +91,18 @@ def render_chart_pages(
         depth_max,
         available_height,
     )
+    geology_tracks = _geology_track_kinds(geology, depth_min, depth_max)
     for page_index, page in enumerate(pages, start=1):
         canvas.new_page()
         percentiles = base_chart._curve_percentiles(panels, dataset, page=page)
         _draw_chart_page(
             canvas.painter,
-            chart_geometry(canvas.content_rect, page, len(panels)),
+            chart_geometry(
+                canvas.content_rect,
+                page,
+                len(panels),
+                geology_track_count=len(geology_tracks),
+            ),
             page,
             page_index,
             len(pages),
@@ -98,8 +112,105 @@ def render_chart_pages(
             base_chart._display_curve_ranges(percentiles),
             percentiles,
             language,
+            geology,
+            geology_tracks,
         )
         canvas.y = canvas.content_rect.bottom()
+
+
+def _geology_track_kinds(
+    geology: InterpretationGeologySnapshot | None,
+    top_depth: float,
+    bottom_depth: float,
+) -> tuple[str, ...]:
+    if geology is None:
+        return ()
+    visible = tuple(
+        sample
+        for sample in geology.samples
+        if sample.bottom_depth >= top_depth and sample.top_depth <= bottom_depth
+    )
+    tracks: list[str] = []
+    if any(sample.components for sample in visible):
+        tracks.append("cuttings")
+    if any(
+        value not in (None, "")
+        for sample in visible
+        for value in (
+            sample.lba_type_id,
+            sample.lba_intensity,
+            sample.lba_color,
+            sample.lba_distribution,
+            sample.lba_cut,
+            sample.lba_description,
+        )
+    ):
+        tracks.append("lba")
+    return tuple(tracks)
+
+
+def _geology_track_labels(language: AppLanguage) -> dict[str, str]:
+    if language is AppLanguage.KK:
+        return {"cuttings": "Шламограмма", "lba": "ЛБА"}
+    if language is AppLanguage.EN:
+        return {"cuttings": "Cuttings", "lba": "LBA"}
+    return {"cuttings": "Шламограмма", "lba": "ЛБА"}
+
+
+def _draw_geology_tracks(
+    painter: QPainter,
+    geometry: ChartGeometry,
+    page: DepthPage,
+    geology: InterpretationGeologySnapshot,
+    geology_tracks: tuple[str, ...],
+    language: AppLanguage,
+) -> None:
+    labels = _geology_track_labels(language)
+    page_samples = tuple(
+        sample
+        for sample in geology.samples
+        if sample.bottom_depth >= page.top_depth
+        and sample.top_depth <= page.bottom_depth
+    )
+    lithotypes = geology.lithotype_map
+    for track, rect in zip(geology_tracks, geometry.geology_rects, strict=True):
+        painter.fillRect(rect, QColor("#ffffff"))
+        heading = labels[track]
+        font = print_font(7.0, text=heading)
+        font.setBold(True)
+        painter.setFont(font)
+        painter.setPen(QColor("#172033"))
+        painter.drawText(
+            QRectF(rect.left(), rect.top() - 32.0, rect.width(), 15.0),
+            Qt.AlignmentFlag.AlignCenter,
+            heading,
+        )
+        for tick in minor_depth_ticks(page):
+            y = base_chart._depth_y(tick, page, rect)
+            painter.setPen(QPen(QColor("#e2e8f0"), 0.45))
+            painter.drawLine(QLineF(rect.left(), y, rect.right(), y))
+        for tick in base_chart._depth_ticks(
+            page,
+            base_chart._nice_tick_step(page.span, target_ticks=_MAJOR_TARGET_TICKS),
+        ):
+            y = base_chart._depth_y(tick, page, rect)
+            painter.setPen(QPen(QColor("#cbd5e1"), 0.65))
+            painter.drawLine(QLineF(rect.left(), y, rect.right(), y))
+        if track == "cuttings":
+            paint_cuttings_track(
+                painter,
+                rect,
+                page_samples,
+                (page.top_depth, page.bottom_depth),
+                lithotypes,
+            )
+        else:
+            paint_lba_track(
+                painter,
+                rect,
+                page_samples,
+                (page.top_depth, page.bottom_depth),
+            )
 
 
 def major_depth_ticks(
@@ -146,6 +257,8 @@ def _draw_chart_page(
     ranges: dict[str, tuple[float, float]],
     percentiles: dict[str, tuple[float, float]],
     language: AppLanguage,
+    geology: InterpretationGeologySnapshot | None,
+    geology_tracks: tuple[str, ...],
 ) -> None:
     labels = base_chart._labels(language)
     title_font = print_font(15.0, text=labels["title"])
@@ -199,6 +312,15 @@ def _draw_chart_page(
         side="right",
         language=language,
     )
+    if geology is not None and geology_tracks:
+        _draw_geology_tracks(
+            painter,
+            geometry,
+            page,
+            geology,
+            geology_tracks,
+            language,
+        )
     candidates = tuple(report.candidates)
     display_hints = report_curve_label_hints(report)
     for panel_index, ((panel_name, curves), rect) in enumerate(
