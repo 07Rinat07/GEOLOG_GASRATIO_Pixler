@@ -42,7 +42,7 @@ class ReportDocumentColumn:
     @property
     def header(self) -> str:
         unit = f" [{self.unit}]" if self.unit else ""
-        return f"{self.title} · {self.technical_name}{unit}"
+        return f"{self.title}{unit}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -202,10 +202,16 @@ def build_report_document_model(
     unavailable = tuple(report.unavailable_channel_mnemonics)
     for mnemonic in unavailable:
         coverage = coverage_by_mnemonic.get(mnemonic.casefold())
+        readable = localized_curve_name(
+            clean_mnemonic(mnemonic),
+            language=export_language,
+        ).strip()
+        if not readable or readable.casefold() == clean_mnemonic(mnemonic).casefold():
+            readable = labels["unresolved"]
         columns.append(
             ReportDocumentColumn(
                 key=f"unavailable:{mnemonic.casefold()}",
-                title=labels["unresolved"],
+                title=readable,
                 technical_name=mnemonic,
                 unit="",
                 availability=ChannelAvailability.UNAVAILABLE,
