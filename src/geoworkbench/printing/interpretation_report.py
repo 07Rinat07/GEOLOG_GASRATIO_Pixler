@@ -30,6 +30,7 @@ from geoworkbench.services.interval_gas_statistics import (
     IntervalGasStatisticsIndex,
 )
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.parameter_labels import localized_curve_name
 from geoworkbench.domain.localized_content import localized_text
 from geoworkbench.services.report_passport import ReportPassport
 from geoworkbench.services.report_output_transaction import (
@@ -119,6 +120,23 @@ class GeologicalGasStatistics:
     mean: float | None
     maximum: float | None
     valid_count: int
+
+
+def gas_statistic_display_name(
+    statistic: GeologicalGasStatistics,
+    labels: dict[str, str],
+    language: AppLanguage,
+) -> str:
+    """Return a user-facing physical label without mutating audit mnemonics."""
+
+    if statistic.kind == "sum":
+        return labels["gas_component_sum"]
+    if statistic.kind == "total":
+        # The calculation layer accepts several historical/source aliases for
+        # dedicated total gas. Presentation must describe the physical
+        # parameter, never whichever carrier mnemonic happened to be selected.
+        return localized_curve_name("TOTAL_GAS", language=language)
+    return localized_curve_name(statistic.mnemonic, language=language)
 
 
 @dataclass(frozen=True, slots=True)
@@ -966,7 +984,7 @@ def _sample_analysis_entry_html(
 ) -> str:
     return (
         f"<tr><td>{_format_depth_interval(entry.top_depth, entry.bottom_depth, depth_unit)}</td>"
-        f"<td>{_gas_html(entry, labels)}</td>"
+        f"<td>{_gas_html(entry, labels, language)}</td>"
         f"<td>{_lba_html(entry, labels, lba_labels, language)}</td></tr>"
     )
 
@@ -1057,17 +1075,13 @@ def _lba_html(
 def _gas_html(
     entry: AnalysisInterpretationEntry,
     labels: dict[str, str],
+    language: AppLanguage,
 ) -> str:
     if not entry.gas_statistics:
         return escape(labels["no_gas"])
     rows: list[str] = []
     for item in entry.gas_statistics:
-        if item.kind == "total":
-            name = f'{labels["gas_total"]}: {item.mnemonic}'
-        elif item.kind == "sum":
-            name = labels["gas_component_sum"]
-        else:
-            name = item.mnemonic
+        name = gas_statistic_display_name(item, labels, language)
         unit = f" [{item.unit}]" if item.unit else ""
         if item.valid_count:
             statistics = (
