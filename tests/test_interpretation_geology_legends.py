@@ -183,3 +183,35 @@ def test_pdf_geometry_reserves_top_and_repeat_geology_legends() -> None:
     )
     assert geometry.geology_repeat_legend_rect.top() > geometry.plot_rect.bottom()
     assert geometry.geology_repeat_legend_rect.bottom() <= geometry.note_rect.top()
+
+
+
+def test_dynamic_geology_legend_keeps_unresolved_lba_marker_explicit() -> None:
+    geology = InterpretationGeologySnapshot(
+        samples=(
+            FrozenCuttingsSample(
+                sample_id="unknown-lba",
+                top_depth=1000.0,
+                bottom_depth=1005.0,
+                components=(),
+                lba_description="visible fluorescence without normalized type",
+            ),
+        ),
+        lithotypes=(),
+    )
+
+    legend = build_interpretation_geology_legend(
+        geology,
+        999.0,
+        1010.0,
+        AppLanguage.EN,
+        include_cuttings=False,
+        include_lba=True,
+    )
+
+    unknown = [item for item in legend.items if item.kind == "lba-type"]
+    assert len(unknown) == 1
+    assert unknown[0].code == "?"
+    assert unknown[0].key == "unknown"
+    assert unknown[0].label == "unresolved bitumen"
+    assert unknown[0].intensity is None
