@@ -5,7 +5,7 @@ from math import ceil
 from typing import Literal
 
 from PySide6.QtCore import QRectF, Qt
-from PySide6.QtGui import QColor, QPainter, QPen
+from PySide6.QtGui import QColor, QFontMetricsF, QPainter, QPen
 
 from geoworkbench.printing.geology_track_rendering import paint_lba_intensity_symbol
 from geoworkbench.printing.hydrocarbon_interpretation_geology import (
@@ -204,11 +204,9 @@ def geology_legend_height(
 ) -> float:
     if legend.empty or width <= 0.0:
         return 0.0
-    columns = _legend_columns(width, compact=compact)
-    rows = ceil(len(legend.items) / columns)
-    row_height = 18.0 if compact else 22.0
     title_height = 0.0 if compact else 16.0
-    return 6.0 + title_height + rows * row_height + 4.0
+    row_heights = _legend_row_heights(width, legend, compact=compact)
+    return 6.0 + title_height + sum(row_heights) + 4.0
 
 
 def paint_geology_legend(
@@ -244,17 +242,24 @@ def paint_geology_legend(
 
     columns = _legend_columns(rect.width(), compact=compact)
     cell_width = rect.width() / columns
-    row_height = 18.0 if compact else 22.0
+    row_heights = _legend_row_heights(
+        rect.width(),
+        legend,
+        compact=compact,
+    )
     font_size = 6.2 if compact else 6.6
+    row_offsets = [top]
+    for height in row_heights[:-1]:
+        row_offsets.append(row_offsets[-1] + height)
 
     for index, item in enumerate(legend.items):
         row = index // columns
         column = index % columns
         cell = QRectF(
             rect.left() + column * cell_width,
-            top + row * row_height,
+            row_offsets[row],
             cell_width,
-            row_height,
+            row_heights[row],
         )
         _paint_legend_item(
             painter,
@@ -311,9 +316,7 @@ def _paint_legend_item(
         painter.setPen(QColor("#172033"))
         painter.drawText(marker, Qt.AlignmentFlag.AlignCenter, item.code)
 
-    text = item.code if compact else (
-        f"{item.code} — {item.label}" if item.code else item.label
-    )
+    text = _legend_item_text(item, compact=compact)
     painter.setFont(print_font(font_size, text=text))
     painter.setPen(QColor("#172033"))
     painter.drawText(
@@ -328,6 +331,52 @@ def _paint_legend_item(
         | Qt.TextFlag.TextWordWrap,
         text,
     )
+
+
+def _legend_item_text(
+    item: GeologyLegendItem,
+    *,
+    compact: bool,
+) -> str:
+    if compact:
+        return item.code
+    return f"{item.code} — {item.label}" if item.code else item.label
+
+
+def _legend_row_heights(
+    width: float,
+    legend: InterpretationGeologyLegend,
+    *,
+    compact: bool,
+) -> tuple[float, ...]:
+    columns = _legend_columns(width, compact=compact)
+    rows = ceil(len(legend.items) / columns)
+    if compact:
+        return tuple(18.0 for _ in range(rows))
+
+    cell_width = width / columns
+    text_width = max(8.0, cell_width - 27.0)
+    font = print_font(6.6, text="Ag")
+    metrics = QFontMetricsF(font)
+    heights: list[float] = []
+    flags = (
+        Qt.AlignmentFlag.AlignLeft
+        | Qt.AlignmentFlag.AlignVCenter
+        | Qt.TextFlag.TextWordWrap
+    )
+    for row in range(rows):
+        row_items = legend.items[row * columns : (row + 1) * columns]
+        measured = 0.0
+        for item in row_items:
+            text = _legend_item_text(item, compact=False)
+            bounds = metrics.boundingRect(
+                QRectF(0.0, 0.0, text_width, 1_000.0),
+                int(flags),
+                text,
+            )
+            measured = max(measured, bounds.height())
+        heights.append(max(22.0, measured + 4.0))
+    return tuple(heights)
 
 
 def _legend_columns(width: float, *, compact: bool) -> int:
