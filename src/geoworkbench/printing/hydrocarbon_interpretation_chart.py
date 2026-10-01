@@ -18,6 +18,11 @@ from geoworkbench.printing.hydrocarbon_interpretation_curve_labels import (
 from geoworkbench.printing.hydrocarbon_interpretation_geology import (
     InterpretationGeologySnapshot,
 )
+from geoworkbench.printing.hydrocarbon_interpretation_geology_legend import (
+    build_interpretation_geology_legend,
+    geology_legend_height,
+    paint_geology_legend,
+)
 from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
     DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS,
     InterpretationGeologyTrackSettings,
@@ -218,8 +223,27 @@ def hydrocarbon_interpretation_chart_data_uri(
             depth_max,
             geology_track_settings,
         )
+        geology_legend = build_interpretation_geology_legend(
+            geology,
+            depth_min,
+            depth_max,
+            language,
+            include_cuttings="cuttings" in geology_tracks,
+            include_lba="lba" in geology_tracks,
+        )
+        preview_legend_height = geology_legend_height(
+            1_820.0,
+            geology_legend,
+        )
+        if preview_legend_height > 0.0:
+            paint_geology_legend(
+                painter,
+                QRectF(90.0, 72.0, 1_820.0, preview_legend_height),
+                geology_legend,
+                language,
+            )
 
-        plot_top = 130.0
+        plot_top = max(130.0, 82.0 + preview_legend_height)
         plot_bottom = 1_015.0
         plot_height = plot_bottom - plot_top
         outer_margin = 35.0
