@@ -783,15 +783,15 @@ def test_conservative_liquid_hydrocarbon_wording_is_consistent_in_three_language
 
     assert (
         fluid_hypothesis_label(candidate, AppLanguage.RU)
-        == "жидкая УВ-фаза; тип не установлен"
+        == "жидкая УВ-фаза"
     )
     assert (
         fluid_hypothesis_label(candidate, AppLanguage.KK)
-        == "сұйық КС фазасы; түрі анықталмаған"
+        == "сұйық КС фазасы"
     )
     assert (
         fluid_hypothesis_label(candidate, AppLanguage.EN)
-        == "liquid hydrocarbon phase; type undetermined"
+        == "liquid hydrocarbon phase"
     )
 
     ru_basis = fluid_hypothesis_basis(candidate, AppLanguage.RU)
