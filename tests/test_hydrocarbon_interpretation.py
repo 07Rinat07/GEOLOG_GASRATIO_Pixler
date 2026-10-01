@@ -884,7 +884,7 @@ def test_interpretation_pdf_uses_immutable_current_well_geology_snapshot(
             CuttingsComponent("sandstone", 70.0),
             CuttingsComponent("clay", 30.0),
         ],
-        lba_type_id="oily",
+        lba_group=2,
         lba_intensity=3,
         lba_color="yellow",
     )
@@ -896,6 +896,8 @@ def test_interpretation_pdf_uses_immutable_current_well_geology_snapshot(
     assert geology.has_cuttings is True
     assert geology.has_lba is True
     assert geology.samples[0].components[0].percentage == 70.0
+    assert geology.samples[0].lba_group == 2
+    assert geology.samples[0].lba_type_id is None
     assert geology.samples[0].lba_intensity == 3
 
     sample.components[0].percentage = 5.0
