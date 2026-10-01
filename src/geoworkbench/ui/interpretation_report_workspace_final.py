@@ -35,7 +35,6 @@ from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
     default_interpretation_report_identity,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_report_range import (
-    ReportDepthRange,
     ReportDepthRangeError,
     resolve_report_depth_range,
 )
