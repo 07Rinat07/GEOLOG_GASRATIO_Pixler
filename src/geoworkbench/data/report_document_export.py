@@ -184,19 +184,25 @@ def build_report_document_model(
         curves.append(curve)
         metadata = curve.metadata
         canonical = clean_mnemonic(metadata.canonical_mnemonic or metadata.original_mnemonic)
+        technical_name = clean_mnemonic(metadata.original_mnemonic)
         friendly = localized_curve_name(
             canonical,
             description=clean_display_text(metadata.description or ""),
             unit=clean_display_text(metadata.unit or ""),
             language=export_language,
         ).strip()
-        if not friendly:
+        technical_candidates = {
+            value.casefold()
+            for value in (canonical, technical_name)
+            if value
+        }
+        if not friendly or friendly.casefold() in technical_candidates:
             friendly = labels["unresolved"]
         columns.append(
             ReportDocumentColumn(
                 key=curve_id,
                 title=friendly,
-                technical_name=clean_mnemonic(metadata.original_mnemonic),
+                technical_name=technical_name,
                 unit=clean_display_text(metadata.unit or ""),
                 availability=ChannelAvailability.AVAILABLE,
                 coverage=coverage_by_key.get(curve_id),
@@ -622,13 +628,13 @@ def _disambiguate_visible_columns(
     """Add a nontechnical ordinal only when physical headers would collide."""
 
     counts: dict[tuple[str, str], int] = {}
-    for column in columns[1:]:
+    for column in columns:
         key = (column.title.casefold(), column.unit.casefold())
         counts[key] = counts.get(key, 0) + 1
 
     ordinals: dict[tuple[str, str], int] = {}
-    result = [columns[0]]
-    for column in columns[1:]:
+    result: list[ReportDocumentColumn] = []
+    for column in columns:
         key = (column.title.casefold(), column.unit.casefold())
         if counts[key] <= 1:
             result.append(column)
