@@ -40,7 +40,10 @@ def test_chart_page_planner_uses_selected_report_depth_range(monkeypatch) -> Non
         return ()
 
     monkeypatch.setattr(chart, "plan_depth_pages", _plan)
-    canvas = SimpleNamespace(content_rect=QRectF(0.0, 0.0, 842.0, 560.0))
+    canvas = SimpleNamespace(
+        content_rect=QRectF(0.0, 0.0, 842.0, 560.0),
+        painter=SimpleNamespace(device=lambda: None),
+    )
     report = SimpleNamespace(depth_unit="m")
 
     chart.render_chart_pages(

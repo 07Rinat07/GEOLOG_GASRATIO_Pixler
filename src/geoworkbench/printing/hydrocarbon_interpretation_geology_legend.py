@@ -5,7 +5,7 @@ from math import ceil
 from typing import Literal
 
 from PySide6.QtCore import QRectF, Qt
-from PySide6.QtGui import QColor, QPainter, QPen
+from PySide6.QtGui import QColor, QFontMetricsF, QPaintDevice, QPainter, QPen
 
 from geoworkbench.printing.geology_track_rendering import paint_lba_intensity_symbol
 from geoworkbench.printing.hydrocarbon_interpretation_geology import (
@@ -28,6 +28,8 @@ from geoworkbench.tablet.lithology_patterns import masterlog_lithology_brush
 
 
 LegendKind = Literal["lithology", "lba-type", "lba-intensity", "lba-color"]
+_MAX_FULL_ROW_HEIGHT = 64.0
+_FULL_LEGEND_OVERHEAD = 26.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -201,14 +203,46 @@ def geology_legend_height(
     legend: InterpretationGeologyLegend,
     *,
     compact: bool = False,
+    paint_device: QPaintDevice | None = None,
 ) -> float:
     if legend.empty or width <= 0.0:
         return 0.0
-    columns = _legend_columns(width, compact=compact)
-    rows = ceil(len(legend.items) / columns)
-    row_height = 18.0 if compact else 22.0
     title_height = 0.0 if compact else 16.0
-    return 6.0 + title_height + rows * row_height + 4.0
+    row_heights = _legend_row_heights(
+        width, legend, compact=compact, paint_device=paint_device,
+    )
+    return 6.0 + title_height + sum(row_heights) + 4.0
+
+
+def paginate_geology_legend(
+    width: float,
+    legend: InterpretationGeologyLegend,
+    maximum_height: float,
+    *,
+    paint_device: QPaintDevice | None = None,
+) -> tuple[InterpretationGeologyLegend, ...]:
+    """Keep every symbol, splitting the full legend at complete row boundaries."""
+    if legend.empty:
+        return ()
+    if width <= 0.0 or maximum_height < _FULL_LEGEND_OVERHEAD + _MAX_FULL_ROW_HEIGHT:
+        raise ValueError("Geology legend page must fit a complete bounded row")
+    columns = _legend_columns(width, compact=False)
+    heights = _legend_row_heights(
+        width, legend, compact=False, paint_device=paint_device,
+    )
+    pages: list[InterpretationGeologyLegend] = []
+    first_row = 0
+    used_height = _FULL_LEGEND_OVERHEAD
+    for row, height in enumerate(heights):
+        if used_height + height > maximum_height and row > first_row:
+            pages.append(InterpretationGeologyLegend(
+                legend.items[first_row * columns : row * columns],
+            ))
+            first_row = row
+            used_height = _FULL_LEGEND_OVERHEAD
+        used_height += height
+    pages.append(InterpretationGeologyLegend(legend.items[first_row * columns :]))
+    return tuple(pages)
 
 
 def paint_geology_legend(
@@ -244,17 +278,25 @@ def paint_geology_legend(
 
     columns = _legend_columns(rect.width(), compact=compact)
     cell_width = rect.width() / columns
-    row_height = 18.0 if compact else 22.0
+    row_heights = _legend_row_heights(
+        rect.width(),
+        legend,
+        compact=compact,
+        paint_device=painter.device(),
+    )
     font_size = 6.2 if compact else 6.6
+    row_offsets = [top]
+    for height in row_heights[:-1]:
+        row_offsets.append(row_offsets[-1] + height)
 
     for index, item in enumerate(legend.items):
         row = index // columns
         column = index % columns
         cell = QRectF(
             rect.left() + column * cell_width,
-            top + row * row_height,
+            row_offsets[row],
             cell_width,
-            row_height,
+            row_heights[row],
         )
         _paint_legend_item(
             painter,
@@ -311,23 +353,101 @@ def _paint_legend_item(
         painter.setPen(QColor("#172033"))
         painter.drawText(marker, Qt.AlignmentFlag.AlignCenter, item.code)
 
-    text = item.code if compact else (
-        f"{item.code} — {item.label}" if item.code else item.label
-    )
-    painter.setFont(print_font(font_size, text=text))
+    text = _legend_item_text(item, compact=compact)
+    font = print_font(font_size, text=text)
+    painter.setFont(font)
     painter.setPen(QColor("#172033"))
+    text_rect = QRectF(
+        rect.left() + marker_width + 2.0,
+        rect.top() + 1.0,
+        max(1.0, rect.width() - marker_width - 5.0),
+        rect.height() - 2.0,
+    )
+    metrics = QFontMetricsF(font, painter.device())
+    text = _fit_legend_text(text, metrics, text_rect.width(), text_rect.height())
     painter.drawText(
-        QRectF(
-            rect.left() + marker_width + 2.0,
-            rect.top() + 1.0,
-            rect.width() - marker_width - 5.0,
-            rect.height() - 2.0,
-        ),
+        text_rect,
         Qt.AlignmentFlag.AlignLeft
         | Qt.AlignmentFlag.AlignVCenter
         | Qt.TextFlag.TextWordWrap,
         text,
     )
+
+
+def _legend_item_text(
+    item: GeologyLegendItem,
+    *,
+    compact: bool,
+) -> str:
+    if compact:
+        return item.code
+    return f"{item.code} — {item.label}" if item.code else item.label
+
+
+def _legend_row_heights(
+    width: float,
+    legend: InterpretationGeologyLegend,
+    *,
+    compact: bool,
+    paint_device: QPaintDevice | None = None,
+) -> tuple[float, ...]:
+    columns = _legend_columns(width, compact=compact)
+    rows = ceil(len(legend.items) / columns)
+    if compact:
+        return tuple(18.0 for _ in range(rows))
+
+    cell_width = width / columns
+    text_width = max(1.0, cell_width - 25.0)
+    heights: list[float] = []
+    flags = (
+        Qt.AlignmentFlag.AlignLeft
+        | Qt.AlignmentFlag.AlignVCenter
+        | Qt.TextFlag.TextWordWrap
+    )
+    for row in range(rows):
+        row_items = legend.items[row * columns : (row + 1) * columns]
+        measured = 0.0
+        for item in row_items:
+            text = _legend_item_text(item, compact=False)
+            font = print_font(6.6, text=text)
+            metrics = (
+                QFontMetricsF(font, paint_device)
+                if paint_device is not None else QFontMetricsF(font)
+            )
+            bounds = metrics.boundingRect(
+                QRectF(0.0, 0.0, text_width, 1_000.0),
+                int(flags),
+                text,
+            )
+            measured = max(measured, bounds.height())
+        heights.append(min(_MAX_FULL_ROW_HEIGHT, max(22.0, measured + 4.0)))
+    return tuple(heights)
+
+
+def _fit_legend_text(
+    text: str,
+    metrics: QFontMetricsF,
+    width: float,
+    height: float,
+) -> str:
+    """Make exceptional labels visibly abbreviated rather than silently clipped."""
+    flags = int(Qt.TextFlag.TextWordWrap | Qt.AlignmentFlag.AlignLeft)
+    bounds = QRectF(0.0, 0.0, width, height)
+
+    def fits(value: str) -> bool:
+        measured = metrics.boundingRect(bounds, flags, value)
+        return measured.height() <= height and measured.width() <= width
+
+    if fits(text):
+        return text
+    low, high = 0, len(text)
+    while low < high:
+        middle = (low + high + 1) // 2
+        if fits(text[:middle].rstrip() + "…"):
+            low = middle
+        else:
+            high = middle - 1
+    return text[:low].rstrip() + "…"
 
 
 def _legend_columns(width: float, *, compact: bool) -> int:
@@ -366,4 +486,5 @@ __all__ = [
     "build_interpretation_geology_legend",
     "geology_legend_height",
     "paint_geology_legend",
+    "paginate_geology_legend",
 ]
