@@ -26,6 +26,7 @@ from geoworkbench.printing.interpretation_report import (
     InterpretationReport,
     _LABELS,
     _LBA_LABELS,
+    gas_statistic_display_name,
 )
 from geoworkbench.services.lba_standard import describe_lba_assessment
 from geoworkbench.services.localization import AppLanguage
@@ -166,18 +167,17 @@ def _write_xlsx(
         (
             labels["interval"],
             labels["name"],
-            "Mnemonic",
             "Unit",
             labels["minimum"],
             labels["mean"],
             labels["maximum"],
         ),
         tuple(
-            _gas_row(entry, statistic, report.depth_unit, labels)
+            _gas_row(entry, statistic, report.depth_unit, labels, language)
             for entry in report.entries
             for statistic in entry.gas_statistics
         ),
-        widths=(18, 28, 18, 12, 16, 16, 16),
+        widths=(18, 32, 12, 16, 16, 16),
     )
 
     stratigraphy = workbook.create_sheet(_sheet_name(labels["stratigraphy_section"]))
@@ -268,15 +268,11 @@ def _gas_row(
     statistic: GeologicalGasStatistics,
     depth_unit: str,
     labels: dict[str, str],
+    language: AppLanguage,
 ) -> tuple[object, ...]:
-    name = {
-        "total": labels["gas_total"],
-        "sum": labels["gas_component_sum"],
-    }.get(statistic.kind, statistic.mnemonic)
     return (
         _interval(entry.top_depth, entry.bottom_depth, depth_unit),
-        name,
-        statistic.mnemonic,
+        gas_statistic_display_name(statistic, labels, language),
         statistic.unit,
         statistic.minimum,
         statistic.mean,
@@ -423,7 +419,7 @@ def _docx_sample_row(
         if value is not None
     )
     gas = "; ".join(
-        _gas_text(item, labels) for item in entry.gas_statistics
+        _gas_text(item, labels, language) for item in entry.gas_statistics
     )
     return (
         _interval(entry.top_depth, entry.bottom_depth, report.depth_unit),
@@ -437,11 +433,12 @@ def _docx_sample_row(
     )
 
 
-def _gas_text(item: GeologicalGasStatistics, labels: dict[str, str]) -> str:
-    name = {
-        "total": labels["gas_total"],
-        "sum": labels["gas_component_sum"],
-    }.get(item.kind, item.mnemonic)
+def _gas_text(
+    item: GeologicalGasStatistics,
+    labels: dict[str, str],
+    language: AppLanguage,
+) -> str:
+    name = gas_statistic_display_name(item, labels, language)
     unit = f" {item.unit}" if item.unit else ""
     return (
         f"{name}: {labels['minimum']} {_number(item.minimum)}; "
