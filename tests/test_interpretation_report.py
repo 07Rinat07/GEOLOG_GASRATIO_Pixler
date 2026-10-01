@@ -393,7 +393,9 @@ def test_interpretation_report_html_is_localized_and_escapes_project_data() -> N
     assert "не фактическая шламограмма" in html
     assert "Стратиграфия по всей глубине скважины" in html
     assert "Газ и ЛБА по фактическим интервалам отбора" in html
-    assert "Total Gas (отдельная кривая): TG [ppm]" in html
+    assert "Общий газ [ppm]" in html
+    assert "Содержание метана [ppm]" in html
+    assert "Total Gas (отдельная кривая): TG [ppm]" not in html
     assert "Сумма компонентов [ppm]" in html
     assert "мин 28; среднее 33; макс 38" in html
     assert "не подменяет Total Gas" in html
@@ -417,8 +419,13 @@ def test_interpretation_report_html_is_localized_and_escapes_project_data() -> N
     assert "Geological report: cuttings, stratigraphy, gas, calcimetry and LBA" in english
     assert "Analytical appendix: one-metre aggregation" in english
     assert "This report is not an automatic" in english
+    assert "Total Gas [ppm]" in english
+    assert "Methane [ppm]" in english
+    assert "TG [ppm]" not in english
     kazakh = interpretation_report_html(report, AppLanguage.KK)
     assert "автоматты қорытынды болып табылмайды" in kazakh
+    assert "Жалпы газ [ppm]" in kazakh
+    assert "Метан [ppm]" in kazakh
 
 
 def test_interpretation_report_exports_pdf(qapp, tmp_path) -> None:
@@ -440,6 +447,9 @@ def test_interpretation_report_exports_pdf(qapp, tmp_path) -> None:
     )
     assert "Whole-well stratigraphy" in text
     assert "Gas and LBA by actual sampling interval" in text
+    assert "Total Gas [ppm]" in text
+    assert "Methane [ppm]" in text
+    assert "TG [ppm]" not in text
     assert "Component sum [ppm]" in text
     assert "Petroleum" in text
     assert "Lower Cretaceous" in text
@@ -489,7 +499,10 @@ def test_interpretation_report_exports_excel_and_word(tmp_path) -> None:
         cell.value for row in gas_sheet.iter_rows() for cell in row
     )
     assert "Сумма компонентов" in gas_values
-    assert "TG" in gas_values
+    assert "Общий газ" in gas_values
+    assert "Содержание метана" in gas_values
+    assert "Mnemonic" not in gas_values
+    assert "TG" not in gas_values
 
     meter_sheet = workbook[workbook.sheetnames[-1]]
     assert meter_sheet["A1"].comment is not None
@@ -503,6 +516,8 @@ def test_interpretation_report_exports_excel_and_word(tmp_path) -> None:
         "Аналитическое приложение: метровая агрегация"
     )
     assert "Сумма компонентов" in document_xml
+    assert "Общий газ" in document_xml
+    assert "Содержание метана" in document_xml
     assert "Petroleum" in document_xml
     assert "Нерастворимый остаток" in document_xml
 
