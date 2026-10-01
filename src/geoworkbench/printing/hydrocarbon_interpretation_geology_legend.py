@@ -204,11 +204,9 @@ def geology_legend_height(
 ) -> float:
     if legend.empty or width <= 0.0:
         return 0.0
-    columns = _legend_columns(width, compact=compact)
-    rows = ceil(len(legend.items) / columns)
-    row_height = 18.0 if compact else 22.0
+    row_heights = _legend_row_heights(width, legend, compact=compact)
     title_height = 0.0 if compact else 16.0
-    return 6.0 + title_height + rows * row_height + 4.0
+    return 6.0 + title_height + sum(row_heights) + 4.0
 
 
 def paint_geology_legend(
@@ -244,7 +242,16 @@ def paint_geology_legend(
 
     columns = _legend_columns(rect.width(), compact=compact)
     cell_width = rect.width() / columns
-    row_height = 18.0 if compact else 22.0
+    row_heights = _legend_row_heights(
+        rect.width(),
+        legend,
+        compact=compact,
+    )
+    row_offsets: list[float] = []
+    offset = 0.0
+    for height in row_heights:
+        row_offsets.append(offset)
+        offset += height
     font_size = 6.2 if compact else 6.6
 
     for index, item in enumerate(legend.items):
@@ -252,9 +259,9 @@ def paint_geology_legend(
         column = index % columns
         cell = QRectF(
             rect.left() + column * cell_width,
-            top + row * row_height,
+            top + row_offsets[row],
             cell_width,
-            row_height,
+            row_heights[row],
         )
         _paint_legend_item(
             painter,
@@ -333,6 +340,35 @@ def _paint_legend_item(
 def _legend_columns(width: float, *, compact: bool) -> int:
     target = 90.0 if compact else 120.0
     return max(1, min(8, int(width // target)))
+
+
+def _legend_row_heights(
+    width: float,
+    legend: InterpretationGeologyLegend,
+    *,
+    compact: bool,
+) -> tuple[float, ...]:
+    columns = _legend_columns(width, compact=compact)
+    rows = ceil(len(legend.items) / columns)
+    if compact:
+        return tuple(18.0 for _ in range(rows))
+    cell_width = width / columns
+    text_width = max(24.0, cell_width - 27.0)
+    estimated_chars_per_line = max(10, int(text_width / 4.2))
+    heights: list[float] = []
+    for row in range(rows):
+        start = row * columns
+        row_items = legend.items[start : start + columns]
+        lines = 1
+        for item in row_items:
+            text = f"{item.code} — {item.label}" if item.code else item.label
+            estimated_lines = max(
+                1,
+                min(4, ceil(len(text) / estimated_chars_per_line)),
+            )
+            lines = max(lines, estimated_lines)
+        heights.append(max(22.0, 10.0 + lines * 9.0))
+    return tuple(heights)
 
 
 def _lba_color_name(code: str, language: AppLanguage) -> str:
