@@ -23,6 +23,7 @@ from geoworkbench.domain.models import (
 )
 from geoworkbench.services.las_geology_dialect import (
     GeologyChannelRole,
+    normalize_geology_mnemonic,
     resolve_geology_channel,
 )
 from geoworkbench.services.las_geology_metadata import (
@@ -143,19 +144,29 @@ def import_las_geology(session: ProjectSession) -> LasGeologyResult:
     if reverse:
         depth = depth[::-1]
 
+    def selected_curve_for(
+        role: GeologyChannelRole,
+        *,
+        slot: int | None = None,
+    ) -> CurveData | None:
+        matches = geology_curves.get((role, slot), [])
+        if not matches:
+            return None
+        strongest_confidence = max(score for _, score in matches)
+        strongest = [
+            curve for curve, confidence in matches
+            if confidence == strongest_confidence
+        ]
+        return strongest[0] if len(strongest) == 1 else None
+
     def values_for(
         role: GeologyChannelRole,
         *,
         slot: int | None = None,
     ) -> NDArray[np.float64] | None:
-        matches = geology_curves.get((role, slot), [])
-        if not matches:
+        curve = selected_curve_for(role, slot=slot)
+        if curve is None:
             return None
-        strongest = [curve for curve, confidence in matches
-                     if confidence == max(score for _, score in matches)]
-        if len(strongest) != 1:
-            return None
-        curve = strongest[0]
         array = np.asarray(curve.values, dtype=float)
         if array.shape != depth.shape:
             return None
@@ -174,6 +185,7 @@ def import_las_geology(session: ProjectSession) -> LasGeologyResult:
     dolomite_values = values_for(GeologyChannelRole.DOLOMITE)
     lba_group_values = values_for(GeologyChannelRole.LBA_GROUP)
     lba_intensity_values = values_for(GeologyChannelRole.LBA_INTENSITY)
+    lba_type_curve = selected_curve_for(GeologyChannelRole.LBA_TYPE)
     lba_type_values = values_for(GeologyChannelRole.LBA_TYPE)
     lba_color_values = values_for(GeologyChannelRole.LBA_COLOR)
     description_values = values_for(GeologyChannelRole.DESCRIPTION_ID)
@@ -334,6 +346,21 @@ def import_las_geology(session: ProjectSession) -> LasGeologyResult:
             else None
         )
         standard = lba_standard_type(metadata_type) if metadata_type else None
+        if (
+            standard is None
+            and metadata is not None
+            and metadata.legacy_plain
+            and not metadata.lba_type_codes
+            and lba_type_curve is not None
+            and normalize_geology_mnemonic(
+                lba_type_curve.metadata.original_mnemonic
+            ) == "ЛБА_ТИП"
+        ):
+            # Plain DIGITAL GEOLOG files historically encoded the standard 1..5
+            # type directly in the Cyrillic ЛБА_ТИП carrier. Do not extend that
+            # convention to English aliases or description-matched vendor CODE
+            # channels merely because the same file also has legacy ~Other data.
+            standard = lba_standard_group(lba_type_code)
         if standard is None:
             standard = lba_standard_group(lba_group)
         if standard is not None and lba_group is None:

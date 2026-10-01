@@ -551,6 +551,95 @@ def test_unknown_metadata_lba_type_falls_back_to_lba_group(tmp_path: Path) -> No
     assert well.cuttings[0].lba_type_id == "oily_resinous"
 
 
+def test_plain_legacy_lba_type_uses_standard_numeric_convention(tmp_path: Path) -> None:
+    source = tmp_path / "legacy-lba-type-only.las"
+    source.write_bytes(
+        "\n".join(
+            [
+                "~Version Information",
+                " VERS. 2.0 : LAS 2.0",
+                " WRAP. NO : One row per depth",
+                "~Well Information",
+                " STRT.M 0 : Start",
+                " STOP.M 1 : Stop",
+                " STEP.M 1 : Step",
+                " NULL. -999.25 : Null",
+                " WELL. Legacy : Well",
+                "~Curve Information",
+                " DEPT.M : Depth",
+                " ЛБА_ТИП.CODE : Тип ЛБА",
+                " ОПИСАНИЕ_ID.CODE : ID описания",
+                "~Other information",
+                "# DESC id=1; top=0; bottom=2; text=Песчаник с признаками ЛБА.",
+                "~ASCII Log Data",
+                "0 2 1",
+                "1 2 1",
+                "",
+            ]
+        ).encode("cp1251")
+    )
+
+    result = import_las_with_report(source)
+    session = ProjectSession()
+    well = session.add_dataset(
+        result.dataset,
+        "Legacy",
+        source_document=result.source_document,
+        import_report=result.report,
+        create_new_well=True,
+    )
+
+    assert len(well.cuttings) == 1
+    assert well.cuttings[0].lba_group == 2
+    assert well.cuttings[0].lba_type_id == "oily"
+
+
+def test_plain_legacy_metadata_does_not_reinterpret_vendor_lba_type(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "mixed-vendor-legacy-metadata.las"
+    source.write_bytes(
+        "\n".join(
+            [
+                "~Version Information",
+                " VERS. 2.0 : LAS 2.0",
+                " WRAP. NO : One row per depth",
+                "~Well Information",
+                " STRT.M 0 : Start",
+                " STOP.M 1 : Stop",
+                " STEP.M 1 : Step",
+                " NULL. -999.25 : Null",
+                " WELL. Mixed : Well",
+                "~Curve Information",
+                " DEPT.M : Depth",
+                " LBA_TYPE.CODE : Vendor-defined LBA type",
+                " ОПИСАНИЕ_ID.CODE : ID описания",
+                "~Other information",
+                "# DESC id=1; top=0; bottom=2; text=Песчаник.",
+                "~ASCII Log Data",
+                "0 2 1",
+                "1 2 1",
+                "",
+            ]
+        ).encode("cp1251")
+    )
+
+    result = import_las_with_report(source)
+    session = ProjectSession()
+    well = session.add_dataset(
+        result.dataset,
+        "Mixed",
+        source_document=result.source_document,
+        import_report=result.report,
+        create_new_well=True,
+    )
+
+    assert len(well.cuttings) == 1
+    assert well.cuttings[0].description == "Песчаник."
+    assert well.cuttings[0].lba_group is None
+    assert well.cuttings[0].lba_type_id is None
+
+
 def test_optional_metadata_rejects_recursion_truncation_trailing_and_overlap() -> None:
     recursive_json = ("[" * 2000 + "0" + "]" * 2000).encode("ascii")
     recursive_raw = (
