@@ -1159,7 +1159,14 @@ WELL-04 уже имеет field-level статусы и readiness; WELL-05 — f
   является глобальным debounce: Dataset replacement, Undo/Redo, imports и full TabletView rebuild
   сохраняют существующие немедленные контракты. Следующие измеряемые slices: расширять intent
   classification только по подтверждённым hot paths и дальше сокращать MainThread rebuild без
-  ослабления viewport LOD/geometry-cache контрактов.
+  ослабления viewport LOD/geometry-cache контрактов. Седьмой slice убирает подтверждённый
+  duplicate render в ручном visible-depth workflow: `set_visible_depth()` оставляет incremental
+  Y-range/LOD/geology/ruler/annotation update без full rebuild, а reset выполняет один full rebuild
+  вместо двух; Project Tree не перестраивается, потому что viewport depth в нём не представлен.
+  Тот же slice после воспроизводимого Windows native-crash устраняет ещё один подтверждённый
+  rebuild hot path: curve-metadata Undo/Redo больше не вызывает `_show_current_dataset()` и не
+  пересоздаёт `PlotWidget`; TabletView reconciles mnemonic membership и STYLE-refresh headers/data
+  in-place с сохранением track widget identity.
 
 ## P1 — поддерживаемая архитектура
 

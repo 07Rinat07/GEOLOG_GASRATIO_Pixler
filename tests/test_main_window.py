@@ -1051,6 +1051,43 @@ def test_window_global_undo_routes_curve_metadata_edits(qapp) -> None:
     window.close()
 
 
+def test_curve_metadata_history_refresh_preserves_tablet_track_widgets(qapp) -> None:
+    window = MainWindow()
+    session, layout = make_session()
+    layout.track_by_id("curve").curve_mnemonics = ["ROP"]
+    bind_session(window, session)
+    window._show_current_dataset()
+    qapp.processEvents()
+
+    rendered = window.tablet_view._rendered["curve"]
+    widget = rendered.widget
+    before = window.tablet_view.dirty_render_stats()
+
+    window.curve_metadata_controller.update(
+        "curve-1",
+        mnemonic="ROP",
+        unit="ft/h",
+        description="Edited penetration rate",
+    )
+
+    try:
+        window.undo_project_edit()
+        after_undo = window.tablet_view.dirty_render_stats()
+        assert window.tablet_view._rendered["curve"].widget is widget
+        assert after_undo.full_updates == before.full_updates
+        assert after_undo.partial_updates == before.partial_updates + 1
+        assert "m/h" in rendered.widget._curve_header_labels["ROP"].text()
+
+        window.redo_project_edit()
+        after_redo = window.tablet_view.dirty_render_stats()
+        assert window.tablet_view._rendered["curve"].widget is widget
+        assert after_redo.full_updates == before.full_updates
+        assert after_redo.partial_updates == before.partial_updates + 2
+        assert "ft/h" in rendered.widget._curve_header_labels["ROP"].text()
+    finally:
+        window.close()
+
+
 def test_window_global_undo_routes_lithology_edits(qapp) -> None:
     window = MainWindow()
     session, _ = make_session()
