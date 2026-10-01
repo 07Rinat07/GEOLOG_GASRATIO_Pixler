@@ -1,7 +1,7 @@
 <!-- runtime-contract: package=0.7.96; project=v36; form=v18; layout=v25 -->
 # Единый план проекта
 
-Решения и приоритеты обновлены 28 сентября 2026 года по `main` на `002bea81` (включая PR #353), текущему коду, тестам, операторскому скриншоту WITS и публичному benchmark real-time drilling software. WITS-UX теперь трактуется как live-first operator workspace, а не как техническая форма настроек: основной экран — live данные и health, редкие network/storage параметры сворачиваются, diagnostics отделяются от рабочего потока, navigation/scroll/help должны быть адаптивными. Текущая industrial-blue DIGITAL GEOLOG айдентика остаётся канонической и не меняется этим UX-рефакторингом. Это единственный канонический план проекта. Завершённые
+Решения и приоритеты обновлены 1 октября 2026 года по `main` на `a1ed52a5` (включая PR #407), текущему коду, тестам, операторскому скриншоту WITS и публичному benchmark real-time drilling software. WITS-UX теперь трактуется как live-first operator workspace, а не как техническая форма настроек: основной экран — live данные и health, редкие network/storage параметры сворачиваются, diagnostics отделяются от рабочего потока, navigation/scroll/help должны быть адаптивными. Текущая industrial-blue DIGITAL GEOLOG айдентика остаётся канонической и не меняется этим UX-рефакторингом. Это единственный канонический план проекта. Завершённые
 изменения фиксируются в [CHANGELOG.md](CHANGELOG.md); отдельные roadmap, build report,
 release plan и временные планы в `docs` не создаются.
 
@@ -1333,8 +1333,9 @@ report snapshot/composition/render/print.
   Во всех клиентских GasRatio/Pixler/OPUS interpretation reports поле даты не заполняется
   автоматически. Ни текущая дата, ни часы/минуты не попадают в титул/шапку без явного ввода
   пользователя. Generation timestamp сохраняется только в audit/provenance и не влияет на
-  визуальный report identity. Acceptance: preview/PDF/system print не содержат случайного
-  timestamp при default settings; введённая вручную дата воспроизводится одинаково.
+  визуальный report identity. Acceptance: screen preview, HTML, PDF, system print, DOCX и XLSX
+  не содержат generation timestamp в client-facing presentation при default settings; введённая
+  вручную дата воспроизводится одинаково в форматах, где отображается document-control зона.
 
 - [ ] **RPT-GEO-01 — шламограмма и ЛБА из актуальной геологии проекта.**
   Report-layer использует `Well.lithology`/`Well.cuttings`, включая данные, которые уже
