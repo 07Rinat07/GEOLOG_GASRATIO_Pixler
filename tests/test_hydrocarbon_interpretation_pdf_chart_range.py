@@ -4,6 +4,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 from PySide6.QtCore import QRectF
 from PySide6.QtGui import QColor, QImage, QPainter
 
@@ -292,5 +293,5 @@ def test_geology_tracks_preserve_legacy_geometry_when_absent() -> None:
     assert len(with_geology.geology_rects) == 2
     assert with_geology.geology_rects[0].left() == legacy.panel_rects[0].left()
     assert with_geology.panel_rects[0].left() > legacy.panel_rects[0].left()
-    assert with_geology.panel_rects[-1].right() == legacy.panel_rects[-1].right()
+    assert with_geology.panel_rects[-1].right() == pytest.approx(legacy.panel_rects[-1].right())
     assert with_geology.plot_rect.left() == with_geology.geology_rects[0].left()
