@@ -72,9 +72,33 @@ def test_marker_legend_deduplicates_categories_and_keeps_canonical_order() -> No
 def test_marker_labels_are_available_for_ru_kk_en() -> None:
     spec = fluid_marker_spec("opus_gasomer_gas_condensate")
 
-    assert spec.label(AppLanguage.RU) == "газоконденсатная УВ-фаза"
-    assert spec.label(AppLanguage.KK) == "газ-конденсатты КС фазасы"
-    assert spec.label(AppLanguage.EN) == "gas-condensate hydrocarbon phase"
+    assert (
+        spec.label(AppLanguage.RU)
+        == "жидкая УВ-фаза; возможны лёгкая нефть или газоконденсат"
+    )
+    assert (
+        spec.label(AppLanguage.KK)
+        == "сұйық КС фазасы; жеңіл мұнай немесе газ конденсаты болуы мүмкін"
+    )
+    assert (
+        spec.label(AppLanguage.EN)
+        == "liquid hydrocarbon phase; light oil or gas condensate possible"
+    )
+
+
+def test_marker_labels_use_only_the_bounded_phase_contract() -> None:
+    allowed = {
+        "УВ-флюид неопределённого типа",
+        "жидкая УВ-фаза",
+        "признаки лёгкой нефтяной фазы",
+        "жидкая УВ-фаза; возможны лёгкая нефть или газоконденсат",
+        "газовая УВ-фаза",
+    }
+
+    assert {
+        spec.label(AppLanguage.RU)
+        for spec in all_fluid_marker_specs()
+    } <= allowed
 
 
 def test_dense_markers_use_horizontal_lanes_without_changing_y_positions() -> None:
@@ -125,9 +149,9 @@ def test_opus_graph_markers_do_not_use_old_oil_wording() -> None:
     )
 
     assert labels == (
-        "признаки нефтяной фазы",
-        "признаки газированной нефтяной фазы",
-        "признаки тяж./остат. нефтяной фазы",
+        "жидкая УВ-фаза",
+        "жидкая УВ-фаза",
+        "жидкая УВ-фаза",
         "УВ-флюид неопределённого типа",
     )
-    assert "нефть" not in labels
+    assert all("нефт" not in label.casefold() for label in labels)
