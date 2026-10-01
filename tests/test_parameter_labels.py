@@ -72,6 +72,18 @@ def test_legacy_gas_vendor_codes_use_physical_parameter_names() -> None:
     assert localized_curve_name("S1627", unit="%") == "Изопентан"
 
 
+def test_common_non_hydrocarbon_gases_have_physical_names_in_all_languages() -> None:
+    expected = {
+        "H2S": ("Сероводород", "Күкіртсутек", "Hydrogen sulfide"),
+        "CO2": ("Диоксид углерода", "Көмірқышқыл газы", "Carbon dioxide"),
+        "N2": ("Азот", "Азот", "Nitrogen"),
+    }
+    for mnemonic, (ru, kk, en) in expected.items():
+        assert localized_curve_name(mnemonic, language=AppLanguage.RU) == ru
+        assert localized_curve_name(mnemonic, language=AppLanguage.KK) == kk
+        assert localized_curve_name(mnemonic, language=AppLanguage.EN) == en
+
+
 def test_normalized_gas_calculation_curve_has_readable_report_name() -> None:
     assert (
         localized_curve_name("TG_NORM_CALC", language=AppLanguage.RU)
