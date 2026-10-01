@@ -7,6 +7,10 @@ from math import cos, pi, sin
 from PySide6.QtCore import QLineF, QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QPainter, QPen, QPolygonF
 
+from geoworkbench.services.fluid_phase_contract import (
+    FluidPhaseContract,
+    fluid_phase_label,
+)
 from geoworkbench.services.localization import AppLanguage
 
 
@@ -30,17 +34,23 @@ class FluidMarkerSpec:
     code: str
     shape: FluidMarkerShape
     color: str
-    label_ru: str
-    label_kk: str
-    label_en: str
+    phase: FluidPhaseContract
     order: int
 
+    @property
+    def label_ru(self) -> str:
+        return fluid_phase_label(self.phase, AppLanguage.RU)
+
+    @property
+    def label_kk(self) -> str:
+        return fluid_phase_label(self.phase, AppLanguage.KK)
+
+    @property
+    def label_en(self) -> str:
+        return fluid_phase_label(self.phase, AppLanguage.EN)
+
     def label(self, language: AppLanguage) -> str:
-        if language is AppLanguage.KK:
-            return self.label_kk
-        if language is AppLanguage.EN:
-            return self.label_en
-        return self.label_ru
+        return fluid_phase_label(self.phase, language)
 
 
 _SPECS: tuple[FluidMarkerSpec, ...] = (
@@ -49,9 +59,7 @@ _SPECS: tuple[FluidMarkerSpec, ...] = (
         "G",
         FluidMarkerShape.CIRCLE,
         "#2563eb",
-        "газовая УВ-фаза",
-        "газдық КС фазасы",
-        "gaseous HC phase",
+        FluidPhaseContract.GAS,
         10,
     ),
     FluidMarkerSpec(
@@ -59,9 +67,7 @@ _SPECS: tuple[FluidMarkerSpec, ...] = (
         "GC",
         FluidMarkerShape.DIAMOND,
         "#0f766e",
-        "газоконденсатная УВ-фаза",
-        "газ-конденсатты КС фазасы",
-        "gas-condensate hydrocarbon phase",
+        FluidPhaseContract.LIQUID_OR_CONDENSATE,
         20,
     ),
     FluidMarkerSpec(
@@ -69,9 +75,7 @@ _SPECS: tuple[FluidMarkerSpec, ...] = (
         "GC/O",
         FluidMarkerShape.DIAMOND_OUTLINE,
         "#7c3aed",
-        "жидкая УВ-фаза; лёгкая нефть / газоконденсат",
-        "сұйық КС фазасы; жеңіл мұнай / газ конденсаты",
-        "liquid hydrocarbon phase; light oil / gas condensate",
+        FluidPhaseContract.LIQUID_OR_CONDENSATE,
         30,
     ),
     FluidMarkerSpec(
@@ -79,9 +83,7 @@ _SPECS: tuple[FluidMarkerSpec, ...] = (
         "GC/GO",
         FluidMarkerShape.HEXAGON,
         "#0d9488",
-        "УВ-фаза; газоконденсат / газированная нефтяная фаза",
-        "КС фазасы; газ конденсаты / газдалған мұнай фазасы",
-        "hydrocarbon phase; gas condensate / gassy-oil phase",
+        FluidPhaseContract.LIQUID_OR_CONDENSATE,
         40,
     ),
     FluidMarkerSpec(
@@ -89,9 +91,7 @@ _SPECS: tuple[FluidMarkerSpec, ...] = (
         "DG",
         FluidMarkerShape.RING,
         "#0891b2",
-        "водорастворённый газ",
-        "суда еріген газ",
-        "water-dissolved gas",
+        FluidPhaseContract.INDETERMINATE,
         50,
     ),
     FluidMarkerSpec(
@@ -99,9 +99,7 @@ _SPECS: tuple[FluidMarkerSpec, ...] = (
         "GO",
         FluidMarkerShape.TRIANGLE_UP,
         "#b45309",
-        "признаки газированной нефтяной фазы",
-        "газдалған мұнай фазасының белгілері",
-        "indications of a gassy-oil phase",
+        FluidPhaseContract.LIQUID,
         60,
     ),
     FluidMarkerSpec(
@@ -109,9 +107,7 @@ _SPECS: tuple[FluidMarkerSpec, ...] = (
         "LO",
         FluidMarkerShape.TRIANGLE_DOWN,
         "#ea580c",
-        "признаки лёгкой нефтяной фазы",
-        "жеңіл мұнай фазасының белгілері",
-        "indications of a light-oil phase",
+        FluidPhaseContract.LIGHT_OIL,
         70,
     ),
     FluidMarkerSpec(
@@ -119,9 +115,7 @@ _SPECS: tuple[FluidMarkerSpec, ...] = (
         "O",
         FluidMarkerShape.SQUARE,
         "#a16207",
-        "признаки нефтяной фазы",
-        "мұнай фазасының белгілері",
-        "indications of an oil phase",
+        FluidPhaseContract.LIQUID,
         80,
     ),
     FluidMarkerSpec(
@@ -129,9 +123,7 @@ _SPECS: tuple[FluidMarkerSpec, ...] = (
         "HO",
         FluidMarkerShape.BAR,
         "#78350f",
-        "признаки тяж./остат. нефтяной фазы",
-        "ауыр/қалдық мұнай фазасының белгілері",
-        "indications of a heavy/residual-oil phase",
+        FluidPhaseContract.LIQUID,
         90,
     ),
     FluidMarkerSpec(
@@ -139,9 +131,7 @@ _SPECS: tuple[FluidMarkerSpec, ...] = (
         "LHC",
         FluidMarkerShape.PENTAGON,
         "#ca8a04",
-        "жидкая УВ-фаза",
-        "сұйық КС фазасы",
-        "liquid HC phase",
+        FluidPhaseContract.LIQUID,
         100,
     ),
     FluidMarkerSpec(
@@ -149,9 +139,7 @@ _SPECS: tuple[FluidMarkerSpec, ...] = (
         "?",
         FluidMarkerShape.CROSS,
         "#64748b",
-        "УВ-флюид неопределённого типа",
-        "түрі анықталмаған көмірсутекті флюид",
-        "hydrocarbon fluid of undetermined type",
+        FluidPhaseContract.INDETERMINATE,
         110,
     ),
 )
