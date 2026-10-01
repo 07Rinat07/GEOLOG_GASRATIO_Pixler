@@ -26,6 +26,9 @@ from geoworkbench.printing.hydrocarbon_interpretation_report import (
 from geoworkbench.printing.hydrocarbon_interpretation_geology import (
     interpretation_geology_snapshot,
 )
+from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
+    DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS,
+)
 from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
     InterpretationReportIdentity,
     default_interpretation_report_identity,
@@ -97,11 +100,19 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         dataset = self.controller.session.current_dataset
         if self.report is None or dataset is None or self._is_mixture_mode():
             return
+        geology = interpretation_geology_snapshot(self.controller.session)
+        geology_track_settings = getattr(
+            self,
+            "_preview_geology_track_settings",
+            DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS,
+        )
         self.preview.setHtml(
             hydrocarbon_interpretation_html_with_front_chart(
                 self.report,
                 dataset,
                 self.language,
+                geology=geology,
+                geology_track_settings=geology_track_settings,
             )
         )
 
@@ -128,6 +139,8 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         if layout_dialog.exec() != QDialog.DialogCode.Accepted:
             return
         layout = layout_dialog.selected_layout()
+        self._preview_geology_track_settings = layout.geology_tracks
+        self._apply_chart_preview()
         target = self._choose_target(".pdf", "PDF (*.pdf)")
         if target is None:
             return
@@ -179,6 +192,8 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         if layout_dialog.exec() != QDialog.DialogCode.Accepted:
             return
         layout = layout_dialog.selected_layout()
+        self._preview_geology_track_settings = layout.geology_tracks
+        self._apply_chart_preview()
 
         with tempfile.TemporaryDirectory(prefix="geolog-interpretation-print-") as folder:
             prepared_pdf = Path(folder) / "interpretation-report.pdf"
