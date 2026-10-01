@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import base64
 from types import SimpleNamespace
 
 import numpy as np
 import pytest
 from PySide6.QtCore import QRectF
-from PySide6.QtGui import QPageLayout, QPageSize, QPainter, QPdfWriter
+from PySide6.QtGui import QImage, QPageLayout, QPageSize, QPainter, QPdfWriter
 
 from geoworkbench.domain.models import (
     CurveData,
@@ -15,6 +16,7 @@ from geoworkbench.domain.models import (
     DepthDomain,
 )
 from geoworkbench.printing import hydrocarbon_interpretation_pdf_chart_enhanced as pdf_chart
+from geoworkbench.printing import hydrocarbon_interpretation_chart as preview_chart
 from geoworkbench.printing.geology_track_rendering import (
     FrozenCuttingsComponent,
     FrozenCuttingsSample,
@@ -133,6 +135,42 @@ def test_screen_preview_uses_same_auto_hide_show_geology_composition(qapp) -> No
     assert forced_empty_uri.startswith("data:image/png;base64,")
     assert auto_uri != hidden_uri
     assert forced_empty_uri != hidden_uri
+
+
+def test_large_preview_legend_grows_canvas_and_preserves_plot_height(qapp, monkeypatch):
+    geology = InterpretationGeologySnapshot(
+        samples=(FrozenCuttingsSample(
+            sample_id="preview-catalog", top_depth=1000.0, bottom_depth=1020.0,
+            components=tuple(
+                FrozenCuttingsComponent(f"{index}: " + "Известняк с пиритом " * 30, 0.5)
+                for index in range(200)
+            ),
+        ),),
+        lithotypes=(),
+    )
+    plot_heights: list[float] = []
+    draw_panel = preview_chart._draw_panel
+
+    def record_panel(painter, rect, *args, **kwargs):
+        plot_heights.append(rect.height())
+        return draw_panel(painter, rect, *args, **kwargs)
+
+    monkeypatch.setattr(preview_chart, "_draw_panel", record_panel)
+    sizes = []
+    for visibility in (GeologyTrackVisibility.HIDE, GeologyTrackVisibility.SHOW):
+        uri = hydrocarbon_interpretation_chart_data_uri(
+            _report(), _dataset(), AppLanguage.RU, geology=geology,
+            geology_track_settings=InterpretationGeologyTrackSettings(
+                cuttings=visibility, lba=GeologyTrackVisibility.HIDE,
+            ),
+        )
+        image = QImage()
+        assert image.loadFromData(base64.b64decode(uri.split(",", 1)[1]), "PNG")
+        sizes.append((image.width(), image.height()))
+    assert sizes[0] == (2000, 1280)
+    assert sizes[1][0] == 2000
+    assert sizes[1][1] > 2000
+    assert plot_heights == [881.0, 881.0]
 
 
 class _CanvasProbe:

@@ -183,7 +183,49 @@ def hydrocarbon_interpretation_chart_data_uri(
     if not panels:
         return ""
 
-    image = QImage(2_000, 1_280, QImage.Format.Format_ARGB32_Premultiplied)
+    legend_device = QImage(1, 1, QImage.Format.Format_ARGB32_Premultiplied)
+    depth_min = float(np.nanmin(depth[finite_depth]))
+    depth_max = float(np.nanmax(depth[finite_depth]))
+    if depth_range is not None:
+        depth_min = depth_range.top_depth
+        depth_max = depth_range.bottom_depth
+    if depth_max <= depth_min:
+        depth_max = depth_min + 1.0
+    visible_depth = (
+        finite_depth
+        & (depth >= depth_min)
+        & (depth <= depth_max)
+    )
+    geology_tracks = resolve_geology_track_kinds(
+        geology,
+        depth_min,
+        depth_max,
+        geology_track_settings,
+    )
+    empty_state_tracks = forced_empty_geology_tracks(
+        geology,
+        depth_min,
+        depth_max,
+        geology_track_settings,
+    )
+    geology_legend = build_interpretation_geology_legend(
+        geology,
+        depth_min,
+        depth_max,
+        language,
+        include_cuttings="cuttings" in geology_tracks,
+        include_lba="lba" in geology_tracks,
+    )
+    preview_legend_height = geology_legend_height(
+        1_820.0,
+        geology_legend,
+        paint_device=legend_device,
+    )
+    legend_offset = max(0.0, preview_legend_height)
+    image = QImage(
+        2_000, 1_280 + int(np.ceil(legend_offset)),
+        QImage.Format.Format_ARGB32_Premultiplied,
+    )
     image.fill(Qt.GlobalColor.white)
     painter = QPainter(image)
     try:
@@ -199,43 +241,6 @@ def hydrocarbon_interpretation_chart_data_uri(
             labels["title"],
         )
 
-        depth_min = float(np.nanmin(depth[finite_depth]))
-        depth_max = float(np.nanmax(depth[finite_depth]))
-        if depth_range is not None:
-            depth_min = depth_range.top_depth
-            depth_max = depth_range.bottom_depth
-        if depth_max <= depth_min:
-            depth_max = depth_min + 1.0
-        visible_depth = (
-            finite_depth
-            & (depth >= depth_min)
-            & (depth <= depth_max)
-        )
-        geology_tracks = resolve_geology_track_kinds(
-            geology,
-            depth_min,
-            depth_max,
-            geology_track_settings,
-        )
-        empty_state_tracks = forced_empty_geology_tracks(
-            geology,
-            depth_min,
-            depth_max,
-            geology_track_settings,
-        )
-        geology_legend = build_interpretation_geology_legend(
-            geology,
-            depth_min,
-            depth_max,
-            language,
-            include_cuttings="cuttings" in geology_tracks,
-            include_lba="lba" in geology_tracks,
-        )
-        preview_legend_height = geology_legend_height(
-            1_820.0,
-            geology_legend,
-            paint_device=image,
-        )
         if preview_legend_height > 0.0:
             paint_geology_legend(
                 painter,
@@ -244,10 +249,9 @@ def hydrocarbon_interpretation_chart_data_uri(
                 language,
             )
 
-        # Track headings occupy the 58 px immediately above the plot. Keep
-        # them below the dynamic legend instead of allowing the two zones to overlap.
-        plot_top = max(130.0, 134.0 + preview_legend_height)
-        plot_bottom = 1_015.0
+        # Grow the canvas with the legend, keeping the depth plot height stable.
+        plot_top = 134.0 + legend_offset
+        plot_bottom = 1_015.0 + legend_offset
         plot_height = plot_bottom - plot_top
         outer_margin = 35.0
         depth_width = 128.0
@@ -360,7 +364,7 @@ def hydrocarbon_interpretation_chart_data_uri(
             )
             _draw_whole_well_fluid_legend(
                 painter,
-                QRectF(90.0, 1_136.0, 1_820.0, 30.0),
+                QRectF(90.0, 1_136.0 + legend_offset, 1_820.0, 30.0),
                 candidates,
                 language,
             )
@@ -368,7 +372,7 @@ def hydrocarbon_interpretation_chart_data_uri(
         painter.setFont(print_font(9.0, text=labels["footer"]))
         painter.setPen(QColor("#475569"))
         painter.drawText(
-            QRectF(90.0, 1_170.0, 1_820.0, 84.0),
+            QRectF(90.0, 1_170.0 + legend_offset, 1_820.0, 84.0),
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop,
             labels["footer"],
         )
