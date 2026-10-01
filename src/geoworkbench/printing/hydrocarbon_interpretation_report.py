@@ -12,6 +12,9 @@ from geoworkbench.domain.models import Dataset
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_renderer import (
     render_hydrocarbon_interpretation_report,
 )
+from geoworkbench.printing.hydrocarbon_interpretation_geology import (
+    InterpretationGeologySnapshot,
+)
 from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
     InterpretationReportIdentity,
     default_interpretation_report_identity,
@@ -43,6 +46,7 @@ def export_hydrocarbon_interpretation_pdf(
     include_chart: bool = False,
     orientation: QPageLayout.Orientation = QPageLayout.Orientation.Landscape,
     identity: InterpretationReportIdentity | None = None,
+    geology: InterpretationGeologySnapshot | None = None,
     overwrite: bool = False,
 ) -> Path:
     destination = Path(target)
@@ -139,6 +143,7 @@ def export_hydrocarbon_interpretation_pdf(
             include_chart=include_chart,
             identity=details,
             depth_range=depth_range,
+            geology=geology,
         )
         del writer
         if temporary.stat().st_size <= 0:
