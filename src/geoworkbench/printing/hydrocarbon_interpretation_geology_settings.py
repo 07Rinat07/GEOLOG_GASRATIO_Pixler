@@ -5,6 +5,7 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from geoworkbench.printing.geology_track_rendering import FrozenCuttingsSample
     from geoworkbench.printing.hydrocarbon_interpretation_geology import (
         InterpretationGeologySnapshot,
     )
@@ -91,7 +92,7 @@ def _visible_samples(
     geology: "InterpretationGeologySnapshot | None",
     top_depth: float,
     bottom_depth: float,
-):
+) -> tuple["FrozenCuttingsSample", ...]:
     if geology is None:
         return ()
     return tuple(
