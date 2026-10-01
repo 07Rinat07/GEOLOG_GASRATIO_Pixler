@@ -3014,8 +3014,46 @@ class TabletView(QWidget):
             rendered.interpretation_items = items
             rendered.interpretation_lanes = lanes
             self._register_interpretation_overlays(rendered)
+            self._refresh_interpretation_descriptions(rendered)
         self._synchronize_track_header_bands()
+        self._synchronize_track_heights()
+        self._sync_annotation_overlay_geometry()
+        self._refresh_annotation_overlay_anchors()
+        current = self.visible_depth_range
+        if current is not None:
+            self._update_lithology_text_visibility(*current)
         self._apply_interpretation_selection_style()
+
+    def _refresh_interpretation_descriptions(self, rendered: RenderedTrack) -> None:
+        """Rebuild cuttings description geometry after interpretation lane changes."""
+
+        if rendered.plot is None:
+            rendered.lithology_description_items = {}
+            rendered.description_frames = {}
+            return
+        track_id = rendered.definition.track_id
+        for text_item in (rendered.lithology_description_items or {}).values():
+            self._overlay_layers.unregister(
+                OverlayLayerKind.ANNOTATION,
+                track_id,
+                text_item,
+            )
+            rendered.plot.removeItem(text_item)
+        for frame in (rendered.description_frames or {}).values():
+            rendered.plot.removeItem(frame)
+        (
+            rendered.lithology_description_items,
+            rendered.description_frames,
+        ) = self._populate_lithology_descriptions(
+            rendered.widget,
+            rendered.definition,
+        )
+        for text_item in (rendered.lithology_description_items or {}).values():
+            self._overlay_layers.register(
+                OverlayLayerKind.ANNOTATION,
+                track_id,
+                text_item,
+            )
 
     def _clear_interpretation_graphics(self, rendered: RenderedTrack) -> None:
         if rendered.plot is None:
