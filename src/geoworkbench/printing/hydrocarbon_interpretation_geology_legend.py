@@ -55,6 +55,9 @@ def build_interpretation_geology_legend(
     top_depth: float,
     bottom_depth: float,
     language: AppLanguage,
+    *,
+    include_cuttings: bool = True,
+    include_lba: bool = True,
 ) -> InterpretationGeologyLegend:
     if geology is None or bottom_depth <= top_depth:
         return InterpretationGeologyLegend(())
@@ -71,7 +74,7 @@ def build_interpretation_geology_legend(
     used_keys: set[tuple[LegendKind, str]] = set()
     lithotypes = geology.lithotype_map
 
-    for sample in visible:
+    for sample in visible if include_cuttings else ():
         for component in sample.components:
             if float(component.percentage) <= 0.0:
                 continue
@@ -103,7 +106,7 @@ def build_interpretation_geology_legend(
                 )
             )
 
-    for sample in visible:
+    for sample in visible if include_lba else ():
         standard_group = lba_standard_group(sample.lba_group)
         style = resolve_lba_type_style(sample.lba_type_id)
         if sample.lba_type_id:
