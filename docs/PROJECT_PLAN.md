@@ -1332,11 +1332,16 @@ report snapshot/composition/render/print.
 - [ ] **RPT-DATE-01 — без видимого блока даты по умолчанию.**
   Во всех клиентских GasRatio/Pixler/OPUS interpretation reports блок даты отсутствует при
   default settings: не показываются ни пустая подписанная ячейка, ни текущая дата, ни часы/минуты.
-  Generation timestamp сохраняется только в audit/provenance и не влияет на визуальный report
-  identity. Если пользователь явно вводит report date, соответствующий блок появляется.
+  Единственный non-passport generation audit record для этого отчёта — исходное поле
+  `HydrocarbonInterpretationReport.generated_at`: оно сохраняется в immutable report snapshot,
+  переносится без изменения через interval scoping/export preparation и **не** добавляется в
+  deterministic `ReportPassport`, его `dataset_sha256` или client-facing metadata. Если
+  пользователь явно вводит report date, соответствующий блок появляется.
   Acceptance: screen preview, HTML, PDF, system print, DOCX и XLSX не содержат generation timestamp
   и пустого date-control block при default settings; введённая вручную дата воспроизводится
-  одинаково в форматах, где отображается document-control зона.
+  одинаково в форматах, где отображается document-control зона; отдельный regression подтверждает,
+  что `generated_at` остаётся тем же после report scoping/export preparation, а Report Passport
+  по-прежнему не содержит абсолютного timestamp.
 
 - [ ] **RPT-GEO-01 — шламограмма и ЛБА из актуальной геологии проекта.**
   Report-layer использует `Well.lithology`/`Well.cuttings`, включая данные, которые уже
@@ -1344,14 +1349,24 @@ report snapshot/composition/render/print.
   geology dialect resolver. Повторно читать/интерпретировать source LAS внутри отчёта нельзя.
   Поэтому ручное исправление геологом после импорта автоматически становится актуальным
   источником для следующего отчёта, а source LAS остаётся immutable.
+  Перед render строится отдельный immutable `ReportGeologySnapshot` с нормализованными
+  интервалами/пробами, используемыми `CatalogLithotype` entries и стабильным
+  `geology_sha256`. Его digest входит в report provenance как отдельный geology source
+  fingerprint и **не** изменяет существующий `dataset_sha256` или fingerprints газовых series.
   Для GasRatio/Pixler/OPUS добавить две синхронизированные с общей depth axis колонки:
   «Шламограмма» — состав проб/пород по фактическим интервалам; «ЛБА» — тип/группа,
-  интенсивность и цвет через существующие LBA domain/style contracts. Default mode `Auto`:
-  колонка присутствует только когда в выбранном report interval есть валидные данные.
-  `Show`/`Hide` являются presentation options; неизвестные vendor geology channels не угадывать.
+  интенсивность и цвет через существующие LBA domain/style contracts.
+  Для каждой колонки independently: `Auto` показывает track только при наличии валидных данных
+  в выбранном report interval; `Hide` подавляет track даже при заполненной геологии; `Show`
+  всегда резервирует и печатает track, а при полном отсутствии данных показывает локализованное
+  «Нет данных»/эквивалент без выдуманных интервалов. При частичной геологии `Show` и `Auto`
+  рисуют только фактические интервалы, а пробелы остаются явно пустыми. Неизвестные vendor geology
+  channels не угадывать.
   Acceptance: LAS с portable geology → import → report без ручного дублирования даёт те же
-  интервалы шлама/ЛБА; project edit меняет следующий report; GasRatio/Pixler/OPUS numeric
-  values и classification до/после добавления колонок byte/semantic-equivalent.
+  интервалы шлама/ЛБА; project edit меняет следующий `geology_sha256`/report provenance, но
+  оставляет `dataset_sha256`, GasRatio/Pixler/OPUS numeric values, classification и gas-series
+  fingerprints неизменными; отдельная матрица на screen preview/PDF/printer проверяет
+  `Auto`, populated `Hide`, empty `Show` и partial-geology `Show`.
 
 - [ ] **RPT-GEO-02 — динамические геологические легенды.**
   Над графическим блоком выводится полная легенда реально присутствующих lithology/LBA symbols,
@@ -1370,16 +1385,26 @@ report snapshot/composition/render/print.
 
 - [ ] **RPT-ANN-01 — printable annotations и remarks.**
   Добавить report annotation snapshot для текста, callout, arrow, interval highlight и remarks
-  с привязкой к depth/interval/track; где возможно переиспользовать существующие annotation/canvas
-  DTO/layout semantics вместо второго координатного формата. Report-specific annotations
-  отделены от source curves и calculations, поддерживают RU/KK/EN и печатаются одинаково в
-  preview/PDF/printer. Не допускать перекрытия header/legend/page-number зон; при переносе
-  страницы depth-anchored annotation остаётся на соответствующей глубине.
+  с привязкой к depth/interval/track; переиспользовать безопасные `AnnotationRecord`/style/layout
+  semantics, но **не** tablet ownership scope. Report annotations получают отдельный scope вида
+  `report:{well_id}:{dataset_id}:{composition_id}`, где `composition_id` стабилен для сохранённой
+  report composition. Track anchors используют logical report-track keys
+  (`geology:cuttings`, `geology:lba`, `curve:<canonical-channel>`, `depth:left/right`),
+  а не tablet `track_id`. Перенос существующей tablet annotation в отчёт возможен только через
+  явное mapping/copy action; implicit `annotation_scope_id(dataset, tablet_layout)` запрещён.
+  Report-specific annotations отделены от source curves и calculations, поддерживают RU/KK/EN
+  и печатаются одинаково в preview/PDF/printer. Не допускать перекрытия
+  header/legend/page-number зон; при переносе страницы depth-anchored annotation остаётся на
+  соответствующей глубине. Acceptance включает два разных saved tablet layouts на одном dataset,
+  две report compositions и две wells: annotation видна только в своём report scope, а
+  отсутствующий logical track не вызывает перенос заметки в соседнюю колонку.
 
 - [ ] **Общая acceptance-матрица:** один и тот же report snapshot на screen/PDF/printer; A4/A3,
   portrait/landscape/roll где применимо; Windows 100/125/150/200% DPI; colour + grayscale;
   длинные RU/KK/EN labels; пустая геология; частичная геология; LAS portable geology; ручные
-  project edits; multi-page intervals; неизменность всех GasRatio/Pixler/OPUS расчётных series.
+  project edits; `Auto/Show/Hide` для обеих geology tracks; multi-page intervals; cross-layout /
+  cross-well annotation isolation; неизменность всех GasRatio/Pixler/OPUS расчётных series и
+  dataset/gas fingerprints при чисто геологических edits.
 
 
 ## P2 — расширение после P0/P1
