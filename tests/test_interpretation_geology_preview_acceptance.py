@@ -3,7 +3,9 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 from PySide6.QtCore import QRectF
+from PySide6.QtGui import QPageLayout, QPageSize, QPainter, QPdfWriter
 
 from geoworkbench.domain.models import (
     CurveData,
@@ -31,6 +33,8 @@ from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
 from geoworkbench.printing.hydrocarbon_interpretation_report_range import (
     ReportDepthRange,
 )
+from geoworkbench.printing.hydrocarbon_interpretation_pdf_canvas import PageCanvas
+from geoworkbench.project.lithotype_catalog_models import CatalogLithotype
 from geoworkbench.project.interpretation_calculation_controller import (
     InterpretationCalculationController,
 )
@@ -134,12 +138,61 @@ def test_screen_preview_uses_same_auto_hide_show_geology_composition(qapp) -> No
 class _CanvasProbe:
     def __init__(self) -> None:
         self.content_rect = QRectF(0.0, 0.0, 800.0, 700.0)
-        self.painter = object()
+        self.painter = SimpleNamespace(device=lambda: None)
         self.y = 0.0
         self.pages = 0
 
     def new_page(self) -> None:
         self.pages += 1
+
+
+@pytest.mark.parametrize("count", [1, 60, 220])
+@pytest.mark.parametrize("language", [AppLanguage.RU, AppLanguage.KK, AppLanguage.EN])
+def test_landscape_pdf_exports_extreme_labels_and_catalogs(qapp, tmp_path, count, language):
+    import fitz
+
+    dataset = _dataset(depth_span=350.0, samples=351)
+    report = _report()
+    lithotypes = tuple(
+        CatalogLithotype(
+            str(index), f"R{index}", "Известняк с пиритом " * 200,
+            "Limestone with pyrite " * 200, "sedimentary", "#c8c8b8", "carbonate", True,
+            name_kk="Пирит түйіршіктері бар әктас " * 200,
+        )
+        for index in range(count)
+    )
+    geology = InterpretationGeologySnapshot(
+        samples=(FrozenCuttingsSample(
+            sample_id="many-rocks", top_depth=1000.0, bottom_depth=1350.0,
+            components=tuple(FrozenCuttingsComponent(str(index), 100.0 / count)
+                             for index in range(count)),
+        ),),
+        lithotypes=lithotypes,
+    )
+    output = tmp_path / "overflow.pdf"
+    writer = QPdfWriter(str(output))
+    writer.setResolution(72)
+    writer.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
+    writer.setPageOrientation(QPageLayout.Orientation.Landscape)
+    painter = QPainter(writer)
+    canvas = PageCanvas(writer, painter, language)
+    try:
+        pdf_chart.render_chart_pages(
+            canvas, report, dataset, language, geology=geology,
+        )
+    finally:
+        painter.end()
+    with fitz.open(output) as document:
+        text = "\n".join(page.get_text() for page in document)
+        assert len(document) >= 3
+        assert "R0" in text
+        assert f"R{count - 1}" in text
+        assert "…" in text
+        assert "1000.00" in text
+        assert "1350.00" in text
+        assert all(page.rect.width > page.rect.height for page in document)
+    assert dataset.depth[0] == 1000.0
+    assert geology.lithotypes == lithotypes
 
 
 def test_multi_page_partial_geology_keeps_page_gaps_empty(monkeypatch) -> None:
@@ -168,6 +221,7 @@ def test_multi_page_partial_geology_keeps_page_gaps_empty(monkeypatch) -> None:
         geology_tracks,
         empty_state_tracks,
         _geology_legend,
+        _continuation_legend,
     ) -> None:
         observed.append(
             (
@@ -221,6 +275,7 @@ def test_multi_page_forced_empty_tracks_keep_one_report_level_empty_state(monkey
         _geology_tracks,
         empty_state_tracks,
         _geology_legend,
+        _continuation_legend,
     ) -> None:
         observed.append(empty_state_tracks)
 

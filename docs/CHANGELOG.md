@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- RPT-GEO legend overflow: метрики легенды привязаны к реальному Unicode font и PDF/print device; отдельная строка ограничена с явным многоточием, большие каталоги переносятся на дополнительные страницы без потери обозначений и без вытеснения depth plot. Windows animation/calcimetry GUI regressions запускаются в отдельных процессах после native crash на границе общего shard.
 - RPT-GEO legend acceptance: полная геологическая легенда теперь измеряет высоту строк по фактическому word-wrap длинных RU/KK/EN labels; добавлены grayscale-safe и first/continuation multi-page regressions, чтобы легенда не обрезалась и не резервировалась дважды.
 - RPT-GEO dynamic legends: interpretation screen preview и PDF/system print теперь строят legend snapshot только из реально используемых lithology/LBA symbols выбранного report interval. Первая chart-page получает полную легенду, страницы продолжения — compact repeat; используются существующие Masterlog lithology patterns и LBA intensity/type contracts с RU/KK/EN labels и grayscale-safe code/pattern/shape fallback.
 - RPT-GEO preview acceptance: экранный whole-well preview теперь использует тот же immutable geology snapshot, shared cuttings/LBA painters и Auto/Show/Hide composition, что PDF/system print. Выбор geology visibility перед экспортом/печатью немедленно синхронизирует preview; добавлена regression-матрица для multi-page partial/empty geology без ложных page-local empty-state.

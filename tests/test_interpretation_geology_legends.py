@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QRectF
-from PySide6.QtGui import QImage, QPainter
+import pytest
+from PySide6.QtCore import QRectF, Qt
+from PySide6.QtGui import QFontMetricsF, QImage, QPainter
 
 from geoworkbench.printing.geology_track_rendering import (
     FrozenCuttingsComponent,
@@ -16,6 +17,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_geology_legend import (
     build_interpretation_geology_legend,
     geology_legend_height,
     paint_geology_legend,
+    paginate_geology_legend,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import (
     CHART_HEADER_HEIGHT,
@@ -25,6 +27,8 @@ from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import (
 )
 from geoworkbench.project.lithotype_catalog_models import CatalogLithotype
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.printing.unicode_support import print_font
+from geoworkbench.printing import hydrocarbon_interpretation_geology_legend as legend_renderer
 
 
 def _snapshot() -> InterpretationGeologySnapshot:
@@ -336,3 +340,54 @@ def test_multi_page_geology_layout_uses_full_then_compact_legend_exclusively() -
     assert later.geology_repeat_legend_rect is not None
     assert first.left_axis_rect.top() > later.left_axis_rect.top()
     assert later.geology_repeat_legend_rect.bottom() <= later.note_rect.top()
+
+
+@pytest.mark.parametrize("dpi", [72, 96, 144, 192])
+@pytest.mark.parametrize("label", [
+    "Очень длинное название известняка с вкраплениями пирита " * 8,
+    "Пирит түйіршіктері бар әктастың өте ұзын атауы " * 8,
+    "A very long limestone name with disseminated pyrite " * 8,
+])
+def test_legend_uses_destination_metrics_and_explicit_ellipsis(qapp, dpi, label) -> None:
+    image = QImage(320, 200, QImage.Format.Format_ARGB32_Premultiplied)
+    image.setDotsPerMeterX(round(dpi / 0.0254))
+    image.setDotsPerMeterY(round(dpi / 0.0254))
+    text = f"LS — {label}"
+    font = print_font(6.6, text=text)
+    metrics = QFontMetricsF(font, image)
+    legend = InterpretationGeologyLegend((
+        GeologyLegendItem("lithology", "limestone", "LS", label),
+    ))
+    width = 150.0
+    measured = metrics.boundingRect(
+        QRectF(0.0, 0.0, width - 25.0, 1000.0),
+        int(Qt.TextFlag.TextWordWrap | Qt.AlignmentFlag.AlignLeft), text,
+    ).height()
+    height = geology_legend_height(width, legend, paint_device=image)
+    assert height == pytest.approx(26.0 + min(64.0, max(22.0, measured + 4.0)))
+    fitted = legend_renderer._fit_legend_text(text, metrics, width - 25.0, height - 28.0)
+    assert fitted.endswith("…")
+    assert len(fitted) < len(text)
+    bounds = metrics.boundingRect(
+        QRectF(0.0, 0.0, width - 25.0, height - 28.0),
+        int(Qt.TextFlag.TextWordWrap | Qt.AlignmentFlag.AlignLeft), fitted,
+    )
+    assert bounds.height() <= height - 28.0
+    assert bounds.width() <= width - 25.0
+
+
+def test_overflow_legend_pagination_preserves_all_symbols_in_order(qapp) -> None:
+    device = QImage(800, 600, QImage.Format.Format_ARGB32_Premultiplied)
+    items = tuple(
+        GeologyLegendItem("lithology", str(index), f"R{index}", "Длинное имя " * 40)
+        for index in range(103)
+    )
+    legend = InterpretationGeologyLegend(items)
+    pages = paginate_geology_legend(760.0, legend, 480.0, paint_device=device)
+    assert len(pages) > 1
+    assert tuple(item for page in pages for item in page.items) == items
+    assert all(
+        geology_legend_height(760.0, page, paint_device=device) <= 480.0
+        for page in pages
+    )
+    assert legend.items == items

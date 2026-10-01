@@ -26,10 +26,12 @@ from geoworkbench.printing.hydrocarbon_interpretation_geology import (
     InterpretationGeologySnapshot,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_geology_legend import (
+    GeologyLegendItem,
     InterpretationGeologyLegend,
     build_interpretation_geology_legend,
     geology_legend_height,
     paint_geology_legend,
+    paginate_geology_legend,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
     DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS,
@@ -43,6 +45,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import (
     CHART_LEGEND_HEIGHT,
     CHART_NOTE_HEIGHT,
     CHART_TRACK_HEADER_HEIGHT,
+    MIN_CHART_HEIGHT,
     ChartGeometry,
     DepthPage,
     chart_geometry,
@@ -117,20 +120,59 @@ def render_chart_pages(
     full_legend_height = geology_legend_height(
         canvas.content_rect.width(),
         geology_legend,
+        paint_device=canvas.painter.device(),
     )
     repeat_legend_height = geology_legend_height(
         canvas.content_rect.width(),
         geology_legend,
         compact=True,
+        paint_device=canvas.painter.device(),
     )
-    available_height = (
+    chart_height_budget = (
         canvas.content_rect.height()
         - CHART_HEADER_HEIGHT
         - CHART_TRACK_HEADER_HEIGHT
         - CHART_LEGEND_HEIGHT
         - CHART_NOTE_HEIGHT
-        - max(full_legend_height, repeat_legend_height)
     )
+    # Preserve a useful plot even on A4 landscape. Large catalogs belong on
+    # dedicated legend pages; do not let them consume the depth-page budget.
+    legend_budget = max(0.0, chart_height_budget - 4.0 * MIN_CHART_HEIGHT)
+    continuation_legend = geology_legend
+    if max(full_legend_height, repeat_legend_height) > legend_budget:
+        for legend_page in paginate_geology_legend(
+            canvas.content_rect.width(),
+            geology_legend,
+            canvas.content_rect.height(),
+            paint_device=canvas.painter.device(),
+        ):
+            canvas.new_page()
+            height = geology_legend_height(
+                canvas.content_rect.width(), legend_page,
+                paint_device=canvas.painter.device(),
+            )
+            paint_geology_legend(
+                canvas.painter,
+                QRectF(canvas.content_rect.left(), canvas.content_rect.top(),
+                       canvas.content_rect.width(), height),
+                legend_page, language,
+            )
+            canvas.y = canvas.content_rect.bottom()
+        reference = {
+            AppLanguage.RU: "Легенда: отдельные страницы",
+            AppLanguage.KK: "Легенда: бөлек беттер",
+            AppLanguage.EN: "Legend: separate pages",
+        }[language]
+        full_legend_height = 0.0
+        if repeat_legend_height > legend_budget:
+            continuation_legend = InterpretationGeologyLegend((
+                GeologyLegendItem("lithology", "legend-pages", reference, ""),
+            ))
+            repeat_legend_height = geology_legend_height(
+                canvas.content_rect.width(), continuation_legend, compact=True,
+                paint_device=canvas.painter.device(),
+            )
+    available_height = chart_height_budget - max(full_legend_height, repeat_legend_height)
     pages = plan_depth_pages(
         depth_min,
         depth_max,
@@ -141,7 +183,9 @@ def render_chart_pages(
         percentiles = base_chart._curve_percentiles(panels, dataset, page=page)
         first_page = page_index == 1
         first_page_legend_height = full_legend_height if first_page else 0.0
-        continuation_legend_height = 0.0 if first_page else repeat_legend_height
+        continuation_legend_height = (
+            repeat_legend_height if not first_page or full_legend_height == 0.0 else 0.0
+        )
         _draw_chart_page(
             canvas.painter,
             chart_geometry(
@@ -165,6 +209,7 @@ def render_chart_pages(
             geology_tracks,
             empty_state_tracks,
             geology_legend,
+            continuation_legend,
         )
         canvas.y = canvas.content_rect.bottom()
 
@@ -323,6 +368,7 @@ def _draw_chart_page(
     geology_tracks: tuple[str, ...],
     empty_state_tracks: tuple[str, ...],
     geology_legend: InterpretationGeologyLegend,
+    continuation_legend: InterpretationGeologyLegend | None = None,
 ) -> None:
     labels = base_chart._labels(language)
     title_font = print_font(15.0, text=labels["title"])
@@ -371,7 +417,7 @@ def _draw_chart_page(
         paint_geology_legend(
             painter,
             geometry.geology_repeat_legend_rect,
-            geology_legend,
+            continuation_legend if continuation_legend is not None else geology_legend,
             language,
             compact=True,
         )

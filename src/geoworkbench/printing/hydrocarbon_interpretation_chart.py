@@ -234,6 +234,7 @@ def hydrocarbon_interpretation_chart_data_uri(
         preview_legend_height = geology_legend_height(
             1_820.0,
             geology_legend,
+            paint_device=image,
         )
         if preview_legend_height > 0.0:
             paint_geology_legend(
