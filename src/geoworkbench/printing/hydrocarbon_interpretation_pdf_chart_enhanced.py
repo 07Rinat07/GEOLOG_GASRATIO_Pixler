@@ -176,13 +176,13 @@ def _draw_geology_tracks(
     for track, rect in zip(geology_tracks, geometry.geology_rects, strict=True):
         painter.fillRect(rect, QColor("#ffffff"))
         heading = labels[track]
-        font = print_font(7.0, text=heading)
+        font = print_font(6.2, text=heading)
         font.setBold(True)
         painter.setFont(font)
         painter.setPen(QColor("#172033"))
         painter.drawText(
-            QRectF(rect.left(), rect.top() - 32.0, rect.width(), 15.0),
-            Qt.AlignmentFlag.AlignCenter,
+            QRectF(rect.left(), rect.top() - 33.0, rect.width(), 28.0),
+            Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
             heading,
         )
         for tick in minor_depth_ticks(page):
