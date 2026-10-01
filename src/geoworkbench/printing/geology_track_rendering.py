@@ -11,7 +11,7 @@ from geoworkbench.printing.lba_visuals import (
     normalized_lba_intensity,
     resolve_lba_type_style,
 )
-from geoworkbench.services.lba_standard import lba_color_code
+from geoworkbench.services.lba_standard import lba_color_code, lba_standard_group
 from geoworkbench.tablet.lithology_patterns import masterlog_lithology_brush
 
 
@@ -29,6 +29,7 @@ class CuttingsSampleVisual(Protocol):
     top_depth: float
     bottom_depth: float
     components: Sequence[CuttingsComponentVisual]
+    lba_group: int | None
     lba_type_id: str | None
     lba_intensity: int | None
     lba_color: str | None
@@ -173,6 +174,7 @@ def paint_lba_track(
         has_lba = any(
             value not in (None, "")
             for value in (
+                sample.lba_group,
                 sample.lba_type_id,
                 sample.lba_intensity,
                 color_code,
@@ -198,6 +200,10 @@ def paint_lba_track(
         painter.setPen(QPen(QColor("#cbd5e1"), 0.15))
         painter.drawRect(sample_rect)
         style = resolve_lba_type_style(sample.lba_type_id)
+        standard_group = lba_standard_group(sample.lba_group)
+        symbol_color = QColor(
+            standard_group.display_color if standard_group is not None else style.color
+        )
         diameter = min(
             max(2.0, sample_rect.height() * 0.72),
             max(2.0, sample_rect.width() * 0.60),
@@ -208,7 +214,7 @@ def paint_lba_track(
             sample_rect.center().x(),
             sample_rect.center().y(),
             diameter,
-            QColor(style.color),
+            symbol_color,
             sample.lba_intensity,
         )
     painter.restore()
