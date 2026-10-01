@@ -148,6 +148,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     orientation=layout.orientation,
                     identity=identity,
                     geology=geology,
+                    geology_track_settings=layout.geology_tracks,
                     overwrite=target.exists(),
                 )
                 exported = export_result.primary_path
@@ -191,6 +192,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     orientation=layout.orientation,
                     identity=identity,
                     geology=geology,
+                    geology_track_settings=layout.geology_tracks,
                     overwrite=True,
                 )
                 with fitz.open(prepared_pdf) as document:
