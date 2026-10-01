@@ -38,7 +38,6 @@ _COVER_FIELDS = (
     "Проект:",
     "Скважина:",
     "Набор данных:",
-    "Сформирован:",
     "Основная кривая:",
     "Порог robust z:",
 )
@@ -51,6 +50,11 @@ _SECTION_MARKERS = {
 _FORBIDDEN_CLIENT_MARKERS = (
     "Ограничения методики",
     "QC и ограничения",
+    "Сформирован:",
+)
+_DEFAULT_COVER_FORBIDDEN = (
+    *_FORBIDDEN_CLIENT_MARKERS,
+    "Дата отчёта",
 )
 _PROSPECTIVE_TABLE_HEADERS = (
     "Интервал",
@@ -327,7 +331,7 @@ def _verify_page_geometry(document: fitz.Document, label: str) -> float:
 def _verify_cover(document: fitz.Document, label: str) -> None:
     cover_text = document[0].get_text()
     _require_text(cover_text, _COVER_FIELDS, f"{label} cover")
-    _reject_text(cover_text, _FORBIDDEN_CLIENT_MARKERS, f"{label} cover")
+    _reject_text(cover_text, _DEFAULT_COVER_FORBIDDEN, f"{label} cover")
     title_spans = [
         span
         for span in _text_spans(document[0])

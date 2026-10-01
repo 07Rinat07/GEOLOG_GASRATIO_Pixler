@@ -264,7 +264,7 @@ def _write_main_sheet(
 
     metadata = (
         (labels.project, report.project_name, labels.well, report.well_name),
-        (labels.dataset, report.dataset_name, labels.generated, report.generated_at),
+        (labels.dataset, report.dataset_name, "", ""),
         (
             labels.primary_gas_curve,
             localized_curve_reference(

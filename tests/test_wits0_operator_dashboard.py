@@ -11,15 +11,14 @@ import pytest
     reason="PySide6/pyqtgraph are not installed in the headless test environment",
 )
 def test_operator_dashboard_normalizes_panel_order_and_hidden_state(
+    qapp,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
-    from PySide6.QtWidgets import QApplication
 
     from geoworkbench.services.localization import AppLanguage
     from geoworkbench.ui.wits0_operator_dashboard import Wits0OperatorDashboard
 
-    app = QApplication.instance() or QApplication([])
     dashboard = Wits0OperatorDashboard(language=AppLanguage.RU)
     default_order = tuple(dashboard.panels)
     try:
@@ -43,8 +42,11 @@ def test_operator_dashboard_normalizes_panel_order_and_hidden_state(
         dashboard.set_panel_layout()
         assert dashboard.panel_layout() == (default_order, ())
     finally:
-        dashboard.close()
-        app.processEvents()
+        # Match the suite-wide Windows offscreen lifecycle policy: hide the
+        # root and keep pyqtgraph/native children alive until the isolated
+        # pytest shard exits. close()+processEvents() can synchronously deliver
+        # DeferredDelete while a native child is already being destroyed.
+        dashboard.hide()
 
 
 @pytest.mark.skipif(
@@ -53,10 +55,10 @@ def test_operator_dashboard_normalizes_panel_order_and_hidden_state(
     reason="PySide6/pyqtgraph are not installed in the headless test environment",
 )
 def test_operator_dashboard_renders_indicators_and_independent_panels(
+    qapp,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
-    from PySide6.QtWidgets import QApplication
 
     from geoworkbench.domain.models import IndexRole, IndexType
     from geoworkbench.services.acquisition_live_view import (
@@ -71,7 +73,7 @@ def test_operator_dashboard_renders_indicators_and_independent_panels(
         Wits0OperatorDashboard,
     )
 
-    app = QApplication.instance() or QApplication([])
+    app = qapp
     dashboard = Wits0OperatorDashboard(language=AppLanguage.RU)
     snapshot = AcquisitionLiveSnapshot(
         dataset_id="dataset-1",
@@ -239,8 +241,11 @@ def test_operator_dashboard_renders_indicators_and_independent_panels(
         assert dashboard.panels["depth"].box.isHidden()
         assert not dashboard.panels["gas_total"].box.isHidden()
     finally:
-        dashboard.close()
-        app.processEvents()
+        # Match the suite-wide Windows offscreen lifecycle policy: hide the
+        # root and keep pyqtgraph/native children alive until the isolated
+        # pytest shard exits. close()+processEvents() can synchronously deliver
+        # DeferredDelete while a native child is already being destroyed.
+        dashboard.hide()
 
 
 
@@ -250,10 +255,10 @@ def test_operator_dashboard_renders_indicators_and_independent_panels(
     reason="PySide6/pyqtgraph are not installed in the headless test environment",
 )
 def test_operator_dashboard_splits_semantic_panel_when_units_differ(
+    qapp,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
-    from PySide6.QtWidgets import QApplication
 
     from geoworkbench.domain.models import IndexRole, IndexType
     from geoworkbench.services.acquisition_live_view import (
@@ -266,7 +271,7 @@ def test_operator_dashboard_splits_semantic_panel_when_units_differ(
     from geoworkbench.services.localization import AppLanguage
     from geoworkbench.ui.wits0_operator_dashboard import Wits0OperatorDashboard
 
-    app = QApplication.instance() or QApplication([])
+    app = qapp
     dashboard = Wits0OperatorDashboard(language=AppLanguage.RU)
     snapshot = AcquisitionLiveSnapshot(
         dataset_id="dataset-1",
@@ -405,8 +410,11 @@ def test_operator_dashboard_splits_semantic_panel_when_units_differ(
         assert targets["gas_components|%"].auto_range is False
         assert extra.plot.viewRange()[0] == pytest.approx([0.0, 2.0])
     finally:
-        dashboard.close()
-        app.processEvents()
+        # Match the suite-wide Windows offscreen lifecycle policy: hide the
+        # root and keep pyqtgraph/native children alive until the isolated
+        # pytest shard exits. close()+processEvents() can synchronously deliver
+        # DeferredDelete while a native child is already being destroyed.
+        dashboard.hide()
 
 
 @pytest.mark.skipif(
@@ -415,11 +423,11 @@ def test_operator_dashboard_splits_semantic_panel_when_units_differ(
     reason="PySide6/pyqtgraph are not installed in the headless test environment",
 )
 def test_operator_dashboard_renders_interpretation_band_and_horizontal_badge(
+    qapp,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
     import pyqtgraph as pg
-    from PySide6.QtWidgets import QApplication
 
     from geoworkbench.domain.models import IndexRole, IndexType
     from geoworkbench.services.acquisition_live_view import (
@@ -434,7 +442,7 @@ def test_operator_dashboard_renders_interpretation_band_and_horizontal_badge(
     from geoworkbench.services.localization import AppLanguage
     from geoworkbench.ui.wits0_operator_dashboard import Wits0OperatorDashboard
 
-    app = QApplication.instance() or QApplication([])
+    app = qapp
     dashboard = Wits0OperatorDashboard(language=AppLanguage.RU)
     snapshot = AcquisitionLiveSnapshot(
         dataset_id="dataset-marker",
@@ -512,5 +520,8 @@ def test_operator_dashboard_renders_interpretation_band_and_horizontal_badge(
         assert any(isinstance(item, pg.LinearRegionItem) for item in items)
         assert any(isinstance(item, pg.TextItem) for item in items)
     finally:
-        dashboard.close()
-        app.processEvents()
+        # Match the suite-wide Windows offscreen lifecycle policy: hide the
+        # root and keep pyqtgraph/native children alive until the isolated
+        # pytest shard exits. close()+processEvents() can synchronously deliver
+        # DeferredDelete while a native child is already being destroyed.
+        dashboard.hide()
