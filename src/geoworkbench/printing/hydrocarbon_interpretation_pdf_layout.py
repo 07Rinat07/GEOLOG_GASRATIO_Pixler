@@ -57,6 +57,8 @@ class ChartGeometry:
     legend_rect: QRectF
     note_rect: QRectF
     geology_rects: tuple[QRectF, ...] = ()
+    geology_legend_rect: QRectF | None = None
+    geology_repeat_legend_rect: QRectF | None = None
 
 
 def plan_depth_pages(
@@ -146,19 +148,40 @@ def chart_geometry(
     panel_count: int,
     *,
     geology_track_count: int = 0,
+    geology_legend_height: float = 0.0,
+    geology_repeat_legend_height: float = 0.0,
 ) -> ChartGeometry:
     """Return chart rectangles guaranteed to remain inside the printable area."""
 
     if panel_count < 1:
         raise ValueError("Для графика требуется хотя бы одна дорожка")
-    chart_top = content_rect.top() + CHART_HEADER_HEIGHT + CHART_TRACK_HEADER_HEIGHT
+    safe_legend_height = max(0.0, float(geology_legend_height))
+    safe_repeat_height = max(0.0, float(geology_repeat_legend_height))
+    geology_legend_rect = (
+        QRectF(
+            content_rect.left(),
+            content_rect.top() + CHART_HEADER_HEIGHT,
+            content_rect.width(),
+            safe_legend_height,
+        )
+        if safe_legend_height > 0.0
+        else None
+    )
+    chart_top = (
+        content_rect.top()
+        + CHART_HEADER_HEIGHT
+        + safe_legend_height
+        + CHART_TRACK_HEADER_HEIGHT
+    )
     maximum_plot_height = max(
         MIN_CHART_HEIGHT,
         content_rect.height()
         - CHART_HEADER_HEIGHT
         - CHART_TRACK_HEADER_HEIGHT
         - CHART_LEGEND_HEIGHT
-        - CHART_NOTE_HEIGHT,
+        - CHART_NOTE_HEIGHT
+        - safe_legend_height
+        - safe_repeat_height,
     )
     plot_height = min(
         maximum_plot_height,
@@ -213,6 +236,16 @@ def chart_geometry(
         panels_width,
         CHART_LEGEND_HEIGHT - 7.0,
     )
+    repeat_legend = (
+        QRectF(
+            content_rect.left(),
+            chart_top + plot_height + CHART_LEGEND_HEIGHT,
+            content_rect.width(),
+            safe_repeat_height,
+        )
+        if safe_repeat_height > 0.0
+        else None
+    )
     note = QRectF(
         content_rect.left(),
         content_rect.bottom() - CHART_NOTE_HEIGHT,
@@ -229,6 +262,8 @@ def chart_geometry(
         legend,
         note,
         geology_rects,
+        geology_legend_rect,
+        repeat_legend,
     )
 
 
