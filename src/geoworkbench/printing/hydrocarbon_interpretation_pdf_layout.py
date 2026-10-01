@@ -167,7 +167,7 @@ def chart_geometry(
     axis_width = 54.0
     axis_gap = 7.0
     panel_gap = 8.0
-    geology_track_width = 34.0
+    geology_track_width = 42.0
     geology_gap = 4.0
     left_axis = QRectF(content_rect.left(), chart_top, axis_width, plot_height)
     right_axis = QRectF(
