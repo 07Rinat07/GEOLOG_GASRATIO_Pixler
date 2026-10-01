@@ -334,6 +334,17 @@ def import_las_geology(session: ProjectSession) -> LasGeologyResult:
             else None
         )
         standard = lba_standard_type(metadata_type) if metadata_type else None
+        if (
+            standard is None
+            and metadata is not None
+            and metadata.legacy_plain
+            and not metadata.lba_type_codes
+        ):
+            # Legacy DIGITAL GEOLOG plain ~Other files used the standard 1..5
+            # LBA type numbering without carrying a separate type dictionary.
+            # Keep this fallback scoped to that explicit legacy dialect so
+            # arbitrary vendor CODE channels are never guessed.
+            standard = lba_standard_group(lba_type_code)
         if standard is None:
             standard = lba_standard_group(lba_group)
         if standard is not None and lba_group is None:
