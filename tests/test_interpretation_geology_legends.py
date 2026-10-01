@@ -215,3 +215,62 @@ def test_dynamic_geology_legend_keeps_unresolved_lba_marker_explicit() -> None:
     assert unknown[0].key == "unknown"
     assert unknown[0].label == "unresolved bitumen"
     assert unknown[0].intensity is None
+
+
+
+def test_long_localized_labels_increase_full_legend_row_height() -> None:
+    long_lithotype = CatalogLithotype(
+        "very-long",
+        "VL",
+        "Очень длинное наименование карбонатно-глинистой породы для печатной легенды",
+        "Very long carbonate and argillaceous lithology name for the printed geology legend",
+        "sedimentary",
+        "#b8a67a",
+        "carbonate",
+        True,
+        name_kk=(
+            "Баспа геологиялық легендасына арналған өте ұзын "
+            "карбонатты-сазды жыныс атауы"
+        ),
+    )
+    geology = InterpretationGeologySnapshot(
+        samples=(
+            FrozenCuttingsSample(
+                sample_id="long-label",
+                top_depth=1000.0,
+                bottom_depth=1005.0,
+                components=(FrozenCuttingsComponent("very-long", 100.0),),
+            ),
+        ),
+        lithotypes=(long_lithotype,),
+    )
+
+    heights = []
+    for language in (AppLanguage.RU, AppLanguage.KK, AppLanguage.EN):
+        legend = build_interpretation_geology_legend(
+            geology,
+            999.0,
+            1010.0,
+            language,
+        )
+        heights.append(geology_legend_height(150.0, legend))
+
+    assert all(height > 48.0 for height in heights)
+
+
+def test_compact_geology_legend_retains_non_colour_identifiers() -> None:
+    legend = build_interpretation_geology_legend(
+        _snapshot(),
+        999.0,
+        1010.0,
+        AppLanguage.EN,
+    )
+
+    assert legend.items
+    assert all(item.code for item in legend.items)
+    lithology = [item for item in legend.items if item.kind == "lithology"]
+    lba = [item for item in legend.items if item.kind.startswith("lba-")]
+    assert lithology
+    assert all(item.pattern_key for item in lithology)
+    assert lba
+    assert any(item.intensity is not None for item in lba)
