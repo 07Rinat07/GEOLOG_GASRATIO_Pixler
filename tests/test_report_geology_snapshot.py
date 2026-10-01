@@ -29,6 +29,10 @@ from geoworkbench.printing.hydrocarbon_interpretation_report import (
 from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
     InterpretationReportIdentity,
 )
+from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
+    GeologyTrackVisibility,
+    InterpretationGeologyTrackSettings,
+)
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
@@ -302,6 +306,10 @@ def test_production_pdf_export_builds_interpretation_passport_with_geology(
         include_chart=True,
         orientation=QPageLayout.Orientation.Landscape,
         identity=_identity(),
+        geology_track_settings=InterpretationGeologyTrackSettings(
+            cuttings=GeologyTrackVisibility.SHOW,
+            lba=GeologyTrackVisibility.HIDE,
+        ),
     )
 
     passport = observed["passport"]
@@ -317,4 +325,8 @@ def test_production_pdf_export_builds_interpretation_passport_with_geology(
         interval=(1000.0, 1010.0),
     ).geology_sha256
     assert [channel.original_mnemonic for channel in passport.channels] == ["C1"]
+    assert dict(passport.render.options) == {
+        "geology_cuttings": "show",
+        "geology_lba": "hide",
+    }
     assert observed["overwrite"] is False

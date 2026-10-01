@@ -16,6 +16,10 @@ from geoworkbench.printing.hydrocarbon_interpretation_pdf_renderer import (
 from geoworkbench.printing.hydrocarbon_interpretation_geology import (
     InterpretationGeologySnapshot,
 )
+from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
+    DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS,
+    InterpretationGeologyTrackSettings,
+)
 from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
     InterpretationReportIdentity,
     default_interpretation_report_identity,
@@ -61,6 +65,9 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
     orientation: QPageLayout.Orientation = QPageLayout.Orientation.Landscape,
     identity: InterpretationReportIdentity | None = None,
     geology: InterpretationGeologySnapshot | None = None,
+    geology_track_settings: InterpretationGeologyTrackSettings = (
+        DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS
+    ),
     overwrite: bool = False,
 ) -> ReportOutputTransactionResult:
     dataset = session.current_dataset
@@ -95,6 +102,10 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
                 orientation=orientation.name.casefold(),
                 dpi=72,
                 margins_mm=(14.0, 14.0, 14.0, 14.0),
+                options=(
+                    ("geology_cuttings", geology_track_settings.cuttings.value),
+                    ("geology_lba", geology_track_settings.lba.value),
+                ),
             ),
             interval=(depth_range.top_depth, depth_range.bottom_depth),
             curve_mnemonics=_interpretation_passport_curve_mnemonics(report),
@@ -112,6 +123,7 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
             orientation=orientation,
             identity=details,
             geology=geology,
+            geology_track_settings=geology_track_settings,
             overwrite=True,
         ),
         passport,
@@ -143,6 +155,9 @@ def export_hydrocarbon_interpretation_pdf(
     orientation: QPageLayout.Orientation = QPageLayout.Orientation.Landscape,
     identity: InterpretationReportIdentity | None = None,
     geology: InterpretationGeologySnapshot | None = None,
+    geology_track_settings: InterpretationGeologyTrackSettings = (
+        DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS
+    ),
     overwrite: bool = False,
 ) -> Path:
     destination = Path(target)
@@ -240,6 +255,7 @@ def export_hydrocarbon_interpretation_pdf(
             identity=details,
             depth_range=depth_range,
             geology=geology,
+            geology_track_settings=geology_track_settings,
         )
         del writer
         if temporary.stat().st_size <= 0:

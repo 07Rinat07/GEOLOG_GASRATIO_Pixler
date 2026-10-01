@@ -25,6 +25,11 @@ from geoworkbench.printing.geology_track_rendering import (
 from geoworkbench.printing.hydrocarbon_interpretation_geology import (
     InterpretationGeologySnapshot,
 )
+from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
+    DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS,
+    GeologyTrackVisibility,
+    InterpretationGeologyTrackSettings,
+)
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_canvas import PageCanvas
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import (
     CHART_HEADER_HEIGHT,
@@ -59,6 +64,9 @@ def render_chart_pages(
     *,
     depth_range: ReportDepthRange | None = None,
     geology: InterpretationGeologySnapshot | None = None,
+    geology_track_settings: InterpretationGeologyTrackSettings = (
+        DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS
+    ),
 ) -> None:
     """Render chart pages with printer-safe major and minor depth graduations."""
 
@@ -91,7 +99,18 @@ def render_chart_pages(
         depth_max,
         available_height,
     )
-    geology_tracks = _geology_track_kinds(geology, depth_min, depth_max)
+    geology_tracks = _geology_track_kinds(
+        geology,
+        depth_min,
+        depth_max,
+        geology_track_settings,
+    )
+    empty_state_tracks = _forced_empty_geology_tracks(
+        geology,
+        depth_min,
+        depth_max,
+        geology_track_settings,
+    )
     for page_index, page in enumerate(pages, start=1):
         canvas.new_page()
         percentiles = base_chart._curve_percentiles(panels, dataset, page=page)
@@ -114,6 +133,7 @@ def render_chart_pages(
             language,
             geology,
             geology_tracks,
+            empty_state_tracks,
         )
         canvas.y = canvas.content_rect.bottom()
 
@@ -122,18 +142,19 @@ def _geology_track_kinds(
     geology: InterpretationGeologySnapshot | None,
     top_depth: float,
     bottom_depth: float,
+    settings: InterpretationGeologyTrackSettings,
 ) -> tuple[str, ...]:
-    if geology is None:
-        return ()
-    visible = tuple(
-        sample
-        for sample in geology.samples
-        if sample.bottom_depth >= top_depth and sample.top_depth <= bottom_depth
+    visible = (
+        tuple(
+            sample
+            for sample in geology.samples
+            if sample.bottom_depth >= top_depth and sample.top_depth <= bottom_depth
+        )
+        if geology is not None
+        else ()
     )
-    tracks: list[str] = []
-    if any(sample.components for sample in visible):
-        tracks.append("cuttings")
-    if any(
+    has_cuttings = any(sample.components for sample in visible)
+    has_lba = any(
         value not in (None, "")
         for sample in visible
         for value in (
@@ -145,9 +166,54 @@ def _geology_track_kinds(
             sample.lba_cut,
             sample.lba_description,
         )
+    )
+    tracks: list[str] = []
+    if settings.cuttings is GeologyTrackVisibility.SHOW or (
+        settings.cuttings is GeologyTrackVisibility.AUTO and has_cuttings
+    ):
+        tracks.append("cuttings")
+    if settings.lba is GeologyTrackVisibility.SHOW or (
+        settings.lba is GeologyTrackVisibility.AUTO and has_lba
     ):
         tracks.append("lba")
     return tuple(tracks)
+
+
+def _forced_empty_geology_tracks(
+    geology: InterpretationGeologySnapshot | None,
+    top_depth: float,
+    bottom_depth: float,
+    settings: InterpretationGeologyTrackSettings,
+) -> tuple[str, ...]:
+    visible = (
+        tuple(
+            sample
+            for sample in geology.samples
+            if sample.bottom_depth >= top_depth and sample.top_depth <= bottom_depth
+        )
+        if geology is not None
+        else ()
+    )
+    has_cuttings = any(sample.components for sample in visible)
+    has_lba = any(
+        value not in (None, "")
+        for sample in visible
+        for value in (
+            sample.lba_group,
+            sample.lba_type_id,
+            sample.lba_intensity,
+            sample.lba_color,
+            sample.lba_distribution,
+            sample.lba_cut,
+            sample.lba_description,
+        )
+    )
+    empty: list[str] = []
+    if settings.cuttings is GeologyTrackVisibility.SHOW and not has_cuttings:
+        empty.append("cuttings")
+    if settings.lba is GeologyTrackVisibility.SHOW and not has_lba:
+        empty.append("lba")
+    return tuple(empty)
 
 
 def _geology_track_labels(language: AppLanguage) -> dict[str, str]:
@@ -162,18 +228,19 @@ def _draw_geology_tracks(
     painter: QPainter,
     geometry: ChartGeometry,
     page: DepthPage,
-    geology: InterpretationGeologySnapshot,
+    geology: InterpretationGeologySnapshot | None,
     geology_tracks: tuple[str, ...],
+    empty_state_tracks: tuple[str, ...],
     language: AppLanguage,
 ) -> None:
     labels = _geology_track_labels(language)
     page_samples = tuple(
         sample
-        for sample in geology.samples
+        for sample in (geology.samples if geology is not None else ())
         if sample.bottom_depth >= page.top_depth
         and sample.top_depth <= page.bottom_depth
     )
-    lithotypes = geology.lithotype_map
+    lithotypes = geology.lithotype_map if geology is not None else {}
     for track, rect in zip(geology_tracks, geometry.geology_rects, strict=True):
         painter.fillRect(rect, QColor("#ffffff"))
         heading = labels[track]
@@ -197,7 +264,20 @@ def _draw_geology_tracks(
             y = base_chart._depth_y(tick, page, rect)
             painter.setPen(QPen(QColor("#cbd5e1"), 0.65))
             painter.drawLine(QLineF(rect.left(), y, rect.right(), y))
-        if track == "cuttings":
+        if track in empty_state_tracks:
+            no_data = {
+                AppLanguage.RU: "Нет данных",
+                AppLanguage.KK: "Дерек жоқ",
+                AppLanguage.EN: "No data",
+            }[language]
+            painter.setPen(QColor("#64748b"))
+            painter.setFont(print_font(6.0, text=no_data))
+            painter.drawText(
+                rect,
+                Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
+                no_data,
+            )
+        elif track == "cuttings":
             paint_cuttings_track(
                 painter,
                 rect,
@@ -260,6 +340,7 @@ def _draw_chart_page(
     language: AppLanguage,
     geology: InterpretationGeologySnapshot | None,
     geology_tracks: tuple[str, ...],
+    empty_state_tracks: tuple[str, ...],
 ) -> None:
     labels = base_chart._labels(language)
     title_font = print_font(15.0, text=labels["title"])
@@ -313,13 +394,14 @@ def _draw_chart_page(
         side="right",
         language=language,
     )
-    if geology is not None and geology_tracks:
+    if geology_tracks:
         _draw_geology_tracks(
             painter,
             geometry,
             page,
             geology,
             geology_tracks,
+            empty_state_tracks,
             language,
         )
     candidates = tuple(report.candidates)

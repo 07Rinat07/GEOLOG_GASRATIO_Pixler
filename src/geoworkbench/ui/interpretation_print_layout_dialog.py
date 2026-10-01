@@ -15,6 +15,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
+    GeologyTrackVisibility,
+    InterpretationGeologyTrackSettings,
+)
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.window_geometry import fit_window_to_screen
 
@@ -28,6 +32,7 @@ class InterpretationPrintOrder(str, Enum):
 class InterpretationPrintLayout:
     orientation: QPageLayout.Orientation
     order: InterpretationPrintOrder
+    geology_tracks: InterpretationGeologyTrackSettings = InterpretationGeologyTrackSettings()
 
 
 class InterpretationPrintLayoutDialog(QDialog):
@@ -100,6 +105,17 @@ class InterpretationPrintLayoutDialog(QDialog):
         )
         form.addRow(self.orientation_label, self.orientation_combo)
         form.addRow(self.order_label, self.order_combo)
+
+        self.cuttings_visibility_combo = self._geology_visibility_combo()
+        self.lba_visibility_combo = self._geology_visibility_combo()
+        form.addRow(
+            QLabel(self._text("Шламограмма:", "Шламограмма:", "Cuttings:")),
+            self.cuttings_visibility_combo,
+        )
+        form.addRow(
+            QLabel(self._text("ЛБА:", "ЛБА:", "LBA:")),
+            self.lba_visibility_combo,
+        )
         self.order_label.setVisible(include_order)
         self.order_combo.setVisible(include_order)
         root.addLayout(form)
@@ -129,7 +145,48 @@ class InterpretationPrintLayoutDialog(QDialog):
             orientation = QPageLayout.Orientation.Portrait
         if not self.include_order or not isinstance(order, InterpretationPrintOrder):
             order = InterpretationPrintOrder.FIRST_TO_LAST
-        return InterpretationPrintLayout(orientation, order)
+        cuttings = self.cuttings_visibility_combo.currentData()
+        lba = self.lba_visibility_combo.currentData()
+        if not isinstance(cuttings, GeologyTrackVisibility):
+            cuttings = GeologyTrackVisibility.AUTO
+        if not isinstance(lba, GeologyTrackVisibility):
+            lba = GeologyTrackVisibility.AUTO
+        return InterpretationPrintLayout(
+            orientation=orientation,
+            order=order,
+            geology_tracks=InterpretationGeologyTrackSettings(
+                cuttings=cuttings,
+                lba=lba,
+            ),
+        )
+
+    def _geology_visibility_combo(self) -> QComboBox:
+        combo = QComboBox()
+        combo.addItem(
+            self._text(
+                "Авто — показывать только при наличии данных",
+                "Авто — дерек болса ғана көрсету",
+                "Auto — show only when data are available",
+            ),
+            GeologyTrackVisibility.AUTO,
+        )
+        combo.addItem(
+            self._text(
+                "Показать — всегда резервировать колонку",
+                "Көрсету — бағанды әрқашан қалдыру",
+                "Show — always reserve the track",
+            ),
+            GeologyTrackVisibility.SHOW,
+        )
+        combo.addItem(
+            self._text(
+                "Скрыть — не печатать колонку",
+                "Жасыру — бағанды баспау",
+                "Hide — do not print the track",
+            ),
+            GeologyTrackVisibility.HIDE,
+        )
+        return combo
 
     def _description_text(self) -> str:
         if not self.include_order:
