@@ -112,6 +112,34 @@ def test_document_headers_are_localized_without_exposing_mnemonics(
     assert "H2S" not in model.columns[2].header
 
 
+def test_unavailable_known_channel_keeps_readable_physical_name() -> None:
+    dataset, _report = _resolved_report()
+    definition = ReportDefinition(
+        "selection:dataset-1:total",
+        "Gas interval",
+        ReportProfile.GAS,
+        dataset.dataset_id,
+        dataset.active_index_id or "",
+        ReportIntervalSelection(ReportIntervalMode.SELECTION),
+        language="en",
+        curve_ids=("c1",),
+        channel_mnemonics=("C1", "TOTAL_GAS"),
+    )
+    report = resolve_report_definition(
+        dataset,
+        definition,
+        context=ReportIntervalContext(selection_range=(100.0, 102.0)),
+        require_curves=True,
+    )
+
+    model = build_report_document_model(dataset, report, language=AppLanguage.EN)
+
+    assert model.columns[2].technical_name == "TOTAL_GAS"
+    assert model.columns[2].header == "Total Gas"
+    assert model.columns[2].availability is not None
+    assert "TOTAL_GAS" not in model.columns[2].header
+
+
 def test_html_export_is_self_contained_and_explicit_about_coverage(tmp_path) -> None:
     dataset, report = _resolved_report()
     target = tmp_path / "report.html"
