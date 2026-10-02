@@ -3,6 +3,7 @@ from __future__ import annotations
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QPalette, QResizeEvent
 from PySide6.QtWidgets import (
+    QBoxLayout,
     QFrame,
     QGridLayout,
     QHBoxLayout,
@@ -286,7 +287,7 @@ class InterpretationReportWorkspace(_CompatibleInterpretationReportWorkspace):
             # The localized action can be wider than the status column at
             # laptop widths. Stack it under the status instead of allowing the
             # card's minimum size hint to push beyond the scroll viewport.
-            drilling_layout.setDirection(QHBoxLayout.Direction.TopToBottom)
+            drilling_layout.setDirection(QBoxLayout.Direction.TopToBottom)
         self.drilling_inputs_heading.setWordWrap(True)
         self.drilling_input_status.setWordWrap(True)
         self.configure_drilling_inputs_button.setMinimumWidth(0)
