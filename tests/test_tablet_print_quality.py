@@ -108,6 +108,41 @@ def test_print_snapshot_keeps_gas_point_series_without_restoring_line() -> None:
     assert float(item.opts.get("symbolSize")) == 4.0
 
 
+def test_print_keeps_vendor_alias_ratio_marker_compact() -> None:
+    _application = QApplication.instance() or QApplication([])
+    mnemonic = "VENDOR_RATIO_42"
+    definition = TrackDefinition(
+        "vendor-ratio",
+        "Vendor ratio",
+        TrackKind.GAS,
+        curve_mnemonics=[mnemonic],
+    )
+    item = pg.PlotDataItem(
+        [0.0, 1.0],
+        [0.0, 1.0],
+        pen=None,
+        symbol="o",
+        symbolSize=2.8,
+        symbolBrush=pg.mkBrush("#ff0000"),
+        symbolPen=pg.mkPen("#ff0000"),
+    )
+    item.setProperty("gasPointPresentation", True)
+    rendered = SimpleNamespace(
+        definition=definition,
+        curve_items={mnemonic: item},
+    )
+
+    states = _activate_print_curve_styles(  # type: ignore[arg-type]
+        (rendered,),
+        raster_scale=3.0,
+    )
+
+    assert 8.3 <= float(item.opts.get("symbolSize")) <= 9.7
+
+    _restore_print_curve_styles(states)
+    assert float(item.opts.get("symbolSize")) == 2.8
+
+
 def test_print_ratio_markers_use_configured_color_and_restore_screen_color() -> None:
     _application = QApplication.instance() or QApplication([])
     mnemonic = "PIXLER_C1_C2"
