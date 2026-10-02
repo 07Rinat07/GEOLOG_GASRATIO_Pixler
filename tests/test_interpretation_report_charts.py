@@ -298,6 +298,18 @@ def test_singleton_ratio_observation_survives_preview_and_pdf_range() -> None:
     assert ranges["ratio"][0] < 2.5 < ranges["ratio"][1]
     assert "total" not in ranges
 
+    pdf_painter = RecordingPainter()
+    _draw_curves(
+        pdf_painter,  # type: ignore[arg-type]
+        QRectF(0.0, 0.0, 120.0, 180.0),
+        page,
+        dataset,
+        (ratio,),
+        {"ratio": ranges["ratio"]},
+        point_series=True,
+    )
+    assert pdf_painter.ellipses == 1
+
 
 def test_report_panel_scatter_contract_is_ratio_only() -> None:
     whole = Path(
