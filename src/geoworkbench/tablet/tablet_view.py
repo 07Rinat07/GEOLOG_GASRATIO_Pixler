@@ -9173,7 +9173,11 @@ class TabletView(QWidget):
                     visible_values,
                     top=visible_top if visible_top is not None else 0.0,
                     bottom=visible_bottom if visible_bottom is not None else 0.0,
-                    vertical_span=track.plot.viewport().height(),
+                    vertical_span=(
+                        track.plot.viewport().height()
+                        if track.plot.viewport().height() > 0
+                        else 1000.0
+                    ),
                     minimum_gap=GAS_SCREEN_POINT_GAP_PX,
                 )
                 item = track.plot.plot(
