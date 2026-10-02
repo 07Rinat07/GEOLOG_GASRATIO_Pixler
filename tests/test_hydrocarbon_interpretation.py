@@ -551,6 +551,62 @@ def test_confirmed_technological_gas_suppresses_geological_candidate_and_exports
         assert "gas-context: event_id=connection-1" not in document
 
 
+def test_negative_tvdss_gas_context_flows_through_standard_report_and_xlsx(
+    tmp_path,
+) -> None:
+    source_session = _session()
+    source_dataset = source_session.current_dataset
+    assert source_dataset is not None
+    dataset = Dataset(
+        "negative-tvdss-log",
+        "Negative TVDSS log",
+        DatasetKind.GTI,
+        DepthDomain.TVDSS,
+        source_dataset.depth - 1_100.0,
+    )
+    for curve_id, curve in source_dataset.curves.items():
+        dataset.curves[curve_id] = CurveData(
+            replace(curve.metadata, source_dataset_id=dataset.dataset_id),
+            curve.values.copy(),
+        )
+
+    session = ProjectSession()
+    session.add_dataset(dataset, "TVDSS well")
+    well = session.current_well
+    assert well is not None
+    well.gas_context_events.append(
+        GasContextEvent(
+            event_id="negative-connection",
+            event_type=GasContextEventType.CONNECTION_GAS,
+            top_depth=-61.0,
+            bottom_depth=-57.0,
+            depth_domain=DepthDomain.TVDSS,
+            confirmed=True,
+            comment="negative TVDSS context",
+        )
+    )
+
+    report = build_hydrocarbon_interpretation_report(session, threshold=3.0)
+
+    assert report.candidates == ()
+    assert len(report.suppressed_candidates) == 1
+    assert report.gas_context_events[0].top_depth == -61.0
+    assert report.gas_context_events[0].bottom_depth == -57.0
+
+    xlsx_path = export_hydrocarbon_interpretation_xlsx(
+        report,
+        dataset,
+        tmp_path / "negative-tvdss.xlsx",
+    )
+    workbook = load_workbook(xlsx_path, read_only=True, data_only=False)
+    try:
+        context_sheet = workbook["Газовый контекст"]
+        assert context_sheet["B2"].value == -61.0
+        assert context_sheet["C2"].value == -57.0
+    finally:
+        workbook.close()
+
+
 def test_confirmed_technological_context_is_excluded_from_robust_background() -> None:
     session = _session()
     well = session.current_well

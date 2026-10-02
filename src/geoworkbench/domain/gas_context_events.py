@@ -96,13 +96,13 @@ class GasContextEvent:
             (self.bottom_depth, "bottom_depth"),
         ):
             if isinstance(value, bool):
-                raise ValueError(f"{name} must be finite and non-negative")
+                raise ValueError(f"{name} must be finite")
             try:
                 numeric = float(value)
             except (TypeError, ValueError, OverflowError) as exc:
-                raise ValueError(f"{name} must be finite and non-negative") from exc
-            if not isfinite(numeric) or numeric < 0.0:
-                raise ValueError(f"{name} must be finite and non-negative")
+                raise ValueError(f"{name} must be finite") from exc
+            if not isfinite(numeric):
+                raise ValueError(f"{name} must be finite")
             object.__setattr__(self, name, numeric)
         if self.bottom_depth < self.top_depth:
             raise ValueError("bottom_depth must be >= top_depth")

@@ -173,6 +173,29 @@ def test_gas_context_depth_domain_uses_project_v36_and_round_trips(tmp_path: Pat
     assert restored.depth_domain is DepthDomain.MD
 
 
+def test_gas_context_negative_tvdss_depth_round_trips(tmp_path: Path) -> None:
+    project = make_project()
+    project.wells["well-1"].gas_context_events.append(
+        GasContextEvent(
+            event_id="negative-tvdss",
+            event_type=GasContextEventType.CONNECTION_GAS,
+            top_depth=-120.25,
+            bottom_depth=-118.75,
+            depth_domain=DepthDomain.TVDSS,
+            confirmed=True,
+        )
+    )
+    target = tmp_path / "gas-context-negative-tvdss.geologpkg"
+
+    save_project(project, target)
+    loaded = load_project(target)
+    restored = loaded.wells["well-1"].gas_context_events[0]
+
+    assert restored.depth_domain is DepthDomain.TVDSS
+    assert restored.top_depth == -120.25
+    assert restored.bottom_depth == -118.75
+
+
 def test_gas_context_v35_migrates_legacy_event_as_unbound(tmp_path: Path) -> None:
     project = make_project()
     project.wells["well-1"].gas_context_events.append(

@@ -15,6 +15,7 @@ from geoworkbench.calculations.gas_ratio import (
     calculate_opus_report_curves,
     calculate_opus_screening,
 )
+from geoworkbench.domain.gas_context_events import GasContextEvent, GasContextEventType
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
 from geoworkbench.project.interpretation_calculation_controller import (
     InterpretationCalculationController,
@@ -31,6 +32,7 @@ from geoworkbench.services.opus_interpretation import (
     build_opus_interpretation_report,
 )
 from geoworkbench.services.hydrocarbon_interpretation import (
+    build_opus_interpretation_report as build_contextual_opus_interpretation_report,
     fluid_hypothesis_label,
     hydrocarbon_interpretation_html,
 )
@@ -140,13 +142,19 @@ def test_opus_handles_full_5000_m_well_at_point_two_metre_step() -> None:
     assert all(np.all(np.isfinite(result.values)) for result in curves.values())
 
 
-def _opus_session(unit: str, scale: float) -> ProjectSession:
-    depth = np.arange(0.0, 100.0, 1.0)
+def _opus_session(
+    unit: str,
+    scale: float,
+    *,
+    depth_domain: DepthDomain = DepthDomain.MD,
+    depth_offset: float = 0.0,
+) -> ProjectSession:
+    depth = np.arange(0.0, 100.0, 1.0) + depth_offset
     dataset = Dataset(
         "opus-dataset",
         f"OPUS source {unit}",
         DatasetKind.GTI,
-        DepthDomain.MD,
+        depth_domain,
         depth,
     )
     components = {
@@ -264,6 +272,35 @@ def test_opus_applicability_warning_does_not_delete_detected_gas_shows() -> None
     assert report.candidates[0].bottom_depth == 42.5
     assert any("gas-show candidate retained" in item for item in report.candidates[0].evidence)
     assert any("аномалии сохранены" in warning for warning in report.warnings)
+
+
+def test_opus_report_applies_gas_context_on_negative_tvdss_axis() -> None:
+    session = _opus_session(
+        "%",
+        1.0,
+        depth_domain=DepthDomain.TVDSS,
+        depth_offset=-100.0,
+    )
+    well = session.current_well
+    assert well is not None
+    well.gas_context_events.append(
+        GasContextEvent(
+            event_id="opus-negative-connection",
+            event_type=GasContextEventType.CONNECTION_GAS,
+            top_depth=-61.0,
+            bottom_depth=-57.0,
+            depth_domain=DepthDomain.TVDSS,
+            confirmed=True,
+        )
+    )
+
+    InterpretationCalculationController(session).calculate_opus_curves()
+    report = build_contextual_opus_interpretation_report(session, threshold=3.0)
+
+    assert report.candidates == ()
+    assert len(report.suppressed_candidates) == 1
+    assert report.gas_context_events[0].event_id == "opus-negative-connection"
+    assert report.gas_context_events[0].depth_domain is DepthDomain.TVDSS
 
 
 def test_opus_report_charts_prefer_opus_curves() -> None:

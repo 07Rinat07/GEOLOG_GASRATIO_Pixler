@@ -110,6 +110,8 @@ def test_gas_context_depth_inputs_use_bounded_engineering_range(qapp) -> None:
         language=AppLanguage.EN,
     )
     try:
+        assert dialog.top_input.minimum() == -1_000_000_000.0
+        assert dialog.bottom_input.minimum() == -1_000_000_000.0
         assert dialog.top_input.maximum() == 1_000_000_000.0
         assert dialog.bottom_input.maximum() == 1_000_000_000.0
         assert dialog.top_input.decimals() == 15

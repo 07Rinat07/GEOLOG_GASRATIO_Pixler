@@ -273,14 +273,28 @@ def build_opus_interpretation_report(
         )
         return replace(report, analysis_depth_interval=depth_interval)
     effective_events = _effective_session_gas_context_events(session)
+    background_exclusions = _background_exclusion_intervals(effective_events)
     report = _build_opus_interpretation_report(
         session,
         threshold=threshold,
         total_gas_lod=total_gas_lod,
-        background_exclusion_intervals=_background_exclusion_intervals(effective_events),
+        background_exclusion_intervals=background_exclusions,
         candidate_exclusion_intervals=_candidate_exclusion_intervals(effective_events),
     )
-    return _apply_session_gas_context(session, report, events=effective_events)
+    contextual = _apply_session_gas_context(session, report, events=effective_events)
+    if background_exclusions:
+        audit_source = _build_opus_interpretation_report(
+            session,
+            threshold=threshold,
+            total_gas_lod=total_gas_lod,
+        )
+        contextual = _merge_background_suppression_audit(
+            contextual,
+            audit_source,
+            effective_events,
+            session,
+        )
+    return contextual
 
 
 def hydrocarbon_interpretation_html(
