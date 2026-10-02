@@ -55,6 +55,10 @@ from geoworkbench.services.hydrocarbon_interpretation import (
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.gas_curve_presentation import (
     GAS_PREVIEW_POINT_RADIUS_PX,
+    GAS_PREVIEW_POINTS_PER_PX,
+    gas_scatter_point_budget,
+    select_gas_scatter_indices,
+    uses_gas_point_presentation,
 )
 
 
@@ -624,11 +628,17 @@ def _draw_panel(
     curve_rect = rect.adjusted(7.0, 1.0, -7.0, -1.0)
     painter.save()
     painter.setClipRect(rect.adjusted(1.0, 1.0, -1.0, -1.0))
-    point_series = panel_name in {"ratios", "opus"}
-    minimum_samples = 1 if point_series else 2
+    panel_point_series = panel_name in {"ratios", "opus"}
     legend_rows: list[tuple[QColor, str, bool]] = []
     for curve_index, curve in enumerate(curves):
         values = np.asarray(curve.values, dtype=np.float64)
+        curve_point_series = panel_point_series or uses_gas_point_presentation(
+            (
+                curve.metadata.original_mnemonic,
+                curve.metadata.canonical_mnemonic,
+            )
+        )
+        minimum_samples = 1 if curve_point_series else 2
         usable = finite_depth & np.isfinite(values)
         if np.count_nonzero(usable) < minimum_samples:
             continue
@@ -638,24 +648,25 @@ def _draw_panel(
         if not np.isfinite(low) or not np.isfinite(high):
             continue
         color = QColor(_COLORS[curve_index % len(_COLORS)])
-        painter.setPen(QPen(color, 2.2))
         draw_segments: tuple[np.ndarray, ...]
-        if point_series:
+        if curve_point_series:
+            painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(color)
-            point_indices = np.flatnonzero(usable)
-            point_indices = point_indices[
-                np.argsort(depth[point_indices], kind="stable")
-            ]
-            if point_indices.size > 1_800:
-                sample_positions = np.linspace(
-                    0,
-                    point_indices.size - 1,
-                    1_800,
-                    dtype=np.int64,
-                )
-                point_indices = point_indices[sample_positions]
+            point_budget = gas_scatter_point_budget(
+                curve_rect.height(),
+                density=GAS_PREVIEW_POINTS_PER_PX,
+                minimum=16,
+                maximum=720,
+            )
+            point_indices = select_gas_scatter_indices(
+                depth,
+                values,
+                max_points=point_budget,
+                valid_mask=finite_depth,
+            )
             draw_segments = (point_indices,)
         else:
+            painter.setPen(QPen(color, 2.2))
             draw_segments = segments
         for segment in draw_segments:
             previous: tuple[float, float] | None = None
@@ -688,7 +699,7 @@ def _draw_panel(
                     and (clipped or previous_clipped)
                     and abs(normalized - previous_normalized) >= 0.72
                 )
-                if point_series:
+                if curve_point_series:
                     radius = GAS_PREVIEW_POINT_RADIUS_PX
                     painter.drawEllipse(
                         QRectF(
@@ -716,7 +727,7 @@ def _draw_panel(
             language,
             canonical_hint=canonical_hint,
         )
-        legend_rows.append((color, legend, point_series))
+        legend_rows.append((color, legend, curve_point_series))
     painter.setBrush(Qt.BrushStyle.NoBrush)
     painter.restore()
 
@@ -725,14 +736,15 @@ def _draw_panel(
         legend_y = legend_top + row_index * 21.0
         painter.setPen(QPen(color, 1.0))
         if point_marker:
+            painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(color)
             for offset in (12.0, 21.0, 30.0):
                 painter.drawEllipse(
                     QRectF(
-                        rect.left() + offset - 2.0,
-                        legend_y + 6.0,
-                        4.0,
-                        4.0,
+                        rect.left() + offset - 1.5,
+                        legend_y + 6.5,
+                        3.0,
+                        3.0,
                     )
                 )
             painter.setBrush(Qt.BrushStyle.NoBrush)
