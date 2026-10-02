@@ -97,7 +97,7 @@ backend не вводится; следующий hot path выбирается 
 
 | Порядок | Задача | Следующий проверяемый результат и зависимость | Ответственный по роли / статус |
 |---|---|---|---|
-| 1 | PERF-07 | Release gate #2299 подтвердил Dataset materialization как крупнейшую import-фазу: 14.26 s против 5.96 s lasio parse. Текущий slice разделяет materialization на setup / curve values / canonical inference / semantic resolution / CurveData-store / headers; следующий commit оптимизирует только доминирующую подфазу по Windows baseline | Разработчик / в работе |
+| 1 | PERF-07 | Release gate #2301 подтвердил curve-values extraction как bottleneck: 13.89 s из 14.09 s Dataset materialization; полевой Maksat M-1 дал 18.73 s materialization из 24.84 s import. Текущий slice материализует computed lasio data matrix один раз на import вместо повторного rebuild на каждой кривой; после exact-head Windows gate сравнить новый synthetic и полевой baseline | Разработчик / в работе |
 | 2 | REPORT-I18N-01 | Один явный язык всей выдачи RU/KK/EN: preview/PDF/print/DOCX/XLSX, legends, header и annotations; устранить оставшиеся fixed-language adapters. Реестр переводов WELL-04 используется без подмены draft/reviewed статусов | Разработчик / готово к разработке |
 | 3 | RPT-COMP-01 | Один сохраняемый presentation composition и финальный preview поверх готовых renderers; Auto/Show/Hide уже существует. Зависит от исправленного workspace и общего language contract; расчёты и source geology не меняются | Разработчик / готово к разработке |
 | 4 | RPT-ANN-01 | Report scope и logical track anchors, printable remarks/callouts, общий bounded Undo/Redo, Cancel/Save checkpoints; зависит от стабильного composition ID Composer | Разработчик / запланировано |
@@ -1281,6 +1281,12 @@ WELL-04 уже имеет field-level статусы и readiness; WELL-05 — f
   фазой и теперь профилируется по setup, column values, canonical inference, semantic resolution,
   CurveData/store и headers. Следующая оптимизация допускается только для подфазы, которая
   доминирует на Windows baseline этого exact head.
+  Одиннадцатый slice использует Release gate #2301 и field diagnostics Maksat M-1:
+  `curve_values` занимает `13 889 ms` из `14 094 ms` synthetic materialization, а реальный
+  LAS 28 146×342 — `18 734 ms` materialization из `24 840 ms` total import. Причина локализована
+  в повторном computed `LASFile.data` внутри per-curve helper. Positional matrix теперь строится
+  один раз на import и переиспользуется для column copies; regression фиксирует один data-read и
+  сохраняет fallback/duplicate-mnemonic semantics.
 
 ## P1 — поддерживаемая архитектура
 

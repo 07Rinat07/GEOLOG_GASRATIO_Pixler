@@ -170,6 +170,9 @@ def import_las_with_report(
     curve_store_ns = 0
     channel_issues: list[LasImportIssue] = []
     try:
+        curve_values_started_ns = perf_counter_ns()
+        curve_matrix = _curve_matrix_by_position(las, depth.shape)
+        curve_values_ns += perf_counter_ns() - curve_values_started_ns
         for curve_index, item in enumerate(list(las.curves)[1:], start=1):
             raw_mnemonic = str(item.mnemonic)
             mnemonic = clean_mnemonic(raw_mnemonic)
@@ -178,7 +181,11 @@ def import_las_with_report(
             curve_stage_started_ns = perf_counter_ns()
             try:
                 values = _curve_values_by_position(
-                    las, curve_index, raw_mnemonic, depth.shape
+                    las,
+                    curve_index,
+                    raw_mnemonic,
+                    depth.shape,
+                    matrix=curve_matrix,
                 )
             except (IndexError, KeyError, TypeError, ValueError) as exc:
                 curve_values_ns += perf_counter_ns() - curve_stage_started_ns
@@ -301,16 +308,35 @@ def _max_optional(*values: int | None) -> int | None:
     return max(present) if present else None
 
 
+def _curve_matrix_by_position(
+    las: Any,
+    expected_shape: tuple[int, ...],
+) -> np.ndarray | None:
+    """Materialize the lasio positional matrix once for the whole import.
+
+    LASFile.data is a computed property in lasio. Reading it for every curve
+    repeatedly rebuilds the full row-by-curve matrix and turns Dataset
+    materialization into quadratic work. A single snapshot also preserves
+    positional access for duplicate mnemonics.
+    """
+
+    matrix = np.asarray(getattr(las, "data", np.empty((0, 0))))
+    if matrix.ndim != 2 or matrix.shape[0] != expected_shape[0]:
+        return None
+    return matrix
+
+
 def _curve_values_by_position(
     las: Any,
     curve_index: int,
     raw_mnemonic: str,
     expected_shape: tuple[int, ...],
+    *,
+    matrix: np.ndarray | None = None,
 ) -> np.ndarray:
-    """Read a curve by column index, preserving duplicate LAS mnemonics safely."""
+    """Read one curve from a pre-materialized positional matrix when available."""
 
-    matrix = np.asarray(getattr(las, "data", np.empty((0, 0))))
-    if matrix.ndim == 2 and matrix.shape[0] == expected_shape[0]:
+    if matrix is not None:
         if curve_index >= matrix.shape[1]:
             raise IndexError(
                 f"столбец {curve_index} отсутствует в матрице из {matrix.shape[1]} столбцов"
