@@ -40,7 +40,8 @@ _PRINT_CURVE_DENSE_MIN_WIDTH = 1.35
 @dataclass(slots=True)
 class _CurvePrintState:
     item: pg.PlotDataItem
-    pen: QPen
+    pen: QPen | None
+    symbol_size: float
 
 
 def _qt_pen_style(style: CurveLineStyle) -> Qt.PenStyle:
@@ -70,13 +71,27 @@ def _activate_print_curve_styles(
     for track in rendered:
         curve_count = max(1, len(track.definition.curve_mnemonics))
         for mnemonic, item in (track.curve_items or {}).items():
-            saved_pen = QPen(pg.mkPen(item.opts.get("pen")))
-            states.append(_CurvePrintState(item, saved_pen))
+            pen_option = item.opts.get("pen")
+            saved_pen = (
+                QPen(pg.mkPen(pen_option))
+                if pen_option is not None
+                else None
+            )
+            saved_symbol_size = float(item.opts.get("symbolSize") or 0.0)
+            states.append(_CurvePrintState(item, saved_pen, saved_symbol_size))
+            if item.opts.get("symbol") is not None and saved_pen is None:
+                # Gas observations are intentionally point-only. Paper mode may
+                # enlarge markers for legibility, but must never restore a line.
+                item.setPen(None)
+                item.setSymbolSize(max(5.0, saved_symbol_size))
+                continue
             style = track.definition.curve_style(mnemonic)
             if style is None:
                 # Legacy/imported tracks may rely on the live PlotDataItem pen
                 # instead of a persisted CurveStyle. Preserve its exact colour
                 # and dash pattern while increasing only the paper line weight.
+                if saved_pen is None:
+                    continue
                 print_pen = QPen(saved_pen)
                 print_pen.setWidthF(
                     _print_curve_width(print_pen.widthF(), curve_count)
@@ -96,6 +111,8 @@ def _activate_print_curve_styles(
 def _restore_print_curve_styles(states: list[_CurvePrintState]) -> None:
     for state in reversed(states):
         state.item.setPen(state.pen)
+        if state.item.opts.get("symbol") is not None:
+            state.item.setSymbolSize(state.symbol_size)
 
 
 def _activate_layout_tree(widget: QWidget) -> None:
