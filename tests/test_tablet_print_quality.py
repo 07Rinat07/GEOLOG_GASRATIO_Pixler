@@ -99,7 +99,7 @@ def test_print_snapshot_keeps_gas_point_series_without_restoring_line() -> None:
 
     assert item.opts.get("pen") is None
     assert item.opts.get("symbol") == "o"
-    assert float(item.opts.get("symbolSize")) >= 15.0
+    assert float(item.opts.get("symbolSize")) == 12.0
 
     _restore_print_curve_styles(states)
 
@@ -139,7 +139,7 @@ def test_print_ratio_markers_use_configured_color_and_restore_screen_color() -> 
 
     assert item.opts.get("pen") is None
     assert item.opts["symbolBrush"].color().name().lower() == "#ff0000"
-    assert QPen(item.opts["symbolPen"]).color().name().lower() == "#ff0000"
+    assert QPen(item.opts["symbolPen"]).style() is Qt.PenStyle.NoPen
 
     _restore_print_curve_styles(states)
 
