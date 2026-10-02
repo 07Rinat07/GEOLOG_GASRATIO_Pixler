@@ -54,6 +54,8 @@ def test_gas_point_presentation_is_limited_to_ratios_and_interpretation() -> Non
         "PIXLER_C1_C3",
         "OPUS3",
         "OPUS_K1_3",
+        "OPUS_GM_1",
+        "OPUS_GM_5",
     ):
         assert is_gas_point_mnemonic(mnemonic)
 
