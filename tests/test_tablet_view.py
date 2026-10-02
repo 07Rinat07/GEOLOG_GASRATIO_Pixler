@@ -306,17 +306,30 @@ def test_dense_ratio_tablet_view_uses_scatter_density_budget(qapp) -> None:
         curve_mnemonics=["C1_C2"],
     )
     view = TabletView()
-    view.resize(640, 500)
+    view.resize(640, 700)
+    view.show()
     view.set_layout_and_dataset(TabletLayout([definition]), dataset)
     qapp.processEvents()
     view.set_visible_depth_range(100.0, 200.0)
     qapp.processEvents()
 
-    rendered_count = view.rendered_curve_point_count("ratio", "C1_C2")
-    viewport_height = view._rendered["ratio"].plot.viewport().height()
-    expected_budget = max(48, min(1_200, int(max(viewport_height, 1) / 2.5)))
+    large_count = view.rendered_curve_point_count("ratio", "C1_C2")
+    large_height = view._rendered["ratio"].plot.viewport().height()
+    large_budget = max(48, min(1_200, int(max(large_height, 1) / 2.5)))
+    assert 0 < large_count <= large_budget
 
-    assert 0 < rendered_count <= expected_budget
+    view.resize(640, 260)
+    qapp.processEvents()
+    view._restore_visible_depth_after_resize()
+    qapp.processEvents()
+
+    small_count = view.rendered_curve_point_count("ratio", "C1_C2")
+    small_height = view._rendered["ratio"].plot.viewport().height()
+    small_budget = max(48, min(1_200, int(max(small_height, 1) / 2.5)))
+
+    assert 0 < small_count <= small_budget
+    assert small_budget < large_budget
+    assert small_count < large_count
     view.close()
 
 
