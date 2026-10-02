@@ -68,6 +68,8 @@ def _print_curve_width(configured_width: float, curve_count: int) -> float:
 
 def _activate_print_curve_styles(
     rendered: tuple[RenderedTrack, ...],
+    *,
+    raster_scale: float = 1.0,
 ) -> list[_CurvePrintState]:
     states: list[_CurvePrintState] = []
     for track in rendered:
@@ -117,7 +119,9 @@ def _activate_print_curve_styles(
                 if style is not None:
                     item.setSymbolBrush(pg.mkBrush(style.color))
                     item.setSymbolPen(pg.mkPen(style.color))
-                item.setSymbolSize(max(5.0, saved_symbol_size))
+                item.setSymbolSize(
+                    max(5.0, saved_symbol_size) * float(raster_scale)
+                )
                 continue
             if style is None:
                 # Legacy/imported tracks may rely on the live PlotDataItem pen
@@ -333,7 +337,10 @@ def capture_tablet_print_snapshot(
         annotation_print_enabled = True
         for item in rendered:
             item.widget.set_print_mode(True)
-        curve_style_states = _activate_print_curve_styles(rendered)
+        curve_style_states = _activate_print_curve_styles(
+            rendered,
+            raster_scale=float(raster_scale),
+        )
         print_title_band = max(
             item.widget.natural_title_header_height for item in rendered
         )
