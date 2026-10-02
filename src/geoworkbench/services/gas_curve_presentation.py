@@ -28,6 +28,11 @@ _GAS_POINT_EXACT = frozenset(
         "OPUS4",
         "OPUS_K1_3",
         "OPUS_1_5",
+        "OPUS_GM_1",
+        "OPUS_GM_2",
+        "OPUS_GM_3",
+        "OPUS_GM_4",
+        "OPUS_GM_5",
     }
 )
 
@@ -54,7 +59,7 @@ def is_gas_point_mnemonic(value: object) -> bool:
 
 
 def uses_gas_point_presentation(identifiers: Iterable[object]) -> bool:
-    """Return True when any source/canonical identifier is a gas observation."""
+    """Return True when any source/canonical identifier is a ratio/interpretation series."""
 
     return any(is_gas_point_mnemonic(value) for value in identifiers)
 
