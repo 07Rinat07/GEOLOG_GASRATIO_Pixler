@@ -72,34 +72,37 @@ def is_gas_point_mnemonic(value: object) -> bool:
 
 def gas_scatter_sample_indices(
     depth: np.ndarray,
-    values: np.ndarray,
+    display_values: np.ndarray,
     *,
     top: float,
     bottom: float,
     vertical_span: float,
     minimum_gap: float,
+    horizontal_span: float = 0.0,
+    marker_diameter: float = 0.0,
 ) -> np.ndarray:
-    """Return finite visible rows thinned by final vertical display density.
+    """Return visible extrema representatives without marker overlap.
 
-    Gas-ratio curves are factual samples, but plotting every 0.1-0.2 m sample
-    with a multi-pixel marker makes neighbouring circles overlap and visually
-    form short line segments. Keep the first visible observation and then only
-    observations separated by the requested gap in final display coordinates.
+    display_values should use the same monotonic x transform as the final
+    plot, normally normalized to 0..1. Dense samples are grouped by final
+    vertical display position. Local minima and maxima become candidates, then
+    the strongest excursions from the visible median are accepted first while
+    rejecting candidates that would overlap an already accepted marker.
 
-    This is a rendering-only selection. No source values are interpolated,
-    averaged, moved or connected.
+    The selection is presentation-only: source rows are neither moved,
+    interpolated nor connected.
     """
 
     depth_values = np.asarray(depth, dtype=np.float64)
-    curve_values = np.asarray(values, dtype=np.float64)
-    if depth_values.shape != curve_values.shape or depth_values.ndim != 1:
+    x_values = np.asarray(display_values, dtype=np.float64)
+    if depth_values.shape != x_values.shape or depth_values.ndim != 1:
         return np.asarray([], dtype=np.int64)
 
     lower = min(float(top), float(bottom))
     upper = max(float(top), float(bottom))
     finite = (
         np.isfinite(depth_values)
-        & np.isfinite(curve_values)
+        & np.isfinite(x_values)
         & (depth_values >= lower)
         & (depth_values <= upper)
     )
@@ -113,21 +116,63 @@ def gas_scatter_sample_indices(
     if span <= 0.0 or display_span <= 0.0 or gap <= 0.0:
         return indices.astype(np.int64, copy=False)
 
-    projected = (depth_values[indices] - lower) / span * display_span
-    order = np.argsort(projected, kind="stable")
+    projected_y = (depth_values[indices] - lower) / span * display_span
+    order = np.argsort(projected_y, kind="stable")
     sorted_indices = indices[order]
-    sorted_projected = projected[order]
+    sorted_y = projected_y[order]
+    sorted_x_values = x_values[sorted_indices]
 
-    selected: list[int] = []
-    last_position: float | None = None
-    for row, position in zip(sorted_indices, sorted_projected, strict=True):
-        numeric_position = float(position)
-        if last_position is None or numeric_position - last_position >= gap:
-            selected.append(int(row))
-            last_position = numeric_position
+    bucket_ids = np.floor(sorted_y / gap).astype(np.int64)
+    candidate_rows: set[int] = set()
+    for bucket_id in np.unique(bucket_ids):
+        positions = np.flatnonzero(bucket_ids == bucket_id)
+        if positions.size == 0:
+            continue
+        rows = sorted_indices[positions]
+        local_values = x_values[rows]
+        candidate_rows.add(int(rows[int(np.argmin(local_values))]))
+        candidate_rows.add(int(rows[int(np.argmax(local_values))]))
 
-    return np.asarray(selected, dtype=np.int64)
+    visible_median = float(np.median(sorted_x_values))
+    x_span = max(0.0, float(horizontal_span))
+    diameter = max(0.0, float(marker_diameter))
+    projected_by_row = {
+        int(row): float(position)
+        for row, position in zip(sorted_indices, sorted_y, strict=True)
+    }
 
+    ranked = sorted(
+        candidate_rows,
+        key=lambda row: (
+            -abs(float(x_values[row]) - visible_median),
+            projected_by_row[row],
+            row,
+        ),
+    )
+    accepted: list[int] = []
+    for row in ranked:
+        y = projected_by_row[row]
+        x = float(np.clip(x_values[row], 0.0, 1.0)) * x_span
+        overlaps = False
+        for accepted_row in accepted:
+            accepted_y = projected_by_row[accepted_row]
+            delta_y = abs(y - accepted_y)
+            if delta_y >= gap:
+                continue
+            if x_span <= 0.0 or diameter <= 0.0:
+                overlaps = True
+                break
+            accepted_x = (
+                float(np.clip(x_values[accepted_row], 0.0, 1.0)) * x_span
+            )
+            if abs(x - accepted_x) < diameter:
+                overlaps = True
+                break
+        if not overlaps:
+            accepted.append(row)
+
+    accepted.sort(key=lambda row: (projected_by_row[row], row))
+    return np.asarray(accepted, dtype=np.int64)
 
 def uses_gas_point_presentation(identifiers: Iterable[object]) -> bool:
     """Return True when any source/canonical identifier is a ratio/interpretation series."""
