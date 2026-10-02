@@ -276,6 +276,52 @@ def test_ratio_curves_use_points_while_gas_and_drilling_keep_lines(qapp) -> None
     view.close()
 
 
+def test_dense_ratio_curve_is_thinned_to_true_scatter_density(qapp) -> None:
+    depth = np.linspace(0.0, 100.0, 2_001, dtype=np.float64)
+    dataset = Dataset(
+        "dense-ratio-tablet",
+        "Dense ratio tablet",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        depth,
+    )
+    ratio = CurveData(
+        CurveMetadata(
+            "ratio",
+            "PIXLER_C1_C2",
+            "PIXLER_C1_C2",
+            "ratio",
+            None,
+            dataset.dataset_id,
+        ),
+        np.linspace(1.0, 4.0, depth.size, dtype=np.float64),
+    )
+    dataset.curves[ratio.metadata.curve_id] = ratio
+    definition = TrackDefinition(
+        "ratios",
+        "Gas ratios",
+        TrackKind.CURVE,
+        curve_mnemonics=["PIXLER_C1_C2"],
+    )
+
+    view = TabletView()
+    view.resize(500, 600)
+    view.set_layout_and_dataset(TabletLayout([definition]), dataset)
+    view.show()
+    qapp.processEvents()
+
+    item = view._rendered["ratios"].curve_items["PIXLER_C1_C2"]
+    x_data, y_data = item.getData()
+
+    assert x_data is not None
+    assert y_data is not None
+    assert 10 < len(y_data) < 500
+    assert float(item.opts.get("symbolSize")) <= 3.0
+    ratio_pen = item.opts.get("pen")
+    assert ratio_pen is None or ratio_pen.style() is Qt.PenStyle.NoPen
+    view.close()
+
+
 def test_existing_russian_absolute_gas_title_retranslates_on_tablet(qapp) -> None:
     dataset = Dataset(
         "dataset-absolute-gas-title",
