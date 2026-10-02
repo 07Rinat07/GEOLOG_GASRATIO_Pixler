@@ -2961,14 +2961,33 @@ def _paint_curve_column(
         source_values = np.asarray(curve.values, dtype=np.float64)
         if source_values.shape != depth.shape:
             continue
-        values, sampled_depth = select_visible_samples(
-            depth,
-            source_values,
-            top,
-            bottom,
-            max_points=5000,
-            positive_values_only=logarithmic,
+        point_series = uses_gas_point_presentation(
+            (
+                mnemonic,
+                curve.metadata.original_mnemonic,
+                curve.metadata.canonical_mnemonic,
+            )
         )
+        if point_series:
+            visible_mask = (
+                np.isfinite(depth)
+                & np.isfinite(source_values)
+                & (depth >= min(top, bottom))
+                & (depth <= max(top, bottom))
+            )
+            if logarithmic:
+                visible_mask &= source_values > 0.0
+            values = source_values[visible_mask]
+            sampled_depth = depth[visible_mask]
+        else:
+            values, sampled_depth = select_visible_samples(
+                depth,
+                source_values,
+                top,
+                bottom,
+                max_points=5000,
+                positive_values_only=logarithmic,
+            )
         if not values.size:
             continue
         if logarithmic:
@@ -2979,13 +2998,6 @@ def _paint_curve_column(
 
         curve_style = masterlog_curve_style(column, mnemonic, curve_index)
         color = _color(curve_style.color, column.line_color)
-        point_series = uses_gas_point_presentation(
-            (
-                mnemonic,
-                curve.metadata.original_mnemonic,
-                curve.metadata.canonical_mnemonic,
-            )
-        )
         if point_series:
             painter.setPen(QPen(color, 0.12))
             painter.setBrush(color)
