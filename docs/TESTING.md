@@ -350,6 +350,30 @@ hit и zoom miss при `max_points=4096`, одновременно провер
 `84.5 / 302.1 / 574.2 MiB`. Во всех сценариях две cached geometry занимают `131 072 B` из
 hard budget `67 108 864 B`.
 
+### RPT-GAS-VIS-01: gas point-series presentation
+
+Газовые измерения и производные отношения проверяются как дискретные point-series без
+соединяющей линии на всех самостоятельных render boundary:
+
+```powershell
+python -m pytest -q -p no:cacheprovider `
+  tests/test_gas_curve_rendering_continuity.py `
+  tests/test_tablet_gas_segment_mask.py `
+  tests/test_tablet_view.py `
+  tests/test_tablet_print_quality.py `
+  tests/test_masterlog_renderer.py `
+  tests/test_interpretation_report_charts.py `
+  tests/test_gas_mixture_ramp_report.py
+```
+
+Shared predicate покрывает C1–C5/iso-normal components, TG/normalized gas, Haworth,
+Pixler и OPUS. Tablet regression требует `symbol="o"` и `pen=None` для gas даже после
+STYLE-refresh; ROP/DEXP и другие негазовые параметры сохраняют line presentation.
+Tablet print обязан сохранить point-only item и может только увеличить размер маркера.
+Masterlog и hydrocarbon PDF regression запрещают polyline для газовой серии. Relative-gas
+`*_REL` исключён из point predicate, потому что его самостоятельный контракт — cumulative
+0–100% stacked fill. Расчётные массивы, sampling/range и source LAS этим контрактом не меняются.
+
 ### PERF-07: LAS import, first render и viewport baseline
 
 Correctness coverage for the large-LAS profiling boundary:
