@@ -12,6 +12,7 @@ from typing import Any
 
 from PySide6.QtWidgets import QApplication
 
+import geoworkbench.data.las_adapter as las_adapter_module
 from geoworkbench.data.las_adapter import import_las_with_report
 from geoworkbench.services.process_metrics import process_memory_snapshot
 from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind
@@ -85,6 +86,30 @@ def _maximum_peak_rss(*values: int | None) -> int | None:
     return max(available) if available else None
 
 
+def _import_with_performance_event(source: Path):
+    """Run the production importer and retain its existing observability payload."""
+
+    captured: list[dict[str, object]] = []
+    original_log_event = las_adapter_module.log_event
+
+    def capture(event: str, **context: object) -> None:
+        if event == "las.import.performance":
+            captured.append(dict(context))
+        original_log_event(event, **context)
+
+    las_adapter_module.log_event = capture
+    try:
+        result = import_las_with_report(source)
+    finally:
+        las_adapter_module.log_event = original_log_event
+
+    if len(captured) != 1:
+        raise AssertionError(
+            "production LAS import must emit exactly one performance event"
+        )
+    return result, captured[0]
+
+
 def run_benchmark_worker(
     rows: int,
     *,
@@ -109,7 +134,7 @@ def run_benchmark_worker(
 
         memory_start = process_memory_snapshot()
         import_started = perf_counter()
-        imported = import_las_with_report(source)
+        imported, import_performance = _import_with_performance_event(source)
         import_ms = (perf_counter() - import_started) * 1_000.0
         memory_after_import = process_memory_snapshot()
 
@@ -162,6 +187,15 @@ def run_benchmark_worker(
             "imported_curves": len(imported.dataset.curves),
             "import_warning_count": imported.report.warning_count,
             "import_ms": import_ms,
+            "import_source_ms": import_performance["source_ms"],
+            "import_parse_ms": import_performance["parse_ms"],
+            "import_dataset_ms": import_performance["dataset_ms"],
+            "import_report_ms": import_performance["report_ms"],
+            "import_logged_total_ms": import_performance["total_ms"],
+            "import_rss_source_bytes": import_performance["rss_source_bytes"],
+            "import_rss_parse_bytes": import_performance["rss_parse_bytes"],
+            "import_rss_dataset_bytes": import_performance["rss_dataset_bytes"],
+            "import_rss_report_bytes": import_performance["rss_report_bytes"],
             "first_render_ms": first_render_ms,
             "scroll_ms": scroll_ms,
             "zoom_ms": zoom_ms,
@@ -223,9 +257,27 @@ def evaluate_result(result: dict[str, Any]) -> None:
         < result["geometry_cache_misses_after_render"]
     ):
         raise AssertionError("navigation geometry-cache counters moved backwards")
-    for key in ("import_ms", "first_render_ms", "scroll_ms", "zoom_ms"):
+    for key in (
+        "import_ms",
+        "import_source_ms",
+        "import_parse_ms",
+        "import_dataset_ms",
+        "import_report_ms",
+        "import_logged_total_ms",
+        "first_render_ms",
+        "scroll_ms",
+        "zoom_ms",
+    ):
         if result[key] < 0:
             raise AssertionError(f"{key} must be non-negative")
+    phase_total = (
+        result["import_source_ms"]
+        + result["import_parse_ms"]
+        + result["import_dataset_ms"]
+        + result["import_report_ms"]
+    )
+    if abs(phase_total - result["import_logged_total_ms"]) > 2.0:
+        raise AssertionError("LAS import phase timings no longer cover logged total time")
     peak_rss = result["peak_rss_bytes"]
     if peak_rss is not None and peak_rss <= 0:
         raise AssertionError("peak RSS must be positive when the platform exposes it")
