@@ -115,10 +115,14 @@ def select_gas_scatter_samples(
         bucket_count - 1,
         np.floor(normalized * bucket_count).astype(np.int64),
     )
+    # Buckets are monotonic because rows are depth-sorted. Split once at
+    # bucket boundaries instead of rescanning the full viewport for every bucket.
+    boundaries = np.flatnonzero(np.diff(buckets)) + 1
+    starts = np.concatenate((np.asarray([0], dtype=np.int64), boundaries))
+    ends = np.concatenate((boundaries, np.asarray([rows.size], dtype=np.int64)))
     selected: list[int] = []
-    for bucket in np.unique(buckets):
-        positions = np.flatnonzero(buckets == bucket)
-        bucket_rows = rows[positions]
+    for start, end in zip(starts, ends, strict=True):
+        bucket_rows = rows[int(start) : int(end)]
         if bucket_rows.size == 1:
             selected.append(int(bucket_rows[0]))
             continue
