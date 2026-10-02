@@ -119,7 +119,9 @@ def _activate_print_curve_styles(
                 # Ratio observations remain compact scatter dots in print.
                 # Enlarging dense 0.1-0.2 m samples to 5 px made neighbouring
                 # circles merge into short vertical "worms" after downscaling.
-                ratio_point = uses_gas_point_presentation((mnemonic,))
+                ratio_point = bool(
+                    item.property("gasPointPresentation")
+                ) or uses_gas_point_presentation((mnemonic,))
                 if style is not None:
                     item.setSymbolBrush(pg.mkBrush(style.color))
                     item.setSymbolPen(
