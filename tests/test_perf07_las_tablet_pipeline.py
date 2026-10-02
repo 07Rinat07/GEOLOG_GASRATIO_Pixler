@@ -43,6 +43,12 @@ def _valid_result() -> dict[str, object]:
         "import_source_ms": 1.0,
         "import_parse_ms": 6.0,
         "import_dataset_ms": 2.0,
+        "import_dataset_setup_ms": 0.2,
+        "import_dataset_curve_values_ms": 0.4,
+        "import_dataset_curve_canonical_ms": 0.5,
+        "import_dataset_curve_semantic_ms": 0.5,
+        "import_dataset_curve_store_ms": 0.3,
+        "import_dataset_headers_ms": 0.1,
         "import_report_ms": 1.0,
         "import_logged_total_ms": 10.0,
         "first_render_ms": 2.0,
@@ -89,6 +95,12 @@ def test_perf07_worker_exercises_import_render_scroll_and_zoom(qapp) -> None:
     assert result["import_source_ms"] >= 0
     assert result["import_parse_ms"] >= 0
     assert result["import_dataset_ms"] >= 0
+    assert result["import_dataset_setup_ms"] >= 0
+    assert result["import_dataset_curve_values_ms"] >= 0
+    assert result["import_dataset_curve_canonical_ms"] >= 0
+    assert result["import_dataset_curve_semantic_ms"] >= 0
+    assert result["import_dataset_curve_store_ms"] >= 0
+    assert result["import_dataset_headers_ms"] >= 0
     assert result["import_report_ms"] >= 0
     assert result["import_logged_total_ms"] == pytest.approx(
         result["import_source_ms"]
