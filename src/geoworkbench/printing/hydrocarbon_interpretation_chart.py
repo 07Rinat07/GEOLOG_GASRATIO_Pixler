@@ -646,13 +646,28 @@ def _draw_panel(
             point_pen.setCosmetic(True)
             painter.setPen(point_pen)
             painter.setBrush(color)
+            display_values = np.full(values.shape, np.nan, dtype=np.float64)
+            if high <= low:
+                display_values[usable] = np.where(
+                    values[usable] == low,
+                    0.5,
+                    np.where(values[usable] > low, 1.0, 0.0),
+                )
+            else:
+                display_values[usable] = np.clip(
+                    (values[usable] - low) / (high - low),
+                    0.0,
+                    1.0,
+                )
             point_indices = gas_scatter_sample_indices(
                 depth,
-                values,
+                display_values,
                 top=depth_min,
                 bottom=depth_max,
                 vertical_span=curve_rect.height(),
                 minimum_gap=GAS_PREVIEW_POINT_GAP_PX,
+                horizontal_span=curve_rect.width(),
+                marker_diameter=GAS_PREVIEW_POINT_RADIUS_PX * 2.0,
             )
             draw_segments = (point_indices,)
         else:
