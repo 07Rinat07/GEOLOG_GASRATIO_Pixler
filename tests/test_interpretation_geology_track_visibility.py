@@ -136,6 +136,15 @@ class _RecordingPainter:
     def fillRect(self, *_args: object) -> None:
         return None
 
+    def save(self) -> None:
+        return None
+
+    def restore(self) -> None:
+        return None
+
+    def setClipRect(self, *_args: object) -> None:
+        return None
+
     def setFont(self, *_args: object) -> None:
         return None
 
@@ -246,7 +255,7 @@ def test_multi_page_auto_keeps_global_tracks_without_page_local_empty_state(
     monkeypatch.setattr(
         chart.base_chart,
         "_panel_curves",
-        lambda _report, _dataset: (("gas", (object(),)),),
+        lambda _report, _dataset: (("total", (object(),)),),
     )
     monkeypatch.setattr(
         chart.base_chart,

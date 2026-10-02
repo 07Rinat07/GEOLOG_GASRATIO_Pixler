@@ -919,6 +919,7 @@ def test_interpretation_pdf_uses_immutable_current_well_geology_snapshot(
     with fitz.open(target) as document:
         text = "\n".join(page.get_text() for page in document)
 
-    assert "Шламограмма" in text
-    assert "ЛБА" in text
-    assert "МБ" in text
+    normalized_text = "".join(text.split())
+    assert "Шламограмма" in normalized_text
+    assert "ЛБА" in normalized_text
+    assert "МБ" in normalized_text

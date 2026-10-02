@@ -229,11 +229,19 @@ def test_full_pdf_places_lithology_and_method_key_together_before_charts(qapp, t
     export_hydrocarbon_interpretation_pdf(report, target, dataset=dataset, include_chart=True,
                                          geology=_geology())
     with fitz.open(target) as document:
-        text = document[1].get_text()
+        page_texts = [page.get_text() for page in document]
+        key_page_index = next(
+            index for index, page_text in enumerate(page_texts)
+            if "Пояснения к графикам" in page_text
+        )
+        text = page_texts[key_page_index]
         assert "Литология" in text
-        assert "Пояснения к графикам" in text
         assert "Wh = 100" in text
         assert "Bh =" in text and "Ch =" in text
-        assert "Графики интерпретационных кривых" in document[2].get_text()
+        chart_page_index = next(
+            index for index, page_text in enumerate(page_texts)
+            if "Графики интерпретационных кривых" in page_text
+        )
+        assert key_page_index < chart_page_index
     for name, values in original.items():
         np.testing.assert_array_equal(values, dataset.curves[name].values)

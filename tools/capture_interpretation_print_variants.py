@@ -172,7 +172,7 @@ def _verify_portrait_report(
         chart_pages = tuple(
             index
             for index, page in enumerate(document)
-            if "Лист графика" in page.get_text()
+            if "Листграфика" in "".join(page.get_text().split())
         )
         if not chart_pages:
             raise RuntimeError(f"{label}: chart pages are missing")
@@ -181,6 +181,7 @@ def _verify_portrait_report(
         for page_index in chart_pages:
             page = document[page_index]
             text = page.get_text()
+            normalized_text = "".join(text.split())
             if text.count("Глубина") < 2:
                 raise RuntimeError(f"{label}: both depth scales are not visible")
             left_labels, right_labels = _axis_numeric_labels(page)
@@ -199,7 +200,7 @@ def _verify_portrait_report(
                 "Haworth и Pixler",
                 "Буровой контекст и DEXP",
             ):
-                if marker not in text:
+                if "".join(marker.split()) not in normalized_text:
                     raise RuntimeError(
                         f"{label}: chart heading is missing on page {page_index + 1}: {marker}"
                     )
