@@ -90,25 +90,39 @@ PERF-07 фиксирует воспроизводимый Windows baseline дл�
 
 Основная очередь ниже содержит только оставшуюся разработку и сквозную автоматическую приёмку.
 RPT-GEO-03, GASCTX-RPT-01 signed-depth implementation и UI-SYS-01 интегрированы через PR
-#420, #421 и #422. Текущий инкремент — PERF-07: end-to-end benchmark формы Maksat M-1
-связывает существующие `las.import.performance`/`las.import.presentation` с реальным
-TabletView render и viewport navigation. До первого Windows baseline новый parser/storage/render
-backend не вводится; следующий hot path выбирается только по измеренным времени и RSS.
+#420, #421 и #422. PERF-07 matrix-reuse slice интегрирован через PR #426; post-merge Windows
+baseline проверяется отдельным main Release gate. По операторскому запросу текущий продуктовый
+инкремент — RPT-GAS-VIS-01: газовые наблюдения должны иметь единый point-series presentation
+на экране и во всех самостоятельных report/print renderers без изменения расчётных массивов,
+source LAS и специализированного relative-gas 100%-stack.
 
 | Порядок | Задача | Следующий проверяемый результат и зависимость | Ответственный по роли / статус |
 |---|---|---|---|
-| 1 | PERF-07 | Release gate #2301 подтвердил curve-values extraction как bottleneck: 13.89 s из 14.09 s Dataset materialization; полевой Maksat M-1 дал 18.73 s materialization из 24.84 s import. Текущий slice материализует computed lasio data matrix один раз на import вместо повторного rebuild на каждой кривой; после exact-head Windows gate сравнить новый synthetic и полевой baseline | Разработчик / в работе |
-| 2 | REPORT-I18N-01 | Один явный язык всей выдачи RU/KK/EN: preview/PDF/print/DOCX/XLSX, legends, header и annotations; устранить оставшиеся fixed-language adapters. Реестр переводов WELL-04 используется без подмены draft/reviewed статусов | Разработчик / готово к разработке |
-| 3 | RPT-COMP-01 | Один сохраняемый presentation composition и финальный preview поверх готовых renderers; Auto/Show/Hide уже существует. Зависит от исправленного workspace и общего language contract; расчёты и source geology не меняются | Разработчик / готово к разработке |
-| 4 | RPT-ANN-01 | Report scope и logical track anchors, printable remarks/callouts, общий bounded Undo/Redo, Cancel/Save checkpoints; зависит от стабильного composition ID Composer | Разработчик / запланировано |
-| 5 | PRINT-STYLE-01 | Свести оставшиеся generic/Masterlog/Office пути к одному visual profile и document-control contract; дополнять готовые typography/marker/legend contracts. Physical acceptance вынесена отдельно | Разработчик / в работе |
-| 6 | GASCTX-RPT-01: остаточная приёмка | Проверить общий editor/registry/context audit через production entry points, save/reopen и RU/KK/EN; завершить отдельные полосы/метки событий с grayscale-подписями. Реализованные exclusion/background/confirmed policy не переписывать | Разработчик + специалист ГТИ / на проверке |
-| 7 | WITS-UX-01 | Завершить persistence/reconnect и live-first navigation/help: основные данные и health видимы, advanced/diagnostics сворачиваются, outer horizontal scroll отсутствует | Разработчик / в работе |
-| 8 | WITS-PLOT-01 | Остаточные manual ranges, reconnect/schema-change и redraw acceptance поверх существующих unit-aware tracks и редактируемых панелей | Разработчик / в работе |
-| 9 | WITS-GASCTX-01 / WITS-INTERP-01 | Сквозная проекция live gas context и интерпретационных полос; source origin, fluid screening и alarm остаются независимыми осями | Разработчик + специалист ГТИ / в работе |
-| 10 | WELL-04 → WELL-05 | Сквозная готовность переводов и пары макетов; использовать реализованные field ledger/readiness/family resolver и WELL-06, проверить save/reopen без смешения ревизий | Разработчик / на проверке |
-| 11 | ARCH-07 | Довести общую history до оставшихся mutation controllers при работе над конкретными editor сценариями; не создавать параллельную историю в RPT-ANN | Разработчик / в работе |
-| 12 | PERF-05 | Сначала baseline текущего save/open/RSS на 100k/1M; новый storage backend только при подтверждённом bottleneck и с совместимой миграцией | Разработчик / запланировано |
+| 1 | RPT-GAS-VIS-01 | C1–C5/iso-normal components, TG/normalized gas, Haworth/Pixler/OPUS отображаются как дискретные точки без соединяющей линии в TabletView, tablet print/PDF, Masterlog, hydrocarbon HTML/PNG/PDF и C1–C5 ramp-report. ROP/DEXP остаются линиями; *_REL сохраняет 100%-stack. Требуется полный exact-head Release gate и визуальная regression matrix | Разработчик / на проверке |
+| 2 | PERF-07 | PR #426 устранил повторную materialization computed lasio data matrix; gate #2303 на exact PR head зелёный. На текущем main сравнить post-merge synthetic baseline и при наличии оставшегося bottleneck продолжить только по измерениям | Разработчик / на проверке |
+| 3 | REPORT-I18N-01 | Один явный язык всей выдачи RU/KK/EN: preview/PDF/print/DOCX/XLSX, legends, header и annotations; устранить оставшиеся fixed-language adapters. Реестр переводов WELL-04 используется без подмены draft/reviewed статусов | Разработчик / готово к разработке |
+| 4 | RPT-COMP-01 | Один сохраняемый presentation composition и финальный preview поверх готовых renderers; Auto/Show/Hide уже существует. Зависит от исправленного workspace и общего language contract; расчёты и source geology не меняются | Разработчик / готово к разработке |
+| 5 | RPT-ANN-01 | Report scope и logical track anchors, printable remarks/callouts, общий bounded Undo/Redo, Cancel/Save checkpoints; зависит от стабильного composition ID Composer | Разработчик / запланировано |
+| 6 | PRINT-STYLE-01 | Свести оставшиеся generic/Masterlog/Office пути к одному visual profile и document-control contract; дополнять готовые typography/marker/legend contracts. Physical acceptance вынесена отдельно | Разработчик / в работе |
+| 7 | GASCTX-RPT-01: остаточная приёмка | Проверить общий editor/registry/context audit через production entry points, save/reopen и RU/KK/EN; завершить отдельные полосы/метки событий с grayscale-подписями. Реализованные exclusion/background/confirmed policy не переписывать | Разработчик + специалист ГТИ / на проверке |
+| 8 | WITS-UX-01 | Завершить persistence/reconnect и live-first navigation/help: основные данные и health видимы, advanced/diagnostics сворачиваются, outer horizontal scroll отсутствует | Разработчик / в работе |
+| 9 | WITS-PLOT-01 | Остаточные manual ranges, reconnect/schema-change и redraw acceptance поверх существующих unit-aware tracks и редактируемых панелей | Разработчик / в работе |
+| 10 | WITS-GASCTX-01 / WITS-INTERP-01 | Сквозная проекция live gas context и интерпретационных полос; source origin, fluid screening и alarm остаются независимыми осями | Разработчик + специалист ГТИ / в работе |
+| 11 | WELL-04 → WELL-05 | Сквозная готовность переводов и пары макетов; использовать реализованные field ledger/readiness/family resolver и WELL-06, проверить save/reopen без смешения ревизий | Разработчик / на проверке |
+| 12 | ARCH-07 | Довести общую history до оставшихся mutation controllers при работе над конкретными editor сценариями; не создавать параллельную историю в RPT-ANN | Разработчик / в работе |
+| 13 | PERF-05 | Сначала baseline текущего save/open/RSS на 100k/1M; новый storage backend только при подтверждённом bottleneck и с совместимой миграцией | Разработчик / запланировано |
+
+## RPT-GAS-VIS-01 — единое точечное представление газовых измерений
+
+- [ ] Один shared presentation predicate определяет raw/normalized gas, Haworth/Pixler/OPUS и
+  gas-ratio identifiers; source/canonical mnemonics учитываются без изменения Dataset.
+- [ ] TabletView и его print/PDF snapshot используют заполненные point markers без polyline;
+  STYLE-refresh не должен возвращать линию.
+- [ ] Masterlog, hydrocarbon HTML/PNG/PDF и C1–C5 ramp-report используют тот же смысловой
+  контракт: газ — точки, drilling/DEXP — линии; легенда соответствует фактическому glyph.
+- [ ] Relative-gas `*_REL` остаётся cumulative 0–100% stacked fill и не переводится в scatter.
+- [ ] Regression matrix фиксирует screen/print/Masterlog/report boundaries; завершение только
+  после зелёного Release gate на окончательном head.
 
 ### Внешняя и операторская приёмка, выполняемая параллельно
 
