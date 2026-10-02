@@ -324,6 +324,38 @@ def test_singleton_ratio_observation_survives_preview_and_pdf_range() -> None:
     )
     assert pdf_painter.ellipses == 1
 
+def test_report_panel_selector_keeps_singleton_opus_point_series() -> None:
+    depth = np.asarray([100.0, 101.0, 102.0], dtype=np.float64)
+    dataset = Dataset(
+        "singleton-opus",
+        "Singleton OPUS",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        depth,
+    )
+    opus = CurveData(
+        CurveMetadata(
+            "opus",
+            "OPUS3",
+            "OPUS3",
+            "ratio",
+            None,
+            dataset.dataset_id,
+        ),
+        np.asarray([np.nan, 1.25, np.nan], dtype=np.float64),
+    )
+    dataset.curves[opus.metadata.curve_id] = opus
+    report = SimpleNamespace(
+        primary_mnemonic="",
+        report_profile="opus",
+        methods=(),
+    )
+
+    for select in (whole_well_panels, printed_panels):
+        panels = dict(select(report, dataset))
+        assert panels["opus"] == (opus,)
+
+
 def test_report_panel_scatter_contract_is_ratio_only() -> None:
     whole = Path(
         "src/geoworkbench/printing/hydrocarbon_interpretation_chart.py"
