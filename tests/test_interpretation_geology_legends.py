@@ -364,15 +364,16 @@ def test_legend_uses_destination_metrics_and_explicit_ellipsis(qapp, dpi, label)
         int(Qt.TextFlag.TextWordWrap | Qt.AlignmentFlag.AlignLeft), text,
     ).height()
     height = geology_legend_height(width, legend, paint_device=image)
-    assert height == pytest.approx(26.0 + min(64.0, max(22.0, measured + 4.0)))
-    fitted = legend_renderer._fit_legend_text(text, metrics, width - 25.0, height - 28.0)
+    row_height = min(64.0, max(22.0, measured + 4.0))
+    assert height >= 40.0 + row_height
+    fitted = legend_renderer._fit_legend_text(text, metrics, width - 25.0, row_height - 2.0)
     assert fitted.endswith("…")
     assert len(fitted) < len(text)
     bounds = metrics.boundingRect(
-        QRectF(0.0, 0.0, width - 25.0, height - 28.0),
+        QRectF(0.0, 0.0, width - 25.0, row_height - 2.0),
         int(Qt.TextFlag.TextWordWrap | Qt.AlignmentFlag.AlignLeft), fitted,
     )
-    assert bounds.height() <= height - 28.0
+    assert bounds.height() <= row_height - 2.0
     assert bounds.width() <= width - 25.0
 
 

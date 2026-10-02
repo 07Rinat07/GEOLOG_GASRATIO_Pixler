@@ -59,6 +59,7 @@ class ChartGeometry:
     geology_rects: tuple[QRectF, ...] = ()
     geology_legend_rect: QRectF | None = None
     geology_repeat_legend_rect: QRectF | None = None
+    track_header_height: float = CHART_TRACK_HEADER_HEIGHT
 
 
 def plan_depth_pages(
@@ -150,6 +151,7 @@ def chart_geometry(
     geology_track_count: int = 0,
     geology_legend_height: float = 0.0,
     geology_repeat_legend_height: float = 0.0,
+    track_header_height: float = CHART_TRACK_HEADER_HEIGHT,
 ) -> ChartGeometry:
     """Return chart rectangles guaranteed to remain inside the printable area."""
 
@@ -157,6 +159,7 @@ def chart_geometry(
         raise ValueError("Для графика требуется хотя бы одна дорожка")
     safe_legend_height = max(0.0, float(geology_legend_height))
     safe_repeat_height = max(0.0, float(geology_repeat_legend_height))
+    safe_header_height = max(CHART_TRACK_HEADER_HEIGHT, float(track_header_height))
     geology_legend_rect = (
         QRectF(
             content_rect.left(),
@@ -171,13 +174,13 @@ def chart_geometry(
         content_rect.top()
         + CHART_HEADER_HEIGHT
         + safe_legend_height
-        + CHART_TRACK_HEADER_HEIGHT
+        + safe_header_height
     )
     maximum_plot_height = max(
         MIN_CHART_HEIGHT,
         content_rect.height()
         - CHART_HEADER_HEIGHT
-        - CHART_TRACK_HEADER_HEIGHT
+        - safe_header_height
         - CHART_LEGEND_HEIGHT
         - CHART_NOTE_HEIGHT
         - safe_legend_height
@@ -264,6 +267,7 @@ def chart_geometry(
         geology_rects,
         geology_legend_rect,
         repeat_legend,
+        safe_header_height,
     )
 
 

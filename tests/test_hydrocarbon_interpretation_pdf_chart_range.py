@@ -25,13 +25,13 @@ def _dataset() -> Dataset:
     )
 
 
-def test_chart_page_planner_uses_selected_report_depth_range(monkeypatch) -> None:
+def test_chart_page_planner_uses_selected_report_depth_range(qapp, monkeypatch) -> None:
     observed: list[tuple[float, float, float]] = []
 
     monkeypatch.setattr(
         chart.base_chart,
         "_panel_curves",
-        lambda report, dataset: (("gas", (object(),)),),
+        lambda report, dataset: (("total", (object(),)),),
     )
     monkeypatch.setattr(chart.base_chart, "_curve_ranges", lambda panels, dataset: {})
 
@@ -42,7 +42,7 @@ def test_chart_page_planner_uses_selected_report_depth_range(monkeypatch) -> Non
     monkeypatch.setattr(chart, "plan_depth_pages", _plan)
     canvas = SimpleNamespace(
         content_rect=QRectF(0.0, 0.0, 842.0, 560.0),
-        painter=SimpleNamespace(device=lambda: None),
+        painter=SimpleNamespace(device=lambda: QImage(842, 560, QImage.Format.Format_ARGB32)),
     )
     report = SimpleNamespace(depth_unit="m")
 

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import ceil
 from typing import Literal
 
 from PySide6.QtCore import QRectF, Qt
@@ -19,6 +18,7 @@ from geoworkbench.printing.lba_visuals import (
 )
 from geoworkbench.printing.unicode_support import print_font
 from geoworkbench.services.lba_standard import (
+    LBA_ADDITIONAL_COLORS,
     LBA_STANDARD_GROUPS,
     lba_color_code,
     lba_standard_group,
@@ -27,9 +27,13 @@ from geoworkbench.services.localization import AppLanguage
 from geoworkbench.tablet.lithology_patterns import masterlog_lithology_brush
 
 
-LegendKind = Literal["lithology", "lba-type", "lba-intensity", "lba-color"]
+LegendKind = Literal["lithology", "lba-type", "lba-intensity", "lba-color", "reference"]
 _MAX_FULL_ROW_HEIGHT = 64.0
 _FULL_LEGEND_OVERHEAD = 26.0
+_SECTION_HEIGHT = 14.0
+_LEGEND_KINDS: tuple[LegendKind, ...] = (
+    "lithology", "lba-type", "lba-intensity", "lba-color", "reference",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -195,7 +199,16 @@ def build_interpretation_geology_legend(
                     )
                 )
 
-    return InterpretationGeologyLegend(tuple(items))
+    type_order = {group.type_id: index for index, group in enumerate(LBA_STANDARD_GROUPS)}
+    return InterpretationGeologyLegend(tuple(sorted(
+        items,
+        key=lambda item: (
+            _LEGEND_KINDS.index(item.kind),
+            type_order.get(item.key, len(type_order)) if item.kind == "lba-type" else 0,
+            item.code.casefold(),
+            item.key,
+        ),
+    )))
 
 
 def geology_legend_height(
@@ -207,11 +220,15 @@ def geology_legend_height(
 ) -> float:
     if legend.empty or width <= 0.0:
         return 0.0
-    title_height = 0.0 if compact else 16.0
+    title_height = _legend_heading_height(width, "title", paint_device)
     row_heights = _legend_row_heights(
         width, legend, compact=compact, paint_device=paint_device,
     )
-    return 6.0 + title_height + sum(row_heights) + 4.0
+    section_height = sum(
+        _legend_heading_height(width, kind, paint_device)
+        for kind in {item.kind for item in legend.items}
+    )
+    return 6.0 + title_height + section_height + sum(row_heights) + 4.0
 
 
 def paginate_geology_legend(
@@ -224,24 +241,25 @@ def paginate_geology_legend(
     """Keep every symbol, splitting the full legend at complete row boundaries."""
     if legend.empty:
         return ()
-    if width <= 0.0 or maximum_height < _FULL_LEGEND_OVERHEAD + _MAX_FULL_ROW_HEIGHT:
+    if width <= 0.0 or maximum_height < (
+        _FULL_LEGEND_OVERHEAD + _SECTION_HEIGHT + _MAX_FULL_ROW_HEIGHT
+    ):
         raise ValueError("Geology legend page must fit a complete bounded row")
-    columns = _legend_columns(width, compact=False)
-    heights = _legend_row_heights(
-        width, legend, compact=False, paint_device=paint_device,
-    )
     pages: list[InterpretationGeologyLegend] = []
-    first_row = 0
-    used_height = _FULL_LEGEND_OVERHEAD
-    for row, height in enumerate(heights):
-        if used_height + height > maximum_height and row > first_row:
-            pages.append(InterpretationGeologyLegend(
-                legend.items[first_row * columns : row * columns],
-            ))
-            first_row = row
-            used_height = _FULL_LEGEND_OVERHEAD
-        used_height += height
-    pages.append(InterpretationGeologyLegend(legend.items[first_row * columns :]))
+    current: tuple[GeologyLegendItem, ...] = ()
+    for row in _legend_rows(width, legend, compact=False):
+        candidate = InterpretationGeologyLegend((*current, *row))
+        if current and geology_legend_height(
+            width, candidate, paint_device=paint_device,
+        ) > maximum_height:
+            pages.append(InterpretationGeologyLegend(current))
+            current = ()
+        current = (*current, *row)
+        if geology_legend_height(
+            width, InterpretationGeologyLegend(current), paint_device=paint_device,
+        ) > maximum_height:
+            raise ValueError("Geology legend page must fit a complete row and its heading")
+    pages.append(InterpretationGeologyLegend(current))
     return tuple(pages)
 
 
@@ -263,18 +281,19 @@ def paint_geology_legend(
     painter.drawRect(rect)
 
     top = rect.top() + 3.0
-    if not compact:
+    if legend.items:
         title = _labels(language)["title"]
         font = print_font(7.2, text=title)
         font.setBold(True)
         painter.setFont(font)
         painter.setPen(QColor("#172033"))
+        title_height = _legend_heading_height(rect.width(), "title", painter.device())
         painter.drawText(
-            QRectF(rect.left() + 4.0, top, rect.width() - 8.0, 13.0),
-            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            QRectF(rect.left() + 4.0, top, rect.width() - 8.0, title_height),
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter | Qt.TextFlag.TextWordWrap,
             title,
         )
-        top += 16.0
+        top += title_height
 
     columns = _legend_columns(rect.width(), compact=compact)
     cell_width = rect.width() / columns
@@ -285,26 +304,35 @@ def paint_geology_legend(
         paint_device=painter.device(),
     )
     font_size = 6.2 if compact else 6.6
-    row_offsets = [top]
-    for height in row_heights[:-1]:
-        row_offsets.append(row_offsets[-1] + height)
-
-    for index, item in enumerate(legend.items):
-        row = index // columns
-        column = index % columns
-        cell = QRectF(
-            rect.left() + column * cell_width,
-            row_offsets[row],
-            cell_width,
-            row_heights[row],
-        )
-        _paint_legend_item(
-            painter,
-            cell,
-            item,
-            font_size=font_size,
-            compact=compact,
-        )
+    previous_kind: LegendKind | None = None
+    for row, height in zip(
+        _legend_rows(rect.width(), legend, compact=compact), row_heights, strict=True,
+    ):
+        kind = row[0].kind
+        if kind != previous_kind:
+            title = _labels(language)[kind]
+            font = print_font(6.8, text=title)
+            font.setBold(True)
+            painter.setFont(font)
+            painter.setPen(QColor("#475569"))
+            section_height = _legend_heading_height(rect.width(), kind, painter.device())
+            painter.drawText(
+                QRectF(rect.left() + 4.0, top, rect.width() - 8.0, section_height),
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+                | Qt.TextFlag.TextWordWrap,
+                title,
+            )
+            top += section_height
+        for column, item in enumerate(row):
+            _paint_legend_item(
+                painter,
+                QRectF(rect.left() + column * cell_width, top, cell_width, height),
+                item,
+                font_size=font_size,
+                compact=compact,
+            )
+        top += height
+        previous_kind = kind
 
     painter.restore()
 
@@ -317,7 +345,7 @@ def _paint_legend_item(
     font_size: float,
     compact: bool,
 ) -> None:
-    marker_width = 20.0
+    marker_width = 0.0 if item.kind == "reference" else 20.0
     marker = QRectF(
         rect.left() + 3.0,
         rect.center().y() - 5.0,
@@ -345,7 +373,7 @@ def _paint_legend_item(
             QColor(item.color),
             item.intensity,
         )
-    else:
+    elif item.kind != "reference":
         painter.setPen(QPen(QColor("#64748b"), 0.45))
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawRoundedRect(marker, 2.0, 2.0)
@@ -379,9 +407,21 @@ def _legend_item_text(
     *,
     compact: bool,
 ) -> str:
-    if compact:
-        return item.code
     return f"{item.code} — {item.label}" if item.code else item.label
+
+
+def _legend_rows(
+    width: float,
+    legend: InterpretationGeologyLegend,
+    *,
+    compact: bool,
+) -> tuple[tuple[GeologyLegendItem, ...], ...]:
+    columns = _legend_columns(width, compact=compact)
+    rows: list[tuple[GeologyLegendItem, ...]] = []
+    for kind in _LEGEND_KINDS:
+        items = tuple(item for item in legend.items if item.kind == kind)
+        rows.extend(items[start:start + columns] for start in range(0, len(items), columns))
+    return tuple(rows)
 
 
 def _legend_row_heights(
@@ -392,10 +432,6 @@ def _legend_row_heights(
     paint_device: QPaintDevice | None = None,
 ) -> tuple[float, ...]:
     columns = _legend_columns(width, compact=compact)
-    rows = ceil(len(legend.items) / columns)
-    if compact:
-        return tuple(18.0 for _ in range(rows))
-
     cell_width = width / columns
     text_width = max(1.0, cell_width - 25.0)
     heights: list[float] = []
@@ -404,12 +440,11 @@ def _legend_row_heights(
         | Qt.AlignmentFlag.AlignVCenter
         | Qt.TextFlag.TextWordWrap
     )
-    for row in range(rows):
-        row_items = legend.items[row * columns : (row + 1) * columns]
+    for row_items in _legend_rows(width, legend, compact=compact):
         measured = 0.0
         for item in row_items:
             text = _legend_item_text(item, compact=False)
-            font = print_font(6.6, text=text)
+            font = print_font(6.2 if compact else 6.6, text=text)
             metrics = (
                 QFontMetricsF(font, paint_device)
                 if paint_device is not None else QFontMetricsF(font)
@@ -451,8 +486,27 @@ def _fit_legend_text(
 
 
 def _legend_columns(width: float, *, compact: bool) -> int:
-    target = 90.0 if compact else 120.0
+    target = 120.0
     return max(1, min(8, int(width // target)))
+
+
+def _legend_heading_height(
+    width: float,
+    key: str,
+    paint_device: QPaintDevice | None,
+) -> float:
+    height = 16.0 if key == "title" else _SECTION_HEIGHT
+    for language in AppLanguage:
+        text = _labels(language)[key]
+        font = print_font(7.2 if key == "title" else 6.8, text=text)
+        font.setBold(True)
+        metrics = QFontMetricsF(font, paint_device) if paint_device else QFontMetricsF(font)
+        bounds = metrics.boundingRect(
+            QRectF(0.0, 0.0, max(1.0, width - 8.0), 10_000.0),
+            int(Qt.TextFlag.TextWordWrap | Qt.AlignmentFlag.AlignLeft), text,
+        )
+        height = max(height, bounds.height() + 3.0)
+    return height
 
 
 def _lba_color_name(code: str, language: AppLanguage) -> str:
@@ -460,7 +514,10 @@ def _lba_color_name(code: str, language: AppLanguage) -> str:
         for color in group.colors:
             if color.code == code:
                 return color.localized_name(language)
-    return _labels(language)["fluorescence"]
+    for color in LBA_ADDITIONAL_COLORS:
+        if color.code == code:
+            return color.localized_name(language)
+    return _labels(language)["unknown-color"]
 
 
 def _labels(language: AppLanguage) -> dict[str, str]:
@@ -468,14 +525,32 @@ def _labels(language: AppLanguage) -> dict[str, str]:
         AppLanguage.RU: {
             "title": "Геологическая легенда",
             "fluorescence": "флуоресценция",
+            "lithology": "Литология",
+            "lba-type": "ЛБА: тип битумоида",
+            "lba-intensity": "ЛБА: интенсивность",
+            "lba-color": "ЛБА: цвет флуоресценции",
+            "unknown-color": "неизвестный цвет",
+            "reference": "Справка",
         },
         AppLanguage.KK: {
             "title": "Геологиялық легенда",
             "fluorescence": "флуоресценция",
+            "lithology": "Литология",
+            "lba-type": "ЛБА: битумоид түрі",
+            "lba-intensity": "ЛБА: қарқындылық",
+            "lba-color": "ЛБА: флуоресценция түсі",
+            "unknown-color": "анықталмаған түс",
+            "reference": "Анықтама",
         },
         AppLanguage.EN: {
             "title": "Geology legend",
             "fluorescence": "fluorescence",
+            "lithology": "Lithology",
+            "lba-type": "LBA: bitumen type",
+            "lba-intensity": "LBA: intensity",
+            "lba-color": "LBA: fluorescence colour",
+            "unknown-color": "unrecognized colour",
+            "reference": "Reference",
         },
     }[language]
 

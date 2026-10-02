@@ -4,7 +4,7 @@ from math import floor, isclose
 
 import numpy as np
 from PySide6.QtCore import QLineF, QPointF, QRectF, Qt
-from PySide6.QtGui import QFontMetricsF, QColor, QPainter, QPen
+from PySide6.QtGui import QColor, QPainter, QPen
 
 from geoworkbench.domain.depth_interval import scope_dataset
 from geoworkbench.domain.models import CurveData, Dataset
@@ -56,6 +56,10 @@ from geoworkbench.printing.hydrocarbon_interpretation_report_range import (
     ReportDepthRange,
 )
 from geoworkbench.printing.unicode_support import print_font
+from geoworkbench.printing.interpretation_track_headings import (
+    paint_track_heading,
+    track_heading_height,
+)
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonCandidateInterval,
     HydrocarbonInterpretationReport,
@@ -126,24 +130,38 @@ def render_chart_pages(
         geology_legend,
         paint_device=canvas.painter.device(),
     )
-    repeat_legend_height = geology_legend_height(
-        canvas.content_rect.width(),
-        geology_legend,
-        compact=True,
-        paint_device=canvas.painter.device(),
+    provisional = chart_geometry(
+        canvas.content_rect, DepthPage(depth_min, depth_max, 1000, MIN_CHART_HEIGHT),
+        len(panels), geology_track_count=len(geology_tracks),
     )
+    headings = [
+        (base_chart._labels(language)[name], rect.width(), 7.5)
+        for (name, _curves), rect in zip(panels, provisional.panel_rects, strict=True)
+    ]
+    headings.extend(
+        (_geology_track_labels(language)[name], rect.width(), 6.2)
+        for name, rect in zip(geology_tracks, provisional.geology_rects, strict=True)
+    )
+    headings.append((
+        base_chart._labels(language)["depth"] + (f", {report.depth_unit}" if report.depth_unit else ""),
+        provisional.left_axis_rect.width(), 7.4,
+    ))
+    header_height = max(CHART_TRACK_HEADER_HEIGHT, 20.0 + max(
+        track_heading_height(text, width, size, canvas.painter.device())
+        for text, width, size in headings
+    ))
     chart_height_budget = (
         canvas.content_rect.height()
         - CHART_HEADER_HEIGHT
-        - CHART_TRACK_HEADER_HEIGHT
+        - header_height
         - CHART_LEGEND_HEIGHT
         - CHART_NOTE_HEIGHT
     )
     # Preserve a useful plot even on A4 landscape. Large catalogs belong on
     # dedicated legend pages; do not let them consume the depth-page budget.
     legend_budget = max(0.0, chart_height_budget - 4.0 * MIN_CHART_HEIGHT)
-    continuation_legend = geology_legend
-    if max(full_legend_height, repeat_legend_height) > legend_budget:
+    chart_legend = geology_legend
+    if full_legend_height > legend_budget:
         for legend_page in paginate_geology_legend(
             canvas.content_rect.width(),
             geology_legend,
@@ -167,16 +185,14 @@ def render_chart_pages(
             AppLanguage.KK: "Легенда: бөлек беттер",
             AppLanguage.EN: "Legend: separate pages",
         }[language]
-        full_legend_height = 0.0
-        if repeat_legend_height > legend_budget:
-            continuation_legend = InterpretationGeologyLegend((
-                GeologyLegendItem("lithology", "legend-pages", reference, ""),
-            ))
-            repeat_legend_height = geology_legend_height(
-                canvas.content_rect.width(), continuation_legend, compact=True,
-                paint_device=canvas.painter.device(),
-            )
-    available_height = chart_height_budget - max(full_legend_height, repeat_legend_height)
+        chart_legend = InterpretationGeologyLegend((
+            GeologyLegendItem("reference", "legend-pages", "", reference),
+        ))
+        full_legend_height = geology_legend_height(
+            canvas.content_rect.width(), chart_legend,
+            paint_device=canvas.painter.device(),
+        )
+    available_height = chart_height_budget - full_legend_height
     pages = plan_depth_pages(
         depth_min,
         depth_max,
@@ -185,11 +201,6 @@ def render_chart_pages(
     for page_index, page in enumerate(pages, start=1):
         canvas.new_page()
         percentiles = base_chart._curve_percentiles(panels, dataset, page=page)
-        first_page = page_index == 1
-        first_page_legend_height = full_legend_height if first_page else 0.0
-        continuation_legend_height = (
-            repeat_legend_height if not first_page or full_legend_height == 0.0 else 0.0
-        )
         _draw_chart_page(
             canvas.painter,
             chart_geometry(
@@ -197,8 +208,8 @@ def render_chart_pages(
                 page,
                 len(panels),
                 geology_track_count=len(geology_tracks),
-                geology_legend_height=first_page_legend_height,
-                geology_repeat_legend_height=continuation_legend_height,
+                geology_legend_height=full_legend_height,
+                track_header_height=header_height,
             ),
             page,
             page_index,
@@ -212,8 +223,8 @@ def render_chart_pages(
             geology,
             geology_tracks,
             empty_state_tracks,
-            geology_legend,
-            continuation_legend,
+            chart_legend,
+            None,
         )
         canvas.y = canvas.content_rect.bottom()
 
@@ -274,17 +285,11 @@ def _draw_geology_tracks(
     for track, rect in zip(geology_tracks, geometry.geology_rects, strict=True):
         painter.fillRect(rect, QColor("#ffffff"))
         heading = labels[track]
-        font = print_font(6.2, text=heading)
-        font.setBold(True)
-        heading_width = QFontMetricsF(font, painter.device()).horizontalAdvance(heading)
-        if heading_width > rect.width() - 2.0:
-            font.setPointSizeF(font.pointSizeF() * (rect.width() - 2.0) / heading_width)
-        painter.setFont(font)
-        painter.setPen(QColor("#172033"))
-        painter.drawText(
-            QRectF(rect.left(), rect.top() - 33.0, rect.width(), 28.0),
-            Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
-            heading,
+        paint_track_heading(
+            painter,
+            QRectF(rect.left(), rect.top() - geometry.track_header_height + 2.0,
+                   rect.width(), geometry.track_header_height - 20.0),
+            heading, 6.2,
         )
         for tick in minor_depth_ticks(page):
             y = base_chart._depth_y(tick, page, rect)
@@ -436,6 +441,7 @@ def _draw_chart_page(
         report.depth_unit,
         side="left",
         language=language,
+        header_height=geometry.track_header_height,
     )
     _draw_depth_axis(
         painter,
@@ -444,6 +450,7 @@ def _draw_chart_page(
         report.depth_unit,
         side="right",
         language=language,
+        header_height=geometry.track_header_height,
     )
     if geology_tracks:
         _draw_geology_tracks(
@@ -470,6 +477,7 @@ def _draw_chart_page(
             ranges,
             candidates,
             language,
+            header_height=geometry.track_header_height,
         )
         base_chart._draw_legend(
             painter,
@@ -506,6 +514,7 @@ def _draw_depth_axis(
     *,
     side: str,
     language: AppLanguage,
+    header_height: float = CHART_TRACK_HEADER_HEIGHT,
 ) -> None:
     labels = base_chart._labels(language)
     painter.fillRect(rect, QColor("#ffffff"))
@@ -513,14 +522,11 @@ def _draw_depth_axis(
     painter.setPen(QPen(QColor("#263746"), 1.15))
     painter.drawRect(rect)
     title = labels["depth"] + (f", {unit}" if unit else "")
-    title_font = print_font(7.4, text=title)
-    title_font.setBold(True)
-    painter.setFont(title_font)
-    painter.setPen(QColor("#172033"))
-    painter.drawText(
-        QRectF(rect.left() - 2.0, rect.top() - 28.0, rect.width() + 4.0, 18.0),
-        Qt.AlignmentFlag.AlignCenter,
-        title,
+    paint_track_heading(
+        painter,
+        QRectF(rect.left(), rect.top() - header_height + 2.0,
+               rect.width(), header_height - 20.0),
+        title, 7.4,
     )
 
     for value in minor_depth_ticks(page):
@@ -581,6 +587,8 @@ def _draw_panel(
     ranges: dict[str, tuple[float, float]],
     candidates: tuple[HydrocarbonCandidateInterval, ...],
     language: AppLanguage,
+    *,
+    header_height: float = CHART_TRACK_HEADER_HEIGHT,
 ) -> None:
     painter.fillRect(rect, QColor("#ffffff"))
     for tick in minor_depth_ticks(page):
@@ -614,14 +622,11 @@ def _draw_panel(
 
     _draw_candidate_bands(painter, rect, page, candidates)
     heading = base_chart._labels(language)[panel_name]
-    heading_font = print_font(7.5, text=heading)
-    heading_font.setBold(True)
-    painter.setFont(heading_font)
-    painter.setPen(QColor("#172033"))
-    painter.drawText(
-        QRectF(rect.left(), rect.top() - 32.0, rect.width(), 15.0),
-        Qt.AlignmentFlag.AlignCenter,
-        heading,
+    paint_track_heading(
+        painter,
+        QRectF(rect.left(), rect.top() - header_height + 2.0,
+               rect.width(), header_height - 20.0),
+        heading, 7.5,
     )
     if not any(curve.metadata.curve_id in ranges for curve in curves):
         painter.setPen(QColor("#64748b"))

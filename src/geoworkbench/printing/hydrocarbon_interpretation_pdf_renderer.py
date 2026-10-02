@@ -3,9 +3,14 @@ from __future__ import annotations
 import re
 from typing import Any
 
+import numpy as np
+
+from PySide6.QtCore import QRectF
 from PySide6.QtGui import QPainter
 
 from geoworkbench.domain.models import Dataset
+from geoworkbench.domain.depth_interval import scope_dataset
+from geoworkbench.printing.interpretation_chart_key import interpretation_chart_key_html
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_canvas import PageCanvas
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_chart_enhanced import (
     render_chart_pages,
@@ -16,9 +21,15 @@ from geoworkbench.printing.hydrocarbon_interpretation_pdf_cover import (
 from geoworkbench.printing.hydrocarbon_interpretation_geology import (
     InterpretationGeologySnapshot,
 )
+from geoworkbench.printing.hydrocarbon_interpretation_geology_legend import (
+    build_interpretation_geology_legend,
+    geology_legend_height,
+    paint_geology_legend,
+)
 from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
     DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS,
     InterpretationGeologyTrackSettings,
+    resolve_geology_track_kinds,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import (
     ChartGeometry,
@@ -87,6 +98,35 @@ def render_hydrocarbon_interpretation_report(
         render_report_cover(canvas, report, language, identity)
 
         if include_chart and dataset is not None:
+            scoped = scope_dataset(dataset, report.analysis_depth_interval)
+            key_html = interpretation_chart_key_html(
+                report, scoped, language,
+            )
+            if key_html:
+                canvas.new_page()
+                top = float(np.nanmin(scoped.depth))
+                bottom = float(np.nanmax(scoped.depth))
+                bounds = report.analysis_depth_interval or depth_range
+                if bounds is not None:
+                    top, bottom = bounds.top_depth, bounds.bottom_depth
+                tracks = resolve_geology_track_kinds(
+                    geology, top, bottom, geology_track_settings,
+                )
+                legend = build_interpretation_geology_legend(
+                    geology, top, bottom, language,
+                    include_cuttings="cuttings" in tracks, include_lba="lba" in tracks,
+                )
+                height = geology_legend_height(
+                    canvas.content_rect.width(), legend, paint_device=device,
+                )
+                if 0.0 < height <= canvas.content_rect.height() * 0.45:
+                    paint_geology_legend(
+                        painter, QRectF(canvas.content_rect.left(), canvas.y,
+                                        canvas.content_rect.width(), height), legend, language,
+                    )
+                    canvas.advance(height, spacing=8.0)
+                render_report_html(canvas, key_html, leading_block_count=0,
+                                   start_body_on_new_page=False)
             render_chart_pages(
                 canvas,
                 report,

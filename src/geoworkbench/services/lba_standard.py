@@ -165,6 +165,12 @@ LBA_STANDARD_GROUPS: tuple[LbaStandardGroup, ...] = (
     ),
 )
 
+# Legacy fluorescence codes remain valid colours without implying a bitumen group.
+LBA_ADDITIONAL_COLORS: tuple[LbaFluorescenceColor, ...] = (
+    LbaFluorescenceColor("СЖ", "светло-жёлтый", "ашық сары", "light yellow"),
+    LbaFluorescenceColor("О", "оранжевый", "қызғылт сары", "orange"),
+)
+
 _GROUP_BY_NUMBER = {item.group: item for item in LBA_STANDARD_GROUPS}
 _GROUP_BY_TYPE: dict[str, LbaStandardGroup] = {}
 _GROUPS_BY_COLOR: dict[str, tuple[LbaStandardGroup, ...]] = {}
