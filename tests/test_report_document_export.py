@@ -10,7 +10,9 @@ from geoworkbench.data.report_document_export import (
     MISSING_CELL,
     REPORT_DOCUMENT_SCHEMA_VERSION,
     UNAVAILABLE_CELL,
+    ReportDocumentColumn,
     ReportDocumentExportError,
+    _disambiguate_visible_columns,
     build_report_document_model,
     export_report_docx,
     export_report_html,
@@ -76,7 +78,7 @@ def test_document_model_uses_resolved_indices_and_coverage_states() -> None:
     assert [column.header for column in model.columns] == [
         "Depth [m]",
         "Methane [ppm]",
-        "Unresolved channel",
+        "Hydrogen sulfide",
     ]
     assert model.rows[0] == ("100", "0", UNAVAILABLE_CELL)
     assert model.rows[1] == ("101", MISSING_CELL, UNAVAILABLE_CELL)
@@ -91,9 +93,9 @@ def test_document_model_uses_resolved_indices_and_coverage_states() -> None:
 @pytest.mark.parametrize(
     ("language", "gas_header", "unavailable_header"),
     [
-        (AppLanguage.RU, "Содержание метана [ppm]", "Неопределённый канал"),
-        (AppLanguage.KK, "Метан [ppm]", "Анықталмаған арна"),
-        (AppLanguage.EN, "Methane [ppm]", "Unresolved channel"),
+        (AppLanguage.RU, "Содержание метана [ppm]", "Сероводород"),
+        (AppLanguage.KK, "Метан [ppm]", "Күкіртсутек"),
+        (AppLanguage.EN, "Methane [ppm]", "Hydrogen sulfide"),
     ],
 )
 def test_document_headers_are_localized_without_exposing_mnemonics(
@@ -111,6 +113,33 @@ def test_document_headers_are_localized_without_exposing_mnemonics(
     assert model.columns[2].header == unavailable_header
     assert "C1" not in model.columns[1].header
     assert "H2S" not in model.columns[2].header
+
+
+def test_unavailable_unknown_channel_uses_localized_neutral_placeholder() -> None:
+    dataset, _report = _resolved_report()
+    definition = ReportDefinition(
+        "selection:dataset-1:unknown",
+        "Gas interval",
+        ReportProfile.GAS,
+        dataset.dataset_id,
+        dataset.active_index_id or "",
+        ReportIntervalSelection(ReportIntervalMode.SELECTION),
+        language="en",
+        curve_ids=("c1",),
+        channel_mnemonics=("C1", "VENDOR_UNKNOWN_17"),
+    )
+    report = resolve_report_definition(
+        dataset,
+        definition,
+        context=ReportIntervalContext(selection_range=(100.0, 102.0)),
+        require_curves=True,
+    )
+
+    model = build_report_document_model(dataset, report, language=AppLanguage.EN)
+
+    assert model.columns[2].technical_name == "VENDOR_UNKNOWN_17"
+    assert model.columns[2].header == "Unresolved channel"
+    assert "VENDOR_UNKNOWN_17" not in model.columns[2].header
 
 
 def test_unavailable_known_channel_keeps_readable_physical_name() -> None:
@@ -141,6 +170,297 @@ def test_unavailable_known_channel_keeps_readable_physical_name() -> None:
     assert "TOTAL_GAS" not in model.columns[2].header
 
 
+@pytest.mark.parametrize(
+    ("mnemonic", "expected"),
+    [
+        ("TOTAL_GAS", "Total Gas"),
+        ("FLOW_IN", "Flow In"),
+        ("OPUS3", "OPUS-3"),
+    ],
+)
+def test_available_curated_english_labels_are_not_masked(
+    mnemonic: str,
+    expected: str,
+) -> None:
+    dataset, _report = _resolved_report()
+    dataset.curves["curated"] = CurveData(
+        CurveMetadata(
+            "curated",
+            mnemonic,
+            mnemonic,
+            "",
+            None,
+            dataset.dataset_id,
+        ),
+        np.array([1.0, 2.0, 3.0, 4.0]),
+    )
+    definition = ReportDefinition(
+        f"selection:dataset-1:curated:{mnemonic}",
+        "Curated label report",
+        ReportProfile.COMBINED,
+        dataset.dataset_id,
+        dataset.active_index_id or "",
+        ReportIntervalSelection(ReportIntervalMode.SELECTION),
+        language="en",
+        curve_ids=("curated",),
+    )
+    report = resolve_report_definition(
+        dataset,
+        definition,
+        context=ReportIntervalContext(selection_range=(100.0, 102.0)),
+        require_curves=True,
+    )
+
+    model = build_report_document_model(dataset, report, language=AppLanguage.EN)
+
+    assert model.columns[1].technical_name == mnemonic
+    assert model.columns[1].header == expected
+
+
+@pytest.mark.parametrize("mnemonic", ["MS_H2S", "BIT_DEPTH_STANDS"])
+def test_unavailable_prettified_technical_names_are_masked(mnemonic: str) -> None:
+    dataset, _report = _resolved_report()
+    definition = ReportDefinition(
+        f"selection:dataset-1:unavailable:{mnemonic}",
+        "Unavailable technical label report",
+        ReportProfile.COMBINED,
+        dataset.dataset_id,
+        dataset.active_index_id or "",
+        ReportIntervalSelection(ReportIntervalMode.SELECTION),
+        language="en",
+        curve_ids=("c1",),
+        channel_mnemonics=("C1", mnemonic),
+    )
+    report = resolve_report_definition(
+        dataset,
+        definition,
+        context=ReportIntervalContext(selection_range=(100.0, 102.0)),
+        require_curves=True,
+    )
+
+    model = build_report_document_model(dataset, report, language=AppLanguage.EN)
+
+    assert model.columns[2].technical_name == mnemonic
+    assert model.columns[2].header == "Unresolved channel"
+    assert mnemonic not in model.columns[2].header
+
+
+def test_duplicate_physical_headers_use_localized_source_ordinals() -> None:
+    dataset, _report = _resolved_report()
+    dataset.curves["c1-backup"] = CurveData(
+        CurveMetadata(
+            "c1-backup",
+            "METHANE_BACKUP_SENSOR",
+            "C1",
+            "ppm",
+            "Backup methane sensor",
+            dataset.dataset_id,
+        ),
+        np.array([1.0, 2.0, 3.0, 4.0]),
+    )
+    definition = ReportDefinition(
+        "selection:dataset-1:duplicate-c1",
+        "Gas interval",
+        ReportProfile.GAS,
+        dataset.dataset_id,
+        dataset.active_index_id or "",
+        ReportIntervalSelection(ReportIntervalMode.SELECTION),
+        language="en",
+        curve_ids=("c1", "c1-backup"),
+    )
+    report = resolve_report_definition(
+        dataset,
+        definition,
+        context=ReportIntervalContext(selection_range=(100.0, 102.0)),
+        require_curves=True,
+    )
+
+    model = build_report_document_model(dataset, report, language=AppLanguage.EN)
+
+    assert [column.technical_name for column in model.columns[1:]] == [
+        "C1",
+        "METHANE_BACKUP_SENSOR",
+    ]
+    assert [column.header for column in model.columns[1:]] == [
+        "Methane (source 1) [ppm]",
+        "Methane (source 2) [ppm]",
+    ]
+    assert all("C1" not in column.header for column in model.columns[1:])
+    assert all("METHANE_BACKUP_SENSOR" not in column.header for column in model.columns[1:])
+
+
+def test_generated_source_ordinals_skip_already_reserved_headers() -> None:
+    columns = [
+        ReportDocumentColumn("a", "Methane", "A", "ppm", None, None),
+        ReportDocumentColumn("b", "Methane", "B", "ppm", None, None),
+        ReportDocumentColumn(
+            "c",
+            "Methane (source 1)",
+            "C",
+            "ppm",
+            None,
+            None,
+        ),
+    ]
+
+    result = _disambiguate_visible_columns(columns, source_label="source")
+
+    assert [column.header for column in result] == [
+        "Methane (source 2) [ppm]",
+        "Methane (source 3) [ppm]",
+        "Methane (source 1) [ppm]",
+    ]
+
+
+def test_generic_index_keeps_nontechnical_visible_identity() -> None:
+    from geoworkbench.domain.models import DatasetIndex, IndexRole, IndexType
+
+    dataset, _report = _resolved_report()
+    dataset.add_index(
+        DatasetIndex(
+            "generic-index",
+            "CUSTOM_AXIS",
+            IndexType.GENERIC,
+            IndexRole.GENERIC,
+            "arb",
+            np.array([10.0, 20.0, 30.0, 40.0]),
+        ),
+        make_active=True,
+    )
+    definition = ReportDefinition(
+        "generic:dataset-1",
+        "Generic index report",
+        ReportProfile.GAS,
+        dataset.dataset_id,
+        "generic-index",
+        ReportIntervalSelection(ReportIntervalMode.CUSTOM, 10.0, 30.0),
+        language="en",
+        curve_ids=("c1",),
+    )
+    report = resolve_report_definition(dataset, definition, require_curves=True)
+
+    model = build_report_document_model(dataset, report, language=AppLanguage.EN)
+
+    assert model.columns[0].technical_name == "CUSTOM_AXIS"
+    assert model.columns[0].header == "Index 2 [arb]"
+    assert "CUSTOM_AXIS" not in model.columns[0].header
+
+
+def test_available_unknown_curve_uses_neutral_header_but_keeps_audit_name() -> None:
+    dataset, _report = _resolved_report()
+    dataset.curves["unknown"] = CurveData(
+        CurveMetadata(
+            "unknown",
+            "VENDOR_UNKNOWN_17",
+            "VENDOR_UNKNOWN_17",
+            "ppm",
+            None,
+            dataset.dataset_id,
+        ),
+        np.array([1.0, 2.0, 3.0, 4.0]),
+    )
+    definition = ReportDefinition(
+        "selection:dataset-1:unknown-available",
+        "Unknown curve report",
+        ReportProfile.GAS,
+        dataset.dataset_id,
+        dataset.active_index_id or "",
+        ReportIntervalSelection(ReportIntervalMode.SELECTION),
+        language="en",
+        curve_ids=("unknown",),
+    )
+    report = resolve_report_definition(
+        dataset,
+        definition,
+        context=ReportIntervalContext(selection_range=(100.0, 102.0)),
+        require_curves=True,
+    )
+
+    model = build_report_document_model(dataset, report, language=AppLanguage.EN)
+
+    assert model.columns[1].technical_name == "VENDOR_UNKNOWN_17"
+    assert model.columns[1].header == "Unresolved channel [ppm]"
+    assert "VENDOR_UNKNOWN_17" not in model.columns[1].header
+
+
+def test_prettified_technical_fallback_is_masked_for_available_curve() -> None:
+    dataset, _report = _resolved_report()
+    dataset.curves["sensor-111"] = CurveData(
+        CurveMetadata(
+            "sensor-111",
+            "SENSOR_111",
+            "SENSOR_111",
+            "psi",
+            None,
+            dataset.dataset_id,
+        ),
+        np.array([1.0, 2.0, 3.0, 4.0]),
+    )
+    definition = ReportDefinition(
+        "selection:dataset-1:sensor-111",
+        "Technical fallback report",
+        ReportProfile.COMBINED,
+        dataset.dataset_id,
+        dataset.active_index_id or "",
+        ReportIntervalSelection(ReportIntervalMode.SELECTION),
+        language="en",
+        curve_ids=("sensor-111",),
+    )
+    report = resolve_report_definition(
+        dataset,
+        definition,
+        context=ReportIntervalContext(selection_range=(100.0, 102.0)),
+        require_curves=True,
+    )
+
+    model = build_report_document_model(dataset, report, language=AppLanguage.EN)
+
+    assert model.columns[1].technical_name == "SENSOR_111"
+    assert model.columns[1].header == "Unresolved channel [psi]"
+    assert "Sensor 111" not in model.columns[1].header
+    assert "SENSOR_111" not in model.columns[1].header
+
+
+def test_index_curve_header_collision_is_disambiguated_without_mnemonics() -> None:
+    dataset, _report = _resolved_report()
+    dataset.curves["depth-like"] = CurveData(
+        CurveMetadata(
+            "depth-like",
+            "VENDOR_DEPTH_COPY",
+            "VENDOR_DEPTH_COPY",
+            "",
+            "Depth [m]",
+            dataset.dataset_id,
+        ),
+        np.array([1.0, 2.0, 3.0, 4.0]),
+    )
+    definition = ReportDefinition(
+        "selection:dataset-1:index-collision",
+        "Index collision report",
+        ReportProfile.COMBINED,
+        dataset.dataset_id,
+        dataset.active_index_id or "",
+        ReportIntervalSelection(ReportIntervalMode.SELECTION),
+        language="en",
+        curve_ids=("depth-like",),
+    )
+    report = resolve_report_definition(
+        dataset,
+        definition,
+        context=ReportIntervalContext(selection_range=(100.0, 102.0)),
+        require_curves=True,
+    )
+
+    model = build_report_document_model(dataset, report, language=AppLanguage.EN)
+
+    assert [column.header for column in model.columns] == [
+        "Depth (source 1) [m]",
+        "Depth [m] (source 2)",
+    ]
+    assert model.columns[1].technical_name == "VENDOR_DEPTH_COPY"
+    assert all("VENDOR_DEPTH_COPY" not in column.header for column in model.columns)
+
+
 def test_html_export_is_self_contained_and_explicit_about_coverage(tmp_path) -> None:
     dataset, report = _resolved_report()
     target = tmp_path / "report.html"
@@ -151,9 +471,9 @@ def test_html_export_is_self_contained_and_explicit_about_coverage(tmp_path) -> 
     assert '<html lang="en">' in text
     assert "Gas interval" in text
     assert "Methane [ppm]" in text
-    assert "Unresolved channel" in text
+    assert "Hydrogen sulfide" in text
     assert "Methane · C1" not in text
-    assert "Unresolved channel · H2S" not in text
+    assert "H2S" not in text
     assert 'data-state="zero">0</td>' in text
     assert 'data-state="missing">—</td>' in text
     assert 'data-state="unavailable">#N/A</td>' in text
@@ -186,9 +506,9 @@ def test_docx_export_is_valid_deterministic_openxml(tmp_path) -> None:
         core = archive.read("docProps/core.xml").decode("utf-8")
     assert "Gas interval" in document
     assert "Methane [ppm]" in document
-    assert "Unresolved channel" in document
+    assert "Hydrogen sulfide" in document
     assert "Methane · C1" not in document
-    assert "Unresolved channel · H2S" not in document
+    assert "H2S" not in document
     assert "#N/A" in document
     assert "—" in document
     assert "0" in document

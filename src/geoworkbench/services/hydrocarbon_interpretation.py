@@ -12,6 +12,8 @@ from geoworkbench.domain.gas_context_events import (
     InterpretationImpact,
 )
 from geoworkbench.domain.models import Dataset
+from geoworkbench.domain.depth_interval import DepthInterval
+from geoworkbench.project.interpretation_depth_scope import scope_interpretation_session
 from geoworkbench.project.interpretation_calculation_controller import (
     NormalizedGasCalculationMode,
 )
@@ -141,8 +143,21 @@ def build_hydrocarbon_interpretation_report(
     *,
     threshold: float = 3.0,
     normalized_gas_mode: NormalizedGasCalculationMode | str | None = None,
+    depth_interval: DepthInterval | None = None,
 ) -> HydrocarbonInterpretationReport:
     """Build a report while preserving the legacy API when no mode was selected."""
+
+    if depth_interval is not None:
+        mode = (
+            normalized_gas_mode
+            if normalized_gas_mode is not None
+            else _SELECTED_MODES.get(id(session))
+        )
+        selected = scope_interpretation_session(session, depth_interval)
+        report = build_hydrocarbon_interpretation_report(
+            selected, threshold=threshold, normalized_gas_mode=mode,
+        )
+        return replace(report, analysis_depth_interval=depth_interval)
 
     session_id = id(session)
     effective_events = _effective_session_gas_context_events(session)
@@ -245,7 +260,14 @@ def build_opus_interpretation_report(
     *,
     threshold: float = 3.0,
     total_gas_lod: float | None = None,
+    depth_interval: DepthInterval | None = None,
 ) -> HydrocarbonInterpretationReport:
+    if depth_interval is not None:
+        selected = scope_interpretation_session(session, depth_interval)
+        report = build_opus_interpretation_report(
+            selected, threshold=threshold, total_gas_lod=total_gas_lod,
+        )
+        return replace(report, analysis_depth_interval=depth_interval)
     effective_events = _effective_session_gas_context_events(session)
     report = _build_opus_interpretation_report(
         session,
@@ -264,6 +286,16 @@ def hydrocarbon_interpretation_html(
     """Render a presentation-ready report while retaining QC in structured data."""
 
     html = _base_hydrocarbon_interpretation_html(report, language)
+    if report.analysis_depth_interval is not None:
+        label = {
+            AppLanguage.RU: "Интервал расчёта и интерпретации",
+            AppLanguage.KK: "Есептеу және интерпретация аралығы",
+            AppLanguage.EN: "Calculation and interpretation interval",
+        }[language]
+        interval = escape(report.analysis_depth_interval.formatted(report.depth_unit))
+        html = html.replace(
+            "</h1>", f"</h1><p class='analysis-depth-interval'>{label}: {interval}</p>", 1,
+        )
     if report.report_profile == "opus":
         opus_title = {
             AppLanguage.RU: "Дополнительный отчёт ОПУС по C1-C5",

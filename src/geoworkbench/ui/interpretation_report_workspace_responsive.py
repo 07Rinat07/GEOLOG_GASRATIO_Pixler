@@ -130,7 +130,7 @@ class InterpretationReportWorkspace(_CompatibleInterpretationReportWorkspace):
 
         self.configuration_shell = QWidget()
         self.configuration_shell.setObjectName("interpretation-config-shell")
-        shell_layout = QHBoxLayout(self.configuration_shell)
+        shell_layout = QVBoxLayout(self.configuration_shell)
         shell_layout.setContentsMargins(0, 0, 0, 0)
         shell_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
 
@@ -141,6 +141,7 @@ class InterpretationReportWorkspace(_CompatibleInterpretationReportWorkspace):
         self._configuration_grid.setContentsMargins(0, 0, 0, 0)
         self._configuration_grid.setHorizontalSpacing(12)
         self._configuration_grid.setVerticalSpacing(12)
+        shell_layout.addWidget(self.depth_interval_panel)
         shell_layout.addWidget(self.configuration_content, 1)
         self.configuration_scroll.setWidget(self.configuration_shell)
         self.main_splitter.addWidget(self.configuration_scroll)

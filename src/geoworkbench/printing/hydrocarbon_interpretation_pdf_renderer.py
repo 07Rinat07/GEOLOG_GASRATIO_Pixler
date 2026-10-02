@@ -13,6 +13,13 @@ from geoworkbench.printing.hydrocarbon_interpretation_pdf_chart_enhanced import 
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_cover import (
     render_report_cover,
 )
+from geoworkbench.printing.hydrocarbon_interpretation_geology import (
+    InterpretationGeologySnapshot,
+)
+from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
+    DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS,
+    InterpretationGeologyTrackSettings,
+)
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import (
     ChartGeometry,
     DepthPage,
@@ -53,6 +60,10 @@ def render_hydrocarbon_interpretation_report(
     include_chart: bool = False,
     identity: InterpretationReportIdentity | None = None,
     depth_range: ReportDepthRange | None = None,
+    geology: InterpretationGeologySnapshot | None = None,
+    geology_track_settings: InterpretationGeologyTrackSettings = (
+        DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS
+    ),
 ) -> None:
     """Render one controlled multi-page report to QPdfWriter or QPrinter."""
 
@@ -82,6 +93,8 @@ def render_hydrocarbon_interpretation_report(
                 dataset,
                 language,
                 depth_range=depth_range,
+                geology=geology,
+                geology_track_settings=geology_track_settings,
             )
 
         render_report_html(

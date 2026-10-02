@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from geoworkbench.domain.depth_interval import DepthInterval
+
 from dataclasses import dataclass
 from datetime import datetime
 from html import escape
@@ -172,6 +174,7 @@ class HydrocarbonInterpretationReport:
     gas_context_events: tuple[GasContextEvent, ...] = ()
     gas_context_audit: tuple[GasContextIntervalAudit, ...] = ()
     suppressed_candidates: tuple[HydrocarbonCandidateInterval, ...] = ()
+    analysis_depth_interval: DepthInterval | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -1464,7 +1467,6 @@ small {{ color: #44566c; }}
 <p><b>{escape(labels["project"])}:</b> {escape(report.project_name)}<br>
 <b>{escape(labels["well"])}:</b> {escape(report.well_name)}<br>
 <b>{escape(labels["dataset"])}:</b> {escape(report.dataset_name)}<br>
-<b>{escape(labels["created"])}:</b> {escape(report.generated_at)}<br>
 <b>{escape(labels["primary"])}:</b> {escape(localized_curve_reference(report.primary_mnemonic, language=language) if report.primary_mnemonic else "—")}<br>
 <b>{escape(labels["threshold"])}:</b> {report.threshold:.2f}</p>
 <h2>{escape(labels["methods"])}</h2>

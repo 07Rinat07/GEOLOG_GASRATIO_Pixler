@@ -23,6 +23,10 @@ from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
     InterpretationReportIdentity,
     default_interpretation_report_identity,
 )
+from geoworkbench.printing.hydrocarbon_interpretation_report_range import (
+    ReportDepthRange,
+    scope_report_to_depth_range,
+)
 from geoworkbench.printing.report_visual_system import REPORT_BRAND_WORDMARK
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
@@ -87,6 +91,18 @@ def _word_text(element: ET.Element) -> str:
 
 LEGACY_PRODUCT_NAME = "GEOLOG GASRATIO" + "@" + "Pixler"
 
+def test_report_scoping_preserves_generation_audit_timestamp() -> None:
+    report = _report()
+
+    scoped = scope_report_to_depth_range(
+        report,
+        ReportDepthRange(1000.0, 1200.0),
+    )
+
+    assert scoped.generated_at == report.generated_at
+    assert scoped.generated_at == "2026-08-01T11:30:00+05:00"
+
+
 def test_default_identity_uses_loaded_values_only_as_initial_suggestion() -> None:
     identity = default_interpretation_report_identity(
         _report(),
@@ -99,7 +115,28 @@ def test_default_identity_uses_loaded_values_only_as_initial_suggestion() -> Non
     assert identity.dataset_name.endswith(".las")
     assert identity.interval == "1000.00–1200.00 m"
     assert identity.revision == "00"
-    assert identity.report_date == "01.08.2026"
+    assert identity.report_date == ""
+
+
+def test_default_pdf_cover_hides_generation_timestamp(qapp, tmp_path) -> None:
+    target = tmp_path / "default-cover-no-generated-time.pdf"
+
+    export_hydrocarbon_interpretation_pdf(
+        _report(),
+        target,
+        language=AppLanguage.RU,
+        include_chart=False,
+        orientation=QPageLayout.Orientation.Portrait,
+    )
+
+    with fitz.open(target) as document:
+        cover_text = document[0].get_text()
+
+    assert "Дата отчёта" not in cover_text
+    assert "Порог robust z" in cover_text
+    assert "Сформирован" not in cover_text
+    assert "2026-08-01T11:30:00+05:00" not in cover_text
+    assert "11:30" not in cover_text
 
 
 def test_details_dialog_returns_manually_edited_values(qapp) -> None:
@@ -144,9 +181,36 @@ def test_pdf_cover_uses_manual_identity_instead_of_loaded_file_names(qapp, tmp_p
     assert "АО Заказчик" in cover_text
     assert "ТОО Сервис ГТИ" in cover_text
     assert "Инженер ГТИ И.И." in cover_text
+    assert "Дата отчёта" in cover_text
+    assert "01.08.2026" in cover_text
+    assert "2026-08-01T11:30:00+05:00" not in cover_text
+    assert "Сформирован" not in cover_text
     assert REPORT_BRAND_WORDMARK in cover_text
     assert LEGACY_PRODUCT_NAME not in cover_text
     assert "Техническое_имя_загруженного_файла.las" not in cover_text
+
+
+def test_default_word_cover_uses_full_width_three_column_control_table(tmp_path) -> None:
+    target = tmp_path / "default-cover.docx"
+    export_polished_hydrocarbon_interpretation_docx(_report(), target)
+
+    with zipfile.ZipFile(target) as package:
+        root = ET.fromstring(package.read("word/document.xml"))
+
+    document_text = _word_text(root)
+    assert "Дата отчёта" not in document_text
+    assert "Сформирован" not in document_text
+
+    control_table = root.find(".//w:tbl", _W)
+    assert control_table is not None
+    table_width = control_table.find("w:tblPr/w:tblW", _W)
+    assert table_width is not None
+    assert table_width.get(f"{{{_W_NS}}}w") == "9000"
+    grid_widths = [
+        int(column.get(f"{{{_W_NS}}}w", "0"))
+        for column in control_table.findall("w:tblGrid/w:gridCol", _W)
+    ]
+    assert grid_widths == [3000, 3000, 3000]
 
 
 def test_word_cover_is_separate_and_not_bunched_at_top(tmp_path) -> None:
@@ -170,6 +234,10 @@ def test_word_cover_is_separate_and_not_bunched_at_top(tmp_path) -> None:
     assert "АО Заказчик" in document_text
     assert "ТОО Сервис ГТИ" in document_text
     assert "Инженер ГТИ И.И." in document_text
+    assert "Дата отчёта" in document_text
+    assert "01.08.2026" in document_text
+    assert "2026-08-01T11:30:00+05:00" not in document_text
+    assert "Сформирован" not in document_text
     assert REPORT_BRAND_WORDMARK in document_text
     assert LEGACY_PRODUCT_NAME not in document_text
     assert "Техническое_имя_загруженного_файла.las" not in document_text

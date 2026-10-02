@@ -1729,9 +1729,13 @@ def test_tablet_interval_handlers_create_resize_and_undo(qapp) -> None:
     window.set_interval_interaction_mode(IntervalEditMode.CREATE)
     interpretation_id = window.interpretation_controller.selected_interpretation_id
     assert interpretation_id is not None
-    assert any(
-        track.kind is TrackKind.INTERPRETATION for track in session.current_tablet_layout.tracks
+    interpretation_track = next(
+        track
+        for track in session.current_tablet_layout.tracks
+        if track.kind is TrackKind.INTERPRETATION
     )
+    interpretation_plot = window.tablet_view._rendered[interpretation_track.track_id].plot
+    assert interpretation_plot is not None
 
     window._create_interval_from_tablet(interpretation_id, 100.0, 101.0, "Reservoir")
     interval = window.interpretation_controller.selected_interval()
@@ -1739,18 +1743,30 @@ def test_tablet_interval_handlers_create_resize_and_undo(qapp) -> None:
     assert interval.top_depth == 100.0
     assert interval.bottom_depth == 101.0
     assert window.undo_interpretation_action.isEnabled()
+    assert window.tablet_view._rendered[interpretation_track.track_id].plot is interpretation_plot
 
-    window._resize_interval_from_tablet(interpretation_id, interval.interval_id, 100.0, 100.5)
-    assert window.interpretation_controller.selected_interval().bottom_depth == 100.5
+    window._resize_interval_from_tablet(
+        interpretation_id,
+        interval.interval_id,
+        100.0,
+        100.5,
+    )
+    resized = window.interpretation_controller.selected_interval()
+    assert resized is not None
+    assert resized.bottom_depth == 100.5
+    assert window.tablet_view._rendered[interpretation_track.track_id].plot is interpretation_plot
 
     window.undo_interpretation_edit()
-    assert window.interpretation_controller.selected_interval().bottom_depth == 101.0
+    restored = window.interpretation_controller.selected_interval()
+    assert restored is not None
+    assert restored.bottom_depth == 101.0
+    assert window.tablet_view._rendered[interpretation_track.track_id].plot is interpretation_plot
+
     window.set_interval_interaction_mode(IntervalEditMode.SELECT)
     window.tablet_view.clear()
     window.close()
     window.deleteLater()
     qapp.processEvents()
-
 
 def test_pencil_action_edits_visible_curve_directly_in_tablet(qapp) -> None:
     window = MainWindow()

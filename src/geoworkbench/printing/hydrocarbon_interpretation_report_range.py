@@ -1,12 +1,16 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import replace
 import math
 import re
 
 import numpy as np
 
 from geoworkbench.domain.models import Dataset
+from geoworkbench.domain.depth_interval import (
+    DepthInterval as ReportDepthRange,
+    DepthIntervalError as ReportDepthRangeError,
+)
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
 )
@@ -17,28 +21,6 @@ _INTERVAL_PATTERN = re.compile(
     r"([+-]?\d+(?:[.,]\d+)?)\s*(?:m|м)?\s*$",
     re.IGNORECASE,
 )
-
-
-class ReportDepthRangeError(ValueError):
-    """Raised when a user-supplied report interval cannot be applied safely."""
-
-
-@dataclass(frozen=True, slots=True)
-class ReportDepthRange:
-    """Validated inclusive depth range used by report content and charts."""
-
-    top_depth: float
-    bottom_depth: float
-
-    def __post_init__(self) -> None:
-        if not math.isfinite(self.top_depth) or not math.isfinite(self.bottom_depth):
-            raise ReportDepthRangeError("Границы интервала должны быть конечными числами")
-        if self.bottom_depth < self.top_depth:
-            raise ReportDepthRangeError("Нижняя граница интервала меньше верхней")
-
-    def formatted(self, unit: str = "") -> str:
-        suffix = f" {unit.strip()}" if unit.strip() else ""
-        return f"{self.top_depth:.2f}–{self.bottom_depth:.2f}{suffix}"
 
 
 def resolve_report_depth_range(

@@ -6,10 +6,32 @@ import numpy as np
 from PySide6.QtCore import QByteArray, QBuffer, QIODevice, QLineF, QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QImage, QPainter, QPen
 
+from geoworkbench.domain.depth_interval import scope_dataset
 from geoworkbench.domain.models import CurveData, Dataset
+from geoworkbench.printing.geology_track_rendering import (
+    paint_cuttings_track,
+    paint_lba_track,
+)
 from geoworkbench.printing.hydrocarbon_interpretation_curve_labels import (
     curve_legend_text,
     report_curve_label_hints,
+)
+from geoworkbench.printing.hydrocarbon_interpretation_geology import (
+    InterpretationGeologySnapshot,
+)
+from geoworkbench.printing.hydrocarbon_interpretation_geology_legend import (
+    build_interpretation_geology_legend,
+    geology_legend_height,
+    paint_geology_legend,
+)
+from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
+    DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS,
+    InterpretationGeologyTrackSettings,
+    forced_empty_geology_tracks,
+    resolve_geology_track_kinds,
+)
+from geoworkbench.printing.hydrocarbon_interpretation_report_range import (
+    ReportDepthRange,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_curve_selection import report_curve_panels
 from geoworkbench.printing.hydrocarbon_fluid_markers import (
@@ -119,7 +141,9 @@ def hydrocarbon_interpretation_html_with_chart(
         inject_interval_gas_statistics_html,
     )
 
-    base = inject_interval_gas_statistics_html(base, report, dataset, language)
+    base = inject_interval_gas_statistics_html(
+        base, report, scope_dataset(dataset, report.analysis_depth_interval), language,
+    )
     uri = hydrocarbon_interpretation_chart_data_uri(report, dataset, language)
     if not uri:
         return base
@@ -142,9 +166,18 @@ def hydrocarbon_interpretation_chart_data_uri(
     report: HydrocarbonInterpretationReport,
     dataset: Dataset,
     language: AppLanguage = AppLanguage.RU,
+    *,
+    geology: InterpretationGeologySnapshot | None = None,
+    geology_track_settings: InterpretationGeologyTrackSettings = (
+        DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS
+    ),
+    depth_range: ReportDepthRange | None = None,
 ) -> str:
     """Render available interpretation curves against depth as a PNG data URI."""
 
+    interval = getattr(report, "analysis_depth_interval", None)
+    depth_range = interval or depth_range
+    dataset = scope_dataset(dataset, interval)
     depth = np.asarray(dataset.depth, dtype=np.float64)
     finite_depth = np.isfinite(depth)
     if depth.ndim != 1 or np.count_nonzero(finite_depth) < 2:
@@ -156,7 +189,49 @@ def hydrocarbon_interpretation_chart_data_uri(
     if not panels:
         return ""
 
-    image = QImage(2_000, 1_280, QImage.Format.Format_ARGB32_Premultiplied)
+    legend_device = QImage(1, 1, QImage.Format.Format_ARGB32_Premultiplied)
+    depth_min = float(np.nanmin(depth[finite_depth]))
+    depth_max = float(np.nanmax(depth[finite_depth]))
+    if depth_range is not None:
+        depth_min = depth_range.top_depth
+        depth_max = depth_range.bottom_depth
+    if depth_max <= depth_min:
+        depth_max = depth_min + 1.0
+    visible_depth = (
+        finite_depth
+        & (depth >= depth_min)
+        & (depth <= depth_max)
+    )
+    geology_tracks = resolve_geology_track_kinds(
+        geology,
+        depth_min,
+        depth_max,
+        geology_track_settings,
+    )
+    empty_state_tracks = forced_empty_geology_tracks(
+        geology,
+        depth_min,
+        depth_max,
+        geology_track_settings,
+    )
+    geology_legend = build_interpretation_geology_legend(
+        geology,
+        depth_min,
+        depth_max,
+        language,
+        include_cuttings="cuttings" in geology_tracks,
+        include_lba="lba" in geology_tracks,
+    )
+    preview_legend_height = geology_legend_height(
+        1_820.0,
+        geology_legend,
+        paint_device=legend_device,
+    )
+    legend_offset = max(0.0, preview_legend_height)
+    image = QImage(
+        2_000, 1_280 + int(np.ceil(legend_offset)),
+        QImage.Format.Format_ARGB32_Premultiplied,
+    )
     image.fill(Qt.GlobalColor.white)
     painter = QPainter(image)
     try:
@@ -172,13 +247,17 @@ def hydrocarbon_interpretation_chart_data_uri(
             labels["title"],
         )
 
-        depth_min = float(np.nanmin(depth[finite_depth]))
-        depth_max = float(np.nanmax(depth[finite_depth]))
-        if depth_max <= depth_min:
-            depth_max = depth_min + 1.0
+        if preview_legend_height > 0.0:
+            paint_geology_legend(
+                painter,
+                QRectF(90.0, 72.0, 1_820.0, preview_legend_height),
+                geology_legend,
+                language,
+            )
 
-        plot_top = 130.0
-        plot_bottom = 1_015.0
+        # Grow the canvas with the legend, keeping the depth plot height stable.
+        plot_top = 134.0 + legend_offset
+        plot_bottom = 1_015.0 + legend_offset
         plot_height = plot_bottom - plot_top
         outer_margin = 35.0
         depth_width = 128.0
@@ -195,7 +274,25 @@ def hydrocarbon_interpretation_chart_data_uri(
             depth_width,
             plot_height,
         )
-        panel_left = left_depth_rect.right() + axis_gap
+        geology_track_width = 94.0
+        geology_track_gap = 10.0
+        geology_left = left_depth_rect.right() + axis_gap
+        geology_rects = tuple(
+            QRectF(
+                geology_left + index * (geology_track_width + geology_track_gap),
+                plot_top,
+                geology_track_width,
+                plot_height,
+            )
+            for index in range(len(geology_tracks))
+        )
+        geology_reserved_width = (
+            len(geology_tracks) * geology_track_width
+            + max(0, len(geology_tracks) - 1) * geology_track_gap
+        )
+        panel_left = geology_left + geology_reserved_width
+        if geology_tracks:
+            panel_left += axis_gap
         panel_right = right_depth_rect.left() - axis_gap
         panel_gap = 20.0
         panel_area_width = panel_right - panel_left
@@ -221,8 +318,24 @@ def hydrocarbon_interpretation_chart_data_uri(
             side="right",
             language=language,
         )
+        if geology_tracks:
+            _draw_geology_preview_tracks(
+                painter,
+                geology_rects,
+                geology,
+                geology_tracks,
+                empty_state_tracks,
+                depth_min,
+                depth_max,
+                language,
+            )
 
-        candidates = tuple(report.candidates)
+        candidates = tuple(
+            candidate
+            for candidate in report.candidates
+            if candidate.bottom_depth >= depth_min
+            and candidate.top_depth <= depth_max
+        )
         panel_rects = tuple(
             QRectF(
                 panel_left + panel_index * (panel_width + panel_gap),
@@ -237,7 +350,7 @@ def hydrocarbon_interpretation_chart_data_uri(
                 painter,
                 rect,
                 depth,
-                finite_depth,
+                visible_depth,
                 depth_min,
                 depth_max,
                 panel_name,
@@ -257,7 +370,7 @@ def hydrocarbon_interpretation_chart_data_uri(
             )
             _draw_whole_well_fluid_legend(
                 painter,
-                QRectF(90.0, 1_136.0, 1_820.0, 30.0),
+                QRectF(90.0, 1_136.0 + legend_offset, 1_820.0, 30.0),
                 candidates,
                 language,
             )
@@ -265,7 +378,7 @@ def hydrocarbon_interpretation_chart_data_uri(
         painter.setFont(print_font(9.0, text=labels["footer"]))
         painter.setPen(QColor("#475569"))
         painter.drawText(
-            QRectF(90.0, 1_170.0, 1_820.0, 84.0),
+            QRectF(90.0, 1_170.0 + legend_offset, 1_820.0, 84.0),
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop,
             labels["footer"],
         )
@@ -362,6 +475,66 @@ def _draw_depth_axis(
 
     painter.setPen(QPen(QColor("#334155"), 2.4))
     painter.drawRect(rect)
+
+
+def _draw_geology_preview_tracks(
+    painter: QPainter,
+    rects: tuple[QRectF, ...],
+    geology: InterpretationGeologySnapshot | None,
+    geology_tracks: tuple[str, ...],
+    empty_state_tracks: tuple[str, ...],
+    depth_min: float,
+    depth_max: float,
+    language: AppLanguage,
+) -> None:
+    labels = {
+        AppLanguage.RU: {"cuttings": "Шламограмма", "lba": "ЛБА", "empty": "Нет данных"},
+        AppLanguage.KK: {"cuttings": "Шламограмма", "lba": "ЛБА", "empty": "Дерек жоқ"},
+        AppLanguage.EN: {"cuttings": "Cuttings", "lba": "LBA", "empty": "No data"},
+    }[language]
+    samples = tuple(geology.samples) if geology is not None else ()
+    lithotypes = geology.lithotype_map if geology is not None else {}
+    for track, rect in zip(geology_tracks, rects, strict=True):
+        painter.fillRect(rect, QColor("#ffffff"))
+        painter.setPen(QPen(QColor("#334155"), 2.0))
+        painter.drawRect(rect)
+        heading = labels[track]
+        font = print_font(8.5, text=heading)
+        font.setBold(True)
+        painter.setFont(font)
+        painter.setPen(QColor("#172033"))
+        painter.drawText(
+            QRectF(rect.left() - 2.0, rect.top() - 58.0, rect.width() + 4.0, 46.0),
+            Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
+            heading,
+        )
+        for major in range(11):
+            y = rect.top() + major / 10.0 * rect.height()
+            painter.setPen(QPen(QColor("#dbe3ec"), 0.9))
+            painter.drawLine(QLineF(rect.left(), y, rect.right(), y))
+        if track in empty_state_tracks:
+            painter.setPen(QColor("#64748b"))
+            painter.setFont(print_font(8.0, text=labels["empty"]))
+            painter.drawText(
+                rect,
+                Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
+                labels["empty"],
+            )
+        elif track == "cuttings":
+            paint_cuttings_track(
+                painter,
+                rect,
+                samples,
+                (depth_min, depth_max),
+                lithotypes,
+            )
+        else:
+            paint_lba_track(
+                painter,
+                rect,
+                samples,
+                (depth_min, depth_max),
+            )
 
 
 def _draw_panel(

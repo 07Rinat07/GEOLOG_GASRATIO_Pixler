@@ -26,6 +26,9 @@ from geoworkbench.services.datetime_boundary import (
     coerce_datetime_boundary,
     datetime_boundary_text,
 )
+from geoworkbench.services.report_geology_snapshot import (
+    build_report_geology_snapshot,
+)
 
 if TYPE_CHECKING:
     from geoworkbench.forms.models import FormDocument
@@ -343,6 +346,26 @@ class ReportPassportBuilder:
             _report_data_size_bytes(dataset, curves, interval_mask),
             warnings,
         )
+        geology_interval = _geology_depth_interval(interval)
+        if request.report_kind is ReportKind.INTERPRETATION and geology_interval is not None:
+            geology = build_report_geology_snapshot(
+                session,
+                interval=geology_interval,
+            )
+            geology_payload = geology.canonical_json(include_digest=False).encode("utf-8")
+            geology_source = ReportSourceFingerprint(
+                kind="geology-snapshot",
+                name=f"{well.name} geology",
+                sha256=geology.geology_sha256,
+                size_bytes=len(geology_payload),
+                capture="normalized-project-geology",
+            )
+            sources = tuple(
+                sorted(
+                    (*sources, geology_source),
+                    key=lambda item: (item.kind, item.name, item.sha256),
+                )
+            )
 
         unsigned = ReportPassport(
             schema_version=REPORT_PASSPORT_SCHEMA_VERSION,
@@ -881,6 +904,20 @@ def _source_fingerprints(
         "normalized-report-data",
     )
     return tuple(sorted(sources.values(), key=lambda item: (item.kind, item.name, item.sha256)))
+
+
+def _geology_depth_interval(
+    interval: ReportIntervalSnapshot | None,
+) -> tuple[float, float] | None:
+    if interval is None:
+        return None
+    if interval.role != "depth":
+        return None
+    if interval.index_type not in {"md", "tvd", "tvdss"}:
+        return None
+    if isinstance(interval.start, str) or isinstance(interval.end, str):
+        return None
+    return float(interval.start), float(interval.end)
 
 
 def _project_dataset(session: ProjectSession, dataset_id: str) -> Dataset | None:

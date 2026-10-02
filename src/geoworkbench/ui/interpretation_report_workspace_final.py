@@ -9,7 +9,25 @@ import fitz
 import numpy as np
 from PySide6.QtCore import Qt
 from PySide6.QtPrintSupport import QAbstractPrintDialog, QPrintDialog, QPrinter
-from PySide6.QtWidgets import QApplication, QDialog, QProgressDialog
+from PySide6.QtWidgets import (
+    QApplication,
+    QDialog,
+    QProgressDialog,
+    QWidget,
+    QVBoxLayout,
+    QFormLayout,
+    QComboBox,
+    QDoubleSpinBox,
+    QPushButton,
+    QLabel,
+)
+
+from geoworkbench.domain.depth_interval import DepthInterval, DepthIntervalError
+from geoworkbench.domain.models import IndexRole
+from geoworkbench.services.localization import AppLanguage
+from geoworkbench.project.interpretation_calculation_controller import (
+    InterpretationCalculationController,
+)
 
 from geoworkbench.data.hydrocarbon_interpretation_export import (
     HydrocarbonInterpretationExportError,
@@ -21,10 +39,22 @@ from geoworkbench.printing.hydrocarbon_interpretation_chart_front import (
 from geoworkbench.printing.hydrocarbon_interpretation_report import (
     HydrocarbonInterpretationPdfError,
     export_hydrocarbon_interpretation_pdf,
+    export_hydrocarbon_interpretation_pdf_with_passport,
+)
+from geoworkbench.printing.hydrocarbon_interpretation_geology import (
+    interpretation_geology_snapshot,
+)
+from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
+    DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS,
+    InterpretationGeologyTrackSettings,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
     InterpretationReportIdentity,
     default_interpretation_report_identity,
+)
+from geoworkbench.printing.hydrocarbon_interpretation_report_range import (
+    ReportDepthRangeError,
+    resolve_report_depth_range,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_system_print import (
     configure_interpretation_printer,
@@ -89,17 +119,230 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
             )
         )
 
-    def _apply_chart_preview(self) -> None:
-        dataset = self.controller.session.current_dataset
-        if self.report is None or dataset is None or self._is_mixture_mode():
+    def __init__(
+        self,
+        controller: InterpretationCalculationController,
+        parent: QWidget | None = None,
+        *,
+        language: AppLanguage = AppLanguage.RU,
+    ) -> None:
+        super().__init__(controller, parent, language=language)
+        self.depth_interval_panel = QWidget(self)
+        self.depth_interval_panel.setObjectName("interpretation-depth-interval")
+        form = QFormLayout(self.depth_interval_panel)
+        form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
+        form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        self.depth_interval_mode = QComboBox()
+        self.depth_interval_mode.addItems(["", ""])
+        self.depth_interval_top = QDoubleSpinBox()
+        self.depth_interval_bottom = QDoubleSpinBox()
+        self.depth_interval_mode.setObjectName("analysis-depth-mode")
+        self.depth_interval_top.setObjectName("analysis-depth-top")
+        self.depth_interval_bottom.setObjectName("analysis-depth-bottom")
+        for spin in (self.depth_interval_top, self.depth_interval_bottom):
+            spin.setDecimals(6)
+            spin.setRange(-1.0e12, 1.0e12)
+        self.depth_interval_apply = QPushButton()
+        self.depth_interval_apply.setObjectName("apply-analysis-depth-interval")
+        self.depth_interval_note = QLabel()
+        self.depth_interval_note.setWordWrap(True)
+        self.depth_interval_mode_label = QLabel()
+        self.depth_interval_top_label = QLabel()
+        self.depth_interval_bottom_label = QLabel()
+        form.addRow(self.depth_interval_mode_label, self.depth_interval_mode)
+        form.addRow(self.depth_interval_top_label, self.depth_interval_top)
+        form.addRow(self.depth_interval_bottom_label, self.depth_interval_bottom)
+        form.addRow(self.depth_interval_apply)
+        form.addRow(self.depth_interval_note)
+        root = self.layout()
+        if not isinstance(root, QVBoxLayout):
+            raise RuntimeError("Не найден layout отчёта интерпретации")
+        root.addWidget(self.depth_interval_panel)
+        self._depth_interval_dataset_key: tuple[object, ...] | None = None
+        self._depth_interval_endpoints: tuple[tuple[float, float], tuple[float, float]] | None = None
+        self._preview_geology_report_key: tuple[object, ...] | None = None
+        self._preview_depth_range: DepthInterval | None = None
+        self.depth_interval_apply.clicked.connect(self._apply_depth_interval)
+        self.depth_interval_mode.currentIndexChanged.connect(self._update_depth_interval_controls)
+        self.refresh()
+
+    def refresh(self) -> None:
+        if hasattr(self, "depth_interval_panel"):
+            self._sync_depth_interval_dataset()
+            self._retranslate_depth_interval()
+            self._update_depth_interval_controls()
+        super().refresh()
+
+    def set_language(self, language: AppLanguage) -> None:
+        super().set_language(language)
+        if hasattr(self, "depth_interval_panel"):
+            self._retranslate_depth_interval()
+
+    def _sync_depth_interval_dataset(self) -> None:
+        session = self.controller.session
+        dataset = session.current_dataset
+        key = (
+            None
+            if dataset is None
+            else (session.current_well_id, dataset.dataset_id, dataset.active_index_id, id(dataset))
+        )
+        if key == self._depth_interval_dataset_key:
             return
-        self.preview.setHtml(
-            hydrocarbon_interpretation_html_with_front_chart(
-                self.report,
-                dataset,
-                self.language,
+        self._depth_interval_dataset_key = key
+        self.controller.depth_interval = None
+        self.depth_interval_mode.setCurrentIndex(0)
+        self._preview_depth_range = None
+        self._depth_interval_endpoints = None
+        if dataset is not None and dataset.active_index.role is IndexRole.DEPTH:
+            finite = dataset.depth[np.isfinite(dataset.depth)]
+            if finite.size:
+                top, bottom = float(finite.min()), float(finite.max())
+                self.depth_interval_top.setValue(top)
+                self.depth_interval_bottom.setValue(bottom)
+                # Keep exact LAS endpoints behind their rounded control values.
+                # Both outward rounding and inward rounding must retain the
+                # first and last measurements of an unchanged full interval.
+                self._depth_interval_endpoints = (
+                    (self.depth_interval_top.value(), top),
+                    (self.depth_interval_bottom.value(), bottom),
+                )
+                for spin in (self.depth_interval_top, self.depth_interval_bottom):
+                    spin.setSuffix(f" {dataset.active_index.unit or ''}")
+
+    def _retranslate_depth_interval(self) -> None:
+        self.depth_interval_mode_label.setText(
+            self._text("Область расчёта", "Есептеу аумағы", "Analysis scope")
+        )
+        self.depth_interval_mode.setItemText(
+            0, self._text("Вся скважина", "Бүкіл ұңғыма", "Whole well")
+        )
+        self.depth_interval_mode.setItemText(
+            1, self._text("Интервал глубин", "Тереңдік аралығы", "Depth interval")
+        )
+        self.depth_interval_top_label.setText(self._text("Кровля", "Жоғарғы шекара", "Top depth"))
+        self.depth_interval_bottom_label.setText(
+            self._text("Подошва", "Төменгі шекара", "Bottom depth")
+        )
+        self.depth_interval_apply.setText(
+            self._text("Применить интервал", "Аралықты қолдану", "Apply interval")
+        )
+        interval = self.controller.depth_interval
+        value = (
+            interval.formatted() if interval is not None else self.depth_interval_mode.itemText(0)
+        )
+        self.depth_interval_note.setText(
+            self._text(
+                f"Применено: {value}. Расчёты, фон, интерпретация, графики, литология и ЛБА используют эту область.",
+                f"Қолданылды: {value}. Есептеу, фон, интерпретация, графиктер, литология және ЛБА осы аумақты қолданады.",
+                f"Applied: {value}. Calculations, background, interpretation, charts, lithology and LBA use this scope.",
             )
         )
+
+    def _update_depth_interval_controls(self) -> None:
+        dataset = self.controller.session.current_dataset
+        enabled = (
+            dataset is not None
+            and dataset.active_index.role is IndexRole.DEPTH
+            and not self._is_mixture_mode()
+        )
+        self.depth_interval_panel.setEnabled(enabled)
+        selected = self.depth_interval_mode.currentIndex() == 1
+        self.depth_interval_top.setEnabled(selected)
+        self.depth_interval_bottom.setEnabled(selected)
+
+    def _apply_depth_interval(self) -> None:
+        dataset = self.controller.session.current_dataset
+        if dataset is None:
+            return
+        try:
+            interval = None
+            if self.depth_interval_mode.currentIndex() == 1:
+                top, bottom = self.depth_interval_top.value(), self.depth_interval_bottom.value()
+                endpoints = self._depth_interval_endpoints
+                if endpoints is not None:
+                    if top == endpoints[0][0]:
+                        top = endpoints[0][1]
+                    if bottom == endpoints[1][0]:
+                        bottom = endpoints[1][1]
+                interval = DepthInterval(top, bottom)
+                interval.row_mask(dataset)
+        except DepthIntervalError as exc:
+            self.depth_interval_note.setText(str(exc))
+            return
+        self.controller.depth_interval = interval
+        self._preview_geology_report_key = None
+        self.refresh()
+
+    def _open_tablet(self) -> None:
+        super()._open_tablet()
+        interval = self.controller.depth_interval
+        tablet = getattr(self.window(), "tablet_view", None)
+        set_depth = getattr(tablet, "set_visible_depth", None)
+        if interval is not None and callable(set_depth):
+            set_depth(interval.top_depth, interval.bottom_depth)
+
+    def _apply_chart_preview(self) -> None:
+        dataset = self.controller.session.current_dataset
+        report = self.report
+        if report is None or dataset is None or self._is_mixture_mode():
+            return
+        geology = interpretation_geology_snapshot(self.controller.session)
+        key = self._preview_report_key(report)
+        if getattr(self, "_preview_geology_report_key", None) == key:
+            geology_track_settings = getattr(
+                self,
+                "_preview_geology_track_settings",
+                DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS,
+            )
+            depth_range = getattr(self, "_preview_depth_range", None)
+        else:
+            geology_track_settings = DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS
+            depth_range = None
+        depth_range = getattr(report, "analysis_depth_interval", None) or depth_range
+        self.preview.setHtml(
+            hydrocarbon_interpretation_html_with_front_chart(
+                report,
+                dataset,
+                self.language,
+                geology=geology,
+                geology_track_settings=geology_track_settings,
+                depth_range=depth_range,
+            )
+        )
+
+    @staticmethod
+    def _preview_report_key(
+        report: HydrocarbonInterpretationReport,
+    ) -> tuple[object, ...]:
+        return (
+            report.project_name,
+            report.well_name,
+            report.dataset_id,
+            report.report_profile,
+            getattr(report, "analysis_depth_interval", None),
+        )
+
+    def _sync_preview_geology_composition(
+        self,
+        report: HydrocarbonInterpretationReport,
+        identity: InterpretationReportIdentity,
+        settings: InterpretationGeologyTrackSettings,
+    ) -> bool:
+        dataset = self.controller.session.current_dataset
+        if dataset is None:
+            return False
+        try:
+            depth_range = report.analysis_depth_interval or resolve_report_depth_range(
+                identity.interval, dataset,
+            )
+        except ReportDepthRangeError as exc:
+            self._show_export_error(exc)
+            return False
+        self._preview_geology_report_key = self._preview_report_key(report)
+        self._preview_geology_track_settings = settings
+        self._preview_depth_range = depth_range
+        self._apply_chart_preview()
+        return True
 
     def _export_pdf(self) -> None:
         report = self._require_any_report()
@@ -111,6 +354,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         dataset = self.controller.session.current_dataset
         if dataset is None:
             return
+        geology = interpretation_geology_snapshot(self.controller.session)
 
         identity = self._select_report_identity(report)
         if identity is None:
@@ -123,6 +367,12 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         if layout_dialog.exec() != QDialog.DialogCode.Accepted:
             return
         layout = layout_dialog.selected_layout()
+        if not self._sync_preview_geology_composition(
+            report,
+            identity,
+            layout.geology_tracks,
+        ):
+            return
         target = self._choose_target(".pdf", "PDF (*.pdf)")
         if target is None:
             return
@@ -134,16 +384,19 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     "Building PDF report with charts…",
                 )
             ):
-                exported = export_hydrocarbon_interpretation_pdf(
+                export_result = export_hydrocarbon_interpretation_pdf_with_passport(
+                    self.controller.session,
                     report,
                     target,
                     language=self.language,
-                    dataset=dataset,
                     include_chart=True,
                     orientation=layout.orientation,
                     identity=identity,
+                    geology=geology,
+                    geology_track_settings=layout.geology_tracks,
                     overwrite=target.exists(),
                 )
+                exported = export_result.primary_path
         except (OSError, FileExistsError, HydrocarbonInterpretationPdfError) as exc:
             self._show_export_error(exc)
             return
@@ -159,6 +412,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         dataset = self.controller.session.current_dataset
         if dataset is None:
             return
+        geology = interpretation_geology_snapshot(self.controller.session)
 
         identity = self._select_report_identity(report)
         if identity is None:
@@ -170,6 +424,12 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         if layout_dialog.exec() != QDialog.DialogCode.Accepted:
             return
         layout = layout_dialog.selected_layout()
+        if not self._sync_preview_geology_composition(
+            report,
+            identity,
+            layout.geology_tracks,
+        ):
+            return
 
         with tempfile.TemporaryDirectory(prefix="geolog-interpretation-print-") as folder:
             prepared_pdf = Path(folder) / "interpretation-report.pdf"
@@ -182,6 +442,8 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     include_chart=True,
                     orientation=layout.orientation,
                     identity=identity,
+                    geology=geology,
+                    geology_track_settings=layout.geology_tracks,
                     overwrite=True,
                 )
                 with fitz.open(prepared_pdf) as document:
@@ -352,7 +614,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         if getattr(self, "_report_identity_key", None) == key:
             cached = getattr(self, "_report_identity", None)
             if isinstance(cached, InterpretationReportIdentity):
-                initial = cached
+                initial = replace(cached, interval=defaults.interval)
 
         dialog = InterpretationReportDetailsDialog(
             defaults,
@@ -360,9 +622,11 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
             language=self.language,
             initial=initial,
         )
+        if hasattr(dialog, "interval"):
+            dialog.interval.setReadOnly(True)
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return None
-        selected = dialog.selected_identity()
+        selected = replace(dialog.selected_identity(), interval=defaults.interval)
         if not selected.report_title:
             selected = replace(selected, report_title=defaults.report_title)
         self._report_identity_key = key
@@ -370,6 +634,8 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         return selected
 
     def _report_interval(self, report: HydrocarbonInterpretationReport) -> str:
+        if report.analysis_depth_interval is not None:
+            return report.analysis_depth_interval.formatted(report.depth_unit)
         dataset = self.controller.session.current_dataset
         if dataset is None:
             return ""

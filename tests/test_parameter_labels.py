@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.parameter_labels import (
+    has_curated_curve_name,
     localized_curve_name,
     localized_curve_reference,
 )
@@ -70,6 +71,26 @@ def test_legacy_gas_vendor_codes_use_physical_parameter_names() -> None:
     assert localized_curve_name("S1605", unit="%") == "Пентан"
     assert localized_curve_name("S1626", unit="%") == "Изобутан"
     assert localized_curve_name("S1627", unit="%") == "Изопентан"
+
+
+def test_common_non_hydrocarbon_gases_have_physical_names_in_all_languages() -> None:
+    expected = {
+        "H2S": ("Сероводород", "Күкіртсутек", "Hydrogen sulfide"),
+        "CO2": ("Диоксид углерода", "Көмірқышқыл газы", "Carbon dioxide"),
+        "N2": ("Азот", "Азот", "Nitrogen"),
+    }
+    for mnemonic, (ru, kk, en) in expected.items():
+        assert localized_curve_name(mnemonic, language=AppLanguage.RU) == ru
+        assert localized_curve_name(mnemonic, language=AppLanguage.KK) == kk
+        assert localized_curve_name(mnemonic, language=AppLanguage.EN) == en
+
+
+def test_curated_name_detection_distinguishes_physical_labels_from_prettification() -> None:
+    assert has_curated_curve_name("TOTAL_GAS", language=AppLanguage.EN) is True
+    assert has_curated_curve_name("FLOW_IN", language=AppLanguage.EN) is True
+    assert has_curated_curve_name("OPUS3", language=AppLanguage.EN) is True
+    assert has_curated_curve_name("MS_H2S", language=AppLanguage.EN) is False
+    assert has_curated_curve_name("BIT_DEPTH_STANDS", language=AppLanguage.EN) is False
 
 
 def test_normalized_gas_calculation_curve_has_readable_report_name() -> None:

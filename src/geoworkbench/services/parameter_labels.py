@@ -28,6 +28,9 @@ _RUSSIAN_NAMES: dict[str, str] = {
     "NC4": "н-Бутан",
     "IC5": "Изопентан",
     "NC5": "н-Пентан",
+    "H2S": "Сероводород",
+    "CO2": "Диоксид углерода",
+    "N2": "Азот",
     "C1_NORM": "Нормализованный метан",
     "C1_NORM_REF": "Нормализованный метан по опорной кривой",
     "C2_NORM": "Нормализованный этан",
@@ -76,6 +79,9 @@ _ENGLISH_NAMES: dict[str, str] = {
     "NC4": "n-Butane",
     "IC5": "Isopentane",
     "NC5": "n-Pentane",
+    "H2S": "Hydrogen sulfide",
+    "CO2": "Carbon dioxide",
+    "N2": "Nitrogen",
     "ROP": "Rate of Penetration",
     "WOB": "Weight on Bit",
     "RPM": "Rotary Speed",
@@ -135,6 +141,9 @@ _KAZAKH_NAMES: dict[str, str] = {
     "NC4": "н-Бутан",
     "IC5": "Изопентан",
     "NC5": "н-Пентан",
+    "H2S": "Күкіртсутек",
+    "CO2": "Көмірқышқыл газы",
+    "N2": "Азот",
     "ROP": "Бұрғылау жылдамдығы",
     "WOB": "Қашауға түсетін салмақ",
     "RPM": "Айналу жиілігі",
@@ -242,6 +251,44 @@ def localized_curve_reference(
         else:
             parts.append(readable)
     return " | ".join(dict.fromkeys(parts))
+
+
+def has_curated_curve_name(
+    mnemonic: str,
+    *,
+    description: str = "",
+    unit: str = "",
+    language: AppLanguage = AppLanguage.RU,
+) -> bool:
+    """Return whether presentation has an explicit physical label for this channel."""
+
+    mnemonic = clean_mnemonic(mnemonic)
+    description = clean_display_text(description)
+    unit = clean_display_text(unit)
+    match = active_sensor_catalog().match(
+        mnemonic,
+        description=description,
+        unit=unit,
+    )
+    canonical = (
+        match.definition.canonical_mnemonic.strip().upper()
+        if match is not None
+        else mnemonic.strip().upper()
+    )
+    names = (
+        _RUSSIAN_NAMES
+        if language is AppLanguage.RU
+        else _KAZAKH_NAMES
+        if language is AppLanguage.KK
+        else _ENGLISH_NAMES
+    )
+    if canonical in names:
+        return True
+    if language is AppLanguage.RU and match is not None:
+        definition = match.definition
+        readable = clean_display_text(definition.name_ru or definition.short_name_ru or "")
+        return bool(readable and readable.casefold() != canonical.casefold())
+    return False
 
 
 def localized_curve_name(

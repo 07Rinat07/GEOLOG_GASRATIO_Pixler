@@ -1,7 +1,7 @@
 <!-- runtime-contract: package=0.7.96; project=v36; form=v18; layout=v25 -->
 # Единый план проекта
 
-Решения и приоритеты обновлены 28 сентября 2026 года по `main` на `002bea81` (включая PR #353), текущему коду, тестам, операторскому скриншоту WITS и публичному benchmark real-time drilling software. WITS-UX теперь трактуется как live-first operator workspace, а не как техническая форма настроек: основной экран — live данные и health, редкие network/storage параметры сворачиваются, diagnostics отделяются от рабочего потока, navigation/scroll/help должны быть адаптивными. Текущая industrial-blue DIGITAL GEOLOG айдентика остаётся канонической и не меняется этим UX-рефакторингом. Это единственный канонический план проекта. Завершённые
+Решения и приоритеты обновлены 1 октября 2026 года по `main` на `b5c0c326` (включая PR #408), текущему коду, тестам, операторскому скриншоту WITS и публичному benchmark real-time drilling software. WITS-UX теперь трактуется как live-first operator workspace, а не как техническая форма настроек: основной экран — live данные и health, редкие network/storage параметры сворачиваются, diagnostics отделяются от рабочего потока, navigation/scroll/help должны быть адаптивными. Текущая industrial-blue DIGITAL GEOLOG айдентика остаётся канонической и не меняется этим UX-рефакторингом. Это единственный канонический план проекта. Завершённые
 изменения фиксируются в [CHANGELOG.md](CHANGELOG.md); отдельные roadmap, build report,
 release plan и временные планы в `docs` не создаются.
 
@@ -43,24 +43,41 @@ release plan и временные планы в `docs` не создаются.
     После зелёных обязательных проверок и рассмотрения замечаний интегрируется проверенный
     head; force-push в `main` и переписывание опубликованной истории не входят в обычный merge.
 
+## P0 — единый интервал глубин расчёта и отчёта (RPT-DEPTH-01)
+
+Новый приоритет по запросу пользователя: перед GasRatio/Pixler/OPUS оператор выбирает «Вся скважина» или верхнюю/нижнюю границы глубины. Один диапазон определяет исходные строки расчёта, robust background, кандидаты и классификацию, статистику, ручные интервалы, графики, литологию и ЛБА. PDF/печать/HTML/DOCX/XLSX и Report Passport должны отражать эту же область. Выбор в титуле не может расходиться с областью расчёта.
+
+- [x] Общий domain-контракт интервала MD/TVD/TVDSS, включённые границы, отрицательные и дробные глубины; отклонение обратного/пустого/внедиапазонного интервала и временной оси до изменения данных.
+- [x] Выбор области в workspace до расчёта; Apply, RU/KK/EN, сброс при смене скважины/dataset/активной оси. Подставленные границы сохраняют точные исходные глубины, включая более шести десятичных знаков: округление полей и титула не исключает граничные измерения и не изменяет print preview.
+- [x] Изолированный расчёт выбранных строк без перезаписи исходного LAS; новые derived curves имеют NaN вне интервала, существующие значения вне интервала сохраняются. Фон и интерпретация пересчитываются по выбранным строкам, ограничения минимального числа измерений сохраняются.
+- [x] Один диапазон в preview и экспортах; ручные записи и gas context обрезаются по границам, геология и ЛБА сопоставляются с выбранной глубиной; audit Excel содержит только выбранные строки.
+- [x] Regression matrix: независимые интервалы, фон standard/OPUS, normalized mode, отрицательная/неупорядоченная ось, пустые/обратные границы, gas context и ЛБА, значения графиков, согласованность PDF/DOCX/XLSX и смена скважины. Выпуск и слияние требуют полного зелёного Release gate на окончательном PR head; результаты закрепляются GitHub checks.
+- [x] Автоматическая приёмка на LAS «Максат М-1» (2 октября 2026): 5200–5300 и 5400–5500 м, по 501 отсчёту; standard/OPUS фон и кандидаты сверены с независимым расчётом выбранных строк, PDF/DOCX/XLSX созданы. Геология ограничена теми же глубинами: 186/159 записей шлама и 45/38 проб ЛБА. Все 351 исходная кривая и файл LAS неизменны; визуально проверены PDF-графики с геологией и ЛБА.
+- [ ] Полевая приёмка специалистом ГТИ: короткий участок с недостаточными данными, физическая печать и содержательная проверка ЛБА на граничной пробе.
+
 ## Ближайший порядок работ
 
 | Порядок | Задачи | Результат и зависимость | Ответственный по роли / статус |
 |---|---|---|---|
+| 0 | RPT-DEPTH-01, полевая приёмка | Принять физическую печать, короткий участок и ЛБА на граничной пробе; код единого интервала и автоматическая проверка LAS завершены | Специалист ГТИ / блокировано внешним условием |
 | 1 | RPT-QA-01 | Исправить пропуски/разрывы и межстраничный washout интерпретационных PDF-графиков; во всех видимых графиках/HTML/PDF/DOCX/XLSX использовать физические названия параметров вместо source mnemonics; единая терминология флюида: «УВ-флюид неопределённого типа» / «жидкая УВ-фаза» / «признаки лёгкой нефтяной фазы» / «жидкая УВ-фаза; возможны лёгкая нефть или газоконденсат» / «газовая УВ-фаза»; raw mnemonics сохранять только в audit/source data; OPUS-графики и OPUS Газомер используют тот же readable-label и fluid-phase contract; RU/KK/EN семантически эквивалентны | Разработчик + специалист ГТИ / в работе |
-| 2 | WITS-MEM-01 | Автоматические raw replay/acquisition-boundary/RSS gates закрыты; остался длительный реальный raw/field прогон перед FIELD-01 | Оператор + разработчик / блокировано внешним условием |
-| 3 | WITS-UX-01 | Live-first operator workspace: компактное подключение/health, Live как основной экран, collapsible Advanced/Diagnostics, понятная навигация/help, без outer horizontal scroll; далее persistence/reconnect и полевой UX acceptance | Разработчик / в работе |
-| 4 | WITS-PLOT-01 | Независимые шкалы/диапазоны, редактируемые панели/колонки, читаемые интерпретационные полосы и non-overlap badges поверх нового operator workspace | Разработчик / в работе |
-| 5 | WITS-ALARM-01 | Для всех отображаемых параметров min/max, visual/audio alarm, hysteresis/debounce, acknowledgement и маркеры на графике | Разработчик + оператор / в работе |
-| 6 | WITS-GASCTX-01 | Live/WITS-классификация background/formation/connection/trip/circulated/elevated-unclassified поверх общего gas-context контракта | Разработчик + специалист ГТИ / в работе |
-| 7 | UI-SYS-01 | Продолжить общий adaptive UI foundation без изменения зафиксированной industrial-blue айдентики | Разработчик / в работе |
-| 8 | PRINT-STYLE-01 | Единый Report Visual System PDF/Masterlog/DOCX/XLSX, A4/A3/roll, colour + grayscale | Разработчик / в работе |
-| 9 | GASCTX-RPT-01 | Завершить остаточную report-first приёмку Gas Context Registry и синхронизацию тематического checklist с уже интегрированным кодом | Разработчик + специалист ГТИ / в работе |
-| 10 | FIELD-01 | Реальный WITS: сеть, профиль, live → review → запись → reconnect/reopen + Gas Ratio/Pixler/DEXP/alarms | Оператор + разработчик / блокировано внешним условием |
-| 11 | WELL-04 → WELL-05 | Закрыть остаточную сквозную приёмку переводов и связанных макетов; использовать готовый WELL-06 | Разработчик + оператор / запланировано |
-| 12 | REL-03 / CUT-03 | Реальная печать A4/A3 и комплект одной ревизии; финальная physical acceptance требует принтер и образцы | Оператор + разработчик / частично блокировано |
-| 13 | PERF-05 | Решение по storage только после измеренного baseline 100k/1M строк | Разработчик / запланировано |
-| 14 | FIELD-02…05; OPUS-08 | Совместимость с внешними системами и независимая проверка интерпретации | Разработчик + профильный специалист / блокировано внешним условием |
+| 2 | RPT-GEO-01 | GasRatio/Pixler/OPUS interpretation reports автоматически используют актуальную геологию текущей скважины, включая материализованную из загруженного LAS через существующий geology resolver: синхронизированные по глубине колонки «Шламограмма» и «ЛБА», режим Auto/Show/Hide, без повторного разбора LAS и без изменения расчётных формул | Разработчик + специалист ГТИ / в работе |
+| 3 | RPT-GEO-02 | Динамические легенды шламограммы и ЛБА: полная сверху над графиками, компактная повторная снизу/на многостраничной выдаче; показывать только реально используемые обозначения, RU/KK/EN, colour + grayscale-safe | Разработчик + специалист ГТИ / в работе |
+| 4 | PRINT-STYLE-01 | Единый Report Visual System PDF/Masterlog/DOCX/XLSX, A4/A3/roll, colour + grayscale; новые геологические колонки, легенды, шапка и annotations используют тот же style profile | Разработчик / в работе |
+| 5 | RPT-COMP-01 | Final Report Composer: финальный preview перед PDF/печатью, presentation-only управление колонками, Auto/Show/Hide для шламограммы/ЛБА, легендами, шапкой, summary и layout; Composer не изменяет source geology, GasRatio/Pixler/OPUS calculations или classification | Разработчик + специалист ГТИ / запланировано |
+| 6 | RPT-ANN-01 | Printable report annotations: глубинно/интервально/track-привязанные выноски, текст, стрелки и remarks в preview/PDF/печати; переиспользовать существующие annotation/canvas semantics там, где они подходят, хранить отдельно от расчётных данных и не менять исходные кривые/интерпретацию | Разработчик + специалист ГТИ / запланировано |
+| 7 | WITS-MEM-01 | Автоматические raw replay/acquisition-boundary/RSS gates закрыты; остался длительный реальный raw/field прогон перед FIELD-01 | Оператор + разработчик / блокировано внешним условием |
+| 8 | WITS-UX-01 | Live-first operator workspace: компактное подключение/health, Live как основной экран, collapsible Advanced/Diagnostics, понятная навигация/help, без outer horizontal scroll; далее persistence/reconnect и полевой UX acceptance | Разработчик / в работе |
+| 9 | WITS-PLOT-01 | Независимые шкалы/диапазоны, редактируемые панели/колонки, читаемые интерпретационные полосы и non-overlap badges поверх нового operator workspace | Разработчик / в работе |
+| 10 | WITS-ALARM-01 | Для всех отображаемых параметров min/max, visual/audio alarm, hysteresis/debounce, acknowledgement и маркеры на графике | Разработчик + оператор / в работе |
+| 11 | WITS-GASCTX-01 | Live/WITS-классификация background/formation/connection/trip/circulated/elevated-unclassified поверх общего gas-context контракта | Разработчик + специалист ГТИ / в работе |
+| 12 | UI-SYS-01 | Продолжить общий adaptive UI foundation без изменения зафиксированной industrial-blue айдентики | Разработчик / в работе |
+| 13 | GASCTX-RPT-01 | Завершить остаточную report-first приёмку Gas Context Registry и синхронизацию тематического checklist с уже интегрированным кодом | Разработчик + специалист ГТИ / в работе |
+| 14 | FIELD-01 | Реальный WITS: сеть, профиль, live → review → запись → reconnect/reopen + Gas Ratio/Pixler/DEXP/alarms | Оператор + разработчик / блокировано внешним условием |
+| 15 | WELL-04 → WELL-05 | Закрыть остаточную сквозную приёмку переводов и связанных макетов; использовать готовый WELL-06 | Разработчик + оператор / запланировано |
+| 16 | REL-03 / CUT-03 | Реальная печать A4/A3 и комплект одной ревизии; финальная physical acceptance требует принтер и образцы | Оператор + разработчик / частично блокировано |
+| 17 | PERF-05 | Решение по storage только после измеренного baseline 100k/1M строк | Разработчик / запланировано |
+| 18 | FIELD-02…05; OPUS-08 | Совместимость с внешними системами и независимая проверка интерпретации | Разработчик + профильный специалист / блокировано внешним условием |
 
 Первый инкремент WITS-ALARM-01 ввёл Qt-независимый alarm state machine: валидированные min/max, sample-count debounce, hysteresis снятия, acknowledgement и fail-safe обработку отсутствующих/нечисловых отсчётов. Второй инкремент поднял live-form settings до schema v4 и сохраняет per-channel alarm rules по mnemonic: min/max, hysteresis, debounce, visual-enabled и audio-enabled; schema v1–v3 мигрируют с пустым набором alarm rules. Третий инкремент добавляет операторский редактор этих правил в Parameters: выбор параметра, независимое включение min/max, hysteresis, debounce и visual/audio policy с сохранением через существующую кнопку «Сохранить форму». Четвёртый инкремент подключает сохранённые правила к runtime: один `Wits0LiveAlarmController` проигрывает все новые append-only DATA_ROW после последней обработанной session sequence для каждой кривой, включая virtual Haworth/Pixler/DEXP/DEXPC по их `source-records` provenance, поэтому debounce не зависит от repaint, batch drain или Pause; active/acknowledged state отображается в таблице и indicator cards, а оператор может выполнить acknowledgement без очистки тревоги. Пятый инкремент добавляет bounded factual event history для `ACTIVATED/CLEARED` с `row_index` и acquisition sequence: события не теряются внутри drain batch и сохраняют отдельные CLEAR+ACTIVATE при прямом переходе между сторонами. Audio-enabled активации дают один coalesced системный cue на factual batch без повторения на refresh, а visual-enabled события формируют красные activation и зелёные clear threshold markers на текущей time/depth оси; при Pause alarm runtime и звук продолжаются, а новые markers становятся видимы после Resume. Следующим остаётся полевой acceptance звука/маркеров и решение по global mute/escalation policy.
 
@@ -219,8 +236,11 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
 - [ ] Один immutable style profile для PDF, Masterlog, планшетной печати и Office-экспорта:
   нейтральная техническая типографика, строгая сетка, сдержанный petroleum-blue accent,
   high-contrast текст, light technical fills, line-weight hierarchy и monochrome-safe semantics.
-- [ ] Обязательная document-control зона: well/project, interval, generated/report date,
-  document number, revision, status, prepared/checked/approved при доступности данных.
+- [ ] Обязательная document-control зона: well/project, interval, document number, revision,
+  status, prepared/checked/approved при доступности данных. Блок report date **не выводится по
+  умолчанию вообще** и появляется только после явного пользовательского ввода даты; часы/минуты и
+  автоматически подставленный generation timestamp в клиентской шапке не показываются. Полный
+  timestamp допускается только во внутреннем audit/provenance.
 - [ ] Единый печатный wordmark: **DIGITAL GEOLOG GASRATIO&PIXLER**. Написание хранится в одном
   shared constant и одинаково используется в PDF, Masterlog, DOCX/XLSX и печатных формах.
   Wordmark присутствует аккуратно в обложке/шапке и компактном подвале, но не дублируется
@@ -735,7 +755,7 @@ WELL-04/05 закрываются по этой сквозной матрице,
   `9.82×` по времени и `7.93×` по RSS при `10×` строк. Финальный release-gate #849 на точном
   pre-merge head прошёл quality, security и GUI/HiDPI/PDF acceptance.
 
-## P0 — ОПУС «Газомер»: практический профиль по всей скважине
+## P0 — ОПУС «Газомер»: профиль по всей скважине или выбранному интервалу
 
 Канонический алгоритм, принятые решения, формулы книги, ограничения и порядок продолжения:
 [OPUS_GASOMER_IMPLEMENTATION.md](OPUS_GASOMER_IMPLEMENTATION.md). Текущий исторический ОПУС,
@@ -1312,6 +1332,118 @@ WELL-04 уже имеет field-level статусы и readiness; WELL-05 — f
   C1–C5, total gas, UOM, Gas Ratio и Pixler с эталонным export.
 - [ ] **FIELD-05:** standard/version/provenance envelope для WITSML 2.1/ETP 1.2, PWLS property
   kinds и Energistics UOM.
+
+
+## RPT-GEO / RPT-COMP / RPT-ANN — клиентский interpretation report
+
+Цель — довести GasRatio/Pixler/OPUS выдачу до единого профессионального ГТИ-отчёта, не меняя
+расчётное ядро. GasRatio/Haworth/Pixler/OPUS formulas, source curves, class codes и fluid
+classification являются read-only входом для presentation-layer; новые задачи меняют только
+report snapshot/composition/render/print.
+
+- [x] **RPT-DATE-01 — без видимого блока даты по умолчанию.**
+  Во всех клиентских GasRatio/Pixler/OPUS interpretation reports блок даты отсутствует при
+  default settings: не показываются ни пустая подписанная ячейка, ни текущая дата, ни часы/минуты.
+  Единственный non-passport generation audit record для этого отчёта — исходное поле
+  `HydrocarbonInterpretationReport.generated_at`: оно сохраняется в immutable report snapshot,
+  переносится без изменения через interval scoping/export preparation и **не** добавляется в
+  deterministic `ReportPassport`, его `dataset_sha256` или client-facing metadata. Если
+  пользователь явно вводит report date, соответствующий блок появляется.
+  Acceptance: screen preview, HTML, PDF, system print, DOCX и XLSX не содержат generation timestamp
+  и пустого date-control block при default settings; введённая вручную дата воспроизводится
+  одинаково в форматах, где отображается document-control зона; отдельный regression подтверждает,
+  что `generated_at` остаётся тем же после report scoping/export preparation, а Report Passport
+  по-прежнему не содержит абсолютного timestamp.
+
+- [x] **RPT-QA-01 — единая терминология УВ-фаз.**
+  Заголовки интерпретации GasRatio/Pixler/OPUS и подписи графических маркеров используют
+  один bounded RU/KK/EN словарь из пяти фазовых формулировок. Неоднозначные oil/gas,
+  water-dissolved и неизвестные гипотезы получают неопределённую фазу; wet gas marker
+  согласован с газовым заголовком. Численные формулы, подробные hypothesis/class codes,
+  OPUS votes и доказательства сохраняются. Подтипы описаны отдельно в evidence, а не
+  становятся более уверенным заголовком. Контракт и согласованность маркеров закреплены
+  regression-тестами; общая физическая приёмка RPT-QA-01 остаётся отдельной задачей.
+
+- [ ] **RPT-GEO-01 — шламограмма и ЛБА из актуальной геологии проекта.**
+  Реализованы shared Masterlog-compatible painters, immutable geology snapshot, depth-scoped `geology_sha256` в Report Passport и независимые `Auto/Show/Hide` для screen preview/PDF/system print. `Show` при полном отсутствии данных печатает локализованный empty-state, а частичные пробелы остаются пустыми. Screen preview использует тот же resolved geology composition и shared painters, а multi-page empty/partial edge cases закреплены regression-тестами. До закрытия задачи остаётся финальная физическая printer acceptance на реальном устройстве.
+  Report-layer использует `Well.lithology`/`Well.cuttings`, включая данные, которые уже
+  материализованы из загруженного LAS существующим `import_las_geology()` и conservative
+  geology dialect resolver. Повторно читать/интерпретировать source LAS внутри отчёта нельзя.
+  Поэтому ручное исправление геологом после импорта автоматически становится актуальным
+  источником для следующего отчёта, а source LAS остаётся immutable.
+  Перед render строится отдельный immutable `ReportGeologySnapshot` с нормализованными
+  интервалами/пробами, используемыми `CatalogLithotype` entries и стабильным
+  `geology_sha256`. Его digest входит в report provenance как отдельный geology source
+  fingerprint и **не** изменяет существующий `dataset_sha256` или fingerprints газовых series.
+  Для GasRatio/Pixler/OPUS добавить две синхронизированные с общей depth axis колонки:
+  «Шламограмма» — состав проб/пород по фактическим интервалам; «ЛБА» — тип/группа,
+  интенсивность и цвет через существующие LBA domain/style contracts.
+  Для каждой колонки independently: `Auto` показывает track только при наличии валидных данных
+  в выбранном report interval; `Hide` подавляет track даже при заполненной геологии; `Show`
+  всегда резервирует и печатает track, а при полном отсутствии данных показывает локализованное
+  «Нет данных»/эквивалент без выдуманных интервалов. При частичной геологии `Show` и `Auto`
+  рисуют только фактические интервалы, а пробелы остаются явно пустыми. Неизвестные vendor geology
+  channels не угадывать.
+  Acceptance: LAS с portable geology → import → report без ручного дублирования даёт те же
+  интервалы шлама/ЛБА; project edit меняет следующий `geology_sha256`/report provenance, но
+  оставляет `dataset_sha256`, GasRatio/Pixler/OPUS numeric values, classification и gas-series
+  fingerprints неизменными; отдельная матрица на screen preview/PDF/printer проверяет
+  `Auto`, populated `Hide`, empty `Show` и partial-geology `Show`.
+
+- [ ] **RPT-GEO-02 — динамические геологические легенды.**
+  Реализован первый production slice: immutable legend snapshot собирается только из символов,
+  реально присутствующих в выбранном report interval и разрешённых текущими geology tracks;
+  screen preview получает полную динамическую легенду, PDF/system print — полную легенду над
+  первой chart-page и compact repeat на страницах продолжения. Lithology использует тот же
+  Masterlog pattern/color brush, LBA — тот же intensity marker/type style; код/паттерн/форма
+  сохраняют читаемость без зависимости только от цвета. RU/KK/EN labels берутся из domain
+  catalogs. Длинные RU/KK/EN labels теперь резервируют высоту по фактическому переносу текста,
+  grayscale-safe различимость и first/continuation multi-page layout закреплены regression-тестами.
+  Метрики строк используют фактический Unicode font и destination paint device. Высота одной
+  строки ограничена 64 pt с явным многоточием для исключительных подписей; все использованные
+  символы большого каталога сохраняются на дополнительных legend pages, если легенда не
+  помещается рядом с графиком. Компактный repeat при переполнении заменяется локализованной
+  ссылкой на эти страницы. A4 landscape PDF regression покрывает RU/KK/EN и 1/60/220 литотипов.
+  Screen preview увеличивает PNG canvas под легенду, сохраняя прежнюю высоту depth plot;
+  regression с 200 длинными обозначениями проверяет положительную неизменную высоту графика.
+  До закрытия остаётся финальная визуальная сверка на реальном многостраничном отчёте/принтере.
+  Над графическим блоком выводится полная легенда реально присутствующих lithology/LBA symbols,
+  снизу — компактная повторная легенда; на многостраничной выдаче допускается компактный repeat
+  per page. Не печатать неиспользуемый каталог. RU/KK/EN семантически эквивалентны; colour
+  presentation имеет grayscale-safe pattern/marker fallback. Легенда не уменьшает chart text
+  ниже минимального readable size и учитывается pagination/layout engine.
+
+- [ ] **RPT-COMP-01 — Final Report Composer.**
+  Единый финальный workspace перед PDF/печатью поверх существующих report renderer/preview
+  компонентов, а не второй независимый генератор отчётов. Пользователь управляет только
+  presentation snapshot: видимость/порядок разрешённых колонок, `Auto/Show/Hide` шламограммы и
+  ЛБА, legend mode, header fields, optional summary/conclusion и layout profile. Из Composer
+  нельзя менять source geology, расчётные кривые, формулы или классификацию. Preview и final
+  PDF/printer обязаны использовать один resolved composition snapshot.
+
+- [ ] **RPT-ANN-01 — printable annotations и remarks.**
+  Добавить report annotation snapshot для текста, callout, arrow, interval highlight и remarks
+  с привязкой к depth/interval/track; переиспользовать безопасные `AnnotationRecord`/style/layout
+  semantics, но **не** tablet ownership scope. Report annotations получают отдельный scope вида
+  `report:{well_id}:{dataset_id}:{composition_id}`, где `composition_id` стабилен для сохранённой
+  report composition. Track anchors используют logical report-track keys
+  (`geology:cuttings`, `geology:lba`, `curve:<canonical-channel>`, `depth:left/right`),
+  а не tablet `track_id`. Перенос существующей tablet annotation в отчёт возможен только через
+  явное mapping/copy action; implicit `annotation_scope_id(dataset, tablet_layout)` запрещён.
+  Report-specific annotations отделены от source curves и calculations, поддерживают RU/KK/EN
+  и печатаются одинаково в preview/PDF/printer. Не допускать перекрытия
+  header/legend/page-number зон; при переносе страницы depth-anchored annotation остаётся на
+  соответствующей глубине. Acceptance включает два разных saved tablet layouts на одном dataset,
+  две report compositions и две wells: annotation видна только в своём report scope, а
+  отсутствующий logical track не вызывает перенос заметки в соседнюю колонку.
+
+- [ ] **Общая acceptance-матрица:** один и тот же report snapshot на screen/PDF/printer; A4/A3,
+  portrait/landscape/roll где применимо; Windows 100/125/150/200% DPI; colour + grayscale;
+  длинные RU/KK/EN labels; пустая геология; частичная геология; LAS portable geology; ручные
+  project edits; `Auto/Show/Hide` для обеих geology tracks; multi-page intervals; cross-layout /
+  cross-well annotation isolation; неизменность всех GasRatio/Pixler/OPUS расчётных series и
+  dataset/gas fingerprints при чисто геологических edits.
+
 
 ## P2 — расширение после P0/P1
 

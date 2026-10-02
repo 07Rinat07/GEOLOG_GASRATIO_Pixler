@@ -186,7 +186,7 @@ def build_opus_interpretation_report(
             ),
         ),
         InterpretationMethodStatus(
-            "Whole-well show detection and automatic decision cascade",
+            "Show detection and automatic decision cascade",
             ("OPUS_TG_PCT", *OPUS_CURVES),
             tuple(
                 mnemonic
@@ -290,7 +290,7 @@ def build_opus_interpretation_report(
         )
     elif raw_background < 0.1:
         warnings.append(
-            "Медианный фон C1-C5 по всей скважине ниже 0,1 % об.; условие применимости "
+            "Медианный фон C1-C5 в области анализа ниже 0,1 % об.; условие применимости "
             "классификации ОПУС не выполнено. Найденные газовые аномалии сохранены в "
             "отчёте как перспективные интервалы и не удаляются этим ограничением."
         )
@@ -388,11 +388,11 @@ def _with_opus_evidence(
     elif background > np.finfo(np.float64).eps:
         contrast = candidate.max_primary_value / background
         evidence.append(
-            f"OPUS whole-well background={background:.6g} %vol; anomaly/background={contrast:.4g}"
+            f"OPUS analysis background={background:.6g} %vol; anomaly/background={contrast:.4g}"
         )
     else:
         evidence.append(
-            "OPUS whole-well background=0 %vol; finite anomaly/background ratio is undefined"
+            "OPUS analysis background=0 %vol; finite anomaly/background ratio is undefined"
         )
     applicable = (
         background is not None

@@ -251,6 +251,7 @@ class InterpretationReportWorkspace(_LegacyInterpretationReportWorkspace):
             self.calculate_button.setText(
                 self._text("Рассчитать ОПУС", "ОПУС есептеу", "Calculate OPUS")
             )
+            self._apply_chart_preview()
             return
 
         local_enabled = mode is not NormalizedGasCalculationMode.SERVER

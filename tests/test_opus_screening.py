@@ -235,7 +235,7 @@ def test_opus_report_is_marked_separate_and_uses_source_applicability_gates() ->
     assert "OPUS3=p1×p2" in opus_method.calculation
     assert "Alekseev (2024)" in opus_method.source
     decision_method = next(
-        method for method in report.methods if method.method.startswith("Whole-well")
+        method for method in report.methods if method.method.startswith("Show detection")
     )
     assert "not a GOST/ISO" in decision_method.source
     html = hydrocarbon_interpretation_html(report, AppLanguage.RU)

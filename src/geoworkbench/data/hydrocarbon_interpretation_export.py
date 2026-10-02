@@ -8,6 +8,7 @@ import zipfile
 from xml.sax.saxutils import escape as xml_escape
 
 
+from geoworkbench.domain.depth_interval import scope_dataset
 from geoworkbench.domain.models import Dataset
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
@@ -71,6 +72,7 @@ def export_hydrocarbon_interpretation_docx(
     _notify_export_progress(progress, "Подготовка Word-отчёта", 0, 100)
     if dataset is not None:
         _validate_dataset(report, dataset)
+        dataset = scope_dataset(dataset, report.analysis_depth_interval)
     _notify_export_progress(progress, "Расчёт интервальной статистики", 20, 100)
     destination = _prepare_target(target, ".docx", overwrite=overwrite)
     temporary = _temporary_path(destination)
@@ -105,6 +107,7 @@ def _write_docx(
     dataset: Dataset | None,
     language: AppLanguage = AppLanguage.RU,
 ) -> None:
+    interval = getattr(report, "analysis_depth_interval", None)
     labels = hydrocarbon_report_labels(language)
     statistics: tuple[CandidateIntervalGasStatistics | None, ...] = tuple(
         build_candidate_interval_statistics(dataset, candidate) if dataset is not None else None
@@ -120,7 +123,7 @@ def _write_docx(
         _paragraph(f"{labels.project}: {report.project_name}"),
         _paragraph(f"{labels.well}: {report.well_name}"),
         _paragraph(f"{labels.dataset}: {report.dataset_name}"),
-        _paragraph(f"{labels.generated}: {report.generated_at}"),
+        *([_paragraph(interval.formatted(report.depth_unit))] if interval is not None else []),
         _paragraph(
             f"{labels.primary_gas_curve}: "
             f"{localized_curve_reference(report.primary_mnemonic, language=language) if report.primary_mnemonic else '—'}"

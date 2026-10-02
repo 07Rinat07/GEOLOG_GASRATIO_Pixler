@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import os
 from pathlib import Path
 import tempfile
@@ -49,6 +50,8 @@ def export_polished_hydrocarbon_interpretation_docx(
         identity
         or default_interpretation_report_identity(report, AppLanguage.RU)
     ).cleaned()
+    if report.analysis_depth_interval is not None:
+        details = replace(details, interval=report.analysis_depth_interval.formatted(report.depth_unit))
     source = _temporary_docx(destination, "source")
     rewritten = _temporary_docx(destination, "rewritten")
     try:
@@ -142,11 +145,15 @@ def _cover_elements(
             color="174F78",
         ),
         _control_table(
-            (
-                ("Документ", details.document_number),
-                ("Ревизия", details.revision),
-                ("Статус", details.document_status),
-                ("Дата отчёта", details.report_date),
+            tuple(
+                item
+                for item in (
+                    ("Документ", details.document_number),
+                    ("Ревизия", details.revision),
+                    ("Статус", details.document_status),
+                    ("Дата отчёта", details.report_date),
+                )
+                if item[0] != "Дата отчёта" or item[1].strip()
             )
         ),
         _paragraph(
@@ -177,7 +184,6 @@ def _cover_elements(
                 ("Буровая / установка", details.rig_name),
                 ("Набор данных", details.dataset_name),
                 ("Интервал отчёта", details.interval),
-                ("Сформирован", report.generated_at),
                 ("Основная газовая кривая", report.primary_mnemonic or "—"),
                 ("Порог robust z", f"{report.threshold:.2f}"),
             )
@@ -257,12 +263,20 @@ def _paragraph(
 
 
 def _control_table(items: tuple[tuple[str, str], ...]) -> ET.Element:
+    if not items:
+        raise ValueError("Таблица реквизитов Word не может быть пустой")
+    total_width = 9_000
+    base_width, remainder = divmod(total_width, len(items))
+    widths = tuple(
+        base_width + (1 if index < remainder else 0)
+        for index in range(len(items))
+    )
     return _table(
         (
             tuple(label for label, _ in items),
             tuple(_value(value) for _, value in items),
         ),
-        tuple(2_250 for _ in items),
+        widths,
         shaded_rows=frozenset({0}),
         centered=True,
     )

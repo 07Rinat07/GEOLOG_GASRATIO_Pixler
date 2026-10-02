@@ -1,0 +1,490 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from math import ceil
+from typing import Literal
+
+from PySide6.QtCore import QRectF, Qt
+from PySide6.QtGui import QColor, QFontMetricsF, QPaintDevice, QPainter, QPen
+
+from geoworkbench.printing.geology_track_rendering import paint_lba_intensity_symbol
+from geoworkbench.printing.hydrocarbon_interpretation_geology import (
+    InterpretationGeologySnapshot,
+)
+from geoworkbench.printing.lba_visuals import (
+    UNKNOWN_LBA_STYLE,
+    lba_intensity_name,
+    normalized_lba_intensity,
+    resolve_lba_type_style,
+)
+from geoworkbench.printing.unicode_support import print_font
+from geoworkbench.services.lba_standard import (
+    LBA_STANDARD_GROUPS,
+    lba_color_code,
+    lba_standard_group,
+)
+from geoworkbench.services.localization import AppLanguage
+from geoworkbench.tablet.lithology_patterns import masterlog_lithology_brush
+
+
+LegendKind = Literal["lithology", "lba-type", "lba-intensity", "lba-color"]
+_MAX_FULL_ROW_HEIGHT = 64.0
+_FULL_LEGEND_OVERHEAD = 26.0
+
+
+@dataclass(frozen=True, slots=True)
+class GeologyLegendItem:
+    kind: LegendKind
+    key: str
+    code: str
+    label: str
+    color: str = "#64748b"
+    pattern_key: str = "solid"
+    intensity: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class InterpretationGeologyLegend:
+    items: tuple[GeologyLegendItem, ...]
+
+    @property
+    def empty(self) -> bool:
+        return not self.items
+
+
+def build_interpretation_geology_legend(
+    geology: InterpretationGeologySnapshot | None,
+    top_depth: float,
+    bottom_depth: float,
+    language: AppLanguage,
+    *,
+    include_cuttings: bool = True,
+    include_lba: bool = True,
+) -> InterpretationGeologyLegend:
+    if geology is None or bottom_depth <= top_depth:
+        return InterpretationGeologyLegend(())
+
+    visible = tuple(
+        sample
+        for sample in geology.samples
+        if sample.bottom_depth >= top_depth and sample.top_depth <= bottom_depth
+    )
+    if not visible:
+        return InterpretationGeologyLegend(())
+
+    items: list[GeologyLegendItem] = []
+    used_keys: set[tuple[LegendKind, str]] = set()
+    lithotypes = geology.lithotype_map
+
+    for sample in visible if include_cuttings else ():
+        for component in sample.components:
+            if float(component.percentage) <= 0.0:
+                continue
+            legend_key: tuple[LegendKind, str] = (
+                "lithology",
+                component.lithotype_id,
+            )
+            if legend_key in used_keys:
+                continue
+            used_keys.add(legend_key)
+            lithotype = lithotypes.get(component.lithotype_id)
+            if lithotype is None:
+                items.append(
+                    GeologyLegendItem(
+                        "lithology",
+                        component.lithotype_id,
+                        "?",
+                        component.lithotype_id,
+                        "#b0b0b0",
+                        "solid",
+                    )
+                )
+                continue
+            items.append(
+                GeologyLegendItem(
+                    "lithology",
+                    lithotype.lithotype_id,
+                    lithotype.code or lithotype.lithotype_id,
+                    lithotype.localized_name(language.value),
+                    lithotype.color,
+                    lithotype.pattern_key,
+                )
+            )
+
+    for sample in visible if include_lba else ():
+        has_lba = any(
+            value not in (None, "")
+            for value in (
+                sample.lba_group,
+                sample.lba_type_id,
+                sample.lba_intensity,
+                sample.lba_color,
+                sample.lba_distribution,
+                sample.lba_cut,
+                sample.lba_description,
+            )
+        )
+        if not has_lba:
+            continue
+        standard_group = lba_standard_group(sample.lba_group)
+        style = resolve_lba_type_style(sample.lba_type_id)
+        if sample.lba_type_id:
+            type_code = style.code
+            type_label = style.localized_name(language)
+            type_key = style.type_id
+            type_color = (
+                standard_group.display_color
+                if standard_group is not None
+                else style.color
+            )
+        elif standard_group is not None:
+            type_code = standard_group.code
+            type_label = standard_group.localized_type_name(language)
+            type_key = standard_group.type_id
+            type_color = standard_group.display_color
+        else:
+            type_code = UNKNOWN_LBA_STYLE.code
+            type_label = UNKNOWN_LBA_STYLE.localized_name(language)
+            type_key = UNKNOWN_LBA_STYLE.type_id
+            type_color = UNKNOWN_LBA_STYLE.color
+
+        if type_key:
+            legend_key = ("lba-type", type_key)
+            if legend_key not in used_keys:
+                used_keys.add(legend_key)
+                items.append(
+                    GeologyLegendItem(
+                        "lba-type",
+                        type_key,
+                        type_code,
+                        type_label,
+                        type_color,
+                        intensity=3 if type_key != UNKNOWN_LBA_STYLE.type_id else None,
+                    )
+                )
+
+        intensity = normalized_lba_intensity(sample.lba_intensity)
+        if intensity is not None:
+            intensity_key = str(intensity)
+            legend_key = ("lba-intensity", intensity_key)
+            if legend_key not in used_keys:
+                used_keys.add(legend_key)
+                items.append(
+                    GeologyLegendItem(
+                        "lba-intensity",
+                        intensity_key,
+                        str(intensity),
+                        lba_intensity_name(intensity, language),
+                        "#334155",
+                        intensity=intensity,
+                    )
+                )
+
+        color_code = lba_color_code(sample.lba_color)
+        if color_code:
+            legend_key = ("lba-color", color_code)
+            if legend_key not in used_keys:
+                used_keys.add(legend_key)
+                items.append(
+                    GeologyLegendItem(
+                        "lba-color",
+                        color_code,
+                        color_code,
+                        _lba_color_name(color_code, language),
+                        "#64748b",
+                    )
+                )
+
+    return InterpretationGeologyLegend(tuple(items))
+
+
+def geology_legend_height(
+    width: float,
+    legend: InterpretationGeologyLegend,
+    *,
+    compact: bool = False,
+    paint_device: QPaintDevice | None = None,
+) -> float:
+    if legend.empty or width <= 0.0:
+        return 0.0
+    title_height = 0.0 if compact else 16.0
+    row_heights = _legend_row_heights(
+        width, legend, compact=compact, paint_device=paint_device,
+    )
+    return 6.0 + title_height + sum(row_heights) + 4.0
+
+
+def paginate_geology_legend(
+    width: float,
+    legend: InterpretationGeologyLegend,
+    maximum_height: float,
+    *,
+    paint_device: QPaintDevice | None = None,
+) -> tuple[InterpretationGeologyLegend, ...]:
+    """Keep every symbol, splitting the full legend at complete row boundaries."""
+    if legend.empty:
+        return ()
+    if width <= 0.0 or maximum_height < _FULL_LEGEND_OVERHEAD + _MAX_FULL_ROW_HEIGHT:
+        raise ValueError("Geology legend page must fit a complete bounded row")
+    columns = _legend_columns(width, compact=False)
+    heights = _legend_row_heights(
+        width, legend, compact=False, paint_device=paint_device,
+    )
+    pages: list[InterpretationGeologyLegend] = []
+    first_row = 0
+    used_height = _FULL_LEGEND_OVERHEAD
+    for row, height in enumerate(heights):
+        if used_height + height > maximum_height and row > first_row:
+            pages.append(InterpretationGeologyLegend(
+                legend.items[first_row * columns : row * columns],
+            ))
+            first_row = row
+            used_height = _FULL_LEGEND_OVERHEAD
+        used_height += height
+    pages.append(InterpretationGeologyLegend(legend.items[first_row * columns :]))
+    return tuple(pages)
+
+
+def paint_geology_legend(
+    painter: QPainter,
+    rect: QRectF,
+    legend: InterpretationGeologyLegend,
+    language: AppLanguage,
+    *,
+    compact: bool = False,
+) -> None:
+    if legend.empty or rect.width() <= 0.0 or rect.height() <= 0.0:
+        return
+
+    painter.save()
+    painter.setClipRect(rect)
+    painter.fillRect(rect, QColor("#ffffff"))
+    painter.setPen(QPen(QColor("#cbd5e1"), 0.55))
+    painter.drawRect(rect)
+
+    top = rect.top() + 3.0
+    if not compact:
+        title = _labels(language)["title"]
+        font = print_font(7.2, text=title)
+        font.setBold(True)
+        painter.setFont(font)
+        painter.setPen(QColor("#172033"))
+        painter.drawText(
+            QRectF(rect.left() + 4.0, top, rect.width() - 8.0, 13.0),
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            title,
+        )
+        top += 16.0
+
+    columns = _legend_columns(rect.width(), compact=compact)
+    cell_width = rect.width() / columns
+    row_heights = _legend_row_heights(
+        rect.width(),
+        legend,
+        compact=compact,
+        paint_device=painter.device(),
+    )
+    font_size = 6.2 if compact else 6.6
+    row_offsets = [top]
+    for height in row_heights[:-1]:
+        row_offsets.append(row_offsets[-1] + height)
+
+    for index, item in enumerate(legend.items):
+        row = index // columns
+        column = index % columns
+        cell = QRectF(
+            rect.left() + column * cell_width,
+            row_offsets[row],
+            cell_width,
+            row_heights[row],
+        )
+        _paint_legend_item(
+            painter,
+            cell,
+            item,
+            font_size=font_size,
+            compact=compact,
+        )
+
+    painter.restore()
+
+
+def _paint_legend_item(
+    painter: QPainter,
+    rect: QRectF,
+    item: GeologyLegendItem,
+    *,
+    font_size: float,
+    compact: bool,
+) -> None:
+    marker_width = 20.0
+    marker = QRectF(
+        rect.left() + 3.0,
+        rect.center().y() - 5.0,
+        marker_width - 5.0,
+        10.0,
+    )
+
+    if item.kind == "lithology":
+        painter.fillRect(
+            marker,
+            masterlog_lithology_brush(
+                painter,
+                item.color,
+                item.pattern_key,
+            ),
+        )
+        painter.setPen(QPen(QColor("#334155"), 0.45))
+        painter.drawRect(marker)
+    elif item.kind in {"lba-type", "lba-intensity"}:
+        paint_lba_intensity_symbol(
+            painter,
+            marker.center().x(),
+            marker.center().y(),
+            8.0,
+            QColor(item.color),
+            item.intensity,
+        )
+    else:
+        painter.setPen(QPen(QColor("#64748b"), 0.45))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawRoundedRect(marker, 2.0, 2.0)
+        painter.setFont(print_font(5.7, text=item.code))
+        painter.setPen(QColor("#172033"))
+        painter.drawText(marker, Qt.AlignmentFlag.AlignCenter, item.code)
+
+    text = _legend_item_text(item, compact=compact)
+    font = print_font(font_size, text=text)
+    painter.setFont(font)
+    painter.setPen(QColor("#172033"))
+    text_rect = QRectF(
+        rect.left() + marker_width + 2.0,
+        rect.top() + 1.0,
+        max(1.0, rect.width() - marker_width - 5.0),
+        rect.height() - 2.0,
+    )
+    metrics = QFontMetricsF(font, painter.device())
+    text = _fit_legend_text(text, metrics, text_rect.width(), text_rect.height())
+    painter.drawText(
+        text_rect,
+        Qt.AlignmentFlag.AlignLeft
+        | Qt.AlignmentFlag.AlignVCenter
+        | Qt.TextFlag.TextWordWrap,
+        text,
+    )
+
+
+def _legend_item_text(
+    item: GeologyLegendItem,
+    *,
+    compact: bool,
+) -> str:
+    if compact:
+        return item.code
+    return f"{item.code} — {item.label}" if item.code else item.label
+
+
+def _legend_row_heights(
+    width: float,
+    legend: InterpretationGeologyLegend,
+    *,
+    compact: bool,
+    paint_device: QPaintDevice | None = None,
+) -> tuple[float, ...]:
+    columns = _legend_columns(width, compact=compact)
+    rows = ceil(len(legend.items) / columns)
+    if compact:
+        return tuple(18.0 for _ in range(rows))
+
+    cell_width = width / columns
+    text_width = max(1.0, cell_width - 25.0)
+    heights: list[float] = []
+    flags = (
+        Qt.AlignmentFlag.AlignLeft
+        | Qt.AlignmentFlag.AlignVCenter
+        | Qt.TextFlag.TextWordWrap
+    )
+    for row in range(rows):
+        row_items = legend.items[row * columns : (row + 1) * columns]
+        measured = 0.0
+        for item in row_items:
+            text = _legend_item_text(item, compact=False)
+            font = print_font(6.6, text=text)
+            metrics = (
+                QFontMetricsF(font, paint_device)
+                if paint_device is not None else QFontMetricsF(font)
+            )
+            bounds = metrics.boundingRect(
+                QRectF(0.0, 0.0, text_width, 1_000.0),
+                int(flags),
+                text,
+            )
+            measured = max(measured, bounds.height())
+        heights.append(min(_MAX_FULL_ROW_HEIGHT, max(22.0, measured + 4.0)))
+    return tuple(heights)
+
+
+def _fit_legend_text(
+    text: str,
+    metrics: QFontMetricsF,
+    width: float,
+    height: float,
+) -> str:
+    """Make exceptional labels visibly abbreviated rather than silently clipped."""
+    flags = int(Qt.TextFlag.TextWordWrap | Qt.AlignmentFlag.AlignLeft)
+    bounds = QRectF(0.0, 0.0, width, height)
+
+    def fits(value: str) -> bool:
+        measured = metrics.boundingRect(bounds, flags, value)
+        return measured.height() <= height and measured.width() <= width
+
+    if fits(text):
+        return text
+    low, high = 0, len(text)
+    while low < high:
+        middle = (low + high + 1) // 2
+        if fits(text[:middle].rstrip() + "…"):
+            low = middle
+        else:
+            high = middle - 1
+    return text[:low].rstrip() + "…"
+
+
+def _legend_columns(width: float, *, compact: bool) -> int:
+    target = 90.0 if compact else 120.0
+    return max(1, min(8, int(width // target)))
+
+
+def _lba_color_name(code: str, language: AppLanguage) -> str:
+    for group in LBA_STANDARD_GROUPS:
+        for color in group.colors:
+            if color.code == code:
+                return color.localized_name(language)
+    return _labels(language)["fluorescence"]
+
+
+def _labels(language: AppLanguage) -> dict[str, str]:
+    return {
+        AppLanguage.RU: {
+            "title": "Геологическая легенда",
+            "fluorescence": "флуоресценция",
+        },
+        AppLanguage.KK: {
+            "title": "Геологиялық легенда",
+            "fluorescence": "флуоресценция",
+        },
+        AppLanguage.EN: {
+            "title": "Geology legend",
+            "fluorescence": "fluorescence",
+        },
+    }[language]
+
+
+__all__ = [
+    "GeologyLegendItem",
+    "InterpretationGeologyLegend",
+    "build_interpretation_geology_legend",
+    "geology_legend_height",
+    "paint_geology_legend",
+    "paginate_geology_legend",
+]

@@ -56,6 +56,9 @@ class ChartGeometry:
     panel_rects: tuple[QRectF, ...]
     legend_rect: QRectF
     note_rect: QRectF
+    geology_rects: tuple[QRectF, ...] = ()
+    geology_legend_rect: QRectF | None = None
+    geology_repeat_legend_rect: QRectF | None = None
 
 
 def plan_depth_pages(
@@ -143,19 +146,42 @@ def chart_geometry(
     content_rect: QRectF,
     page: DepthPage,
     panel_count: int,
+    *,
+    geology_track_count: int = 0,
+    geology_legend_height: float = 0.0,
+    geology_repeat_legend_height: float = 0.0,
 ) -> ChartGeometry:
     """Return chart rectangles guaranteed to remain inside the printable area."""
 
     if panel_count < 1:
         raise ValueError("Для графика требуется хотя бы одна дорожка")
-    chart_top = content_rect.top() + CHART_HEADER_HEIGHT + CHART_TRACK_HEADER_HEIGHT
+    safe_legend_height = max(0.0, float(geology_legend_height))
+    safe_repeat_height = max(0.0, float(geology_repeat_legend_height))
+    geology_legend_rect = (
+        QRectF(
+            content_rect.left(),
+            content_rect.top() + CHART_HEADER_HEIGHT,
+            content_rect.width(),
+            safe_legend_height,
+        )
+        if safe_legend_height > 0.0
+        else None
+    )
+    chart_top = (
+        content_rect.top()
+        + CHART_HEADER_HEIGHT
+        + safe_legend_height
+        + CHART_TRACK_HEADER_HEIGHT
+    )
     maximum_plot_height = max(
         MIN_CHART_HEIGHT,
         content_rect.height()
         - CHART_HEADER_HEIGHT
         - CHART_TRACK_HEADER_HEIGHT
         - CHART_LEGEND_HEIGHT
-        - CHART_NOTE_HEIGHT,
+        - CHART_NOTE_HEIGHT
+        - safe_legend_height
+        - safe_repeat_height,
     )
     plot_height = min(
         maximum_plot_height,
@@ -164,6 +190,8 @@ def chart_geometry(
     axis_width = 54.0
     axis_gap = 7.0
     panel_gap = 8.0
+    geology_track_width = 42.0
+    geology_gap = 4.0
     left_axis = QRectF(content_rect.left(), chart_top, axis_width, plot_height)
     right_axis = QRectF(
         content_rect.right() - axis_width,
@@ -171,7 +199,22 @@ def chart_geometry(
         axis_width,
         plot_height,
     )
-    panels_left = left_axis.right() + axis_gap
+    geology_left = left_axis.right() + axis_gap
+    geology_rects = tuple(
+        QRectF(
+            geology_left + index * (geology_track_width + geology_gap),
+            chart_top,
+            geology_track_width,
+            plot_height,
+        )
+        for index in range(max(0, geology_track_count))
+    )
+    geology_right = (
+        geology_rects[-1].right() + axis_gap
+        if geology_rects
+        else left_axis.right() + axis_gap
+    )
+    panels_left = geology_right
     panels_right = right_axis.left() - axis_gap
     panels_width = panels_right - panels_left
     panel_width = (panels_width - panel_gap * (panel_count - 1)) / panel_count
@@ -193,20 +236,34 @@ def chart_geometry(
         panels_width,
         CHART_LEGEND_HEIGHT - 7.0,
     )
+    repeat_legend = (
+        QRectF(
+            content_rect.left(),
+            chart_top + plot_height + CHART_LEGEND_HEIGHT,
+            content_rect.width(),
+            safe_repeat_height,
+        )
+        if safe_repeat_height > 0.0
+        else None
+    )
     note = QRectF(
         content_rect.left(),
         content_rect.bottom() - CHART_NOTE_HEIGHT,
         content_rect.width(),
         CHART_NOTE_HEIGHT,
     )
+    plot_left = geology_rects[0].left() if geology_rects else panels_left
     return ChartGeometry(
         content_rect,
-        QRectF(panels_left, chart_top, panels_width, plot_height),
+        QRectF(plot_left, chart_top, panels_right - plot_left, plot_height),
         left_axis,
         right_axis,
         panel_rects,
         legend,
         note,
+        geology_rects,
+        geology_legend_rect,
+        repeat_legend,
     )
 
 

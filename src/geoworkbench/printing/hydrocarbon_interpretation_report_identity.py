@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, fields
-from datetime import datetime
-
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
 )
@@ -96,22 +94,9 @@ def default_interpretation_report_identity(
         interval=interval,
         revision="00",
         document_status=text["status"],
-        report_date=_localized_report_date(report.generated_at, language),
+        report_date="",
         confidentiality=text["confidentiality"],
     )
-
-
-def _localized_report_date(value: str, language: AppLanguage) -> str:
-    """Keep the generated cover date readable without losing manual overrides."""
-
-    cleaned = str(value).strip()
-    try:
-        parsed = datetime.fromisoformat(cleaned)
-    except ValueError:
-        return cleaned
-    if language is AppLanguage.EN:
-        return parsed.strftime("%Y-%m-%d")
-    return parsed.strftime("%d.%m.%Y")
 
 
 __all__ = [

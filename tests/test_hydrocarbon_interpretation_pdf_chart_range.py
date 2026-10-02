@@ -4,6 +4,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 from PySide6.QtCore import QRectF
 from PySide6.QtGui import QColor, QImage, QPainter
 
@@ -39,7 +40,10 @@ def test_chart_page_planner_uses_selected_report_depth_range(monkeypatch) -> Non
         return ()
 
     monkeypatch.setattr(chart, "plan_depth_pages", _plan)
-    canvas = SimpleNamespace(content_rect=QRectF(0.0, 0.0, 842.0, 560.0))
+    canvas = SimpleNamespace(
+        content_rect=QRectF(0.0, 0.0, 842.0, 560.0),
+        painter=SimpleNamespace(device=lambda: None),
+    )
     report = SimpleNamespace(depth_unit="m")
 
     chart.render_chart_pages(
@@ -267,3 +271,30 @@ def test_panel_border_never_washes_out_curve_with_inherited_transparent_brush(qa
     center = image.pixelColor(int(rect.center().x()), int(rect.center().y()))
     assert center.saturation() >= 80
     assert center.lightness() <= 200
+
+
+def test_geology_tracks_preserve_legacy_geometry_when_absent() -> None:
+    page = DepthPage(100.0, 200.0, 500, 320.0)
+    content = QRectF(20.0, 20.0, 800.0, 520.0)
+
+    legacy = chart.chart_geometry(content, page, 3)
+    explicit_zero = chart.chart_geometry(
+        content,
+        page,
+        3,
+        geology_track_count=0,
+    )
+    with_geology = chart.chart_geometry(
+        content,
+        page,
+        3,
+        geology_track_count=2,
+    )
+
+    assert explicit_zero.panel_rects == legacy.panel_rects
+    assert explicit_zero.geology_rects == ()
+    assert len(with_geology.geology_rects) == 2
+    assert with_geology.geology_rects[0].left() == legacy.panel_rects[0].left()
+    assert with_geology.panel_rects[0].left() > legacy.panel_rects[0].left()
+    assert with_geology.panel_rects[-1].right() == pytest.approx(legacy.panel_rects[-1].right())
+    assert with_geology.plot_rect.left() == with_geology.geology_rects[0].left()

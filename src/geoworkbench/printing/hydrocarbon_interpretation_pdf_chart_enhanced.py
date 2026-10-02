@@ -4,8 +4,9 @@ from math import floor, isclose
 
 import numpy as np
 from PySide6.QtCore import QLineF, QPointF, QRectF, Qt
-from PySide6.QtGui import QColor, QPainter, QPen
+from PySide6.QtGui import QFontMetricsF, QColor, QPainter, QPen
 
+from geoworkbench.domain.depth_interval import scope_dataset
 from geoworkbench.domain.models import CurveData, Dataset
 from geoworkbench.printing import hydrocarbon_interpretation_pdf_chart as base_chart
 from geoworkbench.printing.hydrocarbon_fluid_markers import (
@@ -18,12 +19,34 @@ from geoworkbench.printing.hydrocarbon_fluid_markers import (
 from geoworkbench.printing.hydrocarbon_interpretation_curve_labels import (
     report_curve_label_hints,
 )
+from geoworkbench.printing.geology_track_rendering import (
+    paint_cuttings_track,
+    paint_lba_track,
+)
+from geoworkbench.printing.hydrocarbon_interpretation_geology import (
+    InterpretationGeologySnapshot,
+)
+from geoworkbench.printing.hydrocarbon_interpretation_geology_legend import (
+    GeologyLegendItem,
+    InterpretationGeologyLegend,
+    build_interpretation_geology_legend,
+    geology_legend_height,
+    paint_geology_legend,
+    paginate_geology_legend,
+)
+from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
+    DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS,
+    InterpretationGeologyTrackSettings,
+    forced_empty_geology_tracks,
+    resolve_geology_track_kinds,
+)
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_canvas import PageCanvas
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import (
     CHART_HEADER_HEIGHT,
     CHART_LEGEND_HEIGHT,
     CHART_NOTE_HEIGHT,
     CHART_TRACK_HEADER_HEIGHT,
+    MIN_CHART_HEIGHT,
     ChartGeometry,
     DepthPage,
     chart_geometry,
@@ -51,9 +74,16 @@ def render_chart_pages(
     language: AppLanguage,
     *,
     depth_range: ReportDepthRange | None = None,
+    geology: InterpretationGeologySnapshot | None = None,
+    geology_track_settings: InterpretationGeologyTrackSettings = (
+        DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS
+    ),
 ) -> None:
     """Render chart pages with printer-safe major and minor depth graduations."""
 
+    interval = getattr(report, "analysis_depth_interval", None)
+    depth_range = interval or depth_range
+    dataset = scope_dataset(dataset, interval)
     depth = np.asarray(dataset.depth, dtype=np.float64)
     finite_depth = np.isfinite(depth)
     if depth.ndim != 1 or np.count_nonzero(finite_depth) < 2:
@@ -66,18 +96,87 @@ def render_chart_pages(
     if not panels:
         return
 
-    available_height = (
+    depth_min = float(np.nanmin(depth[finite_depth]))
+    depth_max = float(np.nanmax(depth[finite_depth]))
+    if depth_range is not None:
+        depth_min = depth_range.top_depth
+        depth_max = depth_range.bottom_depth
+    geology_tracks = _geology_track_kinds(
+        geology,
+        depth_min,
+        depth_max,
+        geology_track_settings,
+    )
+    empty_state_tracks = _forced_empty_geology_tracks(
+        geology,
+        depth_min,
+        depth_max,
+        geology_track_settings,
+    )
+    geology_legend = build_interpretation_geology_legend(
+        geology,
+        depth_min,
+        depth_max,
+        language,
+        include_cuttings="cuttings" in geology_tracks,
+        include_lba="lba" in geology_tracks,
+    )
+    full_legend_height = geology_legend_height(
+        canvas.content_rect.width(),
+        geology_legend,
+        paint_device=canvas.painter.device(),
+    )
+    repeat_legend_height = geology_legend_height(
+        canvas.content_rect.width(),
+        geology_legend,
+        compact=True,
+        paint_device=canvas.painter.device(),
+    )
+    chart_height_budget = (
         canvas.content_rect.height()
         - CHART_HEADER_HEIGHT
         - CHART_TRACK_HEADER_HEIGHT
         - CHART_LEGEND_HEIGHT
         - CHART_NOTE_HEIGHT
     )
-    depth_min = float(np.nanmin(depth[finite_depth]))
-    depth_max = float(np.nanmax(depth[finite_depth]))
-    if depth_range is not None:
-        depth_min = depth_range.top_depth
-        depth_max = depth_range.bottom_depth
+    # Preserve a useful plot even on A4 landscape. Large catalogs belong on
+    # dedicated legend pages; do not let them consume the depth-page budget.
+    legend_budget = max(0.0, chart_height_budget - 4.0 * MIN_CHART_HEIGHT)
+    continuation_legend = geology_legend
+    if max(full_legend_height, repeat_legend_height) > legend_budget:
+        for legend_page in paginate_geology_legend(
+            canvas.content_rect.width(),
+            geology_legend,
+            canvas.content_rect.height(),
+            paint_device=canvas.painter.device(),
+        ):
+            canvas.new_page()
+            height = geology_legend_height(
+                canvas.content_rect.width(), legend_page,
+                paint_device=canvas.painter.device(),
+            )
+            paint_geology_legend(
+                canvas.painter,
+                QRectF(canvas.content_rect.left(), canvas.content_rect.top(),
+                       canvas.content_rect.width(), height),
+                legend_page, language,
+            )
+            canvas.y = canvas.content_rect.bottom()
+        reference = {
+            AppLanguage.RU: "Легенда: отдельные страницы",
+            AppLanguage.KK: "Легенда: бөлек беттер",
+            AppLanguage.EN: "Legend: separate pages",
+        }[language]
+        full_legend_height = 0.0
+        if repeat_legend_height > legend_budget:
+            continuation_legend = InterpretationGeologyLegend((
+                GeologyLegendItem("lithology", "legend-pages", reference, ""),
+            ))
+            repeat_legend_height = geology_legend_height(
+                canvas.content_rect.width(), continuation_legend, compact=True,
+                paint_device=canvas.painter.device(),
+            )
+    available_height = chart_height_budget - max(full_legend_height, repeat_legend_height)
     pages = plan_depth_pages(
         depth_min,
         depth_max,
@@ -86,9 +185,21 @@ def render_chart_pages(
     for page_index, page in enumerate(pages, start=1):
         canvas.new_page()
         percentiles = base_chart._curve_percentiles(panels, dataset, page=page)
+        first_page = page_index == 1
+        first_page_legend_height = full_legend_height if first_page else 0.0
+        continuation_legend_height = (
+            repeat_legend_height if not first_page or full_legend_height == 0.0 else 0.0
+        )
         _draw_chart_page(
             canvas.painter,
-            chart_geometry(canvas.content_rect, page, len(panels)),
+            chart_geometry(
+                canvas.content_rect,
+                page,
+                len(panels),
+                geology_track_count=len(geology_tracks),
+                geology_legend_height=first_page_legend_height,
+                geology_repeat_legend_height=continuation_legend_height,
+            ),
             page,
             page_index,
             len(pages),
@@ -98,8 +209,122 @@ def render_chart_pages(
             base_chart._display_curve_ranges(percentiles),
             percentiles,
             language,
+            geology,
+            geology_tracks,
+            empty_state_tracks,
+            geology_legend,
+            continuation_legend,
         )
         canvas.y = canvas.content_rect.bottom()
+
+
+def _geology_track_kinds(
+    geology: InterpretationGeologySnapshot | None,
+    top_depth: float,
+    bottom_depth: float,
+    settings: InterpretationGeologyTrackSettings,
+) -> tuple[str, ...]:
+    return resolve_geology_track_kinds(
+        geology,
+        top_depth,
+        bottom_depth,
+        settings,
+    )
+
+
+def _forced_empty_geology_tracks(
+    geology: InterpretationGeologySnapshot | None,
+    top_depth: float,
+    bottom_depth: float,
+    settings: InterpretationGeologyTrackSettings,
+) -> tuple[str, ...]:
+    return forced_empty_geology_tracks(
+        geology,
+        top_depth,
+        bottom_depth,
+        settings,
+    )
+
+
+def _geology_track_labels(language: AppLanguage) -> dict[str, str]:
+    if language is AppLanguage.KK:
+        return {"cuttings": "Шламограмма", "lba": "ЛБА"}
+    if language is AppLanguage.EN:
+        return {"cuttings": "Cuttings", "lba": "LBA"}
+    return {"cuttings": "Шламограмма", "lba": "ЛБА"}
+
+
+def _draw_geology_tracks(
+    painter: QPainter,
+    geometry: ChartGeometry,
+    page: DepthPage,
+    geology: InterpretationGeologySnapshot | None,
+    geology_tracks: tuple[str, ...],
+    empty_state_tracks: tuple[str, ...],
+    language: AppLanguage,
+) -> None:
+    labels = _geology_track_labels(language)
+    page_samples = tuple(
+        sample
+        for sample in (geology.samples if geology is not None else ())
+        if sample.bottom_depth >= page.top_depth
+        and sample.top_depth <= page.bottom_depth
+    )
+    lithotypes = geology.lithotype_map if geology is not None else {}
+    for track, rect in zip(geology_tracks, geometry.geology_rects, strict=True):
+        painter.fillRect(rect, QColor("#ffffff"))
+        heading = labels[track]
+        font = print_font(6.2, text=heading)
+        font.setBold(True)
+        heading_width = QFontMetricsF(font, painter.device()).horizontalAdvance(heading)
+        if heading_width > rect.width() - 2.0:
+            font.setPointSizeF(font.pointSizeF() * (rect.width() - 2.0) / heading_width)
+        painter.setFont(font)
+        painter.setPen(QColor("#172033"))
+        painter.drawText(
+            QRectF(rect.left(), rect.top() - 33.0, rect.width(), 28.0),
+            Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
+            heading,
+        )
+        for tick in minor_depth_ticks(page):
+            y = base_chart._depth_y(tick, page, rect)
+            painter.setPen(QPen(QColor("#e2e8f0"), 0.45))
+            painter.drawLine(QLineF(rect.left(), y, rect.right(), y))
+        for tick in base_chart._depth_ticks(
+            page,
+            base_chart._nice_tick_step(page.span, target_ticks=_MAJOR_TARGET_TICKS),
+        ):
+            y = base_chart._depth_y(tick, page, rect)
+            painter.setPen(QPen(QColor("#cbd5e1"), 0.65))
+            painter.drawLine(QLineF(rect.left(), y, rect.right(), y))
+        if track in empty_state_tracks:
+            no_data = {
+                AppLanguage.RU: "Нет данных",
+                AppLanguage.KK: "Дерек жоқ",
+                AppLanguage.EN: "No data",
+            }[language]
+            painter.setPen(QColor("#64748b"))
+            painter.setFont(print_font(6.0, text=no_data))
+            painter.drawText(
+                rect,
+                Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
+                no_data,
+            )
+        elif track == "cuttings":
+            paint_cuttings_track(
+                painter,
+                rect,
+                page_samples,
+                (page.top_depth, page.bottom_depth),
+                lithotypes,
+            )
+        else:
+            paint_lba_track(
+                painter,
+                rect,
+                page_samples,
+                (page.top_depth, page.bottom_depth),
+            )
 
 
 def major_depth_ticks(
@@ -146,6 +371,11 @@ def _draw_chart_page(
     ranges: dict[str, tuple[float, float]],
     percentiles: dict[str, tuple[float, float]],
     language: AppLanguage,
+    geology: InterpretationGeologySnapshot | None,
+    geology_tracks: tuple[str, ...],
+    empty_state_tracks: tuple[str, ...],
+    geology_legend: InterpretationGeologyLegend,
+    continuation_legend: InterpretationGeologyLegend | None = None,
 ) -> None:
     labels = base_chart._labels(language)
     title_font = print_font(15.0, text=labels["title"])
@@ -183,6 +413,22 @@ def _draw_chart_page(
         subtitle,
     )
 
+    if geometry.geology_legend_rect is not None:
+        paint_geology_legend(
+            painter,
+            geometry.geology_legend_rect,
+            geology_legend,
+            language,
+        )
+    if geometry.geology_repeat_legend_rect is not None:
+        paint_geology_legend(
+            painter,
+            geometry.geology_repeat_legend_rect,
+            continuation_legend if continuation_legend is not None else geology_legend,
+            language,
+            compact=True,
+        )
+
     _draw_depth_axis(
         painter,
         geometry.left_axis_rect,
@@ -199,6 +445,16 @@ def _draw_chart_page(
         side="right",
         language=language,
     )
+    if geology_tracks:
+        _draw_geology_tracks(
+            painter,
+            geometry,
+            page,
+            geology,
+            geology_tracks,
+            empty_state_tracks,
+            language,
+        )
     candidates = tuple(report.candidates)
     display_hints = report_curve_label_hints(report)
     for panel_index, ((panel_name, curves), rect) in enumerate(
