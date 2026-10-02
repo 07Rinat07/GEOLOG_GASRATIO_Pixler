@@ -116,16 +116,36 @@ def import_las_with_report(
         )
         parse_stream_setup_ns = perf_counter_ns() - parse_stream_started_ns
 
+        parse_lasio_started_ns = perf_counter_ns()
         with decoded_source:
-            parse_lasio_started_ns = perf_counter_ns()
-            las = lasio.read(
+            header_las = lasio.read(
                 decoded_source,
                 ignore_header_errors=True,
+                ignore_data=True,
                 encoding=source_document.encoding,
                 encoding_errors="replace",
                 autodetect_encoding=False,
             )
-            parse_lasio_ns = perf_counter_ns() - parse_lasio_started_ns
+        if _try_assign_fast_numeric_data(source_document, header_las):
+            las = header_las
+            parse_backend = "numpy-loadtxt"
+        else:
+            fallback_source = io.TextIOWrapper(
+                io.BytesIO(source_document.raw_bytes),
+                encoding=source_document.encoding,
+                errors="replace",
+                newline=None,
+            )
+            with fallback_source:
+                las = lasio.read(
+                    fallback_source,
+                    ignore_header_errors=True,
+                    encoding=source_document.encoding,
+                    encoding_errors="replace",
+                    autodetect_encoding=False,
+                )
+            parse_backend = "lasio"
+        parse_lasio_ns = perf_counter_ns() - parse_lasio_started_ns
 
         parse_index_started_ns = perf_counter_ns()
         depth = np.asarray(las.index, dtype=np.float64).copy()
@@ -280,6 +300,7 @@ def import_las_with_report(
         warnings=report.warning_count,
         source_ms=_elapsed_ms(import_started_at, source_loaded_at),
         parse_ms=_elapsed_ms(source_loaded_at, parsed_at),
+        parse_backend=parse_backend,
         parse_stream_setup_ms=_elapsed_ns_ms(parse_stream_setup_ns),
         parse_lasio_ms=_elapsed_ns_ms(parse_lasio_ns),
         parse_index_ms=_elapsed_ns_ms(parse_index_ns),
@@ -319,6 +340,87 @@ def _elapsed_ns_ms(duration_ns: int) -> float:
 def _max_optional(*values: int | None) -> int | None:
     present = [value for value in values if value is not None]
     return max(present) if present else None
+
+
+def _try_assign_fast_numeric_data(
+    source_document: LosslessLasDocument,
+    las: Any,
+) -> bool:
+    """Use a strict numeric fast path for ordinary unwrapped LAS data.
+
+    Header parsing remains lasio-owned. The fast path is accepted only when one
+    LAS 1.2/2.x ASCII section maps exactly to the declared curve count. Any
+    unsupported layout or numeric parse error falls back to the established
+    full lasio reader without changing source bytes.
+    """
+
+    version = (_section_value(getattr(las, "version", ()), "VERS") or "").strip()
+    if not version.startswith(("1.2", "2.")):
+        return False
+
+    wrapped = (_section_value(getattr(las, "version", ()), "WRAP") or "NO").strip().upper()
+    if wrapped not in {"", "NO"}:
+        return False
+
+    delimiter = (_section_value(getattr(las, "version", ()), "DLM") or "").strip().upper()
+    if delimiter not in {"", "SPACE", "TAB"}:
+        return False
+
+    ascii_sections = tuple(
+        section
+        for section in source_document.sections
+        if section_role(section.name) == "ascii"
+    )
+    curves = list(getattr(las, "curves", ()))
+    if len(ascii_sections) != 1 or not curves:
+        return False
+
+    payload = _section_payload_after_header(
+        source_document.section_bytes(ascii_sections[0])
+    )
+    if not payload.strip():
+        return False
+
+    try:
+        matrix = np.loadtxt(
+            io.BytesIO(payload),
+            dtype=np.float64,
+            comments="#",
+            ndmin=2,
+        )
+    except (OSError, TypeError, ValueError):
+        return False
+
+    if matrix.ndim != 2 or matrix.shape[1] != len(curves):
+        return False
+
+    null_value = _optional_float(_section_value(getattr(las, "well", ()), "NULL"))
+    if null_value is not None and matrix.shape[1] > 1:
+        data_columns = matrix[:, 1:]
+        data_columns[data_columns == null_value] = np.nan
+
+    for index, curve in enumerate(curves):
+        curve.data = np.asarray(matrix[:, index], dtype=np.float64).copy()
+    las.index_initial = np.asarray(las.index, dtype=np.float64).copy()
+    return True
+
+
+def _section_payload_after_header(section_bytes: bytes) -> bytes:
+    """Return section payload after its first header line without decoding it."""
+
+    positions = tuple(
+        position
+        for position in (section_bytes.find(b"\n"), section_bytes.find(b"\r"))
+        if position >= 0
+    )
+    if not positions:
+        return b""
+    end = min(positions)
+    if section_bytes[end : end + 2] == b"\r\n":
+        end += 2
+    else:
+        end += 1
+    return section_bytes[end:]
 
 
 def _curve_matrix_by_position(
