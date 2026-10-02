@@ -97,13 +97,13 @@ def test_print_snapshot_keeps_gas_point_series_without_restoring_line() -> None:
         raster_scale=3.0,
     )
 
-    assert QPen(item.opts["pen"]).style() is Qt.PenStyle.NoPen
+    assert item.opts.get("pen") is None
     assert item.opts.get("symbol") == "o"
     assert float(item.opts.get("symbolSize")) >= 15.0
 
     _restore_print_curve_styles(states)
 
-    assert QPen(item.opts["pen"]).style() is Qt.PenStyle.NoPen
+    assert item.opts.get("pen") is None
     assert item.opts.get("symbol") == "o"
     assert float(item.opts.get("symbolSize")) == 4.0
 
@@ -137,13 +137,13 @@ def test_print_ratio_markers_use_configured_color_and_restore_screen_color() -> 
 
     states = _activate_print_curve_styles((rendered,))  # type: ignore[arg-type]
 
-    assert QPen(item.opts["pen"]).style() is Qt.PenStyle.NoPen
+    assert item.opts.get("pen") is None
     assert item.opts["symbolBrush"].color().name().lower() == "#ff0000"
     assert QPen(item.opts["symbolPen"]).color().name().lower() == "#ff0000"
 
     _restore_print_curve_styles(states)
 
-    assert QPen(item.opts["pen"]).style() is Qt.PenStyle.NoPen
+    assert item.opts.get("pen") is None
     assert item.opts["symbolBrush"].color().name().lower() == "#7f0000"
     assert QPen(item.opts["symbolPen"]).color().name().lower() == "#7f0000"
 
