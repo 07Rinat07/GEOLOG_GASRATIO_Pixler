@@ -414,9 +414,14 @@ python benchmarks/benchmark_las_tablet_pipeline.py --json
 
 Structural gate требует ровно один full rebuild для первого presentation и ноль дополнительных
 `DirtyRenderStats.full_updates` на scroll/zoom. `tablet.render.full.finished` дополнительно
-содержит `duration_ms`, start/end RSS и peak RSS. Timing/RSS guardrails можно вводить только после
-принятого Windows baseline на точном PR head; до этого цифры используются для выбора следующего
-подтверждённого hot path, а не как hardware-dependent unit-test threshold.
+содержит `duration_ms`, start/end RSS и peak RSS.
+
+Принятый Windows baseline Release gate #2297 на PR #423: import `12 484.34 ms`, first render
+`629.01 ms`, scroll `60.29 ms`, zoom `109.67 ms`; navigation не увеличила full-render counter.
+Поэтому следующий подтверждённый hot path — LAS import. Runner теперь переносит в тот же JSON
+существующие production checkpoints `source_ms / parse_ms / dataset_ms / report_ms` и RSS по
+этим фазам из `las.import.performance`. Unit suite проверяет полноту phase-total, но не вводит
+wall-clock threshold. Следующая оптимизация допускается только после Windows phase baseline.
 
 ## 11. Регрессия GeoScape2/GS2 временного планшета
 
