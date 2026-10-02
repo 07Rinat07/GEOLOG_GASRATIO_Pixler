@@ -121,8 +121,7 @@ def _activate_print_curve_styles(
                     item.setSymbolBrush(pg.mkBrush(style.color))
                 item.setSymbolPen(pg.mkPen(None))
                 item.setSymbolSize(
-                    max(GAS_SCREEN_POINT_SIZE_PX, saved_symbol_size)
-                    * float(raster_scale)
+                    GAS_SCREEN_POINT_SIZE_PX * float(raster_scale)
                 )
                 continue
             if style is None:
