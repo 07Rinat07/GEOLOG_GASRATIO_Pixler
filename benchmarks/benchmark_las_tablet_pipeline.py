@@ -189,6 +189,7 @@ def run_benchmark_worker(
             "import_ms": import_ms,
             "import_source_ms": import_performance["source_ms"],
             "import_parse_ms": import_performance["parse_ms"],
+            "import_parse_backend": import_performance["parse_backend"],
             "import_parse_stream_setup_ms": import_performance["parse_stream_setup_ms"],
             "import_parse_lasio_ms": import_performance["parse_lasio_ms"],
             "import_parse_index_ms": import_performance["parse_index_ms"],
@@ -253,6 +254,8 @@ def evaluate_result(result: dict[str, Any]) -> None:
         raise AssertionError("LAS import changed the curve count")
     if result["rendered_tracks"] != result["render_tracks"]:
         raise AssertionError("tablet did not materialize every requested track")
+    if result["import_parse_backend"] != "numpy-loadtxt":
+        raise AssertionError("clean PERF-07 LAS fixture must use numeric fast path")
     if result["first_render_full_updates_delta"] != 1:
         raise AssertionError("first presentation must use exactly one full tablet rebuild")
     if not result["scroll_changed"] or not result["zoom_changed"]:

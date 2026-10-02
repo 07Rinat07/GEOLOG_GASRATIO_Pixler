@@ -42,6 +42,7 @@ def _valid_result() -> dict[str, object]:
         "import_ms": 10.0,
         "import_source_ms": 1.0,
         "import_parse_ms": 6.0,
+        "import_parse_backend": "numpy-loadtxt",
         "import_parse_stream_setup_ms": 0.1,
         "import_parse_lasio_ms": 5.8,
         "import_parse_index_ms": 0.1,
@@ -105,6 +106,7 @@ def test_perf07_worker_exercises_import_render_scroll_and_zoom(qapp) -> None:
     assert result["geometry_cache_misses_after_render"] >= 4
     assert result["import_source_ms"] >= 0
     assert result["import_parse_ms"] >= 0
+    assert result["import_parse_backend"] == "numpy-loadtxt"
     assert result["import_parse_stream_setup_ms"] >= 0
     assert result["import_parse_lasio_ms"] >= 0
     assert result["import_parse_index_ms"] >= 0

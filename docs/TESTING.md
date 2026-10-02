@@ -399,7 +399,11 @@ The tests preserve the existing `las.import.performance` timing contract and ver
 without exposing source values/full paths. PERF-07 additionally requires non-negative
 `parse_stream_setup_ms`, `parse_lasio_ms` and `parse_index_ms`; these are observational
 subphases of the existing `parse_ms`, not independent parser semantics or release thresholds.
-The end-to-end benchmark carries the same fields into the Windows quality artifact. Job-level tests guard the ordered
+The end-to-end benchmark carries the same fields into the Windows quality artifact. For the numeric fast-path
+slice the clean PERF-07 fixture must report `parse_backend=numpy-loadtxt`; integration tests verify
+NULL replacement, positional curve assignment and a `WRAP=YES` compatibility fallback that performs
+the established full lasio read. Unsupported/malformed layouts must fail closed to that fallback rather
+than partially accepting a fast matrix. Job-level tests guard the ordered
 `job_load → policy → review → register → total` phases and failure-stage metrics. Main-window
 tests verify both successful presentation and the existing fail-safe recovery path emit
 `las.import.presentation` with duration/RSS. Memory collection is best-effort and cannot fail an

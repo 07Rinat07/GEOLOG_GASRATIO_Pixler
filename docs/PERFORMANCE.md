@@ -368,11 +368,21 @@ lasio parse `5 161.15 ms`, Dataset materialization `184.46 ms`, report `42.73 ms
 фазой стал parser. Первый 16-track render в этом run занял `1 460.39 ms`, scroll
 `118.19 ms`, zoom `210.00 ms`; structural full-rebuild contract остался зелёным.
 
-Следующий PERF-07 slice намеренно **не меняет** `lasio`, parser options, source LAS или Dataset.
-Production event `las.import.performance` разбивает существующий `parse_ms` на наблюдаемые
-`parse_stream_setup_ms`, `parse_lasio_ms` и `parse_index_ms`, а end-to-end benchmark переносит
-их в Windows JSON. Оптимизация parser path допускается только после exact-head Windows измерения,
-которое покажет фактически доминирующую parse-подфазу; wall-clock threshold заранее не вводится.
+Release gate **#2347** на exact head PR #428 подтвердил следующий bottleneck:
+`parse_ms = 4 636.005 ms`, из них `parse_lasio_ms = 4 635.229 ms`,
+`parse_stream_setup_ms = 0.022 ms`, `parse_index_ms = 0.490 ms`. Dataset materialization
+осталась `195.835 ms`; первый 16-track render — `1 419.731 ms`. Следовательно почти всё
+оставшееся parse-время находится внутри data/header reader lasio, а не в stream wrapper или
+извлечении index.
+
+Текущий оптимизационный slice сохраняет lasio владельцем header parsing и вводит только
+fail-closed numeric fast path для обычного LAS 1.2/2.x: одна ASCII-секция, `WRAP=NO`,
+whitespace delimiter и точное совпадение числа parsed columns с объявленными curves.
+Data matrix читается через `numpy.loadtxt`, NULL заменяется только в non-index columns,
+после чего данные присваиваются lasio CurveItem по позиции. Любая неподдерживаемая версия,
+wrapped/comma layout, shape mismatch или numeric parse error автоматически повторно открывает
+исходные неизменённые bytes через прежний полный `lasio.read`. PERF-07 synthetic fixture
+обязан использовать fast backend; compatibility fixtures отдельно фиксируют fallback.
 
 ## Границы ответственности
 

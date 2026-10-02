@@ -132,6 +132,156 @@ def test_import_las_materializes_lasio_data_matrix_once(tmp_path, monkeypatch) -
     np.testing.assert_allclose(dataset.curve_by_mnemonic("ROP").values, [10.0, 12.0])
 
 
+def test_clean_unwrapped_las_uses_numeric_fast_path_and_preserves_null(
+    tmp_path, monkeypatch
+) -> None:
+    import geoworkbench.data.las_adapter as adapter_module
+
+    source = tmp_path / "fast-path.las"
+    source.write_text(
+        "~V\n"
+        "VERS. 2.0\n"
+        "WRAP. NO\n"
+        "~W\n"
+        "STRT.M 100\n"
+        "STOP.M 101\n"
+        "STEP.M 1\n"
+        "NULL. -999.25\n"
+        "~C\n"
+        "DEPT.M : Depth\n"
+        "C1.PPM : Methane\n"
+        "C2.PPM : Ethane\n"
+        "~A\n"
+        "100 1 -999.25\n"
+        "-999.25 4 5\n"
+        "101 2 3\n",
+        encoding="ascii",
+    )
+    original_read = adapter_module.lasio.read
+    calls: list[bool] = []
+    events: list[tuple[str, dict[str, object]]] = []
+
+    def observed_read(*args, **kwargs):
+        calls.append(bool(kwargs.get("ignore_data", False)))
+        return original_read(*args, **kwargs)
+
+    monkeypatch.setattr(adapter_module.lasio, "read", observed_read)
+    monkeypatch.setattr(
+        adapter_module,
+        "log_event",
+        lambda event, **context: events.append((event, context)),
+    )
+
+    result = import_las_with_report(source)
+
+    assert calls == [True]
+    assert result.dataset.depth[0] == pytest.approx(100.0)
+    assert np.isnan(result.dataset.depth[1])
+    assert result.dataset.depth[2] == pytest.approx(101.0)
+    np.testing.assert_allclose(
+        result.dataset.curve_by_mnemonic("C1").values,
+        [1.0, 4.0, 2.0],
+    )
+    c2_values = result.dataset.curve_by_mnemonic("C2").values
+    assert np.isnan(c2_values[0])
+    assert c2_values[1] == pytest.approx(5.0)
+    assert c2_values[2] == pytest.approx(3.0)
+    performance = [
+        context for event, context in events if event == "las.import.performance"
+    ]
+    assert len(performance) == 1
+    assert performance[0]["parse_backend"] == "numpy-loadtxt"
+
+
+def test_numeric_fast_path_does_not_copy_full_ascii_section(
+    tmp_path, monkeypatch
+) -> None:
+    import geoworkbench.data.las_adapter as adapter_module
+
+    source = tmp_path / "bounded-fast-path.las"
+    source.write_text(
+        "~V\n"
+        "VERS. 2.0\n"
+        "WRAP. NO\n"
+        "~W\n"
+        "NULL. -999.25\n"
+        "~C\n"
+        "DEPT.M : Depth\n"
+        "C1.PPM : Methane\n"
+        "~A\n"
+        "100 1\n"
+        "101 2\n",
+        encoding="ascii",
+    )
+
+    monkeypatch.setattr(
+        adapter_module.LosslessLasDocument,
+        "section_bytes",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("fast path must not copy the full ASCII section")
+        ),
+    )
+
+    result = import_las_with_report(source)
+
+    np.testing.assert_allclose(result.dataset.depth, [100.0, 101.0])
+    np.testing.assert_allclose(
+        result.dataset.curve_by_mnemonic("C1").values,
+        [1.0, 2.0],
+    )
+
+
+def test_wrapped_las_uses_compatibility_fallback(tmp_path, monkeypatch) -> None:
+    import geoworkbench.data.las_adapter as adapter_module
+
+    source = tmp_path / "wrapped-fallback.las"
+    source.write_text(
+        "~V\n"
+        "VERS. 2.0\n"
+        "WRAP. YES\n"
+        "~W\n"
+        "STRT.M 100\n"
+        "STOP.M 101\n"
+        "STEP.M 1\n"
+        "NULL. -999.25\n"
+        "~C\n"
+        "DEPT.M : Depth\n"
+        "C1.PPM : Methane\n"
+        "~A\n"
+        "100 1\n"
+        "101 2\n",
+        encoding="ascii",
+    )
+    original_read = adapter_module.lasio.read
+    calls: list[bool] = []
+    events: list[tuple[str, dict[str, object]]] = []
+
+    def observed_read(*args, **kwargs):
+        calls.append(bool(kwargs.get("ignore_data", False)))
+        return original_read(*args, **kwargs)
+
+    monkeypatch.setattr(adapter_module.lasio, "read", observed_read)
+    monkeypatch.setattr(
+        adapter_module,
+        "log_event",
+        lambda event, **context: events.append((event, context)),
+    )
+
+    result = import_las_with_report(source)
+
+    assert calls == [True, False]
+    np.testing.assert_allclose(result.dataset.depth, [100.0, 101.0])
+    np.testing.assert_allclose(
+        result.dataset.curve_by_mnemonic("C1").values,
+        [1.0, 2.0],
+    )
+    performance = [
+        context for event, context in events if event == "las.import.performance"
+    ]
+    assert len(performance) == 1
+    assert performance[0]["parse_backend"] == "lasio"
+
+
 def test_import_las_logs_phase_timings_without_source_values(
     tmp_path, monkeypatch
 ) -> None:
@@ -177,6 +327,7 @@ def test_import_las_logs_phase_timings_without_source_values(
     assert context["warnings"] == result.report.warning_count
     assert context["source_ms"] == pytest.approx(125.0)
     assert context["parse_ms"] == pytest.approx(500.0)
+    assert context["parse_backend"] in {"numpy-loadtxt", "lasio"}
     assert context["parse_stream_setup_ms"] == pytest.approx(1.0)
     assert context["parse_lasio_ms"] == pytest.approx(1.0)
     assert context["parse_index_ms"] == pytest.approx(1.0)
