@@ -92,3 +92,32 @@ def test_editor_reset_and_uncommitted_changes_do_not_touch_well() -> None:
     assert controller.list_events() == ()
     assert well.gas_context_events == []
     assert session.dirty is False
+
+
+def test_editor_commits_negative_tvdss_event() -> None:
+    session = ProjectSession()
+    session.add_dataset(
+        Dataset(
+            dataset_id="tvdss-dataset",
+            name="TVDSS well",
+            kind=DatasetKind.GTI,
+            depth_domain=DepthDomain.TVDSS,
+            depth=np.array([-150.0, -100.0, -50.0]),
+        )
+    )
+    session.dirty = False
+    controller = GasContextEventEditorController(session)
+
+    event = controller.add(
+        event_type=GasContextEventType.CONNECTION_GAS,
+        top_depth=-120.25,
+        bottom_depth=-118.75,
+        confirmed=True,
+    )
+
+    assert event.depth_domain is DepthDomain.TVDSS
+    assert event.top_depth == -120.25
+    assert event.bottom_depth == -118.75
+    assert controller.commit() is True
+    assert session.current_well is not None
+    assert session.current_well.gas_context_events[0] == event

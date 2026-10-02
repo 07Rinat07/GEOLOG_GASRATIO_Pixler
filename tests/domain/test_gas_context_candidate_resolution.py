@@ -3,6 +3,7 @@ from geoworkbench.domain.gas_context_events import (
     GasContextEventType,
     GasContextRegistry,
 )
+from geoworkbench.domain.models import DepthDomain
 
 
 def test_registry_resolves_confirmed_overlap_for_candidate_interval() -> None:
@@ -52,3 +53,21 @@ def test_registry_ignores_draft_overlap_for_candidate_interval() -> None:
 
     assert resolved is not None
     assert resolved.event_id == "formation"
+
+
+def test_registry_resolves_negative_tvdss_interval() -> None:
+    event = GasContextEvent(
+        event_id="negative-tvdss",
+        event_type=GasContextEventType.CONNECTION_GAS,
+        top_depth=-61.0,
+        bottom_depth=-57.0,
+        depth_domain=DepthDomain.TVDSS,
+    )
+    registry = GasContextRegistry((event,))
+
+    assert event.contains_depth(-59.0) is True
+    assert registry.resolve_for_interval(
+        -60.0,
+        -58.0,
+        depth_domain=DepthDomain.TVDSS,
+    ) is event

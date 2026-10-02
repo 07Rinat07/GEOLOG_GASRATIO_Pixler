@@ -333,7 +333,7 @@ class GasContextEventDialog(QDialog):
         # Keep the engineering domain comfortably above any realistic well depth
         # without using DBL_MAX: QDoubleSpinBox formatting around DBL_MAX can become
         # pathological on Windows/Qt headless runners.
-        control.setRange(0.0, 1_000_000_000.0)
+        control.setRange(-1_000_000_000.0, 1_000_000_000.0)
         control.setDecimals(15)
         control.setSingleStep(0.1)
         return control
