@@ -428,6 +428,12 @@ Dataset materialization `14 263.00 ms`, report `44.68 ms`, подтвердив 
 наблюдательные и не меняют import semantics. Следующая оптимизация допускается только после
 Windows materialization-subphase baseline.
 
+Release gate #2301 локализовал bottleneck в `dataset_curve_values_ms` (13.89 s из 14.09 s).
+Регрессия `test_import_las_materializes_lasio_data_matrix_once` использует test double с
+счётчиком computed `data` property и требует ровно одно обращение на импорт при корректных
+значениях всех curve columns. Это структурный guardrail против возврата O(curves × full-matrix)
+работы; hardware-dependent timing assertion не используется.
+
 ## 11. Регрессия GeoScape2/GS2 временного планшета
 
 `tests/test_gs2_time_tablet_rendering.py` проверяет единый расчёт фактической ширины
