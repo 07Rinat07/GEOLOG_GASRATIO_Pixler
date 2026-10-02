@@ -16,6 +16,7 @@ from geoworkbench.domain.models import (
     DepthDomain,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_chart import (
+    _draw_panel,
     _panel_curves as whole_well_panels,
     hydrocarbon_interpretation_chart_data_uri,
 )
@@ -224,6 +225,76 @@ def test_pdf_curve_renderer_uses_points_for_ratios_and_lines_for_depth_series() 
         )
         assert line_painter.lines > 0
         assert line_painter.ellipses == 0
+
+
+def test_singleton_ratio_observation_survives_preview_and_pdf_range() -> None:
+    class RecordingPainter:
+        def __init__(self) -> None:
+            self.ellipses = 0
+
+        def drawEllipse(self, _rect) -> None:
+            self.ellipses += 1
+
+        def __getattr__(self, _name):
+            return lambda *args, **kwargs: None
+
+    depth = np.asarray([100.0, 101.0, 102.0], dtype=np.float64)
+    finite_depth = np.isfinite(depth)
+    dataset = Dataset(
+        "singleton-ratio",
+        "Singleton ratio",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        depth,
+    )
+    ratio = CurveData(
+        CurveMetadata(
+            "ratio",
+            "PIXLER_C1_C2",
+            "PIXLER_C1_C2",
+            "ratio",
+            None,
+            dataset.dataset_id,
+        ),
+        np.asarray([np.nan, 2.5, np.nan], dtype=np.float64),
+    )
+    total = CurveData(
+        CurveMetadata(
+            "total",
+            "TG_CALC",
+            "TG_CALC",
+            "%",
+            None,
+            dataset.dataset_id,
+        ),
+        np.asarray([np.nan, 7.0, np.nan], dtype=np.float64),
+    )
+
+    preview = RecordingPainter()
+    _draw_panel(
+        preview,  # type: ignore[arg-type]
+        QRectF(0.0, 0.0, 120.0, 180.0),
+        depth,
+        finite_depth,
+        100.0,
+        102.0,
+        "ratios",
+        (ratio,),
+        (),
+        AppLanguage.RU,
+        {},
+    )
+    assert preview.ellipses == 1
+
+    page = DepthPage(100.0, 102.0, 100, 100.0)
+    ranges = _curve_ranges(
+        (("ratios", (ratio,)), ("total", (total,))),
+        dataset,
+        page=page,
+    )
+    assert "ratio" in ranges
+    assert ranges["ratio"][0] < 2.5 < ranges["ratio"][1]
+    assert "total" not in ranges
 
 
 def test_report_panel_scatter_contract_is_ratio_only() -> None:
