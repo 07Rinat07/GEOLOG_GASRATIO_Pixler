@@ -358,7 +358,21 @@ CurveData/store 10.70 ms, setup 22.71 ms. Полевой diagnostics bundle от
 кривой. Текущий slice материализует positional row×curve matrix один раз на импорт, после чего
 копирует только нужные столбцы. Это сохраняет duplicate-mnemonic semantics и fallback по mnemonic
 для источников без валидной positional matrix. Regression test фиксирует ровно одно обращение к
-`LASFile.data`; wall-clock threshold до Windows exact-head measurement не вводится.
+`LASFile.data`.
+
+Post-merge Release gate **#2304** на `main` подтвердил результат PR #426 на той же synthetic
+M-1 форме: logged import `6 144.72 ms` (wall `6 151.42 ms`), source `756.39 ms`,
+lasio parse `5 161.15 ms`, Dataset materialization `184.46 ms`, report `42.73 ms`.
+Внутри Dataset теперь curve-values занимают только `58.91 ms`; прежний bottleneck
+`14 094.48 ms` materialization устранён примерно на два порядка, а крупнейшей подтверждённой
+фазой стал parser. Первый 16-track render в этом run занял `1 460.39 ms`, scroll
+`118.19 ms`, zoom `210.00 ms`; structural full-rebuild contract остался зелёным.
+
+Следующий PERF-07 slice намеренно **не меняет** `lasio`, parser options, source LAS или Dataset.
+Production event `las.import.performance` разбивает существующий `parse_ms` на наблюдаемые
+`parse_stream_setup_ms`, `parse_lasio_ms` и `parse_index_ms`, а end-to-end benchmark переносит
+их в Windows JSON. Оптимизация parser path допускается только после exact-head Windows измерения,
+которое покажет фактически доминирующую parse-подфазу; wall-clock threshold заранее не вводится.
 
 ## Границы ответственности
 
