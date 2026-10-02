@@ -11,6 +11,12 @@ from geoworkbench.services.curve_editing import DrawPoint, interpolate_drawn_cur
 from geoworkbench.services.channel_groups import default_curve_mnemonics
 from geoworkbench.services.dataset_selection import DatasetIntervalSelection
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.services.gas_curve_presentation import (
+    GAS_SCREEN_POINT_SIZE_PX,
+    gas_scatter_point_budget,
+    select_gas_scatter_samples,
+    uses_gas_point_presentation,
+)
 from geoworkbench.services.time_display import format_index_at_row, format_time_curve_at_row
 from geoworkbench.tablet.sampling import MAX_RENDERED_POINTS, select_visible_samples
 from geoworkbench.tablet.grid_geometry import DEFAULT_GRID_ALPHA
@@ -326,26 +332,56 @@ class CurveView(QWidget):
             values = np.asarray(curve.values, dtype=np.float64)
             if finite_depth.size == 0:
                 continue
-            visible_values, visible_depth = select_visible_samples(
-                np.asarray(dataset.depth, dtype=np.float64),
-                values,
-                float(np.min(finite_depth)),
-                float(np.max(finite_depth)),
-                max_points=MAX_RENDERED_POINTS,
-                include_viewport_context=False,
+            point_series = uses_gas_point_presentation(
+                (
+                    selected_mnemonic,
+                    curve.metadata.original_mnemonic,
+                    curve.metadata.canonical_mnemonic,
+                )
             )
+            depth_values = np.asarray(dataset.depth, dtype=np.float64)
+            if point_series:
+                visible_values, visible_depth = select_gas_scatter_samples(
+                    depth_values,
+                    values,
+                    float(np.min(finite_depth)),
+                    float(np.max(finite_depth)),
+                    max_points=gas_scatter_point_budget(self._plot.viewport().height()),
+                )
+            else:
+                visible_values, visible_depth = select_visible_samples(
+                    depth_values,
+                    values,
+                    float(np.min(finite_depth)),
+                    float(np.max(finite_depth)),
+                    max_points=MAX_RENDERED_POINTS,
+                    include_viewport_context=False,
+                )
             if visible_depth.size == 0 or not np.any(np.isfinite(visible_values)):
                 continue
             unit = (curve.metadata.unit or "").strip()
             legend = f"{mnemonic} [{unit}]" if unit else mnemonic
             color = self.CURVE_COLORS[count % len(self.CURVE_COLORS)]
-            self._curve_items[curve.metadata.curve_id] = self._plot.plot(
-                visible_values,
-                visible_depth,
-                name=legend,
-                pen=pg.mkPen(color, width=1.2),
-                connect="finite",
-            )
+            if point_series:
+                item = self._plot.plot(
+                    visible_values,
+                    visible_depth,
+                    name=legend,
+                    pen=None,
+                    symbol="o",
+                    symbolSize=GAS_SCREEN_POINT_SIZE_PX,
+                    symbolBrush=pg.mkBrush(color),
+                    symbolPen=pg.mkPen(None),
+                )
+            else:
+                item = self._plot.plot(
+                    visible_values,
+                    visible_depth,
+                    name=legend,
+                    pen=pg.mkPen(color, width=1.2),
+                    connect="finite",
+                )
+            self._curve_items[curve.metadata.curve_id] = item
             count += 1
             displayed_curve_ids.append(curve.metadata.curve_id)
         self._displayed_curve_ids = tuple(displayed_curve_ids)
@@ -396,15 +432,42 @@ class CurveView(QWidget):
             if curve is None:
                 item.setData([], [])
                 continue
-            values, visible_depth = select_visible_samples(
-                depth,
-                np.asarray(curve.values, dtype=np.float64),
-                top,
-                bottom,
-                max_points=MAX_RENDERED_POINTS,
-                include_viewport_context=False,
+            point_series = uses_gas_point_presentation(
+                (
+                    curve.metadata.original_mnemonic,
+                    curve.metadata.canonical_mnemonic,
+                )
             )
-            item.setData(values, visible_depth, connect="finite")
+            source_values = np.asarray(curve.values, dtype=np.float64)
+            if point_series:
+                values, visible_depth = select_gas_scatter_samples(
+                    depth,
+                    source_values,
+                    top,
+                    bottom,
+                    max_points=gas_scatter_point_budget(self._plot.viewport().height()),
+                )
+                item.setData(values, visible_depth)
+            else:
+                values, visible_depth = select_visible_samples(
+                    depth,
+                    source_values,
+                    top,
+                    bottom,
+                    max_points=MAX_RENDERED_POINTS,
+                    include_viewport_context=False,
+                )
+                item.setData(values, visible_depth, connect="finite")
+
+    def resizeEvent(self, event) -> None:  # type: ignore[override]
+        super().resizeEvent(event)
+        if self._dataset is None or not self._curve_items:
+            return
+        y_range = self._plot.getViewBox().viewRange()[1]
+        if len(y_range) != 2:
+            return
+        top, bottom = sorted((float(y_range[0]), float(y_range[1])))
+        self._update_visible_curve_data(top, bottom)
 
     def _on_depth_range_changed(self, _view_box, y_range) -> None:
         if self._depth_range_guard:
