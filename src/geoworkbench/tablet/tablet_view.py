@@ -90,7 +90,9 @@ from geoworkbench.services.interval_overlap_index import IntervalOverlapIndex
 from geoworkbench.services.lba_standard import lba_color_code
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.gas_curve_presentation import (
+    GAS_SCREEN_POINT_GAP_PX,
     GAS_SCREEN_POINT_SIZE_PX,
+    gas_scatter_sample_indices,
     uses_gas_point_presentation,
 )
 from geoworkbench.services.geology_labels import (
@@ -8717,7 +8719,7 @@ class TabletView(QWidget):
                 item.setSymbol("o")
                 item.setSymbolSize(GAS_SCREEN_POINT_SIZE_PX)
                 item.setSymbolBrush(pg.mkBrush(screen_color))
-                item.setSymbolPen(pg.mkPen(screen_color, width=0.65))
+                item.setSymbolPen(pg.mkPen(screen_color, width=0.35))
             else:
                 item.setSymbol(None)
                 item.setPen(
@@ -8870,10 +8872,32 @@ class TabletView(QWidget):
                 normalized = self._normalize_curve_values_for_plot(
                     values, settings.x_scale, minimum, maximum
                 )
-            connect: object = "finite"
-            if is_gas_curve_id(mnemonic):
-                connect = build_segment_connect_mask(visible_depth, normalized)
-            item.setData(normalized, visible_depth, connect=connect)
+            point_series = uses_gas_point_presentation(
+                (
+                    mnemonic,
+                    curve.metadata.original_mnemonic,
+                    curve.metadata.canonical_mnemonic,
+                )
+            )
+            if point_series:
+                point_rows = gas_scatter_sample_indices(
+                    visible_depth,
+                    normalized,
+                    top=top,
+                    bottom=bottom,
+                    vertical_span=(
+                        rendered.plot.viewport().height()
+                        if rendered.plot is not None
+                        else 1000.0
+                    ),
+                    minimum_gap=GAS_SCREEN_POINT_GAP_PX,
+                )
+                item.setData(normalized[point_rows], visible_depth[point_rows])
+            else:
+                connect: object = "finite"
+                if is_gas_curve_id(mnemonic):
+                    connect = build_segment_connect_mask(visible_depth, normalized)
+                item.setData(normalized, visible_depth, connect=connect)
             if render_keys is not None:
                 render_keys[mnemonic] = render_key
 
@@ -9144,15 +9168,22 @@ class TabletView(QWidget):
                 )
             )
             if point_series:
-                item = track.plot.plot(
-                    visible_values,
+                point_rows = gas_scatter_sample_indices(
                     visible_depth,
+                    visible_values,
+                    top=visible_top if visible_top is not None else 0.0,
+                    bottom=visible_bottom if visible_bottom is not None else 0.0,
+                    vertical_span=track.plot.viewport().height(),
+                    minimum_gap=GAS_SCREEN_POINT_GAP_PX,
+                )
+                item = track.plot.plot(
+                    visible_values[point_rows],
+                    visible_depth[point_rows],
                     pen=None,
                     symbol="o",
                     symbolSize=GAS_SCREEN_POINT_SIZE_PX,
                     symbolBrush=pg.mkBrush(screen_color),
-                    symbolPen=pg.mkPen(screen_color, width=0.65),
-                    connect="finite",
+                    symbolPen=pg.mkPen(screen_color, width=0.35),
                 )
             else:
                 item = track.plot.plot(
