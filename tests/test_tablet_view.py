@@ -256,8 +256,11 @@ def test_ratio_curves_use_points_while_gas_and_drilling_keep_lines(qapp) -> None
     assert c1_item.opts.get("symbol") is None
     assert c1_item.opts.get("pen") is not None
     assert ratio_item.opts.get("symbol") == "o"
+    assert float(ratio_item.opts.get("symbolSize")) < 4.0
     ratio_pen = ratio_item.opts.get("pen")
     assert ratio_pen is None or ratio_pen.style() is Qt.PenStyle.NoPen
+    ratio_symbol_pen = ratio_item.opts.get("symbolPen")
+    assert ratio_symbol_pen is None or ratio_symbol_pen.style() is Qt.PenStyle.NoPen
     assert rop_item.opts.get("symbol") is None
     assert rop_item.opts.get("pen") is not None
 
@@ -267,10 +270,64 @@ def test_ratio_curves_use_points_while_gas_and_drilling_keep_lines(qapp) -> None
     assert c1_item.opts.get("symbol") is None
     assert c1_item.opts.get("pen") is not None
     assert ratio_item.opts.get("symbol") == "o"
+    assert float(ratio_item.opts.get("symbolSize")) < 4.0
     ratio_pen = ratio_item.opts.get("pen")
     assert ratio_pen is None or ratio_pen.style() is Qt.PenStyle.NoPen
+    ratio_symbol_pen = ratio_item.opts.get("symbolPen")
+    assert ratio_symbol_pen is None or ratio_symbol_pen.style() is Qt.PenStyle.NoPen
     assert rop_item.opts.get("symbol") is None
     assert rop_item.opts.get("pen") is not None
+    view.close()
+
+
+def test_dense_ratio_tablet_geometry_uses_pixel_density_budget(qapp) -> None:
+    from geoworkbench.services.gas_curve_presentation import (
+        GAS_SCREEN_POINTS_PER_PX,
+        gas_scatter_point_budget,
+    )
+
+    depth = np.linspace(0.0, 1_000.0, 5_001, dtype=np.float64)
+    dataset = Dataset(
+        "dense-ratio-tablet",
+        "Dense ratio tablet",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        depth,
+    )
+    ratio = CurveData(
+        CurveMetadata(
+            "ratio",
+            "C1_C2",
+            "C1_C2",
+            "ratio",
+            None,
+            dataset.dataset_id,
+        ),
+        2.0 + np.sin(depth / 20.0),
+    )
+    dataset.curves[ratio.metadata.curve_id] = ratio
+    definition = TrackDefinition(
+        "ratio-track",
+        "Gas ratios",
+        TrackKind.CURVE,
+        curve_mnemonics=["C1_C2"],
+    )
+
+    view = TabletView()
+    view.resize(900, 620)
+    view.set_layout_and_dataset(TabletLayout([definition]), dataset)
+    qapp.processEvents()
+
+    rendered = view._rendered["ratio-track"]
+    assert rendered.plot is not None
+    budget = gas_scatter_point_budget(
+        rendered.plot.viewport().height(),
+        density=GAS_SCREEN_POINTS_PER_PX,
+        minimum=24,
+        maximum=1_200,
+    )
+    point_count = view.rendered_curve_point_count("ratio-track", "C1_C2")
+    assert 1 < point_count <= budget
     view.close()
 
 
