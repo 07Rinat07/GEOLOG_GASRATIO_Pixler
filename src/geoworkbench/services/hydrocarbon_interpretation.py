@@ -40,6 +40,10 @@ from geoworkbench.services.hydrocarbon_interpretation_legacy import (
     OpusGasomerReportSection,
 )
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.interpretation_classification_audit import (
+    CLASSIFICATION_AUDIT_META,
+    interpretation_classification_audit_json,
+)
 from geoworkbench.services.parameter_labels import (
     localized_curve_name,
     localized_curve_reference,
@@ -336,6 +340,12 @@ def hydrocarbon_interpretation_html(
             _gas_context_html(report, language) + "</body>",
             1,
         )
+    audit = escape(interpretation_classification_audit_json(report), quote=True)
+    html = html.replace(
+        "</head>",
+        f'<meta name="{CLASSIFICATION_AUDIT_META}" content="{audit}"></head>',
+        1,
+    )
     return _strip_client_limitations(html)
 
 

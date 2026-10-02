@@ -40,6 +40,11 @@ from geoworkbench.services.interval_gas_statistics import (
 )
 from geoworkbench.services.lba_standard import describe_lba_assessment
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.interpretation_classification_audit import (
+    CLASSIFICATION_AUDIT_SCHEMA,
+    CLASSIFICATION_AUDIT_SHEET,
+    interpretation_classification_audit_json,
+)
 from geoworkbench.services.parameter_labels import (
     localized_curve_name,
     localized_curve_reference,
@@ -103,6 +108,7 @@ def export_readable_hydrocarbon_interpretation_xlsx(
             language=language,
             progress=progress,
         )
+        _write_classification_audit_sheet(workbook, report)
         _notify(progress, labels.progress_save, 95, 100)
 
         descriptor, temporary_name = tempfile.mkstemp(
@@ -127,6 +133,22 @@ def export_readable_hydrocarbon_interpretation_xlsx(
         workbook.close()
     return destination
 
+
+
+def _write_classification_audit_sheet(
+    workbook: Workbook,
+    report: HydrocarbonInterpretationReport,
+) -> None:
+    sheet = workbook.create_sheet(CLASSIFICATION_AUDIT_SHEET)
+    sheet.append(("schema", "chunk_index", "payload_json"))
+    payload = interpretation_classification_audit_json(report)
+    # Even supplementary Unicode characters fit Excel's 32767 UTF-16-unit limit.
+    chunk_size = 16_000
+    for index, offset in enumerate(range(0, len(payload), chunk_size)):
+        sheet.append((CLASSIFICATION_AUDIT_SCHEMA, index, payload[offset:offset + chunk_size]))
+        # A split chunk can start with '='. Preserve exact JSON as literal text.
+        sheet.cell(row=index + 2, column=3).data_type = "s"
+    sheet.sheet_state = "hidden"
 
 
 def _write_gas_context_sheet(

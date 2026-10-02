@@ -28,6 +28,7 @@ from geoworkbench.services.lba_standard import (
     assess_lba_standard,
     describe_lba_assessment,
 )
+from geoworkbench.services.fluid_phase_contract import fluid_hypothesis_phase_label
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.parameter_labels import (
     localized_curve_name,
@@ -174,35 +175,6 @@ class HydrocarbonInterpretationReport:
     gas_context_audit: tuple[GasContextIntervalAudit, ...] = ()
     suppressed_candidates: tuple[HydrocarbonCandidateInterval, ...] = ()
     analysis_depth_interval: DepthInterval | None = None
-
-
-_GASOMER_AMBIGUOUS_PREFIX = "opus_gasomer_ambiguous__"
-_GASOMER_SHORT_LABELS = {
-    AppLanguage.RU: {
-        1: "признаки окисленной/остаточной нефтяной фазы",
-        2: "признаки нефтяной фазы",
-        3: "газовая УВ-фаза",
-        4: "водорастворённый газ",
-        5: "газоконденсатная УВ-фаза",
-        6: "признаки газированной нефтяной фазы",
-    },
-    AppLanguage.KK: {
-        1: "тотыққан/қалдық мұнай фазасының белгілері",
-        2: "мұнай фазасының белгілері",
-        3: "газдық КС фазасы",
-        4: "суда еріген газ",
-        5: "газ-конденсатты КС фазасы",
-        6: "газдалған мұнай фазасының белгілері",
-    },
-    AppLanguage.EN: {
-        1: "indications of an oxidized/residual-oil phase",
-        2: "indications of an oil phase",
-        3: "gaseous hydrocarbon phase",
-        4: "water-dissolved gas",
-        5: "gas-condensate hydrocarbon phase",
-        6: "indications of a gassy-oil phase",
-    },
-}
 
 
 @dataclass(frozen=True, slots=True)
@@ -1523,46 +1495,9 @@ def fluid_hypothesis_label(
     candidate: HydrocarbonCandidateInterval,
     language: AppLanguage = AppLanguage.RU,
 ) -> str:
-    labels = _HTML_LABELS[language]
-    if candidate.fluid_hypothesis.startswith(_GASOMER_AMBIGUOUS_PREFIX):
-        raw_codes = candidate.fluid_hypothesis[len(_GASOMER_AMBIGUOUS_PREFIX) :]
-        possible = raw_codes.startswith("possible__")
-        if possible:
-            raw_codes = raw_codes[len("possible__") :]
-        try:
-            codes = tuple(int(value) for value in raw_codes.split("-") if value)
-        except ValueError:
-            codes = ()
-        short_labels = _GASOMER_SHORT_LABELS[language]
-        alternatives = tuple(short_labels[code] for code in codes if code in short_labels)
-        if len(alternatives) >= 2:
-            prefix = {
-                AppLanguage.RU: "УВ-проявление; ОПУС Газомер: ",
-                AppLanguage.KK: "КС көрінісі; ОПУС Газомер: ",
-                AppLanguage.EN: "HC show; OPUS Gasomer: ",
-            }[language]
-            conjunction = {AppLanguage.RU: " или ", AppLanguage.KK: " немесе ", AppLanguage.EN: " or "}[language]
-            wording = conjunction.join(alternatives)
-            if possible:
-                wording = {
-                    AppLanguage.RU: "возможно, " + wording,
-                    AppLanguage.KK: "мүмкін, " + wording,
-                    AppLanguage.EN: "possibly, " + wording,
-                }[language]
-            return prefix + wording
-        return labels["hypothesis_indeterminate"]
-    fallback_prefix = "opus_fallback__"
-    if candidate.fluid_hypothesis.startswith(fallback_prefix):
-        fallback_key = candidate.fluid_hypothesis[len(fallback_prefix) :]
-        fallback_label = labels.get(
-            f"hypothesis_{fallback_key}",
-            labels["hypothesis_indeterminate"],
-        )
-        return labels["opus_fallback_prefix"].format(label=fallback_label)
-    return labels.get(
-        f"hypothesis_{candidate.fluid_hypothesis}",
-        labels["hypothesis_indeterminate"],
-    )
+    """Return the bounded visible phase label; detailed evidence remains separate."""
+
+    return fluid_hypothesis_phase_label(candidate.fluid_hypothesis, language)
 
 
 def fluid_hypothesis_basis(

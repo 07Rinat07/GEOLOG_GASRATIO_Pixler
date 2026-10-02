@@ -1,7 +1,7 @@
 <!-- runtime-contract: package=0.7.96; project=v36; form=v18; layout=v25 -->
 # Единый план проекта
 
-Решения и приоритеты обновлены 1 октября 2026 года по `main` на `b5c0c326` (включая PR #408), текущему коду, тестам, операторскому скриншоту WITS и публичному benchmark real-time drilling software. WITS-UX теперь трактуется как live-first operator workspace, а не как техническая форма настроек: основной экран — live данные и health, редкие network/storage параметры сворачиваются, diagnostics отделяются от рабочего потока, navigation/scroll/help должны быть адаптивными. Текущая industrial-blue DIGITAL GEOLOG айдентика остаётся канонической и не меняется этим UX-рефакторингом. Это единственный канонический план проекта. Завершённые
+Решения и приоритеты обновлены 2 октября 2026 года по `main` на `23da0de6` (включая PR #418), текущему коду, тестам, операторскому скриншоту WITS и публичному benchmark real-time drilling software. WITS-UX теперь трактуется как live-first operator workspace, а не как техническая форма настроек: основной экран — live данные и health, редкие network/storage параметры сворачиваются, diagnostics отделяются от рабочего потока, navigation/scroll/help должны быть адаптивными. Текущая industrial-blue DIGITAL GEOLOG айдентика остаётся канонической и не меняется этим UX-рефакторингом. Это единственный канонический план проекта. Завершённые
 изменения фиксируются в [CHANGELOG.md](CHANGELOG.md); отдельные roadmap, build report,
 release plan и временные планы в `docs` не создаются.
 
@@ -42,6 +42,10 @@ release plan и временные планы в `docs` не создаются.
     тесты поведения для него не пишутся. Обязательные проверки репозитория не отключаются.
     После зелёных обязательных проверок и рассмотрения замечаний интегрируется проверенный
     head; force-push в `main` и переписывание опубликованной истории не входят в обычный merge.
+12. После интеграции удаляются завершённые рабочие ветки, заменённые ветки PR и временные
+    backup-ветки. Перед удалением проверяются уникальные изменения, а полезные части
+    переносятся в `main` или канонический план. Для одного инкремента остаётся одна рабочая
+    ветка/PR; накопление старых вариантов не заменяет приёмку и интеграцию.
 
 ## P0 — единый интервал глубин расчёта и отчёта (RPT-DEPTH-01)
 
@@ -1355,6 +1359,21 @@ report snapshot/composition/render/print.
   что `generated_at` остаётся тем же после report scoping/export preparation, а Report Passport
   по-прежнему не содержит абсолютного timestamp.
 
+- [x] **RPT-QA-01 — единая терминология УВ-фаз.**
+  Заголовки интерпретации GasRatio/Pixler/OPUS и подписи графических маркеров используют
+  один bounded RU/KK/EN словарь из пяти фазовых формулировок. Неоднозначные oil/gas,
+  water-dissolved и неизвестные гипотезы получают неопределённую фазу; wet gas marker
+  согласован с газовым заголовком. Каждая фаза имеет один shape/color/code, легенда
+  объединяет подтипы. Определённая фаза присваивается только явно известным кодам;
+  неизвестные plugin/future/ошибочные oil/gas строки остаются неопределёнными.
+  Численные формулы, подробные hypothesis/class codes, OPUS votes и доказательства
+  сохраняются. HTML metadata, DOCX custom XML и скрытый XLSX audit sheet содержат
+  исходные hypothesis codes/evidence активных и подавленных кандидатов и область расчёта.
+  Длинные Unicode evidence сохраняются без усечения и без исполнения Excel formulas.
+  Подтипы описаны отдельно в evidence, а не становятся более уверенным заголовком.
+  Контракт, единые маркеры и экспортный audit round-trip закреплены regression-тестами;
+  общая физическая приёмка RPT-QA-01 остаётся отдельной задачей.
+
 - [ ] **RPT-GEO-01 — шламограмма и ЛБА из актуальной геологии проекта.**
   Реализованы shared Masterlog-compatible painters, immutable geology snapshot, depth-scoped `geology_sha256` в Report Passport и независимые `Auto/Show/Hide` для screen preview/PDF/system print. `Show` при полном отсутствии данных печатает локализованный empty-state, а частичные пробелы остаются пустыми. Screen preview использует тот же resolved geology composition и shared painters, а multi-page empty/partial edge cases закреплены regression-тестами. До закрытия задачи остаётся финальная физическая printer acceptance на реальном устройстве.
   Report-layer использует `Well.lithology`/`Well.cuttings`, включая данные, которые уже
@@ -1427,6 +1446,17 @@ report snapshot/composition/render/print.
   соответствующей глубине. Acceptance включает два разных saved tablet layouts на одном dataset,
   две report compositions и две wells: annotation видна только в своём report scope, а
   отсутствующий logical track не вызывает перенос заметки в соседнюю колонку.
+  Редактор аннотаций использует общий bounded `CommandHistory`, Ctrl+Z/Ctrl+Shift+Z,
+  compound commands и минимальные reversible diffs без копирования всего большого Dataset.
+  Cancel возвращает editor checkpoint; Save/Apply обновляет checkpoint, сохраняя историю
+  проекта. Приёмка включает 20 последовательных Undo/Redo, Cancel после правок, Save,
+  повторное открытие и проверку памяти на большом LAS.
+
+- [ ] **REPORT-I18N-01 — атомарный язык каждого отчёта.**
+  Выбор RU/KK/EN применяется ко всему preview/PDF/print/XLSX/DOCX одной ревизии: заголовкам,
+  легендам, подписям, выноскам и сообщениям. Проверить отсутствие смешанных языков на одном
+  report snapshot; технические source labels остаются в audit/provenance. Критерий сохранён
+  из старой ветки report UX roadmap вместе с обязательным Undo/Redo редактора.
 
 - [ ] **Общая acceptance-матрица:** один и тот же report snapshot на screen/PDF/printer; A4/A3,
   portrait/landscape/roll где применимо; Windows 100/125/150/200% DPI; colour + grayscale;

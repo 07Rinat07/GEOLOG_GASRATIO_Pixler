@@ -161,7 +161,7 @@ def test_report_detects_relative_anomaly_and_keeps_manual_intervals_separate() -
     assert "Prospective hydrocarbon-show intervals" in en_html
     assert "Candidate hydrocarbon-show intervals" not in en_html
     assert "page-break-before: always" in html
-    assert "признаки тяжёлой/остаточной нефтяной фазы" in html
+    assert "жидкая УВ-фаза" in html
     assert "Check DST" in html
 
 
@@ -253,6 +253,7 @@ def test_report_exports_openable_xlsx_and_docx(tmp_path) -> None:
             "Интерпретация УВ",
             "Методика",
             "Данные по глубине",
+            "_classification_audit",
         ]
         main = workbook["Интерпретация УВ"]
         assert main["B2"].value == "'=Project formula"
@@ -275,7 +276,7 @@ def test_report_exports_openable_xlsx_and_docx(tmp_path) -> None:
         document = package.read("word/document.xml").decode("utf-8")
         assert "Перспективные интервалы" in document
         assert "Кандидатные интервалы" not in document
-        assert "признаки тяжёлой/остаточной нефтяной фазы" in document
+        assert "жидкая УВ-фаза" in document
         assert "Абсолютный газ: мин / среднее / макс" in document
         assert "Точек выше порога" not in document
         assert "Медиана" not in document
@@ -357,7 +358,8 @@ def test_report_can_interpret_probable_gas_without_claiming_final_fluid_type() -
         for warning in report.warnings
     )
     html = hydrocarbon_interpretation_html(report, AppLanguage.RU)
-    assert "очень лёгкий сухой газ" in html
+    assert "газовая УВ-фаза" in html
+    assert "Pixler: очень лёгкий метановый газ" in html
     assert "Категория «вода» по mud-gas не назначается" not in html
 
 
@@ -496,7 +498,7 @@ def test_confirmed_technological_gas_suppresses_geological_candidate_and_exports
     assert "QC Δ к среднему TG" in html
     assert "0.25 %vol" in html
     assert "Аудит подавленных автоматических кандидатов" not in html
-    assert "gas-context: event_id=connection-1" not in html
+    assert "gas-context: event_id=connection-1" not in html.split("<body", 1)[1]
 
     xlsx_path = export_hydrocarbon_interpretation_xlsx(
         report,
@@ -795,15 +797,15 @@ def test_conservative_liquid_hydrocarbon_wording_is_consistent_in_three_language
 
     assert (
         fluid_hypothesis_label(candidate, AppLanguage.RU)
-        == "жидкая УВ-фаза; тип не установлен"
+        == "жидкая УВ-фаза"
     )
     assert (
         fluid_hypothesis_label(candidate, AppLanguage.KK)
-        == "сұйық КС фазасы; түрі анықталмаған"
+        == "сұйық КС фазасы"
     )
     assert (
         fluid_hypothesis_label(candidate, AppLanguage.EN)
-        == "liquid hydrocarbon phase; type undetermined"
+        == "liquid hydrocarbon phase"
     )
 
     ru_basis = fluid_hypothesis_basis(candidate, AppLanguage.RU)

@@ -102,7 +102,7 @@ def test_gasomer_ambiguous_oil_gas_result_is_reported_as_possible_alternatives()
     hypothesis = _gasomer_ambiguous_hypothesis(interval)
     assert hypothesis == "opus_gasomer_ambiguous__possible__2-3"
     label = fluid_hypothesis_label(SimpleNamespace(fluid_hypothesis=hypothesis), AppLanguage.RU)
-    assert "возможно, признаки нефтяной фазы или газовая УВ-фаза" in label
+    assert label == "УВ-флюид неопределённого типа"
     marker = fluid_marker_spec(hypothesis)
     assert marker.category == "indeterminate"
     assert marker.code == "?"
@@ -269,13 +269,10 @@ def test_gasomer_class_replaces_ambiguous_historical_headline() -> None:
     assert len(report.candidates) == 1
     candidate = report.candidates[0]
     assert candidate.fluid_hypothesis == "opus_gasomer_oil"
-    assert "ОПУС Газомер: класс 2 — признаки нефтяной фазы" in fluid_hypothesis_label(
-        candidate,
-        AppLanguage.RU,
-    )
+    assert fluid_hypothesis_label(candidate, AppLanguage.RU) == "жидкая УВ-фаза"
     marker = fluid_marker_spec(candidate.fluid_hypothesis)
-    assert marker.category == "oil"
-    assert marker.code == "O"
+    assert marker.category == "liquid"
+    assert marker.code == "L"
     assert marker.color == fluid_marker_spec("productive_oil_decreasing_gravity").color
     assert not candidate.fluid_hypothesis.startswith("opus_fallback__")
     assert any(
