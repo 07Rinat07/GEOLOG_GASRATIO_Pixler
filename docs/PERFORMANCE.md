@@ -347,6 +347,19 @@ Import занимает более 90% измеренного wall-clock pipelin
 Windows JSON. После принятого run оптимизируется только фактически доминирующая materialization
 подфаза.
 
+Release gate **#2301** подтвердил подфазу: `dataset_curve_values_ms = 13 889.20 ms` из
+`dataset_ms = 14 094.48 ms`; canonical inference занял 91.81 ms, semantic resolution 49.26 ms,
+CurveData/store 10.70 ms, setup 22.71 ms. Полевой diagnostics bundle от 2 октября 2026 года
+(`well Maksat#M1 from to 5680m`, 28 146 строк, 342 кривые, 66.36 MB) независимо подтвердил тот
+же профиль: total import 24.84 s, Dataset materialization 18.73 s, lasio parse 5.43 s, первый
+9-track render 0.626 s.
+
+Причина `curve_values` — повторное чтение computed `LASFile.data` внутри цикла по каждой
+кривой. Текущий slice материализует positional row×curve matrix один раз на импорт, после чего
+копирует только нужные столбцы. Это сохраняет duplicate-mnemonic semantics и fallback по mnemonic
+для источников без валидной positional matrix. Regression test фиксирует ровно одно обращение к
+`LASFile.data`; wall-clock threshold до Windows exact-head measurement не вводится.
+
 ## Границы ответственности
 
 Benchmarks не заменяют correctness-тесты и не дублируют production-алгоритмы. GAS runner отвечает
