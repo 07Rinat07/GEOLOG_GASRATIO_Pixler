@@ -108,6 +108,7 @@ class CurveGeometryKey:
     bottom: float
     max_points: int
     positive_values_only: bool
+    point_series: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -184,7 +185,7 @@ class CurveGeometryCache:
             return cached
 
         self._misses += 1
-        point_series = is_gas_point_mnemonic(key.curve_id)
+        point_series = key.point_series or is_gas_point_mnemonic(key.curve_id)
         derived_gas_curve = is_derived_gas_curve_id(key.curve_id)
         gas_curve = derived_gas_curve or is_gas_curve_id(key.curve_id)
         if point_series:
