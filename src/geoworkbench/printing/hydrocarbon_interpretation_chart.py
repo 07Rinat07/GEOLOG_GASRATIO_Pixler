@@ -625,11 +625,12 @@ def _draw_panel(
     painter.save()
     painter.setClipRect(rect.adjusted(1.0, 1.0, -1.0, -1.0))
     point_series = panel_name in {"ratios", "opus"}
+    minimum_samples = 1 if point_series else 2
     legend_rows: list[tuple[QColor, str, bool]] = []
     for curve_index, curve in enumerate(curves):
         values = np.asarray(curve.values, dtype=np.float64)
         usable = finite_depth & np.isfinite(values)
-        if np.count_nonzero(usable) < 2:
+        if np.count_nonzero(usable) < minimum_samples:
             continue
         finite_values = values[usable]
         low = float(np.percentile(finite_values, 5.0))
