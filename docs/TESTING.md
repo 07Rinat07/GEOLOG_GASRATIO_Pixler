@@ -350,7 +350,7 @@ hit и zoom miss при `max_points=4096`, одновременно провер
 `84.5 / 302.1 / 574.2 MiB`. Во всех сценариях две cached geometry занимают `131 072 B` из
 hard budget `67 108 864 B`.
 
-### PERF-07: LAS import timing/RSS observability
+### PERF-07: LAS import, first render и viewport baseline
 
 Correctness coverage for the large-LAS profiling boundary:
 
@@ -398,6 +398,25 @@ once, preserving the existing default-range resolution, and neither path may reb
 Curve-metadata history regression additionally requires unchanged `full_updates`, stable track
 widget identity and in-place header/unit refresh across Undo/Redo. TabletView metadata regression
 also covers mnemonic rename reconciliation without restoring the full widget tree.
+
+End-to-end PERF-07 regression and canonical Windows runner:
+
+```powershell
+python -m pytest -q -p no:cacheprovider tests/test_perf07_las_tablet_pipeline.py
+python benchmarks/benchmark_las_tablet_pipeline.py --json
+```
+
+Обычный unit test использует малый temporary LAS (1000 строк, 8 кривых, 4 видимых track) и
+проверяет production import → `TabletView.set_layout_and_dataset()` → scroll → zoom. Он не
+содержит wall-clock assertions. Default benchmark использует M-1-shaped fixture: 27 500 строк,
+351 data curve, 16 visible curve-track и viewport 1600×900. Release gate сохраняет JSON как
+`build/ci-artifacts/quality/las-tablet-pipeline-benchmark.txt`.
+
+Structural gate требует ровно один full rebuild для первого presentation и ноль дополнительных
+`DirtyRenderStats.full_updates` на scroll/zoom. `tablet.render.full.finished` дополнительно
+содержит `duration_ms`, start/end RSS и peak RSS. Timing/RSS guardrails можно вводить только после
+принятого Windows baseline на точном PR head; до этого цифры используются для выбора следующего
+подтверждённого hot path, а не как hardware-dependent unit-test threshold.
 
 ## 11. Регрессия GeoScape2/GS2 временного планшета
 

@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from html import escape
 from enum import StrEnum
 import re
+from time import perf_counter
 from typing import cast
 
 import numpy as np
@@ -94,6 +95,7 @@ from geoworkbench.services.geology_labels import (
 )
 from geoworkbench.forms.templates import localized_factory_label
 from geoworkbench.services.parameter_labels import localized_curve_name
+from geoworkbench.services.process_metrics import process_memory_snapshot
 from geoworkbench.services.time_display import (
     elapsed_to_seconds,
     format_datetime_at_row,
@@ -6320,6 +6322,8 @@ class TabletView(QWidget):
             log_event("tablet.render.full.skipped", reason="already-rebuilding")
             return
         self._layout_rebuild_active = True
+        render_started_at = perf_counter()
+        memory_started = process_memory_snapshot()
         log_event(
             "tablet.render.full.started",
             dataset_id=self._dataset.dataset_id if self._dataset is not None else "",
@@ -6338,9 +6342,26 @@ class TabletView(QWidget):
             )
             raise
         else:
+            memory_finished = process_memory_snapshot()
+            peak_candidates = [
+                value
+                for value in (
+                    memory_started.peak_rss_bytes,
+                    memory_finished.peak_rss_bytes,
+                )
+                if value is not None
+            ]
+            peak_rss_bytes = max(peak_candidates) if peak_candidates else None
             log_event(
                 "tablet.render.full.finished",
                 rendered_tracks=len(self._rendered),
+                duration_ms=round(
+                    max(0.0, perf_counter() - render_started_at) * 1_000.0,
+                    3,
+                ),
+                rss_start_bytes=memory_started.rss_bytes,
+                rss_end_bytes=memory_finished.rss_bytes,
+                peak_rss_bytes=peak_rss_bytes,
             )
         finally:
             self._layout_rebuild_active = False

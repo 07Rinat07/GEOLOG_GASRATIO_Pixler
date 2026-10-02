@@ -1,13 +1,14 @@
 <!-- runtime-contract: package=0.7.96; project=v36; form=v18; layout=v25 -->
 # Единый план проекта
 
-План сверён 2 октября 2026 года с кодом и тестами `main`, объединёнными PR #417–#419
-и состоянием GitHub. В текущий инкремент включены дефекты отчёта, подтверждённые
-скриншотами: повторы легенды без расшифровок, смешанный порядок обозначений и обрезание
-заголовков при добавлении шламограммы; также добавлена поясняющая шапка графиков. Проверенная база аудита предыдущих инкрементов — `6546302d` (PR #419);
-новый RPT-GEO-03 описан отдельно ниже. Приложение сохраняет каноническую industrial-blue DIGITAL GEOLOG
-айдентику. WITS развивается как операторское рабочее пространство с live-данными и состоянием
-подключения; расширенные настройки и диагностика отделяются от основного сценария.
+План сверён 2 октября 2026 года с `main` после интеграции PR #417–#422.
+Проверенная база текущего инкремента — merge `badbb986`: RPT-GEO-03, signed TVDSS для
+Gas Context и narrow-window UI-SYS-01 уже находятся в `main`. Текущий продуктовый инкремент
+PERF-07 фиксирует воспроизводимый Windows baseline для большого LAS: production import,
+первый TabletView render и scroll/zoom измеряются вместе с RSS и full-rebuild counters.
+Приложение сохраняет каноническую industrial-blue DIGITAL GEOLOG айдентику. WITS развивается
+как операторское рабочее пространство с live-данными и состоянием подключения; расширенные
+настройки и диагностика отделяются от основного сценария.
 
 Это единственный канонический план проекта. Крупные продуктовые изменения фиксируются в
 [CHANGELOG.md](CHANGELOG.md); отдельные roadmap, build report, release plan и временные планы
@@ -20,7 +21,10 @@
 | Геология и ЛБА отчёта, динамические легенды, переполнение легенд и preview | [PR #417](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/pull/417), shared painters/snapshots и regression matrix | Реализация завершена; физическая печать остаётся на приёмке |
 | Общая область GasRatio/Pixler/OPUS, интерпретации, графиков, литологии/ЛБА и экспортов | [PR #418](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/pull/418), [Release gate #2281](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/36963989635), реальный LAS М-1 | Реализация и автоматическая приёмка завершены; остаётся полевая содержательная проверка и принтер |
 | Пять фаз, единые маркеры, строгая обработка неизвестных кодов и сохраняемый audit классификации | [PR #419](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/pull/419), [Release gate #2286](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/36968262170) | Реализация завершена: Windows quality — 4177 passed, 1 skipped; security и GUI/HiDPI/PDF — success |
-| Очистка репозитория | GitHub branches/open PR и `git fetch --prune`, проверенные 2 октября | Девять завершённых/заменённых веток удалены; остался только `main`, открытых PR нет |
+| Читаемые geology legends и адаптивные заголовки | [PR #420](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/pull/420) | Реализация интегрирована в main; физическая печать остаётся отдельной приёмкой |
+| Signed TVDSS в Gas Context Registry/editor/export | [PR #421](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/pull/421) | Реализация интегрирована; остаточная полевая/визуальная приёмка ведётся отдельно |
+| Узкое окно интерпретационного отчёта RU/KK/EN | [PR #422](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/pull/422), Release gate #2295 | Реализация интегрирована; расчёты и export contracts не менялись |
+| Очистка репозитория | GitHub branches/open PR, проверенные 2 октября | После #422 завершённые ветки очищены; текущая PERF-07 ветка — единственная активная продуктовая ветка |
 | Актуальные форматы | Константы `storage/project_codec.py`, `forms/codec.py`, `tablet/layout_codec.py` | Пакет 0.7.96; project v36; form v18; layout v25 |
 
 Эта сверка не объявляет завершённым весь проект. Composer, printable annotations, единый язык
@@ -84,31 +88,27 @@
 
 ## Ближайший порядок работ
 
-Основная очередь ниже содержит оставшуюся разработку и сквозную автоматическую приёмку.
-Внешние проверки ведутся параллельно в отдельной таблице и не блокируют независимый
-продуктовый инкремент. Завершённые RPT-DEPTH, базовые geology tracks и fluid-phase slices переиспользуются.
-RPT-GEO-03 интегрирован через PR #420. Текущий инкремент GASCTX-RPT-01 согласует
-отрицательные глубины в Gas Context Registry с общим контрактом выбранного интервала:
-signed finite depth сохраняется через editor/project codec и используется standard/OPUS/export.
-Следующим после его интеграции остаётся UI-SYS-01; Composer использует готовые
-range/registry contracts, workspace и renderer/snapshots.
+Основная очередь ниже содержит только оставшуюся разработку и сквозную автоматическую приёмку.
+RPT-GEO-03, GASCTX-RPT-01 signed-depth implementation и UI-SYS-01 интегрированы через PR
+#420, #421 и #422. Текущий инкремент — PERF-07: end-to-end benchmark формы Maksat M-1
+связывает существующие `las.import.performance`/`las.import.presentation` с реальным
+TabletView render и viewport navigation. До первого Windows baseline новый parser/storage/render
+backend не вводится; следующий hot path выбирается только по измеренным времени и RSS.
 
 | Порядок | Задача | Следующий проверяемый результат и зависимость | Ответственный по роли / статус |
 |---|---|---|---|
-| 1 | GASCTX-RPT-01: отрицательные глубины | Согласовать `GasContextEvent` и editor bounds с MD/TVD/TVDSS interval contract. Реализация разрешает signed finite depth, сохраняет bounded UI и проверяет negative TVDSS → editor commit → Save/reopen → standard/OPUS/XLSX без ослабления порядка границ, axis/domain и TG/QC validation | Разработчик / в работе |
-| 2 | UI-SYS-01: окно интерпретационного отчёта | Устранить правое обрезание controls на RU/KK в узком окне; сохранить доступность выбора интервала, расчёта и экспорта. Сверить RU/KK/EN, 900×650 и 1600×900, Windows DPI matrix; не менять айдентику или расчёты | Разработчик / готово к разработке |
-| 3 | PERF-07 | Измерить на актуальной сборке этапы импорта М-1, первый render, scroll/zoom и MainThread rebuild; выбрать следующий hot path по `las.import.performance`/`las.import.presentation`, времени и RSS. Закрытые streaming/searchsorted/partial-refresh slices переиспользуются | Разработчик / в работе |
-| 4 | REPORT-I18N-01 | Один явный язык всей выдачи RU/KK/EN: preview/PDF/print/DOCX/XLSX, legends, header и annotations; устранить оставшиеся fixed-language adapters. Реестр переводов WELL-04 используется без подмены draft/reviewed статусов | Разработчик / готово к разработке |
-| 5 | RPT-COMP-01 | Один сохраняемый presentation composition и финальный preview поверх готовых renderers; Auto/Show/Hide уже существует. Зависит от исправленного workspace и общего language contract; расчёты и source geology не меняются | Разработчик / готово к разработке |
-| 6 | RPT-ANN-01 | Report scope и logical track anchors, printable remarks/callouts, общий bounded Undo/Redo, Cancel/Save checkpoints; зависит от стабильного composition ID Composer | Разработчик / запланировано |
-| 7 | PRINT-STYLE-01 | Свести оставшиеся generic/Masterlog/Office пути к одному visual profile и document-control contract; дополнять готовые typography/marker/legend contracts. Physical acceptance вынесена отдельно | Разработчик / в работе |
-| 8 | GASCTX-RPT-01: остаточная приёмка | Проверить общий editor/registry/context audit через production entry points, save/reopen и RU/KK/EN; завершить отдельные полосы/метки событий с grayscale-подписями. Реализованные exclusion/background/confirmed policy не переписывать | Разработчик + специалист ГТИ / на проверке |
-| 9 | WITS-UX-01 | Завершить persistence/reconnect и live-first navigation/help: основные данные и health видимы, advanced/diagnostics сворачиваются, outer horizontal scroll отсутствует | Разработчик / в работе |
-| 10 | WITS-PLOT-01 | Остаточные manual ranges, reconnect/schema-change и redraw acceptance поверх существующих unit-aware tracks и редактируемых панелей | Разработчик / в работе |
-| 11 | WITS-GASCTX-01 / WITS-INTERP-01 | Сквозная проекция live gas context и интерпретационных полос; source origin, fluid screening и alarm остаются независимыми осями | Разработчик + специалист ГТИ / в работе |
-| 12 | WELL-04 → WELL-05 | Сквозная готовность переводов и пары макетов; использовать реализованные field ledger/readiness/family resolver и WELL-06, проверить save/reopen без смешения ревизий | Разработчик / на проверке |
-| 13 | ARCH-07 | Довести общую history до оставшихся mutation controllers при работе над конкретными editor сценариями; не создавать параллельную историю в RPT-ANN | Разработчик / в работе |
-| 14 | PERF-05 | Сначала baseline текущего save/open/RSS на 100k/1M; новый storage backend только при подтверждённом bottleneck и с совместимой миграцией | Разработчик / запланировано |
+| 1 | PERF-07 | Release gate запускает synthetic M-1-shaped LAS: 27 500 строк, 351 data curve, 16 visible track. Измеряются import, first render, scroll/zoom и RSS; structural gate требует один initial full rebuild и ноль full rebuild на navigation. После принятого Windows artifact выбрать следующий hot path по фактической доле времени/RSS | Разработчик / на проверке |
+| 2 | REPORT-I18N-01 | Один явный язык всей выдачи RU/KK/EN: preview/PDF/print/DOCX/XLSX, legends, header и annotations; устранить оставшиеся fixed-language adapters. Реестр переводов WELL-04 используется без подмены draft/reviewed статусов | Разработчик / готово к разработке |
+| 3 | RPT-COMP-01 | Один сохраняемый presentation composition и финальный preview поверх готовых renderers; Auto/Show/Hide уже существует. Зависит от исправленного workspace и общего language contract; расчёты и source geology не меняются | Разработчик / готово к разработке |
+| 4 | RPT-ANN-01 | Report scope и logical track anchors, printable remarks/callouts, общий bounded Undo/Redo, Cancel/Save checkpoints; зависит от стабильного composition ID Composer | Разработчик / запланировано |
+| 5 | PRINT-STYLE-01 | Свести оставшиеся generic/Masterlog/Office пути к одному visual profile и document-control contract; дополнять готовые typography/marker/legend contracts. Physical acceptance вынесена отдельно | Разработчик / в работе |
+| 6 | GASCTX-RPT-01: остаточная приёмка | Проверить общий editor/registry/context audit через production entry points, save/reopen и RU/KK/EN; завершить отдельные полосы/метки событий с grayscale-подписями. Реализованные exclusion/background/confirmed policy не переписывать | Разработчик + специалист ГТИ / на проверке |
+| 7 | WITS-UX-01 | Завершить persistence/reconnect и live-first navigation/help: основные данные и health видимы, advanced/diagnostics сворачиваются, outer horizontal scroll отсутствует | Разработчик / в работе |
+| 8 | WITS-PLOT-01 | Остаточные manual ranges, reconnect/schema-change и redraw acceptance поверх существующих unit-aware tracks и редактируемых панелей | Разработчик / в работе |
+| 9 | WITS-GASCTX-01 / WITS-INTERP-01 | Сквозная проекция live gas context и интерпретационных полос; source origin, fluid screening и alarm остаются независимыми осями | Разработчик + специалист ГТИ / в работе |
+| 10 | WELL-04 → WELL-05 | Сквозная готовность переводов и пары макетов; использовать реализованные field ledger/readiness/family resolver и WELL-06, проверить save/reopen без смешения ревизий | Разработчик / на проверке |
+| 11 | ARCH-07 | Довести общую history до оставшихся mutation controllers при работе над конкретными editor сценариями; не создавать параллельную историю в RPT-ANN | Разработчик / в работе |
+| 12 | PERF-05 | Сначала baseline текущего save/open/RSS на 100k/1M; новый storage backend только при подтверждённом bottleneck и с совместимой миграцией | Разработчик / запланировано |
 
 ### Внешняя и операторская приёмка, выполняемая параллельно
 
@@ -1263,6 +1263,13 @@ WELL-04 уже имеет field-level статусы и readiness; WELL-05 — f
   rebuild hot path: curve-metadata Undo/Redo больше не вызывает `_show_current_dataset()` и не
   пересоздаёт `PlotWidget`; TabletView reconciles mnemonic membership и STYLE-refresh headers/data
   in-place с сохранением track widget identity.
+  Восьмой slice добавляет isolated `benchmarks/benchmark_las_tablet_pipeline.py`: temporary
+  M-1-shaped LAS (27 500 × 351) проходит production import, затем один transactional render 16
+  curve-track и реальные scroll/zoom. Runner фиксирует time/RSS и geometry-cache counters;
+  navigation обязана сохранить full-render counter. `tablet.render.full.finished` теперь также
+  содержит duration/start-end/peak RSS. Windows quality gate сохраняет baseline artifact; timing
+  threshold до первой принятой точки не вводится. Следующий PERF-07 slice выбирается только после
+  сравнения import/first-render/viewport долей на exact PR head.
 
 ## P1 — поддерживаемая архитектура
 
