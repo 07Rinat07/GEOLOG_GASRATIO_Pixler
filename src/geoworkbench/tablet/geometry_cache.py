@@ -7,6 +7,10 @@ from typing import Hashable
 import numpy as np
 from numpy.typing import NDArray
 
+from geoworkbench.services.gas_curve_presentation import (
+    is_gas_point_mnemonic,
+    select_gas_scatter_samples,
+)
 from geoworkbench.tablet.derived_gas_sampling import select_derived_gas_samples
 from geoworkbench.tablet.sampling import select_visible_samples
 
@@ -180,9 +184,19 @@ class CurveGeometryCache:
             return cached
 
         self._misses += 1
+        point_series = is_gas_point_mnemonic(key.curve_id)
         derived_gas_curve = is_derived_gas_curve_id(key.curve_id)
         gas_curve = derived_gas_curve or is_gas_curve_id(key.curve_id)
-        if derived_gas_curve:
+        if point_series:
+            sampled_values, sampled_axis = select_gas_scatter_samples(
+                axis,
+                values,
+                key.top,
+                key.bottom,
+                max_points=key.max_points,
+                positive_values_only=key.positive_values_only,
+            )
+        elif derived_gas_curve:
             sampled_values, sampled_axis = select_derived_gas_samples(
                 axis,
                 values,
