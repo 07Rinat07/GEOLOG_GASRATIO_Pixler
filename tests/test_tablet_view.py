@@ -305,7 +305,7 @@ def test_dense_ratio_curve_is_thinned_to_true_scatter_density(qapp) -> None:
     )
 
     view = TabletView()
-    view.resize(500, 600)
+    view.resize(500, 800)
     view.set_layout_and_dataset(TabletLayout([definition]), dataset)
     view.show()
     qapp.processEvents()
@@ -316,9 +316,24 @@ def test_dense_ratio_curve_is_thinned_to_true_scatter_density(qapp) -> None:
     assert x_data is not None
     assert y_data is not None
     assert 10 < len(y_data) < 500
+    first_count = len(y_data)
     assert float(item.opts.get("symbolSize")) <= 3.0
     ratio_pen = item.opts.get("pen")
     assert ratio_pen is None or ratio_pen.style() is Qt.PenStyle.NoPen
+
+    view.resize(500, 320)
+    qapp.processEvents()
+    qapp.processEvents()
+
+    _x_resized, y_resized = item.getData()
+    assert y_resized is not None
+    assert 10 < len(y_resized) < first_count
+    render_keys = view._rendered["ratios"].curve_render_keys
+    assert render_keys is not None
+    render_key = render_keys["PIXLER_C1_C2"]
+    plot = view._rendered["ratios"].plot
+    assert plot is not None
+    assert render_key.scatter_span_px == int(round(plot.viewport().height()))
     view.close()
 
 
