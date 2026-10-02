@@ -375,6 +375,14 @@ ratio-series. Он намеренно исключает C1–C5/iso-normal comp
 а relative-gas `*_REL` сохраняет cumulative 0–100% stacked fill. Расчётные массивы,
 sampling/range и source LAS этим контрактом не меняются.
 
+
+Windows quality gate дополнительно изолирует `tests/test_session_safety.py` по одному test node
+на процесс. Это не ослабляет тесты: после воспроизводимого `0xC0000005` в
+`pyqtgraph.ViewBoxMenu` файл исключён из длинного shared Qt shard, а
+`tests/test_test_runner_contract_0790.py` проверяет наличие всех пяти test nodes как отдельных
+native batches. Python assertion failures и ненулевые exit status по-прежнему немедленно
+останавливают gate.
+
 ### PERF-07: LAS import, first render и viewport baseline
 
 Correctness coverage for the large-LAS profiling boundary:
