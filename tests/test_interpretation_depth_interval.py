@@ -375,3 +375,83 @@ def test_selected_html_variants_scope_statistics(front_chart, qapp, monkeypatch)
     assert "1030.20–1060.80" in html
     assert len(seen) == 1
     np.testing.assert_array_equal(seen[0], np.arange(1031.0, 1061.0))
+
+
+@pytest.mark.parametrize(
+    "top,bottom",
+    [
+        (1000.1234567, 2000.1234567),
+        (1000.1234563, 2000.1234563),
+        (-2000.1234567, -1000.1234567),
+        (-2000.1234563, -1000.1234563),
+    ],
+)
+def test_rounded_endpoint_controls_keep_first_and_last_measurements(top, bottom, qapp):
+    from geoworkbench.ui.interpretation_report_workspace import InterpretationReportWorkspace
+
+    session = _session()
+    dataset = session.current_dataset
+    dataset.depth[:] = np.linspace(top, bottom, dataset.depth.size)
+    controller = InterpretationCalculationController(session)
+    workspace = InterpretationReportWorkspace(controller)
+    assert workspace.depth_interval_top.value() != top
+    assert workspace.depth_interval_bottom.value() != bottom
+    workspace.depth_interval_mode.setCurrentIndex(1)
+    workspace.depth_interval_apply.click()
+    assert controller.depth_interval == DepthInterval(top, bottom)
+    assert controller.depth_interval.row_mask(dataset).all()
+    assert workspace.report.analysis_depth_interval == controller.depth_interval
+    workspace.close()
+
+
+def test_endpoint_precision_does_not_accept_a_user_boundary_outside_data(qapp):
+    from geoworkbench.ui.interpretation_report_workspace import InterpretationReportWorkspace
+
+    session = _session()
+    dataset = session.current_dataset
+    dataset.depth[:] = np.linspace(1000.1234567, 2000.1234567, dataset.depth.size)
+    controller = InterpretationCalculationController(session)
+    workspace = InterpretationReportWorkspace(controller)
+    workspace.depth_interval_mode.setCurrentIndex(1)
+    workspace.depth_interval_bottom.setValue(workspace.depth_interval_bottom.value() + 0.00001)
+    workspace.depth_interval_apply.click()
+    assert controller.depth_interval is None
+    assert workspace.report.analysis_depth_interval is None
+    assert "выходит за диапазон" in workspace.depth_interval_note.text()
+    assert not session.dirty
+    workspace.close()
+
+
+def test_print_preview_uses_exact_analysis_bounds_instead_of_cover_text(qapp, monkeypatch):
+    from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
+        DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS,
+    )
+    from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
+        default_interpretation_report_identity,
+    )
+    from geoworkbench.services.localization import AppLanguage
+    from geoworkbench.ui.interpretation_report_workspace_final import InterpretationReportWorkspace
+
+    session = _session()
+    workspace = InterpretationReportWorkspace(InterpretationCalculationController(session))
+    interval = DepthInterval(1030.234567, 1060.876543)
+    report = build_hydrocarbon_interpretation_report(session, depth_interval=interval)
+    workspace.report = report
+    identity = default_interpretation_report_identity(
+        report, AppLanguage.RU, interval=interval.formatted("ft")
+    )
+
+    def unexpected_parse(*_args):
+        raise AssertionError(
+            "The calculated interval must not be read back from rounded cover text"
+        )
+
+    monkeypatch.setattr(
+        "geoworkbench.ui.interpretation_report_workspace_final.resolve_report_depth_range",
+        unexpected_parse,
+    )
+    assert workspace._sync_preview_geology_composition(
+        report, identity, DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS
+    )
+    assert workspace._preview_depth_range == interval
+    workspace.close()

@@ -159,6 +159,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
             raise RuntimeError("Не найден layout отчёта интерпретации")
         root.addWidget(self.depth_interval_panel)
         self._depth_interval_dataset_key: tuple[object, ...] | None = None
+        self._depth_interval_endpoints: tuple[tuple[float, float], tuple[float, float]] | None = None
         self._preview_geology_report_key: tuple[object, ...] | None = None
         self._preview_depth_range: DepthInterval | None = None
         self.depth_interval_apply.clicked.connect(self._apply_depth_interval)
@@ -191,11 +192,20 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         self.controller.depth_interval = None
         self.depth_interval_mode.setCurrentIndex(0)
         self._preview_depth_range = None
+        self._depth_interval_endpoints = None
         if dataset is not None and dataset.active_index.role is IndexRole.DEPTH:
             finite = dataset.depth[np.isfinite(dataset.depth)]
             if finite.size:
-                self.depth_interval_top.setValue(float(finite.min()))
-                self.depth_interval_bottom.setValue(float(finite.max()))
+                top, bottom = float(finite.min()), float(finite.max())
+                self.depth_interval_top.setValue(top)
+                self.depth_interval_bottom.setValue(bottom)
+                # Keep exact LAS endpoints behind their rounded control values.
+                # Both outward rounding and inward rounding must retain the
+                # first and last measurements of an unchanged full interval.
+                self._depth_interval_endpoints = (
+                    (self.depth_interval_top.value(), top),
+                    (self.depth_interval_bottom.value(), bottom),
+                )
                 for spin in (self.depth_interval_top, self.depth_interval_bottom):
                     spin.setSuffix(f" {dataset.active_index.unit or ''}")
 
@@ -247,9 +257,14 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         try:
             interval = None
             if self.depth_interval_mode.currentIndex() == 1:
-                interval = DepthInterval(
-                    self.depth_interval_top.value(), self.depth_interval_bottom.value()
-                )
+                top, bottom = self.depth_interval_top.value(), self.depth_interval_bottom.value()
+                endpoints = self._depth_interval_endpoints
+                if endpoints is not None:
+                    if top == endpoints[0][0]:
+                        top = endpoints[0][1]
+                    if bottom == endpoints[1][0]:
+                        bottom = endpoints[1][1]
+                interval = DepthInterval(top, bottom)
                 interval.row_mask(dataset)
         except DepthIntervalError as exc:
             self.depth_interval_note.setText(str(exc))
@@ -317,7 +332,9 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         if dataset is None:
             return False
         try:
-            depth_range = resolve_report_depth_range(identity.interval, dataset)
+            depth_range = report.analysis_depth_interval or resolve_report_depth_range(
+                identity.interval, dataset,
+            )
         except ReportDepthRangeError as exc:
             self._show_export_error(exc)
             return False
