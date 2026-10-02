@@ -257,6 +257,7 @@ class InterpretationReportWorkspace(_CompatibleInterpretationReportWorkspace):
         mode_layout.setContentsMargins(12, 10, 12, 10)
         mode_layout.setHorizontalSpacing(10)
         mode_layout.setVerticalSpacing(7)
+        self.normalized_gas_mode_label.setWordWrap(True)
         self.normalized_gas_mode.setMinimumWidth(0)
         self.normalized_gas_mode.setMinimumContentsLength(18)
         self.normalized_gas_mode.setSizePolicy(
@@ -280,8 +281,17 @@ class InterpretationReportWorkspace(_CompatibleInterpretationReportWorkspace):
         panel.addLayout(source_grid)
 
         panel.addWidget(self.drilling_input_card)
+        drilling_layout = self.drilling_input_card.layout()
+        if isinstance(drilling_layout, QHBoxLayout):
+            # The localized action can be wider than the status column at
+            # laptop widths. Stack it under the status instead of allowing the
+            # card's minimum size hint to push beyond the scroll viewport.
+            drilling_layout.setDirection(QHBoxLayout.Direction.TopToBottom)
+        self.drilling_inputs_heading.setWordWrap(True)
+        self.drilling_input_status.setWordWrap(True)
+        self.configure_drilling_inputs_button.setMinimumWidth(0)
         self.configure_drilling_inputs_button.setSizePolicy(
-            QSizePolicy.Policy.Preferred,
+            QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Fixed,
         )
 
@@ -289,12 +299,7 @@ class InterpretationReportWorkspace(_CompatibleInterpretationReportWorkspace):
         action_grid = QGridLayout()
         action_grid.setHorizontalSpacing(9)
         action_grid.setVerticalSpacing(9)
-        action_grid.addWidget(self.recalculate_all_button, 0, 0, 1, 2)
-        action_grid.addWidget(self.refresh_chart_report_button, 1, 0)
-        action_grid.addWidget(self.calculate_normalized_gas_button, 1, 1)
-        action_grid.addWidget(self.show_normalized_gas_button, 2, 0, 1, 2)
-        action_grid.setColumnStretch(0, 1)
-        action_grid.setColumnStretch(1, 1)
+        self._normalized_action_grid = action_grid
         for button in (
             self.recalculate_all_button,
             self.refresh_chart_report_button,
@@ -303,6 +308,32 @@ class InterpretationReportWorkspace(_CompatibleInterpretationReportWorkspace):
         ):
             button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         panel.addLayout(action_grid)
+        self._relayout_normalized_actions(compact=True)
+
+    def _relayout_normalized_actions(self, *, compact: bool) -> None:
+        grid = self._normalized_action_grid
+        while grid.count():
+            grid.takeAt(0)
+
+        buttons = (
+            self.recalculate_all_button,
+            self.refresh_chart_report_button,
+            self.calculate_normalized_gas_button,
+            self.show_normalized_gas_button,
+        )
+        if compact:
+            for row, button in enumerate(buttons):
+                grid.addWidget(button, row, 0)
+            grid.setColumnStretch(0, 1)
+            grid.setColumnStretch(1, 0)
+            return
+
+        grid.addWidget(self.recalculate_all_button, 0, 0, 1, 2)
+        grid.addWidget(self.refresh_chart_report_button, 1, 0)
+        grid.addWidget(self.calculate_normalized_gas_button, 1, 1)
+        grid.addWidget(self.show_normalized_gas_button, 2, 0, 1, 2)
+        grid.setColumnStretch(0, 1)
+        grid.setColumnStretch(1, 1)
 
     def _rebuild_dexp_panel(self) -> None:
         panel = self.dexp_quality_panel.layout()
@@ -318,6 +349,8 @@ class InterpretationReportWorkspace(_CompatibleInterpretationReportWorkspace):
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Preferred,
         )
+        self.dexp_quality_title.setWordWrap(True)
+        self.dexp_details_button.setMinimumWidth(0)
 
         header = QHBoxLayout()
         header.addWidget(self.dexp_quality_title)
@@ -360,6 +393,7 @@ class InterpretationReportWorkspace(_CompatibleInterpretationReportWorkspace):
             return
         self._layout_signature = layout_signature
         self._configuration_columns = columns
+        self._relayout_normalized_actions(compact=columns == 1)
         self.preview.setMinimumHeight(0)
         self.log_scroll.setMaximumHeight(90 if compact_height else 150)
         self.explanation.setVisible(
