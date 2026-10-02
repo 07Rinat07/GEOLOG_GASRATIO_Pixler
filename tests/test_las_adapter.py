@@ -101,6 +101,37 @@ def test_import_las_streams_decoding_into_lasio(tmp_path, monkeypatch) -> None:
     assert dataset.depth.size == 2
 
 
+def test_import_las_materializes_lasio_data_matrix_once(tmp_path, monkeypatch) -> None:
+    source = tmp_path / "matrix-once.las"
+    source.write_bytes(b"~V\nVERS. 2.0\n~A\n100 1 10\n101 2 12\n")
+
+    class MatrixLas(FakeLas):
+        data_reads = 0
+
+        @property
+        def data(self) -> np.ndarray:
+            self.data_reads += 1
+            return np.column_stack(
+                (
+                    self.index,
+                    self._values["C1"],
+                    self._values["ROP"],
+                )
+            )
+
+    las = MatrixLas()
+    monkeypatch.setattr(
+        "geoworkbench.data.las_adapter.lasio.read",
+        lambda *args, **kwargs: las,
+    )
+
+    dataset = import_las(source)
+
+    assert las.data_reads == 1
+    np.testing.assert_allclose(dataset.curve_by_mnemonic("C1").values, [1.0, 2.0])
+    np.testing.assert_allclose(dataset.curve_by_mnemonic("ROP").values, [10.0, 12.0])
+
+
 def test_import_las_logs_phase_timings_without_source_values(
     tmp_path, monkeypatch
 ) -> None:
