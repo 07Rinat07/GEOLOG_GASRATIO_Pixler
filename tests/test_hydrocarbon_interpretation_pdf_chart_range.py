@@ -81,7 +81,7 @@ def test_long_interpretation_range_has_even_page_density_without_short_tail() ->
     assert pages[-1].bottom_depth == 5549.0
 
 
-def test_print_curve_remains_visible_for_nearly_constant_signal(qapp) -> None:
+def test_print_ratio_scatter_remains_visible_without_becoming_a_thick_trace(qapp) -> None:
     depth = np.linspace(100.0, 110.0, 101)
     dataset = Dataset(
         dataset_id="dataset-print-contrast",
@@ -125,7 +125,9 @@ def test_print_curve_remains_visible_for_nearly_constant_signal(qapp) -> None:
         for x in range(20, 401)
         if image.pixelColor(x, y).lightness() < 170
     )
-    assert dark_pixels >= 250
+    # OPUS is marker-only scatter. It must remain clearly visible, but the
+    # marker cloud must not regress to the former thick line-like "worm".
+    assert 50 <= dark_pixels < 200
 
 
 def test_extrema_preserving_print_rows_keeps_narrow_peaks_and_bounds_density() -> None:
