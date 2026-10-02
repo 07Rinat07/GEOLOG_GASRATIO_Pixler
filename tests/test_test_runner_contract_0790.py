@@ -65,3 +65,21 @@ def test_successful_child_does_not_report_failure(monkeypatch, capsys):
     )
     assert run_tests._run_child([], ["tests/example.py::test_case"], {}) == 0
     assert capsys.readouterr().err == ""
+
+
+def test_session_safety_runs_in_single_native_test_processes() -> None:
+    """MainWindow session-safety cases must not inherit a poisoned Qt shard."""
+
+    path = Path("tests/test_session_safety.py")
+    nodes = run_tests._top_level_test_nodes(path)
+
+    assert path.as_posix() in run_tests._FORCED_NATIVE_BATCH_FILES
+    assert path.as_posix() in run_tests._SINGLE_TEST_PROCESS_FILES
+    batches = [
+        selectors
+        for batch_path, selectors in run_tests._heavy_test_batches((path,))
+        if batch_path == path.as_posix()
+    ]
+    assert len(batches) == len(nodes)
+    assert all(len(selectors) == 1 for selectors in batches)
+    assert run_tests._test_file_shards(1, (path,)) == ()
