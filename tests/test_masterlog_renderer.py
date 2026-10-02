@@ -418,6 +418,40 @@ def test_masterlog_ratio_curve_uses_points_without_polyline() -> None:
     painter.drawPath.assert_not_called()
 
 
+def test_masterlog_dense_ratio_scatter_is_density_bounded() -> None:
+    depth = np.linspace(100.0, 200.0, 5_001)
+    dataset = Dataset(
+        "dense-masterlog-ratio",
+        "Dense masterlog ratio",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        depth,
+    )
+    dataset.upsert_curve("C1_C2", 2.0 + np.sin(depth * 0.4))
+    column = MasterlogColumnTemplate(
+        "ratios",
+        "Gas ratios",
+        "curves",
+        45.0,
+        ["C1_C2"],
+    )
+    painter = MagicMock()
+    rect = QRectF(0.0, 0.0, 45.0, 200.0)
+
+    _paint_curve_column(
+        painter,
+        rect,
+        column,
+        dataset,
+        (100.0, 200.0),
+        {},
+    )
+
+    expected_budget = max(64, min(800, int(rect.height() / 0.6)))
+    assert 0 < painter.drawEllipse.call_count <= expected_budget
+    painter.drawPath.assert_not_called()
+
+
 def test_masterlog_ordinary_gas_curves_keep_polylines() -> None:
     session = make_session_with_curves()
     dataset = session.current_dataset
