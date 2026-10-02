@@ -227,6 +227,67 @@ def test_pdf_curve_renderer_uses_points_for_ratios_and_lines_for_depth_series() 
         assert line_painter.ellipses == 0
 
 
+def test_dense_pdf_ratio_scatter_has_physical_marker_spacing() -> None:
+    class RecordingPainter:
+        def __init__(self) -> None:
+            self.ellipse_rects: list[QRectF] = []
+            self.lines = 0
+
+        def drawEllipse(self, rect) -> None:
+            self.ellipse_rects.append(QRectF(rect))
+
+        def drawLine(self, _line) -> None:
+            self.lines += 1
+
+        def __getattr__(self, _name):
+            return lambda *args, **kwargs: None
+
+    depth = np.linspace(100.0, 200.0, 2_001, dtype=np.float64)
+    dataset = Dataset(
+        "dense-pdf-ratio",
+        "Dense PDF ratio",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        depth,
+    )
+    ratio = CurveData(
+        CurveMetadata(
+            "ratio",
+            "PIXLER_C1_C2",
+            "PIXLER_C1_C2",
+            "ratio",
+            None,
+            dataset.dataset_id,
+        ),
+        np.linspace(1.0, 4.0, depth.size, dtype=np.float64),
+    )
+    page = DepthPage(100.0, 200.0, 100, 100.0)
+    painter = RecordingPainter()
+
+    _draw_curves(
+        painter,  # type: ignore[arg-type]
+        QRectF(0.0, 0.0, 100.0, 100.0),
+        page,
+        dataset,
+        (ratio,),
+        {"ratio": (1.0, 4.0)},
+        point_series=True,
+    )
+
+    assert painter.lines == 0
+    assert 35 <= len(painter.ellipse_rects) <= 50
+    assert all(
+        abs(rect.width() - rect.height()) < 1e-9
+        and rect.width() <= 1.81
+        for rect in painter.ellipse_rects
+    )
+    centers = np.asarray(
+        [rect.center().y() for rect in painter.ellipse_rects],
+        dtype=np.float64,
+    )
+    assert np.all(np.diff(centers) >= 2.1)
+
+
 def test_singleton_ratio_observation_survives_preview_and_pdf_range() -> None:
     class RecordingPainter:
         def __init__(self) -> None:
