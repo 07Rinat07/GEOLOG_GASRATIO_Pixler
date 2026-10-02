@@ -87,14 +87,15 @@
 Основная очередь ниже содержит оставшуюся разработку и сквозную автоматическую приёмку.
 Внешние проверки ведутся параллельно в отдельной таблице и не блокируют независимый
 продуктовый инкремент. Завершённые RPT-DEPTH, базовые geology tracks и fluid-phase slices переиспользуются.
-Текущий инкремент RPT-GEO-03 исправляет легенды, заголовки и пояснения к графикам;
-после его интеграции следующий основной инкремент — согласование отрицательных глубин в Gas Context Registry
-с общим контрактом выбранного интервала. Затем исправляются границы окна в UI-SYS-01;
-Composer использует готовые range/registry contracts, workspace и renderer/snapshots.
+RPT-GEO-03 интегрирован через PR #420. Текущий инкремент GASCTX-RPT-01 согласует
+отрицательные глубины в Gas Context Registry с общим контрактом выбранного интервала:
+signed finite depth сохраняется через editor/project codec и используется standard/OPUS/export.
+Следующим после его интеграции остаётся UI-SYS-01; Composer использует готовые
+range/registry contracts, workspace и renderer/snapshots.
 
 | Порядок | Задача | Следующий проверяемый результат и зависимость | Ответственный по роли / статус |
 |---|---|---|---|
-| 1 | GASCTX-RPT-01: отрицательные глубины | Согласовать `GasContextEvent` и editor bounds с MD/TVD/TVDSS interval contract: сейчас domain запрещает `< 0`, UI имеет минимум 0, а выбранный диапазон допускает отрицательные глубины. Проверить valid negative TVDSS → Save/reopen → standard/OPUS/export, не ослабляя finite/range/axis validation | Разработчик / готово к разработке |
+| 1 | GASCTX-RPT-01: отрицательные глубины | Согласовать `GasContextEvent` и editor bounds с MD/TVD/TVDSS interval contract. Реализация разрешает signed finite depth, сохраняет bounded UI и проверяет negative TVDSS → editor commit → Save/reopen → standard/OPUS/XLSX без ослабления порядка границ, axis/domain и TG/QC validation | Разработчик / в работе |
 | 2 | UI-SYS-01: окно интерпретационного отчёта | Устранить правое обрезание controls на RU/KK в узком окне; сохранить доступность выбора интервала, расчёта и экспорта. Сверить RU/KK/EN, 900×650 и 1600×900, Windows DPI matrix; не менять айдентику или расчёты | Разработчик / готово к разработке |
 | 3 | PERF-07 | Измерить на актуальной сборке этапы импорта М-1, первый render, scroll/zoom и MainThread rebuild; выбрать следующий hot path по `las.import.performance`/`las.import.presentation`, времени и RSS. Закрытые streaming/searchsorted/partial-refresh slices переиспользуются | Разработчик / в работе |
 | 4 | REPORT-I18N-01 | Один явный язык всей выдачи RU/KK/EN: preview/PDF/print/DOCX/XLSX, legends, header и annotations; устранить оставшиеся fixed-language adapters. Реестр переводов WELL-04 используется без подмены draft/reviewed статусов | Разработчик / готово к разработке |
