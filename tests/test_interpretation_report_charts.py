@@ -250,8 +250,8 @@ def test_singleton_ratio_observation_survives_preview_and_pdf_range() -> None:
     ratio = CurveData(
         CurveMetadata(
             "ratio",
-            "PIXLER_C1_C2",
-            "PIXLER_C1_C2",
+            "C1_C2",
+            "C1_C2",
             "ratio",
             None,
             dataset.dataset_id,
@@ -269,6 +269,20 @@ def test_singleton_ratio_observation_survives_preview_and_pdf_range() -> None:
         ),
         np.asarray([np.nan, 7.0, np.nan], dtype=np.float64),
     )
+    dataset.curves[ratio.metadata.curve_id] = ratio
+    dataset.curves[total.metadata.curve_id] = total
+    report = SimpleNamespace(
+        primary_mnemonic="",
+        report_profile="standard",
+        methods=(),
+    )
+
+    whole_panels = dict(whole_well_panels(report, dataset))
+    printed = dict(printed_panels(report, dataset))
+    assert whole_panels["ratios"] == (ratio,)
+    assert printed["ratios"] == (ratio,)
+    assert whole_panels["total"] == ()
+    assert printed["total"] == ()
 
     preview = RecordingPainter()
     _draw_panel(
@@ -279,7 +293,7 @@ def test_singleton_ratio_observation_survives_preview_and_pdf_range() -> None:
         100.0,
         102.0,
         "ratios",
-        (ratio,),
+        whole_panels["ratios"],
         (),
         AppLanguage.RU,
         {},
@@ -290,7 +304,7 @@ def test_singleton_ratio_observation_survives_preview_and_pdf_range() -> None:
 
     page = DepthPage(100.0, 102.0, 100, 100.0)
     ranges = _curve_ranges(
-        (("ratios", (ratio,)), ("total", (total,))),
+        (("ratios", printed["ratios"]), ("total", printed["total"])),
         dataset,
         page=page,
     )
@@ -304,12 +318,11 @@ def test_singleton_ratio_observation_survives_preview_and_pdf_range() -> None:
         QRectF(0.0, 0.0, 120.0, 180.0),
         page,
         dataset,
-        (ratio,),
+        printed["ratios"],
         {"ratio": ranges["ratio"]},
         point_series=True,
     )
     assert pdf_painter.ellipses == 1
-
 
 def test_report_panel_scatter_contract_is_ratio_only() -> None:
     whole = Path(
