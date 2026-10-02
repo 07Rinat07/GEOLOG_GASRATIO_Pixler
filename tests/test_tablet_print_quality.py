@@ -36,11 +36,11 @@ def test_print_curve_width_survives_dense_a4_fitting() -> None:
 
 def test_print_snapshot_uses_configured_pen_and_restores_screen_pen() -> None:
     _application = QApplication.instance() or QApplication([])
-    mnemonic = "PIXLER_C1_C2"
+    mnemonic = "ROP"
     definition = TrackDefinition(
-        "pixler",
-        "Pixler",
-        TrackKind.GAS,
+        "rop",
+        "ROP",
+        TrackKind.CURVE,
         curve_mnemonics=[mnemonic],
     )
     definition.set_curve_style(
@@ -69,13 +69,92 @@ def test_print_snapshot_uses_configured_pen_and_restores_screen_pen() -> None:
     assert restored_pen.widthF() == 0.9
 
 
+def test_print_snapshot_keeps_gas_point_series_without_restoring_line() -> None:
+    _application = QApplication.instance() or QApplication([])
+    mnemonic = "PIXLER_C1_C2"
+    definition = TrackDefinition(
+        "pixler",
+        "Pixler",
+        TrackKind.GAS,
+        curve_mnemonics=[mnemonic],
+    )
+    item = pg.PlotDataItem(
+        [0.0, 1.0],
+        [0.0, 1.0],
+        pen=None,
+        symbol="o",
+        symbolSize=4.0,
+        symbolBrush=pg.mkBrush("#ff0000"),
+        symbolPen=pg.mkPen("#ff0000"),
+    )
+    rendered = SimpleNamespace(
+        definition=definition,
+        curve_items={mnemonic: item},
+    )
+
+    states = _activate_print_curve_styles(  # type: ignore[arg-type]
+        (rendered,),
+        raster_scale=3.0,
+    )
+
+    assert item.opts.get("pen") is None
+    assert item.opts.get("symbol") == "o"
+    assert float(item.opts.get("symbolSize")) >= 15.0
+
+    _restore_print_curve_styles(states)
+
+    assert item.opts.get("pen") is None
+    assert item.opts.get("symbol") == "o"
+    assert float(item.opts.get("symbolSize")) == 4.0
+
+
+def test_print_ratio_markers_use_configured_color_and_restore_screen_color() -> None:
+    _application = QApplication.instance() or QApplication([])
+    mnemonic = "PIXLER_C1_C2"
+    definition = TrackDefinition(
+        "pixler",
+        "Pixler",
+        TrackKind.GAS,
+        curve_mnemonics=[mnemonic],
+    )
+    definition.set_curve_style(
+        mnemonic,
+        CurveStyle("#ff0000", 1.2, CurveLineStyle.SOLID),
+    )
+    item = pg.PlotDataItem(
+        [0.0, 1.0],
+        [0.0, 1.0],
+        pen=None,
+        symbol="o",
+        symbolSize=4.0,
+        symbolBrush=pg.mkBrush("#7f0000"),
+        symbolPen=pg.mkPen("#7f0000"),
+    )
+    rendered = SimpleNamespace(
+        definition=definition,
+        curve_items={mnemonic: item},
+    )
+
+    states = _activate_print_curve_styles((rendered,))  # type: ignore[arg-type]
+
+    assert item.opts.get("pen") is None
+    assert item.opts["symbolBrush"].color().name().lower() == "#ff0000"
+    assert QPen(item.opts["symbolPen"]).color().name().lower() == "#ff0000"
+
+    _restore_print_curve_styles(states)
+
+    assert item.opts.get("pen") is None
+    assert item.opts["symbolBrush"].color().name().lower() == "#7f0000"
+    assert QPen(item.opts["symbolPen"]).color().name().lower() == "#7f0000"
+
+
 def test_legacy_curve_without_persisted_style_keeps_live_colour_and_dash() -> None:
     _application = QApplication.instance() or QApplication([])
-    mnemonic = "C1_C2"
+    mnemonic = "GR"
     definition = TrackDefinition(
-        "ratio",
-        "Gas Ratio",
-        TrackKind.GAS,
+        "gr",
+        "Gamma ray",
+        TrackKind.CURVE,
         curve_mnemonics=[mnemonic],
     )
     item = pg.PlotDataItem(

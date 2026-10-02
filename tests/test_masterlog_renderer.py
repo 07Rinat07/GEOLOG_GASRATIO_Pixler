@@ -42,6 +42,7 @@ from geoworkbench.printing.masterlog_renderer import (
     _page_orientation,
     _paint_annotations,
     _paint_column_grid,
+    _paint_curve_column,
     _paint_depth_axis,
     _paint_sample_interpretations,
     _parameter_symbol_x,
@@ -385,6 +386,56 @@ def test_masterlog_roll_size_uses_actual_vertical_column_heading_height() -> Non
     template.columns[0].properties["title_orientation"] = "vertical_bottom_to_top"
 
     assert masterlog_size_mm(template, session).height() == 264.0
+
+
+def test_masterlog_ratio_curve_uses_points_without_polyline() -> None:
+    session = make_session_with_curves()
+    dataset = session.current_dataset
+    assert dataset is not None
+    dataset.upsert_curve(
+        "PIXLER_C1_C2",
+        np.asarray([2.0, 2.5, 3.0, 3.5, 4.0], dtype=np.float64),
+    )
+    column = MasterlogColumnTemplate(
+        "ratios",
+        "Gas ratios",
+        "curves",
+        45.0,
+        ["PIXLER_C1_C2"],
+    )
+    painter = MagicMock()
+
+    _paint_curve_column(
+        painter,
+        QRectF(0.0, 0.0, 100.0, 200.0),
+        column,
+        dataset,
+        (100.0, 200.0),
+        {},
+    )
+
+    assert painter.drawEllipse.call_count > 0
+    painter.drawPath.assert_not_called()
+
+
+def test_masterlog_ordinary_gas_curves_keep_polylines() -> None:
+    session = make_session_with_curves()
+    dataset = session.current_dataset
+    assert dataset is not None
+    column = make_template().columns[1]
+    painter = MagicMock()
+
+    _paint_curve_column(
+        painter,
+        QRectF(0.0, 0.0, 100.0, 200.0),
+        column,
+        dataset,
+        (100.0, 200.0),
+        {},
+    )
+
+    painter.drawPath.assert_called()
+    painter.drawEllipse.assert_not_called()
 
 
 def test_masterlog_curve_range_supports_auto_linear_and_logarithmic() -> None:

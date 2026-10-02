@@ -89,6 +89,10 @@ from geoworkbench.services.application_logging import log_event, log_exception
 from geoworkbench.services.interval_overlap_index import IntervalOverlapIndex
 from geoworkbench.services.lba_standard import lba_color_code
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.services.gas_curve_presentation import (
+    GAS_SCREEN_POINT_SIZE_PX,
+    uses_gas_point_presentation,
+)
 from geoworkbench.services.geology_labels import (
     localized_lithotype_name,
     localized_rock_text,
@@ -8693,29 +8697,49 @@ class TabletView(QWidget):
                     width=1.25,
                 )
             screen_color = muted_screen_curve_color(style.color)
-            item.setPen(
-                pg.mkPen(
-                    screen_color,
-                    width=screen_curve_width(
-                        style.width, len(definition.curve_mnemonics)
-                    ),
-                    style={
-                        CurveLineStyle.SOLID: Qt.PenStyle.SolidLine,
-                        CurveLineStyle.DASH: Qt.PenStyle.DashLine,
-                        CurveLineStyle.DOT: Qt.PenStyle.DotLine,
-                        CurveLineStyle.DASH_DOT: Qt.PenStyle.DashDotLine,
-                    }[style.line_style],
+            curve = (
+                self._dataset.curve_by_mnemonic(mnemonic)
+                if self._dataset is not None
+                else None
+            )
+            point_series = (
+                not relative_gas
+                and uses_gas_point_presentation(
+                    (
+                        mnemonic,
+                        curve.metadata.original_mnemonic if curve is not None else "",
+                        curve.metadata.canonical_mnemonic if curve is not None else "",
+                    )
                 )
             )
+            if point_series:
+                item.setPen(None)
+                item.setSymbol("o")
+                item.setSymbolSize(GAS_SCREEN_POINT_SIZE_PX)
+                item.setSymbolBrush(pg.mkBrush(screen_color))
+                item.setSymbolPen(pg.mkPen(screen_color, width=0.65))
+            else:
+                item.setSymbol(None)
+                item.setPen(
+                    pg.mkPen(
+                        screen_color,
+                        width=screen_curve_width(
+                            style.width, len(definition.curve_mnemonics)
+                        ),
+                        style={
+                            CurveLineStyle.SOLID: Qt.PenStyle.SolidLine,
+                            CurveLineStyle.DASH: Qt.PenStyle.DashLine,
+                            CurveLineStyle.DOT: Qt.PenStyle.DotLine,
+                            CurveLineStyle.DASH_DOT: Qt.PenStyle.DashDotLine,
+                        }[style.line_style],
+                    )
+                )
             fill = (rendered.relative_fill_items or {}).get(mnemonic)
             if fill is not None:
                 color = pg.mkColor(screen_color)
                 color.setAlpha(105)
                 fill.setBrush(pg.mkBrush(color))
-            if self._dataset is None:
-                continue
-            curve = self._dataset.curve_by_mnemonic(mnemonic)
-            if curve is None:
+            if self._dataset is None or curve is None:
                 continue
             settings = definition.curve_display_settings(mnemonic)
             display_name = self._curve_display_name(definition, mnemonic, curve)
@@ -9112,12 +9136,31 @@ class TabletView(QWidget):
             # Do not pass clipToView at construction time: pyqtgraph 0.14 with
             # PySide6 6.11 may query the temporary PlotWidget before the item is
             # parented to its ViewBox and raise AttributeError(autoRangeEnabled).
-            item = track.plot.plot(
-                visible_values,
-                visible_depth,
-                pen=pen,
-                connect="finite",
+            point_series = uses_gas_point_presentation(
+                (
+                    mnemonic,
+                    curve.metadata.original_mnemonic,
+                    curve.metadata.canonical_mnemonic,
+                )
             )
+            if point_series:
+                item = track.plot.plot(
+                    visible_values,
+                    visible_depth,
+                    pen=None,
+                    symbol="o",
+                    symbolSize=GAS_SCREEN_POINT_SIZE_PX,
+                    symbolBrush=pg.mkBrush(screen_color),
+                    symbolPen=pg.mkPen(screen_color, width=0.65),
+                    connect="finite",
+                )
+            else:
+                item = track.plot.plot(
+                    visible_values,
+                    visible_depth,
+                    pen=pen,
+                    connect="finite",
+                )
             item.setToolTip(
                 f"{display_name} [{mnemonic}]" + (f" · {unit}" if unit else "")
             )

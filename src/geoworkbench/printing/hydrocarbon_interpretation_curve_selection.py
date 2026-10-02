@@ -32,6 +32,7 @@ def report_curve_panels(
             ):
                 reported.extend(method.available_mnemonics)
 
+        minimum_samples = 1 if panel_name in {"ratios", "opus"} else 2
         curves: list[CurveData] = []
         seen: set[str] = set()
         for candidate in (*reported, *fallback_order):
@@ -45,7 +46,10 @@ def report_curve_panels(
             if candidate not in reported and names.isdisjoint(fallback_names):
                 continue
             values = np.asarray(curve.values, dtype=np.float64)
-            if values.shape != dataset.depth.shape or np.count_nonzero(np.isfinite(values)) < 2:
+            if (
+                values.shape != dataset.depth.shape
+                or np.count_nonzero(np.isfinite(values)) < minimum_samples
+            ):
                 continue
             curves.append(curve)
             seen.add(curve.metadata.curve_id)

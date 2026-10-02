@@ -350,6 +350,39 @@ hit и zoom miss при `max_points=4096`, одновременно провер
 `84.5 / 302.1 / 574.2 MiB`. Во всех сценариях две cached geometry занимают `131 072 B` из
 hard budget `67 108 864 B`.
 
+### RPT-GAS-VIS-01: ratio scatter presentation
+
+Газовые отношения и интерпретационные коэффициенты проверяются как дискретные point-series
+без соединяющей линии, а обычные глубинные газовые кривые сохраняют line presentation:
+
+```powershell
+python -m pytest -q -p no:cacheprovider \
+  tests/test_gas_curve_rendering_continuity.py \
+  tests/test_tablet_gas_segment_mask.py \
+  tests/test_tablet_view.py \
+  tests/test_tablet_print_quality.py \
+  tests/test_masterlog_renderer.py \
+  tests/test_interpretation_report_charts.py \
+  tests/test_gas_07_golden_acceptance.py
+```
+
+Shared predicate покрывает Haworth/WH-BH-CH, C1/C2…C1/C5, isomer ratios, Pixler и OPUS
+ratio-series. Он намеренно исключает C1–C5/iso-normal components, TG/normalized gas,
+`OPUS_TG_PCT` и `*_REL`. Tablet regression требует `symbol="o"` и отсутствие polyline
+для ratio даже после STYLE-refresh; обычный C1/TG и ROP/DEXP сохраняют линии. Tablet print
+может увеличить размер ratio marker, но не создаёт линию. Masterlog и hydrocarbon PDF/PNG
+проверяют тот же glyph contract. C1–C5 ramp-report остаётся линейным временным профилем,
+а relative-gas `*_REL` сохраняет cumulative 0–100% stacked fill. Расчётные массивы,
+sampling/range и source LAS этим контрактом не меняются.
+
+
+Windows quality gate дополнительно изолирует `tests/test_session_safety.py` по одному test node
+на процесс. Это не ослабляет тесты: после воспроизводимого `0xC0000005` в
+`pyqtgraph.ViewBoxMenu` файл исключён из длинного shared Qt shard, а
+`tests/test_test_runner_contract_0790.py` проверяет наличие всех пяти test nodes как отдельных
+native batches. Python assertion failures и ненулевые exit status по-прежнему немедленно
+останавливают gate.
+
 ### PERF-07: LAS import, first render и viewport baseline
 
 Correctness coverage for the large-LAS profiling boundary:

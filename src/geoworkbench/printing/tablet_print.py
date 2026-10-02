@@ -6,7 +6,7 @@ from math import isfinite
 
 import pyqtgraph as pg
 from PySide6.QtCore import QPoint, QRectF, QSize, Qt
-from PySide6.QtGui import QImage, QPainter, QPen, QPixmap
+from PySide6.QtGui import QBrush, QImage, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QWidget
 
 from geoworkbench.printing.form_column_layout import (
@@ -40,7 +40,10 @@ _PRINT_CURVE_DENSE_MIN_WIDTH = 1.35
 @dataclass(slots=True)
 class _CurvePrintState:
     item: pg.PlotDataItem
-    pen: QPen
+    pen: QPen | None
+    symbol_size: float
+    symbol_brush: QBrush | None
+    symbol_pen: QPen | None
 
 
 def _qt_pen_style(style: CurveLineStyle) -> Qt.PenStyle:
@@ -65,18 +68,67 @@ def _print_curve_width(configured_width: float, curve_count: int) -> float:
 
 def _activate_print_curve_styles(
     rendered: tuple[RenderedTrack, ...],
+    *,
+    raster_scale: float = 1.0,
 ) -> list[_CurvePrintState]:
     states: list[_CurvePrintState] = []
     for track in rendered:
         curve_count = max(1, len(track.definition.curve_mnemonics))
         for mnemonic, item in (track.curve_items or {}).items():
-            saved_pen = QPen(pg.mkPen(item.opts.get("pen")))
-            states.append(_CurvePrintState(item, saved_pen))
+            pen_option = item.opts.get("pen")
+            saved_pen = (
+                QPen(pg.mkPen(pen_option))
+                if pen_option is not None
+                else None
+            )
+            saved_symbol_size = float(item.opts.get("symbolSize") or 0.0)
+            symbol_brush_option = item.opts.get("symbolBrush")
+            saved_symbol_brush = (
+                QBrush(pg.mkBrush(symbol_brush_option))
+                if symbol_brush_option is not None
+                else None
+            )
+            symbol_pen_option = item.opts.get("symbolPen")
+            saved_symbol_pen = (
+                QPen(pg.mkPen(symbol_pen_option))
+                if symbol_pen_option is not None
+                else None
+            )
+            states.append(
+                _CurvePrintState(
+                    item,
+                    saved_pen,
+                    saved_symbol_size,
+                    saved_symbol_brush,
+                    saved_symbol_pen,
+                )
+            )
             style = track.definition.curve_style(mnemonic)
+            point_only = (
+                item.opts.get("symbol") is not None
+                and (
+                    saved_pen is None
+                    or saved_pen.style() is Qt.PenStyle.NoPen
+                )
+            )
+            if point_only:
+                # Ratio observations are intentionally point-only. Paper mode may
+                # enlarge markers for legibility, but must never create a line.
+                # Interactive tablet colors may be muted; print capture uses the
+                # persisted curve color and restores the live marker afterward.
+                if style is not None:
+                    item.setSymbolBrush(pg.mkBrush(style.color))
+                    item.setSymbolPen(pg.mkPen(style.color))
+                item.setSymbolSize(
+                    max(5.0, saved_symbol_size) * float(raster_scale)
+                )
+                continue
             if style is None:
                 # Legacy/imported tracks may rely on the live PlotDataItem pen
                 # instead of a persisted CurveStyle. Preserve its exact colour
                 # and dash pattern while increasing only the paper line weight.
+                if saved_pen is None:
+                    continue
                 print_pen = QPen(saved_pen)
                 print_pen.setWidthF(
                     _print_curve_width(print_pen.widthF(), curve_count)
@@ -95,7 +147,12 @@ def _activate_print_curve_styles(
 
 def _restore_print_curve_styles(states: list[_CurvePrintState]) -> None:
     for state in reversed(states):
-        state.item.setPen(state.pen)
+        if state.pen is not None:
+            state.item.setPen(state.pen)
+        if state.item.opts.get("symbol") is not None:
+            state.item.setSymbolSize(state.symbol_size)
+            state.item.setSymbolBrush(state.symbol_brush)
+            state.item.setSymbolPen(state.symbol_pen)
 
 
 def _activate_layout_tree(widget: QWidget) -> None:
@@ -280,7 +337,10 @@ def capture_tablet_print_snapshot(
         annotation_print_enabled = True
         for item in rendered:
             item.widget.set_print_mode(True)
-        curve_style_states = _activate_print_curve_styles(rendered)
+        curve_style_states = _activate_print_curve_styles(
+            rendered,
+            raster_scale=float(raster_scale),
+        )
         print_title_band = max(
             item.widget.natural_title_header_height for item in rendered
         )

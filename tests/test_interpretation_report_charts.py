@@ -16,6 +16,7 @@ from geoworkbench.domain.models import (
     DepthDomain,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_chart import (
+    _draw_panel,
     _panel_curves as whole_well_panels,
     hydrocarbon_interpretation_chart_data_uri,
 )
@@ -137,6 +138,350 @@ def test_report_charts_keep_source_named_las_evidence() -> None:
         }
         assert [curve.metadata.original_mnemonic for curve in panels["drilling"]] == ["S224"]
 
+
+def test_pdf_curve_renderer_uses_points_for_ratios_and_lines_for_depth_series() -> None:
+    class RecordingPainter:
+        def __init__(self) -> None:
+            self.lines = 0
+            self.ellipses = 0
+
+        def save(self) -> None:
+            pass
+
+        def restore(self) -> None:
+            pass
+
+        def setClipRect(self, _rect) -> None:
+            pass
+
+        def setPen(self, _pen) -> None:
+            pass
+
+        def setBrush(self, _brush) -> None:
+            pass
+
+        def drawLine(self, _line) -> None:
+            self.lines += 1
+
+        def drawEllipse(self, _rect) -> None:
+            self.ellipses += 1
+
+    depth = np.linspace(100.0, 104.0, 5)
+    dataset = Dataset(
+        "scatter-report",
+        "Scatter report",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        depth,
+    )
+    ratio = CurveData(
+        CurveMetadata(
+            "ratio",
+            "PIXLER_C1_C2",
+            "PIXLER_C1_C2",
+            "ratio",
+            None,
+            dataset.dataset_id,
+        ),
+        np.linspace(1.5, 3.5, 5),
+    )
+    total_gas = CurveData(
+        CurveMetadata("gas", "TG_CALC", "TG_CALC", "%", None, dataset.dataset_id),
+        np.linspace(1.0, 5.0, 5),
+    )
+    drilling = CurveData(
+        CurveMetadata("rop", "ROP", "ROP", "m/h", None, dataset.dataset_id),
+        np.linspace(10.0, 14.0, 5),
+    )
+    page = DepthPage(100.0, 104.0, 100, 100.0)
+    rect = QRectF(0.0, 0.0, 100.0, 100.0)
+
+    ratio_painter = RecordingPainter()
+    _draw_curves(
+        ratio_painter,  # type: ignore[arg-type]
+        rect,
+        page,
+        dataset,
+        (ratio,),
+        {"ratio": (1.5, 3.5)},
+        point_series=True,
+    )
+    assert ratio_painter.ellipses > 0
+    assert ratio_painter.lines == 0
+
+    for curve, value_range in (
+        (total_gas, {"gas": (1.0, 5.0)}),
+        (drilling, {"rop": (10.0, 14.0)}),
+    ):
+        line_painter = RecordingPainter()
+        _draw_curves(
+            line_painter,  # type: ignore[arg-type]
+            rect,
+            page,
+            dataset,
+            (curve,),
+            value_range,
+            point_series=False,
+        )
+        assert line_painter.lines > 0
+        assert line_painter.ellipses == 0
+
+
+def test_singleton_ratio_observation_survives_preview_and_pdf_range() -> None:
+    class RecordingPainter:
+        def __init__(self) -> None:
+            self.ellipses = 0
+
+        def drawEllipse(self, _rect) -> None:
+            self.ellipses += 1
+
+        def __getattr__(self, _name):
+            return lambda *args, **kwargs: None
+
+    depth = np.asarray([100.0, 101.0, 102.0], dtype=np.float64)
+    finite_depth = np.isfinite(depth)
+    dataset = Dataset(
+        "singleton-ratio",
+        "Singleton ratio",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        depth,
+    )
+    ratio = CurveData(
+        CurveMetadata(
+            "ratio",
+            "C1_C2",
+            "C1_C2",
+            "ratio",
+            None,
+            dataset.dataset_id,
+        ),
+        np.asarray([np.nan, 2.5, np.nan], dtype=np.float64),
+    )
+    total = CurveData(
+        CurveMetadata(
+            "total",
+            "TG_CALC",
+            "TG_CALC",
+            "%",
+            None,
+            dataset.dataset_id,
+        ),
+        np.asarray([np.nan, 7.0, np.nan], dtype=np.float64),
+    )
+    dataset.curves[ratio.metadata.curve_id] = ratio
+    dataset.curves[total.metadata.curve_id] = total
+    report = SimpleNamespace(
+        primary_mnemonic="",
+        report_profile="standard",
+        methods=(),
+    )
+
+    whole_panels = dict(whole_well_panels(report, dataset))
+    printed = dict(printed_panels(report, dataset))
+    assert whole_panels["ratios"] == (ratio,)
+    assert printed["ratios"] == (ratio,)
+    assert whole_panels["total"] == ()
+    assert printed["total"] == ()
+
+    preview = RecordingPainter()
+    _draw_panel(
+        preview,  # type: ignore[arg-type]
+        QRectF(0.0, 0.0, 120.0, 180.0),
+        depth,
+        finite_depth,
+        100.0,
+        102.0,
+        "ratios",
+        whole_panels["ratios"],
+        (),
+        AppLanguage.RU,
+        {},
+    )
+    # One factual point plus three legend glyph dots. If the singleton curve
+    # is filtered out, neither the observation nor its legend is rendered.
+    assert preview.ellipses >= 4
+
+    page = DepthPage(100.0, 102.0, 100, 100.0)
+    ranges = _curve_ranges(
+        (("ratios", printed["ratios"]), ("total", printed["total"])),
+        dataset,
+        page=page,
+    )
+    assert "ratio" in ranges
+    assert ranges["ratio"][0] < 2.5 < ranges["ratio"][1]
+    assert "total" not in ranges
+
+    pdf_painter = RecordingPainter()
+    _draw_curves(
+        pdf_painter,  # type: ignore[arg-type]
+        QRectF(0.0, 0.0, 120.0, 180.0),
+        page,
+        dataset,
+        printed["ratios"],
+        {"ratio": ranges["ratio"]},
+        point_series=True,
+    )
+    assert pdf_painter.ellipses == 1
+
+def test_report_panel_selector_keeps_singleton_opus_point_series() -> None:
+    depth = np.asarray([100.0, 101.0, 102.0], dtype=np.float64)
+    dataset = Dataset(
+        "singleton-opus",
+        "Singleton OPUS",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        depth,
+    )
+    opus = CurveData(
+        CurveMetadata(
+            "opus",
+            "OPUS3",
+            "OPUS3",
+            "ratio",
+            None,
+            dataset.dataset_id,
+        ),
+        np.asarray([np.nan, 1.25, np.nan], dtype=np.float64),
+    )
+    dataset.curves[opus.metadata.curve_id] = opus
+    report = SimpleNamespace(
+        primary_mnemonic="",
+        report_profile="opus",
+        methods=(),
+    )
+
+    for select in (whole_well_panels, printed_panels):
+        panels = dict(select(report, dataset))
+        assert panels["opus"] == (opus,)
+
+
+def test_sparse_ratio_point_survives_whole_well_preview_downsampling() -> None:
+    class RecordingPainter:
+        def __init__(self) -> None:
+            self.ellipses = 0
+
+        def drawEllipse(self, _rect) -> None:
+            self.ellipses += 1
+
+        def __getattr__(self, _name):
+            return lambda *args, **kwargs: None
+
+    depth = np.arange(3_601, dtype=np.float64)
+    values = np.full(depth.shape, np.nan, dtype=np.float64)
+    # Index 1235 is intentionally absent from the old 1,800-point uniform
+    # depth sample, so this guards against losing factual sparse observations.
+    values[1_235] = 2.5
+    dataset = Dataset(
+        "sparse-ratio-preview",
+        "Sparse ratio preview",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        depth,
+    )
+    ratio = CurveData(
+        CurveMetadata(
+            "ratio",
+            "C1_C2",
+            "C1_C2",
+            "ratio",
+            None,
+            dataset.dataset_id,
+        ),
+        values,
+    )
+    dataset.curves[ratio.metadata.curve_id] = ratio
+    report = SimpleNamespace(
+        primary_mnemonic="",
+        report_profile="standard",
+        methods=(),
+    )
+    selected = dict(whole_well_panels(report, dataset))["ratios"]
+    assert selected == (ratio,)
+
+    painter = RecordingPainter()
+    _draw_panel(
+        painter,  # type: ignore[arg-type]
+        QRectF(0.0, 0.0, 120.0, 180.0),
+        depth,
+        np.isfinite(depth),
+        float(depth[0]),
+        float(depth[-1]),
+        "ratios",
+        selected,
+        (),
+        AppLanguage.RU,
+        {},
+    )
+
+    # One factual point plus three point glyphs in the legend.
+    assert painter.ellipses >= 4
+
+
+def test_dense_ratio_preview_sampling_is_bounded() -> None:
+    class RecordingPainter:
+        def __init__(self) -> None:
+            self.ellipses = 0
+
+        def drawEllipse(self, _rect) -> None:
+            self.ellipses += 1
+
+        def __getattr__(self, _name):
+            return lambda *args, **kwargs: None
+
+    depth = np.arange(3_601, dtype=np.float64)
+    dataset = Dataset(
+        "dense-ratio-preview",
+        "Dense ratio preview",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        depth,
+    )
+    ratio = CurveData(
+        CurveMetadata(
+            "ratio",
+            "C1_C2",
+            "C1_C2",
+            "ratio",
+            None,
+            dataset.dataset_id,
+        ),
+        np.linspace(1.0, 4.0, depth.size, dtype=np.float64),
+    )
+
+    painter = RecordingPainter()
+    _draw_panel(
+        painter,  # type: ignore[arg-type]
+        QRectF(0.0, 0.0, 120.0, 180.0),
+        depth,
+        np.isfinite(depth),
+        float(depth[0]),
+        float(depth[-1]),
+        "ratios",
+        (ratio,),
+        (),
+        AppLanguage.RU,
+        {},
+    )
+
+    # 1,800 factual markers + three point glyphs in the legend.
+    assert painter.ellipses == 1_803
+
+
+def test_report_panel_scatter_contract_is_ratio_only() -> None:
+    whole = Path(
+        "src/geoworkbench/printing/hydrocarbon_interpretation_chart.py"
+    ).read_text(encoding="utf-8")
+    pdf = Path(
+        "src/geoworkbench/printing/hydrocarbon_interpretation_pdf_chart.py"
+    ).read_text(encoding="utf-8")
+    enhanced = Path(
+        "src/geoworkbench/printing/hydrocarbon_interpretation_pdf_chart_enhanced.py"
+    ).read_text(encoding="utf-8")
+
+    for source in (whole, pdf, enhanced):
+        assert 'panel_name in {"ratios", "opus"}' in source
+        assert 'panel_name != "drilling"' not in source
 
 def test_constant_gas_curve_keeps_true_percentiles_and_a_visible_trace(qapp) -> None:
     depth = np.linspace(0.0, 10.0, 11)

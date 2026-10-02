@@ -209,6 +209,71 @@ def test_track_and_group_rename_refresh_without_full_rebuild(qapp) -> None:
     view.close()
 
 
+def test_ratio_curves_use_points_while_gas_and_drilling_keep_lines(qapp) -> None:
+    from geoworkbench.tablet.render_invalidation import DirtyReason
+
+    depth = np.asarray([100.0, 101.0, 102.0], dtype=np.float64)
+    dataset = Dataset(
+        "gas-ratio-point-style",
+        "Gas ratio point style",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        depth,
+    )
+    curve_specs = (
+        ("C1", np.asarray([1.0, 2.0, 3.0]), "%"),
+        ("PIXLER_C1_C2", np.asarray([2.5, 3.0, 3.5]), "ratio"),
+        ("ROP", np.asarray([10.0, 12.0, 11.0]), "m/h"),
+    )
+    for mnemonic, values, unit in curve_specs:
+        curve = CurveData(
+            CurveMetadata(
+                f"curve-{mnemonic}",
+                mnemonic,
+                mnemonic,
+                unit,
+                None,
+                dataset.dataset_id,
+            ),
+            values,
+        )
+        dataset.curves[curve.metadata.curve_id] = curve
+
+    definition = TrackDefinition(
+        "mixed",
+        "Gas / ratios / drilling",
+        TrackKind.CURVE,
+        curve_mnemonics=["C1", "PIXLER_C1_C2", "ROP"],
+    )
+    view = TabletView()
+    view.set_layout_and_dataset(TabletLayout([definition]), dataset)
+    qapp.processEvents()
+
+    c1_item = view._rendered["mixed"].curve_items["C1"]
+    ratio_item = view._rendered["mixed"].curve_items["PIXLER_C1_C2"]
+    rop_item = view._rendered["mixed"].curve_items["ROP"]
+
+    assert c1_item.opts.get("symbol") is None
+    assert c1_item.opts.get("pen") is not None
+    assert ratio_item.opts.get("symbol") == "o"
+    ratio_pen = ratio_item.opts.get("pen")
+    assert ratio_pen is None or ratio_pen.style() is Qt.PenStyle.NoPen
+    assert rop_item.opts.get("symbol") is None
+    assert rop_item.opts.get("pen") is not None
+
+    assert view.refresh_track("mixed", DirtyReason.STYLE)
+    qapp.processEvents()
+
+    assert c1_item.opts.get("symbol") is None
+    assert c1_item.opts.get("pen") is not None
+    assert ratio_item.opts.get("symbol") == "o"
+    ratio_pen = ratio_item.opts.get("pen")
+    assert ratio_pen is None or ratio_pen.style() is Qt.PenStyle.NoPen
+    assert rop_item.opts.get("symbol") is None
+    assert rop_item.opts.get("pen") is not None
+    view.close()
+
+
 def test_existing_russian_absolute_gas_title_retranslates_on_tablet(qapp) -> None:
     dataset = Dataset(
         "dataset-absolute-gas-title",
