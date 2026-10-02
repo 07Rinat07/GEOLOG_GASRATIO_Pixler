@@ -153,6 +153,7 @@ def test_clean_unwrapped_las_uses_numeric_fast_path_and_preserves_null(
         "C2.PPM : Ethane\n"
         "~A\n"
         "100 1 -999.25\n"
+        "-999.25 4 5\n"
         "101 2 3\n",
         encoding="ascii",
     )
@@ -174,19 +175,60 @@ def test_clean_unwrapped_las_uses_numeric_fast_path_and_preserves_null(
     result = import_las_with_report(source)
 
     assert calls == [True]
-    np.testing.assert_allclose(result.dataset.depth, [100.0, 101.0])
+    assert result.dataset.depth[0] == pytest.approx(100.0)
+    assert np.isnan(result.dataset.depth[1])
+    assert result.dataset.depth[2] == pytest.approx(101.0)
     np.testing.assert_allclose(
         result.dataset.curve_by_mnemonic("C1").values,
-        [1.0, 2.0],
+        [1.0, 4.0, 2.0],
     )
     c2_values = result.dataset.curve_by_mnemonic("C2").values
     assert np.isnan(c2_values[0])
-    assert c2_values[1] == pytest.approx(3.0)
+    assert c2_values[1] == pytest.approx(5.0)
+    assert c2_values[2] == pytest.approx(3.0)
     performance = [
         context for event, context in events if event == "las.import.performance"
     ]
     assert len(performance) == 1
     assert performance[0]["parse_backend"] == "numpy-loadtxt"
+
+
+def test_numeric_fast_path_does_not_copy_full_ascii_section(
+    tmp_path, monkeypatch
+) -> None:
+    import geoworkbench.data.las_adapter as adapter_module
+
+    source = tmp_path / "bounded-fast-path.las"
+    source.write_text(
+        "~V\n"
+        "VERS. 2.0\n"
+        "WRAP. NO\n"
+        "~W\n"
+        "NULL. -999.25\n"
+        "~C\n"
+        "DEPT.M : Depth\n"
+        "C1.PPM : Methane\n"
+        "~A\n"
+        "100 1\n"
+        "101 2\n",
+        encoding="ascii",
+    )
+
+    monkeypatch.setattr(
+        adapter_module.LosslessLasDocument,
+        "section_bytes",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("fast path must not copy the full ASCII section")
+        ),
+    )
+
+    result = import_las_with_report(source)
+
+    np.testing.assert_allclose(result.dataset.depth, [100.0, 101.0])
+    np.testing.assert_allclose(
+        result.dataset.curve_by_mnemonic("C1").values,
+        [1.0, 2.0],
+    )
 
 
 def test_wrapped_las_uses_compatibility_fallback(tmp_path, monkeypatch) -> None:
