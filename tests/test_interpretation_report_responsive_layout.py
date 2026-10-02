@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+
+import pytest
 from PySide6.QtCore import QPoint, Qt
 
 from geoworkbench.project.interpretation_calculation_controller import (
@@ -109,6 +111,55 @@ def test_interpretation_workspace_replaces_controls_with_preview_on_narrow_windo
     assert workspace.configuration_scroll.isVisible()
     workspace.close()
 
+
+
+@pytest.mark.parametrize("language", [AppLanguage.RU, AppLanguage.KK, AppLanguage.EN])
+def test_interpretation_workspace_has_no_horizontal_control_clipping_at_900x650(
+    qapp,
+    language: AppLanguage,
+) -> None:
+    workspace = InterpretationReportWorkspace(
+        InterpretationCalculationController(ProjectSession()),
+        language=language,
+    )
+    workspace.resize(900, 650)
+    workspace.show()
+    qapp.processEvents()
+
+    viewport = workspace.configuration_scroll.viewport()
+    assert workspace._configuration_columns == 1
+    assert workspace.configuration_scroll.horizontalScrollBar().maximum() == 0
+    assert workspace.configuration_shell.width() <= viewport.width()
+
+    for control in (
+        workspace.normalized_gas_mode,
+        workspace.configure_drilling_inputs_button,
+        workspace.recalculate_all_button,
+        workspace.refresh_chart_report_button,
+        workspace.calculate_normalized_gas_button,
+        workspace.show_normalized_gas_button,
+        workspace.report_mode,
+        workspace.normal_density,
+        workspace.threshold,
+        workspace.total_gas_lod,
+        workspace.rop_reference,
+        workspace.bit_reference,
+        workspace.flow_reference,
+        workspace.gas_efficiency,
+        workspace.calculate_button,
+        workspace.refresh_button,
+    ):
+        top_left = control.mapTo(viewport, QPoint(0, 0))
+        assert top_left.x() >= 0, (language, control.objectName(), top_left.x())
+        assert top_left.x() + control.width() <= viewport.width(), (
+            language,
+            control.objectName(),
+            top_left.x(),
+            control.width(),
+            viewport.width(),
+        )
+
+    workspace.close()
 
 
 def test_interpretation_workspace_keeps_export_actions_visible_at_laptop_height(qapp) -> None:
