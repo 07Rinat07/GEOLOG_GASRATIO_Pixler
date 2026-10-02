@@ -10,8 +10,6 @@ from tempfile import TemporaryDirectory
 from time import perf_counter
 from typing import Any
 
-os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-
 from PySide6.QtWidgets import QApplication
 
 from geoworkbench.data.las_adapter import import_las_with_report
