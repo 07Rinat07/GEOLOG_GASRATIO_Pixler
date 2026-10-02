@@ -19,6 +19,7 @@ from geoworkbench.printing.print_layout import (
     PrintContinuationSlice,
     PrintScaleMode,
 )
+from geoworkbench.services.gas_curve_presentation import GAS_SCREEN_POINT_SIZE_PX
 from geoworkbench.tablet.grid_renderer import TabletGridOverlay, TabletGridRenderer
 from geoworkbench.tablet.models import CurveLineStyle
 from geoworkbench.tablet.tablet_view import (
@@ -118,9 +119,10 @@ def _activate_print_curve_styles(
                 # persisted curve color and restores the live marker afterward.
                 if style is not None:
                     item.setSymbolBrush(pg.mkBrush(style.color))
-                    item.setSymbolPen(pg.mkPen(style.color))
+                item.setSymbolPen(pg.mkPen(None))
                 item.setSymbolSize(
-                    max(5.0, saved_symbol_size) * float(raster_scale)
+                    max(GAS_SCREEN_POINT_SIZE_PX, saved_symbol_size)
+                    * float(raster_scale)
                 )
                 continue
             if style is None:
