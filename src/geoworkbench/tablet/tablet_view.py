@@ -454,6 +454,7 @@ class CurveRenderKey:
     scale: XScale
     minimum: float
     maximum: float
+    scatter_span_px: int = 0
 
 
 @dataclass(slots=True)
@@ -6714,6 +6715,7 @@ class TabletView(QWidget):
         if current is None:
             return
         self._synchronize_depth_ranges(*current)
+        self._update_visible_curve_data(*current)
         self._synchronize_vertical_rulers(*current)
         self._update_lithology_text_visibility(*current)
         self._update_navigation_controls()
@@ -8849,9 +8851,17 @@ class TabletView(QWidget):
                     curve.metadata.canonical_mnemonic,
                 )
             )
-            budget = self._lod_point_budget(
-                rendered.plot.viewport().height() if rendered.plot is not None else 1000
+            viewport_height = (
+                rendered.plot.viewport().height()
+                if rendered.plot is not None
+                else 1000
             )
+            viewport_width = (
+                rendered.plot.viewport().width()
+                if rendered.plot is not None
+                else 1000
+            )
+            budget = self._lod_point_budget(viewport_height)
             geometry_key = self._curve_geometry_key(
                 mnemonic, depth, source_values, top, bottom, budget, logarithmic
             )
@@ -8863,6 +8873,9 @@ class TabletView(QWidget):
                 scale=settings.x_scale,
                 minimum=float(minimum),
                 maximum=float(maximum),
+                scatter_span_px=(
+                    int(round(viewport_height)) if point_series else 0
+                ),
             )
             render_keys = rendered.curve_render_keys
             if render_keys is not None and render_keys.get(mnemonic) == render_key:
@@ -8898,12 +8911,10 @@ class TabletView(QWidget):
                     normalized,
                     top=top,
                     bottom=bottom,
-                    vertical_span=(
-                        rendered.plot.viewport().height()
-                        if rendered.plot is not None
-                        else 1000.0
-                    ),
+                    vertical_span=float(viewport_height),
                     minimum_gap=GAS_SCREEN_POINT_GAP_PX,
+                    horizontal_span=float(viewport_width),
+                    marker_diameter=GAS_SCREEN_POINT_SIZE_PX,
                 )
                 item.setData(normalized[point_rows], visible_depth[point_rows])
             else:
@@ -9206,6 +9217,8 @@ class TabletView(QWidget):
                         else 1000.0
                     ),
                     minimum_gap=GAS_SCREEN_POINT_GAP_PX,
+                    horizontal_span=float(track.plot.viewport().width()),
+                    marker_diameter=GAS_SCREEN_POINT_SIZE_PX,
                 )
                 item = track.plot.plot(
                     visible_values[point_rows],
