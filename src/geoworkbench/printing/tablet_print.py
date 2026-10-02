@@ -6,7 +6,7 @@ from math import isfinite
 
 import pyqtgraph as pg
 from PySide6.QtCore import QPoint, QRectF, QSize, Qt
-from PySide6.QtGui import QImage, QPainter, QPen, QPixmap
+from PySide6.QtGui import QBrush, QImage, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QWidget
 
 from geoworkbench.printing.form_column_layout import (
@@ -42,6 +42,8 @@ class _CurvePrintState:
     item: pg.PlotDataItem
     pen: QPen | None
     symbol_size: float
+    symbol_brush: QBrush | None
+    symbol_pen: QPen | None
 
 
 def _qt_pen_style(style: CurveLineStyle) -> Qt.PenStyle:
@@ -78,16 +80,45 @@ def _activate_print_curve_styles(
                 else None
             )
             saved_symbol_size = float(item.opts.get("symbolSize") or 0.0)
-            states.append(_CurvePrintState(item, saved_pen, saved_symbol_size))
-            if item.opts.get("symbol") is not None and saved_pen is None:
+            symbol_brush_option = item.opts.get("symbolBrush")
+            saved_symbol_brush = (
+                QBrush(pg.mkBrush(symbol_brush_option))
+                if symbol_brush_option is not None
+                else None
+            )
+            symbol_pen_option = item.opts.get("symbolPen")
+            saved_symbol_pen = (
+                QPen(pg.mkPen(symbol_pen_option))
+                if symbol_pen_option is not None
+                else None
+            )
+            states.append(
+                _CurvePrintState(
+                    item,
+                    saved_pen,
+                    saved_symbol_size,
+                    saved_symbol_brush,
+                    saved_symbol_pen,
+                )
+            )
+            style = track.definition.curve_style(mnemonic)
+            point_only = (
+                item.opts.get("symbol") is not None
+                and (
+                    saved_pen is None
+                    or saved_pen.style() is Qt.PenStyle.NoPen
+                )
+            )
+            if point_only:
                 # Ratio observations are intentionally point-only. Paper mode may
                 # enlarge markers for legibility, but must never create a line.
-                # Keep the existing None pen untouched: pyqtgraph.setPen(None)
-                # normalizes it to a Qt::NoPen QPen object, obscuring the
-                # point-only state and complicating exact restoration.
+                # Interactive tablet colors may be muted; print capture uses the
+                # persisted curve color and restores the live marker afterward.
+                if style is not None:
+                    item.setSymbolBrush(pg.mkBrush(style.color))
+                    item.setSymbolPen(pg.mkPen(style.color))
                 item.setSymbolSize(max(5.0, saved_symbol_size))
                 continue
-            style = track.definition.curve_style(mnemonic)
             if style is None:
                 # Legacy/imported tracks may rely on the live PlotDataItem pen
                 # instead of a persisted CurveStyle. Preserve its exact colour
@@ -116,6 +147,8 @@ def _restore_print_curve_styles(states: list[_CurvePrintState]) -> None:
             state.item.setPen(state.pen)
         if state.item.opts.get("symbol") is not None:
             state.item.setSymbolSize(state.symbol_size)
+            state.item.setSymbolBrush(state.symbol_brush)
+            state.item.setSymbolPen(state.symbol_pen)
 
 
 def _activate_layout_tree(widget: QWidget) -> None:
