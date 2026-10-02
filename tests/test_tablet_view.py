@@ -4,7 +4,7 @@ import numpy as np
 import pyqtgraph as pg
 import pytest
 from PySide6.QtCore import QEvent, QPoint, QPointF, Qt
-from PySide6.QtGui import QKeyEvent, QMouseEvent, QPen, QTextOption, QWheelEvent
+from PySide6.QtGui import QKeyEvent, QMouseEvent, QTextOption, QWheelEvent
 from PySide6.QtTest import QTest
 
 from geoworkbench.domain.models import (
