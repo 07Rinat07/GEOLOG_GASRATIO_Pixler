@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 
 from geoworkbench.domain.models import CurveData, Dataset
+from geoworkbench.services.gas_curve_presentation import uses_gas_point_presentation
 from geoworkbench.services.hydrocarbon_interpretation import HydrocarbonInterpretationReport
 
 
@@ -32,7 +33,7 @@ def report_curve_panels(
             ):
                 reported.extend(method.available_mnemonics)
 
-        minimum_samples = 1 if panel_name in {"ratios", "opus"} else 2
+        panel_point_series = panel_name in {"ratios", "opus"}
         curves: list[CurveData] = []
         seen: set[str] = set()
         for candidate in (*reported, *fallback_order):
@@ -46,6 +47,14 @@ def report_curve_panels(
             if candidate not in reported and names.isdisjoint(fallback_names):
                 continue
             values = np.asarray(curve.values, dtype=np.float64)
+            curve_point_series = panel_point_series or uses_gas_point_presentation(
+                (
+                    candidate,
+                    curve.metadata.original_mnemonic,
+                    curve.metadata.canonical_mnemonic,
+                )
+            )
+            minimum_samples = 1 if curve_point_series else 2
             if (
                 values.shape != dataset.depth.shape
                 or np.count_nonzero(np.isfinite(values)) < minimum_samples
