@@ -418,6 +418,56 @@ def test_sparse_ratio_point_survives_whole_well_preview_downsampling() -> None:
     assert painter.ellipses >= 4
 
 
+def test_dense_ratio_preview_sampling_is_bounded() -> None:
+    class RecordingPainter:
+        def __init__(self) -> None:
+            self.ellipses = 0
+
+        def drawEllipse(self, _rect) -> None:
+            self.ellipses += 1
+
+        def __getattr__(self, _name):
+            return lambda *args, **kwargs: None
+
+    depth = np.arange(3_601, dtype=np.float64)
+    dataset = Dataset(
+        "dense-ratio-preview",
+        "Dense ratio preview",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        depth,
+    )
+    ratio = CurveData(
+        CurveMetadata(
+            "ratio",
+            "C1_C2",
+            "C1_C2",
+            "ratio",
+            None,
+            dataset.dataset_id,
+        ),
+        np.linspace(1.0, 4.0, depth.size, dtype=np.float64),
+    )
+
+    painter = RecordingPainter()
+    _draw_panel(
+        painter,  # type: ignore[arg-type]
+        QRectF(0.0, 0.0, 120.0, 180.0),
+        depth,
+        np.isfinite(depth),
+        float(depth[0]),
+        float(depth[-1]),
+        "ratios",
+        (ratio,),
+        (),
+        AppLanguage.RU,
+        {},
+    )
+
+    # 1,800 factual markers + three point glyphs in the legend.
+    assert painter.ellipses == 1_803
+
+
 def test_report_panel_scatter_contract_is_ratio_only() -> None:
     whole = Path(
         "src/geoworkbench/printing/hydrocarbon_interpretation_chart.py"
