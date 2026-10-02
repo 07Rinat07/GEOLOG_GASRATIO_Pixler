@@ -256,6 +256,7 @@ def test_ratio_curves_use_points_while_gas_and_drilling_keep_lines(qapp) -> None
     assert c1_item.opts.get("symbol") is None
     assert c1_item.opts.get("pen") is not None
     assert ratio_item.opts.get("symbol") == "o"
+    assert float(ratio_item.opts.get("symbolSize")) <= 3.0
     ratio_pen = ratio_item.opts.get("pen")
     assert ratio_pen is None or ratio_pen.style() is Qt.PenStyle.NoPen
     assert rop_item.opts.get("symbol") is None
@@ -267,6 +268,7 @@ def test_ratio_curves_use_points_while_gas_and_drilling_keep_lines(qapp) -> None
     assert c1_item.opts.get("symbol") is None
     assert c1_item.opts.get("pen") is not None
     assert ratio_item.opts.get("symbol") == "o"
+    assert float(ratio_item.opts.get("symbolSize")) <= 3.0
     ratio_pen = ratio_item.opts.get("pen")
     assert ratio_pen is None or ratio_pen.style() is Qt.PenStyle.NoPen
     assert rop_item.opts.get("symbol") is None
