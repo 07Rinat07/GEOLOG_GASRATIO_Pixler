@@ -44,6 +44,11 @@ from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.hydrocarbon_interpretation import (
     build_hydrocarbon_interpretation_report,
 )
+from geoworkbench.services.gas_curve_presentation import (
+    GAS_PREVIEW_POINTS_PER_PX,
+    GAS_PRINT_POINTS_PER_PT,
+    gas_scatter_point_budget,
+)
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.interpretation_report_workspace import InterpretationReportWorkspace
 
@@ -204,7 +209,9 @@ def test_pdf_curve_renderer_uses_points_for_ratios_and_lines_for_depth_series() 
         dataset,
         (ratio,),
         {"ratio": (1.5, 3.5)},
-        point_series=True,
+        # Even a caller-provided False must not downgrade a factual ratio
+        # identity back to a line series.
+        point_series=False,
     )
     assert ratio_painter.ellipses > 0
     assert ratio_painter.lines == 0
@@ -225,6 +232,61 @@ def test_pdf_curve_renderer_uses_points_for_ratios_and_lines_for_depth_series() 
         )
         assert line_painter.lines > 0
         assert line_painter.ellipses == 0
+
+
+def test_whole_well_preview_uses_ratio_identity_outside_ratio_panel() -> None:
+    class RecordingPainter:
+        def __init__(self) -> None:
+            self.ellipses = 0
+            self.lines = 0
+
+        def drawEllipse(self, _rect) -> None:
+            self.ellipses += 1
+
+        def drawLine(self, _line) -> None:
+            self.lines += 1
+
+        def __getattr__(self, _name):
+            return lambda *args, **kwargs: None
+
+    depth = np.asarray([100.0, 101.0, 102.0], dtype=np.float64)
+    dataset = Dataset(
+        "ratio-identity-preview",
+        "Ratio identity preview",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        depth,
+    )
+    ratio = CurveData(
+        CurveMetadata(
+            "ratio",
+            "C1/C2",
+            "C1_C2",
+            "ratio",
+            None,
+            dataset.dataset_id,
+        ),
+        np.asarray([1.0, 2.0, 3.0], dtype=np.float64),
+    )
+    painter = RecordingPainter()
+
+    _draw_panel(
+        painter,  # type: ignore[arg-type]
+        QRectF(0.0, 0.0, 120.0, 180.0),
+        depth,
+        np.isfinite(depth),
+        100.0,
+        102.0,
+        "total",
+        (ratio,),
+        (),
+        AppLanguage.RU,
+        {},
+    )
+
+    assert painter.ellipses > 0
+    # Grid lines exist in the panel, so only verify the ratio itself through
+    # marker rendering; its identity must not be downgraded by panel_name.
 
 
 def test_singleton_ratio_observation_survives_preview_and_pdf_range() -> None:
@@ -422,9 +484,11 @@ def test_dense_ratio_preview_sampling_is_bounded() -> None:
     class RecordingPainter:
         def __init__(self) -> None:
             self.ellipses = 0
+            self.ellipse_rects: list[QRectF] = []
 
-        def drawEllipse(self, _rect) -> None:
+        def drawEllipse(self, rect) -> None:
             self.ellipses += 1
+            self.ellipse_rects.append(QRectF(rect))
 
         def __getattr__(self, _name):
             return lambda *args, **kwargs: None
@@ -464,8 +528,86 @@ def test_dense_ratio_preview_sampling_is_bounded() -> None:
         {},
     )
 
-    # 1,800 factual markers + three point glyphs in the legend.
-    assert painter.ellipses == 1_803
+    point_budget = gas_scatter_point_budget(
+        178.0,
+        density=GAS_PREVIEW_POINTS_PER_PX,
+        minimum=16,
+        maximum=720,
+    )
+    # Dense observations stay a readable point cloud instead of overlapping
+    # into vertical "worms"; three extra ellipses are legend glyphs.
+    assert 3 < painter.ellipses <= point_budget + 3
+    assert painter.ellipse_rects
+    assert all(
+        abs(rect.width() - rect.height()) < 1e-9
+        for rect in painter.ellipse_rects
+    )
+    assert max(rect.width() for rect in painter.ellipse_rects) <= 3.0
+
+
+def test_dense_ratio_pdf_sampling_is_bounded_by_print_height() -> None:
+    class RecordingPainter:
+        def __init__(self) -> None:
+            self.ellipses = 0
+            self.lines = 0
+            self.ellipse_rects: list[QRectF] = []
+
+        def drawEllipse(self, rect) -> None:
+            self.ellipses += 1
+            self.ellipse_rects.append(QRectF(rect))
+
+        def drawLine(self, _line) -> None:
+            self.lines += 1
+
+        def __getattr__(self, _name):
+            return lambda *args, **kwargs: None
+
+    depth = np.arange(3_601, dtype=np.float64)
+    dataset = Dataset(
+        "dense-ratio-pdf",
+        "Dense ratio PDF",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        depth,
+    )
+    ratio = CurveData(
+        CurveMetadata(
+            "ratio",
+            "C1_C2",
+            "C1_C2",
+            "ratio",
+            None,
+            dataset.dataset_id,
+        ),
+        2.0 + np.sin(depth / 25.0),
+    )
+    page = DepthPage(0.0, 3_600.0, 100, 100.0)
+    rect = QRectF(0.0, 0.0, 100.0, 100.0)
+    painter = RecordingPainter()
+
+    _draw_curves(
+        painter,  # type: ignore[arg-type]
+        rect,
+        page,
+        dataset,
+        (ratio,),
+        {"ratio": (1.0, 3.0)},
+        point_series=True,
+    )
+
+    budget = gas_scatter_point_budget(
+        rect.height(),
+        density=GAS_PRINT_POINTS_PER_PT,
+        minimum=16,
+        maximum=900,
+    )
+    assert 1 < painter.ellipses <= budget
+    assert painter.lines == 0
+    assert all(
+        abs(rect.width() - rect.height()) < 1e-9
+        for rect in painter.ellipse_rects
+    )
+    assert max(rect.width() for rect in painter.ellipse_rects) <= 1.2
 
 
 def test_report_panel_scatter_contract_is_ratio_only() -> None:
