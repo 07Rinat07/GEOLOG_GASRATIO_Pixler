@@ -80,9 +80,11 @@ def _activate_print_curve_styles(
             saved_symbol_size = float(item.opts.get("symbolSize") or 0.0)
             states.append(_CurvePrintState(item, saved_pen, saved_symbol_size))
             if item.opts.get("symbol") is not None and saved_pen is None:
-                # Gas observations are intentionally point-only. Paper mode may
-                # enlarge markers for legibility, but must never restore a line.
-                item.setPen(None)
+                # Ratio observations are intentionally point-only. Paper mode may
+                # enlarge markers for legibility, but must never create a line.
+                # Keep the existing None pen untouched: pyqtgraph.setPen(None)
+                # normalizes it to a Qt::NoPen QPen object, obscuring the
+                # point-only state and complicating exact restoration.
                 item.setSymbolSize(max(5.0, saved_symbol_size))
                 continue
             style = track.definition.curve_style(mnemonic)
@@ -110,7 +112,8 @@ def _activate_print_curve_styles(
 
 def _restore_print_curve_styles(states: list[_CurvePrintState]) -> None:
     for state in reversed(states):
-        state.item.setPen(state.pen)
+        if state.pen is not None:
+            state.item.setPen(state.pen)
         if state.item.opts.get("symbol") is not None:
             state.item.setSymbolSize(state.symbol_size)
 
