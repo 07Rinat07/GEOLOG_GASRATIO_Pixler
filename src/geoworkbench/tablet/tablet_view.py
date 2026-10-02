@@ -8858,7 +8858,14 @@ class TabletView(QWidget):
                 else self._lod_point_budget(viewport_height)
             )
             geometry_key = self._curve_geometry_key(
-                mnemonic, depth, source_values, top, bottom, budget, logarithmic
+                mnemonic,
+                depth,
+                source_values,
+                top,
+                bottom,
+                budget,
+                logarithmic,
+                point_series=point_series,
             )
             minimum, maximum = self._curve_display_range(
                 rendered.definition, mnemonic, source_values
@@ -9143,7 +9150,14 @@ class TabletView(QWidget):
                     else self._lod_point_budget(viewport_height)
                 )
                 key = self._curve_geometry_key(
-                    mnemonic, depth, values, visible_top, visible_bottom, budget, logarithmic
+                    mnemonic,
+                    depth,
+                    values,
+                    visible_top,
+                    visible_bottom,
+                    budget,
+                    logarithmic,
+                    point_series=point_series,
                 )
                 raw_visible, visible_depth = self._geometry_cache.get_or_build(key, depth, values)
                 visible_values = self._normalize_curve_values_for_plot(
@@ -10983,6 +10997,8 @@ class TabletView(QWidget):
         bottom: float,
         max_points: int,
         positive_values_only: bool,
+        *,
+        point_series: bool = False,
     ) -> CurveGeometryKey:
         axis_id = self.vertical_index_id or "vertical-axis"
         return CurveGeometryKey(
@@ -10994,6 +11010,7 @@ class TabletView(QWidget):
             bottom=float(bottom),
             max_points=int(max_points),
             positive_values_only=positive_values_only,
+            point_series=bool(point_series),
         )
 
     def _update_visible_curve_data(self, top: float, bottom: float) -> None:
