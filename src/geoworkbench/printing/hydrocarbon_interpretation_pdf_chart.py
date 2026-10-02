@@ -263,7 +263,7 @@ def _draw_chart_page(
             percentiles,
             language=language,
             display_hints=display_hints,
-            point_series=panel_name != "drilling",
+            point_series=panel_name in {"ratios", "opus"},
         )
 
     painter.setPen(QColor("#475569"))
@@ -386,7 +386,7 @@ def _draw_panel(
             dataset,
             curves,
             ranges,
-            point_series=panel_name != "drilling",
+            point_series=panel_name in {"ratios", "opus"},
         )
     painter.setPen(QPen(QColor("#334155"), 1.0))
     painter.drawRect(rect)
