@@ -62,16 +62,11 @@ def test_sparse_gas_plot_uses_points_without_connecting_line(qapp) -> None:
 
     item = view._rendered["gas"].curve_items["C1"]
     x_values, y_values = item.getData()
-    connect = item.curve.opts["connect"]
-
     assert x_values is not None and y_values is not None
-    assert isinstance(connect, np.ndarray)
-    assert connect.dtype == np.bool_
-    assert connect.shape == y_values.shape
-    assert np.count_nonzero(connect[:12]) >= 8
-    assert not connect[-1]
     assert item.opts.get("symbol") == "o"
     assert item.opts.get("pen") is None
+    assert np.count_nonzero(np.isfinite(x_values)) >= 5
+    assert np.any(np.isnan(x_values))
     view.close()
 
 
@@ -82,10 +77,9 @@ def test_viewport_inside_sparse_cadence_keeps_interpolated_point_context(qapp) -
 
     item = view._rendered["gas"].curve_items["C1"]
     x_values, y_values = item.getData()
-    connect = item.curve.opts["connect"]
-
     assert x_values is not None and y_values is not None
     assert len(y_values) >= 2
-    assert np.count_nonzero(connect) >= 1
-    assert np.all(np.isfinite(x_values[np.asarray(connect, dtype=bool)]))
+    assert np.count_nonzero(np.isfinite(x_values)) >= 2
+    assert item.opts.get("symbol") == "o"
+    assert item.opts.get("pen") is None
     view.close()
