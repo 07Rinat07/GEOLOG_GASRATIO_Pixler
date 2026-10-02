@@ -6713,6 +6713,9 @@ class TabletView(QWidget):
         if current is None:
             return
         self._synchronize_depth_ranges(*current)
+        # Scatter LOD depends on the final viewport height. A resize can keep
+        # the same depth range while changing the correct marker budget.
+        self._update_visible_curve_data(*current)
         self._synchronize_vertical_rulers(*current)
         self._update_lithology_text_visibility(*current)
         self._update_navigation_controls()
