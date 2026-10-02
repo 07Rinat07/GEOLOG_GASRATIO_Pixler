@@ -356,6 +356,68 @@ def test_report_panel_selector_keeps_singleton_opus_point_series() -> None:
         assert panels["opus"] == (opus,)
 
 
+def test_sparse_ratio_point_survives_whole_well_preview_downsampling() -> None:
+    class RecordingPainter:
+        def __init__(self) -> None:
+            self.ellipses = 0
+
+        def drawEllipse(self, _rect) -> None:
+            self.ellipses += 1
+
+        def __getattr__(self, _name):
+            return lambda *args, **kwargs: None
+
+    depth = np.arange(3_601, dtype=np.float64)
+    values = np.full(depth.shape, np.nan, dtype=np.float64)
+    # Index 1235 is intentionally absent from the old 1,800-point uniform
+    # depth sample, so this guards against losing factual sparse observations.
+    values[1_235] = 2.5
+    dataset = Dataset(
+        "sparse-ratio-preview",
+        "Sparse ratio preview",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        depth,
+    )
+    ratio = CurveData(
+        CurveMetadata(
+            "ratio",
+            "C1_C2",
+            "C1_C2",
+            "ratio",
+            None,
+            dataset.dataset_id,
+        ),
+        values,
+    )
+    dataset.curves[ratio.metadata.curve_id] = ratio
+    report = SimpleNamespace(
+        primary_mnemonic="",
+        report_profile="standard",
+        methods=(),
+    )
+    selected = dict(whole_well_panels(report, dataset))["ratios"]
+    assert selected == (ratio,)
+
+    painter = RecordingPainter()
+    _draw_panel(
+        painter,  # type: ignore[arg-type]
+        QRectF(0.0, 0.0, 120.0, 180.0),
+        depth,
+        np.isfinite(depth),
+        float(depth[0]),
+        float(depth[-1]),
+        "ratios",
+        selected,
+        (),
+        AppLanguage.RU,
+        {},
+    )
+
+    # One factual point plus three point glyphs in the legend.
+    assert painter.ellipses >= 4
+
+
 def test_report_panel_scatter_contract_is_ratio_only() -> None:
     whole = Path(
         "src/geoworkbench/printing/hydrocarbon_interpretation_chart.py"
