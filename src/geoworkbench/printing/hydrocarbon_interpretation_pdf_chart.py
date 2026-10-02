@@ -35,6 +35,9 @@ from geoworkbench.services.hydrocarbon_interpretation import (
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.gas_curve_presentation import (
     GAS_PRINT_POINT_RADIUS_PT,
+    GAS_PRINT_POINTS_PER_PT,
+    gas_scatter_point_budget,
+    select_gas_scatter_indices,
     uses_gas_point_presentation,
 )
 
@@ -536,29 +539,49 @@ def _draw_curves(
             continue
         low, high = value_range
         color = QColor(_COLORS[curve_index % len(_COLORS)])
-        draw_as_points = (
-            point_series
-            if point_series is not None
-            else uses_gas_point_presentation(
-                (
-                    curve.metadata.original_mnemonic,
-                    curve.metadata.canonical_mnemonic,
-                )
+        draw_as_points = bool(point_series) or uses_gas_point_presentation(
+            (
+                curve.metadata.original_mnemonic,
+                curve.metadata.canonical_mnemonic,
             )
         )
-        pen = QPen(color, _PRINT_CURVE_WIDTH)
-        pen.setCosmetic(True)
-        painter.setPen(pen)
+        render_groups: tuple[np.ndarray, ...]
         if draw_as_points:
+            painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(color)
-        for segment in segments:
-            render_rows = _extrema_preserving_print_rows(
-                segment,
+            visible_mask = (
+                np.isfinite(depth)
+                & (depth >= page.top_depth)
+                & (depth <= page.bottom_depth)
+            )
+            point_budget = gas_scatter_point_budget(
+                curve_rect.height(),
+                density=GAS_PRINT_POINTS_PER_PT,
+                minimum=16,
+                maximum=900,
+            )
+            point_rows = select_gas_scatter_indices(
                 depth,
                 values,
-                page,
-                curve_rect,
+                max_points=point_budget,
+                valid_mask=visible_mask,
             )
+            render_groups = (point_rows,)
+        else:
+            pen = QPen(color, _PRINT_CURVE_WIDTH)
+            pen.setCosmetic(True)
+            painter.setPen(pen)
+            render_groups = tuple(
+                _extrema_preserving_print_rows(
+                    segment,
+                    depth,
+                    values,
+                    page,
+                    curve_rect,
+                )
+                for segment in segments
+            )
+        for render_rows in render_groups:
             previous: tuple[float, float] | None = None
             previous_normalized: float | None = None
             previous_clipped = False
@@ -634,26 +657,23 @@ def _draw_legend(
         low, high = value_range
         y = column.top() + row_index * 14.5
         color = QColor(_COLORS[row_index % len(_COLORS)])
-        draw_as_points = (
-            point_series
-            if point_series is not None
-            else uses_gas_point_presentation(
-                (
-                    curve.metadata.original_mnemonic,
-                    curve.metadata.canonical_mnemonic,
-                )
+        draw_as_points = bool(point_series) or uses_gas_point_presentation(
+            (
+                curve.metadata.original_mnemonic,
+                curve.metadata.canonical_mnemonic,
             )
         )
         painter.setPen(QPen(color, 0.8))
         if draw_as_points:
+            painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(color)
             for offset in (2.5, 8.5, 14.5):
                 painter.drawEllipse(
                     QRectF(
-                        column.left() + offset - 1.35,
-                        y + 3.65,
-                        2.7,
-                        2.7,
+                        column.left() + offset - 0.9,
+                        y + 4.1,
+                        1.8,
+                        1.8,
                     )
                 )
             painter.setBrush(Qt.BrushStyle.NoBrush)
@@ -696,11 +716,18 @@ def _curve_percentiles(
         else np.isfinite(depth)
     )
     for panel_name, curves in panels:
-        minimum_samples = 1 if panel_name in {"ratios", "opus"} else 2
+        panel_point_series = panel_name in {"ratios", "opus"}
         for curve in curves:
             values = np.asarray(curve.values, dtype=np.float64)
             if values.shape != dataset.depth.shape:
                 continue
+            curve_point_series = panel_point_series or uses_gas_point_presentation(
+                (
+                    curve.metadata.original_mnemonic,
+                    curve.metadata.canonical_mnemonic,
+                )
+            )
+            minimum_samples = 1 if curve_point_series else 2
             finite = values[selected & np.isfinite(values)]
             if finite.size < minimum_samples:
                 continue
