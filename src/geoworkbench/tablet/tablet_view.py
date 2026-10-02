@@ -8714,6 +8714,7 @@ class TabletView(QWidget):
                     )
                 )
             )
+            item.setProperty("gasPointPresentation", point_series)
             if point_series:
                 item.setPen(None)
                 item.setSymbol("o")
@@ -9189,6 +9190,7 @@ class TabletView(QWidget):
                     symbolBrush=pg.mkBrush(screen_color),
                     symbolPen=pg.mkPen(screen_color, width=0.35),
                 )
+                item.setProperty("gasPointPresentation", True)
             else:
                 item = track.plot.plot(
                     visible_values,
