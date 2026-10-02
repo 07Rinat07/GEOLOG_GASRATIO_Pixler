@@ -10,7 +10,10 @@ from geoworkbench.tablet.geometry_cache import (
 from geoworkbench.tablet.relative_gas import build_relative_gas_stack
 from geoworkbench.tablet.sampling import select_visible_samples
 from geoworkbench.services.gas_curve_presentation import (
+    GAS_SCREEN_POINT_SIZE_PX,
+    gas_scatter_point_budget,
     is_gas_point_mnemonic,
+    select_gas_scatter_samples,
 )
 from geoworkbench.tablet.tablet_view import CurveHeaderLabel
 
@@ -72,6 +75,44 @@ def test_gas_point_presentation_is_limited_to_ratios_and_interpretation() -> Non
         "DEXP",
     ):
         assert not is_gas_point_mnemonic(mnemonic)
+
+
+def test_gas_scatter_budget_and_marker_are_compact() -> None:
+    assert GAS_SCREEN_POINT_SIZE_PX < 3.0
+    assert gas_scatter_point_budget(180.0) == 72
+    assert gas_scatter_point_budget(900.0) == 360
+
+
+def test_gas_scatter_sampling_keeps_sparse_points_and_bounds_dense_cloud() -> None:
+    axis = np.arange(3_601, dtype=np.float64)
+    sparse = np.full(axis.shape, np.nan, dtype=np.float64)
+    sparse[1_235] = 2.5
+
+    sparse_values, sparse_axis = select_gas_scatter_samples(
+        axis,
+        sparse,
+        0.0,
+        3_600.0,
+        max_points=72,
+    )
+
+    np.testing.assert_allclose(sparse_values, [2.5])
+    np.testing.assert_allclose(sparse_axis, [1_235.0])
+
+    dense = 2.0 + np.sin(axis / 7.0)
+    dense_values, dense_axis = select_gas_scatter_samples(
+        axis,
+        dense,
+        0.0,
+        3_600.0,
+        max_points=72,
+    )
+
+    assert 1 < dense_values.size <= 72
+    assert dense_values.size == dense_axis.size
+    assert np.all(np.diff(dense_axis) >= 0.0)
+    assert float(np.min(dense_values)) < 1.2
+    assert float(np.max(dense_values)) > 2.8
 
 
 def test_sparse_continuity_policy_is_limited_to_gas_curves() -> None:
