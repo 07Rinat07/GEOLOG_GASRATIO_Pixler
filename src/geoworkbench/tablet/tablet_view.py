@@ -9149,20 +9149,24 @@ class TabletView(QWidget):
                     )
                 )
             )
-            item = track.plot.plot(
-                visible_values,
-                visible_depth,
-                pen=None if point_series else pen,
-                symbol="o" if point_series else None,
-                symbolSize=GAS_SCREEN_POINT_SIZE_PX if point_series else None,
-                symbolBrush=pg.mkBrush(screen_color) if point_series else None,
-                symbolPen=(
-                    pg.mkPen(screen_color, width=0.65)
-                    if point_series
-                    else None
-                ),
-                connect="finite",
-            )
+            if point_series:
+                item = track.plot.plot(
+                    visible_values,
+                    visible_depth,
+                    pen=None,
+                    symbol="o",
+                    symbolSize=GAS_SCREEN_POINT_SIZE_PX,
+                    symbolBrush=pg.mkBrush(screen_color),
+                    symbolPen=pg.mkPen(screen_color, width=0.65),
+                    connect="finite",
+                )
+            else:
+                item = track.plot.plot(
+                    visible_values,
+                    visible_depth,
+                    pen=pen,
+                    connect="finite",
+                )
             item.setToolTip(
                 f"{display_name} [{mnemonic}]" + (f" · {unit}" if unit else "")
             )
