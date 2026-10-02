@@ -75,7 +75,10 @@ from geoworkbench.printing.text_rendering import (
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.gas_curve_presentation import (
+    GAS_MASTERLOG_POINTS_PER_MM,
     GAS_PRINT_POINT_RADIUS_PT,
+    gas_scatter_point_budget,
+    select_gas_scatter_indices,
     uses_gas_point_presentation,
 )
 from geoworkbench.services.report_passport import ReportPassport
@@ -2959,14 +2962,45 @@ def _paint_curve_column(
         source_values = np.asarray(curve.values, dtype=np.float64)
         if source_values.shape != depth.shape:
             continue
-        values, sampled_depth = select_visible_samples(
-            depth,
-            source_values,
-            top,
-            bottom,
-            max_points=5000,
-            positive_values_only=logarithmic,
+        point_series = uses_gas_point_presentation(
+            (
+                mnemonic,
+                curve.metadata.original_mnemonic,
+                curve.metadata.canonical_mnemonic,
+            )
         )
+        if point_series:
+            visible_mask = (
+                np.isfinite(depth)
+                & (depth >= top)
+                & (depth <= bottom)
+                & np.isfinite(source_values)
+            )
+            if logarithmic:
+                visible_mask &= source_values > 0.0
+            point_budget = gas_scatter_point_budget(
+                rect.height(),
+                density=GAS_MASTERLOG_POINTS_PER_MM,
+                minimum=16,
+                maximum=900,
+            )
+            point_indices = select_gas_scatter_indices(
+                depth,
+                source_values,
+                max_points=point_budget,
+                valid_mask=visible_mask,
+            )
+            values = source_values[point_indices]
+            sampled_depth = depth[point_indices]
+        else:
+            values, sampled_depth = select_visible_samples(
+                depth,
+                source_values,
+                top,
+                bottom,
+                max_points=5000,
+                positive_values_only=logarithmic,
+            )
         if not values.size:
             continue
         if logarithmic:
@@ -2977,15 +3011,8 @@ def _paint_curve_column(
 
         curve_style = masterlog_curve_style(column, mnemonic, curve_index)
         color = _color(curve_style.color, column.line_color)
-        point_series = uses_gas_point_presentation(
-            (
-                mnemonic,
-                curve.metadata.original_mnemonic,
-                curve.metadata.canonical_mnemonic,
-            )
-        )
         if point_series:
-            painter.setPen(QPen(color, 0.2))
+            painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(color)
             radius = GAS_PRINT_POINT_RADIUS_PT * 25.4 / 72.0
             for value, depth_value in zip(values, sampled_depth, strict=True):
