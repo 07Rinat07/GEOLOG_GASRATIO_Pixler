@@ -556,15 +556,31 @@ def _draw_curves(
         painter.setPen(pen)
         if draw_as_points:
             painter.setBrush(color)
+            display_values = np.full(values.shape, np.nan, dtype=np.float64)
+            finite_values = np.isfinite(values)
+            if high <= low:
+                display_values[finite_values] = np.where(
+                    values[finite_values] == low,
+                    0.5,
+                    np.where(values[finite_values] > low, 1.0, 0.0),
+                )
+            else:
+                display_values[finite_values] = np.clip(
+                    (values[finite_values] - low) / (high - low),
+                    0.0,
+                    1.0,
+                )
+            radius = GAS_PRINT_POINT_RADIUS_PT
             render_rows = gas_scatter_sample_indices(
                 depth,
-                values,
+                display_values,
                 top=page.top_depth,
                 bottom=page.bottom_depth,
                 vertical_span=curve_rect.height(),
                 minimum_gap=GAS_PRINT_POINT_GAP_PT,
+                horizontal_span=curve_rect.width(),
+                marker_diameter=radius * 2.0,
             )
-            radius = GAS_PRINT_POINT_RADIUS_PT
             for row_index in render_rows:
                 value = values[row_index]
                 if high <= low:
