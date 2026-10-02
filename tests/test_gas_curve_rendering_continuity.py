@@ -9,6 +9,9 @@ from geoworkbench.tablet.geometry_cache import (
 )
 from geoworkbench.tablet.relative_gas import build_relative_gas_stack
 from geoworkbench.tablet.sampling import select_visible_samples
+from geoworkbench.services.gas_curve_presentation import (
+    is_gas_point_mnemonic,
+)
 from geoworkbench.tablet.tablet_view import CurveHeaderLabel
 
 
@@ -37,6 +40,26 @@ def _value_at(
     matches = np.flatnonzero(np.isclose(sampled_axis, axis_value))
     assert matches.size == 1
     return float(sampled_values[int(matches[0])])
+
+
+def test_gas_point_presentation_covers_raw_normalized_ratios_and_opus() -> None:
+    for mnemonic in (
+        "C1",
+        "NC5",
+        "TG",
+        "TG_CALC",
+        "C1_NORM",
+        "WH",
+        "C1_C2",
+        "PIXLER_C1_C3",
+        "OPUS_TG_PCT",
+        "OPUS3",
+    ):
+        assert is_gas_point_mnemonic(mnemonic)
+
+    assert not is_gas_point_mnemonic("C1_REL")
+    assert not is_gas_point_mnemonic("ROP")
+    assert not is_gas_point_mnemonic("DEXP")
 
 
 def test_sparse_continuity_policy_is_limited_to_gas_curves() -> None:
