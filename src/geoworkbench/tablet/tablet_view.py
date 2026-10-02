@@ -8842,6 +8842,13 @@ class TabletView(QWidget):
             source_values = np.asarray(curve.values, dtype=float)
             settings = rendered.definition.curve_display_settings(mnemonic)
             logarithmic = settings.x_scale is XScale.LOGARITHMIC
+            point_series = uses_gas_point_presentation(
+                (
+                    mnemonic,
+                    curve.metadata.original_mnemonic,
+                    curve.metadata.canonical_mnemonic,
+                )
+            )
             budget = self._lod_point_budget(
                 rendered.plot.viewport().height() if rendered.plot is not None else 1000
             )
@@ -8860,9 +8867,21 @@ class TabletView(QWidget):
             render_keys = rendered.curve_render_keys
             if render_keys is not None and render_keys.get(mnemonic) == render_key:
                 continue
-            values, visible_depth = self._geometry_cache.get_or_build(
-                geometry_key, depth, source_values
-            )
+            if point_series:
+                visible_mask = (
+                    np.isfinite(depth)
+                    & np.isfinite(source_values)
+                    & (depth >= min(top, bottom))
+                    & (depth <= max(top, bottom))
+                )
+                if logarithmic:
+                    visible_mask &= source_values > 0.0
+                values = source_values[visible_mask]
+                visible_depth = depth[visible_mask]
+            else:
+                values, visible_depth = self._geometry_cache.get_or_build(
+                    geometry_key, depth, source_values
+                )
             if rendered.definition.kind is TrackKind.CALCIMETRY:
                 normalized = np.where(
                     np.isfinite(values),
@@ -8873,13 +8892,6 @@ class TabletView(QWidget):
                 normalized = self._normalize_curve_values_for_plot(
                     values, settings.x_scale, minimum, maximum
                 )
-            point_series = uses_gas_point_presentation(
-                (
-                    mnemonic,
-                    curve.metadata.original_mnemonic,
-                    curve.metadata.canonical_mnemonic,
-                )
-            )
             if point_series:
                 point_rows = gas_scatter_sample_indices(
                     visible_depth,
@@ -9132,6 +9144,13 @@ class TabletView(QWidget):
                 }[resolved_style.line_style],
             )
             minimum, maximum = self._curve_display_range(definition, mnemonic, values)
+            point_series = uses_gas_point_presentation(
+                (
+                    mnemonic,
+                    curve.metadata.original_mnemonic,
+                    curve.metadata.canonical_mnemonic,
+                )
+            )
             if visible_top is None or visible_bottom is None:
                 visible_values = np.array([], dtype=np.float64)
                 visible_depth = np.array([], dtype=np.float64)
@@ -9140,7 +9159,21 @@ class TabletView(QWidget):
                 key = self._curve_geometry_key(
                     mnemonic, depth, values, visible_top, visible_bottom, budget, logarithmic
                 )
-                raw_visible, visible_depth = self._geometry_cache.get_or_build(key, depth, values)
+                if point_series:
+                    visible_mask = (
+                        np.isfinite(depth)
+                        & np.isfinite(values)
+                        & (depth >= min(visible_top, visible_bottom))
+                        & (depth <= max(visible_top, visible_bottom))
+                    )
+                    if logarithmic:
+                        visible_mask &= values > 0.0
+                    raw_visible = values[visible_mask]
+                    visible_depth = depth[visible_mask]
+                else:
+                    raw_visible, visible_depth = self._geometry_cache.get_or_build(
+                        key, depth, values
+                    )
                 visible_values = self._normalize_curve_values_for_plot(
                     raw_visible, settings.x_scale, minimum, maximum
                 )
@@ -9161,13 +9194,6 @@ class TabletView(QWidget):
             # Do not pass clipToView at construction time: pyqtgraph 0.14 with
             # PySide6 6.11 may query the temporary PlotWidget before the item is
             # parented to its ViewBox and raise AttributeError(autoRangeEnabled).
-            point_series = uses_gas_point_presentation(
-                (
-                    mnemonic,
-                    curve.metadata.original_mnemonic,
-                    curve.metadata.canonical_mnemonic,
-                )
-            )
             if point_series:
                 point_rows = gas_scatter_sample_indices(
                     visible_depth,
