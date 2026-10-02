@@ -641,7 +641,14 @@ def _draw_panel(
         painter.setPen(QPen(color, 2.2))
         if point_series:
             painter.setBrush(color)
-        for segment in segments:
+            point_indices = np.flatnonzero(usable)
+            point_indices = point_indices[
+                np.argsort(depth[point_indices], kind="stable")
+            ]
+            draw_segments = (point_indices,)
+        else:
+            draw_segments = segments
+        for segment in draw_segments:
             previous: tuple[float, float] | None = None
             previous_normalized: float | None = None
             previous_clipped = False
