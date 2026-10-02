@@ -4,7 +4,7 @@ import numpy as np
 import pyqtgraph as pg
 import pytest
 from PySide6.QtCore import QEvent, QPoint, QPointF, Qt
-from PySide6.QtGui import QKeyEvent, QMouseEvent, QTextOption, QWheelEvent
+from PySide6.QtGui import QKeyEvent, QMouseEvent, QPen, QTextOption, QWheelEvent
 from PySide6.QtTest import QTest
 
 from geoworkbench.domain.models import (
@@ -256,7 +256,7 @@ def test_ratio_curves_use_points_while_gas_and_drilling_keep_lines(qapp) -> None
     assert c1_item.opts.get("symbol") is None
     assert c1_item.opts.get("pen") is not None
     assert ratio_item.opts.get("symbol") == "o"
-    assert ratio_item.opts.get("pen") is None
+    assert QPen(ratio_item.opts["pen"]).style() is Qt.PenStyle.NoPen
     assert rop_item.opts.get("symbol") is None
     assert rop_item.opts.get("pen") is not None
 
@@ -266,7 +266,7 @@ def test_ratio_curves_use_points_while_gas_and_drilling_keep_lines(qapp) -> None
     assert c1_item.opts.get("symbol") is None
     assert c1_item.opts.get("pen") is not None
     assert ratio_item.opts.get("symbol") == "o"
-    assert ratio_item.opts.get("pen") is None
+    assert QPen(ratio_item.opts["pen"]).style() is Qt.PenStyle.NoPen
     assert rop_item.opts.get("symbol") is None
     assert rop_item.opts.get("pen") is not None
     view.close()
