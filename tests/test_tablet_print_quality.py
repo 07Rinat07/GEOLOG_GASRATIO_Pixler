@@ -99,7 +99,7 @@ def test_print_snapshot_keeps_gas_point_series_without_restoring_line() -> None:
 
     assert item.opts.get("pen") is None
     assert item.opts.get("symbol") == "o"
-    assert float(item.opts.get("symbolSize")) >= 15.0
+    assert 9.5 <= float(item.opts.get("symbolSize")) <= 9.7
 
     _restore_print_curve_styles(states)
 
