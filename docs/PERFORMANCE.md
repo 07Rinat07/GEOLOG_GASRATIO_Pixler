@@ -336,10 +336,16 @@ RSS вырос примерно с 102.0 MiB до 323.5 MiB после import, 3
 geometry-cache misses выросли 16 → 48 без скрытого rebuild.
 
 Import занимает более 90% измеренного wall-clock pipeline и поэтому является следующим
-подтверждённым hot path. Следующий PERF-07 slice не меняет parser/storage: benchmark сначала
-включает в JSON уже существующие production checkpoints `source_ms`, `parse_ms`,
-`dataset_ms`, `report_ms` и соответствующие RSS snapshots из `las.import.performance`.
-После принятого Windows run оптимизируется только доминирующая подтверждённая фаза.
+подтверждённым hot path. Release gate **#2299** разложил import: source `809.28 ms`, lasio parse
+`5 957.19 ms`, Dataset materialization `14 263.00 ms`, report `44.68 ms`; total
+`21 074.15 ms`. Materialization — крупнейшая подтверждённая фаза.
+
+Следующий PERF-07 slice не меняет parser/storage/semantic contracts. Production event
+`las.import.performance` дополнительно разбивает `dataset_ms` на `dataset_setup_ms`,
+`dataset_curve_values_ms`, `dataset_curve_canonical_ms`, `dataset_curve_semantic_ms`,
+`dataset_curve_store_ms` и `dataset_headers_ms`. End-to-end benchmark переносит эти поля в
+Windows JSON. После принятого run оптимизируется только фактически доминирующая materialization
+подфаза.
 
 ## Границы ответственности
 
