@@ -100,6 +100,59 @@ def test_curve_view_prefers_compatible_gas_curves_and_distinct_colors(qapp) -> N
     view.close()
 
 
+def test_curve_view_renders_ratio_as_true_scatter_and_resamples_on_resize(qapp) -> None:
+    depth = np.linspace(100.0, 200.0, 5_001)
+    dataset = Dataset(
+        "curve-view-ratio",
+        "Curve view ratio",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        depth,
+    )
+    ratio = CurveData(
+        CurveMetadata(
+            "ratio",
+            "VENDOR_RATIO",
+            "C1_C2",
+            "ratio",
+            "calculation:ratio",
+            dataset.dataset_id,
+        ),
+        2.0 + np.sin(depth * 0.4),
+    )
+    dataset.curves[ratio.metadata.curve_id] = ratio
+    view = CurveView()
+    view.resize(700, 700)
+    view.show()
+    view.show_dataset(dataset, ["VENDOR_RATIO"])
+    qapp.processEvents()
+
+    item = view._curve_items["ratio"]
+    assert item.opts.get("symbol") == "o"
+    assert float(item.opts.get("symbolSize")) < 3.0
+    assert item.opts["symbolPen"].style() is Qt.PenStyle.NoPen
+    pen = item.opts.get("pen")
+    assert pen is None or pen.style() is Qt.PenStyle.NoPen
+
+    _values, large_depth = item.getData()
+    assert large_depth is not None
+    large_count = int(large_depth.size)
+
+    view.resize(700, 260)
+    qapp.processEvents()
+    _values, small_depth = item.getData()
+    assert small_depth is not None
+    small_count = int(small_depth.size)
+    expected_budget = max(
+        48,
+        min(1_200, int(max(view._plot.viewport().height(), 1) / 2.5)),
+    )
+
+    assert 0 < small_count <= expected_budget
+    assert small_count < large_count
+    view.close()
+
+
 def test_curve_view_mouse_drag_emits_edit_request(qapp) -> None:
     dataset, _ = make_dataset()
     view = CurveView()
