@@ -75,7 +75,9 @@ from geoworkbench.printing.text_rendering import (
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.gas_curve_presentation import (
+    GAS_PRINT_POINT_GAP_PT,
     GAS_PRINT_POINT_RADIUS_PT,
+    gas_scatter_sample_indices,
     uses_gas_point_presentation,
 )
 from geoworkbench.services.report_passport import ReportPassport
@@ -2985,12 +2987,20 @@ def _paint_curve_column(
             )
         )
         if point_series:
-            painter.setPen(QPen(color, 0.2))
+            painter.setPen(QPen(color, 0.12))
             painter.setBrush(color)
             radius = GAS_PRINT_POINT_RADIUS_PT * 25.4 / 72.0
-            for value, depth_value in zip(values, sampled_depth, strict=True):
-                if not np.isfinite(value) or not np.isfinite(depth_value):
-                    continue
+            point_rows = gas_scatter_sample_indices(
+                sampled_depth,
+                values,
+                top=top,
+                bottom=bottom,
+                vertical_span=rect.height(),
+                minimum_gap=GAS_PRINT_POINT_GAP_PT * 25.4 / 72.0,
+            )
+            for row_index in point_rows:
+                value = values[row_index]
+                depth_value = sampled_depth[row_index]
                 x_fraction = min(
                     1.0,
                     max(0.0, (float(value) - minimum) / (maximum - minimum)),
