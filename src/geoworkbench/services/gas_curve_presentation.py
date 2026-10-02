@@ -3,33 +3,13 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 
-# Raw components, total-gas aliases, normalized curves and interpretation ratios
-# are factual sampled observations. Their screen/report presentation uses points
-# instead of a connecting polyline so the graphic does not imply values between
-# acquisition samples. Relative-gas *_REL curves are excluded because they own a
-# separate cumulative 0–100% stacked-area presentation.
+# Ratio/interpretation curves are sampled observations whose visual meaning is
+# clearer as discrete points. Ordinary depth-series gas concentrations (TG, C1-C5,
+# normalized total/components) remain lines so the operator can read continuous
+# depth trends. Relative-gas *_REL curves keep their separate cumulative stacked
+# presentation.
 _GAS_POINT_EXACT = frozenset(
     {
-        "C1",
-        "C2",
-        "C3",
-        "C4",
-        "C5",
-        "IC4",
-        "NC4",
-        "IC5",
-        "NC5",
-        "TG",
-        "TGAS",
-        "TOTALGAS",
-        "TOTAL_GAS",
-        "TG_CALC",
-        "TG_NORM",
-        "TG_NORM_CALC",
-        "NORMALIZED_TOTAL_GAS",
-        "TOTAL_GAS_NORM",
-        "NORM_TG",
-        "TGNORM",
         "WETNESS",
         "BALANCE",
         "CHARACTER",
@@ -44,7 +24,6 @@ _GAS_POINT_EXACT = frozenset(
         "C1_C5",
         "IC4_NC4",
         "IC5_NC5",
-        "OPUS_TG_PCT",
         "OPUS3",
         "OPUS4",
         "OPUS_K1_3",
@@ -70,9 +49,7 @@ def is_gas_point_mnemonic(value: object) -> bool:
     return (
         token in _GAS_POINT_EXACT
         or token.startswith("PIXLER_")
-        or token.startswith("OPUS_")
-        or token.endswith("_NORM")
-        or token.endswith("_NORM_REF")
+        or token.startswith("OPUS_RATIO_")
     )
 
 
