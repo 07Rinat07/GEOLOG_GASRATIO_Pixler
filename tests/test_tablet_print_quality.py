@@ -105,6 +105,46 @@ def test_print_snapshot_keeps_gas_point_series_without_restoring_line() -> None:
     assert float(item.opts.get("symbolSize")) == 4.0
 
 
+def test_print_ratio_markers_use_configured_color_and_restore_screen_color() -> None:
+    _application = QApplication.instance() or QApplication([])
+    mnemonic = "PIXLER_C1_C2"
+    definition = TrackDefinition(
+        "pixler",
+        "Pixler",
+        TrackKind.GAS,
+        curve_mnemonics=[mnemonic],
+    )
+    definition.set_curve_style(
+        mnemonic,
+        CurveStyle("#ff0000", 1.2, CurveLineStyle.SOLID),
+    )
+    item = pg.PlotDataItem(
+        [0.0, 1.0],
+        [0.0, 1.0],
+        pen=None,
+        symbol="o",
+        symbolSize=4.0,
+        symbolBrush=pg.mkBrush("#7f0000"),
+        symbolPen=pg.mkPen("#7f0000"),
+    )
+    rendered = SimpleNamespace(
+        definition=definition,
+        curve_items={mnemonic: item},
+    )
+
+    states = _activate_print_curve_styles((rendered,))  # type: ignore[arg-type]
+
+    assert QPen(item.opts["pen"]).style() is Qt.PenStyle.NoPen
+    assert item.opts["symbolBrush"].color().name().lower() == "#ff0000"
+    assert QPen(item.opts["symbolPen"]).color().name().lower() == "#ff0000"
+
+    _restore_print_curve_styles(states)
+
+    assert QPen(item.opts["pen"]).style() is Qt.PenStyle.NoPen
+    assert item.opts["symbolBrush"].color().name().lower() == "#7f0000"
+    assert QPen(item.opts["symbolPen"]).color().name().lower() == "#7f0000"
+
+
 def test_legacy_curve_without_persisted_style_keeps_live_colour_and_dash() -> None:
     _application = QApplication.instance() or QApplication([])
     mnemonic = "GR"
