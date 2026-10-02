@@ -375,15 +375,16 @@ def _try_assign_fast_numeric_data(
     if len(ascii_sections) != 1 or not curves:
         return False
 
-    payload = _section_payload_after_header(
-        source_document.section_bytes(ascii_sections[0])
+    ascii_section = ascii_sections[0]
+    numeric_lines = _iter_section_payload_lines(
+        source_document.raw_bytes,
+        ascii_section.start_offset,
+        ascii_section.end_offset,
     )
-    if not payload.strip():
-        return False
 
     try:
         matrix = np.loadtxt(
-            io.BytesIO(payload),
+            numeric_lines,
             dtype=np.float64,
             comments="#",
             ndmin=2,
@@ -395,9 +396,8 @@ def _try_assign_fast_numeric_data(
         return False
 
     null_value = _optional_float(_section_value(getattr(las, "well", ()), "NULL"))
-    if null_value is not None and matrix.shape[1] > 1:
-        data_columns = matrix[:, 1:]
-        data_columns[data_columns == null_value] = np.nan
+    if null_value is not None:
+        matrix[matrix == null_value] = np.nan
 
     for index, curve in enumerate(curves):
         curve.data = np.asarray(matrix[:, index], dtype=np.float64).copy()
@@ -405,22 +405,41 @@ def _try_assign_fast_numeric_data(
     return True
 
 
-def _section_payload_after_header(section_bytes: bytes) -> bytes:
-    """Return section payload after its first header line without decoding it."""
+def _iter_section_payload_lines(
+    raw_bytes: bytes,
+    start_offset: int,
+    end_offset: int,
+) -> Iterable[bytes]:
+    """Yield one bounded payload line at a time without copying the whole section."""
 
-    positions = tuple(
-        position
-        for position in (section_bytes.find(b"\n"), section_bytes.find(b"\r"))
-        if position >= 0
+    first_lf = raw_bytes.find(b"\n", start_offset, end_offset)
+    first_cr = raw_bytes.find(b"\r", start_offset, end_offset)
+    line_end_candidates = tuple(
+        position for position in (first_lf, first_cr) if position >= 0
     )
-    if not positions:
-        return b""
-    end = min(positions)
-    if section_bytes[end : end + 2] == b"\r\n":
-        end += 2
+    if not line_end_candidates:
+        return
+
+    cursor = min(line_end_candidates)
+    if raw_bytes[cursor : cursor + 2] == b"\r\n":
+        cursor += 2
     else:
-        end += 1
-    return section_bytes[end:]
+        cursor += 1
+
+    while cursor < end_offset:
+        lf = raw_bytes.find(b"\n", cursor, end_offset)
+        cr = raw_bytes.find(b"\r", cursor, end_offset)
+        candidates = tuple(position for position in (lf, cr) if position >= 0)
+        if not candidates:
+            yield raw_bytes[cursor:end_offset]
+            return
+
+        line_end = min(candidates)
+        yield raw_bytes[cursor:line_end]
+        if raw_bytes[line_end : line_end + 2] == b"\r\n":
+            cursor = line_end + 2
+        else:
+            cursor = line_end + 1
 
 
 def _curve_matrix_by_position(
