@@ -138,6 +138,79 @@ def test_report_charts_keep_source_named_las_evidence() -> None:
         assert [curve.metadata.original_mnemonic for curve in panels["drilling"]] == ["S224"]
 
 
+def test_pdf_curve_renderer_uses_points_for_gas_and_lines_for_drilling() -> None:
+    class RecordingPainter:
+        def __init__(self) -> None:
+            self.lines = 0
+            self.ellipses = 0
+
+        def save(self) -> None:
+            pass
+
+        def restore(self) -> None:
+            pass
+
+        def setClipRect(self, _rect) -> None:
+            pass
+
+        def setPen(self, _pen) -> None:
+            pass
+
+        def setBrush(self, _brush) -> None:
+            pass
+
+        def drawLine(self, _line) -> None:
+            self.lines += 1
+
+        def drawEllipse(self, _rect) -> None:
+            self.ellipses += 1
+
+    depth = np.linspace(100.0, 104.0, 5)
+    dataset = Dataset(
+        "scatter-report",
+        "Scatter report",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        depth,
+    )
+    gas = CurveData(
+        CurveMetadata("gas", "C1", "C1", "%", None, dataset.dataset_id),
+        np.linspace(1.0, 5.0, 5),
+    )
+    drilling = CurveData(
+        CurveMetadata("rop", "ROP", "ROP", "m/h", None, dataset.dataset_id),
+        np.linspace(10.0, 14.0, 5),
+    )
+    page = DepthPage(100.0, 104.0, 100, 100.0)
+    rect = QRectF(0.0, 0.0, 100.0, 100.0)
+
+    gas_painter = RecordingPainter()
+    _draw_curves(
+        gas_painter,  # type: ignore[arg-type]
+        rect,
+        page,
+        dataset,
+        (gas,),
+        {"gas": (1.0, 5.0)},
+        point_series=True,
+    )
+    assert gas_painter.ellipses > 0
+    assert gas_painter.lines == 0
+
+    drilling_painter = RecordingPainter()
+    _draw_curves(
+        drilling_painter,  # type: ignore[arg-type]
+        rect,
+        page,
+        dataset,
+        (drilling,),
+        {"rop": (10.0, 14.0)},
+        point_series=False,
+    )
+    assert drilling_painter.lines > 0
+    assert drilling_painter.ellipses == 0
+
+
 def test_constant_gas_curve_keeps_true_percentiles_and_a_visible_trace(qapp) -> None:
     depth = np.linspace(0.0, 10.0, 11)
     dataset = Dataset("constant-gas", "Constant gas", DatasetKind.GTI, DepthDomain.MD, depth)
