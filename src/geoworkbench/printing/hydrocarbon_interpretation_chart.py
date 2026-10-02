@@ -55,6 +55,8 @@ from geoworkbench.services.hydrocarbon_interpretation import (
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.gas_curve_presentation import (
     GAS_PREVIEW_POINT_RADIUS_PX,
+    gas_scatter_point_budget,
+    select_gas_scatter_samples,
 )
 
 
@@ -638,73 +640,88 @@ def _draw_panel(
         if not np.isfinite(low) or not np.isfinite(high):
             continue
         color = QColor(_COLORS[curve_index % len(_COLORS)])
-        painter.setPen(QPen(color, 2.2))
-        draw_segments: tuple[np.ndarray, ...]
         if point_series:
+            painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(color)
-            point_indices = np.flatnonzero(usable)
-            point_indices = point_indices[
-                np.argsort(depth[point_indices], kind="stable")
-            ]
-            if point_indices.size > 1_800:
-                sample_positions = np.linspace(
-                    0,
-                    point_indices.size - 1,
-                    1_800,
-                    dtype=np.int64,
-                )
-                point_indices = point_indices[sample_positions]
-            draw_segments = (point_indices,)
-        else:
-            draw_segments = segments
-        for segment in draw_segments:
-            previous: tuple[float, float] | None = None
-            previous_normalized: float | None = None
-            previous_clipped = False
-            for index in segment:
-                if not usable[index]:
-                    previous = None
-                    previous_normalized = None
-                    previous_clipped = False
-                    continue
+            point_values, point_depth = select_gas_scatter_samples(
+                depth,
+                values,
+                depth_min,
+                depth_max,
+                max_points=gas_scatter_point_budget(curve_rect.height()),
+            )
+            radius = GAS_PREVIEW_POINT_RADIUS_PX
+            for value, depth_value in zip(point_values, point_depth, strict=True):
                 if high <= low:
-                    normalized = 0.5 if values[index] == low else 1.0 if values[index] > low else 0.0
-                    clipped = values[index] != low
+                    normalized = 0.5 if value == low else 1.0 if value > low else 0.0
                 else:
-                    raw_normalized = float((values[index] - low) / (high - low))
-                    normalized = float(np.clip(raw_normalized, 0.0, 1.0))
-                    clipped = raw_normalized < 0.0 or raw_normalized > 1.0
+                    normalized = float(np.clip((value - low) / (high - low), 0.0, 1.0))
                 x = curve_rect.left() + normalized * curve_rect.width()
                 y = _depth_y(
-                    depth[index],
+                    float(depth_value),
                     depth_min,
                     depth_max,
                     curve_rect.top(),
                     curve_rect.height(),
                 )
-                current = (float(x), float(y))
-                spike = (
-                    previous_normalized is not None
-                    and (clipped or previous_clipped)
-                    and abs(normalized - previous_normalized) >= 0.72
+                painter.drawEllipse(
+                    QRectF(
+                        float(x) - radius,
+                        float(y) - radius,
+                        radius * 2.0,
+                        radius * 2.0,
+                    )
                 )
-                if point_series:
-                    radius = GAS_PREVIEW_POINT_RADIUS_PX
-                    painter.drawEllipse(
-                        QRectF(
-                            current[0] - radius,
-                            current[1] - radius,
-                            radius * 2.0,
-                            radius * 2.0,
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+        else:
+            painter.setPen(QPen(color, 2.2))
+            for segment in segments:
+                previous: tuple[float, float] | None = None
+                previous_normalized: float | None = None
+                previous_clipped = False
+                for index in segment:
+                    if not usable[index]:
+                        previous = None
+                        previous_normalized = None
+                        previous_clipped = False
+                        continue
+                    if high <= low:
+                        normalized = (
+                            0.5
+                            if values[index] == low
+                            else 1.0
+                            if values[index] > low
+                            else 0.0
                         )
+                        clipped = values[index] != low
+                    else:
+                        raw_normalized = float((values[index] - low) / (high - low))
+                        normalized = float(np.clip(raw_normalized, 0.0, 1.0))
+                        clipped = raw_normalized < 0.0 or raw_normalized > 1.0
+                    current = (
+                        float(curve_rect.left() + normalized * curve_rect.width()),
+                        float(
+                            _depth_y(
+                                depth[index],
+                                depth_min,
+                                depth_max,
+                                curve_rect.top(),
+                                curve_rect.height(),
+                            )
+                        ),
                     )
-                elif previous is not None and not spike:
-                    painter.drawLine(
-                        QLineF(previous[0], previous[1], current[0], current[1])
+                    spike = (
+                        previous_normalized is not None
+                        and (clipped or previous_clipped)
+                        and abs(normalized - previous_normalized) >= 0.72
                     )
-                previous = current
-                previous_normalized = normalized
-                previous_clipped = clipped
+                    if previous is not None and not spike:
+                        painter.drawLine(
+                            QLineF(previous[0], previous[1], current[0], current[1])
+                        )
+                    previous = current
+                    previous_normalized = normalized
+                    previous_clipped = clipped
 
         canonical_hint = display_hints.get(
             curve.metadata.original_mnemonic.strip().upper()
