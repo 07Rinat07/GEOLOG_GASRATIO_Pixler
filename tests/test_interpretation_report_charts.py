@@ -418,13 +418,13 @@ def test_sparse_ratio_point_survives_whole_well_preview_downsampling() -> None:
     assert painter.ellipses >= 4
 
 
-def test_dense_ratio_preview_sampling_is_bounded() -> None:
+def test_dense_ratio_preview_sampling_keeps_dots_visually_separated() -> None:
     class RecordingPainter:
         def __init__(self) -> None:
-            self.ellipses = 0
+            self.ellipse_rects: list[QRectF] = []
 
-        def drawEllipse(self, _rect) -> None:
-            self.ellipses += 1
+        def drawEllipse(self, rect) -> None:
+            self.ellipse_rects.append(QRectF(rect))
 
         def __getattr__(self, _name):
             return lambda *args, **kwargs: None
@@ -464,8 +464,13 @@ def test_dense_ratio_preview_sampling_is_bounded() -> None:
         {},
     )
 
-    # 1,800 factual markers + three point glyphs in the legend.
-    assert painter.ellipses == 1_803
+    # The final three ellipses are legend glyphs. Factual observations remain
+    # numerous, but their centres no longer overlap vertically into "worms".
+    factual = painter.ellipse_rects[:-3]
+    assert 40 <= len(factual) <= 65
+    assert all(abs(rect.width() - rect.height()) < 1e-9 for rect in factual)
+    centers = np.asarray([rect.center().y() for rect in factual], dtype=np.float64)
+    assert np.all(np.diff(centers) >= 2.9)
 
 
 def test_report_panel_scatter_contract_is_ratio_only() -> None:
