@@ -8704,14 +8704,11 @@ class TabletView(QWidget):
             )
             point_series = (
                 not relative_gas
-                and (
-                    definition.kind is TrackKind.GAS
-                    or uses_gas_point_presentation(
-                        (
-                            mnemonic,
-                            curve.metadata.original_mnemonic if curve is not None else "",
-                            curve.metadata.canonical_mnemonic if curve is not None else "",
-                        )
+                and uses_gas_point_presentation(
+                    (
+                        mnemonic,
+                        curve.metadata.original_mnemonic if curve is not None else "",
+                        curve.metadata.canonical_mnemonic if curve is not None else "",
                     )
                 )
             )
@@ -9139,14 +9136,11 @@ class TabletView(QWidget):
             # Do not pass clipToView at construction time: pyqtgraph 0.14 with
             # PySide6 6.11 may query the temporary PlotWidget before the item is
             # parented to its ViewBox and raise AttributeError(autoRangeEnabled).
-            point_series = (
-                definition.kind is TrackKind.GAS
-                or uses_gas_point_presentation(
-                    (
-                        mnemonic,
-                        curve.metadata.original_mnemonic,
-                        curve.metadata.canonical_mnemonic,
-                    )
+            point_series = uses_gas_point_presentation(
+                (
+                    mnemonic,
+                    curve.metadata.original_mnemonic,
+                    curve.metadata.canonical_mnemonic,
                 )
             )
             if point_series:
