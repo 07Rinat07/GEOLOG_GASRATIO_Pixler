@@ -54,7 +54,9 @@ from geoworkbench.services.hydrocarbon_interpretation import (
 )
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.gas_curve_presentation import (
+    GAS_PREVIEW_POINT_GAP_PX,
     GAS_PREVIEW_POINT_RADIUS_PX,
+    gas_scatter_sample_indices,
 )
 
 
@@ -638,24 +640,23 @@ def _draw_panel(
         if not np.isfinite(low) or not np.isfinite(high):
             continue
         color = QColor(_COLORS[curve_index % len(_COLORS)])
-        painter.setPen(QPen(color, 2.2))
         draw_segments: tuple[np.ndarray, ...]
         if point_series:
+            point_pen = QPen(color, 0.45)
+            point_pen.setCosmetic(True)
+            painter.setPen(point_pen)
             painter.setBrush(color)
-            point_indices = np.flatnonzero(usable)
-            point_indices = point_indices[
-                np.argsort(depth[point_indices], kind="stable")
-            ]
-            if point_indices.size > 1_800:
-                sample_positions = np.linspace(
-                    0,
-                    point_indices.size - 1,
-                    1_800,
-                    dtype=np.int64,
-                )
-                point_indices = point_indices[sample_positions]
+            point_indices = gas_scatter_sample_indices(
+                depth,
+                values,
+                top=depth_min,
+                bottom=depth_max,
+                vertical_span=curve_rect.height(),
+                minimum_gap=GAS_PREVIEW_POINT_GAP_PX,
+            )
             draw_segments = (point_indices,)
         else:
+            painter.setPen(QPen(color, 2.2))
             draw_segments = segments
         for segment in draw_segments:
             previous: tuple[float, float] | None = None
