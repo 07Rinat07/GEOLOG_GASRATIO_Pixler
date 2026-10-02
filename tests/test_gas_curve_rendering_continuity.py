@@ -134,6 +134,30 @@ def test_sparse_continuity_policy_is_limited_to_gas_curves() -> None:
     assert not is_gas_curve_id("DEXP")
 
 
+def test_geometry_cache_honors_explicit_point_series_for_vendor_alias() -> None:
+    axis = np.linspace(0.0, 100.0, 2_001)
+    values = 2.0 + np.sin(axis)
+    cache = CurveGeometryCache()
+    key = CurveGeometryKey(
+        curve_id="VENDOR_RATIO_17",
+        axis_id="depth",
+        values_revision="vendor-values",
+        axis_revision="vendor-axis",
+        top=0.0,
+        bottom=100.0,
+        max_points=80,
+        positive_values_only=False,
+        point_series=True,
+    )
+
+    sampled_values, sampled_axis = cache.get_or_build(key, axis, values)
+
+    assert 0 < sampled_values.size <= 80
+    assert sampled_values.size == sampled_axis.size
+    assert np.all(np.isfinite(sampled_values))
+    assert np.all(np.diff(sampled_axis) >= 0.0)
+
+
 def test_relative_gas_print_header_uses_same_compact_font_as_rulers(qapp) -> None:
     label = CurveHeaderLabel(
         "C1_REL",
