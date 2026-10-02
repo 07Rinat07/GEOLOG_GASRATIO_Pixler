@@ -695,13 +695,14 @@ def _curve_percentiles(
         if page is not None
         else np.isfinite(depth)
     )
-    for _panel_name, curves in panels:
+    for panel_name, curves in panels:
+        minimum_samples = 1 if panel_name in {"ratios", "opus"} else 2
         for curve in curves:
             values = np.asarray(curve.values, dtype=np.float64)
             if values.shape != dataset.depth.shape:
                 continue
             finite = values[selected & np.isfinite(values)]
-            if finite.size < 2:
+            if finite.size < minimum_samples:
                 continue
             low = float(np.percentile(finite, 5.0))
             high = float(np.percentile(finite, 95.0))
