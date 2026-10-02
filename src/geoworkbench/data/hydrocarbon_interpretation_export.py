@@ -24,6 +24,10 @@ from geoworkbench.services.interval_gas_statistics import (
 )
 from geoworkbench.printing.hydrocarbon_report_i18n import hydrocarbon_report_labels
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.interpretation_classification_audit import (
+    CLASSIFICATION_AUDIT_DOCX_PART,
+    interpretation_classification_audit_json,
+)
 from geoworkbench.services.opus_report_labels import opus_report_label
 from geoworkbench.services.parameter_labels import (
     localized_curve_name,
@@ -273,7 +277,17 @@ def _write_docx(
         package.writestr(
             "word/_rels/document.xml.rels",
             '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"/>',
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            '<Relationship Id="rIdClassificationAudit" '
+            'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/customXml" '
+            'Target="../customXml/geolog-classification-audit.xml"/></Relationships>',
+        )
+        package.writestr(
+            CLASSIFICATION_AUDIT_DOCX_PART,
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<classificationAudit xmlns="urn:digital-geolog:interpretation-audit:1">'
+            + xml_escape(interpretation_classification_audit_json(report))
+            + '</classificationAudit>',
         )
         package.writestr("word/styles.xml", _docx_styles())
 

@@ -253,6 +253,7 @@ def test_report_exports_openable_xlsx_and_docx(tmp_path) -> None:
             "Интерпретация УВ",
             "Методика",
             "Данные по глубине",
+            "_classification_audit",
         ]
         main = workbook["Интерпретация УВ"]
         assert main["B2"].value == "'=Project formula"
@@ -497,7 +498,7 @@ def test_confirmed_technological_gas_suppresses_geological_candidate_and_exports
     assert "QC Δ к среднему TG" in html
     assert "0.25 %vol" in html
     assert "Аудит подавленных автоматических кандидатов" not in html
-    assert "gas-context: event_id=connection-1" not in html
+    assert "gas-context: event_id=connection-1" not in html.split("<body", 1)[1]
 
     xlsx_path = export_hydrocarbon_interpretation_xlsx(
         report,

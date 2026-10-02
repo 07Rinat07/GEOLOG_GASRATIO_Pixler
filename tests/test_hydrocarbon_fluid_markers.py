@@ -5,7 +5,10 @@ from geoworkbench.printing.hydrocarbon_fluid_markers import (
     marker_lane_offsets,
     marker_lanes,
 )
-from geoworkbench.services.fluid_phase_contract import fluid_hypothesis_phase_label
+from geoworkbench.services.fluid_phase_contract import (
+    FluidPhaseContract,
+    fluid_hypothesis_phase_label,
+)
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.opus_report_labels import opus_report_label
 
@@ -17,15 +20,17 @@ def test_fluid_marker_palette_has_unique_category_codes_and_colors() -> None:
     assert len({item.code for item in specs}) == len(specs)
     assert len({item.color for item in specs}) == len(specs)
     assert len({item.shape for item in specs}) == len(specs)
+    assert {item.phase for item in specs} == set(FluidPhaseContract)
+    assert len(specs) == 5
 
 
 def test_standard_and_opus_hypotheses_share_physical_fluid_families() -> None:
     pairs = (
         ("probable_gas", "opus_gasomer_combustible_gas", "G"),
-        ("productive_oil_decreasing_gravity", "opus_gasomer_oil", "O"),
-        ("heavy_or_residual_oil", "opus_gasomer_oxidized_residual_oil", "HO"),
-        ("opus_gassy_oil", "opus_gasomer_gassy_oil", "GO"),
-        ("opus_water_dissolved_gas", "opus_gasomer_water_dissolved_gas", "DG"),
+        ("productive_oil_decreasing_gravity", "opus_gasomer_oil", "L"),
+        ("heavy_or_residual_oil", "opus_gasomer_oxidized_residual_oil", "L"),
+        ("opus_gassy_oil", "opus_gasomer_gassy_oil", "L"),
+        ("opus_water_dissolved_gas", "opus_gasomer_water_dissolved_gas", "?"),
     )
 
     for standard, opus, code in pairs:
@@ -57,7 +62,7 @@ def test_marker_and_headline_share_the_same_phase_contract() -> None:
         )
 
     assert fluid_marker_spec("wet_gas_or_gas_condensate").code == "G"
-    assert fluid_marker_spec("opus_gasomer_gas_condensate").code == "GC"
+    assert fluid_marker_spec("opus_gasomer_gas_condensate").code == "L/GC"
 
 
 def test_opus_ambiguous_and_no_consensus_stay_indeterminate() -> None:
@@ -86,10 +91,26 @@ def test_marker_legend_deduplicates_categories_and_keeps_canonical_order() -> No
             "productive_oil_decreasing_gravity",
             "probable_gas",
             "opus_gasomer_combustible_gas",
+            "opus_gasomer_gassy_oil",
+            "opus_gasomer_oxidized_residual_oil",
         ]
     )
 
-    assert [item.code for item in specs] == ["G", "O"]
+    assert [item.code for item in specs] == ["G", "L"]
+
+
+def test_liquid_subtypes_share_the_identical_marker() -> None:
+    canonical = fluid_marker_spec("probable_liquid_hydrocarbons")
+    for hypothesis in (
+        "productive_oil_decreasing_gravity",
+        "heavy_or_residual_oil",
+        "opus_gasomer_oil",
+        "opus_gasomer_gassy_oil",
+        "opus_gasomer_oxidized_residual_oil",
+    ):
+        assert fluid_marker_spec(hypothesis) is canonical
+
+    assert fluid_marker_spec("unknown_plugin_oil").phase is FluidPhaseContract.INDETERMINATE
 
 
 def test_marker_labels_are_available_for_ru_kk_en() -> None:

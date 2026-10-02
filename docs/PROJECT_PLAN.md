@@ -1363,10 +1363,16 @@ report snapshot/composition/render/print.
   Заголовки интерпретации GasRatio/Pixler/OPUS и подписи графических маркеров используют
   один bounded RU/KK/EN словарь из пяти фазовых формулировок. Неоднозначные oil/gas,
   water-dissolved и неизвестные гипотезы получают неопределённую фазу; wet gas marker
-  согласован с газовым заголовком. Численные формулы, подробные hypothesis/class codes,
-  OPUS votes и доказательства сохраняются. Подтипы описаны отдельно в evidence, а не
-  становятся более уверенным заголовком. Контракт и согласованность маркеров закреплены
-  regression-тестами; общая физическая приёмка RPT-QA-01 остаётся отдельной задачей.
+  согласован с газовым заголовком. Каждая фаза имеет один shape/color/code, легенда
+  объединяет подтипы. Определённая фаза присваивается только явно известным кодам;
+  неизвестные plugin/future/ошибочные oil/gas строки остаются неопределёнными.
+  Численные формулы, подробные hypothesis/class codes, OPUS votes и доказательства
+  сохраняются. HTML metadata, DOCX custom XML и скрытый XLSX audit sheet содержат
+  исходные hypothesis codes/evidence активных и подавленных кандидатов и область расчёта.
+  Длинные Unicode evidence сохраняются без усечения и без исполнения Excel formulas.
+  Подтипы описаны отдельно в evidence, а не становятся более уверенным заголовком.
+  Контракт, единые маркеры и экспортный audit round-trip закреплены regression-тестами;
+  общая физическая приёмка RPT-QA-01 остаётся отдельной задачей.
 
 - [ ] **RPT-GEO-01 — шламограмма и ЛБА из актуальной геологии проекта.**
   Реализованы shared Masterlog-compatible painters, immutable geology snapshot, depth-scoped `geology_sha256` в Report Passport и независимые `Auto/Show/Hide` для screen preview/PDF/system print. `Show` при полном отсутствии данных печатает локализованный empty-state, а частичные пробелы остаются пустыми. Screen preview использует тот же resolved geology composition и shared painters, а multi-page empty/partial edge cases закреплены regression-тестами. До закрытия задачи остаётся финальная физическая printer acceptance на реальном устройстве.

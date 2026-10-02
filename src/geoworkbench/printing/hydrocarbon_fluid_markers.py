@@ -10,6 +10,7 @@ from PySide6.QtGui import QColor, QPainter, QPen, QPolygonF
 from geoworkbench.services.fluid_phase_contract import (
     FluidPhaseContract,
     fluid_phase_label,
+    fluid_phase_from_hypothesis,
 )
 from geoworkbench.services.localization import AppLanguage
 
@@ -55,130 +56,25 @@ class FluidMarkerSpec:
 
 _SPECS: tuple[FluidMarkerSpec, ...] = (
     FluidMarkerSpec(
-        "gas",
-        "G",
-        FluidMarkerShape.CIRCLE,
-        "#2563eb",
-        FluidPhaseContract.GAS,
-        10,
+        "gas", "G", FluidMarkerShape.CIRCLE, "#2563eb", FluidPhaseContract.GAS, 10,
     ),
     FluidMarkerSpec(
-        "gas_condensate",
-        "GC",
-        FluidMarkerShape.DIAMOND,
-        "#0f766e",
-        FluidPhaseContract.LIQUID_OR_CONDENSATE,
-        20,
+        "liquid_or_condensate", "L/GC", FluidMarkerShape.DIAMOND_OUTLINE, "#7c3aed",
+        FluidPhaseContract.LIQUID_OR_CONDENSATE, 20,
     ),
     FluidMarkerSpec(
-        "gas_condensate_or_light_oil",
-        "GC/O",
-        FluidMarkerShape.DIAMOND_OUTLINE,
-        "#7c3aed",
-        FluidPhaseContract.LIQUID_OR_CONDENSATE,
-        30,
+        "light_oil", "LO", FluidMarkerShape.TRIANGLE_DOWN, "#ea580c",
+        FluidPhaseContract.LIGHT_OIL, 30,
     ),
     FluidMarkerSpec(
-        "gas_condensate_or_gassy_oil",
-        "GC/GO",
-        FluidMarkerShape.HEXAGON,
-        "#0d9488",
-        FluidPhaseContract.LIQUID_OR_CONDENSATE,
-        40,
+        "liquid", "L", FluidMarkerShape.PENTAGON, "#ca8a04", FluidPhaseContract.LIQUID, 40,
     ),
     FluidMarkerSpec(
-        "dissolved_gas",
-        "DG",
-        FluidMarkerShape.RING,
-        "#0891b2",
-        FluidPhaseContract.INDETERMINATE,
-        50,
-    ),
-    FluidMarkerSpec(
-        "gassy_oil",
-        "GO",
-        FluidMarkerShape.TRIANGLE_UP,
-        "#b45309",
-        FluidPhaseContract.LIQUID,
-        60,
-    ),
-    FluidMarkerSpec(
-        "light_oil",
-        "LO",
-        FluidMarkerShape.TRIANGLE_DOWN,
-        "#ea580c",
-        FluidPhaseContract.LIGHT_OIL,
-        70,
-    ),
-    FluidMarkerSpec(
-        "oil",
-        "O",
-        FluidMarkerShape.SQUARE,
-        "#a16207",
-        FluidPhaseContract.LIQUID,
-        80,
-    ),
-    FluidMarkerSpec(
-        "heavy_oil",
-        "HO",
-        FluidMarkerShape.BAR,
-        "#78350f",
-        FluidPhaseContract.LIQUID,
-        90,
-    ),
-    FluidMarkerSpec(
-        "liquid_hydrocarbons",
-        "LHC",
-        FluidMarkerShape.PENTAGON,
-        "#ca8a04",
-        FluidPhaseContract.LIQUID,
-        100,
-    ),
-    FluidMarkerSpec(
-        "indeterminate",
-        "?",
-        FluidMarkerShape.CROSS,
-        "#64748b",
-        FluidPhaseContract.INDETERMINATE,
-        110,
+        "indeterminate", "?", FluidMarkerShape.CROSS, "#64748b",
+        FluidPhaseContract.INDETERMINATE, 50,
     ),
 )
-_BY_CATEGORY = {item.category: item for item in _SPECS}
-
-_EXACT_CATEGORY = {
-    "probable_gas": "gas",
-    "very_light_dry_gas": "gas",
-    "light_dry_gas": "gas",
-    "productive_gas_increasing_wetness": "gas",
-    "gas_increasing_wetness": "gas",
-    "wet_gas_or_gas_condensate": "gas",
-    "gas_condensate_or_high_api_oil": "gas_condensate_or_light_oil",
-    "light_oil_high_gor": "light_oil",
-    "productive_oil_decreasing_gravity": "oil",
-    "poor_low_gravity_oil": "heavy_oil",
-    "heavy_or_residual_oil": "heavy_oil",
-    "probable_liquid_hydrocarbons": "liquid_hydrocarbons",
-    "indeterminate": "indeterminate",
-    "insufficient_data": "indeterminate",
-    "opus_oxidized_residual_oil": "heavy_oil",
-    "opus_oil": "oil",
-    "opus_combustible_gas": "gas",
-    "opus_water_dissolved_gas": "dissolved_gas",
-    "opus_gas_condensate": "gas_condensate",
-    "opus_gassy_oil": "gassy_oil",
-    "opus_gas_condensate_or_gassy_oil": "gas_condensate_or_gassy_oil",
-    "opus_no_consensus": "indeterminate",
-    "opus_gasomer_oxidized_residual_oil": "heavy_oil",
-    "opus_gasomer_oil": "oil",
-    "opus_gasomer_combustible_gas": "gas",
-    "opus_gasomer_water_dissolved_gas": "dissolved_gas",
-    "opus_gasomer_gas_condensate": "gas_condensate",
-    "opus_gasomer_gassy_oil": "gassy_oil",
-    "opus_gasomer_undefined": "indeterminate",
-    "opus_gasomer_no_consensus": "indeterminate",
-}
-_AMBIGUOUS_PREFIX = "opus_gasomer_ambiguous__"
-_FALLBACK_PREFIX = "opus_fallback__"
+_BY_PHASE = {item.phase: item for item in _SPECS}
 
 
 def all_fluid_marker_specs() -> tuple[FluidMarkerSpec, ...]:
@@ -186,26 +82,17 @@ def all_fluid_marker_specs() -> tuple[FluidMarkerSpec, ...]:
 
 
 def fluid_marker_spec(fluid_hypothesis: str) -> FluidMarkerSpec:
-    key = str(fluid_hypothesis or "").strip().casefold()
-    if key.startswith(_AMBIGUOUS_PREFIX):
-        return _BY_CATEGORY["indeterminate"]
-    if key.startswith(_FALLBACK_PREFIX):
-        key = key[len(_FALLBACK_PREFIX) :]
-
-    category = _EXACT_CATEGORY.get(key)
-    if category is None:
-        category = _infer_category(key)
-    return _BY_CATEGORY[category]
+    return _BY_PHASE[fluid_phase_from_hypothesis(fluid_hypothesis)]
 
 
 def fluid_marker_legend_specs(
     hypotheses: tuple[str, ...] | list[str],
 ) -> tuple[FluidMarkerSpec, ...]:
-    by_category = {
-        spec.category: spec
+    by_phase = {
+        spec.phase: spec
         for spec in (fluid_marker_spec(item) for item in hypotheses)
     }
-    return tuple(sorted(by_category.values(), key=lambda item: item.order))
+    return tuple(sorted(by_phase.values(), key=lambda item: item.order))
 
 
 def marker_lanes(
@@ -356,48 +243,6 @@ def draw_fluid_marker(
             )
         )
     painter.restore()
-
-
-def _infer_category(key: str) -> str:
-    if not key:
-        return "indeterminate"
-    indeterminate_tokens = (
-        "ambiguous",
-        "no_consensus",
-        "indeterminate",
-        "undefined",
-        "insufficient",
-    )
-    if any(token in key for token in indeterminate_tokens):
-        return "indeterminate"
-    if "gas_condensate_or_gassy_oil" in key:
-        return "gas_condensate_or_gassy_oil"
-    if "gas_condensate_or_high_api_oil" in key:
-        return "gas_condensate_or_light_oil"
-    if "water_dissolved_gas" in key:
-        return "dissolved_gas"
-    if "gas_condensate" in key or "wet_gas" in key:
-        return "gas_condensate"
-    if "gassy_oil" in key:
-        return "gassy_oil"
-    if "light_oil" in key:
-        return "light_oil"
-    if any(token in key for token in ("heavy", "residual", "oxidized", "low_gravity_oil")):
-        return "heavy_oil"
-    if "liquid_hydrocarbons" in key:
-        return "liquid_hydrocarbons"
-    if "oil" in key:
-        return "oil"
-    gas_tokens = (
-        "probable_gas",
-        "dry_gas",
-        "combustible_gas",
-        "productive_gas",
-        "gas_increasing",
-    )
-    if any(token in key for token in gas_tokens):
-        return "gas"
-    return "indeterminate"
 
 
 __all__ = [

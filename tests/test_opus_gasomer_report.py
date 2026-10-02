@@ -271,8 +271,8 @@ def test_gasomer_class_replaces_ambiguous_historical_headline() -> None:
     assert candidate.fluid_hypothesis == "opus_gasomer_oil"
     assert fluid_hypothesis_label(candidate, AppLanguage.RU) == "жидкая УВ-фаза"
     marker = fluid_marker_spec(candidate.fluid_hypothesis)
-    assert marker.category == "oil"
-    assert marker.code == "O"
+    assert marker.category == "liquid"
+    assert marker.code == "L"
     assert marker.color == fluid_marker_spec("productive_oil_decreasing_gravity").color
     assert not candidate.fluid_hypothesis.startswith("opus_fallback__")
     assert any(

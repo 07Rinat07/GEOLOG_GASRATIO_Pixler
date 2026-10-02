@@ -27,6 +27,10 @@ from geoworkbench.services.localization import AppLanguage
         ("opus_gasomer_undefined", FluidPhaseContract.INDETERMINATE),
         ("opus_gasomer_ambiguous__possible__2-3", FluidPhaseContract.INDETERMINATE),
         ("unknown_future_code", FluidPhaseContract.INDETERMINATE),
+        ("unknown_oil_classification", FluidPhaseContract.INDETERMINATE),
+        ("plugin_gas_classification", FluidPhaseContract.INDETERMINATE),
+        ("probable_gas_typo", FluidPhaseContract.INDETERMINATE),
+        ("opus_fallback__unknown_light_oil", FluidPhaseContract.INDETERMINATE),
     ],
 )
 def test_fluid_hypotheses_map_to_bounded_phase_contract(
@@ -64,4 +68,15 @@ def test_opus_fallback_uses_underlying_hypothesis_phase() -> None:
     assert (
         fluid_phase_from_hypothesis("opus_fallback__light_oil_high_gor")
         is FluidPhaseContract.LIGHT_OIL
+    )
+
+
+def test_nested_fallback_is_bounded_without_recursive_stack_growth() -> None:
+    assert (
+        fluid_phase_from_hypothesis("opus_fallback__" * 2000 + "probable_gas")
+        is FluidPhaseContract.GAS
+    )
+    assert (
+        fluid_phase_from_hypothesis("opus_fallback__" * 2000 + "plugin_gas")
+        is FluidPhaseContract.INDETERMINATE
     )

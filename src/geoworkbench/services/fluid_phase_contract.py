@@ -92,32 +92,13 @@ def fluid_phase_from_hypothesis(fluid_hypothesis: str) -> FluidPhaseContract:
     """Map detailed calculation evidence to the bounded visible phase contract."""
 
     key = str(fluid_hypothesis or "").strip().casefold()
-    if not key:
-        return FluidPhaseContract.INDETERMINATE
+    offset = 0
+    while key.startswith(_FALLBACK_PREFIX, offset):
+        offset += len(_FALLBACK_PREFIX)
+    key = key[offset:]
     if key.startswith(_AMBIGUOUS_PREFIX):
         return FluidPhaseContract.INDETERMINATE
-    if key.startswith(_FALLBACK_PREFIX):
-        return fluid_phase_from_hypothesis(key[len(_FALLBACK_PREFIX) :])
-
-    exact = _EXACT_PHASE.get(key)
-    if exact is not None:
-        return exact
-
-    if any(token in key for token in ("indeterminate", "insufficient", "undefined", "no_consensus")):
-        return FluidPhaseContract.INDETERMINATE
-    if "water_dissolved_gas" in key:
-        return FluidPhaseContract.INDETERMINATE
-    if "gas_condensate_or_high_api_oil" in key or "gas_condensate_or_gassy_oil" in key:
-        return FluidPhaseContract.LIQUID_OR_CONDENSATE
-    if "gas_condensate" in key:
-        return FluidPhaseContract.LIQUID_OR_CONDENSATE
-    if "light_oil" in key:
-        return FluidPhaseContract.LIGHT_OIL
-    if "liquid_hydrocarbons" in key or "oil" in key:
-        return FluidPhaseContract.LIQUID
-    if any(token in key for token in ("probable_gas", "dry_gas", "combustible_gas", "gas_increasing")):
-        return FluidPhaseContract.GAS
-    return FluidPhaseContract.INDETERMINATE
+    return _EXACT_PHASE.get(key, FluidPhaseContract.INDETERMINATE)
 
 
 def fluid_hypothesis_phase_label(
