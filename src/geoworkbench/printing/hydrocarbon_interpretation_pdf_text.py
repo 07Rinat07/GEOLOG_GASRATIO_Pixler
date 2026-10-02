@@ -55,6 +55,7 @@ def render_report_html(
     *,
     leading_block_count: int = 2,
     after_leading_blocks: object | None = None,
+    start_body_on_new_page: bool = True,
 ) -> None:
     """Render top-level report blocks with controlled table-row pagination."""
 
@@ -68,7 +69,7 @@ def render_report_html(
         after_leading_blocks()
 
     if split_index < len(blocks):
-        if canvas.has_content:
+        if canvas.has_content and start_body_on_new_page:
             canvas.new_page()
         _render_html_blocks(canvas, style, blocks[split_index:])
 

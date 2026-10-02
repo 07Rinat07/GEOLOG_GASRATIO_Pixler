@@ -4,6 +4,7 @@ from html import escape
 
 from geoworkbench.domain.depth_interval import scope_dataset
 from geoworkbench.domain.models import Dataset
+from geoworkbench.printing.interpretation_chart_key import interpretation_chart_key_html
 from geoworkbench.printing.hydrocarbon_interpretation_chart import (
     hydrocarbon_interpretation_chart_data_uri,
 )
@@ -56,7 +57,9 @@ def hydrocarbon_interpretation_html_with_front_chart(
     if not uri:
         return base
     labels = _labels(language)
-    block = _chart_block(uri, labels, print_layout=print_layout)
+    block = interpretation_chart_key_html(
+        report, scope_dataset(dataset, report.analysis_depth_interval), language,
+    ) + _chart_block(uri, labels, print_layout=print_layout)
     marker = "<h2>"
     if marker in base:
         return base.replace(marker, block + marker, 1)

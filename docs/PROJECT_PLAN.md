@@ -1,9 +1,31 @@
 <!-- runtime-contract: package=0.7.96; project=v36; form=v18; layout=v25 -->
 # Единый план проекта
 
-Решения и приоритеты обновлены 2 октября 2026 года по `main` на `23da0de6` (включая PR #418), текущему коду, тестам, операторскому скриншоту WITS и публичному benchmark real-time drilling software. WITS-UX теперь трактуется как live-first operator workspace, а не как техническая форма настроек: основной экран — live данные и health, редкие network/storage параметры сворачиваются, diagnostics отделяются от рабочего потока, navigation/scroll/help должны быть адаптивными. Текущая industrial-blue DIGITAL GEOLOG айдентика остаётся канонической и не меняется этим UX-рефакторингом. Это единственный канонический план проекта. Завершённые
-изменения фиксируются в [CHANGELOG.md](CHANGELOG.md); отдельные roadmap, build report,
-release plan и временные планы в `docs` не создаются.
+План сверён 2 октября 2026 года с кодом и тестами `main`, объединёнными PR #417–#419
+и состоянием GitHub. В текущий инкремент включены дефекты отчёта, подтверждённые
+скриншотами: повторы легенды без расшифровок, смешанный порядок обозначений и обрезание
+заголовков при добавлении шламограммы; также добавлена поясняющая шапка графиков. Проверенная база аудита предыдущих инкрементов — `6546302d` (PR #419);
+новый RPT-GEO-03 описан отдельно ниже. Приложение сохраняет каноническую industrial-blue DIGITAL GEOLOG
+айдентику. WITS развивается как операторское рабочее пространство с live-данными и состоянием
+подключения; расширенные настройки и диагностика отделяются от основного сценария.
+
+Это единственный канонический план проекта. Крупные продуктовые изменения фиксируются в
+[CHANGELOG.md](CHANGELOG.md); отдельные roadmap, build report, release plan и временные планы
+в `docs` не создаются.
+
+## Состояние после сверки 2 октября 2026 года
+
+| Проверенный результат | Доказательство | Статус и оставшаяся граница |
+|---|---|---|
+| Геология и ЛБА отчёта, динамические легенды, переполнение легенд и preview | [PR #417](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/pull/417), shared painters/snapshots и regression matrix | Реализация завершена; физическая печать остаётся на приёмке |
+| Общая область GasRatio/Pixler/OPUS, интерпретации, графиков, литологии/ЛБА и экспортов | [PR #418](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/pull/418), [Release gate #2281](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/36963989635), реальный LAS М-1 | Реализация и автоматическая приёмка завершены; остаётся полевая содержательная проверка и принтер |
+| Пять фаз, единые маркеры, строгая обработка неизвестных кодов и сохраняемый audit классификации | [PR #419](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/pull/419), [Release gate #2286](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/actions/runs/36968262170) | Реализация завершена: Windows quality — 4177 passed, 1 skipped; security и GUI/HiDPI/PDF — success |
+| Очистка репозитория | GitHub branches/open PR и `git fetch --prune`, проверенные 2 октября | Девять завершённых/заменённых веток удалены; остался только `main`, открытых PR нет |
+| Актуальные форматы | Константы `storage/project_codec.py`, `forms/codec.py`, `tablet/layout_codec.py` | Пакет 0.7.96; project v36; form v18; layout v25 |
+
+Эта сверка не объявляет завершённым весь проект. Composer, printable annotations, единый язык
+всех экспортов, остаточная адаптивность/производительность и внешняя приёмка остаются ниже.
+Результат CI относится к указанному run/head и не переносится автоматически на следующие изменения.
 
 ## Правила ведения разработки
 
@@ -47,9 +69,9 @@ release plan и временные планы в `docs` не создаются.
     переносятся в `main` или канонический план. Для одного инкремента остаётся одна рабочая
     ветка/PR; накопление старых вариантов не заменяет приёмку и интеграцию.
 
-## P0 — единый интервал глубин расчёта и отчёта (RPT-DEPTH-01)
+## RPT-DEPTH-01 — единый интервал глубин: реализация завершена
 
-Новый приоритет по запросу пользователя: перед GasRatio/Pixler/OPUS оператор выбирает «Вся скважина» или верхнюю/нижнюю границы глубины. Один диапазон определяет исходные строки расчёта, robust background, кандидаты и классификацию, статистику, ручные интервалы, графики, литологию и ЛБА. PDF/печать/HTML/DOCX/XLSX и Report Passport должны отражать эту же область. Выбор в титуле не может расходиться с областью расчёта.
+Интегрировано через PR #418: перед GasRatio/Pixler/OPUS оператор выбирает «Вся скважина» или верхнюю/нижнюю границы глубины. Один диапазон определяет исходные строки расчёта, robust background, кандидаты и классификацию, статистику, ручные интервалы, графики, литологию и ЛБА. PDF/печать/HTML/DOCX/XLSX и Report Passport должны отражать эту же область. Выбор в титуле не может расходиться с областью расчёта.
 
 - [x] Общий domain-контракт интервала MD/TVD/TVDSS, включённые границы, отрицательные и дробные глубины; отклонение обратного/пустого/внедиапазонного интервала и временной оси до изменения данных.
 - [x] Выбор области в workspace до расчёта; Apply, RU/KK/EN, сброс при смене скважины/dataset/активной оси. Подставленные границы сохраняют точные исходные глубины, включая более шести десятичных знаков: округление полей и титула не исключает граничные измерения и не изменяет print preview.
@@ -57,31 +79,50 @@ release plan и временные планы в `docs` не создаются.
 - [x] Один диапазон в preview и экспортах; ручные записи и gas context обрезаются по границам, геология и ЛБА сопоставляются с выбранной глубиной; audit Excel содержит только выбранные строки.
 - [x] Regression matrix: независимые интервалы, фон standard/OPUS, normalized mode, отрицательная/неупорядоченная ось, пустые/обратные границы, gas context и ЛБА, значения графиков, согласованность PDF/DOCX/XLSX и смена скважины. Выпуск и слияние требуют полного зелёного Release gate на окончательном PR head; результаты закрепляются GitHub checks.
 - [x] Автоматическая приёмка на LAS «Максат М-1» (2 октября 2026): 5200–5300 и 5400–5500 м, по 501 отсчёту; standard/OPUS фон и кандидаты сверены с независимым расчётом выбранных строк, PDF/DOCX/XLSX созданы. Геология ограничена теми же глубинами: 186/159 записей шлама и 45/38 проб ЛБА. Все 351 исходная кривая и файл LAS неизменны; визуально проверены PDF-графики с геологией и ЛБА.
-- [ ] Полевая приёмка специалистом ГТИ: короткий участок с недостаточными данными, физическая печать и содержательная проверка ЛБА на граничной пробе.
+- [x] Автоматическая проверка короткого участка 5200–5200.2 м: два отсчёта, standard не оценивает фон при недостатке данных, OPUS не выдаёт кандидатов; пустой диапазон 5200.01–5200.1 м отклоняется без изменения source curves.
+- [ ] Полевая приёмка специалистом ГТИ: подтвердить содержательную интерпретацию короткого участка, физическую печать и ЛБА на граничной пробе. Это внешний этап, а не незавершённая реализация выбора интервала.
 
 ## Ближайший порядок работ
 
-| Порядок | Задачи | Результат и зависимость | Ответственный по роли / статус |
+Основная очередь ниже содержит оставшуюся разработку и сквозную автоматическую приёмку.
+Внешние проверки ведутся параллельно в отдельной таблице и не блокируют независимый
+продуктовый инкремент. Завершённые RPT-DEPTH, базовые geology tracks и fluid-phase slices переиспользуются.
+Текущий инкремент RPT-GEO-03 исправляет легенды, заголовки и пояснения к графикам;
+после его интеграции следующий основной инкремент — согласование отрицательных глубин в Gas Context Registry
+с общим контрактом выбранного интервала. Затем исправляются границы окна в UI-SYS-01;
+Composer использует готовые range/registry contracts, workspace и renderer/snapshots.
+
+| Порядок | Задача | Следующий проверяемый результат и зависимость | Ответственный по роли / статус |
 |---|---|---|---|
-| 0 | RPT-DEPTH-01, полевая приёмка | Принять физическую печать, короткий участок и ЛБА на граничной пробе; код единого интервала и автоматическая проверка LAS завершены | Специалист ГТИ / блокировано внешним условием |
-| 1 | RPT-QA-01 | Исправить пропуски/разрывы и межстраничный washout интерпретационных PDF-графиков; во всех видимых графиках/HTML/PDF/DOCX/XLSX использовать физические названия параметров вместо source mnemonics; единая терминология флюида: «УВ-флюид неопределённого типа» / «жидкая УВ-фаза» / «признаки лёгкой нефтяной фазы» / «жидкая УВ-фаза; возможны лёгкая нефть или газоконденсат» / «газовая УВ-фаза»; raw mnemonics сохранять только в audit/source data; OPUS-графики и OPUS Газомер используют тот же readable-label и fluid-phase contract; RU/KK/EN семантически эквивалентны | Разработчик + специалист ГТИ / в работе |
-| 2 | RPT-GEO-01 | GasRatio/Pixler/OPUS interpretation reports автоматически используют актуальную геологию текущей скважины, включая материализованную из загруженного LAS через существующий geology resolver: синхронизированные по глубине колонки «Шламограмма» и «ЛБА», режим Auto/Show/Hide, без повторного разбора LAS и без изменения расчётных формул | Разработчик + специалист ГТИ / в работе |
-| 3 | RPT-GEO-02 | Динамические легенды шламограммы и ЛБА: полная сверху над графиками, компактная повторная снизу/на многостраничной выдаче; показывать только реально используемые обозначения, RU/KK/EN, colour + grayscale-safe | Разработчик + специалист ГТИ / в работе |
-| 4 | PRINT-STYLE-01 | Единый Report Visual System PDF/Masterlog/DOCX/XLSX, A4/A3/roll, colour + grayscale; новые геологические колонки, легенды, шапка и annotations используют тот же style profile | Разработчик / в работе |
-| 5 | RPT-COMP-01 | Final Report Composer: финальный preview перед PDF/печатью, presentation-only управление колонками, Auto/Show/Hide для шламограммы/ЛБА, легендами, шапкой, summary и layout; Composer не изменяет source geology, GasRatio/Pixler/OPUS calculations или classification | Разработчик + специалист ГТИ / запланировано |
-| 6 | RPT-ANN-01 | Printable report annotations: глубинно/интервально/track-привязанные выноски, текст, стрелки и remarks в preview/PDF/печати; переиспользовать существующие annotation/canvas semantics там, где они подходят, хранить отдельно от расчётных данных и не менять исходные кривые/интерпретацию | Разработчик + специалист ГТИ / запланировано |
-| 7 | WITS-MEM-01 | Автоматические raw replay/acquisition-boundary/RSS gates закрыты; остался длительный реальный raw/field прогон перед FIELD-01 | Оператор + разработчик / блокировано внешним условием |
-| 8 | WITS-UX-01 | Live-first operator workspace: компактное подключение/health, Live как основной экран, collapsible Advanced/Diagnostics, понятная навигация/help, без outer horizontal scroll; далее persistence/reconnect и полевой UX acceptance | Разработчик / в работе |
-| 9 | WITS-PLOT-01 | Независимые шкалы/диапазоны, редактируемые панели/колонки, читаемые интерпретационные полосы и non-overlap badges поверх нового operator workspace | Разработчик / в работе |
-| 10 | WITS-ALARM-01 | Для всех отображаемых параметров min/max, visual/audio alarm, hysteresis/debounce, acknowledgement и маркеры на графике | Разработчик + оператор / в работе |
-| 11 | WITS-GASCTX-01 | Live/WITS-классификация background/formation/connection/trip/circulated/elevated-unclassified поверх общего gas-context контракта | Разработчик + специалист ГТИ / в работе |
-| 12 | UI-SYS-01 | Продолжить общий adaptive UI foundation без изменения зафиксированной industrial-blue айдентики | Разработчик / в работе |
-| 13 | GASCTX-RPT-01 | Завершить остаточную report-first приёмку Gas Context Registry и синхронизацию тематического checklist с уже интегрированным кодом | Разработчик + специалист ГТИ / в работе |
-| 14 | FIELD-01 | Реальный WITS: сеть, профиль, live → review → запись → reconnect/reopen + Gas Ratio/Pixler/DEXP/alarms | Оператор + разработчик / блокировано внешним условием |
-| 15 | WELL-04 → WELL-05 | Закрыть остаточную сквозную приёмку переводов и связанных макетов; использовать готовый WELL-06 | Разработчик + оператор / запланировано |
-| 16 | REL-03 / CUT-03 | Реальная печать A4/A3 и комплект одной ревизии; финальная physical acceptance требует принтер и образцы | Оператор + разработчик / частично блокировано |
-| 17 | PERF-05 | Решение по storage только после измеренного baseline 100k/1M строк | Разработчик / запланировано |
-| 18 | FIELD-02…05; OPUS-08 | Совместимость с внешними системами и независимая проверка интерпретации | Разработчик + профильный специалист / блокировано внешним условием |
+| 1 | GASCTX-RPT-01: отрицательные глубины | Согласовать `GasContextEvent` и editor bounds с MD/TVD/TVDSS interval contract: сейчас domain запрещает `< 0`, UI имеет минимум 0, а выбранный диапазон допускает отрицательные глубины. Проверить valid negative TVDSS → Save/reopen → standard/OPUS/export, не ослабляя finite/range/axis validation | Разработчик / готово к разработке |
+| 2 | UI-SYS-01: окно интерпретационного отчёта | Устранить правое обрезание controls на RU/KK в узком окне; сохранить доступность выбора интервала, расчёта и экспорта. Сверить RU/KK/EN, 900×650 и 1600×900, Windows DPI matrix; не менять айдентику или расчёты | Разработчик / готово к разработке |
+| 3 | PERF-07 | Измерить на актуальной сборке этапы импорта М-1, первый render, scroll/zoom и MainThread rebuild; выбрать следующий hot path по `las.import.performance`/`las.import.presentation`, времени и RSS. Закрытые streaming/searchsorted/partial-refresh slices переиспользуются | Разработчик / в работе |
+| 4 | REPORT-I18N-01 | Один явный язык всей выдачи RU/KK/EN: preview/PDF/print/DOCX/XLSX, legends, header и annotations; устранить оставшиеся fixed-language adapters. Реестр переводов WELL-04 используется без подмены draft/reviewed статусов | Разработчик / готово к разработке |
+| 5 | RPT-COMP-01 | Один сохраняемый presentation composition и финальный preview поверх готовых renderers; Auto/Show/Hide уже существует. Зависит от исправленного workspace и общего language contract; расчёты и source geology не меняются | Разработчик / готово к разработке |
+| 6 | RPT-ANN-01 | Report scope и logical track anchors, printable remarks/callouts, общий bounded Undo/Redo, Cancel/Save checkpoints; зависит от стабильного composition ID Composer | Разработчик / запланировано |
+| 7 | PRINT-STYLE-01 | Свести оставшиеся generic/Masterlog/Office пути к одному visual profile и document-control contract; дополнять готовые typography/marker/legend contracts. Physical acceptance вынесена отдельно | Разработчик / в работе |
+| 8 | GASCTX-RPT-01: остаточная приёмка | Проверить общий editor/registry/context audit через production entry points, save/reopen и RU/KK/EN; завершить отдельные полосы/метки событий с grayscale-подписями. Реализованные exclusion/background/confirmed policy не переписывать | Разработчик + специалист ГТИ / на проверке |
+| 9 | WITS-UX-01 | Завершить persistence/reconnect и live-first navigation/help: основные данные и health видимы, advanced/diagnostics сворачиваются, outer horizontal scroll отсутствует | Разработчик / в работе |
+| 10 | WITS-PLOT-01 | Остаточные manual ranges, reconnect/schema-change и redraw acceptance поверх существующих unit-aware tracks и редактируемых панелей | Разработчик / в работе |
+| 11 | WITS-GASCTX-01 / WITS-INTERP-01 | Сквозная проекция live gas context и интерпретационных полос; source origin, fluid screening и alarm остаются независимыми осями | Разработчик + специалист ГТИ / в работе |
+| 12 | WELL-04 → WELL-05 | Сквозная готовность переводов и пары макетов; использовать реализованные field ledger/readiness/family resolver и WELL-06, проверить save/reopen без смешения ревизий | Разработчик / на проверке |
+| 13 | ARCH-07 | Довести общую history до оставшихся mutation controllers при работе над конкретными editor сценариями; не создавать параллельную историю в RPT-ANN | Разработчик / в работе |
+| 14 | PERF-05 | Сначала baseline текущего save/open/RSS на 100k/1M; новый storage backend только при подтверждённом bottleneck и с совместимой миграцией | Разработчик / запланировано |
+
+### Внешняя и операторская приёмка, выполняемая параллельно
+
+| Задача | Что осталось | Ответственный / условие |
+|---|---|---|
+| RPT-DEPTH-01; RPT-GEO-01/02; RPT-QA-01 | Содержательно сверить М-1 и граничные пробы ЛБА, отсутствие washout/потери пиков, цвет и grayscale; получить реальный многостраничный отпечаток | Специалист ГТИ + оператор / блокировано доступностью принтера и полевой оценки |
+| REL-03 / CUT-03 / PRINT-STYLE-01 | Physical A4/A3, rich text/фото, поля драйвера, clipping и комплект одной ревизии | Оператор / блокировано доступностью принтера и образцов |
+| WITS-NET-01; WITS-MEM-01; FIELD-01 | Доступный реальный raw-поток, длительный Windows soak, live → review → запись → reconnect/reopen; автоматические memory/raw gates уже закрыты | Оператор сети + разработчик / блокировано реальным источником и стендом |
+| WITS-ALARM-01 | Приёмка factual activation/clear markers и звука, Pause/Resume/acknowledgement; отдельное решение по mute/escalation policy | Оператор + разработчик / на проверке; нужен реальный live-сценарий |
+| OPUS-08; FIELD-02…05 | Независимая проверка по ГИС/испытаниям и внешние WITSML/ETP/GS2 implementations | Профильный специалист + разработчик / блокировано внешними данными и системами |
+| SEC-01 / SEC-05 | Решение владельца по историческим пользовательским данным и provenance/license review assets | Владелец репозитория/ресурсов / блокировано внешним решением; история Git не переписывается автоматически |
+
+По внешнему этапу сохраняются среда, ревизия, входной fixture и наблюдаемый результат.
+Проверка цифрового PDF не подменяет физическую печать; новые полевые данные не считаются
+проверенными только потому, что автоматические fixtures прошли.
 
 Первый инкремент WITS-ALARM-01 ввёл Qt-независимый alarm state machine: валидированные min/max, sample-count debounce, hysteresis снятия, acknowledgement и fail-safe обработку отсутствующих/нечисловых отсчётов. Второй инкремент поднял live-form settings до schema v4 и сохраняет per-channel alarm rules по mnemonic: min/max, hysteresis, debounce, visual-enabled и audio-enabled; schema v1–v3 мигрируют с пустым набором alarm rules. Третий инкремент добавляет операторский редактор этих правил в Parameters: выбор параметра, независимое включение min/max, hysteresis, debounce и visual/audio policy с сохранением через существующую кнопку «Сохранить форму». Четвёртый инкремент подключает сохранённые правила к runtime: один `Wits0LiveAlarmController` проигрывает все новые append-only DATA_ROW после последней обработанной session sequence для каждой кривой, включая virtual Haworth/Pixler/DEXP/DEXPC по их `source-records` provenance, поэтому debounce не зависит от repaint, batch drain или Pause; active/acknowledged state отображается в таблице и indicator cards, а оператор может выполнить acknowledgement без очистки тревоги. Пятый инкремент добавляет bounded factual event history для `ACTIVATED/CLEARED` с `row_index` и acquisition sequence: события не теряются внутри drain batch и сохраняют отдельные CLEAR+ACTIVATE при прямом переходе между сторонами. Audio-enabled активации дают один coalesced системный cue на factual batch без повторения на refresh, а visual-enabled события формируют красные activation и зелёные clear threshold markers на текущей time/depth оси; при Pause alarm runtime и звук продолжаются, а новые markers становятся видимы после Resume. Следующим остаётся полевой acceptance звука/маркеров и решение по global mute/escalation policy.
 
@@ -102,14 +143,19 @@ WELL-01/02/03/06 и ARCH-01…06 интегрированы. WELL-04/05 част
 
 Операторская приёмка по реальному отчёту М-1 уточнила семантику `exclude_geological`: подтверждённый интервал с этим impact является **hard exclusion** — он не обучает robust background, не участвует в автоматическом candidate detection (включая ОПУС) и не выводится в печатной геологической интерпретации. `technological_gas` остаётся отдельным аудируемым технологическим контекстом. Графики отчётов дополнительно обязаны разрывать кривые на реальных depth gaps, а не соединять несмежные отсчёты.
 
-Первый инкремент GASCTX-RPT-01 реализует generic `GasContextEvent` / `GasContextRegistry`
-без WITS-зависимости и project-format v35 persistence на уровне `Well.gas_context_events`. Depth-domain-aware persistence использует project-format v36, а v35 события мигрируют как unbound и безопасно привязываются только для single-domain well.
-Инкремент editor/controller для повторяющихся строк находится **на проверке**: он добавляет
-транзакционный pre-calculation UI без изменения source curves. Следующий инкремент после его
-зелёного merge — применение confirmed context к Gas Ratio/Haworth/Pixler/OPUS candidate
-classification и единое export presentation в preview/PDF/XLSX/DOCX. Текущий stacked
-audit-инкремент также проводит через общий report DTO измеренные TG/C1–C5 min/mean/max,
-ручной TG/QC reference и безопасную QC-разницу без изменения source curves.
+Generic `GasContextEvent` / `GasContextRegistry`, транзакционный editor/controller,
+применение confirmed context и измеренный/QC audit уже интегрированы в `main`. Хранение
+с учётом глубинной оси использует project v36; события v35 мигрируют как unbound и безопасно
+привязываются только для single-domain well. Editor доступен до расчёта из workspace.
+Общий report DTO содержит измеренные TG/C1–C5 min/mean/max, ручной QC reference и допустимую
+QC-разницу. Source curves не подменяются; confirmed hard exclusion применяется до обучения
+фона и detection standard/OPUS. Технологически подавленные кандидаты сохраняются в audit,
+а hard-excluded интервалы не возвращаются в клиентскую геологическую выдачу.
+
+Доказательство реализации: `gas_context_event_editor.py`, `gas_context_event_dialog.py`,
+`gas_context_candidate_policy.py`, `gas_context_interval_audit.py` и профильные tests.
+Остаточный scope — отрицательные глубины в model/editor, дополнительные ручные QC-поля,
+визуальные полосы событий, сквозная operator acceptance и общий язык экспортов.
 
 Цель — перед расчётом Gas Ratio/Haworth, Pixler, OPUS и любого комбинированного газового
 интерпретационного отчёта дать геологу/оператору явный способ указать интервалы газа известного
@@ -124,35 +170,48 @@ audit-инкремент также проводит через общий repor
 - [x] Каждая запись имеет собственный immutable ID, тип, ось/интервал глубины, start/end,
   confirmed/draft, источник, комментарий и режим влияния на интерпретацию. Повторяющиеся
   события одного типа не объединяются автоматически в один большой интервал.
-- [ ] Редактор перед расчётом отчёта поддерживает Add, «добавить ещё такой же тип», Duplicate,
+- [x] Редактор перед расчётом отчёта поддерживает Add, «добавить ещё такой же тип», Duplicate,
   Delete и редактирование строк. Автонумерация вида «Газ наращивания #1/#2» является только
   display-слоем; identity задаётся event ID.
-- [ ] Ввод Total Gas/% и других ручных величин опционален и хранится как операторский/QC reference,
+- [x] Ввод ручного Total Gas/% опционален и хранится как операторский/QC reference,
   **не заменяя** измеренные LAS/GS2/WITS C1–C5/TG. При наличии исходных кривых min/mean/max/peak
   вычисляются автоматически; ручное и измеренное значения показываются раздельно с QC-разницей.
+- [ ] Для других ручных QC-величин кроме Total Gas определить конкретные поля/единицы и
+  совместимый persistence/export contract. В текущем `GasContextEvent` есть только
+  `reported_total_gas`/`reported_unit`; измеренные C1–C5 не считаются ручным вводом.
+- [ ] Устранить рассогласование отрицательных глубин: `DepthInterval` работает с ними, но
+  `GasContextEvent.__post_init__` требует неотрицательные границы, а editor использует minimum 0.
+  Общий контракт должен принимать валидный отрицательный диапазон поддерживаемой оси,
+  сохранять/reopen события и применять тот же context в выбранных standard/OPUS отчётах.
+  Regression отдельно проверяет TVDSS, неизвестную/другую ось, NaN/inf, обратные и
+  внедиапазонные границы; исправление не заменяется отключением валидации.
+
 - [x] Ввести явный `InterpretationImpact` минимум из трёх режимов:
   **exclude geological interpretation**, **operational/technological gas**, **formation gas**;
   дополнительно поддержать **auto / requires geologist review** для неоднозначных случаев.
-- [ ] Gas-line/chromatograph/calibration/lag-tracer test интервалы исключаются из автоматического
+- [x] Gas-line/chromatograph/calibration/lag-tracer test интервалы исключаются из автоматического
   назначения УВ-пласта и из обучения фонового газа. Значения и формулы сохраняются для внутреннего
   аудита, но исключённый автоматический кандидат не возвращается в клиентские HTML/PDF/DOCX/XLSX
   как перспективный интервал или отдельная таблица подавленного кандидата.
-- [ ] Connection/build-up, trip/СПО, swab, circulated/recycled gas не назначают самостоятельный
+- [x] Connection/build-up, trip/СПО, swab, circulated/recycled gas не назначают самостоятельный
   продуктивный пласт автоматически, но их C1–C5/TG, Gas Ratio, Haworth/Pixler и OPUS результаты
   сохраняются и подписываются как технологический контекст для решения геолога.
-- [ ] Confirmed manual context имеет приоритет над автоматической formation-show классификацией;
+- [x] Confirmed manual context имеет приоритет над автоматической formation-show классификацией;
   draft/unconfirmed не меняет итог. При пересечении нескольких confirmed событий применяется
   детерминированный приоритет тест/QC → trip/swab/connection/circulation/recycle → formation/background,
-  а исходная automatic assessment сохраняется для аудита.
-- [ ] Отчёт выводит для каждого затронутого интервала: effective gas context, тип события,
+  а исходная automatic assessment технологически подавленных кандидатов сохраняется для аудита.
+  Confirmed hard exclusion имеет приоритет над перекрывающимся технологическим audit.
+- [ ] Остаточная сквозная приёмка представления каждого затронутого интервала: effective gas context, тип события,
   event ID/номер, глубины, измеренные TG/C1–C5, ручной QC reference при наличии, automatic
   assessment и пояснение, почему продуктивная классификация подавлена или уточнена.
-- [ ] Один registry обязателен для PDF, XLSX, DOCX и preview; Gas Ratio/Haworth, Pixler, OPUS и
+  Технический audit хранится отдельно от клиентских таблиц; RPT-QA/REPORT-I18N проверяют
+  видимый текст и отсутствие повторного вывода подавленного кандидата как перспективного.
+- [x] Один registry обязателен для PDF, XLSX, DOCX и preview; Gas Ratio/Haworth, Pixler, OPUS и
   комбинированный hydrocarbon report не создают собственных несовместимых списков исключений.
 - [ ] Графики/планшет могут показывать эти интервалы отдельными полосами/метками, но цвет не является
   единственным носителем смысла; подпись типа события обязательна и должна работать в grayscale.
-- [ ] WITS/live позже может читать тот же registry и projection, но отсутствие WITS не блокирует
-  создание, хранение и использование событий в офлайн-интерпретационных отчётах.
+- [x] Создание, сохранение и использование registry в офлайн-отчётах не зависит от WITS.
+  Live projection уже имеет отдельную реализацию; её полевая приёмка остаётся WITS-GASCTX-01.
 - [ ] Приёмка: несколько повторяющихся событий одного типа, пересекающиеся интервалы,
   draft/confirmed, все режимы InterpretationImpact, сохранение/reopen проекта, RU/KK/EN,
   одинаковый effective context в preview/PDF/XLSX/DOCX и отсутствие изменения source curves.
@@ -228,6 +287,13 @@ Document/painter/user-selected colors остаются данными докум
 - [ ] Приёмка: Windows 100/125/150/200% DPI, 1366×768 logical-small workspace, keyboard focus,
   disabled/read-only, dark palette smoke, без horizontal clipping основных действий.
 
+**Запланированный инкремент UI-SYS-01.** При дополнительном Linux-осмотре PR #418 выявлено
+правое обрезание controls на RU/KK в узком окне. Сравнение с предыдущей базой и скрытой
+новой панелью интервала подтвердило существующий layout defect. Acceptance: 900×650 и
+1600×900, RU/KK/EN, доступные depth bounds/Apply/calculate/export, resize и keyboard focus;
+дополнительно Windows 100/125/150/200% DPI. Общий adaptive contract не считается полностью
+закрытым наличием ранее интегрированного UI-ADAPT-01.
+
 ## PRINT-STYLE-01 — Report Visual System
 
 Цель — единый оригинальный профессиональный нефтесервисный стиль, ориентированный на лучшие
@@ -296,31 +362,36 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
 Открыты только перечисленные ниже сквозные print/visual acceptance-критерии; возвращать старые
 длинные callouts из закрытой временной ветки нельзя.
 - [ ] Цветная полоса остаётся на фактической глубине; цвет не является единственным кодом.
-- [ ] Один immutable marker contract используется стандартным Haworth/Pixler и ОПУС:
-  physical fluid family → короткий code + shape + distinct color + RU/KK/EN legend label.
+- [x] Один immutable marker contract используется стандартным Haworth/Pixler и ОПУС:
+  bounded fluid phase → один code/shape/color + RU/KK/EN legend label (PR #419).
 - [ ] На графике запрещены длинные текстовые fluid callouts. В обычной плотности выводится
   компактный marker + short code; при высокой плотности остаётся shape/color marker без текста.
   Вертикальная координата не смещается от фактической глубины; collisions разводятся только
   горизонтальными marker lanes.
 - [ ] Страничная легенда показывает только реально присутствующие типы. Полный интервал глубин,
   полная предварительная формулировка и method/evidence остаются в таблицах/деталях отчёта.
-- [ ] Ни Haworth/Pixler, ни ОПУС не должны принудительно выбирать один флюид при
-  ambiguous/no-consensus: такие случаи используют отдельный indeterminate marker `?`.
-- [ ] PDF, whole-well PNG/HTML preview и системная печать используют один marker contract;
+- [x] Ни Haworth/Pixler, ни ОПУС не должны принудительно выбирать один флюид при
+  ambiguous/no-consensus: такие случаи используют общий indeterminate marker `?`; неизвестные
+  hypothesis codes также не повышаются до определённой фазы по substring.
+- [x] PDF, whole-well PNG/HTML preview и системная печать используют один marker contract;
   Office-таблицы сохраняют полные формулировки и не заменяются сокращениями.
 - [ ] Приёмка: RU/KK/EN, dense adjacent intervals, standard + OPUS, A4/A3, grayscale,
   PDF text/visual regression и отсутствие перекрытия длинными подписями.
 
 ## Результаты аудита и границы достоверности
 
-| Наблюдение на 21.09.2026 | Основание | Решение |
+Ниже сохранены исходные наблюдения 21–24 сентября. Они объясняют происхождение задач;
+текущее завершение определяется сверкой 2 октября и тематическими checklist, а не старой
+диагностикой. Размеры Qt-shell в этой таблице относятся к историческому осмотру.
+
+| Историческое наблюдение | Основание | Актуальное решение |
 |---|---|---|
 | Верхняя очередь расходилась с тематическими `[x]`; PR #76 уже слит | Тематические разделы, CHANGELOG, GitHub metadata PR #76 | Синхронизировать статусы, убрать устаревший «текущий инкремент v28» |
 | TCP к настроенному WITS endpoint не установлен | Диагностика оператора: `TcpTestSucceeded=False`, выбран интерфейс Wi-Fi; сетевые адреса не включены в план | WITS-NET-01; не объявлять ошибкой парсера отсутствие соединения |
-| Ограничение deque само по себе не ограничивает Dataset preview | Исходный дефект воспроизведён; текущий WITS-MEM-01 инкремент добавляет bounded transient runtime и regression 10× лимита | После merge завершить явную raw/backfill-границу и RSS baseline; только затем закрывать WITS-MEM-01 |
+| Ограничение deque само по себе не ограничивает Dataset preview | Исходный дефект воспроизведён; текущий WITS-MEM-01 инкремент добавляет bounded transient runtime и regression 10× лимита | Автоматические raw/acquisition-boundary/RSS gates интегрированы; до закрытия WITS-MEM-01 остаётся длительный реальный прогон |
 | Разные физические единицы ранее использовали общую шкалу | PR #274–#278: operator dashboard, вертикальные semantic tracks и unit-aware splitting | WITS-PLOT-01 остаётся открыт для manual ranges, reconnect/schema-change acceptance и redraw benchmark |
 | Операторский сценарий WITS был техническим: форма блокировалась до runtime, fullscreen/редактирование/alarms отсутствовали | Текущий UI + требования оператора 24.09.2026 | WITS-UX/PLOT/CALC/GASCTX/ALARM/INTERP; не смешивать происхождение газа, fluid screening и threshold alarm |
-| Архив не позволяет установить точный commit; время неоднозначно | `application_logging.py`: только package version; Formatter добавляет `Z`, но не задаёт UTC converter | OBS-01; старые crash entries нельзя уверенно датировать по новому ZIP |
+| Архив не позволяет установить точный commit; время неоднозначно | `application_logging.py`: только package version; Formatter добавляет `Z`, но не задаёт UTC converter | OBS-01 реализован с build/session identity и UTC diagnostics; прежние ZIP/crash entries по-прежнему нельзя датировать или привязать к новому commit |
 | Архитектурные границы улучшены, крупные Qt-shell остаются | ARCH-01…05 и tests; MainWindow 10009 строк, TabletView 10560 строк | Поведенческие проверки вместе с AST; выделять ответственность при работе над сценарием |
 
 Разные адресные диапазоны источника и сервера без масок и маршрутов не доказывают
@@ -584,7 +655,7 @@ WELL-04/05 закрываются по этой сквозной матрице,
 
 ## Текущая база
 
-- пакет `0.7.96`; project `v34`; form `v18`; tablet layout `v25`;
+- пакет `0.7.96`; project `v36`; form `v18`; tablet layout `v25`;
 - desktop-модульный монолит: Python 3.11, PySide6, PyQtGraph, NumPy;
 - WITS0, WITSML 1.4.1.1, WITSML 2.x/ETP foundation, GS2/Paradox, LAS, планшет, формы,
   расчёты и отчёты реализованы;
@@ -1374,8 +1445,8 @@ report snapshot/composition/render/print.
   Контракт, единые маркеры и экспортный audit round-trip закреплены regression-тестами;
   общая физическая приёмка RPT-QA-01 остаётся отдельной задачей.
 
-- [ ] **RPT-GEO-01 — шламограмма и ЛБА из актуальной геологии проекта.**
-  Реализованы shared Masterlog-compatible painters, immutable geology snapshot, depth-scoped `geology_sha256` в Report Passport и независимые `Auto/Show/Hide` для screen preview/PDF/system print. `Show` при полном отсутствии данных печатает локализованный empty-state, а частичные пробелы остаются пустыми. Screen preview использует тот же resolved geology composition и shared painters, а multi-page empty/partial edge cases закреплены regression-тестами. До закрытия задачи остаётся финальная физическая printer acceptance на реальном устройстве.
+- [x] **RPT-GEO-01 — реализация шламограммы и ЛБА из актуальной геологии проекта.**
+  Реализованы shared Masterlog-compatible painters, immutable geology snapshot, depth-scoped `geology_sha256` в Report Passport и независимые `Auto/Show/Hide` для screen preview/PDF/system print. `Show` при полном отсутствии данных печатает локализованный empty-state, а частичные пробелы остаются пустыми. Screen preview использует тот же resolved geology composition и shared painters, а multi-page empty/partial edge cases закреплены regression-тестами. Реализация завершена; финальная физическая printer acceptance остаётся отдельным открытым критерием ниже.
   Report-layer использует `Well.lithology`/`Well.cuttings`, включая данные, которые уже
   материализованы из загруженного LAS существующим `import_las_geology()` и conservative
   geology dialect resolver. Повторно читать/интерпретировать source LAS внутри отчёта нельзя.
@@ -1400,28 +1471,38 @@ report snapshot/composition/render/print.
   fingerprints неизменными; отдельная матрица на screen preview/PDF/printer проверяет
   `Auto`, populated `Hide`, empty `Show` и partial-geology `Show`.
 
-- [ ] **RPT-GEO-02 — динамические геологические легенды.**
-  Реализован первый production slice: immutable legend snapshot собирается только из символов,
-  реально присутствующих в выбранном report interval и разрешённых текущими geology tracks;
-  screen preview получает полную динамическую легенду, PDF/system print — полную легенду над
-  первой chart-page и compact repeat на страницах продолжения. Lithology использует тот же
-  Masterlog pattern/color brush, LBA — тот же intensity marker/type style; код/паттерн/форма
-  сохраняют читаемость без зависимости только от цвета. RU/KK/EN labels берутся из domain
-  catalogs. Длинные RU/KK/EN labels теперь резервируют высоту по фактическому переносу текста,
-  grayscale-safe различимость и first/continuation multi-page layout закреплены regression-тестами.
-  Метрики строк используют фактический Unicode font и destination paint device. Высота одной
-  строки ограничена 64 pt с явным многоточием для исключительных подписей; все использованные
-  символы большого каталога сохраняются на дополнительных legend pages, если легенда не
-  помещается рядом с графиком. Компактный repeat при переполнении заменяется локализованной
-  ссылкой на эти страницы. A4 landscape PDF regression покрывает RU/KK/EN и 1/60/220 литотипов.
-  Screen preview увеличивает PNG canvas под легенду, сохраняя прежнюю высоту depth plot;
-  regression с 200 длинными обозначениями проверяет положительную неизменную высоту графика.
-  До закрытия остаётся финальная визуальная сверка на реальном многостраничном отчёте/принтере.
-  Над графическим блоком выводится полная легенда реально присутствующих lithology/LBA symbols,
-  снизу — компактная повторная легенда; на многостраничной выдаче допускается компактный repeat
-  per page. Не печатать неиспользуемый каталог. RU/KK/EN семантически эквивалентны; colour
-  presentation имеет grayscale-safe pattern/marker fallback. Легенда не уменьшает chart text
-  ниже минимального readable size и учитывается pagination/layout engine.
+- [x] **RPT-GEO-02 — базовая динамика геологических легенд.**
+  PR #417 интегрировал immutable legend snapshot только для символов выбранного интервала
+  и видимых geology tracks. Lithology использует Masterlog pattern/color brush, LBA — общий
+  intensity marker/type style. Длинные labels измеряются по Unicode font и destination device;
+  переполнение каталога сохраняется на отдельных legend pages, PNG canvas растёт без уменьшения
+  depth plot. Базовый full-first/compact-continuation layout оказался недостаточным по скриншотам
+  оператора 2 октября: повтор оставлял только коды, категории смешивались, позиции менялись.
+  Исправление представления выделено ниже; исходная динамика/численные расчёты переиспользуются.
+
+- [x] **RPT-GEO-03 — читаемые легенды, адаптивные заголовки и пояснения к графикам.**
+  На каждой chart-page одна расшифрованная легенда в одинаковом месте над дорожками; отдельные
+  секции литологии, типа битумоида, интенсивности и цвета ЛБА имеют устойчивый порядок.
+  Повтор не теряет значения кодов; legacy СЖ/О имеют собственные расшифровки без назначения
+  битумоида по одному цвету, неизвестный цвет остаётся явно неизвестным. Большой каталог
+  сохраняет отдельные страницы и понятную ссылку над каждым графиком.
+  Заголовки всех газовых/геологических колонок переносятся по фактической ширине и метрикам
+  шрифта; высота общей шапки резервируется до pagination и не перекрывает шкалу или кривые.
+  Шламограмма + ЛБА входят в расчёт ширины, стандартные и OPUS дорожки используют одну границу
+  typography. Текст не уменьшается до нечитаемого размера ради одной строки.
+  Перед графиками выводится поясняющая шапка с фактически показанными параметрами, смыслом
+  Wh/Bh/Ch и формулами из sourced calculation profiles; исторический OPUS screening явно
+  использует pi = 100 × Ci / Σ(C1…C5), не подменяется независимым TotalGas базисом Gasomer.
+  Проверка: реальные PDF-тексты RU/KK/EN, A4 portrait/landscape, standard/OPUS, no-geology,
+  LBA-only и шламограмма + ЛБА; 72/96/144/192 DPI, стабильное размещение на продолжениях,
+  компактная расшифровка, grayscale и большие каталоги. Итоговые результаты текущего head
+  фиксируются в PR/Release gate; физическая печать остаётся отдельной приёмкой.
+
+- [ ] **RPT-GEO-01/02 — физическая и содержательная приёмка.**
+  Распечатать один и тот же многостраничный snapshot на доступном A4/A3 устройстве; проверить
+  легенды, частичные/пустые geology tracks, Auto/Show/Hide, grayscale и ЛБА на границах выбранной
+  глубины. Сохранить модель/драйвер/DPI, ревизию отчёта и результат специалиста ГТИ.
+  Статус: блокировано внешним условием; зелёный CI и цифровой PDF этот критерий не закрывают.
 
 - [ ] **RPT-COMP-01 — Final Report Composer.**
   Единый финальный workspace перед PDF/печатью поверх существующих report renderer/preview

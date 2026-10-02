@@ -43,6 +43,10 @@ from geoworkbench.printing.hydrocarbon_fluid_markers import (
 )
 from geoworkbench.printing.depth_curve_segments import continuous_depth_segments
 from geoworkbench.printing.unicode_support import print_font
+from geoworkbench.printing.interpretation_track_headings import (
+    paint_track_heading,
+    track_heading_height,
+)
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonCandidateInterval,
     HydrocarbonInterpretationReport,
@@ -227,7 +231,22 @@ def hydrocarbon_interpretation_chart_data_uri(
         geology_legend,
         paint_device=legend_device,
     )
-    legend_offset = max(0.0, preview_legend_height)
+    outer_margin, depth_width, axis_gap = 35.0, 128.0, 16.0
+    geology_track_width, geology_track_gap, panel_gap = 94.0, 10.0, 20.0
+    geology_reserved_width = (
+        len(geology_tracks) * geology_track_width
+        + max(0, len(geology_tracks) - 1) * geology_track_gap
+    )
+    panel_left = outer_margin + depth_width + axis_gap + geology_reserved_width
+    if geology_tracks:
+        panel_left += axis_gap
+    panel_right = 2_000.0 - outer_margin - depth_width - axis_gap
+    panel_width = (panel_right - panel_left - panel_gap * (len(panels) - 1)) / len(panels)
+    header_height = max(62.0, 30.0 + max(
+        track_heading_height(_labels(language)[name], panel_width, 11.0, legend_device)
+        for name, _curves in panels
+    ))
+    legend_offset = max(0.0, preview_legend_height) + header_height - 62.0
     image = QImage(
         2_000, 1_280 + int(np.ceil(legend_offset)),
         QImage.Format.Format_ARGB32_Premultiplied,
@@ -259,9 +278,6 @@ def hydrocarbon_interpretation_chart_data_uri(
         plot_top = 134.0 + legend_offset
         plot_bottom = 1_015.0 + legend_offset
         plot_height = plot_bottom - plot_top
-        outer_margin = 35.0
-        depth_width = 128.0
-        axis_gap = 16.0
         left_depth_rect = QRectF(
             outer_margin,
             plot_top,
@@ -274,8 +290,6 @@ def hydrocarbon_interpretation_chart_data_uri(
             depth_width,
             plot_height,
         )
-        geology_track_width = 94.0
-        geology_track_gap = 10.0
         geology_left = left_depth_rect.right() + axis_gap
         geology_rects = tuple(
             QRectF(
@@ -286,19 +300,6 @@ def hydrocarbon_interpretation_chart_data_uri(
             )
             for index in range(len(geology_tracks))
         )
-        geology_reserved_width = (
-            len(geology_tracks) * geology_track_width
-            + max(0, len(geology_tracks) - 1) * geology_track_gap
-        )
-        panel_left = geology_left + geology_reserved_width
-        if geology_tracks:
-            panel_left += axis_gap
-        panel_right = right_depth_rect.left() - axis_gap
-        panel_gap = 20.0
-        panel_area_width = panel_right - panel_left
-        panel_width = (
-            panel_area_width - panel_gap * (len(panels) - 1)
-        ) / len(panels)
 
         _draw_depth_axis(
             painter,
@@ -328,6 +329,7 @@ def hydrocarbon_interpretation_chart_data_uri(
                 depth_min,
                 depth_max,
                 language,
+                header_height,
             )
 
         candidates = tuple(
@@ -358,6 +360,7 @@ def hydrocarbon_interpretation_chart_data_uri(
                 candidates,
                 language,
                 display_hints,
+                header_height,
             )
 
         if panel_rects and candidates:
@@ -486,6 +489,7 @@ def _draw_geology_preview_tracks(
     depth_min: float,
     depth_max: float,
     language: AppLanguage,
+    header_height: float = 62.0,
 ) -> None:
     labels = {
         AppLanguage.RU: {"cuttings": "Шламограмма", "lba": "ЛБА", "empty": "Нет данных"},
@@ -499,14 +503,11 @@ def _draw_geology_preview_tracks(
         painter.setPen(QPen(QColor("#334155"), 2.0))
         painter.drawRect(rect)
         heading = labels[track]
-        font = print_font(8.5, text=heading)
-        font.setBold(True)
-        painter.setFont(font)
-        painter.setPen(QColor("#172033"))
-        painter.drawText(
-            QRectF(rect.left() - 2.0, rect.top() - 58.0, rect.width() + 4.0, 46.0),
-            Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
-            heading,
+        paint_track_heading(
+            painter,
+            QRectF(rect.left(), rect.top() - header_height + 4.0,
+                   rect.width(), header_height - 30.0),
+            heading, 8.5,
         )
         for major in range(11):
             y = rect.top() + major / 10.0 * rect.height()
@@ -549,6 +550,7 @@ def _draw_panel(
     candidates: tuple[HydrocarbonCandidateInterval, ...],
     language: AppLanguage,
     display_hints: dict[str, str],
+    header_height: float = 62.0,
 ) -> None:
     labels = _labels(language)
     painter.fillRect(rect, QColor("#ffffff"))
@@ -606,14 +608,11 @@ def _draw_panel(
         painter.drawLine(QLineF(rect.left(), top, rect.right(), top))
         painter.drawLine(QLineF(rect.left(), bottom, rect.right(), bottom))
 
-    title_font = print_font(11.0, text=labels[panel_name])
-    title_font.setBold(True)
-    painter.setFont(title_font)
-    painter.setPen(QColor("#172033"))
-    painter.drawText(
-        QRectF(rect.left(), rect.top() - 58.0, rect.width(), 27.0),
-        Qt.AlignmentFlag.AlignCenter,
-        labels[panel_name],
+    paint_track_heading(
+        painter,
+        QRectF(rect.left(), rect.top() - header_height + 4.0,
+               rect.width(), header_height - 30.0),
+        labels[panel_name], 11.0,
     )
 
     depth_indices = np.flatnonzero(finite_depth)

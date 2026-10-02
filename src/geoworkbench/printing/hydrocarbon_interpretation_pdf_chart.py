@@ -25,6 +25,10 @@ from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import (
 )
 from geoworkbench.printing.depth_curve_segments import continuous_depth_segments
 from geoworkbench.printing.unicode_support import print_font
+from geoworkbench.printing.interpretation_track_headings import (
+    paint_track_heading,
+    track_heading_height,
+)
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
 )
@@ -121,10 +125,18 @@ def render_chart_pages(
     if not panels:
         return
 
+    provisional = chart_geometry(
+        canvas.content_rect, DepthPage(0.0, 1.0, 1000, 28.0), len(panels),
+    )
+    header_height = max(CHART_TRACK_HEADER_HEIGHT, 20.0 + max(
+        track_heading_height(_labels(language)[name], rect.width(), 7.5,
+                             canvas.painter.device())
+        for (name, _curves), rect in zip(panels, provisional.panel_rects, strict=True)
+    ))
     available_height = (
         canvas.content_rect.height()
         - CHART_HEADER_HEIGHT
-        - CHART_TRACK_HEADER_HEIGHT
+        - header_height
         - CHART_LEGEND_HEIGHT
         - CHART_NOTE_HEIGHT
     )
@@ -138,7 +150,8 @@ def render_chart_pages(
         percentiles = _curve_percentiles(panels, dataset, page=page)
         _draw_chart_page(
             canvas.painter,
-            chart_geometry(canvas.content_rect, page, len(panels)),
+            chart_geometry(canvas.content_rect, page, len(panels),
+                           track_header_height=header_height),
             page,
             page_index,
             len(pages),
@@ -235,6 +248,7 @@ def _draw_chart_page(
             ranges,
             intervals,
             language,
+            header_height=geometry.track_header_height,
         )
         _draw_legend(
             painter,
@@ -322,6 +336,8 @@ def _draw_panel(
     ranges: dict[str, tuple[float, float]],
     intervals: tuple[tuple[float, float], ...],
     language: AppLanguage,
+    *,
+    header_height: float = CHART_TRACK_HEADER_HEIGHT,
 ) -> None:
     painter.fillRect(rect, QColor("#ffffff"))
     step = _nice_tick_step(page.span, target_ticks=8)
@@ -346,14 +362,11 @@ def _draw_panel(
 
     _draw_interval_bands(painter, rect, page, intervals)
     heading = _labels(language)[panel_name]
-    heading_font = print_font(7.5, text=heading)
-    heading_font.setBold(True)
-    painter.setFont(heading_font)
-    painter.setPen(QColor("#172033"))
-    painter.drawText(
-        QRectF(rect.left(), rect.top() - 32.0, rect.width(), 15.0),
-        Qt.AlignmentFlag.AlignCenter,
-        heading,
+    paint_track_heading(
+        painter,
+        QRectF(rect.left(), rect.top() - header_height + 2.0,
+               rect.width(), header_height - 20.0),
+        heading, 7.5,
     )
     if not any(curve.metadata.curve_id in ranges for curve in curves):
         painter.setPen(QColor("#64748b"))

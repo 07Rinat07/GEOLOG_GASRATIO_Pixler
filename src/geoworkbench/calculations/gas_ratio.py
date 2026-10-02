@@ -23,6 +23,12 @@ CONDITIONED_GAS_PROFILE_VERSION = _DEFAULT_CONDITIONED_GAS_PROFILE.version
 CONDITIONED_GAS_PROVENANCE = _DEFAULT_CONDITIONED_GAS_PROFILE.provenance
 OPUS_SCREENING_PROFILE_VERSION = "1.0"
 OPUS_SCREENING_PROFILE_ID = "opus-lukyanov-c1-c5-relative-1987-1997"
+OPUS_SCREENING_FORMULAS: tuple[tuple[str, str], ...] = (
+    ("OPUS3", "OPUS3 = (p1 * p2) / (p2 + p3)^2"),
+    ("OPUS4", "OPUS4 = (p1 * p2 * p3) / (p2 + p3 + p4)^3"),
+    ("OPUS_K1_3", "OPUS K1/3 = (p1 * p2 * p3) / 3"),
+    ("OPUS_1_5", "OPUS 1/5 = (p1 * p2 * p3 * p4 * p5) / 5"),
+)
 
 
 @dataclass(frozen=True, slots=True)
