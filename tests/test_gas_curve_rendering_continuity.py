@@ -83,6 +83,37 @@ def test_gas_scatter_budget_and_marker_are_compact() -> None:
     assert gas_scatter_point_budget(900.0) == 360
 
 
+def test_gas_scatter_sampling_groups_dense_buckets_in_constant_flatnonzero_calls(
+    monkeypatch,
+) -> None:
+    import geoworkbench.services.gas_curve_presentation as presentation
+
+    original_flatnonzero = presentation.np.flatnonzero
+    calls = 0
+
+    def counted_flatnonzero(values):
+        nonlocal calls
+        calls += 1
+        return original_flatnonzero(values)
+
+    monkeypatch.setattr(presentation.np, "flatnonzero", counted_flatnonzero)
+    axis = np.linspace(0.0, 1_000.0, 200_001, dtype=np.float64)
+    values = 2.0 + np.sin(axis * 0.2)
+
+    sampled_values, sampled_axis = presentation.select_gas_scatter_samples(
+        axis,
+        values,
+        0.0,
+        1_000.0,
+        max_points=1_200,
+    )
+
+    assert 0 < sampled_values.size <= 1_200
+    assert sampled_values.size == sampled_axis.size
+    # One call selects factual rows; one identifies monotonic bucket boundaries.
+    assert calls <= 3
+
+
 def test_gas_scatter_sampling_keeps_sparse_points_and_bounds_dense_cloud() -> None:
     axis = np.arange(3_601, dtype=np.float64)
     sparse = np.full(axis.shape, np.nan, dtype=np.float64)
