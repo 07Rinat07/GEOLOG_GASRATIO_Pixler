@@ -139,11 +139,21 @@ def test_import_las_logs_phase_timings_without_source_values(
     raw = b"~V\nVERS. 2.0\n~W\nNULL. -999.25\n~A\n100 1\n101 2\n"
     source.write_bytes(raw)
     ticks = iter((10.0, 10.125, 10.625, 11.625, 11.875))
+    nanoseconds = 0
     events: list[tuple[str, dict[str, object]]] = []
+
+    def measured_perf_counter_ns() -> int:
+        nonlocal nanoseconds
+        nanoseconds += 1_000_000
+        return nanoseconds
 
     monkeypatch.setattr(
         "geoworkbench.data.las_adapter.perf_counter",
         lambda: next(ticks),
+    )
+    monkeypatch.setattr(
+        "geoworkbench.data.las_adapter.perf_counter_ns",
+        measured_perf_counter_ns,
     )
     monkeypatch.setattr(
         "geoworkbench.data.las_adapter.log_event",
@@ -167,6 +177,9 @@ def test_import_las_logs_phase_timings_without_source_values(
     assert context["warnings"] == result.report.warning_count
     assert context["source_ms"] == pytest.approx(125.0)
     assert context["parse_ms"] == pytest.approx(500.0)
+    assert context["parse_stream_setup_ms"] == pytest.approx(1.0)
+    assert context["parse_lasio_ms"] == pytest.approx(1.0)
+    assert context["parse_index_ms"] == pytest.approx(1.0)
     assert context["dataset_ms"] == pytest.approx(1000.0)
     for key in (
         "dataset_setup_ms",

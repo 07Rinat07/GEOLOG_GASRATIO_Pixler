@@ -106,12 +106,18 @@ def import_las_with_report(
         )
         source_loaded_at = perf_counter()
         memory_source = process_memory_snapshot()
-        with io.TextIOWrapper(
+
+        parse_stream_started_ns = perf_counter_ns()
+        decoded_source = io.TextIOWrapper(
             io.BytesIO(source_document.raw_bytes),
             encoding=source_document.encoding,
             errors="replace",
             newline=None,
-        ) as decoded_source:
+        )
+        parse_stream_setup_ns = perf_counter_ns() - parse_stream_started_ns
+
+        with decoded_source:
+            parse_lasio_started_ns = perf_counter_ns()
             las = lasio.read(
                 decoded_source,
                 ignore_header_errors=True,
@@ -119,7 +125,11 @@ def import_las_with_report(
                 encoding_errors="replace",
                 autodetect_encoding=False,
             )
+            parse_lasio_ns = perf_counter_ns() - parse_lasio_started_ns
+
+        parse_index_started_ns = perf_counter_ns()
         depth = np.asarray(las.index, dtype=np.float64).copy()
+        parse_index_ns = perf_counter_ns() - parse_index_started_ns
         parsed_at = perf_counter()
         memory_parse = process_memory_snapshot()
     except Exception as exc:
@@ -270,6 +280,9 @@ def import_las_with_report(
         warnings=report.warning_count,
         source_ms=_elapsed_ms(import_started_at, source_loaded_at),
         parse_ms=_elapsed_ms(source_loaded_at, parsed_at),
+        parse_stream_setup_ms=_elapsed_ns_ms(parse_stream_setup_ns),
+        parse_lasio_ms=_elapsed_ns_ms(parse_lasio_ns),
+        parse_index_ms=_elapsed_ns_ms(parse_index_ns),
         dataset_ms=_elapsed_ms(parsed_at, dataset_materialized_at),
         dataset_setup_ms=_elapsed_ns_ms(materialization_setup_ns),
         dataset_curve_values_ms=_elapsed_ns_ms(curve_values_ns),
