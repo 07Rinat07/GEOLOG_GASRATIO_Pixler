@@ -74,6 +74,10 @@ from geoworkbench.printing.text_rendering import (
     draw_oriented_text,
 )
 from geoworkbench.services.localization import AppLanguage, Localizer
+from geoworkbench.services.gas_curve_presentation import (
+    GAS_PRINT_POINT_RADIUS_PT,
+    uses_gas_point_presentation,
+)
 from geoworkbench.services.report_passport import ReportPassport
 from geoworkbench.services.report_output_transaction import (
     execute_report_output_transaction,
@@ -2972,9 +2976,42 @@ def _paint_curve_column(
             values = transformed
 
         curve_style = masterlog_curve_style(column, mnemonic, curve_index)
+        color = _color(curve_style.color, column.line_color)
+        point_series = uses_gas_point_presentation(
+            (
+                mnemonic,
+                curve.metadata.original_mnemonic,
+                curve.metadata.canonical_mnemonic,
+            )
+        )
+        if point_series:
+            painter.setPen(QPen(color, 0.2))
+            painter.setBrush(color)
+            radius = GAS_PRINT_POINT_RADIUS_PT * 25.4 / 72.0
+            for value, depth_value in zip(values, sampled_depth, strict=True):
+                if not np.isfinite(value) or not np.isfinite(depth_value):
+                    continue
+                x_fraction = min(
+                    1.0,
+                    max(0.0, (float(value) - minimum) / (maximum - minimum)),
+                )
+                y_fraction = (float(depth_value) - top) / (bottom - top)
+                point_x = rect.left() + rect.width() * x_fraction
+                point_y = rect.top() + rect.height() * y_fraction
+                painter.drawEllipse(
+                    QRectF(
+                        point_x - radius,
+                        point_y - radius,
+                        radius * 2.0,
+                        radius * 2.0,
+                    )
+                )
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            continue
+
         painter.setPen(
             QPen(
-                _color(curve_style.color, column.line_color),
+                color,
                 curve_style.width,
                 styles[curve_style.line_style],
             )
