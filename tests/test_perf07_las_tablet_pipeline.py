@@ -39,7 +39,12 @@ def _valid_result() -> dict[str, object]:
         "navigation_full_updates_delta": 0,
         "geometry_cache_misses_after_render": 4,
         "geometry_cache_misses_after_navigation": 12,
-        "import_ms": 1.0,
+        "import_ms": 10.0,
+        "import_source_ms": 1.0,
+        "import_parse_ms": 6.0,
+        "import_dataset_ms": 2.0,
+        "import_report_ms": 1.0,
+        "import_logged_total_ms": 10.0,
         "first_render_ms": 2.0,
         "scroll_ms": 0.5,
         "zoom_ms": 0.5,
@@ -81,6 +86,17 @@ def test_perf07_worker_exercises_import_render_scroll_and_zoom(qapp) -> None:
     assert result["scroll_changed"] is True
     assert result["zoom_changed"] is True
     assert result["geometry_cache_misses_after_render"] >= 4
+    assert result["import_source_ms"] >= 0
+    assert result["import_parse_ms"] >= 0
+    assert result["import_dataset_ms"] >= 0
+    assert result["import_report_ms"] >= 0
+    assert result["import_logged_total_ms"] == pytest.approx(
+        result["import_source_ms"]
+        + result["import_parse_ms"]
+        + result["import_dataset_ms"]
+        + result["import_report_ms"],
+        abs=2.0,
+    )
 
 
 def test_full_tablet_rebuild_log_includes_duration_and_rss(qapp, monkeypatch) -> None:
