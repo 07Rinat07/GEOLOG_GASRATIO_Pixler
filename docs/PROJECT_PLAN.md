@@ -92,13 +92,14 @@ PERF-07 фиксирует воспроизводимый Windows baseline дл�
 RPT-GEO-03, GASCTX-RPT-01 signed-depth implementation и UI-SYS-01 интегрированы через PR
 #420, #421 и #422. PERF-07 matrix-reuse slice интегрирован через PR #426; post-merge Windows
 baseline проверяется отдельным main Release gate. По операторскому запросу текущий продуктовый
-инкремент — RPT-GAS-VIS-01: газовые наблюдения должны иметь единый point-series presentation
-на экране и во всех самостоятельных report/print renderers без изменения расчётных массивов,
-source LAS и специализированного relative-gas 100%-stack.
+инкремент — RPT-GAS-VIS-01: газовые отношения и интерпретационные коэффициенты должны иметь
+единый point-series presentation на экране и во всех самостоятельных report/print renderers.
+Обычные глубинные TG/C1–C5/normalized curves остаются линиями; source LAS, расчётные массивы
+и специализированный relative-gas 100%-stack не изменяются.
 
 | Порядок | Задача | Следующий проверяемый результат и зависимость | Ответственный по роли / статус |
 |---|---|---|---|
-| 1 | RPT-GAS-VIS-01 | C1–C5/iso-normal components, TG/normalized gas, Haworth/Pixler/OPUS отображаются как дискретные точки без соединяющей линии в TabletView, tablet print/PDF, Masterlog, hydrocarbon HTML/PNG/PDF и C1–C5 ramp-report. ROP/DEXP остаются линиями; *_REL сохраняет 100%-stack. Требуется полный exact-head Release gate и визуальная regression matrix | Разработчик / на проверке |
+| 1 | RPT-GAS-VIS-01 | Haworth/WH-BH-CH, C1/C2…C1/C5, isomer ratios, Pixler и OPUS ratio-показатели отображаются как дискретные точки без соединяющей линии в TabletView, tablet print/PDF, Masterlog и hydrocarbon HTML/PNG/PDF. Обычные TG/C1–C5/normalized gas, C1–C5 ramp, ROP/DEXP остаются линиями; *_REL сохраняет 100%-stack. Требуется полный exact-head Release gate и визуальная regression matrix | Разработчик / на проверке |
 | 2 | PERF-07 | PR #426 устранил повторную materialization computed lasio data matrix; gate #2303 на exact PR head зелёный. На текущем main сравнить post-merge synthetic baseline и при наличии оставшегося bottleneck продолжить только по измерениям | Разработчик / на проверке |
 | 3 | REPORT-I18N-01 | Один явный язык всей выдачи RU/KK/EN: preview/PDF/print/DOCX/XLSX, legends, header и annotations; устранить оставшиеся fixed-language adapters. Реестр переводов WELL-04 используется без подмены draft/reviewed статусов | Разработчик / готово к разработке |
 | 4 | RPT-COMP-01 | Один сохраняемый presentation composition и финальный preview поверх готовых renderers; Auto/Show/Hide уже существует. Зависит от исправленного workspace и общего language contract; расчёты и source geology не меняются | Разработчик / готово к разработке |
@@ -112,14 +113,17 @@ source LAS и специализированного relative-gas 100%-stack.
 | 12 | ARCH-07 | Довести общую history до оставшихся mutation controllers при работе над конкретными editor сценариями; не создавать параллельную историю в RPT-ANN | Разработчик / в работе |
 | 13 | PERF-05 | Сначала baseline текущего save/open/RSS на 100k/1M; новый storage backend только при подтверждённом bottleneck и с совместимой миграцией | Разработчик / запланировано |
 
-## RPT-GAS-VIS-01 — единое точечное представление газовых измерений
+## RPT-GAS-VIS-01 — точечное представление газовых отношений
 
-- [ ] Один shared presentation predicate определяет raw/normalized gas, Haworth/Pixler/OPUS и
-  gas-ratio identifiers; source/canonical mnemonics учитываются без изменения Dataset.
-- [ ] TabletView и его print/PDF snapshot используют заполненные point markers без polyline;
-  STYLE-refresh не должен возвращать линию.
-- [ ] Masterlog, hydrocarbon HTML/PNG/PDF и C1–C5 ramp-report используют тот же смысловой
-  контракт: газ — точки, drilling/DEXP — линии; легенда соответствует фактическому glyph.
+- [ ] Один shared presentation predicate определяет Haworth/WH-BH-CH, C1/C2…C1/C5,
+  isomer ratios, Pixler и OPUS ratio identifiers; source/canonical mnemonics учитываются
+  без изменения Dataset.
+- [ ] TabletView и его print/PDF snapshot используют заполненные point markers без polyline
+  только для ratio-series; STYLE-refresh не должен возвращать линию у ratio и не должен
+  превращать обычные TG/C1–C5/normalized gas в точки.
+- [ ] Masterlog и hydrocarbon HTML/PNG/PDF используют тот же смысловой контракт:
+  ratios — точки, обычные gas depth-series и drilling/DEXP — линии; легенда соответствует
+  фактическому glyph. C1–C5 ramp-report сохраняет временные линии компонентов.
 - [ ] Relative-gas `*_REL` остаётся cumulative 0–100% stacked fill и не переводится в scatter.
 - [ ] Regression matrix фиксирует screen/print/Masterlog/report boundaries; завершение только
   после зелёного Release gate на окончательном head.
