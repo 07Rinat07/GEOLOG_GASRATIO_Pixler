@@ -418,10 +418,15 @@ Structural gate требует ровно один full rebuild для перв�
 
 Принятый Windows baseline Release gate #2297 на PR #423: import `12 484.34 ms`, first render
 `629.01 ms`, scroll `60.29 ms`, zoom `109.67 ms`; navigation не увеличила full-render counter.
-Поэтому следующий подтверждённый hot path — LAS import. Runner теперь переносит в тот же JSON
-существующие production checkpoints `source_ms / parse_ms / dataset_ms / report_ms` и RSS по
-этим фазам из `las.import.performance`. Unit suite проверяет полноту phase-total, но не вводит
-wall-clock threshold. Следующая оптимизация допускается только после Windows phase baseline.
+Release gate #2299 затем разложил import на source `809.28 ms`, parse `5 957.19 ms`,
+Dataset materialization `14 263.00 ms`, report `44.68 ms`, подтвердив materialization как
+крупнейшую фазу.
+
+Текущий regression contract требует наличие неотрицательных subphase metrics:
+`dataset_setup_ms`, `dataset_curve_values_ms`, `dataset_curve_canonical_ms`,
+`dataset_curve_semantic_ms`, `dataset_curve_store_ms`, `dataset_headers_ms`. Эти метрики
+наблюдательные и не меняют import semantics. Следующая оптимизация допускается только после
+Windows materialization-subphase baseline.
 
 ## 11. Регрессия GeoScape2/GS2 временного планшета
 

@@ -97,7 +97,7 @@ backend не вводится; следующий hot path выбирается 
 
 | Порядок | Задача | Следующий проверяемый результат и зависимость | Ответственный по роли / статус |
 |---|---|---|---|
-| 1 | PERF-07 | Release gate #2297 подтвердил import как доминирующий hot path: 12.48 s против 0.63 s first render. Текущий slice добавляет в end-to-end JSON production phase checkpoints source / lasio parse / Dataset / report и RSS; после Windows phase baseline оптимизировать только измеренно доминирующую фазу | Разработчик / в работе |
+| 1 | PERF-07 | Release gate #2299 подтвердил Dataset materialization как крупнейшую import-фазу: 14.26 s против 5.96 s lasio parse. Текущий slice разделяет materialization на setup / curve values / canonical inference / semantic resolution / CurveData-store / headers; следующий commit оптимизирует только доминирующую подфазу по Windows baseline | Разработчик / в работе |
 | 2 | REPORT-I18N-01 | Один явный язык всей выдачи RU/KK/EN: preview/PDF/print/DOCX/XLSX, legends, header и annotations; устранить оставшиеся fixed-language adapters. Реестр переводов WELL-04 используется без подмены draft/reviewed статусов | Разработчик / готово к разработке |
 | 3 | RPT-COMP-01 | Один сохраняемый presentation composition и финальный preview поверх готовых renderers; Auto/Show/Hide уже существует. Зависит от исправленного workspace и общего language contract; расчёты и source geology не меняются | Разработчик / готово к разработке |
 | 4 | RPT-ANN-01 | Report scope и logical track anchors, printable remarks/callouts, общий bounded Undo/Redo, Cancel/Save checkpoints; зависит от стабильного composition ID Composer | Разработчик / запланировано |
@@ -1276,6 +1276,11 @@ WELL-04 уже имеет field-level статусы и readiness; WELL-05 — f
   `las.import.performance` checkpoints `source_ms/parse_ms/dataset_ms/report_ms` и RSS по каждой
   фазе в один CI JSON. Новый parser/storage backend до phase baseline не вводится; следующий
   оптимизационный commit обязан адресовать только фактически доминирующую фазу.
+  Десятый slice использует Release gate #2299: source `809 ms`, lasio parse `5 957 ms`,
+  Dataset materialization `14 263 ms`, report `45 ms`. Materialization подтверждена крупнейшей
+  фазой и теперь профилируется по setup, column values, canonical inference, semantic resolution,
+  CurveData/store и headers. Следующая оптимизация допускается только для подфазы, которая
+  доминирует на Windows baseline этого exact head.
 
 ## P1 — поддерживаемая архитектура
 
