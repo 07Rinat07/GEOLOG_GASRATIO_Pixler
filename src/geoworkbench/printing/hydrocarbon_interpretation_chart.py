@@ -6,6 +6,7 @@ import numpy as np
 from PySide6.QtCore import QByteArray, QBuffer, QIODevice, QLineF, QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QImage, QPainter, QPen
 
+from geoworkbench.domain.depth_interval import scope_dataset
 from geoworkbench.domain.models import CurveData, Dataset
 from geoworkbench.printing.geology_track_rendering import (
     paint_cuttings_track,
@@ -140,7 +141,9 @@ def hydrocarbon_interpretation_html_with_chart(
         inject_interval_gas_statistics_html,
     )
 
-    base = inject_interval_gas_statistics_html(base, report, dataset, language)
+    base = inject_interval_gas_statistics_html(
+        base, report, scope_dataset(dataset, report.analysis_depth_interval), language,
+    )
     uri = hydrocarbon_interpretation_chart_data_uri(report, dataset, language)
     if not uri:
         return base
@@ -172,6 +175,9 @@ def hydrocarbon_interpretation_chart_data_uri(
 ) -> str:
     """Render available interpretation curves against depth as a PNG data URI."""
 
+    interval = getattr(report, "analysis_depth_interval", None)
+    depth_range = interval or depth_range
+    dataset = scope_dataset(dataset, interval)
     depth = np.asarray(dataset.depth, dtype=np.float64)
     finite_depth = np.isfinite(depth)
     if depth.ndim != 1 or np.count_nonzero(finite_depth) < 2:

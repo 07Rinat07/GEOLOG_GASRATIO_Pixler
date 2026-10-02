@@ -4,8 +4,9 @@ from math import floor, isclose
 
 import numpy as np
 from PySide6.QtCore import QLineF, QPointF, QRectF, Qt
-from PySide6.QtGui import QColor, QPainter, QPen
+from PySide6.QtGui import QFontMetricsF, QColor, QPainter, QPen
 
+from geoworkbench.domain.depth_interval import scope_dataset
 from geoworkbench.domain.models import CurveData, Dataset
 from geoworkbench.printing import hydrocarbon_interpretation_pdf_chart as base_chart
 from geoworkbench.printing.hydrocarbon_fluid_markers import (
@@ -80,6 +81,9 @@ def render_chart_pages(
 ) -> None:
     """Render chart pages with printer-safe major and minor depth graduations."""
 
+    interval = getattr(report, "analysis_depth_interval", None)
+    depth_range = interval or depth_range
+    dataset = scope_dataset(dataset, interval)
     depth = np.asarray(dataset.depth, dtype=np.float64)
     finite_depth = np.isfinite(depth)
     if depth.ndim != 1 or np.count_nonzero(finite_depth) < 2:
@@ -272,6 +276,9 @@ def _draw_geology_tracks(
         heading = labels[track]
         font = print_font(6.2, text=heading)
         font.setBold(True)
+        heading_width = QFontMetricsF(font, painter.device()).horizontalAdvance(heading)
+        if heading_width > rect.width() - 2.0:
+            font.setPointSizeF(font.pointSizeF() * (rect.width() - 2.0) / heading_width)
         painter.setFont(font)
         painter.setPen(QColor("#172033"))
         painter.drawText(

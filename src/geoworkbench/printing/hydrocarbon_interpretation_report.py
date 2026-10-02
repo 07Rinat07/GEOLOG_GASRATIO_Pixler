@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import QMarginsF
 from PySide6.QtGui import QPageLayout, QPageSize, QPdfWriter
 
+from geoworkbench.domain.depth_interval import scope_dataset
 from geoworkbench.domain.models import Dataset
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_renderer import (
     render_hydrocarbon_interpretation_report,
@@ -82,8 +83,10 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
         identity
         or default_interpretation_report_identity(report, language)
     ).cleaned()
+    if report.analysis_depth_interval is not None:
+        details = replace(details, interval=report.analysis_depth_interval.formatted(report.depth_unit))
     try:
-        depth_range = resolve_report_depth_range(details.interval, dataset)
+        depth_range = report.analysis_depth_interval or resolve_report_depth_range(details.interval, dataset)
     except ReportDepthRangeError as exc:
         raise HydrocarbonInterpretationPdfError(
             f"Некорректный интервал отчёта: {exc}"
@@ -177,11 +180,13 @@ def export_hydrocarbon_interpretation_pdf(
         identity
         or default_interpretation_report_identity(report, language)
     ).cleaned()
+    if report.analysis_depth_interval is not None:
+        details = replace(details, interval=report.analysis_depth_interval.formatted(report.depth_unit))
     effective_report = report
     depth_range = None
     if dataset is not None:
         try:
-            depth_range = resolve_report_depth_range(details.interval, dataset)
+            depth_range = report.analysis_depth_interval or resolve_report_depth_range(details.interval, dataset)
         except ReportDepthRangeError as exc:
             temporary.unlink(missing_ok=True)
             raise HydrocarbonInterpretationPdfError(
@@ -217,7 +222,7 @@ def export_hydrocarbon_interpretation_pdf(
             html = inject_interval_gas_statistics_html(
                 html,
                 effective_report,
-                dataset,
+                scope_dataset(dataset, report.analysis_depth_interval),
                 language,
             )
         identity_texts = (

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from geoworkbench.domain.depth_interval import DepthInterval
+
 from dataclasses import dataclass
 from datetime import datetime
 from html import escape
@@ -171,6 +173,7 @@ class HydrocarbonInterpretationReport:
     gas_context_events: tuple[GasContextEvent, ...] = ()
     gas_context_audit: tuple[GasContextIntervalAudit, ...] = ()
     suppressed_candidates: tuple[HydrocarbonCandidateInterval, ...] = ()
+    analysis_depth_interval: DepthInterval | None = None
 
 
 _GASOMER_AMBIGUOUS_PREFIX = "opus_gasomer_ambiguous__"

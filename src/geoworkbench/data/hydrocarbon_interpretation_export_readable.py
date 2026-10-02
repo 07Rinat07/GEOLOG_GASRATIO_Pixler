@@ -18,6 +18,7 @@ from geoworkbench.data.spreadsheet_safety import (
     protect_spreadsheet_row,
     protect_spreadsheet_value,
 )
+from geoworkbench.domain.depth_interval import scope_dataset
 from geoworkbench.domain.models import CurveData, Dataset
 from geoworkbench.printing.hydrocarbon_report_i18n import hydrocarbon_report_labels
 from geoworkbench.printing.report_visual_system import REPORT_BRAND_WORDMARK
@@ -72,6 +73,7 @@ def export_readable_hydrocarbon_interpretation_xlsx(
         raise HydrocarbonInterpretationExportError(
             f"Кривые с неверным числом отсчётов: {names}{suffix}"
         )
+    dataset = scope_dataset(dataset, report.analysis_depth_interval)
     if dataset.depth.size + 1 > _EXCEL_MAX_ROWS:
         raise HydrocarbonInterpretationExportError(
             f"В наборе {dataset.depth.size} строк; лимит Excel — {_EXCEL_MAX_ROWS - 1}."
@@ -264,7 +266,13 @@ def _write_main_sheet(
 
     metadata = (
         (labels.project, report.project_name, labels.well, report.well_name),
-        (labels.dataset, report.dataset_name, "", ""),
+        (
+            labels.dataset, report.dataset_name,
+            {AppLanguage.RU: "Интервал", AppLanguage.KK: "Аралық", AppLanguage.EN: "Interval"}[language]
+            if report.analysis_depth_interval is not None else "",
+            report.analysis_depth_interval.formatted(report.depth_unit)
+            if report.analysis_depth_interval is not None else "",
+        ),
         (
             labels.primary_gas_curve,
             localized_curve_reference(

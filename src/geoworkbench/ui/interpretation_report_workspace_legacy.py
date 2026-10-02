@@ -374,13 +374,15 @@ class InterpretationReportWorkspace(QWidget):
                     self.controller.session,
                     threshold=self.threshold.value(),
                     total_gas_lod=lod if lod > 0.0 else None,
+                    depth_interval=getattr(self.controller, "depth_interval", None),
                 )
             else:
                 self.report = build_hydrocarbon_interpretation_report(
                     self.controller.session,
                     threshold=self.threshold.value(),
+                    depth_interval=getattr(self.controller, "depth_interval", None),
                 )
-        except RuntimeError:
+        except (RuntimeError, ValueError):
             self.report = None
             self.preview.setHtml(
                 "<p>"
