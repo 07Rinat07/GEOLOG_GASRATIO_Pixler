@@ -25,6 +25,31 @@ def test_dense_gas_scatter_enforces_vertical_display_gap() -> None:
     assert np.all(np.diff(projected) >= 3.0 - 1e-9)
 
 
+def test_scatter_thinning_keeps_late_local_extrema_without_marker_overlap() -> None:
+    depth = np.asarray([0.0, 0.1, 0.2, 0.8, 1.0], dtype=np.float64)
+    display_values = np.asarray([0.5, 0.5, 1.0, 0.5, 0.5], dtype=np.float64)
+
+    selected = gas_scatter_sample_indices(
+        depth,
+        display_values,
+        top=0.0,
+        bottom=1.0,
+        vertical_span=10.0,
+        minimum_gap=4.0,
+        horizontal_span=100.0,
+        marker_diameter=3.0,
+    )
+
+    assert 2 in selected
+    projected_y = depth[selected] * 10.0
+    projected_x = display_values[selected] * 100.0
+    for left in range(selected.size):
+        for right in range(left + 1, selected.size):
+            delta_y = abs(projected_y[right] - projected_y[left])
+            delta_x = abs(projected_x[right] - projected_x[left])
+            assert delta_y >= 4.0 or delta_x >= 3.0
+
+
 def test_sparse_gas_scatter_keeps_separated_factual_observations() -> None:
     depth = np.arange(0.0, 101.0, 1.0, dtype=np.float64)
     values = np.full(depth.shape, np.nan, dtype=np.float64)
