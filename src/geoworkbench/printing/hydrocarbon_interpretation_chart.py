@@ -639,6 +639,7 @@ def _draw_panel(
             continue
         color = QColor(_COLORS[curve_index % len(_COLORS)])
         painter.setPen(QPen(color, 2.2))
+        draw_segments: tuple[np.ndarray, ...]
         if point_series:
             painter.setBrush(color)
             point_indices = np.flatnonzero(usable)
