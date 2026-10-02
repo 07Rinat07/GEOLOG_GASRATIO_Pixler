@@ -488,6 +488,7 @@ def _draw_chart_page(
             percentiles,
             language=language,
             display_hints=display_hints,
+            point_series=panel_name != "drilling",
         )
 
     _draw_fluid_markers(
@@ -634,7 +635,15 @@ def _draw_panel(
         painter.setFont(print_font(8.0, text=label))
         painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, label)
     else:
-        base_chart._draw_curves(painter, rect, page, dataset, curves, ranges)
+        base_chart._draw_curves(
+            painter,
+            rect,
+            page,
+            dataset,
+            curves,
+            ranges,
+            point_series=panel_name != "drilling",
+        )
     painter.setBrush(Qt.BrushStyle.NoBrush)
     painter.setPen(QPen(QColor("#263746"), 1.1))
     painter.drawRect(rect)
