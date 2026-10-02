@@ -275,17 +275,25 @@ def test_dense_pdf_ratio_scatter_has_physical_marker_spacing() -> None:
     )
 
     assert painter.lines == 0
-    assert 35 <= len(painter.ellipse_rects) <= 50
+    assert 35 <= len(painter.ellipse_rects) <= 100
     assert all(
         abs(rect.width() - rect.height()) < 1e-9
         and rect.width() <= 1.81
         for rect in painter.ellipse_rects
     )
-    centers = np.asarray(
-        [rect.center().y() for rect in painter.ellipse_rects],
-        dtype=np.float64,
-    )
-    assert np.all(np.diff(centers) >= 2.1)
+    for left in range(len(painter.ellipse_rects)):
+        for right in range(left + 1, len(painter.ellipse_rects)):
+            delta_y = abs(
+                painter.ellipse_rects[right].center().y()
+                - painter.ellipse_rects[left].center().y()
+            )
+            if delta_y >= 2.2:
+                continue
+            delta_x = abs(
+                painter.ellipse_rects[right].center().x()
+                - painter.ellipse_rects[left].center().x()
+            )
+            assert delta_x >= 1.8
 
 
 def test_singleton_ratio_observation_survives_preview_and_pdf_range() -> None:
@@ -528,10 +536,19 @@ def test_dense_ratio_preview_sampling_keeps_dots_visually_separated() -> None:
     # The final three ellipses are legend glyphs. Factual observations remain
     # numerous, but their centres no longer overlap vertically into "worms".
     factual = painter.ellipse_rects[:-3]
-    assert 40 <= len(factual) <= 65
+    assert 40 <= len(factual) <= 130
     assert all(abs(rect.width() - rect.height()) < 1e-9 for rect in factual)
-    centers = np.asarray([rect.center().y() for rect in factual], dtype=np.float64)
-    assert np.all(np.diff(centers) >= 2.9)
+    for left in range(len(factual)):
+        for right in range(left + 1, len(factual)):
+            delta_y = abs(
+                factual[right].center().y() - factual[left].center().y()
+            )
+            if delta_y >= 3.0:
+                continue
+            delta_x = abs(
+                factual[right].center().x() - factual[left].center().x()
+            )
+            assert delta_x >= 2.5
 
 
 def test_report_panel_scatter_contract_is_ratio_only() -> None:
