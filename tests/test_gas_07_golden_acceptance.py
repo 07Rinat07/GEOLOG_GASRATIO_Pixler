@@ -155,11 +155,16 @@ def _assert_rendered_segmentation(
     assert np.isfinite(rendered_values[connected_index])
     assert np.isnan(rendered_values[broken_index])
 
-    # Point-only gas presentation has no visible line, so PlotCurveItem.connect
-    # is no longer part of the visual contract. Gap semantics remain factual:
-    # connected samples are finite and long outages remain NaN.
-    assert item.opts.get("symbol") == "o"
-    assert item.opts.get("pen") is None
+    connect = item.curve.opts["connect"]
+    if isinstance(connect, np.ndarray):
+        assert connect.dtype == np.bool_
+        assert connect.shape == rendered_depth.shape
+        assert bool(connect[connected_index])
+        assert not bool(connect[broken_index])
+    else:
+        assert connect in ("auto", "finite")
+
+    assert item.opts.get("symbol") is None
 
 
 def test_gas_07_golden_dataset_through_production_pipeline(
