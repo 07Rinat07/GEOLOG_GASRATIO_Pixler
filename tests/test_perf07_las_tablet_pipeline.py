@@ -23,7 +23,6 @@ from geoworkbench.domain.models import (
 from geoworkbench.services.process_metrics import ProcessMemorySnapshot
 from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind
 from geoworkbench.tablet.tablet_view import TabletView
-import geoworkbench.tablet.tablet_view as tablet_view_module
 
 
 def _valid_result() -> dict[str, object]:
@@ -84,17 +83,14 @@ def test_perf07_worker_exercises_import_render_scroll_and_zoom(qapp) -> None:
     assert result["geometry_cache_misses_after_render"] >= 4
 
 
-
 def test_full_tablet_rebuild_log_includes_duration_and_rss(qapp, monkeypatch) -> None:
     events: list[tuple[str, dict[str, object]]] = []
     monkeypatch.setattr(
-        tablet_view_module,
-        "process_memory_snapshot",
+        "geoworkbench.tablet.tablet_view.process_memory_snapshot",
         lambda: ProcessMemorySnapshot(100, 200),
     )
     monkeypatch.setattr(
-        tablet_view_module,
-        "log_event",
+        "geoworkbench.tablet.tablet_view.log_event",
         lambda event, **context: events.append((event, context)),
     )
 
