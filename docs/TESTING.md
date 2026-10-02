@@ -396,7 +396,10 @@ python -m pytest -q -p no:cacheprovider `
 ```
 
 The tests preserve the existing `las.import.performance` timing contract and verify RSS checkpoints
-without exposing source values/full paths. Job-level tests guard the ordered
+without exposing source values/full paths. PERF-07 additionally requires non-negative
+`parse_stream_setup_ms`, `parse_lasio_ms` and `parse_index_ms`; these are observational
+subphases of the existing `parse_ms`, not independent parser semantics or release thresholds.
+The end-to-end benchmark carries the same fields into the Windows quality artifact. Job-level tests guard the ordered
 `job_load → policy → review → register → total` phases and failure-stage metrics. Main-window
 tests verify both successful presentation and the existing fail-safe recovery path emit
 `las.import.presentation` with duration/RSS. Memory collection is best-effort and cannot fail an
