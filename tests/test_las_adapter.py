@@ -137,6 +137,15 @@ def test_import_las_logs_phase_timings_without_source_values(
     assert context["source_ms"] == pytest.approx(125.0)
     assert context["parse_ms"] == pytest.approx(500.0)
     assert context["dataset_ms"] == pytest.approx(1000.0)
+    for key in (
+        "dataset_setup_ms",
+        "dataset_curve_values_ms",
+        "dataset_curve_canonical_ms",
+        "dataset_curve_semantic_ms",
+        "dataset_curve_store_ms",
+        "dataset_headers_ms",
+    ):
+        assert context[key] >= 0
     assert context["report_ms"] == pytest.approx(250.0)
     assert context["total_ms"] == pytest.approx(1875.0)
     assert "source_path" not in context
