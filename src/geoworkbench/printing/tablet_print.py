@@ -21,6 +21,10 @@ from geoworkbench.printing.print_layout import (
 )
 from geoworkbench.tablet.grid_renderer import TabletGridOverlay, TabletGridRenderer
 from geoworkbench.tablet.models import CurveLineStyle
+from geoworkbench.services.gas_curve_presentation import (
+    GAS_SCREEN_POINT_SIZE_PX,
+    uses_gas_point_presentation,
+)
 from geoworkbench.tablet.tablet_view import (
     RenderedTrack,
     TabletVerticalAxisItem,
@@ -112,16 +116,27 @@ def _activate_print_curve_styles(
                 )
             )
             if point_only:
-                # Ratio observations are intentionally point-only. Paper mode may
-                # enlarge markers for legibility, but must never create a line.
-                # Interactive tablet colors may be muted; print capture uses the
-                # persisted curve color and restores the live marker afterward.
+                # Ratio observations remain compact scatter dots in print.
+                # Enlarging dense 0.1-0.2 m samples to 5 px made neighbouring
+                # circles merge into short vertical "worms" after downscaling.
+                ratio_point = uses_gas_point_presentation((mnemonic,))
                 if style is not None:
                     item.setSymbolBrush(pg.mkBrush(style.color))
-                    item.setSymbolPen(pg.mkPen(style.color))
-                item.setSymbolSize(
-                    max(5.0, saved_symbol_size) * float(raster_scale)
-                )
+                    item.setSymbolPen(
+                        pg.mkPen(
+                            style.color,
+                            width=(0.35 if ratio_point else 1.0)
+                            * float(raster_scale),
+                        )
+                    )
+                if ratio_point:
+                    print_point_size = max(
+                        GAS_SCREEN_POINT_SIZE_PX,
+                        min(saved_symbol_size or GAS_SCREEN_POINT_SIZE_PX, 3.2),
+                    )
+                else:
+                    print_point_size = max(5.0, saved_symbol_size)
+                item.setSymbolSize(print_point_size * float(raster_scale))
                 continue
             if style is None:
                 # Legacy/imported tracks may rely on the live PlotDataItem pen
