@@ -56,7 +56,7 @@ def _view_with_sparse_gas() -> TabletView:
     return view
 
 
-def test_sparse_gas_plot_uses_explicit_segment_mask_without_symbols(qapp) -> None:
+def test_sparse_gas_plot_uses_points_without_connecting_line(qapp) -> None:
     view = _view_with_sparse_gas()
     qapp.processEvents()
 
@@ -70,11 +70,12 @@ def test_sparse_gas_plot_uses_explicit_segment_mask_without_symbols(qapp) -> Non
     assert connect.shape == y_values.shape
     assert np.count_nonzero(connect[:12]) >= 8
     assert not connect[-1]
-    assert item.opts.get("symbol") is None
+    assert item.opts.get("symbol") == "o"
+    assert item.opts.get("pen") is None
     view.close()
 
 
-def test_viewport_inside_sparse_cadence_keeps_interpolated_line_context(qapp) -> None:
+def test_viewport_inside_sparse_cadence_keeps_interpolated_point_context(qapp) -> None:
     view = _view_with_sparse_gas()
     view.set_visible_depth(1707.1, 1707.9)
     qapp.processEvents()
