@@ -3002,13 +3002,25 @@ def _paint_curve_column(
             painter.setPen(QPen(color, 0.12))
             painter.setBrush(color)
             radius = GAS_PRINT_POINT_RADIUS_PT * 25.4 / 72.0
+            display_values = np.full(values.shape, np.nan, dtype=np.float64)
+            finite_values = np.isfinite(values)
+            if maximum <= minimum:
+                display_values[finite_values] = 0.5
+            else:
+                display_values[finite_values] = np.clip(
+                    (values[finite_values] - minimum) / (maximum - minimum),
+                    0.0,
+                    1.0,
+                )
             point_rows = gas_scatter_sample_indices(
                 sampled_depth,
-                values,
+                display_values,
                 top=top,
                 bottom=bottom,
                 vertical_span=rect.height(),
                 minimum_gap=GAS_PRINT_POINT_GAP_PT * 25.4 / 72.0,
+                horizontal_span=rect.width(),
+                marker_diameter=radius * 2.0,
             )
             for row_index in point_rows:
                 value = values[row_index]
