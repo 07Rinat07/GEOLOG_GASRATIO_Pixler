@@ -55,6 +55,10 @@ from geoworkbench.printing.masterlog_renderer import (
 from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
 from geoworkbench.printing.report_visual_system import REPORT_BRAND_WORDMARK
 from geoworkbench.printing.masterlog_presets import BUILTIN_MASTERLOG_FORM_PRESETS
+from geoworkbench.services.gas_curve_presentation import (
+    GAS_MASTERLOG_POINTS_PER_MM,
+    gas_scatter_point_budget,
+)
 from geoworkbench.services.localization import AppLanguage
 
 
@@ -415,6 +419,69 @@ def test_masterlog_ratio_curve_uses_points_without_polyline() -> None:
     )
 
     assert painter.drawEllipse.call_count > 0
+    painter.setPen.assert_any_call(Qt.PenStyle.NoPen)
+    painter.drawPath.assert_not_called()
+
+
+def test_masterlog_dense_ratio_points_are_density_bounded() -> None:
+    depth = np.linspace(100.0, 300.0, 2_001, dtype=np.float64)
+    dataset = Dataset(
+        "dense-masterlog-ratio",
+        "Dense masterlog ratio",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        depth,
+    )
+    ratio = CurveData(
+        CurveMetadata(
+            "ratio",
+            "C1_C2",
+            "C1_C2",
+            "ratio",
+            None,
+            dataset.dataset_id,
+        ),
+        2.0 + np.sin(depth / 8.0),
+    )
+    dataset.curves[ratio.metadata.curve_id] = ratio
+    column = MasterlogColumnTemplate(
+        "ratios",
+        "Gas ratios",
+        "curves",
+        45.0,
+        ["C1_C2"],
+    )
+    painter = MagicMock()
+    rect = QRectF(0.0, 0.0, 100.0, 200.0)
+
+    _paint_curve_column(
+        painter,
+        rect,
+        column,
+        dataset,
+        (100.0, 300.0),
+        {},
+    )
+
+    budget = gas_scatter_point_budget(
+        rect.height(),
+        density=GAS_MASTERLOG_POINTS_PER_MM,
+        minimum=16,
+        maximum=900,
+    )
+    assert 1 < painter.drawEllipse.call_count <= budget
+    painter.setPen.assert_any_call(Qt.PenStyle.NoPen)
+    ellipse_rects = [
+        call.args[0]
+        for call in painter.drawEllipse.call_args_list
+        if call.args and isinstance(call.args[0], QRectF)
+    ]
+    assert ellipse_rects
+    assert all(
+        abs(rect.width() - rect.height()) < 1e-9
+        for rect in ellipse_rects
+    )
+    assert max(rect.width() for rect in ellipse_rects) <= 0.5
     painter.drawPath.assert_not_called()
 
 
