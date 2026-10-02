@@ -624,7 +624,7 @@ def _draw_panel(
     curve_rect = rect.adjusted(7.0, 1.0, -7.0, -1.0)
     painter.save()
     painter.setClipRect(rect.adjusted(1.0, 1.0, -1.0, -1.0))
-    point_series = panel_name != "drilling"
+    point_series = panel_name in {"ratios", "opus"}
     legend_rows: list[tuple[QColor, str, bool]] = []
     for curve_index, curve in enumerate(curves):
         values = np.asarray(curve.values, dtype=np.float64)
