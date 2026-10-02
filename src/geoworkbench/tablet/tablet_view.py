@@ -91,6 +91,8 @@ from geoworkbench.services.lba_standard import lba_color_code
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.gas_curve_presentation import (
     GAS_SCREEN_POINT_SIZE_PX,
+    GAS_SCREEN_POINTS_PER_PX,
+    gas_scatter_point_budget,
     uses_gas_point_presentation,
 )
 from geoworkbench.services.geology_labels import (
@@ -8717,7 +8719,7 @@ class TabletView(QWidget):
                 item.setSymbol("o")
                 item.setSymbolSize(GAS_SCREEN_POINT_SIZE_PX)
                 item.setSymbolBrush(pg.mkBrush(screen_color))
-                item.setSymbolPen(pg.mkPen(screen_color, width=0.65))
+                item.setSymbolPen(pg.mkPen(None))
             else:
                 item.setSymbol(None)
                 item.setPen(
@@ -8839,8 +8841,27 @@ class TabletView(QWidget):
             source_values = np.asarray(curve.values, dtype=float)
             settings = rendered.definition.curve_display_settings(mnemonic)
             logarithmic = settings.x_scale is XScale.LOGARITHMIC
-            budget = self._lod_point_budget(
-                rendered.plot.viewport().height() if rendered.plot is not None else 1000
+            viewport_height = (
+                rendered.plot.viewport().height()
+                if rendered.plot is not None
+                else 1000
+            )
+            point_series = uses_gas_point_presentation(
+                (
+                    mnemonic,
+                    curve.metadata.original_mnemonic,
+                    curve.metadata.canonical_mnemonic,
+                )
+            )
+            budget = (
+                gas_scatter_point_budget(
+                    viewport_height,
+                    density=GAS_SCREEN_POINTS_PER_PX,
+                    minimum=24,
+                    maximum=1_200,
+                )
+                if point_series
+                else self._lod_point_budget(viewport_height)
             )
             geometry_key = self._curve_geometry_key(
                 mnemonic, depth, source_values, top, bottom, budget, logarithmic
@@ -8871,7 +8892,7 @@ class TabletView(QWidget):
                     values, settings.x_scale, minimum, maximum
                 )
             connect: object = "finite"
-            if is_gas_curve_id(mnemonic):
+            if not point_series and is_gas_curve_id(mnemonic):
                 connect = build_segment_connect_mask(visible_depth, normalized)
             item.setData(normalized, visible_depth, connect=connect)
             if render_keys is not None:
@@ -9106,12 +9127,29 @@ class TabletView(QWidget):
                     CurveLineStyle.DASH_DOT: Qt.PenStyle.DashDotLine,
                 }[resolved_style.line_style],
             )
+            point_series = uses_gas_point_presentation(
+                (
+                    mnemonic,
+                    curve.metadata.original_mnemonic,
+                    curve.metadata.canonical_mnemonic,
+                )
+            )
             minimum, maximum = self._curve_display_range(definition, mnemonic, values)
             if visible_top is None or visible_bottom is None:
                 visible_values = np.array([], dtype=np.float64)
                 visible_depth = np.array([], dtype=np.float64)
             else:
-                budget = self._lod_point_budget(track.plot.viewport().height())
+                viewport_height = track.plot.viewport().height()
+                budget = (
+                    gas_scatter_point_budget(
+                        viewport_height,
+                        density=GAS_SCREEN_POINTS_PER_PX,
+                        minimum=24,
+                        maximum=1_200,
+                    )
+                    if point_series
+                    else self._lod_point_budget(viewport_height)
+                )
                 key = self._curve_geometry_key(
                     mnemonic, depth, values, visible_top, visible_bottom, budget, logarithmic
                 )
@@ -9136,13 +9174,6 @@ class TabletView(QWidget):
             # Do not pass clipToView at construction time: pyqtgraph 0.14 with
             # PySide6 6.11 may query the temporary PlotWidget before the item is
             # parented to its ViewBox and raise AttributeError(autoRangeEnabled).
-            point_series = uses_gas_point_presentation(
-                (
-                    mnemonic,
-                    curve.metadata.original_mnemonic,
-                    curve.metadata.canonical_mnemonic,
-                )
-            )
             if point_series:
                 item = track.plot.plot(
                     visible_values,
@@ -9151,7 +9182,7 @@ class TabletView(QWidget):
                     symbol="o",
                     symbolSize=GAS_SCREEN_POINT_SIZE_PX,
                     symbolBrush=pg.mkBrush(screen_color),
-                    symbolPen=pg.mkPen(screen_color, width=0.65),
+                    symbolPen=pg.mkPen(None),
                     connect="finite",
                 )
             else:
