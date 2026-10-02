@@ -315,12 +315,31 @@ python benchmarks/benchmark_las_tablet_pipeline.py --json
 python benchmarks/benchmark_las_tablet_pipeline.py --rows 1000 --curves 8 --render-tracks 4 --json
 ```
 
-Вторая команда предназначена только для быстрой локальной диагностики. Канонический Windows
-baseline берётся из Release gate на точном PR head с default M-1-shaped fixture. После первого
-принятого baseline следующий hot path выбирается по фактической доле времени/RSS: import
-(source/lasio/Dataset/report), first full render или viewport geometry update. До получения этого
-измерения не вводится новый storage/parser/render abstraction и не ослабляются PERF-03/04
-contracts.
+Вторая команда предназначена только для быстрой локальной диагностики.
+
+### Принятый Windows baseline PERF-07
+
+Первой принятой точкой является Release gate **#2297** для PR #423, final head
+`514a6be7cd1ae09cc064dcebe0db796ff13a0d05` от 2 октября 2026 года. Quality, security и
+GUI/HiDPI/PDF jobs завершились успешно.
+
+| Этап | Время |
+| --- | ---: |
+| LAS import total | 12 484.34 ms |
+| Первый render 16 curve-track | 629.01 ms |
+| Scroll | 60.29 ms |
+| Zoom | 109.67 ms |
+
+RSS вырос примерно с 102.0 MiB до 323.5 MiB после import, 372.9 MiB после первого render и
+392.7 MiB после navigation. Lifetime peak процесса составил около 1284.0 MiB. Structural contract
+также подтверждён: initial presentation дал ровно один full rebuild, scroll/zoom — ноль;
+geometry-cache misses выросли 16 → 48 без скрытого rebuild.
+
+Import занимает более 90% измеренного wall-clock pipeline и поэтому является следующим
+подтверждённым hot path. Следующий PERF-07 slice не меняет parser/storage: benchmark сначала
+включает в JSON уже существующие production checkpoints `source_ms`, `parse_ms`,
+`dataset_ms`, `report_ms` и соответствующие RSS snapshots из `las.import.performance`.
+После принятого Windows run оптимизируется только доминирующая подтверждённая фаза.
 
 ## Границы ответственности
 
