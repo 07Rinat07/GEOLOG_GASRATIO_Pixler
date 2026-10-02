@@ -119,13 +119,19 @@ def test_print_curve_remains_visible_for_nearly_constant_signal(qapp) -> None:
     finally:
         painter.end()
 
-    dark_pixels = sum(
-        1
+    dark_coordinates = [
+        (x, y)
         for y in range(20, 341)
         for x in range(20, 401)
         if image.pixelColor(x, y).lightness() < 170
-    )
-    assert dark_pixels >= 250
+    ]
+    dark_rows = {y for _x, y in dark_coordinates}
+
+    # OPUS is a marker-only ratio series. Visibility must come from many
+    # depth-distributed observations, not from inflating/overlapping markers
+    # until they resemble a continuous vertical segment.
+    assert len(dark_coordinates) >= 100
+    assert len(dark_rows) >= 90
 
 
 def test_extrema_preserving_print_rows_keeps_narrow_peaks_and_bounds_density() -> None:
