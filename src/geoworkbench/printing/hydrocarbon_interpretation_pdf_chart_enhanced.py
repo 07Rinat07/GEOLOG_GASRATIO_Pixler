@@ -488,7 +488,7 @@ def _draw_chart_page(
             percentiles,
             language=language,
             display_hints=display_hints,
-            point_series=panel_name != "drilling",
+            point_series=panel_name in {"ratios", "opus"},
         )
 
     _draw_fluid_markers(
@@ -642,7 +642,7 @@ def _draw_panel(
             dataset,
             curves,
             ranges,
-            point_series=panel_name != "drilling",
+            point_series=panel_name in {"ratios", "opus"},
         )
     painter.setBrush(Qt.BrushStyle.NoBrush)
     painter.setPen(QPen(QColor("#263746"), 1.1))
