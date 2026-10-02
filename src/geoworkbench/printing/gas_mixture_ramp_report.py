@@ -29,9 +29,6 @@ from geoworkbench.services.las_parameter_resolver import (
     resolve_gas_ratio_inputs,
 )
 from geoworkbench.services.localization import AppLanguage
-from geoworkbench.services.gas_curve_presentation import (
-    GAS_PREVIEW_POINT_RADIUS_PX,
-)
 from geoworkbench.printing.unicode_support import preflight_texts, print_font
 
 
@@ -488,32 +485,19 @@ def _chart_data_uri(
             indices = np.flatnonzero(usable)
             if indices.size < 2:
                 continue
-            color = QColor(_COLORS[name])
-            painter.setPen(QPen(color, 0.9))
-            painter.setBrush(color)
-            radius = GAS_PREVIEW_POINT_RADIUS_PX
+            painter.setPen(QPen(QColor(_COLORS[name]), 3, Qt.PenStyle.SolidLine))
+            previous = None
             for index in indices:
                 px = plot.left() + (x[index] - x_min) / (x_max - x_min) * plot.width()
                 py = plot.bottom() - np.log10(1.0 + values[index]) / y_max * plot.height()
-                painter.drawEllipse(
-                    QRectF(
-                        float(px) - radius,
-                        float(py) - radius,
-                        radius * 2.0,
-                        radius * 2.0,
-                    )
-                )
-            painter.setBrush(Qt.BrushStyle.NoBrush)
+                current = (float(px), float(py))
+                if previous is not None:
+                    painter.drawLine(QLineF(previous[0], previous[1], current[0], current[1]))
+                previous = current
         legend_x = 110.0
         for name, _values in report.series:
-            color = QColor(_COLORS[name])
-            painter.setPen(QPen(color, 1.0))
-            painter.setBrush(color)
-            for offset in (5.0, 14.0, 23.0):
-                painter.drawEllipse(
-                    QRectF(legend_x + offset - 2.2, 587.8, 4.4, 4.4)
-                )
-            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.setPen(QPen(QColor(_COLORS[name]), 5))
+            painter.drawLine(QLineF(legend_x, 590.0, legend_x + 28.0, 590.0))
             painter.setPen(QColor("#172033"))
             painter.drawText(QRectF(legend_x + 34.0, 576.0, 80.0, 28.0), name)
             legend_x += 135.0
