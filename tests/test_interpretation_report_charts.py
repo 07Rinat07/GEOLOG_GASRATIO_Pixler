@@ -138,7 +138,7 @@ def test_report_charts_keep_source_named_las_evidence() -> None:
         assert [curve.metadata.original_mnemonic for curve in panels["drilling"]] == ["S224"]
 
 
-def test_pdf_curve_renderer_uses_points_for_gas_and_lines_for_drilling() -> None:
+def test_pdf_curve_renderer_uses_points_for_ratios_and_lines_for_depth_series() -> None:
     class RecordingPainter:
         def __init__(self) -> None:
             self.lines = 0
@@ -173,8 +173,19 @@ def test_pdf_curve_renderer_uses_points_for_gas_and_lines_for_drilling() -> None
         DepthDomain.MD,
         depth,
     )
-    gas = CurveData(
-        CurveMetadata("gas", "C1", "C1", "%", None, dataset.dataset_id),
+    ratio = CurveData(
+        CurveMetadata(
+            "ratio",
+            "PIXLER_C1_C2",
+            "PIXLER_C1_C2",
+            "ratio",
+            None,
+            dataset.dataset_id,
+        ),
+        np.linspace(1.5, 3.5, 5),
+    )
+    total_gas = CurveData(
+        CurveMetadata("gas", "TG_CALC", "TG_CALC", "%", None, dataset.dataset_id),
         np.linspace(1.0, 5.0, 5),
     )
     drilling = CurveData(
@@ -184,32 +195,51 @@ def test_pdf_curve_renderer_uses_points_for_gas_and_lines_for_drilling() -> None
     page = DepthPage(100.0, 104.0, 100, 100.0)
     rect = QRectF(0.0, 0.0, 100.0, 100.0)
 
-    gas_painter = RecordingPainter()
+    ratio_painter = RecordingPainter()
     _draw_curves(
-        gas_painter,  # type: ignore[arg-type]
+        ratio_painter,  # type: ignore[arg-type]
         rect,
         page,
         dataset,
-        (gas,),
-        {"gas": (1.0, 5.0)},
+        (ratio,),
+        {"ratio": (1.5, 3.5)},
         point_series=True,
     )
-    assert gas_painter.ellipses > 0
-    assert gas_painter.lines == 0
+    assert ratio_painter.ellipses > 0
+    assert ratio_painter.lines == 0
 
-    drilling_painter = RecordingPainter()
-    _draw_curves(
-        drilling_painter,  # type: ignore[arg-type]
-        rect,
-        page,
-        dataset,
-        (drilling,),
-        {"rop": (10.0, 14.0)},
-        point_series=False,
-    )
-    assert drilling_painter.lines > 0
-    assert drilling_painter.ellipses == 0
+    for curve, value_range in (
+        (total_gas, {"gas": (1.0, 5.0)}),
+        (drilling, {"rop": (10.0, 14.0)}),
+    ):
+        line_painter = RecordingPainter()
+        _draw_curves(
+            line_painter,  # type: ignore[arg-type]
+            rect,
+            page,
+            dataset,
+            (curve,),
+            value_range,
+            point_series=False,
+        )
+        assert line_painter.lines > 0
+        assert line_painter.ellipses == 0
 
+
+def test_report_panel_scatter_contract_is_ratio_only() -> None:
+    whole = Path(
+        "src/geoworkbench/printing/hydrocarbon_interpretation_chart.py"
+    ).read_text(encoding="utf-8")
+    pdf = Path(
+        "src/geoworkbench/printing/hydrocarbon_interpretation_pdf_chart.py"
+    ).read_text(encoding="utf-8")
+    enhanced = Path(
+        "src/geoworkbench/printing/hydrocarbon_interpretation_pdf_chart_enhanced.py"
+    ).read_text(encoding="utf-8")
+
+    for source in (whole, pdf, enhanced):
+        assert 'panel_name in {"ratios", "opus"}' in source
+        assert 'panel_name != "drilling"' not in source
 
 def test_constant_gas_curve_keeps_true_percentiles_and_a_visible_trace(qapp) -> None:
     depth = np.linspace(0.0, 10.0, 11)
