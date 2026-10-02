@@ -6343,14 +6343,15 @@ class TabletView(QWidget):
             raise
         else:
             memory_finished = process_memory_snapshot()
-            peak_candidates = (
+            peak_candidates = [
                 value
                 for value in (
                     memory_started.peak_rss_bytes,
                     memory_finished.peak_rss_bytes,
                 )
                 if value is not None
-            )
+            ]
+            peak_rss_bytes = max(peak_candidates) if peak_candidates else None
             log_event(
                 "tablet.render.full.finished",
                 rendered_tracks=len(self._rendered),
@@ -6360,7 +6361,7 @@ class TabletView(QWidget):
                 ),
                 rss_start_bytes=memory_started.rss_bytes,
                 rss_end_bytes=memory_finished.rss_bytes,
-                peak_rss_bytes=max(peak_candidates, default=None),
+                peak_rss_bytes=peak_rss_bytes,
             )
         finally:
             self._layout_rebuild_active = False
