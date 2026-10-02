@@ -645,6 +645,14 @@ def _draw_panel(
             point_indices = point_indices[
                 np.argsort(depth[point_indices], kind="stable")
             ]
+            if point_indices.size > 1_800:
+                sample_positions = np.linspace(
+                    0,
+                    point_indices.size - 1,
+                    1_800,
+                    dtype=np.int64,
+                )
+                point_indices = point_indices[sample_positions]
             draw_segments = (point_indices,)
         else:
             draw_segments = segments
