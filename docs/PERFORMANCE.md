@@ -273,6 +273,55 @@ residency зависит от bounded rendered geometry, а не от 1/5/10M so
 исходные benchmark arrays и поэтому ожидаемо растёт с размером fixture; он не является размером
 самого geometry cache.
 
+
+## PERF-07 — LAS → первый TabletView render → scroll/zoom
+
+PERF-07 закрывает промежуток между существующими импортными метриками
+`las.import.performance`/`las.import.presentation` и низкоуровневым PERF-04. Канонический runner:
+`benchmarks/benchmark_las_tablet_pipeline.py`.
+
+Runner создаёт временный deterministic LAS, близкий по форме к рабочему Maksat M-1:
+`27 500` строк, `351` data curve и `16` видимых curve-track. Файл создаётся streaming-записью
+до timed region и не коммитится в репозиторий. В одном изолированном worker-процессе измеряются:
+
+1. production `import_las_with_report()` целиком;
+2. первый `TabletView.set_layout_and_dataset()` + обработка Qt events;
+3. реальный `scroll_depth()`;
+4. реальный `zoom_depth()`;
+5. current/peak RSS checkpoints до импорта, после импорта, первого render и navigation.
+
+Сам `TabletView.refresh_view()` дополнительно сохраняет duration/RSS в существующем
+`tablet.render.full.finished`, поэтому field diagnostics и synthetic benchmark используют одну
+production boundary без второго renderer.
+
+Первый PERF-07 gate намеренно **не** задаёт wall-clock/RSS threshold: baseline зависит от Windows
+runner, Qt и стоимости lasio parse. Enforcing criteria на этом этапе структурные:
+
+- число импортированных строк/кривых совпадает с fixture;
+- первый presentation вызывает ровно один `DirtyRenderStats.full_updates`;
+- scroll и zoom реально меняют viewport;
+- scroll/zoom не увеличивают `full_updates`;
+- первый render проходит production geometry cache для всех выбранных curve-track;
+- RSS, если платформа его предоставляет, должен быть положительным.
+
+Quality artifact:
+
+`build/ci-artifacts/quality/las-tablet-pipeline-benchmark.txt`
+
+Команды:
+
+```powershell
+python benchmarks/benchmark_las_tablet_pipeline.py --json
+python benchmarks/benchmark_las_tablet_pipeline.py --rows 1000 --curves 8 --render-tracks 4 --json
+```
+
+Вторая команда предназначена только для быстрой локальной диагностики. Канонический Windows
+baseline берётся из Release gate на точном PR head с default M-1-shaped fixture. После первого
+принятого baseline следующий hot path выбирается по фактической доле времени/RSS: import
+(source/lasio/Dataset/report), first full render или viewport geometry update. До получения этого
+измерения не вводится новый storage/parser/render abstraction и не ослабляются PERF-03/04
+contracts.
+
 ## Границы ответственности
 
 Benchmarks не заменяют correctness-тесты и не дублируют production-алгоритмы. GAS runner отвечает
