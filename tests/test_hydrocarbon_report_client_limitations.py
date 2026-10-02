@@ -13,7 +13,10 @@ from geoworkbench.data.hydrocarbon_interpretation_export_readable import (
     _write_methods_sheet,
     _write_opus_gasomer_sheet,
 )
-from geoworkbench.services.hydrocarbon_interpretation import _strip_client_limitations
+from geoworkbench.services.hydrocarbon_interpretation import (
+    HydrocarbonInterpretationReport,
+    _strip_client_limitations,
+)
 
 
 def _minimal_report(**overrides):
@@ -22,9 +25,12 @@ def _minimal_report(**overrides):
         "project_name": "Project",
         "well_name": "Well",
         "dataset_name": "Dataset",
+        "dataset_id": "dataset-test",
         "generated_at": "2026-09-04T00:00:00Z",
         "primary_mnemonic": "TG",
         "threshold": 3.0,
+        "baseline_median": None,
+        "robust_scale": None,
         "methods": (),
         "opus_gasomer": None,
         "candidates": (),
@@ -33,7 +39,7 @@ def _minimal_report(**overrides):
         "warnings": ("internal warning must stay out of client export",),
     }
     values.update(overrides)
-    return SimpleNamespace(**values)
+    return HydrocarbonInterpretationReport(**values)
 
 
 def _minimal_opus_section():
