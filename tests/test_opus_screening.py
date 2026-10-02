@@ -32,6 +32,7 @@ from geoworkbench.services.opus_interpretation import (
     build_opus_interpretation_report,
 )
 from geoworkbench.services.hydrocarbon_interpretation import (
+    build_opus_interpretation_report as build_contextual_opus_interpretation_report,
     fluid_hypothesis_label,
     hydrocarbon_interpretation_html,
 )
@@ -294,7 +295,7 @@ def test_opus_report_applies_gas_context_on_negative_tvdss_axis() -> None:
     )
 
     InterpretationCalculationController(session).calculate_opus_curves()
-    report = build_opus_interpretation_report(session, threshold=3.0)
+    report = build_contextual_opus_interpretation_report(session, threshold=3.0)
 
     assert report.candidates == ()
     assert len(report.suppressed_candidates) == 1
