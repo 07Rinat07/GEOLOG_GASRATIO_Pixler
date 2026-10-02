@@ -42,24 +42,34 @@ def _value_at(
     return float(sampled_values[int(matches[0])])
 
 
-def test_gas_point_presentation_covers_raw_normalized_ratios_and_opus() -> None:
+def test_gas_point_presentation_is_limited_to_ratios_and_interpretation() -> None:
+    for mnemonic in (
+        "WH",
+        "BH",
+        "CH",
+        "WETNESS",
+        "C1_C2",
+        "C1_C4",
+        "IC4_NC4",
+        "PIXLER_C1_C3",
+        "OPUS3",
+        "OPUS_K1_3",
+    ):
+        assert is_gas_point_mnemonic(mnemonic)
+
     for mnemonic in (
         "C1",
         "NC5",
         "TG",
         "TG_CALC",
         "C1_NORM",
-        "WH",
-        "C1_C2",
-        "PIXLER_C1_C3",
+        "C1_NORM_REF",
         "OPUS_TG_PCT",
-        "OPUS3",
+        "C1_REL",
+        "ROP",
+        "DEXP",
     ):
-        assert is_gas_point_mnemonic(mnemonic)
-
-    assert not is_gas_point_mnemonic("C1_REL")
-    assert not is_gas_point_mnemonic("ROP")
-    assert not is_gas_point_mnemonic("DEXP")
+        assert not is_gas_point_mnemonic(mnemonic)
 
 
 def test_sparse_continuity_policy_is_limited_to_gas_curves() -> None:
