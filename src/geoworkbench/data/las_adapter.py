@@ -3,7 +3,7 @@ from __future__ import annotations
 import io
 import os
 import tempfile
-from time import perf_counter
+from time import perf_counter, perf_counter_ns
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
@@ -125,6 +125,7 @@ def import_las_with_report(
     except Exception as exc:
         raise LasImportError(f"Не удалось прочитать LAS-файл: {source}") from exc
 
+    materialization_started_ns = perf_counter_ns()
     index_curve = list(las.curves)[0]
     index_candidate = detect_index_candidates(
         (
@@ -162,6 +163,11 @@ def import_las_with_report(
         dataset.active_index.role = index_candidate.role
 
     semantic_dictionary = default_semantic_channel_dictionary()
+    materialization_setup_ns = perf_counter_ns() - materialization_started_ns
+    curve_values_ns = 0
+    curve_canonical_ns = 0
+    curve_semantic_ns = 0
+    curve_store_ns = 0
     channel_issues: list[LasImportIssue] = []
     try:
         for curve_index, item in enumerate(list(las.curves)[1:], start=1):
@@ -169,11 +175,13 @@ def import_las_with_report(
             mnemonic = clean_mnemonic(raw_mnemonic)
             unit = clean_display_text(item.unit) if item.unit else ""
             description = clean_display_text(item.descr) if item.descr else ""
+            curve_stage_started_ns = perf_counter_ns()
             try:
                 values = _curve_values_by_position(
                     las, curve_index, raw_mnemonic, depth.shape
                 )
             except (IndexError, KeyError, TypeError, ValueError) as exc:
+                curve_values_ns += perf_counter_ns() - curve_stage_started_ns
                 # One malformed channel must not make an otherwise readable LAS
                 # unusable.  Keep the source immutable, skip only that channel and
                 # expose the exact reason in the import diagnostic report.
@@ -185,12 +193,17 @@ def import_las_with_report(
                     )
                 )
                 continue
-            curve_id = new_id()
+            curve_values_ns += perf_counter_ns() - curve_stage_started_ns
+
+            curve_stage_started_ns = perf_counter_ns()
             canonical = infer_canonical_mnemonic(
                 mnemonic,
                 description=description,
                 unit=unit,
             )
+            curve_canonical_ns += perf_counter_ns() - curve_stage_started_ns
+
+            curve_stage_started_ns = perf_counter_ns()
             semantic_context = semantic_dictionary.context(
                 source_mnemonic=raw_mnemonic,
                 mapped_mnemonic=mnemonic,
@@ -200,6 +213,10 @@ def import_las_with_report(
                 mapping_evidence=(f"las_curve_index={curve_index}",),
             )
             semantic = semantic_dictionary.resolve_context(semantic_context)
+            curve_semantic_ns += perf_counter_ns() - curve_stage_started_ns
+
+            curve_stage_started_ns = perf_counter_ns()
+            curve_id = new_id()
             dataset.curves[curve_id] = CurveData(
                 metadata=CurveMetadata(
                     curve_id=curve_id,
@@ -212,6 +229,8 @@ def import_las_with_report(
                 ),
                 values=values,
             )
+            curve_store_ns += perf_counter_ns() - curve_stage_started_ns
+        headers_started_ns = perf_counter_ns()
         dataset.version_headers = {
             clean_mnemonic(item.mnemonic): clean_display_text(item.value) for item in las.version
         }
@@ -221,6 +240,7 @@ def import_las_with_report(
         dataset.parameters = {
             clean_mnemonic(item.mnemonic): clean_display_text(item.value) for item in las.params
         }
+        materialization_headers_ns = perf_counter_ns() - headers_started_ns
     except Exception as exc:
         raise LasImportError(
             f"Некорректные метаданные LAS-файла: {source}: "
@@ -244,6 +264,12 @@ def import_las_with_report(
         source_ms=_elapsed_ms(import_started_at, source_loaded_at),
         parse_ms=_elapsed_ms(source_loaded_at, parsed_at),
         dataset_ms=_elapsed_ms(parsed_at, dataset_materialized_at),
+        dataset_setup_ms=_elapsed_ns_ms(materialization_setup_ns),
+        dataset_curve_values_ms=_elapsed_ns_ms(curve_values_ns),
+        dataset_curve_canonical_ms=_elapsed_ns_ms(curve_canonical_ns),
+        dataset_curve_semantic_ms=_elapsed_ns_ms(curve_semantic_ns),
+        dataset_curve_store_ms=_elapsed_ns_ms(curve_store_ns),
+        dataset_headers_ms=_elapsed_ns_ms(materialization_headers_ns),
         report_ms=_elapsed_ms(dataset_materialized_at, report_built_at),
         total_ms=_elapsed_ms(import_started_at, report_built_at),
         rss_start_bytes=memory_started.rss_bytes,
@@ -264,6 +290,10 @@ def import_las_with_report(
 
 def _elapsed_ms(started_at: float, finished_at: float) -> float:
     return round(max(0.0, finished_at - started_at) * 1000.0, 3)
+
+
+def _elapsed_ns_ms(duration_ns: int) -> float:
+    return round(max(0, int(duration_ns)) / 1_000_000.0, 3)
 
 
 def _max_optional(*values: int | None) -> int | None:
