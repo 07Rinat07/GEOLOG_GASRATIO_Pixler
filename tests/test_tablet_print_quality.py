@@ -94,13 +94,13 @@ def test_print_snapshot_keeps_gas_point_series_without_restoring_line() -> None:
 
     states = _activate_print_curve_styles((rendered,))  # type: ignore[arg-type]
 
-    assert item.opts.get("pen") is None
+    assert QPen(item.opts["pen"]).style() is Qt.PenStyle.NoPen
     assert item.opts.get("symbol") == "o"
     assert float(item.opts.get("symbolSize")) >= 5.0
 
     _restore_print_curve_styles(states)
 
-    assert item.opts.get("pen") is None
+    assert QPen(item.opts["pen"]).style() is Qt.PenStyle.NoPen
     assert item.opts.get("symbol") == "o"
     assert float(item.opts.get("symbolSize")) == 4.0
 
