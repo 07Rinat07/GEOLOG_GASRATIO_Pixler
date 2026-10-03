@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from math import isfinite
-from typing import Any, Mapping
+from typing import Any
 from uuid import uuid4
 
 from geoworkbench.domain.annotation_style import ANNOTATION_STYLE_KEYS, AnnotationStyle
@@ -118,7 +119,9 @@ def normalize_report_track_key(value: str | None) -> str | None:
     if len(normalized) > REPORT_TRACK_KEY_MAXIMUM:
         raise ValueError("Logical report-track key превышает допустимый размер")
     if any(character.isspace() or ord(character) < 32 for character in normalized):
-        raise ValueError("Logical report-track key не должен содержать пробелы или control characters")
+        raise ValueError(
+            "Logical report-track key не должен содержать пробелы или control characters"
+        )
     if normalized in _FIXED_REPORT_TRACK_KEYS:
         return normalized
     if normalized.startswith("curve:") and len(normalized) > len("curve:"):
@@ -152,6 +155,11 @@ def validate_report_annotation(record: ReportAnnotationRecord) -> ReportAnnotati
         record.text_i18n,
         maximum=REPORT_ANNOTATION_TEXT_MAXIMUM,
     )
+    if not isinstance(record.style, AnnotationStyle):
+        raise ValueError("Некорректный стиль report annotation")
+    visible = _strict_bool(record.visible, "visible")
+    locked = _strict_bool(record.locked, "locked")
+    print_enabled = _strict_bool(record.print_enabled, "print_enabled")
     track_key = normalize_report_track_key(record.track_key)
     depth = _optional_finite(record.depth, "Глубина report annotation")
     top_depth = _optional_finite(record.top_depth, "Верх report annotation")
@@ -173,12 +181,19 @@ def validate_report_annotation(record: ReportAnnotationRecord) -> ReportAnnotati
         if depth is not None or top_depth is not None or bottom_depth is not None:
             raise ValueError("Track-anchored report annotation не может содержать depth interval")
 
-    if kind is ReportAnnotationKind.INTERVAL_HIGHLIGHT and anchor is not ReportAnnotationAnchor.INTERVAL:
+    if (
+        kind is ReportAnnotationKind.INTERVAL_HIGHLIGHT
+        and anchor is not ReportAnnotationAnchor.INTERVAL
+    ):
         raise ValueError("Interval highlight должен быть привязан к интервалу")
 
     x_fraction = _bounded_number(record.x_fraction, "X report annotation", 0.0, 1.0)
-    offset_x = _bounded_number(record.offset_x, "Offset X report annotation", -10_000.0, 10_000.0)
-    offset_y = _bounded_number(record.offset_y, "Offset Y report annotation", -10_000.0, 10_000.0)
+    offset_x = _bounded_number(
+        record.offset_x, "Offset X report annotation", -10_000.0, 10_000.0
+    )
+    offset_y = _bounded_number(
+        record.offset_y, "Offset Y report annotation", -10_000.0, 10_000.0
+    )
     width = _bounded_number(record.width, "Ширина report annotation", 1.0, 4_000.0)
     height = _bounded_number(record.height, "Высота report annotation", 1.0, 4_000.0)
 
@@ -198,6 +213,9 @@ def validate_report_annotation(record: ReportAnnotationRecord) -> ReportAnnotati
         offset_y=offset_y,
         width=width,
         height=height,
+        visible=visible,
+        locked=locked,
+        print_enabled=print_enabled,
         text_i18n=text_i18n,
     )
 
