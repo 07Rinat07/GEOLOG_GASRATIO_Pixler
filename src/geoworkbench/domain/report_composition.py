@@ -27,6 +27,10 @@ class ReportLegendMode(str, Enum):
     HIDE = "hide"
 
 
+class ReportLayoutProfile(str, Enum):
+    MODERN_OILFIELD = "modern_oilfield"
+
+
 @dataclass(frozen=True, slots=True)
 class ReportHeaderFields:
     """Language/profile-specific presentation-only report header values."""
@@ -65,6 +69,7 @@ class InterpretationReportComposition:
     cuttings: ReportTrackVisibility = ReportTrackVisibility.AUTO
     lba: ReportTrackVisibility = ReportTrackVisibility.AUTO
     legend_mode: ReportLegendMode = ReportLegendMode.FULL
+    layout_profile: ReportLayoutProfile = ReportLayoutProfile.MODERN_OILFIELD
     header_ru: ReportHeaderFields | None = None
     header_kk: ReportHeaderFields | None = None
     header_en: ReportHeaderFields | None = None
@@ -136,6 +141,7 @@ __all__ = [
     "InterpretationReportComposition",
     "ReportHeaderFields",
     "ReportLegendMode",
+    "ReportLayoutProfile",
     "ReportPageOrientation",
     "ReportPrintOrder",
     "ReportTrackVisibility",
