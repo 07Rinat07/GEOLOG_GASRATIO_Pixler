@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from enum import Enum
+from uuid import NAMESPACE_URL, uuid5
 
 
 class ReportPageOrientation(str, Enum):
@@ -56,6 +57,7 @@ class ReportHeaderFields:
 class InterpretationReportComposition:
     """Persisted renderer-neutral presentation choices for one dataset report."""
 
+    composition_id: str = ""
     orientation: ReportPageOrientation = ReportPageOrientation.PORTRAIT
     print_order: ReportPrintOrder = ReportPrintOrder.FIRST_TO_LAST
     cuttings: ReportTrackVisibility = ReportTrackVisibility.AUTO
@@ -67,6 +69,25 @@ class InterpretationReportComposition:
 
 
 DEFAULT_INTERPRETATION_REPORT_COMPOSITION = InterpretationReportComposition()
+
+
+def stable_report_composition_id(dataset_id: str) -> str:
+    normalized = dataset_id.strip()
+    if not normalized:
+        raise ValueError("Dataset ID for report composition cannot be empty")
+    return f"rpt-{uuid5(NAMESPACE_URL, 'geolog-report-composition:' + normalized).hex}"
+
+
+def ensure_report_composition_id(
+    composition: InterpretationReportComposition,
+    dataset_id: str,
+) -> InterpretationReportComposition:
+    if composition.composition_id.strip():
+        return composition
+    return replace(
+        composition,
+        composition_id=stable_report_composition_id(dataset_id),
+    )
 
 
 def report_header_fields(
@@ -111,6 +132,8 @@ __all__ = [
     "ReportPageOrientation",
     "ReportPrintOrder",
     "ReportTrackVisibility",
+    "ensure_report_composition_id",
     "report_header_fields",
+    "stable_report_composition_id",
     "with_report_header_fields",
 ]
