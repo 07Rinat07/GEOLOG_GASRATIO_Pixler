@@ -328,5 +328,6 @@ def test_production_pdf_export_builds_interpretation_passport_with_geology(
     assert dict(passport.render.options) == {
         "geology_cuttings": "show",
         "geology_lba": "hide",
+        "legend_mode": "full",
     }
     assert observed["overwrite"] is False
