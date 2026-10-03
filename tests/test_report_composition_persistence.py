@@ -13,6 +13,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
 )
 from geoworkbench.domain.report_composition import (
     InterpretationReportComposition,
+    ReportLegendMode,
     ReportPageOrientation,
     ReportPrintOrder,
     ReportTrackVisibility,
@@ -58,6 +59,7 @@ def _composition() -> InterpretationReportComposition:
         print_order=ReportPrintOrder.LAST_TO_FIRST,
         cuttings=ReportTrackVisibility.SHOW,
         lba=ReportTrackVisibility.HIDE,
+        legend_mode=ReportLegendMode.COMPACT,
     )
 
 
@@ -76,6 +78,24 @@ def test_project_v37_json_round_trip_preserves_report_composition(tmp_path) -> N
     assert loaded.report_compositions == {
         "dataset-report-composition": _composition()
     }
+
+
+def test_existing_v37_without_legend_mode_defaults_to_full(tmp_path) -> None:
+    project = _project()
+    target = tmp_path / "legacy-v37.geolog.json"
+
+    save_project(
+        project,
+        target,
+        report_compositions={"dataset-report-composition": _composition()},
+    )
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    payload["report_compositions"]["dataset-report-composition"].pop("legend_mode")
+    target.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    loaded = load_project_document(target)
+
+    assert loaded.report_compositions["dataset-report-composition"].legend_mode is ReportLegendMode.FULL
 
 
 def test_project_v36_migrates_with_empty_report_compositions(tmp_path) -> None:
@@ -127,6 +147,8 @@ def test_layout_dialog_restores_and_returns_persisted_composition(qapp) -> None:
         assert layout.order is InterpretationPrintOrder.LAST_TO_FIRST
         assert layout.geology_tracks.cuttings is GeologyTrackVisibility.SHOW
         assert layout.geology_tracks.lba is GeologyTrackVisibility.HIDE
+        assert layout.legend_mode is ReportLegendMode.COMPACT
+        assert ReportLegendMode(dialog.legend_mode_combo.currentData()) is ReportLegendMode.COMPACT
         assert dialog.selected_composition() == _composition()
     finally:
         dialog.close()
@@ -172,3 +194,13 @@ def test_dataset_rebind_invalidates_preview_composition_cache() -> None:
     source = inspect.getsource(workspace_type._sync_depth_interval_dataset)
 
     assert "self._preview_geology_report_key = None" in source
+
+
+
+def test_workspace_propagates_persisted_legend_mode_to_pdf_and_print() -> None:
+    workspace_type = interpretation_report_workspace_final.InterpretationReportWorkspace
+    pdf_source = inspect.getsource(workspace_type._export_pdf)
+    print_source = inspect.getsource(workspace_type._print_report)
+
+    assert "legend_mode=layout.legend_mode" in pdf_source
+    assert "legend_mode=layout.legend_mode" in print_source

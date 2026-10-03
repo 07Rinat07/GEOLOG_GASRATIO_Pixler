@@ -11,6 +11,7 @@ from PySide6.QtGui import QPageLayout, QPageSize, QPdfWriter
 
 from geoworkbench.domain.depth_interval import scope_dataset
 from geoworkbench.domain.models import Dataset
+from geoworkbench.domain.report_composition import ReportLegendMode
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_renderer import (
     render_hydrocarbon_interpretation_report,
 )
@@ -70,6 +71,7 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
     geology_track_settings: InterpretationGeologyTrackSettings = (
         DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS
     ),
+    legend_mode: ReportLegendMode = ReportLegendMode.FULL,
     overwrite: bool = False,
 ) -> ReportOutputTransactionResult:
     labels = hydrocarbon_report_print_labels(language)
@@ -108,6 +110,7 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
                 options=(
                     ("geology_cuttings", geology_track_settings.cuttings.value),
                     ("geology_lba", geology_track_settings.lba.value),
+                    ("legend_mode", legend_mode.value),
                 ),
             ),
             interval=(depth_range.top_depth, depth_range.bottom_depth),
@@ -127,6 +130,7 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
             identity=details,
             geology=geology,
             geology_track_settings=geology_track_settings,
+            legend_mode=legend_mode,
             overwrite=True,
         ),
         passport,
@@ -161,6 +165,7 @@ def export_hydrocarbon_interpretation_pdf(
     geology_track_settings: InterpretationGeologyTrackSettings = (
         DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS
     ),
+    legend_mode: ReportLegendMode = ReportLegendMode.FULL,
     overwrite: bool = False,
 ) -> Path:
     labels = hydrocarbon_report_print_labels(language)
@@ -264,6 +269,7 @@ def export_hydrocarbon_interpretation_pdf(
             depth_range=depth_range,
             geology=geology,
             geology_track_settings=geology_track_settings,
+            legend_mode=legend_mode,
         )
         del writer
         if temporary.stat().st_size <= 0:

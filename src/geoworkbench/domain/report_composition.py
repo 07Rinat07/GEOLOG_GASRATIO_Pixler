@@ -20,6 +20,12 @@ class ReportTrackVisibility(str, Enum):
     HIDE = "hide"
 
 
+class ReportLegendMode(str, Enum):
+    FULL = "full"
+    COMPACT = "compact"
+    HIDE = "hide"
+
+
 @dataclass(frozen=True, slots=True)
 class InterpretationReportComposition:
     """Persisted renderer-neutral presentation choices for one dataset report."""
@@ -28,6 +34,7 @@ class InterpretationReportComposition:
     print_order: ReportPrintOrder = ReportPrintOrder.FIRST_TO_LAST
     cuttings: ReportTrackVisibility = ReportTrackVisibility.AUTO
     lba: ReportTrackVisibility = ReportTrackVisibility.AUTO
+    legend_mode: ReportLegendMode = ReportLegendMode.FULL
 
 
 DEFAULT_INTERPRETATION_REPORT_COMPOSITION = InterpretationReportComposition()
@@ -36,6 +43,7 @@ DEFAULT_INTERPRETATION_REPORT_COMPOSITION = InterpretationReportComposition()
 __all__ = [
     "DEFAULT_INTERPRETATION_REPORT_COMPOSITION",
     "InterpretationReportComposition",
+    "ReportLegendMode",
     "ReportPageOrientation",
     "ReportPrintOrder",
     "ReportTrackVisibility",

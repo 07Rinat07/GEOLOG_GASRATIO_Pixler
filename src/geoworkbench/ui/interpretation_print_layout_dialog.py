@@ -21,6 +21,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
 )
 from geoworkbench.domain.report_composition import (
     InterpretationReportComposition,
+    ReportLegendMode,
     ReportPageOrientation,
     ReportPrintOrder,
     ReportTrackVisibility,
@@ -39,6 +40,7 @@ class InterpretationPrintLayout:
     orientation: QPageLayout.Orientation
     order: InterpretationPrintOrder
     geology_tracks: InterpretationGeologyTrackSettings = InterpretationGeologyTrackSettings()
+    legend_mode: ReportLegendMode = ReportLegendMode.FULL
 
 
 class InterpretationPrintLayoutDialog(QDialog):
@@ -124,6 +126,23 @@ class InterpretationPrintLayoutDialog(QDialog):
             QLabel(self._text("ЛБА:", "ЛБА:", "LBA:")),
             self.lba_visibility_combo,
         )
+        self.legend_mode_combo = QComboBox()
+        self.legend_mode_combo.addItem(
+            self._text("Полная", "Толық", "Full"),
+            ReportLegendMode.FULL,
+        )
+        self.legend_mode_combo.addItem(
+            self._text("Компактная", "Ықшам", "Compact"),
+            ReportLegendMode.COMPACT,
+        )
+        self.legend_mode_combo.addItem(
+            self._text("Скрыть", "Жасыру", "Hide"),
+            ReportLegendMode.HIDE,
+        )
+        form.addRow(
+            QLabel(self._text("Легенды:", "Аңыздар:", "Legends:")),
+            self.legend_mode_combo,
+        )
         self.order_label.setVisible(include_order)
         self.order_combo.setVisible(include_order)
         self._apply_initial(initial)
@@ -169,6 +188,11 @@ class InterpretationPrintLayoutDialog(QDialog):
             lba = GeologyTrackVisibility(lba_data)
         except (TypeError, ValueError):
             lba = GeologyTrackVisibility.AUTO
+        legend_data = self.legend_mode_combo.currentData()
+        try:
+            legend_mode = ReportLegendMode(legend_data)
+        except (TypeError, ValueError):
+            legend_mode = ReportLegendMode.FULL
         return InterpretationPrintLayout(
             orientation=orientation,
             order=order,
@@ -176,6 +200,7 @@ class InterpretationPrintLayoutDialog(QDialog):
                 cuttings=cuttings,
                 lba=lba,
             ),
+            legend_mode=legend_mode,
         )
 
     def selected_composition(self) -> InterpretationReportComposition:
@@ -200,6 +225,7 @@ class InterpretationPrintLayoutDialog(QDialog):
             print_order=print_order,
             cuttings=ReportTrackVisibility(layout.geology_tracks.cuttings.value),
             lba=ReportTrackVisibility(layout.geology_tracks.lba.value),
+            legend_mode=layout.legend_mode,
         )
 
     def _apply_initial(
@@ -228,6 +254,7 @@ class InterpretationPrintLayoutDialog(QDialog):
             self.lba_visibility_combo,
             GeologyTrackVisibility(initial.lba.value),
         )
+        self._set_combo_data(self.legend_mode_combo, initial.legend_mode)
 
     @staticmethod
     def _set_combo_data(combo: QComboBox, value: object) -> None:
