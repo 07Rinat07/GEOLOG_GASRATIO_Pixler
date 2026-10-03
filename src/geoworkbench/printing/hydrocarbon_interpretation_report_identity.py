@@ -117,6 +117,7 @@ def identity_with_report_header_fields(
     values = {
         field.name: getattr(header, field.name)
         for field in fields(header)
+        if field.name != "report_profile"
     }
     return replace(defaults.cleaned(), **values)
 
