@@ -68,6 +68,16 @@ def test_unicode_preflight_rejects_replacement_character(qapp) -> None:
     assert "U+FFFD" in report.error_message()
 
 
+def test_unicode_preflight_error_message_uses_selected_language(qapp) -> None:
+    report = preflight_texts(["Broken text: \ufffd"])
+
+    message = report.error_message(language=AppLanguage.EN)
+
+    assert "Corrupted Unicode text was detected" in message
+    assert "U+FFFD" in message
+    assert "повреждённый" not in message.casefold()
+
+
 def test_unicode_preflight_rejects_typical_cyrillic_mojibake(qapp) -> None:
     report = preflight_texts(["Ð“Ð»ÑƒÐ±Ð¸Ð½Ð° 100–150 Ð¼"])
 
