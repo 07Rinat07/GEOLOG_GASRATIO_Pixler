@@ -533,6 +533,72 @@ def test_dense_ratio_pdf_scatter_is_density_bounded() -> None:
     assert 0 < painter.ellipses <= gas_scatter_point_budget(rect.height())
 
 
+def test_dense_ratio_pdf_markers_do_not_overlap_into_worms() -> None:
+    class RecordingPainter:
+        def __init__(self) -> None:
+            self.ellipse_rects: list[QRectF] = []
+            self.lines = 0
+
+        def drawEllipse(self, rect) -> None:
+            self.ellipse_rects.append(QRectF(rect))
+
+        def drawLine(self, _line) -> None:
+            self.lines += 1
+
+        def __getattr__(self, _name):
+            return lambda *args, **kwargs: None
+
+    depth = np.linspace(100.0, 200.0, 5_001)
+    dataset = Dataset(
+        "dense-pdf-ratio-overlap",
+        "Dense PDF ratio overlap",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        depth,
+    )
+    ratio = CurveData(
+        CurveMetadata(
+            "ratio-overlap",
+            "C1_C2",
+            "C1_C2",
+            "ratio",
+            None,
+            dataset.dataset_id,
+        ),
+        2.0 + np.sin(depth * 0.3),
+    )
+    rect = QRectF(0.0, 0.0, 100.0, 180.0)
+    painter = RecordingPainter()
+
+    _draw_curves(
+        painter,  # type: ignore[arg-type]
+        rect,
+        DepthPage(100.0, 200.0, 100, 100.0),
+        dataset,
+        (ratio,),
+        {"ratio-overlap": (1.0, 3.0)},
+        point_series=True,
+    )
+
+    markers = painter.ellipse_rects
+    assert painter.lines == 0
+    assert 0 < len(markers) <= gas_scatter_point_budget(rect.height())
+    assert all(
+        abs(marker.width() - marker.height()) < 1e-9
+        for marker in markers
+    )
+
+    for left_index, left in enumerate(markers):
+        for right in markers[left_index + 1 :]:
+            horizontal_overlap = abs(left.center().x() - right.center().x()) < (
+                left.width() + right.width()
+            ) / 2.0
+            vertical_overlap = abs(left.center().y() - right.center().y()) < (
+                left.height() + right.height()
+            ) / 2.0
+            assert not (horizontal_overlap and vertical_overlap)
+
+
 def test_report_panel_scatter_contract_is_ratio_only() -> None:
     whole = Path(
         "src/geoworkbench/printing/hydrocarbon_interpretation_chart.py"
