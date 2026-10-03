@@ -21,12 +21,20 @@ from geoworkbench.printing.hydrocarbon_interpretation_geology_legend import (
 from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
     GeologyTrackVisibility,
 )
+from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
+    InterpretationReportIdentity,
+    identity_with_report_header_fields,
+    report_header_fields_from_identity,
+)
 from geoworkbench.domain.report_composition import (
     InterpretationReportComposition,
+    ReportHeaderFields,
     ReportLegendMode,
     ReportPageOrientation,
     ReportPrintOrder,
     ReportTrackVisibility,
+    report_header_fields,
+    with_report_header_fields,
 )
 from geoworkbench.storage.atomic_json import save_project
 from geoworkbench.storage.package_project_repository import PackageProjectRepository
@@ -70,6 +78,18 @@ def _composition() -> InterpretationReportComposition:
         cuttings=ReportTrackVisibility.SHOW,
         lba=ReportTrackVisibility.HIDE,
         legend_mode=ReportLegendMode.COMPACT,
+        header_ru=ReportHeaderFields(
+            report_title="Русский заголовок",
+            project_name="Проект",
+            well_name="Скважина",
+            revision="01",
+        ),
+        header_en=ReportHeaderFields(
+            report_title="English title",
+            project_name="Project",
+            well_name="Well",
+            revision="02",
+        ),
     )
 
 
@@ -101,11 +121,124 @@ def test_existing_v37_without_legend_mode_defaults_to_full(tmp_path) -> None:
     )
     payload = json.loads(target.read_text(encoding="utf-8"))
     payload["report_compositions"]["dataset-report-composition"].pop("legend_mode")
+    payload["report_compositions"]["dataset-report-composition"].pop("headers")
     target.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
 
     loaded = load_project_document(target)
 
     assert loaded.report_compositions["dataset-report-composition"].legend_mode is ReportLegendMode.FULL
+
+
+def test_existing_v37_with_legend_but_without_headers_remains_readable(tmp_path) -> None:
+    project = _project()
+    target = tmp_path / "legacy-v37-legend.geolog.json"
+
+    save_project(
+        project,
+        target,
+        report_compositions={"dataset-report-composition": _composition()},
+    )
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    payload["report_compositions"]["dataset-report-composition"].pop("headers")
+    target.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    loaded = load_project_document(target)
+    composition = loaded.report_compositions["dataset-report-composition"]
+
+    assert composition.legend_mode is ReportLegendMode.COMPACT
+    assert composition.header_ru is None
+    assert composition.header_kk is None
+    assert composition.header_en is None
+
+
+def test_localized_report_headers_are_isolated_by_language() -> None:
+    base = InterpretationReportComposition()
+    russian = ReportHeaderFields(report_title="Русский")
+    english = ReportHeaderFields(report_title="English")
+
+    composed = with_report_header_fields(base, "ru", russian)
+    composed = with_report_header_fields(composed, "en", english)
+
+    assert report_header_fields(composed, "ru", "standard") == russian
+    assert report_header_fields(composed, "en", "standard") == english
+    assert report_header_fields(composed, "kk", "standard") is None
+
+
+def test_report_headers_are_isolated_by_profile() -> None:
+    base = InterpretationReportComposition()
+    standard = ReportHeaderFields(report_profile="standard", report_title="Standard")
+    opus = ReportHeaderFields(report_profile="opus", report_title="OPUS")
+
+    composed = with_report_header_fields(base, "en", standard)
+
+    assert report_header_fields(composed, "en", "standard") == standard
+    assert report_header_fields(composed, "en", "opus") is None
+
+    composed = with_report_header_fields(composed, "en", opus)
+
+    assert report_header_fields(composed, "en", "opus") == opus
+    assert report_header_fields(composed, "en", "standard") is None
+
+
+def test_legacy_v37_header_without_profile_defaults_to_standard(tmp_path) -> None:
+    project = _project()
+    target = tmp_path / "legacy-v37-header.geolog.json"
+    save_project(
+        project,
+        target,
+        report_compositions={"dataset-report-composition": _composition()},
+    )
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    header = payload["report_compositions"]["dataset-report-composition"]["headers"]["en"]
+    header.pop("report_profile")
+    target.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    loaded = load_project_document(target)
+    restored = loaded.report_compositions["dataset-report-composition"].header_en
+
+    assert restored is not None
+    assert restored.report_profile == "standard"
+
+
+def test_save_rejects_report_header_larger_than_decoder_limit(tmp_path) -> None:
+    composition = with_report_header_fields(
+        InterpretationReportComposition(),
+        "en",
+        ReportHeaderFields(report_title="x" * 2001),
+    )
+
+    with pytest.raises(ValueError, match="превышают допустимый размер"):
+        save_project(
+            _project(),
+            tmp_path / "invalid-header.geolog.json",
+            report_compositions={"dataset-report-composition": composition},
+        )
+
+
+def test_persisted_header_overlay_keeps_runtime_interval() -> None:
+    identity = InterpretationReportIdentity(
+        report_title="Custom title",
+        report_subtitle="Custom subtitle",
+        project_name="Project",
+        well_name="Well",
+        interval="1000–1100 m",
+        revision="03",
+    )
+    header = report_header_fields_from_identity(identity)
+    defaults = InterpretationReportIdentity(
+        report_title="Default title",
+        report_subtitle="Default subtitle",
+        project_name="Project",
+        well_name="Well",
+        interval="2000–2100 m",
+        revision="00",
+    )
+
+    restored = identity_with_report_header_fields(defaults, header)
+
+    assert restored.report_title == "Custom title"
+    assert restored.revision == "03"
+    assert restored.interval == "2000–2100 m"
 
 
 def test_project_v36_migrates_with_empty_report_compositions(tmp_path) -> None:
@@ -216,6 +349,8 @@ def test_workspace_propagates_persisted_legend_mode_to_preview_pdf_and_print() -
     assert "legend_mode=composition.legend_mode" in preview_source
     assert "legend_mode=layout.legend_mode" in pdf_source
     assert "legend_mode=layout.legend_mode" in print_source
+    assert "with_report_header_fields(" in pdf_source
+    assert "with_report_header_fields(" in print_source
 
 
 def test_html_preview_legend_mode_hides_key_and_reaches_chart_renderer(monkeypatch) -> None:

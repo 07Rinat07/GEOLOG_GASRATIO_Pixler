@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, fields, replace
+
+from geoworkbench.domain.report_composition import ReportHeaderFields
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
 )
@@ -77,6 +79,49 @@ class InterpretationReportIdentity:
         return InterpretationReportIdentity(**values)
 
 
+def report_header_fields_from_identity(
+    identity: InterpretationReportIdentity,
+    report_profile: str = "standard",
+) -> ReportHeaderFields:
+    cleaned = identity.cleaned()
+    return ReportHeaderFields(
+        report_profile=report_profile.strip().casefold() or "standard",
+        report_title=cleaned.report_title,
+        report_subtitle=cleaned.report_subtitle,
+        project_name=cleaned.project_name,
+        well_name=cleaned.well_name,
+        field_name=cleaned.field_name,
+        location=cleaned.location,
+        operator_name=cleaned.operator_name,
+        contractor_name=cleaned.contractor_name,
+        rig_name=cleaned.rig_name,
+        dataset_name=cleaned.dataset_name,
+        document_number=cleaned.document_number,
+        revision=cleaned.revision,
+        document_status=cleaned.document_status,
+        report_date=cleaned.report_date,
+        prepared_by=cleaned.prepared_by,
+        checked_by=cleaned.checked_by,
+        approved_by=cleaned.approved_by,
+        confidentiality=cleaned.confidentiality,
+        remarks=cleaned.remarks,
+    )
+
+
+def identity_with_report_header_fields(
+    defaults: InterpretationReportIdentity,
+    header: ReportHeaderFields | None,
+) -> InterpretationReportIdentity:
+    if header is None:
+        return defaults.cleaned()
+    values = {
+        field.name: getattr(header, field.name)
+        for field in fields(header)
+        if field.name != "report_profile"
+    }
+    return replace(defaults.cleaned(), **values)
+
+
 def default_interpretation_report_identity(
     report: HydrocarbonInterpretationReport,
     language: AppLanguage = AppLanguage.RU,
@@ -102,4 +147,6 @@ def default_interpretation_report_identity(
 __all__ = [
     "InterpretationReportIdentity",
     "default_interpretation_report_identity",
+    "identity_with_report_header_fields",
+    "report_header_fields_from_identity",
 ]

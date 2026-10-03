@@ -242,13 +242,25 @@ def test_xlsx_manual_interval_identifier_uses_selected_language() -> None:
     assert row[0] != "Г-1"
 
 
-def test_report_identity_cache_key_includes_selected_language() -> None:
+def test_report_identity_uses_language_scoped_persisted_header() -> None:
     source = inspect.getsource(
         interpretation_report_workspace_final.InterpretationReportWorkspace._select_report_identity
     )
-    compact = " ".join(source.split())
 
-    assert (
-        "key = ( report.project_name, report.well_name, report.dataset_id, self.language, )"
-        in compact
+    assert "report_header_fields(" in source
+    assert "self.language.value" in source
+    assert "identity_with_report_header_fields(" in source
+    assert "report.report_profile" in source
+    assert "self._report_identity_key" not in source
+    assert "self._report_identity =" not in source
+
+
+
+def test_docx_path_persists_accepted_profile_scoped_header() -> None:
+    source = inspect.getsource(
+        interpretation_report_workspace_drilling.InterpretationReportWorkspace._export_docx
     )
+
+    assert "_store_report_composition(" in source
+    assert "with_report_header_fields(" in source
+    assert "report_header_fields_from_identity(identity, report.report_profile)" in source
