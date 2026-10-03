@@ -42,8 +42,8 @@ from geoworkbench.project.interpretation_calculation_controller import (
 )
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.gas_curve_presentation import (
-    GAS_PRINT_POINT_RADIUS_PT,
-    gas_scatter_point_budget,
+    GAS_REPORT_PRINT_POINT_RADIUS_PT,
+    gas_report_scatter_point_budget,
 )
 from geoworkbench.services.hydrocarbon_interpretation import (
     build_hydrocarbon_interpretation_report,
@@ -215,7 +215,7 @@ def test_pdf_curve_renderer_uses_points_for_ratios_and_lines_for_depth_series() 
     assert ratio_painter.ellipses > 0
     assert ratio_painter.lines == 0
     assert ratio_painter.ellipse_rects
-    expected_diameter = GAS_PRINT_POINT_RADIUS_PT * 2.0
+    expected_diameter = GAS_REPORT_PRINT_POINT_RADIUS_PT * 2.0
     assert all(
         rect.width() == expected_diameter and rect.height() == expected_diameter
         for rect in ratio_painter.ellipse_rects
@@ -478,7 +478,7 @@ def test_dense_ratio_preview_sampling_is_bounded() -> None:
 
     # Dense source rows are reduced by final vertical density, not by a
     # line-oriented 1,800-point budget. Three extra dots belong to the legend.
-    factual_budget = gas_scatter_point_budget(178.0)
+    factual_budget = gas_report_scatter_point_budget(178.0)
     assert 3 < painter.ellipses <= factual_budget + 3
 
 
@@ -530,7 +530,7 @@ def test_dense_ratio_pdf_scatter_is_density_bounded() -> None:
     )
 
     assert painter.lines == 0
-    assert 0 < painter.ellipses <= gas_scatter_point_budget(rect.height())
+    assert 0 < painter.ellipses <= gas_report_scatter_point_budget(rect.height())
 
 
 def test_dense_ratio_pdf_markers_do_not_overlap_into_worms() -> None:
@@ -582,7 +582,7 @@ def test_dense_ratio_pdf_markers_do_not_overlap_into_worms() -> None:
 
     markers = painter.ellipse_rects
     assert painter.lines == 0
-    assert 0 < len(markers) <= gas_scatter_point_budget(rect.height())
+    assert 0 < len(markers) <= gas_report_scatter_point_budget(rect.height())
     assert all(
         abs(marker.width() - marker.height()) < 1e-9
         for marker in markers
@@ -608,9 +608,9 @@ def test_dense_ratio_pdf_markers_do_not_overlap_into_worms() -> None:
         else:
             current_overlap_chain = 1
 
-    # A small local overlap is acceptable for extrema from one depth bucket.
-    # What must never return is a long same-column chain that reads as a line.
-    assert longest_overlap_chain <= 3
+    # Report sampling keeps one real observation per visual depth slot, so
+    # same-column marker chains must not rebuild a line-like "worm".
+    assert longest_overlap_chain <= 1
 
 
 def test_report_panel_scatter_contract_is_ratio_only() -> None:
