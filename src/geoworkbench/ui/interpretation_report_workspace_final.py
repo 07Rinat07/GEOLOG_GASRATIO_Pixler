@@ -61,7 +61,9 @@ from geoworkbench.printing.hydrocarbon_interpretation_system_print import (
     print_pdf_page_selection,
     selected_report_pages,
 )
-from geoworkbench.printing.hydrocarbon_report_i18n import hydrocarbon_report_labels
+from geoworkbench.printing.hydrocarbon_report_print_i18n import (
+    hydrocarbon_report_print_labels,
+)
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
 )
@@ -456,7 +458,9 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                 return
             if total_pages < 1:
                 self._show_export_error(
-                    RuntimeError(hydrocarbon_report_labels(self.language).print_report_no_pages)
+                    RuntimeError(
+                        hydrocarbon_report_print_labels(self.language).print_report_no_pages
+                    )
                 )
                 return
 
@@ -504,7 +508,9 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
             )
             if not page_numbers:
                 self._show_export_error(
-                    RuntimeError(hydrocarbon_report_labels(self.language).print_page_range_missing)
+                    RuntimeError(
+                        hydrocarbon_report_print_labels(self.language).print_page_range_missing
+                    )
                 )
                 return
 
@@ -617,7 +623,12 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
             self.language,
             interval=self._report_interval(report),
         )
-        key = (report.project_name, report.well_name, report.dataset_id)
+        key = (
+            report.project_name,
+            report.well_name,
+            report.dataset_id,
+            self.language,
+        )
         initial = defaults
         if getattr(self, "_report_identity_key", None) == key:
             cached = getattr(self, "_report_identity", None)
