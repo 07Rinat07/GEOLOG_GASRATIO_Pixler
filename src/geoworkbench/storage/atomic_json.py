@@ -56,6 +56,23 @@ def _validate_rock_profile_ledgers(
             )
 
 
+def _validate_report_compositions(
+    project: Project,
+    compositions: dict[str, InterpretationReportComposition],
+) -> None:
+    dataset_ids = {
+        dataset_id
+        for well in project.wells.values()
+        for dataset_id in well.datasets
+    }
+    unknown = set(compositions) - dataset_ids
+    if unknown:
+        raise ValueError(
+            "Report composition ссылается на неизвестный набор: "
+            + ", ".join(sorted(unknown))
+        )
+
+
 def save_project(
     project: Project,
     target: Path,
@@ -104,7 +121,9 @@ def save_project(
             raise ValueError(f"Import report не соответствует source document: {dataset_id}")
     profiles = rock_code_profiles or {}
     bindings = rock_code_source_bindings or {}
+    compositions = report_compositions or {}
     _validate_rock_profile_ledgers(profiles, bindings)
+    _validate_report_compositions(project, compositions)
     source_artifacts = save_source_documents(target, documents)
     image_asset_manifest = save_image_assets(target, image_assets or {})
     document = {
@@ -124,7 +143,7 @@ def save_project(
                 "cuttings": composition.cuttings.value,
                 "lba": composition.lba.value,
             }
-            for dataset_id, composition in (report_compositions or {}).items()
+            for dataset_id, composition in compositions.items()
         },
         "source_artifacts": source_artifacts,
         "image_assets": image_asset_manifest,
