@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import inspect
 import json
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
 from PySide6.QtGui import QPageLayout
 
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain, Project, Well
+from geoworkbench.printing import hydrocarbon_interpretation_chart as interpretation_chart
+from geoworkbench.printing import hydrocarbon_interpretation_chart_front as chart_front
 from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
     GeologyTrackVisibility,
 )
@@ -197,10 +200,69 @@ def test_dataset_rebind_invalidates_preview_composition_cache() -> None:
 
 
 
-def test_workspace_propagates_persisted_legend_mode_to_pdf_and_print() -> None:
+def test_workspace_propagates_persisted_legend_mode_to_preview_pdf_and_print() -> None:
     workspace_type = interpretation_report_workspace_final.InterpretationReportWorkspace
+    preview_source = inspect.getsource(workspace_type._apply_chart_preview)
     pdf_source = inspect.getsource(workspace_type._export_pdf)
     print_source = inspect.getsource(workspace_type._print_report)
 
+    assert "legend_mode=composition.legend_mode" in preview_source
     assert "legend_mode=layout.legend_mode" in pdf_source
     assert "legend_mode=layout.legend_mode" in print_source
+
+
+def test_html_preview_legend_mode_hides_key_and_reaches_chart_renderer(monkeypatch) -> None:
+    report = SimpleNamespace(analysis_depth_interval=None)
+    dataset = object()
+    seen: list[ReportLegendMode] = []
+
+    monkeypatch.setattr(
+        chart_front,
+        "hydrocarbon_interpretation_html",
+        lambda _report, _language: "<html><body><h2>Body</h2></body></html>",
+    )
+    monkeypatch.setattr(chart_front, "scope_dataset", lambda value, _interval: value)
+    monkeypatch.setattr(
+        chart_front,
+        "interpretation_chart_key_html",
+        lambda *_args, **_kwargs: "<h2>KEY</h2>",
+    )
+    monkeypatch.setattr(
+        chart_front,
+        "hydrocarbon_interpretation_chart_data_uri",
+        lambda *_args, **kwargs: (
+            seen.append(kwargs["legend_mode"]) or "data:image/png;base64,AA=="
+        ),
+    )
+    from geoworkbench.services import hydrocarbon_interpretation_gas_html
+
+    monkeypatch.setattr(
+        hydrocarbon_interpretation_gas_html,
+        "inject_interval_gas_statistics_html",
+        lambda base, *_args, **_kwargs: base,
+    )
+
+    hidden = chart_front.hydrocarbon_interpretation_html_with_front_chart(
+        report,
+        dataset,
+        AppLanguage.EN,
+        legend_mode=ReportLegendMode.HIDE,
+    )
+    compact = chart_front.hydrocarbon_interpretation_html_with_front_chart(
+        report,
+        dataset,
+        AppLanguage.EN,
+        legend_mode=ReportLegendMode.COMPACT,
+    )
+
+    assert "<h2>KEY</h2>" not in hidden
+    assert "<h2>KEY</h2>" in compact
+    assert seen == [ReportLegendMode.HIDE, ReportLegendMode.COMPACT]
+
+
+def test_preview_chart_uses_legend_mode_for_geology_legend_geometry() -> None:
+    source = inspect.getsource(interpretation_chart.hydrocarbon_interpretation_chart_data_uri)
+
+    assert "legend_mode is ReportLegendMode.HIDE" in source
+    assert "legend_mode is ReportLegendMode.COMPACT" in source
+    assert "compact=legend_compact" in source
