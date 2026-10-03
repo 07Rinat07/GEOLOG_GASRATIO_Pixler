@@ -314,6 +314,18 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
             geology_track_settings = geology_track_settings_from_composition(composition)
             depth_range = None
         depth_range = getattr(report, "analysis_depth_interval", None) or depth_range
+        preview_identity = identity_with_report_header_fields(
+            default_interpretation_report_identity(
+                report,
+                self.language,
+                interval=self._report_interval(report),
+            ),
+            report_header_fields(
+                composition,
+                self.language.value,
+                report.report_profile,
+            ),
+        )
         self.preview.setHtml(
             hydrocarbon_interpretation_html_with_front_chart(
                 report,
@@ -323,6 +335,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                 geology_track_settings=geology_track_settings,
                 depth_range=depth_range,
                 legend_mode=composition.legend_mode,
+                identity=preview_identity,
             )
         )
 
