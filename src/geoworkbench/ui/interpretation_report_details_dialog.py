@@ -182,6 +182,12 @@ class InterpretationReportDetailsDialog(QDialog):
         self.remarks = QPlainTextEdit()
         self.remarks.setObjectName("reportRemarks")
         self.remarks.setMaximumHeight(92)
+        self.summary = QPlainTextEdit()
+        self.summary.setObjectName("reportSummary")
+        self.summary.setMaximumHeight(110)
+        self.conclusion = QPlainTextEdit()
+        self.conclusion.setObjectName("reportConclusion")
+        self.conclusion.setMaximumHeight(110)
         notes_layout.addRow(
             self._text("Гриф / доступ:", "Қолжетімділік белгісі:", "Classification:"),
             self.confidentiality,
@@ -189,6 +195,14 @@ class InterpretationReportDetailsDialog(QDialog):
         notes_layout.addRow(
             self._text("Примечание на титульном листе:", "Титулдық бет ескертпесі:", "Cover note:"),
             self.remarks,
+        )
+        notes_layout.addRow(
+            self._text("Краткое резюме:", "Қысқаша түйін:", "Executive summary:"),
+            self.summary,
+        )
+        notes_layout.addRow(
+            self._text("Заключение:", "Қорытынды:", "Conclusion:"),
+            self.conclusion,
         )
         body_layout.addWidget(notes_group)
         body_layout.addStretch(1)
@@ -242,6 +256,8 @@ class InterpretationReportDetailsDialog(QDialog):
             approved_by=self.approved_by.text(),
             confidentiality=self.confidentiality.text(),
             remarks=self.remarks.toPlainText(),
+            summary=self.summary.toPlainText(),
+            conclusion=self.conclusion.toPlainText(),
         ).cleaned()
 
     def _apply(self, identity: InterpretationReportIdentity) -> None:
@@ -265,6 +281,8 @@ class InterpretationReportDetailsDialog(QDialog):
         self.approved_by.setText(identity.approved_by)
         self.confidentiality.setText(identity.confidentiality)
         self.remarks.setPlainText(identity.remarks)
+        self.summary.setPlainText(identity.summary)
+        self.conclusion.setPlainText(identity.conclusion)
 
     @staticmethod
     def _line(object_name: str) -> QLineEdit:
