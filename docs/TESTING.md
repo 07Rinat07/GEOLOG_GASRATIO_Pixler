@@ -123,7 +123,7 @@ LAS. Проверяются RU/KK/EN, reopen, duplicate no-op, конфликт 
 python -m pytest -q -p no:cacheprovider tests/test_report_composition_persistence.py
 ```
 
-Regression подтверждает JSON/\`.geologpkg\` round-trip, безопасную миграцию v36 с пустой
+Regression подтверждает JSON/`.geologpkg` round-trip, безопасную миграцию v36 с пустой
 composition, отказ от ссылок на неизвестный dataset и восстановление orientation/order/
 Auto-Show-Hide в report layout dialog. Composition является presentation state и не меняет
 source LAS, расчётные series или geological records.
