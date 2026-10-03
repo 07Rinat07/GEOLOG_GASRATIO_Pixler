@@ -80,6 +80,24 @@ def test_project_v37_json_round_trip_preserves_report_composition(tmp_path) -> N
     }
 
 
+def test_existing_v37_without_legend_mode_defaults_to_full(tmp_path) -> None:
+    project = _project()
+    target = tmp_path / "legacy-v37.geolog.json"
+
+    save_project(
+        project,
+        target,
+        report_compositions={"dataset-report-composition": _composition()},
+    )
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    payload["report_compositions"]["dataset-report-composition"].pop("legend_mode")
+    target.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    loaded = load_project_document(target)
+
+    assert loaded.report_compositions["dataset-report-composition"].legend_mode is ReportLegendMode.FULL
+
+
 def test_project_v36_migrates_with_empty_report_compositions(tmp_path) -> None:
     project = _project()
     target = tmp_path / "legacy.geolog.json"
