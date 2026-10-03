@@ -64,6 +64,22 @@ _DOCX_PROGRESS = {
 }
 
 
+_DOCX_VALIDATION_ERRORS = {
+    AppLanguage.RU: (
+        "Отчёт относится к другому набору данных",
+        "Кривые с неверным числом отсчётов",
+    ),
+    AppLanguage.KK: (
+        "Есеп басқа деректер жинағына жатады",
+        "Есеп саны қате қисықтар",
+    ),
+    AppLanguage.EN: (
+        "The report belongs to another dataset",
+        "Curves with an invalid sample count",
+    ),
+}
+
+
 def export_hydrocarbon_interpretation_xlsx(
     report: HydrocarbonInterpretationReport,
     dataset: Dataset,
@@ -103,7 +119,7 @@ def export_hydrocarbon_interpretation_docx(
     )
     _notify_export_progress(progress, progress_prepare, 0, 100)
     if dataset is not None:
-        _validate_dataset(report, dataset)
+        _validate_dataset(report, dataset, language=language)
         dataset = scope_dataset(dataset, report.analysis_depth_interval)
     _notify_export_progress(progress, progress_statistics, 20, 100)
     destination = _prepare_target(target, ".docx", overwrite=overwrite)
@@ -670,9 +686,15 @@ def _docx_styles() -> str:
     )
 
 
-def _validate_dataset(report: HydrocarbonInterpretationReport, dataset: Dataset) -> None:
+def _validate_dataset(
+    report: HydrocarbonInterpretationReport,
+    dataset: Dataset,
+    *,
+    language: AppLanguage = AppLanguage.RU,
+) -> None:
+    dataset_mismatch, invalid_sample_count = _DOCX_VALIDATION_ERRORS[language]
     if report.dataset_id != dataset.dataset_id:
-        raise HydrocarbonInterpretationExportError("Отчёт относится к другому набору данных")
+        raise HydrocarbonInterpretationExportError(dataset_mismatch)
     expected_rows = dataset.active_index.values.size
     invalid_curves = tuple(
         curve.metadata.original_mnemonic
@@ -683,7 +705,7 @@ def _validate_dataset(report: HydrocarbonInterpretationReport, dataset: Dataset)
         names = ", ".join(invalid_curves[:5])
         suffix = "…" if len(invalid_curves) > 5 else ""
         raise HydrocarbonInterpretationExportError(
-            f"Кривые с неверным числом отсчётов: {names}{suffix}"
+            f"{invalid_sample_count}: {names}{suffix}"
         )
 
 
