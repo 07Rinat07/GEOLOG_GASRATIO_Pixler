@@ -18,6 +18,9 @@ from geoworkbench.domain.rock_code_profiles import (
 )
 from geoworkbench.domain.well_passport import validate_passport
 from geoworkbench.printing.image_assets import ImageAsset, save_image_assets
+from geoworkbench.printing.interpretation_report_composition import (
+    InterpretationReportComposition,
+)
 from geoworkbench.storage.project_codec import PROJECT_FORMAT_VERSION
 from geoworkbench.storage.source_artifacts import save_source_documents
 from geoworkbench.tablet.layout_codec import layout_to_dict
@@ -59,6 +62,7 @@ def save_project(
     *,
     tablet_layouts: dict[str, TabletLayout] | None = None,
     tablet_presets: dict[str, TabletLayout] | None = None,
+    report_compositions: dict[str, InterpretationReportComposition] | None = None,
     source_documents: dict[str, LosslessLasDocument] | None = None,
     import_reports: dict[str, LasImportReport] | None = None,
     image_assets: dict[str, ImageAsset] | None = None,
@@ -112,6 +116,15 @@ def save_project(
         },
         "tablet_presets": {
             name: layout_to_dict(layout) for name, layout in (tablet_presets or {}).items()
+        },
+        "report_compositions": {
+            dataset_id: {
+                "orientation": composition.orientation.value,
+                "print_order": composition.print_order.value,
+                "cuttings": composition.cuttings.value,
+                "lba": composition.lba.value,
+            }
+            for dataset_id, composition in (report_compositions or {}).items()
         },
         "source_artifacts": source_artifacts,
         "image_assets": image_asset_manifest,
