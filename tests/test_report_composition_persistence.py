@@ -121,12 +121,10 @@ def test_layout_dialog_restores_and_returns_persisted_composition(qapp) -> None:
     )
     try:
         assert dialog.orientation_combo.currentData() == QPageLayout.Orientation.Landscape
-        assert (
-            dialog.order_combo.currentData()
-            is InterpretationPrintOrder.LAST_TO_FIRST
-        )
-        assert dialog.cuttings_visibility_combo.currentData() is GeologyTrackVisibility.SHOW
-        assert dialog.lba_visibility_combo.currentData() is GeologyTrackVisibility.HIDE
+        layout = dialog.selected_layout()
+        assert layout.order is InterpretationPrintOrder.LAST_TO_FIRST
+        assert layout.geology_tracks.cuttings is GeologyTrackVisibility.SHOW
+        assert layout.geology_tracks.lba is GeologyTrackVisibility.HIDE
         assert dialog.selected_composition() == _composition()
     finally:
         dialog.close()
