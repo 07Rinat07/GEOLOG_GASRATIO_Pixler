@@ -90,7 +90,8 @@ _REPORT_HEADER_KEYS_LEGACY = {
     "confidentiality",
     "remarks",
 }
-_REPORT_HEADER_KEYS = {*_REPORT_HEADER_KEYS_LEGACY, "report_profile"}
+_REPORT_HEADER_KEYS_PROFILE = {*_REPORT_HEADER_KEYS_LEGACY, "report_profile"}
+_REPORT_HEADER_KEYS = {*_REPORT_HEADER_KEYS_PROFILE, "summary", "conclusion"}
 _REPORT_HEADER_LANGUAGES = {"ru", "kk", "en"}
 
 
@@ -98,7 +99,11 @@ def _report_header_from_dict(data: object) -> ReportHeaderFields:
     if not isinstance(data, dict):
         raise ProjectFormatError("Некорректные реквизиты report composition")
     keys = set(data)
-    if keys != _REPORT_HEADER_KEYS_LEGACY and keys != _REPORT_HEADER_KEYS:
+    if (
+        keys != _REPORT_HEADER_KEYS_LEGACY
+        and keys != _REPORT_HEADER_KEYS_PROFILE
+        and keys != _REPORT_HEADER_KEYS
+    ):
         raise ProjectFormatError("Некорректные реквизиты report composition")
     profile = data.get("report_profile", "standard")
     if not isinstance(profile, str):
@@ -107,11 +112,11 @@ def _report_header_from_dict(data: object) -> ReportHeaderFields:
     if len(profile) > 100:
         raise ProjectFormatError("Профиль реквизитов report composition превышает допустимый размер")
     values: dict[str, str] = {"report_profile": profile}
-    for key in _REPORT_HEADER_KEYS_LEGACY:
-        value = data[key]
+    for key in _REPORT_HEADER_KEYS - {"report_profile"}:
+        value = data.get(key, "")
         if not isinstance(value, str):
             raise ProjectFormatError("Реквизиты report composition должны быть строками")
-        maximum = 10_000 if key == "remarks" else 2_000
+        maximum = 10_000 if key in {"remarks", "summary", "conclusion"} else 2_000
         if len(value) > maximum:
             raise ProjectFormatError("Реквизиты report composition превышают допустимый размер")
         values[key] = value
