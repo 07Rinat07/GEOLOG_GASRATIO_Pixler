@@ -98,10 +98,13 @@ def _report_header_from_dict(data: object) -> ReportHeaderFields:
     keys = set(data)
     if keys != _REPORT_HEADER_KEYS_LEGACY and keys != _REPORT_HEADER_KEYS:
         raise ProjectFormatError("Некорректные реквизиты report composition")
-    values: dict[str, str] = {
-        "report_profile": str(data.get("report_profile", "standard")).strip().casefold()
-        or "standard"
-    }
+    profile = data.get("report_profile", "standard")
+    if not isinstance(profile, str):
+        raise ProjectFormatError("Профиль реквизитов report composition должен быть строкой")
+    profile = profile.strip().casefold() or "standard"
+    if len(profile) > 100:
+        raise ProjectFormatError("Профиль реквизитов report composition превышает допустимый размер")
+    values: dict[str, str] = {"report_profile": profile}
     for key in _REPORT_HEADER_KEYS_LEGACY:
         value = data[key]
         if not isinstance(value, str):
