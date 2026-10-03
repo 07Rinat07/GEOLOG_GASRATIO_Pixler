@@ -17,6 +17,7 @@ from geoworkbench.domain.report_annotations import (
 )
 from geoworkbench.domain.report_composition import (
     InterpretationReportComposition,
+    ReportPageOrientation,
     stable_report_composition_id,
 )
 from geoworkbench.project.annotation_schema import AnnotationStyle
@@ -276,25 +277,7 @@ def test_report_annotation_presentation_conflict_blocks_undo() -> None:
     current = session.report_compositions[DATASET_ID]
     session.report_compositions[DATASET_ID] = replace(
         current,
-        legend_mode=current.legend_mode,
-        header_en=replace(
-            current.header_en,
-            report_title="Changed",
-        )
-        if current.header_en is not None
-        else None,
-    )
-
-    # The no-op replacement above keeps the same presentation state; make an actual
-    # renderer-neutral change to prove the command guard is fail-closed.
-    changed = session.report_compositions[DATASET_ID]
-    session.report_compositions[DATASET_ID] = replace(
-        changed,
-        orientation=(
-            changed.orientation.LANDSCAPE
-            if changed.orientation is changed.orientation.PORTRAIT
-            else changed.orientation.PORTRAIT
-        ),
+        orientation=ReportPageOrientation.LANDSCAPE,
     )
 
     with pytest.raises(RuntimeError, match="изменена вне истории report annotations"):
