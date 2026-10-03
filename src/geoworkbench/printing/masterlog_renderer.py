@@ -76,6 +76,7 @@ from geoworkbench.printing.text_rendering import (
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.services.gas_curve_presentation import (
     GAS_PRINT_POINT_RADIUS_PT,
+    select_gas_scatter_samples,
     uses_gas_point_presentation,
 )
 from geoworkbench.services.report_passport import ReportPassport
@@ -2959,14 +2960,34 @@ def _paint_curve_column(
         source_values = np.asarray(curve.values, dtype=np.float64)
         if source_values.shape != depth.shape:
             continue
-        values, sampled_depth = select_visible_samples(
-            depth,
-            source_values,
-            top,
-            bottom,
-            max_points=5000,
-            positive_values_only=logarithmic,
+        point_series = uses_gas_point_presentation(
+            (
+                mnemonic,
+                curve.metadata.original_mnemonic,
+                curve.metadata.canonical_mnemonic,
+            )
         )
+        if point_series:
+            # Masterlog coordinates are millimetric; keep roughly one scatter
+            # observation per 0.6 mm of vertical output, with a hard ceiling.
+            point_budget = max(64, min(800, int(max(rect.height(), 1.0) / 0.6)))
+            values, sampled_depth = select_gas_scatter_samples(
+                depth,
+                source_values,
+                top,
+                bottom,
+                max_points=point_budget,
+                positive_values_only=logarithmic,
+            )
+        else:
+            values, sampled_depth = select_visible_samples(
+                depth,
+                source_values,
+                top,
+                bottom,
+                max_points=5000,
+                positive_values_only=logarithmic,
+            )
         if not values.size:
             continue
         if logarithmic:
@@ -2977,15 +2998,8 @@ def _paint_curve_column(
 
         curve_style = masterlog_curve_style(column, mnemonic, curve_index)
         color = _color(curve_style.color, column.line_color)
-        point_series = uses_gas_point_presentation(
-            (
-                mnemonic,
-                curve.metadata.original_mnemonic,
-                curve.metadata.canonical_mnemonic,
-            )
-        )
         if point_series:
-            painter.setPen(QPen(color, 0.2))
+            painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(color)
             radius = GAS_PRINT_POINT_RADIUS_PT * 25.4 / 72.0
             for value, depth_value in zip(values, sampled_depth, strict=True):

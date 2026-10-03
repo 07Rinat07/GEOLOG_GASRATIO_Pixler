@@ -256,6 +256,8 @@ def test_ratio_curves_use_points_while_gas_and_drilling_keep_lines(qapp) -> None
     assert c1_item.opts.get("symbol") is None
     assert c1_item.opts.get("pen") is not None
     assert ratio_item.opts.get("symbol") == "o"
+    assert float(ratio_item.opts.get("symbolSize")) < 3.0
+    assert ratio_item.opts["symbolPen"].style() is Qt.PenStyle.NoPen
     ratio_pen = ratio_item.opts.get("pen")
     assert ratio_pen is None or ratio_pen.style() is Qt.PenStyle.NoPen
     assert rop_item.opts.get("symbol") is None
@@ -267,10 +269,67 @@ def test_ratio_curves_use_points_while_gas_and_drilling_keep_lines(qapp) -> None
     assert c1_item.opts.get("symbol") is None
     assert c1_item.opts.get("pen") is not None
     assert ratio_item.opts.get("symbol") == "o"
+    assert float(ratio_item.opts.get("symbolSize")) < 3.0
+    assert ratio_item.opts["symbolPen"].style() is Qt.PenStyle.NoPen
     ratio_pen = ratio_item.opts.get("pen")
     assert ratio_pen is None or ratio_pen.style() is Qt.PenStyle.NoPen
     assert rop_item.opts.get("symbol") is None
     assert rop_item.opts.get("pen") is not None
+    view.close()
+
+
+def test_dense_ratio_tablet_view_uses_scatter_density_budget(qapp) -> None:
+    depth = np.linspace(100.0, 200.0, 5_001)
+    dataset = Dataset(
+        "dense-ratio-tablet",
+        "Dense ratio tablet",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        depth,
+    )
+    ratio = CurveData(
+        CurveMetadata(
+            "ratio",
+            "C1_C2",
+            "C1_C2",
+            "ratio",
+            None,
+            dataset.dataset_id,
+        ),
+        2.0 + np.sin(depth * 0.4),
+    )
+    dataset.curves[ratio.metadata.curve_id] = ratio
+    definition = TrackDefinition(
+        "ratio",
+        "Gas ratio",
+        TrackKind.GAS,
+        curve_mnemonics=["C1_C2"],
+    )
+    view = TabletView()
+    view.resize(640, 700)
+    view.show()
+    view.set_layout_and_dataset(TabletLayout([definition]), dataset)
+    qapp.processEvents()
+    view.set_visible_depth(100.0, 200.0)
+    qapp.processEvents()
+
+    large_count = view.rendered_curve_point_count("ratio", "C1_C2")
+    large_height = view._rendered["ratio"].plot.viewport().height()
+    large_budget = max(48, min(1_200, int(max(large_height, 1) / 2.5)))
+    assert 0 < large_count <= large_budget
+
+    view.resize(640, 260)
+    qapp.processEvents()
+    view._restore_visible_depth_after_resize()
+    qapp.processEvents()
+
+    small_count = view.rendered_curve_point_count("ratio", "C1_C2")
+    small_height = view._rendered["ratio"].plot.viewport().height()
+    small_budget = max(48, min(1_200, int(max(small_height, 1) / 2.5)))
+
+    assert 0 < small_count <= small_budget
+    assert small_budget < large_budget
+    assert small_count < large_count
     view.close()
 
 

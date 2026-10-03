@@ -99,7 +99,7 @@ baseline проверяется отдельным main Release gate. По оп�
 
 | Порядок | Задача | Следующий проверяемый результат и зависимость | Ответственный по роли / статус |
 |---|---|---|---|
-| 1 | RPT-GAS-VIS-01 | Интегрирован через PR #427 после полного Release gate #2345: ratio/OPUS point-series единообразны в TabletView и report/print paths; обычные TG/C1–C5/ROP/DEXP остаются линиями, *_REL — 100%-stack | Разработчик / интегрировано |
+| 1 | RPT-GAS-VIS-01 | Интегрирован через PR #427 после полного Release gate #2345: ratio/OPUS point-series единообразны в TabletView и report/print paths; обычные TG/C1–C5/ROP/DEXP остаются линиями, *_REL — 100%-stack | Разработчик / интегрировано; RPT-GAS-VIS-02 true-scatter correction на проверке |
 | 2 | PERF-07 | Gate #2347 подтвердил: parse 4.636 s, из них lasio.read 4.635 s; stream setup 0.022 ms и index 0.490 ms. Текущий slice вводит fail-closed numpy.loadtxt fast path только для clean unwrapped LAS 1.2/2.x с точным shape contract и обязательным fallback на прежний lasio; принять только после exact-head Windows сравнения времени и correctness | Разработчик / в работе |
 | 3 | REPORT-I18N-01 | Один явный язык всей выдачи RU/KK/EN: preview/PDF/print/DOCX/XLSX, legends, header и annotations; устранить оставшиеся fixed-language adapters. Реестр переводов WELL-04 используется без подмены draft/reviewed статусов | Разработчик / готово к разработке |
 | 4 | RPT-COMP-01 | Один сохраняемый presentation composition и финальный preview поверх готовых renderers; Auto/Show/Hide уже существует. Зависит от исправленного workspace и общего language contract; расчёты и source geology не меняются | Разработчик / готово к разработке |

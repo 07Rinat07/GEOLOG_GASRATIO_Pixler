@@ -10,7 +10,10 @@ from geoworkbench.tablet.geometry_cache import (
 from geoworkbench.tablet.relative_gas import build_relative_gas_stack
 from geoworkbench.tablet.sampling import select_visible_samples
 from geoworkbench.services.gas_curve_presentation import (
+    GAS_SCREEN_POINT_SIZE_PX,
+    gas_scatter_point_budget,
     is_gas_point_mnemonic,
+    select_gas_scatter_samples,
 )
 from geoworkbench.tablet.tablet_view import CurveHeaderLabel
 
@@ -74,6 +77,75 @@ def test_gas_point_presentation_is_limited_to_ratios_and_interpretation() -> Non
         assert not is_gas_point_mnemonic(mnemonic)
 
 
+def test_gas_scatter_budget_and_marker_are_compact() -> None:
+    assert GAS_SCREEN_POINT_SIZE_PX < 3.0
+    assert gas_scatter_point_budget(180.0) == 72
+    assert gas_scatter_point_budget(900.0) == 360
+
+
+def test_gas_scatter_sampling_groups_dense_buckets_in_constant_flatnonzero_calls(
+    monkeypatch,
+) -> None:
+    import geoworkbench.services.gas_curve_presentation as presentation
+
+    original_flatnonzero = presentation.np.flatnonzero
+    calls = 0
+
+    def counted_flatnonzero(values):
+        nonlocal calls
+        calls += 1
+        return original_flatnonzero(values)
+
+    monkeypatch.setattr(presentation.np, "flatnonzero", counted_flatnonzero)
+    axis = np.linspace(0.0, 1_000.0, 200_001, dtype=np.float64)
+    values = 2.0 + np.sin(axis * 0.2)
+
+    sampled_values, sampled_axis = presentation.select_gas_scatter_samples(
+        axis,
+        values,
+        0.0,
+        1_000.0,
+        max_points=1_200,
+    )
+
+    assert 0 < sampled_values.size <= 1_200
+    assert sampled_values.size == sampled_axis.size
+    # One call selects factual rows; one identifies monotonic bucket boundaries.
+    assert calls <= 3
+
+
+def test_gas_scatter_sampling_keeps_sparse_points_and_bounds_dense_cloud() -> None:
+    axis = np.arange(3_601, dtype=np.float64)
+    sparse = np.full(axis.shape, np.nan, dtype=np.float64)
+    sparse[1_235] = 2.5
+
+    sparse_values, sparse_axis = select_gas_scatter_samples(
+        axis,
+        sparse,
+        0.0,
+        3_600.0,
+        max_points=72,
+    )
+
+    np.testing.assert_allclose(sparse_values, [2.5])
+    np.testing.assert_allclose(sparse_axis, [1_235.0])
+
+    dense = 2.0 + np.sin(axis / 7.0)
+    dense_values, dense_axis = select_gas_scatter_samples(
+        axis,
+        dense,
+        0.0,
+        3_600.0,
+        max_points=72,
+    )
+
+    assert 1 < dense_values.size <= 72
+    assert dense_values.size == dense_axis.size
+    assert np.all(np.diff(dense_axis) >= 0.0)
+    assert float(np.min(dense_values)) < 1.2
+    assert float(np.max(dense_values)) > 2.8
+
+
 def test_sparse_continuity_policy_is_limited_to_gas_curves() -> None:
     gas_ids = (
         "C1",
@@ -91,6 +163,30 @@ def test_sparse_continuity_policy_is_limited_to_gas_curves() -> None:
     assert not is_gas_curve_id("ROP")
     assert not is_gas_curve_id("GR")
     assert not is_gas_curve_id("DEXP")
+
+
+def test_geometry_cache_honors_explicit_point_series_for_vendor_alias() -> None:
+    axis = np.linspace(0.0, 100.0, 2_001)
+    values = 2.0 + np.sin(axis)
+    cache = CurveGeometryCache()
+    key = CurveGeometryKey(
+        curve_id="VENDOR_RATIO_17",
+        axis_id="depth",
+        values_revision="vendor-values",
+        axis_revision="vendor-axis",
+        top=0.0,
+        bottom=100.0,
+        max_points=80,
+        positive_values_only=False,
+        point_series=True,
+    )
+
+    sampled_values, sampled_axis = cache.get_or_build(key, axis, values)
+
+    assert 0 < sampled_values.size <= 80
+    assert sampled_values.size == sampled_axis.size
+    assert np.all(np.isfinite(sampled_values))
+    assert np.all(np.diff(sampled_axis) >= 0.0)
 
 
 def test_relative_gas_print_header_uses_same_compact_font_as_rulers(qapp) -> None:

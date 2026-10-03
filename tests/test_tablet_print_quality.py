@@ -3,6 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pyqtgraph as pg
+import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPen
 from PySide6.QtWidgets import QApplication
@@ -99,7 +100,7 @@ def test_print_snapshot_keeps_gas_point_series_without_restoring_line() -> None:
 
     assert item.opts.get("pen") is None
     assert item.opts.get("symbol") == "o"
-    assert float(item.opts.get("symbolSize")) >= 15.0
+    assert float(item.opts.get("symbolSize")) == pytest.approx(6.6)
 
     _restore_print_curve_styles(states)
 
@@ -139,7 +140,7 @@ def test_print_ratio_markers_use_configured_color_and_restore_screen_color() -> 
 
     assert item.opts.get("pen") is None
     assert item.opts["symbolBrush"].color().name().lower() == "#ff0000"
-    assert QPen(item.opts["symbolPen"]).color().name().lower() == "#ff0000"
+    assert QPen(item.opts["symbolPen"]).style() is Qt.PenStyle.NoPen
 
     _restore_print_curve_styles(states)
 

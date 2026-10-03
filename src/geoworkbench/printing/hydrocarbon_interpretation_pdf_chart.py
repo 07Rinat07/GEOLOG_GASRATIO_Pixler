@@ -35,6 +35,8 @@ from geoworkbench.services.hydrocarbon_interpretation import (
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.gas_curve_presentation import (
     GAS_PRINT_POINT_RADIUS_PT,
+    gas_scatter_point_budget,
+    select_gas_scatter_samples,
     uses_gas_point_presentation,
 )
 
@@ -546,11 +548,40 @@ def _draw_curves(
                 )
             )
         )
+        if draw_as_points:
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(color)
+            point_values, point_depth = select_gas_scatter_samples(
+                depth,
+                values,
+                page.top_depth,
+                page.bottom_depth,
+                max_points=gas_scatter_point_budget(curve_rect.height()),
+            )
+            radius = GAS_PRINT_POINT_RADIUS_PT
+            for value, depth_value in zip(point_values, point_depth, strict=True):
+                if high <= low:
+                    normalized = 0.5 if value == low else 1.0 if value > low else 0.0
+                else:
+                    normalized = float(np.clip((value - low) / (high - low), 0.0, 1.0))
+                current = (
+                    curve_rect.left() + normalized * curve_rect.width(),
+                    _depth_y(float(depth_value), page, curve_rect),
+                )
+                painter.drawEllipse(
+                    QRectF(
+                        current[0] - radius,
+                        current[1] - radius,
+                        radius * 2.0,
+                        radius * 2.0,
+                    )
+                )
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            continue
+
         pen = QPen(color, _PRINT_CURVE_WIDTH)
         pen.setCosmetic(True)
         painter.setPen(pen)
-        if draw_as_points:
-            painter.setBrush(color)
         for segment in segments:
             render_rows = _extrema_preserving_print_rows(
                 segment,
@@ -585,25 +616,13 @@ def _draw_curves(
                     and (clipped or previous_clipped)
                     and abs(normalized - previous_normalized) >= 0.72
                 )
-                if draw_as_points:
-                    radius = GAS_PRINT_POINT_RADIUS_PT
-                    painter.drawEllipse(
-                        QRectF(
-                            current[0] - radius,
-                            current[1] - radius,
-                            radius * 2.0,
-                            radius * 2.0,
-                        )
-                    )
-                elif previous is not None and not break_clipped_spike:
+                if previous is not None and not break_clipped_spike:
                     painter.drawLine(
                         QLineF(previous[0], previous[1], current[0], current[1])
                     )
                 previous = current
                 previous_normalized = normalized
                 previous_clipped = clipped
-        if draw_as_points:
-            painter.setBrush(Qt.BrushStyle.NoBrush)
     painter.restore()
 
 
