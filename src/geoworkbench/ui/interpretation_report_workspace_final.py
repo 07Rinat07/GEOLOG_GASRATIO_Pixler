@@ -675,6 +675,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     report,
                     dataset,
                     target,
+                    language=self.language,
                     overwrite=target.exists(),
                     progress=self._update_report_export_progress,
                 )
