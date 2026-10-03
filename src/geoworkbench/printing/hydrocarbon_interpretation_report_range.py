@@ -11,6 +11,8 @@ from geoworkbench.domain.depth_interval import (
     DepthInterval as ReportDepthRange,
     DepthIntervalError as ReportDepthRangeError,
 )
+from geoworkbench.printing.hydrocarbon_report_print_i18n import hydrocarbon_report_print_labels
+from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
 )
@@ -26,13 +28,16 @@ _INTERVAL_PATTERN = re.compile(
 def resolve_report_depth_range(
     interval_text: str,
     dataset: Dataset,
+    *,
+    language: AppLanguage = AppLanguage.RU,
 ) -> ReportDepthRange:
     """Resolve the presentation interval into a fail-closed dataset depth range."""
 
+    labels = hydrocarbon_report_print_labels(language)
     depth = np.asarray(dataset.depth, dtype=np.float64)
     finite = depth[np.isfinite(depth)]
     if depth.ndim != 1 or finite.size < 1:
-        raise ReportDepthRangeError("В наборе данных нет конечной оси глубины")
+        raise ReportDepthRangeError(labels.range_no_depth_axis)
 
     data_top = float(np.min(finite))
     data_bottom = float(np.max(finite))
@@ -42,24 +47,19 @@ def resolve_report_depth_range(
 
     match = _INTERVAL_PATTERN.fullmatch(text)
     if match is None:
-        raise ReportDepthRangeError(
-            "Интервал должен иметь вид «1980–2016.20 m»"
-        )
+        raise ReportDepthRangeError(labels.range_format_required)
     try:
         top = float(match.group(1).replace(",", "."))
         bottom = float(match.group(2).replace(",", "."))
     except ValueError as exc:
-        raise ReportDepthRangeError("Не удалось прочитать границы интервала") from exc
+        raise ReportDepthRangeError(labels.range_parse_failed) from exc
     if not math.isfinite(top) or not math.isfinite(bottom) or bottom <= top:
-        raise ReportDepthRangeError(
-            "Верхняя граница интервала должна быть меньше нижней"
-        )
+        raise ReportDepthRangeError(labels.range_order_invalid)
 
     tolerance = max(1.0e-7, abs(data_bottom - data_top) * 1.0e-10)
     if top < data_top - tolerance or bottom > data_bottom + tolerance:
         raise ReportDepthRangeError(
-            "Выбранный интервал выходит за диапазон данных "
-            f"{data_top:.2f}–{data_bottom:.2f}"
+            labels.range_outside_data.format(top=data_top, bottom=data_bottom)
         )
     return ReportDepthRange(
         max(top, data_top),

@@ -9,6 +9,8 @@ import unicodedata
 from PySide6.QtGui import QFont, QFontDatabase, QFontMetrics
 from PySide6.QtWidgets import QApplication, QComboBox, QTabWidget, QWidget
 
+from geoworkbench.services.localization import AppLanguage
+
 
 class UnicodePrintError(RuntimeError):
     """Raised when text cannot be printed safely without corrupt glyphs."""
@@ -57,6 +59,27 @@ _CYRILLIC_MOJIBAKE_PATTERN = re.compile(r"(?:[ÐÑ].){2,}")
 # depend on a symbol font while the meaningful text remains strictly checked.
 _SCREEN_ONLY_DECORATIVE_PREFIXES = frozenset({"↶", "↷", "✎"})
 
+_UNICODE_PROBLEM_LABELS: dict[AppLanguage, dict[str, str]] = {
+    AppLanguage.RU: {
+        "invalid_sequence": "невалидная последовательность UTF-8/Unicode",
+        "replacement_character": "символ замены U+FFFD",
+        "unpaired_surrogate": "непарный суррогат Unicode",
+        "control_characters": "недопустимые управляющие символы",
+    },
+    AppLanguage.KK: {
+        "invalid_sequence": "жарамсыз UTF-8/Unicode тізбегі",
+        "replacement_character": "U+FFFD алмастыру таңбасы",
+        "unpaired_surrogate": "жұпсыз Unicode суррогаты",
+        "control_characters": "рұқсат етілмеген басқару таңбалары",
+    },
+    AppLanguage.EN: {
+        "invalid_sequence": "invalid UTF-8/Unicode sequence",
+        "replacement_character": "replacement character U+FFFD",
+        "unpaired_surrogate": "unpaired Unicode surrogate",
+        "control_characters": "disallowed control characters",
+    },
+}
+
 
 @dataclass(frozen=True, slots=True)
 class UnicodeFontProfile:
@@ -74,36 +97,77 @@ class UnicodePreflightReport:
     invalid_fragments: tuple[str, ...] = ()
     missing_glyphs: tuple[str, ...] = ()
     suspicious_fragments: tuple[str, ...] = ()
+    invalid_problem_details: tuple[tuple[str, tuple[str, ...]], ...] = ()
 
     @property
     def ok(self) -> bool:
         return (
             not self.invalid_fragments
+            and not self.invalid_problem_details
             and not self.missing_glyphs
             and not self.suspicious_fragments
         )
 
-    def error_message(self) -> str:
+    def error_message(self, *, language: AppLanguage = AppLanguage.RU) -> str:
+        labels = {
+            AppLanguage.RU: {
+                "invalid": "Обнаружен повреждённый Unicode-текст: ",
+                "suspicious": "Обнаружен текст с признаками ошибочной перекодировки: ",
+                "missing": "В установленных шрифтах отсутствуют символы: ",
+                "font": (
+                    "Не найден один шрифт, полностью поддерживающий русский, қазақша, "
+                    "английский и инженерные символы. Установите Noto Sans, DejaVu Sans "
+                    "или Segoe UI и повторите печать."
+                ),
+                "fallback": "Unicode-проверка не пройдена",
+            },
+            AppLanguage.KK: {
+                "invalid": "Бүлінген Unicode мәтіні анықталды: ",
+                "suspicious": "Қате қайта кодтау белгілері бар мәтін анықталды: ",
+                "missing": "Орнатылған қаріптерде мына таңбалар жоқ: ",
+                "font": (
+                    "Орыс, қазақ, ағылшын және инженерлік таңбаларды толық қолдайтын бір қаріп "
+                    "табылмады. Noto Sans, DejaVu Sans немесе Segoe UI орнатып, басып шығаруды "
+                    "қайталаңыз."
+                ),
+                "fallback": "Unicode тексеруі өтпеді",
+            },
+            AppLanguage.EN: {
+                "invalid": "Corrupted Unicode text was detected: ",
+                "suspicious": "Text with signs of incorrect transcoding was detected: ",
+                "missing": "The installed fonts are missing these characters: ",
+                "font": (
+                    "No single font fully supporting Russian, Kazakh, English, and engineering "
+                    "symbols was found. Install Noto Sans, DejaVu Sans, or Segoe UI and retry "
+                    "printing."
+                ),
+                "fallback": "Unicode preflight failed",
+            },
+        }[language]
         parts: list[str] = []
-        if self.invalid_fragments:
-            parts.append(
-                "Обнаружен повреждённый Unicode-текст: " + "; ".join(self.invalid_fragments[:8])
-            )
+        if self.invalid_problem_details:
+            problem_labels = _UNICODE_PROBLEM_LABELS[language]
+            rendered_invalid = []
+            for text, problem_codes in self.invalid_problem_details[:8]:
+                details = ", ".join(
+                    problem_labels.get(problem_code, problem_code)
+                    for problem_code in problem_codes
+                )
+                rendered_invalid.append(f"{text!r}: {details}")
+            parts.append(labels["invalid"] + "; ".join(rendered_invalid))
+        elif self.invalid_fragments:
+            parts.append(labels["invalid"] + "; ".join(self.invalid_fragments[:8]))
         if self.suspicious_fragments:
             parts.append(
-                "Обнаружен текст с признаками ошибочной перекодировки: "
+                labels["suspicious"]
                 + "; ".join(repr(item) for item in self.suspicious_fragments[:8])
             )
         if self.missing_glyphs:
             rendered = " ".join(_describe_character(item) for item in self.missing_glyphs[:20])
-            parts.append("В установленных шрифтах отсутствуют символы: " + rendered)
+            parts.append(labels["missing"] + rendered)
         if not self.font_profile.required_sample_supported:
-            parts.append(
-                "Не найден один шрифт, полностью поддерживающий русский, қазақша, "
-                "английский и инженерные символы. Установите Noto Sans, DejaVu Sans "
-                "или Segoe UI и повторите печать."
-            )
-        return "\n".join(parts) or "Unicode-проверка не пройдена"
+            parts.append(labels["font"])
+        return "\n".join(parts) or labels["fallback"]
 
 
 def configure_application_unicode_fonts(app: QApplication) -> UnicodeFontProfile:
@@ -223,12 +287,19 @@ def ensure_widget_printable_unicode(widget: QWidget) -> UnicodePreflightReport:
 def preflight_texts(texts: tuple[str, ...] | list[str]) -> UnicodePreflightReport:
     normalized = tuple(text for text in texts if isinstance(text, str) and text)
     invalid: list[str] = []
+    invalid_problem_details: list[tuple[str, tuple[str, ...]]] = []
     suspicious: list[str] = []
     characters: list[str] = []
     for text in normalized:
         problems = _text_integrity_problems(text)
         if problems:
-            invalid.append(f"{_shorten(text)!r}: {', '.join(problems)}")
+            shortened = _shorten(text)
+            invalid_problem_details.append((shortened, problems))
+            russian_labels = _UNICODE_PROBLEM_LABELS[AppLanguage.RU]
+            invalid.append(
+                f"{shortened!r}: "
+                + ", ".join(russian_labels.get(problem, problem) for problem in problems)
+            )
         if any(marker in text for marker in _SUSPICIOUS_MOJIBAKE_MARKERS) or (
             _CYRILLIC_MOJIBAKE_PATTERN.search(text) is not None
         ):
@@ -247,6 +318,7 @@ def preflight_texts(texts: tuple[str, ...] | list[str]) -> UnicodePreflightRepor
         invalid_fragments=tuple(invalid),
         missing_glyphs=missing,
         suspicious_fragments=tuple(dict.fromkeys(suspicious)),
+        invalid_problem_details=tuple(invalid_problem_details),
     )
 
 
@@ -323,18 +395,18 @@ def _text_integrity_problems(text: str) -> tuple[str, ...]:
     try:
         text.encode("utf-8", errors="strict").decode("utf-8", errors="strict")
     except UnicodeError:
-        problems.append("невалидная последовательность UTF-8/Unicode")
+        problems.append("invalid_sequence")
     if "\ufffd" in text:
-        problems.append("символ замены U+FFFD")
+        problems.append("replacement_character")
     if any(0xD800 <= ord(character) <= 0xDFFF for character in text):
-        problems.append("непарный суррогат Unicode")
+        problems.append("unpaired_surrogate")
     controls = [
         character
         for character in text
         if unicodedata.category(character) == "Cc" and character not in "\n\r\t"
     ]
     if controls:
-        problems.append("недопустимые управляющие символы")
+        problems.append("control_characters")
     return tuple(problems)
 
 

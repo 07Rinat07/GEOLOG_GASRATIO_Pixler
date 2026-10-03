@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import fitz
+import pytest
 from PySide6.QtGui import QPageLayout, QPageSize, QPdfWriter
 from PySide6.QtPrintSupport import QAbstractPrintDialog
 
@@ -10,6 +11,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_system_print import (
     print_pdf_page_selection,
     selected_report_pages,
 )
+from geoworkbench.services.localization import AppLanguage
 
 
 def _source_pdf(path) -> None:
@@ -124,3 +126,19 @@ def test_pdf_writer_can_stop_before_all_pages_are_spooled(tmp_path) -> None:
 
     assert completed is False
     assert progress == [1]
+
+
+def test_invalid_print_range_uses_selected_english_language(tmp_path) -> None:
+    source = tmp_path / "source.pdf"
+    target = tmp_path / "invalid-range.pdf"
+    _source_pdf(source)
+    writer = _pdf_writer(target)
+
+    with pytest.raises(ValueError, match="The print range is outside the report"):
+        print_pdf_page_selection(
+            source,
+            writer,
+            (4,),
+            language=AppLanguage.EN,
+        )
+    del writer

@@ -61,6 +61,9 @@ from geoworkbench.printing.hydrocarbon_interpretation_system_print import (
     print_pdf_page_selection,
     selected_report_pages,
 )
+from geoworkbench.printing.hydrocarbon_report_print_i18n import (
+    hydrocarbon_report_print_labels,
+)
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
 )
@@ -333,7 +336,9 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
             return False
         try:
             depth_range = report.analysis_depth_interval or resolve_report_depth_range(
-                identity.interval, dataset,
+                identity.interval,
+                dataset,
+                language=self.language,
             )
         except ReportDepthRangeError as exc:
             self._show_export_error(exc)
@@ -452,7 +457,11 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                 self._show_export_error(exc)
                 return
             if total_pages < 1:
-                self._show_export_error(RuntimeError("Печатный отчёт не содержит страниц"))
+                self._show_export_error(
+                    RuntimeError(
+                        hydrocarbon_report_print_labels(self.language).print_report_no_pages
+                    )
+                )
                 return
 
             printer = QPrinter(QPrinter.PrinterMode.HighResolution)
@@ -498,7 +507,11 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                 reverse=reverse,
             )
             if not page_numbers:
-                self._show_export_error(RuntimeError("Не выбран диапазон страниц"))
+                self._show_export_error(
+                    RuntimeError(
+                        hydrocarbon_report_print_labels(self.language).print_page_range_missing
+                    )
+                )
                 return
 
             # Driver dialogs may change these values. Reapply the selected report
@@ -555,6 +568,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     prepared_pdf,
                     printer,
                     page_numbers,
+                    language=self.language,
                     cancel_requested=cancel_requested,
                     progress=update_progress,
                 )

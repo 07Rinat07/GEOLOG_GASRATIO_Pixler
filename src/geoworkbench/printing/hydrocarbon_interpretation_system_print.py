@@ -15,6 +15,9 @@ from PySide6.QtGui import (
 )
 from PySide6.QtPrintSupport import QAbstractPrintDialog, QPrinter
 
+from geoworkbench.printing.hydrocarbon_report_print_i18n import hydrocarbon_report_print_labels
+from geoworkbench.services.localization import AppLanguage
+
 
 CancelCheck = Callable[[], bool]
 ProgressCallback = Callable[[int, int, int], None]
@@ -64,22 +67,24 @@ def print_pdf_page_selection(
     printer: PrintDevice,
     page_numbers: Iterable[int],
     *,
+    language: AppLanguage = AppLanguage.RU,
     cancel_requested: CancelCheck | None = None,
     progress: ProgressCallback | None = None,
 ) -> bool:
     """Print only the requested PDF pages and stop before spooling the rest."""
 
+    labels = hydrocarbon_report_print_labels(language)
     pages = tuple(int(page) for page in page_numbers)
     if not pages:
         return False
 
     with fitz.open(Path(pdf_path)) as document:
         if any(page < 1 or page > document.page_count for page in pages):
-            raise ValueError("Диапазон печати выходит за пределы отчёта")
+            raise ValueError(labels.print_range_outside)
 
         painter = QPainter(printer)
         if not painter.isActive():
-            raise RuntimeError("Не удалось запустить системную печать")
+            raise RuntimeError(labels.print_start_failed)
         try:
             total = len(pages)
             for output_index, page_number in enumerate(pages, start=1):
@@ -88,7 +93,7 @@ def print_pdf_page_selection(
                         printer.abort()
                     return False
                 if output_index > 1 and not printer.newPage():
-                    raise RuntimeError("Не удалось создать следующую печатную страницу")
+                    raise RuntimeError(labels.print_next_page_failed)
 
                 page = document[page_number - 1]
                 # Preserve thin vector chart lines when a PDF page must be
@@ -112,7 +117,7 @@ def print_pdf_page_selection(
                 try:
                     if image.isNull():
                         raise RuntimeError(
-                            f"Не удалось подготовить страницу {page_number} для печати"
+                            labels.print_prepare_page_failed.format(page=page_number)
                         )
 
                     paint_rect = printer.pageLayout().paintRectPixels(printer.resolution())

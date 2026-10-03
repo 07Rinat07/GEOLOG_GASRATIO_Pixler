@@ -95,11 +95,13 @@ true scatter без соединяющей geometry во всех основны
 numpy data path с совместимым fallback на lasio. Текущий продуктовый инкремент —
 REPORT-I18N-01: один выбранный RU/KK/EN должен атомарно проходить через preview/PDF/print,
 DOCX/XLSX, cover/header, legends и пользовательские export-status сообщения без скрытого
-русского fallback. Численные расчёты, source LAS и classification не изменяются.
+русского fallback. Office boundary закрывается PR #434; текущий stacked slice проводит тот же
+контракт через depth-range validation, PDF runtime/Unicode failures и physical system print.
+Численные расчёты, source LAS и classification не изменяются.
 
 | Порядок | Задача | Следующий проверяемый результат и зависимость | Ответственный по роли / статус |
 |---|---|---|---|
-| 1 | REPORT-I18N-01 | Первый slice: workspace явно передаёт RU/KK/EN в XLSX/DOCX; polished Word cover, progress/error text и missing-value labels используют тот же язык. Далее проверить оставшиеся preview/PDF/print/annotation adapters без смешения языков | Разработчик / в работе |
+| 1 | REPORT-I18N-01 | Office slice: workspace явно передаёт RU/KK/EN в XLSX/DOCX; polished Word cover, progress/error text и missing-value labels используют тот же язык. PDF/print slice локализует depth-range, PDF/Unicode и physical-print ошибки и явно передаёт язык в system-print adapter. Далее — остаточный audit preview/annotation adapters и tri-language acceptance без смешения языков | Разработчик / в работе |
 | 2 | RPT-COMP-01 | Один сохраняемый presentation composition и финальный preview поверх готовых renderers; Auto/Show/Hide уже существует. Зависит от исправленного workspace и общего language contract; расчёты и source geology не меняются | Разработчик / готово к разработке |
 | 3 | RPT-ANN-01 | Report scope и logical track anchors, printable remarks/callouts, общий bounded Undo/Redo, Cancel/Save checkpoints; зависит от стабильного composition ID Composer | Разработчик / запланировано |
 | 4 | PRINT-STYLE-01 | Свести оставшиеся generic/Masterlog/Office пути к одному visual profile и document-control contract; дополнять готовые typography/marker/legend contracts. Physical acceptance вынесена отдельно | Разработчик / в работе |

@@ -9,6 +9,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_report_range import (
     ReportDepthRangeError,
     resolve_report_depth_range,
 )
+from geoworkbench.services.localization import AppLanguage
 
 
 def _dataset(*depths: float) -> Dataset:
@@ -65,3 +66,23 @@ def test_report_interval_fails_closed_when_it_cannot_be_applied(
 
 def test_report_depth_range_formats_canonical_interval() -> None:
     assert ReportDepthRange(1980.0, 2016.2).formatted("m") == "1980.00–2016.20 m"
+
+
+def test_report_interval_format_error_uses_selected_english_language() -> None:
+    dataset = _dataset(1000.0, 1001.0)
+
+    with pytest.raises(
+        ReportDepthRangeError,
+        match="The interval must use the form",
+    ):
+        resolve_report_depth_range("broken", dataset, language=AppLanguage.EN)
+
+
+def test_report_interval_bounds_error_uses_selected_kazakh_language() -> None:
+    dataset = _dataset(1000.0, 1001.0)
+
+    with pytest.raises(
+        ReportDepthRangeError,
+        match="Таңдалған аралық деректер диапазонынан тыс",
+    ):
+        resolve_report_depth_range("900–901 m", dataset, language=AppLanguage.KK)
