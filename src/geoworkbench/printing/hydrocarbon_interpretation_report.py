@@ -98,7 +98,7 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
             f"{labels.pdf_invalid_interval}: {exc}"
         ) from exc
 
-    render_options = (
+    render_options: tuple[tuple[str, str], ...] = (
         ("geology_cuttings", geology_track_settings.cuttings.value),
         ("geology_lba", geology_track_settings.lba.value),
         ("legend_mode", legend_mode.value),
