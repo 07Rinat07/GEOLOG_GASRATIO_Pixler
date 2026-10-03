@@ -252,6 +252,8 @@ def export_hydrocarbon_interpretation_pdf(
             details.approved_by,
             details.confidentiality,
             details.remarks,
+            details.summary,
+            details.conclusion,
         )
         unicode_report = preflight_texts([html, *identity_texts])
         if not unicode_report.ok:
