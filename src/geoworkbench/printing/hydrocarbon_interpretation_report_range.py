@@ -11,7 +11,7 @@ from geoworkbench.domain.depth_interval import (
     DepthInterval as ReportDepthRange,
     DepthIntervalError as ReportDepthRangeError,
 )
-from geoworkbench.printing.hydrocarbon_report_i18n import hydrocarbon_report_labels
+from geoworkbench.printing.hydrocarbon_report_print_i18n import hydrocarbon_report_print_labels
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
@@ -33,7 +33,7 @@ def resolve_report_depth_range(
 ) -> ReportDepthRange:
     """Resolve the presentation interval into a fail-closed dataset depth range."""
 
-    labels = hydrocarbon_report_labels(language)
+    labels = hydrocarbon_report_print_labels(language)
     depth = np.asarray(dataset.depth, dtype=np.float64)
     finite = depth[np.isfinite(depth)]
     if depth.ndim != 1 or finite.size < 1:
