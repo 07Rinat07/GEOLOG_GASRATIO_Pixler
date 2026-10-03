@@ -228,11 +228,6 @@ def render_chart_pages(
     for page_index, page in enumerate(pages, start=1):
         canvas.new_page()
         percentiles = base_chart._curve_percentiles(panels, dataset, page=page)
-        draw_options = (
-            {"geology_legend_compact": True}
-            if legend_compact
-            else {}
-        )
         geometry = chart_geometry(
             canvas.content_rect,
             page,
@@ -283,9 +278,7 @@ def render_chart_pages(
                     None,
                     annotations=annotations,
                 )
-        else:
-            # Preserve the historical call contract for test/profiling hooks
-            # that wrap _draw_chart_page without the RPT-ANN keyword.
+        elif legend_compact:
             _draw_chart_page(
                 canvas.painter,
                 geometry,
@@ -303,7 +296,28 @@ def render_chart_pages(
                 empty_state_tracks,
                 chart_legend,
                 None,
-                **draw_options,
+                geology_legend_compact=True,
+            )
+        else:
+            # Preserve the historical positional call contract for test/profiling
+            # hooks that wrap _draw_chart_page without RPT-ANN keywords.
+            _draw_chart_page(
+                canvas.painter,
+                geometry,
+                page,
+                page_index,
+                len(pages),
+                report,
+                dataset,
+                panels,
+                base_chart._display_curve_ranges(percentiles),
+                percentiles,
+                language,
+                geology,
+                geology_tracks,
+                empty_state_tracks,
+                chart_legend,
+                None,
             )
         canvas.y = canvas.content_rect.bottom()
 
