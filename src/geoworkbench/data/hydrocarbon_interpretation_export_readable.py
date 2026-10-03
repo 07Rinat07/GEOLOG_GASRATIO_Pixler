@@ -900,9 +900,9 @@ def _haworth_pixler_text(
 ) -> str:
     labels = hydrocarbon_report_labels(language)
     parts = [
-        f"Wh={_optional(candidate.interval_wetness)}",
-        f"Bh={_optional(candidate.interval_balance)}",
-        f"Ch={_optional(candidate.interval_character)}",
+        f"Wh={_optional(candidate.interval_wetness, language)}",
+        f"Bh={_optional(candidate.interval_balance, language)}",
+        f"Ch={_optional(candidate.interval_character, language)}",
     ]
     if candidate.pixler_assessment is not None:
         pixler = candidate.pixler_assessment
@@ -922,9 +922,9 @@ def _dexp_text(
     labels = hydrocarbon_report_labels(language)
     return (
         f"{localized_curve_name(item.mnemonic, language=language)}: "
-        f"{labels.min_word} {_optional(item.minimum)}; "
-        f"{labels.mean_word} {_optional(item.mean)}; "
-        f"{labels.max_word} {_optional(item.maximum)}"
+        f"{labels.min_word} {_optional(item.minimum, language)}; "
+        f"{labels.mean_word} {_optional(item.mean, language)}; "
+        f"{labels.max_word} {_optional(item.maximum, language)}"
     )
 
 
@@ -974,8 +974,10 @@ def _lba_text(
     return f"{labels.lba_absent}; {labels.correlation}: {correlation}"
 
 
-def _optional(value: float | None) -> str:
-    return "нет данных" if value is None or not np.isfinite(value) else f"{value:.6g}"
+def _optional(value: float | None, language: AppLanguage) -> str:
+    if value is None or not np.isfinite(value):
+        return hydrocarbon_report_labels(language).no_data
+    return f"{value:.6g}"
 
 
 def _first_primary_name(primary: str | None) -> str | None:
