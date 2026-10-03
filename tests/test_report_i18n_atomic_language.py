@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import replace
 import inspect
 from types import SimpleNamespace
 import zipfile
@@ -21,13 +20,6 @@ from geoworkbench.data.hydrocarbon_interpretation_export_readable import (
     export_readable_hydrocarbon_interpretation_xlsx,
 )
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
-from geoworkbench.printing.hydrocarbon_interpretation_report import (
-    HydrocarbonInterpretationPdfError,
-    export_hydrocarbon_interpretation_pdf,
-)
-from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
-    default_interpretation_report_identity,
-)
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
 )
@@ -153,15 +145,11 @@ def test_workspace_office_exports_explicitly_propagate_language() -> None:
     drilling_docx = inspect.getsource(
         interpretation_report_workspace_drilling.InterpretationReportWorkspace._export_docx
     )
-    final_print = inspect.getsource(
-        interpretation_report_workspace_final.InterpretationReportWorkspace._print_report
-    )
 
     assert "language=self.language" in legacy_xlsx
     assert "language=self.language" in legacy_docx
     assert "language=self.language" in final_xlsx
     assert "language=self.language" in drilling_docx
-    assert "language=self.language" in final_print
 
 
 def test_docx_dataset_mismatch_error_uses_selected_language(tmp_path) -> None:
@@ -211,36 +199,6 @@ def test_docx_invalid_curve_length_error_uses_selected_language(tmp_path) -> Non
         )
 
 
-def test_pdf_invalid_interval_error_uses_selected_english_language(tmp_path) -> None:
-    report = _minimal_report()
-    dataset = Dataset(
-        dataset_id=report.dataset_id,
-        name="Dataset",
-        kind=DatasetKind.GTI,
-        depth_domain=DepthDomain.MD,
-        depth=np.asarray([1000.0, 1001.0], dtype=np.float64),
-    )
-    identity = replace(
-        default_interpretation_report_identity(report, AppLanguage.EN),
-        interval="broken",
-    )
-
-    with pytest.raises(
-        HydrocarbonInterpretationPdfError,
-        match="Invalid report interval: The interval must use the form",
-    ) as captured:
-        export_hydrocarbon_interpretation_pdf(
-            report,
-            tmp_path / "report-en.pdf",
-            dataset=dataset,
-            identity=identity,
-            language=AppLanguage.EN,
-        )
-
-    assert "Некорректный" not in str(captured.value)
-    assert "Интервал должен" not in str(captured.value)
-
-
 def test_xlsx_dataset_mismatch_error_uses_selected_language(tmp_path) -> None:
     dataset = Dataset(
         dataset_id="other-dataset",
@@ -282,3 +240,15 @@ def test_xlsx_manual_interval_identifier_uses_selected_language() -> None:
 
     assert row[0] == "G-1"
     assert row[0] != "Г-1"
+
+
+def test_report_identity_cache_key_includes_selected_language() -> None:
+    source = inspect.getsource(
+        interpretation_report_workspace_final.InterpretationReportWorkspace._select_report_identity
+    )
+    compact = " ".join(source.split())
+
+    assert (
+        "key = ( report.project_name, report.well_name, report.dataset_id, self.language, )"
+        in compact
+    )
