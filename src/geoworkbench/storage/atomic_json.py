@@ -54,6 +54,22 @@ def _validate_rock_profile_ledgers(
             )
 
 
+def _validate_report_header(header: object) -> None:
+    if header is None:
+        return
+    profile = str(getattr(header, "report_profile", "")).strip().casefold()
+    if not profile or len(profile) > 100:
+        raise ValueError("Профиль реквизитов report composition некорректен")
+    for key, value in asdict(header).items():
+        if key == "report_profile":
+            continue
+        if not isinstance(value, str):
+            raise ValueError("Реквизиты report composition должны быть строками")
+        maximum = 10_000 if key == "remarks" else 2_000
+        if len(value) > maximum:
+            raise ValueError("Реквизиты report composition превышают допустимый размер")
+
+
 def _validate_report_compositions(
     project: Project,
     compositions: dict[str, InterpretationReportComposition],
@@ -69,6 +85,10 @@ def _validate_report_compositions(
             "Report composition ссылается на неизвестный набор: "
             + ", ".join(sorted(unknown))
         )
+    for composition in compositions.values():
+        _validate_report_header(composition.header_ru)
+        _validate_report_header(composition.header_kk)
+        _validate_report_header(composition.header_en)
 
 
 def save_project(
