@@ -400,6 +400,9 @@ class ReportAnnotationController:
     def restore(self, checkpoint: ReportAnnotationEditorCheckpoint) -> None:
         if not isinstance(checkpoint, ReportAnnotationEditorCheckpoint):
             raise TypeError("Ожидалась контрольная точка report annotations")
+        appended = self._history.commands_since(checkpoint.history)
+        if any(command.history_domain != _HISTORY_DOMAIN for command in appended):
+            raise RuntimeError("После checkpoint появились изменения другого домена")
         current = self.session.report_compositions.get(checkpoint.dataset_id)
         if current is None:
             if checkpoint.composition_existed:
