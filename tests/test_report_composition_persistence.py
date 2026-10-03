@@ -11,6 +11,13 @@ from PySide6.QtGui import QPageLayout
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain, Project, Well
 from geoworkbench.printing import hydrocarbon_interpretation_chart as interpretation_chart
 from geoworkbench.printing import hydrocarbon_interpretation_chart_front as chart_front
+from geoworkbench.printing import hydrocarbon_interpretation_pdf_chart_enhanced as pdf_chart
+from geoworkbench.printing import hydrocarbon_interpretation_pdf_renderer as pdf_renderer
+from geoworkbench.printing.hydrocarbon_interpretation_geology_legend import (
+    GeologyLegendItem,
+    InterpretationGeologyLegend,
+    geology_legend_height,
+)
 from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
     GeologyTrackVisibility,
 )
@@ -266,3 +273,33 @@ def test_preview_chart_uses_legend_mode_for_geology_legend_geometry() -> None:
     assert "legend_mode is ReportLegendMode.HIDE" in source
     assert "legend_mode is ReportLegendMode.COMPACT" in source
     assert "compact=legend_compact" in source
+
+
+
+def test_final_pdf_chart_pages_receive_same_legend_mode() -> None:
+    renderer_source = inspect.getsource(pdf_renderer.render_hydrocarbon_interpretation_report)
+    chart_source = inspect.getsource(pdf_chart.render_chart_pages)
+
+    assert "legend_mode=legend_mode" in renderer_source
+    assert "legend_mode is ReportLegendMode.HIDE" in chart_source
+    assert "legend_mode is ReportLegendMode.COMPACT" in chart_source
+    assert "compact=legend_compact" in chart_source
+
+
+def test_compact_geology_legend_has_smaller_measured_height(qapp) -> None:
+    legend = InterpretationGeologyLegend(
+        tuple(
+            GeologyLegendItem(
+                "lithology",
+                f"rock-{index}",
+                f"R{index}",
+                f"Lithology {index}",
+            )
+            for index in range(12)
+        )
+    )
+
+    full = geology_legend_height(500.0, legend, compact=False)
+    compact = geology_legend_height(500.0, legend, compact=True)
+
+    assert compact < full
