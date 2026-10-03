@@ -411,7 +411,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         composition = with_report_header_fields(
             layout_dialog.selected_composition(),
             self.language.value,
-            report_header_fields_from_identity(identity),
+            report_header_fields_from_identity(identity, report.report_profile),
         )
         self._store_report_composition(composition)
         if not self._sync_preview_geology_composition(
@@ -476,7 +476,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         composition = with_report_header_fields(
             layout_dialog.selected_composition(),
             self.language.value,
-            report_header_fields_from_identity(identity),
+            report_header_fields_from_identity(identity, report.report_profile),
         )
         self._store_report_composition(composition)
         if not self._sync_preview_geology_composition(
@@ -679,6 +679,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
             report_header_fields(
                 self._report_composition(),
                 self.language.value,
+                report.report_profile,
             ),
         )
 
