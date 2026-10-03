@@ -24,6 +24,8 @@ from geoworkbench.project.dataset_merge_controller import DatasetMergeController
 from geoworkbench.project.depth_axis_controller import DepthAxisController
 from geoworkbench.project.derived_dataset_controller import DerivedDatasetController
 from geoworkbench.project.lag_correction_controller import LagCorrectionProjectController
+from geoworkbench.project.time_to_depth_controller import TimeToDepthController
+from geoworkbench.project.time_depth_aggregation_controller import TimeDepthAggregationController
 from geoworkbench.ui import interpretation_report_workspace_final
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage
@@ -157,6 +159,8 @@ def test_dataset_removal_paths_clear_report_compositions() -> None:
         inspect.getsource(DepthAxisController.undo_resample),
         inspect.getsource(DerivedDatasetController.rollback),
         inspect.getsource(LagCorrectionProjectController.delete_profile),
+        inspect.getsource(TimeToDepthController.undo),
+        inspect.getsource(TimeDepthAggregationController.undo),
     )
 
     assert all("report_compositions" in source for source in sources)
