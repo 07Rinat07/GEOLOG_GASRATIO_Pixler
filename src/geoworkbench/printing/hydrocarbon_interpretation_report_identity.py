@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, fields, replace
+from html import escape
 
 from geoworkbench.domain.report_composition import ReportHeaderFields
 from geoworkbench.services.hydrocarbon_interpretation import (
@@ -70,6 +71,8 @@ class InterpretationReportIdentity:
     approved_by: str = ""
     confidentiality: str = ""
     remarks: str = ""
+    summary: str = ""
+    conclusion: str = ""
 
     def cleaned(self) -> InterpretationReportIdentity:
         values = {
@@ -105,6 +108,8 @@ def report_header_fields_from_identity(
         approved_by=cleaned.approved_by,
         confidentiality=cleaned.confidentiality,
         remarks=cleaned.remarks,
+        summary=cleaned.summary,
+        conclusion=cleaned.conclusion,
     )
 
 
@@ -121,6 +126,41 @@ def identity_with_report_header_fields(
     }
     return replace(defaults.cleaned(), **values)
 
+
+
+
+_OPTIONAL_SECTION_LABELS = {
+    AppLanguage.RU: ("Краткое резюме", "Заключение"),
+    AppLanguage.KK: ("Қысқаша түйін", "Қорытынды"),
+    AppLanguage.EN: ("Executive summary", "Conclusion"),
+}
+
+
+def inject_report_optional_sections_html(
+    html: str,
+    identity: InterpretationReportIdentity | None,
+    language: AppLanguage,
+) -> str:
+    if identity is None:
+        return html
+    summary = identity.summary.strip()
+    conclusion = identity.conclusion.strip()
+    if not summary and not conclusion:
+        return html
+    summary_label, conclusion_label = _OPTIONAL_SECTION_LABELS[language]
+    blocks: list[str] = []
+    for label, value, css_class in (
+        (summary_label, summary, "report-summary"),
+        (conclusion_label, conclusion, "report-conclusion"),
+    ):
+        if not value:
+            continue
+        body = "<br/>".join(escape(line) for line in value.splitlines())
+        blocks.append(
+            f"<section class='{css_class}'><h2>{escape(label)}</h2><p>{body}</p></section>"
+        )
+    payload = "".join(blocks)
+    return html.replace("</body>", payload + "</body>") if "</body>" in html else html + payload
 
 def default_interpretation_report_identity(
     report: HydrocarbonInterpretationReport,
@@ -148,5 +188,6 @@ __all__ = [
     "InterpretationReportIdentity",
     "default_interpretation_report_identity",
     "identity_with_report_header_fields",
+    "inject_report_optional_sections_html",
     "report_header_fields_from_identity",
 ]
