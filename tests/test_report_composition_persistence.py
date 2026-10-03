@@ -148,7 +148,7 @@ def test_layout_dialog_restores_and_returns_persisted_composition(qapp) -> None:
         assert layout.geology_tracks.cuttings is GeologyTrackVisibility.SHOW
         assert layout.geology_tracks.lba is GeologyTrackVisibility.HIDE
         assert layout.legend_mode is ReportLegendMode.COMPACT
-        assert dialog.legend_mode_combo.currentData() is ReportLegendMode.COMPACT
+        assert ReportLegendMode(dialog.legend_mode_combo.currentData()) is ReportLegendMode.COMPACT
         assert dialog.selected_composition() == _composition()
     finally:
         dialog.close()
