@@ -16,11 +16,14 @@ from geoworkbench.data.hydrocarbon_interpretation_export_docx_polished import (
 )
 from geoworkbench.data.hydrocarbon_interpretation_export_readable import (
     _haworth_pixler_text,
+    _manual_row,
+    export_readable_hydrocarbon_interpretation_xlsx,
 )
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
 )
+from geoworkbench.services.interval_gas_statistics import CandidateIntervalGasStatistics
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui import interpretation_report_workspace_drilling
 from geoworkbench.ui import interpretation_report_workspace_final
@@ -194,3 +197,46 @@ def test_docx_invalid_curve_length_error_uses_selected_language(tmp_path) -> Non
             dataset=dataset,
             language=AppLanguage.EN,
         )
+
+
+def test_xlsx_dataset_mismatch_error_uses_selected_language(tmp_path) -> None:
+    dataset = Dataset(
+        dataset_id="other-dataset",
+        name="Dataset",
+        kind=DatasetKind.GTI,
+        depth_domain=DepthDomain.MD,
+        depth=np.asarray([1000.0], dtype=np.float64),
+    )
+
+    with pytest.raises(
+        HydrocarbonInterpretationExportError,
+        match="The dataset does not match the generated interpretation report",
+    ):
+        export_readable_hydrocarbon_interpretation_xlsx(
+            _minimal_report(),
+            dataset,
+            tmp_path / "report-en.xlsx",
+            language=AppLanguage.EN,
+        )
+
+
+def test_xlsx_manual_interval_identifier_uses_selected_language() -> None:
+    item = SimpleNamespace(
+        top_depth=1000.0,
+        bottom_depth=1001.0,
+        interpretation_name="Confirmed interval",
+        label="",
+        interval_type="confirmed",
+        comment="",
+    )
+    statistics = CandidateIntervalGasStatistics(
+        primary=None,
+        raw_total=None,
+        components=(),
+        dexp=None,
+    )
+
+    row = _manual_row(1, _minimal_report(), item, statistics, AppLanguage.EN)
+
+    assert row[0] == "G-1"
+    assert row[0] != "Г-1"
