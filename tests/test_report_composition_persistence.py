@@ -166,8 +166,7 @@ def test_dataset_removal_paths_clear_report_compositions() -> None:
 
 
 def test_dataset_rebind_invalidates_preview_composition_cache() -> None:
-    source = inspect.getsource(
-        interpretation_report_workspace_final.InterpretationReportWorkspace._sync_depth_interval_dataset
-    )
+    workspace_type = interpretation_report_workspace_final.InterpretationReportWorkspace
+    source = inspect.getsource(workspace_type._sync_depth_interval_dataset)
 
     assert "self._preview_geology_report_key = None" in source
