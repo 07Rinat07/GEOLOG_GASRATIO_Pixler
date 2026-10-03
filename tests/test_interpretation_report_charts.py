@@ -533,6 +533,86 @@ def test_dense_ratio_pdf_scatter_is_density_bounded() -> None:
     assert 0 < painter.ellipses <= gas_scatter_point_budget(rect.height())
 
 
+def test_dense_ratio_pdf_markers_do_not_overlap_into_worms() -> None:
+    class RecordingPainter:
+        def __init__(self) -> None:
+            self.ellipse_rects: list[QRectF] = []
+            self.lines = 0
+
+        def drawEllipse(self, rect) -> None:
+            self.ellipse_rects.append(QRectF(rect))
+
+        def drawLine(self, _line) -> None:
+            self.lines += 1
+
+        def __getattr__(self, _name):
+            return lambda *args, **kwargs: None
+
+    depth = np.linspace(100.0, 200.0, 5_001)
+    dataset = Dataset(
+        "dense-pdf-ratio-overlap",
+        "Dense PDF ratio overlap",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        depth,
+    )
+    ratio = CurveData(
+        CurveMetadata(
+            "ratio-overlap",
+            "C1_C2",
+            "C1_C2",
+            "ratio",
+            None,
+            dataset.dataset_id,
+        ),
+        2.0 + np.sin(depth * 0.3),
+    )
+    rect = QRectF(0.0, 0.0, 100.0, 180.0)
+    painter = RecordingPainter()
+
+    _draw_curves(
+        painter,  # type: ignore[arg-type]
+        rect,
+        DepthPage(100.0, 200.0, 100, 100.0),
+        dataset,
+        (ratio,),
+        {"ratio-overlap": (1.0, 3.0)},
+        point_series=True,
+    )
+
+    markers = painter.ellipse_rects
+    assert painter.lines == 0
+    assert 0 < len(markers) <= gas_scatter_point_budget(rect.height())
+    assert all(
+        abs(marker.width() - marker.height()) < 1e-9
+        for marker in markers
+    )
+
+    ordered = sorted(markers, key=lambda marker: marker.center().y())
+    longest_overlap_chain = 1
+    current_overlap_chain = 1
+    for previous, current in zip(ordered, ordered[1:], strict=False):
+        vertical_overlap = (
+            current.center().y() - previous.center().y()
+            < (previous.height() + current.height()) / 2.0
+        )
+        same_column = abs(current.center().x() - previous.center().x()) < (
+            previous.width() + current.width()
+        ) / 2.0
+        if vertical_overlap and same_column:
+            current_overlap_chain += 1
+            longest_overlap_chain = max(
+                longest_overlap_chain,
+                current_overlap_chain,
+            )
+        else:
+            current_overlap_chain = 1
+
+    # A small local overlap is acceptable for extrema from one depth bucket.
+    # What must never return is a long same-column chain that reads as a line.
+    assert longest_overlap_chain <= 3
+
+
 def test_report_panel_scatter_contract_is_ratio_only() -> None:
     whole = Path(
         "src/geoworkbench/printing/hydrocarbon_interpretation_chart.py"
