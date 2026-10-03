@@ -6,7 +6,13 @@ import numpy as np
 from PySide6.QtCore import QRectF
 from PySide6.QtGui import QImage
 
-from geoworkbench.domain.models import CurveData, CurveMetadata, Dataset, DatasetKind, DepthDomain
+from geoworkbench.domain.models import (
+    CurveData,
+    CurveMetadata,
+    Dataset,
+    DatasetKind,
+    DepthDomain,
+)
 from geoworkbench.domain.report_composition import ReportLegendMode
 from geoworkbench.printing import hydrocarbon_interpretation_pdf_renderer as renderer
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_chart import (
@@ -135,7 +141,11 @@ def test_report_methodology_starts_after_dedicated_geology_legend_page(
     )
 
     monkeypatch.setattr(renderer, "PageCanvas", CanvasProbe)
-    monkeypatch.setattr(renderer, "hydrocarbon_interpretation_html", lambda *args: "<body/>")
+    monkeypatch.setattr(
+        renderer,
+        "hydrocarbon_interpretation_html",
+        lambda *args: "<body/>",
+    )
     monkeypatch.setattr(
         renderer,
         "inject_interval_gas_statistics_html",
@@ -152,10 +162,26 @@ def test_report_methodology_starts_after_dedicated_geology_legend_page(
         "interpretation_chart_key_html",
         lambda *args: "<h2>METHOD</h2>",
     )
-    monkeypatch.setattr(renderer, "resolve_geology_track_kinds", lambda *args: ("cuttings",))
-    monkeypatch.setattr(renderer, "build_interpretation_geology_legend", lambda *args, **kwargs: legend)
-    monkeypatch.setattr(renderer, "paginate_geology_legend", lambda *args, **kwargs: (legend,))
-    monkeypatch.setattr(renderer, "geology_legend_height", lambda *args, **kwargs: 80.0)
+    monkeypatch.setattr(
+        renderer,
+        "resolve_geology_track_kinds",
+        lambda *args: ("cuttings",),
+    )
+    monkeypatch.setattr(
+        renderer,
+        "build_interpretation_geology_legend",
+        lambda *args, **kwargs: legend,
+    )
+    monkeypatch.setattr(
+        renderer,
+        "paginate_geology_legend",
+        lambda *args, **kwargs: (legend,),
+    )
+    monkeypatch.setattr(
+        renderer,
+        "geology_legend_height",
+        lambda *args, **kwargs: 80.0,
+    )
 
     def paint_legend(*args, **kwargs) -> None:
         del args, kwargs
