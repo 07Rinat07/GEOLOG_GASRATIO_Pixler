@@ -47,12 +47,13 @@ from geoworkbench.printing.hydrocarbon_interpretation_geology import (
 from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
     DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS,
     InterpretationGeologyTrackSettings,
+    geology_track_settings_from_composition,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
     InterpretationReportIdentity,
     default_interpretation_report_identity,
 )
-from geoworkbench.printing.interpretation_report_composition import (
+from geoworkbench.domain.report_composition import (
     DEFAULT_INTERPRETATION_REPORT_COMPOSITION,
     InterpretationReportComposition,
 )
@@ -303,7 +304,9 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
             )
             depth_range = getattr(self, "_preview_depth_range", None)
         else:
-            geology_track_settings = self._report_composition().geology_tracks
+            geology_track_settings = geology_track_settings_from_composition(
+                self._report_composition()
+            )
             depth_range = None
         depth_range = getattr(report, "analysis_depth_interval", None) or depth_range
         self.preview.setHtml(
