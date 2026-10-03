@@ -139,13 +139,25 @@ class CommandHistory:
             tuple(self._redo_stack),
         )
 
+    def commands_since(
+        self,
+        checkpoint: CommandHistoryCheckpoint,
+    ) -> tuple[UndoableCommand, ...]:
+        """Return commands appended after a checkpoint or fail on history divergence."""
+
+        self._validate_checkpoint(checkpoint)
+        prefix = checkpoint._undo_stack
+        if len(self._undo_stack) < len(prefix) or any(
+            current is not expected
+            for current, expected in zip(self._undo_stack, prefix, strict=False)
+        ):
+            raise RuntimeError("История команд разошлась после контрольной точки")
+        return tuple(self._undo_stack[len(prefix) :])
+
     def restore(self, checkpoint: CommandHistoryCheckpoint) -> None:
         """Restore stacks after the caller has rolled back the associated model transaction."""
 
-        if not isinstance(checkpoint, CommandHistoryCheckpoint):
-            raise TypeError("Ожидалась контрольная точка истории команд")
-        if checkpoint._token is not self._checkpoint_token:
-            raise ValueError("Контрольная точка относится к другой истории команд")
+        self._validate_checkpoint(checkpoint)
         changed = not (
             self._same_stack(self._undo_stack, checkpoint._undo_stack)
             and self._same_stack(self._redo_stack, checkpoint._redo_stack)
@@ -154,6 +166,12 @@ class CommandHistory:
         self._redo_stack = list(checkpoint._redo_stack)
         if changed:
             self._notify()
+
+    def _validate_checkpoint(self, checkpoint: CommandHistoryCheckpoint) -> None:
+        if not isinstance(checkpoint, CommandHistoryCheckpoint):
+            raise TypeError("Ожидалась контрольная точка истории команд")
+        if checkpoint._token is not self._checkpoint_token:
+            raise ValueError("Контрольная точка относится к другой истории команд")
 
     def clear(self) -> None:
         changed = bool(self._undo_stack or self._redo_stack)
