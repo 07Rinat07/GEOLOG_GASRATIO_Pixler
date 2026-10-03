@@ -19,10 +19,11 @@ from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
     GeologyTrackVisibility,
     InterpretationGeologyTrackSettings,
 )
-from geoworkbench.printing.interpretation_report_composition import (
+from geoworkbench.domain.report_composition import (
     InterpretationReportComposition,
     ReportPageOrientation,
     ReportPrintOrder,
+    ReportTrackVisibility,
 )
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.window_geometry import fit_window_to_screen
@@ -188,8 +189,8 @@ class InterpretationPrintLayoutDialog(QDialog):
         return InterpretationReportComposition(
             orientation=orientation,
             print_order=print_order,
-            cuttings=layout.geology_tracks.cuttings,
-            lba=layout.geology_tracks.lba,
+            cuttings=ReportTrackVisibility(layout.geology_tracks.cuttings.value),
+            lba=ReportTrackVisibility(layout.geology_tracks.lba.value),
         )
 
     def _apply_initial(
@@ -210,8 +211,14 @@ class InterpretationPrintLayoutDialog(QDialog):
         )
         self._set_combo_data(self.orientation_combo, orientation)
         self._set_combo_data(self.order_combo, order)
-        self._set_combo_data(self.cuttings_visibility_combo, initial.cuttings)
-        self._set_combo_data(self.lba_visibility_combo, initial.lba)
+        self._set_combo_data(
+            self.cuttings_visibility_combo,
+            GeologyTrackVisibility(initial.cuttings.value),
+        )
+        self._set_combo_data(
+            self.lba_visibility_combo,
+            GeologyTrackVisibility(initial.lba.value),
+        )
 
     @staticmethod
     def _set_combo_data(combo: QComboBox, value: object) -> None:
