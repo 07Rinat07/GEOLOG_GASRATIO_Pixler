@@ -18,6 +18,8 @@ from geoworkbench.domain.report_composition import (
 )
 from geoworkbench.storage.atomic_json import save_project
 from geoworkbench.storage.package_project_repository import PackageProjectRepository
+from geoworkbench.project.controller import ProjectController
+from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.storage.project_codec import (
     PROJECT_FORMAT_VERSION,
@@ -122,3 +124,23 @@ def test_layout_dialog_restores_and_returns_persisted_composition(qapp) -> None:
         assert dialog.selected_composition() == _composition()
     finally:
         dialog.close()
+
+
+def test_project_controller_save_reopen_restores_report_composition(tmp_path) -> None:
+    project = _project()
+    session = ProjectSession(
+        project=project,
+        current_well_id="well-report-composition",
+        current_dataset_id="dataset-report-composition",
+        report_compositions={"dataset-report-composition": _composition()},
+    )
+    controller = ProjectController(session=session)
+    target = tmp_path / "controller.geologpkg"
+
+    controller.save_project(target)
+    reopened = ProjectController().open_project(target)
+
+    assert reopened.report_compositions == {
+        "dataset-report-composition": _composition()
+    }
+    assert not reopened.dirty
