@@ -22,6 +22,7 @@ from geoworkbench.domain.models import DepthDomain, DescriptionTemplateBlock, Pr
 from geoworkbench.domain.translation_status import TranslationState, TranslationStatus
 from geoworkbench.domain.report_composition import (
     InterpretationReportComposition,
+    ReportLegendMode,
     ReportPageOrientation,
     ReportPrintOrder,
     ReportTrackVisibility,
@@ -62,7 +63,13 @@ class ProjectDocument(_V29ProjectDocument):
     report_compositions: dict[str, InterpretationReportComposition] = field(default_factory=dict)
 
 
-_REPORT_COMPOSITION_KEYS = {"orientation", "print_order", "cuttings", "lba"}
+_REPORT_COMPOSITION_KEYS = {
+    "orientation",
+    "print_order",
+    "cuttings",
+    "lba",
+    "legend_mode",
+}
 
 
 def _report_compositions_from_dict(
@@ -82,6 +89,7 @@ def _report_compositions_from_dict(
                 print_order=ReportPrintOrder(raw["print_order"]),
                 cuttings=ReportTrackVisibility(raw["cuttings"]),
                 lba=ReportTrackVisibility(raw["lba"]),
+                legend_mode=ReportLegendMode(raw["legend_mode"]),
             )
         except (KeyError, TypeError, ValueError) as exc:
             raise ProjectFormatError("Некорректная report composition") from exc
