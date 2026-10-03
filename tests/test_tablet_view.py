@@ -310,7 +310,7 @@ def test_dense_ratio_tablet_view_uses_scatter_density_budget(qapp) -> None:
     view.show()
     view.set_layout_and_dataset(TabletLayout([definition]), dataset)
     qapp.processEvents()
-    view.set_visible_depth_range(100.0, 200.0)
+    view.set_visible_depth(100.0, 200.0)
     qapp.processEvents()
 
     large_count = view.rendered_curve_point_count("ratio", "C1_C2")
