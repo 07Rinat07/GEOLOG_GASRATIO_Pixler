@@ -18,9 +18,7 @@ from geoworkbench.domain.rock_code_profiles import (
 )
 from geoworkbench.domain.well_passport import validate_passport
 from geoworkbench.printing.image_assets import ImageAsset, save_image_assets
-from geoworkbench.printing.interpretation_report_composition import (
-    InterpretationReportComposition,
-)
+from geoworkbench.domain.report_composition import InterpretationReportComposition
 from geoworkbench.storage.project_codec import PROJECT_FORMAT_VERSION
 from geoworkbench.storage.source_artifacts import save_source_documents
 from geoworkbench.tablet.layout_codec import layout_to_dict
