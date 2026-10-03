@@ -146,8 +146,9 @@ def _report_compositions_from_dict(
             raise ProjectFormatError("Некорректная report composition")
         try:
             headers = _report_headers_from_dict(raw.get("headers", {}))
-            composition_id = raw.get("composition_id")
-            if composition_id is None:
+            if "composition_id" in raw:
+                composition_id = raw["composition_id"]
+            else:
                 composition_id = stable_report_composition_id(dataset_id)
             if (
                 not isinstance(composition_id, str)
