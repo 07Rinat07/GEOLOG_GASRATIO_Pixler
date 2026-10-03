@@ -383,6 +383,22 @@ Windows quality gate дополнительно изолирует `tests/test_s
 native batches. Python assertion failures и ненулевые exit status по-прежнему немедленно
 останавливают gate.
 
+### REPORT-I18N-01: atomic RU/KK/EN report language
+
+Office-export boundary проверяется отдельно от численных расчётов:
+
+```powershell
+python -m pytest -q -p no:cacheprovider tests/test_report_i18n_atomic_language.py \
+  tests/test_readable_interpretation_export.py \
+  tests/test_hydrocarbon_report_client_limitations.py
+```
+
+Regression требует, чтобы выбранный язык workspace явно передавался в XLSX/DOCX; polished
+Word cover и body использовали один язык; export progress и missing-value Haworth/DEXP labels
+не возвращались к русскому fallback в KK/EN. Проверка содержимого выполняется по фактическому
+`word/document.xml`, а не только по UI captions. Численные значения и report model этим
+контрактом не изменяются.
+
 ### PERF-07: LAS import, first render и viewport baseline
 
 Correctness coverage for the large-LAS profiling boundary:
