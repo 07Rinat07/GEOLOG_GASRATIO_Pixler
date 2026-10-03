@@ -164,7 +164,7 @@ def test_gas_context_depth_domain_uses_project_v36_and_round_trips(tmp_path: Pat
     save_project(project, target)
 
     payload = json.loads(target.read_text(encoding="utf-8"))
-    assert payload["format_version"] == 36
+    assert payload["format_version"] == PROJECT_FORMAT_VERSION
     raw_event = payload["project"]["wells"]["well-1"]["gas_context_events"][0]
     assert raw_event["depth_domain"] == "md"
 
