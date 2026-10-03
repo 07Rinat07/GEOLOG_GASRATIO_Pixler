@@ -298,26 +298,46 @@ class ReportAnnotationController:
             raise ValueError(
                 "Нельзя изменить identity/scope или неизвестное поле report annotation"
             )
-        normalized = dict(changes)
-        if "kind" in normalized:
-            normalized["kind"] = ReportAnnotationKind(normalized["kind"])
-        if "anchor" in normalized:
-            normalized["anchor"] = ReportAnnotationAnchor(normalized["anchor"])
-        if "style" in normalized:
-            normalized["style"] = self._style(normalized["style"])
-        for key in ("visible", "locked", "print_enabled"):
-            if key in normalized:
-                normalized[key] = self._bool(normalized[key], key)
-        if "text_i18n" in normalized:
-            value = normalized["text_i18n"]
-            if value is None:
-                normalized["text_i18n"] = {}
-            elif isinstance(value, Mapping):
-                normalized["text_i18n"] = dict(value)
-            else:
-                raise ValueError("text_i18n report annotation должен быть объектом")
-
-        updated = validate_report_annotation(replace(current, **normalized))
+        updated = validate_report_annotation(
+            ReportAnnotationRecord(
+                annotation_id=current.annotation_id,
+                scope_id=current.scope_id,
+                kind=self._kind(changes.get("kind", current.kind)),
+                anchor=self._anchor(changes.get("anchor", current.anchor)),
+                text=self._string(changes.get("text", current.text), "text"),
+                track_key=self._optional_string(
+                    changes.get("track_key", current.track_key),
+                    "track_key",
+                ),
+                depth=self._optional_number(changes.get("depth", current.depth), "depth"),
+                top_depth=self._optional_number(
+                    changes.get("top_depth", current.top_depth),
+                    "top_depth",
+                ),
+                bottom_depth=self._optional_number(
+                    changes.get("bottom_depth", current.bottom_depth),
+                    "bottom_depth",
+                ),
+                x_fraction=self._number(
+                    changes.get("x_fraction", current.x_fraction),
+                    "x_fraction",
+                ),
+                offset_x=self._number(changes.get("offset_x", current.offset_x), "offset_x"),
+                offset_y=self._number(changes.get("offset_y", current.offset_y), "offset_y"),
+                width=self._number(changes.get("width", current.width), "width"),
+                height=self._number(changes.get("height", current.height), "height"),
+                style=self._style(changes.get("style", current.style)),
+                visible=self._bool(changes.get("visible", current.visible), "visible"),
+                locked=self._bool(changes.get("locked", current.locked), "locked"),
+                print_enabled=self._bool(
+                    changes.get("print_enabled", current.print_enabled),
+                    "print_enabled",
+                ),
+                text_i18n=self._localized_texts(
+                    changes.get("text_i18n", current.text_i18n)
+                ),
+            )
+        )
         if updated == current:
             return current
 
@@ -454,6 +474,63 @@ class ReportAnnotationController:
         if well is None or dataset is None:
             raise RuntimeError("Сначала выберите скважину и набор данных")
         return well.well_id, dataset.dataset_id
+
+    @staticmethod
+    def _kind(value: object) -> ReportAnnotationKind:
+        if isinstance(value, ReportAnnotationKind):
+            return value
+        if isinstance(value, str):
+            return ReportAnnotationKind(value)
+        raise ValueError("kind report annotation должен быть строкой")
+
+    @staticmethod
+    def _anchor(value: object) -> ReportAnnotationAnchor:
+        if isinstance(value, ReportAnnotationAnchor):
+            return value
+        if isinstance(value, str):
+            return ReportAnnotationAnchor(value)
+        raise ValueError("anchor report annotation должен быть строкой")
+
+    @staticmethod
+    def _string(value: object, label: str) -> str:
+        if not isinstance(value, str):
+            raise ValueError(f"{label} report annotation должен быть строкой")
+        return value
+
+    @staticmethod
+    def _optional_string(value: object, label: str) -> str | None:
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            raise ValueError(f"{label} report annotation должен быть строкой")
+        return value
+
+    @staticmethod
+    def _number(value: object, label: str) -> float:
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(f"{label} report annotation должен быть числом")
+        return float(value)
+
+    @classmethod
+    def _optional_number(cls, value: object, label: str) -> float | None:
+        if value is None:
+            return None
+        return cls._number(value, label)
+
+    @staticmethod
+    def _localized_texts(value: object) -> dict[str, str]:
+        if value is None:
+            return {}
+        if not isinstance(value, Mapping):
+            raise ValueError("text_i18n report annotation должен быть объектом")
+        localized: dict[str, str] = {}
+        for language, text in value.items():
+            if not isinstance(language, str) or not isinstance(text, str):
+                raise ValueError(
+                    "text_i18n report annotation должен содержать строковые ключи и значения"
+                )
+            localized[language] = text
+        return localized
 
     @staticmethod
     def _style(value: object) -> AnnotationStyle:
