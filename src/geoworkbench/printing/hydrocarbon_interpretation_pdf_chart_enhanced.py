@@ -242,26 +242,47 @@ def render_chart_pages(
             track_header_height=header_height,
         )
         if annotations:
-            _draw_chart_page(
-                canvas.painter,
-                geometry,
-                page,
-                page_index,
-                len(pages),
-                report,
-                dataset,
-                panels,
-                base_chart._display_curve_ranges(percentiles),
-                percentiles,
-                language,
-                geology,
-                geology_tracks,
-                empty_state_tracks,
-                chart_legend,
-                None,
-                annotations=annotations,
-                **draw_options,
-            )
+            if legend_compact:
+                _draw_chart_page(
+                    canvas.painter,
+                    geometry,
+                    page,
+                    page_index,
+                    len(pages),
+                    report,
+                    dataset,
+                    panels,
+                    base_chart._display_curve_ranges(percentiles),
+                    percentiles,
+                    language,
+                    geology,
+                    geology_tracks,
+                    empty_state_tracks,
+                    chart_legend,
+                    None,
+                    annotations=annotations,
+                    geology_legend_compact=True,
+                )
+            else:
+                _draw_chart_page(
+                    canvas.painter,
+                    geometry,
+                    page,
+                    page_index,
+                    len(pages),
+                    report,
+                    dataset,
+                    panels,
+                    base_chart._display_curve_ranges(percentiles),
+                    percentiles,
+                    language,
+                    geology,
+                    geology_tracks,
+                    empty_state_tracks,
+                    chart_legend,
+                    None,
+                    annotations=annotations,
+                )
         else:
             # Preserve the historical call contract for test/profiling hooks
             # that wrap _draw_chart_page without the RPT-ANN keyword.
