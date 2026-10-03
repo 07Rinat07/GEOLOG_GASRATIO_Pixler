@@ -22,6 +22,7 @@ from geoworkbench.domain.models import DepthDomain, DescriptionTemplateBlock, Pr
 from geoworkbench.domain.translation_status import TranslationState, TranslationStatus
 from geoworkbench.domain.report_composition import (
     InterpretationReportComposition,
+    ReportHeaderFields,
     ReportLegendMode,
     ReportPageOrientation,
     ReportPrintOrder,
@@ -64,7 +65,54 @@ class ProjectDocument(_V29ProjectDocument):
 
 
 _REPORT_COMPOSITION_KEYS_V37 = {"orientation", "print_order", "cuttings", "lba"}
-_REPORT_COMPOSITION_KEYS = {*_REPORT_COMPOSITION_KEYS_V37, "legend_mode"}
+_REPORT_COMPOSITION_KEYS_LEGEND = {*_REPORT_COMPOSITION_KEYS_V37, "legend_mode"}
+_REPORT_COMPOSITION_KEYS = {*_REPORT_COMPOSITION_KEYS_LEGEND, "headers"}
+_REPORT_HEADER_KEYS = {
+    "report_title",
+    "report_subtitle",
+    "project_name",
+    "well_name",
+    "field_name",
+    "location",
+    "operator_name",
+    "contractor_name",
+    "rig_name",
+    "dataset_name",
+    "document_number",
+    "revision",
+    "document_status",
+    "report_date",
+    "prepared_by",
+    "checked_by",
+    "approved_by",
+    "confidentiality",
+    "remarks",
+}
+_REPORT_HEADER_LANGUAGES = {"ru", "kk", "en"}
+
+
+def _report_header_from_dict(data: object) -> ReportHeaderFields:
+    if not isinstance(data, dict) or set(data) != _REPORT_HEADER_KEYS:
+        raise ProjectFormatError("Некорректные реквизиты report composition")
+    values: dict[str, str] = {}
+    for key in _REPORT_HEADER_KEYS:
+        value = data[key]
+        if not isinstance(value, str):
+            raise ProjectFormatError("Реквизиты report composition должны быть строками")
+        maximum = 10_000 if key == "remarks" else 2_000
+        if len(value) > maximum:
+            raise ProjectFormatError("Реквизиты report composition превышают допустимый размер")
+        values[key] = value
+    return ReportHeaderFields(**values)
+
+
+def _report_headers_from_dict(data: object) -> dict[str, ReportHeaderFields]:
+    if not isinstance(data, dict) or set(data) - _REPORT_HEADER_LANGUAGES:
+        raise ProjectFormatError("Некорректные языковые реквизиты report composition")
+    return {
+        language: _report_header_from_dict(raw)
+        for language, raw in data.items()
+    }
 
 
 def _report_compositions_from_dict(
@@ -81,10 +129,12 @@ def _report_compositions_from_dict(
         raw_keys = set(raw)
         if (
             raw_keys != _REPORT_COMPOSITION_KEYS_V37
+            and raw_keys != _REPORT_COMPOSITION_KEYS_LEGEND
             and raw_keys != _REPORT_COMPOSITION_KEYS
         ):
             raise ProjectFormatError("Некорректная report composition")
         try:
+            headers = _report_headers_from_dict(raw.get("headers", {}))
             result[dataset_id] = InterpretationReportComposition(
                 orientation=ReportPageOrientation(raw["orientation"]),
                 print_order=ReportPrintOrder(raw["print_order"]),
@@ -93,6 +143,9 @@ def _report_compositions_from_dict(
                 legend_mode=ReportLegendMode(
                     raw.get("legend_mode", ReportLegendMode.FULL.value)
                 ),
+                header_ru=headers.get("ru"),
+                header_kk=headers.get("kk"),
+                header_en=headers.get("en"),
             )
         except (KeyError, TypeError, ValueError) as exc:
             raise ProjectFormatError("Некорректная report composition") from exc
