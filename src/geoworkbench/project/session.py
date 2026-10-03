@@ -10,6 +10,9 @@ from geoworkbench.domain.rock_code_profiles import (
     RockCodeProfileRecord,
     RockCodeSourceBindingRecord,
 )
+from geoworkbench.printing.interpretation_report_composition import (
+    InterpretationReportComposition,
+)
 from geoworkbench.tablet.models import TabletLayout
 
 
@@ -26,6 +29,7 @@ class ProjectSession:
     current_dataset_id: str | None = None
     tablet_layouts: dict[str, TabletLayout] = field(default_factory=dict)
     tablet_presets: dict[str, TabletLayout] = field(default_factory=dict)
+    report_compositions: dict[str, InterpretationReportComposition] = field(default_factory=dict)
     source_documents: dict[str, LosslessLasDocument] = field(default_factory=dict)
     import_reports: dict[str, LasImportReport] = field(default_factory=dict)
     image_assets: dict[str, ImageAsset] = field(default_factory=dict)
