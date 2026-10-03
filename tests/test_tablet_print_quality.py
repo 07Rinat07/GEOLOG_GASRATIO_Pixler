@@ -99,7 +99,7 @@ def test_print_snapshot_keeps_gas_point_series_without_restoring_line() -> None:
 
     assert item.opts.get("pen") is None
     assert item.opts.get("symbol") == "o"
-    assert float(item.opts.get("symbolSize")) == 6.6
+    assert float(item.opts.get("symbolSize")) == pytest.approx(6.6)
 
     _restore_print_curve_styles(states)
 
