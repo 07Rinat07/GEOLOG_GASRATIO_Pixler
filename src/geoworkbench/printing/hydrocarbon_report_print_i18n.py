@@ -25,7 +25,9 @@ class HydrocarbonReportPrintLabels:
 
 
 _RU = HydrocarbonReportPrintLabels(
-    pdf_passport_dataset_required="Для Report Passport интерпретации требуется выбранный набор данных",
+    pdf_passport_dataset_required=(
+        "Для Report Passport интерпретации требуется выбранный набор данных"
+    ),
     pdf_invalid_interval="Некорректный интервал отчёта",
     pdf_create_failed="Не удалось сформировать PDF-отчёт",
     pdf_export_failed="Не удалось экспортировать PDF",
@@ -43,7 +45,9 @@ _RU = HydrocarbonReportPrintLabels(
 )
 
 _KK = HydrocarbonReportPrintLabels(
-    pdf_passport_dataset_required="Интерпретация Report Passport үшін деректер жинағын таңдау қажет",
+    pdf_passport_dataset_required=(
+        "Интерпретация Report Passport үшін деректер жинағын таңдау қажет"
+    ),
     pdf_invalid_interval="Есеп аралығы қате",
     pdf_create_failed="PDF есебін құру мүмкін болмады",
     pdf_export_failed="PDF экспорттау мүмкін болмады",
@@ -61,7 +65,9 @@ _KK = HydrocarbonReportPrintLabels(
 )
 
 _EN = HydrocarbonReportPrintLabels(
-    pdf_passport_dataset_required="A selected dataset is required for the interpretation Report Passport",
+    pdf_passport_dataset_required=(
+        "A selected dataset is required for the interpretation Report Passport"
+    ),
     pdf_invalid_interval="Invalid report interval",
     pdf_create_failed="Failed to create the PDF report",
     pdf_export_failed="Failed to export the PDF",
