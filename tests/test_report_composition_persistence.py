@@ -9,7 +9,9 @@ import pytest
 from PySide6.QtGui import QPageLayout
 
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain, Project, Well
+from geoworkbench.data import hydrocarbon_interpretation_export_docx_polished as polished_docx
 from geoworkbench.printing import hydrocarbon_interpretation_chart as interpretation_chart
+from geoworkbench.printing import hydrocarbon_interpretation_report as pdf_report
 from geoworkbench.printing import hydrocarbon_interpretation_chart_front as chart_front
 from geoworkbench.printing import hydrocarbon_interpretation_pdf_chart_enhanced as pdf_chart
 from geoworkbench.printing import hydrocarbon_interpretation_pdf_renderer as pdf_renderer
@@ -23,6 +25,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
 )
 from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
     InterpretationReportIdentity,
+    inject_report_optional_sections_html,
     identity_with_report_header_fields,
     report_header_fields_from_identity,
 )
@@ -93,6 +96,8 @@ def _composition() -> InterpretationReportComposition:
             project_name="Project",
             well_name="Well",
             revision="02",
+            summary="English summary",
+            conclusion="English conclusion",
         ),
     )
 
@@ -267,6 +272,8 @@ def test_legacy_v37_header_without_profile_defaults_to_standard(tmp_path) -> Non
 
     assert restored is not None
     assert restored.report_profile == "standard"
+    assert restored.summary == "English summary"
+    assert restored.conclusion == "English conclusion"
 
 
 def test_save_rejects_report_header_larger_than_decoder_limit(tmp_path) -> None:
@@ -308,6 +315,99 @@ def test_persisted_header_overlay_keeps_runtime_interval() -> None:
     assert restored.report_title == "Custom title"
     assert restored.revision == "03"
     assert restored.interval == "2000–2100 m"
+
+
+def test_legacy_header_without_optional_narrative_defaults_to_empty(tmp_path) -> None:
+    project = _project()
+    target = tmp_path / "legacy-v37-narrative.geolog.json"
+    save_project(
+        project,
+        target,
+        report_compositions={"dataset-report-composition": _composition()},
+    )
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    header = payload["report_compositions"]["dataset-report-composition"]["headers"]["en"]
+    header.pop("summary")
+    header.pop("conclusion")
+    target.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    loaded = load_project_document(target)
+    restored = loaded.report_compositions["dataset-report-composition"].header_en
+
+    assert restored is not None
+    assert restored.summary == ""
+    assert restored.conclusion == ""
+
+
+def test_optional_narrative_html_is_localized_and_escaped() -> None:
+    identity = InterpretationReportIdentity(
+        report_title="Title",
+        report_subtitle="Subtitle",
+        project_name="Project",
+        well_name="Well",
+        summary="<b>Summary</b>\nSecond line",
+        conclusion="A & B",
+    )
+
+    html = inject_report_optional_sections_html(
+        "<html><body><p>Body</p></body></html>",
+        identity,
+        AppLanguage.EN,
+    )
+
+    assert "Executive summary" in html
+    assert "Conclusion" in html
+    assert "&lt;b&gt;Summary&lt;/b&gt;<br/>Second line" in html
+    assert "A &amp; B" in html
+    assert "<b>Summary</b>" not in html
+    assert html.index("Executive summary") < html.index("<p>Body</p>")
+    assert html.index("Conclusion") > html.index("<p>Body</p>")
+
+
+def test_pdf_preflight_includes_optional_narrative_fields() -> None:
+    source = inspect.getsource(pdf_report.export_hydrocarbon_interpretation_pdf)
+
+    assert "details.summary" in source
+    assert "details.conclusion" in source
+
+
+def test_polished_docx_places_summary_before_body_and_conclusion_after_body() -> None:
+    xml = (
+        '<?xml version="1.0" encoding="utf-8"?>'
+        '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+        '<w:body>'
+        '<w:p><w:pPr><w:pStyle w:val="Normal"/></w:pPr><w:r><w:t>Old cover</w:t></w:r></w:p>'
+        '<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Body heading</w:t></w:r></w:p>'
+        '<w:sectPr/>'
+        '</w:body></w:document>'
+    ).encode("utf-8")
+    report = SimpleNamespace(
+        report_profile="standard",
+        primary_mnemonic="TG",
+        threshold=3.0,
+    )
+    identity = InterpretationReportIdentity(
+        report_title="Title",
+        report_subtitle="Subtitle",
+        project_name="Project",
+        well_name="Well",
+        summary="Summary text",
+        conclusion="Conclusion text",
+    )
+
+    rewritten = polished_docx._document_with_polished_cover(
+        xml,
+        report,
+        identity,
+        AppLanguage.EN,
+    ).decode("utf-8")
+
+    assert "Executive summary" in rewritten
+    assert "Summary text" in rewritten
+    assert "Conclusion" in rewritten
+    assert "Conclusion text" in rewritten
+    assert rewritten.index("Executive summary") < rewritten.index("Body heading")
+    assert rewritten.index("Conclusion") > rewritten.index("Body heading")
 
 
 def test_project_v36_migrates_with_empty_report_compositions(tmp_path) -> None:
@@ -416,6 +516,8 @@ def test_workspace_propagates_persisted_legend_mode_to_preview_pdf_and_print() -
     print_source = inspect.getsource(workspace_type._print_report)
 
     assert "legend_mode=composition.legend_mode" in preview_source
+    assert "identity=preview_identity" in preview_source
+    assert "identity_with_report_header_fields(" in preview_source
     assert "legend_mode=layout.legend_mode" in pdf_source
     assert "legend_mode=layout.legend_mode" in print_source
     assert "with_report_header_fields(" in pdf_source

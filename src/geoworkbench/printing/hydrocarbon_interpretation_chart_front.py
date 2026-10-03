@@ -16,6 +16,10 @@ from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
     DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS,
     InterpretationGeologyTrackSettings,
 )
+from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
+    InterpretationReportIdentity,
+    inject_report_optional_sections_html,
+)
 from geoworkbench.printing.hydrocarbon_interpretation_report_range import (
     ReportDepthRange,
 )
@@ -38,6 +42,7 @@ def hydrocarbon_interpretation_html_with_front_chart(
     ),
     depth_range: ReportDepthRange | None = None,
     legend_mode: ReportLegendMode = ReportLegendMode.FULL,
+    identity: InterpretationReportIdentity | None = None,
 ) -> str:
     """Insert the whole-well chart before the first tabular report section."""
 
@@ -48,6 +53,7 @@ def hydrocarbon_interpretation_html_with_front_chart(
     )
 
     base = inject_interval_gas_statistics_html(base, report, scope_dataset(dataset, report.analysis_depth_interval), language)
+    base = inject_report_optional_sections_html(base, identity, language)
     uri = hydrocarbon_interpretation_chart_data_uri(
         report,
         dataset,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, fields, replace
+from html import escape
 
 from geoworkbench.domain.report_composition import ReportHeaderFields
 from geoworkbench.services.hydrocarbon_interpretation import (
@@ -70,6 +71,8 @@ class InterpretationReportIdentity:
     approved_by: str = ""
     confidentiality: str = ""
     remarks: str = ""
+    summary: str = ""
+    conclusion: str = ""
 
     def cleaned(self) -> InterpretationReportIdentity:
         values = {
@@ -105,6 +108,8 @@ def report_header_fields_from_identity(
         approved_by=cleaned.approved_by,
         confidentiality=cleaned.confidentiality,
         remarks=cleaned.remarks,
+        summary=cleaned.summary,
+        conclusion=cleaned.conclusion,
     )
 
 
@@ -121,6 +126,71 @@ def identity_with_report_header_fields(
     }
     return replace(defaults.cleaned(), **values)
 
+
+
+
+_OPTIONAL_SECTION_LABELS = {
+    AppLanguage.RU: ("Краткое резюме", "Заключение"),
+    AppLanguage.KK: ("Қысқаша түйін", "Қорытынды"),
+    AppLanguage.EN: ("Executive summary", "Conclusion"),
+}
+
+
+def report_optional_section_labels(
+    language: AppLanguage,
+) -> tuple[str, str]:
+    return _OPTIONAL_SECTION_LABELS[language]
+
+
+def inject_report_optional_sections_html(
+    html: str,
+    identity: InterpretationReportIdentity | None,
+    language: AppLanguage,
+) -> str:
+    if identity is None:
+        return html
+    summary = identity.summary.strip()
+    conclusion = identity.conclusion.strip()
+    if not summary and not conclusion:
+        return html
+    summary_label, conclusion_label = report_optional_section_labels(language)
+
+    def section(label: str, value: str, css_class: str) -> str:
+        body = "<br/>".join(escape(line) for line in value.splitlines())
+        return (
+            f"<section class='{css_class}'><h2>{escape(label)}</h2>"
+            f"<p>{body}</p></section>"
+        )
+
+    rendered = html
+    if summary:
+        summary_html = section(summary_label, summary, "report-summary")
+        heading_end = rendered.lower().find("</h1>")
+        paragraph_end = (
+            rendered.lower().find("</p>", heading_end + 5)
+            if heading_end >= 0
+            else -1
+        )
+        if paragraph_end >= 0:
+            insert_at = paragraph_end + 4
+            rendered = rendered[:insert_at] + summary_html + rendered[insert_at:]
+        else:
+            body_start = rendered.lower().find("<body")
+            body_open_end = rendered.find(">", body_start) if body_start >= 0 else -1
+            if body_open_end >= 0:
+                insert_at = body_open_end + 1
+                rendered = rendered[:insert_at] + summary_html + rendered[insert_at:]
+            else:
+                rendered = summary_html + rendered
+
+    if conclusion:
+        conclusion_html = section(conclusion_label, conclusion, "report-conclusion")
+        body_end = rendered.lower().rfind("</body>")
+        if body_end >= 0:
+            rendered = rendered[:body_end] + conclusion_html + rendered[body_end:]
+        else:
+            rendered += conclusion_html
+    return rendered
 
 def default_interpretation_report_identity(
     report: HydrocarbonInterpretationReport,
@@ -148,5 +218,7 @@ __all__ = [
     "InterpretationReportIdentity",
     "default_interpretation_report_identity",
     "identity_with_report_header_fields",
+    "inject_report_optional_sections_html",
     "report_header_fields_from_identity",
+    "report_optional_section_labels",
 ]

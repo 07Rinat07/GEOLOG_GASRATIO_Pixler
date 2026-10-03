@@ -51,6 +51,8 @@ class ReportHeaderFields:
     approved_by: str = ""
     confidentiality: str = ""
     remarks: str = ""
+    summary: str = ""
+    conclusion: str = ""
 
 
 @dataclass(frozen=True, slots=True)

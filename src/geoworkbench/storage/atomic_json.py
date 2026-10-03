@@ -69,7 +69,7 @@ def _validate_report_header(header: ReportHeaderFields | None) -> None:
             continue
         if not isinstance(value, str):
             raise ValueError("Реквизиты report composition должны быть строками")
-        maximum = 10_000 if key == "remarks" else 2_000
+        maximum = 10_000 if key in {"remarks", "summary", "conclusion"} else 2_000
         if len(value) > maximum:
             raise ValueError("Реквизиты report composition превышают допустимый размер")
 

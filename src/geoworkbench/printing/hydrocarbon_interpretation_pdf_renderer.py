@@ -43,6 +43,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_pdf_text import (
 )
 from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
     InterpretationReportIdentity,
+    inject_report_optional_sections_html,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_report_range import (
     ReportDepthRange,
@@ -83,6 +84,7 @@ def render_hydrocarbon_interpretation_report(
     html = hydrocarbon_interpretation_html(report, language)
     if dataset is not None:
         html = inject_interval_gas_statistics_html(html, report, dataset, language)
+    html = inject_report_optional_sections_html(html, identity, language)
     body_html = _FRONT_MATTER_PATTERN.sub(r"\1", html, count=1)
 
     painter = QPainter(device)
