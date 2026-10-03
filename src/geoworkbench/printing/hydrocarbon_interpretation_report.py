@@ -30,6 +30,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_report_range import (
     resolve_report_depth_range,
     scope_report_to_depth_range,
 )
+from geoworkbench.printing.hydrocarbon_report_i18n import hydrocarbon_report_labels
 from geoworkbench.printing.report_visual_system import REPORT_BRAND_WORDMARK
 from geoworkbench.printing.unicode_support import preflight_texts
 from geoworkbench.services.hydrocarbon_interpretation import (
@@ -71,11 +72,10 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
     ),
     overwrite: bool = False,
 ) -> ReportOutputTransactionResult:
+    labels = hydrocarbon_report_labels(language)
     dataset = session.current_dataset
     if dataset is None:
-        raise HydrocarbonInterpretationPdfError(
-            "Для interpretation Report Passport требуется выбранный dataset"
-        )
+        raise HydrocarbonInterpretationPdfError(labels.pdf_passport_dataset_required)
     destination = Path(target)
     if destination.suffix.casefold() != ".pdf":
         destination = destination.with_suffix(".pdf")
@@ -86,10 +86,10 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
     if report.analysis_depth_interval is not None:
         details = replace(details, interval=report.analysis_depth_interval.formatted(report.depth_unit))
     try:
-        depth_range = report.analysis_depth_interval or resolve_report_depth_range(details.interval, dataset)
+        depth_range = report.analysis_depth_interval or resolve_report_depth_range(details.interval, dataset, language=language)
     except ReportDepthRangeError as exc:
         raise HydrocarbonInterpretationPdfError(
-            f"Некорректный интервал отчёта: {exc}"
+            f"{labels.pdf_invalid_interval}: {exc}"
         ) from exc
 
     passport = ReportPassportBuilder().build(
@@ -163,6 +163,7 @@ def export_hydrocarbon_interpretation_pdf(
     ),
     overwrite: bool = False,
 ) -> Path:
+    labels = hydrocarbon_report_labels(language)
     destination = Path(target)
     if destination.suffix.casefold() != ".pdf":
         destination = destination.with_suffix(".pdf")
@@ -186,11 +187,11 @@ def export_hydrocarbon_interpretation_pdf(
     depth_range = None
     if dataset is not None:
         try:
-            depth_range = report.analysis_depth_interval or resolve_report_depth_range(details.interval, dataset)
+            depth_range = report.analysis_depth_interval or resolve_report_depth_range(details.interval, dataset, language=language)
         except ReportDepthRangeError as exc:
             temporary.unlink(missing_ok=True)
             raise HydrocarbonInterpretationPdfError(
-                f"Некорректный интервал отчёта: {exc}"
+                f"{labels.pdf_invalid_interval}: {exc}"
             ) from exc
         effective_report = scope_report_to_depth_range(report, depth_range)
         if details.interval:
@@ -249,7 +250,9 @@ def export_hydrocarbon_interpretation_pdf(
         )
         unicode_report = preflight_texts([html, *identity_texts])
         if not unicode_report.ok:
-            raise HydrocarbonInterpretationPdfError(unicode_report.error_message())
+            raise HydrocarbonInterpretationPdfError(
+                unicode_report.error_message(language=language)
+            )
 
         render_hydrocarbon_interpretation_report(
             writer,
@@ -264,13 +267,13 @@ def export_hydrocarbon_interpretation_pdf(
         )
         del writer
         if temporary.stat().st_size <= 0:
-            raise HydrocarbonInterpretationPdfError("Не удалось сформировать PDF-отчёт")
+            raise HydrocarbonInterpretationPdfError(labels.pdf_create_failed)
         os.replace(temporary, destination)
     except Exception as exc:
         temporary.unlink(missing_ok=True)
         if isinstance(exc, (FileExistsError, HydrocarbonInterpretationPdfError)):
             raise
         raise HydrocarbonInterpretationPdfError(
-            f"Не удалось экспортировать PDF: {destination}"
+            f"{labels.pdf_export_failed}: {destination}"
         ) from exc
     return destination
