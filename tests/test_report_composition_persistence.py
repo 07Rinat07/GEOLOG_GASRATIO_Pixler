@@ -53,6 +53,7 @@ from geoworkbench.services.localization import AppLanguage
 from geoworkbench.storage.project_codec import (
     PROJECT_FORMAT_VERSION,
     ProjectDocument,
+    ProjectFormatError,
     load_project_document,
 )
 from geoworkbench.ui.interpretation_print_layout_dialog import (
@@ -159,7 +160,7 @@ def test_decoder_rejects_explicit_null_composition_id(tmp_path) -> None:
     payload["report_compositions"]["dataset-report-composition"]["composition_id"] = None
     target.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
 
-    with pytest.raises(Exception, match="Некорректный ID report composition"):
+    with pytest.raises(ProjectFormatError, match="Некорректный ID report composition"):
         load_project_document(target)
 
 
