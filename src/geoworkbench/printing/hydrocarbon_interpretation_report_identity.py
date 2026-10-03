@@ -81,9 +81,11 @@ class InterpretationReportIdentity:
 
 def report_header_fields_from_identity(
     identity: InterpretationReportIdentity,
+    report_profile: str = "standard",
 ) -> ReportHeaderFields:
     cleaned = identity.cleaned()
     return ReportHeaderFields(
+        report_profile=report_profile.strip().casefold() or "standard",
         report_title=cleaned.report_title,
         report_subtitle=cleaned.report_subtitle,
         project_name=cleaned.project_name,
