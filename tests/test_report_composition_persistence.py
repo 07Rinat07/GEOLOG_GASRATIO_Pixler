@@ -159,9 +159,60 @@ def test_localized_report_headers_are_isolated_by_language() -> None:
     composed = with_report_header_fields(base, "ru", russian)
     composed = with_report_header_fields(composed, "en", english)
 
-    assert report_header_fields(composed, "ru") == russian
-    assert report_header_fields(composed, "en") == english
-    assert report_header_fields(composed, "kk") is None
+    assert report_header_fields(composed, "ru", "standard") == russian
+    assert report_header_fields(composed, "en", "standard") == english
+    assert report_header_fields(composed, "kk", "standard") is None
+
+
+def test_report_headers_are_isolated_by_profile() -> None:
+    base = InterpretationReportComposition()
+    standard = ReportHeaderFields(report_profile="standard", report_title="Standard")
+    opus = ReportHeaderFields(report_profile="opus", report_title="OPUS")
+
+    composed = with_report_header_fields(base, "en", standard)
+
+    assert report_header_fields(composed, "en", "standard") == standard
+    assert report_header_fields(composed, "en", "opus") is None
+
+    composed = with_report_header_fields(composed, "en", opus)
+
+    assert report_header_fields(composed, "en", "opus") == opus
+    assert report_header_fields(composed, "en", "standard") is None
+
+
+def test_legacy_v37_header_without_profile_defaults_to_standard(tmp_path) -> None:
+    project = _project()
+    target = tmp_path / "legacy-v37-header.geolog.json"
+    save_project(
+        project,
+        target,
+        report_compositions={"dataset-report-composition": _composition()},
+    )
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    header = payload["report_compositions"]["dataset-report-composition"]["headers"]["en"]
+    header.pop("report_profile")
+    target.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    loaded = load_project_document(target)
+    restored = loaded.report_compositions["dataset-report-composition"].header_en
+
+    assert restored is not None
+    assert restored.report_profile == "standard"
+
+
+def test_save_rejects_report_header_larger_than_decoder_limit(tmp_path) -> None:
+    composition = with_report_header_fields(
+        InterpretationReportComposition(),
+        "en",
+        ReportHeaderFields(report_title="x" * 2001),
+    )
+
+    with pytest.raises(ValueError, match="превышают допустимый размер"):
+        save_project(
+            _project(),
+            tmp_path / "invalid-header.geolog.json",
+            report_compositions={"dataset-report-composition": composition},
+        )
 
 
 def test_persisted_header_overlay_keeps_runtime_interval() -> None:
