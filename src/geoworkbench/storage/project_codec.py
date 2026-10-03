@@ -20,6 +20,11 @@ from geoworkbench.domain.gas_context_events import (
 )
 from geoworkbench.domain.models import DepthDomain, DescriptionTemplateBlock, Project
 from geoworkbench.domain.translation_status import TranslationState, TranslationStatus
+from geoworkbench.domain.report_annotations import (
+    ReportAnnotationRecord,
+    report_annotation_from_mapping,
+    report_annotation_scope_id,
+)
 from geoworkbench.domain.report_composition import (
     InterpretationReportComposition,
     ReportHeaderFields,
@@ -73,6 +78,7 @@ _REPORT_COMPOSITION_KEYS = {
     *_REPORT_COMPOSITION_KEYS_HEADERS,
     "composition_id",
     "layout_profile",
+    "annotations",
 }
 _REPORT_HEADER_KEYS_LEGACY = {
     "report_title",
@@ -136,6 +142,22 @@ def _report_headers_from_dict(data: object) -> dict[str, ReportHeaderFields]:
     }
 
 
+_MAX_REPORT_ANNOTATIONS_PER_COMPOSITION = 10_000
+
+
+def _report_annotations_from_list(data: object) -> tuple[ReportAnnotationRecord, ...]:
+    if not isinstance(data, list) or len(data) > _MAX_REPORT_ANNOTATIONS_PER_COMPOSITION:
+        raise ProjectFormatError("report annotations должны быть ограниченным списком")
+    try:
+        annotations = tuple(report_annotation_from_mapping(item) for item in data)
+    except (TypeError, ValueError) as exc:
+        raise ProjectFormatError("Некорректная report annotation") from exc
+    identifiers = [item.annotation_id for item in annotations]
+    if len(identifiers) != len(set(identifiers)):
+        raise ProjectFormatError("ID report annotations не должны повторяться")
+    return annotations
+
+
 def _report_compositions_from_dict(
     data: object,
 ) -> dict[str, InterpretationReportComposition]:
@@ -177,6 +199,7 @@ def _report_compositions_from_dict(
                 layout_profile=ReportLayoutProfile(
                     raw.get("layout_profile", ReportLayoutProfile.MODERN_OILFIELD.value)
                 ),
+                annotations=_report_annotations_from_list(raw.get("annotations", [])),
                 header_ru=headers.get("ru"),
                 header_kk=headers.get("kk"),
                 header_en=headers.get("en"),
@@ -189,17 +212,38 @@ def _report_compositions_from_dict(
 def _validate_report_composition_bindings(
     document: ProjectDocument,
 ) -> None:
-    dataset_ids = {
-        dataset_id
-        for well in document.project.wells.values()
-        for dataset_id in well.datasets
-    }
-    unknown = set(document.report_compositions) - dataset_ids
+    dataset_owners: dict[str, str] = {}
+    for well_id, well in document.project.wells.items():
+        for dataset_id in well.datasets:
+            previous = dataset_owners.setdefault(dataset_id, well_id)
+            if previous != well_id:
+                raise ProjectFormatError(
+                    f"Dataset {dataset_id} принадлежит нескольким скважинам"
+                )
+
+    unknown = set(document.report_compositions) - set(dataset_owners)
     if unknown:
         raise ProjectFormatError(
             "Report composition ссылается на неизвестный набор: "
             + ", ".join(sorted(unknown))
         )
+
+    for dataset_id, composition in document.report_compositions.items():
+        expected_scope = report_annotation_scope_id(
+            dataset_owners[dataset_id],
+            dataset_id,
+            composition.composition_id,
+        )
+        foreign = [
+            annotation.annotation_id
+            for annotation in composition.annotations
+            if annotation.scope_id != expected_scope
+        ]
+        if foreign:
+            raise ProjectFormatError(
+                "Report annotation имеет чужую область владения: "
+                + ", ".join(sorted(foreign))
+            )
 
 
 def _validated_i18n(value: object, *, maximum: int) -> dict[str, str]:

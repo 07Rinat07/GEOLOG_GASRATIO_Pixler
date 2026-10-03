@@ -18,6 +18,10 @@ from geoworkbench.domain.rock_code_profiles import (
 )
 from geoworkbench.domain.well_passport import validate_passport
 from geoworkbench.printing.image_assets import ImageAsset, save_image_assets
+from geoworkbench.domain.report_annotations import (
+    report_annotation_scope_id,
+    report_annotation_to_dict,
+)
 from geoworkbench.domain.report_composition import (
     InterpretationReportComposition,
     ReportHeaderFields,
@@ -78,18 +82,19 @@ def _validate_report_compositions(
     project: Project,
     compositions: dict[str, InterpretationReportComposition],
 ) -> None:
-    dataset_ids = {
-        dataset_id
-        for well in project.wells.values()
-        for dataset_id in well.datasets
-    }
-    unknown = set(compositions) - dataset_ids
+    dataset_owners: dict[str, str] = {}
+    for well_id, well in project.wells.items():
+        for dataset_id in well.datasets:
+            previous = dataset_owners.setdefault(dataset_id, well_id)
+            if previous != well_id:
+                raise ValueError(f"Dataset {dataset_id} принадлежит нескольким скважинам")
+    unknown = set(compositions) - set(dataset_owners)
     if unknown:
         raise ValueError(
             "Report composition ссылается на неизвестный набор: "
             + ", ".join(sorted(unknown))
         )
-    for composition in compositions.values():
+    for dataset_id, composition in compositions.items():
         if (
             not composition.composition_id.strip()
             or len(composition.composition_id) > 128
@@ -98,6 +103,20 @@ def _validate_report_compositions(
         _validate_report_header(composition.header_ru)
         _validate_report_header(composition.header_kk)
         _validate_report_header(composition.header_en)
+        if len(composition.annotations) > 10_000:
+            raise ValueError("report annotations превышают допустимое количество")
+        identifiers = [annotation.annotation_id for annotation in composition.annotations]
+        if len(identifiers) != len(set(identifiers)):
+            raise ValueError("ID report annotations не должны повторяться")
+        expected_scope = report_annotation_scope_id(
+            dataset_owners[dataset_id],
+            dataset_id,
+            composition.composition_id,
+        )
+        for annotation in composition.annotations:
+            report_annotation_to_dict(annotation)
+            if annotation.scope_id != expected_scope:
+                raise ValueError("Report annotation имеет чужую область владения")
 
 
 def save_project(
@@ -175,6 +194,10 @@ def save_project(
                 "lba": composition.lba.value,
                 "legend_mode": composition.legend_mode.value,
                 "layout_profile": composition.layout_profile.value,
+                "annotations": [
+                    report_annotation_to_dict(annotation)
+                    for annotation in composition.annotations
+                ],
                 "headers": {
                     language: asdict(header)
                     for language, header in (

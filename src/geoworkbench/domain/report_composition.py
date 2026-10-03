@@ -4,6 +4,8 @@ from dataclasses import dataclass, replace
 from enum import Enum
 from uuid import NAMESPACE_URL, uuid5
 
+from geoworkbench.domain.report_annotations import ReportAnnotationRecord
+
 
 class ReportPageOrientation(str, Enum):
     PORTRAIT = "portrait"
@@ -70,6 +72,7 @@ class InterpretationReportComposition:
     lba: ReportTrackVisibility = ReportTrackVisibility.AUTO
     legend_mode: ReportLegendMode = ReportLegendMode.FULL
     layout_profile: ReportLayoutProfile = ReportLayoutProfile.MODERN_OILFIELD
+    annotations: tuple[ReportAnnotationRecord, ...] = ()
     header_ru: ReportHeaderFields | None = None
     header_kk: ReportHeaderFields | None = None
     header_en: ReportHeaderFields | None = None
@@ -144,6 +147,7 @@ __all__ = [
     "ReportLayoutProfile",
     "ReportPageOrientation",
     "ReportPrintOrder",
+    "ReportAnnotationRecord",
     "ReportTrackVisibility",
     "ensure_report_composition_id",
     "report_header_fields",
