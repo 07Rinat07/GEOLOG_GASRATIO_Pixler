@@ -60,9 +60,9 @@ from geoworkbench.services.hydrocarbon_interpretation import (
 )
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.gas_curve_presentation import (
-    GAS_PREVIEW_POINT_RADIUS_PX,
-    gas_scatter_point_budget,
-    select_gas_scatter_samples,
+    GAS_REPORT_PREVIEW_POINT_RADIUS_PX,
+    gas_report_scatter_point_budget,
+    select_report_gas_scatter_samples,
 )
 
 
@@ -681,22 +681,26 @@ def _draw_panel(
         if np.count_nonzero(usable) < minimum_samples:
             continue
         finite_values = values[usable]
-        low = float(np.percentile(finite_values, 5.0))
-        high = float(np.percentile(finite_values, 95.0))
+        if point_series:
+            low = float(np.min(finite_values))
+            high = float(np.max(finite_values))
+        else:
+            low = float(np.percentile(finite_values, 5.0))
+            high = float(np.percentile(finite_values, 95.0))
         if not np.isfinite(low) or not np.isfinite(high):
             continue
         color = QColor(_COLORS[curve_index % len(_COLORS)])
         if point_series:
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(color)
-            point_values, point_depth = select_gas_scatter_samples(
+            point_values, point_depth = select_report_gas_scatter_samples(
                 depth,
                 values,
                 depth_min,
                 depth_max,
-                max_points=gas_scatter_point_budget(curve_rect.height()),
+                max_points=gas_report_scatter_point_budget(curve_rect.height()),
             )
-            radius = GAS_PREVIEW_POINT_RADIUS_PX
+            radius = GAS_REPORT_PREVIEW_POINT_RADIUS_PX
             for value, depth_value in zip(point_values, point_depth, strict=True):
                 if high <= low:
                     normalized = 0.5 if value == low else 1.0 if value > low else 0.0

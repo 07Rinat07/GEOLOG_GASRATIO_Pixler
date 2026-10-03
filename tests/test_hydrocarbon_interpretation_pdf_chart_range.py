@@ -13,8 +13,8 @@ from geoworkbench.printing import hydrocarbon_interpretation_pdf_chart_enhanced 
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import DepthPage, plan_depth_pages
 from geoworkbench.printing.hydrocarbon_interpretation_report_range import ReportDepthRange
 from geoworkbench.services.gas_curve_presentation import (
-    gas_scatter_point_budget,
-    select_gas_scatter_samples,
+    gas_report_scatter_point_budget,
+    select_report_gas_scatter_samples,
 )
 from geoworkbench.services.localization import AppLanguage
 
@@ -131,8 +131,8 @@ def test_print_ratio_scatter_remains_visible_without_becoming_a_thick_trace(qapp
     ]
     dark_rows = sorted({y for _x, y in dark_coordinates})
 
-    point_budget = gas_scatter_point_budget(320.0)
-    selected_values, selected_depth = select_gas_scatter_samples(
+    point_budget = gas_report_scatter_point_budget(320.0)
+    selected_values, selected_depth = select_report_gas_scatter_samples(
         depth,
         np.asarray(curve.values, dtype=np.float64),
         float(depth[0]),
