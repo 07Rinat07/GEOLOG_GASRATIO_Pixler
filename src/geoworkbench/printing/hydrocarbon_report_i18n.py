@@ -113,6 +113,11 @@ class HydrocarbonReportLabels:
     checked_by: str
     approved_by: str
     cover_note: str
+    xlsx_dataset_mismatch: str
+    xlsx_invalid_sample_count: str
+    xlsx_row_limit: str
+    xlsx_export_failed: str
+    manual_interval_prefix: str
     pdf_passport_dataset_required: str
     pdf_invalid_interval: str
     pdf_create_failed: str
@@ -213,6 +218,11 @@ _RU = HydrocarbonReportLabels(
     report_interval="Интервал отчёта", prepared_by="Подготовил",
     checked_by="Проверил", approved_by="Утвердил",
     cover_note="Графики, методы, перспективные интервалы и ограничения методики приведены на следующих страницах.",
+    xlsx_dataset_mismatch="Набор данных не соответствует сформированному отчёту интерпретации.",
+    xlsx_invalid_sample_count="Кривые с неверным числом отсчётов",
+    xlsx_row_limit="В наборе {rows} строк; лимит Excel — {limit}.",
+    xlsx_export_failed="Не удалось экспортировать Excel",
+    manual_interval_prefix="Г",
     pdf_passport_dataset_required="Для Report Passport интерпретации требуется выбранный набор данных",
     pdf_invalid_interval="Некорректный интервал отчёта",
     pdf_create_failed="Не удалось сформировать PDF-отчёт",
@@ -293,6 +303,11 @@ _KK = HydrocarbonReportLabels(
     service_company="Сервистік компания", rig="Бұрғылау қондырғысы", report_interval="Есеп аралығы",
     prepared_by="Дайындаған", checked_by="Тексерген", approved_by="Бекіткен",
     cover_note="Графиктер, әдістер, перспективалы аралықтар және әдістеме шектеулері келесі беттерде берілген.",
+    xlsx_dataset_mismatch="Деректер жинағы құрылған интерпретация есебіне сәйкес келмейді.",
+    xlsx_invalid_sample_count="Есеп саны қате қисықтар",
+    xlsx_row_limit="Деректер жинағында {rows} жол бар; Excel шегі — {limit}.",
+    xlsx_export_failed="Excel экспорттау мүмкін болмады",
+    manual_interval_prefix="Г",
     pdf_passport_dataset_required="Интерпретация Report Passport үшін деректер жинағын таңдау қажет",
     pdf_invalid_interval="Есеп аралығы қате",
     pdf_create_failed="PDF есебін құру мүмкін болмады",
@@ -367,6 +382,11 @@ _EN = HydrocarbonReportLabels(
     service_company="Service company", rig="Rig", report_interval="Report interval",
     prepared_by="Prepared by", checked_by="Checked by", approved_by="Approved by",
     cover_note="Charts, methods, prospective intervals and method limitations are provided on the following pages.",
+    xlsx_dataset_mismatch="The dataset does not match the generated interpretation report.",
+    xlsx_invalid_sample_count="Curves with an invalid sample count",
+    xlsx_row_limit="The dataset contains {rows} rows; the Excel limit is {limit}.",
+    xlsx_export_failed="Failed to export Excel",
+    manual_interval_prefix="G",
     pdf_passport_dataset_required="A selected dataset is required for the interpretation Report Passport",
     pdf_invalid_interval="Invalid report interval",
     pdf_create_failed="Failed to create the PDF report",
