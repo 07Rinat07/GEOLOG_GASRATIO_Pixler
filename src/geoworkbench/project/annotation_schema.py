@@ -6,6 +6,7 @@ from enum import StrEnum
 from math import isfinite
 from typing import Any, Mapping
 
+from geoworkbench.domain.annotation_style import AnnotationStyle
 from geoworkbench.domain.models import CanvasObject
 from geoworkbench.domain.localized_content import validate_localized_texts
 
@@ -32,125 +33,6 @@ class AnnotationAnchor(StrEnum):
     DEPTH = "depth"
     TIME = "time"
     CURVE = "curve"
-
-
-@dataclass(frozen=True, slots=True)
-class AnnotationStyle:
-    font_family: str = "Arial"
-    font_size: float = 10.0
-    bold: bool = False
-    italic: bool = False
-    underline: bool = False
-    text_color: str = "#0f172a"
-    fill_color: str = "#ffffff"
-    fill_opacity: float = 0.94
-    border_color: str = "#2563eb"
-    border_width: float = 1.2
-    border_style: str = "solid"
-    corner_radius: float = 6.0
-    padding: float = 7.0
-    alignment: str = "left"
-    vertical_alignment: str = "top"
-    leader_color: str = "#2563eb"
-    leader_width: float = 1.2
-    leader_style: str = "solid"
-    arrow_style: str = "triangle"
-    shadow: bool = True
-    shadow_blur: float = 5.0
-    shadow_offset_x: float = 2.0
-    shadow_offset_y: float = 2.0
-    rotation: float = 0.0
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "font_family": self.font_family,
-            "font_size": self.font_size,
-            "bold": self.bold,
-            "italic": self.italic,
-            "underline": self.underline,
-            "text_color": self.text_color,
-            "fill_color": self.fill_color,
-            "fill_opacity": self.fill_opacity,
-            "border_color": self.border_color,
-            "border_width": self.border_width,
-            "border_style": self.border_style,
-            "corner_radius": self.corner_radius,
-            "padding": self.padding,
-            "alignment": self.alignment,
-            "vertical_alignment": self.vertical_alignment,
-            "leader_color": self.leader_color,
-            "leader_width": self.leader_width,
-            "leader_style": self.leader_style,
-            "arrow_style": self.arrow_style,
-            "shadow": self.shadow,
-            "shadow_blur": self.shadow_blur,
-            "shadow_offset_x": self.shadow_offset_x,
-            "shadow_offset_y": self.shadow_offset_y,
-            "rotation": self.rotation,
-        }
-
-    @classmethod
-    def from_mapping(cls, value: Mapping[str, Any] | None) -> AnnotationStyle:
-        raw = dict(value or {})
-        return cls(
-            font_family=_string(raw.get("font_family"), "Arial", maximum=120),
-            font_size=_number(raw.get("font_size"), 10.0, 4.0, 96.0),
-            bold=bool(raw.get("bold", False)),
-            italic=bool(raw.get("italic", False)),
-            underline=bool(raw.get("underline", False)),
-            text_color=_color(raw.get("text_color"), "#0f172a"),
-            fill_color=_color(raw.get("fill_color"), "#ffffff"),
-            fill_opacity=_number(raw.get("fill_opacity"), 0.94, 0.0, 1.0),
-            border_color=_color(raw.get("border_color"), "#2563eb"),
-            border_width=_number(raw.get("border_width"), 1.2, 0.0, 20.0),
-            border_style=_choice(raw.get("border_style"), "solid", {"solid", "dash", "dot"}),
-            corner_radius=_number(raw.get("corner_radius"), 6.0, 0.0, 64.0),
-            padding=_number(raw.get("padding"), 7.0, 0.0, 64.0),
-            alignment=_choice(raw.get("alignment"), "left", {"left", "center", "right"}),
-            vertical_alignment=_choice(
-                raw.get("vertical_alignment"), "top", {"top", "center", "bottom"}
-            ),
-            leader_color=_color(raw.get("leader_color"), "#2563eb"),
-            leader_width=_number(raw.get("leader_width"), 1.2, 0.0, 20.0),
-            leader_style=_choice(raw.get("leader_style"), "solid", {"solid", "dash", "dot"}),
-            arrow_style=_choice(
-                raw.get("arrow_style"), "triangle", {"none", "triangle", "open", "circle"}
-            ),
-            shadow=bool(raw.get("shadow", True)),
-            shadow_blur=_number(raw.get("shadow_blur"), 5.0, 0.0, 32.0),
-            shadow_offset_x=_number(raw.get("shadow_offset_x"), 2.0, -64.0, 64.0),
-            shadow_offset_y=_number(raw.get("shadow_offset_y"), 2.0, -64.0, 64.0),
-            rotation=_number(raw.get("rotation"), 0.0, -180.0, 180.0),
-        )
-
-
-@dataclass(frozen=True, slots=True)
-class AnnotationRecord:
-    annotation_id: str
-    kind: AnnotationKind
-    anchor: AnnotationAnchor
-    text: str
-    track_id: str | None
-    depth: float | None
-    axis_value: float | None
-    axis_id: str | None
-    parameter_mnemonic: str | None
-    parameter_value: float | None
-    unit: str
-    x_fraction: float
-    offset_x: float
-    offset_y: float
-    width: float
-    height: float
-    style: AnnotationStyle = field(default_factory=AnnotationStyle)
-    asset_ref: str | None = None
-    visible: bool = True
-    locked: bool = False
-    print_enabled: bool = True
-    scope_id: str | None = None
-    symbol_id: str | None = None
-    transparent_background: bool = True
-    text_i18n: dict[str, str] = field(default_factory=dict)
 
 
 STYLE_PRESETS: dict[str, AnnotationStyle] = {
