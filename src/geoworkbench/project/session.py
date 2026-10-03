@@ -10,9 +10,7 @@ from geoworkbench.domain.rock_code_profiles import (
     RockCodeProfileRecord,
     RockCodeSourceBindingRecord,
 )
-from geoworkbench.printing.interpretation_report_composition import (
-    InterpretationReportComposition,
-)
+from geoworkbench.domain.report_composition import InterpretationReportComposition
 from geoworkbench.tablet.models import TabletLayout
 
 
