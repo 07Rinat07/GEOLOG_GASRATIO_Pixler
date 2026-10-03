@@ -52,10 +52,14 @@ from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
 from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
     InterpretationReportIdentity,
     default_interpretation_report_identity,
+    identity_with_report_header_fields,
+    report_header_fields_from_identity,
 )
 from geoworkbench.domain.report_composition import (
     DEFAULT_INTERPRETATION_REPORT_COMPOSITION,
     InterpretationReportComposition,
+    report_header_fields,
+    with_report_header_fields,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_report_range import (
     ReportDepthRangeError,
@@ -404,7 +408,12 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         if layout_dialog.exec() != QDialog.DialogCode.Accepted:
             return
         layout = layout_dialog.selected_layout()
-        self._store_report_composition(layout_dialog.selected_composition())
+        composition = with_report_header_fields(
+            layout_dialog.selected_composition(),
+            self.language.value,
+            report_header_fields_from_identity(identity),
+        )
+        self._store_report_composition(composition)
         if not self._sync_preview_geology_composition(
             report,
             identity,
@@ -464,7 +473,12 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         if layout_dialog.exec() != QDialog.DialogCode.Accepted:
             return
         layout = layout_dialog.selected_layout()
-        self._store_report_composition(layout_dialog.selected_composition())
+        composition = with_report_header_fields(
+            layout_dialog.selected_composition(),
+            self.language.value,
+            report_header_fields_from_identity(identity),
+        )
+        self._store_report_composition(composition)
         if not self._sync_preview_geology_composition(
             report,
             identity,
@@ -660,17 +674,13 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
             self.language,
             interval=self._report_interval(report),
         )
-        key = (
-            report.project_name,
-            report.well_name,
-            report.dataset_id,
-            self.language,
+        initial = identity_with_report_header_fields(
+            defaults,
+            report_header_fields(
+                self._report_composition(),
+                self.language.value,
+            ),
         )
-        initial = defaults
-        if getattr(self, "_report_identity_key", None) == key:
-            cached = getattr(self, "_report_identity", None)
-            if isinstance(cached, InterpretationReportIdentity):
-                initial = replace(cached, interval=defaults.interval)
 
         dialog = InterpretationReportDetailsDialog(
             defaults,
@@ -685,8 +695,6 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         selected = replace(dialog.selected_identity(), interval=defaults.interval)
         if not selected.report_title:
             selected = replace(selected, report_title=defaults.report_title)
-        self._report_identity_key = key
-        self._report_identity = selected
         return selected
 
     def _report_interval(self, report: HydrocarbonInterpretationReport) -> str:
