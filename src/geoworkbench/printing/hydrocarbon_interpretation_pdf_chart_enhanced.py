@@ -9,6 +9,7 @@ from PySide6.QtGui import QColor, QPainter, QPen
 from geoworkbench.domain.depth_interval import scope_dataset
 from geoworkbench.domain.models import CurveData, Dataset
 from geoworkbench.domain.report_composition import ReportLegendMode
+from geoworkbench.domain.report_annotations import ReportAnnotationRecord
 from geoworkbench.printing import hydrocarbon_interpretation_pdf_chart as base_chart
 from geoworkbench.printing.hydrocarbon_fluid_markers import (
     draw_fluid_marker,
@@ -57,6 +58,11 @@ from geoworkbench.printing.hydrocarbon_interpretation_report_range import (
     ReportDepthRange,
 )
 from geoworkbench.printing.unicode_support import print_font
+from geoworkbench.printing.report_annotation_rendering import (
+    REFERENCE_PIXEL_TO_POINT,
+    build_report_annotation_track_map,
+    paint_report_annotations,
+)
 from geoworkbench.printing.interpretation_track_headings import (
     paint_track_heading,
     track_heading_height,
@@ -84,6 +90,7 @@ def render_chart_pages(
         DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS
     ),
     legend_mode: ReportLegendMode = ReportLegendMode.FULL,
+    annotations: tuple[ReportAnnotationRecord, ...] = (),
 ) -> None:
     """Render chart pages with printer-safe major and minor depth graduations."""
 
@@ -250,6 +257,7 @@ def render_chart_pages(
             empty_state_tracks,
             chart_legend,
             None,
+            annotations=annotations,
             **draw_options,
         )
         canvas.y = canvas.content_rect.bottom()
@@ -408,6 +416,7 @@ def _draw_chart_page(
     geology_legend: InterpretationGeologyLegend,
     continuation_legend: InterpretationGeologyLegend | None = None,
     *,
+    annotations: tuple[ReportAnnotationRecord, ...] = (),
     geology_legend_compact: bool = False,
 ) -> None:
     labels = base_chart._labels(language)
@@ -526,6 +535,30 @@ def _draw_chart_page(
         page,
         candidates,
     )
+    if annotations:
+        track_map = build_report_annotation_track_map(
+            panels=panels,
+            panel_rects=geometry.panel_rects,
+            geology_tracks=geology_tracks,
+            geology_rects=geometry.geology_rects,
+            left_depth_rect=geometry.left_axis_rect,
+            right_depth_rect=geometry.right_axis_rect,
+        )
+        paint_report_annotations(
+            painter,
+            annotations,
+            language,
+            page_top_depth=page.top_depth,
+            page_bottom_depth=page.bottom_depth,
+            plot_bounds=QRectF(
+                geometry.left_axis_rect.left(),
+                geometry.left_axis_rect.top(),
+                geometry.right_axis_rect.right() - geometry.left_axis_rect.left(),
+                geometry.left_axis_rect.height(),
+            ),
+            track_map=track_map,
+            pixel_scale=REFERENCE_PIXEL_TO_POINT,
+        )
     _draw_fluid_marker_legend(
         painter,
         geometry.note_rect,
