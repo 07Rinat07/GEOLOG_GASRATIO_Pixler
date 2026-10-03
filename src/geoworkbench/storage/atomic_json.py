@@ -90,6 +90,11 @@ def _validate_report_compositions(
             + ", ".join(sorted(unknown))
         )
     for composition in compositions.values():
+        if (
+            not composition.composition_id.strip()
+            or len(composition.composition_id) > 128
+        ):
+            raise ValueError("Некорректный ID report composition")
         _validate_report_header(composition.header_ru)
         _validate_report_header(composition.header_kk)
         _validate_report_header(composition.header_en)
