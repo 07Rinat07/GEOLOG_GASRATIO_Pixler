@@ -69,13 +69,28 @@ def test_unicode_preflight_rejects_replacement_character(qapp) -> None:
 
 
 def test_unicode_preflight_error_message_uses_selected_language(qapp) -> None:
-    report = preflight_texts(["Broken text: \ufffd"])
+    report = preflight_texts(["Broken text: \ufffd\x01"])
 
     message = report.error_message(language=AppLanguage.EN)
 
     assert "Corrupted Unicode text was detected" in message
-    assert "U+FFFD" in message
+    assert "replacement character U+FFFD" in message
+    assert "disallowed control characters" in message
     assert "повреждённый" not in message.casefold()
+    assert "символ замены" not in message.casefold()
+    assert "управляющие символы" not in message.casefold()
+
+
+def test_unicode_preflight_problem_details_use_selected_kazakh_language(qapp) -> None:
+    report = preflight_texts(["Broken surrogate: \ud800"])
+
+    message = report.error_message(language=AppLanguage.KK)
+
+    assert "Бүлінген Unicode мәтіні анықталды" in message
+    assert "жарамсыз UTF-8/Unicode тізбегі" in message
+    assert "жұпсыз Unicode суррогаты" in message
+    assert "невалидная последовательность" not in message.casefold()
+    assert "непарный суррогат" not in message.casefold()
 
 
 def test_unicode_preflight_rejects_typical_cyrillic_mojibake(qapp) -> None:
