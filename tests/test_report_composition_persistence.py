@@ -23,10 +23,13 @@ from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
 )
 from geoworkbench.domain.report_composition import (
     InterpretationReportComposition,
+    ReportHeaderFields,
     ReportLegendMode,
     ReportPageOrientation,
     ReportPrintOrder,
     ReportTrackVisibility,
+    report_header_fields,
+    with_report_header_fields,
 )
 from geoworkbench.storage.atomic_json import save_project
 from geoworkbench.storage.package_project_repository import PackageProjectRepository
@@ -70,6 +73,18 @@ def _composition() -> InterpretationReportComposition:
         cuttings=ReportTrackVisibility.SHOW,
         lba=ReportTrackVisibility.HIDE,
         legend_mode=ReportLegendMode.COMPACT,
+        header_ru=ReportHeaderFields(
+            report_title="Русский заголовок",
+            project_name="Проект",
+            well_name="Скважина",
+            revision="01",
+        ),
+        header_en=ReportHeaderFields(
+            report_title="English title",
+            project_name="Project",
+            well_name="Well",
+            revision="02",
+        ),
     )
 
 
@@ -101,11 +116,47 @@ def test_existing_v37_without_legend_mode_defaults_to_full(tmp_path) -> None:
     )
     payload = json.loads(target.read_text(encoding="utf-8"))
     payload["report_compositions"]["dataset-report-composition"].pop("legend_mode")
+    payload["report_compositions"]["dataset-report-composition"].pop("headers")
     target.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
 
     loaded = load_project_document(target)
 
     assert loaded.report_compositions["dataset-report-composition"].legend_mode is ReportLegendMode.FULL
+
+
+def test_existing_v37_with_legend_but_without_headers_remains_readable(tmp_path) -> None:
+    project = _project()
+    target = tmp_path / "legacy-v37-legend.geolog.json"
+
+    save_project(
+        project,
+        target,
+        report_compositions={"dataset-report-composition": _composition()},
+    )
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    payload["report_compositions"]["dataset-report-composition"].pop("headers")
+    target.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    loaded = load_project_document(target)
+    composition = loaded.report_compositions["dataset-report-composition"]
+
+    assert composition.legend_mode is ReportLegendMode.COMPACT
+    assert composition.header_ru is None
+    assert composition.header_kk is None
+    assert composition.header_en is None
+
+
+def test_localized_report_headers_are_isolated_by_language() -> None:
+    base = InterpretationReportComposition()
+    russian = ReportHeaderFields(report_title="Русский")
+    english = ReportHeaderFields(report_title="English")
+
+    composed = with_report_header_fields(base, "ru", russian)
+    composed = with_report_header_fields(composed, "en", english)
+
+    assert report_header_fields(composed, "ru") == russian
+    assert report_header_fields(composed, "en") == english
+    assert report_header_fields(composed, "kk") is None
 
 
 def test_project_v36_migrates_with_empty_report_compositions(tmp_path) -> None:
