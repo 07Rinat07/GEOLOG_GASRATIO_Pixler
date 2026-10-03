@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING
 
+from geoworkbench.domain.report_composition import InterpretationReportComposition
+
 if TYPE_CHECKING:
     from geoworkbench.printing.geology_track_rendering import FrozenCuttingsSample
     from geoworkbench.printing.hydrocarbon_interpretation_geology import (
@@ -24,6 +26,15 @@ class InterpretationGeologyTrackSettings:
 
 
 DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS = InterpretationGeologyTrackSettings()
+
+
+def geology_track_settings_from_composition(
+    composition: InterpretationReportComposition,
+) -> InterpretationGeologyTrackSettings:
+    return InterpretationGeologyTrackSettings(
+        cuttings=GeologyTrackVisibility(composition.cuttings.value),
+        lba=GeologyTrackVisibility(composition.lba.value),
+    )
 
 
 def resolve_geology_track_kinds(
@@ -107,5 +118,6 @@ __all__ = [
     "GeologyTrackVisibility",
     "InterpretationGeologyTrackSettings",
     "forced_empty_geology_tracks",
+    "geology_track_settings_from_composition",
     "resolve_geology_track_kinds",
 ]
