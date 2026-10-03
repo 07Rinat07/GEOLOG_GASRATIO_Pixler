@@ -100,9 +100,8 @@ def _report_header_from_dict(data: object) -> ReportHeaderFields:
         raise ProjectFormatError("Некорректные реквизиты report composition")
     keys = set(data)
     if (
-        keys != _REPORT_HEADER_KEYS_LEGACY
-        and keys != _REPORT_HEADER_KEYS_PROFILE
-        and keys != _REPORT_HEADER_KEYS
+        not _REPORT_HEADER_KEYS_LEGACY <= keys
+        or keys - _REPORT_HEADER_KEYS
     ):
         raise ProjectFormatError("Некорректные реквизиты report composition")
     profile = data.get("report_profile", "standard")
