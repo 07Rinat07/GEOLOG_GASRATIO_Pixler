@@ -18,6 +18,7 @@ class JsonProjectRepository:
             target,
             tablet_layouts=document.tablet_layouts,
             tablet_presets=document.tablet_presets,
+            report_compositions=document.report_compositions,
             source_documents=document.source_documents,
             import_reports=document.import_reports,
             image_assets=document.image_assets,
