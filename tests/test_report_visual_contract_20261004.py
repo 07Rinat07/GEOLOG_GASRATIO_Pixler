@@ -6,9 +6,14 @@ import numpy as np
 from PySide6.QtCore import QRectF
 from PySide6.QtGui import QImage
 
-from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
+from geoworkbench.domain.models import CurveData, CurveMetadata, Dataset, DatasetKind, DepthDomain
 from geoworkbench.domain.report_composition import ReportLegendMode
 from geoworkbench.printing import hydrocarbon_interpretation_pdf_renderer as renderer
+from geoworkbench.printing.hydrocarbon_interpretation_pdf_chart import (
+    _curve_percentiles,
+    _curve_ranges,
+)
+from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import DepthPage
 from geoworkbench.printing.hydrocarbon_interpretation_geology_legend import (
     GeologyLegendItem,
     InterpretationGeologyLegend,
@@ -49,6 +54,44 @@ def test_report_gas_ratio_sampler_is_dense_uniform_and_source_factual() -> None:
     source_positions = np.searchsorted(depth, selected_depth)
     assert np.all(depth[source_positions] == selected_depth)
     assert np.all(values[source_positions] == selected_values)
+
+
+def test_ratio_display_range_uses_visible_minmax_without_changing_p5_p95() -> None:
+    depth = np.linspace(100.0, 110.0, 101, dtype=np.float64)
+    values = np.linspace(10.0, 20.0, depth.size, dtype=np.float64)
+    values[0] = -50.0
+    values[-1] = 90.0
+    dataset = Dataset(
+        dataset_id="ratio-range-contract",
+        name="Ratio range",
+        kind=DatasetKind.GTI,
+        depth_domain=DepthDomain.MD,
+        depth=depth,
+    )
+    curve = CurveData(
+        CurveMetadata(
+            "ratio",
+            "C1_C2",
+            "C1_C2",
+            "ratio",
+            None,
+            dataset.dataset_id,
+        ),
+        values,
+    )
+    dataset.curves[curve.metadata.curve_id] = curve
+    panels = (("ratios", (curve,)),)
+    page = DepthPage(100.0, 110.0, 100, 300.0)
+
+    percentiles = _curve_percentiles(panels, dataset, page=page)
+    display = _curve_ranges(panels, dataset, page=page)
+
+    assert percentiles[curve.metadata.curve_id][0] > float(np.min(values))
+    assert percentiles[curve.metadata.curve_id][1] < float(np.max(values))
+    assert display[curve.metadata.curve_id] == (
+        float(np.min(values)),
+        float(np.max(values)),
+    )
 
 
 def test_report_methodology_starts_after_dedicated_geology_legend_page(
