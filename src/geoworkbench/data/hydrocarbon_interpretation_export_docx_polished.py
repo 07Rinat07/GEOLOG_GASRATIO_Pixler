@@ -16,6 +16,7 @@ from geoworkbench.domain.models import Dataset
 from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
     InterpretationReportIdentity,
     default_interpretation_report_identity,
+    report_optional_section_labels,
 )
 from geoworkbench.printing.hydrocarbon_report_i18n import hydrocarbon_report_labels
 from geoworkbench.printing.report_visual_system import REPORT_BRAND_WORDMARK
@@ -130,8 +131,30 @@ def _document_with_polished_cover(
 
     for child in children[:first_heading]:
         body.remove(child)
-    for index, element in enumerate(_cover_elements(report, identity, language)):
+
+    cover = _cover_elements(report, identity, language)
+    for index, element in enumerate(cover):
         body.insert(index, element)
+
+    summary_label, conclusion_label = report_optional_section_labels(language)
+    summary = _narrative_elements(summary_label, identity.summary)
+    for offset, element in enumerate(summary):
+        body.insert(len(cover) + offset, element)
+
+    conclusion = _narrative_elements(conclusion_label, identity.conclusion)
+    if conclusion:
+        body_children = list(body)
+        section_index = next(
+            (
+                index
+                for index, child in enumerate(body_children)
+                if child.tag == _q("sectPr")
+            ),
+            len(body_children),
+        )
+        for offset, element in enumerate(conclusion):
+            body.insert(section_index + offset, element)
+
     return ET.tostring(root, encoding="utf-8", xml_declaration=True)
 
 
@@ -239,6 +262,32 @@ def _cover_elements(
     )
     elements.append(_portrait_section_break())
     return tuple(elements)
+
+
+def _narrative_elements(
+    label: str,
+    value: str,
+) -> tuple[ET.Element, ...]:
+    text = value.strip()
+    if not text:
+        return ()
+    return (
+        _paragraph(
+            label,
+            before=260,
+            after=100,
+            size=28,
+            bold=True,
+            color="172033",
+            keep_next=True,
+        ),
+        _paragraph(
+            text,
+            after=220,
+            size=20,
+            color="26384A",
+        ),
+    )
 
 
 def _paragraph(
