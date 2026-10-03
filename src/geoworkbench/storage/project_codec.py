@@ -1,4 +1,4 @@
-"""Project codec v36 for depth-domain-aware well-level gas-context persistence."""
+"""Project codec v37 for persisted report composition and project state."""
 
 from __future__ import annotations
 
