@@ -249,6 +249,26 @@ def test_cancel_checkpoint_restores_annotations_and_history_without_parallel_sta
     assert not controller.can_redo
 
 
+def test_cancel_checkpoint_restores_clean_dirty_state() -> None:
+    session = _session()
+    composition = _composition(_annotation())
+    session.report_compositions[DATASET_ID] = composition
+    session.dirty = False
+    history = CommandHistory()
+    controller = ReportAnnotationController(session, shared_history=history)
+    checkpoint = controller.checkpoint()
+
+    controller.add(text="Draft", depth=1001.5, track_key="curve:TG")
+    assert session.dirty is True
+
+    controller.restore(checkpoint)
+
+    assert session.report_compositions[DATASET_ID] == composition
+    assert session.dirty is False
+    assert history.can_undo is False
+    assert history.can_redo is False
+
+
 def test_cancel_checkpoint_fails_closed_after_foreign_history_command() -> None:
     session = _session()
     history = CommandHistory()
