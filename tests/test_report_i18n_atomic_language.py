@@ -240,3 +240,15 @@ def test_xlsx_manual_interval_identifier_uses_selected_language() -> None:
 
     assert row[0] == "G-1"
     assert row[0] != "Г-1"
+
+
+def test_report_identity_cache_key_includes_selected_language() -> None:
+    source = inspect.getsource(
+        interpretation_report_workspace_final.InterpretationReportWorkspace._select_report_identity
+    )
+    compact = " ".join(source.split())
+
+    assert (
+        "key = ( report.project_name, report.well_name, report.dataset_id, self.language, )"
+        in compact
+    )
