@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import json
 
 import numpy as np
@@ -19,6 +20,11 @@ from geoworkbench.domain.report_composition import (
 from geoworkbench.storage.atomic_json import save_project
 from geoworkbench.storage.package_project_repository import PackageProjectRepository
 from geoworkbench.project.controller import ProjectController
+from geoworkbench.project.dataset_merge_controller import DatasetMergeController
+from geoworkbench.project.depth_axis_controller import DepthAxisController
+from geoworkbench.project.derived_dataset_controller import DerivedDatasetController
+from geoworkbench.project.lag_correction_controller import LagCorrectionProjectController
+from geoworkbench.ui import interpretation_report_workspace_final
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.storage.project_codec import (
@@ -144,3 +150,24 @@ def test_project_controller_save_reopen_restores_report_composition(tmp_path) ->
         "dataset-report-composition": _composition()
     }
     assert not reopened.dirty
+
+
+def test_dataset_removal_paths_clear_report_compositions() -> None:
+    sources = (
+        inspect.getsource(DatasetMergeController._undo_command),
+        inspect.getsource(DepthAxisController.undo_ascending_copy),
+        inspect.getsource(DepthAxisController.undo_resample),
+        inspect.getsource(DerivedDatasetController.rollback),
+        inspect.getsource(LagCorrectionProjectController.delete_profile),
+    )
+
+    assert all("report_compositions" in source for source in sources)
+    assert all(".pop(" in source for source in sources)
+
+
+def test_dataset_rebind_invalidates_preview_composition_cache() -> None:
+    source = inspect.getsource(
+        interpretation_report_workspace_final.InterpretationReportWorkspace._sync_depth_interval_dataset
+    )
+
+    assert "self._preview_geology_report_key = None" in source
