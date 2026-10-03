@@ -9,7 +9,9 @@ import pytest
 from PySide6.QtGui import QPageLayout
 
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain, Project, Well
+from geoworkbench.data import hydrocarbon_interpretation_export_docx_polished as polished_docx
 from geoworkbench.printing import hydrocarbon_interpretation_chart as interpretation_chart
+from geoworkbench.printing import hydrocarbon_interpretation_report as pdf_report
 from geoworkbench.printing import hydrocarbon_interpretation_chart_front as chart_front
 from geoworkbench.printing import hydrocarbon_interpretation_pdf_chart_enhanced as pdf_chart
 from geoworkbench.printing import hydrocarbon_interpretation_pdf_renderer as pdf_renderer
@@ -356,6 +358,54 @@ def test_optional_narrative_html_is_localized_and_escaped() -> None:
     assert "&lt;b&gt;Summary&lt;/b&gt;<br/>Second line" in html
     assert "A &amp; B" in html
     assert "<b>Summary</b>" not in html
+    assert html.index("Executive summary") < html.index("<p>Body</p>")
+    assert html.index("Conclusion") > html.index("<p>Body</p>")
+
+
+def test_pdf_preflight_includes_optional_narrative_fields() -> None:
+    source = inspect.getsource(pdf_report.export_hydrocarbon_interpretation_pdf)
+
+    assert "details.summary" in source
+    assert "details.conclusion" in source
+
+
+def test_polished_docx_places_summary_before_body_and_conclusion_after_body() -> None:
+    xml = (
+        '<?xml version="1.0" encoding="utf-8"?>'
+        '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+        '<w:body>'
+        '<w:p><w:pPr><w:pStyle w:val="Normal"/></w:pPr><w:r><w:t>Old cover</w:t></w:r></w:p>'
+        '<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Body heading</w:t></w:r></w:p>'
+        '<w:sectPr/>'
+        '</w:body></w:document>'
+    ).encode("utf-8")
+    report = SimpleNamespace(
+        report_profile="standard",
+        primary_mnemonic="TG",
+        threshold=3.0,
+    )
+    identity = InterpretationReportIdentity(
+        report_title="Title",
+        report_subtitle="Subtitle",
+        project_name="Project",
+        well_name="Well",
+        summary="Summary text",
+        conclusion="Conclusion text",
+    )
+
+    rewritten = polished_docx._document_with_polished_cover(
+        xml,
+        report,
+        identity,
+        AppLanguage.EN,
+    ).decode("utf-8")
+
+    assert "Executive summary" in rewritten
+    assert "Summary text" in rewritten
+    assert "Conclusion" in rewritten
+    assert "Conclusion text" in rewritten
+    assert rewritten.index("Executive summary") < rewritten.index("Body heading")
+    assert rewritten.index("Conclusion") > rewritten.index("Body heading")
 
 
 def test_project_v36_migrates_with_empty_report_compositions(tmp_path) -> None:
