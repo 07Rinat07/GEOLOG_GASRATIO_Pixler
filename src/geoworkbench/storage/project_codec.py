@@ -63,13 +63,8 @@ class ProjectDocument(_V29ProjectDocument):
     report_compositions: dict[str, InterpretationReportComposition] = field(default_factory=dict)
 
 
-_REPORT_COMPOSITION_KEYS = {
-    "orientation",
-    "print_order",
-    "cuttings",
-    "lba",
-    "legend_mode",
-}
+_REPORT_COMPOSITION_KEYS_V37 = {"orientation", "print_order", "cuttings", "lba"}
+_REPORT_COMPOSITION_KEYS = {*_REPORT_COMPOSITION_KEYS_V37, "legend_mode"}
 
 
 def _report_compositions_from_dict(
@@ -81,7 +76,10 @@ def _report_compositions_from_dict(
     for dataset_id, raw in data.items():
         if not isinstance(dataset_id, str) or not dataset_id.strip():
             raise ProjectFormatError("ID набора для report composition не может быть пустым")
-        if not isinstance(raw, dict) or set(raw) != _REPORT_COMPOSITION_KEYS:
+        if (
+            not isinstance(raw, dict)
+            or set(raw) not in {_REPORT_COMPOSITION_KEYS_V37, _REPORT_COMPOSITION_KEYS}
+        ):
             raise ProjectFormatError("Некорректная report composition")
         try:
             result[dataset_id] = InterpretationReportComposition(
@@ -89,7 +87,9 @@ def _report_compositions_from_dict(
                 print_order=ReportPrintOrder(raw["print_order"]),
                 cuttings=ReportTrackVisibility(raw["cuttings"]),
                 lba=ReportTrackVisibility(raw["lba"]),
-                legend_mode=ReportLegendMode(raw["legend_mode"]),
+                legend_mode=ReportLegendMode(
+                    raw.get("legend_mode", ReportLegendMode.FULL.value)
+                ),
             )
         except (KeyError, TypeError, ValueError) as exc:
             raise ProjectFormatError("Некорректная report composition") from exc
