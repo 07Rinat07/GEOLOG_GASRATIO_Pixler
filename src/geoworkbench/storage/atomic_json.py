@@ -140,6 +140,7 @@ def save_project(
                 "print_order": composition.print_order.value,
                 "cuttings": composition.cuttings.value,
                 "lba": composition.lba.value,
+                "legend_mode": composition.legend_mode.value,
             }
             for dataset_id, composition in compositions.items()
         },
