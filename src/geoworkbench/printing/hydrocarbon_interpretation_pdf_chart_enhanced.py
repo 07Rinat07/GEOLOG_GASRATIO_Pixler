@@ -221,6 +221,11 @@ def render_chart_pages(
     for page_index, page in enumerate(pages, start=1):
         canvas.new_page()
         percentiles = base_chart._curve_percentiles(panels, dataset, page=page)
+        draw_options = (
+            {"geology_legend_compact": True}
+            if legend_compact
+            else {}
+        )
         _draw_chart_page(
             canvas.painter,
             chart_geometry(
@@ -245,7 +250,7 @@ def render_chart_pages(
             empty_state_tracks,
             chart_legend,
             None,
-            geology_legend_compact=legend_compact,
+            **draw_options,
         )
         canvas.y = canvas.content_rect.bottom()
 
