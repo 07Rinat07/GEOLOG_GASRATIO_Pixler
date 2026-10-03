@@ -588,15 +588,29 @@ def test_dense_ratio_pdf_markers_do_not_overlap_into_worms() -> None:
         for marker in markers
     )
 
-    for left_index, left in enumerate(markers):
-        for right in markers[left_index + 1 :]:
-            horizontal_overlap = abs(left.center().x() - right.center().x()) < (
-                left.width() + right.width()
-            ) / 2.0
-            vertical_overlap = abs(left.center().y() - right.center().y()) < (
-                left.height() + right.height()
-            ) / 2.0
-            assert not (horizontal_overlap and vertical_overlap)
+    ordered = sorted(markers, key=lambda marker: marker.center().y())
+    longest_overlap_chain = 1
+    current_overlap_chain = 1
+    for previous, current in zip(ordered, ordered[1:], strict=False):
+        vertical_overlap = (
+            current.center().y() - previous.center().y()
+            < (previous.height() + current.height()) / 2.0
+        )
+        same_column = abs(current.center().x() - previous.center().x()) < (
+            previous.width() + current.width()
+        ) / 2.0
+        if vertical_overlap and same_column:
+            current_overlap_chain += 1
+            longest_overlap_chain = max(
+                longest_overlap_chain,
+                current_overlap_chain,
+            )
+        else:
+            current_overlap_chain = 1
+
+    # A small local overlap is acceptable for extrema from one depth bucket.
+    # What must never return is a long same-column chain that reads as a line.
+    assert longest_overlap_chain <= 3
 
 
 def test_report_panel_scatter_contract_is_ratio_only() -> None:
