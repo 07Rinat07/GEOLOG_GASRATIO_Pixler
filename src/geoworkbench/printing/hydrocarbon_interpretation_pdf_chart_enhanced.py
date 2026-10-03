@@ -233,33 +233,57 @@ def render_chart_pages(
             if legend_compact
             else {}
         )
-        _draw_chart_page(
-            canvas.painter,
-            chart_geometry(
-                canvas.content_rect,
-                page,
-                len(panels),
-                geology_track_count=len(geology_tracks),
-                geology_legend_height=full_legend_height,
-                track_header_height=header_height,
-            ),
+        geometry = chart_geometry(
+            canvas.content_rect,
             page,
-            page_index,
-            len(pages),
-            report,
-            dataset,
-            panels,
-            base_chart._display_curve_ranges(percentiles),
-            percentiles,
-            language,
-            geology,
-            geology_tracks,
-            empty_state_tracks,
-            chart_legend,
-            None,
-            annotations=annotations,
-            **draw_options,
+            len(panels),
+            geology_track_count=len(geology_tracks),
+            geology_legend_height=full_legend_height,
+            track_header_height=header_height,
         )
+        if annotations:
+            _draw_chart_page(
+                canvas.painter,
+                geometry,
+                page,
+                page_index,
+                len(pages),
+                report,
+                dataset,
+                panels,
+                base_chart._display_curve_ranges(percentiles),
+                percentiles,
+                language,
+                geology,
+                geology_tracks,
+                empty_state_tracks,
+                chart_legend,
+                None,
+                annotations=annotations,
+                **draw_options,
+            )
+        else:
+            # Preserve the historical call contract for test/profiling hooks
+            # that wrap _draw_chart_page without the RPT-ANN keyword.
+            _draw_chart_page(
+                canvas.painter,
+                geometry,
+                page,
+                page_index,
+                len(pages),
+                report,
+                dataset,
+                panels,
+                base_chart._display_curve_ranges(percentiles),
+                percentiles,
+                language,
+                geology,
+                geology_tracks,
+                empty_state_tracks,
+                chart_legend,
+                None,
+                **draw_options,
+            )
         canvas.y = canvas.content_rect.bottom()
 
 
