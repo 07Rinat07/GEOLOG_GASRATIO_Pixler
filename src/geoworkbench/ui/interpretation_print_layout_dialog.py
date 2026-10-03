@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum
 
 from PySide6.QtCore import QSize
@@ -220,7 +220,9 @@ class InterpretationPrintLayoutDialog(QDialog):
             print_order = self.initial.print_order
         else:
             print_order = ReportPrintOrder.FIRST_TO_LAST
-        return InterpretationReportComposition(
+        base = self.initial or InterpretationReportComposition()
+        return replace(
+            base,
             orientation=orientation,
             print_order=print_order,
             cuttings=ReportTrackVisibility(layout.geology_tracks.cuttings.value),
