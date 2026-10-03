@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from PySide6.QtCore import QSize
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -27,6 +28,7 @@ from geoworkbench.project.report_annotation_controller import ReportAnnotationCo
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.edit_history import CommandHistory
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.ui.window_geometry import fit_window_to_screen
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,7 +67,6 @@ class InterpretationReportAnnotationDialog(QDialog):
         self._checkpoint = self.controller.checkpoint()
 
         self.setModal(True)
-        self.resize(560, 430)
 
         root = QVBoxLayout(self)
         form = QFormLayout()
@@ -149,6 +150,11 @@ class InterpretationReportAnnotationDialog(QDialog):
                 "Қорытынды есеп аннотациялары",
                 "Final report annotations",
             )
+        )
+        fit_window_to_screen(
+            self,
+            preferred=QSize(620, 500),
+            minimum=QSize(500, 380),
         )
 
     @staticmethod
