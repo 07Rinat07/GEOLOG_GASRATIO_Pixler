@@ -35,6 +35,35 @@ class AnnotationAnchor(StrEnum):
     CURVE = "curve"
 
 
+@dataclass(frozen=True, slots=True)
+class AnnotationRecord:
+    annotation_id: str
+    kind: AnnotationKind
+    anchor: AnnotationAnchor
+    text: str
+    track_id: str | None
+    depth: float | None
+    axis_value: float | None
+    axis_id: str | None
+    parameter_mnemonic: str | None
+    parameter_value: float | None
+    unit: str
+    x_fraction: float
+    offset_x: float
+    offset_y: float
+    width: float
+    height: float
+    style: AnnotationStyle = field(default_factory=AnnotationStyle)
+    asset_ref: str | None = None
+    visible: bool = True
+    locked: bool = False
+    print_enabled: bool = True
+    scope_id: str | None = None
+    symbol_id: str | None = None
+    transparent_background: bool = True
+    text_i18n: dict[str, str] = field(default_factory=dict)
+
+
 STYLE_PRESETS: dict[str, AnnotationStyle] = {
     "professional": AnnotationStyle(),
     "information": AnnotationStyle(
