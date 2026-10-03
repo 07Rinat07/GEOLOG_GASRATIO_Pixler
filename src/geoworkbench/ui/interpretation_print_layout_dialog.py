@@ -22,6 +22,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
 from geoworkbench.domain.report_composition import (
     InterpretationReportComposition,
     ReportLegendMode,
+    ReportLayoutProfile,
     ReportPageOrientation,
     ReportPrintOrder,
     ReportTrackVisibility,
@@ -41,6 +42,7 @@ class InterpretationPrintLayout:
     order: InterpretationPrintOrder
     geology_tracks: InterpretationGeologyTrackSettings = InterpretationGeologyTrackSettings()
     legend_mode: ReportLegendMode = ReportLegendMode.FULL
+    layout_profile: ReportLayoutProfile = ReportLayoutProfile.MODERN_OILFIELD
 
 
 class InterpretationPrintLayoutDialog(QDialog):
@@ -143,6 +145,19 @@ class InterpretationPrintLayoutDialog(QDialog):
             QLabel(self._text("Легенды:", "Аңыздар:", "Legends:")),
             self.legend_mode_combo,
         )
+        self.layout_profile_combo = QComboBox()
+        self.layout_profile_combo.addItem(
+            self._text(
+                "Modern Oilfield — стандартный профиль",
+                "Modern Oilfield — стандартты профиль",
+                "Modern Oilfield — standard profile",
+            ),
+            ReportLayoutProfile.MODERN_OILFIELD,
+        )
+        form.addRow(
+            QLabel(self._text("Профиль макета:", "Макет профилі:", "Layout profile:")),
+            self.layout_profile_combo,
+        )
         self.order_label.setVisible(include_order)
         self.order_combo.setVisible(include_order)
         self._apply_initial(initial)
@@ -162,7 +177,7 @@ class InterpretationPrintLayoutDialog(QDialog):
 
         fit_window_to_screen(
             self,
-            preferred=QSize(620, 360),
+            preferred=QSize(620, 400),
             minimum=QSize(340, 240),
         )
 
@@ -193,6 +208,11 @@ class InterpretationPrintLayoutDialog(QDialog):
             legend_mode = ReportLegendMode(legend_data)
         except (TypeError, ValueError):
             legend_mode = ReportLegendMode.FULL
+        layout_profile_data = self.layout_profile_combo.currentData()
+        try:
+            layout_profile = ReportLayoutProfile(layout_profile_data)
+        except (TypeError, ValueError):
+            layout_profile = ReportLayoutProfile.MODERN_OILFIELD
         return InterpretationPrintLayout(
             orientation=orientation,
             order=order,
@@ -201,6 +221,7 @@ class InterpretationPrintLayoutDialog(QDialog):
                 lba=lba,
             ),
             legend_mode=legend_mode,
+            layout_profile=layout_profile,
         )
 
     def selected_composition(self) -> InterpretationReportComposition:
@@ -228,6 +249,7 @@ class InterpretationPrintLayoutDialog(QDialog):
             cuttings=ReportTrackVisibility(layout.geology_tracks.cuttings.value),
             lba=ReportTrackVisibility(layout.geology_tracks.lba.value),
             legend_mode=layout.legend_mode,
+            layout_profile=layout.layout_profile,
         )
 
     def _apply_initial(
@@ -257,6 +279,7 @@ class InterpretationPrintLayoutDialog(QDialog):
             GeologyTrackVisibility(initial.lba.value),
         )
         self._set_combo_data(self.legend_mode_combo, initial.legend_mode)
+        self._set_combo_data(self.layout_profile_combo, initial.layout_profile)
 
     @staticmethod
     def _set_combo_data(combo: QComboBox, value: object) -> None:
