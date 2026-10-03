@@ -35,6 +35,7 @@ class ReportAnnotationEditorCheckpoint:
     composition_existed: bool
     presentation_state: InterpretationReportComposition
     annotations: tuple[ReportAnnotationRecord, ...]
+    session_dirty: bool
     history: CommandHistoryCheckpoint = field(repr=False)
 
 
@@ -394,6 +395,7 @@ class ReportAnnotationController:
             composition_existed=existing is not None,
             presentation_state=replace(composition, annotations=()),
             annotations=composition.annotations,
+            session_dirty=self.session.dirty,
             history=self._history.checkpoint(),
         )
 
@@ -421,7 +423,7 @@ class ReportAnnotationController:
         else:
             self.session.report_compositions.pop(checkpoint.dataset_id, None)
         self._history.restore(checkpoint.history)
-        self.session.dirty = True
+        self.session.dirty = checkpoint.session_dirty
 
     def clear_history(self) -> None:
         self._history.clear()
