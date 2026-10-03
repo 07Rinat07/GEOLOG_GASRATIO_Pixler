@@ -681,8 +681,12 @@ def _draw_panel(
         if np.count_nonzero(usable) < minimum_samples:
             continue
         finite_values = values[usable]
-        low = float(np.percentile(finite_values, 5.0))
-        high = float(np.percentile(finite_values, 95.0))
+        if point_series:
+            low = float(np.min(finite_values))
+            high = float(np.max(finite_values))
+        else:
+            low = float(np.percentile(finite_values, 5.0))
+            high = float(np.percentile(finite_values, 95.0))
         if not np.isfinite(low) or not np.isfinite(high):
             continue
         color = QColor(_COLORS[curve_index % len(_COLORS)])
