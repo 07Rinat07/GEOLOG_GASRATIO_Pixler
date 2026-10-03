@@ -5,6 +5,7 @@ from html import escape
 from geoworkbench.domain.depth_interval import scope_dataset
 from geoworkbench.domain.models import Dataset
 from geoworkbench.domain.report_composition import ReportLayoutProfile, ReportLegendMode
+from geoworkbench.domain.report_annotations import ReportAnnotationRecord
 from geoworkbench.printing.interpretation_chart_key import interpretation_chart_key_html
 from geoworkbench.printing.hydrocarbon_interpretation_chart import (
     hydrocarbon_interpretation_chart_data_uri,
@@ -44,6 +45,7 @@ def hydrocarbon_interpretation_html_with_front_chart(
     legend_mode: ReportLegendMode = ReportLegendMode.FULL,
     layout_profile: ReportLayoutProfile = ReportLayoutProfile.MODERN_OILFIELD,
     identity: InterpretationReportIdentity | None = None,
+    annotations: tuple[ReportAnnotationRecord, ...] = (),
 ) -> str:
     """Insert the whole-well chart before the first tabular report section."""
 
@@ -63,6 +65,7 @@ def hydrocarbon_interpretation_html_with_front_chart(
         geology_track_settings=geology_track_settings,
         depth_range=depth_range,
         legend_mode=legend_mode,
+        annotations=annotations,
     )
     if not uri:
         return base
