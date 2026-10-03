@@ -149,16 +149,25 @@ class InterpretationPrintLayoutDialog(QDialog):
 
     def selected_layout(self) -> InterpretationPrintLayout:
         orientation = self.orientation_combo.currentData()
-        order = self.order_combo.currentData()
+        order_data = self.order_combo.currentData()
         if not isinstance(orientation, QPageLayout.Orientation):
             orientation = QPageLayout.Orientation.Portrait
-        if not self.include_order or not isinstance(order, InterpretationPrintOrder):
+        if self.include_order:
+            try:
+                order = InterpretationPrintOrder(order_data)
+            except (TypeError, ValueError):
+                order = InterpretationPrintOrder.FIRST_TO_LAST
+        else:
             order = InterpretationPrintOrder.FIRST_TO_LAST
-        cuttings = self.cuttings_visibility_combo.currentData()
-        lba = self.lba_visibility_combo.currentData()
-        if not isinstance(cuttings, GeologyTrackVisibility):
+        cuttings_data = self.cuttings_visibility_combo.currentData()
+        lba_data = self.lba_visibility_combo.currentData()
+        try:
+            cuttings = GeologyTrackVisibility(cuttings_data)
+        except (TypeError, ValueError):
             cuttings = GeologyTrackVisibility.AUTO
-        if not isinstance(lba, GeologyTrackVisibility):
+        try:
+            lba = GeologyTrackVisibility(lba_data)
+        except (TypeError, ValueError):
             lba = GeologyTrackVisibility.AUTO
         return InterpretationPrintLayout(
             orientation=orientation,
