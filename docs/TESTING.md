@@ -388,8 +388,9 @@ native batches. Python assertion failures и ненулевые exit status по
 Office-export boundary проверяется отдельно от численных расчётов:
 
 ```powershell
-python -m pytest -q -p no:cacheprovider tests/test_report_i18n_atomic_language.py \
-  tests/test_readable_interpretation_export.py \
+python -m pytest -q -p no:cacheprovider `
+  tests/test_report_i18n_atomic_language.py `
+  tests/test_readable_interpretation_export.py `
   tests/test_hydrocarbon_report_client_limitations.py
 ```
 
