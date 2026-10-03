@@ -210,3 +210,32 @@ def test_history_checkpoint_rejects_checkpoint_from_another_history() -> None:
 
     with pytest.raises(ValueError, match="другой истории"):
         second.restore(checkpoint)
+
+
+
+def test_history_commands_since_returns_identity_suffix() -> None:
+    state = [0]
+    history = CommandHistory()
+    first = _ValueCommand(state, 0, 1, "curve")
+    history.execute(first)
+    checkpoint = history.checkpoint()
+    second = _ValueCommand(state, 1, 2, "report_annotation")
+    history.execute(second)
+
+    assert history.commands_since(checkpoint) == (second,)
+
+
+def test_history_commands_since_rejects_divergence_and_foreign_checkpoint() -> None:
+    state = [0]
+    history = CommandHistory()
+    first = _ValueCommand(state, 0, 1, "curve")
+    history.execute(first)
+    checkpoint = history.checkpoint()
+    history.undo()
+
+    with pytest.raises(RuntimeError, match="разошлась"):
+        history.commands_since(checkpoint)
+
+    foreign = CommandHistory().checkpoint()
+    with pytest.raises(ValueError, match="другой истории"):
+        history.commands_since(foreign)
