@@ -47,8 +47,8 @@ GAS_PRINT_POINT_RADIUS_PT = 0.55
 
 # Report charts need a denser, round marker trace than the interactive scatter.
 # These values are report-only: tablet/curve-view density remains unchanged.
-GAS_REPORT_PREVIEW_POINT_RADIUS_PX = 1.15
-GAS_REPORT_PRINT_POINT_RADIUS_PT = 0.72
+GAS_REPORT_PREVIEW_POINT_RADIUS_PX = 0.90
+GAS_REPORT_PRINT_POINT_RADIUS_PT = 0.65
 
 
 
@@ -63,7 +63,7 @@ def gas_report_scatter_point_budget(vertical_extent: float) -> int:
     """Return a dense report budget without merging markers into line-like worms."""
 
     span = max(1.0, float(vertical_extent))
-    return max(72, min(1_800, int(span / 1.45)))
+    return max(72, min(1_800, int(span / 1.90)))
 
 
 def select_report_gas_scatter_samples(
