@@ -103,6 +103,7 @@ class UnicodePreflightReport:
     def ok(self) -> bool:
         return (
             not self.invalid_fragments
+            and not self.invalid_problem_details
             and not self.missing_glyphs
             and not self.suspicious_fragments
         )
