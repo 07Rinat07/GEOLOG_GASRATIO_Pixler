@@ -94,7 +94,7 @@ def _validate_report_compositions(
             "Report composition ссылается на неизвестный набор: "
             + ", ".join(sorted(unknown))
         )
-    for composition in compositions.values():
+    for dataset_id, composition in compositions.items():
         if (
             not composition.composition_id.strip()
             or len(composition.composition_id) > 128
@@ -109,16 +109,8 @@ def _validate_report_compositions(
         if len(identifiers) != len(set(identifiers)):
             raise ValueError("ID report annotations не должны повторяться")
         expected_scope = report_annotation_scope_id(
-            dataset_owners[next(
-                dataset_id
-                for dataset_id, candidate in compositions.items()
-                if candidate is composition
-            )],
-            next(
-                dataset_id
-                for dataset_id, candidate in compositions.items()
-                if candidate is composition
-            ),
+            dataset_owners[dataset_id],
+            dataset_id,
             composition.composition_id,
         )
         for annotation in composition.annotations:
