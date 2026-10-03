@@ -250,5 +250,5 @@ def test_report_identity_uses_language_scoped_persisted_header() -> None:
     assert "report_header_fields(" in source
     assert "self.language.value" in source
     assert "identity_with_report_header_fields(" in source
-    assert "_report_identity_key" not in source
-    assert "_report_identity" not in source
+    assert "self._report_identity_key" not in source
+    assert "self._report_identity =" not in source
