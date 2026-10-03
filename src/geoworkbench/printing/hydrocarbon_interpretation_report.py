@@ -98,6 +98,15 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
             f"{labels.pdf_invalid_interval}: {exc}"
         ) from exc
 
+    render_options = (
+        ("geology_cuttings", geology_track_settings.cuttings.value),
+        ("geology_lba", geology_track_settings.lba.value),
+        ("legend_mode", legend_mode.value),
+        ("layout_profile", layout_profile.value),
+    )
+    if annotations:
+        render_options = (*render_options, ("report_annotations", str(len(annotations))))
+
     passport = ReportPassportBuilder().build(
         session,
         ReportPassportRequest(
@@ -111,13 +120,7 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
                 orientation=orientation.name.casefold(),
                 dpi=72,
                 margins_mm=(14.0, 14.0, 14.0, 14.0),
-                options=(
-                    ("geology_cuttings", geology_track_settings.cuttings.value),
-                    ("geology_lba", geology_track_settings.lba.value),
-                    ("legend_mode", legend_mode.value),
-                    ("layout_profile", layout_profile.value),
-                    ("report_annotations", str(len(annotations))),
-                ),
+                options=render_options,
             ),
             interval=(depth_range.top_depth, depth_range.bottom_depth),
             curve_mnemonics=_interpretation_passport_curve_mnemonics(report),
