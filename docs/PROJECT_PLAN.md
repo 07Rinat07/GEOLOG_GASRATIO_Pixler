@@ -89,43 +89,41 @@ PERF-07 фиксирует воспроизводимый Windows baseline дл�
 ## Ближайший порядок работ
 
 Основная очередь ниже содержит только оставшуюся разработку и сквозную автоматическую приёмку.
-RPT-GEO-03, GASCTX-RPT-01 signed-depth implementation и UI-SYS-01 интегрированы через PR
-#420, #421 и #422. PERF-07 matrix-reuse slice интегрирован через PR #426; post-merge Windows
-baseline проверяется отдельным main Release gate. По операторскому запросу текущий продуктовый
-инкремент — RPT-GAS-VIS-01: газовые отношения и интерпретационные коэффициенты должны иметь
-единый point-series presentation на экране и во всех самостоятельных report/print renderers.
-Обычные глубинные TG/C1–C5/normalized curves остаются линиями; source LAS, расчётные массивы
-и специализированный relative-gas 100%-stack не изменяются.
+RPT-GAS-VIS-02 интегрирован через PR #432 после Release gate #2380: ratio-series используют
+true scatter без соединяющей geometry во всех основных renderer paths. PERF-07 numeric fast path
+интегрирован через PR #429 после Release gate #2365; clean unwrapped LAS использует fail-closed
+numpy data path с совместимым fallback на lasio. Текущий продуктовый инкремент —
+REPORT-I18N-01: один выбранный RU/KK/EN должен атомарно проходить через preview/PDF/print,
+DOCX/XLSX, cover/header, legends и пользовательские export-status сообщения без скрытого
+русского fallback. Численные расчёты, source LAS и classification не изменяются.
 
 | Порядок | Задача | Следующий проверяемый результат и зависимость | Ответственный по роли / статус |
 |---|---|---|---|
-| 1 | RPT-GAS-VIS-01 | Интегрирован через PR #427 после полного Release gate #2345: ratio/OPUS point-series единообразны в TabletView и report/print paths; обычные TG/C1–C5/ROP/DEXP остаются линиями, *_REL — 100%-stack | Разработчик / интегрировано; RPT-GAS-VIS-02 true-scatter correction на проверке |
-| 2 | PERF-07 | Gate #2347 подтвердил: parse 4.636 s, из них lasio.read 4.635 s; stream setup 0.022 ms и index 0.490 ms. Текущий slice вводит fail-closed numpy.loadtxt fast path только для clean unwrapped LAS 1.2/2.x с точным shape contract и обязательным fallback на прежний lasio; принять только после exact-head Windows сравнения времени и correctness | Разработчик / в работе |
-| 3 | REPORT-I18N-01 | Один явный язык всей выдачи RU/KK/EN: preview/PDF/print/DOCX/XLSX, legends, header и annotations; устранить оставшиеся fixed-language adapters. Реестр переводов WELL-04 используется без подмены draft/reviewed статусов | Разработчик / готово к разработке |
-| 4 | RPT-COMP-01 | Один сохраняемый presentation composition и финальный preview поверх готовых renderers; Auto/Show/Hide уже существует. Зависит от исправленного workspace и общего language contract; расчёты и source geology не меняются | Разработчик / готово к разработке |
-| 5 | RPT-ANN-01 | Report scope и logical track anchors, printable remarks/callouts, общий bounded Undo/Redo, Cancel/Save checkpoints; зависит от стабильного composition ID Composer | Разработчик / запланировано |
-| 6 | PRINT-STYLE-01 | Свести оставшиеся generic/Masterlog/Office пути к одному visual profile и document-control contract; дополнять готовые typography/marker/legend contracts. Physical acceptance вынесена отдельно | Разработчик / в работе |
-| 7 | GASCTX-RPT-01: остаточная приёмка | Проверить общий editor/registry/context audit через production entry points, save/reopen и RU/KK/EN; завершить отдельные полосы/метки событий с grayscale-подписями. Реализованные exclusion/background/confirmed policy не переписывать | Разработчик + специалист ГТИ / на проверке |
-| 8 | WITS-UX-01 | Завершить persistence/reconnect и live-first navigation/help: основные данные и health видимы, advanced/diagnostics сворачиваются, outer horizontal scroll отсутствует | Разработчик / в работе |
-| 9 | WITS-PLOT-01 | Остаточные manual ranges, reconnect/schema-change и redraw acceptance поверх существующих unit-aware tracks и редактируемых панелей | Разработчик / в работе |
-| 10 | WITS-GASCTX-01 / WITS-INTERP-01 | Сквозная проекция live gas context и интерпретационных полос; source origin, fluid screening и alarm остаются независимыми осями | Разработчик + специалист ГТИ / в работе |
-| 11 | WELL-04 → WELL-05 | Сквозная готовность переводов и пары макетов; использовать реализованные field ledger/readiness/family resolver и WELL-06, проверить save/reopen без смешения ревизий | Разработчик / на проверке |
-| 12 | ARCH-07 | Довести общую history до оставшихся mutation controllers при работе над конкретными editor сценариями; не создавать параллельную историю в RPT-ANN | Разработчик / в работе |
-| 13 | PERF-05 | Сначала baseline текущего save/open/RSS на 100k/1M; новый storage backend только при подтверждённом bottleneck и с совместимой миграцией | Разработчик / запланировано |
+| 1 | REPORT-I18N-01 | Первый slice: workspace явно передаёт RU/KK/EN в XLSX/DOCX; polished Word cover, progress/error text и missing-value labels используют тот же язык. Далее проверить оставшиеся preview/PDF/print/annotation adapters без смешения языков | Разработчик / в работе |
+| 2 | RPT-COMP-01 | Один сохраняемый presentation composition и финальный preview поверх готовых renderers; Auto/Show/Hide уже существует. Зависит от исправленного workspace и общего language contract; расчёты и source geology не меняются | Разработчик / готово к разработке |
+| 3 | RPT-ANN-01 | Report scope и logical track anchors, printable remarks/callouts, общий bounded Undo/Redo, Cancel/Save checkpoints; зависит от стабильного composition ID Composer | Разработчик / запланировано |
+| 4 | PRINT-STYLE-01 | Свести оставшиеся generic/Masterlog/Office пути к одному visual profile и document-control contract; дополнять готовые typography/marker/legend contracts. Physical acceptance вынесена отдельно | Разработчик / в работе |
+| 5 | GASCTX-RPT-01: остаточная приёмка | Проверить общий editor/registry/context audit через production entry points, save/reopen и RU/KK/EN; завершить отдельные полосы/метки событий с grayscale-подписями. Реализованные exclusion/background/confirmed policy не переписывать | Разработчик + специалист ГТИ / на проверке |
+| 6 | WITS-UX-01 | Завершить persistence/reconnect и live-first navigation/help: основные данные и health видимы, advanced/diagnostics сворачиваются, outer horizontal scroll отсутствует | Разработчик / в работе |
+| 7 | WITS-PLOT-01 | Остаточные manual ranges, reconnect/schema-change и redraw acceptance поверх существующих unit-aware tracks и редактируемых панелей | Разработчик / в работе |
+| 8 | WITS-GASCTX-01 / WITS-INTERP-01 | Сквозная проекция live gas context и интерпретационных полос; source origin, fluid screening и alarm остаются независимыми осями | Разработчик + специалист ГТИ / в работе |
+| 9 | WELL-04 → WELL-05 | Сквозная готовность переводов и пары макетов; использовать реализованные field ledger/readiness/family resolver и WELL-06, проверить save/reopen без смешения ревизий | Разработчик / на проверке |
+| 10 | ARCH-07 | Довести общую history до оставшихся mutation controllers при работе над конкретными editor сценариями; не создавать параллельную историю в RPT-ANN | Разработчик / в работе |
+| 11 | PERF-05 | Сначала baseline текущего save/open/RSS на 100k/1M; новый storage backend только при подтверждённом bottleneck и с совместимой миграцией | Разработчик / запланировано |
 
 ## RPT-GAS-VIS-01 — точечное представление газовых отношений
 
-- [ ] Один shared presentation predicate определяет Haworth/WH-BH-CH, C1/C2…C1/C5,
+- [x] Один shared presentation predicate определяет Haworth/WH-BH-CH, C1/C2…C1/C5,
   isomer ratios, Pixler и OPUS ratio identifiers; source/canonical mnemonics учитываются
   без изменения Dataset.
-- [ ] TabletView и его print/PDF snapshot используют заполненные point markers без polyline
+- [x] TabletView и его print/PDF snapshot используют заполненные point markers без polyline
   только для ratio-series; STYLE-refresh не должен возвращать линию у ratio и не должен
   превращать обычные TG/C1–C5/normalized gas в точки.
-- [ ] Masterlog и hydrocarbon HTML/PNG/PDF используют тот же смысловой контракт:
+- [x] Masterlog и hydrocarbon HTML/PNG/PDF используют тот же смысловой контракт:
   ratios — точки, обычные gas depth-series и drilling/DEXP — линии; легенда соответствует
   фактическому glyph. C1–C5 ramp-report сохраняет временные линии компонентов.
-- [ ] Relative-gas `*_REL` остаётся cumulative 0–100% stacked fill и не переводится в scatter.
-- [ ] Regression matrix фиксирует screen/print/Masterlog/report boundaries; завершение только
+- [x] Relative-gas `*_REL` остаётся cumulative 0–100% stacked fill и не переводится в scatter.
+- [x] Regression matrix фиксирует screen/print/Masterlog/report boundaries; завершение только
   после зелёного Release gate на окончательном head.
 
 ### Внешняя и операторская приёмка, выполняемая параллельно

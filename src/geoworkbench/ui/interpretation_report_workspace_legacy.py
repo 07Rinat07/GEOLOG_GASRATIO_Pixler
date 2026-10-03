@@ -482,6 +482,7 @@ class InterpretationReportWorkspace(QWidget):
                     report,
                     dataset,
                     target,
+                    language=self.language,
                     overwrite=target.exists(),
                     progress=self._update_report_export_progress,
                 )
@@ -512,6 +513,7 @@ class InterpretationReportWorkspace(QWidget):
                     report,
                     target,
                     dataset=dataset,
+                    language=self.language,
                     overwrite=target.exists(),
                     progress=self._update_report_export_progress,
                 )

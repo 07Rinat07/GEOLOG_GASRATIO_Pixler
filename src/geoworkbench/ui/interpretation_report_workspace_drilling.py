@@ -126,6 +126,7 @@ class InterpretationReportWorkspace(_FinalInterpretationReportWorkspace):
                     target,
                     dataset=dataset,
                     identity=identity,
+                    language=self.language,
                     overwrite=target.exists(),
                 )
         except (OSError, FileExistsError, HydrocarbonInterpretationExportError) as exc:

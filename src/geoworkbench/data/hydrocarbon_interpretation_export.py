@@ -39,6 +39,47 @@ class HydrocarbonInterpretationExportError(RuntimeError):
     pass
 
 
+_DOCX_PROGRESS = {
+    AppLanguage.RU: (
+        "Подготовка Word-отчёта",
+        "Расчёт интервальной статистики",
+        "Сохранение Word-файла",
+        "Word-отчёт готов",
+        "Не удалось экспортировать Word",
+    ),
+    AppLanguage.KK: (
+        "Word есебін дайындау",
+        "Аралық статистиканы есептеу",
+        "Word файлын сақтау",
+        "Word есебі дайын",
+        "Word экспорттау мүмкін болмады",
+    ),
+    AppLanguage.EN: (
+        "Preparing Word report",
+        "Calculating interval statistics",
+        "Saving Word file",
+        "Word report ready",
+        "Failed to export Word",
+    ),
+}
+
+
+_DOCX_VALIDATION_ERRORS = {
+    AppLanguage.RU: (
+        "Отчёт относится к другому набору данных",
+        "Кривые с неверным числом отсчётов",
+    ),
+    AppLanguage.KK: (
+        "Есеп басқа деректер жинағына жатады",
+        "Есеп саны қате қисықтар",
+    ),
+    AppLanguage.EN: (
+        "The report belongs to another dataset",
+        "Curves with an invalid sample count",
+    ),
+}
+
+
 def export_hydrocarbon_interpretation_xlsx(
     report: HydrocarbonInterpretationReport,
     dataset: Dataset,
@@ -73,24 +114,27 @@ def export_hydrocarbon_interpretation_docx(
     overwrite: bool = False,
     progress: Callable[[str, int, int], None] | None = None,
 ) -> Path:
-    _notify_export_progress(progress, "Подготовка Word-отчёта", 0, 100)
+    progress_prepare, progress_statistics, progress_save, progress_ready, error_export = (
+        _DOCX_PROGRESS[language]
+    )
+    _notify_export_progress(progress, progress_prepare, 0, 100)
     if dataset is not None:
-        _validate_dataset(report, dataset)
+        _validate_dataset(report, dataset, language=language)
         dataset = scope_dataset(dataset, report.analysis_depth_interval)
-    _notify_export_progress(progress, "Расчёт интервальной статистики", 20, 100)
+    _notify_export_progress(progress, progress_statistics, 20, 100)
     destination = _prepare_target(target, ".docx", overwrite=overwrite)
     temporary = _temporary_path(destination)
     try:
         _write_docx(temporary, report, dataset, language)
-        _notify_export_progress(progress, "Сохранение Word-файла", 90, 100)
+        _notify_export_progress(progress, progress_save, 90, 100)
         os.replace(temporary, destination)
-        _notify_export_progress(progress, "Word-отчёт готов", 100, 100)
+        _notify_export_progress(progress, progress_ready, 100, 100)
     except Exception as exc:
         temporary.unlink(missing_ok=True)
         if isinstance(exc, (FileExistsError, HydrocarbonInterpretationExportError)):
             raise
         raise HydrocarbonInterpretationExportError(
-            f"Не удалось экспортировать Word: {destination}"
+            f"{error_export}: {destination}"
         ) from exc
     return destination
 
@@ -642,9 +686,15 @@ def _docx_styles() -> str:
     )
 
 
-def _validate_dataset(report: HydrocarbonInterpretationReport, dataset: Dataset) -> None:
+def _validate_dataset(
+    report: HydrocarbonInterpretationReport,
+    dataset: Dataset,
+    *,
+    language: AppLanguage = AppLanguage.RU,
+) -> None:
+    dataset_mismatch, invalid_sample_count = _DOCX_VALIDATION_ERRORS[language]
     if report.dataset_id != dataset.dataset_id:
-        raise HydrocarbonInterpretationExportError("Отчёт относится к другому набору данных")
+        raise HydrocarbonInterpretationExportError(dataset_mismatch)
     expected_rows = dataset.active_index.values.size
     invalid_curves = tuple(
         curve.metadata.original_mnemonic
@@ -655,7 +705,7 @@ def _validate_dataset(report: HydrocarbonInterpretationReport, dataset: Dataset)
         names = ", ".join(invalid_curves[:5])
         suffix = "…" if len(invalid_curves) > 5 else ""
         raise HydrocarbonInterpretationExportError(
-            f"Кривые с неверным числом отсчётов: {names}{suffix}"
+            f"{invalid_sample_count}: {names}{suffix}"
         )
 
 

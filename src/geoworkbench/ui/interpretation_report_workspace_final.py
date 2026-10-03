@@ -609,7 +609,12 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
             self.language,
             interval=self._report_interval(report),
         )
-        key = (report.project_name, report.well_name, report.dataset_id)
+        key = (
+            report.project_name,
+            report.well_name,
+            report.dataset_id,
+            self.language,
+        )
         initial = defaults
         if getattr(self, "_report_identity_key", None) == key:
             cached = getattr(self, "_report_identity", None)
@@ -675,6 +680,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     report,
                     dataset,
                     target,
+                    language=self.language,
                     overwrite=target.exists(),
                     progress=self._update_report_export_progress,
                 )

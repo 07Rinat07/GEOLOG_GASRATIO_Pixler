@@ -63,10 +63,9 @@ def export_readable_hydrocarbon_interpretation_xlsx(
     overwrite: bool = False,
     progress: Callable[[str, int, int], None] | None = None,
 ) -> Path:
+    labels = hydrocarbon_report_labels(language)
     if dataset.dataset_id != report.dataset_id:
-        raise HydrocarbonInterpretationExportError(
-            "Набор данных не соответствует сформированному отчёту интерпретации."
-        )
+        raise HydrocarbonInterpretationExportError(labels.xlsx_dataset_mismatch)
     invalid_curves = tuple(
         curve.metadata.original_mnemonic
         for curve in dataset.curves.values()
@@ -76,12 +75,15 @@ def export_readable_hydrocarbon_interpretation_xlsx(
         names = ", ".join(invalid_curves[:5])
         suffix = "…" if len(invalid_curves) > 5 else ""
         raise HydrocarbonInterpretationExportError(
-            f"Кривые с неверным числом отсчётов: {names}{suffix}"
+            f"{labels.xlsx_invalid_sample_count}: {names}{suffix}"
         )
     dataset = scope_dataset(dataset, report.analysis_depth_interval)
     if dataset.depth.size + 1 > _EXCEL_MAX_ROWS:
         raise HydrocarbonInterpretationExportError(
-            f"В наборе {dataset.depth.size} строк; лимит Excel — {_EXCEL_MAX_ROWS - 1}."
+            labels.xlsx_row_limit.format(
+                rows=dataset.depth.size,
+                limit=_EXCEL_MAX_ROWS - 1,
+            )
         )
     destination = Path(target)
     if destination.suffix.casefold() != ".xlsx":
@@ -90,7 +92,6 @@ def export_readable_hydrocarbon_interpretation_xlsx(
         raise FileExistsError(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
 
-    labels = hydrocarbon_report_labels(language)
     _notify(progress, labels.progress_prepare, 0, 100)
     workbook = Workbook()
     try:
@@ -127,7 +128,7 @@ def export_readable_hydrocarbon_interpretation_xlsx(
             if isinstance(exc, (FileExistsError, HydrocarbonInterpretationExportError)):
                 raise
             raise HydrocarbonInterpretationExportError(
-                f"Не удалось экспортировать Excel: {destination}"
+                f"{labels.xlsx_export_failed}: {destination}"
             ) from exc
     finally:
         workbook.close()
@@ -520,7 +521,7 @@ def _manual_row(
     raw = statistics.raw_total
     normalized = statistics.primary
     return (
-        f"Г-{index}",
+        f"{labels.manual_interval_prefix}-{index}",
         item.top_depth,
         item.bottom_depth,
         item.bottom_depth - item.top_depth,
@@ -900,9 +901,9 @@ def _haworth_pixler_text(
 ) -> str:
     labels = hydrocarbon_report_labels(language)
     parts = [
-        f"Wh={_optional(candidate.interval_wetness)}",
-        f"Bh={_optional(candidate.interval_balance)}",
-        f"Ch={_optional(candidate.interval_character)}",
+        f"Wh={_optional(candidate.interval_wetness, language)}",
+        f"Bh={_optional(candidate.interval_balance, language)}",
+        f"Ch={_optional(candidate.interval_character, language)}",
     ]
     if candidate.pixler_assessment is not None:
         pixler = candidate.pixler_assessment
@@ -922,9 +923,9 @@ def _dexp_text(
     labels = hydrocarbon_report_labels(language)
     return (
         f"{localized_curve_name(item.mnemonic, language=language)}: "
-        f"{labels.min_word} {_optional(item.minimum)}; "
-        f"{labels.mean_word} {_optional(item.mean)}; "
-        f"{labels.max_word} {_optional(item.maximum)}"
+        f"{labels.min_word} {_optional(item.minimum, language)}; "
+        f"{labels.mean_word} {_optional(item.mean, language)}; "
+        f"{labels.max_word} {_optional(item.maximum, language)}"
     )
 
 
@@ -974,8 +975,10 @@ def _lba_text(
     return f"{labels.lba_absent}; {labels.correlation}: {correlation}"
 
 
-def _optional(value: float | None) -> str:
-    return "нет данных" if value is None or not np.isfinite(value) else f"{value:.6g}"
+def _optional(value: float | None, language: AppLanguage) -> str:
+    if value is None or not np.isfinite(value):
+        return hydrocarbon_report_labels(language).no_data
+    return f"{value:.6g}"
 
 
 def _first_primary_name(primary: str | None) -> str | None:
