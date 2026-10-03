@@ -12,6 +12,11 @@ from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
 from geoworkbench.printing import hydrocarbon_interpretation_pdf_chart_enhanced as chart
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import DepthPage, plan_depth_pages
 from geoworkbench.printing.hydrocarbon_interpretation_report_range import ReportDepthRange
+from geoworkbench.services.gas_curve_presentation import (
+    GAS_PRINT_POINTS_PER_PT,
+    gas_scatter_point_budget,
+    select_gas_scatter_indices,
+)
 from geoworkbench.services.localization import AppLanguage
 
 
@@ -125,13 +130,38 @@ def test_print_curve_remains_visible_for_nearly_constant_signal(qapp) -> None:
         for x in range(20, 401)
         if image.pixelColor(x, y).lightness() < 170
     ]
-    dark_rows = {y for _x, y in dark_coordinates}
+    dark_rows = sorted({y for _x, y in dark_coordinates})
 
-    # OPUS is a marker-only ratio series. Visibility must come from many
-    # depth-distributed observations, not from inflating/overlapping markers
-    # until they resemble a continuous vertical segment.
+    point_budget = gas_scatter_point_budget(
+        320.0,
+        density=GAS_PRINT_POINTS_PER_PT,
+        minimum=16,
+        maximum=900,
+    )
+    selected = select_gas_scatter_indices(
+        depth,
+        np.asarray(curve.values, dtype=np.float64),
+        max_points=point_budget,
+    )
+
+    # The density budget must preserve every observation in this sparse case.
+    # Rasterized sub-pixel circles can cover a platform-dependent number of
+    # dark rows, so acceptance is based on source-point preservation, vertical
+    # coverage and the absence of a continuous "worm" segment.
+    assert selected.size == depth.size
     assert len(dark_coordinates) >= 100
-    assert len(dark_rows) >= 90
+    assert len(dark_rows) >= 70
+    assert dark_rows[-1] - dark_rows[0] >= 300
+
+    longest_run = 1
+    current_run = 1
+    for previous, current in zip(dark_rows, dark_rows[1:], strict=False):
+        if current == previous + 1:
+            current_run += 1
+            longest_run = max(longest_run, current_run)
+        else:
+            current_run = 1
+    assert longest_run <= 3
 
 
 def test_extrema_preserving_print_rows_keeps_narrow_peaks_and_bounds_density() -> None:
