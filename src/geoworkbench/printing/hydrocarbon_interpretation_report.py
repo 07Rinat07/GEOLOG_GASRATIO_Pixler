@@ -10,8 +10,10 @@ from PySide6.QtCore import QMarginsF
 from PySide6.QtGui import QPageLayout, QPageSize, QPdfWriter
 
 from geoworkbench.domain.depth_interval import scope_dataset
+from geoworkbench.domain.localized_content import localized_text
 from geoworkbench.domain.models import Dataset
 from geoworkbench.domain.report_composition import ReportLayoutProfile, ReportLegendMode
+from geoworkbench.domain.report_annotations import ReportAnnotationRecord
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_renderer import (
     render_hydrocarbon_interpretation_report,
 )
@@ -73,6 +75,7 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
     ),
     legend_mode: ReportLegendMode = ReportLegendMode.FULL,
     layout_profile: ReportLayoutProfile = ReportLayoutProfile.MODERN_OILFIELD,
+    annotations: tuple[ReportAnnotationRecord, ...] = (),
     overwrite: bool = False,
 ) -> ReportOutputTransactionResult:
     labels = hydrocarbon_report_print_labels(language)
@@ -95,6 +98,15 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
             f"{labels.pdf_invalid_interval}: {exc}"
         ) from exc
 
+    render_options: tuple[tuple[str, str], ...] = (
+        ("geology_cuttings", geology_track_settings.cuttings.value),
+        ("geology_lba", geology_track_settings.lba.value),
+        ("legend_mode", legend_mode.value),
+        ("layout_profile", layout_profile.value),
+    )
+    if annotations:
+        render_options = (*render_options, ("report_annotations", str(len(annotations))))
+
     passport = ReportPassportBuilder().build(
         session,
         ReportPassportRequest(
@@ -108,12 +120,7 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
                 orientation=orientation.name.casefold(),
                 dpi=72,
                 margins_mm=(14.0, 14.0, 14.0, 14.0),
-                options=(
-                    ("geology_cuttings", geology_track_settings.cuttings.value),
-                    ("geology_lba", geology_track_settings.lba.value),
-                    ("legend_mode", legend_mode.value),
-                    ("layout_profile", layout_profile.value),
-                ),
+                options=render_options,
             ),
             interval=(depth_range.top_depth, depth_range.bottom_depth),
             curve_mnemonics=_interpretation_passport_curve_mnemonics(report),
@@ -134,6 +141,7 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
             geology_track_settings=geology_track_settings,
             legend_mode=legend_mode,
             layout_profile=layout_profile,
+            annotations=annotations,
             overwrite=True,
         ),
         passport,
@@ -170,6 +178,7 @@ def export_hydrocarbon_interpretation_pdf(
     ),
     legend_mode: ReportLegendMode = ReportLegendMode.FULL,
     layout_profile: ReportLayoutProfile = ReportLayoutProfile.MODERN_OILFIELD,
+    annotations: tuple[ReportAnnotationRecord, ...] = (),
     overwrite: bool = False,
 ) -> Path:
     labels = hydrocarbon_report_print_labels(language)
@@ -259,7 +268,12 @@ def export_hydrocarbon_interpretation_pdf(
             details.summary,
             details.conclusion,
         )
-        unicode_report = preflight_texts([html, *identity_texts])
+        annotation_texts = tuple(
+            localized_text(item.text_i18n, language, legacy=item.text)
+            for item in annotations
+            if item.visible and item.print_enabled
+        )
+        unicode_report = preflight_texts([html, *identity_texts, *annotation_texts])
         if not unicode_report.ok:
             raise HydrocarbonInterpretationPdfError(
                 unicode_report.error_message(language=language)
@@ -277,6 +291,7 @@ def export_hydrocarbon_interpretation_pdf(
             geology_track_settings=geology_track_settings,
             legend_mode=legend_mode,
             layout_profile=layout_profile,
+            annotations=annotations,
         )
         del writer
         if temporary.stat().st_size <= 0:

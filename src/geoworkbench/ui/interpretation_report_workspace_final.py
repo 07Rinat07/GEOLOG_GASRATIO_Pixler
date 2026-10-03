@@ -342,6 +342,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                 legend_mode=composition.legend_mode,
                 layout_profile=composition.layout_profile,
                 identity=preview_identity,
+                annotations=composition.annotations,
             )
         )
 
@@ -464,6 +465,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     geology_track_settings=layout.geology_tracks,
                     legend_mode=layout.legend_mode,
                     layout_profile=layout.layout_profile,
+                    annotations=composition.annotations,
                     overwrite=target.exists(),
                 )
                 exported = export_result.primary_path
@@ -523,6 +525,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     geology_track_settings=layout.geology_tracks,
                     legend_mode=layout.legend_mode,
                     layout_profile=layout.layout_profile,
+                    annotations=composition.annotations,
                     overwrite=True,
                 )
                 with fitz.open(prepared_pdf) as document:
