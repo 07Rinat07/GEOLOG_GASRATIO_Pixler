@@ -272,6 +272,8 @@ def test_legacy_v37_header_without_profile_defaults_to_standard(tmp_path) -> Non
 
     assert restored is not None
     assert restored.report_profile == "standard"
+    assert restored.summary == "English summary"
+    assert restored.conclusion == "English conclusion"
 
 
 def test_save_rejects_report_header_larger_than_decoder_limit(tmp_path) -> None:
