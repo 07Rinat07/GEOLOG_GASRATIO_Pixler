@@ -193,6 +193,8 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
             self._sync_depth_interval_dataset()
             self._retranslate_depth_interval()
             self._update_depth_interval_controls()
+        if hasattr(self, "report_annotations_button"):
+            self._retranslate_report_annotations()
         super().refresh()
 
     def set_language(self, language: AppLanguage) -> None:
