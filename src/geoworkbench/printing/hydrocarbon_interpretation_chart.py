@@ -9,6 +9,7 @@ from PySide6.QtGui import QColor, QImage, QPainter, QPen
 from geoworkbench.domain.depth_interval import scope_dataset
 from geoworkbench.domain.models import CurveData, Dataset
 from geoworkbench.domain.report_composition import ReportLegendMode
+from geoworkbench.domain.report_annotations import ReportAnnotationRecord
 from geoworkbench.printing.geology_track_rendering import (
     paint_cuttings_track,
     paint_lba_track,
@@ -33,6 +34,10 @@ from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
 )
 from geoworkbench.printing.hydrocarbon_interpretation_report_range import (
     ReportDepthRange,
+)
+from geoworkbench.printing.report_annotation_rendering import (
+    build_report_annotation_track_map,
+    paint_report_annotations,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_curve_selection import report_curve_panels
 from geoworkbench.printing.hydrocarbon_fluid_markers import (
@@ -183,6 +188,7 @@ def hydrocarbon_interpretation_chart_data_uri(
     ),
     depth_range: ReportDepthRange | None = None,
     legend_mode: ReportLegendMode = ReportLegendMode.FULL,
+    annotations: tuple[ReportAnnotationRecord, ...] = (),
 ) -> str:
     """Render available interpretation curves against depth as a PNG data URI."""
 
@@ -390,6 +396,30 @@ def hydrocarbon_interpretation_chart_data_uri(
                 QRectF(90.0, 1_136.0 + legend_offset, 1_820.0, 30.0),
                 candidates,
                 language,
+            )
+
+        if annotations:
+            track_map = build_report_annotation_track_map(
+                panels=panels,
+                panel_rects=panel_rects,
+                geology_tracks=geology_tracks,
+                geology_rects=geology_rects,
+                left_depth_rect=left_depth_rect,
+                right_depth_rect=right_depth_rect,
+            )
+            paint_report_annotations(
+                painter,
+                annotations,
+                language,
+                page_top_depth=depth_min,
+                page_bottom_depth=depth_max,
+                plot_bounds=QRectF(
+                    left_depth_rect.left(),
+                    plot_top,
+                    right_depth_rect.right() - left_depth_rect.left(),
+                    plot_height,
+                ),
+                track_map=track_map,
             )
 
         painter.setFont(print_font(9.0, text=labels["footer"]))
