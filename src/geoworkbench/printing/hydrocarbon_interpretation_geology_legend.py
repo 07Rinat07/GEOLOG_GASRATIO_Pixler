@@ -236,6 +236,7 @@ def paginate_geology_legend(
     legend: InterpretationGeologyLegend,
     maximum_height: float,
     *,
+    compact: bool = False,
     paint_device: QPaintDevice | None = None,
 ) -> tuple[InterpretationGeologyLegend, ...]:
     """Keep every symbol, splitting the full legend at complete row boundaries."""
@@ -247,16 +248,19 @@ def paginate_geology_legend(
         raise ValueError("Geology legend page must fit a complete bounded row")
     pages: list[InterpretationGeologyLegend] = []
     current: tuple[GeologyLegendItem, ...] = ()
-    for row in _legend_rows(width, legend, compact=False):
+    for row in _legend_rows(width, legend, compact=compact):
         candidate = InterpretationGeologyLegend((*current, *row))
         if current and geology_legend_height(
-            width, candidate, paint_device=paint_device,
+            width, candidate, compact=compact, paint_device=paint_device,
         ) > maximum_height:
             pages.append(InterpretationGeologyLegend(current))
             current = ()
         current = (*current, *row)
         if geology_legend_height(
-            width, InterpretationGeologyLegend(current), paint_device=paint_device,
+            width,
+            InterpretationGeologyLegend(current),
+            compact=compact,
+            paint_device=paint_device,
         ) > maximum_height:
             raise ValueError("Geology legend page must fit a complete row and its heading")
     pages.append(InterpretationGeologyLegend(current))
@@ -455,7 +459,9 @@ def _legend_row_heights(
                 text,
             )
             measured = max(measured, bounds.height())
-        heights.append(min(_MAX_FULL_ROW_HEIGHT, max(22.0, measured + 4.0)))
+        minimum_height = 17.0 if compact else 22.0
+        maximum_height = 42.0 if compact else _MAX_FULL_ROW_HEIGHT
+        heights.append(min(maximum_height, max(minimum_height, measured + 4.0)))
     return tuple(heights)
 
 
@@ -486,8 +492,9 @@ def _fit_legend_text(
 
 
 def _legend_columns(width: float, *, compact: bool) -> int:
-    target = 120.0
-    return max(1, min(8, int(width // target)))
+    target = 88.0 if compact else 120.0
+    maximum = 10 if compact else 8
+    return max(1, min(maximum, int(width // target)))
 
 
 def _legend_heading_height(

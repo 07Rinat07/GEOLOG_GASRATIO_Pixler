@@ -142,6 +142,7 @@ def render_hydrocarbon_interpretation_report(
                 depth_range=depth_range,
                 geology=geology,
                 geology_track_settings=geology_track_settings,
+                legend_mode=legend_mode,
             )
 
         render_report_html(

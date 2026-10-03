@@ -296,6 +296,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         if report is None or dataset is None or self._is_mixture_mode():
             return
         geology = interpretation_geology_snapshot(self.controller.session)
+        composition = self._report_composition()
         key = self._preview_report_key(report)
         if getattr(self, "_preview_geology_report_key", None) == key:
             geology_track_settings = getattr(
@@ -305,9 +306,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
             )
             depth_range = getattr(self, "_preview_depth_range", None)
         else:
-            geology_track_settings = geology_track_settings_from_composition(
-                self._report_composition()
-            )
+            geology_track_settings = geology_track_settings_from_composition(composition)
             depth_range = None
         depth_range = getattr(report, "analysis_depth_interval", None) or depth_range
         self.preview.setHtml(
@@ -318,6 +317,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                 geology=geology,
                 geology_track_settings=geology_track_settings,
                 depth_range=depth_range,
+                legend_mode=composition.legend_mode,
             )
         )
 
