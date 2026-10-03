@@ -34,9 +34,9 @@ from geoworkbench.services.hydrocarbon_interpretation import (
 )
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.gas_curve_presentation import (
-    GAS_PRINT_POINT_RADIUS_PT,
-    gas_scatter_point_budget,
-    select_gas_scatter_samples,
+    GAS_REPORT_PRINT_POINT_RADIUS_PT,
+    gas_report_scatter_point_budget,
+    select_report_gas_scatter_samples,
     uses_gas_point_presentation,
 )
 
@@ -551,14 +551,14 @@ def _draw_curves(
         if draw_as_points:
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(color)
-            point_values, point_depth = select_gas_scatter_samples(
+            point_values, point_depth = select_report_gas_scatter_samples(
                 depth,
                 values,
                 page.top_depth,
                 page.bottom_depth,
-                max_points=gas_scatter_point_budget(curve_rect.height()),
+                max_points=gas_report_scatter_point_budget(curve_rect.height()),
             )
-            radius = GAS_PRINT_POINT_RADIUS_PT
+            radius = GAS_REPORT_PRINT_POINT_RADIUS_PT
             for value, depth_value in zip(point_values, point_depth, strict=True):
                 if high <= low:
                     normalized = 0.5 if value == low else 1.0 if value > low else 0.0
