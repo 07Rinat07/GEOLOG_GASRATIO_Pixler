@@ -148,6 +148,8 @@ def hydrocarbon_interpretation_html_with_chart(
     report: HydrocarbonInterpretationReport,
     dataset: Dataset,
     language: AppLanguage = AppLanguage.RU,
+    *,
+    annotations: tuple[ReportAnnotationRecord, ...] = (),
 ) -> str:
     """Return the standard report HTML with a whole-well curve chart appended."""
 
@@ -159,7 +161,12 @@ def hydrocarbon_interpretation_html_with_chart(
     base = inject_interval_gas_statistics_html(
         base, report, scope_dataset(dataset, report.analysis_depth_interval), language,
     )
-    uri = hydrocarbon_interpretation_chart_data_uri(report, dataset, language)
+    uri = hydrocarbon_interpretation_chart_data_uri(
+        report,
+        dataset,
+        language,
+        annotations=annotations,
+    )
     if not uri:
         return base
     labels = _labels(language)
