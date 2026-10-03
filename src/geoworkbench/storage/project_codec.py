@@ -67,7 +67,7 @@ class ProjectDocument(_V29ProjectDocument):
 _REPORT_COMPOSITION_KEYS_V37 = {"orientation", "print_order", "cuttings", "lba"}
 _REPORT_COMPOSITION_KEYS_LEGEND = {*_REPORT_COMPOSITION_KEYS_V37, "legend_mode"}
 _REPORT_COMPOSITION_KEYS = {*_REPORT_COMPOSITION_KEYS_LEGEND, "headers"}
-_REPORT_HEADER_KEYS = {
+_REPORT_HEADER_KEYS_LEGACY = {
     "report_title",
     "report_subtitle",
     "project_name",
@@ -88,14 +88,21 @@ _REPORT_HEADER_KEYS = {
     "confidentiality",
     "remarks",
 }
+_REPORT_HEADER_KEYS = {*_REPORT_HEADER_KEYS_LEGACY, "report_profile"}
 _REPORT_HEADER_LANGUAGES = {"ru", "kk", "en"}
 
 
 def _report_header_from_dict(data: object) -> ReportHeaderFields:
-    if not isinstance(data, dict) or set(data) != _REPORT_HEADER_KEYS:
+    if not isinstance(data, dict):
         raise ProjectFormatError("Некорректные реквизиты report composition")
-    values: dict[str, str] = {}
-    for key in _REPORT_HEADER_KEYS:
+    keys = set(data)
+    if keys != _REPORT_HEADER_KEYS_LEGACY and keys != _REPORT_HEADER_KEYS:
+        raise ProjectFormatError("Некорректные реквизиты report composition")
+    values: dict[str, str] = {
+        "report_profile": str(data.get("report_profile", "standard")).strip().casefold()
+        or "standard"
+    }
+    for key in _REPORT_HEADER_KEYS_LEGACY:
         value = data[key]
         if not isinstance(value, str):
             raise ProjectFormatError("Реквизиты report composition должны быть строками")
