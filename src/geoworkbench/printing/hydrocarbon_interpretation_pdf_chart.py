@@ -164,7 +164,7 @@ def render_chart_pages(
             report,
             dataset,
             panels,
-            _display_curve_ranges(percentiles),
+            _curve_ranges(panels, dataset, page=page),
             percentiles,
             language,
         )
@@ -753,9 +753,40 @@ def _curve_ranges(
     *,
     page: DepthPage | None = None,
 ) -> dict[str, tuple[float, float]]:
-    """Return display ranges; factual percentiles remain available separately."""
+    """Return display ranges while keeping factual p5/p95 statistics separate.
 
-    return _display_curve_ranges(_curve_percentiles(panels, dataset, page=page))
+    Line tracks retain the robust p5/p95 display contract. Haworth/Pixler/OPUS
+    point tracks use the factual visible min/max so outlying observations are
+    not clipped onto a panel edge and stacked into false line-like segments.
+    """
+
+    result = _display_curve_ranges(_curve_percentiles(panels, dataset, page=page))
+    depth = np.asarray(dataset.depth, dtype=np.float64)
+    selected = (
+        np.isfinite(depth) & (depth >= page.top_depth) & (depth <= page.bottom_depth)
+        if page is not None
+        else np.isfinite(depth)
+    )
+    for panel_name, curves in panels:
+        if panel_name not in {"ratios", "opus"}:
+            continue
+        for curve in curves:
+            values = np.asarray(curve.values, dtype=np.float64)
+            if values.shape != depth.shape:
+                continue
+            finite = values[selected & np.isfinite(values)]
+            if finite.size < 1:
+                continue
+            low = float(np.min(finite))
+            high = float(np.max(finite))
+            if not np.isfinite(low) or not np.isfinite(high):
+                continue
+            if high <= low or np.isclose(high, low, rtol=1e-9, atol=1e-12):
+                center = (low + high) / 2.0
+                spread = max(abs(center) * 0.05, 1e-6)
+                low, high = center - spread, center + spread
+            result[curve.metadata.curve_id] = (low, high)
+    return result
 
 
 def _panel_curves(
@@ -848,7 +879,8 @@ def _labels(language: AppLanguage) -> dict[str, str]:
             "ratios": "Haworth и Pixler",
             "drilling": "Буровой контекст и DEXP",
             "note": (
-                "Кривые нормированы внутри дорожек по p5–p95 для каждого листа. Цветные полосы и "
+                "Линейные кривые нормированы внутри дорожек по p5–p95; Haworth/Pixler/OPUS "
+                "точки используют фактический min–max текущего листа. Цветные полосы и "
                 "маркеры формы/цвета отмечают перспективные интервалы и предварительный "
                 "тип флюида; полная формулировка остаётся в таблице. Каждый лист сохраняет "
                 "физический масштаб глубины; шкалы и границы повторяются с обеих сторон."
@@ -867,7 +899,8 @@ def _labels(language: AppLanguage) -> dict[str, str]:
             "ratios": "Haworth және Pixler",
             "drilling": "Бұрғылау контексті және DEXP",
             "note": (
-                "Қисықтар әр бетте жол ішінде p5–p95 бойынша нормаланады. Түсті жолақтар мен "
+                "Сызықтық қисықтар p5–p95 бойынша нормаланады; Haworth/Pixler/OPUS "
+                "нүктелері ағымдағы беттің нақты min–max ауқымын қолданады. Түсті жолақтар мен "
                 "пішін/түс маркерлері перспективалы аралықты және алдын ала флюид түрін "
                 "көрсетеді; толық мәтін кестеде қалады. Әр бет тереңдіктің физикалық "
                 "масштабын сақтайды; шкалалар мен шекаралар екі жақта қайталанады."
@@ -886,7 +919,8 @@ def _labels(language: AppLanguage) -> dict[str, str]:
             "ratios": "Haworth and Pixler",
             "drilling": "Drilling context and DEXP",
             "note": (
-                "Curves are normalized within tracks to each page's p5–p95. Colored bands plus "
+                "Line curves use each page's p5–p95 range; Haworth/Pixler/OPUS points use "
+                "the factual visible min–max. Colored bands plus "
                 "shape/colour markers show prospective intervals and preliminary fluid "
                 "type; full wording remains in the table. Every sheet preserves a physical "
                 "depth scale; scales and outer borders repeat on both sides."
