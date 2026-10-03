@@ -173,7 +173,7 @@ class InterpretationPrintLayoutDialog(QDialog):
         layout = self.selected_layout()
         orientation = (
             ReportPageOrientation.LANDSCAPE
-            if layout.orientation is QPageLayout.Orientation.Landscape
+            if layout.orientation == QPageLayout.Orientation.Landscape
             else ReportPageOrientation.PORTRAIT
         )
         if self.include_order:
