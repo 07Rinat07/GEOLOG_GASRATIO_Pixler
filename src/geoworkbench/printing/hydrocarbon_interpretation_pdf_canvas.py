@@ -8,19 +8,28 @@ from PySide6.QtGui import QColor, QPageLayout, QPainter
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import (
     PAGE_FOOTER_HEIGHT,
 )
+from geoworkbench.domain.report_composition import ReportLayoutProfile
 from geoworkbench.printing.report_visual_system import (
     REPORT_BRAND_WORDMARK,
-    modern_oilfield_report_profile,
+    report_visual_profile,
 )
 from geoworkbench.printing.unicode_support import print_font
 from geoworkbench.services.localization import AppLanguage
 
 
 class PageCanvas:
-    def __init__(self, device: Any, painter: QPainter, language: AppLanguage) -> None:
+    def __init__(
+        self,
+        device: Any,
+        painter: QPainter,
+        language: AppLanguage,
+        *,
+        layout_profile: ReportLayoutProfile = ReportLayoutProfile.MODERN_OILFIELD,
+    ) -> None:
         self.device = device
         self.painter = painter
         self.language = language
+        self.visual = report_visual_profile(layout_profile)
         paint_rect = device.pageLayout().paintRect(QPageLayout.Unit.Point)
         # QPdfWriter and QPrinter already place the painter origin at the
         # printable area's top-left corner when full-page mode is disabled.
@@ -53,7 +62,7 @@ class PageCanvas:
         self.y = self.content_rect.top()
         self.painter.fillRect(
             self.page_rect,
-            QColor(modern_oilfield_report_profile().palette.page),
+            QColor(self.visual.palette.page),
         )
         self._draw_page_number()
 
@@ -72,7 +81,7 @@ class PageCanvas:
             AppLanguage.KK: "Бет",
             AppLanguage.EN: "Page",
         }[self.language]
-        visual = modern_oilfield_report_profile()
+        visual = self.visual
         footer_top = self.content_rect.bottom() + 2.0
         footer_height = PAGE_FOOTER_HEIGHT - 2.0
         left_footer = QRectF(
