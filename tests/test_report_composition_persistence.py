@@ -33,7 +33,9 @@ from geoworkbench.domain.report_composition import (
     ReportPageOrientation,
     ReportPrintOrder,
     ReportTrackVisibility,
+    ensure_report_composition_id,
     report_header_fields,
+    stable_report_composition_id,
     with_report_header_fields,
 )
 from geoworkbench.storage.atomic_json import save_project
@@ -51,6 +53,7 @@ from geoworkbench.services.localization import AppLanguage
 from geoworkbench.storage.project_codec import (
     PROJECT_FORMAT_VERSION,
     ProjectDocument,
+    ProjectFormatError,
     load_project_document,
 )
 from geoworkbench.ui.interpretation_print_layout_dialog import (
@@ -73,6 +76,7 @@ def _project() -> Project:
 
 def _composition() -> InterpretationReportComposition:
     return InterpretationReportComposition(
+        composition_id=stable_report_composition_id("dataset-report-composition"),
         orientation=ReportPageOrientation.LANDSCAPE,
         print_order=ReportPrintOrder.LAST_TO_FIRST,
         cuttings=ReportTrackVisibility.SHOW,
@@ -110,6 +114,69 @@ def test_project_v37_json_round_trip_preserves_report_composition(tmp_path) -> N
     }
 
 
+def test_legacy_v37_without_composition_id_gets_stable_dataset_identity(tmp_path) -> None:
+    project = _project()
+    target = tmp_path / "legacy-v37-composition-id.geolog.json"
+    save_project(
+        project,
+        target,
+        report_compositions={"dataset-report-composition": _composition()},
+    )
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    payload["report_compositions"]["dataset-report-composition"].pop("composition_id")
+    target.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    first = load_project_document(target)
+    second = load_project_document(target)
+    expected = stable_report_composition_id("dataset-report-composition")
+
+    assert first.report_compositions["dataset-report-composition"].composition_id == expected
+    assert second.report_compositions["dataset-report-composition"].composition_id == expected
+
+
+def test_ensure_report_composition_id_preserves_existing_identity() -> None:
+    composition = InterpretationReportComposition(composition_id="rpt-custom")
+
+    assert ensure_report_composition_id(composition, "dataset-report-composition") is composition
+
+
+def test_ensure_report_composition_id_strips_explicit_identity() -> None:
+    composition = InterpretationReportComposition(composition_id="  rpt-custom  ")
+
+    canonical = ensure_report_composition_id(composition, "dataset-report-composition")
+
+    assert canonical.composition_id == "rpt-custom"
+
+
+def test_decoder_rejects_explicit_null_composition_id(tmp_path) -> None:
+    project = _project()
+    target = tmp_path / "null-composition-id.geolog.json"
+    save_project(
+        project,
+        target,
+        report_compositions={"dataset-report-composition": _composition()},
+    )
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    payload["report_compositions"]["dataset-report-composition"]["composition_id"] = None
+    target.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    with pytest.raises(ProjectFormatError, match="Некорректный ID report composition"):
+        load_project_document(target)
+
+
+def test_save_rejects_invalid_explicit_composition_id(tmp_path) -> None:
+    with pytest.raises(ValueError, match="Некорректный ID report composition"):
+        save_project(
+            _project(),
+            tmp_path / "invalid-composition-id.geolog.json",
+            report_compositions={
+                "dataset-report-composition": InterpretationReportComposition(
+                    composition_id="x" * 129,
+                )
+            },
+        )
+
+
 def test_existing_v37_without_legend_mode_defaults_to_full(tmp_path) -> None:
     project = _project()
     target = tmp_path / "legacy-v37.geolog.json"
@@ -120,6 +187,7 @@ def test_existing_v37_without_legend_mode_defaults_to_full(tmp_path) -> None:
         report_compositions={"dataset-report-composition": _composition()},
     )
     payload = json.loads(target.read_text(encoding="utf-8"))
+    payload["report_compositions"]["dataset-report-composition"].pop("composition_id")
     payload["report_compositions"]["dataset-report-composition"].pop("legend_mode")
     payload["report_compositions"]["dataset-report-composition"].pop("headers")
     target.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
@@ -139,6 +207,7 @@ def test_existing_v37_with_legend_but_without_headers_remains_readable(tmp_path)
         report_compositions={"dataset-report-composition": _composition()},
     )
     payload = json.loads(target.read_text(encoding="utf-8"))
+    payload["report_compositions"]["dataset-report-composition"].pop("composition_id")
     payload["report_compositions"]["dataset-report-composition"].pop("headers")
     target.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
 

@@ -58,6 +58,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
 from geoworkbench.domain.report_composition import (
     DEFAULT_INTERPRETATION_REPORT_COMPOSITION,
     InterpretationReportComposition,
+    ensure_report_composition_id,
     report_header_fields,
     with_report_header_fields,
 )
@@ -341,6 +342,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         dataset = self.controller.session.current_dataset
         if dataset is None:
             return
+        composition = ensure_report_composition_id(composition, dataset.dataset_id)
         current = self.controller.session.report_compositions.get(dataset.dataset_id)
         if current == composition:
             return
