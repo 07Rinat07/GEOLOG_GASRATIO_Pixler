@@ -3,6 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pyqtgraph as pg
+import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPen
 from PySide6.QtWidgets import QApplication
