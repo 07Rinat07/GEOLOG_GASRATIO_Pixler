@@ -141,6 +141,15 @@ def save_project(
                 "cuttings": composition.cuttings.value,
                 "lba": composition.lba.value,
                 "legend_mode": composition.legend_mode.value,
+                "headers": {
+                    language: asdict(header)
+                    for language, header in (
+                        ("ru", composition.header_ru),
+                        ("kk", composition.header_kk),
+                        ("en", composition.header_en),
+                    )
+                    if header is not None
+                },
             }
             for dataset_id, composition in compositions.items()
         },
