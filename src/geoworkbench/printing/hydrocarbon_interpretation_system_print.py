@@ -15,7 +15,7 @@ from PySide6.QtGui import (
 )
 from PySide6.QtPrintSupport import QAbstractPrintDialog, QPrinter
 
-from geoworkbench.printing.hydrocarbon_report_i18n import hydrocarbon_report_labels
+from geoworkbench.printing.hydrocarbon_report_print_i18n import hydrocarbon_report_print_labels
 from geoworkbench.services.localization import AppLanguage
 
 
@@ -73,7 +73,7 @@ def print_pdf_page_selection(
 ) -> bool:
     """Print only the requested PDF pages and stop before spooling the rest."""
 
-    labels = hydrocarbon_report_labels(language)
+    labels = hydrocarbon_report_print_labels(language)
     pages = tuple(int(page) for page in page_numbers)
     if not pages:
         return False
