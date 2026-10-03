@@ -136,6 +136,12 @@ _OPTIONAL_SECTION_LABELS = {
 }
 
 
+def report_optional_section_labels(
+    language: AppLanguage,
+) -> tuple[str, str]:
+    return _OPTIONAL_SECTION_LABELS[language]
+
+
 def inject_report_optional_sections_html(
     html: str,
     identity: InterpretationReportIdentity | None,
@@ -147,7 +153,7 @@ def inject_report_optional_sections_html(
     conclusion = identity.conclusion.strip()
     if not summary and not conclusion:
         return html
-    summary_label, conclusion_label = _OPTIONAL_SECTION_LABELS[language]
+    summary_label, conclusion_label = report_optional_section_labels(language)
 
     def section(label: str, value: str, css_class: str) -> str:
         body = "<br/>".join(escape(line) for line in value.splitlines())
@@ -214,4 +220,5 @@ __all__ = [
     "identity_with_report_header_fields",
     "inject_report_optional_sections_html",
     "report_header_fields_from_identity",
+    "report_optional_section_labels",
 ]
