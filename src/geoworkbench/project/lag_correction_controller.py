@@ -178,6 +178,8 @@ class LagCorrectionProjectController:
         profile = well.lag_correction_profiles[profile_id]
         output_ids = {item.output_dataset_id for item in profile.revisions}
         LagCorrectionController(well).delete_profile(profile_id)
+        for dataset_id in output_ids:
+            self.session.report_compositions.pop(dataset_id, None)
         if self.session.current_dataset_id in output_ids:
             self.session.current_dataset_id = profile.source_dataset_id
         self.session.dirty = True
