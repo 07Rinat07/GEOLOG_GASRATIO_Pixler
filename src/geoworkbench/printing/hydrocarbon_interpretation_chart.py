@@ -8,6 +8,7 @@ from PySide6.QtGui import QColor, QImage, QPainter, QPen
 
 from geoworkbench.domain.depth_interval import scope_dataset
 from geoworkbench.domain.models import CurveData, Dataset
+from geoworkbench.domain.report_composition import ReportLegendMode
 from geoworkbench.printing.geology_track_rendering import (
     paint_cuttings_track,
     paint_lba_track,
@@ -181,6 +182,7 @@ def hydrocarbon_interpretation_chart_data_uri(
         DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS
     ),
     depth_range: ReportDepthRange | None = None,
+    legend_mode: ReportLegendMode = ReportLegendMode.FULL,
 ) -> str:
     """Render available interpretation curves against depth as a PNG data URI."""
 
@@ -231,10 +233,16 @@ def hydrocarbon_interpretation_chart_data_uri(
         include_cuttings="cuttings" in geology_tracks,
         include_lba="lba" in geology_tracks,
     )
-    preview_legend_height = geology_legend_height(
-        1_820.0,
-        geology_legend,
-        paint_device=legend_device,
+    legend_compact = legend_mode is ReportLegendMode.COMPACT
+    preview_legend_height = (
+        0.0
+        if legend_mode is ReportLegendMode.HIDE
+        else geology_legend_height(
+            1_820.0,
+            geology_legend,
+            compact=legend_compact,
+            paint_device=legend_device,
+        )
     )
     outer_margin, depth_width, axis_gap = 35.0, 128.0, 16.0
     geology_track_width, geology_track_gap, panel_gap = 94.0, 10.0, 20.0
@@ -277,6 +285,7 @@ def hydrocarbon_interpretation_chart_data_uri(
                 QRectF(90.0, 72.0, 1_820.0, preview_legend_height),
                 geology_legend,
                 language,
+                compact=legend_compact,
             )
 
         # Grow the canvas with the legend, keeping the depth plot height stable.
