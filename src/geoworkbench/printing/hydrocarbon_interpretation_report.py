@@ -30,7 +30,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_report_range import (
     resolve_report_depth_range,
     scope_report_to_depth_range,
 )
-from geoworkbench.printing.hydrocarbon_report_i18n import hydrocarbon_report_labels
+from geoworkbench.printing.hydrocarbon_report_print_i18n import hydrocarbon_report_print_labels
 from geoworkbench.printing.report_visual_system import REPORT_BRAND_WORDMARK
 from geoworkbench.printing.unicode_support import preflight_texts
 from geoworkbench.services.hydrocarbon_interpretation import (
@@ -72,7 +72,7 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
     ),
     overwrite: bool = False,
 ) -> ReportOutputTransactionResult:
-    labels = hydrocarbon_report_labels(language)
+    labels = hydrocarbon_report_print_labels(language)
     dataset = session.current_dataset
     if dataset is None:
         raise HydrocarbonInterpretationPdfError(labels.pdf_passport_dataset_required)
@@ -163,7 +163,7 @@ def export_hydrocarbon_interpretation_pdf(
     ),
     overwrite: bool = False,
 ) -> Path:
-    labels = hydrocarbon_report_labels(language)
+    labels = hydrocarbon_report_print_labels(language)
     destination = Path(target)
     if destination.suffix.casefold() != ".pdf":
         destination = destination.with_suffix(".pdf")
