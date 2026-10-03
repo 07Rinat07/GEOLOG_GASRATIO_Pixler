@@ -21,6 +21,11 @@ from geoworkbench.printing.hydrocarbon_interpretation_geology_legend import (
 from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
     GeologyTrackVisibility,
 )
+from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
+    InterpretationReportIdentity,
+    identity_with_report_header_fields,
+    report_header_fields_from_identity,
+)
 from geoworkbench.domain.report_composition import (
     InterpretationReportComposition,
     ReportHeaderFields,
@@ -159,6 +164,32 @@ def test_localized_report_headers_are_isolated_by_language() -> None:
     assert report_header_fields(composed, "kk") is None
 
 
+def test_persisted_header_overlay_keeps_runtime_interval() -> None:
+    identity = InterpretationReportIdentity(
+        report_title="Custom title",
+        report_subtitle="Custom subtitle",
+        project_name="Project",
+        well_name="Well",
+        interval="1000–1100 m",
+        revision="03",
+    )
+    header = report_header_fields_from_identity(identity)
+    defaults = InterpretationReportIdentity(
+        report_title="Default title",
+        report_subtitle="Default subtitle",
+        project_name="Project",
+        well_name="Well",
+        interval="2000–2100 m",
+        revision="00",
+    )
+
+    restored = identity_with_report_header_fields(defaults, header)
+
+    assert restored.report_title == "Custom title"
+    assert restored.revision == "03"
+    assert restored.interval == "2000–2100 m"
+
+
 def test_project_v36_migrates_with_empty_report_compositions(tmp_path) -> None:
     project = _project()
     target = tmp_path / "legacy.geolog.json"
@@ -267,6 +298,8 @@ def test_workspace_propagates_persisted_legend_mode_to_preview_pdf_and_print() -
     assert "legend_mode=composition.legend_mode" in preview_source
     assert "legend_mode=layout.legend_mode" in pdf_source
     assert "legend_mode=layout.legend_mode" in print_source
+    assert "with_report_header_fields(" in pdf_source
+    assert "with_report_header_fields(" in print_source
 
 
 def test_html_preview_legend_mode_hides_key_and_reaches_chart_renderer(monkeypatch) -> None:
