@@ -8,6 +8,10 @@ from geoworkbench.data.hydrocarbon_interpretation_export import (
 from geoworkbench.data.hydrocarbon_interpretation_export_docx_polished import (
     export_polished_hydrocarbon_interpretation_docx,
 )
+from geoworkbench.domain.report_composition import with_report_header_fields
+from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
+    report_header_fields_from_identity,
+)
 from geoworkbench.project.interpretation_calculation_controller import (
     InterpretationCalculationController,
 )
@@ -110,6 +114,13 @@ class InterpretationReportWorkspace(_FinalInterpretationReportWorkspace):
         identity = self._select_report_identity(report)
         if identity is None:
             return
+        self._store_report_composition(
+            with_report_header_fields(
+                self._report_composition(),
+                self.language.value,
+                report_header_fields_from_identity(identity, report.report_profile),
+            )
+        )
         target = self._choose_target(".docx", "Word (*.docx)")
         if target is None:
             return
