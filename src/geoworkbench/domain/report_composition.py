@@ -82,8 +82,13 @@ def ensure_report_composition_id(
     composition: InterpretationReportComposition,
     dataset_id: str,
 ) -> InterpretationReportComposition:
-    if composition.composition_id.strip():
-        return composition
+    existing = composition.composition_id.strip()
+    if existing:
+        return (
+            composition
+            if existing == composition.composition_id
+            else replace(composition, composition_id=existing)
+        )
     return replace(
         composition,
         composition_id=stable_report_composition_id(dataset_id),
