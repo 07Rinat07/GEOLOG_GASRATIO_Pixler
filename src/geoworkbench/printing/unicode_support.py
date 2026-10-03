@@ -9,6 +9,8 @@ import unicodedata
 from PySide6.QtGui import QFont, QFontDatabase, QFontMetrics
 from PySide6.QtWidgets import QApplication, QComboBox, QTabWidget, QWidget
 
+from geoworkbench.services.localization import AppLanguage
+
 
 class UnicodePrintError(RuntimeError):
     """Raised when text cannot be printed safely without corrupt glyphs."""
@@ -83,27 +85,56 @@ class UnicodePreflightReport:
             and not self.suspicious_fragments
         )
 
-    def error_message(self) -> str:
+    def error_message(self, *, language: AppLanguage = AppLanguage.RU) -> str:
+        labels = {
+            AppLanguage.RU: {
+                "invalid": "Обнаружен повреждённый Unicode-текст: ",
+                "suspicious": "Обнаружен текст с признаками ошибочной перекодировки: ",
+                "missing": "В установленных шрифтах отсутствуют символы: ",
+                "font": (
+                    "Не найден один шрифт, полностью поддерживающий русский, қазақша, "
+                    "английский и инженерные символы. Установите Noto Sans, DejaVu Sans "
+                    "или Segoe UI и повторите печать."
+                ),
+                "fallback": "Unicode-проверка не пройдена",
+            },
+            AppLanguage.KK: {
+                "invalid": "Бүлінген Unicode мәтіні анықталды: ",
+                "suspicious": "Қате қайта кодтау белгілері бар мәтін анықталды: ",
+                "missing": "Орнатылған қаріптерде мына таңбалар жоқ: ",
+                "font": (
+                    "Орыс, қазақ, ағылшын және инженерлік таңбаларды толық қолдайтын бір қаріп "
+                    "табылмады. Noto Sans, DejaVu Sans немесе Segoe UI орнатып, басып шығаруды "
+                    "қайталаңыз."
+                ),
+                "fallback": "Unicode тексеруі өтпеді",
+            },
+            AppLanguage.EN: {
+                "invalid": "Corrupted Unicode text was detected: ",
+                "suspicious": "Text with signs of incorrect transcoding was detected: ",
+                "missing": "The installed fonts are missing these characters: ",
+                "font": (
+                    "No single font fully supporting Russian, Kazakh, English, and engineering "
+                    "symbols was found. Install Noto Sans, DejaVu Sans, or Segoe UI and retry "
+                    "printing."
+                ),
+                "fallback": "Unicode preflight failed",
+            },
+        }[language]
         parts: list[str] = []
         if self.invalid_fragments:
-            parts.append(
-                "Обнаружен повреждённый Unicode-текст: " + "; ".join(self.invalid_fragments[:8])
-            )
+            parts.append(labels["invalid"] + "; ".join(self.invalid_fragments[:8]))
         if self.suspicious_fragments:
             parts.append(
-                "Обнаружен текст с признаками ошибочной перекодировки: "
+                labels["suspicious"]
                 + "; ".join(repr(item) for item in self.suspicious_fragments[:8])
             )
         if self.missing_glyphs:
             rendered = " ".join(_describe_character(item) for item in self.missing_glyphs[:20])
-            parts.append("В установленных шрифтах отсутствуют символы: " + rendered)
+            parts.append(labels["missing"] + rendered)
         if not self.font_profile.required_sample_supported:
-            parts.append(
-                "Не найден один шрифт, полностью поддерживающий русский, қазақша, "
-                "английский и инженерные символы. Установите Noto Sans, DejaVu Sans "
-                "или Segoe UI и повторите печать."
-            )
-        return "\n".join(parts) or "Unicode-проверка не пройдена"
+            parts.append(labels["font"])
+        return "\n".join(parts) or labels["fallback"]
 
 
 def configure_application_unicode_fonts(app: QApplication) -> UnicodeFontProfile:
