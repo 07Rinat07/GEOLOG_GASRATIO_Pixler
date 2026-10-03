@@ -9,7 +9,7 @@ from PySide6.QtCore import QRectF
 from PySide6.QtGui import QPainter
 
 from geoworkbench.domain.models import Dataset
-from geoworkbench.domain.report_composition import ReportLegendMode
+from geoworkbench.domain.report_composition import ReportLayoutProfile, ReportLegendMode
 from geoworkbench.domain.depth_interval import scope_dataset
 from geoworkbench.printing.interpretation_chart_key import interpretation_chart_key_html
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_canvas import PageCanvas
@@ -78,6 +78,7 @@ def render_hydrocarbon_interpretation_report(
         DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS
     ),
     legend_mode: ReportLegendMode = ReportLegendMode.FULL,
+    layout_profile: ReportLayoutProfile = ReportLayoutProfile.MODERN_OILFIELD,
 ) -> None:
     """Render one controlled multi-page report to QPdfWriter or QPrinter."""
 
@@ -96,7 +97,12 @@ def render_hydrocarbon_interpretation_report(
         float(device.logicalDpiX()) / 72.0,
         float(device.logicalDpiY()) / 72.0,
     )
-    canvas = PageCanvas(device, painter, language)
+    canvas = PageCanvas(
+        device,
+        painter,
+        language,
+        layout_profile=layout_profile,
+    )
     try:
         canvas.new_page()
         render_report_cover(canvas, report, language, identity)

@@ -4,7 +4,7 @@ from html import escape
 
 from geoworkbench.domain.depth_interval import scope_dataset
 from geoworkbench.domain.models import Dataset
-from geoworkbench.domain.report_composition import ReportLegendMode
+from geoworkbench.domain.report_composition import ReportLayoutProfile, ReportLegendMode
 from geoworkbench.printing.interpretation_chart_key import interpretation_chart_key_html
 from geoworkbench.printing.hydrocarbon_interpretation_chart import (
     hydrocarbon_interpretation_chart_data_uri,
@@ -42,6 +42,7 @@ def hydrocarbon_interpretation_html_with_front_chart(
     ),
     depth_range: ReportDepthRange | None = None,
     legend_mode: ReportLegendMode = ReportLegendMode.FULL,
+    layout_profile: ReportLayoutProfile = ReportLayoutProfile.MODERN_OILFIELD,
     identity: InterpretationReportIdentity | None = None,
 ) -> str:
     """Insert the whole-well chart before the first tabular report section."""
@@ -75,7 +76,12 @@ def hydrocarbon_interpretation_html_with_front_chart(
             language,
         )
     )
-    block = key_html + _chart_block(uri, labels, print_layout=print_layout)
+    block = key_html + _chart_block(
+        uri,
+        labels,
+        print_layout=print_layout,
+        layout_profile=layout_profile,
+    )
     marker = "<h2>"
     if marker in base:
         return base.replace(marker, block + marker, 1)
@@ -87,6 +93,7 @@ def _chart_block(
     labels: dict[str, str],
     *,
     print_layout: bool,
+    layout_profile: ReportLayoutProfile = ReportLayoutProfile.MODERN_OILFIELD,
 ) -> str:
     if print_layout:
         section_style = (
@@ -113,7 +120,8 @@ def _chart_block(
         )
 
     return (
-        f"<div class='interpretation-curves' style='{section_style}'>"
+        f"<div class='interpretation-curves' data-layout-profile='{layout_profile.value}' "
+        f"style='{section_style}'>"
         f"<h2 style='{heading_style}'>{escape(labels['title'])}</h2>"
         f"<p style='{note_style}'><small>{escape(labels['note'])}</small></p>"
         f"<div style='{wrapper_style}'>"

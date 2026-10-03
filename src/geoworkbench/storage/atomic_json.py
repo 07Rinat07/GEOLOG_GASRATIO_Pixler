@@ -174,6 +174,7 @@ def save_project(
                 "cuttings": composition.cuttings.value,
                 "lba": composition.lba.value,
                 "legend_mode": composition.legend_mode.value,
+                "layout_profile": composition.layout_profile.value,
                 "headers": {
                     language: asdict(header)
                     for language, header in (

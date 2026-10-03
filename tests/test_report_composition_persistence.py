@@ -33,6 +33,7 @@ from geoworkbench.domain.report_composition import (
     InterpretationReportComposition,
     ReportHeaderFields,
     ReportLegendMode,
+    ReportLayoutProfile,
     ReportPageOrientation,
     ReportPrintOrder,
     ReportTrackVisibility,
@@ -85,6 +86,7 @@ def _composition() -> InterpretationReportComposition:
         cuttings=ReportTrackVisibility.SHOW,
         lba=ReportTrackVisibility.HIDE,
         legend_mode=ReportLegendMode.COMPACT,
+        layout_profile=ReportLayoutProfile.MODERN_OILFIELD,
         header_ru=ReportHeaderFields(
             report_title="Русский заголовок",
             project_name="Проект",
@@ -200,6 +202,26 @@ def test_existing_v37_without_legend_mode_defaults_to_full(tmp_path) -> None:
     loaded = load_project_document(target)
 
     assert loaded.report_compositions["dataset-report-composition"].legend_mode is ReportLegendMode.FULL
+
+
+def test_existing_v37_without_layout_profile_defaults_to_modern_oilfield(tmp_path) -> None:
+    project = _project()
+    target = tmp_path / "legacy-v37-layout-profile.geolog.json"
+    save_project(
+        project,
+        target,
+        report_compositions={"dataset-report-composition": _composition()},
+    )
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    payload["report_compositions"]["dataset-report-composition"].pop("layout_profile")
+    target.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    loaded = load_project_document(target)
+
+    assert (
+        loaded.report_compositions["dataset-report-composition"].layout_profile
+        is ReportLayoutProfile.MODERN_OILFIELD
+    )
 
 
 def test_existing_v37_with_legend_but_without_headers_remains_readable(tmp_path) -> None:
@@ -460,7 +482,12 @@ def test_layout_dialog_restores_and_returns_persisted_composition(qapp) -> None:
         assert layout.geology_tracks.cuttings is GeologyTrackVisibility.SHOW
         assert layout.geology_tracks.lba is GeologyTrackVisibility.HIDE
         assert layout.legend_mode is ReportLegendMode.COMPACT
+        assert layout.layout_profile is ReportLayoutProfile.MODERN_OILFIELD
         assert ReportLegendMode(dialog.legend_mode_combo.currentData()) is ReportLegendMode.COMPACT
+        assert (
+            ReportLayoutProfile(dialog.layout_profile_combo.currentData())
+            is ReportLayoutProfile.MODERN_OILFIELD
+        )
         assert dialog.selected_composition() == _composition()
     finally:
         dialog.close()
@@ -516,10 +543,13 @@ def test_workspace_propagates_persisted_legend_mode_to_preview_pdf_and_print() -
     print_source = inspect.getsource(workspace_type._print_report)
 
     assert "legend_mode=composition.legend_mode" in preview_source
+    assert "layout_profile=composition.layout_profile" in preview_source
     assert "identity=preview_identity" in preview_source
     assert "identity_with_report_header_fields(" in preview_source
     assert "legend_mode=layout.legend_mode" in pdf_source
+    assert "layout_profile=layout.layout_profile" in pdf_source
     assert "legend_mode=layout.legend_mode" in print_source
+    assert "layout_profile=layout.layout_profile" in print_source
     assert "with_report_header_fields(" in pdf_source
     assert "with_report_header_fields(" in print_source
 
@@ -571,6 +601,24 @@ def test_html_preview_legend_mode_hides_key_and_reaches_chart_renderer(monkeypat
     assert "<h2>KEY</h2>" not in hidden
     assert "<h2>KEY</h2>" in compact
     assert seen == [ReportLegendMode.HIDE, ReportLegendMode.COMPACT]
+
+
+def test_preview_chart_emits_stable_layout_profile_hook() -> None:
+    html = chart_front._chart_block(
+        "data:image/png;base64,AAAA",
+        {"title": "Chart", "note": "Note"},
+        print_layout=False,
+        layout_profile=ReportLayoutProfile.MODERN_OILFIELD,
+    )
+
+    assert "data-layout-profile='modern_oilfield'" in html
+
+
+def test_pdf_export_passport_includes_layout_profile() -> None:
+    source = inspect.getsource(pdf_report.export_hydrocarbon_interpretation_pdf_with_passport)
+
+    assert '("layout_profile", layout_profile.value)' in source
+    assert "layout_profile=layout_profile" in source
 
 
 def test_preview_chart_uses_legend_mode_for_geology_legend_geometry() -> None:

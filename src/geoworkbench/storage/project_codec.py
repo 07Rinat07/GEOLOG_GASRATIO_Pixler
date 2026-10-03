@@ -24,6 +24,7 @@ from geoworkbench.domain.report_composition import (
     InterpretationReportComposition,
     ReportHeaderFields,
     ReportLegendMode,
+    ReportLayoutProfile,
     ReportPageOrientation,
     ReportPrintOrder,
     ReportTrackVisibility,
@@ -68,7 +69,11 @@ class ProjectDocument(_V29ProjectDocument):
 _REPORT_COMPOSITION_KEYS_V37 = {"orientation", "print_order", "cuttings", "lba"}
 _REPORT_COMPOSITION_KEYS_LEGEND = {*_REPORT_COMPOSITION_KEYS_V37, "legend_mode"}
 _REPORT_COMPOSITION_KEYS_HEADERS = {*_REPORT_COMPOSITION_KEYS_LEGEND, "headers"}
-_REPORT_COMPOSITION_KEYS = {*_REPORT_COMPOSITION_KEYS_HEADERS, "composition_id"}
+_REPORT_COMPOSITION_KEYS = {
+    *_REPORT_COMPOSITION_KEYS_HEADERS,
+    "composition_id",
+    "layout_profile",
+}
 _REPORT_HEADER_KEYS_LEGACY = {
     "report_title",
     "report_subtitle",
@@ -168,6 +173,9 @@ def _report_compositions_from_dict(
                 lba=ReportTrackVisibility(raw["lba"]),
                 legend_mode=ReportLegendMode(
                     raw.get("legend_mode", ReportLegendMode.FULL.value)
+                ),
+                layout_profile=ReportLayoutProfile(
+                    raw.get("layout_profile", ReportLayoutProfile.MODERN_OILFIELD.value)
                 ),
                 header_ru=headers.get("ru"),
                 header_kk=headers.get("kk"),

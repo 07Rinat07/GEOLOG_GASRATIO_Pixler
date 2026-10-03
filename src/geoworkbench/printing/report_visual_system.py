@@ -5,6 +5,7 @@ from enum import StrEnum
 import re
 
 from geoworkbench.brand import REPORT_BRAND_WORDMARK
+from geoworkbench.domain.report_composition import ReportLayoutProfile
 _HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
 
 
@@ -129,6 +130,16 @@ _GRAYSCALE_PALETTE = ReportPalette(
 )
 
 
+def report_visual_profile(
+    layout_profile: ReportLayoutProfile,
+    *,
+    grayscale: bool = False,
+) -> ReportVisualProfile:
+    if layout_profile is ReportLayoutProfile.MODERN_OILFIELD:
+        return modern_oilfield_report_profile(grayscale=grayscale)
+    raise ValueError(f"Unsupported report layout profile: {layout_profile!r}")
+
+
 def modern_oilfield_report_profile(*, grayscale: bool = False) -> ReportVisualProfile:
     """Return the canonical application-owned report visual profile."""
 
@@ -147,4 +158,5 @@ __all__ = [
     "ReportVisualProfile",
     "ReportVisualProfileId",
     "modern_oilfield_report_profile",
+    "report_visual_profile",
 ]
