@@ -147,8 +147,13 @@ def test_print_ratio_scatter_remains_visible_without_becoming_a_thick_trace(qapp
     assert selected_values.size == depth.size
     assert selected_depth.size == depth.size
     assert len(dark_coordinates) >= 50
-    assert len(dark_rows) >= 60
     assert dark_rows[-1] - dark_rows[0] >= 290
+
+    visible_bands = 1
+    for previous, current in zip(dark_rows, dark_rows[1:], strict=False):
+        if current - previous > 4:
+            visible_bands += 1
+    assert visible_bands >= 16
 
     longest_run = 1
     current_run = 1
