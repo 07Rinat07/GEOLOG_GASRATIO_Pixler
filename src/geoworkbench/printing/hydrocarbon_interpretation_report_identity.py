@@ -148,19 +148,43 @@ def inject_report_optional_sections_html(
     if not summary and not conclusion:
         return html
     summary_label, conclusion_label = _OPTIONAL_SECTION_LABELS[language]
-    blocks: list[str] = []
-    for label, value, css_class in (
-        (summary_label, summary, "report-summary"),
-        (conclusion_label, conclusion, "report-conclusion"),
-    ):
-        if not value:
-            continue
+
+    def section(label: str, value: str, css_class: str) -> str:
         body = "<br/>".join(escape(line) for line in value.splitlines())
-        blocks.append(
-            f"<section class='{css_class}'><h2>{escape(label)}</h2><p>{body}</p></section>"
+        return (
+            f"<section class='{css_class}'><h2>{escape(label)}</h2>"
+            f"<p>{body}</p></section>"
         )
-    payload = "".join(blocks)
-    return html.replace("</body>", payload + "</body>") if "</body>" in html else html + payload
+
+    rendered = html
+    if summary:
+        summary_html = section(summary_label, summary, "report-summary")
+        heading_end = rendered.lower().find("</h1>")
+        paragraph_end = (
+            rendered.lower().find("</p>", heading_end + 5)
+            if heading_end >= 0
+            else -1
+        )
+        if paragraph_end >= 0:
+            insert_at = paragraph_end + 4
+            rendered = rendered[:insert_at] + summary_html + rendered[insert_at:]
+        else:
+            body_start = rendered.lower().find("<body")
+            body_open_end = rendered.find(">", body_start) if body_start >= 0 else -1
+            if body_open_end >= 0:
+                insert_at = body_open_end + 1
+                rendered = rendered[:insert_at] + summary_html + rendered[insert_at:]
+            else:
+                rendered = summary_html + rendered
+
+    if conclusion:
+        conclusion_html = section(conclusion_label, conclusion, "report-conclusion")
+        body_end = rendered.lower().rfind("</body>")
+        if body_end >= 0:
+            rendered = rendered[:body_end] + conclusion_html + rendered[body_end:]
+        else:
+            rendered += conclusion_html
+    return rendered
 
 def default_interpretation_report_identity(
     report: HydrocarbonInterpretationReport,
