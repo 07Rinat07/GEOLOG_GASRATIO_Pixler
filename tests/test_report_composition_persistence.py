@@ -17,6 +17,7 @@ from geoworkbench.printing.interpretation_report_composition import (
 )
 from geoworkbench.storage.atomic_json import save_project
 from geoworkbench.storage.package_project_repository import PackageProjectRepository
+from geoworkbench.services.localization import AppLanguage
 from geoworkbench.storage.project_codec import (
     PROJECT_FORMAT_VERSION,
     ProjectDocument,
@@ -106,11 +107,11 @@ def test_package_round_trip_preserves_report_composition(tmp_path) -> None:
 
 def test_layout_dialog_restores_and_returns_persisted_composition(qapp) -> None:
     dialog = InterpretationPrintLayoutDialog(
-        language=None,  # type: ignore[arg-type]
+        language=AppLanguage.EN,
         initial=_composition(),
     )
     try:
-        assert dialog.orientation_combo.currentData() is QPageLayout.Orientation.Landscape
+        assert dialog.orientation_combo.currentData() == QPageLayout.Orientation.Landscape
         assert (
             dialog.order_combo.currentData()
             is InterpretationPrintOrder.LAST_TO_FIRST
