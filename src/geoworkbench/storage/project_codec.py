@@ -27,6 +27,7 @@ from geoworkbench.domain.report_composition import (
     ReportPageOrientation,
     ReportPrintOrder,
     ReportTrackVisibility,
+    stable_report_composition_id,
 )
 from geoworkbench.storage import project_codec_v29 as _v29
 from geoworkbench.storage.project_codec_v29 import (
@@ -66,7 +67,8 @@ class ProjectDocument(_V29ProjectDocument):
 
 _REPORT_COMPOSITION_KEYS_V37 = {"orientation", "print_order", "cuttings", "lba"}
 _REPORT_COMPOSITION_KEYS_LEGEND = {*_REPORT_COMPOSITION_KEYS_V37, "legend_mode"}
-_REPORT_COMPOSITION_KEYS = {*_REPORT_COMPOSITION_KEYS_LEGEND, "headers"}
+_REPORT_COMPOSITION_KEYS_HEADERS = {*_REPORT_COMPOSITION_KEYS_LEGEND, "headers"}
+_REPORT_COMPOSITION_KEYS = {*_REPORT_COMPOSITION_KEYS_HEADERS, "composition_id"}
 _REPORT_HEADER_KEYS_LEGACY = {
     "report_title",
     "report_subtitle",
@@ -140,12 +142,23 @@ def _report_compositions_from_dict(
         if (
             raw_keys != _REPORT_COMPOSITION_KEYS_V37
             and raw_keys != _REPORT_COMPOSITION_KEYS_LEGEND
+            and raw_keys != _REPORT_COMPOSITION_KEYS_HEADERS
             and raw_keys != _REPORT_COMPOSITION_KEYS
         ):
             raise ProjectFormatError("Некорректная report composition")
         try:
             headers = _report_headers_from_dict(raw.get("headers", {}))
+            composition_id = raw.get("composition_id")
+            if composition_id is None:
+                composition_id = stable_report_composition_id(dataset_id)
+            if (
+                not isinstance(composition_id, str)
+                or not composition_id.strip()
+                or len(composition_id) > 128
+            ):
+                raise ProjectFormatError("Некорректный ID report composition")
             result[dataset_id] = InterpretationReportComposition(
+                composition_id=composition_id.strip(),
                 orientation=ReportPageOrientation(raw["orientation"]),
                 print_order=ReportPrintOrder(raw["print_order"]),
                 cuttings=ReportTrackVisibility(raw["cuttings"]),
