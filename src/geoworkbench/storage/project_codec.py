@@ -76,9 +76,12 @@ def _report_compositions_from_dict(
     for dataset_id, raw in data.items():
         if not isinstance(dataset_id, str) or not dataset_id.strip():
             raise ProjectFormatError("ID набора для report composition не может быть пустым")
+        if not isinstance(raw, dict):
+            raise ProjectFormatError("Некорректная report composition")
+        raw_keys = set(raw)
         if (
-            not isinstance(raw, dict)
-            or set(raw) not in {_REPORT_COMPOSITION_KEYS_V37, _REPORT_COMPOSITION_KEYS}
+            raw_keys != _REPORT_COMPOSITION_KEYS_V37
+            and raw_keys != _REPORT_COMPOSITION_KEYS
         ):
             raise ProjectFormatError("Некорректная report composition")
         try:
