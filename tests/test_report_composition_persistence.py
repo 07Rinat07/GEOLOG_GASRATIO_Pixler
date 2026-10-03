@@ -10,10 +10,11 @@ from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain, Projec
 from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
     GeologyTrackVisibility,
 )
-from geoworkbench.printing.interpretation_report_composition import (
+from geoworkbench.domain.report_composition import (
     InterpretationReportComposition,
     ReportPageOrientation,
     ReportPrintOrder,
+    ReportTrackVisibility,
 )
 from geoworkbench.storage.atomic_json import save_project
 from geoworkbench.storage.package_project_repository import PackageProjectRepository
@@ -45,8 +46,8 @@ def _composition() -> InterpretationReportComposition:
     return InterpretationReportComposition(
         orientation=ReportPageOrientation.LANDSCAPE,
         print_order=ReportPrintOrder.LAST_TO_FIRST,
-        cuttings=GeologyTrackVisibility.SHOW,
-        lba=GeologyTrackVisibility.HIDE,
+        cuttings=ReportTrackVisibility.SHOW,
+        lba=ReportTrackVisibility.HIDE,
     )
 
 
