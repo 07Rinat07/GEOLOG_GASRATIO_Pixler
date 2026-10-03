@@ -140,10 +140,8 @@ def _report_compositions_from_dict(
             raise ProjectFormatError("Некорректная report composition")
         raw_keys = set(raw)
         if (
-            raw_keys != _REPORT_COMPOSITION_KEYS_V37
-            and raw_keys != _REPORT_COMPOSITION_KEYS_LEGEND
-            and raw_keys != _REPORT_COMPOSITION_KEYS_HEADERS
-            and raw_keys != _REPORT_COMPOSITION_KEYS
+            not _REPORT_COMPOSITION_KEYS_V37 <= raw_keys
+            or raw_keys - _REPORT_COMPOSITION_KEYS
         ):
             raise ProjectFormatError("Некорректная report composition")
         try:
