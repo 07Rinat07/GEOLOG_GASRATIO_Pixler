@@ -20,13 +20,11 @@ from geoworkbench.domain.gas_context_events import (
 )
 from geoworkbench.domain.models import DepthDomain, DescriptionTemplateBlock, Project
 from geoworkbench.domain.translation_status import TranslationState, TranslationStatus
-from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
-    GeologyTrackVisibility,
-)
-from geoworkbench.printing.interpretation_report_composition import (
+from geoworkbench.domain.report_composition import (
     InterpretationReportComposition,
     ReportPageOrientation,
     ReportPrintOrder,
+    ReportTrackVisibility,
 )
 from geoworkbench.storage import project_codec_v29 as _v29
 from geoworkbench.storage.project_codec_v29 import (
@@ -82,8 +80,8 @@ def _report_compositions_from_dict(
             result[dataset_id] = InterpretationReportComposition(
                 orientation=ReportPageOrientation(raw["orientation"]),
                 print_order=ReportPrintOrder(raw["print_order"]),
-                cuttings=GeologyTrackVisibility(raw["cuttings"]),
-                lba=GeologyTrackVisibility(raw["lba"]),
+                cuttings=ReportTrackVisibility(raw["cuttings"]),
+                lba=ReportTrackVisibility(raw["lba"]),
             )
         except (KeyError, TypeError, ValueError) as exc:
             raise ProjectFormatError("Некорректная report composition") from exc
