@@ -59,6 +59,27 @@ _CYRILLIC_MOJIBAKE_PATTERN = re.compile(r"(?:[ÐÑ].){2,}")
 # depend on a symbol font while the meaningful text remains strictly checked.
 _SCREEN_ONLY_DECORATIVE_PREFIXES = frozenset({"↶", "↷", "✎"})
 
+_UNICODE_PROBLEM_LABELS: dict[AppLanguage, dict[str, str]] = {
+    AppLanguage.RU: {
+        "invalid_sequence": "невалидная последовательность UTF-8/Unicode",
+        "replacement_character": "символ замены U+FFFD",
+        "unpaired_surrogate": "непарный суррогат Unicode",
+        "control_characters": "недопустимые управляющие символы",
+    },
+    AppLanguage.KK: {
+        "invalid_sequence": "жарамсыз UTF-8/Unicode тізбегі",
+        "replacement_character": "U+FFFD алмастыру таңбасы",
+        "unpaired_surrogate": "жұпсыз Unicode суррогаты",
+        "control_characters": "рұқсат етілмеген басқару таңбалары",
+    },
+    AppLanguage.EN: {
+        "invalid_sequence": "invalid UTF-8/Unicode sequence",
+        "replacement_character": "replacement character U+FFFD",
+        "unpaired_surrogate": "unpaired Unicode surrogate",
+        "control_characters": "disallowed control characters",
+    },
+}
+
 
 @dataclass(frozen=True, slots=True)
 class UnicodeFontProfile:
@@ -76,6 +97,7 @@ class UnicodePreflightReport:
     invalid_fragments: tuple[str, ...] = ()
     missing_glyphs: tuple[str, ...] = ()
     suspicious_fragments: tuple[str, ...] = ()
+    invalid_problem_details: tuple[tuple[str, tuple[str, ...]], ...] = ()
 
     @property
     def ok(self) -> bool:
@@ -122,7 +144,17 @@ class UnicodePreflightReport:
             },
         }[language]
         parts: list[str] = []
-        if self.invalid_fragments:
+        if self.invalid_problem_details:
+            problem_labels = _UNICODE_PROBLEM_LABELS[language]
+            rendered_invalid = []
+            for text, problem_codes in self.invalid_problem_details[:8]:
+                details = ", ".join(
+                    problem_labels.get(problem_code, problem_code)
+                    for problem_code in problem_codes
+                )
+                rendered_invalid.append(f"{text!r}: {details}")
+            parts.append(labels["invalid"] + "; ".join(rendered_invalid))
+        elif self.invalid_fragments:
             parts.append(labels["invalid"] + "; ".join(self.invalid_fragments[:8]))
         if self.suspicious_fragments:
             parts.append(
@@ -254,12 +286,19 @@ def ensure_widget_printable_unicode(widget: QWidget) -> UnicodePreflightReport:
 def preflight_texts(texts: tuple[str, ...] | list[str]) -> UnicodePreflightReport:
     normalized = tuple(text for text in texts if isinstance(text, str) and text)
     invalid: list[str] = []
+    invalid_problem_details: list[tuple[str, tuple[str, ...]]] = []
     suspicious: list[str] = []
     characters: list[str] = []
     for text in normalized:
         problems = _text_integrity_problems(text)
         if problems:
-            invalid.append(f"{_shorten(text)!r}: {', '.join(problems)}")
+            shortened = _shorten(text)
+            invalid_problem_details.append((shortened, problems))
+            russian_labels = _UNICODE_PROBLEM_LABELS[AppLanguage.RU]
+            invalid.append(
+                f"{shortened!r}: "
+                + ", ".join(russian_labels.get(problem, problem) for problem in problems)
+            )
         if any(marker in text for marker in _SUSPICIOUS_MOJIBAKE_MARKERS) or (
             _CYRILLIC_MOJIBAKE_PATTERN.search(text) is not None
         ):
@@ -278,6 +317,7 @@ def preflight_texts(texts: tuple[str, ...] | list[str]) -> UnicodePreflightRepor
         invalid_fragments=tuple(invalid),
         missing_glyphs=missing,
         suspicious_fragments=tuple(dict.fromkeys(suspicious)),
+        invalid_problem_details=tuple(invalid_problem_details),
     )
 
 
@@ -354,18 +394,18 @@ def _text_integrity_problems(text: str) -> tuple[str, ...]:
     try:
         text.encode("utf-8", errors="strict").decode("utf-8", errors="strict")
     except UnicodeError:
-        problems.append("невалидная последовательность UTF-8/Unicode")
+        problems.append("invalid_sequence")
     if "\ufffd" in text:
-        problems.append("символ замены U+FFFD")
+        problems.append("replacement_character")
     if any(0xD800 <= ord(character) <= 0xDFFF for character in text):
-        problems.append("непарный суррогат Unicode")
+        problems.append("unpaired_surrogate")
     controls = [
         character
         for character in text
         if unicodedata.category(character) == "Cc" and character not in "\n\r\t"
     ]
     if controls:
-        problems.append("недопустимые управляющие символы")
+        problems.append("control_characters")
     return tuple(problems)
 
 
