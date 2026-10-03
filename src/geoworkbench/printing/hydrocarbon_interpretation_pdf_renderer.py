@@ -27,6 +27,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_geology_legend import (
     build_interpretation_geology_legend,
     geology_legend_height,
     paint_geology_legend,
+    paginate_geology_legend,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
     DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS,
@@ -115,7 +116,6 @@ def render_hydrocarbon_interpretation_report(
                 report, scoped, language,
             )
             if key_html and legend_mode is not ReportLegendMode.HIDE:
-                canvas.new_page()
                 top = float(np.nanmin(scoped.depth))
                 bottom = float(np.nanmax(scoped.depth))
                 bounds = report.analysis_depth_interval or depth_range
@@ -126,18 +126,43 @@ def render_hydrocarbon_interpretation_report(
                 )
                 if legend_mode is ReportLegendMode.FULL:
                     legend = build_interpretation_geology_legend(
-                        geology, top, bottom, language,
-                        include_cuttings="cuttings" in tracks, include_lba="lba" in tracks,
+                        geology,
+                        top,
+                        bottom,
+                        language,
+                        include_cuttings="cuttings" in tracks,
+                        include_lba="lba" in tracks,
                     )
-                    height = geology_legend_height(
-                        canvas.content_rect.width(), legend, paint_device=device,
-                    )
-                    if 0.0 < height <= canvas.content_rect.height() * 0.45:
-                        paint_geology_legend(
-                            painter, QRectF(canvas.content_rect.left(), canvas.y,
-                                            canvas.content_rect.width(), height), legend, language,
+                    for legend_page in paginate_geology_legend(
+                        canvas.content_rect.width(),
+                        legend,
+                        canvas.content_rect.height(),
+                        paint_device=device,
+                    ):
+                        if not legend_page.items:
+                            continue
+                        canvas.new_page()
+                        height = geology_legend_height(
+                            canvas.content_rect.width(),
+                            legend_page,
+                            paint_device=device,
                         )
-                        canvas.advance(height, spacing=8.0)
+                        paint_geology_legend(
+                            painter,
+                            QRectF(
+                                canvas.content_rect.left(),
+                                canvas.content_rect.top(),
+                                canvas.content_rect.width(),
+                                height,
+                            ),
+                            legend_page,
+                            language,
+                        )
+                        canvas.y = canvas.content_rect.bottom()
+
+                # Chart methodology/explanations must never share a physical
+                # page with the geology legend. Keep it as a dedicated section.
+                canvas.new_page()
                 render_report_html(
                     canvas,
                     key_html,
