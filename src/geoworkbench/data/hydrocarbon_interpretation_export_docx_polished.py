@@ -17,6 +17,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
     InterpretationReportIdentity,
     default_interpretation_report_identity,
 )
+from geoworkbench.printing.hydrocarbon_report_i18n import hydrocarbon_report_labels
 from geoworkbench.printing.report_visual_system import REPORT_BRAND_WORDMARK
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
@@ -35,6 +36,7 @@ def export_polished_hydrocarbon_interpretation_docx(
     *,
     dataset: Dataset | None = None,
     identity: InterpretationReportIdentity | None = None,
+    language: AppLanguage = AppLanguage.RU,
     overwrite: bool = False,
 ) -> Path:
     """Export Word with a separate portrait cover and landscape report body."""
@@ -48,7 +50,7 @@ def export_polished_hydrocarbon_interpretation_docx(
 
     details = (
         identity
-        or default_interpretation_report_identity(report, AppLanguage.RU)
+        or default_interpretation_report_identity(report, language)
     ).cleaned()
     if report.analysis_depth_interval is not None:
         details = replace(details, interval=report.analysis_depth_interval.formatted(report.depth_unit))
@@ -59,9 +61,10 @@ def export_polished_hydrocarbon_interpretation_docx(
             report,
             source,
             dataset=dataset,
+            language=language,
             overwrite=True,
         )
-        _rewrite_cover(source, rewritten, report, details)
+        _rewrite_cover(source, rewritten, report, details, language)
         os.replace(rewritten, destination)
     finally:
         source.unlink(missing_ok=True)
@@ -84,6 +87,7 @@ def _rewrite_cover(
     target: Path,
     report: HydrocarbonInterpretationReport,
     identity: InterpretationReportIdentity,
+    language: AppLanguage,
 ) -> None:
     with (
         zipfile.ZipFile(source, "r") as input_package,
@@ -92,7 +96,12 @@ def _rewrite_cover(
         for item in input_package.infolist():
             data = input_package.read(item.filename)
             if item.filename == "word/document.xml":
-                data = _document_with_polished_cover(data, report, identity)
+                data = _document_with_polished_cover(
+                    data,
+                    report,
+                    identity,
+                    language,
+                )
             output_package.writestr(item, data)
 
 
@@ -100,6 +109,7 @@ def _document_with_polished_cover(
     xml: bytes,
     report: HydrocarbonInterpretationReport,
     identity: InterpretationReportIdentity,
+    language: AppLanguage,
 ) -> bytes:
     root = fromstring(xml)
     body = root.find(_q("body"))
@@ -120,7 +130,7 @@ def _document_with_polished_cover(
 
     for child in children[:first_heading]:
         body.remove(child)
-    for index, element in enumerate(_cover_elements(report, identity)):
+    for index, element in enumerate(_cover_elements(report, identity, language)):
         body.insert(index, element)
     return ET.tostring(root, encoding="utf-8", xml_declaration=True)
 
@@ -133,8 +143,15 @@ def _paragraph_style(paragraph: ET.Element) -> str:
 def _cover_elements(
     report: HydrocarbonInterpretationReport,
     identity: InterpretationReportIdentity,
+    language: AppLanguage,
 ) -> tuple[ET.Element, ...]:
     details = identity.cleaned()
+    labels = hydrocarbon_report_labels(language)
+    signature_label = {
+        AppLanguage.RU: "Подпись / дата",
+        AppLanguage.KK: "Қолы / күні",
+        AppLanguage.EN: "Signature / date",
+    }[language]
     elements: list[ET.Element] = [
         _paragraph(
             REPORT_BRAND_WORDMARK,
@@ -148,16 +165,21 @@ def _cover_elements(
             tuple(
                 item
                 for item in (
-                    ("Документ", details.document_number),
-                    ("Ревизия", details.revision),
-                    ("Статус", details.document_status),
-                    ("Дата отчёта", details.report_date),
+                    (labels.document, details.document_number),
+                    (labels.revision, details.revision),
+                    (labels.document_status, details.document_status),
+                    (labels.report_date, details.report_date),
                 )
-                if item[0] != "Дата отчёта" or item[1].strip()
+                if item[0] != labels.report_date or item[1].strip()
             )
         ),
         _paragraph(
-            details.report_title or "Отчёт по интерпретации газового каротажа",
+            details.report_title
+            or (
+                labels.title_opus
+                if report.report_profile == "opus"
+                else labels.title_standard
+            ),
             alignment="center",
             before=720,
             after=100,
@@ -175,33 +197,33 @@ def _cover_elements(
         ),
         _details_table(
             (
-                ("Проект", details.project_name),
-                ("Скважина", details.well_name),
-                ("Месторождение / площадь", details.field_name),
-                ("Местоположение", details.location),
-                ("Оператор / заказчик", details.operator_name),
-                ("Сервисная компания", details.contractor_name),
-                ("Буровая / установка", details.rig_name),
-                ("Набор данных", details.dataset_name),
-                ("Интервал отчёта", details.interval),
-                ("Основная газовая кривая", report.primary_mnemonic or "—"),
-                ("Порог robust z", f"{report.threshold:.2f}"),
+                (labels.project, details.project_name),
+                (labels.well, details.well_name),
+                (labels.field_area, details.field_name),
+                (labels.location, details.location),
+                (labels.operator_customer, details.operator_name),
+                (labels.service_company, details.contractor_name),
+                (labels.rig, details.rig_name),
+                (labels.dataset, details.dataset_name),
+                (labels.report_interval, details.interval),
+                (labels.primary_gas_curve, report.primary_mnemonic or "—"),
+                (labels.robust_z_threshold, f"{report.threshold:.2f}"),
             )
         ),
         _paragraph("", before=80, after=80, size=4),
         _approval_table(
             (
-                ("Подготовил", details.prepared_by),
-                ("Проверил", details.checked_by),
-                ("Утвердил", details.approved_by),
-            )
+                (labels.prepared_by, details.prepared_by),
+                (labels.checked_by, details.checked_by),
+                (labels.approved_by, details.approved_by),
+            ),
+            signature_label=signature_label,
         ),
     ]
     notes = (
         details.confidentiality,
         details.remarks,
-        "Графики, методы, перспективные интервалы и ограничения методики "
-        "приведены на следующих страницах.",
+        labels.cover_note,
     )
     elements.extend(
         _paragraph(
@@ -290,12 +312,16 @@ def _details_table(items: tuple[tuple[str, str], ...]) -> ET.Element:
     )
 
 
-def _approval_table(items: tuple[tuple[str, str], ...]) -> ET.Element:
+def _approval_table(
+    items: tuple[tuple[str, str], ...],
+    *,
+    signature_label: str,
+) -> ET.Element:
     return _table(
         (
             tuple(label for label, _ in items),
             tuple(_value(value) for _, value in items),
-            tuple("Подпись / дата ____________________" for _ in items),
+            tuple(f"{signature_label} ____________________" for _ in items),
         ),
         tuple(3_000 for _ in items),
         shaded_rows=frozenset({0}),
