@@ -23,6 +23,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
 )
 from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
     InterpretationReportIdentity,
+    inject_report_optional_sections_html,
     identity_with_report_header_fields,
     report_header_fields_from_identity,
 )
@@ -93,6 +94,8 @@ def _composition() -> InterpretationReportComposition:
             project_name="Project",
             well_name="Well",
             revision="02",
+            summary="English summary",
+            conclusion="English conclusion",
         ),
     )
 
@@ -310,6 +313,51 @@ def test_persisted_header_overlay_keeps_runtime_interval() -> None:
     assert restored.interval == "2000–2100 m"
 
 
+def test_legacy_header_without_optional_narrative_defaults_to_empty(tmp_path) -> None:
+    project = _project()
+    target = tmp_path / "legacy-v37-narrative.geolog.json"
+    save_project(
+        project,
+        target,
+        report_compositions={"dataset-report-composition": _composition()},
+    )
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    header = payload["report_compositions"]["dataset-report-composition"]["headers"]["en"]
+    header.pop("summary")
+    header.pop("conclusion")
+    target.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    loaded = load_project_document(target)
+    restored = loaded.report_compositions["dataset-report-composition"].header_en
+
+    assert restored is not None
+    assert restored.summary == ""
+    assert restored.conclusion == ""
+
+
+def test_optional_narrative_html_is_localized_and_escaped() -> None:
+    identity = InterpretationReportIdentity(
+        report_title="Title",
+        report_subtitle="Subtitle",
+        project_name="Project",
+        well_name="Well",
+        summary="<b>Summary</b>\nSecond line",
+        conclusion="A & B",
+    )
+
+    html = inject_report_optional_sections_html(
+        "<html><body><p>Body</p></body></html>",
+        identity,
+        AppLanguage.EN,
+    )
+
+    assert "Executive summary" in html
+    assert "Conclusion" in html
+    assert "&lt;b&gt;Summary&lt;/b&gt;<br/>Second line" in html
+    assert "A &amp; B" in html
+    assert "<b>Summary</b>" not in html
+
+
 def test_project_v36_migrates_with_empty_report_compositions(tmp_path) -> None:
     project = _project()
     target = tmp_path / "legacy.geolog.json"
@@ -416,6 +464,8 @@ def test_workspace_propagates_persisted_legend_mode_to_preview_pdf_and_print() -
     print_source = inspect.getsource(workspace_type._print_report)
 
     assert "legend_mode=composition.legend_mode" in preview_source
+    assert "identity=preview_identity" in preview_source
+    assert "identity_with_report_header_fields(" in preview_source
     assert "legend_mode=layout.legend_mode" in pdf_source
     assert "legend_mode=layout.legend_mode" in print_source
     assert "with_report_header_fields(" in pdf_source
