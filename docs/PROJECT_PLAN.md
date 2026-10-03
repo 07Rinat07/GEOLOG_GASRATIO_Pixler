@@ -1,4 +1,4 @@
-<!-- runtime-contract: package=0.7.96; project=v36; form=v18; layout=v25 -->
+<!-- runtime-contract: package=0.7.96; project=v37; form=v18; layout=v25 -->
 # Единый план проекта
 
 План сверён 2 октября 2026 года с `main` после интеграции PR #417–#422.
