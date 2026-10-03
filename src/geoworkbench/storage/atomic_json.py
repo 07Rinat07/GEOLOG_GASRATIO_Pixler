@@ -21,6 +21,7 @@ from geoworkbench.printing.image_assets import ImageAsset, save_image_assets
 from geoworkbench.domain.report_composition import (
     InterpretationReportComposition,
     ReportHeaderFields,
+    ensure_report_composition_id,
 )
 from geoworkbench.storage.project_codec import PROJECT_FORMAT_VERSION
 from geoworkbench.storage.source_artifacts import save_source_documents
@@ -142,7 +143,10 @@ def save_project(
             raise ValueError(f"Import report не соответствует source document: {dataset_id}")
     profiles = rock_code_profiles or {}
     bindings = rock_code_source_bindings or {}
-    compositions = report_compositions or {}
+    compositions = {
+        dataset_id: ensure_report_composition_id(composition, dataset_id)
+        for dataset_id, composition in (report_compositions or {}).items()
+    }
     _validate_rock_profile_ledgers(profiles, bindings)
     _validate_report_compositions(project, compositions)
     source_artifacts = save_source_documents(target, documents)
@@ -159,6 +163,7 @@ def save_project(
         },
         "report_compositions": {
             dataset_id: {
+                "composition_id": composition.composition_id,
                 "orientation": composition.orientation.value,
                 "print_order": composition.print_order.value,
                 "cuttings": composition.cuttings.value,
