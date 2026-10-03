@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
 from geoworkbench.domain.depth_interval import DepthInterval, DepthIntervalError
 from geoworkbench.domain.models import IndexRole
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.services.edit_history import CommandHistory
 from geoworkbench.project.interpretation_calculation_controller import (
     InterpretationCalculationController,
 )
@@ -83,6 +84,9 @@ from geoworkbench.ui.interpretation_print_layout_dialog import (
 )
 from geoworkbench.ui.interpretation_report_details_dialog import (
     InterpretationReportDetailsDialog,
+)
+from geoworkbench.ui.interpretation_report_annotation_dialog import (
+    InterpretationReportAnnotationDialog,
 )
 from geoworkbench.ui.interpretation_report_workspace_expert import (
     InterpretationReportWorkspace as _ExpertInterpretationReportWorkspace,
@@ -171,12 +175,17 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         if not isinstance(root, QVBoxLayout):
             raise RuntimeError("Не найден layout отчёта интерпретации")
         root.addWidget(self.depth_interval_panel)
+        self.report_annotations_button = QPushButton(self)
+        self.report_annotations_button.setObjectName("edit-report-annotations")
+        root.addWidget(self.report_annotations_button)
+        self._report_annotation_history = CommandHistory(max_commands=100)
         self._depth_interval_dataset_key: tuple[object, ...] | None = None
         self._depth_interval_endpoints: tuple[tuple[float, float], tuple[float, float]] | None = None
         self._preview_geology_report_key: tuple[object, ...] | None = None
         self._preview_depth_range: DepthInterval | None = None
         self.depth_interval_apply.clicked.connect(self._apply_depth_interval)
         self.depth_interval_mode.currentIndexChanged.connect(self._update_depth_interval_controls)
+        self.report_annotations_button.clicked.connect(self._edit_report_annotations)
         self.refresh()
 
     def refresh(self) -> None:
@@ -190,6 +199,8 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         super().set_language(language)
         if hasattr(self, "depth_interval_panel"):
             self._retranslate_depth_interval()
+        if hasattr(self, "report_annotations_button"):
+            self._retranslate_report_annotations()
 
     def _sync_depth_interval_dataset(self) -> None:
         session = self.controller.session
@@ -252,6 +263,16 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
             )
         )
 
+    def _retranslate_report_annotations(self) -> None:
+        count = len(self._report_composition().annotations)
+        self.report_annotations_button.setText(
+            self._text(
+                f"Аннотации итогового отчёта… ({count})",
+                f"Қорытынды есеп аннотациялары… ({count})",
+                f"Final report annotations… ({count})",
+            )
+        )
+
     def _update_depth_interval_controls(self) -> None:
         dataset = self.controller.session.current_dataset
         enabled = (
@@ -286,6 +307,24 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         self.controller.depth_interval = interval
         self._preview_geology_report_key = None
         self.refresh()
+
+    def _edit_report_annotations(self) -> None:
+        if self.controller.session.current_dataset is None or self._is_mixture_mode():
+            return
+        dialog = InterpretationReportAnnotationDialog(
+            self.controller.session,
+            self,
+            language=self.language,
+            shared_history=self._report_annotation_history,
+            on_changed=self._report_annotations_changed,
+        )
+        dialog.exec()
+        self._report_annotations_changed()
+
+    def _report_annotations_changed(self) -> None:
+        self._preview_geology_report_key = None
+        self._retranslate_report_annotations()
+        self._apply_chart_preview()
 
     def _open_tablet(self) -> None:
         super()._open_tablet()
