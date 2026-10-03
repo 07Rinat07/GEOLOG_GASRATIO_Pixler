@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from geoworkbench.data.las_import_report import LasImportReport
 from geoworkbench.data.lossless_las import LosslessLasDocument
 from geoworkbench.domain.models import Dataset
+from geoworkbench.domain.report_composition import InterpretationReportComposition
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.depth_axis import (
     DepthAxisReport,
@@ -23,10 +24,12 @@ class DepthAxisController:
     _ascending_dataset: Dataset | None = None
     _ascending_source_document: LosslessLasDocument | None = None
     _ascending_import_report: LasImportReport | None = None
+    _ascending_report_composition: InterpretationReportComposition | None = None
     _resample_source_id: str | None = None
     _resampled_dataset: Dataset | None = None
     _resampled_source_document: LosslessLasDocument | None = None
     _resampled_import_report: LasImportReport | None = None
+    _resampled_report_composition: InterpretationReportComposition | None = None
 
     @property
     def can_undo_resample(self) -> bool:
@@ -85,6 +88,9 @@ class DepthAxisController:
             raise RuntimeError("Нет исправления порядка глубины для отмены")
         self.session.source_documents.pop(result.dataset_id, None)
         self.session.import_reports.pop(result.dataset_id, None)
+        self._ascending_report_composition = self.session.report_compositions.pop(
+            result.dataset_id, None
+        )
         del well.datasets[result.dataset_id]
         self.session.current_dataset_id = self._ascending_source_id
         self.session.dirty = True
@@ -99,6 +105,10 @@ class DepthAxisController:
             self.session.source_documents[result.dataset_id] = self._ascending_source_document
         if self._ascending_import_report is not None:
             self.session.import_reports[result.dataset_id] = self._ascending_import_report
+        if self._ascending_report_composition is not None:
+            self.session.report_compositions[result.dataset_id] = (
+                self._ascending_report_composition
+            )
         self.session.current_dataset_id = result.dataset_id
         self.session.dirty = True
         return result
@@ -132,6 +142,9 @@ class DepthAxisController:
             raise RuntimeError("Нет ресэмплинга для отмены")
         self.session.source_documents.pop(result.dataset_id, None)
         self.session.import_reports.pop(result.dataset_id, None)
+        self._resampled_report_composition = self.session.report_compositions.pop(
+            result.dataset_id, None
+        )
         del well.datasets[result.dataset_id]
         self.session.current_dataset_id = self._resample_source_id
         self.session.dirty = True
@@ -146,6 +159,10 @@ class DepthAxisController:
             self.session.source_documents[result.dataset_id] = self._resampled_source_document
         if self._resampled_import_report is not None:
             self.session.import_reports[result.dataset_id] = self._resampled_import_report
+        if self._resampled_report_composition is not None:
+            self.session.report_compositions[result.dataset_id] = (
+                self._resampled_report_composition
+            )
         self.session.current_dataset_id = result.dataset_id
         self.session.dirty = True
         return result
@@ -155,10 +172,12 @@ class DepthAxisController:
         self._ascending_dataset = None
         self._ascending_source_document = None
         self._ascending_import_report = None
+        self._ascending_report_composition = None
         self._resample_source_id = None
         self._resampled_dataset = None
         self._resampled_source_document = None
         self._resampled_import_report = None
+        self._resampled_report_composition = None
 
     def _require_dataset(self) -> Dataset:
         dataset = self.session.current_dataset

@@ -18,6 +18,7 @@ from geoworkbench.domain.rock_code_profiles import (
 )
 from geoworkbench.domain.well_passport import validate_passport
 from geoworkbench.printing.image_assets import ImageAsset, save_image_assets
+from geoworkbench.domain.report_composition import InterpretationReportComposition
 from geoworkbench.storage.project_codec import PROJECT_FORMAT_VERSION
 from geoworkbench.storage.source_artifacts import save_source_documents
 from geoworkbench.tablet.layout_codec import layout_to_dict
@@ -53,12 +54,30 @@ def _validate_rock_profile_ledgers(
             )
 
 
+def _validate_report_compositions(
+    project: Project,
+    compositions: dict[str, InterpretationReportComposition],
+) -> None:
+    dataset_ids = {
+        dataset_id
+        for well in project.wells.values()
+        for dataset_id in well.datasets
+    }
+    unknown = set(compositions) - dataset_ids
+    if unknown:
+        raise ValueError(
+            "Report composition ссылается на неизвестный набор: "
+            + ", ".join(sorted(unknown))
+        )
+
+
 def save_project(
     project: Project,
     target: Path,
     *,
     tablet_layouts: dict[str, TabletLayout] | None = None,
     tablet_presets: dict[str, TabletLayout] | None = None,
+    report_compositions: dict[str, InterpretationReportComposition] | None = None,
     source_documents: dict[str, LosslessLasDocument] | None = None,
     import_reports: dict[str, LasImportReport] | None = None,
     image_assets: dict[str, ImageAsset] | None = None,
@@ -100,7 +119,9 @@ def save_project(
             raise ValueError(f"Import report не соответствует source document: {dataset_id}")
     profiles = rock_code_profiles or {}
     bindings = rock_code_source_bindings or {}
+    compositions = report_compositions or {}
     _validate_rock_profile_ledgers(profiles, bindings)
+    _validate_report_compositions(project, compositions)
     source_artifacts = save_source_documents(target, documents)
     image_asset_manifest = save_image_assets(target, image_assets or {})
     document = {
@@ -112,6 +133,15 @@ def save_project(
         },
         "tablet_presets": {
             name: layout_to_dict(layout) for name, layout in (tablet_presets or {}).items()
+        },
+        "report_compositions": {
+            dataset_id: {
+                "orientation": composition.orientation.value,
+                "print_order": composition.print_order.value,
+                "cuttings": composition.cuttings.value,
+                "lba": composition.lba.value,
+            }
+            for dataset_id, composition in compositions.items()
         },
         "source_artifacts": source_artifacts,
         "image_assets": image_asset_manifest,

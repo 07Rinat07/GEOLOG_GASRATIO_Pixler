@@ -8,6 +8,7 @@ import numpy as np
 from geoworkbench.data.las_import_report import LasImportReport
 from geoworkbench.data.lossless_las import LosslessLasDocument
 from geoworkbench.domain.models import Dataset, Well
+from geoworkbench.domain.report_composition import InterpretationReportComposition
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.dataset_merge import (
     DatasetMergeAnalysis,
@@ -28,6 +29,7 @@ class _DatasetMergeCommand:
     source_document: LosslessLasDocument | None
     import_report: LasImportReport | None
     removed_layout: TabletLayout | None = None
+    removed_report_composition: InterpretationReportComposition | None = None
 
 
 @dataclass(slots=True)
@@ -162,6 +164,9 @@ class DatasetMergeController:
             )
 
         command.removed_layout = self.session.tablet_layouts.pop(merged.dataset_id, None)
+        command.removed_report_composition = self.session.report_compositions.pop(
+            merged.dataset_id, None
+        )
         self.session.source_documents.pop(merged.dataset_id, None)
         self.session.import_reports.pop(merged.dataset_id, None)
         del well.datasets[merged.dataset_id]
@@ -178,6 +183,10 @@ class DatasetMergeController:
         well.datasets[merged.dataset_id] = merged
         if command.removed_layout is not None:
             self.session.tablet_layouts[merged.dataset_id] = command.removed_layout
+        if command.removed_report_composition is not None:
+            self.session.report_compositions[merged.dataset_id] = (
+                command.removed_report_composition
+            )
         if command.source_document is not None:
             self.session.source_documents[merged.dataset_id] = command.source_document
         if command.import_report is not None:

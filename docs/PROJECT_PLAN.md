@@ -1,4 +1,4 @@
-<!-- runtime-contract: package=0.7.96; project=v36; form=v18; layout=v25 -->
+<!-- runtime-contract: package=0.7.96; project=v37; form=v18; layout=v25 -->
 # Единый план проекта
 
 План сверён 2 октября 2026 года с `main` после интеграции PR #417–#422.
@@ -92,17 +92,16 @@ PERF-07 фиксирует воспроизводимый Windows baseline дл�
 RPT-GAS-VIS-02 интегрирован через PR #432 после Release gate #2380: ratio-series используют
 true scatter без соединяющей geometry во всех основных renderer paths. PERF-07 numeric fast path
 интегрирован через PR #429 после Release gate #2365; clean unwrapped LAS использует fail-closed
-numpy data path с совместимым fallback на lasio. Текущий продуктовый инкремент —
-REPORT-I18N-01: один выбранный RU/KK/EN должен атомарно проходить через preview/PDF/print,
-DOCX/XLSX, cover/header, legends и пользовательские export-status сообщения без скрытого
-русского fallback. Office boundary закрывается PR #434; текущий stacked slice проводит тот же
-контракт через depth-range validation, PDF runtime/Unicode failures и physical system print.
-Численные расчёты, source LAS и classification не изменяются.
+numpy data path с совместимым fallback на lasio. REPORT-I18N-01 закрыт через PR #434 и #435
+после exact-head Release gates. Текущий продуктовый инкремент — RPT-COMP-01: один
+renderer-neutral presentation composition должен сохраняться в проекте по dataset и одинаково
+управлять preview/PDF/system print. Первый slice фиксирует orientation, print order и
+Auto/Show/Hide шламограммы/ЛБА в project format v37 без изменения расчётов, source LAS и geology.
 
 | Порядок | Задача | Следующий проверяемый результат и зависимость | Ответственный по роли / статус |
 |---|---|---|---|
-| 1 | REPORT-I18N-01 | Office slice: workspace явно передаёт RU/KK/EN в XLSX/DOCX; polished Word cover, progress/error text и missing-value labels используют тот же язык. PDF/print slice локализует depth-range, PDF/Unicode и physical-print ошибки и явно передаёт язык в system-print adapter. Далее — остаточный audit preview/annotation adapters и tri-language acceptance без смешения языков | Разработчик / в работе |
-| 2 | RPT-COMP-01 | Один сохраняемый presentation composition и финальный preview поверх готовых renderers; Auto/Show/Hide уже существует. Зависит от исправленного workspace и общего language contract; расчёты и source geology не меняются | Разработчик / готово к разработке |
+| 1 | REPORT-I18N-01 | Office и PDF/print boundaries интегрированы через #434/#435: RU/KK/EN проходит через XLSX/DOCX/PDF/system-print, validation и Unicode diagnostics без скрытого русского fallback | Разработчик / интегрировано |
+| 2 | RPT-COMP-01 | Первый slice: renderer-neutral composition сохраняет orientation, print order и Auto/Show/Hide шламограммы/ЛБА по dataset в project v37 и восстанавливается после reopen. Далее расширить composition до финального preview/document-control без параллельного UI-state | Разработчик / в работе |
 | 3 | RPT-ANN-01 | Report scope и logical track anchors, printable remarks/callouts, общий bounded Undo/Redo, Cancel/Save checkpoints; зависит от стабильного composition ID Composer | Разработчик / запланировано |
 | 4 | PRINT-STYLE-01 | Свести оставшиеся generic/Masterlog/Office пути к одному visual profile и document-control contract; дополнять готовые typography/marker/legend contracts. Physical acceptance вынесена отдельно | Разработчик / в работе |
 | 5 | GASCTX-RPT-01: остаточная приёмка | Проверить общий editor/registry/context audit через production entry points, save/reopen и RU/KK/EN; завершить отдельные полосы/метки событий с grayscale-подписями. Реализованные exclusion/background/confirmed policy не переписывать | Разработчик + специалист ГТИ / на проверке |

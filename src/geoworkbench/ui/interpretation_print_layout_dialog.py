@@ -19,6 +19,12 @@ from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
     GeologyTrackVisibility,
     InterpretationGeologyTrackSettings,
 )
+from geoworkbench.domain.report_composition import (
+    InterpretationReportComposition,
+    ReportPageOrientation,
+    ReportPrintOrder,
+    ReportTrackVisibility,
+)
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.window_geometry import fit_window_to_screen
 
@@ -42,10 +48,12 @@ class InterpretationPrintLayoutDialog(QDialog):
         *,
         language: AppLanguage = AppLanguage.RU,
         include_order: bool = True,
+        initial: InterpretationReportComposition | None = None,
     ) -> None:
         super().__init__(parent)
         self.language = language
         self.include_order = include_order
+        self.initial = initial
         self.setModal(True)
         self.setWindowTitle(
             self._text(
@@ -118,6 +126,7 @@ class InterpretationPrintLayoutDialog(QDialog):
         )
         self.order_label.setVisible(include_order)
         self.order_combo.setVisible(include_order)
+        self._apply_initial(initial)
         root.addLayout(form)
 
         note = QLabel(self._note_text())
@@ -140,16 +149,25 @@ class InterpretationPrintLayoutDialog(QDialog):
 
     def selected_layout(self) -> InterpretationPrintLayout:
         orientation = self.orientation_combo.currentData()
-        order = self.order_combo.currentData()
+        order_data = self.order_combo.currentData()
         if not isinstance(orientation, QPageLayout.Orientation):
             orientation = QPageLayout.Orientation.Portrait
-        if not self.include_order or not isinstance(order, InterpretationPrintOrder):
+        if self.include_order:
+            try:
+                order = InterpretationPrintOrder(order_data)
+            except (TypeError, ValueError):
+                order = InterpretationPrintOrder.FIRST_TO_LAST
+        else:
             order = InterpretationPrintOrder.FIRST_TO_LAST
-        cuttings = self.cuttings_visibility_combo.currentData()
-        lba = self.lba_visibility_combo.currentData()
-        if not isinstance(cuttings, GeologyTrackVisibility):
+        cuttings_data = self.cuttings_visibility_combo.currentData()
+        lba_data = self.lba_visibility_combo.currentData()
+        try:
+            cuttings = GeologyTrackVisibility(cuttings_data)
+        except (TypeError, ValueError):
             cuttings = GeologyTrackVisibility.AUTO
-        if not isinstance(lba, GeologyTrackVisibility):
+        try:
+            lba = GeologyTrackVisibility(lba_data)
+        except (TypeError, ValueError):
             lba = GeologyTrackVisibility.AUTO
         return InterpretationPrintLayout(
             orientation=orientation,
@@ -159,6 +177,63 @@ class InterpretationPrintLayoutDialog(QDialog):
                 lba=lba,
             ),
         )
+
+    def selected_composition(self) -> InterpretationReportComposition:
+        layout = self.selected_layout()
+        orientation = (
+            ReportPageOrientation.LANDSCAPE
+            if layout.orientation == QPageLayout.Orientation.Landscape
+            else ReportPageOrientation.PORTRAIT
+        )
+        if self.include_order:
+            print_order = (
+                ReportPrintOrder.LAST_TO_FIRST
+                if layout.order is InterpretationPrintOrder.LAST_TO_FIRST
+                else ReportPrintOrder.FIRST_TO_LAST
+            )
+        elif self.initial is not None:
+            print_order = self.initial.print_order
+        else:
+            print_order = ReportPrintOrder.FIRST_TO_LAST
+        return InterpretationReportComposition(
+            orientation=orientation,
+            print_order=print_order,
+            cuttings=ReportTrackVisibility(layout.geology_tracks.cuttings.value),
+            lba=ReportTrackVisibility(layout.geology_tracks.lba.value),
+        )
+
+    def _apply_initial(
+        self,
+        initial: InterpretationReportComposition | None,
+    ) -> None:
+        if initial is None:
+            return
+        orientation = (
+            QPageLayout.Orientation.Landscape
+            if initial.orientation is ReportPageOrientation.LANDSCAPE
+            else QPageLayout.Orientation.Portrait
+        )
+        order = (
+            InterpretationPrintOrder.LAST_TO_FIRST
+            if initial.print_order is ReportPrintOrder.LAST_TO_FIRST
+            else InterpretationPrintOrder.FIRST_TO_LAST
+        )
+        self._set_combo_data(self.orientation_combo, orientation)
+        self._set_combo_data(self.order_combo, order)
+        self._set_combo_data(
+            self.cuttings_visibility_combo,
+            GeologyTrackVisibility(initial.cuttings.value),
+        )
+        self._set_combo_data(
+            self.lba_visibility_combo,
+            GeologyTrackVisibility(initial.lba.value),
+        )
+
+    @staticmethod
+    def _set_combo_data(combo: QComboBox, value: object) -> None:
+        index = combo.findData(value)
+        if index >= 0:
+            combo.setCurrentIndex(index)
 
     def _geology_visibility_combo(self) -> QComboBox:
         combo = QComboBox()

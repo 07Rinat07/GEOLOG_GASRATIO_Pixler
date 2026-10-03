@@ -1,9 +1,10 @@
-"""Project codec v36 for depth-domain-aware well-level gas-context persistence."""
+"""Project codec v37 for persisted report composition and project state."""
 
 from __future__ import annotations
 
 from copy import deepcopy
 from collections.abc import Mapping
+from dataclasses import dataclass, field
 import json
 from pathlib import Path
 from typing import Any, cast
@@ -19,11 +20,20 @@ from geoworkbench.domain.gas_context_events import (
 )
 from geoworkbench.domain.models import DepthDomain, DescriptionTemplateBlock, Project
 from geoworkbench.domain.translation_status import TranslationState, TranslationStatus
+from geoworkbench.domain.report_composition import (
+    InterpretationReportComposition,
+    ReportPageOrientation,
+    ReportPrintOrder,
+    ReportTrackVisibility,
+)
 from geoworkbench.storage import project_codec_v29 as _v29
-from geoworkbench.storage.project_codec_v29 import ProjectDocument, ProjectFormatError
+from geoworkbench.storage.project_codec_v29 import (
+    ProjectDocument as _V29ProjectDocument,
+    ProjectFormatError,
+)
 
 
-PROJECT_FORMAT_VERSION = 36
+PROJECT_FORMAT_VERSION = 37
 _MAX_TEMPLATE_BLOCKS_PER_SAMPLE = 10_000
 _BLOCK_KEYS = {"block_id", "template_id", "template_version", "text_i18n"}
 _GAS_CONTEXT_EVENT_KEYS_V35_LEGACY = {
@@ -43,6 +53,55 @@ _GAS_CONTEXT_EVENT_KEYS = {
     "depth_domain",
 }
 _MAX_GAS_CONTEXT_EVENTS_PER_WELL = 100_000
+
+
+@dataclass(slots=True)
+class ProjectDocument(_V29ProjectDocument):
+    """Current project document plus persisted report presentation compositions."""
+
+    report_compositions: dict[str, InterpretationReportComposition] = field(default_factory=dict)
+
+
+_REPORT_COMPOSITION_KEYS = {"orientation", "print_order", "cuttings", "lba"}
+
+
+def _report_compositions_from_dict(
+    data: object,
+) -> dict[str, InterpretationReportComposition]:
+    if not isinstance(data, dict) or len(data) > 100_000:
+        raise ProjectFormatError("report_compositions должен быть ограниченным объектом")
+    result: dict[str, InterpretationReportComposition] = {}
+    for dataset_id, raw in data.items():
+        if not isinstance(dataset_id, str) or not dataset_id.strip():
+            raise ProjectFormatError("ID набора для report composition не может быть пустым")
+        if not isinstance(raw, dict) or set(raw) != _REPORT_COMPOSITION_KEYS:
+            raise ProjectFormatError("Некорректная report composition")
+        try:
+            result[dataset_id] = InterpretationReportComposition(
+                orientation=ReportPageOrientation(raw["orientation"]),
+                print_order=ReportPrintOrder(raw["print_order"]),
+                cuttings=ReportTrackVisibility(raw["cuttings"]),
+                lba=ReportTrackVisibility(raw["lba"]),
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ProjectFormatError("Некорректная report composition") from exc
+    return result
+
+
+def _validate_report_composition_bindings(
+    document: ProjectDocument,
+) -> None:
+    dataset_ids = {
+        dataset_id
+        for well in document.project.wells.values()
+        for dataset_id in well.datasets
+    }
+    unknown = set(document.report_compositions) - dataset_ids
+    if unknown:
+        raise ProjectFormatError(
+            "Report composition ссылается на неизвестный набор: "
+            + ", ".join(sorted(unknown))
+        )
 
 
 def _validated_i18n(value: object, *, maximum: int) -> dict[str, str]:
@@ -357,6 +416,14 @@ def project_from_dict(data: dict[str, Any]) -> Project:
 
 
 def project_document_from_dict(data: dict[str, Any]) -> ProjectDocument:
+    version = _format_version(data)
+    report_compositions = (
+        _report_compositions_from_dict(data.get("report_compositions", {}))
+        if version >= 37
+        else {}
+    )
+    payload = deepcopy(data)
+    payload.pop("report_compositions", None)
     (
         legacy,
         blocks,
@@ -366,8 +433,19 @@ def project_document_from_dict(data: dict[str, Any]) -> ProjectDocument:
         revisions,
         source_languages,
         gas_context_events,
-    ) = _legacy_payload_and_blocks(data, _format_version(data))
-    document = _v29.project_document_from_dict(legacy)
+    ) = _legacy_payload_and_blocks(payload, version)
+    legacy_document = _v29.project_document_from_dict(legacy)
+    document = ProjectDocument(
+        project=legacy_document.project,
+        tablet_layouts=legacy_document.tablet_layouts,
+        tablet_presets=legacy_document.tablet_presets,
+        source_documents=legacy_document.source_documents,
+        import_reports=legacy_document.import_reports,
+        image_assets=legacy_document.image_assets,
+        rock_code_profiles=legacy_document.rock_code_profiles,
+        rock_code_source_bindings=legacy_document.rock_code_source_bindings,
+        report_compositions=report_compositions,
+    )
     _attach_blocks(
         document.project,
         blocks,
@@ -378,6 +456,7 @@ def project_document_from_dict(data: dict[str, Any]) -> ProjectDocument:
         source_languages,
         gas_context_events,
     )
+    _validate_report_composition_bindings(document)
     return document
 
 

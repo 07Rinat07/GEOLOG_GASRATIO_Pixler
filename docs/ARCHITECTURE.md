@@ -1,4 +1,4 @@
-<!-- runtime-contract: package=0.7.96; project=v36; form=v18; layout=v25 -->
+<!-- runtime-contract: package=0.7.96; project=v37; form=v18; layout=v25 -->
 # Архитектура
 
 Архитектурные решения обновлены 9 сентября 2026 года. Целевые контракты отмечены отдельно
@@ -137,6 +137,15 @@ PDF / printer / LAS / CSV / XLSX / DOCX / HTML
 ```
 
 
+
+### Report presentation composition
+
+`InterpretationReportComposition` — renderer-neutral project state, keyed by `dataset_id`.
+Он хранит только presentation choices (page orientation, print order, cuttings/LBA visibility)
+и сериализуется в project format v37. `ProjectSession` является runtime owner, storage codec —
+единственная persistence boundary, а Qt dialog только редактирует модель. Preview, PDF и
+system print читают одну composition; renderer-specific Qt enums не попадают в persisted schema.
+Старые проекты мигрируют с пустой composition и безопасными factory defaults.
 
 ### Report presentation labels и source identity
 
@@ -582,7 +591,7 @@ legacy-шаблонам. Наличие постороннего файла, sym
 
 ## Хранение и совместимость
 
-- project format `v30`;
+- project format `v37`; 
 - form schema `v17`;
 - tablet layout `v25`;
 - рекомендуемый рабочий проект — `.geologpkg`: versioned JSON, исходные LAS и изображения,

@@ -115,6 +115,19 @@ python -m pytest -q `
 LAS. Проверяются RU/KK/EN, reopen, duplicate no-op, конфликт без мутации, три PDF и копирование
 одного `.geologpkg` в каталог «другого компьютера».
 
+### RPT-COMP-01: persisted report composition
+
+Проверка project-format v37 и UI restore boundary:
+
+```powershell
+python -m pytest -q -p no:cacheprovider tests/test_report_composition_persistence.py
+```
+
+Regression подтверждает JSON/`.geologpkg` round-trip, безопасную миграцию v36 с пустой
+composition, отказ от ссылок на неизвестный dataset и восстановление orientation/order/
+Auto-Show-Hide в report layout dialog. Composition является presentation state и не меняет
+source LAS, расчётные series или geological records.
+
 ### Проверка состояния daily LAS preview (WELL-02)
 
 Проверка привязки daily LAS preview к состоянию данных (первый инкремент WELL-02):

@@ -47,10 +47,15 @@ from geoworkbench.printing.hydrocarbon_interpretation_geology import (
 from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
     DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS,
     InterpretationGeologyTrackSettings,
+    geology_track_settings_from_composition,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
     InterpretationReportIdentity,
     default_interpretation_report_identity,
+)
+from geoworkbench.domain.report_composition import (
+    DEFAULT_INTERPRETATION_REPORT_COMPOSITION,
+    InterpretationReportComposition,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_report_range import (
     ReportDepthRangeError,
@@ -192,6 +197,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         if key == self._depth_interval_dataset_key:
             return
         self._depth_interval_dataset_key = key
+        self._preview_geology_report_key = None
         self.controller.depth_interval = None
         self.depth_interval_mode.setCurrentIndex(0)
         self._preview_depth_range = None
@@ -299,7 +305,9 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
             )
             depth_range = getattr(self, "_preview_depth_range", None)
         else:
-            geology_track_settings = DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS
+            geology_track_settings = geology_track_settings_from_composition(
+                self._report_composition()
+            )
             depth_range = None
         depth_range = getattr(report, "analysis_depth_interval", None) or depth_range
         self.preview.setHtml(
@@ -312,6 +320,29 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                 depth_range=depth_range,
             )
         )
+
+    def _report_composition(self) -> InterpretationReportComposition:
+        dataset = self.controller.session.current_dataset
+        if dataset is None:
+            return DEFAULT_INTERPRETATION_REPORT_COMPOSITION
+        return self.controller.session.report_compositions.get(
+            dataset.dataset_id,
+            DEFAULT_INTERPRETATION_REPORT_COMPOSITION,
+        )
+
+    def _store_report_composition(
+        self,
+        composition: InterpretationReportComposition,
+    ) -> None:
+        dataset = self.controller.session.current_dataset
+        if dataset is None:
+            return
+        current = self.controller.session.report_compositions.get(dataset.dataset_id)
+        if current == composition:
+            return
+        self.controller.session.report_compositions[dataset.dataset_id] = composition
+        self.controller.session.dirty = True
+        self._preview_geology_report_key = None
 
     @staticmethod
     def _preview_report_key(
@@ -368,10 +399,12 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
             self,
             language=self.language,
             include_order=False,
+            initial=self._report_composition(),
         )
         if layout_dialog.exec() != QDialog.DialogCode.Accepted:
             return
         layout = layout_dialog.selected_layout()
+        self._store_report_composition(layout_dialog.selected_composition())
         if not self._sync_preview_geology_composition(
             report,
             identity,
@@ -425,10 +458,12 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         layout_dialog = InterpretationPrintLayoutDialog(
             self,
             language=self.language,
+            initial=self._report_composition(),
         )
         if layout_dialog.exec() != QDialog.DialogCode.Accepted:
             return
         layout = layout_dialog.selected_layout()
+        self._store_report_composition(layout_dialog.selected_composition())
         if not self._sync_preview_geology_composition(
             report,
             identity,

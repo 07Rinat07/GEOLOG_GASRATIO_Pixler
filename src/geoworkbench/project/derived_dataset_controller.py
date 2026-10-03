@@ -56,6 +56,7 @@ class DerivedDatasetController:
                     well.datasets.pop(dataset_id, None)
                     break
             self.session.tablet_layouts.pop(dataset_id, None)
+            self.session.report_compositions.pop(dataset_id, None)
             self.session.source_documents.pop(dataset_id, None)
             self.session.import_reports.pop(dataset_id, None)
 

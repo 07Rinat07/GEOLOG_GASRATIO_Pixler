@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from geoworkbench.domain.models import Dataset, TimeDepthMappingProfile
+from geoworkbench.domain.report_composition import InterpretationReportComposition
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.time_depth_aggregation import (
     TimeDepthAggregationPlan,
@@ -17,6 +18,7 @@ class TimeDepthAggregationController:
     session: ProjectSession
     _source_dataset_id: str | None = None
     _result: Dataset | None = None
+    _removed_report_composition: InterpretationReportComposition | None = None
 
     def analyze(self, profile_id: str, interval_seconds: float) -> TimeDepthAggregationPlan:
         dataset = self._require_dataset()
@@ -43,6 +45,9 @@ class TimeDepthAggregationController:
         well = self.session.current_well
         if well is None or self._result is None or self._result.dataset_id not in well.datasets:
             raise RuntimeError("Нет TIME↔DEPTH агрегации для отмены")
+        self._removed_report_composition = self.session.report_compositions.pop(
+            self._result.dataset_id, None
+        )
         del well.datasets[self._result.dataset_id]
         self.session.current_dataset_id = self._source_dataset_id
         self.session.dirty = True
@@ -52,6 +57,10 @@ class TimeDepthAggregationController:
         if well is None or self._result is None or self._result.dataset_id in well.datasets:
             raise RuntimeError("Нет TIME↔DEPTH агрегации для повтора")
         well.datasets[self._result.dataset_id] = self._result
+        if self._removed_report_composition is not None:
+            self.session.report_compositions[self._result.dataset_id] = (
+                self._removed_report_composition
+            )
         self.session.current_dataset_id = self._result.dataset_id
         self.session.dirty = True
         return self._result
