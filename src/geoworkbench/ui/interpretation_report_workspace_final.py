@@ -58,6 +58,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
 from geoworkbench.domain.report_composition import (
     DEFAULT_INTERPRETATION_REPORT_COMPOSITION,
     InterpretationReportComposition,
+    ensure_report_composition_id,
     report_header_fields,
     with_report_header_fields,
 )
