@@ -28,8 +28,9 @@ class ReportLegendMode(str, Enum):
 
 @dataclass(frozen=True, slots=True)
 class ReportHeaderFields:
-    """Language-specific presentation-only report header values."""
+    """Language/profile-specific presentation-only report header values."""
 
+    report_profile: str = "standard"
     report_title: str = ""
     report_subtitle: str = ""
     project_name: str = ""
@@ -71,15 +72,20 @@ DEFAULT_INTERPRETATION_REPORT_COMPOSITION = InterpretationReportComposition()
 def report_header_fields(
     composition: InterpretationReportComposition,
     language: str,
+    report_profile: str = "standard",
 ) -> ReportHeaderFields | None:
     code = language.strip().casefold()
     if code == "kk":
-        return composition.header_kk
-    if code == "en":
-        return composition.header_en
-    if code == "ru":
-        return composition.header_ru
-    raise ValueError(f"Unsupported report header language: {language!r}")
+        header = composition.header_kk
+    elif code == "en":
+        header = composition.header_en
+    elif code == "ru":
+        header = composition.header_ru
+    else:
+        raise ValueError(f"Unsupported report header language: {language!r}")
+    if header is None:
+        return None
+    return header if header.report_profile == report_profile.strip().casefold() else None
 
 
 def with_report_header_fields(
