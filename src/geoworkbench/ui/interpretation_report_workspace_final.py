@@ -197,6 +197,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         if key == self._depth_interval_dataset_key:
             return
         self._depth_interval_dataset_key = key
+        self._preview_geology_report_key = None
         self.controller.depth_interval = None
         self.depth_interval_mode.setCurrentIndex(0)
         self._preview_depth_range = None
