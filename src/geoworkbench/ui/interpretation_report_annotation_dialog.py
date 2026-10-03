@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import dataclass
 
 from PySide6.QtWidgets import (
     QComboBox,
@@ -26,6 +27,17 @@ from geoworkbench.project.report_annotation_controller import ReportAnnotationCo
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.edit_history import CommandHistory
 from geoworkbench.services.localization import AppLanguage
+
+
+@dataclass(frozen=True, slots=True)
+class _AnnotationEditorValues:
+    kind: ReportAnnotationKind
+    anchor: ReportAnnotationAnchor
+    text: str
+    track_key: str | None
+    depth: float | None
+    top_depth: float | None
+    bottom_depth: float | None
 
 
 class InterpretationReportAnnotationDialog(QDialog):
@@ -65,14 +77,14 @@ class InterpretationReportAnnotationDialog(QDialog):
 
         self.kind = QComboBox(self)
         self.kind.setObjectName("report-annotation-kind")
-        for item in ReportAnnotationKind:
-            self.kind.addItem(self._kind_label(item), item.value)
+        for kind_item in ReportAnnotationKind:
+            self.kind.addItem(self._kind_label(kind_item), kind_item.value)
         form.addRow(self._text("Тип", "Түрі", "Type"), self.kind)
 
         self.anchor = QComboBox(self)
         self.anchor.setObjectName("report-annotation-anchor")
-        for item in ReportAnnotationAnchor:
-            self.anchor.addItem(self._anchor_label(item), item.value)
+        for anchor_item in ReportAnnotationAnchor:
+            self.anchor.addItem(self._anchor_label(anchor_item), anchor_item.value)
         form.addRow(self._text("Привязка", "Байлау", "Anchor"), self.anchor)
 
         self.track = QComboBox(self)
@@ -85,12 +97,12 @@ class InterpretationReportAnnotationDialog(QDialog):
         self.text.setObjectName("report-annotation-text")
         form.addRow(self._text("Текст", "Мәтін", "Text"), self.text)
 
-        self.depth = self._depth_spin("report-annotation-depth")
-        self.top_depth = self._depth_spin("report-annotation-top")
-        self.bottom_depth = self._depth_spin("report-annotation-bottom")
-        form.addRow(self._text("Глубина", "Тереңдік", "Depth"), self.depth)
-        form.addRow(self._text("Кровля", "Жоғарғы шекара", "Top"), self.top_depth)
-        form.addRow(self._text("Подошва", "Төменгі шекара", "Bottom"), self.bottom_depth)
+        self.depth_spin = self._depth_spin("report-annotation-depth")
+        self.top_depth_spin = self._depth_spin("report-annotation-top")
+        self.bottom_depth_spin = self._depth_spin("report-annotation-bottom")
+        form.addRow(self._text("Глубина", "Тереңдік", "Depth"), self.depth_spin)
+        form.addRow(self._text("Кровля", "Жоғарғы шекара", "Top"), self.top_depth_spin)
+        form.addRow(self._text("Подошва", "Төменгі шекара", "Bottom"), self.bottom_depth_spin)
 
         actions = QHBoxLayout()
         self.add_button = QPushButton(self._text("Добавить", "Қосу", "Add"), self)
@@ -205,9 +217,9 @@ class InterpretationReportAnnotationDialog(QDialog):
         if record.track_key:
             self.track.setCurrentText(record.track_key)
         self.text.setText(record.text)
-        self.depth.setValue(record.depth or 0.0)
-        self.top_depth.setValue(record.top_depth or 0.0)
-        self.bottom_depth.setValue(record.bottom_depth or 0.0)
+        self.depth_spin.setValue(record.depth or 0.0)
+        self.top_depth_spin.setValue(record.top_depth or 0.0)
+        self.bottom_depth_spin.setValue(record.bottom_depth or 0.0)
         self._sync_anchor_controls()
         self._sync_actions()
 
@@ -223,30 +235,42 @@ class InterpretationReportAnnotationDialog(QDialog):
     def _current_anchor(self) -> ReportAnnotationAnchor:
         return ReportAnnotationAnchor(str(self.anchor.currentData()))
 
-    def _payload(self) -> dict[str, object]:
+    def _values(self) -> _AnnotationEditorValues:
         anchor = self._current_anchor()
-        track_key = self.track.currentText().strip() or None
-        return {
-            "kind": self._current_kind(),
-            "anchor": anchor,
-            "text": self.text.text(),
-            "track_key": track_key,
-            "depth": self.depth.value() if anchor is ReportAnnotationAnchor.DEPTH else None,
-            "top_depth": (
-                self.top_depth.value()
+        return _AnnotationEditorValues(
+            kind=self._current_kind(),
+            anchor=anchor,
+            text=self.text.text(),
+            track_key=self.track.currentText().strip() or None,
+            depth=(
+                self.depth_spin.value()
+                if anchor is ReportAnnotationAnchor.DEPTH
+                else None
+            ),
+            top_depth=(
+                self.top_depth_spin.value()
                 if anchor is ReportAnnotationAnchor.INTERVAL
                 else None
             ),
-            "bottom_depth": (
-                self.bottom_depth.value()
+            bottom_depth=(
+                self.bottom_depth_spin.value()
                 if anchor is ReportAnnotationAnchor.INTERVAL
                 else None
             ),
-        }
+        )
 
     def _add(self) -> None:
+        values = self._values()
         try:
-            record = self.controller.add(**self._payload())
+            record = self.controller.add(
+                kind=values.kind,
+                anchor=values.anchor,
+                text=values.text,
+                track_key=values.track_key,
+                depth=values.depth,
+                top_depth=values.top_depth,
+                bottom_depth=values.bottom_depth,
+            )
         except (RuntimeError, TypeError, ValueError) as exc:
             self._show_error(exc)
             return
@@ -257,8 +281,18 @@ class InterpretationReportAnnotationDialog(QDialog):
         if annotation_id is None:
             self._add()
             return
+        values = self._values()
         try:
-            record = self.controller.update(annotation_id, **self._payload())
+            record = self.controller.update(
+                annotation_id,
+                kind=values.kind,
+                anchor=values.anchor,
+                text=values.text,
+                track_key=values.track_key,
+                depth=values.depth,
+                top_depth=values.top_depth,
+                bottom_depth=values.bottom_depth,
+            )
         except (KeyError, RuntimeError, TypeError, ValueError) as exc:
             self._show_error(exc)
             return
@@ -299,9 +333,9 @@ class InterpretationReportAnnotationDialog(QDialog):
 
     def _sync_anchor_controls(self) -> None:
         anchor = self._current_anchor()
-        self.depth.setEnabled(anchor is ReportAnnotationAnchor.DEPTH)
-        self.top_depth.setEnabled(anchor is ReportAnnotationAnchor.INTERVAL)
-        self.bottom_depth.setEnabled(anchor is ReportAnnotationAnchor.INTERVAL)
+        self.depth_spin.setEnabled(anchor is ReportAnnotationAnchor.DEPTH)
+        self.top_depth_spin.setEnabled(anchor is ReportAnnotationAnchor.INTERVAL)
+        self.bottom_depth_spin.setEnabled(anchor is ReportAnnotationAnchor.INTERVAL)
         self.track.setEnabled(True)
 
     def _sync_actions(self) -> None:
