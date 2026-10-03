@@ -341,6 +341,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         dataset = self.controller.session.current_dataset
         if dataset is None:
             return
+        composition = ensure_report_composition_id(composition, dataset.dataset_id)
         current = self.controller.session.report_compositions.get(dataset.dataset_id)
         if current == composition:
             return
