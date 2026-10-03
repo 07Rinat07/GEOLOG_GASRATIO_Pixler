@@ -10,6 +10,7 @@ from PySide6.QtGui import QPainter
 
 from geoworkbench.domain.models import Dataset
 from geoworkbench.domain.report_composition import ReportLayoutProfile, ReportLegendMode
+from geoworkbench.domain.report_annotations import ReportAnnotationRecord
 from geoworkbench.domain.depth_interval import scope_dataset
 from geoworkbench.printing.interpretation_chart_key import interpretation_chart_key_html
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_canvas import PageCanvas
@@ -79,6 +80,7 @@ def render_hydrocarbon_interpretation_report(
     ),
     legend_mode: ReportLegendMode = ReportLegendMode.FULL,
     layout_profile: ReportLayoutProfile = ReportLayoutProfile.MODERN_OILFIELD,
+    annotations: tuple[ReportAnnotationRecord, ...] = (),
 ) -> None:
     """Render one controlled multi-page report to QPdfWriter or QPrinter."""
 
@@ -151,6 +153,7 @@ def render_hydrocarbon_interpretation_report(
                 geology=geology,
                 geology_track_settings=geology_track_settings,
                 legend_mode=legend_mode,
+                annotations=annotations,
             )
 
         render_report_html(
