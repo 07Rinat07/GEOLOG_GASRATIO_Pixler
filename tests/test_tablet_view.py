@@ -7,7 +7,6 @@ from PySide6.QtCore import QEvent, QPoint, QPointF, Qt
 from PySide6.QtGui import QKeyEvent, QMouseEvent, QTextOption, QWheelEvent
 from PySide6.QtTest import QTest
 
-from geoworkbench.services.gas_curve_presentation import gas_scatter_point_budget
 from geoworkbench.domain.models import (
     CanvasObject,
     CurveData,
@@ -26,6 +25,7 @@ from geoworkbench.domain.models import (
     WellInterpretation,
 )
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
+from geoworkbench.services.gas_curve_presentation import gas_scatter_point_budget
 from geoworkbench.tablet.grid_renderer import GridSettings, TabletGridRenderer
 from geoworkbench.tablet.header_geometry import (
     CURVE_HEADER_BOTTOM_CLEARANCE,
