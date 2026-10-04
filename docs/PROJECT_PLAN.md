@@ -94,14 +94,16 @@ true scatter без соединяющей geometry во всех основны
 интегрирован через PR #429 после Release gate #2365; clean unwrapped LAS использует fail-closed
 numpy data path с совместимым fallback на lasio. REPORT-I18N-01 закрыт через PR #434 и #435
 после exact-head Release gates. Текущий продуктовый инкремент — RPT-COMP-01: один
-renderer-neutral presentation composition должен сохраняться в проекте по dataset и одинаково
-управлять preview/PDF/system print. Первый slice фиксирует orientation, print order и
-Auto/Show/Hide шламограммы/ЛБА в project format v37 без изменения расчётов, source LAS и geology.
+renderer-neutral presentation composition сохраняется в проекте по dataset и одинаково управляет
+preview/PDF/system print. Foundation уже фиксирует orientation, print order, Auto/Show/Hide
+шламограммы/ЛБА, legend mode, layout profile, localized headers и report annotations в project
+format v37. Текущий slice добавляет сохранённый document-control для optional summary/conclusion,
+не изменяя расчёты, source LAS, geology или classification.
 
 | Порядок | Задача | Следующий проверяемый результат и зависимость | Ответственный по роли / статус |
 |---|---|---|---|
 | 1 | REPORT-I18N-01 | Office и PDF/print boundaries интегрированы через #434/#435: RU/KK/EN проходит через XLSX/DOCX/PDF/system-print, validation и Unicode diagnostics без скрытого русского fallback | Разработчик / интегрировано |
-| 2 | RPT-COMP-01 | Первый slice: renderer-neutral composition сохраняет orientation, print order и Auto/Show/Hide шламограммы/ЛБА по dataset в project v37 и восстанавливается после reopen. Далее расширить composition до финального preview/document-control без параллельного UI-state | Разработчик / в работе |
+| 2 | RPT-COMP-01 | Foundation сохранён в project v37. Текущий slice: persisted Include/Hide для optional summary/conclusion, одинаковый resolved identity в preview/PDF/system print и backward-compatible reopen. Далее — порядок/видимость разрешённых chart columns без параллельного UI-state | Разработчик / в работе |
 | 3 | RPT-ANN-01 | Report scope и logical track anchors, printable remarks/callouts, общий bounded Undo/Redo, Cancel/Save checkpoints; зависит от стабильного composition ID Composer | Разработчик / запланировано |
 | 4 | PRINT-STYLE-01 | Свести оставшиеся generic/Masterlog/Office пути к одному visual profile и document-control contract; дополнять готовые typography/marker/legend contracts. Physical acceptance вынесена отдельно | Разработчик / в работе |
 | 5 | GASCTX-RPT-01: остаточная приёмка | Проверить общий editor/registry/context audit через production entry points, save/reopen и RU/KK/EN; завершить отдельные полосы/метки событий с grayscale-подписями. Реализованные exclusion/background/confirmed policy не переписывать | Разработчик + специалист ГТИ / на проверке |
@@ -1577,6 +1579,15 @@ report snapshot/composition/render/print.
   ЛБА, legend mode, header fields, optional summary/conclusion и layout profile. Из Composer
   нельзя менять source geology, расчётные кривые, формулы или классификацию. Preview и final
   PDF/printer обязаны использовать один resolved composition snapshot.
+  - [x] Foundation в main: stable `composition_id`, orientation, print order, geology visibility,
+    legend mode, layout profile, localized header fields и report annotations сохраняются по
+    dataset и восстанавливаются после reopen.
+  - [ ] Текущий RPT-COMP-02 slice: `show_summary`/`show_conclusion` сохраняются в том же
+    composition, старые v37 без этих ключей безопасно мигрируют к visible=true, UI Composer
+    восстанавливает выбор, а preview/PDF/system print применяют одинаковую narrative visibility
+    без удаления сохранённого текста.
+  - [ ] Следующий bounded slice после интеграции: порядок/видимость только разрешённых chart
+    columns/panels через тот же composition; никаких параллельных renderer-specific настроек.
 
 - [ ] **RPT-ANN-01 — printable annotations и remarks.**
   Добавить report annotation snapshot для текста, callout, arrow, interval highlight и remarks

@@ -87,6 +87,8 @@ def _composition() -> InterpretationReportComposition:
         lba=ReportTrackVisibility.HIDE,
         legend_mode=ReportLegendMode.COMPACT,
         layout_profile=ReportLayoutProfile.MODERN_OILFIELD,
+        show_summary=False,
+        show_conclusion=True,
         header_ru=ReportHeaderFields(
             report_title="Русский заголовок",
             project_name="Проект",
@@ -202,6 +204,44 @@ def test_existing_v37_without_legend_mode_defaults_to_full(tmp_path) -> None:
     loaded = load_project_document(target)
 
     assert loaded.report_compositions["dataset-report-composition"].legend_mode is ReportLegendMode.FULL
+
+
+def test_existing_v37_without_narrative_visibility_defaults_to_visible(tmp_path) -> None:
+    project = _project()
+    target = tmp_path / "legacy-v37-narrative-visibility.geolog.json"
+    save_project(
+        project,
+        target,
+        report_compositions={"dataset-report-composition": _composition()},
+    )
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    composition = payload["report_compositions"]["dataset-report-composition"]
+    composition.pop("show_summary")
+    composition.pop("show_conclusion")
+    target.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    restored = load_project_document(target).report_compositions[
+        "dataset-report-composition"
+    ]
+
+    assert restored.show_summary is True
+    assert restored.show_conclusion is True
+
+
+def test_decoder_rejects_non_boolean_narrative_visibility(tmp_path) -> None:
+    project = _project()
+    target = tmp_path / "invalid-v37-narrative-visibility.geolog.json"
+    save_project(
+        project,
+        target,
+        report_compositions={"dataset-report-composition": _composition()},
+    )
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    payload["report_compositions"]["dataset-report-composition"]["show_summary"] = "yes"
+    target.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    with pytest.raises(ProjectFormatError, match="narrative sections"):
+        load_project_document(target)
 
 
 def test_existing_v37_without_layout_profile_defaults_to_modern_oilfield(tmp_path) -> None:
@@ -488,6 +528,8 @@ def test_layout_dialog_restores_and_returns_persisted_composition(qapp) -> None:
             ReportLayoutProfile(dialog.layout_profile_combo.currentData())
             is ReportLayoutProfile.MODERN_OILFIELD
         )
+        assert dialog.summary_checkbox.isChecked() is False
+        assert dialog.conclusion_checkbox.isChecked() is True
         assert dialog.selected_composition() == _composition()
     finally:
         dialog.close()
@@ -536,6 +578,31 @@ def test_dataset_rebind_invalidates_preview_composition_cache() -> None:
 
 
 
+def test_workspace_narrative_visibility_preserves_text_but_hides_selected_sections() -> None:
+    workspace_type = interpretation_report_workspace_final.InterpretationReportWorkspace
+    identity = InterpretationReportIdentity(
+        report_title="Title",
+        report_subtitle="Subtitle",
+        project_name="Project",
+        well_name="Well",
+        summary="Summary",
+        conclusion="Conclusion",
+    )
+
+    rendered = workspace_type._identity_with_narrative_visibility(
+        identity,
+        InterpretationReportComposition(
+            show_summary=False,
+            show_conclusion=True,
+        ),
+    )
+
+    assert rendered.summary == ""
+    assert rendered.conclusion == "Conclusion"
+    assert identity.summary == "Summary"
+    assert identity.conclusion == "Conclusion"
+
+
 def test_workspace_propagates_persisted_legend_mode_to_preview_pdf_and_print() -> None:
     workspace_type = interpretation_report_workspace_final.InterpretationReportWorkspace
     preview_source = inspect.getsource(workspace_type._apply_chart_preview)
@@ -552,6 +619,9 @@ def test_workspace_propagates_persisted_legend_mode_to_preview_pdf_and_print() -
     assert "layout_profile=layout.layout_profile" in print_source
     assert "with_report_header_fields(" in pdf_source
     assert "with_report_header_fields(" in print_source
+    assert "_identity_with_narrative_visibility(" in preview_source
+    assert "identity=render_identity" in pdf_source
+    assert "identity=render_identity" in print_source
 
 
 def test_html_preview_legend_mode_hides_key_and_reaches_chart_renderer(monkeypatch) -> None:

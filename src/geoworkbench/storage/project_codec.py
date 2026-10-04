@@ -78,6 +78,8 @@ _REPORT_COMPOSITION_KEYS = {
     *_REPORT_COMPOSITION_KEYS_HEADERS,
     "composition_id",
     "layout_profile",
+    "show_summary",
+    "show_conclusion",
     "annotations",
 }
 _REPORT_HEADER_KEYS_LEGACY = {
@@ -104,6 +106,18 @@ _REPORT_HEADER_KEYS_LEGACY = {
 _REPORT_HEADER_KEYS_PROFILE = {*_REPORT_HEADER_KEYS_LEGACY, "report_profile"}
 _REPORT_HEADER_KEYS = {*_REPORT_HEADER_KEYS_PROFILE, "summary", "conclusion"}
 _REPORT_HEADER_LANGUAGES = {"ru", "kk", "en"}
+
+
+def _report_optional_bool(
+    data: dict[str, object],
+    key: str,
+    *,
+    default: bool,
+) -> bool:
+    value = data.get(key, default)
+    if not isinstance(value, bool):
+        raise ProjectFormatError("Видимость narrative sections должна быть логической")
+    return value
 
 
 def _report_header_from_dict(data: object) -> ReportHeaderFields:
@@ -198,6 +212,12 @@ def _report_compositions_from_dict(
                 ),
                 layout_profile=ReportLayoutProfile(
                     raw.get("layout_profile", ReportLayoutProfile.MODERN_OILFIELD.value)
+                ),
+                show_summary=_report_optional_bool(
+                    raw, "show_summary", default=True
+                ),
+                show_conclusion=_report_optional_bool(
+                    raw, "show_conclusion", default=True
                 ),
                 annotations=_report_annotations_from_list(raw.get("annotations", [])),
                 header_ru=headers.get("ru"),

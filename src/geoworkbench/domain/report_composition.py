@@ -72,6 +72,8 @@ class InterpretationReportComposition:
     lba: ReportTrackVisibility = ReportTrackVisibility.AUTO
     legend_mode: ReportLegendMode = ReportLegendMode.FULL
     layout_profile: ReportLayoutProfile = ReportLayoutProfile.MODERN_OILFIELD
+    show_summary: bool = True
+    show_conclusion: bool = True
     annotations: tuple[ReportAnnotationRecord, ...] = ()
     header_ru: ReportHeaderFields | None = None
     header_kk: ReportHeaderFields | None = None
