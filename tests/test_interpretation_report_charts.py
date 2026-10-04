@@ -684,7 +684,8 @@ def test_print_html_isolates_chart_methodology_from_following_chart_page(qapp) -
         print_layout=True,
     )
 
-    assert "class='interpretation-chart-key'" in html
+    assert "<div class='interpretation-chart-key'" in html
+    assert "<section class='interpretation-chart-key'" not in html
     assert "page-break-before:always" in html
     assert "page-break-after:always" in html
     key_position = html.index("Пояснения к графикам")
@@ -699,11 +700,27 @@ def test_pdf_reference_sections_keep_geology_legend_and_methodology_on_separate_
 
     assert "paginate_geology_legend(" in source
     assert "chart_legend_mode = ReportLegendMode.COMPACT" in source
+    assert "legend_reference_pages_emitted = False" in source
+    assert "legend_reference_pages_emitted = True" in source
+    assert "legend_reference_pages_emitted=legend_reference_pages_emitted" in source
     marker = "# Method/formula explanations are a separate semantic section."
     marker_index = source.index(marker)
     method_render_index = source.index("render_report_html(", marker_index)
     assert "canvas.new_page()" in source[marker_index:method_render_index]
     assert "Never append them below a geology legend on the same physical page." in source
+
+
+def test_chart_pages_do_not_repaginate_geology_reference_after_full_section() -> None:
+    source = Path(
+        "src/geoworkbench/printing/hydrocarbon_interpretation_pdf_chart_enhanced.py"
+    ).read_text(encoding="utf-8")
+
+    guard = "if not legend_reference_pages_emitted:"
+    guard_index = source.index(guard)
+    paginate_index = source.index("for legend_page in paginate_geology_legend(", guard_index)
+    reference_index = source.index("reference = {", paginate_index)
+    assert guard_index < paginate_index < reference_index
+    assert "legend_reference_pages_emitted: bool = False" in source
 
 
 def test_whole_well_report_chart_is_embedded_before_tables(qapp) -> None:
