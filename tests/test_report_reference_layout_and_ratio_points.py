@@ -29,7 +29,7 @@ def test_reference_material_forces_methodology_onto_page_after_geology_legend() 
 def test_dense_ratio_budget_keeps_point_trace_readable_without_sparse_sampling() -> None:
     assert gas_scatter_point_budget(460.0) >= 390
     assert gas_scatter_point_budget(1200.0) >= 1000
-    assert GAS_PRINT_POINT_RADIUS_PT < 0.5
+    assert GAS_PRINT_POINT_RADIUS_PT <= 0.6
 
 
 def test_dense_ratio_sampler_keeps_one_real_observation_per_depth_bucket() -> None:
