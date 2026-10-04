@@ -11,7 +11,7 @@ from numpy.typing import NDArray
 # normalized total/components) remain lines so the operator can read continuous
 # depth trends. Relative-gas *_REL curves keep their separate cumulative stacked
 # presentation.
-_GAS_POINT_EXACT = frozenset(
+_GAS_RATIO_LINE_EXACT = frozenset(
     {
         "WETNESS",
         "BALANCE",
@@ -27,6 +27,14 @@ _GAS_POINT_EXACT = frozenset(
         "C1_C5",
         "IC4_NC4",
         "IC5_NC5",
+    }
+)
+
+# OPUS screening outputs remain discrete observations. Haworth/Pixler and
+# hydrocarbon component ratios are depth trends and must render as continuous
+# curves (with real data gaps preserved by the renderer).
+_GAS_POINT_EXACT = frozenset(
+    {
         "OPUS3",
         "OPUS4",
         "OPUS_K1_3",
@@ -39,8 +47,7 @@ _GAS_POINT_EXACT = frozenset(
     }
 )
 
-# Keep ratio markers visually distinct from a line even on dense 0.1–0.2 m
-# acquisition grids. Large markers overlap vertically and become "worms".
+# Keep discrete OPUS markers visually distinct even on dense acquisition grids.
 GAS_SCREEN_POINT_SIZE_PX = 2.2
 GAS_PREVIEW_POINT_RADIUS_PX = 0.85
 GAS_PRINT_POINT_RADIUS_PT = 0.55
@@ -156,8 +163,18 @@ def is_gas_point_mnemonic(value: object) -> bool:
     )
 
 
+def is_gas_ratio_line_mnemonic(value: object) -> bool:
+    """Return whether a gas-ratio identifier is rendered as a depth curve."""
+
+    token = _token(value)
+    return bool(
+        token in _GAS_RATIO_LINE_EXACT
+        or token.startswith("PIXLER_")
+    )
+
+
 def uses_gas_point_presentation(identifiers: Iterable[object]) -> bool:
-    """Return True when any source/canonical identifier is a ratio/interpretation series."""
+    """Return True only for discrete OPUS screening series."""
 
     return any(is_gas_point_mnemonic(value) for value in identifiers)
 
@@ -168,6 +185,7 @@ __all__ = [
     "GAS_SCREEN_POINT_SIZE_PX",
     "gas_scatter_point_budget",
     "is_gas_point_mnemonic",
+    "is_gas_ratio_line_mnemonic",
     "select_gas_scatter_samples",
     "uses_gas_point_presentation",
 ]
