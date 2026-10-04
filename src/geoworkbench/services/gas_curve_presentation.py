@@ -158,7 +158,6 @@ def is_gas_point_mnemonic(value: object) -> bool:
         return False
     return (
         token in _GAS_POINT_EXACT
-        or token.startswith("PIXLER_")
         or token.startswith("OPUS_RATIO_")
     )
 
