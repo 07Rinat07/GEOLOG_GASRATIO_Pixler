@@ -24,6 +24,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_geology import (
     InterpretationGeologySnapshot,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_geology_legend import (
+    InterpretationGeologyLegend,
     build_interpretation_geology_legend,
     geology_legend_height,
     paint_geology_legend,
@@ -163,18 +164,11 @@ def _render_chart_reference_pages(
     canvas: PageCanvas,
     *,
     key_html: str,
-    geology_legend: object,
+    geology_legend: InterpretationGeologyLegend,
     language: AppLanguage,
     legend_mode: ReportLegendMode,
 ) -> None:
     """Keep geology symbols and calculation methodology on separate pages."""
-
-    from geoworkbench.printing.hydrocarbon_interpretation_geology_legend import (
-        InterpretationGeologyLegend,
-    )
-
-    if not isinstance(geology_legend, InterpretationGeologyLegend):
-        raise TypeError("Ожидалась геологическая легенда отчёта")
 
     if legend_mode is not ReportLegendMode.HIDE and geology_legend.items:
         compact = legend_mode is ReportLegendMode.COMPACT
