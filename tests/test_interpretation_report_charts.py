@@ -28,6 +28,9 @@ from geoworkbench.printing.hydrocarbon_interpretation_curve_labels import (
     curve_legend_text,
     report_curve_label_hints,
 )
+from geoworkbench.printing.interpretation_chart_key import (
+    interpretation_chart_key_html,
+)
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_chart import (
     _curve_ranges,
     _draw_curves,
@@ -97,6 +100,54 @@ def _session_with_report_curves(
 
 def _pdf_page_count(payload: bytes) -> int:
     return len(re.findall(rb"/Type\s*/Page\b", payload))
+
+
+def test_chart_explanations_omit_acquisition_context_rows() -> None:
+    depth = np.linspace(100.0, 104.0, 5)
+    dataset = Dataset(
+        "key-filter",
+        "Chart key filter",
+        DatasetKind.GTI,
+        DepthDomain.MD,
+        depth,
+    )
+    for mnemonic, values in {
+        "ROP": np.linspace(8.0, 12.0, depth.size),
+        "FLOW_IN": np.linspace(30.0, 34.0, depth.size),
+        "FLOW_OUT": np.linspace(29.0, 33.0, depth.size),
+        "TG_CALC": np.linspace(0.1, 0.5, depth.size),
+        "TG": np.linspace(0.2, 0.6, depth.size),
+        "WH": np.linspace(10.0, 20.0, depth.size),
+        "BH": np.linspace(2.0, 4.0, depth.size),
+        "CH": np.linspace(0.5, 1.5, depth.size),
+        "C1_C2": np.linspace(3.0, 6.0, depth.size),
+    }.items():
+        dataset.upsert_curve(mnemonic, values)
+
+    report = SimpleNamespace(
+        primary_mnemonic="TG_CALC|TG",
+        report_profile="standard",
+        methods=(),
+    )
+    html = interpretation_chart_key_html(
+        report,  # type: ignore[arg-type]
+        dataset,
+        AppLanguage.RU,
+    )
+
+    for unwanted in (
+        "Скорость бур.",
+        "Расх на вх.",
+        "Расх. на вых.",
+        "Общий газ",
+        "Сод. горюч.газ.",
+    ):
+        assert unwanted not in html
+
+    assert "Влажность Haworth" in html
+    assert "Баланс Haworth" in html
+    assert "Характер Haworth" in html
+    assert "Отношение C1/C2" in html
 
 
 def test_printed_chart_scales_each_page_and_exposes_missing_measurements() -> None:
