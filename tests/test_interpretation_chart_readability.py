@@ -209,7 +209,7 @@ def test_opus_chart_key_keeps_component_sum_basis_separate_from_gasomer() -> Non
     assert "different gasomer basis" not in html
 
 
-def test_full_pdf_places_lithology_and_method_key_together_before_charts(qapp, tmp_path):
+def test_full_pdf_separates_geology_legend_and_method_key_before_charts(qapp, tmp_path):
     from geoworkbench.printing.hydrocarbon_interpretation_report import (
         export_hydrocarbon_interpretation_pdf,
     )
@@ -219,27 +219,45 @@ def test_full_pdf_places_lithology_and_method_key_together_before_charts(qapp, t
     )
 
     dataset = _dataset()
-    dataset.curves = {name: curve for name, curve in dataset.curves.items()
-                      if name in {"TG_CALC", "WH", "BH", "CH", "C1_C2"}}
+    dataset.curves = {
+        name: curve
+        for name, curve in dataset.curves.items()
+        if name in {"TG_CALC", "WH", "BH", "CH", "C1_C2"}
+    }
     original = {name: curve.values.copy() for name, curve in dataset.curves.items()}
     session = ProjectSession()
     session.add_dataset(dataset)
     report = build_hydrocarbon_interpretation_report(session)
     target = tmp_path / "complete.pdf"
-    export_hydrocarbon_interpretation_pdf(report, target, dataset=dataset, include_chart=True,
-                                         geology=_geology())
+    export_hydrocarbon_interpretation_pdf(
+        report,
+        target,
+        dataset=dataset,
+        include_chart=True,
+        geology=_geology(),
+    )
     with fitz.open(target) as document:
         page_texts = [page.get_text() for page in document]
+        geology_page_index = next(
+            index
+            for index, page_text in enumerate(page_texts)
+            if "Литология" in page_text
+        )
         key_page_index = next(
-            index for index, page_text in enumerate(page_texts)
+            index
+            for index, page_text in enumerate(page_texts)
             if "Пояснения к графикам" in page_text
         )
-        text = page_texts[key_page_index]
-        assert "Литология" in text
-        assert "Wh = 100" in text
-        assert "Bh =" in text and "Ch =" in text
+        key_text = page_texts[key_page_index]
+        geology_text = page_texts[geology_page_index]
+        assert geology_page_index < key_page_index
+        assert "Пояснения к графикам" not in geology_text
+        assert "Литология" not in key_text
+        assert "Wh = 100" in key_text
+        assert "Bh =" in key_text and "Ch =" in key_text
         chart_page_index = next(
-            index for index, page_text in enumerate(page_texts)
+            index
+            for index, page_text in enumerate(page_texts)
             if "Графики интерпретационных кривых" in page_text
         )
         assert key_page_index < chart_page_index
