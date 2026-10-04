@@ -209,7 +209,7 @@ def test_opus_chart_key_keeps_component_sum_basis_separate_from_gasomer() -> Non
     assert "different gasomer basis" not in html
 
 
-def test_full_pdf_places_lithology_and_method_key_together_before_charts(qapp, tmp_path):
+def test_full_pdf_separates_geology_legend_and_method_key_before_charts(qapp, tmp_path):
     from geoworkbench.printing.hydrocarbon_interpretation_report import (
         export_hydrocarbon_interpretation_pdf,
     )
@@ -230,18 +230,25 @@ def test_full_pdf_places_lithology_and_method_key_together_before_charts(qapp, t
                                          geology=_geology())
     with fitz.open(target) as document:
         page_texts = [page.get_text() for page in document]
+        legend_page_index = next(
+            index for index, page_text in enumerate(page_texts)
+            if "Геологическая легенда" in page_text
+        )
         key_page_index = next(
             index for index, page_text in enumerate(page_texts)
             if "Пояснения к графикам" in page_text
         )
-        text = page_texts[key_page_index]
-        assert "Литология" in text
-        assert "Wh = 100" in text
-        assert "Bh =" in text and "Ch =" in text
+        legend_text = page_texts[legend_page_index]
+        key_text = page_texts[key_page_index]
+        assert "Литология" in legend_text
+        assert "Пояснения к графикам" not in legend_text
+        assert "Геологическая легенда" not in key_text
+        assert "Wh = 100" in key_text
+        assert "Bh =" in key_text and "Ch =" in key_text
         chart_page_index = next(
             index for index, page_text in enumerate(page_texts)
             if "Графики интерпретационных кривых" in page_text
         )
-        assert key_page_index < chart_page_index
+        assert legend_page_index < key_page_index < chart_page_index
     for name, values in original.items():
         np.testing.assert_array_equal(values, dataset.curves[name].values)
