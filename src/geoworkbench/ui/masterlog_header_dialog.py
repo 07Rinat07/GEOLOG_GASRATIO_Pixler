@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Callable
 
 from PySide6.QtCore import QRectF, QSize, QSettings, Qt, QTimer
-from PySide6.QtGui import QColor, QBrush, QPen, QTransform, QWheelEvent
+from PySide6.QtGui import QColor, QBrush, QCloseEvent, QPen, QTransform, QWheelEvent
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -1392,6 +1392,13 @@ class MasterlogHeaderDialog(QDialog):
     @property
     def template(self):
         return self.controller.session.project.masterlog_templates[self.template_id]
+
+    def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802 - Qt API
+        # QGraphicsPixmapItem owns native pixmap resources. Release scene items
+        # while the dialog/view hierarchy is still valid instead of deferring
+        # them to the global QApplication/shard teardown on Windows.
+        self.preview_scene.clear()
+        super().closeEvent(event)
 
     def refresh(self) -> None:
         selected = self._selected_element_id
