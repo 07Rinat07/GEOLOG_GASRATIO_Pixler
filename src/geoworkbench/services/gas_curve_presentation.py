@@ -43,7 +43,7 @@ _GAS_POINT_EXACT = frozenset(
 # acquisition grids. Large markers overlap vertically and become "worms".
 GAS_SCREEN_POINT_SIZE_PX = 1.6
 GAS_PREVIEW_POINT_RADIUS_PX = 0.70
-GAS_PRINT_POINT_RADIUS_PT = 0.42
+GAS_PRINT_POINT_RADIUS_PT = 0.55
 
 
 
