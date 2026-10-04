@@ -70,12 +70,12 @@ def test_print_snapshot_uses_configured_pen_and_restores_screen_pen() -> None:
     assert restored_pen.widthF() == 0.9
 
 
-def test_print_snapshot_keeps_gas_point_series_without_restoring_line() -> None:
+def test_print_snapshot_keeps_opus_point_series_without_restoring_line() -> None:
     _application = QApplication.instance() or QApplication([])
-    mnemonic = "PIXLER_C1_C2"
+    mnemonic = "OPUS3"
     definition = TrackDefinition(
-        "pixler",
-        "Pixler",
+        "opus",
+        "OPUS",
         TrackKind.GAS,
         curve_mnemonics=[mnemonic],
     )
@@ -109,7 +109,7 @@ def test_print_snapshot_keeps_gas_point_series_without_restoring_line() -> None:
     assert float(item.opts.get("symbolSize")) == 4.0
 
 
-def test_print_ratio_markers_use_configured_color_and_restore_screen_color() -> None:
+def test_print_ratio_line_uses_configured_color_and_restores_screen_pen() -> None:
     _application = QApplication.instance() or QApplication([])
     mnemonic = "PIXLER_C1_C2"
     definition = TrackDefinition(
@@ -125,11 +125,7 @@ def test_print_ratio_markers_use_configured_color_and_restore_screen_color() -> 
     item = pg.PlotDataItem(
         [0.0, 1.0],
         [0.0, 1.0],
-        pen=None,
-        symbol="o",
-        symbolSize=4.0,
-        symbolBrush=pg.mkBrush("#7f0000"),
-        symbolPen=pg.mkPen("#7f0000"),
+        pen=pg.mkPen("#7f0000", width=0.8),
     )
     rendered = SimpleNamespace(
         definition=definition,
@@ -138,15 +134,17 @@ def test_print_ratio_markers_use_configured_color_and_restore_screen_color() -> 
 
     states = _activate_print_curve_styles((rendered,))  # type: ignore[arg-type]
 
-    assert item.opts.get("pen") is None
-    assert item.opts["symbolBrush"].color().name().lower() == "#ff0000"
-    assert QPen(item.opts["symbolPen"]).style() is Qt.PenStyle.NoPen
+    print_pen = QPen(item.opts["pen"])
+    assert print_pen.color().name().lower() == "#ff0000"
+    assert print_pen.style() is Qt.PenStyle.SolidLine
+    assert print_pen.widthF() >= 1.2
+    assert item.opts.get("symbol") is None
 
     _restore_print_curve_styles(states)
 
-    assert item.opts.get("pen") is None
-    assert item.opts["symbolBrush"].color().name().lower() == "#7f0000"
-    assert QPen(item.opts["symbolPen"]).color().name().lower() == "#7f0000"
+    restored_pen = QPen(item.opts["pen"])
+    assert restored_pen.color().name().lower() == "#7f0000"
+    assert restored_pen.widthF() == pytest.approx(0.8)
 
 
 def test_legacy_curve_without_persisted_style_keeps_live_colour_and_dash() -> None:
