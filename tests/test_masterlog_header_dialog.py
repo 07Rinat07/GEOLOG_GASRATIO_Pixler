@@ -319,7 +319,7 @@ def test_header_preview_renders_project_png_asset(qapp) -> None:
     session = ProjectSession(image_assets={asset.asset_id: asset})
     controller = MasterlogTemplateController(session)
     template = controller.create("Standard")
-    element = controller.add_header_element(
+    controller.add_header_element(
         template.template_id,
         element_type="image",
         x_mm=2,
