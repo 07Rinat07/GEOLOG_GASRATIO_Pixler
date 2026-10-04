@@ -25,7 +25,6 @@ from geoworkbench.domain.models import (
     WellInterpretation,
 )
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
-from geoworkbench.services.gas_curve_presentation import gas_scatter_point_budget
 from geoworkbench.tablet.grid_renderer import GridSettings, TabletGridRenderer
 from geoworkbench.tablet.header_geometry import (
     CURVE_HEADER_BOTTOM_CLEARANCE,
@@ -210,7 +209,7 @@ def test_track_and_group_rename_refresh_without_full_rebuild(qapp) -> None:
     view.close()
 
 
-def test_ratio_curves_use_points_while_gas_and_drilling_keep_lines(qapp) -> None:
+def test_ratio_curves_use_lines_together_with_gas_and_drilling(qapp) -> None:
     from geoworkbench.tablet.render_invalidation import DirtyReason
 
     depth = np.asarray([100.0, 101.0, 102.0], dtype=np.float64)
@@ -254,32 +253,20 @@ def test_ratio_curves_use_points_while_gas_and_drilling_keep_lines(qapp) -> None
     ratio_item = view._rendered["mixed"].curve_items["PIXLER_C1_C2"]
     rop_item = view._rendered["mixed"].curve_items["ROP"]
 
-    assert c1_item.opts.get("symbol") is None
-    assert c1_item.opts.get("pen") is not None
-    assert ratio_item.opts.get("symbol") == "o"
-    assert float(ratio_item.opts.get("symbolSize")) < 3.0
-    assert ratio_item.opts["symbolPen"].style() is Qt.PenStyle.NoPen
-    ratio_pen = ratio_item.opts.get("pen")
-    assert ratio_pen is None or ratio_pen.style() is Qt.PenStyle.NoPen
-    assert rop_item.opts.get("symbol") is None
-    assert rop_item.opts.get("pen") is not None
+    for item in (c1_item, ratio_item, rop_item):
+        assert item.opts.get("symbol") is None
+        assert item.opts.get("pen") is not None
 
     assert view.refresh_track("mixed", DirtyReason.STYLE)
     qapp.processEvents()
 
-    assert c1_item.opts.get("symbol") is None
-    assert c1_item.opts.get("pen") is not None
-    assert ratio_item.opts.get("symbol") == "o"
-    assert float(ratio_item.opts.get("symbolSize")) < 3.0
-    assert ratio_item.opts["symbolPen"].style() is Qt.PenStyle.NoPen
-    ratio_pen = ratio_item.opts.get("pen")
-    assert ratio_pen is None or ratio_pen.style() is Qt.PenStyle.NoPen
-    assert rop_item.opts.get("symbol") is None
-    assert rop_item.opts.get("pen") is not None
+    for item in (c1_item, ratio_item, rop_item):
+        assert item.opts.get("symbol") is None
+        assert item.opts.get("pen") is not None
     view.close()
 
 
-def test_dense_ratio_tablet_view_uses_scatter_density_budget(qapp) -> None:
+def test_dense_ratio_tablet_view_uses_line_lod_not_scatter_budget(qapp) -> None:
     depth = np.linspace(100.0, 200.0, 5_001)
     dataset = Dataset(
         "dense-ratio-tablet",
@@ -314,25 +301,14 @@ def test_dense_ratio_tablet_view_uses_scatter_density_budget(qapp) -> None:
     view.set_visible_depth(100.0, 200.0)
     qapp.processEvents()
 
-    large_count = view.rendered_curve_point_count("ratio", "C1_C2")
-    large_height = view._rendered["ratio"].plot.viewport().height()
-    large_budget = gas_scatter_point_budget(max(large_height, 1))
-    assert 0 < large_count <= large_budget
+    item = view._rendered["ratio"].curve_items["C1_C2"]
+    rendered_count = view.rendered_curve_point_count("ratio", "C1_C2")
 
-    view.resize(640, 260)
-    qapp.processEvents()
-    view._restore_visible_depth_after_resize()
-    qapp.processEvents()
-
-    small_count = view.rendered_curve_point_count("ratio", "C1_C2")
-    small_height = view._rendered["ratio"].plot.viewport().height()
-    small_budget = gas_scatter_point_budget(max(small_height, 1))
-
-    assert 0 < small_count <= small_budget
-    assert small_budget < large_budget
-    assert small_count < large_count
+    assert item.opts.get("symbol") is None
+    assert item.opts.get("pen") is not None
+    assert rendered_count >= 4_000
+    assert rendered_count <= depth.size
     view.close()
-
 
 def test_existing_russian_absolute_gas_title_retranslates_on_tablet(qapp) -> None:
     dataset = Dataset(
