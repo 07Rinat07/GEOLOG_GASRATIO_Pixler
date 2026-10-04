@@ -43,6 +43,7 @@ from geoworkbench.project.interpretation_calculation_controller import (
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.gas_curve_presentation import (
     GAS_PRINT_POINT_RADIUS_PT,
+    GAS_SCATTER_VERTICAL_SPACING,
     gas_scatter_point_budget,
 )
 from geoworkbench.services.hydrocarbon_interpretation import (
@@ -239,7 +240,7 @@ def test_pdf_curve_renderer_uses_points_for_ratios_and_lines_for_depth_series() 
         assert line_painter.ellipses == 0
 
 
-def test_singleton_ratio_observation_survives_preview_and_pdf_range() -> None:
+def test_singleton_ratio_observation_survives_preview_and_pdf_range(qapp) -> None:
     class RecordingPainter:
         def __init__(self) -> None:
             self.ellipses = 0
@@ -368,7 +369,7 @@ def test_report_panel_selector_keeps_singleton_opus_point_series() -> None:
         assert panels["opus"] == (opus,)
 
 
-def test_sparse_ratio_point_survives_whole_well_preview_downsampling() -> None:
+def test_sparse_ratio_point_survives_whole_well_preview_downsampling(qapp) -> None:
     class RecordingPainter:
         def __init__(self) -> None:
             self.ellipses = 0
@@ -430,7 +431,7 @@ def test_sparse_ratio_point_survives_whole_well_preview_downsampling() -> None:
     assert painter.ellipses >= 4
 
 
-def test_dense_ratio_preview_sampling_is_bounded() -> None:
+def test_dense_ratio_preview_sampling_is_bounded(qapp) -> None:
     class RecordingPainter:
         def __init__(self) -> None:
             self.ellipses = 0
@@ -479,7 +480,8 @@ def test_dense_ratio_preview_sampling_is_bounded() -> None:
     # Dense source rows are reduced by final vertical density, not by a
     # line-oriented 1,800-point budget. Three extra dots belong to the legend.
     factual_budget = gas_scatter_point_budget(178.0)
-    assert 3 < painter.ellipses <= factual_budget + 3
+    assert factual_budget >= int(178.0 / 1.5)
+    assert int(178.0 / 1.5) + 3 <= painter.ellipses <= factual_budget + 3
 
 
 def test_dense_ratio_pdf_scatter_is_density_bounded() -> None:
@@ -530,7 +532,11 @@ def test_dense_ratio_pdf_scatter_is_density_bounded() -> None:
     )
 
     assert painter.lines == 0
-    assert 0 < painter.ellipses <= gas_scatter_point_budget(rect.height())
+    assert GAS_SCATTER_VERTICAL_SPACING <= 1.5
+    assert GAS_PRINT_POINT_RADIUS_PT <= 0.6
+    assert int(rect.height() / 1.5) <= painter.ellipses <= gas_scatter_point_budget(
+        rect.height()
+    )
 
 
 def test_dense_ratio_pdf_markers_do_not_overlap_into_worms() -> None:
@@ -663,6 +669,58 @@ def test_whole_well_chart_uses_shared_fluid_markers_without_long_callouts() -> N
     assert "minimum_gap=badge_height + 2.0" in source
     assert "len(candidates) <= 24" not in source
     assert 'QColor("#f59e0b")' not in source
+
+
+def test_print_html_isolates_chart_methodology_from_following_chart_page(qapp) -> None:
+    session = _session_with_report_curves()
+    dataset = session.current_dataset
+    assert dataset is not None
+    report = build_hydrocarbon_interpretation_report(session)
+
+    html = hydrocarbon_interpretation_html_with_front_chart(
+        report,
+        dataset,
+        AppLanguage.RU,
+        print_layout=True,
+    )
+
+    assert "<div class='interpretation-chart-key'" in html
+    assert "<section class='interpretation-chart-key'" not in html
+    assert "page-break-before:always" in html
+    assert "page-break-after:always" in html
+    key_position = html.index("Пояснения к графикам")
+    chart_position = html.index("Графики интерпретационных кривых по глубине")
+    assert key_position < chart_position
+
+
+def test_pdf_reference_sections_keep_geology_legend_and_methodology_on_separate_pages() -> None:
+    source = Path(
+        "src/geoworkbench/printing/hydrocarbon_interpretation_pdf_renderer.py"
+    ).read_text(encoding="utf-8")
+
+    assert "paginate_geology_legend(" in source
+    assert "chart_legend_mode = ReportLegendMode.COMPACT" in source
+    assert "legend_reference_pages_emitted = False" in source
+    assert "legend_reference_pages_emitted = True" in source
+    assert "legend_reference_pages_emitted=legend_reference_pages_emitted" in source
+    marker = "# Method/formula explanations are a separate semantic section."
+    marker_index = source.index(marker)
+    method_render_index = source.index("render_report_html(", marker_index)
+    assert "canvas.new_page()" in source[marker_index:method_render_index]
+    assert "Never append them below a geology legend on the same physical page." in source
+
+
+def test_chart_pages_do_not_repaginate_geology_reference_after_full_section() -> None:
+    source = Path(
+        "src/geoworkbench/printing/hydrocarbon_interpretation_pdf_chart_enhanced.py"
+    ).read_text(encoding="utf-8")
+
+    guard = "if not legend_reference_pages_emitted:"
+    guard_index = source.index(guard)
+    paginate_index = source.index("for legend_page in paginate_geology_legend(", guard_index)
+    reference_index = source.index("reference = {", paginate_index)
+    assert guard_index < paginate_index < reference_index
+    assert "legend_reference_pages_emitted: bool = False" in source
 
 
 def test_whole_well_report_chart_is_embedded_before_tables(qapp) -> None:

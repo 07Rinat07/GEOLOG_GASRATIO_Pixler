@@ -25,6 +25,7 @@ from geoworkbench.domain.models import (
     WellInterpretation,
 )
 from geoworkbench.project.lithotype_catalog_controller import CatalogLithotype
+from geoworkbench.services.gas_curve_presentation import gas_scatter_point_budget
 from geoworkbench.tablet.grid_renderer import GridSettings, TabletGridRenderer
 from geoworkbench.tablet.header_geometry import (
     CURVE_HEADER_BOTTOM_CLEARANCE,
@@ -315,7 +316,7 @@ def test_dense_ratio_tablet_view_uses_scatter_density_budget(qapp) -> None:
 
     large_count = view.rendered_curve_point_count("ratio", "C1_C2")
     large_height = view._rendered["ratio"].plot.viewport().height()
-    large_budget = max(48, min(1_200, int(max(large_height, 1) / 2.5)))
+    large_budget = gas_scatter_point_budget(max(large_height, 1))
     assert 0 < large_count <= large_budget
 
     view.resize(640, 260)
@@ -325,7 +326,7 @@ def test_dense_ratio_tablet_view_uses_scatter_density_budget(qapp) -> None:
 
     small_count = view.rendered_curve_point_count("ratio", "C1_C2")
     small_height = view._rendered["ratio"].plot.viewport().height()
-    small_budget = max(48, min(1_200, int(max(small_height, 1) / 2.5)))
+    small_budget = gas_scatter_point_budget(max(small_height, 1))
 
     assert 0 < small_count <= small_budget
     assert small_budget < large_budget
