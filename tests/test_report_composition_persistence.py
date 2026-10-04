@@ -630,11 +630,13 @@ def test_preview_chart_uses_legend_mode_for_geology_legend_geometry() -> None:
 
 
 
-def test_final_pdf_chart_pages_receive_same_legend_mode() -> None:
+def test_final_pdf_chart_pages_receive_effective_legend_mode() -> None:
     renderer_source = inspect.getsource(pdf_renderer.render_hydrocarbon_interpretation_report)
     chart_source = inspect.getsource(pdf_chart.render_chart_pages)
 
-    assert "legend_mode=legend_mode" in renderer_source
+    assert "chart_legend_mode = legend_mode" in renderer_source
+    assert "chart_legend_mode = ReportLegendMode.COMPACT" in renderer_source
+    assert "legend_mode=chart_legend_mode" in renderer_source
     assert "legend_mode is ReportLegendMode.HIDE" in chart_source
     assert "legend_mode is ReportLegendMode.COMPACT" in chart_source
     assert "compact=legend_compact" in chart_source
