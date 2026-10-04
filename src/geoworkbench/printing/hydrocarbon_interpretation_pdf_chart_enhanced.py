@@ -90,6 +90,7 @@ def render_chart_pages(
         DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS
     ),
     legend_mode: ReportLegendMode = ReportLegendMode.FULL,
+    legend_reference_pages_emitted: bool = False,
     annotations: tuple[ReportAnnotationRecord, ...] = (),
 ) -> None:
     """Render chart pages with printer-safe major and minor depth graduations."""
@@ -182,29 +183,30 @@ def render_chart_pages(
         else geology_legend
     )
     if not legend_hidden and full_legend_height > legend_budget:
-        for legend_page in paginate_geology_legend(
-            canvas.content_rect.width(),
-            geology_legend,
-            canvas.content_rect.height(),
-            compact=legend_compact,
-            paint_device=canvas.painter.device(),
-        ):
-            canvas.new_page()
-            height = geology_legend_height(
+        if not legend_reference_pages_emitted:
+            for legend_page in paginate_geology_legend(
                 canvas.content_rect.width(),
-                legend_page,
+                geology_legend,
+                canvas.content_rect.height(),
                 compact=legend_compact,
                 paint_device=canvas.painter.device(),
-            )
-            paint_geology_legend(
-                canvas.painter,
-                QRectF(canvas.content_rect.left(), canvas.content_rect.top(),
-                       canvas.content_rect.width(), height),
-                legend_page,
-                language,
-                compact=legend_compact,
-            )
-            canvas.y = canvas.content_rect.bottom()
+            ):
+                canvas.new_page()
+                height = geology_legend_height(
+                    canvas.content_rect.width(),
+                    legend_page,
+                    compact=legend_compact,
+                    paint_device=canvas.painter.device(),
+                )
+                paint_geology_legend(
+                    canvas.painter,
+                    QRectF(canvas.content_rect.left(), canvas.content_rect.top(),
+                           canvas.content_rect.width(), height),
+                    legend_page,
+                    language,
+                    compact=legend_compact,
+                )
+                canvas.y = canvas.content_rect.bottom()
         reference = {
             AppLanguage.RU: "Легенда: отдельные страницы",
             AppLanguage.KK: "Легенда: бөлек беттер",
