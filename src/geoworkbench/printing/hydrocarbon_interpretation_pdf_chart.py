@@ -665,14 +665,16 @@ def _draw_legend(
         )
         painter.setPen(QPen(color, 0.8))
         if draw_as_points:
+            painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(color)
+            marker_radius = max(0.72, GAS_PRINT_POINT_RADIUS_PT * 1.7)
             for offset in (2.5, 8.5, 14.5):
                 painter.drawEllipse(
                     QRectF(
-                        column.left() + offset - 1.35,
-                        y + 3.65,
-                        2.7,
-                        2.7,
+                        column.left() + offset - marker_radius,
+                        y + 5.0 - marker_radius,
+                        marker_radius * 2.0,
+                        marker_radius * 2.0,
                     )
                 )
             painter.setBrush(Qt.BrushStyle.NoBrush)
