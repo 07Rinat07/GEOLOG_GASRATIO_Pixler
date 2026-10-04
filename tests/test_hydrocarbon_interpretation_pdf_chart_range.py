@@ -166,6 +166,45 @@ def test_print_ratio_scatter_remains_visible_without_becoming_a_thick_trace(qapp
     assert longest_run <= 3
 
 
+def test_dense_ratio_sampler_uses_one_real_observation_per_depth_band() -> None:
+    depth = np.linspace(100.0, 200.0, 10_001)
+    values = 2.0 + np.sin(depth * 0.31)
+    max_points = 150
+
+    selected_values, selected_depth = select_gas_scatter_samples(
+        depth,
+        values,
+        100.0,
+        200.0,
+        max_points=max_points,
+    )
+
+    assert selected_depth.size == max_points
+    assert selected_values.size == max_points
+    assert selected_depth[0] == depth[0]
+    assert selected_depth[-1] == depth[-1]
+    assert np.all(np.diff(selected_depth) > 0.0)
+
+    bucket_ids = np.minimum(
+        max_points - 1,
+        np.floor((selected_depth - 100.0) / 100.0 * max_points).astype(np.int64),
+    )
+    assert np.unique(bucket_ids).size == selected_depth.size
+
+    source_rows = np.searchsorted(depth, selected_depth)
+    assert np.allclose(depth[source_rows], selected_depth)
+    assert np.allclose(values[source_rows], selected_values)
+
+
+def test_ratio_scatter_budget_is_dense_enough_for_reference_style_point_trace() -> None:
+    # A 180-point-tall print track should carry substantially more than the old
+    # ~72-marker policy, while still remaining bounded below one marker per
+    # typographic point on average.
+    budget = gas_scatter_point_budget(180.0)
+
+    assert 140 <= budget <= 180
+
+
 def test_extrema_preserving_print_rows_keeps_narrow_peaks_and_bounds_density() -> None:
     depth = np.linspace(100.0, 200.0, 10_001)
     values = np.zeros(depth.shape, dtype=np.float64)
