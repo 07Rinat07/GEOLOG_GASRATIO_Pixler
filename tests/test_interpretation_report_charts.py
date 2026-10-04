@@ -240,7 +240,7 @@ def test_pdf_curve_renderer_uses_points_for_ratios_and_lines_for_depth_series() 
         assert line_painter.ellipses == 0
 
 
-def test_singleton_ratio_observation_survives_preview_and_pdf_range() -> None:
+def test_singleton_ratio_observation_survives_preview_and_pdf_range(qapp) -> None:
     class RecordingPainter:
         def __init__(self) -> None:
             self.ellipses = 0
