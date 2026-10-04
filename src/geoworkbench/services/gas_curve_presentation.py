@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from dataclasses import dataclass
 
 import numpy as np
 from numpy.typing import NDArray
@@ -45,6 +46,88 @@ GAS_PREVIEW_POINT_RADIUS_PX = 0.55
 GAS_PRINT_POINT_RADIUS_PT = 0.55
 GAS_SCATTER_VERTICAL_SPACING = 1.35
 
+
+@dataclass(frozen=True, slots=True)
+class GasRatioScale:
+    minimum: float
+    maximum: float
+    logarithmic: bool = False
+
+
+def gas_ratio_scale(identifiers: Iterable[object]) -> GasRatioScale | None:
+    """Return the fixed industry-style display scale for one ratio curve."""
+
+    tokens = {_token(value) for value in identifiers if _token(value)}
+    if tokens & {"WH", "WETNESS"}:
+        return GasRatioScale(0.0, 100.0)
+    if tokens & {"BH", "BALANCE"}:
+        return GasRatioScale(0.1, 100.0, True)
+    if tokens & {"CH", "CHARACTER"}:
+        return GasRatioScale(0.01, 10.0, True)
+    if tokens & {"IC4_NC4", "IC5_NC5"}:
+        return GasRatioScale(0.01, 100.0, True)
+    if any(
+        token in {"C1_C2", "C1_C3", "C1_C4", "C1_C5"}
+        or token.startswith("PIXLER_C1_")
+        for token in tokens
+    ):
+        return GasRatioScale(0.1, 1000.0, True)
+    return None
+
+
+def gas_ratio_position(value: float, scale: GasRatioScale) -> float | None:
+    """Map a factual ratio value onto a stable 0..1 presentation position."""
+
+    numeric = float(value)
+    if not np.isfinite(numeric):
+        return None
+    minimum, maximum = scale.minimum, scale.maximum
+    if scale.logarithmic:
+        if numeric <= 0.0 or minimum <= 0.0 or maximum <= minimum:
+            return None
+        numeric = float(np.log10(numeric))
+        minimum = float(np.log10(minimum))
+        maximum = float(np.log10(maximum))
+    if maximum <= minimum:
+        return None
+    return float(np.clip((numeric - minimum) / (maximum - minimum), 0.0, 1.0))
+
+
+def gas_ratio_scale_ticks(scale: GasRatioScale) -> tuple[tuple[float, str], ...]:
+    """Return compact labelled ticks for a fixed ratio scale."""
+
+    if scale.logarithmic:
+        low = float(np.log10(scale.minimum))
+        high = float(np.log10(scale.maximum))
+        powers = np.arange(int(np.ceil(low)), int(np.floor(high)) + 1)
+        values = [10.0 ** float(power) for power in powers]
+        if not values or values[0] > scale.minimum:
+            values.insert(0, scale.minimum)
+        if values[-1] < scale.maximum:
+            values.append(scale.maximum)
+        return tuple(
+            (
+                gas_ratio_position(value, scale) or 0.0,
+                _format_ratio_tick(value),
+            )
+            for value in values
+        )
+    values = (scale.minimum, (scale.minimum + scale.maximum) / 2.0, scale.maximum)
+    return tuple(
+        (
+            gas_ratio_position(value, scale) or 0.0,
+            _format_ratio_tick(value),
+        )
+        for value in values
+    )
+
+
+def _format_ratio_tick(value: float) -> str:
+    if value >= 100.0 or abs(value - round(value)) < 1e-9:
+        return f"{value:.0f}"
+    if value >= 1.0:
+        return f"{value:.1f}".rstrip("0").rstrip(".")
+    return f"{value:.2g}"
 
 
 def gas_scatter_point_budget(vertical_pixels: float) -> int:
@@ -176,9 +259,13 @@ def uses_gas_point_presentation(identifiers: Iterable[object]) -> bool:
 
 __all__ = [
     "GAS_PREVIEW_POINT_RADIUS_PX",
+    "GasRatioScale",
     "GAS_PRINT_POINT_RADIUS_PT",
     "GAS_SCATTER_VERTICAL_SPACING",
     "GAS_SCREEN_POINT_SIZE_PX",
+    "gas_ratio_position",
+    "gas_ratio_scale",
+    "gas_ratio_scale_ticks",
     "gas_scatter_point_budget",
     "is_gas_point_mnemonic",
     "is_gas_ratio_mnemonic",
