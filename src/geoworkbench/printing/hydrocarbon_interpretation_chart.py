@@ -673,7 +673,7 @@ def _draw_panel(
     painter.save()
     painter.setClipRect(rect.adjusted(1.0, 1.0, -1.0, -1.0))
     point_series = panel_name == "opus"
-    minimum_samples = 1 if point_series else 2
+    minimum_samples = 1 if panel_name in {"ratios", "opus"} else 2
     legend_rows: list[tuple[QColor, str, bool]] = []
     for curve_index, curve in enumerate(curves):
         values = np.asarray(curve.values, dtype=np.float64)
