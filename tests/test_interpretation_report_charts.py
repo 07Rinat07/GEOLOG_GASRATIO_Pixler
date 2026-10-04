@@ -613,6 +613,24 @@ def test_dense_ratio_pdf_markers_do_not_overlap_into_worms() -> None:
     assert longest_overlap_chain <= 3
 
 
+def test_report_front_matter_separates_geology_legend_from_methodology() -> None:
+    source = Path(
+        "src/geoworkbench/printing/hydrocarbon_interpretation_pdf_renderer.py"
+    ).read_text(encoding="utf-8")
+
+    legend_pagination = source.index("for legend_page in paginate_geology_legend")
+    methodology_page = source.index(
+        "# Methodology/key always starts on its own clean page"
+    )
+    methodology_render = source.index(
+        "render_report_html(\n                    canvas,\n                    key_html",
+        methodology_page,
+    )
+
+    assert legend_pagination < methodology_page < methodology_render
+    assert "canvas.new_page()" in source[methodology_page:methodology_render]
+
+
 def test_report_panel_scatter_contract_is_ratio_only() -> None:
     whole = Path(
         "src/geoworkbench/printing/hydrocarbon_interpretation_chart.py"
