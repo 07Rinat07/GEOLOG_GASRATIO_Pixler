@@ -601,7 +601,7 @@ def test_v8_form_migrates_logarithmic_bindings_to_linear_defaults() -> None:
 
 def test_factory_form_bindings_use_declared_ratio_scales() -> None:
     pixler = {"PIXLER_C1_C2", "PIXLER_C1_C3", "PIXLER_C1_C4", "PIXLER_C1_C5"}
-    haworth = {"BALANCE", "CHARACTER"}
+    haworth = {"WETNESS", "BALANCE"}
     isomers = {"IC4_NC4", "IC5_NC5"}
     logarithmic_by_form = {
         "factory-gas-ratio": haworth,

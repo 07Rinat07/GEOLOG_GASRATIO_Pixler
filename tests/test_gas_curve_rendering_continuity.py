@@ -92,11 +92,11 @@ def test_gas_ratio_scales_match_industry_style_tracks() -> None:
     character = gas_ratio_scale(("CH",))
     pixler = gas_ratio_scale(("PIXLER_C1_C2",))
 
-    assert wetness is not None and (wetness.minimum, wetness.maximum) == (0.0, 100.0)
-    assert wetness.logarithmic is False
+    assert wetness is not None and (wetness.minimum, wetness.maximum) == (0.1, 100.0)
+    assert wetness.logarithmic is True
     assert balance is not None and balance.logarithmic is True
     assert (balance.minimum, balance.maximum) == (0.1, 100.0)
-    assert character is not None and (character.minimum, character.maximum) == (0.01, 10.0)
+    assert character is not None and (character.minimum, character.maximum) == (0.0, 5.0)
     assert pixler is not None and (pixler.minimum, pixler.maximum) == (0.1, 1000.0)
     assert gas_ratio_position(10.0, pixler) == 0.5
     assert [label for _position, label in gas_ratio_scale_ticks(pixler)] == [

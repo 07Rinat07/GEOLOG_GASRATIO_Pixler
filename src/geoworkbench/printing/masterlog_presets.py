@@ -2300,9 +2300,10 @@ def _columns(
     for column_id, title, column_type, width, curves, scale, x_min, x_max in items:
         styles = {
             mnemonic: MasterlogCurveStyle(
-                palette[index % len(palette)],
-                1.5,
-                "solid",
+                {"WH": "#ef4444", "BH": "#1d4ed8", "CH": "#15803d"}.get(
+                    mnemonic, palette[index % len(palette)]),
+                1.0 if mnemonic in {"WH", "BH", "CH"} else 1.5,
+                "dash" if mnemonic in {"WH", "BH", "CH"} else "solid",
                 x_min,
                 x_max,
             )
@@ -2825,9 +2826,8 @@ _A4_FORM_PROFILE_COLUMNS: dict[str, list[MasterlogColumnTemplate]] = {
             0,
             100,
         ),
-        ("wetness", "Wh", "curves", 20, ["WH"], "linear", 0, 100),
-        ("balance", "Bh", "curves", 20, ["BH"], "logarithmic", 0.1, 100),
-        ("character", "Ch", "curves", 20, ["CH"], "logarithmic", 0.01, 10),
+        ("wetness", "Wh / Bh", "curves", 40, ["WH", "BH"], "logarithmic", 0.1, 100),
+        ("character", "Ch", "curves", 20, ["CH"], "linear", 0, 5),
         ("pixler_c1_c2", "C1/C2", "curves", 20, ["C1_C2"], "logarithmic", 0.1, 1000),
         ("pixler_c1_c3", "C1/C3", "curves", 20, ["C1_C3"], "logarithmic", 0.1, 1000),
         ("pixler_c1_c4", "C1/C4", "curves", 20, ["C1_C4"], "logarithmic", 0.1, 1000),
@@ -2965,7 +2965,7 @@ _A4_FORM_COLUMN_TITLES: dict[str, dict[AppLanguage, dict[str, str]]] = {
             "depth": "Глубина",
             "normalized": "TG / нормализованный газ",
             "components": "C1–C5",
-            "wetness": "Wh",
+            "wetness": "Wh / Bh",
             "balance": "Bh",
             "character": "Ch",
             "pixler_c1_c2": "C1/C2",
@@ -2979,7 +2979,7 @@ _A4_FORM_COLUMN_TITLES: dict[str, dict[AppLanguage, dict[str, str]]] = {
             "depth": "Тереңдік",
             "normalized": "TG / нормаланған газ",
             "components": "C1–C5",
-            "wetness": "Wh",
+            "wetness": "Wh / Bh",
             "balance": "Bh",
             "character": "Ch",
             "pixler_c1_c2": "C1/C2",
@@ -2993,7 +2993,7 @@ _A4_FORM_COLUMN_TITLES: dict[str, dict[AppLanguage, dict[str, str]]] = {
             "depth": "Depth",
             "normalized": "TG / normalized gas",
             "components": "C1–C5",
-            "wetness": "Wh",
+            "wetness": "Wh / Bh",
             "balance": "Bh",
             "character": "Ch",
             "pixler_c1_c2": "C1/C2",

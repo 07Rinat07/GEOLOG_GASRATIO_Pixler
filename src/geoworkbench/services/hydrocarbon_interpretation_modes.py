@@ -46,7 +46,7 @@ def set_normalized_gas_report_mode(
 def build_hydrocarbon_interpretation_report(
     session: ProjectSession,
     *,
-    threshold: float = 3.0,
+    threshold: float = 4.0,
     normalized_gas_mode: NormalizedGasCalculationMode | str | None = None,
     background_exclusion_intervals: tuple[tuple[float, float], ...] = (),
     candidate_exclusion_intervals: tuple[tuple[float, float], ...] = (),

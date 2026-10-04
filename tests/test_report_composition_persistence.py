@@ -627,6 +627,7 @@ def test_workspace_propagates_persisted_legend_mode_to_preview_pdf_and_print() -
 def test_html_preview_legend_mode_hides_key_and_reaches_chart_renderer(monkeypatch) -> None:
     report = SimpleNamespace(analysis_depth_interval=None)
     dataset = object()
+    monkeypatch.setattr(chart_front, "ratio_reference_summary_uri", lambda *_args: "")
     seen: list[ReportLegendMode] = []
 
     monkeypatch.setattr(

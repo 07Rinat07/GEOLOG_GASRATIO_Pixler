@@ -59,11 +59,11 @@ def gas_ratio_scale(identifiers: Iterable[object]) -> GasRatioScale | None:
 
     tokens = {_token(value) for value in identifiers if _token(value)}
     if tokens & {"WH", "WETNESS"}:
-        return GasRatioScale(0.0, 100.0)
+        return GasRatioScale(0.1, 100.0, True)
     if tokens & {"BH", "BALANCE"}:
         return GasRatioScale(0.1, 100.0, True)
     if tokens & {"CH", "CHARACTER"}:
-        return GasRatioScale(0.01, 10.0, True)
+        return GasRatioScale(0.0, 5.0)
     if tokens & {"IC4_NC4", "IC5_NC5"}:
         return GasRatioScale(0.01, 100.0, True)
     if any(

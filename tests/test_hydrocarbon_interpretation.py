@@ -979,3 +979,11 @@ def test_interpretation_pdf_uses_immutable_current_well_geology_snapshot(
     assert "Шламограмма" in normalized_text
     assert "ЛБА" in normalized_text
     assert "МБ" in normalized_text
+
+
+def test_report_default_anomaly_threshold_is_four() -> None:
+    from geoworkbench.services.hydrocarbon_interpretation import build_opus_interpretation_report
+
+    assert build_hydrocarbon_interpretation_report(_session()).threshold == 4.0
+    assert build_opus_interpretation_report(_session()).threshold == 4.0
+    assert build_hydrocarbon_interpretation_report(_session(), threshold=3.0).threshold == 3.0

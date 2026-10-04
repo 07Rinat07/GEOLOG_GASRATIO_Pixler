@@ -105,7 +105,7 @@ _OPUS_PUBLISHED_BANDS: dict[str, tuple[tuple[float, float, int], ...]] = {
 def build_opus_interpretation_report(
     session: ProjectSession,
     *,
-    threshold: float = 3.0,
+    threshold: float = 4.0,
     total_gas_lod: float | None = None,
     background_exclusion_intervals: tuple[tuple[float, float], ...] = (),
     candidate_exclusion_intervals: tuple[tuple[float, float], ...] = (),

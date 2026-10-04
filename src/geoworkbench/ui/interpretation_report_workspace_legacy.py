@@ -224,7 +224,7 @@ class InterpretationReportWorkspace(QWidget):
         self.threshold.setRange(2.0, 10.0)
         self.threshold.setDecimals(1)
         self.threshold.setSingleStep(0.5)
-        self.threshold.setValue(3.0)
+        self.threshold.setValue(4.0)
         self.threshold.setToolTip(
             self._text(
                 "Порог относительно устойчивого фона всей текущей скважины.",

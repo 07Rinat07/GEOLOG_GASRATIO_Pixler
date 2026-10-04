@@ -177,7 +177,7 @@ def test_builtin_masterlog_scales_are_linear_except_fixed_ratio_lanes() -> None:
         "a4_gas_interpretation_landscape",
     }
     logarithmic_columns = {
-        "balance", "character", "pixler_c1_c2", "pixler_c1_c3",
+        "wetness", "pixler_c1_c2", "pixler_c1_c3",
         "pixler_c1_c4", "pixler_c1_c5",
     }
     for preset in BUILTIN_MASTERLOG_FORM_PRESETS:
@@ -239,21 +239,21 @@ def test_gas_interpretation_a4_uses_separate_fixed_scale_ratio_lanes(orientation
     columns = {column.column_id: column for column in preset.template.columns}
 
     expected = {
-        "wetness": ("WH", "linear", 0.0, 100.0),
-        "balance": ("BH", "logarithmic", 0.1, 100.0),
-        "character": ("CH", "logarithmic", 0.01, 10.0),
-        "pixler_c1_c2": ("C1_C2", "logarithmic", 0.1, 1000.0),
-        "pixler_c1_c3": ("C1_C3", "logarithmic", 0.1, 1000.0),
-        "pixler_c1_c4": ("C1_C4", "logarithmic", 0.1, 1000.0),
-        "pixler_c1_c5": ("C1_C5", "logarithmic", 0.1, 1000.0),
+        "wetness": (["WH", "BH"], "logarithmic", 0.1, 100.0),
+        "character": (["CH"], "linear", 0.0, 5.0),
+        "pixler_c1_c2": (["C1_C2"], "logarithmic", 0.1, 1000.0),
+        "pixler_c1_c3": (["C1_C3"], "logarithmic", 0.1, 1000.0),
+        "pixler_c1_c4": (["C1_C4"], "logarithmic", 0.1, 1000.0),
+        "pixler_c1_c5": (["C1_C5"], "logarithmic", 0.1, 1000.0),
     }
     for column_id, (mnemonic, scale, minimum, maximum) in expected.items():
         column = columns[column_id]
-        assert column.curve_mnemonics == [mnemonic]
+        assert column.curve_mnemonics == mnemonic
         assert column.x_scale == scale
         assert column.x_min == minimum
         assert column.x_max == maximum
-        assert column.curve_styles[mnemonic].line_style == "solid"
+        for name in mnemonic:
+            assert column.curve_styles[name].line_style == ("dash" if name in {"WH", "BH", "CH"} else "solid")
 
 
 def test_reference_masterlog_headers_are_editable_and_have_default_logo_contract() -> None:
