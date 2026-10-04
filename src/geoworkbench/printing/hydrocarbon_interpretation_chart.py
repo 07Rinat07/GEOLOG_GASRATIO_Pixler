@@ -673,7 +673,7 @@ def _draw_panel(
     painter.save()
     painter.setClipRect(rect.adjusted(1.0, 1.0, -1.0, -1.0))
     point_series = panel_name == "opus"
-    minimum_samples = 1 if point_series else 2
+    minimum_samples = 1 if panel_name in {"ratios", "opus"} else 2
     legend_rows: list[tuple[QColor, str, bool]] = []
     for curve_index, curve in enumerate(curves):
         values = np.asarray(curve.values, dtype=np.float64)
@@ -720,8 +720,52 @@ def _draw_panel(
                 )
             painter.setBrush(Qt.BrushStyle.NoBrush)
         else:
-            painter.setPen(QPen(color, 2.2))
+            line_width = 1.35 if panel_name == "ratios" else 2.2
+            pen = QPen(color, line_width)
+            painter.setPen(pen)
             for segment in segments:
+                finite_segment = tuple(
+                    int(index)
+                    for index in segment
+                    if usable[index]
+                )
+                if len(finite_segment) == 1:
+                    index = finite_segment[0]
+                    value = float(values[index])
+                    normalized = (
+                        0.5
+                        if high <= low and value == low
+                        else 1.0
+                        if high <= low and value > low
+                        else 0.0
+                        if high <= low
+                        else float(np.clip((value - low) / (high - low), 0.0, 1.0))
+                    )
+                    x = float(curve_rect.left() + normalized * curve_rect.width())
+                    y = float(
+                        _depth_y(
+                            depth[index],
+                            depth_min,
+                            depth_max,
+                            curve_rect.top(),
+                            curve_rect.height(),
+                        )
+                    )
+                    radius = 1.0 if panel_name == "ratios" else 1.25
+                    painter.setPen(Qt.PenStyle.NoPen)
+                    painter.setBrush(color)
+                    painter.drawEllipse(
+                        QRectF(
+                            x - radius,
+                            y - radius,
+                            radius * 2.0,
+                            radius * 2.0,
+                        )
+                    )
+                    painter.setBrush(Qt.BrushStyle.NoBrush)
+                    painter.setPen(pen)
+                    continue
+
                 previous: tuple[float, float] | None = None
                 previous_normalized: float | None = None
                 previous_clipped = False
