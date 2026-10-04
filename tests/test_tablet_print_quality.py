@@ -9,6 +9,7 @@ from PySide6.QtGui import QPen
 from PySide6.QtWidgets import QApplication
 
 from geoworkbench.printing.page_renderer import _tablet_raster_scale
+from geoworkbench.services.gas_curve_presentation import GAS_SCREEN_POINT_SIZE_PX
 from geoworkbench.printing.tablet_print import (
     _activate_print_curve_styles,
     _print_curve_width,
@@ -100,7 +101,9 @@ def test_print_snapshot_keeps_gas_point_series_without_restoring_line() -> None:
 
     assert item.opts.get("pen") is None
     assert item.opts.get("symbol") == "o"
-    assert float(item.opts.get("symbolSize")) == pytest.approx(6.6)
+    assert float(item.opts.get("symbolSize")) == pytest.approx(
+        GAS_SCREEN_POINT_SIZE_PX * 3.0
+    )
 
     _restore_print_curve_styles(states)
 
