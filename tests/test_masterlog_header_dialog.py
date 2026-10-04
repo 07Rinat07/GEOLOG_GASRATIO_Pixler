@@ -334,6 +334,29 @@ def test_header_preview_renders_project_png_asset(qapp) -> None:
     dialog.close()
 
 
+def test_masterlog_header_dialog_releases_graphics_scene_on_close(qapp) -> None:
+    asset = make_image_asset()
+    session = ProjectSession(image_assets={asset.asset_id: asset})
+    controller = MasterlogTemplateController(session)
+    template = controller.create("Cleanup")
+    controller.add_header_element(
+        template.template_id,
+        element_type="image",
+        x_mm=2,
+        y_mm=3,
+        width_mm=20,
+        height_mm=10,
+        properties={"asset_ref": asset.asset_id},
+    )
+    dialog = MasterlogHeaderDialog(controller, template.template_id)
+
+    assert any(item.__class__.__name__ == "QGraphicsPixmapItem"
+               for item in dialog.preview_scene.items())
+    dialog.close()
+
+    assert dialog.preview_scene.items() == []
+
+
 def test_header_preview_resolves_whitelisted_field_and_marks_unknown(qapp) -> None:
     controller = MasterlogTemplateController(ProjectSession())
     template = controller.create("Standard")
