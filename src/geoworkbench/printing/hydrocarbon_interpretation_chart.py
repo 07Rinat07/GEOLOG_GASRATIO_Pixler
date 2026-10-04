@@ -788,14 +788,16 @@ def _draw_panel(
         legend_y = legend_top + row_index * 21.0
         painter.setPen(QPen(color, 1.0))
         if point_marker:
+            painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(color)
+            marker_radius = 1.5
             for offset in (12.0, 21.0, 30.0):
                 painter.drawEllipse(
                     QRectF(
-                        rect.left() + offset - 2.0,
-                        legend_y + 6.0,
-                        4.0,
-                        4.0,
+                        rect.left() + offset - marker_radius,
+                        legend_y + 8.0 - marker_radius,
+                        marker_radius * 2.0,
+                        marker_radius * 2.0,
                     )
                 )
             painter.setBrush(Qt.BrushStyle.NoBrush)
