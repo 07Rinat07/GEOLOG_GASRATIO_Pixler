@@ -586,11 +586,6 @@ def _draw_chart_page(
             language=language,
             display_hints=display_hints,
             point_series=panel_name == "opus",
-            line_width=(
-                0.82
-                if panel_name == "ratios"
-                else base_chart._PRINT_CURVE_WIDTH
-            ),
         )
 
     _draw_fluid_markers(
@@ -769,6 +764,11 @@ def _draw_panel(
             curves,
             ranges,
             point_series=panel_name == "opus",
+            line_width=(
+                0.82
+                if panel_name == "ratios"
+                else base_chart._PRINT_CURVE_WIDTH
+            ),
         )
     painter.setBrush(Qt.BrushStyle.NoBrush)
     painter.setPen(QPen(QColor("#263746"), 1.1))
