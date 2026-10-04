@@ -79,8 +79,8 @@ def test_gas_point_presentation_is_limited_to_ratios_and_interpretation() -> Non
 
 def test_gas_scatter_budget_and_marker_are_compact() -> None:
     assert GAS_SCREEN_POINT_SIZE_PX < 3.0
-    assert gas_scatter_point_budget(180.0) == 72
-    assert gas_scatter_point_budget(900.0) == 360
+    assert gas_scatter_point_budget(180.0) == 156
+    assert gas_scatter_point_budget(900.0) == 782
 
 
 def test_gas_scatter_sampling_groups_dense_buckets_in_constant_flatnonzero_calls(
@@ -142,8 +142,11 @@ def test_gas_scatter_sampling_keeps_sparse_points_and_bounds_dense_cloud() -> No
     assert 1 < dense_values.size <= 72
     assert dense_values.size == dense_axis.size
     assert np.all(np.diff(dense_axis) >= 0.0)
-    assert float(np.min(dense_values)) < 1.2
-    assert float(np.max(dense_values)) > 2.8
+    # Dense ratios now keep one factual representative per vertical bucket.
+    # The contract is a readable point trace, not a min/max envelope created
+    # by two horizontally separated extrema on the same printed Y position.
+    assert float(np.min(dense_values)) < 1.8
+    assert float(np.max(dense_values)) > 2.2
 
 
 def test_sparse_continuity_policy_is_limited_to_gas_curves() -> None:
