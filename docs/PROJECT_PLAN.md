@@ -127,6 +127,20 @@ Auto/Show/Hide шламограммы/ЛБА в project format v37 без изм
 - [x] Regression matrix фиксирует screen/print/Masterlog/report boundaries; завершение только
   после зелёного Release gate на окончательном head.
 
+## RPT-GAS-VIS-05 — читаемая плотность gas-ratio point trace
+
+- [x] Haworth/Pixler/C1-C2…C1-C5/OPUS ratio остаются marker-only: renderer не создаёт
+  соединяющую polyline и не превращает пропуски/NaN в искусственные сегменты.
+- [x] При print/preview decimation выбирается не более одного фактического наблюдения на
+  вертикальный depth-bucket. Два extrema на одной Y-позиции запрещены, потому что визуально
+  образуют короткое горизонтальное «тире».
+- [x] Плотность point trace повышена до примерно одного маркера на 1.15 px/pt доступной
+  вертикали с bounded cap; marker radius уменьшен, чтобы соседние точки оставались различимы
+  и одновременно не выглядели редкой россыпью на длинном интервале.
+- [ ] Финальная acceptance после exact-head Release gate: standard + OPUS, sparse/dense,
+  0.1–0.2 м acquisition grid, preview/PDF/system print, 100/125/150/200% DPI и отсутствие
+  как line-like «червя», так и dash-pairs/чрезмерного прореживания.
+
 ### Внешняя и операторская приёмка, выполняемая параллельно
 
 | Задача | Что осталось | Ответственный / условие |
@@ -1540,6 +1554,17 @@ report snapshot/composition/render/print.
   компактная расшифровка, grayscale и большие каталоги. Итоговые результаты текущего head
   фиксируются в PR/Release gate; физическая печать остаётся отдельной приёмкой.
 
+- [x] **RPT-GEO-04 — раздельные reference pages для легенды и методики.**
+  Полная геологическая/LBA легенда выводится на отдельной странице или страницах и никогда
+  не делит один лист с таблицей «Пояснения к графикам»/формулами. Методика всегда начинает
+  новый лист после legend section; chart pages начинаются отдельно. При `FULL` после
+  dedicated legend pages графические листы используют compact legend mode, чтобы не
+  дублировать большой справочник и не уменьшать полезную глубинную область. `HIDE` не создаёт
+  legend pages, `COMPACT` сохраняет выбранную пользователем семантику. Переполнение легенды
+  разбивается только по полным строкам без потери символов.
+  Приёмка: geology legend, methodology и первый depth chart находятся в разных page sections;
+  RU/KK/EN, no-geology, LBA-only, large catalog, A4 portrait/landscape и PDF/system print.
+
 - [ ] **RPT-GEO-01/02 — физическая и содержательная приёмка.**
   Распечатать один и тот же многостраничный snapshot на доступном A4/A3 устройстве; проверить
   легенды, частичные/пустые geology tracks, Auto/Show/Hide, grayscale и ЛБА на границах выбранной
@@ -1585,8 +1610,9 @@ report snapshot/composition/render/print.
   portrait/landscape/roll где применимо; Windows 100/125/150/200% DPI; colour + grayscale;
   длинные RU/KK/EN labels; пустая геология; частичная геология; LAS portable geology; ручные
   project edits; `Auto/Show/Hide` для обеих geology tracks; multi-page intervals; cross-layout /
-  cross-well annotation isolation; неизменность всех GasRatio/Pixler/OPUS расчётных series и
-  dataset/gas fingerprints при чисто геологических edits.
+  cross-well annotation isolation; отдельные страницы geology legend и chart methodology;
+  dense/sparse marker-only gas-ratio traces без dash-pairs; неизменность всех
+  GasRatio/Pixler/OPUS расчётных series и dataset/gas fingerprints при чисто presentation edits.
 
 
 ## P2 — расширение после P0/P1
