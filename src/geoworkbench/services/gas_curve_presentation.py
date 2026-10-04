@@ -100,25 +100,29 @@ def gas_ratio_scale_ticks(scale: GasRatioScale) -> tuple[tuple[float, str], ...]
         low = float(np.log10(scale.minimum))
         high = float(np.log10(scale.maximum))
         powers = np.arange(int(np.ceil(low)), int(np.floor(high)) + 1)
-        values = [10.0 ** float(power) for power in powers]
-        if not values or values[0] > scale.minimum:
-            values.insert(0, scale.minimum)
-        if values[-1] < scale.maximum:
-            values.append(scale.maximum)
+        logarithmic_values = [10.0 ** float(power) for power in powers]
+        if not logarithmic_values or logarithmic_values[0] > scale.minimum:
+            logarithmic_values.insert(0, scale.minimum)
+        if logarithmic_values[-1] < scale.maximum:
+            logarithmic_values.append(scale.maximum)
         return tuple(
             (
                 gas_ratio_position(value, scale) or 0.0,
                 _format_ratio_tick(value),
             )
-            for value in values
+            for value in logarithmic_values
         )
-    values = (scale.minimum, (scale.minimum + scale.maximum) / 2.0, scale.maximum)
+    linear_values = (
+        scale.minimum,
+        (scale.minimum + scale.maximum) / 2.0,
+        scale.maximum,
+    )
     return tuple(
         (
             gas_ratio_position(value, scale) or 0.0,
             _format_ratio_tick(value),
         )
-        for value in values
+        for value in linear_values
     )
 
 
