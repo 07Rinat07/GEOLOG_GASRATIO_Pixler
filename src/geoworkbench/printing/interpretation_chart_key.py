@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from html import escape
 import re
+from html import escape
 
 from geoworkbench.calculations.gas_ratio import OPUS_SCREENING_FORMULAS
 from geoworkbench.calculations.pixler import build_all_sourced_formula_registry
