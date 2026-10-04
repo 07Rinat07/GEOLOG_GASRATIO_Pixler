@@ -103,6 +103,10 @@ def _validate_report_compositions(
         _validate_report_header(composition.header_ru)
         _validate_report_header(composition.header_kk)
         _validate_report_header(composition.header_en)
+        if not isinstance(composition.show_summary, bool) or not isinstance(
+            composition.show_conclusion, bool
+        ):
+            raise ValueError("Видимость narrative sections должна быть логической")
         if len(composition.annotations) > 10_000:
             raise ValueError("report annotations превышают допустимое количество")
         identifiers = [annotation.annotation_id for annotation in composition.annotations]
@@ -194,6 +198,8 @@ def save_project(
                 "lba": composition.lba.value,
                 "legend_mode": composition.legend_mode.value,
                 "layout_profile": composition.layout_profile.value,
+                "show_summary": composition.show_summary,
+                "show_conclusion": composition.show_conclusion,
                 "annotations": [
                     report_annotation_to_dict(annotation)
                     for annotation in composition.annotations
