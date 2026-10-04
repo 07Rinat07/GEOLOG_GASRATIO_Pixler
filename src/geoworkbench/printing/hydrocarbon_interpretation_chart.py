@@ -991,7 +991,7 @@ def _draw_ratio_preview_tracks(
                     painter.drawEllipse(points[0], 1.4, 1.4)
                     painter.setBrush(Qt.BrushStyle.NoBrush)
                 else:
-                    for previous, current in zip(points, points[1:], strict=True):
+                    for previous, current in zip(points, points[1:], strict=False):
                         painter.drawLine(QLineF(previous, current))
             painter.restore()
 
