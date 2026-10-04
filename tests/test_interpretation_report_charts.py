@@ -137,6 +137,7 @@ def test_chart_explanations_omit_acquisition_context_rows() -> None:
 
     for unwanted in (
         "Скорость бур.",
+        "Расх. на вх.",
         "Расх на вх.",
         "Расх. на вых.",
         "Общий газ",
