@@ -11,6 +11,7 @@ from geoworkbench.domain.models import (
     DepthDomain,
 )
 from geoworkbench.services.curve_editing import DrawPoint
+from geoworkbench.services.gas_curve_presentation import gas_scatter_point_budget
 from geoworkbench.services.dataset_selection import DatasetIntervalSelection
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.visualization.curve_view import CurveView
@@ -143,9 +144,8 @@ def test_curve_view_renders_ratio_as_true_scatter_and_resamples_on_resize(qapp) 
     _values, small_depth = item.getData()
     assert small_depth is not None
     small_count = int(small_depth.size)
-    expected_budget = max(
-        48,
-        min(1_200, int(max(view._plot.viewport().height(), 1) / 2.5)),
+    expected_budget = gas_scatter_point_budget(
+        float(max(view._plot.viewport().height(), 1))
     )
 
     assert 0 < small_count <= expected_budget
