@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QFontMetricsF, QImage, QPainter
@@ -392,3 +394,29 @@ def test_overflow_legend_pagination_preserves_all_symbols_in_order(qapp) -> None
         for page in pages
     )
     assert legend.items == items
+
+def test_report_front_matter_separates_geology_legend_from_methodology_page() -> None:
+    source = Path(
+        "src/geoworkbench/printing/hydrocarbon_interpretation_pdf_renderer.py"
+    ).read_text(encoding="utf-8")
+
+    legend_loop = source.index("for legend_page in legend_pages:")
+    reserve_sheet = source.index(
+        "canvas.y = canvas.content_rect.bottom()",
+        legend_loop,
+    )
+    methodology_note = source.index(
+        "# Methodology/chart-key always starts on its own sheet.",
+        reserve_sheet,
+    )
+    methodology_page_break = source.index("canvas.new_page()", methodology_note)
+    methodology_render = source.index("render_report_html(", methodology_page_break)
+
+    assert (
+        legend_loop
+        < reserve_sheet
+        < methodology_note
+        < methodology_page_break
+        < methodology_render
+    )
+
