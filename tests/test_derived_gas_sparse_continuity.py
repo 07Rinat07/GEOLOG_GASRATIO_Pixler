@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from geoworkbench.calculations.curve_continuity import build_segment_connect_mask
 from geoworkbench.tablet.geometry_cache import (
     CurveGeometryCache,
     CurveGeometryKey,
@@ -46,7 +47,7 @@ def _key(*, positive_values_only: bool = False) -> CurveGeometryKey:
     )
 
 
-def test_ratio_scatter_keeps_only_factual_finite_observations() -> None:
+def test_derived_ratio_line_inserts_separator_across_long_update_gap() -> None:
     depth = np.arange(0.0, 31.0, dtype=np.float64)
     values = np.full(depth.shape, np.nan, dtype=np.float64)
     values[[0, 3, 30]] = (10.0, 13.0, 20.0)
@@ -54,12 +55,17 @@ def test_ratio_scatter_keeps_only_factual_finite_observations() -> None:
     sampled_values, sampled_depth = CurveGeometryCache().get_or_build(
         _key(), depth, values
     )
-    assert np.allclose(sampled_depth, np.asarray([0.0, 3.0, 30.0]))
-    assert np.allclose(sampled_values, np.asarray([10.0, 13.0, 20.0]))
-    assert np.all(np.isfinite(sampled_values))
+    assert np.allclose(sampled_depth, np.asarray([0.0, 3.0, 16.5, 30.0]))
+    assert np.allclose(
+        sampled_values,
+        np.asarray([10.0, 13.0, np.nan, 20.0]),
+        equal_nan=True,
+    )
+    connect = build_segment_connect_mask(sampled_depth, sampled_values)
+    assert np.array_equal(connect, np.asarray([True, False, False, False]))
 
 
-def test_bl_data_like_sparse_pixler_points_remain_discrete_observations() -> None:
+def test_bl_data_like_sparse_pixler_does_not_invent_long_diagonals() -> None:
     depth = np.arange(1174.8, 1482.4001, 0.4, dtype=np.float64)
     values = np.full(depth.shape, np.nan, dtype=np.float64)
     positions = [0, 14, 74, 309, 573]
@@ -80,24 +86,26 @@ def test_bl_data_like_sparse_pixler_points_remain_discrete_observations() -> Non
         values,
     )
 
-    assert np.all(np.isfinite(sampled_values))
-    np.testing.assert_allclose(sampled_depth, depth[positions])
-    np.testing.assert_allclose(sampled_values, values[positions])
+    connect = build_segment_connect_mask(sampled_depth, sampled_values)
+    assert not np.any(connect)
+    finite = np.isfinite(sampled_values)
+    np.testing.assert_allclose(sampled_depth[finite], depth[positions])
+    np.testing.assert_allclose(sampled_values[finite], values[positions])
 
 
-def test_logarithmic_ratio_scatter_omits_nonpositive_observations() -> None:
+def test_logarithmic_ratio_line_omits_nonpositive_rows_without_fake_bridge() -> None:
     depth = np.arange(0.0, 7.0, dtype=np.float64)
     values = np.asarray([1.0, 0.0, np.nan, -1.0, 10.0, 0.0, 100.0])
 
     sampled_values, sampled_depth = CurveGeometryCache().get_or_build(
         _key(positive_values_only=True), depth, values
     )
-    assert np.allclose(sampled_depth, np.asarray([0.0, 4.0, 6.0]))
-    assert np.allclose(sampled_values, np.asarray([1.0, 10.0, 100.0]))
-    assert np.all(np.isfinite(sampled_values))
+    finite = np.isfinite(sampled_values)
+    np.testing.assert_allclose(sampled_depth[finite], np.asarray([0.0, 4.0, 6.0]))
+    np.testing.assert_allclose(sampled_values[finite], np.asarray([1.0, 10.0, 100.0]))
 
 
-def test_ratio_scatter_does_not_insert_synthetic_outage_rows() -> None:
+def test_real_source_axis_outage_remains_a_hard_ratio_line_break() -> None:
     depth = np.concatenate(
         (
             np.arange(0.0, 4.0, dtype=np.float64),
@@ -109,6 +117,9 @@ def test_ratio_scatter_does_not_insert_synthetic_outage_rows() -> None:
     sampled_values, sampled_depth = CurveGeometryCache().get_or_build(
         _key(), depth, values
     )
-    assert np.all(np.isfinite(sampled_values))
-    np.testing.assert_allclose(sampled_depth, depth)
-    np.testing.assert_allclose(sampled_values, values)
+    separator = np.flatnonzero(~np.isfinite(sampled_values))
+    assert separator.size == 1
+    assert 3.0 < sampled_depth[separator[0]] < 30.0
+    connect = build_segment_connect_mask(sampled_depth, sampled_values)
+    assert np.count_nonzero(connect) == 6
+
