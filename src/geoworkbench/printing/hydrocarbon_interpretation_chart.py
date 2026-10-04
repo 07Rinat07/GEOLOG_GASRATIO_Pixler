@@ -61,6 +61,7 @@ from geoworkbench.services.hydrocarbon_interpretation import (
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.gas_curve_presentation import (
     GAS_PREVIEW_POINT_RADIUS_PX,
+    GasRatioScale,
     gas_ratio_position,
     gas_ratio_scale,
     gas_ratio_scale_ticks,
@@ -854,14 +855,16 @@ def _draw_ratio_preview_tracks(
 ) -> bool:
     """Preview gas ratios as separate continuous lanes with factual fixed scales."""
 
-    tracks = tuple(
-        (curve, gas_ratio_scale((
-            curve.metadata.original_mnemonic,
-            curve.metadata.canonical_mnemonic,
-        )))
-        for curve in curves
-    )
-    tracks = tuple((curve, scale) for curve, scale in tracks if scale is not None)
+    tracks: list[tuple[CurveData, GasRatioScale]] = []
+    for curve in curves:
+        scale = gas_ratio_scale(
+            (
+                curve.metadata.original_mnemonic,
+                curve.metadata.canonical_mnemonic,
+            )
+        )
+        if scale is not None:
+            tracks.append((curve, scale))
     if not tracks:
         return False
 
@@ -971,12 +974,12 @@ def _draw_ratio_preview_tracks(
             for segment in segments:
                 points: list[QPointF] = []
                 for row_index in segment:
-                    fraction = gas_ratio_position(float(values[row_index]), scale)
-                    if fraction is None:
+                    position = gas_ratio_position(float(values[row_index]), scale)
+                    if position is None:
                         continue
                     points.append(
                         QPointF(
-                            lane.left() + fraction * lane.width(),
+                            lane.left() + position * lane.width(),
                             _depth_y(
                                 float(depth[row_index]),
                                 depth_min,
