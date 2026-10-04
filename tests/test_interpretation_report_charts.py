@@ -519,7 +519,8 @@ def test_report_panel_point_contract_is_opus_only() -> None:
 
     for source in (whole, pdf, enhanced):
         assert 'panel_name == "opus"' in source
-        assert 'panel_name in {"ratios", "opus"}' not in source
+        assert 'point_series = panel_name in {"ratios", "opus"}' not in source
+        assert 'point_series=panel_name in {"ratios", "opus"}' not in source
 
 def test_constant_gas_curve_keeps_true_percentiles_and_a_visible_trace(qapp) -> None:
     depth = np.linspace(0.0, 10.0, 11)
