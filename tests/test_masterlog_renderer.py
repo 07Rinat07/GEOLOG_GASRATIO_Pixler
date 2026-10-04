@@ -370,6 +370,37 @@ def test_masterlog_render_context_indexes_visible_geology_once() -> None:
     assert context.has_sample_calcimetry is True
 
 
+def test_fixed_a4_columns_are_centered_in_same_box_as_paired_header(monkeypatch) -> None:
+    session = make_session_with_curves()
+    template = MasterlogTemplate(
+        "a4-centered",
+        "A4 centered",
+        page_format="A4",
+        header_height_mm=34.0,
+        columns=[MasterlogColumnTemplate("body", "Body", "depth", 200.0)],
+        properties={"orientation": "portrait"},
+    )
+    painter = MagicMock()
+    monkeypatch.setattr(masterlog_renderer, "_masterlog_column_heading_height", lambda _t: 10.0)
+    monkeypatch.setattr(masterlog_renderer, "_paint_column_heading", lambda *args, **kwargs: None)
+
+    masterlog_renderer._paint_columns(
+        painter,
+        template,
+        QSizeF(210.0, 297.0),
+        session,
+        None,
+        template.columns,
+        AppLanguage.RU,
+        _build_masterlog_render_context(template, session),
+    )
+
+    rect = painter.drawRect.call_args_list[0].args[0]
+    assert rect.left() == pytest.approx(5.0)
+    assert rect.width() == pytest.approx(200.0)
+    assert rect.right() == pytest.approx(205.0)
+
+
 def test_masterlog_depth_scale_controls_roll_height() -> None:
     session = make_session_with_curves()
     template = make_template()
