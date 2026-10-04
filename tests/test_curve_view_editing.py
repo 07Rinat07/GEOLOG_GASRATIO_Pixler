@@ -12,7 +12,7 @@ from geoworkbench.domain.models import (
 )
 from geoworkbench.services.curve_editing import DrawPoint
 from geoworkbench.services.dataset_selection import DatasetIntervalSelection
-from geoworkbench.services.gas_curve_presentation import gas_scatter_point_budget
+from geoworkbench.tablet.sampling import MAX_RENDERED_POINTS
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.visualization.curve_view import CurveView
 
@@ -101,7 +101,7 @@ def test_curve_view_prefers_compatible_gas_curves_and_distinct_colors(qapp) -> N
     view.close()
 
 
-def test_curve_view_renders_ratio_as_true_scatter_and_resamples_on_resize(qapp) -> None:
+def test_curve_view_renders_continuous_ratio_and_preserves_samples_on_resize(qapp) -> None:
     depth = np.linspace(100.0, 200.0, 5_001)
     dataset = Dataset(
         "curve-view-ratio",
@@ -129,27 +129,25 @@ def test_curve_view_renders_ratio_as_true_scatter_and_resamples_on_resize(qapp) 
     qapp.processEvents()
 
     item = view._curve_items["ratio"]
-    assert item.opts.get("symbol") == "o"
-    assert float(item.opts.get("symbolSize")) < 3.0
-    assert item.opts["symbolPen"].style() is Qt.PenStyle.NoPen
+    assert item.opts.get("symbol") is None
+    assert item.opts["connect"] == "finite"
     pen = item.opts.get("pen")
-    assert pen is None or pen.style() is Qt.PenStyle.NoPen
+    assert pen is not None and pen.style() is Qt.PenStyle.SolidLine
 
-    _values, large_depth = item.getData()
+    large_values, large_depth = item.getData()
     assert large_depth is not None
     large_count = int(large_depth.size)
 
     view.resize(700, 260)
     qapp.processEvents()
-    _values, small_depth = item.getData()
+    small_values, small_depth = item.getData()
     assert small_depth is not None
     small_count = int(small_depth.size)
-    expected_budget = gas_scatter_point_budget(
-        max(view._plot.viewport().height(), 1)
-    )
-
-    assert 0 < small_count <= expected_budget
-    assert small_count < large_count
+    assert 0 < small_count <= MAX_RENDERED_POINTS
+    assert small_count == large_count
+    np.testing.assert_array_equal(small_depth, large_depth)
+    np.testing.assert_array_equal(small_values, large_values)
+    np.testing.assert_allclose(small_values, 2.0 + np.sin(small_depth * 0.4))
     view.close()
 
 
