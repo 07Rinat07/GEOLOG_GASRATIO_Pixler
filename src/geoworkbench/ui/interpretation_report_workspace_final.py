@@ -372,6 +372,11 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
             if persisted_header is not None
             else None
         )
+        if preview_identity is not None:
+            preview_identity = self._identity_with_narrative_visibility(
+                preview_identity,
+                composition,
+            )
         self.preview.setHtml(
             hydrocarbon_interpretation_html_with_front_chart(
                 report,
@@ -385,6 +390,17 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                 identity=preview_identity,
                 annotations=composition.annotations,
             )
+        )
+
+    @staticmethod
+    def _identity_with_narrative_visibility(
+        identity: InterpretationReportIdentity,
+        composition: InterpretationReportComposition,
+    ) -> InterpretationReportIdentity:
+        return replace(
+            identity,
+            summary=identity.summary if composition.show_summary else "",
+            conclusion=identity.conclusion if composition.show_conclusion else "",
         )
 
     def _report_composition(self) -> InterpretationReportComposition:
@@ -477,6 +493,10 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
             report_header_fields_from_identity(identity, report.report_profile),
         )
         self._store_report_composition(composition)
+        render_identity = self._identity_with_narrative_visibility(
+            identity,
+            composition,
+        )
         if not self._sync_preview_geology_composition(
             report,
             identity,
@@ -501,7 +521,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     language=self.language,
                     include_chart=True,
                     orientation=layout.orientation,
-                    identity=identity,
+                    identity=render_identity,
                     geology=geology,
                     geology_track_settings=layout.geology_tracks,
                     legend_mode=layout.legend_mode,
@@ -544,6 +564,10 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
             report_header_fields_from_identity(identity, report.report_profile),
         )
         self._store_report_composition(composition)
+        render_identity = self._identity_with_narrative_visibility(
+            identity,
+            composition,
+        )
         if not self._sync_preview_geology_composition(
             report,
             identity,
@@ -561,7 +585,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     dataset=dataset,
                     include_chart=True,
                     orientation=layout.orientation,
-                    identity=identity,
+                    identity=render_identity,
                     geology=geology,
                     geology_track_settings=layout.geology_tracks,
                     legend_mode=layout.legend_mode,
