@@ -102,15 +102,16 @@ Auto/Show/Hide шламограммы/ЛБА в project format v37 без изм
 |---|---|---|---|
 | 1 | REPORT-I18N-01 | Office и PDF/print boundaries интегрированы через #434/#435: RU/KK/EN проходит через XLSX/DOCX/PDF/system-print, validation и Unicode diagnostics без скрытого русского fallback | Разработчик / интегрировано |
 | 2 | RPT-COMP-01 | Первый slice: renderer-neutral composition сохраняет orientation, print order и Auto/Show/Hide шламограммы/ЛБА по dataset в project v37 и восстанавливается после reopen. Далее расширить composition до финального preview/document-control без параллельного UI-state | Разработчик / в работе |
-| 3 | RPT-ANN-01 | Report scope и logical track anchors, printable remarks/callouts, общий bounded Undo/Redo, Cancel/Save checkpoints; зависит от стабильного composition ID Composer | Разработчик / запланировано |
-| 4 | PRINT-STYLE-01 | Свести оставшиеся generic/Masterlog/Office пути к одному visual profile и document-control contract; дополнять готовые typography/marker/legend contracts. Physical acceptance вынесена отдельно | Разработчик / в работе |
-| 5 | GASCTX-RPT-01: остаточная приёмка | Проверить общий editor/registry/context audit через production entry points, save/reopen и RU/KK/EN; завершить отдельные полосы/метки событий с grayscale-подписями. Реализованные exclusion/background/confirmed policy не переписывать | Разработчик + специалист ГТИ / на проверке |
-| 6 | WITS-UX-01 | Завершить persistence/reconnect и live-first navigation/help: основные данные и health видимы, advanced/diagnostics сворачиваются, outer horizontal scroll отсутствует | Разработчик / в работе |
-| 7 | WITS-PLOT-01 | Остаточные manual ranges, reconnect/schema-change и redraw acceptance поверх существующих unit-aware tracks и редактируемых панелей | Разработчик / в работе |
-| 8 | WITS-GASCTX-01 / WITS-INTERP-01 | Сквозная проекция live gas context и интерпретационных полос; source origin, fluid screening и alarm остаются независимыми осями | Разработчик + специалист ГТИ / в работе |
-| 9 | WELL-04 → WELL-05 | Сквозная готовность переводов и пары макетов; использовать реализованные field ledger/readiness/family resolver и WELL-06, проверить save/reopen без смешения ревизий | Разработчик / на проверке |
-| 10 | ARCH-07 | Довести общую history до оставшихся mutation controllers при работе над конкретными editor сценариями; не создавать параллельную историю в RPT-ANN | Разработчик / в работе |
-| 11 | PERF-05 | Сначала baseline текущего save/open/RSS на 100k/1M; новый storage backend только при подтверждённом bottleneck и с совместимой миграцией | Разработчик / запланировано |
+| 3 | RPT-ANN-01 | Report scope и logical track anchors, printable remarks/callouts, общий bounded Undo/Redo, Cancel/Save checkpoints; ownership/render/editor slices интегрированы, остаётся расширенная cross-well/cross-layout acceptance | Разработчик / в работе |
+| 4 | RPT-PAGE-01 / RPT-GAS-VIS-01 | Развести геологическую легенду и методику на отдельные страницы; gas-ratio/Haworth/Pixler показывать плотным marker-only trace без min/max doublets, тире и соединения через пропуски | Разработчик / в работе |
+| 5 | PRINT-STYLE-01 | Свести оставшиеся generic/Masterlog/Office пути к одному visual profile и document-control contract; дополнять готовые typography/marker/legend contracts. Physical acceptance вынесена отдельно | Разработчик / в работе |
+| 6 | GASCTX-RPT-01: остаточная приёмка | Проверить общий editor/registry/context audit через production entry points, save/reopen и RU/KK/EN; завершить отдельные полосы/метки событий с grayscale-подписями. Реализованные exclusion/background/confirmed policy не переписывать | Разработчик + специалист ГТИ / на проверке |
+| 7 | WITS-UX-01 | Завершить persistence/reconnect и live-first navigation/help: основные данные и health видимы, advanced/diagnostics сворачиваются, outer horizontal scroll отсутствует | Разработчик / в работе |
+| 8 | WITS-PLOT-01 | Остаточные manual ranges, reconnect/schema-change и redraw acceptance поверх существующих unit-aware tracks и редактируемых панелей | Разработчик / в работе |
+| 9 | WITS-GASCTX-01 / WITS-INTERP-01 | Сквозная проекция live gas context и интерпретационных полос; source origin, fluid screening и alarm остаются независимыми осями | Разработчик + специалист ГТИ / в работе |
+| 10 | WELL-04 → WELL-05 | Сквозная готовность переводов и пары макетов; использовать реализованные field ledger/readiness/family resolver и WELL-06, проверить save/reopen без смешения ревизий | Разработчик / на проверке |
+| 11 | ARCH-07 | Довести общую history до оставшихся mutation controllers при работе над конкретными editor сценариями; не создавать параллельную историю в RPT-ANN | Разработчик / в работе |
+| 12 | PERF-05 | Сначала baseline текущего save/open/RSS на 100k/1M; новый storage backend только при подтверждённом bottleneck и с совместимой миграцией | Разработчик / запланировано |
 
 ## RPT-GAS-VIS-01 — точечное представление газовых отношений
 
@@ -126,6 +127,14 @@ Auto/Show/Hide шламограммы/ЛБА в project format v37 без изм
 - [x] Relative-gas `*_REL` остаётся cumulative 0–100% stacked fill и не переводится в scatter.
 - [x] Regression matrix фиксирует screen/print/Masterlog/report boundaries; завершение только
   после зелёного Release gate на окончательном head.
+- [x] Dense Haworth/Pixler/GasRatio sampling использует не две extrema-точки на один depth-bucket,
+  а одну фактическую source observation на стабильный визуальный depth-band. Это запрещает
+  горизонтальные «точки-тире», сохраняет реальные gaps как пустые интервалы и не создаёт
+  синтетических соединяющих сегментов.
+- [x] Density contract для report preview/PDF/print повышен до примерно одной точки на 1.2
+  вертикальной единицы при bounded cap; marker остаётся круглым и достаточно малым, чтобы
+  соседние точки читались как плотный reference-style point trace, а не как толстая «червеобразная»
+  линия. Source values, расчёты и classification не меняются.
 
 ### Внешняя и операторская приёмка, выполняемая параллельно
 
@@ -1546,6 +1555,15 @@ report snapshot/composition/render/print.
   глубины. Сохранить модель/драйвер/DPI, ревизию отчёта и результат специалиста ГТИ.
   Статус: блокировано внешним условием; зелёный CI и цифровой PDF этот критерий не закрывают.
 
+- [x] **RPT-PAGE-01 — разделение справочных страниц отчёта.**
+  Геологическая/LBA легенда является отдельным reference section и никогда не делит одну
+  физическую страницу с «Пояснениями к графикам», формулами Haworth/Pixler/D-exponent или
+  методическими таблицами. Полная геологическая легенда при необходимости пагинируется только
+  по целым строкам условных обозначений; после последней страницы легенды renderer всегда
+  начинает methodology/chart-key section с новой страницы. PDF и system print используют один
+  и тот же page contract; смешанная страница «легенда сверху + методика снизу» запрещена regression.
+  Разделение не меняет состав геологии, формулы, series fingerprints или Report Passport.
+
 - [ ] **RPT-COMP-01 — Final Report Composer.**
   Единый финальный workspace перед PDF/печатью поверх существующих report renderer/preview
   компонентов, а не второй независимый генератор отчётов. Пользователь управляет только
@@ -1584,9 +1602,11 @@ report snapshot/composition/render/print.
 - [ ] **Общая acceptance-матрица:** один и тот же report snapshot на screen/PDF/printer; A4/A3,
   portrait/landscape/roll где применимо; Windows 100/125/150/200% DPI; colour + grayscale;
   длинные RU/KK/EN labels; пустая геология; частичная геология; LAS portable geology; ручные
-  project edits; `Auto/Show/Hide` для обеих geology tracks; multi-page intervals; cross-layout /
-  cross-well annotation isolation; неизменность всех GasRatio/Pixler/OPUS расчётных series и
-  dataset/gas fingerprints при чисто геологических edits.
+  project edits; `Auto/Show/Hide` для обеих geology tracks; multi-page intervals; отдельные
+  страницы geology legend и methodology; плотный marker-only Haworth/Pixler/GasRatio trace без
+  dash-doublets и без линий через gaps; cross-layout / cross-well annotation isolation;
+  неизменность всех GasRatio/Pixler/OPUS расчётных series и dataset/gas fingerprints при чисто
+  presentation/geology edits.
 
 
 ## P2 — расширение после P0/P1
