@@ -103,14 +103,15 @@ Auto/Show/Hide шламограммы/ЛБА в project format v37 без изм
 | 1 | REPORT-I18N-01 | Office и PDF/print boundaries интегрированы через #434/#435: RU/KK/EN проходит через XLSX/DOCX/PDF/system-print, validation и Unicode diagnostics без скрытого русского fallback | Разработчик / интегрировано |
 | 2 | RPT-COMP-01 | Первый slice: renderer-neutral composition сохраняет orientation, print order и Auto/Show/Hide шламограммы/ЛБА по dataset в project v37 и восстанавливается после reopen. Далее расширить composition до финального preview/document-control без параллельного UI-state | Разработчик / в работе |
 | 3 | RPT-ANN-01 | Report scope и logical track anchors, printable remarks/callouts, общий bounded Undo/Redo, Cancel/Save checkpoints; зависит от стабильного composition ID Composer | Разработчик / запланировано |
-| 4 | PRINT-STYLE-01 | Свести оставшиеся generic/Masterlog/Office пути к одному visual profile и document-control contract; дополнять готовые typography/marker/legend contracts. Physical acceptance вынесена отдельно | Разработчик / в работе |
-| 5 | GASCTX-RPT-01: остаточная приёмка | Проверить общий editor/registry/context audit через production entry points, save/reopen и RU/KK/EN; завершить отдельные полосы/метки событий с grayscale-подписями. Реализованные exclusion/background/confirmed policy не переписывать | Разработчик + специалист ГТИ / на проверке |
-| 6 | WITS-UX-01 | Завершить persistence/reconnect и live-first navigation/help: основные данные и health видимы, advanced/diagnostics сворачиваются, outer horizontal scroll отсутствует | Разработчик / в работе |
-| 7 | WITS-PLOT-01 | Остаточные manual ranges, reconnect/schema-change и redraw acceptance поверх существующих unit-aware tracks и редактируемых панелей | Разработчик / в работе |
-| 8 | WITS-GASCTX-01 / WITS-INTERP-01 | Сквозная проекция live gas context и интерпретационных полос; source origin, fluid screening и alarm остаются независимыми осями | Разработчик + специалист ГТИ / в работе |
-| 9 | WELL-04 → WELL-05 | Сквозная готовность переводов и пары макетов; использовать реализованные field ledger/readiness/family resolver и WELL-06, проверить save/reopen без смешения ревизий | Разработчик / на проверке |
-| 10 | ARCH-07 | Довести общую history до оставшихся mutation controllers при работе над конкретными editor сценариями; не создавать параллельную историю в RPT-ANN | Разработчик / в работе |
-| 11 | PERF-05 | Сначала baseline текущего save/open/RSS на 100k/1M; новый storage backend только при подтверждённом bottleneck и с совместимой миграцией | Разработчик / запланировано |
+| 4 | RPT-VIS-01 | Разнести geology legend и chart methodology на отдельные reference pages; сделать Haworth/Pixler/OPUS ratio визуально плотным marker-only scatter без dash/line artifacts и без overlap-worm | Разработчик + специалист ГТИ / в работе |
+| 5 | PRINT-STYLE-01 | Свести оставшиеся generic/Masterlog/Office пути к одному visual profile и document-control contract; дополнять готовые typography/marker/legend contracts. Physical acceptance вынесена отдельно | Разработчик / в работе |
+| 6 | GASCTX-RPT-01: остаточная приёмка | Проверить общий editor/registry/context audit через production entry points, save/reopen и RU/KK/EN; завершить отдельные полосы/метки событий с grayscale-подписями. Реализованные exclusion/background/confirmed policy не переписывать | Разработчик + специалист ГТИ / на проверке |
+| 7 | WITS-UX-01 | Завершить persistence/reconnect и live-first navigation/help: основные данные и health видимы, advanced/diagnostics сворачиваются, outer horizontal scroll отсутствует | Разработчик / в работе |
+| 8 | WITS-PLOT-01 | Остаточные manual ranges, reconnect/schema-change и redraw acceptance поверх существующих unit-aware tracks и редактируемых панелей | Разработчик / в работе |
+| 9 | WITS-GASCTX-01 / WITS-INTERP-01 | Сквозная проекция live gas context и интерпретационных полос; source origin, fluid screening и alarm остаются независимыми осями | Разработчик + специалист ГТИ / в работе |
+| 10 | WELL-04 → WELL-05 | Сквозная готовность переводов и пары макетов; использовать реализованные field ledger/readiness/family resolver и WELL-06, проверить save/reopen без смешения ревизий | Разработчик / на проверке |
+| 11 | ARCH-07 | Довести общую history до оставшихся mutation controllers при работе над конкретными editor сценариями; не создавать параллельную историю в RPT-ANN | Разработчик / в работе |
+| 12 | PERF-05 | Сначала baseline текущего save/open/RSS на 100k/1M; новый storage backend только при подтверждённом bottleneck и с совместимой миграцией | Разработчик / запланировано |
 
 ## RPT-GAS-VIS-01 — точечное представление газовых отношений
 
