@@ -746,7 +746,7 @@ def _curve_percentiles(
         else np.isfinite(depth)
     )
     for panel_name, curves in panels:
-        minimum_samples = 1 if panel_name == "opus" else 2
+        minimum_samples = 1 if panel_name in {"ratios", "opus"} else 2
         for curve in curves:
             values = np.asarray(curve.values, dtype=np.float64)
             if values.shape != dataset.depth.shape:
