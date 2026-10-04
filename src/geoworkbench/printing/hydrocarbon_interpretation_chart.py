@@ -905,7 +905,9 @@ def _draw_ratio_preview_tracks(
     segments = continuous_depth_segments(
         depth,
         indices,
-        limit=max(2, int(indices.size)),
+        # Continuous ratio traces need enough vertices to retain real shape,
+        # but a 100k-row LAS must not turn one preview repaint into 100k lines.
+        limit=max(256, min(4_000, int(max(rect.height(), 1.0) * 4.0))),
     )
 
     lane_width = rect.width() / len(tracks)
