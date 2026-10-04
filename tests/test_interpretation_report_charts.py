@@ -786,7 +786,8 @@ def test_report_curve_renderers_share_the_gap_segmenter() -> None:
         "src/geoworkbench/printing/hydrocarbon_interpretation_pdf_chart.py"
     ).read_text(encoding="utf-8")
 
-    assert "continuous_depth_segments(depth, depth_indices," in whole
+    assert "line_indices = np.flatnonzero(usable)" in whole
+    assert "curve_segments = continuous_depth_segments(" in whole
     assert "continuous_depth_segments(" in pdf
     assert "limit=max(2, int(indices.size))" in pdf
 
