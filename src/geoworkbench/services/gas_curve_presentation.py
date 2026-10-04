@@ -39,8 +39,8 @@ _GAS_RATIO_EXACT = frozenset(
     }
 )
 
-# Keep ratio markers visually distinct from a line even on dense 0.1–0.2 m
-# acquisition grids. Large markers overlap vertically and become "worms".
+# Explicit scatter mode is retained for specialized overlays and compatibility.
+# Default ratio tracks no longer use these marker settings.
 GAS_SCREEN_POINT_SIZE_PX = 1.6
 GAS_PREVIEW_POINT_RADIUS_PX = 0.55
 GAS_PRINT_POINT_RADIUS_PT = 0.55
@@ -253,7 +253,6 @@ def uses_gas_point_presentation(identifiers: Iterable[object]) -> bool:
 
     # Retain the API so saved layouts/plugins do not break.  A renderer that
     # genuinely needs discrete observations must request point_series explicitly.
-    tuple(identifiers)
     return False
 
 
