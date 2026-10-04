@@ -721,6 +721,8 @@ def _draw_panel(
             painter.setBrush(Qt.BrushStyle.NoBrush)
         else:
             painter.setPen(QPen(color, 2.2))
+            factual_points: list[tuple[float, float]] = []
+            drawn_lines = 0
             for segment in segments:
                 previous: tuple[float, float] | None = None
                 previous_normalized: float | None = None
@@ -756,6 +758,7 @@ def _draw_panel(
                             )
                         ),
                     )
+                    factual_points.append(current)
                     spike = (
                         previous_normalized is not None
                         and (clipped or previous_clipped)
@@ -765,9 +768,24 @@ def _draw_panel(
                         painter.drawLine(
                             QLineF(previous[0], previous[1], current[0], current[1])
                         )
+                        drawn_lines += 1
                     previous = current
                     previous_normalized = normalized
                     previous_clipped = clipped
+            if drawn_lines == 0 and factual_points:
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.setBrush(color)
+                radius = GAS_PREVIEW_POINT_RADIUS_PX
+                for x, y in factual_points:
+                    painter.drawEllipse(
+                        QRectF(
+                            x - radius,
+                            y - radius,
+                            radius * 2.0,
+                            radius * 2.0,
+                        )
+                    )
+                painter.setBrush(Qt.BrushStyle.NoBrush)
 
         canonical_hint = display_hints.get(
             curve.metadata.original_mnemonic.strip().upper()
