@@ -5,6 +5,7 @@ from geoworkbench.forms.a4_factory_templates import (
     a4_factory_templates,
 )
 from geoworkbench.forms.catalog import HIDDEN_FACTORY_TEMPLATE_IDS, visible_factory_forms
+from geoworkbench.forms.masterlog_bridge import build_masterlog_from_form
 from geoworkbench.forms.models import FormTemplateOrigin
 from geoworkbench.forms.templates import factory_templates
 from geoworkbench.forms.templates import localized_factory_label
@@ -96,6 +97,32 @@ def test_masterlog_portrait_columns_are_compact_and_fit_added_interpretation() -
     assert audit.total_width_px == 714
     assert audit.total_width_px <= audit.portrait_capacity_px
     assert audit.level is FormWidthLevel.FITS_PORTRAIT
+
+
+def test_factory_masterlog_a4_uses_compact_paired_header_and_print_box() -> None:
+    forms = a4_factory_templates("ru")
+
+    for orientation, printable_width in (("portrait", 200.0), ("landscape", 287.0)):
+        form = forms[f"factory-masterlog-a4-{orientation}"]
+        expected_header = f"factory-header:a4_geology_technology_gas_{orientation}"
+
+        assert form.print_header_template_id == expected_header
+        assert form.print_header_for_orientation(orientation) == expected_header
+
+        bridged = build_masterlog_from_form(
+            form,
+            template_id=f"test-masterlog-{orientation}",
+        ).template
+
+        assert bridged.page_format == "A4"
+        assert bridged.properties["orientation"] == orientation
+        assert bridged.header_height_mm == 34.0
+        assert bridged.properties["paired_header_preset_id"] == (
+            f"a4_geology_technology_gas_{orientation}"
+        )
+        assert sum(column.width_mm for column in bridged.columns) == pytest.approx(
+            printable_width
+        )
 
 
 def test_complex_gas_factory_contains_all_requested_gas_groups() -> None:
