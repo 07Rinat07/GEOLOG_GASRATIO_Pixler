@@ -81,10 +81,10 @@ def hydrocarbon_interpretation_html_with_front_chart(
     )
     key_block = (
         (
-            "<section class='interpretation-chart-key' "
+            "<div class='interpretation-chart-key' "
             "style='page-break-before:always;page-break-after:always;'>"
             + key_html
-            + "</section>"
+            + "</div>"
         )
         if print_layout and key_html
         else key_html
