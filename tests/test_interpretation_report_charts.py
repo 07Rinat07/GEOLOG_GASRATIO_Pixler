@@ -368,7 +368,7 @@ def test_report_panel_selector_keeps_singleton_opus_point_series() -> None:
         assert panels["opus"] == (opus,)
 
 
-def test_sparse_ratio_point_survives_whole_well_preview_downsampling() -> None:
+def test_sparse_ratio_single_observation_remains_visible_without_fake_segment() -> None:
     class RecordingPainter:
         def __init__(self) -> None:
             self.ellipses = 0
@@ -381,8 +381,6 @@ def test_sparse_ratio_point_survives_whole_well_preview_downsampling() -> None:
 
     depth = np.arange(3_601, dtype=np.float64)
     values = np.full(depth.shape, np.nan, dtype=np.float64)
-    # Index 1235 is intentionally absent from the old 1,800-point uniform
-    # depth sample, so this guards against losing factual sparse observations.
     values[1_235] = 2.5
     dataset = Dataset(
         "sparse-ratio-preview",
@@ -426,17 +424,22 @@ def test_sparse_ratio_point_survives_whole_well_preview_downsampling() -> None:
         {},
     )
 
-    # One factual point plus three point glyphs in the legend.
-    assert painter.ellipses >= 4
+    # An isolated factual observation is shown as one point, but the ratio
+    # legend itself is a line sample and no artificial segment is invented.
+    assert painter.ellipses == 1
 
 
-def test_dense_ratio_preview_sampling_is_bounded() -> None:
+def test_dense_ratio_preview_uses_continuous_trace_not_scatter() -> None:
     class RecordingPainter:
         def __init__(self) -> None:
             self.ellipses = 0
+            self.lines = 0
 
         def drawEllipse(self, _rect) -> None:
             self.ellipses += 1
+
+        def drawLine(self, _line) -> None:
+            self.lines += 1
 
         def __getattr__(self, _name):
             return lambda *args, **kwargs: None
@@ -476,10 +479,8 @@ def test_dense_ratio_preview_sampling_is_bounded() -> None:
         {},
     )
 
-    # Dense source rows are reduced by final vertical density, not by a
-    # line-oriented 1,800-point budget. Three extra dots belong to the legend.
-    factual_budget = gas_scatter_point_budget(178.0)
-    assert 3 < painter.ellipses <= factual_budget + 3
+    assert painter.ellipses == 0
+    assert painter.lines > 20
 
 
 def test_dense_ratio_pdf_scatter_is_density_bounded() -> None:
@@ -613,7 +614,7 @@ def test_dense_ratio_pdf_markers_do_not_overlap_into_worms() -> None:
     assert longest_overlap_chain <= 3
 
 
-def test_report_panel_scatter_contract_is_ratio_only() -> None:
+def test_report_panel_presentation_contract_uses_lines_for_ratios_and_points_for_opus() -> None:
     whole = Path(
         "src/geoworkbench/printing/hydrocarbon_interpretation_chart.py"
     ).read_text(encoding="utf-8")
@@ -624,9 +625,11 @@ def test_report_panel_scatter_contract_is_ratio_only() -> None:
         "src/geoworkbench/printing/hydrocarbon_interpretation_pdf_chart_enhanced.py"
     ).read_text(encoding="utf-8")
 
-    for source in (whole, pdf, enhanced):
-        assert 'panel_name in {"ratios", "opus"}' in source
-        assert 'panel_name != "drilling"' not in source
+    assert 'point_series = panel_name == "opus"' in whole
+    for source in (pdf, enhanced):
+        assert 'point_series=panel_name == "opus"' in source
+    assert 'line_width=0.82 if panel_name == "ratios"' in pdf
+    assert 'if panel_name == "ratios"' in enhanced
 
 def test_constant_gas_curve_keeps_true_percentiles_and_a_visible_trace(qapp) -> None:
     depth = np.linspace(0.0, 10.0, 11)
