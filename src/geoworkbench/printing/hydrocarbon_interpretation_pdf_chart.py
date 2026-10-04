@@ -266,6 +266,7 @@ def _draw_chart_page(
             language=language,
             display_hints=display_hints,
             point_series=panel_name == "opus",
+            line_width=0.82 if panel_name == "ratios" else _PRINT_CURVE_WIDTH,
         )
 
     painter.setPen(QColor("#475569"))
@@ -511,6 +512,7 @@ def _draw_curves(
     ranges: dict[str, tuple[float, float]],
     *,
     point_series: bool | None = None,
+    line_width: float = _PRINT_CURVE_WIDTH,
 ) -> None:
     depth = np.asarray(dataset.depth, dtype=np.float64)
     indices = np.flatnonzero(
@@ -579,7 +581,7 @@ def _draw_curves(
             painter.setBrush(Qt.BrushStyle.NoBrush)
             continue
 
-        pen = QPen(color, _PRINT_CURVE_WIDTH)
+        pen = QPen(color, max(0.5, float(line_width)))
         pen.setCosmetic(True)
         painter.setPen(pen)
         for segment in segments:
@@ -590,6 +592,35 @@ def _draw_curves(
                 page,
                 curve_rect,
             )
+            finite_rows = tuple(
+                int(row_index)
+                for row_index in render_rows
+                if np.isfinite(values[row_index])
+            )
+            if len(finite_rows) == 1:
+                row_index = finite_rows[0]
+                value = float(values[row_index])
+                normalized = (
+                    0.5
+                    if high <= low and value == low
+                    else 1.0
+                    if high <= low and value > low
+                    else 0.0
+                    if high <= low
+                    else float(np.clip((value - low) / (high - low), 0.0, 1.0))
+                )
+                x = curve_rect.left() + normalized * curve_rect.width()
+                y = _depth_y(float(depth[row_index]), page, curve_rect)
+                radius = max(0.45, min(0.8, float(line_width) * 0.55))
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.setBrush(color)
+                painter.drawEllipse(
+                    QRectF(x - radius, y - radius, radius * 2.0, radius * 2.0)
+                )
+                painter.setBrush(Qt.BrushStyle.NoBrush)
+                painter.setPen(pen)
+                continue
+
             previous: tuple[float, float] | None = None
             previous_normalized: float | None = None
             previous_clipped = False
