@@ -79,7 +79,17 @@ def hydrocarbon_interpretation_html_with_front_chart(
             language,
         )
     )
-    block = key_html + _chart_block(
+    key_block = (
+        (
+            "<section class='interpretation-chart-key' "
+            "style='page-break-before:always;page-break-after:always;'>"
+            + key_html
+            + "</section>"
+        )
+        if print_layout and key_html
+        else key_html
+    )
+    block = key_block + _chart_block(
         uri,
         labels,
         print_layout=print_layout,
