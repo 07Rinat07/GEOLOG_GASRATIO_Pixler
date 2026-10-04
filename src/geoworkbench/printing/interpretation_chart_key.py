@@ -14,6 +14,54 @@ from geoworkbench.services.hydrocarbon_interpretation import HydrocarbonInterpre
 from geoworkbench.services.localization import AppLanguage
 
 
+# Keep the methodology page focused on interpretation methods rather than
+# ordinary acquisition/context channels. These curves may still be plotted on
+# the chart; they are intentionally omitted only from "Chart explanations".
+_EXCLUDED_EXPLANATION_IDENTIFIERS = frozenset(
+    {
+        # Drilling speed.
+        "ROP",
+        "ROP_AVG",
+        "ROP5",
+        "ROPA",
+        "GID106",
+        # Flow in/out.
+        "FLOW_IN",
+        "FLOW",
+        "QIN",
+        "MFIA",
+        "GID1001",
+        "FLOW_OUT",
+        "QOUT",
+        "MFOA",
+        "MFOP",
+        "GID1003",
+        # Total/combustible gas source and calculated aliases.
+        "TG",
+        "TGAS",
+        "TOTALGAS",
+        "TOTAL_GAS",
+        "TG_CALC",
+        "GASA",
+        "GID1500",
+    }
+)
+
+_EXCLUDED_EXPLANATION_RU_TITLES = frozenset(
+    {
+        "скорость бур.",
+        "скорость бурения (по глубине)",
+        "расх на вх.",
+        "расход на входе",
+        "расх. на вых.",
+        "расход на выходе",
+        "общий газ",
+        "сод. горюч.газ.",
+        "суммарное сод. горючих газов",
+    }
+)
+
+
 _LABELS = {
     AppLanguage.RU: {
         "title": "Пояснения к графикам",
@@ -78,10 +126,22 @@ def interpretation_chart_key_html(
                 or curve.metadata.canonical_mnemonic
                 or curve.metadata.original_mnemonic
             ).upper()
+            identifiers = {
+                canonical,
+                curve.metadata.original_mnemonic.strip().upper(),
+                (curve.metadata.canonical_mnemonic or "").strip().upper(),
+            }
+            title = curve_display_name(curve, language, canonical_hint=canonical)
+            if identifiers & _EXCLUDED_EXPLANATION_IDENTIFIERS:
+                continue
+            if (
+                language is AppLanguage.RU
+                and title.strip().casefold() in _EXCLUDED_EXPLANATION_RU_TITLES
+            ):
+                continue
             if canonical in seen:
                 continue
             seen.add(canonical)
-            title = curve_display_name(curve, language, canonical_hint=canonical)
             candidates = expressions.get(canonical, set())
             formula = next(iter(candidates)) if len(candidates) == 1 else ""
             formula = opus_formulas.get(canonical, formula)
