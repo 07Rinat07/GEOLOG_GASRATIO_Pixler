@@ -402,12 +402,12 @@ def _apply_compact_geology_widths(form: FormDocument) -> None:
 def _a4_print_header_catalog_id(profile_id: str, orientation: str) -> str:
     if orientation not in {"portrait", "landscape"}:
         raise ValueError("A4 header orientation must be portrait or landscape")
-    preset_id = (
-        f"masterlog_header_a4_{orientation}"
-        if profile_id == "masterlog"
-        else f"a4_{profile_id}_{orientation}"
-    )
-    return f"factory-header:{preset_id}"
+    # The legacy editable Masterlog reference header is 140/100 mm high and is
+    # intentionally a standalone reference form.  Factory A4 Masterlog pages
+    # must use the compact paired header so the header and depth columns share
+    # one A4 print box and the plot keeps the remaining page height.
+    paired_profile = "geology_technology_gas" if profile_id == "masterlog" else profile_id
+    return f"factory-header:a4_{paired_profile}_{orientation}"
 
 
 def _with_a4_print_headers(form: FormDocument, profile_id: str) -> FormDocument:
@@ -563,20 +563,70 @@ def _gas_component_bindings(language: TemplateLanguage) -> list[ParameterBinding
 
 def _ratio_bindings(language: TemplateLanguage) -> list[ParameterBinding]:
     return [
-        _binding("WETNESS", _t("wetness", language), "", "#0f766e"),
-        _binding("BALANCE", _t("balance", language), "", "#b45309"),
-        _binding("CHARACTER", _t("character", language), "", "#be123c"),
-        _binding("IC4_NC4", _t("ic4_nc4", language), "", "#7c3aed"),
-        _binding("IC5_NC5", _t("ic5_nc5", language), "", "#0369a1"),
+        _binding(
+            "WETNESS",
+            _t("wetness", language),
+            "%",
+            "#0f766e",
+            x_min=0.0,
+            x_max=100.0,
+        ),
+        _binding(
+            "BALANCE",
+            _t("balance", language),
+            "ratio",
+            "#b45309",
+            x_scale=XScale.LOGARITHMIC,
+            x_min=0.1,
+            x_max=100.0,
+        ),
+        _binding(
+            "CHARACTER",
+            _t("character", language),
+            "ratio",
+            "#be123c",
+            x_scale=XScale.LOGARITHMIC,
+            x_min=0.01,
+            x_max=10.0,
+        ),
+        _binding(
+            "IC4_NC4",
+            _t("ic4_nc4", language),
+            "ratio",
+            "#7c3aed",
+            x_scale=XScale.LOGARITHMIC,
+            x_min=0.01,
+            x_max=100.0,
+        ),
+        _binding(
+            "IC5_NC5",
+            _t("ic5_nc5", language),
+            "ratio",
+            "#0369a1",
+            x_scale=XScale.LOGARITHMIC,
+            x_min=0.01,
+            x_max=100.0,
+        ),
     ]
 
 
 def _pixler_bindings() -> list[ParameterBinding]:
     return [
-        _binding("PIXLER_C1_C2", "C1/C2", "", "#2563eb"),
-        _binding("PIXLER_C1_C3", "C1/C3", "", "#16a34a"),
-        _binding("PIXLER_C1_C4", "C1/C4", "", "#ea580c"),
-        _binding("PIXLER_C1_C5", "C1/C5", "", "#9333ea"),
+        _binding(
+            mnemonic,
+            label,
+            "ratio",
+            color,
+            x_scale=XScale.LOGARITHMIC,
+            x_min=0.1,
+            x_max=1000.0,
+        )
+        for mnemonic, label, color in (
+            ("PIXLER_C1_C2", "C1/C2", "#2563eb"),
+            ("PIXLER_C1_C3", "C1/C3", "#16a34a"),
+            ("PIXLER_C1_C4", "C1/C4", "#ea580c"),
+            ("PIXLER_C1_C5", "C1/C5", "#9333ea"),
+        )
     ]
 
 

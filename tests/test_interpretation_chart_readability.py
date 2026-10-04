@@ -209,7 +209,7 @@ def test_opus_chart_key_keeps_component_sum_basis_separate_from_gasomer() -> Non
     assert "different gasomer basis" not in html
 
 
-def test_full_pdf_separates_lithology_method_key_and_charts(qapp, tmp_path):
+def test_full_pdf_places_method_key_before_geology_chart_pages(qapp, tmp_path):
     from geoworkbench.printing.hydrocarbon_interpretation_report import (
         export_hydrocarbon_interpretation_pdf,
     )
@@ -246,6 +246,13 @@ def test_full_pdf_separates_lithology_method_key_and_charts(qapp, tmp_path):
             index for index, page_text in enumerate(page_texts)
             if "Графики интерпретационных кривых" in page_text
         )
-        assert geology_page_index < key_page_index < chart_page_index
+
+        # There is no standalone geology catalog before the methodology.
+        # Geology belongs to the chart sheets that follow the explanation page.
+        assert key_page_index < chart_page_index <= geology_page_index
+        assert all(
+            "Литология" not in page_text
+            for page_text in page_texts[: key_page_index + 1]
+        )
     for name, values in original.items():
         np.testing.assert_array_equal(values, dataset.curves[name].values)

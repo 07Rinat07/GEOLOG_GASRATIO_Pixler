@@ -1353,7 +1353,11 @@ def _paint_columns(
     language: AppLanguage,
     render_context: _MasterlogRenderContext,
 ) -> None:
-    x = 0.0
+    columns_width = sum(column.width_mm for column in columns)
+    # Factory A4 forms reserve symmetric 5 mm side margins. Center the column
+    # block in the same page box used by its paired header; starting at x=0 made
+    # a 200 mm portrait form sit left of a header designed for x=5..205 mm.
+    x = max(0.0, (float(size.width()) - columns_width) / 2.0)
     top = template.header_height_mm
     # Pagination is shared by all horizontal column groups, so every group must
     # reserve the same (maximum) heading band to keep the physical depth scale exact.

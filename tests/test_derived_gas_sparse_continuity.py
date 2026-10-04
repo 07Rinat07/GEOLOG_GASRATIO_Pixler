@@ -43,10 +43,11 @@ def _key(*, positive_values_only: bool = False) -> CurveGeometryKey:
         bottom=40.0,
         max_points=5000,
         positive_values_only=positive_values_only,
+        point_series=True,
     )
 
 
-def test_ratio_scatter_keeps_only_factual_finite_observations() -> None:
+def test_explicit_ratio_scatter_keeps_only_factual_finite_observations() -> None:
     depth = np.arange(0.0, 31.0, dtype=np.float64)
     values = np.full(depth.shape, np.nan, dtype=np.float64)
     values[[0, 3, 30]] = (10.0, 13.0, 20.0)
@@ -59,7 +60,7 @@ def test_ratio_scatter_keeps_only_factual_finite_observations() -> None:
     assert np.all(np.isfinite(sampled_values))
 
 
-def test_bl_data_like_sparse_pixler_points_remain_discrete_observations() -> None:
+def test_explicit_bl_data_like_pixler_scatter_keeps_factual_observations() -> None:
     depth = np.arange(1174.8, 1482.4001, 0.4, dtype=np.float64)
     values = np.full(depth.shape, np.nan, dtype=np.float64)
     positions = [0, 14, 74, 309, 573]
@@ -75,6 +76,7 @@ def test_bl_data_like_sparse_pixler_points_remain_discrete_observations() -> Non
             bottom=float(depth[-1]),
             max_points=5000,
             positive_values_only=True,
+            point_series=True,
         ),
         depth,
         values,
@@ -85,7 +87,7 @@ def test_bl_data_like_sparse_pixler_points_remain_discrete_observations() -> Non
     np.testing.assert_allclose(sampled_values, values[positions])
 
 
-def test_logarithmic_ratio_scatter_omits_nonpositive_observations() -> None:
+def test_explicit_logarithmic_ratio_scatter_omits_nonpositive_observations() -> None:
     depth = np.arange(0.0, 7.0, dtype=np.float64)
     values = np.asarray([1.0, 0.0, np.nan, -1.0, 10.0, 0.0, 100.0])
 
@@ -97,7 +99,7 @@ def test_logarithmic_ratio_scatter_omits_nonpositive_observations() -> None:
     assert np.all(np.isfinite(sampled_values))
 
 
-def test_ratio_scatter_does_not_insert_synthetic_outage_rows() -> None:
+def test_explicit_ratio_scatter_does_not_insert_synthetic_outage_rows() -> None:
     depth = np.concatenate(
         (
             np.arange(0.0, 4.0, dtype=np.float64),
@@ -112,3 +114,30 @@ def test_ratio_scatter_does_not_insert_synthetic_outage_rows() -> None:
     assert np.all(np.isfinite(sampled_values))
     np.testing.assert_allclose(sampled_depth, depth)
     np.testing.assert_allclose(sampled_values, values)
+
+
+def test_default_pixler_geometry_preserves_long_outage_as_line_break() -> None:
+    depth = np.arange(0.0, 31.0, dtype=np.float64)
+    values = np.full(depth.shape, np.nan, dtype=np.float64)
+    values[[0, 1, 2, 30]] = (10.0, 11.0, 12.0, 20.0)
+
+    sampled_values, sampled_depth = CurveGeometryCache().get_or_build(
+        CurveGeometryKey(
+            curve_id="PIXLER_C1_C2",
+            axis_id="depth",
+            values_revision="continuous-policy",
+            axis_revision="depth-1",
+            top=0.0,
+            bottom=30.0,
+            max_points=5000,
+            positive_values_only=False,
+        ),
+        depth,
+        values,
+    )
+
+    assert np.isnan(sampled_values).any()
+    finite = np.isfinite(sampled_values)
+    np.testing.assert_allclose(sampled_values[finite], np.asarray([10.0, 11.0, 12.0, 20.0]))
+    assert sampled_depth[finite][0] == pytest.approx(0.0)
+    assert sampled_depth[finite][-1] == pytest.approx(30.0)

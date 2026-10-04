@@ -370,6 +370,37 @@ def test_masterlog_render_context_indexes_visible_geology_once() -> None:
     assert context.has_sample_calcimetry is True
 
 
+def test_fixed_a4_columns_are_centered_in_same_box_as_paired_header(monkeypatch) -> None:
+    session = make_session_with_curves()
+    template = MasterlogTemplate(
+        "a4-centered",
+        "A4 centered",
+        page_format="A4",
+        header_height_mm=34.0,
+        columns=[MasterlogColumnTemplate("body", "Body", "depth", 200.0)],
+        properties={"orientation": "portrait"},
+    )
+    painter = MagicMock()
+    monkeypatch.setattr(masterlog_renderer, "_masterlog_column_heading_height", lambda _t: 10.0)
+    monkeypatch.setattr(masterlog_renderer, "_paint_column_heading", lambda *args, **kwargs: None)
+
+    masterlog_renderer._paint_columns(
+        painter,
+        template,
+        QSizeF(210.0, 297.0),
+        session,
+        None,
+        template.columns,
+        AppLanguage.RU,
+        _build_masterlog_render_context(template, session),
+    )
+
+    rect = painter.drawRect.call_args_list[0].args[0]
+    assert rect.left() == pytest.approx(5.0)
+    assert rect.width() == pytest.approx(200.0)
+    assert rect.right() == pytest.approx(205.0)
+
+
 def test_masterlog_depth_scale_controls_roll_height() -> None:
     session = make_session_with_curves()
     template = make_template()
@@ -388,7 +419,7 @@ def test_masterlog_roll_size_uses_actual_vertical_column_heading_height() -> Non
     assert masterlog_size_mm(template, session).height() == 264.0
 
 
-def test_masterlog_ratio_curve_uses_points_without_polyline() -> None:
+def test_masterlog_ratio_curve_uses_continuous_polyline() -> None:
     session = make_session_with_curves()
     dataset = session.current_dataset
     assert dataset is not None
@@ -414,11 +445,11 @@ def test_masterlog_ratio_curve_uses_points_without_polyline() -> None:
         {},
     )
 
-    assert painter.drawEllipse.call_count > 0
-    painter.drawPath.assert_not_called()
+    painter.drawPath.assert_called_once()
+    painter.drawEllipse.assert_not_called()
 
 
-def test_masterlog_dense_ratio_scatter_is_density_bounded() -> None:
+def test_masterlog_dense_ratio_uses_one_bounded_polyline_path() -> None:
     depth = np.linspace(100.0, 200.0, 5_001)
     dataset = Dataset(
         "dense-masterlog-ratio",
@@ -447,9 +478,8 @@ def test_masterlog_dense_ratio_scatter_is_density_bounded() -> None:
         {},
     )
 
-    expected_budget = max(64, min(800, int(rect.height() / 0.6)))
-    assert 0 < painter.drawEllipse.call_count <= expected_budget
-    painter.drawPath.assert_not_called()
+    painter.drawPath.assert_called_once()
+    painter.drawEllipse.assert_not_called()
 
 
 def test_masterlog_ordinary_gas_curves_keep_polylines() -> None:

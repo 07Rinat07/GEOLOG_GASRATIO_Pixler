@@ -12,10 +12,6 @@ from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
 from geoworkbench.printing import hydrocarbon_interpretation_pdf_chart_enhanced as chart
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import DepthPage, plan_depth_pages
 from geoworkbench.printing.hydrocarbon_interpretation_report_range import ReportDepthRange
-from geoworkbench.services.gas_curve_presentation import (
-    gas_scatter_point_budget,
-    select_gas_scatter_samples,
-)
 from geoworkbench.services.localization import AppLanguage
 
 
@@ -85,7 +81,7 @@ def test_long_interpretation_range_has_even_page_density_without_short_tail() ->
     assert pages[-1].bottom_depth == 5549.0
 
 
-def test_print_ratio_scatter_remains_visible_without_becoming_a_thick_trace(qapp) -> None:
+def test_print_ratio_trace_is_continuous_and_uses_full_depth_height(qapp) -> None:
     depth = np.linspace(100.0, 110.0, 101)
     dataset = Dataset(
         dataset_id="dataset-print-contrast",
@@ -105,8 +101,6 @@ def test_print_ratio_scatter_remains_visible_without_becoming_a_thick_trace(qapp
     assert curve.metadata.curve_id in ranges
     low, high = ranges[curve.metadata.curve_id]
     assert low < 1.0 < high
-    percentiles = chart.base_chart._curve_percentiles(panels, dataset, page=page)
-    assert percentiles[curve.metadata.curve_id] == (1.0, 1.0)
 
     image = QImage(420, 360, QImage.Format.Format_ARGB32_Premultiplied)
     image.fill(0xFFFFFFFF)
@@ -123,38 +117,15 @@ def test_print_ratio_scatter_remains_visible_without_becoming_a_thick_trace(qapp
     finally:
         painter.end()
 
-    dark_coordinates = [
-        (x, y)
+    dark_rows = sorted({
+        y
         for y in range(20, 341)
         for x in range(20, 401)
         if image.pixelColor(x, y).lightness() < 170
-    ]
-    dark_rows = sorted({y for _x, y in dark_coordinates})
+    })
 
-    point_budget = gas_scatter_point_budget(320.0)
-    selected_values, selected_depth = select_gas_scatter_samples(
-        depth,
-        np.asarray(curve.values, dtype=np.float64),
-        float(depth[0]),
-        float(depth[-1]),
-        max_points=point_budget,
-    )
-
-    # Sparse OPUS observations must survive source sampling intact. Rasterized
-    # sub-pixel circles vary slightly between Qt/Windows builds, so acceptance
-    # is based on source-point preservation, vertical coverage and the absence
-    # of a continuous line-like "worm", not an exact dark-pixel count.
-    assert selected_values.size == depth.size
-    assert selected_depth.size == depth.size
-    assert len(dark_coordinates) >= 50
+    assert dark_rows
     assert dark_rows[-1] - dark_rows[0] >= 290
-
-    visible_bands = 1
-    for previous, current in zip(dark_rows, dark_rows[1:], strict=False):
-        if current - previous > 4:
-            visible_bands += 1
-    assert visible_bands >= 16
-
     longest_run = 1
     current_run = 1
     for previous, current in zip(dark_rows, dark_rows[1:], strict=False):
@@ -163,8 +134,7 @@ def test_print_ratio_scatter_remains_visible_without_becoming_a_thick_trace(qapp
             longest_run = max(longest_run, current_run)
         else:
             current_run = 1
-    assert longest_run <= 3
-
+    assert longest_run >= 250
 
 def test_extrema_preserving_print_rows_keeps_narrow_peaks_and_bounds_density() -> None:
     depth = np.linspace(100.0, 200.0, 10_001)

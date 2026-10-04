@@ -599,8 +599,28 @@ def test_v8_form_migrates_logarithmic_bindings_to_linear_defaults() -> None:
     assert form_to_dict(restored)["schema_version"] == 18
 
 
-def test_every_factory_form_binding_is_linear_by_default() -> None:
-    for form in factory_templates().values():
+def test_factory_form_bindings_use_declared_ratio_scales() -> None:
+    pixler = {"PIXLER_C1_C2", "PIXLER_C1_C3", "PIXLER_C1_C4", "PIXLER_C1_C5"}
+    haworth = {"BALANCE", "CHARACTER"}
+    isomers = {"IC4_NC4", "IC5_NC5"}
+    logarithmic_by_form = {
+        "factory-gas-ratio": haworth,
+        "factory-pixler": pixler,
+        "factory-gas-ratio-pixler-depth": haworth | isomers | pixler,
+        "factory-gas-ratio-pixler-time": haworth | isomers | pixler,
+        "factory-c1-c5-detailed": isomers,
+    }
+    for form_id, form in factory_templates().items():
+        expected_logarithmic = logarithmic_by_form.get(form_id, set())
+        actual_logarithmic = set()
         for column in form.columns:
             for track in column.tracks:
-                assert all(binding.x_scale.value == "linear" for binding in track.bindings)
+                for binding in track.bindings:
+                    parameter = binding.canonical_parameter_id
+                    expected = "logarithmic" if parameter in expected_logarithmic else "linear"
+                    assert binding.x_scale.value == expected, (form_id, parameter)
+                    if expected == "logarithmic":
+                        actual_logarithmic.add(parameter)
+                        assert binding.x_min is not None and binding.x_min > 0
+                        assert binding.x_max is not None and binding.x_max > binding.x_min
+        assert actual_logarithmic == expected_logarithmic, form_id

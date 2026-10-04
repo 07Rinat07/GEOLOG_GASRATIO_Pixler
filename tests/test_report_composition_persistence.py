@@ -704,8 +704,9 @@ def test_final_pdf_chart_pages_receive_effective_legend_mode() -> None:
     renderer_source = inspect.getsource(pdf_renderer.render_hydrocarbon_interpretation_report)
     chart_source = inspect.getsource(pdf_chart.render_chart_pages)
 
-    assert "chart_legend_mode = legend_mode" in renderer_source
-    assert "chart_legend_mode = ReportLegendMode.COMPACT" in renderer_source
+    assert "if legend_mode is ReportLegendMode.FULL" in renderer_source
+    assert "ReportLegendMode.COMPACT" in renderer_source
+    assert "legend_reference_pages_emitted = True" in renderer_source
     assert "legend_mode=chart_legend_mode" in renderer_source
     assert "legend_mode is ReportLegendMode.HIDE" in chart_source
     assert "legend_mode is ReportLegendMode.COMPACT" in chart_source

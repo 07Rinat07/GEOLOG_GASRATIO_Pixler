@@ -71,6 +71,12 @@ from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonCandidateInterval,
     HydrocarbonInterpretationReport,
 )
+from geoworkbench.services.gas_curve_presentation import (
+    GasRatioScale,
+    gas_ratio_position,
+    gas_ratio_scale,
+    gas_ratio_scale_ticks,
+)
 from geoworkbench.services.localization import AppLanguage
 
 
@@ -183,7 +189,14 @@ def render_chart_pages(
         else geology_legend
     )
     if not legend_hidden and full_legend_height > legend_budget:
-        if not legend_reference_pages_emitted:
+        if legend_reference_pages_emitted:
+            # The report renderer intentionally suppresses a standalone geology
+            # catalog before the methodology. If even the compact legend would
+            # consume too much chart height, omit that repeat instead of claiming
+            # that non-existent "separate legend pages" were printed.
+            chart_legend = InterpretationGeologyLegend(())
+            full_legend_height = 0.0
+        else:
             for legend_page in paginate_geology_legend(
                 canvas.content_rect.width(),
                 geology_legend,
@@ -200,27 +213,31 @@ def render_chart_pages(
                 )
                 paint_geology_legend(
                     canvas.painter,
-                    QRectF(canvas.content_rect.left(), canvas.content_rect.top(),
-                           canvas.content_rect.width(), height),
+                    QRectF(
+                        canvas.content_rect.left(),
+                        canvas.content_rect.top(),
+                        canvas.content_rect.width(),
+                        height,
+                    ),
                     legend_page,
                     language,
                     compact=legend_compact,
                 )
                 canvas.y = canvas.content_rect.bottom()
-        reference = {
-            AppLanguage.RU: "Легенда: отдельные страницы",
-            AppLanguage.KK: "Легенда: бөлек беттер",
-            AppLanguage.EN: "Legend: separate pages",
-        }[language]
-        chart_legend = InterpretationGeologyLegend((
-            GeologyLegendItem("reference", "legend-pages", "", reference),
-        ))
-        full_legend_height = geology_legend_height(
-            canvas.content_rect.width(),
-            chart_legend,
-            compact=legend_compact,
-            paint_device=canvas.painter.device(),
-        )
+            reference = {
+                AppLanguage.RU: "Легенда: отдельные страницы",
+                AppLanguage.KK: "Легенда: бөлек беттер",
+                AppLanguage.EN: "Legend: separate pages",
+            }[language]
+            chart_legend = InterpretationGeologyLegend((
+                GeologyLegendItem("reference", "legend-pages", "", reference),
+            ))
+            full_legend_height = geology_legend_height(
+                canvas.content_rect.width(),
+                chart_legend,
+                compact=legend_compact,
+                paint_device=canvas.painter.device(),
+            )
     available_height = chart_height_budget - full_legend_height
     pages = plan_depth_pages(
         depth_min,
@@ -587,7 +604,7 @@ def _draw_chart_page(
             percentiles,
             language=language,
             display_hints=display_hints,
-            point_series=panel_name in {"ratios", "opus"},
+            point_series=False,
         )
 
     _draw_fluid_markers(
@@ -714,6 +731,18 @@ def _draw_panel(
     *,
     header_height: float = CHART_TRACK_HEADER_HEIGHT,
 ) -> None:
+    if panel_name == "ratios" and _draw_ratio_tracks(
+        painter,
+        rect,
+        page,
+        dataset,
+        curves,
+        candidates,
+        language,
+        header_height=header_height,
+    ):
+        return
+
     painter.fillRect(rect, QColor("#ffffff"))
     for tick in minor_depth_ticks(page):
         y = base_chart._depth_y(tick, page, rect)
@@ -765,12 +794,174 @@ def _draw_panel(
             dataset,
             curves,
             ranges,
-            point_series=panel_name in {"ratios", "opus"},
+            point_series=False,
         )
     painter.setBrush(Qt.BrushStyle.NoBrush)
     painter.setPen(QPen(QColor("#263746"), 1.1))
     painter.drawRect(rect)
 
+
+
+def _draw_ratio_tracks(
+    painter: QPainter,
+    rect: QRectF,
+    page: DepthPage,
+    dataset: Dataset,
+    curves: tuple[CurveData, ...],
+    candidates: tuple[HydrocarbonCandidateInterval, ...],
+    language: AppLanguage,
+    *,
+    header_height: float,
+) -> bool:
+    """Draw Haworth/Pixler as separate continuous industry-style ratio lanes."""
+
+    tracks: list[tuple[CurveData, GasRatioScale]] = []
+    for curve in curves:
+        scale = gas_ratio_scale(
+            (
+                curve.metadata.original_mnemonic,
+                curve.metadata.canonical_mnemonic,
+            )
+        )
+        if scale is not None:
+            tracks.append((curve, scale))
+    if not tracks:
+        return False
+
+    painter.fillRect(rect, QColor("#ffffff"))
+    _draw_candidate_bands(painter, rect, page, candidates)
+
+    heading = base_chart._labels(language)["ratios"]
+    paint_track_heading(
+        painter,
+        QRectF(
+            rect.left(),
+            rect.top() - header_height + 1.0,
+            rect.width(),
+            max(10.0, header_height - 30.0),
+        ),
+        heading,
+        6.8,
+    )
+
+    depth = np.asarray(dataset.depth, dtype=np.float64)
+    finite_depth = np.isfinite(depth)
+    indices = np.flatnonzero(
+        finite_depth
+        & (depth >= page.top_depth)
+        & (depth <= page.bottom_depth)
+    )
+    indices = indices[np.argsort(depth[indices], kind="stable")]
+    segments = base_chart.continuous_depth_segments(
+        depth,
+        indices,
+        limit=max(2, int(indices.size)),
+    )
+
+    lane_width = rect.width() / len(tracks)
+    for lane_index, (curve, scale) in enumerate(tracks):
+        lane = QRectF(
+            rect.left() + lane_index * lane_width,
+            rect.top(),
+            lane_width,
+            rect.height(),
+        )
+        for tick in minor_depth_ticks(page):
+            y = base_chart._depth_y(tick, page, lane)
+            painter.setPen(QPen(QColor("#e5e7eb"), 0.42))
+            painter.drawLine(QLineF(lane.left(), y, lane.right(), y))
+        for tick in base_chart._depth_ticks(
+            page,
+            base_chart._nice_tick_step(page.span, target_ticks=_MAJOR_TARGET_TICKS),
+        ):
+            y = base_chart._depth_y(tick, page, lane)
+            painter.setPen(QPen(QColor("#cbd5e1"), 0.62))
+            painter.drawLine(QLineF(lane.left(), y, lane.right(), y))
+
+        scale_ticks = gas_ratio_scale_ticks(scale)
+        for fraction, label in scale_ticks:
+            x = lane.left() + fraction * lane.width()
+            painter.setPen(QPen(QColor("#d1d5db"), 0.45))
+            painter.drawLine(QLineF(x, lane.top(), x, lane.bottom()))
+
+        mnemonic = (
+            curve.metadata.canonical_mnemonic
+            or curve.metadata.original_mnemonic
+            or "ratio"
+        ).replace("PIXLER_", "").replace("_", "/")
+        painter.setFont(print_font(5.1, text=mnemonic))
+        painter.setPen(QColor("#1f2937"))
+        painter.drawText(
+            QRectF(lane.left(), lane.top() - 28.0, lane.width(), 9.0),
+            Qt.AlignmentFlag.AlignCenter,
+            mnemonic,
+        )
+
+        labelled = (
+            scale_ticks
+            if len(scale_ticks) <= 3
+            else (scale_ticks[0], scale_ticks[len(scale_ticks) // 2], scale_ticks[-1])
+        )
+        painter.setFont(print_font(4.4, text="1000"))
+        painter.setPen(QColor("#475569"))
+        for fraction, label in labelled:
+            x = lane.left() + fraction * lane.width()
+            text_width = min(25.0, max(12.0, lane.width() * 0.46))
+            painter.drawText(
+                QRectF(
+                    min(max(x - text_width / 2.0, lane.left()), lane.right() - text_width),
+                    lane.top() - 17.5,
+                    text_width,
+                    8.0,
+                ),
+                Qt.AlignmentFlag.AlignCenter,
+                label,
+            )
+
+        values = np.asarray(curve.values, dtype=np.float64)
+        if values.shape == depth.shape:
+            color = QColor(base_chart._COLORS[lane_index % len(base_chart._COLORS)])
+            pen = QPen(color, 0.9)
+            pen.setCosmetic(True)
+            painter.save()
+            painter.setClipRect(lane.adjusted(0.6, 0.6, -0.6, -0.6))
+            painter.setPen(pen)
+            for segment in segments:
+                render_rows = base_chart._extrema_preserving_print_rows(
+                    segment,
+                    depth,
+                    values,
+                    page,
+                    lane,
+                )
+                points: list[QPointF] = []
+                for row_index in render_rows:
+                    position = gas_ratio_position(float(values[row_index]), scale)
+                    if position is None:
+                        continue
+                    points.append(
+                        QPointF(
+                            lane.left() + position * lane.width(),
+                            base_chart._depth_y(float(depth[row_index]), page, lane),
+                        )
+                    )
+                if len(points) == 1:
+                    painter.setBrush(color)
+                    painter.drawEllipse(points[0], 0.75, 0.75)
+                    painter.setBrush(Qt.BrushStyle.NoBrush)
+                else:
+                    for previous, current in zip(points, points[1:], strict=False):
+                        painter.drawLine(QLineF(previous, current))
+            painter.restore()
+
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.setPen(QPen(QColor("#4b5563"), 0.7))
+        painter.drawRect(lane)
+
+    painter.setBrush(Qt.BrushStyle.NoBrush)
+    painter.setPen(QPen(QColor("#263746"), 1.1))
+    painter.drawRect(rect)
+    return True
 
 
 def _draw_candidate_bands(

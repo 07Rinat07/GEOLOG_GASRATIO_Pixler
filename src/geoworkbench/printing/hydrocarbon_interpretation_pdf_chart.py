@@ -848,8 +848,10 @@ def _labels(language: AppLanguage) -> dict[str, str]:
             "ratios": "Haworth и Pixler",
             "drilling": "Буровой контекст и DEXP",
             "note": (
-                "Кривые нормированы внутри дорожек по p5–p95 для каждого листа. Цветные полосы и "
-                "маркеры формы/цвета отмечают перспективные интервалы и предварительный "
+                "Обычные многокривые дорожки нормированы по p5–p95. Газовые отношения "
+                "выведены отдельными непрерывными трассами на стабильных фактических "
+                "линейных/логарифмических шкалах. Цветные полосы и маркеры отмечают "
+                "перспективные интервалы и предварительный "
                 "тип флюида; полная формулировка остаётся в таблице. Каждый лист сохраняет "
                 "физический масштаб глубины; шкалы и границы повторяются с обеих сторон."
             ),
@@ -867,8 +869,10 @@ def _labels(language: AppLanguage) -> dict[str, str]:
             "ratios": "Haworth және Pixler",
             "drilling": "Бұрғылау контексті және DEXP",
             "note": (
-                "Қисықтар әр бетте жол ішінде p5–p95 бойынша нормаланады. Түсті жолақтар мен "
-                "пішін/түс маркерлері перспективалы аралықты және алдын ала флюид түрін "
+                "Кәдімгі көп қисықты жолдар p5–p95 бойынша нормаланады. Газ қатынастары "
+                "тұрақты нақты сызықтық/логарифмдік шкалаларда бөлек үздіксіз трассалармен "
+                "көрсетіледі. Түсті жолақтар мен маркерлер перспективалы аралықты және "
+                "алдын ала флюид түрін "
                 "көрсетеді; толық мәтін кестеде қалады. Әр бет тереңдіктің физикалық "
                 "масштабын сақтайды; шкалалар мен шекаралар екі жақта қайталанады."
             ),
@@ -886,8 +890,9 @@ def _labels(language: AppLanguage) -> dict[str, str]:
             "ratios": "Haworth and Pixler",
             "drilling": "Drilling context and DEXP",
             "note": (
-                "Curves are normalized within tracks to each page's p5–p95. Colored bands plus "
-                "shape/colour markers show prospective intervals and preliminary fluid "
+                "Ordinary multi-curve tracks use p5–p95 normalization. Gas ratios are "
+                "separate continuous traces on stable factual linear/logarithmic scales. "
+                "Colored bands and markers show prospective intervals and preliminary fluid "
                 "type; full wording remains in the table. Every sheet preserves a physical "
                 "depth scale; scales and outer borders repeat on both sides."
             ),

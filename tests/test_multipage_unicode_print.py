@@ -233,11 +233,13 @@ def test_full_depth_png_export_creates_numbered_pages(qapp, tmp_path) -> None:
         context=PrintDocumentContext("Well Ә-1", AppLanguage.EN),
     )
 
-    assert result.page_count == 3
+    # First/continuation headers reserve space just as they do in PDF output.
+    assert result.page_count == 4
     assert [path.name for path in result.paths] == [
         "well_page_001.png",
         "well_page_002.png",
         "well_page_003.png",
+        "well_page_004.png",
     ]
     assert all(path.read_bytes().startswith(b"\x89PNG") for path in result.paths)
     view.close()

@@ -67,10 +67,13 @@ def test_successful_child_does_not_report_failure(monkeypatch, capsys):
     assert capsys.readouterr().err == ""
 
 
-def test_session_safety_runs_in_single_native_test_processes() -> None:
-    """MainWindow session-safety cases must not inherit a poisoned Qt shard."""
+@pytest.mark.parametrize(
+    "filename", ["test_session_safety.py", "test_masterlog_header_dialog.py"]
+)
+def test_native_dialog_cases_run_in_single_test_processes(filename: str) -> None:
+    """Native-sensitive dialogs must run once each without a shared Qt heap."""
 
-    path = Path("tests/test_session_safety.py")
+    path = Path("tests") / filename
     nodes = run_tests._top_level_test_nodes(path)
 
     assert path.as_posix() in run_tests._FORCED_NATIVE_BATCH_FILES
@@ -82,4 +85,5 @@ def test_session_safety_runs_in_single_native_test_processes() -> None:
     ]
     assert len(batches) == len(nodes)
     assert all(len(selectors) == 1 for selectors in batches)
+    assert tuple(selector for batch in batches for selector in batch) == nodes
     assert run_tests._test_file_shards(1, (path,)) == ()

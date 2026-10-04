@@ -61,6 +61,10 @@ from geoworkbench.services.hydrocarbon_interpretation import (
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.gas_curve_presentation import (
     GAS_PREVIEW_POINT_RADIUS_PX,
+    GasRatioScale,
+    gas_ratio_position,
+    gas_ratio_scale,
+    gas_ratio_scale_ticks,
     gas_scatter_point_budget,
     select_gas_scatter_samples,
 )
@@ -603,6 +607,20 @@ def _draw_panel(
     display_hints: dict[str, str],
     header_height: float = 62.0,
 ) -> None:
+    if panel_name == "ratios" and _draw_ratio_preview_tracks(
+        painter,
+        rect,
+        depth,
+        finite_depth,
+        depth_min,
+        depth_max,
+        curves,
+        candidates,
+        language,
+        header_height=header_height,
+    ):
+        return
+
     labels = _labels(language)
     painter.fillRect(rect, QColor("#ffffff"))
 
@@ -672,7 +690,7 @@ def _draw_panel(
     curve_rect = rect.adjusted(7.0, 1.0, -7.0, -1.0)
     painter.save()
     painter.setClipRect(rect.adjusted(1.0, 1.0, -1.0, -1.0))
-    point_series = panel_name in {"ratios", "opus"}
+    point_series = False
     minimum_samples = 1 if point_series else 2
     legend_rows: list[tuple[QColor, str, bool]] = []
     for curve_index, curve in enumerate(curves):
@@ -820,6 +838,182 @@ def _draw_panel(
     painter.setPen(QPen(QColor("#334155"), 2.6))
     painter.drawRect(rect)
 
+
+
+def _draw_ratio_preview_tracks(
+    painter: QPainter,
+    rect: QRectF,
+    depth: np.ndarray,
+    finite_depth: np.ndarray,
+    depth_min: float,
+    depth_max: float,
+    curves: tuple[CurveData, ...],
+    candidates: tuple[HydrocarbonCandidateInterval, ...],
+    language: AppLanguage,
+    *,
+    header_height: float,
+) -> bool:
+    """Preview gas ratios as separate continuous lanes with factual fixed scales."""
+
+    tracks: list[tuple[CurveData, GasRatioScale]] = []
+    for curve in curves:
+        scale = gas_ratio_scale(
+            (
+                curve.metadata.original_mnemonic,
+                curve.metadata.canonical_mnemonic,
+            )
+        )
+        if scale is not None:
+            tracks.append((curve, scale))
+    if not tracks:
+        return False
+
+    painter.fillRect(rect, QColor("#ffffff"))
+    for candidate in candidates:
+        top = _depth_y(candidate.top_depth, depth_min, depth_max, rect.top(), rect.height())
+        bottom = _depth_y(
+            candidate.bottom_depth, depth_min, depth_max, rect.top(), rect.height()
+        )
+        spec = fluid_marker_spec(candidate.fluid_hypothesis)
+        band_color = QColor(spec.color)
+        band_color.setAlpha(26)
+        painter.fillRect(
+            QRectF(
+                rect.left(),
+                min(top, bottom),
+                rect.width(),
+                max(2.0, abs(bottom - top)),
+            ),
+            band_color,
+        )
+
+    paint_track_heading(
+        painter,
+        QRectF(
+            rect.left(),
+            rect.top() - header_height + 2.0,
+            rect.width(),
+            max(16.0, header_height - 34.0),
+        ),
+        _labels(language)["ratios"],
+        9.5,
+    )
+
+    indices = np.flatnonzero(
+        finite_depth
+        & (depth >= depth_min)
+        & (depth <= depth_max)
+    )
+    indices = indices[np.argsort(depth[indices], kind="stable")]
+    point_limit = max(256, min(4_000, int(max(rect.height(), 1.0) * 4.0)))
+
+    lane_width = rect.width() / len(tracks)
+    for lane_index, (curve, scale) in enumerate(tracks):
+        lane = QRectF(
+            rect.left() + lane_index * lane_width,
+            rect.top(),
+            lane_width,
+            rect.height(),
+        )
+        for major in range(11):
+            y = lane.top() + major / 10.0 * lane.height()
+            painter.setPen(QPen(QColor("#dbe3ec"), 0.8))
+            painter.drawLine(QLineF(lane.left(), y, lane.right(), y))
+
+        scale_ticks = gas_ratio_scale_ticks(scale)
+        for fraction, _label in scale_ticks:
+            x = lane.left() + fraction * lane.width()
+            painter.setPen(QPen(QColor("#dbe3ec"), 0.8))
+            painter.drawLine(QLineF(x, lane.top(), x, lane.bottom()))
+
+        mnemonic = (
+            curve.metadata.canonical_mnemonic
+            or curve.metadata.original_mnemonic
+            or "ratio"
+        ).replace("PIXLER_", "").replace("_", "/")
+        painter.setPen(QColor("#172033"))
+        painter.setFont(print_font(7.0, text=mnemonic))
+        painter.drawText(
+            QRectF(lane.left(), lane.top() - 31.0, lane.width(), 13.0),
+            Qt.AlignmentFlag.AlignCenter,
+            mnemonic,
+        )
+        labelled = (
+            scale_ticks
+            if len(scale_ticks) <= 3
+            else (scale_ticks[0], scale_ticks[len(scale_ticks) // 2], scale_ticks[-1])
+        )
+        painter.setFont(print_font(6.2, text="1000"))
+        painter.setPen(QColor("#64748b"))
+        for fraction, label in labelled:
+            x = lane.left() + fraction * lane.width()
+            width = min(52.0, max(26.0, lane.width() * 0.48))
+            painter.drawText(
+                QRectF(
+                    min(max(x - width / 2.0, lane.left()), lane.right() - width),
+                    lane.top() - 17.0,
+                    width,
+                    13.0,
+                ),
+                Qt.AlignmentFlag.AlignCenter,
+                label,
+            )
+
+        values = np.asarray(curve.values, dtype=np.float64)
+        if values.shape == depth.shape:
+            # Select factual curve rows before reducing depth geometry; otherwise
+            # an isolated observation can disappear from the shared depth sample.
+            usable = np.isfinite(values[indices])
+            if scale.logarithmic:
+                usable &= values[indices] > 0.0
+            valid_runs = np.split(indices, np.flatnonzero(usable[1:] != usable[:-1]) + 1)
+            segments = tuple(
+                segment
+                for run in valid_runs
+                if run.size and np.isfinite(values[run[0]])
+                and (not scale.logarithmic or values[run[0]] > 0.0)
+                for segment in continuous_depth_segments(
+                    depth, run, limit=max(2, int(point_limit * run.size / max(1, indices.size)))
+                )
+            )
+            color = QColor(_COLORS[lane_index % len(_COLORS)])
+            painter.save()
+            painter.setClipRect(lane.adjusted(1.0, 1.0, -1.0, -1.0))
+            painter.setPen(QPen(color, 1.8))
+            for segment in segments:
+                points: list[QPointF] = []
+                for row_index in segment:
+                    position = gas_ratio_position(float(values[row_index]), scale)
+                    if position is None:
+                        continue
+                    points.append(
+                        QPointF(
+                            lane.left() + position * lane.width(),
+                            _depth_y(
+                                float(depth[row_index]),
+                                depth_min,
+                                depth_max,
+                                lane.top(),
+                                lane.height(),
+                            ),
+                        )
+                    )
+                if len(points) == 1:
+                    painter.setBrush(color)
+                    painter.drawEllipse(points[0], 1.4, 1.4)
+                    painter.setBrush(Qt.BrushStyle.NoBrush)
+                else:
+                    for previous, current in zip(points, points[1:], strict=False):
+                        painter.drawLine(QLineF(previous, current))
+            painter.restore()
+
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.setPen(QPen(QColor("#64748b"), 1.0))
+        painter.drawRect(lane)
+
+    painter.setPen(QPen(QColor("#334155"), 2.6))
+    painter.drawRect(rect)
+    return True
 
 
 def _draw_whole_well_fluid_markers(
@@ -1004,9 +1198,9 @@ def _labels(language: AppLanguage) -> dict[str, str]:
         AppLanguage.RU: {
             "title": "Графики интерпретационных кривых по глубине",
             "note": (
-                "Каждая кривая масштабирована внутри своей дорожки по диапазону "
-                "p5–p95; масштаб служит для сопоставления формы, а не абсолютных "
-                "значений разных методов."
+                "Обычные многокривые дорожки масштабированы по p5–p95. Газовые "
+                "отношения показаны отдельными непрерывными трассами на стабильных "
+                "фактических шкалах (линейных/логарифмических), одинаковых по глубине."
             ),
             "depth": "Глубина",
             "total": "Общий и нормализованный газ",
@@ -1017,14 +1211,16 @@ def _labels(language: AppLanguage) -> dict[str, str]:
                 "Цветные полосы и маркеры формы/цвета показывают перспективные интервалы "
                 "и предварительный тип флюида; расшифровка приведена в легенде, а полная "
                 "формулировка — в таблице. Шкалы глубины продублированы слева и справа; "
-                "0–100 над дорожками показывает положение внутри диапазона p5–p95."
+                "Для газовых отношений над каждой узкой дорожкой показаны реальные "
+                "значения её фиксированной шкалы; разрывы исходных данных не соединяются."
             ),
         },
         AppLanguage.KK: {
             "title": "Тереңдік бойынша интерпретациялық қисықтар графиктері",
             "note": (
-                "Әр қисық өз жолында p5–p95 ауқымы бойынша масштабталған; масштаб "
-                "әртүрлі әдістердің абсолют мәндерін емес, пішінін салыстыруға арналған."
+                "Кәдімгі көп қисықты жолдар p5–p95 бойынша масштабталады. Газ "
+                "қатынастары тереңдік бойынша өзгермейтін нақты сызықтық/логарифмдік "
+                "шкалаларда бөлек үздіксіз трассалармен көрсетіледі."
             ),
             "depth": "Тереңдік",
             "total": "Жалпы және нормаланған газ",
@@ -1035,15 +1231,16 @@ def _labels(language: AppLanguage) -> dict[str, str]:
                 "Түсті жолақтар мен пішін/түс маркерлері перспективалы аралықтарды және "
                 "флюидтің алдын ала түрін көрсетеді; түсіндірме легендада, толық мәтін "
                 "кестеде беріледі. Тереңдік шкаласы екі жақта қайталанады; 0–100 мәндері "
-                "p5–p95 ауқымындағы орынды көрсетеді."
+                "газ қатынастары үшін әр тар жолдың үстінде оның тұрақты шкаласының "
+                "нақты мәндері көрсетіледі; бастапқы дерек үзілістері қосылмайды."
             ),
         },
         AppLanguage.EN: {
             "title": "Depth plots of interpretation curves",
             "note": (
-                "Each curve is scaled within its track to the p5–p95 range; this "
-                "scale compares shape and does not imply that absolute values from "
-                "different methods are equivalent."
+                "Ordinary multi-curve tracks use p5–p95 scaling. Gas ratios are "
+                "separate continuous traces on stable factual linear/logarithmic "
+                "scales that do not change with depth."
             ),
             "depth": "Depth",
             "total": "Total and normalized gas",
@@ -1054,7 +1251,8 @@ def _labels(language: AppLanguage) -> dict[str, str]:
                 "Colored bands plus shape/colour markers show prospective intervals and "
                 "preliminary fluid type; the legend decodes markers and the table keeps "
                 "the full wording. Depth scales are shown on both sides; 0–100 labels "
-                "show position within each p5–p95 range."
+                "gas-ratio lanes show the real values of their fixed scales and "
+                "never connect across source-data gaps."
             ),
         },
     }[language]
