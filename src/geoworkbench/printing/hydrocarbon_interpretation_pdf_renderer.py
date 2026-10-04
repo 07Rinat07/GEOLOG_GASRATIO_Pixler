@@ -115,17 +115,18 @@ def render_hydrocarbon_interpretation_report(
             key_html = interpretation_chart_key_html(
                 report, scoped, language,
             )
-            top = float(np.nanmin(scoped.depth))
-            bottom = float(np.nanmax(scoped.depth))
-            bounds = report.analysis_depth_interval or depth_range
-            if bounds is not None:
-                top, bottom = bounds.top_depth, bounds.bottom_depth
-            tracks = resolve_geology_track_kinds(
-                geology, top, bottom, geology_track_settings,
-            )
-
+            finite_depth = np.asarray(scoped.depth, dtype=np.float64)
+            finite_depth = finite_depth[np.isfinite(finite_depth)]
             dedicated_legend_rendered = False
-            if legend_mode is not ReportLegendMode.HIDE:
+            if legend_mode is not ReportLegendMode.HIDE and finite_depth.size:
+                top = float(np.min(finite_depth))
+                bottom = float(np.max(finite_depth))
+                bounds = report.analysis_depth_interval or depth_range
+                if bounds is not None:
+                    top, bottom = bounds.top_depth, bounds.bottom_depth
+                tracks = resolve_geology_track_kinds(
+                    geology, top, bottom, geology_track_settings,
+                )
                 legend = build_interpretation_geology_legend(
                     geology,
                     top,
