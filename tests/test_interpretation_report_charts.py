@@ -369,7 +369,7 @@ def test_report_panel_selector_keeps_singleton_opus_point_series() -> None:
         assert panels["opus"] == (opus,)
 
 
-def test_sparse_ratio_point_survives_whole_well_preview_downsampling() -> None:
+def test_sparse_ratio_point_survives_whole_well_preview_downsampling(qapp) -> None:
     class RecordingPainter:
         def __init__(self) -> None:
             self.ellipses = 0
@@ -431,7 +431,7 @@ def test_sparse_ratio_point_survives_whole_well_preview_downsampling() -> None:
     assert painter.ellipses >= 4
 
 
-def test_dense_ratio_preview_sampling_is_bounded() -> None:
+def test_dense_ratio_preview_sampling_is_bounded(qapp) -> None:
     class RecordingPainter:
         def __init__(self) -> None:
             self.ellipses = 0
