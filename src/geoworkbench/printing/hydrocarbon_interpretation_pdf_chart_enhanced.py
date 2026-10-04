@@ -947,7 +947,7 @@ def _draw_ratio_tracks(
                     painter.drawEllipse(points[0], 0.75, 0.75)
                     painter.setBrush(Qt.BrushStyle.NoBrush)
                 else:
-                    for previous, current in zip(points, points[1:], strict=True):
+                    for previous, current in zip(points, points[1:], strict=False):
                         painter.drawLine(QLineF(previous, current))
             painter.restore()
 
