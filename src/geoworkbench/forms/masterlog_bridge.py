@@ -20,6 +20,7 @@ from geoworkbench.tablet.models import TrackKind, XScale, minimum_track_width
 
 FORM_MASTERLOG_BRIDGE_VERSION = 1
 DEFAULT_PRINTABLE_WIDTH_MM = 260.0
+_A4_PRINTABLE_WIDTH_MM = {"portrait": 200.0, "landscape": 287.0}
 _MIN_COLUMN_WIDTH_MM = 10.0
 
 
@@ -41,8 +42,8 @@ def build_masterlog_from_form(
     template_id: str,
     name: str | None = None,
     existing_template: MasterlogTemplate | None = None,
-    printable_width_mm: float = DEFAULT_PRINTABLE_WIDTH_MM,
-    header_preset_id: str = "geological_geochemical",
+    printable_width_mm: float | None = None,
+    header_preset_id: str | None = None,
 ) -> FormMasterlogBridgeReport:
     """Create or synchronize a printable Masterlog from one depth screen form.
 
@@ -57,11 +58,26 @@ def build_masterlog_from_form(
         )
     if not isinstance(template_id, str) or not template_id.strip():
         raise FormMasterlogBridgeError("ID печатного шаблона не может быть пустым")
+    orientation = form.preferred_page_orientation.value
+    paired_header_ref = form.print_header_for_orientation(orientation)
+    paired_header_id = (
+        paired_header_ref.removeprefix("factory-header:")
+        if isinstance(paired_header_ref, str) and paired_header_ref.strip()
+        else None
+    )
+    effective_header_id = header_preset_id or paired_header_id or "geological_geochemical"
+    effective_printable_width = (
+        float(printable_width_mm)
+        if printable_width_mm is not None
+        else _A4_PRINTABLE_WIDTH_MM.get(orientation, DEFAULT_PRINTABLE_WIDTH_MM)
+        if paired_header_id is not None
+        else DEFAULT_PRINTABLE_WIDTH_MM
+    )
     if (
-        isinstance(printable_width_mm, bool)
-        or not isinstance(printable_width_mm, (int, float))
-        or not isfinite(printable_width_mm)
-        or not 80.0 <= float(printable_width_mm) <= 2000.0
+        isinstance(effective_printable_width, bool)
+        or not isinstance(effective_printable_width, (int, float))
+        or not isfinite(effective_printable_width)
+        or not 80.0 <= float(effective_printable_width) <= 2000.0
     ):
         raise FormMasterlogBridgeError("Ширина печатной области должна быть от 80 до 2000 мм")
 
@@ -69,7 +85,7 @@ def build_masterlog_from_form(
     if not tracks:
         raise FormMasterlogBridgeError("Форма не содержит видимых дорожек")
 
-    widths = _scaled_widths(tracks, float(printable_width_mm))
+    widths = _scaled_widths(tracks, float(effective_printable_width))
     columns: list[MasterlogColumnTemplate] = []
     skipped: list[str] = []
     curve_count = 0
@@ -85,11 +101,12 @@ def build_masterlog_from_form(
         raise FormMasterlogBridgeError("Ни одну дорожку формы нельзя вывести в Masterlog")
 
     if existing_template is None:
-        header = builtin_header_preset(header_preset_id)
+        header = builtin_header_preset(effective_header_id)
+        paired_a4 = paired_header_id is not None
         template = MasterlogTemplate(
             template_id=template_id.strip(),
             name=(name or form.name).strip(),
-            page_format="roll",
+            page_format="A4" if paired_a4 else "roll",
             depth_scale=500,
             header_height_mm=header.height_mm,
             header_elements=list(deepcopy(header.elements)),
@@ -97,6 +114,12 @@ def build_masterlog_from_form(
             properties={
                 "header_fields": header_field_defaults(),
                 "header_preset_origin": header.preset_id,
+                **({"orientation": orientation} if paired_a4 else {}),
+                **(
+                    {"paired_header_preset_id": header.preset_id}
+                    if paired_a4
+                    else {}
+                ),
             },
             version=1,
         )
@@ -114,7 +137,7 @@ def build_masterlog_from_form(
             "linked_form_style_id": form.style_id,
             "form_masterlog_bridge_version": FORM_MASTERLOG_BRIDGE_VERSION,
             "screen_form_is_source_of_truth": True,
-            "printable_width_mm": float(printable_width_mm),
+            "printable_width_mm": float(effective_printable_width),
         }
     )
     return FormMasterlogBridgeReport(template, len(columns), curve_count, tuple(skipped))
