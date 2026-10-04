@@ -215,6 +215,32 @@ def test_curated_a4_forms_and_headers_are_paired_and_fit_both_orientations() -> 
         )
 
 
+def test_gas_interpretation_a4_uses_separate_fixed_scale_ratio_lanes() -> None:
+    preset = next(
+        item
+        for item in CURATED_MASTERLOG_FORM_PRESETS
+        if item.preset_id == "a4_gas_interpretation_portrait"
+    )
+    columns = {column.column_id: column for column in preset.template.columns}
+
+    expected = {
+        "wetness": ("WH", "linear", 0.0, 100.0),
+        "balance": ("BH", "logarithmic", 0.1, 100.0),
+        "character": ("CH", "logarithmic", 0.01, 10.0),
+        "pixler_c1_c2": ("C1_C2", "logarithmic", 0.1, 1000.0),
+        "pixler_c1_c3": ("C1_C3", "logarithmic", 0.1, 1000.0),
+        "pixler_c1_c4": ("C1_C4", "logarithmic", 0.1, 1000.0),
+        "pixler_c1_c5": ("C1_C5", "logarithmic", 0.1, 1000.0),
+    }
+    for column_id, (mnemonic, scale, minimum, maximum) in expected.items():
+        column = columns[column_id]
+        assert column.curve_mnemonics == [mnemonic]
+        assert column.x_scale == scale
+        assert column.x_min == minimum
+        assert column.x_max == maximum
+        assert column.curve_styles[mnemonic].line_style == "solid"
+
+
 def test_reference_masterlog_headers_are_editable_and_have_default_logo_contract() -> None:
     assert {item.preferred_orientation for item in MASTERLOG_REFERENCE_HEADER_PRESETS} == {
         "portrait", "landscape"
