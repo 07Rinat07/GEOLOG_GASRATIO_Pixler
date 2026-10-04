@@ -266,7 +266,6 @@ def _draw_chart_page(
             language=language,
             display_hints=display_hints,
             point_series=panel_name == "opus",
-            line_width=0.82 if panel_name == "ratios" else _PRINT_CURVE_WIDTH,
         )
 
     painter.setPen(QColor("#475569"))
@@ -390,6 +389,7 @@ def _draw_panel(
             curves,
             ranges,
             point_series=panel_name == "opus",
+            line_width=0.82 if panel_name == "ratios" else _PRINT_CURVE_WIDTH,
         )
     painter.setPen(QPen(QColor("#334155"), 1.0))
     painter.drawRect(rect)
