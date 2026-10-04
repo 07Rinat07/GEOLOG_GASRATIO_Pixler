@@ -582,6 +582,8 @@ def _draw_curves(
         pen = QPen(color, _PRINT_CURVE_WIDTH)
         pen.setCosmetic(True)
         painter.setPen(pen)
+        factual_points: list[tuple[float, float]] = []
+        drawn_lines = 0
         for segment in segments:
             render_rows = _extrema_preserving_print_rows(
                 segment,
@@ -611,6 +613,7 @@ def _draw_curves(
                     curve_rect.left() + normalized * curve_rect.width(),
                     _depth_y(float(depth[row_index]), page, curve_rect),
                 )
+                factual_points.append(current)
                 break_clipped_spike = (
                     previous_normalized is not None
                     and (clipped or previous_clipped)
@@ -620,9 +623,24 @@ def _draw_curves(
                     painter.drawLine(
                         QLineF(previous[0], previous[1], current[0], current[1])
                     )
+                    drawn_lines += 1
                 previous = current
                 previous_normalized = normalized
                 previous_clipped = clipped
+        if drawn_lines == 0 and factual_points:
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(color)
+            radius = GAS_PRINT_POINT_RADIUS_PT
+            for x, y in factual_points:
+                painter.drawEllipse(
+                    QRectF(
+                        x - radius,
+                        y - radius,
+                        radius * 2.0,
+                        radius * 2.0,
+                    )
+                )
+            painter.setBrush(Qt.BrushStyle.NoBrush)
     painter.restore()
 
 
