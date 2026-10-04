@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from html import escape
+import re
 
 from geoworkbench.calculations.gas_ratio import OPUS_SCREENING_FORMULAS
 from geoworkbench.calculations.pixler import build_all_sourced_formula_registry
@@ -49,17 +50,25 @@ _EXCLUDED_EXPLANATION_IDENTIFIERS = frozenset(
 
 _EXCLUDED_EXPLANATION_RU_TITLES = frozenset(
     {
-        "скорость бур.",
-        "скорость бурения (по глубине)",
-        "расх на вх.",
+        "скорость бур",
+        "скорость бурения по глубине",
+        "расх на вх",
         "расход на входе",
-        "расх. на вых.",
+        "расх на вых",
         "расход на выходе",
         "общий газ",
-        "сод. горюч.газ.",
-        "суммарное сод. горючих газов",
+        "сод горюч газ",
+        "суммарное сод горючих газов",
     }
 )
+
+
+def _normalized_ru_explanation_title(value: str) -> str:
+    """Normalize punctuation so acquisition aliases cannot leak into methodology."""
+
+    return " ".join(
+        re.sub(r"[^0-9a-zа-яё]+", " ", value.casefold()).split()
+    )
 
 
 _LABELS = {
@@ -136,7 +145,8 @@ def interpretation_chart_key_html(
                 continue
             if (
                 language is AppLanguage.RU
-                and title.strip().casefold() in _EXCLUDED_EXPLANATION_RU_TITLES
+                and _normalized_ru_explanation_title(title)
+                in _EXCLUDED_EXPLANATION_RU_TITLES
             ):
                 continue
             if canonical in seen:
