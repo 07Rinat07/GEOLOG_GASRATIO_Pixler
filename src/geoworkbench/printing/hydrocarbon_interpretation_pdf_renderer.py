@@ -27,6 +27,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_geology_legend import (
     build_interpretation_geology_legend,
     geology_legend_height,
     paint_geology_legend,
+    paginate_geology_legend,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
     DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS,
@@ -114,36 +115,73 @@ def render_hydrocarbon_interpretation_report(
             key_html = interpretation_chart_key_html(
                 report, scoped, language,
             )
-            if key_html and legend_mode is not ReportLegendMode.HIDE:
-                canvas.new_page()
-                top = float(np.nanmin(scoped.depth))
-                bottom = float(np.nanmax(scoped.depth))
-                bounds = report.analysis_depth_interval or depth_range
-                if bounds is not None:
-                    top, bottom = bounds.top_depth, bounds.bottom_depth
-                tracks = resolve_geology_track_kinds(
-                    geology, top, bottom, geology_track_settings,
+            top = float(np.nanmin(scoped.depth))
+            bottom = float(np.nanmax(scoped.depth))
+            bounds = report.analysis_depth_interval or depth_range
+            if bounds is not None:
+                top, bottom = bounds.top_depth, bounds.bottom_depth
+            tracks = resolve_geology_track_kinds(
+                geology, top, bottom, geology_track_settings,
+            )
+
+            dedicated_legend_rendered = False
+            if legend_mode is not ReportLegendMode.HIDE:
+                legend = build_interpretation_geology_legend(
+                    geology,
+                    top,
+                    bottom,
+                    language,
+                    include_cuttings="cuttings" in tracks,
+                    include_lba="lba" in tracks,
                 )
-                if legend_mode is ReportLegendMode.FULL:
-                    legend = build_interpretation_geology_legend(
-                        geology, top, bottom, language,
-                        include_cuttings="cuttings" in tracks, include_lba="lba" in tracks,
+                if not legend.empty:
+                    compact = legend_mode is ReportLegendMode.COMPACT
+                    legend_pages = paginate_geology_legend(
+                        canvas.content_rect.width(),
+                        legend,
+                        canvas.content_rect.height(),
+                        compact=compact,
+                        paint_device=device,
                     )
-                    height = geology_legend_height(
-                        canvas.content_rect.width(), legend, paint_device=device,
-                    )
-                    if 0.0 < height <= canvas.content_rect.height() * 0.45:
-                        paint_geology_legend(
-                            painter, QRectF(canvas.content_rect.left(), canvas.y,
-                                            canvas.content_rect.width(), height), legend, language,
+                    for legend_page in legend_pages:
+                        canvas.new_page()
+                        height = geology_legend_height(
+                            canvas.content_rect.width(),
+                            legend_page,
+                            compact=compact,
+                            paint_device=device,
                         )
-                        canvas.advance(height, spacing=8.0)
+                        paint_geology_legend(
+                            painter,
+                            QRectF(
+                                canvas.content_rect.left(),
+                                canvas.content_rect.top(),
+                                canvas.content_rect.width(),
+                                height,
+                            ),
+                            legend_page,
+                            language,
+                            compact=compact,
+                        )
+                        canvas.y = canvas.content_rect.bottom()
+                    dedicated_legend_rendered = True
+
+            if key_html:
+                # Methodology/chart explanations always start on their own page.
+                # They must never share a sheet with the geology legend.
+                canvas.new_page()
                 render_report_html(
                     canvas,
                     key_html,
                     leading_block_count=0,
                     start_body_on_new_page=False,
                 )
+
+            chart_legend_mode = (
+                ReportLegendMode.COMPACT
+                if dedicated_legend_rendered and legend_mode is ReportLegendMode.FULL
+                else legend_mode
+            )
             render_chart_pages(
                 canvas,
                 report,
@@ -152,7 +190,7 @@ def render_hydrocarbon_interpretation_report(
                 depth_range=depth_range,
                 geology=geology,
                 geology_track_settings=geology_track_settings,
-                legend_mode=legend_mode,
+                legend_mode=chart_legend_mode,
                 annotations=annotations,
             )
 
