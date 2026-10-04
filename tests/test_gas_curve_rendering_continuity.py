@@ -12,9 +12,14 @@ from geoworkbench.tablet.sampling import select_visible_samples
 from geoworkbench.services.gas_curve_presentation import (
     GAS_SCATTER_VERTICAL_SPACING,
     GAS_SCREEN_POINT_SIZE_PX,
+    gas_ratio_position,
+    gas_ratio_scale,
+    gas_ratio_scale_ticks,
     gas_scatter_point_budget,
     is_gas_point_mnemonic,
+    is_gas_ratio_mnemonic,
     select_gas_scatter_samples,
+    uses_gas_point_presentation,
 )
 from geoworkbench.tablet.tablet_view import CurveHeaderLabel
 
@@ -46,8 +51,8 @@ def _value_at(
     return float(sampled_values[int(matches[0])])
 
 
-def test_gas_point_presentation_is_limited_to_ratios_and_interpretation() -> None:
-    for mnemonic in (
+def test_gas_ratios_are_continuous_by_default_and_keep_explicit_identity() -> None:
+    ratio_mnemonics = (
         "WH",
         "BH",
         "CH",
@@ -60,8 +65,10 @@ def test_gas_point_presentation_is_limited_to_ratios_and_interpretation() -> Non
         "OPUS_K1_3",
         "OPUS_GM_1",
         "OPUS_GM_5",
-    ):
-        assert is_gas_point_mnemonic(mnemonic)
+    )
+    assert all(is_gas_ratio_mnemonic(mnemonic) for mnemonic in ratio_mnemonics)
+    assert all(not is_gas_point_mnemonic(mnemonic) for mnemonic in ratio_mnemonics)
+    assert not uses_gas_point_presentation(ratio_mnemonics)
 
     for mnemonic in (
         "C1",
@@ -75,8 +82,30 @@ def test_gas_point_presentation_is_limited_to_ratios_and_interpretation() -> Non
         "ROP",
         "DEXP",
     ):
+        assert not is_gas_ratio_mnemonic(mnemonic)
         assert not is_gas_point_mnemonic(mnemonic)
 
+
+def test_gas_ratio_scales_match_industry_style_tracks() -> None:
+    wetness = gas_ratio_scale(("WH",))
+    balance = gas_ratio_scale(("BH",))
+    character = gas_ratio_scale(("CH",))
+    pixler = gas_ratio_scale(("PIXLER_C1_C2",))
+
+    assert wetness is not None and (wetness.minimum, wetness.maximum) == (0.0, 100.0)
+    assert wetness.logarithmic is False
+    assert balance is not None and balance.logarithmic is True
+    assert (balance.minimum, balance.maximum) == (0.1, 100.0)
+    assert character is not None and (character.minimum, character.maximum) == (0.01, 10.0)
+    assert pixler is not None and (pixler.minimum, pixler.maximum) == (0.1, 1000.0)
+    assert gas_ratio_position(10.0, pixler) == 0.5
+    assert [label for _position, label in gas_ratio_scale_ticks(pixler)] == [
+        "0.1",
+        "1",
+        "10",
+        "100",
+        "1000",
+    ]
 
 def test_gas_scatter_budget_and_marker_are_compact() -> None:
     assert GAS_SCREEN_POINT_SIZE_PX < 2.0
