@@ -2,7 +2,7 @@ import base64
 from hashlib import sha256
 from pathlib import Path
 
-from PySide6.QtWidgets import QDialogButtonBox, QScrollArea
+from PySide6.QtWidgets import QDialogButtonBox, QGraphicsPixmapItem, QScrollArea
 
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
 from geoworkbench.project.session import ProjectSession
@@ -330,7 +330,17 @@ def test_header_preview_renders_project_png_asset(qapp) -> None:
     )
     dialog = MasterlogHeaderDialog(controller, template.template_id)
 
-    assert dialog._add_image_preview(element)
+    # MasterlogHeaderDialog.__init__ refreshes the scene and renders the image.
+    # Verify that result directly instead of adding the same native pixmap item
+    # a second time; duplicate scene mutation made Windows offscreen Qt teardown
+    # nondeterministically corrupt the native heap.
+    pixmaps = [
+        item
+        for item in dialog.preview_scene.items()
+        if isinstance(item, QGraphicsPixmapItem)
+    ]
+    assert len(pixmaps) == 1
+    assert not pixmaps[0].pixmap().isNull()
     dialog.close()
 
 
