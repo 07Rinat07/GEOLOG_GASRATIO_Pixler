@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QFontMetricsF, QImage, QPainter
@@ -190,6 +192,29 @@ def test_pdf_geometry_reserves_top_and_repeat_geology_legends() -> None:
     assert geometry.geology_repeat_legend_rect.top() > geometry.plot_rect.bottom()
     assert geometry.geology_repeat_legend_rect.bottom() <= geometry.note_rect.top()
 
+
+
+def test_pdf_reference_pages_never_mix_geology_legend_and_methodology() -> None:
+    source = Path(
+        "src/geoworkbench/printing/hydrocarbon_interpretation_pdf_renderer.py"
+    ).read_text(encoding="utf-8")
+
+    assert "legend_pages = paginate_geology_legend(" in source
+    legend_loop = source.index("for legend_page in legend_pages:")
+    methodology_contract = source.index(
+        "# Methodology/chart-key content is a separate document section."
+    )
+    methodology_page_break = source.index(
+        "canvas.new_page()",
+        methodology_contract,
+    )
+    methodology_render = source.index(
+        "render_report_html(",
+        methodology_page_break,
+    )
+
+    assert legend_loop < methodology_contract < methodology_page_break < methodology_render
+    assert "canvas.advance(height, spacing=8.0)" not in source
 
 
 def test_dynamic_geology_legend_keeps_unresolved_lba_marker_explicit() -> None:
