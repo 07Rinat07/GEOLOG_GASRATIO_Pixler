@@ -188,7 +188,14 @@ def render_chart_pages(
         else geology_legend
     )
     if not legend_hidden and full_legend_height > legend_budget:
-        if not legend_reference_pages_emitted:
+        if legend_reference_pages_emitted:
+            # The report renderer intentionally suppresses a standalone geology
+            # catalog before the methodology. If even the compact legend would
+            # consume too much chart height, omit that repeat instead of claiming
+            # that non-existent "separate legend pages" were printed.
+            chart_legend = InterpretationGeologyLegend(())
+            full_legend_height = 0.0
+        else:
             for legend_page in paginate_geology_legend(
                 canvas.content_rect.width(),
                 geology_legend,
@@ -205,27 +212,31 @@ def render_chart_pages(
                 )
                 paint_geology_legend(
                     canvas.painter,
-                    QRectF(canvas.content_rect.left(), canvas.content_rect.top(),
-                           canvas.content_rect.width(), height),
+                    QRectF(
+                        canvas.content_rect.left(),
+                        canvas.content_rect.top(),
+                        canvas.content_rect.width(),
+                        height,
+                    ),
                     legend_page,
                     language,
                     compact=legend_compact,
                 )
                 canvas.y = canvas.content_rect.bottom()
-        reference = {
-            AppLanguage.RU: "Легенда: отдельные страницы",
-            AppLanguage.KK: "Легенда: бөлек беттер",
-            AppLanguage.EN: "Legend: separate pages",
-        }[language]
-        chart_legend = InterpretationGeologyLegend((
-            GeologyLegendItem("reference", "legend-pages", "", reference),
-        ))
-        full_legend_height = geology_legend_height(
-            canvas.content_rect.width(),
-            chart_legend,
-            compact=legend_compact,
-            paint_device=canvas.painter.device(),
-        )
+            reference = {
+                AppLanguage.RU: "Легенда: отдельные страницы",
+                AppLanguage.KK: "Легенда: бөлек беттер",
+                AppLanguage.EN: "Legend: separate pages",
+            }[language]
+            chart_legend = InterpretationGeologyLegend((
+                GeologyLegendItem("reference", "legend-pages", "", reference),
+            ))
+            full_legend_height = geology_legend_height(
+                canvas.content_rect.width(),
+                chart_legend,
+                compact=legend_compact,
+                paint_device=canvas.painter.device(),
+            )
     available_height = chart_height_budget - full_legend_height
     pages = plan_depth_pages(
         depth_min,
