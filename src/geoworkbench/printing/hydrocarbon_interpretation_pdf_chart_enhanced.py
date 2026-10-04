@@ -920,19 +920,24 @@ def _draw_ratio_tracks(
                     page,
                     lane,
                 )
-                previous: QPointF | None = None
+                points: list[QPointF] = []
                 for row_index in render_rows:
                     fraction = gas_ratio_position(float(values[row_index]), scale)
                     if fraction is None:
-                        previous = None
                         continue
-                    current = QPointF(
-                        lane.left() + fraction * lane.width(),
-                        base_chart._depth_y(float(depth[row_index]), page, lane),
+                    points.append(
+                        QPointF(
+                            lane.left() + fraction * lane.width(),
+                            base_chart._depth_y(float(depth[row_index]), page, lane),
+                        )
                     )
-                    if previous is not None:
+                if len(points) == 1:
+                    painter.setBrush(color)
+                    painter.drawEllipse(points[0], 0.75, 0.75)
+                    painter.setBrush(Qt.BrushStyle.NoBrush)
+                else:
+                    for previous, current in zip(points, points[1:], strict=True):
                         painter.drawLine(QLineF(previous, current))
-                    previous = current
             painter.restore()
 
         painter.setBrush(Qt.BrushStyle.NoBrush)
