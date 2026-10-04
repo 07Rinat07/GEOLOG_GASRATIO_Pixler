@@ -72,6 +72,7 @@ from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
 )
 from geoworkbench.services.gas_curve_presentation import (
+    GasRatioScale,
     gas_ratio_position,
     gas_ratio_scale,
     gas_ratio_scale_ticks,
@@ -814,14 +815,16 @@ def _draw_ratio_tracks(
 ) -> bool:
     """Draw Haworth/Pixler as separate continuous industry-style ratio lanes."""
 
-    tracks = tuple(
-        (curve, gas_ratio_scale((
-            curve.metadata.original_mnemonic,
-            curve.metadata.canonical_mnemonic,
-        )))
-        for curve in curves
-    )
-    tracks = tuple((curve, scale) for curve, scale in tracks if scale is not None)
+    tracks: list[tuple[CurveData, GasRatioScale]] = []
+    for curve in curves:
+        scale = gas_ratio_scale(
+            (
+                curve.metadata.original_mnemonic,
+                curve.metadata.canonical_mnemonic,
+            )
+        )
+        if scale is not None:
+            tracks.append((curve, scale))
     if not tracks:
         return False
 
@@ -933,12 +936,12 @@ def _draw_ratio_tracks(
                 )
                 points: list[QPointF] = []
                 for row_index in render_rows:
-                    fraction = gas_ratio_position(float(values[row_index]), scale)
-                    if fraction is None:
+                    position = gas_ratio_position(float(values[row_index]), scale)
+                    if position is None:
                         continue
                     points.append(
                         QPointF(
-                            lane.left() + fraction * lane.width(),
+                            lane.left() + position * lane.width(),
                             base_chart._depth_y(float(depth[row_index]), page, lane),
                         )
                     )
