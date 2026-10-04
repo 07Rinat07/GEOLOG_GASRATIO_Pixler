@@ -6,6 +6,7 @@ from enum import Enum
 from PySide6.QtCore import QSize
 from PySide6.QtGui import QPageLayout
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -158,6 +159,28 @@ class InterpretationPrintLayoutDialog(QDialog):
             QLabel(self._text("Профиль макета:", "Макет профилі:", "Layout profile:")),
             self.layout_profile_combo,
         )
+        self.summary_checkbox = QCheckBox(
+            self._text("Включить", "Қосу", "Include")
+        )
+        self.conclusion_checkbox = QCheckBox(
+            self._text("Включить", "Қосу", "Include")
+        )
+        self.summary_checkbox.setChecked(True)
+        self.conclusion_checkbox.setChecked(True)
+        form.addRow(
+            QLabel(
+                self._text(
+                    "Краткое резюме:",
+                    "Қысқаша түйін:",
+                    "Executive summary:",
+                )
+            ),
+            self.summary_checkbox,
+        )
+        form.addRow(
+            QLabel(self._text("Заключение:", "Қорытынды:", "Conclusion:")),
+            self.conclusion_checkbox,
+        )
         self.order_label.setVisible(include_order)
         self.order_combo.setVisible(include_order)
         self._apply_initial(initial)
@@ -250,6 +273,8 @@ class InterpretationPrintLayoutDialog(QDialog):
             lba=ReportTrackVisibility(layout.geology_tracks.lba.value),
             legend_mode=layout.legend_mode,
             layout_profile=layout.layout_profile,
+            show_summary=self.summary_checkbox.isChecked(),
+            show_conclusion=self.conclusion_checkbox.isChecked(),
         )
 
     def _apply_initial(
@@ -280,6 +305,8 @@ class InterpretationPrintLayoutDialog(QDialog):
         )
         self._set_combo_data(self.legend_mode_combo, initial.legend_mode)
         self._set_combo_data(self.layout_profile_combo, initial.layout_profile)
+        self.summary_checkbox.setChecked(initial.show_summary)
+        self.conclusion_checkbox.setChecked(initial.show_conclusion)
 
     @staticmethod
     def _set_combo_data(combo: QComboBox, value: object) -> None:
