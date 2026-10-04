@@ -402,12 +402,12 @@ def _apply_compact_geology_widths(form: FormDocument) -> None:
 def _a4_print_header_catalog_id(profile_id: str, orientation: str) -> str:
     if orientation not in {"portrait", "landscape"}:
         raise ValueError("A4 header orientation must be portrait or landscape")
-    preset_id = (
-        f"masterlog_header_a4_{orientation}"
-        if profile_id == "masterlog"
-        else f"a4_{profile_id}_{orientation}"
-    )
-    return f"factory-header:{preset_id}"
+    # The legacy editable Masterlog reference header is 140/100 mm high and is
+    # intentionally a standalone reference form.  Factory A4 Masterlog pages
+    # must use the compact paired header so the header and depth columns share
+    # one A4 print box and the plot keeps the remaining page height.
+    paired_profile = "geology_technology_gas" if profile_id == "masterlog" else profile_id
+    return f"factory-header:a4_{paired_profile}_{orientation}"
 
 
 def _with_a4_print_headers(form: FormDocument, profile_id: str) -> FormDocument:
