@@ -42,7 +42,7 @@ def _report_and_dataset():
     session = ProjectSession()
     session.add_dataset(dataset, "Audit well")
     interval = DepthInterval(1030.0, 1060.0)
-    report = build_hydrocarbon_interpretation_report(session, depth_interval=interval)
+    report = build_hydrocarbon_interpretation_report(session, depth_interval=interval, threshold=3.0)
     assert report.candidates
     candidate = report.candidates[0]
     report = replace(
