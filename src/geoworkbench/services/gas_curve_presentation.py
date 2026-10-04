@@ -6,12 +6,11 @@ import numpy as np
 from numpy.typing import NDArray
 
 
-# Ratio/interpretation curves are sampled observations whose visual meaning is
-# clearer as discrete points. Ordinary depth-series gas concentrations (TG, C1-C5,
-# normalized total/components) remain lines so the operator can read continuous
-# depth trends. Relative-gas *_REL curves keep their separate cumulative stacked
-# presentation.
-_GAS_POINT_EXACT = frozenset(
+# Gas-ratio channels are continuous depth trends in mudlogging practice.  Keep
+# the identifier registry here because renderers need to recognize them, but do
+# not turn them into scatter by default.  Explicit scatter rendering remains
+# available to callers through select_gas_scatter_samples/point_series.
+_GAS_RATIO_EXACT = frozenset(
     {
         "WETNESS",
         "BALANCE",
@@ -147,23 +146,32 @@ def _token(value: object) -> str:
     return str(value or "").strip().upper().replace("-", "_").rsplit(":", 1)[-1]
 
 
-def is_gas_point_mnemonic(value: object) -> bool:
-    """Return whether one curve identifier should be presented as sampled points."""
+def is_gas_ratio_mnemonic(value: object) -> bool:
+    """Return whether one identifier denotes a gas-ratio/interpretation trend."""
 
     token = _token(value)
     if not token or token.endswith("_REL"):
         return False
     return (
-        token in _GAS_POINT_EXACT
+        token in _GAS_RATIO_EXACT
         or token.startswith("PIXLER_")
         or token.startswith("OPUS_RATIO_")
     )
 
 
-def uses_gas_point_presentation(identifiers: Iterable[object]) -> bool:
-    """Return True when any source/canonical identifier is a ratio/interpretation series."""
+def is_gas_point_mnemonic(value: object) -> bool:
+    """Compatibility predicate: gas ratios are no longer point-only by default."""
 
-    return any(is_gas_point_mnemonic(value) for value in identifiers)
+    return False
+
+
+def uses_gas_point_presentation(identifiers: Iterable[object]) -> bool:
+    """Compatibility boundary for renderers: default gas curves use line geometry."""
+
+    # Retain the API so saved layouts/plugins do not break.  A renderer that
+    # genuinely needs discrete observations must request point_series explicitly.
+    tuple(identifiers)
+    return False
 
 
 __all__ = [
@@ -173,6 +181,7 @@ __all__ = [
     "GAS_SCREEN_POINT_SIZE_PX",
     "gas_scatter_point_budget",
     "is_gas_point_mnemonic",
+    "is_gas_ratio_mnemonic",
     "select_gas_scatter_samples",
     "uses_gas_point_presentation",
 ]
