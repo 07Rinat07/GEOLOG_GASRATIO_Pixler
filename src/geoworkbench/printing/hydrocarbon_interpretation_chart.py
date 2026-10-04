@@ -967,25 +967,30 @@ def _draw_ratio_preview_tracks(
             painter.setClipRect(lane.adjusted(1.0, 1.0, -1.0, -1.0))
             painter.setPen(QPen(color, 1.8))
             for segment in segments:
-                previous: QPointF | None = None
+                points: list[QPointF] = []
                 for row_index in segment:
                     fraction = gas_ratio_position(float(values[row_index]), scale)
                     if fraction is None:
-                        previous = None
                         continue
-                    current = QPointF(
-                        lane.left() + fraction * lane.width(),
-                        _depth_y(
-                            float(depth[row_index]),
-                            depth_min,
-                            depth_max,
-                            lane.top(),
-                            lane.height(),
-                        ),
+                    points.append(
+                        QPointF(
+                            lane.left() + fraction * lane.width(),
+                            _depth_y(
+                                float(depth[row_index]),
+                                depth_min,
+                                depth_max,
+                                lane.top(),
+                                lane.height(),
+                            ),
+                        )
                     )
-                    if previous is not None:
+                if len(points) == 1:
+                    painter.setBrush(color)
+                    painter.drawEllipse(points[0], 1.4, 1.4)
+                    painter.setBrush(Qt.BrushStyle.NoBrush)
+                else:
+                    for previous, current in zip(points, points[1:], strict=True):
                         painter.drawLine(QLineF(previous, current))
-                    previous = current
             painter.restore()
 
         painter.setBrush(Qt.BrushStyle.NoBrush)
