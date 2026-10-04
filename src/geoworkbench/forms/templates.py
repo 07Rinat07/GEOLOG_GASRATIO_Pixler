@@ -563,20 +563,70 @@ def _gas_component_bindings(language: TemplateLanguage) -> list[ParameterBinding
 
 def _ratio_bindings(language: TemplateLanguage) -> list[ParameterBinding]:
     return [
-        _binding("WETNESS", _t("wetness", language), "", "#0f766e"),
-        _binding("BALANCE", _t("balance", language), "", "#b45309"),
-        _binding("CHARACTER", _t("character", language), "", "#be123c"),
-        _binding("IC4_NC4", _t("ic4_nc4", language), "", "#7c3aed"),
-        _binding("IC5_NC5", _t("ic5_nc5", language), "", "#0369a1"),
+        _binding(
+            "WETNESS",
+            _t("wetness", language),
+            "%",
+            "#0f766e",
+            x_min=0.0,
+            x_max=100.0,
+        ),
+        _binding(
+            "BALANCE",
+            _t("balance", language),
+            "ratio",
+            "#b45309",
+            x_scale=XScale.LOGARITHMIC,
+            x_min=0.1,
+            x_max=100.0,
+        ),
+        _binding(
+            "CHARACTER",
+            _t("character", language),
+            "ratio",
+            "#be123c",
+            x_scale=XScale.LOGARITHMIC,
+            x_min=0.01,
+            x_max=10.0,
+        ),
+        _binding(
+            "IC4_NC4",
+            _t("ic4_nc4", language),
+            "ratio",
+            "#7c3aed",
+            x_scale=XScale.LOGARITHMIC,
+            x_min=0.01,
+            x_max=100.0,
+        ),
+        _binding(
+            "IC5_NC5",
+            _t("ic5_nc5", language),
+            "ratio",
+            "#0369a1",
+            x_scale=XScale.LOGARITHMIC,
+            x_min=0.01,
+            x_max=100.0,
+        ),
     ]
 
 
 def _pixler_bindings() -> list[ParameterBinding]:
     return [
-        _binding("PIXLER_C1_C2", "C1/C2", "", "#2563eb"),
-        _binding("PIXLER_C1_C3", "C1/C3", "", "#16a34a"),
-        _binding("PIXLER_C1_C4", "C1/C4", "", "#ea580c"),
-        _binding("PIXLER_C1_C5", "C1/C5", "", "#9333ea"),
+        _binding(
+            mnemonic,
+            label,
+            "ratio",
+            color,
+            x_scale=XScale.LOGARITHMIC,
+            x_min=0.1,
+            x_max=1000.0,
+        )
+        for mnemonic, label, color in (
+            ("PIXLER_C1_C2", "C1/C2", "#2563eb"),
+            ("PIXLER_C1_C3", "C1/C3", "#16a34a"),
+            ("PIXLER_C1_C4", "C1/C4", "#ea580c"),
+            ("PIXLER_C1_C5", "C1/C5", "#9333ea"),
+        )
     ]
 
 
