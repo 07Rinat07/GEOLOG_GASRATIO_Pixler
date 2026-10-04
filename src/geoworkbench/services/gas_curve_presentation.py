@@ -41,9 +41,9 @@ _GAS_POINT_EXACT = frozenset(
 
 # Keep ratio markers visually distinct from a line even on dense 0.1–0.2 m
 # acquisition grids. Large markers overlap vertically and become "worms".
-GAS_SCREEN_POINT_SIZE_PX = 2.2
-GAS_PREVIEW_POINT_RADIUS_PX = 0.85
-GAS_PRINT_POINT_RADIUS_PT = 0.55
+GAS_SCREEN_POINT_SIZE_PX = 1.6
+GAS_PREVIEW_POINT_RADIUS_PX = 0.70
+GAS_PRINT_POINT_RADIUS_PT = 0.42
 
 
 
@@ -51,7 +51,12 @@ def gas_scatter_point_budget(vertical_pixels: float) -> int:
     """Return a density budget that keeps neighbouring point markers distinct."""
 
     span = max(1.0, float(vertical_pixels))
-    return max(48, min(1_200, int(span / 2.5)))
+    # One representative source observation per roughly 1.2 vertical display
+    # units gives a dense readable point-trace without marker overlap turning
+    # into a solid line. This is intentionally much denser than the old
+    # extrema-pair policy, which produced sparse dots and horizontal dash-like
+    # pairs on printed Haworth/Pixler tracks.
+    return max(72, min(2_400, int(span / 1.2)))
 
 
 def select_gas_scatter_samples(
@@ -66,9 +71,10 @@ def select_gas_scatter_samples(
     """Select finite gas-ratio observations without inventing line geometry.
 
     The selector operates on actual finite observations only. When a viewport is
-    denser than the marker budget it keeps local low/high values in stable depth
-    buckets, so clusters remain visible without vertically overlapping thousands
-    of markers into line-like strokes.
+    denser than the marker budget it keeps one measured observation per stable
+    depth bucket. This produces a dense, continuous-looking point trace without
+    inventing connecting lines, horizontal min/max dash pairs, or markers across
+    genuine missing-data gaps.
     """
 
     source_axis = np.asarray(axis, dtype=np.float64)
@@ -103,11 +109,16 @@ def select_gas_scatter_samples(
             source_axis[rows].astype(np.float64, copy=True),
         )
 
-    # Two value-extrema per depth bucket preserve local scatter spread while
-    # bounding total marker density. The final hard cap keeps the contract exact.
-    bucket_count = max(1, max_points // 2)
+    # Keep exactly one *real* observation per depth bucket. The previous
+    # min/max pair per bucket placed two markers at almost the same Y position;
+    # on PDF/raster output that frequently looked like a short horizontal dash.
+    # Selecting the source row nearest the bucket's depth centre preserves the
+    # measured trend, preserves true gaps (empty buckets remain empty), and
+    # guarantees that dense series cannot form same-row marker pairs.
+    bucket_count = max(1, max_points)
+    depth_span = max(high_depth - low_depth, np.finfo(float).eps)
     normalized = np.clip(
-        (source_axis[rows] - low_depth) / max(high_depth - low_depth, np.finfo(float).eps),
+        (source_axis[rows] - low_depth) / depth_span,
         0.0,
         1.0,
     )
@@ -115,8 +126,6 @@ def select_gas_scatter_samples(
         bucket_count - 1,
         np.floor(normalized * bucket_count).astype(np.int64),
     )
-    # Buckets are monotonic because rows are depth-sorted. Split once at
-    # bucket boundaries instead of rescanning the full viewport for every bucket.
     boundaries = np.flatnonzero(np.diff(buckets)) + 1
     starts = np.concatenate((np.asarray([0], dtype=np.int64), boundaries))
     ends = np.concatenate((boundaries, np.asarray([rows.size], dtype=np.int64)))
@@ -126,14 +135,19 @@ def select_gas_scatter_samples(
         if bucket_rows.size == 1:
             selected.append(int(bucket_rows[0]))
             continue
-        bucket_values = source_values[bucket_rows]
-        selected.append(int(bucket_rows[int(np.argmin(bucket_values))]))
-        selected.append(int(bucket_rows[int(np.argmax(bucket_values))]))
+        bucket_index = int(buckets[int(start)])
+        target_depth = low_depth + (bucket_index + 0.5) / bucket_count * depth_span
+        local_axis = source_axis[bucket_rows]
+        nearest = int(np.argmin(np.abs(local_axis - target_depth)))
+        selected.append(int(bucket_rows[nearest]))
 
-    chosen = np.asarray(sorted(set(selected), key=lambda row: (source_axis[row], row)), dtype=np.int64)
-    if chosen.size > max_points:
-        keep = np.linspace(0, chosen.size - 1, max_points, dtype=np.int64)
-        chosen = chosen[keep]
+    # Preserve the physical viewport endpoints when they are real observations.
+    # Replace, rather than append, so the one-marker-per-bucket invariant and
+    # max_points cap remain exact.
+    if selected:
+        selected[0] = int(rows[0])
+        selected[-1] = int(rows[-1])
+    chosen = np.asarray(selected, dtype=np.int64)
     return (
         source_values[chosen].astype(np.float64, copy=True),
         source_axis[chosen].astype(np.float64, copy=True),
