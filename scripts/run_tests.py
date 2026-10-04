@@ -40,6 +40,7 @@ _FORCED_NATIVE_BATCH_FILES = frozenset(
         "tests/test_session_safety.py",
         "tests/test_multipage_unicode_print.py",
         "tests/test_masterlog_curve_mapping_dialog.py",
+        "tests/test_masterlog_header_dialog.py",
         "tests/test_well_update_workflow.py",
         "tests/test_widget_print.py",
         "tests/test_wits0_capture.py",
