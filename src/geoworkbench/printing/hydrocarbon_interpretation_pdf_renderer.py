@@ -115,7 +115,6 @@ def render_hydrocarbon_interpretation_report(
                 report, scoped, language,
             )
             if key_html and legend_mode is not ReportLegendMode.HIDE:
-                canvas.new_page()
                 top = float(np.nanmin(scoped.depth))
                 bottom = float(np.nanmax(scoped.depth))
                 bounds = report.analysis_depth_interval or depth_range
@@ -124,20 +123,45 @@ def render_hydrocarbon_interpretation_report(
                 tracks = resolve_geology_track_kinds(
                     geology, top, bottom, geology_track_settings,
                 )
+                legend_painted = False
                 if legend_mode is ReportLegendMode.FULL:
                     legend = build_interpretation_geology_legend(
-                        geology, top, bottom, language,
-                        include_cuttings="cuttings" in tracks, include_lba="lba" in tracks,
+                        geology,
+                        top,
+                        bottom,
+                        language,
+                        include_cuttings="cuttings" in tracks,
+                        include_lba="lba" in tracks,
                     )
                     height = geology_legend_height(
-                        canvas.content_rect.width(), legend, paint_device=device,
+                        canvas.content_rect.width(),
+                        legend,
+                        paint_device=device,
                     )
                     if 0.0 < height <= canvas.content_rect.height() * 0.45:
+                        # Geological symbols are reference material, while the
+                        # chart key below is calculation methodology. Keep them
+                        # on separate physical pages even when both would fit.
+                        canvas.new_page()
                         paint_geology_legend(
-                            painter, QRectF(canvas.content_rect.left(), canvas.y,
-                                            canvas.content_rect.width(), height), legend, language,
+                            painter,
+                            QRectF(
+                                canvas.content_rect.left(),
+                                canvas.y,
+                                canvas.content_rect.width(),
+                                height,
+                            ),
+                            legend,
+                            language,
                         )
                         canvas.advance(height, spacing=8.0)
+                        legend_painted = True
+
+                # Method/formula explanations always start on their own page.
+                # This prevents a compact geology legend from sharing the same
+                # sheet with Haworth/Pixler/DEXP methodology.
+                if legend_painted or canvas.has_content:
+                    canvas.new_page()
                 render_report_html(
                     canvas,
                     key_html,
