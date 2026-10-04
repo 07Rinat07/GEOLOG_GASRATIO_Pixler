@@ -113,8 +113,8 @@ def _activate_print_curve_styles(
                 )
             )
             if point_only:
-                # Ratio observations are intentionally point-only. Paper mode may
-                # enlarge markers for legibility, but must never create a line.
+                # Discrete point-series (currently OPUS screening) remain
+                # marker-only in paper mode; printing must never invent a line.
                 # Interactive tablet colors may be muted; print capture uses the
                 # persisted curve color and restores the live marker afterward.
                 if style is not None:
