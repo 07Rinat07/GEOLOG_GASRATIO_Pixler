@@ -48,6 +48,7 @@ from geoworkbench.printing.hydrocarbon_fluid_markers import (
     marker_lanes,
 )
 from geoworkbench.printing.depth_curve_segments import continuous_depth_segments
+from geoworkbench.tablet.derived_gas_sampling import select_derived_gas_samples
 from geoworkbench.printing.unicode_support import print_font
 from geoworkbench.printing.interpretation_track_headings import (
     paint_track_heading,
@@ -723,12 +724,24 @@ def _draw_panel(
             painter.setPen(QPen(color, 2.2))
             factual_points: list[tuple[float, float]] = []
             drawn_lines = 0
-            for segment in segments:
+
+            if panel_name == "ratios":
+                # Ratio calculations can be sparse even on a dense source depth
+                # axis. Use the shared derived-gas sampler so factual updates are
+                # retained and long update silences become explicit NaN breaks.
+                line_values, line_depth = select_derived_gas_samples(
+                    depth,
+                    values,
+                    depth_min,
+                    depth_max,
+                    max_points=1_800,
+                    positive_values_only=False,
+                )
                 previous: tuple[float, float] | None = None
                 previous_normalized: float | None = None
                 previous_clipped = False
-                for index in segment:
-                    if not usable[index]:
+                for value, depth_value in zip(line_values, line_depth, strict=True):
+                    if not np.isfinite(value) or not np.isfinite(depth_value):
                         previous = None
                         previous_normalized = None
                         previous_clipped = False
@@ -736,21 +749,21 @@ def _draw_panel(
                     if high <= low:
                         normalized = (
                             0.5
-                            if values[index] == low
+                            if value == low
                             else 1.0
-                            if values[index] > low
+                            if value > low
                             else 0.0
                         )
-                        clipped = values[index] != low
+                        clipped = value != low
                     else:
-                        raw_normalized = float((values[index] - low) / (high - low))
+                        raw_normalized = float((value - low) / (high - low))
                         normalized = float(np.clip(raw_normalized, 0.0, 1.0))
                         clipped = raw_normalized < 0.0 or raw_normalized > 1.0
                     current = (
                         float(curve_rect.left() + normalized * curve_rect.width()),
                         float(
                             _depth_y(
-                                depth[index],
+                                float(depth_value),
                                 depth_min,
                                 depth_max,
                                 curve_rect.top(),
@@ -772,6 +785,56 @@ def _draw_panel(
                     previous = current
                     previous_normalized = normalized
                     previous_clipped = clipped
+            else:
+                for segment in segments:
+                    previous = None
+                    previous_normalized = None
+                    previous_clipped = False
+                    for index in segment:
+                        if not usable[index]:
+                            previous = None
+                            previous_normalized = None
+                            previous_clipped = False
+                            continue
+                        if high <= low:
+                            normalized = (
+                                0.5
+                                if values[index] == low
+                                else 1.0
+                                if values[index] > low
+                                else 0.0
+                            )
+                            clipped = values[index] != low
+                        else:
+                            raw_normalized = float((values[index] - low) / (high - low))
+                            normalized = float(np.clip(raw_normalized, 0.0, 1.0))
+                            clipped = raw_normalized < 0.0 or raw_normalized > 1.0
+                        current = (
+                            float(curve_rect.left() + normalized * curve_rect.width()),
+                            float(
+                                _depth_y(
+                                    depth[index],
+                                    depth_min,
+                                    depth_max,
+                                    curve_rect.top(),
+                                    curve_rect.height(),
+                                )
+                            ),
+                        )
+                        factual_points.append(current)
+                        spike = (
+                            previous_normalized is not None
+                            and (clipped or previous_clipped)
+                            and abs(normalized - previous_normalized) >= 0.72
+                        )
+                        if previous is not None and not spike:
+                            painter.drawLine(
+                                QLineF(previous[0], previous[1], current[0], current[1])
+                            )
+                            drawn_lines += 1
+                        previous = current
+                        previous_normalized = normalized
+                        previous_clipped = clipped
             if drawn_lines == 0 and factual_points:
                 painter.setPen(Qt.PenStyle.NoPen)
                 painter.setBrush(color)
