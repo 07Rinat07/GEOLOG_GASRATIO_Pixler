@@ -13,6 +13,7 @@ from geoworkbench.services.gas_curve_presentation import (
     GAS_SCREEN_POINT_SIZE_PX,
     gas_scatter_point_budget,
     is_gas_point_mnemonic,
+    is_gas_ratio_line_mnemonic,
     select_gas_scatter_samples,
 )
 from geoworkbench.tablet.tablet_view import CurveHeaderLabel
@@ -45,7 +46,7 @@ def _value_at(
     return float(sampled_values[int(matches[0])])
 
 
-def test_gas_point_presentation_is_limited_to_ratios_and_interpretation() -> None:
+def test_gas_ratio_and_opus_presentation_contracts_are_distinct() -> None:
     for mnemonic in (
         "WH",
         "BH",
@@ -55,12 +56,18 @@ def test_gas_point_presentation_is_limited_to_ratios_and_interpretation() -> Non
         "C1_C4",
         "IC4_NC4",
         "PIXLER_C1_C3",
+    ):
+        assert is_gas_ratio_line_mnemonic(mnemonic)
+        assert not is_gas_point_mnemonic(mnemonic)
+
+    for mnemonic in (
         "OPUS3",
         "OPUS_K1_3",
         "OPUS_GM_1",
         "OPUS_GM_5",
     ):
         assert is_gas_point_mnemonic(mnemonic)
+        assert not is_gas_ratio_line_mnemonic(mnemonic)
 
     for mnemonic in (
         "C1",
@@ -75,6 +82,7 @@ def test_gas_point_presentation_is_limited_to_ratios_and_interpretation() -> Non
         "DEXP",
     ):
         assert not is_gas_point_mnemonic(mnemonic)
+        assert not is_gas_ratio_line_mnemonic(mnemonic)
 
 
 def test_gas_scatter_budget_and_marker_are_compact() -> None:
