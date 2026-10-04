@@ -77,10 +77,10 @@ def test_gas_point_presentation_is_limited_to_ratios_and_interpretation() -> Non
         assert not is_gas_point_mnemonic(mnemonic)
 
 
-def test_gas_scatter_budget_and_marker_are_compact() -> None:
-    assert GAS_SCREEN_POINT_SIZE_PX < 3.0
-    assert gas_scatter_point_budget(180.0) == 72
-    assert gas_scatter_point_budget(900.0) == 360
+def test_gas_scatter_budget_is_dense_but_marker_remains_compact() -> None:
+    assert GAS_SCREEN_POINT_SIZE_PX < 2.0
+    assert gas_scatter_point_budget(180.0) == 144
+    assert gas_scatter_point_budget(900.0) == 720
 
 
 def test_gas_scatter_sampling_groups_dense_buckets_in_constant_flatnonzero_calls(
@@ -110,8 +110,29 @@ def test_gas_scatter_sampling_groups_dense_buckets_in_constant_flatnonzero_calls
 
     assert 0 < sampled_values.size <= 1_200
     assert sampled_values.size == sampled_axis.size
-    # One call selects factual rows; one identifies monotonic bucket boundaries.
-    assert calls <= 3
+    # Sampling stays vectorized: factual-row discovery is the only required
+    # flatnonzero pass even for a very dense viewport.
+    assert calls <= 2
+
+
+def test_dense_gas_scatter_uses_unique_depth_representatives_without_dash_pairs() -> None:
+    axis = np.linspace(0.0, 100.0, 10_001, dtype=np.float64)
+    values = 50.0 + 25.0 * np.sin(axis / 3.0)
+
+    sampled_values, sampled_axis = select_gas_scatter_samples(
+        axis,
+        values,
+        0.0,
+        100.0,
+        max_points=320,
+    )
+
+    assert sampled_axis.size >= 300
+    assert sampled_axis.size == np.unique(sampled_axis).size
+    assert np.all(np.diff(sampled_axis) > 0.0)
+    # Representative depth sampling must still retain the oscillating trend.
+    assert float(np.min(sampled_values)) < 26.0
+    assert float(np.max(sampled_values)) > 74.0
 
 
 def test_gas_scatter_sampling_keeps_sparse_points_and_bounds_dense_cloud() -> None:
