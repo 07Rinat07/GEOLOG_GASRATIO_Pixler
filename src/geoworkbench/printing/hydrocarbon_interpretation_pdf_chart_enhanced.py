@@ -585,7 +585,7 @@ def _draw_chart_page(
             percentiles,
             language=language,
             display_hints=display_hints,
-            point_series=panel_name in {"ratios", "opus"},
+            point_series=panel_name == "opus",
         )
 
     _draw_fluid_markers(
@@ -763,7 +763,7 @@ def _draw_panel(
             dataset,
             curves,
             ranges,
-            point_series=panel_name in {"ratios", "opus"},
+            point_series=panel_name == "opus",
         )
     painter.setBrush(Qt.BrushStyle.NoBrush)
     painter.setPen(QPen(QColor("#263746"), 1.1))
