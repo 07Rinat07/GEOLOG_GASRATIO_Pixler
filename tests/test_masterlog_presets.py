@@ -171,9 +171,23 @@ def test_kazgeology_reference_blank_has_uploadable_logo_slots_and_expected_colum
     assert gas.grid_minor_divisions == 10
 
 
-def test_every_builtin_masterlog_column_is_linear_by_default() -> None:
+def test_builtin_masterlog_scales_are_linear_except_fixed_ratio_lanes() -> None:
+    ratio_presets = {
+        "a4_gas_interpretation_portrait",
+        "a4_gas_interpretation_landscape",
+    }
+    logarithmic_columns = {
+        "balance", "character", "pixler_c1_c2", "pixler_c1_c3",
+        "pixler_c1_c4", "pixler_c1_c5",
+    }
     for preset in BUILTIN_MASTERLOG_FORM_PRESETS:
-        assert all(column.x_scale == "linear" for column in preset.template.columns)
+        for column in preset.template.columns:
+            expected = (
+                "logarithmic"
+                if preset.preset_id in ratio_presets and column.column_id in logarithmic_columns
+                else "linear"
+            )
+            assert column.x_scale == expected, (preset.preset_id, column.column_id)
 
 
 def test_reference_masterlog_uses_top_to_bottom_text_direction() -> None:
@@ -215,11 +229,12 @@ def test_curated_a4_forms_and_headers_are_paired_and_fit_both_orientations() -> 
         )
 
 
-def test_gas_interpretation_a4_uses_separate_fixed_scale_ratio_lanes() -> None:
+@pytest.mark.parametrize("orientation", ["portrait", "landscape"])
+def test_gas_interpretation_a4_uses_separate_fixed_scale_ratio_lanes(orientation: str) -> None:
     preset = next(
         item
         for item in CURATED_MASTERLOG_FORM_PRESETS
-        if item.preset_id == "a4_gas_interpretation_portrait"
+        if item.preset_id == f"a4_gas_interpretation_{orientation}"
     )
     columns = {column.column_id: column for column in preset.template.columns}
 
