@@ -83,3 +83,21 @@ def test_session_safety_runs_in_single_native_test_processes() -> None:
     assert len(batches) == len(nodes)
     assert all(len(selectors) == 1 for selectors in batches)
     assert run_tests._test_file_shards(1, (path,)) == ()
+
+
+def test_masterlog_header_dialog_uses_native_batch_isolation() -> None:
+    """Masterlog header Qt objects must not accumulate inside a large Windows shard."""
+
+    path = Path("tests/test_masterlog_header_dialog.py")
+    nodes = run_tests._top_level_test_nodes(path)
+
+    assert path.as_posix() in run_tests._FORCED_NATIVE_BATCH_FILES
+    batches = [
+        selectors
+        for batch_path, selectors in run_tests._heavy_test_batches((path,))
+        if batch_path == path.as_posix()
+    ]
+    assert batches
+    assert sum(len(selectors) for selectors in batches) == len(nodes)
+    assert all(1 <= len(selectors) <= run_tests._NATIVE_TEST_BATCH_SIZE for selectors in batches)
+    assert run_tests._test_file_shards(1, (path,)) == ()
