@@ -5,6 +5,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 from PySide6.QtCore import QRectF
 from PySide6.QtGui import QImage, QPainter
 
@@ -420,10 +421,16 @@ def test_report_panel_selector_keeps_singleton_opus_series() -> None:
         assert panels["opus"] == (opus,)
 
 
-def test_sparse_ratio_observation_survives_continuous_preview_downsampling(qapp) -> None:
+@pytest.mark.parametrize("gap_value", [None, np.nan, 0.0, -1.0])
+def test_sparse_ratio_observation_survives_continuous_preview_downsampling(qapp, gap_value) -> None:
     class RecordingPainter:
         def __init__(self) -> None:
             self.ellipses = 0
+            self.curve_lines = 0
+
+        def drawLine(self, line) -> None:
+            if line.x1() != line.x2() and line.y1() != line.y2():
+                self.curve_lines += 1
 
         def drawEllipse(self, *_args) -> None:
             self.ellipses += 1
@@ -436,6 +443,9 @@ def test_sparse_ratio_observation_survives_continuous_preview_downsampling(qapp)
     # Index 1235 is intentionally absent from the old 1,800-point uniform
     # depth sample, so this guards against losing factual sparse observations.
     values[1_235] = 2.5
+    if gap_value is not None:
+        values[1_236] = gap_value
+        values[1_237] = 3.0
     dataset = Dataset(
         "sparse-ratio-preview",
         "Sparse ratio preview",
@@ -479,7 +489,8 @@ def test_sparse_ratio_observation_survives_continuous_preview_downsampling(qapp)
     )
 
     # Isolated factual observations stay visible even though dense ratios use lines.
-    assert painter.ellipses == 1
+    assert painter.ellipses == (1 if gap_value is None else 2)
+    assert painter.curve_lines == 0
 
 
 def test_dense_ratio_preview_uses_bounded_continuous_line_geometry(qapp) -> None:
@@ -767,11 +778,12 @@ def test_chart_pages_do_not_repaginate_geology_reference_after_full_section() ->
         "src/geoworkbench/printing/hydrocarbon_interpretation_pdf_chart_enhanced.py"
     ).read_text(encoding="utf-8")
 
-    guard = "if not legend_reference_pages_emitted:"
+    guard = "if legend_reference_pages_emitted:"
     guard_index = source.index(guard)
+    omit_index = source.index("chart_legend = InterpretationGeologyLegend(())", guard_index)
     paginate_index = source.index("for legend_page in paginate_geology_legend(", guard_index)
-    reference_index = source.index("reference = {", paginate_index)
-    assert guard_index < paginate_index < reference_index
+    assert guard_index < omit_index < paginate_index
+    assert "else:" in source[omit_index:paginate_index]
     assert "legend_reference_pages_emitted: bool = False" in source
 
 

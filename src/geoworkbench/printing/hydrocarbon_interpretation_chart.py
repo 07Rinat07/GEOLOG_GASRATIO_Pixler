@@ -905,13 +905,7 @@ def _draw_ratio_preview_tracks(
         & (depth <= depth_max)
     )
     indices = indices[np.argsort(depth[indices], kind="stable")]
-    segments = continuous_depth_segments(
-        depth,
-        indices,
-        # Continuous ratio traces need enough vertices to retain real shape,
-        # but a 100k-row LAS must not turn one preview repaint into 100k lines.
-        limit=max(256, min(4_000, int(max(rect.height(), 1.0) * 4.0))),
-    )
+    point_limit = max(256, min(4_000, int(max(rect.height(), 1.0) * 4.0)))
 
     lane_width = rect.width() / len(tracks)
     for lane_index, (curve, scale) in enumerate(tracks):
@@ -967,6 +961,21 @@ def _draw_ratio_preview_tracks(
 
         values = np.asarray(curve.values, dtype=np.float64)
         if values.shape == depth.shape:
+            # Select factual curve rows before reducing depth geometry; otherwise
+            # an isolated observation can disappear from the shared depth sample.
+            usable = np.isfinite(values[indices])
+            if scale.logarithmic:
+                usable &= values[indices] > 0.0
+            valid_runs = np.split(indices, np.flatnonzero(usable[1:] != usable[:-1]) + 1)
+            segments = tuple(
+                segment
+                for run in valid_runs
+                if run.size and np.isfinite(values[run[0]])
+                and (not scale.logarithmic or values[run[0]] > 0.0)
+                for segment in continuous_depth_segments(
+                    depth, run, limit=max(2, int(point_limit * run.size / max(1, indices.size)))
+                )
+            )
             color = QColor(_COLORS[lane_index % len(_COLORS)])
             painter.save()
             painter.setClipRect(lane.adjusted(1.0, 1.0, -1.0, -1.0))
