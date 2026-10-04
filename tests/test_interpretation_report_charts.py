@@ -143,12 +143,11 @@ def test_report_charts_keep_source_named_las_evidence() -> None:
         assert [curve.metadata.original_mnemonic for curve in panels["drilling"]] == ["S224"]
 
 
-def test_pdf_curve_renderer_uses_points_for_ratios_and_lines_for_depth_series() -> None:
+def test_pdf_curve_renderer_uses_lines_for_ratios_and_points_for_opus() -> None:
     class RecordingPainter:
         def __init__(self) -> None:
             self.lines = 0
             self.ellipses = 0
-            self.ellipse_rects: list[QRectF] = []
 
         def save(self) -> None:
             pass
@@ -168,14 +167,13 @@ def test_pdf_curve_renderer_uses_points_for_ratios_and_lines_for_depth_series() 
         def drawLine(self, _line) -> None:
             self.lines += 1
 
-        def drawEllipse(self, rect) -> None:
+        def drawEllipse(self, _rect) -> None:
             self.ellipses += 1
-            self.ellipse_rects.append(QRectF(rect))
 
     depth = np.linspace(100.0, 104.0, 5)
     dataset = Dataset(
-        "scatter-report",
-        "Scatter report",
+        "ratio-line-report",
+        "Ratio line report",
         DatasetKind.GTI,
         DepthDomain.MD,
         depth,
@@ -191,13 +189,16 @@ def test_pdf_curve_renderer_uses_points_for_ratios_and_lines_for_depth_series() 
         ),
         np.linspace(1.5, 3.5, 5),
     )
-    total_gas = CurveData(
-        CurveMetadata("gas", "TG_CALC", "TG_CALC", "%", None, dataset.dataset_id),
-        np.linspace(1.0, 5.0, 5),
-    )
-    drilling = CurveData(
-        CurveMetadata("rop", "ROP", "ROP", "m/h", None, dataset.dataset_id),
-        np.linspace(10.0, 14.0, 5),
+    opus = CurveData(
+        CurveMetadata(
+            "opus",
+            "OPUS3",
+            "OPUS3",
+            "ratio",
+            None,
+            dataset.dataset_id,
+        ),
+        np.linspace(1.0, 2.0, 5),
     )
     page = DepthPage(100.0, 104.0, 100, 100.0)
     rect = QRectF(0.0, 0.0, 100.0, 100.0)
@@ -210,34 +211,23 @@ def test_pdf_curve_renderer_uses_points_for_ratios_and_lines_for_depth_series() 
         dataset,
         (ratio,),
         {"ratio": (1.5, 3.5)},
+        point_series=False,
+    )
+    assert ratio_painter.lines > 0
+    assert ratio_painter.ellipses == 0
+
+    opus_painter = RecordingPainter()
+    _draw_curves(
+        opus_painter,  # type: ignore[arg-type]
+        rect,
+        page,
+        dataset,
+        (opus,),
+        {"opus": (1.0, 2.0)},
         point_series=True,
     )
-    assert ratio_painter.ellipses > 0
-    assert ratio_painter.lines == 0
-    assert ratio_painter.ellipse_rects
-    expected_diameter = GAS_PRINT_POINT_RADIUS_PT * 2.0
-    assert all(
-        rect.width() == expected_diameter and rect.height() == expected_diameter
-        for rect in ratio_painter.ellipse_rects
-    )
-
-    for curve, value_range in (
-        (total_gas, {"gas": (1.0, 5.0)}),
-        (drilling, {"rop": (10.0, 14.0)}),
-    ):
-        line_painter = RecordingPainter()
-        _draw_curves(
-            line_painter,  # type: ignore[arg-type]
-            rect,
-            page,
-            dataset,
-            (curve,),
-            value_range,
-            point_series=False,
-        )
-        assert line_painter.lines > 0
-        assert line_painter.ellipses == 0
-
+    assert opus_painter.lines == 0
+    assert opus_painter.ellipses > 0
 
 def test_singleton_ratio_observation_survives_preview_and_pdf_range() -> None:
     class RecordingPainter:
@@ -310,9 +300,9 @@ def test_singleton_ratio_observation_survives_preview_and_pdf_range() -> None:
         AppLanguage.RU,
         {},
     )
-    # One factual point plus three legend glyph dots. If the singleton curve
-    # is filtered out, neither the observation nor its legend is rendered.
-    assert preview.ellipses >= 4
+    # A line cannot represent a singleton. The renderer keeps exactly the
+    # factual observation as a compact fallback marker.
+    assert preview.ellipses >= 1
 
     page = DepthPage(100.0, 102.0, 100, 100.0)
     ranges = _curve_ranges(
@@ -332,7 +322,7 @@ def test_singleton_ratio_observation_survives_preview_and_pdf_range() -> None:
         dataset,
         printed["ratios"],
         {"ratio": ranges["ratio"]},
-        point_series=True,
+        point_series=False,
     )
     assert pdf_painter.ellipses == 1
 
@@ -368,7 +358,7 @@ def test_report_panel_selector_keeps_singleton_opus_point_series() -> None:
         assert panels["opus"] == (opus,)
 
 
-def test_sparse_ratio_point_survives_whole_well_preview_downsampling() -> None:
+def test_sparse_ratio_singleton_remains_visible_in_whole_well_preview() -> None:
     class RecordingPainter:
         def __init__(self) -> None:
             self.ellipses = 0
@@ -381,8 +371,6 @@ def test_sparse_ratio_point_survives_whole_well_preview_downsampling() -> None:
 
     depth = np.arange(3_601, dtype=np.float64)
     values = np.full(depth.shape, np.nan, dtype=np.float64)
-    # Index 1235 is intentionally absent from the old 1,800-point uniform
-    # depth sample, so this guards against losing factual sparse observations.
     values[1_235] = 2.5
     dataset = Dataset(
         "sparse-ratio-preview",
@@ -402,14 +390,6 @@ def test_sparse_ratio_point_survives_whole_well_preview_downsampling() -> None:
         ),
         values,
     )
-    dataset.curves[ratio.metadata.curve_id] = ratio
-    report = SimpleNamespace(
-        primary_mnemonic="",
-        report_profile="standard",
-        methods=(),
-    )
-    selected = dict(whole_well_panels(report, dataset))["ratios"]
-    assert selected == (ratio,)
 
     painter = RecordingPainter()
     _draw_panel(
@@ -420,23 +400,25 @@ def test_sparse_ratio_point_survives_whole_well_preview_downsampling() -> None:
         float(depth[0]),
         float(depth[-1]),
         "ratios",
-        selected,
+        (ratio,),
         (),
         AppLanguage.RU,
         {},
     )
 
-    # One factual point plus three point glyphs in the legend.
-    assert painter.ellipses >= 4
+    assert painter.ellipses >= 1
 
-
-def test_dense_ratio_preview_sampling_is_bounded() -> None:
+def test_dense_ratio_preview_uses_continuous_line_not_scatter() -> None:
     class RecordingPainter:
         def __init__(self) -> None:
             self.ellipses = 0
+            self.lines = 0
 
         def drawEllipse(self, _rect) -> None:
             self.ellipses += 1
+
+        def drawLine(self, _line) -> None:
+            self.lines += 1
 
         def __getattr__(self, _name):
             return lambda *args, **kwargs: None
@@ -458,7 +440,7 @@ def test_dense_ratio_preview_sampling_is_bounded() -> None:
             None,
             dataset.dataset_id,
         ),
-        np.linspace(1.0, 4.0, depth.size, dtype=np.float64),
+        2.0 + np.sin(depth / 17.0),
     )
 
     painter = RecordingPainter()
@@ -476,13 +458,10 @@ def test_dense_ratio_preview_sampling_is_bounded() -> None:
         {},
     )
 
-    # Dense source rows are reduced by final vertical density, not by a
-    # line-oriented 1,800-point budget. Three extra dots belong to the legend.
-    factual_budget = gas_scatter_point_budget(178.0)
-    assert 3 < painter.ellipses <= factual_budget + 3
+    assert painter.lines > 0
+    assert painter.ellipses == 0
 
-
-def test_dense_ratio_pdf_scatter_is_density_bounded() -> None:
+def test_dense_ratio_pdf_uses_line_geometry_without_scatter_markers() -> None:
     class RecordingPainter:
         def __init__(self) -> None:
             self.ellipses = 0
@@ -517,103 +496,21 @@ def test_dense_ratio_pdf_scatter_is_density_bounded() -> None:
         2.0 + np.sin(depth * 0.3),
     )
     painter = RecordingPainter()
-    rect = QRectF(0.0, 0.0, 100.0, 180.0)
 
     _draw_curves(
         painter,  # type: ignore[arg-type]
-        rect,
+        QRectF(0.0, 0.0, 100.0, 180.0),
         DepthPage(100.0, 200.0, 100, 100.0),
         dataset,
         (ratio,),
         {"ratio": (1.0, 3.0)},
-        point_series=True,
+        point_series=False,
     )
 
-    assert painter.lines == 0
-    assert 0 < painter.ellipses <= gas_scatter_point_budget(rect.height())
+    assert painter.lines > 0
+    assert painter.ellipses == 0
 
-
-def test_dense_ratio_pdf_markers_do_not_overlap_into_worms() -> None:
-    class RecordingPainter:
-        def __init__(self) -> None:
-            self.ellipse_rects: list[QRectF] = []
-            self.lines = 0
-
-        def drawEllipse(self, rect) -> None:
-            self.ellipse_rects.append(QRectF(rect))
-
-        def drawLine(self, _line) -> None:
-            self.lines += 1
-
-        def __getattr__(self, _name):
-            return lambda *args, **kwargs: None
-
-    depth = np.linspace(100.0, 200.0, 5_001)
-    dataset = Dataset(
-        "dense-pdf-ratio-overlap",
-        "Dense PDF ratio overlap",
-        DatasetKind.GTI,
-        DepthDomain.MD,
-        depth,
-    )
-    ratio = CurveData(
-        CurveMetadata(
-            "ratio-overlap",
-            "C1_C2",
-            "C1_C2",
-            "ratio",
-            None,
-            dataset.dataset_id,
-        ),
-        2.0 + np.sin(depth * 0.3),
-    )
-    rect = QRectF(0.0, 0.0, 100.0, 180.0)
-    painter = RecordingPainter()
-
-    _draw_curves(
-        painter,  # type: ignore[arg-type]
-        rect,
-        DepthPage(100.0, 200.0, 100, 100.0),
-        dataset,
-        (ratio,),
-        {"ratio-overlap": (1.0, 3.0)},
-        point_series=True,
-    )
-
-    markers = painter.ellipse_rects
-    assert painter.lines == 0
-    assert 0 < len(markers) <= gas_scatter_point_budget(rect.height())
-    assert all(
-        abs(marker.width() - marker.height()) < 1e-9
-        for marker in markers
-    )
-
-    ordered = sorted(markers, key=lambda marker: marker.center().y())
-    longest_overlap_chain = 1
-    current_overlap_chain = 1
-    for previous, current in zip(ordered, ordered[1:], strict=False):
-        vertical_overlap = (
-            current.center().y() - previous.center().y()
-            < (previous.height() + current.height()) / 2.0
-        )
-        same_column = abs(current.center().x() - previous.center().x()) < (
-            previous.width() + current.width()
-        ) / 2.0
-        if vertical_overlap and same_column:
-            current_overlap_chain += 1
-            longest_overlap_chain = max(
-                longest_overlap_chain,
-                current_overlap_chain,
-            )
-        else:
-            current_overlap_chain = 1
-
-    # A small local overlap is acceptable for extrema from one depth bucket.
-    # What must never return is a long same-column chain that reads as a line.
-    assert longest_overlap_chain <= 3
-
-
-def test_report_panel_scatter_contract_is_ratio_only() -> None:
+def test_report_panel_point_contract_is_opus_only() -> None:
     whole = Path(
         "src/geoworkbench/printing/hydrocarbon_interpretation_chart.py"
     ).read_text(encoding="utf-8")
@@ -625,8 +522,8 @@ def test_report_panel_scatter_contract_is_ratio_only() -> None:
     ).read_text(encoding="utf-8")
 
     for source in (whole, pdf, enhanced):
-        assert 'panel_name in {"ratios", "opus"}' in source
-        assert 'panel_name != "drilling"' not in source
+        assert 'panel_name == "opus"' in source
+        assert 'panel_name in {"ratios", "opus"}' not in source
 
 def test_constant_gas_curve_keeps_true_percentiles_and_a_visible_trace(qapp) -> None:
     depth = np.linspace(0.0, 10.0, 11)
