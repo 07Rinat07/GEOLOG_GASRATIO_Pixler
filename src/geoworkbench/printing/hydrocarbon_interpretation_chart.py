@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+from geoworkbench.printing.gas_ratio_reference import (
+    ratio_identifier, ratio_reference_tracks, ratio_reference_color,
+)
+
 from html import escape
 
 import numpy as np
 from PySide6.QtCore import QByteArray, QBuffer, QIODevice, QLineF, QPointF, QRectF, Qt
-from PySide6.QtGui import QColor, QImage, QPainter, QPen
+from PySide6.QtGui import QPolygonF, QColor, QImage, QPainter, QPen
 
 from geoworkbench.domain.depth_interval import scope_dataset
 from geoworkbench.domain.models import CurveData, Dataset
@@ -61,9 +65,7 @@ from geoworkbench.services.hydrocarbon_interpretation import (
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.gas_curve_presentation import (
     GAS_PREVIEW_POINT_RADIUS_PX,
-    GasRatioScale,
     gas_ratio_position,
-    gas_ratio_scale,
     gas_ratio_scale_ticks,
     gas_scatter_point_budget,
     select_gas_scatter_samples,
@@ -853,18 +855,9 @@ def _draw_ratio_preview_tracks(
     *,
     header_height: float,
 ) -> bool:
-    """Preview gas ratios as separate continuous lanes with factual fixed scales."""
+    """Preview Wh/Bh together and Ch separately using reference scales."""
 
-    tracks: list[tuple[CurveData, GasRatioScale]] = []
-    for curve in curves:
-        scale = gas_ratio_scale(
-            (
-                curve.metadata.original_mnemonic,
-                curve.metadata.canonical_mnemonic,
-            )
-        )
-        if scale is not None:
-            tracks.append((curve, scale))
+    tracks = ratio_reference_tracks(curves)
     if not tracks:
         return False
 
@@ -907,8 +900,9 @@ def _draw_ratio_preview_tracks(
     indices = indices[np.argsort(depth[indices], kind="stable")]
     point_limit = max(256, min(4_000, int(max(rect.height(), 1.0) * 4.0)))
 
-    lane_width = rect.width() / len(tracks)
-    for lane_index, (curve, scale) in enumerate(tracks):
+    lane_count = max(group for _, _, group in tracks) + 1
+    lane_width = rect.width() / lane_count
+    for curve, scale, lane_index in tracks:
         lane = QRectF(
             rect.left() + lane_index * lane_width,
             rect.top(),
@@ -931,6 +925,10 @@ def _draw_ratio_preview_tracks(
             or curve.metadata.original_mnemonic
             or "ratio"
         ).replace("PIXLER_", "").replace("_", "/")
+        if ratio_identifier(curve) in {"WH", "BH"}:
+            mnemonic = {AppLanguage.RU: "Wh (красн.) / Bh (син.)",
+                        AppLanguage.KK: "Wh (қызыл) / Bh (көк)",
+                        AppLanguage.EN: "Wh (red) / Bh (blue)"}[language]
         painter.setPen(QColor("#172033"))
         painter.setFont(print_font(7.0, text=mnemonic))
         painter.drawText(
@@ -976,10 +974,10 @@ def _draw_ratio_preview_tracks(
                     depth, run, limit=max(2, int(point_limit * run.size / max(1, indices.size)))
                 )
             )
-            color = QColor(_COLORS[lane_index % len(_COLORS)])
+            color = ratio_reference_color(curve)
             painter.save()
             painter.setClipRect(lane.adjusted(1.0, 1.0, -1.0, -1.0))
-            painter.setPen(QPen(color, 1.8))
+            painter.setPen(QPen(color, 1.0, Qt.PenStyle.DashLine))
             for segment in segments:
                 points: list[QPointF] = []
                 for row_index in segment:
@@ -1003,8 +1001,7 @@ def _draw_ratio_preview_tracks(
                     painter.drawEllipse(points[0], 1.4, 1.4)
                     painter.setBrush(Qt.BrushStyle.NoBrush)
                 else:
-                    for previous, current in zip(points, points[1:], strict=False):
-                        painter.drawLine(QLineF(previous, current))
+                    painter.drawPolyline(QPolygonF(points))
             painter.restore()
 
         painter.setBrush(Qt.BrushStyle.NoBrush)
@@ -1198,9 +1195,9 @@ def _labels(language: AppLanguage) -> dict[str, str]:
         AppLanguage.RU: {
             "title": "Графики интерпретационных кривых по глубине",
             "note": (
-                "Обычные многокривые дорожки масштабированы по p5–p95. Газовые "
-                "отношения показаны отдельными непрерывными трассами на стабильных "
-                "фактических шкалах (линейных/логарифмических), одинаковых по глубине."
+                "Обычные многокривые дорожки масштабированы по p5–p95. "
+                "Wh и Bh показаны совместно, Ch — отдельно; используются стабильные "
+                "фактические шкалы (линейные/логарифмические), одинаковые по глубине."
             ),
             "depth": "Глубина",
             "total": "Общий и нормализованный газ",
@@ -1211,7 +1208,7 @@ def _labels(language: AppLanguage) -> dict[str, str]:
                 "Цветные полосы и маркеры формы/цвета показывают перспективные интервалы "
                 "и предварительный тип флюида; расшифровка приведена в легенде, а полная "
                 "формулировка — в таблице. Шкалы глубины продублированы слева и справа; "
-                "Для газовых отношений над каждой узкой дорожкой показаны реальные "
+                "Wh/Bh используют общую шкалу; Ch — отдельную. Над дорожками показаны "
                 "значения её фиксированной шкалы; разрывы исходных данных не соединяются."
             ),
         },
@@ -1239,7 +1236,7 @@ def _labels(language: AppLanguage) -> dict[str, str]:
             "title": "Depth plots of interpretation curves",
             "note": (
                 "Ordinary multi-curve tracks use p5–p95 scaling. Gas ratios are "
-                "separate continuous traces on stable factual linear/logarithmic "
+                "Wh/Bh share an axis and Ch has a separate axis, with fixed "
                 "scales that do not change with depth."
             ),
             "depth": "Depth",

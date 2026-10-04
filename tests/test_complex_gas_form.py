@@ -108,8 +108,12 @@ def test_complex_gas_builder_contains_all_requested_tracks() -> None:
         "IC4_NC4",
         "IC5_NC5",
     )
-    assert ratios.bindings[0].x_scale is XScale.LINEAR
-    assert all(binding.x_scale is XScale.LOGARITHMIC for binding in ratios.bindings[1:])
+    assert ratios.bindings[0].x_scale is XScale.LOGARITHMIC
+    assert ratios.bindings[1].x_scale is XScale.LOGARITHMIC
+    assert ratios.bindings[2].x_scale is XScale.LINEAR
+    assert ratios.bindings[2].x_min == 0.0
+    assert ratios.bindings[2].x_max == 5.0
+    assert all(binding.x_scale is XScale.LOGARITHMIC for binding in ratios.bindings[3:])
 
     pixler = _track(form, "track-column-complex-pixler")
     assert tuple(binding.canonical_parameter_id for binding in pixler.bindings) == (

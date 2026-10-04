@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+from geoworkbench.printing.gas_ratio_reference import (
+    ratio_identifier, ratio_reference_tracks, ratio_reference_color,
+)
+
 from math import floor, isclose
 
 import numpy as np
 from PySide6.QtCore import QLineF, QPointF, QRectF, Qt
-from PySide6.QtGui import QColor, QPainter, QPen
+from PySide6.QtGui import QPolygonF, QColor, QPainter, QPen
 
 from geoworkbench.domain.depth_interval import scope_dataset
 from geoworkbench.domain.models import CurveData, Dataset
@@ -72,9 +76,7 @@ from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
 )
 from geoworkbench.services.gas_curve_presentation import (
-    GasRatioScale,
     gas_ratio_position,
-    gas_ratio_scale,
     gas_ratio_scale_ticks,
 )
 from geoworkbench.services.localization import AppLanguage
@@ -813,18 +815,9 @@ def _draw_ratio_tracks(
     *,
     header_height: float,
 ) -> bool:
-    """Draw Haworth/Pixler as separate continuous industry-style ratio lanes."""
+    """Draw Wh/Bh on a shared axis and Ch on its own reference axis."""
 
-    tracks: list[tuple[CurveData, GasRatioScale]] = []
-    for curve in curves:
-        scale = gas_ratio_scale(
-            (
-                curve.metadata.original_mnemonic,
-                curve.metadata.canonical_mnemonic,
-            )
-        )
-        if scale is not None:
-            tracks.append((curve, scale))
+    tracks = ratio_reference_tracks(curves)
     if not tracks:
         return False
 
@@ -852,14 +845,9 @@ def _draw_ratio_tracks(
         & (depth <= page.bottom_depth)
     )
     indices = indices[np.argsort(depth[indices], kind="stable")]
-    segments = base_chart.continuous_depth_segments(
-        depth,
-        indices,
-        limit=max(2, int(indices.size)),
-    )
-
-    lane_width = rect.width() / len(tracks)
-    for lane_index, (curve, scale) in enumerate(tracks):
+    lane_count = max(group for _, _, group in tracks) + 1
+    lane_width = rect.width() / lane_count
+    for curve, scale, lane_index in tracks:
         lane = QRectF(
             rect.left() + lane_index * lane_width,
             rect.top(),
@@ -889,6 +877,8 @@ def _draw_ratio_tracks(
             or curve.metadata.original_mnemonic
             or "ratio"
         ).replace("PIXLER_", "").replace("_", "/")
+        if ratio_identifier(curve) in {"WH", "BH"}:
+            mnemonic = "Wh / Bh"
         painter.setFont(print_font(5.1, text=mnemonic))
         painter.setPen(QColor("#1f2937"))
         painter.drawText(
@@ -920,13 +910,26 @@ def _draw_ratio_tracks(
 
         values = np.asarray(curve.values, dtype=np.float64)
         if values.shape == depth.shape:
-            color = QColor(base_chart._COLORS[lane_index % len(base_chart._COLORS)])
-            pen = QPen(color, 0.9)
+            usable = np.isfinite(values[indices])
+            if scale.logarithmic:
+                usable &= values[indices] > 0.0
+            valid_runs = np.split(indices, np.flatnonzero(usable[1:] != usable[:-1]) + 1)
+            curve_segments = tuple(
+                segment
+                for run in valid_runs
+                if run.size and np.isfinite(values[run[0]])
+                and (not scale.logarithmic or values[run[0]] > 0.0)
+                for segment in base_chart.continuous_depth_segments(
+                    depth, run, limit=max(2, int(run.size))
+                )
+            )
+            color = ratio_reference_color(curve)
+            pen = QPen(color, 0.7, Qt.PenStyle.DashLine)
             pen.setCosmetic(True)
             painter.save()
             painter.setClipRect(lane.adjusted(0.6, 0.6, -0.6, -0.6))
             painter.setPen(pen)
-            for segment in segments:
+            for segment in curve_segments:
                 render_rows = base_chart._extrema_preserving_print_rows(
                     segment,
                     depth,
@@ -950,8 +953,7 @@ def _draw_ratio_tracks(
                     painter.drawEllipse(points[0], 0.75, 0.75)
                     painter.setBrush(Qt.BrushStyle.NoBrush)
                 else:
-                    for previous, current in zip(points, points[1:], strict=False):
-                        painter.drawLine(QLineF(previous, current))
+                    painter.drawPolyline(QPolygonF(points))
             painter.restore()
 
         painter.setBrush(Qt.BrushStyle.NoBrush)

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from html import escape
 
+from geoworkbench.printing.gas_ratio_reference import ratio_reference_summary_uri
+
 from geoworkbench.domain.depth_interval import scope_dataset
 from geoworkbench.domain.models import Dataset
 from geoworkbench.domain.report_composition import ReportLayoutProfile, ReportLegendMode
@@ -95,6 +97,13 @@ def hydrocarbon_interpretation_html_with_front_chart(
         print_layout=print_layout,
         layout_profile=layout_profile,
     )
+    summary_uri = ratio_reference_summary_uri(scope_dataset(dataset, depth_range), language)
+    if summary_uri:
+        block += (
+            "<div class='gas-ratio-reference' style='page-break-before:always;'>"
+            f"<img alt='Gas ratio correlations and Pixler profiles' style='width:100%;' src='{summary_uri}' />"
+            "</div>"
+        )
     marker = "<h2>"
     if marker in base:
         return base.replace(marker, block + marker, 1)

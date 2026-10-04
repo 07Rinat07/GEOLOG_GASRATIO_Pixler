@@ -145,7 +145,7 @@ def set_normalized_gas_report_mode(
 def build_hydrocarbon_interpretation_report(
     session: ProjectSession,
     *,
-    threshold: float = 3.0,
+    threshold: float = 4.0,
     normalized_gas_mode: NormalizedGasCalculationMode | str | None = None,
     depth_interval: DepthInterval | None = None,
 ) -> HydrocarbonInterpretationReport:
@@ -262,7 +262,7 @@ def build_hydrocarbon_interpretation_report(
 def build_opus_interpretation_report(
     session: ProjectSession,
     *,
-    threshold: float = 3.0,
+    threshold: float = 4.0,
     total_gas_lod: float | None = None,
     depth_interval: DepthInterval | None = None,
 ) -> HydrocarbonInterpretationReport:

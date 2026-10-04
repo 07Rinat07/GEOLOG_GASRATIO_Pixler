@@ -505,6 +505,9 @@ def test_dense_ratio_preview_uses_bounded_continuous_line_geometry(qapp) -> None
         def drawLine(self, *_args) -> None:
             self.lines += 1
 
+        def drawPolyline(self, points) -> None:
+            self.lines += max(0, points.size() - 1)
+
         def __getattr__(self, _name):
             return lambda *args, **kwargs: None
 

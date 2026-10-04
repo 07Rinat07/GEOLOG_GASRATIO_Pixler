@@ -12,6 +12,7 @@ from geoworkbench.forms.models import (
 )
 from geoworkbench.tablet.models import (
     CurveStyle,
+    CurveLineStyle,
     TrackKind,
     XScale,
 )
@@ -187,7 +188,9 @@ def _binding(
         canonical_parameter_id=code,
         display_name=name,
         unit=unit,
-        style=CurveStyle(color=color, width=width),
+        style=CurveStyle(color=color, width=width, line_style=(
+            CurveLineStyle.DASH if code in {"WETNESS", "BALANCE", "CHARACTER"}
+            else CurveLineStyle.SOLID)),
         x_scale=x_scale,
         x_min=x_min,
         x_max=x_max,
@@ -328,8 +331,9 @@ def _ratio_bindings(language: TemplateLanguage) -> list[ParameterBinding]:
             "WETNESS",
             _t("wetness", language),
             "%",
-            "#0f766e",
-            x_min=0.0,
+            "#ef4444",
+            x_scale=XScale.LOGARITHMIC,
+            x_min=0.1,
             x_max=100.0,
             width=2.0,
         ),
@@ -337,7 +341,7 @@ def _ratio_bindings(language: TemplateLanguage) -> list[ParameterBinding]:
             "BALANCE",
             _t("balance", language),
             _t("ratio_unit", language),
-            "#b45309",
+            "#1d4ed8",
             x_scale=XScale.LOGARITHMIC,
             x_min=0.1,
             x_max=100.0,
@@ -346,10 +350,9 @@ def _ratio_bindings(language: TemplateLanguage) -> list[ParameterBinding]:
             "CHARACTER",
             _t("character", language),
             _t("ratio_unit", language),
-            "#be123c",
-            x_scale=XScale.LOGARITHMIC,
-            x_min=0.01,
-            x_max=10.0,
+            "#15803d",
+            x_min=0.0,
+            x_max=5.0,
         ),
         _binding(
             "IC4_NC4",

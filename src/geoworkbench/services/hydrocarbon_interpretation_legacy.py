@@ -260,7 +260,7 @@ _FLUID_CHARACTER_Z_THRESHOLD = 2.0
 def build_hydrocarbon_interpretation_report(
     session: ProjectSession,
     *,
-    threshold: float = 3.0,
+    threshold: float = 4.0,
     background_exclusion_intervals: tuple[tuple[float, float], ...] = (),
     candidate_exclusion_intervals: tuple[tuple[float, float], ...] = (),
 ) -> HydrocarbonInterpretationReport:

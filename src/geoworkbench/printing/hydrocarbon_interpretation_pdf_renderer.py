@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from geoworkbench.printing.gas_ratio_reference import (
+    has_ratio_reference_summary, paint_ratio_reference_summary,
+)
+
 import re
 from typing import Any
 
@@ -135,6 +139,12 @@ def render_hydrocarbon_interpretation_report(
                 legend_reference_pages_emitted=legend_reference_pages_emitted,
                 annotations=annotations,
             )
+
+            reference_dataset = scope_dataset(dataset, report.analysis_depth_interval or depth_range)
+            if has_ratio_reference_summary(reference_dataset):
+                canvas.new_page()
+                paint_ratio_reference_summary(painter, canvas.content_rect, reference_dataset, language)
+                canvas.y = canvas.content_rect.bottom()
 
         render_report_html(
             canvas,
