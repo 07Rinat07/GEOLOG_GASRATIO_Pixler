@@ -1,5 +1,7 @@
 import re
 
+import pytest
+
 from geoworkbench.forms.a4_factory_templates import (
     A4_FACTORY_TEMPLATE_IDS,
     a4_factory_templates,
