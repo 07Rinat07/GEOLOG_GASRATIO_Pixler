@@ -666,9 +666,6 @@ def _draw_panel(
         labels[panel_name], 11.0,
     )
 
-    depth_indices = np.flatnonzero(finite_depth)
-    depth_indices = depth_indices[np.argsort(depth[depth_indices], kind="stable")]
-    segments = continuous_depth_segments(depth, depth_indices, limit=1_800)
     curve_rect = rect.adjusted(7.0, 1.0, -7.0, -1.0)
     painter.save()
     painter.setClipRect(rect.adjusted(1.0, 1.0, -1.0, -1.0))
@@ -723,7 +720,16 @@ def _draw_panel(
             line_width = 1.35 if panel_name == "ratios" else 2.2
             pen = QPen(color, line_width)
             painter.setPen(pen)
-            for segment in segments:
+            line_indices = np.flatnonzero(usable)
+            line_indices = line_indices[
+                np.argsort(depth[line_indices], kind="stable")
+            ]
+            curve_segments = continuous_depth_segments(
+                depth,
+                line_indices,
+                limit=1_800,
+            )
+            for segment in curve_segments:
                 finite_segment = tuple(
                     int(index)
                     for index in segment
