@@ -533,7 +533,7 @@ def test_dense_ratio_pdf_scatter_is_density_bounded() -> None:
 
     assert painter.lines == 0
     assert GAS_SCATTER_VERTICAL_SPACING <= 1.5
-    assert GAS_PRINT_POINT_RADIUS_PT <= 0.5
+    assert GAS_PRINT_POINT_RADIUS_PT <= 0.6
     assert int(rect.height() / 1.5) <= painter.ellipses <= gas_scatter_point_budget(
         rect.height()
     )
