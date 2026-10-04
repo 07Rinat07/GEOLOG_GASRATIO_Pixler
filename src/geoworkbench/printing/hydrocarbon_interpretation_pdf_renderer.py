@@ -116,6 +116,7 @@ def render_hydrocarbon_interpretation_report(
                 report, scoped, language,
             )
             chart_legend_mode = legend_mode
+            legend_reference_pages_emitted = False
             if key_html and legend_mode is not ReportLegendMode.HIDE:
                 top = float(np.nanmin(scoped.depth))
                 bottom = float(np.nanmax(scoped.depth))
@@ -163,6 +164,7 @@ def render_hydrocarbon_interpretation_report(
                         # repeats on chart pages. Repeating the full catalog on
                         # every depth page wastes plot height and duplicates content.
                         chart_legend_mode = ReportLegendMode.COMPACT
+                        legend_reference_pages_emitted = True
 
                 # Method/formula explanations are a separate semantic section.
                 # Never append them below a geology legend on the same physical page.
@@ -182,6 +184,7 @@ def render_hydrocarbon_interpretation_report(
                 geology=geology,
                 geology_track_settings=geology_track_settings,
                 legend_mode=chart_legend_mode,
+                legend_reference_pages_emitted=legend_reference_pages_emitted,
                 annotations=annotations,
             )
 
