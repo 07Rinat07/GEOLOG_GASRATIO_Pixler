@@ -209,7 +209,7 @@ def test_opus_chart_key_keeps_component_sum_basis_separate_from_gasomer() -> Non
     assert "different gasomer basis" not in html
 
 
-def test_full_pdf_places_lithology_and_method_key_together_before_charts(qapp, tmp_path):
+def test_full_pdf_separates_geology_legend_method_key_and_charts(qapp, tmp_path):
     from geoworkbench.printing.hydrocarbon_interpretation_report import (
         export_hydrocarbon_interpretation_pdf,
     )
@@ -234,10 +234,15 @@ def test_full_pdf_places_lithology_and_method_key_together_before_charts(qapp, t
             index for index, page_text in enumerate(page_texts)
             if "Пояснения к графикам" in page_text
         )
-        text = page_texts[key_page_index]
-        assert "Литология" in text
-        assert "Wh = 100" in text
-        assert "Bh =" in text and "Ch =" in text
+        legend_page_index = next(
+            index for index, page_text in enumerate(page_texts[:key_page_index])
+            if "Литология" in page_text
+        )
+        key_text = page_texts[key_page_index]
+        assert "Литология" not in key_text
+        assert "Wh = 100" in key_text
+        assert "Bh =" in key_text and "Ch =" in key_text
+        assert legend_page_index < key_page_index
         chart_page_index = next(
             index for index, page_text in enumerate(page_texts)
             if "Графики интерпретационных кривых" in page_text
