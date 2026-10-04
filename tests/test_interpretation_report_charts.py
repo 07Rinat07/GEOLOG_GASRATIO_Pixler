@@ -41,10 +41,6 @@ from geoworkbench.project.interpretation_calculation_controller import (
     InterpretationCalculationController,
 )
 from geoworkbench.project.session import ProjectSession
-from geoworkbench.services.gas_curve_presentation import (
-    GAS_PRINT_POINT_RADIUS_PT,
-    gas_scatter_point_budget,
-)
 from geoworkbench.services.hydrocarbon_interpretation import (
     build_hydrocarbon_interpretation_report,
 )
