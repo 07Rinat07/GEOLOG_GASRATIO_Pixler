@@ -144,7 +144,7 @@ def test_report_charts_keep_source_named_las_evidence() -> None:
         assert [curve.metadata.original_mnemonic for curve in panels["drilling"]] == ["S224"]
 
 
-def test_pdf_curve_renderer_uses_points_for_ratios_and_lines_for_depth_series() -> None:
+def test_pdf_curve_renderer_keeps_explicit_scatter_primitive_and_line_primitive() -> None:
     class RecordingPainter:
         def __init__(self) -> None:
             self.lines = 0
@@ -245,7 +245,7 @@ def test_singleton_ratio_observation_survives_preview_and_pdf_range(qapp) -> Non
         def __init__(self) -> None:
             self.ellipses = 0
 
-        def drawEllipse(self, _rect) -> None:
+        def drawEllipse(self, *_args) -> None:
             self.ellipses += 1
 
         def __getattr__(self, _name):
@@ -311,9 +311,8 @@ def test_singleton_ratio_observation_survives_preview_and_pdf_range(qapp) -> Non
         AppLanguage.RU,
         {},
     )
-    # One factual point plus three legend glyph dots. If the singleton curve
-    # is filtered out, neither the observation nor its legend is rendered.
-    assert preview.ellipses >= 4
+    # A singleton cannot form a line, so it remains as one factual marker.
+    assert preview.ellipses == 1
 
     page = DepthPage(100.0, 102.0, 100, 100.0)
     ranges = _curve_ranges(
@@ -337,7 +336,7 @@ def test_singleton_ratio_observation_survives_preview_and_pdf_range(qapp) -> Non
     )
     assert pdf_painter.ellipses == 1
 
-def test_report_panel_selector_keeps_singleton_opus_point_series() -> None:
+def test_report_panel_selector_keeps_singleton_opus_series() -> None:
     depth = np.asarray([100.0, 101.0, 102.0], dtype=np.float64)
     dataset = Dataset(
         "singleton-opus",
@@ -369,12 +368,12 @@ def test_report_panel_selector_keeps_singleton_opus_point_series() -> None:
         assert panels["opus"] == (opus,)
 
 
-def test_sparse_ratio_point_survives_whole_well_preview_downsampling(qapp) -> None:
+def test_sparse_ratio_observation_survives_continuous_preview_downsampling(qapp) -> None:
     class RecordingPainter:
         def __init__(self) -> None:
             self.ellipses = 0
 
-        def drawEllipse(self, _rect) -> None:
+        def drawEllipse(self, *_args) -> None:
             self.ellipses += 1
 
         def __getattr__(self, _name):
@@ -427,17 +426,21 @@ def test_sparse_ratio_point_survives_whole_well_preview_downsampling(qapp) -> No
         {},
     )
 
-    # One factual point plus three point glyphs in the legend.
-    assert painter.ellipses >= 4
+    # Isolated factual observations stay visible even though dense ratios use lines.
+    assert painter.ellipses == 1
 
 
-def test_dense_ratio_preview_sampling_is_bounded(qapp) -> None:
+def test_dense_ratio_preview_uses_bounded_continuous_line_geometry(qapp) -> None:
     class RecordingPainter:
         def __init__(self) -> None:
             self.ellipses = 0
+            self.lines = 0
 
-        def drawEllipse(self, _rect) -> None:
+        def drawEllipse(self, *_args) -> None:
             self.ellipses += 1
+
+        def drawLine(self, *_args) -> None:
+            self.lines += 1
 
         def __getattr__(self, _name):
             return lambda *args, **kwargs: None
@@ -459,13 +462,14 @@ def test_dense_ratio_preview_sampling_is_bounded(qapp) -> None:
             None,
             dataset.dataset_id,
         ),
-        np.linspace(1.0, 4.0, depth.size, dtype=np.float64),
+        np.linspace(1.0, 40.0, depth.size, dtype=np.float64),
     )
 
     painter = RecordingPainter()
+    rect = QRectF(0.0, 0.0, 120.0, 180.0)
     _draw_panel(
         painter,  # type: ignore[arg-type]
-        QRectF(0.0, 0.0, 120.0, 180.0),
+        rect,
         depth,
         np.isfinite(depth),
         float(depth[0]),
@@ -477,12 +481,11 @@ def test_dense_ratio_preview_sampling_is_bounded(qapp) -> None:
         {},
     )
 
-    # Dense source rows are reduced by final vertical density, not by a
-    # line-oriented 1,800-point budget. Three extra dots belong to the legend.
-    factual_budget = gas_scatter_point_budget(178.0)
-    assert factual_budget >= int(178.0 / 1.5)
-    assert int(178.0 / 1.5) + 3 <= painter.ellipses <= factual_budget + 3
-
+    # The factual profile is a line, not a cloud. Sampling is bounded by the
+    # preview-height budget while retaining enough vertices for the real trend.
+    assert painter.lines > 100
+    assert painter.lines < 2_000
+    assert painter.ellipses == 0
 
 def test_dense_ratio_pdf_scatter_is_density_bounded() -> None:
     class RecordingPainter:
@@ -490,7 +493,7 @@ def test_dense_ratio_pdf_scatter_is_density_bounded() -> None:
             self.ellipses = 0
             self.lines = 0
 
-        def drawEllipse(self, _rect) -> None:
+        def drawEllipse(self, *_args) -> None:
             self.ellipses += 1
 
         def drawLine(self, _line) -> None:
@@ -619,20 +622,20 @@ def test_dense_ratio_pdf_markers_do_not_overlap_into_worms() -> None:
     assert longest_overlap_chain <= 3
 
 
-def test_report_panel_scatter_contract_is_ratio_only() -> None:
+def test_report_ratio_contract_uses_continuous_scaled_subtracks() -> None:
     whole = Path(
         "src/geoworkbench/printing/hydrocarbon_interpretation_chart.py"
-    ).read_text(encoding="utf-8")
-    pdf = Path(
-        "src/geoworkbench/printing/hydrocarbon_interpretation_pdf_chart.py"
     ).read_text(encoding="utf-8")
     enhanced = Path(
         "src/geoworkbench/printing/hydrocarbon_interpretation_pdf_chart_enhanced.py"
     ).read_text(encoding="utf-8")
 
-    for source in (whole, pdf, enhanced):
-        assert 'panel_name in {"ratios", "opus"}' in source
-        assert 'panel_name != "drilling"' not in source
+    assert 'panel_name == "ratios" and _draw_ratio_preview_tracks(' in whole
+    assert 'point_series = False' in whole
+    assert 'gas_ratio_scale_ticks' in whole
+    assert 'panel_name == "ratios" and _draw_ratio_tracks(' in enhanced
+    assert 'point_series=False' in enhanced
+    assert 'gas_ratio_scale_ticks' in enhanced
 
 def test_constant_gas_curve_keeps_true_percentiles_and_a_visible_trace(qapp) -> None:
     depth = np.linspace(0.0, 10.0, 11)
@@ -693,22 +696,19 @@ def test_print_html_isolates_chart_methodology_from_following_chart_page(qapp) -
     assert key_position < chart_position
 
 
-def test_pdf_reference_sections_keep_geology_legend_and_methodology_on_separate_pages() -> None:
+def test_pdf_starts_chart_section_with_methodology_not_geology_catalog() -> None:
     source = Path(
         "src/geoworkbench/printing/hydrocarbon_interpretation_pdf_renderer.py"
     ).read_text(encoding="utf-8")
 
-    assert "paginate_geology_legend(" in source
-    assert "chart_legend_mode = ReportLegendMode.COMPACT" in source
-    assert "legend_reference_pages_emitted = False" in source
+    assert "paginate_geology_legend(" not in source
+    assert "build_interpretation_geology_legend(" not in source
+    assert "ReportLegendMode.COMPACT" in source
     assert "legend_reference_pages_emitted = True" in source
-    assert "legend_reference_pages_emitted=legend_reference_pages_emitted" in source
-    marker = "# Method/formula explanations are a separate semantic section."
-    marker_index = source.index(marker)
-    method_render_index = source.index("render_report_html(", marker_index)
-    assert "canvas.new_page()" in source[marker_index:method_render_index]
-    assert "Never append them below a geology legend on the same physical page." in source
-
+    assert "A separate geology-catalog page before it is not useful" in source
+    method_render_index = source.index("render_report_html(")
+    chart_render_index = source.index("render_chart_pages(", method_render_index)
+    assert method_render_index < chart_render_index
 
 def test_chart_pages_do_not_repaginate_geology_reference_after_full_section() -> None:
     source = Path(
