@@ -1186,9 +1186,9 @@ def _labels(language: AppLanguage) -> dict[str, str]:
         AppLanguage.RU: {
             "title": "Графики интерпретационных кривых по глубине",
             "note": (
-                "Каждая кривая масштабирована внутри своей дорожки по диапазону "
-                "p5–p95; масштаб служит для сопоставления формы, а не абсолютных "
-                "значений разных методов."
+                "Обычные многокривые дорожки масштабированы по p5–p95. Газовые "
+                "отношения показаны отдельными непрерывными трассами на стабильных "
+                "фактических шкалах (линейных/логарифмических), одинаковых по глубине."
             ),
             "depth": "Глубина",
             "total": "Общий и нормализованный газ",
@@ -1199,14 +1199,16 @@ def _labels(language: AppLanguage) -> dict[str, str]:
                 "Цветные полосы и маркеры формы/цвета показывают перспективные интервалы "
                 "и предварительный тип флюида; расшифровка приведена в легенде, а полная "
                 "формулировка — в таблице. Шкалы глубины продублированы слева и справа; "
-                "0–100 над дорожками показывает положение внутри диапазона p5–p95."
+                "Для газовых отношений над каждой узкой дорожкой показаны реальные "
+                "значения её фиксированной шкалы; разрывы исходных данных не соединяются."
             ),
         },
         AppLanguage.KK: {
             "title": "Тереңдік бойынша интерпретациялық қисықтар графиктері",
             "note": (
-                "Әр қисық өз жолында p5–p95 ауқымы бойынша масштабталған; масштаб "
-                "әртүрлі әдістердің абсолют мәндерін емес, пішінін салыстыруға арналған."
+                "Кәдімгі көп қисықты жолдар p5–p95 бойынша масштабталады. Газ "
+                "қатынастары тереңдік бойынша өзгермейтін нақты сызықтық/логарифмдік "
+                "шкалаларда бөлек үздіксіз трассалармен көрсетіледі."
             ),
             "depth": "Тереңдік",
             "total": "Жалпы және нормаланған газ",
@@ -1217,15 +1219,16 @@ def _labels(language: AppLanguage) -> dict[str, str]:
                 "Түсті жолақтар мен пішін/түс маркерлері перспективалы аралықтарды және "
                 "флюидтің алдын ала түрін көрсетеді; түсіндірме легендада, толық мәтін "
                 "кестеде беріледі. Тереңдік шкаласы екі жақта қайталанады; 0–100 мәндері "
-                "p5–p95 ауқымындағы орынды көрсетеді."
+                "газ қатынастары үшін әр тар жолдың үстінде оның тұрақты шкаласының "
+                "нақты мәндері көрсетіледі; бастапқы дерек үзілістері қосылмайды."
             ),
         },
         AppLanguage.EN: {
             "title": "Depth plots of interpretation curves",
             "note": (
-                "Each curve is scaled within its track to the p5–p95 range; this "
-                "scale compares shape and does not imply that absolute values from "
-                "different methods are equivalent."
+                "Ordinary multi-curve tracks use p5–p95 scaling. Gas ratios are "
+                "separate continuous traces on stable factual linear/logarithmic "
+                "scales that do not change with depth."
             ),
             "depth": "Depth",
             "total": "Total and normalized gas",
@@ -1236,7 +1239,8 @@ def _labels(language: AppLanguage) -> dict[str, str]:
                 "Colored bands plus shape/colour markers show prospective intervals and "
                 "preliminary fluid type; the legend decodes markers and the table keeps "
                 "the full wording. Depth scales are shown on both sides; 0–100 labels "
-                "show position within each p5–p95 range."
+                "gas-ratio lanes show the real values of their fixed scales and "
+                "never connect across source-data gaps."
             ),
         },
     }[language]
