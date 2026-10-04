@@ -10,6 +10,7 @@ from geoworkbench.tablet.geometry_cache import (
 from geoworkbench.tablet.relative_gas import build_relative_gas_stack
 from geoworkbench.tablet.sampling import select_visible_samples
 from geoworkbench.services.gas_curve_presentation import (
+    GAS_SCATTER_VERTICAL_SPACING,
     GAS_SCREEN_POINT_SIZE_PX,
     gas_scatter_point_budget,
     is_gas_point_mnemonic,
@@ -78,9 +79,14 @@ def test_gas_point_presentation_is_limited_to_ratios_and_interpretation() -> Non
 
 
 def test_gas_scatter_budget_and_marker_are_compact() -> None:
-    assert GAS_SCREEN_POINT_SIZE_PX < 3.0
-    assert gas_scatter_point_budget(180.0) == 72
-    assert gas_scatter_point_budget(900.0) == 360
+    assert GAS_SCREEN_POINT_SIZE_PX < 2.0
+    assert GAS_SCATTER_VERTICAL_SPACING <= 1.5
+    assert gas_scatter_point_budget(180.0) == int(
+        180.0 / GAS_SCATTER_VERTICAL_SPACING
+    )
+    assert gas_scatter_point_budget(900.0) == int(
+        900.0 / GAS_SCATTER_VERTICAL_SPACING
+    )
 
 
 def test_gas_scatter_sampling_groups_dense_buckets_in_constant_flatnonzero_calls(
