@@ -265,7 +265,7 @@ def _draw_chart_page(
             percentiles,
             language=language,
             display_hints=display_hints,
-            point_series=panel_name in {"ratios", "opus"},
+            point_series=panel_name == "opus",
         )
 
     painter.setPen(QColor("#475569"))
@@ -388,7 +388,7 @@ def _draw_panel(
             dataset,
             curves,
             ranges,
-            point_series=panel_name in {"ratios", "opus"},
+            point_series=panel_name == "opus",
         )
     painter.setPen(QPen(QColor("#334155"), 1.0))
     painter.drawRect(rect)
@@ -715,7 +715,7 @@ def _curve_percentiles(
         else np.isfinite(depth)
     )
     for panel_name, curves in panels:
-        minimum_samples = 1 if panel_name in {"ratios", "opus"} else 2
+        minimum_samples = 1 if panel_name == "opus" else 2
         for curve in curves:
             values = np.asarray(curve.values, dtype=np.float64)
             if values.shape != dataset.depth.shape:
