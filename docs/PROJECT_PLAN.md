@@ -1540,6 +1540,25 @@ report snapshot/composition/render/print.
   компактная расшифровка, grayscale и большие каталоги. Итоговые результаты текущего head
   фиксируются в PR/Release gate; физическая печать остаётся отдельной приёмкой.
 
+- [ ] **RPT-VIS-01 — чистая структура reference pages и стабильный GasRatio scatter.**
+  Геологическая легенда и справочная методика являются разными документными сущностями:
+  legend-page(s) содержат только литологию/ЛБА и их условные обозначения, а
+  «Пояснения к графикам»/формулы всегда начинаются с отдельной новой страницы. Нельзя
+  автоматически объединять эти блоки на одном листе; `LegendMode.HIDE` скрывает только
+  геологическую легенду и не скрывает методику. После reference pages начинаются chart-pages.
+  Для Haworth/Pixler и других ratio/interpretation series (`Wh`, `Bh`, `Ch`, `C1/C2`,
+  `C1/C3`, Pixler/OPUS ratio) используется только marker-only presentation: никаких
+  соединяющих линий, dash-segments или интерполяции между наблюдениями. Dense viewport
+  выбирает фактические depth-observations равномерно по вертикальному физическому пространству,
+  с компактным круглым маркером и достаточной плотностью для визуально непрерывной точечной
+  трассы без overlap-worm. Preview, PDF и system print обязаны использовать один sampling/style
+  contract; legend symbol для ratio также только круглые точки без line stub.
+  Acceptance: sparse singleton сохраняется; dense 0.1–0.2 m sampling остаётся читаемым,
+  depth order детерминирован; нет коротких псевдо-тире и соединений через пропуски; RU/KK/EN,
+  A4 portrait/landscape, 72/96/144/192 DPI и Windows 100/125/150/200% scale; numeric
+  GasRatio/Haworth/Pixler/OPUS values, classification и source LAS не изменяются.
+  Статус: в работе в `fix/report-layout-gasratio-visual-20261004`.
+
 - [ ] **RPT-GEO-01/02 — физическая и содержательная приёмка.**
   Распечатать один и тот же многостраничный snapshot на доступном A4/A3 устройстве; проверить
   легенды, частичные/пустые geology tracks, Auto/Show/Hide, grayscale и ЛБА на границах выбранной
