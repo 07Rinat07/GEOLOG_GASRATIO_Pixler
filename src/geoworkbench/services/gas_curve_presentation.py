@@ -41,9 +41,10 @@ _GAS_POINT_EXACT = frozenset(
 
 # Keep ratio markers visually distinct from a line even on dense 0.1–0.2 m
 # acquisition grids. Large markers overlap vertically and become "worms".
-GAS_SCREEN_POINT_SIZE_PX = 2.2
-GAS_PREVIEW_POINT_RADIUS_PX = 0.85
-GAS_PRINT_POINT_RADIUS_PT = 0.55
+GAS_SCREEN_POINT_SIZE_PX = 1.6
+GAS_PREVIEW_POINT_RADIUS_PX = 0.55
+GAS_PRINT_POINT_RADIUS_PT = 0.38
+GAS_SCATTER_VERTICAL_SPACING = 1.35
 
 
 
@@ -51,7 +52,10 @@ def gas_scatter_point_budget(vertical_pixels: float) -> int:
     """Return a density budget that keeps neighbouring point markers distinct."""
 
     span = max(1.0, float(vertical_pixels))
-    return max(48, min(1_200, int(span / 2.5)))
+    return max(
+        64,
+        min(2_000, int(span / GAS_SCATTER_VERTICAL_SPACING)),
+    )
 
 
 def select_gas_scatter_samples(
@@ -165,6 +169,7 @@ def uses_gas_point_presentation(identifiers: Iterable[object]) -> bool:
 __all__ = [
     "GAS_PREVIEW_POINT_RADIUS_PX",
     "GAS_PRINT_POINT_RADIUS_PT",
+    "GAS_SCATTER_VERTICAL_SPACING",
     "GAS_SCREEN_POINT_SIZE_PX",
     "gas_scatter_point_budget",
     "is_gas_point_mnemonic",
