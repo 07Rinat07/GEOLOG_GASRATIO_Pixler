@@ -40,6 +40,9 @@ _FORCED_NATIVE_BATCH_FILES = frozenset(
         "tests/test_session_safety.py",
         "tests/test_multipage_unicode_print.py",
         "tests/test_masterlog_curve_mapping_dialog.py",
+        # Windows offscreen Qt can corrupt the native heap when header scenes
+        # share a process with earlier dialogs (0xC0000374 during widget.hide).
+        "tests/test_masterlog_header_dialog.py",
         "tests/test_well_update_workflow.py",
         "tests/test_widget_print.py",
         "tests/test_wits0_capture.py",
