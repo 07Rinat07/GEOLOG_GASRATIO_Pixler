@@ -388,7 +388,7 @@ def test_masterlog_roll_size_uses_actual_vertical_column_heading_height() -> Non
     assert masterlog_size_mm(template, session).height() == 264.0
 
 
-def test_masterlog_ratio_curve_uses_points_without_polyline() -> None:
+def test_masterlog_ratio_curve_uses_polyline_without_scatter() -> None:
     session = make_session_with_curves()
     dataset = session.current_dataset
     assert dataset is not None
@@ -414,11 +414,11 @@ def test_masterlog_ratio_curve_uses_points_without_polyline() -> None:
         {},
     )
 
-    assert painter.drawEllipse.call_count > 0
-    painter.drawPath.assert_not_called()
+    painter.drawPath.assert_called()
+    assert painter.drawEllipse.call_count == 0
 
 
-def test_masterlog_dense_ratio_scatter_is_density_bounded() -> None:
+def test_masterlog_dense_ratio_remains_line_geometry() -> None:
     depth = np.linspace(100.0, 200.0, 5_001)
     dataset = Dataset(
         "dense-masterlog-ratio",
@@ -436,20 +436,18 @@ def test_masterlog_dense_ratio_scatter_is_density_bounded() -> None:
         ["C1_C2"],
     )
     painter = MagicMock()
-    rect = QRectF(0.0, 0.0, 45.0, 200.0)
 
     _paint_curve_column(
         painter,
-        rect,
+        QRectF(0.0, 0.0, 45.0, 200.0),
         column,
         dataset,
         (100.0, 200.0),
         {},
     )
 
-    expected_budget = max(64, min(800, int(rect.height() / 0.6)))
-    assert 0 < painter.drawEllipse.call_count <= expected_budget
-    painter.drawPath.assert_not_called()
+    painter.drawPath.assert_called()
+    assert painter.drawEllipse.call_count == 0
 
 
 def test_masterlog_ordinary_gas_curves_keep_polylines() -> None:
