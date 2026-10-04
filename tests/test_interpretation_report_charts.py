@@ -310,9 +310,9 @@ def test_singleton_ratio_observation_survives_preview_and_pdf_range() -> None:
         AppLanguage.RU,
         {},
     )
-    # One factual point plus three legend glyph dots. If the singleton curve
-    # is filtered out, neither the observation nor its legend is rendered.
-    assert preview.ellipses >= 4
+    # A singleton ratio observation remains visible as one factual point.
+    # The ratio legend is a line sample under the report trace contract.
+    assert preview.ellipses == 1
 
     page = DepthPage(100.0, 102.0, 100, 100.0)
     ranges = _curve_ranges(
@@ -332,7 +332,8 @@ def test_singleton_ratio_observation_survives_preview_and_pdf_range() -> None:
         dataset,
         printed["ratios"],
         {"ratio": ranges["ratio"]},
-        point_series=True,
+        point_series=False,
+        line_width=0.82,
     )
     assert pdf_painter.ellipses == 1
 
