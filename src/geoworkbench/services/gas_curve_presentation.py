@@ -48,10 +48,13 @@ GAS_PRINT_POINT_RADIUS_PT = 0.55
 
 
 def gas_scatter_point_budget(vertical_pixels: float) -> int:
-    """Return a density budget that keeps neighbouring point markers distinct."""
+    """Return a dense marker budget without collapsing a ratio trace into a worm."""
 
     span = max(1.0, float(vertical_pixels))
-    return max(48, min(1_200, int(span / 2.5)))
+    # One factual marker roughly every 1.35 output units keeps the trace visually
+    # continuous at report scale while leaving more than one marker diameter
+    # between neighbouring print points.
+    return max(64, min(1_600, int(span / 1.35)))
 
 
 def select_gas_scatter_samples(
@@ -66,9 +69,9 @@ def select_gas_scatter_samples(
     """Select finite gas-ratio observations without inventing line geometry.
 
     The selector operates on actual finite observations only. When a viewport is
-    denser than the marker budget it keeps local low/high values in stable depth
-    buckets, so clusters remain visible without vertically overlapping thousands
-    of markers into line-like strokes.
+    denser than the marker budget it keeps one observation nearest the centre of
+    each stable depth bucket. This yields a dense dotted trace without horizontal
+    min/max pairs, synthetic line geometry, or vertically overlapping worms.
     """
 
     source_axis = np.asarray(axis, dtype=np.float64)
@@ -103,11 +106,15 @@ def select_gas_scatter_samples(
             source_axis[rows].astype(np.float64, copy=True),
         )
 
-    # Two value-extrema per depth bucket preserve local scatter spread while
-    # bounding total marker density. The final hard cap keeps the contract exact.
-    bucket_count = max(1, max_points // 2)
+    # Use exactly one factual observation per vertical depth bucket. Earlier
+    # min/max pairs placed two distant X values at almost the same Y coordinate;
+    # on printed reports those pairs looked like short horizontal dashes. A
+    # single sample nearest each bucket centre produces the dense dotted trace
+    # expected by mud-logging practice without inventing connecting segments.
+    bucket_count = max(1, max_points)
     normalized = np.clip(
-        (source_axis[rows] - low_depth) / max(high_depth - low_depth, np.finfo(float).eps),
+        (source_axis[rows] - low_depth)
+        / max(high_depth - low_depth, np.finfo(float).eps),
         0.0,
         1.0,
     )
@@ -115,25 +122,21 @@ def select_gas_scatter_samples(
         bucket_count - 1,
         np.floor(normalized * bucket_count).astype(np.int64),
     )
-    # Buckets are monotonic because rows are depth-sorted. Split once at
-    # bucket boundaries instead of rescanning the full viewport for every bucket.
     boundaries = np.flatnonzero(np.diff(buckets)) + 1
     starts = np.concatenate((np.asarray([0], dtype=np.int64), boundaries))
     ends = np.concatenate((boundaries, np.asarray([rows.size], dtype=np.int64)))
     selected: list[int] = []
+    span = max(high_depth - low_depth, np.finfo(float).eps)
     for start, end in zip(starts, ends, strict=True):
         bucket_rows = rows[int(start) : int(end)]
-        if bucket_rows.size == 1:
-            selected.append(int(bucket_rows[0]))
-            continue
-        bucket_values = source_values[bucket_rows]
-        selected.append(int(bucket_rows[int(np.argmin(bucket_values))]))
-        selected.append(int(bucket_rows[int(np.argmax(bucket_values))]))
+        bucket_id = int(buckets[int(start)])
+        centre_depth = low_depth + ((bucket_id + 0.5) / bucket_count) * span
+        nearest = int(
+            np.argmin(np.abs(source_axis[bucket_rows] - centre_depth))
+        )
+        selected.append(int(bucket_rows[nearest]))
 
-    chosen = np.asarray(sorted(set(selected), key=lambda row: (source_axis[row], row)), dtype=np.int64)
-    if chosen.size > max_points:
-        keep = np.linspace(0, chosen.size - 1, max_points, dtype=np.int64)
-        chosen = chosen[keep]
+    chosen = np.asarray(selected, dtype=np.int64)
     return (
         source_values[chosen].astype(np.float64, copy=True),
         source_axis[chosen].astype(np.float64, copy=True),
