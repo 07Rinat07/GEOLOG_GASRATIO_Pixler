@@ -33,6 +33,55 @@ class ReportLayoutProfile(str, Enum):
     MODERN_OILFIELD = "modern_oilfield"
 
 
+class ReportChartPanel(str, Enum):
+    TOTAL = "total"
+    RATIOS = "ratios"
+    DRILLING = "drilling"
+    OPUS = "opus"
+
+
+DEFAULT_REPORT_CHART_PANEL_ORDER = (
+    ReportChartPanel.TOTAL, ReportChartPanel.OPUS,
+    ReportChartPanel.RATIOS, ReportChartPanel.DRILLING,
+)
+
+
+def normalize_report_chart_panels(value: object) -> tuple[ReportChartPanel, ...]:
+    """Validate the bounded ordered selection of permitted depth-chart panels."""
+    if not isinstance(value, (list, tuple)) or len(value) > len(ReportChartPanel):
+        raise ValueError("Invalid report chart panels")
+    panels = tuple(ReportChartPanel(item) for item in value)
+    if len(set(panels)) != len(panels):
+        raise ValueError("Duplicate report chart panels")
+    return panels
+
+
+@dataclass(frozen=True, slots=True)
+class ReportChartPanelSettings:
+    order: tuple[ReportChartPanel, ...] = DEFAULT_REPORT_CHART_PANEL_ORDER
+    hidden: tuple[ReportChartPanel, ...] = ()
+
+    def __post_init__(self) -> None:
+        order = normalize_report_chart_panels(self.order)
+        hidden = normalize_report_chart_panels(self.hidden)
+        if set(order) != set(ReportChartPanel):
+            raise ValueError("Report chart panel order must include every permitted panel")
+        object.__setattr__(self, "order", order)
+        object.__setattr__(self, "hidden", tuple(panel for panel in order if panel in hidden))
+
+
+DEFAULT_REPORT_CHART_PANELS = ReportChartPanelSettings()
+
+
+def report_chart_panels_from_mapping(value: object) -> ReportChartPanelSettings:
+    if not isinstance(value, dict) or set(value) != {"order", "hidden"}:
+        raise ValueError("Invalid report chart panel settings")
+    return ReportChartPanelSettings(
+        normalize_report_chart_panels(value["order"]),
+        normalize_report_chart_panels(value["hidden"]),
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class ReportHeaderFields:
     """Language/profile-specific presentation-only report header values."""
@@ -74,6 +123,7 @@ class InterpretationReportComposition:
     layout_profile: ReportLayoutProfile = ReportLayoutProfile.MODERN_OILFIELD
     show_summary: bool = True
     show_conclusion: bool = True
+    chart_panels: ReportChartPanelSettings = DEFAULT_REPORT_CHART_PANELS
     annotations: tuple[ReportAnnotationRecord, ...] = ()
     header_ru: ReportHeaderFields | None = None
     header_kk: ReportHeaderFields | None = None
@@ -142,6 +192,10 @@ def with_report_header_fields(
 
 
 __all__ = [
+    "DEFAULT_REPORT_CHART_PANELS",
+    "ReportChartPanel",
+    "ReportChartPanelSettings",
+    "report_chart_panels_from_mapping",
     "DEFAULT_INTERPRETATION_REPORT_COMPOSITION",
     "InterpretationReportComposition",
     "ReportHeaderFields",

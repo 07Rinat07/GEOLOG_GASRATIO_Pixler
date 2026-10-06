@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+from geoworkbench.printing.hydrocarbon_interpretation_curve_selection import chart_panel_render_options
+
 from math import ceil, floor, log10
 
 import numpy as np
 from PySide6.QtCore import QLineF, QRectF, Qt
 from PySide6.QtGui import QColor, QPainter, QPen
 
+from geoworkbench.domain.report_composition import (
+    DEFAULT_REPORT_CHART_PANELS,
+    ReportChartPanelSettings,
+)
 from geoworkbench.domain.models import CurveData, Dataset
 from geoworkbench.printing.hydrocarbon_interpretation_curve_labels import (
     curve_legend_text,
@@ -118,6 +124,8 @@ def render_chart_pages(
     report: HydrocarbonInterpretationReport,
     dataset: Dataset,
     language: AppLanguage,
+    *,
+    chart_panels: ReportChartPanelSettings = DEFAULT_REPORT_CHART_PANELS,
 ) -> None:
     depth = np.asarray(dataset.depth, dtype=np.float64)
     finite_depth = np.isfinite(depth)
@@ -125,7 +133,7 @@ def render_chart_pages(
         return
     panels = tuple(
         (name, curves)
-        for name, curves in _panel_curves(report, dataset)
+        for name, curves in _panel_curves(report, dataset, **chart_panel_render_options(chart_panels))
         if curves
     )
     if not panels:
@@ -761,13 +769,14 @@ def _curve_ranges(
 def _panel_curves(
     report: HydrocarbonInterpretationReport,
     dataset: Dataset,
+    chart_panels: ReportChartPanelSettings = DEFAULT_REPORT_CHART_PANELS,
 ) -> tuple[tuple[str, tuple[CurveData, ...]], ...]:
     marker_groups = (
         _OPUS_PANEL_METHOD_MARKERS
         if report.report_profile == "opus"
         else _PANEL_METHOD_MARKERS
     )
-    return report_curve_panels(report, dataset, marker_groups)
+    return report_curve_panels(report, dataset, marker_groups, chart_panels)
 
 
 def _nice_tick_step(span: float, *, target_ticks: int) -> float:

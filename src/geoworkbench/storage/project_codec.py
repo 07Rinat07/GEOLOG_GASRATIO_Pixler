@@ -26,6 +26,8 @@ from geoworkbench.domain.report_annotations import (
     report_annotation_scope_id,
 )
 from geoworkbench.domain.report_composition import (
+    DEFAULT_REPORT_CHART_PANELS,
+    report_chart_panels_from_mapping,
     InterpretationReportComposition,
     ReportHeaderFields,
     ReportLegendMode,
@@ -81,6 +83,7 @@ _REPORT_COMPOSITION_KEYS = {
     "show_summary",
     "show_conclusion",
     "annotations",
+    "chart_panels",
 }
 _REPORT_HEADER_KEYS_LEGACY = {
     "report_title",
@@ -220,6 +223,10 @@ def _report_compositions_from_dict(
                     raw, "show_conclusion", default=True
                 ),
                 annotations=_report_annotations_from_list(raw.get("annotations", [])),
+                chart_panels=(
+                    report_chart_panels_from_mapping(raw["chart_panels"])
+                    if "chart_panels" in raw else DEFAULT_REPORT_CHART_PANELS
+                ),
                 header_ru=headers.get("ru"),
                 header_kk=headers.get("kk"),
                 header_en=headers.get("en"),

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from geoworkbench.printing.hydrocarbon_interpretation_curve_selection import chart_panel_render_options
+
 from geoworkbench.printing.gas_ratio_reference import (
     has_ratio_reference_summary, paint_ratio_reference_summary,
 )
@@ -10,7 +12,12 @@ from typing import Any
 from PySide6.QtGui import QPainter
 
 from geoworkbench.domain.models import Dataset
-from geoworkbench.domain.report_composition import ReportLayoutProfile, ReportLegendMode
+from geoworkbench.domain.report_composition import (
+    DEFAULT_REPORT_CHART_PANELS,
+    ReportChartPanelSettings,
+    ReportLayoutProfile,
+    ReportLegendMode,
+)
 from geoworkbench.domain.report_annotations import ReportAnnotationRecord
 from geoworkbench.domain.depth_interval import scope_dataset
 from geoworkbench.printing.interpretation_chart_key import interpretation_chart_key_html
@@ -18,6 +25,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_pdf_canvas import PageCanv
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_chart_enhanced import (
     render_chart_pages,
 )
+from geoworkbench.printing.hydrocarbon_interpretation_pdf_chart import _panel_curves
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_cover import (
     render_report_cover,
 )
@@ -76,6 +84,7 @@ def render_hydrocarbon_interpretation_report(
     legend_mode: ReportLegendMode = ReportLegendMode.FULL,
     layout_profile: ReportLayoutProfile = ReportLayoutProfile.MODERN_OILFIELD,
     annotations: tuple[ReportAnnotationRecord, ...] = (),
+    chart_panels: ReportChartPanelSettings = DEFAULT_REPORT_CHART_PANELS,
 ) -> None:
     """Render one controlled multi-page report to QPdfWriter or QPrinter."""
 
@@ -104,7 +113,10 @@ def render_hydrocarbon_interpretation_report(
         canvas.new_page()
         render_report_cover(canvas, report, language, identity)
 
-        if include_chart and dataset is not None:
+        if include_chart and dataset is not None and (
+            chart_panels == DEFAULT_REPORT_CHART_PANELS
+            or any(curves for _name, curves in _panel_curves(report, dataset, chart_panels))
+        ):
             scoped = scope_dataset(dataset, report.analysis_depth_interval)
             key_html = interpretation_chart_key_html(
                 report, scoped, language,
@@ -138,6 +150,7 @@ def render_hydrocarbon_interpretation_report(
                 legend_mode=chart_legend_mode,
                 legend_reference_pages_emitted=legend_reference_pages_emitted,
                 annotations=annotations,
+                **chart_panel_render_options(chart_panels),
             )
 
             reference_dataset = scope_dataset(dataset, report.analysis_depth_interval or depth_range)

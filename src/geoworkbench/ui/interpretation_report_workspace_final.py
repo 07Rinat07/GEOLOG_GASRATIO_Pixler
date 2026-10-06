@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from geoworkbench.printing.hydrocarbon_interpretation_curve_selection import chart_panel_render_options
+
 from dataclasses import replace
 import logging
 from pathlib import Path
@@ -389,6 +391,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                 layout_profile=composition.layout_profile,
                 identity=preview_identity,
                 annotations=composition.annotations,
+                **chart_panel_render_options(composition.chart_panels),
             )
         )
 
@@ -483,6 +486,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
             language=self.language,
             include_order=False,
             initial=self._report_composition(),
+            report_profile=report.report_profile,
         )
         if layout_dialog.exec() != QDialog.DialogCode.Accepted:
             return
@@ -527,6 +531,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     legend_mode=layout.legend_mode,
                     layout_profile=layout.layout_profile,
                     annotations=composition.annotations,
+                    **chart_panel_render_options(composition.chart_panels),
                     overwrite=target.exists(),
                 )
                 exported = export_result.primary_path
@@ -554,6 +559,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
             self,
             language=self.language,
             initial=self._report_composition(),
+            report_profile=report.report_profile,
         )
         if layout_dialog.exec() != QDialog.DialogCode.Accepted:
             return
@@ -591,6 +597,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     legend_mode=layout.legend_mode,
                     layout_profile=layout.layout_profile,
                     annotations=composition.annotations,
+                    **chart_panel_render_options(composition.chart_panels),
                     overwrite=True,
                 )
                 with fitz.open(prepared_pdf) as document:

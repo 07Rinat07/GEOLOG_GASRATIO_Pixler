@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from geoworkbench.printing.hydrocarbon_interpretation_curve_selection import chart_panel_render_options
+
 from dataclasses import replace
 import os
 from pathlib import Path
@@ -12,7 +14,12 @@ from PySide6.QtGui import QPageLayout, QPageSize, QPdfWriter
 from geoworkbench.domain.depth_interval import scope_dataset
 from geoworkbench.domain.localized_content import localized_text
 from geoworkbench.domain.models import Dataset
-from geoworkbench.domain.report_composition import ReportLayoutProfile, ReportLegendMode
+from geoworkbench.domain.report_composition import (
+    DEFAULT_REPORT_CHART_PANELS,
+    ReportChartPanelSettings,
+    ReportLayoutProfile,
+    ReportLegendMode,
+)
 from geoworkbench.domain.report_annotations import ReportAnnotationRecord
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_renderer import (
     render_hydrocarbon_interpretation_report,
@@ -76,6 +83,7 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
     legend_mode: ReportLegendMode = ReportLegendMode.FULL,
     layout_profile: ReportLayoutProfile = ReportLayoutProfile.MODERN_OILFIELD,
     annotations: tuple[ReportAnnotationRecord, ...] = (),
+    chart_panels: ReportChartPanelSettings = DEFAULT_REPORT_CHART_PANELS,
     overwrite: bool = False,
 ) -> ReportOutputTransactionResult:
     labels = hydrocarbon_report_print_labels(language)
@@ -106,6 +114,12 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
     )
     if annotations:
         render_options = (*render_options, ("report_annotations", str(len(annotations))))
+    if chart_panels != DEFAULT_REPORT_CHART_PANELS:
+        render_options = (
+            *render_options,
+            ("chart_panel_order", ",".join(panel.value for panel in chart_panels.order)),
+            ("hidden_chart_panels", ",".join(panel.value for panel in chart_panels.hidden)),
+        )
 
     passport = ReportPassportBuilder().build(
         session,
@@ -142,6 +156,7 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
             legend_mode=legend_mode,
             layout_profile=layout_profile,
             annotations=annotations,
+            **chart_panel_render_options(chart_panels),
             overwrite=True,
         ),
         passport,
@@ -179,6 +194,7 @@ def export_hydrocarbon_interpretation_pdf(
     legend_mode: ReportLegendMode = ReportLegendMode.FULL,
     layout_profile: ReportLayoutProfile = ReportLayoutProfile.MODERN_OILFIELD,
     annotations: tuple[ReportAnnotationRecord, ...] = (),
+    chart_panels: ReportChartPanelSettings = DEFAULT_REPORT_CHART_PANELS,
     overwrite: bool = False,
 ) -> Path:
     labels = hydrocarbon_report_print_labels(language)
@@ -292,6 +308,7 @@ def export_hydrocarbon_interpretation_pdf(
             legend_mode=legend_mode,
             layout_profile=layout_profile,
             annotations=annotations,
+            **chart_panel_render_options(chart_panels),
         )
         del writer
         if temporary.stat().st_size <= 0:

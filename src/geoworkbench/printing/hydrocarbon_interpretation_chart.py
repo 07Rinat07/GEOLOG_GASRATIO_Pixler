@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from geoworkbench.printing.hydrocarbon_interpretation_curve_selection import chart_panel_render_options
+
 from geoworkbench.printing.gas_ratio_reference import (
     ratio_identifier, ratio_reference_tracks, ratio_reference_color,
 )
@@ -12,7 +14,11 @@ from PySide6.QtGui import QPolygonF, QColor, QImage, QPainter, QPen
 
 from geoworkbench.domain.depth_interval import scope_dataset
 from geoworkbench.domain.models import CurveData, Dataset
-from geoworkbench.domain.report_composition import ReportLegendMode
+from geoworkbench.domain.report_composition import (
+    DEFAULT_REPORT_CHART_PANELS,
+    ReportChartPanelSettings,
+    ReportLegendMode,
+)
 from geoworkbench.domain.report_annotations import ReportAnnotationRecord
 from geoworkbench.printing.geology_track_rendering import (
     paint_cuttings_track,
@@ -156,6 +162,7 @@ def hydrocarbon_interpretation_html_with_chart(
     language: AppLanguage = AppLanguage.RU,
     *,
     annotations: tuple[ReportAnnotationRecord, ...] = (),
+    chart_panels: ReportChartPanelSettings = DEFAULT_REPORT_CHART_PANELS,
 ) -> str:
     """Return the standard report HTML with a whole-well curve chart appended."""
 
@@ -172,6 +179,7 @@ def hydrocarbon_interpretation_html_with_chart(
         dataset,
         language,
         annotations=annotations,
+        **chart_panel_render_options(chart_panels),
     )
     if not uri:
         return base
@@ -202,6 +210,7 @@ def hydrocarbon_interpretation_chart_data_uri(
     depth_range: ReportDepthRange | None = None,
     legend_mode: ReportLegendMode = ReportLegendMode.FULL,
     annotations: tuple[ReportAnnotationRecord, ...] = (),
+    chart_panels: ReportChartPanelSettings = DEFAULT_REPORT_CHART_PANELS,
 ) -> str:
     """Render available interpretation curves against depth as a PNG data URI."""
 
@@ -213,7 +222,7 @@ def hydrocarbon_interpretation_chart_data_uri(
     if depth.ndim != 1 or np.count_nonzero(finite_depth) < 2:
         return ""
 
-    panels = _panel_curves(report, dataset)
+    panels = _panel_curves(report, dataset, **chart_panel_render_options(chart_panels))
     panels = tuple((panel, curves) for panel, curves in panels if curves)
     display_hints = report_curve_label_hints(report)
     if not panels:
@@ -457,13 +466,14 @@ def hydrocarbon_interpretation_chart_data_uri(
 def _panel_curves(
     report: HydrocarbonInterpretationReport,
     dataset: Dataset,
+    chart_panels: ReportChartPanelSettings = DEFAULT_REPORT_CHART_PANELS,
 ) -> tuple[tuple[str, tuple[CurveData, ...]], ...]:
     marker_groups = (
         _OPUS_PANEL_METHOD_MARKERS
         if report.report_profile == "opus"
         else _PANEL_METHOD_MARKERS
     )
-    return report_curve_panels(report, dataset, marker_groups)
+    return report_curve_panels(report, dataset, marker_groups, chart_panels)
 
 
 def _draw_depth_axis(
