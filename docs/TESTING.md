@@ -128,6 +128,10 @@ composition, отказ от ссылок на неизвестный dataset и
 Auto-Show-Hide в report layout dialog. Composition является presentation state и не меняет
 source LAS, расчётные series или geological records.
 
+`tests/test_report_annotations.py` дополнительно проверяет отказ загрузки annotation schema
+с JSON boolean, float, string, null и неподдерживаемыми целочисленными версиями. Валидная
+целочисленная v1 сохраняется через существующие JSON/package round-trip regressions.
+
 ### Проверка состояния daily LAS preview (WELL-02)
 
 Проверка привязки daily LAS preview к состоянию данных (первый инкремент WELL-02):

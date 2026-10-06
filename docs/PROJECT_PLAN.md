@@ -97,14 +97,16 @@ numpy data path с совместимым fallback на lasio. REPORT-I18N-01 з
 renderer-neutral presentation composition сохраняется в проекте по dataset и одинаково управляет
 preview/PDF/system print. Foundation уже фиксирует orientation, print order, Auto/Show/Hide
 шламограммы/ЛБА, legend mode, layout profile, localized headers и report annotations в project
-format v37. Текущий slice добавляет сохранённый document-control для optional summary/conclusion,
-не изменяя расчёты, source LAS, geology или classification.
+format v37. Narrative controls интегрированы коммитом `55b3a056`: optional summary/conclusion
+сохраняются без удаления текста. Следующий основной slice — порядок/видимость разрешённых
+chart columns. RPT-ANN renderer/editor интегрированы через #446/#447; остаточная сквозная и
+физическая приёмка не объявляется завершённой. Сверка 6 октября выполнена с `16ab2681` и
+успешным Release gate #2582; это доказательство базы, а не последующих изменений.
 
 | Порядок | Задача | Следующий проверяемый результат и зависимость | Ответственный по роли / статус |
 |---|---|---|---|
-| 1 | REPORT-I18N-01 | Office и PDF/print boundaries интегрированы через #434/#435: RU/KK/EN проходит через XLSX/DOCX/PDF/system-print, validation и Unicode diagnostics без скрытого русского fallback | Разработчик / интегрировано |
-| 2 | RPT-COMP-01 | Foundation сохранён в project v37. Текущий slice: persisted Include/Hide для optional summary/conclusion, одинаковый resolved identity в preview/PDF/system print и backward-compatible reopen. Далее — порядок/видимость разрешённых chart columns без параллельного UI-state | Разработчик / в работе |
-| 3 | RPT-ANN-01 | Report scope и logical track anchors, printable remarks/callouts, общий bounded Undo/Redo, Cancel/Save checkpoints; зависит от стабильного composition ID Composer | Разработчик / запланировано |
+| 1 | RPT-COMP-01 | Foundation и narrative visibility сохранены в project v37. Следующий slice — порядок/видимость разрешённых chart columns через одну composition; preview/PDF/system print и reopen воспроизводят один выбор | Разработчик / готово к разработке |
+| 2 | RPT-ANN-01 | Renderer и transactional editor интегрированы через #446/#447. Остаточная сквозная приёмка из Composer, save/reopen и изоляции scope; strict persisted schema отклоняет boolean/float вместо integer v1 | Разработчик / на проверке |
 | 4 | PRINT-STYLE-01 | Свести оставшиеся generic/Masterlog/Office пути к одному visual profile и document-control contract; дополнять готовые typography/marker/legend contracts. Physical acceptance вынесена отдельно | Разработчик / в работе |
 | 5 | GASCTX-RPT-01: остаточная приёмка | Проверить общий editor/registry/context audit через production entry points, save/reopen и RU/KK/EN; завершить отдельные полосы/метки событий с grayscale-подписями. Реализованные exclusion/background/confirmed policy не переписывать | Разработчик + специалист ГТИ / на проверке |
 | 6 | WITS-UX-01 | Завершить persistence/reconnect и live-first navigation/help: основные данные и health видимы, advanced/diagnostics сворачиваются, outer horizontal scroll отсутствует | Разработчик / в работе |
@@ -1582,7 +1584,7 @@ report snapshot/composition/render/print.
   - [x] Foundation в main: stable `composition_id`, orientation, print order, geology visibility,
     legend mode, layout profile, localized header fields и report annotations сохраняются по
     dataset и восстанавливаются после reopen.
-  - [ ] Текущий RPT-COMP-02 slice: `show_summary`/`show_conclusion` сохраняются в том же
+  - [x] RPT-COMP-02 slice (`55b3a056`): `show_summary`/`show_conclusion` сохраняются в том же
     composition, старые v37 без этих ключей безопасно мигрируют к visible=true, UI Composer
     восстанавливает выбор, а preview/PDF/system print применяют одинаковую narrative visibility
     без удаления сохранённого текста.

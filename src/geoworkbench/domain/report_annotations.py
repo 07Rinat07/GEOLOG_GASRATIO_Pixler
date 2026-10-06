@@ -250,7 +250,7 @@ def report_annotation_from_mapping(value: Mapping[str, Any]) -> ReportAnnotation
     if not isinstance(value, Mapping) or set(value) != _REPORT_ANNOTATION_KEYS:
         raise ValueError("Некорректная persisted report annotation")
     version = value.get("schema_version")
-    if version != REPORT_ANNOTATION_SCHEMA_VERSION:
+    if type(version) is not int or version != REPORT_ANNOTATION_SCHEMA_VERSION:
         raise ValueError("Неподдерживаемая версия report annotation")
 
     raw_style = value.get("style")
