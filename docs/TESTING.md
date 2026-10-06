@@ -1241,3 +1241,8 @@ exclude date/audit values. Composition, depth and curve arrays are unchanged. Si
 exports cover localized shared brand/numbering; one injected rewrite failure preserves an
 existing output and removes staging files. Generic Office regressions cover the shared adapter.
 Word pagination and physical printer acceptance remain separate checks.
+
+Windows WITS operator-dashboard tests use the existing fresh-process-per-test policy
+in `scripts/run_tests.py` after an observed 0xC0000005 in a large offscreen Qt shard.
+`test_windows_qt_test_isolation.py` verifies that every dashboard node is scheduled exactly
+once, outside the regular shard, in its own batch. All dashboard assertions remain intact.
