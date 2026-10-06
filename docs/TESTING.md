@@ -1211,3 +1211,10 @@ RU/KK/EN sheet names, print-title/footer settings, number types, measured zero, 
 and unavailable channels. Two additional changed/missing-revision guards cover Excel;
 three language cases verify formula-like document metadata remains literal text. Existing
 interpretation XLSX regressions cover the extracted shared document-control adapter.
+
+`tests/test_masterlog_control_layout.py` adds 18 real PDF export/reopen cases across RU/KK/EN,
+A4/A3/roll and empty/explicit date. Each page retains the selected job interval and approvals,
+reserves the footer, and preserves physical depth scale including partial final pages. Stored
+forms and source arrays remain unchanged. One regression checks multilingual row suppression
+and legacy inactivity; ten narrow/wide long-text cases at 72/96/144/300/600 DPI verify all
+automatic text rectangles stay outside the graph body.

@@ -889,3 +889,12 @@ presentation row. Data/Parameters print styling reads the immutable visual profi
 Wide Data/Parameters worksheets use A4 landscape at 100% with horizontal pagination
 and repeated key columns, rather than fitting every column into one page. Document
 control remains fit-width on A4.
+
+`printing/form_report_document_control.py` resolves a shared form/session snapshot for generic
+Office and Masterlog. `masterlog_document_control.py` enables an automatic band only when at
+least one saved document-control field is nonempty. It reserves the maximum localized row
+count for language-independent pagination. The band is added below the custom header; a
+10 mm footer is excluded from column geometry. One job snapshot retains the selected whole
+interval on every depth/column page. Partial final pages retain physical depth scale. Text is
+searchable PDF text, elided and clipped to the band/footer. Legacy forms without control
+metadata retain their geometry; source arrays and custom header coordinates are unchanged.

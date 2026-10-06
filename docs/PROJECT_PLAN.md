@@ -2,10 +2,10 @@
 # Единый план проекта
 
 План актуализирован 6 октября 2026 года. Проверенная база текущего инкремента —
-`d9decbe0` (PR #464). RPT-COMP-01 интегрирован: сохраняемый порядок и видимость
+`5806efee` (PR #465). RPT-COMP-01 интегрирован: сохраняемый порядок и видимость
 глубинных графических колонок применяются через одну renderer-neutral composition.
-Текущий инкремент PRINT-STYLE-01 подключает generic XLSX к общей зоне
-реквизитов и выделяет единый Excel adapter для generic и interpretation отчётов.
+Текущий инкремент PRINT-STYLE-01 добавляет автоматическую зону реквизитов и подвал
+Masterlog для форм с явно заполненными document-control полями.
 Статусы завершения
 ниже относятся к main после интеграции этого инкремента и успешного exact-head Release gate.
 Приложение сохраняет каноническую industrial-blue DIGITAL GEOLOG айдентику. WITS развивается
@@ -367,14 +367,13 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   hydrocarbon PDF/Word cover и Excel sheet «Реквизиты»; workspace XLSX использует сохранённую
   шапку текущего языка/профиля после save/reopen. Выбранный analysis interval приоритетнее
   устаревшего presentation interval. Пустая дата не создаёт row/label и generation timestamp
-  не выводится; formula-like Excel values сохраняются как literal text. Автоматическая Masterlog
-  document-control зона и physical acceptance остаются открытыми. Закрытие slice — после exact-head gate.
+  не выводится; formula-like Excel values сохраняются как literal text. Автоматическая зона Masterlog реализована отдельным slice ниже; physical acceptance остаётся открытой. Закрытие slice — после exact-head gate.
 - [x] **Masterlog editable document-control slice:** номер документа, ревизия, статус,
   явная дата отчёта, подготовил/проверил/утвердил и конфиденциальность доступны в данных
   формы и динамических полях шапки RU/KK/EN. Project save/reopen и PDF сохраняют значения
   конкретной формы; паспорт скважины и LAS metadata не подменяют их. Пустые поля, включая
-  дату, печатаются без технического placeholder. Готовая автоматическая зона generic/Masterlog
-  и общий footer contract остаются открытыми. Закрытие slice — после exact-head Release gate.
+  дату, печатаются без технического placeholder. Автоматические зоны generic и управляемых форм Masterlog реализованы отдельными slices ниже;
+  общий footer contract остаётся открытым. Закрытие slice — после exact-head Release gate.
 - [x] **Generic HTML/DOCX document-control slice:** export controller передаёт общий
   snapshot контекста проекта/скважины и выбранного интервала; только явно привязанная
   форма Masterlog предоставляет номер/ревизию/статус/согласования/конфиденциальность и
@@ -382,8 +381,8 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   HTML и DOCX используют shared visual profile, wordmark и compact footer; Word footer
   содержит PAGE/NUMPAGES, таблицы повторяют header и используют alternating fills.
   Полные длинные значения остаются в основной зоне, footer ограничен; DOCX XML metadata
-  корректно экранирует ampersand. Автоматическая Masterlog PDF зона/подвал
-  и physical acceptance остаются открытыми. Закрытие slice — после exact-head Release gate.
+  корректно экранирует ampersand. Автоматическая зона/подвал управляемых форм Masterlog реализованы ниже;
+  physical acceptance остаётся открытой. Закрытие slice — после exact-head Release gate.
 - [x] **Generic XLSX document-control slice:** resolved report export использует общий
   snapshot реквизитов и печатный лист RU/KK/EN через `report_document_control_excel`.
   Этот adapter также обслуживает interpretation XLSX. Сохраняются контекст проекта/скважины,
@@ -392,8 +391,17 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   используют shared palette, alternating fills, numeric alignment, A4 pagination, повтор
   header/ключевых колонок и canonical footer с &P/&N; широкие таблицы разбиваются
   горизонтально в landscape без сжатия всего набора на одну страницу. Числа, нули, пропуски, unavailable и Metadata
-  остаются прежними. Автоматическая Masterlog PDF зона/подвал и physical acceptance
-  остаются открытыми. Закрытие slice — после exact-head Release gate.
+  остаются прежними. Автоматическая зона/подвал управляемых форм Masterlog реализованы ниже; physical acceptance
+  остаётся открытой. Закрытие slice — после exact-head Release gate.
+- [x] **Masterlog automatic document-control slice:** заполнение хотя бы одного сохранённого
+  document-control поля формы включает отдельную зону под пользовательской шапкой и 10 мм
+  подвал с wordmark, номером страницы и compact реквизитами. Общий snapshot повторяет выбранный
+  интервал задания на каждой странице; дата только явная. A4/A3/roll резервируют обе зоны,
+  последняя неполная страница сохраняет физический depth scale. RU/KK/EN имеют одинаковую
+  геометрию; длинный текст сокращается и ограничивается зоной, не перекрывая графики. Legacy
+  формы без реквизитов сохраняют прежний макет. PDF после reopen и DPI 72–600 покрыты
+  regressions; physical acceptance и общий контракт всех legacy форм остаются открытыми.
+  Закрытие slice — после exact-head Release gate.
 - [ ] Обязательная document-control зона: well/project, interval, document number, revision,
   status, prepared/checked/approved при доступности данных. Блок report date **не выводится по
   умолчанию вообще** и появляется только после явного пользовательского ввода даты; часы/минуты и
