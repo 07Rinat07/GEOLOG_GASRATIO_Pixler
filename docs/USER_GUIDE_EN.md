@@ -409,3 +409,5 @@ Wide Data/Parameters sheets print on A4 landscape without shrinking all columns 
 A form with at least one populated document-control field automatically receives a separate band below its header and a footer. The selected interval repeats on every page; the date appears only after explicit entry. Long PDF values are shortened to fit the zone. Forms without these fields retain their previous layout.
 
 In GasRatio/Pixler/OPUS PDF and system printing, populated document number, revision, status and confidentiality repeat in a separate footer line on every page. Long values are shortened to fit; full metadata remains on the cover. The date is excluded from the footer.
+
+Word reports use a shared footer with DIGITAL GEOLOG GASRATIO&PIXLER and page/total-page fields. Polished interpretation and generic DOCX repeat populated document-control details there. Long details are shortened to 96 characters; full text remains in the cover or body. The date is excluded from the footer. Cover and body use continuous numbering.

@@ -2,10 +2,10 @@
 # Единый план проекта
 
 План актуализирован 7 октября 2026 года. Проверенная база текущего инкремента —
-`4d23fa0e` (PR #466). RPT-COMP-01 интегрирован: сохраняемый порядок и видимость
+`252e6fcf` (PR #467). RPT-COMP-01 интегрирован: сохраняемый порядок и видимость
 глубинных графических колонок применяются через одну renderer-neutral composition.
-Текущий инкремент PRINT-STYLE-01 подключает подвал interpretation PDF/system print
-к общему snapshot номера документа, ревизии, статуса и конфиденциальности.
+Текущий инкремент PRINT-STYLE-01 подключает interpretation и generic DOCX
+к общему Word footer adapter с PAGE/NUMPAGES и ограниченными реквизитами.
 Статусы завершения
 ниже относятся к main после интеграции этого инкремента и успешного exact-head Release gate.
 Приложение сохраняет каноническую industrial-blue DIGITAL GEOLOG айдентику. WITS развивается
@@ -413,6 +413,16 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   больше не исчезает: полный набор символов переносится после графиков на отдельные
   страницы, графики содержат ссылку; HIDE сохраняет подавление легенды.
   Закрытие slice — после exact-head Release gate.
+- [x] **Shared Word footer slice:** обычный interpretation DOCX получает canonical brand и
+  локализованные PAGE/NUMPAGES. Оформленный interpretation и generic DOCX используют тот
+  же adapter с compact номером/ревизией/статусом/конфиденциальностью из snapshot. Обложка
+  portrait и тело landscape явно ссылаются на один footer part без сброса нумерации.
+  Relative-width таблица разделяет бренд и номер страницы; строка реквизитов ограничена
+  96 символами и фиксированной высотой, полный текст остаётся в титуле/body. Footer margins
+  резервируют всю таблицу и trailing paragraph; дата и generation audit не повторяются.
+  OOXML parts/relationships, RU/KK/EN save/reopen, long/XML-sensitive values, исходные
+  данные и atomic failure покрыты regressions. Word pagination/physical acceptance
+  остаются открытыми. Закрытие slice — после exact-head Release gate.
 - [ ] Обязательная document-control зона: well/project, interval, document number, revision,
   status, prepared/checked/approved при доступности данных. Блок report date **не выводится по
   умолчанию вообще** и появляется только после явного пользовательского ввода даты; часы/минуты и
