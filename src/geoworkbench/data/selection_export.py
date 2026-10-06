@@ -12,6 +12,9 @@ from openpyxl import Workbook  # type: ignore[import-untyped]
 from openpyxl.styles import Alignment, Font, PatternFill  # type: ignore[import-untyped]
 from openpyxl.utils import get_column_letter  # type: ignore[import-untyped]
 
+from geoworkbench.data.report_document_control_excel import write_document_control_sheet
+from geoworkbench.printing.report_document_control import ReportDocumentControl
+from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.data.number_format import format_decimal_number
 from geoworkbench.data.spreadsheet_safety import protect_spreadsheet_row
 from geoworkbench.domain.models import CurveData, Dataset, DatasetIndex, IndexRole, IndexType
@@ -166,6 +169,7 @@ def export_selection_excel(
     language: AppLanguage | str = AppLanguage.RU,
     unavailable_mnemonics: tuple[str, ...] = (),
     row_indices: np.ndarray | None = None,
+    document_control: ReportDocumentControl | None = None,
 ) -> Path:
     destination = Path(target)
     _validate_destination(destination, {".xlsx"}, overwrite)
@@ -241,7 +245,7 @@ def export_selection_excel(
     parameter_rows = _parameter_rows(all_columns, language=export_language)
     temporary = _temporary_path(destination)
     try:
-        _write_xlsx(temporary, rows, metadata, parameter_rows)
+        _write_xlsx(temporary, rows, metadata, parameter_rows, document_control=document_control, language=export_language)
         os.replace(temporary, destination)
     except Exception as exc:
         temporary.unlink(missing_ok=True)
@@ -651,6 +655,9 @@ def _write_xlsx(
     data_rows: list[list[object]],
     metadata_rows: list[list[object]],
     parameter_rows: list[list[object]],
+    *,
+    document_control: ReportDocumentControl | None = None,
+    language: AppLanguage = AppLanguage.RU,
 ) -> None:
     workbook = Workbook()
     data_sheet = workbook.active
@@ -658,8 +665,9 @@ def _write_xlsx(
     for row in data_rows:
         data_sheet.append(protect_spreadsheet_row(row))
 
-    header_fill = PatternFill("solid", fgColor="1F4E78")
-    header_font = Font(bold=True, color="FFFFFF")
+    visual = modern_oilfield_report_profile()
+    header_fill = PatternFill("solid", fgColor=visual.palette.table_header.lstrip("#"))
+    header_font = Font(bold=True, color=visual.palette.text.lstrip("#"))
     header_alignment = Alignment(
         horizontal="center", vertical="center", wrap_text=True
     )
@@ -711,4 +719,22 @@ def _write_xlsx(
     metadata_sheet.column_dimensions["A"].width = 36
     metadata_sheet.column_dimensions["B"].width = 48
     metadata_sheet.freeze_panes = "A2"
+    if document_control is not None:
+        write_document_control_sheet(workbook, document_control, language)
+    for sheet in workbook.worksheets:
+        sheet.oddFooter.left.text = visual.brand_wordmark.replace("&", "&&")
+        sheet.oddFooter.right.text = "&P / &N"
+        sheet.page_setup.paperSize = sheet.PAPERSIZE_A4
+        sheet.page_setup.fitToWidth = 1
+        sheet.page_setup.fitToHeight = 0
+        sheet.sheet_properties.pageSetUpPr.fitToPage = True
+        if sheet.title in {"Data", "Parameters"}:
+            sheet.print_title_rows = "1:1"
+            for row in sheet.iter_rows(min_row=2):
+                for cell in row:
+                    cell.font = Font(size=visual.typography.body_pt, color=visual.palette.text.lstrip("#"))
+                    if cell.row % 2 == 0:
+                        cell.fill = PatternFill("solid", fgColor=visual.palette.table_alt.lstrip("#"))
+                    if isinstance(cell.value, (int, float)) and not isinstance(cell.value, bool):
+                        cell.alignment = Alignment(horizontal="right", vertical="top")
     workbook.save(path)

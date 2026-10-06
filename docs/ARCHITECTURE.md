@@ -879,3 +879,9 @@ snapshot without resolving curves or reading session state; resolved indices rem
 HTML uses a normal-flow footer; DOCX packages a related footer part with PAGE/NUMPAGES fields.
 Shared `compact_report_footer` bounds each repeated value to 48 characters; full values stay
 in the document-control zone. Both adapters use the canonical visual profile.
+
+`data/report_document_control_excel.py` is the shared XLSX presentation adapter for generic
+and interpretation snapshots. Generic resolved Excel passes the same controller snapshot
+as HTML/DOCX; the low-level selection exporter accepts an optional snapshot and preserves
+its existing sheet/data contract when omitted. Spreadsheet safety is applied to every
+presentation row. Data/Parameters print styling reads the immutable visual profile.

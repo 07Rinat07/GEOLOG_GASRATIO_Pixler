@@ -1205,3 +1205,9 @@ save/reopen HTML/DOCX combinations (bound/unbound form, empty/explicit date), pa
 XML/relationship part, checks footer PAGE/NUMPAGES and repeated table headers, escaped long
 text, selected interval and unchanged source arrays. Four guards verify missing/changed form
 revisions preserve an existing output; one regression checks compact footer normalization.
+
+Generic control regression matrix now includes real XLSX export after project reopen,
+RU/KK/EN sheet names, print-title/footer settings, number types, measured zero, missing
+and unavailable channels. Two additional changed/missing-revision guards cover Excel;
+three language cases verify formula-like document metadata remains literal text. Existing
+interpretation XLSX regressions cover the extracted shared document-control adapter.

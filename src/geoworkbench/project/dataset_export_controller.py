@@ -306,6 +306,7 @@ class DatasetExportController:
             language=language,
             unavailable_mnemonics=report.unavailable_channel_mnemonics,
             row_indices=report.interval.indices,
+            document_control=self._document_control_for_report(report, language),
         )
 
     def export_resolved_report_docx(
