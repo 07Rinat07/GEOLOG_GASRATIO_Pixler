@@ -660,6 +660,13 @@ def _should_paint_column_header_at_top(page: PrintDocumentPage) -> bool:
     return page.index == 1 and not page.is_column_header_page
 
 
+def _point_rule_width(painter: QPainter, points: float) -> float:
+    """Convert physical rule thickness into this document's device-pixel coordinates."""
+    device = painter.device()
+    dpi = float(device.logicalDpiY()) if device is not None else 72.0
+    return points * dpi / 72.0
+
+
 def _paint_header(painter: QPainter, rect: QRectF, *, title: str, range_text: str) -> None:
     visual = modern_oilfield_report_profile()
     painter.save()
@@ -686,7 +693,7 @@ def _paint_header(painter: QPainter, rect: QRectF, *, title: str, range_text: st
                 Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
                 range_text,
             )
-        painter.setPen(QPen(QColor(visual.palette.border_strong), visual.layout.thin_rule_pt))
+        painter.setPen(QPen(QColor(visual.palette.border_strong), _point_rule_width(painter, visual.layout.thin_rule_pt)))
         painter.drawLine(rect.bottomLeft(), rect.bottomRight())
     finally:
         painter.restore()
@@ -704,7 +711,7 @@ def _paint_footer(
     visual = modern_oilfield_report_profile()
     painter.save()
     try:
-        painter.setPen(QPen(QColor(visual.palette.border_strong), visual.layout.thin_rule_pt))
+        painter.setPen(QPen(QColor(visual.palette.border_strong), _point_rule_width(painter, visual.layout.thin_rule_pt)))
         painter.drawLine(rect.topLeft(), rect.topRight())
         painter.setPen(QColor(visual.palette.text_muted))
         painter.setFont(

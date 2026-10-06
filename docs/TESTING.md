@@ -1186,3 +1186,5 @@ PRINT-STYLE-01 shared-adapter regressions: `tests/test_print_style_shared_adapte
 Изменённый grayscale fixture profile подтверждает shared palette/typography в CSS, OOXML
 и workbook styles; PDF проверяется по фактическому тексту. Source curves неизменны.
 Qt painter regression проверяет ширину wordmark рядом с номером страницы и restore состояния.
+Пункты толщины правил simple tablet header/footer переводятся по DPI устройства;
+regression проверяет неизменную физическую толщину при 72/96/144/300/600 DPI.

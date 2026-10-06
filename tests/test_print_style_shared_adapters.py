@@ -106,3 +106,34 @@ def test_tablet_footer_reserves_page_number_and_restores_painter(qapp, monkeypat
             assert len(drawn[0][1]) < len(visual.brand_wordmark)
     finally:
         painter.end()
+
+
+@pytest.mark.parametrize("dpi", [72, 96, 144, 300, 600])
+def test_tablet_header_and_footer_keep_physical_rule_thickness(qapp, dpi):
+    image = QImage(1200, 120, QImage.Format.Format_ARGB32)
+    image.setDotsPerMeterX(round(dpi / 0.0254))
+    image.setDotsPerMeterY(round(dpi / 0.0254))
+    painter = QPainter(image)
+    widths = []
+
+    class CapturePainter:
+        def __getattr__(self, name):
+            return getattr(painter, name)
+
+        def drawLine(self, *args):
+            widths.append(painter.pen().widthF())
+            painter.drawLine(*args)
+
+    capture = CapturePainter()
+    try:
+        tablet._paint_header(capture, QRectF(0, 0, 1200, 50), title="Well A", range_text="100–200 m")
+        tablet._paint_footer(
+            capture, QRectF(0, 60, 1200, 50), page=SimpleNamespace(index=1, total=1),
+            show_page_numbers=True, localizer=Localizer.create(AppLanguage.EN),
+        )
+        assert len(widths) == 2
+        expected_points = modern_oilfield_report_profile().layout.thin_rule_pt
+        for width in widths:
+            assert width * 72 / image.logicalDpiY() == pytest.approx(expected_points)
+    finally:
+        painter.end()
