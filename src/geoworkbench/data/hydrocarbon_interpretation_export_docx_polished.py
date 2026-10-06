@@ -18,6 +18,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
 )
 from geoworkbench.printing.hydrocarbon_report_i18n import hydrocarbon_report_labels
 from geoworkbench.printing.report_visual_system import REPORT_BRAND_WORDMARK
+from geoworkbench.printing.report_document_control_docx import report_document_control_docx_footer
 from geoworkbench.printing.report_document_control import report_document_control, resolved_report_identity
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
@@ -97,6 +98,8 @@ def _rewrite_cover(
                     identity,
                     language,
                 )
+            elif item.filename == "word/footer.xml":
+                data = report_document_control_docx_footer(report_document_control(identity, language), language)
             output_package.writestr(item, data)
 
 
@@ -431,6 +434,8 @@ def _portrait_section_break() -> ET.Element:
     paragraph = ET.Element(_q("p"))
     properties = ET.SubElement(paragraph, _q("pPr"))
     section = ET.SubElement(properties, _q("sectPr"))
+    ET.SubElement(section, _q("footerReference"), {_q("type"): "default",
+        "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id": "rIdFooter"})
     ET.SubElement(section, _q("type"), {_q("val"): "nextPage"})
     ET.SubElement(
         section,
@@ -443,10 +448,10 @@ def _portrait_section_break() -> ET.Element:
         {
             _q("top"): "1134",
             _q("right"): "1134",
-            _q("bottom"): "1134",
+            _q("bottom"): "1440",
             _q("left"): "1134",
             _q("header"): "708",
-            _q("footer"): "708",
+            _q("footer"): "720",
             _q("gutter"): "0",
         },
     )

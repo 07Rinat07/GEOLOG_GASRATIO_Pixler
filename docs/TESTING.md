@@ -1231,3 +1231,18 @@ an old source-string suppression check. RU/KK/EN × FULL/HIDE verify a 120-rock 
 methodology precedes charts, full legends follow charts with every code/name preserved,
 and HIDE suppresses the catalog. The existing Windows method/geology ordering regression
 is retained unchanged.
+
+`tests/test_report_document_control_docx_footer.py` adds 24 polished Word export/reopen
+cases: RU/KK/EN × standard/OPUS × empty/explicit date × short/long XML-sensitive metadata.
+Every XML/relationship part is parsed; footer content type and relationships, both section
+references, margin reservation, percentage widths, exact row heights, PAGE/NUMPAGES and
+font size are checked. Full metadata remains in the cover; footer details are bounded and
+exclude date/audit values. Composition, depth and curve arrays are unchanged. Six ordinary
+exports cover localized shared brand/numbering; one injected rewrite failure preserves an
+existing output and removes staging files. Generic Office regressions cover the shared adapter.
+Word pagination and physical printer acceptance remain separate checks.
+
+Windows WITS operator-dashboard tests use the existing fresh-process-per-test policy
+in `scripts/run_tests.py` after an observed 0xC0000005 in a large offscreen Qt shard.
+`test_windows_qt_test_isolation.py` verifies that every dashboard node is scheduled exactly
+once, outside the regular shard, in its own batch. All dashboard assertions remain intact.

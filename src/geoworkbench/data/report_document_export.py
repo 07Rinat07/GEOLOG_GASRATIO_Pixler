@@ -26,6 +26,7 @@ from geoworkbench.services.text_normalization import clean_display_text, clean_m
 
 from geoworkbench.printing.report_document_control import ReportDocumentControl, compact_report_footer
 from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
+from geoworkbench.printing.report_document_control_docx import report_document_control_docx_footer
 
 
 REPORT_DOCUMENT_SCHEMA_VERSION = 1
@@ -618,21 +619,7 @@ def _docx_document_relationships() -> str:
 
 
 def _docx_footer(model: ReportDocumentModel) -> str:
-    visual = modern_oilfield_report_profile()
-    text = visual.brand_wordmark
-    details = compact_report_footer(model.document_control)
-    if details:
-        text += " · " + details
-    return (
-        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-        '<w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
-        '<w:p><w:pPr><w:spacing w:before="0" w:after="0"/></w:pPr><w:r><w:rPr>'
-        f'<w:color w:val="{visual.palette.text_muted.lstrip("#")}"/>'
-        f'<w:sz w:val="{round(visual.typography.footer_pt * 2)}"/></w:rPr>'
-        f'<w:t xml:space="preserve">{xml_escape(text)} · </w:t></w:r>'
-        '<w:fldSimple w:instr="PAGE"/><w:r><w:t> / </w:t></w:r>'
-        '<w:fldSimple w:instr="NUMPAGES"/></w:p></w:ftr>'
-    )
+    return report_document_control_docx_footer(model.document_control, model.language).decode("utf-8")
 
 
 def _docx_styles() -> str:

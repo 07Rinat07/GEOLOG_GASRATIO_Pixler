@@ -48,6 +48,9 @@ _FORCED_NATIVE_BATCH_FILES = frozenset(
         "tests/test_wits0_capture.py",
         "tests/test_wits0_live_view.py",
         "tests/test_wits0_network_preflight.py",
+        # Dashboard scenes hit 0xC0000005 after earlier pyqtgraph scenarios in
+        # the Windows offscreen shard. Each test still runs in a fresh process.
+        "tests/test_wits0_operator_dashboard.py",
     }
 )
 _SINGLE_TEST_PROCESS_FILES = frozenset(

@@ -10,6 +10,7 @@ from xml.sax.saxutils import escape as xml_escape
 
 from geoworkbench.domain.depth_interval import scope_dataset
 from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
+from geoworkbench.printing.report_document_control_docx import report_document_control_docx_footer
 from geoworkbench.domain.models import Dataset
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
@@ -289,12 +290,13 @@ def _write_docx(
         body.append(_paragraph(labels.no_manual))
     document_xml = (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-        '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+        '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" '
+        'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
         "<w:body>"
         + "".join(body)
-        + '<w:sectPr><w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/>'
-        '<w:pgMar w:top="850" w:right="850" w:bottom="850" w:left="850" '
-        'w:header="708" w:footer="708" w:gutter="0"/></w:sectPr>'
+        + '<w:sectPr><w:footerReference w:type="default" r:id="rIdFooter"/><w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/>'
+        '<w:pgMar w:top="850" w:right="850" w:bottom="1440" w:left="850" '
+        'w:header="708" w:footer="720" w:gutter="0"/></w:sectPr>'
         "</w:body></w:document>"
     )
     with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as package:
@@ -308,6 +310,8 @@ def _write_docx(
             'ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
             '<Override PartName="/word/styles.xml" '
             'ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>'
+            '<Override PartName="/word/footer.xml" '
+            'ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>'
             "</Types>",
         )
         package.writestr(
@@ -323,9 +327,15 @@ def _write_docx(
             "word/_rels/document.xml.rels",
             '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            '<Relationship Id="rIdStyles" '
+            'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" '
+            'Target="styles.xml"/>'
             '<Relationship Id="rIdClassificationAudit" '
             'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/customXml" '
-            'Target="../customXml/geolog-classification-audit.xml"/></Relationships>',
+            'Target="../customXml/geolog-classification-audit.xml"/>'
+            '<Relationship Id="rIdFooter" '
+            'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" '
+            'Target="footer.xml"/></Relationships>',
         )
         package.writestr(
             CLASSIFICATION_AUDIT_DOCX_PART,
@@ -335,6 +345,7 @@ def _write_docx(
             + '</classificationAudit>',
         )
         package.writestr("word/styles.xml", _docx_styles())
+        package.writestr("word/footer.xml", report_document_control_docx_footer(None, language))
 
 
 

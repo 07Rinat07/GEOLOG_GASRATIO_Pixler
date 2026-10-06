@@ -58,6 +58,7 @@ def test_native_isolation_keeps_masterlog_mapping_out_of_regular_shards() -> Non
         "tests/test_wits0_capture.py",
         "tests/test_wits0_live_view.py",
         "tests/test_wits0_network_preflight.py",
+        "tests/test_wits0_operator_dashboard.py",
     ),
 )
 def test_pyqtgraph_heavy_files_use_fresh_process_per_test(relative_path: str) -> None:
@@ -74,3 +75,4 @@ def test_pyqtgraph_heavy_files_use_fresh_process_per_test(relative_path: str) ->
     assert len(batches) == len(nodes)
     assert all(batch_path == path.as_posix() for batch_path, _selectors in batches)
     assert all(len(selectors) == 1 for _batch_path, selectors in batches)
+    assert tuple(selector for _batch_path, selectors in batches for selector in selectors) == nodes

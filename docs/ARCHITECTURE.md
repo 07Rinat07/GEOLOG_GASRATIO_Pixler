@@ -911,3 +911,16 @@ When footer reservation reduces the chart budget, the full-report chart renderer
 overflowing geology legend to pages after the charts and draws an explicit reference on
 chart pages. Shared legend pagination preserves complete rows and every symbol. HIDE
 remains authoritative. The methodology still precedes charts; no catalog is inserted before it.
+
+`printing/report_document_control_docx.py` serializes one shared Word footer from an
+optional immutable control snapshot and output language. A fixed-layout percentage-width
+table separates canonical brand and PAGE/NUMPAGES; optional details are bounded to 96
+characters, with explicit row heights and a one-point trailing paragraph. Section margins
+reserve at least the full footer height. Both portrait-cover and landscape-body sections
+explicitly reference the same footer part without page-number restart. Ordinary interpretation
+uses brand/numbering only; polished rewrite substitutes form-owned control metadata while
+preserving the base package relationships and classification audit. Generic DOCX delegates
+to the same adapter. Date/audit timestamps are excluded; full values remain in body/cover.
+
+The interpretation package explicitly relates styles.xml as well as the footer and audit parts,
+so Word can apply the shared body styles rather than relying on built-in style names.
