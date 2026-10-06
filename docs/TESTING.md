@@ -1180,3 +1180,11 @@ python -m pytest -q -p no:cacheprovider `
 ```
 
 The runtime regression specifically guards against debounce advancing on repeated UI refreshes, catches up every DATA_ROW in a drained batch even when the plot is paused/frozen, ignores unrelated record rows, resets pending debounce on an explicit missing channel sample, preserves active alarms through missing input, isolates duplicate canonical mnemonics by curve ID, covers derived-channel catch-up through `source-records` provenance while ignoring unrelated WITS records, and verifies acknowledgement without alarm clearing. It also verifies bounded factual activation/clear history, preservation of CLEAR+ACTIVATE on a direct opposite-side crossing, no fabricated event when a rule is seeded from an existing value, time/depth row-to-axis lookup, one audio cue for a batch containing one or more audio-enabled activations, no replay on an empty/repeated refresh, visual-policy filtering and red activation/green clear threshold markers.
+
+PRINT-STYLE-01 shared-adapter regressions: `tests/test_print_style_shared_adapters.py`
+экспортирует geological HTML/PDF/DOCX/XLSX на RU/KK/EN через production entry points.
+Изменённый grayscale fixture profile подтверждает shared palette/typography в CSS, OOXML
+и workbook styles; PDF проверяется по фактическому тексту. Source curves неизменны.
+Qt painter regression проверяет ширину wordmark рядом с номером страницы и restore состояния.
+Пункты толщины правил simple tablet header/footer переводятся по DPI устройства;
+regression проверяет неизменную физическую толщину при 72/96/144/300/600 DPI.

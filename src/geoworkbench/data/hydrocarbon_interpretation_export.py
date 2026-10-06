@@ -9,6 +9,7 @@ from xml.sax.saxutils import escape as xml_escape
 
 
 from geoworkbench.domain.depth_interval import scope_dataset
+from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.domain.models import Dataset
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
@@ -604,6 +605,7 @@ def _table(
 ) -> str:
     if len(widths) != len(headers) or any(len(row) != len(headers) for row in rows):
         raise ValueError("Геометрия таблицы отчёта не соответствует числу колонок")
+    border = modern_oilfield_report_profile().palette.border.lstrip("#")
     grid = "".join(f'<w:gridCol w:w="{width}"/>' for width in widths)
     header = _table_row(headers, widths, header=True)
     body = "".join(_table_row(row, widths) for row in rows)
@@ -612,16 +614,17 @@ def _table(
         '<w:tblLayout w:type="fixed"/><w:tblCellMar>'
         '<w:top w:w="90" w:type="dxa"/><w:left w:w="90" w:type="dxa"/>'
         '<w:bottom w:w="90" w:type="dxa"/><w:right w:w="90" w:type="dxa"/>'
-        '</w:tblCellMar><w:tblBorders>'
-        '<w:top w:val="single" w:sz="6" w:color="8290A3"/>'
-        '<w:left w:val="single" w:sz="6" w:color="8290A3"/>'
-        '<w:bottom w:val="single" w:sz="6" w:color="8290A3"/>'
-        '<w:right w:val="single" w:sz="6" w:color="8290A3"/>'
-        '<w:insideH w:val="single" w:sz="4" w:color="8290A3"/>'
-        '<w:insideV w:val="single" w:sz="4" w:color="8290A3"/>'
+        "</w:tblCellMar><w:tblBorders>"
+        f'<w:top w:val="single" w:sz="6" w:color="{border}"/>'
+        f'<w:left w:val="single" w:sz="6" w:color="{border}"/>'
+        f'<w:bottom w:val="single" w:sz="6" w:color="{border}"/>'
+        f'<w:right w:val="single" w:sz="6" w:color="{border}"/>'
+        f'<w:insideH w:val="single" w:sz="4" w:color="{border}"/>'
+        f'<w:insideV w:val="single" w:sz="4" w:color="{border}"/>'
         "</w:tblBorders></w:tblPr>"
         f"<w:tblGrid>{grid}</w:tblGrid>{header}{body}</w:tbl>"
     )
+
 
 
 def _table_row(
@@ -630,14 +633,21 @@ def _table_row(
     *,
     header: bool = False,
 ) -> str:
+    visual = modern_oilfield_report_profile()
+    size = round(visual.typography.table_pt * 2)
+    text_color = visual.palette.text.lstrip("#")
     cells = []
     for value, width in zip(values, widths, strict=True):
         run_properties = (
-            '<w:rPr><w:b/><w:sz w:val="18"/></w:rPr>'
+            f'<w:rPr><w:b/><w:color w:val="{text_color}"/><w:sz w:val="{size}"/></w:rPr>'
             if header
-            else '<w:rPr><w:sz w:val="18"/></w:rPr>'
+            else f'<w:rPr><w:color w:val="{text_color}"/><w:sz w:val="{size}"/></w:rPr>'
         )
-        shading = '<w:shd w:val="clear" w:fill="DCE8F4"/>' if header else ""
+        shading = (
+            f'<w:shd w:val="clear" w:fill="{visual.palette.table_header.lstrip(chr(35))}"/>'
+            if header
+            else ""
+        )
         cells.append(
             f'<w:tc><w:tcPr><w:tcW w:w="{width}" w:type="dxa"/>'
             f'<w:vAlign w:val="center"/>{shading}</w:tcPr>'
@@ -653,6 +663,7 @@ def _table_row(
     return f"<w:tr>{row_properties}" + "".join(cells) + "</w:tr>"
 
 
+
 def _xml_text(value: object) -> str:
     text = "".join(
         character
@@ -663,27 +674,30 @@ def _xml_text(value: object) -> str:
 
 
 def _docx_styles() -> str:
+    visual = modern_oilfield_report_profile()
+    palette, typography = visual.palette, visual.typography
+    styles = []
+    for name, size, color, bold in (
+        ("Normal", typography.body_pt, palette.text, False),
+        ("Title", typography.title_pt, palette.accent, True),
+        ("Heading1", typography.section_pt, palette.accent_dark, True),
+    ):
+        default = ' w:default="1"' if name == "Normal" else ""
+        based_on = '<w:basedOn w:val="Normal"/>' if name != "Normal" else ""
+        styles.append(
+            f'<w:style w:type="paragraph"{default} w:styleId="{name}">'
+            f'<w:name w:val="{name}"/>{based_on}<w:rPr>'
+            + ("<w:b/>" if bold else "")
+            + f'<w:color w:val="{color.lstrip("#")}"/>'
+            + f'<w:sz w:val="{round(size * 2)}"/></w:rPr></w:style>'
+        )
     return (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
-        '<w:style w:type="paragraph" w:default="1" w:styleId="Normal">'
-        '<w:name w:val="Normal"/><w:rPr><w:sz w:val="20"/></w:rPr></w:style>'
-        '<w:style w:type="paragraph" w:styleId="Title">'
-        '<w:name w:val="Title"/><w:basedOn w:val="Normal"/>'
-        '<w:rPr><w:b/><w:sz w:val="34"/></w:rPr></w:style>'
-        '<w:style w:type="paragraph" w:styleId="Heading1">'
-        '<w:name w:val="heading 1"/><w:basedOn w:val="Normal"/>'
-        '<w:rPr><w:b/><w:sz w:val="26"/></w:rPr></w:style>'
-        '<w:style w:type="table" w:styleId="TableGrid"><w:name w:val="Table Grid"/>'
-        '<w:tblPr><w:tblBorders>'
-        '<w:top w:val="single" w:sz="4" w:color="808080"/>'
-        '<w:left w:val="single" w:sz="4" w:color="808080"/>'
-        '<w:bottom w:val="single" w:sz="4" w:color="808080"/>'
-        '<w:right w:val="single" w:sz="4" w:color="808080"/>'
-        '<w:insideH w:val="single" w:sz="4" w:color="808080"/>'
-        '<w:insideV w:val="single" w:sz="4" w:color="808080"/>'
-        "</w:tblBorders></w:tblPr></w:style></w:styles>"
+        + "".join(styles)
+        + "</w:styles>"
     )
+
 
 
 def _validate_dataset(

@@ -16,7 +16,7 @@ from geoworkbench.data.hydrocarbon_interpretation_export import (
     _table,
 )
 from geoworkbench.data.spreadsheet_safety import protect_spreadsheet_row
-from geoworkbench.printing.report_visual_system import REPORT_BRAND_WORDMARK
+from geoworkbench.printing.report_visual_system import REPORT_BRAND_WORDMARK, modern_oilfield_report_profile
 from geoworkbench.printing.interpretation_report import (
     LBA_FIELDS,
     AnalysisInterpretationEntry,
@@ -114,10 +114,9 @@ def export_interpretation_report_docx(
     return destination
 
 
-def _write_xlsx(
-    path: Path, report: InterpretationReport, language: AppLanguage
-) -> None:
+def _write_xlsx(path: Path, report: InterpretationReport, language: AppLanguage) -> None:
     labels = _LABELS[language]
+    visual = modern_oilfield_report_profile()
     workbook = Workbook()
     summary = workbook.active
     summary.title = _sheet_name(labels["summary"])
@@ -134,7 +133,9 @@ def _write_xlsx(
             (labels["interpretation"], report.interpreted_count),
         ),
     )
-    summary["A1"].font = Font(bold=True, size=16)
+    summary["A1"].font = Font(
+        bold=True, size=visual.typography.title_pt, color=visual.palette.accent.lstrip("#")
+    )
     summary.merge_cells("A1:B1")
     summary.column_dimensions["A"].width = 34
     summary.column_dimensions["B"].width = 80
@@ -232,10 +233,11 @@ def _write_xlsx(
     )
     for cell in meter["C"][1:]:
         cell.number_format = "0.0%"
-    meter.sheet_properties.tabColor = "D9A441"
+    meter.sheet_properties.tabColor = visual.palette.accent.lstrip("#")
     meter["A1"].comment = Comment(labels["meter_note"], "DIGITAL GEOLOG")
 
     workbook.save(path)
+
 
 def _sample_row(
     entry: AnalysisInterpretationEntry,
@@ -488,20 +490,35 @@ def _write_table(
     *,
     widths: tuple[int, ...],
 ) -> None:
+    visual = modern_oilfield_report_profile()
     worksheet.append(protect_spreadsheet_row(headers))
     for row in rows:
         worksheet.append(protect_spreadsheet_row(row))
     worksheet.freeze_panes = "A2"
     worksheet.auto_filter.ref = worksheet.dimensions
     for cell in worksheet[1]:
-        cell.font = Font(bold=True, color="172033")
-        cell.fill = PatternFill("solid", fgColor="DCE8F4")
+        cell.font = Font(
+            bold=True, size=visual.typography.table_pt, color=visual.palette.text.lstrip("#")
+        )
+        cell.fill = PatternFill("solid", fgColor=visual.palette.table_header.lstrip("#"))
         cell.alignment = Alignment(wrap_text=True, vertical="top")
     for row in worksheet.iter_rows(min_row=2):
         for cell in row:
-            cell.alignment = Alignment(wrap_text=True, vertical="top")
+            cell.font = Font(size=visual.typography.table_pt, color=visual.palette.text.lstrip("#"))
+            cell.fill = PatternFill(
+                "solid",
+                fgColor=(
+                    visual.palette.table_alt if cell.row % 2 == 0 else visual.palette.page
+                ).lstrip("#"),
+            )
+            cell.alignment = Alignment(
+                wrap_text=True,
+                vertical="top",
+                horizontal="right" if isinstance(cell.value, (int, float)) else "left",
+            )
     for index, width in enumerate(widths, start=1):
         worksheet.column_dimensions[get_column_letter(index)].width = width
+
 
 
 def _sheet_name(value: str) -> str:

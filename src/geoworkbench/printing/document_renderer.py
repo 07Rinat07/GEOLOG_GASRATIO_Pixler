@@ -6,10 +6,10 @@ from dataclasses import dataclass, replace
 from typing import Iterator
 
 from PySide6.QtCore import QRectF, Qt
-from PySide6.QtGui import QPainter
+from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import QWidget
 
-from geoworkbench.brand import APPLICATION_DISPLAY_NAME
+from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.domain.models import MasterlogTemplate
 from geoworkbench.printing.auto_pagination import (
     PRINT_FOOTER_MM,
@@ -660,11 +660,21 @@ def _should_paint_column_header_at_top(page: PrintDocumentPage) -> bool:
     return page.index == 1 and not page.is_column_header_page
 
 
+def _point_rule_width(painter: QPainter, points: float) -> float:
+    """Convert physical rule thickness into this document's device-pixel coordinates."""
+    device = painter.device()
+    dpi = float(device.logicalDpiY()) if device is not None else 72.0
+    return points * dpi / 72.0
+
+
 def _paint_header(painter: QPainter, rect: QRectF, *, title: str, range_text: str) -> None:
+    visual = modern_oilfield_report_profile()
     painter.save()
     try:
-        painter.setPen(Qt.GlobalColor.black)
-        painter.setFont(print_font(9.0, bold=True, text=f"{title} {range_text}"))
+        painter.setPen(QColor(visual.palette.text))
+        painter.setFont(
+            print_font(visual.typography.subtitle_pt, bold=True, text=f"{title} {range_text}")
+        )
         metrics = painter.fontMetrics()
         right_width = metrics.horizontalAdvance(range_text) + 8 if range_text else 0
         title_rect = QRectF(
@@ -677,15 +687,17 @@ def _paint_header(painter: QPainter, rect: QRectF, *, title: str, range_text: st
             title_text,
         )
         if range_text:
-            painter.setFont(print_font(8.0, text=range_text))
+            painter.setFont(print_font(visual.typography.body_pt, text=range_text))
             painter.drawText(
                 rect,
                 Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
                 range_text,
             )
+        painter.setPen(QPen(QColor(visual.palette.border_strong), _point_rule_width(painter, visual.layout.thin_rule_pt)))
         painter.drawLine(rect.bottomLeft(), rect.bottomRight())
     finally:
         painter.restore()
+
 
 
 def _paint_footer(
@@ -696,24 +708,41 @@ def _paint_footer(
     show_page_numbers: bool,
     localizer: Localizer,
 ) -> None:
+    visual = modern_oilfield_report_profile()
     painter.save()
     try:
-        painter.setPen(Qt.GlobalColor.black)
+        painter.setPen(QPen(QColor(visual.palette.border_strong), _point_rule_width(painter, visual.layout.thin_rule_pt)))
         painter.drawLine(rect.topLeft(), rect.topRight())
-        painter.setFont(print_font(7.5, text=APPLICATION_DISPLAY_NAME))
+        painter.setPen(QColor(visual.palette.text_muted))
+        painter.setFont(
+            print_font(visual.typography.footer_pt, bold=True, text=visual.brand_wordmark)
+        )
+        page_text = (
+            localizer.text("print_center.page_number", page=page.index, total=page.total)
+            if show_page_numbers
+            else ""
+        )
+        metrics = painter.fontMetrics()
+        number_width = metrics.horizontalAdvance(page_text) + 8 if page_text else 0
+        brand_rect = QRectF(
+            rect.left(), rect.top(), max(1.0, rect.width() - number_width), rect.height()
+        )
         painter.drawText(
-            rect,
+            brand_rect,
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-            APPLICATION_DISPLAY_NAME,
+            metrics.elidedText(
+                visual.brand_wordmark, Qt.TextElideMode.ElideRight, int(brand_rect.width())
+            ),
         )
         if show_page_numbers:
             painter.drawText(
                 rect,
                 Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
-                localizer.text("print_center.page_number", page=page.index, total=page.total),
+                page_text,
             )
     finally:
         painter.restore()
+
 
 
 def _page_range_text(
