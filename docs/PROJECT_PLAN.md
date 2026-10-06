@@ -2,10 +2,10 @@
 # Единый план проекта
 
 План актуализирован 6 октября 2026 года. Проверенная база текущего инкремента —
-`1f7ffff1` (PR #463). RPT-COMP-01 интегрирован: сохраняемый порядок и видимость
+`d9decbe0` (PR #464). RPT-COMP-01 интегрирован: сохраняемый порядок и видимость
 глубинных графических колонок применяются через одну renderer-neutral composition.
-Текущий инкремент PRINT-STYLE-01 подключает generic HTML/DOCX к общей зоне
-реквизитов, compact footer и immutable visual profile.
+Текущий инкремент PRINT-STYLE-01 подключает generic XLSX к общей зоне
+реквизитов и выделяет единый Excel adapter для generic и interpretation отчётов.
 Статусы завершения
 ниже относятся к main после интеграции этого инкремента и успешного exact-head Release gate.
 Приложение сохраняет каноническую industrial-blue DIGITAL GEOLOG айдентику. WITS развивается
@@ -367,8 +367,8 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   hydrocarbon PDF/Word cover и Excel sheet «Реквизиты»; workspace XLSX использует сохранённую
   шапку текущего языка/профиля после save/reopen. Выбранный analysis interval приоритетнее
   устаревшего presentation interval. Пустая дата не создаёт row/label и generation timestamp
-  не выводится; formula-like Excel values сохраняются как literal text. Generic/Masterlog
-  document-control и physical acceptance остаются открытыми. Закрытие slice — после exact-head gate.
+  не выводится; formula-like Excel values сохраняются как literal text. Автоматическая Masterlog
+  document-control зона и physical acceptance остаются открытыми. Закрытие slice — после exact-head gate.
 - [x] **Masterlog editable document-control slice:** номер документа, ревизия, статус,
   явная дата отчёта, подготовил/проверил/утвердил и конфиденциальность доступны в данных
   формы и динамических полях шапки RU/KK/EN. Project save/reopen и PDF сохраняют значения
@@ -382,8 +382,18 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   HTML и DOCX используют shared visual profile, wordmark и compact footer; Word footer
   содержит PAGE/NUMPAGES, таблицы повторяют header и используют alternating fills.
   Полные длинные значения остаются в основной зоне, footer ограничен; DOCX XML metadata
-  корректно экранирует ampersand. Автоматическая Masterlog PDF зона/подвал, generic XLSX
+  корректно экранирует ampersand. Автоматическая Masterlog PDF зона/подвал
   и physical acceptance остаются открытыми. Закрытие slice — после exact-head Release gate.
+- [x] **Generic XLSX document-control slice:** resolved report export использует общий
+  snapshot реквизитов и печатный лист RU/KK/EN через `report_document_control_excel`.
+  Этот adapter также обслуживает interpretation XLSX. Сохраняются контекст проекта/скважины,
+  фактический интервал и реквизиты явно привязанной формы после reopen; дата появляется
+  только при явном вводе, formula-like значения остаются literal text. Data/Parameters
+  используют shared palette, alternating fills, numeric alignment, A4 pagination, повтор
+  header/ключевых колонок и canonical footer с &P/&N; широкие таблицы разбиваются
+  горизонтально в landscape без сжатия всего набора на одну страницу. Числа, нули, пропуски, unavailable и Metadata
+  остаются прежними. Автоматическая Masterlog PDF зона/подвал и physical acceptance
+  остаются открытыми. Закрытие slice — после exact-head Release gate.
 - [ ] Обязательная document-control зона: well/project, interval, document number, revision,
   status, prepared/checked/approved при доступности данных. Блок report date **не выводится по
   умолчанию вообще** и появляется только после явного пользовательского ввода даты; часы/минуты и
