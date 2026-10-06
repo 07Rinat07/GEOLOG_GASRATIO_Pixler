@@ -6,6 +6,8 @@ from html import escape
 from geoworkbench.calculations.gas_ratio import OPUS_SCREENING_FORMULAS
 from geoworkbench.calculations.pixler import build_all_sourced_formula_registry
 from geoworkbench.domain.models import Dataset
+from geoworkbench.domain.report_composition import DEFAULT_REPORT_CHART_PANELS, ReportChartPanelSettings
+from geoworkbench.printing.hydrocarbon_interpretation_curve_selection import chart_panel_render_options
 from geoworkbench.printing.hydrocarbon_interpretation_curve_labels import (
     curve_display_name,
     report_curve_label_hints,
@@ -115,6 +117,8 @@ def interpretation_chart_key_html(
     report: HydrocarbonInterpretationReport,
     dataset: Dataset,
     language: AppLanguage,
+    *,
+    chart_panels: ReportChartPanelSettings = DEFAULT_REPORT_CHART_PANELS,
 ) -> str:
     """Explain only displayed channels, taking formulas from their calculation contracts."""
     labels = _LABELS[language]
@@ -128,7 +132,7 @@ def interpretation_chart_key_html(
     opus_formulas = dict(OPUS_SCREENING_FORMULAS)
     rows: list[str] = []
     seen: set[str] = set()
-    for _panel, curves in _panel_curves(report, dataset):
+    for _panel, curves in _panel_curves(report, dataset, **chart_panel_render_options(chart_panels)):
         for curve in curves:
             canonical = (
                 hints.get(curve.metadata.original_mnemonic.upper())

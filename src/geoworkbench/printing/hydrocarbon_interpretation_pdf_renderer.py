@@ -120,6 +120,7 @@ def render_hydrocarbon_interpretation_report(
             scoped = scope_dataset(dataset, report.analysis_depth_interval)
             key_html = interpretation_chart_key_html(
                 report, scoped, language,
+                **chart_panel_render_options(chart_panels),
             )
             # Interpretation reports start with the method/formula explanation.
             # A separate geology-catalog page before it is not useful and wastes

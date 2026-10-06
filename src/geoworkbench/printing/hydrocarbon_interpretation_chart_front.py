@@ -88,6 +88,7 @@ def hydrocarbon_interpretation_html_with_front_chart(
             report,
             scope_dataset(dataset, report.analysis_depth_interval),
             language,
+            **chart_panel_render_options(chart_panels),
         )
     )
     key_block = (

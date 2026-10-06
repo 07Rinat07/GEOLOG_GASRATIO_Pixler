@@ -187,6 +187,48 @@ def test_all_hidden_produces_no_chart_and_keeps_saved_order(qapp, tmp_path, monk
     assert settings.order == _settings().order
 
 
+@pytest.mark.parametrize("language", list(AppLanguage))
+def test_chart_explanations_follow_visible_columns_in_html_and_pdf(qapp, tmp_path, monkeypatch, language) -> None:
+    from geoworkbench.printing import hydrocarbon_interpretation_chart_front as front
+    from geoworkbench.printing import hydrocarbon_interpretation_pdf_renderer as renderer
+    from geoworkbench.printing.hydrocarbon_interpretation_curve_labels import curve_display_name
+    from geoworkbench.printing.interpretation_chart_key import interpretation_chart_key_html
+
+    session = _session()
+    dataset = session.current_dataset
+    report = build_hydrocarbon_interpretation_report(session)
+    titles = {
+        curve.metadata.original_mnemonic: curve_display_name(curve, language)
+        for curve in dataset.curves.values()
+    }
+    ordered = ReportChartPanelSettings(_settings().order)
+    key = interpretation_chart_key_html(report, dataset, language, chart_panels=ordered)
+    assert key.index(titles["DEXP"]) < key.index(titles["WH"])
+    hidden_key = interpretation_chart_key_html(report, dataset, language, chart_panels=_settings())
+    assert titles["DEXP"] in hidden_key
+    assert titles["WH"] not in hidden_key
+    all_hidden = ReportChartPanelSettings(ordered.order, tuple(ReportChartPanel))
+    assert interpretation_chart_key_html(report, dataset, language, chart_panels=all_hidden) == ""
+    seen = []
+
+    def capture_key(*args, **kwargs):
+        html = interpretation_chart_key_html(*args, **kwargs)
+        seen.append((kwargs.get("chart_panels"), html))
+        return html
+
+    monkeypatch.setattr(front, "interpretation_chart_key_html", capture_key)
+    monkeypatch.setattr(renderer, "interpretation_chart_key_html", capture_key)
+    html = front.hydrocarbon_interpretation_html_with_front_chart(
+        report, dataset, language, chart_panels=_settings(),
+    )
+    export_hydrocarbon_interpretation_pdf_with_passport(
+        session, report, tmp_path / "key.pdf", language=language,
+        include_chart=True, chart_panels=_settings(),
+    )
+    assert hidden_key in html
+    assert seen == [(_settings(), hidden_key), (_settings(), hidden_key)]
+
+
 def test_hidden_column_annotations_do_not_move_to_a_visible_neighbour(qapp, tmp_path, monkeypatch) -> None:
     from geoworkbench.domain.report_annotations import (
         ReportAnnotationAnchor, ReportAnnotationKind, ReportAnnotationRecord,
