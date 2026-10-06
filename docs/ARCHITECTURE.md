@@ -146,6 +146,9 @@ PDF / printer / LAS / CSV / XLSX / DOCX / HTML
 единственная persistence boundary, а Qt dialog только редактирует модель. Preview, PDF и
 system print читают одну composition; renderer-specific Qt enums не попадают в persisted schema.
 Старые проекты мигрируют с пустой composition и безопасными factory defaults.
+Persisted report annotations принимают только целочисленную поддерживаемую `schema_version`:
+JSON boolean, float, string и неизвестные версии отклоняются на storage boundary через
+`ProjectFormatError`, до материализации загружаемого документа.
 
 ### Report presentation labels и source identity
 

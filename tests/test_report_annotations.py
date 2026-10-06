@@ -130,6 +130,22 @@ def test_existing_v37_without_annotations_defaults_to_empty_snapshot(tmp_path) -
     assert loaded.report_compositions[DATASET_ID].annotations == ()
 
 
+@pytest.mark.parametrize("version", [True, False, 1.0, "1", None, 0, 2])
+def test_project_rejects_invalid_annotation_schema(
+    tmp_path, version: object,
+) -> None:
+    target = tmp_path / "invalid-annotation-schema.geolog.json"
+    composition = _composition(_annotation())
+    project = _project()
+    save_project(project, target, report_compositions={DATASET_ID: composition})
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    payload["report_compositions"][DATASET_ID]["annotations"][0]["schema_version"] = version
+    target.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    with pytest.raises(ProjectFormatError, match="report annotation"):
+        load_project_document(target)
+
+
 def test_save_and_load_reject_foreign_report_annotation_scope(tmp_path) -> None:
     foreign = _annotation(scope_id="report:other-well:other-dataset:rpt-foreign")
     target = tmp_path / "foreign-scope.geolog.json"

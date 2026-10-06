@@ -107,6 +107,10 @@ def _posix_process_memory_snapshot() -> ProcessMemorySnapshot:
             if sys.platform.startswith("linux")
             else None
         )
+        # These OS counters are sampled independently. The observed current
+        # resident set is itself a lower bound for the process peak.
+        if current is not None:
+            peak = max(peak, current)
         return ProcessMemorySnapshot(current, peak)
     except (AttributeError, ImportError, OSError, TypeError, ValueError):
         return ProcessMemorySnapshot(None, None)
