@@ -2,10 +2,10 @@
 # Единый план проекта
 
 План актуализирован 6 октября 2026 года. Проверенная база текущего инкремента —
-`8131acc2` (PR #461). RPT-COMP-01 интегрирован: сохраняемый порядок и видимость
+`333a8387` (PR #462). RPT-COMP-01 интегрирован: сохраняемый порядок и видимость
 глубинных графических колонок применяются через одну renderer-neutral composition.
-Текущий инкремент PRINT-STYLE-01 сводит document-control PDF/DOCX/XLSX к одному
-immutable локализованному snapshot и передаёт сохранённые реквизиты Composer в Excel.
+Текущий инкремент PRINT-STYLE-01 добавляет реквизиты document-control в редактор
+данных и динамических полей Masterlog; значения сохраняются отдельно для каждой формы.
 Статусы завершения
 ниже относятся к main после интеграции этого инкремента и успешного exact-head Release gate.
 Приложение сохраняет каноническую industrial-blue DIGITAL GEOLOG айдентику. WITS развивается
@@ -369,6 +369,12 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   устаревшего presentation interval. Пустая дата не создаёт row/label и generation timestamp
   не выводится; formula-like Excel values сохраняются как literal text. Generic/Masterlog
   document-control и physical acceptance остаются открытыми. Закрытие slice — после exact-head gate.
+- [x] **Masterlog editable document-control slice:** номер документа, ревизия, статус,
+  явная дата отчёта, подготовил/проверил/утвердил и конфиденциальность доступны в данных
+  формы и динамических полях шапки RU/KK/EN. Project save/reopen и PDF сохраняют значения
+  конкретной формы; паспорт скважины и LAS metadata не подменяют их. Пустые поля, включая
+  дату, печатаются без технического placeholder. Готовая автоматическая зона generic/Masterlog
+  и общий footer contract остаются открытыми. Закрытие slice — после exact-head Release gate.
 - [ ] Обязательная document-control зона: well/project, interval, document number, revision,
   status, prepared/checked/approved при доступности данных. Блок report date **не выводится по
   умолчанию вообще** и появляется только после явного пользовательского ввода даты; часы/минуты и

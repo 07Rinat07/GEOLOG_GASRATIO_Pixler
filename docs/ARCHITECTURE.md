@@ -865,3 +865,9 @@ Masterlog element properties и source/candidate/domain values не перепи
 generation audit не является входом. PDF и polished DOCX cover адаптируют один snapshot; readable
 XLSX добавляет available rows на отдельный лист с тем же visual profile. Workspace выбирает
 сохранённые headers через language + report-profile resolver. Project schema v37 не меняется.
+
+Masterlog document-control fields зарегистрированы в `printing/header_fields.py`. Значения
+хранятся в существующем `MasterlogTemplate.properties["header_fields"]`, отдельно для каждой
+формы; они не входят в паспорт скважины и не наследуют LAS metadata. Resolver возвращает
+пустую строку для отсутствующих реквизитов, поэтому preview/PDF не печатают placeholder
+или автоматически созданную дату. Геометрия и подписи пользовательской шапки задаются редактором.

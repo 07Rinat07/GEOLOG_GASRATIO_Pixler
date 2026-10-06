@@ -43,7 +43,19 @@ _SYSTEM_FIELDS: tuple[HeaderFieldDefinition, ...] = (
     HeaderFieldDefinition("dataset.sample_count", "Количество отсчётов", "Өлшем саны", "Sample count"),
 )
 
-_EDITABLE_FIELDS: tuple[HeaderFieldDefinition, ...] = (
+_DOCUMENT_CONTROL_FIELDS: tuple[HeaderFieldDefinition, ...] = (
+    HeaderFieldDefinition("header.document_number", "Номер документа", "Құжат нөмірі", "Document number"),
+    HeaderFieldDefinition("header.revision", "Ревизия", "Ревизия", "Revision"),
+    HeaderFieldDefinition("header.status", "Статус документа", "Құжат мәртебесі", "Document status"),
+    HeaderFieldDefinition("header.report_date", "Дата отчёта", "Есеп күні", "Report date"),
+    HeaderFieldDefinition("header.prepared_by", "Подготовил", "Дайындаған", "Prepared by"),
+    HeaderFieldDefinition("header.checked_by", "Проверил", "Тексерген", "Checked by"),
+    HeaderFieldDefinition("header.approved_by", "Утвердил", "Бекіткен", "Approved by"),
+    HeaderFieldDefinition("header.confidentiality", "Конфиденциальность", "Құпиялылық", "Confidentiality", multiline=True),
+)
+DOCUMENT_CONTROL_HEADER_FIELDS = frozenset(item.field_id for item in _DOCUMENT_CONTROL_FIELDS)
+
+_EDITABLE_FIELDS: tuple[HeaderFieldDefinition, ...] = _DOCUMENT_CONTROL_FIELDS + (
     HeaderFieldDefinition("header.country", "Страна", "Ел", "Country", "Казахстан"),
     HeaderFieldDefinition("header.field", "Месторождение", "Кен орны", "Field"),
     HeaderFieldDefinition("header.region", "Область / регион", "Облыс / өңір", "Region"),
@@ -185,6 +197,11 @@ def resolve_header_field(
     if field_name in {"dataset.depth_min", "dataset.depth_max", "dataset.interval"}:
         return _resolve_dataset_depth(session, field_name)
     if field_name.startswith("header."):
+        if field_name in DOCUMENT_CONTROL_HEADER_FIELDS:
+            # Document control belongs to this form revision, not the well
+            # passport or LAS acquisition metadata. Empty values intentionally
+            # resolve to empty text rather than a printable field placeholder.
+            return template_header_values(template).get(field_name, "").strip() if template is not None else ""
         well = session.current_well
         if well is not None and well.passport is not None and field_name in PASSPORT_HEADER_FIELDS:
             # An adopted passport is authoritative, including deliberately empty
