@@ -1,11 +1,10 @@
 <!-- runtime-contract: package=0.7.96; project=v37; form=v18; layout=v25 -->
 # Единый план проекта
 
-План сверён 2 октября 2026 года с `main` после интеграции PR #417–#422.
-Проверенная база текущего инкремента — merge `badbb986`: RPT-GEO-03, signed TVDSS для
-Gas Context и narrow-window UI-SYS-01 уже находятся в `main`. Текущий продуктовый инкремент
-PERF-07 фиксирует воспроизводимый Windows baseline для большого LAS: production import,
-первый TabletView render и scroll/zoom измеряются вместе с RSS и full-rebuild counters.
+План актуализирован 6 октября 2026 года. Проверенная база текущего инкремента —
+`d8b7f170` (PR #459). RPT-COMP-01 завершает сохранённый порядок и видимость разрешённых
+глубинных графических колонок через одну renderer-neutral composition. Статусы завершения
+ниже относятся к main после интеграции этого инкремента и успешного exact-head Release gate.
 Приложение сохраняет каноническую industrial-blue DIGITAL GEOLOG айдентику. WITS развивается
 как операторское рабочее пространство с live-данными и состоянием подключения; расширенные
 настройки и диагностика отделяются от основного сценария.
@@ -98,23 +97,26 @@ renderer-neutral presentation composition сохраняется в проект
 preview/PDF/system print. Foundation уже фиксирует orientation, print order, Auto/Show/Hide
 шламограммы/ЛБА, legend mode, layout profile, localized headers и report annotations в project
 format v37. Narrative controls интегрированы коммитом `55b3a056`: optional summary/conclusion
-сохраняются без удаления текста. Следующий основной slice — порядок/видимость разрешённых
-chart columns. RPT-ANN renderer/editor интегрированы через #446/#447; остаточная сквозная и
-физическая приёмка не объявляется завершённой. Сверка 6 октября выполнена с `16ab2681` и
-успешным Release gate #2582; это доказательство базы, а не последующих изменений.
+сохраняются без удаления текста. Порядок и видимость разрешённых глубинных chart columns сохраняются
+в том же project v37: total, ratios, drilling и opus имеют строго ограниченные logical keys;
+неподходящие профилю/пустые колонки не рисуются, скрытые сохраняют своё место в порядке.
+Preview/PDF/system print применяют один snapshot; все скрытые графические колонки подавляют
+глубинный график, а source LAS, расчёты и classification остаются неизменными.
+RPT-ANN renderer/editor интегрированы через #446/#447; остаточная сквозная и физическая
+приёмка не объявляется завершённой. Зелёный CI относится только к проверенному head.
+
 
 | Порядок | Задача | Следующий проверяемый результат и зависимость | Ответственный по роли / статус |
 |---|---|---|---|
-| 1 | RPT-COMP-01 | Foundation и narrative visibility сохранены в project v37. Следующий slice — порядок/видимость разрешённых chart columns через одну composition; preview/PDF/system print и reopen воспроизводят один выбор | Разработчик / готово к разработке |
 | 2 | RPT-ANN-01 | Renderer и transactional editor интегрированы через #446/#447. Остаточная сквозная приёмка из Composer, save/reopen и изоляции scope; strict persisted schema отклоняет boolean/float вместо integer v1 | Разработчик / на проверке |
-| 4 | PRINT-STYLE-01 | Свести оставшиеся generic/Masterlog/Office пути к одному visual profile и document-control contract; дополнять готовые typography/marker/legend contracts. Physical acceptance вынесена отдельно | Разработчик / в работе |
-| 5 | GASCTX-RPT-01: остаточная приёмка | Проверить общий editor/registry/context audit через production entry points, save/reopen и RU/KK/EN; завершить отдельные полосы/метки событий с grayscale-подписями. Реализованные exclusion/background/confirmed policy не переписывать | Разработчик + специалист ГТИ / на проверке |
-| 6 | WITS-UX-01 | Завершить persistence/reconnect и live-first navigation/help: основные данные и health видимы, advanced/diagnostics сворачиваются, outer horizontal scroll отсутствует | Разработчик / в работе |
-| 7 | WITS-PLOT-01 | Остаточные manual ranges, reconnect/schema-change и redraw acceptance поверх существующих unit-aware tracks и редактируемых панелей | Разработчик / в работе |
-| 8 | WITS-GASCTX-01 / WITS-INTERP-01 | Сквозная проекция live gas context и интерпретационных полос; source origin, fluid screening и alarm остаются независимыми осями | Разработчик + специалист ГТИ / в работе |
-| 9 | WELL-04 → WELL-05 | Сквозная готовность переводов и пары макетов; использовать реализованные field ledger/readiness/family resolver и WELL-06, проверить save/reopen без смешения ревизий | Разработчик / на проверке |
-| 10 | ARCH-07 | Довести общую history до оставшихся mutation controllers при работе над конкретными editor сценариями; не создавать параллельную историю в RPT-ANN | Разработчик / в работе |
-| 11 | PERF-05 | Сначала baseline текущего save/open/RSS на 100k/1M; новый storage backend только при подтверждённом bottleneck и с совместимой миграцией | Разработчик / запланировано |
+| 1 | PRINT-STYLE-01 | Свести оставшиеся generic/Masterlog/Office пути к одному visual profile и document-control contract; дополнять готовые typography/marker/legend contracts. Physical acceptance вынесена отдельно | Разработчик / в работе |
+| 2 | GASCTX-RPT-01: остаточная приёмка | Проверить общий editor/registry/context audit через production entry points, save/reopen и RU/KK/EN; завершить отдельные полосы/метки событий с grayscale-подписями. Реализованные exclusion/background/confirmed policy не переписывать | Разработчик + специалист ГТИ / на проверке |
+| 3 | WITS-UX-01 | Завершить persistence/reconnect и live-first navigation/help: основные данные и health видимы, advanced/diagnostics сворачиваются, outer horizontal scroll отсутствует | Разработчик / в работе |
+| 4 | WITS-PLOT-01 | Остаточные manual ranges, reconnect/schema-change и redraw acceptance поверх существующих unit-aware tracks и редактируемых панелей | Разработчик / в работе |
+| 5 | WITS-GASCTX-01 / WITS-INTERP-01 | Сквозная проекция live gas context и интерпретационных полос; source origin, fluid screening и alarm остаются независимыми осями | Разработчик + специалист ГТИ / в работе |
+| 6 | WELL-04 → WELL-05 | Сквозная готовность переводов и пары макетов; использовать реализованные field ledger/readiness/family resolver и WELL-06, проверить save/reopen без смешения ревизий | Разработчик / на проверке |
+| 7 | ARCH-07 | Довести общую history до оставшихся mutation controllers при работе над конкретными editor сценариями; не создавать параллельную историю в RPT-ANN | Разработчик / в работе |
+| 8 | PERF-05 | Сначала baseline текущего save/open/RSS на 100k/1M; новый storage backend только при подтверждённом bottleneck и с совместимой миграцией | Разработчик / запланировано |
 
 ## RPT-GAS-VIS-01 — точечное представление газовых отношений
 
@@ -1574,7 +1576,7 @@ report snapshot/composition/render/print.
   глубины. Сохранить модель/драйвер/DPI, ревизию отчёта и результат специалиста ГТИ.
   Статус: блокировано внешним условием; зелёный CI и цифровой PDF этот критерий не закрывают.
 
-- [ ] **RPT-COMP-01 — Final Report Composer.**
+- [x] **RPT-COMP-01 — Final Report Composer.**
   Единый финальный workspace перед PDF/печатью поверх существующих report renderer/preview
   компонентов, а не второй независимый генератор отчётов. Пользователь управляет только
   presentation snapshot: видимость/порядок разрешённых колонок, `Auto/Show/Hide` шламограммы и
@@ -1588,8 +1590,13 @@ report snapshot/composition/render/print.
     composition, старые v37 без этих ключей безопасно мигрируют к visible=true, UI Composer
     восстанавливает выбор, а preview/PDF/system print применяют одинаковую narrative visibility
     без удаления сохранённого текста.
-  - [ ] Следующий bounded slice после интеграции: порядок/видимость только разрешённых chart
-    columns/panels через тот же composition; никаких параллельных renderer-specific настроек.
+  - [x] Порядок/видимость разрешённых глубинных chart columns/panels сохраняются в том же
+    composition. Общий bounded resolver используется preview/PDF/system print; повторное
+    открытие JSON/package восстанавливает порядок и скрытые позиции, legacy v37 получает
+    прежние profile defaults. Неподдерживаемые ключи/дубликаты отклоняются; аннотация скрытой
+    колонки не переносится в соседнюю. Report Passport фиксирует presentation options,
+    сохраняя dataset fingerprint. RU/KK/EN, все скрытые колонки и фактические renderer paths
+    покрыты `tests/test_report_chart_panel_composition.py`; физическая приёмка остаётся отдельно.
 
 - [ ] **RPT-ANN-01 — printable annotations и remarks.**
   Добавить report annotation snapshot для текста, callout, arrow, interval highlight и remarks

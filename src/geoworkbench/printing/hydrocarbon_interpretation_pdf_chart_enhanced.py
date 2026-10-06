@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from geoworkbench.printing.hydrocarbon_interpretation_curve_selection import chart_panel_render_options
+
 from geoworkbench.printing.gas_ratio_reference import (
     ratio_identifier, ratio_reference_tracks, ratio_reference_color,
 )
@@ -12,7 +14,11 @@ from PySide6.QtGui import QPolygonF, QColor, QPainter, QPen
 
 from geoworkbench.domain.depth_interval import scope_dataset
 from geoworkbench.domain.models import CurveData, Dataset
-from geoworkbench.domain.report_composition import ReportLegendMode
+from geoworkbench.domain.report_composition import (
+    DEFAULT_REPORT_CHART_PANELS,
+    ReportChartPanelSettings,
+    ReportLegendMode,
+)
 from geoworkbench.domain.report_annotations import ReportAnnotationRecord
 from geoworkbench.printing import hydrocarbon_interpretation_pdf_chart as base_chart
 from geoworkbench.printing.hydrocarbon_fluid_markers import (
@@ -100,6 +106,7 @@ def render_chart_pages(
     legend_mode: ReportLegendMode = ReportLegendMode.FULL,
     legend_reference_pages_emitted: bool = False,
     annotations: tuple[ReportAnnotationRecord, ...] = (),
+    chart_panels: ReportChartPanelSettings = DEFAULT_REPORT_CHART_PANELS,
 ) -> None:
     """Render chart pages with printer-safe major and minor depth graduations."""
 
@@ -112,7 +119,7 @@ def render_chart_pages(
         return
     panels = tuple(
         (name, curves)
-        for name, curves in base_chart._panel_curves(report, dataset)
+        for name, curves in base_chart._panel_curves(report, dataset, **chart_panel_render_options(chart_panels))
         if curves
     )
     if not panels:

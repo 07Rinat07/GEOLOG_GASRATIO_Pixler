@@ -391,3 +391,7 @@ If an error occurs:
 For a daily-append problem, also include the `.geologpkg` path, target dataset name, LAS name,
 synchronisation completion time, and the **Analyze growth** result. A diagnostic bundle is not a
 backup of the project or source LAS.
+
+## Chart column order and visibility
+
+In the PDF or print layout, use the chart column checkboxes and Move up/Move down buttons. The project saves the order and hidden columns, including the position of a hidden column. Depth plots use the same selection in preview and printing. Columns unavailable in the current standard/OPUS report are disabled. Cuttings and LBA retain separate Auto/Show/Hide controls. Hiding every chart column removes the depth chart while keeping report text and source data. Cancel discards dialog changes; OK saves them. Scroll the settings on a small screen.

@@ -132,6 +132,14 @@ source LAS, расчётные series или geological records.
 с JSON boolean, float, string, null и неподдерживаемыми целочисленными версиями. Валидная
 целочисленная v1 сохраняется через существующие JSON/package round-trip regressions.
 
+### RPT-COMP-01: saved chart columns
+
+`tests/test_report_chart_panel_composition.py` проверяет JSON/package controller save/reopen,
+legacy v37 defaults, bounded malformed settings, RU/KK/EN dialog restore/reorder/Cancel,
+standard/OPUS default order, фактические preview/PDF painters и все скрытые колонки.
+Проверяется неизменность source arrays/dataset fingerprint и отсутствие переноса аннотации
+скрытой колонки к соседней. System print использует тот же подготовленный PDF и settings.
+
 ### Проверка состояния daily LAS preview (WELL-02)
 
 Проверка привязки daily LAS preview к состоянию данных (первый инкремент WELL-02):

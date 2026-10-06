@@ -23,6 +23,7 @@ from geoworkbench.domain.report_annotations import (
     report_annotation_to_dict,
 )
 from geoworkbench.domain.report_composition import (
+    ReportChartPanelSettings,
     InterpretationReportComposition,
     ReportHeaderFields,
     ensure_report_composition_id,
@@ -95,6 +96,8 @@ def _validate_report_compositions(
             + ", ".join(sorted(unknown))
         )
     for dataset_id, composition in compositions.items():
+        if not isinstance(composition.chart_panels, ReportChartPanelSettings):
+            raise ValueError("Invalid report chart panel settings")
         if (
             not composition.composition_id.strip()
             or len(composition.composition_id) > 128
@@ -198,6 +201,10 @@ def save_project(
                 "lba": composition.lba.value,
                 "legend_mode": composition.legend_mode.value,
                 "layout_profile": composition.layout_profile.value,
+                "chart_panels": {
+                    "order": [panel.value for panel in composition.chart_panels.order],
+                    "hidden": [panel.value for panel in composition.chart_panels.hidden],
+                },
                 "show_summary": composition.show_summary,
                 "show_conclusion": composition.show_conclusion,
                 "annotations": [

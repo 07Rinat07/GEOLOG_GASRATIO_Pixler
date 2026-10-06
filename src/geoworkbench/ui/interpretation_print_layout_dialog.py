@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from enum import Enum
 
-from PySide6.QtCore import QSize
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QPageLayout
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -11,7 +11,12 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QFormLayout,
+    QHBoxLayout,
     QLabel,
+    QListWidget,
+    QListWidgetItem,
+    QPushButton,
+    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
@@ -27,6 +32,9 @@ from geoworkbench.domain.report_composition import (
     ReportPageOrientation,
     ReportPrintOrder,
     ReportTrackVisibility,
+    ReportChartPanel,
+    ReportChartPanelSettings,
+    DEFAULT_REPORT_CHART_PANELS,
 )
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.window_geometry import fit_window_to_screen
@@ -54,6 +62,7 @@ class InterpretationPrintLayoutDialog(QDialog):
         language: AppLanguage = AppLanguage.RU,
         include_order: bool = True,
         initial: InterpretationReportComposition | None = None,
+        report_profile: str = "standard",
     ) -> None:
         super().__init__(parent)
         self.language = language
@@ -76,6 +85,8 @@ class InterpretationPrintLayoutDialog(QDialog):
         root.addWidget(description)
 
         form = QFormLayout()
+        form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
+        form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         self.orientation_combo = QComboBox()
         self.orientation_combo.addItem(
             self._text(
@@ -183,8 +194,54 @@ class InterpretationPrintLayoutDialog(QDialog):
         )
         self.order_label.setVisible(include_order)
         self.order_combo.setVisible(include_order)
+        self.chart_panel_list = QListWidget()
+        self.chart_panel_list.setObjectName("report-chart-panels")
+        self.chart_panel_list.setMinimumHeight(110)
+        self.chart_panel_list.setMaximumHeight(140)
+        settings = initial.chart_panels if initial else DEFAULT_REPORT_CHART_PANELS
+        captions = {
+            ReportChartPanel.TOTAL: self._text("Общий газ", "Жалпы газ", "Total gas"),
+            ReportChartPanel.RATIOS: self._text("Газовые отношения", "Газ қатынастары", "Gas ratios"),
+            ReportChartPanel.DRILLING: self._text("Параметры бурения", "Бұрғылау параметрлері", "Drilling parameters"),
+            ReportChartPanel.OPUS: self._text("Показатели OPUS", "OPUS көрсеткіштері", "OPUS indicators"),
+        }
+        for panel in settings.order:
+            item = QListWidgetItem(captions[panel], self.chart_panel_list)
+            item.setData(Qt.ItemDataRole.UserRole, panel.value)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(Qt.CheckState.Unchecked if panel in settings.hidden else Qt.CheckState.Checked)
+            if (panel is ReportChartPanel.OPUS and report_profile != "opus") or (
+                panel is ReportChartPanel.DRILLING and report_profile == "opus"
+            ):
+                item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEnabled)
+        panel_box = QWidget()
+        panel_layout = QVBoxLayout(panel_box)
+        panel_layout.setContentsMargins(0, 0, 0, 0)
+        panel_layout.addWidget(self.chart_panel_list)
+        moves = QHBoxLayout()
+        for offset, caption in (
+            (-1, self._text("Выше", "Жоғары", "Move up")),
+            (1, self._text("Ниже", "Төмен", "Move down")),
+        ):
+            button = QPushButton(caption)
+            button.setObjectName("chart-panel-up" if offset < 0 else "chart-panel-down")
+            button.clicked.connect(lambda _checked=False, step=offset: self._move_chart_panel(step))
+            moves.addWidget(button)
+        panel_layout.addLayout(moves)
+        form.addRow(self._text("Графические колонки:", "Графикалық бағандар:", "Chart columns:"), panel_box)
         self._apply_initial(initial)
-        root.addLayout(form)
+        form_widget = QWidget()
+        form_widget.setLayout(form)
+        for combo in form_widget.findChildren(QComboBox):
+            combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+            combo.setMinimumContentsLength(18)
+        for label in form_widget.findChildren(QLabel):
+            label.setWordWrap(True)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setWidget(form_widget)
+        root.addWidget(scroll, 1)
 
         note = QLabel(self._note_text())
         note.setWordWrap(True)
@@ -200,7 +257,7 @@ class InterpretationPrintLayoutDialog(QDialog):
 
         fit_window_to_screen(
             self,
-            preferred=QSize(620, 400),
+            preferred=QSize(620, 620),
             minimum=QSize(340, 240),
         )
 
@@ -275,7 +332,28 @@ class InterpretationPrintLayoutDialog(QDialog):
             layout_profile=layout.layout_profile,
             show_summary=self.summary_checkbox.isChecked(),
             show_conclusion=self.conclusion_checkbox.isChecked(),
+            chart_panels=self._selected_chart_panels(),
         )
+
+    def _move_chart_panel(self, offset: int) -> None:
+        row = self.chart_panel_list.currentRow()
+        target = row + offset
+        if row < 0 or not 0 <= target < self.chart_panel_list.count():
+            return
+        item = self.chart_panel_list.takeItem(row)
+        self.chart_panel_list.insertItem(target, item)
+        self.chart_panel_list.setCurrentRow(target)
+
+    def _selected_chart_panels(self) -> ReportChartPanelSettings:
+        order: list[ReportChartPanel] = []
+        hidden: list[ReportChartPanel] = []
+        for row in range(self.chart_panel_list.count()):
+            item = self.chart_panel_list.item(row)
+            panel = ReportChartPanel(item.data(Qt.ItemDataRole.UserRole))
+            order.append(panel)
+            if item.checkState() == Qt.CheckState.Unchecked:
+                hidden.append(panel)
+        return ReportChartPanelSettings(tuple(order), tuple(hidden))
 
     def _apply_initial(
         self,

@@ -150,6 +150,18 @@ Persisted report annotations принимают только целочисле�
 JSON boolean, float, string и неизвестные версии отклоняются на storage boundary через
 `ProjectFormatError`, до материализации загружаемого документа.
 
+`ReportChartPanelSettings` хранит полный порядок разрешённых logical panel keys и отдельную
+скрытую выборку: скрытие не теряет позицию. Domain validator ограничивает оба массива четырьмя
+ключами и отвергает неизвестные/повторённые элементы. Один `report_curve_panels` сопоставляет
+исходные evidence channels, затем применяет presentation selection; поэтому hiding не меняет
+method matching/calculation. Renderer geometry и annotation track maps получают уже разрешённые
+панели, без fallback отсутствующих anchors на соседнюю колонку. Old v37 без `chart_panels`
+получает исторический profile-specific порядок; custom order/hidden входят в render options
+Report Passport отдельно от исходного dataset digest.
+Presentation resolution имеет O(4) память/упорядочение и не копирует Dataset или arrays.
+Скрытые панели пропускаются до inspection исходных кривых; method matching продолжает
+использовать полный профиль, поэтому скрытие не меняет сопоставление evidence channels.
+
 ### Report presentation labels и source identity
 
 Report DTO и Dataset сохраняют exact source mnemonic для воспроизводимости расчёта и аудита.

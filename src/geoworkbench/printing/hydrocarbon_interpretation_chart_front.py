@@ -1,12 +1,19 @@
 from __future__ import annotations
 
+from geoworkbench.printing.hydrocarbon_interpretation_curve_selection import chart_panel_render_options
+
 from html import escape
 
 from geoworkbench.printing.gas_ratio_reference import ratio_reference_summary_uri
 
 from geoworkbench.domain.depth_interval import scope_dataset
 from geoworkbench.domain.models import Dataset
-from geoworkbench.domain.report_composition import ReportLayoutProfile, ReportLegendMode
+from geoworkbench.domain.report_composition import (
+    DEFAULT_REPORT_CHART_PANELS,
+    ReportChartPanelSettings,
+    ReportLayoutProfile,
+    ReportLegendMode,
+)
 from geoworkbench.domain.report_annotations import ReportAnnotationRecord
 from geoworkbench.printing.interpretation_chart_key import interpretation_chart_key_html
 from geoworkbench.printing.hydrocarbon_interpretation_chart import (
@@ -48,6 +55,7 @@ def hydrocarbon_interpretation_html_with_front_chart(
     layout_profile: ReportLayoutProfile = ReportLayoutProfile.MODERN_OILFIELD,
     identity: InterpretationReportIdentity | None = None,
     annotations: tuple[ReportAnnotationRecord, ...] = (),
+    chart_panels: ReportChartPanelSettings = DEFAULT_REPORT_CHART_PANELS,
 ) -> str:
     """Insert the whole-well chart before the first tabular report section."""
 
@@ -68,6 +76,7 @@ def hydrocarbon_interpretation_html_with_front_chart(
         depth_range=depth_range,
         legend_mode=legend_mode,
         annotations=annotations,
+        **chart_panel_render_options(chart_panels),
     )
     if not uri:
         return base
@@ -79,6 +88,7 @@ def hydrocarbon_interpretation_html_with_front_chart(
             report,
             scope_dataset(dataset, report.analysis_depth_interval),
             language,
+            **chart_panel_render_options(chart_panels),
         )
     )
     key_block = (
