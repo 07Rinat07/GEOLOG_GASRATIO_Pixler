@@ -22,6 +22,7 @@ from geoworkbench.domain.report_annotations import ReportAnnotationRecord
 from geoworkbench.domain.depth_interval import scope_dataset
 from geoworkbench.printing.interpretation_chart_key import interpretation_chart_key_html
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_canvas import PageCanvas
+from geoworkbench.printing.report_document_control import report_document_control, resolved_report_identity
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_chart_enhanced import (
     render_chart_pages,
 )
@@ -108,6 +109,7 @@ def render_hydrocarbon_interpretation_report(
         painter,
         language,
         layout_profile=layout_profile,
+        document_control=report_document_control(resolved_report_identity(report, identity, language), language),
     )
     try:
         canvas.new_page()

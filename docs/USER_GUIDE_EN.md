@@ -407,3 +407,5 @@ Generic XLSX now includes a printable Document control sheet with project, well,
 Wide Data/Parameters sheets print on A4 landscape without shrinking all columns onto one page; headers and key columns repeat across pages.
 
 A form with at least one populated document-control field automatically receives a separate band below its header and a footer. The selected interval repeats on every page; the date appears only after explicit entry. Long PDF values are shortened to fit the zone. Forms without these fields retain their previous layout.
+
+In GasRatio/Pixler/OPUS PDF and system printing, populated document number, revision, status and confidentiality repeat in a separate footer line on every page. Long values are shortened to fit; full metadata remains on the cover. The date is excluded from the footer.

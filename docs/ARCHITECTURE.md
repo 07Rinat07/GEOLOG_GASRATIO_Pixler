@@ -898,3 +898,11 @@ count for language-independent pagination. The band is added below the custom he
 interval on every depth/column page. Partial final pages retain physical depth scale. Text is
 searchable PDF text, elided and clipped to the band/footer. Legacy forms without control
 metadata retain their geometry; source arrays and custom header coordinates are unchanged.
+
+The interpretation PDF/system-print renderer resolves one `ReportDocumentControl` snapshot
+into `PageCanvas`. `compact_report_footer` provides the repeated document/revision/status/
+confidentiality text; date and audit timestamps are excluded. Nonempty details reserve an
+additional 14 points beyond the existing 16-point footer. Brand/page number use measured
+separate widths; each string is elided and the footer is clipped. Painter state is restored.
+Fonts compensate device DPI because the canvas already scales painter coordinates from
+points. Empty metadata retains existing content geometry; no persisted schema changes.
