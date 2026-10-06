@@ -1199,3 +1199,9 @@ Masterlog document-control: `tests/test_masterlog_document_control.py` пров�
 PDF/save/reopen сочетаний RU/KK/EN, пустой/явной даты и наличия паспорта скважины,
 независимость копии формы и исходной оси. Ещё три GUI regression проверяют доступность
 в редакторах данных/динамического поля и очистку даты при принятом паспорте.
+
+Generic document-control: `tests/test_generic_report_control.py` covers 12 RU/KK/EN project
+save/reopen HTML/DOCX combinations (bound/unbound form, empty/explicit date), parses every
+XML/relationship part, checks footer PAGE/NUMPAGES and repeated table headers, escaped long
+text, selected interval and unchanged source arrays. Four guards verify missing/changed form
+revisions preserve an existing output; one regression checks compact footer normalization.

@@ -871,3 +871,11 @@ Masterlog document-control fields зарегистрированы в `printing/
 формы; они не входят в паспорт скважины и не наследуют LAS metadata. Resolver возвращает
 пустую строку для отсутствующих реквизитов, поэтому preview/PDF не печатают placeholder
 или автоматически созданную дату. Геометрия и подписи пользовательской шапки задаются редактором.
+
+Generic report export controller assembles `ReportDocumentControl` from session context and
+an explicitly bound `masterlog-template` revision. A missing or changed revision raises
+`ReportDefinitionError` before the output transaction writes. Adapters consume the immutable
+snapshot without resolving curves or reading session state; resolved indices remain authoritative.
+HTML uses a normal-flow footer; DOCX packages a related footer part with PAGE/NUMPAGES fields.
+Shared `compact_report_footer` bounds each repeated value to 48 characters; full values stay
+in the document-control zone. Both adapters use the canonical visual profile.

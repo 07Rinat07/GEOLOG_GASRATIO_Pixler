@@ -23,6 +23,9 @@ from geoworkbench.data.report_document_export import (
 )
 from geoworkbench.domain.models import Dataset, ExportProfile, new_id
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.printing.header_fields import resolve_header_field
+from geoworkbench.printing.hydrocarbon_interpretation_report_identity import InterpretationReportIdentity
+from geoworkbench.printing.report_document_control import ReportDocumentControl, report_document_control
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.las_geology import dataset_with_well_geology
 from geoworkbench.services.las_geology_metadata import (
@@ -320,6 +323,7 @@ class DatasetExportController:
             report,
             overwrite=overwrite,
             language=language,
+            document_control=self._document_control_for_report(report, language),
         )
 
     def export_resolved_report_html(
@@ -337,7 +341,36 @@ class DatasetExportController:
             report,
             overwrite=overwrite,
             language=language,
+            document_control=self._document_control_for_report(report, language),
         )
+
+    def _document_control_for_report(
+        self, report: ResolvedReportDefinition, language: AppLanguage | str | None,
+    ) -> ReportDocumentControl:
+        export_language = AppLanguage(language or report.definition.language)
+        template = None
+        if report.definition.form_kind == "masterlog-template":
+            template = self.session.project.masterlog_templates.get(report.definition.form_id or "")
+            if template is None or report.definition.form_revision != f"version:{template.version}":
+                raise ReportDefinitionError("Ревизия формы Masterlog изменилась; разрешите отчёт повторно")
+
+        def value(field: str) -> str:
+            return resolve_header_field(self.session, field, template, export_language) or ""
+
+        dataset = self._dataset_for_report_document(report)
+        unit = (dataset.indexes[report.interval.index_id].unit or "").strip()
+        interval = f"{report.interval.start} — {report.interval.end} {unit}".strip()
+        return report_document_control(InterpretationReportIdentity(
+            report_title=report.definition.name, report_subtitle="",
+            project_name=self.session.project.name, well_name=value("well.name"),
+            field_name=value("header.field"), operator_name=value("header.customer"),
+            contractor_name=value("header.contractor"), rig_name=value("header.rig"),
+            dataset_name=dataset.name, interval=interval,
+            document_number=value("header.document_number"), revision=value("header.revision"),
+            document_status=value("header.status"), report_date=value("header.report_date"),
+            prepared_by=value("header.prepared_by"), checked_by=value("header.checked_by"),
+            approved_by=value("header.approved_by"), confidentiality=value("header.confidentiality"),
+        ), export_language)
 
     def _dataset_for_resolved_report(self, report: ResolvedReportDefinition) -> Dataset:
         dataset = self._require_current_dataset()

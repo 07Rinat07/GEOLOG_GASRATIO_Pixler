@@ -2,10 +2,10 @@
 # Единый план проекта
 
 План актуализирован 6 октября 2026 года. Проверенная база текущего инкремента —
-`333a8387` (PR #462). RPT-COMP-01 интегрирован: сохраняемый порядок и видимость
+`1f7ffff1` (PR #463). RPT-COMP-01 интегрирован: сохраняемый порядок и видимость
 глубинных графических колонок применяются через одну renderer-neutral composition.
-Текущий инкремент PRINT-STYLE-01 добавляет реквизиты document-control в редактор
-данных и динамических полей Masterlog; значения сохраняются отдельно для каждой формы.
+Текущий инкремент PRINT-STYLE-01 подключает generic HTML/DOCX к общей зоне
+реквизитов, compact footer и immutable visual profile.
 Статусы завершения
 ниже относятся к main после интеграции этого инкремента и успешного exact-head Release gate.
 Приложение сохраняет каноническую industrial-blue DIGITAL GEOLOG айдентику. WITS развивается
@@ -375,6 +375,15 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   конкретной формы; паспорт скважины и LAS metadata не подменяют их. Пустые поля, включая
   дату, печатаются без технического placeholder. Готовая автоматическая зона generic/Masterlog
   и общий footer contract остаются открытыми. Закрытие slice — после exact-head Release gate.
+- [x] **Generic HTML/DOCX document-control slice:** export controller передаёт общий
+  snapshot контекста проекта/скважины и выбранного интервала; только явно привязанная
+  форма Masterlog предоставляет номер/ревизию/статус/согласования/конфиденциальность и
+  вручную введённую дату. Неизвестная/изменившаяся ревизия отклоняется до записи output.
+  HTML и DOCX используют shared visual profile, wordmark и compact footer; Word footer
+  содержит PAGE/NUMPAGES, таблицы повторяют header и используют alternating fills.
+  Полные длинные значения остаются в основной зоне, footer ограничен; DOCX XML metadata
+  корректно экранирует ampersand. Автоматическая Masterlog PDF зона/подвал, generic XLSX
+  и physical acceptance остаются открытыми. Закрытие slice — после exact-head Release gate.
 - [ ] Обязательная document-control зона: well/project, interval, document number, revision,
   status, prepared/checked/approved при доступности данных. Блок report date **не выводится по
   умолчанию вообще** и появляется только после явного пользовательского ввода даты; часы/минуты и

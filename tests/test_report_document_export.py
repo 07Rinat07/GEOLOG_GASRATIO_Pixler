@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import zipfile
+import xml.etree.ElementTree as ET
 
 import numpy as np
 import pytest
@@ -513,7 +514,7 @@ def test_docx_export_is_valid_deterministic_openxml(tmp_path) -> None:
     assert "—" in document
     assert "0" in document
     assert report.definition.content_sha256 in document
-    assert APPLICATION_DISPLAY_NAME in core
+    assert ET.fromstring(core).findtext("{http://purl.org/dc/elements/1.1/}creator") == APPLICATION_DISPLAY_NAME
 
 
 def test_document_export_validates_suffix_and_overwrite(tmp_path) -> None:
