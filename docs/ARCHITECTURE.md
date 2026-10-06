@@ -885,3 +885,7 @@ and interpretation snapshots. Generic resolved Excel passes the same controller 
 as HTML/DOCX; the low-level selection exporter accepts an optional snapshot and preserves
 its existing sheet/data contract when omitted. Spreadsheet safety is applied to every
 presentation row. Data/Parameters print styling reads the immutable visual profile.
+
+Wide Data/Parameters worksheets use A4 landscape at 100% with horizontal pagination
+and repeated key columns, rather than fitting every column into one page. Document
+control remains fit-width on A4.

@@ -389,8 +389,9 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   Этот adapter также обслуживает interpretation XLSX. Сохраняются контекст проекта/скважины,
   фактический интервал и реквизиты явно привязанной формы после reopen; дата появляется
   только при явном вводе, formula-like значения остаются literal text. Data/Parameters
-  используют shared palette, alternating fills, numeric alignment, A4 fit-width, повтор
-  header и canonical footer с &P/&N. Числа, нули, пропуски, unavailable и Metadata
+  используют shared palette, alternating fills, numeric alignment, A4 pagination, повтор
+  header/ключевых колонок и canonical footer с &P/&N; широкие таблицы разбиваются
+  горизонтально в landscape без сжатия всего набора на одну страницу. Числа, нули, пропуски, unavailable и Metadata
   остаются прежними. Автоматическая Masterlog PDF зона/подвал и physical acceptance
   остаются открытыми. Закрытие slice — после exact-head Release gate.
 - [ ] Обязательная document-control зона: well/project, interval, document number, revision,

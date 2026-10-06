@@ -729,6 +729,12 @@ def _write_xlsx(
         sheet.page_setup.fitToHeight = 0
         sheet.sheet_properties.pageSetUpPr.fitToPage = True
         if sheet.title in {"Data", "Parameters"}:
+            # Paginate wide engineering tables instead of shrinking every
+            # source column onto one unreadable sheet.
+            sheet.page_setup.orientation = sheet.ORIENTATION_LANDSCAPE
+            sheet.page_setup.fitToWidth = 0
+            sheet.page_setup.scale = 100
+            sheet.print_title_cols = "A:A" if sheet.title == "Data" else "A:B"
             sheet.print_title_rows = "1:1"
             for row in sheet.iter_rows(min_row=2):
                 for cell in row:

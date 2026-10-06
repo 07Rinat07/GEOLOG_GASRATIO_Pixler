@@ -74,6 +74,10 @@ def test_generic_office_control_after_reopen(qapp, tmp_path, language, date, use
     assert data_sheet['C2'].value == '#N/A'
     assert data_sheet['B4'].value == 25 and data_sheet['B4'].data_type == 'n'
     assert data_sheet.print_title_rows == '$1:$1'
+    assert data_sheet.print_title_cols == '$A:$A'
+    assert data_sheet.page_setup.orientation == 'landscape'
+    assert data_sheet.page_setup.fitToWidth == 0 and data_sheet.page_setup.scale == 100
+    assert workbook['Parameters'].print_title_cols == '$A:$B'
     assert data_sheet['B2'].alignment.horizontal == 'right'
     workbook.close()
     markup = html_target.read_text()
