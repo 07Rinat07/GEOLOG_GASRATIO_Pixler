@@ -1225,3 +1225,9 @@ page retains document/revision/status/confidentiality and localized numbering; s
 composition, depth and curve arrays are unchanged. Ten narrow/wide QPdfWriter cases at
 72/96/144/300/600 DPI verify footer bounds and extracted physical font size. One regression
 checks that empty footer metadata retains legacy content geometry even with an explicit date.
+
+Six production overflow regressions in `tests/test_interpretation_report_charts.py` replace
+an old source-string suppression check. RU/KK/EN × FULL/HIDE verify a 120-rock catalog:
+methodology precedes charts, full legends follow charts with every code/name preserved,
+and HIDE suppresses the catalog. The existing Windows method/geology ordering regression
+is retained unchanged.

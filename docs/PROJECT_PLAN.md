@@ -409,7 +409,10 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   по доступной ширине и ограничивается footer rect. Физический размер шрифта стабилен при
   72–600 DPI; дата и generation timestamp в подвал не попадают. Production PDF после reopen
   проверен для RU/KK/EN и обеих ориентаций; общий контракт остальных путей и physical
-  acceptance остаются открытыми. Закрытие slice — после exact-head Release gate.
+  acceptance остаются открытыми. При уменьшении chart budget геологическая легенда
+  больше не исчезает: полный набор символов переносится после графиков на отдельные
+  страницы, графики содержат ссылку; HIDE сохраняет подавление легенды.
+  Закрытие slice — после exact-head Release gate.
 - [ ] Обязательная document-control зона: well/project, interval, document number, revision,
   status, prepared/checked/approved при доступности данных. Блок report date **не выводится по
   умолчанию вообще** и появляется только после явного пользовательского ввода даты; часы/минуты и

@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 from types import SimpleNamespace
 
+import fitz
 import numpy as np
 import pytest
 from PySide6.QtCore import QRectF
@@ -776,18 +777,46 @@ def test_pdf_starts_chart_section_with_methodology_not_geology_catalog() -> None
     chart_render_index = source.index("render_chart_pages(", method_render_index)
     assert method_render_index < chart_render_index
 
-def test_chart_pages_do_not_repaginate_geology_reference_after_full_section() -> None:
-    source = Path(
-        "src/geoworkbench/printing/hydrocarbon_interpretation_pdf_chart_enhanced.py"
-    ).read_text(encoding="utf-8")
+@pytest.mark.parametrize("language", list(AppLanguage))
+@pytest.mark.parametrize("hide_legend", [False, True])
+def test_overflowing_geology_legend_follows_charts_without_losing_symbols(qapp, tmp_path, language, hide_legend):
+    from geoworkbench.domain.report_composition import ReportLegendMode
+    from geoworkbench.printing.geology_track_rendering import FrozenCuttingsComponent, FrozenCuttingsSample
+    from geoworkbench.printing.hydrocarbon_interpretation_geology import InterpretationGeologySnapshot
+    from geoworkbench.project.lithotype_catalog_models import CatalogLithotype
 
-    guard = "if legend_reference_pages_emitted:"
-    guard_index = source.index(guard)
-    omit_index = source.index("chart_legend = InterpretationGeologyLegend(())", guard_index)
-    paginate_index = source.index("for legend_page in paginate_geology_legend(", guard_index)
-    assert guard_index < omit_index < paginate_index
-    assert "else:" in source[omit_index:paginate_index]
-    assert "legend_reference_pages_emitted: bool = False" in source
+    session = _session_with_report_curves(depth_span=30, samples=61)
+    report = build_hydrocarbon_interpretation_report(session)
+    count = 120
+    geology = InterpretationGeologySnapshot(
+        samples=(FrozenCuttingsSample("many-rocks", 1300, 1330,
+            tuple(FrozenCuttingsComponent(str(index), 100 / count) for index in range(count))),),
+        lithotypes=tuple(CatalogLithotype(str(index), f"R{index}", f"Rock {index}", f"Rock {index}",
+            "sedimentary", "#c8c8b8", "carbonate", True, name_kk=f"Rock {index}") for index in range(count)),
+    )
+    target = export_hydrocarbon_interpretation_pdf(report, tmp_path / "overflow.pdf",
+        dataset=session.current_dataset, include_chart=True, language=language, geology=geology,
+        legend_mode=ReportLegendMode.HIDE if hide_legend else ReportLegendMode.FULL)
+    titles = {
+        AppLanguage.RU: ("Пояснения к графикам", "Графики интерпретационных кривых", "Геологическая легенда"),
+        AppLanguage.KK: ("Графиктерге түсіндірме", "Тереңдік бойынша интерпретациялық қисықтар графиктері", "Геологиялық легенда"),
+        AppLanguage.EN: ("Chart explanations", "Depth plots of interpretation curves", "Geology legend"),
+    }
+    with fitz.open(target) as document:
+        texts = [page.get_text() for page in document]
+    method, chart, legend = titles[language]
+    method_index = next(index for index, text in enumerate(texts) if method in text)
+    chart_indices = [index for index, text in enumerate(texts) if chart in text]
+    assert chart_indices and method_index < min(chart_indices)
+    if hide_legend:
+        assert not any(legend in text for text in texts)
+        assert not any("R119" in text for text in texts)
+    else:
+        legend_indices = [index for index, text in enumerate(texts) if legend in text and "R0" in text]
+        assert legend_indices and min(legend_indices) > max(chart_indices)
+        symbols = "".join("".join(text.split()) for text in texts[max(chart_indices) + 1:])
+        for index in range(count):
+            assert f"R{index}—Rock{index}" in symbols
 
 
 def test_whole_well_report_chart_is_embedded_before_tables(qapp) -> None:

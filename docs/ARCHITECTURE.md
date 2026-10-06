@@ -906,3 +906,8 @@ additional 14 points beyond the existing 16-point footer. Brand/page number use 
 separate widths; each string is elided and the footer is clipped. Painter state is restored.
 Fonts compensate device DPI because the canvas already scales painter coordinates from
 points. Empty metadata retains existing content geometry; no persisted schema changes.
+
+When footer reservation reduces the chart budget, the full-report chart renderer defers an
+overflowing geology legend to pages after the charts and draws an explicit reference on
+chart pages. Shared legend pagination preserves complete rows and every symbol. HIDE
+remains authoritative. The methodology still precedes charts; no catalog is inserted before it.

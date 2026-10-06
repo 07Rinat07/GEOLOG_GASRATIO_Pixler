@@ -197,56 +197,30 @@ def render_chart_pages(
         if legend_hidden
         else geology_legend
     )
+    deferred_legend_pages: tuple[InterpretationGeologyLegend, ...] = ()
     if not legend_hidden and full_legend_height > legend_budget:
+        legend_pages = paginate_geology_legend(
+            canvas.content_rect.width(), geology_legend, canvas.content_rect.height(),
+            compact=legend_compact, paint_device=canvas.painter.device(),
+        )
         if legend_reference_pages_emitted:
-            # The report renderer intentionally suppresses a standalone geology
-            # catalog before the methodology. If even the compact legend would
-            # consume too much chart height, omit that repeat instead of claiming
-            # that non-existent "separate legend pages" were printed.
-            chart_legend = InterpretationGeologyLegend(())
-            full_legend_height = 0.0
+            # The full report keeps methodology before charts. Preserve an
+            # overflowing legend after the charts instead of silently dropping it.
+            deferred_legend_pages = legend_pages
         else:
-            for legend_page in paginate_geology_legend(
-                canvas.content_rect.width(),
-                geology_legend,
-                canvas.content_rect.height(),
-                compact=legend_compact,
-                paint_device=canvas.painter.device(),
-            ):
-                canvas.new_page()
-                height = geology_legend_height(
-                    canvas.content_rect.width(),
-                    legend_page,
-                    compact=legend_compact,
-                    paint_device=canvas.painter.device(),
-                )
-                paint_geology_legend(
-                    canvas.painter,
-                    QRectF(
-                        canvas.content_rect.left(),
-                        canvas.content_rect.top(),
-                        canvas.content_rect.width(),
-                        height,
-                    ),
-                    legend_page,
-                    language,
-                    compact=legend_compact,
-                )
-                canvas.y = canvas.content_rect.bottom()
-            reference = {
-                AppLanguage.RU: "Легенда: отдельные страницы",
-                AppLanguage.KK: "Легенда: бөлек беттер",
-                AppLanguage.EN: "Legend: separate pages",
-            }[language]
-            chart_legend = InterpretationGeologyLegend((
-                GeologyLegendItem("reference", "legend-pages", "", reference),
-            ))
-            full_legend_height = geology_legend_height(
-                canvas.content_rect.width(),
-                chart_legend,
-                compact=legend_compact,
-                paint_device=canvas.painter.device(),
-            )
+            _render_geology_legend_pages(canvas, legend_pages, language, compact=legend_compact)
+        reference = {
+            AppLanguage.RU: "Легенда: отдельные страницы",
+            AppLanguage.KK: "Легенда: бөлек беттер",
+            AppLanguage.EN: "Legend: separate pages",
+        }[language]
+        chart_legend = InterpretationGeologyLegend((
+            GeologyLegendItem("reference", "legend-pages", "", reference),
+        ))
+        full_legend_height = geology_legend_height(
+            canvas.content_rect.width(), chart_legend, compact=legend_compact,
+            paint_device=canvas.painter.device(),
+        )
     available_height = chart_height_budget - full_legend_height
     pages = plan_depth_pages(
         depth_min,
@@ -347,6 +321,25 @@ def render_chart_pages(
                 chart_legend,
                 None,
             )
+        canvas.y = canvas.content_rect.bottom()
+    _render_geology_legend_pages(canvas, deferred_legend_pages, language, compact=legend_compact)
+
+
+def _render_geology_legend_pages(
+    canvas: PageCanvas, pages: tuple[InterpretationGeologyLegend, ...],
+    language: AppLanguage, *, compact: bool,
+) -> None:
+    for legend_page in pages:
+        canvas.new_page()
+        height = geology_legend_height(
+            canvas.content_rect.width(), legend_page, compact=compact,
+            paint_device=canvas.painter.device(),
+        )
+        paint_geology_legend(
+            canvas.painter,
+            QRectF(canvas.content_rect.left(), canvas.content_rect.top(), canvas.content_rect.width(), height),
+            legend_page, language, compact=compact,
+        )
         canvas.y = canvas.content_rect.bottom()
 
 
