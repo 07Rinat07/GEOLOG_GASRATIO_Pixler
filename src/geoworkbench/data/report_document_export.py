@@ -24,6 +24,10 @@ from geoworkbench.services.report_definition import ResolvedReportDefinition
 from geoworkbench.services.text_normalization import clean_display_text, clean_mnemonic
 
 
+from geoworkbench.printing.report_document_control import ReportDocumentControl, compact_report_footer
+from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
+
+
 REPORT_DOCUMENT_SCHEMA_VERSION = 1
 MISSING_CELL = "—"
 UNAVAILABLE_CELL = "#N/A"
@@ -61,6 +65,7 @@ class ReportDocumentModel:
     columns: tuple[ReportDocumentColumn, ...]
     rows: tuple[tuple[str, ...], ...]
     schema_version: int = REPORT_DOCUMENT_SCHEMA_VERSION
+    document_control: ReportDocumentControl | None = None
 
     def __post_init__(self) -> None:
         if self.schema_version != REPORT_DOCUMENT_SCHEMA_VERSION:
@@ -149,6 +154,7 @@ def build_report_document_model(
     report: ResolvedReportDefinition,
     *,
     language: AppLanguage | str | None = None,
+    document_control: ReportDocumentControl | None = None,
 ) -> ReportDocumentModel:
     """Build one deterministic document model from an already resolved report."""
 
@@ -272,6 +278,7 @@ def build_report_document_model(
         sample_count=report.interval.sample_count,
         columns=tuple(columns),
         rows=tuple(rows),
+        document_control=document_control,
     )
 
 
@@ -282,10 +289,11 @@ def export_report_html(
     *,
     overwrite: bool = False,
     language: AppLanguage | str | None = None,
+    document_control: ReportDocumentControl | None = None,
 ) -> Path:
     destination = Path(target)
     _validate_destination(destination, {".html", ".htm"}, overwrite)
-    model = build_report_document_model(dataset, report, language=language)
+    model = build_report_document_model(dataset, report, language=language, document_control=document_control)
     payload = _html_document(model).encode("utf-8")
     return _write_atomic_bytes(destination, payload, "HTML")
 
@@ -297,10 +305,11 @@ def export_report_docx(
     *,
     overwrite: bool = False,
     language: AppLanguage | str | None = None,
+    document_control: ReportDocumentControl | None = None,
 ) -> Path:
     destination = Path(target)
     _validate_destination(destination, {".docx"}, overwrite)
-    model = build_report_document_model(dataset, report, language=language)
+    model = build_report_document_model(dataset, report, language=language, document_control=document_control)
     temporary = _temporary_path(destination)
     try:
         _write_docx_package(temporary, model)
@@ -315,6 +324,12 @@ def export_report_docx(
 
 def _html_document(model: ReportDocumentModel) -> str:
     labels = _LABELS[model.language]
+    visual = modern_oilfield_report_profile()
+    palette, typography = visual.palette, visual.typography
+    control = model.document_control
+    control_rows = "" if control is None else "".join(_html_meta_row(label, value) for label, value in control.available_rows)
+    notes = "" if control is None else "".join(f"<p>{html.escape(note)}</p>" for note in control.notes)
+    footer = html.escape(compact_report_footer(control))
     coverage_rows = "".join(_html_coverage_row(column, labels) for column in model.columns[1:])
     header = "".join(f"<th>{html.escape(column.header)}</th>" for column in model.columns)
     body_rows: list[str] = []
@@ -342,19 +357,23 @@ def _html_document(model: ReportDocumentModel) -> str:
 <title>{html.escape(model.title)}</title>
 <style>
 :root {{ color-scheme: light; font-family: Arial, Helvetica, sans-serif; }}
-body {{ margin: 24px; color: #17202a; background: #fff; }}
-h1 {{ margin: 0 0 18px; font-size: 24px; }}
-h2 {{ margin: 24px 0 10px; font-size: 17px; }}
+body {{ margin: 24px; color: {palette.text}; background: {palette.page}; font-size: {typography.body_pt}pt; }}
+h1 {{ margin: 0 0 18px; font-size: {typography.title_pt}pt; color: {palette.accent}; }}
+h2 {{ margin: 24px 0 10px; font-size: {typography.section_pt}pt; color: {palette.accent_dark}; }}
 table {{ width: 100%; border-collapse: collapse; margin: 8px 0 18px; }}
-th, td {{ border: 1px solid #8796a5; padding: 6px 8px; text-align: left; vertical-align: top; }}
-th {{ background: #e8f0f7; font-weight: 700; }}
+th, td {{ border: {visual.layout.thin_rule_pt}pt solid {palette.border}; padding: 6px 8px; text-align: left; vertical-align: top; }}
+th {{ background: {palette.table_header}; font-weight: 700; }}
 .meta {{ width: auto; min-width: 55%; }}
 .meta th {{ width: 220px; }}
-.data {{ font-variant-numeric: tabular-nums; font-size: 12px; }}
-.state-missing {{ color: #6b7280; text-align: center; }}
-.state-unavailable {{ color: #9b1c1c; background: #fff1f1; text-align: center; font-weight: 700; }}
-.state-zero {{ color: #111827; font-weight: 700; }}
-.legend {{ padding: 10px 12px; border-left: 4px solid #507aa3; background: #f5f8fb; }}
+.data {{ font-variant-numeric: tabular-nums; font-size: {typography.table_pt}pt; }}
+.state-missing {{ color: {palette.text_muted}; text-align: center; }}
+.state-unavailable {{ color: {palette.critical}; background: {palette.accent_soft}; text-align: center; font-weight: 700; }}
+.state-zero {{ color: {palette.text}; font-weight: 700; }}
+.legend {{ padding: 10px 12px; border-left: 4px solid {palette.accent}; background: {palette.accent_soft}; }}
+.brand {{ color: {palette.accent}; font-weight: bold; }}
+.report-footer {{ font-size: {typography.footer_pt}pt; color: {palette.text_muted}; overflow-wrap: anywhere; border-top: 1px solid {palette.border}; padding-top: 8px; }}
+.data tbody tr:nth-child(even) {{ background: {palette.table_alt}; }}
+.meta td {{ overflow-wrap: anywhere; }}
 .hash {{ font-family: Consolas, monospace; word-break: break-all; }}
 @media print {{
   body {{ margin: 10mm; }}
@@ -365,7 +384,10 @@ th {{ background: #e8f0f7; font-weight: 700; }}
 </style>
 </head>
 <body>
+<p class="brand">{html.escape(visual.brand_wordmark)}</p>
 <h1>{html.escape(model.title)}</h1>
+<table class="meta document-control"><tbody>{control_rows}</tbody></table>
+{notes}
 <h2>{html.escape(labels['metadata'])}</h2>
 <table class="meta"><tbody>{metadata}</tbody></table>
 <h2>{html.escape(labels['coverage'])}</h2>
@@ -377,6 +399,7 @@ th {{ background: #e8f0f7; font-weight: 700; }}
 <p class="legend">{html.escape(labels['legend'])}</p>
 <h2>{html.escape(labels['data'])}</h2>
 <table class="data"><thead><tr>{header}</tr></thead><tbody>{''.join(body_rows)}</tbody></table>
+<footer class="report-footer">{html.escape(visual.brand_wordmark)} · {footer}</footer>
 </body>
 </html>
 """
@@ -421,6 +444,7 @@ def _write_docx_package(path: Path, model: ReportDocumentModel) -> None:
         "word/_rels/document.xml.rels": _docx_document_relationships(),
         "word/document.xml": _docx_document(model),
         "word/styles.xml": _docx_styles(),
+        "word/footer.xml": _docx_footer(model),
     }
     with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
         for name in sorted(entries):
@@ -465,8 +489,12 @@ def _docx_document(model: ReportDocumentModel) -> str:
         )
     data_rows: list[tuple[str, ...]] = [tuple(column.header for column in model.columns)]
     data_rows.extend(model.rows)
+    control = model.document_control
+    control_body = "" if control is None else (_w_table(control.available_rows, header=False) + "".join(_w_paragraph(note) for note in control.notes))
     body = (
-        _w_paragraph(model.title, style="Title")
+        _w_paragraph(modern_oilfield_report_profile().brand_wordmark)
+        + _w_paragraph(model.title, style="Title")
+        + control_body
         + _w_paragraph(labels["metadata"], style="Heading1")
         + _w_table(metadata_rows, header=False)
         + _w_paragraph(labels["coverage"], style="Heading1")
@@ -474,13 +502,14 @@ def _docx_document(model: ReportDocumentModel) -> str:
         + _w_paragraph(labels["legend"])
         + _w_paragraph(labels["data"], style="Heading1")
         + _w_table(data_rows, header=True)
-        + '<w:sectPr><w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/>'
-        '<w:pgMar w:top="720" w:right="720" w:bottom="720" w:left="720" '
+        + '<w:sectPr><w:footerReference w:type="default" r:id="rIdFooter"/><w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/>'
+        '<w:pgMar w:top="720" w:right="720" w:bottom="1080" w:left="720" '
         'w:header="360" w:footer="360" w:gutter="0"/></w:sectPr>'
     )
     return (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-        '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+        '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" '
+        'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
         f"<w:body>{body}</w:body></w:document>"
     )
 
@@ -501,25 +530,27 @@ def _w_table(rows: Iterable[tuple[str, ...]], *, header: bool) -> str:
     width = len(values[0])
     if any(len(row) != width for row in values):
         raise ReportDocumentExportError("DOCX table содержит строки разной ширины")
+    visual = modern_oilfield_report_profile()
+    border = visual.palette.border.lstrip("#")
+    rule = round(visual.layout.thin_rule_pt * 8)
     borders = (
         '<w:tblPr><w:tblW w:w="0" w:type="auto"/><w:tblBorders>'
-        '<w:top w:val="single" w:sz="4" w:color="8796A5"/>'
-        '<w:left w:val="single" w:sz="4" w:color="8796A5"/>'
-        '<w:bottom w:val="single" w:sz="4" w:color="8796A5"/>'
-        '<w:right w:val="single" w:sz="4" w:color="8796A5"/>'
-        '<w:insideH w:val="single" w:sz="4" w:color="B7C3CE"/>'
-        '<w:insideV w:val="single" w:sz="4" w:color="B7C3CE"/>'
+        f'<w:top w:val="single" w:sz="{rule}" w:color="{border}"/>'
+        f'<w:left w:val="single" w:sz="{rule}" w:color="{border}"/>'
+        f'<w:bottom w:val="single" w:sz="{rule}" w:color="{border}"/>'
+        f'<w:right w:val="single" w:sz="{rule}" w:color="{border}"/>'
+        f'<w:insideH w:val="single" w:sz="{rule}" w:color="{border}"/>'
+        f'<w:insideV w:val="single" w:sz="{rule}" w:color="{border}"/>'
         '</w:tblBorders></w:tblPr>'
     )
     result = ["<w:tbl>", borders]
     for row_index, row in enumerate(values):
-        result.append("<w:tr>")
+        result.append("<w:tr>" + ("<w:trPr><w:tblHeader/></w:trPr>" if header and row_index == 0 else ""))
         for value in row:
-            shading = (
-                '<w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="D9EAF7"/></w:tcPr>'
-                if header and row_index == 0
-                else "<w:tcPr/>"
+            fill = visual.palette.table_header if header and row_index == 0 else (
+                visual.palette.table_alt if row_index % 2 else visual.palette.page
             )
+            shading = f'<w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="{fill.lstrip("#")}"/></w:tcPr>'
             bold = "<w:rPr><w:b/></w:rPr>" if header and row_index == 0 else ""
             result.append(
                 f"<w:tc>{shading}<w:p><w:r>{bold}<w:t xml:space=\"preserve\">"
@@ -541,6 +572,8 @@ def _docx_content_types() -> str:
         '<Override PartName="/word/document.xml" '
         'ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.'
         'document.main+xml"/>'
+        '<Override PartName="/word/footer.xml" '
+        'ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>'
         '<Override PartName="/word/styles.xml" '
         'ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>'
         '<Override PartName="/docProps/core.xml" '
@@ -577,23 +610,51 @@ def _docx_document_relationships() -> str:
         '<Relationship Id="rId1" '
         'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" '
         'Target="styles.xml"/>'
+        '<Relationship Id="rIdFooter" '
+        'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" '
+        'Target="footer.xml"/>'
         '</Relationships>'
     )
 
 
+def _docx_footer(model: ReportDocumentModel) -> str:
+    visual = modern_oilfield_report_profile()
+    text = visual.brand_wordmark
+    details = compact_report_footer(model.document_control)
+    if details:
+        text += " · " + details
+    return (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+        '<w:p><w:pPr><w:spacing w:before="0" w:after="0"/></w:pPr><w:r><w:rPr>'
+        f'<w:color w:val="{visual.palette.text_muted.lstrip("#")}"/>'
+        f'<w:sz w:val="{round(visual.typography.footer_pt * 2)}"/></w:rPr>'
+        f'<w:t xml:space="preserve">{xml_escape(text)} · </w:t></w:r>'
+        '<w:fldSimple w:instr="PAGE"/><w:r><w:t> / </w:t></w:r>'
+        '<w:fldSimple w:instr="NUMPAGES"/></w:p></w:ftr>'
+    )
+
+
 def _docx_styles() -> str:
+    visual = modern_oilfield_report_profile()
+    styles = []
+    for name, size, color, bold in (
+        ("Normal", visual.typography.body_pt, visual.palette.text, False),
+        ("Title", visual.typography.title_pt, visual.palette.accent, True),
+        ("Heading1", visual.typography.section_pt, visual.palette.accent_dark, True),
+    ):
+        default = ' w:default="1"' if name == "Normal" else ""
+        styles.append(
+            f'<w:style w:type="paragraph"{default} w:styleId="{name}">'
+            f'<w:name w:val="{name}"/><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/>'
+            + ("<w:b/>" if bold else "")
+            + f'<w:color w:val="{color.lstrip("#")}"/><w:sz w:val="{round(size * 2)}"/>'
+            + '</w:rPr></w:style>'
+        )
     return (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
-        '<w:style w:type="paragraph" w:default="1" w:styleId="Normal">'
-        '<w:name w:val="Normal"/><w:rPr>'
-        '<w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/>'
-        '<w:sz w:val="20"/></w:rPr></w:style>'
-        '<w:style w:type="paragraph" w:styleId="Title"><w:name w:val="Title"/>'
-        '<w:basedOn w:val="Normal"/><w:rPr><w:b/><w:sz w:val="32"/></w:rPr></w:style>'
-        '<w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/>'
-        '<w:basedOn w:val="Normal"/><w:rPr><w:b/><w:sz w:val="26"/></w:rPr></w:style>'
-        '</w:styles>'
+        + "".join(styles) + '</w:styles>'
     )
 
 
@@ -607,7 +668,7 @@ def _docx_core_properties(model: ReportDocumentModel) -> str:
         'xmlns:dcmitype="http://purl.org/dc/dcmitype/" '
         'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">'
         f"<dc:title>{xml_escape(model.title)}</dc:title>"
-        f'<dc:creator>{APPLICATION_DISPLAY_NAME}</dc:creator>'
+        f'<dc:creator>{xml_escape(APPLICATION_DISPLAY_NAME)}</dc:creator>'
         f"<dc:language>{model.language.value}</dc:language>"
         f"<cp:keywords>{model.definition_sha256}</cp:keywords>"
         '</cp:coreProperties>'
@@ -620,7 +681,7 @@ def _docx_app_properties() -> str:
         '<Properties '
         'xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" '
         'xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">'
-        f'<Application>{APPLICATION_DISPLAY_NAME}</Application><AppVersion>0.7</AppVersion>'
+        f'<Application>{xml_escape(APPLICATION_DISPLAY_NAME)}</Application><AppVersion>0.7</AppVersion>'
         '</Properties>'
     )
 

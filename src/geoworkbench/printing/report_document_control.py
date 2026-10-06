@@ -21,6 +21,7 @@ class ReportDocumentControl:
     context: tuple[tuple[str, str], ...]
     approvals: tuple[tuple[str, str], ...]
     notes: tuple[str, ...]
+    footer_items: tuple[str, ...] = ()
 
     @property
     def available_rows(self) -> tuple[tuple[str, str], ...]:
@@ -73,4 +74,16 @@ def report_document_control(
             (labels.approved_by, details.approved_by),
         ),
         notes=tuple(value for value in (details.confidentiality, details.remarks) if value),
+        footer_items=tuple(value for value in (
+            details.document_number, details.revision, details.document_status,
+            details.confidentiality,
+        ) if value),
     )
+
+
+def compact_report_footer(control: ReportDocumentControl | None) -> str:
+    """Bound repeated metadata; full values remain in the document-control zone."""
+    if control is None:
+        return ""
+    items = (" ".join(value.split()) for value in control.footer_items)
+    return " · ".join(value if len(value) <= 48 else value[:47] + "…" for value in items)
