@@ -367,8 +367,8 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   hydrocarbon PDF/Word cover и Excel sheet «Реквизиты»; workspace XLSX использует сохранённую
   шапку текущего языка/профиля после save/reopen. Выбранный analysis interval приоритетнее
   устаревшего presentation interval. Пустая дата не создаёт row/label и generation timestamp
-  не выводится; formula-like Excel values сохраняются как literal text. Generic/Masterlog
-  document-control и physical acceptance остаются открытыми. Закрытие slice — после exact-head gate.
+  не выводится; formula-like Excel values сохраняются как literal text. Автоматическая Masterlog
+  document-control зона и physical acceptance остаются открытыми. Закрытие slice — после exact-head gate.
 - [x] **Masterlog editable document-control slice:** номер документа, ревизия, статус,
   явная дата отчёта, подготовил/проверил/утвердил и конфиденциальность доступны в данных
   формы и динамических полях шапки RU/KK/EN. Project save/reopen и PDF сохраняют значения
@@ -382,7 +382,7 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   HTML и DOCX используют shared visual profile, wordmark и compact footer; Word footer
   содержит PAGE/NUMPAGES, таблицы повторяют header и используют alternating fills.
   Полные длинные значения остаются в основной зоне, footer ограничен; DOCX XML metadata
-  корректно экранирует ampersand. Автоматическая Masterlog PDF зона/подвал, generic XLSX
+  корректно экранирует ampersand. Автоматическая Masterlog PDF зона/подвал
   и physical acceptance остаются открытыми. Закрытие slice — после exact-head Release gate.
 - [x] **Generic XLSX document-control slice:** resolved report export использует общий
   snapshot реквизитов и печатный лист RU/KK/EN через `report_document_control_excel`.
