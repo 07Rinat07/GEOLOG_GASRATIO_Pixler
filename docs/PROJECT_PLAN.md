@@ -2,10 +2,11 @@
 # Единый план проекта
 
 План актуализирован 6 октября 2026 года. Проверенная база текущего инкремента —
-`723c5593` (PR #460). RPT-COMP-01 интегрирован: сохраняемый порядок и видимость
+`8131acc2` (PR #461). RPT-COMP-01 интегрирован: сохраняемый порядок и видимость
 глубинных графических колонок применяются через одну renderer-neutral composition.
-Текущий инкремент PRINT-STYLE-01 подключает оставшиеся geological HTML/PDF и Office adapters,
-а также простую планшетную шапку/подвал к общему visual profile. Статусы завершения
+Текущий инкремент PRINT-STYLE-01 сводит document-control PDF/DOCX/XLSX к одному
+immutable локализованному snapshot и передаёт сохранённые реквизиты Composer в Excel.
+Статусы завершения
 ниже относятся к main после интеграции этого инкремента и успешного exact-head Release gate.
 Приложение сохраняет каноническую industrial-blue DIGITAL GEOLOG айдентику. WITS развивается
 как операторское рабочее пространство с live-данными и состоянием подключения; расширенные
@@ -362,6 +363,12 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
 - [ ] Один immutable style profile для PDF, Masterlog, планшетной печати и Office-экспорта:
   нейтральная техническая типографика, строгая сетка, сдержанный petroleum-blue accent,
   high-contrast текст, light technical fills, line-weight hierarchy и monochrome-safe semantics.
+- [x] **Document-control Office slice:** общий `report_document_control` snapshot обслуживает
+  hydrocarbon PDF/Word cover и Excel sheet «Реквизиты»; workspace XLSX использует сохранённую
+  шапку текущего языка/профиля после save/reopen. Выбранный analysis interval приоритетнее
+  устаревшего presentation interval. Пустая дата не создаёт row/label и generation timestamp
+  не выводится; formula-like Excel values сохраняются как literal text. Generic/Masterlog
+  document-control и physical acceptance остаются открытыми. Закрытие slice — после exact-head gate.
 - [ ] Обязательная document-control зона: well/project, interval, document number, revision,
   status, prepared/checked/approved при доступности данных. Блок report date **не выводится по
   умолчанию вообще** и появляется только после явного пользовательского ввода даты; часы/минуты и

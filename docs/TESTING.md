@@ -1188,3 +1188,9 @@ PRINT-STYLE-01 shared-adapter regressions: `tests/test_print_style_shared_adapte
 Qt painter regression проверяет ширину wordmark рядом с номером страницы и restore состояния.
 Пункты толщины правил simple tablet header/footer переводятся по DPI устройства;
 regression проверяет неизменную физическую толщину при 72/96/144/300/600 DPI.
+
+Document-control slice проверяется `tests/test_report_document_control.py`: 12 production
+PDF/DOCX/XLSX комбинаций RU/KK/EN × standard/OPUS × empty/explicit date; authoritative
+analysis interval, source-array immutability и неизменный generation audit. Шесть real-workspace
+экспортов после package save/reopen подтверждают language selection и отсутствие утечки OPUS
+headers в standard. Отдельный тест фиксирует frozen snapshot и formula-like literal cells.
