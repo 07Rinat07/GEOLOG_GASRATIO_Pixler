@@ -405,3 +405,5 @@ Generic HTML/Word exports show project, well and the actual selected interval. W
 Generic XLSX now includes a printable Document control sheet with project, well, actual interval and details from an explicitly referenced Masterlog form. The report date is never filled automatically. Data and Parameters retain numeric values and channel states, repeat headers when printed and include page-number footers. Formula-like text remains safe literal text. Interpretation XLSX uses the same document-control adapter.
 
 Wide Data/Parameters sheets print on A4 landscape without shrinking all columns onto one page; headers and key columns repeat across pages.
+
+A form with at least one populated document-control field automatically receives a separate band below its header and a footer. The selected interval repeats on every page; the date appears only after explicit entry. Long PDF values are shortened to fit the zone. Forms without these fields retain their previous layout.

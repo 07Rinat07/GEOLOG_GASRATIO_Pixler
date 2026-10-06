@@ -23,9 +23,8 @@ from geoworkbench.data.report_document_export import (
 )
 from geoworkbench.domain.models import Dataset, ExportProfile, new_id
 from geoworkbench.project.session import ProjectSession
-from geoworkbench.printing.header_fields import resolve_header_field
-from geoworkbench.printing.hydrocarbon_interpretation_report_identity import InterpretationReportIdentity
-from geoworkbench.printing.report_document_control import ReportDocumentControl, report_document_control
+from geoworkbench.printing.form_report_document_control import form_report_document_control
+from geoworkbench.printing.report_document_control import ReportDocumentControl
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.las_geology import dataset_with_well_geology
 from geoworkbench.services.las_geology_metadata import (
@@ -355,23 +354,12 @@ class DatasetExportController:
             if template is None or report.definition.form_revision != f"version:{template.version}":
                 raise ReportDefinitionError("Ревизия формы Masterlog изменилась; разрешите отчёт повторно")
 
-        def value(field: str) -> str:
-            return resolve_header_field(self.session, field, template, export_language) or ""
-
         dataset = self._dataset_for_report_document(report)
         unit = (dataset.indexes[report.interval.index_id].unit or "").strip()
         interval = f"{report.interval.start} — {report.interval.end} {unit}".strip()
-        return report_document_control(InterpretationReportIdentity(
-            report_title=report.definition.name, report_subtitle="",
-            project_name=self.session.project.name, well_name=value("well.name"),
-            field_name=value("header.field"), operator_name=value("header.customer"),
-            contractor_name=value("header.contractor"), rig_name=value("header.rig"),
-            dataset_name=dataset.name, interval=interval,
-            document_number=value("header.document_number"), revision=value("header.revision"),
-            document_status=value("header.status"), report_date=value("header.report_date"),
-            prepared_by=value("header.prepared_by"), checked_by=value("header.checked_by"),
-            approved_by=value("header.approved_by"), confidentiality=value("header.confidentiality"),
-        ), export_language)
+        return form_report_document_control(
+            self.session, template, export_language, title=report.definition.name, interval=interval,
+        )
 
     def _dataset_for_resolved_report(self, report: ResolvedReportDefinition) -> Dataset:
         dataset = self._require_current_dataset()

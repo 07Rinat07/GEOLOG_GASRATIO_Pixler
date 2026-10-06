@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from geoworkbench.printing.masterlog_document_control import MasterlogDocumentControlLayout, masterlog_document_control_layout
+from geoworkbench.printing.report_document_control import compact_report_footer
 from geoworkbench.services.lba_standard import lba_color_code
 import os
 import tempfile
@@ -15,6 +17,7 @@ from PySide6.QtCore import QLineF, QMarginsF, QPointF, QRectF, QSizeF, Qt
 from PySide6.QtGui import (
     QColor,
     QFont,
+    QFontMetricsF,
     QPageLayout,
     QPageSize,
     QPainter,
@@ -213,7 +216,9 @@ def masterlog_size_mm(
         body_height = template.properties.get("body_height_mm", 200.0)
         if not isinstance(body_height, (int, float)) or isinstance(body_height, bool):
             body_height = 200.0
-    return QSizeF(width, template.header_height_mm + max(25.0, min(float(body_height), 4955.0)))
+    control = masterlog_document_control_layout(template, session, depth_range, width)
+    reserved = control.height_mm + control.footer_height_mm if control is not None else 0.0
+    return QSizeF(width, template.header_height_mm + reserved + max(25.0, min(float(body_height), 4955.0)))
 
 
 def masterlog_page_ranges(
@@ -239,10 +244,13 @@ def masterlog_page_ranges(
         return (depth_range,)
     page_size = page_size_mm or _fixed_page_size_mm(template)
     depth_scale = _depth_scale(template)
+    control = masterlog_document_control_layout(template, session, depth_range, page_size.width())
+    reserved = control.height_mm + control.footer_height_mm if control is not None else 0.0
     plot_height_mm = (
         page_size.height()
         - template.header_height_mm
         - _masterlog_column_heading_height(template)
+        - reserved
     )
     if plot_height_mm <= 0:
         raise MasterlogRenderError("Высота шапки не оставляет места для глубинных колонок")
@@ -320,9 +328,23 @@ def paint_masterlog(
     columns: Sequence[MasterlogColumnTemplate] | None = None,
     language: AppLanguage = AppLanguage.RU,
     _render_context: _MasterlogRenderContext | None = None,
+    _document_control: MasterlogDocumentControlLayout | None = None,
 ) -> None:
     effective_range = depth_range or masterlog_depth_range(session)
     size = canvas_size_mm or masterlog_size_mm(template, session, depth_range=effective_range)
+    control = _document_control or masterlog_document_control_layout(template, session, effective_range, size.width(), language)
+    header_bottom = template.header_height_mm + (control.height_mm if control is not None else 0.0)
+    column_size = size
+    if control is not None:
+        column_bottom = size.height() - control.footer_height_mm
+        if column_bottom <= header_bottom + _masterlog_column_heading_height(template):
+            raise MasterlogRenderError("Шапка и реквизиты не оставляют места для глубинных колонок")
+        if effective_range is not None:
+            desired_bottom = header_bottom + _masterlog_column_heading_height(template) + (
+                (effective_range[1] - effective_range[0]) * 1000 / _depth_scale(template)
+            )
+            column_bottom = min(column_bottom, desired_bottom)
+        column_size = QSizeF(size.width(), column_bottom)
     scale = min(target.width() / size.width(), target.height() / size.height())
     painter.save()
     painter.translate(
@@ -351,17 +373,22 @@ def paint_masterlog(
             language,
             lithotype_catalog,
         )
+    if control is not None:
+        _paint_masterlog_document_control(painter, template.header_height_mm, size.width(), control)
     _paint_columns(
         painter,
         template,
-        size,
+        column_size,
         session,
         effective_range,
         columns if columns is not None else template.columns,
         language,
         render_context,
+        header_bottom_mm=header_bottom,
     )
-    if page_label:
+    if control is not None:
+        _paint_masterlog_control_footer(painter, size, control, page_label or "")
+    elif page_label:
         visual = modern_oilfield_report_profile()
         font = QFont()
         _set_scaled_font_points(painter, font, 6.5)
@@ -392,6 +419,66 @@ def paint_masterlog(
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
             page_label,
         )
+    painter.restore()
+
+
+def _masterlog_control_font(painter: QPainter, *, bold: bool = False) -> QFont:
+    font = QFont()
+    _set_scaled_font_points(painter, font, modern_oilfield_report_profile().typography.table_pt)
+    font.setBold(bold)
+    font.setStyleStrategy(QFont.StyleStrategy.PreferDefault)
+    painter.setFont(font)
+    return font
+
+
+def _draw_control_text(painter: QPainter, rect: QRectF, text: str, *, right: bool = False) -> None:
+    metrics = QFontMetricsF(painter.font(), painter.device())
+    text = metrics.elidedText(" ".join(text.split()), Qt.TextElideMode.ElideRight, max(0.0, rect.width()))
+    painter.drawText(rect, (Qt.AlignmentFlag.AlignRight if right else Qt.AlignmentFlag.AlignLeft)
+                     | Qt.AlignmentFlag.AlignVCenter, text)
+
+
+def _paint_masterlog_document_control(
+    painter: QPainter, top_mm: float, width_mm: float, control: MasterlogDocumentControlLayout,
+) -> None:
+    painter.save()
+    visual = modern_oilfield_report_profile()
+    region = QRectF(0, top_mm, width_mm, control.height_mm)
+    painter.setClipRect(region, Qt.ClipOperation.IntersectClip)
+    painter.fillRect(region, QColor(visual.palette.accent_soft))
+    painter.setPen(QColor(visual.palette.accent))
+    _masterlog_control_font(painter, bold=True)
+    _draw_control_text(painter, QRectF(2, top_mm, max(0.0, width_mm - 4), control.brand_height_mm), visual.brand_wordmark)
+    painter.setPen(QColor(visual.palette.text))
+    _masterlog_control_font(painter)
+    cell_width = max(0.0, (width_mm - 4) / control.columns)
+    for index, (label, value) in enumerate(control.rows):
+        row, column = divmod(index, control.columns)
+        rect = QRectF(2 + column * cell_width, top_mm + control.brand_height_mm + row * control.row_height_mm,
+                      max(0.0, cell_width - 2), control.row_height_mm)
+        _draw_control_text(painter, rect, f"{label}: {value}" if label else value)
+    painter.restore()
+
+
+def _paint_masterlog_control_footer(
+    painter: QPainter, size: QSizeF, control: MasterlogDocumentControlLayout, page_label: str,
+) -> None:
+    painter.save()
+    visual = modern_oilfield_report_profile()
+    top = size.height() - control.footer_height_mm
+    region = QRectF(0, top, size.width(), control.footer_height_mm)
+    painter.setClipRect(region, Qt.ClipOperation.IntersectClip)
+    painter.fillRect(region, QColor(visual.palette.page))
+    painter.setPen(QPen(QColor(visual.palette.border), visual.layout.thin_rule_pt * 25.4 / 72))
+    painter.drawLine(QLineF(0, top, size.width(), top))
+    painter.setPen(QColor(visual.palette.text_muted))
+    _masterlog_control_font(painter)
+    width = max(0.0, size.width() - 4)
+    metrics = QFontMetricsF(painter.font(), painter.device())
+    page_width = min(width * 0.4, metrics.horizontalAdvance(page_label) + 2) if page_label else 0
+    _draw_control_text(painter, QRectF(2, top + 0.5, max(0.0, width - page_width - 2), 4), visual.brand_wordmark)
+    _draw_control_text(painter, QRectF(2 + width - page_width, top + 0.5, page_width, 4), page_label, right=True)
+    _draw_control_text(painter, QRectF(2, top + 5, width, 4), compact_report_footer(control.snapshot))
     painter.restore()
 
 
@@ -611,6 +698,10 @@ def paint_masterlog_pages(
     # across all pages of one print job.  Build them once instead of repeating
     # the same O(curves × aliases) work for every depth page and column group.
     render_context = _build_masterlog_render_context(template, session)
+    control = masterlog_document_control_layout(
+        template, session, settings.depth_range if settings is not None else masterlog_depth_range(session),
+        page_size_mm.width(), language,
+    )
     for page_index, (columns, page_range) in enumerate(pages):
         if page_index and not device.newPage():
             raise MasterlogRenderError("Не удалось создать следующую страницу masterlog")
@@ -627,6 +718,7 @@ def paint_masterlog_pages(
             columns=columns,
             language=language,
             _render_context=render_context,
+            _document_control=control,
         )
 
 
@@ -1352,13 +1444,15 @@ def _paint_columns(
     columns: Sequence[MasterlogColumnTemplate],
     language: AppLanguage,
     render_context: _MasterlogRenderContext,
+    *,
+    header_bottom_mm: float | None = None,
 ) -> None:
     columns_width = sum(column.width_mm for column in columns)
     # Factory A4 forms reserve symmetric 5 mm side margins. Center the column
     # block in the same page box used by its paired header; starting at x=0 made
     # a 200 mm portrait form sit left of a header designed for x=5..205 mm.
     x = max(0.0, (float(size.width()) - columns_width) / 2.0)
-    top = template.header_height_mm
+    top = template.header_height_mm if header_bottom_mm is None else header_bottom_mm
     # Pagination is shared by all horizontal column groups, so every group must
     # reserve the same (maximum) heading band to keep the physical depth scale exact.
     header_height = _masterlog_column_heading_height(template)
