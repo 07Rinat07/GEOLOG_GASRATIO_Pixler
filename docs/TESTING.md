@@ -1218,3 +1218,16 @@ reserves the footer, and preserves physical depth scale including partial final 
 forms and source arrays remain unchanged. One regression checks multilingual row suppression
 and legacy inactivity; ten narrow/wide long-text cases at 72/96/144/300/600 DPI verify all
 automatic text rectangles stay outside the graph body.
+
+`tests/test_interpretation_control_footer.py` covers 24 production PDF exports after package
+save/reopen: RU/KK/EN × standard/OPUS × empty/explicit date × portrait/landscape. Every
+page retains document/revision/status/confidentiality and localized numbering; saved
+composition, depth and curve arrays are unchanged. Ten narrow/wide QPdfWriter cases at
+72/96/144/300/600 DPI verify footer bounds and extracted physical font size. One regression
+checks that empty footer metadata retains legacy content geometry even with an explicit date.
+
+Six production overflow regressions in `tests/test_interpretation_report_charts.py` replace
+an old source-string suppression check. RU/KK/EN × FULL/HIDE verify a 120-rock catalog:
+methodology precedes charts, full legends follow charts with every code/name preserved,
+and HIDE suppresses the catalog. The existing Windows method/geology ordering regression
+is retained unchanged.

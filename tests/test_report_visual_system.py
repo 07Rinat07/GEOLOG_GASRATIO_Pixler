@@ -42,7 +42,7 @@ def test_print_footer_wordmarks_use_bold_brand_without_changing_canonical_text()
     ).read_text(encoding="utf-8")
 
     assert "brand_font.setBold(True)" in pdf_canvas
-    assert "text=REPORT_BRAND_WORDMARK" in pdf_canvas
+    assert "self._footer_font(REPORT_BRAND_WORDMARK)" in pdf_canvas
     assert "font.setBold(True)" in masterlog
     assert "font.setBold(False)" in masterlog
     assert 'from geoworkbench.brand import REPORT_BRAND_WORDMARK' in (
