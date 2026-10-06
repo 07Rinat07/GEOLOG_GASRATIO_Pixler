@@ -819,6 +819,19 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         dataset = self.controller.session.current_dataset
         if dataset is None:
             return
+        composition = self._report_composition()
+        header = report_header_fields(composition, self.language.value, report.report_profile)
+        saved_identity = (
+            self._identity_with_narrative_visibility(
+                identity_with_report_header_fields(
+                    default_interpretation_report_identity(
+                        report, self.language, interval=self._report_interval(report),
+                    ),
+                    header,
+                ),
+                composition,
+            ) if header is not None else None
+        )
         target = self._choose_target(".xlsx", "Excel (*.xlsx)")
         if target is None:
             return
@@ -841,6 +854,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     language=self.language,
                     overwrite=target.exists(),
                     progress=self._update_report_export_progress,
+                    **({"identity": saved_identity} if saved_identity is not None else {}),
                 )
         except (OSError, FileExistsError, HydrocarbonInterpretationExportError) as exc:
             self._show_export_error(exc)

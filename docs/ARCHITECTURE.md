@@ -859,3 +859,9 @@ widget tree. A different Dataset ID still falls back to the existing full datase
 helpers и simple tablet header/footer. Размеры Word переводятся из points в half-points;
 Excel сохраняет числовые типы. Shared defaults относятся к presentation; пользовательские
 Masterlog element properties и source/candidate/domain values не переписываются.
+
+`printing/report_document_control.py` строит immutable localized groups control/context/approvals
+из cleaned `InterpretationReportIdentity`. Date row добавляется только из непустого user field;
+generation audit не является входом. PDF и polished DOCX cover адаптируют один snapshot; readable
+XLSX добавляет available rows на отдельный лист с тем же visual profile. Workspace выбирает
+сохранённые headers через language + report-profile resolver. Project schema v37 не меняется.

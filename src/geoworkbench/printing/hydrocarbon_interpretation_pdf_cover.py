@@ -6,13 +6,13 @@ from PySide6.QtGui import QColor, QPen
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_canvas import PageCanvas
 from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
     InterpretationReportIdentity,
-    default_interpretation_report_identity,
 )
 from geoworkbench.printing.report_visual_system import (
     REPORT_BRAND_WORDMARK,
     modern_oilfield_report_profile,
 )
 from geoworkbench.printing.unicode_support import print_font
+from geoworkbench.printing.report_document_control import report_document_control, resolved_report_identity
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
 )
@@ -105,10 +105,8 @@ def render_report_cover(
     """Draw an industry-style document cover in portrait or landscape."""
 
     labels = _LABELS[language]
-    details = (
-        identity
-        or default_interpretation_report_identity(report, language)
-    ).cleaned()
+    details = resolved_report_identity(report, identity, language)
+    document_control = report_document_control(details, language)
     painter = canvas.painter
     rect = canvas.content_rect
     compact = rect.width() < 620.0
@@ -166,13 +164,7 @@ def render_report_cover(
         painter.setPen(QPen(card_border, 0.9))
         painter.drawRoundedRect(control, 5.0, 5.0)
 
-        control_items = [
-            (labels["document"], _value(details.document_number)),
-            (labels["revision"], _value(details.revision)),
-            (labels["status"], _value(details.document_status)),
-        ]
-        if details.report_date.strip():
-            control_items.append((labels["date"], details.report_date.strip()))
+        control_items = document_control.control
         column_width = control.width() / float(len(control_items))
         for index, (label, value) in enumerate(control_items):
             cell = QRectF(
@@ -257,16 +249,7 @@ def render_report_cover(
             _value(details.report_subtitle),
         )
 
-        rows = (
-            (labels["project"], details.project_name),
-            (labels["well"], details.well_name),
-            (labels["field"], details.field_name),
-            (labels["location"], details.location),
-            (labels["operator"], details.operator_name),
-            (labels["contractor"], details.contractor_name),
-            (labels["rig"], details.rig_name),
-            (labels["dataset"], details.dataset_name),
-            (labels["interval"], details.interval),
+        rows = document_control.context + (
             (labels["primary"], report.primary_mnemonic or "—"),
             (labels["threshold"], f"{report.threshold:.2f}"),
         )
@@ -307,11 +290,7 @@ def render_report_cover(
         painter.setBrush(QColor("#ffffff"))
         painter.setPen(QPen(card_border, 1.0))
         painter.drawRoundedRect(approval, 5.0, 5.0)
-        approval_items = (
-            (labels["prepared"], details.prepared_by),
-            (labels["checked"], details.checked_by),
-            (labels["approved"], details.approved_by),
-        )
+        approval_items = document_control.approvals
         approval_column = approval.width() / 3.0
         for index, (label, value) in enumerate(approval_items):
             cell = QRectF(

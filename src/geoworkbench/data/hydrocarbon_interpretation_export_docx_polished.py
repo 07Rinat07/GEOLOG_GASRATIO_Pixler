@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import replace
 import os
 from pathlib import Path
 import tempfile
@@ -15,11 +14,11 @@ from geoworkbench.data.hydrocarbon_interpretation_export import (
 from geoworkbench.domain.models import Dataset
 from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
     InterpretationReportIdentity,
-    default_interpretation_report_identity,
     report_optional_section_labels,
 )
 from geoworkbench.printing.hydrocarbon_report_i18n import hydrocarbon_report_labels
 from geoworkbench.printing.report_visual_system import REPORT_BRAND_WORDMARK
+from geoworkbench.printing.report_document_control import report_document_control, resolved_report_identity
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
 )
@@ -49,12 +48,7 @@ def export_polished_hydrocarbon_interpretation_docx(
         raise FileExistsError(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
 
-    details = (
-        identity
-        or default_interpretation_report_identity(report, language)
-    ).cleaned()
-    if report.analysis_depth_interval is not None:
-        details = replace(details, interval=report.analysis_depth_interval.formatted(report.depth_unit))
+    details = resolved_report_identity(report, identity, language)
     source = _temporary_docx(destination, "source")
     rewritten = _temporary_docx(destination, "rewritten")
     try:
@@ -169,6 +163,7 @@ def _cover_elements(
     language: AppLanguage,
 ) -> tuple[ET.Element, ...]:
     details = identity.cleaned()
+    document_control = report_document_control(details, language)
     labels = hydrocarbon_report_labels(language)
     signature_label = {
         AppLanguage.RU: "Подпись / дата",
@@ -184,18 +179,7 @@ def _cover_elements(
             bold=True,
             color="174F78",
         ),
-        _control_table(
-            tuple(
-                item
-                for item in (
-                    (labels.document, details.document_number),
-                    (labels.revision, details.revision),
-                    (labels.document_status, details.document_status),
-                    (labels.report_date, details.report_date),
-                )
-                if item[0] != labels.report_date or item[1].strip()
-            )
-        ),
+        _control_table(document_control.control),
         _paragraph(
             details.report_title
             or (
@@ -219,27 +203,14 @@ def _cover_elements(
             color="526579",
         ),
         _details_table(
-            (
-                (labels.project, details.project_name),
-                (labels.well, details.well_name),
-                (labels.field_area, details.field_name),
-                (labels.location, details.location),
-                (labels.operator_customer, details.operator_name),
-                (labels.service_company, details.contractor_name),
-                (labels.rig, details.rig_name),
-                (labels.dataset, details.dataset_name),
-                (labels.report_interval, details.interval),
+            document_control.context + (
                 (labels.primary_gas_curve, report.primary_mnemonic or "—"),
                 (labels.robust_z_threshold, f"{report.threshold:.2f}"),
             )
         ),
         _paragraph("", before=80, after=80, size=4),
         _approval_table(
-            (
-                (labels.prepared_by, details.prepared_by),
-                (labels.checked_by, details.checked_by),
-                (labels.approved_by, details.approved_by),
-            ),
+            document_control.approvals,
             signature_label=signature_label,
         ),
     ]
