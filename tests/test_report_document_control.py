@@ -57,8 +57,9 @@ def test_same_control_snapshot_reaches_pdf_docx_and_xlsx(qapp, tmp_path, languag
                                                         language=language, identity=identity)
     workbook = load_workbook(xlsx)
     sheet = workbook[SHEETS[language]]
-    excel_rows = [(row[0], row[1]) for row in sheet.iter_rows(min_row=3, values_only=True) if row[1] is not None]
+    excel_rows = [(row[0], row[1]) for row in sheet.iter_rows(min_row=4, values_only=True) if row[1] is not None]
     assert excel_rows == list(snapshot.available_rows)
+    assert sheet["A3"].value == identity.report_subtitle
     for value in ['DOC-017', '07', 'Approved', 'Engineer A', 'Engineer B', 'Engineer C', resolved.interval]:
         assert value in pdf_text
         assert value in word_text
@@ -100,7 +101,11 @@ def test_workspace_xlsx_uses_saved_reopened_language_header(qapp, tmp_path, monk
     try:
         workspace._export_xlsx()
         workbook = load_workbook(target)
-        assert ('SAVED-42' in str(list(workbook[SHEETS[language]].values))) == (stored_profile == 'standard')
+        values = str(list(workbook[SHEETS[language]].values))
+        assert ('SAVED-42' in values) == (stored_profile == 'standard')
+        assert workspace._report_interval(report) in values
+        if stored_profile == 'standard':
+            assert workbook[SHEETS[language]]["A3"].value == identity.report_subtitle
         assert restored.report_compositions == before
         workbook.close()
     finally:

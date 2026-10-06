@@ -830,7 +830,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     header,
                 ),
                 composition,
-            ) if header is not None else None
+            )
         )
         target = self._choose_target(".xlsx", "Excel (*.xlsx)")
         if target is None:
@@ -854,7 +854,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     language=self.language,
                     overwrite=target.exists(),
                     progress=self._update_report_export_progress,
-                    **({"identity": saved_identity} if saved_identity is not None else {}),
+                    identity=saved_identity,
                 )
         except (OSError, FileExistsError, HydrocarbonInterpretationExportError) as exc:
             self._show_export_error(exc)

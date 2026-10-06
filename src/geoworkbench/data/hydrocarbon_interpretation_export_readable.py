@@ -154,12 +154,14 @@ def _write_document_control_sheet(
     visual = modern_oilfield_report_profile()
     sheet.append(protect_spreadsheet_row((visual.brand_wordmark,)))
     sheet.append(protect_spreadsheet_row((snapshot.title,)))
+    sheet.append(protect_spreadsheet_row((snapshot.subtitle,)))
     for label, value in snapshot.available_rows:
         sheet.append(protect_spreadsheet_row((label, value)))
     for note in snapshot.notes:
         sheet.append(protect_spreadsheet_row((note,)))
     sheet.merge_cells("A1:B1")
     sheet.merge_cells("A2:B2")
+    sheet.merge_cells("A3:B3")
     sheet.column_dimensions["A"].width = 28
     sheet.column_dimensions["B"].width = 75
     for row in sheet:
@@ -173,7 +175,7 @@ def _write_document_control_sheet(
     sheet.page_setup.fitToWidth = 1
     sheet.page_setup.fitToHeight = 0
     sheet.sheet_properties.pageSetUpPr.fitToPage = True
-    sheet.print_title_rows = "1:2"
+    sheet.print_title_rows = "1:3"
     sheet.oddFooter.left.text = visual.brand_wordmark.replace("&", "&&")
     sheet.oddFooter.right.text = "&P / &N"
 

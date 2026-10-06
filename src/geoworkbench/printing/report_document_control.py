@@ -16,6 +16,7 @@ class ReportDocumentControl:
     """One renderer-neutral, localized presentation snapshot; never a generation audit."""
 
     title: str
+    subtitle: str
     control: tuple[tuple[str, str], ...]
     context: tuple[tuple[str, str], ...]
     approvals: tuple[tuple[str, str], ...]
@@ -53,6 +54,7 @@ def report_document_control(
         control += ((labels.report_date, details.report_date),)
     return ReportDocumentControl(
         title=details.report_title,
+        subtitle=details.report_subtitle,
         control=control,
         context=(
             (labels.project, details.project_name),

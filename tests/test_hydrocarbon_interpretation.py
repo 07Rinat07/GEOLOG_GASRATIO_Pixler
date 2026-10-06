@@ -253,6 +253,7 @@ def test_report_exports_openable_xlsx_and_docx(tmp_path) -> None:
             "Интерпретация УВ",
             "Методика",
             "Данные по глубине",
+            "Реквизиты",
             "_classification_audit",
         ]
         main = workbook["Интерпретация УВ"]
