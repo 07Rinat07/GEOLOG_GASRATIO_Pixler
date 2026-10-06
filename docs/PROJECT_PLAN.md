@@ -2,8 +2,10 @@
 # Единый план проекта
 
 План актуализирован 6 октября 2026 года. Проверенная база текущего инкремента —
-`d8b7f170` (PR #459). RPT-COMP-01 завершает сохранённый порядок и видимость разрешённых
-глубинных графических колонок через одну renderer-neutral composition. Статусы завершения
+`723c5593` (PR #460). RPT-COMP-01 интегрирован: сохраняемый порядок и видимость
+глубинных графических колонок применяются через одну renderer-neutral composition.
+Текущий инкремент PRINT-STYLE-01 подключает оставшиеся geological HTML/PDF и Office adapters,
+а также простую планшетную шапку/подвал к общему visual profile. Статусы завершения
 ниже относятся к main после интеграции этого инкремента и успешного exact-head Release gate.
 Приложение сохраняет каноническую industrial-blue DIGITAL GEOLOG айдентику. WITS развивается
 как операторское рабочее пространство с live-данными и состоянием подключения; расширенные
@@ -108,15 +110,15 @@ RPT-ANN renderer/editor интегрированы через #446/#447; ост�
 
 | Порядок | Задача | Следующий проверяемый результат и зависимость | Ответственный по роли / статус |
 |---|---|---|---|
-| 2 | RPT-ANN-01 | Renderer и transactional editor интегрированы через #446/#447. Остаточная сквозная приёмка из Composer, save/reopen и изоляции scope; strict persisted schema отклоняет boolean/float вместо integer v1 | Разработчик / на проверке |
 | 1 | PRINT-STYLE-01 | Свести оставшиеся generic/Masterlog/Office пути к одному visual profile и document-control contract; дополнять готовые typography/marker/legend contracts. Physical acceptance вынесена отдельно | Разработчик / в работе |
-| 2 | GASCTX-RPT-01: остаточная приёмка | Проверить общий editor/registry/context audit через production entry points, save/reopen и RU/KK/EN; завершить отдельные полосы/метки событий с grayscale-подписями. Реализованные exclusion/background/confirmed policy не переписывать | Разработчик + специалист ГТИ / на проверке |
-| 3 | WITS-UX-01 | Завершить persistence/reconnect и live-first navigation/help: основные данные и health видимы, advanced/diagnostics сворачиваются, outer horizontal scroll отсутствует | Разработчик / в работе |
-| 4 | WITS-PLOT-01 | Остаточные manual ranges, reconnect/schema-change и redraw acceptance поверх существующих unit-aware tracks и редактируемых панелей | Разработчик / в работе |
-| 5 | WITS-GASCTX-01 / WITS-INTERP-01 | Сквозная проекция live gas context и интерпретационных полос; source origin, fluid screening и alarm остаются независимыми осями | Разработчик + специалист ГТИ / в работе |
-| 6 | WELL-04 → WELL-05 | Сквозная готовность переводов и пары макетов; использовать реализованные field ledger/readiness/family resolver и WELL-06, проверить save/reopen без смешения ревизий | Разработчик / на проверке |
-| 7 | ARCH-07 | Довести общую history до оставшихся mutation controllers при работе над конкретными editor сценариями; не создавать параллельную историю в RPT-ANN | Разработчик / в работе |
-| 8 | PERF-05 | Сначала baseline текущего save/open/RSS на 100k/1M; новый storage backend только при подтверждённом bottleneck и с совместимой миграцией | Разработчик / запланировано |
+| 2 | RPT-ANN-01 | Renderer и transactional editor интегрированы через #446/#447. Остаточная сквозная приёмка из Composer, save/reopen и изоляции scope; strict persisted schema отклоняет boolean/float вместо integer v1 | Разработчик / на проверке |
+| 3 | GASCTX-RPT-01: остаточная приёмка | Проверить общий editor/registry/context audit через production entry points, save/reopen и RU/KK/EN; завершить отдельные полосы/метки событий с grayscale-подписями. Реализованные exclusion/background/confirmed policy не переписывать | Разработчик + специалист ГТИ / на проверке |
+| 4 | WITS-UX-01 | Завершить persistence/reconnect и live-first navigation/help: основные данные и health видимы, advanced/diagnostics сворачиваются, outer horizontal scroll отсутствует | Разработчик / в работе |
+| 5 | WITS-PLOT-01 | Остаточные manual ranges, reconnect/schema-change и redraw acceptance поверх существующих unit-aware tracks и редактируемых панелей | Разработчик / в работе |
+| 6 | WITS-GASCTX-01 / WITS-INTERP-01 | Сквозная проекция live gas context и интерпретационных полос; source origin, fluid screening и alarm остаются независимыми осями | Разработчик + специалист ГТИ / в работе |
+| 7 | WELL-04 → WELL-05 | Сквозная готовность переводов и пары макетов; использовать реализованные field ledger/readiness/family resolver и WELL-06, проверить save/reopen без смешения ревизий | Разработчик / на проверке |
+| 8 | ARCH-07 | Довести общую history до оставшихся mutation controllers при работе над конкретными editor сценариями; не создавать параллельную историю в RPT-ANN | Разработчик / в работе |
+| 9 | PERF-05 | Сначала baseline текущего save/open/RSS на 100k/1M; новый storage backend только при подтверждённом bottleneck и с совместимой миграцией | Разработчик / запланировано |
 
 ## RPT-GAS-VIS-01 — точечное представление газовых отношений
 
@@ -351,6 +353,12 @@ Document/painter/user-selected colors остаются данными докум
 сохраняются, но значения contrast/fills/line weights подбираются для A4/A3/roll и grayscale.
 PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
 
+- [x] **Shared-adapter slice:** geological HTML/PDF и XLSX, общие DOCX styles/table helpers,
+  simple tablet header/footer используют палитру/типографику `modern_oilfield_report_profile`.
+  Wordmark геологического HTML/PDF и планшетного подвала канонический; подвал резервирует
+  ширину номера страницы и обрезает длинный wordmark. XLSX сохраняет числовые значения,
+  добавляет alternating fills и числовое выравнивание. RU/KK/EN production export regressions
+  проверяют PDF/OOXML/XLSX и неизменность исходных кривых; весь PRINT-STYLE-01 не закрывается.
 - [ ] Один immutable style profile для PDF, Masterlog, планшетной печати и Office-экспорта:
   нейтральная техническая типографика, строгая сетка, сдержанный petroleum-blue accent,
   high-contrast текст, light technical fills, line-weight hierarchy и monochrome-safe semantics.

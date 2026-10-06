@@ -11,6 +11,7 @@ from PySide6.QtCore import QMarginsF
 from PySide6.QtGui import QPageLayout, QPageSize, QPdfWriter, QTextDocument
 
 from geoworkbench.brand import APPLICATION_DISPLAY_NAME
+from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.domain.models import CuttingsSample
 from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
 from geoworkbench.project.lithotype_catalog_models import CatalogLithotype
@@ -879,31 +880,36 @@ def interpretation_report_html(
             f'<tr><td colspan="5">{escape(labels["no_stratigraphy"])}</td></tr>'
         )
     dataset = report.dataset_name or "—"
+    visual = modern_oilfield_report_profile()
+    palette = visual.palette
+    typography = visual.typography
     interval_heading = f'{escape(labels["interval"])}, {escape(report.depth_unit)}'
     return f"""
 <!doctype html>
 <html><head><meta charset="utf-8"><style>
-html, body {{ background: #ffffff; color: #172033; }}
-body {{ font-size: 9pt; }}
-h1 {{ font-size: 17pt; margin-bottom: 10px; }}
-h2 {{ font-size: 13pt; margin: 16px 0 6px 0; page-break-after: avoid; }}
+html, body {{ background: {palette.page}; color: {palette.text}; }}
+body {{ font-size: {typography.body_pt:g}pt; }}
+h1 {{ font-size: {typography.title_pt:g}pt; margin-bottom: 10px; }}
+h2 {{ font-size: {typography.section_pt:g}pt; margin: 16px 0 6px 0; page-break-after: avoid; }}
+.brand {{ color: {palette.accent}; font-size: {typography.caption_pt:g}pt; font-weight: bold; }}
 .meta {{ margin-bottom: 10px; }}
-.section-note {{ margin: 0 0 7px 0; color: #475569; }}
+.section-note {{ margin: 0 0 7px 0; color: {palette.text_muted}; }}
 .notice-table {{ margin-top: 12px; width: 100%; }}
-.notice-table td {{ padding: 7px; background: #fff7d6; border: none; border-left: 4px solid #d59b00; }}
+.notice-table td {{ padding: 7px; background: {palette.accent_soft}; border: none; border-left: 4px solid {palette.warning}; }}
 .new-page {{ page-break-before: always; }}
 table {{ border-collapse: collapse; width: 100%; margin-bottom: 10px; }}
 thead {{ display: table-header-group; }}
-th, td {{ border: 1px solid #6b7280; padding: 4px; vertical-align: top; }}
-th {{ background: #e8eef7; color: #172033; }}
-td {{ background: #ffffff; color: #172033; }}
-.meter-table {{ font-size: 8pt; }}
-.sample-table {{ font-size: 7.3pt; }}
-.analysis-table {{ font-size: 7.5pt; }}
-.stratigraphy-table {{ font-size: 8pt; }}
+th, td {{ border: 1px solid {palette.border}; padding: 4px; vertical-align: top; }}
+th {{ background: {palette.table_header}; color: {palette.text}; }}
+td {{ background: {palette.page}; color: {palette.text}; }}
+.meter-table {{ font-size: {typography.table_pt:g}pt; }}
+.sample-table {{ font-size: {typography.table_pt:g}pt; }}
+.analysis-table {{ font-size: {typography.table_pt:g}pt; }}
+.stratigraphy-table {{ font-size: {typography.table_pt:g}pt; }}
 .detail-line {{ margin-bottom: 2px; }}
 .gas-line {{ margin-bottom: 5px; }}
 </style></head><body>
+<div class="brand">{escape(visual.brand_wordmark)}</div>
 <h1>{escape(labels["title"])}</h1>
 <div class="meta"><b>{escape(labels["project"])}:</b> {escape(report.project_name)}<br>
 <b>{escape(labels["well"])}:</b> {escape(report.well_name)}<br>

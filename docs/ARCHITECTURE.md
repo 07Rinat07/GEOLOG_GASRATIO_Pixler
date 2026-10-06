@@ -853,3 +853,9 @@ changes lookup identity, and applies `DirtyReason.STYLE` so display names, units
 headers are rebuilt in place. MainWindow refreshes the curve view, LAS table, curve browser,
 interpretation-report presentation, Project Tree and dirty title without replacing the tablet
 widget tree. A different Dataset ID still falls back to the existing full dataset replacement.
+
+Печатный visual profile применяется также в geological `interpretation_report_html`
+(и его QTextDocument PDF), `interpretation_report_office` XLSX, общих DOCX styles/table
+helpers и simple tablet header/footer. Размеры Word переводятся из points в half-points;
+Excel сохраняет числовые типы. Shared defaults относятся к presentation; пользовательские
+Masterlog element properties и source/candidate/domain values не переписываются.
