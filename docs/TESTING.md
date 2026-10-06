@@ -1194,3 +1194,8 @@ PDF/DOCX/XLSX комбинаций RU/KK/EN × standard/OPUS × empty/explicit d
 analysis interval, source-array immutability и неизменный generation audit. Шесть real-workspace
 экспортов после package save/reopen подтверждают language selection и отсутствие утечки OPUS
 headers в standard. Отдельный тест фиксирует frozen snapshot и formula-like literal cells.
+
+Masterlog document-control: `tests/test_masterlog_document_control.py` проверяет 12 production
+PDF/save/reopen сочетаний RU/KK/EN, пустой/явной даты и наличия паспорта скважины,
+независимость копии формы и исходной оси. Ещё три GUI regression проверяют доступность
+в редакторах данных/динамического поля и очистку даты при принятом паспорте.
