@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from hashlib import sha256
 from importlib.resources import files
 
+from geoworkbench.brand import REPORT_BRAND_WORDMARK
 from geoworkbench.printing.image_assets import (
     ImageAsset,
     SVG_MEDIA_TYPE,
@@ -60,9 +61,9 @@ class BuiltinLogoDefinition:
 BUILTIN_LOGOS: tuple[BuiltinLogoDefinition, ...] = (
     BuiltinLogoDefinition(
         logo_id="factory-digital-geolog",
-        name_ru="DIGITAL GEOLOG GASRATIO&PIXLER",
-        name_kk="DIGITAL GEOLOG GASRATIO&PIXLER",
-        name_en="DIGITAL GEOLOG GASRATIO&PIXLER",
+        name_ru=REPORT_BRAND_WORDMARK,
+        name_kk=REPORT_BRAND_WORDMARK,
+        name_en=REPORT_BRAND_WORDMARK,
         category_ru="Бренд приложения",
         category_kk="Қолданба бренді",
         category_en="Application brand",
