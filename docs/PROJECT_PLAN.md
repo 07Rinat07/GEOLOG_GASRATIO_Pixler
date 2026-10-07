@@ -2,11 +2,10 @@
 # Единый план проекта
 
 План актуализирован 7 октября 2026 года. Проверенная база перед текущим инкрементом —
-`559ce01c` (PR #477). RPT-COMP-01 интегрирован: сохраняемый порядок и видимость
-глубинных графических колонок применяются через одну renderer-neutral composition.
-PRINT-STYLE-01 уже имеет общий visual profile и document-control. Текущий slice добавляет
-в легенду кривых Masterlog фактический line/point glyph и единицы привязанного канала,
-чтобы стиль линии был различим без опоры только на цвет.
+`b899651e` (PR #475). RPT-COMP-01 интегрирован. PRINT-STYLE-01 имеет общий visual profile,
+document-control и фактические curve legend keys. Текущий slice подключает рамки колонок,
+major/minor grid и типографику шкалы глубин Masterlog к общему профилю, сохраняя настройки
+сетки и физическую геометрию глубины.
 Статусы завершения
 ниже относятся к main после интеграции этого инкремента и успешного exact-head Release gate.
 Приложение сохраняет каноническую industrial-blue DIGITAL GEOLOG айдентику. WITS развивается
@@ -495,6 +494,13 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   сохранённые формы, массивы и policy ratio rendering не меняются. RU/KK/EN, A4/A3/roll
   save/reopen/PDF и black-line regressions покрывают этот scope. Общий grayscale контракт
   событий/интервалов и physical acceptance остаются открытыми; merge только после exact-head gate.
+- [x] **Masterlog grid/depth-axis profile slice:** column frames и major/minor grid
+  используют semantic border roles и point-based thin rule (minor вдвое тоньше);
+  depth labels — table typography/text role. Saved grid visibility/alpha/divisions и
+  zero-aligned five-metre depth geometry сохраняются, source arrays/forms не меняются.
+  Colour/grayscale profiles, transparency, project reopen и RU/KK/EN PDF при 72–600 DPI
+  покрыты regressions; общий event/grayscale и physical acceptance остаются открытыми.
+  Интеграция только после successful exact-head Release gate.
 - [ ] Графики/логи: цвет не является единственным кодом — используются dash/marker/label;
   шкалы и единицы печатаются явно; события/alarms/interpreted intervals сохраняют смысл в grayscale.
 - [x] **PRINT-STYLE-01/RPT-QA print readability slice:** OPUS/GasRatio interpretation charts используют readability-first pagination с целевым диапазоном около 100 м на лист и адаптивным физическим vertical scale вместо жёсткого ограничения 12 страниц; короткие остаточные страницы равномерно распределяются. Dense source rows проходят extrema-preserving print decimation после разрыва реальных depth gaps, поэтому узкие пики не исчезают и не превращаются в случайные длинные диагонали из-за `linspace`. Physical PDF spool допускает до 600 DPI, Masterlog рендерится по фактическому printer paint rect; контраст кривых/сетки и прозрачность interval bands настроены для печати.

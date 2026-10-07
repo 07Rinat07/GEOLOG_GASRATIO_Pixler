@@ -1482,7 +1482,7 @@ def _paint_columns(
     annotation_columns: list[tuple[MasterlogColumnTemplate, QRectF]] = []
     for column in columns:
         rect = QRectF(x, top, column.width_mm, size.height() - top)
-        painter.setPen(QPen(QColor(visual.palette.border_strong), 0.25))
+        painter.setPen(QPen(QColor(visual.palette.border_strong), visual.layout.thin_rule_pt * 25.4 / 72.0))
         painter.drawRect(rect)
         painter.drawLine(QLineF(x, top + header_height, x + column.width_mm, top + header_height))
         _paint_column_heading(
@@ -1614,6 +1614,7 @@ def _paint_column_grid(
     if not column.grid_print or (not column.grid_x and not column.grid_y):
         return
     visual = modern_oilfield_report_profile()
+    major_width = visual.layout.thin_rule_pt * 25.4 / 72.0
     major_color = QColor(visual.palette.border_strong)
     major_color.setAlphaF(column.grid_alpha)
     minor_color = QColor(visual.palette.border)
@@ -1631,7 +1632,7 @@ def _paint_column_grid(
             painter.setPen(
                 QPen(
                     major_color if line.major else minor_color,
-                    0.2 if line.major else 0.1,
+                    major_width if line.major else major_width / 2.0,
                 )
             )
             painter.drawLine(QLineF(position, rect.top(), position, rect.bottom()))
@@ -1660,7 +1661,7 @@ def _paint_column_grid(
             painter.setPen(
                 QPen(
                     major_color if major else minor_color,
-                    0.2 if major else 0.1,
+                    major_width if major else major_width / 2.0,
                 )
             )
             painter.drawLine(QLineF(rect.left(), position, rect.right(), position))
@@ -2904,7 +2905,7 @@ def _paint_depth_axis(painter: QPainter, rect: QRectF, depth_range: tuple[float,
     visual = modern_oilfield_report_profile()
     painter.save()
     font = QFont()
-    _set_scaled_font_points(painter, font, 6.5)
+    _set_scaled_font_points(painter, font, visual.typography.table_pt)
     painter.setFont(font)
     painter.setPen(QColor(visual.palette.text))
     for depth, _major in _aligned_depth_grid_values(depth_range, 1):

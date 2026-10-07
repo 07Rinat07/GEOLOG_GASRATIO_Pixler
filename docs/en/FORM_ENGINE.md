@@ -213,3 +213,5 @@ throughout the application.
 Masterlog uses the shared print profile for default header backgrounds/borders, text and legend styling. Explicit form colours, font sizes and line widths take precedence; saved forms and geological symbols remain unchanged.
 
 Masterlog curve legends show the actual line key and bound channel unit beside the mnemonic and range. Saved dashed styles help distinguish curves in black-and-white print. Missing channels receive no invented key or unit.
+
+Masterlog column borders, grid and depth labels use the shared print profile. Major lines are twice as thick as minor lines. Grid visibility, transparency and divisions remain saved in the form; the depth scale is unchanged.

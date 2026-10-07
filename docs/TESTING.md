@@ -1277,3 +1277,8 @@ all four saved line styles, checks point predicate identifier parity, vendor-bou
 missing channels and narrow positive label rectangles. RU/KK/EN × A4/A3/roll project reopen
 exports inspect PDF dash geometry and real black-on-white QPainter output; persisted
 column properties and source arrays remain unchanged. Physical acceptance remains open.
+
+Masterlog grid/profile regressions check colour/grayscale roles, saved alpha 0/0.6/1,
+major/minor physical weight and five-metre coordinate invariants. RU/KK/EN reopen exports
+at injected PDF writer DPI 72/300/600 verify vector border weights and depth font role,
+with source arrays and templates unchanged. The production export DPI setting stays 300.

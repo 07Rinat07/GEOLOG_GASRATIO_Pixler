@@ -966,3 +966,8 @@ the key and plot; `_MASTERLOG_CURVE_PEN_STYLES` shares line style mapping. A cli
 precedes the label, which retains the resolved numeric range and appends the bound channel's
 unit. Missing curves retain their mnemonic label without a fabricated key or unit. This
 render-only adapter does not mutate templates/data or change the ratio presentation policy.
+
+Masterlog column frames, grid and depth labels consume the shared visual profile. Grid
+major rules convert thin_rule_pt to millimetres, minor rules use half that weight; saved
+alpha and minor alpha factor remain intact. Five-metre depth coordinates and grid visibility
+are unchanged. Depth labels use table_pt through the existing transform-aware font helper.
