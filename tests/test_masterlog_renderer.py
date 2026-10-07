@@ -170,6 +170,24 @@ def test_masterlog_neutral_chrome_uses_shared_report_profile(qapp, monkeypatch) 
             AppLanguage.EN,
             {},
         )
+        explicit_color = "#112233"
+        masterlog_renderer._paint_header_element(
+            capture,
+            MasterlogHeaderElement(
+                "explicit",
+                "text",
+                5.0,
+                90.0,
+                60.0,
+                15.0,
+                {"text": "Explicit", "color": explicit_color},
+            ),
+            ProjectSession(),
+            empty_template,
+            None,
+            AppLanguage.EN,
+            {},
+        )
     finally:
         painter.end()
 
@@ -182,6 +200,7 @@ def test_masterlog_neutral_chrome_uses_shared_report_profile(qapp, monkeypatch) 
         visual.palette.critical,
     ):
         assert value.casefold() in pen_colors
+    assert explicit_color.casefold() in pen_colors
 
 
 def test_masterlog_size_uses_mm_template_geometry() -> None:
