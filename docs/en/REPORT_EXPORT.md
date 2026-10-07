@@ -161,3 +161,5 @@ confirmed context can prevent automatic classification of those intervals as pro
 hydrocarbon formations.
 
 PDF charts and PNG/HTML previews show effective gas context in a separate track. Overlaps follow the existing registry priority; text codes and dark border styles retain meaning in monochrome printing. The complete legend gives each event type, ID and original depths, wraps long IDs and paginates large lists. Tiny events remain at their true depth without long labels overlapping neighbouring intervals. Draft and excluded QC events are not reintroduced into customer charts.
+
+Gas-context client tables use the same codes and localized event types as the chart track. HTML/PDF and both Word variants show the event ID beside its type; Excel retains the existing ID column and numeric depth/TG/QC cells. Impact names and the ID header follow the selected report language. Source data and technical audit are unchanged.

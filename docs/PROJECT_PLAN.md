@@ -1,12 +1,11 @@
 <!-- runtime-contract: package=0.7.96; project=v37; form=v18; layout=v25 -->
 # Единый план проекта
 
-План актуализирован 7 октября 2026 года. Проверенная база перед текущим инкрементом —
-`243efa68` (PR #478). RPT-COMP-01 интегрирован. PRINT-STYLE-01 имеет общий visual profile,
-document-control, curve keys и физические линии/типографику Masterlog. Текущий slice добавляет
-общую дорожку эффективного газового контекста в standard/enhanced PDF и PNG/HTML preview.
-Registry определяет приоритет пересечений; коды, чёрные рамки и полная RU/KK/EN легенда
-сохраняют смысл без зависимости только от цвета.
+План актуализирован 8 октября 2026 года. Проверенная база перед текущим инкрементом —
+`2f05a2a4` (PR #479). RPT-COMP-01 интегрирован. Общая дорожка эффективного газового
+контекста реализована в PDF и PNG/HTML preview. Текущий slice связывает клиентские
+HTML/PDF/DOCX/XLSX таблицы с теми же event codes и RU/KK/EN названиями, добавляет
+читаемый Event ID в HTML/Word и локализует влияние события без изменения source/audit.
 Статусы завершения
 ниже относятся к main после интеграции этого инкремента и успешного exact-head Release gate.
 Приложение сохраняет каноническую industrial-blue DIGITAL GEOLOG айдентику. WITS развивается
@@ -231,8 +230,8 @@ QC-разницу. Source curves не подменяются; confirmed hard exc
 - [ ] Для других ручных QC-величин кроме Total Gas определить конкретные поля/единицы и
   совместимый persistence/export contract. В текущем `GasContextEvent` есть только
   `reported_total_gas`/`reported_unit`; измеренные C1–C5 не считаются ручным вводом.
-- [ ] Устранить рассогласование отрицательных глубин: `DepthInterval` работает с ними, но
-  `GasContextEvent.__post_init__` требует неотрицательные границы, а editor использует minimum 0.
+- [ ] Завершить сквозную приёмку отрицательных глубин: `DepthInterval`, `GasContextEvent`
+  и editor уже принимают отрицательные конечные границы; неотрицательное ограничение снято.
   Общий контракт должен принимать валидный отрицательный диапазон поддерживаемой оси,
   сохранять/reopen события и применять тот же context в выбранных standard/OPUS отчётах.
   Regression отдельно проверяет TVDSS, неизвестную/другую ось, NaN/inf, обратные и
@@ -253,6 +252,15 @@ QC-разницу. Source curves не подменяются; confirmed hard exc
   детерминированный приоритет тест/QC → trip/swab/connection/circulation/recycle → formation/background,
   а исходная automatic assessment технологически подавленных кандидатов сохраняется для аудита.
   Confirmed hard exclusion имеет приоритет над перекрывающимся технологическим audit.
+- [x] **Gas-context client identity/i18n slice:** renderer-neutral `gas_context_report_labels`
+  задаёт один code + локализованное название для print track и HTML/PDF, обычного/оформленного
+  DOCX и XLSX. HTML/Word содержат event ID рядом с типом; XLSX сохраняет ID в прежней
+  Q-колонке и типизированные depth/TG/QC ячейки, но названия типа/влияния и ID header
+  соответствуют выбранному RU/KK/EN output language. Данные registry, raw enum persistence,
+  suppressed-candidate evidence и audit payload не меняются. XML/HTML-sensitive и formula-like
+  ID выводятся текстом. Standard/OPUS save/reopen и все клиентские exports covered;
+  overall measurement/automatic-assessment acceptance и physical print остаются ниже.
+  Интеграция после exact-head Release gate.
 - [ ] Остаточная сквозная приёмка представления каждого затронутого интервала: effective gas context, тип события,
   event ID/номер, глубины, измеренные TG/C1–C5, ручной QC reference при наличии, automatic
   assessment и пояснение, почему продуктивная классификация подавлена или уточнена.

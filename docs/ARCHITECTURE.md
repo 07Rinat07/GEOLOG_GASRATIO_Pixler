@@ -980,3 +980,10 @@ whole-well PNG preview. A reserved track protects curve/fluid lanes; long IDs wr
 complete event legend, which paginates independently of plot depth. No domain/schema/data
 mutation or replacement candidate/exclusion policy is introduced. Font size compensates the
 paint device DPI so new context text keeps physical point sizes.
+
+`services/gas_context_report_labels.py` owns the Qt-free event code/type/impact/identity-label
+contract used by the existing print-track adapter and all client-table exporters. HTML and
+DOCX add identity text in the existing type cell to preserve table geometry; XLSX retains
+the existing 17-column schema and Event ID in column Q. Only presentation strings change:
+raw enum persistence, event selection, numeric/QC values and classification audit remain
+domain-owned. The report service does not import a Qt/printing adapter to resolve labels.

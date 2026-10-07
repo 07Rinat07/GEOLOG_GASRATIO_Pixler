@@ -18,6 +18,9 @@ from geoworkbench.project.interpretation_calculation_controller import (
     NormalizedGasCalculationMode,
 )
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.services.gas_context_report_labels import (
+    gas_context_type_text, gas_context_impact_label, gas_context_identity_label,
+)
 from geoworkbench.services import hydrocarbon_interpretation_legacy as _legacy
 from geoworkbench.services.gas_context_candidate_policy import apply_gas_context_to_report
 from geoworkbench.services.gas_context_interval_audit import (
@@ -554,10 +557,11 @@ def _gas_context_html(
         )
         rows.append(
             "<tr>"
-            f"<td>{escape(event.event_type.value)}</td>"
+            f"<td>{escape(gas_context_type_text(event.event_type, language))}<br/>"
+            f"{gas_context_identity_label(language)}: {escape(event.event_id)}</td>"
             f"<td>{event.top_depth:g}–{event.bottom_depth:g} {escape(report.depth_unit)}</td>"
             f"<td>{confirmed}</td>"
-            f"<td>{escape(event.effective_impact.value)}</td>"
+            f"<td>{escape(gas_context_impact_label(event.effective_impact, language))}</td>"
             f"<td>{escape(measured_total_text)}</td>"
             f"<td>{escape(component_text)}</td>"
             f"<td>{escape(manual_text)}</td>"

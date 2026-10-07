@@ -492,7 +492,8 @@ def test_confirmed_technological_gas_suppresses_geological_candidate_and_exports
 
     html = hydrocarbon_interpretation_html(report, AppLanguage.RU)
     assert "Газовый контекст интерпретации" in html
-    assert "connection_gas" in html
+    assert "CONN — Газ соединения" in html
+    assert "ID события: connection-1" in html
     assert "Connection gas QC" in html
     assert "Измеренный TG" in html
     assert "Общий газ: min 4; mean 4; max 4 %" in html
@@ -510,8 +511,8 @@ def test_confirmed_technological_gas_suppresses_geological_candidate_and_exports
     try:
         assert "Газовый контекст" in workbook.sheetnames
         context_sheet = workbook["Газовый контекст"]
-        assert context_sheet["A2"].value == "connection_gas"
-        assert context_sheet["E2"].value == "technological_gas"
+        assert context_sheet["A2"].value == "CONN — Газ соединения"
+        assert context_sheet["E2"].value == "Технологический газ"
         assert context_sheet["F2"].value == "Общий газ [%]"
         assert context_sheet["G2"].value == 4.0
         assert context_sheet["H2"].value == 4.0
@@ -543,8 +544,9 @@ def test_confirmed_technological_gas_suppresses_geological_candidate_and_exports
     with zipfile.ZipFile(docx_path) as package:
         document = package.read("word/document.xml").decode("utf-8")
         assert "Газовый контекст интерпретации" in document
-        assert "connection_gas" in document
-        assert "technological_gas" in document
+        assert "CONN — Газ соединения" in document
+        assert "ID события: connection-1" in document
+        assert "Технологический газ" in document
         assert "Измеренный TG" in document
         assert "Общий газ: min 4; mean 4; max 4 %" in document
         assert "0.25 %vol" in document

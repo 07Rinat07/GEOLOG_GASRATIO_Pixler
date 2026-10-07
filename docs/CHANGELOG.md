@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- GASCTX/REPORT-I18N client identities: HTML/PDF и оба Word-экспорта теперь показывают ID события рядом с общим short code и локализованным названием. XLSX и все остальные клиентские таблицы используют те же RU/KK/EN type/impact labels; числовые depth/TG/QC ячейки, registry и internal audit не меняются.
 - PRINT-STYLE-01/gas context: standard/enhanced PDF и PNG/HTML preview получили общую дорожку эффективного газового контекста с registry priority, текстовыми кодами и чёрными рамками. RU/KK/EN легенда сохраняет тип, ID и глубины события, переносит длинные ID и пагинирует большие списки; source curves и политика классификации не меняются.
 - PRINT-STYLE-01/Masterlog grid: рамки колонок, основные/второстепенные линии сетки и подписи глубин используют общие semantic colours, physical rule weights и table typography. Сохранённые visibility/alpha/divisions и физическая шкала глубины не меняются.
 - PRINT-STYLE-01/standard PDF grayscale candidates: standard interpretation charts now preserve full candidate objects to the painter boundary and add shared fluid shape + short code beside prospective bands. Fluid type therefore remains readable in monochrome/grayscale output instead of depending on amber band colour alone; classification/source data are unchanged.
