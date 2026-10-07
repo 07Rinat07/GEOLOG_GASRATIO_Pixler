@@ -532,7 +532,7 @@ def test_interpretation_report_exports_excel_and_word(tmp_path) -> None:
     for table_sheet in workbook.worksheets[1:]:
         assert table_sheet.print_title_rows == "$1:$1"
         assert table_sheet.print_title_cols == "$A:$A"
-        assert table_sheet.page_setup.paperSize == table_sheet.PAPERSIZE_A4
+        assert str(table_sheet.page_setup.paperSize) == str(table_sheet.PAPERSIZE_A4)
         assert table_sheet.page_setup.orientation == table_sheet.ORIENTATION_LANDSCAPE
         assert table_sheet.page_setup.fitToWidth == 0
         assert table_sheet.page_setup.fitToHeight == 0
