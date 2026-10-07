@@ -435,10 +435,11 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   умолчанию вообще** и появляется только после явного пользовательского ввода даты; часы/минуты и
   автоматически подставленный generation timestamp в клиентской шапке не показываются. Полный
   timestamp допускается только во внутреннем audit/provenance.
-- [ ] Единый печатный wordmark: **DIGITAL GEOLOG GASRATIO&PIXLER**. Написание хранится в одном
-  shared constant и одинаково используется в PDF, Masterlog, DOCX/XLSX и печатных формах.
-  Wordmark присутствует аккуратно в обложке/шапке и компактном подвале, но не дублируется
-  навязчиво внутри содержательных блоков.
+- [x] **Единый печатный wordmark:** **DIGITAL GEOLOG GASRATIO&PIXLER** хранится только в
+  `geoworkbench.brand.REPORT_BRAND_WORDMARK`/`APPLICATION_DISPLAY_NAME` и используется
+  через shared visual/profile adapters в PDF, Masterlog, DOCX/XLSX и печатных формах.
+  Regression запрещает повторный hard-code полного canonical wordmark в production Python
+  вне `brand.py`; существующие production export tests проверяют фактический вывод бренда.
 - [ ] Header/footer contract: логотип проекта/заказчика только из каталога assets, номер страницы,
   confidentiality/status, document/revision; длинный текст не должен попадать поверх графиков.
 - [ ] Таблицы: компактные заголовки, alternating/background hierarchy без декоративной перегрузки,
