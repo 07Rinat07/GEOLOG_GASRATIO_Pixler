@@ -352,8 +352,9 @@ def paint_masterlog(
         target.y() + (target.height() - size.height() * scale) / 2.0,
     )
     painter.scale(scale, scale)
-    painter.fillRect(QRectF(0.0, 0.0, size.width(), size.height()), Qt.GlobalColor.white)
-    painter.setPen(QPen(QColor("#111827"), 0.25))
+    visual = modern_oilfield_report_profile()
+    painter.fillRect(QRectF(0.0, 0.0, size.width(), size.height()), QColor(visual.palette.page))
+    painter.setPen(QPen(QColor(visual.palette.border_strong), visual.layout.thin_rule_pt * 25.4 / 72.0))
     painter.drawRect(QRectF(0.0, 0.0, size.width(), size.height()))
     painter.drawLine(
         QLineF(0.0, template.header_height_mm, size.width(), template.header_height_mm)
@@ -522,8 +523,9 @@ def paint_masterlog_header(
         )
         painter.scale(scale, scale)
         canvas = QRectF(0.0, 0.0, size.width(), size.height())
-        painter.fillRect(canvas, Qt.GlobalColor.white)
-        painter.setPen(QPen(QColor("#111827"), 0.25))
+        visual = modern_oilfield_report_profile()
+        painter.fillRect(canvas, QColor(visual.palette.page))
+        painter.setPen(QPen(QColor(visual.palette.border_strong), visual.layout.thin_rule_pt * 25.4 / 72.0))
         painter.drawRect(canvas)
         depth_range = masterlog_depth_range(session)
         for element in template.header_elements:
@@ -873,9 +875,10 @@ def _paint_header_element(
     language: AppLanguage,
     lithotype_catalog: dict[str, CatalogLithotype],
 ) -> None:
+    visual = modern_oilfield_report_profile()
     rect = QRectF(element.x_mm, element.y_mm, element.width_mm, element.height_mm)
     if element.element_type == "line":
-        painter.setPen(_pen(element.properties, "#334155", 0.6))
+        painter.setPen(_pen(element.properties, visual.palette.border_strong, visual.layout.strong_rule_pt * 25.4 / 72.0))
         painter.drawLine(rect.topLeft(), rect.bottomRight())
         return
     if element.element_type == "image":
@@ -904,7 +907,7 @@ def _paint_header_element(
             )
             if element.properties.get("frame") is True:
                 painter.setPen(
-                    QPen(_color(element.properties.get("frame_color"), "#64748b"), 0.35)
+                    QPen(_color(element.properties.get("frame_color"), visual.palette.border), visual.layout.strong_rule_pt * 25.4 / 72.0)
                 )
                 painter.drawRect(rect)
         else:
@@ -934,16 +937,17 @@ def _paint_header_element(
         _paint_lba_legend(painter, rect, element.properties, language)
         return
     text = _header_text(element, session, template, language)
-    color = _color(element.properties.get("color"), "#0f172a")
+    color = _color(element.properties.get("color"), visual.palette.text)
     raw_background = element.properties.get("background")
     if isinstance(raw_background, str) and QColor(raw_background).isValid():
         painter.fillRect(rect, QColor(raw_background))
     if element.properties.get("frame") is True:
-        painter.setPen(QPen(_color(element.properties.get("frame_color"), "#334155"), 0.35))
+        painter.setPen(QPen(_color(element.properties.get("frame_color"), visual.palette.border_strong), visual.layout.strong_rule_pt * 25.4 / 72.0))
         painter.drawRect(rect)
-    size = element.properties.get("font_size_mm", 3.5)
+    default_size = visual.typography.body_pt * 25.4 / 72.0
+    size = element.properties.get("font_size_mm", default_size)
     font_size = (
-        float(size) if isinstance(size, (int, float)) and not isinstance(size, bool) else 3.5
+        float(size) if isinstance(size, (int, float)) and not isinstance(size, bool) else default_size
     )
     font = QFont()
     font.setBold(element.properties.get("bold") is True)
@@ -976,13 +980,14 @@ def _paint_image_placeholder(
 ) -> None:
     """Paint an editable empty image slot instead of silently leaving a hole."""
 
+    visual = modern_oilfield_report_profile()
     painter.save()
     try:
-        background_value = properties.get("background", "#f8fafc")
+        background_value = properties.get("background", visual.palette.accent_soft)
         background = QColor(str(background_value))
-        painter.fillRect(rect, background if background.isValid() else QColor("#f8fafc"))
-        frame_color = _color(properties.get("frame_color"), "#64748b")
-        painter.setPen(QPen(frame_color, 0.35, Qt.PenStyle.DashLine))
+        painter.fillRect(rect, background if background.isValid() else QColor(visual.palette.accent_soft))
+        frame_color = _color(properties.get("frame_color"), visual.palette.border)
+        painter.setPen(QPen(frame_color, visual.layout.strong_rule_pt * 25.4 / 72.0, Qt.PenStyle.DashLine))
         painter.drawRect(rect)
         painter.drawLine(rect.topLeft(), rect.bottomRight())
         painter.drawLine(rect.topRight(), rect.bottomLeft())
@@ -1001,11 +1006,12 @@ def _paint_image_placeholder(
             }[language]
         font = QFont()
         font.setBold(True)
-        size = properties.get("placeholder_font_size_mm", 2.6)
+        default_size = visual.typography.caption_pt * 25.4 / 72.0
+        size = properties.get("placeholder_font_size_mm", default_size)
         font_size = (
             float(size)
             if isinstance(size, (int, float)) and not isinstance(size, bool)
-            else 2.6
+            else default_size
         )
         _set_scaled_font_mm(painter, font, max(1.0, min(font_size, 12.0)))
         painter.setFont(font)
@@ -1195,21 +1201,23 @@ def _paint_lithology_legend(
     properties: dict[str, object],
     language: AppLanguage,
 ) -> None:
+    visual = modern_oilfield_report_profile()
     raw_columns = properties.get("columns", 4)
     columns = (
         raw_columns if isinstance(raw_columns, int) and not isinstance(raw_columns, bool) else 4
     )
     columns = max(1, min(columns, 12, max(1, len(entries))))
-    raw_size = properties.get("font_size_mm", 2.6)
+    default_size = visual.typography.table_pt * 25.4 / 72.0
+    raw_size = properties.get("font_size_mm", default_size)
     font_size = (
         float(raw_size)
         if isinstance(raw_size, (int, float)) and not isinstance(raw_size, bool)
-        else 2.6
+        else default_size
     )
     font_size = max(1.0, min(font_size, 8.0))
     show_code = properties.get("show_code", True)
     show_code = show_code if isinstance(show_code, bool) else True
-    color = _color(properties.get("color"), "#0f172a")
+    color = _color(properties.get("color"), visual.palette.text)
     titles = {
         AppLanguage.RU: "ЛИТОЛОГИЧЕСКАЯ ЛЕГЕНДА",
         AppLanguage.KK: "ЛИТОЛОГИЯЛЫҚ ШАРТТЫ БЕЛГІЛЕР",
@@ -1224,7 +1232,7 @@ def _paint_lithology_legend(
     content = rect.adjusted(0.0, title_height, 0.0, 0.0)
     painter.save()
     painter.setClipRect(rect)
-    painter.setPen(QPen(QColor("#64748b"), 0.2))
+    painter.setPen(QPen(QColor(visual.palette.border), visual.layout.thin_rule_pt * 25.4 / 72.0))
     painter.drawRect(rect)
     title_font = QFont()
     title_font.setBold(True)
@@ -1261,7 +1269,7 @@ def _paint_lithology_legend(
         swatch_width = min(8.0, max(3.0, cell_width * 0.2))
         swatch = cell.adjusted(0.5, 0.5, -(cell.width() - swatch_width), -0.5)
         painter.fillRect(swatch, masterlog_lithology_brush(painter, entry.color, entry.pattern_key))
-        painter.setPen(QPen(QColor("#475569"), 0.15))
+        painter.setPen(QPen(QColor(visual.palette.border_strong), visual.layout.thin_rule_pt * 25.4 / 72.0))
         painter.drawRect(swatch)
         label = f"{entry.code} — {entry.name}" if show_code else entry.name
         painter.setPen(color)
@@ -1322,6 +1330,7 @@ def _paint_lba_legend(
     properties: dict[str, object],
     language: AppLanguage,
 ) -> None:
+    visual = modern_oilfield_report_profile()
     titles = {
         AppLanguage.RU: "ЛЮМИНЕСЦЕНТНО-БИТУМИНОЛОГИЧЕСКИЙ АНАЛИЗ (ЛБА)",
         AppLanguage.KK: "ЛЮМИНЕСЦЕНТТІ-БИТУМНОЛОГИЯЛЫҚ ТАЛДАУ (ЛБА)",
@@ -1337,13 +1346,14 @@ def _paint_lba_legend(
         AppLanguage.KK: "Қарқындылық",
         AppLanguage.EN: "Intensity",
     }
-    raw_size = properties.get("font_size_mm", 2.4)
+    default_size = visual.typography.table_pt * 25.4 / 72.0
+    raw_size = properties.get("font_size_mm", default_size)
     font_size = (
         float(raw_size)
         if isinstance(raw_size, (int, float)) and not isinstance(raw_size, bool)
-        else 2.4
+        else default_size
     )
-    color = _color(properties.get("color"), "#0f172a")
+    color = _color(properties.get("color"), visual.palette.text)
     title_height = min(5.0, max(2.5, rect.height() * 0.18))
     body = rect.adjusted(0.8, title_height + 0.4, -0.8, -0.6)
     left = QRectF(body.left(), body.top(), body.width() * 0.58, body.height())
@@ -1351,7 +1361,7 @@ def _paint_lba_legend(
 
     painter.save()
     painter.setClipRect(rect)
-    painter.setPen(QPen(QColor("#64748b"), 0.2))
+    painter.setPen(QPen(QColor(visual.palette.border), visual.layout.thin_rule_pt * 25.4 / 72.0))
     painter.drawRect(rect)
     title_font = QFont()
     title_font.setBold(True)
@@ -1395,7 +1405,7 @@ def _paint_lba_legend(
             max(0.8, row.height() * 0.7),
         )
         painter.fillRect(swatch, QColor(style.color))
-        painter.setPen(QPen(QColor("#475569"), 0.15))
+        painter.setPen(QPen(QColor(visual.palette.border_strong), visual.layout.thin_rule_pt * 25.4 / 72.0))
         painter.drawRect(swatch)
         painter.setPen(color)
         painter.drawText(

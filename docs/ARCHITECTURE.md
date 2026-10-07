@@ -939,3 +939,11 @@ so Word can apply the shared body styles rather than relying on built-in style n
 `modern_oilfield_report_profile()` и отображает semantic roles профиля в Word colours,
 half-point typography, borders и fills. Footer остаётся отдельным shared adapter, поэтому
 визуальная система и document-control contract развиваются независимо и не дублируют источник истины.
+
+Masterlog header defaults consume `modern_oilfield_report_profile()` at render time:
+page/frame roles, default text/line/image-slot colours, body/caption/table typography and
+physical rule weights. Point sizes convert to millimetres before the existing painter
+transform; the profile does not mutate persisted form properties. Explicit valid saved
+colour/background/font/line-width overrides retain precedence. Lithotype/LBA semantic
+swatches and intensity geometry remain domain-owned, including grayscale profile tests.
+The same header-element painter serves reusable tablet headers and full Masterlog output.

@@ -2,12 +2,12 @@
 # Единый план проекта
 
 План актуализирован 7 октября 2026 года. Проверенная база перед текущим инкрементом —
-`22ac192e` (PR #473). RPT-COMP-01 интегрирован: сохраняемый порядок и видимость
+`3a011462` (PR #474). RPT-COMP-01 интегрирован: сохраняемый порядок и видимость
 глубинных графических колонок применяются через одну renderer-neutral composition.
 PRINT-STYLE-01 уже имеет immutable ReportVisualProfile, single-source wordmark, aggregate
-document-control и catalog-backed header/footer asset contract. Текущий slice закрывает
-табличную печатную границу: geology XLSX получает повторяемые titles/key column и 100%
-horizontal pagination вместо принудительного сжатия широкой инженерной таблицы.
+document-control и catalog-backed header/footer asset contract. Текущий slice подключает
+значения по умолчанию шапки, рамки страницы, пустого logo slot и оформления легенд Masterlog
+к общему профилю; явно сохранённые настройки формы имеют приоритет.
 Статусы завершения
 ниже относятся к main после интеграции этого инкремента и успешного exact-head Release gate.
 Приложение сохраняет каноническую industrial-blue DIGITAL GEOLOG айдентику. WITS развивается
@@ -362,6 +362,14 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   ширину номера страницы и обрезает длинный wordmark. XLSX сохраняет числовые значения,
   добавляет alternating fills и числовое выравнивание. RU/KK/EN production export regressions
   проверяют PDF/OOXML/XLSX и неизменность исходных кривых; весь PRINT-STYLE-01 не закрывается.
+- [x] **Masterlog header-defaults slice:** рамка/фон страницы и повторно используемой шапки,
+  default text/line/image-frame/placeholder, типографика текста и легенд литологии/ЛБА
+  получают semantic palette/physical point sizes из общего профиля. Явные сохранённые
+  color/background/font_size_mm/width имеют приоритет; source data, catalog swatches,
+  LBA intensity glyphs, header rectangles и persisted form properties не переписываются.
+  RU/KK/EN, A4/A3/roll, project save/reopen, PDF и reusable header покрыты regressions;
+  весь PRINT-STYLE-01 и physical acceptance этим slice не закрываются. Интеграция только
+  после успешного exact-head Release gate.
 - [ ] Один immutable style profile для PDF, Masterlog, планшетной печати и Office-экспорта:
   нейтральная техническая типографика, строгая сетка, сдержанный petroleum-blue accent,
   high-contrast текст, light technical fills, line-weight hierarchy и monochrome-safe semantics.
