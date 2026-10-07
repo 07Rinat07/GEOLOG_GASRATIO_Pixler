@@ -71,6 +71,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import (
 from geoworkbench.printing.hydrocarbon_interpretation_report_range import (
     ReportDepthRange,
 )
+from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.printing.unicode_support import print_font
 from geoworkbench.printing.report_annotation_rendering import (
     REFERENCE_PIXEL_TO_POINT,
@@ -397,6 +398,7 @@ def _draw_geology_tracks(
     empty_state_tracks: tuple[str, ...],
     language: AppLanguage,
 ) -> None:
+    palette = modern_oilfield_report_profile().palette
     labels = _geology_track_labels(language)
     page_samples = tuple(
         sample
@@ -406,7 +408,7 @@ def _draw_geology_tracks(
     )
     lithotypes = geology.lithotype_map if geology is not None else {}
     for track, rect in zip(geology_tracks, geometry.geology_rects, strict=True):
-        painter.fillRect(rect, QColor("#ffffff"))
+        painter.fillRect(rect, QColor(palette.page))
         heading = labels[track]
         paint_track_heading(
             painter,
@@ -416,14 +418,14 @@ def _draw_geology_tracks(
         )
         for tick in minor_depth_ticks(page):
             y = base_chart._depth_y(tick, page, rect)
-            painter.setPen(QPen(QColor("#e2e8f0"), 0.45))
+            painter.setPen(QPen(QColor(palette.border), 0.45))
             painter.drawLine(QLineF(rect.left(), y, rect.right(), y))
         for tick in base_chart._depth_ticks(
             page,
             base_chart._nice_tick_step(page.span, target_ticks=_MAJOR_TARGET_TICKS),
         ):
             y = base_chart._depth_y(tick, page, rect)
-            painter.setPen(QPen(QColor("#cbd5e1"), 0.65))
+            painter.setPen(QPen(QColor(palette.border), 0.65))
             painter.drawLine(QLineF(rect.left(), y, rect.right(), y))
         if track in empty_state_tracks:
             no_data = {
@@ -431,7 +433,7 @@ def _draw_geology_tracks(
                 AppLanguage.KK: "Дерек жоқ",
                 AppLanguage.EN: "No data",
             }[language]
-            painter.setPen(QColor("#64748b"))
+            painter.setPen(QColor(palette.text_muted))
             painter.setFont(print_font(6.0, text=no_data))
             painter.drawText(
                 rect,
@@ -508,11 +510,12 @@ def _draw_chart_page(
     annotations: tuple[ReportAnnotationRecord, ...] = (),
     geology_legend_compact: bool = False,
 ) -> None:
+    palette = modern_oilfield_report_profile().palette
     labels = base_chart._labels(language)
     title_font = print_font(15.0, text=labels["title"])
     title_font.setBold(True)
     painter.setFont(title_font)
-    painter.setPen(QColor("#172033"))
+    painter.setPen(QColor(palette.text))
     painter.drawText(
         QRectF(
             geometry.page_rect.left(),
@@ -532,7 +535,7 @@ def _draw_chart_page(
         scale=page.scale_denominator,
     )
     painter.setFont(print_font(8.5, text=subtitle))
-    painter.setPen(QColor("#475569"))
+    painter.setPen(QColor(palette.text_secondary))
     painter.drawText(
         QRectF(
             geometry.page_rect.left(),
@@ -670,10 +673,11 @@ def _draw_depth_axis(
     language: AppLanguage,
     header_height: float = CHART_TRACK_HEADER_HEIGHT,
 ) -> None:
+    palette = modern_oilfield_report_profile().palette
     labels = base_chart._labels(language)
-    painter.fillRect(rect, QColor("#ffffff"))
+    painter.fillRect(rect, QColor(palette.page))
     painter.setBrush(Qt.BrushStyle.NoBrush)
-    painter.setPen(QPen(QColor("#263746"), 1.15))
+    painter.setPen(QPen(QColor(palette.border_strong), 1.15))
     painter.drawRect(rect)
     title = labels["depth"] + (f", {unit}" if unit else "")
     paint_track_heading(
@@ -685,7 +689,7 @@ def _draw_depth_axis(
 
     for value in minor_depth_ticks(page):
         y = base_chart._depth_y(value, page, rect)
-        painter.setPen(QPen(QColor("#6b7c8c"), 0.55))
+        painter.setPen(QPen(QColor(palette.border), 0.55))
         if side == "left":
             painter.drawLine(QLineF(rect.right() - 4.5, y, rect.right(), y))
         else:
@@ -701,7 +705,7 @@ def _draw_depth_axis(
     painter.setFont(tick_font)
     for value in ticks:
         y = base_chart._depth_y(value, page, rect)
-        painter.setPen(QPen(QColor("#263746"), 1.05))
+        painter.setPen(QPen(QColor(palette.border_strong), 1.05))
         if side == "left":
             painter.drawLine(QLineF(rect.right() - 10.0, y, rect.right(), y))
             text_rect = QRectF(
@@ -720,14 +724,14 @@ def _draw_depth_axis(
                 16.0,
             )
             alignment = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
-        painter.setPen(QColor("#172033"))
+        painter.setPen(QColor(palette.text))
         painter.drawText(
             text_rect,
             alignment,
             base_chart._depth_label(value, major_step),
         )
     painter.setBrush(Qt.BrushStyle.NoBrush)
-    painter.setPen(QPen(QColor("#263746"), 1.15))
+    painter.setPen(QPen(QColor(palette.border_strong), 1.15))
     painter.drawRect(rect)
 
 
@@ -744,6 +748,7 @@ def _draw_panel(
     *,
     header_height: float = CHART_TRACK_HEADER_HEIGHT,
 ) -> None:
+    palette = modern_oilfield_report_profile().palette
     if panel_name == "ratios" and _draw_ratio_tracks(
         painter,
         rect,
@@ -756,10 +761,10 @@ def _draw_panel(
     ):
         return
 
-    painter.fillRect(rect, QColor("#ffffff"))
+    painter.fillRect(rect, QColor(palette.page))
     for tick in minor_depth_ticks(page):
         y = base_chart._depth_y(tick, page, rect)
-        painter.setPen(QPen(QColor("#d4dde6"), 0.55))
+        painter.setPen(QPen(QColor(palette.border), 0.55))
         painter.drawLine(QLineF(rect.left(), y, rect.right(), y))
 
     major_step = base_chart._nice_tick_step(
@@ -768,15 +773,15 @@ def _draw_panel(
     )
     for tick in base_chart._depth_ticks(page, major_step):
         y = base_chart._depth_y(tick, page, rect)
-        painter.setPen(QPen(QColor("#8fa3b5"), 0.92))
+        painter.setPen(QPen(QColor(palette.border_strong), 0.92))
         painter.drawLine(QLineF(rect.left(), y, rect.right(), y))
 
     for index in range(5):
         x = rect.left() + index / 4.0 * rect.width()
-        painter.setPen(QPen(QColor("#c4d0db"), 0.58))
+        painter.setPen(QPen(QColor(palette.border), 0.58))
         painter.drawLine(QLineF(x, rect.top(), x, rect.bottom()))
         painter.setFont(print_font(6.2, text="100"))
-        painter.setPen(QColor("#475569"))
+        painter.setPen(QColor(palette.text_secondary))
         label_left = (
             rect.left() + 2.0 if index == 0 else rect.right() - 30.0 if index == 4 else x - 14.0
         )
@@ -795,7 +800,7 @@ def _draw_panel(
         heading, 7.5,
     )
     if not any(curve.metadata.curve_id in ranges for curve in curves):
-        painter.setPen(QColor("#64748b"))
+        painter.setPen(QColor(palette.text_muted))
         label = base_chart._labels(language)["no_data"]
         painter.setFont(print_font(8.0, text=label))
         painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, label)
@@ -810,7 +815,7 @@ def _draw_panel(
             point_series=False,
         )
     painter.setBrush(Qt.BrushStyle.NoBrush)
-    painter.setPen(QPen(QColor("#263746"), 1.1))
+    painter.setPen(QPen(QColor(palette.border_strong), 1.1))
     painter.drawRect(rect)
 
 
@@ -827,12 +832,13 @@ def _draw_ratio_tracks(
     header_height: float,
 ) -> bool:
     """Draw Wh/Bh on a shared axis and Ch on its own reference axis."""
+    palette = modern_oilfield_report_profile().palette
 
     tracks = ratio_reference_tracks(curves)
     if not tracks:
         return False
 
-    painter.fillRect(rect, QColor("#ffffff"))
+    painter.fillRect(rect, QColor(palette.page))
     _draw_candidate_bands(painter, rect, page, candidates)
 
     heading = base_chart._labels(language)["ratios"]
@@ -867,20 +873,20 @@ def _draw_ratio_tracks(
         )
         for tick in minor_depth_ticks(page):
             y = base_chart._depth_y(tick, page, lane)
-            painter.setPen(QPen(QColor("#e5e7eb"), 0.42))
+            painter.setPen(QPen(QColor(palette.border), 0.42))
             painter.drawLine(QLineF(lane.left(), y, lane.right(), y))
         for tick in base_chart._depth_ticks(
             page,
             base_chart._nice_tick_step(page.span, target_ticks=_MAJOR_TARGET_TICKS),
         ):
             y = base_chart._depth_y(tick, page, lane)
-            painter.setPen(QPen(QColor("#cbd5e1"), 0.62))
+            painter.setPen(QPen(QColor(palette.border), 0.62))
             painter.drawLine(QLineF(lane.left(), y, lane.right(), y))
 
         scale_ticks = gas_ratio_scale_ticks(scale)
         for fraction, label in scale_ticks:
             x = lane.left() + fraction * lane.width()
-            painter.setPen(QPen(QColor("#d1d5db"), 0.45))
+            painter.setPen(QPen(QColor(palette.border), 0.45))
             painter.drawLine(QLineF(x, lane.top(), x, lane.bottom()))
 
         mnemonic = (
@@ -891,7 +897,7 @@ def _draw_ratio_tracks(
         if ratio_identifier(curve) in {"WH", "BH"}:
             mnemonic = "Wh / Bh"
         painter.setFont(print_font(5.1, text=mnemonic))
-        painter.setPen(QColor("#1f2937"))
+        painter.setPen(QColor(palette.text))
         painter.drawText(
             QRectF(lane.left(), lane.top() - 28.0, lane.width(), 9.0),
             Qt.AlignmentFlag.AlignCenter,
@@ -904,7 +910,7 @@ def _draw_ratio_tracks(
             else (scale_ticks[0], scale_ticks[len(scale_ticks) // 2], scale_ticks[-1])
         )
         painter.setFont(print_font(4.4, text="1000"))
-        painter.setPen(QColor("#475569"))
+        painter.setPen(QColor(palette.text_secondary))
         for fraction, label in labelled:
             x = lane.left() + fraction * lane.width()
             text_width = min(25.0, max(12.0, lane.width() * 0.46))
@@ -968,11 +974,11 @@ def _draw_ratio_tracks(
             painter.restore()
 
         painter.setBrush(Qt.BrushStyle.NoBrush)
-        painter.setPen(QPen(QColor("#4b5563"), 0.7))
+        painter.setPen(QPen(QColor(palette.text_secondary), 0.7))
         painter.drawRect(lane)
 
     painter.setBrush(Qt.BrushStyle.NoBrush)
-    painter.setPen(QPen(QColor("#263746"), 1.1))
+    painter.setPen(QPen(QColor(palette.border_strong), 1.1))
     painter.drawRect(rect)
     return True
 
@@ -1058,6 +1064,7 @@ def _draw_visible_fluid_markers(
     page: DepthPage,
     visible: tuple[HydrocarbonCandidateInterval, ...],
 ) -> None:
+    palette = modern_oilfield_report_profile().palette
     target = geometry.panel_rects[-1]
     y_positions = tuple(
         base_chart._depth_y(
@@ -1104,7 +1111,7 @@ def _draw_visible_fluid_markers(
                 badge_width,
                 badge_height,
             )
-            fill = QColor("#ffffff")
+            fill = QColor(palette.page)
             fill.setAlpha(238)
             painter.fillRect(box, fill)
             painter.setBrush(Qt.BrushStyle.NoBrush)
@@ -1119,7 +1126,7 @@ def _draw_visible_fluid_markers(
             font = print_font(5.5, text=spec.code)
             font.setBold(True)
             painter.setFont(font)
-            painter.setPen(QColor("#172033"))
+            painter.setPen(QColor(palette.text))
             painter.drawText(
                 QRectF(
                     box.left() + 11.0,
@@ -1153,7 +1160,7 @@ def _draw_visible_fluid_markers(
     ):
         spec = fluid_marker_spec(candidate.fluid_hypothesis)
         x = target.right() - 4.0 - offsets[lane]
-        halo = QColor("#ffffff")
+        halo = QColor(palette.page)
         halo.setAlpha(220)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(halo)
@@ -1182,12 +1189,13 @@ def _draw_fluid_marker_legend(
     *,
     fallback_note: str,
 ) -> None:
+    palette = modern_oilfield_report_profile().palette
     visible = _visible_candidates(page, candidates)
     specs = fluid_marker_legend_specs(
         [item.fluid_hypothesis for item in visible]
     )
     if not specs:
-        painter.setPen(QColor("#475569"))
+        painter.setPen(QColor(palette.text_secondary))
         painter.setFont(print_font(6.8, text=fallback_note))
         painter.drawText(
             rect,
@@ -1215,7 +1223,7 @@ def _draw_fluid_marker_legend(
             spec,
             size=4.4,
         )
-        painter.setPen(QColor("#172033"))
+        painter.setPen(QColor(palette.text))
         painter.drawText(
             QRectF(left + 8.0, center_y - 4.2, cell_width - 9.0, 8.4),
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
@@ -1237,7 +1245,7 @@ def _draw_fluid_marker_legend(
         ),
     }[language]
     note_top = rect.top() + rows * row_height + 0.5
-    painter.setPen(QColor("#526579"))
+    painter.setPen(QColor(palette.text_muted))
     painter.setFont(print_font(4.9, text=note))
     painter.drawText(
         QRectF(

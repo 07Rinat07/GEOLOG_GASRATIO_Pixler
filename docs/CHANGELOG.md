@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- PRINT-STYLE-01: neutral palette standard/OPUS PDF chart adapters переведена на shared visual profile; series/candidate semantics и geometry сохранены. Real PDF regressions покрывают RU/KK/EN, A4 portrait/landscape и colour/grayscale profile substitution.
 - PRINT-STYLE-01/geology legends: рамки, фон, подписи и caption/table typography геологических легенд interpretation PDF/PNG используют общий visual profile. PDF/system-print font sizes больше не масштабируются повторно при высоком DPI; измерение и рисование согласованы. Каталожные lithology/LBA цвета, штриховки и интенсивности сохраняются; физическая приёмка остаётся отдельной.
 - GASCTX signed-depth acceptance: регрессии подтверждают transactional editor → JSON/package reopen → выбранные standard/OPUS → HTML/PDF, оба Word и Excel для отрицательных MD/TVD/TVDSS на RU/KK/EN. Границы, ID, измеренный TG и ручной QC сохраняются; неверные analysis bounds/axis отклоняются без мутации. Production validation/classification не менялись; физическая приёмка остаётся отдельно.
 - GASCTX/REPORT-I18N client identities: HTML/PDF и оба Word-экспорта теперь показывают ID события рядом с общим short code и локализованным названием. XLSX и все остальные клиентские таблицы используют те же RU/KK/EN type/impact labels; числовые depth/TG/QC ячейки, registry и internal audit не меняются.

@@ -167,3 +167,5 @@ Gas-context client tables use the same codes and localized event types as the ch
 Negative depths are supported on MD/TVD/TVDSS depth axes. Events retain their sign, exact bounds and ID after JSON/package reopen; selected standard/OPUS and HTML/PDF/Word/Excel use the same context. The analysis interval must be within the data range; NaN/inf, reversed bounds and time axes are rejected. Events on another axis are not transferred automatically. The event registry belongs to the whole well and is not limited to one dataset.
 
 Geological legends in PDF and PNG previews use shared print fonts, backgrounds and borders. Full legends use table text size; compact legends use caption size. PDF retains physical point sizes at high DPI. Lithology colours/patterns and LBA type/intensity symbols remain unchanged. Long labels wrap or use an explicit ellipsis; the full legend moves to separate pages when needed.
+
+Standard/OPUS PDF chart backgrounds, grids, frames and neutral labels use the shared visual profile. Source curve colours and semantic interval markers are retained.

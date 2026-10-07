@@ -1319,3 +1319,5 @@ unchanged lithology patterns and LBA intensity colours, real full/compact RU/KK/
 standard/OPUS PDF plus PNG after project reopen. Source arrays and geology snapshots remain
 unchanged. Existing legend/readability tests cover complete code decoding, long labels,
 explicit ellipsis and large-catalog pagination; physical printer acceptance remains external.
+
+`tests/test_interpretation_chart_visual_profile.py` checks 24 real multipage PDF cases: standard/enhanced, RU/KK/EN, A4 portrait/landscape and colour/grayscale profiles. Distinct substituted palette roles must appear in actual fills, strokes and text; source curve colours, arrays and metadata remain unchanged.

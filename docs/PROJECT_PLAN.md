@@ -406,6 +406,15 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   arrays не перекрашиваются. RU/KK/EN, реальные PDF 72/300/600 DPI, colour/grayscale profile
   substitution и production standard/OPUS PDF/PNG после reopen покрыты regressions.
   Интеграция после exact-head gate; остальные chart/media paths и physical acceptance открыты.
+- [x] **Interpretation chart neutral-palette slice:** standard и enhanced/OPUS PDF
+  используют page/table-alt, text/secondary/muted и border/strong-border roles общего
+  visual profile для дорожек, шкал, рамок, нейтральных подписей и marker halos.
+  Palette snapshot берётся один раз на painter function, вне циклов source rows/ticks.
+  Series colours, candidate classification, marker shapes/codes, ratio reference colours,
+  curve styles и геометрия не меняются. Реальные многолистовые A4 portrait/landscape PDF
+  RU/KK/EN с colour/grayscale profile substitution проверяют output paths и неизменность
+  source arrays. Typography/rule hierarchy остальных chart paths и physical acceptance
+  остаются открытыми; интеграция только после successful exact-head Release gate.
 - [ ] Один immutable style profile для PDF, Masterlog, планшетной печати и Office-экспорта:
   нейтральная техническая типографика, строгая сетка, сдержанный petroleum-blue accent,
   high-contrast текст, light technical fills, line-weight hierarchy и monochrome-safe semantics.
