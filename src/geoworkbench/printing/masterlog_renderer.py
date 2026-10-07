@@ -1457,6 +1457,7 @@ def _paint_columns(
     *,
     header_bottom_mm: float | None = None,
 ) -> None:
+    visual = modern_oilfield_report_profile()
     columns_width = sum(column.width_mm for column in columns)
     # Factory A4 forms reserve symmetric 5 mm side margins. Center the column
     # block in the same page box used by its paired header; starting at x=0 made
@@ -1480,7 +1481,7 @@ def _paint_columns(
     annotation_columns: list[tuple[MasterlogColumnTemplate, QRectF]] = []
     for column in columns:
         rect = QRectF(x, top, column.width_mm, size.height() - top)
-        painter.setPen(QPen(QColor("#334155"), 0.25))
+        painter.setPen(QPen(QColor(visual.palette.border_strong), visual.layout.thin_rule_pt * 25.4 / 72.0))
         painter.drawRect(rect)
         painter.drawLine(QLineF(x, top + header_height, x + column.width_mm, top + header_height))
         _paint_column_heading(
@@ -1611,9 +1612,11 @@ def _paint_column_grid(
 ) -> None:
     if not column.grid_print or (not column.grid_x and not column.grid_y):
         return
-    major_color = QColor("#64748b")
+    visual = modern_oilfield_report_profile()
+    major_width = visual.layout.thin_rule_pt * 25.4 / 72.0
+    major_color = QColor(visual.palette.border_strong)
     major_color.setAlphaF(column.grid_alpha)
-    minor_color = QColor("#94a3b8")
+    minor_color = QColor(visual.palette.border)
     minor_color.setAlphaF(column.grid_alpha * 0.45)
     normalized_lines = normalized_grid_lines(
         column.grid_major_divisions,
@@ -1628,7 +1631,7 @@ def _paint_column_grid(
             painter.setPen(
                 QPen(
                     major_color if line.major else minor_color,
-                    0.2 if line.major else 0.1,
+                    major_width if line.major else major_width / 2.0,
                 )
             )
             painter.drawLine(QLineF(position, rect.top(), position, rect.bottom()))
@@ -1657,7 +1660,7 @@ def _paint_column_grid(
             painter.setPen(
                 QPen(
                     major_color if major else minor_color,
-                    0.2 if major else 0.1,
+                    major_width if major else major_width / 2.0,
                 )
             )
             painter.drawLine(QLineF(rect.left(), position, rect.right(), position))
@@ -2888,11 +2891,12 @@ def _paint_depth_symbols(
 def _paint_depth_axis(painter: QPainter, rect: QRectF, depth_range: tuple[float, float]) -> None:
     """Paint depth labels; horizontal grid lines are owned by ``_paint_column_grid``."""
 
+    visual = modern_oilfield_report_profile()
     painter.save()
     font = QFont()
-    _set_scaled_font_points(painter, font, 6.5)
+    _set_scaled_font_points(painter, font, visual.typography.table_pt)
     painter.setFont(font)
-    painter.setPen(QColor("#0f172a"))
+    painter.setPen(QColor(visual.palette.text))
     for depth, _major in _aligned_depth_grid_values(depth_range, 1):
         y = _depth_value_to_y(rect, depth_range, depth)
         painter.drawText(
