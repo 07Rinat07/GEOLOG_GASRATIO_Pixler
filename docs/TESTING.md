@@ -690,7 +690,12 @@ false negative. До этого автоматический результат 
   expression hash и source;
 - canonical print wordmark — **DIGITAL GEOLOG GASRATIO&PIXLER** — одинаков в PDF, Masterlog,
   DOCX/XLSX и PDF creator metadata;
-- polished interpretation DOCX проверяется с подменённым `ReportVisualProfile`: production OOXML обязан использовать semantic accent/text/muted colours, title/body/table sizes, table header fill и border roles из профиля;
+- polished interpretation DOCX проверяется с подменённым `ReportVisualProfile`:
+  production OOXML обязан использовать semantic accent/text/muted colours, title/body/table
+  sizes, table header fill и border roles из профиля;
+- Masterlog neutral-chrome regression подменяет `ReportVisualProfile` и проверяет реальные
+  QPainter page/table-alt fills и text/border/border-strong/critical pens; lithology,
+  stratigraphy, LBA, user curve и annotation/callout colours остаются отдельными semantics;
 - fluid callout явно содержит тип флюида, а ambiguous/no-consensus не превращается в
   искусственно выбранный gas/oil class;
 - dense adjacent callouts остаются внутри track bounds; для A4/A3 выполняются visual/PDF
