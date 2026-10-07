@@ -2,7 +2,7 @@
 # Единый план проекта
 
 План актуализирован 7 октября 2026 года. Проверенная база перед текущим инкрементом —
-`c33d7daa` (PR #476). RPT-COMP-01 интегрирован: сохраняемый порядок и видимость
+`559ce01c` (PR #477). RPT-COMP-01 интегрирован: сохраняемый порядок и видимость
 глубинных графических колонок применяются через одну renderer-neutral composition.
 PRINT-STYLE-01 уже имеет общий visual profile и document-control. Текущий slice добавляет
 в легенду кривых Masterlog фактический line/point glyph и единицы привязанного канала,
@@ -438,6 +438,14 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   приходит из того же immutable профиля. Production regression подменяет профиль и проверяет
   фактические OOXML colors/sizes/fills/borders, не меняя source data или footer contract.
   Весь PRINT-STYLE-01 этим slice не закрывается; media/header/table/graph acceptance остаётся ниже.
+- [x] **Masterlog neutral-chrome slice:** renderer-owned page background, outer/frame borders,
+  grid, column headings, neutral labels, image placeholders, descriptive/service fills и structural
+  borders берутся из `modern_oilfield_report_profile()`. Explicit template header colours,
+  lithotype/stratigraphy/LBA semantics, user curve styles и annotation/callout style contracts
+  остаются авторитетными и не перекрашиваются общим профилем. Regression подменяет semantic
+  palette и проверяет реальные QPainter pen/fill paths. Persisted form/project schema и source
+  data не меняются. Весь PRINT-STYLE-01 остаётся открытым до оставшихся media/table/graph и
+  physical acceptance критериев.
 - [x] **Обязательная document-control зона:** один immutable `ReportDocumentControl` contract
   применяется в interpretation PDF/DOCX/XLSX, generic HTML/DOCX/XLSX и автоматической зоне
   Masterlog. При доступности данных зона содержит project/well, фактический output interval,
