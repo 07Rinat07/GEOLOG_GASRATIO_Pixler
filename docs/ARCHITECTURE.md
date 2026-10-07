@@ -947,3 +947,10 @@ transform; the profile does not mutate persisted form properties. Explicit valid
 colour/background/font/line-width overrides retain precedence. Lithotype/LBA semantic
 swatches and intensity geometry remain domain-owned, including grayscale profile tests.
 The same header-element painter serves reusable tablet headers and full Masterlog output.
+
+Masterlog column legends resolve the same mapped CurveData and MasterlogCurveStyle as
+curve painting. `_curve_uses_point_presentation` shares source/canonical identifiers between
+the key and plot; `_MASTERLOG_CURVE_PEN_STYLES` shares line style mapping. A clipped key lane
+precedes the label, which retains the resolved numeric range and appends the bound channel's
+unit. Missing curves retain their mnemonic label without a fabricated key or unit. This
+render-only adapter does not mutate templates/data or change the ratio presentation policy.

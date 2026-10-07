@@ -2,12 +2,11 @@
 # Единый план проекта
 
 План актуализирован 7 октября 2026 года. Проверенная база перед текущим инкрементом —
-`3a011462` (PR #474). RPT-COMP-01 интегрирован: сохраняемый порядок и видимость
+`c33d7daa` (PR #476). RPT-COMP-01 интегрирован: сохраняемый порядок и видимость
 глубинных графических колонок применяются через одну renderer-neutral composition.
-PRINT-STYLE-01 уже имеет immutable ReportVisualProfile, single-source wordmark, aggregate
-document-control и catalog-backed header/footer asset contract. Текущий slice подключает
-значения по умолчанию шапки, рамки страницы, пустого logo slot и оформления легенд Masterlog
-к общему профилю; явно сохранённые настройки формы имеют приоритет.
+PRINT-STYLE-01 уже имеет общий visual profile и document-control. Текущий slice добавляет
+в легенду кривых Masterlog фактический line/point glyph и единицы привязанного канала,
+чтобы стиль линии был различим без опоры только на цвет.
 Статусы завершения
 ниже относятся к main после интеграции этого инкремента и успешного exact-head Release gate.
 Приложение сохраняет каноническую industrial-blue DIGITAL GEOLOG айдентику. WITS развивается
@@ -474,6 +473,14 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   Geology XLSX дополнительно резервирует минимум 24 pt для wrapped header row и canonical
   wordmark/page footer. Regression проверяет profile font/fills, alternating row, numeric alignment,
   print-title rows/columns, A4 geometry и scale без изменения типизированных данных.
+- [x] **Masterlog curve-legend slice:** legend key повторяет сохранённую толщину и
+  solid/dash/dot/dash-dot style фактической кривой; point presentation использует общий
+  predicate тех же source/canonical identifiers. Label содержит resolved range и unit
+  привязанного канала, включая vendor mapping. Для отсутствующей кривой не рисуется
+  выдуманный key/unit. Отдельная clipped lane не перекрывает label в узких колонках;
+  сохранённые формы, массивы и policy ratio rendering не меняются. RU/KK/EN, A4/A3/roll
+  save/reopen/PDF и black-line regressions покрывают этот scope. Общий grayscale контракт
+  событий/интервалов и physical acceptance остаются открытыми; merge только после exact-head gate.
 - [ ] Графики/логи: цвет не является единственным кодом — используются dash/marker/label;
   шкалы и единицы печатаются явно; события/alarms/interpreted intervals сохраняют смысл в grayscale.
 - [x] **PRINT-STYLE-01/RPT-QA print readability slice:** OPUS/GasRatio interpretation charts используют readability-first pagination с целевым диапазоном около 100 м на лист и адаптивным физическим vertical scale вместо жёсткого ограничения 12 страниц; короткие остаточные страницы равномерно распределяются. Dense source rows проходят extrema-preserving print decimation после разрыва реальных depth gaps, поэтому узкие пики не исчезают и не превращаются в случайные длинные диагонали из-за `linspace`. Physical PDF spool допускает до 600 DPI, Masterlog рендерится по фактическому printer paint rect; контраст кривых/сетки и прозрачность interval bands настроены для печати.
