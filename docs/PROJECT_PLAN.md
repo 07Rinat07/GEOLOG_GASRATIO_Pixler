@@ -2,12 +2,12 @@
 # Единый план проекта
 
 План актуализирован 7 октября 2026 года. Проверенная база перед текущим инкрементом —
-`22ac192e` (PR #473). RPT-COMP-01 интегрирован: сохраняемый порядок и видимость
+`3a011462` (PR #474). RPT-COMP-01 интегрирован: сохраняемый порядок и видимость
 глубинных графических колонок применяются через одну renderer-neutral composition.
-PRINT-STYLE-01 уже имеет immutable ReportVisualProfile, single-source wordmark, aggregate
-document-control и catalog-backed header/footer asset contract. Текущий slice закрывает
-табличную печатную границу: geology XLSX получает повторяемые titles/key column и 100%
-horizontal pagination вместо принудительного сжатия широкой инженерной таблицы.
+PRINT-STYLE-01 уже имеет immutable ReportVisualProfile, single-source wordmark, document-control,
+catalog-backed header/footer и table-print contracts. Текущий slice устраняет оставшуюся
+color-only кодировку перспективных интервалов в standard interpretation PDF: band сохраняет
+цвет, но тип флюида дополнительно кодируется формой маркера и коротким текстовым кодом.
 Статусы завершения
 ниже относятся к main после интеграции этого инкремента и успешного exact-head Release gate.
 Приложение сохраняет каноническую industrial-blue DIGITAL GEOLOG айдентику. WITS развивается
@@ -466,8 +466,16 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   Geology XLSX дополнительно резервирует минимум 24 pt для wrapped header row и canonical
   wordmark/page footer. Regression проверяет profile font/fills, alternating row, numeric alignment,
   print-title rows/columns, A4 geometry и scale без изменения типизированных данных.
-- [ ] Графики/логи: цвет не является единственным кодом — используются dash/marker/label;
-  шкалы и единицы печатаются явно; события/alarms/interpreted intervals сохраняют смысл в grayscale.
+- [x] **Standard interpretation grayscale-candidate slice:** standard PDF больше не
+  превращает candidates в голые `(top, bottom)` перед renderer boundary. Полоса перспективного
+  интервала сохраняет semantic colour, а на последней графической колонке дополнительно получает
+  общий `FluidMarkerSpec` shape + short code (`G`, `L/GC`, `LO`, `L`, `?`) на фактической
+  глубине. Поэтому предварительный тип флюида остаётся различимым при grayscale/монохромной печати;
+  таблицы сохраняют полную формулировку, source classification и расчёты не меняются.
+- [ ] Графики/логи: общий marker/label contract уже применяется к standard/OPUS interpreted
+  intervals, шкалы/единицы печатаются явно, ratio reference traces имеют dash semantics.
+  Остаток — довести технологические gas-context event/alarms до отдельной shape/label/grayscale
+  кодировки и подтвердить сквозным regression, что цвет нигде не является единственным признаком.
 - [x] **PRINT-STYLE-01/RPT-QA print readability slice:** OPUS/GasRatio interpretation charts используют readability-first pagination с целевым диапазоном около 100 м на лист и адаптивным физическим vertical scale вместо жёсткого ограничения 12 страниц; короткие остаточные страницы равномерно распределяются. Dense source rows проходят extrema-preserving print decimation после разрыва реальных depth gaps, поэтому узкие пики не исчезают и не превращаются в случайные длинные диагонали из-за `linspace`. Physical PDF spool допускает до 600 DPI, Masterlog рендерится по фактическому printer paint rect; контраст кривых/сетки и прозрачность interval bands настроены для печати.
 - [ ] Профили носителя: A4 portrait/landscape, A3 и roll/masterlog. Макет адаптируется,
   а не просто масштабируется до нечитаемого состояния.
