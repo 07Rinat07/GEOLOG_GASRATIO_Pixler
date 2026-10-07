@@ -1262,3 +1262,15 @@ Windows WITS operator-dashboard tests use the existing fresh-process-per-test po
 in `scripts/run_tests.py` after an observed 0xC0000005 in a large offscreen Qt shard.
 `test_windows_qt_test_isolation.py` verifies that every dashboard node is scheduled exactly
 once, outside the regular shard, in its own batch. All dashboard assertions remain intact.
+
+Masterlog visual-profile regressions (`test_masterlog_header_visual_profile.py`) substitute
+colour/grayscale profiles and typography/rule metrics, verify real QPainter output and
+explicit form overrides, then save/reopen and export A4/A3/roll PDF in RU/KK/EN. Vector PDF
+fills/borders and reusable header backgrounds must follow the injected profile; source
+curve arrays and the saved template remain unchanged. Physical print acceptance remains open.
+
+`test_masterlog_curve_legend.py` compares legend and plotted QPen colour/width/style for
+all four saved line styles, checks point predicate identifier parity, vendor-bound units,
+missing channels and narrow positive label rectangles. RU/KK/EN × A4/A3/roll project reopen
+exports inspect PDF dash geometry and real black-on-white QPainter output; persisted
+column properties and source arrays remain unchanged. Physical acceptance remains open.

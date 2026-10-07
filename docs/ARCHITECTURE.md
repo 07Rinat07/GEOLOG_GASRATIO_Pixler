@@ -945,3 +945,18 @@ so Word can apply the shared body styles rather than relying on built-in style n
 `modern_oilfield_report_profile()` и отображает semantic roles профиля в Word colours,
 half-point typography, borders и fills. Footer остаётся отдельным shared adapter, поэтому
 визуальная система и document-control contract развиваются независимо и не дублируют источник истины.
+
+Masterlog header defaults consume `modern_oilfield_report_profile()` at render time:
+page/frame roles, default text/line/image-slot colours, body/caption/table typography and
+physical rule weights. Point sizes convert to millimetres before the existing painter
+transform; the profile does not mutate persisted form properties. Explicit valid saved
+colour/background/font/line-width overrides retain precedence. Lithotype/LBA semantic
+swatches and intensity geometry remain domain-owned, including grayscale profile tests.
+The same header-element painter serves reusable tablet headers and full Masterlog output.
+
+Masterlog column legends resolve the same mapped CurveData and MasterlogCurveStyle as
+curve painting. `_curve_uses_point_presentation` shares source/canonical identifiers between
+the key and plot; `_MASTERLOG_CURVE_PEN_STYLES` shares line style mapping. A clipped key lane
+precedes the label, which retains the resolved numeric range and appends the bound channel's
+unit. Missing curves retain their mnemonic label without a fabricated key or unit. This
+render-only adapter does not mutate templates/data or change the ratio presentation policy.
