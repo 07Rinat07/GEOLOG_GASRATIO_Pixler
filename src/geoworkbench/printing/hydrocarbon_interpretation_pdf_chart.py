@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from geoworkbench.printing.hydrocarbon_interpretation_curve_selection import chart_panel_render_options
 
+from geoworkbench.printing.gas_context_track import (
+    context_segments, context_heading, paint_context_track, render_context_legend_pages,
+)
+
 from math import ceil, floor, log10
 
 import numpy as np
@@ -144,14 +148,17 @@ def render_chart_pages(
     if not panels:
         return
 
+    context = context_segments(getattr(report, "gas_context_events", ()), float(np.nanmin(depth[finite_depth])), float(np.nanmax(depth[finite_depth])))
     provisional = chart_geometry(
-        canvas.content_rect, DepthPage(0.0, 1.0, 1000, 28.0), len(panels),
+        canvas.content_rect, DepthPage(0.0, 1.0, 1000, 28.0), len(panels), context_track=bool(context),
     )
     header_height = max(CHART_TRACK_HEADER_HEIGHT, 20.0 + max(
         track_heading_height(_labels(language)[name], rect.width(), 7.5,
                              canvas.painter.device())
         for (name, _curves), rect in zip(panels, provisional.panel_rects, strict=True)
     ))
+    if provisional.context_rect is not None:
+        header_height = max(header_height, 20.0 + track_heading_height(context_heading(language), provisional.context_rect.width(), 7.0 * 72.0 / canvas.painter.device().logicalDpiY(), canvas.painter.device()))
     available_height = (
         canvas.content_rect.height()
         - CHART_HEADER_HEIGHT
@@ -170,7 +177,7 @@ def render_chart_pages(
         _draw_chart_page(
             canvas.painter,
             chart_geometry(canvas.content_rect, page, len(panels),
-                           track_header_height=header_height),
+                           track_header_height=header_height, context_track=bool(context)),
             page,
             page_index,
             len(pages),
@@ -182,6 +189,7 @@ def render_chart_pages(
             language,
         )
         canvas.y = canvas.content_rect.bottom()
+    render_context_legend_pages(canvas, context, language, report.depth_unit)
 
 
 def _draw_chart_page(
@@ -249,6 +257,8 @@ def _draw_chart_page(
         side="right",
         language=language,
     )
+    if geometry.context_rect is not None:
+        paint_context_track(painter, geometry.context_rect, getattr(report, "gas_context_events", ()), page.top_depth, page.bottom_depth, language, header_height=geometry.track_header_height)
     candidates = report.candidates
     display_hints = report_curve_label_hints(report)
     for panel_index, ((panel_name, curves), rect) in enumerate(

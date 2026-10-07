@@ -60,6 +60,7 @@ class ChartGeometry:
     geology_legend_rect: QRectF | None = None
     geology_repeat_legend_rect: QRectF | None = None
     track_header_height: float = CHART_TRACK_HEADER_HEIGHT
+    context_rect: QRectF | None = None
 
 
 def plan_depth_pages(
@@ -152,6 +153,7 @@ def chart_geometry(
     geology_legend_height: float = 0.0,
     geology_repeat_legend_height: float = 0.0,
     track_header_height: float = CHART_TRACK_HEADER_HEIGHT,
+    context_track: bool = False,
 ) -> ChartGeometry:
     """Return chart rectangles guaranteed to remain inside the printable area."""
 
@@ -217,7 +219,8 @@ def chart_geometry(
         if geology_rects
         else left_axis.right() + axis_gap
     )
-    panels_left = geology_right
+    context_rect = QRectF(geology_right, chart_top, 48.0, plot_height) if context_track else None
+    panels_left = context_rect.right() + axis_gap if context_rect is not None else geology_right
     panels_right = right_axis.left() - axis_gap
     panels_width = panels_right - panels_left
     panel_width = (panels_width - panel_gap * (panel_count - 1)) / panel_count
@@ -255,7 +258,7 @@ def chart_geometry(
         content_rect.width(),
         CHART_NOTE_HEIGHT,
     )
-    plot_left = geology_rects[0].left() if geology_rects else panels_left
+    plot_left = geology_rects[0].left() if geology_rects else context_rect.left() if context_rect is not None else panels_left
     return ChartGeometry(
         content_rect,
         QRectF(plot_left, chart_top, panels_right - plot_left, plot_height),
@@ -268,6 +271,7 @@ def chart_geometry(
         geology_legend_rect,
         repeat_legend,
         safe_header_height,
+        context_rect,
     )
 
 

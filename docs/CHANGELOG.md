@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- PRINT-STYLE-01/gas context: standard/enhanced PDF и PNG/HTML preview получили общую дорожку эффективного газового контекста с registry priority, текстовыми кодами и чёрными рамками. RU/KK/EN легенда сохраняет тип, ID и глубины события, переносит длинные ID и пагинирует большие списки; source curves и политика классификации не меняются.
 - PRINT-STYLE-01/Masterlog grid: рамки колонок, основные/второстепенные линии сетки и подписи глубин используют общие semantic colours, physical rule weights и table typography. Сохранённые visibility/alpha/divisions и физическая шкала глубины не меняются.
 - PRINT-STYLE-01/standard PDF grayscale candidates: standard interpretation charts now preserve full candidate objects to the painter boundary and add shared fluid shape + short code beside prospective bands. Fluid type therefore remains readable in monochrome/grayscale output instead of depending on amber band colour alone; classification/source data are unchanged.
 - PRINT-STYLE-01/Masterlog chrome: renderer-owned фон страницы, рамки, сетка, заголовки, нейтральный текст, placeholders и служебные заливки Masterlog теперь получают semantic roles из общего `ReportVisualProfile`. Явные цвета шаблона, литология/стратиграфия, LBA, пользовательские стили кривых и annotation/callout semantics не переопределяются. Regression подменяет профиль и проверяет реальные QPainter pen/fill paths.

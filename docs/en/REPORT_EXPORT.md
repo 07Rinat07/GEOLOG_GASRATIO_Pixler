@@ -159,3 +159,5 @@ gas-line, connection/build-up, trip, swab, circulated/recycled, calibration and 
 intervals preserve measured TG/C1–C5 and calculated Gas Ratio/Haworth/Pixler/OPUS values, while
 confirmed context can prevent automatic classification of those intervals as productive
 hydrocarbon formations.
+
+PDF charts and PNG/HTML previews show effective gas context in a separate track. Overlaps follow the existing registry priority; text codes and dark border styles retain meaning in monochrome printing. The complete legend gives each event type, ID and original depths, wraps long IDs and paginates large lists. Tiny events remain at their true depth without long labels overlapping neighbouring intervals. Draft and excluded QC events are not reintroduced into customer charts.

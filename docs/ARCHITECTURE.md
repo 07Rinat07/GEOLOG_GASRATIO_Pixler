@@ -971,3 +971,12 @@ Masterlog column frames, grid and depth labels consume the shared visual profile
 major rules convert thin_rule_pt to millimetres, minor rules use half that weight; saved
 alpha and minor alpha factor remain intact. Five-metre depth coordinates and grid visibility
 are unchanged. Depth labels use table_pt through the existing transform-aware font helper.
+
+`printing/gas_context_track.py` is a render-only adapter over `GasContextRegistry`. Boundary
+splitting resolves each segment with the existing registry priority and merges adjacent pieces
+of the same event; point events keep their true depth. Only confirmed, customer-visible context
+is drawn. Shared code/localized label/neutral border styles serve standard/enhanced PDF and
+whole-well PNG preview. A reserved track protects curve/fluid lanes; long IDs wrap in the
+complete event legend, which paginates independently of plot depth. No domain/schema/data
+mutation or replacement candidate/exclusion policy is introduced. Font size compensates the
+paint device DPI so new context text keeps physical point sizes.
