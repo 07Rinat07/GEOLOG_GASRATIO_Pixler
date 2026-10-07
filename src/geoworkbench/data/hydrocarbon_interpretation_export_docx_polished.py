@@ -17,7 +17,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
     report_optional_section_labels,
 )
 from geoworkbench.printing.hydrocarbon_report_i18n import hydrocarbon_report_labels
-from geoworkbench.printing.report_visual_system import REPORT_BRAND_WORDMARK
+from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.printing.report_document_control_docx import report_document_control_docx_footer
 from geoworkbench.printing.report_document_control import report_document_control, resolved_report_identity
 from geoworkbench.services.hydrocarbon_interpretation import (
@@ -165,6 +165,7 @@ def _cover_elements(
     identity: InterpretationReportIdentity,
     language: AppLanguage,
 ) -> tuple[ET.Element, ...]:
+    visual = modern_oilfield_report_profile()
     details = identity.cleaned()
     document_control = report_document_control(details, language)
     labels = hydrocarbon_report_labels(language)
@@ -175,12 +176,12 @@ def _cover_elements(
     }[language]
     elements: list[ET.Element] = [
         _paragraph(
-            REPORT_BRAND_WORDMARK,
+            visual.brand_wordmark,
             alignment="center",
             after=220,
-            size=22,
+            size=_half_points(visual.typography.section_pt),
             bold=True,
-            color="174F78",
+            color=_word_color(visual.palette.accent),
         ),
         _control_table(document_control.control),
         _paragraph(
@@ -193,17 +194,17 @@ def _cover_elements(
             alignment="center",
             before=720,
             after=100,
-            size=44,
+            size=_half_points(visual.typography.title_pt),
             bold=True,
-            color="172033",
+            color=_word_color(visual.palette.text),
             keep_next=True,
         ),
         _paragraph(
             details.report_subtitle,
             alignment="center",
             after=360,
-            size=22,
-            color="526579",
+            size=_half_points(visual.typography.subtitle_pt),
+            color=_word_color(visual.palette.text_muted),
         ),
         _details_table(
             document_control.context + (
@@ -228,8 +229,8 @@ def _cover_elements(
             alignment="center",
             before=80,
             after=30,
-            size=17,
-            color="526579",
+            size=_half_points(visual.typography.body_pt),
+            color=_word_color(visual.palette.text_muted),
         )
         for note in notes
         if note.strip()
@@ -245,21 +246,22 @@ def _narrative_elements(
     text = value.strip()
     if not text:
         return ()
+    visual = modern_oilfield_report_profile()
     return (
         _paragraph(
             label,
             before=260,
             after=100,
-            size=28,
+            size=_half_points(visual.typography.section_pt),
             bold=True,
-            color="172033",
+            color=_word_color(visual.palette.text),
             keep_next=True,
         ),
         _paragraph(
             text,
             after=220,
-            size=20,
-            color="26384A",
+            size=_half_points(visual.typography.body_pt),
+            color=_word_color(visual.palette.text_secondary),
         ),
     )
 
@@ -270,11 +272,15 @@ def _paragraph(
     alignment: str = "left",
     before: int = 0,
     after: int = 0,
-    size: int = 20,
+    size: int | None = None,
     bold: bool = False,
-    color: str = "172033",
+    color: str | None = None,
     keep_next: bool = False,
 ) -> ET.Element:
+    visual = modern_oilfield_report_profile()
+    resolved_size = _half_points(visual.typography.body_pt) if size is None else size
+    resolved_color = _word_color(visual.palette.text) if color is None else color
+
     paragraph = ET.Element(_q("p"))
     properties = ET.SubElement(paragraph, _q("pPr"))
     ET.SubElement(properties, _q("jc"), {_q("val"): alignment})
@@ -299,8 +305,8 @@ def _paragraph(
     )
     if bold:
         ET.SubElement(run_properties, _q("b"))
-    ET.SubElement(run_properties, _q("color"), {_q("val"): color})
-    ET.SubElement(run_properties, _q("sz"), {_q("val"): str(size)})
+    ET.SubElement(run_properties, _q("color"), {_q("val"): resolved_color})
+    ET.SubElement(run_properties, _q("sz"), {_q("val"): str(resolved_size)})
     text_node = ET.SubElement(run, _q("t"))
     text_node.set(f"{{{_XML_NS}}}space", "preserve")
     text_node.text = text
@@ -363,6 +369,11 @@ def _table(
     if not rows or any(len(row) != len(widths) for row in rows):
         raise ValueError("Геометрия титульной таблицы Word не соответствует колонкам")
 
+    visual = modern_oilfield_report_profile()
+    border_strong = _word_color(visual.palette.border_strong)
+    border = _word_color(visual.palette.border)
+    table_header = _word_color(visual.palette.table_header)
+
     table = ET.Element(_q("tbl"))
     properties = ET.SubElement(table, _q("tblPr"))
     ET.SubElement(
@@ -381,12 +392,12 @@ def _table(
         )
     borders = ET.SubElement(properties, _q("tblBorders"))
     for name, size, color in (
-        ("top", 8, "8DA3B8"),
-        ("left", 8, "8DA3B8"),
-        ("bottom", 8, "8DA3B8"),
-        ("right", 8, "8DA3B8"),
-        ("insideH", 5, "B8C6D4"),
-        ("insideV", 5, "B8C6D4"),
+        ("top", 8, border_strong),
+        ("left", 8, border_strong),
+        ("bottom", 8, border_strong),
+        ("right", 8, border_strong),
+        ("insideH", 5, border),
+        ("insideV", 5, border),
     ):
         ET.SubElement(
             borders,
@@ -415,7 +426,7 @@ def _table(
                 ET.SubElement(
                     cell_properties,
                     _q("shd"),
-                    {_q("val"): "clear", _q("fill"): "EAF1F7"},
+                    {_q("val"): "clear", _q("fill"): table_header},
                 )
             cell.append(
                 _paragraph(
@@ -423,11 +434,20 @@ def _table(
                     alignment="center" if centered else "left",
                     before=70,
                     after=70,
-                    size=18,
+                    size=_half_points(visual.typography.table_pt),
                     bold=shaded,
+                    color=_word_color(visual.palette.text),
                 )
             )
     return table
+
+
+def _half_points(value: float) -> int:
+    return max(1, round(float(value) * 2.0))
+
+
+def _word_color(value: str) -> str:
+    return value.lstrip("#").upper()
 
 
 def _portrait_section_break() -> ET.Element:

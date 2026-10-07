@@ -1,6 +1,6 @@
 # Проверка качества и release gate
 
-Документ актуален для **DIGITAL DIGITAL GEOLOG GASRATIO&PIXLER 0.7.93** на 9 сентября 2026 года. Краткая история
+Документ актуален для **DIGITAL GEOLOG GASRATIO&PIXLER 0.7.93** на 9 сентября 2026 года. Краткая история
 находится только в `CHANGELOG.md`; результаты конкретных CI/сборок хранятся как artifacts и не
 заменяют текущие команды проверки.
 
@@ -688,8 +688,9 @@ false negative. До этого автоматический результат 
   только `engineering_default` pending field calibration;
 - Report Passport для sourced calculation сохраняет formula id/version/provenance,
   expression hash и source;
-- canonical print wordmark — **DIGITAL DIGITAL GEOLOG GASRATIO&PIXLER** — одинаков в PDF, Masterlog,
+- canonical print wordmark — **DIGITAL GEOLOG GASRATIO&PIXLER** — одинаков в PDF, Masterlog,
   DOCX/XLSX и PDF creator metadata;
+- polished interpretation DOCX проверяется с подменённым `ReportVisualProfile`: production OOXML обязан использовать semantic accent/text/muted colours, title/body/table sizes, table header fill и border roles из профиля;
 - fluid callout явно содержит тип флюида, а ambiguous/no-consensus не превращается в
   искусственно выбранный gas/oil class;
 - dense adjacent callouts остаются внутри track bounds; для A4/A3 выполняются visual/PDF

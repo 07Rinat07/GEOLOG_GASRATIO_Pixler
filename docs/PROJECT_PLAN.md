@@ -2,10 +2,11 @@
 # Единый план проекта
 
 План актуализирован 7 октября 2026 года. Проверенная база текущего инкремента —
-`252e6fcf` (PR #467). RPT-COMP-01 интегрирован: сохраняемый порядок и видимость
+`e3e9d80c` (PR #468). RPT-COMP-01 интегрирован: сохраняемый порядок и видимость
 глубинных графических колонок применяются через одну renderer-neutral composition.
-Текущий инкремент PRINT-STYLE-01 подключает interpretation и generic DOCX
-к общему Word footer adapter с PAGE/NUMPAGES и ограниченными реквизитами.
+Текущий инкремент PRINT-STYLE-01 переводит оформленный interpretation DOCX с локальных
+цветов/размеров на общий immutable ReportVisualProfile; общий Word footer с
+PAGE/NUMPAGES и ограниченными реквизитами уже интегрирован.
 Статусы завершения
 ниже относятся к main после интеграции этого инкремента и успешного exact-head Release gate.
 Приложение сохраняет каноническую industrial-blue DIGITAL GEOLOG айдентику. WITS развивается
@@ -423,6 +424,12 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   OOXML parts/relationships, RU/KK/EN save/reopen, long/XML-sensitive values, исходные
   данные и atomic failure покрыты regressions. Word pagination/physical acceptance
   остаются открытыми. Закрытие slice — после exact-head Release gate.
+- [x] **Polished DOCX visual-profile slice:** обложка, narrative blocks и таблицы оформленного
+  interpretation DOCX получают semantic palette, typography, border и fill roles из
+  `modern_oilfield_report_profile()`. Локальная палитра OOXML удалена; canonical wordmark
+  приходит из того же immutable профиля. Production regression подменяет профиль и проверяет
+  фактические OOXML colors/sizes/fills/borders, не меняя source data или footer contract.
+  Весь PRINT-STYLE-01 этим slice не закрывается; media/header/table/graph acceptance остаётся ниже.
 - [ ] Обязательная document-control зона: well/project, interval, document number, revision,
   status, prepared/checked/approved при доступности данных. Блок report date **не выводится по
   умолчанию вообще** и появляется только после явного пользовательского ввода даты; часы/минуты и

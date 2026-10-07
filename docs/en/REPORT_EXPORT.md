@@ -60,6 +60,8 @@ geologist-confirmed intervals, and exports XLSX, DOCX, PDF, or system print. The
 contains a summary, candidates, manual intervals, methods/sources, and the complete
 `Whole well` depth table.
 
+The polished DOCX uses the same printable `ReportVisualProfile` as the other report adapters: the canonical wordmark, semantic colours, typography, table fills, and borders are not duplicated in a Word-only palette.
+
 This specialized report adds a preliminary interpretation: probable gas,
 probable liquid hydrocarbons, or mixed/indeterminate. It does not assign
 a definitive fluid type or productivity and does not infer water from absent
