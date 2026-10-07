@@ -6,6 +6,10 @@ from geoworkbench.printing.gas_ratio_reference import (
     ratio_identifier, ratio_reference_tracks, ratio_reference_color,
 )
 
+from geoworkbench.printing.gas_context_track import (
+    context_segments, context_heading, paint_context_track, render_context_legend_pages,
+)
+
 from math import floor, isclose
 
 import numpy as np
@@ -130,6 +134,7 @@ def render_chart_pages(
     if depth_range is not None:
         depth_min = depth_range.top_depth
         depth_max = depth_range.bottom_depth
+    context = context_segments(report.gas_context_events, depth_min, depth_max)
     geology_tracks = _geology_track_kinds(
         geology,
         depth_min,
@@ -164,7 +169,7 @@ def render_chart_pages(
     )
     provisional = chart_geometry(
         canvas.content_rect, DepthPage(depth_min, depth_max, 1000, MIN_CHART_HEIGHT),
-        len(panels), geology_track_count=len(geology_tracks),
+        len(panels), geology_track_count=len(geology_tracks), context_track=bool(context),
     )
     headings = [
         (base_chart._labels(language)[name], rect.width(), 7.5)
@@ -174,6 +179,8 @@ def render_chart_pages(
         (_geology_track_labels(language)[name], rect.width(), 6.2)
         for name, rect in zip(geology_tracks, provisional.geology_rects, strict=True)
     )
+    if provisional.context_rect is not None:
+        headings.append((context_heading(language), provisional.context_rect.width(), 7.0 * 72.0 / canvas.painter.device().logicalDpiY()))
     headings.append((
         base_chart._labels(language)["depth"] + (f", {report.depth_unit}" if report.depth_unit else ""),
         provisional.left_axis_rect.width(), 7.4,
@@ -237,6 +244,7 @@ def render_chart_pages(
             geology_track_count=len(geology_tracks),
             geology_legend_height=full_legend_height,
             track_header_height=header_height,
+            context_track=bool(context),
         )
         if annotations:
             if legend_compact:
@@ -323,6 +331,7 @@ def render_chart_pages(
             )
         canvas.y = canvas.content_rect.bottom()
     _render_geology_legend_pages(canvas, deferred_legend_pages, language, compact=legend_compact)
+    render_context_legend_pages(canvas, context, language, report.depth_unit)
 
 
 def _render_geology_legend_pages(
@@ -580,6 +589,8 @@ def _draw_chart_page(
             empty_state_tracks,
             language,
         )
+    if geometry.context_rect is not None:
+        paint_context_track(painter, geometry.context_rect, report.gas_context_events, page.top_depth, page.bottom_depth, language, header_height=geometry.track_header_height)
     candidates = tuple(report.candidates)
     display_hints = report_curve_label_hints(report)
     for panel_index, ((panel_name, curves), rect) in enumerate(

@@ -2,10 +2,11 @@
 # Единый план проекта
 
 План актуализирован 7 октября 2026 года. Проверенная база перед текущим инкрементом —
-`b899651e` (PR #475). RPT-COMP-01 интегрирован. PRINT-STYLE-01 имеет общий visual profile,
-document-control и фактические curve legend keys. Текущий slice подключает рамки колонок,
-major/minor grid и типографику шкалы глубин Masterlog к общему профилю, сохраняя настройки
-сетки и физическую геометрию глубины.
+`243efa68` (PR #478). RPT-COMP-01 интегрирован. PRINT-STYLE-01 имеет общий visual profile,
+document-control, curve keys и физические линии/типографику Masterlog. Текущий slice добавляет
+общую дорожку эффективного газового контекста в standard/enhanced PDF и PNG/HTML preview.
+Registry определяет приоритет пересечений; коды, чёрные рамки и полная RU/KK/EN легенда
+сохраняют смысл без зависимости только от цвета.
 Статусы завершения
 ниже относятся к main после интеграции этого инкремента и успешного exact-head Release gate.
 Приложение сохраняет каноническую industrial-blue DIGITAL GEOLOG айдентику. WITS развивается
@@ -259,6 +260,15 @@ QC-разницу. Source curves не подменяются; confirmed hard exc
   видимый текст и отсутствие повторного вывода подавленного кандидата как перспективного.
 - [x] Один registry обязателен для PDF, XLSX, DOCX и preview; Gas Ratio/Haworth, Pixler, OPUS и
   комбинированный hydrocarbon report не создают собственных несовместимых списков исключений.
+- [x] **Effective-context print track slice:** standard/enhanced interpretation PDF и PNG/HTML
+  preview используют общий `gas_context_track`: фактические границы и приоритет пересечений
+  берутся из `GasContextRegistry`, форма/стиль чёрной рамки и short event code не зависят от
+  цветного band. Легенда содержит локализованный тип, event ID и исходные глубины; длинные ID
+  переносятся, большие списки пагинируются. Tiny/point intervals остаются на своей глубине
+  без длинных подписей поверх соседей. Draft и hard-excluded события не возвращаются в
+  клиентский график; source arrays, candidates и audit policy не меняются. RU/KK/EN reopen,
+  standard/enhanced PDF, повторные/пересекающиеся события, grayscale и 72–600 DPI covered.
+  Scope не закрывает live/tablet alarms и физическую печать; интеграция после exact-head gate.
 - [ ] Графики/планшет могут показывать эти интервалы отдельными полосами/метками, но цвет не является
   единственным носителем смысла; подпись типа события обязательна и должна работать в grayscale.
 - [x] Создание, сохранение и использование registry в офлайн-отчётах не зависит от WITS.

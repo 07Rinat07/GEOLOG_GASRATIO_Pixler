@@ -1282,3 +1282,12 @@ Masterlog grid/profile regressions check colour/grayscale roles, saved alpha 0/0
 major/minor physical weight and five-metre coordinate invariants. RU/KK/EN reopen exports
 at injected PDF writer DPI 72/300/600 verify vector border weights and depth font role,
 with source arrays and templates unchanged. The production export DPI setting stays 300.
+
+Gas-context print-track regressions (`tests/test_gas_context_print_track.py`) cover all 13 event
+type codes and RU/KK/EN labels, existing registry priority for overlaps/repeats/point events,
+draft/hard-exclusion visibility, neutral/grayscale border styles and exact-depth tiny bands.
+Project save/reopen drives standard/enhanced PDF plus PNG preview and asserts registry/candidate
+and source-array immutability. Isolated real-PDF context painters verify 6 pt codes at
+72/300/600 DPI; the production interpretation PDF path uses 72 DPI. A 100-event legend with
+long IDs verifies wrapping, pagination, complete text and page bounds. Physical printer and
+live/tablet alarm acceptance remain open.
