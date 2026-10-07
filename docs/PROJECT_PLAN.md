@@ -481,6 +481,12 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   Geology XLSX дополнительно резервирует минимум 24 pt для wrapped header row и canonical
   wordmark/page footer. Regression проверяет profile font/fills, alternating row, numeric alignment,
   print-title rows/columns, A4 geometry и scale без изменения типизированных данных.
+- [x] **Standard interpretation grayscale-candidate slice:** standard PDF больше не
+  превращает candidates в голые `(top, bottom)` перед renderer boundary. Полоса перспективного
+  интервала сохраняет semantic colour, а на последней графической колонке дополнительно получает
+  общий `FluidMarkerSpec` shape + short code (`G`, `L/GC`, `LO`, `L`, `?`) на фактической
+  глубине. Поэтому предварительный тип флюида остаётся различимым при grayscale/монохромной печати;
+  таблицы сохраняют полную формулировку, source classification и расчёты не меняются.
 - [x] **Masterlog curve-legend slice:** legend key повторяет сохранённую толщину и
   solid/dash/dot/dash-dot style фактической кривой; point presentation использует общий
   predicate тех же source/canonical identifiers. Label содержит resolved range и unit

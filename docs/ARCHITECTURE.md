@@ -908,6 +908,12 @@ interval on every depth/column page. Partial final pages retain physical depth s
 searchable PDF text, elided and clipped to the band/footer. Legacy forms without control
 metadata retain their geometry; source arrays and custom header coordinates are unchanged.
 
+Standard interpretation PDF chart panels retain `HydrocarbonCandidateInterval` objects to the
+paint boundary instead of collapsing them to depth tuples. Candidate bands use the shared
+`FluidMarkerSpec`; the final chart column adds shape + short code at the interval midpoint.
+This is a presentation-only grayscale safeguard: depth, hypothesis, evidence, calculations,
+and source curves remain untouched. Enhanced/OPUS charts already use the same marker contract.
+
 The interpretation PDF/system-print renderer resolves one `ReportDocumentControl` snapshot
 into `PageCanvas`. `compact_report_footer` provides the repeated document/revision/status/
 confidentiality text; date and audit timestamps are excluded. Nonempty details reserve an

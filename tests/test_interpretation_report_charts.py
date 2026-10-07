@@ -35,6 +35,7 @@ from geoworkbench.printing.interpretation_chart_key import (
 )
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_chart import (
     _curve_ranges,
+    _draw_candidate_bands,
     _draw_curves,
     _panel_curves as printed_panels,
 )
@@ -52,6 +53,7 @@ from geoworkbench.services.gas_curve_presentation import (
     gas_scatter_point_budget,
 )
 from geoworkbench.services.hydrocarbon_interpretation import (
+    HydrocarbonCandidateInterval,
     build_hydrocarbon_interpretation_report,
 )
 from geoworkbench.services.localization import AppLanguage
@@ -553,6 +555,62 @@ def test_dense_ratio_preview_uses_bounded_continuous_line_geometry(qapp) -> None
     assert painter.lines > 100
     assert painter.lines < 2_000
     assert painter.ellipses == 0
+
+def test_standard_pdf_candidate_band_keeps_shape_and_code_for_grayscale(qapp) -> None:
+    class RecordingPainter:
+        def __init__(self) -> None:
+            self.fills = 0
+            self.ellipses = 0
+            self.texts: list[str] = []
+
+        def fillRect(self, *_args) -> None:
+            self.fills += 1
+
+        def drawEllipse(self, *_args) -> None:
+            self.ellipses += 1
+
+        def drawText(self, *args) -> None:
+            self.texts.append(str(args[-1]))
+
+        def __getattr__(self, _name):
+            return lambda *args, **kwargs: None
+
+    candidate = HydrocarbonCandidateInterval(
+        top_depth=120.0,
+        bottom_depth=130.0,
+        sample_count=11,
+        anomaly_strength="strong",
+        primary_mnemonic="TG",
+        max_robust_z=4.0,
+        max_primary_value=2.0,
+        fluid_hypothesis="probable_gas",
+        interval_wetness=None,
+        background_wetness=None,
+        wetness_robust_z=None,
+        interval_balance=None,
+        interval_character=None,
+        pixler_assessment=None,
+        lba_assessments=(),
+        gas_lba_correlation="",
+        metrics=(),
+        evidence=(),
+    )
+    painter = RecordingPainter()
+    rect = QRectF(0.0, 0.0, 120.0, 180.0)
+    page = DepthPage(100.0, 150.0, 100, 100.0)
+
+    _draw_candidate_bands(
+        painter,  # type: ignore[arg-type]
+        rect,
+        page,
+        (candidate,),
+        show_codes=True,
+    )
+
+    assert painter.fills == 1
+    assert painter.ellipses == 1
+    assert "G" in painter.texts
+
 
 def test_dense_ratio_pdf_scatter_is_density_bounded() -> None:
     class RecordingPainter:
