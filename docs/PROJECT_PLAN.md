@@ -2,12 +2,12 @@
 # Единый план проекта
 
 План актуализирован 7 октября 2026 года. Проверенная база перед текущим инкрементом —
-`f85956db` (PR #472). RPT-COMP-01 интегрирован: сохраняемый порядок и видимость
+`22ac192e` (PR #473). RPT-COMP-01 интегрирован: сохраняемый порядок и видимость
 глубинных графических колонок применяются через одну renderer-neutral composition.
-PRINT-STYLE-01 уже имеет единый immutable ReportVisualProfile, single-source wordmark и
-aggregate document-control contract. Текущий slice закрывает оставшийся header/footer asset
-boundary: customer/contractor logos назначаются из project Logo Catalog, а raw image assets
-не могут становиться новыми паспортными логотипами в обход каталога.
+PRINT-STYLE-01 уже имеет immutable ReportVisualProfile, single-source wordmark, aggregate
+document-control и catalog-backed header/footer asset contract. Текущий slice закрывает
+табличную печатную границу: geology XLSX получает повторяемые titles/key column и 100%
+horizontal pagination вместо принудительного сжатия широкой инженерной таблицы.
 Статусы завершения
 ниже относятся к main после интеграции этого инкремента и успешного exact-head Release gate.
 Приложение сохраняет каноническую industrial-blue DIGITAL GEOLOG айдентику. WITS развивается
@@ -457,9 +457,15 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   путях, длинные значения bounded/ellipsis и не перекрывают content/chart zones. RU/KK/EN
   подсказки, catalog selection и controller guard покрыты regressions; physical-print
   acceptance остаётся отдельным внешним этапом.
-- [ ] Таблицы: компактные заголовки, alternating/background hierarchy без декоративной перегрузки,
-  повтор шапки, перенос строк, числовое выравнивание, единицы возле параметра и минимальная
-  читаемая кегль/высота строки.
+- [x] **Таблицы:** shared Office adapters используют `ReportVisualProfile.table_pt`,
+  semantic header/alternating fills, wrapped text и numeric right alignment; физические единицы
+  остаются возле параметра/в отдельной Unit-колонке. DOCX table helpers помечают header row
+  `w:tblHeader`, запрещают разрыв строки через `w:cantSplit` и сохраняют естественный перенос.
+  Generic XLSX и geology XLSX повторяют print titles; широкие инженерные листы печатаются A4
+  landscape при 100% с horizontal pagination и повтором ключевой первой колонки вместо fit-to-one-page.
+  Geology XLSX дополнительно резервирует минимум 24 pt для wrapped header row и canonical
+  wordmark/page footer. Regression проверяет profile font/fills, alternating row, numeric alignment,
+  print-title rows/columns, A4 geometry и scale без изменения типизированных данных.
 - [ ] Графики/логи: цвет не является единственным кодом — используются dash/marker/label;
   шкалы и единицы печатаются явно; события/alarms/interpreted intervals сохраняют смысл в grayscale.
 - [x] **PRINT-STYLE-01/RPT-QA print readability slice:** OPUS/GasRatio interpretation charts используют readability-first pagination с целевым диапазоном около 100 м на лист и адаптивным физическим vertical scale вместо жёсткого ограничения 12 страниц; короткие остаточные страницы равномерно распределяются. Dense source rows проходят extrema-preserving print decimation после разрыва реальных depth gaps, поэтому узкие пики не исчезают и не превращаются в случайные длинные диагонали из-за `linspace`. Physical PDF spool допускает до 600 DPI, Masterlog рендерится по фактическому printer paint rect; контраст кривых/сетки и прозрачность interval bands настроены для печати.
