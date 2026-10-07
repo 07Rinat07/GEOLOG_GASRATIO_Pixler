@@ -34,3 +34,8 @@ UI-логотип и фоновая иллюстрация остаются SVG-
 Печатный каталог использует отдельный JPEG source того же изображения и детерминированно
 нормализует его в PNG перед content-addressed persistence; визуальное содержимое при этом
 не перерисовывается.
+
+
+## Печатный wordmark
+
+Полное написание `DIGITAL GEOLOG GASRATIO&PIXLER` имеет один production source of truth в `src/geoworkbench/brand.py`. Печатные и Office-адаптеры получают его через `REPORT_BRAND_WORDMARK` либо `ReportVisualProfile.brand_wordmark`; повторять полный литерал в других production Python-модулях нельзя.
