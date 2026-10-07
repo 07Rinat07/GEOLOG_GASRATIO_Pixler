@@ -19,6 +19,7 @@ from geoworkbench.printing.interpretation_report_office import (
     export_interpretation_report_docx,
     export_interpretation_report_xlsx,
 )
+from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.project.cuttings_controller import CuttingsController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.project.stratigraphy_controller import StratigraphyController
@@ -527,6 +528,24 @@ def test_interpretation_report_exports_excel_and_word(tmp_path) -> None:
     assert "Petroleum" in sample_values
     assert "'=2+2" in sample_values
 
+    visual = modern_oilfield_report_profile()
+    for table_sheet in workbook.worksheets[1:]:
+        assert table_sheet.print_title_rows == "$1:$1"
+        assert table_sheet.print_title_cols == "$A:$A"
+        assert str(table_sheet.page_setup.paperSize) == str(table_sheet.PAPERSIZE_A4)
+        assert table_sheet.page_setup.orientation == table_sheet.ORIENTATION_LANDSCAPE
+        assert table_sheet.page_setup.fitToWidth == 0
+        assert table_sheet.page_setup.fitToHeight == 0
+        assert table_sheet.page_setup.scale == 100
+        assert table_sheet.row_dimensions[1].height >= 24.0
+        assert table_sheet["A1"].font.sz == pytest.approx(visual.typography.table_pt)
+        assert table_sheet["A1"].alignment.wrap_text is True
+        assert table_sheet["A1"].alignment.horizontal == "center"
+        assert table_sheet["A1"].fill.fgColor.rgb[-6:] == visual.palette.table_header[1:]
+        assert table_sheet.oddFooter.left.text == visual.brand_wordmark.replace("&", "&&")
+        assert table_sheet.oddFooter.right.text == "&P / &N"
+    assert samples_sheet["A2"].fill.fgColor.rgb[-6:] == visual.palette.table_alt[1:]
+
     gas_sheet = workbook[workbook.sheetnames[2]]
     gas_values = tuple(
         cell.value for row in gas_sheet.iter_rows() for cell in row
@@ -536,6 +555,14 @@ def test_interpretation_report_exports_excel_and_word(tmp_path) -> None:
     assert "Содержание метана" in gas_values
     assert "Mnemonic" not in gas_values
     assert "TG" not in gas_values
+    numeric_cells = [
+        cell
+        for row in gas_sheet.iter_rows(min_row=2, min_col=4, max_col=6)
+        for cell in row
+        if isinstance(cell.value, (int, float)) and not isinstance(cell.value, bool)
+    ]
+    assert numeric_cells
+    assert all(cell.alignment.horizontal == "right" for cell in numeric_cells)
 
     meter_sheet = workbook[workbook.sheetnames[-1]]
     assert meter_sheet["A1"].comment is not None

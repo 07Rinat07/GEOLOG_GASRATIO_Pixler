@@ -863,6 +863,12 @@ helpers и simple tablet header/footer. Размеры Word переводятс
 Excel сохраняет числовые типы. Shared defaults относятся к presentation; пользовательские
 Masterlog element properties и source/candidate/domain values не переписываются.
 
+Geological `interpretation_report_office` table worksheets keep their authored column widths and
+print at A4 landscape / 100% with horizontal continuation pages. Row 1 and column A are repeated
+as print titles, the wrapped header reserves a readable minimum height, and canonical brand/page
+footer fields are repeated without converting numeric cells to text. This mirrors the generic
+Data/Parameters pagination policy instead of introducing a second fit-to-one-page rule.
+
 `printing/report_document_control.py` строит immutable localized groups control/context/approvals
 из cleaned `InterpretationReportIdentity`. Date row добавляется только из непустого user field;
 generation audit не является входом. PDF и polished DOCX cover адаптируют один snapshot; readable

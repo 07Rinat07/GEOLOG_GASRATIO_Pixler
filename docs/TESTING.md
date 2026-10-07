@@ -1194,6 +1194,12 @@ Qt painter regression проверяет ширину wordmark рядом с н�
 Пункты толщины правил simple tablet header/footer переводятся по DPI устройства;
 regression проверяет неизменную физическую толщину при 72/96/144/300/600 DPI.
 
+Geology Office table regression в `tests/test_interpretation_report.py` проверяет все четыре
+XLSX table sheets: A4 landscape, physical 100% scale, horizontal pagination, repeat row 1/column A,
+минимум 24 pt для wrapped header, shared table font/header fill, alternating body fill,
+numeric right alignment и canonical wordmark + &P/&N footer. Существующие проверки продолжают
+подтверждать formula-like text safety и исходные типы/значения отчёта.
+
 Document-control slice проверяется `tests/test_report_document_control.py`: 12 production
 PDF/DOCX/XLSX комбинаций RU/KK/EN × standard/OPUS × empty/explicit date; authoritative
 analysis interval, source-array immutability и неизменный generation audit. Шесть real-workspace
