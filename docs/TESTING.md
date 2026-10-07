@@ -1310,3 +1310,12 @@ Existing gas-context print-track regressions retain all 13 event-code/type label
 analysis range validation, time-axis rejection и неприменение чужой/неоднозначной legacy оси.
 Well-wide события могут выходить за диапазон одного dataset; ограничение относится к
 выбранному analysis interval. Этот автоматический gate не заменяет физическую/полевую приёмку.
+
+## Geology-legend visual-profile regression
+
+`tests/test_geology_legend_visual_profile.py` checks colour/grayscale semantic profile substitution,
+unchanged lithology patterns and LBA intensity colours, real full/compact RU/KK/EN PDF text at
+72/300/600 DPI (physical caption/table point sizes and border weights), and production
+standard/OPUS PDF plus PNG after project reopen. Source arrays and geology snapshots remain
+unchanged. Existing legend/readability tests cover complete code decoding, long labels,
+explicit ellipsis and large-catalog pagination; physical printer acceptance remains external.
