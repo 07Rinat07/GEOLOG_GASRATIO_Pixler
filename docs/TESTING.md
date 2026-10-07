@@ -688,7 +688,7 @@ false negative. До этого автоматический результат 
   только `engineering_default` pending field calibration;
 - Report Passport для sourced calculation сохраняет formula id/version/provenance,
   expression hash и source;
-- canonical print wordmark — **DIGITAL DIGITAL GEOLOG GASRATIO&PIXLER** — одинаков в PDF, Masterlog,
+- canonical print wordmark — **DIGITAL GEOLOG GASRATIO&PIXLER** — одинаков в PDF, Masterlog,
   DOCX/XLSX и PDF creator metadata;
 - polished interpretation DOCX проверяется с подменённым `ReportVisualProfile`: production OOXML обязан использовать semantic accent/text/muted colours, title/body/table sizes, table header fill и border roles из профиля;
 - fluid callout явно содержит тип флюида, а ambiguous/no-consensus не превращается в
