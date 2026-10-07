@@ -134,6 +134,90 @@ def test_polished_word_footer_uses_reopened_identity_on_both_sections(qapp, tmp_
         np.testing.assert_array_equal(dataset.curves[key].values, values)
 
 
+def test_polished_word_cover_uses_shared_visual_profile(tmp_path, monkeypatch):
+    from geoworkbench.data import hydrocarbon_interpretation_export_docx_polished as polished
+
+    base = modern_oilfield_report_profile()
+    visual = replace(
+        base,
+        palette=replace(
+            base.palette,
+            accent="#123456",
+            text="#234567",
+            text_secondary="#345678",
+            text_muted="#456789",
+            border="#56789A",
+            border_strong="#6789AB",
+            table_header="#ABCDEF",
+        ),
+        typography=replace(
+            base.typography,
+            title_pt=24.0,
+            subtitle_pt=11.0,
+            section_pt=13.0,
+            body_pt=9.0,
+            table_pt=8.0,
+        ),
+    )
+    monkeypatch.setattr(polished, "modern_oilfield_report_profile", lambda: visual)
+    identity = replace(
+        _manual_identity(),
+        summary="Profile-driven summary",
+        conclusion="Profile-driven conclusion",
+    )
+
+    target = polished.export_polished_hydrocarbon_interpretation_docx(
+        _report(),
+        tmp_path / "profile-driven.docx",
+        identity=identity,
+        language=AppLanguage.EN,
+    )
+
+    with zipfile.ZipFile(target) as package:
+        document = ET.fromstring(package.read("word/document.xml"))
+
+    colors = {
+        node.get(_W + "val")
+        for node in document.findall(".//w:rPr/w:color", _NAMESPACES)
+        if node.get(_W + "val")
+    }
+    fills = {
+        node.get(_W + "fill")
+        for node in document.findall(".//w:shd", _NAMESPACES)
+        if node.get(_W + "fill")
+    }
+    border_colors = {
+        node.get(_W + "color")
+        for node in document.findall(".//w:tblBorders/*", _NAMESPACES)
+        if node.get(_W + "color")
+    }
+    sizes = {
+        int(node.get(_W + "val"))
+        for node in document.findall(".//w:rPr/w:sz", _NAMESPACES)
+        if node.get(_W + "val")
+    }
+
+    assert visual.brand_wordmark in _text(document)
+    for value in (
+        visual.palette.accent,
+        visual.palette.text,
+        visual.palette.text_secondary,
+        visual.palette.text_muted,
+    ):
+        assert value.lstrip("#").upper() in colors
+    assert visual.palette.table_header.lstrip("#").upper() in fills
+    assert visual.palette.border.lstrip("#").upper() in border_colors
+    assert visual.palette.border_strong.lstrip("#").upper() in border_colors
+    for points in (
+        visual.typography.title_pt,
+        visual.typography.subtitle_pt,
+        visual.typography.section_pt,
+        visual.typography.body_pt,
+        visual.typography.table_pt,
+    ):
+        assert round(points * 2.0) in sizes
+
+
 @pytest.mark.parametrize('language', list(AppLanguage))
 @pytest.mark.parametrize('profile', ['standard', 'opus'])
 def test_ordinary_word_gets_shared_brand_and_page_fields(tmp_path, language, profile):
