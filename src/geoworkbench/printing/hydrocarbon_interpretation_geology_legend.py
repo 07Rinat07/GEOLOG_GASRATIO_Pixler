@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from PySide6.QtCore import QRectF, Qt
-from PySide6.QtGui import QColor, QFont, QFontMetricsF, QPaintDevice, QPagedPaintDevice, QPainter, QPen
+from PySide6.QtGui import QColor, QFont, QFontMetricsF, QPaintDevice, QPainter, QPen
 
 from geoworkbench.printing.geology_track_rendering import paint_lba_intensity_symbol
 from geoworkbench.printing.hydrocarbon_interpretation_geology import (
@@ -16,7 +16,7 @@ from geoworkbench.printing.lba_visuals import (
     normalized_lba_intensity,
     resolve_lba_type_style,
 )
-from geoworkbench.printing.unicode_support import print_font
+from geoworkbench.printing.report_painter_fonts import point_coordinate_font
 from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.services.lba_standard import (
     LBA_ADDITIONAL_COLORS,
@@ -525,12 +525,7 @@ def _legend_body_size(compact: bool) -> float:
 
 
 def _legend_font(points: float, text: str, device: QPaintDevice | None) -> QFont:
-    font = print_font(points, text=text)
-    # Paged renderers scale point coordinates to device pixels. Compensate font
-    # sizing once; PNG painters retain their existing pixel-coordinate contract.
-    if isinstance(device, QPagedPaintDevice):
-        font.setPointSizeF(points * 72.0 / device.logicalDpiY())
-    return font
+    return point_coordinate_font(points, text=text, paint_device=device)
 
 
 def _lba_color_name(code: str, language: AppLanguage) -> str:

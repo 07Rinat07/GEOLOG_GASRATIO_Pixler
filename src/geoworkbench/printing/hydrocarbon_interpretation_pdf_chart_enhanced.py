@@ -114,6 +114,8 @@ def render_chart_pages(
     chart_panels: ReportChartPanelSettings = DEFAULT_REPORT_CHART_PANELS,
 ) -> None:
     """Render chart pages with printer-safe major and minor depth graduations."""
+    visual = modern_oilfield_report_profile()
+    typography = visual.typography
 
     interval = getattr(report, "analysis_depth_interval", None)
     depth_range = interval or depth_range
@@ -173,22 +175,25 @@ def render_chart_pages(
         len(panels), geology_track_count=len(geology_tracks), context_track=bool(context),
     )
     headings = [
-        (base_chart._labels(language)[name], rect.width(), 7.5)
+        (base_chart._labels(language)[name], rect.width(),
+         typography.caption_pt if name == "ratios" else typography.table_pt,
+         30.0 if name == "ratios" else 20.0)
         for (name, _curves), rect in zip(panels, provisional.panel_rects, strict=True)
     ]
     headings.extend(
-        (_geology_track_labels(language)[name], rect.width(), 6.2)
+        (_geology_track_labels(language)[name], rect.width(), typography.caption_pt, 20.0)
         for name, rect in zip(geology_tracks, provisional.geology_rects, strict=True)
     )
     if provisional.context_rect is not None:
-        headings.append((context_heading(language), provisional.context_rect.width(), 7.0 * 72.0 / canvas.painter.device().logicalDpiY()))
+        headings.append((context_heading(language), provisional.context_rect.width(), 7.0, 20.0))
     headings.append((
         base_chart._labels(language)["depth"] + (f", {report.depth_unit}" if report.depth_unit else ""),
-        provisional.left_axis_rect.width(), 7.4,
+        provisional.left_axis_rect.width(), typography.caption_pt, 20.0,
     ))
-    header_height = max(CHART_TRACK_HEADER_HEIGHT, 20.0 + max(
-        track_heading_height(text, width, size, canvas.painter.device())
-        for text, width, size in headings
+    header_height = max(CHART_TRACK_HEADER_HEIGHT, max(
+        offset + track_heading_height(text, width, size, canvas.painter.device(),
+                                      point_coordinates=True)
+        for text, width, size, offset in headings
     ))
     chart_height_budget = (
         canvas.content_rect.height()
@@ -398,7 +403,10 @@ def _draw_geology_tracks(
     empty_state_tracks: tuple[str, ...],
     language: AppLanguage,
 ) -> None:
-    palette = modern_oilfield_report_profile().palette
+    visual = modern_oilfield_report_profile()
+    palette = visual.palette
+    typography = visual.typography
+    layout = visual.layout
     labels = _geology_track_labels(language)
     page_samples = tuple(
         sample
@@ -414,18 +422,19 @@ def _draw_geology_tracks(
             painter,
             QRectF(rect.left(), rect.top() - geometry.track_header_height + 2.0,
                    rect.width(), geometry.track_header_height - 20.0),
-            heading, 6.2,
+            heading, typography.caption_pt,
+            point_coordinates=True,
         )
         for tick in minor_depth_ticks(page):
             y = base_chart._depth_y(tick, page, rect)
-            painter.setPen(QPen(QColor(palette.border), 0.45))
+            painter.setPen(QPen(QColor(palette.border), layout.thin_rule_pt * 0.5))
             painter.drawLine(QLineF(rect.left(), y, rect.right(), y))
         for tick in base_chart._depth_ticks(
             page,
             base_chart._nice_tick_step(page.span, target_ticks=_MAJOR_TARGET_TICKS),
         ):
             y = base_chart._depth_y(tick, page, rect)
-            painter.setPen(QPen(QColor(palette.border), 0.65))
+            painter.setPen(QPen(QColor(palette.border), layout.thin_rule_pt))
             painter.drawLine(QLineF(rect.left(), y, rect.right(), y))
         if track in empty_state_tracks:
             no_data = {
@@ -673,23 +682,27 @@ def _draw_depth_axis(
     language: AppLanguage,
     header_height: float = CHART_TRACK_HEADER_HEIGHT,
 ) -> None:
-    palette = modern_oilfield_report_profile().palette
+    visual = modern_oilfield_report_profile()
+    palette = visual.palette
+    typography = visual.typography
+    layout = visual.layout
     labels = base_chart._labels(language)
     painter.fillRect(rect, QColor(palette.page))
     painter.setBrush(Qt.BrushStyle.NoBrush)
-    painter.setPen(QPen(QColor(palette.border_strong), 1.15))
+    painter.setPen(QPen(QColor(palette.border_strong), layout.strong_rule_pt))
     painter.drawRect(rect)
     title = labels["depth"] + (f", {unit}" if unit else "")
     paint_track_heading(
         painter,
         QRectF(rect.left(), rect.top() - header_height + 2.0,
                rect.width(), header_height - 20.0),
-        title, 7.4,
+        title, typography.caption_pt,
+        point_coordinates=True,
     )
 
     for value in minor_depth_ticks(page):
         y = base_chart._depth_y(value, page, rect)
-        painter.setPen(QPen(QColor(palette.border), 0.55))
+        painter.setPen(QPen(QColor(palette.border), layout.thin_rule_pt * 0.5))
         if side == "left":
             painter.drawLine(QLineF(rect.right() - 4.5, y, rect.right(), y))
         else:
@@ -705,7 +718,7 @@ def _draw_depth_axis(
     painter.setFont(tick_font)
     for value in ticks:
         y = base_chart._depth_y(value, page, rect)
-        painter.setPen(QPen(QColor(palette.border_strong), 1.05))
+        painter.setPen(QPen(QColor(palette.border_strong), layout.thin_rule_pt))
         if side == "left":
             painter.drawLine(QLineF(rect.right() - 10.0, y, rect.right(), y))
             text_rect = QRectF(
@@ -731,7 +744,7 @@ def _draw_depth_axis(
             base_chart._depth_label(value, major_step),
         )
     painter.setBrush(Qt.BrushStyle.NoBrush)
-    painter.setPen(QPen(QColor(palette.border_strong), 1.15))
+    painter.setPen(QPen(QColor(palette.border_strong), layout.strong_rule_pt))
     painter.drawRect(rect)
 
 
@@ -748,7 +761,10 @@ def _draw_panel(
     *,
     header_height: float = CHART_TRACK_HEADER_HEIGHT,
 ) -> None:
-    palette = modern_oilfield_report_profile().palette
+    visual = modern_oilfield_report_profile()
+    palette = visual.palette
+    typography = visual.typography
+    layout = visual.layout
     if panel_name == "ratios" and _draw_ratio_tracks(
         painter,
         rect,
@@ -764,7 +780,7 @@ def _draw_panel(
     painter.fillRect(rect, QColor(palette.page))
     for tick in minor_depth_ticks(page):
         y = base_chart._depth_y(tick, page, rect)
-        painter.setPen(QPen(QColor(palette.border), 0.55))
+        painter.setPen(QPen(QColor(palette.border), layout.thin_rule_pt * 0.5))
         painter.drawLine(QLineF(rect.left(), y, rect.right(), y))
 
     major_step = base_chart._nice_tick_step(
@@ -773,12 +789,12 @@ def _draw_panel(
     )
     for tick in base_chart._depth_ticks(page, major_step):
         y = base_chart._depth_y(tick, page, rect)
-        painter.setPen(QPen(QColor(palette.border_strong), 0.92))
+        painter.setPen(QPen(QColor(palette.border_strong), layout.thin_rule_pt))
         painter.drawLine(QLineF(rect.left(), y, rect.right(), y))
 
     for index in range(5):
         x = rect.left() + index / 4.0 * rect.width()
-        painter.setPen(QPen(QColor(palette.border), 0.58))
+        painter.setPen(QPen(QColor(palette.border), layout.thin_rule_pt))
         painter.drawLine(QLineF(x, rect.top(), x, rect.bottom()))
         painter.setFont(print_font(6.2, text="100"))
         painter.setPen(QColor(palette.text_secondary))
@@ -797,7 +813,8 @@ def _draw_panel(
         painter,
         QRectF(rect.left(), rect.top() - header_height + 2.0,
                rect.width(), header_height - 20.0),
-        heading, 7.5,
+        heading, typography.table_pt,
+        point_coordinates=True,
     )
     if not any(curve.metadata.curve_id in ranges for curve in curves):
         painter.setPen(QColor(palette.text_muted))
@@ -815,7 +832,7 @@ def _draw_panel(
             point_series=False,
         )
     painter.setBrush(Qt.BrushStyle.NoBrush)
-    painter.setPen(QPen(QColor(palette.border_strong), 1.1))
+    painter.setPen(QPen(QColor(palette.border_strong), layout.strong_rule_pt))
     painter.drawRect(rect)
 
 
@@ -832,7 +849,10 @@ def _draw_ratio_tracks(
     header_height: float,
 ) -> bool:
     """Draw Wh/Bh on a shared axis and Ch on its own reference axis."""
-    palette = modern_oilfield_report_profile().palette
+    visual = modern_oilfield_report_profile()
+    palette = visual.palette
+    typography = visual.typography
+    layout = visual.layout
 
     tracks = ratio_reference_tracks(curves)
     if not tracks:
@@ -851,7 +871,8 @@ def _draw_ratio_tracks(
             max(10.0, header_height - 30.0),
         ),
         heading,
-        6.8,
+        typography.caption_pt,
+        point_coordinates=True,
     )
 
     depth = np.asarray(dataset.depth, dtype=np.float64)
@@ -873,20 +894,20 @@ def _draw_ratio_tracks(
         )
         for tick in minor_depth_ticks(page):
             y = base_chart._depth_y(tick, page, lane)
-            painter.setPen(QPen(QColor(palette.border), 0.42))
+            painter.setPen(QPen(QColor(palette.border), layout.thin_rule_pt * 0.5))
             painter.drawLine(QLineF(lane.left(), y, lane.right(), y))
         for tick in base_chart._depth_ticks(
             page,
             base_chart._nice_tick_step(page.span, target_ticks=_MAJOR_TARGET_TICKS),
         ):
             y = base_chart._depth_y(tick, page, lane)
-            painter.setPen(QPen(QColor(palette.border), 0.62))
+            painter.setPen(QPen(QColor(palette.border), layout.thin_rule_pt))
             painter.drawLine(QLineF(lane.left(), y, lane.right(), y))
 
         scale_ticks = gas_ratio_scale_ticks(scale)
         for fraction, label in scale_ticks:
             x = lane.left() + fraction * lane.width()
-            painter.setPen(QPen(QColor(palette.border), 0.45))
+            painter.setPen(QPen(QColor(palette.border), layout.thin_rule_pt * 0.5))
             painter.drawLine(QLineF(x, lane.top(), x, lane.bottom()))
 
         mnemonic = (
@@ -974,11 +995,11 @@ def _draw_ratio_tracks(
             painter.restore()
 
         painter.setBrush(Qt.BrushStyle.NoBrush)
-        painter.setPen(QPen(QColor(palette.text_secondary), 0.7))
+        painter.setPen(QPen(QColor(palette.text_secondary), layout.thin_rule_pt))
         painter.drawRect(lane)
 
     painter.setBrush(Qt.BrushStyle.NoBrush)
-    painter.setPen(QPen(QColor(palette.border_strong), 1.1))
+    painter.setPen(QPen(QColor(palette.border_strong), layout.strong_rule_pt))
     painter.drawRect(rect)
     return True
 
