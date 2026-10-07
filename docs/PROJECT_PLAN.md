@@ -1,12 +1,12 @@
 <!-- runtime-contract: package=0.7.96; project=v37; form=v18; layout=v25 -->
 # Единый план проекта
 
-План актуализирован 7 октября 2026 года. Проверенная база текущего инкремента —
-`99493dd6` (PR #469). RPT-COMP-01 интегрирован: сохраняемый порядок и видимость
+План актуализирован 7 октября 2026 года. Проверенная база перед текущим инкрементом —
+`559ce01c` (PR #477). RPT-COMP-01 интегрирован: сохраняемый порядок и видимость
 глубинных графических колонок применяются через одну renderer-neutral composition.
-Текущий инкремент PRINT-STYLE-01 переводит renderer-owned нейтральную печатную геометрию
-Masterlog — page/frame/grid/header/text/service fills — на общий immutable ReportVisualProfile.
-Оформленный interpretation DOCX и общий Word footer уже используют тот же visual contract.
+PRINT-STYLE-01 уже имеет общий visual profile и document-control. Текущий slice добавляет
+в легенду кривых Masterlog фактический line/point glyph и единицы привязанного канала,
+чтобы стиль линии был различим без опоры только на цвет.
 Статусы завершения
 ниже относятся к main после интеграции этого инкремента и успешного exact-head Release gate.
 Приложение сохраняет каноническую industrial-blue DIGITAL GEOLOG айдентику. WITS развивается
@@ -361,6 +361,14 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   ширину номера страницы и обрезает длинный wordmark. XLSX сохраняет числовые значения,
   добавляет alternating fills и числовое выравнивание. RU/KK/EN production export regressions
   проверяют PDF/OOXML/XLSX и неизменность исходных кривых; весь PRINT-STYLE-01 не закрывается.
+- [x] **Masterlog header-defaults slice:** рамка/фон страницы и повторно используемой шапки,
+  default text/line/image-frame/placeholder, типографика текста и легенд литологии/ЛБА
+  получают semantic palette/physical point sizes из общего профиля. Явные сохранённые
+  color/background/font_size_mm/width имеют приоритет; source data, catalog swatches,
+  LBA intensity glyphs, header rectangles и persisted form properties не переписываются.
+  RU/KK/EN, A4/A3/roll, project save/reopen, PDF и reusable header покрыты regressions;
+  весь PRINT-STYLE-01 и physical acceptance этим slice не закрываются. Интеграция только
+  после успешного exact-head Release gate.
 - [ ] Один immutable style profile для PDF, Masterlog, планшетной печати и Office-экспорта:
   нейтральная техническая типографика, строгая сетка, сдержанный petroleum-blue accent,
   high-contrast текст, light technical fills, line-weight hierarchy и monochrome-safe semantics.
@@ -438,20 +446,49 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   palette и проверяет реальные QPainter pen/fill paths. Persisted form/project schema и source
   data не меняются. Весь PRINT-STYLE-01 остаётся открытым до оставшихся media/table/graph и
   physical acceptance критериев.
-- [ ] Обязательная document-control зона: well/project, interval, document number, revision,
-  status, prepared/checked/approved при доступности данных. Блок report date **не выводится по
-  умолчанию вообще** и появляется только после явного пользовательского ввода даты; часы/минуты и
-  автоматически подставленный generation timestamp в клиентской шапке не показываются. Полный
-  timestamp допускается только во внутреннем audit/provenance.
-- [ ] Единый печатный wordmark: **DIGITAL GEOLOG GASRATIO&PIXLER**. Написание хранится в одном
-  shared constant и одинаково используется в PDF, Masterlog, DOCX/XLSX и печатных формах.
-  Wordmark присутствует аккуратно в обложке/шапке и компактном подвале, но не дублируется
-  навязчиво внутри содержательных блоков.
-- [ ] Header/footer contract: логотип проекта/заказчика только из каталога assets, номер страницы,
-  confidentiality/status, document/revision; длинный текст не должен попадать поверх графиков.
-- [ ] Таблицы: компактные заголовки, alternating/background hierarchy без декоративной перегрузки,
-  повтор шапки, перенос строк, числовое выравнивание, единицы возле параметра и минимальная
-  читаемая кегль/высота строки.
+- [x] **Обязательная document-control зона:** один immutable `ReportDocumentControl` contract
+  применяется в interpretation PDF/DOCX/XLSX, generic HTML/DOCX/XLSX и автоматической зоне
+  Masterlog. При доступности данных зона содержит project/well, фактический output interval,
+  document number, revision, status и prepared/checked/approved; Masterlog берёт project из
+  session, well/dataset из текущего контекста/формы и интервал из задания печати. Сохранённая
+  presentation-подпись интервала не может подменить resolved analysis/output interval.
+  `report_date` отсутствует целиком при пустом значении и появляется только после явного
+  пользовательского ввода; acquisition/vendor/passport dates и автоматически сгенерированный
+  timestamp не подставляются в клиентскую шапку/подвал. Полный timestamp остаётся только во
+  внутреннем audit/provenance. RU/KK/EN, save/reopen, formula-like values и неизменность source
+  data покрыты существующими document-control regressions; physical-print acceptance остаётся
+  отдельным внешним этапом.
+- [x] **Единый печатный wordmark:** **DIGITAL GEOLOG GASRATIO&PIXLER** хранится только в
+  `geoworkbench.brand.REPORT_BRAND_WORDMARK`/`APPLICATION_DISPLAY_NAME` и используется
+  через shared visual/profile adapters в PDF, Masterlog, DOCX/XLSX и печатных формах.
+  Regression запрещает повторный hard-code полного canonical wordmark в production Python
+  вне `brand.py`; существующие production export tests проверяют фактический вывод бренда.
+- [x] **Header/footer contract:** customer/contractor logo в паспорте скважины можно назначить
+  только из project Logo Catalog; произвольный `session.image_assets` не предлагается UI и
+  отклоняется controller boundary при новом назначении. Неизменённая legacy raw-logo ссылка
+  сохраняется для backward compatibility до явного перевыбора. Остальная часть контракта
+  закрыта интегрированными footer slices: canonical wordmark/page number и
+  confidentiality/status/document/revision повторяются в применимых PDF/DOCX/XLSX/Masterlog
+  путях, длинные значения bounded/ellipsis и не перекрывают content/chart zones. RU/KK/EN
+  подсказки, catalog selection и controller guard покрыты regressions; physical-print
+  acceptance остаётся отдельным внешним этапом.
+- [x] **Таблицы:** shared Office adapters используют `ReportVisualProfile.table_pt`,
+  semantic header/alternating fills, wrapped text и numeric right alignment; физические единицы
+  остаются возле параметра/в отдельной Unit-колонке. DOCX table helpers помечают header row
+  `w:tblHeader`, запрещают разрыв строки через `w:cantSplit` и сохраняют естественный перенос.
+  Generic XLSX и geology XLSX повторяют print titles; широкие инженерные листы печатаются A4
+  landscape при 100% с horizontal pagination и повтором ключевой первой колонки вместо fit-to-one-page.
+  Geology XLSX дополнительно резервирует минимум 24 pt для wrapped header row и canonical
+  wordmark/page footer. Regression проверяет profile font/fills, alternating row, numeric alignment,
+  print-title rows/columns, A4 geometry и scale без изменения типизированных данных.
+- [x] **Masterlog curve-legend slice:** legend key повторяет сохранённую толщину и
+  solid/dash/dot/dash-dot style фактической кривой; point presentation использует общий
+  predicate тех же source/canonical identifiers. Label содержит resolved range и unit
+  привязанного канала, включая vendor mapping. Для отсутствующей кривой не рисуется
+  выдуманный key/unit. Отдельная clipped lane не перекрывает label в узких колонках;
+  сохранённые формы, массивы и policy ratio rendering не меняются. RU/KK/EN, A4/A3/roll
+  save/reopen/PDF и black-line regressions покрывают этот scope. Общий grayscale контракт
+  событий/интервалов и physical acceptance остаются открытыми; merge только после exact-head gate.
 - [ ] Графики/логи: цвет не является единственным кодом — используются dash/marker/label;
   шкалы и единицы печатаются явно; события/alarms/interpreted intervals сохраняют смысл в grayscale.
 - [x] **PRINT-STYLE-01/RPT-QA print readability slice:** OPUS/GasRatio interpretation charts используют readability-first pagination с целевым диапазоном около 100 м на лист и адаптивным физическим vertical scale вместо жёсткого ограничения 12 страниц; короткие остаточные страницы равномерно распределяются. Dense source rows проходят extrema-preserving print decimation после разрыва реальных depth gaps, поэтому узкие пики не исчезают и не превращаются в случайные длинные диагонали из-за `linspace`. Physical PDF spool допускает до 600 DPI, Masterlog рендерится по фактическому printer paint rect; контраст кривых/сетки и прозрачность interval bands настроены для печати.

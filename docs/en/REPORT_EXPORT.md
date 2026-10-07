@@ -63,6 +63,7 @@ contains a summary, candidates, manual intervals, methods/sources, and the compl
 The polished DOCX uses the same printable `ReportVisualProfile` as the other report adapters: the canonical wordmark, semantic colours, typography, table fills, and borders are not duplicated in a Word-only palette.
 
 Masterlog uses the same printable `ReportVisualProfile` for neutral page framing, grid, headings, ordinary text, placeholders, and service fills. Lithology, stratigraphy, LBA, user curve styles, and annotation colours remain domain/content semantics and are not recoloured by the profile.
+Geological XLSX table sheets print on A4 landscape at a physical 100% scale: wide engineering tables continue horizontally instead of being shrunk onto one unreadable page. The header row and first interval column repeat on every printed continuation page; long headings wrap within a reserved minimum row height, while numeric cells remain typed and right-aligned.
 
 This specialized report adds a preliminary interpretation: probable gas,
 probable liquid hydrocarbons, or mixed/indeterminate. It does not assign

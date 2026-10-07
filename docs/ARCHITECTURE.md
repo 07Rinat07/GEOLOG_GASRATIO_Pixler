@@ -458,8 +458,11 @@ backlog ARCH-07, а не второй утверждённой архитект�
 Реализованный WELL-01: необязательный `Well.passport` хранит `values`, `texts_i18n` и
 `logo_refs`. Числа/даты/координаты проходят проверку типов, конечности, диапазонов и порядка
 дат; пять строк конструкции A4 имеют общие диаметры/глубины и названия RU/KK/EN. Контроллер
-принимает независимый черновик атомарно, проверяет текущую скважину и доступность assets,
-обновляет `content_revision` и ревизии изменённых языков. Пустой активный паспорт авторитетен;
+принимает независимый черновик атомарно, проверяет текущую скважину и доступность assets.
+Новое назначение customer/contractor logo дополнительно обязано ссылаться на asset, зарегистрированный
+в project `logo_catalog`; произвольный raw image asset отклоняется. Уже сохранённая legacy raw-logo
+ссылка может остаться неизменённой при редактировании других полей, чтобы не ломать старые проекты.
+Контроллер обновляет `content_revision` и ревизии изменённых языков. Пустой активный паспорт авторитетен;
 `None` сохраняет старое разрешение полей через шаблон/LAS. Интервал печати и масштаб остаются
 в макете. Отсутствие ключа роли логотипа сохраняет логотип макета, пустая ссылка скрывает его.
 
@@ -860,6 +863,12 @@ helpers и simple tablet header/footer. Размеры Word переводятс
 Excel сохраняет числовые типы. Shared defaults относятся к presentation; пользовательские
 Masterlog element properties и source/candidate/domain values не переписываются.
 
+Geological `interpretation_report_office` table worksheets keep their authored column widths and
+print at A4 landscape / 100% with horizontal continuation pages. Row 1 and column A are repeated
+as print titles, the wrapped header reserves a readable minimum height, and canonical brand/page
+footer fields are repeated without converting numeric cells to text. This mirrors the generic
+Data/Parameters pagination policy instead of introducing a second fit-to-one-page rule.
+
 `printing/report_document_control.py` строит immutable localized groups control/context/approvals
 из cleaned `InterpretationReportIdentity`. Date row добавляется только из непустого user field;
 generation audit не является входом. PDF и polished DOCX cover адаптируют один snapshot; readable
@@ -937,3 +946,17 @@ text/service fills и missing-asset/error placeholders. Explicit colours сох�
 template, lithology/stratigraphy/LBA domain encoding, curve styles и annotation/callout style
 contracts остаются отдельными источниками истины и не подменяются profile palette. Это позволяет
 менять общую печатную систему без миграции форм, геологии или пользовательских стилей.
+Masterlog header defaults consume `modern_oilfield_report_profile()` at render time:
+page/frame roles, default text/line/image-slot colours, body/caption/table typography and
+physical rule weights. Point sizes convert to millimetres before the existing painter
+transform; the profile does not mutate persisted form properties. Explicit valid saved
+colour/background/font/line-width overrides retain precedence. Lithotype/LBA semantic
+swatches and intensity geometry remain domain-owned, including grayscale profile tests.
+The same header-element painter serves reusable tablet headers and full Masterlog output.
+
+Masterlog column legends resolve the same mapped CurveData and MasterlogCurveStyle as
+curve painting. `_curve_uses_point_presentation` shares source/canonical identifiers between
+the key and plot; `_MASTERLOG_CURVE_PEN_STYLES` shares line style mapping. A clipped key lane
+precedes the label, which retains the resolved numeric range and appends the bound channel's
+unit. Missing curves retain their mnemonic label without a fabricated key or unit. This
+render-only adapter does not mutate templates/data or change the ratio presentation policy.

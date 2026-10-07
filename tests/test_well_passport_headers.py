@@ -16,6 +16,7 @@ from geoworkbench.domain.well_passport import WellPassport
 from geoworkbench.printing.header_fields import resolve_header_asset_ref, resolve_header_field
 from geoworkbench.printing.masterlog_header_forms import masterlog_header_assets
 from geoworkbench.printing.masterlog_renderer import _header_text
+from geoworkbench.project.logo_catalog_controller import LogoCatalogController
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.project.well_passport_controller import WellPassportController
@@ -235,7 +236,12 @@ def test_passport_save_is_atomic_noop_safe_and_guards_changed_selection():
 def test_passport_logos_override_roles_without_rewriting_template_assets():
     session = make_session()
     asset = masterlog_header_assets()["bpservices"]
-    session.image_assets[asset.asset_id] = asset
+    entry = LogoCatalogController(session).create_from_asset(
+        asset,
+        name="BPServices — customer",
+        category="Customer",
+    )
+    assert entry.asset_id == asset.asset_id
     element = MasterlogHeaderElement(
         "image", "image", 0, 0, 10, 5, {"logo_role": "customer", "asset_ref": "original"}
     )

@@ -37,3 +37,16 @@ def test_legacy_display_names_are_not_present_in_product_text_sources() -> None:
             if legacy_name in searchable_text:
                 offenders.append(f"{path.relative_to(root)}: {legacy_name}")
     assert offenders == []
+
+
+def test_canonical_report_wordmark_literal_has_one_source_of_truth() -> None:
+    root = Path(__file__).resolve().parents[1]
+    canonical = "DIGITAL GEOLOG GASRATIO&PIXLER"
+    allowed = root / "src" / "geoworkbench" / "brand.py"
+    offenders: list[str] = []
+    for path in sorted((root / "src").rglob("*.py")):
+        if path == allowed:
+            continue
+        if canonical in path.read_text(encoding="utf-8"):
+            offenders.append(str(path.relative_to(root)))
+    assert offenders == []

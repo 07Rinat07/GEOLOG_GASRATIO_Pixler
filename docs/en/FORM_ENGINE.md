@@ -112,6 +112,11 @@ Changing orientation in the Print and Export Center switches the paired header a
 while manual override remains available. **Repeat column header at bottom** prints a compact
 copy of track names, scales, and units at the end of each sheet.
 
+Customer and contractor logos in the well passport are selected only from the project's **Logo
+Catalog**. An image loaded only as a technical image asset is not offered in that list; add it to
+Logo Catalog first. An already-saved legacy reference remains unchanged until the operator
+explicitly reselects a logo, so older projects can still be edited without data loss.
+
 
 ## Universal Print and Export Center
 
@@ -204,3 +209,7 @@ factory form for the active dataset, excludes only the compatibility-only hidden
 duplicate, and appends Ready and user documents from `FormRepository`. Browse, create, and save
 workflows no longer maintain separate curated lists, so form counts and identifiers are consistent
 throughout the application.
+
+Masterlog uses the shared print profile for default header backgrounds/borders, text and legend styling. Explicit form colours, font sizes and line widths take precedence; saved forms and geological symbols remain unchanged.
+
+Masterlog curve legends show the actual line key and bound channel unit beside the mnemonic and range. Saved dashed styles help distinguish curves in black-and-white print. Missing channels receive no invented key or unit.

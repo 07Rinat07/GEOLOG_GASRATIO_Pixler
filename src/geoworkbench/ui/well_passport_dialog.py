@@ -31,6 +31,7 @@ from geoworkbench.printing.header_fields import (
     editable_header_field_definitions,
     header_field_label,
 )
+from geoworkbench.project.logo_catalog_controller import LogoCatalogController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.project.well_passport_controller import WellPassportController
 from geoworkbench.services.localization import AppLanguage
@@ -66,8 +67,9 @@ _TEXT = {
         "no_logo": "Без логотипа",
         "missing_logo": "Сохранённый логотип недоступен",
         "logos_hint": (
-            "Можно выбрать изображение, уже добавленное в проект. Вариант «Использовать "
-            "логотип макета» сохраняет оформление шапки, включая BP Services по умолчанию."
+            "Логотип заказчика/исполнителя выбирается только из каталога логотипов проекта. "
+            "Обычные image assets в этот список не попадают. Вариант «Использовать логотип "
+            "макета» сохраняет оформление шапки, включая BP Services по умолчанию."
         ),
         "save": "Сохранить",
         "cancel": "Отмена",
@@ -75,7 +77,7 @@ _TEXT = {
         "invalid_hint": (
             "Используйте числа без единиц измерения, даты ГГГГ-ММ-ДД и координаты "
             "в десятичных градусах. Проверьте диапазоны, порядок дат и наличие логотипа "
-            "в проекте. Изменения не сохранены."
+            "в каталоге проекта. Изменения не сохранены."
         ),
     },
     AppLanguage.KK: {
@@ -106,16 +108,17 @@ _TEXT = {
         "no_logo": "Логотипсіз",
         "missing_logo": "Сақталған логотип қолжетімсіз",
         "logos_hint": (
-            "Жобаға бұрын қосылған суретті таңдауға болады. «Макет логотипін қолдану» "
-            "нұсқасы тақырып безендіруін, соның ішінде әдепкі BP Services логотипін сақтайды."
+            "Тапсырыс беруші/орындаушы логотипі тек жобаның логотиптер каталогынан таңдалады. "
+            "Кәдімгі image assets бұл тізімге кірмейді. «Макет логотипін қолдану» нұсқасы "
+            "тақырып безендіруін, соның ішінде әдепкі BP Services логотипін сақтайды."
         ),
         "save": "Сақтау",
         "cancel": "Бас тарту",
         "invalid": "Паспорт деректерін тексеріңіз",
         "invalid_hint": (
             "Өлшем бірлігінсіз сандарды, ЖЖЖЖ-АА-КК күндерін және ондық градустағы "
-            "координаттарды пайдаланыңыз. Ауқымдарды, күндердің ретін және жобада "
-            "логотиптің бар-жоғын тексеріңіз. Өзгерістер сақталмады."
+            "координаттарды пайдаланыңыз. Ауқымдарды, күндердің ретін және жоба "
+            "каталогында логотиптің бар-жоғын тексеріңіз. Өзгерістер сақталмады."
         ),
     },
     AppLanguage.EN: {
@@ -145,7 +148,8 @@ _TEXT = {
         "no_logo": "No logo",
         "missing_logo": "Saved logo unavailable",
         "logos_hint": (
-            "Choose an image already added to the project. “Use layout logo” retains the "
+            "Customer/contractor logos are selected only from the project Logo Catalog. "
+            "Ordinary image assets are not offered here. “Use layout logo” retains the "
             "header design, including the default BP Services logo."
         ),
         "save": "Save",
@@ -154,7 +158,7 @@ _TEXT = {
         "invalid_hint": (
             "Use numbers without units, YYYY-MM-DD dates and coordinates in decimal "
             "degrees. Check valid ranges, date order and that the logo exists in the "
-            "project. Changes have not been saved."
+            "project Logo Catalog. Changes have not been saved."
         ),
     },
 }
@@ -246,8 +250,12 @@ class WellPassportDialog(QDialog):
             combo.setObjectName(f"passport-logo-{role}")
             combo.addItem(self._text["default_logo"], None)
             combo.addItem(self._text["no_logo"], "")
-            for asset in sorted(session.image_assets.values(), key=lambda item: item.original_name):
-                combo.addItem(asset.original_name, asset.asset_id)
+            catalog = LogoCatalogController(session)
+            for item in catalog.items(self.language.value):
+                if item.factory or item.asset_id not in session.image_assets:
+                    continue
+                label = item.name + (f" — {item.category}" if item.category else "")
+                combo.addItem(label, item.asset_id)
             selected = self._draft.logo_refs.get(role)
             index = combo.findData(selected)
             if index < 0 and selected:

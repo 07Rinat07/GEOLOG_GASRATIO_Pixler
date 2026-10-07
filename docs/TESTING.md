@@ -690,11 +690,10 @@ false negative. До этого автоматический результат 
   expression hash и source;
 - canonical print wordmark — **DIGITAL GEOLOG GASRATIO&PIXLER** — одинаков в PDF, Masterlog,
   DOCX/XLSX и PDF creator metadata;
-- polished interpretation DOCX проверяется с подменённым `ReportVisualProfile`:
-  production OOXML обязан использовать semantic accent/text/muted colours, title/body/table
-  sizes, table header fill и border roles из профиля;
+- `tests/test_product_branding.py` дополнительно запрещает полный canonical wordmark literal во всех `src/**/*.py`, кроме `geoworkbench/brand.py`, чтобы новые adapters не создавали второй source of truth;
+- polished interpretation DOCX проверяется с подменённым `ReportVisualProfile`: production OOXML обязан использовать semantic accent/text/muted colours, title/body/table sizes, table header fill и border roles из профиля;
 - Masterlog neutral-chrome regression подменяет `ReportVisualProfile` и проверяет реальные
-  QPainter page/table-alt fills и text/border/border-strong/critical pens; lithology,
+  QPainter page/accent-soft placeholder fills и text/border/border-strong/critical pens; lithology,
   stratigraphy, LBA, user curve и annotation/callout colours остаются отдельными semantics;
 - fluid callout явно содержит тип флюида, а ambiguous/no-consensus не превращается в
   искусственно выбранный gas/oil class;
@@ -985,8 +984,11 @@ python scripts/run_tests.py -p no:cacheprovider tests/test_well_passport_storage
 
 Набор проверяет валидацию и no-op, отмену, выбор legacy-значений, миграцию конструкции,
 раздельность скважин и языков, JSON/пакет/перенос/pending recovery, потерянные assets,
-скрытие логотипа, обе A4-ориентации и фактическое содержимое PDF на RU/KK/EN. PDF-тест
-инициализирует Unicode-шрифты тем же способом, что точка входа приложения.
+скрытие логотипа, обе A4-ориентации и фактическое содержимое PDF на RU/KK/EN. Отдельные
+regressions подтверждают, что паспорт предлагает только catalog-backed customer/contractor
+logos, новый uncatalogued raw asset отклоняется controller boundary, а неизменённая legacy
+raw-logo ссылка остаётся совместимой при правке других полей. PDF-тест инициализирует
+Unicode-шрифты тем же способом, что точка входа приложения.
 Ручная проверка: «Файл → Паспорт скважины», заполнить общие поля и переводы, сохранить
 диалог и проект (Ctrl+S), открыть повторно и сравнить две ориентации в Центре печати.
 Физическую печать этот набор не подменяет.
@@ -1195,6 +1197,12 @@ Qt painter regression проверяет ширину wordmark рядом с н�
 Пункты толщины правил simple tablet header/footer переводятся по DPI устройства;
 regression проверяет неизменную физическую толщину при 72/96/144/300/600 DPI.
 
+Geology Office table regression в `tests/test_interpretation_report.py` проверяет все четыре
+XLSX table sheets: A4 landscape, physical 100% scale, horizontal pagination, repeat row 1/column A,
+минимум 24 pt для wrapped header, shared table font/header fill, alternating body fill,
+numeric right alignment и canonical wordmark + &P/&N footer. Существующие проверки продолжают
+подтверждать formula-like text safety и исходные типы/значения отчёта.
+
 Document-control slice проверяется `tests/test_report_document_control.py`: 12 production
 PDF/DOCX/XLSX комбинаций RU/KK/EN × standard/OPUS × empty/explicit date; authoritative
 analysis interval, source-array immutability и неизменный generation audit. Шесть real-workspace
@@ -1252,3 +1260,15 @@ Windows WITS operator-dashboard tests use the existing fresh-process-per-test po
 in `scripts/run_tests.py` after an observed 0xC0000005 in a large offscreen Qt shard.
 `test_windows_qt_test_isolation.py` verifies that every dashboard node is scheduled exactly
 once, outside the regular shard, in its own batch. All dashboard assertions remain intact.
+
+Masterlog visual-profile regressions (`test_masterlog_header_visual_profile.py`) substitute
+colour/grayscale profiles and typography/rule metrics, verify real QPainter output and
+explicit form overrides, then save/reopen and export A4/A3/roll PDF in RU/KK/EN. Vector PDF
+fills/borders and reusable header backgrounds must follow the injected profile; source
+curve arrays and the saved template remain unchanged. Physical print acceptance remains open.
+
+`test_masterlog_curve_legend.py` compares legend and plotted QPen colour/width/style for
+all four saved line styles, checks point predicate identifier parity, vendor-bound units,
+missing channels and narrow positive label rectangles. RU/KK/EN × A4/A3/roll project reopen
+exports inspect PDF dash geometry and real black-on-white QPainter output; persisted
+column properties and source arrays remain unchanged. Physical acceptance remains open.

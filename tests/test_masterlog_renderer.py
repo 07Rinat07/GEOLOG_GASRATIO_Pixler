@@ -91,6 +91,7 @@ def test_masterlog_neutral_chrome_uses_shared_report_profile(qapp, monkeypatch) 
             border="#405060",
             border_strong="#203040",
             table_alt="#E1E2E3",
+            accent_soft="#D1D2D3",
             critical="#A01020",
         ),
     )
@@ -192,7 +193,7 @@ def test_masterlog_neutral_chrome_uses_shared_report_profile(qapp, monkeypatch) 
         painter.end()
 
     assert visual.palette.page.casefold() in fill_colors
-    assert visual.palette.table_alt.casefold() in fill_colors
+    assert visual.palette.accent_soft.casefold() in fill_colors
     for value in (
         visual.palette.text,
         visual.palette.border,
