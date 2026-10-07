@@ -1,12 +1,13 @@
 <!-- runtime-contract: package=0.7.96; project=v37; form=v18; layout=v25 -->
 # Единый план проекта
 
-План актуализирован 7 октября 2026 года. Проверенная база текущего инкремента —
-`e3e9d80c` (PR #468). RPT-COMP-01 интегрирован: сохраняемый порядок и видимость
+План актуализирован 7 октября 2026 года. Проверенная база перед текущей сверкой —
+`9c3ec23c` (PR #471). RPT-COMP-01 интегрирован: сохраняемый порядок и видимость
 глубинных графических колонок применяются через одну renderer-neutral composition.
-Текущий инкремент PRINT-STYLE-01 переводит оформленный interpretation DOCX с локальных
-цветов/размеров на общий immutable ReportVisualProfile; общий Word footer с
-PAGE/NUMPAGES и ограниченными реквизитами уже интегрирован.
+В PRINT-STYLE-01 уже интегрированы общий immutable ReportVisualProfile для polished DOCX
+и single-source contract печатного wordmark. Текущий инкремент сверяет aggregate
+document-control acceptance с фактически интегрированными interpretation, generic и
+Masterlog export paths без дублирования renderer-specific логики.
 Статусы завершения
 ниже относятся к main после интеграции этого инкремента и успешного exact-head Release gate.
 Приложение сохраняет каноническую industrial-blue DIGITAL GEOLOG айдентику. WITS развивается
@@ -430,11 +431,18 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   приходит из того же immutable профиля. Production regression подменяет профиль и проверяет
   фактические OOXML colors/sizes/fills/borders, не меняя source data или footer contract.
   Весь PRINT-STYLE-01 этим slice не закрывается; media/header/table/graph acceptance остаётся ниже.
-- [ ] Обязательная document-control зона: well/project, interval, document number, revision,
-  status, prepared/checked/approved при доступности данных. Блок report date **не выводится по
-  умолчанию вообще** и появляется только после явного пользовательского ввода даты; часы/минуты и
-  автоматически подставленный generation timestamp в клиентской шапке не показываются. Полный
-  timestamp допускается только во внутреннем audit/provenance.
+- [x] **Обязательная document-control зона:** один immutable `ReportDocumentControl` contract
+  применяется в interpretation PDF/DOCX/XLSX, generic HTML/DOCX/XLSX и автоматической зоне
+  Masterlog. При доступности данных зона содержит project/well, фактический output interval,
+  document number, revision, status и prepared/checked/approved; Masterlog берёт project из
+  session, well/dataset из текущего контекста/формы и интервал из задания печати. Сохранённая
+  presentation-подпись интервала не может подменить resolved analysis/output interval.
+  `report_date` отсутствует целиком при пустом значении и появляется только после явного
+  пользовательского ввода; acquisition/vendor/passport dates и автоматически сгенерированный
+  timestamp не подставляются в клиентскую шапку/подвал. Полный timestamp остаётся только во
+  внутреннем audit/provenance. RU/KK/EN, save/reopen, formula-like values и неизменность source
+  data покрыты существующими document-control regressions; physical-print acceptance остаётся
+  отдельным внешним этапом.
 - [x] **Единый печатный wordmark:** **DIGITAL GEOLOG GASRATIO&PIXLER** хранится только в
   `geoworkbench.brand.REPORT_BRAND_WORDMARK`/`APPLICATION_DISPLAY_NAME` и используется
   через shared visual/profile adapters в PDF, Masterlog, DOCX/XLSX и печатных формах.
