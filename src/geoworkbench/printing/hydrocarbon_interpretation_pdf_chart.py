@@ -38,6 +38,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import (
     plan_depth_pages,
 )
 from geoworkbench.printing.depth_curve_segments import continuous_depth_segments
+from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.printing.unicode_support import print_font
 from geoworkbench.printing.interpretation_track_headings import (
     paint_track_heading,
@@ -124,8 +125,6 @@ _COLORS = (
 )
 _MIN_AXIS_LABEL_GAP_POINTS = 14.0
 _PRINT_CURVE_WIDTH = 1.25
-_PRINT_GRID_MINOR = "#d1d9e2"
-_PRINT_GRID_MAJOR = "#9eafbf"
 
 
 def render_chart_pages(
@@ -205,11 +204,12 @@ def _draw_chart_page(
     percentiles: dict[str, tuple[float, float]],
     language: AppLanguage,
 ) -> None:
+    palette = modern_oilfield_report_profile().palette
     labels = _labels(language)
     title_font = print_font(15.0, text=labels["title"])
     title_font.setBold(True)
     painter.setFont(title_font)
-    painter.setPen(QColor("#172033"))
+    painter.setPen(QColor(palette.text))
     painter.drawText(
         QRectF(
             geometry.page_rect.left(),
@@ -229,7 +229,7 @@ def _draw_chart_page(
         scale=page.scale_denominator,
     )
     painter.setFont(print_font(8.5, text=subtitle))
-    painter.setPen(QColor("#475569"))
+    painter.setPen(QColor(palette.text_secondary))
     painter.drawText(
         QRectF(
             geometry.page_rect.left(),
@@ -289,7 +289,7 @@ def _draw_chart_page(
             point_series=panel_name in {"ratios", "opus"},
         )
 
-    painter.setPen(QColor("#475569"))
+    painter.setPen(QColor(palette.text_secondary))
     painter.setFont(print_font(6.8, text=labels["note"]))
     painter.drawText(
         geometry.note_rect,
@@ -309,15 +309,16 @@ def _draw_depth_axis(
     side: str,
     language: AppLanguage,
 ) -> None:
+    palette = modern_oilfield_report_profile().palette
     labels = _labels(language)
-    painter.fillRect(rect, QColor("#f8fafc"))
-    painter.setPen(QPen(QColor("#334155"), 0.9))
+    painter.fillRect(rect, QColor(palette.table_alt))
+    painter.setPen(QPen(QColor(palette.border_strong), 0.9))
     painter.drawRect(rect)
     title = labels["depth"] + (f", {unit}" if unit else "")
     title_font = print_font(7.0, text=title)
     title_font.setBold(True)
     painter.setFont(title_font)
-    painter.setPen(QColor("#172033"))
+    painter.setPen(QColor(palette.text))
     painter.drawText(
         QRectF(rect.left() - 2.0, rect.top() - 28.0, rect.width() + 4.0, 18.0),
         Qt.AlignmentFlag.AlignCenter,
@@ -329,7 +330,7 @@ def _draw_depth_axis(
     painter.setFont(print_font(6.7, text=f"{page.bottom_depth:.1f}"))
     for value in ticks:
         y = _depth_y(value, page, rect)
-        painter.setPen(QPen(QColor("#64748b"), 0.6))
+        painter.setPen(QPen(QColor(palette.text_muted), 0.6))
         if side == "left":
             painter.drawLine(QLineF(rect.right() - 8.0, y, rect.right(), y))
             text_rect = QRectF(
@@ -348,9 +349,9 @@ def _draw_depth_axis(
                 14.0,
             )
             alignment = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
-        painter.setPen(QColor("#334155"))
+        painter.setPen(QColor(palette.border_strong))
         painter.drawText(text_rect, alignment, _depth_label(value, step))
-    painter.setPen(QPen(QColor("#334155"), 0.9))
+    painter.setPen(QPen(QColor(palette.border_strong), 0.9))
     painter.drawRect(rect)
 
 
@@ -368,18 +369,19 @@ def _draw_panel(
     header_height: float = CHART_TRACK_HEADER_HEIGHT,
     show_candidate_codes: bool = False,
 ) -> None:
-    painter.fillRect(rect, QColor("#ffffff"))
+    palette = modern_oilfield_report_profile().palette
+    painter.fillRect(rect, QColor(palette.page))
     step = _nice_tick_step(page.span, target_ticks=8)
     for tick in _depth_ticks(page, step):
         y = _depth_y(tick, page, rect)
-        painter.setPen(QPen(QColor(_PRINT_GRID_MINOR), 0.55))
+        painter.setPen(QPen(QColor(palette.border), 0.55))
         painter.drawLine(QLineF(rect.left(), y, rect.right(), y))
     for index in range(5):
         x = rect.left() + index / 4.0 * rect.width()
-        painter.setPen(QPen(QColor("#d8e0e8"), 0.5))
+        painter.setPen(QPen(QColor(palette.border), 0.5))
         painter.drawLine(QLineF(x, rect.top(), x, rect.bottom()))
         painter.setFont(print_font(5.8, text="100"))
-        painter.setPen(QColor("#64748b"))
+        painter.setPen(QColor(palette.text_muted))
         label_left = (
             rect.left() + 2.0 if index == 0 else rect.right() - 30.0 if index == 4 else x - 14.0
         )
@@ -404,7 +406,7 @@ def _draw_panel(
         heading, 7.5,
     )
     if not any(curve.metadata.curve_id in ranges for curve in curves):
-        painter.setPen(QColor("#64748b"))
+        painter.setPen(QColor(palette.text_muted))
         label = _labels(language)["no_data"]
         painter.setFont(print_font(8.0, text=label))
         painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, label)
@@ -418,7 +420,7 @@ def _draw_panel(
             ranges,
             point_series=panel_name in {"ratios", "opus"},
         )
-    painter.setPen(QPen(QColor("#334155"), 1.0))
+    painter.setPen(QPen(QColor(palette.border_strong), 1.0))
     painter.drawRect(rect)
 
 
@@ -431,6 +433,7 @@ def _draw_candidate_bands(
     show_codes: bool = False,
 ) -> None:
     """Draw prospect bands with a non-colour marker/code cue for grayscale output."""
+    palette = modern_oilfield_report_profile().palette
 
     for candidate in candidates:
         top_depth = candidate.top_depth
@@ -463,7 +466,7 @@ def _draw_candidate_bands(
             size=5.0,
         )
         code_rect = QRectF(marker_x + 4.5, center_y - 5.5, 19.0, 11.0)
-        painter.setPen(QColor("#172033"))
+        painter.setPen(QColor(palette.text))
         font = print_font(5.2, text=spec.code)
         font.setBold(True)
         painter.setFont(font)
@@ -692,6 +695,7 @@ def _draw_legend(
     display_hints: dict[str, str] | None = None,
     point_series: bool | None = None,
 ) -> None:
+    palette = modern_oilfield_report_profile().palette
     gap = 8.0
     width = (legend_rect.width() - gap * (panel_count - 1)) / panel_count
     column = QRectF(
@@ -744,7 +748,7 @@ def _draw_legend(
             language,
             canonical_hint=canonical_hint,
         )
-        painter.setPen(QColor("#172033"))
+        painter.setPen(QColor(palette.text))
         painter.setFont(print_font(5.9, text=text))
         painter.drawText(
             QRectF(column.left() + 21.0, y, column.width() - 21.0, 12.0),

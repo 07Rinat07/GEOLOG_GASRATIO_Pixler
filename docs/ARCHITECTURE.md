@@ -994,3 +994,5 @@ paint devices render point coordinates with device-DPI compensation, while PNG r
 pixel-coordinate contract. Catalog geology colours/patterns and LBA symbols remain semantic
 inputs; only renderer-owned page/text/border roles use the report palette. Existing bounded
 ellipsis, full-symbol pagination and immutable geology/source snapshots remain authoritative.
+
+Interpretation PDF chart adapters resolve one immutable palette snapshot per painter function. Page/header fills, neutral text and structural strokes use semantic roles; curve series, fluid classifications and ratio reference colours retain their existing contracts. This palette slice does not alter geometry, typography or stored styles.
