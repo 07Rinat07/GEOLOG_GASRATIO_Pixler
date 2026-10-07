@@ -987,3 +987,10 @@ DOCX add identity text in the existing type cell to preserve table geometry; XLS
 the existing 17-column schema and Event ID in column Q. Only presentation strings change:
 raw enum persistence, event selection, numeric/QC values and classification audit remain
 domain-owned. The report service does not import a Qt/printing adapter to resolve labels.
+
+The shared interpretation geology-legend painter now resolves neutral chrome and caption/table
+sizes from `ReportVisualProfile`. Measurement and painting use the same font helper: paged
+paint devices render point coordinates with device-DPI compensation, while PNG retains its
+pixel-coordinate contract. Catalog geology colours/patterns and LBA symbols remain semantic
+inputs; only renderer-owned page/text/border roles use the report palette. Existing bounded
+ellipsis, full-symbol pagination and immutable geology/source snapshots remain authoritative.

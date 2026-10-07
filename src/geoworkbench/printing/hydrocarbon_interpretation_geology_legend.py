@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from PySide6.QtCore import QRectF, Qt
-from PySide6.QtGui import QColor, QFontMetricsF, QPaintDevice, QPainter, QPen
+from PySide6.QtGui import QColor, QFont, QFontMetricsF, QPaintDevice, QPagedPaintDevice, QPainter, QPen
 
 from geoworkbench.printing.geology_track_rendering import paint_lba_intensity_symbol
 from geoworkbench.printing.hydrocarbon_interpretation_geology import (
@@ -17,6 +17,7 @@ from geoworkbench.printing.lba_visuals import (
     resolve_lba_type_style,
 )
 from geoworkbench.printing.unicode_support import print_font
+from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.services.lba_standard import (
     LBA_ADDITIONAL_COLORS,
     LBA_STANDARD_GROUPS,
@@ -248,7 +249,7 @@ def paginate_geology_legend(
         raise ValueError("Geology legend page must fit a complete bounded row")
     pages: list[InterpretationGeologyLegend] = []
     current: tuple[GeologyLegendItem, ...] = ()
-    for row in _legend_rows(width, legend, compact=compact):
+    for row in _legend_rows(width, legend):
         candidate = InterpretationGeologyLegend((*current, *row))
         if current and geology_legend_height(
             width, candidate, compact=compact, paint_device=paint_device,
@@ -278,19 +279,20 @@ def paint_geology_legend(
     if legend.empty or rect.width() <= 0.0 or rect.height() <= 0.0:
         return
 
+    visual = modern_oilfield_report_profile()
     painter.save()
     painter.setClipRect(rect)
-    painter.fillRect(rect, QColor("#ffffff"))
-    painter.setPen(QPen(QColor("#cbd5e1"), 0.55))
+    painter.fillRect(rect, QColor(visual.palette.page))
+    painter.setPen(QPen(QColor(visual.palette.border), visual.layout.thin_rule_pt))
     painter.drawRect(rect)
 
     top = rect.top() + 3.0
     if legend.items:
         title = _labels(language)["title"]
-        font = print_font(7.2, text=title)
+        font = _legend_font(visual.typography.caption_pt, title, painter.device())
         font.setBold(True)
         painter.setFont(font)
-        painter.setPen(QColor("#172033"))
+        painter.setPen(QColor(visual.palette.text))
         title_height = _legend_heading_height(rect.width(), "title", painter.device())
         painter.drawText(
             QRectF(rect.left() + 4.0, top, rect.width() - 8.0, title_height),
@@ -299,7 +301,7 @@ def paint_geology_legend(
         )
         top += title_height
 
-    columns = _legend_columns(rect.width(), compact=compact)
+    columns = _legend_columns(rect.width())
     cell_width = rect.width() / columns
     row_heights = _legend_row_heights(
         rect.width(),
@@ -307,18 +309,18 @@ def paint_geology_legend(
         compact=compact,
         paint_device=painter.device(),
     )
-    font_size = 6.2 if compact else 6.6
+    font_size = _legend_body_size(compact)
     previous_kind: LegendKind | None = None
     for row, height in zip(
-        _legend_rows(rect.width(), legend, compact=compact), row_heights, strict=True,
+        _legend_rows(rect.width(), legend), row_heights, strict=True,
     ):
         kind = row[0].kind
         if kind != previous_kind:
             title = _labels(language)[kind]
-            font = print_font(6.8, text=title)
+            font = _legend_font(visual.typography.caption_pt, title, painter.device())
             font.setBold(True)
             painter.setFont(font)
-            painter.setPen(QColor("#475569"))
+            painter.setPen(QColor(visual.palette.text_secondary))
             section_height = _legend_heading_height(rect.width(), kind, painter.device())
             painter.drawText(
                 QRectF(rect.left() + 4.0, top, rect.width() - 8.0, section_height),
@@ -349,6 +351,7 @@ def _paint_legend_item(
     font_size: float,
     compact: bool,
 ) -> None:
+    visual = modern_oilfield_report_profile()
     marker_width = 0.0 if item.kind == "reference" else 20.0
     marker = QRectF(
         rect.left() + 3.0,
@@ -366,7 +369,7 @@ def _paint_legend_item(
                 item.pattern_key,
             ),
         )
-        painter.setPen(QPen(QColor("#334155"), 0.45))
+        painter.setPen(QPen(QColor(visual.palette.border_strong), visual.layout.thin_rule_pt / 2.0))
         painter.drawRect(marker)
     elif item.kind in {"lba-type", "lba-intensity"}:
         paint_lba_intensity_symbol(
@@ -378,17 +381,17 @@ def _paint_legend_item(
             item.intensity,
         )
     elif item.kind != "reference":
-        painter.setPen(QPen(QColor("#64748b"), 0.45))
+        painter.setPen(QPen(QColor(visual.palette.border), visual.layout.thin_rule_pt / 2.0))
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawRoundedRect(marker, 2.0, 2.0)
-        painter.setFont(print_font(5.7, text=item.code))
-        painter.setPen(QColor("#172033"))
+        painter.setFont(_legend_font(max(5.0, visual.typography.caption_pt - 1.5), item.code, painter.device()))
+        painter.setPen(QColor(visual.palette.text))
         painter.drawText(marker, Qt.AlignmentFlag.AlignCenter, item.code)
 
     text = _legend_item_text(item, compact=compact)
-    font = print_font(font_size, text=text)
+    font = _legend_font(font_size, text, painter.device())
     painter.setFont(font)
-    painter.setPen(QColor("#172033"))
+    painter.setPen(QColor(visual.palette.text))
     text_rect = QRectF(
         rect.left() + marker_width + 2.0,
         rect.top() + 1.0,
@@ -417,10 +420,8 @@ def _legend_item_text(
 def _legend_rows(
     width: float,
     legend: InterpretationGeologyLegend,
-    *,
-    compact: bool,
 ) -> tuple[tuple[GeologyLegendItem, ...], ...]:
-    columns = _legend_columns(width, compact=compact)
+    columns = _legend_columns(width)
     rows: list[tuple[GeologyLegendItem, ...]] = []
     for kind in _LEGEND_KINDS:
         items = tuple(item for item in legend.items if item.kind == kind)
@@ -435,7 +436,7 @@ def _legend_row_heights(
     compact: bool,
     paint_device: QPaintDevice | None = None,
 ) -> tuple[float, ...]:
-    columns = _legend_columns(width, compact=compact)
+    columns = _legend_columns(width)
     cell_width = width / columns
     text_width = max(1.0, cell_width - 25.0)
     heights: list[float] = []
@@ -444,11 +445,11 @@ def _legend_row_heights(
         | Qt.AlignmentFlag.AlignVCenter
         | Qt.TextFlag.TextWordWrap
     )
-    for row_items in _legend_rows(width, legend, compact=compact):
+    for row_items in _legend_rows(width, legend):
         measured = 0.0
         for item in row_items:
             text = _legend_item_text(item, compact=False)
-            font = print_font(6.2 if compact else 6.6, text=text)
+            font = _legend_font(_legend_body_size(compact), text, paint_device)
             metrics = (
                 QFontMetricsF(font, paint_device)
                 if paint_device is not None else QFontMetricsF(font)
@@ -491,10 +492,12 @@ def _fit_legend_text(
     return text[:low].rstrip() + "…"
 
 
-def _legend_columns(width: float, *, compact: bool) -> int:
-    target = 88.0 if compact else 120.0
-    maximum = 10 if compact else 8
-    return max(1, min(maximum, int(width // target)))
+def _legend_columns(width: float) -> int:
+    # Both modes share a readable column width; caption size and row bounds
+    # make compact rows shorter without causing extra horizontal wrapping.
+    typography = modern_oilfield_report_profile().typography
+    target = 16.0 * max(typography.table_pt, typography.caption_pt)
+    return max(1, min(8, int(width // target)))
 
 
 def _legend_heading_height(
@@ -505,7 +508,7 @@ def _legend_heading_height(
     height = 16.0 if key == "title" else _SECTION_HEIGHT
     for language in AppLanguage:
         text = _labels(language)[key]
-        font = print_font(7.2 if key == "title" else 6.8, text=text)
+        font = _legend_font(modern_oilfield_report_profile().typography.caption_pt, text, paint_device)
         font.setBold(True)
         metrics = QFontMetricsF(font, paint_device) if paint_device else QFontMetricsF(font)
         bounds = metrics.boundingRect(
@@ -514,6 +517,20 @@ def _legend_heading_height(
         )
         height = max(height, bounds.height() + 3.0)
     return height
+
+
+def _legend_body_size(compact: bool) -> float:
+    typography = modern_oilfield_report_profile().typography
+    return typography.caption_pt if compact else typography.table_pt
+
+
+def _legend_font(points: float, text: str, device: QPaintDevice | None) -> QFont:
+    font = print_font(points, text=text)
+    # Paged renderers scale point coordinates to device pixels. Compensate font
+    # sizing once; PNG painters retain their existing pixel-coordinate contract.
+    if isinstance(device, QPagedPaintDevice):
+        font.setPointSizeF(points * 72.0 / device.logicalDpiY())
+    return font
 
 
 def _lba_color_name(code: str, language: AppLanguage) -> str:

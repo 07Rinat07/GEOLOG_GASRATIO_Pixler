@@ -2,11 +2,12 @@
 # Единый план проекта
 
 План актуализирован 8 октября 2026 года. Проверенная база перед текущим инкрементом —
-`d3bc9937` (PR #480). RPT-COMP-01 интегрирован; gas-context track и единые клиентские
-ID/type/impact labels интегрированы через #479/#480. Текущий slice завершает автоматическую
-сквозную приёмку signed MD/TVD/TVDSS: transactional editor, JSON/package reopen,
-selected standard/OPUS, реальные HTML/PDF/DOCX/XLSX и отказ без мутации при неверных
-границах/оси. Production policy не меняется; физическая и полевая приёмка остаются отдельно.
+`432f8a5e` (PR #481). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
+приёмка интегрированы. Текущий PRINT-STYLE-01 slice переводит neutral chrome и typography
+геологических легенд PDF/PNG на общий visual profile; paged painters получают физические
+point sizes без повторного DPI scale. Catalog lithology/LBA semantics и source data не меняются.
+WITS-NET-01 остаётся внешним условием: пользователь уточняет существующий VPN, доступа
+для настройки сейчас нет. Разработка остальных независимых задач продолжается.
 Статусы завершения
 ниже относятся к main после интеграции этого инкремента и успешного exact-head Release gate.
 Приложение сохраняет каноническую industrial-blue DIGITAL GEOLOG айдентику. WITS развивается
@@ -393,6 +394,18 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   RU/KK/EN, A4/A3/roll, project save/reopen, PDF и reusable header покрыты regressions;
   весь PRINT-STYLE-01 и physical acceptance этим slice не закрываются. Интеграция только
   после успешного exact-head Release gate.
+- [x] **Geology-legend visual-profile slice:** общий painter геологических легенд
+  interpretation PDF и PNG/HTML preview использует semantic page/text/border roles,
+  thin-rule weights и caption/table typography из `modern_oilfield_report_profile`.
+  Измерение и рисование текста используют один font helper; paged PDF/system-print
+  devices компенсируют DPI в point coordinates, а PNG сохраняет pixel-coordinate contract.
+  Полная/компактная легенда и bounded ellipsis/pagination работают с тем же профилем.
+  Общая ширина колонок учитывает typography; caption и меньшие row bounds сохраняют
+  компактный режим ниже полного без дополнительного переноса из-за узкой сетки.
+  Catalog lithology colours/patterns, LBA type/intensity/fluorescence semantics и source
+  arrays не перекрашиваются. RU/KK/EN, реальные PDF 72/300/600 DPI, colour/grayscale profile
+  substitution и production standard/OPUS PDF/PNG после reopen покрыты regressions.
+  Интеграция после exact-head gate; остальные chart/media paths и physical acceptance открыты.
 - [ ] Один immutable style profile для PDF, Masterlog, планшетной печати и Office-экспорта:
   нейтральная техническая типографика, строгая сетка, сдержанный petroleum-blue accent,
   high-contrast текст, light technical fills, line-weight hierarchy и monochrome-safe semantics.
