@@ -996,3 +996,5 @@ inputs; only renderer-owned page/text/border roles use the report palette. Exist
 ellipsis, full-symbol pagination and immutable geology/source snapshots remain authoritative.
 
 Interpretation PDF chart adapters resolve one immutable palette snapshot per painter function. Page/header fills, neutral text and structural strokes use semantic roles; curve series, fluid classifications and ratio reference colours retain their existing contracts. This palette slice does not alter geometry, typography or stored styles.
+
+`report_painter_fonts.point_coordinate_font` validates positive finite sizes and compensates device DPI only for paged painters using physical point coordinates. Interpretation headings opt into that contract explicitly; legacy pixel callers retain their old sizing. Geology legends reuse the adapter. Chart-owned grids/ticks/frames resolve shared thin/half-thin/strong rules without changing semantic curve/reference/candidate pens. Ratio headers reserve their internal scale-label band independently of wrapped heading height.

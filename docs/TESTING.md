@@ -1321,3 +1321,5 @@ unchanged. Existing legend/readability tests cover complete code decoding, long 
 explicit ellipsis and large-catalog pagination; physical printer acceptance remains external.
 
 `tests/test_interpretation_chart_visual_profile.py` checks 24 real multipage PDF cases: standard/enhanced, RU/KK/EN, A4 portrait/landscape and colour/grayscale profiles. Distinct substituted palette roles must appear in actual fills, strokes and text; source curve colours, arrays and metadata remain unchanged.
+
+`tests/test_interpretation_heading_rule_profile.py` covers invalid physical font sizes, unchanged pixel-preview fonts, real wrapped RU/KK/EN headings at 72/300/600 DPI and actual standard/enhanced multipage A4 portrait/landscape PDFs under custom typography/rule profiles. It checks full heading text, reserved bounds, physical point sizes/line widths and unchanged source arrays; remaining non-heading chart typography and physical printer acceptance are separate scopes.

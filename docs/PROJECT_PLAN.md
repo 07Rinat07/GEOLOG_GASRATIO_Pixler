@@ -415,6 +415,19 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   RU/KK/EN с colour/grayscale profile substitution проверяют output paths и неизменность
   source arrays. Typography/rule hierarchy остальных chart paths и physical acceptance
   остаются открытыми; интеграция только после successful exact-head Release gate.
+- [x] **Interpretation heading/rule profile slice:** PDF track headings используют
+  table/caption typography общего visual profile; измерение и рисование разделяют
+  point-coordinate font adapter с DPI compensation на QPdfWriter/QPrinter. Тот же
+  adapter обслуживает geology legend без изменения её поведения; legacy pixel PNG
+  callers сохраняют прежний sizing contract через default heading mode.
+  Neutral heading text получает semantic text role. Major/minor grid, axis ticks,
+  lane/frame borders используют thin/half-thin/strong rule hierarchy; source curve,
+  reference, candidate и marker pens остаются содержательными и не переписываются.
+  Ratio header budget отдельно резервирует строки внутренней шкалы, поэтому длинный
+  заголовок не перекрывает её. Реальные RU/KK/EN PDF 72/300/600 DPI, A4 portrait/landscape,
+  profile substitution, invalid-size validation и pixel-preview compatibility покрыты
+  regressions. Остальные title/body/axis-label/marker fonts и physical acceptance
+  остаются открытыми; интеграция только после successful exact-head Release gate.
 - [ ] Один immutable style profile для PDF, Masterlog, планшетной печати и Office-экспорта:
   нейтральная техническая типографика, строгая сетка, сдержанный petroleum-blue accent,
   high-contrast текст, light technical fills, line-weight hierarchy и monochrome-safe semantics.

@@ -169,3 +169,5 @@ Negative depths are supported on MD/TVD/TVDSS depth axes. Events retain their si
 Geological legends in PDF and PNG previews use shared print fonts, backgrounds and borders. Full legends use table text size; compact legends use caption size. PDF retains physical point sizes at high DPI. Lithology colours/patterns and LBA type/intensity symbols remain unchanged. Long labels wrap or use an explicit ellipsis; the full legend moves to separate pages when needed.
 
 Standard/OPUS PDF chart backgrounds, grids, frames and neutral labels use the shared visual profile. Source curve colours and semantic interval markers are retained.
+
+PDF track headings use shared typography and retain physical size at 72–600 DPI. Major/minor grids and frames use a common line-weight hierarchy; ratio headings reserve space above internal scales. Other chart labels and physical-printer acceptance remain separate scopes.
