@@ -496,12 +496,32 @@ def _write_table(
         worksheet.append(protect_spreadsheet_row(row))
     worksheet.freeze_panes = "A2"
     worksheet.auto_filter.ref = worksheet.dimensions
+    # Keep engineering tables at their physical 100% scale and paginate wide
+    # content horizontally instead of shrinking every column onto one sheet.
+    worksheet.print_title_rows = "$1:$1"
+    worksheet.print_title_cols = "$A:$A"
+    worksheet.page_setup.paperSize = worksheet.PAPERSIZE_A4
+    worksheet.page_setup.orientation = worksheet.ORIENTATION_LANDSCAPE
+    worksheet.page_setup.fitToWidth = 0
+    worksheet.page_setup.fitToHeight = 0
+    worksheet.page_setup.scale = 100
+    worksheet.sheet_properties.pageSetUpPr.fitToPage = True
+    worksheet.oddFooter.left.text = visual.brand_wordmark.replace("&", "&&")
+    worksheet.oddFooter.right.text = "&P / &N"
+    worksheet.row_dimensions[1].height = max(
+        24.0,
+        visual.typography.table_pt * 3.6,
+    )
     for cell in worksheet[1]:
         cell.font = Font(
             bold=True, size=visual.typography.table_pt, color=visual.palette.text.lstrip("#")
         )
         cell.fill = PatternFill("solid", fgColor=visual.palette.table_header.lstrip("#"))
-        cell.alignment = Alignment(wrap_text=True, vertical="top")
+        cell.alignment = Alignment(
+            horizontal="center",
+            vertical="center",
+            wrap_text=True,
+        )
     for row in worksheet.iter_rows(min_row=2):
         for cell in row:
             cell.font = Font(size=visual.typography.table_pt, color=visual.palette.text.lstrip("#"))
