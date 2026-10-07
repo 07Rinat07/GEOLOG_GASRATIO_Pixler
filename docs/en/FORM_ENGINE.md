@@ -211,3 +211,5 @@ workflows no longer maintain separate curated lists, so form counts and identifi
 throughout the application.
 
 Masterlog uses the shared print profile for default header backgrounds/borders, text and legend styling. Explicit form colours, font sizes and line widths take precedence; saved forms and geological symbols remain unchanged.
+
+Masterlog curve legends show the actual line key and bound channel unit beside the mnemonic and range. Saved dashed styles help distinguish curves in black-and-white print. Missing channels receive no invented key or unit.

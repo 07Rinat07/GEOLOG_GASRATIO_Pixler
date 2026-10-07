@@ -1263,3 +1263,9 @@ colour/grayscale profiles and typography/rule metrics, verify real QPainter outp
 explicit form overrides, then save/reopen and export A4/A3/roll PDF in RU/KK/EN. Vector PDF
 fills/borders and reusable header backgrounds must follow the injected profile; source
 curve arrays and the saved template remain unchanged. Physical print acceptance remains open.
+
+`test_masterlog_curve_legend.py` compares legend and plotted QPen colour/width/style for
+all four saved line styles, checks point predicate identifier parity, vendor-bound units,
+missing channels and narrow positive label rectangles. RU/KK/EN × A4/A3/roll project reopen
+exports inspect PDF dash geometry and real black-on-white QPainter output; persisted
+column properties and source arrays remain unchanged. Physical acceptance remains open.
