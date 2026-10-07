@@ -5,7 +5,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_curve_selection import cha
 from math import ceil, floor, log10
 
 import numpy as np
-from PySide6.QtCore import QLineF, QRectF, Qt
+from PySide6.QtCore import QLineF, QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QPainter, QPen
 
 from geoworkbench.domain.report_composition import (
@@ -16,6 +16,10 @@ from geoworkbench.domain.models import CurveData, Dataset
 from geoworkbench.printing.hydrocarbon_interpretation_curve_labels import (
     curve_legend_text,
     report_curve_label_hints,
+)
+from geoworkbench.printing.hydrocarbon_fluid_markers import (
+    draw_fluid_marker,
+    fluid_marker_spec,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_curve_selection import report_curve_panels
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_canvas import PageCanvas
@@ -36,6 +40,7 @@ from geoworkbench.printing.interpretation_track_headings import (
     track_heading_height,
 )
 from geoworkbench.services.hydrocarbon_interpretation import (
+    HydrocarbonCandidateInterval,
     HydrocarbonInterpretationReport,
 )
 from geoworkbench.services.localization import AppLanguage
@@ -244,10 +249,7 @@ def _draw_chart_page(
         side="right",
         language=language,
     )
-    intervals = tuple(
-        (candidate.top_depth, candidate.bottom_depth)
-        for candidate in report.candidates
-    )
+    candidates = report.candidates
     display_hints = report_curve_label_hints(report)
     for panel_index, ((panel_name, curves), rect) in enumerate(
         zip(panels, geometry.panel_rects, strict=True)
@@ -260,9 +262,10 @@ def _draw_chart_page(
             panel_name,
             curves,
             ranges,
-            intervals,
+            candidates,
             language,
             header_height=geometry.track_header_height,
+            show_candidate_codes=panel_index == len(panels) - 1,
         )
         _draw_legend(
             painter,
@@ -349,10 +352,11 @@ def _draw_panel(
     panel_name: str,
     curves: tuple[CurveData, ...],
     ranges: dict[str, tuple[float, float]],
-    intervals: tuple[tuple[float, float], ...],
+    candidates: tuple[HydrocarbonCandidateInterval, ...],
     language: AppLanguage,
     *,
     header_height: float = CHART_TRACK_HEADER_HEIGHT,
+    show_candidate_codes: bool = False,
 ) -> None:
     painter.fillRect(rect, QColor("#ffffff"))
     step = _nice_tick_step(page.span, target_ticks=8)
@@ -375,7 +379,13 @@ def _draw_panel(
             str(index * 25),
         )
 
-    _draw_interval_bands(painter, rect, page, intervals)
+    _draw_candidate_bands(
+        painter,
+        rect,
+        page,
+        candidates,
+        show_codes=show_candidate_codes,
+    )
     heading = _labels(language)[panel_name]
     paint_track_heading(
         painter,
@@ -402,29 +412,55 @@ def _draw_panel(
     painter.drawRect(rect)
 
 
-def _draw_interval_bands(
+def _draw_candidate_bands(
     painter: QPainter,
     rect: QRectF,
     page: DepthPage,
-    intervals: tuple[tuple[float, float], ...],
+    candidates: tuple[HydrocarbonCandidateInterval, ...],
+    *,
+    show_codes: bool = False,
 ) -> None:
-    for top_depth, bottom_depth in intervals:
+    """Draw prospect bands with a non-colour marker/code cue for grayscale output."""
+
+    for candidate in candidates:
+        top_depth = candidate.top_depth
+        bottom_depth = candidate.bottom_depth
         overlap_top = max(page.top_depth, min(top_depth, bottom_depth))
         overlap_bottom = min(page.bottom_depth, max(top_depth, bottom_depth))
         if overlap_bottom <= overlap_top:
             continue
         y1 = _depth_y(overlap_top, page, rect)
         y2 = _depth_y(overlap_bottom, page, rect)
-        color = QColor("#f59e0b")
-        color.setAlpha(42)
-        painter.fillRect(
-            QRectF(
-                rect.left(),
-                min(y1, y2),
-                rect.width(),
-                max(1.0, abs(y2 - y1)),
-            ),
-            color,
+        spec = fluid_marker_spec(candidate.fluid_hypothesis)
+        color = QColor(spec.color)
+        color.setAlpha(36)
+        band = QRectF(
+            rect.left(),
+            min(y1, y2),
+            rect.width(),
+            max(1.0, abs(y2 - y1)),
+        )
+        painter.fillRect(band, color)
+        if not show_codes:
+            continue
+
+        center_y = band.center().y()
+        marker_x = rect.right() - 25.0
+        draw_fluid_marker(
+            painter,
+            QPointF(marker_x, center_y),
+            spec,
+            size=5.0,
+        )
+        code_rect = QRectF(marker_x + 4.5, center_y - 5.5, 19.0, 11.0)
+        painter.setPen(QColor("#172033"))
+        font = print_font(5.2, text=spec.code)
+        font.setBold(True)
+        painter.setFont(font)
+        painter.drawText(
+            code_rect,
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            spec.code,
         )
 
 

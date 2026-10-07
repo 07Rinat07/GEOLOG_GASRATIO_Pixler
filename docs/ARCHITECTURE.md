@@ -908,6 +908,12 @@ interval on every depth/column page. Partial final pages retain physical depth s
 searchable PDF text, elided and clipped to the band/footer. Legacy forms without control
 metadata retain their geometry; source arrays and custom header coordinates are unchanged.
 
+Standard interpretation PDF chart panels retain `HydrocarbonCandidateInterval` objects to the
+paint boundary instead of collapsing them to depth tuples. Candidate bands use the shared
+`FluidMarkerSpec`; the final chart column adds shape + short code at the interval midpoint.
+This is a presentation-only grayscale safeguard: depth, hypothesis, evidence, calculations,
+and source curves remain untouched. Enhanced/OPUS charts already use the same marker contract.
+
 The interpretation PDF/system-print renderer resolves one `ReportDocumentControl` snapshot
 into `PageCanvas`. `compact_report_footer` provides the repeated document/revision/status/
 confidentiality text; date and audit timestamps are excluded. Nonempty details reserve an
@@ -940,6 +946,12 @@ so Word can apply the shared body styles rather than relying on built-in style n
 half-point typography, borders и fills. Footer остаётся отдельным shared adapter, поэтому
 визуальная система и document-control contract развиваются независимо и не дублируют источник истины.
 
+`printing/masterlog_renderer.py` использует тот же `ReportVisualProfile` только для
+renderer-owned neutral chrome: page background, structural borders, grid, headings, neutral
+text/service fills и missing-asset/error placeholders. Explicit colours сохранённого header
+template, lithology/stratigraphy/LBA domain encoding, curve styles и annotation/callout style
+contracts остаются отдельными источниками истины и не подменяются profile palette. Это позволяет
+менять общую печатную систему без миграции форм, геологии или пользовательских стилей.
 Masterlog header defaults consume `modern_oilfield_report_profile()` at render time:
 page/frame roles, default text/line/image-slot colours, body/caption/table typography and
 physical rule weights. Point sizes convert to millimetres before the existing painter

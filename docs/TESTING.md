@@ -692,6 +692,9 @@ false negative. До этого автоматический результат 
   DOCX/XLSX и PDF creator metadata;
 - `tests/test_product_branding.py` дополнительно запрещает полный canonical wordmark literal во всех `src/**/*.py`, кроме `geoworkbench/brand.py`, чтобы новые adapters не создавали второй source of truth;
 - polished interpretation DOCX проверяется с подменённым `ReportVisualProfile`: production OOXML обязан использовать semantic accent/text/muted colours, title/body/table sizes, table header fill и border roles из профиля;
+- Masterlog neutral-chrome regression подменяет `ReportVisualProfile` и проверяет реальные
+  QPainter page/accent-soft placeholder fills и text/border/border-strong/critical pens; lithology,
+  stratigraphy, LBA, user curve и annotation/callout colours остаются отдельными semantics;
 - fluid callout явно содержит тип флюида, а ambiguous/no-consensus не превращается в
   искусственно выбранный gas/oil class;
 - dense adjacent callouts остаются внутри track bounds; для A4/A3 выполняются visual/PDF
@@ -1185,6 +1188,11 @@ python -m pytest -q -p no:cacheprovider `
 ```
 
 The runtime regression specifically guards against debounce advancing on repeated UI refreshes, catches up every DATA_ROW in a drained batch even when the plot is paused/frozen, ignores unrelated record rows, resets pending debounce on an explicit missing channel sample, preserves active alarms through missing input, isolates duplicate canonical mnemonics by curve ID, covers derived-channel catch-up through `source-records` provenance while ignoring unrelated WITS records, and verifies acknowledgement without alarm clearing. It also verifies bounded factual activation/clear history, preservation of CLEAR+ACTIVATE on a direct opposite-side crossing, no fabricated event when a rule is seeded from an existing value, time/depth row-to-axis lookup, one audio cue for a batch containing one or more audio-enabled activations, no replay on an empty/repeated refresh, visual-policy filtering and red activation/green clear threshold markers.
+
+PRINT-STYLE-01 standard grayscale candidate regression in
+`tests/test_interpretation_report_charts.py` drives the production band painter with a real
+`HydrocarbonCandidateInterval` and asserts three independent cues: filled depth band, fluid
+marker geometry, and short text code. The test does not alter classification or source values.
 
 PRINT-STYLE-01 shared-adapter regressions: `tests/test_print_style_shared_adapters.py`
 экспортирует geological HTML/PDF/DOCX/XLSX на RU/KK/EN через production entry points.

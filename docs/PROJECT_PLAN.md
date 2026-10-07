@@ -2,7 +2,7 @@
 # Единый план проекта
 
 План актуализирован 7 октября 2026 года. Проверенная база перед текущим инкрементом —
-`559ce01c` (PR #477). RPT-COMP-01 интегрирован. PRINT-STYLE-01 имеет общий visual profile,
+`b899651e` (PR #475). RPT-COMP-01 интегрирован. PRINT-STYLE-01 имеет общий visual profile,
 document-control и фактические curve legend keys. Текущий slice подключает рамки колонок,
 major/minor grid и типографику шкалы глубин Masterlog к общему профилю, сохраняя настройки
 сетки и физическую геометрию глубины.
@@ -437,6 +437,14 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   приходит из того же immutable профиля. Production regression подменяет профиль и проверяет
   фактические OOXML colors/sizes/fills/borders, не меняя source data или footer contract.
   Весь PRINT-STYLE-01 этим slice не закрывается; media/header/table/graph acceptance остаётся ниже.
+- [x] **Masterlog neutral-chrome slice:** renderer-owned page background, outer/frame borders,
+  grid, column headings, neutral labels, image placeholders, descriptive/service fills и structural
+  borders берутся из `modern_oilfield_report_profile()`. Explicit template header colours,
+  lithotype/stratigraphy/LBA semantics, user curve styles и annotation/callout style contracts
+  остаются авторитетными и не перекрашиваются общим профилем. Regression подменяет semantic
+  palette и проверяет реальные QPainter pen/fill paths. Persisted form/project schema и source
+  data не меняются. Весь PRINT-STYLE-01 остаётся открытым до оставшихся media/table/graph и
+  physical acceptance критериев.
 - [x] **Обязательная document-control зона:** один immutable `ReportDocumentControl` contract
   применяется в interpretation PDF/DOCX/XLSX, generic HTML/DOCX/XLSX и автоматической зоне
   Masterlog. При доступности данных зона содержит project/well, фактический output interval,
@@ -472,6 +480,12 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   Geology XLSX дополнительно резервирует минимум 24 pt для wrapped header row и canonical
   wordmark/page footer. Regression проверяет profile font/fills, alternating row, numeric alignment,
   print-title rows/columns, A4 geometry и scale без изменения типизированных данных.
+- [x] **Standard interpretation grayscale-candidate slice:** standard PDF больше не
+  превращает candidates в голые `(top, bottom)` перед renderer boundary. Полоса перспективного
+  интервала сохраняет semantic colour, а на последней графической колонке дополнительно получает
+  общий `FluidMarkerSpec` shape + short code (`G`, `L/GC`, `LO`, `L`, `?`) на фактической
+  глубине. Поэтому предварительный тип флюида остаётся различимым при grayscale/монохромной печати;
+  таблицы сохраняют полную формулировку, source classification и расчёты не меняются.
 - [x] **Masterlog curve-legend slice:** legend key повторяет сохранённую толщину и
   solid/dash/dot/dash-dot style фактической кривой; point presentation использует общий
   predicate тех же source/canonical identifiers. Label содержит resolved range и unit
