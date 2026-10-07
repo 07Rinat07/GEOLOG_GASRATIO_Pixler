@@ -556,7 +556,7 @@ def test_dense_ratio_preview_uses_bounded_continuous_line_geometry(qapp) -> None
     assert painter.lines < 2_000
     assert painter.ellipses == 0
 
-def test_standard_pdf_candidate_band_keeps_shape_and_code_for_grayscale() -> None:
+def test_standard_pdf_candidate_band_keeps_shape_and_code_for_grayscale(qapp) -> None:
     class RecordingPainter:
         def __init__(self) -> None:
             self.fills = 0
