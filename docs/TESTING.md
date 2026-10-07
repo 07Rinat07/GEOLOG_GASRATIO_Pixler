@@ -690,6 +690,7 @@ false negative. До этого автоматический результат 
   expression hash и source;
 - canonical print wordmark — **DIGITAL GEOLOG GASRATIO&PIXLER** — одинаков в PDF, Masterlog,
   DOCX/XLSX и PDF creator metadata;
+- `tests/test_product_branding.py` дополнительно запрещает полный canonical wordmark literal во всех `src/**/*.py`, кроме `geoworkbench/brand.py`, чтобы новые adapters не создавали второй source of truth;
 - polished interpretation DOCX проверяется с подменённым `ReportVisualProfile`: production OOXML обязан использовать semantic accent/text/muted colours, title/body/table sizes, table header fill и border roles из профиля;
 - fluid callout явно содержит тип флюида, а ambiguous/no-consensus не превращается в
   искусственно выбранный gas/oil class;
