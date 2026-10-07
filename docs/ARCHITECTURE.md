@@ -6,7 +6,7 @@
 
 ## Архитектурный стиль
 
-DIGITAL DIGITAL GEOLOG GASRATIO&PIXLER — desktop-модульный монолит на Python 3.11, PySide6, PyQtGraph и NumPy.
+DIGITAL GEOLOG GASRATIO&PIXLER — desktop-модульный монолит на Python 3.11, PySide6, PyQtGraph и NumPy.
 Модульность определяется направлением зависимостей и контрактами, а не количеством процессов.
 
 ```text
@@ -924,3 +924,9 @@ to the same adapter. Date/audit timestamps are excluded; full values remain in b
 
 The interpretation package explicitly relates styles.xml as well as the footer and audit parts,
 so Word can apply the shared body styles rather than relying on built-in style names.
+
+`data/hydrocarbon_interpretation_export_docx_polished.py` также не владеет собственной
+палитрой: при сериализации cover/narrative/table OOXML он разрешает
+`modern_oilfield_report_profile()` и отображает semantic roles профиля в Word colours,
+half-point typography, borders и fills. Footer остаётся отдельным shared adapter, поэтому
+визуальная система и document-control contract развиваются независимо и не дублируют источник истины.
