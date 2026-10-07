@@ -2,10 +2,11 @@
 # Единый план проекта
 
 План актуализирован 8 октября 2026 года. Проверенная база перед текущим инкрементом —
-`2f05a2a4` (PR #479). RPT-COMP-01 интегрирован. Общая дорожка эффективного газового
-контекста реализована в PDF и PNG/HTML preview. Текущий slice связывает клиентские
-HTML/PDF/DOCX/XLSX таблицы с теми же event codes и RU/KK/EN названиями, добавляет
-читаемый Event ID в HTML/Word и локализует влияние события без изменения source/audit.
+`d3bc9937` (PR #480). RPT-COMP-01 интегрирован; gas-context track и единые клиентские
+ID/type/impact labels интегрированы через #479/#480. Текущий slice завершает автоматическую
+сквозную приёмку signed MD/TVD/TVDSS: transactional editor, JSON/package reopen,
+selected standard/OPUS, реальные HTML/PDF/DOCX/XLSX и отказ без мутации при неверных
+границах/оси. Production policy не меняется; физическая и полевая приёмка остаются отдельно.
 Статусы завершения
 ниже относятся к main после интеграции этого инкремента и успешного exact-head Release gate.
 Приложение сохраняет каноническую industrial-blue DIGITAL GEOLOG айдентику. WITS развивается
@@ -230,12 +231,18 @@ QC-разницу. Source curves не подменяются; confirmed hard exc
 - [ ] Для других ручных QC-величин кроме Total Gas определить конкретные поля/единицы и
   совместимый persistence/export contract. В текущем `GasContextEvent` есть только
   `reported_total_gas`/`reported_unit`; измеренные C1–C5 не считаются ручным вводом.
-- [ ] Завершить сквозную приёмку отрицательных глубин: `DepthInterval`, `GasContextEvent`
-  и editor уже принимают отрицательные конечные границы; неотрицательное ограничение снято.
-  Общий контракт должен принимать валидный отрицательный диапазон поддерживаемой оси,
-  сохранять/reopen события и применять тот же context в выбранных standard/OPUS отчётах.
-  Regression отдельно проверяет TVDSS, неизвестную/другую ось, NaN/inf, обратные и
-  внедиапазонные границы; исправление не заменяется отключением валидации.
+- [x] Автоматическая сквозная приёмка отрицательных глубин: `DepthInterval`,
+  `GasContextEvent` и transactional editor сохраняют signed MD/TVD/TVDSS без clamping.
+  `tests/test_gas_context_negative_depth_acceptance.py` проверяет JSON/package reopen,
+  выбранный standard/OPUS interval и реальные HTML/PDF, оба DOCX, XLSX на RU/KK/EN:
+  те же event ID/границы, измеренный TG и ручной QC/delta, числовые Excel cells,
+  неизменность source arrays/registry/candidates/audit. UI TVDSS покрыт отдельно.
+  NaN/inf и обратные события отклоняются до изменения working registry; обратные,
+  внедиапазонные и нечисловые analysis bounds отклоняются до изменения проекта.
+  Time axis не используется как depth; чужая MD и неоднозначная legacy unknown axis
+  не применяют context к TVDSS. Event registry остаётся well-wide и не обрезается
+  диапазоном одного dataset; диапазон валидирует выбранный analysis interval.
+  Интеграция после exact-head Release gate; полевая/физическая приёмка не закрыта.
 
 - [x] Ввести явный `InterpretationImpact` минимум из трёх режимов:
   **exclude geological interpretation**, **operational/technological gas**, **formation gas**;

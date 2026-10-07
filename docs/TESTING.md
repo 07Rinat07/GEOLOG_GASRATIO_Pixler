@@ -1299,3 +1299,14 @@ remain text, and depth/TG/QC cells remain numeric. PDF assertions allow natural 
 source arrays, registry, candidates and suppressed audit evidence remain unchanged.
 
 Existing gas-context print-track regressions retain all 13 event-code/type labels in RU/KK/EN.
+
+## Signed-depth gas-context acceptance
+
+`tests/test_gas_context_negative_depth_acceptance.py` проверяет отрицательные MD/TVD/TVDSS
+через transactional editor, JSON/package save/reopen, выбранный standard/OPUS interval
+и реальные HTML/PDF, обычный/оформленный Word, Excel на RU/KK/EN. Проверяются event ID,
+границы, measured TG/manual QC/delta, числовые ячейки и неизменность источников/audit.
+Отдельно проверяются UI TVDSS без clamping, отказ add/update при NaN/inf/обратных границах,
+analysis range validation, time-axis rejection и неприменение чужой/неоднозначной legacy оси.
+Well-wide события могут выходить за диапазон одного dataset; ограничение относится к
+выбранному analysis interval. Этот автоматический gate не заменяет физическую/полевую приёмку.
