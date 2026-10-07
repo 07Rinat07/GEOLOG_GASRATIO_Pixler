@@ -6,9 +6,11 @@ import pytest
 from PySide6.QtWidgets import QDialog, QTextEdit
 
 from geoworkbench.domain.models import MasterlogTemplate, Well
-from geoworkbench.domain.well_passport import WellPassport
+from geoworkbench.domain.well_passport import PassportValidationError, WellPassport
 from geoworkbench.printing.image_assets import ImageAsset
+from geoworkbench.project.logo_catalog_controller import LogoCatalogController
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.project.well_passport_controller import WellPassportController
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.ui.well_passport_dialog import WellPassportDialog
 
@@ -195,17 +197,72 @@ def test_passport_dialog_logo_selection_is_staged_and_explicit(qapp) -> None:
     asset = ImageAsset(
         f"sha256:{sha256(payload).hexdigest()}", "Customer.png", "image/png", payload
     )
-    session.image_assets[asset.asset_id] = asset
+    entry = LogoCatalogController(session).create_from_asset(
+        asset, name="Customer logo", category="Customer"
+    )
+    session.dirty = False
     dialog = WellPassportDialog(session)
     customer = dialog.logo_inputs["customer"]
-    customer.setCurrentIndex(customer.findData(asset.asset_id))
+    selected_index = customer.findData(asset.asset_id)
+    assert selected_index >= 0
+    assert "Customer logo" in customer.itemText(selected_index)
+    customer.setCurrentIndex(selected_index)
     dialog.logo_inputs["contractor"].setCurrentIndex(1)
     assert session.current_well.passport is None
     assert not session.dirty
     dialog.accept()
 
     assert session.current_well.passport.logo_refs == {"customer": asset.asset_id, "contractor": ""}
+    assert session.project.logo_catalog[entry.logo_id].asset_id == asset.asset_id
     assert session.image_assets == {asset.asset_id: asset}
+
+
+def test_passport_dialog_does_not_offer_uncatalogued_image_asset(qapp) -> None:
+    session = make_session()
+    payload = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+    )
+    asset = ImageAsset(
+        f"sha256:{sha256(payload).hexdigest()}", "Loose.png", "image/png", payload
+    )
+    session.image_assets[asset.asset_id] = asset
+
+    dialog = WellPassportDialog(session)
+
+    assert dialog.logo_inputs["customer"].findData(asset.asset_id) == -1
+    assert dialog.logo_inputs["contractor"].findData(asset.asset_id) == -1
+    assert session.project.logo_catalog == {}
+
+
+def test_passport_controller_rejects_new_raw_logo_and_preserves_legacy_reference() -> None:
+    session = make_session()
+    payload = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+    )
+    asset = ImageAsset(
+        f"sha256:{sha256(payload).hexdigest()}", "Legacy.png", "image/png", payload
+    )
+    session.image_assets[asset.asset_id] = asset
+    controller = WellPassportController(session)
+
+    with pytest.raises(PassportValidationError, match="logo catalog"):
+        controller.save(WellPassport(logo_refs={"customer": asset.asset_id}))
+    assert session.current_well.passport is None
+
+    session.current_well.passport = WellPassport(logo_refs={"customer": asset.asset_id})
+    session.dirty = False
+    controller = WellPassportController(session)
+    saved = controller.save(
+        WellPassport(
+            values={"header.actual_depth": 100.0},
+            logo_refs={"customer": asset.asset_id},
+        )
+    )
+
+    assert saved.logo_refs == {"customer": asset.asset_id}
+    assert session.current_well.passport.logo_refs == {"customer": asset.asset_id}
+    assert session.current_well.passport.values["header.actual_depth"] == 100.0
+    assert session.dirty
 
 
 def test_construction_adoption_is_staged_and_keeps_language_versions_separate(qapp) -> None:

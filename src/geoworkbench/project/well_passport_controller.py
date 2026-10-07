@@ -82,10 +82,23 @@ class WellPassportController:
     def save(self, draft: WellPassport) -> WellPassport:
         well = self._require_well()
         normalized = validate_passport(draft)
+        previous = well.passport
+        catalog_asset_ids = {
+            entry.asset_id for entry in self._project.logo_catalog.values()
+        }
         for role, asset_ref in normalized.logo_refs.items():
             if asset_ref and asset_ref not in self.session.image_assets:
                 raise PassportValidationError(role, "The selected logo is unavailable")
-        previous = well.passport
+            previous_ref = previous.logo_refs.get(role) if previous is not None else None
+            if (
+                asset_ref
+                and asset_ref not in catalog_asset_ids
+                and asset_ref != previous_ref
+            ):
+                raise PassportValidationError(
+                    role,
+                    "The selected logo must come from the project logo catalog",
+                )
         if normalized != previous:
             well.passport = normalized
             well.content_revision += 1

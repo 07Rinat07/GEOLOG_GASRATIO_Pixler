@@ -112,6 +112,11 @@ Changing orientation in the Print and Export Center switches the paired header a
 while manual override remains available. **Repeat column header at bottom** prints a compact
 copy of track names, scales, and units at the end of each sheet.
 
+Customer and contractor logos in the well passport are selected only from the project's **Logo
+Catalog**. An image loaded only as a technical image asset is not offered in that list; add it to
+Logo Catalog first. An already-saved legacy reference remains unchanged until the operator
+explicitly reselects a logo, so older projects can still be edited without data loss.
+
 
 ## Universal Print and Export Center
 
