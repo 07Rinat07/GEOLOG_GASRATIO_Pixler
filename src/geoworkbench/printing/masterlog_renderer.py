@@ -352,8 +352,12 @@ def paint_masterlog(
         target.y() + (target.height() - size.height() * scale) / 2.0,
     )
     painter.scale(scale, scale)
-    painter.fillRect(QRectF(0.0, 0.0, size.width(), size.height()), Qt.GlobalColor.white)
-    painter.setPen(QPen(QColor("#111827"), 0.25))
+    visual = modern_oilfield_report_profile()
+    painter.fillRect(
+        QRectF(0.0, 0.0, size.width(), size.height()),
+        QColor(visual.palette.page),
+    )
+    painter.setPen(QPen(QColor(visual.palette.border_strong), 0.25))
     painter.drawRect(QRectF(0.0, 0.0, size.width(), size.height()))
     painter.drawLine(
         QLineF(0.0, template.header_height_mm, size.width(), template.header_height_mm)
@@ -522,8 +526,9 @@ def paint_masterlog_header(
         )
         painter.scale(scale, scale)
         canvas = QRectF(0.0, 0.0, size.width(), size.height())
-        painter.fillRect(canvas, Qt.GlobalColor.white)
-        painter.setPen(QPen(QColor("#111827"), 0.25))
+        visual = modern_oilfield_report_profile()
+        painter.fillRect(canvas, QColor(visual.palette.page))
+        painter.setPen(QPen(QColor(visual.palette.border_strong), 0.25))
         painter.drawRect(canvas)
         depth_range = masterlog_depth_range(session)
         for element in template.header_elements:
@@ -873,9 +878,10 @@ def _paint_header_element(
     language: AppLanguage,
     lithotype_catalog: dict[str, CatalogLithotype],
 ) -> None:
+    visual = modern_oilfield_report_profile()
     rect = QRectF(element.x_mm, element.y_mm, element.width_mm, element.height_mm)
     if element.element_type == "line":
-        painter.setPen(_pen(element.properties, "#334155", 0.6))
+        painter.setPen(_pen(element.properties, visual.palette.border_strong, 0.6))
         painter.drawLine(rect.topLeft(), rect.bottomRight())
         return
     if element.element_type == "image":
@@ -904,7 +910,7 @@ def _paint_header_element(
             )
             if element.properties.get("frame") is True:
                 painter.setPen(
-                    QPen(_color(element.properties.get("frame_color"), "#64748b"), 0.35)
+                    QPen(_color(element.properties.get("frame_color"), visual.palette.border), 0.35)
                 )
                 painter.drawRect(rect)
         else:
@@ -934,12 +940,12 @@ def _paint_header_element(
         _paint_lba_legend(painter, rect, element.properties, language)
         return
     text = _header_text(element, session, template, language)
-    color = _color(element.properties.get("color"), "#0f172a")
+    color = _color(element.properties.get("color"), visual.palette.text)
     raw_background = element.properties.get("background")
     if isinstance(raw_background, str) and QColor(raw_background).isValid():
         painter.fillRect(rect, QColor(raw_background))
     if element.properties.get("frame") is True:
-        painter.setPen(QPen(_color(element.properties.get("frame_color"), "#334155"), 0.35))
+        painter.setPen(QPen(_color(element.properties.get("frame_color"), visual.palette.border_strong), 0.35))
         painter.drawRect(rect)
     size = element.properties.get("font_size_mm", 3.5)
     font_size = (
@@ -978,10 +984,11 @@ def _paint_image_placeholder(
 
     painter.save()
     try:
-        background_value = properties.get("background", "#f8fafc")
+        visual = modern_oilfield_report_profile()
+        background_value = properties.get("background", visual.palette.table_alt)
         background = QColor(str(background_value))
-        painter.fillRect(rect, background if background.isValid() else QColor("#f8fafc"))
-        frame_color = _color(properties.get("frame_color"), "#64748b")
+        painter.fillRect(rect, background if background.isValid() else QColor(visual.palette.table_alt))
+        frame_color = _color(properties.get("frame_color"), visual.palette.border)
         painter.setPen(QPen(frame_color, 0.35, Qt.PenStyle.DashLine))
         painter.drawRect(rect)
         painter.drawLine(rect.topLeft(), rect.bottomRight())
@@ -1028,10 +1035,11 @@ def _paint_lithotype_swatch(
 ) -> None:
     lithotype_id = properties.get("lithotype_id")
     lithotype = catalog.get(lithotype_id) if isinstance(lithotype_id, str) else None
+    visual = modern_oilfield_report_profile()
     if lithotype is None:
         painter.save()
         try:
-            painter.setPen(QPen(QColor("#dc2626"), 0.3, Qt.PenStyle.DashLine))
+            painter.setPen(QPen(QColor(visual.palette.critical), 0.3, Qt.PenStyle.DashLine))
             painter.drawRect(rect)
             painter.drawLine(rect.topLeft(), rect.bottomRight())
             painter.drawLine(rect.topRight(), rect.bottomLeft())
@@ -1054,7 +1062,7 @@ def _paint_lithotype_swatch(
         pattern_rect,
         masterlog_lithology_brush(painter, lithotype.color, lithotype.pattern_key),
     )
-    painter.setPen(QPen(QColor("#64748b"), 0.25))
+    painter.setPen(QPen(QColor(visual.palette.border), 0.25))
     painter.drawRect(pattern_rect)
     if mode != "pattern_only":
         name = lithotype.localized_name(language.value)
@@ -1209,7 +1217,8 @@ def _paint_lithology_legend(
     font_size = max(1.0, min(font_size, 8.0))
     show_code = properties.get("show_code", True)
     show_code = show_code if isinstance(show_code, bool) else True
-    color = _color(properties.get("color"), "#0f172a")
+    visual = modern_oilfield_report_profile()
+    color = _color(properties.get("color"), visual.palette.text)
     titles = {
         AppLanguage.RU: "ЛИТОЛОГИЧЕСКАЯ ЛЕГЕНДА",
         AppLanguage.KK: "ЛИТОЛОГИЯЛЫҚ ШАРТТЫ БЕЛГІЛЕР",
@@ -1224,7 +1233,7 @@ def _paint_lithology_legend(
     content = rect.adjusted(0.0, title_height, 0.0, 0.0)
     painter.save()
     painter.setClipRect(rect)
-    painter.setPen(QPen(QColor("#64748b"), 0.2))
+    painter.setPen(QPen(QColor(visual.palette.border_strong), 0.2))
     painter.drawRect(rect)
     title_font = QFont()
     title_font.setBold(True)
@@ -1261,7 +1270,7 @@ def _paint_lithology_legend(
         swatch_width = min(8.0, max(3.0, cell_width * 0.2))
         swatch = cell.adjusted(0.5, 0.5, -(cell.width() - swatch_width), -0.5)
         painter.fillRect(swatch, masterlog_lithology_brush(painter, entry.color, entry.pattern_key))
-        painter.setPen(QPen(QColor("#475569"), 0.15))
+        painter.setPen(QPen(QColor(visual.palette.border), 0.15))
         painter.drawRect(swatch)
         label = f"{entry.code} — {entry.name}" if show_code else entry.name
         painter.setPen(color)
@@ -1343,7 +1352,8 @@ def _paint_lba_legend(
         if isinstance(raw_size, (int, float)) and not isinstance(raw_size, bool)
         else 2.4
     )
-    color = _color(properties.get("color"), "#0f172a")
+    visual = modern_oilfield_report_profile()
+    color = _color(properties.get("color"), visual.palette.text)
     title_height = min(5.0, max(2.5, rect.height() * 0.18))
     body = rect.adjusted(0.8, title_height + 0.4, -0.8, -0.6)
     left = QRectF(body.left(), body.top(), body.width() * 0.58, body.height())
@@ -1351,7 +1361,7 @@ def _paint_lba_legend(
 
     painter.save()
     painter.setClipRect(rect)
-    painter.setPen(QPen(QColor("#64748b"), 0.2))
+    painter.setPen(QPen(QColor(visual.palette.border_strong), 0.2))
     painter.drawRect(rect)
     title_font = QFont()
     title_font.setBold(True)
@@ -1395,7 +1405,7 @@ def _paint_lba_legend(
             max(0.8, row.height() * 0.7),
         )
         painter.fillRect(swatch, QColor(style.color))
-        painter.setPen(QPen(QColor("#475569"), 0.15))
+        painter.setPen(QPen(QColor(visual.palette.border), 0.15))
         painter.drawRect(swatch)
         painter.setPen(color)
         painter.drawText(
@@ -1467,10 +1477,11 @@ def _paint_columns(
         visible_cuttings = render_context.cuttings_index.overlapping(*depth_range)
         visible_lithology = render_context.lithology_index.overlapping(*depth_range)
         visible_stratigraphy = render_context.stratigraphy_index.overlapping(*depth_range)
+    visual = modern_oilfield_report_profile()
     annotation_columns: list[tuple[MasterlogColumnTemplate, QRectF]] = []
     for column in columns:
         rect = QRectF(x, top, column.width_mm, size.height() - top)
-        painter.setPen(QPen(QColor("#334155"), 0.25))
+        painter.setPen(QPen(QColor(visual.palette.border_strong), 0.25))
         painter.drawRect(rect)
         painter.drawLine(QLineF(x, top + header_height, x + column.width_mm, top + header_height))
         _paint_column_heading(
@@ -1601,9 +1612,10 @@ def _paint_column_grid(
 ) -> None:
     if not column.grid_print or (not column.grid_x and not column.grid_y):
         return
-    major_color = QColor("#64748b")
+    visual = modern_oilfield_report_profile()
+    major_color = QColor(visual.palette.border_strong)
     major_color.setAlphaF(column.grid_alpha)
-    minor_color = QColor("#94a3b8")
+    minor_color = QColor(visual.palette.border)
     minor_color.setAlphaF(column.grid_alpha * 0.45)
     normalized_lines = normalized_grid_lines(
         column.grid_major_divisions,
@@ -1691,10 +1703,11 @@ def _paint_column_heading(
     dataset: Dataset | None,
     bindings: dict[str, str],
 ) -> None:
+    visual = modern_oilfield_report_profile()
     title_font = QFont()
     _set_scaled_font_points(painter, title_font, 6.5)
     painter.setFont(title_font)
-    painter.setPen(QColor("#0f172a"))
+    painter.setPen(QColor(visual.palette.text))
     orientation = str(column.properties.get("title_orientation", "horizontal"))
     position = str(column.properties.get("title_position", "center"))
     if not column.show_legend or not column.curve_mnemonics:
@@ -1850,6 +1863,7 @@ def _paint_lithology_column(
     *,
     intervals: Sequence[LithologyInterval] | None = None,
 ) -> None:
+    visual = modern_oilfield_report_profile()
     well = session.current_well
     if well is None:
         return
@@ -1866,14 +1880,14 @@ def _paint_lithology_column(
         color = definition.color if definition is not None else "#b0b0b0"
         pattern = definition.pattern_key if definition is not None else "solid"
         painter.fillRect(interval_rect, masterlog_lithology_brush(painter, color, pattern))
-        painter.setPen(QPen(QColor("#334155"), 0.2))
+        painter.setPen(QPen(QColor(visual.palette.border_strong), 0.2))
         painter.drawRect(interval_rect)
         if (
             interval_rect.height() >= 4.0
             and bool(column.properties.get("show_interval_labels", False))
         ):
             label = definition.code if definition is not None else interval.lithotype_id
-            painter.setPen(QColor("#0f172a"))
+            painter.setPen(QColor(visual.palette.text))
             painter.drawText(
                 interval_rect.adjusted(0.5, 0.25, -0.5, -0.25),
                 Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
@@ -1917,6 +1931,7 @@ def _paint_stratigraphy_column(
     *,
     intervals: Sequence[StratigraphyInterval] | None = None,
 ) -> None:
+    visual = modern_oilfield_report_profile()
     well = session.current_well
     if well is None:
         return
@@ -1952,14 +1967,14 @@ def _paint_stratigraphy_column(
         if not color.isValid():
             color = QColor("#dbeafe")
         painter.fillRect(interval_rect, color)
-        painter.setPen(QPen(QColor("#334155"), 0.2))
+        painter.setPen(QPen(QColor(visual.palette.border_strong), 0.2))
         painter.drawRect(interval_rect)
         if interval_rect.height() >= 3.0:
             interval_name = localized_text(
                 interval.name_i18n, language, legacy=interval.name
             )
             text = "\n".join(value for value in (interval.code, interval_name) if value)
-            painter.setPen(QColor("#0f172a"))
+            painter.setPen(QColor(visual.palette.text))
             _paint_stratigraphy_label(
                 painter,
                 interval_rect,
@@ -1980,6 +1995,7 @@ def _paint_cuttings_column(
     *,
     samples: Sequence[CuttingsSample] | None = None,
 ) -> None:
+    visual = modern_oilfield_report_profile()
     well = session.current_well
     if well is None:
         return
@@ -2002,7 +2018,7 @@ def _paint_cuttings_column(
             pattern = definition.pattern_key if definition is not None else "solid"
             component_rect = QRectF(x, y_top, width, max(0.1, y_bottom - y_top))
             painter.fillRect(component_rect, masterlog_lithology_brush(painter, color, pattern))
-            painter.setPen(QPen(QColor("#334155"), 0.2))
+            painter.setPen(QPen(QColor(visual.palette.border_strong), 0.2))
             painter.drawRect(component_rect)
             if (
                 component_rect.width() >= 8
@@ -2010,7 +2026,7 @@ def _paint_cuttings_column(
                 and bool(column.properties.get("show_interval_labels", False))
             ):
                 code = definition.code if definition is not None else component.lithotype_id
-                painter.setPen(QColor("#0f172a"))
+                painter.setPen(QColor(visual.palette.text))
                 painter.drawText(
                     component_rect,
                     Qt.AlignmentFlag.AlignCenter,
@@ -2134,6 +2150,7 @@ def _paint_lba_column(
     *,
     samples: Sequence[CuttingsSample] | None = None,
 ) -> None:
+    visual = modern_oilfield_report_profile()
     well = session.current_well
     if well is None:
         return
@@ -2171,7 +2188,7 @@ def _paint_lba_column(
             rect.top() + (min(bottom, sample.bottom_depth) - top) / (bottom - top) * rect.height()
         )
         sample_rect = QRectF(rect.left(), y_top, rect.width(), max(0.2, y_bottom - y_top))
-        painter.setPen(QPen(QColor("#cbd5e1"), 0.15))
+        painter.setPen(QPen(QColor(visual.palette.border), 0.15))
         painter.drawRect(sample_rect)
         lane_width = sample_rect.width() / 3.0
         for lane in (1, 2):
@@ -2206,7 +2223,7 @@ def _paint_lba_column(
         )
         color_code = lba_color_code(sample.lba_color) or ""
         if sample_rect.height() >= 4.0 and color_code:
-            painter.setPen(QColor("#0f172a"))
+            painter.setPen(QColor(visual.palette.text))
             draw_oriented_text(
                 painter,
                 QRectF(
@@ -2222,7 +2239,7 @@ def _paint_lba_column(
                 padding_y=0.2,
             )
         if sample_rect.height() >= 4.0:
-            painter.setPen(QColor("#0f172a"))
+            painter.setPen(QColor(visual.palette.text))
             draw_oriented_text(
                 painter,
                 QRectF(
@@ -2251,6 +2268,7 @@ def _paint_lithology_descriptions(
     intervals: Sequence[LithologyInterval] | None = None,
     show_borders: bool = True,
 ) -> None:
+    visual = modern_oilfield_report_profile()
     well = session.current_well
     if well is None:
         return
@@ -2278,10 +2296,10 @@ def _paint_lithology_descriptions(
             legacy=interval.description,
         ).strip() or name
         if show_borders:
-            painter.setPen(QPen(QColor("#94a3b8"), 0.15))
+            painter.setPen(QPen(QColor(visual.palette.border), 0.15))
             painter.drawRect(interval_rect)
         if interval_rect.height() >= 3.0:
-            painter.setPen(QColor("#0f172a"))
+            painter.setPen(QColor(visual.palette.text))
             painter.drawText(
                 interval_rect.adjusted(1.0, 0.5, -1.0, -0.5),
                 Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap,
@@ -2300,6 +2318,7 @@ def _paint_cuttings_descriptions(
     samples: Sequence[CuttingsSample] | None = None,
     show_borders: bool = True,
 ) -> None:
+    visual = modern_oilfield_report_profile()
     well = session.current_well
     if well is None:
         return
@@ -2324,10 +2343,10 @@ def _paint_cuttings_descriptions(
         )
         sample_rect = QRectF(rect.left(), y_top, rect.width(), max(0.2, y_bottom - y_top))
         if show_borders:
-            painter.setPen(QPen(QColor("#94a3b8"), 0.15))
+            painter.setPen(QPen(QColor(visual.palette.border), 0.15))
             painter.drawRect(sample_rect)
         if sample_rect.height() >= 3.0:
-            painter.setPen(QColor("#0f172a"))
+            painter.setPen(QColor(visual.palette.text))
             _draw_fitted_interval_text(
                 painter,
                 sample_rect.adjusted(0.6, 0.3, -0.6, -0.3),
@@ -2349,6 +2368,7 @@ def _paint_sample_interpretations(
     samples: Sequence[CuttingsSample] | None = None,
     show_borders: bool = True,
 ) -> None:
+    visual = modern_oilfield_report_profile()
     well = session.current_well
     if well is None:
         return
@@ -2379,12 +2399,12 @@ def _paint_sample_interpretations(
             rect.top() + (min(bottom, sample.bottom_depth) - top) / (bottom - top) * rect.height()
         )
         sample_rect = QRectF(rect.left(), y_top, rect.width(), max(0.2, y_bottom - y_top))
-        painter.fillRect(sample_rect, QColor("#f8fafc"))
+        painter.fillRect(sample_rect, QColor(visual.palette.table_alt))
         if show_borders:
-            painter.setPen(QPen(QColor("#64748b"), 0.15))
+            painter.setPen(QPen(QColor(visual.palette.border_strong), 0.15))
             painter.drawRect(sample_rect)
         if sample_rect.height() >= 3.0:
-            painter.setPen(QColor("#0f172a"))
+            painter.setPen(QColor(visual.palette.text))
             _draw_fitted_interval_text(
                 painter,
                 sample_rect.adjusted(0.5, 0.25, -0.5, -0.25),
