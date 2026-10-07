@@ -148,7 +148,7 @@ def render_chart_pages(
     if not panels:
         return
 
-    context = context_segments(report.gas_context_events, float(np.nanmin(depth[finite_depth])), float(np.nanmax(depth[finite_depth])))
+    context = context_segments(getattr(report, "gas_context_events", ()), float(np.nanmin(depth[finite_depth])), float(np.nanmax(depth[finite_depth])))
     provisional = chart_geometry(
         canvas.content_rect, DepthPage(0.0, 1.0, 1000, 28.0), len(panels), context_track=bool(context),
     )
@@ -258,7 +258,7 @@ def _draw_chart_page(
         language=language,
     )
     if geometry.context_rect is not None:
-        paint_context_track(painter, geometry.context_rect, report.gas_context_events, page.top_depth, page.bottom_depth, language, header_height=geometry.track_header_height)
+        paint_context_track(painter, geometry.context_rect, getattr(report, "gas_context_events", ()), page.top_depth, page.bottom_depth, language, header_height=geometry.track_header_height)
     candidates = report.candidates
     display_hints = report_curve_label_hints(report)
     for panel_index, ((panel_name, curves), rect) in enumerate(

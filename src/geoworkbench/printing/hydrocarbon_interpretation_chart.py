@@ -240,7 +240,7 @@ def hydrocarbon_interpretation_chart_data_uri(
         depth_max = depth_range.bottom_depth
     if depth_max <= depth_min:
         depth_max = depth_min + 1.0
-    context = context_segments(report.gas_context_events, depth_min, depth_max)
+    context = context_segments(getattr(report, "gas_context_events", ()), depth_min, depth_max)
     context_rows = context_legend_rows(context, language, report.depth_unit)
     context_legend_size = context_legend_height(context_rows, 1820.0, legend_device, scale=2.0)
     visible_depth = (
@@ -387,7 +387,7 @@ def hydrocarbon_interpretation_chart_data_uri(
             )
 
         if context:
-            paint_context_track(painter, QRectF(context_left, plot_top, 96.0, plot_height), report.gas_context_events, depth_min, depth_max, language, header_height=header_height, scale=2.0)
+            paint_context_track(painter, QRectF(context_left, plot_top, 96.0, plot_height), getattr(report, "gas_context_events", ()), depth_min, depth_max, language, header_height=header_height, scale=2.0)
             paint_context_legend(painter, QRectF(90.0, 1_260.0 + legend_offset, 1_820.0, context_legend_size), context_rows, language, scale=2.0)
 
         candidates = tuple(
