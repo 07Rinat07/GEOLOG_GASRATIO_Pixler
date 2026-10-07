@@ -62,6 +62,8 @@ contains a summary, candidates, manual intervals, methods/sources, and the compl
 
 The polished DOCX uses the same printable `ReportVisualProfile` as the other report adapters: the canonical wordmark, semantic colours, typography, table fills, and borders are not duplicated in a Word-only palette.
 
+Masterlog uses the same printable `ReportVisualProfile` for neutral page framing, grid, headings, ordinary text, placeholders, and service fills. Lithology, stratigraphy, LBA, user curve styles, and annotation colours remain domain/content semantics and are not recoloured by the profile.
+
 This specialized report adds a preliminary interpretation: probable gas,
 probable liquid hydrocarbons, or mixed/indeterminate. It does not assign
 a definitive fluid type or productivity and does not infer water from absent
