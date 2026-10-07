@@ -2,11 +2,11 @@
 # Единый план проекта
 
 План актуализирован 7 октября 2026 года. Проверенная база текущего инкремента —
-`e3e9d80c` (PR #468). RPT-COMP-01 интегрирован: сохраняемый порядок и видимость
+`99493dd6` (PR #469). RPT-COMP-01 интегрирован: сохраняемый порядок и видимость
 глубинных графических колонок применяются через одну renderer-neutral composition.
-Текущий инкремент PRINT-STYLE-01 переводит оформленный interpretation DOCX с локальных
-цветов/размеров на общий immutable ReportVisualProfile; общий Word footer с
-PAGE/NUMPAGES и ограниченными реквизитами уже интегрирован.
+Текущий инкремент PRINT-STYLE-01 переводит renderer-owned нейтральную печатную геометрию
+Masterlog — page/frame/grid/header/text/service fills — на общий immutable ReportVisualProfile.
+Оформленный interpretation DOCX и общий Word footer уже используют тот же visual contract.
 Статусы завершения
 ниже относятся к main после интеграции этого инкремента и успешного exact-head Release gate.
 Приложение сохраняет каноническую industrial-blue DIGITAL GEOLOG айдентику. WITS развивается
@@ -430,6 +430,14 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   приходит из того же immutable профиля. Production regression подменяет профиль и проверяет
   фактические OOXML colors/sizes/fills/borders, не меняя source data или footer contract.
   Весь PRINT-STYLE-01 этим slice не закрывается; media/header/table/graph acceptance остаётся ниже.
+- [x] **Masterlog neutral-chrome slice:** renderer-owned page background, outer/frame borders,
+  grid, column headings, neutral labels, image placeholders, descriptive/service fills и structural
+  borders берутся из `modern_oilfield_report_profile()`. Explicit template header colours,
+  lithotype/stratigraphy/LBA semantics, user curve styles и annotation/callout style contracts
+  остаются авторитетными и не перекрашиваются общим профилем. Regression подменяет semantic
+  palette и проверяет реальные QPainter pen/fill paths. Persisted form/project schema и source
+  data не меняются. Весь PRINT-STYLE-01 остаётся открытым до оставшихся media/table/graph и
+  physical acceptance критериев.
 - [ ] Обязательная document-control зона: well/project, interval, document number, revision,
   status, prepared/checked/approved при доступности данных. Блок report date **не выводится по
   умолчанию вообще** и появляется только после явного пользовательского ввода даты; часы/минуты и
