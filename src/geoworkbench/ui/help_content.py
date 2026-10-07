@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from geoworkbench.brand import APPLICATION_DISPLAY_NAME
 from geoworkbench.services.localization import AppLanguage
 
 
@@ -26,8 +27,8 @@ _ACTION_TEXTS = {
 
 
 _OVERVIEW = {
-    AppLanguage.RU: """
-        <h1>Справочный центр DIGITAL GEOLOG GASRATIO&PIXLER</h1>
+    AppLanguage.RU: f"""
+        <h1>Справочный центр {APPLICATION_DISPLAY_NAME}</h1>
         <p>Интерфейс разделён по назначению, чтобы рабочие вкладки не были
         перегружены служебными окнами.</p>
         <ul>
@@ -45,8 +46,8 @@ _OVERVIEW = {
           <li>При ошибке сохраните диагностический пакет через раздел «Справка».</li>
         </ol>
     """,
-    AppLanguage.KK: """
-        <h1>DIGITAL GEOLOG GASRATIO&PIXLER анықтамалық орталығы</h1>
+    AppLanguage.KK: f"""
+        <h1>{APPLICATION_DISPLAY_NAME} анықтамалық орталығы</h1>
         <p>Жұмыс қойындылары қызметтік терезелермен толып кетпеуі үшін интерфейс
         міндеті бойынша бөлінген.</p>
         <ul>
@@ -64,8 +65,8 @@ _OVERVIEW = {
           <li>Қате болса, «Анықтама» бөлімінен диагностикалық жинақты сақтаңыз.</li>
         </ol>
     """,
-    AppLanguage.EN: """
-        <h1>DIGITAL GEOLOG GASRATIO&PIXLER help centre</h1>
+    AppLanguage.EN: f"""
+        <h1>{APPLICATION_DISPLAY_NAME} help centre</h1>
         <p>The interface is organised by purpose so permanent work tabs are not
         crowded with utility windows.</p>
         <ul>
