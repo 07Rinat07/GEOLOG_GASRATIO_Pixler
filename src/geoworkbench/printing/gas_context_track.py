@@ -8,30 +8,16 @@ from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QColor, QFontMetricsF, QPaintDevice, QPainter, QPen
 
 from geoworkbench.domain.gas_context_events import (
-    GasContextEvent, GasContextEventType, GasContextRegistry, InterpretationImpact,
+    GasContextEvent, GasContextRegistry, InterpretationImpact,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_canvas import PageCanvas
 from geoworkbench.printing.interpretation_track_headings import paint_track_heading
 from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.printing.unicode_support import print_font
+from geoworkbench.services.gas_context_report_labels import gas_context_event_label, gas_context_event_code
 from geoworkbench.services.localization import AppLanguage
 
 
-_LABELS = {
-    GasContextEventType.BACKGROUND: ("BG", "Фоновый газ", "Фондық газ", "Background gas"),
-    GasContextEventType.FORMATION_SHOW: ("FORM", "Пластовое газопроявление", "Қабаттық газ көрінісі", "Formation show"),
-    GasContextEventType.CONNECTION_GAS: ("CONN", "Газ соединения", "Қосылу газы", "Connection gas"),
-    GasContextEventType.TRIP_GAS: ("TRIP", "Газ СПО", "Көтеріп-түсіру газы", "Trip gas"),
-    GasContextEventType.SWAB_GAS: ("SWAB", "Газ свабирования", "Свабтау газы", "Swab gas"),
-    GasContextEventType.CIRCULATED_GAS: ("CIRC", "Циркулирующий газ", "Айналым газы", "Circulated gas"),
-    GasContextEventType.RECYCLED_GAS: ("REC", "Рециркулированный газ", "Қайта айналған газ", "Recycled gas"),
-    GasContextEventType.CHROMATOGRAPH_TEST_GAS: ("CHR", "Тест хроматографа", "Хроматограф сынағы", "Chromatograph test gas"),
-    GasContextEventType.GAS_LINE_TEST_GAS: ("LINE", "Тест газовой линии", "Газ желісінің сынағы", "Gas-line test gas"),
-    GasContextEventType.LAG_TRACER_GAS: ("LAG", "Газ трассера", "Трассер газы", "Lag tracer gas"),
-    GasContextEventType.CALIBRATION_GAS: ("CAL", "Калибровочный газ", "Калибрлеу газы", "Calibration gas"),
-    GasContextEventType.ELEVATED_UNCLASSIFIED: ("REV", "Повышенный газ: уточнить", "Жоғары газ: нақтылау", "Elevated unclassified gas"),
-    GasContextEventType.OTHER_TECHNOLOGICAL: ("TECH", "Другой технологический газ", "Басқа технологиялық газ", "Other technological gas"),
-}
 _STYLES = {
     InterpretationImpact.TECHNOLOGICAL_GAS: Qt.PenStyle.DashLine,
     InterpretationImpact.FORMATION_GAS: Qt.PenStyle.SolidLine,
@@ -65,11 +51,11 @@ def context_heading(language: AppLanguage) -> str:
 
 
 def context_label(event: GasContextEvent, language: AppLanguage) -> str:
-    return _LABELS[event.event_type][1 + list(AppLanguage).index(language)]
+    return gas_context_event_label(event.event_type, language)
 
 
 def context_code(event: GasContextEvent) -> str:
-    return _LABELS[event.event_type][0]
+    return gas_context_event_code(event.event_type)
 
 
 def context_segments(

@@ -8,6 +8,10 @@ import zipfile
 from xml.sax.saxutils import escape as xml_escape
 
 
+from geoworkbench.services.gas_context_report_labels import (
+    gas_context_type_text, gas_context_impact_label, gas_context_identity_label,
+)
+
 from geoworkbench.domain.depth_interval import scope_dataset
 from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.printing.report_document_control_docx import report_document_control_docx_footer
@@ -419,10 +423,11 @@ def _gas_context_docx(
         )
         rows.append(
             (
-                event.event_type.value,
+                f"{gas_context_type_text(event.event_type, language)}; "
+                f"{gas_context_identity_label(language)}: {event.event_id}",
                 f"{event.top_depth:g}–{event.bottom_depth:g} {report.depth_unit}",
                 confirmed,
-                event.effective_impact.value,
+                gas_context_impact_label(event.effective_impact, language),
                 measured_total_text,
                 component_text,
                 manual_text,

@@ -1291,3 +1291,11 @@ and source-array immutability. Isolated real-PDF context painters verify 6 pt co
 72/300/600 DPI; the production interpretation PDF path uses 72 DPI. A 100-event legend with
 long IDs verifies wrapping, pagination, complete text and page bounds. Physical printer and
 live/tablet alarm acceptance remain open.
+
+`tests/test_gas_context_report_identities.py` checks every InterpretationImpact and real standard/OPUS save/reopen followed
+by HTML, PDF, standard/polished DOCX and XLSX export in RU/KK/EN. Repeated events keep distinct
+IDs, hidden draft/hard-excluded events stay absent, XML/HTML-sensitive and formula-like IDs
+remain text, and depth/TG/QC cells remain numeric. PDF assertions allow natural line wrapping;
+source arrays, registry, candidates and suppressed audit evidence remain unchanged.
+
+Existing gas-context print-track regressions retain all 13 event-code/type labels in RU/KK/EN.

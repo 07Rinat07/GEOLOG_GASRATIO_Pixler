@@ -43,6 +43,10 @@ from geoworkbench.services.interval_gas_statistics import (
     enhanced_fluid_hypothesis_basis,
 )
 from geoworkbench.services.lba_standard import describe_lba_assessment
+from geoworkbench.services.gas_context_report_labels import (
+    gas_context_type_text, gas_context_impact_label, gas_context_identity_label,
+)
+
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.services.interpretation_classification_audit import (
     CLASSIFICATION_AUDIT_SCHEMA,
@@ -205,6 +209,7 @@ def _write_gas_context_sheet(
             "Comment", "Source", "Event ID",
         ),
     }[language]
+    headers = (*headers[:-1], gas_context_identity_label(language))
     confirmed = {
         AppLanguage.RU: "подтверждено",
         AppLanguage.KK: "расталған",
@@ -234,11 +239,11 @@ def _write_gas_context_sheet(
         sheet.append(
             protect_spreadsheet_row(
                 (
-                    event.event_type.value,
+                    gas_context_type_text(event.event_type, language),
                     event.top_depth,
                     event.bottom_depth,
                     confirmed,
-                    event.effective_impact.value,
+                    gas_context_impact_label(event.effective_impact, language),
                     (
                         ""
                         if measured is None
