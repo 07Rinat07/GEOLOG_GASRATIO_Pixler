@@ -555,7 +555,14 @@ def test_interpretation_report_exports_excel_and_word(tmp_path) -> None:
     assert "Содержание метана" in gas_values
     assert "Mnemonic" not in gas_values
     assert "TG" not in gas_values
-    assert gas_sheet["D2"].alignment.horizontal == "right"
+    numeric_cells = [
+        cell
+        for row in gas_sheet.iter_rows(min_row=2, min_col=4, max_col=6)
+        for cell in row
+        if isinstance(cell.value, (int, float)) and not isinstance(cell.value, bool)
+    ]
+    assert numeric_cells
+    assert all(cell.alignment.horizontal == "right" for cell in numeric_cells)
 
     meter_sheet = workbook[workbook.sheetnames[-1]]
     assert meter_sheet["A1"].comment is not None
