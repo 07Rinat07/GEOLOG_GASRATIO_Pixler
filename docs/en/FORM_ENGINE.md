@@ -209,3 +209,5 @@ factory form for the active dataset, excludes only the compatibility-only hidden
 duplicate, and appends Ready and user documents from `FormRepository`. Browse, create, and save
 workflows no longer maintain separate curated lists, so form counts and identifiers are consistent
 throughout the application.
+
+Masterlog uses the shared print profile for default header backgrounds/borders, text and legend styling. Explicit form colours, font sizes and line widths take precedence; saved forms and geological symbols remain unchanged.
