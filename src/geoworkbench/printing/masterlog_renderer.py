@@ -1077,7 +1077,7 @@ def _paint_lithotype_swatch(
         font.setBold(properties.get("bold") is True)
         _set_scaled_font_mm(painter, font, max(1.0, min(font_size, 50.0)))
         painter.setFont(font)
-        painter.setPen(_color(properties.get("color"), "#0f172a"))
+        painter.setPen(_color(properties.get("color"), visual.palette.text))
         raw_alignment = properties.get("alignment", "left")
         alignment_name = raw_alignment if isinstance(raw_alignment, str) else "left"
         horizontal = {
@@ -1101,7 +1101,7 @@ def _paint_lithotype_swatch(
             padding_y=0.15,
         )
     if properties.get("frame") is True:
-        painter.setPen(QPen(_color(properties.get("frame_color"), "#334155"), 0.35))
+        painter.setPen(QPen(_color(properties.get("frame_color"), visual.palette.border_strong), 0.35))
         painter.drawRect(rect)
 
 
@@ -2048,6 +2048,7 @@ def _paint_calcimetry_column(
     samples: Sequence[CuttingsSample] | None = None,
     has_sample_calcimetry: bool | None = None,
 ) -> None:
+    visual = modern_oilfield_report_profile()
     # Some providers store calcite/dolomite as LAS curves, while other jobs keep
     # them as discrete cuttings-sample analyses.  LAS geology import materializes
     # recognized calcimetry curves into factual sample intervals.  Once those
@@ -2111,10 +2112,10 @@ def _paint_calcimetry_column(
             else:
                 painter.setPen(QPen(QColor(color), 0.7))
                 painter.drawLine(QLineF(left, y_top, left, y_bottom))
-        painter.setPen(QPen(QColor("#334155"), 0.2))
+        painter.setPen(QPen(QColor(visual.palette.border_strong), 0.2))
         painter.drawRect(QRectF(rect.left(), y_top, rect.width(), height))
         if height >= 5.0:
-            painter.setPen(QColor("#0f172a"))
+            painter.setPen(QColor(visual.palette.text))
             parts: list[str] = []
             if calcite is not None:
                 parts.append(f"Ca {calcite:g}%")
@@ -2758,6 +2759,7 @@ def _paint_depth_symbols(
     session: ProjectSession,
     depth_range: tuple[float, float],
 ) -> None:
+    visual = modern_oilfield_report_profile()
     well = session.current_well
     if well is None:
         return
@@ -2849,7 +2851,7 @@ def _paint_depth_symbols(
             continue
         label = item.properties.get("label")
         if isinstance(label, str) and label:
-            painter.setPen(QColor("#0f172a"))
+            painter.setPen(QColor(visual.palette.text))
             font = QFont()
             _set_scaled_font_points(painter, font, 6.0)
             painter.setFont(font)
@@ -2864,11 +2866,12 @@ def _paint_depth_symbols(
 def _paint_depth_axis(painter: QPainter, rect: QRectF, depth_range: tuple[float, float]) -> None:
     """Paint depth labels; horizontal grid lines are owned by ``_paint_column_grid``."""
 
+    visual = modern_oilfield_report_profile()
     painter.save()
     font = QFont()
     _set_scaled_font_points(painter, font, 6.5)
     painter.setFont(font)
-    painter.setPen(QColor("#0f172a"))
+    painter.setPen(QColor(visual.palette.text))
     for depth, _major in _aligned_depth_grid_values(depth_range, 1):
         y = _depth_value_to_y(rect, depth_range, depth)
         painter.drawText(
