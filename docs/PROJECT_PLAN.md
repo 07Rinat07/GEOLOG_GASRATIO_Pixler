@@ -1,13 +1,13 @@
 <!-- runtime-contract: package=0.7.96; project=v37; form=v18; layout=v25 -->
 # Единый план проекта
 
-План актуализирован 7 октября 2026 года. Проверенная база перед текущей сверкой —
-`9c3ec23c` (PR #471). RPT-COMP-01 интегрирован: сохраняемый порядок и видимость
+План актуализирован 7 октября 2026 года. Проверенная база перед текущим инкрементом —
+`f85956db` (PR #472). RPT-COMP-01 интегрирован: сохраняемый порядок и видимость
 глубинных графических колонок применяются через одну renderer-neutral composition.
-В PRINT-STYLE-01 уже интегрированы общий immutable ReportVisualProfile для polished DOCX
-и single-source contract печатного wordmark. Текущий инкремент сверяет aggregate
-document-control acceptance с фактически интегрированными interpretation, generic и
-Masterlog export paths без дублирования renderer-specific логики.
+PRINT-STYLE-01 уже имеет единый immutable ReportVisualProfile, single-source wordmark и
+aggregate document-control contract. Текущий slice закрывает оставшийся header/footer asset
+boundary: customer/contractor logos назначаются из project Logo Catalog, а raw image assets
+не могут становиться новыми паспортными логотипами в обход каталога.
 Статусы завершения
 ниже относятся к main после интеграции этого инкремента и успешного exact-head Release gate.
 Приложение сохраняет каноническую industrial-blue DIGITAL GEOLOG айдентику. WITS развивается
@@ -448,8 +448,15 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   через shared visual/profile adapters в PDF, Masterlog, DOCX/XLSX и печатных формах.
   Regression запрещает повторный hard-code полного canonical wordmark в production Python
   вне `brand.py`; существующие production export tests проверяют фактический вывод бренда.
-- [ ] Header/footer contract: логотип проекта/заказчика только из каталога assets, номер страницы,
-  confidentiality/status, document/revision; длинный текст не должен попадать поверх графиков.
+- [x] **Header/footer contract:** customer/contractor logo в паспорте скважины можно назначить
+  только из project Logo Catalog; произвольный `session.image_assets` не предлагается UI и
+  отклоняется controller boundary при новом назначении. Неизменённая legacy raw-logo ссылка
+  сохраняется для backward compatibility до явного перевыбора. Остальная часть контракта
+  закрыта интегрированными footer slices: canonical wordmark/page number и
+  confidentiality/status/document/revision повторяются в применимых PDF/DOCX/XLSX/Masterlog
+  путях, длинные значения bounded/ellipsis и не перекрывают content/chart zones. RU/KK/EN
+  подсказки, catalog selection и controller guard покрыты regressions; physical-print
+  acceptance остаётся отдельным внешним этапом.
 - [ ] Таблицы: компактные заголовки, alternating/background hierarchy без декоративной перегрузки,
   повтор шапки, перенос строк, числовое выравнивание, единицы возле параметра и минимальная
   читаемая кегль/высота строки.
