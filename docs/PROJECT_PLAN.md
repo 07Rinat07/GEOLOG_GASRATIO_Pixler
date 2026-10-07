@@ -438,6 +438,14 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   приходит из того же immutable профиля. Production regression подменяет профиль и проверяет
   фактические OOXML colors/sizes/fills/borders, не меняя source data или footer contract.
   Весь PRINT-STYLE-01 этим slice не закрывается; media/header/table/graph acceptance остаётся ниже.
+- [x] **Masterlog neutral-chrome slice:** renderer-owned page background, outer/frame borders,
+  grid, column headings, neutral labels, image placeholders, descriptive/service fills и structural
+  borders берутся из `modern_oilfield_report_profile()`. Explicit template header colours,
+  lithotype/stratigraphy/LBA semantics, user curve styles и annotation/callout style contracts
+  остаются авторитетными и не перекрашиваются общим профилем. Regression подменяет semantic
+  palette и проверяет реальные QPainter pen/fill paths. Persisted form/project schema и source
+  data не меняются. Весь PRINT-STYLE-01 остаётся открытым до оставшихся media/table/graph и
+  physical acceptance критериев.
 - [x] **Обязательная document-control зона:** один immutable `ReportDocumentControl` contract
   применяется в interpretation PDF/DOCX/XLSX, generic HTML/DOCX/XLSX и автоматической зоне
   Masterlog. При доступности данных зона содержит project/well, фактический output interval,

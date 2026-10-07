@@ -1,9 +1,10 @@
+from dataclasses import replace
 import fitz
 import numpy as np
 import pytest
 from unittest.mock import MagicMock
 from PySide6.QtCore import QMarginsF, QRectF, QSizeF, Qt
-from PySide6.QtGui import QImage, QPageLayout, QPageSize, QPainter, QPdfWriter
+from PySide6.QtGui import QColor, QImage, QPageLayout, QPageSize, QPainter, QPdfWriter, QPen
 
 from geoworkbench.domain.models import (
     CurveData,
@@ -53,7 +54,7 @@ from geoworkbench.printing.masterlog_renderer import (
     masterlog_curve_style,
 )
 from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
-from geoworkbench.printing.report_visual_system import REPORT_BRAND_WORDMARK
+from geoworkbench.printing.report_visual_system import REPORT_BRAND_WORDMARK, modern_oilfield_report_profile
 from geoworkbench.printing.masterlog_presets import BUILTIN_MASTERLOG_FORM_PRESETS
 from geoworkbench.services.localization import AppLanguage
 
@@ -76,6 +77,131 @@ def make_template() -> MasterlogTemplate:
         ],
         properties={"body_height_mm": 300.0},
     )
+
+
+
+def test_masterlog_neutral_chrome_uses_shared_report_profile(qapp, monkeypatch) -> None:
+    base = modern_oilfield_report_profile()
+    visual = replace(
+        base,
+        palette=replace(
+            base.palette,
+            page="#FAFBFC",
+            text="#102030",
+            border="#405060",
+            border_strong="#203040",
+            table_alt="#E1E2E3",
+            accent_soft="#D1D2D3",
+            critical="#A01020",
+        ),
+    )
+    monkeypatch.setattr(
+        masterlog_renderer,
+        "modern_oilfield_report_profile",
+        lambda: visual,
+    )
+
+    image = QImage(320, 320, QImage.Format.Format_ARGB32)
+    image.fill(Qt.GlobalColor.white)
+    painter = QPainter(image)
+    pen_colors: list[str] = []
+    fill_colors: list[str] = []
+
+    class CapturePainter:
+        def __getattr__(self, name):
+            return getattr(painter, name)
+
+        def setPen(self, pen):
+            resolved = pen if isinstance(pen, QPen) else QPen(pen)
+            pen_colors.append(resolved.color().name())
+            painter.setPen(pen)
+
+        def fillRect(self, *args):
+            fill = args[-1]
+            if isinstance(fill, QColor):
+                fill_colors.append(fill.name())
+            painter.fillRect(*args)
+
+    capture = CapturePainter()
+    try:
+        empty_template = MasterlogTemplate(
+            "chrome",
+            "Chrome",
+            page_format="roll",
+            header_height_mm=5.0,
+            columns=[],
+            properties={"body_height_mm": 25.0},
+        )
+        paint_masterlog(
+            capture,
+            QRectF(0.0, 0.0, 250.0, 300.0),
+            empty_template,
+            ProjectSession(),
+        )
+
+        grid = MasterlogColumnTemplate(
+            "grid",
+            "Grid",
+            "depth",
+            30.0,
+            grid_x=True,
+            grid_y=True,
+            grid_major_divisions=2,
+            grid_minor_divisions=2,
+            grid_alpha=1.0,
+        )
+        _paint_column_grid(capture, QRectF(0.0, 0.0, 100.0, 100.0), grid, (0.0, 10.0))
+        masterlog_renderer._paint_image_placeholder(
+            capture,
+            QRectF(5.0, 5.0, 60.0, 30.0),
+            {},
+            AppLanguage.EN,
+        )
+        masterlog_renderer._paint_column_heading(
+            capture,
+            QRectF(5.0, 40.0, 80.0, 20.0),
+            MasterlogColumnTemplate("title", "Depth", "depth", 30.0),
+            None,
+            {},
+        )
+        masterlog_renderer._paint_lithotype_swatch(
+            capture,
+            QRectF(5.0, 65.0, 40.0, 20.0),
+            {"lithotype_id": "missing"},
+            AppLanguage.EN,
+            {},
+        )
+        explicit_color = "#112233"
+        masterlog_renderer._paint_header_element(
+            capture,
+            MasterlogHeaderElement(
+                "explicit",
+                "text",
+                5.0,
+                90.0,
+                60.0,
+                15.0,
+                {"text": "Explicit", "color": explicit_color},
+            ),
+            ProjectSession(),
+            empty_template,
+            None,
+            AppLanguage.EN,
+            {},
+        )
+    finally:
+        painter.end()
+
+    assert visual.palette.page.casefold() in fill_colors
+    assert visual.palette.accent_soft.casefold() in fill_colors
+    for value in (
+        visual.palette.text,
+        visual.palette.border,
+        visual.palette.border_strong,
+        visual.palette.critical,
+    ):
+        assert value.casefold() in pen_colors
+    assert explicit_color.casefold() in pen_colors
 
 
 def test_masterlog_size_uses_mm_template_geometry() -> None:
