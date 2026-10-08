@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from geoworkbench.printing.masterlog_document_control import MasterlogDocumentControlLayout, masterlog_document_control_layout
 from geoworkbench.printing.report_document_control import compact_report_footer
+from geoworkbench.printing.unicode_support import print_font
 from geoworkbench.services.lba_standard import lba_color_code
 import os
 import tempfile
@@ -424,7 +425,9 @@ def paint_masterlog(
 
 
 def _masterlog_control_font(painter: QPainter, *, bold: bool = False) -> QFont:
-    font = QFont()
+    # Document-control text must use the validated print family stack rather
+    # than the platform/UI default font selected by earlier dialogs.
+    font = print_font(bold=bold)
     _set_scaled_font_points(painter, font, modern_oilfield_report_profile().typography.table_pt)
     font.setBold(bold)
     font.setStyleStrategy(QFont.StyleStrategy.PreferDefault)

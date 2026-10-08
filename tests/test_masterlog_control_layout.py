@@ -4,7 +4,7 @@ import fitz
 import numpy as np
 import pytest
 from PySide6.QtCore import QRectF
-from PySide6.QtGui import QImage, QPainter
+from PySide6.QtGui import QFont, QImage, QPainter
 
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain, MasterlogColumnTemplate
 from geoworkbench.domain.well_passport import WellPassport
@@ -17,6 +17,7 @@ from geoworkbench.project.controller import ProjectController
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.printing.unicode_support import resolve_unicode_font_profile
 
 
 def controlled_form(date=''):
@@ -36,6 +37,44 @@ def controlled_form(date=''):
         'header.approved_by': 'Engineer C', 'header.confidentiality': 'Internal', 'header.interval': 'STALE RANGE',
     })
     return session, template
+
+
+@pytest.mark.parametrize('bold', [False, True])
+def test_control_font_uses_print_stack_after_ui_font_change(qapp, bold):
+    original = QFont(qapp.font())
+    image = QImage(100, 100, QImage.Format.Format_ARGB32)
+    painter = QPainter(image)
+    try:
+        ui_font = QFont('Courier New', 19)
+        qapp.setFont(ui_font)
+        font = masterlog_renderer._masterlog_control_font(painter, bold=bold)
+        assert font.families() == list(resolve_unicode_font_profile().families)
+        assert font.bold() == bold
+        assert font.styleStrategy() == QFont.StyleStrategy.PreferDefault
+    finally:
+        painter.end()
+        qapp.setFont(original)
+
+
+@pytest.mark.parametrize('language', list(AppLanguage))
+def test_control_pdf_keeps_metadata_after_ui_font_change(qapp, tmp_path, language):
+    original = QFont(qapp.font())
+    try:
+        ui_font = QFont('Courier New', 19)
+        qapp.setFont(ui_font)
+        session, template = controlled_form('2026-09-30')
+        target = tmp_path / 'controlled-ui-font.pdf'
+        export_masterlog_pdf(template, session, target,
+                             settings=MasterlogOutputSettings(145, 355, language))
+        with fitz.open(target) as document:
+            for page in document:
+                text = page.get_text()
+                for value in ('DOC-42', 'Approved', 'Engineer A', 'Engineer B',
+                              'Engineer C', '2026-09-30', '145 — 355 m'):
+                    assert value in text, (text, page.get_fonts())
+        assert qapp.font() == ui_font
+    finally:
+        qapp.setFont(original)
 
 
 @pytest.mark.parametrize('language', list(AppLanguage))

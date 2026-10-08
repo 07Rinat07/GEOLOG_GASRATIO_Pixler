@@ -30,6 +30,8 @@ from geoworkbench.services.las_parameter_resolver import (
 )
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.printing.unicode_support import preflight_texts, print_font
+from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
+from geoworkbench.printing.report_rich_text_fonts import apply_explicit_rich_text_font_sizes
 
 
 class GasMixtureRampReportError(RuntimeError):
@@ -226,6 +228,8 @@ def gas_mixture_ramp_html(
     include_chart: bool = True,
 ) -> str:
     labels = _labels(language)
+    visual = modern_oilfield_report_profile()
+    palette, typography = visual.palette, visual.typography
     component_rows = "".join(
         "<tr>"
         f"<td>{escape(item.mnemonic)}</td>"
@@ -251,22 +255,23 @@ def gas_mixture_ramp_html(
     wetness = "—" if report.wetness is None else f"{report.wetness:.2f}%"
     balance = "—" if report.balance is None else f"{report.balance:.4g}"
     character = "—" if report.character is None else f"{report.character:.4g}"
-    base_font_size = "9pt" if include_chart else "10pt"
     cell_padding = "3px 5px" if include_chart else "4px 6px"
     return f"""
     <html><head><meta charset="utf-8"><style>
-    body {{ color:#172033; font-size:{base_font_size}; }}
-    h1 {{ font-size:18pt; margin:0 0 8px 0; }}
-    h2 {{ font-size:13pt; margin:10px 0 5px 0; }}
-    table {{ border-collapse:collapse; width:100%; margin:6px 0 10px 0; }}
-    th, td {{ border:1px solid #94a3b8; padding:{cell_padding}; }}
-    th {{ background:#e2e8f0; }}
-    .result {{ border:2px solid #315a7d; background:#eef6fc; padding:10px; }}
-    .muted {{ color:#475569; }}
+    body {{ color:{palette.text}; background:{palette.page}; font-size:{typography.body_pt:g}pt; }}
+    .brand {{ color:{palette.accent}; font-size:{typography.caption_pt:g}pt; font-weight:bold; }}
+    h1 {{ font-size:{typography.title_pt:g}pt; margin:0 0 8px 0; }}
+    h2 {{ font-size:{typography.section_pt:g}pt; margin:10px 0 5px 0; }}
+    table {{ border-collapse:collapse; width:100%; font-size:{typography.table_pt:g}pt; margin:6px 0 10px 0; }}
+    th, td {{ border:1px solid {palette.border}; padding:{cell_padding}; }}
+    th {{ background:{palette.table_header}; color:{palette.text}; }}
+    .result {{ border:2px solid {palette.accent}; background:{palette.accent_soft}; padding:10px; }}
+    .muted {{ color:{palette.text_muted}; }}
     </style></head><body>
+    <div class="brand">{escape(visual.brand_wordmark)}</div>
     <h1>{escape(labels["title"])}</h1>
     <p class="muted">{escape(report.project_name)} · {escape(report.well_name)} ·
-    {escape(report.dataset_name)} · {escape(report.generated_at)}</p>
+    {escape(report.dataset_name)}</p>
     {chart}
     <div class="result"><b>{escape(labels["result"])}:</b>
     {escape(labels[report.interpretation_code])}<br>
@@ -310,30 +315,33 @@ def export_gas_mixture_ramp_pdf(
     temporary = Path(temporary_name)
     try:
         writer = QPdfWriter(str(temporary))
-        writer.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
-        writer.setPageOrientation(
-            QPageLayout.Orientation.Landscape if include_chart else QPageLayout.Orientation.Portrait
-        )
-        writer.setPageMargins(
-            QMarginsF(12.0, 12.0, 12.0, 12.0),
-            QPageLayout.Unit.Millimeter,
-        )
-        writer.setResolution(300)
-        writer.setTitle("Gas mixture ramp report")
-        writer.setCreator(APPLICATION_DISPLAY_NAME)
-        html = gas_mixture_ramp_html(
-            report,
-            language,
-            include_chart=include_chart,
-        )
-        unicode_report = preflight_texts([html])
-        if not unicode_report.ok:
-            raise GasMixtureRampReportError(unicode_report.error_message())
-        document = QTextDocument()
-        document.setDefaultFont(print_font(9.0 if include_chart else 10.0, text=html))
-        document.setHtml(html)
-        document.print_(writer)
-        del writer
+        try:
+            writer.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
+            writer.setPageOrientation(
+                QPageLayout.Orientation.Landscape if include_chart else QPageLayout.Orientation.Portrait
+            )
+            writer.setPageMargins(
+                QMarginsF(12.0, 12.0, 12.0, 12.0),
+                QPageLayout.Unit.Millimeter,
+            )
+            writer.setResolution(300)
+            writer.setTitle("Gas mixture ramp report")
+            writer.setCreator(APPLICATION_DISPLAY_NAME)
+            html = gas_mixture_ramp_html(
+                report,
+                language,
+                include_chart=include_chart,
+            )
+            unicode_report = preflight_texts([html])
+            if not unicode_report.ok:
+                raise GasMixtureRampReportError(unicode_report.error_message())
+            document = QTextDocument()
+            document.setDefaultFont(print_font(modern_oilfield_report_profile().typography.body_pt, text=html))
+            document.setHtml(html)
+            apply_explicit_rich_text_font_sizes(document)
+            document.print_(writer)
+        finally:
+            del writer
         if temporary.stat().st_size <= 0:
             raise GasMixtureRampReportError("Не удалось сформировать PDF-отчёт")
         os.replace(temporary, destination)
@@ -417,15 +425,16 @@ def _chart_data_uri(
     report: GasMixtureRampReport,
     language: AppLanguage,
 ) -> str:
+    palette = modern_oilfield_report_profile().palette
     image = QImage(1500, 650, QImage.Format.Format_ARGB32_Premultiplied)
-    image.fill(Qt.GlobalColor.white)
+    image.fill(QColor(palette.page))
     painter = QPainter(image)
     try:
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         title_font = print_font(16.0, text=_labels(language)["chart"])
         title_font.setBold(True)
         painter.setFont(title_font)
-        painter.setPen(QColor("#172033"))
+        painter.setPen(QColor(palette.text))
         painter.drawText(
             QRectF(70, 12, 1360, 38),
             Qt.AlignmentFlag.AlignCenter,
@@ -438,7 +447,7 @@ def _chart_data_uri(
             _labels(language)["chart_scale"],
         )
         plot = QRectF(90, 70, 1320, 480)
-        painter.setPen(QPen(QColor("#334155"), 2))
+        painter.setPen(QPen(QColor(palette.border_strong), 2))
         painter.drawRect(plot)
         x = np.asarray(report.time_values, dtype=np.float64)
         finite_x = x[np.isfinite(x)]
@@ -454,7 +463,7 @@ def _chart_data_uri(
         finite_values = all_values[np.isfinite(all_values) & (all_values >= 0.0)]
         y_max = float(np.max(np.log10(1.0 + finite_values))) if finite_values.size else 1.0
         y_max = max(1.0, y_max)
-        grid_pen = QPen(QColor("#cbd5e1"), 1)
+        grid_pen = QPen(QColor(palette.border), 1)
         label_font = print_font(9.0, text=report.time_label)
         painter.setFont(label_font)
         for tick in range(6):
@@ -463,7 +472,7 @@ def _chart_data_uri(
             painter.setPen(grid_pen)
             painter.drawLine(QLineF(plot.left(), y, plot.right(), y))
             raw_value = 10 ** (fraction * y_max) - 1.0
-            painter.setPen(QColor("#334155"))
+            painter.setPen(QColor(palette.text_secondary))
             painter.drawText(
                 QRectF(5, y - 10, 78, 20),
                 Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
@@ -473,7 +482,7 @@ def _chart_data_uri(
             painter.setPen(grid_pen)
             painter.drawLine(QLineF(x_position, plot.top(), x_position, plot.bottom()))
             time_value = x_min + fraction * (x_max - x_min)
-            painter.setPen(QColor("#334155"))
+            painter.setPen(QColor(palette.text_secondary))
             painter.drawText(
                 QRectF(x_position - 55.0, plot.bottom() + 4.0, 110.0, 20.0),
                 Qt.AlignmentFlag.AlignCenter,
@@ -498,7 +507,7 @@ def _chart_data_uri(
         for name, _values in report.series:
             painter.setPen(QPen(QColor(_COLORS[name]), 5))
             painter.drawLine(QLineF(legend_x, 590.0, legend_x + 28.0, 590.0))
-            painter.setPen(QColor("#172033"))
+            painter.setPen(QColor(palette.text))
             painter.drawText(QRectF(legend_x + 34.0, 576.0, 80.0, 28.0), name)
             legend_x += 135.0
         painter.drawText(
