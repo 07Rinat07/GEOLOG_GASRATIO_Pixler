@@ -788,6 +788,7 @@ def test_masterlog_column_grid_respects_print_visibility(qapp) -> None:
     [(False, True), (True, False)],
 )
 def test_masterlog_depth_labels_do_not_bypass_horizontal_grid_visibility(
+    qapp,
     grid_y: bool,
     grid_print: bool,
 ) -> None:

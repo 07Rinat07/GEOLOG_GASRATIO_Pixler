@@ -1,5 +1,11 @@
 # Проверка качества и release gate
 
+`tests/test_masterlog_default_typography.py` adds 129 cases: 90 header text/placeholder/
+swatch PDF cases (RU/KK/EN, five DPI, default/explicit sizes), ten signed/large depth
+cases, 15 searchable simple-footer cases, five explicit annotation-font cases and nine
+A4/A3/roll package reopen exports. Saved mm requests are checked exactly; actual PDF
+font/bounds are compared with the 72-DPI baseline, preserving native Qt quantization.
+
 `tests/test_masterlog_callout_unicode.py` covers 60 real PDF cases for inspection
 callouts and SVG symbol labels: RU/KK/EN × five DPI × depth/interval × two paths.
 It checks actual-text font resolution, 5.5/6.0 pt requests, extracted PDF text/font/bounds

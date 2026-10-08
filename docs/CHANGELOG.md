@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- PRINT-STYLE-01: шкала глубин, текст шапки, пустые слоты изображений, образцы литологии и простой подвал Masterlog используют общий Unicode print font stack. Сохранены profile typography, явные размеры/bold, numeric tick geometry, searchable brand и пользовательские font family/style аннотаций. PDF DPI 72–600 и RU/KK/EN reopen exports покрыты регрессиями.
 - PRINT-STYLE-01: инспекционные выноски и подписи глубинных SVG-символов Masterlog используют общий Unicode print font stack по фактическому сохранённому тексту. Сохранены 5.5/6.0 pt, point/interval anchors, scope формы/колонки/глубины, геометрия и assets. PDF RU/KK/EN, DPI 72–600 и A4/A3/roll после reopen покрыты регрессиями.
 - PRINT-STYLE-01: подписи стратиграфии и ЛБА Masterlog используют общий Unicode print font stack по фактическим code/name/color/type labels. Сохранены 5.5/5.0 pt, повороты, геологические интервалы, rank lanes, палитра и символы интенсивности. PDF RU/KK/EN, DPI 72–600 и A4/A3/roll после reopen покрыты регрессиями.
 - PRINT-STYLE-01: заголовки колонок и labels легенд кривых Masterlog используют общий Unicode print font stack по фактическому тексту, включая диапазон и UOM привязанного канала. Сохранены 6.5/4.6 pt, повороты, выравнивание, line/point keys, единицы и source metadata. RU/KK/EN, DPI 72–600 и A4/A3/roll после reopen покрыты регрессиями.
