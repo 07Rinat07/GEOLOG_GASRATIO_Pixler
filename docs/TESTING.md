@@ -1,5 +1,11 @@
 # Проверка качества и release gate
 
+`tests/test_geology_pdf_typography.py` checks six actual geology PDF exports:
+RU/KK/EN with default/custom profiles. Extracted spans verify physical title,
+section, body and table sizes, full wrapped titles and manual conclusions;
+source arrays remain unchanged. Disabling the shared rich-text adapter makes
+all six regressions fail on Qt heading-relative font enlargement.
+
 `tests/test_tablet_header_footer_spacing.py` adds 180 real QPdfWriter/QPrinter PDF
 cases across RU/KK/EN, five DPI, three widths and two padding profiles. Extracted
 text/bounds verify non-overlap, physical gaps, Unicode page labels, bounded title/brand

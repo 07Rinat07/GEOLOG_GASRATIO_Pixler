@@ -12,6 +12,7 @@ from PySide6.QtGui import QPageLayout, QPageSize, QPdfWriter, QTextDocument
 
 from geoworkbench.brand import APPLICATION_DISPLAY_NAME
 from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
+from geoworkbench.printing.report_rich_text_fonts import apply_explicit_rich_text_font_sizes
 from geoworkbench.domain.models import CuttingsSample
 from geoworkbench.project.lithotype_catalog_controller import LithotypeCatalogController
 from geoworkbench.project.lithotype_catalog_models import CatalogLithotype
@@ -1178,8 +1179,9 @@ def export_interpretation_report_pdf(
         if not unicode_report.ok:
             raise InterpretationReportError(unicode_report.error_message())
         document = QTextDocument()
-        document.setDefaultFont(print_font(10.0, text=html))
+        document.setDefaultFont(print_font(modern_oilfield_report_profile().typography.body_pt, text=html))
         document.setHtml(html)
+        apply_explicit_rich_text_font_sizes(document)
         document.print_(writer)
         del writer
         if not temporary.exists() or temporary.stat().st_size == 0:
