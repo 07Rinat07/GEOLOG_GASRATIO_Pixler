@@ -1349,3 +1349,11 @@ class selectors cannot defeat compact fallback. Twelve multipage QPdfWriter/QPri
 PDF cases retain each of 120 rows exactly once, repeat headers and stay above footers
 in A4 portrait/landscape at 600 DPI. A character-format regression preserves heading
 links/bold/italic and body superscript/subscript. Physical printer acceptance is separate.
+
+`tests/test_interpretation_cover_typography_profile.py` checks 36 actual covers:
+RU/KK/EN, 72/300/600 DPI, A4 portrait/landscape, default/custom title/subtitle/body/caption
+roles. Full control/context/approval labels and values, localized multiline title/subtitle,
+notes and signature captions must survive; physical font sizes, page bounds and pairwise
+span intersections are checked without weakening clipping assertions. Source report/identity
+remain unchanged. Existing QPrinter cover checks now expect the shared 22-pt title in both
+orientations; full production/high-DPI contracts remain in place.

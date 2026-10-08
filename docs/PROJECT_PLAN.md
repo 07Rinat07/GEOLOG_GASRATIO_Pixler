@@ -504,6 +504,16 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   размеры, measured bounds, повторение headers и все строки без uniform shrinking.
   Cover role mapping и physical printer acceptance остаются открытыми; merge
   допускается только после полного local suite и exact-head Windows Release gate.
+- [x] **2026-10-08 — cover shared typography:** все font calls interpretation
+  PDF/system-print cover используют title/subtitle/body/caption roles общего profile
+  без отдельных мелких landscape размеров. Control labels/values, wrapped title,
+  subtitle и approvals получают measured reserve теми же physical-point fonts;
+  compact/wide context labels переносятся внутри ячеек. Portrait/landscape сохраняют
+  manual identity и источник; дата остаётся только явно введённой. Actual RU/KK/EN
+  PDF 72/300/600 DPI и default/custom typography проверяют полный текст, размеры,
+  page bounds и отсутствие пересечений; existing QPrinter/production checks сохранены.
+  Physical printer acceptance и единый profile оставшихся экспортных путей остаются
+  открытыми; merge только после полного local suite и exact-head Windows gate.
 - [ ] Один immutable style profile для PDF, Masterlog, планшетной печати и Office-экспорта:
   нейтральная техническая типографика, строгая сетка, сдержанный petroleum-blue accent,
   high-contrast текст, light technical fills, line-weight hierarchy и monochrome-safe semantics.

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QLineF, QRectF, Qt
-from PySide6.QtGui import QColor, QPainter, QPen
+from PySide6.QtGui import QColor, QFont, QFontMetricsF, QPainter, QPen
 
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_canvas import PageCanvas
 from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
@@ -113,6 +113,7 @@ def render_report_cover(
     short_page = rect.height() < 600.0
     visual = modern_oilfield_report_profile()
     palette = visual.palette
+    typography = visual.typography
     accent = QColor(palette.accent)
     accent_dark = QColor(palette.accent_dark)
     text_color = QColor(palette.text)
@@ -138,7 +139,7 @@ def render_report_cover(
         brand_top = rect.top() + (15.0 if short_page else 17.0)
         brand_width = rect.width() * (0.38 if compact else 0.34)
         brand_font = point_coordinate_font(
-            8.6 if short_page else 9.0,
+            typography.caption_pt,
             text=labels["brand"],
             paint_device=painter.device(),
         )
@@ -158,6 +159,19 @@ def render_report_cover(
             else min(360.0, rect.width() * 0.52)
         )
         control_height = 52.0 if short_page else 58.0
+        control_items = document_control.control
+        control_cell_width = control_width / len(control_items) - 10.0
+        control_label_height = max(15.0, *(
+            _wrapped_height(painter, point_coordinate_font(
+                typography.caption_pt, text=label, paint_device=painter.device(), bold=True,
+            ), label, control_cell_width) for label, _ in control_items
+        ))
+        control_value_top = control_label_height + 5.0
+        control_height = max(control_height, control_value_top + 3.0 + max(
+            _wrapped_height(painter, point_coordinate_font(
+                typography.body_pt, text=value, paint_device=painter.device(), bold=True,
+            ), value, control_cell_width) for _, value in control_items
+        ))
         control_left = (
             rect.left() + 6.0
             if compact
@@ -168,7 +182,6 @@ def render_report_cover(
         painter.setPen(QPen(card_border, 0.9))
         painter.drawRoundedRect(control, 5.0, 5.0)
 
-        control_items = document_control.control
         column_width = control.width() / float(len(control_items))
         for index, (label, value) in enumerate(control_items):
             cell = QRectF(
@@ -183,7 +196,7 @@ def render_report_cover(
                     QLineF(cell.left(), cell.top(), cell.left(), cell.bottom())
                 )
             label_font = point_coordinate_font(
-                6.4 if short_page else 6.8 if compact else 7.2,
+                typography.caption_pt,
                 text=label,
                 paint_device=painter.device(),
             )
@@ -195,13 +208,13 @@ def render_report_cover(
                     cell.left() + 5.0,
                     cell.top() + 4.0,
                     cell.width() - 10.0,
-                    15.0,
+                    control_label_height,
                 ),
                 Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
                 label,
             )
             value_font = point_coordinate_font(
-                7.3 if short_page else 7.6 if compact else 8.0,
+                typography.body_pt,
                 text=value,
                 paint_device=painter.device(),
             )
@@ -211,9 +224,9 @@ def render_report_cover(
             painter.drawText(
                 QRectF(
                     cell.left() + 5.0,
-                    cell.top() + 20.0,
+                    cell.top() + control_value_top,
                     cell.width() - 10.0,
-                    control.height() - 23.0,
+                    control.height() - control_value_top - 3.0,
                 ),
                 Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
                 value,
@@ -222,13 +235,16 @@ def render_report_cover(
         title_gap = 8.0 if short_page else (15.0 if compact else 20.0)
         title_top = control.bottom() + title_gap
         title_height = 42.0 if short_page else (66.0 if compact else 54.0)
-        title_size = 20.5 if short_page else (22.0 if compact else 23.5)
+        title_size = typography.title_pt
         title_font = point_coordinate_font(
             title_size,
             text=details.report_title,
             paint_device=painter.device(),
         )
         title_font.setBold(True)
+        title_height = max(title_height, _wrapped_height(
+            painter, title_font, _value(details.report_title), rect.width() - 48.0,
+        ))
         painter.setFont(title_font)
         painter.setPen(text_color)
         painter.drawText(
@@ -244,13 +260,15 @@ def render_report_cover(
 
         subtitle_top = title_top + title_height + 2.0
         subtitle_height = 18.0 if short_page else 24.0
-        painter.setFont(
-            point_coordinate_font(
-                8.5 if short_page else 9.5,
-                text=details.report_subtitle,
-                paint_device=painter.device(),
-            )
+        subtitle_font = point_coordinate_font(
+            typography.subtitle_pt,
+            text=details.report_subtitle,
+            paint_device=painter.device(),
         )
+        subtitle_height = max(subtitle_height, _wrapped_height(
+            painter, subtitle_font, _value(details.report_subtitle), rect.width() - 48.0,
+        ))
+        painter.setFont(subtitle_font)
         painter.setPen(muted)
         painter.drawText(
             QRectF(
@@ -284,7 +302,7 @@ def render_report_cover(
                 text_color=text_color,
                 value_color=value_color,
                 line_color=line_color,
-                font_size=7.8,
+                font_size=typography.body_pt,
             )
         else:
             _draw_wide_rows(
@@ -295,16 +313,28 @@ def render_report_cover(
                 value_color=value_color,
                 line_color=line_color,
                 card_border=card_border,
-                font_size=7.1 if short_page else 7.8,
+                font_size=typography.body_pt,
             )
 
         approval_top = card.bottom() + (9.0 if short_page else 14.0)
         approval_height = 60.0 if short_page else (83.0 if compact else 72.0)
+        approval_items = document_control.approvals
+        approval_value_height = max(
+            18.0 if short_page else 24.0,
+            *(_wrapped_height(
+                painter, point_coordinate_font(typography.body_pt, text=value,
+                                                paint_device=painter.device()),
+                _value(value), card.width() / 3.0 - 14.0,
+            ) for _, value in approval_items),
+        )
+        approval_value_top = 20.0 if short_page else 26.0
+        signature_bottom = 16.0 if short_page else 19.0
+        approval_height = max(approval_height, approval_value_top + approval_value_height
+                              + signature_bottom + 3.0)
         approval = QRectF(card.left(), approval_top, card.width(), approval_height)
         painter.setBrush(QColor("#ffffff"))
         painter.setPen(QPen(card_border, 1.0))
         painter.drawRoundedRect(approval, 5.0, 5.0)
-        approval_items = document_control.approvals
         approval_column = approval.width() / 3.0
         for index, (label, value) in enumerate(approval_items):
             cell = QRectF(
@@ -319,7 +349,7 @@ def render_report_cover(
                     QLineF(cell.left(), cell.top(), cell.left(), cell.bottom())
                 )
             label_font = point_coordinate_font(
-                7.1 if short_page else 8.0,
+                typography.caption_pt,
                 text=label,
                 paint_device=painter.device(),
             )
@@ -338,7 +368,7 @@ def render_report_cover(
             )
             painter.setFont(
                 point_coordinate_font(
-                    7.3 if short_page else 8.2,
+                    typography.body_pt,
                     text=value,
                     paint_device=painter.device(),
                 )
@@ -347,9 +377,9 @@ def render_report_cover(
             painter.drawText(
                 QRectF(
                     cell.left() + 7.0,
-                    cell.top() + (20.0 if short_page else 26.0),
+                    cell.top() + approval_value_top,
                     cell.width() - 14.0,
-                    18.0 if short_page else 24.0,
+                    approval_value_height,
                 ),
                 Qt.AlignmentFlag.AlignLeft
                 | Qt.AlignmentFlag.AlignVCenter
@@ -357,7 +387,7 @@ def render_report_cover(
                 _value(value),
             )
             painter.setPen(QPen(line_color, 0.8))
-            signature_y = cell.bottom() - (16.0 if short_page else 19.0)
+            signature_y = cell.bottom() - signature_bottom
             painter.drawLine(
                 QLineF(
                     cell.left() + 7.0,
@@ -368,7 +398,7 @@ def render_report_cover(
             )
             painter.setFont(
                 point_coordinate_font(
-                    6.1 if short_page else 6.7,
+                    typography.caption_pt,
                     text=labels["signature"],
                     paint_device=painter.device(),
                 )
@@ -404,7 +434,7 @@ def render_report_cover(
         ]
         painter.setFont(
             point_coordinate_font(
-                7.1 if short_page else 7.6 if compact else 8.0,
+                typography.caption_pt,
                 text=' '.join(footer_parts),
                 paint_device=painter.device(),
             )
@@ -419,6 +449,14 @@ def render_report_cover(
         painter.restore()
 
     canvas.y = canvas.content_rect.bottom()
+
+
+def _wrapped_height(painter: QPainter, font: QFont, text: str, width: float) -> float:
+    """Measure the same point-coordinate font and wrapping used for drawing."""
+    metrics = QFontMetricsF(font, painter.device())
+    bounds = metrics.boundingRect(QRectF(0.0, 0.0, width, 10000.0),
+                                  int(Qt.TextFlag.TextWordWrap), text)
+    return bounds.height() + 2.0
 
 
 def _draw_compact_rows(
@@ -457,7 +495,7 @@ def _draw_compact_rows(
         painter.setPen(text_color)
         painter.drawText(
             QRectF(row_left, row_top + 2.0, label_width, row_height - 4.0),
-            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter | Qt.TextFlag.TextWordWrap,
             f"{label}:",
         )
         painter.setFont(value_font)
@@ -538,7 +576,7 @@ def _draw_wide_rows(
                     label_width - 9.0,
                     pair_height - 6.0,
                 ),
-                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter | Qt.TextFlag.TextWordWrap,
                 f"{label}:",
             )
             painter.setFont(value_font)
