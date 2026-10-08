@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- PRINT-STYLE-01: литологическая легенда и ЛБА Masterlog используют общий Unicode font resolver для фактически выводимых заголовков, названий и пустого состояния. Смена экранного шрифта не подменяет печатный стек; сохранённый размер в миллиметрах, цвета и геологические условные обозначения сохраняются.
 - PRINT-STYLE-01: C1–C5 отчёт газовой смеси получает shared palette/typography и canonical wordmark; служебный generation timestamp остаётся только в audit. Neutral raster chrome использует общий профиль, component colours и временные линии сохраняются. Общий rich-text font adapter сохраняет явные CSS размеры заголовков в PDF без потери inline formatting.
 - PRINT-STYLE-01: титульный лист interpretation PDF/system print использует shared title/subtitle/body/caption typography вместо отдельных фиксированных portrait/landscape размеров. Control cells, title/subtitle и approvals резервируют измеренную высоту; context labels переносятся. Explicit measured line pitch устраняет Windows overlap; context rows получают индивидуальную высоту. Реквизиты, подписи и данные сохраняются, physical DPI contract остаётся общим.
 - PRINT-STYLE-01: текстовая часть interpretation PDF/system print измеряется в физических пунктах на 72-DPI layout device вместо screen DPI. Заголовки, основной текст и таблицы используют shared typography; повторяемые table headers, полный текст и compact oversized-row fallback сохранены. Inline bold/italic, links и superscript/subscript не теряются.
