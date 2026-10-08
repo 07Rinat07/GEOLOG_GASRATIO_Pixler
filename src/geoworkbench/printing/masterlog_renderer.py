@@ -131,6 +131,12 @@ def _set_scaled_font_points(painter: QPainter, font: QFont, size_points: float) 
     _set_scaled_font_mm(painter, font, float(size_points) * 25.4 / 72.0)
 
 
+def _set_scaled_unicode_font_points(painter: QPainter, text: str, size_points: float) -> None:
+    font = print_font(size_points, text=text)
+    _set_scaled_font_points(painter, font, size_points)
+    painter.setFont(font)
+
+
 class MasterlogRenderError(RuntimeError):
     pass
 
@@ -2326,9 +2332,6 @@ def _paint_lithology_descriptions(
         return
     painter.save()
     painter.setClipRect(rect)
-    font = QFont()
-    _set_scaled_font_points(painter, font, 6.5)
-    painter.setFont(font)
     visible_intervals = (
         tuple(intervals)
         if intervals is not None
@@ -2351,6 +2354,7 @@ def _paint_lithology_descriptions(
             painter.setPen(QPen(QColor(visual.palette.border), 0.15))
             painter.drawRect(interval_rect)
         if interval_rect.height() >= 3.0:
+            _set_scaled_unicode_font_points(painter, description, 6.5)
             painter.setPen(QColor(visual.palette.text))
             painter.drawText(
                 interval_rect.adjusted(1.0, 0.5, -1.0, -0.5),
@@ -2377,9 +2381,6 @@ def _paint_cuttings_descriptions(
     top, bottom = depth_range
     painter.save()
     painter.setClipRect(rect)
-    font = QFont()
-    _set_scaled_font_points(painter, font, 6.5)
-    painter.setFont(font)
     source_samples = samples if samples is not None else well.cuttings
     for sample in source_samples:
         description = localized_text(
@@ -2398,11 +2399,13 @@ def _paint_cuttings_descriptions(
             painter.setPen(QPen(QColor(visual.palette.border), 0.15))
             painter.drawRect(sample_rect)
         if sample_rect.height() >= 3.0:
+            text = _rich_text_to_plain(description)
+            _set_scaled_unicode_font_points(painter, text, 6.5)
             painter.setPen(QColor(visual.palette.text))
             _draw_fitted_interval_text(
                 painter,
                 sample_rect.adjusted(0.6, 0.3, -0.6, -0.3),
-                _rich_text_to_plain(description),
+                text,
                 alignment=_rich_text_alignment(description),
                 maximum_point_size=6.5,
                 word_wrap=sample.description_word_wrap,
@@ -2427,9 +2430,6 @@ def _paint_sample_interpretations(
     top, bottom = depth_range
     painter.save()
     painter.setClipRect(rect)
-    font = QFont()
-    _set_scaled_font_points(painter, font, 6.0)
-    painter.setFont(font)
     source_samples = samples if samples is not None else well.cuttings
     for sample in source_samples:
         raw_description = localized_text(
@@ -2456,6 +2456,7 @@ def _paint_sample_interpretations(
             painter.setPen(QPen(QColor(visual.palette.border_strong), 0.15))
             painter.drawRect(sample_rect)
         if sample_rect.height() >= 3.0:
+            _set_scaled_unicode_font_points(painter, text, 6.0)
             painter.setPen(QColor(visual.palette.text))
             _draw_fitted_interval_text(
                 painter,

@@ -217,3 +217,5 @@ Masterlog curve legends show the actual line key and bound channel unit beside t
 Masterlog column borders, grid and depth labels use the shared print profile. Major lines are twice as thick as minor lines. Grid visibility, transparency and divisions remain saved in the form; the depth scale is unchanged.
 
 Lithology and LBA legends resolve print Unicode fonts for their actual text. Changing the interface font does not replace the print font stack. Saved millimetre sizes, colours and symbols are retained; an empty lithology legend uses the legend body text size.
+
+Rock descriptions, sample descriptions and sample conclusions also resolve Unicode fonts for the printed text in the selected language. Text sizes, alignment, wrapping and fitting to interval height are retained; printing does not modify project geology records.
