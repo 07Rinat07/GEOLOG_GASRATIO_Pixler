@@ -1,5 +1,11 @@
 # Проверка качества и release gate
 
+`tests/test_gas_mixture_raster_typography.py` checks nine actual RU/KK/EN PNG charts
+with default, custom and maximum-size typography. Captured text uses shared roles
+and actual-label Unicode fonts, remains complete and fits measured device bounds.
+Changing the UI font does not change the resolved print families; oversized profile
+sizes shrink within the fixed geometry. Existing PDF and monochrome-line tests remain.
+
 `tests/test_gas_mixture_line_patterns.py` checks six RU/KK/EN raster charts with
 colour/grayscale profiles. Actual grayscale PNG legend signatures distinguish all
 five component line patterns; captured paths retain every time/log-response coordinate.

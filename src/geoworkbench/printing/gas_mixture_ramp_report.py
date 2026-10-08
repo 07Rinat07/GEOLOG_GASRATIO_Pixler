@@ -11,6 +11,7 @@ import numpy as np
 from PySide6.QtCore import QByteArray, QBuffer, QIODevice, QLineF, QMarginsF, QRectF, Qt
 from PySide6.QtGui import (
     QColor,
+    QFontMetricsF,
     QImage,
     QPageLayout,
     QPageSize,
@@ -433,30 +434,52 @@ def _component_line_style(name: str) -> Qt.PenStyle:
     }[name]
 
 
+def _draw_chart_text(
+    painter: QPainter,
+    rect: QRectF,
+    text: str,
+    point_size: float,
+    *,
+    bold: bool = False,
+    alignment: Qt.AlignmentFlag = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+) -> None:
+    font = print_font(point_size, text=text, bold=bold)
+    # Keep the full label inside the fixed raster layout when profile sizes grow.
+    for _ in range(8):
+        metrics = QFontMetricsF(font, painter.device())
+        factor = min(rect.width() / max(1.0, metrics.horizontalAdvance(text)), rect.height() / max(1.0, metrics.height()))
+        if factor >= 1.0 or font.pointSizeF() <= 1.0:
+            break
+        font.setPointSizeF(max(1.0, font.pointSizeF() * factor * 0.98))
+    painter.setFont(font)
+    painter.drawText(rect, alignment, text)
+
+
 def _chart_data_uri(
     report: GasMixtureRampReport,
     language: AppLanguage,
 ) -> str:
-    palette = modern_oilfield_report_profile().palette
+    visual = modern_oilfield_report_profile()
+    palette, typography = visual.palette, visual.typography
     image = QImage(1500, 650, QImage.Format.Format_ARGB32_Premultiplied)
     image.fill(QColor(palette.page))
     painter = QPainter(image)
     try:
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        title_font = print_font(16.0, text=_labels(language)["chart"])
-        title_font.setBold(True)
-        painter.setFont(title_font)
         painter.setPen(QColor(palette.text))
-        painter.drawText(
+        _draw_chart_text(
+            painter,
             QRectF(70, 12, 1360, 38),
-            Qt.AlignmentFlag.AlignCenter,
             _labels(language)["chart"],
+            typography.title_pt,
+            bold=True,
+            alignment=Qt.AlignmentFlag.AlignCenter,
         )
-        painter.setFont(print_font(9.0, text=_labels(language)["chart_scale"]))
-        painter.drawText(
+        _draw_chart_text(
+            painter,
             QRectF(90, 48, 440, 20),
-            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
             _labels(language)["chart_scale"],
+            typography.caption_pt,
         )
         plot = QRectF(90, 70, 1320, 480)
         painter.setPen(QPen(QColor(palette.border_strong), 2))
@@ -476,8 +499,6 @@ def _chart_data_uri(
         y_max = float(np.max(np.log10(1.0 + finite_values))) if finite_values.size else 1.0
         y_max = max(1.0, y_max)
         grid_pen = QPen(QColor(palette.border), 1)
-        label_font = print_font(9.0, text=report.time_label)
-        painter.setFont(label_font)
         for tick in range(6):
             fraction = tick / 5.0
             y = plot.bottom() - fraction * plot.height()
@@ -485,20 +506,24 @@ def _chart_data_uri(
             painter.drawLine(QLineF(plot.left(), y, plot.right(), y))
             raw_value = 10 ** (fraction * y_max) - 1.0
             painter.setPen(QColor(palette.text_secondary))
-            painter.drawText(
+            _draw_chart_text(
+                painter,
                 QRectF(5, y - 10, 78, 20),
-                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
                 f"{raw_value:.3g}",
+                typography.caption_pt,
+                alignment=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
             )
             x_position = plot.left() + fraction * plot.width()
             painter.setPen(grid_pen)
             painter.drawLine(QLineF(x_position, plot.top(), x_position, plot.bottom()))
             time_value = x_min + fraction * (x_max - x_min)
             painter.setPen(QColor(palette.text_secondary))
-            painter.drawText(
+            _draw_chart_text(
+                painter,
                 QRectF(x_position - 55.0, plot.bottom() + 4.0, 110.0, 20.0),
-                Qt.AlignmentFlag.AlignCenter,
                 f"{time_value:.4g}",
+                typography.caption_pt,
+                alignment=Qt.AlignmentFlag.AlignCenter,
             )
         for name, raw_series in report.series:
             values = np.asarray(raw_series, dtype=np.float64)
@@ -521,12 +546,14 @@ def _chart_data_uri(
             painter.setPen(QPen(QColor(_COLORS[name]), 3, _component_line_style(name)))
             painter.drawLine(QLineF(legend_x, 590.0, legend_x + 65.0, 590.0))
             painter.setPen(QColor(palette.text))
-            painter.drawText(QRectF(legend_x + 71.0, 576.0, 60.0, 28.0), name)
+            _draw_chart_text(painter, QRectF(legend_x + 71.0, 576.0, 60.0, 28.0), name, typography.table_pt)
             legend_x += 135.0
-        painter.drawText(
+        _draw_chart_text(
+            painter,
             QRectF(620, 610, 300, 25),
-            Qt.AlignmentFlag.AlignCenter,
             report.time_label,
+            typography.subtitle_pt,
+            alignment=Qt.AlignmentFlag.AlignCenter,
         )
     finally:
         painter.end()
