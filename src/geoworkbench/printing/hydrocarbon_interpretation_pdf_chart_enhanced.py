@@ -1230,13 +1230,16 @@ def _draw_fluid_marker_legend(
                               cell.spec, size=4.4)
             painter.setPen(QColor(palette.text))
             painter.setFont(font)
-            painter.drawText(QRectF(left + 10.0, top + 2.0, cell.width - 12.0, cell.height - 4.0),
-                             MARKER_LEGEND_TEXT_FLAGS, cell.text)
+            for index, line in enumerate(cell.lines):
+                painter.drawText(QRectF(left + 10.0, top + 2.0 + index * legend.line_height,
+                                        cell.width - 12.0, legend.line_height),
+                                 MARKER_LEGEND_TEXT_FLAGS, line)
         painter.setPen(QColor(palette.text_muted))
         painter.setFont(point_coordinate_font(size, text=legend.note, paint_device=painter.device()))
-        painter.drawText(QRectF(rect.left(), rect.top() + legend.note_top, rect.width(),
-                               max(0.0, rect.height() - legend.note_top)),
-                         MARKER_LEGEND_TEXT_FLAGS, legend.note)
+        for index, line in enumerate(legend.note_lines):
+            painter.drawText(QRectF(rect.left(), rect.top() + legend.note_top + index * legend.line_height,
+                                    rect.width(), legend.line_height),
+                             MARKER_LEGEND_TEXT_FLAGS, line)
     finally:
         painter.restore()
 
