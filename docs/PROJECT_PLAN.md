@@ -2,10 +2,10 @@
 # Единый план проекта
 
 План актуализирован 9 октября 2026 года. Проверенная база перед текущим инкрементом —
-`6c0043dd` (PR #500). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
-приёмка интегрированы. Текущий PRINT-STYLE-01 slice сохраняет явные shared-profile размеры
-заголовков геологического PDF через существующий rich-text adapter; default body font
-также берётся из профиля. Текст, таблицы, source data и Office-экспорты сохраняются.
+`871fd8b7` (PR #501). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
+приёмка интегрированы. Текущий PRINT-STYLE-01 slice добавляет различимые line patterns
+для временных кривых C1–C5 ramp-report и соответствующие образцы в легенде.
+Цвета, координаты отсчётов, log10 scale, числовые таблицы и source data сохраняются.
 WITS-NET-01 остаётся внешним условием: пользователь уточняет существующий VPN, доступа
 для настройки сейчас нет. Разработка остальных независимых задач продолжается.
 Статусы завершения
@@ -596,6 +596,14 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   Actual PDF RU/KK/EN с default/custom typography проверяет полный многострочный title,
   section/body/table sizes, заключения и source immutability. Existing Office regressions
   сохранены; physical acceptance и оставшиеся profile paths остаются открытыми.
+  Интеграция только после полного local suite и exact-head Windows Release gate.
+- [x] **2026-10-09 — C1–C5 ramp monochrome line keys:** пять временных компонентных
+  кривых получают solid/dash/dot/dash-dot/dash-dot-dot styles с одинаковыми legend keys.
+  QPainterPath сохраняет весь временной polyline и непрерывный dash phase между отсчётами;
+  прежние цвета, log10 scale и числовые результаты сохраняются. RU/KK/EN PNG regressions
+  проверяют различимые grayscale legend samples, точные координаты всех отсчётов,
+  совпадение pen кривых/легенды и immutable report. Existing PDF/profile checks сохранены.
+  Raster typography, ramp footer/document control и physical acceptance остаются открытыми.
   Интеграция только после полного local suite и exact-head Windows Release gate.
 - [ ] Один immutable style profile для PDF, Masterlog, планшетной печати и Office-экспорта:
   нейтральная техническая типографика, строгая сетка, сдержанный petroleum-blue accent,
