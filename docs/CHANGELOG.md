@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- PRINT-STYLE-01: все оставшиеся font calls standard/enhanced interpretation PDF используют DPI-compensated point fonts. Размер title/legend/marker text стабилен относительно 72 DPI; depth/percentage axes получают table/caption profile roles. Source/reference lines сохраняют физическую толщину при 300/600 DPI; числа, цвета, dash style и source semantics сохраняются.
 - PRINT-STYLE-01: PDF track headings используют shared typography и DPI-correct point fonts; neutral structural rules получают thin/minor/strong hierarchy. Ratio headings резервируют место над внутренней шкалой; curve/classification и legacy PNG sizing сохранены.
 - PRINT-STYLE-01: neutral palette standard/OPUS PDF chart adapters переведена на shared visual profile; series/candidate semantics и geometry сохранены. Real PDF regressions покрывают RU/KK/EN, A4 portrait/landscape и colour/grayscale profile substitution.
 - PRINT-STYLE-01/geology legends: рамки, фон, подписи и caption/table typography геологических легенд interpretation PDF/PNG используют общий visual profile. PDF/system-print font sizes больше не масштабируются повторно при высоком DPI; измерение и рисование согласованы. Каталожные lithology/LBA цвета, штриховки и интенсивности сохраняются; физическая приёмка остаётся отдельной.
