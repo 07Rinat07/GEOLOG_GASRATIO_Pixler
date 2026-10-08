@@ -1006,3 +1006,7 @@ Interpretation source curves and ratio-reference traces use non-cosmetic physica
 Ratio-scale PDF headings отделены в `ratio_scale_heading`: один point-coordinate metric contract задаёт header reservation и caption-size paint. Endpoint-first label selection ограничивает коллизии без изменения fixed ratio scales, grid ticks и source/reference geometry; shared Wh/Bh lane получает одну шапку.
 
 `interpretation_note_layout` измеряет wrapped explanatory caption в point coordinates на целевом paint device. Оба PDF adapters передают measured note height в depth-page budget и `chart_geometry`; default/minimum 28 pt сохраняет совместимость остальных callers. Forced-empty geology labels используют caption role. Candidate-present marker legends остаются отдельным contract.
+
+`fluid_marker_legend_layout` создаёт typed immutable caption cells и note offsets по фактическим point-coordinate font metrics. Enhanced PDF резервирует global candidate legend height до depth pagination; painter строит layout для page-visible phase subset. 1–3 columns, uniform row heights и wrapped text обеспечивают bounded cells; код/фаза/glyph/цвет из `FluidMarkerSpec` не меняются. Candidate badges остаются отдельным compact contract.
+
+Fluid marker legend использует QTextLayout для определения строк и явный point-metrics line pitch для измерения/рисования: Windows font bounding boxes не пересекаются при малом caption size. Строгие PDF span checks сохраняются. Planner-only report fixtures содержат пустой candidates contract.

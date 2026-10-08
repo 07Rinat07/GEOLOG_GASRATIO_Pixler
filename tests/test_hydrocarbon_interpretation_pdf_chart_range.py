@@ -44,7 +44,7 @@ def test_chart_page_planner_uses_selected_report_depth_range(qapp, monkeypatch) 
         content_rect=QRectF(0.0, 0.0, 842.0, 560.0),
         painter=SimpleNamespace(device=lambda: QImage(842, 560, QImage.Format.Format_ARGB32)),
     )
-    report = SimpleNamespace(depth_unit="m")
+    report = SimpleNamespace(depth_unit="m", candidates=())
 
     chart.render_chart_pages(
         canvas,

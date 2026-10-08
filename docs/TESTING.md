@@ -1331,3 +1331,7 @@ Interpretation source curves and ratio-reference traces use non-cosmetic physica
 Ratio-scale readability: `tests/test_ratio_scale_heading.py` проверяет реальные PDF 72/300/600 DPI, 22/40/90 pt lanes, linear/log scales, полные bounded endpoint labels без пересечения, caption profile substitution и production RU/KK/EN A4 portrait/landscape. Source arrays/metadata и continuous dashed ratio traces сохраняются.
 
 `tests/test_interpretation_note_caption_profile.py` проверяет полный explanatory note над footer и ниже source traces в actual standard/OPUS PDF: caption profile 9 pt, RU/KK/EN, A4 portrait/landscape, 72/300/600 DPI. Отдельно проверяются полные localized no-data captions forced-empty cuttings/LBA. Source arrays/metadata сохраняются.
+
+`tests/test_fluid_marker_legend_caption_layout.py` проверяет полный текст всех пяти фаз и пояснения, реальные font sizes, bounded/non-overlapping spans и glyph colours на RU/KK/EN, 72/300/600 DPI, 180/360/550 pt widths и default/9 pt caption profiles. Все non-empty phase subsets помещаются в global budget. Production многолистовые A4 portrait/landscape PDF сохраняют footer bounds, source arrays/metadata и candidate identities; invalid widths отклоняются.
+
+Fluid marker legend использует QTextLayout для определения строк и явный point-metrics line pitch для измерения/рисования: Windows font bounding boxes не пересекаются при малом caption size. Строгие PDF span checks сохраняются. Planner-only report fixtures содержат пустой candidates contract.

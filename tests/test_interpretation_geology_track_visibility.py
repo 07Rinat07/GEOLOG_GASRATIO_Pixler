@@ -283,7 +283,7 @@ def test_multi_page_auto_keeps_global_tracks_without_page_local_empty_state(
         new_page=lambda: None,
     )
     dataset = SimpleNamespace(depth=np.asarray([1000.0, 1010.0], dtype=np.float64))
-    report = SimpleNamespace(depth_unit="m")
+    report = SimpleNamespace(depth_unit="m", candidates=())
 
     chart.render_chart_pages(
         canvas,  # type: ignore[arg-type]
