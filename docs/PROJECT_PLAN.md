@@ -2,10 +2,10 @@
 # Единый план проекта
 
 План актуализирован 9 октября 2026 года. Проверенная база перед текущим инкрементом —
-`4b92bb80` (PR #502). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
-приёмка интегрированы. Текущий PRINT-STYLE-01 slice подключает shared typography roles
-к raster chart C1–C5 ramp-report и измеряемый fitting полного Unicode текста.
-Геометрия диаграммы, line patterns, log10 scale, числовые таблицы и source data сохраняются.
+`6d4d829d` (PR #503). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
+приёмка интегрированы. Текущий PRINT-STYLE-01 slice нормализует physical-point fonts
+корреляционной диаграммы Haworth/Pixler через существующий paged-painter adapter.
+Размеры, PNG-контракт, координаты измерений, шкалы и source data сохраняются.
 WITS-NET-01 остаётся внешним условием: пользователь уточняет существующий VPN, доступа
 для настройки сейчас нет. Разработка остальных независимых задач продолжается.
 Статусы завершения
@@ -613,6 +613,14 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   screen-font independence, measured bounds и report immutability. Existing PDF и
   monochrome-line regressions сохранены. Footer/document control и physical acceptance
   остаются открытыми; интеграция только после полного local suite и exact-head gate.
+- [x] **2026-10-09 — ratio-reference physical typography:** Haworth/Pixler reference
+  summary использует общий point-coordinate font adapter в PDF/system print.
+  Шрифты больше не увеличиваются повторно с device DPI; прежние 8–16 pt requests,
+  virtual-layout scale, PNG preview, paired observations и depth profiles сохраняются.
+  30 actual QPdfWriter/QPrinter PDF cases RU/KK/EN при 72/96/144/300/600 DPI проверяют
+  полный searchable text, physical sizes/bounds относительно 72-DPI baseline,
+  painter state и source immutability. Общая palette/role mapping reference chart
+  и physical acceptance остаются открытыми; merge только после полного exact-head gate.
 - [ ] Один immutable style profile для PDF, Masterlog, планшетной печати и Office-экспорта:
   нейтральная техническая типографика, строгая сетка, сдержанный petroleum-blue accent,
   high-contrast текст, light technical fills, line-weight hierarchy и monochrome-safe semantics.

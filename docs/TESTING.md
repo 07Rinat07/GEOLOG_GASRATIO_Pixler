@@ -1,5 +1,10 @@
 # Проверка качества и release gate
 
+`tests/test_ratio_reference_physical_dpi.py` checks 30 actual QPdfWriter/QPrinter
+Haworth/Pixler summary PDFs: RU/KK/EN at 72/96/144/300/600 DPI. Complete extracted
+text, font sizes and bounds match the 72-DPI baseline; painter state and source
+arrays remain unchanged. Existing ratio-reference PNG and paired-row tests remain.
+
 `tests/test_gas_mixture_raster_typography.py` checks nine actual RU/KK/EN PNG charts
 with default, custom and maximum-size typography. Captured text uses shared roles
 and actual-label Unicode fonts, remains complete and fits measured device bounds.

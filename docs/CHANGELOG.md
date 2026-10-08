@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- PRINT-STYLE-01: корреляционная диаграмма Haworth/Pixler использует общий physical-point font adapter в PDF/system print. Устранено повторное увеличение текста с DPI; прежние размеры, PNG preview, парные измерения, профили глубин и исходные массивы сохранены. RU/KK/EN QPdfWriter/QPrinter при 72–600 DPI покрыты реальными PDF-регрессиями.
 - PRINT-STYLE-01: растровая диаграмма C1–C5 отчёта газовой смеси использует общий типографический профиль для заголовка, шкал, легенды и оси времени. Unicode stack выбирается по фактическому label; измеряемый fitting сохраняет полный текст при увеличенных размерах. RU/KK/EN default/custom/max-size regressions сохраняют геометрию диаграммы, line patterns, числовые результаты и исходные данные.
 - PRINT-STYLE-01: временные кривые C1–C5 отчёта газовой смеси различаются стилем линий и при чёрно-белой печати. Легенда использует те же цвета, толщины и line patterns; QPainterPath сохраняет координаты отсчётов и непрерывный рисунок штрихов. RU/KK/EN PNG и existing PDF regressions проверяют совместимость; числовые результаты не меняются.
 - PRINT-STYLE-01: геологический PDF сохраняет явные размеры заголовков из общего visual profile вместо Qt relative heading adjustment. Default body font также использует профиль. Реальные PDF RU/KK/EN с default/custom typography проверяют title/section/body/table размеры, полный текст заключений и сохранность исходных массивов; Office-контракт сохраняется.

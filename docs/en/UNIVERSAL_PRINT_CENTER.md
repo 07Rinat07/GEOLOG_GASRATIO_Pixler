@@ -1,5 +1,7 @@
 # Print and Export Center
 
+Haworth/Pixler correlation chart text retains its physical size as print DPI changes. Labels, scales and depth profiles remain complete; the PNG preview keeps its existing scaling.
+
 The gas mixture chart title, scales, legend and time axis use the shared typography profile. Larger font sizes are fitted to measured field bounds, preserving full labels and the chart geometry.
 
 The gas mixture time chart distinguishes C1–C5 by line pattern as well as colour. Legend samples match the curves, allowing components to be identified in monochrome print. Colours and numerical values are preserved.
