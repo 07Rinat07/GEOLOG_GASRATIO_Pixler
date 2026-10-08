@@ -406,6 +406,17 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   arrays не перекрашиваются. RU/KK/EN, реальные PDF 72/300/600 DPI, colour/grayscale profile
   substitution и production standard/OPUS PDF/PNG после reopen покрыты regressions.
   Интеграция после exact-head gate; остальные chart/media paths и physical acceptance открыты.
+- [x] **Interpretation curve-legend readability slice:** standard/enhanced/OPUS PDF
+  используют caption typography для полных localized curve labels, units и page-local
+  p5/p95. QTextLayout переносит строки без удаления символов; явный physical line pitch
+  сохраняет Windows PDF bounds. Glyphs выровнены с первой строкой; original curve indices,
+  colours и existing point/line policy сохраняются при missing ranges. Максимальная
+  измеренная высота резервируется перед depth pagination; после изменения числа страниц
+  page-local ranges измеряются повторно до стабильного budget. Геологические легенды и
+  footer учитывают этот reserve. RU/KK/EN, 72/300/600 DPI, A4 portrait/landscape, narrow
+  columns и caption profile substitution проверяются actual PDF regressions; source
+  arrays/metadata не меняются. Интеграция только после exact-head Release gate;
+  оставшиеся visual-profile пути и physical printer acceptance открыты.
 - [x] **Interpretation chart neutral-palette slice:** standard и enhanced/OPUS PDF
   используют page/table-alt, text/secondary/muted и border/strong-border roles общего
   visual profile для дорожек, шкал, рамок, нейтральных подписей и marker halos.
