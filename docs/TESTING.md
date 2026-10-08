@@ -1380,3 +1380,7 @@ regressions verify the shared adapter extraction preserves inline formatting and
 Windows depth-refresh MainWindow tests run individually through the existing native-process
 isolation policy after a shared-shard PlotItem access violation during depth reset. Runner
 contract tests require both nodes exactly once, retain all assertions and reject failed exits.
+
+Masterlog document-control text explicitly resolves the common Unicode print-family stack,
+independently of the UI default font. Regular/bold font regressions and RU/KK/EN production
+PDFs after a UI-font change require complete document numbers, approvals, date and interval.
