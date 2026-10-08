@@ -4,11 +4,12 @@ from dataclasses import dataclass
 import re
 
 from PySide6.QtCore import QRectF
-from PySide6.QtGui import QImage, QTextCursor, QTextDocument, QTextFormat
+from PySide6.QtGui import QImage, QTextDocument
 
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_canvas import PageCanvas
 from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.printing.unicode_support import print_font
+from geoworkbench.printing.report_rich_text_fonts import apply_explicit_rich_text_font_sizes
 
 
 _VOID_TAGS = frozenset(
@@ -453,25 +454,7 @@ tr {{ page-break-inside: avoid; break-inside: avoid; }}
     document.setDefaultFont(print_font(typography.body_pt, text=html))
     document.setTextWidth(width)
     document.setHtml(html)
-    # Qt retains heading-relative size adjustments alongside explicit CSS sizes.
-    # The relative adjustment wins during layout unless it is removed. Preserve
-    # every other character property (bold, colour, links and inline formatting).
-    block = document.begin()
-    while block.isValid():
-        iterator = block.begin()
-        while not iterator.atEnd():
-            text_fragment = iterator.fragment()
-            char_format = text_fragment.charFormat()
-            if char_format.fontPointSize() > 0 and char_format.hasProperty(
-                QTextFormat.Property.FontSizeAdjustment,
-            ):
-                char_format.clearProperty(QTextFormat.Property.FontSizeAdjustment)
-                cursor = QTextCursor(document)
-                cursor.setPosition(text_fragment.position())
-                cursor.setPosition(text_fragment.position() + text_fragment.length(), QTextCursor.MoveMode.KeepAnchor)
-                cursor.setCharFormat(char_format)
-            iterator += 1
-        block = block.next()
+    apply_explicit_rich_text_font_sizes(document)
     layout = document.documentLayout()
     if layout is None:
         raise RuntimeError("Не удалось рассчитать компоновку текста отчёта")

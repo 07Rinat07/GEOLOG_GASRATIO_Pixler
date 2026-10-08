@@ -517,6 +517,19 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   page bounds и отсутствие пересечений; existing QPrinter/production checks сохранены.
   Physical printer acceptance и единый profile оставшихся экспортных путей остаются
   открытыми; merge только после полного local suite и exact-head Windows gate.
+- [x] **2026-10-08 — C1–C5 ramp visual-profile slice:** HTML/PDF отчёт газовой
+  смеси использует shared palette, title/section/body/table/caption typography и
+  canonical wordmark. Qt relative heading adjustments обрабатываются общим typed
+  rich-text adapter, который также сохраняет прежний interpretation text contract.
+  Служебный generation timestamp остаётся в immutable report audit, но не печатается
+  в клиентской metadata строке; project/well/dataset сохраняются. Raster chart получает
+  shared neutral page/text/frame/grid palette, сохраняя component colours, continuous
+  time-series, log10(1+response), image geometry и прежние pixel font sizes.
+  Actual PDF/PNG regressions RU/KK/EN, 72/300/600 DPI, default/custom profile и chart/text
+  режимы проверяют реальные шрифты/fills, полные числовые таблицы, линии всех пяти
+  компонентов, source immutability и atomic failure. Raster typography, повторяемый
+  footer/document-control ramp contract и physical acceptance остаются отдельными
+  slices; merge только после полного local suite и exact-head Windows Release gate.
 - [ ] Один immutable style profile для PDF, Masterlog, планшетной печати и Office-экспорта:
   нейтральная техническая типографика, строгая сетка, сдержанный petroleum-blue accent,
   high-contrast текст, light technical fills, line-weight hierarchy и monochrome-safe semantics.

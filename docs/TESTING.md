@@ -1363,3 +1363,13 @@ for both measurement and drawing. This fixes Windows default/custom font boundin
 overlap without relaxing the PDF intersection tolerance. Variable context row/pair heights
 reserve complete labels/values before drawing. Five additional regressions reject invalid
 widths and preserve explicit paragraph breaks plus supplementary Unicode via UTF-16 offsets.
+
+`tests/test_gas_mixture_report_visual_profile.py` checks 36 production PDFs:
+RU/KK/EN, 72/300/600 DPI, chart/text modes and default/substituted palette/typography.
+Actual title/section/table point sizes, text colours, table header fills, full component
+and Pixler numerical rows, page bounds, canonical brand and absent audit timestamp are
+required. Dataset arrays/metadata and immutable report audit remain unchanged. Six PNG
+cases retain all five continuous component lines/colours and measure neutral text/page,
+antialiased grid and frame palette blends at known positions. Forced font-adapter/print failures
+preserve an existing PDF and remove temporary output after closing the writer. Existing interpretation rich-text
+regressions verify the shared adapter extraction preserves inline formatting and pagination.
