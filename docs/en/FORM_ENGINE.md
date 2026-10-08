@@ -219,3 +219,5 @@ Masterlog column borders, grid and depth labels use the shared print profile. Ma
 Lithology and LBA legends resolve print Unicode fonts for their actual text. Changing the interface font does not replace the print font stack. Saved millimetre sizes, colours and symbols are retained; an empty lithology legend uses the legend body text size.
 
 Rock descriptions, sample descriptions and sample conclusions also resolve Unicode fonts for the printed text in the selected language. Text sizes, alignment, wrapping and fitting to interval height are retained; printing does not modify project geology records.
+
+Column titles and curve legend labels use the same Unicode mechanism, including the actual bound channel unit. Horizontal and both vertical orientations, font sizes and line/point keys are retained; the interface font does not replace the print font stack.
