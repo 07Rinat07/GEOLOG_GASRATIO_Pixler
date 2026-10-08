@@ -1,5 +1,11 @@
 # Проверка качества и release gate
 
+`tests/test_gas_mixture_line_patterns.py` checks six RU/KK/EN raster charts with
+colour/grayscale profiles. Actual grayscale PNG legend signatures distinguish all
+five component line patterns; captured paths retain every time/log-response coordinate.
+Curve and legend pens match exactly, and the immutable report remains unchanged.
+Run alongside `test_gas_mixture_report_visual_profile.py` and `test_gas_mixture_ramp_report.py`.
+
 `tests/test_geology_pdf_typography.py` checks six actual geology PDF exports:
 RU/KK/EN with default/custom profiles. Extracted spans verify physical title,
 section, body and table sizes, full wrapped titles and manual conclusions;

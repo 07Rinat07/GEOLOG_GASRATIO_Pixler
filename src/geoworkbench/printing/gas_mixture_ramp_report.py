@@ -15,6 +15,7 @@ from PySide6.QtGui import (
     QPageLayout,
     QPageSize,
     QPainter,
+    QPainterPath,
     QPdfWriter,
     QPen,
     QTextDocument,
@@ -421,6 +422,17 @@ def _sample_indices(size: int, *, limit: int) -> np.ndarray:
     return np.linspace(0, size - 1, limit, dtype=np.int64)
 
 
+def _component_line_style(name: str) -> Qt.PenStyle:
+    # Use the same non-colour key in the curve and its legend sample.
+    return {
+        "C1": Qt.PenStyle.SolidLine,
+        "C2": Qt.PenStyle.DashLine,
+        "C3": Qt.PenStyle.DotLine,
+        "C4Σ": Qt.PenStyle.DashDotLine,
+        "C5Σ": Qt.PenStyle.DashDotDotLine,
+    }[name]
+
+
 def _chart_data_uri(
     report: GasMixtureRampReport,
     language: AppLanguage,
@@ -494,21 +506,22 @@ def _chart_data_uri(
             indices = np.flatnonzero(usable)
             if indices.size < 2:
                 continue
-            painter.setPen(QPen(QColor(_COLORS[name]), 3, Qt.PenStyle.SolidLine))
-            previous = None
+            painter.setPen(QPen(QColor(_COLORS[name]), 3, _component_line_style(name)))
+            path = QPainterPath()
             for index in indices:
                 px = plot.left() + (x[index] - x_min) / (x_max - x_min) * plot.width()
                 py = plot.bottom() - np.log10(1.0 + values[index]) / y_max * plot.height()
-                current = (float(px), float(py))
-                if previous is not None:
-                    painter.drawLine(QLineF(previous[0], previous[1], current[0], current[1]))
-                previous = current
+                if path.elementCount() == 0:
+                    path.moveTo(float(px), float(py))
+                else:
+                    path.lineTo(float(px), float(py))
+            painter.drawPath(path)
         legend_x = 110.0
         for name, _values in report.series:
-            painter.setPen(QPen(QColor(_COLORS[name]), 5))
-            painter.drawLine(QLineF(legend_x, 590.0, legend_x + 28.0, 590.0))
+            painter.setPen(QPen(QColor(_COLORS[name]), 3, _component_line_style(name)))
+            painter.drawLine(QLineF(legend_x, 590.0, legend_x + 65.0, 590.0))
             painter.setPen(QColor(palette.text))
-            painter.drawText(QRectF(legend_x + 34.0, 576.0, 80.0, 28.0), name)
+            painter.drawText(QRectF(legend_x + 71.0, 576.0, 60.0, 28.0), name)
             legend_x += 135.0
         painter.drawText(
             QRectF(620, 610, 300, 25),
