@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- PRINT-STYLE-01: подписи стратиграфии и ЛБА Masterlog используют общий Unicode print font stack по фактическим code/name/color/type labels. Сохранены 5.5/5.0 pt, повороты, геологические интервалы, rank lanes, палитра и символы интенсивности. PDF RU/KK/EN, DPI 72–600 и A4/A3/roll после reopen покрыты регрессиями.
 - PRINT-STYLE-01: заголовки колонок и labels легенд кривых Masterlog используют общий Unicode print font stack по фактическому тексту, включая диапазон и UOM привязанного канала. Сохранены 6.5/4.6 pt, повороты, выравнивание, line/point keys, единицы и source metadata. RU/KK/EN, DPI 72–600 и A4/A3/roll после reopen покрыты регрессиями.
 - PRINT-STYLE-01: описания пород, описания проб и заключения по пробам Masterlog выбирают общий Unicode print font stack по фактически выводимому локализованному тексту. Сохранены размеры 6.5/6.0 pt, rich-text alignment, переносы, fitting/clipping и геологические записи; PDF RU/KK/EN и project reopen покрыты регрессиями.
 - PRINT-STYLE-01: литологическая легенда и ЛБА Masterlog используют общий Unicode font resolver для фактически выводимых заголовков, названий и пустого состояния. Смена экранного шрифта не подменяет печатный стек; сохранённый размер в миллиметрах, цвета и геологические условные обозначения сохраняются.

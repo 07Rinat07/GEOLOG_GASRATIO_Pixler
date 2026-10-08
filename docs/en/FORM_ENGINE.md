@@ -1,5 +1,7 @@
 # Form Engine
 
+Masterlog stratigraphy and LBA labels select the shared Unicode print font by their actual codes and localized names. Existing sizes, orientations, geological intervals, colours and intensity symbols are preserved.
+
 Form Engine stores editable depth and time forms independently from a concrete LAS file.
 A form references canonical parameters, while the mnemonic dictionary resolves them to curves in
 the active dataset.
