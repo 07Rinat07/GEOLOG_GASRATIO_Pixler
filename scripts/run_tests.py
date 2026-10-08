@@ -37,6 +37,9 @@ _FORCED_NATIVE_BATCH_FILES = frozenset(
         "tests/test_curve_view_editing.py",
         "tests/test_daily_las_growth_autosave.py",
         "tests/test_main_window_normalized_gas_tablet.py",
+        # Depth reset also hit PlotItem.__init__ access violation after earlier
+        # MainWindow scenarios in the Windows offscreen shard.
+        "tests/test_main_window_visible_depth_refresh.py",
         # MainWindow navigation hit 0xC0000005 in PlotItem.__init__ after
         # earlier dialogs/scenes in a large Windows offscreen shard.
         "tests/test_navigation_organization.py",

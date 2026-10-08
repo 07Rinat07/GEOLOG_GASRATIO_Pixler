@@ -1376,3 +1376,7 @@ cases retain all five continuous component lines/colours and measure neutral tex
 antialiased grid and frame palette blends at known positions. Forced font-adapter/print failures
 preserve an existing PDF and remove temporary output after closing the writer. Existing interpretation rich-text
 regressions verify the shared adapter extraction preserves inline formatting and pagination.
+
+Windows depth-refresh MainWindow tests run individually through the existing native-process
+isolation policy after a shared-shard PlotItem access violation during depth reset. Runner
+contract tests require both nodes exactly once, retain all assertions and reject failed exits.
