@@ -1341,3 +1341,11 @@ Fluid marker legend использует QTextLayout для определени
 `tests/test_interpretation_cover_physical_dpi.py` checks 24 cover contracts across actual 72/300/600 DPI PDFs: RU/KK/EN, standard/OPUS, A4 portrait/landscape and absent/explicit dates. Full localized titles/subtitles, document-control values, approvals and notes must survive with matching extracted physical font sizes and text bounds relative to 72 DPI. Six QPrinter PDF cases exercise the real paged printer adapter at 600 DPI; six production multipage renderer cases preserve the selected interval, manual identity, source arrays/metadata and absence of generation timestamps. This does not substitute for physical-printer acceptance.
 
 Windows quality gate also isolates all four `test_navigation_organization.py` MainWindow scenarios into single-test processes after an observed 0xC0000005 in pyqtgraph PlotItem construction following earlier dialogs/scenes in a long shared Qt shard. Runner regressions verify every selector is preserved exactly once and excluded from regular shards; assertion/native failures still fail the gate.
+
+`tests/test_interpretation_narrative_point_layout.py` checks 36 actual rich-text PDFs:
+RU/KK/EN, 72/300/600 DPI, default/custom typography and regular/compact table cells.
+Extracted physical fonts and full text must fit the measured document bounds; source
+class selectors cannot defeat compact fallback. Twelve multipage QPdfWriter/QPrinter
+PDF cases retain each of 120 rows exactly once, repeat headers and stay above footers
+in A4 portrait/landscape at 600 DPI. A character-format regression preserves heading
+links/bold/italic and body superscript/subscript. Physical printer acceptance is separate.

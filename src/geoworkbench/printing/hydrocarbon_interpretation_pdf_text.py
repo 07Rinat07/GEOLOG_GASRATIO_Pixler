@@ -4,9 +4,10 @@ from dataclasses import dataclass
 import re
 
 from PySide6.QtCore import QRectF
-from PySide6.QtGui import QTextDocument
+from PySide6.QtGui import QImage, QTextCursor, QTextDocument, QTextFormat
 
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_canvas import PageCanvas
+from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.printing.unicode_support import print_font
 
 
@@ -47,6 +48,26 @@ class _TableParts:
     colgroup: str
     thead: str
     rows: tuple[str, ...]
+
+
+class _PointDocument(QTextDocument):
+    """Keep rich-text measurement and drawing in physical page points.
+
+    Qt otherwise resolves CSS point sizes against the screen's DPI (usually 96).
+    Own the measurement device for the entire document/layout lifetime; the PDF
+    painter's separate DPI transform already converts page points to device units.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._point_device = QImage(1, 1, QImage.Format.Format_ARGB32)
+        dots_per_metre = round(72.0 / 0.0254)
+        self._point_device.setDotsPerMeterX(dots_per_metre)
+        self._point_device.setDotsPerMeterY(dots_per_metre)
+        layout = self.documentLayout()
+        if layout is None:
+            raise RuntimeError("Не удалось рассчитать компоновку текста отчёта")
+        layout.setPaintDevice(self._point_device)
 
 
 def render_report_html(
@@ -400,20 +421,22 @@ def _html_document(
     table: bool = False,
     compact_table: bool = False,
 ) -> tuple[QTextDocument, float]:
-    overrides = """
-html, body { background: #ffffff; color: #172033; }
-body { margin: 0; font-size: 9pt; }
-h1 { margin: 0 0 8px 0; font-size: 17pt; }
-h2 { margin: 8px 0 5px 0; font-size: 12pt; page-break-before: auto; break-before: auto; }
-.prospective-intervals-heading { page-break-before: auto; break-before: auto; }
-.candidate-detail { page-break-inside: avoid; break-inside: avoid; }
+    visual = modern_oilfield_report_profile()
+    typography, palette = visual.typography, visual.palette
+    overrides = f"""
+html, body {{ background: {palette.page}; color: {palette.text}; }}
+body {{ margin: 0; font-size: {typography.body_pt:g}pt; }}
+h1 {{ margin: 0 0 8px 0; font-size: {typography.title_pt:g}pt; }}
+h2 {{ margin: 8px 0 5px 0; font-size: {typography.section_pt:g}pt; page-break-before: auto; break-before: auto; }}
+.prospective-intervals-heading {{ page-break-before: auto; break-before: auto; }}
+.candidate-detail {{ page-break-inside: avoid; break-inside: avoid; }}
 """
     if table:
-        table_font = "6.8pt" if compact_table else "7.2pt"
+        table_font = "6.8pt" if compact_table else f"{typography.table_pt:g}pt"
         table_padding = "2px" if compact_table else "3px"
         overrides += f"""
 table {{ font-size: {table_font}; border-collapse: collapse; }}
-th, td {{ padding: {table_padding}; }}
+th, td {{ padding: {table_padding}; font-size: {table_font}; }}
 tr {{ page-break-inside: avoid; break-inside: avoid; }}
 """
     html = (
@@ -425,11 +448,30 @@ tr {{ page-break-inside: avoid; break-inside: avoid; }}
         + fragment
         + "</body></html>"
     )
-    document = QTextDocument()
+    document = _PointDocument()
     document.setDocumentMargin(0.0)
-    document.setDefaultFont(print_font(9.0, text=html))
+    document.setDefaultFont(print_font(typography.body_pt, text=html))
     document.setTextWidth(width)
     document.setHtml(html)
+    # Qt retains heading-relative size adjustments alongside explicit CSS sizes.
+    # The relative adjustment wins during layout unless it is removed. Preserve
+    # every other character property (bold, colour, links and inline formatting).
+    block = document.begin()
+    while block.isValid():
+        iterator = block.begin()
+        while not iterator.atEnd():
+            text_fragment = iterator.fragment()
+            char_format = text_fragment.charFormat()
+            if char_format.fontPointSize() > 0 and char_format.hasProperty(
+                QTextFormat.Property.FontSizeAdjustment,
+            ):
+                char_format.clearProperty(QTextFormat.Property.FontSizeAdjustment)
+                cursor = QTextCursor(document)
+                cursor.setPosition(text_fragment.position())
+                cursor.setPosition(text_fragment.position() + text_fragment.length(), QTextCursor.MoveMode.KeepAnchor)
+                cursor.setCharFormat(char_format)
+            iterator += 1
+        block = block.next()
     layout = document.documentLayout()
     if layout is None:
         raise RuntimeError("Не удалось рассчитать компоновку текста отчёта")
