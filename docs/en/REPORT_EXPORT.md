@@ -183,3 +183,5 @@ Standard PDF notes and OPUS notes without fluid markers use the shared caption s
 Enhanced/OPUS PDF fluid legends use the shared caption font, wrapped labels and 1–3 columns. The legend and note height is reserved before depth pagination so full phase labels stay above the footer. Codes, glyph shapes and colours are unchanged. The note distinguishes ordinary p5–p95 tracks from fixed gas-ratio scales.
 
 Standard and OPUS PDF curve legends use the shared caption font and wrap labels, units and page-local p5/p95 ranges. Their measured height is reserved before depth pagination and checked again if page boundaries change. Colour and point/line samples stay aligned with the first text line; source values are preserved.
+
+Interpretation PDF and system-print cover fonts retain their physical 72-DPI sizes at 300/600 DPI. Titles, document details, context rows and signature blocks use the same paged-device font adapter as charts. Manual identity, explicit report date and selected analysis interval are preserved.

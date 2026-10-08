@@ -483,6 +483,17 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   subset budget, source arrays/metadata/candidate identity и invalid width validation
   покрыты regressions. Candidate badges/curve legend typography и physical acceptance
   остаются открытыми; merge только после successful exact-head Windows Release gate.
+- [x] **Interpretation cover physical-DPI slice:** все fonts титула, subtitle, brand,
+  document-control labels/values, compact/wide context rows, approvals/signatures и
+  пояснения обложки используют shared point-coordinate adapter для QPdfWriter/QPrinter.
+  Повторное DPI scaling устранено: actual 300/600 DPI text sizes и bounds сохраняют
+  физический 72-DPI baseline. Компактный/широкий макет и его исходные размеры не меняются;
+  helpers строго типизированы. RU/KK/EN, standard/OPUS, A4 portrait/landscape, пустая/явная
+  дата, QPrinter PDF output и production multipage renderer покрыты regressions.
+  Selected analysis interval приоритетнее presentation interval; ручные реквизиты и
+  source arrays/metadata сохраняются, generation timestamp не печатается.
+  Mapping оставшихся cover/narrative roles к shared typography и физическая приёмка
+  остаются открытыми; merge только после exact-head Windows Release gate.
 - [ ] Один immutable style profile для PDF, Masterlog, планшетной печати и Office-экспорта:
   нейтральная техническая типографика, строгая сетка, сдержанный petroleum-blue accent,
   high-contrast текст, light technical fills, line-weight hierarchy и monochrome-safe semantics.

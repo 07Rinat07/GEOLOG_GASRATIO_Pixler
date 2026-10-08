@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- PRINT-STYLE-01: все шрифты титульного листа interpretation PDF/system print используют общий physical-point adapter. На 300/600 DPI заголовки и реквизиты больше не увеличиваются повторно; физические размеры и положение текста сохраняют baseline 72 DPI. Компактный/широкий макет, ручные поля, явная дата и выбранный интервал сохраняются.
 - PRINT-STYLE-01: легенды кривых standard/OPUS PDF используют readable caption size и переносы полных labels/units/p5/p95. Максимальная высота page-local легенд учитывается при разбиении глубины; glyphs выровнены с первой строкой. Значения, source metadata, цвета и существующая point/line policy сохраняются.
 - PRINT-STYLE-01: легенда типов флюида и её пояснение в enhanced/OPUS PDF используют caption typography, переносы и измеренную высоту. Все пять кодов, названия и glyphs сохраняются; место резервируется до пагинации. Пояснение различает p5–p95 обычных дорожек и фиксированные шкалы газовых отношений; source/classification не меняются.
 - PRINT-STYLE-01: пояснения standard PDF и OPUS PDF без fluid markers, а также сообщения пустых cuttings/LBA дорожек используют общий caption size. Высота пояснения измеряется до построения страниц, сохраняя полный текст над подвалом при изменении типографики. Candidate marker micro-text и curve legend layout остаются отдельными этапами.
