@@ -1,5 +1,12 @@
 # Проверка качества и release gate
 
+`tests/test_masterlog_description_unicode.py` covers 45 actual-text font/PDF regressions
+(three geology text paths × RU/KK/EN × 72/96/144/300/600 DPI) and three production
+exports after package reopen. It verifies localized text without legacy/HTML leakage,
+resolved font families after UI font changes, unchanged requested 6.5/6.0 pt sizes,
+72-DPI extracted font/geometry baseline and preserved geology/source arrays. Existing
+`tests/test_masterlog_renderer.py` guards rich-text alignment and bounded interval clipping.
+
 Masterlog Unicode legends: `tests/test_masterlog_legend_unicode.py` checks 45 real
 PDF cases (RU/KK/EN × 72/96/144/300/600 DPI × populated/empty lithology/LBA).
 It changes the UI font, verifies actual text/font stack, a 3 mm body size and painter

@@ -2,10 +2,10 @@
 # Единый план проекта
 
 План актуализирован 8 октября 2026 года. Проверенная база перед текущим инкрементом —
-`a9692406` (PR #493). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
-приёмка интегрированы. Текущий PRINT-STYLE-01 slice подключает литологическую легенду и ЛБА
-Masterlog к общему Unicode font resolver по фактическому тексту. Сохранённые mm размеры,
-цвета, catalog lithology/LBA semantics и source data не меняются.
+`e2e9f860` (PR #494). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
+приёмка интегрированы. Текущий PRINT-STYLE-01 slice подключает описания пород, описания проб
+и заключения по пробам Masterlog к общему Unicode font resolver по фактическому тексту.
+Размеры, fitting/wrapping/alignment, catalog lithology/LBA semantics и source data не меняются.
 WITS-NET-01 остаётся внешним условием: пользователь уточняет существующий VPN, доступа
 для настройки сейчас нет. Разработка остальных независимых задач продолжается.
 Статусы завершения
@@ -372,6 +372,14 @@ Document/painter/user-selected colors остаются данными докум
 закрытым наличием ранее интегрированного UI-ADAPT-01.
 
 ## PRINT-STYLE-01 — Report Visual System
+
+Geological description Unicode slice: три текстовых painter paths Masterlog выбирают
+печатный font stack по фактическому localized plain text, включая объединённое описание
+и заключение пробы. HTML markup не передаётся resolver; размеры 6.5/6.0 pt и существующий
+bounded fitting сохраняются. 45 PDF cases покрывают RU/KK/EN и 72/96/144/300/600 DPI
+с сохранением 72-DPI baseline; три production exports после package reopen проверяют
+неизменность геологических записей, формы и source arrays. Закрытие slice требует
+успешного Release gate на окончательном head; physical acceptance остаётся отдельно.
 
 Unicode legend slice: литологическая легенда и ЛБА Masterlog подключены к существующему
 `print_font` resolver по фактическому тексту. Заголовки, названия и пустое состояние
