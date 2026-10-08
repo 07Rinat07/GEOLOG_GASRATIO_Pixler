@@ -1,5 +1,16 @@
 # Проверка качества и release gate
 
+Masterlog Unicode legends: `tests/test_masterlog_legend_unicode.py` checks 45 real
+PDF cases (RU/KK/EN × 72/96/144/300/600 DPI × populated/empty lithology/LBA).
+It changes the UI font, verifies actual text/font stack, a 3 mm body size and painter
+restoration. Three production exports after package save/reopen verify localized legends
+and unchanged forms/source arrays. Fractional pre-transform sizes retain existing Qt
+rounding; these tests do not assert that native font quantization has been eliminated.
+
+```powershell
+python scripts/run_tests.py -q -p no:cacheprovider tests/test_masterlog_legend_unicode.py tests/test_masterlog_header_visual_profile.py tests/test_masterlog_control_layout.py tests/test_masterlog_renderer.py
+```
+
 Документ актуален для **DIGITAL GEOLOG GASRATIO&PIXLER 0.7.93** на 9 сентября 2026 года. Краткая история
 находится только в `CHANGELOG.md`; результаты конкретных CI/сборок хранятся как artifacts и не
 заменяют текущие команды проверки.

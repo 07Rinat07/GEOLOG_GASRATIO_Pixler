@@ -2,10 +2,10 @@
 # Единый план проекта
 
 План актуализирован 8 октября 2026 года. Проверенная база перед текущим инкрементом —
-`432f8a5e` (PR #481). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
-приёмка интегрированы. Текущий PRINT-STYLE-01 slice переводит neutral chrome и typography
-геологических легенд PDF/PNG на общий visual profile; paged painters получают физические
-point sizes без повторного DPI scale. Catalog lithology/LBA semantics и source data не меняются.
+`a9692406` (PR #493). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
+приёмка интегрированы. Текущий PRINT-STYLE-01 slice подключает литологическую легенду и ЛБА
+Masterlog к общему Unicode font resolver по фактическому тексту. Сохранённые mm размеры,
+цвета, catalog lithology/LBA semantics и source data не меняются.
 WITS-NET-01 остаётся внешним условием: пользователь уточняет существующий VPN, доступа
 для настройки сейчас нет. Разработка остальных независимых задач продолжается.
 Статусы завершения
@@ -372,6 +372,14 @@ Document/painter/user-selected colors остаются данными докум
 закрытым наличием ранее интегрированного UI-ADAPT-01.
 
 ## PRINT-STYLE-01 — Report Visual System
+
+Unicode legend slice: литологическая легенда и ЛБА Masterlog подключены к существующему
+`print_font` resolver по фактическому тексту. Заголовки, названия и пустое состояние
+больше не зависят от экранного font family; mm sizing и сохранённые overrides остаются.
+48 regression cases проверяют RU/KK/EN, PDF 72/96/144/300/600 DPI, восстановление painter
+и production export после package save/reopen без изменения формы и source arrays.
+Интеграция slice требует успешного Release gate на окончательном head; весь PRINT-STYLE-01
+и физическая печать остаются открытыми.
 
 Цель — единый оригинальный профессиональный нефтесервисный стиль, ориентированный на лучшие
 практики полевых/инженерных отчётов, без копирования фирменной айдентики сторонних компаний.

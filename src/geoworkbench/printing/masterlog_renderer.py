@@ -1238,9 +1238,9 @@ def _paint_lithology_legend(
     painter.setClipRect(rect)
     painter.setPen(QPen(QColor(visual.palette.border), visual.layout.thin_rule_pt * 25.4 / 72.0))
     painter.drawRect(rect)
-    title_font = QFont()
-    title_font.setBold(True)
+    title_font = print_font(visual.typography.table_pt, text=titles[language], bold=True)
     _set_scaled_font_mm(painter, title_font, min(3.2, font_size + 0.4))
+    title_font.setStyleStrategy(QFont.StyleStrategy.PreferDefault)
     painter.setFont(title_font)
     painter.setPen(color)
     painter.drawText(
@@ -1249,6 +1249,10 @@ def _paint_lithology_legend(
         titles[language],
     )
     if not entries:
+        empty_font = print_font(visual.typography.table_pt, text=empty_texts[language])
+        _set_scaled_font_mm(painter, empty_font, font_size)
+        empty_font.setStyleStrategy(QFont.StyleStrategy.PreferDefault)
+        painter.setFont(empty_font)
         painter.drawText(
             content.adjusted(0.8, 0.0, -0.8, 0.0),
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
@@ -1259,8 +1263,10 @@ def _paint_lithology_legend(
     rows = (len(entries) + columns - 1) // columns
     cell_width = content.width() / columns
     cell_height = content.height() / rows
-    font = QFont()
+    legend_text = " ".join(f"{entry.code} — {entry.name}" for entry in entries)
+    font = print_font(visual.typography.table_pt, text=legend_text)
     _set_scaled_font_mm(painter, font, font_size)
+    font.setStyleStrategy(QFont.StyleStrategy.PreferDefault)
     painter.setFont(font)
     for index, entry in enumerate(entries):
         row, column = divmod(index, columns)
@@ -1367,9 +1373,9 @@ def _paint_lba_legend(
     painter.setClipRect(rect)
     painter.setPen(QPen(QColor(visual.palette.border), visual.layout.thin_rule_pt * 25.4 / 72.0))
     painter.drawRect(rect)
-    title_font = QFont()
-    title_font.setBold(True)
+    title_font = print_font(visual.typography.table_pt, text=titles[language], bold=True)
     _set_scaled_font_mm(painter, title_font, min(3.2, font_size + 0.5))
+    title_font.setStyleStrategy(QFont.StyleStrategy.PreferDefault)
     painter.setFont(title_font)
     painter.setPen(color)
     painter.drawText(
@@ -1378,8 +1384,14 @@ def _paint_lba_legend(
         titles[language],
     )
 
-    body_font = QFont()
+    legend_text = " ".join((
+        type_titles[language], intensity_titles[language],
+        *(f"{style.code} - {style.localized_name(language)}" for style in LBA_TYPE_STYLES),
+        *(f"{intensity} - {lba_intensity_name(intensity, language)}" for intensity in range(1, 6)),
+    ))
+    body_font = print_font(visual.typography.table_pt, text=legend_text)
     _set_scaled_font_mm(painter, body_font, max(1.0, min(font_size, 8.0)))
+    body_font.setStyleStrategy(QFont.StyleStrategy.PreferDefault)
     painter.setFont(body_font)
     heading_height = min(3.5, body.height() * 0.16)
     painter.drawText(

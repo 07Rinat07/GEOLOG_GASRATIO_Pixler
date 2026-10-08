@@ -215,3 +215,5 @@ Masterlog uses the shared print profile for default header backgrounds/borders, 
 Masterlog curve legends show the actual line key and bound channel unit beside the mnemonic and range. Saved dashed styles help distinguish curves in black-and-white print. Missing channels receive no invented key or unit.
 
 Masterlog column borders, grid and depth labels use the shared print profile. Major lines are twice as thick as minor lines. Grid visibility, transparency and divisions remain saved in the form; the depth scale is unchanged.
+
+Lithology and LBA legends resolve print Unicode fonts for their actual text. Changing the interface font does not replace the print font stack. Saved millimetre sizes, colours and symbols are retained; an empty lithology legend uses the legend body text size.
