@@ -97,3 +97,23 @@ def test_cover_uses_shared_roles_without_clipping_text_or_overlapping_sections(
         assert report.generated_at not in page.get_text()
     assert report == before_report
     assert identity == before_identity
+
+
+@pytest.mark.parametrize('width', [0.0, -1.0, float('nan'), float('inf')])
+def test_cover_text_layout_rejects_invalid_width(qapp: object, width: float) -> None:
+    from geoworkbench.printing.interpretation_cover_text_layout import cover_text_layout
+    from geoworkbench.printing.unicode_support import print_font
+
+    with pytest.raises(ValueError, match='finite and positive'):
+        cover_text_layout('Title', width, print_font(9, text='Title'), None)
+
+
+def test_cover_text_layout_preserves_paragraph_breaks_and_supplementary_unicode(qapp: object) -> None:
+    from geoworkbench.printing.interpretation_cover_text_layout import cover_text_layout
+    from geoworkbench.printing.unicode_support import print_font
+
+    text = 'Аралық 😀 1305–1320 m\n\nГазовый состав 🌍 интервала'
+    layout = cover_text_layout(text, 55, print_font(9, text=text), None)
+    assert _normalized(''.join(layout.lines)) == _normalized(text)
+    assert layout.lines.count('') == 1
+    assert len(layout.lines) > 3

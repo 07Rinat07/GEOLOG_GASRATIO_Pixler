@@ -1357,3 +1357,9 @@ notes and signature captions must survive; physical font sizes, page bounds and 
 span intersections are checked without weakening clipping assertions. Source report/identity
 remain unchanged. Existing QPrinter cover checks now expect the shared 22-pt title in both
 orientations; full production/high-DPI contracts remain in place.
+
+Cover wrapped text uses QTextLayout for line breaks and explicit point-metrics pitch
+for both measurement and drawing. This fixes Windows default/custom font bounding-box
+overlap without relaxing the PDF intersection tolerance. Variable context row/pair heights
+reserve complete labels/values before drawing. Five additional regressions reject invalid
+widths and preserve explicit paragraph breaks plus supplementary Unicode via UTF-16 offsets.

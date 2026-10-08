@@ -508,7 +508,10 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   PDF/system-print cover используют title/subtitle/body/caption roles общего profile
   без отдельных мелких landscape размеров. Control labels/values, wrapped title,
   subtitle и approvals получают measured reserve теми же physical-point fonts;
-  compact/wide context labels переносятся внутри ячеек. Portrait/landscape сохраняют
+  compact/wide context labels переносятся внутри ячеек. Windows Qt automatic
+  line advance заменён measured explicit pitch: context rows резервируют высоту
+  каждого ряда/пары, а paragraphs/UTF-16 supplementary Unicode сохраняются.
+  Portrait/landscape сохраняют
   manual identity и источник; дата остаётся только явно введённой. Actual RU/KK/EN
   PDF 72/300/600 DPI и default/custom typography проверяют полный текст, размеры,
   page bounds и отсутствие пересечений; existing QPrinter/production checks сохранены.
