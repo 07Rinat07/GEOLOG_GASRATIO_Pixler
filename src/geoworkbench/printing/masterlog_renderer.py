@@ -1860,9 +1860,7 @@ def _paint_inspection_callouts(
         text = item.properties.get("text")
         if not isinstance(text, str) or not text:
             continue
-        font = QFont()
-        _set_scaled_font_points(painter, font, 5.5)
-        painter.setFont(font)
+        _set_scaled_unicode_font_points(painter, text, 5.5)
         text_height = min(18.0, max(6.0, 3.5 * len(text.splitlines())))
         text_rect = QRectF(
             rect.left() + 1.0,
@@ -2897,9 +2895,7 @@ def _paint_depth_symbols(
         label = item.properties.get("label")
         if isinstance(label, str) and label:
             painter.setPen(QColor(visual.palette.text))
-            font = QFont()
-            _set_scaled_font_points(painter, font, 6.0)
-            painter.setFont(font)
+            _set_scaled_unicode_font_points(painter, label, 6.0)
             painter.drawText(
                 QRectF(symbol_rect.right() + 0.5, y - 2.5, rect.right() - symbol_rect.right(), 5.0),
                 Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,

@@ -1,5 +1,7 @@
 # Form Engine
 
+Masterlog inspection callouts and depth symbol labels select the shared Unicode print font using their stored text. Point/interval anchors, sizes, SVG geometry and form/column/depth scope are preserved; pinned text keeps its saved language.
+
 Masterlog stratigraphy and LBA labels select the shared Unicode print font by their actual codes and localized names. Existing sizes, orientations, geological intervals, colours and intensity symbols are preserved.
 
 Form Engine stores editable depth and time forms independently from a concrete LAS file.

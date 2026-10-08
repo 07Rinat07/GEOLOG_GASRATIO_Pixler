@@ -2,10 +2,10 @@
 # Единый план проекта
 
 План актуализирован 8 октября 2026 года. Проверенная база перед текущим инкрементом —
-`e2b8f16c` (PR #496). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
-приёмка интегрированы. Текущий PRINT-STYLE-01 slice подключает подписи стратиграфии и ЛБА
-Masterlog к общему Unicode font resolver по фактически выводимому тексту.
-Размеры, rotation/wrapping/alignment, catalog codes, intensity glyphs и source data не меняются.
+`825485d3` (PR #497). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
+приёмка интегрированы. Текущий PRINT-STYLE-01 slice подключает инспекционные выноски
+и подписи глубинных символов Masterlog к общему Unicode font resolver по фактическому тексту.
+Размеры, wrapping/alignment, template/column/depth scope, SVG assets и source data не меняются.
 WITS-NET-01 остаётся внешним условием: пользователь уточняет существующий VPN, доступа
 для настройки сейчас нет. Разработка остальных независимых задач продолжается.
 Статусы завершения
@@ -372,6 +372,14 @@ Document/painter/user-selected colors остаются данными докум
 закрытым наличием ранее интегрированного UI-ADAPT-01.
 
 ## PRINT-STYLE-01 — Report Visual System
+
+Callout/symbol Unicode slice: сохранённый текст инспекции выбирает shared scaled print
+font на 5.5 pt, label размещённого SVG-символа — на 6.0 pt. Point/interval anchors,
+scope фильтры, выносные рамки, SVG geometry и persisted language/text сохраняются.
+60 actual PDF cases покрывают RU/KK/EN × пять DPI × depth/interval × два painter paths;
+шесть scope regressions исключают чужую форму/колонку и глубины вне диапазона.
+Девять A4/A3/roll exports после reopen сохраняют canvas objects, SVG assets и source values.
+Закрытие slice требует exact-head Release gate; physical-printer acceptance отдельно.
 
 Geology-label Unicode slice: полный stratigraphy code + localized name выбирает общий
 scaled print font на 5.5 pt; фактические LBA color/type codes выбирают его на 5.0 pt.
