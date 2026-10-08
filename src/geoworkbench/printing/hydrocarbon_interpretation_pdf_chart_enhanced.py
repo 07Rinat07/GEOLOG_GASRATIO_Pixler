@@ -60,7 +60,6 @@ from geoworkbench.printing.hydrocarbon_interpretation_pdf_canvas import PageCanv
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import (
     CHART_HEADER_HEIGHT,
     CHART_LEGEND_HEIGHT,
-    CHART_NOTE_HEIGHT,
     CHART_TRACK_HEADER_HEIGHT,
     MIN_CHART_HEIGHT,
     ChartGeometry,
@@ -73,6 +72,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_report_range import (
 )
 from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.printing.report_painter_fonts import point_coordinate_font
+from geoworkbench.printing.interpretation_note_layout import interpretation_note_height
 from geoworkbench.printing.ratio_scale_heading import (
     paint_ratio_scale_heading, ratio_scale_header_height,
 )
@@ -198,12 +198,13 @@ def render_chart_pages(
                                       point_coordinates=True)
         for text, width, size, offset in headings
     ))
+    note_height = interpretation_note_height(base_chart._labels(language)["note"], canvas.content_rect.width(), canvas.painter.device())
     chart_height_budget = (
         canvas.content_rect.height()
         - CHART_HEADER_HEIGHT
         - header_height
         - CHART_LEGEND_HEIGHT
-        - CHART_NOTE_HEIGHT
+        - note_height
     )
     # Preserve a useful plot even on A4 landscape. Large catalogs belong on
     # dedicated legend pages; do not let them consume the depth-page budget.
@@ -253,6 +254,7 @@ def render_chart_pages(
             geology_track_count=len(geology_tracks),
             geology_legend_height=full_legend_height,
             track_header_height=header_height,
+            chart_note_height=note_height,
             context_track=bool(context),
         )
         if annotations:
@@ -446,7 +448,7 @@ def _draw_geology_tracks(
                 AppLanguage.EN: "No data",
             }[language]
             painter.setPen(QColor(palette.text_muted))
-            painter.setFont(point_coordinate_font(6.0, text=no_data, paint_device=painter.device()))
+            painter.setFont(point_coordinate_font(typography.caption_pt, text=no_data, paint_device=painter.device()))
             painter.drawText(
                 rect,
                 Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
@@ -1196,7 +1198,7 @@ def _draw_fluid_marker_legend(
     )
     if not specs:
         painter.setPen(QColor(palette.text_secondary))
-        painter.setFont(point_coordinate_font(6.8, text=fallback_note, paint_device=painter.device()))
+        painter.setFont(point_coordinate_font(modern_oilfield_report_profile().typography.caption_pt, text=fallback_note, paint_device=painter.device()))
         painter.drawText(
             rect,
             Qt.AlignmentFlag.AlignLeft
