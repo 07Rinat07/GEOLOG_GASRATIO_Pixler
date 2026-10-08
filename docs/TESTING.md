@@ -1,5 +1,13 @@
 # Проверка качества и release gate
 
+`tests/test_masterlog_heading_unicode.py` adds 90 actual PDF cases for column titles
+and bound curve labels: RU/KK/EN × 72/96/144/300/600 DPI × horizontal/two vertical
+orientations × legend on/off. Font stack, 6.5/4.6 pt requests and extracted 72-DPI
+font/geometry baseline remain checked after a UI font change. Nine package reopen
+exports cover A4/A3/roll, unchanged forms/metadata/values and literal Unicode UOM.
+Existing `tests/test_masterlog_curve_legend.py` verifies line/point keys, dash/width,
+source identifiers, missing channels and narrow cells without invented units.
+
 `tests/test_masterlog_description_unicode.py` covers 45 actual-text font/PDF regressions
 (three geology text paths × RU/KK/EN × 72/96/144/300/600 DPI) and three production
 exports after package reopen. It verifies localized text without legacy/HTML leakage,

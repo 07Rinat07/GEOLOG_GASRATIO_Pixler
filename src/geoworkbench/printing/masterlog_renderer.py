@@ -1727,9 +1727,7 @@ def _paint_column_heading(
     bindings: dict[str, str],
 ) -> None:
     visual = modern_oilfield_report_profile()
-    title_font = QFont()
-    _set_scaled_font_points(painter, title_font, 6.5)
-    painter.setFont(title_font)
+    _set_scaled_unicode_font_points(painter, column.title, 6.5)
     painter.setPen(QColor(visual.palette.text))
     orientation = str(column.properties.get("title_orientation", "horizontal"))
     position = str(column.properties.get("title_position", "center"))
@@ -1772,9 +1770,6 @@ def _paint_column_heading(
     columns = (count + rows - 1) // rows
     cell_width = legend_rect.width() / max(1, columns)
     cell_height = legend_rect.height() / rows
-    legend_font = QFont()
-    _set_scaled_font_points(painter, legend_font, 4.6)
-    painter.setFont(legend_font)
     for index, mnemonic in enumerate(column.curve_mnemonics):
         row, column_index = divmod(index, columns)
         cell = QRectF(
@@ -1822,6 +1817,7 @@ def _paint_column_heading(
                 painter.restore()
             label_rect.setLeft(sample_left + sample_width + min(0.4, max(0.0, cell.width() * 0.05)))
         painter.setPen(color)
+        _set_scaled_unicode_font_points(painter, label, 4.6)
         painter.drawText(
             label_rect,
             Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
