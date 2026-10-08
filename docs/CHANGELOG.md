@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- PRINT-STYLE-01: титульный лист interpretation PDF/system print использует shared title/subtitle/body/caption typography вместо отдельных фиксированных portrait/landscape размеров. Control cells, title/subtitle и approvals резервируют измеренную высоту; context labels переносятся. Explicit measured line pitch устраняет Windows overlap; context rows получают индивидуальную высоту. Реквизиты, подписи и данные сохраняются, physical DPI contract остаётся общим.
 - PRINT-STYLE-01: текстовая часть interpretation PDF/system print измеряется в физических пунктах на 72-DPI layout device вместо screen DPI. Заголовки, основной текст и таблицы используют shared typography; повторяемые table headers, полный текст и compact oversized-row fallback сохранены. Inline bold/italic, links и superscript/subscript не теряются.
 - Windows quality gate: четыре MainWindow navigation сценария запускаются по одному на процесс после наблюдённого Qt/pyqtgraph access violation в длинном общем shard. Ни один тест не пропускается; любой assertion/native failure по-прежнему останавливает gate.
 - PRINT-STYLE-01: все шрифты титульного листа interpretation PDF/system print используют общий physical-point adapter. На 300/600 DPI заголовки и реквизиты больше не увеличиваются повторно; физические размеры и положение текста сохраняют baseline 72 DPI. Компактный/широкий макет, ручные поля, явная дата и выбранный интервал сохраняются.

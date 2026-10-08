@@ -128,7 +128,7 @@ def test_qprinter_pdf_cover_uses_the_same_physical_font_contract(
             assert _normalized(value) in _normalized(text)
         spans = _spans(document[0])
         title = [span for span in spans if span['text'] == identity.report_title]
-        assert title and all(span['size'] == pytest.approx(21 if landscape else 22, abs=0.1) for span in title)
+        assert title and all(span['size'] == pytest.approx(22, abs=0.1) for span in title)
         assert max(span['size'] for span in spans) <= 24.1
 
 
