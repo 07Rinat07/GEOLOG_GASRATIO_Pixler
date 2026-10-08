@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- PRINT-STYLE-01: геологический PDF сохраняет явные размеры заголовков из общего visual profile вместо Qt relative heading adjustment. Default body font также использует профиль. Реальные PDF RU/KK/EN с default/custom typography проверяют title/section/body/table размеры, полный текст заключений и сохранность исходных массивов; Office-контракт сохраняется.
 - PRINT-STYLE-01: обычные tablet header/footer используют общий physical-point font adapter и profile card_padding_pt. Диапазон измеряется своим body font, подвал выбирает Unicode stack по brand и localized page text. Исправлена DPI-зависимость reserved gaps/метрик; QPdfWriter/QPrinter PDF RU/KK/EN при 72–600 DPI покрыты регрессиями, pixel preview/pagination/source data сохраняются.
 - PRINT-STYLE-01: шкала глубин, текст шапки, пустые слоты изображений, образцы литологии и простой подвал Masterlog используют общий Unicode print font stack. Сохранены profile typography, явные размеры/bold, numeric tick geometry, searchable brand и пользовательские font family/style аннотаций. PDF DPI 72–600 и RU/KK/EN reopen exports покрыты регрессиями.
 - PRINT-STYLE-01: инспекционные выноски и подписи глубинных SVG-символов Masterlog используют общий Unicode print font stack по фактическому сохранённому тексту. Сохранены 5.5/6.0 pt, point/interval anchors, scope формы/колонки/глубины, геометрия и assets. PDF RU/KK/EN, DPI 72–600 и A4/A3/roll после reopen покрыты регрессиями.

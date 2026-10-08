@@ -2,10 +2,10 @@
 # Единый план проекта
 
 План актуализирован 9 октября 2026 года. Проверенная база перед текущим инкрементом —
-`27407ba2` (PR #499). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
-приёмка интегрированы. Текущий PRINT-STYLE-01 slice нормализует измерение/рисование обычных
-tablet header/footer в физических пунктах и использует profile card_padding_pt для промежутков.
-Pixel preview, source data, pagination и сохранённые формы сохраняются.
+`6c0043dd` (PR #500). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
+приёмка интегрированы. Текущий PRINT-STYLE-01 slice сохраняет явные shared-profile размеры
+заголовков геологического PDF через существующий rich-text adapter; default body font
+также берётся из профиля. Текст, таблицы, source data и Office-экспорты сохраняются.
 WITS-NET-01 остаётся внешним условием: пользователь уточняет существующий VPN, доступа
 для настройки сейчас нет. Разработка остальных независимых задач продолжается.
 Статусы завершения
@@ -590,6 +590,13 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   компонентов, source immutability и atomic failure. Raster typography, повторяемый
   footer/document-control ramp contract и physical acceptance остаются отдельными
   slices; merge только после полного local suite и exact-head Windows Release gate.
+- [x] **2026-10-09 — geology PDF explicit typography:** экспорт геологического отчёта
+  применяет общий rich-text adapter после HTML import. Qt relative heading adjustment
+  больше не подменяет explicit CSS point size; default body font использует shared profile.
+  Actual PDF RU/KK/EN с default/custom typography проверяет полный многострочный title,
+  section/body/table sizes, заключения и source immutability. Existing Office regressions
+  сохранены; physical acceptance и оставшиеся profile paths остаются открытыми.
+  Интеграция только после полного local suite и exact-head Windows Release gate.
 - [ ] Один immutable style profile для PDF, Masterlog, планшетной печати и Office-экспорта:
   нейтральная техническая типографика, строгая сетка, сдержанный petroleum-blue accent,
   high-contrast текст, light technical fills, line-weight hierarchy и monochrome-safe semantics.

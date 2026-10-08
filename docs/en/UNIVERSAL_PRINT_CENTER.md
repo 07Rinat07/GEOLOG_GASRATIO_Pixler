@@ -1,5 +1,7 @@
 # Print and Export Center
 
+Geology PDF headings retain the point sizes of the shared visual profile. Body text and tables use their profile roles; wrapped titles and geologist conclusions remain complete.
+
 Simple tablet print headers and footers use physical points from the shared profile. Gaps between title/range and brand/page number remain stable across DPI. Long titles and brands are elided while the range and page number remain complete. Pixel previews and pagination settings are preserved.
 
 ## Unified execution boundary — 0.7.30
