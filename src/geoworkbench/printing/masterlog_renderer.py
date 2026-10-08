@@ -398,7 +398,7 @@ def paint_masterlog(
         _paint_masterlog_control_footer(painter, size, control, page_label or "")
     elif page_label:
         visual = modern_oilfield_report_profile()
-        font = QFont()
+        font = print_font(6.5, text=f"{REPORT_BRAND_WORDMARK} {page_label}")
         _set_scaled_font_points(painter, font, 6.5)
         # Keep footer text as a real PDF text object so the canonical brand and
         # page label remain searchable/copyable. The rest of the Masterlog may
@@ -958,8 +958,7 @@ def _paint_header_element(
     font_size = (
         float(size) if isinstance(size, (int, float)) and not isinstance(size, bool) else default_size
     )
-    font = QFont()
-    font.setBold(element.properties.get("bold") is True)
+    font = print_font(visual.typography.body_pt, text=text, bold=element.properties.get("bold") is True)
     _set_scaled_font_mm(painter, font, max(1.0, min(font_size, 50.0)))
     painter.setFont(font)
     painter.setPen(color)
@@ -1013,8 +1012,7 @@ def _paint_image_placeholder(
                 AppLanguage.KK: "Логотипті жүктеу",
                 AppLanguage.EN: "Load logo",
             }[language]
-        font = QFont()
-        font.setBold(True)
+        font = print_font(visual.typography.caption_pt, text=placeholder, bold=True)
         default_size = visual.typography.caption_pt * 25.4 / 72.0
         size = properties.get("placeholder_font_size_mm", default_size)
         font_size = (
@@ -1081,8 +1079,7 @@ def _paint_lithotype_swatch(
             if isinstance(size, (int, float)) and not isinstance(size, bool)
             else 3.5
         )
-        font = QFont()
-        font.setBold(properties.get("bold") is True)
+        font = print_font(text=text, bold=properties.get("bold") is True)
         _set_scaled_font_mm(painter, font, max(1.0, min(font_size, 50.0)))
         painter.setFont(font)
         painter.setPen(_color(properties.get("color"), visual.palette.text))
@@ -2909,16 +2906,15 @@ def _paint_depth_axis(painter: QPainter, rect: QRectF, depth_range: tuple[float,
 
     visual = modern_oilfield_report_profile()
     painter.save()
-    font = QFont()
-    _set_scaled_font_points(painter, font, visual.typography.table_pt)
-    painter.setFont(font)
     painter.setPen(QColor(visual.palette.text))
     for depth, _major in _aligned_depth_grid_values(depth_range, 1):
+        label = f"{depth:g}"
+        _set_scaled_unicode_font_points(painter, label, visual.typography.table_pt)
         y = _depth_value_to_y(rect, depth_range, depth)
         painter.drawText(
             QRectF(rect.left() + 0.5, y - 2.0, rect.width() - 1.0, 4.0),
             Qt.AlignmentFlag.AlignCenter,
-            f"{depth:g}",
+            label,
         )
     painter.restore()
 

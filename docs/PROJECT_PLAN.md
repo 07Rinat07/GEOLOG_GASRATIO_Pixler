@@ -2,10 +2,10 @@
 # Единый план проекта
 
 План актуализирован 8 октября 2026 года. Проверенная база перед текущим инкрементом —
-`825485d3` (PR #497). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
-приёмка интегрированы. Текущий PRINT-STYLE-01 slice подключает инспекционные выноски
-и подписи глубинных символов Masterlog к общему Unicode font resolver по фактическому тексту.
-Размеры, wrapping/alignment, template/column/depth scope, SVG assets и source data не меняются.
+`9866ad1e` (PR #498). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
+приёмка интегрированы. Текущий PRINT-STYLE-01 slice подключает шкалу глубин и оставшиеся
+автоматические шрифты шапки/placeholder/swatch/simple footer Masterlog к Unicode print stack.
+Saved mm sizes/bold, explicit annotation family/style, fitting и source data сохраняются.
 WITS-NET-01 остаётся внешним условием: пользователь уточняет существующий VPN, доступа
 для настройки сейчас нет. Разработка остальных независимых задач продолжается.
 Статусы завершения
@@ -372,6 +372,16 @@ Document/painter/user-selected colors остаются данными докум
 закрытым наличием ранее интегрированного UI-ADAPT-01.
 
 ## PRINT-STYLE-01 — Report Visual System
+
+Default-typography Unicode slice: depth labels используют table typography профиля и
+actual numeric text; header text, image placeholders, lithotype swatches и simple footer
+выбирают общий print font stack по фактическому тексту. Saved mm sizes/bold имеют прежний
+приоритет; annotation font_family/style и fitting наследование не переписываются.
+90 header PDF cases проверяют RU/KK/EN × пять DPI × три paths × default/explicit sizes;
+10 depth cases сохраняют signed/large zero-aligned ticks; 15 footer cases сохраняют searchable
+brand и page labels. Пять explicit annotation cases и девять A4/A3/roll reopen exports
+проверяют contracts/source values. Qt size quantization проверяется относительно 72-DPI
+baseline отдельно от точного mm request. Merge после exact-head gate; physical acceptance отдельно.
 
 Callout/symbol Unicode slice: сохранённый текст инспекции выбирает shared scaled print
 font на 5.5 pt, label размещённого SVG-символа — на 6.0 pt. Point/interval anchors,

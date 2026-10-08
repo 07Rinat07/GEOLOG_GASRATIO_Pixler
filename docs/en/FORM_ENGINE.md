@@ -1,5 +1,7 @@
 # Form Engine
 
+Masterlog depth labels and automatic header, image-placeholder, lithotype-swatch and simple-footer fonts use the shared Unicode print stack. Saved millimetre sizes and bold flags retain priority. Explicit annotation font families/styles and interval text fitting are preserved.
+
 Masterlog inspection callouts and depth symbol labels select the shared Unicode print font using their stored text. Point/interval anchors, sizes, SVG geometry and form/column/depth scope are preserved; pinned text keeps its saved language.
 
 Masterlog stratigraphy and LBA labels select the shared Unicode print font by their actual codes and localized names. Existing sizes, orientations, geological intervals, colours and intensity symbols are preserved.
