@@ -6,7 +6,7 @@ from dataclasses import dataclass, replace
 from typing import Iterator
 
 from PySide6.QtCore import QRectF, Qt
-from PySide6.QtGui import QColor, QPainter, QPen
+from PySide6.QtGui import QColor, QFontMetricsF, QPagedPaintDevice, QPainter, QPen
 from PySide6.QtWidgets import QWidget
 
 from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
@@ -41,7 +41,7 @@ from geoworkbench.printing.print_layout import (
     PrintScaleMode,
     build_horizontal_continuations,
 )
-from geoworkbench.printing.unicode_support import print_font
+from geoworkbench.printing.report_painter_fonts import point_coordinate_font
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage, Localizer
 from geoworkbench.tablet.camera import recommended_initial_span
@@ -667,33 +667,54 @@ def _point_rule_width(painter: QPainter, points: float) -> float:
     return points * dpi / 72.0
 
 
+def _prepare_text_coordinates(painter: QPainter, rect: QRectF) -> tuple[QRectF, float]:
+    """Share physical-point metrics and drawing; previews keep pixel coordinates."""
+    device = painter.device()
+    if not isinstance(device, QPagedPaintDevice):
+        return rect, 1.0
+    scale = device.logicalDpiY() / 72.0
+    if scale <= 0:
+        raise ValueError("Paged paint device DPI must be positive")
+    painter.scale(scale, scale)
+    return QRectF(rect.x() / scale, rect.y() / scale, rect.width() / scale, rect.height() / scale), scale
+
+
 def _paint_header(painter: QPainter, rect: QRectF, *, title: str, range_text: str) -> None:
     visual = modern_oilfield_report_profile()
     painter.save()
     try:
+        padding = _point_rule_width(painter, visual.layout.card_padding_pt)
+        rule_width = _point_rule_width(painter, visual.layout.thin_rule_pt)
+        rect, coordinate_scale = _prepare_text_coordinates(painter, rect)
         painter.setPen(QColor(visual.palette.text))
-        painter.setFont(
-            print_font(visual.typography.subtitle_pt, bold=True, text=f"{title} {range_text}")
+        range_font = point_coordinate_font(visual.typography.body_pt, text=range_text, paint_device=painter.device())
+        range_metrics = QFontMetricsF(range_font, painter.device())
+        right_width = (
+            range_metrics.horizontalAdvance(range_text)
+            + padding / coordinate_scale
+            if range_text else 0.0
         )
-        metrics = painter.fontMetrics()
-        right_width = metrics.horizontalAdvance(range_text) + 8 if range_text else 0
+        painter.setFont(
+            point_coordinate_font(visual.typography.subtitle_pt, bold=True, text=f"{title} {range_text}", paint_device=painter.device())
+        )
+        metrics = QFontMetricsF(painter.font(), painter.device())
         title_rect = QRectF(
             rect.left(), rect.top(), max(1.0, rect.width() - right_width), rect.height()
         )
-        title_text = metrics.elidedText(title, Qt.TextElideMode.ElideRight, int(title_rect.width()))
+        title_text = metrics.elidedText(title, Qt.TextElideMode.ElideRight, title_rect.width())
         painter.drawText(
             title_rect,
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
             title_text,
         )
         if range_text:
-            painter.setFont(print_font(visual.typography.body_pt, text=range_text))
+            painter.setFont(range_font)
             painter.drawText(
                 rect,
                 Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
                 range_text,
             )
-        painter.setPen(QPen(QColor(visual.palette.border_strong), _point_rule_width(painter, visual.layout.thin_rule_pt)))
+        painter.setPen(QPen(QColor(visual.palette.border_strong), rule_width / coordinate_scale))
         painter.drawLine(rect.bottomLeft(), rect.bottomRight())
     finally:
         painter.restore()
@@ -711,19 +732,26 @@ def _paint_footer(
     visual = modern_oilfield_report_profile()
     painter.save()
     try:
-        painter.setPen(QPen(QColor(visual.palette.border_strong), _point_rule_width(painter, visual.layout.thin_rule_pt)))
+        padding = _point_rule_width(painter, visual.layout.card_padding_pt)
+        rule_width = _point_rule_width(painter, visual.layout.thin_rule_pt)
+        rect, coordinate_scale = _prepare_text_coordinates(painter, rect)
+        painter.setPen(QPen(QColor(visual.palette.border_strong), rule_width / coordinate_scale))
         painter.drawLine(rect.topLeft(), rect.topRight())
         painter.setPen(QColor(visual.palette.text_muted))
-        painter.setFont(
-            print_font(visual.typography.footer_pt, bold=True, text=visual.brand_wordmark)
-        )
         page_text = (
             localizer.text("print_center.page_number", page=page.index, total=page.total)
             if show_page_numbers
             else ""
         )
-        metrics = painter.fontMetrics()
-        number_width = metrics.horizontalAdvance(page_text) + 8 if page_text else 0
+        painter.setFont(
+            point_coordinate_font(visual.typography.footer_pt, bold=True, text=f"{visual.brand_wordmark} {page_text}", paint_device=painter.device())
+        )
+        metrics = QFontMetricsF(painter.font(), painter.device())
+        number_width = (
+            metrics.horizontalAdvance(page_text)
+            + padding / coordinate_scale
+            if page_text else 0.0
+        )
         brand_rect = QRectF(
             rect.left(), rect.top(), max(1.0, rect.width() - number_width), rect.height()
         )
@@ -731,7 +759,7 @@ def _paint_footer(
             brand_rect,
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
             metrics.elidedText(
-                visual.brand_wordmark, Qt.TextElideMode.ElideRight, int(brand_rect.width())
+                visual.brand_wordmark, Qt.TextElideMode.ElideRight, brand_rect.width()
             ),
         )
         if show_page_numbers:
