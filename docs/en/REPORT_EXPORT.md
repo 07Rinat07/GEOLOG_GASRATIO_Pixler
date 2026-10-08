@@ -179,3 +179,5 @@ Source curves and reference traces use physical 1.25/0.7 pt widths instead of co
 Gas Ratio scale labels use the shared print caption size. Endpoint values are retained on two rows when space is tight; a middle label is omitted if it would overlap. The shared Wh/Bh heading is printed once. Scale values, grid ticks and curves are unchanged.
 
 Standard PDF notes and OPUS notes without fluid markers use the shared caption size. The full wrapped text determines the bottom area height before depth-page layout, keeping the note above the footer. Empty cuttings/LBA messages use the same caption role. Notes with fluid markers retain their existing compact layout.
+
+Enhanced/OPUS PDF fluid legends use the shared caption font, wrapped labels and 1–3 columns. The legend and note height is reserved before depth pagination so full phase labels stay above the footer. Codes, glyph shapes and colours are unchanged. The note distinguishes ordinary p5–p95 tracks from fixed gas-ratio scales.

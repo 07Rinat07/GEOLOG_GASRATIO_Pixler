@@ -461,6 +461,17 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   Реальные A4 portrait/landscape PDF 72/300/600 DPI, caption substitution, полный текст,
   source arrays/metadata покрыты regressions. Candidate-present micro-note/marker legend,
   curve legend layout и physical acceptance остаются открытыми; merge после exact-head gate.
+- [x] **Fluid-marker legend caption-layout slice:** enhanced/OPUS PDF candidate legend
+  и пояснение используют caption typography вместо fixed 5.2/4.9 pt. Typed immutable
+  layout cells измеряют полный wrapped RU/KK/EN text; адаптивные 1–3 columns и общая
+  row height сохраняют все пять code/label/glyph identities без обрезания. Global
+  candidate legend height резервируется до depth pagination; page-visible subset
+  рисуется тем же layout contract и помещается над footer без пересечения с plot.
+  Пояснение различает ordinary p5–p95 tracks и fixed ratio scales. Реальные PDF
+  72/300/600 DPI, 180/360/550 pt widths, default/9 pt profile, A4 portrait/landscape,
+  subset budget, source arrays/metadata/candidate identity и invalid width validation
+  покрыты regressions. Candidate badges/curve legend typography и physical acceptance
+  остаются открытыми; merge только после successful exact-head Windows Release gate.
 - [ ] Один immutable style profile для PDF, Masterlog, планшетной печати и Office-экспорта:
   нейтральная техническая типографика, строгая сетка, сдержанный petroleum-blue accent,
   high-contrast текст, light technical fills, line-weight hierarchy и monochrome-safe semantics.

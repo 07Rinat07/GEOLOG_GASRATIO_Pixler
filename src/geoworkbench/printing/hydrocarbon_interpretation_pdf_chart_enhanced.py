@@ -14,7 +14,7 @@ from math import floor, isclose
 
 import numpy as np
 from PySide6.QtCore import QLineF, QPointF, QRectF, Qt
-from PySide6.QtGui import QPolygonF, QColor, QPainter, QPen
+from PySide6.QtGui import QPolygonF, QColor, QFontMetricsF, QPainter, QPen
 
 from geoworkbench.domain.depth_interval import scope_dataset
 from geoworkbench.domain.models import CurveData, Dataset
@@ -73,6 +73,9 @@ from geoworkbench.printing.hydrocarbon_interpretation_report_range import (
 from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.printing.report_painter_fonts import point_coordinate_font
 from geoworkbench.printing.interpretation_note_layout import interpretation_note_height
+from geoworkbench.printing.fluid_marker_legend_layout import (
+    MARKER_LEGEND_TEXT_FLAGS, fluid_marker_legend_layout,
+)
 from geoworkbench.printing.ratio_scale_heading import (
     paint_ratio_scale_heading, ratio_scale_header_height,
 )
@@ -199,6 +202,11 @@ def render_chart_pages(
         for text, width, size, offset in headings
     ))
     note_height = interpretation_note_height(base_chart._labels(language)["note"], canvas.content_rect.width(), canvas.painter.device())
+    marker_specs = fluid_marker_legend_specs([item.fluid_hypothesis for item in report.candidates])
+    if marker_specs:
+        note_height = max(note_height, fluid_marker_legend_layout(
+            canvas.content_rect.width(), marker_specs, language, canvas.painter.device(),
+        ).height)
     chart_height_budget = (
         canvas.content_rect.height()
         - CHART_HEADER_HEIGHT
@@ -1208,57 +1216,30 @@ def _draw_fluid_marker_legend(
         )
         return
 
-    columns = min(6, len(specs))
-    rows = (len(specs) + columns - 1) // columns
-    row_height = 9.0
-    cell_width = rect.width() / columns
-    legend_font = point_coordinate_font(5.2, text="GC/GO heavy/residual oil", paint_device=painter.device())
-    painter.setFont(legend_font)
-    for index, spec in enumerate(specs):
-        row = index // columns
-        column = index % columns
-        left = rect.left() + column * cell_width
-        center_y = rect.top() + row * row_height + row_height / 2.0
-        draw_fluid_marker(
-            painter,
-            QPointF(left + 4.0, center_y),
-            spec,
-            size=4.4,
-        )
-        painter.setPen(QColor(palette.text))
-        painter.drawText(
-            QRectF(left + 8.0, center_y - 4.2, cell_width - 9.0, 8.4),
-            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-            f"{spec.code} {spec.label(language)}",
-        )
+    legend = fluid_marker_legend_layout(rect.width(), specs, language, painter.device())
+    painter.save()
+    try:
+        painter.setClipRect(rect)
+        size = modern_oilfield_report_profile().typography.caption_pt
+        for cell in legend.cells:
+            left = rect.left() + cell.left
+            top = rect.top() + cell.top
+            font = point_coordinate_font(size, text=cell.text, paint_device=painter.device())
+            metrics = QFontMetricsF(font, painter.device())
+            draw_fluid_marker(painter, QPointF(left + 4.0, top + 2.0 + metrics.height() / 2.0),
+                              cell.spec, size=4.4)
+            painter.setPen(QColor(palette.text))
+            painter.setFont(font)
+            painter.drawText(QRectF(left + 10.0, top + 2.0, cell.width - 12.0, cell.height - 4.0),
+                             MARKER_LEGEND_TEXT_FLAGS, cell.text)
+        painter.setPen(QColor(palette.text_muted))
+        painter.setFont(point_coordinate_font(size, text=legend.note, paint_device=painter.device()))
+        painter.drawText(QRectF(rect.left(), rect.top() + legend.note_top, rect.width(),
+                               max(0.0, rect.height() - legend.note_top)),
+                         MARKER_LEGEND_TEXT_FLAGS, legend.note)
+    finally:
+        painter.restore()
 
-    note = {
-        AppLanguage.RU: (
-            "Маркеры показывают предварительный тип; полные глубины и формулировки — "
-            "в таблице. Кривые масштабированы по p5–p95 каждого листа."
-        ),
-        AppLanguage.KK: (
-            "Маркерлер алдын ала түрді көрсетеді; толық тереңдік пен мәтін кестеде. "
-            "Қисықтар әр бетте p5–p95 бойынша масштабталған."
-        ),
-        AppLanguage.EN: (
-            "Markers show preliminary type; full depths and wording are in the table. "
-            "Curves are scaled to each page's p5–p95."
-        ),
-    }[language]
-    note_top = rect.top() + rows * row_height + 0.5
-    painter.setPen(QColor(palette.text_muted))
-    painter.setFont(point_coordinate_font(4.9, text=note, paint_device=painter.device()))
-    painter.drawText(
-        QRectF(
-            rect.left(),
-            note_top,
-            rect.width(),
-            max(0.0, rect.bottom() - note_top),
-        ),
-        Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop,
-        note,
-    )
 
 
 __all__ = [
