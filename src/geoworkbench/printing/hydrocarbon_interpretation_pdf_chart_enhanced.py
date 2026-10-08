@@ -59,7 +59,6 @@ from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_canvas import PageCanvas
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import (
     CHART_HEADER_HEIGHT,
-    CHART_LEGEND_HEIGHT,
     CHART_TRACK_HEADER_HEIGHT,
     MIN_CHART_HEIGHT,
     ChartGeometry,
@@ -72,6 +71,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_report_range import (
 )
 from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.printing.report_painter_fonts import point_coordinate_font
+from geoworkbench.printing.curve_legend_layout import fit_curve_legend_pages
 from geoworkbench.printing.interpretation_note_layout import interpretation_note_height
 from geoworkbench.printing.fluid_marker_legend_layout import (
     MARKER_LEGEND_TEXT_FLAGS, fluid_marker_legend_layout,
@@ -211,12 +211,20 @@ def render_chart_pages(
         canvas.content_rect.height()
         - CHART_HEADER_HEIGHT
         - header_height
-        - CHART_LEGEND_HEIGHT
         - note_height
     )
     # Preserve a useful plot even on A4 landscape. Large catalogs belong on
     # dedicated legend pages; do not let them consume the depth-page budget.
-    legend_budget = max(0.0, chart_height_budget - 4.0 * MIN_CHART_HEIGHT)
+    widths = tuple(rect.width() for rect in provisional.panel_rects)
+    display_hints = report_curve_label_hints(report)
+    def page_ranges(page: DepthPage) -> dict[str, tuple[float, float]]:
+        return base_chart._curve_percentiles(panels, dataset, page=page)
+
+    provisional_pages, curve_legend_height = fit_curve_legend_pages(
+        depth_min, depth_max, chart_height_budget, widths, panels,
+        language, canvas.painter.device(), display_hints, plan_depth_pages, page_ranges,
+    )
+    legend_budget = max(0.0, chart_height_budget - curve_legend_height - 4.0 * MIN_CHART_HEIGHT)
     chart_legend = (
         InterpretationGeologyLegend(())
         if legend_hidden
@@ -247,11 +255,13 @@ def render_chart_pages(
             paint_device=canvas.painter.device(),
         )
     available_height = chart_height_budget - full_legend_height
-    pages = plan_depth_pages(
-        depth_min,
-        depth_max,
-        available_height,
-    )
+    pages = provisional_pages
+    if full_legend_height > 0.0:
+        pages, curve_legend_height = fit_curve_legend_pages(
+            depth_min, depth_max, available_height, widths, panels,
+            language, canvas.painter.device(), display_hints, plan_depth_pages, page_ranges,
+            minimum_height=curve_legend_height,
+        )
     for page_index, page in enumerate(pages, start=1):
         canvas.new_page()
         percentiles = base_chart._curve_percentiles(panels, dataset, page=page)
@@ -263,6 +273,7 @@ def render_chart_pages(
             geology_legend_height=full_legend_height,
             track_header_height=header_height,
             chart_note_height=note_height,
+            chart_curve_legend_height=curve_legend_height,
             context_track=bool(context),
         )
         if annotations:

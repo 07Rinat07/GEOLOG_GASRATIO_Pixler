@@ -10,6 +10,7 @@ import pytest
 from PySide6.QtCore import QRectF
 from PySide6.QtGui import QPageLayout, QPageSize, QPainter, QPdfWriter
 
+from geoworkbench.printing import curve_legend_layout as legend_layout
 from geoworkbench.printing import hydrocarbon_interpretation_pdf_chart as standard
 from geoworkbench.printing import hydrocarbon_interpretation_pdf_chart_enhanced as enhanced
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_canvas import PageCanvas
@@ -35,7 +36,7 @@ def test_real_chart_title_axes_and_legends_retain_physical_sizes_and_values(
 ) -> None:
     profile = modern_oilfield_report_profile()
     profile = replace(profile, typography=replace(profile.typography, table_pt=9.0, caption_pt=8.0))
-    for module in (standard, enhanced):
+    for module in (standard, enhanced, legend_layout):
         monkeypatch.setattr(module, "modern_oilfield_report_profile", lambda: profile)
     dataset = _dataset()
     if landscape:
@@ -84,7 +85,7 @@ def test_real_chart_title_axes_and_legends_retain_physical_sizes_and_values(
             if landscape:
                 assert all(span["text"].startswith("-") for span in axis_numbers)
             legend = [span for span in spans if "p5=" in span["text"]]
-            assert legend and all(span["size"] == pytest.approx(6.0, abs=0.08) for span in legend)
+            assert legend and all(span["size"] == pytest.approx(typography.caption_pt, abs=0.08) for span in legend)
         assert str(int(dataset.depth[0])) in document[0].get_text()
     assert np.array_equal(dataset.depth, before.depth)
     for identifier, curve in dataset.curves.items():

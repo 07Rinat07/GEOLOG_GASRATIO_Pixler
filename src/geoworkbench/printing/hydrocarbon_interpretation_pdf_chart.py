@@ -10,7 +10,7 @@ from math import ceil, floor, log10
 
 import numpy as np
 from PySide6.QtCore import QLineF, QPointF, QRectF, Qt
-from PySide6.QtGui import QColor, QPainter, QPen
+from PySide6.QtGui import QColor, QFontMetricsF, QPainter, QPen
 
 from geoworkbench.domain.report_composition import (
     DEFAULT_REPORT_CHART_PANELS,
@@ -18,7 +18,6 @@ from geoworkbench.domain.report_composition import (
 )
 from geoworkbench.domain.models import CurveData, Dataset
 from geoworkbench.printing.hydrocarbon_interpretation_curve_labels import (
-    curve_legend_text,
     report_curve_label_hints,
 )
 from geoworkbench.printing.hydrocarbon_fluid_markers import (
@@ -29,7 +28,6 @@ from geoworkbench.printing.hydrocarbon_interpretation_curve_selection import rep
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_canvas import PageCanvas
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import (
     CHART_HEADER_HEIGHT,
-    CHART_LEGEND_HEIGHT,
     CHART_TRACK_HEADER_HEIGHT,
     ChartGeometry,
     DepthPage,
@@ -39,6 +37,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import (
 from geoworkbench.printing.depth_curve_segments import continuous_depth_segments
 from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.printing.report_painter_fonts import point_coordinate_font
+from geoworkbench.printing.curve_legend_layout import curve_legend_layout, fit_curve_legend_pages
 from geoworkbench.printing.interpretation_note_layout import interpretation_note_height
 from geoworkbench.printing.interpretation_track_headings import (
     paint_track_heading,
@@ -165,13 +164,13 @@ def render_chart_pages(
         canvas.content_rect.height()
         - CHART_HEADER_HEIGHT
         - header_height
-        - CHART_LEGEND_HEIGHT
         - note_height
     )
-    pages = plan_depth_pages(
-        float(np.nanmin(depth[finite_depth])),
-        float(np.nanmax(depth[finite_depth])),
-        available_height,
+    pages, curve_legend_height = fit_curve_legend_pages(
+        float(np.nanmin(depth[finite_depth])), float(np.nanmax(depth[finite_depth])),
+        available_height, tuple(rect.width() for rect in provisional.panel_rects), panels,
+        language, canvas.painter.device(), report_curve_label_hints(report),
+        plan_depth_pages, lambda page: _curve_percentiles(panels, dataset, page=page),
     )
     for page_index, page in enumerate(pages, start=1):
         canvas.new_page()
@@ -180,7 +179,7 @@ def render_chart_pages(
             canvas.painter,
             chart_geometry(canvas.content_rect, page, len(panels),
                            track_header_height=header_height, context_track=bool(context),
-                           chart_note_height=note_height),
+                           chart_note_height=note_height, chart_curve_legend_height=curve_legend_height),
             page,
             page_index,
             len(pages),
@@ -715,57 +714,34 @@ def _draw_legend(
         width,
         legend_rect.height(),
     )
-    for row_index, curve in enumerate(curves[:5]):
-        value_range = ranges.get(curve.metadata.curve_id)
-        if value_range is None:
-            continue
-        low, high = value_range
-        y = column.top() + row_index * 14.5
-        color = QColor(_COLORS[row_index % len(_COLORS)])
-        draw_as_points = (
-            point_series
-            if point_series is not None
-            else uses_gas_point_presentation(
-                (
-                    curve.metadata.original_mnemonic,
-                    curve.metadata.canonical_mnemonic,
-                )
-            )
-        )
-        painter.setPen(QPen(color, 0.8))
-        if draw_as_points:
-            painter.setBrush(color)
-            for offset in (2.5, 8.5, 14.5):
-                painter.drawEllipse(
-                    QRectF(
-                        column.left() + offset - 1.35,
-                        y + 3.65,
-                        2.7,
-                        2.7,
-                    )
-                )
-            painter.setBrush(Qt.BrushStyle.NoBrush)
-        else:
-            painter.setPen(QPen(color, 2.2))
-            painter.drawLine(
-                QLineF(column.left(), y + 5.0, column.left() + 17.0, y + 5.0)
-            )
-        hints = display_hints or {}
-        canonical_hint = hints.get(curve.metadata.original_mnemonic.strip().upper())
-        text = curve_legend_text(
-            curve,
-            low,
-            high,
-            language,
-            canonical_hint=canonical_hint,
-        )
-        painter.setPen(QColor(palette.text))
-        painter.setFont(point_coordinate_font(5.9, text=text, paint_device=painter.device()))
-        painter.drawText(
-            QRectF(column.left() + 21.0, y, column.width() - 21.0, 12.0),
-            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-            text,
-        )
+    layout = curve_legend_layout(width, curves, ranges, language, painter.device(), display_hints)
+    painter.save()
+    try:
+        for row in layout.rows:
+            curve = curves[row.curve_index]
+            color = QColor(_COLORS[row.curve_index % len(_COLORS)])
+            font = point_coordinate_font(modern_oilfield_report_profile().typography.caption_pt,
+                                         text=row.text, paint_device=painter.device())
+            y = column.top() + row.top
+            sample_y = y + QFontMetricsF(font, painter.device()).height() / 2.0
+            draw_as_points = point_series if point_series is not None else uses_gas_point_presentation(
+                (curve.metadata.original_mnemonic, curve.metadata.canonical_mnemonic))
+            painter.setPen(QPen(color, 0.8 if draw_as_points else 2.2))
+            if draw_as_points:
+                painter.setBrush(color)
+                for offset in (2.5, 8.5, 14.5):
+                    painter.drawEllipse(QRectF(column.left() + offset - 1.35, sample_y - 1.35, 2.7, 2.7))
+                painter.setBrush(Qt.BrushStyle.NoBrush)
+            else:
+                painter.drawLine(QLineF(column.left(), sample_y, column.left() + 17.0, sample_y))
+            painter.setPen(QColor(palette.text))
+            painter.setFont(font)
+            for index, line in enumerate(row.lines):
+                painter.drawText(QRectF(column.left() + 21.0, y + index * row.line_height,
+                                        column.width() - 21.0, row.line_height),
+                                 Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop, line)
+    finally:
+        painter.restore()
 
 
 def _curve_percentiles(
