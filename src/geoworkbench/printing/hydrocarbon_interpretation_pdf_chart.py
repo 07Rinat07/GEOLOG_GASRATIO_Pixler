@@ -30,7 +30,6 @@ from geoworkbench.printing.hydrocarbon_interpretation_pdf_canvas import PageCanv
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import (
     CHART_HEADER_HEIGHT,
     CHART_LEGEND_HEIGHT,
-    CHART_NOTE_HEIGHT,
     CHART_TRACK_HEADER_HEIGHT,
     ChartGeometry,
     DepthPage,
@@ -40,6 +39,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import (
 from geoworkbench.printing.depth_curve_segments import continuous_depth_segments
 from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.printing.report_painter_fonts import point_coordinate_font
+from geoworkbench.printing.interpretation_note_layout import interpretation_note_height
 from geoworkbench.printing.interpretation_track_headings import (
     paint_track_heading,
     track_heading_height,
@@ -160,12 +160,13 @@ def render_chart_pages(
     ))
     if provisional.context_rect is not None:
         header_height = max(header_height, 20.0 + track_heading_height(context_heading(language), provisional.context_rect.width(), 7.0, canvas.painter.device(), point_coordinates=True))
+    note_height = interpretation_note_height(_labels(language)["note"], canvas.content_rect.width(), canvas.painter.device())
     available_height = (
         canvas.content_rect.height()
         - CHART_HEADER_HEIGHT
         - header_height
         - CHART_LEGEND_HEIGHT
-        - CHART_NOTE_HEIGHT
+        - note_height
     )
     pages = plan_depth_pages(
         float(np.nanmin(depth[finite_depth])),
@@ -178,7 +179,8 @@ def render_chart_pages(
         _draw_chart_page(
             canvas.painter,
             chart_geometry(canvas.content_rect, page, len(panels),
-                           track_header_height=header_height, context_track=bool(context)),
+                           track_header_height=header_height, context_track=bool(context),
+                           chart_note_height=note_height),
             page,
             page_index,
             len(pages),
@@ -292,7 +294,7 @@ def _draw_chart_page(
         )
 
     painter.setPen(QColor(palette.text_secondary))
-    painter.setFont(point_coordinate_font(6.8, text=labels["note"], paint_device=painter.device()))
+    painter.setFont(point_coordinate_font(modern_oilfield_report_profile().typography.caption_pt, text=labels["note"], paint_device=painter.device()))
     painter.drawText(
         geometry.note_rect,
         Qt.AlignmentFlag.AlignLeft

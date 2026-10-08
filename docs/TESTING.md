@@ -1329,3 +1329,5 @@ explicit ellipsis and large-catalog pagination; physical printer acceptance rema
 Interpretation source curves and ratio-reference traces use non-cosmetic physical-point pens (1.25/0.7 pt); real PDF stroke-width/dash regressions at 72/300/600 DPI prevent high-resolution washout while retaining source values, colours and geometry.
 
 Ratio-scale readability: `tests/test_ratio_scale_heading.py` проверяет реальные PDF 72/300/600 DPI, 22/40/90 pt lanes, linear/log scales, полные bounded endpoint labels без пересечения, caption profile substitution и production RU/KK/EN A4 portrait/landscape. Source arrays/metadata и continuous dashed ratio traces сохраняются.
+
+`tests/test_interpretation_note_caption_profile.py` проверяет полный explanatory note над footer и ниже source traces в actual standard/OPUS PDF: caption profile 9 pt, RU/KK/EN, A4 portrait/landscape, 72/300/600 DPI. Отдельно проверяются полные localized no-data captions forced-empty cuttings/LBA. Source arrays/metadata сохраняются.

@@ -452,6 +452,15 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   RU/KK/EN A4 portrait/landscape покрыты regressions; arrays/metadata не меняются.
   Narrative/marker profile mapping и physical acceptance остаются открытыми;
   интеграция только после successful exact-head Windows Release gate.
+- [x] **Interpretation explanatory-caption slice:** standard PDF note и enhanced/OPUS
+  fallback note без fluid markers получают caption typography общего профиля.
+  Общий point-metrics helper резервирует весь wrapped текст до расчёта depth pages;
+  `chart_geometry` принимает note height с прежним default/minimum 28 pt. Пояснение
+  не обрезается при изменении caption profile и не пересекает plot/footer.
+  Forced-empty cuttings/LBA tracks используют caption role для RU/KK/EN no-data labels.
+  Реальные A4 portrait/landscape PDF 72/300/600 DPI, caption substitution, полный текст,
+  source arrays/metadata покрыты regressions. Candidate-present micro-note/marker legend,
+  curve legend layout и physical acceptance остаются открытыми; merge после exact-head gate.
 - [ ] Один immutable style profile для PDF, Masterlog, планшетной печати и Office-экспорта:
   нейтральная техническая типографика, строгая сетка, сдержанный petroleum-blue accent,
   high-contrast текст, light technical fills, line-weight hierarchy и monochrome-safe semantics.

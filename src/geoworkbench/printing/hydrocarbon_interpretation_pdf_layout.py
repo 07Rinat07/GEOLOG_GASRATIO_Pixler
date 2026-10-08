@@ -154,11 +154,13 @@ def chart_geometry(
     geology_repeat_legend_height: float = 0.0,
     track_header_height: float = CHART_TRACK_HEADER_HEIGHT,
     context_track: bool = False,
+    chart_note_height: float = CHART_NOTE_HEIGHT,
 ) -> ChartGeometry:
     """Return chart rectangles guaranteed to remain inside the printable area."""
 
     if panel_count < 1:
         raise ValueError("Для графика требуется хотя бы одна дорожка")
+    safe_note_height = max(CHART_NOTE_HEIGHT, float(chart_note_height))
     safe_legend_height = max(0.0, float(geology_legend_height))
     safe_repeat_height = max(0.0, float(geology_repeat_legend_height))
     safe_header_height = max(CHART_TRACK_HEADER_HEIGHT, float(track_header_height))
@@ -184,7 +186,7 @@ def chart_geometry(
         - CHART_HEADER_HEIGHT
         - safe_header_height
         - CHART_LEGEND_HEIGHT
-        - CHART_NOTE_HEIGHT
+        - safe_note_height
         - safe_legend_height
         - safe_repeat_height,
     )
@@ -254,9 +256,9 @@ def chart_geometry(
     )
     note = QRectF(
         content_rect.left(),
-        content_rect.bottom() - CHART_NOTE_HEIGHT,
+        content_rect.bottom() - safe_note_height,
         content_rect.width(),
-        CHART_NOTE_HEIGHT,
+        safe_note_height,
     )
     plot_left = geology_rects[0].left() if geology_rects else context_rect.left() if context_rect is not None else panels_left
     return ChartGeometry(

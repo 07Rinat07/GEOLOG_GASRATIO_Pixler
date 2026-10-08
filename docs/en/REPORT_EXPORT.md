@@ -177,3 +177,5 @@ Interpretation PDF titles/subtitles, numeric scales, legends and marker text ret
 Source curves and reference traces use physical 1.25/0.7 pt widths instead of cosmetic pens, preventing washout at higher DPI while retaining values, colours and line styles.
 
 Gas Ratio scale labels use the shared print caption size. Endpoint values are retained on two rows when space is tight; a middle label is omitted if it would overlap. The shared Wh/Bh heading is printed once. Scale values, grid ticks and curves are unchanged.
+
+Standard PDF notes and OPUS notes without fluid markers use the shared caption size. The full wrapped text determines the bottom area height before depth-page layout, keeping the note above the footer. Empty cuttings/LBA messages use the same caption role. Notes with fluid markers retain their existing compact layout.
