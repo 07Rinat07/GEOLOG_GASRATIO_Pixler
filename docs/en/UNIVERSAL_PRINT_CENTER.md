@@ -1,5 +1,7 @@
 # Print and Export Center
 
+Simple tablet print headers and footers use physical points from the shared profile. Gaps between title/range and brand/page number remain stable across DPI. Long titles and brands are elided while the range and page number remain complete. Pixel previews and pagination settings are preserved.
+
 ## Unified execution boundary — 0.7.30
 
 Preview, physical printing, PDF, and paged raster/SVG export now run through one

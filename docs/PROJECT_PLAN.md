@@ -1,11 +1,11 @@
 <!-- runtime-contract: package=0.7.96; project=v37; form=v18; layout=v25 -->
 # Единый план проекта
 
-План актуализирован 8 октября 2026 года. Проверенная база перед текущим инкрементом —
-`9866ad1e` (PR #498). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
-приёмка интегрированы. Текущий PRINT-STYLE-01 slice подключает шкалу глубин и оставшиеся
-автоматические шрифты шапки/placeholder/swatch/simple footer Masterlog к Unicode print stack.
-Saved mm sizes/bold, explicit annotation family/style, fitting и source data сохраняются.
+План актуализирован 9 октября 2026 года. Проверенная база перед текущим инкрементом —
+`27407ba2` (PR #499). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
+приёмка интегрированы. Текущий PRINT-STYLE-01 slice нормализует измерение/рисование обычных
+tablet header/footer в физических пунктах и использует profile card_padding_pt для промежутков.
+Pixel preview, source data, pagination и сохранённые формы сохраняются.
 WITS-NET-01 остаётся внешним условием: пользователь уточняет существующий VPN, доступа
 для настройки сейчас нет. Разработка остальных независимых задач продолжается.
 Статусы завершения
@@ -372,6 +372,16 @@ Document/painter/user-selected colors остаются данными докум
 закрытым наличием ранее интегрированного UI-ADAPT-01.
 
 ## PRINT-STYLE-01 — Report Visual System
+
+Tablet header/footer physical-spacing slice: обычная шапка и подвал печатного document
+renderer используют existing point-coordinate font adapter на QPdfWriter/QPrinter.
+QFontMetricsF измеряет те же fonts, которыми рисуются title/range/brand/page number;
+reserved gaps берутся из profile card_padding_pt вместо device-pixel constants.
+Footer resolver получает brand + localized page text. Rectangles/rules остаются физически
+неизменными; pixel preview и painter state восстанавливаются. 180 реальных PDF cases
+покрывают RU/KK/EN × пять DPI × три ширины × два padding profiles × writer/printer;
+ещё три случая сохраняют empty range/hidden page number. Existing layout/executor/preview
+contracts проверяются отдельно. Merge после exact-head gate; physical printer acceptance отдельно.
 
 Default-typography Unicode slice: depth labels используют table typography профиля и
 actual numeric text; header text, image placeholders, lithotype swatches и simple footer

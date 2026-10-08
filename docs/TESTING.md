@@ -1,5 +1,11 @@
 # Проверка качества и release gate
 
+`tests/test_tablet_header_footer_spacing.py` adds 180 real QPdfWriter/QPrinter PDF
+cases across RU/KK/EN, five DPI, three widths and two padding profiles. Extracted
+text/bounds verify non-overlap, physical gaps, Unicode page labels, bounded title/brand
+ellipsis and the 72-DPI baseline. Three empty-range/hidden-number cases plus existing
+pixel-preview/layout/executor tests check compatibility and restored painter state.
+
 `tests/test_masterlog_default_typography.py` adds 129 cases: 90 header text/placeholder/
 swatch PDF cases (RU/KK/EN, five DPI, default/explicit sizes), ten signed/large depth
 cases, 15 searchable simple-footer cases, five explicit annotation-font cases and nine
