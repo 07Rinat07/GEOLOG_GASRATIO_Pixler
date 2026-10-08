@@ -9,7 +9,7 @@ from PySide6.QtCore import QByteArray, QBuffer, QIODevice, QLineF, QPointF, QRec
 from PySide6.QtGui import QColor, QImage, QPainter, QPen
 
 from geoworkbench.domain.models import CurveData, Dataset
-from geoworkbench.printing.unicode_support import print_font
+from geoworkbench.printing.report_painter_fonts import point_coordinate_font
 from geoworkbench.services.gas_curve_presentation import GasRatioScale, gas_ratio_scale
 from geoworkbench.services.localization import AppLanguage
 
@@ -125,7 +125,7 @@ def has_ratio_reference_summary(dataset: Dataset) -> bool:
 
 def _text(painter: QPainter, rect: QRectF, text: str, size: float = 10.0) -> None:
     painter.setPen(QColor("#172033"))
-    painter.setFont(print_font(size, text=text))
+    painter.setFont(point_coordinate_font(size, text=text, paint_device=painter.device()))
     painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, text)
 
 
