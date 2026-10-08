@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QLineF, QRectF, Qt
-from PySide6.QtGui import QColor, QPen
+from PySide6.QtGui import QColor, QPainter, QPen
 
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_canvas import PageCanvas
 from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
@@ -11,7 +11,7 @@ from geoworkbench.printing.report_visual_system import (
     REPORT_BRAND_WORDMARK,
     modern_oilfield_report_profile,
 )
-from geoworkbench.printing.unicode_support import print_font
+from geoworkbench.printing.report_painter_fonts import point_coordinate_font
 from geoworkbench.printing.report_document_control import report_document_control, resolved_report_identity
 from geoworkbench.services.hydrocarbon_interpretation import (
     HydrocarbonInterpretationReport,
@@ -137,7 +137,11 @@ def render_report_cover(
 
         brand_top = rect.top() + (15.0 if short_page else 17.0)
         brand_width = rect.width() * (0.38 if compact else 0.34)
-        brand_font = print_font(8.6 if short_page else 9.0, text=labels["brand"])
+        brand_font = point_coordinate_font(
+            8.6 if short_page else 9.0,
+            text=labels["brand"],
+            paint_device=painter.device(),
+        )
         brand_font.setBold(True)
         painter.setFont(brand_font)
         painter.setPen(accent)
@@ -178,9 +182,10 @@ def render_report_cover(
                 painter.drawLine(
                     QLineF(cell.left(), cell.top(), cell.left(), cell.bottom())
                 )
-            label_font = print_font(
-                6.4 if short_page else (6.8 if compact else 7.2),
+            label_font = point_coordinate_font(
+                6.4 if short_page else 6.8 if compact else 7.2,
                 text=label,
+                paint_device=painter.device(),
             )
             label_font.setBold(True)
             painter.setFont(label_font)
@@ -195,9 +200,10 @@ def render_report_cover(
                 Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
                 label,
             )
-            value_font = print_font(
-                7.3 if short_page else (7.6 if compact else 8.0),
+            value_font = point_coordinate_font(
+                7.3 if short_page else 7.6 if compact else 8.0,
                 text=value,
+                paint_device=painter.device(),
             )
             value_font.setBold(True)
             painter.setFont(value_font)
@@ -217,7 +223,11 @@ def render_report_cover(
         title_top = control.bottom() + title_gap
         title_height = 42.0 if short_page else (66.0 if compact else 54.0)
         title_size = 20.5 if short_page else (22.0 if compact else 23.5)
-        title_font = print_font(title_size, text=details.report_title)
+        title_font = point_coordinate_font(
+            title_size,
+            text=details.report_title,
+            paint_device=painter.device(),
+        )
         title_font.setBold(True)
         painter.setFont(title_font)
         painter.setPen(text_color)
@@ -235,7 +245,11 @@ def render_report_cover(
         subtitle_top = title_top + title_height + 2.0
         subtitle_height = 18.0 if short_page else 24.0
         painter.setFont(
-            print_font(8.5 if short_page else 9.5, text=details.report_subtitle)
+            point_coordinate_font(
+                8.5 if short_page else 9.5,
+                text=details.report_subtitle,
+                paint_device=painter.device(),
+            )
         )
         painter.setPen(muted)
         painter.drawText(
@@ -304,7 +318,11 @@ def render_report_cover(
                 painter.drawLine(
                     QLineF(cell.left(), cell.top(), cell.left(), cell.bottom())
                 )
-            label_font = print_font(7.1 if short_page else 8.0, text=label)
+            label_font = point_coordinate_font(
+                7.1 if short_page else 8.0,
+                text=label,
+                paint_device=painter.device(),
+            )
             label_font.setBold(True)
             painter.setFont(label_font)
             painter.setPen(accent_dark)
@@ -319,7 +337,11 @@ def render_report_cover(
                 label,
             )
             painter.setFont(
-                print_font(7.3 if short_page else 8.2, text=value)
+                point_coordinate_font(
+                    7.3 if short_page else 8.2,
+                    text=value,
+                    paint_device=painter.device(),
+                )
             )
             painter.setPen(value_color)
             painter.drawText(
@@ -345,7 +367,11 @@ def render_report_cover(
                 )
             )
             painter.setFont(
-                print_font(6.1 if short_page else 6.7, text=labels["signature"])
+                point_coordinate_font(
+                    6.1 if short_page else 6.7,
+                    text=labels["signature"],
+                    paint_device=painter.device(),
+                )
             )
             painter.setPen(muted)
             painter.drawText(
@@ -377,9 +403,10 @@ def render_report_cover(
             if part.strip()
         ]
         painter.setFont(
-            print_font(
-                7.1 if short_page else (7.6 if compact else 8.0),
-                text=" ".join(footer_parts),
+            point_coordinate_font(
+                7.1 if short_page else 7.6 if compact else 8.0,
+                text=' '.join(footer_parts),
+                paint_device=painter.device(),
             )
         )
         painter.setPen(muted)
@@ -395,7 +422,7 @@ def render_report_cover(
 
 
 def _draw_compact_rows(
-    painter,
+    painter: QPainter,
     card: QRectF,
     rows: tuple[tuple[str, str], ...],
     *,
@@ -408,11 +435,16 @@ def _draw_compact_rows(
     row_left = card.left() + 14.0
     row_width = card.width() - 28.0
     row_height = (card.height() - 18.0) / len(rows)
-    label_font = print_font(font_size, text=" ".join(label for label, _ in rows))
+    label_font = point_coordinate_font(
+        font_size,
+        text=" ".join(label for label, _ in rows),
+        paint_device=painter.device(),
+    )
     label_font.setBold(True)
-    value_font = print_font(
+    value_font = point_coordinate_font(
         font_size,
         text=" ".join(_value(value) for _, value in rows),
+        paint_device=painter.device(),
     )
     row_top = card.top() + 9.0
     for index, (label, value) in enumerate(rows):
@@ -446,7 +478,7 @@ def _draw_compact_rows(
 
 
 def _draw_wide_rows(
-    painter,
+    painter: QPainter,
     card: QRectF,
     rows: tuple[tuple[str, str], ...],
     *,
@@ -474,11 +506,16 @@ def _draw_wide_rows(
             inner.bottom(),
         )
     )
-    label_font = print_font(font_size, text=" ".join(label for label, _ in rows))
+    label_font = point_coordinate_font(
+        font_size,
+        text=" ".join(label for label, _ in rows),
+        paint_device=painter.device(),
+    )
     label_font.setBold(True)
-    value_font = print_font(
+    value_font = point_coordinate_font(
         font_size,
         text=" ".join(_value(value) for _, value in rows),
+        paint_device=painter.device(),
     )
     for pair_index in range(pair_count):
         row_top = inner.top() + pair_index * pair_height

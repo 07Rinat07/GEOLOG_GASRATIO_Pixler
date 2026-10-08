@@ -68,7 +68,8 @@ def test_successful_child_does_not_report_failure(monkeypatch, capsys):
 
 
 @pytest.mark.parametrize(
-    "filename", ["test_session_safety.py", "test_masterlog_header_dialog.py"]
+    "filename", ["test_session_safety.py", "test_masterlog_header_dialog.py",
+                 "test_navigation_organization.py"]
 )
 def test_native_dialog_cases_run_in_single_test_processes(filename: str) -> None:
     """Native-sensitive dialogs must run once each without a shared Qt heap."""
