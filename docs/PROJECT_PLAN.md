@@ -2,10 +2,10 @@
 # Единый план проекта
 
 План актуализирован 8 октября 2026 года. Проверенная база перед текущим инкрементом —
-`b08f71a2` (PR #495). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
-приёмка интегрированы. Текущий PRINT-STYLE-01 slice подключает заголовки колонок и подписи
-легенд кривых Masterlog к общему Unicode font resolver по фактическому тексту.
-Размеры, rotation/wrapping/alignment, line/point keys, UOM и source data не меняются.
+`e2b8f16c` (PR #496). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
+приёмка интегрированы. Текущий PRINT-STYLE-01 slice подключает подписи стратиграфии и ЛБА
+Masterlog к общему Unicode font resolver по фактически выводимому тексту.
+Размеры, rotation/wrapping/alignment, catalog codes, intensity glyphs и source data не меняются.
 WITS-NET-01 остаётся внешним условием: пользователь уточняет существующий VPN, доступа
 для настройки сейчас нет. Разработка остальных независимых задач продолжается.
 Статусы завершения
@@ -372,6 +372,14 @@ Document/painter/user-selected colors остаются данными докум
 закрытым наличием ранее интегрированного UI-ADAPT-01.
 
 ## PRINT-STYLE-01 — Report Visual System
+
+Geology-label Unicode slice: полный stratigraphy code + localized name выбирает общий
+scaled print font на 5.5 pt; фактические LBA color/type codes выбирают его на 5.0 pt.
+Resolver вызывается только для видимых labels; интервалы, rank lanes, orientation/position,
+catalog palette и intensity glyph geometry сохраняются. 90 реальных PDF cases покрывают
+RU/KK/EN × 72/96/144/300/600 DPI × три ориентации × два painter paths; девять production
+A4/A3/roll exports после reopen проверяют текст и неизменность форм/геологии/source values.
+Закрытие slice требует successful exact-head Release gate; physical acceptance отдельно.
 
 Column heading Unicode slice: заголовки и labels легенд кривых Masterlog используют
 существующий scaled Unicode helper. Resolver получает полный label с диапазоном и UOM

@@ -1,5 +1,11 @@
 # Проверка качества и release gate
 
+`tests/test_masterlog_geology_label_unicode.py` covers 90 real PDF cases for
+stratigraphy and LBA labels: RU/KK/EN × five DPI × three orientations × two paths.
+It checks actual-text font resolution, 5.5/5.0 pt requests, extracted text/font/bounds
+and LBA glyph geometry against the 72-DPI baseline after changing the UI font.
+Nine A4/A3/roll exports after package reopen preserve forms, geology and source values.
+
 `tests/test_masterlog_heading_unicode.py` adds 90 actual PDF cases for column titles
 and bound curve labels: RU/KK/EN × 72/96/144/300/600 DPI × horizontal/two vertical
 orientations × legend on/off. Font stack, 6.5/4.6 pt requests and extracted 72-DPI

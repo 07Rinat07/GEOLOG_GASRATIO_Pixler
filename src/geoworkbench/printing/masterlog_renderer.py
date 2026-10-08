@@ -2001,9 +2001,6 @@ def _paint_stratigraphy_column(
     top, bottom = depth_range
     painter.save()
     painter.setClipRect(rect)
-    font = QFont()
-    _set_scaled_font_points(painter, font, 5.5)
-    painter.setFont(font)
     for interval in visible:
         lane = lanes[interval.rank or ""]
         y_top = rect.top() + (max(top, interval.top_depth) - top) / (bottom - top) * rect.height()
@@ -2027,6 +2024,7 @@ def _paint_stratigraphy_column(
                 interval.name_i18n, language, legacy=interval.name
             )
             text = "\n".join(value for value in (interval.code, interval_name) if value)
+            _set_scaled_unicode_font_points(painter, text, 5.5)
             painter.setPen(QColor(visual.palette.text))
             _paint_stratigraphy_label(
                 painter,
@@ -2211,9 +2209,6 @@ def _paint_lba_column(
     top, bottom = depth_range
     painter.save()
     painter.setClipRect(rect)
-    font = QFont()
-    _set_scaled_font_points(painter, font, 5.0)
-    painter.setFont(font)
     source_samples = samples if samples is not None else well.cuttings
     for sample in source_samples:
         if sample.bottom_depth < top or sample.top_depth > bottom:
@@ -2277,6 +2272,7 @@ def _paint_lba_column(
         )
         color_code = lba_color_code(sample.lba_color) or ""
         if sample_rect.height() >= 4.0 and color_code:
+            _set_scaled_unicode_font_points(painter, color_code, 5.0)
             painter.setPen(QColor(visual.palette.text))
             draw_oriented_text(
                 painter,
@@ -2293,6 +2289,7 @@ def _paint_lba_column(
                 padding_y=0.2,
             )
         if sample_rect.height() >= 4.0:
+            _set_scaled_unicode_font_points(painter, style.code, 5.0)
             painter.setPen(QColor(visual.palette.text))
             draw_oriented_text(
                 painter,
