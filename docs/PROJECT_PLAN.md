@@ -2,10 +2,10 @@
 # Единый план проекта
 
 План актуализирован 9 октября 2026 года. Проверенная база перед текущим инкрементом —
-`6d4d829d` (PR #503). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
-приёмка интегрированы. Текущий PRINT-STYLE-01 slice нормализует physical-point fonts
-корреляционной диаграммы Haworth/Pixler через существующий paged-painter adapter.
-Размеры, PNG-контракт, координаты измерений, шкалы и source data сохраняются.
+`4dd24274` (PR #504). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
+приёмка интегрированы. Текущий PRINT-STYLE-01 slice подключает neutral page/text/grid/frame
+корреляционной диаграммы Haworth/Pixler к общей палитре visual profile.
+Цвета глубин, размеры, координаты измерений, шкалы и source data сохраняются.
 WITS-NET-01 остаётся внешним условием: пользователь уточняет существующий VPN, доступа
 для настройки сейчас нет. Разработка остальных независимых задач продолжается.
 Статусы завершения
@@ -621,6 +621,14 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   полный searchable text, physical sizes/bounds относительно 72-DPI baseline,
   painter state и source immutability. Общая palette/role mapping reference chart
   и physical acceptance остаются открытыми; merge только после полного exact-head gate.
+- [x] **2026-10-09 — ratio-reference neutral palette:** Haworth/Pixler reference
+  summary использует shared page/text/border/border_strong palette вместо локальных
+  цветов. PNG и vector PDF сохраняют depth colours, paired observations, Pixler profiles,
+  geometry и physical font contract. Девять actual PNG cases RU/KK/EN с default/grayscale/
+  custom profile и 18 actual PDF cases при 72/300/600 DPI проверяют реальные pixels,
+  text colours и vector fills/strokes; existing DPI/source regressions сохранены.
+  Typography role mapping, monochrome depth keys и physical acceptance остаются открытыми;
+  merge только после полного local suite и exact-head Windows Release gate.
 - [ ] Один immutable style profile для PDF, Masterlog, планшетной печати и Office-экспорта:
   нейтральная техническая типографика, строгая сетка, сдержанный petroleum-blue accent,
   high-contrast текст, light technical fills, line-weight hierarchy и monochrome-safe semantics.
