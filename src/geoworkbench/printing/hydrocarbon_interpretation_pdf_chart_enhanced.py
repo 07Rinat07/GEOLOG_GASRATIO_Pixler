@@ -72,7 +72,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_report_range import (
     ReportDepthRange,
 )
 from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
-from geoworkbench.printing.unicode_support import print_font
+from geoworkbench.printing.report_painter_fonts import point_coordinate_font
 from geoworkbench.printing.report_annotation_rendering import (
     REFERENCE_PIXEL_TO_POINT,
     build_report_annotation_track_map,
@@ -443,7 +443,7 @@ def _draw_geology_tracks(
                 AppLanguage.EN: "No data",
             }[language]
             painter.setPen(QColor(palette.text_muted))
-            painter.setFont(print_font(6.0, text=no_data))
+            painter.setFont(point_coordinate_font(6.0, text=no_data, paint_device=painter.device()))
             painter.drawText(
                 rect,
                 Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
@@ -521,7 +521,7 @@ def _draw_chart_page(
 ) -> None:
     palette = modern_oilfield_report_profile().palette
     labels = base_chart._labels(language)
-    title_font = print_font(15.0, text=labels["title"])
+    title_font = point_coordinate_font(15.0, text=labels["title"], paint_device=painter.device())
     title_font.setBold(True)
     painter.setFont(title_font)
     painter.setPen(QColor(palette.text))
@@ -543,7 +543,7 @@ def _draw_chart_page(
         unit=report.depth_unit,
         scale=page.scale_denominator,
     )
-    painter.setFont(print_font(8.5, text=subtitle))
+    painter.setFont(point_coordinate_font(8.5, text=subtitle, paint_device=painter.device()))
     painter.setPen(QColor(palette.text_secondary))
     painter.drawText(
         QRectF(
@@ -713,7 +713,7 @@ def _draw_depth_axis(
         target_ticks=_MAJOR_TARGET_TICKS,
     )
     ticks = major_depth_ticks(page, rect.height())
-    tick_font = print_font(7.5, text=f"{page.bottom_depth:.1f}")
+    tick_font = point_coordinate_font(typography.table_pt, text=f"{page.bottom_depth:.1f}", paint_device=painter.device())
     tick_font.setBold(True)
     painter.setFont(tick_font)
     for value in ticks:
@@ -796,7 +796,7 @@ def _draw_panel(
         x = rect.left() + index / 4.0 * rect.width()
         painter.setPen(QPen(QColor(palette.border), layout.thin_rule_pt))
         painter.drawLine(QLineF(x, rect.top(), x, rect.bottom()))
-        painter.setFont(print_font(6.2, text="100"))
+        painter.setFont(point_coordinate_font(typography.caption_pt, text="100", paint_device=painter.device()))
         painter.setPen(QColor(palette.text_secondary))
         label_left = (
             rect.left() + 2.0 if index == 0 else rect.right() - 30.0 if index == 4 else x - 14.0
@@ -819,7 +819,7 @@ def _draw_panel(
     if not any(curve.metadata.curve_id in ranges for curve in curves):
         painter.setPen(QColor(palette.text_muted))
         label = base_chart._labels(language)["no_data"]
-        painter.setFont(print_font(8.0, text=label))
+        painter.setFont(point_coordinate_font(8.0, text=label, paint_device=painter.device()))
         painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, label)
     else:
         base_chart._draw_curves(
@@ -917,7 +917,7 @@ def _draw_ratio_tracks(
         ).replace("PIXLER_", "").replace("_", "/")
         if ratio_identifier(curve) in {"WH", "BH"}:
             mnemonic = "Wh / Bh"
-        painter.setFont(print_font(5.1, text=mnemonic))
+        painter.setFont(point_coordinate_font(5.1, text=mnemonic, paint_device=painter.device()))
         painter.setPen(QColor(palette.text))
         painter.drawText(
             QRectF(lane.left(), lane.top() - 28.0, lane.width(), 9.0),
@@ -930,7 +930,7 @@ def _draw_ratio_tracks(
             if len(scale_ticks) <= 3
             else (scale_ticks[0], scale_ticks[len(scale_ticks) // 2], scale_ticks[-1])
         )
-        painter.setFont(print_font(4.4, text="1000"))
+        painter.setFont(point_coordinate_font(4.4, text="1000", paint_device=painter.device()))
         painter.setPen(QColor(palette.text_secondary))
         for fraction, label in labelled:
             x = lane.left() + fraction * lane.width()
@@ -963,7 +963,7 @@ def _draw_ratio_tracks(
             )
             color = ratio_reference_color(curve)
             pen = QPen(color, 0.7, Qt.PenStyle.DashLine)
-            pen.setCosmetic(True)
+            pen.setCosmetic(False)
             painter.save()
             painter.setClipRect(lane.adjusted(0.6, 0.6, -0.6, -0.6))
             painter.setPen(pen)
@@ -1144,7 +1144,7 @@ def _draw_visible_fluid_markers(
                 spec,
                 size=5.0,
             )
-            font = print_font(5.5, text=spec.code)
+            font = point_coordinate_font(5.5, text=spec.code, paint_device=painter.device())
             font.setBold(True)
             painter.setFont(font)
             painter.setPen(QColor(palette.text))
@@ -1217,7 +1217,7 @@ def _draw_fluid_marker_legend(
     )
     if not specs:
         painter.setPen(QColor(palette.text_secondary))
-        painter.setFont(print_font(6.8, text=fallback_note))
+        painter.setFont(point_coordinate_font(6.8, text=fallback_note, paint_device=painter.device()))
         painter.drawText(
             rect,
             Qt.AlignmentFlag.AlignLeft
@@ -1231,7 +1231,7 @@ def _draw_fluid_marker_legend(
     rows = (len(specs) + columns - 1) // columns
     row_height = 9.0
     cell_width = rect.width() / columns
-    legend_font = print_font(5.2, text="GC/GO heavy/residual oil")
+    legend_font = point_coordinate_font(5.2, text="GC/GO heavy/residual oil", paint_device=painter.device())
     painter.setFont(legend_font)
     for index, spec in enumerate(specs):
         row = index // columns
@@ -1267,7 +1267,7 @@ def _draw_fluid_marker_legend(
     }[language]
     note_top = rect.top() + rows * row_height + 0.5
     painter.setPen(QColor(palette.text_muted))
-    painter.setFont(print_font(4.9, text=note))
+    painter.setFont(point_coordinate_font(4.9, text=note, paint_device=painter.device()))
     painter.drawText(
         QRectF(
             rect.left(),

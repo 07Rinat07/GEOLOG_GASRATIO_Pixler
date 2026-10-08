@@ -39,7 +39,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import (
 )
 from geoworkbench.printing.depth_curve_segments import continuous_depth_segments
 from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
-from geoworkbench.printing.unicode_support import print_font
+from geoworkbench.printing.report_painter_fonts import point_coordinate_font
 from geoworkbench.printing.interpretation_track_headings import (
     paint_track_heading,
     track_heading_height,
@@ -208,7 +208,7 @@ def _draw_chart_page(
 ) -> None:
     palette = modern_oilfield_report_profile().palette
     labels = _labels(language)
-    title_font = print_font(15.0, text=labels["title"])
+    title_font = point_coordinate_font(15.0, text=labels["title"], paint_device=painter.device())
     title_font.setBold(True)
     painter.setFont(title_font)
     painter.setPen(QColor(palette.text))
@@ -230,7 +230,7 @@ def _draw_chart_page(
         unit=report.depth_unit,
         scale=page.scale_denominator,
     )
-    painter.setFont(print_font(8.5, text=subtitle))
+    painter.setFont(point_coordinate_font(8.5, text=subtitle, paint_device=painter.device()))
     painter.setPen(QColor(palette.text_secondary))
     painter.drawText(
         QRectF(
@@ -292,7 +292,7 @@ def _draw_chart_page(
         )
 
     painter.setPen(QColor(palette.text_secondary))
-    painter.setFont(print_font(6.8, text=labels["note"]))
+    painter.setFont(point_coordinate_font(6.8, text=labels["note"], paint_device=painter.device()))
     painter.drawText(
         geometry.note_rect,
         Qt.AlignmentFlag.AlignLeft
@@ -314,12 +314,13 @@ def _draw_depth_axis(
     visual = modern_oilfield_report_profile()
     palette = visual.palette
     layout = visual.layout
+    typography = visual.typography
     labels = _labels(language)
     painter.fillRect(rect, QColor(palette.table_alt))
     painter.setPen(QPen(QColor(palette.border_strong), layout.strong_rule_pt))
     painter.drawRect(rect)
     title = labels["depth"] + (f", {unit}" if unit else "")
-    title_font = print_font(7.0, text=title)
+    title_font = point_coordinate_font(7.0, text=title, paint_device=painter.device())
     title_font.setBold(True)
     painter.setFont(title_font)
     painter.setPen(QColor(palette.text))
@@ -331,7 +332,7 @@ def _draw_depth_axis(
 
     step = _nice_tick_step(page.span, target_ticks=8)
     ticks = _readable_depth_ticks(page, step, rect.height())
-    painter.setFont(print_font(6.7, text=f"{page.bottom_depth:.1f}"))
+    painter.setFont(point_coordinate_font(typography.table_pt, text=f"{page.bottom_depth:.1f}", paint_device=painter.device()))
     for value in ticks:
         y = _depth_y(value, page, rect)
         painter.setPen(QPen(QColor(palette.text_muted), layout.thin_rule_pt))
@@ -387,7 +388,7 @@ def _draw_panel(
         x = rect.left() + index / 4.0 * rect.width()
         painter.setPen(QPen(QColor(palette.border), layout.thin_rule_pt * 0.5))
         painter.drawLine(QLineF(x, rect.top(), x, rect.bottom()))
-        painter.setFont(print_font(5.8, text="100"))
+        painter.setFont(point_coordinate_font(typography.caption_pt, text="100", paint_device=painter.device()))
         painter.setPen(QColor(palette.text_muted))
         label_left = (
             rect.left() + 2.0 if index == 0 else rect.right() - 30.0 if index == 4 else x - 14.0
@@ -416,7 +417,7 @@ def _draw_panel(
     if not any(curve.metadata.curve_id in ranges for curve in curves):
         painter.setPen(QColor(palette.text_muted))
         label = _labels(language)["no_data"]
-        painter.setFont(print_font(8.0, text=label))
+        painter.setFont(point_coordinate_font(8.0, text=label, paint_device=painter.device()))
         painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, label)
     else:
         _draw_curves(
@@ -475,7 +476,7 @@ def _draw_candidate_bands(
         )
         code_rect = QRectF(marker_x + 4.5, center_y - 5.5, 19.0, 11.0)
         painter.setPen(QColor(palette.text))
-        font = print_font(5.2, text=spec.code)
+        font = point_coordinate_font(5.2, text=spec.code, paint_device=painter.device())
         font.setBold(True)
         painter.setFont(font)
         painter.drawText(
@@ -645,7 +646,7 @@ def _draw_curves(
             continue
 
         pen = QPen(color, _PRINT_CURVE_WIDTH)
-        pen.setCosmetic(True)
+        pen.setCosmetic(False)
         painter.setPen(pen)
         for segment in segments:
             render_rows = _extrema_preserving_print_rows(
@@ -757,7 +758,7 @@ def _draw_legend(
             canonical_hint=canonical_hint,
         )
         painter.setPen(QColor(palette.text))
-        painter.setFont(print_font(5.9, text=text))
+        painter.setFont(point_coordinate_font(5.9, text=text, paint_device=painter.device()))
         painter.drawText(
             QRectF(column.left() + 21.0, y, column.width() - 21.0, 12.0),
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,

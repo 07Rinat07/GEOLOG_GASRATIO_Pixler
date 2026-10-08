@@ -428,6 +428,20 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   profile substitution, invalid-size validation и pixel-preview compatibility покрыты
   regressions. Остальные title/body/axis-label/marker fonts и physical acceptance
   остаются открытыми; интеграция только после successful exact-head Release gate.
+- [x] **Interpretation text/trace physical-DPI slice:** title/subtitle, depth labels,
+  normalized-panel percentage labels, no-data labels, curve legends, ratio micro-labels,
+  candidate codes и marker legends обоих PDF adapters используют общий point-coordinate
+  font adapter. Повторное масштабирование шрифта на paged devices устранено; фактический
+  вывод сохраняет базовые физические размеры 72 DPI при 300/600 DPI, включая Qt font
+  quantization. Depth numbers и normalized percentages используют table/caption profile
+  roles; narrative и узкие ratio/marker размеры сохраняются до отдельного layout slice.
+  RU/KK/EN, A4 portrait/landscape, отрицательные глубины, реальный extracted PDF text/font
+  sizes и неизменность curve arrays/metadata и candidate identity покрыты regressions.
+  Cosmetic pens source curves/reference traces заменены physical-point pens: 1.25 pt
+  source lines и 0.7 pt dashed reference curves больше не бледнеют при 300/600 DPI;
+  actual PDF stroke widths/dashes проверяются без изменения координат/arrays/colours.
+  Общий profile mapping оставшихся narrative/micro-text roles, readability узких ratio
+  шкал и physical-printer acceptance остаются открытыми; merge после exact-head gate.
 - [ ] Один immutable style profile для PDF, Masterlog, планшетной печати и Office-экспорта:
   нейтральная техническая типографика, строгая сетка, сдержанный petroleum-blue accent,
   high-contrast текст, light technical fills, line-weight hierarchy и monochrome-safe semantics.
