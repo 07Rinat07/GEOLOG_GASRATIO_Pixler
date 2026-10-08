@@ -1,5 +1,12 @@
 # Проверка качества и release gate
 
+`tests/test_masterlog_callout_unicode.py` covers 60 real PDF cases for inspection
+callouts and SVG symbol labels: RU/KK/EN × five DPI × depth/interval × two paths.
+It checks actual-text font resolution, 5.5/6.0 pt requests, extracted PDF text/font/bounds
+and vector geometry against the 72-DPI baseline after changing the UI font. Six cases
+keep template/column/depth filtering; nine A4/A3/roll exports after package reopen
+preserve canvas objects, SVG assets and source values. Stored callout language remains unchanged.
+
 `tests/test_masterlog_geology_label_unicode.py` covers 90 real PDF cases for
 stratigraphy and LBA labels: RU/KK/EN × five DPI × three orientations × two paths.
 It checks actual-text font resolution, 5.5/5.0 pt requests, extracted text/font/bounds
