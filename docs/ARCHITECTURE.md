@@ -1002,3 +1002,5 @@ Interpretation PDF chart adapters resolve one immutable palette snapshot per pai
 All font calls owned by standard/enhanced interpretation PDF chart adapters now use `point_coordinate_font`. This removes repeated device-DPI scaling for narrative, numeric and marker text without changing source values, colours or classification. Depth numbers and normalized percentages use shared table/caption typography; narrative and narrow ratio/marker sizes retain their existing 72-DPI budgets. Qt font quantization is reflected in the actual physical-output regression, rather than hidden by a broad tolerance.
 
 Interpretation source curves and ratio-reference traces use non-cosmetic physical-point pens (1.25/0.7 pt); real PDF stroke-width/dash regressions at 72/300/600 DPI prevent high-resolution washout while retaining source values, colours and geometry.
+
+Ratio-scale PDF headings отделены в `ratio_scale_heading`: один point-coordinate metric contract задаёт header reservation и caption-size paint. Endpoint-first label selection ограничивает коллизии без изменения fixed ratio scales, grid ticks и source/reference geometry; shared Wh/Bh lane получает одну шапку.

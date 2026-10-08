@@ -175,3 +175,5 @@ PDF track headings use shared typography and retain physical size at 72–600 DP
 Interpretation PDF titles/subtitles, numeric scales, legends and marker text retain physical size at 72–600 DPI. Depth numbers and normalized-panel percentages use shared table/caption sizes; narrow ratio/marker labels retain their current size pending separate readability acceptance.
 
 Source curves and reference traces use physical 1.25/0.7 pt widths instead of cosmetic pens, preventing washout at higher DPI while retaining values, colours and line styles.
+
+Gas Ratio scale labels use the shared print caption size. Endpoint values are retained on two rows when space is tight; a middle label is omitted if it would overlap. The shared Wh/Bh heading is printed once. Scale values, grid ticks and curves are unchanged.

@@ -73,6 +73,9 @@ from geoworkbench.printing.hydrocarbon_interpretation_report_range import (
 )
 from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.printing.report_painter_fonts import point_coordinate_font
+from geoworkbench.printing.ratio_scale_heading import (
+    paint_ratio_scale_heading, ratio_scale_header_height,
+)
 from geoworkbench.printing.report_annotation_rendering import (
     REFERENCE_PIXEL_TO_POINT,
     build_report_annotation_track_map,
@@ -177,7 +180,7 @@ def render_chart_pages(
     headings = [
         (base_chart._labels(language)[name], rect.width(),
          typography.caption_pt if name == "ratios" else typography.table_pt,
-         30.0 if name == "ratios" else 20.0)
+         ratio_scale_header_height(canvas.painter.device()) if name == "ratios" else 20.0)
         for (name, _curves), rect in zip(panels, provisional.panel_rects, strict=True)
     ]
     headings.extend(
@@ -868,7 +871,7 @@ def _draw_ratio_tracks(
             rect.left(),
             rect.top() - header_height + 1.0,
             rect.width(),
-            max(10.0, header_height - 30.0),
+            max(10.0, header_height - ratio_scale_header_height(painter.device())),
         ),
         heading,
         typography.caption_pt,
@@ -885,6 +888,7 @@ def _draw_ratio_tracks(
     indices = indices[np.argsort(depth[indices], kind="stable")]
     lane_count = max(group for _, _, group in tracks) + 1
     lane_width = rect.width() / lane_count
+    labelled_lanes: set[int] = set()
     for curve, scale, lane_index in tracks:
         lane = QRectF(
             rect.left() + lane_index * lane_width,
@@ -917,34 +921,9 @@ def _draw_ratio_tracks(
         ).replace("PIXLER_", "").replace("_", "/")
         if ratio_identifier(curve) in {"WH", "BH"}:
             mnemonic = "Wh / Bh"
-        painter.setFont(point_coordinate_font(5.1, text=mnemonic, paint_device=painter.device()))
-        painter.setPen(QColor(palette.text))
-        painter.drawText(
-            QRectF(lane.left(), lane.top() - 28.0, lane.width(), 9.0),
-            Qt.AlignmentFlag.AlignCenter,
-            mnemonic,
-        )
-
-        labelled = (
-            scale_ticks
-            if len(scale_ticks) <= 3
-            else (scale_ticks[0], scale_ticks[len(scale_ticks) // 2], scale_ticks[-1])
-        )
-        painter.setFont(point_coordinate_font(4.4, text="1000", paint_device=painter.device()))
-        painter.setPen(QColor(palette.text_secondary))
-        for fraction, label in labelled:
-            x = lane.left() + fraction * lane.width()
-            text_width = min(25.0, max(12.0, lane.width() * 0.46))
-            painter.drawText(
-                QRectF(
-                    min(max(x - text_width / 2.0, lane.left()), lane.right() - text_width),
-                    lane.top() - 17.5,
-                    text_width,
-                    8.0,
-                ),
-                Qt.AlignmentFlag.AlignCenter,
-                label,
-            )
+        if lane_index not in labelled_lanes:
+            paint_ratio_scale_heading(painter, lane, mnemonic, scale_ticks)
+            labelled_lanes.add(lane_index)
 
         values = np.asarray(curve.values, dtype=np.float64)
         if values.shape == depth.shape:
