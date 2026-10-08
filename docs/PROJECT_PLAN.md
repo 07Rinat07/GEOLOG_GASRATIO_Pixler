@@ -442,6 +442,16 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   actual PDF stroke widths/dashes проверяются без изменения координат/arrays/colours.
   Общий profile mapping оставшихся narrative/micro-text roles, readability узких ratio
   шкал и physical-printer acceptance остаются открытыми; merge после exact-head gate.
+- [x] **Ratio-scale readable-heading slice:** enhanced/OPUS PDF использует caption
+  typography для внутренних ratio identifiers и чисел вместо fixed 5.1/4.4 pt.
+  Общий helper измеряет point-coordinate metrics для header reservation и paint;
+  крайние значения остаются, crowded middle tick пропускается, пересекающиеся endpoints
+  переходят на две строки без уменьшения шрифта. Wh/Bh печатает одну общую шапку,
+  сохраняя обе source/reference curves и все grid ticks. Реальные PDF 72/300/600 DPI,
+  22/40/90 pt lanes, logarithmic/linear scales, profile substitution и production
+  RU/KK/EN A4 portrait/landscape покрыты regressions; arrays/metadata не меняются.
+  Narrative/marker profile mapping и physical acceptance остаются открытыми;
+  интеграция только после successful exact-head Windows Release gate.
 - [ ] Один immutable style profile для PDF, Masterlog, планшетной печати и Office-экспорта:
   нейтральная техническая типографика, строгая сетка, сдержанный petroleum-blue accent,
   high-contrast текст, light technical fills, line-weight hierarchy и monochrome-safe semantics.

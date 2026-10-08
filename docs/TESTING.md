@@ -1327,3 +1327,5 @@ explicit ellipsis and large-catalog pagination; physical printer acceptance rema
 `tests/test_interpretation_text_physical_dpi.py` checks 42 actual PDFs: standard/enhanced RU/KK/EN charts at 72/300/600 DPI in A4 portrait/landscape, including signed depths and substituted integer table/caption sizes, plus real candidate codes at each DPI. Extracted title, axis, legend and marker sizes must retain their physical 72-DPI baseline; source arrays/metadata and candidate identity remain unchanged.
 
 Interpretation source curves and ratio-reference traces use non-cosmetic physical-point pens (1.25/0.7 pt); real PDF stroke-width/dash regressions at 72/300/600 DPI prevent high-resolution washout while retaining source values, colours and geometry.
+
+Ratio-scale readability: `tests/test_ratio_scale_heading.py` проверяет реальные PDF 72/300/600 DPI, 22/40/90 pt lanes, linear/log scales, полные bounded endpoint labels без пересечения, caption profile substitution и production RU/KK/EN A4 portrait/landscape. Source arrays/metadata и continuous dashed ratio traces сохраняются.
