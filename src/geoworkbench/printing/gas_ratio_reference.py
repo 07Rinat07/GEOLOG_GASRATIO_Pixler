@@ -10,6 +10,7 @@ from PySide6.QtGui import QColor, QImage, QPainter, QPen
 
 from geoworkbench.domain.models import CurveData, Dataset
 from geoworkbench.printing.report_painter_fonts import point_coordinate_font
+from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.services.gas_curve_presentation import GasRatioScale, gas_ratio_scale
 from geoworkbench.services.localization import AppLanguage
 
@@ -124,13 +125,14 @@ def has_ratio_reference_summary(dataset: Dataset) -> bool:
 
 
 def _text(painter: QPainter, rect: QRectF, text: str, size: float = 10.0) -> None:
-    painter.setPen(QColor("#172033"))
+    painter.setPen(QColor(modern_oilfield_report_profile().palette.text))
     painter.setFont(point_coordinate_font(size, text=text, paint_device=painter.device()))
     painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, text)
 
 
 def _axes(painter: QPainter, rect: QRectF) -> None:
-    painter.setPen(QPen(QColor("#cbd5e1"), 0.6))
+    palette = modern_oilfield_report_profile().palette
+    painter.setPen(QPen(QColor(palette.border), 0.6))
     for index in range(6):
         fraction = index / 5
         painter.drawLine(
@@ -149,7 +151,7 @@ def _axes(painter: QPainter, rect: QRectF) -> None:
                 rect.top() + fraction * rect.height(),
             )
         )
-    painter.setPen(QPen(QColor("#475569"), 1))
+    painter.setPen(QPen(QColor(palette.border_strong), 1))
     painter.drawRect(rect)
 
 
@@ -171,7 +173,8 @@ def paint_ratio_reference_summary(
         painter.translate(target.topLeft())
         scale = min(target.width() / 1000, target.height() / 650)
         painter.scale(scale, scale)
-        painter.fillRect(QRectF(0, 0, 1000, 650), Qt.GlobalColor.white)
+        palette = modern_oilfield_report_profile().palette
+        painter.fillRect(QRectF(0, 0, 1000, 650), QColor(palette.page))
         title = {
             AppLanguage.RU: "Газовые отношения: корреляция и профиль Пикслера",
             AppLanguage.KK: "Газ қатынастары: корреляция және Pixler профилі",
@@ -265,7 +268,7 @@ def paint_ratio_reference_summary(
             )
             for power in range(int(minimum), int(maximum) + 1):
                 tick_y = plot.bottom() - (power - minimum) / (maximum - minimum) * plot.height()
-                painter.setPen(QPen(QColor("#94a3b8"), 0.7))
+                painter.setPen(QPen(QColor(palette.border), 0.7))
                 painter.drawLine(QLineF(plot.left(), tick_y, plot.right(), tick_y))
                 _text(painter, QRectF(12, tick_y - 8, 45, 16), f"{10.0**power:g}", 8)
             for profile_index, row in enumerate(selected):
@@ -332,7 +335,7 @@ def paint_ratio_reference_summary(
 
 def ratio_reference_summary_uri(dataset: Dataset, language: AppLanguage) -> str:
     image = QImage(1600, 1040, QImage.Format.Format_ARGB32_Premultiplied)
-    image.fill(Qt.GlobalColor.white)
+    image.fill(QColor(modern_oilfield_report_profile().palette.page))
     painter = QPainter(image)
     try:
         if not paint_ratio_reference_summary(painter, QRectF(image.rect()), dataset, language):

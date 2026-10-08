@@ -1,5 +1,10 @@
 # Проверка качества и release gate
 
+`tests/test_ratio_reference_visual_profile.py` checks nine actual RU/KK/EN PNG
+charts with default/grayscale/custom palettes and 18 vector PDFs at 72/300/600 DPI.
+Pixel colours, extracted text colours and vector fills/strokes use the shared neutral
+palette while depth colours remain intact. Existing physical-DPI and source tests remain.
+
 `tests/test_ratio_reference_physical_dpi.py` checks 30 actual QPdfWriter/QPrinter
 Haworth/Pixler summary PDFs: RU/KK/EN at 72/96/144/300/600 DPI. Complete extracted
 text, font sizes and bounds match the 72-DPI baseline; painter state and source

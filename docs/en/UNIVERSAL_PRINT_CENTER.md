@@ -1,5 +1,7 @@
 # Print and Export Center
 
+The Haworth/Pixler chart background, text, grid and frames use the shared report palette. Depth colours are retained to match observations, profiles and legend entries; text sizes and chart geometry remain unchanged.
+
 Haworth/Pixler correlation chart text retains its physical size as print DPI changes. Labels, scales and depth profiles remain complete; the PNG preview keeps its existing scaling.
 
 The gas mixture chart title, scales, legend and time axis use the shared typography profile. Larger font sizes are fitted to measured field bounds, preserving full labels and the chart geometry.
