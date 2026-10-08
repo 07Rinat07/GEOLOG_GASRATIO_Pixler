@@ -21,6 +21,29 @@ def _normalized(text: str) -> str:
     return ''.join(normalize('NFKC', text).split())
 
 
+def _page_body_text(page: fitz.Page) -> str:
+    blocks = [block for block in page.get_text('dict')['blocks'] if 'lines' in block]
+    footer = blocks[-1]
+    footer_text = ''.join(span['text'] for line in footer['lines'] for span in line['spans'])
+    # QTextDocument.print_ appends a separate page number at the lower right.
+    # Verify its identity and location before excluding it from reading order.
+    assert footer_text.strip() == str(page.number + 1)
+    assert footer['bbox'][0] > page.rect.width * 0.8
+    assert footer['bbox'][1] > page.rect.height * 0.8
+    return '\n'.join(span['text'] for block in blocks[:-1]
+                     for line in block['lines'] for span in line['spans'])
+
+
+def test_pdf_body_extraction_keeps_numbers_in_cross_page_warning() -> None:
+    with fitz.open() as pdf:
+        for index, body in enumerate(('Warning: C2 has 2 samples;', 'all 3 values are retained.')):
+            page = pdf.new_page(width=842, height=595)
+            page.insert_text((90, 100), body)
+            page.insert_text((746, 519), str(index + 1))
+        text = _normalized('\n'.join(_page_body_text(page) for page in pdf))
+        assert text == _normalized('Warning: C2 has 2 samples; all 3 values are retained.')
+
+
 def _profile(custom: bool):
     profile = modern_oilfield_report_profile()
     if not custom:
@@ -55,7 +78,7 @@ def test_actual_ramp_pdf_uses_shared_typography_palette_and_hides_audit_time(
     target = ramp.export_gas_mixture_ramp_pdf(report, tmp_path / 'ramp.pdf',
                                              language=language, include_chart=include_chart)
     with fitz.open(target) as pdf:
-        text = _normalized('\n'.join(page.get_text() for page in pdf))
+        text = _normalized('\n'.join(_page_body_text(page) for page in pdf))
         labels = ramp._labels(language)
         for value in (profile.brand_wordmark, labels['title'], labels['composition'], labels['limitations'],
                       report.project_name, report.well_name, report.dataset_name, 'ISO 6974-1:2012',

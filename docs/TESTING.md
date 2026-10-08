@@ -1368,7 +1368,10 @@ widths and preserve explicit paragraph breaks plus supplementary Unicode via UTF
 RU/KK/EN, 72/300/600 DPI, chart/text modes and default/substituted palette/typography.
 Actual title/section/table point sizes, text colours, table header fills, full component
 and Pixler numerical rows, page bounds, canonical brand and absent audit timestamp are
-required. Dataset arrays/metadata and immutable report audit remain unchanged. Six PNG
+required. Full warnings are checked across page breaks after verifying and removing only
+the separate lower-right Qt page-number block. A cross-page regression retains numeric
+content inside the warning; all PDF spans, including page numbers, still undergo bounds checks.
+Dataset arrays/metadata and immutable report audit remain unchanged. Six PNG
 cases retain all five continuous component lines/colours and measure neutral text/page,
 antialiased grid and frame palette blends at known positions. Forced font-adapter/print failures
 preserve an existing PDF and remove temporary output after closing the writer. Existing interpretation rich-text
