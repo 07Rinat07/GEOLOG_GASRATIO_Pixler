@@ -2,10 +2,10 @@
 # Единый план проекта
 
 План актуализирован 9 октября 2026 года. Проверенная база перед текущим инкрементом —
-`871fd8b7` (PR #501). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
-приёмка интегрированы. Текущий PRINT-STYLE-01 slice добавляет различимые line patterns
-для временных кривых C1–C5 ramp-report и соответствующие образцы в легенде.
-Цвета, координаты отсчётов, log10 scale, числовые таблицы и source data сохраняются.
+`4b92bb80` (PR #502). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
+приёмка интегрированы. Текущий PRINT-STYLE-01 slice подключает shared typography roles
+к raster chart C1–C5 ramp-report и измеряемый fitting полного Unicode текста.
+Геометрия диаграммы, line patterns, log10 scale, числовые таблицы и source data сохраняются.
 WITS-NET-01 остаётся внешним условием: пользователь уточняет существующий VPN, доступа
 для настройки сейчас нет. Разработка остальных независимых задач продолжается.
 Статусы завершения
@@ -605,6 +605,14 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   совпадение pen кривых/легенды и immutable report. Existing PDF/profile checks сохранены.
   Raster typography, ramp footer/document control и physical acceptance остаются открытыми.
   Интеграция только после полного local suite и exact-head Windows Release gate.
+- [x] **2026-10-09 — C1–C5 ramp raster typography:** chart title, scale/ticks,
+  component legend и time axis используют title/caption/table/subtitle roles общего
+  immutable visual profile. Unicode font stack выбирается по каждому фактическому label,
+  включая C4Σ/C5Σ; измеряемый fitting уменьшает только текст внутри существующих полей.
+  RU/KK/EN PNG regressions покрывают default/custom/max-size profiles, полный текст,
+  screen-font independence, measured bounds и report immutability. Existing PDF и
+  monochrome-line regressions сохранены. Footer/document control и physical acceptance
+  остаются открытыми; интеграция только после полного local suite и exact-head gate.
 - [ ] Один immutable style profile для PDF, Masterlog, планшетной печати и Office-экспорта:
   нейтральная техническая типографика, строгая сетка, сдержанный petroleum-blue accent,
   high-contrast текст, light technical fills, line-weight hierarchy и monochrome-safe semantics.

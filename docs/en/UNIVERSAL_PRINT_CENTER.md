@@ -1,5 +1,7 @@
 # Print and Export Center
 
+The gas mixture chart title, scales, legend and time axis use the shared typography profile. Larger font sizes are fitted to measured field bounds, preserving full labels and the chart geometry.
+
 The gas mixture time chart distinguishes C1–C5 by line pattern as well as colour. Legend samples match the curves, allowing components to be identified in monochrome print. Colours and numerical values are preserved.
 
 Geology PDF headings retain the point sizes of the shared visual profile. Body text and tables use their profile roles; wrapped titles and geologist conclusions remain complete.
