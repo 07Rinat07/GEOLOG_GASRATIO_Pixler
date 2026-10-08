@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- PRINT-STYLE-01: текстовая часть interpretation PDF/system print измеряется в физических пунктах на 72-DPI layout device вместо screen DPI. Заголовки, основной текст и таблицы используют shared typography; повторяемые table headers, полный текст и compact oversized-row fallback сохранены. Inline bold/italic, links и superscript/subscript не теряются.
 - Windows quality gate: четыре MainWindow navigation сценария запускаются по одному на процесс после наблюдённого Qt/pyqtgraph access violation в длинном общем shard. Ни один тест не пропускается; любой assertion/native failure по-прежнему останавливает gate.
 - PRINT-STYLE-01: все шрифты титульного листа interpretation PDF/system print используют общий physical-point adapter. На 300/600 DPI заголовки и реквизиты больше не увеличиваются повторно; физические размеры и положение текста сохраняют baseline 72 DPI. Компактный/широкий макет, ручные поля, явная дата и выбранный интервал сохраняются.
 - PRINT-STYLE-01: легенды кривых standard/OPUS PDF используют readable caption size и переносы полных labels/units/p5/p95. Максимальная высота page-local легенд учитывается при разбиении глубины; glyphs выровнены с первой строкой. Значения, source metadata, цвета и существующая point/line policy сохраняются.

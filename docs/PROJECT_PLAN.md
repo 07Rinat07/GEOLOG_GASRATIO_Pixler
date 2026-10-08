@@ -494,6 +494,16 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   source arrays/metadata сохраняются, generation timestamp не печатается.
   Mapping оставшихся cover/narrative roles к shared typography и физическая приёмка
   остаются открытыми; merge только после exact-head Windows Release gate.
+- [x] **2026-10-08 — narrative PDF physical typography:** QTextDocument измеряет
+  HTML на собственном 72-DPI device, который живёт вместе с документом; CSS pt
+  соответствует физическим page points на PDF/system print 72/300/600 DPI.
+  Title/section/body/table получают shared typography roles. Qt heading-relative
+  adjustments удаляются только при explicit point size, сохраняя inline formatting.
+  Oversized-row compact fallback остаётся 6.8 pt; cell override действует и на
+  source table classes. RU/KK/EN actual PDF и QPrinter PDF regressions проверяют
+  размеры, measured bounds, повторение headers и все строки без uniform shrinking.
+  Cover role mapping и physical printer acceptance остаются открытыми; merge
+  допускается только после полного local suite и exact-head Windows Release gate.
 - [ ] Один immutable style profile для PDF, Masterlog, планшетной печати и Office-экспорта:
   нейтральная техническая типографика, строгая сетка, сдержанный petroleum-blue accent,
   high-contrast текст, light technical fills, line-weight hierarchy и monochrome-safe semantics.
