@@ -37,6 +37,9 @@ _FORCED_NATIVE_BATCH_FILES = frozenset(
         "tests/test_curve_view_editing.py",
         "tests/test_daily_las_growth_autosave.py",
         "tests/test_main_window_normalized_gas_tablet.py",
+        # MainWindow navigation hit 0xC0000005 in PlotItem.__init__ after
+        # earlier dialogs/scenes in a large Windows offscreen shard.
+        "tests/test_navigation_organization.py",
         "tests/test_session_safety.py",
         "tests/test_multipage_unicode_print.py",
         "tests/test_masterlog_curve_mapping_dialog.py",
