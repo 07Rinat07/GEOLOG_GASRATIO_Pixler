@@ -98,7 +98,7 @@ def test_callout_unicode_pdf_preserves_anchor_geometry_and_dpi_baseline(
     np.testing.assert_array_equal(session.current_dataset.curve_by_mnemonic("C1").values, source_values)
     assert len(calls) == 2
     for size, text, families in calls:
-        assert size == (5.5 if kind == "inspection" else 6.0)
+        assert size == renderer.modern_oilfield_report_profile().typography.caption_pt
         assert text == expected
         assert families == list(resolve_unicode_font_profile(text).families)
     baseline, actual = snapshots

@@ -89,7 +89,8 @@ def test_heading_and_curve_label_unicode_pdf_keep_orientation_and_dpi_baseline(
     np.testing.assert_array_equal(dataset.curve_by_mnemonic("VENDOR").values, source_values)
     assert len(resolved) == (4 if legend else 2)
     for size, text, families in resolved:
-        assert (size, text) in ((6.5, column.title), (4.6, LABEL))
+        assert (size, text) in ((renderer.modern_oilfield_report_profile().typography.table_pt, column.title),
+                                (renderer.modern_oilfield_report_profile().typography.caption_pt, LABEL))
         assert families == list(resolve_unicode_font_profile(text).families)
     assert [span["text"] for span in pdf_spans[0]] == [span["text"] for span in pdf_spans[1]]
     for baseline, actual in zip(*pdf_spans):
