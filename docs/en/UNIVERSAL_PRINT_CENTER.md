@@ -1,5 +1,7 @@
 # Print and Export Center
 
+Office exports use the shared profile for generic DOCX table text and notes, shared Word table borders, Excel summary text and printed footers on every geological XLSX sheet. Footer colours and sizes survive reopening. Cell values and types, column widths and 100% print scale are preserved.
+
 Masterlog uses the shared font profile for column headings, curve legends, stratigraphy, LBA, rock and sample descriptions, interpretations, callouts and symbol labels. Enlarged sizes fit existing areas. Explicit header and annotation styles, label orientations and source data are preserved.
 
 Standard and OPUS interpretation PDFs use the shared profile for titles, page/range/scale subtitles, empty states and marker codes. Complete text fits existing areas with stable physical sizing across DPI; source values and marker positions remain unchanged.

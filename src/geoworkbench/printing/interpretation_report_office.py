@@ -16,7 +16,7 @@ from geoworkbench.data.hydrocarbon_interpretation_export import (
     _table,
 )
 from geoworkbench.data.spreadsheet_safety import protect_spreadsheet_row
-from geoworkbench.printing.report_visual_system import REPORT_BRAND_WORDMARK, modern_oilfield_report_profile
+from geoworkbench.printing.report_visual_system import REPORT_BRAND_WORDMARK, ReportVisualProfile, modern_oilfield_report_profile
 from geoworkbench.printing.interpretation_report import (
     LBA_FIELDS,
     AnalysisInterpretationEntry,
@@ -133,6 +133,13 @@ def _write_xlsx(path: Path, report: InterpretationReport, language: AppLanguage)
             (labels["interpretation"], report.interpreted_count),
         ),
     )
+    for row in summary.iter_rows():
+        for cell in row:
+            cell.font = Font(size=visual.typography.body_pt, color=visual.palette.text.lstrip("#"))
+            cell.alignment = Alignment(wrap_text=True, vertical="top",
+                                       horizontal="right" if isinstance(cell.value, (int, float)) else "left")
+    _apply_print_footer(summary, visual)
+    summary.row_dimensions[1].height = max(30.0, visual.typography.title_pt * 1.8)
     summary["A1"].font = Font(
         bold=True, size=visual.typography.title_pt, color=visual.palette.accent.lstrip("#")
     )
@@ -483,6 +490,14 @@ def _append_rows(worksheet, rows: tuple[tuple[object, ...], ...]) -> None:
         worksheet.append(protect_spreadsheet_row(row))
 
 
+def _apply_print_footer(worksheet, visual: ReportVisualProfile) -> None:
+    worksheet.oddFooter.left.text = visual.brand_wordmark.replace("&", "&&")
+    worksheet.oddFooter.right.text = "&P / &N"
+    for part in (worksheet.oddFooter.left, worksheet.oddFooter.right):
+        part.size = visual.typography.footer_pt
+        part.color = visual.palette.text_muted.lstrip("#").upper()
+
+
 def _write_table(
     worksheet,
     headers: tuple[str, ...],
@@ -506,8 +521,7 @@ def _write_table(
     worksheet.page_setup.fitToHeight = 0
     worksheet.page_setup.scale = 100
     worksheet.sheet_properties.pageSetUpPr.fitToPage = True
-    worksheet.oddFooter.left.text = visual.brand_wordmark.replace("&", "&&")
-    worksheet.oddFooter.right.text = "&P / &N"
+    _apply_print_footer(worksheet, visual)
     worksheet.row_dimensions[1].height = max(
         24.0,
         visual.typography.table_pt * 3.6,

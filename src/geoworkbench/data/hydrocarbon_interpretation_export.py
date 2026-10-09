@@ -621,7 +621,10 @@ def _table(
 ) -> str:
     if len(widths) != len(headers) or any(len(row) != len(headers) for row in rows):
         raise ValueError("Геометрия таблицы отчёта не соответствует числу колонок")
-    border = modern_oilfield_report_profile().palette.border.lstrip("#")
+    visual = modern_oilfield_report_profile()
+    border = visual.palette.border.lstrip("#")
+    strong_rule = round(visual.layout.strong_rule_pt * 8)
+    thin_rule = round(visual.layout.thin_rule_pt * 8)
     grid = "".join(f'<w:gridCol w:w="{width}"/>' for width in widths)
     header = _table_row(headers, widths, header=True)
     body = "".join(_table_row(row, widths) for row in rows)
@@ -631,12 +634,12 @@ def _table(
         '<w:top w:w="90" w:type="dxa"/><w:left w:w="90" w:type="dxa"/>'
         '<w:bottom w:w="90" w:type="dxa"/><w:right w:w="90" w:type="dxa"/>'
         "</w:tblCellMar><w:tblBorders>"
-        f'<w:top w:val="single" w:sz="6" w:color="{border}"/>'
-        f'<w:left w:val="single" w:sz="6" w:color="{border}"/>'
-        f'<w:bottom w:val="single" w:sz="6" w:color="{border}"/>'
-        f'<w:right w:val="single" w:sz="6" w:color="{border}"/>'
-        f'<w:insideH w:val="single" w:sz="4" w:color="{border}"/>'
-        f'<w:insideV w:val="single" w:sz="4" w:color="{border}"/>'
+        f'<w:top w:val="single" w:sz="{strong_rule}" w:color="{border}"/>'
+        f'<w:left w:val="single" w:sz="{strong_rule}" w:color="{border}"/>'
+        f'<w:bottom w:val="single" w:sz="{strong_rule}" w:color="{border}"/>'
+        f'<w:right w:val="single" w:sz="{strong_rule}" w:color="{border}"/>'
+        f'<w:insideH w:val="single" w:sz="{thin_rule}" w:color="{border}"/>'
+        f'<w:insideV w:val="single" w:sz="{thin_rule}" w:color="{border}"/>'
         "</w:tblBorders></w:tblPr>"
         f"<w:tblGrid>{grid}</w:tblGrid>{header}{body}</w:tbl>"
     )

@@ -491,7 +491,7 @@ def _docx_document(model: ReportDocumentModel) -> str:
     data_rows: list[tuple[str, ...]] = [tuple(column.header for column in model.columns)]
     data_rows.extend(model.rows)
     control = model.document_control
-    control_body = "" if control is None else (_w_table(control.available_rows, header=False) + "".join(_w_paragraph(note) for note in control.notes))
+    control_body = "" if control is None else (_w_table(control.available_rows, header=False) + "".join(_w_paragraph(note, style="Caption") for note in control.notes))
     body = (
         _w_paragraph(modern_oilfield_report_profile().brand_wordmark)
         + _w_paragraph(model.title, style="Title")
@@ -500,7 +500,7 @@ def _docx_document(model: ReportDocumentModel) -> str:
         + _w_table(metadata_rows, header=False)
         + _w_paragraph(labels["coverage"], style="Heading1")
         + _w_table(coverage_rows, header=True)
-        + _w_paragraph(labels["legend"])
+        + _w_paragraph(labels["legend"], style="Caption")
         + _w_paragraph(labels["data"], style="Heading1")
         + _w_table(data_rows, header=True)
         + '<w:sectPr><w:footerReference w:type="default" r:id="rIdFooter"/><w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/>'
@@ -545,6 +545,7 @@ def _w_table(rows: Iterable[tuple[str, ...]], *, header: bool) -> str:
         '</w:tblBorders></w:tblPr>'
     )
     result = ["<w:tbl>", borders]
+    size = round(visual.typography.table_pt * 2)
     for row_index, row in enumerate(values):
         result.append("<w:tr>" + ("<w:trPr><w:tblHeader/></w:trPr>" if header and row_index == 0 else ""))
         for value in row:
@@ -552,9 +553,13 @@ def _w_table(rows: Iterable[tuple[str, ...]], *, header: bool) -> str:
                 visual.palette.table_alt if row_index % 2 else visual.palette.page
             )
             shading = f'<w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="{fill.lstrip("#")}"/></w:tcPr>'
-            bold = "<w:rPr><w:b/></w:rPr>" if header and row_index == 0 else ""
+            run_properties = (
+                "<w:rPr>" + ("<w:b/>" if header and row_index == 0 else "")
+                + f'<w:color w:val="{visual.palette.text.lstrip(chr(35))}"/>'
+                + f'<w:sz w:val="{size}"/><w:szCs w:val="{size}"/></w:rPr>'
+            )
             result.append(
-                f"<w:tc>{shading}<w:p><w:r>{bold}<w:t xml:space=\"preserve\">"
+                f"<w:tc>{shading}<w:p><w:r>{run_properties}<w:t xml:space=\"preserve\">"
                 f"{xml_escape(value)}"
                 "</w:t></w:r></w:p></w:tc>"
             )
@@ -627,6 +632,7 @@ def _docx_styles() -> str:
     styles = []
     for name, size, color, bold in (
         ("Normal", visual.typography.body_pt, visual.palette.text, False),
+        ("Caption", visual.typography.caption_pt, visual.palette.text_secondary, False),
         ("Title", visual.typography.title_pt, visual.palette.accent, True),
         ("Heading1", visual.typography.section_pt, visual.palette.accent_dark, True),
     ):
