@@ -270,6 +270,7 @@ class DatasetExportController:
         *,
         delimiter: str = ",",
         overwrite: bool = False,
+        language: AppLanguage | str | None = None,
     ) -> Path:
         dataset = self._dataset_for_resolved_report(report)
         start, end = self._numeric_interval_bounds(report)
@@ -281,6 +282,7 @@ class DatasetExportController:
             end,
             delimiter=delimiter,
             overwrite=overwrite,
+            language=language,
             unavailable_mnemonics=report.unavailable_channel_mnemonics,
             row_indices=report.interval.indices,
         )
@@ -398,6 +400,7 @@ class DatasetExportController:
         *,
         delimiter: str = ",",
         overwrite: bool = False,
+        language: AppLanguage | str | None = None,
     ) -> Path:
         dataset = self._require_current_dataset()
         return export_selection_text(
@@ -408,6 +411,7 @@ class DatasetExportController:
             depth_bottom,
             delimiter=delimiter,
             overwrite=overwrite,
+            language=language,
         )
 
     def export_current_selection_excel(
