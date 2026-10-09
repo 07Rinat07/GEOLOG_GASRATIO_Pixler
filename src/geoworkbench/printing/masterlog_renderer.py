@@ -430,10 +430,10 @@ def paint_masterlog(
     painter.restore()
 
 
-def _masterlog_control_font(painter: QPainter, *, bold: bool = False) -> QFont:
+def _masterlog_control_font(painter: QPainter, *, text: str = "", bold: bool = False) -> QFont:
     # Document-control text must use the validated print family stack rather
     # than the platform/UI default font selected by earlier dialogs.
-    font = print_font(bold=bold)
+    font = print_font(text=text, bold=bold)
     _set_scaled_font_points(painter, font, modern_oilfield_report_profile().typography.table_pt)
     font.setBold(bold)
     font.setStyleStrategy(QFont.StyleStrategy.PreferDefault)
@@ -441,7 +441,10 @@ def _masterlog_control_font(painter: QPainter, *, bold: bool = False) -> QFont:
     return font
 
 
-def _draw_control_text(painter: QPainter, rect: QRectF, text: str, *, right: bool = False) -> None:
+def _draw_control_text(
+    painter: QPainter, rect: QRectF, text: str, *, right: bool = False, bold: bool = False,
+) -> None:
+    _masterlog_control_font(painter, text=text, bold=bold)
     metrics = QFontMetricsF(painter.font(), painter.device())
     text = metrics.elidedText(" ".join(text.split()), Qt.TextElideMode.ElideRight, max(0.0, rect.width()))
     painter.drawText(rect, (Qt.AlignmentFlag.AlignRight if right else Qt.AlignmentFlag.AlignLeft)
@@ -457,10 +460,8 @@ def _paint_masterlog_document_control(
     painter.setClipRect(region, Qt.ClipOperation.IntersectClip)
     painter.fillRect(region, QColor(visual.palette.accent_soft))
     painter.setPen(QColor(visual.palette.accent))
-    _masterlog_control_font(painter, bold=True)
-    _draw_control_text(painter, QRectF(2, top_mm, max(0.0, width_mm - 4), control.brand_height_mm), visual.brand_wordmark)
+    _draw_control_text(painter, QRectF(2, top_mm, max(0.0, width_mm - 4), control.brand_height_mm), visual.brand_wordmark, bold=True)
     painter.setPen(QColor(visual.palette.text))
-    _masterlog_control_font(painter)
     cell_width = max(0.0, (width_mm - 4) / control.columns)
     for index, (label, value) in enumerate(control.rows):
         row, column = divmod(index, control.columns)
@@ -482,7 +483,7 @@ def _paint_masterlog_control_footer(
     painter.setPen(QPen(QColor(visual.palette.border), visual.layout.thin_rule_pt * 25.4 / 72))
     painter.drawLine(QLineF(0, top, size.width(), top))
     painter.setPen(QColor(visual.palette.text_muted))
-    _masterlog_control_font(painter)
+    _masterlog_control_font(painter, text=page_label)
     width = max(0.0, size.width() - 4)
     metrics = QFontMetricsF(painter.font(), painter.device())
     page_width = min(width * 0.4, metrics.horizontalAdvance(page_label) + 2) if page_label else 0
