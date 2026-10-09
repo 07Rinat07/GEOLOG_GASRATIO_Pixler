@@ -1,5 +1,7 @@
 # Print and Export Center
 
+The simple Masterlog footer and the document-control footer use the shared print profile's footer font size. The document-control header retains table typography; page numbers, branding and compact metadata occupy their existing reserved areas.
+
 The automatic Masterlog document-control area and footer select the print font from each complete label before measuring and shortening it. Russian, Kazakh and English values retain the shared print font stack, physical sizes and placement; long metadata remains shortened only within bounded fields.
 
 Haworth/Pixler depth groups differ by filled marker shape and line pattern as well as colour. Both legends show matching samples so observations and profiles can be identified in monochrome print.

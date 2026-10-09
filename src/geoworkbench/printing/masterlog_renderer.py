@@ -398,8 +398,8 @@ def paint_masterlog(
         _paint_masterlog_control_footer(painter, size, control, page_label or "")
     elif page_label:
         visual = modern_oilfield_report_profile()
-        font = print_font(6.5, text=f"{REPORT_BRAND_WORDMARK} {page_label}")
-        _set_scaled_font_points(painter, font, 6.5)
+        font = print_font(visual.typography.footer_pt, text=f"{REPORT_BRAND_WORDMARK} {page_label}")
+        _set_scaled_font_points(painter, font, visual.typography.footer_pt)
         # Keep footer text as a real PDF text object so the canonical brand and
         # page label remain searchable/copyable. The rest of the Masterlog may
         # still use outline rendering for geometry stability at print scale.
@@ -430,11 +430,14 @@ def paint_masterlog(
     painter.restore()
 
 
-def _masterlog_control_font(painter: QPainter, *, text: str = "", bold: bool = False) -> QFont:
+def _masterlog_control_font(
+    painter: QPainter, *, text: str = "", bold: bool = False, point_size: float | None = None,
+) -> QFont:
     # Document-control text must use the validated print family stack rather
     # than the platform/UI default font selected by earlier dialogs.
     font = print_font(text=text, bold=bold)
-    _set_scaled_font_points(painter, font, modern_oilfield_report_profile().typography.table_pt)
+    size = modern_oilfield_report_profile().typography.table_pt if point_size is None else point_size
+    _set_scaled_font_points(painter, font, size)
     font.setBold(bold)
     font.setStyleStrategy(QFont.StyleStrategy.PreferDefault)
     painter.setFont(font)
@@ -443,8 +446,9 @@ def _masterlog_control_font(painter: QPainter, *, text: str = "", bold: bool = F
 
 def _draw_control_text(
     painter: QPainter, rect: QRectF, text: str, *, right: bool = False, bold: bool = False,
+    point_size: float | None = None,
 ) -> None:
-    _masterlog_control_font(painter, text=text, bold=bold)
+    _masterlog_control_font(painter, text=text, bold=bold, point_size=point_size)
     metrics = QFontMetricsF(painter.font(), painter.device())
     text = metrics.elidedText(" ".join(text.split()), Qt.TextElideMode.ElideRight, max(0.0, rect.width()))
     painter.drawText(rect, (Qt.AlignmentFlag.AlignRight if right else Qt.AlignmentFlag.AlignLeft)
@@ -483,13 +487,16 @@ def _paint_masterlog_control_footer(
     painter.setPen(QPen(QColor(visual.palette.border), visual.layout.thin_rule_pt * 25.4 / 72))
     painter.drawLine(QLineF(0, top, size.width(), top))
     painter.setPen(QColor(visual.palette.text_muted))
-    _masterlog_control_font(painter, text=page_label)
+    _masterlog_control_font(painter, text=page_label, point_size=visual.typography.footer_pt)
     width = max(0.0, size.width() - 4)
     metrics = QFontMetricsF(painter.font(), painter.device())
     page_width = min(width * 0.4, metrics.horizontalAdvance(page_label) + 2) if page_label else 0
-    _draw_control_text(painter, QRectF(2, top + 0.5, max(0.0, width - page_width - 2), 4), visual.brand_wordmark)
-    _draw_control_text(painter, QRectF(2 + width - page_width, top + 0.5, page_width, 4), page_label, right=True)
-    _draw_control_text(painter, QRectF(2, top + 5, width, 4), compact_report_footer(control.snapshot))
+    _draw_control_text(painter, QRectF(2, top + 0.5, max(0.0, width - page_width - 2), 4), visual.brand_wordmark,
+                       point_size=visual.typography.footer_pt)
+    _draw_control_text(painter, QRectF(2 + width - page_width, top + 0.5, page_width, 4), page_label, right=True,
+                       point_size=visual.typography.footer_pt)
+    _draw_control_text(painter, QRectF(2, top + 5, width, 4), compact_report_footer(control.snapshot),
+                       point_size=visual.typography.footer_pt)
     painter.restore()
 
 

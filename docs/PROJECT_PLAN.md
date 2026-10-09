@@ -2,10 +2,10 @@
 # Единый план проекта
 
 План актуализирован 9 октября 2026 года. Проверенная база перед текущим инкрементом —
-`f820e3bf` (PR #507). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
-приёмка интегрированы. Текущий PRINT-STYLE-01 slice выбирает Unicode font stack по полному
-фактическому тексту автоматической зоны реквизитов и подвала Masterlog до измерения/elision.
-Размеры, bold hierarchy, physical DPI contract, геометрия формы и source data сохраняются.
+`5ed00e21` (PR #508). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
+приёмка интегрированы. Текущий PRINT-STYLE-01 slice сводит simple/document-control подвалы
+Masterlog к footer typography общего профиля. Header/table typography, bold hierarchy,
+существующая Qt size quantization, геометрия формы и source data сохраняются.
 WITS-NET-01 остаётся внешним условием: пользователь уточняет существующий VPN, доступа
 для настройки сейчас нет. Разработка остальных независимых задач продолжается.
 Статусы завершения
@@ -372,6 +372,16 @@ Document/painter/user-selected colors остаются данными докум
 закрытым наличием ранее интегрированного UI-ADAPT-01.
 
 ## PRINT-STYLE-01 — Report Visual System
+
+- [x] **2026-10-09 — Masterlog shared footer typography:** simple footer заменяет
+  fixed 6.5 pt, document-control footer заменяет table role на общий footer_pt.
+  Page label измеряется тем же footer font; автоматическая header/control зона сохраняет
+  table_pt и bold brand. 60 actual PDF cases покрывают RU/KK/EN × пять DPI × оба
+  footer paths × default/custom typography, searchable text, bounds и painter state.
+  Exact requested role проверяется отдельно от existing Qt pre-transform quantization;
+  extracted size/bounds сравниваются с 72-DPI baseline. 18 A4/A3/roll exports после
+  package reopen сохраняют controlled/legacy form metadata и source arrays.
+  Merge требует полного exact-head Release gate; physical acceptance остаётся открытой.
 
 - [x] **2026-10-09 — Masterlog document-control Unicode:** автоматическая зона
   реквизитов выбирает print font stack по полному brand/label/value text до elision;
