@@ -1,5 +1,7 @@
 # Print and Export Center
 
+Haworth/Pixler depth groups differ by filled marker shape and line pattern as well as colour. Both legends show matching samples so observations and profiles can be identified in monochrome print.
+
 Haworth/Pixler chart headings, scales, legends and explanatory text use the shared typography profile. Enlarged font sizes are fitted to measured field bounds, retaining complete labels and missing-data messages.
 
 The Haworth/Pixler chart background, text, grid and frames use the shared report palette. Depth colours are retained to match observations, profiles and legend entries; text sizes and chart geometry remain unchanged.
