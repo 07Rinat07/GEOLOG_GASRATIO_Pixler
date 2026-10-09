@@ -32,15 +32,15 @@ def test_production_workspace_keeps_preview_pdf_and_printer_language_independent
         workspace.report_mode.setCurrentIndex(workspace.report_mode.findData(mode))
         report = workspace.gas_mixture_report
         assert report is not None
-        assert not workspace.ramp_output_language.isHidden()
-        workspace.ramp_output_language.setCurrentIndex(workspace.ramp_output_language.findData(output_language))
+        assert not workspace.report_output_language.isHidden()
+        workspace.report_output_language.setCurrentIndex(workspace.report_output_language.findData(output_language))
         assert workspace.gas_mixture_report is report
         assert workspace.language == ui_language
         labels = ramp._labels(output_language)
         assert labels['title'] in workspace.preview.toPlainText()
         other_ui = AppLanguage.KK if ui_language != AppLanguage.KK else AppLanguage.EN
         workspace.set_language(other_ui)
-        assert workspace.ramp_output_language.currentData() == output_language
+        assert workspace.report_output_language.currentData() == output_language
         assert labels['title'] in workspace.preview.toPlainText()
         target = tmp_path / 'export.pdf'
         monkeypatch.setattr(workspace, '_choose_target', lambda *args: target)
@@ -67,9 +67,9 @@ def test_production_workspace_keeps_preview_pdf_and_printer_language_independent
                 if output_language == AppLanguage.EN:
                     assert 'Компонент' not in text
         workspace.report_mode.setCurrentIndex(workspace.report_mode.findData('well_text'))
-        assert workspace.ramp_output_language.isHidden()
+        assert not workspace.report_output_language.isHidden()
         workspace.report_mode.setCurrentIndex(workspace.report_mode.findData(mode))
-        assert workspace.ramp_output_language.currentData() == output_language
+        assert workspace.report_output_language.currentData() == output_language
     finally:
         workspace.close()
         workspace.deleteLater()

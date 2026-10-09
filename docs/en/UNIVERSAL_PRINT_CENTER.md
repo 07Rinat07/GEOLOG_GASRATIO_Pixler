@@ -1,6 +1,8 @@
 # Print and Export Center
 
-In C1–C5 ramp mode, the “C1–C5 report language” field selects Русский / Қазақша / English independently of the interface. One selection applies to preview, PDF and system printing, including headings, warnings and built-in time-axis labels. Changing output language does not recalculate the current result. Custom axis names/messages and the original audit warnings remain unchanged.
+The shared “Report language” selector chooses Русский / Қазақша / English independently of the interface for standard, OPUS and C1–C5 ramp reports. One selection serves preview, PDF and system printing; standard/OPUS also use it for DOCX, XLSX and the PDF Passport. Header lookup/storage use the selected language and retain the existing report-profile guard. Changing output language redraws the current result without recalculation; dialogs retain the interface language.
+
+In C1–C5 ramp mode, the “Report language” field selects Русский / Қазақша / English independently of the interface. One selection applies to preview, PDF and system printing, including headings, warnings and built-in time-axis labels. Changing output language does not recalculate the current result. Custom axis names/messages and the original audit warnings remain unchanged.
 
 The C1–C5 ramp report uses shared document control in HTML, PDF and system printing. PDF and printer pages repeat DIGITAL GEOLOG and a localized page number; explicitly supplied metadata repeats in compact form while full values and approvals remain in the main area. An empty report date stays empty. Table borders, chart frame and grid use shared profile rules; calculations and component keys are preserved.
 

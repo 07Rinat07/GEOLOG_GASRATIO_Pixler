@@ -117,7 +117,7 @@ class InterpretationReportWorkspace(_FinalInterpretationReportWorkspace):
         self._store_report_composition(
             with_report_header_fields(
                 self._report_composition(),
-                self.language.value,
+                self._report_output_language().value,
                 report_header_fields_from_identity(identity, report.report_profile),
             )
         )
@@ -137,7 +137,7 @@ class InterpretationReportWorkspace(_FinalInterpretationReportWorkspace):
                     target,
                     dataset=dataset,
                     identity=identity,
-                    language=self.language,
+                    language=self._report_output_language(),
                     overwrite=target.exists(),
                 )
         except (OSError, FileExistsError, HydrocarbonInterpretationExportError) as exc:

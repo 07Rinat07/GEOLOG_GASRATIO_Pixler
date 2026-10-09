@@ -250,6 +250,7 @@ class InterpretationReportWorkspace(_CompatibleInterpretationReportWorkspace):
             QSizePolicy.Policy.Preferred,
         )
 
+        self.normalized_gas_title.setWordWrap(True)
         panel.addWidget(self.normalized_gas_title)
 
         mode_card = QFrame()
@@ -375,11 +376,13 @@ class InterpretationReportWorkspace(_CompatibleInterpretationReportWorkspace):
             QSizePolicy.Policy.Preferred,
         )
 
+        self.settings_title.setWordWrap(True)
         panel.addWidget(self.settings_title)
         panel.addWidget(self.analysis_settings_card)
         panel.addWidget(self.reference_settings_card)
 
         action_row = QHBoxLayout()
+        self._settings_action_row = action_row
         action_row.setSpacing(9)
         action_row.addWidget(self.calculate_button)
         action_row.addWidget(self.refresh_button)
@@ -395,6 +398,11 @@ class InterpretationReportWorkspace(_CompatibleInterpretationReportWorkspace):
         self._layout_signature = layout_signature
         self._configuration_columns = columns
         self._relayout_normalized_actions(compact=columns == 1)
+        self._settings_action_row.setDirection(
+            QBoxLayout.Direction.TopToBottom
+            if columns == 1
+            else QBoxLayout.Direction.LeftToRight
+        )
         self.preview.setMinimumHeight(0)
         self.log_scroll.setMaximumHeight(90 if compact_height else 150)
         self.explanation.setVisible(

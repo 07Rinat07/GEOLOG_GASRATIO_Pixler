@@ -165,15 +165,15 @@ class InterpretationReportWorkspace(QWidget):
         self.report_mode.currentIndexChanged.connect(self.refresh)
         self.report_mode_label = QLabel()
         form.addRow(self.report_mode_label, self.report_mode)
-        self.ramp_output_language = QComboBox()
-        self.ramp_output_language.setObjectName("ramp-output-language")
+        self.report_output_language = QComboBox()
+        self.report_output_language.setObjectName("report-output-language")
         for label, value in (("Русский", AppLanguage.RU), ("Қазақша", AppLanguage.KK), ("English", AppLanguage.EN)):
-            self.ramp_output_language.addItem(label, value)
-        self.ramp_output_language.setCurrentIndex(self.ramp_output_language.findData(language))
-        self.ramp_output_language.currentIndexChanged.connect(self._apply_ramp_preview)
-        self.ramp_output_language_label = QLabel()
-        self.ramp_output_language_label.setBuddy(self.ramp_output_language)
-        form.addRow(self.ramp_output_language_label, self.ramp_output_language)
+            self.report_output_language.addItem(label, value)
+        self.report_output_language.setCurrentIndex(self.report_output_language.findData(language))
+        self.report_output_language.currentIndexChanged.connect(self._apply_output_language)
+        self.report_output_language_label = QLabel()
+        self.report_output_language_label.setBuddy(self.report_output_language)
+        form.addRow(self.report_output_language_label, self.report_output_language)
         self.normal_density = QDoubleSpinBox()
         self.normal_density.setRange(0.0, 30.0)
         self.normal_density.setDecimals(2)
@@ -317,8 +317,6 @@ class InterpretationReportWorkspace(QWidget):
 
     def refresh(self) -> None:
         mixture_mode = self._is_mixture_mode()
-        self.ramp_output_language.setVisible(mixture_mode)
-        self.ramp_output_language_label.setVisible(mixture_mode)
         opus_mode = self._is_opus_mode()
         has_dataset = self.controller.session.current_dataset is not None
         self.calculate_button.setEnabled(has_dataset and not mixture_mode)
@@ -401,7 +399,7 @@ class InterpretationReportWorkspace(QWidget):
             self.status.clear()
             self._set_exports_enabled(False)
             return
-        self.preview.setHtml(hydrocarbon_interpretation_html(self.report, self.language))
+        self.preview.setHtml(hydrocarbon_interpretation_html(self.report, self._report_output_language()))
         self.status.setText(
             self._text(
                 f"Кандидатных интервалов: {len(self.report.candidates)}; "
@@ -487,7 +485,7 @@ class InterpretationReportWorkspace(QWidget):
                     report,
                     dataset,
                     target,
-                    language=self.language,
+                    language=self._report_output_language(),
                     overwrite=target.exists(),
                     progress=self._update_report_export_progress,
                 )
@@ -518,7 +516,7 @@ class InterpretationReportWorkspace(QWidget):
                     report,
                     target,
                     dataset=dataset,
-                    language=self.language,
+                    language=self._report_output_language(),
                     overwrite=target.exists(),
                     progress=self._update_report_export_progress,
                 )
@@ -546,7 +544,7 @@ class InterpretationReportWorkspace(QWidget):
                     exported = export_gas_mixture_ramp_pdf(
                         report,
                         target,
-                        language=self._ramp_report_language(),
+                        language=self._report_output_language(),
                         include_chart=self._report_mode() == "mixture_chart",
                         overwrite=target.exists(),
                     )
@@ -554,7 +552,7 @@ class InterpretationReportWorkspace(QWidget):
                     exported = export_hydrocarbon_interpretation_pdf(
                         report,
                         target,
-                        language=self.language,
+                        language=self._report_output_language(),
                         dataset=self.controller.session.current_dataset,
                         overwrite=target.exists(),
                     )
@@ -568,17 +566,29 @@ class InterpretationReportWorkspace(QWidget):
             return
         self._show_export_success(exported)
 
-    def _ramp_report_language(self) -> AppLanguage:
-        value = self.ramp_output_language.currentData()
+    def _report_output_language(self) -> AppLanguage:
+        value = self.report_output_language.currentData()
         try:
             return AppLanguage(value)
         except (ValueError, TypeError):
             return self.language
 
+    def _apply_output_language(self) -> None:
+        if self._is_mixture_mode():
+            self._apply_ramp_preview()
+        elif self.report is not None:
+            chart_preview = getattr(self, "_apply_chart_preview", None)
+            if callable(chart_preview):
+                chart_preview()
+            else:
+                self.preview.setHtml(hydrocarbon_interpretation_html(
+                    self.report, self._report_output_language(),
+                ))
+
     def _apply_ramp_preview(self) -> None:
         if self.gas_mixture_report is not None and self._is_mixture_mode():
             self.preview.setHtml(gas_mixture_ramp_html(
-                self.gas_mixture_report, self._ramp_report_language(),
+                self.gas_mixture_report, self._report_output_language(),
                 include_chart=self._report_mode() == "mixture_chart",
             ))
 
@@ -596,7 +606,7 @@ class InterpretationReportWorkspace(QWidget):
         if isinstance(report, GasMixtureRampReport):
             try:
                 render_gas_mixture_ramp_report(
-                    printer, report, language=self._ramp_report_language(),
+                    printer, report, language=self._report_output_language(),
                     include_chart=self._report_mode() == "mixture_chart",
                 )
             except (RuntimeError, GasMixtureRampReportError) as exc:
@@ -656,7 +666,7 @@ class InterpretationReportWorkspace(QWidget):
     ) -> str:
         dataset = self.controller.session.current_dataset
         if dataset is None:
-            return hydrocarbon_interpretation_html(report, self.language)
+            return hydrocarbon_interpretation_html(report, self._report_output_language())
         from geoworkbench.printing.hydrocarbon_interpretation_chart_front import (
             hydrocarbon_interpretation_html_with_front_chart,
         )
@@ -664,7 +674,7 @@ class InterpretationReportWorkspace(QWidget):
         return hydrocarbon_interpretation_html_with_front_chart(
             report,
             dataset,
-            self.language,
+            self._report_output_language(),
         )
 
     @contextmanager
@@ -774,8 +784,8 @@ class InterpretationReportWorkspace(QWidget):
         self.refresh()
 
     def _retranslate(self) -> None:
-        self.ramp_output_language_label.setText(self._text(
-            "Язык отчёта C1–C5:", "C1–C5 есебінің тілі:", "C1–C5 report language:",
+        self.report_output_language_label.setText(self._text(
+            "Язык отчёта:", "Есеп тілі:", "Report language:",
         ))
         current_mode = self._report_mode()
         self.report_mode.blockSignals(True)

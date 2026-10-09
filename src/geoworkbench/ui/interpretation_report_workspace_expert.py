@@ -379,7 +379,7 @@ class InterpretationReportWorkspace(_LegacyInterpretationReportWorkspace):
             hydrocarbon_interpretation_html_with_chart(
                 self.report,
                 dataset,
-                self.language,
+                self._report_output_language(),
             )
         )
 
@@ -407,7 +407,7 @@ class InterpretationReportWorkspace(_LegacyInterpretationReportWorkspace):
                 exported = export_hydrocarbon_interpretation_pdf(
                     report,
                     target,
-                    language=self.language,
+                    language=self._report_output_language(),
                     dataset=dataset,
                     include_chart=True,
                     overwrite=target.exists(),

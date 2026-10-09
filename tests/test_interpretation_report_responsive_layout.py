@@ -139,6 +139,7 @@ def test_interpretation_workspace_has_no_horizontal_control_clipping_at_900x650(
         workspace.calculate_normalized_gas_button,
         workspace.show_normalized_gas_button,
         workspace.report_mode,
+        workspace.report_output_language,
         workspace.normal_density,
         workspace.threshold,
         workspace.total_gas_lod,

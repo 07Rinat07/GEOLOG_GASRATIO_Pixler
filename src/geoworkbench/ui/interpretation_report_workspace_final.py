@@ -359,14 +359,14 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         depth_range = getattr(report, "analysis_depth_interval", None) or depth_range
         persisted_header = report_header_fields(
             composition,
-            self.language.value,
+            self._report_output_language().value,
             report.report_profile,
         )
         preview_identity = (
             identity_with_report_header_fields(
                 default_interpretation_report_identity(
                     report,
-                    self.language,
+                    self._report_output_language(),
                     interval=self._report_interval(report),
                 ),
                 persisted_header,
@@ -383,7 +383,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
             hydrocarbon_interpretation_html_with_front_chart(
                 report,
                 dataset,
-                self.language,
+                self._report_output_language(),
                 geology=geology,
                 geology_track_settings=geology_track_settings,
                 depth_range=depth_range,
@@ -455,7 +455,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
             depth_range = report.analysis_depth_interval or resolve_report_depth_range(
                 identity.interval,
                 dataset,
-                language=self.language,
+                language=self._report_output_language(),
             )
         except ReportDepthRangeError as exc:
             self._show_export_error(exc)
@@ -493,7 +493,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         layout = layout_dialog.selected_layout()
         composition = with_report_header_fields(
             layout_dialog.selected_composition(),
-            self.language.value,
+            self._report_output_language().value,
             report_header_fields_from_identity(identity, report.report_profile),
         )
         self._store_report_composition(composition)
@@ -522,7 +522,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     self.controller.session,
                     report,
                     target,
-                    language=self.language,
+                    language=self._report_output_language(),
                     include_chart=True,
                     orientation=layout.orientation,
                     identity=render_identity,
@@ -566,7 +566,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         layout = layout_dialog.selected_layout()
         composition = with_report_header_fields(
             layout_dialog.selected_composition(),
-            self.language.value,
+            self._report_output_language().value,
             report_header_fields_from_identity(identity, report.report_profile),
         )
         self._store_report_composition(composition)
@@ -587,7 +587,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                 export_hydrocarbon_interpretation_pdf(
                     report,
                     prepared_pdf,
-                    language=self.language,
+                    language=self._report_output_language(),
                     dataset=dataset,
                     include_chart=True,
                     orientation=layout.orientation,
@@ -769,14 +769,14 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
             return None
         defaults = default_interpretation_report_identity(
             report,
-            self.language,
+            self._report_output_language(),
             interval=self._report_interval(report),
         )
         initial = identity_with_report_header_fields(
             defaults,
             report_header_fields(
                 self._report_composition(),
-                self.language.value,
+                self._report_output_language().value,
                 report.report_profile,
             ),
         )
@@ -820,12 +820,12 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         if dataset is None:
             return
         composition = self._report_composition()
-        header = report_header_fields(composition, self.language.value, report.report_profile)
+        header = report_header_fields(composition, self._report_output_language().value, report.report_profile)
         saved_identity = (
             self._identity_with_narrative_visibility(
                 identity_with_report_header_fields(
                     default_interpretation_report_identity(
-                        report, self.language, interval=self._report_interval(report),
+                        report, self._report_output_language(), interval=self._report_interval(report),
                     ),
                     header,
                 ),
@@ -851,7 +851,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     report,
                     dataset,
                     target,
-                    language=self.language,
+                    language=self._report_output_language(),
                     overwrite=target.exists(),
                     progress=self._update_report_export_progress,
                     identity=saved_identity,

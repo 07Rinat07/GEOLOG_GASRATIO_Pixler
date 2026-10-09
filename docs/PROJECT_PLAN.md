@@ -1,11 +1,11 @@
 <!-- runtime-contract: package=0.7.96; project=v37; form=v18; layout=v25 -->
 # Единый план проекта
 
-План актуализирован 9 октября 2026 года. Проверенная база перед текущим инкрементом —
-`f9d75894` (PR #520). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
-приёмка интегрированы. Текущий PRINT-STYLE-01/REPORT-I18N-01 пакет объединяет единый язык разгонки C1–C5:
-независимый RU/KK/EN selector, общие предупреждения, headers и встроенные time labels
-для preview/PDF/system print. Immutable audit, vendor text и calculations сохраняются.
+План актуализирован 10 октября 2026 года. Проверенная база перед текущим инкрементом —
+`c5653e36` (PR #521). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
+приёмка интегрированы. Текущий PRINT-STYLE-01/REPORT-I18N-01 пакет объединяет output language интерпретационного
+workspace: standard/ОПУС/C1–C5 preview, PDF/system print, DOCX/XLSX, языковые шапки и PDF Passport.
+UI language диалогов сохраняется; выбор языка не пересчитывает report и не меняет source data.
 WITS-NET-01 остаётся внешним условием: пользователь уточняет существующий VPN, доступа
 для настройки сейчас нет. Разработка остальных независимых задач продолжается.
 Статусы завершения
@@ -379,6 +379,21 @@ Document/painter/user-selected colors остаются данными докум
 закрытым наличием ранее интегрированного UI-ADAPT-01.
 
 ## PRINT-STYLE-01 — Report Visual System
+
+- [x] **2026-10-10 — interpretation unified output-language package:** общий
+  Русский/Қазақша/English selector обслуживает standard, ОПУС и C1–C5.
+  Preview, PDF/system print, DOCX/XLSX и PDF Passport получают выбранный output language;
+  диалоги, progress и error messages остаются на UI language. Select redraw использует
+  текущий immutable report; UI-language и mode changes сохраняют выбор в workspace.
+  Header lookup/store используют output-language key и существующий profile guard:
+  чужая языковая шапка не перезаписывается, header другого report profile не подставляется.
+  18 production workspace cases после save/reopen покрывают все UI/output пары и
+  standard/ОПУС: реальные PDF/Passport, Word, Excel, prepared print PDF и printer PDF,
+  выбранные narrative/header labels, целость трёх сохранённых шапок и source arrays.
+  Existing 18 ramp workspace cases проверяют общий selector без смены ramp contracts.
+  Source schema и calculations сохраняются. Merge требует полного local suite,
+  exact-head Release gate и рассмотрения review; остальные report kinds и physical
+  acceptance остаются открытыми.
 
 - [x] **2026-10-09 — C1–C5 unified output-language package:** оператор выбирает
   Русский/Қазақша/English независимо от UI. Выбор одновременно обслуживает preview,
