@@ -1,5 +1,7 @@
 # Print and Export Center
 
+The interpretation report preview title and explanatory footer use the shared profile's typography and colours. Enlarged fonts fit the measured width and height while retaining complete text and the existing chart arrangement.
+
 The gas-context track heading uses the shared table font size. Standard, OPUS and preview reserve space using the same font that draws the complete wrapped heading; event codes and depths retain their existing presentation.
 
 The gas-context legend uses the shared typography profile for its heading and event rows. Enlarged headings are measured for preview layout and PDF pagination; complete identifiers, depths and localized event names are retained.
