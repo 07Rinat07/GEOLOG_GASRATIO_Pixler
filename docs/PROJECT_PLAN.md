@@ -2,10 +2,10 @@
 # Единый план проекта
 
 План актуализирован 9 октября 2026 года. Проверенная база перед текущим инкрементом —
-`5ed00e21` (PR #508). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
-приёмка интегрированы. Текущий PRINT-STYLE-01 slice сводит simple/document-control подвалы
-Masterlog к footer typography общего профиля. Header/table typography, bold hierarchy,
-существующая Qt size quantization, геометрия формы и source data сохраняются.
+`4c0af325` (PR #509). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
+приёмка интегрированы. Текущий PRINT-STYLE-01 slice сводит легенду газового контекста
+к section/caption typography общего профиля и измеряет header для layout/pagination.
+Registry priority, event codes/depths, существующий device font contract и source data сохраняются.
 WITS-NET-01 остаётся внешним условием: пользователь уточняет существующий VPN, доступа
 для настройки сейчас нет. Разработка остальных независимых задач продолжается.
 Статусы завершения
@@ -372,6 +372,16 @@ Document/painter/user-selected colors остаются данными докум
 закрытым наличием ранее интегрированного UI-ADAPT-01.
 
 ## PRINT-STYLE-01 — Report Visual System
+
+- [x] **2026-10-09 — gas-context legend typography:** заголовок легенды использует
+  section_pt, полные event rows — caption_pt общего visual profile. Header height
+  измеряется по фактическому localized title/font и одинаково используется для
+  PNG reservation, рисования и PDF pagination. 45 actual PDF cases покрывают
+  RU/KK/EN × пять DPI × default/custom/large typography; девять PNG и девять
+  dense multi-page PDF проверяют reserved bounds и полный текст всех событий.
+  Existing registry/source/reopen и technological/formation/review line-style
+  contracts сохраняются. Track heading/code typography не изменяется этим slice.
+  Merge требует полного exact-head Release gate; physical acceptance остаётся открытой.
 
 - [x] **2026-10-09 — Masterlog shared footer typography:** simple footer заменяет
   fixed 6.5 pt, document-control footer заменяет table role на общий footer_pt.

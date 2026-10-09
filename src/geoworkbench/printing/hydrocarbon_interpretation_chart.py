@@ -242,7 +242,7 @@ def hydrocarbon_interpretation_chart_data_uri(
         depth_max = depth_min + 1.0
     context = context_segments(getattr(report, "gas_context_events", ()), depth_min, depth_max)
     context_rows = context_legend_rows(context, language, report.depth_unit)
-    context_legend_size = context_legend_height(context_rows, 1820.0, legend_device, scale=2.0)
+    context_legend_size = context_legend_height(context_rows, 1820.0, legend_device, scale=2.0, language=language)
     visible_depth = (
         finite_depth
         & (depth >= depth_min)

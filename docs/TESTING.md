@@ -1,5 +1,12 @@
 # Проверка качества и release gate
 
+`tests/test_gas_context_legend_typography.py` checks 45 actual RU/KK/EN PDFs
+at 72/96/144/300/600 DPI with default/custom/large typography, nine PNG legends
+and nine dense multi-page PDFs. Section/caption role requests, measured header
+reservation, full localized event rows/IDs/depths, painter state and 72-DPI
+size/bounds baselines are checked. Existing registry priority, grayscale styles,
+source arrays and production export after reopen remain covered separately.
+
 `tests/test_masterlog_footer_typography.py` checks 60 actual RU/KK/EN PDFs:
 simple/controlled footer paths at 72/96/144/300/600 DPI with default/custom typography.
 Exact footer/table role requests, searchable text, reserved bounds and painter state
