@@ -1,5 +1,11 @@
 # Проверка качества и release gate
 
+`tests/test_interpretation_preview_depth_profile.py` checks 54 real raster axis
+cases: RU/KK/EN, left/right, default/custom/large profiles and negative/ordinary/long
+depth values. Complete fitted text, font roles, palette, eleven major and forty
+minor tick coordinates and frame/fill geometry are checked. Nine production
+previews after save/reopen preserve signed labels, source arrays and candidates.
+
 `tests/test_interpretation_preview_chrome_profile.py` checks 18 RU/KK/EN
 title/footer raster cases with default/custom/large profiles and nine production
 previews after project save/reopen. Complete text, measured bounds, requested font

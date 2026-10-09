@@ -527,27 +527,25 @@ def _draw_depth_axis(
     language: AppLanguage,
 ) -> None:
     labels = _labels(language)
-    painter.fillRect(rect, QColor("#f8fafc"))
-    painter.setPen(QPen(QColor("#334155"), 2.4))
+    visual = modern_oilfield_report_profile()
+    painter.fillRect(rect, QColor(visual.palette.table_alt))
+    painter.setPen(QPen(QColor(visual.palette.border_strong), 2.4))
     painter.drawRect(rect)
 
     title = labels["depth"] + (f", {unit}" if unit else "")
-    title_font = print_font(10.0, text=title)
-    title_font.setBold(True)
-    painter.setFont(title_font)
-    painter.setPen(QColor("#172033"))
-    painter.drawText(
+    _paint_preview_text(
+        painter,
         QRectF(rect.left() - 4.0, rect.top() - 38.0, rect.width() + 8.0, 28.0),
-        Qt.AlignmentFlag.AlignCenter,
         title,
+        visual.typography.section_pt, visual.palette.text,
+        Qt.AlignmentFlag.AlignCenter, bold=True,
     )
 
-    painter.setFont(print_font(9.0, text=f"{depth_max:.1f}"))
     for major in range(11):
         fraction = major / 10.0
         y = rect.top() + fraction * rect.height()
         depth_value = depth_min + fraction * (depth_max - depth_min)
-        painter.setPen(QPen(QColor("#64748b"), 1.2))
+        painter.setPen(QPen(QColor(visual.palette.text_muted), 1.2))
         if side == "left":
             painter.drawLine(QLineF(rect.right() - 12.0, y, rect.right(), y))
             text_rect = QRectF(
@@ -566,14 +564,14 @@ def _draw_depth_axis(
                 20.0,
             )
             alignment = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
-        painter.setPen(QColor("#334155"))
-        painter.drawText(text_rect, alignment, f"{depth_value:.1f}")
+        _paint_preview_text(painter, text_rect, f"{depth_value:.1f}",
+                            visual.typography.table_pt, visual.palette.text, alignment)
 
         if major == 10:
             continue
         for minor in range(1, 5):
             minor_y = y + minor / 5.0 * rect.height() / 10.0
-            painter.setPen(QPen(QColor("#94a3b8"), 0.8))
+            painter.setPen(QPen(QColor(visual.palette.border), 0.8))
             if side == "left":
                 painter.drawLine(
                     QLineF(rect.right() - 6.0, minor_y, rect.right(), minor_y)
@@ -583,7 +581,7 @@ def _draw_depth_axis(
                     QLineF(rect.left(), minor_y, rect.left() + 6.0, minor_y)
                 )
 
-    painter.setPen(QPen(QColor("#334155"), 2.4))
+    painter.setPen(QPen(QColor(visual.palette.border_strong), 2.4))
     painter.drawRect(rect)
 
 

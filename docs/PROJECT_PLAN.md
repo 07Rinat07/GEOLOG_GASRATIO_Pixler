@@ -2,9 +2,9 @@
 # Единый план проекта
 
 План актуализирован 9 октября 2026 года. Проверенная база перед текущим инкрементом —
-`17672209` (PR #511). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
-приёмка интегрированы. Текущий PRINT-STYLE-01 slice подключает заголовок и поясняющий
-подвал interpretation preview к typography/palette общего профиля с измеряемым fitting.
+`f23f4a0e` (PR #512). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
+приёмка интегрированы. Текущий PRINT-STYLE-01 slice подключает обе depth axes
+interpretation preview к typography/palette общего профиля с измеряемым fitting.
 Registry priority, event codes/depths, существующий device font contract и source data сохраняются.
 WITS-NET-01 остаётся внешним условием: пользователь уточняет существующий VPN, доступа
 для настройки сейчас нет. Разработка остальных независимых задач продолжается.
@@ -379,6 +379,15 @@ Document/painter/user-selected colors остаются данными докум
 закрытым наличием ранее интегрированного UI-ADAPT-01.
 
 ## PRINT-STYLE-01 — Report Visual System
+
+- [x] **2026-10-09 — interpretation preview depth-axis profile:** заголовки используют
+  section_pt, actual signed numeric labels — table_pt. Фон, рамки, major/minor ticks
+  используют semantic palette общего профиля; прежние ширины линий и все координаты
+  сохраняются. Bounded fitting сохраняет полный текст в прежних областях. 54 raster
+  RU/KK/EN cases покрывают обе стороны, default/custom/large typography и отрицательные,
+  обычные/длинные значения; девять production previews после reopen сохраняют source
+  arrays и candidates. Интеграция требует exact-head Release gate; весь PRINT-STYLE-01
+  и physical acceptance остаются открытыми.
 
 - [x] **2026-10-09 — interpretation preview title/footer profile:** title_pt/footer_pt
   и text/text_secondary заменяют локальные размеры и цвета. Bounded fitting сохраняет
