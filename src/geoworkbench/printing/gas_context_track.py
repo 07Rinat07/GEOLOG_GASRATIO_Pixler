@@ -5,13 +5,13 @@ from dataclasses import dataclass
 from math import ceil
 
 from PySide6.QtCore import QRectF, Qt
-from PySide6.QtGui import QColor, QFontMetricsF, QPaintDevice, QPainter, QPen
+from PySide6.QtGui import QColor, QFontMetricsF, QPagedPaintDevice, QPaintDevice, QPainter, QPen
 
 from geoworkbench.domain.gas_context_events import (
     GasContextEvent, GasContextRegistry, InterpretationImpact,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_canvas import PageCanvas
-from geoworkbench.printing.interpretation_track_headings import paint_track_heading
+from geoworkbench.printing.interpretation_track_headings import paint_track_heading, track_heading_height
 from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.printing.unicode_support import print_font
 from geoworkbench.services.gas_context_report_labels import gas_context_event_label, gas_context_event_code
@@ -48,6 +48,22 @@ def context_title(language: AppLanguage) -> str:
 
 def context_heading(language: AppLanguage) -> str:
     return context_title(language).replace(" ", "\n", 1)
+
+
+def _context_heading_font_size(device: QPaintDevice, scale: float) -> float:
+    size = modern_oilfield_report_profile().typography.table_pt * scale
+    # Raster context tracks retain their existing DPI-adjusted pixel contract.
+    # Paged tracks delegate physical-point compensation to the shared adapter.
+    return size if isinstance(device, QPagedPaintDevice) else size * 72.0 / device.logicalDpiY()
+
+
+def context_track_heading_height(
+    language: AppLanguage, width: float, device: QPaintDevice, *, scale: float = 1.0,
+) -> float:
+    return track_heading_height(
+        context_heading(language), width, _context_heading_font_size(device, scale), device,
+        point_coordinates=isinstance(device, QPagedPaintDevice),
+    )
 
 
 def context_label(event: GasContextEvent, language: AppLanguage) -> str:
@@ -107,7 +123,9 @@ def paint_context_track(
         painter.setPen(QPen(QColor(visual.palette.border_strong), 0.7 * scale))
         painter.drawRect(rect)
         paint_track_heading(painter, QRectF(rect.left(), rect.top() - header_height + 2 * scale,
-                            rect.width(), header_height - 20 * scale), context_heading(language), 7.0 * scale * 72.0 / painter.device().logicalDpiY())
+                            rect.width(), header_height - 20 * scale), context_heading(language),
+                            _context_heading_font_size(painter.device(), scale),
+                            point_coordinates=isinstance(painter.device(), QPagedPaintDevice))
         painter.setClipRect(rect, Qt.ClipOperation.IntersectClip)
         for segment in context_segments(events, top, bottom):
             y1 = rect.top() + (segment.top_depth - top) / (bottom - top) * rect.height()

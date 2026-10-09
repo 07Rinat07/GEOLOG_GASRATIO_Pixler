@@ -1,5 +1,11 @@
 # Проверка качества и release gate
 
+`tests/test_gas_context_track_typography.py` checks 30 real RU/KK/EN PDFs
+at 72/96/144/300/600 DPI and 12 raster DPI/profile cases. Default/custom table
+typography, complete wrapped headings, reserved bounds, physical size baselines,
+painter state and immutable events are checked. Existing production standard/OPUS
+export after reopen and preview tests cover the shared heading-height integration.
+
 `tests/test_gas_context_legend_typography.py` checks 45 actual RU/KK/EN PDFs
 at 72/96/144/300/600 DPI with default/custom/large typography, nine PNG legends
 and nine dense multi-page PDFs. Section/caption role requests, measured header

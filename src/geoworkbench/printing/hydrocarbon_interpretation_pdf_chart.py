@@ -3,7 +3,7 @@ from __future__ import annotations
 from geoworkbench.printing.hydrocarbon_interpretation_curve_selection import chart_panel_render_options
 
 from geoworkbench.printing.gas_context_track import (
-    context_segments, context_heading, paint_context_track, render_context_legend_pages,
+    context_segments, context_track_heading_height, paint_context_track, render_context_legend_pages,
 )
 
 from math import ceil, floor, log10
@@ -158,7 +158,7 @@ def render_chart_pages(
         for (name, _curves), rect in zip(panels, provisional.panel_rects, strict=True)
     ))
     if provisional.context_rect is not None:
-        header_height = max(header_height, 20.0 + track_heading_height(context_heading(language), provisional.context_rect.width(), 7.0, canvas.painter.device(), point_coordinates=True))
+        header_height = max(header_height, 20.0 + context_track_heading_height(language, provisional.context_rect.width(), canvas.painter.device()))
     note_height = interpretation_note_height(_labels(language)["note"], canvas.content_rect.width(), canvas.painter.device())
     available_height = (
         canvas.content_rect.height()
