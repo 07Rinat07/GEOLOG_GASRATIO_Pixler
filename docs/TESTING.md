@@ -1,5 +1,11 @@
 # Проверка качества и release gate
 
+`tests/test_ratio_reference_typography.py` checks 18 RU/KK/EN PNG charts with
+default/custom/maximum-size profiles and complete/partial data. Shared typography
+roles, full labels, measured bounds and empty states are checked. Another 27 actual
+PDF cases at 72/300/600 DPI preserve full text and physical sizes/bounds against the
+72-DPI baseline. Existing neutral-palette, QPrinter and source regressions remain.
+
 `tests/test_ratio_reference_visual_profile.py` checks nine actual RU/KK/EN PNG
 charts with default/grayscale/custom palettes and 18 vector PDFs at 72/300/600 DPI.
 Pixel colours, extracted text colours and vector fills/strokes use the shared neutral
