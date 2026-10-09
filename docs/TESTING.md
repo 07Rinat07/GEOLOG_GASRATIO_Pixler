@@ -1,5 +1,13 @@
 # Проверка качества и release gate
 
+The unified preview profile package is covered by
+`tests/test_interpretation_preview_ratio_typography.py` (27 RU/KK/EN Haworth/Pixler
+and production-reopen cases) and `tests/test_interpretation_preview_visual_profile.py`
+(36 panel, empty-geology, badge and whole-preview cases). Default/custom/large profiles
+check full fitted text, actual font roles, neutral palette, tick/frame geometry,
+unchanged scale values and source arrays. Existing chrome tests retain exact title,
+footer, depth and fluid-legend assertions and also check the additional profile roles.
+
 `tests/test_interpretation_preview_fluid_legend_profile.py` checks 18 actual
 RU/KK/EN raster cases with two widths and default/custom/large typography. All five
 phase keys, full localized labels, measured bounds, actual-text font requests,

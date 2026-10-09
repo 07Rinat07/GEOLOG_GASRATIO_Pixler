@@ -82,10 +82,22 @@ def test_production_preview_after_reopen_uses_profile_and_preserves_source(qapp,
     dataset = restored.current_dataset
     arrays = {key: curve.values.copy() for key, curve in dataset.curves.items()}
     calls = []
+    ratio_calls = []
+    additional_calls = []
+    labels = chart._labels(language)
+    core_texts = {labels["title"], labels["footer"], labels["depth"] + ", m",
+                  *(f"{1300 + index * 12:.1f}" for index in range(11)),
+                  *(f"{spec.code} {spec.label(language)}" for spec in
+                    chart.fluid_marker_legend_specs([item.fluid_hypothesis for item in report.candidates]))}
     original = chart._paint_preview_text
 
     def capture(painter, rect, text, size, color, flags, **kwargs):
-        calls.append((text, size, color, QRectF(rect)))
+        if rect.height() == 13:
+            ratio_calls.append((text, size, color))
+        elif text in core_texts:
+            calls.append((text, size, color, QRectF(rect)))
+        else:
+            additional_calls.append((text, size, color))
         return original(painter, rect, text, size, color, flags, **kwargs)
 
     monkeypatch.setattr(chart, "_paint_preview_text", capture)
@@ -109,6 +121,18 @@ def test_production_preview_after_reopen_uses_profile_and_preserves_source(qapp,
     ]
     assert calls[0][3] == QRectF(90, 18, 1820, 45)
     assert calls[-1][3].width() == 1820 and calls[-1][3].height() == 84
+    assert ratio_calls
+    assert all((size, color) in {
+        (visual.typography.table_pt, visual.palette.text),
+        (visual.typography.caption_pt, visual.palette.text_muted),
+    } for text, size, color in ratio_calls)
+    assert additional_calls
+    assert all((size, color) in {
+        (visual.typography.section_pt, visual.palette.text),
+        (visual.typography.table_pt, visual.palette.text),
+        (visual.typography.caption_pt, visual.palette.text),
+        (visual.typography.caption_pt, visual.palette.text_muted),
+    } for text, size, color in additional_calls)
     assert report.candidates == before.candidates
     assert report.gas_context_events == before.gas_context_events
     for key, values in arrays.items():

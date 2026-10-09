@@ -2,9 +2,9 @@
 # Единый план проекта
 
 План актуализирован 9 октября 2026 года. Проверенная база перед текущим инкрементом —
-`22a0d707` (PR #513). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
-приёмка интегрированы. Текущий PRINT-STYLE-01 slice подключает fluid legend
-interpretation preview к caption typography и actual localized Unicode font selection.
+`559c2c4c` (PR #514). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
+приёмка интегрированы. Текущий PRINT-STYLE-01 пакет завершает renderer-owned typography
+и neutral palette interpretation preview: panels, ratio scales, geology empty states и badges.
 Registry priority, event codes/depths, существующий device font contract и source data сохраняются.
 WITS-NET-01 остаётся внешним условием: пользователь уточняет существующий VPN, доступа
 для настройки сейчас нет. Разработка остальных независимых задач продолжается.
@@ -379,6 +379,18 @@ Document/painter/user-selected colors остаются данными докум
 закрытым наличием ранее интегрированного UI-ADAPT-01.
 
 ## PRINT-STYLE-01 — Report Visual System
+
+- [x] **2026-10-09 — unified interpretation preview profile package:** оставшиеся
+  panel/ratio/geology headings, curve legends, numeric scale labels, empty states и
+  fluid badges используют section/table/caption/body typography. Все renderer-owned
+  neutral fills, grids, frames и marker halos используют semantic palette; bounded
+  fitting сохраняет полный Unicode text. Общая высота panel headings измеряется по
+  section typography. Fluid/curve/geology semantic colours, factual scale values,
+  marker geometry и source arrays сохраняются. 27 ratio cases покрывают Wh/Bh/Ch и
+  Pixler + production reopen; 36 composite cases покрывают panels, empty geology,
+  badges и whole preview с default/custom/large профилями RU/KK/EN. Пакет интегрируется
+  одним PR после exact-head Release gate. Остальные adapters и physical acceptance
+  остаются в PRINT-STYLE-01.
 
 - [x] **2026-10-09 — interpretation preview fluid legend typography:** actual code +
   localized phase label выбирает Unicode font stack; caption_pt и text приходят из

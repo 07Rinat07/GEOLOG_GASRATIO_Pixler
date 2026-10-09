@@ -65,7 +65,6 @@ from geoworkbench.printing.depth_curve_segments import continuous_depth_segments
 from geoworkbench.printing.unicode_support import print_font
 from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.printing.interpretation_track_headings import (
-    paint_track_heading,
     track_heading_height,
 )
 from geoworkbench.services.hydrocarbon_interpretation import (
@@ -295,7 +294,8 @@ def hydrocarbon_interpretation_chart_data_uri(
     panel_right = 2_000.0 - outer_margin - depth_width - axis_gap
     panel_width = (panel_right - panel_left - panel_gap * (len(panels) - 1)) / len(panels)
     header_height = max(62.0, 30.0 + max(
-        track_heading_height(_labels(language)[name], panel_width, 11.0, legend_device)
+        track_heading_height(_labels(language)[name], panel_width,
+                             modern_oilfield_report_profile().typography.section_pt, legend_device)
         for name, _curves in panels
     ))
     if context:
@@ -305,7 +305,7 @@ def hydrocarbon_interpretation_chart_data_uri(
         2_000, 1_280 + int(np.ceil(legend_offset + context_legend_size)),
         QImage.Format.Format_ARGB32_Premultiplied,
     )
-    image.fill(Qt.GlobalColor.white)
+    image.fill(QColor(modern_oilfield_report_profile().palette.page))
     painter = QPainter(image)
     try:
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
@@ -604,27 +604,30 @@ def _draw_geology_preview_tracks(
     samples = tuple(geology.samples) if geology is not None else ()
     lithotypes = geology.lithotype_map if geology is not None else {}
     for track, rect in zip(geology_tracks, rects, strict=True):
-        painter.fillRect(rect, QColor("#ffffff"))
-        painter.setPen(QPen(QColor("#334155"), 2.0))
+        visual = modern_oilfield_report_profile()
+        painter.fillRect(rect, QColor(visual.palette.page))
+        painter.setPen(QPen(QColor(visual.palette.border_strong), 2.0))
         painter.drawRect(rect)
         heading = labels[track]
-        paint_track_heading(
+        _paint_preview_text(
             painter,
             QRectF(rect.left(), rect.top() - header_height + 4.0,
                    rect.width(), header_height - 30.0),
-            heading, 8.5,
+            heading, visual.typography.table_pt, visual.palette.text,
+            Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap | Qt.TextFlag.TextWrapAnywhere,
+            bold=True,
         )
         for major in range(11):
             y = rect.top() + major / 10.0 * rect.height()
-            painter.setPen(QPen(QColor("#dbe3ec"), 0.9))
+            painter.setPen(QPen(QColor(visual.palette.border), 0.9))
             painter.drawLine(QLineF(rect.left(), y, rect.right(), y))
         if track in empty_state_tracks:
-            painter.setPen(QColor("#64748b"))
-            painter.setFont(print_font(8.0, text=labels["empty"]))
-            painter.drawText(
+            _paint_preview_text(
+                painter,
                 rect,
-                Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
                 labels["empty"],
+                visual.typography.body_pt, visual.palette.text_muted,
+                Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
             )
         elif track == "cuttings":
             paint_cuttings_track(
@@ -672,31 +675,32 @@ def _draw_panel(
         return
 
     labels = _labels(language)
-    painter.fillRect(rect, QColor("#ffffff"))
+    visual = modern_oilfield_report_profile()
+    painter.fillRect(rect, QColor(visual.palette.page))
 
     for major in range(11):
         y = rect.top() + major / 10.0 * rect.height()
-        painter.setPen(QPen(QColor("#cbd5e1"), 1.0))
+        painter.setPen(QPen(QColor(visual.palette.border_strong), 1.0))
         painter.drawLine(QLineF(rect.left(), y, rect.right(), y))
         if major == 10:
             continue
         for minor in range(1, 5):
             minor_y = y + minor / 5.0 * rect.height() / 10.0
-            painter.setPen(QPen(QColor("#eef2f7"), 0.7))
+            painter.setPen(QPen(QColor(visual.palette.border), 0.7))
             painter.drawLine(
                 QLineF(rect.left(), minor_y, rect.right(), minor_y)
             )
 
     for tick in range(5):
         x = rect.left() + tick / 4.0 * rect.width()
-        painter.setPen(QPen(QColor("#dbe3ec"), 0.9))
+        painter.setPen(QPen(QColor(visual.palette.border), 0.9))
         painter.drawLine(QLineF(x, rect.top(), x, rect.bottom()))
-        painter.setFont(print_font(7.5, text="100"))
-        painter.setPen(QColor("#64748b"))
-        painter.drawText(
+        _paint_preview_text(
+            painter,
             QRectF(x - 22.0, rect.top() - 24.0, 44.0, 18.0),
-            Qt.AlignmentFlag.AlignCenter,
             str(tick * 25),
+            visual.typography.caption_pt, visual.palette.text_muted,
+            Qt.AlignmentFlag.AlignCenter,
         )
 
     for candidate in candidates:
@@ -727,11 +731,13 @@ def _draw_panel(
         painter.drawLine(QLineF(rect.left(), top, rect.right(), top))
         painter.drawLine(QLineF(rect.left(), bottom, rect.right(), bottom))
 
-    paint_track_heading(
+    _paint_preview_text(
         painter,
         QRectF(rect.left(), rect.top() - header_height + 4.0,
                rect.width(), header_height - 30.0),
-        labels[panel_name], 11.0,
+        labels[panel_name], visual.typography.section_pt, visual.palette.text,
+        Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap | Qt.TextFlag.TextWrapAnywhere,
+        bold=True,
     )
 
     depth_indices = np.flatnonzero(finite_depth)
@@ -877,15 +883,15 @@ def _draw_panel(
                     legend_y + 8.0,
                 )
             )
-        painter.setPen(QColor("#172033"))
-        painter.setFont(print_font(7.6, text=legend))
-        painter.drawText(
+        _paint_preview_text(
+            painter,
             QRectF(rect.left() + 40.0, legend_y, rect.width() - 46.0, 18.0),
-            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
             legend,
+            visual.typography.table_pt, visual.palette.text,
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
         )
 
-    painter.setPen(QPen(QColor("#334155"), 2.6))
+    painter.setPen(QPen(QColor(visual.palette.border_strong), 2.6))
     painter.drawRect(rect)
 
 
@@ -909,7 +915,8 @@ def _draw_ratio_preview_tracks(
     if not tracks:
         return False
 
-    painter.fillRect(rect, QColor("#ffffff"))
+    visual = modern_oilfield_report_profile()
+    painter.fillRect(rect, QColor(visual.palette.page))
     for candidate in candidates:
         top = _depth_y(candidate.top_depth, depth_min, depth_max, rect.top(), rect.height())
         bottom = _depth_y(
@@ -928,7 +935,7 @@ def _draw_ratio_preview_tracks(
             band_color,
         )
 
-    paint_track_heading(
+    _paint_preview_text(
         painter,
         QRectF(
             rect.left(),
@@ -936,8 +943,9 @@ def _draw_ratio_preview_tracks(
             rect.width(),
             max(16.0, header_height - 34.0),
         ),
-        _labels(language)["ratios"],
-        9.5,
+        _labels(language)["ratios"], visual.typography.section_pt, visual.palette.text,
+        Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap | Qt.TextFlag.TextWrapAnywhere,
+        bold=True,
     )
 
     indices = np.flatnonzero(
@@ -959,13 +967,13 @@ def _draw_ratio_preview_tracks(
         )
         for major in range(11):
             y = lane.top() + major / 10.0 * lane.height()
-            painter.setPen(QPen(QColor("#dbe3ec"), 0.8))
+            painter.setPen(QPen(QColor(visual.palette.border), 0.8))
             painter.drawLine(QLineF(lane.left(), y, lane.right(), y))
 
         scale_ticks = gas_ratio_scale_ticks(scale)
         for fraction, _label in scale_ticks:
             x = lane.left() + fraction * lane.width()
-            painter.setPen(QPen(QColor("#dbe3ec"), 0.8))
+            painter.setPen(QPen(QColor(visual.palette.border), 0.8))
             painter.drawLine(QLineF(x, lane.top(), x, lane.bottom()))
 
         mnemonic = (
@@ -977,32 +985,32 @@ def _draw_ratio_preview_tracks(
             mnemonic = {AppLanguage.RU: "Wh (красн.) / Bh (син.)",
                         AppLanguage.KK: "Wh (қызыл) / Bh (көк)",
                         AppLanguage.EN: "Wh (red) / Bh (blue)"}[language]
-        painter.setPen(QColor("#172033"))
-        painter.setFont(print_font(7.0, text=mnemonic))
-        painter.drawText(
+        _paint_preview_text(
+            painter,
             QRectF(lane.left(), lane.top() - 31.0, lane.width(), 13.0),
-            Qt.AlignmentFlag.AlignCenter,
             mnemonic,
+            visual.typography.table_pt, visual.palette.text,
+            Qt.AlignmentFlag.AlignCenter,
         )
         labelled = (
             scale_ticks
             if len(scale_ticks) <= 3
             else (scale_ticks[0], scale_ticks[len(scale_ticks) // 2], scale_ticks[-1])
         )
-        painter.setFont(print_font(6.2, text="1000"))
-        painter.setPen(QColor("#64748b"))
         for fraction, label in labelled:
             x = lane.left() + fraction * lane.width()
             width = min(52.0, max(26.0, lane.width() * 0.48))
-            painter.drawText(
+            _paint_preview_text(
+                painter,
                 QRectF(
                     min(max(x - width / 2.0, lane.left()), lane.right() - width),
                     lane.top() - 17.0,
                     width,
                     13.0,
                 ),
-                Qt.AlignmentFlag.AlignCenter,
                 label,
+                visual.typography.caption_pt, visual.palette.text_muted,
+                Qt.AlignmentFlag.AlignCenter,
             )
 
         values = np.asarray(curve.values, dtype=np.float64)
@@ -1053,10 +1061,10 @@ def _draw_ratio_preview_tracks(
             painter.restore()
 
         painter.setBrush(Qt.BrushStyle.NoBrush)
-        painter.setPen(QPen(QColor("#64748b"), 1.0))
+        painter.setPen(QPen(QColor(visual.palette.text_muted), 1.0))
         painter.drawRect(lane)
 
-    painter.setPen(QPen(QColor("#334155"), 2.6))
+    painter.setPen(QPen(QColor(visual.palette.border_strong), 2.6))
     painter.drawRect(rect)
     return True
 
@@ -1115,7 +1123,7 @@ def _draw_whole_well_fluid_markers(
                 badge_width,
                 badge_height,
             )
-            fill = QColor("#ffffff")
+            fill = QColor(modern_oilfield_report_profile().palette.page)
             fill.setAlpha(238)
             painter.fillRect(box, fill)
             painter.setBrush(Qt.BrushStyle.NoBrush)
@@ -1127,19 +1135,18 @@ def _draw_whole_well_fluid_markers(
                 spec,
                 size=9.0,
             )
-            font = print_font(7.2, text=spec.code)
-            font.setBold(True)
-            painter.setFont(font)
-            painter.setPen(QColor("#172033"))
-            painter.drawText(
+            visual = modern_oilfield_report_profile()
+            _paint_preview_text(
+                painter,
                 QRectF(
                     box.left() + 18.0,
                     box.top(),
                     box.width() - 21.0,
                     box.height(),
                 ),
-                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
                 spec.code,
+                visual.typography.caption_pt, visual.palette.text,
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, bold=True,
             )
         return
 
@@ -1168,7 +1175,7 @@ def _draw_whole_well_fluid_markers(
     ):
         spec = fluid_marker_spec(candidate.fluid_hypothesis)
         x = target.right() - 7.0 - offsets[lane]
-        halo = QColor("#ffffff")
+        halo = QColor(modern_oilfield_report_profile().palette.page)
         halo.setAlpha(225)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(halo)
