@@ -2,10 +2,10 @@
 # Единый план проекта
 
 План актуализирован 9 октября 2026 года. Проверенная база перед текущим инкрементом —
-`33ecadff` (PR #516). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
-приёмка интегрированы. Текущий PRINT-STYLE-01 пакет объединяет оставшуюся default typography
-Masterlog: headings/curve legends, geology labels/descriptions, interpretations и callouts/symbols.
-Явные стили формы, mm font quantization, геометрия и исходные данные сохраняются.
+`744eac0e` (PR #517). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
+приёмка интегрированы. Текущий PRINT-STYLE-01 пакет объединяет оставшиеся Office defaults:
+universal DOCX table/caption text, shared Word border hierarchy и XLSX summary/footer typography.
+Числовые значения, типы ячеек, ширины колонок, print scale и source data сохраняются.
 WITS-NET-01 остаётся внешним условием: пользователь уточняет существующий VPN, доступа
 для настройки сейчас нет. Разработка остальных независимых задач продолжается.
 Статусы завершения
@@ -379,6 +379,16 @@ Document/painter/user-selected colors остаются данными докум
 закрытым наличием ранее интегрированного UI-ADAPT-01.
 
 ## PRINT-STYLE-01 — Report Visual System
+
+- [x] **2026-10-09 — unified Office profile package:** universal DOCX tables получают
+  table typography и text colour, notes/legend — caption style; shared Word tables используют
+  strong outer/thin inner border roles. Geological XLSX summary получает body/title typography,
+  все sheets — footer typography/muted colour с uppercase hex для корректного reopen.
+  54 production exports после project reopen покрывают RU/KK/EN, default/custom/large,
+  colour/grayscale и generic DOCX/geological DOCX/XLSX. Полный cell text, значения/типы,
+  column widths, print scale/repeat rows и source arrays сравниваются с baseline.
+  Merge требует exact-head Release gate; PRINT-STYLE-01 и physical acceptance остаются открытыми.
+
 
 - [x] **2026-10-09 — unified Masterlog default typography package:** column headings
   используют table role; curve legends, stratigraphy/LBA и callout/symbol labels — caption;
