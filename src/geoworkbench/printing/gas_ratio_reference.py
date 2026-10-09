@@ -6,7 +6,7 @@ from collections.abc import Sequence
 import numpy as np
 from numpy.typing import NDArray
 from PySide6.QtCore import QByteArray, QBuffer, QIODevice, QLineF, QPointF, QRectF, Qt
-from PySide6.QtGui import QColor, QImage, QPainter, QPen
+from PySide6.QtGui import QColor, QFontMetricsF, QImage, QPainter, QPen
 
 from geoworkbench.domain.models import CurveData, Dataset
 from geoworkbench.printing.report_painter_fonts import point_coordinate_font
@@ -124,9 +124,20 @@ def has_ratio_reference_summary(dataset: Dataset) -> bool:
     return bool(np.any(np.all(np.isfinite(matrix) & (matrix > 0), axis=1)))
 
 
-def _text(painter: QPainter, rect: QRectF, text: str, size: float = 10.0) -> None:
-    painter.setPen(QColor(modern_oilfield_report_profile().palette.text))
-    painter.setFont(point_coordinate_font(size, text=text, paint_device=painter.device()))
+def _text(painter: QPainter, rect: QRectF, text: str, size: float | None = None) -> None:
+    visual = modern_oilfield_report_profile()
+    painter.setPen(QColor(visual.palette.text))
+    fitted_size = visual.typography.body_pt if size is None else size
+    font = point_coordinate_font(fitted_size, text=text, paint_device=painter.device())
+    # Fit in virtual layout coordinates; the font adapter handles print DPI.
+    for _ in range(8):
+        metrics = QFontMetricsF(font, painter.device())
+        factor = min(rect.width() / max(1.0, metrics.horizontalAdvance(text)), rect.height() / max(1.0, metrics.height()))
+        if factor >= 1.0 or fitted_size <= 1.0:
+            break
+        fitted_size = max(1.0, fitted_size * factor * 0.98)
+        font = point_coordinate_font(fitted_size, text=text, paint_device=painter.device())
+    painter.setFont(font)
     painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, text)
 
 
@@ -173,14 +184,15 @@ def paint_ratio_reference_summary(
         painter.translate(target.topLeft())
         scale = min(target.width() / 1000, target.height() / 650)
         painter.scale(scale, scale)
-        palette = modern_oilfield_report_profile().palette
+        visual = modern_oilfield_report_profile()
+        palette, typography = visual.palette, visual.typography
         painter.fillRect(QRectF(0, 0, 1000, 650), QColor(palette.page))
         title = {
             AppLanguage.RU: "Газовые отношения: корреляция и профиль Пикслера",
             AppLanguage.KK: "Газ қатынастары: корреляция және Pixler профилі",
             AppLanguage.EN: "Gas ratios: correlation and Pixler profile",
         }[language]
-        _text(painter, QRectF(0, 0, 1000, 35), title, 16)
+        _text(painter, QRectF(0, 0, 1000, 35), title, typography.title_pt)
         all_depth = np.asarray(dataset.depth, dtype=float)
         finite_depth = all_depth[np.isfinite(all_depth)]
         low_depth = float(finite_depth.min()) if finite_depth.size else 0.0
@@ -211,13 +223,13 @@ def paint_ratio_reference_summary(
                     painter,
                     QRectF(plot.left() + tick / 5 * plot.width() - 25, 283, 50, 15),
                     f"{maximum * tick / 5:.2g}",
-                    8,
+                    typography.caption_pt,
                 )
                 _text(
                     painter,
                     QRectF(plot.left() - 38, plot.bottom() - tick / 5 * plot.height() - 8, 32, 16),
                     f"{tick / 5:.1f}",
-                    8,
+                    typography.caption_pt,
                 )
             selection = (
                 np.arange(x.size) if x.size <= 1200 else np.linspace(0, x.size - 1, 1200, dtype=int)
@@ -244,10 +256,10 @@ def paint_ratio_reference_summary(
             end = low_depth + (high_depth - low_depth) * (index + 1) / 6
             painter.setPen(QPen(QColor(depth_color), 2))
             painter.drawLine(QLineF(65 + index * 150, 327, 82 + index * 150, 327))
-            _text(painter, QRectF(84 + index * 150, 317, 130, 20), f"{start:.1f}–{end:.1f} m", 8)
+            _text(painter, QRectF(84 + index * 150, 317, 130, 20), f"{start:.1f}–{end:.1f} m", typography.caption_pt)
         plot = QRectF(65, 385, 610, 205)
         _axes(painter, plot)
-        _text(painter, QRectF(65, 340, 610, 30), "Pixler · C1/C2 – C1/C5", 13)
+        _text(painter, QRectF(65, 340, 610, 30), "Pixler · C1/C2 – C1/C5", typography.section_pt)
         keys = [f"C1_C{i}" for i in range(2, 6)]
         if all(key in ratios for key in keys):
             matrix = np.column_stack([ratios[key].values for key in keys])
@@ -270,7 +282,7 @@ def paint_ratio_reference_summary(
                 tick_y = plot.bottom() - (power - minimum) / (maximum - minimum) * plot.height()
                 painter.setPen(QPen(QColor(palette.border), 0.7))
                 painter.drawLine(QLineF(plot.left(), tick_y, plot.right(), tick_y))
-                _text(painter, QRectF(12, tick_y - 8, 45, 16), f"{10.0**power:g}", 8)
+                _text(painter, QRectF(12, tick_y - 8, 45, 16), f"{10.0**power:g}", typography.caption_pt)
             for profile_index, row in enumerate(selected):
                 depth_bin = min(
                     5,
@@ -294,7 +306,7 @@ def paint_ratio_reference_summary(
                     painter,
                     QRectF(710, 390 + profile_index * 25, 260, 20),
                     f"{all_depth[row]:.2f} m",
-                    10,
+                    typography.body_pt,
                 )
                 painter.setPen(QPen(profile_color, 2))
                 painter.drawLine(
@@ -309,14 +321,14 @@ def paint_ratio_reference_summary(
                     AppLanguage.KK: "C1/C2–C1/C5 толық жиыны жоқ",
                     AppLanguage.EN: "Complete C1/C2–C1/C5 profiles unavailable",
                 }[language],
-                11,
+                typography.body_pt,
             )
         for index, key in enumerate(keys):
             _text(
                 painter,
                 QRectF(plot.left() + index / 3 * plot.width() - 35, 595, 70, 22),
                 key.replace("_", "/"),
-                9,
+                typography.caption_pt,
             )
         _text(
             painter,
@@ -326,7 +338,7 @@ def paint_ratio_reference_summary(
                 AppLanguage.KK: "Нүктелер — жұп өлшемдер; профильдер — жеке тереңдіктер. Түс: тереңдік өсуі.",
                 AppLanguage.EN: "Points are paired observations; profiles are individual depths. Color: shallow to deep.",
             }[language],
-            9,
+            typography.footer_pt,
         )
     finally:
         painter.restore()

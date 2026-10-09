@@ -2,10 +2,10 @@
 # Единый план проекта
 
 План актуализирован 9 октября 2026 года. Проверенная база перед текущим инкрементом —
-`4dd24274` (PR #504). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
-приёмка интегрированы. Текущий PRINT-STYLE-01 slice подключает neutral page/text/grid/frame
-корреляционной диаграммы Haworth/Pixler к общей палитре visual profile.
-Цвета глубин, размеры, координаты измерений, шкалы и source data сохраняются.
+`ce43972d` (PR #505). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
+приёмка интегрированы. Текущий PRINT-STYLE-01 slice подключает typography roles
+корреляционной диаграммы Haworth/Pixler и measured fitting полного текста.
+Цвета глубин, геометрия, physical DPI contract, шкалы и source data сохраняются.
 WITS-NET-01 остаётся внешним условием: пользователь уточняет существующий VPN, доступа
 для настройки сейчас нет. Разработка остальных независимых задач продолжается.
 Статусы завершения
@@ -628,6 +628,15 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   custom profile и 18 actual PDF cases при 72/300/600 DPI проверяют реальные pixels,
   text colours и vector fills/strokes; existing DPI/source regressions сохранены.
   Typography role mapping, monochrome depth keys и physical acceptance остаются открытыми;
+  merge только после полного local suite и exact-head Windows Release gate.
+- [x] **2026-10-09 — ratio-reference typography roles:** Haworth/Pixler reference
+  summary использует shared title/section/body/caption/footer sizes вместо отдельных
+  8–16 pt constants. Измеряемый fitting сохраняет полный текст внутри virtual-layout
+  fields; point-coordinate adapter сохраняет physical DPI contract. 18 RU/KK/EN
+  PNG cases default/custom/max-size и complete/partial data проверяют roles, measured
+  bounds и пустые состояния; 27 actual PDF cases при 72/300/600 DPI проверяют full text,
+  physical sizes/bounds. Existing palette/DPI/source regressions сохранены.
+  Monochrome depth keys и physical acceptance остаются открытыми;
   merge только после полного local suite и exact-head Windows Release gate.
 - [ ] Один immutable style profile для PDF, Masterlog, планшетной печати и Office-экспорта:
   нейтральная техническая типографика, строгая сетка, сдержанный petroleum-blue accent,
