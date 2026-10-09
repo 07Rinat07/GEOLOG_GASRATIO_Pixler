@@ -99,9 +99,12 @@ def test_production_preview_after_reopen_uses_profile_and_preserves_source(qapp,
         (f"{1300 + index * 12:.1f}", visual.typography.table_pt, visual.palette.text)
         for index in range(11)
     ]
+    legend = [(f"{spec.code} {spec.label(language)}", visual.typography.caption_pt, visual.palette.text)
+              for spec in chart.fluid_marker_legend_specs([item.fluid_hypothesis for item in report.candidates])]
     assert [(text, size, color) for text, size, color, rect in calls] == [
         (labels["title"], visual.typography.title_pt, visual.palette.text),
         *axis, *axis,
+        *legend,
         (labels["footer"], visual.typography.footer_pt, visual.palette.text_secondary),
     ]
     assert calls[0][3] == QRectF(90, 18, 1820, 45)

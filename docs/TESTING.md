@@ -1,5 +1,11 @@
 # Проверка качества и release gate
 
+`tests/test_interpretation_preview_fluid_legend_profile.py` checks 18 actual
+RU/KK/EN raster cases with two widths and default/custom/large typography. All five
+phase keys, full localized labels, measured bounds, actual-text font requests,
+caption role, palette and marker positions/sizes remain checked. Three empty cases
+draw nothing; nine production previews after reopen preserve candidates/source arrays.
+
 `tests/test_interpretation_preview_depth_profile.py` checks 54 real raster axis
 cases: RU/KK/EN, left/right, default/custom/large profiles and negative/ordinary/long
 depth values. Complete fitted text, font roles, palette, eleven major and forty

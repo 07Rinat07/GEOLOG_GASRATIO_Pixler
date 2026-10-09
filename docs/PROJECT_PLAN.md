@@ -2,9 +2,9 @@
 # Единый план проекта
 
 План актуализирован 9 октября 2026 года. Проверенная база перед текущим инкрементом —
-`f23f4a0e` (PR #512). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
-приёмка интегрированы. Текущий PRINT-STYLE-01 slice подключает обе depth axes
-interpretation preview к typography/palette общего профиля с измеряемым fitting.
+`22a0d707` (PR #513). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
+приёмка интегрированы. Текущий PRINT-STYLE-01 slice подключает fluid legend
+interpretation preview к caption typography и actual localized Unicode font selection.
 Registry priority, event codes/depths, существующий device font contract и source data сохраняются.
 WITS-NET-01 остаётся внешним условием: пользователь уточняет существующий VPN, доступа
 для настройки сейчас нет. Разработка остальных независимых задач продолжается.
@@ -379,6 +379,15 @@ Document/painter/user-selected colors остаются данными докум
 закрытым наличием ранее интегрированного UI-ADAPT-01.
 
 ## PRINT-STYLE-01 — Report Visual System
+
+- [x] **2026-10-09 — interpretation preview fluid legend typography:** actual code +
+  localized phase label выбирает Unicode font stack; caption_pt и text приходят из
+  общего visual profile. Existing bounded fitting сохраняет полный текст внутри
+  прежних ячеек. Все пять phase codes/shapes/colours, marker size/positions и registry
+  order сохраняются. 18 RU/KK/EN raster cases покрывают две ширины и default/custom/large
+  typography; три empty cases и девять production previews после package reopen
+  сохраняют candidates и source arrays. Merge требует exact-head Release gate;
+  весь PRINT-STYLE-01 и physical acceptance остаются открытыми.
 
 - [x] **2026-10-09 — interpretation preview depth-axis profile:** заголовки используют
   section_pt, actual signed numeric labels — table_pt. Фон, рамки, major/minor ticks

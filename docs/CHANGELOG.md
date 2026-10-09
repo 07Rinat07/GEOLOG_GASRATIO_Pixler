@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- PRINT-STYLE-01: легенда типов флюида в preview интерпретационного отчёта использует caption typography и text palette общего профиля. Unicode font выбирается по полному коду и локализованной подписи вместо фиксированной английской строки; измеряемый fitting сохраняет полный текст. Все пять phase keys, формы, цвета и позиции маркеров, результаты и исходные данные сохраняются.
 - PRINT-STYLE-01: шкалы глубины preview интерпретационного отчёта используют section/table typography и semantic palette общего профиля. Полные локализованные заголовки и signed/long numeric labels подгоняются по измеренным bounds; координаты всех major/minor ticks, выбранные глубины и исходные данные сохраняются. RU/KK/EN default/custom/large и production reopen покрыты регрессиями.
 - PRINT-STYLE-01: заголовок и поясняющий подвал preview интерпретационного отчёта используют title/footer typography и text/text_secondary общего visual profile. Измеряемая подгонка сохраняет полный RU/KK/EN текст в прежних областях при увеличенных шрифтах; production previews после reopen сохраняют исходные массивы и результаты интерпретации.
 - PRINT-STYLE-01: заголовок дорожки газового контекста использует table typography общего профиля. Standard, OPUS и preview измеряют тем же шрифтом, которым рисуют полный локализованный текст; PDF physical-point adapter сохраняет размеры при 72–600 DPI. Коды событий, глубины, registry и source data сохраняются.
