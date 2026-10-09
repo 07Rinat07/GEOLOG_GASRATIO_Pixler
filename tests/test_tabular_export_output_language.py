@@ -133,15 +133,21 @@ def test_all_six_outputs_share_language_without_relocalizing_operator_ui(
     assert workbook["Metadata"]["B6"].value == output_language.value
     assert workbook["Data"]["B2"].value == 2.0
 
-    report_title = {
-        AppLanguage.RU: "Инженерный отчёт",
-        AppLanguage.KK: "Инженерлік есеп",
-        AppLanguage.EN: "Engineering report",
+    # Selection reports have an authored title, not a generic "Engineering report" title.
+    # Assert actual localized section labels in both rendered document formats.
+    metadata_heading = {
+        AppLanguage.RU: "Параметры отчёта",
+        AppLanguage.KK: "Есеп параметрлері",
+        AppLanguage.EN: "Report parameters",
     }[output_language]
-    assert report_title in outputs["html"].read_text(encoding="utf-8")
+    html = outputs["html"].read_text(encoding="utf-8")
+    assert f'<html lang="{output_language.value}">' in html
+    assert "<h1>Well-A selection</h1>" in html
+    assert f"<h2>{metadata_heading}</h2>" in html
     with ZipFile(outputs["docx"]) as archive:
         document_xml = archive.read("word/document.xml").decode("utf-8")
-    assert report_title in document_xml
+    assert "Well-A selection" in document_xml
+    assert metadata_heading in document_xml
 
     window._show_interval_analysis_from_gesture({
         "top": 100.0, "bottom": 101.0,
