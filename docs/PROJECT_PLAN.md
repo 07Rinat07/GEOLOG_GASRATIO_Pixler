@@ -2,10 +2,10 @@
 # Единый план проекта
 
 План актуализирован 9 октября 2026 года. Проверенная база перед текущим инкрементом —
-`744eac0e` (PR #517). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
-приёмка интегрированы. Текущий PRINT-STYLE-01 пакет объединяет оставшиеся Office defaults:
-universal DOCX table/caption text, shared Word border hierarchy и XLSX summary/footer typography.
-Числовые значения, типы ячеек, ширины колонок, print scale и source data сохраняются.
+`05839308` (PR #518). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
+приёмка интегрированы. Текущий PRINT-STYLE-01 пакет объединяет оставшиеся Masterlog rules:
+geology/description borders, lithotype swatch frames и inspection callout palette/rule hierarchy.
+Геометрия, смысловые геологические цвета, сохранённые стили формы и source data сохраняются.
 WITS-NET-01 остаётся внешним условием: пользователь уточняет существующий VPN, доступа
 для настройки сейчас нет. Разработка остальных независимых задач продолжается.
 Статусы завершения
@@ -379,6 +379,17 @@ Document/painter/user-selected colors остаются данными докум
 закрытым наличием ранее интегрированного UI-ADAPT-01.
 
 ## PRINT-STYLE-01 — Report Visual System
+
+- [x] **2026-10-09 — unified Masterlog rules package:** geology/description interval borders
+  используют thin rule, swatch outer/missing frames — strong rule; inspection anchor/frame
+  используют strong/thin и critical/page/text palette с прежним background alpha.
+  Rock/catalog colours, calcimetry component lines и LBA intensity glyph colours/widths,
+  orientations, geometry и explicit saved colours/font sizes сохраняются.
+  495 actual PDF cases покрывают RU/KK/EN × пять DPI × default/grayscale/custom × 11 paths;
+  27 A4/A3/roll production exports после reopen и девять saved swatch override cases
+  проверяют searchable text, physical rule widths, geometry и source invariants.
+  Merge требует exact-head Release gate; PRINT-STYLE-01 и physical acceptance остаются открытыми.
+
 
 - [x] **2026-10-09 — unified Office profile package:** universal DOCX tables получают
   table typography и text colour, notes/legend — caption style; shared Word tables используют
