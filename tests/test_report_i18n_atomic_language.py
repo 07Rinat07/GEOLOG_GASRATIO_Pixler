@@ -146,10 +146,10 @@ def test_workspace_office_exports_explicitly_propagate_language() -> None:
         interpretation_report_workspace_drilling.InterpretationReportWorkspace._export_docx
     )
 
-    assert "language=self.language" in legacy_xlsx
-    assert "language=self.language" in legacy_docx
-    assert "language=self.language" in final_xlsx
-    assert "language=self.language" in drilling_docx
+    assert "language=self._report_output_language()" in legacy_xlsx
+    assert "language=self._report_output_language()" in legacy_docx
+    assert "language=self._report_output_language()" in final_xlsx
+    assert "language=self._report_output_language()" in drilling_docx
 
 
 def test_docx_dataset_mismatch_error_uses_selected_language(tmp_path) -> None:
@@ -248,7 +248,7 @@ def test_report_identity_uses_language_scoped_persisted_header() -> None:
     )
 
     assert "report_header_fields(" in source
-    assert "self.language.value" in source
+    assert "self._report_output_language().value" in source
     assert "identity_with_report_header_fields(" in source
     assert "report.report_profile" in source
     assert "self._report_identity_key" not in source

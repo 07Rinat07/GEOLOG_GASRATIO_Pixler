@@ -1,5 +1,7 @@
 # Проверка качества и release gate
 
+`tests/test_interpretation_workspace_output_language.py` covers 18 production workspace cases after project save/reopen: standard/OPUS and all UI/output-language pairs. Actual PDF plus Passport, DOCX, XLSX, prepared system-print PDF and printer PDF exercise selected language, saved header/narrative fields and profile guards. All three language headers, source arrays/metadata and immutable reports are checked. Existing 18 ramp workspace cases use the same selector; dialogs retain UI language.
+
 `tests/test_gas_mixture_output_language.py` covers 144 actual PDF/QPrinter cases: RU/KK/EN, 72/300/600 DPI, chart/text and numeric/datetime/missing/vendor time axes, plus three known/unknown message cases. `tests/test_gas_mixture_workspace_language.py` covers 18 production workspace cases after project save/reopen: all UI/output language pairs and both ramp modes, real preview/PDF/system-print outputs, UI-language changes and mode switches. Complete translated warnings/headers, numeric values, footer, bounds and immutable source/audit are checked.
 
 `tests/test_gas_mixture_document_control.py` covers 108 actual multi-page PDF/QPrinter cases: RU/KK/EN, 72/300/600 DPI, chart/text and default/full/long identity. Full document-control values, escaped text, complete numeric rows, repeated localized footer, physical typography/bounds and source immutability are checked. Six raster cases retain component paths/keys while verifying shared frame/grid rules. Existing palette/typography and atomic failure checks remain.
