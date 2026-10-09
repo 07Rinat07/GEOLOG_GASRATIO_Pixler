@@ -1,5 +1,7 @@
 # Print and Export Center
 
+The C1–C5 ramp report uses shared document control in HTML, PDF and system printing. PDF and printer pages repeat DIGITAL GEOLOG and a localized page number; explicitly supplied metadata repeats in compact form while full values and approvals remain in the main area. An empty report date stays empty. Table borders, chart frame and grid use shared profile rules; calculations and component keys are preserved.
+
 Masterlog uses shared rule weights for lithology, cuttings, stratigraphy, calcimetry, LBA and description borders, as well as lithotype swatch frames. Inspection callouts use critical/page/text colours and thin/strong rules with the existing background opacity. Rock, calcimetry component and LBA intensity colours, geometry and saved form settings are preserved.
 
 Office exports use the shared profile for generic DOCX table text and notes, shared Word table borders, Excel summary text and printed footers on every geological XLSX sheet. Footer colours and sizes survive reopening. Cell values and types, column widths and 100% print scale are preserved.

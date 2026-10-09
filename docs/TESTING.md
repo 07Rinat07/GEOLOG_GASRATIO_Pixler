@@ -1,5 +1,7 @@
 # Проверка качества и release gate
 
+`tests/test_gas_mixture_document_control.py` covers 108 actual multi-page PDF/QPrinter cases: RU/KK/EN, 72/300/600 DPI, chart/text and default/full/long identity. Full document-control values, escaped text, complete numeric rows, repeated localized footer, physical typography/bounds and source immutability are checked. Six raster cases retain component paths/keys while verifying shared frame/grid rules. Existing palette/typography and atomic failure checks remain.
+
 `tests/test_masterlog_rule_profile.py` covers 495 actual RU/KK/EN PDFs across five DPI, three palette/rule profiles and eleven painter paths; 27 A4/A3/roll exports after project reopen; and nine saved-swatch override cases. Thin/strong physical widths, critical/page/text callout roles and alpha, geometry, semantic geology fills/lines, complete text and immutable source data are checked. Fixtures establish the same physical heading font that production columns inherit.
 
 `tests/test_office_shared_visual_profile.py` covers 54 production exports after project save/reopen: RU/KK/EN, default/custom/large typography, colour/grayscale palettes and generic DOCX/geological DOCX/XLSX. OOXML table sizes, caption style and border hierarchy, Excel summary/footer sizes and round-tripped colours are checked. Baseline comparison retains complete cell text, values/types, column widths, print scale, repeat rows and source arrays.

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from html import escape
 import os
@@ -18,8 +18,8 @@ from PySide6.QtGui import (
     QPainter,
     QPainterPath,
     QPdfWriter,
+    QPagedPaintDevice,
     QPen,
-    QTextDocument,
 )
 
 from geoworkbench.brand import APPLICATION_DISPLAY_NAME
@@ -33,7 +33,10 @@ from geoworkbench.services.las_parameter_resolver import (
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.printing.unicode_support import preflight_texts, print_font
 from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
-from geoworkbench.printing.report_rich_text_fonts import apply_explicit_rich_text_font_sizes
+from geoworkbench.printing.hydrocarbon_interpretation_report_identity import InterpretationReportIdentity
+from geoworkbench.printing.report_document_control import ReportDocumentControl, report_document_control
+from geoworkbench.printing.hydrocarbon_interpretation_pdf_canvas import PageCanvas
+from geoworkbench.printing.hydrocarbon_interpretation_pdf_text import render_report_html
 
 
 class GasMixtureRampReportError(RuntimeError):
@@ -228,8 +231,10 @@ def gas_mixture_ramp_html(
     language: AppLanguage = AppLanguage.RU,
     *,
     include_chart: bool = True,
+    identity: InterpretationReportIdentity | None = None,
 ) -> str:
     labels = _labels(language)
+    control = _ramp_document_control(report, language, identity)
     visual = modern_oilfield_report_profile()
     palette, typography = visual.palette, visual.typography
     component_rows = "".join(
@@ -257,6 +262,11 @@ def gas_mixture_ramp_html(
     wetness = "—" if report.wetness is None else f"{report.wetness:.2f}%"
     balance = "—" if report.balance is None else f"{report.balance:.4g}"
     character = "—" if report.character is None else f"{report.character:.4g}"
+    control_rows = "".join(
+        f"<tr><td>{escape(label)}</td><td>{escape(value)}</td></tr>"
+        for label, value in control.available_rows
+    )
+    notes = "".join(f"<p>{escape(note)}</p>" for note in control.notes)
     cell_padding = "3px 5px" if include_chart else "4px 6px"
     return f"""
     <html><head><meta charset="utf-8"><style>
@@ -265,15 +275,16 @@ def gas_mixture_ramp_html(
     h1 {{ font-size:{typography.title_pt:g}pt; margin:0 0 8px 0; }}
     h2 {{ font-size:{typography.section_pt:g}pt; margin:10px 0 5px 0; }}
     table {{ border-collapse:collapse; width:100%; font-size:{typography.table_pt:g}pt; margin:6px 0 10px 0; }}
-    th, td {{ border:1px solid {palette.border}; padding:{cell_padding}; }}
+    th, td {{ border:{visual.layout.thin_rule_pt:g}pt solid {palette.border}; padding:{cell_padding}; }}
     th {{ background:{palette.table_header}; color:{palette.text}; }}
-    .result {{ border:2px solid {palette.accent}; background:{palette.accent_soft}; padding:10px; }}
+    .result {{ border:{visual.layout.strong_rule_pt:g}pt solid {palette.accent}; background:{palette.accent_soft}; padding:10px; }}
     .muted {{ color:{palette.text_muted}; }}
     </style></head><body>
     <div class="brand">{escape(visual.brand_wordmark)}</div>
-    <h1>{escape(labels["title"])}</h1>
-    <p class="muted">{escape(report.project_name)} · {escape(report.well_name)} ·
-    {escape(report.dataset_name)}</p>
+    <h1>{escape(control.title)}</h1>
+    <p>{escape(control.subtitle)}</p>
+    <table>{control_rows}</table>
+    {notes}
     {chart}
     <div class="result"><b>{escape(labels["result"])}:</b>
     {escape(labels[report.interpretation_code])}<br>
@@ -301,6 +312,7 @@ def export_gas_mixture_ramp_pdf(
     language: AppLanguage = AppLanguage.RU,
     include_chart: bool = True,
     overwrite: bool = False,
+    identity: InterpretationReportIdentity | None = None,
 ) -> Path:
     destination = Path(target)
     if destination.suffix.casefold() != ".pdf":
@@ -329,19 +341,9 @@ def export_gas_mixture_ramp_pdf(
             writer.setResolution(300)
             writer.setTitle("Gas mixture ramp report")
             writer.setCreator(APPLICATION_DISPLAY_NAME)
-            html = gas_mixture_ramp_html(
-                report,
-                language,
-                include_chart=include_chart,
+            render_gas_mixture_ramp_report(
+                writer, report, language=language, include_chart=include_chart, identity=identity,
             )
-            unicode_report = preflight_texts([html])
-            if not unicode_report.ok:
-                raise GasMixtureRampReportError(unicode_report.error_message())
-            document = QTextDocument()
-            document.setDefaultFont(print_font(modern_oilfield_report_profile().typography.body_pt, text=html))
-            document.setHtml(html)
-            apply_explicit_rich_text_font_sizes(document)
-            document.print_(writer)
         finally:
             del writer
         if temporary.stat().st_size <= 0:
@@ -353,6 +355,52 @@ def export_gas_mixture_ramp_pdf(
             raise
         raise GasMixtureRampReportError(f"Не удалось экспортировать PDF: {destination}") from exc
     return destination
+
+
+def _ramp_document_control(
+    report: GasMixtureRampReport, language: AppLanguage,
+    identity: InterpretationReportIdentity | None,
+) -> ReportDocumentControl:
+    details = identity or InterpretationReportIdentity(
+        report_title=_labels(language)["title"], report_subtitle="",
+        project_name=report.project_name, well_name=report.well_name,
+        dataset_name=report.dataset_name, revision="",
+    )
+    # Context comes from the immutable calculated report, never an unrelated form.
+    details = replace(details, project_name=report.project_name,
+                      well_name=report.well_name, dataset_name=report.dataset_name)
+    return report_document_control(details, language)
+
+
+def render_gas_mixture_ramp_report(
+    device: QPagedPaintDevice, report: GasMixtureRampReport, *,
+    language: AppLanguage = AppLanguage.RU, include_chart: bool = True,
+    identity: InterpretationReportIdentity | None = None,
+) -> None:
+    """Use the same controlled pagination and footer for PDF and system print."""
+    html = gas_mixture_ramp_html(report, language, include_chart=include_chart, identity=identity)
+    unicode_report = preflight_texts([html])
+    if not unicode_report.ok:
+        raise GasMixtureRampReportError(unicode_report.error_message())
+    painter = QPainter(device)
+    if not painter.isActive():
+        raise GasMixtureRampReportError("Не удалось запустить печать отчёта")
+    try:
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
+        painter.scale(device.logicalDpiX() / 72.0, device.logicalDpiY() / 72.0)
+        canvas = PageCanvas(device, painter, language,
+                            document_control=_ramp_document_control(report, language, identity))
+        canvas.visual = modern_oilfield_report_profile()
+        # The HTML preview uses a wide chart; fit its aspect ratio to the physical
+        # printable area before the shared paginator measures the image block.
+        chart_width = int(canvas.content_rect.width())
+        html = html.replace('width="900" height="390"',
+                            f'width="{chart_width}" height="{round(chart_width * 390 / 900)}"')
+        canvas.new_page()
+        render_report_html(canvas, html, leading_block_count=0, start_body_on_new_page=False)
+    finally:
+        painter.end()
 
 
 def _time_axis(dataset, size: int) -> tuple[np.ndarray, str, str | None]:
@@ -482,7 +530,7 @@ def _chart_data_uri(
             typography.caption_pt,
         )
         plot = QRectF(90, 70, 1320, 480)
-        painter.setPen(QPen(QColor(palette.border_strong), 2))
+        painter.setPen(QPen(QColor(palette.border_strong), visual.layout.strong_rule_pt * image.logicalDpiY() / 72.0))
         painter.drawRect(plot)
         x = np.asarray(report.time_values, dtype=np.float64)
         finite_x = x[np.isfinite(x)]
@@ -498,7 +546,7 @@ def _chart_data_uri(
         finite_values = all_values[np.isfinite(all_values) & (all_values >= 0.0)]
         y_max = float(np.max(np.log10(1.0 + finite_values))) if finite_values.size else 1.0
         y_max = max(1.0, y_max)
-        grid_pen = QPen(QColor(palette.border), 1)
+        grid_pen = QPen(QColor(palette.border), visual.layout.thin_rule_pt * image.logicalDpiY() / 72.0)
         for tick in range(6):
             fraction = tick / 5.0
             y = plot.bottom() - fraction * plot.height()
