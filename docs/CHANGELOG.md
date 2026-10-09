@@ -6,6 +6,8 @@
 
 ## Unreleased
 
+- REPORT-I18N-01/PRINT-STYLE-01: единый языковой пакет разгонки C1–C5 добавляет независимый от UI RU/KK/EN selector для preview/PDF/system print; component heading, quality warnings и built-in time-axis labels локализованы. Выбор перерисовывает текущий результат без пересчёта. Canonical audit strings, unknown client text, vendor axes и числовые результаты сохраняются. 144 actual exports и 18 production workspace cases после save/reopen проверяют полный output и все пары языков.
+
 - PRINT-STYLE-01: Разгонка C1–C5: HTML, PDF и системная печать используют общие реквизиты и paginator, повторяемый локализованный подвал и profile thin/strong rules. Полные значения, пустая дата, расчёты, component dash keys и исходные массивы сохраняются; добавлена многостраничная PDF/QPrinter приёмка RU/KK/EN при 72–600 DPI.
 
 - PRINT-STYLE-01: единый Masterlog rules package подключает thin/strong weights к геологическим колонкам, описаниям и swatch frames; inspection callouts используют critical/page/text palette с прежним alpha. Смысловые цвета пород, кальциметрии и интенсивности ЛБА сохраняются. 495 actual PDF cases, 27 production reopen exports и девять saved override cases проверяют physical DPI, геометрию и source invariants.

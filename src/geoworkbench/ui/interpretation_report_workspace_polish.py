@@ -222,6 +222,7 @@ class InterpretationReportWorkspace(_DrillingInterpretationReportWorkspace):
         analysis_form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
         analysis_form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         analysis_form.addRow(self.report_mode_label, self.report_mode)
+        analysis_form.addRow(self.ramp_output_language_label, self.ramp_output_language)
         analysis_form.addRow(self.normal_density_label, self.normal_density)
         analysis_form.addRow(self.threshold_label, self.threshold)
         analysis_form.addRow(self.total_gas_lod_label, self.total_gas_lod)

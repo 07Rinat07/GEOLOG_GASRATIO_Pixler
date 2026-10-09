@@ -75,7 +75,7 @@ def test_ramp_controlled_pdf_retains_full_values_and_repeated_footer(
         text = _normalized('\n'.join(page.get_text() for page in pdf))
         for _, value in control.available_rows:
             assert _normalized(value) in text
-        for value in (*control.notes, *report.warnings, report.project_name, report.well_name, report.dataset_name):
+        for value in (*control.notes, *ramp.localized_ramp_warnings(report.warnings, language), report.project_name, report.well_name, report.dataset_name):
             assert _normalized(value) in text
         assert _normalized(report.generated_at) not in text
         assert 'Unrelated' not in text
