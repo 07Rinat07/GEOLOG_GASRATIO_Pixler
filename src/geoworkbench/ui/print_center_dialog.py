@@ -150,6 +150,23 @@ class PrintCenterDialog(QDialog):
         content_layout.setContentsMargins(4, 4, 4, 4)
         content_layout.setSpacing(10)
 
+        self.report_output_language = QComboBox()
+        self.report_output_language.setObjectName("print-center-output-language")
+        for label, value in (("Русский", AppLanguage.RU), ("Қазақша", AppLanguage.KK), ("English", AppLanguage.EN)):
+            self.report_output_language.addItem(label, value)
+        self.report_output_language.setCurrentIndex(
+            self.report_output_language.findData(preferences.output_language or language)
+        )
+        self.report_output_language_label = QLabel({
+            AppLanguage.RU: "Язык отчёта:", AppLanguage.KK: "Есеп тілі:", AppLanguage.EN: "Report language:",
+        }[language])
+        self.report_output_language_label.setBuddy(self.report_output_language)
+        self.report_output_language_label.setWordWrap(True)
+        language_form = QFormLayout()
+        language_form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
+        language_form.addRow(self.report_output_language_label, self.report_output_language)
+        content_layout.addLayout(language_form)
+
         header_group = QGroupBox(self._t("print_center.headers_group"))
         header_group.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum
@@ -701,10 +718,17 @@ class PrintCenterDialog(QDialog):
             show_page_range=self.page_range_check.isChecked(),
         )
 
+    def _report_output_language(self) -> AppLanguage:
+        try:
+            return AppLanguage(self.report_output_language.currentData())
+        except (TypeError, ValueError):
+            return self.localizer.language
+
     def preferences(self) -> PrintExportPreferences:
         output = self.selected_output()
         pagination = self.pagination_settings()
         return PrintExportPreferences(
+            output_language=self._report_output_language(),
             output_format=output,
             dpi=self._dpi(),
             image_quality=self.quality_input.value(),
@@ -744,6 +768,7 @@ class PrintCenterDialog(QDialog):
             if target is not None and target.suffix.casefold() not in output.accepted_suffixes:
                 target = target.with_suffix(output.suffix)
         return PrintJobSettings(
+            output_language=self._report_output_language(),
             output_format=output,
             page=self.page_settings(),
             dpi=self._dpi(),

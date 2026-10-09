@@ -6,6 +6,7 @@ from pathlib import Path
 
 from PySide6.QtGui import QImageWriter
 
+from geoworkbench.services.localization import AppLanguage
 from geoworkbench.printing.page_settings import PrintPageSettings
 from geoworkbench.printing.pagination import PrintPaginationSettings, PrintRangeMode
 
@@ -126,8 +127,11 @@ class PrintJobSettings:
     copy_count: int = 1
     included_track_ids: tuple[str, ...] | None = None
     grid_print_overrides: tuple[tuple[str, bool], ...] = ()
+    output_language: AppLanguage | None = None
 
     def __post_init__(self) -> None:
+        if self.output_language is not None and not isinstance(self.output_language, AppLanguage):
+            raise ValueError("Язык отчёта должен быть RU, KK или EN")
         if isinstance(self.dpi, bool) or not isinstance(self.dpi, int) or not 72 <= self.dpi <= 600:
             raise ValueError("Разрешение должно быть от 72 до 600 DPI")
         if (
@@ -210,8 +214,11 @@ class PrintExportPreferences:
     header_selection_explicit: bool = False
     printer_name: str | None = None
     copy_count: int = 1
+    output_language: AppLanguage | None = None
 
     def __post_init__(self) -> None:
+        if self.output_language is not None and not isinstance(self.output_language, AppLanguage):
+            raise ValueError("Язык отчёта должен быть RU, KK или EN")
         if isinstance(self.dpi, bool) or not isinstance(self.dpi, int) or not 72 <= self.dpi <= 600:
             raise ValueError("Разрешение должно быть от 72 до 600 DPI")
         if (

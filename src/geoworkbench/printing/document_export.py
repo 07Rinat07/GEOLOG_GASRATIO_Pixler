@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import os
 from pathlib import Path
 import stat
@@ -15,6 +15,7 @@ from PySide6.QtPrintSupport import QPrinter
 from PySide6.QtSvg import QSvgGenerator
 from PySide6.QtWidgets import QWidget
 
+from geoworkbench.services.localization import AppLanguage
 from geoworkbench.brand import APPLICATION_DISPLAY_NAME
 from geoworkbench.printing.document_renderer import (
     PrintDocumentContext,
@@ -60,7 +61,9 @@ def render_document_to_printer(
     *,
     context: PrintDocumentContext,
 ) -> int:
-    detached = _detached_tablet_source(widget)
+    if job.output_language is not None:
+        context = replace(context, language=job.output_language)
+    detached = _detached_tablet_source(widget, language=context.language)
     if detached is not None:
         try:
             return render_document_to_printer(
@@ -122,7 +125,9 @@ def export_document_pdf(
     context: PrintDocumentContext,
     overwrite: bool = False,
 ) -> PrintDocumentResult:
-    detached = _detached_tablet_source(widget)
+    if job.output_language is not None:
+        context = replace(context, language=job.output_language)
+    detached = _detached_tablet_source(widget, language=context.language)
     if detached is not None:
         try:
             return export_document_pdf(
@@ -238,7 +243,9 @@ def export_document_pages(
     context: PrintDocumentContext,
     overwrite: bool = False,
 ) -> PrintDocumentResult:
-    detached = _detached_tablet_source(widget)
+    if job.output_language is not None:
+        context = replace(context, language=job.output_language)
+    detached = _detached_tablet_source(widget, language=context.language)
     if detached is not None:
         try:
             return export_document_pages(
@@ -341,10 +348,10 @@ def _write_raster_page(widget, path, job, context, page, plan) -> None:
 def _write_svg_page(widget, path, job, context, page, plan) -> None:
     temporary = _temporary_path(path)
     painter = QPainter()
+    generator = QSvgGenerator()
     try:
         content_width, content_height = printable_content_dimensions(widget, job)
         size = job.page.page_pixel_size(content_width, content_height, 96)
-        generator = QSvgGenerator()
         generator.setFileName(str(temporary))
         generator.setSize(size)
         generator.setViewBox(QRect(0, 0, size.width(), size.height()))
@@ -368,8 +375,14 @@ def _write_svg_page(widget, path, job, context, page, plan) -> None:
         )
         if not painter.end():
             raise DocumentExportError("Не удалось завершить SVG renderer")
+        # QSvgGenerator owns a Windows file handle even after painter.end().
+        shiboken6.delete(generator)
         os.replace(temporary, path)
     except Exception:
+        if painter.isActive():
+            painter.end()
+        if shiboken6.isValid(generator):
+            shiboken6.delete(generator)
         temporary.unlink(missing_ok=True)
         raise
     finally:
@@ -402,15 +415,23 @@ def _unicode_preflight(
 ) -> None:
     if not job.strict_unicode:
         return
-    if job.included_track_ids is None or not hasattr(widget, "printable_tracks"):
+    if not hasattr(widget, "printable_tracks"):
         ensure_widget_printable_unicode(widget)
     else:
-        included = frozenset(job.included_track_ids)
+        included = None if job.included_track_ids is None else frozenset(job.included_track_ids)
         selected_texts: list[str] = []
         printable_tracks = getattr(widget, "printable_tracks")
         for rendered in printable_tracks():
-            if rendered.definition.track_id in included:
-                selected_texts.extend(collect_widget_text(rendered.widget))
+            if included is None or rendered.definition.track_id in included:
+                set_print_mode = getattr(rendered.widget, "set_print_mode", None)
+                previous_mode = bool(getattr(rendered.widget, "_print_mode", False))
+                if callable(set_print_mode):
+                    set_print_mode(True)
+                try:
+                    selected_texts.extend(collect_widget_text(rendered.widget))
+                finally:
+                    if callable(set_print_mode):
+                        set_print_mode(previous_mode)
         selected_report = preflight_texts(selected_texts)
         if not selected_report.ok:
             raise UnicodePrintError(selected_report.error_message())
@@ -419,16 +440,19 @@ def _unicode_preflight(
         raise UnicodePrintError(metadata.error_message())
 
 
-def _detached_tablet_source(widget: QWidget) -> QWidget | None:
+def _detached_tablet_source(widget: QWidget, *, language: AppLanguage | None = None) -> QWidget | None:
     """Return a hidden print clone so page rendering never mutates the live UI."""
 
     from geoworkbench.tablet.tablet_view import TabletView
+    from geoworkbench.visualization.curve_view import CurveView
 
-    if not isinstance(widget, TabletView):
+    if not isinstance(widget, (TabletView, CurveView)):
         return None
     if bool(widget.property("geoworkbench-print-clone")):
         return None
-    return widget.create_print_clone()
+    if isinstance(widget, CurveView) and (language is None or language == widget.localizer.language):
+        return None
+    return widget.create_print_clone(language=language)
 
 
 def _page_paths(destination: Path, count: int) -> tuple[Path, ...]:

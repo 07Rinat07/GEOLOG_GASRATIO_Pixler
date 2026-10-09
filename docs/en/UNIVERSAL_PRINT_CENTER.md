@@ -1,5 +1,7 @@
 # Print and Export Center
 
+In Print Center, Report language selects Русский / Қазақша / English independently of the interface and is saved per engineer and form. It applies to tablet and curve preview, printer, PDF, images, SVG and Passport. Legacy settings use the interface language. The working view and authored labels are preserved; user text is not automatically translated.
+
 The geological report for cuttings, stratigraphy, gas, calcimetry and LBA also provides Report language. RU/KK/EN applies to preview, PDF, Word and Excel, including saved authored translations. An open report uses fixed data snapshots; reopen it to include later project edits. Dialogs retain the interface language.
 
 The shared “Report language” selector chooses Русский / Қазақша / English independently of the interface for standard, OPUS and C1–C5 ramp reports. One selection serves preview, PDF and system printing; standard/OPUS also use it for DOCX, XLSX and the PDF Passport. Header lookup/storage use the selected language and retain the existing report-profile guard. Changing output language redraws the current result without recalculation; dialogs retain the interface language.

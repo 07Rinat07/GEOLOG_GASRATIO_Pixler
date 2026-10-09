@@ -4,7 +4,7 @@ import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import QEvent, QObject, Qt, Signal
 from PySide6.QtGui import QColor, QCursor, QMouseEvent, QPainter, QPen, QPixmap
-from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QApplication, QComboBox, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from geoworkbench.domain.models import CurveData, Dataset
 from geoworkbench.services.curve_editing import DrawPoint, interpolate_drawn_curve
@@ -221,6 +221,35 @@ class CurveView(QWidget):
             for curve_id in self._displayed_curve_ids
             if (curve := self._dataset.curves.get(curve_id)) is not None
         )
+
+    def create_print_clone(self, *, language: AppLanguage | None = None) -> CurveView:
+        """Translate print-only UI labels without changing the operator's view."""
+        clone = CurveView(language=language or self.localizer.language)
+        clone.setProperty("geoworkbench-print-clone", True)
+        clone.setAttribute(Qt.WidgetAttribute.WA_DontShowOnScreen, True)
+        clone.resize(max(1, self.width()), max(1, self.height()))
+        if self._dataset is not None:
+            mnemonics = [self._dataset.curves[curve_id].metadata.original_mnemonic for curve_id in self._displayed_curve_ids]
+            clone.show_dataset(self._dataset, mnemonics)
+            for curve_id, item in self._curve_items.items():
+                target = clone._curve_items[curve_id]
+                target.setPen(item.opts["pen"])
+                target.setSymbol(item.opts["symbol"])
+                target.setSymbolPen(item.opts["symbolPen"])
+                target.setSymbolBrush(item.opts["symbolBrush"])
+                target.setSymbolSize(item.opts["symbolSize"])
+            if self.selection.dataset_id == self._dataset.dataset_id and self.selection.interval is not None:
+                clone.selection.select(self._dataset, *self.selection.interval, self.selection.curve_ids)
+            if self._last_cursor_depth is not None:
+                clone.show_cursor_at_depth(self._last_cursor_depth, self._last_cursor_value)
+            clone.set_edit_mode(self._edit_mode)
+            clone._draw_points = list(self._draw_points)
+            clone._update_edit_preview()
+        clone.show()
+        QApplication.processEvents()
+        x_range, y_range = self._plot.viewRange()
+        clone._plot.setRange(xRange=x_range, yRange=y_range, padding=0)
+        return clone
 
     def clear(self) -> None:
         self._dataset = None

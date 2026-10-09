@@ -5471,7 +5471,7 @@ class TabletView(QWidget):
                 item.set_print_mode(self._annotation_print_mode)
         self._annotation_overlay.set_print_mode(self._annotation_print_mode)
 
-    def create_print_clone(self) -> TabletView:
+    def create_print_clone(self, *, language: AppLanguage | None = None) -> TabletView:
         """Create an off-screen copy used by preview, PDF and printer rendering.
 
         Printing changes the visible vertical range and temporarily resizes
@@ -5480,7 +5480,7 @@ class TabletView(QWidget):
         flashing during long jobs.
         """
 
-        clone = TabletView(language=self._localizer.language)
+        clone = TabletView(language=language or self._localizer.language)
         clone.setProperty("geoworkbench-print-clone", True)
         clone.setAttribute(Qt.WidgetAttribute.WA_DontShowOnScreen, True)
         clone.resize(max(1, self.width()), max(1, self.height()))

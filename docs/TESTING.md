@@ -1,5 +1,8 @@
 # Проверка качества и release gate
 
+`tests/test_print_center_output_language.py` covers 18 real tablet/curve export scenarios after project and preference reopen: all UI/output language pairs, PDF, QPrinter preview/print, PNG, SVG and Passport. Actual page counts and localized footers, UI/source invariants and six detached-copy scenarios are checked. `tests/test_print_output_language_preferences.py` covers 26 cases: engineer/form persistence, legacy and malformed language fallback, typed job/preferences validation and strict Unicode checks for selected printed columns with print-mode restoration. QPrinter uses PDF output; physical printer acceptance remains separate.
+
+
 `tests/test_interpretation_workspace_output_language.py` covers 18 production workspace cases after project save/reopen: standard/OPUS and all UI/output-language pairs. Actual PDF plus Passport, DOCX, XLSX, prepared system-print PDF and printer PDF exercise selected language, saved header/narrative fields and profile guards. All three language headers, source arrays/metadata and immutable reports are checked. Existing 18 ramp workspace cases use the same selector; dialogs retain UI language.
 
 `tests/test_gas_mixture_output_language.py` covers 144 actual PDF/QPrinter cases: RU/KK/EN, 72/300/600 DPI, chart/text and numeric/datetime/missing/vendor time axes, plus three known/unknown message cases. `tests/test_gas_mixture_workspace_language.py` covers 18 production workspace cases after project save/reopen: all UI/output language pairs and both ramp modes, real preview/PDF/system-print outputs, UI-language changes and mode switches. Complete translated warnings/headers, numeric values, footer, bounds and immutable source/audit are checked.

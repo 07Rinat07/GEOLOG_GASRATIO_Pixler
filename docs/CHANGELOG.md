@@ -6,6 +6,8 @@
 
 ## Unreleased
 
+- REPORT-I18N-01: Print Center сохраняет независимый RU/KK/EN для инженера и формы и применяет его к preview, принтеру, PDF, изображениям, SVG и Passport планшета/кривых. Рабочий вид и авторские подписи сохраняются. Unicode preflight проверяет печатаемые колонки; SVG освобождает файл перед атомарной заменой на Windows. Старые настройки используют язык UI.
+
 - Геологический отчёт: независимый язык RU/KK/EN для preview/PDF/DOCX/XLSX со снимками сохранённых переводов описаний, ЛБА и стратиграфии.
 
 - REPORT-I18N-01/PRINT-STYLE-01: общий независимый от UI selector обслуживает standard/ОПУС/C1–C5 preview, PDF/system print, DOCX/XLSX и PDF Passport. Реквизиты читаются и сохраняются по output-language key с существующей проверкой report profile; другие языковые шапки сохраняются. Диалоги остаются на языке UI, выбор перерисовывает готовый report без пересчёта. 18 production save/reopen scenarios проверяют реальные exports, языковые поля и source invariants; ramp regressions сохранены.
