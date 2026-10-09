@@ -1,5 +1,12 @@
 # Проверка качества и release gate
 
+`tests/test_masterlog_control_unicode.py` checks 30 actual RU/KK/EN PDF cases:
+document-control header/footer at 72/96/144/300/600 DPI. Font resolution receives
+full text before measurement/elision, including bounded compact footer metadata.
+Bold hierarchy, searchable text, painter state and the 72-DPI size/bounds baseline
+are checked. Nine A4/A3/roll exports after package reopen preserve form metadata,
+the selected output interval and source arrays. Existing control/default-font tests remain.
+
 `tests/test_ratio_reference_depth_keys.py` checks six actual RU/KK/EN monochrome
 PNG charts with colour/grayscale neutral profiles and nine vector PDFs at
 72/300/600 DPI. All six depth keys remain distinct; scatter and profile coordinates

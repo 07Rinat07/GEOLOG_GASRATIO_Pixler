@@ -1,5 +1,7 @@
 # Print and Export Center
 
+The automatic Masterlog document-control area and footer select the print font from each complete label before measuring and shortening it. Russian, Kazakh and English values retain the shared print font stack, physical sizes and placement; long metadata remains shortened only within bounded fields.
+
 Haworth/Pixler depth groups differ by filled marker shape and line pattern as well as colour. Both legends show matching samples so observations and profiles can be identified in monochrome print.
 
 Haworth/Pixler chart headings, scales, legends and explanatory text use the shared typography profile. Enlarged font sizes are fitted to measured field bounds, retaining complete labels and missing-data messages.

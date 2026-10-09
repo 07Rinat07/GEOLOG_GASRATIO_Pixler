@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- PRINT-STYLE-01: автоматическая зона реквизитов и подвал Masterlog выбирают общий Unicode font stack по фактическому полному тексту до измерения и сокращения. Сохранены размеры, жирный wordmark, геометрия и compact footer contract; RU/KK/EN PDF при 72–600 DPI и A4/A3/roll после reopen покрыты регрессиями.
 - PRINT-STYLE-01: depth groups диаграммы Haworth/Pixler различаются формой заполненного маркера и стилем линии, включая обе легенды. Цвета глубин и координаты измерений сохранены; Pixler profiles используют единый vector path и маркеры исходных ratios. RU/KK/EN grayscale PNG/vector PDF regressions проверяют все шесть keys, исходные координаты и восстановление painter brush/pen.
 - PRINT-STYLE-01: диаграмма Haworth/Pixler использует title/section/body/caption/footer typography общего профиля. Измеряемый fitting сохраняет полный текст внутри существующей геометрии; physical-point adapter сохраняет размеры при изменении DPI. RU/KK/EN PNG/PDF default/custom/max-size и пустые состояния покрыты регрессиями, измерения и исходные данные не меняются.
 - PRINT-STYLE-01: фон, текст, сетка и рамки корреляционной диаграммы Haworth/Pixler используют общую палитру visual profile. Цвета глубин, точки парных измерений, профили Pixler, геометрия и physical typography сохраняются. Реальные PNG/PDF RU/KK/EN с default/grayscale/custom palette покрыты регрессиями.

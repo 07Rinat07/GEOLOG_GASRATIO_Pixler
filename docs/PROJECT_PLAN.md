@@ -2,10 +2,10 @@
 # Единый план проекта
 
 План актуализирован 9 октября 2026 года. Проверенная база перед текущим инкрементом —
-`f62345e3` (PR #506). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
-приёмка интегрированы. Текущий PRINT-STYLE-01 slice добавляет monochrome depth keys
-корреляционной диаграммы Haworth/Pixler: filled marker shapes и matching line patterns.
-Цвета глубин, координаты измерений, physical DPI contract, шкалы и source data сохраняются.
+`f820e3bf` (PR #507). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
+приёмка интегрированы. Текущий PRINT-STYLE-01 slice выбирает Unicode font stack по полному
+фактическому тексту автоматической зоны реквизитов и подвала Masterlog до измерения/elision.
+Размеры, bold hierarchy, physical DPI contract, геометрия формы и source data сохраняются.
 WITS-NET-01 остаётся внешним условием: пользователь уточняет существующий VPN, доступа
 для настройки сейчас нет. Разработка остальных независимых задач продолжается.
 Статусы завершения
@@ -372,6 +372,15 @@ Document/painter/user-selected colors остаются данными докум
 закрытым наличием ранее интегрированного UI-ADAPT-01.
 
 ## PRINT-STYLE-01 — Report Visual System
+
+- [x] **2026-10-09 — Masterlog document-control Unicode:** автоматическая зона
+  реквизитов выбирает print font stack по полному brand/label/value text до elision;
+  подвал отдельно выбирает font по page label перед измерением ширины, wordmark и
+  compact metadata. Table point size, bold brand, searchable PDF text и layout geometry
+  сохраняются. 30 actual PDF cases покрывают RU/KK/EN × пять DPI × header/footer,
+  long values, painter state и 72-DPI baseline. Девять A4/A3/roll exports после
+  package reopen сохраняют реквизиты, выбранный интервал, форму и source arrays.
+  Merge требует полного exact-head Release gate; physical acceptance остаётся открытой.
 
 Tablet header/footer physical-spacing slice: обычная шапка и подвал печатного document
 renderer используют existing point-coordinate font adapter на QPdfWriter/QPrinter.
