@@ -1,5 +1,7 @@
 # Print and Export Center
 
+The geological report for cuttings, stratigraphy, gas, calcimetry and LBA also provides Report language. RU/KK/EN applies to preview, PDF, Word and Excel, including saved authored translations. An open report uses fixed data snapshots; reopen it to include later project edits. Dialogs retain the interface language.
+
 The shared “Report language” selector chooses Русский / Қазақша / English independently of the interface for standard, OPUS and C1–C5 ramp reports. One selection serves preview, PDF and system printing; standard/OPUS also use it for DOCX, XLSX and the PDF Passport. Header lookup/storage use the selected language and retain the existing report-profile guard. Changing output language redraws the current result without recalculation; dialogs retain the interface language.
 
 In C1–C5 ramp mode, the “Report language” field selects Русский / Қазақша / English independently of the interface. One selection applies to preview, PDF and system printing, including headings, warnings and built-in time-axis labels. Changing output language does not recalculate the current result. Custom axis names/messages and the original audit warnings remain unchanged.

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from html import escape
 from math import ceil, floor, isfinite
 import os
@@ -238,6 +238,73 @@ def build_interpretation_report(
         _build_meter_geology(entries, stratigraphy),
         stratigraphy,
     )
+
+
+def localize_interpretation_report(
+    report: InterpretationReport,
+    session: ProjectSession,
+    language: AppLanguage,
+) -> InterpretationReport:
+    """Derive authored text while sharing the already calculated numerical fields."""
+    well = session.current_well
+    if well is None:
+        raise ValueError("Сначала выберите скважину")
+    samples = {sample.sample_id: sample for sample in well.cuttings}
+    stratigraphy = _build_stratigraphy_snapshot(session, language=language)
+    localized_stratigraphy = {item.interval_id: item for item in stratigraphy}
+
+    def translated_stratigraphy(
+        items: tuple[GeologicalStratigraphyEntry, ...],
+    ) -> tuple[GeologicalStratigraphyEntry, ...]:
+        return tuple(localized_stratigraphy[item.interval_id] for item in items)
+
+    entries: list[AnalysisInterpretationEntry] = []
+    descriptions_by_interval: dict[tuple[float, float], list[str]] = {}
+    for entry in report.entries:
+        sample = samples[entry.sample_id]
+        description = localized_text(
+            sample.lba_description_i18n, language, legacy=sample.lba_description
+        )
+        observations = tuple(
+            (key, value) for key, value in entry.lba_observations if key != "description"
+        )
+        if description.strip():
+            observations += (("description", description),)
+        localized = replace(
+            entry,
+            rock_description=_rich_text_to_plain(
+                localized_text(sample.description_i18n, language, legacy=sample.description)
+            )
+            or None,
+            interpretation=localized_text(
+                sample.analysis_interpretation_i18n, language, legacy=sample.analysis_interpretation
+            ).strip()
+            or None,
+            lba_observations=observations,
+            stratigraphy=translated_stratigraphy(entry.stratigraphy),
+        )
+        entries.append(localized)
+        if localized.rock_description:
+            descriptions_by_interval.setdefault((entry.top_depth, entry.bottom_depth), []).append(
+                localized.rock_description
+            )
+    # Meter coverage, weighted composition and source intervals are shared; only
+    # authored descriptions and references to localized stratigraphy change.
+    meters = tuple(
+        replace(
+            meter,
+            rock_descriptions=tuple(
+                dict.fromkeys(
+                    description
+                    for interval in meter.sample_intervals
+                    for description in descriptions_by_interval.get(interval, ())
+                )
+            ),
+            stratigraphy=translated_stratigraphy(meter.stratigraphy),
+        )
+        for meter in report.meter_geology
+    )
+    return replace(report, entries=tuple(entries), meter_geology=meters, stratigraphy=stratigraphy)
 
 
 def _entry_from_sample(

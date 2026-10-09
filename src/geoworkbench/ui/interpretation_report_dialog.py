@@ -4,9 +4,12 @@ from pathlib import Path
 
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
+    QComboBox,
     QDialog,
     QDialogButtonBox,
     QFileDialog,
+    QFormLayout,
+    QLabel,
     QMessageBox,
     QPushButton,
     QSizePolicy,
@@ -21,6 +24,7 @@ from geoworkbench.printing.interpretation_report import (
     build_interpretation_report,
     export_interpretation_report_pdf,
     interpretation_report_html,
+    localize_interpretation_report,
 )
 from geoworkbench.printing.interpretation_report_office import (
     InterpretationReportOfficeError,
@@ -44,9 +48,39 @@ class InterpretationReportDialog(QDialog):
         self.session = session
         self.language = language
         self.localizer = Localizer.create(language)
+        # Freeze authored translations alongside the numerical snapshot so changing
+        # output language cannot read later edits from the live project.
         self.report = build_interpretation_report(session, language=language)
+        self._reports_by_language = {
+            output_language: (
+                self.report
+                if output_language == language
+                else localize_interpretation_report(self.report, session, output_language)
+            )
+            for output_language in AppLanguage
+        }
         self.setWindowTitle(self._t("interpretation_report.title"))
         layout = QVBoxLayout(self)
+        self.report_output_language = QComboBox()
+        self.report_output_language.setObjectName("geology-report-output-language")
+        for label, value in (
+            ("Русский", AppLanguage.RU),
+            ("Қазақша", AppLanguage.KK),
+            ("English", AppLanguage.EN),
+        ):
+            self.report_output_language.addItem(label, value)
+        self.report_output_language.setCurrentIndex(self.report_output_language.findData(language))
+        self.report_output_language_label = QLabel(
+            {
+                AppLanguage.RU: "Язык отчёта:",
+                AppLanguage.KK: "Есеп тілі:",
+                AppLanguage.EN: "Report language:",
+            }[language]
+        )
+        self.report_output_language_label.setBuddy(self.report_output_language)
+        language_form = QFormLayout()
+        language_form.addRow(self.report_output_language_label, self.report_output_language)
+        layout.addLayout(language_form)
         self.preview = QTextBrowser()
         self.preview.setObjectName("interpretation-report-preview")
         self.preview.setStyleSheet(
@@ -81,6 +115,7 @@ class InterpretationReportDialog(QDialog):
         self.preview.setLineWrapColumnOrWidth(1600)
         self.preview.setHtml(interpretation_report_html(self.report, language))
         layout.addWidget(self.preview)
+        self.report_output_language.currentIndexChanged.connect(self._apply_output_language)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.button(QDialogButtonBox.StandardButton.Close).setText(self._t("common.close"))
         self.export_button = QPushButton(self._t("interpretation_report.export"))
@@ -110,6 +145,17 @@ class InterpretationReportDialog(QDialog):
             preferred=QSize(1000, 700),
             minimum=QSize(560, 420),
         )
+
+    def _report_output_language(self) -> AppLanguage:
+        try:
+            return AppLanguage(self.report_output_language.currentData())
+        except (TypeError, ValueError):
+            return self.language
+
+    def _apply_output_language(self) -> None:
+        language = self._report_output_language()
+        self.report = self._reports_by_language[language]
+        self.preview.setHtml(interpretation_report_html(self.report, language))
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)
@@ -147,7 +193,7 @@ class InterpretationReportDialog(QDialog):
             exported = export_interpretation_report_pdf(
                 self.report,
                 target,
-                language=self.language,
+                language=self._report_output_language(),
                 overwrite=overwrite,
             )
         except (
@@ -214,7 +260,7 @@ class InterpretationReportDialog(QDialog):
             exported = exporter(
                 self.report,
                 target,
-                language=self.language,
+                language=self._report_output_language(),
                 overwrite=overwrite,
             )
         except (
@@ -227,4 +273,3 @@ class InterpretationReportDialog(QDialog):
             return
         message = self._t("interpretation_report.exported", name=exported.name)
         QMessageBox.information(self, self._t("interpretation_report.title"), message)
-

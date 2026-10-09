@@ -1547,3 +1547,5 @@ contract tests require both nodes exactly once, retain all assertions and reject
 Masterlog document-control text explicitly resolves the common Unicode print-family stack,
 independently of the UI default font. Regular/bold font regressions and RU/KK/EN production
 PDFs after a UI-font change require complete document numbers, approvals, date and interval.
+
+`tests/test_geology_report_output_language.py` проверяет 9 UI/output-language пар геологического диалога после save/reopen: реальные PDF/DOCX/XLSX, authored translations, Unicode, immutable snapshots, неизменные gas/calcimetry values и source arrays; также cancel/error на RU/KK/EN.

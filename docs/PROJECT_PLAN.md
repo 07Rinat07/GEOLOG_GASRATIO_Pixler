@@ -2,10 +2,10 @@
 # Единый план проекта
 
 План актуализирован 10 октября 2026 года. Проверенная база перед текущим инкрементом —
-`c5653e36` (PR #521). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
-приёмка интегрированы. Текущий PRINT-STYLE-01/REPORT-I18N-01 пакет объединяет output language интерпретационного
-workspace: standard/ОПУС/C1–C5 preview, PDF/system print, DOCX/XLSX, языковые шапки и PDF Passport.
-UI language диалогов сохраняется; выбор языка не пересчитывает report и не меняет source data.
+`1ec7b154` (PR #522). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
+приёмка интегрированы. Текущий REPORT-I18N-01 пакет объединяет язык геологического отчёта:
+шлам, стратиграфия, газ, кальциметрия и ЛБА используют выбранный RU/KK/EN в preview/PDF/DOCX/XLSX.
+Снимки авторских переводов фиксируются при открытии; язык диалогов и исходные данные сохраняются.
 WITS-NET-01 остаётся внешним условием: пользователь уточняет существующий VPN, доступа
 для настройки сейчас нет. Разработка остальных независимых задач продолжается.
 Статусы завершения
@@ -379,6 +379,20 @@ Document/painter/user-selected colors остаются данными докум
 закрытым наличием ранее интегрированного UI-ADAPT-01.
 
 ## PRINT-STYLE-01 — Report Visual System
+
+- [x] **2026-10-10 — geology report output-language package:** отдельный диалог
+  геологического отчёта предлагает Русский/Қазақша/English независимо от UI language.
+  Численный snapshot строится один раз; три immutable views разделяют численные поля
+  и сохраняют authored rock/LBA/analysis
+  descriptions и stratigraphy names/descriptions. Выбор использует готовый snapshot,
+  не читает поздние изменения проекта и согласует preview, PDF, DOCX и XLSX.
+  Численные результаты и source arrays не меняются; file dialogs, cancel и errors
+  сохраняют язык UI. Девять production UI/output pairs после save/reopen используют
+  реальные PDF/Word/Excel с Unicode и escaped rich text; отдельные cancel/error cases
+  покрывают три UI languages. Счётчики подтверждают один gas-index/meter build; шесть
+  projection/full-build cases включают пробы с одинаковыми границами. Existing report tests сохраняются. Схемы не меняются.
+  Merge требует полного local suite, exact-head Release gate и review. Остальные
+  report kinds, Print Center и physical acceptance остаются открытыми.
 
 - [x] **2026-10-10 — interpretation unified output-language package:** общий
   Русский/Қазақша/English selector обслуживает standard, ОПУС и C1–C5.

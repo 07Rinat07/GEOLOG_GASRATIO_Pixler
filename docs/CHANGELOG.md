@@ -6,6 +6,8 @@
 
 ## Unreleased
 
+- Геологический отчёт: независимый язык RU/KK/EN для preview/PDF/DOCX/XLSX со снимками сохранённых переводов описаний, ЛБА и стратиграфии.
+
 - REPORT-I18N-01/PRINT-STYLE-01: общий независимый от UI selector обслуживает standard/ОПУС/C1–C5 preview, PDF/system print, DOCX/XLSX и PDF Passport. Реквизиты читаются и сохраняются по output-language key с существующей проверкой report profile; другие языковые шапки сохраняются. Диалоги остаются на языке UI, выбор перерисовывает готовый report без пересчёта. 18 production save/reopen scenarios проверяют реальные exports, языковые поля и source invariants; ramp regressions сохранены.
 
 - REPORT-I18N-01/PRINT-STYLE-01: единый языковой пакет разгонки C1–C5 добавляет независимый от UI RU/KK/EN selector для preview/PDF/system print; component heading, quality warnings и built-in time-axis labels локализованы. Выбор перерисовывает текущий результат без пересчёта. Canonical audit strings, unknown client text, vendor axes и числовые результаты сохраняются. 144 actual exports и 18 production workspace cases после save/reopen проверяют полный output и все пары языков.
