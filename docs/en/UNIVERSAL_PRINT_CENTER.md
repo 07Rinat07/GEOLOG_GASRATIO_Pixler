@@ -1,5 +1,7 @@
 # Print and Export Center
 
+Standard and OPUS interpretation PDFs use the shared profile for titles, page/range/scale subtitles, empty states and marker codes. Complete text fits existing areas with stable physical sizing across DPI; source values and marker positions remain unchanged.
+
 The interpretation report preview uses one profile for headings, scales, curve legends, empty geology tracks, marker codes, backgrounds, grids and frames. Enlarged fonts fit while retaining complete text; scale values and semantic curve, geology and fluid colours remain unchanged.
 
 The interpretation preview fluid legend uses the shared caption font selected for each complete localized label. Measured fitting retains full phase names; marker codes, shapes, colours and positions remain unchanged.

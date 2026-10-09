@@ -38,6 +38,15 @@ def test_real_chart_title_axes_and_legends_retain_physical_sizes_and_values(
     profile = replace(profile, typography=replace(profile.typography, table_pt=9.0, caption_pt=8.0))
     for module in (standard, enhanced, legend_layout):
         monkeypatch.setattr(module, "modern_oilfield_report_profile", lambda: profile)
+    title_requests = []
+    original_text = renderer.paint_fitted_point_text
+
+    def capture_text(painter, rect, text, size, color, flags, **kwargs):
+        if text == standard._labels(language)["title"]:
+            title_requests.append(size)
+        return original_text(painter, rect, text, size, color, flags, **kwargs)
+
+    monkeypatch.setattr(renderer, "paint_fitted_point_text", capture_text)
     dataset = _dataset()
     if landscape:
         dataset.depth -= 7000.0
@@ -74,7 +83,8 @@ def test_real_chart_title_axes_and_legends_retain_physical_sizes_and_values(
                            draw["width"] == pytest.approx(0.7, abs=0.03) and
                            not draw["dashes"].startswith("[]") for draw in drawings)
             titles = [span for span in spans if span["text"] == title]
-            assert titles and all(span["size"] == pytest.approx(15, abs=0.08) for span in titles)
+            assert titles and all(0 < span["size"] <= typography.title_pt + 0.08 for span in titles)
+            assert all(span["bbox"][3] - span["bbox"][1] <= 25.3 for span in titles)
             percentages = [span for span in spans if span["text"] in ("25", "75")]
             assert percentages and all(span["size"] == pytest.approx(typography.caption_pt, abs=0.08)
                                        for span in percentages)
@@ -87,6 +97,7 @@ def test_real_chart_title_axes_and_legends_retain_physical_sizes_and_values(
             legend = [span for span in spans if "p5=" in span["text"]]
             assert legend and all(span["size"] == pytest.approx(typography.caption_pt, abs=0.08) for span in legend)
         assert str(int(dataset.depth[0])) in document[0].get_text()
+    assert title_requests and all(size == typography.title_pt for size in title_requests)
     assert np.array_equal(dataset.depth, before.depth)
     for identifier, curve in dataset.curves.items():
         assert np.array_equal(curve.values, before.curves[identifier].values)
@@ -118,6 +129,6 @@ def test_candidate_code_keeps_physical_size_and_semantic_identity(
         painter.end()
     with fitz.open(output) as document:
         codes = [span for span in _spans(document[0]) if span["text"] == "G"]
-        assert codes and all(span["size"] == pytest.approx(5.0 if renderer is standard else 6.0,
+        assert codes and all(span["size"] == pytest.approx(round(modern_oilfield_report_profile().typography.caption_pt),
                                                          abs=0.08) for span in codes)
     assert candidate == before

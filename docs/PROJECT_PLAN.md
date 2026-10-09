@@ -2,9 +2,9 @@
 # Единый план проекта
 
 План актуализирован 9 октября 2026 года. Проверенная база перед текущим инкрементом —
-`559c2c4c` (PR #514). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
-приёмка интегрированы. Текущий PRINT-STYLE-01 пакет завершает renderer-owned typography
-и neutral palette interpretation preview: panels, ratio scales, geology empty states и badges.
+`96214b10` (PR #515). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
+приёмка интегрированы. Текущий PRINT-STYLE-01 пакет сводит оставшиеся title/subtitle,
+empty-state и candidate-code fonts обоих interpretation PDF adapters к общему профилю.
 Registry priority, event codes/depths, существующий device font contract и source data сохраняются.
 WITS-NET-01 остаётся внешним условием: пользователь уточняет существующий VPN, доступа
 для настройки сейчас нет. Разработка остальных независимых задач продолжается.
@@ -379,6 +379,17 @@ Document/painter/user-selected colors остаются данными докум
 закрытым наличием ранее интегрированного UI-ADAPT-01.
 
 ## PRINT-STYLE-01 — Report Visual System
+
+- [x] **2026-10-09 — interpretation PDF fitted typography package:** standard и OPUS
+  используют title/subtitle/body/caption roles для заголовка, page/range/scale subtitle,
+  пустых панелей и candidate codes. Standard depth heading использует caption role.
+  Shared bounded fitting выбирает Unicode font по полному тексту, компенсирует paged DPI
+  и восстанавливает painter state; прежние rects/pagination сохраняются. 180 actual PDF
+  cases покрывают RU/KK/EN × пять DPI × default/custom/large × четыре text roles.
+  18 production PDFs после reopen и 18 empty/code adapter cases проверяют exact role
+  requests, searchable text и source invariants. Прежние fixed-size assertions обновлены
+  под intentional profile mapping с сохранением Qt quantization и physical-DPI checks.
+  Merge требует exact-head Release gate; PRINT-STYLE-01 и physical acceptance остаются открытыми.
 
 - [x] **2026-10-09 — unified interpretation preview profile package:** оставшиеся
   panel/ratio/geology headings, curve legends, numeric scale labels, empty states и
