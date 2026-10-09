@@ -1,9 +1,12 @@
 # История изменений
 
+
 Здесь фиксируются только крупные продуктовые изменения. Подробная история отдельных исправлений
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+
+- PRINT-STYLE-01: Разгонка C1–C5: HTML, PDF и системная печать используют общие реквизиты и paginator, повторяемый локализованный подвал и profile thin/strong rules. Полные значения, пустая дата, расчёты, component dash keys и исходные массивы сохраняются; добавлена многостраничная PDF/QPrinter приёмка RU/KK/EN при 72–600 DPI.
 
 - PRINT-STYLE-01: единый Masterlog rules package подключает thin/strong weights к геологическим колонкам, описаниям и swatch frames; inspection callouts используют critical/page/text palette с прежним alpha. Смысловые цвета пород, кальциметрии и интенсивности ЛБА сохраняются. 495 actual PDF cases, 27 production reopen exports и девять saved override cases проверяют physical DPI, геометрию и source invariants.
 

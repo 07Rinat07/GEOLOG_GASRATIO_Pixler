@@ -23,14 +23,12 @@ def _normalized(text: str) -> str:
 
 def _page_body_text(page: fitz.Page) -> str:
     blocks = [block for block in page.get_text('dict')['blocks'] if 'lines' in block]
-    footer = blocks[-1]
-    footer_text = ''.join(span['text'] for line in footer['lines'] for span in line['spans'])
-    # QTextDocument.print_ appends a separate page number at the lower right.
-    # Verify its identity and location before excluding it from reading order.
-    assert footer_text.strip() == str(page.number + 1)
-    assert footer['bbox'][0] > page.rect.width * 0.8
-    assert footer['bbox'][1] > page.rect.height * 0.8
-    return '\n'.join(span['text'] for block in blocks[:-1]
+    footer_top = page.rect.height - 54
+    footer = [block for block in blocks if block['bbox'][1] >= footer_top]
+    footer_text = ''.join(span['text'] for block in footer for line in block['lines'] for span in line['spans'])
+    assert 'DIGITAL GEOLOG' in footer_text
+    assert any(f'{label} {page.number + 1}' in footer_text for label in ('Страница', 'Бет', 'Page'))
+    return '\n'.join(span['text'] for block in blocks if block not in footer
                      for line in block['lines'] for span in line['spans'])
 
 
@@ -39,7 +37,8 @@ def test_pdf_body_extraction_keeps_numbers_in_cross_page_warning() -> None:
         for index, body in enumerate(('Warning: C2 has 2 samples;', 'all 3 values are retained.')):
             page = pdf.new_page(width=842, height=595)
             page.insert_text((90, 100), body)
-            page.insert_text((746, 519), str(index + 1))
+            page.insert_text((40, 560), 'DIGITAL GEOLOG')
+            page.insert_text((746, 560), f'Page {index + 1}')
         text = _normalized('\n'.join(_page_body_text(page) for page in pdf))
         assert text == _normalized('Warning: C2 has 2 samples; all 3 values are retained.')
 
@@ -134,14 +133,23 @@ def test_ramp_chart_neutral_palette_keeps_all_five_component_lines(
     for colour in (profile.palette.page, profile.palette.text, profile.palette.text_secondary):
         rgb = tuple(int(colour[index:index + 2], 16) for index in (1, 3, 5))
         assert np.count_nonzero(np.all(pixels == rgb, axis=2)) > 10
-    # An antialiased one-pixel rule at an integer coordinate has half coverage.
-    # Check its known position against the palette/page blend, not a solid fill.
-    border = np.array([int(profile.palette.border[index:index + 2], 16) for index in (1, 3, 5)])
-    background = np.array([int(profile.palette.page[index:index + 2], 16) for index in (1, 3, 5)])
-    np.testing.assert_allclose(pixels[125, 354], (border + background) / 2, atol=1)
-    strong = np.array([int(profile.palette.border_strong[index:index + 2], 16) for index in (1, 3, 5)])
-    # The outer grid rule covers half of the two-pixel plot frame as well.
-    np.testing.assert_allclose(pixels[125, 89], (border + strong) / 2, atol=1)
+    # Fractional profile rule widths change antialias coverage. Check the actual
+    # raster against independently painted frame/grid samples at the same DPI.
+    from PySide6.QtCore import QLineF, QRectF
+    from PySide6.QtGui import QColor, QImage, QPainter, QPen
+    reference = QImage(1500, 650, QImage.Format.Format_ARGB32_Premultiplied)
+    reference.fill(QColor(profile.palette.page))
+    painter = QPainter(reference)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+    painter.setPen(QPen(QColor(profile.palette.border_strong), profile.layout.strong_rule_pt * reference.logicalDpiY() / 72))
+    painter.drawRect(QRectF(90, 70, 1320, 480))
+    painter.setPen(QPen(QColor(profile.palette.border), profile.layout.thin_rule_pt * reference.logicalDpiY() / 72))
+    for x in (90, 354):
+        painter.drawLine(QLineF(x, 70, x, 550))
+    painter.end()
+    for x in (89, 354):
+        expected = reference.pixelColor(x, 125)
+        np.testing.assert_array_equal(pixels[125, x], (expected.red(), expected.green(), expected.blue()))
     plot_pixels = pixels[72:548, 92:1408]
     for colour in ramp._COLORS.values():
         rgb = tuple(int(colour[index:index + 2], 16) for index in (1, 3, 5))
@@ -159,9 +167,10 @@ def test_ramp_adapter_failure_preserves_existing_pdf(
     def fail(document: object) -> None:
         raise RuntimeError('layout failure')
     if phase == 'font':
-        monkeypatch.setattr(ramp, 'apply_explicit_rich_text_font_sizes', fail)
+        from geoworkbench.printing import hydrocarbon_interpretation_pdf_text as pdf_text
+        monkeypatch.setattr(pdf_text, 'apply_explicit_rich_text_font_sizes', fail)
     else:
-        monkeypatch.setattr(ramp.QTextDocument, 'print_', lambda document, writer: fail(document))
+        monkeypatch.setattr(ramp, 'render_report_html', lambda *args, **kwargs: fail(args[0]))
     with pytest.raises(ramp.GasMixtureRampReportError):
         ramp.export_gas_mixture_ramp_pdf(report, target, include_chart=False, overwrite=True)
     assert target.read_bytes() == b'original client file'

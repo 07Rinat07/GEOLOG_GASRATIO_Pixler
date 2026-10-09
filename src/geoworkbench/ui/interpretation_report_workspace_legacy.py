@@ -39,6 +39,7 @@ from geoworkbench.printing.gas_mixture_ramp_report import (
     build_gas_mixture_ramp_report,
     export_gas_mixture_ramp_pdf,
     gas_mixture_ramp_html,
+    render_gas_mixture_ramp_report,
 )
 from geoworkbench.project.interpretation_calculation_controller import (
     InterpretationCalculationController,
@@ -574,16 +575,17 @@ class InterpretationReportWorkspace(QWidget):
         dialog.setWindowTitle(self.tab_title(self.language))
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
+        if isinstance(report, GasMixtureRampReport):
+            try:
+                render_gas_mixture_ramp_report(
+                    printer, report, language=self.language,
+                    include_chart=self._report_mode() == "mixture_chart",
+                )
+            except (RuntimeError, GasMixtureRampReportError) as exc:
+                self._show_export_error(exc)
+            return
         document = QTextDocument()
-        document.setHtml(
-            gas_mixture_ramp_html(
-                report,
-                self.language,
-                include_chart=self._report_mode() == "mixture_chart",
-            )
-            if isinstance(report, GasMixtureRampReport)
-            else self._hydrocarbon_print_html(report)
-        )
+        document.setHtml(self._hydrocarbon_print_html(report))
         document.print_(printer)
 
     def _choose_target(self, suffix: str, file_filter: str) -> Path | None:

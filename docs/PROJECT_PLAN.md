@@ -2,10 +2,10 @@
 # Единый план проекта
 
 План актуализирован 9 октября 2026 года. Проверенная база перед текущим инкрементом —
-`05839308` (PR #518). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
-приёмка интегрированы. Текущий PRINT-STYLE-01 пакет объединяет оставшиеся Masterlog rules:
-geology/description borders, lithotype swatch frames и inspection callout palette/rule hierarchy.
-Геометрия, смысловые геологические цвета, сохранённые стили формы и source data сохраняются.
+`24badb5f` (PR #519). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
+приёмка интегрированы. Текущий PRINT-STYLE-01 пакет объединяет оформление разгонки C1–C5:
+shared document-control для HTML/PDF/system print, повторяемый локализованный подвал,
+общий paginator и physical profile rule hierarchy. Расчёты, source arrays и component keys сохраняются.
 WITS-NET-01 остаётся внешним условием: пользователь уточняет существующий VPN, доступа
 для настройки сейчас нет. Разработка остальных независимых задач продолжается.
 Статусы завершения
@@ -379,6 +379,20 @@ Document/painter/user-selected colors остаются данными докум
 закрытым наличием ранее интегрированного UI-ADAPT-01.
 
 ## PRINT-STYLE-01 — Report Visual System
+
+- [x] **2026-10-09 — C1–C5 ramp controlled print package:** HTML/PDF/system print
+  используют общий localized document-control snapshot; project/well/dataset берутся
+  из immutable расчёта, explicit identity предоставляет только реквизиты представления.
+  Пустая дата не получает generated fallback. Полные значения и согласования остаются
+  в основной зоне; PDF/system print повторяют bounded metadata, wordmark и локальный
+  page label с shared footer typography/palette. Общий paginator измеряет и рисует
+  одним canvas profile. HTML table/result borders и raster frame/grid используют
+  thin/strong rules; component widths, dash keys, coordinates и calculations сохраняются.
+  108 actual multi-page PDF/QPrinter cases RU/KK/EN, 72/300/600 DPI, chart/text и
+  default/full/long identity проверяют полные таблицы/реквизиты, footer/bounds и source;
+  шесть raster cases проверяют правила и сохранённые component keys. Existing regressions
+  и atomic failure сохранены. Merge требует полного local suite и exact-head Release gate;
+  PRINT-STYLE-01 и physical acceptance остаются открытыми.
 
 - [x] **2026-10-09 — unified Masterlog rules package:** geology/description interval borders
   используют thin rule, swatch outer/missing frames — strong rule; inspection anchor/frame

@@ -7,7 +7,7 @@ from PySide6.QtCore import QRectF
 from PySide6.QtGui import QImage, QTextDocument
 
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_canvas import PageCanvas
-from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
+from geoworkbench.printing.report_visual_system import ReportVisualProfile, modern_oilfield_report_profile
 from geoworkbench.printing.unicode_support import print_font
 from geoworkbench.printing.report_rich_text_fonts import apply_explicit_rich_text_font_sizes
 
@@ -168,6 +168,7 @@ def _render_table(
                 style,
                 candidate,
                 canvas.content_rect.width(),
+                visual=canvas.visual,
                 table=True,
             )
             if height <= available + 0.5:
@@ -186,6 +187,7 @@ def _render_table(
                 style,
                 candidate,
                 canvas.content_rect.width(),
+                visual=canvas.visual,
                 table=True,
                 compact_table=True,
             )
@@ -251,6 +253,7 @@ def _render_notice(
                 style,
                 candidate,
                 canvas.content_rect.width(),
+                visual=canvas.visual,
             )
             if height <= available + 0.5:
                 best_end = end
@@ -295,6 +298,7 @@ def _render_atomic_html(
         style,
         fragment,
         canvas.content_rect.width(),
+        visual=canvas.visual,
         table=table,
         compact_table=compact_table,
     )
@@ -328,6 +332,7 @@ def _draw_html(
         style,
         fragment,
         canvas.content_rect.width(),
+        visual=canvas.visual,
         table=table,
     )
     _draw_document(canvas, document, max(height, measured))
@@ -421,8 +426,9 @@ def _html_document(
     *,
     table: bool = False,
     compact_table: bool = False,
+    visual: ReportVisualProfile | None = None,
 ) -> tuple[QTextDocument, float]:
-    visual = modern_oilfield_report_profile()
+    visual = visual or modern_oilfield_report_profile()
     typography, palette = visual.typography, visual.palette
     overrides = f"""
 html, body {{ background: {palette.page}; color: {palette.text}; }}
