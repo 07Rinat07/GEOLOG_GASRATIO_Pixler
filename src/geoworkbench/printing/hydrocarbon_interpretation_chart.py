@@ -7,7 +7,7 @@ from geoworkbench.printing.gas_ratio_reference import (
 )
 
 from geoworkbench.printing.gas_context_track import (
-    context_segments, context_heading, context_legend_rows, context_legend_height, paint_context_track, paint_context_legend,
+    context_segments, context_track_heading_height, context_legend_rows, context_legend_height, paint_context_track, paint_context_legend,
 )
 
 from html import escape
@@ -298,7 +298,7 @@ def hydrocarbon_interpretation_chart_data_uri(
         for name, _curves in panels
     ))
     if context:
-        header_height = max(header_height, 40.0 + track_heading_height(context_heading(language), 96.0, 14.0, legend_device))
+        header_height = max(header_height, 40.0 + context_track_heading_height(language, 96.0, legend_device, scale=2.0))
     legend_offset = max(0.0, preview_legend_height) + header_height - 62.0
     image = QImage(
         2_000, 1_280 + int(np.ceil(legend_offset + context_legend_size)),

@@ -2,9 +2,9 @@
 # Единый план проекта
 
 План актуализирован 9 октября 2026 года. Проверенная база перед текущим инкрементом —
-`4c0af325` (PR #509). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
-приёмка интегрированы. Текущий PRINT-STYLE-01 slice сводит легенду газового контекста
-к section/caption typography общего профиля и измеряет header для layout/pagination.
+`a6646a9b` (PR #510). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
+приёмка интегрированы. Текущий PRINT-STYLE-01 slice подключает заголовок дорожки газового
+контекста к table typography и общему измерению высоты в standard, OPUS и preview.
 Registry priority, event codes/depths, существующий device font contract и source data сохраняются.
 WITS-NET-01 остаётся внешним условием: пользователь уточняет существующий VPN, доступа
 для настройки сейчас нет. Разработка остальных независимых задач продолжается.
@@ -36,6 +36,13 @@ WITS-NET-01 остаётся внешним условием: пользоват
 Результат CI относится к указанному run/head и не переносится автоматически на следующие изменения.
 
 ## Правила ведения разработки
+
+- [x] **Gas-context track heading typography slice:** общий `table_pt` и один helper
+  измеряют и рисуют полный RU/KK/EN заголовок. 30 реальных PDF при 72–600 DPI и
+  12 raster DPI/profile сценариев проверяют переносы, bounds, размеры и painter state.
+  Registry, event codes/depths и source data сохраняются; production reopen остаётся
+  покрыт существующими regression tests. Интеграция требует exact-head Release gate;
+  весь PRINT-STYLE-01 и физическая приёмка остаются открытыми.
 
 1. Перед материальным изменением проверяются этот план, архитектурные границы и существующие
    regression tests. Если меняется контракт, приоритет или риск — план обновляется в том же

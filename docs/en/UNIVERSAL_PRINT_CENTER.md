@@ -1,5 +1,7 @@
 # Print and Export Center
 
+The gas-context track heading uses the shared table font size. Standard, OPUS and preview reserve space using the same font that draws the complete wrapped heading; event codes and depths retain their existing presentation.
+
 The gas-context legend uses the shared typography profile for its heading and event rows. Enlarged headings are measured for preview layout and PDF pagination; complete identifiers, depths and localized event names are retained.
 
 The simple Masterlog footer and the document-control footer use the shared print profile's footer font size. The document-control header retains table typography; page numbers, branding and compact metadata occupy their existing reserved areas.

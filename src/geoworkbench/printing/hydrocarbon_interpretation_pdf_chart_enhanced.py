@@ -7,7 +7,7 @@ from geoworkbench.printing.gas_ratio_reference import (
 )
 
 from geoworkbench.printing.gas_context_track import (
-    context_segments, context_heading, paint_context_track, render_context_legend_pages,
+    context_segments, context_track_heading_height, paint_context_track, render_context_legend_pages,
 )
 
 from math import floor, isclose
@@ -190,8 +190,6 @@ def render_chart_pages(
         (_geology_track_labels(language)[name], rect.width(), typography.caption_pt, 20.0)
         for name, rect in zip(geology_tracks, provisional.geology_rects, strict=True)
     )
-    if provisional.context_rect is not None:
-        headings.append((context_heading(language), provisional.context_rect.width(), 7.0, 20.0))
     headings.append((
         base_chart._labels(language)["depth"] + (f", {report.depth_unit}" if report.depth_unit else ""),
         provisional.left_axis_rect.width(), typography.caption_pt, 20.0,
@@ -201,6 +199,10 @@ def render_chart_pages(
                                       point_coordinates=True)
         for text, width, size, offset in headings
     ))
+    if provisional.context_rect is not None:
+        header_height = max(header_height, 20.0 + context_track_heading_height(
+            language, provisional.context_rect.width(), canvas.painter.device(),
+        ))
     note_height = interpretation_note_height(base_chart._labels(language)["note"], canvas.content_rect.width(), canvas.painter.device())
     marker_specs = fluid_marker_legend_specs([item.fluid_hypothesis for item in report.candidates])
     if marker_specs:
