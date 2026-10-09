@@ -15,6 +15,25 @@ from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.localization import AppLanguage
 
 
+@pytest.fixture
+def recording_painter(qapp):
+    devices = []
+    painters = []
+
+    def create():
+        image = QImage(600, 150, QImage.Format.Format_ARGB32)
+        image.fill('white')
+        painter = QPainter(image)
+        painter.scale(10, 10)
+        devices.append(image)
+        painters.append(painter)
+        return MagicMock(wraps=painter)
+
+    yield create
+    for painter in painters:
+        painter.end()
+
+
 def _dataset():
     dataset = Dataset('log', 'Log', DatasetKind.GTI, DepthDomain.MD, np.array([100., 101., 102.]))
     curve = dataset.upsert_curve('VENDOR', np.array([1., 2., 3.]), unit='ppm')
@@ -24,12 +43,12 @@ def _dataset():
 @pytest.mark.parametrize('line_style,pen_style', [('solid', Qt.PenStyle.SolidLine), ('dash', Qt.PenStyle.DashLine),
                                                  ('dot', Qt.PenStyle.DotLine), ('dash_dot', Qt.PenStyle.DashDotLine)])
 @pytest.mark.parametrize('line_width', [0.8, 10.0])
-def test_legend_line_key_matches_actual_curve_style_and_bound_unit(qapp, line_style, pen_style, line_width):
+def test_legend_line_key_matches_actual_curve_style_and_bound_unit(qapp, recording_painter, line_style, pen_style, line_width):
     dataset, bindings = _dataset()
     column = MasterlogColumnTemplate('gas', 'Gas', 'curves', 50, ['TG'], show_legend=True,
                                     curve_styles={'TG': MasterlogCurveStyle('#111111', line_width, line_style)})
     before = deepcopy(column)
-    painter = MagicMock()
+    painter = recording_painter()
     renderer._paint_column_heading(painter, QRectF(0, 0, 50, 12), column, dataset, bindings)
     painter.drawLine.assert_called_once()
     key_pen = next(c.args[0] for c in painter.setPen.call_args_list if hasattr(c.args[0], 'widthF'))
@@ -50,7 +69,7 @@ def test_legend_line_key_matches_actual_curve_style_and_bound_unit(qapp, line_st
     assert column == before
 
 
-def test_point_key_and_curve_share_the_same_source_identifiers(qapp, monkeypatch):
+def test_point_key_and_curve_share_the_same_source_identifiers(qapp, monkeypatch, recording_painter):
     dataset, bindings = _dataset()
     identifiers = []
     def point_presentation(values):
@@ -58,7 +77,7 @@ def test_point_key_and_curve_share_the_same_source_identifiers(qapp, monkeypatch
         return True
     monkeypatch.setattr(renderer, 'uses_gas_point_presentation', point_presentation)
     column = MasterlogColumnTemplate('gas', 'Gas', 'curves', 50, ['TG'], show_legend=True)
-    painter = MagicMock()
+    painter = recording_painter()
     renderer._paint_column_heading(painter, QRectF(0, 0, 50, 12), column, dataset, bindings)
     assert painter.drawEllipse.call_count == 3
     painter.drawLine.assert_not_called()
@@ -73,10 +92,10 @@ def test_point_key_and_curve_share_the_same_source_identifiers(qapp, monkeypatch
 
 
 @pytest.mark.parametrize('width', [1.0, 20.0, 100.0])
-def test_missing_curve_has_no_fabricated_key_or_unit_and_narrow_cells_are_bounded(qapp, width):
+def test_missing_curve_has_no_fabricated_key_or_unit_and_narrow_cells_are_bounded(qapp, recording_painter, width):
     dataset, bindings = _dataset()
     column = MasterlogColumnTemplate('gas', 'Gas', 'curves', width, ['TG', 'MISSING'], show_legend=True)
-    painter = MagicMock()
+    painter = recording_painter()
     renderer._paint_column_heading(painter, QRectF(0, 0, width, 12), column, dataset, bindings)
     painter.drawLine.assert_called_once()
     for call in painter.drawText.call_args_list:

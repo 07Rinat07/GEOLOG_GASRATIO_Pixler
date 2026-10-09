@@ -104,7 +104,7 @@ def test_geology_text_pdf_resolves_actual_unicode_and_keeps_dpi_baseline(
     np.testing.assert_array_equal(session.current_dataset.curve_by_mnemonic("C1").values, source_values)
     assert len(resolved) == 2
     for size, text, families in resolved:
-        assert size == (6.0 if kind == "interpretation" else 6.5)
+        assert size == renderer.modern_oilfield_report_profile().typography.body_pt
         assert families == list(resolve_unicode_font_profile(text).families)
         assert "<p" not in text
     assert [span["text"] for span in spans_by_dpi[0]] == [span["text"] for span in spans_by_dpi[1]]

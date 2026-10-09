@@ -1,5 +1,7 @@
 # Проверка качества и release gate
 
+`tests/test_masterlog_shared_typography.py` covers 360 real RU/KK/EN PDFs across five DPI, default/custom/large profiles and eight Masterlog paths, plus 18 A4/A3/roll production exports after project reopen. Exact table/caption/body role requests, complete searchable text, physical bounds and the 72-DPI baseline are checked. Existing Unicode and explicit-size tests retain source, orientation and saved-style contracts. Curve-legend recording fixtures wrap a real QPainter so bounded fitting receives actual Qt measurements; all key geometry, styles and missing-curve assertions are retained.
+
 `tests/test_interpretation_pdf_fitted_typography.py` covers 216 cases: 180 actual
 RU/KK/EN PDFs at 72/96/144/300/600 DPI with default/custom/large title/subtitle/body/code
 roles, 18 production standard/OPUS PDFs after project reopen, and 18 empty-panel/code

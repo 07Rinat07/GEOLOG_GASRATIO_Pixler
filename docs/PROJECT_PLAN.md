@@ -2,10 +2,10 @@
 # Единый план проекта
 
 План актуализирован 9 октября 2026 года. Проверенная база перед текущим инкрементом —
-`96214b10` (PR #515). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
-приёмка интегрированы. Текущий PRINT-STYLE-01 пакет сводит оставшиеся title/subtitle,
-empty-state и candidate-code fonts обоих interpretation PDF adapters к общему профилю.
-Registry priority, event codes/depths, существующий device font contract и source data сохраняются.
+`33ecadff` (PR #516). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
+приёмка интегрированы. Текущий PRINT-STYLE-01 пакет объединяет оставшуюся default typography
+Masterlog: headings/curve legends, geology labels/descriptions, interpretations и callouts/symbols.
+Явные стили формы, mm font quantization, геометрия и исходные данные сохраняются.
 WITS-NET-01 остаётся внешним условием: пользователь уточняет существующий VPN, доступа
 для настройки сейчас нет. Разработка остальных независимых задач продолжается.
 Статусы завершения
@@ -379,6 +379,17 @@ Document/painter/user-selected colors остаются данными докум
 закрытым наличием ранее интегрированного UI-ADAPT-01.
 
 ## PRINT-STYLE-01 — Report Visual System
+
+- [x] **2026-10-09 — unified Masterlog default typography package:** column headings
+  используют table role; curve legends, stratigraphy/LBA и callout/symbol labels — caption;
+  rock/sample descriptions и sample interpretations — body. Bounded fitting использует
+  прежний mm adapter и сохраняет layout, orientations и explicit header/annotation styles.
+  360 actual RU/KK/EN PDFs покрывают пять DPI, default/custom/large profiles и восемь paths;
+  18 A4/A3/roll production exports после reopen проверяют searchable text и source invariants.
+  Existing Unicode tests сохраняют font stack, physical-DPI baseline и source contracts;
+  fixed legacy sizes заменены только intentional profile roles.
+  Merge требует exact-head Release gate; весь PRINT-STYLE-01 и physical acceptance остаются открытыми.
+
 
 - [x] **2026-10-09 — interpretation PDF fitted typography package:** standard и OPUS
   используют title/subtitle/body/caption roles для заголовка, page/range/scale subtitle,

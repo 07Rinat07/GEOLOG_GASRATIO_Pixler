@@ -1,5 +1,7 @@
 # Print and Export Center
 
+Masterlog uses the shared font profile for column headings, curve legends, stratigraphy, LBA, rock and sample descriptions, interpretations, callouts and symbol labels. Enlarged sizes fit existing areas. Explicit header and annotation styles, label orientations and source data are preserved.
+
 Standard and OPUS interpretation PDFs use the shared profile for titles, page/range/scale subtitles, empty states and marker codes. Complete text fits existing areas with stable physical sizing across DPI; source values and marker positions remain unchanged.
 
 The interpretation report preview uses one profile for headings, scales, curve legends, empty geology tracks, marker codes, backgrounds, grids and frames. Enlarged fonts fit while retaining complete text; scale values and semantic curve, geology and fluid colours remain unchanged.

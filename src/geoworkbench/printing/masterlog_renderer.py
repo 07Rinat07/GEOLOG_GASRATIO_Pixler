@@ -131,10 +131,31 @@ def _set_scaled_font_points(painter: QPainter, font: QFont, size_points: float) 
     _set_scaled_font_mm(painter, font, float(size_points) * 25.4 / 72.0)
 
 
-def _set_scaled_unicode_font_points(painter: QPainter, text: str, size_points: float) -> None:
+def _set_scaled_unicode_font_points(
+    painter: QPainter, text: str, size_points: float, *,
+    fit_rect: QRectF | None = None, orientation: str = "horizontal", word_wrap: bool = True,
+) -> None:
     font = print_font(size_points, text=text)
     _set_scaled_font_points(painter, font, size_points)
     painter.setFont(font)
+    if fit_rect is None or fit_rect.width() <= 0 or fit_rect.height() <= 0:
+        return
+    width, height = fit_rect.width(), fit_rect.height()
+    if orientation != "horizontal":
+        width, height = height, width
+    measure_rect = QRectF(0, 0, width, height)
+    flags = int(Qt.TextFlag.TextDontClip)
+    if word_wrap:
+        flags |= int(Qt.TextFlag.TextWordWrap)
+    # Keep the existing mm font quantization and fit only application-owned defaults.
+    for _ in range(12):
+        bounds = painter.boundingRect(measure_rect, flags, text)
+        factor = min(width / max(0.1, bounds.width()), height / max(0.1, bounds.height()))
+        if factor >= 1 or size_points <= 3.5:
+            break
+        size_points = max(3.5, size_points * factor * 0.98)
+        _set_scaled_font_points(painter, font, size_points)
+        painter.setFont(font)
 
 
 class MasterlogRenderError(RuntimeError):
@@ -1732,10 +1753,16 @@ def _paint_column_heading(
     bindings: dict[str, str],
 ) -> None:
     visual = modern_oilfield_report_profile()
-    _set_scaled_unicode_font_points(painter, column.title, 6.5)
     painter.setPen(QColor(visual.palette.text))
     orientation = str(column.properties.get("title_orientation", "horizontal"))
     position = str(column.properties.get("title_position", "center"))
+    # Vertical headings retain the existing taller lane above the legend.
+    title_height = (rect.height() * 0.62 if orientation != "horizontal"
+                    else min(4.2, rect.height() * 0.38))
+    title_area = (QRectF(rect.left(), rect.top(), rect.width(), title_height)
+                  if column.show_legend and column.curve_mnemonics else rect)
+    _set_scaled_unicode_font_points(painter, column.title, visual.typography.table_pt,
+                                    fit_rect=title_area.adjusted(0.5, 0.2, -0.5, -0.2), orientation=orientation)
     if not column.show_legend or not column.curve_mnemonics:
         draw_oriented_text(
             painter,
@@ -1747,14 +1774,6 @@ def _paint_column_heading(
             padding_y=0.2,
         )
         return
-    # A vertical title needs a taller title lane than a horizontal caption.
-    # Keep the legend available, but reserve enough height for a readable
-    # bottom-to-top/top-to-bottom heading in A4/A3 print layouts.
-    title_height = (
-        rect.height() * 0.62
-        if orientation != "horizontal"
-        else min(4.2, rect.height() * 0.38)
-    )
     draw_oriented_text(
         painter,
         QRectF(rect.left() + 0.5, rect.top(), rect.width() - 1.0, title_height),
@@ -1822,7 +1841,7 @@ def _paint_column_heading(
                 painter.restore()
             label_rect.setLeft(sample_left + sample_width + min(0.4, max(0.0, cell.width() * 0.05)))
         painter.setPen(color)
-        _set_scaled_unicode_font_points(painter, label, 4.6)
+        _set_scaled_unicode_font_points(painter, label, visual.typography.caption_pt, fit_rect=label_rect)
         painter.drawText(
             label_rect,
             Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
@@ -1842,6 +1861,7 @@ def _paint_inspection_callouts(
     well = session.current_well
     if well is None:
         return
+    visual = modern_oilfield_report_profile()
     top, bottom = depth_range
     painter.save()
     painter.setClipRect(rect)
@@ -1865,7 +1885,6 @@ def _paint_inspection_callouts(
         text = item.properties.get("text")
         if not isinstance(text, str) or not text:
             continue
-        _set_scaled_unicode_font_points(painter, text, 5.5)
         text_height = min(18.0, max(6.0, 3.5 * len(text.splitlines())))
         text_rect = QRectF(
             rect.left() + 1.0,
@@ -1877,6 +1896,8 @@ def _paint_inspection_callouts(
         painter.setPen(QPen(QColor("#dc2626"), 0.3))
         painter.drawRect(text_rect)
         painter.setPen(QColor("#7f1d1d"))
+        _set_scaled_unicode_font_points(painter, text, visual.typography.caption_pt,
+                                        fit_rect=text_rect.adjusted(0.6, 0.3, -0.6, -0.3))
         painter.drawText(
             text_rect.adjusted(0.6, 0.3, -0.6, -0.3),
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap,
@@ -2027,7 +2048,9 @@ def _paint_stratigraphy_column(
                 interval.name_i18n, language, legacy=interval.name
             )
             text = "\n".join(value for value in (interval.code, interval_name) if value)
-            _set_scaled_unicode_font_points(painter, text, 5.5)
+            _set_scaled_unicode_font_points(painter, text, visual.typography.caption_pt,
+                                            fit_rect=interval_rect.adjusted(0.5, 0.2, -0.5, -0.2),
+                                            orientation=interval.text_orientation)
             painter.setPen(QColor(visual.palette.text))
             _paint_stratigraphy_label(
                 painter,
@@ -2275,7 +2298,9 @@ def _paint_lba_column(
         )
         color_code = lba_color_code(sample.lba_color) or ""
         if sample_rect.height() >= 4.0 and color_code:
-            _set_scaled_unicode_font_points(painter, color_code, 5.0)
+            _set_scaled_unicode_font_points(painter, color_code, visual.typography.caption_pt,
+                                            fit_rect=QRectF(0, 0, lane_width - 0.4, sample_rect.height() - 0.4),
+                                            orientation=orientation)
             painter.setPen(QColor(visual.palette.text))
             draw_oriented_text(
                 painter,
@@ -2292,7 +2317,9 @@ def _paint_lba_column(
                 padding_y=0.2,
             )
         if sample_rect.height() >= 4.0:
-            _set_scaled_unicode_font_points(painter, style.code, 5.0)
+            _set_scaled_unicode_font_points(painter, style.code, visual.typography.caption_pt,
+                                            fit_rect=QRectF(0, 0, lane_width - 0.4, sample_rect.height() - 0.4),
+                                            orientation=orientation)
             painter.setPen(QColor(visual.palette.text))
             draw_oriented_text(
                 painter,
@@ -2350,7 +2377,8 @@ def _paint_lithology_descriptions(
             painter.setPen(QPen(QColor(visual.palette.border), 0.15))
             painter.drawRect(interval_rect)
         if interval_rect.height() >= 3.0:
-            _set_scaled_unicode_font_points(painter, description, 6.5)
+            _set_scaled_unicode_font_points(painter, description, visual.typography.body_pt,
+                                            fit_rect=interval_rect.adjusted(1.0, 0.5, -1.0, -0.5))
             painter.setPen(QColor(visual.palette.text))
             painter.drawText(
                 interval_rect.adjusted(1.0, 0.5, -1.0, -0.5),
@@ -2396,14 +2424,14 @@ def _paint_cuttings_descriptions(
             painter.drawRect(sample_rect)
         if sample_rect.height() >= 3.0:
             text = _rich_text_to_plain(description)
-            _set_scaled_unicode_font_points(painter, text, 6.5)
+            _set_scaled_unicode_font_points(painter, text, visual.typography.body_pt)
             painter.setPen(QColor(visual.palette.text))
             _draw_fitted_interval_text(
                 painter,
                 sample_rect.adjusted(0.6, 0.3, -0.6, -0.3),
                 text,
                 alignment=_rich_text_alignment(description),
-                maximum_point_size=6.5,
+                maximum_point_size=visual.typography.body_pt,
                 word_wrap=sample.description_word_wrap,
             )
     painter.restore()
@@ -2452,14 +2480,14 @@ def _paint_sample_interpretations(
             painter.setPen(QPen(QColor(visual.palette.border_strong), 0.15))
             painter.drawRect(sample_rect)
         if sample_rect.height() >= 3.0:
-            _set_scaled_unicode_font_points(painter, text, 6.0)
+            _set_scaled_unicode_font_points(painter, text, visual.typography.body_pt)
             painter.setPen(QColor(visual.palette.text))
             _draw_fitted_interval_text(
                 painter,
                 sample_rect.adjusted(0.5, 0.25, -0.5, -0.25),
                 text,
                 alignment=_rich_text_alignment(raw_description),
-                maximum_point_size=6.0,
+                maximum_point_size=visual.typography.body_pt,
                 word_wrap=sample.description_word_wrap,
             )
     painter.restore()
@@ -2900,7 +2928,9 @@ def _paint_depth_symbols(
         label = item.properties.get("label")
         if isinstance(label, str) and label:
             painter.setPen(QColor(visual.palette.text))
-            _set_scaled_unicode_font_points(painter, label, 6.0)
+            _set_scaled_unicode_font_points(painter, label, visual.typography.caption_pt,
+                fit_rect=QRectF(symbol_rect.right() + 0.5, y - 2.5, rect.right() - symbol_rect.right(), 5.0),
+                word_wrap=False)
             painter.drawText(
                 QRectF(symbol_rect.right() + 0.5, y - 2.5, rect.right() - symbol_rect.right(), 5.0),
                 Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
