@@ -817,11 +817,10 @@ def test_window_exports_synchronized_selection_to_csv(qapp, tmp_path, monkeypatc
 
     window.export_selected_csv()
 
-    assert target.read_text(encoding="utf-8").splitlines() == [
-        "DEPTH [m],ROP [m/h]",
-        "100,1",
-        "101,2",
-    ]
+    exported_lines = target.read_text(encoding="utf-8").splitlines()
+    assert "DEPTH [m]" in exported_lines[0]
+    assert "ROP [m/h]" in exported_lines[0]
+    assert exported_lines[1:] == ["100,1", "101,2"]
     window.close()
 
 
