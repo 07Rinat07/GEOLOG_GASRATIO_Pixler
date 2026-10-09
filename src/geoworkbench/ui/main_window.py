@@ -4992,7 +4992,7 @@ class MainWindow(QMainWindow):
             dataset_id=dataset.dataset_id,
             index_id=index_id or "",
             interval=interval,
-            language=self.language.value,
+            language=(job.output_language or self.language).value,
             curve_ids=curve_ids,
             channel_mnemonics=self._print_report_channel_mnemonics(
                 widget, dataset, job

@@ -146,7 +146,7 @@ class PrintJobExecutor:
         session: ProjectSession | None = None,
     ) -> PrintJobResult:
         context = PrintDocumentContext(
-            source_name, language, header_template=header_template, session=session
+            source_name, job.output_language or language, header_template=header_template, session=session
         )
         gate = None
         if require_physical_gate:
@@ -191,7 +191,7 @@ class PrintJobExecutor:
         """Render a system preview without creating any persistent file."""
 
         context = PrintDocumentContext(
-            source_name, language, header_template=header_template, session=session
+            source_name, job.output_language or language, header_template=header_template, session=session
         )
         return render_document_to_printer(widget, printer, job, context=context)
 
@@ -213,7 +213,7 @@ class PrintJobExecutor:
         if target is None:
             raise ValueError("Для файлового экспорта необходимо выбрать путь")
         context = PrintDocumentContext(
-            source_name, language, header_template=header_template, session=session
+            source_name, job.output_language or language, header_template=header_template, session=session
         )
         if passport is None:
             if job.output_format is PrintOutputFormat.PDF:
@@ -275,6 +275,7 @@ def report_render_settings(job: PrintJobSettings) -> ReportRenderSettings:
         options=tuple(
             item
             for item in (
+                (("output_language", job.output_language.value) if job.output_language is not None else None),
                 (
                     ("header_template_id", job.header_template_id)
                     if job.header_template_id is not None

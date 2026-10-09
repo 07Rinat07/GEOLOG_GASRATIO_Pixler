@@ -70,7 +70,7 @@ def test_pdf_export_error_includes_underlying_reason(
     target = tmp_path / "report.pdf"
     temporary = tmp_path / ".report.pdf.tmp"
     temporary.write_bytes(b"")
-    monkeypatch.setattr(document_export, "_detached_tablet_source", lambda _w: None)
+    monkeypatch.setattr(document_export, "_detached_tablet_source", lambda _w, **_kwargs: None)
     monkeypatch.setattr(document_export, "_validate_destination", lambda *_a: None)
     monkeypatch.setattr(document_export, "_unicode_preflight", lambda *_a: None)
     monkeypatch.setattr(document_export, "_temporary_path", lambda _p: temporary)

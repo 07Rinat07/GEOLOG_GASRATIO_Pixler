@@ -8,6 +8,7 @@ from uuid import uuid4
 
 from PySide6.QtCore import QSettings
 
+from geoworkbench.services.localization import AppLanguage
 from geoworkbench.data.number_format import NumberDisplayFormat, NumberFormatMode
 from geoworkbench.printing.page_settings import (
     PrintOrientation,
@@ -253,7 +254,15 @@ class UserProfileSettings:
                     str(payload.get("header_placement", "first_page"))
                 )
             )
+            raw_output_language = payload.get("output_language")
+            output_language = (
+                AppLanguage(raw_output_language)
+                if isinstance(raw_output_language, str)
+                and raw_output_language in {item.value for item in AppLanguage}
+                else None
+            )
             return PrintExportPreferences(
+                output_language=output_language,
                 output_format=PrintOutputFormat(str(payload.get("output_format", "printer"))),
                 dpi=int(payload.get("dpi", 300)),
                 image_quality=int(payload.get("image_quality", 92)),
@@ -306,6 +315,7 @@ class UserProfileSettings:
             json.dumps(
                 {
                     "defaults_version": _PRINT_EXPORT_DEFAULTS_VERSION,
+                    "output_language": value.output_language.value if value.output_language is not None else None,
                     "output_format": value.output_format.value,
                     "dpi": value.dpi,
                     "image_quality": value.image_quality,
