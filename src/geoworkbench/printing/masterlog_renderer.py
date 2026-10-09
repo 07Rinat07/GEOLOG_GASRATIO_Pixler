@@ -1074,7 +1074,7 @@ def _paint_lithotype_swatch(
     if lithotype is None:
         painter.save()
         try:
-            painter.setPen(QPen(QColor(visual.palette.critical), 0.3, Qt.PenStyle.DashLine))
+            painter.setPen(QPen(QColor(visual.palette.critical), visual.layout.strong_rule_pt * 25.4 / 72.0, Qt.PenStyle.DashLine))
             painter.drawRect(rect)
             painter.drawLine(rect.topLeft(), rect.bottomRight())
             painter.drawLine(rect.topRight(), rect.bottomLeft())
@@ -1097,7 +1097,7 @@ def _paint_lithotype_swatch(
         pattern_rect,
         masterlog_lithology_brush(painter, lithotype.color, lithotype.pattern_key),
     )
-    painter.setPen(QPen(QColor(visual.palette.border), 0.25))
+    painter.setPen(QPen(QColor(visual.palette.border), visual.layout.thin_rule_pt * 25.4 / 72.0))
     painter.drawRect(pattern_rect)
     if mode != "pattern_only":
         name = lithotype.localized_name(language.value)
@@ -1135,7 +1135,7 @@ def _paint_lithotype_swatch(
             padding_y=0.15,
         )
     if properties.get("frame") is True:
-        painter.setPen(QPen(_color(properties.get("frame_color"), visual.palette.border_strong), 0.35))
+        painter.setPen(QPen(_color(properties.get("frame_color"), visual.palette.border_strong), visual.layout.strong_rule_pt * 25.4 / 72.0))
         painter.drawRect(rect)
 
 
@@ -1875,7 +1875,7 @@ def _paint_inspection_callouts(
         ):
             continue
         y = rect.top() + (item.top_depth - top) / (bottom - top) * rect.height()
-        painter.setPen(QPen(QColor("#dc2626"), 0.6))
+        painter.setPen(QPen(QColor(visual.palette.critical), visual.layout.strong_rule_pt * 25.4 / 72.0))
         painter.drawLine(QLineF(rect.left(), y, rect.right(), y))
         if item.bottom_depth is not None:
             y_bottom = (
@@ -1892,10 +1892,12 @@ def _paint_inspection_callouts(
             rect.width() - 2.0,
             text_height,
         )
-        painter.fillRect(text_rect, QColor(255, 255, 255, 225))
-        painter.setPen(QPen(QColor("#dc2626"), 0.3))
+        background = QColor(visual.palette.page)
+        background.setAlpha(225)
+        painter.fillRect(text_rect, background)
+        painter.setPen(QPen(QColor(visual.palette.critical), visual.layout.thin_rule_pt * 25.4 / 72.0))
         painter.drawRect(text_rect)
-        painter.setPen(QColor("#7f1d1d"))
+        painter.setPen(QColor(visual.palette.text))
         _set_scaled_unicode_font_points(painter, text, visual.typography.caption_pt,
                                         fit_rect=text_rect.adjusted(0.6, 0.3, -0.6, -0.3))
         painter.drawText(
@@ -1957,7 +1959,7 @@ def _paint_lithology_column(
         color = definition.color if definition is not None else "#b0b0b0"
         pattern = definition.pattern_key if definition is not None else "solid"
         painter.fillRect(interval_rect, masterlog_lithology_brush(painter, color, pattern))
-        painter.setPen(QPen(QColor(visual.palette.border_strong), 0.2))
+        painter.setPen(QPen(QColor(visual.palette.border_strong), visual.layout.thin_rule_pt * 25.4 / 72.0))
         painter.drawRect(interval_rect)
         if (
             interval_rect.height() >= 4.0
@@ -2041,7 +2043,7 @@ def _paint_stratigraphy_column(
         if not color.isValid():
             color = QColor("#dbeafe")
         painter.fillRect(interval_rect, color)
-        painter.setPen(QPen(QColor(visual.palette.border_strong), 0.2))
+        painter.setPen(QPen(QColor(visual.palette.border_strong), visual.layout.thin_rule_pt * 25.4 / 72.0))
         painter.drawRect(interval_rect)
         if interval_rect.height() >= 3.0:
             interval_name = localized_text(
@@ -2095,7 +2097,7 @@ def _paint_cuttings_column(
             pattern = definition.pattern_key if definition is not None else "solid"
             component_rect = QRectF(x, y_top, width, max(0.1, y_bottom - y_top))
             painter.fillRect(component_rect, masterlog_lithology_brush(painter, color, pattern))
-            painter.setPen(QPen(QColor(visual.palette.border_strong), 0.2))
+            painter.setPen(QPen(QColor(visual.palette.border_strong), visual.layout.thin_rule_pt * 25.4 / 72.0))
             painter.drawRect(component_rect)
             if (
                 component_rect.width() >= 8
@@ -2189,7 +2191,7 @@ def _paint_calcimetry_column(
             else:
                 painter.setPen(QPen(QColor(color), 0.7))
                 painter.drawLine(QLineF(left, y_top, left, y_bottom))
-        painter.setPen(QPen(QColor(visual.palette.border_strong), 0.2))
+        painter.setPen(QPen(QColor(visual.palette.border_strong), visual.layout.thin_rule_pt * 25.4 / 72.0))
         painter.drawRect(QRectF(rect.left(), y_top, rect.width(), height))
         if height >= 5.0:
             painter.setPen(QColor(visual.palette.text))
@@ -2263,7 +2265,7 @@ def _paint_lba_column(
             rect.top() + (min(bottom, sample.bottom_depth) - top) / (bottom - top) * rect.height()
         )
         sample_rect = QRectF(rect.left(), y_top, rect.width(), max(0.2, y_bottom - y_top))
-        painter.setPen(QPen(QColor(visual.palette.border), 0.15))
+        painter.setPen(QPen(QColor(visual.palette.border), visual.layout.thin_rule_pt * 25.4 / 72.0))
         painter.drawRect(sample_rect)
         lane_width = sample_rect.width() / 3.0
         for lane in (1, 2):
@@ -2374,7 +2376,7 @@ def _paint_lithology_descriptions(
             legacy=interval.description,
         ).strip() or name
         if show_borders:
-            painter.setPen(QPen(QColor(visual.palette.border), 0.15))
+            painter.setPen(QPen(QColor(visual.palette.border), visual.layout.thin_rule_pt * 25.4 / 72.0))
             painter.drawRect(interval_rect)
         if interval_rect.height() >= 3.0:
             _set_scaled_unicode_font_points(painter, description, visual.typography.body_pt,
@@ -2420,7 +2422,7 @@ def _paint_cuttings_descriptions(
         )
         sample_rect = QRectF(rect.left(), y_top, rect.width(), max(0.2, y_bottom - y_top))
         if show_borders:
-            painter.setPen(QPen(QColor(visual.palette.border), 0.15))
+            painter.setPen(QPen(QColor(visual.palette.border), visual.layout.thin_rule_pt * 25.4 / 72.0))
             painter.drawRect(sample_rect)
         if sample_rect.height() >= 3.0:
             text = _rich_text_to_plain(description)
@@ -2477,7 +2479,7 @@ def _paint_sample_interpretations(
         sample_rect = QRectF(rect.left(), y_top, rect.width(), max(0.2, y_bottom - y_top))
         painter.fillRect(sample_rect, QColor(visual.palette.table_alt))
         if show_borders:
-            painter.setPen(QPen(QColor(visual.palette.border_strong), 0.15))
+            painter.setPen(QPen(QColor(visual.palette.border_strong), visual.layout.thin_rule_pt * 25.4 / 72.0))
             painter.drawRect(sample_rect)
         if sample_rect.height() >= 3.0:
             _set_scaled_unicode_font_points(painter, text, visual.typography.body_pt)

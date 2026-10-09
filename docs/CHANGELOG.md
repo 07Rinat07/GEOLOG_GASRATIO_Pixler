@@ -5,6 +5,8 @@
 
 ## Unreleased
 
+- PRINT-STYLE-01: единый Masterlog rules package подключает thin/strong weights к геологическим колонкам, описаниям и swatch frames; inspection callouts используют critical/page/text palette с прежним alpha. Смысловые цвета пород, кальциметрии и интенсивности ЛБА сохраняются. 495 actual PDF cases, 27 production reopen exports и девять saved override cases проверяют physical DPI, геометрию и source invariants.
+
 - PRINT-STYLE-01: единый Office package подключает table/caption typography к универсальному DOCX, thin/strong rules к общим Word-таблицам, body/title typography к Excel-сводке и footer typography/colour ко всем листам геологического XLSX. Цвет подвала нормализуется для корректного reopen. 54 production RU/KK/EN exports проверяют default/custom/large и colour/grayscale profiles; значения, геометрия колонок и print scale сохраняются.
 
 - PRINT-STYLE-01: единый пакет типографики Masterlog подключает table/caption/body roles к заголовкам колонок, легендам кривых, стратиграфии, ЛБА, описаниям, интерпретациям, выноскам и SVG-подписям. Bounded fitting сохраняет прежние области и mm font quantization; явные стили и source data не меняются. 360 real PDF scenarios и 18 A4/A3/roll exports после reopen покрывают общий профиль.

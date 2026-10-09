@@ -1,5 +1,7 @@
 # Print and Export Center
 
+Masterlog uses shared rule weights for lithology, cuttings, stratigraphy, calcimetry, LBA and description borders, as well as lithotype swatch frames. Inspection callouts use critical/page/text colours and thin/strong rules with the existing background opacity. Rock, calcimetry component and LBA intensity colours, geometry and saved form settings are preserved.
+
 Office exports use the shared profile for generic DOCX table text and notes, shared Word table borders, Excel summary text and printed footers on every geological XLSX sheet. Footer colours and sizes survive reopening. Cell values and types, column widths and 100% print scale are preserved.
 
 Masterlog uses the shared font profile for column headings, curve legends, stratigraphy, LBA, rock and sample descriptions, interpretations, callouts and symbol labels. Enlarged sizes fit existing areas. Explicit header and annotation styles, label orientations and source data are preserved.
