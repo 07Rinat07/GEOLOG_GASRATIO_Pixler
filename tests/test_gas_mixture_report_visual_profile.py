@@ -82,7 +82,7 @@ def test_actual_ramp_pdf_uses_shared_typography_palette_and_hides_audit_time(
         for value in (profile.brand_wordmark, labels['title'], labels['composition'], labels['limitations'],
                       report.project_name, report.well_name, report.dataset_name, 'ISO 6974-1:2012',
                       *[item.mnemonic for item in report.components], *[name for name, _ in report.pixler_ratios],
-                      *report.warnings):
+                      *ramp.localized_ramp_warnings(report.warnings, language)):
             assert _normalized(value) in text
         for component in report.components:
             row = (f'{component.mnemonic}{component.baseline_value:.6g}'

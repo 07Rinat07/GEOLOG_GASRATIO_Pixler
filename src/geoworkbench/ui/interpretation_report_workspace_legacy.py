@@ -165,6 +165,15 @@ class InterpretationReportWorkspace(QWidget):
         self.report_mode.currentIndexChanged.connect(self.refresh)
         self.report_mode_label = QLabel()
         form.addRow(self.report_mode_label, self.report_mode)
+        self.ramp_output_language = QComboBox()
+        self.ramp_output_language.setObjectName("ramp-output-language")
+        for label, value in (("Русский", AppLanguage.RU), ("Қазақша", AppLanguage.KK), ("English", AppLanguage.EN)):
+            self.ramp_output_language.addItem(label, value)
+        self.ramp_output_language.setCurrentIndex(self.ramp_output_language.findData(language))
+        self.ramp_output_language.currentIndexChanged.connect(self._apply_ramp_preview)
+        self.ramp_output_language_label = QLabel()
+        self.ramp_output_language_label.setBuddy(self.ramp_output_language)
+        form.addRow(self.ramp_output_language_label, self.ramp_output_language)
         self.normal_density = QDoubleSpinBox()
         self.normal_density.setRange(0.0, 30.0)
         self.normal_density.setDecimals(2)
@@ -308,6 +317,8 @@ class InterpretationReportWorkspace(QWidget):
 
     def refresh(self) -> None:
         mixture_mode = self._is_mixture_mode()
+        self.ramp_output_language.setVisible(mixture_mode)
+        self.ramp_output_language_label.setVisible(mixture_mode)
         opus_mode = self._is_opus_mode()
         has_dataset = self.controller.session.current_dataset is not None
         self.calculate_button.setEnabled(has_dataset and not mixture_mode)
@@ -350,14 +361,7 @@ class InterpretationReportWorkspace(QWidget):
                 self._set_exports_enabled(False)
                 return
             self.report = None
-            include_chart = self._report_mode() == "mixture_chart"
-            self.preview.setHtml(
-                gas_mixture_ramp_html(
-                    self.gas_mixture_report,
-                    self.language,
-                    include_chart=include_chart,
-                )
-            )
+            self._apply_ramp_preview()
             self.status.setText(
                 self._text(
                     "Разгонка рассчитана по временному отклику C1–C5.",
@@ -542,7 +546,7 @@ class InterpretationReportWorkspace(QWidget):
                     exported = export_gas_mixture_ramp_pdf(
                         report,
                         target,
-                        language=self.language,
+                        language=self._ramp_report_language(),
                         include_chart=self._report_mode() == "mixture_chart",
                         overwrite=target.exists(),
                     )
@@ -564,6 +568,20 @@ class InterpretationReportWorkspace(QWidget):
             return
         self._show_export_success(exported)
 
+    def _ramp_report_language(self) -> AppLanguage:
+        value = self.ramp_output_language.currentData()
+        try:
+            return AppLanguage(value)
+        except (ValueError, TypeError):
+            return self.language
+
+    def _apply_ramp_preview(self) -> None:
+        if self.gas_mixture_report is not None and self._is_mixture_mode():
+            self.preview.setHtml(gas_mixture_ramp_html(
+                self.gas_mixture_report, self._ramp_report_language(),
+                include_chart=self._report_mode() == "mixture_chart",
+            ))
+
     def _print_report(self) -> None:
         report = self._require_any_report()
         if report is None:
@@ -578,7 +596,7 @@ class InterpretationReportWorkspace(QWidget):
         if isinstance(report, GasMixtureRampReport):
             try:
                 render_gas_mixture_ramp_report(
-                    printer, report, language=self.language,
+                    printer, report, language=self._ramp_report_language(),
                     include_chart=self._report_mode() == "mixture_chart",
                 )
             except (RuntimeError, GasMixtureRampReportError) as exc:
@@ -756,6 +774,9 @@ class InterpretationReportWorkspace(QWidget):
         self.refresh()
 
     def _retranslate(self) -> None:
+        self.ramp_output_language_label.setText(self._text(
+            "Язык отчёта C1–C5:", "C1–C5 есебінің тілі:", "C1–C5 report language:",
+        ))
         current_mode = self._report_mode()
         self.report_mode.blockSignals(True)
         self.report_mode.clear()

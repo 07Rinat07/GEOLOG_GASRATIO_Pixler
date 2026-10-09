@@ -31,6 +31,10 @@ from geoworkbench.services.las_parameter_resolver import (
     resolve_gas_ratio_inputs,
 )
 from geoworkbench.services.localization import AppLanguage
+from geoworkbench.printing.gas_mixture_report_i18n import (
+    localized_ramp_time_label, localized_ramp_warnings,
+    ramp_missing_time_warning, ramp_standard_warnings,
+)
 from geoworkbench.printing.unicode_support import preflight_texts, print_font
 from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.printing.hydrocarbon_interpretation_report_identity import InterpretationReportIdentity
@@ -179,24 +183,7 @@ def build_gas_mixture_ramp_report(
         for name, denominator in zip(names[1:], representative[1:], strict=True)
         if denominator > 0.0
     )
-    warnings = [
-        (
-            "Результат является скрининговой интерпретацией отклика C1–C5. "
-            "Он не заменяет калиброванный лабораторный анализ состава пробы."
-        ),
-        (
-            "Категория «вода» по одному отклику углеводородных газов не назначается; "
-            "низкий сигнал обозначается как фон/недостаточно данных."
-        ),
-        (
-            "Для количественных молярных долей нужны калибровка газоанализатора, "
-            "контроль нуля/стандарта и оценка неопределённости."
-        ),
-        (
-            "Фоновый уровень каждого компонента оценён по нижнему квантилю временного "
-            "отклика и вычтен только для расчёта состава; на диаграмме показан исходный отклик."
-        ),
-    ]
+    warnings = list(ramp_standard_warnings())
     if time_warning:
         warnings.append(time_warning)
 
@@ -251,7 +238,7 @@ def gas_mixture_ramp_html(
         f"<tr><td>{escape(name)}</td><td>{value:.4g}</td></tr>"
         for name, value in report.pixler_ratios
     )
-    warnings = "".join(f"<li>{escape(item)}</li>" for item in report.warnings)
+    warnings = "".join(f"<li>{escape(item)}</li>" for item in localized_ramp_warnings(report.warnings, language))
     chart = (
         f"<h2>{escape(labels['chart'])}</h2>"
         f'<img alt="{escape(labels["chart"])}" width="900" height="390" '
@@ -291,7 +278,7 @@ def gas_mixture_ramp_html(
     <b>{escape(labels["confidence"])}:</b> {escape(labels[report.confidence])}<br>
     <b>Wh:</b> {wetness} · <b>Bh:</b> {balance} · <b>Ch:</b> {character}</div>
     <h2>{escape(labels["composition"])}</h2>
-    <table><tr><th>Компонент</th><th>{escape(labels["baseline"])}</th>
+    <table><tr><th>{escape(labels["component"])}</th><th>{escape(labels["baseline"])}</th>
     <th>{escape(labels["representative"])}</th>
     <th>{escape(labels["share"])}</th><th>{escape(labels["peak"])}</th></tr>
     {component_rows}</table>
@@ -412,7 +399,7 @@ def _time_axis(dataset, size: int) -> tuple[np.ndarray, str, str | None]:
         return (
             np.arange(size, dtype=np.float64),
             "№ отсчёта",
-            "В наборе нет временной оси; график построен по порядковому номеру отсчёта.",
+            ramp_missing_time_warning(),
         )
     raw = np.asarray(time_index.values)
     if np.issubdtype(raw.dtype, np.datetime64):
@@ -599,7 +586,7 @@ def _chart_data_uri(
         _draw_chart_text(
             painter,
             QRectF(620, 610, 300, 25),
-            report.time_label,
+            localized_ramp_time_label(report.time_label, language),
             typography.subtitle_pt,
             alignment=Qt.AlignmentFlag.AlignCenter,
         )
@@ -617,6 +604,7 @@ def _chart_data_uri(
 def _labels(language: AppLanguage) -> dict[str, str]:
     return {
         AppLanguage.RU: {
+            "component": "Компонент",
             "title": "Разгонка газовой смеси",
             "chart": "Временная диаграмма отклика C1–C5",
             "chart_scale": "Ось Y: логарифмическое представление log10(1 + отклик)",
@@ -658,6 +646,7 @@ def _labels(language: AppLanguage) -> dict[str, str]:
             "high": "высокая",
         },
         AppLanguage.KK: {
+            "component": "Компонент",
             "title": "Газ қоспасын айдау",
             "chart": "C1–C5 жауабының уақыт диаграммасы",
             "chart_scale": "Y осі: log10(1 + жауап) логарифмдік көрінісі",
@@ -697,6 +686,7 @@ def _labels(language: AppLanguage) -> dict[str, str]:
             "high": "жоғары",
         },
         AppLanguage.EN: {
+            "component": "Component",
             "title": "Gas mixture ramp analysis",
             "chart": "C1–C5 detector response versus time",
             "chart_scale": "Y axis: logarithmic display log10(1 + response)",

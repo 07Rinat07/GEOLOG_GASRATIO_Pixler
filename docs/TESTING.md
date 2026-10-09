@@ -1,5 +1,7 @@
 # Проверка качества и release gate
 
+`tests/test_gas_mixture_output_language.py` covers 144 actual PDF/QPrinter cases: RU/KK/EN, 72/300/600 DPI, chart/text and numeric/datetime/missing/vendor time axes, plus three known/unknown message cases. `tests/test_gas_mixture_workspace_language.py` covers 18 production workspace cases after project save/reopen: all UI/output language pairs and both ramp modes, real preview/PDF/system-print outputs, UI-language changes and mode switches. Complete translated warnings/headers, numeric values, footer, bounds and immutable source/audit are checked.
+
 `tests/test_gas_mixture_document_control.py` covers 108 actual multi-page PDF/QPrinter cases: RU/KK/EN, 72/300/600 DPI, chart/text and default/full/long identity. Full document-control values, escaped text, complete numeric rows, repeated localized footer, physical typography/bounds and source immutability are checked. Six raster cases retain component paths/keys while verifying shared frame/grid rules. Existing palette/typography and atomic failure checks remain.
 
 `tests/test_masterlog_rule_profile.py` covers 495 actual RU/KK/EN PDFs across five DPI, three palette/rule profiles and eleven painter paths; 27 A4/A3/roll exports after project reopen; and nine saved-swatch override cases. Thin/strong physical widths, critical/page/text callout roles and alpha, geometry, semantic geology fills/lines, complete text and immutable source data are checked. Fixtures establish the same physical heading font that production columns inherit.

@@ -2,10 +2,10 @@
 # Единый план проекта
 
 План актуализирован 9 октября 2026 года. Проверенная база перед текущим инкрементом —
-`24badb5f` (PR #519). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
-приёмка интегрированы. Текущий PRINT-STYLE-01 пакет объединяет оформление разгонки C1–C5:
-shared document-control для HTML/PDF/system print, повторяемый локализованный подвал,
-общий paginator и physical profile rule hierarchy. Расчёты, source arrays и component keys сохраняются.
+`f9d75894` (PR #520). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
+приёмка интегрированы. Текущий PRINT-STYLE-01/REPORT-I18N-01 пакет объединяет единый язык разгонки C1–C5:
+независимый RU/KK/EN selector, общие предупреждения, headers и встроенные time labels
+для preview/PDF/system print. Immutable audit, vendor text и calculations сохраняются.
 WITS-NET-01 остаётся внешним условием: пользователь уточняет существующий VPN, доступа
 для настройки сейчас нет. Разработка остальных независимых задач продолжается.
 Статусы завершения
@@ -379,6 +379,21 @@ Document/painter/user-selected colors остаются данными докум
 закрытым наличием ранее интегрированного UI-ADAPT-01.
 
 ## PRINT-STYLE-01 — Report Visual System
+
+- [x] **2026-10-09 — C1–C5 unified output-language package:** оператор выбирает
+  Русский/Қазақша/English независимо от UI. Выбор одновременно обслуживает preview,
+  PDF и system print и сохраняется при смене UI языка/режима в текущем workspace.
+  Component heading, generated quality warnings и built-in sample/elapsed-time labels
+  локализованы; canonical RU audit strings, unknown client warnings и vendor axes
+  не переписываются. Выбор языка перерисовывает текущий report без пересчёта.
+  144 actual PDF/QPrinter scenarios покрывают три языка, три DPI, chart/text и четыре
+  вида time axis; три catalog cases сохраняют неизвестный текст; 18 production workspace
+  cases после project save/reopen проверяют все пары UI/output language и оба режима,
+  полный preview/PDF/system output, числовые таблицы и source immutability.
+  Existing 178 print regressions сохранены; assertions стандартных предупреждений
+  осознанно проверяют выбранный язык представления, исходный audit остаётся immutable.
+  Merge требует полного local suite и exact-head Release gate; REPORT-I18N-01 для других
+  report kinds и physical acceptance остаются открытыми.
 
 - [x] **2026-10-09 — C1–C5 ramp controlled print package:** HTML/PDF/system print
   используют общий localized document-control snapshot; project/well/dataset берутся
