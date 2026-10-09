@@ -4,9 +4,12 @@ from pathlib import Path
 
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
+    QComboBox,
     QDialog,
     QDialogButtonBox,
     QFileDialog,
+    QFormLayout,
+    QLabel,
     QMessageBox,
     QPushButton,
     QSizePolicy,
@@ -44,9 +47,35 @@ class InterpretationReportDialog(QDialog):
         self.session = session
         self.language = language
         self.localizer = Localizer.create(language)
-        self.report = build_interpretation_report(session, language=language)
+        # Freeze authored translations alongside the numerical snapshot so changing
+        # output language cannot read later edits from the live project.
+        self._reports_by_language = {
+            output_language: build_interpretation_report(session, language=output_language)
+            for output_language in AppLanguage
+        }
+        self.report = self._reports_by_language[language]
         self.setWindowTitle(self._t("interpretation_report.title"))
         layout = QVBoxLayout(self)
+        self.report_output_language = QComboBox()
+        self.report_output_language.setObjectName("geology-report-output-language")
+        for label, value in (
+            ("Русский", AppLanguage.RU),
+            ("Қазақша", AppLanguage.KK),
+            ("English", AppLanguage.EN),
+        ):
+            self.report_output_language.addItem(label, value)
+        self.report_output_language.setCurrentIndex(self.report_output_language.findData(language))
+        self.report_output_language_label = QLabel(
+            {
+                AppLanguage.RU: "Язык отчёта:",
+                AppLanguage.KK: "Есеп тілі:",
+                AppLanguage.EN: "Report language:",
+            }[language]
+        )
+        self.report_output_language_label.setBuddy(self.report_output_language)
+        language_form = QFormLayout()
+        language_form.addRow(self.report_output_language_label, self.report_output_language)
+        layout.addLayout(language_form)
         self.preview = QTextBrowser()
         self.preview.setObjectName("interpretation-report-preview")
         self.preview.setStyleSheet(
@@ -63,12 +92,8 @@ class InterpretationReportDialog(QDialog):
             "QTextBrowser#interpretation-report-preview QScrollBar::sub-line { "
             "background: #cbd5e1; }"
         )
-        self.preview.setVerticalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOn
-        )
-        self.preview.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOn
-        )
+        self.preview.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
+        self.preview.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         self.preview.setSizePolicy(
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Expanding,
@@ -81,28 +106,21 @@ class InterpretationReportDialog(QDialog):
         self.preview.setLineWrapColumnOrWidth(1600)
         self.preview.setHtml(interpretation_report_html(self.report, language))
         layout.addWidget(self.preview)
+        self.report_output_language.currentIndexChanged.connect(self._apply_output_language)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.button(QDialogButtonBox.StandardButton.Close).setText(self._t("common.close"))
         self.export_button = QPushButton(self._t("interpretation_report.export"))
         self.export_button.setObjectName("interpretation-report-export")
         self.export_button.clicked.connect(self._export_pdf)
         buttons.addButton(self.export_button, QDialogButtonBox.ButtonRole.ActionRole)
-        self.export_xlsx_button = QPushButton(
-            self._t("interpretation_report.export_xlsx")
-        )
+        self.export_xlsx_button = QPushButton(self._t("interpretation_report.export_xlsx"))
         self.export_xlsx_button.setObjectName("interpretation-report-export-xlsx")
         self.export_xlsx_button.clicked.connect(self._export_xlsx)
-        buttons.addButton(
-            self.export_xlsx_button, QDialogButtonBox.ButtonRole.ActionRole
-        )
-        self.export_docx_button = QPushButton(
-            self._t("interpretation_report.export_docx")
-        )
+        buttons.addButton(self.export_xlsx_button, QDialogButtonBox.ButtonRole.ActionRole)
+        self.export_docx_button = QPushButton(self._t("interpretation_report.export_docx"))
         self.export_docx_button.setObjectName("interpretation-report-export-docx")
         self.export_docx_button.clicked.connect(self._export_docx)
-        buttons.addButton(
-            self.export_docx_button, QDialogButtonBox.ButtonRole.ActionRole
-        )
+        buttons.addButton(self.export_docx_button, QDialogButtonBox.ButtonRole.ActionRole)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
         fit_window_to_screen(
@@ -110,6 +128,17 @@ class InterpretationReportDialog(QDialog):
             preferred=QSize(1000, 700),
             minimum=QSize(560, 420),
         )
+
+    def _report_output_language(self) -> AppLanguage:
+        try:
+            return AppLanguage(self.report_output_language.currentData())
+        except (TypeError, ValueError):
+            return self.language
+
+    def _apply_output_language(self) -> None:
+        language = self._report_output_language()
+        self.report = self._reports_by_language[language]
+        self.preview.setHtml(interpretation_report_html(self.report, language))
 
     def _t(self, key: str, **values: object) -> str:
         return self.localizer.text(key, **values)
@@ -147,7 +176,7 @@ class InterpretationReportDialog(QDialog):
             exported = export_interpretation_report_pdf(
                 self.report,
                 target,
-                language=self.language,
+                language=self._report_output_language(),
                 overwrite=overwrite,
             )
         except (
@@ -180,10 +209,7 @@ class InterpretationReportDialog(QDialog):
                 if is_xlsx
                 else "interpretation_report.save_docx_title"
             ),
-            str(
-                Path.cwd()
-                / f"{safe_well_name or 'well'}-geology-report.{output_format}"
-            ),
+            str(Path.cwd() / f"{safe_well_name or 'well'}-geology-report.{output_format}"),
             "Excel (*.xlsx)" if is_xlsx else "Word (*.docx)",
         )
         if not filename:
@@ -207,14 +233,12 @@ class InterpretationReportDialog(QDialog):
             overwrite = True
         try:
             exporter = (
-                export_interpretation_report_xlsx
-                if is_xlsx
-                else export_interpretation_report_docx
+                export_interpretation_report_xlsx if is_xlsx else export_interpretation_report_docx
             )
             exported = exporter(
                 self.report,
                 target,
-                language=self.language,
+                language=self._report_output_language(),
                 overwrite=overwrite,
             )
         except (
@@ -227,4 +251,3 @@ class InterpretationReportDialog(QDialog):
             return
         message = self._t("interpretation_report.exported", name=exported.name)
         QMessageBox.information(self, self._t("interpretation_report.title"), message)
-
