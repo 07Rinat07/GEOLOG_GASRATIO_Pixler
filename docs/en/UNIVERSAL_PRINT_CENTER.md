@@ -1,5 +1,7 @@
 # Print and Export Center
 
+The interpretation report preview uses one profile for headings, scales, curve legends, empty geology tracks, marker codes, backgrounds, grids and frames. Enlarged fonts fit while retaining complete text; scale values and semantic curve, geology and fluid colours remain unchanged.
+
 The interpretation preview fluid legend uses the shared caption font selected for each complete localized label. Measured fitting retains full phase names; marker codes, shapes, colours and positions remain unchanged.
 
 Both interpretation report preview depth axes use the shared profile's fonts and colours. Complete negative and long values fit the existing label areas; tick positions and depth values remain unchanged.
