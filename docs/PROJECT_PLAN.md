@@ -2,9 +2,9 @@
 # Единый план проекта
 
 План актуализирован 9 октября 2026 года. Проверенная база перед текущим инкрементом —
-`a6646a9b` (PR #510). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
-приёмка интегрированы. Текущий PRINT-STYLE-01 slice подключает заголовок дорожки газового
-контекста к table typography и общему измерению высоты в standard, OPUS и preview.
+`17672209` (PR #511). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
+приёмка интегрированы. Текущий PRINT-STYLE-01 slice подключает заголовок и поясняющий
+подвал interpretation preview к typography/palette общего профиля с измеряемым fitting.
 Registry priority, event codes/depths, существующий device font contract и source data сохраняются.
 WITS-NET-01 остаётся внешним условием: пользователь уточняет существующий VPN, доступа
 для настройки сейчас нет. Разработка остальных независимых задач продолжается.
@@ -379,6 +379,14 @@ Document/painter/user-selected colors остаются данными докум
 закрытым наличием ранее интегрированного UI-ADAPT-01.
 
 ## PRINT-STYLE-01 — Report Visual System
+
+- [x] **2026-10-09 — interpretation preview title/footer profile:** title_pt/footer_pt
+  и text/text_secondary заменяют локальные размеры и цвета. Bounded fitting сохраняет
+  полный локализованный текст внутри прежних областей; painter state восстанавливается.
+  18 RU/KK/EN default/custom/large raster cases проверяют размеры, bounds и текст;
+  девять production previews после package reopen сохраняют исходные массивы и candidates.
+  Chart geometry, curve styles и source contracts сохраняются. Merge требует полного
+  exact-head Release gate; physical acceptance и весь PRINT-STYLE-01 остаются открытыми.
 
 - [x] **2026-10-09 — gas-context legend typography:** заголовок легенды использует
   section_pt, полные event rows — caption_pt общего visual profile. Header height

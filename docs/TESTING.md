@@ -1,5 +1,11 @@
 # Проверка качества и release gate
 
+`tests/test_interpretation_preview_chrome_profile.py` checks 18 RU/KK/EN
+title/footer raster cases with default/custom/large profiles and nine production
+previews after project save/reopen. Complete text, measured bounds, requested font
+roles, palette colours, bold title and restored painter state are checked; source
+arrays, candidates and gas-context events remain unchanged.
+
 `tests/test_gas_context_track_typography.py` checks 30 real RU/KK/EN PDFs
 at 72/96/144/300/600 DPI and 12 raster DPI/profile cases. Default/custom table
 typography, complete wrapped headings, reserved bounds, physical size baselines,

@@ -4,6 +4,7 @@
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
 
 ## Unreleased
+- PRINT-STYLE-01: заголовок и поясняющий подвал preview интерпретационного отчёта используют title/footer typography и text/text_secondary общего visual profile. Измеряемая подгонка сохраняет полный RU/KK/EN текст в прежних областях при увеличенных шрифтах; production previews после reopen сохраняют исходные массивы и результаты интерпретации.
 - PRINT-STYLE-01: заголовок дорожки газового контекста использует table typography общего профиля. Standard, OPUS и preview измеряют тем же шрифтом, которым рисуют полный локализованный текст; PDF physical-point adapter сохраняет размеры при 72–600 DPI. Коды событий, глубины, registry и source data сохраняются.
 - PRINT-STYLE-01: легенда газового контекста использует section/caption typography общего профиля. Измеренная высота локализованного заголовка применяется к PNG layout и PDF pagination; полные ID, глубины и подписи событий сохраняются. RU/KK/EN PDF при 72–600 DPI, PNG и dense multi-page regressions покрывают default/custom/large typography без изменения registry и source data.
 - PRINT-STYLE-01: обычный подвал Masterlog и подвал с реквизитами используют footer typography общего профиля вместо fixed/table размеров. Шапка сохраняет table typography; номер страницы измеряется тем же footer font. RU/KK/EN PDF при 72–600 DPI и controlled/legacy A4/A3/roll после reopen покрыты регрессиями; существующая Qt quantization и геометрия сохраняются.

@@ -14,7 +14,7 @@ from html import escape
 
 import numpy as np
 from PySide6.QtCore import QByteArray, QBuffer, QIODevice, QLineF, QPointF, QRectF, Qt
-from PySide6.QtGui import QPolygonF, QColor, QImage, QPainter, QPen
+from PySide6.QtGui import QPolygonF, QColor, QFontMetricsF, QImage, QPainter, QPen
 
 from geoworkbench.domain.depth_interval import scope_dataset
 from geoworkbench.domain.models import CurveData, Dataset
@@ -63,6 +63,7 @@ from geoworkbench.printing.hydrocarbon_fluid_markers import (
 )
 from geoworkbench.printing.depth_curve_segments import continuous_depth_segments
 from geoworkbench.printing.unicode_support import print_font
+from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.printing.interpretation_track_headings import (
     paint_track_heading,
     track_heading_height,
@@ -309,14 +310,13 @@ def hydrocarbon_interpretation_chart_data_uri(
     try:
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         labels = _labels(language)
-        title_font = print_font(17.0, text=labels["title"])
-        title_font.setBold(True)
-        painter.setFont(title_font)
-        painter.setPen(QColor("#172033"))
-        painter.drawText(
+        visual = modern_oilfield_report_profile()
+        _paint_preview_text(
+            painter,
             QRectF(90.0, 18.0, 1_820.0, 45.0),
-            Qt.AlignmentFlag.AlignCenter,
             labels["title"],
+            visual.typography.title_pt, visual.palette.text,
+            Qt.AlignmentFlag.AlignCenter, bold=True,
         )
 
         if preview_legend_height > 0.0:
@@ -460,12 +460,12 @@ def hydrocarbon_interpretation_chart_data_uri(
                 track_map=track_map,
             )
 
-        painter.setFont(print_font(9.0, text=labels["footer"]))
-        painter.setPen(QColor("#475569"))
-        painter.drawText(
+        _paint_preview_text(
+            painter,
             QRectF(90.0, 1_170.0 + legend_offset, 1_820.0, 84.0),
-            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop,
             labels["footer"],
+            visual.typography.footer_pt, visual.palette.text_secondary,
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap,
         )
     finally:
         painter.end()
@@ -477,6 +477,30 @@ def hydrocarbon_interpretation_chart_data_uri(
     return "data:image/png;base64," + bytes(payload.toBase64().data()).decode(
         "ascii"
     )
+
+
+def _paint_preview_text(
+    painter: QPainter, rect: QRectF, text: str, size: float, color: str,
+    flags: Qt.AlignmentFlag | Qt.TextFlag, *, bold: bool = False,
+) -> None:
+    painter.save()
+    try:
+        font = print_font(size, text=text, bold=bold)
+        # Fit complete localized labels without changing the chart's reserved geometry.
+        for _ in range(8):
+            metrics = QFontMetricsF(font, painter.device())
+            bounds = metrics.boundingRect(QRectF(0, 0, rect.width(), 10000), int(flags), text)
+            factor = min(rect.width() / max(1.0, bounds.width()),
+                         rect.height() / max(1.0, bounds.height()))
+            if factor >= 1.0 or size <= 1.0:
+                break
+            size = max(1.0, size * factor * 0.98)
+            font = print_font(size, text=text, bold=bold)
+        painter.setFont(font)
+        painter.setPen(QColor(color))
+        painter.drawText(rect, int(flags), text)
+    finally:
+        painter.restore()
 
 
 def _panel_curves(
