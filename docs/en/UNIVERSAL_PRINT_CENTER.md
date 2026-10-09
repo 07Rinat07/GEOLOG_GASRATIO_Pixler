@@ -1,5 +1,7 @@
 # Print and Export Center
 
+Both interpretation report preview depth axes use the shared profile's fonts and colours. Complete negative and long values fit the existing label areas; tick positions and depth values remain unchanged.
+
 The interpretation report preview title and explanatory footer use the shared profile's typography and colours. Enlarged fonts fit the measured width and height while retaining complete text and the existing chart arrangement.
 
 The gas-context track heading uses the shared table font size. Standard, OPUS and preview reserve space using the same font that draws the complete wrapped heading; event codes and depths retain their existing presentation.

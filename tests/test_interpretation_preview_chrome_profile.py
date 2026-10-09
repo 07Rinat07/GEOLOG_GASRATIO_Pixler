@@ -95,12 +95,17 @@ def test_production_preview_after_reopen_uses_profile_and_preserves_source(qapp,
         assert image.height >= 1280
         assert image.convert("L").getextrema()[0] < 200
     labels = chart._labels(language)
+    axis = [(labels["depth"] + ", m", visual.typography.section_pt, visual.palette.text)] + [
+        (f"{1300 + index * 12:.1f}", visual.typography.table_pt, visual.palette.text)
+        for index in range(11)
+    ]
     assert [(text, size, color) for text, size, color, rect in calls] == [
         (labels["title"], visual.typography.title_pt, visual.palette.text),
+        *axis, *axis,
         (labels["footer"], visual.typography.footer_pt, visual.palette.text_secondary),
     ]
     assert calls[0][3] == QRectF(90, 18, 1820, 45)
-    assert calls[1][3].width() == 1820 and calls[1][3].height() == 84
+    assert calls[-1][3].width() == 1820 and calls[-1][3].height() == 84
     assert report.candidates == before.candidates
     assert report.gas_context_events == before.gas_context_events
     for key, values in arrays.items():
