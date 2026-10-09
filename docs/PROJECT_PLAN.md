@@ -382,13 +382,15 @@ Document/painter/user-selected colors остаются данными докум
 
 - [x] **2026-10-10 — geology report output-language package:** отдельный диалог
   геологического отчёта предлагает Русский/Қазақша/English независимо от UI language.
-  При открытии фиксируются три immutable snapshots, включая authored rock/LBA/analysis
+  Численный snapshot строится один раз; три immutable views разделяют численные поля
+  и сохраняют authored rock/LBA/analysis
   descriptions и stratigraphy names/descriptions. Выбор использует готовый snapshot,
   не читает поздние изменения проекта и согласует preview, PDF, DOCX и XLSX.
   Численные результаты и source arrays не меняются; file dialogs, cancel и errors
   сохраняют язык UI. Девять production UI/output pairs после save/reopen используют
   реальные PDF/Word/Excel с Unicode и escaped rich text; отдельные cancel/error cases
-  покрывают три UI languages. Existing report tests сохраняются. Схемы не меняются.
+  покрывают три UI languages. Счётчики подтверждают один gas-index/meter build; шесть
+  projection/full-build cases включают пробы с одинаковыми границами. Existing report tests сохраняются. Схемы не меняются.
   Merge требует полного local suite, exact-head Release gate и review. Остальные
   report kinds, Print Center и physical acceptance остаются открытыми.
 
