@@ -36,7 +36,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import (
 )
 from geoworkbench.printing.depth_curve_segments import continuous_depth_segments
 from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
-from geoworkbench.printing.report_painter_fonts import point_coordinate_font
+from geoworkbench.printing.report_painter_fonts import paint_fitted_point_text, point_coordinate_font
 from geoworkbench.printing.curve_legend_layout import curve_legend_layout, fit_curve_legend_pages
 from geoworkbench.printing.interpretation_note_layout import interpretation_note_height
 from geoworkbench.printing.interpretation_track_headings import (
@@ -209,19 +209,17 @@ def _draw_chart_page(
 ) -> None:
     palette = modern_oilfield_report_profile().palette
     labels = _labels(language)
-    title_font = point_coordinate_font(15.0, text=labels["title"], paint_device=painter.device())
-    title_font.setBold(True)
-    painter.setFont(title_font)
-    painter.setPen(QColor(palette.text))
-    painter.drawText(
+    typography = modern_oilfield_report_profile().typography
+    paint_fitted_point_text(
+        painter,
         QRectF(
             geometry.page_rect.left(),
             geometry.page_rect.top(),
             geometry.page_rect.width(),
             25.0,
         ),
-        Qt.AlignmentFlag.AlignCenter,
         labels["title"],
+        typography.title_pt, palette.text, Qt.AlignmentFlag.AlignCenter, bold=True,
     )
     subtitle = labels["page"].format(
         current=page_index,
@@ -231,17 +229,16 @@ def _draw_chart_page(
         unit=report.depth_unit,
         scale=page.scale_denominator,
     )
-    painter.setFont(point_coordinate_font(8.5, text=subtitle, paint_device=painter.device()))
-    painter.setPen(QColor(palette.text_secondary))
-    painter.drawText(
+    paint_fitted_point_text(
+        painter,
         QRectF(
             geometry.page_rect.left(),
             geometry.page_rect.top() + 27.0,
             geometry.page_rect.width(),
             20.0,
         ),
-        Qt.AlignmentFlag.AlignCenter,
         subtitle,
+        typography.subtitle_pt, palette.text_secondary, Qt.AlignmentFlag.AlignCenter,
     )
 
     _draw_depth_axis(
@@ -321,14 +318,11 @@ def _draw_depth_axis(
     painter.setPen(QPen(QColor(palette.border_strong), layout.strong_rule_pt))
     painter.drawRect(rect)
     title = labels["depth"] + (f", {unit}" if unit else "")
-    title_font = point_coordinate_font(7.0, text=title, paint_device=painter.device())
-    title_font.setBold(True)
-    painter.setFont(title_font)
-    painter.setPen(QColor(palette.text))
-    painter.drawText(
+    paint_fitted_point_text(
+        painter,
         QRectF(rect.left() - 2.0, rect.top() - 28.0, rect.width() + 4.0, 18.0),
-        Qt.AlignmentFlag.AlignCenter,
         title,
+        typography.caption_pt, palette.text, Qt.AlignmentFlag.AlignCenter, bold=True,
     )
 
     step = _nice_tick_step(page.span, target_ticks=8)
@@ -416,10 +410,9 @@ def _draw_panel(
         point_coordinates=True,
     )
     if not any(curve.metadata.curve_id in ranges for curve in curves):
-        painter.setPen(QColor(palette.text_muted))
         label = _labels(language)["no_data"]
-        painter.setFont(point_coordinate_font(8.0, text=label, paint_device=painter.device()))
-        painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, label)
+        paint_fitted_point_text(painter, rect, label, typography.body_pt, palette.text_muted,
+                                Qt.AlignmentFlag.AlignCenter)
     else:
         _draw_curves(
             painter,
@@ -443,7 +436,8 @@ def _draw_candidate_bands(
     show_codes: bool = False,
 ) -> None:
     """Draw prospect bands with a non-colour marker/code cue for grayscale output."""
-    palette = modern_oilfield_report_profile().palette
+    visual = modern_oilfield_report_profile()
+    palette = visual.palette
 
     for candidate in candidates:
         top_depth = candidate.top_depth
@@ -476,14 +470,12 @@ def _draw_candidate_bands(
             size=5.0,
         )
         code_rect = QRectF(marker_x + 4.5, center_y - 5.5, 19.0, 11.0)
-        painter.setPen(QColor(palette.text))
-        font = point_coordinate_font(5.2, text=spec.code, paint_device=painter.device())
-        font.setBold(True)
-        painter.setFont(font)
-        painter.drawText(
+        paint_fitted_point_text(
+            painter,
             code_rect,
-            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
             spec.code,
+            visual.typography.caption_pt, palette.text,
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, bold=True,
         )
 
 

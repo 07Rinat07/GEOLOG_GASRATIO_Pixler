@@ -1,5 +1,12 @@
 # Проверка качества и release gate
 
+`tests/test_interpretation_pdf_fitted_typography.py` covers 216 cases: 180 actual
+RU/KK/EN PDFs at 72/96/144/300/600 DPI with default/custom/large title/subtitle/body/code
+roles, 18 production standard/OPUS PDFs after project reopen, and 18 empty-panel/code
+adapter cases. Full searchable text, bounds, 72-DPI size/bounds baseline, painter state,
+exact requested profile roles and immutable source values are checked. Existing
+physical-DPI tests now assert the intentional profile mapping instead of fixed legacy sizes.
+
 The unified preview profile package is covered by
 `tests/test_interpretation_preview_ratio_typography.py` (27 RU/KK/EN Haworth/Pixler
 and production-reopen cases) and `tests/test_interpretation_preview_visual_profile.py`

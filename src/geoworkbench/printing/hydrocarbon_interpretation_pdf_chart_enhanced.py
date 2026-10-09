@@ -70,7 +70,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_report_range import (
     ReportDepthRange,
 )
 from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
-from geoworkbench.printing.report_painter_fonts import point_coordinate_font
+from geoworkbench.printing.report_painter_fonts import paint_fitted_point_text, point_coordinate_font
 from geoworkbench.printing.curve_legend_layout import fit_curve_legend_pages
 from geoworkbench.printing.interpretation_note_layout import interpretation_note_height
 from geoworkbench.printing.fluid_marker_legend_layout import (
@@ -547,19 +547,17 @@ def _draw_chart_page(
 ) -> None:
     palette = modern_oilfield_report_profile().palette
     labels = base_chart._labels(language)
-    title_font = point_coordinate_font(15.0, text=labels["title"], paint_device=painter.device())
-    title_font.setBold(True)
-    painter.setFont(title_font)
-    painter.setPen(QColor(palette.text))
-    painter.drawText(
+    typography = modern_oilfield_report_profile().typography
+    paint_fitted_point_text(
+        painter,
         QRectF(
             geometry.page_rect.left(),
             geometry.page_rect.top(),
             geometry.page_rect.width(),
             25.0,
         ),
-        Qt.AlignmentFlag.AlignCenter,
         labels["title"],
+        typography.title_pt, palette.text, Qt.AlignmentFlag.AlignCenter, bold=True,
     )
     subtitle = labels["page"].format(
         current=page_index,
@@ -569,17 +567,16 @@ def _draw_chart_page(
         unit=report.depth_unit,
         scale=page.scale_denominator,
     )
-    painter.setFont(point_coordinate_font(8.5, text=subtitle, paint_device=painter.device()))
-    painter.setPen(QColor(palette.text_secondary))
-    painter.drawText(
+    paint_fitted_point_text(
+        painter,
         QRectF(
             geometry.page_rect.left(),
             geometry.page_rect.top() + 27.0,
             geometry.page_rect.width(),
             20.0,
         ),
-        Qt.AlignmentFlag.AlignCenter,
         subtitle,
+        typography.subtitle_pt, palette.text_secondary, Qt.AlignmentFlag.AlignCenter,
     )
 
     if geometry.geology_legend_rect is not None:
@@ -843,10 +840,9 @@ def _draw_panel(
         point_coordinates=True,
     )
     if not any(curve.metadata.curve_id in ranges for curve in curves):
-        painter.setPen(QColor(palette.text_muted))
         label = base_chart._labels(language)["no_data"]
-        painter.setFont(point_coordinate_font(8.0, text=label, paint_device=painter.device()))
-        painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, label)
+        paint_fitted_point_text(painter, rect, label, typography.body_pt, palette.text_muted,
+                                Qt.AlignmentFlag.AlignCenter)
     else:
         base_chart._draw_curves(
             painter,
@@ -1087,7 +1083,8 @@ def _draw_visible_fluid_markers(
     page: DepthPage,
     visible: tuple[HydrocarbonCandidateInterval, ...],
 ) -> None:
-    palette = modern_oilfield_report_profile().palette
+    visual = modern_oilfield_report_profile()
+    palette = visual.palette
     target = geometry.panel_rects[-1]
     y_positions = tuple(
         base_chart._depth_y(
@@ -1146,19 +1143,17 @@ def _draw_visible_fluid_markers(
                 spec,
                 size=5.0,
             )
-            font = point_coordinate_font(5.5, text=spec.code, paint_device=painter.device())
-            font.setBold(True)
-            painter.setFont(font)
-            painter.setPen(QColor(palette.text))
-            painter.drawText(
+            paint_fitted_point_text(
+                painter,
                 QRectF(
                     box.left() + 11.0,
                     box.top(),
                     box.width() - 13.0,
                     box.height(),
                 ),
-                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
                 spec.code,
+                visual.typography.caption_pt, palette.text,
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, bold=True,
             )
         return
 
