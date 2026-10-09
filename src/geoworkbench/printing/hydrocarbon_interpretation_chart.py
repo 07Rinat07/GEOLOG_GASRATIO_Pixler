@@ -1203,7 +1203,7 @@ def _draw_whole_well_fluid_legend(
     rows = (len(specs) + columns - 1) // columns
     cell_width = rect.width() / columns
     row_height = rect.height() / rows
-    painter.setFont(print_font(7.0, text="GC/GO heavy/residual oil"))
+    visual = modern_oilfield_report_profile()
     for index, spec in enumerate(specs):
         row = index // columns
         column = index % columns
@@ -1215,11 +1215,12 @@ def _draw_whole_well_fluid_legend(
             spec,
             size=7.0,
         )
-        painter.setPen(QColor("#172033"))
-        painter.drawText(
+        _paint_preview_text(
+            painter,
             QRectF(left + 14.0, center_y - 7.0, cell_width - 16.0, 14.0),
-            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
             f"{spec.code} {spec.label(language)}",
+            visual.typography.caption_pt, visual.palette.text,
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
         )
 
 def _depth_y(

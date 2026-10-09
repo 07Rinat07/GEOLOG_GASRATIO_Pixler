@@ -1,5 +1,7 @@
 # Print and Export Center
 
+The interpretation preview fluid legend uses the shared caption font selected for each complete localized label. Measured fitting retains full phase names; marker codes, shapes, colours and positions remain unchanged.
+
 Both interpretation report preview depth axes use the shared profile's fonts and colours. Complete negative and long values fit the existing label areas; tick positions and depth values remain unchanged.
 
 The interpretation report preview title and explanatory footer use the shared profile's typography and colours. Enlarged fonts fit the measured width and height while retaining complete text and the existing chart arrangement.
