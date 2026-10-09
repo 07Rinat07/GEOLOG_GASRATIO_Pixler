@@ -1,5 +1,12 @@
 # Проверка качества и release gate
 
+`tests/test_masterlog_footer_typography.py` checks 60 actual RU/KK/EN PDFs:
+simple/controlled footer paths at 72/96/144/300/600 DPI with default/custom typography.
+Exact footer/table role requests, searchable text, reserved bounds and painter state
+are checked independently of existing Qt pre-transform font quantization. Extracted
+sizes/bounds match the 72-DPI baseline. Eighteen controlled/legacy A4/A3/roll exports
+after package reopen preserve form metadata, source arrays and footer font size.
+
 `tests/test_masterlog_control_unicode.py` checks 30 actual RU/KK/EN PDF cases:
 document-control header/footer at 72/96/144/300/600 DPI. Font resolution receives
 full text before measurement/elision, including bounded compact footer metadata.
