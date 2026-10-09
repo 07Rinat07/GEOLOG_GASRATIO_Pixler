@@ -1,5 +1,11 @@
 # Проверка качества и release gate
 
+`tests/test_ratio_reference_depth_keys.py` checks six actual RU/KK/EN monochrome
+PNG charts with colour/grayscale neutral profiles and nine vector PDFs at
+72/300/600 DPI. All six depth keys remain distinct; scatter and profile coordinates
+match source measurements. Filled glyphs, six vector dash patterns and unfilled
+plot areas are checked. Existing palette, typography and DPI matrices remain.
+
 `tests/test_ratio_reference_typography.py` checks 18 RU/KK/EN PNG charts with
 default/custom/maximum-size profiles and complete/partial data. Shared typography
 roles, full labels, measured bounds and empty states are checked. Another 27 actual

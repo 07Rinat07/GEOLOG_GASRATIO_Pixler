@@ -6,7 +6,7 @@ from collections.abc import Sequence
 import numpy as np
 from numpy.typing import NDArray
 from PySide6.QtCore import QByteArray, QBuffer, QIODevice, QLineF, QPointF, QRectF, Qt
-from PySide6.QtGui import QColor, QFontMetricsF, QImage, QPainter, QPen
+from PySide6.QtGui import QColor, QFontMetricsF, QImage, QPainter, QPainterPath, QPen, QPolygonF
 
 from geoworkbench.domain.models import CurveData, Dataset
 from geoworkbench.printing.report_painter_fonts import point_coordinate_font
@@ -122,6 +122,38 @@ def has_ratio_reference_summary(dataset: Dataset) -> bool:
         return False
     matrix = np.column_stack([ratios[key].values for key in keys])
     return bool(np.any(np.all(np.isfinite(matrix) & (matrix > 0), axis=1)))
+
+
+def _depth_pen(index: int, width: float) -> QPen:
+    styles = (Qt.PenStyle.SolidLine, Qt.PenStyle.DashLine, Qt.PenStyle.DotLine,
+              Qt.PenStyle.DashDotLine, Qt.PenStyle.DashDotDotLine, Qt.PenStyle.CustomDashLine)
+    pen = QPen(QColor(_DEPTH_COLORS[index]), width, styles[index])
+    if index == 5:
+        pen.setDashPattern([6, 2, 1, 2, 1, 2, 1, 2])
+    return pen
+
+
+def _depth_marker(painter: QPainter, center: QPointF, index: int, radius: float = 2.0) -> None:
+    path = QPainterPath()
+    if index == 0:
+        path.addEllipse(center, radius, radius)
+    else:
+        vertices = {
+            1: ((-1, -1), (1, -1), (1, 1), (-1, 1)),
+            2: ((0, -1), (1, 0), (0, 1), (-1, 0)),
+            3: ((0, -1), (1, 1), (-1, 1)),
+            4: ((-1, -1), (1, -1), (0, 1)),
+            5: ((-1, 0), (-0.5, -1), (0.5, -1), (1, 0), (0.5, 1), (-0.5, 1)),
+        }[index]
+        path.addPolygon(QPolygonF([QPointF(center.x() + x * radius, center.y() + y * radius) for x, y in vertices]))
+        path.closeSubpath()
+    painter.save()
+    try:
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(_DEPTH_COLORS[index]))
+        painter.drawPath(path)
+    finally:
+        painter.restore()
 
 
 def _text(painter: QPainter, rect: QRectF, text: str, size: float | None = None) -> None:
@@ -241,22 +273,22 @@ def paint_ratio_reference_summary(
                 bin_index = min(
                     5, int((depth[row] - low_depth) / max(1e-9, high_depth - low_depth) * 6)
                 )
-                painter.setBrush(QColor(_DEPTH_COLORS[max(0, bin_index)]))
-                painter.drawEllipse(
+                _depth_marker(
+                    painter,
                     QPointF(
                         plot.left() + x[row] / maximum * plot.width(),
                         plot.bottom() - y[row] * plot.height(),
                     ),
-                    2,
-                    2,
+                    max(0, bin_index),
                 )
             painter.restore()
-        for index, depth_color in enumerate(_DEPTH_COLORS):
+        for index in range(len(_DEPTH_COLORS)):
             start = low_depth + (high_depth - low_depth) * index / 6
             end = low_depth + (high_depth - low_depth) * (index + 1) / 6
-            painter.setPen(QPen(QColor(depth_color), 2))
-            painter.drawLine(QLineF(65 + index * 150, 327, 82 + index * 150, 327))
-            _text(painter, QRectF(84 + index * 150, 317, 130, 20), f"{start:.1f}–{end:.1f} m", typography.caption_pt)
+            painter.setPen(_depth_pen(index, 1.5))
+            painter.drawLine(QLineF(65 + index * 150, 327, 100 + index * 150, 327))
+            _depth_marker(painter, QPointF(82.5 + index * 150, 327), index, 3)
+            _text(painter, QRectF(103 + index * 150, 317, 111, 20), f"{start:.1f}–{end:.1f} m", typography.caption_pt)
         plot = QRectF(65, 385, 610, 205)
         _axes(painter, plot)
         _text(painter, QRectF(65, 340, 610, 30), "Pixler · C1/C2 – C1/C5", typography.section_pt)
@@ -290,8 +322,8 @@ def paint_ratio_reference_summary(
                         0, int((all_depth[row] - low_depth) / max(1e-9, high_depth - low_depth) * 6)
                     ),
                 )
-                profile_color = QColor(_DEPTH_COLORS[depth_bin])
-                painter.setPen(QPen(profile_color, 1.5))
+                painter.setPen(_depth_pen(depth_bin, 1.5))
+                painter.setBrush(Qt.BrushStyle.NoBrush)
                 points = [
                     QPointF(
                         plot.left() + index / 3 * plot.width(),
@@ -300,18 +332,23 @@ def paint_ratio_reference_summary(
                     )
                     for index, value in enumerate(matrix[row])
                 ]
-                for previous_point, current_point in zip(points, points[1:]):
-                    painter.drawLine(QLineF(previous_point, current_point))
+                path = QPainterPath(points[0])
+                for point in points[1:]:
+                    path.lineTo(point)
+                painter.drawPath(path)
+                for point in points:
+                    _depth_marker(painter, point, depth_bin)
                 _text(
                     painter,
-                    QRectF(710, 390 + profile_index * 25, 260, 20),
+                    QRectF(742, 390 + profile_index * 25, 228, 20),
                     f"{all_depth[row]:.2f} m",
                     typography.body_pt,
                 )
-                painter.setPen(QPen(profile_color, 2))
+                painter.setPen(_depth_pen(depth_bin, 1.5))
                 painter.drawLine(
-                    QLineF(700, 400 + profile_index * 25, 720, 400 + profile_index * 25)
+                    QLineF(700, 400 + profile_index * 25, 735, 400 + profile_index * 25)
                 )
+                _depth_marker(painter, QPointF(717.5, 400 + profile_index * 25), depth_bin, 3)
         else:
             _text(
                 painter,
@@ -334,9 +371,9 @@ def paint_ratio_reference_summary(
             painter,
             QRectF(65, 625, 900, 20),
             {
-                AppLanguage.RU: "Точки — парные измерения; профили — отдельные глубины. Цвет: от меньшей глубины к большей.",
-                AppLanguage.KK: "Нүктелер — жұп өлшемдер; профильдер — жеке тереңдіктер. Түс: тереңдік өсуі.",
-                AppLanguage.EN: "Points are paired observations; profiles are individual depths. Color: shallow to deep.",
+                AppLanguage.RU: "Точки — парные измерения; профили — отдельные глубины. Цвет, форма и линия: от меньшей глубины к большей.",
+                AppLanguage.KK: "Нүктелер — жұп өлшемдер; профильдер — жеке тереңдіктер. Түс, пішін және сызық: тереңдік өсуі.",
+                AppLanguage.EN: "Points are paired observations; profiles are individual depths. Colour, shape and line: shallow to deep.",
             }[language],
             typography.footer_pt,
         )

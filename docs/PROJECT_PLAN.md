@@ -2,10 +2,10 @@
 # Единый план проекта
 
 План актуализирован 9 октября 2026 года. Проверенная база перед текущим инкрементом —
-`ce43972d` (PR #505). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
-приёмка интегрированы. Текущий PRINT-STYLE-01 slice подключает typography roles
-корреляционной диаграммы Haworth/Pixler и measured fitting полного текста.
-Цвета глубин, геометрия, physical DPI contract, шкалы и source data сохраняются.
+`f62345e3` (PR #506). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
+приёмка интегрированы. Текущий PRINT-STYLE-01 slice добавляет monochrome depth keys
+корреляционной диаграммы Haworth/Pixler: filled marker shapes и matching line patterns.
+Цвета глубин, координаты измерений, physical DPI contract, шкалы и source data сохраняются.
 WITS-NET-01 остаётся внешним условием: пользователь уточняет существующий VPN, доступа
 для настройки сейчас нет. Разработка остальных независимых задач продолжается.
 Статусы завершения
@@ -638,6 +638,16 @@ PRINT-STYLE-01 не меняет application theme tokens из UI-SYS-01.
   physical sizes/bounds. Existing palette/DPI/source regressions сохранены.
   Monochrome depth keys и physical acceptance остаются открытыми;
   merge только после полного local suite и exact-head Windows Release gate.
+- [x] **2026-10-09 — ratio-reference monochrome depth keys:** шесть depth bins
+  получают различимые filled circle/square/diamond/triangle-up/triangle-down/hexagon
+  glyphs и solid/dash/dot/dash-dot/dash-dot-dot/custom line patterns. Scatter сохраняет
+  paired coordinates; Pixler depth profiles используют один vector path с markers
+  по исходным четырём ratios. Depth-bin и per-profile legends используют те же keys,
+  подписи отделены от образцов; RU/KK/EN пояснение больше не опирается только на цвет.
+  Шесть actual grayscale PNG cases проверяют все keys и точные source coordinates;
+  девять vector PDF cases при 72/300/600 DPI проверяют filled markers, line patterns
+  и отсутствие случайной plot fill. Existing palette/typography/DPI/source tests сохранены.
+  Physical acceptance остаётся открытой; merge только после полного exact-head gate.
 - [ ] Один immutable style profile для PDF, Masterlog, планшетной печати и Office-экспорта:
   нейтральная техническая типографика, строгая сетка, сдержанный petroleum-blue accent,
   high-contrast текст, light technical fills, line-weight hierarchy и monochrome-safe semantics.
