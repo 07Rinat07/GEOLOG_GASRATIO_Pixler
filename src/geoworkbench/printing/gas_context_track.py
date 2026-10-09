@@ -132,26 +132,38 @@ _LEGEND_FLAGS = Qt.AlignmentFlag.AlignLeft | Qt.TextFlag.TextWordWrap | Qt.TextF
 
 
 def _row_height(row: str, width: float, device: QPaintDevice, scale: float) -> float:
-    font = _font_for_device(device, 7.0 * scale, row)
+    font = _font_for_device(device, modern_oilfield_report_profile().typography.caption_pt * scale, row)
     bounds = QFontMetricsF(font, device).boundingRect(QRectF(0, 0, max(1.0, width), 10000), int(_LEGEND_FLAGS), row)
     return float(ceil(bounds.height() + 5.0 * scale))
 
 
-def context_legend_height(rows: tuple[str, ...], width: float, device: QPaintDevice, *, scale: float = 1.0) -> float:
-    return 24.0 * scale + sum(_row_height(row, width, device, scale) for row in rows) if rows else 0.0
+def _legend_header_height(device: QPaintDevice, language: AppLanguage, scale: float) -> float:
+    font = _font_for_device(device, modern_oilfield_report_profile().typography.section_pt * scale,
+                            context_title(language))
+    return max(24.0 * scale, float(ceil(QFontMetricsF(font, device).height() + 8.0 * scale)))
+
+
+def context_legend_height(
+    rows: tuple[str, ...], width: float, device: QPaintDevice, *, scale: float = 1.0,
+    language: AppLanguage = AppLanguage.RU,
+) -> float:
+    return (_legend_header_height(device, language, scale)
+            + sum(_row_height(row, width, device, scale) for row in rows)) if rows else 0.0
 
 
 def paint_context_legend(painter: QPainter, rect: QRectF, rows: tuple[str, ...], language: AppLanguage, *, scale: float = 1.0) -> None:
     painter.save()
     try:
+        visual = modern_oilfield_report_profile()
         painter.setClipRect(rect, Qt.ClipOperation.IntersectClip)
-        painter.setPen(QColor(modern_oilfield_report_profile().palette.text))
+        painter.setPen(QColor(visual.palette.text))
         title = context_title(language)
-        painter.setFont(_font_for_device(painter.device(), 9.0 * scale, title))
-        painter.drawText(QRectF(rect.left(), rect.top(), rect.width(), 20 * scale), title)
-        y = rect.top() + 22 * scale
+        header_height = _legend_header_height(painter.device(), language, scale)
+        painter.setFont(_font_for_device(painter.device(), visual.typography.section_pt * scale, title))
+        painter.drawText(QRectF(rect.left(), rect.top(), rect.width(), header_height - 4 * scale), title)
+        y = rect.top() + header_height - 2 * scale
         for row in rows:
-            font = _font_for_device(painter.device(), 7.0 * scale, row)
+            font = _font_for_device(painter.device(), visual.typography.caption_pt * scale, row)
             painter.setFont(font)
             height = _row_height(row, rect.width(), painter.device(), scale)
             painter.drawText(QRectF(rect.left(), y, rect.width(), height), _LEGEND_FLAGS, row)
@@ -166,13 +178,14 @@ def render_context_legend_pages(canvas: PageCanvas, segments: tuple[GasContextSe
         return
     pages: list[tuple[str, ...]] = []
     current: list[str] = []
-    height = 24.0
+    header_height = _legend_header_height(canvas.painter.device(), language, 1.0)
+    height = header_height
     for row in rows:
         row_height = _row_height(row, canvas.content_rect.width(), canvas.painter.device(), 1.0)
         if current and height + row_height > canvas.content_rect.height():
             pages.append(tuple(current))
             current = []
-            height = 24.0
+            height = header_height
         current.append(row)
         height += row_height
     if current:

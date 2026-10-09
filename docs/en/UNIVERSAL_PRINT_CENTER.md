@@ -1,5 +1,7 @@
 # Print and Export Center
 
+The gas-context legend uses the shared typography profile for its heading and event rows. Enlarged headings are measured for preview layout and PDF pagination; complete identifiers, depths and localized event names are retained.
+
 The simple Masterlog footer and the document-control footer use the shared print profile's footer font size. The document-control header retains table typography; page numbers, branding and compact metadata occupy their existing reserved areas.
 
 The automatic Masterlog document-control area and footer select the print font from each complete label before measuring and shortening it. Russian, Kazakh and English values retain the shared print font stack, physical sizes and placement; long metadata remains shortened only within bounded fields.
