@@ -69,6 +69,7 @@ def plan_depth_pages(
     available_plot_height_points: float,
     *,
     max_pages: int = MAX_AUTOMATIC_CHART_PAGES,
+    target_depth_per_page: float = TARGET_DEPTH_PER_PAGE,
 ) -> tuple[DepthPage, ...]:
     """Choose a readable standard scale and split a well into continuous pages."""
 
@@ -80,10 +81,12 @@ def plan_depth_pages(
         raise ValueError("Высота области графика должна быть больше нуля")
     if max_pages < 1:
         raise ValueError("Число страниц графика должно быть не меньше одной")
+    if not np.isfinite(target_depth_per_page) or target_depth_per_page <= 0.0:
+        raise ValueError("Планируемый интервал глубины на лист должен быть положительным")
 
     span = high - low
     height_mm = available_plot_height_points / POINTS_PER_MM
-    readable_page_span = TARGET_DEPTH_PER_PAGE * _MAX_TARGET_DEPTH_OVERSHOOT
+    readable_page_span = target_depth_per_page * _MAX_TARGET_DEPTH_OVERSHOOT
     desired_pages = min(max_pages, max(1, int(ceil(span / readable_page_span))))
     required_scale = span * 1_000.0 / (height_mm * desired_pages)
     scale = _fit_scale_denominator(required_scale)
