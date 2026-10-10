@@ -103,11 +103,15 @@ def export_readable_hydrocarbon_interpretation_xlsx(
     destination.parent.mkdir(parents=True, exist_ok=True)
 
     _notify(progress, labels.progress_prepare, 0, 100)
+    # One immutable identity for the visible interpretation sheet and the
+    # document-control sheet. Previously the former read stale report fields
+    # while the latter read the user's saved well/project information.
+    details = resolved_report_identity(report, identity, language)
     workbook = Workbook()
     try:
         main = workbook.active
         main.title = labels.sheet_interpretation
-        _write_main_sheet(main, report, dataset, language)
+        _write_main_sheet(main, report, dataset, language, details, custom_title=identity is not None)
         _notify(progress, labels.progress_intervals, 15, 100)
         _write_methods_sheet(workbook, report, language)
         _write_opus_gasomer_sheet(workbook, report, language)
@@ -119,7 +123,7 @@ def export_readable_hydrocarbon_interpretation_xlsx(
             language=language,
             progress=progress,
         )
-        _write_document_control_sheet(workbook, report, identity, language)
+        _write_document_control_sheet(workbook, details, language)
         _write_classification_audit_sheet(workbook, report)
         _notify(progress, labels.progress_save, 95, 100)
 
@@ -149,11 +153,9 @@ def export_readable_hydrocarbon_interpretation_xlsx(
 
 def _write_document_control_sheet(
     workbook: Workbook,
-    report: HydrocarbonInterpretationReport,
-    identity: InterpretationReportIdentity | None,
+    details: InterpretationReportIdentity,
     language: AppLanguage,
 ) -> None:
-    details = resolved_report_identity(report, identity, language)
     snapshot = report_document_control(details, language)
     write_document_control_sheet(workbook, snapshot, language)
 
@@ -293,6 +295,9 @@ def _write_main_sheet(
     report: HydrocarbonInterpretationReport,
     dataset: Dataset,
     language: AppLanguage,
+    details: InterpretationReportIdentity,
+    *,
+    custom_title: bool = False,
 ) -> None:
     labels = hydrocarbon_report_labels(language)
     sheet.sheet_view.showGridLines = False
@@ -302,7 +307,7 @@ def _write_main_sheet(
         if report.report_profile == "opus"
         else labels.title_standard
     )
-    sheet["A1"] = report_title
+    sheet["A1"] = details.report_title if custom_title and details.report_title else report_title
     print_wordmark = "&B" + REPORT_BRAND_WORDMARK.replace("&", "&&") + "&B"
     sheet.oddHeader.left.text = print_wordmark
     sheet.oddFooter.left.text = print_wordmark
@@ -312,13 +317,12 @@ def _write_main_sheet(
     sheet.row_dimensions[1].height = 28
 
     metadata = (
-        (labels.project, report.project_name, labels.well, report.well_name),
+        (labels.project, details.project_name, labels.well, details.well_name),
         (
-            labels.dataset, report.dataset_name,
+            labels.dataset, details.dataset_name,
             {AppLanguage.RU: "Интервал", AppLanguage.KK: "Аралық", AppLanguage.EN: "Interval"}[language]
-            if report.analysis_depth_interval is not None else "",
-            report.analysis_depth_interval.formatted(report.depth_unit)
-            if report.analysis_depth_interval is not None else "",
+            if details.interval else "",
+            details.interval,
         ),
         (
             labels.primary_gas_curve,
