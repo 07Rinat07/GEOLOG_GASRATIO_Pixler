@@ -72,6 +72,9 @@ class ReportChartPanelSettings:
 
 DEFAULT_REPORT_CHART_PANELS = ReportChartPanelSettings()
 
+REPORT_CHART_DEPTH_PRESETS = (100.0, 250.0, 500.0)
+
+
 
 def report_chart_panels_from_mapping(value: object) -> ReportChartPanelSettings:
     if not isinstance(value, dict) or set(value) != {"order", "hidden"}:
@@ -124,10 +127,19 @@ class InterpretationReportComposition:
     show_summary: bool = True
     show_conclusion: bool = True
     chart_panels: ReportChartPanelSettings = DEFAULT_REPORT_CHART_PANELS
+    target_depth_per_page: float = REPORT_CHART_DEPTH_PRESETS[0]
     annotations: tuple[ReportAnnotationRecord, ...] = ()
     header_ru: ReportHeaderFields | None = None
     header_kk: ReportHeaderFields | None = None
     header_en: ReportHeaderFields | None = None
+
+    def __post_init__(self) -> None:
+        value = self.target_depth_per_page
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError("Invalid report chart depth density")
+        if float(value) not in REPORT_CHART_DEPTH_PRESETS:
+            raise ValueError("Unsupported report chart depth density")
+        object.__setattr__(self, "target_depth_per_page", float(value))
 
 
 DEFAULT_INTERPRETATION_REPORT_COMPOSITION = InterpretationReportComposition()
@@ -193,6 +205,7 @@ def with_report_header_fields(
 
 __all__ = [
     "DEFAULT_REPORT_CHART_PANELS",
+    "REPORT_CHART_DEPTH_PRESETS",
     "ReportChartPanel",
     "ReportChartPanelSettings",
     "report_chart_panels_from_mapping",

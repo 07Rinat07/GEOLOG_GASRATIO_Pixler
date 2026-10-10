@@ -24,6 +24,7 @@ from geoworkbench.domain.report_annotations import (
 )
 from geoworkbench.domain.report_composition import (
     ReportChartPanelSettings,
+    REPORT_CHART_DEPTH_PRESETS,
     InterpretationReportComposition,
     ReportHeaderFields,
     ensure_report_composition_id,
@@ -98,6 +99,12 @@ def _validate_report_compositions(
     for dataset_id, composition in compositions.items():
         if not isinstance(composition.chart_panels, ReportChartPanelSettings):
             raise ValueError("Invalid report chart panel settings")
+        if (
+            isinstance(composition.target_depth_per_page, bool)
+            or not isinstance(composition.target_depth_per_page, (int, float))
+            or float(composition.target_depth_per_page) not in REPORT_CHART_DEPTH_PRESETS
+        ):
+            raise ValueError("Invalid report chart depth density")
         if (
             not composition.composition_id.strip()
             or len(composition.composition_id) > 128
@@ -201,6 +208,7 @@ def save_project(
                 "lba": composition.lba.value,
                 "legend_mode": composition.legend_mode.value,
                 "layout_profile": composition.layout_profile.value,
+                "target_depth_per_page": composition.target_depth_per_page,
                 "chart_panels": {
                     "order": [panel.value for panel in composition.chart_panels.order],
                     "hidden": [panel.value for panel in composition.chart_panels.hidden],
