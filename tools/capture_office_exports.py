@@ -11,7 +11,7 @@ import csv
 import hashlib
 import json
 from pathlib import Path
-from xml.etree import ElementTree
+from defusedxml import ElementTree
 from zipfile import ZipFile
 
 import numpy as np
