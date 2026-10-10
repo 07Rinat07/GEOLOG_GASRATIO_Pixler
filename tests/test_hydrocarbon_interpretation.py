@@ -990,3 +990,41 @@ def test_report_default_anomaly_threshold_is_four() -> None:
     assert build_hydrocarbon_interpretation_report(_session()).threshold == 4.0
     assert build_opus_interpretation_report(_session()).threshold == 4.0
     assert build_hydrocarbon_interpretation_report(_session(), threshold=3.0).threshold == 3.0
+
+
+def test_unedited_project_placeholder_is_not_reported_as_a_real_project() -> None:
+    session = _session()
+    # The shared fixture deliberately uses a formula-like real project name.
+    # Reset just this case to the fresh workspace placeholder.
+    session.project.name = "Новый проект"
+    assert session.project.name == "Новый проект"
+    report = build_hydrocarbon_interpretation_report(session)
+    assert report.project_name == ""
+    assert session.project.name == "Новый проект"  # no workspace mutation
+    assert "Новый проект" not in hydrocarbon_interpretation_html(
+        report, AppLanguage.RU,
+    )
+
+    # A real user-edited project name always takes precedence.
+    session.project.name = "Площадь Максат — проект заказчика"
+    edited = build_hydrocarbon_interpretation_report(session)
+    assert edited.project_name == "Площадь Максат — проект заказчика"
+
+
+def test_explicit_report_passport_may_override_an_unnamed_project() -> None:
+    from dataclasses import replace as dc_replace
+    from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
+        default_interpretation_report_identity,
+    )
+    from geoworkbench.printing.report_document_control import resolved_report_identity
+
+    session = _session()
+    session.project.name = "Новый проект"
+    report = build_hydrocarbon_interpretation_report(session)
+    supplied = dc_replace(
+        default_interpretation_report_identity(report, AppLanguage.RU),
+        project_name="М-1 — подтверждённые реквизиты",
+    )
+    assert resolved_report_identity(
+        report, supplied, AppLanguage.RU,
+    ).project_name == "М-1 — подтверждённые реквизиты"

@@ -376,8 +376,16 @@ def build_hydrocarbon_interpretation_report(
         if detection_warning:
             warnings.append(detection_warning)
 
+    # A fresh session starts with the UI placeholder "Новый проект".
+    # It is not a factual project identifier from LAS. Keep it in the
+    # editable project workspace, but never certify it as a report passport.
+    # Explicit project names continue to pass through unchanged.
+    report_project_name = session.project.name.strip()
+    if report_project_name == "Новый проект":
+        report_project_name = ""
+
     return HydrocarbonInterpretationReport(
-        session.project.name,
+        report_project_name,
         well.name,
         dataset.dataset_id,
         dataset.name,
