@@ -37,6 +37,11 @@ _FORCED_NATIVE_BATCH_FILES = frozenset(
         "tests/test_curve_view_editing.py",
         "tests/test_daily_las_growth_autosave.py",
         "tests/test_main_window_normalized_gas_tablet.py",
+        # Windows Release Gate #2781 crashed with 0xC0000005 in pyqtgraph
+        # ViewBoxMenu.__init__ when gas viewport hotpath tests followed many
+        # unrelated Qt report/dialog tests in a shared process. Run the exact
+        # viewport assertions in a fresh Qt process, not as a skipped test.
+        "tests/test_gas_viewport_hotpath.py",
         # Depth reset also hit PlotItem.__init__ access violation after earlier
         # MainWindow scenarios in the Windows offscreen shard.
         "tests/test_main_window_visible_depth_refresh.py",
