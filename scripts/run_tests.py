@@ -40,6 +40,11 @@ _FORCED_NATIVE_BATCH_FILES = frozenset(
         # Depth reset also hit PlotItem.__init__ access violation after earlier
         # MainWindow scenarios in the Windows offscreen shard.
         "tests/test_main_window_visible_depth_refresh.py",
+        # After successive tablet/lithology dialog cases, the Windows offscreen
+        # backend aborted with 0xC0000374 while enumerating top-level widgets
+        # in the autouse cleanup fixture. Retain all cases but give each one a
+        # fresh process, so unrelated native Qt lifetimes cannot accumulate.
+        "tests/test_lithology_drag_editor.py",
         # MainWindow navigation hit 0xC0000005 in PlotItem.__init__ after
         # earlier dialogs/scenes in a large Windows offscreen shard.
         "tests/test_navigation_organization.py",
