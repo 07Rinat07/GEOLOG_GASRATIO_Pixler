@@ -57,6 +57,61 @@ def test_column_choices_survive_project_controller_save_reopen(tmp_path, suffix:
     assert not restored.dirty
 
 
+@pytest.mark.parametrize("suffix", [".geolog.json", ".geologpkg"])
+@pytest.mark.parametrize("depth", [100.0, 250.0, 500.0])
+def test_pdf_chart_density_survives_project_save_and_reopen(
+    qapp, tmp_path, suffix: str, depth: float,
+) -> None:
+    session = _session()
+    dataset = session.current_dataset
+    assert dataset is not None
+    initial = replace(session.report_compositions[dataset.dataset_id],
+                      target_depth_per_page=depth)
+    session.report_compositions[dataset.dataset_id] = initial
+    target = tmp_path / f"pdf-density{suffix}"
+    ProjectController(session=session).save_project(target)
+    restored = ProjectController().open_project(target)
+    loaded = restored.report_compositions[dataset.dataset_id]
+    assert loaded.target_depth_per_page == depth
+    assert loaded == initial
+    dialog = InterpretationPrintLayoutDialog(language=AppLanguage.RU, initial=loaded)
+    try:
+        assert dialog.selected_layout().target_depth_per_page == depth
+        assert dialog.selected_composition() == loaded
+        dialog.chart_density_combo.setCurrentIndex(0)
+        assert dialog.selected_composition().target_depth_per_page == 100.0
+        assert loaded.target_depth_per_page == depth
+    finally:
+        dialog.close()
+
+
+def test_legacy_pdf_chart_density_defaults_to_detailed(tmp_path) -> None:
+    session = _session()
+    target = tmp_path / "before-density.geolog.json"
+    ProjectController(session=session).save_project(target)
+    data = json.loads(target.read_text())
+    dataset_id = session.current_dataset.dataset_id
+    data["report_compositions"][dataset_id].pop("target_depth_per_page")
+    target.write_text(json.dumps(data), encoding="utf-8")
+    assert load_project_document(target).report_compositions[
+        dataset_id
+    ].target_depth_per_page == 100.0
+
+
+@pytest.mark.parametrize("invalid", [None, True, "250", 0, -100, 200, 999, [], {}])
+def test_invalid_saved_pdf_chart_density_is_rejected(tmp_path, invalid: object) -> None:
+    session = _session()
+    target = tmp_path / "bad-depth.geolog.json"
+    ProjectController(session=session).save_project(target)
+    data = json.loads(target.read_text())
+    data["report_compositions"][session.current_dataset.dataset_id][
+        "target_depth_per_page"
+    ] = invalid
+    target.write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(ProjectFormatError, match="масштаб PDF-графиков"):
+        load_project_document(target)
+
+
 def test_old_v37_without_panel_settings_keeps_existing_defaults(tmp_path) -> None:
     session = _session()
     target = tmp_path / "legacy.geolog.json"
