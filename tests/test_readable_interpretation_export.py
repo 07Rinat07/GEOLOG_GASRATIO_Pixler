@@ -203,3 +203,51 @@ def test_readable_xlsx_reports_determinate_progress(tmp_path) -> None:
     assert [current for _stage, current, _total in updates] == sorted(
         current for _stage, current, _total in updates
     )
+
+
+def test_raw_primary_gas_is_not_mislabelled_as_normalized_in_reports(tmp_path) -> None:
+    from openpyxl import load_workbook  # type: ignore[import-untyped]
+
+    from geoworkbench.data.hydrocarbon_interpretation_export_readable import (
+        export_readable_hydrocarbon_interpretation_xlsx,
+    )
+    from geoworkbench.services.interval_gas_statistics import (
+        CandidateIntervalGasStatistics,
+        IntervalCurveStatistics,
+        interval_gas_summary,
+        is_normalized_primary_gas,
+    )
+
+    # TG_CALC is total gas derived from component readings, not drilling normalization.
+    assert not is_normalized_primary_gas("TG_CALC")
+    assert not is_normalized_primary_gas("OPUS_TG_PCT")
+    assert is_normalized_primary_gas("TG_NORM_CALC")
+    assert is_normalized_primary_gas("server:TG_NORM")
+
+    raw = IntervalCurveStatistics("TG_CALC", "%abs", 3.0, 4.0, 4.0, 5.0, 0.1, 3, 3)
+    normalized = IntervalCurveStatistics(
+        "TG_NORM_CALC", "normalized gas units", 10.0, 11.0, 11.0, 12.0,
+        1.0, 3, 3,
+    )
+    raw_summary = interval_gas_summary(CandidateIntervalGasStatistics(raw, None, (), None))
+    normalized_summary = interval_gas_summary(
+        CandidateIntervalGasStatistics(normalized, None, (), None)
+    )
+    assert "Основная газовая кривая Общий газ" in raw_summary
+    assert "Нормализованный газ" not in raw_summary
+    assert "Нормализованный газ" in normalized_summary
+
+    session = _session_with_zero_heavy_components()
+    dataset = session.current_dataset
+    assert dataset is not None
+    # Simulate the user's LAS which has TG_CALC but no normalized total.
+    dataset.curves.pop("TG_NORM_CALC")
+    report = build_hydrocarbon_interpretation_report(session, threshold=3.0)
+    assert report.primary_mnemonic == "TG_CALC"
+    target = tmp_path / "raw-gas.xlsx"
+    export_readable_hydrocarbon_interpretation_xlsx(report, dataset, target)
+    book = load_workbook(target)
+    try:
+        assert book["Интерпретация УВ"]["M8"].value == "Основная газовая кривая"
+    finally:
+        book.close()

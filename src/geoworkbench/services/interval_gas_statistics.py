@@ -27,6 +27,29 @@ _RAW_TOTAL_NAMES = (
     "SUM_GAS",
     "СУММА_ГАЗОВ",
 )
+# Only these explicitly normalized channel identities may be described as
+# drilling-normalized gas. TG_CALC / OPUS_TG_PCT are NOT normalization.
+_NORMALIZED_GAS_NAMES = frozenset({
+    "TG_NORM_CALC", "TG_NORM", "NORMALIZED_TOTAL_GAS",
+    "TOTAL_GAS_NORM", "NORM_TG", "TGNORM",
+    "C1_NORM_REF", "C1_NORM",
+})
+
+
+def is_normalized_primary_gas(mnemonic: str | None) -> bool:
+    """Recognize normalization by the selected curve, never by report column position."""
+    if not mnemonic:
+        return False
+    for candidate in mnemonic.split("|"):
+        value = candidate.strip().upper()
+        for prefix in ("SERVER:", "LOCAL-CALCULATION:"):
+            if value.startswith(prefix):
+                value = value[len(prefix):]
+        if value in _NORMALIZED_GAS_NAMES:
+            return True
+    return False
+
+
 _EPS = np.finfo(np.float64).eps
 
 
@@ -440,7 +463,7 @@ def interval_gas_summary(
         )
     if statistics.primary is not None:
         parts.append(
-            _curve_summary(statistics.primary, labels["normalized"], labels, language)
+            _curve_summary(statistics.primary, _primary_gas_label(statistics.primary, labels), labels, language)
         )
     if statistics.components:
         parts.append(
@@ -471,6 +494,7 @@ def interval_gas_table_html(
     if not report.candidates:
         return ""
     labels = _labels(language)
+    primary = next((item.primary for item in statistics if item.primary is not None), None)
     rows = "".join(
         "<tr>"
         f"<td>{candidate.top_depth:.2f}-{candidate.bottom_depth:.2f} {escape(report.depth_unit)}</td>"
@@ -486,7 +510,7 @@ def interval_gas_table_html(
         f"<p><small>{escape(labels['zero_note'])}</small></p>"
         "<table><thead><tr>"
         f"<th>{escape(labels['interval'])}</th><th>{escape(labels['raw'])}</th>"
-        f"<th>{escape(labels['normalized'])}</th><th>{escape(labels['absolute'])}</th><th>DEXP</th>"
+        f"<th>{escape(_primary_gas_label(primary, labels))}</th><th>{escape(labels['absolute'])}</th><th>DEXP</th>"
         f"</tr></thead><tbody>{rows}</tbody></table>"
     )
 
@@ -566,6 +590,13 @@ def _find_curve(dataset: Dataset, names: tuple[str | None, ...]) -> CurveData | 
         if wanted & aliases:
             return curve
     return None
+
+
+def _primary_gas_label(
+    item: IntervalCurveStatistics | None,
+    labels: dict[str, str],
+) -> str:
+    return labels["normalized"] if item is not None and is_normalized_primary_gas(item.mnemonic) else labels["primary"]
 
 
 def _curve_summary(
@@ -677,6 +708,7 @@ def _labels(language: AppLanguage) -> dict[str, str]:
         return {
             "raw": "Исходный общий газ",
             "normalized": "Нормализованный газ",
+            "primary": "Основная газовая кривая",
             "absolute": "Абсолютный газ",
             "minimum": "мин",
             "mean": "среднее",
@@ -697,6 +729,7 @@ def _labels(language: AppLanguage) -> dict[str, str]:
         return {
             "raw": "Бастапқы жалпы газ",
             "normalized": "Нормаланған газ",
+            "primary": "Негізгі газ қисығы",
             "absolute": "Абсолюттік газ",
             "minimum": "ең аз",
             "mean": "орташа",
@@ -714,6 +747,7 @@ def _labels(language: AppLanguage) -> dict[str, str]:
     return {
         "raw": "Raw total gas",
         "normalized": "Normalized gas",
+        "primary": "Primary gas curve",
         "absolute": "Absolute gas",
         "minimum": "min",
         "mean": "mean",
@@ -740,6 +774,7 @@ __all__ = [
     "absolute_gas_components_summary",
     "enhanced_fluid_hypothesis_basis",
     "interval_gas_summary",
+    "is_normalized_primary_gas",
     "interval_gas_table_html",
     "manual_section_heading",
 ]

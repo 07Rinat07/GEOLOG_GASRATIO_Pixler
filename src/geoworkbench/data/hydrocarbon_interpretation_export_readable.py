@@ -41,6 +41,7 @@ from geoworkbench.services.interval_gas_statistics import (
     build_candidate_interval_statistics,
     build_interval_statistics,
     enhanced_fluid_hypothesis_basis,
+    is_normalized_primary_gas,
 )
 from geoworkbench.services.lba_standard import describe_lba_assessment
 from geoworkbench.services.gas_context_report_labels import (
@@ -355,7 +356,7 @@ def _write_main_sheet(
     group_specs = (
         ("A8:H8", labels.group_interval, "D9EAF7"),
         ("I8:L8", labels.group_raw_gas, "E2F0D9"),
-        ("M8:P8", labels.group_normalized_gas, "FCE4D6"),
+        ("M8:P8", labels.group_normalized_gas if is_normalized_primary_gas(report.primary_mnemonic) else labels.primary_gas_curve, "FCE4D6"),
         ("Q8:Q8", labels.group_anomaly, "E4DFEC"),
         ("R8:W8", labels.group_control, "DDEBF7"),
     )
