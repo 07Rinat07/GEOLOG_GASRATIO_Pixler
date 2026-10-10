@@ -12,6 +12,7 @@ from geoworkbench.data.hydrocarbon_interpretation_export_docx_polished import ex
 from geoworkbench.data.hydrocarbon_interpretation_export_readable import export_readable_hydrocarbon_interpretation_xlsx
 from geoworkbench.domain.depth_interval import DepthInterval
 from geoworkbench.domain.report_composition import InterpretationReportComposition, with_report_header_fields
+from geoworkbench.printing.hydrocarbon_report_i18n import hydrocarbon_report_labels
 from geoworkbench.printing.hydrocarbon_interpretation_report import export_hydrocarbon_interpretation_pdf
 from geoworkbench.printing.hydrocarbon_interpretation_report_identity import report_header_fields_from_identity
 from geoworkbench.printing.report_document_control import report_document_control, resolved_report_identity
@@ -59,11 +60,7 @@ def test_same_control_snapshot_reaches_pdf_docx_and_xlsx(qapp, tmp_path, languag
     sheet = workbook[SHEETS[language]]
     # The visible report and the document-control sheet must use the same
     # edited passport values, even if raw report.project_name is stale.
-    interpretation = workbook[{
-        AppLanguage.RU: 'Интерпретация УВ',
-        AppLanguage.KK: 'Көмірсутек интерпретациясы',
-        AppLanguage.EN: 'HC interpretation',
-    }[language]]
+    interpretation = workbook[hydrocarbon_report_labels(language).sheet_interpretation]
     assert interpretation['A1'].value == identity.report_title
     assert interpretation['B2'].value == 'Client project'
     assert interpretation['F2'].value == 'Client well'
