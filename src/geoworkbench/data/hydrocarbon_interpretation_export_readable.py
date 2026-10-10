@@ -307,7 +307,9 @@ def _write_main_sheet(
         if report.report_profile == "opus"
         else labels.title_standard
     )
-    sheet["A1"] = details.report_title if custom_title and details.report_title else report_title
+    sheet["A1"] = protect_spreadsheet_value(
+        details.report_title if custom_title and details.report_title else report_title
+    )
     print_wordmark = "&B" + REPORT_BRAND_WORDMARK.replace("&", "&&") + "&B"
     sheet.oddHeader.left.text = print_wordmark
     sheet.oddFooter.left.text = print_wordmark
