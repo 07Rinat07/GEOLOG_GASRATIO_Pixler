@@ -215,13 +215,24 @@ class InterpretationReportAnnotationDialog(QDialog):
     def _load_selected(self) -> None:
         record = self._selected_record()
         if record is None:
+            # "New" must not inherit depth, track or anchor from the last
+            # selected record; otherwise the next note can be painted on the
+            # wrong geological interval without the operator noticing.
+            self._set_combo_value(self.kind, ReportAnnotationKind.CALLOUT.value)
+            self._set_combo_value(self.anchor, ReportAnnotationAnchor.DEPTH.value)
+            self.track.setCurrentText("")
             self.text.clear()
+            self.depth_spin.setValue(0.0)
+            self.top_depth_spin.setValue(0.0)
+            self.bottom_depth_spin.setValue(0.0)
+            self._sync_anchor_controls()
             self._sync_actions()
             return
         self._set_combo_value(self.kind, record.kind.value)
         self._set_combo_value(self.anchor, record.anchor.value)
-        if record.track_key:
-            self.track.setCurrentText(record.track_key)
+        # A note without a track is attached to the chart, not to whichever
+        # track happened to be selected earlier in the editor.
+        self.track.setCurrentText(record.track_key or "")
         self.text.setText(record.text)
         self.depth_spin.setValue(record.depth or 0.0)
         self.top_depth_spin.setValue(record.top_depth or 0.0)
