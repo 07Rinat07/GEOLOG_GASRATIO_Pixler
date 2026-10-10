@@ -994,6 +994,9 @@ def test_report_default_anomaly_threshold_is_four() -> None:
 
 def test_unedited_project_placeholder_is_not_reported_as_a_real_project() -> None:
     session = _session()
+    # The shared fixture deliberately uses a formula-like real project name.
+    # Reset just this case to the fresh workspace placeholder.
+    session.project.name = "Новый проект"
     assert session.project.name == "Новый проект"
     report = build_hydrocarbon_interpretation_report(session)
     assert report.project_name == ""
@@ -1016,6 +1019,7 @@ def test_explicit_report_passport_may_override_an_unnamed_project() -> None:
     from geoworkbench.printing.report_document_control import resolved_report_identity
 
     session = _session()
+    session.project.name = "Новый проект"
     report = build_hydrocarbon_interpretation_report(session)
     supplied = dc_replace(
         default_interpretation_report_identity(report, AppLanguage.RU),
