@@ -351,3 +351,59 @@ def test_short_depth_interval_uses_more_frequent_numeric_labels() -> None:
         for left, right in zip(long_major, long_major[1:], strict=False)
     )
     assert short_step < long_step
+
+
+def test_pdf_body_uses_edited_passport_instead_of_stale_las_headings(qapp, tmp_path) -> None:
+    report = _report()
+    details = _manual_identity()
+    destination = tmp_path / "consistent-passport.pdf"
+    export_hydrocarbon_interpretation_pdf(
+        report, destination, identity=details, language=AppLanguage.RU,
+    )
+    with fitz.open(destination) as document:
+        assert document.page_count >= 2
+        full_text = "\n".join(page.get_text() for page in document)
+
+    for text in (
+        details.project_name, details.well_name, details.dataset_name,
+    ):
+        assert text in full_text
+    for obsolete in (
+        report.project_name, report.well_name, report.dataset_name,
+    ):
+        assert obsolete not in full_text
+    assert report.well_name == "Файл-скважина-494"  # source is unchanged
+
+
+def test_html_preview_uses_edited_passport_without_changing_detection(monkeypatch) -> None:
+    from geoworkbench.printing import hydrocarbon_interpretation_chart_front as front
+    from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
+        report_with_presentation_identity,
+    )
+    from geoworkbench.services.hydrocarbon_interpretation import (
+        build_hydrocarbon_interpretation_report,
+    )
+    from test_interpretation_report_charts import _session_with_report_curves
+
+    session = _session_with_report_curves(depth_span=30, samples=61)
+    dataset = session.current_dataset
+    assert dataset is not None
+    report = build_hydrocarbon_interpretation_report(session)
+    edited = _manual_identity()
+    monkeypatch.setattr(front, "hydrocarbon_interpretation_chart_data_uri", lambda *args, **kw: None)
+    html = front.hydrocarbon_interpretation_html_with_front_chart(
+        report, dataset, language=AppLanguage.RU, identity=edited,
+    )
+    assert edited.project_name in html
+    assert edited.well_name in html
+    assert edited.dataset_name in html
+    for name in (report.project_name, report.well_name, report.dataset_name):
+        if name and name not in (edited.project_name, edited.well_name, edited.dataset_name):
+            assert name not in html
+
+    rendered = report_with_presentation_identity(report, edited)
+    assert rendered.well_name == edited.well_name
+    assert rendered.candidates is report.candidates
+    assert rendered.methods is report.methods
+    assert report_with_presentation_identity(report, None) is report
+    assert report.well_name != edited.well_name
