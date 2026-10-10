@@ -193,6 +193,13 @@ jobs:
             --output-dir build/ci-artifacts/windows-acceptance/interpretation-print-variants
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Validate multilingual Office exports and retain the files
+        shell: pwsh
+        run: |
+          .\.venv\Scripts\python.exe tools/capture_office_exports.py `
+            --output-dir build/ci-artifacts/windows-acceptance/office-exports
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Upload Windows acceptance artifacts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

@@ -44,7 +44,8 @@ def test_csv_headers_are_localized_but_measurements_are_not(
         dataset, tmp_path / "selection.csv", ["curve-c1"], 100.0, 101.0,
         delimiter=",", language=language,
     )
-    with path.open(encoding="utf-8", newline="") as stream:
+    assert path.read_bytes().startswith(b"\xef\xbb\xbf")
+    with path.open(encoding="utf-8-sig", newline="") as stream:
         rows = list(csv.reader(stream))
     assert "DEPTH [m]" in rows[0][0]
     assert "C1 [%]" in rows[0][1]
@@ -125,10 +126,13 @@ def test_all_six_outputs_share_language_without_relocalizing_operator_ui(
         assert target.is_file(), extension
         outputs[extension] = target
 
-    with outputs["csv"].open(encoding="utf-8", newline="") as stream:
+    assert outputs["csv"].read_bytes().startswith(b"\xef\xbb\xbf")
+    with outputs["csv"].open(encoding="utf-8-sig", newline="") as stream:
         rows = list(csv.reader(stream))
     assert "C1 [%]" in rows[0][1]
     assert rows[1:] == [["100", "2"], ["101", "3"]]
+    with ZipFile(outputs["xlsx"]) as archive:
+        assert archive.testzip() is None
     workbook = load_workbook(outputs["xlsx"])
     assert workbook["Metadata"]["B6"].value == output_language.value
     assert workbook["Data"]["B2"].value == 2.0
@@ -145,6 +149,7 @@ def test_all_six_outputs_share_language_without_relocalizing_operator_ui(
     assert "<h1>Well-A selection</h1>" in html
     assert f"<h2>{metadata_heading}</h2>" in html
     with ZipFile(outputs["docx"]) as archive:
+        assert archive.testzip() is None
         document_xml = archive.read("word/document.xml").decode("utf-8")
     assert "Well-A selection" in document_xml
     assert metadata_heading in document_xml
@@ -169,6 +174,7 @@ def test_all_six_outputs_share_language_without_relocalizing_operator_ui(
         assert target.is_file()
         parameter = Localizer.create(output_language).text("statistics.parameter")
         if extension == "csv":
+            assert target.read_bytes().startswith(b"\xef\xbb\xbf")
             assert parameter in target.read_text(encoding="utf-8-sig")
         else:
             sheet = load_workbook(target).active
@@ -186,3 +192,19 @@ def test_all_six_outputs_share_language_without_relocalizing_operator_ui(
     assert reopened.tabular_export_language is output_language
     assert reopened.tabular_export_language_actions[output_language].isChecked()
     reopened.close()
+
+
+def test_legacy_csv_and_localized_tsv_remain_plain_utf8(tmp_path: Path) -> None:
+    dataset = _dataset()
+    legacy = export_selection_text(
+        dataset, tmp_path / "legacy.csv", ["curve-c1"], 100.0, 101.0,
+        delimiter=",",
+    )
+    localized_tsv = export_selection_text(
+        dataset, tmp_path / "selection.txt", ["curve-c1"], 100.0, 101.0,
+        delimiter="\t", language=AppLanguage.KK,
+    )
+    assert not legacy.read_bytes().startswith(b"\xef\xbb\xbf")
+    assert not localized_tsv.read_bytes().startswith(b"\xef\xbb\xbf")
+    assert legacy.read_text(encoding="utf-8").splitlines()[0] == "DEPTH [m],C1 [%]"
+    assert "Оқпан бойынша тереңдік" in localized_tsv.read_text(encoding="utf-8")
