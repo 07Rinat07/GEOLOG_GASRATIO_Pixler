@@ -224,7 +224,11 @@ def render_chart_pages(
         return base_chart._curve_percentiles(panels, dataset, page=page)
 
     def selected_page_planner(top: float, bottom: float, height: float) -> tuple[DepthPage, ...]:
-        # The same user-selected density is used during every legend reflow.
+        # Preserve the established three-argument contract for the detailed
+        # default; third-party and test callers may wrap the existing planner.
+        # Non-default density is explicitly forwarded for overview/compact.
+        if target_depth_per_page == 100.0:
+            return plan_depth_pages(top, bottom, height)
         return plan_depth_pages(
             top, bottom, height, target_depth_per_page=target_depth_per_page,
         )
