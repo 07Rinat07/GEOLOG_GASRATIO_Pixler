@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+from dataclasses import fields, replace
 from pathlib import Path
+
+import pytest
 
 from geoworkbench.printing.report_visual_system import (
     REPORT_BRAND_WORDMARK,
+    ReportLayoutMetrics,
+    ReportTypography,
     ReportVisualProfileId,
     modern_oilfield_report_profile,
 )
@@ -48,3 +53,37 @@ def test_print_footer_wordmarks_use_bold_brand_without_changing_canonical_text()
     assert 'from geoworkbench.brand import REPORT_BRAND_WORDMARK' in (
         root / "src" / "geoworkbench" / "printing" / "report_visual_system.py"
     ).read_text(encoding="utf-8")
+
+@pytest.mark.parametrize(
+    "invalid", (float("nan"), float("inf"), float("-inf"), True, "8.0", None),
+)
+@pytest.mark.parametrize("field_name", (field.name for field in fields(ReportLayoutMetrics)))
+def test_report_layout_rejects_non_finite_or_non_numeric_dimensions(
+    field_name: str, invalid: object,
+) -> None:
+    with pytest.raises(ValueError, match=field_name):
+        replace(ReportLayoutMetrics(), **{field_name: invalid})
+
+
+@pytest.mark.parametrize(
+    "invalid", (float("nan"), float("inf"), float("-inf"), True, "8.0", None),
+)
+@pytest.mark.parametrize("field_name", (field.name for field in fields(ReportTypography)))
+def test_report_typography_rejects_non_finite_or_non_numeric_font_sizes(
+    field_name: str, invalid: object,
+) -> None:
+    with pytest.raises(ValueError, match=field_name):
+        replace(ReportTypography(), **{field_name: invalid})
+
+
+def test_report_point_dimensions_preserve_valid_values_and_ranges() -> None:
+    layout = ReportLayoutMetrics(thin_rule_pt=0.35, section_gap_pt=12.0)
+    type_scale = ReportTypography(body_pt=9.25, footer_pt=6.0)
+    assert layout.thin_rule_pt == 0.35
+    assert layout.section_gap_pt == 12.0
+    assert type_scale.body_pt == 9.25
+    assert type_scale.footer_pt == 6.0
+    with pytest.raises(ValueError, match="thin_rule_pt"):
+        ReportLayoutMetrics(thin_rule_pt=0.0)
+    with pytest.raises(ValueError, match="body_pt"):
+        ReportTypography(body_pt=36.1)
