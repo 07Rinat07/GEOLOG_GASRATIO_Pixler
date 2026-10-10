@@ -228,7 +228,12 @@ def test_geoscape_code_is_not_accepted_without_family_or_valid_unit() -> None:
         _geoscape_depth_dataset(include_companions=False),
         _geoscape_depth_dataset(rop_unit="kg", gas_unit="m/h"),
     ):
-        assert engine.resolve_binding(dataset, rop).mnemonic is None
+        # The existing Sensors catalog already identifies S106 as ROP by
+        # legacy GID identity, independently of the new family-only fallback.
+        rop_resolution = engine.resolve_binding(dataset, rop)
+        assert rop_resolution.matched_by != "geoscape_family"
+        # The new fallback must never invent a total-gas match from a lone
+        # vendor code or from a source with incorrect units.
         assert engine.resolve_binding(dataset, gas).mnemonic is None
 
 
