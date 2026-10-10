@@ -77,6 +77,7 @@ def paint_report_annotations(
     plot_bounds: QRectF,
     track_map: Mapping[str, QRectF],
     pixel_scale: float = 1.0,
+    include_bottom_depth: bool = True,
 ) -> int:
     """Paint one report-annotation snapshot over a depth chart.
 
@@ -108,7 +109,7 @@ def paint_report_annotations(
                 assert record.bottom_depth is not None
                 overlap_top = max(page_top_depth, record.top_depth)
                 overlap_bottom = min(page_bottom_depth, record.bottom_depth)
-                if overlap_bottom < overlap_top:
+                if overlap_bottom <= overlap_top:
                     continue
                 top_y = _depth_y(overlap_top, page_top_depth, page_bottom_depth, target)
                 bottom_y = _depth_y(overlap_bottom, page_top_depth, page_bottom_depth, target)
@@ -128,7 +129,7 @@ def paint_report_annotations(
                 )
             elif record.anchor is ReportAnnotationAnchor.DEPTH:
                 assert record.depth is not None
-                if not page_top_depth <= record.depth <= page_bottom_depth:
+                if not (page_top_depth <= record.depth and (record.depth < page_bottom_depth or (include_bottom_depth and record.depth == page_bottom_depth))):
                     continue
                 anchor = QPointF(
                     target.left() + target.width() * record.x_fraction,

@@ -695,6 +695,7 @@ def _draw_chart_page(
             ),
             track_map=track_map,
             pixel_scale=REFERENCE_PIXEL_TO_POINT,
+            include_bottom_depth=page_index == page_count,
         )
     _draw_fluid_marker_legend(
         painter,
