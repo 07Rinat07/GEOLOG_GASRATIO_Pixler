@@ -118,6 +118,7 @@ def render_chart_pages(
     legend_reference_pages_emitted: bool = False,
     annotations: tuple[ReportAnnotationRecord, ...] = (),
     chart_panels: ReportChartPanelSettings = DEFAULT_REPORT_CHART_PANELS,
+    target_depth_per_page: float = 100.0,
 ) -> None:
     """Render chart pages with printer-safe major and minor depth graduations."""
     visual = modern_oilfield_report_profile()
@@ -222,9 +223,15 @@ def render_chart_pages(
     def page_ranges(page: DepthPage) -> dict[str, tuple[float, float]]:
         return base_chart._curve_percentiles(panels, dataset, page=page)
 
+    def selected_page_planner(top: float, bottom: float, height: float) -> tuple[DepthPage, ...]:
+        # The same user-selected density is used during every legend reflow.
+        return plan_depth_pages(
+            top, bottom, height, target_depth_per_page=target_depth_per_page,
+        )
+
     provisional_pages, curve_legend_height = fit_curve_legend_pages(
         depth_min, depth_max, chart_height_budget, widths, panels,
-        language, canvas.painter.device(), display_hints, plan_depth_pages, page_ranges,
+        language, canvas.painter.device(), display_hints, selected_page_planner, page_ranges,
     )
     legend_budget = max(0.0, chart_height_budget - curve_legend_height - 4.0 * MIN_CHART_HEIGHT)
     chart_legend = (
@@ -261,7 +268,7 @@ def render_chart_pages(
     if full_legend_height > 0.0:
         pages, curve_legend_height = fit_curve_legend_pages(
             depth_min, depth_max, available_height, widths, panels,
-            language, canvas.painter.device(), display_hints, plan_depth_pages, page_ranges,
+            language, canvas.painter.device(), display_hints, selected_page_planner, page_ranges,
             minimum_height=curve_legend_height,
         )
     for page_index, page in enumerate(pages, start=1):
