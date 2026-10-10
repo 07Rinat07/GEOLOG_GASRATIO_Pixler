@@ -330,5 +330,6 @@ def test_production_pdf_export_builds_interpretation_passport_with_geology(
         "geology_lba": "hide",
         "legend_mode": "full",
         "layout_profile": "modern_oilfield",
+        "target_depth_per_page": "100.0",
     }
     assert observed["overwrite"] is False
