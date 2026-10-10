@@ -82,6 +82,26 @@ class InterpretationReportIdentity:
         return InterpretationReportIdentity(**values)
 
 
+def report_with_presentation_identity(
+    report: HydrocarbonInterpretationReport,
+    identity: InterpretationReportIdentity | None,
+) -> HydrocarbonInterpretationReport:
+    """Return a view of the report with the edited document passport.
+
+    This does not change the geological interpretation or the source report.
+    The copy is used only when rendering textual project/well/dataset headings.
+    """
+    if identity is None:
+        return report
+    details = identity.cleaned()
+    return replace(
+        report,
+        project_name=details.project_name,
+        well_name=details.well_name,
+        dataset_name=details.dataset_name,
+    )
+
+
 def report_header_fields_from_identity(
     identity: InterpretationReportIdentity,
     report_profile: str = "standard",
@@ -221,4 +241,5 @@ __all__ = [
     "inject_report_optional_sections_html",
     "report_header_fields_from_identity",
     "report_optional_section_labels",
+    "report_with_presentation_identity",
 ]
