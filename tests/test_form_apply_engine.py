@@ -162,3 +162,86 @@ def test_form_prefers_contextual_geoscape_channel_over_empty_normal_source() -> 
         component_track.curve_display_settings(mnemonic).x_scale.value == "linear"
         for mnemonic in component_track.curve_mnemonics
     )
+
+
+def _geoscape_depth_dataset(
+    *, include_companions: bool = True, rop_unit: str = "м/ч",
+    gas_unit: str = "%",
+) -> Dataset:
+    """Synthetic S-series channel family from the Maksat M-1 LAS header."""
+    dataset = Dataset(
+        "geoscape", "GeoScape LAS", DatasetKind.GTI, DepthDomain.MD,
+        np.array([1000.0, 1000.2, 1000.4]),
+    )
+    codes = {
+        "S106": (rop_unit, [8.0, 9.0, 10.0]),
+        "S1600": (gas_unit, [0.5, 1.0, 1.5]),
+        "CACO3": ("%", [80.0, 85.0, 90.0]),
+        "CAMG_CO3_2": ("%", [10.0, 5.0, 10.0]),
+    }
+    if include_companions:
+        codes.update({
+            "S107": ("min/m", [1.0, 1.0, 1.0]),
+            "S108": ("m", [1.0, 1.0, 1.0]),
+            "S109": ("h", [1.0, 1.0, 1.0]),
+            "S1601": ("%", [0.4, 0.8, 1.2]),
+            "S1602": ("%", [0.1, 0.2, 0.3]),
+            "S1603": ("%", [0.0, 0.0, 0.0]),
+        })
+    for code, (unit, values) in codes.items():
+        metadata = CurveMetadata(
+            f"curve-{code}", code, code, unit,
+            "Legacy GeoScape sensor channel", dataset.dataset_id,
+        )
+        dataset.curves[metadata.curve_id] = CurveData(
+            metadata, np.asarray(values, dtype=np.float64),
+        )
+    return dataset
+
+
+def test_masterlog_geoscape_channels_bind_only_with_family_evidence() -> None:
+    dataset = _geoscape_depth_dataset()
+    engine = FormApplyEngine()
+    for template_id in (
+        "factory-masterlog-a4-portrait",
+        "factory-masterlog-a4-landscape",
+    ):
+        result = engine.build_layout(a4_factory_templates()[template_id], dataset)
+        by_canonical = {
+            item.canonical_parameter_id: item
+            for item in result.resolutions
+        }
+        assert by_canonical["ROP"].mnemonic == "S106"
+        assert by_canonical["TOTAL_GAS"].mnemonic == "S1600"
+        assert by_canonical["INSOLUBLE_RESIDUE"].mnemonic is None
+        assert any("S106" in track.curve_mnemonics for track in result.layout.tracks)
+        assert any("S1600" in track.curve_mnemonics for track in result.layout.tracks)
+
+
+def test_geoscape_code_is_not_accepted_without_family_or_valid_unit() -> None:
+    from geoworkbench.forms.models import ParameterBinding
+
+    engine = FormApplyEngine()
+    rop = ParameterBinding("rop-test", "ROP", "ROP")
+    gas = ParameterBinding("gas-test", "TOTAL_GAS", "Total gas")
+    for dataset in (
+        _geoscape_depth_dataset(include_companions=False),
+        _geoscape_depth_dataset(rop_unit="kg", gas_unit="m/h"),
+    ):
+        # The existing Sensors catalog already identifies S106 as ROP by
+        # legacy GID identity, independently of the new family-only fallback.
+        rop_resolution = engine.resolve_binding(dataset, rop)
+        assert rop_resolution.matched_by != "geoscape_family"
+        # The new fallback must never invent a total-gas match from a lone
+        # vendor code or from a source with incorrect units.
+        assert engine.resolve_binding(dataset, gas).mnemonic is None
+
+
+def test_masterlog_never_derives_unmeasured_insoluble_residue() -> None:
+    from geoworkbench.forms.models import ParameterBinding
+
+    dataset = _geoscape_depth_dataset()
+    missing = FormApplyEngine().resolve_binding(
+        dataset, ParameterBinding("insoluble-test", "INSOLUBLE_RESIDUE", "IR"),
+    )
+    assert missing.mnemonic is None

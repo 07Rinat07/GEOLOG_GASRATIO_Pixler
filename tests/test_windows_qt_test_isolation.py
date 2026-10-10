@@ -52,6 +52,8 @@ def test_native_isolation_keeps_masterlog_mapping_out_of_regular_shards() -> Non
     "relative_path",
     (
         "tests/test_daily_las_growth_autosave.py",
+        "tests/test_lithology_drag_editor.py",
+        "tests/test_report_document_control_docx_footer.py",
         "tests/test_multipage_unicode_print.py",
         "tests/test_well_update_workflow.py",
         "tests/test_widget_print.py",
@@ -76,3 +78,20 @@ def test_pyqtgraph_heavy_files_use_fresh_process_per_test(relative_path: str) ->
     assert all(batch_path == path.as_posix() for batch_path, _selectors in batches)
     assert all(len(selectors) == 1 for _batch_path, selectors in batches)
     assert tuple(selector for _batch_path, selectors in batches for selector in selectors) == nodes
+
+
+def test_windows_default_shards_limit_qt_state_accumulation() -> None:
+    runner = runpy.run_path("scripts/run_tests.py")
+    assert runner["_DEFAULT_WINDOWS_SHARDS"] >= 16
+
+
+def test_docx_footer_cases_do_not_share_process_with_qt_gui_shards() -> None:
+    runner = runpy.run_path("scripts/run_tests.py")
+    path = Path("tests/test_report_document_control_docx_footer.py")
+    nodes = runner["_top_level_test_nodes"](path)
+    assert nodes
+    assert runner["_test_file_shards"](16, (path,)) == ()
+    batches = runner["_heavy_test_batches"]((path,))
+    assert len(batches) == len(nodes)
+    assert all(selected == path.as_posix() and len(cases) == 1 for selected, cases in batches)
+    assert tuple(case for _selected, cases in batches for case in cases) == nodes
