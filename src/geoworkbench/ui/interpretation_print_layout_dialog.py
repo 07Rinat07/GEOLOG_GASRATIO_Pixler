@@ -357,6 +357,7 @@ class InterpretationPrintLayoutDialog(QDialog):
             show_summary=self.summary_checkbox.isChecked(),
             show_conclusion=self.conclusion_checkbox.isChecked(),
             chart_panels=self._selected_chart_panels(),
+            target_depth_per_page=layout.target_depth_per_page,
         )
 
     def _move_chart_panel(self, offset: int) -> None:
@@ -407,7 +408,9 @@ class InterpretationPrintLayoutDialog(QDialog):
         )
         self._set_combo_data(self.legend_mode_combo, initial.legend_mode)
         self._set_combo_data(self.layout_profile_combo, initial.layout_profile)
-        self._set_combo_data(self.chart_density_combo, 100.0)
+        self._set_combo_data(
+            self.chart_density_combo, initial.target_depth_per_page,
+        )
         self.summary_checkbox.setChecked(initial.show_summary)
         self.conclusion_checkbox.setChecked(initial.show_conclusion)
 
