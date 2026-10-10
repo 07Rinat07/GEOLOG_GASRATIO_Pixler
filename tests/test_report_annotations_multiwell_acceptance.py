@@ -40,7 +40,8 @@ def _two_well_session() -> ProjectSession:
                 f"curve-{dataset_id}", "C1", "C1", "%", "Methane",
                 dataset_id, provenance="source",
             ),
-            np.array([0.1, 0.2, 0.3], dtype=np.float64),
+            np.array([0.1, 0.2, 0.3], dtype=np.float64)
+            + (1.0 if well_id == "well-b" else 0.0),
         )
         dataset.curves[curve.metadata.curve_id] = curve
         wells[well_id] = Well(well_id, f"Well {well_id}", {dataset_id: dataset})
@@ -59,8 +60,14 @@ def test_two_wells_keep_independent_annotations_after_real_save_reopen(
 ) -> None:
     session = _two_well_session()
     editor = ReportAnnotationController(session)
-    before_curves = {
-        dataset_id: np.copy(session.project.wells[well_id].datasets[dataset_id].depth)
+    before_source = {
+        dataset_id: (
+            np.copy(session.project.wells[well_id].datasets[dataset_id].depth),
+            np.copy(
+                session.project.wells[well_id].datasets[dataset_id]
+                .curves[f"curve-{dataset_id}"].values
+            ),
+        )
         for well_id, dataset_id, _ in PAIRS
     }
     saved = {}
@@ -102,8 +109,12 @@ def test_two_wells_keep_independent_annotations_after_real_save_reopen(
         assert check.available()[0].depth == first_depth + 1.0
         dataset = reopened.current_dataset
         assert dataset is not None
-        np.testing.assert_array_equal(dataset.depth, before_curves[dataset_id])
+        expected_depth, expected_values = before_source[dataset_id]
+        np.testing.assert_array_equal(dataset.depth, expected_depth)
         assert list(dataset.curves) == [f"curve-{dataset_id}"]
+        source_curve = dataset.curves[f"curve-{dataset_id}"]
+        np.testing.assert_array_equal(source_curve.values, expected_values)
+        assert source_curve.metadata.provenance == "source"
 
     # A note from well A must not be obtainable through well B's controller.
     _select(reopened, "well-b", "dataset-b")
