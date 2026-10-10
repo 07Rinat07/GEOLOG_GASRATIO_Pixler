@@ -24,7 +24,18 @@ from geoworkbench.domain.models import (
     Well,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_report import (
+    HydrocarbonInterpretationPdfError,
     export_hydrocarbon_interpretation_pdf_with_passport,
+)
+from geoworkbench.domain.report_annotations import (
+    ReportAnnotationAnchor,
+    ReportAnnotationKind,
+    ReportAnnotationRecord,
+    report_annotation_scope_id,
+)
+from geoworkbench.domain.report_composition import (
+    DEFAULT_INTERPRETATION_REPORT_COMPOSITION,
+    ensure_report_composition_id,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
     InterpretationReportIdentity,
@@ -333,3 +344,87 @@ def test_production_pdf_export_builds_interpretation_passport_with_geology(
         "target_depth_per_page": "100.0",
     }
     assert observed["overwrite"] is False
+
+
+@pytest.mark.parametrize("foreign", ("well", "dataset", "composition"))
+def test_pdf_passport_rejects_foreign_report_annotations_before_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, foreign: str,
+) -> None:
+    session = _session()
+    well = session.current_well
+    dataset = session.current_dataset
+    assert well is not None and dataset is not None
+    composition = ensure_report_composition_id(
+        DEFAULT_INTERPRETATION_REPORT_COMPOSITION, dataset.dataset_id,
+    )
+    session.report_compositions[dataset.dataset_id] = composition
+    ids = [well.well_id, dataset.dataset_id, composition.composition_id]
+    ids[{"well": 0, "dataset": 1, "composition": 2}[foreign]] = "foreign-" + foreign
+    record = ReportAnnotationRecord(
+        annotation_id="external-note",
+        scope_id=report_annotation_scope_id(*ids),
+        kind=ReportAnnotationKind.CALLOUT,
+        anchor=ReportAnnotationAnchor.DEPTH,
+        depth=1005.0,
+        track_key="curve:C1",
+        text="This note belongs to a different report",
+    )
+
+    def forbid_transaction(*args, **kwargs):
+        raise AssertionError("Foreign note must be rejected before staging PDF")
+
+    monkeypatch.setattr(
+        "geoworkbench.printing.hydrocarbon_interpretation_report."
+        "execute_report_output_transaction",
+        forbid_transaction,
+    )
+    target = tmp_path / "forbidden.pdf"
+    with pytest.raises(HydrocarbonInterpretationPdfError, match="другой скважине"):
+        export_hydrocarbon_interpretation_pdf_with_passport(
+            session, _report(), target, identity=_identity(),
+            annotations=(record,), include_chart=True,
+        )
+    assert not target.exists()
+    assert not (tmp_path / "forbidden.pdf.passport.json").exists()
+
+
+def test_pdf_passport_accepts_annotations_bound_to_active_composition(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = _session()
+    well = session.current_well
+    dataset = session.current_dataset
+    assert well is not None and dataset is not None
+    composition = ensure_report_composition_id(
+        DEFAULT_INTERPRETATION_REPORT_COMPOSITION, dataset.dataset_id,
+    )
+    session.report_compositions[dataset.dataset_id] = composition
+    record = ReportAnnotationRecord(
+        annotation_id="own-note",
+        scope_id=report_annotation_scope_id(
+            well.well_id, dataset.dataset_id, composition.composition_id,
+        ),
+        kind=ReportAnnotationKind.TEXT,
+        anchor=ReportAnnotationAnchor.DEPTH,
+        depth=1005.0,
+        track_key="curve:C1",
+        text="Verified note",
+    )
+    observed = []
+
+    def capture_transaction(output, producer, passport, *, overwrite=False):
+        observed.append(passport)
+        return SimpleNamespace(primary_path=Path(output))
+
+    monkeypatch.setattr(
+        "geoworkbench.printing.hydrocarbon_interpretation_report."
+        "execute_report_output_transaction",
+        capture_transaction,
+    )
+    result = export_hydrocarbon_interpretation_pdf_with_passport(
+        session, _report(), tmp_path / "accepted.pdf",
+        identity=_identity(), annotations=(record,), include_chart=True,
+    )
+    assert result.primary_path == tmp_path / "accepted.pdf"
+    assert len(observed) == 1
+    assert dict(observed[0].render.options)["report_annotations"] == "1"

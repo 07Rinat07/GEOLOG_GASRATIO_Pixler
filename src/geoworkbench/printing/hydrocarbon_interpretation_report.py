@@ -16,11 +16,13 @@ from geoworkbench.domain.localized_content import localized_text
 from geoworkbench.domain.models import Dataset
 from geoworkbench.domain.report_composition import (
     DEFAULT_REPORT_CHART_PANELS,
+    DEFAULT_INTERPRETATION_REPORT_COMPOSITION,
+    ensure_report_composition_id,
     ReportChartPanelSettings,
     ReportLayoutProfile,
     ReportLegendMode,
 )
-from geoworkbench.domain.report_annotations import ReportAnnotationRecord
+from geoworkbench.domain.report_annotations import ReportAnnotationRecord, report_annotation_scope_id
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_renderer import (
     render_hydrocarbon_interpretation_report,
 )
@@ -91,6 +93,28 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
     dataset = session.current_dataset
     if dataset is None:
         raise HydrocarbonInterpretationPdfError(labels.pdf_passport_dataset_required)
+    # A caller can supply an annotation snapshot independently from the
+    # selected dataset. Never sign or paint notes from another well, dataset,
+    # or report composition in the production passport export boundary.
+    if annotations:
+        well = session.current_well
+        if well is None:
+            raise HydrocarbonInterpretationPdfError(
+                "Невозможно проверить принадлежность аннотаций без выбранной скважины"
+            )
+        composition = ensure_report_composition_id(
+            session.report_compositions.get(
+                dataset.dataset_id, DEFAULT_INTERPRETATION_REPORT_COMPOSITION,
+            ),
+            dataset.dataset_id,
+        )
+        expected_scope = report_annotation_scope_id(
+            well.well_id, dataset.dataset_id, composition.composition_id,
+        )
+        if any(item.scope_id != expected_scope for item in annotations):
+            raise HydrocarbonInterpretationPdfError(
+                "Аннотация отчёта принадлежит другой скважине, набору данных или композиции"
+            )
     destination = Path(target)
     if destination.suffix.casefold() != ".pdf":
         destination = destination.with_suffix(".pdf")
