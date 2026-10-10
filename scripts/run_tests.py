@@ -25,7 +25,7 @@ import sys
 
 
 _CHILD_FLAG = "--geolog-single-shard"
-_DEFAULT_WINDOWS_SHARDS = 8
+_DEFAULT_WINDOWS_SHARDS = 16
 _NATIVE_HEAVY_TEST_THRESHOLD = 24
 _NATIVE_TEST_BATCH_SIZE = 4
 _FORCED_NATIVE_BATCH_FILES = frozenset(
@@ -45,6 +45,11 @@ _FORCED_NATIVE_BATCH_FILES = frozenset(
         # in the autouse cleanup fixture. Retain all cases but give each one a
         # fresh process, so unrelated native Qt lifetimes cannot accumulate.
         "tests/test_lithology_drag_editor.py",
+        # Previous Windows Quality gate crashed with native heap corruption
+        # (0xC0000374) in the Qt cleanup fixture after report DOCX footer
+        # cases shared a process with earlier GUI tests. Give these cases a
+        # clean subprocess without changing or skipping any assertions.
+        "tests/test_report_document_control_docx_footer.py",
         # MainWindow navigation hit 0xC0000005 in PlotItem.__init__ after
         # earlier dialogs/scenes in a large Windows offscreen shard.
         "tests/test_navigation_organization.py",
