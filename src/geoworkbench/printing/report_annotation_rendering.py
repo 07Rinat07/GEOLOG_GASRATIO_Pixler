@@ -4,7 +4,7 @@ from collections.abc import Mapping, Sequence
 from math import atan2, cos, radians, sin
 
 from PySide6.QtCore import QLineF, QPointF, QRectF, Qt
-from PySide6.QtGui import QColor, QPainter, QPen, QPolygonF
+from PySide6.QtGui import QColor, QFont, QFontMetricsF, QPainter, QPen, QPolygonF
 
 from geoworkbench.domain.localized_content import localized_text
 from geoworkbench.domain.models import CurveData
@@ -77,6 +77,7 @@ def paint_report_annotations(
     plot_bounds: QRectF,
     track_map: Mapping[str, QRectF],
     pixel_scale: float = 1.0,
+    include_bottom_depth: bool = True,
 ) -> int:
     """Paint one report-annotation snapshot over a depth chart.
 
@@ -108,7 +109,7 @@ def paint_report_annotations(
                 assert record.bottom_depth is not None
                 overlap_top = max(page_top_depth, record.top_depth)
                 overlap_bottom = min(page_bottom_depth, record.bottom_depth)
-                if overlap_bottom < overlap_top:
+                if overlap_bottom <= overlap_top:
                     continue
                 top_y = _depth_y(overlap_top, page_top_depth, page_bottom_depth, target)
                 bottom_y = _depth_y(overlap_bottom, page_top_depth, page_bottom_depth, target)
@@ -128,7 +129,7 @@ def paint_report_annotations(
                 )
             elif record.anchor is ReportAnnotationAnchor.DEPTH:
                 assert record.depth is not None
-                if not page_top_depth <= record.depth <= page_bottom_depth:
+                if not (page_top_depth <= record.depth and (record.depth < page_bottom_depth or (include_bottom_depth and record.depth == page_bottom_depth))):
                     continue
                 anchor = QPointF(
                     target.left() + target.width() * record.x_fraction,
@@ -349,8 +350,6 @@ def _paint_text(
     font.setBold(style.bold)
     font.setItalic(style.italic)
     font.setUnderline(style.underline)
-    painter.setFont(font)
-    painter.setPen(_color(style.text_color, "#0f172a"))
     flags = Qt.TextFlag.TextWordWrap
     flags |= {
         "left": Qt.AlignmentFlag.AlignLeft,
@@ -362,7 +361,64 @@ def _paint_text(
         "center": Qt.AlignmentFlag.AlignVCenter,
         "bottom": Qt.AlignmentFlag.AlignBottom,
     }.get(style.vertical_alignment, Qt.AlignmentFlag.AlignTop)
-    painter.drawText(rect, flags, text)
+    font = _fitted_annotation_font(painter, font, rect, text, flags)
+    painter.save()
+    try:
+        # The chart's global plot clip is wider than the annotation itself.
+        # Bound the glyphs to this box, even for unbreakable or very long text.
+        painter.setClipRect(rect, Qt.ClipOperation.IntersectClip)
+        painter.setFont(font)
+        painter.setPen(_color(style.text_color, "#0f172a"))
+        painter.drawText(rect, flags, text)
+    finally:
+        painter.restore()
+
+
+def _fitted_annotation_font(
+    painter: QPainter,
+    font: QFont,
+    rect: QRectF,
+    text: str,
+    flags: Qt.TextFlag | Qt.AlignmentFlag,
+) -> QFont:
+    """Shrink crowded annotation labels without mutating stored text or style.
+
+    Wrapping may change discretely as the font shrinks, so remeasure at most
+    ten times. Leave the underlying source text unchanged and clip any label
+    that is still too tall at the one-point minimum.
+    """
+    if not text or rect.width() <= 0.0 or rect.height() <= 0.0:
+        return font
+    original = font.pointSizeF()
+    if original <= 0.0:
+        return font
+    fitted = QFont(font)
+    for _ in range(10):
+        metrics = QFontMetricsF(fitted, painter.device())
+        measured = metrics.boundingRect(
+            QRectF(0.0, 0.0, max(1.0, rect.width()), 100_000.0),
+            int(flags),
+            text,
+        )
+        if (
+            measured.width() <= rect.width() + 0.5
+            and measured.height() <= rect.height() + 0.5
+        ):
+            break
+        if fitted.pointSizeF() <= 1.01:
+            break
+        ratio = min(
+            rect.width() / max(1.0, measured.width()),
+            rect.height() / max(1.0, measured.height()),
+        )
+        next_size = max(
+            1.0,
+            fitted.pointSizeF() * min(0.92, ratio * 0.97),
+        )
+        if next_size >= fitted.pointSizeF():
+            break
+        fitted.setPointSizeF(next_size)
+    return fitted
 
 
 def _clamp_rect(rect: QRectF, bounds: QRectF) -> QRectF:
