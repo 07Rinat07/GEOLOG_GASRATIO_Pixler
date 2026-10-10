@@ -26,6 +26,50 @@ from geoworkbench.tablet.models import (
 )
 
 
+# These sensor IDs and supporting channels occur together in the GeoScape
+# LAS family (e.g. the Maksat M-1 exported LAS). Never substitute an
+# unmeasured insoluble residue or guess a source from the channel description.
+_GEOSCAPE_FORM_CHANNELS: dict[str, tuple[str, tuple[str, ...], frozenset[str]]] = {
+    "ROP": (
+        "S106",
+        ("S107", "S108", "S109"),
+        frozenset({"м/ч", "m/h", "m/hr", "m/hour", "ě/÷"}),
+    ),
+    "TOTAL_GAS": (
+        "S1600",
+        ("S1601", "S1602", "S1603"),
+        frozenset({"%", "pct", "percent"}),
+    ),
+}
+
+
+def _geoscape_factory_source(dataset: Dataset, canonical: str) -> str | None:
+    spec = _GEOSCAPE_FORM_CHANNELS.get(canonical)
+    if spec is None:
+        return None
+    source, companion_codes, allowed_units = spec
+    curve = dataset.curve_by_mnemonic(source)
+    if curve is None or curve.metadata.original_mnemonic.strip().upper() != source:
+        return None
+    # The code must belong to the expected measurement family. A wrong unit is
+    # a hard rejection, not something to silently relabel as metres/hour or %.
+    unit = (curve.metadata.unit or "").strip().casefold().replace(" ", "")
+    if unit not in allowed_units:
+        return None
+    companions = sum(
+        bool(
+            (sibling := dataset.curve_by_mnemonic(code)) is not None
+            and sibling.metadata.original_mnemonic.strip().upper() == code
+        )
+        for code in companion_codes
+    )
+    # Two independent companion channels make a source code interpretation
+    # auditable, rather than trusting a vendor-independent S-number alone.
+    if companions < 2:
+        return None
+    return curve.metadata.original_mnemonic
+
+
 @dataclass(frozen=True, slots=True)
 class BindingResolution:
     binding_id: str
@@ -98,6 +142,18 @@ class FormApplyEngine:
                 binding.canonical_parameter_id,
                 semantic_match.source_mnemonic,
                 f"semantic_{semantic_match.matched_by}",
+            )
+
+        # GeoScape/GID LAS files encode parameter identity in S-series codes.
+        # Use this fallback only after explicit/semantic mapping, and only when
+        # companion channels corroborate the expected vendor family.
+        geoscape_source = _geoscape_factory_source(dataset, canonical)
+        if geoscape_source is not None:
+            return BindingResolution(
+                binding.binding_id,
+                binding.canonical_parameter_id,
+                geoscape_source,
+                "geoscape_family",
             )
 
         curve = dataset.curve_by_mnemonic(binding.canonical_parameter_id)
