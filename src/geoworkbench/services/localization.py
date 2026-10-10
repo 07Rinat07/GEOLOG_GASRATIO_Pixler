@@ -71,3 +71,22 @@ class LanguageSettings:
     def save(self, language: AppLanguage) -> None:
         self.settings.setValue("ui/language", language.value)
         self.settings.sync()
+
+
+@dataclass(slots=True)
+class TabularExportLanguageSettings:
+    """Language for interval and statistics file exports, independent of UI."""
+
+    settings: Any
+    KEY = "export/interval_and_statistics_language"
+
+    def current(self, fallback: AppLanguage) -> AppLanguage:
+        raw = self.settings.value(self.KEY)
+        try:
+            return AppLanguage(str(raw)) if raw else fallback
+        except (TypeError, ValueError):
+            return fallback
+
+    def save(self, language: AppLanguage) -> None:
+        self.settings.setValue(self.KEY, language.value)
+        self.settings.sync()

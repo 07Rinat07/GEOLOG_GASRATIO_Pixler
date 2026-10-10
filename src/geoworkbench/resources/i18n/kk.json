@@ -1630,6 +1630,8 @@
   "resample.undo_confirm": "Туынды көшірме және оған кейін енгізілген өзгерістер жобадан жойылады. Бастапқы деректер жинағы өзгеріссіз қалады. Жалғастыру керек пе?",
   "resample.undo_title": "Қайта дискреттелген көшірмені жою",
   "resample.undone": "Қайта дискреттелген көшірмені жасау болдырылмады",
+  "selection_export.output_language": "Аралық пен статистиканы экспорттау тілі",
+  "selection_export.output_language_changed": "Экспорт тілі: {language}",
   "selection_export.csv_action": "Таңдалған деректерді CSV-ге экспорттау...",
   "selection_export.docx_action": "Таңдалған деректерді DOCX-ке экспорттау...",
   "selection_export.excel_action": "Таңдалған деректерді Excel-ге экспорттау...",

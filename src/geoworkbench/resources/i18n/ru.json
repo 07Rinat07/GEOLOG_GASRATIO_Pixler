@@ -1630,6 +1630,8 @@
   "resample.undo_confirm": "Производная копия будет удалена из проекта вместе с последующими правками этой копии. Исходный dataset останется без изменений. Продолжить?",
   "resample.undo_title": "Удалить ресэмплированную копию",
   "resample.undone": "Создание ресэмплированной копии отменено",
+  "selection_export.output_language": "Язык экспорта интервала и статистики",
+  "selection_export.output_language_changed": "Язык экспорта: {language}",
   "selection_export.csv_action": "Экспортировать выделение в CSV...",
   "selection_export.docx_action": "Экспортировать выделение в DOCX...",
   "selection_export.excel_action": "Экспортировать выделение в Excel...",

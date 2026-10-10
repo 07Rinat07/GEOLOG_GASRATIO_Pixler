@@ -347,6 +347,7 @@ from geoworkbench.services.localization import (
     AppLanguage,
     LanguageSettings,
     Localizer,
+    TabularExportLanguageSettings,
 )
 from geoworkbench.services.parameter_labels import localized_curve_name
 from geoworkbench.services.text_normalization import clean_display_text, clean_mnemonic
@@ -635,6 +636,10 @@ class MainWindow(QMainWindow):
         self.language = language
         self.localizer = Localizer.create(language)
         self.language_settings = language_settings or LanguageSettings.system()
+        self.tabular_export_language_settings = TabularExportLanguageSettings(
+            self.language_settings.settings
+        )
+        self.tabular_export_language = self.tabular_export_language_settings.current(language)
         self.user_profile_settings = user_profile_settings or UserProfileSettings.system()
         self.mnemonic_registry = (
             application_context.mnemonic_registry
@@ -1578,6 +1583,22 @@ class MainWindow(QMainWindow):
         export_html_action = self._localized_action("selection_export.html_action")
         export_html_action.triggered.connect(self.export_selected_html)
         file_menu.addAction(export_html_action)
+        self.tabular_export_language_menu = file_menu.addMenu(
+            self._t("selection_export.output_language")
+        )
+        self.tabular_export_language_group = QActionGroup(self)
+        self.tabular_export_language_group.setExclusive(True)
+        self.tabular_export_language_actions: dict[AppLanguage, QAction] = {}
+        for output_language, name in LANGUAGE_NAMES.items():
+            action = QAction(name, self)
+            action.setCheckable(True)
+            action.setChecked(output_language is self.tabular_export_language)
+            action.triggered.connect(
+                lambda checked=False, value=output_language: self.change_tabular_export_language(value)
+            )
+            self.tabular_export_language_group.addAction(action)
+            self.tabular_export_language_actions[output_language] = action
+            self.tabular_export_language_menu.addAction(action)
         self.print_center_action = self._localized_action("print_center.action")
         self.print_center_action.setShortcut("Ctrl+P")
         self.print_center_action.triggered.connect(self.open_print_center)
@@ -2960,7 +2981,21 @@ class MainWindow(QMainWindow):
             5000,
         )
 
+    def change_tabular_export_language(self, language: AppLanguage) -> None:
+        """Keep the operator UI language independent of file exports."""
+        self.tabular_export_language = language
+        self.tabular_export_language_settings.save(language)
+        for value, action in self.tabular_export_language_actions.items():
+            action.setChecked(value is language)
+        self.statusBar().showMessage(
+            self._t("selection_export.output_language_changed", language=LANGUAGE_NAMES[language]),
+            5000,
+        )
+
     def _retranslate_ui(self) -> None:
+        self.tabular_export_language_menu.setTitle(
+            self._t("selection_export.output_language")
+        )
         self.tabs.setTabText(0, self._t("tab.curves"))
         self.tabs.setTabText(1, self._t("tab.table"))
         self.tabs.setTabText(2, self._t("tab.tablet"))
@@ -4439,7 +4474,7 @@ class MainWindow(QMainWindow):
             dataset_id=dataset.dataset_id,
             index_id=dataset.active_index_id or "",
             interval=ReportIntervalSelection(ReportIntervalMode.SELECTION),
-            language=self.language.value,
+            language=self.tabular_export_language.value,
             curve_ids=tuple(selection.curve_ids),
             channel_mnemonics=tuple(
                 dataset.curves[curve_id].metadata.original_mnemonic
@@ -4502,27 +4537,28 @@ class MainWindow(QMainWindow):
                         staged_target,
                         resolved_report,
                         overwrite=False,
-                        language=self.language,
+                        language=self.tabular_export_language,
                     )
                 if export_format == "docx":
                     return self.dataset_export_controller.export_resolved_report_docx(
                         staged_target,
                         resolved_report,
                         overwrite=False,
-                        language=self.language,
+                        language=self.tabular_export_language,
                     )
                 if export_format == "html":
                     return self.dataset_export_controller.export_resolved_report_html(
                         staged_target,
                         resolved_report,
                         overwrite=False,
-                        language=self.language,
+                        language=self.tabular_export_language,
                     )
                 return self.dataset_export_controller.export_resolved_report_text(
                     staged_target,
                     resolved_report,
                     delimiter=",",
                     overwrite=False,
+                    language=self.tabular_export_language,
                 )
 
             transaction = execute_report_output_transaction(
@@ -7735,6 +7771,42 @@ class MainWindow(QMainWindow):
         )
         self.interval_statistics_dock.show_preserving_position()
 
+    def _interval_statistics_export_display_names(
+        self, language: AppLanguage
+    ) -> dict[str, str]:
+        # Localize only the export view: the UI table and numeric snapshot remain intact.
+        display_names = self.interval_statistics_panel.display_names
+        if language is self.language:
+            return display_names
+        dataset = self.session.current_dataset
+        if dataset is None or dataset.name != self.interval_statistics_panel.dataset_name:
+            return display_names
+        for item in self.interval_statistics_panel.statistics:
+            curve = dataset.curve_by_mnemonic(item.mnemonic)
+            if curve is None:
+                continue
+            configured = ""
+            for track in self.tablet_view.layout_model.tracks:
+                matching_mnemonic = next(
+                    (
+                        mnemonic
+                        for mnemonic in track.curve_mnemonics
+                        if mnemonic.casefold() == item.mnemonic.casefold()
+                    ),
+                    None,
+                )
+                if matching_mnemonic is not None:
+                    configured = track.curve_display_settings(matching_mnemonic).display_name
+                    break
+            display_names[item.mnemonic] = localized_curve_name(
+                curve.metadata.original_mnemonic,
+                description=curve.metadata.description or "",
+                unit=curve.metadata.unit or "",
+                language=language,
+                configured=configured,
+            )
+        return display_names
+
     def _export_interval_statistics(self, export_format: str) -> None:
         statistics = self.interval_statistics_panel.statistics
         if not statistics:
@@ -7764,8 +7836,10 @@ class MainWindow(QMainWindow):
                     statistics,
                     interval_label=self.interval_statistics_panel.interval_label,
                     dataset_name=self.interval_statistics_panel.dataset_name,
-                    display_names=self.interval_statistics_panel.display_names,
-                    language=self.language,
+                    display_names=self._interval_statistics_export_display_names(
+                        self.tabular_export_language
+                    ),
+                    language=self.tabular_export_language,
                 )
             else:
                 exported = export_interval_statistics_csv(
@@ -7773,8 +7847,10 @@ class MainWindow(QMainWindow):
                     statistics,
                     interval_label=self.interval_statistics_panel.interval_label,
                     dataset_name=self.interval_statistics_panel.dataset_name,
-                    display_names=self.interval_statistics_panel.display_names,
-                    language=self.language,
+                    display_names=self._interval_statistics_export_display_names(
+                        self.tabular_export_language
+                    ),
+                    language=self.tabular_export_language,
                 )
         except OSError as exc:
             QMessageBox.critical(self, self._t("statistics.title"), str(exc))

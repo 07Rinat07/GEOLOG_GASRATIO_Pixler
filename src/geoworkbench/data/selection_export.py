@@ -120,6 +120,7 @@ def export_selection_text(
     *,
     delimiter: str = "\t",
     overwrite: bool = False,
+    language: AppLanguage | str | None = None,
     unavailable_mnemonics: tuple[str, ...] = (),
     row_indices: np.ndarray | None = None,
 ) -> Path:
@@ -135,16 +136,34 @@ def export_selection_text(
         allow_empty=bool(unavailable_mnemonics),
         row_indices=row_indices,
     )
+    if language is None:
+        # Retain legacy technical CSV headers for external API callers.
+        headers = _headers(dataset, curves)
+        unavailable_headers = [f"{name} [UNAVAILABLE]" for name in unavailable_mnemonics]
+    else:
+        output_language = AppLanguage(language)
+        technical_headers = _headers(dataset, curves)
+        names = _curve_export_columns(curves, language=output_language)
+        headers = [
+            f"{_index_friendly_name(dataset, dataset.active_index, language=output_language)} — {technical_headers[0]}",
+            *(
+                f"{column.friendly_name} — {technical}"
+                for column, technical in zip(names, technical_headers[1:], strict=True)
+            ),
+        ]
+        unavailable_label = _unavailable_export_column(
+            "UNKNOWN",
+            unavailable_channel_coverage("UNKNOWN", int(indices.size)),
+            language=output_language,
+        ).friendly_name
+        unavailable_headers = [
+            f"{name} — {unavailable_label}" for name in unavailable_mnemonics
+        ]
     temporary = _temporary_path(destination)
     try:
         with temporary.open("w", encoding="utf-8", newline="") as stream:
             writer = csv.writer(stream, delimiter=delimiter)
-            writer.writerow(
-                protect_spreadsheet_row(
-                    _headers(dataset, curves)
-                    + [f"{mnemonic} [UNAVAILABLE]" for mnemonic in unavailable_mnemonics]
-                )
-            )
+            writer.writerow(protect_spreadsheet_row(headers + unavailable_headers))
             for index in indices:
                 writer.writerow(
                     [_text_index_value(dataset.active_index, int(index))]
