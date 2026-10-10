@@ -84,6 +84,7 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
     layout_profile: ReportLayoutProfile = ReportLayoutProfile.MODERN_OILFIELD,
     annotations: tuple[ReportAnnotationRecord, ...] = (),
     chart_panels: ReportChartPanelSettings = DEFAULT_REPORT_CHART_PANELS,
+    target_depth_per_page: float = 100.0,
     overwrite: bool = False,
 ) -> ReportOutputTransactionResult:
     labels = hydrocarbon_report_print_labels(language)
@@ -112,6 +113,7 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
         ("legend_mode", legend_mode.value),
         ("layout_profile", layout_profile.value),
     )
+    render_options = (*render_options, ("target_depth_per_page", str(target_depth_per_page)))
     if annotations:
         render_options = (*render_options, ("report_annotations", str(len(annotations))))
     if chart_panels != DEFAULT_REPORT_CHART_PANELS:
@@ -156,6 +158,7 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
             legend_mode=legend_mode,
             layout_profile=layout_profile,
             annotations=annotations,
+            target_depth_per_page=target_depth_per_page,
             **chart_panel_render_options(chart_panels),
             overwrite=True,
         ),
@@ -195,6 +198,7 @@ def export_hydrocarbon_interpretation_pdf(
     layout_profile: ReportLayoutProfile = ReportLayoutProfile.MODERN_OILFIELD,
     annotations: tuple[ReportAnnotationRecord, ...] = (),
     chart_panels: ReportChartPanelSettings = DEFAULT_REPORT_CHART_PANELS,
+    target_depth_per_page: float = 100.0,
     overwrite: bool = False,
 ) -> Path:
     labels = hydrocarbon_report_print_labels(language)
@@ -308,6 +312,7 @@ def export_hydrocarbon_interpretation_pdf(
             legend_mode=legend_mode,
             layout_profile=layout_profile,
             annotations=annotations,
+            target_depth_per_page=target_depth_per_page,
             **chart_panel_render_options(chart_panels),
         )
         del writer

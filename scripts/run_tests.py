@@ -56,6 +56,9 @@ _FORCED_NATIVE_BATCH_FILES = frozenset(
         "tests/test_session_safety.py",
         "tests/test_multipage_unicode_print.py",
         "tests/test_masterlog_curve_mapping_dialog.py",
+        # Covers real PDF generation and a Qt dialog; isolate native objects
+        # from unrelated report/plot tests in the Windows offscreen runner.
+        "tests/test_pdf_chart_page_density.py",
         # Windows offscreen Qt can corrupt the native heap when header scenes
         # share a process with earlier dialogs (0xC0000374 during widget.hide).
         "tests/test_masterlog_header_dialog.py",

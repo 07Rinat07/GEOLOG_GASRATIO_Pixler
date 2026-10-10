@@ -531,6 +531,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     legend_mode=layout.legend_mode,
                     layout_profile=layout.layout_profile,
                     annotations=composition.annotations,
+                    target_depth_per_page=layout.target_depth_per_page,
                     **chart_panel_render_options(composition.chart_panels),
                     overwrite=target.exists(),
                 )
@@ -597,6 +598,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                     legend_mode=layout.legend_mode,
                     layout_profile=layout.layout_profile,
                     annotations=composition.annotations,
+                    target_depth_per_page=layout.target_depth_per_page,
                     **chart_panel_render_options(composition.chart_panels),
                     overwrite=True,
                 )

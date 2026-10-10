@@ -87,6 +87,7 @@ def render_hydrocarbon_interpretation_report(
     layout_profile: ReportLayoutProfile = ReportLayoutProfile.MODERN_OILFIELD,
     annotations: tuple[ReportAnnotationRecord, ...] = (),
     chart_panels: ReportChartPanelSettings = DEFAULT_REPORT_CHART_PANELS,
+    target_depth_per_page: float = 100.0,
 ) -> None:
     """Render one controlled multi-page report to QPdfWriter or QPrinter."""
 
@@ -156,6 +157,7 @@ def render_hydrocarbon_interpretation_report(
                 legend_mode=chart_legend_mode,
                 legend_reference_pages_emitted=legend_reference_pages_emitted,
                 annotations=annotations,
+                target_depth_per_page=target_depth_per_page,
                 **chart_panel_render_options(chart_panels),
             )
 

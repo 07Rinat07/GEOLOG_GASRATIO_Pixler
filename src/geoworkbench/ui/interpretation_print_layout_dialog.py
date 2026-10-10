@@ -52,6 +52,7 @@ class InterpretationPrintLayout:
     geology_tracks: InterpretationGeologyTrackSettings = InterpretationGeologyTrackSettings()
     legend_mode: ReportLegendMode = ReportLegendMode.FULL
     layout_profile: ReportLayoutProfile = ReportLayoutProfile.MODERN_OILFIELD
+    target_depth_per_page: float = 100.0
 
 
 class InterpretationPrintLayoutDialog(QDialog):
@@ -156,6 +157,28 @@ class InterpretationPrintLayoutDialog(QDialog):
         form.addRow(
             QLabel(self._text("Легенды:", "Аңыздар:", "Legends:")),
             self.legend_mode_combo,
+        )
+        # Explicit overview choice: a wider depth interval per A4 chart page
+        # reduces sheet count, but never drops source LAS samples or changes QC.
+        self.chart_density_combo = QComboBox()
+        self.chart_density_combo.setObjectName("report-chart-depth-per-page")
+        for caption, depth in (
+            (self._text("Детально — около 100 единиц глубины / лист",
+                        "Толық — шамамен 100 тереңдік бірлігі / бет",
+                        "Detailed — about 100 depth units / page"), 100.0),
+            (self._text("Обзор — около 250 единиц глубины / лист",
+                        "Шолу — шамамен 250 тереңдік бірлігі / бет",
+                        "Overview — about 250 depth units / page"), 250.0),
+            (self._text("Компактно — около 500 единиц глубины / лист",
+                        "Ықшам — шамамен 500 тереңдік бірлігі / бет",
+                        "Compact — about 500 depth units / page"), 500.0),
+        ):
+            self.chart_density_combo.addItem(caption, depth)
+        form.addRow(
+            QLabel(self._text("Глубинный масштаб графиков:",
+                             "Графиктердің тереңдік масштабы:",
+                             "Chart depth density:")),
+            self.chart_density_combo,
         )
         self.layout_profile_combo = QComboBox()
         self.layout_profile_combo.addItem(
@@ -302,6 +325,7 @@ class InterpretationPrintLayoutDialog(QDialog):
             ),
             legend_mode=legend_mode,
             layout_profile=layout_profile,
+            target_depth_per_page=float(self.chart_density_combo.currentData() or 100.0),
         )
 
     def selected_composition(self) -> InterpretationReportComposition:
@@ -383,6 +407,7 @@ class InterpretationPrintLayoutDialog(QDialog):
         )
         self._set_combo_data(self.legend_mode_combo, initial.legend_mode)
         self._set_combo_data(self.layout_profile_combo, initial.layout_profile)
+        self._set_combo_data(self.chart_density_combo, 100.0)
         self.summary_checkbox.setChecked(initial.show_summary)
         self.conclusion_checkbox.setChecked(initial.show_conclusion)
 
@@ -444,12 +469,16 @@ class InterpretationPrintLayoutDialog(QDialog):
     def _note_text(self) -> str:
         if not self.include_order:
             return self._text(
-                "Книжная ориентация удобнее для последовательного чтения; "
-                "альбомная оставляет больше ширины для графиков и таблиц.",
-                "Кітапша бағдары ретімен оқуға ыңғайлы; альбомдық бағдар "
-                "графиктер мен кестелерге көбірек ен қалдырады.",
-                "Portrait is easier for sequential reading; landscape leaves "
-                "more width for charts and tables.",
+                "Обзорная и компактная плотность уменьшают число графических листов, "
+                "но тонкие интервалы визуально сжимаются. Для детального анализа "
+                "используйте режим 100 единиц глубины на лист. Альбомная "
+                "ориентация даёт больше ширины графикам.",
+                "Шолу және ықшам режимдер график беттерінің санын азайтады, "
+                "бірақ жұқа аралықтар сығылады. Толық талдау үшін "
+                "әр бетке 100 тереңдік бірлігі режимін таңдаңыз.",
+                "Overview and compact modes use fewer chart pages, but thin "
+                "intervals look compressed. For detailed interpretation, "
+                "select 100 depth units per page.",
             )
         return self._text(
             "По умолчанию используется книжная ориентация и печать с "
