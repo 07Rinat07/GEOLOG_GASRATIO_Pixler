@@ -76,6 +76,7 @@ def context_code(event: GasContextEvent) -> str:
 
 def context_segments(
     events: tuple[GasContextEvent, ...], top: float, bottom: float,
+    *, include_bottom_point: bool = True,
 ) -> tuple[GasContextSegment, ...]:
     """Reuse registry priority; retain actual depths, including point events."""
     if bottom <= top:
@@ -96,7 +97,9 @@ def context_segments(
             low = previous.top_depth
         segments.append(GasContextSegment(event, low, high))
     for event in visible:
-        if event.top_depth == event.bottom_depth and registry.resolve_at_depth(event.top_depth) == event:
+        if (event.top_depth == event.bottom_depth
+                and (include_bottom_point or event.top_depth < bottom)
+                and registry.resolve_at_depth(event.top_depth) == event):
             segments.append(GasContextSegment(event, event.top_depth, event.bottom_depth))
     return tuple(sorted(segments, key=lambda s: (s.top_depth, s.bottom_depth, s.event.event_id)))
 
@@ -115,6 +118,7 @@ def paint_context_track(
     painter: QPainter, rect: QRectF, events: tuple[GasContextEvent, ...],
     top: float, bottom: float, language: AppLanguage, *, header_height: float,
     scale: float = 1.0,
+    include_bottom_point: bool = True,
 ) -> None:
     visual = modern_oilfield_report_profile()
     painter.save()
@@ -127,7 +131,10 @@ def paint_context_track(
                             _context_heading_font_size(painter.device(), scale),
                             point_coordinates=isinstance(painter.device(), QPagedPaintDevice))
         painter.setClipRect(rect, Qt.ClipOperation.IntersectClip)
-        for segment in context_segments(events, top, bottom):
+        segments = context_segments(events, top, bottom, include_bottom_point=include_bottom_point)
+        bands = (segment for segment in segments if segment.top_depth < segment.bottom_depth)
+        points = (segment for segment in segments if segment.top_depth == segment.bottom_depth)
+        for segment in (*bands, *points):
             y1 = rect.top() + (segment.top_depth - top) / (bottom - top) * rect.height()
             y2 = rect.top() + (segment.bottom_depth - top) / (bottom - top) * rect.height()
             if segment.top_depth == segment.bottom_depth:
@@ -135,8 +142,7 @@ def paint_context_track(
                 # of an invisible zero-height rectangle. The complete code and
                 # event ID remain available in the separate contextual legend.
                 x_inset = min(2.0 * scale, rect.width() / 4.0)
-                y_inset = min(scale, rect.height() / 2.0)
-                marker_y = min(max(y1, rect.top() + y_inset), rect.bottom() - y_inset)
+                marker_y = y1
                 painter.setPen(QPen(
                     QColor(visual.palette.text),
                     1.5 * scale,

@@ -636,7 +636,12 @@ def _draw_chart_page(
             language,
         )
     if geometry.context_rect is not None:
-        paint_context_track(painter, geometry.context_rect, getattr(report, "gas_context_events", ()), page.top_depth, page.bottom_depth, language, header_height=geometry.track_header_height)
+        paint_context_track(
+            painter, geometry.context_rect, getattr(report, "gas_context_events", ()),
+            page.top_depth, page.bottom_depth, language,
+            header_height=geometry.track_header_height,
+            include_bottom_point=page_index == page_count,
+        )
     candidates = tuple(report.candidates)
     display_hints = report_curve_label_hints(report)
     for panel_index, ((panel_name, curves), rect) in enumerate(

@@ -192,7 +192,7 @@ def test_dense_repeated_events_paginate_complete_legend_without_id_loss(qapp, tm
                 assert word[2] <= page.rect.width + 0.1
                 assert word[3] <= page.rect.height + 0.1
 
-@pytest.mark.parametrize("depth,expected_y", ((0.0, 31.0), (5.0, 80.0), (10.0, 129.0)))
+@pytest.mark.parametrize("depth,expected_y", ((0.0, 30.0), (5.0, 80.0), (10.0, 130.0)))
 @pytest.mark.parametrize("impact", (
     InterpretationImpact.TECHNOLOGICAL_GAS,
     InterpretationImpact.FORMATION_GAS,
@@ -246,13 +246,72 @@ def test_point_event_depth_tick_is_vector_geometry_in_grayscale_pdf(
     finally:
         painter.end()
     with fitz.open(pdf) as document:
+        drawings = document[0].get_drawings()
+        # Compare PDF vector paths in the same coordinate system: printer
+        # margins can translate both the frame and the tick together.
+        frames = [
+            item[1] for drawing in drawings for item in drawing["items"]
+            if item[0] == "re"
+            and abs(item[1].width - 48.0) < 2.0
+            and abs(item[1].height - 200.0) < 2.0
+        ]
+        assert frames, "The PDF must contain a vector track frame"
+        frame = frames[0]
         lines = [
-            item for drawing in document[0].get_drawings()
-            for item in drawing["items"] if item[0] == "l"
+            item for drawing in drawings for item in drawing["items"]
+            if item[0] == "l"
         ]
         assert any(
-            abs(item[1].y - 170.0) <= 2.0
-            and abs(item[2].y - 170.0) <= 2.0
+            abs(item[1].y - (frame.y0 + frame.height / 2.0)) <= 0.5
+            and abs(item[2].y - (frame.y0 + frame.height / 2.0)) <= 0.5
             and abs(item[1].x - item[2].x) >= 35.0
             for item in lines
-        )
+        ), "A point must be a full-width vector tick at the actual depth"
+
+
+def test_point_at_shared_page_seam_is_owned_only_by_next_page(qapp, monkeypatch):
+    monkeypatch.setattr(track, "paint_track_heading", lambda *args, **kwargs: None)
+    event = GasContextEvent("seam", GasContextEventType.CONNECTION_GAS, 10, 10)
+    assert track.context_segments((event,), 0, 10, include_bottom_point=False) == ()
+    assert track.context_segments((event,), 10, 20, include_bottom_point=True) == (
+        track.GasContextSegment(event, 10, 10),
+    )
+    first = MagicMock()
+    first.device.return_value.logicalDpiY.return_value = 72
+    second = MagicMock()
+    second.device.return_value.logicalDpiY.return_value = 72
+    track.paint_context_track(
+        first, QRectF(0, 30, 48, 100), (event,), 0, 10,
+        AppLanguage.EN, header_height=30, include_bottom_point=False,
+    )
+    track.paint_context_track(
+        second, QRectF(0, 30, 48, 100), (event,), 10, 20,
+        AppLanguage.EN, header_height=30, include_bottom_point=True,
+    )
+    first.drawLine.assert_not_called()
+    second.drawLine.assert_called_once()
+    assert second.drawLine.call_args.args[0].y1() == pytest.approx(30.0)
+    # The final page includes its own bottom endpoint.
+    assert track.context_segments(
+        (event,), 0, 10, include_bottom_point=True,
+    ) == (track.GasContextSegment(event, 10, 10),)
+
+
+def test_point_marker_paints_above_coincident_interval_fill(qapp, monkeypatch):
+    monkeypatch.setattr(track, "paint_track_heading", lambda *args, **kwargs: None)
+    band = GasContextEvent("band", GasContextEventType.CONNECTION_GAS, 0, 10)
+    point = GasContextEvent("point", GasContextEventType.SWAB_GAS, 0, 0)
+    assert GasContextRegistry((band, point)).resolve_at_depth(0) == point
+    painter = MagicMock()
+    painter.device.return_value.logicalDpiY.return_value = 72
+    track.paint_context_track(
+        painter, QRectF(0, 30, 48, 100), (band, point), 0, 10,
+        AppLanguage.EN, header_height=30,
+    )
+    draw_calls = [name for name, _args, _kwargs in painter.method_calls]
+    assert draw_calls.count("drawLine") == 1
+    assert draw_calls.count("drawRect") == 2
+    assert draw_calls.index("drawLine") > max(
+        i for i, name in enumerate(draw_calls) if name == "drawRect"
+    )
+    assert painter.drawLine.call_args.args[0].y1() == pytest.approx(30.0)
