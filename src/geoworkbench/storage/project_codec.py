@@ -27,6 +27,7 @@ from geoworkbench.domain.report_annotations import (
 )
 from geoworkbench.domain.report_composition import (
     DEFAULT_REPORT_CHART_PANELS,
+    REPORT_CHART_DEPTH_PRESETS,
     report_chart_panels_from_mapping,
     InterpretationReportComposition,
     ReportHeaderFields,
@@ -84,6 +85,7 @@ _REPORT_COMPOSITION_KEYS = {
     "show_conclusion",
     "annotations",
     "chart_panels",
+    "target_depth_per_page",
 }
 _REPORT_HEADER_KEYS_LEGACY = {
     "report_title",
@@ -175,6 +177,15 @@ def _report_annotations_from_list(data: object) -> tuple[ReportAnnotationRecord,
     return annotations
 
 
+def _report_depth_per_page(raw: dict[str, object]) -> float:
+    value = raw.get("target_depth_per_page", REPORT_CHART_DEPTH_PRESETS[0])
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ProjectFormatError("Некорректный масштаб PDF-графиков")
+    if float(value) not in REPORT_CHART_DEPTH_PRESETS:
+        raise ProjectFormatError("Недопустимый масштаб PDF-графиков")
+    return float(value)
+
+
 def _report_compositions_from_dict(
     data: object,
 ) -> dict[str, InterpretationReportComposition]:
@@ -227,6 +238,7 @@ def _report_compositions_from_dict(
                     report_chart_panels_from_mapping(raw["chart_panels"])
                     if "chart_panels" in raw else DEFAULT_REPORT_CHART_PANELS
                 ),
+                target_depth_per_page=_report_depth_per_page(raw),
                 header_ru=headers.get("ru"),
                 header_kk=headers.get("kk"),
                 header_en=headers.get("en"),
