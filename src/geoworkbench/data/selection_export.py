@@ -161,7 +161,14 @@ def export_selection_text(
         ]
     temporary = _temporary_path(destination)
     try:
-        with temporary.open("w", encoding="utf-8", newline="") as stream:
+        # Excel on Windows recognizes RU/KK text reliably when interactive CSV files
+        # carry the UTF-8 BOM. Preserve legacy plain UTF-8 for API callers and TXT.
+        file_encoding = (
+            "utf-8-sig"
+            if language is not None and destination.suffix.lower() == ".csv"
+            else "utf-8"
+        )
+        with temporary.open("w", encoding=file_encoding, newline="") as stream:
             writer = csv.writer(stream, delimiter=delimiter)
             writer.writerow(protect_spreadsheet_row(headers + unavailable_headers))
             for index in indices:
