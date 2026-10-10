@@ -469,12 +469,16 @@ class InterpretationPrintLayoutDialog(QDialog):
     def _note_text(self) -> str:
         if not self.include_order:
             return self._text(
-                "Книжная ориентация удобнее для последовательного чтения; "
-                "альбомная оставляет больше ширины для графиков и таблиц.",
-                "Кітапша бағдары ретімен оқуға ыңғайлы; альбомдық бағдар "
-                "графиктер мен кестелерге көбірек ен қалдырады.",
-                "Portrait is easier for sequential reading; landscape leaves "
-                "more width for charts and tables.",
+                "Обзорная и компактная плотность уменьшают число графических листов, "
+                "но тонкие интервалы визуально сжимаются. Для детального анализа "
+                "используйте режим 100 единиц глубины на лист. Альбомная "
+                "ориентация даёт больше ширины графикам.",
+                "Шолу және ықшам режимдер график беттерінің санын азайтады, "
+                "бірақ жұқа аралықтар сығылады. Толық талдау үшін "
+                "әр бетке 100 тереңдік бірлігі режимін таңдаңыз.",
+                "Overview and compact modes use fewer chart pages, but thin "
+                "intervals look compressed. For detailed interpretation, "
+                "select 100 depth units per page.",
             )
         return self._text(
             "По умолчанию используется книжная ориентация и печать с "
