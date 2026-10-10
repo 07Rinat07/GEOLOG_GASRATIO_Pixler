@@ -140,7 +140,8 @@ def create_office_acceptance_bundle(output_dir: Path) -> dict[str, object]:
         assert "C1 [%]" in rows[0][1]
 
         _validate_openxml(targets["interval.xlsx"])
-        with load_workbook(targets["interval.xlsx"], data_only=False) as book:
+        book = load_workbook(targets["interval.xlsx"], data_only=False)
+        try:
             sheet = book["Data"]
             assert sheet["B2"].value == 0
             assert sheet["B3"].value is None
@@ -151,6 +152,8 @@ def create_office_acceptance_bundle(output_dir: Path) -> dict[str, object]:
                 cell.data_type != "f"
                 for ws in book.worksheets for row in ws for cell in row
             )
+        finally:
+            book.close()
 
         document_xml = _validate_openxml(targets["interval.docx"])
         assert HEADINGS[language] in document_xml
@@ -168,13 +171,16 @@ def create_office_acceptance_bundle(output_dir: Path) -> dict[str, object]:
         methane = next(row for row in stats_rows[4:] if row[1] == "C1")
         assert methane[4:8] == ["3", "1", "1", "75.0"]
         _validate_openxml(targets["statistics.xlsx"])
-        with load_workbook(targets["statistics.xlsx"], data_only=False) as book:
+        book = load_workbook(targets["statistics.xlsx"], data_only=False)
+        try:
             sheet = book.active
             assert sheet is not None
             assert sheet["A4"].value == localizer.text("statistics.parameter")
             assert sheet["H5"].value == 75
             assert sheet["I5"].value == 0
             assert all(cell.data_type != "f" for row in sheet for cell in row)
+        finally:
+            book.close()
 
         for name, target in targets.items():
             payload = target.read_bytes()
