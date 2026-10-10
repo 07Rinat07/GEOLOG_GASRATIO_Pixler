@@ -23,6 +23,7 @@ from geoworkbench.domain.depth_interval import scope_dataset
 from geoworkbench.printing.interpretation_chart_key import interpretation_chart_key_html
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_canvas import PageCanvas
 from geoworkbench.printing.report_document_control import report_document_control, resolved_report_identity
+from geoworkbench.printing.hydrocarbon_interpretation_report_identity import report_with_presentation_identity
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_chart_enhanced import (
     render_chart_pages,
 )
@@ -89,7 +90,9 @@ def render_hydrocarbon_interpretation_report(
 ) -> None:
     """Render one controlled multi-page report to QPdfWriter or QPrinter."""
 
-    html = hydrocarbon_interpretation_html(report, language)
+    html = hydrocarbon_interpretation_html(
+        report_with_presentation_identity(report, identity), language,
+    )
     if dataset is not None:
         html = inject_interval_gas_statistics_html(html, report, dataset, language)
     html = inject_report_optional_sections_html(html, identity, language)
