@@ -427,6 +427,12 @@ Document/painter/user-selected colors остаются данными докум
 дополнительно Windows 100/125/150/200% DPI. Общий adaptive contract не считается полностью
 закрытым наличием ранее интегрированного UI-ADAPT-01.
 
+## PRINT-STYLE-01 — проверка конечности типографики и физических размеров (на проверке)
+
+- Общий печатный профиль отклоняет NaN, ±Infinity, bool, строки и null во всех размерах `ReportTypography` и `ReportLayoutMetrics` до передачи геометрии в Qt/Office.
+- Существующие диапазоны (5–36 pt для типографики, строго положительные физические размеры) не меняются; валидные профили и исходные LAS/ГТИ не модифицируются.
+- Приёмка: параметризованные positive/negative проверки всех полей и полный Windows Quality, GUI/HiDPI/PDF и Security на актуальном HEAD; слияние только после завершения обязательных проверок.
+
 ## PRINT-STYLE-01 — Report Visual System
 
 - [x] **2026-10-10 — geology report output-language package:** отдельный диалог

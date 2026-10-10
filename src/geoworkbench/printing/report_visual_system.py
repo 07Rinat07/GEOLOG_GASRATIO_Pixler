@@ -2,11 +2,23 @@ from __future__ import annotations
 
 from dataclasses import dataclass, fields
 from enum import StrEnum
+from math import isfinite
+from numbers import Real
 import re
 
 from geoworkbench.brand import REPORT_BRAND_WORDMARK
 from geoworkbench.domain.report_composition import ReportLayoutProfile
 _HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+
+def _finite_point_value(raw: object, name: str) -> float:
+    """Reject non-numeric or non-finite physical dimensions before Qt/Office."""
+    if isinstance(raw, bool) or not isinstance(raw, Real):
+        raise ValueError(f"{name} must be a finite number of points")
+    value = float(raw)
+    if not isfinite(value):
+        raise ValueError(f"{name} must be a finite number of points")
+    return value
 
 
 class ReportVisualProfileId(StrEnum):
@@ -55,7 +67,7 @@ class ReportTypography:
 
     def __post_init__(self) -> None:
         for item in fields(self):
-            value = float(getattr(self, item.name))
+            value = _finite_point_value(getattr(self, item.name), item.name)
             if not 5.0 <= value <= 36.0:
                 raise ValueError(f"{item.name} is outside supported report range")
 
@@ -74,7 +86,7 @@ class ReportLayoutMetrics:
 
     def __post_init__(self) -> None:
         for item in fields(self):
-            value = float(getattr(self, item.name))
+            value = _finite_point_value(getattr(self, item.name), item.name)
             if value <= 0.0:
                 raise ValueError(f"{item.name} must be positive")
 
