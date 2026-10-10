@@ -12,6 +12,7 @@ from geoworkbench.data.hydrocarbon_interpretation_export_docx_polished import ex
 from geoworkbench.data.hydrocarbon_interpretation_export_readable import export_readable_hydrocarbon_interpretation_xlsx
 from geoworkbench.domain.depth_interval import DepthInterval
 from geoworkbench.domain.report_composition import InterpretationReportComposition, with_report_header_fields
+from geoworkbench.printing.hydrocarbon_report_i18n import hydrocarbon_report_labels
 from geoworkbench.printing.hydrocarbon_interpretation_report import export_hydrocarbon_interpretation_pdf
 from geoworkbench.printing.hydrocarbon_interpretation_report_identity import report_header_fields_from_identity
 from geoworkbench.printing.report_document_control import report_document_control, resolved_report_identity
@@ -57,6 +58,15 @@ def test_same_control_snapshot_reaches_pdf_docx_and_xlsx(qapp, tmp_path, languag
                                                         language=language, identity=identity)
     workbook = load_workbook(xlsx)
     sheet = workbook[SHEETS[language]]
+    # The visible report and the document-control sheet must use the same
+    # edited passport values, even if raw report.project_name is stale.
+    interpretation = workbook[hydrocarbon_report_labels(language).sheet_interpretation]
+    assert interpretation['A1'].value == identity.report_title
+    assert interpretation['B2'].value == 'Client project'
+    assert interpretation['F2'].value == 'Client well'
+    assert interpretation['B3'].value == identity.dataset_name
+    assert interpretation['F3'].value == resolved.interval
+    assert interpretation['B2'].value != report.project_name
     excel_rows = [(row[0], row[1]) for row in sheet.iter_rows(min_row=4, values_only=True) if row[1] is not None]
     assert excel_rows == list(snapshot.available_rows)
     assert sheet["A3"].value == identity.report_subtitle
@@ -126,4 +136,30 @@ def test_document_control_immutable_and_excel_formula_like_text_is_literal(tmp_p
     sheet = workbook['Document control']
     assert not any(cell.data_type == 'f' for row in sheet for cell in row)
     assert any('=2+2' in str(cell.value) for row in sheet for cell in row)
+    assert not any(cell.data_type == 'f' for row in workbook['HC interpretation'] for cell in row)
     workbook.close()
+
+
+def test_xlsx_edited_title_is_never_executed_as_excel_formula(tmp_path) -> None:
+    session = _session_with_report_curves(depth_span=30, samples=61)
+    report = build_hydrocarbon_interpretation_report(session)
+    edited = replace(
+        _manual_identity(), report_title='=HYPERLINK("https://example.org", "click")',
+        project_name='+777', well_name='@M-1', dataset_name='-123',
+    )
+    path = export_readable_hydrocarbon_interpretation_xlsx(
+        report, session.current_dataset, tmp_path / 'safe-title.xlsx',
+        language=AppLanguage.EN, identity=edited,
+    )
+    workbook = load_workbook(path)
+    try:
+        sheet = workbook['HC interpretation']
+        assert all(sheet[cell].data_type != 'f' for cell in ('A1', 'B2', 'F2', 'B3'))
+        for cell in ('A1', 'B2', 'F2', 'B3'):
+            assert str(sheet[cell].value).lstrip("'") == {
+                'A1': edited.report_title, 'B2': edited.project_name,
+                'F2': edited.well_name, 'B3': edited.dataset_name,
+            }[cell]
+    finally:
+        workbook.close()
+
