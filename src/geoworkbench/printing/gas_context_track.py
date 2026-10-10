@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from math import ceil
 
-from PySide6.QtCore import QRectF, Qt
+from PySide6.QtCore import QLineF, QRectF, Qt
 from PySide6.QtGui import QColor, QFontMetricsF, QPagedPaintDevice, QPaintDevice, QPainter, QPen
 
 from geoworkbench.domain.gas_context_events import (
@@ -130,6 +130,23 @@ def paint_context_track(
         for segment in context_segments(events, top, bottom):
             y1 = rect.top() + (segment.top_depth - top) / (bottom - top) * rect.height()
             y2 = rect.top() + (segment.bottom_depth - top) / (bottom - top) * rect.height()
+            if segment.top_depth == segment.bottom_depth:
+                # Point events have no band area: draw a visible depth tick instead
+                # of an invisible zero-height rectangle. The complete code and
+                # event ID remain available in the separate contextual legend.
+                x_inset = min(2.0 * scale, rect.width() / 4.0)
+                y_inset = min(scale, rect.height() / 2.0)
+                marker_y = min(max(y1, rect.top() + y_inset), rect.bottom() - y_inset)
+                painter.setPen(QPen(
+                    QColor(visual.palette.text),
+                    1.5 * scale,
+                    _STYLES[segment.event.effective_impact],
+                ))
+                painter.drawLine(QLineF(
+                    rect.left() + x_inset, marker_y,
+                    rect.right() - x_inset, marker_y,
+                ))
+                continue
             band = QRectF(rect.left() + scale, y1, rect.width() - 2 * scale, y2 - y1)
             painter.fillRect(band, QColor(visual.palette.table_alt))
             painter.setPen(QPen(QColor(visual.palette.text), 0.8 * scale,

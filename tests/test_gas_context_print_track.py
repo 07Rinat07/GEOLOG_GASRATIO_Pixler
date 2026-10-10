@@ -191,3 +191,68 @@ def test_dense_repeated_events_paginate_complete_legend_without_id_loss(qapp, tm
                 assert word[0] >= -0.1 and word[1] >= -0.1
                 assert word[2] <= page.rect.width + 0.1
                 assert word[3] <= page.rect.height + 0.1
+
+@pytest.mark.parametrize("depth,expected_y", ((0.0, 31.0), (5.0, 80.0), (10.0, 129.0)))
+@pytest.mark.parametrize("impact", (
+    InterpretationImpact.TECHNOLOGICAL_GAS,
+    InterpretationImpact.FORMATION_GAS,
+    InterpretationImpact.REVIEW_REQUIRED,
+))
+def test_point_event_has_visible_monochrome_depth_tick_without_zero_height_band(
+    qapp, monkeypatch, depth, expected_y, impact,
+):
+    profile = modern_oilfield_report_profile(grayscale=True)
+    monkeypatch.setattr(track, "modern_oilfield_report_profile", lambda: profile)
+    monkeypatch.setattr(track, "paint_track_heading", lambda *args, **kwargs: None)
+    event = GasContextEvent("point", GasContextEventType.CONNECTION_GAS,
+                            depth, depth, impact=impact)
+    original = deepcopy(event)
+    painter = MagicMock()
+    painter.device.return_value.logicalDpiY.return_value = 72
+    track.paint_context_track(
+        painter, QRectF(0, 30, 48, 100), (event,), 0, 10,
+        AppLanguage.EN, header_height=30,
+    )
+    assert painter.drawLine.call_count == 1
+    marker = painter.drawLine.call_args.args[0]
+    assert marker.length() > 0.0
+    assert marker.y1() == pytest.approx(expected_y)
+    assert marker.y2() == pytest.approx(expected_y)
+    assert marker.x1() > 0.0 and marker.x2() < 48.0
+    assert painter.drawRect.call_count == 1  # plot border, no empty event band
+    assert painter.setPen.call_args.args[0].style() == track._STYLES[impact]
+    assert painter.save.call_count == painter.restore.call_count
+    assert event == original
+    assert "point" in track.context_legend_rows(
+        track.context_segments((event,), 0, 10), AppLanguage.EN, "m"
+    )[0]
+
+
+def test_point_event_depth_tick_is_vector_geometry_in_grayscale_pdf(
+    qapp, tmp_path, monkeypatch,
+):
+    profile = modern_oilfield_report_profile(grayscale=True)
+    monkeypatch.setattr(track, "modern_oilfield_report_profile", lambda: profile)
+    event = GasContextEvent("point-pdf", GasContextEventType.CONNECTION_GAS, 5, 5)
+    pdf = tmp_path / "point-event.pdf"
+    writer = QPdfWriter(str(pdf))
+    writer.setResolution(72)
+    painter = QPainter(writer)
+    try:
+        track.paint_context_track(
+            painter, QRectF(20, 70, 48, 200), (event,), 0, 10,
+            AppLanguage.EN, header_height=50,
+        )
+    finally:
+        painter.end()
+    with fitz.open(pdf) as document:
+        lines = [
+            item for drawing in document[0].get_drawings()
+            for item in drawing["items"] if item[0] == "l"
+        ]
+        assert any(
+            abs(item[1].y - 170.0) <= 2.0
+            and abs(item[2].y - 170.0) <= 2.0
+            and abs(item[1].x - item[2].x) >= 35.0
+            for item in lines
+        )
