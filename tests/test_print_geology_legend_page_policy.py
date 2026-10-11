@@ -102,7 +102,7 @@ def test_page_reflow_preserves_contiguous_depth_scale_and_uses_legend_space():
     assert result[-1].bottom_depth == 500.0
     assert {page.scale_denominator for page in result} == {1800}
     assert all(a.bottom_depth == pytest.approx(b.top_depth) for a, b in zip(result, result[1:]))
-    assert result[0].plot_height_points <= first_capacity + 0.01
+    assert result[0].plot_height_points == pytest.approx(first_capacity)
     assert all(page.plot_height_points <= following_capacity + 0.01 for page in result[1:])
     assert result[1].plot_height_points > result[0].plot_height_points
     content = QRectF(0, 0, 740, 580)
