@@ -1601,3 +1601,13 @@ JSON/package scenarios. Every state of 20 Undo/Redo transitions, empty-history
 no-op, commit/reopen, draft undo/redo plus Cancel, source arrays and clean state
 are checked. Native text-field Ctrl+Z must undo typing without removing records.
 Run: `.venv\Scripts\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_report_annotation_history_shortcuts.py`.
+
+`tests/test_report_annotation_composer_output.py` covers six RU/KK/EN × JSON/package
+workflows: real Composer/editor commits in two wells, save/reopen, preview painter,
+signed PDF/passport and system-print prepared PDF plus actual QPrinter PDF output.
+Observers call real painters and verify the exact persisted snapshot/output language.
+Own Unicode notes appear in extracted PDF text; foreign-well and absent-track notes
+do not. Source depth and every curve array remain unchanged; raster print pages
+must contain images. Modal acceptance/file choices are scripted; physical printer
+and HiDPI acceptance remain separate.
+Run: `.venv\Scripts\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_report_annotation_composer_output.py`.

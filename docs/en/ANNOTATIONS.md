@@ -171,3 +171,7 @@ LAS files; report preview, import and physical printing have separate acceptance
 In the final-report editor, **Ctrl+Z** undoes an annotation command and
 **Ctrl+Shift+Z** redoes it when a command control has focus. An empty history makes
 these actions inactive. Inside a text field, Ctrl+Z retains normal typing undo.
+
+After project save/reopen, final-report annotations remain owned by their well and
+report composition in Composer preview, PDF export and prepared system printing.
+A note whose logical track is absent stays hidden instead of moving to a neighbour.

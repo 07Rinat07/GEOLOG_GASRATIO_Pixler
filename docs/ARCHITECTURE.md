@@ -1049,3 +1049,10 @@ Final-report editor Ctrl+Z/Ctrl+Shift+Z bindings are scoped to the dialog and in
 existing Undo/Redo button clicks. Enabled state remains owned by the controller's
 shared bounded CommandHistory; disabled clicks are inert. Native text-field undo
 retains its own input semantics without undoing a persisted report annotation.
+
+Composer output acceptance observes, but does not replace, the production annotation
+painters for preview and PDF. Persisted snapshots from the real editor survive
+multiwell JSON/package reopen and flow through signed export and the system-print
+prepared PDF. A missing logical track stays unpainted; QPrinter PDF output exercises
+the existing raster print path. Native dialogs' acceptance and target choices are
+scripted; physical-printer review remains a separate external gate.
