@@ -59,7 +59,12 @@ def test_reference_png_profile_text_fits_complete_labels_and_empty_states(qapp, 
     assert requests[0][2] == visual.typography.title_pt
     assert next(size for _, text, size in requests if text.startswith("Pixler")) == visual.typography.section_pt
     assert requests[-1][2] == visual.typography.footer_pt
-    axis_ticks = [size for _, label, size in requests if label in ("0.0", "0.2", "0.4", "0.6", "0.8", "1.0")]
+    # Only the two panels' X ticks live at Y=286. Other, identically
+    # formatted labels belong to the Y axis or Pixler log scale.
+    axis_ticks = [
+        size for rect, label, size in requests
+        if rect.top() == 286.0 and label.replace(".", "", 1).isdigit()
+    ]
     assert len(axis_ticks) == 12
     assert all(size == visual.typography.caption_pt for size in axis_ticks)
     assert "C1 / ΣHC" in drawn
