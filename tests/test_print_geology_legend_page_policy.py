@@ -145,7 +145,7 @@ def test_real_pdf_places_geology_legend_only_on_first_chart_unless_opted_in(
             if not chart_texts:
                 chart_texts = [page.get_text() for page in pdf if "1:" in page.get_text()]
         assert len(chart_texts) >= 2
-        legend_text = "Геологическая легенда" if language is AppLanguage.RU else "Geological legend"
+        legend_text = "Геологическая легенда" if language is AppLanguage.RU else "Geology legend"
         counts = [text.count(legend_text) for text in chart_texts]
         assert counts[0] == 1
         assert all(count == (1 if policy is ReportGeologyLegendPages.EVERY_CHART_PAGE else 0)
