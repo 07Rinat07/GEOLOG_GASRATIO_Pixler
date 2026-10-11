@@ -160,17 +160,33 @@ def _text(painter: QPainter, rect: QRectF, text: str, size: float | None = None)
     visual = modern_oilfield_report_profile()
     painter.setPen(QColor(visual.palette.text))
     fitted_size = visual.typography.body_pt if size is None else size
-    font = point_coordinate_font(fitted_size, text=text, paint_device=painter.device())
+    # Ratio plots use a virtual 1000-unit canvas so a portrait PDF scales its
+    # labels to half-size. Font sizes must remain readable in *physical* points
+    # after that fit. Account for the printer's independent DPI transform.
+    device = painter.device()
+    printer_scale = max(1.0, float(device.logicalDpiX())) / 72.0
+    canvas_scale = abs(painter.worldTransform().m11()) / printer_scale
+    fitted_size = max(fitted_size, 7.2 / max(canvas_scale, 0.01))
+    font = point_coordinate_font(fitted_size, text=text, paint_device=device)
     # Fit in virtual layout coordinates; the font adapter handles print DPI.
     for _ in range(8):
-        metrics = QFontMetricsF(font, painter.device())
+        metrics = QFontMetricsF(font, device)
         factor = min(rect.width() / max(1.0, metrics.horizontalAdvance(text)), rect.height() / max(1.0, metrics.height()))
         if factor >= 1.0 or fitted_size <= 1.0:
             break
         fitted_size = max(1.0, fitted_size * factor * 0.98)
-        font = point_coordinate_font(fitted_size, text=text, paint_device=painter.device())
+        font = point_coordinate_font(fitted_size, text=text, paint_device=device)
     painter.setFont(font)
     painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, text)
+
+
+def _compact_tick(value: float) -> str:
+    """Avoid 3.61-pt scientific notation in narrow ratio-axis tick slots."""
+    if abs(value) >= 1_000:
+        return f"{value / 1_000:.2g}k"
+    if abs(value) >= 100:
+        return f"{value:.0f}"
+    return f"{value:.2g}"
 
 
 def _axes(painter: QPainter, rect: QRectF) -> None:
@@ -246,20 +262,20 @@ def paint_ratio_reference_summary(
                 )
             _text(
                 painter,
-                QRectF(plot.left(), 295, plot.width(), 22),
+                QRectF(plot.left(), 309, plot.width(), 26),
                 "Balance (Bh)" if name == "BH" else "Character (Ch)",
             )
-            _text(painter, QRectF(plot.left(), 45, plot.width(), 22), "C1 / ΣHC")
+            _text(painter, QRectF(plot.left(), 46, plot.width(), 28), "C1 / ΣHC")
             for tick in range(6):
                 _text(
                     painter,
-                    QRectF(plot.left() + tick / 5 * plot.width() - 25, 283, 50, 15),
-                    f"{maximum * tick / 5:.2g}",
+                    QRectF(plot.left() + tick / 5 * plot.width() - 27, 284, 54, 23),
+                    _compact_tick(maximum * tick / 5),
                     typography.caption_pt,
                 )
                 _text(
                     painter,
-                    QRectF(plot.left() - 38, plot.bottom() - tick / 5 * plot.height() - 8, 32, 16),
+                    QRectF(plot.left() - 43, plot.bottom() - tick / 5 * plot.height() - 12, 37, 24),
                     f"{tick / 5:.1f}",
                     typography.caption_pt,
                 )
@@ -282,16 +298,20 @@ def paint_ratio_reference_summary(
                     max(0, bin_index),
                 )
             painter.restore()
+        bin_width = abs(high_depth - low_depth) / 6.0
+        depth_decimals = 0 if bin_width >= 1.0 else min(
+            6, max(1, int(np.ceil(-np.log10(max(bin_width, 1e-6)))) + 1),
+        )
         for index in range(len(_DEPTH_COLORS)):
             start = low_depth + (high_depth - low_depth) * index / 6
             end = low_depth + (high_depth - low_depth) * (index + 1) / 6
             painter.setPen(_depth_pen(index, 1.5))
             painter.drawLine(QLineF(65 + index * 150, 327, 100 + index * 150, 327))
             _depth_marker(painter, QPointF(82.5 + index * 150, 327), index, 3)
-            _text(painter, QRectF(103 + index * 150, 317, 111, 20), f"{start:.1f}–{end:.1f} m", typography.caption_pt)
+            _text(painter, QRectF(101 + index * 150, 314, 113, 26), f"{start:.{depth_decimals}f}–{end:.{depth_decimals}f} m", typography.caption_pt)
         plot = QRectF(65, 385, 610, 205)
         _axes(painter, plot)
-        _text(painter, QRectF(65, 340, 610, 30), "Pixler · C1/C2 – C1/C5", typography.section_pt)
+        _text(painter, QRectF(65, 362, 610, 24), "Pixler · C1/C2 – C1/C5", typography.section_pt)
         keys = [f"C1_C{i}" for i in range(2, 6)]
         if all(key in ratios for key in keys):
             matrix = np.column_stack([ratios[key].values for key in keys])
@@ -314,7 +334,7 @@ def paint_ratio_reference_summary(
                 tick_y = plot.bottom() - (power - minimum) / (maximum - minimum) * plot.height()
                 painter.setPen(QPen(QColor(palette.border), 0.7))
                 painter.drawLine(QLineF(plot.left(), tick_y, plot.right(), tick_y))
-                _text(painter, QRectF(12, tick_y - 8, 45, 16), f"{10.0**power:g}", typography.caption_pt)
+                _text(painter, QRectF(12, tick_y - 12, 45, 24), f"{10.0**power:g}", typography.caption_pt)
             for profile_index, row in enumerate(selected):
                 depth_bin = min(
                     5,
@@ -340,7 +360,7 @@ def paint_ratio_reference_summary(
                     _depth_marker(painter, point, depth_bin)
                 _text(
                     painter,
-                    QRectF(742, 390 + profile_index * 25, 228, 20),
+                    QRectF(742, 388 + profile_index * 25, 228, 24),
                     f"{all_depth[row]:.2f} m",
                     typography.body_pt,
                 )
@@ -363,13 +383,13 @@ def paint_ratio_reference_summary(
         for index, key in enumerate(keys):
             _text(
                 painter,
-                QRectF(plot.left() + index / 3 * plot.width() - 35, 595, 70, 22),
+                QRectF(plot.left() + index / 3 * plot.width() - 35, 595, 70, 25),
                 key.replace("_", "/"),
                 typography.caption_pt,
             )
         _text(
             painter,
-            QRectF(65, 625, 900, 20),
+            QRectF(65, 623, 900, 26),
             {
                 AppLanguage.RU: "Точки — парные измерения; профили — отдельные глубины. Цвет, форма и линия: от меньшей глубины к большей.",
                 AppLanguage.KK: "Нүктелер — жұп өлшемдер; профильдер — жеке тереңдіктер. Түс, пішін және сызық: тереңдік өсуі.",

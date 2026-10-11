@@ -95,3 +95,23 @@ def test_reference_pdf_has_filled_depth_markers_and_distinct_vector_line_keys(qa
     depth_strokes = [drawing for drawing in drawings if drawing["color"] is not None
                      and drawing["width"] == pytest.approx(1.05, abs=0.01)]
     assert len({drawing["dashes"] for drawing in depth_strokes}) == 6
+
+
+def test_narrow_depth_legend_retains_distinct_fractional_boundaries(qapp, monkeypatch):
+    dataset = _six_depths()
+    dataset.depth = np.linspace(100.0, 100.3, 6)
+    depth_labels = []
+    original_text = reference._text
+
+    def capture_text(painter, rect, label, size=None):
+        if "–" in label and label.endswith(" m"):
+            depth_labels.append(label)
+        original_text(painter, rect, label, size)
+
+    monkeypatch.setattr(reference, "_text", capture_text)
+    assert reference.ratio_reference_summary_uri(dataset, AppLanguage.RU)
+    assert len(depth_labels) == 6
+    assert len(set(depth_labels)) == 6
+    for label in depth_labels:
+        lower, upper = label.removesuffix(" m").split("–")
+        assert float(lower) < float(upper)

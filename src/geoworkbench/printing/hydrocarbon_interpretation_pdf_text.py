@@ -71,6 +71,21 @@ class _PointDocument(QTextDocument):
         layout.setPaintDevice(self._point_device)
 
 
+def measure_report_html_height(
+    html: str,
+    width: float,
+    *,
+    visual: ReportVisualProfile,
+) -> float:
+    """Measure the printable phase key before allocating its chart area."""
+    style = _document_style(html)
+    blocks = _top_level_body_blocks(html)
+    _, height = _html_document(
+        style, "".join(blocks), width, visual=visual, table=True,
+    )
+    return height
+
+
 def render_report_html(
     canvas: PageCanvas,
     html: str,
@@ -569,4 +584,4 @@ def _is_notice(block: str) -> bool:
     )
 
 
-__all__ = ["render_report_html"]
+__all__ = ["render_report_html", "measure_report_html_height"]
