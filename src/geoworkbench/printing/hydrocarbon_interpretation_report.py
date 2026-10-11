@@ -21,6 +21,7 @@ from geoworkbench.domain.report_composition import (
     ReportChartPanelSettings,
     ReportLayoutProfile,
     ReportLegendMode,
+    ReportGeologyLegendPages,
 )
 from geoworkbench.domain.report_annotations import ReportAnnotationRecord, report_annotation_scope_id
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_renderer import (
@@ -83,6 +84,7 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
         DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS
     ),
     legend_mode: ReportLegendMode = ReportLegendMode.FULL,
+    geology_legend_pages: ReportGeologyLegendPages = ReportGeologyLegendPages.FIRST_CHART_PAGE,
     layout_profile: ReportLayoutProfile = ReportLayoutProfile.MODERN_OILFIELD,
     annotations: tuple[ReportAnnotationRecord, ...] = (),
     chart_panels: ReportChartPanelSettings = DEFAULT_REPORT_CHART_PANELS,
@@ -135,6 +137,7 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
         ("geology_cuttings", geology_track_settings.cuttings.value),
         ("geology_lba", geology_track_settings.lba.value),
         ("legend_mode", legend_mode.value),
+        ("geology_legend_pages", geology_legend_pages.value),
         ("layout_profile", layout_profile.value),
     )
     render_options = (*render_options, ("target_depth_per_page", str(target_depth_per_page)))
@@ -180,6 +183,7 @@ def export_hydrocarbon_interpretation_pdf_with_passport(
             geology=geology,
             geology_track_settings=geology_track_settings,
             legend_mode=legend_mode,
+            geology_legend_pages=geology_legend_pages,
             layout_profile=layout_profile,
             annotations=annotations,
             target_depth_per_page=target_depth_per_page,
@@ -219,6 +223,7 @@ def export_hydrocarbon_interpretation_pdf(
         DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS
     ),
     legend_mode: ReportLegendMode = ReportLegendMode.FULL,
+    geology_legend_pages: ReportGeologyLegendPages = ReportGeologyLegendPages.FIRST_CHART_PAGE,
     layout_profile: ReportLayoutProfile = ReportLayoutProfile.MODERN_OILFIELD,
     annotations: tuple[ReportAnnotationRecord, ...] = (),
     chart_panels: ReportChartPanelSettings = DEFAULT_REPORT_CHART_PANELS,
@@ -334,6 +339,7 @@ def export_hydrocarbon_interpretation_pdf(
             geology=geology,
             geology_track_settings=geology_track_settings,
             legend_mode=legend_mode,
+            geology_legend_pages=geology_legend_pages,
             layout_profile=layout_profile,
             annotations=annotations,
             target_depth_per_page=target_depth_per_page,
