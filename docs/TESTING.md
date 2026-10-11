@@ -1564,3 +1564,9 @@ RU/KK/EN across geology, standard/OPUS and polished standard/OPUS. Title/Heading
 properties keep headings with content; ordinary paragraphs and table rows are not
 chained together. Report snapshots, source depth and every curve array stay unchanged.
 Word/printer visual review remains separate from OOXML acceptance.
+
+`tests/test_report_annotation_workspace_availability.py` covers six RU/KK/EN
+JSON/package-reopen workflows through the actual final-report annotation button
+and real editor construction. Switching standard/OPUS/mixture modes, changing UI
+language and clearing/restoring the dataset synchronize availability; disabled
+clicks and direct guarded calls do not open the editor. All source arrays stay unchanged.

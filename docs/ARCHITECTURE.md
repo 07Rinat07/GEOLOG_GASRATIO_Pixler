@@ -1023,3 +1023,8 @@ The shared interpretation DOCX paragraph adapter applies Word keepNext/keepLines
 only to Title/Heading1. Geology and standard/OPUS export reuse this adapter; polished
 rewriting preserves the body paragraph properties. Ordinary paragraphs and table
 rows retain independent pagination and do not own source or calculation data.
+
+Final-report annotation entry-point availability is owned by the report workspace.
+One predicate serves both the button state and editor handler: a selected dataset
+and a non-mixture report mode are required. Refresh and UI retranslation synchronize
+the control without changing annotation ownership, report snapshots or source data.
