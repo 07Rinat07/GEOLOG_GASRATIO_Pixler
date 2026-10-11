@@ -1594,3 +1594,10 @@ trailing newline, empty/comment lines, mixed endings and bounded unterminated ta
 An instrumented bytes fixture counts total find search ranges instead of elapsed
 time; the old iterator fails the linear work budget for LF and CR. The new forward
 scan retains exact row bytes and does not yield content from the following section.
+
+`tests/test_report_annotation_history_shortcuts.py` sends real Qt Ctrl+Z and
+Ctrl+Shift+Z events to the active report annotation editor in six RU/KK/EN ×
+JSON/package scenarios. Every state of 20 Undo/Redo transitions, empty-history
+no-op, commit/reopen, draft undo/redo plus Cancel, source arrays and clean state
+are checked. Native text-field Ctrl+Z must undo typing without removing records.
+Run: `.venv\Scripts\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_report_annotation_history_shortcuts.py`.

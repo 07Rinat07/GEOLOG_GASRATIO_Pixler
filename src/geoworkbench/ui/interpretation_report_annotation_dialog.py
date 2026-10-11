@@ -4,6 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from PySide6.QtCore import QSize
+from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -111,6 +112,10 @@ class InterpretationReportAnnotationDialog(QDialog):
         self.remove_button = QPushButton(self._text("Удалить", "Жою", "Delete"), self)
         self.undo_button = QPushButton(self._text("Отменить", "Болдырмау", "Undo"), self)
         self.redo_button = QPushButton(self._text("Повторить", "Қайталау", "Redo"), self)
+        self.undo_shortcut = QShortcut(QKeySequence("Ctrl+Z"), self)
+        self.redo_shortcut = QShortcut(QKeySequence("Ctrl+Shift+Z"), self)
+        self.undo_shortcut.activated.connect(self.undo_button.click)
+        self.redo_shortcut.activated.connect(self.redo_button.click)
         for button in (
             self.add_button,
             self.save_button,
