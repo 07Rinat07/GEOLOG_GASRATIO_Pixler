@@ -340,6 +340,7 @@ def test_production_pdf_export_builds_interpretation_passport_with_geology(
         "geology_cuttings": "show",
         "geology_lba": "hide",
         "legend_mode": "full",
+        "geology_legend_pages": "first-chart-page",
         "layout_profile": "modern_oilfield",
         "target_depth_per_page": "100.0",
     }
