@@ -7,6 +7,7 @@ from html import escape
 from math import isfinite
 
 from geoworkbench.services.hydrocarbon_interpretation import (
+    HydrocarbonCandidateInterval,
     HydrocarbonInterpretationReport,
     fluid_hypothesis_label,
 )
@@ -56,11 +57,11 @@ def ratio_phase_summary_html(
     }[language]
     title, interval, phase, strength, colour_note, empty_note, caution, subset_note = labels
 
-    groups: dict[str, list] = defaultdict(list)
+    groups: dict[str, list[HydrocarbonCandidateInterval]] = defaultdict(list)
     for candidate in report.candidates:
         groups[fluid_hypothesis_label(candidate, language)].append(candidate)
 
-    rows = []
+    rows: list[tuple[HydrocarbonCandidateInterval, str]] = []
     for phase_name in sorted(groups):
         ranked = sorted(
             groups[phase_name],
