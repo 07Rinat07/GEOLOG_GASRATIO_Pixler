@@ -152,3 +152,10 @@ Tablet preview, PDF and physical printing render the same graphics item. The dir
 ## Compatibility
 
 Legacy `depth_annotation` objects are opened as depth callouts with no manual migration. New objects use the versioned `annotation` schema. Images are copied into project resource storage, so external file paths are not required.
+
+## Final-report annotations
+
+In the interpretation report workspace, the annotation editor is available for
+standard/OPUS with a selected dataset. The button is disabled in gas-mixture modes
+and without a dataset. Returning to standard/OPUS restores access. Final-report
+annotations are stored separately from tablet objects.

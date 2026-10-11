@@ -199,16 +199,23 @@ WITS-NET-01 остаётся внешним условием: пользоват
   Полное совпадение sample text и исходных массивов покрыто регрессиями.
   Физическая Word/printer приёмка остаётся отдельно.
 
+## PRINT-STYLE-01 — пагинация заголовков общих Office-отчётов (завершено)
+
+- [x] Общий helper сохраняет Title/Heading1 со следующим содержимым в geology,
+  standard/OPUS и polished DOCX. Обычные абзацы и строки независимы. Интегрировано
+  в PR #558 после трёх Release gates на 2e731d70 (run 38158239716).
+  153 связанных проверки прошли; физическая Word/printer приёмка отдельно.
+
 ## Ближайший порядок работ
 
-### PRINT-STYLE-01 — пагинация заголовков общих Office-отчётов (на проверке)
+### RPT-ANN-01 — доступность редактора в report workspace (на проверке)
 
-- Общий DOCX paragraph helper для geology, standard/OPUS и polished variants
-  применяет Word keepNext/keepLines к Title/Heading1. Обычные абзацы и строки
-  таблиц сохраняют независимую пагинацию, исходные данные и расчёты не меняются.
-- Ответственный: разработчик/QA. Приёмка: 15 production exports RU/KK/EN,
-  источник/отчёт неизменны, существующие footer/grid/profile regressions,
-  все три Windows Release gates на точном head. Word/printer review отдельно.
+- Кнопка аннотаций и обработчик открытия используют одну проверку: выбран dataset
+  и активен standard/OPUS, а не gas-mixture mode. В mixture_chart/mixture_text и
+  при отсутствии dataset кнопка отключена; возвращение к standard/OPUS включает её.
+- Ответственный: разработчик/QA. Приёмка: реальная кнопка/диалог, RU/KK/EN,
+  JSON/package reopen, смена UI language и потеря/возврат dataset, исходные массивы
+  неизменны. Существующие annotation/output-language tests и три exact-head gates.
 
 Основная очередь ниже содержит только оставшуюся разработку и сквозную автоматическую приёмку.
 RPT-GAS-VIS-02 интегрирован через PR #432 после Release gate #2380: ratio-series используют

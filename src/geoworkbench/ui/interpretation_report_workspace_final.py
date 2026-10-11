@@ -267,7 +267,11 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
             )
         )
 
+    def _can_edit_report_annotations(self) -> bool:
+        return self.controller.session.current_dataset is not None and not self._is_mixture_mode()
+
     def _retranslate_report_annotations(self) -> None:
+        self.report_annotations_button.setEnabled(self._can_edit_report_annotations())
         count = len(self._report_composition().annotations)
         self.report_annotations_button.setText(
             self._text(
@@ -313,7 +317,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         self.refresh()
 
     def _edit_report_annotations(self) -> None:
-        if self.controller.session.current_dataset is None or self._is_mixture_mode():
+        if not self._can_edit_report_annotations():
             return
         dialog = InterpretationReportAnnotationDialog(
             self.controller.session,
