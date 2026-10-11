@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from geoworkbench.printing.interpretation_curve_strokes import curve_line_pen_style
 from geoworkbench.printing.hydrocarbon_interpretation_curve_selection import chart_panel_render_options
 
 from geoworkbench.printing.gas_ratio_reference import (
@@ -748,7 +749,7 @@ def _draw_panel(
     painter.setClipRect(rect.adjusted(1.0, 1.0, -1.0, -1.0))
     point_series = False
     minimum_samples = 1 if point_series else 2
-    legend_rows: list[tuple[QColor, str, bool]] = []
+    legend_rows: list[tuple[QColor, str, bool, Qt.PenStyle]] = []
     for curve_index, curve in enumerate(curves):
         values = np.asarray(curve.values, dtype=np.float64)
         usable = finite_depth & np.isfinite(values)
@@ -794,7 +795,7 @@ def _draw_panel(
                 )
             painter.setBrush(Qt.BrushStyle.NoBrush)
         else:
-            painter.setPen(QPen(color, 2.2))
+            painter.setPen(QPen(color, 2.2, curve_line_pen_style(curve_index)))
             for segment in segments:
                 previous: tuple[float, float] | None = None
                 previous_normalized: float | None = None
@@ -853,12 +854,12 @@ def _draw_panel(
             language,
             canonical_hint=canonical_hint,
         )
-        legend_rows.append((color, legend, point_series))
+        legend_rows.append((color, legend, point_series, curve_line_pen_style(curve_index)))
     painter.setBrush(Qt.BrushStyle.NoBrush)
     painter.restore()
 
     legend_top = rect.bottom() + 12.0
-    for row_index, (color, legend, point_marker) in enumerate(legend_rows):
+    for row_index, (color, legend, point_marker, stroke) in enumerate(legend_rows):
         legend_y = legend_top + row_index * 21.0
         painter.setPen(QPen(color, 1.0))
         if point_marker:
@@ -874,7 +875,7 @@ def _draw_panel(
                 )
             painter.setBrush(Qt.BrushStyle.NoBrush)
         else:
-            painter.setPen(QPen(color, 3.5))
+            painter.setPen(QPen(color, 3.5, stroke))
             painter.drawLine(
                 QLineF(
                     rect.left() + 8.0,

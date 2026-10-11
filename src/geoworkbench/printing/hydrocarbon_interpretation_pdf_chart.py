@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from geoworkbench.printing.interpretation_curve_strokes import curve_line_pen_style
 from geoworkbench.printing.hydrocarbon_interpretation_curve_selection import chart_panel_render_options
 
 from geoworkbench.printing.gas_context_track import (
@@ -643,7 +644,7 @@ def _draw_curves(
             painter.setBrush(Qt.BrushStyle.NoBrush)
             continue
 
-        pen = QPen(color, _PRINT_CURVE_WIDTH)
+        pen = QPen(color, _PRINT_CURVE_WIDTH, curve_line_pen_style(curve_index))
         pen.setCosmetic(False)
         painter.setPen(pen)
         for segment in segments:
@@ -723,7 +724,9 @@ def _draw_legend(
             sample_y = y + QFontMetricsF(font, painter.device()).height() / 2.0
             draw_as_points = point_series if point_series is not None else uses_gas_point_presentation(
                 (curve.metadata.original_mnemonic, curve.metadata.canonical_mnemonic))
-            painter.setPen(QPen(color, 0.8 if draw_as_points else 2.2))
+            painter.setPen(QPen(color, 0.8 if draw_as_points else 2.2,
+                                Qt.PenStyle.SolidLine if draw_as_points
+                                else curve_line_pen_style(row.curve_index)))
             if draw_as_points:
                 painter.setBrush(color)
                 for offset in (2.5, 8.5, 14.5):
