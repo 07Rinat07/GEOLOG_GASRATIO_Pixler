@@ -1028,3 +1028,8 @@ Final-report annotation entry-point availability is owned by the report workspac
 One predicate serves both the button state and editor handler: a selected dataset
 and a non-mixture report mode are required. Refresh and UI retranslation synchronize
 the control without changing annotation ownership, report snapshots or source data.
+
+Composer annotation acceptance drives the real workspace button, editor construction,
+shared CommandHistory and callbacks. Only modal waiting is scripted: 20 Undo/Redo
+transitions, cross-well rollback and persisted JSON/package reopen exercise existing
+transactions without a second history or changes to source/calculation contracts.

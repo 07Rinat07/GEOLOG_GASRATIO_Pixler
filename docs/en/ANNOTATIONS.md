@@ -159,3 +159,7 @@ In the interpretation report workspace, the annotation editor is available for
 standard/OPUS with a selected dataset. The button is disabled in gas-mixture modes
 and without a dataset. Returning to standard/OPUS restores access. Final-report
 annotations are stored separately from tablet objects.
+
+Open final-report annotations from the Composer button. Undo/Redo applies to the
+current editor transaction; Cancel discards its draft without changing another well.
+Confirmed annotations are restored in their own well after JSON/package save and reopen.

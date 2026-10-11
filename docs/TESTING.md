@@ -1570,3 +1570,11 @@ JSON/package-reopen workflows through the actual final-report annotation button
 and real editor construction. Switching standard/OPUS/mixture modes, changing UI
 language and clearing/restoring the dataset synchronize availability; disabled
 clicks and direct guarded calls do not open the editor. All source arrays stay unchanged.
+
+`tests/test_report_annotation_composer_history.py` covers six RU/KK/EN × JSON/package
+workflows through the actual Composer button and dialog controls: 20 additions,
+20 consecutive Undo, 20 Redo, another well's Cancel/commit, then save/reopen and
+editor inspection in both wells. Every intermediate history state is checked;
+scopes, source depth/C1 and clean state after reopened Cancel are preserved.
+Run: `.venv\Scripts\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_report_annotation_composer_history.py`.
+This acceptance does not replace large-LAS RSS, export or physical-printer review.
