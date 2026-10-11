@@ -28,6 +28,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_geology_settings import (
 from geoworkbench.domain.report_composition import (
     InterpretationReportComposition,
     ReportLegendMode,
+    ReportGeologyLegendPages,
     ReportLayoutProfile,
     ReportPageOrientation,
     ReportPrintOrder,
@@ -51,6 +52,7 @@ class InterpretationPrintLayout:
     order: InterpretationPrintOrder
     geology_tracks: InterpretationGeologyTrackSettings = InterpretationGeologyTrackSettings()
     legend_mode: ReportLegendMode = ReportLegendMode.FULL
+    geology_legend_pages: ReportGeologyLegendPages = ReportGeologyLegendPages.FIRST_CHART_PAGE
     layout_profile: ReportLayoutProfile = ReportLayoutProfile.MODERN_OILFIELD
     target_depth_per_page: float = 100.0
 
@@ -157,6 +159,32 @@ class InterpretationPrintLayoutDialog(QDialog):
         form.addRow(
             QLabel(self._text("Легенды:", "Аңыздар:", "Legends:")),
             self.legend_mode_combo,
+        )
+        self.geology_legend_pages_combo = QComboBox()
+        self.geology_legend_pages_combo.setObjectName("report-geology-legend-pages")
+        self.geology_legend_pages_combo.addItem(
+            self._text(
+                "Только на первом листе графиков (по умолчанию)",
+                "Тек графиктердің бірінші бетінде (әдепкі)",
+                "First chart page only (default)",
+            ),
+            ReportGeologyLegendPages.FIRST_CHART_PAGE,
+        )
+        self.geology_legend_pages_combo.addItem(
+            self._text(
+                "На каждом листе графиков",
+                "Графиктердің әр бетінде",
+                "Every chart page",
+            ),
+            ReportGeologyLegendPages.EVERY_CHART_PAGE,
+        )
+        form.addRow(
+            QLabel(self._text(
+                "Геологическая легенда по листам:",
+                "Геологиялық аңыздың беттері:",
+                "Geology legend placement:",
+            )),
+            self.geology_legend_pages_combo,
         )
         # Explicit overview choice: a wider depth interval per A4 chart page
         # reduces sheet count, but never drops source LAS samples or changes QC.
@@ -311,6 +339,11 @@ class InterpretationPrintLayoutDialog(QDialog):
             legend_mode = ReportLegendMode(legend_data)
         except (TypeError, ValueError):
             legend_mode = ReportLegendMode.FULL
+        geography_data = self.geology_legend_pages_combo.currentData()
+        try:
+            geology_legend_pages = ReportGeologyLegendPages(geography_data)
+        except (TypeError, ValueError):
+            geology_legend_pages = ReportGeologyLegendPages.FIRST_CHART_PAGE
         layout_profile_data = self.layout_profile_combo.currentData()
         try:
             layout_profile = ReportLayoutProfile(layout_profile_data)
@@ -324,6 +357,7 @@ class InterpretationPrintLayoutDialog(QDialog):
                 lba=lba,
             ),
             legend_mode=legend_mode,
+            geology_legend_pages=geology_legend_pages,
             layout_profile=layout_profile,
             target_depth_per_page=float(self.chart_density_combo.currentData() or 100.0),
         )
@@ -353,6 +387,7 @@ class InterpretationPrintLayoutDialog(QDialog):
             cuttings=ReportTrackVisibility(layout.geology_tracks.cuttings.value),
             lba=ReportTrackVisibility(layout.geology_tracks.lba.value),
             legend_mode=layout.legend_mode,
+            geology_legend_pages=layout.geology_legend_pages,
             layout_profile=layout.layout_profile,
             show_summary=self.summary_checkbox.isChecked(),
             show_conclusion=self.conclusion_checkbox.isChecked(),
@@ -407,6 +442,9 @@ class InterpretationPrintLayoutDialog(QDialog):
             GeologyTrackVisibility(initial.lba.value),
         )
         self._set_combo_data(self.legend_mode_combo, initial.legend_mode)
+        self._set_combo_data(
+            self.geology_legend_pages_combo, initial.geology_legend_pages,
+        )
         self._set_combo_data(self.layout_profile_combo, initial.layout_profile)
         self._set_combo_data(
             self.chart_density_combo, initial.target_depth_per_page,

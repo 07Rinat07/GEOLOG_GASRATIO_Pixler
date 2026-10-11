@@ -29,6 +29,13 @@ class ReportLegendMode(str, Enum):
     HIDE = "hide"
 
 
+class ReportGeologyLegendPages(str, Enum):
+    """Placement of the lithology/LBA catalog on printed chart pages."""
+
+    FIRST_CHART_PAGE = "first-chart-page"
+    EVERY_CHART_PAGE = "every-chart-page"
+
+
 class ReportLayoutProfile(str, Enum):
     MODERN_OILFIELD = "modern_oilfield"
 
@@ -123,6 +130,7 @@ class InterpretationReportComposition:
     cuttings: ReportTrackVisibility = ReportTrackVisibility.AUTO
     lba: ReportTrackVisibility = ReportTrackVisibility.AUTO
     legend_mode: ReportLegendMode = ReportLegendMode.FULL
+    geology_legend_pages: ReportGeologyLegendPages = ReportGeologyLegendPages.FIRST_CHART_PAGE
     layout_profile: ReportLayoutProfile = ReportLayoutProfile.MODERN_OILFIELD
     show_summary: bool = True
     show_conclusion: bool = True
@@ -134,6 +142,8 @@ class InterpretationReportComposition:
     header_en: ReportHeaderFields | None = None
 
     def __post_init__(self) -> None:
+        if not isinstance(self.geology_legend_pages, ReportGeologyLegendPages):
+            raise ValueError("Invalid report geology legend page policy")
         value = self.target_depth_per_page
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             raise ValueError("Invalid report chart depth density")
@@ -213,6 +223,7 @@ __all__ = [
     "InterpretationReportComposition",
     "ReportHeaderFields",
     "ReportLegendMode",
+    "ReportGeologyLegendPages",
     "ReportLayoutProfile",
     "ReportPageOrientation",
     "ReportPrintOrder",

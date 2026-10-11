@@ -26,6 +26,7 @@ from geoworkbench.domain.report_composition import (
     ReportChartPanelSettings,
     REPORT_CHART_DEPTH_PRESETS,
     InterpretationReportComposition,
+    ReportGeologyLegendPages,
     ReportHeaderFields,
     ensure_report_composition_id,
 )
@@ -97,6 +98,8 @@ def _validate_report_compositions(
             + ", ".join(sorted(unknown))
         )
     for dataset_id, composition in compositions.items():
+        if not isinstance(composition.geology_legend_pages, ReportGeologyLegendPages):
+            raise ValueError("Invalid report geology legend page policy")
         if not isinstance(composition.chart_panels, ReportChartPanelSettings):
             raise ValueError("Invalid report chart panel settings")
         if (
@@ -207,6 +210,7 @@ def save_project(
                 "cuttings": composition.cuttings.value,
                 "lba": composition.lba.value,
                 "legend_mode": composition.legend_mode.value,
+                "geology_legend_pages": composition.geology_legend_pages.value,
                 "layout_profile": composition.layout_profile.value,
                 "target_depth_per_page": composition.target_depth_per_page,
                 "chart_panels": {
