@@ -1018,3 +1018,8 @@ Interpretation cover fonts use `point_coordinate_font` with the active painter d
 Generic DOCX body tables use row-level Word cantSplit, matching interpretation tables.
 Repeated coverage/data headers retain tblHeader; rows have no fixed heights or keepNext
 chains, so complete samples move independently between pages without changing read models.
+
+The shared interpretation DOCX paragraph adapter applies Word keepNext/keepLines
+only to Title/Heading1. Geology and standard/OPUS export reuse this adapter; polished
+rewriting preserves the body paragraph properties. Ordinary paragraphs and table
+rows retain independent pagination and do not own source or calculation data.

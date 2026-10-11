@@ -38,3 +38,7 @@ DOCX/HTML size, MIME type, and SHA-256. Passport verification detects any later 
 
 DOCX section headings stay with their following table. Table rows remain together
 across page boundaries; coverage and data headers repeat on subsequent pages.
+
+Geological and interpretation Word reports (standard/OPUS, including polished
+versions) keep headings with their following content. Ordinary paragraphs and
+individual table rows may move independently to the next page.
