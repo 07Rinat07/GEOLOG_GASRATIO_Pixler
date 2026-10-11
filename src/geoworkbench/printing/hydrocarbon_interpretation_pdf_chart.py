@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from geoworkbench.printing.interpretation_curve_strokes import curve_line_pen_style
 from geoworkbench.printing.hydrocarbon_interpretation_curve_selection import chart_panel_render_options
 
 from geoworkbench.printing.gas_context_track import (
@@ -10,7 +11,7 @@ from math import ceil, floor, log10
 
 import numpy as np
 from PySide6.QtCore import QLineF, QPointF, QRectF, Qt
-from PySide6.QtGui import QColor, QFontMetricsF, QPainter, QPen
+from PySide6.QtGui import QColor, QFontMetricsF, QPainter, QPainterPath, QPen
 
 from geoworkbench.domain.report_composition import (
     DEFAULT_REPORT_CHART_PANELS,
@@ -643,7 +644,7 @@ def _draw_curves(
             painter.setBrush(Qt.BrushStyle.NoBrush)
             continue
 
-        pen = QPen(color, _PRINT_CURVE_WIDTH)
+        pen = QPen(color, _PRINT_CURVE_WIDTH, curve_line_pen_style(curve_index))
         pen.setCosmetic(False)
         painter.setPen(pen)
         for segment in segments:
@@ -657,9 +658,17 @@ def _draw_curves(
             previous: tuple[float, float] | None = None
             previous_normalized: float | None = None
             previous_clipped = False
+            # One path per uninterrupted dashed run: Qt must not reset the
+            # dash phase after every pair of adjacent depth samples.
+            stroke_path = QPainterPath()
+            stroke_points = 0
             for row_index in render_rows:
                 value = values[row_index]
                 if not np.isfinite(value):
+                    if stroke_points > 1:
+                        painter.drawPath(stroke_path)
+                    stroke_path = QPainterPath()
+                    stroke_points = 0
                     previous = None
                     previous_normalized = None
                     previous_clipped = False
@@ -681,12 +690,25 @@ def _draw_curves(
                     and abs(normalized - previous_normalized) >= 0.72
                 )
                 if previous is not None and not break_clipped_spike:
-                    painter.drawLine(
-                        QLineF(previous[0], previous[1], current[0], current[1])
-                    )
+                    if pen.style() == Qt.PenStyle.SolidLine:
+                        painter.drawLine(
+                            QLineF(previous[0], previous[1], current[0], current[1])
+                        )
+                    else:
+                        if stroke_points == 0:
+                            stroke_path.moveTo(*previous)
+                            stroke_points = 1
+                        stroke_path.lineTo(*current)
+                        stroke_points += 1
+                elif stroke_points > 1:
+                    painter.drawPath(stroke_path)
+                    stroke_path = QPainterPath()
+                    stroke_points = 0
                 previous = current
                 previous_normalized = normalized
                 previous_clipped = clipped
+            if stroke_points > 1:
+                painter.drawPath(stroke_path)
     painter.restore()
 
 
@@ -723,7 +745,9 @@ def _draw_legend(
             sample_y = y + QFontMetricsF(font, painter.device()).height() / 2.0
             draw_as_points = point_series if point_series is not None else uses_gas_point_presentation(
                 (curve.metadata.original_mnemonic, curve.metadata.canonical_mnemonic))
-            painter.setPen(QPen(color, 0.8 if draw_as_points else 2.2))
+            painter.setPen(QPen(color, 0.8 if draw_as_points else 1.1,
+                                Qt.PenStyle.SolidLine if draw_as_points
+                                else curve_line_pen_style(row.curve_index)))
             if draw_as_points:
                 painter.setBrush(color)
                 for offset in (2.5, 8.5, 14.5):

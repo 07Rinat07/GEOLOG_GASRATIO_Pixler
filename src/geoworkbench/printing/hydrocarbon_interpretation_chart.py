@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from geoworkbench.printing.interpretation_curve_strokes import curve_line_pen_style
 from geoworkbench.printing.hydrocarbon_interpretation_curve_selection import chart_panel_render_options
 
 from geoworkbench.printing.gas_ratio_reference import (
@@ -14,7 +15,7 @@ from html import escape
 
 import numpy as np
 from PySide6.QtCore import QByteArray, QBuffer, QIODevice, QLineF, QPointF, QRectF, Qt
-from PySide6.QtGui import QPolygonF, QColor, QFontMetricsF, QImage, QPainter, QPen
+from PySide6.QtGui import QPolygonF, QColor, QFontMetricsF, QImage, QPainter, QPainterPath, QPen
 
 from geoworkbench.domain.depth_interval import scope_dataset
 from geoworkbench.domain.models import CurveData, Dataset
@@ -748,7 +749,7 @@ def _draw_panel(
     painter.setClipRect(rect.adjusted(1.0, 1.0, -1.0, -1.0))
     point_series = False
     minimum_samples = 1 if point_series else 2
-    legend_rows: list[tuple[QColor, str, bool]] = []
+    legend_rows: list[tuple[QColor, str, bool, Qt.PenStyle]] = []
     for curve_index, curve in enumerate(curves):
         values = np.asarray(curve.values, dtype=np.float64)
         usable = finite_depth & np.isfinite(values)
@@ -794,13 +795,20 @@ def _draw_panel(
                 )
             painter.setBrush(Qt.BrushStyle.NoBrush)
         else:
-            painter.setPen(QPen(color, 2.2))
+            stroke_style = curve_line_pen_style(curve_index)
+            painter.setPen(QPen(color, 2.2, stroke_style))
             for segment in segments:
                 previous: tuple[float, float] | None = None
                 previous_normalized: float | None = None
                 previous_clipped = False
+                stroke_path = QPainterPath()
+                stroke_points = 0
                 for index in segment:
                     if not usable[index]:
+                        if stroke_points > 1:
+                            painter.drawPath(stroke_path)
+                        stroke_path = QPainterPath()
+                        stroke_points = 0
                         previous = None
                         previous_normalized = None
                         previous_clipped = False
@@ -836,12 +844,25 @@ def _draw_panel(
                         and abs(normalized - previous_normalized) >= 0.72
                     )
                     if previous is not None and not spike:
-                        painter.drawLine(
-                            QLineF(previous[0], previous[1], current[0], current[1])
-                        )
+                        if stroke_style == Qt.PenStyle.SolidLine:
+                            painter.drawLine(
+                                QLineF(previous[0], previous[1], current[0], current[1])
+                            )
+                        else:
+                            if stroke_points == 0:
+                                stroke_path.moveTo(*previous)
+                                stroke_points = 1
+                            stroke_path.lineTo(*current)
+                            stroke_points += 1
+                    elif stroke_points > 1:
+                        painter.drawPath(stroke_path)
+                        stroke_path = QPainterPath()
+                        stroke_points = 0
                     previous = current
                     previous_normalized = normalized
                     previous_clipped = clipped
+                if stroke_points > 1:
+                    painter.drawPath(stroke_path)
 
         canonical_hint = display_hints.get(
             curve.metadata.original_mnemonic.strip().upper()
@@ -853,15 +874,15 @@ def _draw_panel(
             language,
             canonical_hint=canonical_hint,
         )
-        legend_rows.append((color, legend, point_series))
+        legend_rows.append((color, legend, point_series, curve_line_pen_style(curve_index)))
     painter.setBrush(Qt.BrushStyle.NoBrush)
     painter.restore()
 
     legend_top = rect.bottom() + 12.0
-    for row_index, (color, legend, point_marker) in enumerate(legend_rows):
+    for row_index, (color, legend, point_marker, stroke) in enumerate(legend_rows):
         legend_y = legend_top + row_index * 21.0
-        painter.setPen(QPen(color, 1.0))
         if point_marker:
+            painter.setPen(QPen(color, 1.0))
             painter.setBrush(color)
             for offset in (12.0, 21.0, 30.0):
                 painter.drawEllipse(
@@ -874,7 +895,7 @@ def _draw_panel(
                 )
             painter.setBrush(Qt.BrushStyle.NoBrush)
         else:
-            painter.setPen(QPen(color, 3.5))
+            painter.setPen(QPen(color, 1.6, stroke))
             painter.drawLine(
                 QLineF(
                     rect.left() + 8.0,
