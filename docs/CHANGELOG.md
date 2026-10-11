@@ -1,5 +1,7 @@
 # История изменений
 
+- PRINT-STYLE-01: generic DOCX title/section headings now stay with the following content using Word keepNext/keepLines, matching interpretation DOCX pagination. RU/KK/EN export regression checks section/table adjacency and unchanged source arrays; table data rows retain normal pagination. Full Windows Release gate required before merge.
+
 
 Здесь фиксируются только крупные продуктовые изменения. Подробная история отдельных исправлений
 доступна в Git; отдельные release notes, build manifests и AI-отчёты не создаются.
