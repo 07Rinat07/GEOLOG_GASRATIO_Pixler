@@ -568,8 +568,10 @@ class Wits0CaptureEngine:
         if not self.is_running:
             self._set_state(Wits0CaptureState.STOPPED)
             return True
-        self._emit_state(Wits0CaptureState.STOPPING, "WITS0 capture is stopping")
+        # Signal cancellation *before* diagnostic/status delivery. A slow
+        # listener must not delay stopping the TCP receive/reconnect loop.
         self._stop.set()
+        self._emit_state(Wits0CaptureState.STOPPING, "WITS0 capture is stopping")
         with self._socket_lock:
             active = self._active_socket
             if active is not None:
@@ -591,7 +593,12 @@ class Wits0CaptureEngine:
             self._thread.join(timeout=min(0.1, remaining))
             if self._thread.is_alive():
                 self._wake_server_listener()
-        return not self._thread.is_alive()
+        finished = not self._thread.is_alive()
+        # The worker may finish between the cancellation signal and STOPPING
+        # notification. Do not leave an already stopped worker in STOPPING.
+        if finished and self.snapshot().state is Wits0CaptureState.STOPPING:
+            self._set_state(Wits0CaptureState.STOPPED)
+        return finished
 
     def snapshot(self) -> Wits0CaptureSnapshot:
         with self._snapshot_lock:
