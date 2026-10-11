@@ -134,3 +134,64 @@ def test_vector_pdf_contains_dashed_curves_and_matching_legend(qapp, tmp_path) -
         assert "Rate of Penetration [m/h]" in text
         assert "Weight on Bit [m/h]" in text
         assert "Flow In [m/h]" in text
+
+
+def test_dashed_pdf_strokes_preserve_phase_across_dense_rows(qapp) -> None:
+    dataset, curves = _source_curves()
+    painter = MagicMock()
+    ranges = {
+        curve.metadata.curve_id: (float(curve.values.min()), float(curve.values.max()))
+        for curve in curves
+    }
+    pdf._draw_curves(
+        painter, QRectF(20, 40, 220, 260),
+        DepthPage(100.0, 103.0, 100, 100.0),
+        dataset, curves, ranges, point_series=False,
+    )
+    paths = [call.args[0] for call in painter.drawPath.call_args_list]
+    assert len(paths) == 2  # DashLine and DotLine; SolidLine still uses lines.
+    assert all(path.elementCount() == len(dataset.depth) for path in paths)
+    assert painter.drawLine.call_count == len(dataset.depth) - 1
+
+
+def test_dashed_preview_strokes_preserve_phase_and_distinguishable_legend(qapp, monkeypatch) -> None:
+    dataset, curves = _source_curves()
+    monkeypatch.setattr(preview, "_paint_preview_text", lambda *args, **kwargs: None)
+    painter = MagicMock()
+    painter.device.return_value.logicalDpiY.return_value = 96
+    preview._draw_panel(
+        painter, QRectF(20, 70, 300, 300),
+        dataset.depth, np.isfinite(dataset.depth), 100.0, 103.0,
+        "total", curves, (), AppLanguage.EN, {},
+    )
+    paths = [call.args[0] for call in painter.drawPath.call_args_list]
+    assert len(paths) == 2
+    assert all(path.elementCount() == len(dataset.depth) for path in paths)
+    for index in (1, 2):
+        pens = [
+            call.args[0] for call in painter.setPen.call_args_list
+            if call.args and isinstance(call.args[0], QPen)
+            and call.args[0].color() == QColor(preview._COLORS[index])
+        ]
+        assert sorted(pen.widthF() for pen in pens) == pytest.approx([1.6, 2.2])
+
+
+def test_print_legend_uses_fine_strokes_that_fit_full_dash_dot_cycle(qapp) -> None:
+    dataset, curves = _source_curves()
+    painter = MagicMock()
+    painter.device.return_value.logicalDpiY.return_value = 72
+    ranges = {
+        curve.metadata.curve_id: (float(curve.values.min()), float(curve.values.max()))
+        for curve in curves
+    }
+    pdf._draw_legend(
+        painter, QRectF(20, 30, 450, 170), 0, 1, curves, ranges,
+        language=AppLanguage.EN, point_series=False,
+    )
+    line_pens = [
+        call.args[0] for call in painter.setPen.call_args_list
+        if call.args and isinstance(call.args[0], QPen)
+        and call.args[0].style() in (Qt.PenStyle.SolidLine, Qt.PenStyle.DashLine, Qt.PenStyle.DotLine)
+    ]
+    assert len(line_pens) >= len(curves)
+    assert all(pen.widthF() == pytest.approx(1.1) for pen in line_pens[:len(curves)])
