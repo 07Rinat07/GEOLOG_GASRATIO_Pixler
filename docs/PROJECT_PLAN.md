@@ -2501,7 +2501,14 @@ PR #565 интегрирован после трёх SUCCESS на f2191d61 (run 
 
 PR #566 интегрирован после трёх SUCCESS на dd59d702 (run 38178185688), main f6bc1f98.
 
-### RPT-ANN-01 — Apply обновляет editor checkpoint (на проверке)
+### RPT-ANN-01 — Apply обновляет editor checkpoint (завершено)
 
 - Явная RU/KK/EN кнопка Apply фиксирует текущий draft report annotations без закрытия диалога и очистки Undo/Redo. Последующий Cancel возвращает последний applied snapshot даже после Undo через checkpoint и replacement branch. Добавить/Сохранить по-прежнему применяют поля отдельной записи к draft; Apply не сохраняет файл проекта.
 - Сохранение общей истории между открытиями редакторов и скважинами остаётся следующим инкрементом. Приёмка: реальные Qt buttons, три языка, original stack identity, Cancel/Undo/Redo и source arrays; три exact-head gates обязательны.
+
+PR #567 интегрирован после трёх SUCCESS на 579e6e49 (run 38180846839), main 0b460e23.
+
+### RPT-ANN-01 — общая история между открытиями редактора (на проверке)
+
+- Открытие редактора не очищает bounded shared history. Cancel восстанавливает checkpoint текущего открытия; Apply сохраняет историю. Undo/Redo допускаются только для команды текущих session/dataset/composition на вершине общей истории, без обхода более поздней команды чужой области.
+- RU/KK/EN Qt reopen/Cancel и две скважины проверяют сохранение command identity и блокировку чужих Undo/Redo. История остаётся runtime state и не сериализуется в project file. Source arrays неизменны; три exact-head gates обязательны.
