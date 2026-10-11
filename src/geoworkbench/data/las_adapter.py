@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import os
+import re
 import tempfile
 from time import perf_counter, perf_counter_ns
 from collections import Counter
@@ -412,34 +413,18 @@ def _iter_section_payload_lines(
 ) -> Iterable[bytes]:
     """Yield one bounded payload line at a time without copying the whole section."""
 
-    first_lf = raw_bytes.find(b"\n", start_offset, end_offset)
-    first_cr = raw_bytes.find(b"\r", start_offset, end_offset)
-    line_end_candidates = tuple(
-        position for position in (first_lf, first_cr) if position >= 0
-    )
-    if not line_end_candidates:
+    # One forward scan avoids repeatedly searching the entire remaining section
+    # for an absent CR or LF in files with a uniform newline convention.
+    line_ends = re.compile(rb"\r\n|\r|\n").finditer(raw_bytes, start_offset, end_offset)
+    header_end = next(line_ends, None)
+    if header_end is None:
         return
-
-    cursor = min(line_end_candidates)
-    if raw_bytes[cursor : cursor + 2] == b"\r\n":
-        cursor += 2
-    else:
-        cursor += 1
-
-    while cursor < end_offset:
-        lf = raw_bytes.find(b"\n", cursor, end_offset)
-        cr = raw_bytes.find(b"\r", cursor, end_offset)
-        candidates = tuple(position for position in (lf, cr) if position >= 0)
-        if not candidates:
-            yield raw_bytes[cursor:end_offset]
-            return
-
-        line_end = min(candidates)
-        yield raw_bytes[cursor:line_end]
-        if raw_bytes[line_end : line_end + 2] == b"\r\n":
-            cursor = line_end + 2
-        else:
-            cursor = line_end + 1
+    cursor = header_end.end()
+    for line_end in line_ends:
+        yield raw_bytes[cursor:line_end.start()]
+        cursor = line_end.end()
+    if cursor < end_offset:
+        yield raw_bytes[cursor:end_offset]
 
 
 def _curve_matrix_by_position(

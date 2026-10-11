@@ -163,3 +163,7 @@ annotations are stored separately from tablet objects.
 Open final-report annotations from the Composer button. Undo/Redo applies to the
 current editor transaction; Cancel discards its draft without changing another well.
 Confirmed annotations are restored in their own well after JSON/package save and reopen.
+
+Final-report annotation edits use a bounded command history without copying source
+curve arrays. Memory acceptance covers the editor transaction on imported 100k/1M-row
+LAS files; report preview, import and physical printing have separate acceptance.
