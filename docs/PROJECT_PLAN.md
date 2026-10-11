@@ -2486,3 +2486,8 @@ report snapshot/composition/render/print.
 UI-SYS-01: Curve-pencil toolbar переведён на palette-aware application style: при выключенном
 карандаше скрываются вторичные mode/apply/clear/Undo/Redo controls; одиночные raw-mnemonic
 track titles заменяются на локализованное имя параметра с mnemonic в скобках.
+
+### RPT-ANN-01 — состояние команд при rollback checkpoint (на проверке)
+
+- Checkpoint сохраняет bounded execution flags существующих report commands, включая Redo. После Redo → draft → Cancel восстанавливаются annotations, dirty state, исходный Redo и возможность повторного Redo/Undo для add/update/remove. Dataset arrays не копируются.
+- Это подготовительный инкремент Save/Apply: Undo до checkpoint и divergent branch по-прежнему отклоняются; UI Apply и сохранение истории между редакторами остаются открытыми. Требуются три exact-head gates.

@@ -1056,3 +1056,5 @@ multiwell JSON/package reopen and flow through signed export and the system-prin
 prepared PDF. A missing logical track stays unpainted; QPrinter PDF output exercises
 the existing raster print path. Native dialogs' acceptance and target choices are
 scripted; physical-printer review remains a separate external gate.
+
+Report annotation checkpoints retain the bounded execution state of report commands in both history stacks. Restoring the annotation snapshot also restores these flags before notifying history listeners; command references and source arrays are preserved. Divergent history remains fail-closed.

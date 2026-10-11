@@ -175,3 +175,5 @@ these actions inactive. Inside a text field, Ctrl+Z retains normal typing undo.
 After project save/reopen, final-report annotations remain owned by their well and
 report composition in Composer preview, PDF export and prepared system printing.
 A note whose logical track is absent stays hidden instead of moving to a neighbour.
+
+Report annotation checkpoints also restore Redo command execution state, so a saved redo remains usable after draft rollback. This does not add Apply; undo across an earlier checkpoint remains separate work.

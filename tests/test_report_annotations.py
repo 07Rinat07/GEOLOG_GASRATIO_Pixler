@@ -364,3 +364,33 @@ def test_report_annotation_normal_finite_geometry_round_trips_without_mutation()
     recovered = report_annotation_from_mapping(encoded)
     assert recovered == annotation
     assert encoded == report_annotation_to_dict(annotation)
+
+
+@pytest.mark.parametrize("operation", ["add", "update", "remove"])
+def test_checkpoint_restores_redo_command_execution_state(operation: str) -> None:
+    session = _session()
+    history = CommandHistory()
+    controller = ReportAnnotationController(session, shared_history=history)
+    first = controller.add(text="Saved", depth=1000.0, track_key="curve:TG")
+    if operation == "update":
+        controller.update(first.annotation_id, text="Updated")
+    elif operation == "remove":
+        controller.remove(first.annotation_id)
+    applied_records = controller.available()
+    controller.undo()
+    saved_records = controller.available()
+    saved_dirty = session.dirty
+    checkpoint = controller.checkpoint()
+    pending = history.next_redo
+
+    controller.redo()
+    controller.add(text="Draft", depth=1001.0, track_key="curve:TG")
+    controller.restore(checkpoint)
+
+    assert controller.available() == saved_records
+    assert session.dirty is saved_dirty
+    assert history.next_redo is pending
+    controller.redo()
+    assert controller.available() == applied_records
+    controller.undo()
+    assert controller.available() == saved_records
