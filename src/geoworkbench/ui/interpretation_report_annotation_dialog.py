@@ -131,9 +131,15 @@ class InterpretationReportAnnotationDialog(QDialog):
         root.addWidget(self.status)
 
         buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
+            QDialogButtonBox.StandardButton.Ok
+            | QDialogButtonBox.StandardButton.Cancel
+            | QDialogButtonBox.StandardButton.Apply,
             parent=self,
         )
+        self.apply_button = buttons.button(QDialogButtonBox.StandardButton.Apply)
+        self.apply_button.setText(self._text("Применить", "Қолдану", "Apply"))
+        self.apply_button.setObjectName("report-annotation-apply")
+        self.apply_button.clicked.connect(self._apply)
         root.addWidget(buttons)
 
         self.annotation.currentIndexChanged.connect(self._load_selected)
@@ -368,6 +374,15 @@ class InterpretationReportAnnotationDialog(QDialog):
         self.remove_button.setEnabled(has_selected)
         self.undo_button.setEnabled(self.controller.can_undo)
         self.redo_button.setEnabled(self.controller.can_redo)
+
+    def _apply(self) -> None:
+        # Apply commits the current annotation draft without consuming history.
+        # Individual form edits still use the existing Add/Save controls.
+        self._checkpoint = self.controller.checkpoint()
+        self.status.clear()
+        self._sync_actions()
+        if self._on_changed is not None:
+            self._on_changed()
 
     def reject(self) -> None:
         try:

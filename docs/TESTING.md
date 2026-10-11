@@ -1615,3 +1615,5 @@ Run: `.venv\Scripts\python.exe scripts/run_tests.py -p no:cacheprovider tests/te
 Report checkpoint regression: `python scripts/run_tests.py -p no:cacheprovider tests/test_report_annotations.py` covers add/update/remove Redo, checkpoint rollback, and subsequent Redo/Undo. Composer, keyboard-history and large-LAS memory suites cover the existing editor contract; Apply and divergent history remain separate work.
 
 Checkpoint branch regressions in `tests/test_report_annotations.py` cover Undo before the saved checkpoint, replacement edits, repeated Undo/Redo after rollback, foreign-domain Undo, foreign-session report commands and external composition deletion. Run with `python scripts/run_tests.py -p no:cacheprovider tests/test_report_annotations.py`.
+
+Apply acceptance: `python scripts/run_tests.py -p no:cacheprovider tests/test_report_annotation_apply.py tests/test_report_annotations.py`. Real RU/KK/EN buttons exercise Apply, Undo across its checkpoint, replacement edits, Cancel and subsequent Undo/Redo; source arrays remain unchanged.
