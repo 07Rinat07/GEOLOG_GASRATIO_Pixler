@@ -1,11 +1,16 @@
 """Physical PDF text, not virtual-font requests, defines readable ratio reports."""
 
 import fitz
+from types import SimpleNamespace
 import numpy as np
 import pytest
 from PySide6.QtCore import QMarginsF, QRectF
 from PySide6.QtGui import QPageLayout, QPageSize, QPainter, QPdfWriter
 
+from geoworkbench.printing.hydrocarbon_interpretation_pdf_renderer import _ratio_reference_chart_rect
+from geoworkbench.printing.hydrocarbon_interpretation_pdf_text import measure_report_html_height
+from geoworkbench.printing.ratio_phase_summary import ratio_phase_summary_html
+from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.printing.gas_ratio_reference import (
     _compact_tick, paint_ratio_reference_summary,
 )
@@ -53,3 +58,17 @@ def test_portrait_pdf_ratio_ticks_remain_legible_and_inside_page(
         assert all(page.rect.contains(fitz.Rect(label["bbox"])) for label in labels)
     for name, curve in dataset.curves.items():
         np.testing.assert_array_equal(curve.values, source[name])
+
+
+@pytest.mark.parametrize("width,height", ((760.0, 480.0), (511.0, 690.0)))
+def test_phase_key_fits_below_ratio_plot_on_landscape_and_portrait(qapp, width, height):
+    phase_html = ratio_phase_summary_html(
+        SimpleNamespace(candidates=(), depth_unit="m"), AppLanguage.RU,
+    )
+    key_height = measure_report_html_height(
+        phase_html, width, visual=modern_oilfield_report_profile(),
+    )
+    target = _ratio_reference_chart_rect(QRectF(0.0, 0.0, width, height), key_height)
+    chart_height = 650.0 * min(target.width() / 1000.0, target.height() / 650.0)
+    assert chart_height > 0.0
+    assert chart_height + 10.0 + key_height + 32.0 <= height

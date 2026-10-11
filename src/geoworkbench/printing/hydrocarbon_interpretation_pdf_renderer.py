@@ -10,6 +10,7 @@ from geoworkbench.printing.ratio_phase_summary import ratio_phase_summary_html
 import re
 from typing import Any
 
+from PySide6.QtCore import QRectF
 from PySide6.QtGui import QPainter
 
 from geoworkbench.domain.models import Dataset
@@ -46,7 +47,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import (
     plan_depth_pages,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_text import (
-    render_report_html,
+    render_report_html, measure_report_html_height,
 )
 from geoworkbench.printing.hydrocarbon_interpretation_report_identity import (
     InterpretationReportIdentity,
@@ -63,6 +64,12 @@ from geoworkbench.services.hydrocarbon_interpretation_gas_html import (
     inject_interval_gas_statistics_html,
 )
 from geoworkbench.services.localization import AppLanguage
+
+
+def _ratio_reference_chart_rect(content: QRectF, phase_key_height: float) -> QRectF:
+    """Reserve measured phase-key space on portrait and landscape pages."""
+    available_height = max(1.0, content.height() - phase_key_height - 44.0)
+    return QRectF(content.left(), content.top(), content.width(), available_height)
 
 
 _FRONT_MATTER_PATTERN = re.compile(
@@ -165,18 +172,17 @@ def render_hydrocarbon_interpretation_report(
             reference_dataset = scope_dataset(dataset, report.analysis_depth_interval or depth_range)
             if has_ratio_reference_summary(reference_dataset):
                 canvas.new_page()
-                paint_ratio_reference_summary(painter, canvas.content_rect, reference_dataset, language)
-                # The 1000x650 virtual chart occupies only the upper portion
-                # of portrait A4. Use the rest of the *same page* for a
-                # readable phase key linked to the report's actual candidates.
-                scale = min(
-                    canvas.content_rect.width() / 1000.0,
-                    canvas.content_rect.height() / 650.0,
+                phase_html = ratio_phase_summary_html(report, language)
+                phase_height = measure_report_html_height(
+                    phase_html, canvas.content_rect.width(), visual=canvas.visual,
                 )
-                canvas.y = canvas.content_rect.top() + 650.0 * scale + 10.0
+                chart_rect = _ratio_reference_chart_rect(canvas.content_rect, phase_height)
+                paint_ratio_reference_summary(painter, chart_rect, reference_dataset, language)
+                scale = min(chart_rect.width() / 1000.0, chart_rect.height() / 650.0)
+                canvas.y = chart_rect.top() + 650.0 * scale + 10.0
                 render_report_html(
                     canvas,
-                    ratio_phase_summary_html(report, language),
+                    phase_html,
                     leading_block_count=0,
                     start_body_on_new_page=False,
                 )

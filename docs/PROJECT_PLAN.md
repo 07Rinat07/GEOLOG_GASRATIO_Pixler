@@ -455,7 +455,7 @@ Document/painter/user-selected colors остаются данными докум
 
 - Для «Газовые отношения: корреляция и профиль Пикслера» обеспечить >=6.5 pt у делений осей и коротких подписей на портретном A4 при 72/300 DPI, без преобразования кривых или диаграмм в растровые изображения. На странице показать расшифровку предварительных газовой/жидкой гипотез по интервалам; цвет точек остаётся кодированием глубин, непоказанные интервалы не называются непродуктивными.
 - Для Word метода и других таблиц обеспечить sum(tblGrid)=tblW=sum(tcW) в пределах 14000 twips при A4 landscape; сохранить относительные ширины колонок и читабельность на полях, без обрезки по краю бумаги.
-- Regression: Qt/PDF physical font size and source immutability, same candidate phase key RU/KK/EN, invalid/no candidates и DOCX XML print bounds. Физическая приёмка на реальном принтере остаётся отдельной задачей.
+- Regression: Qt/PDF physical font size and source immutability, same candidate phase key RU/KK/EN, invalid/no candidates и DOCX XML print bounds. Дополнительно проверяются шесть monochrome depth markers, узкие дробные интервалы и резерв места для phase key на landscape A4. Физическая приёмка на реальном принтере остаётся отдельной задачей.
 
 ## PRINT-STYLE-01 — Report Visual System
 

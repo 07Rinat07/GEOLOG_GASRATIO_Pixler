@@ -298,13 +298,17 @@ def paint_ratio_reference_summary(
                     max(0, bin_index),
                 )
             painter.restore()
+        bin_width = abs(high_depth - low_depth) / 6.0
+        depth_decimals = 0 if bin_width >= 1.0 else min(
+            6, max(1, int(np.ceil(-np.log10(max(bin_width, 1e-6)))) + 1),
+        )
         for index in range(len(_DEPTH_COLORS)):
             start = low_depth + (high_depth - low_depth) * index / 6
             end = low_depth + (high_depth - low_depth) * (index + 1) / 6
             painter.setPen(_depth_pen(index, 1.5))
-            painter.drawLine(QLineF(65 + index * 150, 348, 100 + index * 150, 348))
-            _depth_marker(painter, QPointF(82.5 + index * 150, 348), index, 3)
-            _text(painter, QRectF(101 + index * 150, 333, 113, 28), f"{start:.0f}–{end:.0f} m", typography.caption_pt)
+            painter.drawLine(QLineF(65 + index * 150, 327, 100 + index * 150, 327))
+            _depth_marker(painter, QPointF(82.5 + index * 150, 327), index, 3)
+            _text(painter, QRectF(101 + index * 150, 314, 113, 26), f"{start:.{depth_decimals}f}–{end:.{depth_decimals}f} m", typography.caption_pt)
         plot = QRectF(65, 385, 610, 205)
         _axes(painter, plot)
         _text(painter, QRectF(65, 362, 610, 24), "Pixler · C1/C2 – C1/C5", typography.section_pt)
