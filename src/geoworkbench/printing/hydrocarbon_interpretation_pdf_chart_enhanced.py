@@ -10,7 +10,7 @@ from geoworkbench.printing.gas_context_track import (
     context_segments, context_track_heading_height, paint_context_track, render_context_legend_pages,
 )
 
-from math import floor, isclose
+from math import ceil, floor, isclose
 
 import numpy as np
 from PySide6.QtCore import QLineF, QPointF, QRectF, Qt
@@ -22,6 +22,7 @@ from geoworkbench.domain.report_composition import (
     DEFAULT_REPORT_CHART_PANELS,
     ReportChartPanelSettings,
     ReportLegendMode,
+    ReportGeologyLegendPages,
 )
 from geoworkbench.domain.report_annotations import ReportAnnotationRecord
 from geoworkbench.printing import hydrocarbon_interpretation_pdf_chart as base_chart
@@ -61,6 +62,8 @@ from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import (
     CHART_HEADER_HEIGHT,
     CHART_TRACK_HEADER_HEIGHT,
     MIN_CHART_HEIGHT,
+    MAX_AUTOMATIC_CHART_PAGES,
+    POINTS_PER_MM,
     ChartGeometry,
     DepthPage,
     chart_geometry,
@@ -71,7 +74,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_report_range import (
 )
 from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.printing.report_painter_fonts import paint_fitted_point_text, point_coordinate_font
-from geoworkbench.printing.curve_legend_layout import fit_curve_legend_pages
+from geoworkbench.printing.curve_legend_layout import curve_legend_layout, fit_curve_legend_pages
 from geoworkbench.printing.interpretation_note_layout import interpretation_note_height
 from geoworkbench.printing.fluid_marker_legend_layout import (
     MARKER_LEGEND_TEXT_FLAGS, fluid_marker_legend_layout,
@@ -105,6 +108,54 @@ _MAJOR_TARGET_TICKS = 6
 _MINOR_DIVISIONS = 5
 
 
+def _reflow_depth_pages_after_first_legend(
+    pages: tuple[DepthPage, ...],
+    depth_min: float,
+    depth_max: float,
+    *,
+    first_plot_capacity: float,
+    later_plot_capacity: float,
+) -> tuple[DepthPage, ...]:
+    """Use extra space on later sheets at one consistent physical depth scale.
+
+    The existing page planner chooses the physical denominator. The catalog is
+    printed above only the first chart, so later sheets can hold a larger
+    portion of that same depth scale instead of wasting its reserved height.
+    Every source depth stays included exactly once; no interpolation occurs.
+    """
+    if not pages or len(pages) == 1 or first_plot_capacity <= 0.0:
+        return pages
+    if later_plot_capacity <= first_plot_capacity:
+        return pages
+    scale = pages[0].scale_denominator
+    span = depth_max - depth_min
+    if span <= 0.0:
+        return pages
+    total_plot_height = span * 1000.0 / scale * POINTS_PER_MM
+    if total_plot_height <= first_plot_capacity:
+        return pages
+    remaining_height = total_plot_height - first_plot_capacity
+    count = min(len(pages), max(2, 1 + ceil(remaining_height / later_plot_capacity)))
+    following_plot_height = remaining_height / (count - 1)
+    if following_plot_height > later_plot_capacity + 0.01:
+        raise ValueError("Geology legend reflow exceeded available chart space")
+    heights = (first_plot_capacity,) + (following_plot_height,) * (count - 1)
+    result: list[DepthPage] = []
+    top = depth_min
+    for index, planned_height in enumerate(heights):
+        bottom = (
+            depth_max
+            if index == count - 1
+            else top + planned_height / POINTS_PER_MM * scale / 1000.0
+        )
+        plot_height = (bottom - top) * 1000.0 / scale * POINTS_PER_MM
+        if plot_height > planned_height + 0.01:
+            raise ValueError("Geology legend reflow exceeded available chart space")
+        result.append(DepthPage(top, bottom, scale, plot_height))
+        top = bottom
+    return tuple(result)
+
+
 def render_chart_pages(
     canvas: PageCanvas,
     report: HydrocarbonInterpretationReport,
@@ -117,6 +168,7 @@ def render_chart_pages(
         DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS
     ),
     legend_mode: ReportLegendMode = ReportLegendMode.FULL,
+    geology_legend_pages: ReportGeologyLegendPages = ReportGeologyLegendPages.FIRST_CHART_PAGE,
     legend_reference_pages_emitted: bool = False,
     annotations: tuple[ReportAnnotationRecord, ...] = (),
     chart_panels: ReportChartPanelSettings = DEFAULT_REPORT_CHART_PANELS,
@@ -277,15 +329,52 @@ def render_chart_pages(
             language, canvas.painter.device(), display_hints, selected_page_planner, page_ranges,
             minimum_height=curve_legend_height,
         )
+    first_sheet_only = (
+        geology_legend_pages is ReportGeologyLegendPages.FIRST_CHART_PAGE
+    )
+    if first_sheet_only and full_legend_height > 0.0:
+        # Reflow alters page-local curve percentiles and therefore legend wrapping.
+        # Grow the measured legend and repeat until every new page fits.
+        for _ in range(MAX_AUTOMATIC_CHART_PAGES + 1):
+            pages = _reflow_depth_pages_after_first_legend(
+                pages, depth_min, depth_max,
+                first_plot_capacity=chart_height_budget - curve_legend_height - full_legend_height,
+                later_plot_capacity=chart_height_budget - curve_legend_height,
+            )
+            required_height = curve_legend_height
+            for page in pages:
+                ranges = page_ranges(page)
+                for width, (_name, curves) in zip(widths, panels, strict=True):
+                    required_height = max(
+                        required_height,
+                        7.0 + curve_legend_layout(
+                            width, curves, ranges, language, canvas.painter.device(),
+                            display_hints,
+                        ).height,
+                    )
+            if required_height <= curve_legend_height:
+                break
+            pages, curve_legend_height = fit_curve_legend_pages(
+                depth_min, depth_max, available_height, widths, panels,
+                language, canvas.painter.device(), display_hints,
+                selected_page_planner, page_ranges, minimum_height=required_height,
+            )
+        else:
+            raise ValueError("Geology legend and curve legend pagination did not converge")
     for page_index, page in enumerate(pages, start=1):
         canvas.new_page()
         percentiles = base_chart._curve_percentiles(panels, dataset, page=page)
+        page_legend_height = (
+            full_legend_height
+            if page_index == 1 or not first_sheet_only
+            else 0.0
+        )
         geometry = chart_geometry(
             canvas.content_rect,
             page,
             len(panels),
             geology_track_count=len(geology_tracks),
-            geology_legend_height=full_legend_height,
+            geology_legend_height=page_legend_height,
             track_header_height=header_height,
             chart_note_height=note_height,
             chart_curve_legend_height=curve_legend_height,

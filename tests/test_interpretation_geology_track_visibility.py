@@ -6,6 +6,7 @@ import numpy as np
 from PySide6.QtCore import QRectF
 
 from geoworkbench.printing import hydrocarbon_interpretation_pdf_chart_enhanced as chart
+from geoworkbench.domain.report_composition import ReportGeologyLegendPages
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import DepthPage
 from geoworkbench.services.localization import AppLanguage
 from geoworkbench.printing.geology_track_rendering import (
@@ -292,6 +293,7 @@ def test_multi_page_auto_keeps_global_tracks_without_page_local_empty_state(
         AppLanguage.RU,
         geology=_snapshot_before_second_page(),
         geology_track_settings=InterpretationGeologyTrackSettings(),
+        geology_legend_pages=ReportGeologyLegendPages.EVERY_CHART_PAGE,
     )
 
     assert observed == [

@@ -32,6 +32,7 @@ from geoworkbench.domain.report_composition import (
     InterpretationReportComposition,
     ReportHeaderFields,
     ReportLegendMode,
+    ReportGeologyLegendPages,
     ReportLayoutProfile,
     ReportPageOrientation,
     ReportPrintOrder,
@@ -86,6 +87,7 @@ _REPORT_COMPOSITION_KEYS = {
     "annotations",
     "chart_panels",
     "target_depth_per_page",
+    "geology_legend_pages",
 }
 _REPORT_HEADER_KEYS_LEGACY = {
     "report_title",
@@ -223,6 +225,12 @@ def _report_compositions_from_dict(
                 lba=ReportTrackVisibility(raw["lba"]),
                 legend_mode=ReportLegendMode(
                     raw.get("legend_mode", ReportLegendMode.FULL.value)
+                ),
+                geology_legend_pages=ReportGeologyLegendPages(
+                    raw.get(
+                        "geology_legend_pages",
+                        ReportGeologyLegendPages.FIRST_CHART_PAGE.value,
+                    )
                 ),
                 layout_profile=ReportLayoutProfile(
                     raw.get("layout_profile", ReportLayoutProfile.MODERN_OILFIELD.value)

@@ -10,6 +10,7 @@ from PySide6.QtCore import QRectF
 from PySide6.QtGui import QFontMetricsF, QImage, QPageLayout, QPageSize, QPainter, QPdfWriter
 
 from geoworkbench.domain.models import CurveData, CurveMetadata, Dataset, DatasetKind, DepthDomain
+from geoworkbench.domain.report_composition import ReportGeologyLegendPages
 from geoworkbench.printing import hydrocarbon_interpretation_pdf_chart as base_chart
 from geoworkbench.printing import hydrocarbon_interpretation_pdf_chart_enhanced as chart
 from geoworkbench.printing.geology_track_rendering import FrozenCuttingsComponent, FrozenCuttingsSample
@@ -141,7 +142,8 @@ def test_pdf_headers_fit_and_legends_repeat_above_plot(
     try:
         canvas = PageCanvas(writer, painter, language)
         chart.render_chart_pages(canvas, _report(profile), _dataset(), language,
-                                 geology=_geology(), geology_track_settings=settings)
+                                 geology=_geology(), geology_track_settings=settings,
+                                 geology_legend_pages=ReportGeologyLegendPages.EVERY_CHART_PAGE)
     finally:
         painter.end()
     assert len(observed) > 1
