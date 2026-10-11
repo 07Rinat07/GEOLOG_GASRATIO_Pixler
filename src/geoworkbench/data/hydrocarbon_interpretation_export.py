@@ -45,6 +45,31 @@ class HydrocarbonInterpretationExportError(RuntimeError):
     pass
 
 
+# A4 landscape body: 16838 twips, 850-twip left and right margins.
+# Keep a further buffer so Word/LibreOffice border rounding cannot clip cells.
+_MAX_BODY_TABLE_WIDTH_TWIPS = 14_000
+
+
+def _fit_table_widths(widths: tuple[int, ...]) -> tuple[int, ...]:
+    """Preserve relative column weights while staying inside the print region."""
+    if not widths or any(type(width) is not int or width <= 0 for width in widths):
+        raise ValueError("Column widths must be positive integers")
+    total = sum(widths)
+    if total <= _MAX_BODY_TABLE_WIDTH_TWIPS:
+        return widths
+    scaled = tuple(
+        max(1, width * _MAX_BODY_TABLE_WIDTH_TWIPS // total)
+        for width in widths
+    )
+    # Allocate remaining twips deterministically, with exact total and no
+    # drift between table grid widths and individual cell widths.
+    remainder = _MAX_BODY_TABLE_WIDTH_TWIPS - sum(scaled)
+    return tuple(
+        width + (1 if index < remainder else 0)
+        for index, width in enumerate(scaled)
+    )
+
+
 _DOCX_PROGRESS = {
     AppLanguage.RU: (
         "Подготовка Word-отчёта",
@@ -621,6 +646,7 @@ def _table(
 ) -> str:
     if len(widths) != len(headers) or any(len(row) != len(headers) for row in rows):
         raise ValueError("Геометрия таблицы отчёта не соответствует числу колонок")
+    widths = _fit_table_widths(widths)
     visual = modern_oilfield_report_profile()
     border = visual.palette.border.lstrip("#")
     strong_rule = round(visual.layout.strong_rule_pt * 8)
@@ -629,7 +655,9 @@ def _table(
     header = _table_row(headers, widths, header=True)
     body = "".join(_table_row(row, widths) for row in rows)
     return (
-        '<w:tbl><w:tblPr><w:tblW w:w="15100" w:type="dxa"/>'
+        '<w:tbl><w:tblPr>'
+        f'<w:tblW w:w="{sum(widths)}" w:type="dxa"/>'
+        '<w:jc w:val="center"/>'
         '<w:tblLayout w:type="fixed"/><w:tblCellMar>'
         '<w:top w:w="90" w:type="dxa"/><w:left w:w="90" w:type="dxa"/>'
         '<w:bottom w:w="90" w:type="dxa"/><w:right w:w="90" w:type="dxa"/>'

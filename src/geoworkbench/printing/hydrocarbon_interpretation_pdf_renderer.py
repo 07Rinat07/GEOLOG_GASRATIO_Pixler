@@ -5,6 +5,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_curve_selection import cha
 from geoworkbench.printing.gas_ratio_reference import (
     has_ratio_reference_summary, paint_ratio_reference_summary,
 )
+from geoworkbench.printing.ratio_phase_summary import ratio_phase_summary_html
 
 import re
 from typing import Any
@@ -165,7 +166,20 @@ def render_hydrocarbon_interpretation_report(
             if has_ratio_reference_summary(reference_dataset):
                 canvas.new_page()
                 paint_ratio_reference_summary(painter, canvas.content_rect, reference_dataset, language)
-                canvas.y = canvas.content_rect.bottom()
+                # The 1000x650 virtual chart occupies only the upper portion
+                # of portrait A4. Use the rest of the *same page* for a
+                # readable phase key linked to the report's actual candidates.
+                scale = min(
+                    canvas.content_rect.width() / 1000.0,
+                    canvas.content_rect.height() / 650.0,
+                )
+                canvas.y = canvas.content_rect.top() + 650.0 * scale + 10.0
+                render_report_html(
+                    canvas,
+                    ratio_phase_summary_html(report, language),
+                    leading_block_count=0,
+                    start_body_on_new_page=False,
+                )
 
         render_report_html(
             canvas,
