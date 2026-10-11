@@ -87,3 +87,27 @@ def test_report_point_dimensions_preserve_valid_values_and_ranges() -> None:
         ReportLayoutMetrics(thin_rule_pt=0.0)
     with pytest.raises(ValueError, match="body_pt"):
         ReportTypography(body_pt=36.1)
+
+
+@pytest.mark.parametrize("field_name", (item.name for item in fields(ReportTypography)))
+@pytest.mark.parametrize("huge", (10 ** 400, -(10 ** 400)))
+def test_report_typography_huge_integer_rejected_as_validation_error(field_name, huge):
+    with pytest.raises(ValueError, match=field_name):
+        replace(ReportTypography(), **{field_name: huge})
+
+
+@pytest.mark.parametrize("field_name", (item.name for item in fields(ReportLayoutMetrics)))
+@pytest.mark.parametrize("huge", (10 ** 400, -(10 ** 400)))
+def test_report_layout_huge_integer_rejected_as_validation_error(field_name, huge):
+    with pytest.raises(ValueError, match=field_name):
+        replace(ReportLayoutMetrics(), **{field_name: huge})
+
+
+def test_huge_dimension_does_not_mutate_a_valid_profile() -> None:
+    profile = modern_oilfield_report_profile()
+    with pytest.raises(ValueError, match="body_pt"):
+        replace(profile.typography, body_pt=10 ** 400)
+    with pytest.raises(ValueError, match="card_padding_pt"):
+        replace(profile.layout, card_padding_pt=-(10 ** 400))
+    assert profile.typography.body_pt == 8.5
+    assert profile.layout.card_padding_pt == 8.0

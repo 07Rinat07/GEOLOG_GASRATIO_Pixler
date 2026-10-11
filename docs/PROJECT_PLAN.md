@@ -433,6 +433,11 @@ Document/painter/user-selected colors остаются данными докум
 дополнительно Windows 100/125/150/200% DPI. Общий adaptive contract не считается полностью
 закрытым наличием ранее интегрированного UI-ADAPT-01.
 
+## PRINT-STYLE-01 — большие целые в физических параметрах отчёта (на проверке)
+
+- Общий ReportVisualProfile отклоняет произвольные целые JSON/Python глубоко вне float-range как штатный ValueError, а не необработанный OverflowError, во всех полях ReportTypography и ReportLayoutMetrics, включая отрицательные значения.
+- Значения валидного профиля, геологические расчёты и исходные LAS/ГТИ не меняются. Приёмка: параметризованные тесты всех полей и полноценный exact-head Windows Quality/GUI/Security.
+
 ## PRINT-STYLE-01 — проверка конечности типографики и физических размеров (на проверке)
 
 - Общий печатный профиль отклоняет NaN, ±Infinity, bool, строки и null во всех размерах `ReportTypography` и `ReportLayoutMetrics` до передачи геометрии в Qt/Office.
