@@ -15,7 +15,7 @@ from test_gas_ratio_reference import _dataset
 
 def test_ratio_axis_compacts_thousands_without_scientific_exponent() -> None:
     assert _compact_tick(0.0) == "0"
-    assert _compact_tick(275.0) == "2.8e+02"
+    assert _compact_tick(275.0) == "275"
     assert _compact_tick(1100.0) == "1.1k"
     assert _compact_tick(5400.0) == "5.4k"
 

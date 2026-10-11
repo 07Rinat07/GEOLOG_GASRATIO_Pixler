@@ -184,6 +184,8 @@ def _compact_tick(value: float) -> str:
     """Avoid 3.61-pt scientific notation in narrow ratio-axis tick slots."""
     if abs(value) >= 1_000:
         return f"{value / 1_000:.2g}k"
+    if abs(value) >= 100:
+        return f"{value:.0f}"
     return f"{value:.2g}"
 
 
