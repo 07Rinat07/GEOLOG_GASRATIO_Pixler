@@ -8,7 +8,7 @@ import fitz
 import numpy as np
 import pytest
 from PySide6.QtCore import QRectF, Qt
-from PySide6.QtGui import QColor, QPainter, QPdfWriter, QPen
+from PySide6.QtGui import QColor, QImage, QPainter, QPdfWriter, QPen
 
 from geoworkbench.domain.models import (
     CurveData, CurveMetadata, Dataset, DatasetKind, DepthDomain,
@@ -179,7 +179,7 @@ def test_dashed_preview_strokes_preserve_phase_and_distinguishable_legend(qapp, 
 def test_print_legend_uses_fine_strokes_that_fit_full_dash_dot_cycle(qapp) -> None:
     dataset, curves = _source_curves()
     painter = MagicMock()
-    painter.device.return_value.logicalDpiY.return_value = 72
+    painter.device.return_value = QImage(640, 480, QImage.Format.Format_ARGB32)
     ranges = {
         curve.metadata.curve_id: (float(curve.values.min()), float(curve.values.max()))
         for curve in curves
