@@ -94,6 +94,40 @@ def test_document_model_uses_resolved_indices_and_coverage_states() -> None:
 
 
 @pytest.mark.parametrize("language", tuple(AppLanguage))
+def test_docx_table_rows_keep_complete_samples_without_linking_rows(tmp_path, language) -> None:
+    dataset, report = _resolved_report()
+    expected = build_report_document_model(dataset, report, language=language)
+    before_depth = dataset.depth.copy()
+    before_values = dataset.curves["c1"].values.copy()
+    path = tmp_path / f"row-pagination-{language.value}.docx"
+    export_report_docx(dataset, path, report, language=language)
+    with zipfile.ZipFile(path) as archive:
+        root = ET.fromstring(archive.read("word/document.xml"))
+    ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+    tables = root.findall("w:body/w:tbl", ns)
+    assert len(tables) == 3
+    for table_index, table in enumerate(tables):
+        rows = table.findall("w:tr", ns)
+        assert rows
+        for row_index, row in enumerate(rows):
+            assert row.find("w:trPr/w:cantSplit", ns) is not None
+            is_header = row.find("w:trPr/w:tblHeader", ns) is not None
+            assert is_header == (table_index > 0 and row_index == 0)
+        # Each complete row may move independently to the next page.
+        assert not table.findall(".//w:keepNext", ns)
+        assert not table.findall(".//w:trHeight", ns)
+    data_rows = tables[-1].findall("w:tr", ns)
+    actual = tuple(
+        tuple("".join(node.text or "" for node in cell.findall(".//w:t", ns))
+              for cell in row.findall("w:tc", ns))
+        for row in data_rows[1:]
+    )
+    assert actual == expected.rows
+    np.testing.assert_array_equal(dataset.depth, before_depth)
+    np.testing.assert_array_equal(dataset.curves["c1"].values, before_values)
+
+
+@pytest.mark.parametrize("language", tuple(AppLanguage))
 def test_docx_section_headings_stay_with_following_tables(tmp_path, language) -> None:
     dataset, report = _resolved_report()
     source_depth = dataset.depth.copy()

@@ -35,3 +35,6 @@ no macros or external embedded objects.
 
 A `*.report-passport.json` sidecar is written next to the file. It stores the completed
 DOCX/HTML size, MIME type, and SHA-256. Passport verification detects any later modification.
+
+DOCX section headings stay with their following table. Table rows remain together
+across page boundaries; coverage and data headers repeat on subsequent pages.
