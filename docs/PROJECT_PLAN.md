@@ -445,6 +445,12 @@ Document/painter/user-selected colors остаются данными докум
 - Существующие диапазоны (5–36 pt для типографики, строго положительные физические размеры) не меняются; валидные профили и исходные LAS/ГТИ не модифицируются.
 - Приёмка: параметризованные positive/negative проверки всех полей и полный Windows Quality, GUI/HiDPI/PDF и Security на актуальном HEAD; слияние только после завершения обязательных проверок.
 
+## PRINT-STYLE-01 — scatter ratio-series на расширенном PDF (на проверке)
+
+- Wh/Bh/Ch и прочие фактические ratio reference tracks в enhanced PDF больше не соединяют соседние измерения линиями: используются исходные scatter-точки с ограничением плотности и сохранением локальных экстремумов; для log шкалы нулевые/отрицательные значения исключаются из визуализации.
+- Шкалы, единицы, major/minor grid, кандидатные интервалы, цветовые роли и легенды остаются прежними. Рассчитанные ratio, исходные LAS/ГТИ и глубины не меняются; OPUS3 остаётся обычной кривой.
+- Приёмка: реальные Qt/PDF primitive тесты для Wh/Bh/Ch, dense sampling, invalid log values и immutable source arrays; полный exact-head Windows Quality/GUI/Security; external physical-print остаётся незавершённым.
+
 ## PRINT-STYLE-01 — цветонезависимые линии кривых интерпретации (на проверке)
 
 - Стандартные и OPUS PDF-графики с обычными непрерывными кривыми, их легенды и PNG/HTML preview используют один детерминированный по порядку в панели line-style contract: solid, dash, dot, dash-dot, dash-dot-dot.
