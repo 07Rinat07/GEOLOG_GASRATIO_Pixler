@@ -64,7 +64,8 @@ def test_ratio_pdf_real_text_spans_have_no_axis_key_overlap(qapp, tmp_path, lang
             for line in block["lines"]
             for span in line["spans"]
         ]
-    box = lambda span: fitz.Rect(span["bbox"])
+    def box(span):
+        return fitz.Rect(span["bbox"])
     axis_names = [box(s) for s in spans if s["text"] in ("Balance (Bh)", "Character (Ch)")]
     depth_names = [box(s) for s in spans if "–" in s["text"] and s["text"].endswith(" m")]
     pixler = next(box(s) for s in spans if s["text"].startswith("Pixler ·"))
