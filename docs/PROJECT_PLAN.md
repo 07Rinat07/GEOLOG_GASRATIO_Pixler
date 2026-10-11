@@ -2494,7 +2494,14 @@ track titles заменяются на локализованное имя па�
 
 PR #565 интегрирован после трёх SUCCESS на f2191d61 (run 38176106732), main a1207d2d.
 
-### RPT-ANN-01 — rollback через Undo и новую ветвь истории (на проверке)
+### RPT-ANN-01 — rollback через Undo и новую ветвь истории (завершено)
 
 - Bounded stack-delta validation учитывает Undo до checkpoint и замену Redo новой ветвью. Возвращаются annotations, dirty state, command flags и исходные стеки; повторные Undo/Redo остаются рабочими. Undo создания composition отличается от внешнего удаления.
 - Чужой домен, session/dataset/composition и изменённые presentation settings блокируют восстановление до записи модели. UI Apply и сохранение истории между открытиями редактора остаются отдельными задачами. Требуются три exact-head gates.
+
+PR #566 интегрирован после трёх SUCCESS на dd59d702 (run 38178185688), main f6bc1f98.
+
+### RPT-ANN-01 — Apply обновляет editor checkpoint (на проверке)
+
+- Явная RU/KK/EN кнопка Apply фиксирует текущий draft report annotations без закрытия диалога и очистки Undo/Redo. Последующий Cancel возвращает последний applied snapshot даже после Undo через checkpoint и replacement branch. Добавить/Сохранить по-прежнему применяют поля отдельной записи к draft; Apply не сохраняет файл проекта.
+- Сохранение общей истории между открытиями редакторов и скважинами остаётся следующим инкрементом. Приёмка: реальные Qt buttons, три языка, original stack identity, Cancel/Undo/Redo и source arrays; три exact-head gates обязательны.
