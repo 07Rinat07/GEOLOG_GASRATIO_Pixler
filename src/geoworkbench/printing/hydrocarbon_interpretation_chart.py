@@ -861,8 +861,8 @@ def _draw_panel(
     legend_top = rect.bottom() + 12.0
     for row_index, (color, legend, point_marker, stroke) in enumerate(legend_rows):
         legend_y = legend_top + row_index * 21.0
-        painter.setPen(QPen(color, 1.0))
         if point_marker:
+            painter.setPen(QPen(color, 1.0))
             painter.setBrush(color)
             for offset in (12.0, 21.0, 30.0):
                 painter.drawEllipse(

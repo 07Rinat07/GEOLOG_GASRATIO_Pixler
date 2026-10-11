@@ -131,4 +131,6 @@ def test_vector_pdf_contains_dashed_curves_and_matching_legend(qapp, tmp_path) -
             for drawing in drawings
         ), "Curves must remain distinguishable by dashed geometry in PDF"
         text = document[0].get_text()
-        assert "ROP" in text and "WOB" in text
+        assert "Rate of Penetration [m/h]" in text
+        assert "Weight on Bit [m/h]" in text
+        assert "Flow In [m/h]" in text
