@@ -917,13 +917,6 @@ def _draw_ratio_tracks(
     )
 
     depth = np.asarray(dataset.depth, dtype=np.float64)
-    finite_depth = np.isfinite(depth)
-    indices = np.flatnonzero(
-        finite_depth
-        & (depth >= page.top_depth)
-        & (depth <= page.bottom_depth)
-    )
-    indices = indices[np.argsort(depth[indices], kind="stable")]
     lane_count = max(group for _, _, group in tracks) + 1
     lane_width = rect.width() / lane_count
     labelled_lanes: set[int] = set()
