@@ -33,6 +33,10 @@ REPORT_DOCUMENT_SCHEMA_VERSION = 1
 MISSING_CELL = "—"
 UNAVAILABLE_CELL = "#N/A"
 
+# Landscape A4 page is 16838 twips wide; generic DOCX uses 720 twip
+# margins on each side. A small safety inset keeps table borders printable.
+_GENERIC_DOCX_BODY_TABLE_TWIPS = 15_200
+
 
 class ReportDocumentExportError(RuntimeError):
     """Raised when a DOCX or HTML report cannot be serialized."""
@@ -531,11 +535,18 @@ def _w_table(rows: Iterable[tuple[str, ...]], *, header: bool) -> str:
     width = len(values[0])
     if any(len(row) != width for row in values):
         raise ReportDocumentExportError("DOCX table содержит строки разной ширины")
+    if width == 0 or width > _GENERIC_DOCX_BODY_TABLE_TWIPS:
+        raise ReportDocumentExportError("DOCX table не помещается в печатную ширину A4")
+    # Word's auto-fit expands long unbroken LAS headers beyond the printable page.
+    # Use one deterministic fixed grid for every row, including document control.
+    quotient, remainder = divmod(_GENERIC_DOCX_BODY_TABLE_TWIPS, width)
+    column_widths = tuple(quotient + (index < remainder) for index in range(width))
     visual = modern_oilfield_report_profile()
     border = visual.palette.border.lstrip("#")
     rule = round(visual.layout.thin_rule_pt * 8)
     borders = (
-        '<w:tblPr><w:tblW w:w="0" w:type="auto"/><w:tblBorders>'
+        f'<w:tblPr><w:tblW w:w="{_GENERIC_DOCX_BODY_TABLE_TWIPS}" w:type="dxa"/>'
+        '<w:tblLayout w:type="fixed"/><w:tblBorders>'
         f'<w:top w:val="single" w:sz="{rule}" w:color="{border}"/>'
         f'<w:left w:val="single" w:sz="{rule}" w:color="{border}"/>'
         f'<w:bottom w:val="single" w:sz="{rule}" w:color="{border}"/>'
@@ -544,15 +555,21 @@ def _w_table(rows: Iterable[tuple[str, ...]], *, header: bool) -> str:
         f'<w:insideV w:val="single" w:sz="{rule}" w:color="{border}"/>'
         '</w:tblBorders></w:tblPr>'
     )
-    result = ["<w:tbl>", borders]
+    grid = "<w:tblGrid>" + "".join(
+        f'<w:gridCol w:w="{column_width}"/>' for column_width in column_widths
+    ) + "</w:tblGrid>"
+    result = ["<w:tbl>", borders, grid]
     size = round(visual.typography.table_pt * 2)
     for row_index, row in enumerate(values):
         result.append("<w:tr>" + ("<w:trPr><w:tblHeader/></w:trPr>" if header and row_index == 0 else ""))
-        for value in row:
+        for index, value in enumerate(row):
             fill = visual.palette.table_header if header and row_index == 0 else (
                 visual.palette.table_alt if row_index % 2 else visual.palette.page
             )
-            shading = f'<w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="{fill.lstrip("#")}"/></w:tcPr>'
+            shading = (
+                f'<w:tcPr><w:tcW w:w="{column_widths[index]}" w:type="dxa"/>'
+                f'<w:shd w:val="clear" w:color="auto" w:fill="{fill.lstrip("#")}"/></w:tcPr>'
+            )
             run_properties = (
                 "<w:rPr>" + ("<w:b/>" if header and row_index == 0 else "")
                 + f'<w:color w:val="{visual.palette.text.lstrip(chr(35))}"/>'
