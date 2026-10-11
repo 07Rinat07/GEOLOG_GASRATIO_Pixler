@@ -388,7 +388,6 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
                 geology_track_settings=geology_track_settings,
                 depth_range=depth_range,
                 legend_mode=composition.legend_mode,
-                geology_legend_pages=composition.geology_legend_pages,
                 layout_profile=composition.layout_profile,
                 identity=preview_identity,
                 annotations=composition.annotations,
