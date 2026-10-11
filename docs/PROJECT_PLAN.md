@@ -247,14 +247,28 @@ WITS-NET-01 остаётся внешним условием: пользоват
   транзакция редактора после import; импорт, Composer preview, export и физическая
   печать не входят в этот бюджет и требуют своих измерений/приёмки.
 
-### RPT-ANN-01 — горячие клавиши Qt-редактора (на проверке)
+### RPT-ANN-01 — горячие клавиши Qt-редактора (завершено)
 
 - Ctrl+Z и Ctrl+Shift+Z в активном диалоге вызывают существующие кнопки Undo/Redo;
   disabled history остаётся безопасным no-op. Второй command stack не создаётся.
   Нативная отмена ввода в текстовом поле сохраняется и не меняет report records.
 - Приёмка: реальные Qt key events, 20 последовательных Undo/Redo, RU/KK/EN,
   commit, Cancel после draft Undo/Redo, JSON/package reopen, clean state и source arrays.
-  Ответственный: разработчик/QA. Требуются три exact-head Release gates.
+  Ответственный: разработчик/QA. Интегрировано через PR #562 после трёх gates на
+  529fe5ac (run 38168859808), main 3b78c0e8.
+
+### RPT-ANN-01 — сквозной Composer preview/PDF/system print (на проверке)
+
+- Настоящая кнопка Composer и Qt-редактор создают по две записи в каждой из двух
+  скважин: собственную Unicode-заметку на TG и заметку отсутствующей logical track.
+  После JSON/package save/reopen реальные preview/PDF/printer renderer paths
+  получают тот же persisted annotation snapshot и output language RU/KK/EN.
+- Renderer observer вызывает настоящий painter: собственная заметка рисуется,
+  отсутствующая колонка не переносится в соседнюю. Извлечённый текст экспортного
+  и подготовленного print PDF содержит собственную заметку и не содержит чужую.
+  Report Passport фиксирует две записи; QPrinter PDF содержит реальные растровые страницы.
+- Ответственный: разработчик/QA. Source arrays неизменны. Требуются три exact-head
+  gates; физическая printer/HiDPI приёмка не заменяется программной print-to-PDF.
 
 Основная очередь ниже содержит только оставшуюся разработку и сквозную автоматическую приёмку.
 RPT-GAS-VIS-02 интегрирован через PR #432 после Release gate #2380: ratio-series используют
