@@ -433,6 +433,12 @@ Document/painter/user-selected colors остаются данными докум
 дополнительно Windows 100/125/150/200% DPI. Общий adaptive contract не считается полностью
 закрытым наличием ранее интегрированного UI-ADAPT-01.
 
+## PRINT-STYLE-01 — входные размеры блока реквизитов Masterlog (на проверке)
+
+- Masterlog document-control проверяет конечность и положительность физической ширины листа до выбора числа колонок; NaN, Infinity, bool, строки, неположительные значения и произвольно большие integer отклоняются как ValueError.
+- Глубины в печатаемом интервале должны быть конечными числами без перестановки границ; недостоверные данные не печатаются как NaN/Infinity. Корректные интервалы, RU/KK/EN-компоновка, LAS и данные расчётов сохраняются.
+- Приёмка: параметризованные positive/negative unit-тесты и три exact-head Windows Release gate до merge.
+
 ## PRINT-STYLE-01 — большие целые в физических параметрах отчёта (на проверке)
 
 - Общий ReportVisualProfile отклоняет произвольные целые JSON/Python глубоко вне float-range как штатный ValueError, а не необработанный OverflowError, во всех полях ReportTypography и ReportLayoutMetrics, включая отрицательные значения.
