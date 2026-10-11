@@ -973,7 +973,10 @@ def _draw_ratio_tracks(
             painter.save()
             try:
                 painter.setClipRect(lane.adjusted(0.6, 0.6, -0.6, -0.6))
-                painter.setPen(Qt.PenStyle.NoPen)
+                # Keep the historical 0.7 pt dashed ratio outline for
+                # physical-print contrast, but draw it around *individual*
+                # observations. No line segments connect distinct depths.
+                painter.setPen(QPen(color, 0.7, Qt.PenStyle.DashLine))
                 painter.setBrush(color)
                 for value, depth_value in zip(point_values, point_depths, strict=True):
                     position = gas_ratio_position(float(value), scale)

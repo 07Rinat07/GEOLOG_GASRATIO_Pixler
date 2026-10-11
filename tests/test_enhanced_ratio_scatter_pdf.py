@@ -7,8 +7,8 @@ from unittest.mock import MagicMock
 import fitz
 import numpy as np
 import pytest
-from PySide6.QtCore import QRectF
-from PySide6.QtGui import QPainter, QPdfWriter
+from PySide6.QtCore import QRectF, Qt
+from PySide6.QtGui import QPainter, QPdfWriter, QPen
 
 from geoworkbench.domain.models import Dataset, DatasetKind, DepthDomain
 from geoworkbench.printing import hydrocarbon_interpretation_pdf_chart_enhanced as enhanced
@@ -55,6 +55,14 @@ def test_enhanced_pdf_ratio_tracks_use_only_bounded_scatter_marks(
     assert painter.drawEllipse.call_count > 0
     assert painter.drawEllipse.call_count <= 3 * gas_scatter_point_budget(rect.height())
     painter.drawPolyline.assert_not_called()
+    # Legacy printer contract still requires a colored dashed 0.7-pt outline.
+    ratio_outlines = [
+        call.args[0] for call in painter.setPen.call_args_list
+        if call.args and isinstance(call.args[0], QPen)
+        and call.args[0].style() == Qt.PenStyle.DashLine
+    ]
+    assert len(ratio_outlines) >= 3
+    assert all(pen.widthF() == pytest.approx(0.7) for pen in ratio_outlines)
     for call in painter.drawEllipse.call_args_list:
         center, radius_x, radius_y = call.args
         assert 20.0 <= center.x() <= 240.0
