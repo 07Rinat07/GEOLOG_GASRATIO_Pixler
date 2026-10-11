@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 from collections.abc import Sequence
+from math import ceil
 
 import numpy as np
 from numpy.typing import NDArray
@@ -189,6 +190,33 @@ def _compact_tick(value: float) -> str:
     return f"{value:.2g}"
 
 
+def _paired_x_tick_rect(plot: QRectF, tick: int) -> QRectF:
+    """Keep the first X tick clear of the Y=0 label at both plot origins."""
+    x = plot.left() + tick / 5 * plot.width()
+    if tick == 0:
+        # Keep zero centred on its gridline without touching the Y-axis label.
+        return QRectF(x - 6.0, plot.bottom() + 1.0, 12.0, 21.0)
+    return QRectF(x - 23.0, plot.bottom() + 1.0, 46.0, 21.0)
+
+
+def _pixler_log_tick_powers(minimum: float, maximum: float, plot_height: float) -> tuple[int, ...]:
+    """Bound label density: neighbouring 24-unit tick boxes never intersect."""
+    start, end = int(minimum), int(maximum)
+    if end <= start or plot_height < 24.0:
+        return (start,)
+    label_slots = max(2, int(plot_height // 32.0) + 1)
+    span = end - start
+    # Check spacing after choosing integer powers, not before rounding.
+    spacing_step = ceil(24.0 * span / plot_height)
+    budget_step = ceil(span / (label_slots - 1))
+    step = max(1, spacing_step, budget_step)
+    powers = list(range(start, end, step))
+    if len(powers) > 1 and end - powers[-1] < step:
+        powers.pop()
+    powers.append(end)
+    return tuple(powers)
+
+
 def _axes(painter: QPainter, rect: QRectF) -> None:
     palette = modern_oilfield_report_profile().palette
     painter.setPen(QPen(QColor(palette.border), 0.6))
@@ -262,14 +290,14 @@ def paint_ratio_reference_summary(
                 )
             _text(
                 painter,
-                QRectF(plot.left(), 309, plot.width(), 26),
+                QRectF(plot.left(), 309, plot.width(), 21),
                 "Balance (Bh)" if name == "BH" else "Character (Ch)",
             )
             _text(painter, QRectF(plot.left(), 46, plot.width(), 28), "C1 / ΣHC")
             for tick in range(6):
                 _text(
                     painter,
-                    QRectF(plot.left() + tick / 5 * plot.width() - 27, 284, 54, 23),
+                    _paired_x_tick_rect(plot, tick),
                     _compact_tick(maximum * tick / 5),
                     typography.caption_pt,
                 )
@@ -306,12 +334,12 @@ def paint_ratio_reference_summary(
             start = low_depth + (high_depth - low_depth) * index / 6
             end = low_depth + (high_depth - low_depth) * (index + 1) / 6
             painter.setPen(_depth_pen(index, 1.5))
-            painter.drawLine(QLineF(65 + index * 150, 327, 100 + index * 150, 327))
-            _depth_marker(painter, QPointF(82.5 + index * 150, 327), index, 3)
-            _text(painter, QRectF(101 + index * 150, 314, 113, 26), f"{start:.{depth_decimals}f}–{end:.{depth_decimals}f} m", typography.caption_pt)
+            painter.drawLine(QLineF(65 + index * 150, 346, 100 + index * 150, 346))
+            _depth_marker(painter, QPointF(82.5 + index * 150, 346), index, 3)
+            _text(painter, QRectF(101 + index * 150, 335, 113, 24), f"{start:.{depth_decimals}f}–{end:.{depth_decimals}f} m", typography.caption_pt)
         plot = QRectF(65, 385, 610, 205)
         _axes(painter, plot)
-        _text(painter, QRectF(65, 362, 610, 24), "Pixler · C1/C2 – C1/C5", typography.section_pt)
+        _text(painter, QRectF(65, 362, 610, 20), "Pixler · C1/C2 – C1/C5", typography.section_pt)
         keys = [f"C1_C{i}" for i in range(2, 6)]
         if all(key in ratios for key in keys):
             matrix = np.column_stack([ratios[key].values for key in keys])
@@ -330,7 +358,7 @@ def paint_ratio_reference_summary(
             minimum = (
                 min(0.0, float(np.floor(np.log10(np.min(matrix[valid]))))) if valid.size else 0.0
             )
-            for power in range(int(minimum), int(maximum) + 1):
+            for power in _pixler_log_tick_powers(minimum, maximum, plot.height()):
                 tick_y = plot.bottom() - (power - minimum) / (maximum - minimum) * plot.height()
                 painter.setPen(QPen(QColor(palette.border), 0.7))
                 painter.drawLine(QLineF(plot.left(), tick_y, plot.right(), tick_y))
@@ -383,7 +411,10 @@ def paint_ratio_reference_summary(
         for index, key in enumerate(keys):
             _text(
                 painter,
-                QRectF(plot.left() + index / 3 * plot.width() - 35, 595, 70, 25),
+                QRectF(
+                    plot.left() + index / 3 * plot.width() - 35,
+                    603, 70, 19,
+                ),
                 key.replace("_", "/"),
                 typography.caption_pt,
             )
