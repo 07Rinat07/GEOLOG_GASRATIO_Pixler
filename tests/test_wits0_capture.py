@@ -424,3 +424,37 @@ def _wait_until(predicate, *, timeout: float = 3.0) -> None:  # type: ignore[no-
             return
         time.sleep(0.01)
     raise AssertionError("Timed out waiting for WITS0 capture state")
+
+
+
+def test_stop_cancels_tcp_client_before_status_observers_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    engine = Wits0CaptureEngine(
+        Wits0CaptureConfig(
+            mode=Wits0ConnectionMode.TCP_CLIENT,
+            host="127.0.0.1",
+            port=54321,
+            raw_directory=tmp_path,
+        )
+    )
+    # A status/logging observer may be delayed on a busy Windows runner.
+    # Cancellation should already be visible before invoking that observer.
+    engine._thread = threading.Thread(
+        target=lambda: engine._stop.wait(5.0), daemon=True,
+    )
+    engine._thread.start()
+    seen: list[bool] = []
+    real_emit_state = engine._emit_state
+
+    def observe_state(state: Wits0CaptureState, message: str) -> None:
+        if state is Wits0CaptureState.STOPPING:
+            seen.append(engine._stop.is_set())
+            time.sleep(0.02)
+        real_emit_state(state, message)
+
+    monkeypatch.setattr(engine, "_emit_state", observe_state)
+    assert engine.stop(timeout=1.0)
+    assert seen == [True]
+    assert engine.snapshot().state is Wits0CaptureState.STOPPED
+    assert not engine.is_running
