@@ -102,3 +102,68 @@ def test_annotation_created_in_editor_survives_project_reopen(qapp, tmp_path, su
         assert second.track.currentText() == "curve:TG"
     finally:
         second.reject()
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+@pytest.mark.parametrize("suffix", (".geolog.json", ".geologpkg"))
+@pytest.mark.parametrize("anchor", (ReportAnnotationAnchor.DEPTH, ReportAnnotationAnchor.INTERVAL))
+def test_annotation_editor_preserves_depth_precision_beyond_six_decimals(
+    qapp, tmp_path, language: AppLanguage, suffix: str, anchor: ReportAnnotationAnchor,
+) -> None:
+    session = _session()
+    before_depth = session.current_dataset.depth.copy()
+    before_curves = {
+        key: curve.values.copy() for key, curve in session.current_dataset.curves.items()
+    }
+    depth = 1001.0000007
+    top = 1000.0000007
+    bottom = 1002.0000009
+
+    dialog = InterpretationReportAnnotationDialog(session, language=language)
+    assert all(
+        spin.decimals() >= 9
+        for spin in (dialog.depth_spin, dialog.top_depth_spin, dialog.bottom_depth_spin)
+    )
+    dialog.track.setCurrentText("curve:TG")
+    dialog.anchor.setCurrentIndex(dialog.anchor.findData(anchor.value))
+    if anchor is ReportAnnotationAnchor.DEPTH:
+        dialog.depth_spin.setValue(depth)
+    else:
+        dialog.top_depth_spin.setValue(top)
+        dialog.bottom_depth_spin.setValue(bottom)
+    dialog.text.setText("Precise LAS depth")
+    dialog._add()
+    record = dialog.controller.available()[0]
+    if anchor is ReportAnnotationAnchor.DEPTH:
+        assert record.depth == pytest.approx(depth, rel=0, abs=1e-10)
+    else:
+        assert record.top_depth == pytest.approx(top, rel=0, abs=1e-10)
+        assert record.bottom_depth == pytest.approx(bottom, rel=0, abs=1e-10)
+    dialog.accept()
+
+    target = tmp_path / f"precision{suffix}"
+    ProjectController(session=session).save_project(target)
+    reopened = ProjectController().open_project(target)
+    records = ReportAnnotationController(reopened).available()
+    assert len(records) == 1
+    assert records[0] == record
+    editor = InterpretationReportAnnotationDialog(reopened, language=language)
+    try:
+        editor.annotation.setCurrentIndex(1)
+        assert editor._current_anchor() is anchor
+        if anchor is ReportAnnotationAnchor.DEPTH:
+            assert editor.depth_spin.value() == pytest.approx(depth, rel=0, abs=1e-10)
+        else:
+            assert editor.top_depth_spin.value() == pytest.approx(top, rel=0, abs=1e-10)
+            assert editor.bottom_depth_spin.value() == pytest.approx(bottom, rel=0, abs=1e-10)
+        # Explicitly save after loading: do not silently truncate original anchors.
+        editor._save()
+        assert editor.controller.available()[0] == record
+        editor.accept()
+    finally:
+        editor.close()
+    import numpy as np
+
+    np.testing.assert_array_equal(reopened.current_dataset.depth, before_depth)
+    for key, original in before_curves.items():
+        np.testing.assert_array_equal(reopened.current_dataset.curves[key].values, original)
