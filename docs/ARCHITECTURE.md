@@ -1033,3 +1033,14 @@ Composer annotation acceptance drives the real workspace button, editor construc
 shared CommandHistory and callbacks. Only modal waiting is scripted: 20 Undo/Redo
 transitions, cross-well rollback and persisted JSON/package reopen exercise existing
 transactions without a second history or changes to source/calculation contracts.
+
+Large-LAS annotation memory acceptance measures the existing modal editor transaction
+with shared CommandHistory after production import. Python allocation peak detects
+transient NumPy source copies; sampled process RSS includes native Qt allocations.
+Source hashes and array identities guard immutability. Import and Composer preview
+are outside this transaction budget and retain separate performance contracts.
+
+The numeric LAS payload iterator now scans newline boundaries once, including CRLF,
+CR, LF and mixed endings. This removes quadratic searches for an absent delimiter
+in uniform-newline large files. Header parsing, numeric/null semantics, compatibility
+fallback and source byte preservation remain owned by the existing LAS adapter.

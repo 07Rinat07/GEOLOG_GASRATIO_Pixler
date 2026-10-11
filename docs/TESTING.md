@@ -1578,3 +1578,19 @@ editor inspection in both wells. Every intermediate history state is checked;
 scopes, source depth/C1 and clean state after reopened Cancel are preserved.
 Run: `.venv\Scripts\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_report_annotation_composer_history.py`.
 This acceptance does not replace large-LAS RSS, export or physical-printer review.
+
+`tests/test_report_annotation_large_las_memory.py` imports real synthetic LAS fixtures
+of 100k/1M rows and eight curves, then drives 20 adds/Undo/Redo and Cancel in the real
+Qt editor. Per-case editor Python peak must stay below 4 MiB and sampled RSS growth
+below 32 MiB; Windows requires an available RSS counter. Source SHA-256 and array
+identities, clean state and empty history/composition after Cancel are asserted.
+Import and hashing are excluded from the measured region; Composer preview, import
+performance and PDF/printer acceptance remain separate. Metrics are recorded as
+pytest properties and printed with `-s`.
+Run: `.venv\Scripts\python.exe scripts/run_tests.py -p no:cacheprovider -s tests/test_report_annotation_large_las_memory.py`.
+
+`tests/test_las_numeric_line_iteration.py` verifies LF/CRLF/CR with and without a
+trailing newline, empty/comment lines, mixed endings and bounded unterminated tails.
+An instrumented bytes fixture counts total find search ranges instead of elapsed
+time; the old iterator fails the linear work budget for LF and CR. The new forward
+scan retains exact row bytes and does not yield content from the following section.
