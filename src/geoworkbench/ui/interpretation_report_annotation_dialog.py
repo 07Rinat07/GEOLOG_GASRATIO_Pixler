@@ -161,7 +161,9 @@ class InterpretationReportAnnotationDialog(QDialog):
     def _depth_spin(name: str) -> QDoubleSpinBox:
         spin = QDoubleSpinBox()
         spin.setObjectName(name)
-        spin.setDecimals(6)
+        # LAS/GTI depths may have sub-micrometre decimal increments.
+        # Six places silently rounded annotation anchors on edit/reopen.
+        spin.setDecimals(9)
         spin.setRange(-1.0e12, 1.0e12)
         return spin
 
