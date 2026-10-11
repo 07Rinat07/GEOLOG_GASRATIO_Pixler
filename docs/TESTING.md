@@ -1611,3 +1611,5 @@ do not. Source depth and every curve array remain unchanged; raster print pages
 must contain images. Modal acceptance/file choices are scripted; physical printer
 and HiDPI acceptance remain separate.
 Run: `.venv\Scripts\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_report_annotation_composer_output.py`.
+
+Report checkpoint regression: `python scripts/run_tests.py -p no:cacheprovider tests/test_report_annotations.py` covers add/update/remove Redo, checkpoint rollback, and subsequent Redo/Undo. Composer, keyboard-history and large-LAS memory suites cover the existing editor contract; Apply and divergent history remain separate work.

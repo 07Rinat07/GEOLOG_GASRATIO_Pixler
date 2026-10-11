@@ -37,6 +37,7 @@ class ReportAnnotationEditorCheckpoint:
     annotations: tuple[ReportAnnotationRecord, ...]
     session_dirty: bool
     history: CommandHistoryCheckpoint = field(repr=False)
+    command_states: tuple[tuple[_ReportAnnotationCommand, bool], ...] = field(repr=False)
 
 
 @dataclass(slots=True)
@@ -409,6 +410,7 @@ class ReportAnnotationController:
         _, dataset_id = self._current_ids()
         existing = self.session.report_compositions.get(dataset_id)
         composition = self._resolved_composition(dataset_id)
+        history = self._history.checkpoint()
         return ReportAnnotationEditorCheckpoint(
             dataset_id=dataset_id,
             composition_id=composition.composition_id,
@@ -416,7 +418,12 @@ class ReportAnnotationController:
             presentation_state=replace(composition, annotations=()),
             annotations=composition.annotations,
             session_dirty=self.session.dirty,
-            history=self._history.checkpoint(),
+            history=history,
+            command_states=tuple(
+                (command, command._applied)
+                for command in history.commands
+                if isinstance(command, _ReportAnnotationCommand)
+            ),
         )
 
     def restore(self, checkpoint: ReportAnnotationEditorCheckpoint) -> None:
@@ -442,6 +449,10 @@ class ReportAnnotationController:
             )
         else:
             self.session.report_compositions.pop(checkpoint.dataset_id, None)
+        # Stack snapshots retain command references; Redo changes their mutable
+        # execution flags even when the annotation snapshot is rolled back.
+        for command, applied in checkpoint.command_states:
+            command._applied = applied
         self._history.restore(checkpoint.history)
         self.session.dirty = checkpoint.session_dirty
 

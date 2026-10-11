@@ -34,6 +34,12 @@ class CommandHistoryCheckpoint:
     _undo_stack: tuple[UndoableCommand, ...] = field(repr=False)
     _redo_stack: tuple[UndoableCommand, ...] = field(repr=False)
 
+    @property
+    def commands(self) -> tuple[UndoableCommand, ...]:
+        """Commands retained by this bounded checkpoint, including its redo branch."""
+
+        return self._undo_stack + self._redo_stack
+
 
 @dataclass(slots=True)
 class CallbackCommand:
