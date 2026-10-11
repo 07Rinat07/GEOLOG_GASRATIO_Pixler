@@ -73,7 +73,26 @@ def _check_footer_package(path, language, expected_sections, has_details):
             assert section.find('w:pgNumType', _NAMESPACES) is None
         assert {field.get(_W + 'instr') for field in footer.findall('.//w:fldSimple', _NAMESPACES)} == {'PAGE', 'NUMPAGES'}
         assert all(field.get(_W + 'dirty') == 'true' for field in footer.findall('.//w:fldSimple', _NAMESPACES))
-        assert footer.find('.//w:tblPr/w:tblW', _NAMESPACES).get(_W + 'type') == 'pct'
+        width = footer.find('.//w:tblPr/w:tblW', _NAMESPACES)
+        assert width.get(_W + 'type') == 'dxa'
+        declared = int(width.get(_W + 'w'))
+        assert declared == 15_000
+        # Even polished A4-landscape reports use at most 850 twip side margins.
+        assert declared < 16_838 - 2 * 850
+        grid = footer.findall('.//w:tblGrid/w:gridCol', _NAMESPACES)
+        col_widths = tuple(int(column.get(_W + 'w')) for column in grid)
+        assert col_widths == (12_000, 3_000)
+        assert sum(col_widths) == declared
+        for cell, expected in zip(rows[0].findall('w:tc', _NAMESPACES), col_widths):
+            cell_width = cell.find('w:tcPr/w:tcW', _NAMESPACES)
+            assert cell_width.get(_W + 'type') == 'dxa'
+            assert int(cell_width.get(_W + 'w')) == expected
+        if has_details:
+            cell = rows[1].find('w:tc', _NAMESPACES)
+            assert int(cell.find('w:tcPr/w:gridSpan', _NAMESPACES).get(_W + 'val')) == 2
+            cell_width = cell.find('w:tcPr/w:tcW', _NAMESPACES)
+            assert cell_width.get(_W + 'type') == 'dxa'
+            assert int(cell_width.get(_W + 'w')) == declared
         assert footer.find('.//w:tblPr/w:tblLayout', _NAMESPACES).get(_W + 'type') == 'fixed'
         cells = rows[0].findall('w:tc', _NAMESPACES)
         assert _text(cells[0]) == REPORT_BRAND_WORDMARK
