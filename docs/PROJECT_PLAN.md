@@ -445,6 +445,12 @@ Document/painter/user-selected colors остаются данными докум
 - Шкалы, единицы, major/minor grid, кандидатные интервалы, цветовые роли и легенды остаются прежними. Рассчитанные ratio, исходные LAS/ГТИ и глубины не меняются; OPUS3 остаётся обычной кривой.
 - Приёмка: реальные Qt/PDF primitive тесты для Wh/Bh/Ch, dense sampling, invalid log values и immutable source arrays; полный exact-head Windows Quality/GUI/Security; external physical-print остаётся незавершённым.
 
+## PRINT-STYLE-01 — цветонезависимые линии кривых интерпретации (на проверке)
+
+- Стандартные и OPUS PDF-графики с обычными непрерывными кривыми, их легенды и PNG/HTML preview используют один детерминированный по порядку в панели line-style contract: solid, dash, dot, dash-dot, dash-dot-dot.
+- Цвет остаётся для экранного просмотра; при монохромной печати пользователь различает до пяти наложенных кривых и по типу штриха. Ratio-series остаются точечными, без соединяющих линий. Идентификаторы, шкалы, глубины, все исходные LAS и интерпретационные расчёты неизменны.
+- Приёмка: Qt-mock для кривых и реального preview, векторный PDF с ненулевой штриховкой и легендой, все три Windows Release Gate на точном HEAD. Физическая печать A4/A3 остаётся отдельной.
+
 ## PRINT-STYLE-01 — Report Visual System
 
 - [x] **2026-10-10 — geology report output-language package:** отдельный диалог
