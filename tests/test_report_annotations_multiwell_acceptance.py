@@ -16,6 +16,8 @@ from geoworkbench.printing.hydrocarbon_interpretation_report import (
 from geoworkbench.project.controller import ProjectController
 from geoworkbench.project.report_annotation_controller import ReportAnnotationController
 from geoworkbench.project.session import ProjectSession
+from geoworkbench.services.localization import AppLanguage
+from geoworkbench.ui.interpretation_report_annotation_dialog import InterpretationReportAnnotationDialog
 from geoworkbench.services.hydrocarbon_interpretation import (
     build_hydrocarbon_interpretation_report,
 )
@@ -162,3 +164,91 @@ def test_signed_pdf_export_rejects_other_wells_annotation_but_accepts_own(
     assert len(outputs) == 1
     assert dict(outputs[0][1].render.options)["report_annotations"] == "1"
     assert editor.available() == (note_b,)
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+@pytest.mark.parametrize("suffix", (".geolog.json", ".geologpkg"))
+def test_multiwell_report_annotation_dialog_commit_cancel_and_reopen(
+    qapp, tmp_path: Path, language: AppLanguage, suffix: str,
+) -> None:
+    """Real editor transactions must remain in the selected well's report scope."""
+    session = _two_well_session()
+    control = ReportAnnotationController(session)
+    raw = {
+        dataset_id: (
+            session.project.wells[well_id].datasets[dataset_id].depth.copy(),
+            session.project.wells[well_id].datasets[dataset_id]
+            .curves[f"curve-{dataset_id}"].values.copy(),
+        )
+        for well_id, dataset_id, _ in PAIRS
+    }
+
+    # Commit one annotation in Well A using the actual Qt editor.
+    _select(session, "well-a", "dataset-a")
+    first = InterpretationReportAnnotationDialog(session, language=language)
+    assert first.annotation.count() == 1
+    first.track.setCurrentText("curve:C1")
+    first.depth_spin.setValue(1001.0)
+    first.text.setText("Committed A")
+    first._add()
+    assert len(first.controller.available()) == 1
+    first.accept()
+    note_a = control.available()[0]
+    assert note_a.text == "Committed A"
+
+    # A draft in another well must be rolled back without touching Well A.
+    _select(session, "well-b", "dataset-b")
+    draft = InterpretationReportAnnotationDialog(session, language=language)
+    assert draft.annotation.count() == 1
+    draft.depth_spin.setValue(2001.0)
+    draft.text.setText("Cancelled B")
+    draft._add()
+    assert len(control.available()) == 1
+    draft.reject()
+    assert control.available() == ()
+    _select(session, "well-a", "dataset-a")
+    assert control.available() == (note_a,)
+
+    # Commit B using a new editor; its scope and selected items are independent.
+    _select(session, "well-b", "dataset-b")
+    second = InterpretationReportAnnotationDialog(session, language=language)
+    assert second.annotation.count() == 1
+    second.track.setCurrentText("curve:C1")
+    second.depth_spin.setValue(2001.0)
+    second.text.setText("Committed B")
+    second._add()
+    second.accept()
+    note_b = control.available()[0]
+    assert note_b.text == "Committed B"
+    assert note_a.scope_id != note_b.scope_id
+
+    target = tmp_path / f"editor-multiwell{suffix}"
+    ProjectController(session=session).save_project(target)
+    reopened = ProjectController().open_project(target)
+    assert not reopened.dirty
+    checker = ReportAnnotationController(reopened)
+    for well_id, dataset_id, depth in PAIRS:
+        _select(reopened, well_id, dataset_id)
+        expected = note_a if well_id == "well-a" else note_b
+        assert checker.available() == (expected,)
+        restored_dialog = InterpretationReportAnnotationDialog(
+            reopened, language=language,
+        )
+        try:
+            assert restored_dialog.annotation.count() == 2
+            restored_dialog.annotation.setCurrentIndex(1)
+            assert restored_dialog.text.text() == expected.text
+            assert restored_dialog.depth_spin.value() == depth + 1.0
+            assert restored_dialog.track.currentText() == "curve:C1"
+        finally:
+            restored_dialog.reject()
+        dataset = reopened.current_dataset
+        assert dataset is not None
+        expected_depth, expected_values = raw[dataset_id]
+        np.testing.assert_array_equal(dataset.depth, expected_depth)
+        np.testing.assert_array_equal(
+            dataset.curves[f"curve-{dataset_id}"].values, expected_values,
+        )
+    _select(reopened, "well-b", "dataset-b")
+    with pytest.raises(KeyError):
+        checker.get(note_a.annotation_id)
