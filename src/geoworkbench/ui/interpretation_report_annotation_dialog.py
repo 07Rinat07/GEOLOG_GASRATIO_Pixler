@@ -62,9 +62,8 @@ class InterpretationReportAnnotationDialog(QDialog):
             session,
             shared_history=shared_history,
         )
-        # The modal editor owns one transactional command suffix. Reusing commands
-        # from an earlier dialog or another dataset would make Cancel ambiguous.
-        self.controller.clear_history()
+        # Reopening retains shared history; the controller gates Undo/Redo by
+        # report ownership and Cancel restores this opening checkpoint.
         self._checkpoint = self.controller.checkpoint()
 
         self.setModal(True)

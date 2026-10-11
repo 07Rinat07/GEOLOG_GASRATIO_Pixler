@@ -179,12 +179,24 @@ class ReportAnnotationController:
     @property
     def can_undo(self) -> bool:
         command = self._history.next_undo
-        return command is not None and command.history_domain == _HISTORY_DOMAIN
+        return self._owns_history_command(command)
 
     @property
     def can_redo(self) -> bool:
         command = self._history.next_redo
-        return command is not None and command.history_domain == _HISTORY_DOMAIN
+        return self._owns_history_command(command)
+
+    def _owns_history_command(self, command: object) -> bool:
+        if not isinstance(command, _ReportAnnotationCommand) or command.session is not self.session:
+            return False
+        if self.session.current_dataset is None:
+            return False
+        _, dataset_id = self._current_ids()
+        composition = self._resolved_composition(dataset_id)
+        return (
+            command.dataset_id == dataset_id
+            and command.composition_id == composition.composition_id
+        )
 
     def current_scope_id(self) -> str:
         well_id, dataset_id = self._current_ids()
