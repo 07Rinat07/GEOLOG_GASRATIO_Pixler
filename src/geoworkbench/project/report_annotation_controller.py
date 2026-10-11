@@ -429,12 +429,26 @@ class ReportAnnotationController:
     def restore(self, checkpoint: ReportAnnotationEditorCheckpoint) -> None:
         if not isinstance(checkpoint, ReportAnnotationEditorCheckpoint):
             raise TypeError("Ожидалась контрольная точка report annotations")
-        appended = self._history.commands_since(checkpoint.history)
-        if any(command.history_domain != _HISTORY_DOMAIN for command in appended):
+        changed = self._history.changed_commands_since(checkpoint.history)
+        if any(command.history_domain != _HISTORY_DOMAIN for command in changed):
             raise RuntimeError("После checkpoint появились изменения другого домена")
+        if any(
+            not isinstance(command, _ReportAnnotationCommand)
+            or command.session is not self.session
+            or command.dataset_id != checkpoint.dataset_id
+            or command.composition_id != checkpoint.composition_id
+            for command in changed
+        ):
+            raise RuntimeError("После checkpoint изменена другая область report annotations")
         current = self.session.report_compositions.get(checkpoint.dataset_id)
         if current is None:
-            if checkpoint.composition_existed:
+            removed_by_undo = any(
+                isinstance(command, _ReportAnnotationCommand)
+                and command.composition_created
+                and not command._applied
+                for command in changed
+            )
+            if checkpoint.composition_existed and not removed_by_undo:
                 raise RuntimeError("Report composition была удалена после checkpoint")
             current = checkpoint.presentation_state
         if current.composition_id != checkpoint.composition_id:

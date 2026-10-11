@@ -1613,3 +1613,5 @@ and HiDPI acceptance remain separate.
 Run: `.venv\Scripts\python.exe scripts/run_tests.py -p no:cacheprovider tests/test_report_annotation_composer_output.py`.
 
 Report checkpoint regression: `python scripts/run_tests.py -p no:cacheprovider tests/test_report_annotations.py` covers add/update/remove Redo, checkpoint rollback, and subsequent Redo/Undo. Composer, keyboard-history and large-LAS memory suites cover the existing editor contract; Apply and divergent history remain separate work.
+
+Checkpoint branch regressions in `tests/test_report_annotations.py` cover Undo before the saved checkpoint, replacement edits, repeated Undo/Redo after rollback, foreign-domain Undo, foreign-session report commands and external composition deletion. Run with `python scripts/run_tests.py -p no:cacheprovider tests/test_report_annotations.py`.

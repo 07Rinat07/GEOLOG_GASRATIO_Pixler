@@ -160,6 +160,34 @@ class CommandHistory:
             raise RuntimeError("История команд разошлась после контрольной точки")
         return tuple(self._undo_stack[len(prefix) :])
 
+    def changed_commands_since(
+        self,
+        checkpoint: CommandHistoryCheckpoint,
+    ) -> tuple[UndoableCommand, ...]:
+        """Return commands in changed stack suffixes, including discarded branches.
+
+        Callers must validate ownership before restoring their model snapshot.
+        Unlike commands_since, this also permits Undo across the checkpoint.
+        """
+
+        self._validate_checkpoint(checkpoint)
+        changed: list[UndoableCommand] = []
+        seen: set[int] = set()
+        for current, saved in (
+            (self._undo_stack, checkpoint._undo_stack),
+            (self._redo_stack, checkpoint._redo_stack),
+        ):
+            common = 0
+            for actual, expected in zip(current, saved, strict=False):
+                if actual is not expected:
+                    break
+                common += 1
+            for command in (*current[common:], *saved[common:]):
+                if id(command) not in seen:
+                    changed.append(command)
+                    seen.add(id(command))
+        return tuple(changed)
+
     def restore(self, checkpoint: CommandHistoryCheckpoint) -> None:
         """Restore stacks after the caller has rolled back the associated model transaction."""
 
