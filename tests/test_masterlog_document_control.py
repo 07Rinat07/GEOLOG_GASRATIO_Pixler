@@ -15,6 +15,7 @@ from geoworkbench.printing.header_fields import (
     resolve_header_field,
 )
 from geoworkbench.printing.masterlog_output import MasterlogOutputSettings
+from geoworkbench.printing.masterlog_document_control import masterlog_document_control_layout
 from geoworkbench.printing.masterlog_renderer import _header_text, export_masterlog_pdf
 from geoworkbench.project.controller import ProjectController
 from geoworkbench.project.masterlog_template_controller import MasterlogTemplateController
@@ -103,3 +104,52 @@ def test_document_control_is_editable_with_adopted_passport(qapp, language):
     finally:
         dialog.close()
         element_dialog.close()
+
+
+def _controlled_masterlog():
+    session = ProjectSession()
+    dataset = Dataset('finite-layout', 'Finite', DatasetKind.GTI, DepthDomain.MD,
+                      np.array([100.0, 101.0]))
+    session.add_dataset(dataset, 'Well')
+    controller = MasterlogTemplateController(session)
+    template = controller.create('Controlled layout')
+    controller.update_header_fields(template.template_id, {'header.document_number': 'DC-01'})
+    return session, template
+
+
+@pytest.mark.parametrize('width_mm', (0, -1, float('nan'), float('inf'),
+                                      float('-inf'), True, '180', 10 ** 400))
+def test_masterlog_document_control_rejects_invalid_physical_width(width_mm):
+    session, template = _controlled_masterlog()
+    with pytest.raises(ValueError, match='width_mm'):
+        masterlog_document_control_layout(template, session, (100.0, 101.0), width_mm)
+
+
+@pytest.mark.parametrize('depth_range', (
+    (float('nan'), 101.0),
+    (100.0, float('inf')),
+    (float('-inf'), 101.0),
+    (True, 101.0),
+    (100.0, '101'),
+    (10 ** 400, 10 ** 401),
+    (101.0, 100.0),
+))
+def test_masterlog_document_control_rejects_invalid_depth_labels(depth_range):
+    session, template = _controlled_masterlog()
+    with pytest.raises(ValueError, match='depth|finite'):
+        masterlog_document_control_layout(template, session, depth_range, 180.0)
+
+
+@pytest.mark.parametrize('width_mm,expected_columns', ((159.9, 1), (160.0, 2), (210.0, 2)))
+@pytest.mark.parametrize('language', list(AppLanguage))
+def test_masterlog_document_control_preserves_valid_layout_and_depth(
+    width_mm, expected_columns, language,
+):
+    session, template = _controlled_masterlog()
+    result = masterlog_document_control_layout(
+        template, session, (-2.5, 101.25), width_mm, language,
+    )
+    assert result is not None
+    assert result.columns == expected_columns
+    assert result.height_mm > 0.0
+    assert result.snapshot is not None
