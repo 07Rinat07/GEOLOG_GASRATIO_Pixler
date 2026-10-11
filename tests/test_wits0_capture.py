@@ -458,3 +458,77 @@ def test_stop_cancels_tcp_client_before_status_observers_run(
     assert seen == [True]
     assert engine.snapshot().state is Wits0CaptureState.STOPPED
     assert not engine.is_running
+
+
+
+def _cancel_during_connect_engine(tmp_path: Path) -> Wits0CaptureEngine:
+    return Wits0CaptureEngine(
+        Wits0CaptureConfig(
+            mode=Wits0ConnectionMode.TCP_CLIENT,
+            host="127.0.0.1",
+            port=54321,
+            raw_directory=tmp_path,
+            reconnect_initial_s=0.05,
+            reconnect_max_s=0.1,
+        )
+    )
+
+
+def test_tcp_client_stop_during_connecting_notification_creates_no_socket(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from geoworkbench.acquisition import wits0_capture as capture_module
+
+    engine = _cancel_during_connect_engine(tmp_path)
+    events: list[Wits0CaptureState] = []
+
+    def notify(state: Wits0CaptureState, message: str) -> None:
+        events.append(state)
+        engine._stop.set()
+
+    monkeypatch.setattr(engine, "_emit_state", notify)
+
+    def unexpected_socket(*args: object, **kwargs: object) -> None:
+        pytest.fail("TCP socket was created after cancellation")
+
+    monkeypatch.setattr(capture_module.socket, "socket", unexpected_socket)
+    engine._run_client()
+    assert events == [Wits0CaptureState.CONNECTING]
+    assert engine._active_socket is None
+
+
+def test_tcp_client_stop_during_connect_success_skips_capture_and_closes_socket(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from geoworkbench.acquisition import wits0_capture as capture_module
+
+    engine = _cancel_during_connect_engine(tmp_path)
+
+    class DelayedConnection:
+        def __init__(self) -> None:
+            self.closed = False
+            self.connected = False
+
+        def settimeout(self, timeout: float) -> None:
+            pass
+
+        def connect(self, address: tuple[str, int]) -> None:
+            assert address == ("127.0.0.1", 54321)
+            self.connected = True
+            engine._stop.set()
+
+        def close(self) -> None:
+            self.closed = True
+
+    connection = DelayedConnection()
+    monkeypatch.setattr(capture_module.socket, "socket", lambda *args: connection)
+
+    def unexpected_capture(*args: object, **kwargs: object) -> None:
+        pytest.fail("Late TCP connect must not start WITS0 raw capture")
+
+    monkeypatch.setattr(engine, "_capture_connection", unexpected_capture)
+    engine._run_client()
+    assert connection.connected and connection.closed
+    assert engine._active_socket is None
+    assert engine.snapshot().connections == 0
+    assert engine.snapshot().frames_received == 0

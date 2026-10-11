@@ -765,6 +765,10 @@ class Wits0CaptureEngine:
                 Wits0CaptureState.CONNECTING,
                 f"Connecting to {self.config.host}:{self.config.port}",
             )
+            # A stop can arrive during synchronous status/logging callbacks.
+            # Do not create a fresh socket after cancellation was requested.
+            if self._stop.is_set():
+                break
             connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             connection.settimeout(self.config.connect_timeout_s)
             self._replace_active_socket(connection)
@@ -788,6 +792,14 @@ class Wits0CaptureEngine:
                     break
                 delay = min(delay * 2.0, self.config.reconnect_max_s)
                 continue
+            # A late connect() success must not restart a stopped acquisition
+            # session, create a raw segment or record a spurious CONNECTED.
+            if self._stop.is_set():
+                try:
+                    connection.close()
+                finally:
+                    self._replace_active_socket(None)
+                break
             delay = self.config.reconnect_initial_s
             self._capture_connection(
                 connection,
