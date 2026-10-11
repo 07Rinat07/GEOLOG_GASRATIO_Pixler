@@ -167,3 +167,7 @@ Confirmed annotations are restored in their own well after JSON/package save and
 Final-report annotation edits use a bounded command history without copying source
 curve arrays. Memory acceptance covers the editor transaction on imported 100k/1M-row
 LAS files; report preview, import and physical printing have separate acceptance.
+
+In the final-report editor, **Ctrl+Z** undoes an annotation command and
+**Ctrl+Shift+Z** redoes it when a command control has focus. An empty history makes
+these actions inactive. Inside a text field, Ctrl+Z retains normal typing undo.

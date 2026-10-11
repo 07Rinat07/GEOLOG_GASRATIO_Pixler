@@ -1044,3 +1044,8 @@ The numeric LAS payload iterator now scans newline boundaries once, including CR
 CR, LF and mixed endings. This removes quadratic searches for an absent delimiter
 in uniform-newline large files. Header parsing, numeric/null semantics, compatibility
 fallback and source byte preservation remain owned by the existing LAS adapter.
+
+Final-report editor Ctrl+Z/Ctrl+Shift+Z bindings are scoped to the dialog and invoke
+existing Undo/Redo button clicks. Enabled state remains owned by the controller's
+shared bounded CommandHistory; disabled clicks are inert. Native text-field undo
+retains its own input semantics without undoing a persisted report annotation.
