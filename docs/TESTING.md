@@ -1552,3 +1552,9 @@ independently of the UI default font. Regular/bold font regressions and RU/KK/EN
 PDFs after a UI-font change require complete document numbers, approvals, date and interval.
 
 `tests/test_geology_report_output_language.py` проверяет 9 UI/output-language пар геологического диалога после save/reopen: реальные PDF/DOCX/XLSX, authored translations, Unicode, immutable snapshots, неизменные gas/calcimetry values и source arrays; также cancel/error на RU/KK/EN.
+
+Generic DOCX row pagination is covered by three production RU/KK/EN exports in
+`tests/test_report_document_export.py`: metadata/coverage/data rows use cantSplit,
+only intended header rows repeat, rows have no keepNext/fixed-height chains, and
+all sample text and source arrays remain unchanged. Physical Word/printer pagination
+remains a separate acceptance step.

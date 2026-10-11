@@ -565,7 +565,11 @@ def _w_table(rows: Iterable[tuple[str, ...]], *, header: bool) -> str:
     result = ["<w:tbl>", borders, grid]
     size = round(visual.typography.table_pt * 2)
     for row_index, row in enumerate(values):
-        result.append("<w:tr>" + ("<w:trPr><w:tblHeader/></w:trPr>" if header and row_index == 0 else ""))
+        # Keep a sample's cells together while allowing breaks between rows.
+        row_properties = "<w:trPr><w:cantSplit/>"
+        if header and row_index == 0:
+            row_properties += "<w:tblHeader/>"
+        result.append("<w:tr>" + row_properties + "</w:trPr>")
         for index, value in enumerate(row):
             fill = visual.palette.table_header if header and row_index == 0 else (
                 visual.palette.table_alt if row_index % 2 else visual.palette.page
