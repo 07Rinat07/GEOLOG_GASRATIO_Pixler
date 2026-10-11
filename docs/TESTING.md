@@ -1619,3 +1619,5 @@ Checkpoint branch regressions in `tests/test_report_annotations.py` cover Undo b
 Apply acceptance: `python scripts/run_tests.py -p no:cacheprovider tests/test_report_annotation_apply.py tests/test_report_annotations.py`. Real RU/KK/EN buttons exercise Apply, Undo across its checkpoint, replacement edits, Cancel and subsequent Undo/Redo; source arrays remain unchanged.
 
 Retained report history: `python scripts/run_tests.py -p no:cacheprovider tests/test_report_annotation_retained_history.py`. RU/KK/EN Qt dialogs cover reopening, earlier Undo/Cancel, Apply, two-well command ownership and preserved stack identity. Existing Composer, keyboard and large-LAS tests remain required.
+
+`tests/test_report_annotation_apply.py` includes six RU/KK/EN JSON/package production save/open scenarios after repeated Apply and Cancel, verifying annotation identity, clean state, blocked old-session history and unchanged depth/curve arrays.

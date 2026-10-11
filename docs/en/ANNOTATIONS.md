@@ -183,3 +183,5 @@ Checkpoint rollback supports Undo of earlier edits and replacement branches, res
 Apply sets the current annotations as the new Cancel checkpoint, keeps the dialog open and retains Undo/Redo. Submit record fields with Add or Save first. Apply does not save the project file; save the project separately.
 
 Reopening the editor in the current workspace retains Undo/Redo. A command belonging to another well cannot be undone from the current report; switch to its scope. Cancel returns to the current opening checkpoint. Command history is not restored from a saved project file.
+
+After repeated Apply, Cancel retains the latest applied annotations. JSON/package save and reopen restore those annotations while commands from the previous session remain unavailable.
