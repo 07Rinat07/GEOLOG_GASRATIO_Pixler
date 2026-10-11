@@ -317,7 +317,12 @@ def _optional_finite(value: object, label: str) -> float | None:
         return None
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError(f"{label} должна быть конечным числом")
-    normalized = float(value)
+    try:
+        normalized = float(value)
+    except OverflowError as exc:
+        # JSON can contain integers far outside the float range.
+        # Reject corrupt persisted coordinates via the schema boundary.
+        raise ValueError(f"{label} должна быть конечным числом") from exc
     if not isfinite(normalized):
         raise ValueError(f"{label} должна быть конечным числом")
     return normalized

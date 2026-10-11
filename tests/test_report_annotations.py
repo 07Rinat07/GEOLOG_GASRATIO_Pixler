@@ -14,6 +14,9 @@ from geoworkbench.domain.report_annotations import (
     ReportAnnotationRecord,
     normalize_report_track_key,
     report_annotation_scope_id,
+    report_annotation_to_dict,
+    report_annotation_from_mapping,
+    validate_report_annotation,
 )
 from geoworkbench.domain.report_composition import (
     InterpretationReportComposition,
@@ -318,3 +321,46 @@ def test_report_annotation_presentation_conflict_blocks_undo() -> None:
 
     with pytest.raises(RuntimeError, match="изменена вне истории report annotations"):
         controller.undo()
+
+
+@pytest.mark.parametrize("field", (
+    "depth", "top_depth", "bottom_depth",
+    "x_fraction", "offset_x", "offset_y", "width", "height",
+))
+@pytest.mark.parametrize("huge", (10 ** 400, -(10 ** 400)))
+def test_report_annotation_numeric_fields_reject_json_integer_overflow(
+    field: str, huge: int,
+) -> None:
+    annotation = _annotation()
+    invalid = replace(annotation, **{field: huge})
+    with pytest.raises(ValueError, match="конечным числом"):
+        validate_report_annotation(invalid)
+
+    encoded = report_annotation_to_dict(annotation)
+    encoded[field] = huge
+    with pytest.raises(ValueError, match="конечным числом"):
+        report_annotation_from_mapping(encoded)
+
+
+@pytest.mark.parametrize("field", ("depth", "top_depth", "x_fraction", "width"))
+def test_project_v37_malformed_huge_annotation_numbers_fail_as_format_error(
+    tmp_path, field: str,
+) -> None:
+    target = tmp_path / f"huge-{field}.geolog.json"
+    save_project(
+        _project(), target,
+        report_compositions={DATASET_ID: _composition(_annotation())},
+    )
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    payload["report_compositions"][DATASET_ID]["annotations"][0][field] = 10 ** 400
+    target.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    with pytest.raises(ProjectFormatError, match="report annotation"):
+        load_project_document(target)
+
+
+def test_report_annotation_normal_finite_geometry_round_trips_without_mutation() -> None:
+    annotation = _annotation()
+    encoded = report_annotation_to_dict(annotation)
+    recovered = report_annotation_from_mapping(encoded)
+    assert recovered == annotation
+    assert encoded == report_annotation_to_dict(annotation)
