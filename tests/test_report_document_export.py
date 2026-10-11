@@ -13,6 +13,8 @@ from geoworkbench.data.report_document_export import (
     UNAVAILABLE_CELL,
     ReportDocumentColumn,
     ReportDocumentExportError,
+    _GENERIC_DOCX_BODY_TABLE_TWIPS,
+    _w_table,
     _disambiguate_visible_columns,
     build_report_document_model,
     export_report_docx,
@@ -588,3 +590,44 @@ def test_html_export_is_deterministic_for_same_model(tmp_path) -> None:
     export_report_html(dataset, second, report)
 
     assert first.read_bytes() == second.read_bytes()
+
+
+@pytest.mark.parametrize("columns", (1, 2, 3, 6, 13))
+@pytest.mark.parametrize("header", (False, True))
+def test_generic_docx_table_fixed_grid_fits_a4_printable_body(columns: int, header: bool) -> None:
+    headers = tuple(f"Extended WITS/LAS field {index} " + "X" * 90 for index in range(columns))
+    xml = _w_table((headers, tuple("42" for _ in headers)), header=header)
+    root = ET.fromstring(
+        '<root xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+        + xml + "</root>"
+    )
+    ns = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+    table = root.find(ns + "tbl")
+    assert table is not None
+    props = table.find(ns + "tblPr")
+    assert props is not None
+    width = props.find(ns + "tblW")
+    assert width is not None
+    assert width.attrib[ns + "type"] == "dxa"
+    assert int(width.attrib[ns + "w"]) == _GENERIC_DOCX_BODY_TABLE_TWIPS
+    assert int(width.attrib[ns + "w"]) < 16838 - 2 * 720
+    layout = props.find(ns + "tblLayout")
+    assert layout is not None and layout.attrib[ns + "type"] == "fixed"
+    grid = table.find(ns + "tblGrid")
+    assert grid is not None
+    widths = tuple(int(item.attrib[ns + "w"]) for item in grid)
+    assert len(widths) == columns
+    assert all(item > 0 for item in widths)
+    assert sum(widths) == _GENERIC_DOCX_BODY_TABLE_TWIPS
+    for row in table.findall(ns + "tr"):
+        cells = row.findall(ns + "tc")
+        assert tuple(int(cell.find(ns + "tcPr").find(ns + "tcW").attrib[ns + "w"]) for cell in cells) == widths
+
+
+def test_generic_docx_table_rejects_nonprintable_zero_or_excessive_columns() -> None:
+    with pytest.raises(ReportDocumentExportError, match="печатную ширину"):
+        _w_table(((),), header=False)
+    # Each column requires at least one physical twip.
+    excess = tuple("x" for _ in range(_GENERIC_DOCX_BODY_TABLE_TWIPS + 1))
+    with pytest.raises(ReportDocumentExportError, match="печатную ширину"):
+        _w_table((excess,), header=True)
