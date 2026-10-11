@@ -1558,3 +1558,9 @@ Generic DOCX row pagination is covered by three production RU/KK/EN exports in
 only intended header rows repeat, rows have no keepNext/fixed-height chains, and
 all sample text and source arrays remain unchanged. Physical Word/printer pagination
 remains a separate acceptance step.
+
+`tests/test_office_docx_heading_pagination.py` covers 15 production exports:
+RU/KK/EN across geology, standard/OPUS and polished standard/OPUS. Title/Heading1
+properties keep headings with content; ordinary paragraphs and table rows are not
+chained together. Report snapshots, source depth and every curve array stay unchanged.
+Word/printer visual review remains separate from OOXML acceptance.

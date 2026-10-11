@@ -13,6 +13,7 @@
 
 - RPT-ANN-01: многоязычные RU/KK/EN подписи геологических аннотаций измеряются по границам собственной рамки и при необходимости уменьшают шрифт; слишком длинный текст не рисуется за пределами рамки. Исходные строки, координаты и расчёты УВ неизменны. [PR #537](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/pull/537), на проверке.
 ## Unreleased
+- PRINT-STYLE-01: shared Office DOCX Title/Heading1 paragraphs now use keepNext/keepLines in geology, standard/OPUS and polished interpretation reports. Ordinary paragraphs, independently paginating table rows, footer/grid geometry and source data are unchanged. Generic row pagination was integrated via PR #557 after all three gates passed.
 - PRINT-STYLE-01: generic DOCX metadata, coverage and sample rows now use Word cantSplit so one row stays together across page boundaries. Repeated headers and pagination between rows remain; RU/KK/EN values and source arrays are unchanged. Heading pagination was integrated via PR #556 after all three Release gates passed.
 - RPT-ANN-01: final-report annotation Qt depth/top/bottom inputs now retain nine decimal positions instead of silently rounding to six. Regression tests cover RU/KK/EN, single-depth and interval anchors, JSON/package save-reopen and re-save, and source LAS/GTI immutability.
 - RPT-ANN-01: end-to-end Qt annotation editor acceptance now verifies RU/KK/EN add/commit/reject, two-well scope separation and project JSON/package reopen. Draft rollback cannot erase another well's annotation; original GTI depth and gas curves remain untouched.

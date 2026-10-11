@@ -634,7 +634,11 @@ def _opus_gasomer_docx(
 
 
 def _paragraph(text: str, *, style: str | None = None) -> str:
-    style_xml = f'<w:pPr><w:pStyle w:val="{style}"/></w:pPr>' if style else ""
+    style_xml = ""
+    if style:
+        # Section labels must stay with their first content paragraph or table.
+        pagination = "<w:keepNext/><w:keepLines/>" if style in {"Title", "Heading1"} else ""
+        style_xml = f'<w:pPr><w:pStyle w:val="{style}"/>{pagination}</w:pPr>'
     return f'<w:p>{style_xml}<w:r><w:t xml:space="preserve">{_xml_text(text)}</w:t></w:r></w:p>'
 
 

@@ -191,16 +191,24 @@ WITS-NET-01 остаётся внешним условием: пользоват
   после трёх успешных Release gates на e8071e21 (run 38153723347).
   Физическая Word/printer приёмка остаётся отдельной.
 
+## PRINT-STYLE-01 — целостность строк generic DOCX (завершено)
+
+- [x] Строки metadata/coverage/data используют Word cantSplit; заголовки coverage/data
+  повторяются, строки свободно переходят между страницами. Интегрировано в PR #557
+  после трёх Release gates на e3f56439 (run 38156329452).
+  Полное совпадение sample text и исходных массивов покрыто регрессиями.
+  Физическая Word/printer приёмка остаётся отдельно.
+
 ## Ближайший порядок работ
 
-### PRINT-STYLE-01 — целостность строк generic DOCX (на проверке)
+### PRINT-STYLE-01 — пагинация заголовков общих Office-отчётов (на проверке)
 
-- Каждая строка metadata/coverage/data получает Word cantSplit, как в существующем
-  interpretation DOCX. Заголовки coverage/data повторяются; отдельные строки свободно
-  переходят на следующую страницу. Значения, RU/KK/EN и исходные массивы сохраняются.
-- Ответственный: разработчик/QA. Приёмка: реальный DOCX export RU/KK/EN,
-  полное совпадение sample rows, отсутствие keepNext/fixed height внутри таблиц,
-  полный Windows Quality/Security/GUI gate окончательного head. Физическая печать отдельно.
+- Общий DOCX paragraph helper для geology, standard/OPUS и polished variants
+  применяет Word keepNext/keepLines к Title/Heading1. Обычные абзацы и строки
+  таблиц сохраняют независимую пагинацию, исходные данные и расчёты не меняются.
+- Ответственный: разработчик/QA. Приёмка: 15 production exports RU/KK/EN,
+  источник/отчёт неизменны, существующие footer/grid/profile regressions,
+  все три Windows Release gates на точном head. Word/printer review отдельно.
 
 Основная очередь ниже содержит только оставшуюся разработку и сквозную автоматическую приёмку.
 RPT-GAS-VIS-02 интегрирован через PR #432 после Release gate #2380: ratio-series используют
