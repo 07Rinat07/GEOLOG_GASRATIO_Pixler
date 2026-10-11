@@ -109,3 +109,49 @@ def test_enhanced_ratio_pdf_uses_vector_point_geometry(qapp, tmp_path, monkeypat
         assert any(
             item[0] == "c" for drawing in drawings for item in drawing["items"]
         ), "Expected vector ellipse outlines for individual ratio observations"
+
+
+@pytest.mark.parametrize("at_depth", (100.0, 110.0))
+def test_ratio_point_on_page_edge_retains_visible_half_marker(qapp, monkeypatch, at_depth):
+    _mock_headers(monkeypatch)
+    dataset, curves = _ratios(11)
+    # Only a point exactly on this edge is visible in its own test window.
+    painter = MagicMock()
+    rect = QRectF(20.0, 60.0, 230.0, 260.0)
+    assert enhanced._draw_ratio_tracks(
+        painter, rect, DepthPage(100.0, 110.0, 100, 260.0),
+        dataset, (curves[0],), (), AppLanguage.EN, header_height=40.0,
+    )
+    assert any(
+        call.args[0].y() == pytest.approx(60.0 if at_depth == 100.0 else 320.0)
+        for call in painter.drawEllipse.call_args_list
+    )
+    # The clipping region remains inclusive of exact physical lane borders,
+    # unlike an interior clip that erases a sub-point-radius edge marker.
+    assert any(
+        call.args[0] == rect for call in painter.setClipRect.call_args_list
+    )
+
+
+def test_multi_ratio_pdf_scatter_reuses_page_local_rows(qapp, monkeypatch):
+    _mock_headers(monkeypatch)
+    dataset, curves = _ratios(10_001)
+    called_with_lengths: list[int] = []
+    real_selector = enhanced.select_gas_scatter_samples
+
+    def record_selector(axis, values, *args, **kwargs):
+        assert len(axis) == len(values)
+        called_with_lengths.append(len(axis))
+        return real_selector(axis, values, *args, **kwargs)
+
+    monkeypatch.setattr(enhanced, "select_gas_scatter_samples", record_selector)
+    painter = MagicMock()
+    assert enhanced._draw_ratio_tracks(
+        painter, QRectF(20, 30, 220, 300),
+        DepthPage(102.0, 103.0, 100, 300.0),
+        dataset, curves, (), AppLanguage.EN, header_height=40.0,
+    )
+    assert len(called_with_lengths) == len(curves)
+    assert all(0 < size < 1_200 for size in called_with_lengths)
+    assert painter.drawEllipse.call_count > 0
+    painter.drawPolyline.assert_not_called()

@@ -917,6 +917,15 @@ def _draw_ratio_tracks(
     )
 
     depth = np.asarray(dataset.depth, dtype=np.float64)
+    # Compute and sort the visible page rows once; the collector below then
+    # sees only page-local observations for every ratio track, not all 1M rows.
+    page_rows = np.flatnonzero(
+        np.isfinite(depth)
+        & (depth >= page.top_depth)
+        & (depth <= page.bottom_depth)
+    )
+    page_rows = page_rows[np.argsort(depth[page_rows], kind="stable")]
+    page_depth = depth[page_rows]
     lane_count = max(group for _, _, group in tracks) + 1
     lane_width = rect.width() / lane_count
     labelled_lanes: set[int] = set()
@@ -961,8 +970,8 @@ def _draw_ratio_tracks(
             # Ratios are observations, not interpolated continuous logs. Reuse
             # the same extrema-aware point budget as standard PDF and preview.
             point_values, point_depths = select_gas_scatter_samples(
-                depth,
-                values,
+                page_depth,
+                values[page_rows],
                 page.top_depth,
                 page.bottom_depth,
                 max_points=gas_scatter_point_budget(lane.height()),
@@ -972,7 +981,9 @@ def _draw_ratio_tracks(
             radius = base_chart.GAS_PRINT_POINT_RADIUS_PT
             painter.save()
             try:
-                painter.setClipRect(lane.adjusted(0.6, 0.6, -0.6, -0.6))
+                # Exact depth/scale-boundary observations must remain visible:
+                # a marker centered on an edge should keep its inner half.
+                painter.setClipRect(lane)
                 # Keep the historical 0.7 pt dashed ratio outline for
                 # physical-print contrast, but draw it around *individual*
                 # observations. No line segments connect distinct depths.
