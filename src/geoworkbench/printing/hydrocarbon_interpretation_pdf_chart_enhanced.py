@@ -22,6 +22,7 @@ from geoworkbench.domain.report_composition import (
     DEFAULT_REPORT_CHART_PANELS,
     ReportChartPanelSettings,
     ReportLegendMode,
+    ReportGeologyLegendPages,
 )
 from geoworkbench.domain.report_annotations import ReportAnnotationRecord
 from geoworkbench.printing import hydrocarbon_interpretation_pdf_chart as base_chart
@@ -117,6 +118,7 @@ def render_chart_pages(
         DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS
     ),
     legend_mode: ReportLegendMode = ReportLegendMode.FULL,
+    geology_legend_pages: ReportGeologyLegendPages = ReportGeologyLegendPages.FIRST_CHART_PAGE,
     legend_reference_pages_emitted: bool = False,
     annotations: tuple[ReportAnnotationRecord, ...] = (),
     chart_panels: ReportChartPanelSettings = DEFAULT_REPORT_CHART_PANELS,

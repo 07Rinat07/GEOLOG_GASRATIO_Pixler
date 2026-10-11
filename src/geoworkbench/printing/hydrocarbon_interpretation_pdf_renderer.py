@@ -19,6 +19,7 @@ from geoworkbench.domain.report_composition import (
     ReportChartPanelSettings,
     ReportLayoutProfile,
     ReportLegendMode,
+    ReportGeologyLegendPages,
 )
 from geoworkbench.domain.report_annotations import ReportAnnotationRecord
 from geoworkbench.domain.depth_interval import scope_dataset
@@ -92,6 +93,7 @@ def render_hydrocarbon_interpretation_report(
         DEFAULT_INTERPRETATION_GEOLOGY_TRACK_SETTINGS
     ),
     legend_mode: ReportLegendMode = ReportLegendMode.FULL,
+    geology_legend_pages: ReportGeologyLegendPages = ReportGeologyLegendPages.FIRST_CHART_PAGE,
     layout_profile: ReportLayoutProfile = ReportLayoutProfile.MODERN_OILFIELD,
     annotations: tuple[ReportAnnotationRecord, ...] = (),
     chart_panels: ReportChartPanelSettings = DEFAULT_REPORT_CHART_PANELS,
@@ -163,6 +165,7 @@ def render_hydrocarbon_interpretation_report(
                 geology=geology,
                 geology_track_settings=geology_track_settings,
                 legend_mode=chart_legend_mode,
+                geology_legend_pages=geology_legend_pages,
                 legend_reference_pages_emitted=legend_reference_pages_emitted,
                 annotations=annotations,
                 target_depth_per_page=target_depth_per_page,
