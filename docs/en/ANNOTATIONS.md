@@ -177,3 +177,5 @@ report composition in Composer preview, PDF export and prepared system printing.
 A note whose logical track is absent stays hidden instead of moving to a neighbour.
 
 Report annotation checkpoints also restore Redo command execution state, so a saved redo remains usable after draft rollback. This does not add Apply; undo across an earlier checkpoint remains separate work.
+
+Checkpoint rollback supports Undo of earlier edits and replacement branches, restoring saved annotations and history. Foreign ownership and external composition deletion remain rejected. Apply is not yet added.

@@ -394,3 +394,76 @@ def test_checkpoint_restores_redo_command_execution_state(operation: str) -> Non
     assert controller.available() == applied_records
     controller.undo()
     assert controller.available() == saved_records
+
+
+@pytest.mark.parametrize("new_branch", [False, True])
+def test_checkpoint_restores_after_undo_across_saved_history(new_branch: bool) -> None:
+    session = _session()
+    history = CommandHistory()
+    controller = ReportAnnotationController(session, shared_history=history)
+    first = controller.add(text="First", depth=1000.0, track_key="curve:TG")
+    second = controller.add(text="Second", depth=1001.0, track_key="curve:TG")
+    checkpoint = controller.checkpoint()
+    saved_undo = history.next_undo
+    controller.undo()
+    controller.undo()
+    if new_branch:
+        controller.add(text="Replacement", depth=1002.0, track_key="curve:TG")
+    controller.restore(checkpoint)
+    assert controller.available() == (first, second)
+    assert history.next_undo is saved_undo
+    assert not history.can_redo
+    controller.undo()
+    assert controller.available() == (first,)
+    controller.undo()
+    assert controller.available() == ()
+    controller.redo()
+    controller.redo()
+    assert controller.available() == (first, second)
+
+
+def test_checkpoint_rejects_undo_of_foreign_domain_before_model_restore() -> None:
+    session = _session()
+    history = CommandHistory()
+    controller = ReportAnnotationController(session, shared_history=history)
+    controller.add(text="Saved", depth=1000.0, track_key="curve:TG")
+    history.execute(CallbackCommand(
+        description="Foreign edit", history_domain="header",
+        execute_action=lambda: None, undo_action=lambda: None,
+    ))
+    checkpoint = controller.checkpoint()
+    history.undo()
+    records = controller.available()
+    pending = history.next_redo
+    with pytest.raises(RuntimeError, match="другого домена"):
+        controller.restore(checkpoint)
+    assert controller.available() == records
+    assert history.next_redo is pending
+
+
+def test_checkpoint_rejects_external_composition_deletion() -> None:
+    session = _session()
+    controller = ReportAnnotationController(session)
+    controller.add(text="Saved", depth=1000.0, track_key="curve:TG")
+    checkpoint = controller.checkpoint()
+    session.report_compositions.pop(DATASET_ID)
+    with pytest.raises(RuntimeError, match="удалена"):
+        controller.restore(checkpoint)
+    assert DATASET_ID not in session.report_compositions
+
+
+def test_checkpoint_rejects_other_sessions_report_command() -> None:
+    session = _session()
+    other_session = _session()
+    history = CommandHistory()
+    controller = ReportAnnotationController(session, shared_history=history)
+    controller.add(text="Saved", depth=1000.0, track_key="curve:TG")
+    checkpoint = controller.checkpoint()
+    other = ReportAnnotationController(other_session, shared_history=history)
+    other.add(text="Foreign", depth=1001.0, track_key="curve:TG")
+    records = controller.available()
+    foreign_records = other.available()
+    with pytest.raises(RuntimeError, match="другая область"):
+        controller.restore(checkpoint)
+    assert controller.available() == records
+    assert other.available() == foreign_records

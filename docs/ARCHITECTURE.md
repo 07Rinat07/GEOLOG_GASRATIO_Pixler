@@ -1058,3 +1058,5 @@ the existing raster print path. Native dialogs' acceptance and target choices ar
 scripted; physical-printer review remains a separate external gate.
 
 Report annotation checkpoints retain the bounded execution state of report commands in both history stacks. Restoring the annotation snapshot also restores these flags before notifying history listeners; command references and source arrays are preserved. Divergent history remains fail-closed.
+
+Report rollback validates changed suffixes of both bounded history stacks against report command session/dataset/composition ownership, allowing Undo across a checkpoint and replacement of its Redo branch. A composition removed by its tracked creation Undo can be reconstructed; external deletion and foreign-domain/scope changes remain rejected before model writes.

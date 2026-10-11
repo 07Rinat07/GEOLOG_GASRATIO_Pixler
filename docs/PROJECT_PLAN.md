@@ -2487,7 +2487,14 @@ UI-SYS-01: Curve-pencil toolbar переведён на palette-aware applicatio
 карандаше скрываются вторичные mode/apply/clear/Undo/Redo controls; одиночные raw-mnemonic
 track titles заменяются на локализованное имя параметра с mnemonic в скобках.
 
-### RPT-ANN-01 — состояние команд при rollback checkpoint (на проверке)
+### RPT-ANN-01 — состояние команд при rollback checkpoint (завершено)
 
 - Checkpoint сохраняет bounded execution flags существующих report commands, включая Redo. После Redo → draft → Cancel восстанавливаются annotations, dirty state, исходный Redo и возможность повторного Redo/Undo для add/update/remove. Dataset arrays не копируются.
 - Это подготовительный инкремент Save/Apply: Undo до checkpoint и divergent branch по-прежнему отклоняются; UI Apply и сохранение истории между редакторами остаются открытыми. Требуются три exact-head gates.
+
+PR #565 интегрирован после трёх SUCCESS на f2191d61 (run 38176106732), main a1207d2d.
+
+### RPT-ANN-01 — rollback через Undo и новую ветвь истории (на проверке)
+
+- Bounded stack-delta validation учитывает Undo до checkpoint и замену Redo новой ветвью. Возвращаются annotations, dirty state, command flags и исходные стеки; повторные Undo/Redo остаются рабочими. Undo создания composition отличается от внешнего удаления.
+- Чужой домен, session/dataset/composition и изменённые presentation settings блокируют восстановление до записи модели. UI Apply и сохранение истории между открытиями редактора остаются отдельными задачами. Требуются три exact-head gates.
