@@ -520,7 +520,11 @@ def _docx_document(model: ReportDocumentModel) -> str:
 
 
 def _w_paragraph(text: str, *, style: str | None = None) -> str:
-    properties = f'<w:pPr><w:pStyle w:val="{xml_escape(style)}"/></w:pPr>' if style else ""
+    properties = ""
+    if style:
+        # Keep section labels with their first table row when Word paginates.
+        pagination = "<w:keepNext/><w:keepLines/>" if style in {"Title", "Heading1"} else ""
+        properties = f'<w:pPr><w:pStyle w:val="{xml_escape(style)}"/>{pagination}</w:pPr>'
     return (
         f"<w:p>{properties}<w:r><w:t xml:space=\"preserve\">"
         f"{xml_escape(text)}"

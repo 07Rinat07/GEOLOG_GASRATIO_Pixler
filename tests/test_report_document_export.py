@@ -93,6 +93,39 @@ def test_document_model_uses_resolved_indices_and_coverage_states() -> None:
     assert model.columns[2].coverage.unavailable_count == 3
 
 
+@pytest.mark.parametrize("language", tuple(AppLanguage))
+def test_docx_section_headings_stay_with_following_tables(tmp_path, language) -> None:
+    dataset, report = _resolved_report()
+    source_depth = dataset.depth.copy()
+    source_values = dataset.curves["c1"].values.copy()
+    path = tmp_path / f"pagination-{language.value}.docx"
+    export_report_docx(dataset, path, report, language=language)
+    with zipfile.ZipFile(path) as archive:
+        root = ET.fromstring(archive.read("word/document.xml"))
+    ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+    body = root.find("w:body", ns)
+    assert body is not None
+    headings = []
+    for index, paragraph in enumerate(body):
+        style = paragraph.find("w:pPr/w:pStyle", ns)
+        if style is None:
+            continue
+        name = style.get(f"{{{ns['w']}}}val")
+        if name in {"Title", "Heading1"}:
+            assert paragraph.find("w:pPr/w:keepNext", ns) is not None
+            assert paragraph.find("w:pPr/w:keepLines", ns) is not None
+            headings.append(name)
+            if name == "Heading1":
+                assert body[index + 1].tag == f"{{{ns['w']}}}tbl"
+        else:
+            assert paragraph.find("w:pPr/w:keepNext", ns) is None
+    assert headings == ["Title", "Heading1", "Heading1", "Heading1"]
+    # Data rows must remain free to paginate rather than form one unbreakable table.
+    assert not root.findall(".//w:tbl//w:keepNext", ns)
+    np.testing.assert_array_equal(dataset.depth, source_depth)
+    np.testing.assert_array_equal(dataset.curves["c1"].values, source_values)
+
+
 @pytest.mark.parametrize(
     ("language", "gas_header", "unavailable_header"),
     [
