@@ -257,7 +257,7 @@ WITS-NET-01 остаётся внешним условием: пользоват
   Ответственный: разработчик/QA. Интегрировано через PR #562 после трёх gates на
   529fe5ac (run 38168859808), main 3b78c0e8.
 
-### RPT-ANN-01 — сквозной Composer preview/PDF/system print (на проверке)
+### RPT-ANN-01 — сквозной Composer preview/PDF/system print (завершено)
 
 - Настоящая кнопка Composer и Qt-редактор создают по две записи в каждой из двух
   скважин: собственную Unicode-заметку на TG и заметку отсутствующей logical track.
@@ -267,8 +267,10 @@ WITS-NET-01 остаётся внешним условием: пользоват
   отсутствующая колонка не переносится в соседнюю. Извлечённый текст экспортного
   и подготовленного print PDF содержит собственную заметку и не содержит чужую.
   Report Passport фиксирует две записи; QPrinter PDF содержит реальные растровые страницы.
-- Ответственный: разработчик/QA. Source arrays неизменны. Требуются три exact-head
-  gates; физическая printer/HiDPI приёмка не заменяется программной print-to-PDF.
+- Ответственный: разработчик/QA. Source arrays неизменны. Интегрировано через
+  [PR #563](https://github.com/07Rinat07/GEOLOG_GASRATIO_Pixler/pull/563) после SUCCESS
+  всех трёх gates на a4243b2d (run 38171561005), main 0e1423e2.
+  Физическая printer/HiDPI приёмка не заменяется программной print-to-PDF.
 
 Основная очередь ниже содержит только оставшуюся разработку и сквозную автоматическую приёмку.
 RPT-GAS-VIS-02 интегрирован через PR #432 после Release gate #2380: ratio-series используют
@@ -285,14 +287,14 @@ format v37. Narrative controls интегрированы коммитом `55b3
 неподходящие профилю/пустые колонки не рисуются, скрытые сохраняют своё место в порядке.
 Preview/PDF/system print применяют один snapshot; все скрытые графические колонки подавляют
 глубинный график, а source LAS, расчёты и classification остаются неизменными.
-RPT-ANN renderer/editor интегрированы через #446/#447; остаточная сквозная и физическая
-приёмка не объявляется завершённой. Зелёный CI относится только к проверенному head.
+RPT-ANN renderer/editor интегрированы через #446/#447; Composer output acceptance
+интегрирована через #563. Save/Apply checkpoint и физическая приёмка остаются открытыми. Зелёный CI относится только к проверенному head.
 
 
 | Порядок | Задача | Следующий проверяемый результат и зависимость | Ответственный по роли / статус |
 |---|---|---|---|
 | 1 | PRINT-STYLE-01 | Свести оставшиеся generic/Masterlog/Office пути к одному visual profile и document-control contract; дополнять готовые typography/marker/legend contracts. Physical acceptance вынесена отдельно | Разработчик / в работе |
-| 2 | RPT-ANN-01 | Renderer и transactional editor интегрированы через #446/#447. Остаточная сквозная приёмка из Composer, save/reopen и изоляции scope; strict persisted schema отклоняет boolean/float вместо integer v1 | Разработчик / на проверке |
+| 2 | RPT-ANN-01 | Renderer и transactional editor интегрированы через #446/#447. Composer, RU/KK/EN JSON/package reopen, scope isolation, 20 Undo/Redo, shortcuts и large-LAS memory проверены через #559–#563. Следующий контракт: Save/Apply обновляет checkpoint, сохраняя общую историю; проверить Undo до checkpoint и Cancel после новой ветви правок. Физическая приёмка отдельно | Разработчик / в работе |
 | 3 | GASCTX-RPT-01: остаточная приёмка | Проверить общий editor/registry/context audit через production entry points, save/reopen и RU/KK/EN; завершить отдельные полосы/метки событий с grayscale-подписями. Реализованные exclusion/background/confirmed policy не переписывать | Разработчик + специалист ГТИ / на проверке |
 | 4 | WITS-UX-01 | Завершить persistence/reconnect и live-first navigation/help: основные данные и health видимы, advanced/diagnostics сворачиваются, outer horizontal scroll отсутствует | Разработчик / в работе |
 | 5 | WITS-PLOT-01 | Остаточные manual ranges, reconnect/schema-change и redraw acceptance поверх существующих unit-aware tracks и редактируемых панелей | Разработчик / в работе |
