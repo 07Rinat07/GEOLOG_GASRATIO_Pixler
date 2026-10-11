@@ -10,7 +10,7 @@ from geoworkbench.printing.gas_context_track import (
     context_segments, context_track_heading_height, paint_context_track, render_context_legend_pages,
 )
 
-from math import floor, isclose
+from math import ceil, floor, isclose
 
 import numpy as np
 from PySide6.QtCore import QLineF, QPointF, QRectF, Qt
@@ -62,6 +62,7 @@ from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import (
     CHART_HEADER_HEIGHT,
     CHART_TRACK_HEADER_HEIGHT,
     MIN_CHART_HEIGHT,
+    POINTS_PER_MM,
     ChartGeometry,
     DepthPage,
     chart_geometry,
@@ -104,6 +105,49 @@ from geoworkbench.services.localization import AppLanguage
 
 _MAJOR_TARGET_TICKS = 6
 _MINOR_DIVISIONS = 5
+
+
+def _reflow_depth_pages_after_first_legend(
+    pages: tuple[DepthPage, ...],
+    depth_min: float,
+    depth_max: float,
+    *,
+    first_plot_capacity: float,
+    later_plot_capacity: float,
+) -> tuple[DepthPage, ...]:
+    """Use extra space on later sheets at one consistent physical depth scale.
+
+    The existing page planner chooses the physical denominator. The catalog is
+    printed above only the first chart, so later sheets can hold a larger
+    portion of that same depth scale instead of wasting its reserved height.
+    Every source depth stays included exactly once; no interpolation occurs.
+    """
+    if not pages or len(pages) == 1 or first_plot_capacity <= 0.0:
+        return pages
+    if later_plot_capacity <= first_plot_capacity:
+        return pages
+    scale = pages[0].scale_denominator
+    span = depth_max - depth_min
+    first_depth_capacity = first_plot_capacity / POINTS_PER_MM * scale / 1000.0
+    later_depth_capacity = later_plot_capacity / POINTS_PER_MM * scale / 1000.0
+    count = max(2, 1 + ceil(max(0.0, span - first_depth_capacity) / later_depth_capacity))
+    count = min(count, len(pages))
+    capacities = [first_plot_capacity] + [later_plot_capacity] * (count - 1)
+    total_capacity = sum(capacities)
+    result: list[DepthPage] = []
+    top = depth_min
+    for index, capacity in enumerate(capacities):
+        bottom = (
+            depth_max
+            if index == count - 1
+            else depth_min + span * sum(capacities[:index + 1]) / total_capacity
+        )
+        plot_height = (bottom - top) * 1000.0 / scale * POINTS_PER_MM
+        if plot_height > capacity + 0.01:
+            raise ValueError("Geology legend reflow exceeded available chart space")
+        result.append(DepthPage(top, bottom, scale, plot_height))
+        top = bottom
+    return tuple(result)
 
 
 def render_chart_pages(
@@ -279,15 +323,29 @@ def render_chart_pages(
             language, canvas.painter.device(), display_hints, selected_page_planner, page_ranges,
             minimum_height=curve_legend_height,
         )
+    first_sheet_only = (
+        geology_legend_pages is ReportGeologyLegendPages.FIRST_CHART_PAGE
+    )
+    if first_sheet_only and full_legend_height > 0.0:
+        pages = _reflow_depth_pages_after_first_legend(
+            pages, depth_min, depth_max,
+            first_plot_capacity=chart_height_budget - curve_legend_height - full_legend_height,
+            later_plot_capacity=chart_height_budget - curve_legend_height,
+        )
     for page_index, page in enumerate(pages, start=1):
         canvas.new_page()
         percentiles = base_chart._curve_percentiles(panels, dataset, page=page)
+        page_legend_height = (
+            full_legend_height
+            if page_index == 1 or not first_sheet_only
+            else 0.0
+        )
         geometry = chart_geometry(
             canvas.content_rect,
             page,
             len(panels),
             geology_track_count=len(geology_tracks),
-            geology_legend_height=full_legend_height,
+            geology_legend_height=page_legend_height,
             track_header_height=header_height,
             chart_note_height=note_height,
             chart_curve_legend_height=curve_legend_height,
