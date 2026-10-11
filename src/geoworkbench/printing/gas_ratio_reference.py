@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 from collections.abc import Sequence
+from math import ceil
 
 import numpy as np
 from numpy.typing import NDArray
@@ -192,22 +193,28 @@ def _compact_tick(value: float) -> str:
 def _paired_x_tick_rect(plot: QRectF, tick: int) -> QRectF:
     """Keep the first X tick clear of the Y=0 label at both plot origins."""
     x = plot.left() + tick / 5 * plot.width()
-    left = plot.left() + 5.0 if tick == 0 else x - 23.0
-    return QRectF(left, plot.bottom() + 1.0, 46.0, 21.0)
+    if tick == 0:
+        # Keep zero centred on its gridline without touching the Y-axis label.
+        return QRectF(x - 6.0, plot.bottom() + 1.0, 12.0, 21.0)
+    return QRectF(x - 23.0, plot.bottom() + 1.0, 46.0, 21.0)
 
 
 def _pixler_log_tick_powers(minimum: float, maximum: float, plot_height: float) -> tuple[int, ...]:
     """Bound label density: neighbouring 24-unit tick boxes never intersect."""
     start, end = int(minimum), int(maximum)
-    if end <= start:
+    if end <= start or plot_height < 24.0:
         return (start,)
     label_slots = max(2, int(plot_height // 32.0) + 1)
-    if end - start + 1 <= label_slots:
-        return tuple(range(start, end + 1))
-    return tuple(sorted({
-        int(round(start + (end - start) * index / (label_slots - 1)))
-        for index in range(label_slots)
-    }))
+    span = end - start
+    # Check spacing after choosing integer powers, not before rounding.
+    spacing_step = ceil(24.0 * span / plot_height)
+    budget_step = ceil(span / (label_slots - 1))
+    step = max(1, spacing_step, budget_step)
+    powers = list(range(start, end, step))
+    if len(powers) > 1 and end - powers[-1] < step:
+        powers.pop()
+    powers.append(end)
+    return tuple(powers)
 
 
 def _axes(painter: QPainter, rect: QRectF) -> None:
@@ -405,9 +412,8 @@ def paint_ratio_reference_summary(
             _text(
                 painter,
                 QRectF(
-                    plot.left() + 5.0 if index == 0
-                    else plot.left() + index / 3 * plot.width() - 35,
-                    595, 70, 25,
+                    plot.left() + index / 3 * plot.width() - 35,
+                    603, 70, 19,
                 ),
                 key.replace("_", "/"),
                 typography.caption_pt,

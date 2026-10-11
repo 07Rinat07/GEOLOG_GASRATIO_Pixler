@@ -45,7 +45,13 @@ def test_ratio_labels_use_disjoint_reserved_rectangles(qapp, monkeypatch, langua
         assert _disjoint(xrect, yrect)
     # Pixler's leftmost X category must not sit on the lowest logarithmic Y label.
     category = next(rect for label, rect in captured if label == "C1/C2")
-    lowest_log = next(rect for label, rect in captured if label == "1")
+    lowest_log = next(
+        rect for label, rect in captured
+        if label == "1" and rect.left() == 12.0 and rect.top() >= 575.0
+    )
+    assert lowest_log.center().y() == pytest.approx(590.0)
+    assert category.center().x() == pytest.approx(65.0)
+    assert [rect.center().x() for rect in zeros_x] == pytest.approx([65.0, 555.0])
     assert _disjoint(category, lowest_log)
     for name, curve in dataset.curves.items():
         np.testing.assert_array_equal(curve.values, before[name])
@@ -82,6 +88,9 @@ def test_ratio_pdf_real_text_spans_have_no_axis_key_overlap(qapp, tmp_path, lang
 
 @pytest.mark.parametrize("minimum,maximum,height", (
     (0.0, 3.0, 205.0),
+    (0.0, 9.0, 205.0),
+    (-4.0, 5.0, 205.0),
+    (0.0, 10.0, 205.0),
     (-4.0, 12.0, 205.0),
     (-80.0, 120.0, 205.0),
     (0.0, 20.0, 50.0),
@@ -94,3 +103,19 @@ def test_pixler_log_tick_labels_are_bounded_and_spaced(minimum, maximum, height)
     if len(powers) > 1:
         y_positions = [height * (value - minimum) / (maximum - minimum) for value in powers]
         assert min(b - a for a, b in zip(y_positions, y_positions[1:])) >= 24.0
+
+
+@pytest.mark.parametrize("height", (50.0, 100.0, 205.0, 500.0))
+@pytest.mark.parametrize("decades", range(1, 31))
+def test_log_tick_spacing_survives_integer_decade_selection(
+    height: float, decades: int,
+) -> None:
+    powers = reference._pixler_log_tick_powers(-3.0, float(decades - 3), height)
+    assert powers[0] == -3 and powers[-1] == decades - 3
+    assert tuple(sorted(set(powers))) == powers
+    assert len(powers) <= max(2, int(height // 32.0) + 1)
+    pixel_positions = [height * (power + 3) / decades for power in powers]
+    assert all(
+        next_position - position >= 24.0 - 1e-9
+        for position, next_position in zip(pixel_positions, pixel_positions[1:])
+    )
