@@ -15,7 +15,11 @@ def _finite_point_value(raw: object, name: str) -> float:
     """Reject non-numeric or non-finite physical dimensions before Qt/Office."""
     if isinstance(raw, bool) or not isinstance(raw, Real):
         raise ValueError(f"{name} must be a finite number of points")
-    value = float(raw)
+    try:
+        value = float(raw)
+    except OverflowError as exc:
+        # Extremely large JSON integers must not escape the schema boundary.
+        raise ValueError(f"{name} must be a finite number of points") from exc
     if not isfinite(value):
         raise ValueError(f"{name} must be a finite number of points")
     return value
