@@ -14,7 +14,7 @@ from math import floor, isclose
 
 import numpy as np
 from PySide6.QtCore import QLineF, QPointF, QRectF, Qt
-from PySide6.QtGui import QPolygonF, QColor, QFontMetricsF, QPainter, QPen
+from PySide6.QtGui import QColor, QFontMetricsF, QPainter, QPen
 
 from geoworkbench.domain.depth_interval import scope_dataset
 from geoworkbench.domain.models import CurveData, Dataset
@@ -95,6 +95,8 @@ from geoworkbench.services.hydrocarbon_interpretation import (
 from geoworkbench.services.gas_curve_presentation import (
     gas_ratio_position,
     gas_ratio_scale_ticks,
+    gas_scatter_point_budget,
+    select_gas_scatter_samples,
 )
 from geoworkbench.services.localization import AppLanguage
 
@@ -963,51 +965,37 @@ def _draw_ratio_tracks(
 
         values = np.asarray(curve.values, dtype=np.float64)
         if values.shape == depth.shape:
-            usable = np.isfinite(values[indices])
-            if scale.logarithmic:
-                usable &= values[indices] > 0.0
-            valid_runs = np.split(indices, np.flatnonzero(usable[1:] != usable[:-1]) + 1)
-            curve_segments = tuple(
-                segment
-                for run in valid_runs
-                if run.size and np.isfinite(values[run[0]])
-                and (not scale.logarithmic or values[run[0]] > 0.0)
-                for segment in base_chart.continuous_depth_segments(
-                    depth, run, limit=max(2, int(run.size))
-                )
+            # Ratios are observations, not interpolated continuous logs. Reuse
+            # the same extrema-aware point budget as standard PDF and preview.
+            point_values, point_depths = select_gas_scatter_samples(
+                depth,
+                values,
+                page.top_depth,
+                page.bottom_depth,
+                max_points=gas_scatter_point_budget(lane.height()),
+                positive_values_only=scale.logarithmic,
             )
             color = ratio_reference_color(curve)
-            pen = QPen(color, 0.7, Qt.PenStyle.DashLine)
-            pen.setCosmetic(False)
+            radius = base_chart.GAS_PRINT_POINT_RADIUS_PT
             painter.save()
-            painter.setClipRect(lane.adjusted(0.6, 0.6, -0.6, -0.6))
-            painter.setPen(pen)
-            for segment in curve_segments:
-                render_rows = base_chart._extrema_preserving_print_rows(
-                    segment,
-                    depth,
-                    values,
-                    page,
-                    lane,
-                )
-                points: list[QPointF] = []
-                for row_index in render_rows:
-                    position = gas_ratio_position(float(values[row_index]), scale)
+            try:
+                painter.setClipRect(lane.adjusted(0.6, 0.6, -0.6, -0.6))
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.setBrush(color)
+                for value, depth_value in zip(point_values, point_depths, strict=True):
+                    position = gas_ratio_position(float(value), scale)
                     if position is None:
                         continue
-                    points.append(
+                    painter.drawEllipse(
                         QPointF(
                             lane.left() + position * lane.width(),
-                            base_chart._depth_y(float(depth[row_index]), page, lane),
-                        )
+                            base_chart._depth_y(float(depth_value), page, lane),
+                        ),
+                        radius,
+                        radius,
                     )
-                if len(points) == 1:
-                    painter.setBrush(color)
-                    painter.drawEllipse(points[0], 0.75, 0.75)
-                    painter.setBrush(Qt.BrushStyle.NoBrush)
-                else:
-                    painter.drawPolyline(QPolygonF(points))
-            painter.restore()
+            finally:
+                painter.restore()
 
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.setPen(QPen(QColor(palette.text_secondary), layout.thin_rule_pt))
