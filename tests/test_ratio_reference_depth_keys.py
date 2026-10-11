@@ -60,7 +60,7 @@ def test_reference_depth_keys_remain_distinct_in_monochrome_png(qapp, monkeypatc
     signatures = []
     for index in range(6):
         center = round((82.5 + 150 * index) * 1.6)
-        signature = pixels[517:529, center - 6:center + 6] < 220
+        signature = pixels[548:560, center - 6:center + 6] < 220
         assert np.count_nonzero(signature) > 5
         assert all(not np.array_equal(signature, other) for other in signatures)
         signatures.append(signature)
