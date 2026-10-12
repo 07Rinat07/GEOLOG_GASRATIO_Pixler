@@ -1,0 +1,150 @@
+{
+  "schema_version": 1,
+  "description": "Pinned, redistributable-format test files; SHA-1 is Git's exact blob hash and is verified over raw downloaded bytes.",
+  "fixtures": [
+    {
+      "destination": "las/1.2/sample.las",
+      "repository": "kinverarity1/lasio",
+      "revision": "bf9874e3d4396cf777f5ca413a3559d2eb793de4",
+      "source_path": "tests/examples/1.2/sample.las",
+      "size_bytes": 2197,
+      "git_blob_sha": "91cbc0596d971b5de91cdc59d78e9cb5ed1e9790",
+      "scenario": "reference"
+    },
+    {
+      "destination": "las/1.2/sample_wrapped.las",
+      "repository": "kinverarity1/lasio",
+      "revision": "bf9874e3d4396cf777f5ca413a3559d2eb793de4",
+      "source_path": "tests/examples/1.2/sample_wrapped.las",
+      "size_bytes": 4734,
+      "git_blob_sha": "64a934b040dbc39401bee2e368a6a06c9cb86f11",
+      "scenario": "reference"
+    },
+    {
+      "destination": "las/2.0/sample_2.0.las",
+      "repository": "kinverarity1/lasio",
+      "revision": "bf9874e3d4396cf777f5ca413a3559d2eb793de4",
+      "source_path": "tests/examples/2.0/sample_2.0.las",
+      "size_bytes": 2841,
+      "git_blob_sha": "4996c94ee8c36a211e9907c63e68c2db15a3b431",
+      "scenario": "reference"
+    },
+    {
+      "destination": "las/2.0/sample_2.0_wrapped.las",
+      "repository": "kinverarity1/lasio",
+      "revision": "bf9874e3d4396cf777f5ca413a3559d2eb793de4",
+      "source_path": "tests/examples/2.0/sample_2.0_wrapped.las",
+      "size_bytes": 4231,
+      "git_blob_sha": "02ac5504ce24db66687e05e24a6a2e6d3142029c",
+      "scenario": "reference"
+    },
+    {
+      "destination": "las/2.0/sample_2.0_tab_dlm.las",
+      "repository": "kinverarity1/lasio",
+      "revision": "bf9874e3d4396cf777f5ca413a3559d2eb793de4",
+      "source_path": "tests/examples/2.0/sample_2.0_tab_dlm.las",
+      "size_bytes": 2896,
+      "git_blob_sha": "790bfc2f97bb75990dc1d38a3726850dd753e529",
+      "scenario": "reference"
+    },
+    {
+      "destination": "las/3.0/sample_3.0.las",
+      "repository": "kinverarity1/lasio",
+      "revision": "bf9874e3d4396cf777f5ca413a3559d2eb793de4",
+      "source_path": "tests/examples/3.0/sample_3.0.las",
+      "size_bytes": 13033,
+      "git_blob_sha": "a0657ed6a522c9a11c58e56d1d16744d9da23746",
+      "scenario": "exploratory"
+    },
+    {
+      "destination": "las/3.0/good_file_ss.las",
+      "repository": "kinverarity1/lasio",
+      "revision": "bf9874e3d4396cf777f5ca413a3559d2eb793de4",
+      "source_path": "tests/examples/3.0/Good File (SS).las",
+      "size_bytes": 17735,
+      "git_blob_sha": "c2b96e5931ae072b914181654f6fe0f0fa5c7b9d",
+      "scenario": "exploratory"
+    },
+    {
+      "destination": "las/3.0/multisection_curve_param_error.las",
+      "repository": "kinverarity1/lasio",
+      "revision": "bf9874e3d4396cf777f5ca413a3559d2eb793de4",
+      "source_path": "tests/examples/3.0/Curve-Param Error #1 (MS).LAS",
+      "size_bytes": 8770,
+      "git_blob_sha": "38d0c6e30e87066d332f6aa4c40e70c55c0b6e54",
+      "scenario": "edge_case"
+    },
+    {
+      "destination": "dlis/7k_file.dlis",
+      "repository": "equinor/dlisio",
+      "revision": "59b6050ce62a029a25245a2d1fd5d0c55a88100c",
+      "source_path": "python/data/chap2/7K-file.dlis",
+      "size_bytes": 7340,
+      "git_blob_sha": "c559a61f7c1e30ca62513752dae9ccb9d0c9e0d5",
+      "scenario": "reference"
+    },
+    {
+      "destination": "dlis/incomplete_sul.dlis",
+      "repository": "equinor/dlisio",
+      "revision": "59b6050ce62a029a25245a2d1fd5d0c55a88100c",
+      "source_path": "python/data/chap2/incomplete-sul.dlis",
+      "size_bytes": 200,
+      "git_blob_sha": "244dda8afb07e12b4f6bf18ebabd189ea4c3ff05",
+      "scenario": "negative"
+    },
+    {
+      "destination": "lis79/inforec_01.lis",
+      "repository": "equinor/dlisio",
+      "revision": "59b6050ce62a029a25245a2d1fd5d0c55a88100c",
+      "source_path": "python/data/lis/records/inforec_01.lis",
+      "size_bytes": 284,
+      "git_blob_sha": "1328088f8b5a96f987bb0745708597d6991c0b88",
+      "scenario": "reference"
+    },
+    {
+      "destination": "segy/1x1.sgy",
+      "repository": "equinor/segyio",
+      "revision": "ce7bf86e4bee75f3296a5a756fa123e981a04fea",
+      "source_path": "test-data/1x1.sgy",
+      "size_bytes": 4720,
+      "git_blob_sha": "2982b351e97d7cc367d0ef3560da9295317c3b2e",
+      "scenario": "reference"
+    },
+    {
+      "destination": "segy/small.sgy",
+      "repository": "equinor/segyio",
+      "revision": "ce7bf86e4bee75f3296a5a756fa123e981a04fea",
+      "source_path": "test-data/small.sgy",
+      "size_bytes": 14600,
+      "git_blob_sha": "bb659b644ad02d2b9b53ea6f0b1ae670032ec40b",
+      "scenario": "reference"
+    },
+    {
+      "destination": "segy/small_lsb.sgy",
+      "repository": "equinor/segyio",
+      "revision": "ce7bf86e4bee75f3296a5a756fa123e981a04fea",
+      "source_path": "test-data/small-lsb.sgy",
+      "size_bytes": 14600,
+      "git_blob_sha": "97f063d4af23aefda7cfad04411081d3e5c76416",
+      "scenario": "reference"
+    },
+    {
+      "destination": "segy/broken.sgy",
+      "repository": "equinor/segyio",
+      "revision": "ce7bf86e4bee75f3296a5a756fa123e981a04fea",
+      "source_path": "test-data/broken.sgy",
+      "size_bytes": 10836,
+      "git_blob_sha": "95a89d1ffc2b1787ab745dc0365a5858034fe5f7",
+      "scenario": "negative"
+    },
+    {
+      "destination": "su/small.su",
+      "repository": "equinor/segyio",
+      "revision": "ce7bf86e4bee75f3296a5a756fa123e981a04fea",
+      "source_path": "test-data/small.su",
+      "size_bytes": 11000,
+      "git_blob_sha": "fffcbb7ae4c3679ce0ac3e380ca7efd573e6f2ab",
+      "scenario": "reference"
+    }
+  ]
+}
