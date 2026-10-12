@@ -1,6 +1,11 @@
 # История изменений
 
 
+## Авторские обозначения: общий векторный каталог
+
+- Добавлен первый слой circle/square/diamond/triangle/cross с RU/KK/EN labels и существующим AnnotationStyle. Векторная геометрия и physical PDF размеры проверены; UI/persistence/print-selection ещё не подключены.
+
+
 ## Qt: явное завершение pyqtgraph plot lifecycle перед track rebuild
 
 - Track disposal вызывает PlotWidget.close до удаления native parent tree, сохраняя cleanup pyqtgraph для PySide. Добавлена regression порядка и идемпотентности. Native CI crash требует подтверждения новым Windows gate.
