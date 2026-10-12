@@ -11,6 +11,7 @@ from geoworkbench.printing.lba_visuals import (
     normalized_lba_intensity,
     resolve_lba_type_style,
 )
+from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.services.lba_standard import lba_color_code, lba_standard_group
 from geoworkbench.tablet.lithology_patterns import masterlog_lithology_brush
 
@@ -96,10 +97,11 @@ def paint_cuttings_track(
     top, bottom = depth_range
     if bottom <= top or rect.width() <= 0.0 or rect.height() <= 0.0:
         return
+    palette = modern_oilfield_report_profile().palette
     painter.save()
     painter.setClipRect(rect)
     if draw_frame:
-        painter.setPen(QPen(QColor("#94a3b8"), 0.25))
+        painter.setPen(QPen(QColor(palette.border_strong), 0.25))
         painter.drawRect(rect)
     for sample in samples:
         if sample.bottom_depth < top or sample.top_depth > bottom:
@@ -126,7 +128,7 @@ def paint_cuttings_track(
                 component_rect,
                 masterlog_lithology_brush(painter, color, pattern),
             )
-            painter.setPen(QPen(QColor("#334155"), 0.2))
+            painter.setPen(QPen(QColor(palette.text_secondary), 0.2))
             painter.drawRect(component_rect)
             x += width
             if x >= remaining:
@@ -187,10 +189,11 @@ def paint_lba_track(
     top, bottom = depth_range
     if bottom <= top or rect.width() <= 0.0 or rect.height() <= 0.0:
         return
+    palette = modern_oilfield_report_profile().palette
     painter.save()
     painter.setClipRect(rect)
     if draw_frame:
-        painter.setPen(QPen(QColor("#94a3b8"), 0.25))
+        painter.setPen(QPen(QColor(palette.border_strong), 0.25))
         painter.drawRect(rect)
     for sample in samples:
         if sample.bottom_depth < top or sample.top_depth > bottom:
@@ -222,7 +225,7 @@ def paint_lba_track(
             rect.width(),
             max(0.2, y_bottom - y_top),
         )
-        painter.setPen(QPen(QColor("#cbd5e1"), 0.15))
+        painter.setPen(QPen(QColor(palette.border), 0.15))
         painter.drawRect(sample_rect)
         style = resolve_lba_type_style(sample.lba_type_id)
         standard_group = lba_standard_group(sample.lba_group)
@@ -231,7 +234,7 @@ def paint_lba_track(
         )
         lane_width = sample_rect.width() / 3.0
         for lane in (1, 2):
-            painter.setPen(QPen(QColor("#cbd5e1"), 0.15))
+            painter.setPen(QPen(QColor(palette.border), 0.15))
             painter.drawLine(
                 QLineF(
                     sample_rect.left() + lane * lane_width,
@@ -268,7 +271,7 @@ def paint_lba_track(
                 if standard_group is not None
                 else "?"
             )
-            painter.setPen(QColor("#0f172a"))
+            painter.setPen(QColor(palette.text))
             painter.drawText(
                 QRectF(
                     sample_rect.left() + lane_width,

@@ -36,6 +36,12 @@ WITS-NET-01 остаётся внешним условием: пользоват
 - PR #581 интегрирован после трёх SUCCESS на `7d46b2c2` (run 38249776454), main `d1b5ebeb`: ручной Stop/restart и сохранность предыдущих raw segments покрыты.
 - Это bounded loopback acceptance существующей реализации. Полевая сеть, длительный soak и сквозной persistent acquisition reconnect остаются отдельными границами.
 
+## PRINT-STYLE-01 — нейтральное оформление shared geology tracks (на проверке)
+
+- Cuttings/LBA shared painters используют palette border_strong/border/text_secondary/text общего visual profile вместо локальных neutral hex literals. Авторские lithotype colors/patterns и standard LBA symbol colors не меняются.
+- Regression подменяет profile palette и проверяет реальные pen arguments и сохранение geological semantics. Весь PRINT-STYLE-01 и physical acceptance остаются открытыми.
+- PR #582 интегрирован после трёх SUCCESS на `0f67137f` (run 38253601130); main `a6059c89` Release gate 38257387766 SUCCESS. Loopback reconnect покрыт, field networking/long soak отдельно.
+
 ## Состояние после сверки 2 октября 2026 года
 
 | Проверенный результат | Доказательство | Статус и оставшаяся граница |
