@@ -143,7 +143,14 @@ WITS-NET-01 остаётся внешним условием: пользоват
 - Приёмка каждого slice: real production import/edit/save/reopen/export, expected samples/metadata/units/index/ownership, malformed/truncated/unknown-version cases, source immutability, lossless round-trip либо явный loss report, large-file memory/UI responsiveness и exact-head Windows gates. Unsupported writer не маскировать успешным сохранением.
 - Источники спецификаций: [LAS/CWLS описание и ресурсы](https://www.usgs.gov/programs/national-geological-and-geophysical-data-preservation-program/las-format), [RESQML technical resources](https://energistics.org/resqml-developers-users). Спецификации остальных адаптеров закреплять в выбранном implementation slice; не копировать защищённые vendor документы в репозиторий.
 
-Статус: новая программа развития, полная универсальность и перечисленные новые адаптеры не реализованы. Первый проверяемый результат — capability audit LAS/version/schema и один production LAS 3.x slice, затем DLIS/LIS79 preview/read. Ответственные: разработчик/QA и специалист по петрофизике; корректность методик и полевая приёмка отдельно.
+Статус: новая программа развития, полная универсальность и перечисленные новые адаптеры не реализованы. Первый проверяемый результат — capability audit LAS/version/schema и один production LAS 3.x slice, затем DLIS/LIS79 preview/read.
+
+Этап 0, первый инкремент (в рабочем PR, не интегрирован): immutable capability read-model
+для LAS/CSV/Excel и `LasImportReport.capabilities`, явные уровни verified/limited/
+unverified/unavailable и предупреждение для неопробованных LAS 2.x диалектов.
+21 unit-сценарий и три интеграционных случая проверяют источники, версии и отсутствие
+raw write. Матрица открытых fixtures, пользовательский UI-индикатор и проверенный
+LAS 3.x pilot остаются отдельными следующими задачами после exact-head gates. Ответственные: разработчик/QA и специалист по петрофизике; корректность методик и полевая приёмка отдельно.
 
 ## Windows CI — отдельные процессы для interval statistics overlay (на проверке)
 
