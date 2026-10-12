@@ -570,6 +570,7 @@ class Wits0LiveViewWidget(QWidget):
             self.panel_x_max_spin,
             self.panel_x_apply_button,
             self.alarm_editor,
+            self.save_form_button,
         ):
             widget.setEnabled(True)
         self._populate_axes()
