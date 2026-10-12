@@ -60,7 +60,8 @@ def _validate(entry: dict[str, object]) -> tuple[Path, str, int, str]:
         raise ValueError("Revision and blob hashes must be lowercase SHA-1")
     for value in (destination, source):
         parts = PurePosixPath(value)
-        if parts.is_absolute() or ".." in parts.parts or chr(92) in value:
+        if (parts.is_absolute() or ".." in parts.parts or chr(92) in value
+                or ":" in value or chr(0) in value):
             raise ValueError(f"Unsafe relative fixture path: {value!r}")
     target = CORPUS / destination
     # Every source URL is pinned to a commit and a fixed approved GitHub org.
