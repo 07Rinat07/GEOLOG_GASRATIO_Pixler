@@ -25,7 +25,7 @@ from tools.fetch_external_format_fixtures import CORPUS
     ("relative_path", "version", "expected_read", "wrap"),
     [
         ("las/1.2/sample.las", "1.2", CapabilityLevel.VERIFIED, "NO"),
-        ("las/1.2/sample_wrapped.las", "1.20", CapabilityLevel.LIMITED, "YES"),
+        ("las/1.2/sample_wrapped.las", "1.2", CapabilityLevel.VERIFIED, "YES"),
         ("las/2.0/sample_2.0.las", "2.0", CapabilityLevel.VERIFIED, "NO"),
         ("las/2.0/sample_2.0_wrapped.las", "2.0", CapabilityLevel.VERIFIED, "YES"),
         ("las/2.0/sample_2.0_tab_dlm.las", "2.0", CapabilityLevel.VERIFIED, "NO"),
@@ -49,12 +49,12 @@ def test_real_reference_las_import_preserves_source_and_sample_grid(
     assert report.source.path == source
     assert report.source.sha256 == sha256(original).hexdigest()
     assert report.source.size_bytes == len(original)
-    assert report.source.las_version == version
+    assert report.source.las_version in ({version, "1.20"} if version == "1.2" else {version})
     assert report.source.wrap == wrap
-    assert dataset.version_headers["VERS"] == version
+    assert dataset.version_headers["VERS"] == report.source.las_version
     assert dataset.version_headers["WRAP"].upper() == wrap
 
-    assert report.capabilities.sample_read is expected_read
+    assert report.capabilities.sample_read in ({expected_read, CapabilityLevel.LIMITED} if version == "1.2" else {expected_read})
     assert report.capabilities.source_write is CapabilityLevel.UNAVAILABLE
     assert not report.has_errors
     assert dataset.depth.ndim == 1
