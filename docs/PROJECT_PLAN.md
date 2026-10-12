@@ -48,6 +48,12 @@ WITS-NET-01 остаётся внешним условием: пользоват
 - Runtime не изменён; existing controller/export context-audit regressions сохраняются. Физическая/содержательная приёмка и общий grayscale event contract отдельно.
 - PR #583 интегрирован после трёх SUCCESS на `9b9e39c0` (run 38262197960), main `8f4c3140`: shared geology track neutral palette согласована с visual profile.
 
+## Qt lifecycle — явное pyqtgraph close перед удалением track tree (на проверке)
+
+- Main Release gate 38266575085 на `8f4c3140` завершился native access violation в PlotItem construction после Undo ресэмплирования. Аналогичный constructor stack ранее возникал при interval Undo; утверждение о доказанной первопричине не делается.
+- Track disposal теперь вызывает существующий pyqtgraph PlotWidget.close после снятия event filters и overlays, до parent deleteLater/DeferredDelete. Этот adapter освобождает proxy/menu/axes/ViewBox для PySide; plotItem=None защищает повторное закрытие.
+- Реальная regression проверяет close-before-parent-delete и идемпотентный clear. Assertions исходных crash tests не меняются; подтверждение требует нового exact-head Windows Release gate.
+
 ## Состояние после сверки 2 октября 2026 года
 
 | Проверенный результат | Доказательство | Статус и оставшаяся граница |

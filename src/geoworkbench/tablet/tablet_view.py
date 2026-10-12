@@ -6269,6 +6269,14 @@ class TabletView(QWidget):
         self._overlay_layers.clear_track(track_id)
         self._tooltip_items.pop(track_id, None)
         self._rubber_band_items.pop(track_id, None)
+        if plot is not None and _qt_object_is_alive(plot):
+            try:
+                # pyqtgraph closes proxy/menu/axis objects explicitly for PySide
+                # before the parent QWidget destroys its native graphics scene.
+                if plot.plotItem is not None:
+                    plot.close()
+            except RuntimeError as exc:
+                log_exception("tablet.track.dispose.plot_failed", exc, track_id=track_id)
         try:
             if _qt_object_is_alive(widget):
                 self._tracks_layout.removeWidget(widget)
