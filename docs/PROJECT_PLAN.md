@@ -24,6 +24,12 @@ WITS-NET-01 остаётся внешним условием: пользоват
 - RU/KK/EN Qt acceptance использует реальные controls/dashboard/runtime; следующий frame сохраняет диапазон и исходный численный prefix. Реальный TCP reconnect и длительный soak остаются отдельной приёмкой.
 - PR #579 интегрирован: production JSON/package capture runtime reopen и последовательность кадров проверены; main Release gate 38234674469 attempt 2 SUCCESS на `5f9bd4d2`. Причина performance slowdown attempt 1 не установлена; пороги не менялись.
 
+## WITS-UX-01 — реальный Start/Stop/restart TCP через controls (на проверке)
+
+- RU/KK/EN acceptance нажимает настоящие Start/Stop на локальном TCP-стенде, проверяет завершение worker, состояние controls и второй независимый запуск. Каждый новый raw segment содержит точный payload своего запуска; предыдущие файлы неизменны. Engine и sockets не подменяются.
+- PR #580 интегрирован после трёх SUCCESS на `b06dff8b` (run 38244641500), main `bee73342`: кнопка сохранения формы и реальные manual-range save/rebind/reopen проверены.
+- Runtime не меняется. Автоматический reconnect после потери соединения, полевая сеть и длительный soak остаются отдельными контрактами.
+
 ## Состояние после сверки 2 октября 2026 года
 
 | Проверенный результат | Доказательство | Статус и оставшаяся граница |
