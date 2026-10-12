@@ -191,3 +191,5 @@ The shared compound-command foundation is prepared for future batch actions: one
 The controller supports validated batch deletion as one Undo/Redo command; invalid selections are rejected in full. Editor multi-selection and batch-delete controls are not yet added.
 
 To delete several notes, choose Delete group…, select records with Ctrl/Shift and confirm Delete. One Undo restores the group. Cancelling the selection changes nothing; editor Cancel restores the latest checkpoint.
+
+Applied group deletion persists in JSON/package projects. Cancel of later draft edits restores the applied set; reopening retains independent well annotations without the previous session history.

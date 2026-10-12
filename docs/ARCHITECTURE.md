@@ -1076,3 +1076,5 @@ CompoundCommand groups same-domain reversible commands into one existing Command
 ReportAnnotationController.remove_many validates the entire bounded ID selection before mutation and records descending-index removal children in one CompoundCommand. History eligibility validates child session/dataset/composition; checkpoints retain compound and child execution flags. Batch UI is separate.
 
 The report editor batch-delete selection dialog lists only current report-owned records. Selected IDs are passed to validated remove_many; the UI owns no parallel history. Selection Cancel does not mutate the session, and editor Cancel uses the existing checkpoint. The child dialog is released with deleteLater.
+
+Batch-delete persistence acceptance drives the real editor selection and shared compound history across two wells, Apply and Cancel, then ProjectController JSON/package save/open. Persisted records retain their ownership while old-session commands remain inaccessible.
