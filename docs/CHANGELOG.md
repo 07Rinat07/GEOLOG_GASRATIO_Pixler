@@ -1,6 +1,16 @@
 # История изменений
 
 
+## Qt: явное завершение pyqtgraph plot lifecycle перед track rebuild
+
+- Track disposal вызывает PlotWidget.close до удаления native parent tree, сохраняя cleanup pyqtgraph для PySide. Добавлена regression порядка и идемпотентности. Native CI crash требует подтверждения новым Windows gate.
+
+
+## Gas Context: сквозная production workspace/editor приёмка
+
+- Реальные RU/KK/EN controls Add/Save/Cancel и JSON/package project reopen сохраняют registry, signed depths и source arrays. Runtime не изменён.
+
+
 ## Печать: общий профиль нейтрального оформления geology tracks
 
 - Рамки, разделители и текст cuttings/LBA tracks получают semantic neutral colors из общего visual profile. Авторские lithology и standard LBA colors сохранены.

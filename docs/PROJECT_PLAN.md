@@ -42,6 +42,18 @@ WITS-NET-01 остаётся внешним условием: пользоват
 - Regression подменяет profile palette и проверяет реальные pen arguments и сохранение geological semantics. Весь PRINT-STYLE-01 и physical acceptance остаются открытыми.
 - PR #582 интегрирован после трёх SUCCESS на `0f67137f` (run 38253601130); main `a6059c89` Release gate 38257387766 SUCCESS. Loopback reconnect покрыт, field networking/long soak отдельно.
 
+## GASCTX-RPT-01 — production workspace/editor save/reopen (на проверке)
+
+- RU/KK/EN × JSON/package acceptance нажимает настоящую кнопку рабочего пространства, редактирует modal Gas Context dialog через Add/Save, повторно открывает его и проверяет Cancel нового draft. Production save/open сохраняет точный registry и signed depths; reopened session clean, source depth/curve arrays неизменны.
+- Runtime не изменён; existing controller/export context-audit regressions сохраняются. Физическая/содержательная приёмка и общий grayscale event contract отдельно.
+- PR #583 интегрирован после трёх SUCCESS на `9b9e39c0` (run 38262197960), main `8f4c3140`: shared geology track neutral palette согласована с visual profile.
+
+## Qt lifecycle — явное pyqtgraph close перед удалением track tree (на проверке)
+
+- Main Release gate 38266575085 на `8f4c3140` завершился native access violation в PlotItem construction после Undo ресэмплирования. Аналогичный constructor stack ранее возникал при interval Undo; утверждение о доказанной первопричине не делается.
+- Track disposal теперь вызывает существующий pyqtgraph PlotWidget.close после снятия event filters и overlays, до parent deleteLater/DeferredDelete. Этот adapter освобождает proxy/menu/axes/ViewBox для PySide; plotItem=None защищает повторное закрытие.
+- Реальная regression проверяет close-before-parent-delete и идемпотентный clear. Assertions исходных crash tests не меняются; подтверждение требует нового exact-head Windows Release gate.
+
 ## Состояние после сверки 2 октября 2026 года
 
 | Проверенный результат | Доказательство | Статус и оставшаяся граница |
@@ -318,7 +330,7 @@ RPT-ANN renderer/editor интегрированы через #446/#447; Compose
 | Порядок | Задача | Следующий проверяемый результат и зависимость | Ответственный по роли / статус |
 |---|---|---|---|
 | 1 | PRINT-STYLE-01 | Свести оставшиеся generic/Masterlog/Office пути к одному visual profile и document-control contract; дополнять готовые typography/marker/legend contracts. Physical acceptance вынесена отдельно | Разработчик / в работе |
-| 2 | RPT-ANN-01 | Renderer и transactional editor интегрированы через #446/#447. Composer, RU/KK/EN JSON/package reopen, scope isolation, 20 Undo/Redo, shortcuts и large-LAS memory проверены через #559–#563. Apply/checkpoint и scoped shared history интегрированы через #565–#569. Compound foundation/controller/UI интегрированы #572–#574; persisted batch acceptance проверяется. После её gates остаётся физическая/содержательная приёмка, перейти к следующей задаче очереди. Физическая приёмка отдельно | Разработчик / в работе |
+| 2 | RPT-ANN-01 | Renderer и transactional editor интегрированы через #446/#447. Composer, RU/KK/EN JSON/package reopen, scope isolation, 20 Undo/Redo, shortcuts и large-LAS memory проверены через #559–#563. Apply/checkpoint и scoped shared history интегрированы через #565–#569. Compound foundation/controller/UI интегрированы #572–#574; persisted batch acceptance интегрирована через #575. Автоматическая граница закрыта; остаётся физическая/содержательная приёмка, перейти к следующей задаче очереди. Физическая приёмка отдельно | Разработчик / в работе |
 | 3 | GASCTX-RPT-01: остаточная приёмка | Проверить общий editor/registry/context audit через production entry points, save/reopen и RU/KK/EN; завершить отдельные полосы/метки событий с grayscale-подписями. Реализованные exclusion/background/confirmed policy не переписывать | Разработчик + специалист ГТИ / на проверке |
 | 4 | WITS-UX-01 | Завершить persistence/reconnect и live-first navigation/help: основные данные и health видимы, advanced/diagnostics сворачиваются, outer horizontal scroll отсутствует | Разработчик / в работе |
 | 5 | WITS-PLOT-01 | Остаточные manual ranges, reconnect/schema-change и redraw acceptance поверх существующих unit-aware tracks и редактируемых панелей | Разработчик / в работе |
