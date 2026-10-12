@@ -115,3 +115,25 @@ def test_las3_real_fixture_metadata_is_preserved_without_claiming_import_support
     capabilities = import_format_capabilities("las", las_version="3.0")
     assert capabilities.sample_read is CapabilityLevel.UNVERIFIED
     assert capabilities.source_write is CapabilityLevel.UNAVAILABLE
+
+
+@pytest.mark.parametrize(
+    "relative_path",
+    [
+        "dlis/7k_file.dlis",
+        "lis79/inforec_01.lis",
+        "segy/1x1.sgy",
+        "segy/broken.sgy",
+        "su/small.su",
+    ],
+)
+def test_binary_format_fixtures_are_not_silently_reinterpreted_as_las(
+    relative_path: str,
+) -> None:
+    from geoworkbench.data.las_adapter import LasImportError
+
+    source = CORPUS / relative_path
+    original = source.read_bytes()
+    with pytest.raises(LasImportError, match="Ожидался LAS-файл"):
+        import_las_with_report(source)
+    assert source.read_bytes() == original
