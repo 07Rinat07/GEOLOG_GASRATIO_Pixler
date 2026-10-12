@@ -71,7 +71,8 @@ def test_non_las_fixtures_remain_binary_structures() -> None:
     assert b"VERS." not in lis[:120]
 
 
-@pytest.mark.parametrize("bad_path", ["../escape.las", "/root/absolute.las", "las/../escape.las"])
+@pytest.mark.parametrize("bad_path", ["../escape.las", "/root/absolute.las", "las/../escape.las",
+                         "C:/outside.las", "las\\\\..\\\\escape.las"])
 def test_manifest_rejects_unsafe_destination_paths(bad_path: str) -> None:
     entry = dict(_fixtures()[0], destination=bad_path)
     with pytest.raises(ValueError, match="Unsafe relative fixture path"):
