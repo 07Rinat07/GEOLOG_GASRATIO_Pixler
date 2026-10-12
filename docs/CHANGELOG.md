@@ -1,6 +1,11 @@
 # История изменений
 
 
+## WITS: автоматическое TCP переподключение в настоящем dialog
+
+- Добавлена RU/KK/EN loopback acceptance одного Start, разрыва соединения, автоматического reconnect того же engine и точной сохранности raw bytes. Runtime не изменён.
+
+
 ## WITS: сквозная TCP приёмка Start/Stop/restart
 
 - Добавлена RU/KK/EN приёмка настоящих controls с локальным TCP server, завершением worker и точной сохранностью raw bytes каждого запуска. Runtime не изменён; полевая сеть и длительный soak остаются отдельно.
