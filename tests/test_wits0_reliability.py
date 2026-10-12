@@ -596,3 +596,24 @@ def test_workspace_key_isolation_round_trips_real_qsettings_file(tmp_path):
     reopened = Wits0WorkspaceSettings(QSettings(path, QSettings.Format.IniFormat))
     assert reopened.load("well/1") == first
     assert reopened.load("well_1") == second
+
+
+@pytest.mark.parametrize("field", ["history_start", "history_end"])
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
+def test_workspace_history_range_rejects_nonfinite_domain_and_saved_settings(field, value):
+    boundaries = {"history_start": -100.0, "history_end": 100.0}
+    boundaries[field] = value
+    with pytest.raises(ValueError, match="finite"):
+        Wits0WorkspaceState(**boundaries)
+    settings = _Settings()
+    store = Wits0WorkspaceSettings(settings)
+    store.save("finite-range", Wits0WorkspaceState(history_start=-100.0, history_end=100.0))
+    key = "wits0/workspace/finite-range"
+    payload = json.loads(settings.values[key])
+    payload[field] = value
+    raw = json.dumps(payload)
+    settings.values[key] = raw
+    sync_count = settings.sync_count
+    assert store.load("finite-range") == Wits0WorkspaceState()
+    assert settings.values[key] == raw
+    assert settings.sync_count == sync_count
