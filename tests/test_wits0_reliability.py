@@ -530,3 +530,21 @@ def test_capture_engine_marks_unclean_previous_run_and_finishes_cleanly(
         .splitlines()
     ]
     assert events == ["run_started", "run_stopped"]
+
+
+@pytest.mark.parametrize("field", ["follow_span", "history_start", "history_end"])
+@pytest.mark.parametrize("value", [10**400, -(10**400)])
+def test_workspace_settings_numeric_overflow_returns_default_without_rewriting(field, value):
+    settings = _Settings()
+    store = Wits0WorkspaceSettings(settings)
+    state = Wits0WorkspaceState()
+    store.save("well-overflow", state)
+    key = "wits0/workspace/well-overflow"
+    payload = json.loads(settings.values[key])
+    payload[field] = value
+    raw = json.dumps(payload)
+    settings.values[key] = raw
+    sync_count = settings.sync_count
+    assert store.load("well-overflow") == Wits0WorkspaceState()
+    assert settings.values[key] == raw
+    assert settings.sync_count == sync_count

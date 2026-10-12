@@ -1078,3 +1078,5 @@ ReportAnnotationController.remove_many validates the entire bounded ID selection
 The report editor batch-delete selection dialog lists only current report-owned records. Selected IDs are passed to validated remove_many; the UI owns no parallel history. Selection Cancel does not mutate the session, and editor Cancel uses the existing checkpoint. The child dialog is released with deleteLater.
 
 Batch-delete persistence acceptance drives the real editor selection and shared compound history across two wells, Apply and Cancel, then ProjectController JSON/package save/open. Persisted records retain their ownership while old-session commands remain inaccessible.
+
+Wits0WorkspaceSettings treats integer-to-float overflow in saved view ranges as invalid configuration and returns the existing default state. Loading does not rewrite corrupt settings or mutate raw acquisition data.

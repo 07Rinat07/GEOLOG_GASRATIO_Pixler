@@ -57,3 +57,5 @@ replace a real GeoScape GSWITS field soak.
 No Windows Service is installed, active raw data is never removed, closed sessions are not reopened,
 and no real field soak is claimed. Service/startup evaluation, a signed checklist, physical
 disk-full testing and long-duration GSWITS validation remain acceptance work.
+
+Saved workspace ranges containing numbers outside the float range use safe default settings. The corrupt settings payload is preserved and raw WITS data is unchanged.
