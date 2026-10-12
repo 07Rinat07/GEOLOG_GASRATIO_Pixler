@@ -13,6 +13,7 @@ from typing import Any, Iterable
 import lasio
 import numpy as np
 
+from geoworkbench.data.format_capabilities import CapabilityLevel, import_format_capabilities
 from geoworkbench.data.las_import_report import (
     LasImportIssue,
     LasImportReport,
@@ -499,7 +500,7 @@ def _build_import_report(
 
     if version is None:
         issues.append(_warning("missing-version", "В LAS не удалось определить версию VERS"))
-    elif not version.startswith(("1.2", "2.")):
+    elif import_format_capabilities("las", las_version=version).sample_read is not CapabilityLevel.VERIFIED:
         issues.append(
             _warning(
                 "partial-version-support",

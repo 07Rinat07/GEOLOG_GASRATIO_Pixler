@@ -1,5 +1,12 @@
 # Проверка качества и release gate
 
+DATA-PETRO-01 stage-0 capability audit: `python -m pytest -q tests/test_format_capabilities.py tests/test_las_adapter.py`.
+Матрица проверяет supported/limited/unverified LAS versions, отказ от записи raw,
+CSV/Excel import/export границы и предупреждение для неопробованных LAS headers.
+Полный Windows Release gate обязателен до интеграции; LAS 3.x fixtures/UI и
+полевой round-trip отдельно.
+
+
 `tests/test_print_center_output_language.py` covers 18 real tablet/curve export scenarios after project and preference reopen: all UI/output language pairs, PDF, QPrinter preview/print, PNG, SVG and Passport. Actual page counts and localized footers, UI/source invariants and six detached-copy scenarios are checked. `tests/test_print_output_language_preferences.py` covers 26 cases: engineer/form persistence, legacy and malformed language fallback, typed job/preferences validation and strict Unicode checks for selected printed columns with print-mode restoration. QPrinter uses PDF output; physical printer acceptance remains separate.
 
 

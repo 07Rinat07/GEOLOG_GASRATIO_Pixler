@@ -788,3 +788,24 @@ def test_lossless_export_handles_cyrillic_descriptions_on_windows_codepages(tmp_
     restored_rop = restored.curve_by_mnemonic("ROP")
     assert restored_rop is not None
     assert "Скорость" in (restored_rop.metadata.description or "")
+
+
+@pytest.mark.parametrize("version", ["2.1", "3.0", "2.0-vendor"])
+def test_unverified_las_header_reports_limited_capability(
+    tmp_path, monkeypatch, version: str
+) -> None:
+    from geoworkbench.data.format_capabilities import CapabilityLevel
+
+    source = tmp_path / "vendor-version.las"
+    source.write_text("fake", encoding="utf-8")
+    fake_las = FakeLas()
+    fake_las.version = [FakeHeaderItem("VERS", version), FakeHeaderItem("WRAP", "NO")]
+    monkeypatch.setattr("geoworkbench.data.las_adapter.lasio.read", lambda *a, **k: fake_las)
+
+    result = import_las_with_report(source)
+
+    assert result.report.source.las_version == version
+    assert result.report.capabilities.sample_read is not CapabilityLevel.VERIFIED
+    assert result.report.capabilities.source_write is CapabilityLevel.UNAVAILABLE
+    assert any(issue.code == "partial-version-support" for issue in result.report.issues)
+    assert result.dataset.source_path == source
