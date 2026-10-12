@@ -88,6 +88,36 @@ WITS-NET-01 остаётся внешним условием: пользоват
 - Каталог ещё не подключён к persisted ReportAnnotationKind, редактору и печатному выбору. Следующий инкремент: bounded symbol_id/caption anchor в existing annotation schema/controller/history и renderer; затем UI/save-reopen/print-selection. Весь RPT-AUTHOR-01 и PLOT-FLAG-01 не завершены; physical acceptance отдельно.
 - PR #584 интегрирован на `995d8273`, main `11804a1b` Release gate 38282939540 SUCCESS. PR #585 интегрирован после трёх SUCCESS на `f7af6400` (run 38287686409), main `26f013c1` Release gate 38291895903 SUCCESS; новые требования плана сохранены, их реализация не объявляется завершённой.
 
+## DATA-PETRO-01 — универсальная платформа форматов и петрофизических данных (запланировано)
+
+Цель по запросу пользователя: одно приложение для чтения, просмотра, безопасного редактирования и интерпретации скважинных/петрофизических данных разных форматов с общими планшетом, графиками, аннотациями и отчётами. Развивать существующую Data Platform через изолированные адаптеры; не переписывать приложение и не обещать полное редактирование каждого формата до проверки его возможностей.
+
+### Проверенная исходная граница
+
+- В текущем коде есть LAS, Excel и CSV adapters, lossless LAS source snapshot/export planning. Для версий LAS вне 1.2/2.x `las_adapter.py` формирует `partial-version-support`; наличие общего reader не доказывает полную семантику и lossless round-trip LAS 3.x.
+- Реализация metadata-only preview DLIS/LIS79/SEG-Y и адаптеры GeoPackage/Shapefile/GeoTIFF/GRDECL/RESQML/HDF5/NetCDF при этой сверке в `src` не обнаружены. Приведённое пользователем описание платформы рассматривается как целевая архитектура, а не подтверждённый текущий feature list.
+- Для каждого формата вести отдельную capability matrix: identify/version → metadata preview → sample read → supported edits → export/write → verified round-trip. Read-only и metadata-only режимы явно обозначать; не активировать Save/export без соответствующего writer contract.
+
+### Минимальные последовательные инкременты
+
+1. **LAS и петрофизические кривые — первый приоритет:** проверить LAS 1.x/2.x/3.x и vendor variants на открытых/разрешённых fixtures. Для LAS 3.x поддержать структурированные наборы/секции, несколько log sets и связанную well metadata в пределах выбранного slice; неизвестные секции сохранять, неподдерживаемые структуры явно показывать. Новые версии/диалекты подключать после проверки опубликованной спецификации и fixtures, без предположения о наличии «LAS 4».
+2. **Единый импорт/редактор:** выбор скважины/набора/каналов, depth/time/XY index с domain MD/TVD/TVDSS и time semantics, source mnemonic/canonical mapping, единицы, NULL/NaN, QC, metadata/provenance. Редактирование кривых/метаданных, merge/resample/сопоставление использовать через существующие mutation controllers и shared Undo/Redo. Сохранять авторитетный original artifact; по умолчанию экспортировать новую копию с отчётом о потерях/преобразованиях.
+3. **Бинарные каротажные форматы DLIS и LIS79:** сначала bounded metadata-only preview, затем чтение выбранных channels/frames и multidimensional samples с сохранением origin/tool/run/index/unit. Полное source editing/write-back — отдельная заявленная возможность только при наличии проверенного encoder; до этого рабочие изменения сохранять в project/поддерживаемом производном экспорте.
+4. **SEG-Y:** отдельный metadata/trace adapter с явными coordinate/index/sample semantics. Не трактовать сейсмические traces как обычные LAS curves автоматически; дальнейшее отображение/редактирование согласовать с профильным представлением.
+5. **GeoPackage/Shapefile/GeoTIFF:** пространственные слои/растр, CRS, координаты и геопривязка скважин — отдельные объекты проекта, не подмена depth/time. Проверять CRS, units, nodata, многокомпонентные sidecar artifacts и atomic output.
+6. **GRDECL/RESQML/HDF5/NetCDF:** reservoir/grid/property и scientific arrays через отдельные bounded adapters. HDF5/NetCDF — контейнеры: заранее выбирать конкретные data schemas/coordinate conventions, а не обещать семантику любого произвольного файла. Для RESQML учитывать упаковку EPC, связанные объекты и внешние array references.
+7. **Петрофизическая работа:** общие графики/планшет для доступных GR/SP/resistivity/density/neutron/sonic/caliper/porosity/saturation и иных каналов; preserve source UOM, valid ranges и QC. Новые производные расчёты — только через versioned formula profiles, явные inputs/UOM, контрольные примеры и Report Passport; исходные измерения не заменять вычисленными. Поддержка названия канала не означает внедрение новой формулы интерпретации.
+
+### Общие контракты и приёмка
+
+- Реестр адаптеров сообщает фактические capabilities, dependencies и ограничения. Detection опирается на содержимое/сигнатуру и проверенную version metadata, а не только расширение. Новые optional dependencies добавлять только для выбранного инкремента с provenance/license review.
+- Ограничить размеры/число channels/frames/arrays и parser resources; тяжёлые/binary операции выносить из UI thread в изолированный worker, поддержать отмену, progress, preview до materialization и lazy/chunked read для больших файлов. Ошибка одного адаптера не повреждает проект, raw/source artifacts и другие открытые наборы.
+- Общие output-language, author conclusion/annotations/symbols и PLOT-FLAG-01 применяются к supported graph views и их печати; новые формы не получают отдельную несовместимую систему истории или флажков.
+- Приёмка каждого slice: real production import/edit/save/reopen/export, expected samples/metadata/units/index/ownership, malformed/truncated/unknown-version cases, source immutability, lossless round-trip либо явный loss report, large-file memory/UI responsiveness и exact-head Windows gates. Unsupported writer не маскировать успешным сохранением.
+- Источники спецификаций: [LAS/CWLS описание и ресурсы](https://www.usgs.gov/programs/national-geological-and-geophysical-data-preservation-program/las-format), [RESQML technical resources](https://energistics.org/resqml-developers-users). Спецификации остальных адаптеров закреплять в выбранном implementation slice; не копировать защищённые vendor документы в репозиторий.
+
+Статус: новая программа развития, полная универсальность и перечисленные новые адаптеры не реализованы. Первый проверяемый результат — capability audit LAS/version/schema и один production LAS 3.x slice, затем DLIS/LIS79 preview/read. Ответственные: разработчик/QA и специалист по петрофизике; корректность методик и полевая приёмка отдельно.
+
 ## Состояние после сверки 2 октября 2026 года
 
 | Проверенный результат | Доказательство | Статус и оставшаяся граница |
@@ -367,6 +397,7 @@ RPT-ANN renderer/editor интегрированы через #446/#447; Compose
 | 2 | RPT-ANN-01 | Renderer и transactional editor интегрированы через #446/#447. Composer, RU/KK/EN JSON/package reopen, scope isolation, 20 Undo/Redo, shortcuts и large-LAS memory проверены через #559–#563. Apply/checkpoint и scoped shared history интегрированы через #565–#569. Compound foundation/controller/UI интегрированы #572–#574; persisted batch acceptance интегрирована через #575. Автоматическая граница закрыта; остаётся физическая/содержательная приёмка, перейти к следующей задаче очереди. Физическая приёмка отдельно | Разработчик / в работе |
 | 2а | PLOT-FLAG-01 | Флажки со значениями по клику: глубина/время/XY, планшет и любые графики форм/интерпретаций/WITS; независимые screen/print controls, persisted anchors и единый preview/print/export snapshot | Разработчик + QA / запланировано по запросу пользователя |
 | 2б | RPT-AUTHOR-01: авторские значки | Переиспользовать готовые conclusion/remarks и report callout/arrow; добавить каталог авторских значков с подписью, persisted anchor и выбором включения в PDF/печать | Разработчик + QA / частично реализовано, новый symbol scope запланирован |
+| 2в | DATA-PETRO-01 | Универсальные форматы/петрофизика через isolated adapters: capability matrix и LAS 3.x slice → DLIS/LIS79 metadata/read; GIS/reservoir/scientific formats следующими самостоятельными этапами | Разработчик + QA + специалист по петрофизике / запланировано |
 | 3 | GASCTX-RPT-01: остаточная приёмка | Проверить общий editor/registry/context audit через production entry points, save/reopen и RU/KK/EN; завершить отдельные полосы/метки событий с grayscale-подписями. Реализованные exclusion/background/confirmed policy не переписывать | Разработчик + специалист ГТИ / на проверке |
 | 4 | WITS-UX-01 | Завершить persistence/reconnect и live-first navigation/help: основные данные и health видимы, advanced/diagnostics сворачиваются, outer horizontal scroll отсутствует | Разработчик / в работе |
 | 5 | WITS-PLOT-01 | Остаточные manual ranges, reconnect/schema-change и redraw acceptance поверх существующих unit-aware tracks и редактируемых панелей | Разработчик / в работе |
