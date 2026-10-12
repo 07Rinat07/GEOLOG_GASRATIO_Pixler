@@ -2,6 +2,16 @@
 
 DIGITAL DIGITAL GEOLOG GASRATIO&PIXLER is an editor for drilling, mud-logging, LAS, and GeoScape2/GS2 data.
 
+## Implemented features and planned stages
+
+Reports already support author conclusions, summaries, remarks and text callouts/arrows.
+The vector author symbol catalog still needs editor and persistence integration.
+Click-to-add value flags, including WITS, with independent print selection are planned.
+Universal formats and petrophysics will be implemented in stages; full LAS 3.x support
+and DLIS/LIS79/SEG-Y binary previews are not yet claimed. `quick_pp` is an evaluation
+candidate, not an installed dependency. See the [canonical project plan](../PROJECT_PLAN.md)
+for status and acceptance criteria.
+
 ## Installation and startup
 
 Python 3.11 or newer is required. Run every command from the project root.
