@@ -98,6 +98,21 @@ WITS-NET-01 остаётся внешним условием: пользоват
 - Реализация metadata-only preview DLIS/LIS79/SEG-Y и адаптеры GeoPackage/Shapefile/GeoTIFF/GRDECL/RESQML/HDF5/NetCDF при этой сверке в `src` не обнаружены. Приведённое пользователем описание платформы рассматривается как целевая архитектура, а не подтверждённый текущий feature list.
 - Для каждого формата вести отдельную capability matrix: identify/version → metadata preview → sample read → supported edits → export/write → verified round-trip. Read-only и metadata-only режимы явно обозначать; не активировать Save/export без соответствующего writer contract.
 
+### Порядок исполнения и gates перехода
+
+Пользователь подтвердил поэтапную реализацию DATA-PETRO-01. Единственный канонический план — этот документ; параллельные планы не создавать.
+
+| Этап | Конкретный результат | Условие перехода |
+|---|---|---|
+| 0 — фактические capabilities | Реестр возможностей существующих LAS/Excel/CSV adapters и fixture matrix LAS версий/диалектов; UI/diagnostics отличает supported read, partial, metadata-only и unsupported write | Production detection/import tests, понятные ограничения; существующие сценарии не регрессируют |
+| 1 — LAS 3.x pilot | Один явно выбранный набор/секция LAS 3.x читается в существующий dataset, доступен в планшете и сохраняется/reopens в проекте; неподдерживаемые секции не теряются и не выдаются за отредактированные | Exact samples/units/index/source metadata и source immutability; сохранение/экспорт имеет честный loss report или доказанный round-trip |
+| 2 — LAS editing/export | Расширять verified LAS 3.x slice, подключить допустимые редактирования через existing controllers/history и writer capability guard | Undo/Redo, JSON/package reopen, source artifact preservation и проверенный экспорт новой копии |
+| 3 — DLIS/LIS79 | Сначала metadata preview одного формата, затем selected channel/frame read; второй формат отдельным инкрементом | Bounded parser/worker, malformed cases, frame/index/UOM fixtures; write-back только при проверенном encoder |
+| 4 — следующие семейства | SEG-Y → spatial adapters → выбранные reservoir/scientific schemas; один формат/семантический scope на основной PR | Собственная fixture/capability matrix, CRS/array references при необходимости; source/read/edit/write границы явно описаны |
+| 5 — петрофизические workflows | Supported channels в общих графиках/планшетах/отчётах; новые формулы только отдельными versioned evidence-backed задачами | Контрольные примеры/UOM/profile version/Passport и содержательная приёмка специалиста |
+
+Каждый этап разбивается на минимальные законченные инкременты. После успешных локальных проверок публиковать один основной PR; интеграция только после трёх обязательных Windows gates SUCCESS на точном финальном head, затем проверить fresh main CI. При падении сразу исследовать причину и исправить без ослабления assertions. Не объявлять весь формат поддержанным после metadata preview или одного pilot файла. Первая implementation задача — этап 0; новые зависимости/адаптеры не добавлять одновременно для всех форматов.
+
 ### Минимальные последовательные инкременты
 
 1. **LAS и петрофизические кривые — первый приоритет:** проверить LAS 1.x/2.x/3.x и vendor variants на открытых/разрешённых fixtures. Для LAS 3.x поддержать структурированные наборы/секции, несколько log sets и связанную well metadata в пределах выбранного slice; неизвестные секции сохранять, неподдерживаемые структуры явно показывать. Новые версии/диалекты подключать после проверки опубликованной спецификации и fixtures, без предположения о наличии «LAS 4».
