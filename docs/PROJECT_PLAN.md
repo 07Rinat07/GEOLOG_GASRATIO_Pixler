@@ -294,7 +294,7 @@ RPT-ANN renderer/editor интегрированы через #446/#447; Compose
 | Порядок | Задача | Следующий проверяемый результат и зависимость | Ответственный по роли / статус |
 |---|---|---|---|
 | 1 | PRINT-STYLE-01 | Свести оставшиеся generic/Masterlog/Office пути к одному visual profile и document-control contract; дополнять готовые typography/marker/legend contracts. Physical acceptance вынесена отдельно | Разработчик / в работе |
-| 2 | RPT-ANN-01 | Renderer и transactional editor интегрированы через #446/#447. Composer, RU/KK/EN JSON/package reopen, scope isolation, 20 Undo/Redo, shortcuts и large-LAS memory проверены через #559–#563. Apply/checkpoint и scoped shared history интегрированы через #565–#569. Следующий контракт: validated compound batch, scope guards и Cancel после групповой правки. Физическая приёмка отдельно | Разработчик / в работе |
+| 2 | RPT-ANN-01 | Renderer и transactional editor интегрированы через #446/#447. Composer, RU/KK/EN JSON/package reopen, scope isolation, 20 Undo/Redo, shortcuts и large-LAS memory проверены через #559–#563. Apply/checkpoint и scoped shared history интегрированы через #565–#569. Compound foundation/controller/UI интегрированы #572–#574; persisted batch acceptance проверяется. После её gates остаётся физическая/содержательная приёмка, перейти к следующей задаче очереди. Физическая приёмка отдельно | Разработчик / в работе |
 | 3 | GASCTX-RPT-01: остаточная приёмка | Проверить общий editor/registry/context audit через production entry points, save/reopen и RU/KK/EN; завершить отдельные полосы/метки событий с grayscale-подписями. Реализованные exclusion/background/confirmed policy не переписывать | Разработчик + специалист ГТИ / на проверке |
 | 4 | WITS-UX-01 | Завершить persistence/reconnect и live-first navigation/help: основные данные и health видимы, advanced/diagnostics сворачиваются, outer horizontal scroll отсутствует | Разработчик / в работе |
 | 5 | WITS-PLOT-01 | Остаточные manual ranges, reconnect/schema-change и redraw acceptance поверх существующих unit-aware tracks и редактируемых панелей | Разработчик / в работе |
@@ -2547,7 +2547,14 @@ PR #572 интегрирован после трёх SUCCESS на e646629c (run3
 
 PR #573 интегрирован после трёх SUCCESS на 3db47a91 (run38199177258), mainfc238436.
 
-### RPT-ANN-01 — выбор группы и удаление в Qt editor (на проверке)
+### RPT-ANN-01 — выбор группы и удаление в Qt editor (завершено)
 
 - «Удалить группу…» открывает список только текущих report annotations с ExtendedSelection. Подтверждение недоступно без выбора; отмена выбора не меняет модель. Подтверждённый список передаётся validated remove_many как одна команда; Undo/Redo и Cancel/Apply используют существующую историю/checkpoint.
 - RU/KK/EN real controls проверяют два выбранных элемента, выбор Cancel, Undo/Redo и rollback к Apply. Source/calculation contracts сохраняются, физическая приёмка отдельно; три exact-head gates обязательны.
+
+PR #574 интегрирован после трёх SUCCESS на 0c1f3aba (run38201688828), main6dbeec71.
+
+### RPT-ANN-01 — persistence группового удаления (на проверке)
+
+- Шесть RU/KK/EN × JSON/package сценариев реальных кнопок проверяют две скважины: group delete, single Undo/Redo, Apply, draft Cancel, production save/open. После reopen остаётся ровно выбранный retained record каждой области; source depth/curves unchanged, session clean, old-session history blocked. Runtime не изменён.
+- Grouped controller/UI implementation интегрирована #572–#574. После exact-head gates этой persistence-приёмки переходить к другим незавершённым задачам очереди; физическая/содержательная приёмка остаётся отдельно.
