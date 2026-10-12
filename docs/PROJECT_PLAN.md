@@ -18,6 +18,12 @@ WITS-NET-01 остаётся внешним условием: пользоват
 [CHANGELOG.md](CHANGELOG.md); отдельные roadmap, build report, release plan и временные планы
 в `docs` не создаются.
 
+## WITS-PLOT-01 — доступность сохранения формы после подключения runtime (на проверке)
+
+- `bind_runtime` включает настоящую кнопку «Сохранить форму», ранее оставшуюся отключённой после empty state. Ручной X-диапазон сохраняется через существующие QSettings и восстанавливается после rebind и нового виджета.
+- RU/KK/EN Qt acceptance использует реальные controls/dashboard/runtime; следующий frame сохраняет диапазон и исходный численный prefix. Реальный TCP reconnect и длительный soak остаются отдельной приёмкой.
+- PR #579 интегрирован: production JSON/package capture runtime reopen и последовательность кадров проверены; main Release gate 38234674469 attempt 2 SUCCESS на `5f9bd4d2`. Причина performance slowdown attempt 1 не установлена; пороги не менялись.
+
 ## Состояние после сверки 2 октября 2026 года
 
 | Проверенный результат | Доказательство | Статус и оставшаяся граница |
