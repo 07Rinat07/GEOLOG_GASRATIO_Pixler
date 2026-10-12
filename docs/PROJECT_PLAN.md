@@ -2508,7 +2508,13 @@ PR #566 интегрирован после трёх SUCCESS на dd59d702 (run 
 
 PR #567 интегрирован после трёх SUCCESS на 579e6e49 (run 38180846839), main 0b460e23.
 
-### RPT-ANN-01 — общая история между открытиями редактора (на проверке)
+### RPT-ANN-01 — общая история между открытиями редактора (завершено)
 
 - Открытие редактора не очищает bounded shared history. Cancel восстанавливает checkpoint текущего открытия; Apply сохраняет историю. Undo/Redo допускаются только для команды текущих session/dataset/composition на вершине общей истории, без обхода более поздней команды чужой области.
 - RU/KK/EN Qt reopen/Cancel и две скважины проверяют сохранение command identity и блокировку чужих Undo/Redo. История остаётся runtime state и не сериализуется в project file. Source arrays неизменны; три exact-head gates обязательны.
+
+PR #568 интегрирован после трёх SUCCESS на 5825ec14 (run 38183415868), main 4fc48e27.
+
+### RPT-ANN-01 — Apply/Cancel и production save/reopen (на проверке)
+
+- Шесть RU/KK/EN × JSON/package сценариев проверяют два последовательных Apply, Cancel последующего draft, production save/open, unchanged source arrays и clean reopened state. Latest applied snapshot сохраняется; команды старой session остаются недоступными в новой. Runtime не изменён. Три exact-head gates обязательны; физическая приёмка отдельно.

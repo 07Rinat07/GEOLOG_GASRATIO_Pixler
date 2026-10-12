@@ -1064,3 +1064,5 @@ Report rollback validates changed suffixes of both bounded history stacks agains
 The report editor Apply action advances its rollback checkpoint to the current annotation draft without closing the dialog or clearing shared history. Add/Save retain their record-edit semantics; Apply neither serializes the project nor submits uncommitted form text. History retention between dialog openings remains separate.
 
 Report editor openings retain the bounded shared CommandHistory. Controller Undo/Redo eligibility requires the top report command to belong to the current session, dataset and composition. Foreign top commands are not skipped or discarded; Cancel restores the opening checkpoint. Runtime command objects are not serialized with the project.
+
+Apply persistence acceptance verifies the latest of two applied snapshots through Cancel and production JSON/package save/open. Reopened session ownership blocks old runtime commands; empty Apply/Cancel preserves its clean state.
