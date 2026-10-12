@@ -27,6 +27,9 @@ printing / reports consume resolved read models and never own source data
 - UI собирает ввод и отображает read model, но не реализует формулы, migration или запись проекта;
 - изменяющая операция проходит через controller/session command и управляет `dirty`, rollback и audit;
 - importer преобразует недоверенный внешний формат в доменную модель и не изменяет источник;
+- `data/format_capabilities.py` объявляет read-only подтверждённые возможности LAS/CSV/Excel;
+  `LasImportReport` связывает их с исходным VERS, без угадывания версии по расширению.
+  Project edits и derived export не означают raw write или lossless round-trip;
 - renderer получает уже подготовленные массивы и layout, но не исправляет исходные данные;
 - сериализуемый контракт меняется только с версией, migration и compatibility tests.
 
