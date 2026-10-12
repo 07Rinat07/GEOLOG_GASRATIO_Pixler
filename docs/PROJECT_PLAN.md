@@ -98,6 +98,18 @@ WITS-NET-01 остаётся внешним условием: пользоват
 - Реализация metadata-only preview DLIS/LIS79/SEG-Y и адаптеры GeoPackage/Shapefile/GeoTIFF/GRDECL/RESQML/HDF5/NetCDF при этой сверке в `src` не обнаружены. Приведённое пользователем описание платформы рассматривается как целевая архитектура, а не подтверждённый текущий feature list.
 - Для каждого формата вести отдельную capability matrix: identify/version → metadata preview → sample read → supported edits → export/write → verified round-trip. Read-only и metadata-only режимы явно обозначать; не активировать Save/export без соответствующего writer contract.
 
+### QUICKPP-EVAL-01 — кандидат для петрофизического расчётного слоя
+
+По предложению пользователя оценить `quick_pp` (`quick-pp`) как приоритетный кандидат для выбранных petrophysical workflows, не заменяя проверенный LAS reader/writer, source storage, Qt UI и shared history.
+
+- Проверенные upstream ресурсы: [документация](https://quick-pp.readthedocs.io/en/latest/), [репозиторий](https://github.com/imranfadhil/quick_pp), [MIT license](https://github.com/imranfadhil/quick_pp/blob/main/LICENSE), [dependency metadata](https://github.com/imranfadhil/quick_pp/blob/main/pyproject.toml). Доступны направления porosity/lithology/saturation/permeability/rock typing/QAQC; само наличие модулей не доказывает пригодность всех методик для наших данных.
+- Library integration допускается upstream, но текущий manifest включает также FastAPI/Celery/Redis/SQLAlchemy/psycopg2-binary и фиксирует Matplotlib 3.8.0. Перед добавлением выбрать точный release/commit, проверить его wheel/sdist, фактические scientific dependencies и imports, совместимость Python/NumPy/Matplotlib с нашим Windows lock/build. Не подключать весь web/frontend/Docker/DB стек только ради одной формулы и не обходить dependency integrity установкой без проверки зависимостей.
+- Первый proof: один выбранный расчёт через isolated optional adapter, явные input channels/UOM и параметры, контрольные примеры и сравнение с независимо воспроизводимым эталоном, NaN/NULL/domain bounds, source immutability и performance. До принятия backend не становится обязательной runtime dependency; анализ выполняется отдельно от production `.venv`.
+- При принятии: pinned version + license/provenance, versioned FormulaProfile и adapter contract; provenance содержит quick_pp version, выбранный алгоритм/параметры/inputs/units. Результат сохраняется как derived curve, исходный канал не переписывается. UI сообщает ограничения quick-look методики; Report Passport фиксирует evidence и версию.
+- Оценивать отдельно от DATA-PETRO format capabilities: `quick_pp` не объявляется доказательством поддержки DLIS/LIS79/SEG-Y/RESQML либо lossless LAS 3.x write-back. Formats и расчётные backend имеют разные acceptance gates. Подключение выбранного production workflow — только после review proof и exact-head Windows gates; непрошедший proof оставляет существующие backend/импорт работоспособными.
+
+Статус: кандидат изучен по upstream документации/manifest, библиотека не установлена и расчёты ещё не интегрированы. Следующий результат — isolated dependency/algorithm compatibility proof; затем решение о принятии конкретного slice.
+
 ### Порядок исполнения и gates перехода
 
 Пользователь подтвердил поэтапную реализацию DATA-PETRO-01. Единственный канонический план — этот документ; параллельные планы не создавать.
