@@ -145,6 +145,12 @@ WITS-NET-01 остаётся внешним условием: пользоват
 
 Статус: новая программа развития, полная универсальность и перечисленные новые адаптеры не реализованы. Первый проверяемый результат — capability audit LAS/version/schema и один production LAS 3.x slice, затем DLIS/LIS79 preview/read. Ответственные: разработчик/QA и специалист по петрофизике; корректность методик и полевая приёмка отдельно.
 
+## Windows CI — отдельные процессы для interval statistics overlay (на проверке)
+
+- PR #587 quality run 38304058011 на `432ba275` завершился native access violation `0xC0000005` в ViewBoxMenu construction при создании MainWindow после report/Qt cases большого shared shard. Main `b3766586` Release gate 38300820832 SUCCESS; runtime/формулы не менялись.
+- Все три `test_interval_statistics_overlay_widget.py` cases проходят в свежем процессе. Full Windows runner направляет их через существующий mandatory single-test-process mechanism, сохраняя все selectors/assertions и fail propagation. Contract regression доказывает ровно один запуск каждого case и отсутствие его в обычном shared shard.
+- Root native heap/lifetime mechanism полностью не доказан; новый exact-head Windows gate обязателен. CI isolation не означает исключение тестов или закрытие всех runtime Qt lifecycle проблем.
+
 ## Состояние после сверки 2 октября 2026 года
 
 | Проверенный результат | Доказательство | Статус и оставшаяся граница |

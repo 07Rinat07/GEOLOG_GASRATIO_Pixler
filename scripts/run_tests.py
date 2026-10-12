@@ -42,6 +42,10 @@ _FORCED_NATIVE_BATCH_FILES = frozenset(
         # unrelated Qt report/dialog tests in a shared process. Run the exact
         # viewport assertions in a fresh Qt process, not as a skipped test.
         "tests/test_gas_viewport_hotpath.py",
+        # Release gate 38304058011 aborted in ViewBoxMenu construction after
+        # earlier report/Qt cases in the shared shard. Keep each overlay case
+        # mandatory, but construct MainWindow with a fresh native Qt heap.
+        "tests/test_interval_statistics_overlay_widget.py",
         # Depth reset also hit PlotItem.__init__ access violation after earlier
         # MainWindow scenarios in the Windows offscreen shard.
         "tests/test_main_window_visible_depth_refresh.py",

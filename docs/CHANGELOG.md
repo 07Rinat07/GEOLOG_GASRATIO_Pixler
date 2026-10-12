@@ -1,6 +1,11 @@
 # История изменений
 
 
+## Windows CI: обязательная изоляция interval statistics overlay cases
+
+- Три существующих GUI cases запускаются каждый в свежем native Qt процессе после access violation общего shard. Тесты/assertions не пропускаются и не ослабляются; runner contract проверяет полное покрытие.
+
+
 ## Авторские обозначения: общий векторный каталог
 
 - Добавлен первый слой circle/square/diamond/triangle/cross с RU/KK/EN labels и существующим AnnotationStyle. Векторная геометрия и physical PDF размеры проверены; UI/persistence/print-selection ещё не подключены.
