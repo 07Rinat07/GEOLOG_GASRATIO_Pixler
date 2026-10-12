@@ -5,6 +5,10 @@ from enum import StrEnum
 from math import isfinite
 from pathlib import Path
 
+from geoworkbench.data.format_capabilities import (
+    ImportFormatCapabilities,
+    import_format_capabilities,
+)
 from geoworkbench.services.depth_axis import DepthAxisReport
 
 
@@ -41,6 +45,11 @@ class LasImportReport:
     source: LasSourceSnapshot
     depth_axis: DepthAxisReport
     issues: tuple[LasImportIssue, ...]
+
+    @property
+    def capabilities(self) -> ImportFormatCapabilities:
+        """Current audited format boundary for this LAS source version."""
+        return import_format_capabilities("las", las_version=self.source.las_version)
 
     @property
     def has_errors(self) -> bool:
