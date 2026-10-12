@@ -3,9 +3,12 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from PySide6.QtCore import QSize
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QListWidget,
+    QListWidgetItem,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -124,6 +127,12 @@ class InterpretationReportAnnotationDialog(QDialog):
         ):
             actions.addWidget(button)
         root.addLayout(actions)
+        self.batch_remove_button = QPushButton(
+            self._text("Удалить группу…", "Топты жою…", "Delete group…"), self,
+        )
+        self.batch_remove_button.setObjectName("report-annotation-delete-group")
+        self.batch_remove_button.clicked.connect(self._remove_group)
+        root.addWidget(self.batch_remove_button)
 
         self.status = QLabel(self)
         self.status.setWordWrap(True)
@@ -338,6 +347,44 @@ class InterpretationReportAnnotationDialog(QDialog):
             return
         self._changed()
 
+    def _remove_group(self) -> None:
+        selection = QDialog(self)
+        selection.setWindowTitle(self.batch_remove_button.text().rstrip("…"))
+        layout = QVBoxLayout(selection)
+        listing = QListWidget(selection)
+        listing.setObjectName("report-annotation-group-selection")
+        listing.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        for record in self.controller.available():
+            item = QListWidgetItem(record.text.strip() or self._kind_label(record.kind), listing)
+            item.setData(Qt.ItemDataRole.UserRole, record.annotation_id)
+        layout.addWidget(listing)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
+            parent=selection,
+        )
+        confirm = buttons.button(QDialogButtonBox.StandardButton.Ok)
+        confirm.setText(self._text("Удалить", "Жою", "Delete"))
+        confirm.setEnabled(False)
+        listing.itemSelectionChanged.connect(lambda: confirm.setEnabled(bool(listing.selectedItems())))
+        buttons.accepted.connect(selection.accept)
+        buttons.rejected.connect(selection.reject)
+        layout.addWidget(buttons)
+        fit_window_to_screen(selection, preferred=QSize(480, 360), minimum=QSize(320, 240))
+        try:
+            if selection.exec() != QDialog.DialogCode.Accepted:
+                return
+            ids = tuple(item.data(Qt.ItemDataRole.UserRole) for item in listing.selectedItems())
+            if not ids:
+                return
+            try:
+                self.controller.remove_many(ids)
+            except (KeyError, RuntimeError, TypeError, ValueError) as exc:
+                self._show_error(exc)
+                return
+            self._changed()
+        finally:
+            selection.deleteLater()
+
     def _undo(self) -> None:
         try:
             self.controller.undo()
@@ -369,6 +416,7 @@ class InterpretationReportAnnotationDialog(QDialog):
 
     def _sync_actions(self) -> None:
         has_selected = self._selected_id() is not None
+        self.batch_remove_button.setEnabled(bool(self.controller.available()))
         self.save_button.setEnabled(True)
         self.remove_button.setEnabled(has_selected)
         self.undo_button.setEnabled(self.controller.can_undo)

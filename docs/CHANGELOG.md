@@ -1,5 +1,6 @@
 # История изменений
 
+- RPT-ANN-01: localized Delete group dialog supports multi-selection and validated deletion through one compound command. Selection Cancel is mutation-free; Undo/Redo and editor Cancel reuse shared history/checkpoints. Controller integration PR #573 passed all three gates and merged.
 - RPT-ANN-01: controller batch deletion validates the complete bounded ID selection and records one CompoundCommand with ordered rollback. Recursive child ownership and checkpoint flags preserve scope and Redo semantics; batch UI remains separate. PR #572 compound foundation integrated after all three gates.
 - ARCH-07 / RPT-ANN-01: shared CompoundCommand foundation records ordered same-domain children as one history entry and compensates completed steps on execute/undo failure. Compensation errors remain visible; report batch/checkpoint integration is separate. PR #571 XLSX output-language fix and subsequent main CI succeeded.
 - REPORT-I18N-01: geology XLSX gas-statistics unit heading now follows the selected RU/KK/EN output language instead of a fixed English label. Source unit tokens and calculated statistics are unchanged. Shared geology DOCX footer integrated through PR #570 after all three gates.
