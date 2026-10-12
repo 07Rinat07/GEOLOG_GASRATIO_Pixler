@@ -28,7 +28,7 @@ ALLOWED_SCENARIOS = frozenset({"reference", "exploratory", "edge_case", "negativ
 
 def blob_sha1(content: bytes) -> str:
     """Git SHA-1 includes a typed, byte-length-prefixed blob header."""
-    header = f"blob {len(content)}\\0".encode("ascii")
+    header = f"blob {len(content)}".encode("ascii") + bytes((0,))
     return hashlib.sha1(header + content).hexdigest()
 
 
@@ -60,7 +60,7 @@ def _validate(entry: dict[str, object]) -> tuple[Path, str, int, str]:
         raise ValueError("Revision and blob hashes must be lowercase SHA-1")
     for value in (destination, source):
         parts = PurePosixPath(value)
-        if parts.is_absolute() or ".." in parts.parts or "\\\\" in value:
+        if parts.is_absolute() or ".." in parts.parts or chr(92) in value:
             raise ValueError(f"Unsafe relative fixture path: {value!r}")
     target = CORPUS / destination
     # Every source URL is pinned to a commit and a fixed approved GitHub org.
