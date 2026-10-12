@@ -4,6 +4,7 @@ on:
     branches: [codex/data-petro-external-fixture-corpus]
     paths:
       - .github/workflows/acquire-open-fixtures.yml
+      - .gitattributes
       - tools/fetch_external_format_fixtures.py
       - tests/fixtures/external_formats/manifest.json
 permissions:
