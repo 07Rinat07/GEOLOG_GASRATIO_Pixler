@@ -81,6 +81,13 @@ WITS-NET-01 остаётся внешним условием: пользоват
 
 Статус: текст заключения/примечаний и основные выноски уже реализованы и присутствуют в плане; каталог авторских report-значков и его print-selection acceptance — новый остаточный scope RPT-ANN, запланирован. Не объявлять все свободные обозначения и прямой click-to-add реализованными: PLOT-FLAG-01 остаётся отдельной новой фичей.
 
+## RPT-AUTHOR-01 — векторный каталог авторских символов (на проверке)
+
+- Первый reusable слой: stable IDs circle/square/diamond/triangle/cross, RU/KK/EN названия и единый vector painter с существующим AnnotationStyle. Символы не кодируют автоматическую классификацию флюида или alarm.
+- Реальные QImage/QPdfWriter regressions проверяют различимую геометрию, grayscale, inherited clipping, восстановление painter и одинаковые физические размеры при 72/300 DPI без raster images.
+- Каталог ещё не подключён к persisted ReportAnnotationKind, редактору и печатному выбору. Следующий инкремент: bounded symbol_id/caption anchor в existing annotation schema/controller/history и renderer; затем UI/save-reopen/print-selection. Весь RPT-AUTHOR-01 и PLOT-FLAG-01 не завершены; physical acceptance отдельно.
+- PR #584 интегрирован на `995d8273`, main `11804a1b` Release gate 38282939540 SUCCESS. PR #585 интегрирован после трёх SUCCESS на `f7af6400` (run 38287686409), main `26f013c1` Release gate 38291895903 SUCCESS; новые требования плана сохранены, их реализация не объявляется завершённой.
+
 ## Состояние после сверки 2 октября 2026 года
 
 | Проверенный результат | Доказательство | Статус и оставшаяся граница |
