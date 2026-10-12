@@ -2561,7 +2561,14 @@ PR #574 интегрирован после трёх SUCCESS на 0c1f3aba (run3
 
 PR #575 интегрирован после трёх SUCCESS на a8f7904e (run38205219057), mainb9385604. MainCI38206597219 SUCCESS.
 
-### WITS-UX-01 — overflow сохранённых workspace ranges (на проверке)
+### WITS-UX-01 — overflow сохранённых workspace ranges (завершено)
 
 - Загрузка workspace settings возвращает существующий безопасный default при JSON integer вне float range в follow_span/history_start/history_end вместо необработанного OverflowError. Повреждённый payload не переписывается; raw WITS, acquisition state и расчёты не меняются.
 - Шесть positive/negative overflow regressions и связанные reliability/capture tests; три exact-head gates обязательны. Реальный reconnect/soak остаётся отдельной приёмкой.
+
+PR #576 интегрирован после трёх SUCCESS на43636bf3(run38210409087), main9c524b5c. MainCI38213481331 SUCCESS.
+
+### WITS-UX-01 — изоляция workspace ID в settings (на проверке)
+
+- ID с символами, которые legacy заменял на underscore, получают отдельный bounded SHA256 key с префиксом ~. well/1 и well_1 больше не перезаписывают настройки друг друга. Безопасные буквенно-цифровые ID с -_. и empty/default сохраняют прежние ключи.
+- Legacy payload не содержит owner, поэтому неоднозначные записи не копируются в новую область автоматически и не удаляются. Для таких ID старый выбор вида потребуется задать заново; raw acquisition/source не меняются. Regression включает real QSettings INI reopen; три exact-head gates обязательны.

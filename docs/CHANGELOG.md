@@ -1,5 +1,6 @@
 # История изменений
 
+- WITS-UX-01: workspace IDs requiring lossy character substitution now use isolated hash keys, preventing well/1 and well_1 settings overwrite. Safe legacy IDs/default retain their keys. Ambiguous old payloads remain preserved without automatic ownership migration; affected view settings must be selected again. PR #576 numeric-overflow fix and main CI succeeded.
 - WITS-UX-01: saved workspace view ranges now fall back safely when oversized JSON integers overflow float conversion. The malformed payload is preserved without settings rewrite; raw acquisition and numerical contracts are unchanged. RPT-ANN batch persistence PR #575 and subsequent main CI succeeded.
 - RPT-ANN-01: batch-delete acceptance covers two wells, real selection/Undo/Redo/Apply/Cancel and production JSON/package reopen in RU/KK/EN. Persisted retained records, clean state, source arrays and session ownership remain intact. Runtime unchanged; batch UI PR #574 integrated after all three gates.
 - RPT-ANN-01: localized Delete group dialog supports multi-selection and validated deletion through one compound command. Selection Cancel is mutation-free; Undo/Redo and editor Cancel reuse shared history/checkpoints. Controller integration PR #573 passed all three gates and merged.

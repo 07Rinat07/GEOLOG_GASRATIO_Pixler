@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
@@ -703,8 +704,16 @@ class Wits0WorkspaceSettings:
         self.settings.sync()
 
     def _key(self, workspace_id: str) -> str:
-        safe = "".join(character if character.isalnum() or character in "-_." else "_" for character in workspace_id)
-        return f"{self.namespace}/{safe or 'default'}"
+        if not isinstance(workspace_id, str):
+            raise TypeError("Workspace ID must be a string")
+        if not workspace_id:
+            return f"{self.namespace}/default"
+        if all(character.isalnum() or character in "-_." for character in workspace_id):
+            return f"{self.namespace}/{workspace_id}"
+        # The old lossy substitution merged unrelated IDs such as well/1 and
+        # well_1. Its payload has no owner, so do not guess a legacy migration.
+        digest = hashlib.sha256(workspace_id.encode("utf-8")).hexdigest()
+        return f"{self.namespace}/~{digest}"
 
 
 def _segment_related_paths(path: Path) -> tuple[Path, ...]:
