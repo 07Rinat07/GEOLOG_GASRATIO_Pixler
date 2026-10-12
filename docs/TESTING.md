@@ -1633,3 +1633,5 @@ Report compound removal: `python scripts/run_tests.py -p no:cacheprovider tests/
 Batch UI: `python scripts/run_tests.py -p no:cacheprovider tests/test_report_annotation_batch_dialog.py tests/test_report_annotation_compound_remove.py tests/test_report_annotation_apply.py tests/test_report_annotation_retained_history.py`. RU/KK/EN real buttons/list selection cover Delete, selection Cancel, single Undo/Redo and editor checkpoint rollback.
 
 Batch persistence: `python scripts/run_tests.py -p no:cacheprovider tests/test_report_annotation_batch_reopen.py tests/test_report_annotation_batch_dialog.py tests/test_report_annotation_compound_remove.py tests/test_report_annotation_apply.py tests/test_report_annotation_retained_history.py`. Six RU/KK/EN JSON/package cases assert retained records, multiwell isolation, clean reopened state and unchanged depth/curves.
+
+WITS workspace numeric boundary: `python scripts/run_tests.py -p no:cacheprovider tests/test_wits0_reliability.py tests/test_wits0_capture_dialog.py`. Positive/negative huge integers in follow_span/history_start/history_end must fall back without overwriting persisted payload or syncing settings.

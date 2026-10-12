@@ -2554,7 +2554,14 @@ PR #573 интегрирован после трёх SUCCESS на 3db47a91 (run3
 
 PR #574 интегрирован после трёх SUCCESS на 0c1f3aba (run38201688828), main6dbeec71.
 
-### RPT-ANN-01 — persistence группового удаления (на проверке)
+### RPT-ANN-01 — persistence группового удаления (завершено)
 
 - Шесть RU/KK/EN × JSON/package сценариев реальных кнопок проверяют две скважины: group delete, single Undo/Redo, Apply, draft Cancel, production save/open. После reopen остаётся ровно выбранный retained record каждой области; source depth/curves unchanged, session clean, old-session history blocked. Runtime не изменён.
 - Grouped controller/UI implementation интегрирована #572–#574. После exact-head gates этой persistence-приёмки переходить к другим незавершённым задачам очереди; физическая/содержательная приёмка остаётся отдельно.
+
+PR #575 интегрирован после трёх SUCCESS на a8f7904e (run38205219057), mainb9385604. MainCI38206597219 SUCCESS.
+
+### WITS-UX-01 — overflow сохранённых workspace ranges (на проверке)
+
+- Загрузка workspace settings возвращает существующий безопасный default при JSON integer вне float range в follow_span/history_start/history_end вместо необработанного OverflowError. Повреждённый payload не переписывается; raw WITS, acquisition state и расчёты не меняются.
+- Шесть positive/negative overflow regressions и связанные reliability/capture tests; три exact-head gates обязательны. Реальный reconnect/soak остаётся отдельной приёмкой.

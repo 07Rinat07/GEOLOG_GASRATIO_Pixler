@@ -688,7 +688,7 @@ class Wits0WorkspaceSettings:
                 acquisition_session_id=_optional_str(payload.get("acquisition_session_id")),
                 schema_version=WITS0_WORKSPACE_SCHEMA_VERSION,
             )
-        except (TypeError, ValueError, json.JSONDecodeError):
+        except (TypeError, ValueError, OverflowError, json.JSONDecodeError):
             return Wits0WorkspaceState()
 
     def save(self, workspace_id: str, state: Wits0WorkspaceState) -> None:
