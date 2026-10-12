@@ -59,3 +59,5 @@ and no real field soak is claimed. Service/startup evaluation, a signed checklis
 disk-full testing and long-duration GSWITS validation remain acceptance work.
 
 Saved workspace ranges containing numbers outside the float range use safe default settings. The corrupt settings payload is preserved and raw WITS data is unchanged.
+
+Workspace IDs such as well/1 are isolated from well_1. For IDs with special characters, ambiguous legacy view settings are not automatically assigned; select the view again. Old settings and raw WITS are preserved; ordinary IDs retain their settings.

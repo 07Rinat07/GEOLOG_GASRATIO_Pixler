@@ -339,11 +339,11 @@ def test_workspace_settings_round_trip_and_reject_invalid_payload() -> None:
     store.save("well/1", state)
 
     assert store.load("well/1") == state
-    saved_payload = json.loads(settings.values["wits0/workspace/well_1"])
+    saved_payload = json.loads(settings.values[store._key("well/1")])
     assert saved_payload["selected_mnemonics"] == ["ROP", "TOTAL_GAS"]
     assert "selected_curve_ids" not in saved_payload
     assert settings.sync_count == 1
-    settings.values["wits0/workspace/well_1"] = "not-json"
+    settings.values[store._key("well/1")] = "not-json"
     assert store.load("well/1") == Wits0WorkspaceState()
 
 
@@ -365,12 +365,12 @@ def test_workspace_settings_migrate_v1_curve_ids_without_persisting_them() -> No
     )
     store = Wits0WorkspaceSettings(settings)
 
-    migrated = store.load("well/1")
+    migrated = store.load("well_1")
 
     assert migrated.schema_version == 2
     assert migrated.selected_mnemonics == ()
     assert migrated.selected_curve_ids == ("legacy-curve-a", "legacy-curve-b")
-    store.save("well/1", migrated)
+    store.save("well_1", migrated)
     rewritten = json.loads(settings.values["wits0/workspace/well_1"])
     assert rewritten["schema_version"] == 2
     assert "selected_curve_ids" not in rewritten
@@ -548,3 +548,51 @@ def test_workspace_settings_numeric_overflow_returns_default_without_rewriting(f
     assert store.load("well-overflow") == Wits0WorkspaceState()
     assert settings.values[key] == raw
     assert settings.sync_count == sync_count
+
+
+@pytest.mark.parametrize("left,right", [("well/1", "well_1"), ("well 1", "well?1"), ("ұңғыма/1", "ұңғыма_1")])
+def test_workspace_keys_isolate_lossy_identifier_collisions(left, right):
+    settings = _Settings()
+    store = Wits0WorkspaceSettings(settings)
+    first = Wits0WorkspaceState(follow_span=120.0)
+    second = Wits0WorkspaceState(follow_span=240.0)
+    store.save(left, first)
+    store.save(right, second)
+    reopened = Wits0WorkspaceSettings(settings)
+    assert reopened.load(left) == first
+    assert reopened.load(right) == second
+    assert store._key(left) != store._key(right)
+
+
+def test_ambiguous_legacy_workspace_is_preserved_without_ownership_guess():
+    settings = _Settings()
+    store = Wits0WorkspaceSettings(settings)
+    old = Wits0WorkspaceState(follow_span=180.0)
+    store.save("well_1", old)
+    legacy = settings.values["wits0/workspace/well_1"]
+    assert store.load("well/1") == Wits0WorkspaceState()
+    store.save("well/1", Wits0WorkspaceState(follow_span=300.0))
+    assert settings.values["wits0/workspace/well_1"] == legacy
+    assert store.load("well_1") == old
+
+
+def test_safe_workspace_keys_and_empty_default_remain_compatible():
+    store = Wits0WorkspaceSettings(_Settings())
+    for identifier in ("well_1", "id-123.abc", "ұңғыма1"):
+        assert store._key(identifier) == f"wits0/workspace/{identifier}"
+    assert store._key("") == "wits0/workspace/default"
+
+
+def test_workspace_key_isolation_round_trips_real_qsettings_file(tmp_path):
+    from PySide6.QtCore import QSettings
+
+    path = str(tmp_path / "workspace.ini")
+    settings = QSettings(path, QSettings.Format.IniFormat)
+    store = Wits0WorkspaceSettings(settings)
+    first = Wits0WorkspaceState(follow_span=150.0)
+    second = Wits0WorkspaceState(follow_span=250.0)
+    store.save("well/1", first)
+    store.save("well_1", second)
+    reopened = Wits0WorkspaceSettings(QSettings(path, QSettings.Format.IniFormat))
+    assert reopened.load("well/1") == first
+    assert reopened.load("well_1") == second
