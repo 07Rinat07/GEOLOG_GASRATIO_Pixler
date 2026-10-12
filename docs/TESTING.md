@@ -1,5 +1,12 @@
 # Проверка качества и release gate
 
+Корпус DATA-PETRO внешних форматов: `python tools/fetch_external_format_fixtures.py --check`
+проверяет оригинальный blob SHA-1 каждого файла без сети. Также запустите
+`python -m pytest -q tests/test_external_format_fixture_corpus.py`.
+Клиентские LAS 3.0/DLIS/LIS79/SEG-Y импортеры ещё не утверждены этим тестом;
+он проверяет только точность и происхождение 16 fixture artifacts.
+
+
 `tests/test_print_center_output_language.py` covers 18 real tablet/curve export scenarios after project and preference reopen: all UI/output language pairs, PDF, QPrinter preview/print, PNG, SVG and Passport. Actual page counts and localized footers, UI/source invariants and six detached-copy scenarios are checked. `tests/test_print_output_language_preferences.py` covers 26 cases: engineer/form persistence, legacy and malformed language fallback, typed job/preferences validation and strict Unicode checks for selected printed columns with print-mode restoration. QPrinter uses PDF output; physical printer acceptance remains separate.
 
 
