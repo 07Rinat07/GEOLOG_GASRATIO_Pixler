@@ -1,6 +1,11 @@
 # История изменений
 
 
+## Gas Context: сквозная production workspace/editor приёмка
+
+- Реальные RU/KK/EN controls Add/Save/Cancel и JSON/package project reopen сохраняют registry, signed depths и source arrays. Runtime не изменён.
+
+
 ## Печать: общий профиль нейтрального оформления geology tracks
 
 - Рамки, разделители и текст cuttings/LBA tracks получают semantic neutral colors из общего visual profile. Авторские lithology и standard LBA colors сохранены.
