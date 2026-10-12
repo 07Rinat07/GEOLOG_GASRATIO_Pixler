@@ -1627,3 +1627,5 @@ Geology footer wiring: `python scripts/run_tests.py -p no:cacheprovider tests/te
 Geology XLSX unit heading: `python scripts/run_tests.py -p no:cacheprovider tests/test_geology_xlsx_unit_heading.py tests/test_geology_report_output_language.py tests/test_office_shared_visual_profile.py`. Actual workbooks assert independent RU/KK/EN heading literals and immutable report snapshots.
 
 Compound foundation: `python scripts/run_tests.py -p no:cacheprovider tests/test_compound_command_history.py tests/test_edit_history.py tests/test_report_annotations.py`. Tests cover 20-child ordering, single-entry Undo/Redo, execute/undo failure compensation, failed compensation, duplicate/empty/mixed-domain rejection and preserved history stacks.
+
+Report compound removal: `python scripts/run_tests.py -p no:cacheprovider tests/test_report_annotation_compound_remove.py tests/test_report_annotations.py tests/test_compound_command_history.py`. Tests assert original ordering after Undo, one compound entry, checkpoint Redo/rollback, invalid-selection atomicity and foreign-session rejection.

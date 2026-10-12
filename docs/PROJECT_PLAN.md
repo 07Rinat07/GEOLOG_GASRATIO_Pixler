@@ -2533,7 +2533,14 @@ PR #570 интегрирован после трёх SUCCESS на 8eb6e472 (run3
 
 PR #571 интегрирован после трёх SUCCESS на 543644b9 (run38191052692), main32477a65. Main CI38194968297 также SUCCESS.
 
-### RPT-ANN-01 / ARCH-07 — общая составная команда (на проверке)
+### RPT-ANN-01 / ARCH-07 — общая составная команда (завершено)
 
 - CompoundCommand объединяет операции одного домена в одну запись существующей bounded CommandHistory: execute по порядку, Undo в обратном порядке, Redo по порядку. При ошибке компенсируются уже завершённые части; ошибка компенсации явно возвращается вместе с исходной и не отмечает операцию успешной. Child operations должны быть exception-atomic.
 - Это foundation, не новая массовая кнопка редактора. Report batch integration требует validation всего ввода до mutation, scope guards всех children и checkpoint flags вложенных команд; UI и физическая приёмка остаются открытыми. Три exact-head gates обязательны.
+
+PR #572 интегрирован после трёх SUCCESS на e646629c (run38196884398), main2dd8c1ba.
+
+### RPT-ANN-01 — compound remove controller (на проверке)
+
+- remove_many проверяет все ID/ownership до mutation, отклоняет пустой/duplicate/неверный список и ограничивает batch лимитом истории. Записи удаляются по убывающим индексам одной CompoundCommand; Undo восстанавливает исходный порядок. Recursive ownership и checkpoint flags включают составную команду и children.
+- Grouped remove/Undo/Redo/checkpoint и foreign-session guards покрыты regression; UI массового выбора/удаления и физическая приёмка остаются отдельно. Source arrays не копируются. Три exact-head gates обязательны.

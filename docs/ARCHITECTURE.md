@@ -1072,3 +1072,5 @@ Geology DOCX uses report_document_control_docx_footer(None, language), sharing b
 Geology XLSX resolves the gas-statistics unit heading from the existing output-language dictionary rather than a literal English string. Source unit tokens and computed statistics remain unchanged.
 
 CompoundCommand groups same-domain reversible commands into one existing CommandHistory entry. Execute/Redo follow input order and Undo reverses it. Completed children are compensated when a later child fails; compensation failures are surfaced in an ExceptionGroup. Children must leave their model unchanged when raising. This foundation is not yet integrated with report batch/checkpoint ownership.
+
+ReportAnnotationController.remove_many validates the entire bounded ID selection before mutation and records descending-index removal children in one CompoundCommand. History eligibility validates child session/dataset/composition; checkpoints retain compound and child execution flags. Batch UI is separate.

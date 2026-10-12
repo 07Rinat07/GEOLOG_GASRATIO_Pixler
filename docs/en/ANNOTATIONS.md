@@ -187,3 +187,5 @@ Reopening the editor in the current workspace retains Undo/Redo. A command belon
 After repeated Apply, Cancel retains the latest applied annotations. JSON/package save and reopen restore those annotations while commands from the previous session remain unavailable.
 
 The shared compound-command foundation is prepared for future batch actions: one Undo reverses an ordered group. Editor batch actions are not yet added; child ownership and checkpoint state need separate integration.
+
+The controller supports validated batch deletion as one Undo/Redo command; invalid selections are rejected in full. Editor multi-selection and batch-delete controls are not yet added.
