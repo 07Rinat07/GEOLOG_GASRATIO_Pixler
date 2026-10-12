@@ -1068,3 +1068,5 @@ Report editor openings retain the bounded shared CommandHistory. Controller Undo
 Apply persistence acceptance verifies the latest of two applied snapshots through Cancel and production JSON/package save/open. Reopened session ownership blocks old runtime commands; empty Apply/Cancel preserves its clean state.
 
 Geology DOCX uses report_document_control_docx_footer(None, language), sharing brand, typography and dynamic page fields with other Word exporters. It wires the footer part through content types, relationship and section reference; a 720-twip footer gap prevents body overlap. No unavailable document identity is invented.
+
+Geology XLSX resolves the gas-statistics unit heading from the existing output-language dictionary rather than a literal English string. Source unit tokens and computed statistics remain unchanged.
