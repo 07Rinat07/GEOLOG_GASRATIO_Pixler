@@ -16,6 +16,7 @@ from geoworkbench.data.hydrocarbon_interpretation_export import (
     _table,
 )
 from geoworkbench.data.spreadsheet_safety import protect_spreadsheet_row
+from geoworkbench.printing.report_document_control_docx import report_document_control_docx_footer
 from geoworkbench.printing.report_visual_system import REPORT_BRAND_WORDMARK, ReportVisualProfile, modern_oilfield_report_profile
 from geoworkbench.printing.interpretation_report import (
     LBA_FIELDS,
@@ -367,10 +368,10 @@ def _write_docx(
     document_xml = (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
-        "<w:body>"
+        '<w:body xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
         + "".join(body)
-        + '<w:sectPr><w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/>'
-        '<w:pgMar w:top="700" w:right="700" w:bottom="700" w:left="700" '
+        + '<w:sectPr><w:footerReference w:type="default" r:id="rIdFooter"/><w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/>'
+        '<w:pgMar w:top="700" w:right="700" w:bottom="1220" w:left="700" '
         'w:header="500" w:footer="500" w:gutter="0"/></w:sectPr>'
         "</w:body></w:document>"
     )
@@ -385,6 +386,8 @@ def _write_docx(
             'ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
             '<Override PartName="/word/styles.xml" '
             'ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>'
+            '<Override PartName="/word/footer.xml" '
+            'ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>'
             "</Types>",
         )
         package.writestr(
@@ -399,8 +402,12 @@ def _write_docx(
         package.writestr(
             "word/_rels/document.xml.rels",
             '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"/>',
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            '<Relationship Id="rIdFooter" '
+            'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" '
+            'Target="footer.xml"/></Relationships>',
         )
+        package.writestr("word/footer.xml", report_document_control_docx_footer(None, language))
         package.writestr("word/styles.xml", _docx_styles())
 
 def _docx_sample_row(

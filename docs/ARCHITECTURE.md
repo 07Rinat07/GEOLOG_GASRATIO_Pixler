@@ -1066,3 +1066,5 @@ The report editor Apply action advances its rollback checkpoint to the current a
 Report editor openings retain the bounded shared CommandHistory. Controller Undo/Redo eligibility requires the top report command to belong to the current session, dataset and composition. Foreign top commands are not skipped or discarded; Cancel restores the opening checkpoint. Runtime command objects are not serialized with the project.
 
 Apply persistence acceptance verifies the latest of two applied snapshots through Cancel and production JSON/package save/open. Reopened session ownership blocks old runtime commands; empty Apply/Cancel preserves its clean state.
+
+Geology DOCX uses report_document_control_docx_footer(None, language), sharing brand, typography and dynamic page fields with other Word exporters. It wires the footer part through content types, relationship and section reference; a 720-twip footer gap prevents body overlap. No unavailable document identity is invented.

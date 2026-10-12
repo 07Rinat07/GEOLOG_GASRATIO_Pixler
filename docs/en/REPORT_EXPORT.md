@@ -185,3 +185,5 @@ Enhanced/OPUS PDF fluid legends use the shared caption font, wrapped labels and 
 Standard and OPUS PDF curve legends use the shared caption font and wrap labels, units and page-local p5/p95 ranges. Their measured height is reserved before depth pagination and checked again if page boundaries change. Colour and point/line samples stay aligned with the first text line; source values are preserved.
 
 Interpretation PDF and system-print cover fonts retain their physical 72-DPI sizes at 300/600 DPI. Titles, document details, context rows and signature blocks use the same paged-device font adapter as charts. Manual identity, explicit report date and selected analysis interval are preserved.
+
+Geology DOCX includes the shared DIGITAL GEOLOG footer and localized current/total page fields. Space is reserved below body tables. Word updates page fields; physical printing requires separate acceptance.

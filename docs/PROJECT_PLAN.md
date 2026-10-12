@@ -2515,6 +2515,12 @@ PR #567 интегрирован после трёх SUCCESS на 579e6e49 (run 
 
 PR #568 интегрирован после трёх SUCCESS на 5825ec14 (run 38183415868), main 4fc48e27.
 
-### RPT-ANN-01 — Apply/Cancel и production save/reopen (на проверке)
+### RPT-ANN-01 — Apply/Cancel и production save/reopen (завершено)
 
 - Шесть RU/KK/EN × JSON/package сценариев проверяют два последовательных Apply, Cancel последующего draft, production save/open, unchanged source arrays и clean reopened state. Latest applied snapshot сохраняется; команды старой session остаются недоступными в новой. Runtime не изменён. Три exact-head gates обязательны; физическая приёмка отдельно.
+
+PR #569 интегрирован после трёх SUCCESS на 989fb6c8 (run38185856544), main81ee1608.
+
+### PRINT-STYLE-01 — общий footer geology DOCX (на проверке)
+
+- Geology Word export использует существующий shared DIGITAL GEOLOG footer с RU/KK/EN page label и PAGE/NUMPAGES. Footer part, content type, relationship и section reference согласованы; bottom/footer gap 720 twips резервирует 36 pt. Tables, report values и source arrays сохраняются; физическая Word/printer приёмка отдельно.
