@@ -1,5 +1,6 @@
 # История изменений
 
+- REPORT-I18N-01: geology XLSX gas-statistics unit heading now follows the selected RU/KK/EN output language instead of a fixed English label. Source unit tokens and calculated statistics are unchanged. Shared geology DOCX footer integrated through PR #570 after all three gates.
 - PRINT-STYLE-01: generic DOCX title/section headings now stay with the following content using Word keepNext/keepLines, matching interpretation DOCX pagination. RU/KK/EN export regression checks section/table adjacency and unchanged source arrays; table data rows retain normal pagination. Full Windows Release gate required before merge.
 
 

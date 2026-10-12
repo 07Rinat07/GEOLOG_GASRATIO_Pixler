@@ -2521,6 +2521,12 @@ PR #568 интегрирован после трёх SUCCESS на 5825ec14 (run 
 
 PR #569 интегрирован после трёх SUCCESS на 989fb6c8 (run38185856544), main81ee1608.
 
-### PRINT-STYLE-01 — общий footer geology DOCX (на проверке)
+### PRINT-STYLE-01 — общий footer geology DOCX (завершено)
 
 - Geology Word export использует существующий shared DIGITAL GEOLOG footer с RU/KK/EN page label и PAGE/NUMPAGES. Footer part, content type, relationship и section reference согласованы; bottom/footer gap 720 twips резервирует 36 pt. Tables, report values и source arrays сохраняются; физическая Word/printer приёмка отдельно.
+
+PR #570 интегрирован после трёх SUCCESS на 8eb6e472 (run38189079224), main aaf0bbf6.
+
+### REPORT-I18N-01 — заголовок единицы geology XLSX (на проверке)
+
+- Колонка единицы газовой статистики использует существующий RU/KK/EN output dictionary: «Единица измерения», «Өлшем бірлігі», «Unit». Значения UOM и numerical report snapshot не меняются. Реальные XLSX и production UI/output matrix проверяют выбранный язык; три exact-head gates обязательны.

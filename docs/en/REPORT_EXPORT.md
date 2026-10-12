@@ -187,3 +187,5 @@ Standard and OPUS PDF curve legends use the shared caption font and wrap labels,
 Interpretation PDF and system-print cover fonts retain their physical 72-DPI sizes at 300/600 DPI. Titles, document details, context rows and signature blocks use the same paged-device font adapter as charts. Manual identity, explicit report date and selected analysis interval are preserved.
 
 Geology DOCX includes the shared DIGITAL GEOLOG footer and localized current/total page fields. Space is reserved below body tables. Word updates page fields; physical printing requires separate acceptance.
+
+The geology XLSX gas-statistics unit heading follows the report output language. Unit tokens from source data are preserved.

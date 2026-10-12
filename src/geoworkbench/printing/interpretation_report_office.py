@@ -176,7 +176,7 @@ def _write_xlsx(path: Path, report: InterpretationReport, language: AppLanguage)
         (
             labels["interval"],
             labels["name"],
-            "Unit",
+            labels["unit"],
             labels["minimum"],
             labels["mean"],
             labels["maximum"],

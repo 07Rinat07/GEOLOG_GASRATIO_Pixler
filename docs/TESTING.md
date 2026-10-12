@@ -1623,3 +1623,5 @@ Retained report history: `python scripts/run_tests.py -p no:cacheprovider tests/
 `tests/test_report_annotation_apply.py` includes six RU/KK/EN JSON/package production save/open scenarios after repeated Apply and Cancel, verifying annotation identity, clean state, blocked old-session history and unchanged depth/curve arrays.
 
 Geology footer wiring: `python scripts/run_tests.py -p no:cacheprovider tests/test_geology_docx_shared_footer.py tests/test_office_docx_heading_pagination.py tests/test_report_document_control_docx_grid.py tests/test_office_shared_visual_profile.py`. RU/KK/EN production exports check shared bytes, footer relationship/content type, PAGE/NUMPAGES, reserved physical space and immutable report values.
+
+Geology XLSX unit heading: `python scripts/run_tests.py -p no:cacheprovider tests/test_geology_xlsx_unit_heading.py tests/test_geology_report_output_language.py tests/test_office_shared_visual_profile.py`. Actual workbooks assert independent RU/KK/EN heading literals and immutable report snapshots.
