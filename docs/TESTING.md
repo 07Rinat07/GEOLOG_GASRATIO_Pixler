@@ -1639,3 +1639,5 @@ WITS workspace numeric boundary: `python scripts/run_tests.py -p no:cacheprovide
 Workspace identity: `python scripts/run_tests.py -p no:cacheprovider tests/test_wits0_reliability.py tests/test_wits0_capture_dialog.py`. Collision cases, Unicode, safe legacy keys, ambiguous payload preservation and real QSettings INI save/reopen are covered.
 
 Workspace finite ranges: `python scripts/run_tests.py -p no:cacheprovider tests/test_wits0_reliability.py tests/test_wits0_capture_dialog.py`. NaN and both infinities in either boundary fail domain validation and return default persisted state without rewriting or syncing the corrupt payload.
+
+Production capture reopen: `python scripts/run_tests.py -p no:cacheprovider tests/test_wits0_capture_reopen_runtime.py tests/test_wits0_acquisition.py tests/test_wits0_reliability.py tests/test_wits0_capture_dialog.py`. Six RU/KK/EN JSON/package cases exercise real dialog/runtime restoration, Live focus, saved view state and sequence continuation.

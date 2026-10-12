@@ -174,3 +174,5 @@ immutable events өңделеді және controlled close орындалады
 - WITS0 портын интернетке ашуға болмайды; non-loopback server bind үшін айқын растау,
   non-global CIDR peer allowlist және firewall қажет;
 - raw файлдар жобаны **Ctrl+S** арқылы сақтауды алмастырмайды.
+
+Автоматты қайта ашу тексеруі JSON/package жобасында capture dialog ашық session мен Live бетін, Pause/Follow және көрініс диапазонын қалпына келтіріп, бұрынғы өлшемдерді өзгертпей sequence жалғастыруын тексереді. Нақты TCP reconnect пен ұзақ стенд сынағы бөлек қалады.

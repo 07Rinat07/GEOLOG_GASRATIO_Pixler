@@ -175,3 +175,5 @@ processes remaining immutable events, and performs controlled close. Full contra
 - never expose the WITS0 port to the internet; non-loopback server bind requires explicit
   acknowledgement, a non-global CIDR peer allowlist, and a firewall;
 - raw files do not replace project saving with **Ctrl+S**.
+
+Automated reopen acceptance checks JSON/package projects: the capture dialog restores the open session and Live tab, Pause/Follow and view range, then continues sequence without changing previous samples. Real TCP reconnect and long-duration field testing remain separate.

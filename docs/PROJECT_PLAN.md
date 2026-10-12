@@ -2575,7 +2575,14 @@ PR #576 интегрирован после трёх SUCCESS на43636bf3(run382
 
 PR #577 интегрирован после трёх SUCCESS на cb6e2c60(run38216954687), main66e0670b. MainCI38219736905 SUCCESS.
 
-### WITS-UX-01 — конечные границы истории workspace (на проверке)
+### WITS-UX-01 — конечные границы истории workspace (завершено)
 
 - Wits0WorkspaceState отклоняет NaN/±Infinity в history_start/history_end до передачи диапазона графику; обе конечные границы и end>start обязательны. Saved settings используют existing default fallback без rewrite payload. Конечные отрицательные координаты сохраняются; raw/source/calculations unchanged.
 - Шесть domain/settings regressions плюс reliability/capture Qt construction; три exact-head gates обязательны. Реальный reconnect/soak отдельно.
+
+PR #578 интегрирован после трёх SUCCESS на0226219d(run38223975505), main42c8aabf. MainCI38227895013 SUCCESS.
+
+### WITS-UX-01 — production capture reopen и продолжение runtime (на проверке)
+
+- Шесть RU/KK/EN × JSON/package сценариев сохраняют открытую acquisition session с checkpoint, открывают проект и настоящий Wits0CaptureDialog, восстанавливают same session/Live tab/axis/Pause/Follow/span/max_points из isolated QSettings. Следующий frame продолжает sequence 1→2, ранее записанный numerical prefix unchanged.
+- Runtime не изменён; подменены только destination QSettings и lookup существующего custom profile. Это автоматическая приёмка offline restoration, не реальный TCP reconnect/Windows soak. Три exact-head gates обязательны.

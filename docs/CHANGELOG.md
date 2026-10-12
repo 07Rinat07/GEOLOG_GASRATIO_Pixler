@@ -1,5 +1,6 @@
 # История изменений
 
+- WITS-UX-01: production capture reopen acceptance now restores open acquisition sessions and persisted view state through the real Qt dialog after RU/KK/EN JSON/package project reopen, then continues acquisition sequence while preserving previous numeric samples. Runtime unchanged; real TCP reconnect/soak remains separate. PR #578 finite-range validation and subsequent main CI succeeded.
 - WITS-UX-01: workspace history boundaries now reject NaN and infinities before graph range restoration. Invalid saved payloads fall back without rewriting settings; finite negative boundaries and raw/source data remain supported. Workspace key isolation PR #577 and subsequent main CI succeeded.
 - WITS-UX-01: workspace IDs requiring lossy character substitution now use isolated hash keys, preventing well/1 and well_1 settings overwrite. Safe legacy IDs/default retain their keys. Ambiguous old payloads remain preserved without automatic ownership migration; affected view settings must be selected again. PR #576 numeric-overflow fix and main CI succeeded.
 - WITS-UX-01: saved workspace view ranges now fall back safely when oversized JSON integers overflow float conversion. The malformed payload is preserved without settings rewrite; raw acquisition and numerical contracts are unchanged. RPT-ANN batch persistence PR #575 and subsequent main CI succeeded.
