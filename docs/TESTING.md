@@ -1,5 +1,14 @@
 # Проверка качества и release gate
 
+Корпус DATA-PETRO внешних форматов: `python tools/fetch_external_format_fixtures.py --check`
+проверяет оригинальный blob SHA-1 каждого файла без сети. Также запустите
+`python -m pytest -q tests/test_external_format_fixture_corpus.py`.
+Клиентские LAS 3.0/DLIS/LIS79/SEG-Y импортеры ещё не утверждены этим тестом;
+он проверяет только точность и происхождение 16 fixture artifacts.
+
+
+
+
 DATA-PETRO-01 stage-0 capability audit: `python -m pytest -q tests/test_format_capabilities.py tests/test_las_adapter.py`.
 Матрица проверяет supported/limited/unverified LAS versions, отказ от записи raw,
 CSV/Excel import/export границы и предупреждение для неопробованных LAS headers.

@@ -1,5 +1,14 @@
 # История изменений
 
+- Загрузка эталонных fixtures ограничена HTTPS и raw.githubusercontent.com без перенаправлений; Git SHA-1 явно используется только как идентификатор blob. Bandit checks сохранены.
+
+## DATA-PETRO-01 — внешние образцы LAS/DLIS/LIS79/SEG-Y (на проверке)
+
+- В `tests/fixtures/external_formats` добавлены 16 компактных открытых тестовых файлов с pinned upstream commit/blob, точной проверкой исходных байт и сохранением CRLF LAS 3.0. Набор включает негативные DLIS/SEG-Y cases; есть офлайн-валидатор, скачивание с ограничениями и регрессионные тесты. DLIS/LIS79/SEG-Y parser/write support от этого не появляется.
+
+
+
+
 ## DATA-PETRO-01 — audit форматов (первый инкремент, на проверке)
 
 - Добавлена типизированная read-only матрица возможностей LAS/CSV/Excel: просмотр metadata, чтение, проектное редактирование, source write и derived export. Несертифицированные LAS версии не получают статус verified. LAS import report публикует матрицу и предупреждает об ограниченных LAS 2.x диалектах. Raw sources не изменяются. Полная поддержка LAS 3.x/DLIS, capability UI и field fixtures остаются следующими этапами.

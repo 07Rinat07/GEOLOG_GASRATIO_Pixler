@@ -1,6 +1,14 @@
 <!-- runtime-contract: package=0.7.96; project=v37; form=v18; layout=v25 -->
 # Архитектура
 
+Внешние fixture-файлы для DATA-PETRO находятся только в
+`tests/fixtures/external_formats`, зафиксированы по upstream blob SHA-1,
+и не импортируются runtime. Сценарии invalid/corrupt отделены от reference;
+их присутствие не активирует никакие optional binary adapters.
+
+
+
+
 Архитектурные решения обновлены 9 сентября 2026 года. Целевые контракты отмечены отдельно
 от действующих механизмов; runtime marker отражает текущие версии схем.
 

@@ -22,3 +22,6 @@
 *.docx binary
 *.xlsx binary
 *.zip binary
+
+# Preserve external reference LAS bytes (CRLF, declared vendor codepages, original hashes).
+tests/fixtures/external_formats/las/** -text -diff
