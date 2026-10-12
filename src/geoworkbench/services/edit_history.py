@@ -64,6 +64,69 @@ class CallbackCommand:
 
 
 @dataclass(slots=True)
+class CompoundCommand:
+    """One history entry for ordered reversible operations in one domain."""
+
+    description: str
+    history_domain: str
+    commands: tuple[UndoableCommand, ...]
+    _applied: bool = field(default=False, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        self.commands = tuple(self.commands)
+        if not self.description.strip() or not self.history_domain.strip():
+            raise ValueError("Описание и домен составной команды обязательны")
+        if not self.commands:
+            raise ValueError("Составная команда не может быть пустой")
+        if len({id(command) for command in self.commands}) != len(self.commands):
+            raise ValueError("Команды не должны повторяться")
+        if any(command.history_domain != self.history_domain for command in self.commands):
+            raise ValueError("Все команды должны принадлежать одному домену")
+
+    def execute(self) -> None:
+        if self._applied:
+            raise RuntimeError("Составная команда уже выполнена")
+        completed: list[UndoableCommand] = []
+        try:
+            for command in self.commands:
+                command.execute()
+                completed.append(command)
+        except Exception as error:
+            self._compensate(completed, undo=True, original=error)
+            raise
+        self._applied = True
+
+    def undo(self) -> None:
+        if not self._applied:
+            raise RuntimeError("Составная команда ещё не выполнена")
+        completed: list[UndoableCommand] = []
+        try:
+            for command in reversed(self.commands):
+                command.undo()
+                completed.append(command)
+        except Exception as error:
+            self._compensate(completed, undo=False, original=error)
+            raise
+        self._applied = False
+
+    @staticmethod
+    def _compensate(
+        completed: list[UndoableCommand], *, undo: bool, original: Exception,
+    ) -> None:
+        errors: list[Exception] = [original]
+        for command in reversed(completed):
+            try:
+                if undo:
+                    command.undo()
+                else:
+                    command.execute()
+            except Exception as error:
+                errors.append(error)
+        if len(errors) > 1:
+            raise ExceptionGroup("Не удалось восстановить составную команду", errors)
+
+
+@dataclass(slots=True)
 class CommandHistory:
     """Bounded chronological history shared by reversible project edits.
 

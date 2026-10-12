@@ -288,13 +288,13 @@ format v37. Narrative controls интегрированы коммитом `55b3
 Preview/PDF/system print применяют один snapshot; все скрытые графические колонки подавляют
 глубинный график, а source LAS, расчёты и classification остаются неизменными.
 RPT-ANN renderer/editor интегрированы через #446/#447; Composer output acceptance
-интегрирована через #563. Save/Apply checkpoint и физическая приёмка остаются открытыми. Зелёный CI относится только к проверенному head.
+интегрирована через #563. Save/Apply checkpoint и scoped runtime history интегрированы через #565–#569; compound batch integration и физическая приёмка остаются открытыми. Зелёный CI относится только к проверенному head.
 
 
 | Порядок | Задача | Следующий проверяемый результат и зависимость | Ответственный по роли / статус |
 |---|---|---|---|
 | 1 | PRINT-STYLE-01 | Свести оставшиеся generic/Masterlog/Office пути к одному visual profile и document-control contract; дополнять готовые typography/marker/legend contracts. Physical acceptance вынесена отдельно | Разработчик / в работе |
-| 2 | RPT-ANN-01 | Renderer и transactional editor интегрированы через #446/#447. Composer, RU/KK/EN JSON/package reopen, scope isolation, 20 Undo/Redo, shortcuts и large-LAS memory проверены через #559–#563. Следующий контракт: Save/Apply обновляет checkpoint, сохраняя общую историю; проверить Undo до checkpoint и Cancel после новой ветви правок. Физическая приёмка отдельно | Разработчик / в работе |
+| 2 | RPT-ANN-01 | Renderer и transactional editor интегрированы через #446/#447. Composer, RU/KK/EN JSON/package reopen, scope isolation, 20 Undo/Redo, shortcuts и large-LAS memory проверены через #559–#563. Apply/checkpoint и scoped shared history интегрированы через #565–#569. Следующий контракт: validated compound batch, scope guards и Cancel после групповой правки. Физическая приёмка отдельно | Разработчик / в работе |
 | 3 | GASCTX-RPT-01: остаточная приёмка | Проверить общий editor/registry/context audit через production entry points, save/reopen и RU/KK/EN; завершить отдельные полосы/метки событий с grayscale-подписями. Реализованные exclusion/background/confirmed policy не переписывать | Разработчик + специалист ГТИ / на проверке |
 | 4 | WITS-UX-01 | Завершить persistence/reconnect и live-first navigation/help: основные данные и health видимы, advanced/diagnostics сворачиваются, outer horizontal scroll отсутствует | Разработчик / в работе |
 | 5 | WITS-PLOT-01 | Остаточные manual ranges, reconnect/schema-change и redraw acceptance поверх существующих unit-aware tracks и редактируемых панелей | Разработчик / в работе |
@@ -2527,6 +2527,13 @@ PR #569 интегрирован после трёх SUCCESS на 989fb6c8 (run3
 
 PR #570 интегрирован после трёх SUCCESS на 8eb6e472 (run38189079224), main aaf0bbf6.
 
-### REPORT-I18N-01 — заголовок единицы geology XLSX (на проверке)
+### REPORT-I18N-01 — заголовок единицы geology XLSX (завершено)
 
 - Колонка единицы газовой статистики использует существующий RU/KK/EN output dictionary: «Единица измерения», «Өлшем бірлігі», «Unit». Значения UOM и numerical report snapshot не меняются. Реальные XLSX и production UI/output matrix проверяют выбранный язык; три exact-head gates обязательны.
+
+PR #571 интегрирован после трёх SUCCESS на 543644b9 (run38191052692), main32477a65. Main CI38194968297 также SUCCESS.
+
+### RPT-ANN-01 / ARCH-07 — общая составная команда (на проверке)
+
+- CompoundCommand объединяет операции одного домена в одну запись существующей bounded CommandHistory: execute по порядку, Undo в обратном порядке, Redo по порядку. При ошибке компенсируются уже завершённые части; ошибка компенсации явно возвращается вместе с исходной и не отмечает операцию успешной. Child operations должны быть exception-atomic.
+- Это foundation, не новая массовая кнопка редактора. Report batch integration требует validation всего ввода до mutation, scope guards всех children и checkpoint flags вложенных команд; UI и физическая приёмка остаются открытыми. Три exact-head gates обязательны.

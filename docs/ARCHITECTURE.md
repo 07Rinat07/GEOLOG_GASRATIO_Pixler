@@ -1070,3 +1070,5 @@ Apply persistence acceptance verifies the latest of two applied snapshots throug
 Geology DOCX uses report_document_control_docx_footer(None, language), sharing brand, typography and dynamic page fields with other Word exporters. It wires the footer part through content types, relationship and section reference; a 720-twip footer gap prevents body overlap. No unavailable document identity is invented.
 
 Geology XLSX resolves the gas-statistics unit heading from the existing output-language dictionary rather than a literal English string. Source unit tokens and computed statistics remain unchanged.
+
+CompoundCommand groups same-domain reversible commands into one existing CommandHistory entry. Execute/Redo follow input order and Undo reverses it. Completed children are compensated when a later child fails; compensation failures are surfaced in an ExceptionGroup. Children must leave their model unchanged when raising. This foundation is not yet integrated with report batch/checkpoint ownership.
