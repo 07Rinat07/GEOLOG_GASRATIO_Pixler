@@ -1,5 +1,11 @@
 # Проверка качества и release gate
 
+Приёмка производственного LAS-импортёра на реально сохранённых LAS 1.2/2.0:
+`python -m pytest -q tests/test_real_external_las_import.py`. Тесты не используют
+mock `lasio.read`: проверяются глубины, DT, обёрнутые строки, TAB, исходные
+байты, provenance и отсутствие ложного импорта DLIS/LIS79/SEG-Y/SU.
+LAS 3.x проходит пока только структурную проверку без обещания полной загрузки.
+
 Корпус DATA-PETRO внешних форматов: `python tools/fetch_external_format_fixtures.py --check`
 проверяет оригинальный blob SHA-1 каждого файла без сети. Также запустите
 `python -m pytest -q tests/test_external_format_fixture_corpus.py`.
