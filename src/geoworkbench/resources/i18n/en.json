@@ -2447,5 +2447,11 @@
   "wits0.diagnostics_panel": "Diagnostics and service counters",
   "wits0.operator_health": "Health",
   "wits0.health_summary": "{state} · source: {peer} · last receive: {last} · errors: {errors}",
-  "wits0.maintenance_actions": "Maintenance actions"
+  "wits0.maintenance_actions": "Maintenance actions",
+  "import_review.format_capabilities": "Format: {format}; version: {version}. Read: {read}; project edits: {edit}; raw source write: {write}; derived export: {export}. New LAS output supports 1.2/2.0 only; the source remains unchanged.",
+  "import_review.version_unknown": "unknown",
+  "import_review.capability_verified": "verified",
+  "import_review.capability_limited": "limited",
+  "import_review.capability_unverified": "unverified",
+  "import_review.capability_unavailable": "unavailable"
 }

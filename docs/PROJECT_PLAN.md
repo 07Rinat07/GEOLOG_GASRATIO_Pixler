@@ -1,4 +1,8 @@
 <!-- runtime-contract: package=0.7.96; project=v37; form=v18; layout=v25 -->
+
+## DATA-PETRO-01 — Import Review capabilities (на проверке)
+
+Окно production Import Review показывает source VERS и уровни чтения, правок проекта, raw write и derived export для LAS/CSV/Excel на RU/KK/EN. LAS3 остаётся unverified; исходный файл неизменяем. Stage0 и весь DATA-PETRO не завершены.
 # Единый план проекта
 
 План актуализирован 13 октября 2026 года. Проверенная база перед текущим инкрементом —
