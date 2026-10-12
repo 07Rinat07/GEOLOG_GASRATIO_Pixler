@@ -1,6 +1,11 @@
 # История изменений
 
 
+## Печать: общий профиль нейтрального оформления geology tracks
+
+- Рамки, разделители и текст cuttings/LBA tracks получают semantic neutral colors из общего visual profile. Авторские lithology и standard LBA colors сохранены.
+
+
 ## WITS: автоматическое TCP переподключение в настоящем dialog
 
 - Добавлена RU/KK/EN loopback acceptance одного Start, разрыва соединения, автоматического reconnect того же engine и точной сохранности raw bytes. Runtime не изменён.
