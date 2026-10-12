@@ -2568,7 +2568,14 @@ PR #575 интегрирован после трёх SUCCESS на a8f7904e (run3
 
 PR #576 интегрирован после трёх SUCCESS на43636bf3(run38210409087), main9c524b5c. MainCI38213481331 SUCCESS.
 
-### WITS-UX-01 — изоляция workspace ID в settings (на проверке)
+### WITS-UX-01 — изоляция workspace ID в settings (завершено)
 
 - ID с символами, которые legacy заменял на underscore, получают отдельный bounded SHA256 key с префиксом ~. well/1 и well_1 больше не перезаписывают настройки друг друга. Безопасные буквенно-цифровые ID с -_. и empty/default сохраняют прежние ключи.
 - Legacy payload не содержит owner, поэтому неоднозначные записи не копируются в новую область автоматически и не удаляются. Для таких ID старый выбор вида потребуется задать заново; raw acquisition/source не меняются. Regression включает real QSettings INI reopen; три exact-head gates обязательны.
+
+PR #577 интегрирован после трёх SUCCESS на cb6e2c60(run38216954687), main66e0670b. MainCI38219736905 SUCCESS.
+
+### WITS-UX-01 — конечные границы истории workspace (на проверке)
+
+- Wits0WorkspaceState отклоняет NaN/±Infinity в history_start/history_end до передачи диапазона графику; обе конечные границы и end>start обязательны. Saved settings используют existing default fallback без rewrite payload. Конечные отрицательные координаты сохраняются; raw/source/calculations unchanged.
+- Шесть domain/settings regressions плюс reliability/capture Qt construction; три exact-head gates обязательны. Реальный reconnect/soak отдельно.

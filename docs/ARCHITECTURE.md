@@ -1082,3 +1082,5 @@ Batch-delete persistence acceptance drives the real editor selection and shared 
 Wits0WorkspaceSettings treats integer-to-float overflow in saved view ranges as invalid configuration and returns the existing default state. Loading does not rewrite corrupt settings or mutate raw acquisition data.
 
 WITS workspace settings keep existing safe ID keys. IDs requiring lossy legacy substitution use a reserved ~SHA256 key of the exact UTF-8 ID. Legacy ambiguous payloads have no owner, so they are neither automatically imported into new identity keys nor deleted. Empty/default behavior and safe-ID schema migration remain compatible.
+
+Wits0WorkspaceState validates finiteness of both optional history boundaries before range ordering. Non-finite persisted values fall back through existing settings validation; the original payload and raw acquisition data are preserved. Finite negative boundaries remain valid.

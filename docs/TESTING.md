@@ -1637,3 +1637,5 @@ Batch persistence: `python scripts/run_tests.py -p no:cacheprovider tests/test_r
 WITS workspace numeric boundary: `python scripts/run_tests.py -p no:cacheprovider tests/test_wits0_reliability.py tests/test_wits0_capture_dialog.py`. Positive/negative huge integers in follow_span/history_start/history_end must fall back without overwriting persisted payload or syncing settings.
 
 Workspace identity: `python scripts/run_tests.py -p no:cacheprovider tests/test_wits0_reliability.py tests/test_wits0_capture_dialog.py`. Collision cases, Unicode, safe legacy keys, ambiguous payload preservation and real QSettings INI save/reopen are covered.
+
+Workspace finite ranges: `python scripts/run_tests.py -p no:cacheprovider tests/test_wits0_reliability.py tests/test_wits0_capture_dialog.py`. NaN and both infinities in either boundary fail domain validation and return default persisted state without rewriting or syncing the corrupt payload.

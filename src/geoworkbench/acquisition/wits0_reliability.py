@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import math
 import json
 import os
 import shutil
@@ -626,6 +627,13 @@ class Wits0WorkspaceState:
             raise ValueError("selected_curve_ids must contain non-empty strings")
         if (self.history_start is None) != (self.history_end is None):
             raise ValueError("History range must contain both start and end")
+        if self.history_start is not None and self.history_end is not None:
+            try:
+                finite = math.isfinite(self.history_start) and math.isfinite(self.history_end)
+            except (TypeError, ValueError, OverflowError) as error:
+                raise ValueError("History range boundaries must be finite numbers") from error
+            if not finite:
+                raise ValueError("History range boundaries must be finite numbers")
         if (
             self.history_start is not None
             and self.history_end is not None
