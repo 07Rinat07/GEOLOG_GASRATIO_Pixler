@@ -1,7 +1,7 @@
 <!-- runtime-contract: package=0.7.96; project=v37; form=v18; layout=v25 -->
 # Единый план проекта
 
-План актуализирован 10 октября 2026 года. Проверенная база перед текущим инкрементом —
+План актуализирован 13 октября 2026 года. Проверенная база перед текущим инкрементом —
 `02135076` (PR #523). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
 приёмка интегрированы. Текущий REPORT-I18N-01 пакет объединяет независимый язык Print Center:
 сохраняемый RU/KK/EN применяется к планшету и кривым в preview, принтере, PDF, PNG/SVG и Passport.
@@ -18,41 +18,41 @@ WITS-NET-01 остаётся внешним условием: пользоват
 [CHANGELOG.md](CHANGELOG.md); отдельные roadmap, build report, release plan и временные планы
 в `docs` не создаются.
 
-## WITS-PLOT-01 — доступность сохранения формы после подключения runtime (на проверке)
+## WITS-PLOT-01 — доступность сохранения формы после подключения runtime (интегрировано)
 
 - `bind_runtime` включает настоящую кнопку «Сохранить форму», ранее оставшуюся отключённой после empty state. Ручной X-диапазон сохраняется через существующие QSettings и восстанавливается после rebind и нового виджета.
 - RU/KK/EN Qt acceptance использует реальные controls/dashboard/runtime; следующий frame сохраняет диапазон и исходный численный prefix. Реальный TCP reconnect и длительный soak остаются отдельной приёмкой.
 - PR #579 интегрирован: production JSON/package capture runtime reopen и последовательность кадров проверены; main Release gate 38234674469 attempt 2 SUCCESS на `5f9bd4d2`. Причина performance slowdown attempt 1 не установлена; пороги не менялись.
 
-## WITS-UX-01 — реальный Start/Stop/restart TCP через controls (на проверке)
+## WITS-UX-01 — реальный Start/Stop/restart TCP через controls (интегрировано)
 
 - RU/KK/EN acceptance нажимает настоящие Start/Stop на локальном TCP-стенде, проверяет завершение worker, состояние controls и второй независимый запуск. Каждый новый raw segment содержит точный payload своего запуска; предыдущие файлы неизменны. Engine и sockets не подменяются.
 - PR #580 интегрирован после трёх SUCCESS на `b06dff8b` (run 38244641500), main `bee73342`: кнопка сохранения формы и реальные manual-range save/rebind/reopen проверены.
 - Runtime не меняется. Автоматический reconnect после потери соединения, полевая сеть и длительный soak остаются отдельными контрактами.
 
-## WITS-UX-01 — автоматический TCP reconnect через настоящий dialog (на проверке)
+## WITS-UX-01 — автоматический TCP reconnect через настоящий dialog (интегрировано)
 
 - На локальном TCP-стенде server закрывает первое соединение и принимает второе. После одного Start тот же engine автоматически получает два frame через два соединения; controls остаются согласованными, Stop завершает worker. Точные raw bytes обоих соединений сохранены. RU/KK/EN, engine/socket не подменяются.
 - PR #581 интегрирован после трёх SUCCESS на `7d46b2c2` (run 38249776454), main `d1b5ebeb`: ручной Stop/restart и сохранность предыдущих raw segments покрыты.
 - Это bounded loopback acceptance существующей реализации. Полевая сеть, длительный soak и сквозной persistent acquisition reconnect остаются отдельными границами.
 
-## PRINT-STYLE-01 — нейтральное оформление shared geology tracks (на проверке)
+## PRINT-STYLE-01 — нейтральное оформление shared geology tracks (интегрировано)
 
 - Cuttings/LBA shared painters используют palette border_strong/border/text_secondary/text общего visual profile вместо локальных neutral hex literals. Авторские lithotype colors/patterns и standard LBA symbol colors не меняются.
 - Regression подменяет profile palette и проверяет реальные pen arguments и сохранение geological semantics. Весь PRINT-STYLE-01 и physical acceptance остаются открытыми.
 - PR #582 интегрирован после трёх SUCCESS на `0f67137f` (run 38253601130); main `a6059c89` Release gate 38257387766 SUCCESS. Loopback reconnect покрыт, field networking/long soak отдельно.
 
-## GASCTX-RPT-01 — production workspace/editor save/reopen (на проверке)
+## GASCTX-RPT-01 — production workspace/editor save/reopen (интегрировано)
 
 - RU/KK/EN × JSON/package acceptance нажимает настоящую кнопку рабочего пространства, редактирует modal Gas Context dialog через Add/Save, повторно открывает его и проверяет Cancel нового draft. Production save/open сохраняет точный registry и signed depths; reopened session clean, source depth/curve arrays неизменны.
 - Runtime не изменён; existing controller/export context-audit regressions сохраняются. Физическая/содержательная приёмка и общий grayscale event contract отдельно.
 - PR #583 интегрирован после трёх SUCCESS на `9b9e39c0` (run 38262197960), main `8f4c3140`: shared geology track neutral palette согласована с visual profile.
 
-## Qt lifecycle — явное pyqtgraph close перед удалением track tree (на проверке)
+## Qt lifecycle — явное pyqtgraph close перед удалением track tree (интегрировано)
 
 - Main Release gate 38266575085 на `8f4c3140` завершился native access violation в PlotItem construction после Undo ресэмплирования. Аналогичный constructor stack ранее возникал при interval Undo; утверждение о доказанной первопричине не делается.
 - Track disposal теперь вызывает существующий pyqtgraph PlotWidget.close после снятия event filters и overlays, до parent deleteLater/DeferredDelete. Этот adapter освобождает proxy/menu/axes/ViewBox для PySide; plotItem=None защищает повторное закрытие.
-- Реальная regression проверяет close-before-parent-delete и идемпотентный clear. Assertions исходных crash tests не меняются; подтверждение требует нового exact-head Windows Release gate.
+- Реальная regression проверяет close-before-parent-delete и идемпотентный clear. Assertions исходных crash tests не меняются; PR #584 интегрирован; main Release gate 38282939540 SUCCESS. Точная первопричина native crash остаётся недоказанной.
 
 ## PLOT-FLAG-01 — флажки со значениями по клику для просмотра и печати (запланировано)
 
@@ -81,7 +81,7 @@ WITS-NET-01 остаётся внешним условием: пользоват
 
 Статус: текст заключения/примечаний и основные выноски уже реализованы и присутствуют в плане; каталог авторских report-значков и его print-selection acceptance — новый остаточный scope RPT-ANN, запланирован. Не объявлять все свободные обозначения и прямой click-to-add реализованными: PLOT-FLAG-01 остаётся отдельной новой фичей.
 
-## RPT-AUTHOR-01 — векторный каталог авторских символов (на проверке)
+## RPT-AUTHOR-01 — векторный каталог авторских символов (интегрировано)
 
 - Первый reusable слой: stable IDs circle/square/diamond/triangle/cross, RU/KK/EN названия и единый vector painter с существующим AnnotationStyle. Символы не кодируют автоматическую классификацию флюида или alarm.
 - Реальные QImage/QPdfWriter regressions проверяют различимую геометрию, grayscale, inherited clipping, восстановление painter и одинаковые физические размеры при 72/300 DPI без raster images.
