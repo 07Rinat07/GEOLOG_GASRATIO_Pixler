@@ -1,5 +1,7 @@
 # История изменений
 
+- Загрузка эталонных fixtures ограничена HTTPS и raw.githubusercontent.com без перенаправлений; Git SHA-1 явно используется только как идентификатор blob. Bandit checks сохранены.
+
 ## DATA-PETRO-01 — внешние образцы LAS/DLIS/LIS79/SEG-Y (на проверке)
 
 - В `tests/fixtures/external_formats` добавлены 16 компактных открытых тестовых файлов с pinned upstream commit/blob, точной проверкой исходных байт и сохранением CRLF LAS 3.0. Набор включает негативные DLIS/SEG-Y cases; есть офлайн-валидатор, скачивание с ограничениями и регрессионные тесты. DLIS/LIS79/SEG-Y parser/write support от этого не появляется.

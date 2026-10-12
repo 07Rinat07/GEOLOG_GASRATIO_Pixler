@@ -9,14 +9,14 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+from http.client import HTTPSConnection
 import json
 import os
 from pathlib import Path, PurePosixPath
 import sys
 import tempfile
 import time
-from urllib.parse import quote
-from urllib.request import Request, urlopen
+from urllib.parse import quote, urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 CORPUS = ROOT / "tests" / "fixtures" / "external_formats"
@@ -29,7 +29,7 @@ ALLOWED_SCENARIOS = frozenset({"reference", "exploratory", "edge_case", "negativ
 def blob_sha1(content: bytes) -> str:
     """Git SHA-1 includes a typed, byte-length-prefixed blob header."""
     header = f"blob {len(content)}".encode("ascii") + bytes((0,))
-    return hashlib.sha1(header + content).hexdigest()
+    return hashlib.sha1(header + content, usedforsecurity=False).hexdigest()
 
 
 def _read_manifest() -> list[dict[str, object]]:
@@ -81,11 +81,21 @@ def _verify(path: Path, expected_size: int, expected_git_sha: str) -> str:
 
 
 def _download(url: str, max_size: int) -> bytes:
-    request = Request(url, headers={"User-Agent": "GEOLOG-fixture-audit/1.0"})
-    with urlopen(request, timeout=35) as response:
-        if response.geturl().split("/")[2] != "raw.githubusercontent.com":
-            raise ValueError("Unexpected fixture download host")
+    parsed = urlsplit(url)
+    if (parsed.scheme != "https" or parsed.netloc != "raw.githubusercontent.com"
+            or parsed.query or parsed.fragment):
+        raise ValueError("Unexpected fixture download URL")
+    connection = HTTPSConnection("raw.githubusercontent.com", timeout=35)
+    try:
+        connection.request("GET", parsed.path,
+                           headers={"User-Agent": "GEOLOG-fixture-audit/1.0"})
+        response = connection.getresponse()
+        # Redirects must not move a pinned source to another host or scheme.
+        if response.status != 200:
+            raise ValueError("Fixture download requires HTTP 200 without redirects")
         payload = response.read(max_size + 1)
+    finally:
+        connection.close()
     if len(payload) > max_size:
         raise ValueError("Fixture download exceeded manifest size")
     return payload

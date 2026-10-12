@@ -11,6 +11,7 @@ from tools.fetch_external_format_fixtures import (
     ALLOWED_REPOSITORIES,
     CORPUS,
     MAX_FILE_SIZE,
+    _download,
     _validate,
     blob_sha1,
 )
@@ -86,3 +87,26 @@ def test_manifest_rejects_unapproved_upstream_repository() -> None:
 
 def test_blob_sha1_includes_real_nul_separator() -> None:
     assert blob_sha1(b"hello world") == "95d09f2b10159347eece71399a7e2e907ea3df4f"
+
+
+@pytest.mark.parametrize("url", [
+    "file:///tmp/sample.las", "http://raw.githubusercontent.com/sample",
+    "https://other.example/sample", "https://raw.githubusercontent.com:443/sample",
+    "https://user@raw.githubusercontent.com/sample",
+])
+def test_download_rejects_unapproved_url_before_network(url: str) -> None:
+    with pytest.raises(ValueError, match="Unexpected fixture download URL"):
+        _download(url, 100)
+
+
+def test_download_rejects_redirect_and_closes_connection(monkeypatch: pytest.MonkeyPatch) -> None:
+    from unittest.mock import Mock
+
+    connection = Mock()
+    connection.getresponse.return_value.status = 302
+    monkeypatch.setattr("tools.fetch_external_format_fixtures.HTTPSConnection",
+                        Mock(return_value=connection))
+    with pytest.raises(ValueError, match="without redirects"):
+        _download("https://raw.githubusercontent.com/pinned/sample", 100)
+    connection.getresponse.return_value.read.assert_not_called()
+    connection.close.assert_called_once()
