@@ -2540,7 +2540,14 @@ PR #571 интегрирован после трёх SUCCESS на 543644b9 (run3
 
 PR #572 интегрирован после трёх SUCCESS на e646629c (run38196884398), main2dd8c1ba.
 
-### RPT-ANN-01 — compound remove controller (на проверке)
+### RPT-ANN-01 — compound remove controller (завершено)
 
 - remove_many проверяет все ID/ownership до mutation, отклоняет пустой/duplicate/неверный список и ограничивает batch лимитом истории. Записи удаляются по убывающим индексам одной CompoundCommand; Undo восстанавливает исходный порядок. Recursive ownership и checkpoint flags включают составную команду и children.
 - Grouped remove/Undo/Redo/checkpoint и foreign-session guards покрыты regression; UI массового выбора/удаления и физическая приёмка остаются отдельно. Source arrays не копируются. Три exact-head gates обязательны.
+
+PR #573 интегрирован после трёх SUCCESS на 3db47a91 (run38199177258), mainfc238436.
+
+### RPT-ANN-01 — выбор группы и удаление в Qt editor (на проверке)
+
+- «Удалить группу…» открывает список только текущих report annotations с ExtendedSelection. Подтверждение недоступно без выбора; отмена выбора не меняет модель. Подтверждённый список передаётся validated remove_many как одна команда; Undo/Redo и Cancel/Apply используют существующую историю/checkpoint.
+- RU/KK/EN real controls проверяют два выбранных элемента, выбор Cancel, Undo/Redo и rollback к Apply. Source/calculation contracts сохраняются, физическая приёмка отдельно; три exact-head gates обязательны.
