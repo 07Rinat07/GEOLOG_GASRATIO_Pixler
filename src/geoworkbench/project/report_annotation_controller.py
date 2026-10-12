@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from typing import Literal
 
@@ -22,6 +22,7 @@ from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.edit_history import (
     CommandHistory,
     CommandHistoryCheckpoint,
+    CompoundCommand,
 )
 
 
@@ -37,7 +38,7 @@ class ReportAnnotationEditorCheckpoint:
     annotations: tuple[ReportAnnotationRecord, ...]
     session_dirty: bool
     history: CommandHistoryCheckpoint = field(repr=False)
-    command_states: tuple[tuple[_ReportAnnotationCommand, bool], ...] = field(repr=False)
+    command_states: tuple[tuple[_ReportAnnotationCommand | CompoundCommand, bool], ...] = field(repr=False)
 
 
 @dataclass(slots=True)
@@ -186,7 +187,18 @@ class ReportAnnotationController:
         command = self._history.next_redo
         return self._owns_history_command(command)
 
+    @staticmethod
+    def _command_tree(command: object) -> tuple[object, ...]:
+        if isinstance(command, CompoundCommand):
+            return (command, *(item for child in command.commands
+                               for item in ReportAnnotationController._command_tree(child)))
+        return (command,)
+
     def _owns_history_command(self, command: object) -> bool:
+        if isinstance(command, CompoundCommand):
+            return command.history_domain == _HISTORY_DOMAIN and all(
+                self._owns_history_command(child) for child in command.commands
+            )
         if not isinstance(command, _ReportAnnotationCommand) or command.session is not self.session:
             return False
         if self.session.current_dataset is None:
@@ -404,6 +416,36 @@ class ReportAnnotationController:
         self.session.dirty = True
         return current
 
+    def remove_many(self, annotation_ids: Sequence[str]) -> tuple[ReportAnnotationRecord, ...]:
+        """Validate the complete selection before recording one reversible deletion."""
+        if not isinstance(annotation_ids, Sequence) or isinstance(annotation_ids, (str, bytes)):
+            raise TypeError("Ожидался список ID report annotations")
+        if not annotation_ids or len(annotation_ids) > self._history.max_commands:
+            raise ValueError("Количество аннотаций выходит за лимит истории")
+        ids = tuple(annotation_ids)
+        records = tuple(self._record_with_index(annotation_id) for annotation_id in ids)
+        if len({record.annotation_id for _, record in records}) != len(records):
+            raise ValueError("ID report annotations не должны повторяться")
+        _, dataset_id = self._current_ids()
+        composition = self._resolved_composition(dataset_id)
+        commands = []
+        # Descending indices keep each removal valid; reverse Undo restores order.
+        for index, record in sorted(records, key=lambda item: item[0], reverse=True):
+            command = _ReportAnnotationCommand(
+                session=self.session, dataset_id=dataset_id,
+                composition_id=composition.composition_id,
+                presentation_state=replace(composition, annotations=()),
+                operation="remove", index=index, before=record, after=None,
+                composition_created=False, description="Удаление report annotation",
+            )
+            command._applied = False
+            commands.append(command)
+        self._history.execute(CompoundCommand(
+            "Групповое удаление report annotations", _HISTORY_DOMAIN, tuple(commands),
+        ))
+        self.session.dirty = True
+        return tuple(record for _, record in records)
+
     def undo(self) -> str:
         if not self.can_undo:
             raise RuntimeError("Нет изменений report annotations для отмены")
@@ -433,23 +475,28 @@ class ReportAnnotationController:
             history=history,
             command_states=tuple(
                 (command, command._applied)
-                for command in history.commands
-                if isinstance(command, _ReportAnnotationCommand)
+                for root in history.commands
+                for command in self._command_tree(root)
+                if isinstance(command, (_ReportAnnotationCommand, CompoundCommand))
             ),
         )
 
     def restore(self, checkpoint: ReportAnnotationEditorCheckpoint) -> None:
         if not isinstance(checkpoint, ReportAnnotationEditorCheckpoint):
             raise TypeError("Ожидалась контрольная точка report annotations")
-        changed = self._history.changed_commands_since(checkpoint.history)
-        if any(command.history_domain != _HISTORY_DOMAIN for command in changed):
+        changed = tuple(
+            command
+            for root in self._history.changed_commands_since(checkpoint.history)
+            for command in self._command_tree(root)
+        )
+        if any(getattr(command, "history_domain", None) != _HISTORY_DOMAIN for command in changed):
             raise RuntimeError("После checkpoint появились изменения другого домена")
         if any(
             not isinstance(command, _ReportAnnotationCommand)
             or command.session is not self.session
             or command.dataset_id != checkpoint.dataset_id
             or command.composition_id != checkpoint.composition_id
-            for command in changed
+            for command in changed if not isinstance(command, CompoundCommand)
         ):
             raise RuntimeError("После checkpoint изменена другая область report annotations")
         current = self.session.report_compositions.get(checkpoint.dataset_id)
