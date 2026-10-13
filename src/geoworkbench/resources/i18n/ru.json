@@ -2453,5 +2453,6 @@
   "import_review.capability_verified": "проверено",
   "import_review.capability_limited": "ограничено",
   "import_review.capability_unverified": "не проверено",
-  "import_review.capability_unavailable": "недоступно"
+  "import_review.capability_unavailable": "недоступно",
+  "import.las3_pilot": "Импорт LAS 3.0 — scalar pilot…"
 }

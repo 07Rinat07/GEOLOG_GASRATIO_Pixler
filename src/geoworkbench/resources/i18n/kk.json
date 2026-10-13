@@ -2453,5 +2453,6 @@
   "import_review.capability_verified": "тексерілген",
   "import_review.capability_limited": "шектеулі",
   "import_review.capability_unverified": "тексерілмеген",
-  "import_review.capability_unavailable": "қолжетімсіз"
+  "import_review.capability_unavailable": "қолжетімсіз",
+  "import.las3_pilot": "LAS 3.0 импорты — scalar pilot…"
 }
