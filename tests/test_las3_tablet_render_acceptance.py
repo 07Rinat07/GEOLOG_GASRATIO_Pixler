@@ -78,7 +78,12 @@ def test_las3_scalar_tablet_displays_true_data_after_project_reopen(
             assert view.rendered_curve_point_count(track_id, mnemonic) == 3
             item = view._rendered[track_id].curve_items[mnemonic]
             x_values, y_values = item.getData()
-            np.testing.assert_allclose(x_values, expected, rtol=0, atol=1e-6)
+            # Qt PlotDataItem uses normalized screen X coordinates, not raw
+            # petrophysical units. A constant curve maps to the track centre.
+            # Compare original engineering values against the Dataset below.
+            np.testing.assert_allclose(
+                x_values, np.full(3, 0.5), rtol=0, atol=1e-6
+            )
             np.testing.assert_allclose(
                 y_values, dataset.depth, rtol=0, atol=1e-6
             )
