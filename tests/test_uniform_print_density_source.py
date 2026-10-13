@@ -23,11 +23,11 @@ def test_hidden_print_viewport_preserves_requested_graph_body() -> None:
     assert "minimum_height = header_height + 240" not in source
 
 
-def test_document_header_uses_print_only_font_scaling() -> None:
+def test_document_header_does_not_rescale_fonts_inside_fixed_authored_cells() -> None:
     source = Path("src/geoworkbench/printing/document_renderer.py").read_text(
         encoding="utf-8"
     )
 
-    assert "_DOCUMENT_HEADER_FONT_SCALE = 1.60" in source
+    assert "_DOCUMENT_HEADER_FONT_SCALE" not in source
     assert "_print_header_template(context.header_template)" in source
-    assert "float(raw_size) * _DOCUMENT_HEADER_FONT_SCALE" in source
+    assert "return deepcopy(template)" in source

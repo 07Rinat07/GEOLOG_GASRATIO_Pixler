@@ -16,6 +16,11 @@ ruler height. The caption-clearance change uses 34 px in print and preserves
 or weakened bounds. Run compact_parameter_rulers, curve_header_readability and
 real_tablet_pdf_regressions before new exact-head Windows gates.
 
+CI38427000217 also exposed two old header-font x1.60 assertions in a later shard.
+The replacement runtime regression requires exact authored font size and cell
+geometry plus independent print-copy properties; the source boundary disallows
+the removed scaling factor. Uniform density and print_header_layout: 25 passed.
+
 Confirmed VALUE selection: `python scripts/run_tests.py -p no:cacheprovider tests/test_value_flag_persist_selection.py tests/test_value_flag_print_selection.py tests/test_depth_annotations.py -q`.
 Проверяются atomic validation, one-step Undo/Redo, unchanged screen visibility,
 JSON/package reopen, RU/KK/EN individual selection under temporary global switch,

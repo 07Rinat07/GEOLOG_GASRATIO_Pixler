@@ -14,10 +14,17 @@ def test_fit_print_prefers_one_horizontal_scale_but_never_aborts_pdf() -> None:
     assert "автоматическая пагинация нарушила единый масштаб" not in source
 
 
-def test_document_passport_uses_larger_print_only_typography() -> None:
-    source = Path("src/geoworkbench/printing/document_renderer.py").read_text(encoding="utf-8")
+def test_document_passport_preserves_authored_typography_in_independent_print_copy() -> None:
+    from geoworkbench.domain.models import MasterlogHeaderElement, MasterlogTemplate
+    from geoworkbench.printing.document_renderer import _print_header_template
 
-    # The screen template stays unchanged; only its print copy is enlarged.
-    assert "_DOCUMENT_HEADER_FONT_SCALE = 1.60" in source
-    assert "prepared = deepcopy(template)" in source
-    assert 'element.properties["font_size_mm"]' in source
+    template = MasterlogTemplate("passport", "Passport", header_elements=[
+        MasterlogHeaderElement("title", "text", 5, 8, 45, 7,
+                               {"font_size_mm": 3.5, "text": "Field company"}),
+    ])
+    prepared = _print_header_template(template)
+    element = prepared.header_elements[0]
+    assert (element.x_mm, element.y_mm, element.width_mm, element.height_mm) == (5, 8, 45, 7)
+    assert element.properties["font_size_mm"] == 3.5
+    element.properties["font_size_mm"] = 9.0
+    assert template.header_elements[0].properties["font_size_mm"] == 3.5
