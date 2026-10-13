@@ -4,6 +4,19 @@
 
 Run38324037518 завершился 0xC0000005 при MainWindow/ViewBoxMenu construction до close-order assertion. Локальный shared prefix32tests и отдельный тест прошли; точная причина не доказана. Existing runner выполняет обязательную regression в отдельном процессе без skips и изменения assertions; новые exact-head gates обязательны.
 
+## DATA-PETRO-01 — перенос полезной части устаревшего Dataset bridge (на проверке)
+
+Вместо добавления второго LAS3-импортёра из закрытого PR #594
+используется единственный production `las3_dataset_adapter`, реализованный
+в PR #595–#597. Из legacy-кода в него перенесён `DatasetSourceRevision`
+с source SHA-256, размером, именем и диапазоном MD; исходные скалярные
+кривые имеют `provenance=source:las3-log_data-pilot` и тип GIS.
+Индекс DEPT хранится как индекс, без второй дублирующей кривой.
+Запрещена регистрация набора без числовых каналов и глубина с UOM != M.
+Fixture regression проверяет exact source bytes и JSON/package reopen.
+Старая ветка `codex/data-petro-las3-dataset-bridge` не сливается повторно:
+её дублирующие adapter/docs/tests уступили более новой интеграции.
+
 ## DATA-PETRO-01 — ограниченный LAS 3.0 scalar Log_Data pilot (следующий инкремент)
 
 Только для явно связанного `Log_Data | Log_Definition` с
