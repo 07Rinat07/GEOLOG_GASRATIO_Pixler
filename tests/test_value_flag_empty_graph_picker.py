@@ -3,7 +3,8 @@ from types import SimpleNamespace
 
 import numpy as np
 import pytest
-from PySide6.QtCore import QPoint
+from PySide6.QtCore import QEvent, QPoint, QPointF, Qt
+from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import QMenu
 
 import geoworkbench.tablet.tablet_view as tablet_module
@@ -16,9 +17,10 @@ from geoworkbench.tablet.models import TabletLayout, TrackDefinition, TrackKind
 from geoworkbench.tablet.tablet_view import TabletView
 
 
+@pytest.mark.parametrize("real_event", [False, True])
 @pytest.mark.parametrize("language", list(AppLanguage))
 @pytest.mark.parametrize("mode", ["depth", "time", "signed"])
-def test_empty_graph_menu_selects_real_sample_and_saves_value(qapp, monkeypatch, language, mode):
+def test_empty_graph_menu_selects_real_sample_and_saves_value(qapp, monkeypatch, language, mode, real_event):
     depth = np.array([-100.0, -99.0, -98.0] if mode == "signed" else
                      [100.0, 100.0, 101.0] if mode == "time" else [100.0, 101.0, 102.0])
     dataset = Dataset("flags", "Flags", DatasetKind.GTI,
@@ -68,7 +70,25 @@ def test_empty_graph_menu_selects_real_sample_and_saves_value(qapp, monkeypatch,
     clicked_y = 64.0 if mode == "time" else -99.6 if mode == "signed" else 100.4
     try:
         assert view._curve_value_payload("gas", 0.98, clicked_y, mnemonic="FOREIGN") is None
-        view.show_track_context_menu("gas", QPoint(), local_x=0.98, local_y=clicked_y)
+        lookups = []
+        nearest = view._nearest_axis_index
+        monkeypatch.setattr(view, "_nearest_axis_index",
+                            lambda value: lookups.append(value) or nearest(value))
+        if real_event:
+            view.resize(900, 700)
+            view.show()
+            qapp.processEvents()
+            plot = view._rendered["gas"].plot
+            point = plot.mapFromScene(plot.getViewBox().mapViewToScene(QPointF(0.98, clicked_y)))
+            event = QMouseEvent(QEvent.Type.MouseButtonPress, QPointF(point), QPointF(point),
+                                Qt.MouseButton.RightButton, Qt.MouseButton.RightButton,
+                                Qt.KeyboardModifier.NoModifier)
+            assert view.eventFilter(plot.viewport(), event) is True
+            assert abs(lookups[0] - clicked_y) < 0.1 * (60 if mode == "time" else 1)
+        else:
+            view.show_track_context_menu("gas", QPoint(), local_x=430.0, local_y=200.0,
+                                         plot_x=0.98, axis_value=clicked_y)
+        assert len(lookups) == (2 if real_event else 1)
         assert len(saved) == 1
         flag = saved[0]
         row = 1 if mode == "time" else 0
@@ -113,7 +133,8 @@ def test_empty_graph_picker_cancel_does_not_save_or_open_editor(qapp, monkeypatc
                         SimpleNamespace(getItem=lambda *args: ("", False)))
     before = deepcopy(session.current_well.canvas_objects)
     try:
-        view.show_track_context_menu("gas", QPoint(), local_x=0.98, local_y=100.4)
+        view.show_track_context_menu("gas", QPoint(), local_x=430.0, local_y=200.0,
+                                     plot_x=0.98, axis_value=100.4)
         assert saved == [] and edited == []
         assert session.current_well.canvas_objects == before
         np.testing.assert_array_equal(dataset.curve_by_mnemonic("TG").values, [10.0, 20.0])

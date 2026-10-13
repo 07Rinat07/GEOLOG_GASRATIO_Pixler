@@ -4785,6 +4785,7 @@ class TabletView(QWidget):
         x_fraction: float = 0.5,
         local_x: float | None = None,
         local_y: float | None = None,
+        plot_x: float | None = None,
     ) -> None:
         try:
             definition = self._layout_model.track_by_id(track_id)
@@ -4822,8 +4823,8 @@ class TabletView(QWidget):
         if local_x is not None and local_y is not None:
             curve_value = self._curve_value_payload(track_id, local_x, local_y)
         value_choices = (
-            self._curve_value_choices(track_id, local_x, local_y)
-            if graphical and curve_value is None and local_x is not None and local_y is not None
+            self._curve_value_choices(track_id, plot_x, axis_value)
+            if graphical and curve_value is None and plot_x is not None and axis_value is not None
             else ()
         )
         if curve_value is not None:
@@ -5080,15 +5081,21 @@ class TabletView(QWidget):
             definition = self._layout_model.track_by_id(track_id)
         except KeyError:
             return ()
+        sample_index = self._nearest_axis_index(local_y)
+        if sample_index is None:
+            return ()
         choices = []
         for mnemonic in dict.fromkeys(definition.curve_mnemonics):
-            payload = self._curve_value_payload(track_id, local_x, local_y, mnemonic=mnemonic)
+            payload = self._curve_value_payload(
+                track_id, local_x, local_y, mnemonic=mnemonic, sample_index=sample_index,
+            )
             if payload is not None:
                 choices.append((payload, self._curve_value_caption(payload)))
         return tuple(choices)
 
     def _curve_value_payload(
         self, track_id: str, local_x: float, local_y: float, *, mnemonic: str | None = None,
+        sample_index: int | None = None,
     ) -> dict[str, object] | None:
         if self._dataset is None or not np.isfinite(local_x) or not np.isfinite(local_y):
             return None
@@ -5108,7 +5115,8 @@ class TabletView(QWidget):
                 return None
             sample_coordinate = local_y
             display_x = local_x
-        sample_index = self._cursor_sample_index(sample_coordinate)
+        if sample_index is None:
+            sample_index = self._nearest_axis_index(sample_coordinate)
         curve = self._dataset.curve_by_mnemonic(mnemonic)
         if (
             sample_index is None
@@ -7907,6 +7915,7 @@ class TabletView(QWidget):
                             x_fraction=x_fraction,
                             local_x=event.position().x(),
                             local_y=event.position().y(),
+                            plot_x=float(point.x()),
                         )
                     event.accept()
                     return True
