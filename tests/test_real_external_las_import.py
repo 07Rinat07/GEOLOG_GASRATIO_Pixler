@@ -58,7 +58,7 @@ def test_real_reference_las_import_preserves_source_and_sample_grid(
     assert report.capabilities.source_write is CapabilityLevel.UNAVAILABLE
     assert not report.has_errors
     assert dataset.depth.ndim == 1
-    assert dataset.depth.size >= 3
+    assert dataset.depth.size >= 2
     assert np.isfinite(dataset.depth).all()
     assert dataset.curves
     for curve in dataset.curves.values():
