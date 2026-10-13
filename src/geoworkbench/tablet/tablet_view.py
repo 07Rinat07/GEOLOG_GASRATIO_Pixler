@@ -5058,7 +5058,7 @@ class TabletView(QWidget):
         if self._dataset is None:
             return None
         hit = self.hit_test_curve(track_id, local_x, local_y, tolerance_px=10.0)
-        if hit is None or hit.local_y is None:
+        if hit is None or hit.local_y is None or not np.isfinite(float(hit.local_y)):
             return None
         sample_index = self._cursor_sample_index(float(hit.local_y))
         curve = self._dataset.curve_by_mnemonic(hit.target.object_id)
@@ -5069,9 +5069,13 @@ class TabletView(QWidget):
             or sample_index >= self._dataset.depth.size
         ):
             return None
+        axis_values = self._axis_values()
+        if sample_index >= axis_values.size:
+            return None
+        sample_axis = float(axis_values[sample_index])
         value = float(curve.values[sample_index])
         depth = float(self._dataset.depth[sample_index])
-        if not np.isfinite(value) or not np.isfinite(depth):
+        if not np.isfinite(value) or not np.isfinite(depth) or not np.isfinite(sample_axis):
             return None
         try:
             definition = self._layout_model.track_by_id(track_id)
@@ -5081,7 +5085,7 @@ class TabletView(QWidget):
         payload: dict[str, object] = {
             "track_id": track_id,
             "depth": depth,
-            "axis_value": float(hit.local_y),
+            "axis_value": sample_axis,
             "axis_id": self.vertical_index_id,
             "mnemonic": hit.target.object_id,
             "value": value,
