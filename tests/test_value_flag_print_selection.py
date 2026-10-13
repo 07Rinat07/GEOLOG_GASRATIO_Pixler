@@ -3,7 +3,8 @@
 from dataclasses import replace
 
 import pytest
-from PySide6.QtCore import QPointF, Qt
+from PySide6.QtCore import QPointF, QRectF, Qt
+from PySide6.QtWidgets import QWidget
 
 from geoworkbench.printing.print_job import PrintJobSettings, PrintOutputFormat
 from geoworkbench.project.annotation_schema import AnnotationAnchor, AnnotationKind, AnnotationRecord
@@ -66,7 +67,10 @@ def test_value_print_selection_hides_only_deselected_flags_and_restores_screen(q
 
 
 def test_value_filter_applies_to_overlay_sprites_without_editing_records(qapp) -> None:
-    overlay = TabletAnnotationOverlay()
+    canvas = QWidget()
+    canvas.resize(500, 400)
+    overlay = TabletAnnotationOverlay(canvas)
+    overlay.set_content_rect(QRectF(0, 0, 500, 400))
     records = [_record("a"), _record("b"), _record("note", kind=AnnotationKind.COMMENT)]
     overlay.set_entries([(record, QPointF(40.0, 80.0), None) for record in records])
     assert set(overlay.annotation_ids) == {"a", "b", "note"}
@@ -75,11 +79,15 @@ def test_value_filter_applies_to_overlay_sprites_without_editing_records(qapp) -
     assert overlay.annotation_item("a").isVisible()
     assert not overlay.annotation_item("b").isVisible()
     assert overlay.annotation_item("note").isVisible()
+    assert not overlay._sprites["a"].isHidden()
+    assert overlay._sprites["b"].isHidden()
+    assert not overlay._sprites["note"].isHidden()
 
     overlay.set_print_mode(False)
     assert all(overlay.annotation_item(record.annotation_id).isVisible() for record in records)
     assert all(overlay.annotation_item(record.annotation_id).record == record for record in records)
     overlay.close()
+    canvas.close()
 
 
 @pytest.mark.parametrize("language", list(AppLanguage))
@@ -92,7 +100,7 @@ def test_print_center_selects_individual_value_flags_without_mutating_preference
         value_flag_options=(("a", "TG: 15.5 % · 100 m"), ("b", "DT: 120 us/m · 101 m")),
     )
     try:
-        assert dialog.value_flags_group.isVisible() or dialog.value_flags_group.isHidden() is False
+        assert not dialog.value_flags_group.isHidden()
         assert dialog.value_flags_tree.topLevelItemCount() == 2
         assert dialog.job_settings().included_value_annotation_ids == ("a", "b")
         dialog.value_flags_tree.topLevelItem(1).setCheckState(0, Qt.CheckState.Unchecked)
