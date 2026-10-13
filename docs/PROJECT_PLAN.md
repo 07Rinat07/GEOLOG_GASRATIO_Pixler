@@ -59,6 +59,17 @@ source bytes/SHA-256, VERS/WRAP из импортированного загол
 Окно production Import Review показывает source VERS и уровни чтения, правок проекта, raw write и derived export для LAS/CSV/Excel на RU/KK/EN. LAS3 остаётся unverified; исходный файл неизменяем. Stage0 и весь DATA-PETRO не завершены.
 # Единый план проекта
 
+## PLOT-FLAG-01 — подтверждённый индивидуальный выбор (на проверке)
+
+Print Center восстанавливает индивидуальный выбор из existing VALUE.print_enabled
+и предлагает ранее исключённые видимые флажки для повторного включения.
+Подтверждение записывает выбор текущей области одной canvas Undo-командой;
+Cancel и preview не меняют модель. Общий выключатель действует только на задание,
+не стирая индивидуальную подборку. Explicit job selection работает и для preview
+ранее исключённых значений. JSON/package reopen использует existing schema без
+нового global-profile storage. Сохранение глобального выключателя, time/XY/WITS,
+click-anywhere и физическая приёмка остаются открытыми. Три exact-head gates обязательны.
+
 ## PLOT-FLAG-01 — выбор VALUE-флажков в Print Center (на проверке)
 
 Следующий ограниченный print-selection слой использует **существующие**

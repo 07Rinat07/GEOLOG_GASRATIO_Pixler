@@ -1,3 +1,10 @@
+## PLOT-FLAG-01 — подтверждённый выбор в проекте (на проверке)
+
+- Подтверждение Print Center сохраняет индивидуальные VALUE.print_enabled текущей
+  области одной Undo-командой; Cancel/preview остаются draft. Ранее исключённые
+  флажки доступны для повторного выбора. Общий выключатель остаётся per-job и
+  не стирает подборку. Existing JSON/package schema и source arrays сохраняются.
+
 ## DATA-PETRO-01 — перенос legacy LAS3 provenance без второго импортёра (на проверке)
 
 - В существующий скалярный LAS3 Dataset adapter добавлены source revision и source provenance кривых; DEPT не дублируется как отдельная кривая, тип набора — GIS, индексная ось MD хранится отдельно. Новые регрессии проверяют JSON/package reopen, unit FT rejection, index-only rejection и сохранность исходных байтов. PR #594 остаётся закрытым как устаревшая реализация, не переносится целиком.

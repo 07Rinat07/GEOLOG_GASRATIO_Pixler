@@ -115,7 +115,10 @@ class TabletAnnotationItem(QGraphicsObject):
         )
         self.setVisible(
             self.record.visible
-            and (not self._print_mode or (self.record.print_enabled and selected))
+            and (not self._print_mode or (selected and (
+                self.record.print_enabled
+                or (self.record.kind is AnnotationKind.VALUE and self._included_value_ids is not None)
+            )))
         )
 
     def box_rect(self) -> QRectF:
@@ -820,7 +823,11 @@ class TabletAnnotationOverlay(QWidget):
                 if (
                     not record.visible
                     or not self._anchor_is_visible(anchor)
-                    or (print_mode and not record.print_enabled)
+                    or (print_mode and (
+                        record.annotation_id not in self._included_value_ids
+                        if record.kind is AnnotationKind.VALUE and self._included_value_ids is not None
+                        else not record.print_enabled
+                    ))
                 ):
                     continue
                 was_selected = helper._selected

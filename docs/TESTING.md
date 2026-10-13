@@ -1,5 +1,11 @@
 # Проверка качества и release gate
 
+Confirmed VALUE selection: `python scripts/run_tests.py -p no:cacheprovider tests/test_value_flag_persist_selection.py tests/test_value_flag_print_selection.py tests/test_depth_annotations.py -q`.
+Проверяются atomic validation, one-step Undo/Redo, unchanged screen visibility,
+JSON/package reopen, RU/KK/EN individual selection under temporary global switch,
+preview reselection without model mutation. Global-switch persistence and physical
+printer acceptance remain separate.
+
 Ограниченный read-only LAS3 Log_Data pilot: `python -m pytest -q tests/test_las3_scalar_log_preview.py`.
 На сохранённом LAS 3.0 проверяются DEPT/DT/YME, явные исключения CDES/NMR,
 оригинальные SHA-256 и bytes, NULL, несовместимые версии и диалекты,

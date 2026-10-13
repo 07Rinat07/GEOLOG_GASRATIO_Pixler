@@ -91,6 +91,53 @@ def bind_session(window: MainWindow, session: ProjectSession) -> None:
     window._bind_project_session()
 
 
+def test_print_center_commits_value_selection_only_after_confirmation(qapp, monkeypatch):
+    from copy import deepcopy
+    from geoworkbench.project.annotation_schema import AnnotationKind
+    from geoworkbench.ui.print_center_dialog import PrintCenterDialog
+
+    window = MainWindow()
+    session, _ = make_session()
+    bind_session(window, session)
+    window.tablet_view.set_layout_and_dataset(session.current_tablet_layout, session.current_dataset)
+    controller = window.depth_annotation_controller
+    first = controller.add_annotation(kind=AnnotationKind.VALUE, depth=100.0, text="First")
+    second = controller.add_annotation(kind=AnnotationKind.VALUE, depth=101.0, text="Second")
+    window._refresh_annotation_layer()
+    before = deepcopy(session.current_well.canvas_objects)
+    session.dirty = False
+    outcomes = iter((QDialog.DialogCode.Rejected, QDialog.DialogCode.Accepted))
+    jobs = []
+
+    def select_flags(dialog):
+        assert len(dialog.value_flag_options) == 2
+        dialog.destination_tabs.setCurrentIndex(0)
+        dialog.clear_value_flags_button.click()
+        dialog.print_value_flags_check.setChecked(False)
+        return next(outcomes)
+
+    monkeypatch.setattr(PrintCenterDialog, "exec", select_flags)
+    monkeypatch.setattr(window, "_execute_print_job", lambda *args, **kwargs: jobs.append(args[1]))
+    monkeypatch.setattr(type(window.user_profile_settings), "save_print_page_settings", lambda *args: None)
+    monkeypatch.setattr(type(window.user_profile_settings), "save_print_export_preferences_for_form", lambda *args: None)
+    monkeypatch.setattr(type(window.user_profile_settings), "save_print_export_preferences", lambda *args: None)
+    try:
+        window.open_print_center(widget=window.tablet_view)
+        assert session.current_well.canvas_objects == before
+        assert not session.dirty
+        assert not jobs
+        window.open_print_center(widget=window.tablet_view)
+        assert not controller.get(first.annotation_id).print_enabled
+        assert not controller.get(second.annotation_id).print_enabled
+        assert all(record.visible for record in controller.available_annotations())
+        assert jobs[0].included_value_annotation_ids == ()
+        controller.undo()
+        assert session.current_well.canvas_objects == before
+    finally:
+        session.dirty = False
+        window.close()
+
+
 def test_print_report_channels_follow_selected_tablet_columns(qapp) -> None:
     session, _layout = make_session()
     dataset = session.current_dataset
