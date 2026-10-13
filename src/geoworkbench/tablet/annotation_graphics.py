@@ -65,6 +65,7 @@ class TabletAnnotationItem(QGraphicsObject):
         self._pixmap = QPixmap(pixmap) if pixmap is not None else QPixmap()
         self._edit_mode = bool(edit_mode)
         self._print_mode = bool(print_mode)
+        self._included_value_ids: frozenset[str] | None = None
         self._selected = False
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations, True)
         # The current overlay paints this helper into mouse-transparent sprites,
@@ -99,13 +100,22 @@ class TabletAnnotationItem(QGraphicsObject):
         self._edit_mode = bool(enabled)
         self.update()
 
-    def set_print_mode(self, enabled: bool) -> None:
+    def set_print_mode(
+        self, enabled: bool, *, included_value_ids: frozenset[str] | None = None
+    ) -> None:
         self._print_mode = bool(enabled)
+        self._included_value_ids = included_value_ids if enabled else None
         self._apply_visibility()
 
     def _apply_visibility(self) -> None:
+        selected = (
+            self._included_value_ids is None
+            or self.record.kind is not AnnotationKind.VALUE
+            or self.record.annotation_id in self._included_value_ids
+        )
         self.setVisible(
-            self.record.visible and (not self._print_mode or self.record.print_enabled)
+            self.record.visible
+            and (not self._print_mode or (self.record.print_enabled and selected))
         )
 
     def box_rect(self) -> QRectF:
@@ -461,6 +471,7 @@ class TabletAnnotationOverlay(QWidget):
         self._sprites: dict[str, QLabel] = {}
         self._edit_mode = False
         self._print_mode = False
+        self._included_value_ids: frozenset[str] | None = None
         self._selected_id: str | None = None
         self._gesture: _AnnotationGesture | None = None
         self._content_rect = QRectF()
@@ -512,12 +523,17 @@ class TabletAnnotationOverlay(QWidget):
                     edit_mode=self._edit_mode,
                     print_mode=self._print_mode,
                 )
+                helper.set_print_mode(
+                    self._print_mode, included_value_ids=self._included_value_ids
+                )
             else:
                 helper, _old_anchor = existing
                 if annotation_id != active_id:
                     helper.set_record(record, pixmap=pixmap)
                 helper.set_edit_mode(self._edit_mode)
-                helper.set_print_mode(self._print_mode)
+                helper.set_print_mode(
+                    self._print_mode, included_value_ids=self._included_value_ids
+                )
             helper._selected = annotation_id == previous
             next_entries[annotation_id] = (helper, QPointF(anchor))
             next_order.append(annotation_id)
@@ -561,10 +577,15 @@ class TabletAnnotationOverlay(QWidget):
             self.select_annotation(None)
         self._refresh_sprites()
 
-    def set_print_mode(self, enabled: bool) -> None:
+    def set_print_mode(
+        self, enabled: bool, *, included_value_ids: frozenset[str] | None = None
+    ) -> None:
         self._print_mode = bool(enabled)
+        self._included_value_ids = included_value_ids if enabled else None
         for helper, _anchor in self._entries.values():
-            helper.set_print_mode(self._print_mode)
+            helper.set_print_mode(
+                self._print_mode, included_value_ids=self._included_value_ids
+            )
         if self._print_mode:
             self.cancel_interaction()
         self._refresh_sprites()
@@ -848,12 +869,10 @@ class TabletAnnotationOverlay(QWidget):
         if entry is None or sprite is None:
             return
         helper, anchor = entry
-        record = helper.record
         if (
             self._content_rect.isEmpty()
-            or not record.visible
+            or not helper.isVisible()
             or not self._anchor_is_visible(anchor)
-            or (self._print_mode and not record.print_enabled)
         ):
             sprite.hide()
             sprite.clear()

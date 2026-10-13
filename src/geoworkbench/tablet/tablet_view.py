@@ -5465,15 +5465,26 @@ class TabletView(QWidget):
         if self._rendered:
             self._refresh_annotation_overlay()
 
-    def set_annotation_print_mode(self, enabled: bool) -> None:
-        """Hide screen-only annotations while a PDF/print snapshot is captured."""
+    def set_annotation_print_mode(
+        self, enabled: bool, *, included_value_ids: frozenset[str] | None = None
+    ) -> None:
+        """Use one ephemeral VALUE selection in screen clone/PDF/printer captures.
+
+        Only VALUE items are filtered. No change to persisted print_enabled,
+        visible, canvas objects, source arrays or screen presentation.
+        """
 
         self._annotation_print_mode = bool(enabled)
+        selected = included_value_ids if enabled else None
         self.refresh_shared_vertical_rulers()
         for rendered in self._rendered.values():
             for item in (rendered.annotation_items or {}).values():
-                item.set_print_mode(self._annotation_print_mode)
-        self._annotation_overlay.set_print_mode(self._annotation_print_mode)
+                item.set_print_mode(
+                    self._annotation_print_mode, included_value_ids=selected
+                )
+        self._annotation_overlay.set_print_mode(
+            self._annotation_print_mode, included_value_ids=selected
+        )
 
     def create_print_clone(self, *, language: AppLanguage | None = None) -> TabletView:
         """Create an off-screen copy used by preview, PDF and printer rendering.

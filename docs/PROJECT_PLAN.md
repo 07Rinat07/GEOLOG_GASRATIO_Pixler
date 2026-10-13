@@ -59,6 +59,23 @@ source bytes/SHA-256, VERS/WRAP из импортированного загол
 Окно production Import Review показывает source VERS и уровни чтения, правок проекта, raw write и derived export для LAS/CSV/Excel на RU/KK/EN. LAS3 остаётся unverified; исходный файл неизменяем. Stage0 и весь DATA-PETRO не завершены.
 # Единый план проекта
 
+## PLOT-FLAG-01 — выбор VALUE-флажков в Print Center (на проверке)
+
+Следующий ограниченный print-selection слой использует **существующие**
+persisted VALUE-аннотации, не создавая новую сущность флажков.
+Для активного планшета Print Center показывает только видимые и уже
+`print_enabled` VALUE-записи своего well/dataset/form scope.
+Оператор выбирает каждый флажок, все или ни одного, отдельно от
+экранной видимости. Неизменяемое `PrintJobSettings.included_value_annotation_ids`
+передаётся общим путём preview/PDF/printer через page_renderer и
+capture_tablet_print_snapshot; временная фильтрация применяется только
+к VALUE на уровне QGraphicsItem и per-object sprite, сохраняет другие
+аннотации и снимается после захвата. Выбор действует **только на текущий
+запуск печати** и не меняет `print_enabled`, исходный документ, историю
+и проект; persistent preferences / подтверждённое сохранение списка
+должны быть отдельным этапом. Также открыты time/XY/WITS, физическая
+печать и click-anywhere contract. Обязательны exact-head Windows gates.
+
 ## PLOT-FLAG-01 — factual sample axis in existing tablet values (на проверке)
 
 Планшет уже имеет curve-value popup/save и persisted VALUE records. Исправлена existing граница: axis_value берётся из nearest actual sample, не из click position; nonfinite pointer/value закрывается без выдуманного числа. Click geometry scripted в regression, actual dataset/tablet. Общие flags anywhere/time/XY/WITS/print-selection остаются открытыми.

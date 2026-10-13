@@ -19,6 +19,14 @@ DT/ILD, MD, UOM, экранный/print-mode geometry contract и неизмен
 оригинального LAS source. Здесь не заявлена приёмка PDF/принтера,
 прочих секций LAS3 и write-back.
 
+PLOT-FLAG-01 выбор для конкретной печати:
+`python -m pytest -q tests/test_value_flag_print_selection.py`.
+Qt tests RU/KK/EN проверяют реальные элементы Print Center, all/none
+и флажки по одному; QGraphicsItem/sprite проверяются в print-mode
+без изменения свойств VALUE, COMМENT и без скрытия иных аннотаций.
+Общий PrintJobSettings/page-renderer контракт применяется к
+preview/PDF/print; physical printer и persistent selection отдельно.
+
 Metadata-only инвентаризация LAS 3.0: `python -m pytest -q tests/test_las3_section_inventory.py`.
 Проверяются исходные секции, версии, ссылки Data/Definition, ограничение
 размера и побайтовая неизменность всех трёх LAS 3.x fixtures. Эти проверки

@@ -59,6 +59,7 @@ def paint_widget_page(
     repeat_column_header_at_bottom: bool = False,
     column_header_only: bool = False,
     included_track_ids: tuple[str, ...] | None = None,
+    included_value_annotation_ids: tuple[str, ...] | None = None,
     grid_print_overrides: tuple[tuple[str, bool], ...] = (),
     target_content_height: int | None = None,
     layout_content_height: int | None = None,
@@ -98,6 +99,7 @@ def paint_widget_page(
                     fit_columns=(fit_form_columns if scale_mode is PrintScaleMode.FIT else False),
                     raster_scale=raster_scale,
                     included_track_ids=included_track_ids,
+                    included_value_annotation_ids=included_value_annotation_ids,
                     grid_print_overrides=dict(grid_print_overrides),
                     show_column_header=(show_column_header or column_header_only),
                     repeat_column_header_at_bottom=(

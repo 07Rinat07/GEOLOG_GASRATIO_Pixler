@@ -4794,6 +4794,29 @@ class MainWindow(QMainWindow):
                 if paged_tablet is not None
                 else ()
             ),
+            # The live tablet's overlay already applies well/dataset/form
+            # scope. Only persisted, visible and print-enabled VALUE records
+            # are offered; no source or screen objects are mutated.
+            value_flag_options=(
+                tuple(
+                    (
+                        flag_id,
+                        f"{record.parameter_mnemonic or 'VALUE'}: "
+                        f"{record.parameter_value:g} {record.unit} · "
+                        f"{record.axis_value:g}"
+                        if record.parameter_value is not None
+                        and record.axis_value is not None
+                        else (record.text or flag_id),
+                    )
+                    for flag_id in paged_tablet._annotation_overlay.annotation_ids
+                    if (helper := paged_tablet._annotation_overlay.annotation_item(flag_id))
+                    is not None
+                    if (record := helper.record).kind is AnnotationKind.VALUE
+                    and record.visible and record.print_enabled
+                )
+                if paged_tablet is not None
+                else ()
+            ),
         )
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
