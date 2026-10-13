@@ -26,6 +26,11 @@ cannot prove source curves. Physical printer acceptance is separate.
 
 # Проверка качества и release gate
 
+Time VALUE anchors at repeated MD: `python scripts/run_tests.py -p no:cacheprovider tests/test_value_flag_time_anchor.py tests/test_value_flag_sample_anchor.py -q`.
+The real Dataset/TabletView/controller path checks the saved time sample and
+distinct TG marker X, screen/print modes, legacy depth-only fallback and source
+array integrity. This does not establish XY/WITS or physical printer acceptance.
+
 CI38429624093 reached the later native tablet_view batch and exposed one final
 legacy 30 px runtime expectation. It now requires exactly 34 px in print,
 retaining the 28 px screen restoration, hidden action-strip and scrollbar

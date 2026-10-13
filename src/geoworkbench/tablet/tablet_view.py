@@ -10933,6 +10933,12 @@ class TabletView(QWidget):
         self._annotation_overlay.paint_translated(painter, origin, print_mode=True)
 
     def _annotation_axis_value(self, record) -> float | None:
+        if (
+            record.anchor is AnnotationAnchor.CURVE
+            and record.axis_id == self.vertical_index_id
+            and record.axis_value is not None
+        ):
+            return float(record.axis_value)
         if record.anchor is AnnotationAnchor.TIME:
             if record.axis_value is not None and (
                 record.axis_id is None or record.axis_id == self.vertical_index_id
@@ -10957,15 +10963,23 @@ class TabletView(QWidget):
         ):
             curve = self._dataset.curve_by_mnemonic(record.parameter_mnemonic)
             if curve is not None and curve.values.size == self._dataset.depth.size:
+                # A time sample can share MD with other rows during a pause.
+                # Resolve the saved sample on its own axis before falling back
+                # to the legacy depth-only annotation contract.
+                lookup_values = self._dataset.depth
+                lookup_value = float(record.depth)
+                if record.axis_id == self.vertical_index_id and record.axis_value is not None:
+                    lookup_values = self._axis_values()
+                    lookup_value = float(record.axis_value)
                 finite = np.flatnonzero(
-                    np.isfinite(self._dataset.depth) & np.isfinite(curve.values)
+                    np.isfinite(lookup_values) & np.isfinite(curve.values)
                 )
                 if finite.size:
                     index = int(
                         finite[
                             np.argmin(
                                 np.abs(
-                                    self._dataset.depth[finite] - float(record.depth)
+                                    lookup_values[finite] - lookup_value
                                 )
                             )
                         ]

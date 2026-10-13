@@ -1,5 +1,9 @@
 ## Print regression: 100% graph viewport and table borders
 
+- VALUE curve anchors resolve the sample on their saved current axis, preserving
+  distinct time samples at repeated MD in screen and print. Legacy depth-only
+  anchors retain their existing fallback; no source/calculation/schema changes.
+
 - Paper graph height at 100% no longer inherits the short screen viewport.
 - Automatic tablet tab title is omitted from printed document headers.
 - Report HTML table frames reserve border/spacing inside printable width.
