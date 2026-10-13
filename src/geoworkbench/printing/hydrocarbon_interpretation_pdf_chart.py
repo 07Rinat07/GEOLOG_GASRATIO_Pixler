@@ -39,7 +39,6 @@ from geoworkbench.printing.depth_curve_segments import continuous_depth_segments
 from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.printing.report_painter_fonts import paint_fitted_point_text, point_coordinate_font
 from geoworkbench.printing.curve_legend_layout import curve_legend_layout, fit_curve_legend_pages
-from geoworkbench.printing.interpretation_note_layout import interpretation_note_height
 from geoworkbench.printing.interpretation_track_headings import (
     paint_track_heading,
     track_heading_height,
@@ -160,7 +159,7 @@ def render_chart_pages(
     ))
     if provisional.context_rect is not None:
         header_height = max(header_height, 20.0 + context_track_heading_height(language, provisional.context_rect.width(), canvas.painter.device()))
-    note_height = interpretation_note_height(_labels(language)["note"], canvas.content_rect.width(), canvas.painter.device())
+    note_height = 0.0
     available_height = (
         canvas.content_rect.height()
         - CHART_HEADER_HEIGHT
@@ -914,14 +913,7 @@ def _labels(language: AppLanguage) -> dict[str, str]:
             "opus": "Показатели ОПУС",
             "ratios": "Haworth и Pixler",
             "drilling": "Буровой контекст и DEXP",
-            "note": (
-                "Обычные многокривые дорожки нормированы по p5–p95. Газовые отношения "
-                "выведены отдельными непрерывными трассами на стабильных фактических "
-                "линейных/логарифмических шкалах. Цветные полосы и маркеры отмечают "
-                "перспективные интервалы и предварительный "
-                "тип флюида; полная формулировка остаётся в таблице. Каждый лист сохраняет "
-                "физический масштаб глубины; шкалы и границы повторяются с обеих сторон."
-            ),
+            "note": "",
         },
         AppLanguage.KK: {
             "title": "Тереңдік бойынша интерпретациялық қисықтар графиктері",
@@ -935,14 +927,7 @@ def _labels(language: AppLanguage) -> dict[str, str]:
             "opus": "ОПУС көрсеткіштері",
             "ratios": "Haworth және Pixler",
             "drilling": "Бұрғылау контексті және DEXP",
-            "note": (
-                "Кәдімгі көп қисықты жолдар p5–p95 бойынша нормаланады. Газ қатынастары "
-                "тұрақты нақты сызықтық/логарифмдік шкалаларда бөлек үздіксіз трассалармен "
-                "көрсетіледі. Түсті жолақтар мен маркерлер перспективалы аралықты және "
-                "алдын ала флюид түрін "
-                "көрсетеді; толық мәтін кестеде қалады. Әр бет тереңдіктің физикалық "
-                "масштабын сақтайды; шкалалар мен шекаралар екі жақта қайталанады."
-            ),
+            "note": "",
         },
         AppLanguage.EN: {
             "title": "Depth plots of interpretation curves",
@@ -956,13 +941,7 @@ def _labels(language: AppLanguage) -> dict[str, str]:
             "opus": "OPUS indicators",
             "ratios": "Haworth and Pixler",
             "drilling": "Drilling context and DEXP",
-            "note": (
-                "Ordinary multi-curve tracks use p5–p95 normalization. Gas ratios are "
-                "separate continuous traces on stable factual linear/logarithmic scales. "
-                "Colored bands and markers show prospective intervals and preliminary fluid "
-                "type; full wording remains in the table. Every sheet preserves a physical "
-                "depth scale; scales and outer borders repeat on both sides."
-            ),
+            "note": "",
         },
     }[language]
 

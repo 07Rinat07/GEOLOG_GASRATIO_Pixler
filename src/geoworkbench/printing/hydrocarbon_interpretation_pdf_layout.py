@@ -165,7 +165,7 @@ def chart_geometry(
     if panel_count < 1:
         raise ValueError("Для графика требуется хотя бы одна дорожка")
     safe_curve_legend_height = max(CHART_LEGEND_HEIGHT, float(chart_curve_legend_height))
-    safe_note_height = max(CHART_NOTE_HEIGHT, float(chart_note_height))
+    safe_note_height = max(0.0, float(chart_note_height))
     safe_legend_height = max(0.0, float(geology_legend_height))
     safe_repeat_height = max(0.0, float(geology_repeat_legend_height))
     safe_header_height = max(CHART_TRACK_HEADER_HEIGHT, float(track_header_height))

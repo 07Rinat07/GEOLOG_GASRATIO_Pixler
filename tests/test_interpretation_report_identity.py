@@ -205,12 +205,12 @@ def test_default_word_cover_uses_full_width_three_column_control_table(tmp_path)
     assert control_table is not None
     table_width = control_table.find("w:tblPr/w:tblW", _W)
     assert table_width is not None
-    assert table_width.get(f"{{{_W_NS}}}w") == "9000"
+    assert table_width.get(f"{{{_W_NS}}}w") == "15000"
     grid_widths = [
         int(column.get(f"{{{_W_NS}}}w", "0"))
         for column in control_table.findall("w:tblGrid/w:gridCol", _W)
     ]
-    assert grid_widths == [3000, 3000, 3000]
+    assert grid_widths == [5000, 5000, 5000]
 
 
 def test_word_cover_is_separate_and_not_bunched_at_top(tmp_path) -> None:
@@ -264,7 +264,7 @@ def test_word_cover_is_separate_and_not_bunched_at_top(tmp_path) -> None:
     assert cover_type.get(f"{{{_W_NS}}}val") == "nextPage"
     assert cover_size is not None
     assert body_size is not None
-    assert int(cover_size.get(f"{{{_W_NS}}}w", "0")) < int(
+    assert int(cover_size.get(f"{{{_W_NS}}}w", "0")) > int(
         cover_size.get(f"{{{_W_NS}}}h", "0")
     )
     assert body_size.get(f"{{{_W_NS}}}orient") == "landscape"
@@ -279,7 +279,7 @@ def test_word_cover_is_separate_and_not_bunched_at_top(tmp_path) -> None:
     )
     title_spacing = title_paragraph.find("w:pPr/w:spacing", _W)
     assert title_spacing is not None
-    assert int(title_spacing.get(f"{{{_W_NS}}}before", "0")) >= 720
+    assert int(title_spacing.get(f"{{{_W_NS}}}before", "0")) >= 180
     assert len(children[:section_index]) >= 8
 
 

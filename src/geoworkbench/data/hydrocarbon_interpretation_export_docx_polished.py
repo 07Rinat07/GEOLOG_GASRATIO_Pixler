@@ -40,7 +40,7 @@ def export_polished_hydrocarbon_interpretation_docx(
     language: AppLanguage = AppLanguage.RU,
     overwrite: bool = False,
 ) -> Path:
-    """Export Word with a separate portrait cover and landscape report body."""
+    """Export Word with a separate landscape cover and landscape report body."""
 
     destination = Path(target)
     if destination.suffix.casefold() != ".docx":
@@ -192,7 +192,7 @@ def _cover_elements(
                 else labels.title_standard
             ),
             alignment="center",
-            before=720,
+            before=180,
             after=100,
             size=_half_points(visual.typography.title_pt),
             bold=True,
@@ -202,7 +202,7 @@ def _cover_elements(
         _paragraph(
             details.report_subtitle,
             alignment="center",
-            after=360,
+            after=180,
             size=_half_points(visual.typography.subtitle_pt),
             color=_word_color(visual.palette.text_muted),
         ),
@@ -235,7 +235,7 @@ def _cover_elements(
         for note in notes
         if note.strip()
     )
-    elements.append(_portrait_section_break())
+    elements.append(_landscape_section_break())
     return tuple(elements)
 
 
@@ -316,7 +316,7 @@ def _paragraph(
 def _control_table(items: tuple[tuple[str, str], ...]) -> ET.Element:
     if not items:
         raise ValueError("Таблица реквизитов Word не может быть пустой")
-    total_width = 9_000
+    total_width = 15_000
     base_width, remainder = divmod(total_width, len(items))
     widths = tuple(
         base_width + (1 if index < remainder else 0)
@@ -334,10 +334,15 @@ def _control_table(items: tuple[tuple[str, str], ...]) -> ET.Element:
 
 
 def _details_table(items: tuple[tuple[str, str], ...]) -> ET.Element:
+    rows = []
+    for offset in range(0, len(items), 2):
+        pair = items[offset:offset + 2]
+        cells = tuple(value for label, value in pair for value in (label, _value(value)))
+        rows.append(cells + ("", "") if len(pair) == 1 else cells)
     return _table(
-        tuple((label, _value(value)) for label, value in items),
-        (3_100, 5_900),
-        shaded_columns=frozenset({0}),
+        tuple(rows),
+        (2_200, 5_300, 2_200, 5_300),
+        shaded_columns=frozenset({0, 2}),
     )
 
 
@@ -352,7 +357,7 @@ def _approval_table(
             tuple(_value(value) for _, value in items),
             tuple(f"{signature_label} ____________________" for _ in items),
         ),
-        tuple(3_000 for _ in items),
+        tuple(5_000 for _ in items),
         shaded_rows=frozenset({0}),
         centered=True,
     )
@@ -450,7 +455,7 @@ def _word_color(value: str) -> str:
     return value.lstrip("#").upper()
 
 
-def _portrait_section_break() -> ET.Element:
+def _landscape_section_break() -> ET.Element:
     paragraph = ET.Element(_q("p"))
     properties = ET.SubElement(paragraph, _q("pPr"))
     section = ET.SubElement(properties, _q("sectPr"))
@@ -460,16 +465,16 @@ def _portrait_section_break() -> ET.Element:
     ET.SubElement(
         section,
         _q("pgSz"),
-        {_q("w"): "11906", _q("h"): "16838"},
+        {_q("w"): "16838", _q("h"): "11906", _q("orient"): "landscape"},
     )
     ET.SubElement(
         section,
         _q("pgMar"),
         {
-            _q("top"): "1134",
-            _q("right"): "1134",
-            _q("bottom"): "1440",
-            _q("left"): "1134",
+            _q("top"): "850",
+            _q("right"): "850",
+            _q("bottom"): "1050",
+            _q("left"): "850",
             _q("header"): "708",
             _q("footer"): "720",
             _q("gutter"): "0",

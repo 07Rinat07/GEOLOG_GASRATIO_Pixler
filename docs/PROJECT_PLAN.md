@@ -1,3 +1,17 @@
+## PRINT-REGRESSION — таблицы полной ширины и чистые страницы (на проверке)
+
+По PDF М-1 20261013-222125 подтверждены сжатие таблиц до 75% и отсутствующая
+левая рамка. FixedLength в Qt — layout pixels; процентная ширина и внутренний
+отступ исправляют Methods/candidate/manual tables при point document 72 DPI.
+Word-титул и body теперь A4 landscape; парная компоновка реквизитов сохраняет
+подписи на одном титульном листе, проверка включает LibreOffice render.
+Повторяющиеся служебные реквизиты убраны из общих PDF/DOCX footers; passport
+сохраняет введённые реквизиты. Default Working/internal use больше не добавляются.
+Поясняющие p5–p95/marker paragraphs удалены из PDF/HTML charts, освободившаяся
+высота отдана графикам. Численные массивы, шкалы, фазовые коды и легенды сохранены.
+RU/KK/EN × standard/OPUS × portrait/landscape проверяются production export;
+реальные 72/300/600 DPI тесты, визуальная проверка таблиц и три Windows gates обязательны.
+
 ## PLOT-FLAG-01 — time flags: reopen и print capture (на проверке)
 
 Шесть RU/KK/EN × JSON/package сценариев сохраняют два VALUE-флага с одинаковым

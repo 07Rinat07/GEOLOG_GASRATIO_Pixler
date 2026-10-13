@@ -7,7 +7,6 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QFontMetricsF, QPaintDevice, QTextLayout, QTextOption
 
 from geoworkbench.printing.hydrocarbon_fluid_markers import FluidMarkerSpec
-from geoworkbench.printing.hydrocarbon_interpretation_pdf_layout import CHART_NOTE_HEIGHT
 from geoworkbench.printing.report_painter_fonts import point_coordinate_font
 from geoworkbench.printing.report_visual_system import modern_oilfield_report_profile
 from geoworkbench.services.localization import AppLanguage
@@ -38,11 +37,7 @@ class FluidMarkerLegendLayout:
 
 
 def fluid_marker_note(language: AppLanguage) -> str:
-    return {
-        AppLanguage.RU: 'Маркеры показывают предварительный тип; полные глубины и формулировки — в таблице. Обычные дорожки — p5–p95; газовые отношения — фиксированные шкалы.',
-        AppLanguage.KK: 'Маркерлер алдын ала түрді көрсетеді; толық тереңдік пен мәтін кестеде. Кәдімгі жолақтар — p5–p95; газ қатынастары — тұрақты шкалалар.',
-        AppLanguage.EN: 'Markers show preliminary type; full depths and wording are in the table. Ordinary tracks use p5–p95; gas ratios use fixed scales.',
-    }[language]
+    return ""
 
 
 def fluid_marker_legend_layout(
@@ -70,11 +65,13 @@ def fluid_marker_legend_layout(
     note_top = rows * row_height + (4.0 if specs else 0.0)
     note = fluid_marker_note(language)
     note_lines = _wrapped_lines(note, width, font, paint_device)
-    note_height = max(CHART_NOTE_HEIGHT, len(note_lines) * line_height + 4.0)
+    note_height = 0.0 if not note_lines else len(note_lines) * line_height + 4.0
     return FluidMarkerLegendLayout(cells, note, note_lines, line_height, note_top, note_top + note_height)
 
 
 def _wrapped_lines(text: str, width: float, font: QFont, paint_device: QPaintDevice) -> tuple[str, ...]:
+    if not text:
+        return ()
     layout = QTextLayout(text, font, paint_device)
     option = QTextOption()
     option.setWrapMode(QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere)

@@ -43,7 +43,7 @@ def _profile(monkeypatch: pytest.MonkeyPatch, size: float) -> None:
 @pytest.mark.parametrize('dpi', [72, 300, 600])
 @pytest.mark.parametrize('width', [180.0, 360.0, 550.0])
 @pytest.mark.parametrize('size', [7.2, 9.0])
-def test_real_marker_legend_retains_all_labels_shapes_and_note_without_overlap(
+def test_real_marker_legend_retains_all_labels_shapes_without_explanatory_note_or_overlap(
     qapp: object, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, language: AppLanguage,
     dpi: int, width: float, size: float,
 ) -> None:
@@ -71,7 +71,7 @@ def test_real_marker_legend_retains_all_labels_shapes_and_note_without_overlap(
         text = _normalized(normalize('NFKC', document[0].get_text()))
         for cell in layout.cells:
             assert _normalized(cell.text) in text
-        assert _normalized(layout.note) in text
+        assert layout.note == "" and layout.note_lines == ()
         spans = _spans(document[0])
         assert all(span['size'] == pytest.approx(7.0 if size == 7.2 else size, abs=0.08) for span in spans)
         assert all(19.5 <= span['bbox'][0] and span['bbox'][2] <= 20+width+0.5 and
@@ -129,7 +129,7 @@ def test_production_pdf_reserves_marker_legend_above_footer_and_preserves_candid
         assert len(document)>1
         for page in document:
             text = _normalized(normalize('NFKC',page.get_text()))
-            assert _normalized(layout.note) in text
+            assert layout.note == "" and layout.note_lines == ()
             for cell in layout.cells:
                 assert _normalized(cell.text) in text
             spans = [span for span in _spans(page) if bottom-layout.height-0.5 <= span['bbox'][1] < bottom]
