@@ -4,6 +4,17 @@
 
 Run38324037518 завершился 0xC0000005 при MainWindow/ViewBoxMenu construction до close-order assertion. Локальный shared prefix32tests и отдельный тест прошли; точная причина не доказана. Existing runner выполняет обязательную regression в отдельном процессе без skips и изменения assertions; новые exact-head gates обязательны.
 
+## DATA-PETRO-01 — read-only LAS 3.0 section inventory (следующий инкремент)
+
+Подготовлен структурный просмотр сохранённых LAS 3.x как самостоятельный
+metadata-only слой до пилота чтения sample arrays: ровно одна версия VERS=3/3.0,
+bounded source read, сохранение exact source SHA-256/offsets, перечень всех
+известных/неизвестных секций, связей `Data | Definition` и незамкнутых ссылок.
+Fixture tests покрывают single/multi-set, indexed Core_Data[1/2], Phase_A/B,
+ошибочные версии и слишком большие файлы. Это **не** означает поддержку
+импорта кривых, редактирования или source write LAS 3.x. Перед интеграцией
+в Import Review нужен отдельный production UI contract и acceptance.
+
 ## DATA-PETRO-01 — реальная приёмка LAS fixtures (следующий инкремент)
 
 Новая fixture-backed регрессия вызывает production `import_las_with_report` на пяти

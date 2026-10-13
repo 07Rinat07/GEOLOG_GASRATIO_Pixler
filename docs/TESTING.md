@@ -1,5 +1,10 @@
 # Проверка качества и release gate
 
+Metadata-only инвентаризация LAS 3.0: `python -m pytest -q tests/test_las3_section_inventory.py`.
+Проверяются исходные секции, версии, ссылки Data/Definition, ограничение
+размера и побайтовая неизменность всех трёх LAS 3.x fixtures. Эти проверки
+**не** являются приёмкой sample read, канальных значений или экспорта LAS3.
+
 Приёмка производственного LAS-импортёра на реально сохранённых LAS 1.2/2.0:
 `python -m pytest -q tests/test_real_external_las_import.py`. Тесты не используют
 mock `lasio.read`: проверяются глубины, DT, обёрнутые строки, TAB, исходные
