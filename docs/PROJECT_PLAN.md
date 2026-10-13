@@ -1,4 +1,12 @@
 <!-- runtime-contract: package=0.7.96; project=v37; form=v18; layout=v25 -->
+
+## Windows CI — lifecycle regression в свежем процессе (на проверке)
+
+Run38324037518 завершился 0xC0000005 при MainWindow/ViewBoxMenu construction до close-order assertion. Локальный shared prefix32tests и отдельный тест прошли; точная причина не доказана. Existing runner выполняет обязательную regression в отдельном процессе без skips и изменения assertions; новые exact-head gates обязательны.
+
+## DATA-PETRO-01 — Import Review capabilities (на проверке)
+
+Окно production Import Review показывает source VERS и уровни чтения, правок проекта, raw write и derived export для LAS/CSV/Excel на RU/KK/EN. LAS3 остаётся unverified; исходный файл неизменяем. Stage0 и весь DATA-PETRO не завершены.
 # Единый план проекта
 
 План актуализирован 13 октября 2026 года. Проверенная база перед текущим инкрементом —

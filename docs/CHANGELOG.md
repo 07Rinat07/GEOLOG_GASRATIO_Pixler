@@ -1,5 +1,9 @@
 # История изменений
 
+- Windows CI: обязательный MainWindow close-order lifecycle тест запускается в отдельном процессе после native ViewBoxMenu constructor crash в shared shard; assertions не изменены.
+
+- Import Review: показаны фактическая версия и capabilities LAS/CSV/Excel на RU/KK/EN; редактирование проекта отделено от записи в исходный файл.
+
 - Загрузка эталонных fixtures ограничена HTTPS и raw.githubusercontent.com без перенаправлений; Git SHA-1 явно используется только как идентификатор blob. Bandit checks сохранены.
 
 ## DATA-PETRO-01 — внешние образцы LAS/DLIS/LIS79/SEG-Y (на проверке)

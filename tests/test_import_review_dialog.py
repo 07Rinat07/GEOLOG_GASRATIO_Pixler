@@ -76,3 +76,28 @@ def test_import_review_reveals_technical_details_on_demand(qapp) -> None:
     )
 
     dialog.close()
+
+
+def test_import_review_capabilities_use_source_version_and_keep_data(qapp) -> None:
+    from geoworkbench.services.localization import AppLanguage
+
+    for language in AppLanguage:
+        dataset = _dataset()
+        dataset.version_headers["VERS"] = "3.0"
+        before = dataset.depth.copy()
+        dialog = ImportReviewDialog(dataset, Path("looks_like_2.0.las"),
+                                    ImportSourceKind.LAS, language=language)
+        text = dialog.format_capabilities_summary.text()
+        assert "3.0" in text
+        assert dialog._t("import_review.capability_unverified") in text
+        assert dialog._t("import_review.capability_unavailable") in text
+        assert text == dialog._t(
+            "import_review.format_capabilities", format="LAS", version="3.0",
+            read=dialog._t("import_review.capability_unverified"),
+            edit=dialog._t("import_review.capability_unverified"),
+            write=dialog._t("import_review.capability_unavailable"),
+            export=dialog._t("import_review.capability_limited"),
+        )
+        np.testing.assert_array_equal(dataset.depth, before)
+        dialog.reject()
+        dialog.close()

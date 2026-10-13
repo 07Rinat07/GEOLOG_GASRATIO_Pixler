@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from geoworkbench.data.format_capabilities import import_format_capabilities
 from geoworkbench.domain.models import Dataset, IndexRole, IndexType
 from geoworkbench.services.import_jobs import ImportSourceKind
 from geoworkbench.services.import_review import (
@@ -74,6 +75,29 @@ class ImportReviewDialog(QDialog):
         self.review_summary.setWordWrap(True)
         self.review_summary.setObjectName("import-review-summary")
         root.addWidget(self.review_summary)
+
+        self.format_capabilities_summary = QLabel()
+        self.format_capabilities_summary.setWordWrap(True)
+        self.format_capabilities_summary.setTextFormat(Qt.TextFormat.PlainText)
+        self.format_capabilities_summary.setObjectName("import-format-capabilities")
+        source_format = source_kind.value
+        if source_format in {"las", "csv", "excel"}:
+            capabilities = import_format_capabilities(
+                source_format,
+                las_version=dataset.version_headers.get("VERS") if source_format == "las" else None,
+            )
+            self.format_capabilities_summary.setText(self._t(
+                "import_review.format_capabilities",
+                format=source_format.upper(),
+                version=capabilities.source_version or self._t("import_review.version_unknown"),
+                read=self._t(f"import_review.capability_{capabilities.sample_read.value}"),
+                edit=self._t(f"import_review.capability_{capabilities.project_edit.value}"),
+                write=self._t(f"import_review.capability_{capabilities.source_write.value}"),
+                export=self._t(f"import_review.capability_{capabilities.derived_export.value}"),
+            ))
+            root.addWidget(self.format_capabilities_summary)
+        else:
+            self.format_capabilities_summary.hide()
 
         self.index_section = CollapsibleSection(
             self._t("import_review.advanced_index"),

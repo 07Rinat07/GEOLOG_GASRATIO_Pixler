@@ -2447,5 +2447,11 @@
   "wits0.diagnostics_panel": "Диагностика және қызметтік есептегіштер",
   "wits0.operator_health": "Күйі",
   "wits0.health_summary": "{state} · дереккөз: {peer} · соңғы қабылдау: {last} · қателер: {errors}",
-  "wits0.maintenance_actions": "Қызметтік әрекеттер"
+  "wits0.maintenance_actions": "Қызметтік әрекеттер",
+  "import_review.format_capabilities": "Формат: {format}; нұсқа: {version}. Оқу: {read}; жобада өңдеу: {edit}; бастапқы файлға жазу: {write}; туынды деректер экспорты: {export}. Жаңа LAS тек 1.2/2.0; бастапқы файл өзгермейді.",
+  "import_review.version_unknown": "анықталмаған",
+  "import_review.capability_verified": "тексерілген",
+  "import_review.capability_limited": "шектеулі",
+  "import_review.capability_unverified": "тексерілмеген",
+  "import_review.capability_unavailable": "қолжетімсіз"
 }

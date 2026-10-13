@@ -2447,5 +2447,11 @@
   "wits0.diagnostics_panel": "Диагностика и служебные счётчики",
   "wits0.operator_health": "Состояние",
   "wits0.health_summary": "{state} · источник: {peer} · последний приём: {last} · ошибок: {errors}",
-  "wits0.maintenance_actions": "Служебные действия"
+  "wits0.maintenance_actions": "Служебные действия",
+  "import_review.format_capabilities": "Формат: {format}; версия: {version}. Чтение: {read}; правки в проекте: {edit}; запись в исходный файл: {write}; экспорт производных данных: {export}. Новый LAS — только 1.2/2.0; исходный файл не изменяется.",
+  "import_review.version_unknown": "не определена",
+  "import_review.capability_verified": "проверено",
+  "import_review.capability_limited": "ограничено",
+  "import_review.capability_unverified": "не проверено",
+  "import_review.capability_unavailable": "недоступно"
 }
