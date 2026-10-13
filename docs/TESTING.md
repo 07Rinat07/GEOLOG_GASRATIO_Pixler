@@ -1,3 +1,11 @@
+## Repeated-MD time flag save/open and print capture
+
+`test_value_flag_time_anchor.py` exercises RU/KK/EN × JSON/package production
+save/open, retained sample TIME/TG, actual TabletView, and selected annotation
+capture. Both samples share MD; print selection must not collapse their anchors.
+After capture, both screen flags, source MD/TIME/TG and project records are intact.
+This is not physical printer or click-anywhere acceptance.
+
 ## Windows geodata tablet native construction isolation
 
 Run 38433521074 on 1fd9aac7 aborted with 0xC0000005 inside pyqtgraph
