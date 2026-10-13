@@ -1,3 +1,10 @@
+## Masterlog repair: authored header typography contract
+
+The old source assertions requiring 1.60 font enlargement are replaced by
+behavior checks: header font/cell geometry is preserved, nested print-copy
+properties cannot modify the source, and the page painter receives that copy.
+Use `scripts/run_tests.py` for native Qt batches; keep all assertions enabled.
+
 ## Field masterlog 100% regression
 
 `test_real_tablet_pdf_regressions.py` checks RU/KK/EN and both A4 orientations
