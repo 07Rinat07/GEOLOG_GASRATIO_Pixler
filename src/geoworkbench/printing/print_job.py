@@ -224,8 +224,11 @@ class PrintExportPreferences:
     printer_name: str | None = None
     copy_count: int = 1
     output_language: AppLanguage | None = None
+    print_value_flags_enabled: bool = True
 
     def __post_init__(self) -> None:
+        if not isinstance(self.print_value_flags_enabled, bool):
+            raise ValueError("Value flag print preference must be a boolean")
         if self.output_language is not None and not isinstance(self.output_language, AppLanguage):
             raise ValueError("Язык отчёта должен быть RU, KK или EN")
         if isinstance(self.dpi, bool) or not isinstance(self.dpi, int) or not 72 <= self.dpi <= 600:

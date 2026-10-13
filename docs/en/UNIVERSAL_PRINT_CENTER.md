@@ -150,3 +150,5 @@ Print Center lists visible VALUE flags in the active well, dataset and form, inc
 ## Masterlog printing at 100%
 
 Column widths retain their physical size while graph height comes from the printable page. The screen window height must not crop graphs. The header uses the authored font sizes; the automatic tablet tab title is omitted. Check graphs on every page, including continuations. Report table borders must remain entirely inside the margins.
+
+Confirming saves the overall value-flag switch in the engineer and active form preferences. Reopening restores it. Turning it off preserves the individual flag selection; turning it on returns the selected values to print. Cancel and preview do not save preferences.

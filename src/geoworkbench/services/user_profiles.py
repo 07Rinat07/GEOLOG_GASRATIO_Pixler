@@ -261,7 +261,11 @@ class UserProfileSettings:
                 and raw_output_language in {item.value for item in AppLanguage}
                 else None
             )
+            raw_value_flags_enabled = payload.get("print_value_flags_enabled", True)
             return PrintExportPreferences(
+                print_value_flags_enabled=(
+                    raw_value_flags_enabled if isinstance(raw_value_flags_enabled, bool) else True
+                ),
                 output_language=output_language,
                 output_format=PrintOutputFormat(str(payload.get("output_format", "printer"))),
                 dpi=int(payload.get("dpi", 300)),
@@ -333,6 +337,7 @@ class UserProfileSettings:
                     "header_selection_explicit": value.header_selection_explicit,
                     "printer_name": value.printer_name,
                     "copy_count": value.copy_count,
+                    "print_value_flags_enabled": value.print_value_flags_enabled,
                 },
                 ensure_ascii=False,
             ),
