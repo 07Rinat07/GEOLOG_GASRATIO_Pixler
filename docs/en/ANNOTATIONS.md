@@ -197,3 +197,5 @@ Applied group deletion persists in JSON/package projects. Cancel of later draft 
 ## Time sample flag at a gas gap
 
 When the gas curve at a saved sample contains NaN or an infinite value, the flag retains its own timestamp and stored value. It does not jump to a neighbouring sample. Source gaps remain unchanged; this applies to screen and print presentation.
+
+If a saved timestamp is absent from the active axis, its flag retains its stored value and time instead of borrowing the nearest sample. An entirely unusable time axis retains the normal fallback to MD; the saved flag record remains unchanged.
