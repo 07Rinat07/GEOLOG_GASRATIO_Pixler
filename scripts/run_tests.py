@@ -64,6 +64,11 @@ _FORCED_NATIVE_BATCH_FILES = frozenset(
         # cases shared a process with earlier GUI tests. Give these cases a
         # clean subprocess without changing or skipping any assertions.
         "tests/test_report_document_control_docx_footer.py",
+        # Release gate 38384970034 hit native heap corruption while enumerating
+        # top-level Qt roots after shared report/editor cases. Retain all tests
+        # in fresh processes, following the existing native report isolation.
+        "tests/test_report_document_control.py",
+        "tests/test_report_author_symbol_editor.py",
         # MainWindow navigation hit 0xC0000005 in PlotItem.__init__ after
         # earlier dialogs/scenes in a large Windows offscreen shard.
         "tests/test_navigation_organization.py",

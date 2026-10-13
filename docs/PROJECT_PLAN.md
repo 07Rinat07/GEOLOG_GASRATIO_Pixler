@@ -59,6 +59,10 @@ source bytes/SHA-256, VERS/WRAP из импортированного загол
 Окно production Import Review показывает source VERS и уровни чтения, правок проекта, raw write и derived export для LAS/CSV/Excel на RU/KK/EN. LAS3 остаётся unverified; исходный файл неизменяем. Stage0 и весь DATA-PETRO не завершены.
 # Единый план проекта
 
+## Windows CI — report/editor native process isolation (на проверке)
+
+Run38384970034: 0xC0000374 в topLevelWidgets teardown после report document-control assertion; fresh symbol+report26tests passed20.89s. Exact native cause не доказана. Existing runner изолирует document-control и symbol-editor cases, asserts/skips не меняются; original shared shard diagnostic replay отдельно.
+
 ## RPT-AUTHOR-01 — editor catalog and print selection (на проверке)
 
 Actual Qt editor предлагает SYMBOL и пять стабильных catalog IDs с RU/KK/EN labels, подпись и независимый print/export checkbox. Controller update сохраняет/меняет ID; real controls Save/Undo/Redo/Apply/Cancel и JSON/package reopen покрыты. Физическая печать/визуальная плотность и единый global selection отдельно; PLOT-FLAG не завершён.
