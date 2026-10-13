@@ -7,6 +7,8 @@
 
 # История изменений
 
+- Author symbols: добавлена persisted SYMBOL schema2 с legacy schema1 compatibility, existing history/controller и vector report renderer; UI catalog selection ещё не подключён.
+
 - Windows CI: обязательный MainWindow close-order lifecycle тест запускается в отдельном процессе после native ViewBoxMenu constructor crash в shared shard; assertions не изменены.
 
 ## DATA-PETRO-01 — LAS 3.0 scalar Log_Data proof (на проверке)

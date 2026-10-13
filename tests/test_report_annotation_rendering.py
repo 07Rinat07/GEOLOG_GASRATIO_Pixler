@@ -20,6 +20,9 @@ from geoworkbench.printing.report_annotation_rendering import (
 from geoworkbench.services.localization import AppLanguage
 
 
+pytestmark = pytest.mark.usefixtures("qapp")
+
+
 def _curve() -> CurveData:
     return CurveData(
         CurveMetadata(
@@ -286,3 +289,27 @@ def test_actual_multi_page_pdf_forwards_page_seam_ownership(qapp, tmp_path, monk
     assert [item[2] for item in observed] == [
         *(False for _ in observed[:-1]), True,
     ]
+
+
+@pytest.mark.parametrize("language", list(AppLanguage))
+def test_symbol_uses_catalog_painter_and_print_selection(qapp, language) -> None:
+    from dataclasses import replace
+    from geoworkbench.domain.report_author_symbols import AuthorSymbolId
+
+    record = ReportAnnotationRecord("symbol", "report:well:dataset:composition",
+                                    ReportAnnotationKind.SYMBOL, ReportAnnotationAnchor.DEPTH,
+                                    depth=50.0, symbol_id=AuthorSymbolId.CROSS,
+                                    style=AnnotationStyle(border_color="#000000", shadow=False))
+    image = QImage(200, 200, QImage.Format.Format_ARGB32)
+    image.fill(QColor("white"))
+    painter = QPainter(image)
+    try:
+        args = dict(page_top_depth=0.0, page_bottom_depth=100.0,
+                    plot_bounds=QRectF(10, 10, 180, 180), track_map={})
+        assert paint_report_annotations(painter, [replace(record, print_enabled=False)], language, **args) == 0
+        assert image.pixelColor(100, 100) == QColor("white")
+        assert paint_report_annotations(painter, [record], language, **args) == 1
+    finally:
+        painter.end()
+    assert image.pixelColor(100, 100) != QColor("white")
+    assert image.pixelColor(0, 0) == QColor("white")

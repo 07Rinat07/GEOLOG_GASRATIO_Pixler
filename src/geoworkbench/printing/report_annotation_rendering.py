@@ -14,6 +14,7 @@ from geoworkbench.domain.report_annotations import (
     ReportAnnotationRecord,
 )
 from geoworkbench.printing.unicode_support import print_font
+from geoworkbench.printing.report_author_symbols import paint_author_symbol
 from geoworkbench.services.localization import AppLanguage
 
 
@@ -146,7 +147,16 @@ def paint_report_annotations(
                 language,
                 legacy=record.text,
             )
-            if record.kind is ReportAnnotationKind.ARROW:
+            if record.kind is ReportAnnotationKind.SYMBOL:
+                assert record.symbol_id is not None
+                side = min(record.width, record.height, 48.0) * scale
+                paint_author_symbol(painter, QRectF(anchor.x() - side / 2,
+                                    anchor.y() - side / 2, side, side),
+                                    record.symbol_id, record.style)
+                if text:
+                    _paint_box_annotation(painter, record, anchor, text, plot_bounds, scale,
+                                          draw_leader=False)
+            elif record.kind is ReportAnnotationKind.ARROW:
                 _paint_arrow_annotation(
                     painter,
                     record,
