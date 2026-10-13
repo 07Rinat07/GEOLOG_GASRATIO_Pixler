@@ -345,3 +345,79 @@ def test_full_day_time_auto_print_ignores_extreme_screen_zoom(qapp) -> None:
     assert plan.resolved_units_per_page is not None
     assert plan.resolved_units_per_page >= 30.0 * 60.0
     assert 1 < plan.page_count <= MAX_AUTOMATIC_PRINT_PAGE_COUNT
+
+
+@pytest.mark.parametrize("language", ["ru", "kk", "en"])
+@pytest.mark.parametrize("orientation", [PrintOrientation.PORTRAIT, PrintOrientation.LANDSCAPE])
+def test_actual_size_dense_tablet_has_graph_body_on_every_page(qapp, tmp_path, language, orientation):
+    from geoworkbench.services.localization import AppLanguage, Localizer
+
+    tablet = _complex_tablet(domain=DepthDomain.MD, start=0.0, end=150.0)
+    tablet.resize(1000, 480)
+    tablet.show()
+    qapp.processEvents()
+    original_range = tablet.visible_depth_range
+    target = tmp_path / f"dense-100-percent-{language}-{orientation.value}.pdf"
+    job = PrintJobSettings(
+        output_format=PrintOutputFormat.PDF, target=target, dpi=150,
+        page=PrintPageSettings(orientation=orientation,
+                               scale_mode=PrintScaleMode.ACTUAL_SIZE),
+        pagination=PrintPaginationSettings(range_mode=PrintRangeMode.FULL,
+                                           units_per_page=50.0),
+        repeat_column_header_at_bottom=False, strict_unicode=False,
+    )
+    try:
+        plan = build_document_plan(tablet, job)
+        assert plan.target_content_height_px is not None
+        assert plan.tablet_header_height_px is not None
+        assert plan.target_content_height_px - plan.tablet_header_height_px > 400
+        title = Localizer.create(AppLanguage(language)).text("tab.tablet")
+        export_document_pdf(tablet, target, job,
+                            context=PrintDocumentContext(title, AppLanguage(language)),
+                            overwrite=True)
+        assert tablet.visible_depth_range == original_range
+        with fitz.open(target) as document:
+            for page in document:
+                assert title not in page.get_text()
+                images = page.get_image_info()
+                assert images, "a graph page must contain its captured columns"
+                assert min(image["height"] for image in images) > 100
+                raster = page.get_pixmap()
+                pixels = np.frombuffer(raster.samples, dtype=np.uint8).reshape(
+                    raster.height, raster.width, raster.n,
+                )[..., :3]
+                body = pixels[80:-60]
+                assert float(np.any(body < 200, axis=2).mean()) > 0.015
+    finally:
+        tablet.close()
+        qapp.processEvents()
+
+
+def test_snapshot_crops_legend_at_the_rendered_plot_boundary(qapp, monkeypatch):
+    from geoworkbench.tablet.tablet_view import TabletTrackWidget
+
+    tablet = _complex_tablet(domain=DepthDomain.MD, start=0.0, end=150.0)
+    tablet.resize(1000, 480)
+    tablet.show()
+    qapp.processEvents()
+    observed_plot_tops = []
+    original_render = TabletTrackWidget.render
+
+    def render_and_measure(widget, *arguments, **keywords):
+        result = original_render(widget, *arguments, **keywords)
+        observed_plot_tops.append(widget.plot.geometry().top())
+        return result
+
+    monkeypatch.setattr(TabletTrackWidget, "render", render_and_measure)
+    try:
+        snapshot = capture_tablet_print_snapshot(
+            tablet, page_aspect_ratio=1.4, fit_columns=False,
+            target_content_height=1087, layout_content_height=1087,
+            raster_scale=2.5, show_column_header=False,
+        )
+        assert observed_plot_tops
+        assert snapshot.header_height == max(observed_plot_tops)
+        assert snapshot.content_height > snapshot.header_height + 100
+    finally:
+        tablet.close()
+        qapp.processEvents()

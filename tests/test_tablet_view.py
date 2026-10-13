@@ -362,7 +362,7 @@ def test_track_print_mode_hides_header_editor_actions_and_scrollbar(qapp) -> Non
 
     assert editor.action_strip.isHidden()
     assert editor.height() > screen_height
-    assert editor.ruler.height() == 30
+    assert editor.ruler.height() == 34
     assert (
         widget.curve_header_scroll.verticalScrollBarPolicy()
         is Qt.ScrollBarPolicy.ScrollBarAlwaysOff

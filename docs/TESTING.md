@@ -1,4 +1,46 @@
+## Windows geodata tablet native construction isolation
+
+Run 38433521074 on 1fd9aac7 aborted with 0xC0000005 inside pyqtgraph
+ViewBoxMenu.__init__ before the geodata tablet assertions. The runner retains
+all geodata workspace tests in separate processes, using its existing native
+batch mechanism. No tests or assertions are skipped; nonzero child status
+still fails the gate. The underlying native heap cause is not established.
+A fresh Windows run on the new head is required; Linux results cannot prove it.
+
+## Masterlog repair: authored header typography contract
+
+The old source assertions requiring 1.60 font enlargement are replaced by
+behavior checks: header font/cell geometry is preserved, nested print-copy
+properties cannot modify the source, and the page painter receives that copy.
+Use `scripts/run_tests.py` for native Qt batches; keep all assertions enabled.
+
+## Field masterlog 100% regression
+
+`test_real_tablet_pdf_regressions.py` checks RU/KK/EN and both A4 orientations
+at ACTUAL_SIZE with a dense legend and short screen viewport. Inspect every
+PDF page's embedded raster height and graph density, not only its last legend
+page. `test_hydrocarbon_interpretation_pdf_text.py` checks the complete table
+frame lies inside the printable width, including its border and spacing.
+Repeat M-1 export from its original project; an already clipped 8-pixel PDF
+cannot prove source curves. Physical printer acceptance is separate.
+
 # Проверка качества и release gate
+
+CI38429624093 reached the later native tablet_view batch and exposed one final
+legacy 30 px runtime expectation. It now requires exactly 34 px in print,
+retaining the 28 px screen restoration, hidden action-strip and scrollbar
+assertions. Targeted ruler/header batch: 10 passed; no blind rerun or skips.
+
+PR #606 CI38426057865: two exact source contracts retained the old 30 px print
+ruler height. The caption-clearance change uses 34 px in print and preserves
+28 px on screen; both assertions now require that exact contract, without skips
+or weakened bounds. Run compact_parameter_rulers, curve_header_readability and
+real_tablet_pdf_regressions before new exact-head Windows gates.
+
+CI38427000217 also exposed two old header-font x1.60 assertions in a later shard.
+The replacement runtime regression requires exact authored font size and cell
+geometry plus independent print-copy properties; the page-painter regression
+checks the actual prepared header. Uniform density and print_header_layout: 25 passed.
 
 Confirmed VALUE selection: `python scripts/run_tests.py -p no:cacheprovider tests/test_value_flag_persist_selection.py tests/test_value_flag_print_selection.py tests/test_depth_annotations.py -q`.
 Проверяются atomic validation, one-step Undo/Redo, unchanged screen visibility,

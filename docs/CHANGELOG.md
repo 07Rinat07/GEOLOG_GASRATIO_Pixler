@@ -1,3 +1,10 @@
+## Print regression: 100% graph viewport and table borders
+
+- Paper graph height at 100% no longer inherits the short screen viewport.
+- Automatic tablet tab title is omitted from printed document headers.
+- Report HTML table frames reserve border/spacing inside printable width.
+- RU/KK/EN PDF regression checks every graph page in both A4 orientations.
+
 ## PLOT-FLAG-01 — подтверждённый выбор в проекте (на проверке)
 
 - Подтверждение Print Center сохраняет индивидуальные VALUE.print_enabled текущей

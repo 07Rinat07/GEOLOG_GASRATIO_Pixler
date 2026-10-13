@@ -129,3 +129,23 @@ def test_gasomer_table_keeps_interval_heading_and_summary(monkeypatch) -> None:
     )
     pdf_text._render_html_blocks(_CanvasProbe(), "", (heading, summary, table))  # type: ignore[arg-type]
     assert calls == [(heading + summary, table)]
+
+
+@pytest.mark.parametrize("heading", ["Интервал", "Аралық", "Interval"])
+def test_table_outer_border_stays_inside_printable_width(qapp, heading):
+    from PySide6.QtGui import QTextTable
+
+    width = 511.0
+    document, height = pdf_text._html_document(
+        "table {width:100%;} th,td {border:1px solid #8293aa; padding:3px;}",
+        f"<table><tr><th>{heading}</th><th>Basis</th></tr>"
+        f"<tr><td>2639.90–2649.90 M</td><td>{'C1/C2=10.8828; ' * 30}</td></tr></table>",
+        width, table=True,
+    )
+    assert height > 0
+    tables = [frame for frame in document.rootFrame().childFrames() if isinstance(frame, QTextTable)]
+    assert tables
+    for table in tables:
+        bounds = document.documentLayout().frameBoundingRect(table)
+        assert bounds.left() >= 0
+        assert bounds.right() <= width + 0.5

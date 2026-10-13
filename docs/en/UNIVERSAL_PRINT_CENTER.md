@@ -146,3 +146,7 @@ Without that evidence, REL-03 is not complete.
 ## Saved value flags
 
 Print Center lists visible VALUE flags in the active well, dataset and form, including previously excluded flags. Confirming saves the individual selection in the project as one Undo command. Cancel and preview do not change the project. The overall switch applies only to the current print job and preserves the individual selection. Preview, PDF and printer use the same selection. Screen visibility and source values are unchanged. Time/XY/WITS flags and physical printer acceptance remain open.
+
+## Masterlog printing at 100%
+
+Column widths retain their physical size while graph height comes from the printable page. The screen window height must not crop graphs. The header uses the authored font sizes; the automatic tablet tab title is omitted. Check graphs on every page, including continuations. Report table borders must remain entirely inside the margins.

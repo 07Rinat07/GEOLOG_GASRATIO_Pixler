@@ -70,7 +70,7 @@ def test_print_ruler_uses_enlarged_typography_without_changing_screen_defaults()
     source = TABLET_VIEW.read_text(encoding="utf-8")
     assert "caption_font.setPixelSize(10 if self._print_mode else 8)" in source
     assert "value_font.setPixelSize(9 if self._print_mode else 8)" in source
-    assert "self.setFixedHeight(30 if self._print_mode else 28)" in source
+    assert "self.setFixedHeight(34 if self._print_mode else 28)" in source
     assert "item.widget.print_curve_header_height" in (
         ROOT / "src/geoworkbench/printing/document_renderer.py"
     ).read_text(encoding="utf-8")

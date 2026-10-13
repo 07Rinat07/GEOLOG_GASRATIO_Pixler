@@ -484,3 +484,18 @@ def test_print_snapshot_header_crop_uses_settled_plot_boundary() -> None:
     assert "plot.geometry().top()" in source
     assert "header_height = _settled_print_header_height(rendered)" in source
     assert "curve_header_scroll.height()" not in source
+
+
+def test_print_header_preserves_authored_font_and_cell_geometry():
+    from geoworkbench.domain.models import MasterlogHeaderElement, MasterlogTemplate
+    from geoworkbench.printing.document_renderer import _print_header_template
+
+    template = MasterlogTemplate("field", "Masterlog", header_elements=[
+        MasterlogHeaderElement("company", "text", 10, 5, 45, 5,
+                               {"font_size_mm": 2.0, "text": "ALMEX PLUS"}),
+    ])
+    prepared = _print_header_template(template)
+    assert prepared == template
+    assert prepared is not template
+    prepared.header_elements[0].properties["text"] = "Other"
+    assert template.header_elements[0].properties["text"] == "ALMEX PLUS"
