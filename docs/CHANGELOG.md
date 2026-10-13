@@ -1,3 +1,6 @@
+## DATA-PETRO-01 — перенос legacy LAS3 provenance без второго импортёра (на проверке)
+
+- В существующий скалярный LAS3 Dataset adapter добавлены source revision и source provenance кривых; DEPT не дублируется как отдельная кривая, тип набора — GIS, индексная ось MD хранится отдельно. Новые регрессии проверяют JSON/package reopen, unit FT rejection, index-only rejection и сохранность исходных байтов. PR #594 остаётся закрытым как устаревшая реализация, не переносится целиком.
 ## DATA-PETRO-01 — реальный планшет LAS3 scalar pilot (на проверке)
 
 - Qt-приёмка RU/KK/EN × JSON/package проверяет, что после сохранения и открытия проекта оригинальные LAS3 DT/ILD выводятся в реальных PlotDataItem с исходными MD и единицами, а print mode не меняет числовые данные. CDES/NMR не превращаются в псевдокривые; source bytes и SHA-256 сохраняются. Это не LAS3 multi-set/writer/PDF acceptance.
