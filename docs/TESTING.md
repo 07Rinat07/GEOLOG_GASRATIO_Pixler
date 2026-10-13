@@ -6,6 +6,13 @@
 ошибочные строки/ширина/WRAP/DLM, лимиты size/rows. Это не означает
 production dataset, WITS, source writer или подтверждённый LAS3 export.
 
+Сверка legacy LAS3 Dataset bridge c production adapter:
+`python -m pytest -q tests/test_las3_dataset_adapter.py`.
+На pinned исходном LAS3 проверяется DatasetSourceRevision с точными
+SHA-256/размером/MD, исходное происхождение восьми кривых без отдельного
+DEPT, тип GIS и JSON/package reopen. Дополнительно проверяются запрет
+FT вместо M и отказ от index-only LAS3 без выдуманных кривых.
+
 Metadata-only инвентаризация LAS 3.0: `python -m pytest -q tests/test_las3_section_inventory.py`.
 Проверяются исходные секции, версии, ссылки Data/Definition, ограничение
 размера и побайтовая неизменность всех трёх LAS 3.x fixtures. Эти проверки
