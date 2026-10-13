@@ -2,6 +2,10 @@
 
 - Windows CI: обязательный MainWindow close-order lifecycle тест запускается в отдельном процессе после native ViewBoxMenu constructor crash в shared shard; assertions не изменены.
 
+## DATA-PETRO-01 — LAS 3.0 Dataset bridge и JSON/package reopen (на проверке)
+
+- Изолированный LAS3 pilot adapter переносит только 8 проверенных F/E кривых в GIS Dataset с точным DEPT/MD, единицами, исходным SHA-256 и source revision. Тесты проверяют исходные байты и реальный JSON/package save/reopen; неподдерживаемые CDES/NMR явно остаются вне массивов. Production Open LAS и UI ещё не подключены.
+
 ## DATA-PETRO-01 — LAS 3.0 scalar Log_Data proof (на проверке)
 
 - На одном upstream LAS 3.0 читаются три строки явного `Log_Data` по связанному `Log_Definition`: только float/exponential scalar channels с точными mnemonic/unit/depth, SHA-256 и source NULL. CDES и массивы NMR перечисляются как исключённые. Для других LAS3 диалектов, неверного WRAP/DLM, неправильной ширины строки и row/size overflow preview закрывается ошибкой. Это read-only pilot вне production import UI/exports.
