@@ -280,6 +280,7 @@ def capture_tablet_print_snapshot(
     fit_columns: bool = True,
     raster_scale: float = 1.0,
     included_track_ids: tuple[str, ...] | None = None,
+    included_value_annotation_ids: tuple[str, ...] | None = None,
     grid_print_overrides: Mapping[str, bool] | None = None,
     show_column_header: bool = True,
     repeat_column_header_at_bottom: bool = False,
@@ -334,7 +335,13 @@ def capture_tablet_print_snapshot(
     ] = ()
 
     try:
-        tablet.set_annotation_print_mode(True)
+        tablet.set_annotation_print_mode(
+            True,
+            included_value_ids=(
+                frozenset(included_value_annotation_ids)
+                if included_value_annotation_ids is not None else None
+            ),
+        )
         annotation_print_enabled = True
         for item in rendered:
             item.widget.set_print_mode(True)
