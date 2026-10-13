@@ -602,6 +602,7 @@ def paint_document_page(
             repeat_column_header_at_bottom=False,
             column_header_only=_should_paint_column_header_only(job, page),
             included_track_ids=job.included_track_ids,
+            included_value_annotation_ids=job.included_value_annotation_ids,
             grid_print_overrides=job.grid_print_overrides,
             target_content_height=_page_target_content_height(plan, page),
             layout_content_height=plan.target_content_height_px,
