@@ -4,6 +4,22 @@
 
 Run38324037518 завершился 0xC0000005 при MainWindow/ViewBoxMenu construction до close-order assertion. Локальный shared prefix32tests и отдельный тест прошли; точная причина не доказана. Existing runner выполняет обязательную regression в отдельном процессе без skips и изменения assertions; новые exact-head gates обязательны.
 
+## DATA-PETRO-01 — ограниченный LAS 3.0 scalar Log_Data pilot (следующий инкремент)
+
+Только для явно связанного `Log_Data | Log_Definition` с
+`VERS=3/3.0`, `WRAP=NO`, `DLM=COMMA` и первым числовым индексом
+`DEPT` добавлен диагностический bounded preview скалярных F/E полей.
+Реальный upstream sample 3.0 подтверждает три исходные глубины,
+акустическую кривую DT, YME и точные units. Текст CDES и пять массивов
+NMR[1..5] явно отмечаются исключёнными, но никогда молча не
+преобразуются в числовые кривые. Provenance SHA-256, NULL, row limit,
+ошибочные layouts/дубликаты и неизменность исходных байтов покрыты тестами.
+
+Это **внутренний read-only proof**, не production dataset/UI/save/reopen,
+не полная поддержка LAS3, не экспорт и не writer. Для завершения
+этапа 1 отдельно требуется привязка выбранного набора к существующему
+Dataset/планшету с реальным JSON/package reopen и loss report.
+
 ## DATA-PETRO-01 — read-only LAS 3.0 section inventory (следующий инкремент)
 
 Подготовлен структурный просмотр сохранённых LAS 3.x как самостоятельный
