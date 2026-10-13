@@ -17,6 +17,11 @@ cannot prove source curves. Physical printer acceptance is separate.
 
 # Проверка качества и release gate
 
+CI38429624093 reached the later native tablet_view batch and exposed one final
+legacy 30 px runtime expectation. It now requires exactly 34 px in print,
+retaining the 28 px screen restoration, hidden action-strip and scrollbar
+assertions. Targeted ruler/header batch: 10 passed; no blind rerun or skips.
+
 PR #606 CI38426057865: two exact source contracts retained the old 30 px print
 ruler height. The caption-clearance change uses 34 px in print and preserves
 28 px on screen; both assertions now require that exact contract, without skips
