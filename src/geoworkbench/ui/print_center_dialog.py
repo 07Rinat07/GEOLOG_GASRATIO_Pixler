@@ -86,6 +86,7 @@ class PrintCenterDialog(QDialog):
         refresh_printers_callback: PrinterCatalogCallback | None = None,
         validate_printer_callback: PrinterValidationCallback | None = None,
         track_print_options: tuple[PrintTrackOption, ...] = (),
+        value_flag_options: tuple[tuple[str, str], ...] = (),
     ) -> None:
         super().__init__(parent)
         self.localizer = Localizer.create(language)
@@ -113,6 +114,12 @@ class PrintCenterDialog(QDialog):
         self.refresh_printers_callback = refresh_printers_callback
         self.validate_printer_callback = validate_printer_callback
         self.track_print_options = tuple(track_print_options)
+        ids = [item[0] for item in value_flag_options]
+        if any(not ident.strip() or not label.strip() for ident, label in value_flag_options):
+            raise ValueError("Print flag ID and label must be nonempty")
+        if len(ids) != len(set(ids)):
+            raise ValueError("Duplicate print flag IDs")
+        self.value_flag_options = tuple(value_flag_options)
         preferences = initial_preferences or PrintExportPreferences()
         self._header_selection_explicit = preferences.header_selection_explicit
         effective_initial_header = (
@@ -564,6 +571,46 @@ class PrintCenterDialog(QDialog):
         self.composition_group.setVisible(bool(self.track_print_options))
         content_layout.addWidget(self.composition_group)
 
+        flag_labels = {
+            AppLanguage.RU: ("Флажки со значениями", "Печатать выбранные флажки", "Выбрать все", "Снять все"),
+            AppLanguage.KK: ("Мәндері бар белгілер", "Таңдалған белгілерді басып шығару", "Барлығын таңдау", "Барлығын алып тастау"),
+            AppLanguage.EN: ("Value flags", "Print selected value flags", "Select all", "Clear all"),
+        }[language]
+        self.value_flags_group = QGroupBox(flag_labels[0])
+        value_flags_layout = QVBoxLayout(self.value_flags_group)
+        self.print_value_flags_check = QCheckBox(flag_labels[1])
+        self.print_value_flags_check.setObjectName("print-center-value-flags-enabled")
+        self.print_value_flags_check.setChecked(True)
+        self.print_value_flags_check.toggled.connect(self._refresh_action_summary)
+        value_flags_layout.addWidget(self.print_value_flags_check)
+        self.value_flags_tree = QTreeWidget()
+        self.value_flags_tree.setObjectName("print-center-value-flags")
+        self.value_flags_tree.setHeaderLabels([flag_labels[0]])
+        self.value_flags_tree.setRootIsDecorated(False)
+        self.value_flags_tree.setMinimumHeight(100)
+        for flag_id, flag_label in self.value_flag_options:
+            item = QTreeWidgetItem([flag_label])
+            item.setData(0, Qt.ItemDataRole.UserRole, flag_id)
+            item.setCheckState(0, Qt.CheckState.Checked)
+            self.value_flags_tree.addTopLevelItem(item)
+        self.value_flags_tree.itemChanged.connect(self._track_composition_changed)
+        value_flags_layout.addWidget(self.value_flags_tree)
+        flag_actions = QHBoxLayout()
+        self.select_all_value_flags_button = QPushButton(flag_labels[2])
+        self.clear_value_flags_button = QPushButton(flag_labels[3])
+        self.select_all_value_flags_button.clicked.connect(
+            lambda: self._set_value_flags_checked(True)
+        )
+        self.clear_value_flags_button.clicked.connect(
+            lambda: self._set_value_flags_checked(False)
+        )
+        flag_actions.addWidget(self.select_all_value_flags_button)
+        flag_actions.addWidget(self.clear_value_flags_button)
+        flag_actions.addStretch(1)
+        value_flags_layout.addLayout(flag_actions)
+        self.value_flags_group.setVisible(bool(self.value_flag_options))
+        content_layout.addWidget(self.value_flags_group)
+
         margins_group = QGroupBox(self._t("print_center.margins_group"))
         margins_layout = QGridLayout(margins_group)
         self.margin_left_input = self._margin_input(page.margin_left_mm)
@@ -785,7 +832,33 @@ class PrintCenterDialog(QDialog):
             copy_count=self.copy_count_input.value(),
             included_track_ids=self._included_track_ids(),
             grid_print_overrides=self._grid_print_overrides(),
+            included_value_annotation_ids=self._included_value_annotation_ids(),
         )
+
+    def _included_value_annotation_ids(self) -> tuple[str, ...] | None:
+        if not self.value_flag_options:
+            return None
+        if not self.print_value_flags_check.isChecked():
+            return ()
+        return tuple(
+            str(item.data(0, Qt.ItemDataRole.UserRole))
+            for row in range(self.value_flags_tree.topLevelItemCount())
+            if (item := self.value_flags_tree.topLevelItem(row)) is not None
+            and item.checkState(0) is Qt.CheckState.Checked
+        )
+
+    def _set_value_flags_checked(self, checked: bool) -> None:
+        self.value_flags_tree.blockSignals(True)
+        try:
+            for row in range(self.value_flags_tree.topLevelItemCount()):
+                item = self.value_flags_tree.topLevelItem(row)
+                if item is not None:
+                    item.setCheckState(
+                        0, Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked
+                    )
+        finally:
+            self.value_flags_tree.blockSignals(False)
+        self._refresh_action_summary()
 
     def _populate_track_composition(self) -> None:
         self.track_print_tree.blockSignals(True)
