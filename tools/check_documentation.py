@@ -11,6 +11,7 @@ import fnmatch
 import json
 import re
 import sys
+from string import Formatter
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -370,6 +371,21 @@ def audit_i18n_key_parity(root: Path) -> list[AuditIssue]:
                     f"{language}.json misses {len(missing)} keys: {missing[:10]}",
                 )
             )
+    formatter = Formatter()
+    reference_fields: dict[str, set[str]] = {}
+    for language, catalog in catalogs.items():
+        for key, value in catalog.items():
+            if not isinstance(value, str) or not value.strip():
+                issues.append(AuditIssue("i18n-values", f"{language}.json: {key} is empty or not text"))
+                continue
+            try:
+                fields = {field for _, field, _, _ in formatter.parse(value) if field is not None}
+            except ValueError as error:
+                issues.append(AuditIssue("i18n-format", f"{language}.json: {key}: {error}"))
+                continue
+            expected = reference_fields.setdefault(key, fields)
+            if fields != expected:
+                issues.append(AuditIssue("i18n-format", f"{language}.json: {key} has inconsistent placeholders"))
     return issues
 
 
