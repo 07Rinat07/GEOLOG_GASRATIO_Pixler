@@ -84,9 +84,12 @@ def test_las3_scalar_tablet_displays_true_data_after_project_reopen(
             np.testing.assert_allclose(
                 x_values, np.full(3, 0.5), rtol=0, atol=1e-6
             )
+            # The tablet orders on-screen MD from shallow to deep even
+            # when the original LAS rows use decreasing measured depth.
             np.testing.assert_allclose(
-                y_values, dataset.depth, rtol=0, atol=1e-6
+                y_values, np.sort(dataset.depth), rtol=0, atol=1e-6
             )
+            assert np.all(np.diff(y_values) > 0)
             np.testing.assert_allclose(
                 curve.values, expected, rtol=0, atol=1e-6
             )
