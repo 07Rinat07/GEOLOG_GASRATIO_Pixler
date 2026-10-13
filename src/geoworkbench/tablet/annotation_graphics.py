@@ -872,9 +872,8 @@ class TabletAnnotationOverlay(QWidget):
         record = helper.record
         if (
             self._content_rect.isEmpty()
-            or not record.visible
+            or not helper.isVisible()
             or not self._anchor_is_visible(anchor)
-            or (self._print_mode and not record.print_enabled)
         ):
             sprite.hide()
             sprite.clear()
