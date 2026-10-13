@@ -42,6 +42,10 @@ _FORCED_NATIVE_BATCH_FILES = frozenset(
         # unrelated Qt report/dialog tests in a shared process. Run the exact
         # viewport assertions in a fresh Qt process, not as a skipped test.
         "tests/test_gas_viewport_hotpath.py",
+        # Run 38433521074 aborted in ViewBoxMenu.__init__ while constructing
+        # the geodata tablet after earlier Qt report cases. Retain every test
+        # in a fresh process; a native crash is still a failing child status.
+        "tests/test_geodata_depth_workspace.py",
         # Release gate 38304058011 aborted in ViewBoxMenu construction after
         # earlier report/Qt cases in the shared shard. Keep each overlay case
         # mandatory, but construct MainWindow with a fresh native Qt heap.

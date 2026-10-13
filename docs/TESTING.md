@@ -1,3 +1,12 @@
+## Windows geodata tablet native construction isolation
+
+Run 38433521074 on 1fd9aac7 aborted with 0xC0000005 inside pyqtgraph
+ViewBoxMenu.__init__ before the geodata tablet assertions. The runner retains
+all geodata workspace tests in separate processes, using its existing native
+batch mechanism. No tests or assertions are skipped; nonzero child status
+still fails the gate. The underlying native heap cause is not established.
+A fresh Windows run on the new head is required; Linux results cannot prove it.
+
 ## Masterlog repair: authored header typography contract
 
 The old source assertions requiring 1.60 font enlargement are replaced by
