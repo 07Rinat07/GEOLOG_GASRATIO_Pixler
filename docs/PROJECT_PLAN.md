@@ -1,3 +1,14 @@
+## PLOT-FLAG-01 — time flags: reopen и print capture (на проверке)
+
+Шесть RU/KK/EN × JSON/package сценариев сохраняют два VALUE-флага с одинаковым
+MD и разными TIME/TG. После production save/open проверяются axis/value,
+индивидуальный print_enabled, реальные TabletView и print snapshot: выбранный
+флаг видим, исключённый скрыт только при capture, экранное состояние восстановлено.
+Source MD/TIME/TG и canvas records неизменны, reopened session clean.
+Это приёмка persisted time anchors, не новая click-anywhere/XY/WITS функция
+и не физический принтер. #608 слит в main 43c969ee после трёх SUCCESS
+на 48d29917 (run38463269632). Три Windows gates обязательны для этой приёмки.
+
 ## PLOT-FLAG-01 — временной sample anchor при повторяющейся MD (на проверке)
 
 Existing CURVE/VALUE record с совпадающим axis_id использует сохранённый axis_value
@@ -8,7 +19,7 @@ screen/print mode, неизменность arrays и legacy depth-only fallback
 calculation и source contracts не меняются. XY/WITS/click-anywhere остаются
 отдельными задачами; необходимы три exact-head Windows gates.
 
-## PLOT-FLAG-01 — общий выключатель в профиле/форме (на проверке)
+## PLOT-FLAG-01 — общий выключатель в профиле/форме (интегрировано #607)
 
 Общий выключатель VALUE-печати сохраняется после подтверждения Print Center
 в существующих preferences инженера/формы. Повторное открытие восстанавливает
