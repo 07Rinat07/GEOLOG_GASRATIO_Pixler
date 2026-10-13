@@ -12,6 +12,12 @@ production dataset, WITS, source writer или подтверждённый LAS3
 SHA-256/размером/MD, исходное происхождение восьми кривых без отдельного
 DEPT, тип GIS и JSON/package reopen. Дополнительно проверяются запрет
 FT вместо M и отказ от index-only LAS3 без выдуманных кривых.
+Реальный Qt-планшет LAS 3.0 после JSON/package reopen:
+`python -m pytest -q tests/test_las3_tablet_render_acceptance.py`.
+Шесть RU/KK/EN × JSON/package кейсов проверяют реальные PlotDataItem
+DT/ILD, MD, UOM, экранный/print-mode geometry contract и неизменность
+оригинального LAS source. Здесь не заявлена приёмка PDF/принтера,
+прочих секций LAS3 и write-back.
 
 Metadata-only инвентаризация LAS 3.0: `python -m pytest -q tests/test_las3_section_inventory.py`.
 Проверяются исходные секции, версии, ссылки Data/Definition, ограничение

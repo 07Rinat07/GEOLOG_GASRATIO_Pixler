@@ -59,6 +59,18 @@ source bytes/SHA-256, VERS/WRAP из импортированного загол
 Окно production Import Review показывает source VERS и уровни чтения, правок проекта, raw write и derived export для LAS/CSV/Excel на RU/KK/EN. LAS3 остаётся unverified; исходный файл неизменяем. Stage0 и весь DATA-PETRO не завершены.
 # Единый план проекта
 
+## DATA-PETRO-01 — LAS3 real Qt tablet rendering after JSON/package reopen (на проверке)
+
+Добавлена отдельная RU/KK/EN × JSON/package regression: существующий
+bounded scalar LAS3 adapter загружает разрешённые исходные DT/ILD;
+после реального project reopen планшет создаёт два curve tracks с
+фактическими значениями и исходными MD depth. Проверяются `PlotDataItem`
+координаты, UOM, print-mode geometry, ровно 3 исходных записи,
+отсутствие текстовых CDES и массивных NMR как выдуманных кривых,
+точный SHA-256 и неизменность original source. Это этап приёмки
+отображения; отдельные PDF/системная печать, LAS3 writer и multi-set
+import остаются не подтверждёнными.
+
 ## DATA-PETRO-01 — real modal LAS3 pilot acceptance (на проверке)
 
 RU/KK/EN × JSON/package: настоящая QAction открывает ImportReviewDialog; реальные Apply/Cancel buttons проходят modal event loop. Production save/open сохраняет arrays/UOM/raw source/exclusion report; повторный Cancel не регистрирует dataset и не меняет dirty/source. Только выбор файла и warning confirmation scripted. Полная LAS3/arrays/writeback не заявляются.
