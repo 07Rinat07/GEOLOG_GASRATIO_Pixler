@@ -8,7 +8,7 @@ def test_engineering_ruler_has_visible_caption_and_safe_pixel_fonts() -> None:
     assert "caption_font.setPixelSize(10 if self._print_mode else 8)" in source
     assert "value_font.setPixelSize(9 if self._print_mode else 8)" in source
     assert 'QPen(QColor("#334155"), 3.0)' in source
-    assert "self.setFixedHeight(30 if self._print_mode else 28)" in source
+    assert "self.setFixedHeight(34 if self._print_mode else 28)" in source
     assert "self.scale = QComboBox()" not in source
 
 

@@ -10,6 +10,12 @@ cannot prove source curves. Physical printer acceptance is separate.
 
 # Проверка качества и release gate
 
+PR #606 CI38426057865: two exact source contracts retained the old 30 px print
+ruler height. The caption-clearance change uses 34 px in print and preserves
+28 px on screen; both assertions now require that exact contract, without skips
+or weakened bounds. Run compact_parameter_rulers, curve_header_readability and
+real_tablet_pdf_regressions before new exact-head Windows gates.
+
 Confirmed VALUE selection: `python scripts/run_tests.py -p no:cacheprovider tests/test_value_flag_persist_selection.py tests/test_value_flag_print_selection.py tests/test_depth_annotations.py -q`.
 Проверяются atomic validation, one-step Undo/Redo, unchanged screen visibility,
 JSON/package reopen, RU/KK/EN individual selection under temporary global switch,
