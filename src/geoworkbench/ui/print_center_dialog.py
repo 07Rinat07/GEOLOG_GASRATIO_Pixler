@@ -87,6 +87,7 @@ class PrintCenterDialog(QDialog):
         validate_printer_callback: PrinterValidationCallback | None = None,
         track_print_options: tuple[PrintTrackOption, ...] = (),
         value_flag_options: tuple[tuple[str, str], ...] = (),
+        initial_value_flag_ids: tuple[str, ...] | None = None,
     ) -> None:
         super().__init__(parent)
         self.localizer = Localizer.create(language)
@@ -591,7 +592,8 @@ class PrintCenterDialog(QDialog):
         for flag_id, flag_label in self.value_flag_options:
             item = QTreeWidgetItem([flag_label])
             item.setData(0, Qt.ItemDataRole.UserRole, flag_id)
-            item.setCheckState(0, Qt.CheckState.Checked)
+            item.setCheckState(0, Qt.CheckState.Checked if initial_value_flag_ids is None
+                              or flag_id in initial_value_flag_ids else Qt.CheckState.Unchecked)
             self.value_flags_tree.addTopLevelItem(item)
         self.value_flags_tree.itemChanged.connect(self._track_composition_changed)
         value_flags_layout.addWidget(self.value_flags_tree)
@@ -608,6 +610,11 @@ class PrintCenterDialog(QDialog):
         flag_actions.addWidget(self.clear_value_flags_button)
         flag_actions.addStretch(1)
         value_flags_layout.addLayout(flag_actions)
+        value_flags_layout.addWidget(QLabel({
+            AppLanguage.RU: "После подтверждения индивидуальный выбор сохраняется в проекте.",
+            AppLanguage.KK: "Растағаннан кейін жеке таңдау жобада сақталады.",
+            AppLanguage.EN: "Confirming saves the individual selection in the project.",
+        }[language]))
         self.value_flags_group.setVisible(bool(self.value_flag_options))
         content_layout.addWidget(self.value_flags_group)
 
@@ -840,6 +847,9 @@ class PrintCenterDialog(QDialog):
             return None
         if not self.print_value_flags_check.isChecked():
             return ()
+        return self.selected_value_annotation_ids()
+
+    def selected_value_annotation_ids(self) -> tuple[str, ...]:
         return tuple(
             str(item.data(0, Qt.ItemDataRole.UserRole))
             for row in range(self.value_flags_tree.topLevelItemCount())

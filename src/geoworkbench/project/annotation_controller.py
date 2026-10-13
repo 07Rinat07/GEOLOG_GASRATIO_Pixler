@@ -218,6 +218,31 @@ class DepthAnnotationController:
     def get(self, annotation_id: str) -> AnnotationRecord:
         return annotation_from_canvas(self._require_current_item(annotation_id))
 
+    def set_value_print_selection(
+        self, offered_ids: tuple[str, ...], selected_ids: tuple[str, ...]
+    ) -> None:
+        """Apply one confirmed print selection within the current annotation scope."""
+        if (
+            not offered_ids
+            or len(set(offered_ids)) != len(offered_ids)
+            or len(set(selected_ids)) != len(selected_ids)
+            or not set(selected_ids).issubset(offered_ids)
+        ):
+            raise ValueError("Invalid value annotation selection")
+        items = [self._require_current_item(ident) for ident in offered_ids]
+        records = [annotation_from_canvas(item) for item in items]
+        if any(record.kind is not AnnotationKind.VALUE or not record.visible for record in records):
+            raise ValueError("Selection must contain visible value annotations")
+        selected = set(selected_ids)
+        if all(record.print_enabled == (record.annotation_id in selected) for record in records):
+            return
+        well = self._require_well()
+        before = deepcopy(well.canvas_objects)
+        for item in items:
+            item.properties["print_enabled"] = item.object_id in selected
+        self.history.record(well, before, description="Выбор флажков для печати")
+        self.session.dirty = True
+
     def add_annotation(
         self,
         *,

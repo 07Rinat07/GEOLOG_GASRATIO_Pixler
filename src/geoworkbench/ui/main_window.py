@@ -4795,8 +4795,8 @@ class MainWindow(QMainWindow):
                 else ()
             ),
             # The live tablet's overlay already applies well/dataset/form
-            # scope. Only persisted, visible and print-enabled VALUE records
-            # are offered; no source or screen objects are mutated.
+            # scope. Previously excluded values remain available for reselection;
+            # only confirmation changes their persisted print preference.
             value_flag_options=(
                 tuple(
                     (
@@ -4812,15 +4812,30 @@ class MainWindow(QMainWindow):
                     if (helper := paged_tablet._annotation_overlay.annotation_item(flag_id))
                     is not None
                     if (record := helper.record).kind is AnnotationKind.VALUE
-                    and record.visible and record.print_enabled
+                    and record.visible
                 )
                 if paged_tablet is not None
                 else ()
+            ),
+            initial_value_flag_ids=(
+                tuple(
+                    flag_id for flag_id in paged_tablet._annotation_overlay.annotation_ids
+                    if (helper := paged_tablet._annotation_overlay.annotation_item(flag_id))
+                    is not None
+                    if helper.record.kind is AnnotationKind.VALUE
+                    and helper.record.visible and helper.record.print_enabled
+                ) if paged_tablet is not None else None
             ),
         )
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         job = dialog.job_settings()
+        if dialog.value_flag_options:
+            self.depth_annotation_controller.set_value_print_selection(
+                tuple(ident for ident, _ in dialog.value_flag_options),
+                dialog.selected_value_annotation_ids(),
+            )
+            self._refresh_annotation_layer()
         self.print_page_settings = job.page
         accepted_preferences = dialog.preferences()
         self.user_profile_settings.save_print_page_settings(job.page)

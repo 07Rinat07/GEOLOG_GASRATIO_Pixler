@@ -64,6 +64,10 @@ def test_value_print_selection_hides_only_deselected_flags_and_restores_screen(q
         assert item.isVisible()
         assert item.record == original[("first", "second", "comment", "disabled").index(item.annotation_id)]
     assert all(record.print_enabled == (record.annotation_id != "disabled") for record in original)
+    items["disabled"].set_print_mode(True, included_value_ids=frozenset({"disabled"}))
+    assert items["disabled"].isVisible()
+    assert not items["disabled"].record.print_enabled
+    items["disabled"].set_print_mode(False)
 
 
 def test_value_filter_applies_to_overlay_sprites_without_editing_records(qapp) -> None:
