@@ -127,6 +127,9 @@ class PrintJobSettings:
     copy_count: int = 1
     included_track_ids: tuple[str, ...] | None = None
     grid_print_overrides: tuple[tuple[str, bool], ...] = ()
+    # None: preserve every persisted print_enabled VALUE. Empty tuple: hide all
+    # VALUE annotations for this one print job. Does not edit canvas objects.
+    included_value_annotation_ids: tuple[str, ...] | None = None
     output_language: AppLanguage | None = None
 
     def __post_init__(self) -> None:
@@ -182,6 +185,12 @@ class PrintJobSettings:
             if track_id in seen_overrides:
                 raise ValueError("Настройки печати сетки не должны повторяться")
             seen_overrides.add(track_id)
+        if self.included_value_annotation_ids is not None:
+            ids = self.included_value_annotation_ids
+            if not isinstance(ids, tuple) or any(
+                not isinstance(item, str) or not item.strip() for item in ids
+            ) or len(set(ids)) != len(ids):
+                raise ValueError("Список печатных флажков содержит неверные или повторяющиеся ID")
         if self.output_format.is_file and self.target is None:
             raise ValueError("Для файлового экспорта необходимо выбрать путь")
         if not self.output_format.is_file and self.target is not None:
