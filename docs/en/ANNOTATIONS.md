@@ -193,3 +193,7 @@ The controller supports validated batch deletion as one Undo/Redo command; inval
 To delete several notes, choose Delete group…, select records with Ctrl/Shift and confirm Delete. One Undo restores the group. Cancelling the selection changes nothing; editor Cancel restores the latest checkpoint.
 
 Applied group deletion persists in JSON/package projects. Cancel of later draft edits restores the applied set; reopening retains independent well annotations without the previous session history.
+
+## Time sample flag at a gas gap
+
+When the gas curve at a saved sample contains NaN or an infinite value, the flag retains its own timestamp and stored value. It does not jump to a neighbouring sample. Source gaps remain unchanged; this applies to screen and print presentation.

@@ -10971,8 +10971,12 @@ class TabletView(QWidget):
                 if record.axis_id == self.vertical_index_id and record.axis_value is not None:
                     lookup_values = self._axis_values()
                     lookup_value = float(record.axis_value)
+                has_sample_axis = (
+                    record.axis_id == self.vertical_index_id and record.axis_value is not None
+                )
                 finite = np.flatnonzero(
-                    np.isfinite(lookup_values) & np.isfinite(curve.values)
+                    np.isfinite(lookup_values)
+                    & (True if has_sample_axis else np.isfinite(curve.values))
                 )
                 if finite.size:
                     index = int(
@@ -10985,6 +10989,14 @@ class TabletView(QWidget):
                         ]
                     )
                     value = float(curve.values[index])
+                    if has_sample_axis and not np.isfinite(value):
+                        # A saved time sample in a gap must not borrow the curve
+                        # value from a neighbouring timestamp. Its persisted
+                        # displayed value keeps the authored anchor stable.
+                        value = (
+                            float(record.parameter_value)
+                            if record.parameter_value is not None else float("nan")
+                        )
                     if np.isfinite(value):
                         return self._curve_pencil_display_x(
                             definition, record.parameter_mnemonic, value
