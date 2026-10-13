@@ -581,7 +581,7 @@ class PrintCenterDialog(QDialog):
         value_flags_layout = QVBoxLayout(self.value_flags_group)
         self.print_value_flags_check = QCheckBox(flag_labels[1])
         self.print_value_flags_check.setObjectName("print-center-value-flags-enabled")
-        self.print_value_flags_check.setChecked(True)
+        self.print_value_flags_check.setChecked(preferences.print_value_flags_enabled)
         self.print_value_flags_check.toggled.connect(self._refresh_action_summary)
         value_flags_layout.addWidget(self.print_value_flags_check)
         self.value_flags_tree = QTreeWidget()
@@ -782,6 +782,7 @@ class PrintCenterDialog(QDialog):
         output = self.selected_output()
         pagination = self.pagination_settings()
         return PrintExportPreferences(
+            print_value_flags_enabled=self.print_value_flags_check.isChecked(),
             output_language=self._report_output_language(),
             output_format=output,
             dpi=self._dpi(),
