@@ -1,3 +1,7 @@
+# История изменений
+
+- Windows CI: обязательный MainWindow close-order lifecycle тест запускается в отдельном процессе после native ViewBoxMenu constructor crash в shared shard; assertions не изменены.
+
 ## DATA-PETRO-01 — безопасный обзор структуры LAS 3.0 (на проверке)
 
 - Добавлен read-only bounded section inventory для 3 реальных LAS 3.0: определяется VERS, byte-accurate секции, связи Data/Definition и multi-set без обработки sample values. Тесты проверяют SHA-256, защиту от неподходящих версий/размера и неизменность источников. Полный LAS 3.x importer, writer и проектный save/reopen — отдельные этапы.
