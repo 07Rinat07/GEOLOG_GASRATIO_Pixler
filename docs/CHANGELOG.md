@@ -1,3 +1,7 @@
+## DATA-PETRO-01 — реальный планшет LAS3 scalar pilot (на проверке)
+
+- Qt-приёмка RU/KK/EN × JSON/package проверяет, что после сохранения и открытия проекта оригинальные LAS3 DT/ILD выводятся в реальных PlotDataItem с исходными MD и единицами, а print mode не меняет числовые данные. CDES/NMR не превращаются в псевдокривые; source bytes и SHA-256 сохраняются. Это не LAS3 multi-set/writer/PDF acceptance.
+
 # История изменений
 
 - Windows CI: обязательный MainWindow close-order lifecycle тест запускается в отдельном процессе после native ViewBoxMenu constructor crash в shared shard; assertions не изменены.
