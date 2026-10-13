@@ -48,3 +48,75 @@ def test_saved_time_flag_does_not_borrow_neighbour_value_in_gap(qapp, missing, p
         view.close()
         view.deleteLater()
         qapp.processEvents()
+
+
+@pytest.mark.parametrize("times", [[0.0, np.nan, 120.0], [0.0, 70.0, 120.0]])
+@pytest.mark.parametrize("printing", [False, True])
+def test_missing_saved_timestamp_keeps_its_stored_flag_value(qapp, times, printing):
+    dataset = Dataset("gap", "Gap", DatasetKind.GTI, DepthDomain.MD,
+                      np.array([100.0, 100.0, 101.0]))
+    dataset.add_index(DatasetIndex("time", "TIME", IndexType.RELATIVE_TIME,
+                                  IndexRole.TIME, "s", np.array(times)))
+    dataset.upsert_curve("TG", np.array([10.0, 99.0, 30.0]), unit="%")
+    layout = TabletLayout([TrackDefinition("gas", "Gas", TrackKind.CURVE,
+                                          curve_mnemonics=["TG"])], vertical_index_id="time")
+    session = ProjectSession()
+    session.add_dataset(dataset)
+    session.tablet_layouts[dataset.dataset_id] = layout
+    controller = DepthAnnotationController(session)
+    flag = controller.add_curve_value(track_id="gas", depth=100.0, axis_value=60.0,
+                                      axis_id="time", mnemonic="TG", value=20.0, unit="%")
+    view = TabletView()
+    view.set_layout_and_dataset(layout, dataset)
+    try:
+        track = view._rendered["gas"].widget
+        track.set_print_mode(printing)
+        assert view._annotation_axis_value(flag) == 60.0
+        assert view._annotation_anchor_x(track, flag) == view._curve_pencil_display_x(
+            track.definition, "TG", 20.0,
+        )
+        np.testing.assert_array_equal(dataset.indexes["time"].values, times)
+        np.testing.assert_array_equal(dataset.curve_by_mnemonic("TG").values, [10.0, 99.0, 30.0])
+        np.testing.assert_array_equal(dataset.depth, [100.0, 100.0, 101.0])
+    finally:
+        view.clear()
+        view.close()
+        view.deleteLater()
+        qapp.processEvents()
+
+
+@pytest.mark.parametrize("printing", [False, True])
+def test_unusable_time_axis_retains_the_existing_depth_fallback(qapp, printing):
+    dataset = Dataset("gap", "Gap", DatasetKind.GTI, DepthDomain.MD,
+                      np.array([100.0, 100.0, 101.0]))
+    dataset.add_index(DatasetIndex("time", "TIME", IndexType.RELATIVE_TIME,
+                                  IndexRole.TIME, "s", np.full(3, np.nan)))
+    dataset.upsert_curve("TG", np.array([10.0, 99.0, 30.0]), unit="%")
+    layout = TabletLayout([TrackDefinition("gas", "Gas", TrackKind.CURVE,
+                                          curve_mnemonics=["TG"])], vertical_index_id="time")
+    session = ProjectSession()
+    session.add_dataset(dataset)
+    session.tablet_layouts[dataset.dataset_id] = layout
+    flag = DepthAnnotationController(session).add_curve_value(
+        track_id="gas", depth=100.0, axis_value=60.0, axis_id="time",
+        mnemonic="TG", value=20.0, unit="%",
+    )
+    view = TabletView()
+    view.set_layout_and_dataset(layout, dataset)
+    try:
+        track = view._rendered["gas"].widget
+        track.set_print_mode(printing)
+        assert view.vertical_index_id != "time"
+        assert view._annotation_axis_value(flag) == 100.0
+        assert view._annotation_anchor_x(track, flag) == view._curve_pencil_display_x(
+            track.definition, "TG", 10.0,
+        )
+        assert flag.axis_id == "time" and flag.axis_value == 60.0
+        assert flag.parameter_value == 20.0
+        np.testing.assert_array_equal(dataset.indexes["time"].values, [np.nan] * 3)
+        np.testing.assert_array_equal(dataset.curve_by_mnemonic("TG").values, [10.0, 99.0, 30.0])
+    finally:
+        view.clear()
+        view.close()
+        view.deleteLater()
+        qapp.processEvents()

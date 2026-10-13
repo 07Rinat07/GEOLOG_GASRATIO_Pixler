@@ -10978,29 +10978,25 @@ class TabletView(QWidget):
                     np.isfinite(lookup_values)
                     & (True if has_sample_axis else np.isfinite(curve.values))
                 )
+                value = (
+                    float(record.parameter_value)
+                    if has_sample_axis and record.parameter_value is not None
+                    else float("nan")
+                )
                 if finite.size:
-                    index = int(
-                        finite[
-                            np.argmin(
-                                np.abs(
-                                    lookup_values[finite] - lookup_value
-                                )
-                            )
-                        ]
+                    index = int(finite[np.argmin(np.abs(lookup_values[finite] - lookup_value))])
+                    sample_matches = not has_sample_axis or np.isclose(
+                        lookup_values[index], lookup_value, rtol=0.0, atol=1e-9,
                     )
-                    value = float(curve.values[index])
-                    if has_sample_axis and not np.isfinite(value):
-                        # A saved time sample in a gap must not borrow the curve
-                        # value from a neighbouring timestamp. Its persisted
-                        # displayed value keeps the authored anchor stable.
-                        value = (
-                            float(record.parameter_value)
-                            if record.parameter_value is not None else float("nan")
-                        )
-                    if np.isfinite(value):
-                        return self._curve_pencil_display_x(
-                            definition, record.parameter_mnemonic, value
-                        )
+                    candidate = float(curve.values[index])
+                    if sample_matches and np.isfinite(candidate):
+                        value = candidate
+                # The persisted flag is an authored sample snapshot. Missing
+                # timestamps or curve gaps must not borrow a neighbour's value.
+                if np.isfinite(value):
+                    return self._curve_pencil_display_x(
+                        definition, record.parameter_mnemonic, value
+                    )
         if definition.kind is TrackKind.CALCIMETRY:
             return float(record.x_fraction) * 100.0
         view_range = None
