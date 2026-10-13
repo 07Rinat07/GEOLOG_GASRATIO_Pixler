@@ -1,5 +1,11 @@
 # Проверка качества и release gate
 
+Ограниченный read-only LAS3 Log_Data pilot: `python -m pytest -q tests/test_las3_scalar_log_preview.py`.
+На сохранённом LAS 3.0 проверяются DEPT/DT/YME, явные исключения CDES/NMR,
+оригинальные SHA-256 и bytes, NULL, несовместимые версии и диалекты,
+ошибочные строки/ширина/WRAP/DLM, лимиты size/rows. Это не означает
+production dataset, WITS, source writer или подтверждённый LAS3 export.
+
 Metadata-only инвентаризация LAS 3.0: `python -m pytest -q tests/test_las3_section_inventory.py`.
 Проверяются исходные секции, версии, ссылки Data/Definition, ограничение
 размера и побайтовая неизменность всех трёх LAS 3.x fixtures. Эти проверки
