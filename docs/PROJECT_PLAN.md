@@ -46,6 +46,10 @@ source bytes/SHA-256, VERS/WRAP из импортированного загол
 Окно production Import Review показывает source VERS и уровни чтения, правок проекта, raw write и derived export для LAS/CSV/Excel на RU/KK/EN. LAS3 остаётся unverified; исходный файл неизменяем. Stage0 и весь DATA-PETRO не завершены.
 # Единый план проекта
 
+## DATA-PETRO-01 — explicit LAS3 pilot menu entrypoint (на проверке)
+
+Отдельная команда LAS3 scalar pilot использует bounded worker, обязательный manual warning confirmation, существующий Import Review и регистрацию source/report в проект. Обычное LAS opening не меняется. Диалог review в action regression scripted; adapter/raw bytes настоящий. Полная LAS3/массивы/export отдельно.
+
 ## DATA-PETRO-01 — явный scalar LAS3 Dataset adapter (на проверке)
 
 Opt-in API материализует поддержанный preview в Dataset только для явного metre-depth scalar Log_Data. JSON/package сохраняют arrays/UOM/raw source/report exclusions; общий import dispatch и LAS writer не меняются. GUI entrypoint и полная stage1 остаются открытыми.

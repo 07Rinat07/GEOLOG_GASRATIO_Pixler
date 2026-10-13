@@ -86,6 +86,7 @@ from geoworkbench.domain.localized_content import localized_text
 from geoworkbench.data.las_adapter import LasExportError, LasImportResult, import_las_with_report
 from geoworkbench.data.las_import_policy import LasImportMode
 from geoworkbench.data.las_import_report import LasImportIssue, LasImportReport
+from geoworkbench.data.las3_dataset_adapter import import_las3_scalar_dataset
 from geoworkbench.data.lossless_las import LosslessLasDocument
 from geoworkbench.data.las_export_plan import ExportIssueSeverity
 from geoworkbench.data.selection_export import SelectionExportError
@@ -1481,6 +1482,13 @@ class MainWindow(QMainWindow):
         )
         file_menu.addAction(self.open_las_advanced_action)
         las_editor_menu.addAction(self.open_las_advanced_action)
+
+        self.open_las3_pilot_action = self._localized_action("import.las3_pilot")
+        self.open_las3_pilot_action.triggered.connect(
+            lambda _checked=False: self.open_las3_pilot()
+        )
+        file_menu.addAction(self.open_las3_pilot_action)
+        las_editor_menu.addAction(self.open_las3_pilot_action)
 
         self.open_csv_action = self._localized_action("shell.import_csv")
         self.open_csv_action.triggered.connect(lambda _checked=False: self.open_csv())
@@ -3180,11 +3188,25 @@ class MainWindow(QMainWindow):
             return None
         return dialog.accepted_dataset
 
-    def _load_las_responsive(self, source: str | Path) -> LasImportResult:
+    def open_las3_pilot(self, source: str | Path | None = None) -> None:
+        if source is None:
+            filename, _ = QFileDialog.getOpenFileName(
+                self, self._t("import.las3_pilot"), "", "LAS (*.las)"
+            )
+        else:
+            filename = str(source)
+        if not filename:
+            return
+        self._open_las_files((Path(filename),), LasImportMode.MANUAL, scalar_pilot=True)
+
+    def _load_las_responsive(
+        self, source: str | Path, *, scalar_pilot: bool = False,
+    ) -> LasImportResult:
         """Parse the LAS off the GUI thread; commit and review stay on the GUI thread."""
 
         with ThreadPoolExecutor(max_workers=1, thread_name_prefix="las-import") as worker:
-            pending = worker.submit(import_las_with_report, source)
+            loader = import_las3_scalar_dataset if scalar_pilot else import_las_with_report
+            pending = worker.submit(loader, source)
             loop = QEventLoop(self)
             timer = QTimer(loop)
             timer.setInterval(30)
@@ -3201,6 +3223,8 @@ class MainWindow(QMainWindow):
         self,
         filenames: tuple[Path, ...],
         import_mode: LasImportMode,
+        *,
+        scalar_pilot: bool = False,
     ) -> None:
         names = ", ".join(path.name for path in filenames[:3])
         if len(filenames) > 3:
@@ -3223,12 +3247,24 @@ class MainWindow(QMainWindow):
         self._log(f"Начата загрузка LAS: {names}")
         QApplication.processEvents()
         try:
-            outcome = self._dataset_import_jobs.execute_las(
-                filenames,
-                import_mode,
-                confirm_review=self._confirm_las_review,
-                review_dataset=self._review_imported_dataset,
-            )
+            if scalar_pilot:
+                jobs = DatasetImportJobExecutor(
+                    _MainWindowDatasetImportPort(self),
+                    las_loader=lambda source: self._load_las_responsive(source, scalar_pilot=True),
+                )
+                outcome = jobs.execute_las(
+                    filenames,
+                    import_mode,
+                    confirm_review=self._confirm_las_review,
+                    review_dataset=self._review_imported_dataset,
+                )
+            else:
+                outcome = self._dataset_import_jobs.execute_las(
+                    filenames,
+                    import_mode,
+                    confirm_review=self._confirm_las_review,
+                    review_dataset=self._review_imported_dataset,
+                )
         finally:
             progress.close()
             QApplication.processEvents()

@@ -12,6 +12,8 @@
 
 # История изменений
 
+- Добавлена отдельная команда LAS3 scalar pilot в меню LAS; worker/policy/review и сохранение source/report переиспользованы, обычный LAS import не изменён.
+
 - LAS3 pilot: явный bounded scalar Dataset adapter с exclusion report и JSON/package reopen; без изменения общего LAS import dispatch и writer.
 
 - Windows CI: обязательный MainWindow close-order lifecycle тест запускается в отдельном процессе после native ViewBoxMenu constructor crash в shared shard; assertions не изменены.
