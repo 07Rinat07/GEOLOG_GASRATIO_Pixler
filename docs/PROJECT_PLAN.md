@@ -4,6 +4,16 @@
 
 Run38324037518 завершился 0xC0000005 при MainWindow/ViewBoxMenu construction до close-order assertion. Локальный shared prefix32tests и отдельный тест прошли; точная причина не доказана. Existing runner выполняет обязательную regression в отдельном процессе без skips и изменения assertions; новые exact-head gates обязательны.
 
+## DATA-PETRO-01 — реальная приёмка LAS fixtures (следующий инкремент)
+
+Новая fixture-backed регрессия вызывает production `import_las_with_report` на пяти
+реальных исходных LAS 1.2/2.0 (`WRAP=YES/NO`, `DLM=TAB`), сравнивает exact
+source bytes/SHA-256, VERS/WRAP из импортированного заголовка, значения глубины
+и кривой DT с исходными данными и запрет source write. Три LAS 3.0 fixture
+проверяются как побайтно сохранённые заголовки/секции с честным `UNVERIFIED`
+для sample read, без утверждения о полном импорте LAS 3.x. Код обработки
+самих LAS/петрофизических данных не меняется.
+
 ## DATA-PETRO-01 — Import Review capabilities (на проверке)
 
 Окно production Import Review показывает source VERS и уровни чтения, правок проекта, raw write и derived export для LAS/CSV/Excel на RU/KK/EN. LAS3 остаётся unverified; исходный файл неизменяем. Stage0 и весь DATA-PETRO не завершены.

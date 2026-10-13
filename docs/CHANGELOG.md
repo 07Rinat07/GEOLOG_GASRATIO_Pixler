@@ -2,6 +2,12 @@
 
 - Windows CI: обязательный MainWindow close-order lifecycle тест запускается в отдельном процессе после native ViewBoxMenu constructor crash в shared shard; assertions не изменены.
 
+## DATA-PETRO-01 — импорт реальных LAS fixtures (на проверке)
+
+- Приёмочные тесты открывают через производственный импортёр реальные upstream LAS 1.2/2.0 normal/wrapped/TAB, проверяют VERS/WRAP, MD depth, DT, sample grid и неизменность файла; LAS 3.0 дополнительно проверяются в audit-only режиме без обещания поддержки чтения.
+
+# История изменений
+
 - Import Review: показаны фактическая версия и capabilities LAS/CSV/Excel на RU/KK/EN; редактирование проекта отделено от записи в исходный файл.
 
 - Загрузка эталонных fixtures ограничена HTTPS и raw.githubusercontent.com без перенаправлений; Git SHA-1 явно используется только как идентификатор blob. Bandit checks сохранены.
