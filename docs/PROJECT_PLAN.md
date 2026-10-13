@@ -4,6 +4,23 @@
 
 Run38324037518 завершился 0xC0000005 при MainWindow/ViewBoxMenu construction до close-order assertion. Локальный shared prefix32tests и отдельный тест прошли; точная причина не доказана. Existing runner выполняет обязательную regression в отдельном процессе без skips и изменения assertions; новые exact-head gates обязательны.
 
+## DATA-PETRO-01 — LAS 3.0 scalar Dataset и save/reopen proof (следующий инкремент)
+
+Проверенный поднабор скалярных LAS 3.0 из отдельного read-only пилота
+материализован через новый изолированный adapter в существующий GIS
+`Dataset` с явным MD/DEPT (M), 8 числовыми кривыми, точными mnemonic/UOM,
+оригинальным SHA-256, исходными секциями и записью source revision.
+Текстовое поле CDES и массивы NMR[1..5] присутствуют в exclusion ledger;
+не подменяются нулями, не интерпретируются как числовые кривые.
+Fixture-backed acceptance проверяет реальные глубины/DT/YME, JSON и
+project package save/reopen без изменений source bytes, а также
+отказ от других LAS3 диалектов и единицы FT вместо M.
+
+Это internal Dataset bridge, пока **не** общий Open LAS/Import Review
+workflow и **не** GUI-планшетная приёмка. Пока нет verified round-trip
+writer и общего LAS3 support. Подключение через реальный production
+dialog/toolbar и UI/планшетную приёмку выполнить отдельно.
+
 ## DATA-PETRO-01 — ограниченный LAS 3.0 scalar Log_Data pilot (следующий инкремент)
 
 Только для явно связанного `Log_Data | Log_Definition` с
