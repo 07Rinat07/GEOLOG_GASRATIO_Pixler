@@ -3247,18 +3247,24 @@ class MainWindow(QMainWindow):
         self._log(f"Начата загрузка LAS: {names}")
         QApplication.processEvents()
         try:
-            jobs = self._dataset_import_jobs
             if scalar_pilot:
                 jobs = DatasetImportJobExecutor(
                     _MainWindowDatasetImportPort(self),
                     las_loader=lambda source: self._load_las_responsive(source, scalar_pilot=True),
                 )
-            outcome = jobs.execute_las(
-                filenames,
-                import_mode,
-                confirm_review=self._confirm_las_review,
-                review_dataset=self._review_imported_dataset,
-            )
+                outcome = jobs.execute_las(
+                    filenames,
+                    import_mode,
+                    confirm_review=self._confirm_las_review,
+                    review_dataset=self._review_imported_dataset,
+                )
+            else:
+                outcome = self._dataset_import_jobs.execute_las(
+                    filenames,
+                    import_mode,
+                    confirm_review=self._confirm_las_review,
+                    review_dataset=self._review_imported_dataset,
+                )
         finally:
             progress.close()
             QApplication.processEvents()

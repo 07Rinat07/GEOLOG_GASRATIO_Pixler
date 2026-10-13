@@ -267,7 +267,8 @@ def test_main_window_routes_all_imports_through_interactive_review() -> None:
     ).read_text(encoding="utf-8")
 
     assert "def _review_imported_dataset(" in source
-    assert source.count("review_dataset=self._review_imported_dataset") == 5
+    # Normal LAS and explicit LAS3 pilot each retain interactive review.
+    assert source.count("review_dataset=self._review_imported_dataset") == 6
     assert "ImportReviewDialog(" in source
 
 
