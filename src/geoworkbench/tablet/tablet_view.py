@@ -769,7 +769,7 @@ class CurveScaleRuler(QWidget):
 
     def set_print_mode(self, enabled: bool) -> None:
         self._print_mode = bool(enabled)
-        self.setFixedHeight(30 if self._print_mode else 28)
+        self.setFixedHeight(34 if self._print_mode else 28)
         self.update()
 
     def set_values(
@@ -821,12 +821,12 @@ class CurveScaleRuler(QWidget):
             rect.left() + 2,
             rect.top(),
             max(1, rect.width() - 4),
-            11 if self._print_mode else 9,
+            14 if self._print_mode else 9,
             Qt.AlignmentFlag.AlignCenter,
             caption,
         )
 
-        baseline = rect.top() + (11 if self._print_mode else 9)
+        baseline = rect.top() + (14 if self._print_mode else 9)
         # A dark under-stroke guarantees visibility; the configured curve hue
         # remains visible as the thinner foreground stroke.
         painter.setPen(QPen(QColor("#334155"), 3.0))

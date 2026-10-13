@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import re
 
 from PySide6.QtCore import QRectF
-from PySide6.QtGui import QImage, QTextDocument
+from PySide6.QtGui import QImage, QTextDocument, QTextLength, QTextTable
 
 from geoworkbench.printing.hydrocarbon_interpretation_pdf_canvas import PageCanvas
 from geoworkbench.printing.report_visual_system import ReportVisualProfile, modern_oilfield_report_profile
@@ -476,6 +476,17 @@ tr {{ page-break-inside: avoid; break-inside: avoid; }}
     document.setTextWidth(width)
     document.setHtml(html)
     apply_explicit_rich_text_font_sizes(document)
+    # Qt's 100% table width excludes the surrounding border/spacing. The
+    # resulting frame extends beyond the document and drawContents clips its
+    # edge. Reserve that physical inset while preserving column proportions.
+    for frame in document.rootFrame().childFrames():
+        if isinstance(frame, QTextTable):
+            table_format = frame.format()
+            inset = max(1.0, table_format.border() + table_format.cellSpacing())
+            table_format.setWidth(QTextLength(
+                QTextLength.Type.FixedLength, max(1.0, width - 2.0 * inset),
+            ))
+            frame.setFormat(table_format)
     layout = document.documentLayout()
     if layout is None:
         raise RuntimeError("Не удалось рассчитать компоновку текста отчёта")

@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from math import isfinite
 
 import pyqtgraph as pg
-from PySide6.QtCore import QPoint, QRectF, QSize, Qt
+from PySide6.QtCore import QCoreApplication, QEvent, QPoint, QRectF, QSize, Qt
 from PySide6.QtGui import QBrush, QImage, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QWidget
 
@@ -166,6 +166,13 @@ def _activate_layout_tree(widget: QWidget) -> None:
             continue
         layout.invalidate()
         layout.activate()
+    # QWidget.render also delivers pending layout requests. Settle those before
+    # measuring/cropping the legend, otherwise its last row leaks into graph pages.
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.LayoutRequest)
+    for current in widgets:
+        layout = current.layout()
+        if layout is not None:
+            layout.activate()
 
 
 class TabletPrintError(RuntimeError):
@@ -178,10 +185,10 @@ def _settled_print_header_height(rendered: tuple[RenderedTrack, ...]) -> int:
     plot_tops = tuple(int(item.widget.plot.geometry().top()) for item in rendered)
     if not plot_tops or min(plot_tops) <= 0:
         raise TabletPrintError("Печатная шапка колонок не получила допустимую геометрию")
-    # Fixed title and curve-header bands should align every plot. If Qt reports
-    # a transient one-pixel frame difference, the shallowest boundary is the
-    # only safe crop: it can leave a hairline of white header, never graph data.
-    return min(plot_tops)
+    # A dense track can settle its minimum header height later than a sparse
+    # one. Crop below the deepest measured boundary so no parameter row is
+    # mistaken for graph pixels on continuation pages.
+    return max(plot_tops)
 
 
 @dataclass(frozen=True, slots=True)
@@ -529,6 +536,14 @@ def capture_tablet_print_snapshot(
                 if painter.isActive():
                     painter.end()
             pixmaps.append(image)
+        # Rendering polishes child widgets and can settle a larger header than
+        # the pre-capture layout reported. Crop using the actual captured state.
+        header_height = _settled_print_header_height(rendered)
+        if requested_body_height == 1:
+            # Exclude the widget's bottom frame from the one-pixel safety body.
+            content_height = header_height + 1
+            pixel_height = round(content_height * raster_scale)
+            pixmaps = [image.copy(0, 0, image.width(), pixel_height) for image in pixmaps]
     finally:
         _restore_print_curve_styles(curve_style_states)
         for overlay, print_mode, print_suppressed in reversed(grid_states):

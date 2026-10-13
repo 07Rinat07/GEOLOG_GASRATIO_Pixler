@@ -37,6 +37,7 @@ from geoworkbench.printing.pagination import (
 )
 from geoworkbench.printing.print_job import PrintHeaderPlacement, PrintJobSettings
 from geoworkbench.printing.print_layout import (
+    REFERENCE_PRINT_DPI,
     PrintContinuationSlice,
     PrintScaleMode,
     build_horizontal_continuations,
@@ -49,7 +50,6 @@ from geoworkbench.tablet.models import minimum_track_width
 from geoworkbench.tablet.tablet_view import TabletView
 
 
-_DOCUMENT_HEADER_FONT_SCALE = 1.60
 @dataclass(frozen=True, slots=True)
 class PrintDocumentContext:
     title: str
@@ -278,6 +278,45 @@ def build_document_plan(
                 auto_units_per_page=False,
                 overlap=0.0,
             )
+
+        if job.page.scale_mode is PrintScaleMode.ACTUAL_SIZE and full_range is not None:
+            # At 100%, column widths remain physical, but graph height belongs
+            # to the paper, never to the operator's short screen viewport.
+            # Dense legends can occupy almost all of that viewport.
+            printable_tracks = _selected_tablet_tracks(widget, job)
+            header_height = max(
+                item.widget.title.height() + item.widget.print_curve_header_height
+                for item in printable_tracks
+            )
+            media = job.page.media_dimensions(source_width, source_height)
+            full_band = _planned_full_header_band_height_mm(
+                context,
+                content_width_mm=media.content_width_mm,
+                content_height_mm=media.content_height_mm,
+            )
+            regular_band = (
+                full_band if full_band is not None
+                and job.header_placement is PrintHeaderPlacement.EVERY_PAGE
+                else PRINT_SIMPLE_HEADER_MM
+            )
+            regular_height = round(printable_tablet_body_height_mm(
+                media.content_height_mm, header_band_mm=regular_band,
+            ) * REFERENCE_PRINT_DPI / 25.4)
+            first_height = round(printable_tablet_body_height_mm(
+                media.content_height_mm, header_band_mm=full_band or PRINT_SIMPLE_HEADER_MM,
+            ) * REFERENCE_PRINT_DPI / 25.4)
+            target_content_height = header_height + max(1, regular_height)
+            tablet_header_height_px = header_height
+            resolved_units_per_page = (
+                abs(float((widget.visible_depth_range or full_range)[1])
+                    - float((widget.visible_depth_range or full_range)[0]))
+                if pagination.range_mode is PrintRangeMode.CURRENT
+                else float(pagination.units_per_page)
+            )
+            # Keep the requested depth interval; a first sheet with a dense
+            # legend gets its own physical viewport without stealing graph pixels.
+            first_page_target_content_height_px = max(header_height + 32, first_height)
+            first_page_units_per_page = resolved_units_per_page
 
         if (
             first_page_units_per_page is not None
@@ -587,7 +626,10 @@ def paint_document_page(
             _paint_header(
                 painter,
                 header,
-                title=context.title,
+                title=("" if isinstance(widget, TabletView) and (
+                    context.header_template is not None
+                    or context.title == localizer.text("tab.tablet")
+                ) else context.title),
                 range_text=right_text,
             )
         paint_widget_page(
@@ -620,18 +662,13 @@ def paint_document_page(
 
 
 def _print_header_template(template: MasterlogTemplate) -> MasterlogTemplate:
-    """Return a print-only copy with more readable passport/header text."""
+    """Preserve authored header geometry and fonts across preview and print.
 
-    prepared = deepcopy(template)
-    for element in prepared.header_elements:
-        raw_size = element.properties.get("font_size_mm", 3.5)
-        if not isinstance(raw_size, (int, float)) or isinstance(raw_size, bool):
-            raw_size = 3.5
-        element.properties["font_size_mm"] = min(
-            50.0,
-            max(1.0, float(raw_size) * _DOCUMENT_HEADER_FONT_SCALE),
-        )
-    return prepared
+    Enlarging fonts without resizing their fixed cells clipped company names,
+    metadata and legends. Physical scaling belongs to the header renderer.
+    """
+
+    return deepcopy(template)
 
 
 def _should_paint_full_header(

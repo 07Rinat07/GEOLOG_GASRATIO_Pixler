@@ -1,3 +1,13 @@
+## Field masterlog 100% regression
+
+`test_real_tablet_pdf_regressions.py` checks RU/KK/EN and both A4 orientations
+at ACTUAL_SIZE with a dense legend and short screen viewport. Inspect every
+PDF page's embedded raster height and graph density, not only its last legend
+page. `test_hydrocarbon_interpretation_pdf_text.py` checks the complete table
+frame lies inside the printable width, including its border and spacing.
+Repeat M-1 export from its original project; an already clipped 8-pixel PDF
+cannot prove source curves. Physical printer acceptance is separate.
+
 # Проверка качества и release gate
 
 Confirmed VALUE selection: `python scripts/run_tests.py -p no:cacheprovider tests/test_value_flag_persist_selection.py tests/test_value_flag_print_selection.py tests/test_depth_annotations.py -q`.
