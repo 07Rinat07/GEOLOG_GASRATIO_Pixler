@@ -31,7 +31,8 @@ def test_all_import_sources_use_one_review_callback_before_registration() -> Non
     )
 
     assert jobs.count("self._review_or_original(") == 4
-    assert window.count("review_dataset=self._review_imported_dataset") == 5
+    # The opt-in LAS3 route uses the same review callback as normal LAS.
+    assert window.count("review_dataset=self._review_imported_dataset") == 6
     assert "ImportReviewDialog(" in window
 
 
