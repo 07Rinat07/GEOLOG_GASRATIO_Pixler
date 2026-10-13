@@ -46,6 +46,10 @@ source bytes/SHA-256, VERS/WRAP из импортированного загол
 Окно production Import Review показывает source VERS и уровни чтения, правок проекта, raw write и derived export для LAS/CSV/Excel на RU/KK/EN. LAS3 остаётся unverified; исходный файл неизменяем. Stage0 и весь DATA-PETRO не завершены.
 # Единый план проекта
 
+## DATA-PETRO-01 — явный scalar LAS3 Dataset adapter (на проверке)
+
+Opt-in API материализует поддержанный preview в Dataset только для явного metre-depth scalar Log_Data. JSON/package сохраняют arrays/UOM/raw source/report exclusions; общий import dispatch и LAS writer не меняются. GUI entrypoint и полная stage1 остаются открытыми.
+
 План актуализирован 13 октября 2026 года. Проверенная база перед текущим инкрементом —
 `02135076` (PR #523). RPT-COMP-01, gas-context track/identity и автоматическая signed-depth
 приёмка интегрированы. Текущий REPORT-I18N-01 пакет объединяет независимый язык Print Center:
