@@ -59,6 +59,10 @@ source bytes/SHA-256, VERS/WRAP из импортированного загол
 Окно production Import Review показывает source VERS и уровни чтения, правок проекта, raw write и derived export для LAS/CSV/Excel на RU/KK/EN. LAS3 остаётся unverified; исходный файл неизменяем. Stage0 и весь DATA-PETRO не завершены.
 # Единый план проекта
 
+## RPT-AUTHOR-01 — persisted symbol API and vector rendering (на проверке)
+
+Stable IDs выделены в Qt-free domain. SYMBOL record использует schema2/symbol_id; legacy виды сохраняют schema1 без новых ключей. Existing controller/history и JSON/package сохраняют symbol/caption/scope/print_enabled; renderer использует готовый catalog painter. UI catalog selection ещё отдельно, весь feature не завершён.
+
 ## DATA-PETRO-01 — LAS3 real Qt tablet rendering after JSON/package reopen (на проверке)
 
 Добавлена отдельная RU/KK/EN × JSON/package regression: существующий

@@ -82,6 +82,8 @@ class InterpretationReportAnnotationDialog(QDialog):
         self.kind = QComboBox(self)
         self.kind.setObjectName("report-annotation-kind")
         for kind_item in ReportAnnotationKind:
+            if kind_item is ReportAnnotationKind.SYMBOL:
+                continue  # Catalog selection UI is a separate integration step.
             self.kind.addItem(self._kind_label(kind_item), kind_item.value)
         form.addRow(self._text("Тип", "Түрі", "Type"), self.kind)
 

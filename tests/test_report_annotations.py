@@ -467,3 +467,40 @@ def test_checkpoint_rejects_other_sessions_report_command() -> None:
         controller.restore(checkpoint)
     assert controller.available() == records
     assert other.available() == foreign_records
+
+
+@pytest.mark.parametrize("symbol", ["circle", "square", "diamond", "triangle", "cross"])
+def test_symbol_catalog_schema_history_and_project_reopen(tmp_path, symbol) -> None:
+    session = _session()
+    controller = ReportAnnotationController(session)
+    record = controller.add(kind=ReportAnnotationKind.SYMBOL, symbol_id=symbol,
+                            depth=1001.0, text="Author caption")
+    payload = report_annotation_to_dict(record)
+    assert payload["schema_version"] == 2
+    assert payload["symbol_id"] == symbol
+    assert report_annotation_from_mapping(payload) == record
+    controller.undo()
+    assert controller.available() == ()
+    controller.redo()
+    assert controller.available() == (record,)
+    controller.update(record.annotation_id, text="Changed caption")
+    assert controller.available()[0].symbol_id == record.symbol_id
+    document = ProjectDocument(project=session.project,
+                               report_compositions=session.report_compositions)
+    target = tmp_path / "symbol.geologpkg"
+    repository = PackageProjectRepository()
+    repository.save(document, target)
+    assert repository.load(target).report_compositions == document.report_compositions
+    target_json = tmp_path / "symbol.geolog.json"
+    save_project(session.project, target_json, report_compositions=session.report_compositions)
+    assert load_project_document(target_json).report_compositions == document.report_compositions
+
+
+def test_symbol_schema_rejects_unknown_id_and_non_symbol_field() -> None:
+    record = _annotation()
+    with pytest.raises(ValueError, match="Only SYMBOL"):
+        validate_report_annotation(replace(record, symbol_id="circle"))
+    with pytest.raises(ValueError, match="catalog"):
+        validate_report_annotation(replace(record, kind=ReportAnnotationKind.SYMBOL, symbol_id="unknown"))
+    assert report_annotation_to_dict(record)["schema_version"] == 1
+    assert "symbol_id" not in report_annotation_to_dict(record)

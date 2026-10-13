@@ -3,22 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import StrEnum
 from math import isfinite
 
 from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QPainter, QPen, QPolygonF
 
 from geoworkbench.domain.annotation_style import AnnotationStyle
+from geoworkbench.domain.report_author_symbols import AuthorSymbolId
 from geoworkbench.services.localization import AppLanguage
-
-
-class AuthorSymbolId(StrEnum):
-    CIRCLE = "circle"
-    SQUARE = "square"
-    DIAMOND = "diamond"
-    TRIANGLE = "triangle"
-    CROSS = "cross"
 
 
 @dataclass(frozen=True, slots=True)

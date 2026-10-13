@@ -5,6 +5,7 @@ from dataclasses import dataclass, field, replace
 from typing import Literal
 
 from geoworkbench.domain.annotation_style import AnnotationStyle
+from geoworkbench.domain.report_author_symbols import AuthorSymbolId
 from geoworkbench.domain.report_annotations import (
     ReportAnnotationAnchor,
     ReportAnnotationKind,
@@ -243,6 +244,7 @@ class ReportAnnotationController:
         locked: bool = False,
         print_enabled: bool = True,
         text_i18n: Mapping[str, str] | None = None,
+        symbol_id: str | None = None,
     ) -> ReportAnnotationRecord:
         well_id, dataset_id = self._current_ids()
         existing = self.session.report_compositions.get(dataset_id)
@@ -270,6 +272,7 @@ class ReportAnnotationController:
                 locked=self._bool(locked, "locked"),
                 print_enabled=self._bool(print_enabled, "print_enabled"),
                 text_i18n=dict(text_i18n or {}),
+                symbol_id=AuthorSymbolId(symbol_id) if symbol_id is not None else None,
             )
         )
         index = len(composition.annotations)
@@ -326,6 +329,7 @@ class ReportAnnotationController:
         updated = validate_report_annotation(
             ReportAnnotationRecord(
                 annotation_id=current.annotation_id,
+                symbol_id=current.symbol_id,
                 scope_id=current.scope_id,
                 kind=self._kind(changes.get("kind", current.kind)),
                 anchor=self._anchor(changes.get("anchor", current.anchor)),

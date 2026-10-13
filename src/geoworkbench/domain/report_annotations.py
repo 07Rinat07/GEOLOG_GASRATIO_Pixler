@@ -9,6 +9,7 @@ from uuid import uuid4
 
 from geoworkbench.domain.annotation_style import ANNOTATION_STYLE_KEYS, AnnotationStyle
 from geoworkbench.domain.localized_content import validate_localized_texts
+from geoworkbench.domain.report_author_symbols import AuthorSymbolId
 
 
 REPORT_ANNOTATION_SCHEMA_VERSION = 1
@@ -33,6 +34,7 @@ class ReportAnnotationKind(StrEnum):
     ARROW = "arrow"
     INTERVAL_HIGHLIGHT = "interval_highlight"
     REMARK = "remark"
+    SYMBOL = "symbol"
 
 
 class ReportAnnotationAnchor(StrEnum):
@@ -64,6 +66,7 @@ class ReportAnnotationRecord:
     locked: bool = False
     print_enabled: bool = True
     text_i18n: dict[str, str] = field(default_factory=dict)
+    symbol_id: AuthorSymbolId | None = None
 
 
 _REPORT_ANNOTATION_KEYS = frozenset(
@@ -150,6 +153,17 @@ def validate_report_annotation(record: ReportAnnotationRecord) -> ReportAnnotati
     except ValueError as exc:
         raise ValueError("Некорректный тип или anchor report annotation") from exc
 
+    symbol_id = None
+    if kind is ReportAnnotationKind.SYMBOL:
+        if record.symbol_id is None:
+            raise ValueError("Symbol annotation requires a catalog symbol_id")
+        try:
+            symbol_id = AuthorSymbolId(record.symbol_id)
+        except (ValueError, TypeError) as exc:
+            raise ValueError("Symbol annotation requires a catalog symbol_id") from exc
+    elif record.symbol_id is not None:
+        raise ValueError("Only SYMBOL annotations may contain symbol_id")
+
     text = _bounded_text(record.text, "Текст report annotation", REPORT_ANNOTATION_TEXT_MAXIMUM)
     text_i18n = validate_localized_texts(
         record.text_i18n,
@@ -217,13 +231,14 @@ def validate_report_annotation(record: ReportAnnotationRecord) -> ReportAnnotati
         locked=locked,
         print_enabled=print_enabled,
         text_i18n=text_i18n,
+        symbol_id=symbol_id,
     )
 
 
 def report_annotation_to_dict(record: ReportAnnotationRecord) -> dict[str, Any]:
     item = validate_report_annotation(record)
-    return {
-        "schema_version": REPORT_ANNOTATION_SCHEMA_VERSION,
+    payload = {
+        "schema_version": 2 if item.kind is ReportAnnotationKind.SYMBOL else REPORT_ANNOTATION_SCHEMA_VERSION,
         "annotation_id": item.annotation_id,
         "scope_id": item.scope_id,
         "kind": item.kind.value,
@@ -244,14 +259,23 @@ def report_annotation_to_dict(record: ReportAnnotationRecord) -> dict[str, Any]:
         "print_enabled": item.print_enabled,
         "text_i18n": dict(item.text_i18n),
     }
+    if item.symbol_id is not None:
+        payload["symbol_id"] = item.symbol_id.value
+    return payload
 
 
 def report_annotation_from_mapping(value: Mapping[str, Any]) -> ReportAnnotationRecord:
-    if not isinstance(value, Mapping) or set(value) != _REPORT_ANNOTATION_KEYS:
+    if not isinstance(value, Mapping):
+        raise ValueError("Некорректная persisted report annotation")
+    expected_keys = _REPORT_ANNOTATION_KEYS | {"symbol_id"} if value.get("schema_version") == 2 else _REPORT_ANNOTATION_KEYS
+    if set(value) != expected_keys:
         raise ValueError("Некорректная persisted report annotation")
     version = value.get("schema_version")
-    if type(version) is not int or version != REPORT_ANNOTATION_SCHEMA_VERSION:
+    if type(version) is not int or version not in {REPORT_ANNOTATION_SCHEMA_VERSION, 2}:
         raise ValueError("Неподдерживаемая версия report annotation")
+
+    if version == 2 and value.get("kind") != ReportAnnotationKind.SYMBOL.value:
+        raise ValueError("Version 2 requires a SYMBOL annotation")
 
     raw_style = value.get("style")
     if not isinstance(raw_style, Mapping) or set(raw_style) - ANNOTATION_STYLE_KEYS:
@@ -282,6 +306,7 @@ def report_annotation_from_mapping(value: Mapping[str, Any]) -> ReportAnnotation
             locked=_strict_bool(value["locked"], "locked"),
             print_enabled=_strict_bool(value["print_enabled"], "print_enabled"),
             text_i18n=dict(raw_i18n),
+            symbol_id=AuthorSymbolId(value["symbol_id"]) if version == 2 else None,
         )
     except (KeyError, TypeError, ValueError) as exc:
         raise ValueError("Некорректная persisted report annotation") from exc
