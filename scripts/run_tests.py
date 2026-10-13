@@ -50,6 +50,7 @@ _FORCED_NATIVE_BATCH_FILES = frozenset(
         # ViewBoxMenu before this lifecycle assertion ran in the shared shard.
         "tests/test_tablet_plot_close_order.py",
         "tests/test_las3_pilot_entrypoint.py",
+        "tests/test_las3_modal_reopen_acceptance.py",
         # Depth reset also hit PlotItem.__init__ access violation after earlier
         # MainWindow scenarios in the Windows offscreen shard.
         "tests/test_main_window_visible_depth_refresh.py",
