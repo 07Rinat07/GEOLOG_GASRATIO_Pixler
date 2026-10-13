@@ -869,7 +869,6 @@ class TabletAnnotationOverlay(QWidget):
         if entry is None or sprite is None:
             return
         helper, anchor = entry
-        record = helper.record
         if (
             self._content_rect.isEmpty()
             or not helper.isVisible()
