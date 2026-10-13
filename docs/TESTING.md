@@ -1,5 +1,13 @@
 # Проверка качества и release gate
 
+LAS3 GIS Dataset и JSON/package сохранение/повторное открытие:
+`python -m pytest -q tests/test_las3_dataset_pilot.py`. На реальном
+upstream `sample_3.0.las` проверяются MD, 8 каналов и UOM, исходный
+SHA-256, source revision, сохранение исходных байтов в проектах
+`.geolog.json` и `.geologpkg`, отрицательные кейсы для других
+LAS3 dialects и неправильной глубинной единицы. Это ещё не тест
+общего Open LAS, Import Review и планшетного GUI.
+
 Ограниченный read-only LAS3 Log_Data pilot: `python -m pytest -q tests/test_las3_scalar_log_preview.py`.
 На сохранённом LAS 3.0 проверяются DEPT/DT/YME, явные исключения CDES/NMR,
 оригинальные SHA-256 и bytes, NULL, несовместимые версии и диалекты,
