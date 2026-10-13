@@ -15,8 +15,8 @@ import re
 from geoworkbench.data.lossless_las import read_lossless_las, section_role
 
 
-_LAS3_VERSION_LINE = re.compile(rb"(?m)^[ \t]*VERS[ \t]*\\.[ \t]*([^ \t\r\n:]+)")
-_VERIFIED_VERSION_PATTERN = re.compile(r"3(?:\\.0+)?\\Z")
+_LAS3_VERSION_LINE = re.compile(rb"(?m)^[ \t]*VERS[ \t]*\.[ \t]*([^ \t\r\n:]+)")
+_VERIFIED_VERSION_PATTERN = re.compile(r"3(?:\.0+)?\Z")
 
 
 class Las3InventoryError(ValueError):
