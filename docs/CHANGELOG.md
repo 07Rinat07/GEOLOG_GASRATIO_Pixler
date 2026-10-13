@@ -1,3 +1,7 @@
+# История изменений
+
+- Windows CI: обязательный MainWindow close-order lifecycle тест запускается в отдельном процессе после native ViewBoxMenu constructor crash в shared shard; assertions не изменены.
+
 ## DATA-PETRO-01 — импорт реальных LAS fixtures (на проверке)
 
 - Приёмочные тесты открывают через производственный импортёр реальные upstream LAS 1.2/2.0 normal/wrapped/TAB, проверяют VERS/WRAP, MD depth, DT, sample grid и неизменность файла; LAS 3.0 дополнительно проверяются в audit-only режиме без обещания поддержки чтения.
