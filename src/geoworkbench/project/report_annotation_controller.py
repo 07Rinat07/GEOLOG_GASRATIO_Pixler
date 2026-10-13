@@ -321,6 +321,7 @@ class ReportAnnotationController:
             "locked",
             "print_enabled",
             "text_i18n",
+            "symbol_id",
         }
         if forbidden & set(changes) or unknown:
             raise ValueError(
@@ -329,7 +330,9 @@ class ReportAnnotationController:
         updated = validate_report_annotation(
             ReportAnnotationRecord(
                 annotation_id=current.annotation_id,
-                symbol_id=current.symbol_id,
+                symbol_id=(AuthorSymbolId(str(changes["symbol_id"]))
+                           if changes.get("symbol_id") is not None else None)
+                if "symbol_id" in changes else current.symbol_id,
                 scope_id=current.scope_id,
                 kind=self._kind(changes.get("kind", current.kind)),
                 anchor=self._anchor(changes.get("anchor", current.anchor)),

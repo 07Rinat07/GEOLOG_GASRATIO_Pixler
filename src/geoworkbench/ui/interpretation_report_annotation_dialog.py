@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QComboBox,
+    QCheckBox,
     QDialog,
     QDialogButtonBox,
     QDoubleSpinBox,
@@ -28,6 +29,7 @@ from geoworkbench.domain.report_annotations import (
     ReportAnnotationKind,
     ReportAnnotationRecord,
 )
+from geoworkbench.printing.report_author_symbols import AUTHOR_SYMBOLS
 from geoworkbench.project.report_annotation_controller import ReportAnnotationController
 from geoworkbench.project.session import ProjectSession
 from geoworkbench.services.edit_history import CommandHistory
@@ -44,6 +46,8 @@ class _AnnotationEditorValues:
     depth: float | None
     top_depth: float | None
     bottom_depth: float | None
+    symbol_id: str | None
+    print_enabled: bool
 
 
 class InterpretationReportAnnotationDialog(QDialog):
@@ -82,10 +86,22 @@ class InterpretationReportAnnotationDialog(QDialog):
         self.kind = QComboBox(self)
         self.kind.setObjectName("report-annotation-kind")
         for kind_item in ReportAnnotationKind:
-            if kind_item is ReportAnnotationKind.SYMBOL:
-                continue  # Catalog selection UI is a separate integration step.
             self.kind.addItem(self._kind_label(kind_item), kind_item.value)
         form.addRow(self._text("Тип", "Түрі", "Type"), self.kind)
+
+        self.symbol = QComboBox(self)
+        self.symbol.setObjectName("report-annotation-symbol")
+        for spec in AUTHOR_SYMBOLS:
+            self.symbol.addItem(spec.label(self._language), spec.symbol_id.value)
+        form.addRow(self._text("Значок", "Белгі", "Symbol"), self.symbol)
+        self.kind.currentIndexChanged.connect(
+            lambda: self.symbol.setEnabled(self._current_kind() is ReportAnnotationKind.SYMBOL)
+        )
+        self.symbol.setEnabled(self._current_kind() is ReportAnnotationKind.SYMBOL)
+        self.print_enabled = QCheckBox(self._text("Печатать/экспортировать", "Басып шығару/экспорттау", "Print/export"), self)
+        self.print_enabled.setObjectName("report-annotation-print-enabled")
+        self.print_enabled.setChecked(True)
+        form.addRow(self.print_enabled)
 
         self.anchor = QComboBox(self)
         self.anchor.setObjectName("report-annotation-anchor")
@@ -245,6 +261,8 @@ class InterpretationReportAnnotationDialog(QDialog):
             self._set_combo_value(self.anchor, ReportAnnotationAnchor.DEPTH.value)
             self.track.setCurrentText("")
             self.text.clear()
+            self.symbol.setCurrentIndex(0)
+            self.print_enabled.setChecked(True)
             self.depth_spin.setValue(0.0)
             self.top_depth_spin.setValue(0.0)
             self.bottom_depth_spin.setValue(0.0)
@@ -257,6 +275,8 @@ class InterpretationReportAnnotationDialog(QDialog):
         # track happened to be selected earlier in the editor.
         self.track.setCurrentText(record.track_key or "")
         self.text.setText(record.text)
+        self._set_combo_value(self.symbol, record.symbol_id.value if record.symbol_id else AUTHOR_SYMBOLS[0].symbol_id.value)
+        self.print_enabled.setChecked(record.print_enabled)
         self.depth_spin.setValue(record.depth or 0.0)
         self.top_depth_spin.setValue(record.top_depth or 0.0)
         self.bottom_depth_spin.setValue(record.bottom_depth or 0.0)
@@ -279,6 +299,8 @@ class InterpretationReportAnnotationDialog(QDialog):
         anchor = self._current_anchor()
         return _AnnotationEditorValues(
             kind=self._current_kind(),
+            symbol_id=str(self.symbol.currentData()) if self._current_kind() is ReportAnnotationKind.SYMBOL else None,
+            print_enabled=self.print_enabled.isChecked(),
             anchor=anchor,
             text=self.text.text(),
             track_key=self.track.currentText().strip() or None,
@@ -304,6 +326,8 @@ class InterpretationReportAnnotationDialog(QDialog):
         try:
             record = self.controller.add(
                 kind=values.kind,
+                symbol_id=values.symbol_id,
+                print_enabled=values.print_enabled,
                 anchor=values.anchor,
                 text=values.text,
                 track_key=values.track_key,
@@ -326,6 +350,8 @@ class InterpretationReportAnnotationDialog(QDialog):
             record = self.controller.update(
                 annotation_id,
                 kind=values.kind,
+                symbol_id=values.symbol_id,
+                print_enabled=values.print_enabled,
                 anchor=values.anchor,
                 text=values.text,
                 track_key=values.track_key,
@@ -469,6 +495,7 @@ class InterpretationReportAnnotationDialog(QDialog):
                 "Аралықты ерекшелеу",
                 "Interval highlight",
             ),
+            ReportAnnotationKind.SYMBOL: self._text("Авторский значок", "Авторлық белгі", "Author symbol"),
             ReportAnnotationKind.REMARK: self._text("Примечание", "Ескертпе", "Remark"),
         }
         return labels[kind]

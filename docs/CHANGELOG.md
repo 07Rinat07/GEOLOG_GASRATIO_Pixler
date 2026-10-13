@@ -7,6 +7,10 @@
 
 # История изменений
 
+- Windows CI: report document-control и symbol-editor cases перенесены в существующие отдельные процессы после native heap corruption shared Qt shard; тесты обязательны и assertions сохранены.
+
+- В редактор отчётных аннотаций подключён каталог авторских значков с подписью и print/export checkbox; Undo/Redo/Cancel и JSON/package reopen проверены на RU/KK/EN.
+
 - Author symbols: добавлена persisted SYMBOL schema2 с legacy schema1 compatibility, existing history/controller и vector report renderer; UI catalog selection ещё не подключён.
 
 - Windows CI: обязательный MainWindow close-order lifecycle тест запускается в отдельном процессе после native ViewBoxMenu constructor crash в shared shard; assertions не изменены.
