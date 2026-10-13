@@ -14,17 +14,23 @@ def test_fit_print_prefers_one_horizontal_scale_but_never_aborts_pdf() -> None:
     assert "автоматическая пагинация нарушила единый масштаб" not in source
 
 
-def test_document_passport_preserves_authored_typography_in_independent_print_copy() -> None:
+def test_document_passport_preserves_authored_geometry_and_independent_copy() -> None:
     from geoworkbench.domain.models import MasterlogHeaderElement, MasterlogTemplate
     from geoworkbench.printing.document_renderer import _print_header_template
 
-    template = MasterlogTemplate("passport", "Passport", header_elements=[
-        MasterlogHeaderElement("title", "text", 5, 8, 45, 7,
-                               {"font_size_mm": 3.5, "text": "Field company"}),
+    template = MasterlogTemplate("passport", "Masterlog", header_elements=[
+        MasterlogHeaderElement("customer", "text", 10, 5, 45, 5,
+                               {"font_size_mm": 2.0, "text": "ALMEX PLUS",
+                                "style": {"color": "#123456"}}),
     ])
     prepared = _print_header_template(template)
-    element = prepared.header_elements[0]
-    assert (element.x_mm, element.y_mm, element.width_mm, element.height_mm) == (5, 8, 45, 7)
-    assert element.properties["font_size_mm"] == 3.5
-    element.properties["font_size_mm"] = 9.0
-    assert template.header_elements[0].properties["font_size_mm"] == 3.5
+    assert prepared == template
+    assert prepared is not template
+    assert prepared.header_elements[0] is not template.header_elements[0]
+    assert prepared.header_elements[0].properties["font_size_mm"] == 2.0
+    assert prepared.header_elements[0].width_mm == 45
+    assert prepared.header_elements[0].height_mm == 5
+    prepared.header_elements[0].properties["font_size_mm"] = 4.0
+    prepared.header_elements[0].properties["style"]["color"] = "#ffffff"
+    assert template.header_elements[0].properties["font_size_mm"] == 2.0
+    assert template.header_elements[0].properties["style"]["color"] == "#123456"

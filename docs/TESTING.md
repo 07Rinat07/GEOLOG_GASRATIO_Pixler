@@ -1,3 +1,10 @@
+## Masterlog repair: authored header typography contract
+
+The old source assertions requiring 1.60 font enlargement are replaced by
+behavior checks: header font/cell geometry is preserved, nested print-copy
+properties cannot modify the source, and the page painter receives that copy.
+Use `scripts/run_tests.py` for native Qt batches; keep all assertions enabled.
+
 ## Field masterlog 100% regression
 
 `test_real_tablet_pdf_regressions.py` checks RU/KK/EN and both A4 orientations
@@ -18,8 +25,8 @@ real_tablet_pdf_regressions before new exact-head Windows gates.
 
 CI38427000217 also exposed two old header-font x1.60 assertions in a later shard.
 The replacement runtime regression requires exact authored font size and cell
-geometry plus independent print-copy properties; the source boundary disallows
-the removed scaling factor. Uniform density and print_header_layout: 25 passed.
+geometry plus independent print-copy properties; the page-painter regression
+checks the actual prepared header. Uniform density and print_header_layout: 25 passed.
 
 Confirmed VALUE selection: `python scripts/run_tests.py -p no:cacheprovider tests/test_value_flag_persist_selection.py tests/test_value_flag_print_selection.py tests/test_depth_annotations.py -q`.
 Проверяются atomic validation, one-step Undo/Redo, unchanged screen visibility,
