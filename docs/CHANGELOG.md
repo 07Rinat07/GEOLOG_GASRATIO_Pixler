@@ -1,3 +1,7 @@
+## DATA-PETRO-01 — перенос legacy LAS3 provenance без второго импортёра (на проверке)
+
+- В существующий скалярный LAS3 Dataset adapter добавлены source revision и source provenance кривых; DEPT не дублируется как отдельная кривая, тип набора — GIS, индексная ось MD хранится отдельно. Новые регрессии проверяют JSON/package reopen, unit FT rejection, index-only rejection и сохранность исходных байтов. PR #594 остаётся закрытым как устаревшая реализация, не переносится целиком.
+
 # История изменений
 
 - Windows CI: обязательный MainWindow close-order lifecycle тест запускается в отдельном процессе после native ViewBoxMenu constructor crash в shared shard; assertions не изменены.
