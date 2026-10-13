@@ -14,7 +14,7 @@ from pathlib import Path
 import re
 
 from geoworkbench.data.las3_section_inventory import inspect_las3_sections
-from geoworkbench.data.lossless_las import read_lossless_las
+from geoworkbench.data.lossless_las import LasRawSection, read_lossless_las
 
 
 _FIELD_RE = re.compile(r"^\s*([A-Za-z][A-Za-z0-9_\[\]-]*)\s*\.(\S*)")
@@ -82,7 +82,9 @@ def read_las3_scalar_log_preview(
     if document.sha256 != inventory.source_sha256:
         raise Las3ScalarPreviewError("Source changed between inventory and read")
 
-    sections = {name: [] for name in ("version", "log_definition", "log_data")}
+    sections: dict[str, list[LasRawSection]] = {
+        name: [] for name in ("version", "log_definition", "log_data")
+    }
     for section in document.sections:
         if section.name in sections:
             sections[section.name].append(section)
