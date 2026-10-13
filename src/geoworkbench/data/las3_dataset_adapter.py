@@ -62,6 +62,8 @@ def import_las3_scalar_dataset(
             unit=field.unit or None,
             provenance="source:las3-log_data-pilot",
         )
+    if not dataset.curves:
+        raise ValueError("LAS 3 scalar pilot contains no materializable channels")
     source = LasSourceSnapshot(
         Path(path), document.size_bytes, document.sha256, document.encoding,
         document.newline_style.value, tuple(section.name for section in document.sections),
