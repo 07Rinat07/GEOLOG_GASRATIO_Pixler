@@ -1,3 +1,13 @@
+## PLOT-FLAG-01 — временной sample anchor при повторяющейся MD (на проверке)
+
+Existing CURVE/VALUE record с совпадающим axis_id использует сохранённый axis_value
+для Y и выбора строки кривой для X. При остановке бурения несколько временных
+образцов имеют одну MD; поиск только по MD ошибочно ставил флажок на первый
+образец и его значение. Regression проверяет разные TG на одинаковой MD в
+screen/print mode, неизменность arrays и legacy depth-only fallback. Schema,
+calculation и source contracts не меняются. XY/WITS/click-anywhere остаются
+отдельными задачами; необходимы три exact-head Windows gates.
+
 ## PLOT-FLAG-01 — общий выключатель в профиле/форме (на проверке)
 
 Общий выключатель VALUE-печати сохраняется после подтверждения Print Center
