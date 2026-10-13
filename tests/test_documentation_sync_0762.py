@@ -270,3 +270,21 @@ def test_current_index_and_testing_guide_use_canonical_entry_points() -> None:
     """Current documentation navigation must point to canonical documents."""
 
     assert audit_current_documentation_contract(ROOT) == []
+
+
+def test_i18n_audit_rejects_invalid_values_and_placeholders(tmp_path) -> None:
+    import json
+
+    directory = tmp_path / "src/geoworkbench/resources/i18n"
+    directory.mkdir(parents=True)
+    catalogs = {
+        "ru": {"depth": "Глубина {depth}", "empty": "ok", "broken": "ok"},
+        "kk": {"depth": "Тереңдік {depth}", "empty": " ", "broken": "{"},
+        "en": {"depth": "Depth {value}", "empty": 42, "broken": "ok"},
+    }
+    for language, catalog in catalogs.items():
+        (directory / f"{language}.json").write_text(json.dumps(catalog), encoding="utf-8")
+    issues = audit_i18n_key_parity(tmp_path)
+    assert len(issues) == 4
+    assert sum(issue.category == "i18n-values" for issue in issues) == 2
+    assert sum(issue.category == "i18n-format" for issue in issues) == 2
