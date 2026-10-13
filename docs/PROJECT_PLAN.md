@@ -46,6 +46,10 @@ source bytes/SHA-256, VERS/WRAP из импортированного загол
 Окно production Import Review показывает source VERS и уровни чтения, правок проекта, raw write и derived export для LAS/CSV/Excel на RU/KK/EN. LAS3 остаётся unverified; исходный файл неизменяем. Stage0 и весь DATA-PETRO не завершены.
 # Единый план проекта
 
+## DATA-PETRO-01 — real modal LAS3 pilot acceptance (на проверке)
+
+RU/KK/EN × JSON/package: настоящая QAction открывает ImportReviewDialog; реальные Apply/Cancel buttons проходят modal event loop. Production save/open сохраняет arrays/UOM/raw source/exclusion report; повторный Cancel не регистрирует dataset и не меняет dirty/source. Только выбор файла и warning confirmation scripted. Полная LAS3/arrays/writeback не заявляются.
+
 ## DATA-PETRO-01 — explicit LAS3 pilot menu entrypoint (на проверке)
 
 Отдельная команда LAS3 scalar pilot использует bounded worker, обязательный manual warning confirmation, существующий Import Review и регистрацию source/report в проект. Обычное LAS opening не меняется. Диалог review в action regression scripted; adapter/raw bytes настоящий. Полная LAS3/массивы/export отдельно.

@@ -12,6 +12,8 @@
 
 # История изменений
 
+- LAS3 scalar pilot: добавлена настоящая modal Apply/Cancel и production JSON/package reopen acceptance на RU/KK/EN. Runtime не изменён.
+
 - Добавлена отдельная команда LAS3 scalar pilot в меню LAS; worker/policy/review и сохранение source/report переиспользованы, обычный LAS import не изменён.
 
 - LAS3 pilot: явный bounded scalar Dataset adapter с exclusion report и JSON/package reopen; без изменения общего LAS import dispatch и writer.
