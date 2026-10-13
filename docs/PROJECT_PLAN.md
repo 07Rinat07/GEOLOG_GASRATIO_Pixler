@@ -59,6 +59,10 @@ source bytes/SHA-256, VERS/WRAP из импортированного загол
 Окно production Import Review показывает source VERS и уровни чтения, правок проекта, raw write и derived export для LAS/CSV/Excel на RU/KK/EN. LAS3 остаётся unverified; исходный файл неизменяем. Stage0 и весь DATA-PETRO не завершены.
 # Единый план проекта
 
+## RPT-AUTHOR-01 — editor catalog and print selection (на проверке)
+
+Actual Qt editor предлагает SYMBOL и пять стабильных catalog IDs с RU/KK/EN labels, подпись и независимый print/export checkbox. Controller update сохраняет/меняет ID; real controls Save/Undo/Redo/Apply/Cancel и JSON/package reopen покрыты. Физическая печать/визуальная плотность и единый global selection отдельно; PLOT-FLAG не завершён.
+
 ## RPT-AUTHOR-01 — persisted symbol API and vector rendering (на проверке)
 
 Stable IDs выделены в Qt-free domain. SYMBOL record использует schema2/symbol_id; legacy виды сохраняют schema1 без новых ключей. Existing controller/history и JSON/package сохраняют symbol/caption/scope/print_enabled; renderer использует готовый catalog painter. UI catalog selection ещё отдельно, весь feature не завершён.
