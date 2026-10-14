@@ -90,6 +90,7 @@ from geoworkbench.ui.interpretation_report_details_dialog import (
 from geoworkbench.ui.interpretation_report_annotation_dialog import (
     InterpretationReportAnnotationDialog,
 )
+from geoworkbench.ui.interpretation_full_report_preview import FullReportPreviewDialog
 from geoworkbench.ui.interpretation_report_workspace_expert import (
     InterpretationReportWorkspace as _ExpertInterpretationReportWorkspace,
 )
@@ -180,6 +181,9 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         self.report_annotations_button = QPushButton(self)
         self.report_annotations_button.setObjectName("edit-report-annotations")
         root.addWidget(self.report_annotations_button)
+        self.full_report_preview_button = QPushButton(self)
+        self.full_report_preview_button.setObjectName("open-full-report-preview")
+        root.addWidget(self.full_report_preview_button)
         self._report_annotation_history = CommandHistory(max_commands=100)
         self._depth_interval_dataset_key: tuple[object, ...] | None = None
         self._depth_interval_endpoints: tuple[tuple[float, float], tuple[float, float]] | None = None
@@ -188,6 +192,7 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         self.depth_interval_apply.clicked.connect(self._apply_depth_interval)
         self.depth_interval_mode.currentIndexChanged.connect(self._update_depth_interval_controls)
         self.report_annotations_button.clicked.connect(self._edit_report_annotations)
+        self.full_report_preview_button.clicked.connect(self._open_full_report_preview)
         self.refresh()
 
     def refresh(self) -> None:
@@ -198,6 +203,8 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         if hasattr(self, "report_annotations_button"):
             self._retranslate_report_annotations()
         super().refresh()
+        if hasattr(self, "full_report_preview_button"):
+            self._retranslate_full_report_preview()
 
     def set_language(self, language: AppLanguage) -> None:
         super().set_language(language)
@@ -205,6 +212,8 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
             self._retranslate_depth_interval()
         if hasattr(self, "report_annotations_button"):
             self._retranslate_report_annotations()
+        if hasattr(self, "full_report_preview_button"):
+            self._retranslate_full_report_preview()
 
     def _sync_depth_interval_dataset(self) -> None:
         session = self.controller.session
@@ -281,6 +290,16 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
             )
         )
 
+    def _retranslate_full_report_preview(self) -> None:
+        self.full_report_preview_button.setEnabled(self._can_edit_report_annotations())
+        self.full_report_preview_button.setText(
+            self._text(
+                "Полный предпросмотр и редактор PDF…",
+                "PDF толық қарау және өңдеу…",
+                "Full PDF preview and editing…",
+            )
+        )
+
     def _update_depth_interval_controls(self) -> None:
         dataset = self.controller.session.current_dataset
         enabled = (
@@ -333,6 +352,74 @@ class InterpretationReportWorkspace(_ExpertInterpretationReportWorkspace):
         self._preview_geology_report_key = None
         self._retranslate_report_annotations()
         self._apply_chart_preview()
+
+    def _open_full_report_preview(self) -> None:
+        """Proof every final PDF page and edit report-owned notes before output."""
+        report = self.report
+        dataset = self.controller.session.current_dataset
+        if report is None or dataset is None or self._is_mixture_mode():
+            return
+        language = self._report_output_language()
+        defaults = default_interpretation_report_identity(
+            report, language, interval=self._report_interval(report),
+        )
+        identity = identity_with_report_header_fields(
+            defaults,
+            report_header_fields(
+                self._report_composition(), language.value, report.report_profile,
+            ),
+        )
+        well_id = self.controller.session.current_well_id
+
+        def render_pdf(target: Path) -> None:
+            # Never silently export another well or a replacement dataset.
+            session = self.controller.session
+            if session.current_dataset is not dataset or session.current_well_id != well_id:
+                raise RuntimeError("Report source changed during full PDF preview")
+            composition = self._report_composition()
+            render_identity = self._identity_with_narrative_visibility(
+                identity, composition,
+            )
+            geology = interpretation_geology_snapshot(session)
+            export_hydrocarbon_interpretation_pdf_with_passport(
+                session,
+                report,
+                target,
+                language=language,
+                include_chart=True,
+                orientation=(
+                    QPageLayout.Orientation.Landscape
+                    if composition.orientation.value == "landscape"
+                    else QPageLayout.Orientation.Portrait
+                ),
+                identity=render_identity,
+                geology=geology,
+                geology_track_settings=geology_track_settings_from_composition(composition),
+                legend_mode=composition.legend_mode,
+                geology_legend_pages=composition.geology_legend_pages,
+                layout_profile=composition.layout_profile,
+                annotations=composition.annotations,
+                target_depth_per_page=composition.target_depth_per_page,
+                **chart_panel_render_options(composition.chart_panels),
+                overwrite=True,
+            )
+
+        with tempfile.TemporaryDirectory(prefix="geolog-full-report-proof-") as folder:
+            preview_path = Path(folder) / "report-proof.pdf"
+            try:
+                render_pdf(preview_path)
+                dialog = FullReportPreviewDialog(
+                    preview_path,
+                    parent=self,
+                    language=self.language,
+                    refresh_document=lambda: render_pdf(preview_path),
+                    edit_annotations=self._edit_report_annotations,
+                    export_document=render_pdf,
+                )
+            except (OSError, RuntimeError, ValueError) as exc:
+                self._show_export_error(exc)
+                return
+            dialog.exec()
 
     def _open_tablet(self) -> None:
         super()._open_tablet()
