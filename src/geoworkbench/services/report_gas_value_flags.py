@@ -45,8 +45,8 @@ def _is_gas_curve(curve: CurveData) -> bool:
         # A high-confidence semantic binding can reject an ambiguous vendor
         # alias even if its raw source mnemonic looks like a gas channel.
         return semantic.family.casefold() == "gas" or (
-            _identifies_gas(meta.canonical_mnemonic or "")
-            and semantic.family.casefold() not in {"wob", "rop", "torque", "pressure"}
+            semantic.family.casefold() in {"gas_ratio", "interpretation"}
+            and _identifies_gas(meta.canonical_mnemonic or "")
         )
     return any(_identifies_gas(name) for name in (
         meta.original_mnemonic,
@@ -75,7 +75,7 @@ def report_gas_channels(dataset: Dataset) -> tuple[str, ...]:
     found: dict[str, str] = {}
     for curve in dataset.curves.values():
         name = curve.metadata.original_mnemonic.strip()
-         if not name:
+        if not name:
             continue
         if not _is_gas_curve(curve):
             continue
